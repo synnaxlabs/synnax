@@ -9,7 +9,7 @@
 
 import { forwardRef, type PropsWithChildren, type ReactElement } from "react";
 
-import { type Key, type KeyedRenderableRecord } from "@synnaxlabs/x";
+import { type Key, type Keyed } from "@synnaxlabs/x";
 
 import { CSS } from "@/css";
 import { Dropdown } from "@/dropdown";
@@ -18,7 +18,7 @@ import { componentRenderProp } from "@/util/renderProp";
 
 export interface SelectListProps<
   K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
+  E extends Keyed<K> = Keyed<K>,
 > extends CoreList.SelectorProps<K, E>,
     Pick<CoreList.ColumnHeaderProps<K, E>, "columns">,
     Omit<Dropdown.DialogProps, "onChange" | "children">,
@@ -28,8 +28,7 @@ export interface SelectListProps<
   hideColumnHeader?: boolean;
 }
 
-const CoreBase = forwardRef<HTMLDivElement, SelectListProps>(
-  (
+export const Core = <K extends Key, E extends Keyed<K>>(
     {
       data,
       emtpyContent,
@@ -43,8 +42,7 @@ const CoreBase = forwardRef<HTMLDivElement, SelectListProps>(
       visible,
       replaceOnSingle,
       ...props
-    }: SelectListProps,
-    ref,
+    }: SelectListProps<K , E>,
   ): ReactElement => (
     <CoreList.List data={data} emptyContent={emtpyContent}>
       <CoreList.Selector
@@ -55,7 +53,6 @@ const CoreBase = forwardRef<HTMLDivElement, SelectListProps>(
         replaceOnSingle={replaceOnSingle}
       >
         <Dropdown.Dialog
-          ref={ref}
           visible={visible}
           className={CSS.B("select")}
           {...props}
@@ -72,10 +69,4 @@ const CoreBase = forwardRef<HTMLDivElement, SelectListProps>(
         </Dropdown.Dialog>
       </CoreList.Selector>
     </CoreList.List>
-  ),
-);
-CoreBase.displayName = "Select.Core";
-
-export const Core = CoreBase as <K extends Key, E extends KeyedRenderableRecord<K, E>>(
-  props: SelectListProps<K, E> & { ref?: React.Ref<HTMLDivElement> },
-) => ReactElement;
+  );

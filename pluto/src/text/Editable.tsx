@@ -94,12 +94,13 @@ export const Editable = <L extends text.Level = text.Level>({
   }, []);
 
   return (
+    // @ts-expect-error - TODO: generic element behavior is funky
     <Text<L>
       ref={ref}
       className={CSS.BM("text", "editable")}
       onBlur={() => setEditable(false)}
       onKeyDown={handleKeyDown}
-      onKeyUp={(e) => {
+      onKeyUp={(e: KeyboardEvent<HTMLParagraphElement>) => {
         e.stopPropagation();
         e.preventDefault();
       }}

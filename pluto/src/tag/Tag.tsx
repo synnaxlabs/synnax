@@ -55,6 +55,7 @@ export const Tag = ({
       </Button.Icon>
     );
   return (
+    // @ts-expect-error - TODO: Generic Elements are weird
     <Text.WithIcon
       startIcon={icon}
       endIcon={closeIcon}

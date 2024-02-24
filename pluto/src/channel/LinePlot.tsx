@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement, useCallback, useRef } from "react";
 
 import { type channel } from "@synnaxlabs/client";
 import {
@@ -22,6 +22,7 @@ import { HAUL_TYPE } from "@/channel/types";
 import { type Color } from "@/color";
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
+import { usePrevious } from "@/hooks";
 import { telem } from "@/telem/aether";
 import { type Text } from "@/text";
 import { type Viewport } from "@/viewport";
@@ -122,11 +123,19 @@ export const LinePlot = ({
   initialViewport = box.DECIMAL,
   onViewportChange,
   viewportTriggers,
-  ...restProps
+  ...props
 }: LinePlotProps): ReactElement => {
   const xAxes = axes.filter(({ location: l }) => loc.isY(l));
+  const ref = useRef<Viewport.UseRefValue>();
+  const prevLinesLength = usePrevious(lines.length);
+  const prevHold = usePrevious(props.hold);
+  if (
+    (prevLinesLength === 0 && lines.length !== 0) ||
+    (prevHold === true && props.hold === false)
+  )
+    ref.current?.reset();
   return (
-    <Core.LinePlot {...restProps}>
+    <Core.LinePlot {...props}>
       {xAxes.map((a, i) => {
         const axisLines = lines.filter((l) => l.axes.x === a.key);
         const yAxes = axes.filter(({ location: l }) => loc.isX(l));
@@ -154,6 +163,7 @@ export const LinePlot = ({
         initial={initialViewport}
         onChange={onViewportChange}
         triggers={viewportTriggers}
+        ref={ref}
       >
         {enableTooltip && <Tooltip.Tooltip />}
         {enableMeasure && <Measure.Measure />}
@@ -316,12 +326,18 @@ const DynamicLine = ({
 }: {
   line: DynamicLineProps;
 }): ReactElement => {
-  const yTelem = telem.streamChannelData({ timeSpan, channel: y });
+  const keepFor = timeSpan.valueOf() * 3;
+  const yTelem = telem.streamChannelData({
+    timeSpan,
+    channel: y,
+    keepFor,
+  });
   const hasX = x != null && x !== 0;
   const xTelem = telem.streamChannelData({
     timeSpan,
     channel: hasX ? x : y,
     index: !hasX,
+    keepFor,
   });
   return <Core.Line aetherKey={key} y={yTelem} x={xTelem} {...props} />;
 };

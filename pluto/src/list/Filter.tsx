@@ -9,21 +9,17 @@
 
 import { type ReactElement, useCallback } from "react";
 
-import { type Key, type KeyedRenderableRecord } from "@synnaxlabs/x";
+import { type Key, type Keyed } from "@synnaxlabs/x";
 
 import { createFilterTransform } from "@/hooks";
 import { useDebouncedCallback } from "@/hooks/useDebouncedCallback";
 import { Input } from "@/input";
 import { type OptionalControl } from "@/input/types";
+import { useDataUtilContext } from "@/list/Data";
 import { state } from "@/state";
 import { type RenderProp } from "@/util/renderProp";
 
-import { useDataUtilContext } from "./Data";
-
-export interface FilterProps<
-  K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
-> extends OptionalControl<string> {
+export interface FilterProps extends OptionalControl<string> {
   children?: RenderProp<Input.Control<string>>;
   debounce?: number;
 }
@@ -37,15 +33,12 @@ export interface FilterProps<
  * @param opts - Custom options for the search functionality. See the {@link fuse.IFuseOptions}
  * interface for more details.
  */
-export const Filter = <
-  K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
->({
+export const Filter = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   children = (props) => <Input.Text {...props} />,
   debounce = 250,
   onChange,
   value,
-}: FilterProps<K, E>): ReactElement | null => {
+}: FilterProps): ReactElement | null => {
   const [internalValue, setInternalValue] = state.usePurePassthrough<string>({
     onChange,
     value,
@@ -67,9 +60,6 @@ export const Filter = <
   return children({ value: internalValue, onChange: handleChange });
 };
 
-export interface Searcher<
-  K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
-> {
+export interface Searcher<K extends Key = Key, E extends Keyed<K> = Keyed<K>> {
   search: (term: string) => E[];
 }

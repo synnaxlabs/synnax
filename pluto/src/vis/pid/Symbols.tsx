@@ -751,7 +751,7 @@ export const SwitchPreview = (props: SwitchProps): ReactElement => (
 );
 
 export interface ButtonProps
-  extends Omit<Primitives.ButtonProps, "label">,
+  extends Omit<Primitives.ButtonProps, "label" | "onClick">,
     Omit<CoreButton.UseProps, "aetherKey"> {
   label?: LabelExtensionProps;
   control?: ControlStateProps;
@@ -769,6 +769,6 @@ export const Button = Aether.wrap<SymbolProps<ButtonProps>>(
   },
 );
 
-export const ButtonPreview = ({ label: _, ...props }: SwitchProps): ReactElement => (
+export const ButtonPreview = ({ label: _, ...props }: ButtonProps): ReactElement => (
   <Primitives.Button label="Button" {...props} />
 );

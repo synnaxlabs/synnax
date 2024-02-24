@@ -14,34 +14,28 @@ import {
   useLayoutEffect,
 } from "react";
 
-import { type Key, type KeyedRenderableRecord } from "@synnaxlabs/x";
+import { type Key, type Keyed } from "@synnaxlabs/x";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
 import { usePrevious } from "@/hooks/ref";
+import { useDataContext } from "@/list/Data";
+import { useHoverContext } from "@/list/Hover";
+import { useInfiniteContext } from "@/list/Infinite";
+import { useSelection, useSelectionContext, useSelectionUtils } from "@/list/Selector";
 import { type ItemRenderProp } from "@/list/types";
-
-import { useDataContext } from "./Data";
-import { useHoverContext } from "./Hover";
-import { useInfiniteContext } from "./Infinite";
-import { useSelection, useSelectionContext, useSelectionUtils } from "./Selector";
 
 import "@/list/Core.css";
 
-export interface VirtualCoreProps<
-  K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
-> extends Omit<ComponentPropsWithoutRef<"div">, "children"> {
+export interface VirtualCoreProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>>
+  extends Omit<ComponentPropsWithoutRef<"div">, "children"> {
   itemHeight: number;
   children: ItemRenderProp<K, E>;
   overscan?: number;
 }
 
-const VirtualCore = <
-  K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
->({
+const VirtualCore = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   itemHeight,
   children,
   overscan = 5,
@@ -116,10 +110,7 @@ const VirtualCore = <
   );
 };
 
-export const Core = <
-  K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
->(
+export const Core = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>(
   props: Omit<Align.SpaceProps, "children"> & {
     children: ItemRenderProp<K, E>;
   },

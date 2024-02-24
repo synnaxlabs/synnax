@@ -174,6 +174,7 @@ const streamChannelDataPropsZ = z.object({
   channel: z.number(),
   index: z.boolean().optional().default(false),
   timeSpan: TimeSpan.z,
+  keepFor: TimeSpan.z.optional(),
 });
 
 export type StreamChannelDataProps = z.input<typeof streamChannelDataPropsZ>;
@@ -196,9 +197,14 @@ export class StreamChannelData
 
   async value(): Promise<[bounds.Bounds, Series[]]> {
     const { channel, index, timeSpan } = this.props;
+    const now = TimeStamp.now();
     const ch = await fetchChannel(this.client, channel, index);
     if (!this.valid) await this.read(ch.key);
-    let b = bounds.max(this.data.map((d) => d.bounds));
+    let b = bounds.max(
+      this.data
+        .filter((d) => d.timeRange.end.after(now.sub(timeSpan)))
+        .map((d) => d.bounds),
+    );
     if (ch.dataType.equals(DataType.TIMESTAMP)) {
       b = {
         upper: b.upper,
@@ -231,7 +237,7 @@ export class StreamChannelData
   }
 
   private gcOutOfRangeData(): void {
-    const threshold = TimeStamp.now().sub(this.props.timeSpan);
+    const threshold = TimeStamp.now().sub(this.props.keepFor ?? this.props.timeSpan);
     const toGC = this.data.findIndex((d) => d.timeRange.end.before(threshold));
     if (toGC === -1) return;
     this.data.splice(toGC, 1).forEach((d) => d.release());

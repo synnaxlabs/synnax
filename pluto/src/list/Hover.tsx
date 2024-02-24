@@ -18,7 +18,7 @@ import {
   useRef,
 } from "react";
 
-import { type Key, type KeyedRenderableRecord } from "@synnaxlabs/x";
+import { type Key, type Keyed } from "@synnaxlabs/x";
 
 import { useCombinedStateAndRef } from "@/hooks";
 import { useGetTransformedData } from "@/list/Data";
@@ -26,10 +26,8 @@ import { useSelectionUtils } from "@/list/Selector";
 import { Triggers } from "@/triggers";
 
 // eslint-disable-next-line @typescript-eslint/no-empty-interface
-export interface HoverProps<
-  K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
-> extends PropsWithChildren<{}> {
+export interface HoverProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>>
+  extends PropsWithChildren<{}> {
   disabled?: boolean;
   initialHover?: number;
 }
@@ -52,10 +50,7 @@ const HoverContext = createContext<HoverContextValue>({
 export const useHoverContext = (): HoverContextValue =>
   useContext(HoverContext) as unknown as HoverContextValue;
 
-export const Hover = <
-  K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
->({
+export const Hover = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   children,
   initialHover = -1,
   disabled = false,

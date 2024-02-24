@@ -35,7 +35,7 @@ export type WithIconProps<
 
 export const WithIcon = <
   E extends Align.SpaceElementType = "div",
-  L extends text.Level = "h1",
+  L extends text.Level = text.Level,
 >({
   level = "h1" as L,
   divided = false,

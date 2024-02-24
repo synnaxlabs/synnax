@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useCallback, type ReactElement, useState, useEffect } from "react";
+import { useCallback, type ReactElement, useState, useEffect, ReactNode } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import { type Key, type KeyedRenderableRecord } from "@synnaxlabs/x";
+import { Keyed, type Key } from "@synnaxlabs/x";
 
 import { Align } from "@/align";
 import { Button as CoreButton } from "@/button";
@@ -30,7 +30,7 @@ import "@/select/Button.css";
 
 export interface ButtonOptionProps<
   K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
+  E extends Keyed<K> = Keyed<K>,
 > extends Pick<CoreButton.ButtonProps, "onClick"> {
   key: K;
   selected: boolean;
@@ -40,16 +40,17 @@ export interface ButtonOptionProps<
 
 export type ButtonProps<
   K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
-> = UseSelectProps<K, E> &
+  E extends Keyed<K> = Keyed<K>,
+> = Omit<UseSelectProps<K, E>, "data"> &
   Omit<Align.PackProps, "children" | "onChange"> & {
+    data: E[];
     children?: RenderProp<ButtonOptionProps<K, E>>;
     entryRenderKey?: keyof E;
   };
 
 export const Button = <
   K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
+  E extends Keyed<K> = Keyed<K>,
 >({
   children = defaultSelectButtonOption,
   value,
@@ -87,21 +88,20 @@ export const Button = <
 
 const defaultSelectButtonOption = <
   K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
+  E extends Keyed<K> = Keyed<K>,
 >({
-  key,
   onClick,
   selected,
   title,
 }: ButtonOptionProps<K, E>): JSX.Element => (
   <CoreButton.Button onClick={onClick} variant={selected ? "filled" : "outlined"}>
-    {title}
+    {title as ReactNode}
   </CoreButton.Button>
 );
 
 export interface DropdownButtonButtonProps<
   K extends Key,
-  E extends KeyedRenderableRecord<K, E>,
+  E extends Keyed<K>,
 > extends CoreButton.ButtonProps {
   selected: E | null;
   renderKey: keyof E;
@@ -111,8 +111,8 @@ export interface DropdownButtonButtonProps<
 
 export interface DropdownButtonProps<
   K extends Key,
-  E extends KeyedRenderableRecord<K, E>,
-> extends Omit<Dropdown.DialogProps, "onChange" | "visible" | "children">,
+  E extends Keyed<K>,
+> extends Omit<Dropdown.DialogProps, "onChange" | "visible" | "children" | "close">,
     Input.Control<K>,
     Omit<CoreList.ListProps<K, E>, "children">,
     Pick<CoreButton.ButtonProps, "disabled"> {
@@ -148,7 +148,7 @@ export const defaultButton: RenderProp<DropdownButtonButtonProps<any, any>> =
 
 export const DropdownButton = <
   K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
+  E extends Keyed<K> = Keyed<K>,
 >({
   data,
   value,

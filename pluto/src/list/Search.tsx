@@ -10,9 +10,9 @@
 import { type ReactElement, useCallback, useEffect, useRef } from "react";
 
 import {
+  Keyed,
   type AsyncTermSearcher,
   type Key,
-  type KeyedRenderableRecord,
 } from "@synnaxlabs/x";
 
 import { useSyncedRef } from "@/hooks";
@@ -22,13 +22,11 @@ import { state } from "@/state";
 import { Status } from "@/status";
 import { type RenderProp, componentRenderProp } from "@/util/renderProp";
 
-import { useDataUtilContext } from "./Data";
-import { useInfiniteUtilContext } from "./Infinite";
+import { useDataUtilContext } from "@/list/Data";
+import { useInfiniteUtilContext } from "@/list/Infinite";
 
-export interface SearchProps<
-  K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
-> extends Input.OptionalControl<string> {
+export interface SearchProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>>
+  extends Input.OptionalControl<string> {
   searcher?: AsyncTermSearcher<string, K, E>;
   debounce?: number;
   children?: RenderProp<Input.Control<string>>;
@@ -51,10 +49,7 @@ const NO_TERM = (
   </Status.Text.Centered>
 );
 
-export const Search = <
-  K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
->({
+export const Search = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   debounce = 250,
   children = componentRenderProp(Input.Text),
   searcher,

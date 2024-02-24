@@ -86,7 +86,7 @@ import {
 export interface Spec<P extends object> {
   name: string;
   variant: string;
-  Form: FC<SymbolFormProps<P>>;
+  Form: FC<SymbolFormProps>;
   Symbol: FC<SymbolProps<P>>;
   defaultProps: (t: Theming.Theme) => P;
   Preview: FC<SymbolProps<P>>;

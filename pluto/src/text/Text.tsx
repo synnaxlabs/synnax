@@ -41,7 +41,7 @@ export type TextProps<L extends text.Level = text.Level> = Omit<
 
 const CoreText = <L extends text.Level = text.Level>(
   {
-    level = "p",
+    level = "p" as L,
     color,
     className,
     style,
@@ -53,6 +53,7 @@ const CoreText = <L extends text.Level = text.Level>(
   }: TextProps<L>,
   ref: ForwardedRef<JSX.IntrinsicElements[L]>,
 ): ReactElement => (
+  // @ts-expect-error - TODO: Generic Elements are weird
   <Generic.Element<L>
     el={level}
     ref={ref}

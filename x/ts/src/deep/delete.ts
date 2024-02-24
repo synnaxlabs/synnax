@@ -8,9 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type Key } from "@/deep/path";
-import { type UnknownRecord } from "@/record";
 
-export const deleteD = <T extends UnknownRecord<T>, D extends number = 5>(
+export const deleteD = <T extends any, D extends number = 5>(
   target: T,
   ...keys: Array<Key<T, D>>
 ): T => {

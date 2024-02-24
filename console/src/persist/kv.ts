@@ -52,7 +52,6 @@ export class TauriKV<V> implements kv.Async<string, V> {
       void (async () => {
         await appWindow.listen("kv_open_res", (event: Event<KVOpenResult>) => {
           const { message } = event.payload;
-          console.error("message", message);
           if (message !== "") reject(multipleWindowsOpen);
           this.isOpen = true;
           resolve();

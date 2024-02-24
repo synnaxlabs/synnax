@@ -7,14 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type UnknownRecord } from "@/record";
 import { Primitive } from "@/primitive";
 
-type DeepEqualBaseRecord = UnknownRecord | {
+interface DeepEqualBaseRecord {
   equals?: (other: any) => boolean;
 }
 
-export const equal = <T extends DeepEqualBaseRecord | DeepEqualBaseRecord[] | Primitive[]>(a: T, b: T): boolean => {
+export const equal = <T extends unknown | DeepEqualBaseRecord | DeepEqualBaseRecord[] | Primitive[]>(a: T, b: T): boolean => {
   const aIsArray = Array.isArray(a);
   const bIsArray = Array.isArray(b);
   if (aIsArray !== bIsArray) return false;
@@ -22,12 +21,11 @@ export const equal = <T extends DeepEqualBaseRecord | DeepEqualBaseRecord[] | Pr
     const aArr = a as DeepEqualBaseRecord[];
     const bArr = b as DeepEqualBaseRecord[];
     if (aArr.length !== bArr.length) return false;
-    for (let i = 0; i < aArr.length; i++) {
+    for (let i = 0; i < aArr.length; i++) 
       if (!equal(aArr[i], bArr[i])) return false;
-    }
     return true;
   }
-  if (typeof a !== "object" || typeof b !== "object") return a === b;
+  if (a == null || b == null || typeof a !== "object" || typeof b !== "object") return a === b;
   if ("equals" in a) 
     return (a.equals as (other: any) => boolean)(b);
   const aKeys = Object.keys(a);
@@ -45,10 +43,11 @@ export const equal = <T extends DeepEqualBaseRecord | DeepEqualBaseRecord[] | Pr
   return true;
 };
 
-export const partialEqual = <T extends UnknownRecord<T>>(
+export const partialEqual = <T extends unknown | DeepEqualBaseRecord | Primitive>(
   base: T,
   partial: Partial<T>,
 ): boolean => {
+  if (typeof base !== "object" || base == null) return base === partial;
   const baseKeys = Object.keys(base);
   const partialKeys = Object.keys(partial);
   if (partialKeys.length > baseKeys.length) return false;

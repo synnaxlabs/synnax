@@ -9,28 +9,11 @@
 
 import { z } from "zod";
 
-import { type RenderableValue } from "@/renderable";
-
 export type Key = string | number | symbol;
 
-export type KeyedRecord<
-  K extends Key = Key,
-  E extends Record<string, unknown> = Record<string, unknown>,
-> = {
-  key: K;
-} & Partial<Record<keyof E, unknown>>;
+export type UnknownRecord = { [key: Key]: unknown };
 
-export type UnknownRecord<E extends Record<Key, unknown> = Record<Key, unknown>> =
-  Partial<Record<keyof E, unknown>>;
-
-export type RenderableRecord<
-  E extends Record<string, RenderableValue> = Record<string, RenderableValue>,
-> = E;
-
-export type KeyedRenderableRecord<
-  K extends Key = Key,
-  E extends Record<string, RenderableValue> = Record<string, RenderableValue>,
-> = KeyedRecord<K, E> & Omit<RenderableRecord<E>, "key">;
+export type Keyed<K extends Key> = { key: K };
 
 export const unknownRecordZ = z.record(
   z.union([z.number(), z.string(), z.symbol()]),

@@ -11,7 +11,7 @@ import { useCallback, useRef } from "react";
 
 import { type SynnaxProps } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
-import { useAsyncWindowLifecycle, useSelectWindowKey } from "@synnaxlabs/drift/react";
+import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Status, useAsyncEffect, useSyncedRef } from "@synnaxlabs/pluto";
 import { TimeStamp } from "@synnaxlabs/x";
 import { path } from "@tauri-apps/api";
@@ -123,8 +123,8 @@ export const useLocalServer = (): void => {
     if (state === "stopCommanded") await stopLocalServer();
   }, [win, state]);
 
-  useAsyncWindowLifecycle(async () => {
-    await startLocalServer();
-    return async () => await stopLocalServer();
-  });
+  // useAsyncWindowLifecycle(async () => {
+  //   await startLocalServer();
+  //   return async () => await stopLocalServer();
+  // });
 };

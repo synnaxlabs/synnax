@@ -168,6 +168,10 @@ export interface FieldProps<
 
 const defaultInput = componentRenderProp(Input.Text);
 
+export type FieldT<I extends Input.Value, O extends Input.Value = I> = (
+  props: FieldProps<I, O>,
+) => ReactElement | null;
+
 export const Field = <
   I extends Input.Value = string | number,
   O extends Input.Value = I,

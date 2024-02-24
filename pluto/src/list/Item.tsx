@@ -9,7 +9,7 @@
 
 import { type ReactElement } from "react";
 
-import { type Key, type KeyedRenderableRecord } from "@synnaxlabs/x";
+import { Keyed, type Key } from "@synnaxlabs/x";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
@@ -18,14 +18,14 @@ import { CONTEXT_SELECTED, CONTEXT_TARGET } from "@/menu/ContextMenu";
 
 import "@/list/Item.css";
 
-export interface ItemFrameProps<K extends Key, E extends KeyedRenderableRecord<K, E>>
+export interface ItemFrameProps<K extends Key, E extends Keyed<K>>
   extends Omit<ItemProps<K, E>, "columns">,
     Omit<Align.SpaceProps, "key" | "style" | "onSelect" | "translate"> {
   draggingOver?: boolean;
   rightAligned?: boolean;
 }
 
-export const ItemFrame = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
+export const ItemFrame = <K extends Key, E extends Keyed<K>>({
   entry,
   selected,
   hovered,
