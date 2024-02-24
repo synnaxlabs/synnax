@@ -13,16 +13,19 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v2
 
-      - name: Setup Node.js
+      - name: Setup pnpm
+        uses: pnpm/actions-setup@v3
+        with:
+          version: 8
+
+      - name: Setup Node
         uses: actions/setup-node@v3
         with:
           node-version: 20
           cache: "pnpm"
 
-
       - name: Install Dependencies
         run: |
-          npm install -g pnpm
           pnpm install
 
       - name: Configure NPM
@@ -43,4 +46,3 @@ jobs:
 
 
 
-      
