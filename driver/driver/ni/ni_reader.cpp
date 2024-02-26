@@ -23,30 +23,41 @@ using namespace ni;
 
 niDaqReader::niDaqReader(TaskHandle taskHandle) : taskHandle(taskHandle) {}
 
-//void ni::niDaqReader::init(json channels, uint64_t acquisition_rate, uint64_t stream_rate) {
-//    std::vector<channel_config> channel_configs;
-//    for (auto &channel : channels) {
-//        channel_config config;
-//        config.name = channel["name"].get<std::string>();
-//        config.channel_key = channel["channel_key"].get<uint32_t>();
-//        config.min_val = channel["min_val"].get<float>();
-//        config.max_val = channel["max_val"].get<float>();
-//        config.channelType = (type == "analogVoltageInput") ? ANALOG_VOLTAGE_IN
-//                            : (type == "thermocoupleInput") ? THERMOCOUPLE_IN
-//                            : (type == "analogCurrentInput") ? ANALOG_CURRENT_IN
-//                            : (type == "digitalInput") ? DIGITAL_IN
-//                            : (type == "digitalOutput") ? DIGITAL_OUT
-//                            : (type == "index") ? INDEX_CHANNEL
-//                            : INVALID_CHANNEL;
-//        channel_configs.push_back(config);
-//    }
-//    // todo need to add an index channel
-//    init(channel_configs, acquisition_rate, stream_rate);
-//}
+void ni::niDaqReader::init(json config, uint64_t acquisition_rate, uint64_t stream_rate) {
+    std::vector<channel_config> channel_configs;
+    //print the whole json
+//    printf("Channels: %s\n", channels.dump().c_str());
+    auto channels = config["channels"];
+    //get device from config
+    auto deviceName = config["device"].get<std::string>();
 
-// TODO: I wan tto make a producer consumer model here instead? This works for now but come back to
+    for (auto &channel : channels) {
+//        printf("Channel: %s\n", channel.dump().c_str());
+        auto type = channel["type"].get<std::string>();
+        channel_config config;
+        std::string portName =  (type == "analogVoltageInput") ? "ai" : "";
+        config.name = deviceName + "/" + portName + channel["port"].dump().c_str();
+        printf("Channel Name: %s\n", config.name.c_str());
+        config.channel_key = channel["channel"].get<uint32_t>();
+        config.min_val = -10.0;//channel["min_val"].get<float>(); // TODO: come back to when added to json
+        config.max_val = 10.0;//channel["max_val"].get<float>(); // TODO: come backt o when added to json
+        config.channelType = (type == "analogVoltageInput") ? ANALOG_VOLTAGE_IN
+                            : (type == "thermocoupleInput") ? THERMOCOUPLE_IN
+                            : (type == "analogCurrentInput") ? ANALOG_CURRENT_IN
+                            : (type == "digitalInput") ? DIGITAL_IN
+                            : (type == "digitalOutput") ? DIGITAL_OUT
+                            : (type == "index") ? INDEX_CHANNEL
+                            : INVALID_CHANNEL;
+        channel_configs.push_back(config);
+    }
+    // todo need to add an index channel
+    init(channel_configs, acquisition_rate, stream_rate);
+}
+
+// TODO: I want to make a producer consumer model here instead? This works for now but come back to
 
 void ni::niDaqReader::init(std::vector<channel_config> channels, uint64_t acquisition_rate, uint64_t stream_rate) {
+    char errBuff[2048] = {'\0'};
     this->stream_rate = stream_rate;
     this->channels = channels;
     this->acq_rate = acquisition_rate;
@@ -76,11 +87,14 @@ void ni::niDaqReader::init(std::vector<channel_config> channels, uint64_t acquis
         }
         this->numChannels++; // change to handle index channels
     }
-
+    std::cout << "NumChannels: " << numChannels << std::endl;
     if( taskType == ANALOG_READER){
         int err = DAQmxCfgSampClkTiming(taskHandle, "", acquisition_rate, DAQmx_Val_Rising, DAQmx_Val_ContSamps, acquisition_rate);
         if(err < 0){
             printf("DAQmx Error: %d\n",err);
+            std::cout << "ERROR" << std::endl;
+            DAQmxGetExtendedErrorInfo(errBuff,2048);
+            printf("DAQmx Error: %s\n",errBuff);
         }
     }
 
@@ -88,6 +102,7 @@ void ni::niDaqReader::init(std::vector<channel_config> channels, uint64_t acquis
     this->bufferSize = this->numChannels*this->numSamplesPerChannel;
     this->data = new double[bufferSize];
     this->digitalData = new uInt32[bufferSize];
+    printf("configured\n");
 }
 
 freighter::Error ni::niDaqReader::configure(synnax::Module config){
@@ -114,6 +129,7 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readAnalog(){
     signed long flushRead;
     synnax::Frame f = synnax::Frame(numChannels);
 
+    std::cout << "NumSamplesPerChannel: " << numSamplesPerChannel << std::endl;
 
     auto err1 = DAQmxReadAnalogF64(this->taskHandle,-1,10.0,DAQmx_Val_GroupByChannel,flush,1000,&samplesRead,NULL);
     std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
@@ -166,7 +182,6 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readDigital(){
     std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
     auto err = DAQmxReadDigitalU32(this->taskHandle,this->numSamplesPerChannel,-1,DAQmx_Val_GroupByChannel,this->digitalData,this->bufferSize,&samplesRead,NULL);
     std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
-
     if (err < 0) {
         std::cout << "ERROR" << std::endl;
         DAQmxGetExtendedErrorInfo(errBuff,2048);

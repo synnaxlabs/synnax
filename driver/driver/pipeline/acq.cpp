@@ -12,6 +12,7 @@
 #include "driver/errors/errors.h"
 #include "nlohmann/json.hpp"
 #include "acq.h"
+#include <stdio.h>
 
 #pragma once
 
@@ -26,9 +27,12 @@ Acq::Acq(synnax::WriterConfig writer_config,
          std::unique_ptr<daq::AcqReader> daq_reader):
          writer_config(writer_config),
          client(client),
-         daq_reader(std::move(daq_reader)) {}
+         daq_reader(std::move(daq_reader)) {
+    printf("Acq constructor\n");
+}
 
 void Acq::start() {
+    std::cout << "Acq start" << std::endl;
     running = true;
     acq_thread = std::thread(&Acq::run, this);
 }

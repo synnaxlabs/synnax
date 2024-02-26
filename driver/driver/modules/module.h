@@ -24,7 +24,8 @@ namespace module {
         synnax::Module internal;
     public:
         Module(synnax::Module module) : internal(std::move(module)) {}
-
+        Module() = default;
+        virtual void start() {};
         virtual void stop() {};
 
         virtual ~Module() = default;
@@ -32,10 +33,10 @@ namespace module {
 
     class Factory {
     public:
-        virtual std::unique_ptr<Module> createModule(const std::shared_ptr<synnax::Synnax> &client,
-                                                    const json &config,
-                                                    bool &valid_config,
-                                                    json &config_err) = 0;
+//        virtual std::unique_ptr<Module> createModule(const std::shared_ptr<synnax::Synnax> &client,
+//                                                    const json &config,
+//                                                    bool &valid_config,
+//                                                    json &config_err) = 0;
 
         virtual ~Factory() = default;
     };

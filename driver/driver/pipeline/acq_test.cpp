@@ -19,15 +19,10 @@
 
 TEST(AcqTests, testAcqNi){
     //TODO add asserts (elham)
-
     std::cout << "Test Acq: " << std::endl;
-
     // create task
     TaskHandle taskHandle;
     DAQmxCreateTask("",&taskHandle);
-
-
-
     auto client_config = synnax::Config{
             "localhost",
             9090,
@@ -35,8 +30,6 @@ TEST(AcqTests, testAcqNi){
             "seldon"};
 
     auto client = std::make_shared<synnax::Synnax>(client_config);
-
-
     auto [time, tErr] = client->channels.create(
             "time",
             synnax::TIMESTAMP,
@@ -57,10 +50,12 @@ TEST(AcqTests, testAcqNi){
     std::vector<ni::channel_config> channel_configs;
     channel_configs.push_back(ni::channel_config({"", time.key, ni::INDEX_CHANNEL , 0, 0}));
     channel_configs.push_back(ni::channel_config({"Dev1/ai0", data.key, ni::ANALOG_VOLTAGE_IN , -10.0, 10.0}));
-
+    //print keys
+    std::cout << "Time Key: " << time.key << std::endl;
+    std::cout << "Data Key: " << data.key << std::endl;
     // make and init daqReade unique ptrr
     auto reader = std::make_unique<ni::niDaqReader>(taskHandle);
-    reader->init(channel_configs, 200, 20);
+    reader->init(channel_configs, 1000, 200);
 
     // create a test writer
     auto now = synnax::TimeStamp::now();
@@ -73,7 +68,6 @@ TEST(AcqTests, testAcqNi){
 
     // instantiate the acq
     auto acq = Acq::Acq(writerConfig, client, std::move(reader));
-    printf("Initialized acq");
 //    std::cout << "Starting acq" << std::endl;
     acq.start();
     std::this_thread::sleep_for(std::chrono::seconds(200)); // let the acq run for 10 seconds, should expect frames to be commited

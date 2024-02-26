@@ -39,6 +39,23 @@ cc_library(
     visibility=["//visibility:public"]
 )
 
+cc_library(
+    name = "ni_module",
+    srcs = ["ni_module.cpp"],
+    hdrs = ["ni_module.h"],
+    deps = [
+        "ni",
+        "@nlohmann_json//:json",
+        "@synnax//synnax",
+        "//driver/breaker:breaker",
+        "//driver/pipeline:acqReader",
+        "//driver/modules:module",
+        "//driver/pipeline:pipeline"
+    ],
+    copts = ["/std:c++17"],
+    visibility=["//visibility:public"]
+)
+
 cc_test(
     name = "ni_reader_test",
     srcs = [
@@ -49,6 +66,19 @@ cc_test(
         "@com_google_googletest//:gtest_main",
         "daqmx_hds",
         "syscfg_hds",
+    ],
+    copts = ["/std:c++17"],
+)
+
+cc_test(
+    name = "ni_module_test",
+    srcs = [
+        "ni_module_test.cpp",
+    ],
+    deps = [
+        "ni_module",
+        "@com_google_googletest//:gtest_main",
+        "@synnax//synnax/testutil",
     ],
     copts = ["/std:c++17"],
 )
