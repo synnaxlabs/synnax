@@ -202,6 +202,7 @@ const solenoidValve: Spec<SolenoidValveProps> = {
       orientation: "top",
     },
     orientation: "left",
+    normallyOpen: false,
     ...ZERO_TOGGLE_PROPS,
   }),
   Preview: SolenoidValvePreview,
@@ -474,6 +475,7 @@ const value: Spec<ValueProps> = {
   Preview: ValuePreview,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
+    units: "psi",
     level: "h5",
     label: {
       label: "Value",

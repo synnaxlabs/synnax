@@ -30,7 +30,7 @@ import { PID } from "@/pid";
 import { Range } from "@/range";
 import { SERVICES } from "@/services";
 import { store } from "@/store";
-import { Table } from "@/table";
+// import { Table } from "@/table";
 import { Version } from "@/version";
 import { Vis } from "@/vis";
 import WorkerURL from "@/worker?worker&url";
@@ -53,7 +53,7 @@ const layoutRenderers = {
   [Label.manageWindowLayout.type]: Label.Manage,
   [LinePlot.LAYOUT_TYPE]: LinePlot.LinePlot,
   [PID.LAYOUT_TYPE]: PID.PID,
-  [Table.LAYOUT_TYPE]: Table.Table,
+  // [Table.LAYOUT_TYPE]: Table.Table,
   [HardwareStatus.LAYOUT_TYPE]: HardwareStatus.Status,
   [HardwareConfigure.LAYOUT_TYPE]: HardwareConfigure.Configure,
   [NewDevice.LAYOUT_TYPE]: NewDevice.Configure,

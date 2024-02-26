@@ -21,7 +21,7 @@ import { LinePlot } from "@/lineplot";
 import { Persist } from "@/persist";
 import { PID } from "@/pid";
 import { Range } from "@/range";
-import { Table } from "@/table";
+// import { Table } from "@/table";
 import { Version } from "@/version";
 import { Workspace } from "@/workspace";
 
@@ -40,7 +40,7 @@ const reducer = combineReducers({
   [Docs.SLICE_NAME]: Docs.reducer,
   [LinePlot.SLICE_NAME]: LinePlot.reducer,
   [Workspace.SLICE_NAME]: Workspace.reducer,
-  [Table.SLICE_NAME]: Table.reducer,
+  // [Table.SLICE_NAME]: Table.reducer,
 });
 
 export interface RootState {

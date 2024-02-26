@@ -20,7 +20,7 @@ import {
   type AsyncTermSearcher,
   type Key,
   primitiveIsZero,
-  Keyed,
+  type Keyed,
 } from "@synnaxlabs/x";
 
 import { CSS } from "@/css";
@@ -70,10 +70,7 @@ export interface SingleProps<K extends Key, E extends Keyed<K>>
  * @param props.onChange - The callback to be invoked when the selected value changes.
  * @param props.value - The currently selected value.
  */
-export const Single = <
-  K extends Key = Key,
-  E extends Keyed<K> = Keyed<K>,
->({
+export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   onChange,
   value,
   tagKey = "key",

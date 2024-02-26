@@ -79,10 +79,7 @@ export const Swatch = ({
       onDragStart={() => startDrag([{ type: HAUL_TYPE, key: d.hex }])}
       style={{ backgroundColor: color.cssString(value) }}
       variant="text"
-      onClick={() => {
-        console.log("OPEN");
-        open();
-      }}
+      onClick={open}
       size={size}
       tooltip={
         onChange != null ? (

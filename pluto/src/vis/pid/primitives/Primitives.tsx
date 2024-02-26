@@ -155,7 +155,7 @@ const HandleBoundary = ({ children, orientation }: SmartHandlesProps): ReactElem
   }, [orientation]);
   return (
     <>
-      {/* <span ref={ref} /> */}
+      <span ref={ref} />
       {children}
     </>
   );

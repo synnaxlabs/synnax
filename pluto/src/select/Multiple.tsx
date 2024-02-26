@@ -41,10 +41,8 @@ import { type RenderProp, componentRenderProp } from "@/util/renderProp";
 
 import "@/select/Multiple.css";
 
-export interface MultipleProps<
-  K extends Key = Key,
-  E extends Keyed<K> = Keyed<K>,
-> extends Omit<Dropdown.DialogProps, "visible" | "onChange" | "children" | "close">,
+export interface MultipleProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>>
+  extends Omit<Dropdown.DialogProps, "visible" | "onChange" | "children" | "close">,
     Omit<UseSelectMultipleProps<K, E>, "data">,
     Omit<CoreList.ListProps<K, E>, "children">,
     Pick<Input.TextProps, "placeholder"> {
@@ -75,10 +73,7 @@ export interface MultipleProps<
  * @param props.onChange - The callback to be invoked when the selected value changes.
  * @param props.value - The currently selected value.
  */
-export const Multiple = <
-  K extends Key = Key,
-  E extends Keyed<K> = Keyed<K>,
->({
+export const Multiple = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   onChange,
   value,
   location,
@@ -150,6 +145,7 @@ export const Multiple = <
       replaceOnSingle={replaceOnSingle}
       columns={columns}
       allowMultiple
+      {...props}
     >
       <InputWrapper<K, E> searcher={searcher}>
         {({ onChange, value: inputValue }) => (
@@ -270,10 +266,7 @@ const MultipleInput = <K extends Key, E extends Keyed<K>>({
   );
 };
 
-export interface MultipleTagProps<
-  K extends Key,
-  E extends Keyed<K>,
-> {
+export interface MultipleTagProps<K extends Key, E extends Keyed<K>> {
   key: K;
   entryKey: K;
   tagKey: keyof E | ((e: E) => string | number);
@@ -293,7 +286,9 @@ export const MultipleTag = <K extends Key, E extends Keyed<K>>({
   ...props
 }: MultipleTagProps<K, E>): ReactElement => {
   let v: RenderableValue = entryKey;
-  if (entry != null) v = typeof tagKey === "function" ? tagKey(entry) : entry[tagKey] as RenderableValue;
+  if (entry != null)
+    v =
+      typeof tagKey === "function" ? tagKey(entry) : (entry[tagKey] as RenderableValue);
   return (
     <Tag.Tag
       size="small"

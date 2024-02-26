@@ -9,9 +9,11 @@ import {
   useRef,
   useMemo,
   useCallback,
+  useEffect,
 } from "react";
 
 import { Case, deep, shallowCopy, type Destructor, toArray } from "@synnaxlabs/x";
+import { l } from "node_modules/vite/dist/node/types.d-jgA8ss1A";
 import { type z } from "zod";
 
 import { useSyncedRef } from "@/hooks/ref";
@@ -184,7 +186,7 @@ export const Field = <
   ...props
 }: FieldProps<I, O>): ReactElement | null => {
   const field = useField<I, O>({ path });
-  if (path == null || path.length === 0) throw new Error("Path is required");
+  if (path == null) throw new Error("Path is required");
   if (label == null) label = Case.capitalize(deep.element(path, -1));
   visible = typeof visible === "function" ? visible(field) : visible;
   if (!visible) return null;
@@ -251,23 +253,28 @@ interface UseRef<Z extends z.ZodTypeAny> {
   parentListeners: Map<string, Set<Listener>>;
 }
 
-export interface UseProps<Z extends z.ZodTypeAny> {
-  schema: Z;
-  initialValues: z.output<Z>;
+export interface UseProps<Z extends z.ZodTypeAny = z.ZodTypeAny> {
+  values: z.output<Z>;
+  sync?: boolean;
+  onChange?: (values: z.output<Z>) => void;
+  schema?: Z;
 }
 
 export const use = <Z extends z.ZodTypeAny>({
-  initialValues,
+  values,
+  sync = false,
   schema,
+  onChange,
 }: UseProps<Z>): FormContextValue<Z> => {
   const ref = useRef<UseRef<Z>>({
-    state: initialValues,
+    state: values,
     status: new Map(),
     touched: new Set(),
     listeners: new Map(),
     parentListeners: new Map(),
   });
   const schemaRef = useSyncedRef(schema);
+  const onChangeRef = useSyncedRef(onChange);
 
   const bind = useCallback(
     <V extends any = unknown>(
@@ -302,10 +309,9 @@ export const use = <Z extends z.ZodTypeAny>({
   ) as Get;
 
   const validate = useCallback((path?: string): boolean => {
+    if (schemaRef.current == null) return true;
     const { state, status, listeners } = ref.current;
-    console.log(state);
     const result = schemaRef.current.safeParse(state);
-    console.log(result.success);
     // if (path == null) status.clear();
     // else status.delete(path);
     if (result.success) {
@@ -342,20 +348,33 @@ export const use = <Z extends z.ZodTypeAny>({
   const set = useCallback((path: string, value: unknown): void => {
     const { state, touched, listeners, parentListeners } = ref.current;
     touched.add(path);
-    deep.set(state, path, value);
+    if (path.length === 0) ref.current.state = value as z.output<Z>;
+    else deep.set(state, path, value);
     validate();
     listeners.get(path)?.forEach((l) => l(get(path, false)));
     parentListeners.forEach((lis, key) => {
       if (path.startsWith(key)) {
-        lis.forEach((l) => l(get(key, false)));
+        const v = get(key, false);
+        lis.forEach((l) => l(v));
       }
     });
+    onChangeRef.current?.(ref.current.state);
   }, []);
 
   const has = useCallback((path: string): boolean => {
     const { state } = ref.current;
     return deep.has(state, path);
   }, []);
+
+  useEffect(() => {
+    if (!sync) return;
+    const { listeners } = ref.current;
+    ref.current.state = values;
+    listeners.forEach((lis, key) => {
+      const v = get(key, false);
+      lis.forEach((l) => l(v));
+    });
+  }, [sync, values]);
 
   return useMemo(
     (): FormContextValue<Z> => ({
