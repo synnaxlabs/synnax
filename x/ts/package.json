@@ -1,7 +1,7 @@
 {
   "name": "@synnaxlabs/x",
   "private": false,
-  "version": "0.10.0",
+  "version": "0.11.0",
   "type": "module",
   "description": "Common Utilities for Synnax Labs",
   "repository": "https://github.com/synnaxlabs/synnax/tree/main/x/go",
@@ -14,7 +14,7 @@
     "control syustems"
   ],
   "scripts": {
-    "build": "vite build",
+    "build": "tsc --noEmit && vite build",
     "test": "vitest",
     "cov": "vitest --coverage",
     "lint": "eslint \"src/**/*.ts*\"",
@@ -25,6 +25,7 @@
     "js-convert-case": "^4.2.0",
     "msgpackr": "^1.9.9",
     "nanoid": "^5.0.2",
+    "typescript": "^5.3.3",
     "zod": "3.22.4"
   },
   "devDependencies": {

@@ -94,7 +94,7 @@ const SelectSingle = ({
   const [value, setValue] = useState<string | null>(null);
 
   const handleChange = (
-    v: string | null,
+    v: string,
     extra: UseSelectOnChangeExtra<string, MockRecord>,
   ): void => {
     onChange?.(v, extra);

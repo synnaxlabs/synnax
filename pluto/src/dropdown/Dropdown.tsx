@@ -24,6 +24,7 @@ import { CSS } from "@/css";
 import { useClickOutside, useResize, useCombinedRefs, useSyncedRef } from "@/hooks";
 import { chooseLocation } from "@/tooltip/Dialog";
 import { Triggers } from "@/triggers";
+import { findParent } from "@/util/findParent";
 
 import "@/dropdown/Dropdown.css";
 
@@ -132,7 +133,17 @@ export const Dialog = ({
   const calculatePosition = useCallback(() => {
     if (targetRef.current == null) return;
     const windowBox = box.construct(0, 0, window.innerWidth, window.innerHeight);
-    const targetBox = box.construct(targetRef.current);
+    let targetBox = box.construct(targetRef.current);
+    // Look for parent elements of the box that are absolutely positioned
+    const parent = findParent(targetRef.current, (el) => {
+      if (el === null) return false;
+      const style = window.getComputedStyle(el);
+      return style.position === "absolute";
+    });
+    if (parent != null) {
+      const parentBox = box.construct(parent);
+      targetBox = box.translate(targetBox, xy.scale(box.topLeft(parentBox), -1));
+    }
     const xyLoc = chooseLocation(locationRef.current, targetBox, windowBox);
     if (xyLoc.x === "center") xyLoc.x = "left";
     const pos = xy.construct(

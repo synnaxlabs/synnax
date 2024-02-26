@@ -10,10 +10,10 @@
 import { type HardwareStatus } from "@/hardware/status";
 import { type LinePlot } from "@/lineplot";
 import { type PID } from "@/pid";
-import { type Table } from "@/table";
+// import { type Table } from "@/table";
 
 export type LayoutType =
   | LinePlot.LayoutType
   | PID.LayoutType
-  | Table.LayoutType
+  // | Table.LayoutType
   | HardwareStatus.LayoutType;

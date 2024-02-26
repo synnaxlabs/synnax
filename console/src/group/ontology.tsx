@@ -121,7 +121,6 @@ export const fromSelection = async ({
   const res = await client.ontology.retrieve(otgID);
   await client.ontology.moveChildren(parentID, res.id, ...resourcesToGroup);
   const newGroupNode = Ontology.toTreeNode(services, res);
-  newGroupNode.forcePosition = nodesOfMinDepth[0].position;
   let nextNodes = Tree.setNode({
     tree: state.nodes,
     destination: selection.parent.key,

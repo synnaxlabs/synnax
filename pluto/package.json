@@ -1,10 +1,10 @@
 {
   "name": "@synnaxlabs/pluto",
   "private": false,
-  "version": "0.18.0",
+  "version": "0.19.0",
   "type": "module",
   "scripts": {
-    "build": "vite build",
+    "build": "tsc --noEmit && vite build",
     "watch": "vite build --watch",
     "test": "vitest",
     "cov": "vitest --coverage",

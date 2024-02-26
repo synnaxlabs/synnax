@@ -11,6 +11,7 @@ import { z } from "zod";
 
 import { type Stringer } from "@/primitive";
 import { addSamples } from "@/telem/series";
+import { Crude } from "@/spatial/location";
 
 export type TZInfo = "UTC" | "local";
 
@@ -432,6 +433,10 @@ export class TimeSpan extends Number implements Stringer {
 
   truncate(span: TimeSpan): TimeSpan {
     return new TimeSpan(Math.trunc(this.valueOf() / span.valueOf()) * span.valueOf());
+  }
+
+  multiply(factor: number): TimeSpan {
+    return new TimeSpan(this.valueOf() * factor);
   }
 
   toString(): string {
@@ -1226,8 +1231,8 @@ export type DataTypeT = string;
 export type CrudeSize = Size | number | Number;
 export type SizeT = number;
 export interface CrudeTimeRange {
-  start: TimeStampT;
-  end: TimeStampT;
+  start: CrudeTimeStamp;
+  end: CrudeTimeStamp;
 }
 
 export const nativeTypedArray = z.union([

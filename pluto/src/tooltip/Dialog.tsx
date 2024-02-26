@@ -103,7 +103,7 @@ export const chooseLocation = (
   if (parse.success) {
     return location.constructXY(parse.data, chooseRemainingLocation(parse.data));
   } else if (cornerOrLocation != null) {
-    const v = { ...cornerOrLocation } as Partial<location.XY>;
+    const v = { ...cornerOrLocation as Partial<location.XY>} ;
     if (v.x == null && v.y != null)
       v.x = chooseRemainingLocation(location.construct(v.y)) as location.X;
     else if (v.y == null && v.x != null)

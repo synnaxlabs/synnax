@@ -19,8 +19,8 @@ import {
 import {
   type AsyncTermSearcher,
   type Key,
-  type KeyedRenderableRecord,
   primitiveIsZero,
+  type Keyed,
 } from "@synnaxlabs/x";
 
 import { CSS } from "@/css";
@@ -38,7 +38,7 @@ import { Core } from "@/select/List";
 
 import "@/select/Single.css";
 
-export interface SingleProps<K extends Key, E extends KeyedRenderableRecord<K, E>>
+export interface SingleProps<K extends Key, E extends Keyed<K>>
   extends Omit<
       Dropdown.DialogProps,
       "onChange" | "visible" | "children" | "variant" | "close"
@@ -70,10 +70,7 @@ export interface SingleProps<K extends Key, E extends KeyedRenderableRecord<K, E
  * @param props.onChange - The callback to be invoked when the selected value changes.
  * @param props.value - The currently selected value.
  */
-export const Single = <
-  K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
->({
+export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   onChange,
   value,
   tagKey = "key",
@@ -154,7 +151,7 @@ export const Single = <
   );
 };
 
-export interface SelectInputProps<K extends Key, E extends KeyedRenderableRecord<K, E>>
+export interface SelectInputProps<K extends Key, E extends Keyed<K>>
   extends Omit<Input.TextProps, "value" | "onFocus"> {
   tagKey: keyof E | ((e: E) => string | number);
   selected: E | null;
@@ -164,7 +161,7 @@ export interface SelectInputProps<K extends Key, E extends KeyedRenderableRecord
   onFocus: () => void;
 }
 
-const SingleInput = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
+const SingleInput = <K extends Key, E extends Keyed<K>>({
   tagKey,
   selected,
   visible,

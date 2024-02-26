@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Join } from "@/join";
-import { UnknownRecord } from "..";
+import { UnknownRecord } from "@/record";
 
 type Prev = [
   never,
@@ -46,27 +46,28 @@ export type Key<T, D extends number = 5> = [D] extends [never]
     }[keyof T]
   : "";
 
-export type Get<V extends UnknownRecord = UnknownRecord> = 
-&((obj: V, path: string, allowNull: true) => unknown | null) 
-&((obj: V, path: string, allowNull: boolean) => unknown) 
+export type Get = 
+&(<T>(obj: T, path: string, allowNull: true) => unknown | null) 
+&(<T>(obj: T, path: string, allowNull?: boolean) => unknown) 
 
-export const get: Get = <V extends UnknownRecord>(obj: V, path: string, allowNull: boolean): unknown | null => {
-    const parts = path.split(".");
-    let result: unknown = obj;
+export const get: Get = <V>(obj: V, path: string, allowNull: boolean = false): unknown | null => {
+    const parts = (path as string).split(".");
+    if (parts.length === 1 && parts[0] === "") return obj;
+    let result: UnknownRecord = obj as UnknownRecord;
     for (const part of parts) {
-        const v = (result as UnknownRecord)[part];
+        const v = result[part];
         if (v == null) {
             if (allowNull) return null;
             throw new Error(`Path ${path} does not exist. ${part} is null`);
         }
-        result = v;
+        result = v as UnknownRecord;
     }
     return result;
 }
 
-export const set = (obj: UnknownRecord, path: string, value: unknown): void => {
-    const parts = path.split(".");
-    let result: UnknownRecord = obj;
+export const set = <V>(obj: V, path: string, value: unknown): void => {
+    const parts = (path as string).split(".");
+    let result: UnknownRecord = obj as UnknownRecord;
     for (let i = 0; i < parts.length - 1; i++) {
         const part = parts[i];
         if (result[part] == null) {
@@ -85,9 +86,9 @@ export const element = (path: string, index: number): string => {
 
 export const join = (path: string[]): string => path.join(".");
 
-export const has = (obj: UnknownRecord, path: string): boolean => {
+export const has = <V>(obj: V, path: string): boolean => {
     try {
-        get(obj, path);
+        get<V>(obj, path);
         return true;
     } catch {
         return false;

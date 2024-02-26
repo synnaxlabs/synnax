@@ -37,6 +37,7 @@ const CoreText = ({
   className,
   ...props
 }: TextProps): ReactElement => (
+  // @ts-expect-error - TODO: Generic Elements are weird
   <BaseText.WithIcon
     color={variantColors[variant]}
     className={CSS(className, CSS.B("status-text"))}

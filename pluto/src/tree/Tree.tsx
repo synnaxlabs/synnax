@@ -141,7 +141,7 @@ export interface TreeProps
   nodes: FlattenedNode[];
   selected?: string[];
   onSelect: UseSelectProps<string, FlattenedNode>["onChange"];
-  children?: RenderProp<ItemProps, ReactElement>;
+  children?: RenderProp<ItemProps>;
   virtual?: boolean;
 }
 
@@ -227,6 +227,7 @@ export const DefaultItem = memo(
       variant: "text",
       draggable: true,
       className: CSS(
+        CSS.BE("list", "item"),
         CONTEXT_TARGET,
         draggingOver && CSS.M("dragging-over"),
         selected && CONTEXT_SELECTED,
@@ -253,7 +254,7 @@ export const DefaultItem = memo(
     const Base = href != null ? Button.Link : Button.Button;
 
     return (
-      <Base {...baseProps}>
+      <Base className={CSS.BE("list", "item")} {...baseProps}>
         <Text.MaybeEditable
           id={`text-${key}`}
           level="p"
@@ -269,6 +270,7 @@ export const DefaultItem = memo(
 DefaultItem.displayName = "Tree.Item";
 
 const defaultChild = componentRenderProp(DefaultItem);
+
 export const Tree = ({
   nodes,
   selected = [],

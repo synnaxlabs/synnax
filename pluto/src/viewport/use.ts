@@ -7,7 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  type MutableRefObject,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+  ForwardedRef,
+} from "react";
 
 import { box, xy, dimensions, location, scale } from "@synnaxlabs/x";
 
@@ -26,12 +34,17 @@ export type UseHandler = (e: UseEvent) => void;
 
 export type UseTriggers = Triggers.ModeConfig<TriggerMode>;
 
+export interface UseRefValue {
+  reset: () => void;
+}
+
 export interface UseProps {
   triggers?: UseTriggers;
   onChange?: UseHandler;
   resetOnDoubleClick?: boolean;
   threshold?: dimensions.Dimensions;
   initial?: box.Box;
+  ref?: MutableRefObject<UseRefValue | undefined> | ForwardedRef<UseRefValue | undefined>;
 }
 
 export interface UseReturn {
@@ -106,6 +119,7 @@ export const use = ({
   triggers: initialTriggers,
   initial = D,
   threshold: threshold_ = DEFAULT_THRESHOLD,
+  ref,
 }: UseProps): UseReturn => {
   const defaultMode = initialTriggers?.defaultMode ?? "zoom";
 
@@ -206,6 +220,23 @@ export const use = ({
       setStateRef,
       canvasRef,
     ],
+  );
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      reset: () => {
+        setMaskBox(box.ZERO);
+        setStateRef(box.DECIMAL);
+        onChange?.({
+          box: box.DECIMAL,
+          mode: "zoomReset",
+          stage: "start",
+          cursor: xy.ZERO,
+        });
+      },
+    }),
+    [onChange],
   );
 
   const handleZoomSelect = useCallback(

@@ -21,9 +21,9 @@ import {
   compare,
   convertRenderV,
   type Key,
-  type KeyedRenderableRecord,
-  type RenderableRecord,
   type ArrayTransform,
+  type Keyed,
+  type RenderableValue,
 } from "@synnaxlabs/x";
 
 import { Align } from "@/align";
@@ -38,19 +38,13 @@ import { type RenderProp } from "@/util/renderProp";
 
 import "@/list/Column.css";
 
-type RenderF<
-  K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
-> = RenderProp<{
+type RenderF<K extends Key = Key, E extends Keyed<K> = Keyed<K>> = RenderProp<{
   key: string | number | symbol;
   entry: E;
   style: CSSProperties;
 }>;
 
-export interface ColumnSpec<
-  K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
-> {
+export interface ColumnSpec<K extends Key = Key, E extends Keyed<K> = Keyed<K>> {
   /** The key of the object to render. */
   key: keyof E | string;
   /** A custom render function for each item in the colummn. */
@@ -70,10 +64,7 @@ export interface ColumnSpec<
   shade?: Text.Shade;
 }
 
-interface ColumnContextValue<
-  K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
-> {
+interface ColumnContextValue<K extends Key = Key, E extends Keyed<K> = Keyed<K>> {
   columns: Array<ColumnSpec<K, E>>;
 }
 
@@ -81,12 +72,12 @@ export const ColumnContext = createContext<ColumnContextValue | null>(null);
 
 const useColumnContext = <
   K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
+  E extends Keyed<K> = Keyed<K>,
 >(): ColumnContextValue<K, E> => useRequiredContext(ColumnContext);
 
-type SortState<E extends RenderableRecord> = [keyof E | null, boolean];
+type SortState<E> = [keyof E | null, boolean];
 
-export interface ColumnHeaderProps<K extends Key, E extends KeyedRenderableRecord<K, E>>
+export interface ColumnHeaderProps<K extends Key, E extends Keyed<K>>
   extends PropsWithChildren<{}> {
   hide?: boolean;
   columns: Array<ColumnSpec<K, E>>;
@@ -94,7 +85,7 @@ export interface ColumnHeaderProps<K extends Key, E extends KeyedRenderableRecor
 
 const SORT_TRANSFORM = "sort";
 
-const Header = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
+const Header = <K extends Key, E extends Keyed<K>>({
   hide = false,
   columns: initialColumns,
   children,
@@ -135,7 +126,7 @@ const Header = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
   }, [font, sourceData, initialColumns]);
 
   return (
-    <ColumnContext.Provider value={ctxValue}>
+    <ColumnContext.Provider value={ctxValue as ColumnContextValue}>
       <Align.Space
         direction="x"
         size="medium"
@@ -170,10 +161,7 @@ const Header = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
   );
 };
 
-const Item = <
-  K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
->({
+const Item = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   entry,
   onSelect,
   className,
@@ -203,15 +191,12 @@ const Item = <
   );
 };
 
-interface ListColumnValueProps<
-  K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
-> {
+interface ListColumnValueProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>> {
   entry: E;
   col: ColumnSpec<K, E>;
 }
 
-const ListColumnValue = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
+const ListColumnValue = <K extends Key, E extends Keyed<K>>({
   entry,
   col: { width, ...col },
 }: ListColumnValueProps<K, E>): ReactElement | null => {
@@ -233,15 +218,12 @@ const ListColumnValue = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
       style={style}
       shade={col.shade}
     >
-      {convertRenderV(rv)}
+      {convertRenderV(rv as RenderableValue)}
     </Text.Text>
   );
 };
 
-const columnWidths = <
-  K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
->(
+const columnWidths = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>(
   columns: Array<ColumnSpec<K, E>>,
   data: E[],
   font: string,
@@ -258,10 +240,7 @@ const columnWidths = <
   });
 };
 
-const longestEntries = <
-  K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
->(
+const longestEntries = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>(
   data: E[],
   columns: Array<ColumnSpec<K, E>>,
 ): Record<keyof E, string> => {
@@ -270,7 +249,7 @@ const longestEntries = <
     columns.forEach(({ key, stringer }) => {
       const rv = entry[key as keyof E];
       if (rv == null) return;
-      const value = stringer != null ? stringer(entry) : rv;
+      const value = stringer != null ? stringer(entry) : rv.toString();
       if (!(key in longest) || value.length > longest[key as keyof E].length)
         longest[key as keyof E] = value;
     }),
@@ -279,10 +258,7 @@ const longestEntries = <
 };
 
 const sortTransform =
-  <
-    K extends Key = Key,
-    E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
-  >(
+  <K extends Key = Key, E extends Keyed<K> = Keyed<K>>(
     k: keyof E,
     dir: boolean,
   ): ArrayTransform<E> =>

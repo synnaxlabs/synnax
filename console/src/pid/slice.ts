@@ -238,6 +238,7 @@ export const { actions, reducer } = createSlice({
           ...node,
           position: xy.translate(node.position, console),
           key,
+          selected: true,
         };
       });
       const nextEdges = state.copy.edges.map((edge) => {
@@ -247,10 +248,17 @@ export const { actions, reducer } = createSlice({
           key,
           source: keys[edge.source],
           target: keys[edge.target],
+          selected: true,
         };
       });
-      pid.edges = [...pid.edges, ...nextEdges];
-      pid.nodes = [...pid.nodes, ...nextNodes];
+      pid.edges = [
+        ...pid.edges.map((edge) => ({ ...edge, selected: false })),
+        ...nextEdges,
+      ];
+      pid.nodes = [
+        ...pid.nodes.map((node) => ({ ...node, selected: false })),
+        ...nextNodes,
+      ];
     },
     create: (state, { payload }: PayloadAction<CreatePayload>) => {
       const { key: layoutKey } = payload;

@@ -8,9 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import {
-  type UnknownRecord,
   type ArrayTransform,
-  type KeyedRecord,
+  type Keyed,
   type Key,
   type TermSearcher,
 } from "@synnaxlabs/x";
@@ -21,19 +20,19 @@ import { proxyMemo } from "@/memo";
 /** Props for the {@link createFilterTransform} function. */
 export interface CreateFilterTransformProps<
   K extends Key,
-  E extends KeyedRecord<K, E>,
+  E extends Keyed<K>,
 > {
   term: string;
   searcher?: TermSearcher<string, K, E> | ((data: E[]) => TermSearcher<string, K, E>);
 }
 
-const defaultOpts: IFuseOptions<UnknownRecord<UnknownRecord>> = {
+const defaultOpts: IFuseOptions<unknown> = {
   threshold: 0.3,
 };
 
 export const fuseFilter =
-  (opts?: IFuseOptions<UnknownRecord>) =>
-  <K extends Key, E extends KeyedRecord<K, E>>(
+  (opts?: IFuseOptions<unknown>) =>
+  <K extends Key, E extends Keyed<K>>(
     data: E[],
   ): TermSearcher<string, K, E> => {
     const fuse = new Fuse(data, {
@@ -64,7 +63,7 @@ const defaultFilter = fuseFilter();
  * @param opts - The options to pass to the Fuse.js search. See the Fuse.js
  * documentation for more information on these options.
  */
-export const createFilterTransform = <K extends Key, E extends KeyedRecord<K, E>>({
+export const createFilterTransform = <K extends Key, E extends Keyed<K>>({
   term,
   searcher = defaultFilter<K, E>,
 }: CreateFilterTransformProps<K, E>): ArrayTransform<E> =>

@@ -9,13 +9,7 @@
 
 import { useCallback, useEffect, useRef } from "react";
 
-import {
-  type Key,
-  type KeyedRecord,
-  unique,
-  toArray,
-  type Optional,
-} from "@synnaxlabs/x";
+import { type Key, type Keyed, unique, toArray, type Optional } from "@synnaxlabs/x";
 
 import { useSyncedRef } from "@/hooks/ref";
 import { Triggers } from "@/triggers";
@@ -26,7 +20,7 @@ import { Triggers } from "@/triggers";
  */
 export interface UseSelectOnChangeExtra<
   K extends Key = Key,
-  E extends KeyedRecord<K, E> = KeyedRecord<K>,
+  E extends Keyed<K> = Keyed<K>,
 > {
   clickedIndex: number | null;
   /** The key of the entry that was last clicked. */
@@ -35,10 +29,7 @@ export interface UseSelectOnChangeExtra<
   entries: E[];
 }
 
-export interface UseSelectSingleAllowNoneProps<
-  K extends Key,
-  E extends KeyedRecord<K, E>,
-> {
+export interface UseSelectSingleAllowNoneProps<K extends Key, E extends Keyed<K>> {
   data: E[];
   replaceOnSingle?: boolean;
   allowMultiple: false;
@@ -47,10 +38,7 @@ export interface UseSelectSingleAllowNoneProps<
   onChange: (next: K | null, extra: UseSelectOnChangeExtra<K, E>) => void;
 }
 
-export interface UseSelectSingleDisallowNoneProps<
-  K extends Key,
-  E extends KeyedRecord<K, E>,
-> {
+export interface UseSelectSingleDisallowNoneProps<K extends Key, E extends Keyed<K>> {
   data: E[];
   replaceOnSingle?: boolean;
   allowMultiple: false;
@@ -59,16 +47,16 @@ export interface UseSelectSingleDisallowNoneProps<
   onChange: (next: K, extra: UseSelectOnChangeExtra<K, any>) => void;
 }
 
-type UseSelectSingleInternalProps<K extends Key, E extends KeyedRecord<K, E>> =
+type UseSelectSingleInternalProps<K extends Key, E extends Keyed<K>> =
   | UseSelectSingleAllowNoneProps<K, E>
   | UseSelectSingleDisallowNoneProps<K, E>;
 
-export type UseSelectSingleProps<K extends Key, E extends KeyedRecord<K, E>> = Optional<
+export type UseSelectSingleProps<K extends Key, E extends Keyed<K>> = Optional<
   UseSelectSingleInternalProps<K, E>,
   "allowNone"
 >;
 
-export interface UseSelectMultipleProps<K extends Key, E extends KeyedRecord<K, E>> {
+export interface UseSelectMultipleProps<K extends Key, E extends Keyed<K>> {
   data: E[] | (() => E[]);
   allowMultiple?: true;
   replaceOnSingle?: boolean;
@@ -78,16 +66,12 @@ export interface UseSelectMultipleProps<K extends Key, E extends KeyedRecord<K, 
 }
 
 /** Props for the {@link useSelect} hook. */
-export type UseSelectProps<
-  K extends Key = Key,
-  E extends KeyedRecord<K, E> = KeyedRecord<K>,
-> = UseSelectSingleInternalProps<K, E> | UseSelectMultipleProps<K, E>;
+export type UseSelectProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>> =
+  | UseSelectSingleInternalProps<K, E>
+  | UseSelectMultipleProps<K, E>;
 
 /** Return value for the {@link useSelect} hook. */
-export interface UseSelectMultipleReturn<
-  K extends Key = Key,
-  E extends KeyedRecord<K, E> = KeyedRecord<K>,
-> {
+export interface UseSelectMultipleReturn<K extends Key = Key> {
   onSelect: (key: K) => void;
   clear: () => void;
 }
@@ -121,14 +105,14 @@ export const selectValueIsZero = <K extends Key>(
  * probably be passed to the `onClick` corresponding to each record.
  * @returns clear - A callback that can be used to clear the selection.
  */
-export const useSelect = <K extends Key, E extends KeyedRecord<K, E>>({
+export const useSelect = <K extends Key, E extends Keyed<K>>({
   data: propsData,
   value: propsValue = [],
   allowMultiple,
   allowNone,
   replaceOnSingle = false,
   onChange,
-}: UseSelectProps<K, E>): UseSelectMultipleReturn<K, E> => {
+}: UseSelectProps<K, E>): UseSelectMultipleReturn<K> => {
   const shiftValueRef = useRef<K | null>(null);
   const shift = Triggers.useHeldRef({ triggers: [["Shift"]], loose: true });
 

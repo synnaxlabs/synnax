@@ -69,6 +69,7 @@ func New(pool *fgrpc.Pool) Transport {
 		) (*channelv1.CreateMessage, error) {
 			return channelv1.NewChannelServiceClient(conn).Exec(ctx, req)
 		},
+		ServiceDesc: &channelv1.ChannelService_ServiceDesc,
 	}
 	s := &server{
 		RequestTranslator:  createMessageTranslator{},

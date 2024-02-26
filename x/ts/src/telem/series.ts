@@ -403,9 +403,7 @@ export class Series {
     const { buffer, bufferUsage, prevBuffer } = this.gl;
 
     // If no buffer has been created yet, create one.
-    if (buffer == null) {
-      this.gl.buffer = gl.createBuffer();
-    }
+    if (buffer == null) this.gl.buffer = gl.createBuffer();
     // If the current write position is the same as the previous buffer, we're already
     // up date.
     if (this.writePos === prevBuffer) return;
@@ -462,6 +460,7 @@ export class Series {
     gl.deleteBuffer(this.gl.buffer);
     this.gl.buffer = null;
     this.gl.prevBuffer = 0;
+    this.gl.control = null;
   }
 
   get glBuffer(): WebGLBuffer {

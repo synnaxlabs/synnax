@@ -14,7 +14,7 @@ import { z } from "zod";
 import { type color } from "@/color/core";
 import { type status } from "@/status/aether";
 
-const transferrable = z.union([z.instanceof(ArrayBuffer)]);
+const transferrable = z.instanceof(ArrayBuffer);
 
 /**
  * Metadata about a telemetry source. This metadata can be thought of as a pointer

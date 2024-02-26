@@ -22,11 +22,6 @@ const Example = (): ReactElement => {
   return (
     <Align.Space align="start">
       <SelectOrientation value={value} onChange={setValue} />;
-      <ReliefValve
-        label={{ label: "Label", orientation: value.outer }}
-        orientation={value.inner}
-        color="#000000"
-      />
     </Align.Space>
   );
 };

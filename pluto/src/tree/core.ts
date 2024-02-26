@@ -16,6 +16,7 @@ import { type Haul } from "@/haul";
 export interface Node {
   key: string;
   name: string;
+  renaming?: boolean;
   forcePosition?: number;
   icon?: ReactElement;
   allowRename?: boolean;
@@ -54,13 +55,12 @@ export const sortAndSplice = (nodes: Node[], sort: boolean): Node[] => {
   let found = false;
   for (let i = 0; i < nodes.length; i++) {
     const node = nodes[i];
-    if (node.forcePosition != null) {
+    if (node.forcePosition != null && i !== node.forcePosition) {
       found = true;
       // remove the node from its current position
       nodes.splice(i, 1);
       // splice it into the forced position
       nodes.splice(node.forcePosition, 0, node);
-      node.forcePosition = undefined;
     }
   }
   if (found) return sortAndSplice(nodes, false);

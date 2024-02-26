@@ -84,7 +84,7 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
 
   const methods = Form.use<typeof formSchema>({
     schema: formSchema,
-    initialValues: {
+    values: {
       name: "",
       host: "",
       port: 9090,

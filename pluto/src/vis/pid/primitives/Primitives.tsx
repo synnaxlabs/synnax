@@ -155,7 +155,7 @@ const HandleBoundary = ({ children, orientation }: SmartHandlesProps): ReactElem
   }, [orientation]);
   return (
     <>
-      {/* <span ref={ref} /> */}
+      <span ref={ref} />
       {children}
     </>
   );
@@ -919,13 +919,11 @@ export const Value = ({
 };
 
 export interface SwitchProps extends Omit<ToggleProps, "onClick">, OrientableProps {
-  onClick: MouseEventHandler<HTMLInputElement>;
+  onClick?: MouseEventHandler<HTMLInputElement>;
 }
 
 export const Switch = ({
-  triggered,
   enabled = false,
-  color,
   onClick,
   orientation = "left",
 }: SwitchProps): ReactElement => {
@@ -942,7 +940,7 @@ export const Switch = ({
 
 export interface ButtonProps extends Omit<DivProps, "onClick"> {
   label?: string;
-  onClick: MouseEventHandler<HTMLButtonElement>;
+  onClick?: MouseEventHandler<HTMLButtonElement>;
 }
 
 export const Button = ({

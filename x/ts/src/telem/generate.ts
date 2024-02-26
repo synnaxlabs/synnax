@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataTypeT, NativeTypedArray } from "@/telem/telem";
+import { DataType, DataTypeT, NativeTypedArray } from "@/telem/telem";
 
 export const randomSeries = (length: number, dataType: DataTypeT): NativeTypedArray => {
   // generate random bytes of the correct length
-  const bytes = new Uint8Array(length * dataType.density.valueOf());
+  const bytes = new Uint8Array(length * new DataType(dataType).density.valueOf());
   for (let i = 0; i < bytes.byteLength; i++) {
     bytes[i] = Math.floor(Math.random() * 256);
   }
-  return new dataType.Array(bytes.buffer);
+  return new new DataType(dataType).Array(bytes.buffer);
 };
