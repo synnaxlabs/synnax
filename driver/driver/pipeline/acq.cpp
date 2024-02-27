@@ -28,18 +28,16 @@ Acq::Acq(synnax::WriterConfig writer_config,
          writer_config(writer_config),
          client(client),
          daq_reader(std::move(daq_reader)) {
-    printf("Acq constructor\n");
 }
 
 void Acq::start() {
-    std::cout << "Acq start" << std::endl;
     running = true;
     acq_thread = std::thread(&Acq::run, this);
 }
 
 void Acq::stop() {
     running = false;
-    acq_thread.join(); // FIXME: I dont want to call join im p sure (elham)
+    acq_thread.join();
 }
 
 void Acq::run() {
@@ -80,7 +78,6 @@ void Acq::run() {
         }
         // synnax commit
         auto now = synnax::TimeStamp::now();
-
         if (now - last_commit > commit_interval) {
             auto [end, ok] = writer.commit();
             auto err = writer.error();
@@ -94,7 +91,6 @@ void Acq::run() {
     }
     daq_reader->stop();
     auto err = writer.close();
-//    std::cout << "Acq run error: " << err.message() << std::endl;
     if (retry && breaker->wait()) run();
 }
 

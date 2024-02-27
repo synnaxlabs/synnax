@@ -48,7 +48,7 @@ namespace ni {
         void init(std::vector <channel_config> channels, uint64_t acquisition_rate, uint64_t stream_rate);
         void init(json channels, uint64_t acquisition_rate, uint64_t stream_rate);
         std::pair <synnax::Frame, freighter::Error> read();
-        freighter::Error configure(synnax::Module config);
+        freighter::Error configure(synnax::Module config);  // TODO: remove
         freighter::Error stop();
         freighter::Error start();
 //        freighter::Error parseJSONConfig(json config);
@@ -66,5 +66,29 @@ namespace ni {
         int bufferSize = 0; // size of the data buffer
         int numSamplesPerChannel =0 ;
     };
+
+    class   niDaqWriter : public daq::daqWriter {
+    public:
+        niDaqWriter(TaskHandle taskHandle);
+        void init(std::vector <channel_config> channels);
+        void init(json channels);
+        freighter::Error write(synnax::Frame frame);
+        freighter::Error stop();
+        freighter::Error start();
+        freighter::Error formatData(synnax::Frame frame);
+    private:
+        std::vector <channel_config> channels;
+        std::int64_t numChannels = 0;
+        TaskHandle taskHandle = 0;
+        TaskType taskType;
+//        freighter::Error writeAnalog(synnax::Frame frame);  // Implement later
+        std::pair <synnax::Frame, freighter::Error> writeDigital(synnax::Frame frame);
+        uInt32* writeBuffer; /// @brief pointer to heap allocated dataBuffer to provide to DAQmx read functions
+        int bufferSize = 0; // size of the data buffer
+        int numSamplesPerChannel =0 ;
+        std::vector <synnax::ChannelKey> ack_channel_keys;
+        std::vector <synnax::ChannelKey> cmd_channel_keys;
+        std::queue  <synnax::ChannelKey> ack_queue; // queue of ack channels to write to
+    }
 
 }

@@ -21,18 +21,17 @@
 using json = nlohmann::json;
 using namespace ni;
 
+///////////////////////////////////////////////////////////////////////////////////
+// niDaqReader
+///////////////////////////////////////////////////////////////////////////////////
+
 niDaqReader::niDaqReader(TaskHandle taskHandle) : taskHandle(taskHandle) {}
 
 void ni::niDaqReader::init(json config, uint64_t acquisition_rate, uint64_t stream_rate) {
     std::vector<channel_config> channel_configs;
-    //print the whole json
-//    printf("Channels: %s\n", channels.dump().c_str());
     auto channels = config["channels"];
-    //get device from config
     auto deviceName = config["device"].get<std::string>();
-
     for (auto &channel : channels) {
-//        printf("Channel: %s\n", channel.dump().c_str());
         auto type = channel["type"].get<std::string>();
         channel_config config;
         std::string portName =  (type == "analogVoltageInput") ? "ai" : "";
@@ -45,7 +44,6 @@ void ni::niDaqReader::init(json config, uint64_t acquisition_rate, uint64_t stre
                             : (type == "thermocoupleInput") ? THERMOCOUPLE_IN
                             : (type == "analogCurrentInput") ? ANALOG_CURRENT_IN
                             : (type == "digitalInput") ? DIGITAL_IN
-                            : (type == "digitalOutput") ? DIGITAL_OUT
                             : (type == "index") ? INDEX_CHANNEL
                             : INVALID_CHANNEL;
         channel_configs.push_back(config);
@@ -129,11 +127,24 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readAnalog(){
     signed long flushRead;
     synnax::Frame f = synnax::Frame(numChannels);
 
-    std::cout << "NumSamplesPerChannel: " << numSamplesPerChannel << std::endl;
+    auto err1 = DAQmxReadAnalogF64(this->taskHandle,
+                                   -1,
+                                   10.0,
+                                   DAQmx_Val_GroupByChannel,
+                                   flush,
+                                   1000,
+                                   &samplesRead,
+                                   NULL);
 
-    auto err1 = DAQmxReadAnalogF64(this->taskHandle,-1,10.0,DAQmx_Val_GroupByChannel,flush,1000,&samplesRead,NULL);
     std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
-    auto err = DAQmxReadAnalogF64(this->taskHandle,this->numSamplesPerChannel,-1,DAQmx_Val_GroupByChannel,this->data,this->bufferSize,&samplesRead,NULL);
+    auto err = DAQmxReadAnalogF64(this->taskHandle,
+                                  this->numSamplesPerChannel,
+                                  -1,
+                                  DAQmx_Val_GroupByChannel,
+                                  this->data,
+                                  this->bufferSize,
+                                  &samplesRead,
+                                  NULL);
     std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
 
     if (err < 0) {
@@ -167,6 +178,7 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readAnalog(){
             data_index++;
         }
     }
+
     freighter::Error error = freighter::NIL; // TODO: implement error handling
     return {std::move(f), error};
 }
@@ -229,8 +241,129 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::read(){
         return {synnax::Frame(0), freighter::NIL};
     }
 }
+///////////////////////////////////////////////////////////////////////////////////
+// niDaqWriter
+///////////////////////////////////////////////////////////////////////////////////
 
-//
+
+niDaqWriter::niDaqWriter(TaskHandle taskHandle) : taskHandle(taskHandle) {}
+
+void niDaqWriter::init(json config) {
+    std::vector<channel_config> channel_configs;
+    auto channels = config["channels"];
+    auto deviceName = config["device"].get<std::string>();
+    for (auto &channel : channels) {
+        channel_config config;
+
+        std::string name = channel["name"].get<std::string>();
+        channelNames.emplace_back(name);
+
+        auto type = channel["type"].get<std::string>();
+        std::string portName =  (type == "digitalOutput") ? "port" : "";
+
+        config.name = deviceName + "/" + portName + channel["port"].dump().c_str();
+
+        config.channel_key = channel["cmd_key"].get<uint32_t>();
+
+        config.channelType = (type == "digitalOutput") ? DIGITAL_OUT
+                            : (type == "index") ? INDEX_CHANNEL
+                            : INVALID_CHANNEL;
+
+        channel_configs.push_back(config);
+
+        cmd_channel_keys.push_back(channel["cmd_key"].get<uint32_t>());
+        ack_channel_keys.push_back(channel["ack_key"].get<uint32_t>());
+    }
+    init(channel_configs);
+}
+
+void init(std::vector <channel_config> channels){
+    this->channels = channels;
+    for(auto &channel : channels){ // iterate through channels, check name and determine what tasks need to be created
+        switch(channel.channelType){
+            case DIGITAL_OUT:
+                DAQmxCreateDOChan(taskHandle, channel.name.c_str(), "", DAQmx_Val_ChanPerLine);
+                taskType = DIGITAL_WRITER;
+                break;
+        }
+        this->numChannels++; // change to handle index channels
+    }
+    this->bufferSize = this->numChannels;
+    this->writeBuffer = new uint8_t[this->bufferSize];
+}
+
+freighter::Error ni::niDaqWriter::configure(synnax::Module config){
+    return freighter::NIL;
+}
+
+freighter::Error ni::niDaqWriter::start(){
+    DAQmxStartTask(taskHandle);
+    return freighter::NIL;
+}
+
+freighter::Error ni::niDaqWriter::stop(){
+    int daqmx_err = DAQmxStopTask(taskHandle);
+    daqmx_err = DAQmxClearTask(taskHandle);
+    delete[] writeBuffer;
+    return freighter::NIL;
+}
+
+freighter::Error ni::niDaqWriter::write(synnax::Frame frame){ // TODO: should this function get a Frame or a bit vector of setpoints instead?
+    if(taskType == DIGITAL_WRITER){
+        return writeDigital(frame);
+    }
+    return freighter::NIL;
+}
+
+std::pair <synnax::Frame, freighter::Error> ni::niDaqWriter::writeDigital(synnax::Frame frame){
+    char errBuff[2048] = {'\0'};
+    signed long samplesWritten = 0;
+    formatData(frame);
+    auto err = DAQmxWriteDigitalLines(taskHandle,
+                                        1, // number of samples per channel
+                                        1, // auto start
+                                        10.0, // timeout
+                                        DAQmx_Val_GroupByChannel, //data layout
+                                        writeBuffer, // data
+                                        &samplesWritten, // samples written
+                                        NULL); // reserved
+    if(err < 0){
+        std::cout << "ERROR" << std::endl;
+        DAQmxGetExtendedErrorInfo(errBuff,2048);
+        printf("DAQmx Error: %s\n",errBuff);
+    }
+
+    // deal with acknowledgements
+
+    auto ack_frame = synnax::Frame(ack_queue.size());
+    while(!ack_queue.empty()){
+        auto ack_key = ack_queue.front();
+        ack_frame.add(ack_key, synnax::Series(1));
+        ack_queue.pop();
+    }
+
+    return {std::move(ack_frame), freighter::NIL};
+}
+
+freighter::Error ni::niDaqWriter::formatData(synnax::Frame frame){
+    uint32_t i = 0;
+    for (auto key : cmd_channel_keys){ // the order the keys are in is the order the data is written
+        auto it = keys.find(key);
+        if (it != keys.end()){
+            uint32_t index = std::distance(keys.begin(), it);
+            auto series = (*frame.series)[index];
+            memcpy(writeBuffer + i, series.data.uint8(), sizeof(uint8_t)); //TODO make sure this works
+            i++;
+        }
+        ack_queue.push(ack_channel_keys[i]);
+    }
+    return freighter::NIL;
+}
+
+// TODO create a helper function that takes in a frame and formats into the data to pass into writedigital
+// TODO: create a helper function to parse digital data configuration of wehtehr its a port to r line
+
+
 //typedef freighter::Error (*DAQmxCreateChannel) (TaskHandle taskHandle, ChannelConfig config);
 //
 //freighter::Error create_ai_voltage_channel(TaskHandle taskHandle, json config) {

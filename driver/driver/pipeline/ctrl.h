@@ -14,37 +14,40 @@
 #include <thread>
 
 #pragma once
-//
-//namespace daq {
-//class Writer {
-//public:
-//    std::pair<synnax::Frame, freighter::Error> write(synnax::Frame);
-//    void start();
-//    void stop();
-//};
-//}
-//
-//namespace pipeline {
-//class Inbound {
-//public:
-//    void start();
-//    void stop();
-//private:
-//    /// @brief threading.
-//    std::atomic<bool> running;
-//    std::thread exec_thread;
-//
-//    /// @brief synnax IO.
-//    std::unique_ptr<synnax::Synnax> client;
-//    std::unique_ptr<synnax::Streamer> streamer;
-//    synnax::StreamerConfig streamer_config;
-//    std::unique_ptr<synnax::Writer> writer;
-//    synnax::WriterConfig writer_config;
-//
-//
-//    /// @brief daq interface.
-//    std::unique_ptr<daq::Writer> daq_writer;
-//
-//    void execute();
-//};
-//}
+namespace pipeline {
+    class Ctrl {
+    public:
+        void start();
+        void stop();
+        Ctrl(synnax::WriterConfig writer_config,
+             std::shared_ptr<synnax::Synnax> client,
+             std::unique_ptr<daq::Writer> daq_writer);
+
+    private:
+/// @brief threading.
+        bool running = false;
+        std::thread ctrl_thread;
+
+        /// @brief synnax IO.
+        std::unique_ptr <synnax::Synnax> client;
+
+        /// @brief synnax writer
+        std::unique_ptr <synnax::Streamer> streamer;
+        synnax::StreamerConfig streamer_config;
+
+        /// @brief synnax writer
+        std::unique_ptr <synnax::Writer> writer;
+        synnax::WriterConfig writer_config;
+
+        /// @brief daq interface
+        std::unique_ptr <daq::Writer> daq_writer;
+
+        /// @brief breaker
+        std::unique_ptr <breaker::Breaker> breaker; // What am I using this for
+        void run();
+
+
+
+
+    };
+}

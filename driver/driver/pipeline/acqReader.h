@@ -10,14 +10,24 @@
 
 namespace daq
 {
-    class AcqReader
+    class AcqReader //TODD: change to daqReader
     {
     public:
         std::vector<std::vector<long>> data;
         virtual std::pair<synnax::Frame, freighter::Error> read() = 0;
-        virtual freighter::Error configure(synnax::Module config) = 0;
+        virtual freighter::Error configure(synnax::Module config) = 0; // TODO: remove?
         virtual freighter::Error start() = 0;
         virtual freighter::Error stop() = 0;
     };
+
+    class daqWriter{
+    public:
+        virtual freighter::Error write(synnax::Frame frame) = 0;
+        virtual freighter::Error start() = 0;
+        virtual freighter::Error stop() = 0;
+        // other members
+        // a structure to store errors?
+    };
+
 
 }
