@@ -10,15 +10,12 @@
 import { type ReactElement, useEffect, useState } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import { Select } from "@synnaxlabs/pluto";
-import { Align } from "@synnaxlabs/pluto/align";
 import { Button } from "@synnaxlabs/pluto/button";
 import { Dropdown } from "@synnaxlabs/pluto/dropdown";
 import { Tabs } from "@synnaxlabs/pluto/tabs";
-import { Text } from "@synnaxlabs/pluto/text";
 import { Tree } from "@synnaxlabs/pluto/tree";
 
-import { pages } from "@/pages/nav";
+import { componentsPages, rolesPages } from "@/pages/nav";
 
 export type PageNavNode = Tree.Node;
 
@@ -43,8 +40,8 @@ interface ReferenceTreeProps {
 
 const ReferenceTree = ({ currentPage }: ReferenceTreeProps): ReactElement => {
   let parts = currentPage.split("/").filter((part) => part !== "");
-  if (parts.length === 0) parts = pages.map((p) => p.key);
-  const treeProps = Tree.use({ nodes: pages, initialExpanded: parts, sort: false });
+  if (parts.length === 0) parts = componentsPages.map((p) => p.key);
+  const treeProps = Tree.use({ nodes: componentsPages, initialExpanded: parts, sort: false });
   return (
     <Tree.Tree
       {...treeProps}
@@ -58,7 +55,9 @@ const ReferenceTree = ({ currentPage }: ReferenceTreeProps): ReactElement => {
 };
 
 const Role = ({ currentPage }: TOCProps): ReactElement => {
-  const treeProps = Tree.use({ nodes: pages, initialExpanded: [], sort: false });
+  let parts = currentPage.split("/").filter((part) => part !== "");
+  if (parts.length === 0) parts = rolesPages.map((p) => p.key);
+  const treeProps = Tree.use({ nodes: rolesPages, initialExpanded: parts, sort: false });
   return (
     <Tree.Tree
       {...treeProps}
@@ -77,11 +76,13 @@ export const PageNav = ({ currentPage }: TOCProps): ReactElement | null => {
   // Split the current page by slashes and remove and get the first part
   const selectedTab = currentPage.split("/").filter((part) => part !== "")[0];
 
+  console.log(selectedTab)
+
   const { visible, toggle } = Dropdown.use({ initialVisible: false });
 
   const content: Tabs.TabsProps["content"] = ({ tabKey }) => {
     switch (tabKey) {
-      case "role":
+      case "roles":
         return <Role currentPage={currentPage} />;
       default:
         return <ReferenceTree currentPage={currentPage} />;
@@ -90,6 +91,7 @@ export const PageNav = ({ currentPage }: TOCProps): ReactElement | null => {
 
   const tabsProps = Tabs.useStatic({
     selected: selectedTab,
+    // onSelect: console.log,
     tabs: [
       { tabKey: "roles", name: "Roles" },
       { tabKey: "components", name: "Components" },

@@ -60,7 +60,7 @@ export const useStatic = ({
   onSelect,
 }: UseStaticTabsProps): TabsContextValue => {
   const [value, onChange] = state.usePurePassthrough({
-    initial: tabs[0]?.tabKey ?? "",
+    initial: selected ?? tabs[0]?.tabKey ?? "",
     value: selected,
     onChange: onSelect,
   });
