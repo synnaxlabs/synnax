@@ -32,6 +32,11 @@ func (r Retrieve[K, E]) Where(filter func(*E) bool) Retrieve[K, E] {
 	return r
 }
 
+func (r Retrieve[K, E]) WherePrefix(prefix []byte) Retrieve[K, E] {
+	setWherePrefix(r.Params, prefix)
+	return r
+}
+
 // Limit sets the maximum number of results that the query will return, discarding
 // any results beyond the limit.
 func (r Retrieve[K, E]) Limit(limit int) Retrieve[K, E] {
@@ -172,6 +177,24 @@ func getWhereKeys[K Key](q query.Parameters) (whereKeys[K], bool) {
 	return keys.(whereKeys[K]), true
 }
 
+const wherePrefixKey query.Parameter = "retrieveByPrefix"
+
+type wherePrefix struct {
+	prefix []byte
+}
+
+func setWherePrefix(q query.Parameters, prefix []byte) {
+	q.Set(wherePrefixKey, wherePrefix{prefix})
+}
+
+func getWherePrefix(q query.Parameters) (r []byte) {
+	prefix, ok := q.Get(wherePrefixKey)
+	if !ok {
+		return
+	}
+	return prefix.(wherePrefix).prefix
+}
+
 func checkExists[K Key, E Entry[K]](ctx context.Context, q query.Parameters, reader Tx) (bool, error) {
 	if keys, ok := getWhereKeys[K](q); ok {
 		entries := make([]E, 0, len(keys))
@@ -226,8 +249,10 @@ func filterRetrieve[K Key, E Entry[K]](
 		offset         = GetOffset(q)
 		f              = getFilters[K, E](q)
 		entries        = GetEntries[K, E](q)
-		iter, err      = WrapReader[K, E](tx).OpenIterator()
-		validCount     int
+		iter, err      = WrapReader[K, E](tx).OpenIterator(IterOptions{
+			prefix: getWherePrefix(q),
+		})
+		validCount int
 	)
 	if err != nil {
 		return err

@@ -11,6 +11,7 @@ package schema
 
 import (
 	"fmt"
+	"github.com/synnaxlabs/x/validate"
 	"strings"
 
 	"github.com/cockroachdb/errors"
@@ -41,10 +42,10 @@ type ID struct {
 // Validate ensures that the given ID has both a Key and Type.
 func (id ID) Validate() error {
 	if id.Key == "" {
-		return errors.Newf("[resource] - key is required")
+		return errors.Wrapf(validate.Error, "[resource] - key is required")
 	}
 	if id.Type == "" {
-		return errors.Newf("[resource] - type is required")
+		return errors.Wrapf(validate.Error, "[resource] - type is required")
 	}
 	return nil
 }
@@ -59,7 +60,7 @@ func (id ID) IsZero() bool { return id.Key == "" && id.Type == "" }
 func ParseID(s string) (ID, error) {
 	split := strings.Split(s, ":")
 	if len(split) != 2 {
-		return ID{}, errors.Errorf("[ontology] - failed to parse id: %s", s)
+		return ID{}, errors.Wrapf(validate.Error, "[ontology] - failed to parse id: %s", s)
 	}
 	return ID{Type: Type(split[0]), Key: split[1]}, nil
 }

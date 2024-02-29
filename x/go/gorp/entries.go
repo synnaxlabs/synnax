@@ -143,9 +143,27 @@ func encodeKey[K Key](
 	prefix []byte,
 	key K,
 ) ([]byte, error) {
+	// if the key is already a byte slice, we can just append it to the prefix
+	if b, ok := any(key).([]byte); ok {
+		return append(prefix, b...), nil
+	}
 	byteKey, err := encoder.Encode(ctx, key)
 	if err != nil {
 		return nil, err
 	}
 	return append(prefix, byteKey...), nil
+}
+
+func decodeKey[K Key](
+	ctx context.Context,
+	decoder binary.Decoder,
+	prefix []byte,
+	b []byte,
+) (v K, err error) {
+	// if the key is a byte slice, we can just return it
+	if _, ok := any(v).([]byte); ok {
+		return any(b).(K), nil
+	}
+	return v, decoder.Decode(ctx, b[len(prefix):], &v)
+
 }

@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/query"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("set", func() {
@@ -28,13 +29,18 @@ var _ = Describe("set", func() {
 	})
 	Describe("Resources", func() {
 		Describe("Defining a Resource", func() {
-			It("Should define a resource by its Name", func() {
+			It("Should define a resource by its ID", func() {
 				Expect(w.DefineResource(ctx, id)).To(Succeed())
 				Expect(w.NewRetrieve().WhereIDs(id).Exec(ctx, tx)).To(Succeed())
 			})
 		})
+		It("Should define many resources by their names", func() {
+			ids := []ontology.ID{id, newEmptyID("bar")}
+			Expect(w.DefineManyResources(ctx, ids)).To(Succeed())
+			Expect(w.NewRetrieve().WhereIDs(ids...).Exec(ctx, tx)).To(Succeed())
+		})
 		Describe("Deleting a Resource", func() {
-			It("Should delete a resource by its Name", func() {
+			It("Should delete a resource by its ID", func() {
 				Expect(w.DefineResource(ctx, id)).To(Succeed())
 				Expect(w.DeleteResource(ctx, id)).To(Succeed())
 				err := w.NewRetrieve().WhereIDs(id).Exec(ctx, tx)
@@ -63,7 +69,7 @@ var _ = Describe("set", func() {
 			Expect(w.DeleteResource(ctx, idTwo)).To(Succeed())
 		})
 		Describe("Defining a Relationship", func() {
-			It("Should define a relationship by its Name", func() {
+			It("Should define a relationship by its ID", func() {
 				Expect(w.DefineRelationship(
 					ctx,
 					idOne,
@@ -80,7 +86,7 @@ var _ = Describe("set", func() {
 				Expect(res[0].ID).To(Equal(idTwo))
 			})
 			Context("Resources are not defined", func() {
-				It("Should return a query.NamesNotFound error", func() {
+				It("Should return a query.IDsNotFound error", func() {
 					err := w.DefineRelationship(
 						ctx,
 						idOne,
@@ -113,8 +119,45 @@ var _ = Describe("set", func() {
 					})
 			})
 		})
+		Describe("Defining a Relationship to Many Resources", func() {
+			It("Should define a relationship to many resources by their IDs", func() {
+				Expect(w.DefineFromOneToManyRelationships(
+					ctx,
+					idOne,
+					ontology.ParentOf,
+					[]ontology.ID{idTwo},
+				)).To(Succeed())
+				var res []ontology.Resource
+				Expect(w.NewRetrieve().
+					WhereIDs(idOne).
+					TraverseTo(ontology.Children).
+					Entries(&res).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(res).To(HaveLen(1))
+				Expect(res[0].ID).To(Equal(idTwo))
+			})
+			It("Should return an error if any of the resources are not defined", func() {
+				Expect(w.DefineFromOneToManyRelationships(
+					ctx,
+					idOne,
+					ontology.ParentOf,
+					[]ontology.ID{newEmptyID("42")},
+				)).To(HaveOccurredAs(query.NotFound))
+			})
+			It("Should return an error if a cyclic relationship is created", func() {
+				Expect(w.DefineRelationship(ctx, idOne, ontology.ParentOf, idTwo)).To(Succeed())
+				err := w.DefineFromOneToManyRelationships(
+					ctx,
+					idTwo,
+					ontology.ParentOf,
+					[]ontology.ID{idOne},
+				)
+				Expect(err).To(HaveOccurred())
+				Expect(errors.Is(err, ontology.ErrCycle)).To(BeTrue())
+			})
+		})
 		Describe("Deleting a Relationship", func() {
-			It("Should delete a relationship by its Name", func() {
+			It("Should delete a relationship by its ID", func() {
 				Expect(w.DefineRelationship(ctx, idOne, ontology.ParentOf, idTwo)).To(Succeed())
 				Expect(w.DeleteRelationship(ctx, idOne, ontology.ParentOf, idTwo)).To(Succeed())
 				var res []ontology.Resource
