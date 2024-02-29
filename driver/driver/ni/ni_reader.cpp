@@ -447,3 +447,5 @@ freighter::Error ni::niDaqWriter::formatData(synnax::Frame frame){
 //
 
 //}
+
+//
