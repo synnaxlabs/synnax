@@ -17,6 +17,7 @@
 #include <utility>
 #include <chrono>
 #include <stdio.h>
+#include <cassert>
 
 using json = nlohmann::json;
 using namespace ni;
@@ -248,7 +249,7 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::read(){
 
 niDaqWriter::niDaqWriter(TaskHandle taskHandle) : taskHandle(taskHandle) {}
 
-void niDaqWriter::init(json config) {
+void niDaqWriter::init(json config, synnax::ChannelKey ack_index_key) {
     std::vector<channel_config> channel_configs;
     auto channels = config["channels"];
     auto deviceName = config["device"].get<std::string>();
@@ -275,9 +276,15 @@ void niDaqWriter::init(json config) {
         ack_channel_keys.push_back(channel["ack_key"].get<uint32_t>());
     }
     init(channel_configs);
+    // set ack index channel keys
+    this->ack_index_key = ack_index_key;
+    assert(ack_index_key != 0);
+    assert(cmd_channel_keys.size() == ack_channel_keys.size());
+    assert(cmd_channel_keys.size() != 0);
+    assert(ack_channel_keys.size() != 0);
 }
 
-void init(std::vector <channel_config> channels){
+void ni::niDaqWriter::init(std::vector <channel_config> channels){
     this->channels = channels;
     for(auto &channel : channels){ // iterate through channels, check name and determine what tasks need to be created
         switch(channel.channelType){
@@ -333,9 +340,11 @@ std::pair <synnax::Frame, freighter::Error> ni::niDaqWriter::writeDigital(synnax
         printf("DAQmx Error: %s\n",errBuff);
     }
 
-    // deal with acknowledgements
+    // deal with acknowledgementsb
+    auto ack_frame = synnax::Frame(ack_queue.size() + 1);
+    auto timeSeries = synnax::Series(std::vector<uint64_t>{synnax::TimeStamp::now().value});
+    ack_frame.add(ack_index_key, timeSeries);
 
-    auto ack_frame = synnax::Frame(ack_queue.size());
     while(!ack_queue.empty()){
         auto ack_key = ack_queue.front();
         ack_frame.add(ack_key, synnax::Series(1));

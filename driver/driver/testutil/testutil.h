@@ -28,3 +28,22 @@ extern synnax::Synnax new_test_client();
 /// @brief creates a new random generator for a test suite, and
 /// outputs the seed to stdout for reproducibility.
 extern std::mt19937 random_generator(std::string suite_name);
+
+/// @brief adds a digital output channel to a json object passed by ref
+/// returns just the JSON of the channel constructed
+extern json add_DO_channel_JSON(&json config,
+                                std::string name,
+                                uint32_t cmd_key,
+                                uint32_t ack_key,
+                                uint32_t port,
+                                uint32_t line);
+
+/// @brief adds a  digital input channel to a json object passed by ref
+/// returns just the JSON of the channel constructed
+//extern void add_DI_channel_JSON(); // TODO: Implement and refactor tests to use (elham)
+
+
+/// @brief adds a analog input channel to a json object passed by ref
+/// returns just the JSON of the channel constructed
+//extern void add_AI_channel_JSON(); // TODO: Implement and refactor tests to use (elham)
+

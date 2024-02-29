@@ -28,3 +28,28 @@ std::mt19937 random_generator(std::string suite_name)
     std::uniform_real_distribution<double> dist(0, 1);
     return mt;
 }
+
+extern json add_DO_channel_JSON(&json config,
+                                std::string name,
+                                uint32_t cmd_key,
+                                uint32_t ack_key,
+                                uint32_t port,
+                                uint32_t line){
+
+    // first construct the json object for the channel
+    json channel;
+    channel["name"] = name;
+    channel["channel_key"] = cmd_key;
+    channel["ack_key"] = ack_key;
+    channel["channelType"] = ni::DIGITAL_OUT;
+    channel["port"] = port;
+    channel["line"] = line;
+
+    // now add json to the channels vector
+    // check if the channels array exists
+    if(config.find("channels") == config.end()){
+        config["channels"] = json::array();
+    }
+    config["channels"].push_back(channel);
+    return  channel;
+}

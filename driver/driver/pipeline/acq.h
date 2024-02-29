@@ -31,7 +31,7 @@ public:
 private:
     /// @brief threading.
 //    std::atomic<bool> running = std::atomic_bool(false);
-    bool running = false; // I might want to change this to atomic bool
+    bool running = false; // TODO: I might want to change this to atomic bool (elham)
 //    bool running;
     std::thread acq_thread;
 

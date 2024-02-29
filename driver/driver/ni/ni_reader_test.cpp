@@ -56,8 +56,6 @@ TEST(NiReaderTests, testReadandInitAnalog){
 }
 
 TEST(NiReaderTests, testReadandInitDigital){
-//TODO add asserts (elham)
-
     std::cout << "Test Read and Init Digital: " << std::endl;
     //create task
     TaskHandle taskHandle;

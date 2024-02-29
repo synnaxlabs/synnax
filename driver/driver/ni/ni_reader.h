@@ -71,7 +71,7 @@ namespace ni {
     public:
         niDaqWriter(TaskHandle taskHandle);
         void init(std::vector <channel_config> channels);
-        void init(json channels);
+        void init(json channels, synnax::ChannelKey ack_index_key);
         freighter::Error write(synnax::Frame frame);
         freighter::Error stop();
         freighter::Error start();
@@ -85,10 +85,11 @@ namespace ni {
         std::pair <synnax::Frame, freighter::Error> writeDigital(synnax::Frame frame);
         uInt32* writeBuffer; /// @brief pointer to heap allocated dataBuffer to provide to DAQmx read functions
         int bufferSize = 0; // size of the data buffer
-        int numSamplesPerChannel =0 ;
+        int numSamplesPerChannel = 0 ;
         std::vector <synnax::ChannelKey> ack_channel_keys;
         std::vector <synnax::ChannelKey> cmd_channel_keys;
         std::queue  <synnax::ChannelKey> ack_queue; // queue of ack channels to write to
+        synnax::ChannelKey ack_index_key;
     }
 
 }

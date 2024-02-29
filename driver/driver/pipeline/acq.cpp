@@ -66,7 +66,6 @@ void Acq::run() {
             retry = error.type == TYPE_TRANSIENT_HARDWARE_ERROR;
         }
 
-
         if (!writer.write(std::move(frame))) { // write frame to channel
 
             auto err = writer.error();
