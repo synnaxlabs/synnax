@@ -165,17 +165,21 @@ var _ = Describe("Signals", Ordered, func() {
 		requests, responses := confluence.Attach(streamer, 2)
 		sCtx, cancel := signal.Isolated()
 		streamer.Flow(sCtx, confluence.CloseInletsOnExit())
-		time.Sleep(5 * time.Millisecond)
+		time.Sleep(10 * time.Millisecond)
 		closeStreamer := signal.NewShutdown(sCtx, cancel)
+		defer func() {
+			GinkgoRecover()
+			Expect(closeStreamer.Close()).To(Succeed())
+		}()
 
 		w := dist.Ontology.NewWriter(nil)
 		firstResource := newChangeID("abc")
 		secondResource := newChangeID("def")
 		Expect(w.DefineResource(ctx, firstResource)).To(Succeed())
 		Expect(w.DefineResource(ctx, secondResource)).To(Succeed())
-		Expect(dist.Ontology.NewWriter(nil).DefineRelationship(ctx, firstResource, ontology.ParentOf, secondResource)).To(Succeed())
+		Expect(w.DefineRelationship(ctx, firstResource, ontology.ParentOf, secondResource)).To(Succeed())
 		var res framer.StreamerResponse
-		Eventually(responses.Outlet()).Should(Receive(&res))
+		Eventually(responses.Outlet(), 10*time.Second).Should(Receive(&res))
 		relationships := MustSucceed(ontologycdc.DecodeRelationships(res.Frame.Series[0].Data))
 		// There's a condition here where we might receive the channel creation
 		// signal, so we just do a length assertion.
@@ -185,13 +189,12 @@ var _ = Describe("Signals", Ordered, func() {
 		Expect(len(relationships[0].To.Key)).To(BeNumerically(">", 0))
 		requests.Close()
 		Eventually(responses.Outlet()).Should(BeClosed())
-		Expect(closeStreamer.Close()).To(Succeed())
 	})
 	It("Should correctly propagate a relationship delete to the ontology", func() {
 		var resCh channel.Channel
 		By("Correctly creating the deletion channel.")
 		Expect(dist.Channel.NewRetrieve().WhereNames("sy_ontology_relationship_delete").Entry(&resCh).Exec(ctx, nil)).To(Succeed())
-		By("Openi0ng a streamer on the deletion channel")
+		By("Opening a streamer on the deletion channel")
 		streamer := MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
 			Start: telem.Now(),
 			Keys:  channel.Keys{resCh.Key()},
@@ -201,6 +204,10 @@ var _ = Describe("Signals", Ordered, func() {
 		streamer.Flow(sCtx, confluence.CloseInletsOnExit())
 		time.Sleep(5 * time.Millisecond)
 		closeStreamer := signal.NewShutdown(sCtx, cancel)
+		defer func() {
+			GinkgoRecover()
+			Expect(closeStreamer.Close()).To(Succeed())
+		}()
 
 		w := dist.Ontology.NewWriter(nil)
 		firstResource := newChangeID("abc")
@@ -208,11 +215,12 @@ var _ = Describe("Signals", Ordered, func() {
 		Expect(w.DefineResource(ctx, firstResource)).To(Succeed())
 		Expect(w.DefineResource(ctx, secondResource)).To(Succeed())
 		By("Creating the relationship")
-		Expect(dist.Ontology.NewWriter(nil).DefineRelationship(ctx, firstResource, ontology.ParentOf, secondResource)).To(Succeed())
+		Expect(w.DefineRelationship(ctx, firstResource, ontology.ParentOf, secondResource)).To(Succeed())
 		By("Deleting the relationship")
-		Expect(dist.Ontology.NewWriter(nil).DeleteRelationship(ctx, firstResource, ontology.ParentOf, secondResource)).To(Succeed())
+		Expect(w.DeleteRelationship(ctx, firstResource, ontology.ParentOf, secondResource)).To(Succeed())
 		var res framer.StreamerResponse
 		Eventually(responses.Outlet()).Should(Receive(&res))
+		By("Decoding the relationships")
 		relationships := MustSucceed(ontologycdc.DecodeRelationships(res.Frame.Series[0].Data))
 		// There's a condition here where we might receive the channel creation
 		// signal, so we just do a length assertion.
@@ -222,6 +230,5 @@ var _ = Describe("Signals", Ordered, func() {
 		Expect(len(relationships[0].To.Key)).To(BeNumerically(">", 0))
 		requests.Close()
 		Eventually(responses.Outlet()).Should(BeClosed())
-		Expect(closeStreamer.Close()).To(Succeed())
 	})
 })

@@ -50,12 +50,12 @@ func Propagate(
 	if err != nil {
 		return nil, err
 	}
-	relationshipObserver := observe.Translator[gorp.TxReader[string, ontology.Relationship], []change.Change[[]byte, struct{}]]{
+	relationshipObserver := observe.Translator[gorp.TxReader[[]byte, ontology.Relationship], []change.Change[[]byte, struct{}]]{
 		Observable: otg.RelationshipObserver,
-		Translate: func(nexter gorp.TxReader[string, ontology.Relationship]) []change.Change[[]byte, struct{}] {
-			return iter.MapToSlice(ctx, nexter, func(ch change.Change[string, ontology.Relationship]) change.Change[[]byte, struct{}] {
+		Translate: func(nexter gorp.TxReader[[]byte, ontology.Relationship]) []change.Change[[]byte, struct{}] {
+			return iter.MapToSlice(ctx, nexter, func(ch change.Change[[]byte, ontology.Relationship]) change.Change[[]byte, struct{}] {
 				return change.Change[[]byte, struct{}]{
-					Key:     append([]byte(ch.Key), '\n'),
+					Key:     append(ch.Key, '\n'),
 					Variant: ch.Variant,
 				}
 			})
@@ -89,13 +89,15 @@ func DecodeRelationships(ser []byte) ([]ontology.Relationship, error) {
 	)
 	for _, b := range ser {
 		if b == '\n' {
-			relationship, err := ontology.ParseRelationship(buf.String())
+			relationship, err := ontology.ParseRelationship(buf.Bytes())
 			if err != nil {
 				return nil, err
 			}
 			relationships = append(relationships, relationship)
 			buf.Reset()
 			continue
+		} else {
+
 		}
 		buf.WriteByte(b)
 	}

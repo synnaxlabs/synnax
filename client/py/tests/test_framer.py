@@ -58,8 +58,8 @@ class TestWriter:
 @pytest.mark.framer
 class TestStreamer:
     def test_basic_stream(self, channel: sy.Channel, client: sy.Synnax):
-        with client.new_writer(sy.TimeStamp.now(), channel.key) as w:
-            with client.new_streamer(channel.key) as s:
+        with client.new_streamer(channel.key) as s:
+            with client.new_writer(sy.TimeStamp.now(), channel.key) as w:
                 data = np.random.rand(10).astype(np.float64)
                 w.write(pd.DataFrame({channel.key: data}))
                 frame = s.read()
