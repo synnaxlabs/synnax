@@ -1,14 +1,11 @@
 ---
+import Header from "@/components/Header.astro"
 import { PageNav } from "@/components/PageNav";
 import "@synnaxlabs/pluto/dist/style.css";
 import "@synnaxlabs/media/dist/style.css";
 import { ViewTransitions } from "astro:transitions";
-import { Logo } from "@synnaxlabs/media";
 import { TableOfContents } from "@/components/TableOfContents";
 import { SEO } from "astro-seo";
-import { Align } from "@synnaxlabs/pluto/align";
-import { Icon } from "@synnaxlabs/media";
-import { Search } from "@/components/Search";
 const {
   headings,
   frontmatter: { title, heading, description },
@@ -47,38 +44,19 @@ const {
     />
     <ViewTransitions />
   </head>
-  <header class="pluto--bordered-bottom">
-    <Align.Space
-      className="header-content"
-      direction="x"
-      justify="spaceBetween"
-      align="center"
-    >
-      <a href="/">
-        <Logo style={{ height: "5rem" }} variant="title" />
-      </a>
-      <Search client:only="react" />
-      <Align.Space direction="x" align="center">
-        <p class="version" transition:persist></p>
-        <a href="https://github.com/synnaxlabs/synnax">
-          <Icon.Logo.Github
-            style={{ height: "3rem", width: "3rem" }}
-            fill="var(--pluto-text-color)"
-          />
-        </a>
-      </Align.Space>
-    </Align.Space>
-  </header>
+  <Header />
   <section>
     <nav class="docs-nav">
       <PageNav client:idle currentPage={Astro.url.pathname} />
     </nav>
-    <article transition:animate="fade">
-      <h1 class="article-title">{heading ?? title}</h1>
-      <h3 class="article-description">{description}</h3>
-      <slot />
-    </article>
-    <nav class="docs-toc pluto--bordered-left">
+    <main>
+      <article transition:animate="fade">
+        <h1 class="article-title">{heading ?? title}</h1>
+        <h3 class="article-description">{description}</h3>
+        <slot />
+      </article>
+    </main>
+    <nav class="docs-toc">
       <TableOfContents client:idle headings={headings} />
     </nav>
   </section>
@@ -97,6 +75,13 @@ const {
   <style is:global>
     .pluto-tabs-selector__button p {
       margin: 0;
+    }
+
+    html {
+      --pluto-gray-n1: white;
+      @media (prefers-color-scheme: dark) {
+        --pluto-gray-n1: var(--pluto-gray-l1);
+      }
     }
 
     .chip {
@@ -456,10 +441,6 @@ const {
       margin-top: 1px;
     }
 
-    .pluto-pack {
-      border: none !important;
-    }
-
     code {
       border-radius: var(--pluto-border-radius);
     }
@@ -473,13 +454,19 @@ const {
     table > :not(caption) > * > * {
       position: relative;
       border-width: 0 1px;
-      border-color: var(--pluto-border-color);
-      border-style: solid;
+      /* border-color: var(--pluto-border-color); */
+      /* border-style: solid; */
       padding: 1.25rem 1.5rem;
     }
 
     table td {
-      font-size: var(--pluto-small-size);
+      font-size: 2rem;
+      line-height: 3rem;
+      vertical-align: baseline;
+    }
+
+    table tr {
+      border-bottom: var(--pluto-border);
     }
 
     table thead th {
@@ -488,10 +475,12 @@ const {
     }
 
     table thead tr {
+      border: none;
       border-width: 2px;
     }
 
     table th {
+      border-bottom: var(--pluto-border);
       text-align: start;
     }
 
@@ -502,12 +491,12 @@ const {
       border-collapse: collapse;
       overflow-x: auto;
       border-style: hidden;
-      border-radius: var(--pluto-border-radius);
-      box-shadow: 0 0 0 1px var(--pluto-border-color);
+      /* border-radius: var(--pluto-border-radius); */
+      /* box-shadow: 0 0 0 1px var(--pluto-border-color); */
     }
   </style>
 
-  <style>
+  <style is:global>
     :root {
       --max-width: 1500px;
     }
@@ -576,7 +565,17 @@ const {
     }
 
     .docs-nav {
-      border-right: var(--pluto-border);
+      & .pluto-tabs-selector__btn {
+        & p {
+          font-weight: 450 !important;
+        }
+      }
+
+      & .tree {
+        padding-top: 3rem;
+        overflow-y: auto;
+        max-height: 800px;
+      }
     }
 
     @media (max-width: 700px) {
@@ -597,26 +596,32 @@ const {
     section {
       display: flex;
       flex-wrap: nowrap;
-      flex-grow: 9999;
-      flex-basis: 0;
-      height: calc(100% - 10rem);
+      height: calc(100vh - 10rem);
+      overflow-y: auto;
+      width: 100vw;
+      flex-direction: row;
+      justify-content: center;
     }
 
-    nav:first-child {
+    nav:first-child {f
       flex-basis: 210px;
     }
 
     nav {
-      padding: 3rem 0;
+      position: sticky;
+      top: 0px;
+      padding-top: 5rem;
       flex-basis: 210px;
-      overflow-y: auto;
     }
 
     article {
       flex-basis: 0;
       flex-grow: 9999;
       padding: 5rem 8rem;
-      overflow-y: auto;
+      max-width: 800px;
+      &:last-child {
+        marging-bottom: 20rem;
+      }
     }
   </style>
 </html>

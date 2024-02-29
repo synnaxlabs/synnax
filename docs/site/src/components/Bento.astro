@@ -1,0 +1,35 @@
+---
+import { CSS, Align } from "@synnaxlabs/pluto";
+
+const { className, ...props }: Align.SpaceProps = Astro.props;
+---
+
+<Align.Space className={CSS(className, "bento")} {...props}>
+  <slot />
+</Align.Space>
+
+<style>
+  .bento {
+    border: var(--pluto-border);
+    border-radius: 2rem;
+    background: var(--pluto-gray-n1);
+    padding: 5rem;
+    text-decoration: none !important;
+    transition: border-color 0.2s ease;
+
+    --grad-end: var(--pluto-gray-l3-30);
+    @media (prefers-color-scheme: dark) {
+      --grad-end: var(--pluto-gray-l3-40);
+    }
+    background-image: linear-gradient(
+      190deg,
+      var(--pluto-gray-n1) 0%,
+      var(--pluto-gray-n1) 40%,
+      var(--grad-end) 100%
+    );
+
+    &:hover {
+      border-color: var(--pluto-primary-z);
+    }
+  }
+</style>

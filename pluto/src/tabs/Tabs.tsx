@@ -12,7 +12,6 @@ import React, {
   type ReactElement,
   type ReactNode,
   useContext,
-  useState,
   useCallback,
 } from "react";
 
@@ -20,6 +19,8 @@ import { direction } from "@synnaxlabs/x";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
+import { useSyncedRef } from "@/hooks";
+import { state } from "@/state";
 import { type TabSpec, Selector } from "@/tabs/Selector";
 import { type ComponentSize } from "@/util/component";
 import { type RenderProp } from "@/util/renderProp";
@@ -34,6 +35,7 @@ export interface UseStaticTabsProps {
   tabs: Tab[];
   content?: TabRenderProp;
   onSelect?: (key: string) => void;
+  selected?: string;
 }
 
 export const resetSelection = (selected = "", tabs: Tab[] = []): string | undefined => {
@@ -54,21 +56,27 @@ export const rename = (key: string, title: string, tabs: Tab[]): Tab[] => {
 export const useStatic = ({
   tabs,
   content,
+  selected,
   onSelect,
 }: UseStaticTabsProps): TabsContextValue => {
-  const [selected, setSelected] = useState(tabs[0]?.tabKey ?? "");
+  const [value, onChange] = state.usePurePassthrough({
+    initial: tabs[0]?.tabKey ?? "",
+    value: selected,
+    onChange: onSelect,
+  });
+  const valueRef = useSyncedRef(selected ?? value);
 
   const handleSelect = useCallback(
     (key: string): void => {
-      setSelected(key);
-      onSelect?.(key);
+      onChange(key);
+      if (valueRef.current == null) onSelect?.(key);
     },
-    [setSelected, onSelect],
+    [value, onSelect],
   );
 
   return {
     tabs,
-    selected,
+    selected: value,
     content,
     onSelect: handleSelect,
   };

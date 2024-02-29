@@ -9,28 +9,28 @@
 
 import { type PageNavNode } from "@/components/PageNav";
 
-export const deploymentNav: PageNavNode = {
-  key: "deployment",
-  name: "Deployment",
+export const clusterNav: PageNavNode = {
+  key: "cluster",
+  name: "Cluster",
   children: [
     {
-      key: "/deployment/get-started",
-      href: "/deployment/get-started",
-      name: "Get Started",
+      key: "/components/cluster/quick-start",
+      href: "/components/cluster/quick-start",
+      name: "Quick Start",
     },
     {
-      key: "/deployment/requirements",
-      href: "/deployment/requirements",
+      key: "/components/cluster/requirements",
+      href: "/components/cluster/requirements",
       name: "Requirements",
     },
     {
-      key: "/deployment/cli-reference",
-      href: "/deployment/cli-reference",
+      key: "/components/cluster/cli-reference",
+      href: "/components/cluster/cli-reference",
       name: "CLI Reference",
     },
     {
-      key: "/deployment/systemd-service",
-      href: "/deployment/systemd-service",
+      key: "/components/cluster/systemd-service",
+      href: "/components/cluster/systemd-service",
       name: "Systemd Service",
     },
   ],
