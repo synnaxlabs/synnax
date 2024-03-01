@@ -20,7 +20,9 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 		//indexKey core.ChannelKey = 3
 		pth = "./tests/garbage_test"
 	)
-
+	AfterEach(func() {
+		Expect(fs.Default.Remove(pth))
+	})
 	Describe("Garbage Collect after deletion", func() {
 		It("Should Garbage Collect when called", func() {
 			rateDB = MustSucceed(unary.Open(unary.Config{
@@ -47,7 +49,15 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 				End:   75 * telem.SecondTS,
 			})).To(Succeed())
 
+			fi, err := rateDB.FS.Stat("1.domain")
+			Expect(err).To(BeNil())
+			Expect(fi.Size()).To(Equal(int64(720)))
+
 			Expect(rateDB.Domain.CollectTombstone(ctx, 1000)).To(Succeed())
+
+			fi, err = rateDB.FS.Stat("1.domain")
+			Expect(err).To(BeNil())
+			Expect(fi.Size()).To(Equal(int64(384)))
 
 			By("Reading data from the channel")
 			frame, err := rateDB.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 100 * telem.SecondTS})

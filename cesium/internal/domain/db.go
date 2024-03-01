@@ -293,16 +293,16 @@ func (db *DB) CollectTombstone(ctx context.Context, maxSizeRead uint32) error {
 			pointerPtr += 1
 		}
 
+		err = db.files.removeReadersWriters(ctx, fileKey)
+		if err != nil {
+			return err
+		}
+
 		err = db.FS.Remove(strconv.Itoa(int(fileKey)) + ".domain")
 		if err != nil {
 			return err
 		}
 		err = db.FS.Rename(strconv.Itoa(int(fileKey))+"_temp.domain", strconv.Itoa(int(fileKey))+".domain")
-		if err != nil {
-			return err
-		}
-
-		err = db.files.removeFile(fileKey)
 		if err != nil {
 			return err
 		}
