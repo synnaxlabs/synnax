@@ -71,7 +71,7 @@ func (s *subFS) Rename(oldName string, newName string) error {
 }
 
 func (s *subFS) Stat(name string) (os.FileInfo, error) {
-	return os.Stat(path.Join(s.dir, name))
+	return s.FS.Stat(path.Join(s.dir, name))
 }
 
 type defaultFS struct {
