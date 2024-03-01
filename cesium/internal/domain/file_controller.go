@@ -157,8 +157,15 @@ func (fc *fileController) acquireReader(ctx context.Context, key uint16) (xio.Re
 		return fc.newReader(ctx, key)
 	}
 
-	fc.gcReaders()
+	ok, err := fc.gcReaders()
+	if err != nil {
+		return nil, err
+	}
 	fc.readers.RUnlock()
+	if ok {
+		return fc.acquireReader(ctx, key)
+	}
+	<-fc.readers.release
 	return fc.acquireReader(ctx, key)
 }
 
