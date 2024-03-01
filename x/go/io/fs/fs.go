@@ -38,6 +38,7 @@ type FS interface {
 	Exists(pth string) (bool, error)
 	Remove(pth string) error
 	Rename(pth string, newPth string) error
+	Stat(pth string) (os.FileInfo, error)
 }
 
 type subFS struct {
@@ -67,6 +68,10 @@ func (s *subFS) Remove(name string) error {
 
 func (s *subFS) Rename(oldName string, newName string) error {
 	return s.FS.Rename(path.Join(s.dir, oldName), path.Join(s.dir, newName))
+}
+
+func (s *subFS) Stat(name string) (os.FileInfo, error) {
+	return os.Stat(path.Join(s.dir, name))
 }
 
 type defaultFS struct {
@@ -118,6 +123,10 @@ func (d *defaultFS) Remove(pth string) error {
 
 func (d *defaultFS) Rename(pth string, newPth string) error {
 	return os.Rename(pth, newPth)
+}
+
+func (d *defaultFS) Stat(pth string) (os.FileInfo, error) {
+	return os.Stat(pth)
 }
 
 func NewMem() FS {
@@ -204,4 +213,8 @@ func (m *memFS) Remove(pth string) error {
 
 func (m *memFS) Rename(pth string, newPth string) error {
 	return m.FS.Rename(pth, newPth)
+}
+
+func (m *memFS) Stat(pth string) (os.FileInfo, error) {
+	return m.FS.Stat(pth)
 }
