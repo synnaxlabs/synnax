@@ -33,6 +33,7 @@ cc_library(
         "//driver/breaker:breaker",
         "//driver/pipeline:acqReader",
         "//driver/modules:module",
+        "@synnax//synnax/testutil",
     ],
     copts = ["/std:c++17"],
     linkopts = ['user32.lib'],
@@ -66,6 +67,21 @@ cc_test(
         "@com_google_googletest//:gtest_main",
         "daqmx_hds",
         "syscfg_hds",
+    ],
+    copts = ["/std:c++17"],
+)
+
+cc_test(
+    name = "ni_writer_test",
+    srcs = [
+        "ni_writer_test.cpp",
+    ],
+    deps= [
+        "ni",
+        "@com_google_googletest//:gtest_main",
+        "daqmx_hds",
+        "syscfg_hds",
+        "//driver/testutil",
     ],
     copts = ["/std:c++17"],
 )

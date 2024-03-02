@@ -14,6 +14,7 @@
 #include "synnax/synnax.h"
 #include "driver/testutil/testutil.h"
 
+
 synnax::Synnax new_test_client()
 {
     return synnax::Synnax(test_client_config);
@@ -29,19 +30,19 @@ std::mt19937 random_generator(std::string suite_name)
     return mt;
 }
 
-extern json add_DO_channel_JSON(&json config,
+json add_DO_channel_JSON(json &config,
                                 std::string name,
-                                uint32_t cmd_key,
-                                uint32_t ack_key,
-                                uint32_t port,
-                                uint32_t line){
+                                int cmd_key,
+                                int ack_key,
+                                int port,
+                                int line){
 
     // first construct the json object for the channel
     json channel;
     channel["name"] = name;
-    channel["channel_key"] = cmd_key;
+    channel["cmd_key"] = cmd_key;
     channel["ack_key"] = ack_key;
-    channel["channelType"] = ni::DIGITAL_OUT;
+    channel["type"] = "digitalOutput";
     channel["port"] = port;
     channel["line"] = line;
 

@@ -22,9 +22,10 @@ namespace daq
 
     class daqWriter{
     public:
-        virtual freighter::Error write(synnax::Frame frame) = 0;
+        virtual std::pair<synnax::Frame, freighter::Error> write(synnax::Frame frame) = 0;
         virtual freighter::Error start() = 0;
         virtual freighter::Error stop() = 0;
+        virtual freighter::Error configure(synnax::Module config) = 0; // TODO: remove?
         // other members
         // a structure to store errors?
     };

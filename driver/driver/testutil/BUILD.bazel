@@ -3,6 +3,8 @@ cc_library(
     srcs = ["testutil.cpp"],
     hdrs = ["testutil.h"],
     visibility = ["//visibility:public"],
-    deps = ["@synnax//synnax"],
+    deps = ["@synnax//synnax",
+            "@nlohmann_json//:json"
+            ],
     copts = ["/std:c++17"]
 )

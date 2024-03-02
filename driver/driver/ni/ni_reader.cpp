@@ -250,6 +250,8 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::read(){
 niDaqWriter::niDaqWriter(TaskHandle taskHandle) : taskHandle(taskHandle) {}
 
 void niDaqWriter::init(json config, synnax::ChannelKey ack_index_key) {
+    std::cout << "Init NiDaqWriter with json" << std::endl;
+    //print json
     std::vector<channel_config> channel_configs;
     auto channels = config["channels"];
     auto deviceName = config["device"].get<std::string>();
@@ -257,7 +259,6 @@ void niDaqWriter::init(json config, synnax::ChannelKey ack_index_key) {
         channel_config config;
 
         std::string name = channel["name"].get<std::string>();
-        channelNames.emplace_back(name);
 
         auto type = channel["type"].get<std::string>();
         std::string portName =  (type == "digitalOutput") ? "port" : "";
@@ -285,6 +286,7 @@ void niDaqWriter::init(json config, synnax::ChannelKey ack_index_key) {
 }
 
 void ni::niDaqWriter::init(std::vector <channel_config> channels){
+    std::cout << "Init NiDaqWriter" << std::endl;
     this->channels = channels;
     for(auto &channel : channels){ // iterate through channels, check name and determine what tasks need to be created
         switch(channel.channelType){
@@ -304,28 +306,34 @@ freighter::Error ni::niDaqWriter::configure(synnax::Module config){
 }
 
 freighter::Error ni::niDaqWriter::start(){
+    std::cout << "Start NiDaqWriter" << std::endl;
     DAQmxStartTask(taskHandle);
     return freighter::NIL;
 }
 
 freighter::Error ni::niDaqWriter::stop(){
+    std::cout << "Stop NiDaqWriter" << std::endl;
     int daqmx_err = DAQmxStopTask(taskHandle);
     daqmx_err = DAQmxClearTask(taskHandle);
     delete[] writeBuffer;
     return freighter::NIL;
 }
 
-freighter::Error ni::niDaqWriter::write(synnax::Frame frame){ // TODO: should this function get a Frame or a bit vector of setpoints instead?
+std::pair <synnax::Frame, freighter::Error> ni::niDaqWriter::write(synnax::Frame frame){ // TODO: should this function get a Frame or a bit vector of setpoints instead?
+    std::cout << "Write NiDaqWriter" << std::endl;
     if(taskType == DIGITAL_WRITER){
-        return writeDigital(frame);
+        return writeDigital(std::move(frame));
+    }else{
+        return {synnax::Frame(0), freighter::NIL};
     }
-    return freighter::NIL;
 }
 
 std::pair <synnax::Frame, freighter::Error> ni::niDaqWriter::writeDigital(synnax::Frame frame){
+    std::cout << "Write Digital NiDaqWriter" << std::endl;
     char errBuff[2048] = {'\0'};
     signed long samplesWritten = 0;
-    formatData(frame);
+    formatData(std::move(frame));
+    std::cout << "Writing to digital lines" << std::endl;
     auto err = DAQmxWriteDigitalLines(taskHandle,
                                         1, // number of samples per channel
                                         1, // auto start
@@ -342,12 +350,12 @@ std::pair <synnax::Frame, freighter::Error> ni::niDaqWriter::writeDigital(synnax
 
     // deal with acknowledgementsb
     auto ack_frame = synnax::Frame(ack_queue.size() + 1);
-    auto timeSeries = synnax::Series(std::vector<uint64_t>{synnax::TimeStamp::now().value});
-    ack_frame.add(ack_index_key, timeSeries);
+
+    ack_frame.add(ack_index_key, synnax::Series(std::vector<uint64_t>{synnax::TimeStamp::now().value}));
 
     while(!ack_queue.empty()){
         auto ack_key = ack_queue.front();
-        ack_frame.add(ack_key, synnax::Series(1));
+        ack_frame.add(ack_key, synnax::Series(std::vector<int64_t>{1}));
         ack_queue.pop();
     }
 
@@ -355,16 +363,29 @@ std::pair <synnax::Frame, freighter::Error> ni::niDaqWriter::writeDigital(synnax
 }
 
 freighter::Error ni::niDaqWriter::formatData(synnax::Frame frame){
-    uint32_t i = 0;
-    for (auto key : cmd_channel_keys){ // the order the keys are in is the order the data is written
-        auto it = keys.find(key);
-        if (it != keys.end()){
-            uint32_t index = std::distance(keys.begin(), it);
-            auto series = (*frame.series)[index];
-            memcpy(writeBuffer + i, series.data.uint8(), sizeof(uint8_t)); //TODO make sure this works
-            i++;
+    std::cout << "Format Data NiDaqWriter" << std::endl;
+    uint32_t frame_index = 0;
+    uint32_t cmd_channel_index = 0;
+    for (auto key : *(frame.columns)){ // the order the keys are in is the order the data is written
+        std::cout << "Key: " << key << std::endl;
+        auto it = std::find(cmd_channel_keys.begin(), cmd_channel_keys.end(), key);
+        if (it != cmd_channel_keys.end()){
+            cmd_channel_index = std::distance(cmd_channel_keys.begin(), it) ;
+            std::cout << "frame index: " << frame_index << std::endl;
+            std::cout << "getting interested series" << std::endl;
+            std::cout << "size of series vector in frame: " << frame.series->size() << std::endl;
+            auto &series = (*frame.series)[0];
+            // print datatype of series
+            std::cout << "series type: " << series.data_type.name() << std::endl;
+            std::cout << "writing to buffer" << std::endl;
+//            std::cout << "value to write: " << series.uint8() << std::endl;
+            writeBuffer[cmd_channel_index] = series.uint8()[0];
+//            memcpy(writeBuffer + numChannel, series.uint8(), sizeof(uint8_t)); //TODO make sure this works
+            std::cout << "ack key: " << ack_channel_keys[cmd_channel_index] << std::endl;
+            std::cout << "pushing ack key to queue" << std::endl;
+            ack_queue.push(ack_channel_keys[cmd_channel_index]);
         }
-        ack_queue.push(ack_channel_keys[i]);
+        frame_index++;
     }
     return freighter::NIL;
 }

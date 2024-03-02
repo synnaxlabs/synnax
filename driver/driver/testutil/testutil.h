@@ -11,9 +11,12 @@
 
 /// std
 #include <random>
-
+#include <string>
+#include "nlohmann/json.hpp"
 //// internal
 #include "synnax/synnax.h"
+
+using json = nlohmann::json;
 
 const synnax::Config test_client_config = {
     "localhost",
@@ -31,12 +34,12 @@ extern std::mt19937 random_generator(std::string suite_name);
 
 /// @brief adds a digital output channel to a json object passed by ref
 /// returns just the JSON of the channel constructed
-extern json add_DO_channel_JSON(&json config,
+json add_DO_channel_JSON(json &config,
                                 std::string name,
-                                uint32_t cmd_key,
-                                uint32_t ack_key,
-                                uint32_t port,
-                                uint32_t line);
+                                int cmd_key,
+                                int ack_key,
+                                int port,
+                                int line);
 
 /// @brief adds a  digital input channel to a json object passed by ref
 /// returns just the JSON of the channel constructed
