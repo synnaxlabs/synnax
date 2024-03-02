@@ -42,33 +42,36 @@ TEST(NiWriterTests, testDigitalWriteLine){
     writer.start();
 
     std::cout << "Write digital" << std::endl;
-
     // create a synnax frame with a command
-    // get the current time
     auto now = (synnax::TimeStamp::now()).value;
     auto frame = synnax::Frame(2);
+
     frame.add(cmd_index_key, synnax::Series(std::vector<uint64_t>{now}));
-    auto &series = std::move(synnax::Series(std::vector<uint64_t>{1}));
-    //check type of series
-    std::cout << "Series type: " << series.data_type.name() << std::endl;
-    frame.add(cmd_key, std::move(series));
-
-
+    frame.add(cmd_key, synnax::Series(std::vector<uint8_t>{1}));
 
     // write the frame
     auto [f, err] = writer.writeDigital(std::move(frame));
 
     // check if acknowledgement is correct
-
     std::cout << "Check Acknowledgement" << std::endl;
-
-    auto ack = f.series->at(0).uint8();
-
+    auto ack = f.series->at(1).uint8();
     ASSERT_TRUE( ack[0] == 1);
 
+    now = (synnax::TimeStamp::now()).value;
+    frame = synnax::Frame(2);
+
+    frame.add(cmd_index_key, synnax::Series(std::vector<uint64_t>{now}));
+    frame.add(cmd_key, synnax::Series(std::vector<uint8_t>{0}));
+    auto [f1, err1] = writer.writeDigital(std::move(frame));
+
+    // check if acknowledgement is correct
+    std::cout << "Check Acknowledgement" << std::endl;
+    auto ack1 = f1.series->at(1).uint8();
+    ASSERT_TRUE( ack1[0] == 1);
 }
 
-//TEST(NiWriterTests, testDigitalWriteMultipleLinesOnePort)
+TEST(NiWriterTests, testDigitalWriteMultipleLinesOnePort){
 
+}
 //TEST(NiWriterTests, testDigitalWriteMultipleLinesMultiplePorts)
 
