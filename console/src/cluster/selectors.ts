@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type LocalClusterState, type Cluster } from "@/cluster/core";
+import { type LocalCommand, type Cluster, type LocalState } from "@/cluster/core";
 import { type SliceState, type StoreState, SLICE_NAME } from "@/cluster/slice";
 import { selectByKey, selectByKeys, useMemoSelect } from "@/hooks";
 
@@ -72,8 +72,8 @@ export const selectMany = (s: StoreState, keys?: string[]): Cluster[] =>
 export const useSelectMany = (keys?: string[]): Cluster[] =>
   useMemoSelect((s: StoreState) => selectMany(s, keys), [keys]);
 
-export const selectLocalState = (state: StoreState): LocalClusterState =>
+export const selectLocalState = (state: StoreState): LocalState =>
   state[SLICE_NAME].localState;
 
-export const useSelectLocalState = (): LocalClusterState =>
+export const useSelectLocalState = (): LocalState =>
   useMemoSelect((s: StoreState) => selectLocalState(s), []);

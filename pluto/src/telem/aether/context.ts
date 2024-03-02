@@ -17,6 +17,7 @@ import { type Factory } from "./factory";
 import { type Spec } from "./telem";
 
 export interface Provider {
+  clusterKey: string;
   key: string;
   equals: (other: Provider) => boolean;
   registerFactory: (f: Factory) => void;
@@ -34,28 +35,17 @@ export const setProvider = (ctx: aether.Context, prov: Provider): void =>
 export const registerFactory = (ctx: aether.Context, f: Factory): void =>
   useProvider(ctx).registerFactory(f);
 
-export const shouldUpdate = (
-  ctx: aether.Context,
-  prevProv: Provider,
-  spec: Spec,
-  prevSpec: Spec,
-): boolean => {
-  const nextProv = useProvider(ctx);
-  if (prevProv.key !== nextProv.key) return true;
-  if (prevProv.equals(nextProv)) return false;
-  if (deep.equal(spec, prevSpec)) return false;
-  return true;
-};
-
 class MemoizedSource<V> implements telem.Source<V> {
   private readonly spec: Spec;
   private readonly prov: Provider;
   private readonly wrapped: telem.Source<V>;
+  private readonly prevKey: string;
 
   constructor(wrapped: telem.Source<V>, prevProv: Provider, prevSpec: Spec) {
     this.wrapped = wrapped;
     this.spec = prevSpec;
     this.prov = prevProv;
+    this.prevKey = prevProv.clusterKey;
   }
 
   async value(): Promise<V> {
@@ -71,19 +61,21 @@ class MemoizedSource<V> implements telem.Source<V> {
   }
 
   shouldUpdate(prov: Provider, spec: Spec): boolean {
-    return !this.prov.equals(prov) || !deep.equal(this.spec, spec);
+    return this.prevKey !== prov.clusterKey || !deep.equal(this.spec, spec);
   }
 }
 
 class MemoizedSink<V> implements telem.Sink<V> {
   private readonly spec: Spec;
   private readonly prov: Provider;
+  private readonly prevKey: string;
   private readonly wrapped: telem.Sink<V>;
 
   constructor(wrapped: telem.Sink<V>, prevProv: Provider, prevSpec: Spec) {
     this.wrapped = wrapped;
     this.spec = prevSpec;
     this.prov = prevProv;
+    this.prevKey = prevProv.clusterKey;
   }
 
   async set(value: V): Promise<void> {
@@ -95,7 +87,7 @@ class MemoizedSink<V> implements telem.Sink<V> {
   }
 
   shouldUpdate(prov: Provider, spec: Spec): boolean {
-    return !this.prov.equals(prov) || !deep.equal(this.spec, spec);
+    return this.prevKey !== prov.clusterKey || !deep.equal(this.spec, spec);
   }
 }
 

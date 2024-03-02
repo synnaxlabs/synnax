@@ -18,6 +18,7 @@ import { debounce, deep, type UnknownRecord } from "@synnaxlabs/x";
 import { getVersion } from "@tauri-apps/api/app";
 import { appWindow } from "@tauri-apps/api/window";
 
+import { Cluster } from "@/cluster";
 import { TauriKV } from "@/persist/kv";
 import { type Version } from "@/version";
 
@@ -65,5 +66,7 @@ const reconcileVersions = async <S extends RequiredState>(
 ): Promise<S | undefined> => {
   const storedVersion = state.version.version;
   const tauriVersion = await getVersion();
-  return storedVersion === tauriVersion ? state : undefined;
+  if (storedVersion !== tauriVersion) return undefined;
+  state.cluster.localState.status = "stopped";
+  return state;
 };

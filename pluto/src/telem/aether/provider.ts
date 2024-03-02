@@ -49,12 +49,17 @@ export class BaseProvider
     return telem as T;
   }
 
+  get clusterKey(): string {
+    return this.client.key;
+  }
+
   registerFactory(f: telem.Factory): void {
     this.factory.add(f);
   }
 
   equals(other: telem.Provider): boolean {
     if (!(other instanceof BaseProvider)) return false;
+    console.log(this.client.key, other.client.key);
     return this.client._client === other.client._client;
   }
 
@@ -65,6 +70,8 @@ export class BaseProvider
     if (client_ != null) {
       I.L.info("swapping client", { client: client_ });
       this.client.swap(new client.Core(client_, this.internal.instrumentation));
+    } else {
+      this.client.swap(null);
     }
     return telem.setProvider(this.ctx, this);
   }

@@ -20,16 +20,14 @@ export interface Cluster {
   props: SynnaxProps;
 }
 
+export type LocalCommand = "start" | "stop";
+export type LocalStatus = "starting" | "running" | "stopping" | "stopped";
+
 /** Represents the state of the locally running Synnax cluster */
-export interface LocalClusterState {
+export interface LocalState {
   pid: number;
-  state:
-    | "startCommanded"
-    | "starting"
-    | "running"
-    | "stopCommanded"
-    | "stopping"
-    | "stopped";
+  command: LocalCommand;
+  status: LocalStatus;
 }
 
 /** A subset of Cluster that satisfies RenderableRecord */

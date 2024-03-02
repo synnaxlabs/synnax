@@ -33,7 +33,7 @@ export const Symbols = ({ layoutKey }: { layoutKey: string }): ReactElement => {
   const theme = Theming.use();
 
   const handleAddElement = useCallback(
-    (variant: PID.Variant) => {
+    (variant: PID.SymbolVariant) => {
       const spec = PID.SYMBOLS[variant];
       const initialProps = spec.defaultProps(theme);
       dispatch(
