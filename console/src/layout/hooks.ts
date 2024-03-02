@@ -9,7 +9,7 @@
 
 import { type Dispatch, type ReactElement, useCallback, useState } from "react";
 
-import type { UnknownAction } from "@reduxjs/toolkit";
+import type { PayloadAction, UnknownAction } from "@reduxjs/toolkit";
 import { Drift } from "@synnaxlabs/drift";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
@@ -43,7 +43,7 @@ import { Workspace } from "@/workspace";
 
 export interface CreatorProps {
   windowKey: string;
-  dispatch: Dispatch<UnknownAction>;
+  dispatch: Dispatch<PayloadAction<any>>;
 }
 
 /** A function that creates a layout given a set of utilities. */

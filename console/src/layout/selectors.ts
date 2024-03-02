@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { UnexpectedError } from "@synnaxlabs/client";
 import { type Drift, selectWindow } from "@synnaxlabs/drift";
 import { type Haul, type Mosaic, Theming } from "@synnaxlabs/pluto";
 
@@ -105,8 +106,15 @@ export const selectTheme = (
   return Theming.themeZ.parse(t);
 };
 
-export const selectRawTheme = (state: StoreState, key?: string): Theming.ThemeSpec =>
-  selectByKey(selectSliceState(state).themes, key, selectActiveThemeKey(state));
+export const selectRawTheme = (state: StoreState, key?: string): Theming.ThemeSpec => {
+  const t = selectByKey(
+    selectSliceState(state).themes,
+    key,
+    selectActiveThemeKey(state),
+  );
+  if (t == null) throw new UnexpectedError(`Theme ${key} not found`);
+  return t;
+};
 
 /**
  * Selects the current theme from the store.

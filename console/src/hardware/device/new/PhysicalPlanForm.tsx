@@ -10,13 +10,7 @@
 import { useState, type ReactElement, memo, useCallback } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import {
-  Form,
-  Haul,
-  Select,
-  type UseSelectOnChangeExtra,
-  type UseSelectProps,
-} from "@synnaxlabs/pluto";
+import { Form, Haul, Select } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 import { Header } from "@synnaxlabs/pluto/header";
 import { Input } from "@synnaxlabs/pluto/input";
@@ -63,7 +57,7 @@ export const PhysicalPlanForm = (): ReactElement => {
   const handleChannelSelect = useCallback(
     (
       keys: string[],
-      { clickedIndex, clicked }: UseSelectOnChangeExtra<string>,
+      { clickedIndex, clicked }: List.UseSelectOnChangeExtra<string>,
     ): void => {
       if (clickedIndex == null || clicked == null) return;
       setSelectedChannels(keys);
@@ -250,7 +244,7 @@ const GroupListItem = ({
 interface ChannelListProps {
   selectedGroupIndex: number;
   selectedChannels: string[];
-  onSelectChannels: UseSelectProps["onChange"];
+  onSelectChannels: List.UseSelectProps["onChange"];
 }
 
 const CHANNEL_LIST_COLUMNS: Array<List.ColumnSpec<string, PhysicalChannelPlan>> = [

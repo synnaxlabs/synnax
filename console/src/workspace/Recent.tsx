@@ -10,12 +10,12 @@
 import { type ReactElement, useState } from "react";
 
 import { type workspace } from "@synnaxlabs/client";
-import { List as Core, Synnax, Text, useAsyncEffect } from "@synnaxlabs/pluto";
+import { Synnax, Text, useAsyncEffect } from "@synnaxlabs/pluto";
+import { List } from "@synnaxlabs/pluto/list";
 import { useDispatch } from "react-redux";
 
 import { Layout } from "@/layout";
-
-import { add, setActive } from "./slice";
+import { add } from "@/workspace/slice";
 
 export const Recent = (): ReactElement | null => {
   const client = Synnax.use();
@@ -30,7 +30,7 @@ export const Recent = (): ReactElement | null => {
     setData(workspaces);
   }, [client]);
 
-  const handleClick = (key: string) => {
+  const handleClick = (key: string): void => {
     void (async () => {
       const ws = await client.workspaces.retrieve(key);
       d(add({ workspaces: [ws] }));
@@ -39,16 +39,16 @@ export const Recent = (): ReactElement | null => {
   };
 
   return (
-    <Core.List<workspace.Key, workspace.Workspace> data={data}>
-      <Core.Core style={{ height: 200 }}>
-        {({ onSelect, entry: { key, name } }) => {
+    <List.List<workspace.Key, workspace.Workspace> data={data}>
+      <List.Core<workspace.Key, workspace.Workspace> style={{ height: 200 }}>
+        {({ entry: { key, name } }) => {
           return (
             <Text.Link level="h4" onClick={() => handleClick(key)}>
               {name}
             </Text.Link>
           );
         }}
-      </Core.Core>
-    </Core.List>
+      </List.Core>
+    </List.List>
   );
 };

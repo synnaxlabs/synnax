@@ -10,16 +10,7 @@
 import { type ReactElement } from "react";
 
 import { Icon, Logo } from "@synnaxlabs/media";
-import {
-  Divider,
-  Nav,
-  Menu as PMenu,
-  Button,
-  OS,
-  Triggers,
-  Synnax,
-  Text,
-} from "@synnaxlabs/pluto";
+import { Divider, Nav, Menu as PMenu, Button, OS, Text } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
 
 import { Cluster } from "@/cluster";
@@ -66,11 +57,9 @@ const COMMANDS = [
 ];
 
 const NavTopPalette = (): ReactElement => {
-  const client = Synnax.use();
   return (
     <Palette
       commands={COMMANDS}
-      searcher={client?.ontology}
       triggers={DEFAULT_TRIGGER}
       services={SERVICES}
       commandSymbol=">"

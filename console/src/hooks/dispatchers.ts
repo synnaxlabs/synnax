@@ -20,7 +20,7 @@ export type Syncer<S, T> = (
   store: Store<S, PayloadAction<T>>,
 ) => Promise<void>;
 
-export const useSyncerDispatch = <S, T>(
+export const useSyncerDispatch = <S extends {}, T>(
   f: Syncer<S, T>,
   debounce: number = 0,
 ): Dispatch<PayloadAction<T>> => {

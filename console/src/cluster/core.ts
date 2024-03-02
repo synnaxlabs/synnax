@@ -31,6 +31,3 @@ export interface LocalClusterState {
     | "stopping"
     | "stopped";
 }
-
-/** A subset of Cluster that satisfies RenderableRecord */
-export type RenderableCluster = Omit<Cluster, "props" | "state">;

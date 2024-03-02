@@ -11,4 +11,4 @@ import { type Triggers } from "@synnaxlabs/pluto";
 
 export type Mode = "command" | "resource";
 
-export type TriggerConfig = Triggers.Config<Mode>;
+export type TriggerConfig = Triggers.ModeConfig<Mode>;

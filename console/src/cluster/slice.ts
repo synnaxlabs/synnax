@@ -48,6 +48,7 @@ const initialState: SliceState = {
   activeCluster: null,
   clusters: {},
   localState: {
+    state: "stopped",
     pid: 0,
   },
 };
@@ -57,7 +58,7 @@ export type SetPayload = Cluster;
 /** Signature for the setActiveCluster action. */
 export type SetActivePayload = string | null;
 /** Signature for the setLocalState action. */
-export type SetLocalStatePayload = LocalClusterState;
+export type SetLocalStatePayload = Partial<LocalClusterState>;
 /**  */
 export interface RemovePayload {
   keys: string[];

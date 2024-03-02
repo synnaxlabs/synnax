@@ -18,14 +18,14 @@ import {
   Theming,
   Text,
   Viewport,
-  Triggers,
   useSyncedRef,
   Synnax,
   useAsyncEffect,
   Diagram,
   PID as Core,
 } from "@synnaxlabs/pluto";
-import { type UnknownRecord, box, scale, xy } from "@synnaxlabs/x";
+import { Triggers } from "@synnaxlabs/pluto/triggers";
+import { type UnknownRecord, box } from "@synnaxlabs/x";
 import { nanoid } from "nanoid/non-secure";
 import { useDispatch } from "react-redux";
 
@@ -34,7 +34,7 @@ import { Layout } from "@/layout";
 import {
   select,
   useSelect,
-  useSelectElementProps,
+  useSelectNodeProps,
   useSelectViewport,
   useSelectViewportMode,
 } from "@/pid/selectors";
@@ -95,11 +95,7 @@ const SymbolRenderer = ({
   selected,
   layoutKey,
 }: Diagram.SymbolProps & { layoutKey: string }): ReactElement | null => {
-  const el = useSelectElementProps(layoutKey, symbolKey);
-  if (el == null) return null;
-  const {
-    props: { variant, ...props },
-  } = el;
+  const { key, ...props } = useSelectNodeProps(layoutKey, symbolKey);
   const dispatch = useSyncerDispatch<
     Layout.StoreState & Workspace.StoreState & StoreState,
     SyncPayload
@@ -111,14 +107,14 @@ const SymbolRenderer = ({
         setElementProps({
           layoutKey,
           key: symbolKey,
-          props: { variant, ...props },
+          props: { key, ...props },
         }),
       );
     },
-    [dispatch, symbolKey, layoutKey, variant],
+    [dispatch, symbolKey, layoutKey, key],
   );
 
-  const C = Core.SYMBOLS[variant as Core.Variant];
+  const C = Core.SYMBOLS[key as Core.SymbolVariant];
 
   const zoom = useSelectViewport(layoutKey);
 
@@ -173,13 +169,12 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
     [layoutKey],
   );
 
-  const handleControlStatusChange: Control.ControllerProps["onStatusChange"] =
-    useCallback(
-      (control) => {
-        dispatch(setControlStatus({ layoutKey, control }));
-      },
-      [layoutKey],
-    );
+  const handleControlStatusChange = useCallback(
+    (control: Control.Status) => {
+      dispatch(setControlStatus({ layoutKey, control }));
+    },
+    [layoutKey],
+  );
 
   const acquireControl = useCallback(
     (v: boolean) => {
@@ -207,8 +202,8 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
       const valid = Haul.filterByType(HAUL_TYPE, items);
       if (ref.current == null) return valid;
       const region = box.construct(ref.current);
-      valid.forEach(({ key: variant, data }, i) => {
-        const spec = Core.SYMBOLS[variant as Core.Variant];
+      valid.forEach(({ key, data }) => {
+        const spec = Core.SYMBOLS[key as Core.SymbolVariant];
         if (spec == null) return;
         const pos = calculatePos(
           region,
@@ -224,7 +219,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
               zIndex: spec.zIndex,
             },
             props: {
-              variant,
+              key,
               ...spec.defaultProps(theme),
               ...(data ?? {}),
             },

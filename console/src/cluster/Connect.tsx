@@ -116,7 +116,7 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
             <Form.Field<string> path="host" grow>
               {(p) => <Input.Text placeholder="localhost" {...p} />}
             </Form.Field>
-            <Form.Field<number> path="port" className={CSS.BE("input", "port")}>
+            <Form.Field<string> path="port" className={CSS.BE("input", "port")}>
               {(p) => <Input.Text placeholder="9090" {...p} />}
             </Form.Field>
           </Align.Space>
@@ -139,7 +139,7 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
             <Status.Text variant={statusVariants[connState.status]}>
               {connState.status === "connected"
                 ? Case.capitalize(connState.status)
-                : connState.message!}
+                : connState.message}
             </Status.Text>
           )}
         </Nav.Bar.Start>

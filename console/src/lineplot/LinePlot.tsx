@@ -24,6 +24,7 @@ import { useDispatch } from "react-redux";
 
 import { useSyncerDispatch, type Syncer } from "@/hooks/dispatchers";
 import { Layout } from "@/layout";
+import { ContextMenuContent } from "@/lineplot/ContextMenu";
 import {
   useSelect,
   selectRanges,
@@ -52,8 +53,6 @@ import {
 import { Range } from "@/range";
 import { Vis } from "@/vis";
 import { Workspace } from "@/workspace";
-
-import { ContextMenuContent } from "./ContextMenu";
 
 interface SyncPayload {
   key?: string;
@@ -332,7 +331,7 @@ const buildLines = (
                 y: channel,
               },
               ...variantArg,
-            };
+            } as unknown as Channel.LineProps;
             return v;
           });
         }),

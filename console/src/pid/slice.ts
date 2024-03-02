@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type PayloadAction, createSlice } from "@reduxjs/toolkit";
-import { type Control, type Viewport, type Diagram } from "@synnaxlabs/pluto";
+import { type Control, type Viewport, type Diagram, type PID } from "@synnaxlabs/pluto";
 import { Color } from "@synnaxlabs/pluto/color";
 import { type Theming } from "@synnaxlabs/pluto/theming";
 import { box, scale, xy, deep } from "@synnaxlabs/x";
@@ -18,7 +18,8 @@ import { v4 as uuidV4 } from "uuid";
 import { type Layout } from "@/layout";
 
 export type NodeProps = object & {
-  variant: PIDSymbols.Variant;
+  key: PID.SymbolVariant;
+  color?: Color.Crude;
 };
 
 export interface State {
@@ -351,7 +352,8 @@ export const { actions, reducer } = createSlice({
         if (source == null || target == null) return;
         const sourceProps = pid.props[source.key];
         const targetProps = pid.props[target.key];
-        if (sourceProps.color === targetProps.color) edge.color = sourceProps.color;
+        if (sourceProps.color === targetProps.color && sourceProps.color != null)
+          edge.color = sourceProps.color;
       });
       pid.edges = edges;
       const anySelected =
@@ -440,7 +442,7 @@ export const { actions, reducer } = createSlice({
   },
 });
 
-const clearOtherSelections = (state: SliceState, layoutKey: string) => {
+const clearOtherSelections = (state: SliceState, layoutKey: string): void => {
   Object.keys(state.pids).forEach((key) => {
     // If any of the nodes or edges in other Diagram slices are selected, deselect them.
     if (key === layoutKey) return;

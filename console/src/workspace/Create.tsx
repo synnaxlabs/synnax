@@ -9,14 +9,14 @@
 
 import { useState, type ReactElement } from "react";
 
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Icon } from "@synnaxlabs/media";
-import { Align, Button, Header, Input, Nav, Synnax } from "@synnaxlabs/pluto";
-import { FormProvider, useForm } from "react-hook-form";
+import { Align, Button, Form, Nav, Synnax } from "@synnaxlabs/pluto";
+import { Input } from "@synnaxlabs/pluto/input";
+import { type UnknownRecord } from "@synnaxlabs/x";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
 
 import { Layout } from "@/layout";
+import { type SliceState } from "@/layout/slice";
 import { useSelectActiveKey } from "@/workspace/selectors";
 import { add } from "@/workspace/slice";
 
@@ -41,11 +41,11 @@ const formSchema = z.object({ name: z.string().nonempty() });
 type CreateFormProps = z.infer<typeof formSchema>;
 
 export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
-  const methods = useForm({
-    defaultValues: {
+  const methods = Form.use({
+    values: {
       name: "",
     },
-    resolver: zodResolver(formSchema),
+    schema: formSchema,
   });
   const [loading, setLoading] = useState(false);
 
@@ -59,10 +59,11 @@ export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
       setLoading(true);
       const ws = await client.workspaces.create({
         name,
-        layout: Layout.ZERO_SLICE_STATE,
+        layout: Layout.ZERO_SLICE_STATE as unknown as UnknownRecord,
       });
       dispatch(add({ workspaces: [ws] }));
-      if (active != null) dispatch(Layout.setWorkspace({ slice: ws.layout }));
+      if (active != null)
+        dispatch(Layout.setWorkspace({ slice: ws.layout as unknown as SliceState }));
       onClose();
     } finally {
       setLoading(false);
@@ -71,30 +72,19 @@ export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
 
   return (
     <Align.Space style={{ height: "100%" }}>
-      <Align.Space
-        el="form"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void methods.handleSubmit(onSubmit)(e);
-        }}
-        style={{ flexGrow: 1, padding: "2rem" }}
-        id="create-workspace"
-        justify="center"
-      >
-        <FormProvider {...methods}>
-          <Input.HFItem className="console-form" name="name">
-            {(p) => (
-              <Input.Text
-                placeholder="Workspace Name"
-                variant="natural"
-                autoFocus
-                level="h3"
-                {...p}
-              />
-            )}
-          </Input.HFItem>
-        </FormProvider>
-      </Align.Space>
+      <Form.Form {...methods}>
+        <Form.Field<string> className="console-form" path="name">
+          {(p) => (
+            <Input.Text
+              placeholder="Workspace Name"
+              variant="natural"
+              autoFocus
+              level="h3"
+              {...p}
+            />
+          )}
+        </Form.Field>
+      </Form.Form>
       <Nav.Bar location="bottom" size={48}>
         <Nav.Bar.End style={{ padding: "1rem" }}>
           <Button.Button
@@ -102,6 +92,7 @@ export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
             form="create-workspace"
             loading={loading}
             disabled={loading}
+            onClick={onSubmit}
           >
             Save
           </Button.Button>
