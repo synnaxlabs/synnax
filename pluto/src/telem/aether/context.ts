@@ -12,9 +12,8 @@ import { type Handler } from "@synnaxlabs/x/dist/observe/observe";
 
 import { type aether } from "@/aether/aether";
 import { type telem } from "@/telem/aether";
-
-import { type Factory } from "./factory";
-import { type Spec } from "./telem";
+import { type Factory } from "@/telem/aether/factory";
+import { type Spec } from "@/telem/aether/telem";
 
 export interface Provider {
   clusterKey: string;

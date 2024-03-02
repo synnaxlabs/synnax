@@ -7,19 +7,29 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { toArray } from "@synnaxlabs/x";
+import { AsyncTermSearcher, toArray } from "@synnaxlabs/x";
 
-import { type NewTask, type Task } from "@/hardware/task/payload";
+import { TaskKey, type NewTask, type Task } from "@/hardware/task/payload";
 import { type RetrieveRequest, type Retriever } from "@/hardware/task/retriever";
 import { type Writer } from "@/hardware/task/writer";
 
-export class Client {
+export class Client implements AsyncTermSearcher<string, TaskKey, Task> {
   private readonly retriever: Retriever;
   private readonly writer: Writer;
 
   constructor(retriever: Retriever, writer: Writer) {
     this.retriever = retriever;
     this.writer = writer;
+  }
+
+  async search(term: string): Promise<Task[]> {
+    const res = await this.retriever.search(term);
+    return res;
+  }
+
+  async page(offset: number, limit: number): Promise<Task[]> {
+    const res = await this.retriever.page(offset, limit);
+    return res;
   }
 
   async create(task: NewTask): Promise<Task> {

@@ -15,7 +15,10 @@ import { rackKeyZ, rackZ, type RackPayload } from "@/hardware/rack/payload";
 const RETRIEVE_ENDPOINT = "/hardware/rack/retrieve";
 
 const retrieveRackReqZ = z.object({
-  keys: rackKeyZ.array(),
+  keys: rackKeyZ.array().optional(),
+  search: z.string().optional(),
+  offset: z.number().optional(),
+  limit: z.number().optional(),
 });
 
 const retrieveRackResZ = z.object({
@@ -27,6 +30,26 @@ export class Retriever {
 
   constructor(client: UnaryClient) {
     this.client = client;
+  }
+
+  async page(offset: number, limit: number): Promise<RackPayload[]> {
+    const res = await sendRequired<typeof retrieveRackReqZ, typeof retrieveRackResZ>(
+      this.client,
+      RETRIEVE_ENDPOINT,
+      { offset, limit },
+      retrieveRackResZ,
+    );
+    return res.racks;
+  }
+
+  async search(term: string): Promise<RackPayload[]> {
+    const res = await sendRequired<typeof retrieveRackReqZ, typeof retrieveRackResZ>(
+      this.client,
+      RETRIEVE_ENDPOINT,
+      { search: term },
+      retrieveRackResZ,
+    );
+    return res.racks;
   }
 
   async retrieve(keys: number[]): Promise<RackPayload[]> {
