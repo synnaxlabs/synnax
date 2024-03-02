@@ -78,6 +78,7 @@ export interface StreamClient {
  * client to make it easy to stub out for testing.
  */
 export interface Client extends ChannelClient, ReadClient, StreamClient {
+  key: string;
   /** Close closes the client, releasing all resources from the cache. */
   close: () => void;
 }
@@ -88,9 +89,11 @@ export interface Client extends ChannelClient, ReadClient, StreamClient {
  * set, all operations will throw an error.
  */
 export class Proxy implements Client {
+  key: string = nanoid();
   _client: Client | null = null;
 
   swap(client: Client | null): void {
+    this.key = nanoid();
     this._client?.close();
     this._client = client;
   }

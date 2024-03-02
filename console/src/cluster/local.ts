@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useCallback, useRef } from "react";
+import { useCallback } from "react";
 
 import { type SynnaxProps } from "@synnaxlabs/client";
 import { Drift } from "@synnaxlabs/drift";
@@ -15,11 +15,18 @@ import { useAsyncWindowLifecycle, useSelectWindowKey } from "@synnaxlabs/drift/r
 import { Status, useAsyncEffect, useSyncedRef } from "@synnaxlabs/pluto";
 import { TimeStamp } from "@synnaxlabs/x";
 import { path } from "@tauri-apps/api";
-import { Child, Command, type EventEmitter } from "@tauri-apps/api/shell";
+import { Child, Command } from "@tauri-apps/api/shell";
 import { useDispatch } from "react-redux";
 
 import { useSelectLocalState } from "@/cluster/selectors";
-import { setLocalState, set, LOCAL_CLUSTER_KEY, setActive } from "@/cluster/slice";
+import {
+  setLocalState,
+  set,
+  LOCAL_CLUSTER_KEY,
+  setActive,
+  LOCAL_PROPS,
+  LOCAL,
+} from "@/cluster/slice";
 import { testConnection } from "@/cluster/testConnection";
 
 // The name of the sidecar binary.
@@ -30,9 +37,8 @@ export const useLocalServer = (): void => {
   const win = useSelectWindowKey();
 
   const d = useDispatch();
-  const { pid, state } = useSelectLocalState();
+  const { pid, command } = useSelectLocalState();
   const status = Status.useAggregator();
-  const ref = useRef<EventEmitter<"data"> | null>(null);
   const pidRef = useSyncedRef(pid);
 
   const startLocalServer = async (): Promise<void> => {
@@ -54,9 +60,6 @@ export const useLocalServer = (): void => {
       "-d",
       dataPath,
     ]);
-    const serverProcess = await command.spawn();
-
-    d(setLocalState({ pid: serverProcess.pid, state: "starting" }));
 
     const handleLog = (v: string): void => {
       // All of our logs are JSON parseable.
@@ -67,32 +70,17 @@ export const useLocalServer = (): void => {
       if (isInfo && msg === "starting server") {
         // Set the PID in local state so we can kill it later fi we need to.
 
-        const props: SynnaxProps = {
-          name: "Local",
-          host: "localhost",
-          port: 9090,
-          username: "synnax",
-          password: "seldon",
-          secure: false,
-        };
-
         // Test the connection to the local server.
-        testConnection(props)
+        testConnection(LOCAL_PROPS)
           .then(() => {
-            d(
-              set({
-                key: LOCAL_CLUSTER_KEY,
-                name: "Local",
-                props,
-              }),
-            );
-            d(setLocalState({ pid: serverProcess.pid, state: "running" }));
+            d(set(LOCAL));
+            d(setLocalState({ pid: serverProcess.pid, status: "running" }));
             d(setActive(LOCAL_KEY));
           })
           .catch(console.error);
       } else if (isInfo && msg === "shutdown successful") {
         // If the server has shut down, we'll set the PID to 0.
-        d(setLocalState({ pid: 0, state: "stopped" }));
+        d(setLocalState({ pid: 0, status: "stopped" }));
       }
 
       // If the server fails to boot up, we'll get a fatal error.
@@ -104,14 +92,21 @@ export const useLocalServer = (): void => {
           key: "local-server",
         });
     };
-    ref.current = command.stderr.on("data", handleLog);
+
+    const handleClose = (): void => {
+      d(setLocalState({ pid: 0, status: "stopped" }));
+    };
+
+    command.stderr.on("data", handleLog);
+    command.on("close", handleClose);
+    const serverProcess = await command.spawn();
+
+    d(setLocalState({ pid: serverProcess.pid, status: "starting" }));
   };
 
   const stopLocalServer = useCallback(async (): Promise<void> => {
     if (pidRef.current === 0) return;
-    // ref.current?.removeAllListeners("data");
-    ref.current = null;
-    d(setLocalState({ pid, state: "stopping" }));
+    d(setLocalState({ pid, status: "stopping" }));
     const serverProcess = new Child(pidRef.current);
     await serverProcess.write("stop\n");
     d(setActive(null));
@@ -119,12 +114,11 @@ export const useLocalServer = (): void => {
 
   useAsyncEffect(async () => {
     if (win !== Drift.MAIN_WINDOW) return;
-    if (state === "startCommanded") await startLocalServer();
-    if (state === "stopCommanded") await stopLocalServer();
-  }, [win, state]);
+    if (command === "start") return await startLocalServer();
+    if (command === "stop") return await stopLocalServer();
+  }, [win, command]);
 
   useAsyncWindowLifecycle(async () => {
-    await startLocalServer();
     return async () => await stopLocalServer();
   });
 };
