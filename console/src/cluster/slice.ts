@@ -9,8 +9,9 @@
 
 import { createSlice } from "@reduxjs/toolkit";
 import type { PayloadAction } from "@reduxjs/toolkit";
+import { type SynnaxProps } from "@synnaxlabs/client";
 
-import { type LocalClusterState, type Cluster } from "@/cluster/core";
+import { type Cluster, type LocalState } from "@/cluster/core";
 
 /** The state of the cluster slice. */
 export interface SliceState {
@@ -24,7 +25,7 @@ export interface SliceState {
   /**
    * Tracks the local cluster state.
    */
-  localState: LocalClusterState;
+  localState: LocalState;
 }
 
 /**
@@ -44,20 +45,41 @@ export interface StoreState {
   [SLICE_NAME]: SliceState;
 }
 
-const initialState: SliceState = {
+export const LOCAL_PROPS: SynnaxProps = {
+  name: "Local",
+  host: "localhost",
+  port: 9090,
+  username: "synnax",
+  password: "seldon",
+  secure: false,
+};
+
+export const LOCAL: Cluster = {
+  key: LOCAL_CLUSTER_KEY,
+  name: "Local",
+  props: LOCAL_PROPS,
+};
+
+export const INITIAL_STATE: SliceState = {
   activeCluster: null,
-  clusters: {},
+  clusters: {
+    [LOCAL_CLUSTER_KEY]: LOCAL,
+  },
   localState: {
     pid: 0,
+    command: "stop",
+    status: "stopped",
   },
 };
+
+export const PERSIST_EXCLUDE = `${SLICE_NAME}.localState.status`;
 
 /** Signature for the setCluster action. */
 export type SetPayload = Cluster;
 /** Signature for the setActiveCluster action. */
 export type SetActivePayload = string | null;
 /** Signature for the setLocalState action. */
-export type SetLocalStatePayload = LocalClusterState;
+export type SetLocalStatePayload = Partial<LocalState>;
 /**  */
 export interface RemovePayload {
   keys: string[];
@@ -71,10 +93,14 @@ export const {
   reducer,
 } = createSlice({
   name: SLICE_NAME,
-  initialState,
+  initialState: INITIAL_STATE,
   reducers: {
-    set: ({ clusters }, { payload: cluster }: PayloadAction<SetPayload>) => {
+    set: (
+      { activeCluster, clusters },
+      { payload: cluster }: PayloadAction<SetPayload>,
+    ) => {
       clusters[cluster.key] = cluster;
+      if (activeCluster == null) activeCluster = cluster.key;
     },
     remove: ({ clusters }, { payload: { keys } }: PayloadAction<RemovePayload>) => {
       for (const key of keys) {

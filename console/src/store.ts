@@ -28,6 +28,7 @@ import { Workspace } from "@/workspace";
 const PERSIST_EXCLUDE: Array<deep.Key<RootState>> = [
   Drift.SLICE_NAME,
   ...Layout.PERSIST_EXCLUDE,
+  Cluster.PERSIST_EXCLUDE,
 ];
 
 const reducer = combineReducers({

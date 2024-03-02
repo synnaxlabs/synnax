@@ -81,6 +81,9 @@ export class Controller
     const nextStateProv = StateProvider.use(this.ctx);
 
     this.internal.client = nextClient;
+    if (this.internal.client == null) {
+      void this.release();
+    }
     this.internal.stateProv = nextStateProv;
 
     telem.registerFactory(this.ctx, this);
