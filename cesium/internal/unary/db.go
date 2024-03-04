@@ -151,4 +151,12 @@ func (db *DB) Delete(ctx context.Context, tr telem.TimeRange) error {
 	return db.Domain.Delete(ctx, tr, startOffset*int64(db.Channel.DataType.Density()), endOffset*int64(db.Channel.DataType.Density()))
 }
 
+func (db *DB) GarbageCollect(ctx context.Context, maxSizeRead uint32) (bool, error) {
+	if db.openIteratorWriters.Value() > 0 {
+		return false, nil
+	}
+	err := db.Domain.CollectTombstone(ctx, maxSizeRead)
+	return true, err
+}
+
 func (db *DB) Close() error { return db.Domain.Close() }

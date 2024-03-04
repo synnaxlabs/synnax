@@ -12,8 +12,11 @@ package cesium
 import (
 	"context"
 	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/x/errutil"
 	"github.com/synnaxlabs/x/telem"
+	"golang.org/x/sync/semaphore"
 	"strconv"
+	"sync"
 )
 
 func (db *DB) DeleteChannel(ch ChannelKey) error {
@@ -78,13 +81,31 @@ func (db *DB) DeleteTimeRange(ctx context.Context, ch ChannelKey, tr telem.TimeR
 	return udb.Delete(ctx, tr)
 }
 
-func (db *DB) GCTombstone(ctx context.Context, ch ChannelKey, maxsizeRead uint32) error {
-	db.mu.Lock()
-	defer db.mu.Unlock()
-	udb, uok := db.unaryDBs[ch]
-	if !uok {
-		return ChannelNotFound
-	}
+func (db *DB) GarbageCollect(ctx context.Context, maxsizeRead uint32, maxGoRoutine int64) (collected bool, err error) {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+	sem := semaphore.NewWeighted(maxGoRoutine)
+	wg := &sync.WaitGroup{}
+	c := errutil.NewCatch(errutil.WithAggregation())
 
-	return udb.Domain.CollectTombstone(ctx, maxsizeRead)
+	for _, udb := range db.unaryDBs {
+		if err = sem.Acquire(ctx, 1); err != nil {
+			return collected, err
+		}
+		wg.Add(1)
+		udb := udb
+		go func() {
+			defer func() {
+				sem.Release(1)
+				wg.Done()
+			}()
+			c.ExecWithCtx(ctx, func(ctx context.Context) error {
+				ok, err := udb.GarbageCollect(ctx, maxsizeRead)
+				collected = collected || ok
+				return err
+			})
+		}()
+	}
+	wg.Wait()
+	return collected, c.Error()
 }
