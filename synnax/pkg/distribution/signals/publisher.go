@@ -29,30 +29,30 @@ import (
 	"io"
 )
 
-// ObservableConfig is the configuration for opening a Signals pipeline that subscribes
+// ObservablePublisherConfig is the configuration for opening a Signals pipeline that subscribes
 // to the provided observable and writes changes to the provided channels. Higher
-// level Signals pipeline should be preferred, such as the SubscribeToGorp.
-type ObservableConfig struct {
+// level Signals pipeline should be preferred, such as the PublishFromGorp.
+type ObservablePublisherConfig struct {
 	// Name is an optional name for the Signals pipeline, used for debugging purposes.
 	Name string
-	// Set is the channel used to propagate set operations. Only Name and SetDataType
+	// SetChannel is the channel used to propagate set operations. Only Name and SetDataType
 	// need to be provided. The config will automatically set Leaseholder to Free
 	// and Virtual to true.
-	Set channel.Channel
-	// Delete is the channel used to propagate delete operations. Only Name and
+	SetChannel channel.Channel
+	// DeleteChannel is the channel used to propagate delete operations. Only Name and
 	// SetDataType need to be provided. The config will automatically set Leaseholder
 	// to Free and Virtual to true.
-	Delete channel.Channel
+	DeleteChannel channel.Channel
 	// Observable is the observable used to subscribe to changes. This observable should
 	// return byte slice keys that are properly encoded for the channel's data type.
 	Observable observe.Observable[[]change.Change[[]byte, struct{}]]
 }
 
 var (
-	_ config.Config[ObservableConfig] = ObservableConfig{}
-	// DefaultObservableConfig is the default configuration for the SubscribeToObservable
+	_ config.Config[ObservablePublisherConfig] = ObservablePublisherConfig{}
+	// DefaultObservableConfig is the default configuration for the PublishFromObservable
 	// Signals pipeline.
-	DefaultObservableConfig = ObservableConfig{}
+	DefaultObservableConfig = ObservablePublisherConfig{}
 )
 
 const (
@@ -61,40 +61,40 @@ const (
 )
 
 // Validate implements config.Properties.
-func (c ObservableConfig) Validate() error {
-	v := validate.New("cdc.Core")
-	validate.NotEmptyString(v, "Label.Name", c.Set.Name)
-	validate.NotEmptyString(v, "Delete.Name", c.Delete.Name)
-	v.Ternaryf(!c.Set.Free(), nonFree, c.Set.Leaseholder)
-	v.Ternaryf(!c.Delete.Free(), nonFree, c.Delete.Leaseholder)
-	v.Ternaryf(!c.Set.Virtual, nonVirtual, c.Set.Name)
-	v.Ternaryf(!c.Delete.Virtual, nonVirtual, c.Delete.Name)
-	validate.NotNil(v, "Observable", c.Observable)
+func (c ObservablePublisherConfig) Validate() error {
+	v := validate.New("signals.ObservablePublisherConfig")
+	validate.NotEmptyString(v, "Label.Name", c.SetChannel.Name)
+	validate.NotEmptyString(v, "DeleteChannel.Name", c.DeleteChannel.Name)
+	v.Ternaryf(!c.SetChannel.Free(), nonFree, c.SetChannel.Leaseholder)
+	v.Ternaryf(!c.DeleteChannel.Free(), nonFree, c.DeleteChannel.Leaseholder)
+	v.Ternaryf(!c.SetChannel.Virtual, nonVirtual, c.SetChannel.Name)
+	v.Ternaryf(!c.DeleteChannel.Virtual, nonVirtual, c.DeleteChannel.Name)
+	validate.NotNil(v, "ObservableSubscriber", c.Observable)
 	return v.Error()
 }
 
 // Override implements config.Properties.
-func (c ObservableConfig) Override(other ObservableConfig) ObservableConfig {
+func (c ObservablePublisherConfig) Override(other ObservablePublisherConfig) ObservablePublisherConfig {
 	c.Name = override.If(c.Name, other.Name, c.Name == "")
-	c.Set = override.If(c.Set, other.Set, c.Set.Name == "")
-	c.Delete = override.If(c.Delete, other.Delete, c.Delete.Name == "")
+	c.SetChannel = override.If(c.SetChannel, other.SetChannel, c.SetChannel.Name == "")
+	c.DeleteChannel = override.If(c.DeleteChannel, other.DeleteChannel, c.DeleteChannel.Name == "")
 	c.Observable = override.Nil(c.Observable, other.Observable)
-	c.Set.Virtual = true
-	c.Delete.Virtual = true
-	c.Set.Leaseholder = core.Free
-	c.Delete.Leaseholder = core.Free
+	c.SetChannel.Virtual = true
+	c.DeleteChannel.Virtual = true
+	c.SetChannel.Leaseholder = core.Free
+	c.DeleteChannel.Leaseholder = core.Free
 	return c
 }
 
-// SubscribeToObservable opens a new Signals pipeline that subscribes to the configured
-// Observable and writes changes to the configured channels. The returned io.Closer
+// PublishFromObservable opens a new Signals pipeline that subscribes to the configured
+// ObservableSubscriber and writes changes to the configured channels. The returned io.Closer
 // can be used to close the pipeline when done.
-func (s *Provider) SubscribeToObservable(ctx context.Context, cfgs ...ObservableConfig) (io.Closer, error) {
+func (s *Provider) PublishFromObservable(ctx context.Context, cfgs ...ObservablePublisherConfig) (io.Closer, error) {
 	cfg, err := config.New(DefaultObservableConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	channels := []channel.Channel{cfg.Set, cfg.Delete}
+	channels := []channel.Channel{cfg.SetChannel, cfg.DeleteChannel}
 	if err := s.Channel.CreateManyIfNamesDontExist(ctx, &channels); err != nil {
 		return nil, err
 	}
@@ -107,13 +107,13 @@ func (s *Provider) SubscribeToObservable(ctx context.Context, cfgs ...Observable
 		return nil, err
 	}
 	for _, ch := range channels {
-		if ch.Name == cfg.Set.Name {
-			cfg.Set = ch
+		if ch.Name == cfg.SetChannel.Name {
+			cfg.SetChannel = ch
 		} else {
-			cfg.Delete = ch
+			cfg.DeleteChannel = ch
 		}
 	}
-	t := &confluence.TransformSubscriber[[]change.Change[[]byte, struct{}], framer.WriterRequest]{
+	t := &confluence.ObservableTransformPublisher[[]change.Change[[]byte, struct{}], framer.WriterRequest]{
 		Observable: cfg.Observable,
 		Transform: func(ctx context.Context, r []change.Change[[]byte, struct{}]) (framer.WriterRequest, bool, error) {
 			if len(r) == 0 {
@@ -121,8 +121,8 @@ func (s *Provider) SubscribeToObservable(ctx context.Context, cfgs ...Observable
 			}
 			var (
 				frame   framer.Frame
-				sets    = telem.Series{DataType: cfg.Set.DataType}
-				deletes = telem.Series{DataType: cfg.Delete.DataType}
+				sets    = telem.Series{DataType: cfg.SetChannel.DataType}
+				deletes = telem.Series{DataType: cfg.DeleteChannel.DataType}
 			)
 			for _, c := range r {
 				if c.Variant == change.Delete {
@@ -132,11 +132,11 @@ func (s *Provider) SubscribeToObservable(ctx context.Context, cfgs ...Observable
 				}
 			}
 			if len(sets.Data) > 0 {
-				frame.Keys = []channel.Key{cfg.Set.Key()}
+				frame.Keys = []channel.Key{cfg.SetChannel.Key()}
 				frame.Series = []telem.Series{sets}
 			}
 			if len(deletes.Data) > 0 {
-				frame.Keys = append(frame.Keys, cfg.Delete.Key())
+				frame.Keys = append(frame.Keys, cfg.DeleteChannel.Key())
 				frame.Series = append(frame.Series, deletes)
 			}
 			return framer.WriterRequest{Command: writer.Data, Frame: frame}, true, nil
@@ -154,7 +154,7 @@ func (s *Provider) SubscribeToObservable(ctx context.Context, cfgs ...Observable
 	plumber.SetSink[framer.WriterResponse](p, "responses", responses)
 	plumber.MustConnect[framer.WriterRequest](p, "source", "writer", 10)
 	plumber.MustConnect[framer.WriterResponse](p, "writer", "responses", 10)
-	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(s.Instrumentation.Child(lo.Ternary(cfg.Name != "", cfg.Name, cfg.Set.Name))))
+	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(s.Instrumentation.Child(lo.Ternary(cfg.Name != "", cfg.Name, cfg.SetChannel.Name))))
 	p.Flow(sCtx, confluence.CloseInletsOnExit())
 	return signal.NewShutdown(sCtx, cancel), nil
 }

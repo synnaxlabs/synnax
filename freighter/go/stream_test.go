@@ -127,7 +127,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 				})
 
 			})
-			Describe("Error Handling", func() {
+			Describe("Details Handling", func() {
 
 				Describe("Server returns a non-nil error", func() {
 					It("Should send the error to the client", func() {

@@ -22,6 +22,13 @@ var _ io.Closer = CloserFunc(nil)
 // Close implements io.Closer.
 func (c CloserFunc) Close() error { return c() }
 
+type NopCloserFunc func()
+
+func (c NopCloserFunc) Close() error {
+	c()
+	return nil
+}
+
 type MultiCloser []io.Closer
 
 var _ io.Closer = MultiCloser(nil)

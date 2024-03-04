@@ -103,9 +103,17 @@ var _ = Describe("Retrieve", Ordered, func() {
 					Entry(res).
 					Exec(ctx, tx)).To(Succeed())
 			})
-			It("Should return a query.NamesNotFound error if the key is not found", func() {
+			It("Should return a query.NotFound error if the key is not found", func() {
 				err := gorp.NewRetrieve[int, entry]().
 					WhereKeys(444444).
+					Entry(&entry{}).
+					Exec(ctx, tx)
+				Expect(err).To(HaveOccurred())
+				Expect(errors.Is(err, query.NotFound)).To(BeTrue())
+			})
+			It("Should return a query.NotFound error if the where clause matches no entry", func() {
+				err := gorp.NewRetrieve[int, entry]().
+					Where(func(e *entry) bool { return e.ID == 241241 }).
 					Entry(&entry{}).
 					Exec(ctx, tx)
 				Expect(err).To(HaveOccurred())
@@ -161,7 +169,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 			).To(Succeed())
 			Expect(res).To(Equal([]entry{entries[1]}))
 		})
-		It("Should support multiple filters", func() {
+		It("Should support isMultiple filters", func() {
 			var res []entry
 			Expect(gorp.NewRetrieve[int, entry]().
 				Entries(&res).

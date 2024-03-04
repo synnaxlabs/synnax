@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package cdc implements change data capture services that allow consumers to publish
+// Package signals implements change data capture services that allow consumers to publish
 // changes to their data through free channels. These changes can then be subscribed to
 // using the standard channel streaming pipeline, allowing Synnax users to execute
 // arbitrary code in response to changes a cluster's data and metadata.
 //
-// Users of this library should typically use the SubscribeToGorp function, which provide Signals
+// Users of this library should typically use the PublishFromGorp function, which provide Signals
 // functionality for changes to a gorp compatible key-value store with a simple
-// configuration. The most common of these is the GorpConfigUUID function, which
+// configuration. The most common of these is the GorpPublisherConfigUUID function, which
 // provides a config for propagating sets and deletes for UUID keyed gorp entries.
 package signals
 
@@ -39,11 +39,11 @@ type Config struct {
 	alamos.Instrumentation
 	// Channel is the service used for retrieving and creating free channels.
 	// [REQUIRED]
-	Channel channel.Writeable
+	Channel channel.ReadWriteable
 	// Framer is the service used for writing frames containing changes to the Synnax
 	// telemetry pipeline.
 	// [REQUIRED]
-	Framer framer.Writable
+	Framer framer.WriteStreamable
 }
 
 var (

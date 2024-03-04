@@ -39,7 +39,7 @@ func Typed(err error, t Type) Error {
 	if err == nil {
 		return Nil
 	}
-	// Check if it already satisfies the Error interface.
+	// Check if it already satisfies the Details interface.
 	if tErr, ok := err.(Error); ok {
 		return tErr
 	}

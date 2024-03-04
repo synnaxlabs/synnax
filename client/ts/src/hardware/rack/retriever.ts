@@ -25,6 +25,7 @@ const retrieveRackResZ = z.object({
   racks: rackZ.array(),
 });
 
+
 export class Retriever {
   private readonly client: UnaryClient;
 

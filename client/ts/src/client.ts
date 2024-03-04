@@ -24,6 +24,7 @@ import { hardware } from "./hardware";
 import { device } from "./hardware/device";
 import { rack } from "./hardware/rack";
 import { task } from "./hardware/task";
+import { randomUUID } from "crypto";
 
 export const synnaxPropsZ = z.object({
   host: z.string().min(1),

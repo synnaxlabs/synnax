@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/hardware/device"
 	"github.com/synnaxlabs/synnax/pkg/hardware/rack"
+	"github.com/synnaxlabs/synnax/pkg/hardware/state"
 	"github.com/synnaxlabs/synnax/pkg/hardware/task"
 	"github.com/synnaxlabs/x/config"
 )
@@ -29,6 +30,7 @@ type Service struct {
 	Task   *task.Service
 	Device *device.Service
 	CDC    *signals.Provider
+	State  *state.Tracker
 }
 
 func OpenService(ctx context.Context, configs ...Config) (*Service, error) {

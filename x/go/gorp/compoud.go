@@ -22,5 +22,5 @@ func (s *CompoundRetrieve[K, E]) Next() Retrieve[K, E] {
 	return n
 }
 
-// Current returns the most recently added Retrieve query.
+// Current returns the most recently changes Retrieve query.
 func (s *CompoundRetrieve[K, E]) Current() Retrieve[K, E] { return s.Clauses[len(s.Clauses)-1] }

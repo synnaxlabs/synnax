@@ -36,6 +36,11 @@ type Readable interface {
 	NewRetrieve() Retrieve
 }
 
+type ReadWriteable interface {
+	Writeable
+	Readable
+}
+
 // service is central entity for managing channels within delta's distribution layer. It provides facilities for creating
 // and retrieving channels.
 type service struct {

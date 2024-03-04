@@ -8,32 +8,3 @@
 // included in the file licenses/APL.txt.
 
 package hardware
-
-import (
-	"github.com/synnaxlabs/synnax/pkg/hardware/rack"
-	"github.com/synnaxlabs/synnax/pkg/hardware/task"
-)
-
-type RackState struct {
-	Key       rack.Key
-	Heartbeat uint32
-}
-
-type TaskStatus string
-
-const (
-	TaskStatusPending TaskStatus = "stopped"
-	TaskStatusRunning TaskStatus = "running"
-	TaskStatusStopped TaskStatus = "failed"
-)
-
-type TaskState struct {
-	Key    task.Key
-	Status TaskStatus
-
-	Error error
-}
-
-type State struct {
-	Racks map[rack.Key]RackState
-}
