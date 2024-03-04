@@ -21,8 +21,8 @@ describe("Series", () => {
       expect(a.dataType.toString()).toBe(DataType.FLOAT32.toString());
       expect(a.length).toEqual(3);
       expect(a.byteLength).toEqual(Size.bytes(12));
-      expect(a.byteCap).toEqual(Size.bytes(12));
-      expect(a.cap).toEqual(3);
+      expect(a.byteCapacity).toEqual(Size.bytes(12));
+      expect(a.capacity).toEqual(3);
       const b = new Series({ data: new BigInt64Array([BigInt(1)]) });
       expect(b.dataType.toString()).toBe(DataType.INT64.toString());
       const c = new Series({
@@ -55,15 +55,15 @@ describe("Series", () => {
 
     describe("allocation", () => {
       it("should allocate a lazy array", () => {
-        const series = Series.alloc({ length: 10, dataType: DataType.FLOAT32 });
-        expect(series.byteCap).toEqual(Size.bytes(40));
-        expect(series.cap).toEqual(10);
+        const series = Series.alloc({ capacity: 10, dataType: DataType.FLOAT32 });
+        expect(series.byteCapacity).toEqual(Size.bytes(40));
+        expect(series.capacity).toEqual(10);
         expect(series.length).toEqual(0);
         expect(series.byteLength).toEqual(Size.bytes(0));
       });
       it("should throw an error when attempting to allocate an array of lenght 0", () => {
         expect(() => {
-          Series.alloc({ length: 0, dataType: DataType.FLOAT32 });
+          Series.alloc({ capacity: 0, dataType: DataType.FLOAT32 });
         }).toThrow();
       });
     });
@@ -87,7 +87,25 @@ describe("Series", () => {
       });
       expect(series.at(3)).toBeUndefined();
     });
+    it("should allow the index to be negative", () => {
+      const series = new Series({
+        data: new Float32Array([1, 2, 3]),
+        dataType: DataType.FLOAT32,
+      });
+      expect(series.at(-1)).toEqual(3);
+    });
+    it("should throw an error when the index is out of bounds and require is set to true", () => {
+      const series = new Series({
+        data: new Float32Array([1, 2, 3]),
+        dataType: DataType.FLOAT32,
+      });
+      expect(() => {
+        series.at(3, true);
+      }).toThrow();
+    });
   });
+
+
 
   describe("slice", () => {
     it("should slice a lazy array", () => {
@@ -100,14 +118,14 @@ describe("Series", () => {
       expect(b.data).toEqual(new Float32Array([2]));
       expect(b.length).toEqual(1);
       expect(b.byteLength).toEqual(Size.bytes(4));
-      expect(b.byteCap).toEqual(Size.bytes(4));
-      expect(b.cap).toEqual(1);
+      expect(b.byteCapacity).toEqual(Size.bytes(4));
+      expect(b.capacity).toEqual(1);
     });
   });
 
   describe("min and max", () => {
     it("should return a min and max of zero on an allocated array", () => {
-      const series = Series.alloc({ length: 10, dataType: DataType.FLOAT32 });
+      const series = Series.alloc({ capacity: 10, dataType: DataType.FLOAT32 });
       expect(series.max).toEqual(-Infinity);
       expect(series.min).toEqual(Infinity);
     });
@@ -154,8 +172,8 @@ describe("Series", () => {
 
   describe("writing", () => {
     it("should correctly write to an allocated lazy array", () => {
-      const series = Series.alloc({ length: 10, dataType: DataType.FLOAT32 });
-      expect(series.byteCap).toEqual(Size.bytes(40));
+      const series = Series.alloc({ capacity: 10, dataType: DataType.FLOAT32 });
+      expect(series.byteCapacity).toEqual(Size.bytes(40));
       expect(series.length).toEqual(0);
       const writeOne = new Series({ data: new Float32Array([1]) });
       expect(series.write(writeOne)).toEqual(1);
@@ -165,7 +183,7 @@ describe("Series", () => {
       expect(series.length).toEqual(3);
     });
     it("should recompute cached max and min correctly", () => {
-      const series = Series.alloc({ length: 10, dataType: DataType.FLOAT32 });
+      const series = Series.alloc({ capacity: 10, dataType: DataType.FLOAT32 });
       series.enrich();
       const writeTwo = new Series({ data: new Float32Array([2, 3]) });
       series.write(writeTwo);
@@ -174,7 +192,7 @@ describe("Series", () => {
     });
     it("should correctly adjust the sample offset of a written array", () => {
       const series = Series.alloc({
-        length: 2,
+        capacity: 2,
         dataType: DataType.FLOAT32,
         timeRange: TimeRange.ZERO,
         sampleOffset: -3,
@@ -200,7 +218,7 @@ describe("Series", () => {
       expect(ts.timeRange).toEqual(
         new TimeRange(TimeStamp.seconds(1), TimeStamp.seconds(6)),
       );
-      expect(ts.cap).toEqual(5);
+      expect(ts.capacity).toEqual(5);
       expect(ts.length).toEqual(5);
       expect(ts.dataType.toString()).toEqual(DataType.TIMESTAMP.toString());
       expect(ts.data).toEqual(
@@ -233,7 +251,7 @@ describe("Series", () => {
       expect(buf).toEqual(new Float32Array([1, 2, 3]));
     });
     it("should correctly update a buffer when writing to an allocated array", () => {
-      const series = Series.alloc({ length: 10, dataType: DataType.FLOAT32 });
+      const series = Series.alloc({ capacity: 10, dataType: DataType.FLOAT32 });
       const controller = new MockGLBufferController();
       series.updateGLBuffer(controller);
       expect(controller.createBufferMock).toHaveBeenCalledTimes(1);
@@ -249,7 +267,7 @@ describe("Series", () => {
       expect(controller.bufferDataMock).toHaveBeenCalledTimes(1);
       expect(controller.bufferSubDataMock).toHaveBeenCalledTimes(1);
       buf = controller.buffers[series.glBuffer as number];
-      expect(buf.byteLength).toEqual(series.byteCap.valueOf());
+      expect(buf.byteLength).toEqual(series.byteCapacity.valueOf());
       expect(new Float32Array(buf)[0]).toEqual(1);
       const writeTwo = new Series({ data: new Float32Array([2, 3]) });
       series.write(writeTwo);
@@ -257,7 +275,7 @@ describe("Series", () => {
       expect(controller.bufferDataMock).not.toHaveBeenCalledTimes(2);
       expect(controller.bufferSubDataMock).toHaveBeenCalledTimes(2);
       buf = controller.buffers[series.glBuffer as number];
-      expect(buf.byteLength).toEqual(series.byteCap.valueOf());
+      expect(buf.byteLength).toEqual(series.byteCapacity.valueOf());
       expect(new Float32Array(buf)[0]).toEqual(1);
       expect(new Float32Array(buf)[1]).toEqual(2);
       expect(new Float32Array(buf)[2]).toEqual(3);
@@ -286,7 +304,7 @@ describe("Series", () => {
       series.acquire(controller);
       expect(controller.createBufferMock).toHaveBeenCalledTimes(2);
       const buf = controller.buffers[series.glBuffer as number];
-      expect(buf.byteLength).toEqual(series.byteCap.valueOf());
+      expect(buf.byteLength).toEqual(series.byteCapacity.valueOf());
     });
   });
 
@@ -341,7 +359,7 @@ describe("Series", () => {
 
   describe("binarySearch", () => {
     it("should correctly binary search a pre-allocated array", () => {
-      const series = Series.alloc({ length: 10, dataType: DataType.FLOAT32 });
+      const series = Series.alloc({ capacity: 10, dataType: DataType.FLOAT32 });
       const writeOne = new Series({ data: new Float32Array([1, 2, 3, 4, 5]) });
       series.write(writeOne);
       expect(series.binarySearch(3)).toEqual(2);

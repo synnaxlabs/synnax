@@ -15,7 +15,6 @@ import {
   TimeSpan,
   TimeStamp,
   DataType,
-  addSamples,
   type AsyncDestructor,
 } from "@synnaxlabs/x";
 import { z } from "zod";
@@ -37,56 +36,78 @@ export const streamChannelValuePropsZ = z.object({
 
 export type StreamChannelValueProps = z.infer<typeof streamChannelValuePropsZ>;
 
+// StreamChannelValue is an implementation of NumberSource that reads and returns the
+// most recent value of a channel in real-time.
 export class StreamChannelValue
   extends AbstractSource<typeof streamChannelValuePropsZ>
   implements NumberSource
 {
-  removeStreamHandler: AsyncDestructor | null = null;
+  private readonly client: client.Client;
+  // Disconnects the current streaming handler.
+  private removeStreamHandler: AsyncDestructor | null = null;
 
   static readonly TYPE = "range-point";
 
   schema = streamChannelValuePropsZ;
 
-  private valid = false;
   private leadingBuffer: Series | null = null;
-  private readonly client: client.Client;
+  private valid = false;
 
   constructor(client: client.Client, props: unknown) {
     super(props);
     this.client = client;
   }
 
+  get testingOnlyLeadingBuffer(): Series | null {
+    return this.leadingBuffer;
+  }
+
+  get testingOnlyValid(): boolean {
+    return this.valid;
+  }
+
   async cleanup(): Promise<void> {
+    // Start off by stopping telemetry streaming.
     await this.removeStreamHandler?.();
+    // Set valid to false so if we read again, we know to update the buffer.
     this.valid = false;
+    // Release the leading buffer.
     this.leadingBuffer?.release();
+    // Clear out references.
     this.leadingBuffer = null;
     this.removeStreamHandler = null;
   }
 
   async value(): Promise<number> {
+    // No valid channel has been set.
     if (this.props.channel === 0) return 0;
     if (!this.valid) await this.read();
+    // No data has been received and no recent samples were fetched on initialization.
     if (this.leadingBuffer == null || this.leadingBuffer.length === 0) return 0;
-    const v = this.leadingBuffer.data[this.leadingBuffer.length - 1];
-    return Number(addSamples(v, this.leadingBuffer.sampleOffset));
+    return this.leadingBuffer.at(-1, true) as number;
   }
 
   async read(): Promise<void> {
     try {
       const { channel } = this.props;
-      const now = TimeStamp.now()
+      // Read from a little bit before now to a little bit after now to make sure we
+      // get all available data.
+      const timeRange = TimeStamp.now()
         .sub(TimeStamp.seconds(10))
         .spanRange(TimeSpan.seconds(20));
-      const res = await this.client.read(now, [channel]);
+      const res = await this.client.read(timeRange, [channel]);
+      // Start listening for new data.
+      await this.updateStreamHandler();
+      // This is the right place to set valid to true, because this means the read was
+      // successful and we have a buffer to read from.
+      this.valid = true;
       const newData = res[channel].data;
       if (newData.length === 0) return;
       const first = newData[newData.length - 1];
       first.acquire();
       this.leadingBuffer = first;
-      await this.updateStreamHandler();
-      this.valid = true;
     } catch (e) {
+      // TODO: improve error handling.
       console.error(e);
     }
   }
@@ -103,7 +124,7 @@ export class StreamChannelValue
         this.leadingBuffer?.release();
         this.leadingBuffer = first;
       }
-      // Just because we didn't
+      // Just because we didn't get a new buffer doesn't mean one wasn't allocated.
       this.notify?.();
     };
     this.removeStreamHandler = await this.client.stream(handler, [channel]);
@@ -152,12 +173,11 @@ export class ChannelData
     const chan = await fetchChannel(this.client, this.props.channel, this.props.index);
     if (!this.valid) await this.readFixed(chan.key);
     let b = bounds.max(this.data.map((d) => d.bounds));
-    if (chan.dataType.equals(DataType.TIMESTAMP)) {
+    if (chan.dataType.equals(DataType.TIMESTAMP))
       b = {
         upper: Math.min(b.upper, this.props.timeRange.end.valueOf()),
         lower: Math.max(b.lower, this.props.timeRange.start.valueOf()),
       };
-    }
     return [b, this.data];
   }
 
