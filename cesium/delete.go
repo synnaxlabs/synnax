@@ -99,7 +99,7 @@ func (db *DB) GarbageCollect(ctx context.Context, maxsizeRead uint32, maxGoRouti
 				sem.Release(1)
 				wg.Done()
 			}()
-			c.ExecWithCtx(ctx, func(ctx context.Context) error {
+			c.Exec(func() error {
 				ok, err := udb.GarbageCollect(ctx, maxsizeRead)
 				collected = collected || ok
 				return err
