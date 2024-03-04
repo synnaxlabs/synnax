@@ -1,9 +1,12 @@
-import { DataType, type TimeRange, channel } from "@synnaxlabs/client";
-import { Series, type AsyncDestructor } from "@synnaxlabs/x";
+import { DataType, TimeRange, channel } from "@synnaxlabs/client";
+import { Series, type AsyncDestructor, bounds } from "@synnaxlabs/x";
+import { exp } from "mathjs";
 import { nanoid } from "nanoid";
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  ChannelData,
+  type ChannelDataProps,
   StreamChannelValue,
   type StreamChannelValueProps,
 } from "@/telem/aether/remote";
@@ -191,6 +194,142 @@ describe("remote", () => {
       expect(newSeriesOne.refCount).toBe(0);
       expect(await scv.value()).toBe(6);
       expect(newSeriesTwo.refCount).toBe(1);
+    });
+  });
+  describe("ChannelData", () => {
+    class MockClient implements client.ReadClient, client.ChannelClient {
+      key: string = nanoid();
+      readMock = vi.fn();
+      retrieveChannelMock = vi.fn();
+
+      // Channel
+      channel: channel.Channel = new channel.Channel({
+        key: 65537,
+        name: "test",
+        dataType: DataType.FLOAT32,
+        isIndex: false,
+        index: 65538,
+      });
+
+      indexChannel: channel.Channel = new channel.Channel({
+        key: 65538,
+        name: "test",
+        dataType: DataType.TIMESTAMP,
+        isIndex: true,
+      });
+
+      // Data
+      response: Record<channel.Key, client.ReadResponse> = {
+        [this.channel.key]: new client.ReadResponse(this.channel, []),
+      };
+
+      async retrieveChannel(key: channel.Key): Promise<channel.Channel> {
+        this.retrieveChannelMock(key);
+        if (key === this.channel.key) {
+          return this.channel;
+        }
+        if (key === this.channel.index) {
+          return this.indexChannel;
+        }
+        throw new Error(`Channel with key ${key} not found`);
+      }
+
+      async read(
+        tr: TimeRange,
+        key: channel.Keys,
+      ): Promise<Record<channel.Key, client.ReadResponse>> {
+        this.readMock(tr, key);
+        return this.response;
+      }
+
+      close(): void {}
+    }
+
+    it("should return a zero value when no channel has been set", async () => {
+      const client = new MockClient();
+      const props = {
+        timeRange: TimeRange.MAX,
+        channel: 0,
+      };
+      const cd = new ChannelData(client, props);
+      const [b, data] = await cd.value();
+      expect(b).toStrictEqual(bounds.ZERO);
+      expect(data).toHaveLength(0);
+      expect(client.readMock).not.toHaveBeenCalled();
+      expect(client.retrieveChannelMock).not.toHaveBeenCalled();
+    });
+
+    it("should return a zero value when the time range is empty", async () => {
+      const client = new MockClient();
+      const props = {
+        timeRange: TimeRange.ZERO,
+        channel: client.channel.key,
+      };
+      const cd = new ChannelData(client, props);
+      const [b, data] = await cd.value();
+      expect(b).toStrictEqual(bounds.ZERO);
+      expect(data).toHaveLength(0);
+      expect(client.readMock).not.toHaveBeenCalled();
+      expect(client.retrieveChannelMock).not.toHaveBeenCalled();
+    });
+
+    it("should return data when both the channel and time range are set", async () => {
+      const c = new MockClient();
+      const series = new Series({
+        data: new Float32Array([1, 2, 3]),
+      });
+      c.response = {
+        [c.channel.key]: new client.ReadResponse(c.channel, [series]),
+      };
+      const props = {
+        timeRange: TimeRange.MAX,
+        channel: c.channel.key,
+      };
+      const cd = new ChannelData(c, props);
+      const [b, data] = await cd.value();
+      expect(b).toStrictEqual({ lower: 1, upper: 3 });
+      expect(data).toHaveLength(1);
+      expect(data[0]).toBe(series);
+    });
+
+    it("should fetch data from the index channel when the channel is not an index and fetchIndex is true", async () => {
+      const c = new MockClient();
+      const series = new Series({
+        data: new Float32Array([0, 2, 4]),
+      });
+      c.response = {
+        [c.channel.index]: new client.ReadResponse(c.indexChannel, [series]),
+      };
+      const props: ChannelDataProps = {
+        timeRange: TimeRange.MAX,
+        channel: c.channel.key,
+        indexOfChannel: true,
+      };
+      const cd = new ChannelData(c, props);
+      const [b, data] = await cd.value();
+      expect(b).toStrictEqual({ lower: 0, upper: 4 });
+      expect(data).toHaveLength(1);
+      expect(data[0]).toBe(series);
+    });
+
+    it("should fetch data from the same channel when the channel is an index and fetchIndex is true", async () => {
+      const c = new MockClient();
+      const series = new Series({
+        data: new Float32Array([0, 2, 4]),
+      });
+      c.response = {
+        [c.channel.index]: new client.ReadResponse(c.indexChannel, [series]),
+      };
+      const props: ChannelDataProps = {
+        timeRange: TimeRange.MAX,
+        channel: c.channel.index,
+        indexOfChannel: true,
+      };
+      const cd = new ChannelData(c, props);
+      const [b, data] = await cd.value();
+      expect(b).toStrictEqual({ lower: 0, upper: 4 });
+      expect(data).toHaveLength(1);
+      expect(data[0]).toBe(series);
     });
   });
 });

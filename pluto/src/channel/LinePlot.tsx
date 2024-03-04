@@ -357,7 +357,7 @@ const StaticLine = ({
   const xTelem = telem.channelData({
     timeRange,
     channel: hasX ? x : y,
-    index: !hasX,
+    indexOfChannel: !hasX,
   });
   return <Core.Line aetherKey={key} y={yTelem} x={xTelem} {...props} />;
 };

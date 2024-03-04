@@ -46,7 +46,7 @@ export class StreamChannelValue
   // Disconnects the current streaming handler.
   private removeStreamHandler: AsyncDestructor | null = null;
 
-  static readonly TYPE = "range-point";
+  static readonly TYPE = "stream-channel-value";
 
   schema = streamChannelValuePropsZ;
 
@@ -58,10 +58,12 @@ export class StreamChannelValue
     this.client = client;
   }
 
+  /** @returns the leadng series buffer for testing purposes. */
   get testingOnlyLeadingBuffer(): Series | null {
     return this.leadingBuffer;
   }
 
+  /** @returns the internal valid flag for testing purposes */
   get testingOnlyValid(): boolean {
     return this.valid;
   }
@@ -134,21 +136,23 @@ export class StreamChannelValue
 const fetchChannel = async (
   client: client.ChannelClient,
   channel: channel.Key,
-  index: boolean,
+  fetchFromIndex: boolean,
 ): Promise<channel.Channel> => {
-  if (!index) return await client.retrieveChannel(channel);
+  if (!fetchFromIndex) return await client.retrieveChannel(channel);
   const c = await client.retrieveChannel(channel);
+  if (c.isIndex) return c;
   return await client.retrieveChannel(c.index);
 };
 
 const channelDataSourcePropsZ = z.object({
   timeRange: TimeRange.z,
   channel: z.number(),
-  index: z.boolean().optional().default(false),
+  indexOfChannel: z.boolean().optional().default(false),
 });
 
 export type ChannelDataProps = z.input<typeof channelDataSourcePropsZ>;
 
+// ChannelData reads a fixed time range of data from a particular channel or its index.
 export class ChannelData
   extends AbstractSource<typeof channelDataSourcePropsZ>
   implements ChannelData
@@ -156,8 +160,8 @@ export class ChannelData
   static readonly TYPE = "series-source";
   private readonly client: client.ReadClient & client.ChannelClient;
   private data: Series[] = [];
+  private valid: boolean = false;
   schema = channelDataSourcePropsZ;
-  valid: boolean = false;
 
   constructor(client: client.ReadClient & client.ChannelClient, props: unknown) {
     super(props);
@@ -170,7 +174,11 @@ export class ChannelData
   }
 
   async value(): Promise<[bounds.Bounds, Series[]]> {
-    const chan = await fetchChannel(this.client, this.props.channel, this.props.index);
+    const { timeRange, channel, indexOfChannel } = this.props;
+    // If either of these conditions is true, leave the telem invalid
+    // and return an empty array.
+    if (timeRange.isZero || channel === 0) return [bounds.ZERO, []];
+    const chan = await fetchChannel(this.client, channel, indexOfChannel);
     if (!this.valid) await this.readFixed(chan.key);
     let b = bounds.max(this.data.map((d) => d.bounds));
     if (chan.dataType.equals(DataType.TIMESTAMP))
@@ -225,12 +233,11 @@ export class StreamChannelData
         .filter((d) => d.timeRange.end.after(now.sub(timeSpan)))
         .map((d) => d.bounds),
     );
-    if (ch.dataType.equals(DataType.TIMESTAMP)) {
+    if (ch.dataType.equals(DataType.TIMESTAMP))
       b = {
         upper: b.upper,
         lower: Math.max(b.lower, b.upper - timeSpan.valueOf()),
       };
-    }
     return [b, this.data];
   }
 
@@ -287,9 +294,9 @@ export class RemoteFactory implements RemoteFactory {
   }
 
   create(spec: Spec): Telem | null {
-    if (!(spec.type in REGISTRY)) return null;
-    const t = new REGISTRY[spec.type](this.client, spec.props);
-    return t;
+    const V = REGISTRY[spec.type];
+    if (V == null) return null;
+    return new V(this.client, spec.props);
   }
 }
 
@@ -309,11 +316,9 @@ export const streamChannelData = (props: StreamChannelDataProps): SeriesSourceSp
 
 export const streamChannelValue = (
   props: Omit<StreamChannelValueProps, "units">,
-): NumberSourceSpec => {
-  return {
-    type: StreamChannelValue.TYPE,
-    props,
-    variant: "source",
-    valueType: "number",
-  };
-};
+): NumberSourceSpec => ({
+  type: StreamChannelValue.TYPE,
+  props,
+  variant: "source",
+  valueType: "number",
+});
