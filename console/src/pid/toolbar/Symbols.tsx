@@ -99,7 +99,6 @@ const SymbolsButton = ({
   return (
     <>
       <Align.Space
-        el="button"
         className={CSS.BE("pid-symbols", "button")}
         justify="spaceBetween"
         align="center"

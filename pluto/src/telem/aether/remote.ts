@@ -147,7 +147,7 @@ const fetchChannel = async (
 const channelDataSourcePropsZ = z.object({
   timeRange: TimeRange.z,
   channel: z.number(),
-  indexOfChannel: z.boolean().optional().default(false),
+  useIndexOfChannel: z.boolean().optional().default(false),
 });
 
 export type ChannelDataProps = z.input<typeof channelDataSourcePropsZ>;
@@ -174,7 +174,7 @@ export class ChannelData
   }
 
   async value(): Promise<[bounds.Bounds, Series[]]> {
-    const { timeRange, channel, indexOfChannel } = this.props;
+    const { timeRange, channel, useIndexOfChannel: indexOfChannel } = this.props;
     // If either of these conditions is true, leave the telem invalid
     // and return an empty array.
     if (timeRange.isZero || channel === 0) return [bounds.ZERO, []];
@@ -200,7 +200,7 @@ export class ChannelData
 
 const streamChannelDataPropsZ = z.object({
   channel: z.number(),
-  index: z.boolean().optional().default(false),
+  useIndexOfChannel: z.boolean().optional().default(false),
   timeSpan: TimeSpan.z,
   keepFor: TimeSpan.z.optional(),
 });
@@ -224,9 +224,10 @@ export class StreamChannelData
   }
 
   async value(): Promise<[bounds.Bounds, Series[]]> {
-    const { channel, index, timeSpan } = this.props;
+    const { channel, useIndexOfChannel, timeSpan } = this.props;
+    if (channel === 0) return [bounds.ZERO, []];
     const now = TimeStamp.now();
-    const ch = await fetchChannel(this.client, channel, index);
+    const ch = await fetchChannel(this.client, channel, useIndexOfChannel);
     if (!this.valid) await this.read(ch.key);
     let b = bounds.max(
       this.data

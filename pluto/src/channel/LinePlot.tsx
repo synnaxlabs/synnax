@@ -336,7 +336,7 @@ const DynamicLine = ({
   const xTelem = telem.streamChannelData({
     timeSpan,
     channel: hasX ? x : y,
-    index: !hasX,
+    useIndexOfChannel: !hasX,
     keepFor,
   });
   return <Core.Line aetherKey={key} y={yTelem} x={xTelem} {...props} />;
@@ -357,7 +357,7 @@ const StaticLine = ({
   const xTelem = telem.channelData({
     timeRange,
     channel: hasX ? x : y,
-    indexOfChannel: !hasX,
+    useIndexOfChannel: !hasX,
   });
   return <Core.Line aetherKey={key} y={yTelem} x={xTelem} {...props} />;
 };
