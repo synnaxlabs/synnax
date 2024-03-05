@@ -22,7 +22,6 @@ import {
 } from "react";
 
 import { Case, deep, shallowCopy, type Destructor, toArray } from "@synnaxlabs/x";
-import { l } from "node_modules/vite/dist/node/types.d-jgA8ss1A";
 import { type z } from "zod";
 
 import { useSyncedRef } from "@/hooks/ref";
@@ -200,9 +199,10 @@ export const Field = <
   visible = typeof visible === "function" ? visible(field) : visible;
   if (!visible) return null;
   const helpText = field.touched ? field.status.message : "";
+  const { onChange, value } = field;
   return (
     <Input.Item padHelpText={padHelpText} helpText={helpText} label={label} {...props}>
-      {children(field)}
+      {children({ onChange, value })}
     </Input.Item>
   );
 };

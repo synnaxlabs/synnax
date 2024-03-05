@@ -155,6 +155,7 @@ export class StateProvider extends aether.Composite<
       i.L.error("failed to open state tracker");
       return;
     }
+    this.disconnectTrackerChange?.();
     this.disconnectTrackerChange = this.tracker.onChange((t) => {
       i.L.debug("transfer", { transfers: t.map((t) => control.transferString(t)) });
       if (this.tracker == null)

@@ -15,7 +15,6 @@ import {
   TimeSpan,
   TimeStamp,
   DataType,
-  addSamples,
   type AsyncDestructor,
 } from "@synnaxlabs/x";
 import { z } from "zod";
@@ -37,56 +36,80 @@ export const streamChannelValuePropsZ = z.object({
 
 export type StreamChannelValueProps = z.infer<typeof streamChannelValuePropsZ>;
 
+// StreamChannelValue is an implementation of NumberSource that reads and returns the
+// most recent value of a channel in real-time.
 export class StreamChannelValue
   extends AbstractSource<typeof streamChannelValuePropsZ>
   implements NumberSource
 {
-  removeStreamHandler: AsyncDestructor | null = null;
+  private readonly client: client.Client;
+  // Disconnects the current streaming handler.
+  private removeStreamHandler: AsyncDestructor | null = null;
 
-  static readonly TYPE = "range-point";
+  static readonly TYPE = "stream-channel-value";
 
   schema = streamChannelValuePropsZ;
 
-  private valid = false;
   private leadingBuffer: Series | null = null;
-  private readonly client: client.Client;
+  private valid = false;
 
   constructor(client: client.Client, props: unknown) {
     super(props);
     this.client = client;
   }
 
+  /** @returns the leadng series buffer for testing purposes. */
+  get testingOnlyLeadingBuffer(): Series | null {
+    return this.leadingBuffer;
+  }
+
+  /** @returns the internal valid flag for testing purposes */
+  get testingOnlyValid(): boolean {
+    return this.valid;
+  }
+
   async cleanup(): Promise<void> {
+    // Start off by stopping telemetry streaming.
     await this.removeStreamHandler?.();
+    // Set valid to false so if we read again, we know to update the buffer.
     this.valid = false;
+    // Release the leading buffer.
     this.leadingBuffer?.release();
+    // Clear out references.
     this.leadingBuffer = null;
     this.removeStreamHandler = null;
   }
 
   async value(): Promise<number> {
+    // No valid channel has been set.
     if (this.props.channel === 0) return 0;
     if (!this.valid) await this.read();
+    // No data has been received and no recent samples were fetched on initialization.
     if (this.leadingBuffer == null || this.leadingBuffer.length === 0) return 0;
-    const v = this.leadingBuffer.data[this.leadingBuffer.length - 1];
-    return Number(addSamples(v, this.leadingBuffer.sampleOffset));
+    return this.leadingBuffer.at(-1, true) as number;
   }
 
   async read(): Promise<void> {
     try {
       const { channel } = this.props;
-      const now = TimeStamp.now()
+      // Read from a little bit before now to a little bit after now to make sure we
+      // get all available data.
+      const timeRange = TimeStamp.now()
         .sub(TimeStamp.seconds(10))
         .spanRange(TimeSpan.seconds(20));
-      const res = await this.client.read(now, [channel]);
+      const res = await this.client.read(timeRange, [channel]);
+      // Start listening for new data.
+      await this.updateStreamHandler();
+      // This is the right place to set valid to true, because this means the read was
+      // successful and we have a buffer to read from.
+      this.valid = true;
       const newData = res[channel].data;
       if (newData.length === 0) return;
       const first = newData[newData.length - 1];
       first.acquire();
       this.leadingBuffer = first;
-      await this.updateStreamHandler();
-      this.valid = true;
     } catch (e) {
+      // TODO: improve error handling.
       console.error(e);
     }
   }
@@ -103,7 +126,7 @@ export class StreamChannelValue
         this.leadingBuffer?.release();
         this.leadingBuffer = first;
       }
-      // Just because we didn't
+      // Just because we didn't get a new buffer doesn't mean one wasn't allocated.
       this.notify?.();
     };
     this.removeStreamHandler = await this.client.stream(handler, [channel]);
@@ -113,21 +136,23 @@ export class StreamChannelValue
 const fetchChannel = async (
   client: client.ChannelClient,
   channel: channel.Key,
-  index: boolean,
+  fetchFromIndex: boolean,
 ): Promise<channel.Channel> => {
-  if (!index) return await client.retrieveChannel(channel);
+  if (!fetchFromIndex) return await client.retrieveChannel(channel);
   const c = await client.retrieveChannel(channel);
+  if (c.isIndex) return c;
   return await client.retrieveChannel(c.index);
 };
 
 const channelDataSourcePropsZ = z.object({
   timeRange: TimeRange.z,
   channel: z.number(),
-  index: z.boolean().optional().default(false),
+  useIndexOfChannel: z.boolean().optional().default(false),
 });
 
 export type ChannelDataProps = z.input<typeof channelDataSourcePropsZ>;
 
+// ChannelData reads a fixed time range of data from a particular channel or its index.
 export class ChannelData
   extends AbstractSource<typeof channelDataSourcePropsZ>
   implements ChannelData
@@ -135,8 +160,8 @@ export class ChannelData
   static readonly TYPE = "series-source";
   private readonly client: client.ReadClient & client.ChannelClient;
   private data: Series[] = [];
+  private valid: boolean = false;
   schema = channelDataSourcePropsZ;
-  valid: boolean = false;
 
   constructor(client: client.ReadClient & client.ChannelClient, props: unknown) {
     super(props);
@@ -149,15 +174,18 @@ export class ChannelData
   }
 
   async value(): Promise<[bounds.Bounds, Series[]]> {
-    const chan = await fetchChannel(this.client, this.props.channel, this.props.index);
+    const { timeRange, channel, useIndexOfChannel: indexOfChannel } = this.props;
+    // If either of these conditions is true, leave the telem invalid
+    // and return an empty array.
+    if (timeRange.isZero || channel === 0) return [bounds.ZERO, []];
+    const chan = await fetchChannel(this.client, channel, indexOfChannel);
     if (!this.valid) await this.readFixed(chan.key);
     let b = bounds.max(this.data.map((d) => d.bounds));
-    if (chan.dataType.equals(DataType.TIMESTAMP)) {
+    if (chan.dataType.equals(DataType.TIMESTAMP))
       b = {
         upper: Math.min(b.upper, this.props.timeRange.end.valueOf()),
         lower: Math.max(b.lower, this.props.timeRange.start.valueOf()),
       };
-    }
     return [b, this.data];
   }
 
@@ -172,7 +200,7 @@ export class ChannelData
 
 const streamChannelDataPropsZ = z.object({
   channel: z.number(),
-  index: z.boolean().optional().default(false),
+  useIndexOfChannel: z.boolean().optional().default(false),
   timeSpan: TimeSpan.z,
   keepFor: TimeSpan.z.optional(),
 });
@@ -196,21 +224,21 @@ export class StreamChannelData
   }
 
   async value(): Promise<[bounds.Bounds, Series[]]> {
-    const { channel, index, timeSpan } = this.props;
+    const { channel, useIndexOfChannel, timeSpan } = this.props;
+    if (channel === 0) return [bounds.ZERO, []];
     const now = TimeStamp.now();
-    const ch = await fetchChannel(this.client, channel, index);
+    const ch = await fetchChannel(this.client, channel, useIndexOfChannel);
     if (!this.valid) await this.read(ch.key);
     let b = bounds.max(
       this.data
         .filter((d) => d.timeRange.end.after(now.sub(timeSpan)))
         .map((d) => d.bounds),
     );
-    if (ch.dataType.equals(DataType.TIMESTAMP)) {
+    if (ch.dataType.equals(DataType.TIMESTAMP))
       b = {
         upper: b.upper,
         lower: Math.max(b.lower, b.upper - timeSpan.valueOf()),
       };
-    }
     return [b, this.data];
   }
 
@@ -267,9 +295,9 @@ export class RemoteFactory implements RemoteFactory {
   }
 
   create(spec: Spec): Telem | null {
-    if (!(spec.type in REGISTRY)) return null;
-    const t = new REGISTRY[spec.type](this.client, spec.props);
-    return t;
+    const V = REGISTRY[spec.type];
+    if (V == null) return null;
+    return new V(this.client, spec.props);
   }
 }
 
@@ -289,11 +317,9 @@ export const streamChannelData = (props: StreamChannelDataProps): SeriesSourceSp
 
 export const streamChannelValue = (
   props: Omit<StreamChannelValueProps, "units">,
-): NumberSourceSpec => {
-  return {
-    type: StreamChannelValue.TYPE,
-    props,
-    variant: "source",
-    valueType: "number",
-  };
-};
+): NumberSourceSpec => ({
+  type: StreamChannelValue.TYPE,
+  props,
+  variant: "source",
+  valueType: "number",
+});

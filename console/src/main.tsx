@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useCallback, StrictMode } from "react";
+import { type ReactElement, useCallback } from "react";
 
 import { Provider } from "@synnaxlabs/drift/react";
 import { Pluto, type Haul, type Triggers, type state } from "@synnaxlabs/pluto";
@@ -30,7 +30,6 @@ import { PID } from "@/pid";
 import { Range } from "@/range";
 import { SERVICES } from "@/services";
 import { store } from "@/store";
-// import { Table } from "@/table";
 import { Version } from "@/version";
 import { Vis } from "@/vis";
 import WorkerURL from "@/worker?worker&url";
@@ -53,7 +52,6 @@ const layoutRenderers = {
   [Label.manageWindowLayout.type]: Label.Manage,
   [LinePlot.LAYOUT_TYPE]: LinePlot.LinePlot,
   [PID.LAYOUT_TYPE]: PID.PID,
-  // [Table.LAYOUT_TYPE]: Table.Table,
   [HardwareStatus.LAYOUT_TYPE]: HardwareStatus.Status,
   [HardwareConfigure.LAYOUT_TYPE]: HardwareConfigure.Configure,
   [NewDevice.LAYOUT_TYPE]: NewDevice.Configure,
@@ -102,7 +100,7 @@ const MainUnderContext = (): ReactElement => {
         haul={{ useState: useHaulState }}
         alamos={{
           level: "debug",
-          include: ["control-state"],
+          include: ["aether.telem"],
         }}
       >
         <Vis.Canvas>

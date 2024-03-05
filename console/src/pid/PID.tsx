@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useCallback, useMemo, useRef } from "react";
+import { type ReactElement, useCallback, useMemo, useRef, useEffect } from "react";
 
 import { type PayloadAction } from "@reduxjs/toolkit";
 import { Icon } from "@synnaxlabs/media";
@@ -25,7 +25,7 @@ import {
   Diagram,
   PID as Core,
 } from "@synnaxlabs/pluto";
-import { type UnknownRecord, box, scale, xy } from "@synnaxlabs/x";
+import { type UnknownRecord, box } from "@synnaxlabs/x";
 import { nanoid } from "nanoid/non-secure";
 import { useDispatch } from "react-redux";
 
@@ -137,6 +137,14 @@ const SymbolRenderer = ({
 export const Loaded: Layout.Renderer = ({ layoutKey }) => {
   const { name } = Layout.useSelectRequired(layoutKey);
   const pid = useSelect(layoutKey);
+  useEffect(() => {
+    dispatch(
+      setControlStatus({
+        layoutKey,
+        control: "released",
+      }) as PayloadAction<SyncPayload>,
+    );
+  }, []);
 
   const dispatch = useSyncerDispatch<Layout.StoreState & StoreState, SyncPayload>(
     syncer,
