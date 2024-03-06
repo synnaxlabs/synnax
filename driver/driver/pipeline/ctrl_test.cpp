@@ -28,34 +28,34 @@ TEST(CtrlTests, testCtrlNi){
     auto client = std::make_shared<synnax::Synnax>(client_config);
 
     // create all the necessary channels in the synnax client
-    auto [ack_idx, tErr] = client->channels.create( // index channel for acks
+    auto [ack_idx, tErr1] = client->channels.create( // index channel for acks
             "ack_idx",
             synnax::TIMESTAMP,
             0,
             true
     );
-    ASSERT_FALSE(tErr) << tErr.message();
-    auto [cmd_idx, tErr] = client->channels.create( // index channel for cmd
+    ASSERT_FALSE(tErr1) << tErr1.message();
+    auto [cmd_idx, tErr2] = client->channels.create( // index channel for cmd
         "ack_idx",
         synnax::TIMESTAMP,
         0,
         true
     );
-    ASSERT_FALSE(tErr) << tErr.message();
+    ASSERT_FALSE(tErr2) << tErr2.message();
     auto [ack, aErr] = client->channels.create( // ack channel
             "ack",
             synnax::UINT8,
             ack_idx.key,
             false
     );
-    ASSERT_FALSE(tErr) << tErr.message();
+    ASSERT_FALSE(aErr) << aErr.message();
     auto [cmd, cErr] = client->channels.create( // cmd channel
             "cmd",
             synnax::UINT8,
             cmd_idx.key,
             false
     );
-    ASSERT_FALSE(tErr) << tErr.message();
+    ASSERT_FALSE(cErr) << cErr.message();
 
     // create config json
     auto config = json{
@@ -69,25 +69,25 @@ TEST(CtrlTests, testCtrlNi){
 
     // create a writer to write to cmd channel (for test use only)
     auto now = synnax::TimeStamp::now();
-    auto writerConfig = synnax::WriterConfig{
+    auto cmdWriterConfig = synnax::WriterConfig{
         std::vector<synnax::ChannelKey>{cmd.key, cmd_idx.key},
         now,
         std::vector<synnax::Authority>{synnax::ABSOLUTTE, synnax::ABSOLUTTE},
         synnax::Subject{"test_cmd_writer"},
     };
-    auto [cmdWriter,wErr] = client->telem.openWriter(writerConfig);
+    auto [cmdWriter,wErr] = client->telem.openWriter(cmdWriterConfig);
     ASSERT_FALSE(wErr) << wErr.message();
 
     // create a streamer to stream ack channel (for in test use only)
-    auto streamerConfig = synnax::StreamerConfig{
+    auto ackStreamerConfig = synnax::StreamerConfig{
         std::vector<synnax::ChannelKey>{ack.key, ack_idx.key},
         synnax::TimeStamp::now(),
     };
-    auto [ackStreamer, sErr] = client->telem.openStreamer(streamerConfig);
+    auto [ackStreamer, sErr] = client->telem.openStreamer(ackStreamerConfig);
     ASSERT_FALSE(sErr) << wErr.message();
 
     // create writer config
-    auto now = synnax::TimeStamp::now();
+    now = synnax::TimeStamp::now();
     auto writerConfig = synnax::WriterConfig{
         std::vector<synnax::ChannelKey>{ack.key, ack_idx.key},
         now,
@@ -117,15 +117,15 @@ TEST(CtrlTests, testCtrlNi){
 
     /// now write to the command channel, should expect an acknowledgement to be written to the ack channel
     // construct cmd frame to set channel high
-    auto now = (synnax::TimeStamp::now()).value;
+    auto time = (synnax::TimeStamp::now()).value;
     auto frame = synnax::Frame(2);
-    frame.add(cmd_idx.key, synnax::Series(std::vector<uint64_t>{now}));
+    frame.add(cmd_idx.key, synnax::Series(std::vector<uint64_t>{time}));
     frame.add(cmd.key, synnax::Series(std::vector<uint8_t>{1}));
 
     // write frame to cmd channel
-    ASSERT_TRUE(cmdWriter->write(std::move(frame)));
+    ASSERT_TRUE(cmdWriter.write(std::move(frame)));
     std::this_thread::sleep_for(std::chrono::seconds(1)); // sleep (TODO: remove this later)
-    auto [ack_frame, recErr] = ackStreamer->read(); // read the ack frame from the ack channel
+    auto [ack_frame, recErr] = ackStreamer.read(); // read the ack frame from the ack channel
     ASSERT_FALSE(recErr) << recErr.message();
 
 //    ASSERT_EQ(ack_frame.series->at(1).uint8()[0], 1);
@@ -135,8 +135,8 @@ TEST(CtrlTests, testCtrlNi){
     ctrl.stop();
 
     // close the writer and streamer
-    auto wcErr = cmdWriter->close();
+    auto wcErr = cmdWriter.close();
     ASSERT_FALSE(wcErr) << wcErr.message();
-    auto wsErr = ackStreamer->close();
+    auto wsErr = ackStreamer.close();
     ASSERT_FALSE(wsErr) << wsErr.message();
 }
