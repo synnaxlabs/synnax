@@ -15,9 +15,11 @@ using namespace pipeline;
 
 Ctrl::Ctrl(){}
 
-Ctrl::Ctrl(synnax::WriterConfig writer_config,
+Ctrl::Ctrl(synnax::StreamerConfig streamer_config,
+           synnax::WriterConfig writer_config,
            std::shared_ptr<synnax::Synnax> client,
            std::unique_ptr<daq::Writer> daq_writer):
+           streamer_config(streamer_config),
            writer_config(writer_config),
            client(client),
            daq_writer(std::move(daq_writer)) {
@@ -34,13 +36,12 @@ void Ctrl::stop() {
 }
 
 void Ctrl::run(){
-
+    // start daq writer
     auto daq_err = daq_writer->start();
     if(!daq_err.ok()) { // daq read error
         if (daq_err.type == freighter::TYPE_TRANSIENT_HARDWARE_ERROR && breaker->wait()) run();
         return;
     }
-
     // start synnax writer
     auto [writer, wo_err] = client->telem.openWriter(writer_config);
     if (!wo_err.ok()) { // synnax write error
@@ -48,7 +49,6 @@ void Ctrl::run(){
         if (wo_err.type == freighter::TYPE_UNREACHABLE && breaker->wait()) run();
         return;
     }
-
     // start synnax streamer
     auto [streamer, so_err] = client->telem.openStreamer(streamer_config);
     if (!so_err.ok()) { // synnax write error
@@ -61,28 +61,25 @@ void Ctrl::run(){
     bool retry = false;
 
     while(running){
-        auto [cmd_frame, cmd_err] = streamer->read();
+        //check if we received anything from the streamer
+        auto [cmd_frame, cmd_err] = streamer->read(); // blocks until we receive a frame from the streamer
         if(!cmd_err.ok()){
             if(cmd_err.type == freighter::TYPE_UNREACHABLE && breaker->wait()) run();
             return;
         }
-
-        //check if we received anything from the streamer
-
-
+        // write to daq
         auto [ack_frame, daq_err] = daq_writer->write(std::move(cmd_frame));
         if(!daq_err.ok()){
             if(daq_err.type == freighter::TYPE_UNREACHABLE && breaker->wait()) run();
             return;
         }
-
+        // write ack_frame to server
         auto write_ok = writer->write(std::move(ack_frame));
         if(!write_ok.ok()){
             if(write_ok.type == freighter::TYPE_UNREACHABLE && breaker->wait()) run();
             return;
         }
-
-        // synnax commit acknowledgement
+        // commit acknowledgement
         auto now = synnax::TimeStamp::now();
         if (now - last_commit > commit_interval) {
             auto [end, ok] = writer.commit();

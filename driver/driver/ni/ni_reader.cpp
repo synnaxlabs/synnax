@@ -79,18 +79,13 @@ void ni::niDaqReader::init(std::vector<channel_config> channels, uint64_t acquis
                 DAQmxCreateDIChan(taskHandle, channel.name.c_str(), "", DAQmx_Val_ChanPerLine);
                 taskType = DIGITAL_READER;
                 break;
-            case DIGITAL_OUT:                   //TODO: Implement
-                // DAQmxCreateDOChan(taskHandle, channel.name.c_str(), "", DAQmx_Val_ChanPerLine);
-                taskType = DIGITAL_WRITER;
-                break;
         }
         this->numChannels++; // change to handle index channels
     }
-    std::cout << "NumChannels: " << numChannels << std::endl;
-    if( taskType == ANALOG_READER){
+
+    if( taskType == ANALOG_READER){ // only configure timing if we are reading analog data
         int err = DAQmxCfgSampClkTiming(taskHandle, "", acquisition_rate, DAQmx_Val_Rising, DAQmx_Val_ContSamps, acquisition_rate);
         if(err < 0){
-            printf("DAQmx Error: %d\n",err);
             std::cout << "ERROR" << std::endl;
             DAQmxGetExtendedErrorInfo(errBuff,2048);
             printf("DAQmx Error: %s\n",errBuff);
@@ -219,7 +214,6 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readDigital(){
             f.add(channels[i].channel_key, synnax::Series(time_index, synnax::TIMESTAMP));
         }
         else{
-            std::cout << "SamplesRead: " << samplesRead << std::endl;
             for(int j = 0; j < samplesRead; j++){
                 data_vec[j] = digitalData[data_index*samplesRead + j];
             }
@@ -242,6 +236,7 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::read(){
         return {synnax::Frame(0), freighter::NIL};
     }
 }
+
 ///////////////////////////////////////////////////////////////////////////////////
 // niDaqWriter
 ///////////////////////////////////////////////////////////////////////////////////
@@ -250,7 +245,6 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::read(){
 niDaqWriter::niDaqWriter(TaskHandle taskHandle) : taskHandle(taskHandle) {}
 
 void niDaqWriter::init(json config, synnax::ChannelKey ack_index_key) {
-    std::cout << "Init NiDaqWriter with json" << std::endl;
     //print json
     std::vector<channel_config> channel_configs;
     auto channels = config["channels"];
@@ -341,17 +335,14 @@ std::pair <synnax::Frame, freighter::Error> ni::niDaqWriter::writeDigital(synnax
         printf("DAQmx Error: %s\n",errBuff);
     }
 
-    // deal with acknowledgementsb
+    // Construct acknowledgement frame
     auto ack_frame = synnax::Frame(ack_queue.size() + 1);
-
     ack_frame.add(ack_index_key, synnax::Series(std::vector<uint64_t>{synnax::TimeStamp::now().value}));
-
     while(!ack_queue.empty()){
         auto ack_key = ack_queue.front();
         ack_frame.add(ack_key, synnax::Series(std::vector<uint8_t>{1}));
         ack_queue.pop();
     }
-
     return {std::move(ack_frame), freighter::NIL};
 }
 
@@ -363,10 +354,7 @@ freighter::Error ni::niDaqWriter::formatData(synnax::Frame frame){
         if (it != cmd_channel_keys.end()){
             cmd_channel_index = std::distance(cmd_channel_keys.begin(), it) ;
             auto &series = (*frame.series)[frame_index];
-            // print datatype of series
-//            std::cout << "value to write: " << series.uint8() << std::endl;
             writeBuffer[cmd_channel_index] = series.uint8()[0];
-//            memcpy(writeBuffer + numChannel, series.uint8(), sizeof(uint8_t)); //TODO make sure this works
             ack_queue.push(ack_channel_keys[cmd_channel_index]);
         }
         frame_index++;

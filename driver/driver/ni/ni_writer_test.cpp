@@ -31,25 +31,22 @@ TEST(NiWriterTests, testDigitalWriteLine){
     uint32_t ack_index_key = 65533;
     uint32_t cmd_index_key = 65534;
 
-    std::cout << "Adding digital out channel to config" << std::endl;
-
+    // add channel to the config
     add_DO_channel_JSON(config, "test_digital_out", cmd_key, ack_key, port, line);
-
-    std::cout << "Init writer" << std::endl;
 
     // init the writer
     writer.init(config,ack_index_key);
     writer.start();
 
-    std::cout << "Write digital" << std::endl;
-    // create a synnax frame with a command
+
+    /// create a synnax frame with a command to write a digital line high
     auto now = (synnax::TimeStamp::now()).value;
     auto frame = synnax::Frame(2);
 
     frame.add(cmd_index_key, synnax::Series(std::vector<uint64_t>{now}));
     frame.add(cmd_key, synnax::Series(std::vector<uint8_t>{1}));
 
-    // write the frame
+    // write the frame out to the daq hardware
     auto [f, err] = writer.writeDigital(std::move(frame));
 
     // check if acknowledgement is correct
@@ -57,6 +54,8 @@ TEST(NiWriterTests, testDigitalWriteLine){
     auto ack = f.series->at(1).uint8();
     ASSERT_TRUE( ack[0] == 1);
 
+
+    /// create a synnax frame with a command to write a digital line low
     now = (synnax::TimeStamp::now()).value;
     frame = synnax::Frame(2);
 

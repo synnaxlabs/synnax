@@ -54,3 +54,23 @@ json add_DO_channel_JSON(json &config,
     config["channels"].push_back(channel);
     return  channel;
 }
+
+json add_index_channel_JSON(json &config,
+                            std::string name,
+                            int key){
+    json channel;
+    channel["name"] = name;
+    channel["cmd_key"] = 0;
+    channel["ack_key"] = 0;
+    channel["type"] = "index";
+    channel["port"] = 0;
+    channel["line"] = 0;
+
+    // now add json to the channels vector
+    // check if the channels array exists
+    if(config.find("channels") == config.end()){
+        config["channels"] = json::array();
+    }
+    config["channels"].push_back(channel);
+    return  channel;
+}

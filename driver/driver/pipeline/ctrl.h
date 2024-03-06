@@ -19,7 +19,8 @@ namespace pipeline {
     public:
         void start();
         void stop();
-        Ctrl(synnax::WriterConfig writer_config,
+        Ctrl(synnax::StreamerConfig streamer_config,
+             synnax::WriterConfig writer_config,
              std::shared_ptr<synnax::Synnax> client,
              std::unique_ptr<daq::Writer> daq_writer);
 

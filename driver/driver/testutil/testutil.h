@@ -41,6 +41,9 @@ json add_DO_channel_JSON(json &config,
                                 int port,
                                 int line);
 
+json add_index_channel_JSON(json &config,
+                                std::string name,
+                                int key);
 /// @brief adds a  digital input channel to a json object passed by ref
 /// returns just the JSON of the channel constructed
 //extern void add_DI_channel_JSON(); // TODO: Implement and refactor tests to use (elham)
