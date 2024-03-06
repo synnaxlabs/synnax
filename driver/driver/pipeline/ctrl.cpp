@@ -33,7 +33,8 @@ void Ctrl::start() {
 
 void Ctrl::stop() {
     running = false;
-    ctrl_thread.join();
+    ctrl_thread.detach();
+//    ctrl_thread.join(); wont work if blocked by streamer.read
 }
 
 void Ctrl::run(){
@@ -51,6 +52,10 @@ void Ctrl::run(){
         return;
     }
     // start synnax streamer
+    //print streamer config keys
+//    for (auto const& x : streamer_config.channels) {
+//        std::cout << "Channel :" << x << std::endl;
+//    }
     auto [streamer, so_err] = client->telem.openStreamer(streamer_config);
     if (!so_err.ok()) { // synnax write error
         daq_writer->stop();
@@ -60,15 +65,20 @@ void Ctrl::run(){
     }
 
     bool retry = false;
-
+    int count = 0;
     while(running){
+        std::cout << "Running" << std::endl;
         //check if we received anything from the streamer
         auto [cmd_frame, cmd_err] = streamer.read(); // blocks until we receive a frame from the streamer
+//        std::cout << "command frame found" << std::endl;
         if(!cmd_err.ok()){
             if(cmd_err.type == freighter::TYPE_UNREACHABLE && breaker->wait()) run();
             return;
         }
         // write to daq
+//        std::cout << "Writing to daq" << std::endl;
+        // print out value of cmd_frame
+//        std::cout << "Command Frame: " << cmd_frame.series << std::endl;
         auto [ack_frame, daq_err] = daq_writer->write(std::move(cmd_frame));
         if(!daq_err.ok()){
             if(daq_err.type == freighter::TYPE_UNREACHABLE && breaker->wait()) run();

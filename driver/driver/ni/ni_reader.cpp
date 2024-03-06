@@ -291,6 +291,9 @@ void ni::niDaqWriter::init(std::vector <channel_config> channels){
     }
     this->bufferSize = this->numChannels;
     this->writeBuffer = new uint8_t[this->bufferSize];
+    for(int i = 0; i < this->bufferSize; i++){
+        writeBuffer[i] = 0;
+    }
 }
 
 freighter::Error ni::niDaqWriter::configure(synnax::Module config){
@@ -318,6 +321,7 @@ std::pair <synnax::Frame, freighter::Error> ni::niDaqWriter::write(synnax::Frame
 }
 
 std::pair <synnax::Frame, freighter::Error> ni::niDaqWriter::writeDigital(synnax::Frame frame){
+    std::cout << "Writing to daq" << std::endl;
     char errBuff[2048] = {'\0'};
     signed long samplesWritten = 0;
     formatData(std::move(frame));
@@ -337,9 +341,12 @@ std::pair <synnax::Frame, freighter::Error> ni::niDaqWriter::writeDigital(synnax
 
     // Construct acknowledgement frame
     auto ack_frame = synnax::Frame(ack_queue.size() + 1);
-    ack_frame.add(ack_index_key, synnax::Series(std::vector<uint64_t>{synnax::TimeStamp::now().value}));
+    ack_frame.add(ack_index_key, synnax::Series(std::vector<uint64_t>{synnax::TimeStamp::now().value}, synnax::TIMESTAMP));
+    std::cout << "Ack Index Key: " << ack_index_key << std::endl;
     while(!ack_queue.empty()){
+        std::cout << "Ack Queue Size: " << ack_queue.size() << std::endl;
         auto ack_key = ack_queue.front();
+        std::cout << "Ack Key: " << ack_key << std::endl;
         ack_frame.add(ack_key, synnax::Series(std::vector<uint8_t>{1}));
         ack_queue.pop();
     }
@@ -352,9 +359,12 @@ freighter::Error ni::niDaqWriter::formatData(synnax::Frame frame){
     for (auto key : *(frame.columns)){ // the order the keys are in is the order the data is written
         auto it = std::find(cmd_channel_keys.begin(), cmd_channel_keys.end(), key);
         if (it != cmd_channel_keys.end()){
+            std::cout << "channel key is " << key << std::endl;
+            std::cout << "frame index is" << frame_index << std::endl;
             cmd_channel_index = std::distance(cmd_channel_keys.begin(), it) ;
-            auto &series = (*frame.series)[frame_index];
-            writeBuffer[cmd_channel_index] = series.uint8()[0];
+            auto &series = frame.series->at(frame_index).uint8();
+            writeBuffer[cmd_channel_index] = series[0];
+//                    std::cout << "series is " << (uint32_t)series[0] << std::endl;
             ack_queue.push(ack_channel_keys[cmd_channel_index]);
         }
         frame_index++;
