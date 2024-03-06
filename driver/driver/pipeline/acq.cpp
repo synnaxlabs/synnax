@@ -67,7 +67,6 @@ void Acq::run() {
         }
 
         if (!writer.write(std::move(frame))) { // write frame to channel
-
             auto err = writer.error();
             if (!err.ok()) {
                 retry = error.type == freighter::TYPE_UNREACHABLE;

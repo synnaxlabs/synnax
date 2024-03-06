@@ -1,11 +1,11 @@
 cc_library(
     name = "pipeline",
     srcs = [
-#        "ctrl.cpp",  TODO: uncomment when ctrl is implemented
+        "ctrl.cpp",
         "acq.cpp",
     ],
     hdrs = [
-#        "ctrl.h", TODO: uncomment when ctrl is implemented
+        "ctrl.h",
         "acq.h",
     ],
     visibility = ["//visibility:public"],
@@ -40,6 +40,18 @@ cc_test (
         "pipeline",
         "@com_google_googletest//:gtest_main",
         "@synnax//synnax/testutil",
+    ],
+    copts = ["/std:c++17"],
+)
+
+cc_test(
+    name = "ctrl_test",
+    srcs = ["ctrl_test.cpp"],
+    deps = [
+        "pipeline",
+        "@com_google_googletest//:gtest_main",
+        "@synnax//synnax/testutil",
+        "//driver/testutil",
     ],
     copts = ["/std:c++17"],
 )

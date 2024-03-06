@@ -40,7 +40,7 @@ private:
 
 
     /// @brief synnax writer
-    std::unique_ptr<synnax::Writer> writer;
+    std::unique_ptr<synnax::Writer> writer; // TODO:  i dont think i actually use this, get rid of it
     synnax::WriterConfig writer_config;
 
     /// @brief commit tracking;

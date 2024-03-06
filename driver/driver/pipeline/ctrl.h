@@ -22,7 +22,8 @@ namespace pipeline {
         Ctrl(synnax::StreamerConfig streamer_config,
              synnax::WriterConfig writer_config,
              std::shared_ptr<synnax::Synnax> client,
-             std::unique_ptr<daq::Writer> daq_writer);
+             std::unique_ptr<daq::daqWriter> daq_writer);
+        Ctrl();
 
     private:
 /// @brief threading.
@@ -30,23 +31,26 @@ namespace pipeline {
         std::thread ctrl_thread;
 
         /// @brief synnax IO.
-        std::unique_ptr <synnax::Synnax> client;
+        std::shared_ptr <synnax::Synnax> client;
 
         /// @brief synnax writer
         std::unique_ptr <synnax::Streamer> streamer;
         synnax::StreamerConfig streamer_config;
 
         /// @brief synnax writer
-        std::unique_ptr <synnax::Writer> writer;
+        std::unique_ptr <synnax::Writer> writer; //TODO: dont use of get rid of ?
         synnax::WriterConfig writer_config;
 
         /// @brief daq interface
-        std::unique_ptr <daq::Writer> daq_writer;
+        std::unique_ptr <daq::daqWriter> daq_writer;
 
         /// @brief breaker
         std::unique_ptr <breaker::Breaker> breaker; // What am I using this for
         void run();
 
+        /// @brief commit tracking;
+        synnax::TimeSpan commit_interval = synnax::TimeSpan(1); // TODO: comeback to and move to constructor?
+        synnax::TimeStamp last_commit;
 
 
 
