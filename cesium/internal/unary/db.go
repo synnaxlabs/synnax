@@ -133,7 +133,7 @@ func (db *DB) Delete(ctx context.Context, tr telem.TimeRange) error {
 		End:   tr.Start,
 	}, false)
 	if err != nil {
-		return errors.New("Error calculating distance")
+		return err
 	}
 	startOffset := approxDist.Upper
 
@@ -145,7 +145,7 @@ func (db *DB) Delete(ctx context.Context, tr telem.TimeRange) error {
 		End:   i.TimeRange().End,
 	}, false)
 	if err != nil {
-		return errors.New("Error calculating distance")
+		return err
 	}
 	endOffset := approxDist.Lower + 1
 	return db.Domain.Delete(ctx, tr, startOffset*int64(db.Channel.DataType.Density()), endOffset*int64(db.Channel.DataType.Density()))
