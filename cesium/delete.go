@@ -17,6 +17,7 @@ import (
 	"golang.org/x/sync/semaphore"
 	"strconv"
 	"sync"
+	"time"
 )
 
 func (db *DB) DeleteChannel(ch ChannelKey) error {
@@ -108,4 +109,25 @@ func (db *DB) GarbageCollect(ctx context.Context, maxsizeRead uint32, maxGoRouti
 	}
 	wg.Wait()
 	return collected, c.Error()
+}
+
+func (db *DB) AutoGC(ctx context.Context, maxSizeRead uint32, GCInterval time.Duration, maxGoRoutine int64, quit chan struct{}) (collectedTimes int) {
+	ticker := time.NewTicker(GCInterval * time.Second)
+	defer ticker.Stop()
+	collectedTimes = 0
+
+	for {
+		select {
+		case <-ticker.C:
+			collected, err := db.GarbageCollect(ctx, maxSizeRead, maxGoRoutine)
+			if err != nil {
+				panic(err)
+			}
+			if collected {
+				collectedTimes += 1
+			}
+		case <-quit:
+			return
+		}
+	}
 }
