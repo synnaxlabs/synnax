@@ -30,8 +30,8 @@ var _ = Describe("Delete", Ordered, func() {
 			Expect(domain.Write(ctx, db, (20 * telem.SecondTS).SpanRange(10*telem.Second), []byte{20, 21, 22, 23, 24, 25, 26, 27, 28, 29})).To(Succeed())
 			Expect(domain.Write(ctx, db, (30 * telem.SecondTS).SpanRange(7*telem.Second), []byte{30, 31, 32, 33, 34, 35, 36})).To(Succeed())
 		})
-		Describe("timerange and no offset", func() {
-			Expect(db.Delete(ctx, telem.TimeRange{Start: 15 * telem.SecondTS, End: 32 * telem.SecondTS}, 0, 0)).To(Succeed())
+		It("Should delete a timerange", func() {
+			Expect(db.Delete(ctx, telem.TimeRange{Start: 15 * telem.SecondTS, End: 32 * telem.SecondTS}, int64(6*telem.Int64T.Density()), int64(6*telem.Int64T.Density()))).To(Succeed())
 			iter := db.NewIterator(domain.IteratorConfig{Bounds: telem.TimeRange{
 				Start: 10 * telem.SecondTS,
 				End:   36 * telem.SecondTS,
