@@ -113,6 +113,8 @@ func (i *Iterator) Prev() bool {
 // not accumulated an error. Returns false otherwise.
 func (i *Iterator) Valid() bool { return i.valid }
 
+func (i *Iterator) Position() int { return i.position }
+
 // TimeRange returns the time interval occupied by current domain.
 func (i *Iterator) TimeRange() telem.TimeRange { return i.value.TimeRange }
 

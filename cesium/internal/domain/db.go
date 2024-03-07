@@ -151,27 +151,25 @@ func (db *DB) GetBounds() (tr telem.TimeRange) {
 	return tr
 }
 
-func (db *DB) Delete(ctx context.Context, tr telem.TimeRange, startOffset int64, endOffset int64) error {
+// Note that tr is ONLY used to set the tombstone information and is NOT used to find the pointers needed
+func (db *DB) Delete(ctx context.Context, startPosition int, endPosition int, startOffset int64, endOffset int64, tr telem.TimeRange) error {
 	db.idx.mu.RLock()
-	deleteStart, ok := db.idx.unprotectedSearch(tr.Start.SpanRange(0))
+	start, ok := db.idx.get(startPosition)
 	if !ok {
 		db.idx.mu.RUnlock()
-		return errors.New("Start TS not found")
+		return errors.New("Invalid starting position")
 	}
-	deleteEnd, ok := db.idx.unprotectedSearch(tr.End.SpanRange(0))
+	end, ok := db.idx.get(endPosition)
 	if !ok {
 		db.idx.mu.RUnlock()
-		return errors.New("End TS not found")
+		return errors.New("Invalid ending position")
 	}
 	db.idx.mu.RUnlock()
-
-	start, _ := db.idx.get(deleteStart)
-	end, _ := db.idx.get(deleteEnd)
 
 	db.idx.mu.Lock()
 	defer db.idx.mu.Unlock()
 
-	if deleteEnd != deleteStart {
+	if startPosition != endPosition {
 		// remove end of start pointer
 		db.idx.insertTombstone(ctx, pointer{
 			TimeRange: telem.TimeRange{
@@ -183,7 +181,7 @@ func (db *DB) Delete(ctx context.Context, tr telem.TimeRange, startOffset int64,
 			length:  start.length - uint32(startOffset), // length of {tr.Start, start.End}
 		})
 
-		for _, p := range db.idx.mu.pointers[deleteStart+1 : deleteEnd] {
+		for _, p := range db.idx.mu.pointers[startPosition+1 : endPosition] {
 			db.idx.insertTombstone(ctx, p)
 		}
 
@@ -210,7 +208,7 @@ func (db *DB) Delete(ctx context.Context, tr telem.TimeRange, startOffset int64,
 	}
 
 	// remove old pointers
-	db.idx.mu.pointers = append(db.idx.mu.pointers[:deleteStart+1], db.idx.mu.pointers[deleteEnd+1:]...)
+	db.idx.mu.pointers = append(db.idx.mu.pointers[:startPosition+1], db.idx.mu.pointers[endPosition+1:]...)
 
 	newPointers := []pointer{
 		{
@@ -234,9 +232,9 @@ func (db *DB) Delete(ctx context.Context, tr telem.TimeRange, startOffset int64,
 	}
 
 	temp := make([]pointer, len(db.idx.mu.pointers)+1)
-	copy(temp, db.idx.mu.pointers[:deleteStart])
-	copy(temp[deleteStart:deleteStart+2], newPointers)
-	copy(temp[deleteStart+2:], db.idx.mu.pointers[deleteStart+1:])
+	copy(temp, db.idx.mu.pointers[:startPosition])
+	copy(temp[startPosition:startPosition+2], newPointers)
+	copy(temp[startPosition+2:], db.idx.mu.pointers[startPosition+1:])
 
 	db.idx.mu.pointers = temp
 

@@ -136,6 +136,7 @@ func (db *DB) Delete(ctx context.Context, tr telem.TimeRange) error {
 		return err
 	}
 	startOffset := approxDist.Upper
+	startPosition := i.Position()
 
 	if ok := i.SeekLE(ctx, tr.End); !ok {
 		return errors.New("End TS not found")
@@ -148,7 +149,9 @@ func (db *DB) Delete(ctx context.Context, tr telem.TimeRange) error {
 		return err
 	}
 	endOffset := approxDist.Lower + 1
-	return db.Domain.Delete(ctx, tr, startOffset*int64(db.Channel.DataType.Density()), endOffset*int64(db.Channel.DataType.Density()))
+	endPosition := i.Position()
+
+	return db.Domain.Delete(ctx, startPosition, endPosition, startOffset*int64(db.Channel.DataType.Density()), endOffset*int64(db.Channel.DataType.Density()), tr)
 }
 
 func (db *DB) GarbageCollect(ctx context.Context, maxSizeRead uint32) (bool, error) {
