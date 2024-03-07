@@ -287,7 +287,7 @@ func (db *DB) CollectTombstone(ctx context.Context, maxSizeRead uint32) error {
 				if err != nil {
 					return err
 				}
-				n = _n
+				n += _n
 			}
 			currentPointer.offset -= cumuOffset
 			pointerPtr += 1
