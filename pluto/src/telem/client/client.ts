@@ -29,7 +29,7 @@ import { nanoid } from "nanoid/non-secure";
 
 import { cache } from "@/telem/client/cache";
 
-export const CACHE_BUFFER_SIZE = 10;
+export const CACHE_BUFFER_SIZE = 10000;
 
 export type StreamHandler = (data: Record<channel.Key, ReadResponse>) => void;
 
