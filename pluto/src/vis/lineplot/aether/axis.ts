@@ -23,9 +23,11 @@ import { theming } from "@/theming/aether";
 import { fontString } from "@/theming/core/fontString";
 import { axis } from "@/vis/axis";
 import { type TickType } from "@/vis/axis/ticks";
+import {
+  calculateGridPosition,
+  type GridPositionSpec,
+} from "@/vis/lineplot/aether/grid";
 import { render } from "@/vis/render";
-
-import { calculateGridPosition, type GridPositionSpec } from "./grid";
 
 export const coreAxisStateZ = axis.axisStateZ
   .extend({
@@ -107,7 +109,7 @@ export class CoreAxis<
   S extends typeof coreAxisStateZ,
   C extends aether.Component = aether.Component,
 > extends aether.Composite<S, InternalState, C> {
-  afterUpdate(): void {
+  async afterUpdate(): Promise<void> {
     this.internal.render = render.Context.use(this.ctx);
     const theme = theming.use(this.ctx);
     this.state.autoBoundPadding ??=
@@ -130,7 +132,7 @@ export class CoreAxis<
     }
   }
 
-  afterDelete(): void {
+  async afterDelete(): Promise<void> {
     render.Controller.requestRender(this.ctx, render.REASON_LAYOUT);
   }
 

@@ -178,17 +178,8 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
   static readonly TYPE = "line";
   schema: typeof stateZ = stateZ;
 
-  afterUpdate(): void {
+  async afterUpdate(): Promise<void> {
     if (this.deleted) return;
-    this.internalAfterUpdate().catch(() => {
-      this.internal.instrumentation.L.error("afterUpdate", {
-        key: this.key,
-        reason: "failed",
-      });
-    });
-  }
-
-  private async internalAfterUpdate(): Promise<void> {
     const { internal: i } = this;
     i.xTelem = await telem.useSource(this.ctx, this.state.x, i.xTelem);
     i.yTelem = await telem.useSource(this.ctx, this.state.y, i.yTelem);
@@ -200,16 +191,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     i.requestRender(render.REASON_LAYOUT);
   }
 
-  afterDelete(): void {
-    this.internalAfterDelete().catch(() => {
-      this.internal.instrumentation.L.error("afterDelete", {
-        key: this.key,
-        reason: "failed",
-      });
-    });
-  }
-
-  private async internalAfterDelete(): Promise<void> {
+  async afterDelete(): Promise<void> {
     const { internal: i } = this;
     await i.xTelem.cleanup?.();
     await i.yTelem.cleanup?.();

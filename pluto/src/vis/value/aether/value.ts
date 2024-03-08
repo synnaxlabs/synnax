@@ -50,11 +50,7 @@ export class Value
   static readonly z = valueState;
   schema = Value.z;
 
-  afterUpdate(): void {
-    this.internalAfterUpdate().catch(console.error);
-  }
-
-  private async internalAfterUpdate(): Promise<void> {
+  async afterUpdate(): Promise<void> {
     const { internal: i } = this;
     i.render = render.Context.use(this.ctx);
     i.theme = theming.use(this.ctx);
@@ -66,11 +62,7 @@ export class Value
     this.requestRender();
   }
 
-  afterDelete(): void {
-    this.internalAfterDelete().catch(console.error);
-  }
-
-  private async internalAfterDelete(): Promise<void> {
+  async afterDelete(): Promise<void> {
     const { requestRender, telem, render: renderCtx } = this.internal;
     await telem.cleanup?.();
     if (requestRender == null)

@@ -82,7 +82,7 @@ export class StateProvider extends aether.Composite<
     return ctx.get(CONTEXT_KEY);
   }
 
-  afterUpdate(): void {
+  async afterUpdate(): Promise<void> {
     this.internal.instrumentation = alamos.useInstrumentation(
       this.ctx,
       "control-state",
@@ -114,7 +114,7 @@ export class StateProvider extends aether.Composite<
     }
   }
 
-  afterDelete(): void {
+  async afterDelete(): Promise<void> {
     this.disconnectTrackerChange?.();
     this.tracker
       ?.close()

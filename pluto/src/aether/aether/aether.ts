@@ -10,6 +10,7 @@
 import { Instrumentation } from "@synnaxlabs/alamos";
 import { UnexpectedError, ValidationError } from "@synnaxlabs/client";
 import { type Sender, type SenderHandler } from "@synnaxlabs/x";
+import { Mutex } from "async-mutex";
 import { z } from "zod";
 
 import { type MainMessage, type WorkerMessage } from "@/aether/message";
@@ -63,7 +64,7 @@ export interface Component {
    *
    * @param update - The update to propagate.
    */
-  internalUpdate: (update: Update) => void;
+  internalUpdate: (update: Update) => Promise<void>;
   /**
    * Propagates a delete to the internal tree of the component, calling the handleDelete
    * component on the component itself and any children as necessary. It is up to
@@ -71,7 +72,7 @@ export interface Component {
    *
    * @param path - The path of the component to delete.
    */
-  internalDelete: (path: string[]) => void;
+  internalDelete: (path: string[]) => Promise<void>;
 }
 
 /** A constructor type for an AetherComponent. */
@@ -149,12 +150,12 @@ export class Context {
    * @param update - The update to create the component from.
    * @returns The created component.
    */
-  create<C extends Component>(update: Update): C {
+  async create<C extends Component>(update: Update): Promise<C> {
     const Factory = this.registry[update.type];
     if (Factory == null)
       throw new Error(`[AetherRoot.create] - could not find component ${update.type}`);
     const c = new Factory(update) as C;
-    c.internalUpdate(update);
+    await c.internalUpdate(update);
     return c;
   }
 
@@ -272,7 +273,7 @@ export class Leaf<S extends z.ZodTypeAny, IS extends {} = {}> implements Compone
    * @implements AetherComponent, and should NOT be called by a subclass other than
    * AetherComposite.
    */
-  internalUpdate({ variant, path, ctx, state }: Update): void {
+  async internalUpdate({ variant, path, ctx, state }: Update): Promise<void> {
     this._ctx = ctx;
     if (variant === "state") {
       this.validatePath(path);
@@ -280,17 +281,17 @@ export class Leaf<S extends z.ZodTypeAny, IS extends {} = {}> implements Compone
       this._prevState = this._state ?? state_;
       this._state = state_;
     }
-    this.afterUpdate();
+    await this.afterUpdate();
   }
 
   /**
    * @implements AetherComponent, and should NOT be called by a subclass other than
    * AetherComposite.
    */
-  internalDelete(path: string[]): void {
+  async internalDelete(path: string[]): Promise<void> {
     this.validatePath(path);
     this._deleted = true;
-    this.afterDelete();
+    await this.afterDelete();
   }
 
   beforeUpdate(): void {}
@@ -301,9 +302,7 @@ export class Leaf<S extends z.ZodTypeAny, IS extends {} = {}> implements Compone
    * state, previous state, derived state, and current context are all available to
    * the component.
    */
-  afterUpdate(): void {}
-
-  beforeDelete(): void {}
+  async afterUpdate(): Promise<void> {}
 
   /**
    * Runs after the component has been spliced out of the tree. This is useful for
@@ -311,7 +310,7 @@ export class Leaf<S extends z.ZodTypeAny, IS extends {} = {}> implements Compone
    * the current state, previous state, derived state, and current context are all
    * available to the component, and this.deleted is true.
    */
-  afterDelete(): void {}
+  async afterDelete(): Promise<void> {}
 
   private validatePath(path: string[]): void {
     if (path.length === 0)
@@ -361,14 +360,14 @@ export class Composite<
    * @implements AetherComponent, and should NOT be called by a subclass, except for
    * AetherRoot.
    */
-  internalUpdate(u: Update): void {
+  async internalUpdate(u: Update): Promise<void> {
     const { variant, path } = u;
 
     if (variant === "context") {
       // We need to assume the context has changed, so we need to copy and merge the
       // context before updating the component.
       this._ctx = u.ctx.copyAndMerge(this._ctx);
-      return this.updateContext({ ...u, ctx: this.ctx });
+      return await this.updateContext({ ...u, ctx: this.ctx });
     }
 
     const [key, subPath] = this.getRequiredKey(path);
@@ -376,41 +375,41 @@ export class Composite<
     // the internal, cached context.
     const uCached = { ...u, ctx: this.ctx };
     return subPath.length === 0
-      ? this.updateThis(key, uCached)
-      : this.updateChild(subPath, uCached);
+      ? await this.updateThis(key, uCached)
+      : await this.updateChild(subPath, uCached);
   }
 
-  private updateContext(u: Update): void {
-    super.internalUpdate(u);
-    this.children.forEach((c) => c.internalUpdate(u));
+  private async updateContext(u: Update): Promise<void> {
+    await super.internalUpdate(u);
+    for (const c of this.children)
+      await c.internalUpdate({ ...u, ctx: this.ctx, variant: "context" });
   }
 
-  private updateChild(subPath: string[], u: Update): void {
+  private async updateChild(subPath: string[], u: Update): Promise<void> {
     const childKey = subPath[0];
     const child = this.findChild(childKey);
-    if (child != null) return child.internalUpdate({ ...u, path: subPath });
+    if (child != null) return await child.internalUpdate({ ...u, path: subPath });
     if (subPath.length > 1)
       throw new Error(
         `[Composite.setState] - ${this.type}:${this.key} could not find child with key ${childKey} while updating `,
       );
-    this._children.push(u.ctx.create({ ...u, path: subPath }));
+    this._children.push(await u.ctx.create({ ...u, path: subPath }));
   }
 
-  private updateThis(key: string, u: Update): void {
+  private async updateThis(key: string, u: Update): Promise<void> {
     const ctx = u.ctx.copyAndMerge(this._ctx);
     // Check if super altered the context. If so, we need to re-render children.
     if (key !== this.key)
       throw new UnexpectedError(
         `[Composite.update] - ${this.type}:${this.key} received a key ${key} but expected ${this.key}`,
       );
-    super.internalUpdate({ ...u, ctx });
+    await super.internalUpdate({ ...u, ctx });
     if (!ctx.changed) return;
-    this.children.forEach((c) =>
-      c.internalUpdate({ ...u, ctx: this.ctx, variant: "context" }),
-    );
+    for (const c of this.children)
+      await c.internalUpdate({ ...u, ctx: this.ctx, variant: "context" });
   }
 
-  internalDelete(path: string[]): void {
+  async internalDelete(path: string[]): Promise<void> {
     const [key, subPath] = this.getRequiredKey(path);
     if (subPath.length === 0) {
       if (key !== this.key) {
@@ -418,18 +417,18 @@ export class Composite<
           `[Composite.delete] - ${this.type}:${this.key} received a key ${key} but expected ${this.key}`,
         );
       }
-      const c = this.children;
+      const children = this.children;
       this._children = [];
-      c.forEach((c) => c.internalDelete([c.key]));
-      super.internalDelete([this.key]);
+      for (const c of children) await c.internalDelete([c.key]);
+      await super.internalDelete([this.key]);
       return;
     }
     const child = this.findChild(subPath[0]);
     if (child == null) return;
-    if (subPath.length > 1) child.internalDelete(subPath);
+    if (subPath.length > 1) await child.internalDelete(subPath);
     else {
       this._children.splice(this.children.indexOf(child), 1);
-      child.internalDelete(subPath);
+      await child.internalDelete(subPath);
     }
   }
 
@@ -479,6 +478,7 @@ export interface RootProps {
 export class Root extends Composite<typeof aetherRootState> {
   wrap: SenderHandler<WorkerMessage, MainMessage>;
   instrumentation: Instrumentation;
+  mu = new Mutex();
 
   private static readonly TYPE = "root";
   private static readonly KEY = "root";
@@ -497,21 +497,23 @@ export class Root extends Composite<typeof aetherRootState> {
     const ctx = new Context(wrap, registry, new Map());
     const u = { ctx, ...Root.ZERO_UPDATE };
     super(u);
-    this.internalUpdate(u);
+    void this.internalUpdate(u);
     this.wrap = wrap;
-    this.wrap.handle(this.handle.bind(this));
+    this.wrap.handle((msg) => {
+      void this.mu.runExclusive(async () => await this.handle(msg));
+    });
     this.instrumentation = instrumentation ?? Instrumentation.NOOP;
   }
 
-  handle(msg: MainMessage): void {
-    if (msg.variant === "delete") this.internalDelete(msg.path);
+  async handle(msg: MainMessage): Promise<void> {
+    if (msg.variant === "delete") await this.internalDelete(msg.path);
     else {
       const u: Update = {
         ...msg,
         variant: "state",
         ctx: this.ctx,
       };
-      this.internalUpdate(u);
+      await this.internalUpdate(u);
     }
   }
 }

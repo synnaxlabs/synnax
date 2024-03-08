@@ -70,7 +70,7 @@ export class Controller
   private readonly registry = new Map<AetherControllerTelem, null>();
   private writer?: framer.Writer;
 
-  afterUpdate(): void {
+  async afterUpdate(): Promise<void> {
     this.internal.instrumentation = alamos.useInstrumentation(this.ctx);
     if (
       this.internal.prevTrigger == null ||
@@ -81,9 +81,7 @@ export class Controller
     const nextStateProv = StateProvider.use(this.ctx);
 
     this.internal.client = nextClient;
-    if (this.internal.client == null) {
-      void this.release();
-    }
+    if (this.internal.client == null) await this.release();
     this.internal.stateProv = nextStateProv;
 
     telem.registerFactory(this.ctx, this);
@@ -100,8 +98,8 @@ export class Controller
     }
   }
 
-  afterDelete(): void {
-    void this.release();
+  async afterDelete(): Promise<void> {
+    await this.release();
   }
 
   private async updateNeedsControlOf(): Promise<void> {
@@ -278,7 +276,7 @@ export class SetChannelValue
   }
 }
 
-export const setChannelValue = (props: SetChannelValueProps): telem.NumberSinkSPec => ({
+export const setChannelValue = (props: SetChannelValueProps): telem.NumberSinkSpec => ({
   type: SetChannelValue.TYPE,
   props,
   variant: "sink",

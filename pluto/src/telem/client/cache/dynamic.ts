@@ -62,7 +62,7 @@ export class Dynamic {
     return Series.alloc({
       capacity,
       dataType: DataType.FLOAT32,
-      timeRange: start.spanRange(TimeStamp.MAX),
+      timeRange: start.range(TimeStamp.MAX),
       sampleOffset: this.dataType.equals(DataType.TIMESTAMP)
         ? BigInt(start.valueOf())
         : 0,

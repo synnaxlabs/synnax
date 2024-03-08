@@ -48,7 +48,7 @@ export class LinePlot extends aether.Composite<
 
   schema = linePlotStateZ;
 
-  afterUpdate(): void {
+  async afterUpdate(): Promise<void> {
     this.internal.instrumentation = alamos.useInstrumentation(this.ctx, "lineplot");
     this.internal.aggregate = status.useAggregate(this.ctx);
     this.internal.renderCtx = render.Context.use(this.ctx);
@@ -56,7 +56,7 @@ export class LinePlot extends aether.Composite<
     this.requestRender("high", render.REASON_LAYOUT);
   }
 
-  afterDelete(): void {
+  async afterDelete(): Promise<void> {
     this.internal.renderCtx = render.Context.use(this.ctx);
     this.requestRender("high", render.REASON_LAYOUT);
   }

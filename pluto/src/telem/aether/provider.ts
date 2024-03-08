@@ -59,11 +59,10 @@ export class BaseProvider
 
   equals(other: telem.Provider): boolean {
     if (!(other instanceof BaseProvider)) return false;
-    console.log(this.client.key, other.client.key);
     return this.client._client === other.client._client;
   }
 
-  afterUpdate(): void {
+  async afterUpdate(): Promise<void> {
     const client_ = synnax.use(this.ctx);
     const I = alamos.useInstrumentation(this.ctx, "telem");
     this.internal.instrumentation = I.child("provider");
@@ -73,7 +72,7 @@ export class BaseProvider
     } else {
       this.client.swap(null);
     }
-    return telem.setProvider(this.ctx, this);
+    telem.setProvider(this.ctx, this);
   }
 }
 

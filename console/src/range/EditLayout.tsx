@@ -119,7 +119,7 @@ export const EditLayout = ({
           timeRange: new TimeRange(startTS, endTS),
           key,
         });
-        await rng.addLabel(...labels);
+        // await rng.addLabel(...labels);
       } finally {
         setLoading(false);
       }

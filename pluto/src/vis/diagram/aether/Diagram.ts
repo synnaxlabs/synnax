@@ -55,14 +55,14 @@ export class Diagram extends aether.Composite<
   readonly eraser: render.Eraser = new render.Eraser();
   schema = Diagram.stateZ;
 
-  afterUpdate(): void {
+  async afterUpdate(): Promise<void> {
     this.internal.renderCtx = render.Context.use(this.ctx);
     this.internal.addStatus = status.useAggregate(this.ctx);
     render.Controller.control(this.ctx, () => this.requestRender());
     this.requestRender();
   }
 
-  afterDelete(): void {
+  async afterDelete(): Promise<void> {
     this.requestRender();
   }
 

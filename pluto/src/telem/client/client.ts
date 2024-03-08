@@ -29,7 +29,7 @@ import { nanoid } from "nanoid/non-secure";
 
 import { cache } from "@/telem/client/cache";
 
-export const CACHE_BUFFER_SIZE = 1000;
+export const CACHE_BUFFER_SIZE = 10;
 
 export type StreamHandler = (data: Record<channel.Key, ReadResponse>) => void;
 
@@ -336,13 +336,11 @@ export class Core implements Client {
         const out = cache.writeDynamic(series);
         changed.push(new ReadResponse(cache.channel, out));
       }
-      await this.mu.runExclusive(() => {
-        this.listeners.forEach((entry, handler) => {
-          const notify = changed.filter((r) => entry.keys.includes(r.channel.key));
-          if (notify.length === 0) return;
-          const d = Object.fromEntries(notify.map((r) => [r.channel.key, r]));
-          if (entry.valid) handler(d);
-        });
+      this.listeners.forEach((entry, handler) => {
+        const notify = changed.filter((r) => entry.keys.includes(r.channel.key));
+        if (notify.length === 0) return;
+        const d = Object.fromEntries(notify.map((r) => [r.channel.key, r]));
+        if (entry.valid) handler(d);
       });
     }
   }
