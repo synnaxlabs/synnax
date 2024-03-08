@@ -43,7 +43,7 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
   static readonly TYPE = "tooltip";
   schema = tooltipStateZ;
 
-  afterUpdate(): void {
+  async afterUpdate(): Promise<void> {
     const theme = theming.use(this.ctx);
     if (this.state.textColor.isZero) this.state.textColor = theme.colors.text;
     if (this.state.backgroundColor.isZero)
@@ -58,7 +58,7 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
     render.Controller.requestRender(this.ctx, render.REASON_TOOL);
   }
 
-  afterDelete(): void {
+  async afterDelete(): Promise<void> {
     render.Controller.requestRender(this.ctx, render.REASON_TOOL);
   }
 

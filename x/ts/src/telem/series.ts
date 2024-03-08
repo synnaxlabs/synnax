@@ -46,6 +46,7 @@ export interface SeriesDigest {
   alignment: bounds.Bounds;
   timeRange?: string;
   length: number;
+  capacity: number;
 }
 
 interface BaseSeriesProps {
@@ -455,6 +456,7 @@ export class Series {
       alignment: this.alignmentBounds,
       timeRange: this._timeRange?.toString(),
       length: this.length,
+      capacity: this.capacity,
     };
   }
 

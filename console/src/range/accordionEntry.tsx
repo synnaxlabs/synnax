@@ -110,6 +110,12 @@ export const List = (): ReactElement => {
     })();
   };
 
+  const handleSetActive = (key: string) => {
+    void (async () => {
+      await client?.ranges.setActive(key);
+    })();
+  };
+
   const ContextMenu = ({
     keys: [key],
   }: PMenu.ContextMenuMenuProps): ReactElement | null => {
@@ -130,6 +136,9 @@ export const List = (): ReactElement => {
         case "save":
           if (rng == null) return;
           return handleSave(rng.key);
+        case "setActive":
+          if (rng == null) return;
+          return handleSetActive(rng.key);
       }
     };
     return (

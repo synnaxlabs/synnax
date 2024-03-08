@@ -33,11 +33,7 @@ export class Chip extends aether.Leaf<typeof chipStateZ, InternalState> {
 
   schema = chipStateZ;
 
-  afterUpdate(): void {
-    this.asyncAfterUpdate().catch(console.error);
-  }
-
-  private async asyncAfterUpdate(): Promise<void> {
+  async afterUpdate(): Promise<void> {
     const { sink: sinkProps, source: sourceProps } = this.state;
     this.internal.source = await telem.useSource(
       this.ctx,
@@ -66,7 +62,7 @@ export class Chip extends aether.Leaf<typeof chipStateZ, InternalState> {
     }
   }
 
-  afterDelete(): void {
+  async afterDelete(): Promise<void> {
     this.asyncAfterDelete().catch(console.error);
   }
 

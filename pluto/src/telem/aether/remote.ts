@@ -98,16 +98,17 @@ export class StreamChannelValue
         .sub(TimeStamp.seconds(10))
         .spanRange(TimeSpan.seconds(20));
       const res = await this.client.read(timeRange, [channel]);
-      // Start listening for new data.
-      await this.updateStreamHandler();
       // This is the right place to set valid to true, because this means the read was
       // successful and we have a buffer to read from.
       this.valid = true;
       const newData = res[channel].data;
-      if (newData.length === 0) return;
-      const first = newData[newData.length - 1];
-      first.acquire();
-      this.leadingBuffer = first;
+      if (newData.length !== 0) {
+        const first = newData[newData.length - 1];
+        first.acquire();
+        this.leadingBuffer = first;
+      }
+      // Start listening for new data.
+      await this.updateStreamHandler();
     } catch (e) {
       // TODO: improve error handling.
       console.error(e);
@@ -127,7 +128,7 @@ export class StreamChannelValue
         this.leadingBuffer = first;
       }
       // Just because we didn't get a new buffer doesn't mean one wasn't allocated.
-      this.notify?.();
+      this.notify();
     };
     this.removeStreamHandler = await this.client.stream(handler, [channel]);
   }

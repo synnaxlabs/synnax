@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { box, location, type scale } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -14,7 +15,6 @@ import { color } from "@/color/core";
 import { theming } from "@/theming/aether";
 import { Draw2D } from "@/vis/draw2d";
 import { render } from "@/vis/render";
-import { box, location, scale } from "@synnaxlabs/x";
 
 export const ruleStateZ = z.object({
   position: z.number().optional(),
@@ -42,21 +42,22 @@ export class Rule extends aether.Leaf<typeof ruleStateZ, InternalState> {
 
   schema = ruleStateZ;
 
-  afterUpdate(): void {
+  async afterUpdate(): Promise<void> {
     this.internal.renderCtx = render.Context.use(this.ctx);
     const theme = theming.use(this.ctx);
     this.internal.draw = new Draw2D(this.internal.renderCtx.upper2d, theme);
     render.Controller.requestRender(this.ctx, render.REASON_TOOL);
   }
 
-  afterDelete(): void {
+  async afterDelete(): Promise<void> {
     render.Controller.requestRender(this.ctx, render.REASON_TOOL);
   }
 
   updatePositions({ decimalToDataScale: scale, plot, container }: RuleProps): number {
     if (this.state.dragging && this.state.pixelPosition != null) {
       const pos = scale.pos(
-        (this.state.pixelPosition - box.top(plot) + box.top(container)) / box.height(plot),
+        (this.state.pixelPosition - box.top(plot) + box.top(container)) /
+          box.height(plot),
       );
       this.setState((p) => ({ ...p, position: pos }));
       return this.state.pixelPosition;

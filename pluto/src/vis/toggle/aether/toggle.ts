@@ -11,7 +11,9 @@ import { type Destructor } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
+import { status } from "@/status/aether";
 import { telem } from "@/telem/aether";
+import { type diagram } from "@/vis/diagram/aether";
 
 export const toggleStateZ = z.object({
   triggered: z.boolean(),
@@ -20,38 +22,52 @@ export const toggleStateZ = z.object({
   source: telem.booleanSourceSpecZ.optional().default(telem.noopBooleanSourceSpec),
 });
 
+export type ToggleState = z.input<typeof toggleStateZ>;
+
 interface InternalState {
   source: telem.BooleanSource;
   sink: telem.BooleanSink;
+  addStatus: status.Aggregate;
   stopListening: Destructor;
 }
 
-export class Toggle extends aether.Leaf<typeof toggleStateZ, InternalState> {
+// Toggle is a component that acts as a switch, commanding a boolean telemetry sink to
+// change its value when clicked. It also listens to a boolean telemetry source to update
+// its toggled state.
+export class Toggle
+  extends aether.Leaf<typeof toggleStateZ, InternalState>
+  implements diagram.Element
+{
   static readonly TYPE = "Toggle";
 
   schema = toggleStateZ;
 
-  afterUpdate(): void {
-    this.internalAfterUpdate().catch(console.error);
-  }
-
-  private async internalAfterUpdate(): Promise<void> {
-    const { sink: sinkProps, source: sourceProps } = this.state;
+  async afterUpdate(): Promise<void> {
+    this.internal.addStatus = status.useOptionalAggregate(this.ctx);
+    const { sink: sinkProps, source: sourceProps, triggered, enabled } = this.state;
+    const { triggered: prevTriggered } = this.prevState;
+    const { internal: i } = this;
     this.internal.source = await telem.useSource(
       this.ctx,
       sourceProps,
       this.internal.source,
     );
-    this.internal.sink = await telem.useSink(this.ctx, sinkProps, this.internal.sink);
+    i.sink = await telem.useSink(this.ctx, sinkProps, i.sink);
 
-    if (this.state.triggered && !this.prevState.triggered) {
-      this.internal.sink.set(!this.state.enabled).catch(console.error);
-    }
+    if (triggered && !prevTriggered) await i.sink.set(!enabled);
 
     await this.updateEnabledState();
-    this.internal.stopListening?.();
-    this.internal.stopListening = this.internal.source.onChange(() => {
-      void this.updateEnabledState();
+    i.stopListening?.();
+    i.stopListening = i.source.onChange(() => {
+      this.updateEnabledState().catch(this.reportError.bind(this));
+    });
+  }
+
+  private reportError(e: Error): void {
+    this.internal.addStatus({
+      key: this.key,
+      variant: "error",
+      message: `Failed to update Toggle: ${e.message}`,
     });
   }
 
@@ -61,8 +77,8 @@ export class Toggle extends aether.Leaf<typeof toggleStateZ, InternalState> {
       this.setState((p) => ({ ...p, enabled: nextEnabled, triggered: false }));
   }
 
-  afterDelete(): void {
-    this.internalAfterDelete().catch(console.error);
+  async afterDelete(): Promise<void> {
+    await this.internalAfterDelete();
   }
 
   private async internalAfterDelete(): Promise<void> {
@@ -71,7 +87,7 @@ export class Toggle extends aether.Leaf<typeof toggleStateZ, InternalState> {
     await this.internal.sink.cleanup?.();
   }
 
-  render(): void {}
+  async render(): Promise<void> {}
 }
 
 export const REGISTRY: aether.ComponentRegistry = {

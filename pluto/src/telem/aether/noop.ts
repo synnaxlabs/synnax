@@ -11,13 +11,29 @@ import { TimeStamp, observe } from "@synnaxlabs/x";
 
 import { color } from "@/color/core";
 import { type status } from "@/status/aether";
-import { type telem } from "@/telem/aether";
+import { type Factory } from "@/telem/aether/factory";
+import {
+  type NumberSinkSpec,
+  type BooleanSink,
+  type BooleanSinkSpec,
+  type NumberSink,
+  type Telem,
+  type BooleanSource,
+  type BooleanSourceSpec,
+  type NumberSource,
+  type NumberSourceSpec,
+  type ColorSourceSpec,
+  type Spec,
+  type ColorSource,
+  type StringSourceSpec,
+  type StatusSourceSpec,
+} from "@/telem/aether/telem";
 
-class Noop extends observe.Observer<void> implements telem.Telem {
+class Noop extends observe.Observer<void> implements Telem {
   async cleanup(): Promise<void> {}
 }
 
-class NoopBooleanSink extends Noop implements telem.BooleanSink {
+class NoopBooleanSink extends Noop implements BooleanSink {
   static readonly TYPE = "noop-boolean-sink";
 
   async set(): Promise<void> {
@@ -25,14 +41,14 @@ class NoopBooleanSink extends Noop implements telem.BooleanSink {
   }
 }
 
-export const noopBooleanSinkSpec: telem.BooleanSinkSpec = {
+export const noopBooleanSinkSpec: BooleanSinkSpec = {
   type: NoopBooleanSink.TYPE,
   props: {},
   variant: "sink",
   valueType: "boolean",
 };
 
-class NumericSink extends Noop implements telem.NumberSink {
+class NumericSink extends Noop implements NumberSink {
   static readonly TYPE = "noop-numeric-sink";
 
   async set(): Promise<void> {
@@ -40,14 +56,14 @@ class NumericSink extends Noop implements telem.NumberSink {
   }
 }
 
-export const noopNumericSinkSpec: telem.NumberSinkSPec = {
+export const noopNumericSinkSpec: NumberSinkSpec = {
   type: NumericSink.TYPE,
   props: {},
   variant: "sink",
   valueType: "number",
 };
 
-class NoopBooleanSource extends Noop implements telem.BooleanSource {
+class NoopBooleanSource extends Noop implements BooleanSource {
   static readonly TYPE = "noop-boolean-source";
 
   async value(): Promise<boolean> {
@@ -55,14 +71,14 @@ class NoopBooleanSource extends Noop implements telem.BooleanSource {
   }
 }
 
-export const noopBooleanSourceSpec: telem.BooleanSourceSpec = {
+export const noopBooleanSourceSpec: BooleanSourceSpec = {
   type: NoopBooleanSource.TYPE,
   props: {},
   variant: "source",
   valueType: "boolean",
 };
 
-class NumericSource extends Noop implements telem.NumberSource {
+class NumericSource extends Noop implements NumberSource {
   static readonly TYPE = "noop-numeric-source";
 
   async value(): Promise<number> {
@@ -70,14 +86,14 @@ class NumericSource extends Noop implements telem.NumberSource {
   }
 }
 
-export const noopNumericSourceSpec: telem.NumberSourceSpec = {
+export const noopNumericSourceSpec: NumberSourceSpec = {
   type: NumericSource.TYPE,
   props: {},
   variant: "source",
   valueType: "number",
 };
 
-class StringSource extends Noop implements telem.StringSource {
+class StringSource extends Noop implements StringSource {
   static readonly TYPE = "noop-string-source";
 
   async value(): Promise<string> {
@@ -85,14 +101,14 @@ class StringSource extends Noop implements telem.StringSource {
   }
 }
 
-export const noopStringSourceSpec: telem.StringSourceSpec = {
+export const noopStringSourceSpec: StringSourceSpec = {
   type: StringSource.TYPE,
   props: {},
   variant: "source",
   valueType: "string",
 };
 
-class StatusSource extends Noop implements telem.StatusSource {
+class StatusSource extends Noop implements StatusSource {
   static readonly TYPE = "noop-status-source";
 
   async value(): Promise<status.Spec> {
@@ -105,14 +121,14 @@ class StatusSource extends Noop implements telem.StatusSource {
   }
 }
 
-export const noopStatusSourceSpec: telem.StatusSourceSpec = {
+export const noopStatusSourceSpec: StatusSourceSpec = {
   type: StatusSource.TYPE,
   props: {},
   variant: "source",
   valueType: "status",
 };
 
-class NoopColorSource extends Noop implements telem.ColorSource {
+class NoopColorSource extends Noop implements ColorSource {
   static readonly TYPE = "noop-color-source";
 
   async value(): Promise<color.Color> {
@@ -120,14 +136,14 @@ class NoopColorSource extends Noop implements telem.ColorSource {
   }
 }
 
-export const noopColorSourceSpec: telem.ColorSourceSpec = {
+export const noopColorSourceSpec: ColorSourceSpec = {
   type: NoopColorSource.TYPE,
   props: {},
   variant: "source",
   valueType: "color",
 };
 
-const REGISTRY: Record<string, new () => telem.Telem> = {
+const REGISTRY: Record<string, new () => Telem> = {
   [NoopBooleanSink.TYPE]: NoopBooleanSink,
   [NumericSink.TYPE]: NumericSink,
   [NoopBooleanSource.TYPE]: NoopBooleanSource,
@@ -137,9 +153,9 @@ const REGISTRY: Record<string, new () => telem.Telem> = {
   [StringSource.TYPE]: StringSource,
 };
 
-export class NoopFactory implements telem.Factory {
+export class NoopFactory implements Factory {
   type = "noop";
-  create(spec: telem.Spec): telem.Telem | null {
+  create(spec: Spec): Telem | null {
     const F = REGISTRY[spec.type];
     if (F == null) return null;
     return new F();

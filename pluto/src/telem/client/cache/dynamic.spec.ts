@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, Series } from "@synnaxlabs/x";
+import { DataType, Series, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { Dynamic } from "@/telem/client/cache/dynamic";
@@ -23,6 +23,10 @@ describe("DynamicCache", () => {
       const { flushed, allocated } = cache.write([arr]);
       expect(flushed).toHaveLength(0);
       expect(allocated).toHaveLength(1);
+      expect(allocated[0].timeRange.start.sub(TimeStamp.now()).valueOf()).toBeLessThan(
+        TimeSpan.milliseconds(1).valueOf(),
+      );
+      expect(allocated[0].timeRange.end.valueOf()).toEqual(TimeStamp.MAX.valueOf());
       expect(cache.length).toEqual(arr.length);
     });
     it("Should not allocate a new buffer when the current buffer has sufficient space", () => {
@@ -37,7 +41,7 @@ describe("DynamicCache", () => {
       expect(allocated).toHaveLength(0);
       expect(cache.length).toEqual(arr.length * 2);
     });
-    it("should correctly allocate a single new buffer when the current one is full", () => {
+    it("should correctly allocate a single new buffer when the current one is full", async () => {
       const cache = new Dynamic(2, DataType.FLOAT32);
       const arr = new Series({
         data: new Float32Array([1, 2, 3]),
@@ -60,18 +64,39 @@ describe("DynamicCache", () => {
       expect(allocated).toHaveLength(3);
       expect(cache.length).toEqual(1);
     });
-    it("it should correctly set multiple writes", () => {
+    it("it should correctly set multiple writes", async () => {
       const cache = new Dynamic(10, DataType.FLOAT32);
       const arr = new Series({
         data: new Float32Array([1, 2, 3]),
         dataType: DataType.FLOAT32,
       });
-      expect(cache.write([arr]).allocated).toHaveLength(1);
-      expect(cache.write([arr.reAlign(3)]).allocated).toHaveLength(0);
-      expect(cache.write([arr.reAlign(6)]).allocated).toHaveLength(0);
+      const res1 = cache.write([arr]);
+      expect(res1.allocated).toHaveLength(1);
+      expect(res1.flushed).toHaveLength(0);
+      expect(
+        res1.allocated[0].timeRange.start.sub(TimeStamp.now()).valueOf(),
+      ).toBeLessThan(TimeSpan.milliseconds(1).valueOf());
+      expect(res1.allocated[0].timeRange.end.valueOf()).toEqual(
+        TimeStamp.MAX.valueOf(),
+      );
+      const res2 = cache.write([arr.reAlign(3)]);
+      expect(res2.allocated).toHaveLength(0);
+      expect(res2.flushed).toHaveLength(0);
+      const res3 = cache.write([arr.reAlign(6)]);
+      expect(res3.allocated).toHaveLength(0);
+      expect(res3.flushed).toHaveLength(0);
+      const waitSpan = TimeSpan.milliseconds(10);
+      await new Promise((r) => setTimeout(r, waitSpan.milliseconds));
       const { flushed, allocated } = cache.write([arr.reAlign(9)]);
       expect(allocated).toHaveLength(1);
+      expect(allocated[0].timeRange.start.sub(TimeStamp.now()).valueOf()).toBeLessThan(
+        TimeSpan.milliseconds(1).valueOf(),
+      );
+      expect(allocated[0].timeRange.end.valueOf()).toEqual(TimeStamp.MAX.valueOf());
       expect(flushed).toHaveLength(1);
+      expect(flushed[0].timeRange.span.sub(waitSpan).valueOf()).toBeLessThan(
+        TimeSpan.milliseconds(2).valueOf(),
+      );
       expect(flushed[0].data.slice(0, 3)).toEqual(new Float32Array([1, 2, 3]));
       expect(flushed[0].data.slice(3, 6)).toEqual(new Float32Array([1, 2, 3]));
       expect(flushed[0].data.slice(6, 9)).toEqual(new Float32Array([1, 2, 3]));
@@ -100,6 +125,11 @@ describe("DynamicCache", () => {
       const s2 = s1.reAlign(5);
       const { flushed, allocated } = cache.write([s1, s2]);
       expect(flushed).toHaveLength(1);
+      expect(allocated[1].timeRange.start.sub(TimeStamp.now()).valueOf()).toBeLessThan(
+        TimeSpan.milliseconds(1).valueOf(),
+      );
+      expect(allocated[1].timeRange.end.valueOf()).toEqual(TimeStamp.MAX.valueOf());
+      expect(flushed[0]).toBe(allocated[0]);
       expect(allocated).toHaveLength(2);
     });
   });

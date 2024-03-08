@@ -29,7 +29,7 @@ export class Provider extends aether.Composite<typeof providerStateZ, InternalSt
   static readonly TYPE = "AlamosProvider";
   schema = providerStateZ;
 
-  afterUpdate(): void {
+  async afterUpdate(): Promise<void> {
     const v = this.ctx.getOptional<alamos.Instrumentation>(CONTEXT_KEY);
     if (v != null) return;
 

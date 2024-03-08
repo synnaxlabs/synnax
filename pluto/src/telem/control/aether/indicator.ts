@@ -32,11 +32,7 @@ export class Indicator extends aether.Leaf<typeof indicatorStateZ, InternalState
   stopListeningStatus?: () => void;
   stopListeningColor?: () => void;
 
-  afterUpdate(): void {
-    this.internalAfterUpdate().catch(console.error);
-  }
-
-  private async internalAfterUpdate(): Promise<void> {
+  async afterUpdate(): Promise<void> {
     const { internal: i } = this;
     i.statusSource = await telem.useSource(
       this.ctx,
@@ -59,7 +55,7 @@ export class Indicator extends aether.Leaf<typeof indicatorStateZ, InternalState
     });
   }
 
-  afterDelete(): void {
+  async afterDelete(): Promise<void> {
     this.internalAfterDelete().catch(console.error);
   }
 
