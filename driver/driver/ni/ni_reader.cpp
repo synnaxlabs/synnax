@@ -29,17 +29,22 @@ using namespace ni;
 niDaqReader::niDaqReader(TaskHandle taskHandle) : taskHandle(taskHandle) {}
 
 void ni::niDaqReader::init(json config, uint64_t acquisition_rate, uint64_t stream_rate) {
+    std::cout << "Init Reader" << std::endl;
     std::vector<channel_config> channel_configs;
     auto channels = config["channels"];
     auto deviceName = config["device"].get<std::string>();
     for (auto &channel : channels) {
         auto type = channel["type"].get<std::string>();
         channel_config config;
-        std::string portName =  (type == "analogVoltageInput") ? "ai" : "";
+        std::string portName =  (type == "analogVoltageInput") ? "ai"
+                             :  (type == "digitalInput") ? "port"
+                             : "";
         config.name = (type == "analogVoltageInput") ? deviceName + "/" + portName + channel["port"].dump().c_str()
                     : (type == "digitalInput") ? deviceName + "/" + portName + channel["port"].dump().c_str() + "/line" + channel["line"].dump().c_str()
-                    : "";
+                    : (type == "index") ? channel["name"].get<std::string>()
+                    : "INVALID CHANNEL";
 //        printf("Channel Name: %s\n", config.name.c_str());
+        std::cout << "Channel Name: " << config.name << std::endl;
         config.channel_key = channel["channel"].get<uint32_t>();
         config.min_val = -10.0;//channel["min_val"].get<float>(); // TODO: come back to when added to json
         config.max_val = 10.0;//channel["max_val"].get<float>(); // TODO: come backt o when added to json
@@ -208,32 +213,28 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readAnalog(){
 std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readDigital(){
     signed long samplesRead;
     char errBuff[2048]={'\0'};
-//    uInt8 flushBuffer[10000];                     // to flush buffer before performing a read
+    uInt8 flushBuffer[10000];                     // to flush buffer before performing a read
     uInt8 dataBuffer[10000];
     signed long flushRead;
     synnax::Frame f = synnax::Frame(numChannels);
     int32 * numBytesPerSamp;
     //initial read to flush buffer
-//    std::cout << "Flushing buffer" << std::endl;
-//    auto errFlush = DAQmxReadDigitalLines(this->taskHandle,
-//                                     -1, // reads all available samples in the buffer
-//                                     -1,
-//                                     DAQmx_Val_GroupByChannel,
-//                                     flushBuffer,
-//                                     1000,
-//                                     &samplesRead,
-//                                     numBytesPerSamp,
-//                                     NULL);
-//    if (errFlush < 0) {
-//        std::cout << "ERROR" << std::endl;
-//        DAQmxGetExtendedErrorInfo(errBuff,2048);
-//        printf("DAQmx Error: %s\n",errBuff);
-//    }
-//    std::cout << "Buffer Flushed" << std::endl;
+    auto errFlush = DAQmxReadDigitalLines(this->taskHandle, //TODO: come back to and make sure this call to flush will be fine at any scale (elham)
+                                     -1, // reads all available samples in the buffer
+                                     -1,
+                                     DAQmx_Val_GroupByChannel,
+                                     flushBuffer,
+                                     1000,
+                                     &samplesRead,
+                                     numBytesPerSamp,
+                                     NULL);
+    if (errFlush < 0) {
+        std::cout << "ERROR" << std::endl;
+        DAQmxGetExtendedErrorInfo(errBuff,2048);
+        printf("DAQmx Error: %s\n",errBuff);
+    }
     std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
     // actual read to of digital lines
-    std::cout << "num channels: " << this->numChannels << std::endl;
-    std::cout <<"Samples/Channel I should acquire: " << this->numSamplesPerChannel << std::endl;
     auto err = DAQmxReadDigitalLines(this->taskHandle,                                      //task handle
                                      this->numSamplesPerChannel,                            //numSampsPerChan
                                      -1,                                                    //timeout

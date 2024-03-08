@@ -40,6 +40,7 @@ cc_test (
         "pipeline",
         "@com_google_googletest//:gtest_main",
         "@synnax//synnax/testutil",
+        "//driver/testutil",
     ],
     copts = ["/std:c++17"],
 )

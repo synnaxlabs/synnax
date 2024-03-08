@@ -65,6 +65,7 @@ json add_index_channel_JSON(json &config,
     channel["type"] = "index";
     channel["port"] = 0;
     channel["line"] = 0;
+    channel["channel"] = key;
 
     // now add json to the channels vector
     // check if the channels array exists
@@ -77,6 +78,7 @@ json add_index_channel_JSON(json &config,
 
 json add_DI_channel_JSON(json &config,
                          std::string name,
+                         int key,
                          int port,
                          int line){
 
@@ -86,6 +88,11 @@ json add_DI_channel_JSON(json &config,
     channel["type"] = "digitalInput";
     channel["port"] = port;
     channel["line"] = line;
+    channel["channel"] = key;
+    channel["min_val"] = 0; // these entries just need to exist for json parsing
+    channel["max_val"] = 1; // these entries just need to exist for json parsing
+
+
 
     // now add json to the channels vector
     // check if the channels array exists
