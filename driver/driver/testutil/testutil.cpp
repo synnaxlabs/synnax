@@ -74,3 +74,24 @@ json add_index_channel_JSON(json &config,
     config["channels"].push_back(channel);
     return  channel;
 }
+
+json add_DI_channel_JSON(json &config,
+                         std::string name,
+                         int port,
+                         int line){
+
+    // first construct the json object for the channel
+    json channel;
+    channel["name"] = name;
+    channel["type"] = "digitalInput";
+    channel["port"] = port;
+    channel["line"] = line;
+
+    // now add json to the channels vector
+    // check if the channels array exists
+    if(config.find("channels") == config.end()){
+        config["channels"] = json::array();
+    }
+    config["channels"].push_back(channel);
+    return  channel;
+}

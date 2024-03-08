@@ -32,8 +32,10 @@ TEST(NiReaderTests, testReadandInitAnalog){
 
     reader.init(channel_configs, 1000, 20);
     reader.start();
-    auto [frame, err] = reader.read();
-    std::cout << "Frame size: " <<  frame.size() << std::endl;
+    auto [frame, err] = reader.read();\
+
+    assert(frame.series->size() == 9);
+//    std::cout << "Frame size: " <<  frame.size() << std::endl;
 
 //    iterate through each series and print the data
     for (int i = 0; i < frame.series->size(); i++){
@@ -64,16 +66,17 @@ TEST(NiReaderTests, testReadandInitDigital){
 
     // create a channel config vector
     std::vector<ni::channel_config> channel_configs;
+    channel_configs.push_back(ni::channel_config({"PXI1Slot2_2/port0/line0", 65531,  ni::DIGITAL_IN , -1.0, 1.0}));
+    channel_configs.push_back(ni::channel_config({"PXI1Slot2_2/port0/line1", 65532,  ni::DIGITAL_IN , -1.0, 1.0}));
+    channel_configs.push_back(ni::channel_config({"PXI1Slot2_2/port0/line2", 65533,  ni::DIGITAL_IN , -1.0, 1.0}));
+    channel_configs.push_back(ni::channel_config({"PXI1Slot2_2/port0/line3", 65534,  ni::DIGITAL_IN , -1.0, 1.0}));
     channel_configs.push_back(ni::channel_config({"", 65538,  ni::INDEX_CHANNEL ,  0, 0}));
-    channel_configs.push_back(ni::channel_config({"Dev1/port0/line0", 65531,  ni::DIGITAL_IN , -1.0, 1.0}));
-    channel_configs.push_back(ni::channel_config({"Dev1/port0/line1", 65532,  ni::DIGITAL_IN , -1.0, 1.0}));
-    channel_configs.push_back(ni::channel_config({"Dev1/port0/line2", 65533,  ni::DIGITAL_IN , -1.0, 1.0}));
-    channel_configs.push_back(ni::channel_config({"Dev1/port0/line3", 65534,  ni::DIGITAL_IN , -1.0, 1.0}));
 
     reader.init(channel_configs, 1000, 20);
     reader.start();
     auto [frame, err] = reader.read();
 
+//    assert(frame.series->size() == 5);
 //    std::cout << "Frame size: " <<  frame.size() << std::endl;
 
     //iterate through each series and print the data
