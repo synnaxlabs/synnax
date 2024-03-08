@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { alamos } from "@synnaxlabs/alamos";
 import { vi, type Mock } from "vitest";
 
 import { aether } from "@/aether/aether";
@@ -36,6 +37,7 @@ export const render = <T extends aether.Component>(
     type: "test",
     path: ["test"],
     state: initialState,
+    instrumentation: alamos.NOOP,
   };
 
   const component = new constructor(update) as T;

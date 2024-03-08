@@ -9,7 +9,12 @@
 
 import { useRef } from "react";
 
-import { nanoid } from "nanoid/non-secure";
+import { customAlphabet } from "nanoid/non-secure";
+
+const nanoid = customAlphabet(
+  "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz-<>|;*&^#@!+=~{}",
+  9,
+);
 
 /**
  * @returns a unique key that persists for the lifetime of the component.

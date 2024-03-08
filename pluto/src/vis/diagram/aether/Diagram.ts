@@ -58,12 +58,12 @@ export class Diagram extends aether.Composite<
   async afterUpdate(): Promise<void> {
     this.internal.renderCtx = render.Context.use(this.ctx);
     this.internal.addStatus = status.useAggregate(this.ctx);
-    render.Controller.control(this.ctx, () => this.requestRender());
-    this.requestRender();
+    render.Controller.control(this.ctx, () => this.requestRender("low"));
+    this.requestRender("high");
   }
 
   async afterDelete(): Promise<void> {
-    this.requestRender();
+    this.requestRender("high");
   }
 
   async render(): Promise<render.Cleanup | undefined> {
@@ -92,12 +92,12 @@ export class Diagram extends aether.Composite<
     };
   }
 
-  private requestRender(): void {
+  private requestRender(priority: render.Priority): void {
     const { renderCtx } = this.internal;
     void renderCtx.loop.set({
-      key: this.key,
+      key: `${Diagram.TYPE}-${this.key}`,
       render: async () => await this.render(),
-      priority: "high",
+      priority,
       canvases: CANVASES,
     });
   }

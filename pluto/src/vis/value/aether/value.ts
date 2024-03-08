@@ -97,7 +97,7 @@ export class Value
     if (
       this.state.width == null ||
       this.state.width < requiredWidth ||
-      this.state.minWidth > requiredWidth
+      (this.state.minWidth > requiredWidth && this.state.width !== this.state.minWidth)
     ) {
       this.setState((p) => ({ ...p, width: Math.max(requiredWidth, p.minWidth) }));
     }

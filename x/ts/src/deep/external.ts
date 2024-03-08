@@ -14,3 +14,4 @@ export * from "@/deep/merge";
 export * from "@/deep/partial";
 export * from "@/deep/equal";
 export * from "@/deep/memo";
+export * from "@/deep/difference";
