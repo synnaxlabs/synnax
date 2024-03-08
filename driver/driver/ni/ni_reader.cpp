@@ -219,6 +219,7 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readDigital(){
     synnax::Frame f = synnax::Frame(numChannels);
     int32 * numBytesPerSamp;
     //initial read to flush buffer
+    std::cout << "Flushing buffer" << std::endl;
     auto errFlush = DAQmxReadDigitalLines(this->taskHandle, //TODO: come back to and make sure this call to flush will be fine at any scale (elham)
                                      -1, // reads all available samples in the buffer
                                      -1,
@@ -233,6 +234,7 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readDigital(){
         DAQmxGetExtendedErrorInfo(errBuff,2048);
         printf("DAQmx Error: %s\n",errBuff);
     }
+    std::cout << "performing actual read" << std::endl;
     std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
     // actual read to of digital lines
     auto err = DAQmxReadDigitalLines(this->taskHandle,                                      //task handle
@@ -245,6 +247,7 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readDigital(){
                                      NULL,                                       //numBytesPerSamp
                                      NULL);                                                 //reserved
     std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
+    std::cout << "Read complete " << std::endl;
     if (err < 0) {
         std::cout << "ERROR" << std::endl;
         DAQmxGetExtendedErrorInfo(errBuff,2048);

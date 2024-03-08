@@ -31,6 +31,27 @@ freighter::Error NiAnalogReaderTask::stopAcquisition(){
 }
 
 /* NiDigitalReaderTask */
+void NiDigitalReaderTask::init(const std::shared_ptr <Synnax> client,
+                              std::unique_ptr <daq::AcqReader> daq_reader,
+                              synnax::WriterConfig writer_config) {
+    printf("Initializing Analog Reader Task\n");
+    this->acq_pipeline = Acq(writer_config, client, std::move(daq_reader));
+    printf("Initialized Analog Reader Task\n");
+}
+
+
+freighter::Error NiDigitalReaderTask::startAcquisition(){
+    printf("Starting Acq Pipeline\n");
+    this->acq_pipeline.start();
+    return freighter::TYPE_NIL;
+}
+
+freighter::Error NiDigitalReaderTask::stopAcquisition(){
+    printf("Stopping Acq Pipeline\n");
+    this->acq_pipeline.stop();
+    return freighter::TYPE_NIL;
+}
+
 
 /* NiDigitalWriterTask */
 
@@ -74,6 +95,12 @@ std::unique_ptr<module::Module> niTaskFactory::createModule(TaskHandle taskhandl
     auto type = config["channels"][0]["type"];
     if (type == "analogVoltageInput"){
         return createAnalogReaderTask(taskhandle, client, config, config_err); // TODO: implict cast from unique_ptr of NiAnalogReaderTask to unique_ptr of module::Module?
+    }
+    else if(type == "digitalVoltageInput"){
+        return nullptr; // TODO: createDigitalReaderTask
+    }
+    else if(type == "digitalVoltageOutput"){
+        return nullptr; // TODO: createDigitalWriterTask
     }
    else {
         valid_config = false;
@@ -135,5 +162,58 @@ std::unique_ptr <NiAnalogReaderTask> niTaskFactory::createAnalogReaderTask(TaskH
     std::cout << "Creating Analog Reader Task" << std::endl;
     return module;
 
+}
+
+std::unique_ptr <NiDigitalReaderTask> niTaskFactory::createDigitalReaderTask(TaskHandle taskhandle,
+                                                                           std::shared_ptr<synnax::Synnax> client,
+                                                                           const json &config,
+                                                                           json &config_err){
+    std::uint64_t acq_rate;
+    std::uint64_t stream_rate;
+    std::uint64_t num_channels;
+
+    // parse config
+
+    json channels = config["channels"];
+    acq_rate = uInt64(config["acq_rate"]);
+    stream_rate = uInt64(config["stream_rate"]);
+
+    //print acq and stream rate
+    printf("Acq Rate: %d\n", acq_rate);
+    printf("Stream Rate: %d\n", stream_rate);
+
+
+    // create vector of channel keys to construct writer
+    std::vector<synnax::ChannelKey> channel_keys;
+    std::vector<synnax::Authority> authorities;
+    for (auto &channel : channels){
+        //convert channel key to synnax::ChannelKey
+        uint64_t channel_key = uInt64(channel["channel"]);
+        channel_keys.push_back(channel_key);
+        authorities.push_back(synnax::ABSOLUTTE); // TODO: can diff channels for analog reader  task have diff authorities?
+    }
+
+
+    // Concatenate analog_reader  with device name
+    std::string devName = config["device"];
+    std::string writerName = devName + "_digital_reader"; //TODO:  Is this the right convention?
+
+    //create writer config
+    auto writer_config = synnax::WriterConfig{
+            channel_keys,
+            synnax::TimeStamp::now(),
+            authorities,
+            synnax::Subject{writerName}
+    };
+
+    // create daq_reader and init
+    auto daq_reader = std::make_unique<ni::niDaqReader>(taskhandle);
+    daq_reader->init(config, acq_rate, stream_rate);
+    //create module
+
+    auto module = std::make_unique<NiDigitalReaderTask>();
+    module->init(client, std::move(daq_reader), writer_config);
+    std::cout << "Creating Analog Reader Task" << std::endl;
+    return module;
 }
 

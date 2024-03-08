@@ -31,8 +31,22 @@ private:
     Acq acq_pipeline;
 };
 
-// TODO: createDigitalReaderTask
+class NiDigitalReaderTask : public module::Module {
+public:
+    NiDigitalReaderTask(){};
+    void init(const std::shared_ptr<synnax::Synnax> client,
+              std::unique_ptr<daq::AcqReader> daq_reader,
+              synnax::WriterConfig writer_config);
+
+    freighter::Error startAcquisition();
+    freighter::Error stopAcquisition();
+private:
+    Acq acq_pipeline;
+};
+
 // TODO: createDigitalWriterTask
+
+
 
 
 class niTaskFactory : public module::Factory {
@@ -45,6 +59,11 @@ public:
                                                  json &config_err);
 
     std::unique_ptr <NiAnalogReaderTask> createAnalogReaderTask(TaskHandle taskhandle,
+                                                                std::shared_ptr<synnax::Synnax> client,
+                                                                const json &config,
+                                                                json &config_err);
+
+    std::unique_ptr <NiDigitalReaderTask> createDigitalReaderTask(TaskHandle taskhandle,
                                                                 std::shared_ptr<synnax::Synnax> client,
                                                                 const json &config,
                                                                 json &config_err);
