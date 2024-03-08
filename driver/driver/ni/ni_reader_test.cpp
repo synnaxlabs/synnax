@@ -80,10 +80,10 @@ TEST(NiReaderTests, testReadandInitDigital){
     for(int i = 0; i < frame.series->size(); i++){
         std::cout << "\n\n Series " << i << ": \n";
         // check series type before casting
-        if (frame.series->at(i).data_type == synnax::FLOAT32){
-            auto s =  frame.series->at(i).float32();
+        if (frame.series->at(i).data_type == synnax::UINT8){
+            auto s =  frame.series->at(i).uint8();
             for (int j = 0; j < s.size(); j++){
-                std::cout << s[j] << ", ";
+                std::cout << (uint32_t)s[j] << ", ";
             }
         }
         else if(frame.series->at(i).data_type == synnax::TIMESTAMP){

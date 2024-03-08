@@ -95,7 +95,7 @@ void ni::niDaqReader::init(std::vector<channel_config> channels, uint64_t acquis
     this->numSamplesPerChannel =  std::floor(acquisition_rate/stream_rate);
     this->bufferSize = this->numChannels*this->numSamplesPerChannel;
     this->data = new double[bufferSize];
-    this->digitalData = new uInt32[bufferSize];
+    this->digitalData = new uInt8[bufferSize];
     printf("configured\n");
 }
 
@@ -183,12 +183,23 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readDigital(){
     signed long samplesRead;
     char errBuff[2048]={'\0'};
     float64 flush[1000];                     // to flush buffer before performing a read
+    uInt8 dataa[1000];
     signed long flushRead;
     synnax::Frame f = synnax::Frame(numChannels);
-
-
+    int32 * numBytesPerSamp;
+    std::cout << "Reading Digital" << std::endl;
     std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
-    auto err = DAQmxReadDigitalU32(this->taskHandle,this->numSamplesPerChannel,-1,DAQmx_Val_GroupByChannel,this->digitalData,this->bufferSize,&samplesRead,NULL);
+    std::cout << "num samples per channel: " << this->numSamplesPerChannel << std::endl;
+    auto err = DAQmxReadDigitalLines(this->taskHandle,
+                                     this->numSamplesPerChannel,
+                                     -1,
+                                     DAQmx_Val_GroupByChannel,
+                                     dataa,
+                                     this->numSamplesPerChannel*this->numChannels,
+                                     &samplesRead,
+                                     numBytesPerSamp,
+                                     NULL);
+    std::cout << "Samples Read: " << samplesRead << std::endl;
     std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
     if (err < 0) {
         std::cout << "ERROR" << std::endl;
@@ -198,8 +209,8 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readDigital(){
 
     // we interpolate the timestamps between the initial and final timestamp to ensure non-overlapping timestamps between read iterations
     uint64_t diff = final_timestamp - initial_timestamp;
+    std::cout << "Diff: " << diff << std::endl;
     uint64_t incr = diff/this->numSamplesPerChannel;
-
     // Construct and populate index channel
     std::vector<std::uint64_t> time_index(numSamplesPerChannel);
     for (int i = 0; i < samplesRead; ++i) { // populate time index channeL
@@ -207,7 +218,7 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readDigital(){
     }
 
     // Construct and populate synnax frame
-    std::vector<float> data_vec(samplesRead);
+    std::vector<uint8_t> data_vec(samplesRead);
     uint64_t data_index = 0;
     for(int i = 0; i <  numChannels; i++){
         if(channels[i].channelType == INDEX_CHANNEL ){
@@ -215,7 +226,7 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readDigital(){
         }
         else{
             for(int j = 0; j < samplesRead; j++){
-                data_vec[j] = digitalData[data_index*samplesRead + j];
+                data_vec[j] = dataa[data_index*samplesRead + j];
             }
             f.add(channels[i].channel_key, synnax::Series(data_vec));
             data_index++;

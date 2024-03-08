@@ -63,7 +63,7 @@ namespace ni {
         std::pair <synnax::Frame, freighter::Error> readAnalog();
         std::pair <synnax::Frame, freighter::Error> readDigital();
         double* data; /// @brief pointer to heap allocated dataBuffer to provide to DAQmx read functions
-        uInt32* digitalData; /// @brief pointer to heap allocated dataBuffer to provide to DAQmx read functions
+        uInt8* digitalData; /// @brief pointer to heap allocated dataBuffer to provide to DAQmx read functions
         int bufferSize = 0; // size of the data buffer
         int numSamplesPerChannel =0 ;
     };
