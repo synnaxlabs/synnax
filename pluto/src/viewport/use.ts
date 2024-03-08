@@ -14,10 +14,10 @@ import {
   useImperativeHandle,
   useRef,
   useState,
-  ForwardedRef,
+  type ForwardedRef,
 } from "react";
 
-import { box, xy, dimensions, location, scale } from "@synnaxlabs/x";
+import { box, xy, dimensions, location, scale, deep } from "@synnaxlabs/x";
 
 import { useStateRef } from "@/hooks/ref";
 import { useMemoCompare } from "@/memo";
@@ -44,7 +44,9 @@ export interface UseProps {
   resetOnDoubleClick?: boolean;
   threshold?: dimensions.Dimensions;
   initial?: box.Box;
-  ref?: MutableRefObject<UseRefValue | undefined> | ForwardedRef<UseRefValue | undefined>;
+  ref?:
+    | MutableRefObject<UseRefValue | undefined>
+    | ForwardedRef<UseRefValue | undefined>;
 }
 
 export interface UseReturn {
@@ -52,6 +54,8 @@ export interface UseReturn {
   maskBox: box.Box;
   ref: React.MutableRefObject<HTMLDivElement | null>;
 }
+
+const TRUNC_PRECISION = 4;
 
 type StringLiteral<T> = T extends string ? (string extends T ? never : T) : never;
 
@@ -129,7 +133,7 @@ export const use = ({
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const threshold = dimensions.construct(threshold_);
 
-  useEffect(() => setStateRef(initial), [initial]);
+  useEffect(() => setStateRef(() => box.truncate(initial, 3)), [initial]);
   useEffect(() => setMaskMode(defaultMode), [defaultMode]);
 
   const [triggerConfig, reducedTriggerConfig, purgedTriggers, reducedPurgedTriggers] =
@@ -187,7 +191,7 @@ export const use = ({
             setMaskBox(box.ZERO);
             return next;
           }
-          return prev;
+          return box.truncate(prev, TRUNC_PRECISION);
         });
       }
 
@@ -203,6 +207,7 @@ export const use = ({
 
       setMaskBox((prev) => (!box.isZero(prev) ? box.ZERO : prev));
       const next = handlePan(box_, stateRef.current, canvas);
+      if (box.equals(next, stateRef.current)) return;
       onChange?.({
         box: next,
         mode,
@@ -240,8 +245,11 @@ export const use = ({
   );
 
   const handleZoomSelect = useCallback(
-    (box: box.Box, prev: box.Box, canvas: box.Box): box.Box | null =>
-      constructScale(prev, canvas).box(fullSize(threshold, box, canvas)),
+    (b: box.Box, prev: box.Box, canvas: box.Box): box.Box | null =>
+      box.truncate(
+        constructScale(prev, canvas).box(fullSize(threshold, b, canvas)),
+        TRUNC_PRECISION,
+      ),
     [threshold_],
   );
 
@@ -281,7 +289,10 @@ const constructScale = (prev: box.Box, canvas: box.Box): scale.XY =>
 const handlePan = (b: box.Box, prev: box.Box, canvas: box.Box): box.Box => {
   let dims = box.signedDims(constructScale(prev, canvas).box(b));
   dims = { signedWidth: -dims.signedWidth, signedHeight: -dims.signedHeight };
-  return scale.XY.translate(xy.construct(dims)).box(prev);
+  return box.truncate(
+    scale.XY.translate(xy.construct(dims)).box(prev),
+    TRUNC_PRECISION,
+  );
 };
 
 const fullSize = (

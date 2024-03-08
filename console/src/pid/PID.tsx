@@ -120,15 +120,12 @@ const SymbolRenderer = ({
 
   const C = Core.SYMBOLS[variant as Core.Variant];
 
-  const zoom = useSelectViewport(layoutKey);
-
   return (
     <C.Symbol
       aetherKey={symbolKey}
       position={position}
       selected={selected}
       onChange={handleChange}
-      zoom={zoom.zoom}
       {...props}
     />
   );

@@ -185,3 +185,8 @@ export const css = (a: Crude): { left: number; top: number } => {
   const xy = construct(a);
   return { left: xy.x, top: xy.y };
 };
+
+export const truncate = (a: Crude, precision: number = 0): XY => {
+  const xy = construct(a);
+  return { x: Number(xy.x.toFixed(precision)), y: Number(xy.y.toFixed(precision)) };
+}

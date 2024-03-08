@@ -342,3 +342,14 @@ export const translate = (b: Box, t: xy.XY): Box => {
     b_.root,
   );
 }
+
+export const truncate = (b: Box, precision: number = 0): Box => {
+  const b_ = construct(b);
+  return construct(
+    xy.truncate(b_.one, precision),
+    xy.truncate(b_.two, precision),
+    undefined,
+    undefined,
+    b_.root,
+  );
+}

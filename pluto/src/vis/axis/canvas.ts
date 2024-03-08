@@ -89,7 +89,7 @@ export class Canvas implements Axis {
     const { plot: plottingRegion } = ctx;
     const size = box.width(plottingRegion);
     const gridSize = box.height(plottingRegion);
-    const p = xy.translateY(ctx.position, this.state.size);
+    const p = xy.translateY(ctx.position, ctx.size);
     const ticks = this.tickFactory.generate({ ...ctx, size });
     this.maybeDrawGrid(size, ticks, (tick) => [
       xy.translateX(p, tick.position),
@@ -116,7 +116,7 @@ export class Canvas implements Axis {
     const { plot: plottingRegion } = ctx;
     const size = box.height(plottingRegion);
     const gridSize = box.width(plottingRegion);
-    const p = xy.translateX(ctx.position, this.state.size);
+    const p = xy.translateX(ctx.position, ctx.size);
     const ticks = this.tickFactory.generate({ ...ctx, size });
     this.maybeDrawGrid(size, ticks, (tick) => [
       xy.translateY(p, tick.position),

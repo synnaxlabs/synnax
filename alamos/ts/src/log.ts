@@ -79,26 +79,34 @@ export class Logger {
   debug(msg: string, kv?: UnknownRecord): void {
     if (!this.filter("debug")) return;
     if (kv == null) console.log("%cDEBUG", "color: #8c00f0;", this.meta.path, msg);
-    else console.log("%cDEBUG", "color: #8c00f0;", this.meta.path, msg, kv);
+    else console.log("%cDEBUG", "color: #8c00f0;", this.meta.path, msg, parseKV(kv));
   }
 
   info(msg: string, kv?: UnknownRecord): void {
     if (!this.filter("info")) return;
     if (kv == null) console.log("%cINFO", "color: #005eff;", this.meta.path, msg);
-    else console.log("%cINFO", "color: #005eff;", this.meta.path, msg, kv);
+    else console.log("%cINFO", "color: #005eff;", this.meta.path, msg, parseKV(kv));
   }
 
   warn(msg: string, kv?: UnknownRecord): void {
     if (!this.filter("warn")) return;
     if (kv == null) console.warn("WARN", this.meta.path, msg);
-    else console.warn("WARN", this.meta.path, msg, kv);
+    else console.warn("WARN", this.meta.path, msg, parseKV(kv));
   }
 
   error(msg: string, kv?: UnknownRecord): void {
     if (!this.filter("error")) return;
     if (kv == null) console.error("ERROR", this.meta.path, msg);
-    else console.error("ERROR", this.meta.path, msg, kv);
+    else console.error("ERROR", this.meta.path, msg, parseKV(kv));
   }
 
   static readonly NOOP = new Logger();
 }
+
+const parseKV = (kv: UnknownRecord): UnknownRecord => {
+  Object.entries(kv).forEach(([k, v]) => {
+    if (typeof v === "function") kv[k] = v();
+  });
+  return kv;
+}
+

@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { alamos } from "@synnaxlabs/alamos";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
@@ -92,6 +93,7 @@ const leafUpdate: aether.Update = {
   type: "leaf",
   path: ["test"],
   state: { x: 1 },
+  instrumentation: alamos.NOOP,
 };
 
 const compositeUpdate: aether.Update = {
@@ -100,6 +102,7 @@ const compositeUpdate: aether.Update = {
   type: "composite",
   path: ["test"],
   state: { x: 1 },
+  instrumentation: alamos.NOOP,
 };
 
 const contextUpdate: aether.Update = {
@@ -108,6 +111,7 @@ const contextUpdate: aether.Update = {
   type: "context",
   path: [],
   state: null,
+  instrumentation: alamos.NOOP,
 };
 
 describe("Aether Worker", () => {
@@ -236,6 +240,7 @@ describe("Aether Worker", () => {
           type: "context",
           path: ["test", "dog"],
           state: { x: 1 },
+          instrumentation: alamos.NOOP,
         });
         await composite.internalUpdate({
           ctx,
@@ -243,6 +248,7 @@ describe("Aether Worker", () => {
           type: "context",
           path: ["test", "cat"],
           state: { x: 2 },
+          instrumentation: alamos.NOOP,
         });
         expect(composite.children).toHaveLength(2);
         await composite.internalUpdate({
@@ -251,6 +257,7 @@ describe("Aether Worker", () => {
           type: "leaf",
           path: ["test", "dog", "dogleaf"],
           state: { x: 3 },
+          instrumentation: alamos.NOOP,
         });
         await composite.internalUpdate({
           ctx,
@@ -258,6 +265,7 @@ describe("Aether Worker", () => {
           type: "leaf",
           path: ["test", "cat", "catLeaf"],
           state: { x: 4 },
+          instrumentation: alamos.NOOP,
         });
         await composite.internalUpdate({
           ctx,
@@ -265,6 +273,7 @@ describe("Aether Worker", () => {
           type: "context",
           path: ["test", "dog"],
           state: { x: 5 },
+          instrumentation: alamos.NOOP,
         });
       });
     });

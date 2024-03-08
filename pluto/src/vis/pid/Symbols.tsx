@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useState, type ReactElement } from "react";
+import { useState, type ReactElement, useCallback } from "react";
 
 import { box, xy, location, type UnknownRecord, direction } from "@synnaxlabs/x";
 import { useViewport } from "reactflow";
@@ -28,6 +28,8 @@ import { Toggle } from "@/vis/toggle";
 import { Value as CoreValue } from "@/vis/value";
 
 import "@/vis/pid/Symbols.css";
+
+import { useInitialViewport } from "@/vis/diagram/aether/Diagram";
 
 export interface ControlStateProps extends Omit<Align.SpaceProps, "direction"> {
   showChip?: boolean;
@@ -596,30 +598,34 @@ export const Value = Aether.wrap<SymbolProps<ValueProps>>(
     });
 
     const valueBoxHeight = (font.lineHeight + 0.5) * font.baseSize + 2;
-    const resizeRef = useResize((b) => {
-      // Find the element with the class pluto-symbol__label that is underneath
-      // the 'react-flow__node' with the data-id of aetherKey
-      const label = document.querySelector(
-        `.react-flow__node[data-id="${aetherKey}"] .pluto-symbol__label`,
-      );
-      let labelBox = { ...box.ZERO };
-      if (label != null) {
-        labelBox = box.construct(label);
-        labelBox = box.resize(labelBox, {
-          width: box.width(labelBox),
-          height: box.height(labelBox),
-        });
-      }
-      setDimensions({ outerBox: b, labelBox });
-    }, {});
+    const resizeRef = useResize(
+      useCallback((b) => {
+        // Find the element with the class pluto-symbol__label that is underneath
+        // the 'react-flow__node' with the data-id of aetherKey
+        const label = document.querySelector(
+          `.react-flow__node[data-id="${aetherKey}"] .pluto-symbol__label`,
+        );
+        let labelBox = { ...box.ZERO };
+        if (label != null) {
+          labelBox = box.construct(label);
+          labelBox = box.resize(labelBox, {
+            width: box.width(labelBox),
+            height: box.height(labelBox),
+          });
+        }
+        setDimensions({ outerBox: b, labelBox });
+      }, []),
+      {},
+    );
 
-    const zoom = useViewport().zoom;
+    const { zoom } = useInitialViewport();
 
     const adjustedBox = adjustBox({
       labelOrientation: label?.orientation ?? "top",
-      zoom,
+      hasLabel: label?.label != null && label?.label.length > 0,
       valueBoxHeight,
       position,
+      zoom,
       ...dimensions,
     });
 
@@ -671,17 +677,19 @@ interface AdjustBoxProps {
   labelBox: box.Box;
   valueBoxHeight: number;
   position: xy.XY;
+  hasLabel: boolean;
 }
 
 const LABEL_SCALE = 0.9;
 
 const adjustBox = ({
   labelOrientation,
-  zoom,
   outerBox,
   labelBox,
   valueBoxHeight,
   position,
+  hasLabel,
+  zoom,
 }: AdjustBoxProps): box.Box => {
   const labelDims = xy.scale(box.dims(labelBox), 1 / (LABEL_SCALE * zoom));
   const dir = direction.construct(labelOrientation);
@@ -690,8 +698,10 @@ const adjustBox = ({
       position,
       Math.max((labelDims.y - valueBoxHeight) / 2 - 1, 0),
     );
-  if (labelOrientation === "left") position = xy.translateX(position, labelDims.x + 4);
-  if (labelOrientation === "top") position = xy.translateY(position, labelDims.y + 4);
+  if (hasLabel && labelOrientation === "left")
+    position = xy.translateX(position, labelDims.x + 4);
+  else if (hasLabel && labelOrientation === "top")
+    position = xy.translateY(position, labelDims.y + 4);
   return box.construct(position.x, position.y, box.width(outerBox), valueBoxHeight);
 };
 

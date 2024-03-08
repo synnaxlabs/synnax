@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Instrumentation } from "@synnaxlabs/alamos";
+import { alamos } from "@synnaxlabs/alamos";
 import { UnexpectedError, ValidationError } from "@synnaxlabs/client";
-import { type Sender, type SenderHandler } from "@synnaxlabs/x";
+import { deep, type Sender, type SenderHandler } from "@synnaxlabs/x";
 import { Mutex } from "async-mutex";
 import { z } from "zod";
 
@@ -44,6 +44,10 @@ export interface Update {
    * "state".
    */
   state: any;
+  /**
+   * instrumentation is used for logging and tracing.
+   */
+  instrumentation: alamos.Instrumentation;
 }
 
 /**
@@ -88,7 +92,7 @@ export class Context {
   readonly providers: Map<string, any>;
   private readonly registry: Record<string, ComponentConstructor>;
   private readonly sender: Sender<WorkerMessage>;
-  changed: boolean;
+  changedKeys: string[];
 
   constructor(
     sender: Sender<WorkerMessage>,
@@ -97,7 +101,7 @@ export class Context {
   ) {
     this.providers = providers;
     this.registry = registry;
-    this.changed = false;
+    this.changedKeys = [];
     this.sender = sender;
   }
 
@@ -124,8 +128,12 @@ export class Context {
     const cpy = new Context(this.sender, this.registry, new Map());
     merge?.providers.forEach((value, key) => cpy.providers.set(key, value));
     this.providers.forEach((value, key) => cpy.providers.set(key, value));
-    cpy.changed = false;
+    cpy.changedKeys = [];
     return cpy;
+  }
+
+  get changed(): boolean {
+    return this.changedKeys.length > 0;
   }
 
   /**
@@ -134,9 +142,9 @@ export class Context {
    * @param key - The key to set.
    * @param value - The value to set.
    */
-  set(key: string, value: any): void {
+  set(key: string, value: any, trigger: boolean = true): void {
     this.providers.set(key, value);
-    this.changed = true;
+    if (trigger) this.changedKeys.push(key);
   }
 
   setIfNotHas(key: string, value: any): void {
@@ -211,6 +219,7 @@ export class Leaf<S extends z.ZodTypeAny, IS extends {} = {}> implements Compone
   private _state: z.output<S> | undefined;
   private _prevState: z.output<S> | undefined;
   private _deleted: boolean = false;
+  instrumentation: alamos.Instrumentation;
 
   schema: S | undefined = undefined;
 
@@ -219,6 +228,7 @@ export class Leaf<S extends z.ZodTypeAny, IS extends {} = {}> implements Compone
     this.key = u.path[0];
     this._ctx = u.ctx;
     this._internalState = {} as unknown as IS;
+    this.instrumentation = u.instrumentation.child(`${this.type}(${this.key})`);
   }
 
   private get _schema(): S {
@@ -278,8 +288,18 @@ export class Leaf<S extends z.ZodTypeAny, IS extends {} = {}> implements Compone
     if (variant === "state") {
       this.validatePath(path);
       const state_ = prettyParse(this._schema, state, `${this.type}:${this.key}`);
+      if (this._state != null) {
+        this.instrumentation.L.debug("updating state", {
+          // To prevent unneccessary diffing when instrumentation is disabled
+          diff: () => deep.difference(this.state, state),
+        });
+      } else {
+        this.instrumentation.L.debug("setting initial state", { state });
+      }
       this._prevState = this._state ?? state_;
       this._state = state_;
+    } else {
+      this.instrumentation.L.debug("updating context");
     }
     await this.afterUpdate();
   }
@@ -344,16 +364,16 @@ export class Composite<
   extends Leaf<S, IS>
   implements Component
 {
-  _children: C[];
+  private _children: Map<string, C>;
 
   constructor(u: Update) {
     super(u);
-    this._children = [];
+    this._children = new Map();
   }
 
   /** @returns a readonly array of the children of the component. */
   get children(): readonly C[] {
-    return this._children;
+    return Array.from(this._children.values());
   }
 
   /**
@@ -387,13 +407,13 @@ export class Composite<
 
   private async updateChild(subPath: string[], u: Update): Promise<void> {
     const childKey = subPath[0];
-    const child = this.findChild(childKey);
+    const child = this.getChild(childKey);
     if (child != null) return await child.internalUpdate({ ...u, path: subPath });
     if (subPath.length > 1)
       throw new Error(
         `[Composite.setState] - ${this.type}:${this.key} could not find child with key ${childKey} while updating `,
       );
-    this._children.push(await u.ctx.create({ ...u, path: subPath }));
+    this._children.set(childKey, await u.ctx.create({ ...u, path: subPath }));
   }
 
   private async updateThis(key: string, u: Update): Promise<void> {
@@ -405,6 +425,9 @@ export class Composite<
       );
     await super.internalUpdate({ ...u, ctx });
     if (!ctx.changed) return;
+    this.instrumentation.L.debug("context changed", {
+      changedKeys: ctx.changedKeys,
+    });
     for (const c of this.children)
       await c.internalUpdate({ ...u, ctx: this.ctx, variant: "context" });
   }
@@ -418,16 +441,15 @@ export class Composite<
         );
       }
       const children = this.children;
-      this._children = [];
+      this._children = new Map();
       for (const c of children) await c.internalDelete([c.key]);
       await super.internalDelete([this.key]);
-      return;
     }
-    const child = this.findChild(subPath[0]);
+    const child = this.getChild(subPath[0]);
     if (child == null) return;
     if (subPath.length > 1) await child.internalDelete(subPath);
     else {
-      this._children.splice(this.children.indexOf(child), 1);
+      this._children.delete(child.key);
       await child.internalDelete(subPath);
     }
   }
@@ -448,8 +470,8 @@ export class Composite<
    * @param key - the key of the child component to find.
    * @returns the child component, or null if no child component with the given key
    */
-  findChild<T extends C = C>(key: string): T | null {
-    return (this.children.find((c) => c.key === key) ?? null) as T | null;
+  getChild<T extends C = C>(key: string): T | null {
+    return (this._children.get(key) ?? null) as T | null;
   }
 
   /**
@@ -472,18 +494,16 @@ const aetherRootState = z.object({});
 export interface RootProps {
   worker: SenderHandler<WorkerMessage, MainMessage>;
   registry: ComponentRegistry;
-  instrumentation?: Instrumentation;
+  instrumentation?: alamos.Instrumentation;
 }
 
 export class Root extends Composite<typeof aetherRootState> {
   wrap: SenderHandler<WorkerMessage, MainMessage>;
-  instrumentation: Instrumentation;
-  mu = new Mutex();
 
   private static readonly TYPE = "root";
   private static readonly KEY = "root";
 
-  private static readonly ZERO_UPDATE: Omit<Update, "ctx"> = {
+  private static readonly ZERO_UPDATE: Omit<Update, "ctx" | "instrumentation"> = {
     path: [Root.KEY],
     type: Root.TYPE,
     variant: "state",
@@ -492,17 +512,26 @@ export class Root extends Composite<typeof aetherRootState> {
 
   static readonly schema = aetherRootState;
   schema = Root.schema;
+  mu = new Mutex();
 
-  constructor({ worker: wrap, registry, instrumentation }: RootProps) {
+  constructor({
+    worker: wrap,
+    registry,
+    instrumentation = alamos.Instrumentation.NOOP,
+  }: RootProps) {
     const ctx = new Context(wrap, registry, new Map());
-    const u = { ctx, ...Root.ZERO_UPDATE };
+    const u = {
+      ctx,
+      ...Root.ZERO_UPDATE,
+      instrumentation,
+    };
+
     super(u);
-    void this.internalUpdate(u);
+    void this.mu.runExclusive(async () => await this.internalUpdate(u));
     this.wrap = wrap;
     this.wrap.handle((msg) => {
       void this.mu.runExclusive(async () => await this.handle(msg));
     });
-    this.instrumentation = instrumentation ?? Instrumentation.NOOP;
   }
 
   async handle(msg: MainMessage): Promise<void> {
@@ -512,6 +541,7 @@ export class Root extends Composite<typeof aetherRootState> {
         ...msg,
         variant: "state",
         ctx: this.ctx,
+        instrumentation: this.instrumentation,
       };
       await this.internalUpdate(u);
     }
