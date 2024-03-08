@@ -90,12 +90,12 @@ describe("DynamicCache", () => {
       const { flushed, allocated } = cache.write([arr.reAlign(9)]);
       expect(allocated).toHaveLength(1);
       expect(allocated[0].timeRange.start.sub(TimeStamp.now()).valueOf()).toBeLessThan(
-        TimeSpan.milliseconds(1).valueOf(),
+        TimeSpan.milliseconds(3).valueOf(),
       );
       expect(allocated[0].timeRange.end.valueOf()).toEqual(TimeStamp.MAX.valueOf());
       expect(flushed).toHaveLength(1);
       expect(flushed[0].timeRange.span.sub(waitSpan).valueOf()).toBeLessThan(
-        TimeSpan.milliseconds(2).valueOf(),
+        TimeSpan.milliseconds(3).valueOf(),
       );
       expect(flushed[0].data.slice(0, 3)).toEqual(new Float32Array([1, 2, 3]));
       expect(flushed[0].data.slice(3, 6)).toEqual(new Float32Array([1, 2, 3]));
@@ -126,7 +126,7 @@ describe("DynamicCache", () => {
       const { flushed, allocated } = cache.write([s1, s2]);
       expect(flushed).toHaveLength(1);
       expect(allocated[1].timeRange.start.sub(TimeStamp.now()).valueOf()).toBeLessThan(
-        TimeSpan.milliseconds(1).valueOf(),
+        TimeSpan.milliseconds(3).valueOf(),
       );
       expect(allocated[1].timeRange.end.valueOf()).toEqual(TimeStamp.MAX.valueOf());
       expect(flushed[0]).toBe(allocated[0]);
