@@ -19,7 +19,7 @@ import (
 
 var ctx = context.Background()
 
-func TestRanger(t *testing.T) {
+func TestDomain(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "TimeRange Suite")
+	RunSpecs(t, "Domain Suite")
 }
