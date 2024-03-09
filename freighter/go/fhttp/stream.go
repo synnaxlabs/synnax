@@ -252,7 +252,7 @@ func (s *streamServer[RQ, RS]) fiberHandler(c *fiber.Ctx) error {
 	iMD := parseRequestCtx(c, address.Address(s.path))
 	ecd, err := httputil.DetermineEncoderDecoder(iMD.Params.GetDefault(fiber.HeaderContentType, "").(string))
 	if err != nil {
-		// If we can't determin the encoder/decoder, we can't continue, so we sent a best effort string.
+		// If we can't determine the encoder/decoder, we can't continue, so we sent a best effort string.
 		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
 	}
 	oCtx, err := s.MiddlewareCollector.Exec(
