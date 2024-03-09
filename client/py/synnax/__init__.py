@@ -48,8 +48,4 @@ from synnax.telem import (
     convert_time_units,
     elapsed_seconds,
 )
-from synnax.hardware import (
-    Task,
-    Rack,
-    Device
-)
+from synnax.hardware import Task, Rack, Device

@@ -24,6 +24,7 @@ type (
 	ChannelKey       = cesium.ChannelKey
 	WriterConfig     = cesium.WriterConfig
 	Writer           = cesium.Writer
+	WriterMode       = cesium.WriterMode
 	StreamWriter     = cesium.StreamWriter
 	WriterRequest    = cesium.WriterRequest
 	WriterResponse   = cesium.WriterResponse
@@ -42,6 +43,11 @@ type (
 )
 
 const AutoSpan = cesium.AutoSpan
+const (
+	WriterPersistStream = cesium.WriterPersistStream
+	WriterPersistOnly   = cesium.WriterPersistOnly
+	WriterStreamOnly    = cesium.WriterStreamOnly
+)
 
 type Config struct {
 	alamos.Instrumentation

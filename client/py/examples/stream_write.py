@@ -21,14 +21,14 @@ time_ch = client.channels.create(
     name="Time",
     is_index=True,
     data_type=sy.DataType.TIMESTAMP,
-    retrieve_if_name_exists=True
+    retrieve_if_name_exists=True,
 )
 
 data_ch = client.channels.create(
     name="Data",
     index=time_ch.key,
     data_type=sy.DataType.FLOAT32,
-    retrieve_if_name_exists=True
+    retrieve_if_name_exists=True,
 )
 
 print(

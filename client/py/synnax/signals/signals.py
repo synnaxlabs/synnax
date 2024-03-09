@@ -25,11 +25,7 @@ class Registry:
     __frame_client: framer.Client
     __channel_retriever: ChannelRetriever
 
-    def __init__(
-        self,
-        frame_client: framer.Client,
-        channels: ChannelRetriever
-    ):
+    def __init__(self, frame_client: framer.Client, channels: ChannelRetriever):
         self.__handlers = list()
         self.__channels = set()
         self.__frame_client = frame_client
@@ -87,7 +83,8 @@ class Scheduler:
 
     async def start(self):
         self.__streamer = await self.__frame_client.new_async_streamer(
-            list(self.__channels))
+            list(self.__channels)
+        )
         async for frame in self.__streamer:
             self.__state.update(frame)
             for handler in self.__handlers:

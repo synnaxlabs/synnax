@@ -43,6 +43,7 @@ var _ = Describe("WriterBehavior", func() {
 					domain.WriterConfig{
 						Start: 10 * telem.SecondTS,
 					}))
+				Expect(w.Write([]byte{1, 2, 3, 4, 5, 6})).To(Succeed())
 				Expect(w.Commit(ctx, 15*telem.SecondTS)).To(Succeed())
 				Expect(w.Close()).To(Succeed())
 				_, err := db.NewWriter(ctx, domain.WriterConfig{

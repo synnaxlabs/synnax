@@ -21,13 +21,13 @@ t = client.channels.create(
     name="Time",
     data_type=sy.DataType.TIMESTAMP,
     is_index=True,
-    retrieve_if_name_exists=True
+    retrieve_if_name_exists=True,
 )
 d = client.channels.create(
     name="Data",
     data_type=sy.DataType.FLOAT64,
     index=t.key,
-    retrieve_if_name_exists=True
+    retrieve_if_name_exists=True,
 )
 t.write(start, time_data)
 d.write(start, data)

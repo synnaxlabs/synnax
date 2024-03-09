@@ -259,9 +259,9 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 						next freighter.Next,
 					) (freighter.Context, error) {
 						c++
-						oMd, err := next(ctx)
+						oMd, _ := next(ctx)
 						c++
-						return oMd, err
+						return oMd, nil
 					}))
 					ctx, cancel := context.WithCancel(context.TODO())
 					defer cancel()
@@ -301,6 +301,7 @@ func (impl *httpStreamImplementation) start(
 	server := fhttp.StreamServer[request, response](router, "/")
 	router.BindTo(impl.app)
 	go func() {
+		defer GinkgoRecover()
 		Expect(impl.app.Listen(host.PortString())).To(Succeed())
 	}()
 	Eventually(func(g Gomega) {

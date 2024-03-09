@@ -84,6 +84,25 @@ func (w *Writer) Error() error {
 	return errors.New(unexpectedSteamClosure)
 }
 
+func (w *Writer) SetMode(mode WriterMode) bool {
+	if w.hasAccumulatedErr {
+		return false
+	}
+	select {
+	case <-w.responses.Outlet():
+		w.hasAccumulatedErr = true
+		return false
+	case w.requests.Inlet() <- WriterRequest{Command: WriterSetMode, Config: WriterConfig{Mode: mode}}:
+	}
+	for res := range w.responses.Outlet() {
+		if res.Command == WriterSetMode {
+			return res.Ack
+		}
+	}
+	w.logger.DPanic(unexpectedSteamClosure)
+	return false
+}
+
 func (w *Writer) Close() (err error) {
 	w.requests.Close()
 	for range w.responses.Outlet() {

@@ -54,6 +54,38 @@ class TestWriter:
             w.write(pd.DataFrame({channel.key: data}))
             w.commit()
 
+    def test_write_frame_unknown_channel_name(
+        self,
+        channel: sy.Channel,
+        client: sy.Synnax,
+    ):
+        with client.new_writer(0, channel.key) as w:
+            data = np.random.rand(10).astype(np.float64)
+            with pytest.raises(sy.ValidationError):
+                w.write(pd.DataFrame({"missing": data}))
+
+    def test_write_frame_unknown_channel_key(
+        self,
+        channel: sy.Channel,
+        client: sy.Synnax,
+    ):
+        with client.new_writer(0, channel.key) as w:
+            data = np.random.rand(10).astype(np.float64)
+            with pytest.raises(sy.ValidationError):
+                w.write(pd.DataFrame({123: data}))
+
+    @pytest.mark.focus
+    def test_write_frame_idx_no_timestamps(
+        self,
+        indexed_pair: tuple[sy.Channel, sy.Channel],
+        client: sy.Synnax,
+    ):
+        [idx, data_ch] = indexed_pair
+        with pytest.raises(sy.ValidationError):
+            with client.new_writer(0, [idx.key, data_ch.key]) as w:
+                data = np.random.rand(10).astype(np.float64)
+                w.write(pd.DataFrame({data_ch.key: data}))
+
 
 @pytest.mark.framer
 class TestStreamer:
