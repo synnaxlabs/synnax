@@ -94,6 +94,24 @@ jobs:
           echo "Publishing client"
           poetry publish --build --no-interaction 
 
+          # put back the original relative paths (set develop = true)
+          cd ../../client/py
+          sed -i -E "/^\[tool\.poetry\.dependencies\]$/,/^\[.*\]$/ s/synnax-freighter = .*/synnax-freighter = { path = \"..\/..\/freighter\/py\", develop = true }/" pyproject.toml
+          sed -i -E "/^\[tool\.poetry\.dependencies\]$/,/^\[.*\]$/ s/alamos = .*/alamos = { path = \"..\/..\/alamos\/py\", develop = true }/" pyproject.toml
+          
+          cd ../../freighter/py
+          sed -i -E "/^\[tool\.poetry\.dependencies\]$/,/^\[.*\]$/ s/alamos = .*/alamos = { path = \"..\/..\/alamos\/py\", develop = true }/" pyproject.toml
+
+      - name: Commit and push changes
+        with: EndBug/add-and-commit@v9
+        with:
+          add: "."
+          message: "Update dependencies"
+          pull: "--commit --no-edit"
+          push: "origin ${{ github.ref }} --force"
+
+
+
 
 
 
