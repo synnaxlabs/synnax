@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "synnax-freighter"
-version = "0.5.0"
+version = "0.5.14"
 description = ""
 authors = ["emiliano bonilla <emilbon99@gmail.com>"]
 packages = [
@@ -21,8 +21,7 @@ msgpack = "^1.0.4"
 urllib3 = "^2.0.3"
 janus = "^1.0.0"
 pydantic = "^1.10.0"
-alamos = "^0.2.0"
-# alamos = { path = "../../alamos/py", develop = true }
+alamos = { path = "../alamos/py", develop = true }
 
 [tool.poetry.dev-dependencies]
 black = "^23.3.0"
