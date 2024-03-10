@@ -9,6 +9,6 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-input-date::-webkit-calendar-picker-indicator {
+.pluto-input-date input::-webkit-calendar-picker-indicator {
     display: none;
 }

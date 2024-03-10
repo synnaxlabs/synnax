@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { forwardRef, useCallback } from "react";
+import { forwardRef, useCallback, useState, type ReactElement } from "react";
 
 import { TimeSpan, TimeStamp, type TZInfo } from "@synnaxlabs/x";
 
-import { Align } from "@/align";
 import { CSS } from "@/css";
 import { DragButton, type DragButtonExtensionProps } from "@/input/DragButton";
 import { Text } from "@/input/Text";
@@ -30,6 +29,44 @@ export interface TimeProps extends BaseProps<number>, DragButtonExtensionProps {
 const DRAG_SCALE = {
   x: TimeSpan.SECOND.valueOf() * 0.5,
   y: TimeSpan.MINUTE.valueOf(),
+};
+
+export interface UseTimeProps
+  extends Pick<TimeProps, "value" | "onChange" | "tzInfo"> {}
+
+export interface UseTimeReturn {
+  value: string;
+  onChange: (value: string | number) => void;
+}
+
+export const useTime = ({ value, onChange, tzInfo }: UseTimeProps) => {
+  const ts = new TimeStamp(value, "UTC");
+
+  // We want to check for remainder overflow in LOCAL time.
+  const local = ts.sub(TimeStamp.utcOffset);
+  // All good.
+  if (local.after(TimeStamp.DAY)) {
+    // Chop off the extra time.
+    const tsV = local.remainder(TimeStamp.DAY);
+    // We have a correcly zeroed timestamp in local, now
+    // add back the UTC offset to get the UTC timestamp.
+    onChange(new TimeStamp(tsV, "local").valueOf());
+  }
+
+  const handleChange = useCallback(
+    (value: number | string) => {
+      let ts: TimeStamp;
+      if (typeof value === "number") ts = new TimeStamp(value, "UTC");
+      else if (value.length === 0) return;
+      else ts = new TimeStamp(value, "local");
+      onChange(ts.valueOf());
+    },
+    [onChange, tzInfo],
+  );
+
+  const inputValue = ts.fString("time", tzInfo);
+
+  return { inputValue, ts, handleChange };
 };
 
 /**
@@ -62,36 +99,13 @@ export const Time = forwardRef<HTMLInputElement, TimeProps>(
       dragDirection,
       showDragHandle = true,
       className,
+      children,
       ...props
     }: TimeProps,
     ref,
   ) => {
-    const ts = new TimeStamp(value, "UTC");
-
-    // We want to check for remainder overflow in LOCAL time.
-    const local = ts.sub(TimeStamp.utcOffset);
-    // All good.
-    if (local.after(TimeStamp.DAY)) {
-      // Chop off the extra time.
-      const tsV = local.remainder(TimeStamp.DAY);
-      // We have a correcly zeroed timestamp in local, now
-      // add back the UTC offset to get the UTC timestamp.
-      onChange(new TimeStamp(tsV, "local").valueOf());
-    }
-
-    const handleChange = useCallback(
-      (value: number | string) => {
-        let ts: TimeStamp;
-        if (typeof value === "number") ts = new TimeStamp(value, "UTC");
-        else if (value.length === 0) return;
-        else ts = new TimeStamp(value, "local");
-        onChange(ts.valueOf());
-      },
-      [onChange, tzInfo],
-    );
-
-    const inputValue = ts.fString("time", tzInfo);
-    const input = (
+    const { inputValue, ts, handleChange } = useTime({ value, onChange, tzInfo });
+    return (
       <Text
         ref={ref}
         value={inputValue}
@@ -100,20 +114,17 @@ export const Time = forwardRef<HTMLInputElement, TimeProps>(
         step="1"
         onChange={handleChange as BaseProps["onChange"]}
         {...props}
-      />
-    );
-
-    if (!showDragHandle) return input;
-    return (
-      <Align.Pack {...props}>
-        {input}
-        <DragButton
-          direction={dragDirection}
-          value={ts.valueOf()}
-          onChange={handleChange as BaseProps["onChange"]}
-          dragScale={DRAG_SCALE}
-        />
-      </Align.Pack>
+      >
+        {showDragHandle && (
+          <DragButton
+            direction={dragDirection}
+            value={ts.valueOf()}
+            onChange={handleChange as BaseProps["onChange"]}
+            dragScale={DRAG_SCALE}
+          />
+        )}
+        {children}
+      </Text>
     );
   },
 );

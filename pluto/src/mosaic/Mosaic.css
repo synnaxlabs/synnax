@@ -12,8 +12,8 @@
 .pluto-mosaic__mask {
     position: absolute;
     pointer-events: none;
-    background: rgb(0 0 0 / 50%);
-    z-index: 1;
+    background: var(--pluto-gray-l5-30);
+    z-index: 7;
 }
 
 .pluto-mosaic__resize {
@@ -30,4 +30,5 @@
 
 .pluto-mosaic__leaf .pluto-tabs {
     height: 100%;
+    width: 100%;
 }

@@ -10,6 +10,7 @@
 package freighter_test
 
 import (
+	"context"
 	roacherrors "github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/freighter/ferrors"
 	"testing"
@@ -37,15 +38,21 @@ func TestGo(t *testing.T) {
 
 var _ = BeforeSuite(func() {
 	ferrors.Register(
-		"myCustomError",
-		func(err error) string {
-			return err.Error()
-		},
-		func(s string) error {
-			if s == "my custom error" {
-				return myCustomError
+		func(_ context.Context, err error) (ferrors.Payload, bool) {
+			v, ok := err.(ferrors.Error)
+			if !ok || v.FreighterType() != "myCustomError" {
+				return ferrors.Payload{}, false
 			}
-			panic("unknown error")
+			return ferrors.Payload{
+				Type: "myCustomError",
+				Data: v.Error(),
+			}, true
+		},
+		func(ctx context.Context, f ferrors.Payload) (error, bool) {
+			if f.Type != "myCustomError" {
+				return nil, false
+			}
+			return myCustomError, true
 		},
 	)
 })

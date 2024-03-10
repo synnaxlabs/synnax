@@ -10,15 +10,24 @@
  */
 
 .pluto-input {
-    position: relative;
-    border-radius: var(--pluto-border-radius);
-    background: var(--pluto-gray-l2);
     color: var(--pluto-text-color);
     margin: 0;
-    border: var(--pluto-border-l4);
     width: 100%;
 
+    & .pluto-input__internal {
+        position: relative;
+        background: var(--pluto-gray-l1);
+        flex-grow: 1;
+    }
+
     & input {
+        border: none;
+        background: none;
+        width: 100%;
+        height: 100%;
+
+        padding: 0 1.5rem;
+
         &::-webkit-input-placeholder {
             color: transparent;
         }
@@ -26,19 +35,13 @@
         &::placeholder {
             color: transparent;
         }
-
-        border: none;
-        background: transparent;
-        width: 100%;
-        height: 100%;
-        padding: 0 2rem;
     }
 
-    &:focus-within {
+    & > .pluto-input__internal:focus-within{
+        border-color: var(--pluto-primary-z) !important;
         & input {
             outline: none;
         }
-        border-color: var(--pluto-primary-z) !important;
     }
 
     &.pluto--medium input {
@@ -53,47 +56,85 @@
         line-height: var(--pluto-small-line-height);
     }
 
+    &.pluto--large input {
+        font-size: var(--pluto-h5-size);
+        font-weight: var(--pluto-h5-weight);
+        line-height: var(--pluto-h5-line-height);
+    }
+
     &:not(:focus-within) .pluto--centered {
-        left: 50%;
-        transform: translate(-50%, -50%);
+        justify-content: center;
     }
 }
 
 .pluto-input__placeholder {
     position: absolute;
-    top: 50%;
-    left: 2rem;
-    transform: translateY(-50%);
+    top: 0;
+    left: 0;
+    height: 100%;
+    /* z-index of placeholder is above that of input, so we move it a bit to the right
+    to make sure the cursor doesn't look weird. */
+    padding-left: 1.75rem;
+    width: 100%;
+    display: flex;
+    align-items: center;
     pointer-events: none;
+    border: none !important;
 
     & * {
         color: var(--pluto-gray-l6);
     }
 
-    & .pluto-text-icon path:is(:not([fill="none"]), [stroke="#000"]) {
+    & .pluto-text-icon svg:not(.logo) path:is(:not([fill="none"]), [stroke="#000"]) {
         stroke: var(--pluto-gray-l6);
         fill: var(--pluto-gray-l6);
     }
 }
 
-.pluto-input--shadow:not(:focus).pluto-input--shadow:not(:hover),
-.pluto-input--shadow:not(:focus).pluto-input--shadow:not(:hover) > * {
-    border-color: transparent;
+.pluto-input--shadow {
+    /* When not focused or hovered, hide the border */
+    &:not(:focus):not(:focus-within):not(:hover) {
+        & > * {
+            border-color: transparent;
+        }
+        & > *:not(.pluto-input__internal) {
+            opacity: 0;
+        }
+    }
+    & .pluto-input__internal {
+        background: var(--pluto-gray-l0) !important;
+    }
 }
 
-.pluto-input--shadow:hover,
-.pluto-input--shadow:hover > * {
-    border-color: var(--pluto-border-color);
-}
-.pluto-input--shadow:focus,
-.pluto-input--shadow:focus > * {
-    border-color: var(--pluto-primary-z);
+.pluto-input--natural {
+    background: none !important;
+    & > * {
+        border-color: transparent;
+    }
+
+    &:not(:hover) {
+        & > *:not(.pluto-input__internal) {
+            opacity: 0;
+        }
+    }
+
+    & .pluto-input__internal {
+        border: none !important;
+        background: none !important;
+    }
+
+    & input {
+        padding: 0;
+    }
+
+    & .pluto-input__placeholder {
+        padding-left: 1px;
+        & * {
+            color: var(--pluto-gray-l5);
+        }
+    }
 }
 
-.pluto-input--shadow,
-.pluto-input--shadow > * {
-    background: var(--pluto-gray-l0) !important;
-}
 
 input[type="number"]::-webkit-inner-spin-button {
     /* stylelint-disable-next-line property-no-vendor-prefix */
@@ -102,5 +143,4 @@ input[type="number"]::-webkit-inner-spin-button {
 
 .pluto-input--placeholder-centered::placeholder {
     text-align: center;
-
 }

@@ -12,9 +12,9 @@ import { box, runtime } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
+import { OS } from "@/os";
 import { Context } from "@/vis/line/aether/line";
 import { render } from "@/vis/render";
-import { OS } from "@/os";
 
 export const canvasStateZ = z.object({
   dpr: z.number(),
@@ -35,7 +35,7 @@ export class Canvas extends aether.Composite<typeof canvasStateZ> {
   schema = canvasStateZ;
   renderContextSet = false;
 
-  afterUpdate(): void {
+  async afterUpdate(): Promise<void> {
     let renderCtx = render.Context.useOptional(this.ctx);
     if (renderCtx == null) {
       if (this.renderContextSet) {

@@ -24,7 +24,7 @@ import (
 
 var _ = Describe("OtelProvider", func() {
 	Describe("Secure", func() {
-		Describe("TLS Configuration", func() {
+		Describe("TLS Properties", func() {
 			It("Should load and return the correct TLS configuration", func() {
 				fs := xfs.NewMem()
 				mock.GenerateCerts(fs)
@@ -71,7 +71,7 @@ var _ = Describe("OtelProvider", func() {
 		})
 	})
 	Describe("Insecure", func() {
-		Describe("TLS Configuration", func() {
+		Describe("TLS Properties", func() {
 			It("Should return an empty TLS configuration", func() {
 				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
 					Insecure: config.Bool(true),

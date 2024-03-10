@@ -8,11 +8,21 @@
   },
   "package": {
     "productName": "Synnax",
-    "version": "0.14.2"
+    "version": "0.17.9"
   },
   "tauri": {
     "allowlist": {
-      "all": true
+      "all": true,
+      "shell": {
+        "all": true,
+        "scope": [
+          {
+            "name": "bin/sy",
+            "sidecar": true,
+            "args": ["start", "-i", "-l","localhost:9090", "-d", {"validator": "\\S+"}]
+          }
+        ]
+      }
     },
     "bundle": {
       "active": true,
@@ -21,7 +31,9 @@
       "deb": {
         "depends": []
       },
-      "externalBin": [],
+      "externalBin": [
+            "bin/sy"
+      ],
       "icon": [
         "icons/32x32.png",
         "icons/128x128.png",

@@ -135,4 +135,56 @@ var _ = Describe("Ranger", Ordered, func() {
 			Expect(svc.NewRetrieve().WhereKeys(r.Key).Entry(&retrieveR).Exec(ctx, tx)).ToNot(Succeed())
 		})
 	})
+	Describe("SetActiveRange", func() {
+		It("Should set the active range", func() {
+			r := &ranger.Range{
+				Name: "Range",
+				TimeRange: telem.TimeRange{
+					Start: telem.TimeStamp(5 * telem.Second),
+					End:   telem.TimeStamp(10 * telem.Second),
+				},
+			}
+			Expect(svc.NewWriter(tx).Create(ctx, r)).To(Succeed())
+			Expect(svc.SetActiveRange(ctx, r.Key, tx)).To(Succeed())
+		})
+		It("Should not allow the active range to be set to a range that does not exist", func() {
+			Expect(svc.SetActiveRange(ctx, uuid.New(), nil)).ToNot(Succeed())
+		})
+	})
+	Describe("RetrieveActiveRange", func() {
+		It("Should return the active range", func() {
+			r := &ranger.Range{
+				Name: "Range",
+				TimeRange: telem.TimeRange{
+					Start: telem.TimeStamp(5 * telem.Second),
+					End:   telem.TimeStamp(10 * telem.Second),
+				},
+			}
+			Expect(svc.NewWriter(tx).Create(ctx, r)).To(Succeed())
+			Expect(svc.SetActiveRange(ctx, r.Key, tx)).To(Succeed())
+			activeRange, err := svc.RetrieveActiveRange(ctx, tx)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(activeRange.Key).To(Equal(r.Key))
+		})
+		It("Should return an error if there is no active range", func() {
+			_, err := svc.RetrieveActiveRange(ctx, tx)
+			Expect(err).To(HaveOccurred())
+		})
+	})
+	Describe("ClearActiveRange", func() {
+		It("Should clear the active range", func() {
+			r := &ranger.Range{
+				Name: "Range",
+				TimeRange: telem.TimeRange{
+					Start: telem.TimeStamp(5 * telem.Second),
+					End:   telem.TimeStamp(10 * telem.Second),
+				},
+			}
+			Expect(svc.NewWriter(tx).Create(ctx, r)).To(Succeed())
+			Expect(svc.SetActiveRange(ctx, r.Key, tx)).To(Succeed())
+			svc.ClearActiveRange(ctx)
+			_, err := svc.RetrieveActiveRange(ctx, tx)
+			Expect(err).To(HaveOccurred())
+		})
+	})
 })

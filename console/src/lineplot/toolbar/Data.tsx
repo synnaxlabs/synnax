@@ -36,10 +36,10 @@ export const Data = ({ layoutKey }: DataProps): ReactElement | null => {
           key: layoutKey,
           axisKey: key as YAxisKey,
           channels: value as channel.Keys,
-        })
+        }),
       );
     },
-    [dispatch, layoutKey]
+    [dispatch, layoutKey],
   );
 
   const handleXChannelSelect = useCallback(
@@ -49,10 +49,10 @@ export const Data = ({ layoutKey }: DataProps): ReactElement | null => {
           key: layoutKey,
           axisKey: key as XAxisKey,
           channel: value,
-        })
+        }),
       );
     },
-    [dispatch, layoutKey]
+    [dispatch, layoutKey],
   );
 
   const handleRangeSelect = (key: XAxisKey, value: string[]): void => {
@@ -65,6 +65,7 @@ export const Data = ({ layoutKey }: DataProps): ReactElement | null => {
         axis={"y1"}
         onChange={handleYChannelSelect}
         value={vis.channels.y1}
+        align="center"
         location="top"
         grow
       />

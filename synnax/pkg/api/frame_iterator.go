@@ -14,7 +14,6 @@ import (
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/ferrors"
 	"github.com/synnaxlabs/freighter/freightfluence"
-	"github.com/synnaxlabs/synnax/pkg/api/errors"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/x/confluence"
@@ -28,9 +27,9 @@ type (
 	FrameIteratorStream   = freighter.ServerStream[FrameIteratorRequest, FrameIteratorResponse]
 )
 
-func (s *FrameService) Iterate(ctx context.Context, stream FrameIteratorStream) errors.Typed {
+func (s *FrameService) Iterate(ctx context.Context, stream FrameIteratorStream) error {
 	iter, err := s.openIterator(ctx, stream)
-	if err.Occurred() {
+	if err != nil {
 		return err
 	}
 
@@ -57,23 +56,23 @@ func (s *FrameService) Iterate(ctx context.Context, stream FrameIteratorStream) 
 	plumber.MustConnect[iterator.Request](pipe, "receiver", "iterator", 1)
 
 	pipe.Flow(sCtx, confluence.CloseInletsOnExit())
-	return errors.MaybeUnexpected(sCtx.Wait())
+	return sCtx.Wait()
 }
 
-func (s *FrameService) openIterator(ctx context.Context, srv FrameIteratorStream) (framer.StreamIterator, errors.Typed) {
+func (s *FrameService) openIterator(ctx context.Context, srv FrameIteratorStream) (framer.StreamIterator, error) {
 	req, err := srv.Receive()
 	if err != nil {
-		return nil, errors.Unexpected(err)
+		return nil, err
 	}
 	iter, err := s.Internal.NewStreamIterator(ctx, framer.IteratorConfig{
 		Bounds: req.Bounds,
 		Keys:   req.Keys,
 	})
 	if err != nil {
-		return nil, errors.Query(err)
+		return nil, err
 	}
-	return iter, errors.MaybeUnexpected(srv.Send(framer.IteratorResponse{
+	return iter, srv.Send(framer.IteratorResponse{
 		Variant: iterator.AckResponse,
 		Ack:     true,
-	}))
+	})
 }

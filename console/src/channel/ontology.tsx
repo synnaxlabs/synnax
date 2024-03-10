@@ -11,8 +11,10 @@ import { type ReactElement } from "react";
 
 import { ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { type Haul, Menu, Tree, Channel } from "@synnaxlabs/pluto";
+import { type Haul, Menu, Channel, telem } from "@synnaxlabs/pluto";
+import { Tree } from "@synnaxlabs/pluto/tree";
 
+import { Menu as ConsoleMenu } from "@/components";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
@@ -22,7 +24,11 @@ import { Range } from "@/range";
 
 const canDrop = (): boolean => false;
 
-const onSelect: Ontology.HandleSelect = ({ store, placeLayout, selection }): void => {
+const handleSelect: Ontology.HandleSelect = ({
+  store,
+  placeLayout,
+  selection,
+}): void => {
   const state = store.getState();
   const layout = Layout.selectActiveMosaicTab(state);
   if (selection.length === 0) return;
@@ -55,17 +61,34 @@ const onSelect: Ontology.HandleSelect = ({ store, placeLayout, selection }): voi
   }
 };
 
-const haulItems = ({ name, id }: ontology.Resource): Haul.Item[] => [
-  {
-    type: "channel",
-    key: Number(id.key),
-  },
-  {
-    type: PID.HAUL_TYPE,
-    key: "value",
-    data: { telem: { channel: Number(id.key) }, label: name },
-  },
-];
+const haulItems = ({ name, id }: ontology.Resource): Haul.Item[] => {
+  const t = telem.sourcePipeline("string", {
+    connections: [
+      {
+        from: "valueStream",
+        to: "stringifier",
+      },
+    ],
+    segments: {
+      valueStream: telem.streamChannelValue({ channel: Number(id.key) }),
+      stringifier: telem.stringifyNumber({ precision: 2 }),
+    },
+    outlet: "stringifier",
+  });
+  return [
+    {
+      type: "channel",
+      key: Number(id.key),
+    },
+    {
+      type: PID.HAUL_TYPE,
+      key: "value",
+      data: {
+        telem: t,
+      },
+    },
+  ];
+};
 
 const allowRename = (): boolean => true;
 
@@ -121,8 +144,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
 
   return (
     <Menu.Menu level="small" iconSpacing="small" onChange={handleSelect}>
+      <ConsoleMenu.Item.HardReload />
       <Group.GroupMenuItem selection={selection} />
-      {activeRange != null && (
+      {activeRange != null && activeRange.persisted && (
         <>
           {singleResource && (
             <Menu.Item itemKey="alias" startIcon={<Icon.Rename />}>
@@ -132,16 +156,13 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           <Menu.Item itemKey="deleteAlias" startIcon={<Icon.Delete />}>
             Clear Alias Under {activeRange.name}
           </Menu.Item>
-          <Menu.Item itemKey="plot" startIcon={<Icon.Visualize />}>
-            Plot for {activeRange.name}
-          </Menu.Item>
         </>
       )}
     </Menu.Menu>
   );
 };
 
-export const Item: Tree.Item = (props): ReactElement => {
+export const Item: Tree.Item = (props: Tree.ItemProps): ReactElement => {
   const alias = Channel.useAlias(Number(new ontology.ID(props.entry.key).key));
   return (
     <Tree.DefaultItem
@@ -158,7 +179,7 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   allowRename,
   onRename: handleRename,
   canDrop,
-  onSelect,
+  onSelect: handleSelect,
   haulItems,
   Item,
   TreeContextMenu,

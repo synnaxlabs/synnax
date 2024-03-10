@@ -16,9 +16,10 @@ import {
   useDebouncedCallback,
   Channel,
   Synnax,
-  type Color,
+  Color,
+  Menu,
 } from "@synnaxlabs/pluto";
-import { type UnknownRecord, box, location, unique } from "@synnaxlabs/x";
+import { type UnknownRecord, box, location, unique, getEntries } from "@synnaxlabs/x";
 import { useDispatch } from "react-redux";
 
 import { useSyncerDispatch, type Syncer } from "@/hooks/dispatchers";
@@ -32,7 +33,6 @@ import {
 } from "@/lineplot/selectors";
 import {
   type State,
-  type RuleState,
   setLine,
   setRanges,
   setRule,
@@ -44,10 +44,16 @@ import {
   setRemoteCreated,
   type StoreState,
   internalCreate,
+  setSelection,
+  setAxis,
+  type AxisState,
+  type LineState,
 } from "@/lineplot/slice";
 import { Range } from "@/range";
 import { Vis } from "@/vis";
 import { Workspace } from "@/workspace";
+
+import { ContextMenuContent } from "./ContextMenu";
 
 interface SyncPayload {
   key?: string;
@@ -105,42 +111,61 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
     );
   }, [client, lines]);
 
-  const handleTitleRename = (name: string): void => {
+  const handleTitleChange = (name: string): void => {
     dispatch(Layout.rename({ key: layoutKey, name }));
   };
 
-  const handleLineLabelChange = useCallback(
-    (key: string, label: string): void => {
-      dispatch(setLine({ key: layoutKey, line: [{ key, label }] }));
-    },
-    [dispatch, layoutKey],
-  );
-
-  const handleLineColorChange = useCallback(
-    (key: string, color: Color.Color): void => {
-      dispatch(setLine({ key: layoutKey, line: [{ key, color: color.hex }] }));
-    },
-    [dispatch, layoutKey],
-  );
-
-  const handleRulePositionChange = useCallback(
-    (key: string, position: number): void => {
+  const handleLineChange = useCallback<
+    Exclude<Channel.LinePlotProps["onLineChange"], undefined>
+  >(
+    (d): void => {
+      const newLine = { ...d } as const as LineState;
+      if (d.color != null) newLine.color = Color.toHex(d.color);
       dispatch(
-        setRule({
+        setLine({
           key: layoutKey,
-          rule: {
-            key,
-            position,
-          },
+          line: [newLine],
         }),
       );
     },
     [dispatch, layoutKey],
   );
 
-  const rules = useMemo(() => buildRules(vis?.rules ?? []), [vis.rules]);
+  const handleRuleChange = useCallback<
+    Exclude<Channel.LinePlotProps["onRuleChange"], undefined>
+  >(
+    (rule) =>
+      dispatch(
+        setRule({
+          key: layoutKey,
+          rule: {
+            ...rule,
+            axis: rule.axis as Vis.XAxisKey,
+            color: Color.toHex(rule.color),
+          },
+        }),
+      ),
+    [dispatch, layoutKey],
+  );
+
+  const handleAxisChange = useCallback<
+    Exclude<Channel.LinePlotProps["onAxisChange"], undefined>
+  >(
+    (axis) => {
+      dispatch(
+        setAxis({
+          key: layoutKey,
+          axisKey: axis.key as Vis.AxisKey,
+          axis: axis as AxisState,
+          triggerRender: false,
+        }),
+      );
+    },
+    [dispatch, layoutKey],
+  );
+
   const propsLines = buildLines(vis, ranges);
-  const axes = buildAxes(vis);
+  const axes = useMemo(() => buildAxes(vis), [vis.axes.renderTrigger]);
   const rng = Range.useSelect();
 
   const handleChannelAxisDrop = useCallback(
@@ -176,106 +201,95 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
     [dispatch, layoutKey, propsLines.length, rng],
   );
 
-  const handleRuleLabelChange = useCallback(
-    (key: string, label: string): void => {
-      dispatch(
-        setRule({
-          key: layoutKey,
-          rule: {
-            key,
-            label,
-          },
-        }),
-      );
+  const handleViewportChange: Viewport.UseHandler = useDebouncedCallback(
+    ({ box: b, stage, mode }) => {
+      if (stage !== "end") return;
+      if (mode === "select") {
+        dispatch(
+          setSelection({
+            key: layoutKey,
+            box: b,
+          }),
+        );
+      } else {
+        dispatch(
+          storeViewport({
+            key: layoutKey,
+            pan: box.bottomLeft(b),
+            zoom: box.dims(b),
+          }),
+        );
+      }
     },
+    100,
     [dispatch, layoutKey],
   );
-
-  // const handleViewportChange: Viewport.UseHandler = useDebouncedCallback(
-  //   ({ box: b, stage }) => {
-  //     if (stage !== "end") return;
-  //     dispatch(
-  //       storeViewport({
-  //         key: layoutKey,
-  //         pan: box.bottomLeft(b),
-  //         zoom: box.dims(b),
-  //       }),
-  //     );
-  //   },
-  //   100,
-  //   [dispatch, layoutKey],
-  // );
 
   const { enableTooltip, clickMode, hold } = useSelectControlState();
   const mode = useSelectViewportMode();
   const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], [mode]);
 
-  // const initialViewport = useMemo(() => {
-  //   return box.reRoot(
-  //     box.construct(vis.viewport.pan, vis.viewport.zoom),
-  //     location.BOTTOM_LEFT,
-  //   );
-  // }, [vis.viewport.counter]);
+  const initialViewport = useMemo(() => {
+    return box.reRoot(
+      box.construct(vis.viewport.pan, vis.viewport.zoom),
+      location.BOTTOM_LEFT,
+    );
+  }, [vis.viewport.renderTrigger]);
 
   const handleDoubleClick = useCallback(
     () => dispatch(Layout.setNavdrawerVisible({ key: "visualization", value: true })),
     [dispatch],
   );
 
+  const props = Menu.useContextMenu();
+
   return (
-    <div style={{ height: "100%", width: "100%", padding: "2rem" }}>
-      <Channel.LinePlot
-        hold={hold}
-        title={name}
-        axes={axes}
-        lines={propsLines}
-        rules={rules}
-        clearOverscan={{ x: 5, y: 10 }}
-        onTitleChange={handleTitleRename}
-        titleLevel={vis.title.level}
-        showTitle={vis.title.visible}
-        showLegend={vis.legend.visible}
-        onLineColorChange={handleLineColorChange}
-        onLineLabelChange={handleLineLabelChange}
-        onRulePositionChange={handleRulePositionChange}
-        onRuleLabelChange={handleRuleLabelChange}
-        onAxisChannelDrop={handleChannelAxisDrop}
-        // onViewportChange={handleViewportChange}
-        // initialViewport={initialViewport}
-        viewportTriggers={triggers}
-        enableTooltip={enableTooltip}
-        enableMeasure={clickMode === "measure"}
-        onDoubleClick={handleDoubleClick}
-      />
-    </div>
+    <Menu.ContextMenu
+      {...props}
+      menu={() => <ContextMenuContent layoutKey={layoutKey} />}
+    >
+      <div style={{ height: "100%", width: "100%", padding: "2rem" }}>
+        <Channel.LinePlot
+          hold={hold}
+          title={name}
+          axes={axes}
+          lines={propsLines}
+          rules={vis.rules}
+          clearOverscan={{ x: 5, y: 5 }}
+          onTitleChange={handleTitleChange}
+          titleLevel={vis.title.level}
+          showTitle={vis.title.visible}
+          showLegend={vis.legend.visible}
+          onLineChange={handleLineChange}
+          onRuleChange={handleRuleChange}
+          onAxisChannelDrop={handleChannelAxisDrop}
+          onAxisChange={handleAxisChange}
+          onViewportChange={handleViewportChange}
+          initialViewport={initialViewport}
+          viewportTriggers={triggers}
+          enableTooltip={enableTooltip}
+          enableMeasure={clickMode === "measure"}
+          onDoubleClick={handleDoubleClick}
+        />
+      </div>
+    </Menu.ContextMenu>
   );
 };
 
-const buildRules = (rules: RuleState[]): Channel.RuleProps[] =>
-  rules.map((rule) => ({
-    id: rule.key,
-    ...rule,
-  }));
-
 const buildAxes = (vis: State): Channel.AxisProps[] =>
-  Object.entries(vis.axes)
-    .filter(([key, axis]) => shouldDisplayAxis(key as Vis.AxisKey, vis))
+  getEntries(vis.axes.axes)
+    .filter(([key]) => shouldDisplayAxis(key, vis))
     .map(([key, axis]): Channel.AxisProps => {
       return {
-        id: key,
-        location: Vis.axisLocation(key as Vis.AxisKey),
-        label: axis.label,
+        location: Vis.axisLocation(key),
         type: Vis.X_AXIS_KEYS.includes(key as Vis.XAxisKey) ? "time" : "linear",
-        bounds: axis.bounds,
-        labelDirection: axis.labelDirection,
-        tickSpacing: axis.tickSpacing,
-        labelLevel: axis.labelLevel,
+        ...axis,
       };
     });
 
 const buildLines = (
   vis: State,
-  sug: Vis.MultiXAxisRecord<Workspace.Range>,
+  sug: Vis.MultiXAxisRecord<Range.Range>,
 ): Array<Channel.LineProps & { key: string }> =>
   Object.entries(sug).flatMap(([xAxis, ranges]) =>
     ranges.flatMap((range) =>
@@ -287,11 +301,11 @@ const buildLines = (
             range.variant === "dynamic"
               ? {
                   variant: "dynamic",
-                  span: range.span,
+                  timeSpan: range.span,
                 }
               : {
                   variant: "static",
-                  range: range.timeRange,
+                  timeRange: range.timeRange,
                 };
 
           return (yChannels as number[]).map((channel) => {
@@ -306,19 +320,9 @@ const buildLines = (
             });
             const line = vis.lines.find((l) => l.key === key);
             if (line == null) throw new Error("Line not found");
-            const v: Channel.LineProps & { key: string } = {
-              id: key,
+            const v: Channel.LineProps = {
               ...line,
-              downsample:
-                isNaN(line.downsample) || line.downsample == null ? 1 : line.downsample,
-              strokeWidth:
-                isNaN(line.strokeWidth) ||
-                line.strokeWidth == null ||
-                line.strokeWidth === 0
-                  ? 1
-                  : line.strokeWidth,
               key,
-              color: line.color === "" ? "#000000" : line.color,
               axes: {
                 x: xAxis,
                 y: yAxis,
@@ -345,7 +349,7 @@ export const LinePlot: Layout.Renderer = ({
   useAsyncEffect(async () => {
     if (client == null || linePlot != null) return;
     const { data } = await client.workspaces.linePlot.retrieve(layoutKey);
-    dispatch(internalCreate({ key: layoutKey, ...(data as unknown as State) }));
+    dispatch(internalCreate({ ...(data as unknown as State) }));
   }, [client, linePlot]);
   if (linePlot == null) return null;
   return <Loaded layoutKey={layoutKey} {...props} />;

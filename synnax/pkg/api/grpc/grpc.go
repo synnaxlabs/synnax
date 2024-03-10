@@ -22,6 +22,8 @@ func New() (a api.Transport, transports []fgrpc.BindableTransport) {
 	transports = append(transports, newFramer(&a))
 	transports = append(transports, newConnectivity(&a))
 	transports = append(transports, newAuth(&a))
+	transports = append(transports, newRanger(&a))
+	transports = append(transports, newHardware(&a))
 
 	// AUTH
 	a.AuthChangeUsername = fnoop.UnaryServer[api.ChangeUsernameRequest, types.Nil]{}
@@ -29,17 +31,7 @@ func New() (a api.Transport, transports []fgrpc.BindableTransport) {
 	a.AuthRegistration = fnoop.UnaryServer[api.RegistrationRequest, api.TokenResponse]{}
 
 	// RANGE
-	a.RangeCreate = fnoop.UnaryServer[api.RangeCreateRequest, api.RangeCreateResponse]{}
-	a.RangeRetrieve = fnoop.UnaryServer[api.RangeRetrieveRequest, api.RangeRetrieveResponse]{}
-	a.RangeDelete = fnoop.UnaryServer[api.RangeDeleteRequest, types.Nil]{}
 	a.RangeRename = fnoop.UnaryServer[api.RangeRenameRequest, types.Nil]{}
-	a.RangeKVGet = fnoop.UnaryServer[api.RangeKVGetRequest, api.RangeKVGetResponse]{}
-	a.RangeKVSet = fnoop.UnaryServer[api.RangeKVSetRequest, types.Nil]{}
-	a.RangeKVDelete = fnoop.UnaryServer[api.RangeKVDeleteRequest, types.Nil]{}
-	a.RangeAliasSet = fnoop.UnaryServer[api.RangeAliasSetRequest, types.Nil]{}
-	a.RangeAliasResolve = fnoop.UnaryServer[api.RangeAliasResolveRequest, api.RangeAliasResolveResponse]{}
-	a.RangeAliasList = fnoop.UnaryServer[api.RangeAliasListRequest, api.RangeAliasListResponse]{}
-	a.RangeAliasDelete = fnoop.UnaryServer[api.RangeAliasDeleteRequest, types.Nil]{}
 
 	// ONTOLOGY
 	a.OntologyRetrieve = fnoop.UnaryServer[api.OntologyRetrieveRequest, api.OntologyRetrieveResponse]{}
@@ -73,6 +65,13 @@ func New() (a api.Transport, transports []fgrpc.BindableTransport) {
 	a.LinePlotDelete = fnoop.UnaryServer[api.LinePlotDeleteRequest, types.Nil]{}
 	a.LinePlotRename = fnoop.UnaryServer[api.LinePlotRenameRequest, types.Nil]{}
 	a.LinePlotSetData = fnoop.UnaryServer[api.LinePlotSetDataRequest, types.Nil]{}
+
+	// LABEL
+	a.LabelCreate = fnoop.UnaryServer[api.LabelCreateRequest, api.LabelCreateResponse]{}
+	a.LabelRetrieve = fnoop.UnaryServer[api.LabelRetrieveRequest, api.LabelRetrieveResponse]{}
+	a.LabelDelete = fnoop.UnaryServer[api.LabelDeleteRequest, types.Nil]{}
+	a.LabelSet = fnoop.UnaryServer[api.LabelSetRequest, types.Nil]{}
+	a.LabelRemove = fnoop.UnaryServer[api.LabelRemoveRequest, types.Nil]{}
 
 	return a, transports
 }

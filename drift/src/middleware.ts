@@ -9,11 +9,11 @@
 
 import {
   Action as CoreAction,
-  AnyAction,
+  UnknownAction,
   Dispatch,
   Middleware,
+  PayloadAction,
 } from "@reduxjs/toolkit";
-import type { CurriedGetDefaultMiddleware } from "@reduxjs/toolkit/dist/getDefaultMiddleware";
 
 import { log } from "@/debug";
 import { Runtime } from "@/runtime";
@@ -26,10 +26,13 @@ import {
   SliceState,
   setWindowProps,
   setWindowError,
+  MaybeKeyPayload,
+  LabelPayload,
 } from "@/state";
 import { desugar } from "@/sugar";
 import { sync } from "@/sync";
 import { validateAction } from "@/validate";
+import { GetDefaultMiddleware } from "node_modules/@reduxjs/toolkit/dist/getDefaultMiddleware";
 
 export type Middlewares<S> = ReadonlyArray<Middleware<{}, S>>;
 
@@ -43,19 +46,19 @@ export type Middlewares<S> = ReadonlyArray<Middleware<{}, S>>;
  * @returns a Redux middleware.
  */
 export const middleware =
-  <S extends StoreState, A extends CoreAction = AnyAction>(
-    runtime: Runtime<S, A>,
+  <S extends StoreState, A extends CoreAction = UnknownAction>(
+    runtime: Runtime<S, A | Action>,
     debug: boolean = false
-  ): Middleware<Record<string, never>, S, Dispatch<A | Action>> =>
+  ): Middleware<Dispatch<A | Action>, S, Dispatch<A | Action>> =>
   ({ getState, dispatch }) =>
   (next) =>
   (action_) => {
     // eslint-disable-next-line prefer-const
-    let { action, emitted, emitter } = desugar(action_);
+    let { action, emitted, emitter } = desugar<A | Action>(action_ as A | Action);
 
     const label = runtime.label();
 
-    validateAction({ action: action_, emitted, emitter });
+    validateAction({ action: action_ as A |Action, emitted, emitter });
 
     log(debug, "[drift] - middleware", {
       action,
@@ -75,7 +78,7 @@ export const middleware =
     let prevS: SliceState | null = null;
     if (isDrift) {
       prevS = getState().drift;
-      action = assignLabel(action, prevS);
+      action = assignLabel(action as PayloadAction<MaybeKeyPayload | LabelPayload>, prevS);
     }
 
     const res = next(action);
@@ -114,13 +117,13 @@ export const middleware =
  */
 export const configureMiddleware = <
   S extends StoreState,
-  A extends CoreAction = AnyAction,
+  A extends CoreAction = UnknownAction,
   M extends Middlewares<S> = Middlewares<S>
 >(
-  mw: M | ((def: CurriedGetDefaultMiddleware<S>) => M) | undefined,
-  runtime: Runtime<S, A>,
+  mw: M | ((def: GetDefaultMiddleware<S>) => M) | undefined,
+  runtime: Runtime<S, A | Action>,
   debug: boolean = false
-): ((def: CurriedGetDefaultMiddleware<S>) => M) => {
+): ((def: GetDefaultMiddleware<S>) => M) => {
   return (def) => {
     const base = mw != null ? (typeof mw === "function" ? mw(def) : mw) : def();
     return [...base, middleware<S, A>(runtime, debug)] as unknown as M;

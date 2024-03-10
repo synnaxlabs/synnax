@@ -50,8 +50,7 @@ var _ = Describe("KV", Ordered, Serial, func() {
 			err := w.Register(ctx, creds)
 			Expect(err).To(BeNil())
 			err = w.Register(ctx, creds)
-			Expect(errors.Is(err, errors.New("[auth] - username already registered"))).To(BeTrue())
-
+			Expect(errors.Is(err, errors.Wrap(auth.Error, "username already registered"))).To(BeTrue())
 		})
 	})
 	Describe("Authenticate", func() {
@@ -106,7 +105,7 @@ var _ = Describe("KV", Ordered, Serial, func() {
 			Expect(w.Register(ctx, creds)).To(Succeed())
 			err := w.UpdateUsername(ctx, creds, "old-user")
 			Expect(err).ToNot(BeNil())
-			Expect(errors.Is(errors.New("[auth] - username already registered"), err)).To(BeTrue())
+			Expect(errors.Is(errors.Wrap(auth.Error, "username already registered"), err)).To(BeTrue())
 		})
 	})
 	Describe("UpdatePassword", func() {

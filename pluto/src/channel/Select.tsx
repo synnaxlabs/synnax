@@ -10,8 +10,10 @@
 import { type DragEvent, type ReactElement, useCallback, useId, useMemo } from "react";
 
 import { type channel } from "@synnaxlabs/client";
-import { unique } from "@synnaxlabs/x";
+import { nullToArr, toArray, unique } from "@synnaxlabs/x";
 
+import { useActiveRange, useAliases } from "@/channel/AliasProvider";
+import { HAUL_TYPE } from "@/channel/types";
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
 import { type DraggingState } from "@/haul/Haul";
@@ -20,13 +22,14 @@ import { Select } from "@/select";
 import { Status } from "@/status";
 import { Synnax } from "@/synnax";
 
-import { useActiveRange, useAliases } from "./AliasProvider";
-import { HAUL_TYPE } from "./types";
-
 const channelColumns: Array<List.ColumnSpec<channel.Key, channel.Payload>> = [
   {
     key: "name",
     name: "Name",
+  },
+  {
+    key: "alias",
+    name: "Alias",
   },
   {
     key: "rate",
@@ -66,7 +69,7 @@ export interface SelectMultipleProps
   columns?: string[];
 }
 
-const DEFAULT_FILTER = ["name"];
+const DEFAULT_FILTER = ["name", "alias"];
 
 const useColumns = (
   filter: string[],
@@ -74,25 +77,15 @@ const useColumns = (
   const aliases = useAliases();
   return useMemo(() => {
     if (filter.length === 0) return channelColumns;
-    return channelColumns
-      .filter((column) => filter.includes(column.key))
-      .map((column) => {
-        if (column.key === "name") {
-          return {
-            ...column,
-            stringer: (entry: channel.Payload) => aliases[entry.key] ?? entry.name,
-          };
-        }
-        return column;
-      });
+    return channelColumns.filter((column) => filter.includes(column.key));
   }, [filter, aliases]);
 };
 
 export const SelectMultiple = ({
   columns: filter = DEFAULT_FILTER,
   onChange,
-  value,
   className,
+  value,
   ...props
 }: SelectMultipleProps): ReactElement => {
   const client = Synnax.use();
@@ -116,12 +109,20 @@ export const SelectMultiple = ({
     ...dropProps
   } = Haul.useDragAndDrop({
     type: "Channel.SelectMultiple",
-    canDrop: useCallback((hauled) => canDrop(hauled, value), [value]),
+    canDrop: useCallback((hauled) => canDrop(hauled, toArray(value)), [value]),
     onDrop: useCallback(
       ({ items }) => {
         const dropped = Haul.filterByType(HAUL_TYPE, items);
         if (dropped.length === 0) return [];
-        onChange(unique([...value, ...(dropped.map((c) => c.key) as channel.Keys)]));
+        const v = unique([
+          ...toArray(value),
+          ...(dropped.map((c) => c.key) as channel.Keys),
+        ]);
+        onChange(v, {
+          clickedIndex: null,
+          clicked: null,
+          entries: [],
+        });
         return dropped;
       },
       [onChange, value],
@@ -131,7 +132,14 @@ export const SelectMultiple = ({
 
   const handleSuccessfulDrop = useCallback(
     ({ dropped }: Haul.OnSuccessfulDropProps) => {
-      onChange(value.filter((key) => !dropped.some((h) => h.key === key)));
+      onChange(
+        toArray(value).filter((key) => !dropped.some((h) => h.key === key)),
+        {
+          clickedIndex: null,
+          clicked: null,
+          entries: [],
+        },
+      );
     },
     [onChange, value],
   );
@@ -149,7 +157,7 @@ export const SelectMultiple = ({
 
   return (
     <Select.Multiple
-      className={CSS(className, CSS.dropRegion(canDrop(dragging, value)))}
+      className={CSS(className, CSS.dropRegion(canDrop(dragging, toArray(value))))}
       value={value}
       onTagDragStart={onDragStart}
       onTagDragEnd={endDrag}
@@ -174,16 +182,17 @@ export const SelectSingle = ({
   onChange,
   value,
   className,
+  data,
   ...props
 }: SelectSingleProps): ReactElement => {
   const client = Synnax.use();
   const aliases = useAliases();
   const columns = useColumns(filter);
   const activeRange = useActiveRange();
-  const searcher = useMemo(
-    () => client?.channels.newSearcherUnderRange(activeRange),
-    [client, activeRange],
-  );
+  const searcher = useMemo(() => {
+    if (data != null && data.length > 0) return undefined;
+    return client?.channels.newSearcherUnderRange(activeRange);
+  }, [client, activeRange, data?.length]);
 
   const emptyContent =
     client != null ? undefined : (
@@ -204,12 +213,16 @@ export const SelectSingle = ({
     ...dragProps
   } = Haul.useDragAndDrop({
     type: "Channel.SelectSingle",
-    canDrop: useCallback((hauled) => canDrop(hauled, [value]), [value]),
+    canDrop: useCallback((hauled) => canDrop(hauled, nullToArr(value)), [value]),
     onDrop: useCallback(
       ({ items }) => {
         const ch = Haul.filterByType(HAUL_TYPE, items);
         if (ch.length === 0) return [];
-        onChange(ch[0].key as channel.Key);
+        onChange(ch[0].key as channel.Key, {
+          clickedIndex: null,
+          clicked: null,
+          entries: [],
+        });
         return ch;
       },
       [sourceAndTarget, onChange],
@@ -218,7 +231,7 @@ export const SelectSingle = ({
 
   const dragging = Haul.useDraggingState();
   const onDragStart = useCallback(
-    () => startDrag([{ type: HAUL_TYPE, key: value }]),
+    () => value != null && startDrag([{ type: HAUL_TYPE, key: value }]),
     [startDrag, value],
   );
 
@@ -229,7 +242,8 @@ export const SelectSingle = ({
 
   return (
     <Select.Single
-      className={CSS(className, CSS.dropRegion(canDrop(dragging, [value])))}
+      data={data}
+      className={CSS(className, CSS.dropRegion(canDrop(dragging, nullToArr(value))))}
       value={value}
       onDragStart={onDragStart}
       onDragEnd={endDrag}

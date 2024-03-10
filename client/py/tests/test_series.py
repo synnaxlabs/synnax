@@ -6,6 +6,8 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
+import uuid
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -98,6 +100,18 @@ class TestSeries:
         assert len(d) == 1
         assert d.data_type == DataType.FLOAT32
 
+    def test_construction_from_strings(self):
+        """Should correctly construct the series from a list of strings"""
+        d = Series(["hello"])
+        assert len(d) == 1
+        assert d.data_type == DataType.STRING
+
+    def test_construction_from_dicts(self):
+        """Should correctly construct the series from a list of dicts"""
+        d = Series([{"hello": "world"}])
+        assert len(d) == 1
+        assert d.data_type == DataType.JSON
+
     def test_size(self):
         """Should return the correct number of bytes in the buffer"""
         s = Series([1, 2, 3], data_type=DataType.INT16)
@@ -110,10 +124,29 @@ class TestSeries:
         assert s.size == 3
         assert s[0] == 1
 
-    def test_cast_as_list(self):
+    def test_cast_numeric_as_list(self):
         """Should correctly convert the series to a builtin list"""
         s = Series([1, 2, 3], data_type=DataType.INT8)
         assert list(s) == [1, 2, 3]
+
+    def test_cast_uuid_as_list(self):
+        """Should correctly convert the series to a builtin list"""
+        one = uuid.uuid4()
+        two = uuid.uuid4()
+        s = Series([one, two], data_type=DataType.UUID)
+        list_ = list(s)
+        assert list_[0] == one
+        assert list_[1] == two
+
+    def test_cast_json_as_list(self):
+        """Should correctly convert the series to a builtin list"""
+        s = Series([{"hello": "world"}], data_type=DataType.JSON)
+        assert list(s) == [{"hello": "world"}]
+
+    def test_cast_string_as_list(self):
+        """Should correctly convert the series to a builtin list"""
+        s = Series(["hello"], data_type=DataType.STRING)
+        assert list(s) == ["hello"]
 
     def test_greater_than(self):
         """Should correctly compare the series to a scalar"""
@@ -124,3 +157,23 @@ class TestSeries:
         """Should correctly compare the series to a scalar"""
         s = Series([1, 2, 3], data_type=DataType.INT8)
         assert all(s < 2) == all([True, False, False])
+
+    def test_list_access_numeric(self):
+        """Should correctly access the series by index"""
+        s = Series([1, 2, 3], data_type=DataType.INT8)
+        assert s[0] == 1
+
+    def test_list_access_string(self):
+        """Should correctly access the series by index"""
+        s = Series(["hello", "world"], data_type=DataType.STRING)
+        assert s[1] == "world"
+
+    def test_list_access_json(self):
+        """Should correctly access the series by index"""
+        s = Series([{"hello": "world"}, {"blue": "dog"}], data_type=DataType.JSON)
+        assert s[1] == {"blue": "dog"}
+
+    def test_list_access_string_negative(self):
+        """Should correctly access the series by index"""
+        s = Series(["hello", "world"], data_type=DataType.STRING)
+        assert s[-1] == "world"

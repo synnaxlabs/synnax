@@ -25,7 +25,7 @@ describe("Text", () => {
       const c = render(
         <Text.WithIcon startIcon={<AiFillCloseCircle aria-label="close" />} level="h2">
           Hello
-        </Text.WithIcon>
+        </Text.WithIcon>,
       );
       expect(c.getByLabelText("close")).toBeTruthy();
     });
@@ -33,7 +33,7 @@ describe("Text", () => {
       const c = render(
         <Text.WithIcon endIcon={<AiFillCloseCircle aria-label="close" />} level="h2">
           Hello
-        </Text.WithIcon>
+        </Text.WithIcon>,
       );
       expect(c.getByLabelText("close")).toBeTruthy();
     });
@@ -41,7 +41,7 @@ describe("Text", () => {
   describe("Editable", () => {
     it("should focus and select the text when double clicked", () => {
       const c = render(
-        <Text.Editable level="h1" value="Hello" onChange={vitest.fn()} />
+        <Text.Editable level="h1" value="Hello" onChange={vitest.fn()} />,
       );
       const text = c.getByText("Hello");
       fireEvent.dblClick(text);

@@ -18,8 +18,8 @@ export interface Observable<T> {
 export class Observer<T> implements Observable<T> {
   private readonly handlers: Map<Handler<T>, null>;
 
-  constructor() {
-    this.handlers = new Map();
+  constructor(handlers?: Map<Handler<T>, null>) {
+    this.handlers = handlers ?? new Map();
   }
 
   onChange(handler: Handler<T>): Destructor {

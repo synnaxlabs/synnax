@@ -19,7 +19,6 @@ import {
 import { type channel, type ranger } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 
-import { Align } from "@/align";
 import { Button } from "@/button";
 import { useAsyncEffect } from "@/hooks";
 import { Input } from "@/input";
@@ -153,7 +152,6 @@ export const AliasInput = ({
   channelKey,
   value,
   shadow,
-  style,
   className,
   ...props
 }: AliasInputProps): ReactElement => {
@@ -205,13 +203,13 @@ export const AliasInput = ({
   };
 
   return (
-    <Align.Pack direction="x" shadow style={style} className={className}>
-      <Input.Text value={value} {...props} />
+    <Input.Text value={value} {...props}>
       {canSetAlias && (
         <Button.Icon
           onClick={handleSetValueToAlias}
           tooltip={<Text.Text level="small">Set {name} as label</Text.Text>}
           tooltipLocation={{ y: "top" }}
+          variant="outlined"
         >
           <Icon.Sync />
         </Button.Icon>
@@ -221,9 +219,10 @@ export const AliasInput = ({
         disabled={!canSetAlias}
         tooltip={<SetAliasTooltip />}
         tooltipLocation={{ y: "top" }}
+        variant="outlined"
       >
         {icon}
       </Button.Icon>
-    </Align.Pack>
+    </Input.Text>
   );
 };

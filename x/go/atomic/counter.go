@@ -28,3 +28,10 @@ type Int64Counter struct{ value int64 }
 func (c *Int64Counter) Add(delta int64) int64 { return atomic.AddInt64(&c.value, delta) }
 
 func (c *Int64Counter) Value() int64 { return atomic.LoadInt64(&c.value) }
+
+// UInt64Counter is an int64 counter  that is safe for concurrent use.
+type UInt64Counter struct{ value uint64 }
+
+func (c *UInt64Counter) Add(delta uint64) uint64 { return atomic.AddUint64(&c.value, delta) }
+
+func (c *UInt64Counter) Value() uint64 { return atomic.LoadUint64(&c.value) }

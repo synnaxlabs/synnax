@@ -16,10 +16,10 @@ import (
 	atomicx "github.com/synnaxlabs/x/atomic"
 )
 
-// PersistedCounter implements a simple in64 counter that writes its value to a
-// key-value store. PersistedCounter is safe for concurrent use. To create a new
-// PersistedCounter, call OpenCounter.
-type PersistedCounter struct {
+// AtomicInt64Counter implements a simple int64 counter that writes its value to a
+// key-value store. AtomicInt64Counter is safe for concurrent use. To create a new
+// AtomicInt64Counter, call OpenCounter.
+type AtomicInt64Counter struct {
 	ctx context.Context
 	db  Writer
 	atomicx.Int64Counter
@@ -30,8 +30,8 @@ type PersistedCounter struct {
 // OpenCounter opens or creates a persisted counter at the given key. If
 // the counter value is found in storage, sets its internal state. If the counter
 // value is not found in storage, sets the value to 0.
-func OpenCounter(ctx context.Context, db ReadWriter, key []byte) (*PersistedCounter, error) {
-	c := &PersistedCounter{ctx: ctx, db: db, key: key, buffer: make([]byte, 8)}
+func OpenCounter(ctx context.Context, db ReadWriter, key []byte) (*AtomicInt64Counter, error) {
+	c := &AtomicInt64Counter{ctx: ctx, db: db, key: key, buffer: make([]byte, 8)}
 	b, err := db.Get(ctx, key)
 	if err == nil {
 		c.Int64Counter.Add(int64(binary.LittleEndian.Uint64(b)))
@@ -44,7 +44,7 @@ func OpenCounter(ctx context.Context, db ReadWriter, key []byte) (*PersistedCoun
 // Add increments the counter by the sum of the given values. If no values are
 // provided, increments the counter by 1.
 // as well as any errors encountered while flushing the counter to storage.
-func (c *PersistedCounter) Add(delta int64) (int64, error) {
+func (c *AtomicInt64Counter) Add(delta int64) (int64, error) {
 	next := c.Int64Counter.Add(delta)
 	binary.LittleEndian.PutUint64(c.buffer, uint64(next))
 	return next, c.db.Set(c.ctx, c.key, c.buffer)

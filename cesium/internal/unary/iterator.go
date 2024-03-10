@@ -48,6 +48,7 @@ func (i *Iterator) View() telem.TimeRange { return i.view }
 
 func (i *Iterator) SeekFirst(ctx context.Context) bool {
 	ok := i.internal.SeekFirst(ctx)
+	//i.seekReset(i.internal.TimeRange().BoundBy(i.bounds).Start)
 	i.seekReset(i.internal.TimeRange().Start)
 	return ok
 }

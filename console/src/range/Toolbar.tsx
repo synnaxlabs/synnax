@@ -15,7 +15,7 @@ import { Align, Header } from "@synnaxlabs/pluto";
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Layout } from "@/layout";
 import { Range } from "@/range";
-import { defineWindowLayout } from "@/range/Define";
+import { editLayout } from "@/range/EditLayout";
 
 const Content = (): ReactElement => {
   const p = Layout.usePlacer();
@@ -27,7 +27,7 @@ const Content = (): ReactElement => {
           {[
             {
               children: <Icon.Add />,
-              onClick: () => p(defineWindowLayout),
+              onClick: () => p(editLayout("Create Range")),
             },
           ]}
         </Header.Actions>
@@ -42,7 +42,7 @@ export const Toolbar: Layout.NavDrawerItem = {
   icon: <Icon.Range />,
   content: <Content />,
   tooltip: "Workspace",
-  initialSize: 350,
-  minSize: 250,
-  maxSize: 500,
+  initialSize: 300,
+  minSize: 225,
+  maxSize: 400,
 };

@@ -15,6 +15,7 @@ import { HTTPClient } from "@/http";
 
 const ENDPOINT = new URL({
   host: "127.0.0.1",
+  protocol: "http",
   port: 8080,
   pathPrefix: "unary",
 });

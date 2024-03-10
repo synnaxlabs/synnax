@@ -7,12 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  type MutableRefObject,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+  type ForwardedRef,
+} from "react";
 
-import { box, xy, dimensions, location, scale } from "@synnaxlabs/x";
+import { box, xy, dimensions, location, scale, deep } from "@synnaxlabs/x";
 
-import { useMemoCompare } from "@/hooks";
-import { useStateRef } from "@/hooks/useStateRef";
+import { useStateRef } from "@/hooks/ref";
+import { useMemoCompare } from "@/memo";
 import { Triggers } from "@/triggers";
 
 export interface UseEvent {
@@ -26,12 +34,19 @@ export type UseHandler = (e: UseEvent) => void;
 
 export type UseTriggers = Triggers.ModeConfig<TriggerMode>;
 
+export interface UseRefValue {
+  reset: () => void;
+}
+
 export interface UseProps {
   triggers?: UseTriggers;
   onChange?: UseHandler;
   resetOnDoubleClick?: boolean;
   threshold?: dimensions.Dimensions;
   initial?: box.Box;
+  ref?:
+    | MutableRefObject<UseRefValue | undefined>
+    | ForwardedRef<UseRefValue | undefined>;
 }
 
 export interface UseReturn {
@@ -39,6 +54,8 @@ export interface UseReturn {
   maskBox: box.Box;
   ref: React.MutableRefObject<HTMLDivElement | null>;
 }
+
+const TRUNC_PRECISION = 4;
 
 type StringLiteral<T> = T extends string ? (string extends T ? never : T) : never;
 
@@ -99,13 +116,14 @@ const purgeMouseTriggers = (triggers: UseTriggers): UseTriggers => {
 
 const D = box.construct(0, 0, 1, 1, location.TOP_LEFT);
 
-const DEFAULT_THRESHOLD = { width: 30, height: 30 };
+const DEFAULT_THRESHOLD = { width: 30, height: 50 };
 
 export const use = ({
   onChange,
   triggers: initialTriggers,
   initial = D,
   threshold: threshold_ = DEFAULT_THRESHOLD,
+  ref,
 }: UseProps): UseReturn => {
   const defaultMode = initialTriggers?.defaultMode ?? "zoom";
 
@@ -115,7 +133,7 @@ export const use = ({
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const threshold = dimensions.construct(threshold_);
 
-  useEffect(() => setStateRef(initial), [initial]);
+  useEffect(() => setStateRef(() => box.truncate(initial, 3)), [initial]);
   useEffect(() => setMaskMode(defaultMode), [defaultMode]);
 
   const [triggerConfig, reducedTriggerConfig, purgedTriggers, reducedPurgedTriggers] =
@@ -173,7 +191,7 @@ export const use = ({
             setMaskBox(box.ZERO);
             return next;
           }
-          return prev;
+          return box.truncate(prev, TRUNC_PRECISION);
         });
       }
 
@@ -189,6 +207,7 @@ export const use = ({
 
       setMaskBox((prev) => (!box.isZero(prev) ? box.ZERO : prev));
       const next = handlePan(box_, stateRef.current, canvas);
+      if (box.equals(next, stateRef.current)) return;
       onChange?.({
         box: next,
         mode,
@@ -208,9 +227,29 @@ export const use = ({
     ],
   );
 
+  useImperativeHandle(
+    ref,
+    () => ({
+      reset: () => {
+        setMaskBox(box.ZERO);
+        setStateRef(box.DECIMAL);
+        onChange?.({
+          box: box.DECIMAL,
+          mode: "zoomReset",
+          stage: "start",
+          cursor: xy.ZERO,
+        });
+      },
+    }),
+    [onChange],
+  );
+
   const handleZoomSelect = useCallback(
-    (box: box.Box, prev: box.Box, canvas: box.Box): box.Box | null =>
-      constructScale(prev, canvas).box(fullSize(threshold, box, canvas)),
+    (b: box.Box, prev: box.Box, canvas: box.Box): box.Box | null =>
+      box.truncate(
+        constructScale(prev, canvas).box(fullSize(threshold, b, canvas)),
+        TRUNC_PRECISION,
+      ),
     [threshold_],
   );
 
@@ -250,7 +289,10 @@ const constructScale = (prev: box.Box, canvas: box.Box): scale.XY =>
 const handlePan = (b: box.Box, prev: box.Box, canvas: box.Box): box.Box => {
   let dims = box.signedDims(constructScale(prev, canvas).box(b));
   dims = { signedWidth: -dims.signedWidth, signedHeight: -dims.signedHeight };
-  return scale.XY.translate(xy.construct(dims)).box(prev);
+  return box.truncate(
+    scale.XY.translate(xy.construct(dims)).box(prev),
+    TRUNC_PRECISION,
+  );
 };
 
 const fullSize = (

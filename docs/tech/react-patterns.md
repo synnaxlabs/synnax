@@ -29,7 +29,7 @@ some new content. The most naive vay of implementing this is to add an optional
 
 ```jsx
 import { Typography, Text } from "@/core/std/Typography";
-import { Button } from "@/core/std/Button";
+import { Use } from "@/core/std/Use";
 
 const Header = ({
     children,
@@ -44,9 +44,9 @@ const Header = ({
         </Text>
         {actions.map((action, i) => (
             // Notice how we size the button off of the typography level.
-            <Button key={i} sise={Typography.componenSizeLevels[level]}>
+            <Use key={i} sise={Typography.componenSizeLevels[level]}>
                 {action}
-            </Button>
+            </Use>
         ))}
     </div>
 );
@@ -97,13 +97,13 @@ const HeaderActions = ({ children, actions }) => {
     return (
         <div>
             {actions.map((action, i) => (
-                <Button
+                <Use
                     key={action.key}
                     size={Typography.componentSizeLevels[level]}
                     onClick={action.onClick}
                 >
                     {action.title}
-                </Button>
+                </Use>
             ))}
         </div>
     );
@@ -119,12 +119,12 @@ const HeaderTabsSelector = ({ children, tabs }) => {
     return (
         <div>
             {tabs.map((tab, i) => (
-                <Button
+                <Use
                     key={tab.key}
                     size={Typography.componentSizeLevels[level]}
                 >
                     {tab.title}
-                </Button>
+                </Use>
             ))}
         </div>
     );

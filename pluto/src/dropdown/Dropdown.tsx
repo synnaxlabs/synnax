@@ -9,22 +9,22 @@
 
 import {
   type CSSProperties,
-  forwardRef,
   type ReactElement,
-  type RefObject,
   useCallback,
   useEffect,
   useRef,
   useState,
+  type ReactNode,
 } from "react";
 
 import { box, location as loc, xy } from "@synnaxlabs/x";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
-import { useClickOutside, useResize } from "@/hooks";
-import { useCombinedRefs } from "@/hooks/useCombineRefs";
+import { useClickOutside, useResize, useCombinedRefs, useSyncedRef } from "@/hooks";
+import { chooseLocation } from "@/tooltip/Dialog";
 import { Triggers } from "@/triggers";
+import { findParent } from "@/util/findParent";
 
 import "@/dropdown/Dropdown.css";
 
@@ -37,10 +37,9 @@ export interface UseProps {
 /** Return type for the {@link use} hook. */
 export interface UseReturn {
   visible: boolean;
-  ref: RefObject<HTMLDivElement>;
   close: () => void;
   open: () => void;
-  toggle: (vis?: boolean) => void;
+  toggle: (vis?: boolean | unknown) => void;
 }
 
 /**
@@ -61,38 +60,41 @@ export const use = (props?: UseProps): UseReturn => {
   const { initialVisible = false, onVisibleChange } = props ?? {};
   const [visible, setVisible] = useState(initialVisible);
   useEffect(() => onVisibleChange?.(visible), [visible, onVisibleChange]);
-  const ref = useRef<HTMLDivElement>(null);
   const toggle = useCallback(
-    (vis?: boolean) => setVisible((v) => vis ?? !v),
+    (vis?: boolean | unknown) =>
+      setVisible((v) => {
+        if (typeof vis === "boolean") return vis;
+        return !v;
+      }),
     [setVisible, onVisibleChange],
   );
   const open = useCallback(() => toggle(true), [toggle]);
   const close = useCallback(() => toggle(false), [toggle]);
-  useClickOutside(ref, close);
   Triggers.use({ triggers: [["Escape"]], callback: close, loose: true });
-  return { visible, ref, open, close, toggle };
+  return { visible, open, close, toggle };
 };
 
 /** Props for the {@link Dialog} component. */
 export interface DialogProps
-  extends Pick<UseReturn, "visible">,
-    Partial<Omit<UseReturn, "visible" | "ref">>,
+  extends Pick<UseReturn, "visible" | "close">,
+    Partial<Omit<UseReturn, "visible" | "ref" | "close">>,
     Omit<Align.PackProps, "ref" | "reverse" | "size" | "empty"> {
-  location?: loc.Y;
-  children: [ReactElement, ReactElement];
+  location?: loc.Y | loc.XY;
+  children: [ReactNode, ReactNode];
   keepMounted?: boolean;
   matchTriggerWidth?: boolean;
+  variant?: "connected" | "floating";
 }
 
 interface State {
   pos: xy.XY;
-  loc: loc.Location;
+  loc: loc.XY;
   width: number;
 }
 
 const ZERO_STATE: State = {
   pos: xy.ZERO,
-  loc: "top",
+  loc: { x: "left", y: "bottom" },
   width: 0,
 };
 
@@ -106,77 +108,100 @@ const ZERO_STATE: State = {
  * @param props.children - Two children are expected: the dropdown trigger (often a button
  * or input) and the dropdown content.
  */
-export const Dialog = forwardRef<HTMLDivElement, DialogProps>(
-  (
-    {
-      visible,
-      children,
-      location,
-      keepMounted = true,
-      className,
-      matchTriggerWidth = false,
-      // It's common to pass these in, so we'll destructure and ignore them so we don't
-      // get an invalid prop on div tag error.
-      open: _o,
-      close: _c,
-      toggle: _t,
-      ...props
-    }: DialogProps,
-    forwardedRef,
-  ): ReactElement => {
-    const ref = useRef<HTMLDivElement>(null);
-    const visibleRef = useRef<boolean | null>(null);
+export const Dialog = ({
+  visible,
+  children,
+  location,
+  keepMounted = true,
+  className,
+  matchTriggerWidth = false,
+  variant = "connected",
+  close,
+  // It's common to pass these in, so we'll destructure and ignore them so we don't
+  // get an invalid prop on div tag error.
+  open: _o,
+  toggle: _t,
+  ...props
+}: DialogProps): ReactElement => {
+  const targetRef = useRef<HTMLDivElement>(null);
+  const visibleRef = useRef<boolean | null>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
 
-    const [{ pos, loc: loc_, width }, setState] = useState<State>(ZERO_STATE);
+  const [{ pos, loc: loc_, width }, setState] = useState<State>({ ...ZERO_STATE });
+  const locationRef = useSyncedRef(location);
 
-    const calculatePosition = useCallback(() => {
-      if (ref.current == null) return;
-      const windowBox = box.construct(0, 0, window.innerWidth, window.innerHeight);
-      const b = box.construct(ref.current);
-      const toTop = Math.abs(box.center(b).y - box.top(windowBox));
-      const toBottom = Math.abs(box.center(b).y - box.bottom(windowBox));
-      const loc_ = loc.construct(location ?? (toBottom > toTop ? "bottom" : "top"));
-      const pos = xy.construct(box.left(b), box.loc(b, loc_));
-      setState({ pos, loc: loc_, width: box.width(b) });
-    }, []);
-
-    if (ref.current != null) {
-      if (visible && (visibleRef.current == null || !visibleRef.current)) {
-        calculatePosition();
-      }
-      visibleRef.current = visible;
+  const calculatePosition = useCallback(() => {
+    if (targetRef.current == null) return;
+    const windowBox = box.construct(0, 0, window.innerWidth, window.innerHeight);
+    let targetBox = box.construct(targetRef.current);
+    // Look for parent elements of the box that are absolutely positioned
+    const parent = findParent(targetRef.current, (el) => {
+      if (el === null) return false;
+      const style = window.getComputedStyle(el);
+      return style.position === "absolute";
+    });
+    if (parent != null) {
+      const parentBox = box.construct(parent);
+      targetBox = box.translate(targetBox, xy.scale(box.topLeft(parentBox), -1));
     }
-
-    const resizeRef = useResize(calculatePosition);
-    const combinedRef = useCombinedRefs(forwardedRef, ref, resizeRef);
-    const dialogStyle: CSSProperties = { ...xy.css(pos) };
-    if (matchTriggerWidth) dialogStyle.width = width;
-
-    return (
-      <Align.Pack
-        {...props}
-        ref={combinedRef}
-        className={CSS(className, CSS.B("dropdown"), CSS.visible(visible))}
-        direction="y"
-        reverse={loc_ === "top"}
-      >
-        {children[0]}
-        {(keepMounted || visible) && (
-          <Align.Space
-            className={CSS(
-              CSS.BE("dropdown", "dialog"),
-              CSS.loc(loc_),
-              CSS.visible(visible),
-            )}
-            role="dialog"
-            empty
-            style={dialogStyle}
-          >
-            {children[1]}
-          </Align.Space>
-        )}
-      </Align.Pack>
+    const xyLoc = chooseLocation(locationRef.current, targetBox, windowBox);
+    if (xyLoc.x === "center") xyLoc.x = "left";
+    const pos = xy.construct(
+      box.loc(targetBox, loc.swap(xyLoc.x)),
+      box.loc(targetBox, xyLoc.y),
     );
-  },
-);
+    setState({ pos, loc: { ...xyLoc }, width: box.width(targetBox) });
+  }, [variant]);
+
+  if (targetRef.current != null) {
+    if (visible && (visibleRef.current == null || !visibleRef.current)) {
+      calculatePosition();
+    }
+    visibleRef.current = visible;
+  }
+
+  const resizeRef = useResize(calculatePosition);
+  const combinedRef = useCombinedRefs(targetRef, resizeRef);
+  const dialogStyle: CSSProperties = { ...xy.css(pos) };
+  if (matchTriggerWidth) dialogStyle.width = width;
+
+  const C = variant === "connected" ? Align.Pack : Align.Space;
+
+  useClickOutside({
+    ref: dialogRef,
+    exclude: [targetRef],
+    onClickOutside: close,
+  });
+
+  return (
+    <C
+      {...props}
+      ref={combinedRef}
+      className={CSS(
+        className,
+        CSS.B("dropdown"),
+        CSS.visible(visible),
+        CSS.M(variant),
+      )}
+      direction="y"
+      reverse={loc_.y === "top"}
+    >
+      {children[0]}
+      <Align.Space
+        ref={dialogRef}
+        className={CSS(
+          CSS.BE("dropdown", "dialog"),
+          CSS.loc(loc_.x),
+          CSS.loc(loc_.y),
+          CSS.visible(visible),
+        )}
+        role="dialog"
+        empty
+        style={dialogStyle}
+      >
+        {(keepMounted || visible) && children[1]}
+      </Align.Space>
+    </C>
+  );
+};
 Dialog.displayName = "Dropdown";

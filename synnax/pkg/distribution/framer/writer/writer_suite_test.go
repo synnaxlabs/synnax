@@ -32,7 +32,7 @@ var (
 
 func TestWriter(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "set Suite")
+	RunSpecs(t, "Writer Suite")
 }
 
 type serviceContainer struct {

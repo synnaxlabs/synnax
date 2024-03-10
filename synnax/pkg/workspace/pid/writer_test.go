@@ -32,7 +32,7 @@ var _ = Describe("Writer", func() {
 			Expect(pid.Key).ToNot(Equal(uuid.Nil))
 		})
 	})
-	Describe("Rename", func() {
+	Describe("Update", func() {
 		It("Should rename a PID", func() {
 			p := pid.PID{Name: "test", Data: "data"}
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &p)).To(Succeed())

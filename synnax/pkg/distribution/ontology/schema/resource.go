@@ -11,6 +11,7 @@ package schema
 
 import (
 	"fmt"
+	"github.com/synnaxlabs/x/validate"
 	"strings"
 
 	"github.com/cockroachdb/errors"
@@ -41,10 +42,10 @@ type ID struct {
 // Validate ensures that the given ID has both a Key and Type.
 func (id ID) Validate() error {
 	if id.Key == "" {
-		return errors.Newf("[resource] - key is required")
+		return errors.Wrapf(validate.Error, "[resource] - key is required")
 	}
 	if id.Type == "" {
-		return errors.Newf("[resource] - type is required")
+		return errors.Wrapf(validate.Error, "[resource] - type is required")
 	}
 	return nil
 }
@@ -59,7 +60,7 @@ func (id ID) IsZero() bool { return id.Key == "" && id.Type == "" }
 func ParseID(s string) (ID, error) {
 	split := strings.Split(s, ":")
 	if len(split) != 2 {
-		return ID{}, errors.Errorf("[ontology] - failed to parse id: %s", s)
+		return ID{}, errors.Wrapf(validate.Error, "[ontology] - failed to parse id: %s", s)
 	}
 	return ID{Type: Type(split[0]), Key: split[1]}, nil
 }
@@ -90,11 +91,19 @@ type Resource struct {
 	Data Data `json:"data" msgpack:"data"`
 }
 
+func ResourceIDs(resources []Resource) []ID {
+	ids := make([]ID, 0, len(resources))
+	for _, r := range resources {
+		ids = append(ids, r.ID)
+	}
+	return ids
+}
+
 type Change = change.Change[ID, Resource]
 
 // BleveType returns the type of the entity for use search indexing,
 // implementing the bleve.bleveClassifier interface.
-func (r Resource) BleveType() string { return string(r.Schema.Type) }
+func (r Resource) BleveType() string { return string(r.ID.Type) }
 
 var _ gorp.Entry[ID] = Resource{}
 

@@ -9,7 +9,7 @@
 
 import type { ComponentType } from "react";
 
-import { type Dispatch, type AnyAction } from "@reduxjs/toolkit";
+import { type Dispatch, type UnknownAction } from "@reduxjs/toolkit";
 import type { WindowProps as DriftWindowProps } from "@synnaxlabs/drift";
 import { type Tabs } from "@synnaxlabs/pluto";
 import { type location } from "@synnaxlabs/x";
@@ -80,7 +80,7 @@ export interface RendererProps {
 }
 
 export interface OnCloseProps {
-  dispatch: Dispatch<AnyAction>;
+  dispatch: Dispatch<UnknownAction>;
   layoutKey: string;
 }
 

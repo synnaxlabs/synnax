@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
+	"github.com/synnaxlabs/synnax/pkg/label"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -25,6 +26,7 @@ import (
 // Range (short for time range) is an interesting, user defined regions of time in a
 // Synnax cluster. They act as a method for labeling and categorizing data.
 type Range struct {
+	// tx is the transaction used to execute KV operations specific to this range
 	tx  gorp.Tx
 	otg *ontology.Ontology
 	// Key is a unique identifier for the Range. If not provided on creation, a new one
@@ -87,6 +89,15 @@ func (r Range) SetAlias(ctx context.Context, ch channel.Key, al string) error {
 	return r.otg.NewWriter(r.tx).DefineResource(ctx, AliasOntologyID(r.Key, ch))
 }
 
+func (r Range) GetAlias(ctx context.Context, ch channel.Key) (string, error) {
+	var res alias
+	err := gorp.NewRetrieve[string, alias]().
+		WhereKeys(alias{Range: r.Key, Channel: ch}.GorpKey()).
+		Entry(&res).
+		Exec(ctx, r.tx)
+	return res.Alias, err
+}
+
 func (r Range) ResolveAlias(ctx context.Context, al string) (channel.Key, error) {
 	var res alias
 	matcher := func(a *alias) bool { return a.Range == r.Key && a.Alias == al }
@@ -138,4 +149,24 @@ func (r Range) ListAliases(ctx context.Context) (map[channel.Key]string, error) 
 		aliases[a.Channel] = a.Alias
 	}
 	return aliases, nil
+}
+
+func (r Range) SetLabels(ctx context.Context, labels ...uuid.UUID) error {
+	w := r.otg.NewWriter(r.tx)
+	for _, l := range labels {
+		if err := w.DefineRelationship(ctx, OntologyID(r.Key), label.LabeledBy, label.OntologyID(l)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r Range) DeleteLabels(ctx context.Context, labels ...uuid.UUID) error {
+	w := r.otg.NewWriter(r.tx)
+	for _, l := range labels {
+		if err := w.DeleteRelationship(ctx, OntologyID(r.Key), label.LabeledBy, label.OntologyID(l)); err != nil {
+			return err
+		}
+	}
+	return nil
 }

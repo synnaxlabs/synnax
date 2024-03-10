@@ -12,19 +12,19 @@ import { type PropsWithChildren, type ReactElement } from "react";
 import { Aether } from "@/aether";
 import { Alamos } from "@/alamos";
 import { Channel } from "@/channel";
-import { Control } from "@/control";
 import { Haul } from "@/haul";
+import DefaultWorkerURL from "@/pluto/defaultWorker.ts?url";
 import { Status } from "@/status";
 import { Synnax } from "@/synnax";
-import { TelemProvider } from "@/telem/provider/Provider";
+import { Telem } from "@/telem";
+import { Control } from "@/telem/control";
 import { Theming } from "@/theming";
 import { Tooltip } from "@/tooltip";
 import { Triggers } from "@/triggers";
 import { Worker } from "@/worker";
 
-// @ts-expect-error - unable to resolve valid vite import
-// eslint-disable-next-line import/no-unresolved
-import DefaultWorkerURL from "@/pluto/defaultWorker.ts&url";
+// // @ts-expect-error - unable to resolve valid vite import
+// // eslint-disable-next-line import/no-unresolved
 
 import "@synnaxlabs/media/dist/style.css";
 
@@ -65,7 +65,7 @@ export const Provider = ({
                 <Status.Aggregator>
                   <Synnax.Provider connParams={connParams}>
                     <Channel.AliasProvider {...channelAlias}>
-                      <TelemProvider>
+                      <Telem.Provider>
                         <Theming.Provider
                           theme={theme}
                           toggleTheme={toggleTheme}
@@ -73,7 +73,7 @@ export const Provider = ({
                         >
                           <Control.StateProvider>{children}</Control.StateProvider>
                         </Theming.Provider>
-                      </TelemProvider>
+                      </Telem.Provider>
                     </Channel.AliasProvider>
                   </Synnax.Provider>
                 </Status.Aggregator>

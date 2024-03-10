@@ -23,6 +23,10 @@ export type Hex = z.infer<typeof hexZ>;
 const crudeColor = z.object({ rgba255: rgbaZ });
 type CrudeBase = z.infer<typeof crudeColor>;
 
+export const toHex = ((color?: Crude): string | undefined => {
+  return color == null ? undefined : new Color(color).hex;
+}) as ((color: Crude) => string) & ((color?: Crude) => string | undefined);
+
 /**
  * An unparsed representation of a color i.e. a value that can be converted into
  * a Color object.
@@ -82,7 +86,8 @@ export class Color {
    * @returns true if the given color is semantically equal to this color. Different
    * representations of the same color are considered equal (e.g. hex and rgba).
    */
-  equals(other: Crude): boolean {
+  equals(other?: Crude): boolean {
+    if (other == null) return false;
     const other_ = new Color(other);
     return this.rgba255.every((v, i) => v === other_.rgba255[i]);
   }
@@ -94,7 +99,9 @@ export class Color {
    */
   get hex(): string {
     const [r, g, b, a] = this.rgba255;
-    return `#${toHex(r)}${toHex(g)}${toHex(b)}${a === 1 ? "" : toHex(a * 255)}`;
+    return `#${rgbaToHex(r)}${rgbaToHex(g)}${rgbaToHex(b)}${
+      a === 1 ? "" : rgbaToHex(a * 255)
+    }`;
   }
 
   /**
@@ -206,6 +213,14 @@ export class Color {
     return best;
   }
 
+  get isDark(): boolean {
+    return this.luminance < 0.5;
+  }
+
+  get isLight(): boolean {
+    return !this.isDark;
+  }
+
   static readonly z = z
     .union([hexZ, rgbaZ, rgbZ, z.instanceof(Color), crudeColor])
     .transform((v) => new Color(v as string));
@@ -215,10 +230,10 @@ export class Color {
     if (!valid.success) throw new Error(`Invalid hex color: ${hex_}`);
     hex_ = stripHash(hex_);
     return [
-      fromHex(hex_, 0),
-      fromHex(hex_, 2),
-      fromHex(hex_, 4),
-      hex_.length === 8 ? fromHex(hex_, 6) / 255 : alpha,
+      hexToRgba(hex_, 0),
+      hexToRgba(hex_, 2),
+      hexToRgba(hex_, 4),
+      hex_.length === 8 ? hexToRgba(hex_, 6) / 255 : alpha,
     ];
   }
 }
@@ -226,8 +241,8 @@ export class Color {
 /** A totally zero color with no alpha. */
 export const ZERO = new Color([0, 0, 0, 0]);
 
-const toHex = (n: number): string => Math.floor(n).toString(16).padStart(2, "0");
-const fromHex = (s: string, n: number): number => parseInt(s.slice(n, n + 2), 16);
+const rgbaToHex = (n: number): string => Math.floor(n).toString(16).padStart(2, "0");
+const hexToRgba = (s: string, n: number): number => parseInt(s.slice(n, n + 2), 16);
 const stripHash = (hex: string): string => (hex.startsWith("#") ? hex.slice(1) : hex);
 
 export const fromHSLA = (hsla: RGBA): RGBA => {

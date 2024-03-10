@@ -12,7 +12,7 @@ import { render } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vitest } from "vitest";
 
-import { Header } from ".";
+import { Header } from "@/header";
 
 describe("Header", () => {
   describe("Header.Title", () => {
@@ -20,7 +20,7 @@ describe("Header", () => {
       const c = render(
         <Header.Header level="h1">
           <Header.Title>Header</Header.Title>
-        </Header.Header>
+        </Header.Header>,
       );
       expect(c.getByText("Header")).toBeTruthy();
     });
@@ -39,7 +39,7 @@ describe("Header", () => {
               },
             ]}
           </Header.Actions>
-        </Header.Header>
+        </Header.Header>,
       );
       expect(c.getByText("Header")).toBeTruthy();
       const add = c.getByLabelText("add");
@@ -48,13 +48,13 @@ describe("Header", () => {
       expect(onClick).toHaveBeenCalled();
     });
   });
-  describe("Header.Title.Button", () => {
+  describe("Header.Title.Use", () => {
     it("should render a header with button as its title", async () => {
       const onClick = vitest.fn();
       const c = render(
         <Header.Header>
           <Header.ButtonTitle onClick={onClick}>Header</Header.ButtonTitle>
-        </Header.Header>
+        </Header.Header>,
       );
       expect(c.getByText("Header")).toBeTruthy();
       const button = c.getByText("Header");

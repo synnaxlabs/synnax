@@ -7,29 +7,33 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, forwardRef, useCallback, useState } from "react";
+import {
+  type ReactElement,
+  forwardRef,
+  useCallback,
+  useState,
+  type FocusEventHandler,
+  useEffect,
+} from "react";
 
 import { bounds } from "@synnaxlabs/x";
+import { evaluate } from "mathjs";
 
-import { Align } from "@/align";
-import { CSS } from "@/css";
+import { useCombinedStateAndRef, useSyncedRef } from "@/hooks";
 import { DragButton, type DragButtonExtensionProps } from "@/input/DragButton";
 import { Text } from "@/input/Text";
 import { type BaseProps } from "@/input/types";
+import { Triggers } from "@/triggers";
 
 export interface NumericProps
-  extends Omit<BaseProps<number>, "type">,
+  extends Omit<BaseProps<number>, "type" | "onBlur">,
     DragButtonExtensionProps {
   selectOnFocus?: boolean;
   showDragHandle?: boolean;
   bounds?: bounds.Crude;
+  onBlur?: () => void;
 }
 
-const toNumber = (v: string | number): [number, boolean] => {
-  if (v.toString().length === 0) return [0, false];
-  const n = Number(v);
-  return [n, !isNaN(n)];
-};
 /**
  * A controlled number input component.
  *
@@ -60,69 +64,127 @@ export const Numeric = forwardRef<HTMLInputElement, NumericProps>(
       showDragHandle = true,
       dragScale,
       selectOnFocus = true,
-      bounds: b = bounds.INFINITE,
+      bounds: propsBounds = bounds.INFINITE,
       resetValue,
       style,
       variant = "outlined",
       className,
+      children,
+      onBlur,
       ...props
     },
     ref,
   ): ReactElement => {
-    const [internalValue, setInternalValue] = useState(value.toString());
-    const [isValueValid, setIsValueValid] = useState(true);
+    // We need to keep the actual value as a valid number, but we need to let the user
+    // input an invalid value that may eventually be valid, so we need to keep the
+    // internal value as a string in state.
+    const [internalValue, setInternalValue, internalValueRef] = useCombinedStateAndRef(
+      value.toString(),
+    );
+    const [isValueValid, setIsValueValid, isValueValidRef] =
+      useCombinedStateAndRef<boolean>(true);
+    const valueRef = useSyncedRef(value);
+
+    const updateActualValue = useCallback(() => {
+      // This just means we never actually modified the input
+      if (isValueValidRef.current) return;
+      setIsValueValid(true);
+      let ok = false;
+      let v = 0;
+      try {
+        v = evaluate(internalValueRef.current);
+        ok = true;
+      } catch (e) {
+        ok = false;
+      }
+      if (ok) {
+        onChange?.(bounds.clamp(propsBounds, v));
+      } else {
+        setInternalValue(valueRef.current.toString());
+      }
+    }, [onChange, setInternalValue]);
+
+    const updateActualValueRef = useSyncedRef(updateActualValue);
+
+    const handleBlur = useCallback(() => {
+      onBlur?.();
+      updateActualValue();
+    }, [onBlur, updateActualValue]);
+
+    // Sometimes we don't blur the component before it unmounts, so this makes
+    // sure we try to update the actual value on unmount.
+    useEffect(() => () => updateActualValueRef.current?.(), []);
 
     const handleChange = useCallback(
-      (v: string | number) => {
-        let [n, ok] = toNumber(v);
-        if (ok) {
-          setIsValueValid(true);
-          n = bounds.clamp(bounds.construct(b), n);
-          setInternalValue(v.toString());
-          onChange(n);
-        } else {
-          setInternalValue(v.toString());
-          setIsValueValid(false);
-        }
+      (v: string) => {
+        setIsValueValid(false);
+        setInternalValue(v);
       },
-      [setInternalValue, onChange],
+      [setInternalValue, setIsValueValid],
     );
 
+    // If the value is valid, use the actual value, otherwise use the internal value.
     const value_ = isValueValid ? value : internalValue;
 
-    const input = (
+    // We don't communicate the actual value until the user is done dragging, this
+    // prevents a bunch of re-renders every time the user moves the mouse.
+    const onDragChange = useCallback(
+      (value: number) => {
+        setIsValueValid(false);
+        setInternalValue(Math.round(bounds.clamp(propsBounds, value)).toString());
+      },
+      [setInternalValue, setIsValueValid],
+    );
+
+    // See not above.
+    const onDragEnd = useCallback(
+      (value: number) => {
+        setIsValueValid(true);
+        onChange?.(bounds.clamp(propsBounds, Math.round(value)));
+      },
+      [onChange, setIsValueValid],
+    );
+
+    if (dragScale == null && bounds.isFinite(propsBounds)) {
+      // make X 5% of the bounds and Y 10% of the bounds
+      dragScale = {
+        x: bounds.span(propsBounds) * 0.01,
+        y: bounds.span(propsBounds) * 0.02,
+      };
+    }
+
+    return (
       <Text
         ref={ref}
-        type="number"
-        variant={showDragHandle ? "outlined" : variant}
+        type="text"
+        variant={variant}
         value={value_.toString()}
         onChange={handleChange}
-        style={showDragHandle ? undefined : style}
-        selectOnFocus={selectOnFocus}
-        {...props}
-      />
-    );
-
-    const onDragChange = useCallback(
-      (value: number) => handleChange(Math.round(value)),
-      [onChange],
-    );
-
-    if (!showDragHandle) return input;
-    return (
-      <Align.Pack
-        className={CSS(className, CSS.BM("input", variant), CSS.BE("input", "wrapper"))}
         style={style}
+        selectOnFocus={selectOnFocus}
+        // When the user hits 'Enter', we should try to evaluate the input and update the
+        // actual value.
+        onKeyDown={(e) => {
+          if (Triggers.eventKey(e) !== "Enter") return;
+          updateActualValue();
+          onBlur?.();
+        }}
+        onBlur={handleBlur}
+        {...props}
       >
-        {input}
-        <DragButton
-          direction={dragDirection}
-          value={value}
-          onChange={onDragChange}
-          dragScale={dragScale}
-          resetValue={resetValue}
-        />
-      </Align.Pack>
+        {showDragHandle && (
+          <DragButton
+            direction={dragDirection}
+            value={value}
+            onChange={onDragChange}
+            dragScale={dragScale}
+            resetValue={resetValue}
+            onDragEnd={onDragEnd}
+            onBlur={handleBlur}
+          />
+        )}
+        {children}
+      </Text>
     );
   },
 );

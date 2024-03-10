@@ -77,7 +77,7 @@ describe("Ontology", () => {
       expect(newRootLength).toEqual(oldRootLength - 1);
     });
   });
-  describe("cdc", async () => {
+  describe("signals", async () => {
     it("should correctly decode a set of relationships from a string", () => {
       const rel = ontology.parseRelationship("typeA:keyA->parent->typeB:keyB");
       expect(rel.type).toEqual("parent");

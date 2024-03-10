@@ -48,7 +48,7 @@ func (c Config) Validate() error {
 
 type Service struct {
 	Config
-	cdc io.Closer
+	signals io.Closer
 }
 
 func OpenService(configs ...Config) (*Service, error) {

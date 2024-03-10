@@ -26,6 +26,7 @@ import { Cluster } from "@/cluster";
 import { Controls } from "@/components";
 import { CSS } from "@/css";
 import { Docs } from "@/docs";
+import { Label } from "@/label";
 import { Layout } from "@/layout";
 import { NAV_SIZES } from "@/layouts/LayoutMain/constants";
 import { LinePlot } from "@/lineplot";
@@ -42,7 +43,6 @@ import { Workspace } from "@/workspace";
 import "@/layouts/LayoutMain/Nav.css";
 
 export const NAV_DRAWERS: Layout.NavDrawerItem[] = [
-  Cluster.Toolbar,
   Toolbar,
   Range.Toolbar,
   Vis.Toolbar,
@@ -62,6 +62,7 @@ const COMMANDS = [
   ...Workspace.COMMANDS,
   ...Cluster.COMMANDS,
   ...Range.COMMANDS,
+  ...Label.COMMANDS,
 ];
 
 const NavTopPalette = (): ReactElement => {
@@ -126,12 +127,6 @@ export const NavTop = (): ReactElement => {
           tooltip={<Text.Text level="small">Documentation</Text.Text>}
         >
           <Icon.QuestionMark />
-        </Button.Icon>
-        <Button.Icon
-          size="medium"
-          tooltip={<Text.Text level="small">Settings</Text.Text>}
-        >
-          <Icon.Settings />
         </Button.Icon>
         <Controls className="console-controls--windows" visibleIfOS="Windows" />
       </Nav.Bar.End>
@@ -214,12 +209,11 @@ export const NavBottom = (): ReactElement => {
       <Nav.Bar.Start>
         <Vis.NavControls />
       </Nav.Bar.Start>
-      <Nav.Bar.End className="console-main-nav-bottom__end">
-        <Triggers.Status variant="info" />
+      <Nav.Bar.End className="console-main-nav-bottom__end" empty>
         <Divider.Divider />
         <Version.Badge level="p" />
         <Divider.Divider />
-        <Cluster.NameBadge />
+        <Cluster.Dropdown />
         <Divider.Divider />
         <Cluster.ConnectionBadge />
       </Nav.Bar.End>
@@ -231,7 +225,7 @@ export interface NavDrawerProps {
   location: Layout.NavdrawerLocation;
 }
 
-export const NavDrawer = ({ aetherKey, location: l, ...props }): ReactElement => {
+export const NavDrawer = ({ location: l, ...props }: NavDrawerProps): ReactElement => {
   const { activeItem, onResize, onSelect } = Layout.useNavDrawer(l, NAV_DRAWERS);
   return (
     <Nav.Drawer

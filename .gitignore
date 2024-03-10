@@ -72,3 +72,11 @@ synnax-data/**
 **/.ijwb/
 **/.aswb/
 **/.clwb/
+
+# |||| TLS ||||
+**/certs*/**
+
+# |||| BINARIES ||||
+
+**/bin/**
+!**/bin/.gitkeep

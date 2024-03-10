@@ -21,5 +21,5 @@ var ctx = context.Background()
 
 func TestRbac(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Rbac Suite")
+	RunSpecs(t, "RBAC Suite")
 }

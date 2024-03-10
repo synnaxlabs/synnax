@@ -13,12 +13,11 @@ import (
 	"github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
-
-	"github.com/synnaxlabs/x/gorp"
 )
 
 var _ = Describe("Retrieve", Ordered, func() {
@@ -52,7 +51,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 					Exec(ctx, tx)).To(Succeed())
 				Expect(res).To(Equal([]entry{entries[0]}))
 			})
-			It("Should return a query.NamesNotFound error if ANY key is not found", func() {
+			It("Should return a query.NotFound error if ANY key is not found", func() {
 				var res []entry
 				err := gorp.NewRetrieve[int, entry]().
 					WhereKeys(entries[0].GorpKey(), 444444).
@@ -129,6 +128,28 @@ var _ = Describe("Retrieve", Ordered, func() {
 				})
 			})
 		})
+	})
+	Describe("WherePrefix", func() {
+		It("Should retrieve the entry by a prefix", func() {
+			r := prefixEntry{
+				ID:   123,
+				Data: "data",
+			}
+			r2 := prefixEntry{
+				ID:   456,
+				Data: "data",
+			}
+			Expect(gorp.NewCreate[[]byte, prefixEntry]().Entry(&r).Exec(ctx, tx)).To(Succeed())
+			Expect(gorp.NewCreate[[]byte, prefixEntry]().Entry(&r2).Exec(ctx, tx)).To(Succeed())
+			var res []prefixEntry
+			Expect(gorp.NewRetrieve[[]byte, prefixEntry]().
+				WherePrefix([]byte("prefix-123")).
+				Entries(&res).
+				Exec(ctx, tx),
+			).To(Succeed())
+			Expect(res).To(Equal([]prefixEntry{r}))
+		})
+
 	})
 	Describe("Where", func() {
 		It("Should retrieve the entry by a filter parameter", func() {

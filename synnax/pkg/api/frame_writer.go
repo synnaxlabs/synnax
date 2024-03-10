@@ -72,7 +72,7 @@ type (
 // implementation is expected to return a FrameWriterResponse.CloseMsg with the error,
 // and then wait for a reasonable amount of time for the client to close the
 // connection before forcibly terminating the connection.
-func (s *FrameService) Write(_ctx context.Context, stream FrameWriterStream) errors.Typed {
+func (s *FrameService) Write(_ctx context.Context, stream FrameWriterStream) error {
 	ctx, cancel := signal.WithCancel(_ctx, signal.WithInstrumentation(s.Instrumentation.Child("frame_writer")))
 	// cancellation here would occur for one of two reasons. Either we encounter
 	// a fatal error (transport or writer internal) and we need to free all
@@ -81,7 +81,7 @@ func (s *FrameService) Write(_ctx context.Context, stream FrameWriterStream) err
 	defer cancel()
 
 	w, err := s.openWriter(ctx, stream)
-	if err.Occurred() {
+	if err != nil {
 		return err
 	}
 
@@ -124,10 +124,10 @@ func (s *FrameService) Write(_ctx context.Context, stream FrameWriterStream) err
 	plumber.MustConnect[FrameWriterResponse](pipe, "writer", "sender", 1)
 
 	pipe.Flow(ctx, confluence.CloseInletsOnExit())
-	return errors.MaybeUnexpected(ctx.Wait())
+	return ctx.Wait()
 }
 
-func (s *FrameService) openWriter(ctx context.Context, srv FrameWriterStream) (framer.StreamWriter, errors.Typed) {
+func (s *FrameService) openWriter(ctx context.Context, srv FrameWriterStream) (framer.StreamWriter, error) {
 	req, err := srv.Receive()
 	if err != nil {
 		return nil, errors.Unexpected(err)
@@ -148,8 +148,8 @@ func (s *FrameService) openWriter(ctx context.Context, srv FrameWriterStream) (f
 		return nil, errors.Query(err)
 	}
 	// Let the client know the writer is ready to receive segments.
-	return w, errors.MaybeUnexpected(srv.Send(FrameWriterResponse{
+	return w, srv.Send(FrameWriterResponse{
 		Command: writer.Open,
 		Ack:     true,
-	}))
+	})
 }

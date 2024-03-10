@@ -9,12 +9,19 @@
 
 import { type ReactElement } from "react";
 
-import { Status, Color, Input, Align, PIDElement } from "@synnaxlabs/pluto";
+import { Icon } from "@synnaxlabs/media";
+import { Status, PID, Input, Align, Button, Diagram, Form } from "@synnaxlabs/pluto";
+import { Color } from "@synnaxlabs/pluto/color";
+import { box, deep, location, xy } from "@synnaxlabs/x";
 import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
-import { type ElementInfo, useSelectSelectedElementsProps } from "@/pid/selectors";
-import { setElementProps } from "@/pid/slice";
+import {
+  type ElementInfo,
+  useSelectSelectedElementsProps,
+  useSelectViewport,
+} from "@/pid/selectors";
+import { setElementProps, setNodePositions } from "@/pid/slice";
 
 import "@/pid/toolbar/Properties.css";
 
@@ -24,6 +31,7 @@ export interface PropertiesProps {
 
 export const PropertiesControls = ({ layoutKey }: PropertiesProps): ReactElement => {
   const elements = useSelectSelectedElementsProps(layoutKey);
+  const viewport = useSelectViewport(layoutKey);
 
   const dispatch = useDispatch();
 
@@ -31,13 +39,12 @@ export const PropertiesControls = ({ layoutKey }: PropertiesProps): ReactElement
     dispatch(setElementProps({ layoutKey, key, props }));
   };
 
-  if (elements.length === 0) {
+  if (elements.length === 0)
     return (
       <Status.Text.Centered variant="disabled" hideIcon>
         Select a PID element to configure its properties.
       </Status.Text.Centered>
     );
-  }
 
   if (elements.length > 1) {
     const groups: Record<string, ElementInfo[]> = {};
@@ -50,47 +57,153 @@ export const PropertiesControls = ({ layoutKey }: PropertiesProps): ReactElement
       if (!(hex in groups)) groups[hex] = [];
       groups[hex].push(e);
     });
-    return (
-      <Align.Space className={CSS.B("pid-properties")} size="small">
-        <Input.Label>Selection Colors</Input.Label>
-        {Object.entries(groups).map(([hex, elements]) => {
-          return (
-            <Color.Swatch
-              key={elements[0].key}
-              value={hex}
-              onChange={(color) => {
-                elements.forEach((e) => {
-                  handleChange(e.key, { color: color.hex });
-                });
-              }}
-            />
+
+    const layouts = elements
+      .map((el) => {
+        if (el.type !== "node") return null;
+        // grab all child elements with the class 'react-flow__handle'
+        try {
+          const nodeEl = Diagram.selectNode(el.key);
+          const nodeBox = box.construct(
+            el.node.position,
+            box.dims(box.construct(nodeEl)),
           );
-        })}
+          const handleEls = nodeEl.getElementsByClassName("react-flow__handle");
+          const nodeElBox = box.construct(nodeEl);
+          const handles = Array.from(handleEls).map((el) => {
+            const pos = box.center(box.construct(el));
+            const dist = xy.scale(
+              xy.translation(box.topLeft(nodeElBox), pos),
+              1 / viewport.zoom,
+            );
+            const match = el.className.match(/react-flow__handle-(\w+)/);
+            if (match == null)
+              throw new Error(`[pid] - cannot find handle orientation`);
+            const orientation = location.construct(match[1]) as location.Outer;
+            return new Diagram.HandleLayout(dist, orientation);
+          });
+          return new Diagram.NodeLayout(el.key, nodeBox, handles);
+        } catch (e) {
+          console.log(e);
+        }
+      })
+      .filter((el) => el !== null) as Diagram.NodeLayout[];
+
+    return (
+      <Align.Space className={CSS.B("pid-properties-pad")} align="start" direction="x">
+        <Input.Item label="Selection Colors" align="start">
+          <Align.Space direction="y">
+            {Object.entries(groups).map(([hex, elements]) => {
+              return (
+                <Color.Swatch
+                  key={elements[0].key}
+                  value={hex}
+                  onChange={(color) => {
+                    elements.forEach((e) => {
+                      handleChange(e.key, { color: color.hex });
+                    });
+                  }}
+                />
+              );
+            })}
+          </Align.Space>
+        </Input.Item>
+        <Input.Item label="Align">
+          <Align.Space direction="x">
+            <Button.Icon
+              tooltip="Align nodes vertically"
+              onClick={() => {
+                const newPositions = Diagram.alignNodes(layouts, "x");
+                dispatch(
+                  setNodePositions({
+                    layoutKey,
+                    positions: Object.fromEntries(
+                      newPositions.map((n) => [n.key, box.topLeft(n.box)]),
+                    ),
+                  }),
+                );
+              }}
+            >
+              <Icon.Align.YCenter />
+            </Button.Icon>
+            <Button.Icon
+              tooltip="Align nodes horizontally"
+              onClick={() => {
+                const newPositions = Diagram.alignNodes(layouts, "y");
+                dispatch(
+                  setNodePositions({
+                    layoutKey,
+                    positions: Object.fromEntries(
+                      newPositions.map((n) => [n.key, box.topLeft(n.box)]),
+                    ),
+                  }),
+                );
+              }}
+            >
+              <Icon.Align.XCenter />
+            </Button.Icon>
+          </Align.Space>
+        </Input.Item>
       </Align.Space>
     );
   }
 
   const selected = elements[0];
 
-  if (selected.type === "edge") {
-    return (
-      <Color.Swatch
-        value={selected.edge.color ?? Color.ZERO}
-        onChange={(color) => {
-          handleChange(selected.key, { color: color.hex });
-        }}
-      />
-    );
-  }
+  if (selected.type === "edge")
+    return <EdgeProperties edge={selected} onChange={handleChange} />;
+  return (
+    <IndividualProperties
+      key={selected.key}
+      element={selected}
+      onChange={handleChange}
+    />
+  );
+};
 
-  const C = PIDElement.REGISTRY[selected.props.type];
+const IndividualProperties = ({
+  element: selected,
+  onChange,
+}: {
+  element: ElementInfo;
+  onChange: (key: string, props: any) => void;
+}): ReactElement => {
+  const C = PID.SYMBOLS[selected.props.variant as PID.Variant];
+
+  const formMethods = Form.use({
+    values: deep.copy(selected.props),
+    sync: true,
+    onChange: (values) => {
+      onChange(selected.key, values);
+    },
+  });
 
   return (
     <Align.Space className={CSS.B("pid-properties")} size="small">
-      <C.Form
-        value={selected.props}
-        onChange={(props) => handleChange(selected.key, props)}
-      />
+      <Form.Form {...formMethods}>
+        <C.Form {...formMethods} key={selected.key} />
+      </Form.Form>
+    </Align.Space>
+  );
+};
+
+interface EdgePropertiesProps {
+  edge: ElementInfo;
+  onChange: (key: string, props: any) => void;
+}
+
+const EdgeProperties = ({ edge, onChange }: EdgePropertiesProps): ReactElement => {
+  if (edge.type !== "edge") return <></>;
+  return (
+    <Align.Space className={CSS.B("pid-properties-pad")} size="small" align="start">
+      <Input.Item label="Color" align="start">
+        <Color.Swatch
+          value={edge.edge.color ?? Color.ZERO}
+          onChange={(color) => {
+            onChange(edge.key, { color: color.hex });
+          }}
+        />
+      </Input.Item>
     </Align.Space>
   );
 };

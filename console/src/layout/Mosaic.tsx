@@ -10,7 +10,7 @@
 import { type ReactElement, memo, useCallback } from "react";
 
 import { Logo } from "@synnaxlabs/media";
-import { Mosaic as Core, useDebouncedCallback } from "@synnaxlabs/pluto";
+import { Mosaic as Core, Eraser, useDebouncedCallback } from "@synnaxlabs/pluto";
 import { type location } from "@synnaxlabs/x";
 
 import { useSyncerDispatch } from "@/hooks/dispatchers";
@@ -26,7 +26,13 @@ import {
 import { LinePlot } from "@/lineplot";
 import { Workspace } from "@/workspace";
 
-const emptyContent = <Logo.Watermark />;
+const EmptyContent = (): ReactElement => (
+  <Eraser.Eraser>
+    <Logo.Watermark />;
+  </Eraser.Eraser>
+);
+
+const emptyContent = <EmptyContent />;
 
 export interface LayoutMosaicProps extends Pick<Core.MosaicProps, "onCreate"> {}
 
@@ -41,7 +47,7 @@ export const Mosaic = memo(({ onCreate }: LayoutMosaicProps): ReactElement => {
     (key: number, tabKey: string, loc: location.Location): void => {
       dispatch(moveMosaicTab({ key, tabKey, loc, windowKey }));
     },
-    [dispatch, windowKey]
+    [dispatch, windowKey],
   );
 
   LinePlot.useTriggerHold({
@@ -54,21 +60,21 @@ export const Mosaic = memo(({ onCreate }: LayoutMosaicProps): ReactElement => {
     (tabKey: string): void => {
       dispatch(remove({ keys: [tabKey] }));
     },
-    [dispatch]
+    [dispatch],
   );
 
   const handleSelect = useCallback(
     (tabKey: string): void => {
       dispatch(selectMosaicTab({ tabKey }));
     },
-    [dispatch]
+    [dispatch],
   );
 
   const handleRename = useCallback(
     (tabKey: string, name: string): void => {
       dispatch(rename({ key: tabKey, name }));
     },
-    [dispatch]
+    [dispatch],
   );
 
   const handleResize = useDebouncedCallback(
@@ -76,7 +82,7 @@ export const Mosaic = memo(({ onCreate }: LayoutMosaicProps): ReactElement => {
       dispatch(resizeMosaicTab({ key, size, windowKey }));
     },
     100,
-    [dispatch, windowKey]
+    [dispatch, windowKey],
   );
 
   return (

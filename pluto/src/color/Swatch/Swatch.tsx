@@ -37,9 +37,10 @@ export const Swatch = ({
   size = "medium",
   onVisibleChange,
   initialVisible,
+  draggable = true,
   ...props
 }: SwatchProps): ReactElement => {
-  const { visible, open, ref } = Dropdown.use({ onVisibleChange, initialVisible });
+  const { visible, open, close } = Dropdown.use({ onVisibleChange, initialVisible });
 
   const bg = Theming.use().colors.gray.l0;
 
@@ -74,7 +75,7 @@ export const Swatch = ({
         CSS.dropRegion(canDrop(dragging)),
         className,
       )}
-      draggable
+      draggable={draggable}
       onDragStart={() => startDrag([{ type: HAUL_TYPE, key: d.hex }])}
       style={{ backgroundColor: color.cssString(value) }}
       variant="text"
@@ -94,8 +95,8 @@ export const Swatch = ({
 
   return (
     <Dropdown.Dialog
+      close={close}
       visible={visible}
-      ref={ref}
       className={CSS.BE("color-swatch", "dropdown")}
       keepMounted={false}
     >

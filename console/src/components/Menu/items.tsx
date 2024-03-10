@@ -9,20 +9,25 @@
 
 import { type ReactElement } from "react";
 
+import { Drft, reloadWindow } from "@synnaxlabs/drift";
 import { Icon } from "@synnaxlabs/media";
 import { Menu } from "@synnaxlabs/pluto";
+import { useDispatch } from "react-redux";
 
-const HardReload = (props: Omit<Menu.ItemProps, "itemKey">): ReactElement => (
-  <Menu.Item
-    onClick={() => window.location.reload()}
-    startIcon={<Icon.Refresh />}
-    size="small"
-    itemKey="hardReload"
-    {...props}
-  >
-    Hard Reload
-  </Menu.Item>
-);
+const HardReload = (props: Omit<Menu.ItemProps, "itemKey">): ReactElement => {
+  const d = useDispatch();
+  return (
+    <Menu.Item
+      onClick={() => d(reloadWindow({}))}
+      startIcon={<Icon.Refresh />}
+      size="small"
+      itemKey="hardReload"
+      {...props}
+    >
+      Hard Reload
+    </Menu.Item>
+  );
+};
 
 export const Item = {
   HardReload,

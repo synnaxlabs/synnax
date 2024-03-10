@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import type { Store } from "@reduxjs/toolkit";
-import { combineReducers } from "@reduxjs/toolkit";
+import { combineReducers, Tuple } from "@reduxjs/toolkit";
 import { Drift } from "@synnaxlabs/drift";
 import { TauriRuntime } from "@synnaxlabs/drift/tauri";
 import { type deep } from "@synnaxlabs/x";
@@ -21,12 +21,14 @@ import { LinePlot } from "@/lineplot";
 import { Persist } from "@/persist";
 import { PID } from "@/pid";
 import { Range } from "@/range";
+// import { Table } from "@/table";
 import { Version } from "@/version";
 import { Workspace } from "@/workspace";
 
 const PERSIST_EXCLUDE: Array<deep.Key<RootState>> = [
   Drift.SLICE_NAME,
   ...Layout.PERSIST_EXCLUDE,
+  Cluster.PERSIST_EXCLUDE,
 ];
 
 const reducer = combineReducers({
@@ -39,6 +41,7 @@ const reducer = combineReducers({
   [Docs.SLICE_NAME]: Docs.reducer,
   [LinePlot.SLICE_NAME]: LinePlot.reducer,
   [Workspace.SLICE_NAME]: Workspace.reducer,
+  // [Table.SLICE_NAME]: Table.reducer,
 });
 
 export interface RootState {
@@ -51,6 +54,7 @@ export interface RootState {
   [PID.SLICE_NAME]: PID.SliceState;
   [LinePlot.SLICE_NAME]: LinePlot.SliceState;
   [Workspace.SLICE_NAME]: Workspace.SliceState;
+  [Table.SLICE_NAME]: Table.SliceState;
 }
 
 export type RootAction =
@@ -61,7 +65,8 @@ export type RootAction =
   | LinePlot.Action
   | PID.Action
   | Range.Action
-  | Workspace.Action;
+  | Workspace.Action
+  | Table.Action;
 
 export type Payload = RootAction["payload"];
 
@@ -79,13 +84,14 @@ const newStore = async (): Promise<RootStore> => {
   return (await Drift.configureStore<RootState, RootAction>({
     runtime: new TauriRuntime(appWindow),
     preloadedState,
-    middleware: (def) => [
-      ...def(),
-      ...LinePlot.MIDDLEWARE,
-      ...Layout.MIDDLEWARE,
-      ...PID.MIDDLEWARE,
-      persistMiddleware,
-    ],
+    middleware: (def) =>
+      new Tuple(
+        ...def(),
+        ...LinePlot.MIDDLEWARE,
+        ...Layout.MIDDLEWARE,
+        ...PID.MIDDLEWARE,
+        persistMiddleware,
+      ),
     reducer,
     enablePrerender: true,
     defaultWindowProps: DEFAULT_WINDOW_PROPS,

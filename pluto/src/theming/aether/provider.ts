@@ -23,7 +23,7 @@ export class Provider extends aether.Composite<typeof providerStateZ> {
   static readonly z = providerStateZ;
   schema = Provider.z;
 
-  afterUpdate(): void {
+  async afterUpdate(): Promise<void> {
     this.ctx.set(CONTEXT_KEY, this.state.theme);
   }
 }

@@ -22,14 +22,13 @@ import {
   type Payload,
   payload,
 } from "@/channel/payload";
-import { QueryError } from "@/errors";
 
 const reqZ = z.object({
   leaseholder: z.number().optional(),
   keys: z.number().array().optional(),
   names: z.string().array().optional(),
   search: z.string().optional(),
-  searchRangeKey: z.string().optional(),
+  rangeKey: z.string().optional(),
   limit: z.number().optional(),
   offset: z.number().optional(),
 });
@@ -41,9 +40,9 @@ const resZ = z.object({
 });
 
 export interface Retriever {
-  retrieve: (channels: Params) => Promise<Payload[]>;
+  retrieve: (channels: Params, rangeKey?: string) => Promise<Payload[]>;
   search: (term: string, rangeKey?: string) => Promise<Payload[]>;
-  page: (offset: number, limit: number) => Promise<Payload[]>;
+  page: (offset: number, limit: number, rangeKey?: string) => Promise<Payload[]>;
 }
 
 export class ClusterRetriever implements Retriever {
@@ -55,16 +54,16 @@ export class ClusterRetriever implements Retriever {
   }
 
   async search(term: string, rangeKey?: string): Promise<Payload[]> {
-    return await this.execute({ search: term, searchRangeKey: rangeKey });
+    return await this.execute({ search: term, rangeKey });
   }
 
-  async retrieve(channels: Params): Promise<Payload[]> {
+  async retrieve(channels: Params, rangeKey?: string): Promise<Payload[]> {
     const { variant, normalized } = analyzeParams(channels);
-    return await this.execute({ [variant]: normalized });
+    return await this.execute({ [variant]: normalized, rangeKey});
   }
 
-  async page(offset: number, limit: number): Promise<Payload[]> {
-    return await this.execute({ offset, limit });
+  async page(offset: number, limit: number, rangeKey?: string): Promise<Payload[]> {
+    return await this.execute({ offset, limit, rangeKey});
   }
 
   private async execute(request: Request): Promise<Payload[]> {
@@ -85,12 +84,12 @@ export class CacheRetriever implements Retriever {
     this.wrapped = wrapped;
   }
 
-  async search(term: string, searchRangeKey?: string): Promise<Payload[]> {
-    return await this.wrapped.search(term, searchRangeKey);
+  async search(term: string, rangeKey?: string): Promise<Payload[]> {
+    return await this.wrapped.search(term, rangeKey);
   }
 
-  async page(offset: number, limit: number): Promise<Payload[]> {
-    return await this.wrapped.page(offset, limit);
+  async page(offset: number, limit: number, rangeKey?: string): Promise<Payload[]> {
+    return await this.wrapped.page(offset, limit, rangeKey);
   }
 
   async retrieve(channels: Params): Promise<Payload[]> {
@@ -149,8 +148,7 @@ export type ParamAnalysisResult =
     };
 
 export const analyzeParams = (channels: Params): ParamAnalysisResult => {
-  const normal = toArray(channels) as KeysOrNames;
-  if (normal.length === 0) throw new QueryError("No channels provided");
+  const normal = (toArray(channels) as KeysOrNames).filter((c) => c != 0);
   return {
     single: !Array.isArray(channels),
     variant: typeof normal[0] === "number" ? "keys" : "names",

@@ -13,6 +13,9 @@ import { type AsyncTermSearcher, toArray } from "@synnaxlabs/x";
 import { type Retriever as ChannelRetriever } from "@/channel/retriever";
 import { QueryError } from "@/errors";
 import { type framer } from "@/framer";
+import { type label } from "@/label";
+import { type ontology } from "@/ontology";
+import { Active } from "@/ranger/active";
 import { Aliaser } from "@/ranger/alias";
 import { KV } from "@/ranger/kv";
 import {
@@ -35,6 +38,8 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
   private readonly writer: Writer;
   private readonly unaryClient: UnaryClient;
   private readonly channels: ChannelRetriever;
+  private readonly active: Active;
+  private readonly labelClient: label.Client;
 
   constructor(
     frameClient: framer.Client,
@@ -42,12 +47,15 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
     writer: Writer,
     unary: UnaryClient,
     channels: ChannelRetriever,
+    labelClient: label.Client,
   ) {
     this.frameClient = frameClient;
     this.retriever = retriever;
     this.writer = writer;
     this.unaryClient = unary;
     this.channels = channels;
+    this.active = new Active(unary);
+    this.labelClient = labelClient;
   }
 
   async create(range: NewPayload): Promise<Range>;
@@ -90,6 +98,20 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
     return res[0];
   }
 
+  async setActive(range: Key): Promise<void> {
+    await this.active.setActive(range);
+  }
+
+  async retrieveActive(): Promise<Range | null> {
+    const res = await this.active.retrieveActive();
+    if (res == null) return null;
+    return this.sugar([res])[0];
+  }
+
+  async clearActive(range: Key): Promise<void> {
+    await this.active.clearActive(range);
+  }
+
   private sugar(payloads: Payload[]): Range[] {
     return payloads.map((payload) => {
       return new Range(
@@ -100,6 +122,7 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
         new KV(payload.key, this.unaryClient),
         new Aliaser(payload.key, this.frameClient, this.unaryClient),
         this.channels,
+        this.labelClient,
       );
     });
   }

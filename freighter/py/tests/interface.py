@@ -20,7 +20,7 @@ from typing import Type
 
 from pydantic import BaseModel
 
-from freighter import register_exception
+from freighter import register_exception, ExceptionPayload
 
 
 class Message(BaseModel):
@@ -43,13 +43,17 @@ class Error(Exception):
 
 
 def encode_test_error(exc: Exception) -> str:
+    if not isinstance(exc, Error):
+        raise TypeError
     assert isinstance(exc, Error)
     return f"{exc.code},{exc.message}"
 
 
-def decode_test_error(encoded: str) -> Exception:
-    code, message = encoded.split(",")
+def decode_test_error(encoded: ExceptionPayload) -> Exception | None:
+    if encoded.type != "integration.error":
+        return None
+    code, message = encoded.data.split(",")
     return Error(int(code), message)
 
 
-register_exception("integration.error", encode_test_error, decode_test_error)
+register_exception(encode_test_error, decode_test_error)

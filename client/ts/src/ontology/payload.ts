@@ -10,16 +10,19 @@
 import { z } from "zod";
 
 const resourceTypeZ = z.union([
+  z.literal("label"),
   z.literal("builtin"),
   z.literal("cluster"),
   z.literal("channel"),
   z.literal("node"),
   z.literal("group"),
   z.literal("range"),
+  z.literal("range-alias"),
   z.literal("user"),
   z.literal("workspace"),
   z.literal("pid"),
   z.literal("lineplot"),
+  z.literal("rack")
 ]);
 
 export type ResourceType = z.infer<typeof resourceTypeZ>;
@@ -112,9 +115,5 @@ export type Relationship = z.infer<typeof relationshipSchemaZ>;
 
 export const parseRelationship = (str: string): Relationship => {
   const [from, type, to] = str.split("->");
-  return {
-    from: new ID(from),
-    type,
-    to: new ID(to),
-  };
+  return { from: new ID(from), type, to: new ID(to) };
 };

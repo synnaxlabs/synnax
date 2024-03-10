@@ -13,12 +13,12 @@ import type { KeyboardEvent, ReactElement } from "react";
 import { CSS } from "@/css";
 import { type Input } from "@/input";
 import { type state } from "@/state";
+import { type text } from "@/text/core";
 import { Text, type TextProps } from "@/text/Text";
-import { type Level } from "@/text/types";
 
 import "@/text/Editable.css";
 
-export type EditableProps<L extends Level = "h1"> = Omit<
+export type EditableProps<L extends text.Level = "h1"> = Omit<
   TextProps<L>,
   "children" | "onChange"
 > &
@@ -38,22 +38,28 @@ export const edit = (id: string): void => {
   d.setAttribute("contenteditable", "true");
 };
 
-export const Editable = <L extends Level = "h1">({
+export const Editable = <L extends text.Level = text.Level>({
   onChange,
   value,
   useEditableState = useState,
   allowDoubleClick = true,
+  onDoubleClick,
   ...props
 }: EditableProps<L>): ReactElement => {
   const [editable, setEditable] = useEditableState(false);
   const ref = useRef<HTMLElement>(null);
 
-  const handleDoubleClick = (): void => {
+  const handleDoubleClick = (
+    e: React.MouseEvent<HTMLParagraphElement, MouseEvent>,
+  ): void => {
     if (allowDoubleClick) setEditable(true);
+    onDoubleClick?.(e);
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLParagraphElement>): void => {
     if (!editable || !NOMINAL_EXIT_KEYS.includes(e.key) || ref.current == null) return;
+    e.stopPropagation();
+    e.preventDefault();
     const el = ref.current;
     setEditable(false);
     onChange?.(el.innerText.trim());
@@ -88,12 +94,16 @@ export const Editable = <L extends Level = "h1">({
   }, []);
 
   return (
-    // @ts-expect-error
+    // @ts-expect-error - TODO: generic element behavior is funky
     <Text<L>
       ref={ref}
       className={CSS.BM("text", "editable")}
       onBlur={() => setEditable(false)}
       onKeyDown={handleKeyDown}
+      onKeyUp={(e: KeyboardEvent<HTMLParagraphElement>) => {
+        e.stopPropagation();
+        e.preventDefault();
+      }}
       onDoubleClick={handleDoubleClick}
       contentEditable={editable}
       suppressContentEditableWarning
@@ -104,20 +114,22 @@ export const Editable = <L extends Level = "h1">({
   );
 };
 
-export type MaybeEditableProps<L extends Level = "h1"> = Omit<
+export type MaybeEditableProps<L extends text.Level = "h1"> = Omit<
   EditableProps<L>,
   "onChange"
 > & {
   onChange?: EditableProps<L>["onChange"] | boolean;
+  disabled?: boolean;
 };
 
-export const MaybeEditable = <L extends Level = "h1">({
+export const MaybeEditable = <L extends text.Level = text.Level>({
   onChange,
+  disabled = false,
   value,
   allowDoubleClick,
   ...props
 }: MaybeEditableProps<L>): ReactElement => {
-  if (onChange == null || typeof onChange === "boolean")
+  if (disabled || onChange == null || typeof onChange === "boolean")
     // @ts-expect-error
     return <Text<L> {...props}>{value}</Text>;
 

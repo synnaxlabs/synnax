@@ -120,3 +120,17 @@ func (cb *CoreBuilder) peerAddresses() (addrs []address.Address) {
 	}
 	return
 }
+
+type StaticHostProvider struct {
+	Node core.Node
+}
+
+var _ core.HostProvider = StaticHostProvider{}
+
+func StaticHostKeyProvider(key core.NodeKey) StaticHostProvider {
+	return StaticHostProvider{Node: core.Node{Key: key}}
+}
+
+func (s StaticHostProvider) Host() core.Node { return s.Node }
+
+func (s StaticHostProvider) HostKey() core.NodeKey { return s.Node.Key }

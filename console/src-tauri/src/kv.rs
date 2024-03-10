@@ -49,6 +49,14 @@ pub fn open() -> Result<Db, String> {
     path.push(".synnax");
     path.push("console");
     path.push("data");
+    let mut path2 = home_dir().unwrap();
+    path2.push(".synnax");
+    path2.push("console");
+    path2.push("synnax-data");
+    match std::fs::create_dir_all(path2) {
+        Ok(_) => (),
+        Err(e) => return Err(e.to_string()),
+    }
     return match sled::open(path) {
         Ok(db) => Ok(db),
         Err(e) => Err(e.to_string()),

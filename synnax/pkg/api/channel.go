@@ -34,6 +34,7 @@ type Channel struct {
 	Density     telem.Density        `json:"density" msgpack:"density"`
 	IsIndex     bool                 `json:"is_index" msgpack:"is_index"`
 	Index       channel.Key          `json:"index" msgpack:"index"`
+	Alias       string               `json:"alias" msgpack:"alias"`
 }
 
 // ChannelService is the central API for all things Channel related.
@@ -69,18 +70,18 @@ type ChannelCreateResponse struct {
 func (s *ChannelService) Create(
 	ctx context.Context,
 	req ChannelCreateRequest,
-) (res ChannelCreateResponse, _ errors.Typed) {
-	if err := s.Validate(req); err.Occurred() {
+) (res ChannelCreateResponse, _ error) {
+	if err := s.Validate(req); err != nil {
 		return res, err
 	}
 	translated, err := translateChannelsBackward(req.Channels)
 	if err != nil {
 		return res, errors.Parse(err)
 	}
-	return res, s.WithTx(ctx, func(tx gorp.Tx) errors.Typed {
+	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
 		err := s.internal.NewWriter(tx).CreateMany(ctx, &translated)
-		res = ChannelCreateResponse{Channels: translateChannelsForward(translated)}
-		return errors.MaybeQuery(err)
+		res.Channels = translateChannelsForward(translated)
+		return err
 	})
 }
 
@@ -94,10 +95,10 @@ type ChannelRetrieveRequest struct {
 	// Optional parameter that queries a Channel by its name.
 	Names []string `json:"names" msgpack:"names"`
 	// Optional search parameters that fuzzy match a Channel's properties.
-	Search         string    `json:"search" msgpack:"search"`
-	SearchRangeKey uuid.UUID `json:"search_range_key" msgpack:"search_range_key"`
-	Limit          int       `json:"limit" msgpack:"limit"`
-	Offset         int       `json:"offset" msgpack:"offset"`
+	Search   string    `json:"search" msgpack:"search"`
+	RangeKey uuid.UUID `json:"range_key" msgpack:"range_key"`
+	Limit    int       `json:"limit" msgpack:"limit"`
+	Offset   int       `json:"offset" msgpack:"offset"`
 }
 
 // ChannelRetrieveResponse is the response for a ChannelRetrieveRequest.
@@ -111,7 +112,7 @@ type ChannelRetrieveResponse struct {
 func (s *ChannelService) Retrieve(
 	ctx context.Context,
 	req ChannelRetrieveRequest,
-) (ChannelRetrieveResponse, errors.Typed) {
+) (ChannelRetrieveResponse, error) {
 	var (
 		resChannels   []channel.Channel
 		aliasChannels []channel.Channel
@@ -121,15 +122,15 @@ func (s *ChannelService) Retrieve(
 		hasSearch     = len(req.Search) > 0
 	)
 
-	if req.SearchRangeKey != uuid.Nil {
-		var resRng ranger.Range
-		err := s.ranger.NewRetrieve().WhereKeys(req.SearchRangeKey).Entry(&resRng).Exec(ctx, nil)
-		isNotFound := roacherrors.Is(query.NotFound, err)
+	var resRng ranger.Range
+	if req.RangeKey != uuid.Nil {
+		err := s.ranger.NewRetrieve().WhereKeys(req.RangeKey).Entry(&resRng).Exec(ctx, nil)
+		isNotFound := roacherrors.Is(err, query.NotFound)
 		if err != nil && !isNotFound {
 			return ChannelRetrieveResponse{}, errors.Auto(err)
 		}
 		// We can still do a best effort search without the range even if we don't find it.
-		if !isNotFound {
+		if !isNotFound && hasSearch {
 			keys, err := resRng.SearchAliases(ctx, req.Search)
 			if err != nil {
 				return ChannelRetrieveResponse{}, errors.Auto(err)
@@ -166,7 +167,7 @@ func (s *ChannelService) Retrieve(
 		q = q.Offset(req.Offset)
 	}
 
-	err := errors.MaybeQuery(q.Exec(ctx, nil))
+	err := q.Exec(ctx, nil)
 
 	if len(aliasChannels) > 0 {
 		aliasKeys := channel.KeysFromChannels(aliasChannels)
@@ -174,7 +175,18 @@ func (s *ChannelService) Retrieve(
 			return !aliasKeys.Contains(ch.Key())
 		})...)
 	}
-	return ChannelRetrieveResponse{Channels: translateChannelsForward(resChannels)}, err
+
+	oChannels := translateChannelsForward(resChannels)
+	if resRng.Key != uuid.Nil {
+		for i, ch := range resChannels {
+			al, err := resRng.GetAlias(ctx, ch.Key())
+			if err == nil {
+				oChannels[i].Alias = al
+			}
+		}
+	}
+
+	return ChannelRetrieveResponse{Channels: oChannels}, err
 }
 
 func translateChannelsForward(channels []channel.Channel) []Channel {

@@ -14,7 +14,6 @@ import (
 	"github.com/spf13/viper"
 	"github.com/synnaxlabs/alamos"
 	"github.com/uptrace/uptrace-go/uptrace"
-	"go.opentelemetry.io/otel"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"log"
@@ -66,16 +65,17 @@ func configureLogger() (*alamos.Logger, error) {
 }
 
 func configureTracer(version string, logger *alamos.Logger) (*alamos.Tracer, error) {
-	uptrace.ConfigureOpentelemetry(
-		uptrace.WithDSN("http://synnax_dev@localhost:14317/2"),
-		uptrace.WithServiceName("synnax"),
-		uptrace.WithServiceVersion(version),
-	)
-	otel.SetErrorHandler(otel.ErrorHandlerFunc(func(err error) {
-		logger.Info("opentelemetry", alamos.DebugError(err))
-	}))
-	return alamos.NewTracer(alamos.TracingConfig{
-		OtelProvider:   otel.GetTracerProvider(),
-		OtelPropagator: otel.GetTextMapPropagator(),
-	})
+	return nil, nil
+	//uptrace.ConfigureOpentelemetry(
+	//	uptrace.WithDSN("http://synnax_dev@localhost:14317/2"),
+	//	uptrace.WithServiceName("synnax"),
+	//	uptrace.WithServiceVersion(version),
+	//)
+	//otel.SetErrorHandler(otel.ErrorHandlerFunc(func(err error) {
+	//	logger.Info("opentelemetry", alamos.DebugError(err))
+	//}))
+	//return alamos.NewTracer(alamos.TracingConfig{
+	//	OtelProvider:   otel.GetTracerProvider(),
+	//	OtelPropagator: otel.GetTextMapPropagator(),
+	//})
 }

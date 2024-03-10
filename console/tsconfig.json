@@ -3,6 +3,17 @@
   "compilerOptions": {
     "baseUrl": ".",
     "declaration": false,
+    "paths": {
+      "@/*": [
+        "src/*"
+      ],
+      "@synnaxlabs/pluto/dist/*": [
+        "../../pluto/dist/*"
+      ],
+      "@synnaxlabs/pluto": [
+        "../../pluto/src/index.ts"
+      ]
+    }
   },
-  "include": ["src/**/*", "../pluto/src/hooks/useAsyncEffect.tsx"],
+  "include": ["src/**/*", "../pluto/src/hooks/useAsyncEffect.tsx", "../pluto/src/vis/table/cell"],
 }

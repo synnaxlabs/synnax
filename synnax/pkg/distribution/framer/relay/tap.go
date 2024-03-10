@@ -29,7 +29,7 @@ import (
 // demand represents a demand for streaming data from a specific entity.
 // this entity should generate a unique address (preferably through address.Rand)
 // and use it throughout its lifecycle. To update the requested keys, the entity
-// should send a demand with variant Set, and to remove the demand, it should
+// should send a demand with variant Label, and to remove the demand, it should
 // send a demand with variant Delete.
 type demand = changex.Change[address.Address, Request]
 

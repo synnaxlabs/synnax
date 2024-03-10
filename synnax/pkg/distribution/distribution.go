@@ -13,13 +13,13 @@ import (
 	"context"
 	"fmt"
 	"github.com/synnaxlabs/aspen"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cdc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	ontologycdc "github.com/synnaxlabs/synnax/pkg/distribution/ontology/cdc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
+	ontologycdc "github.com/synnaxlabs/synnax/pkg/distribution/ontology/signals"
+	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	channeltransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/channel"
 	frametransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/framer"
 	"github.com/synnaxlabs/x/errutil"
@@ -45,7 +45,7 @@ type Distribution struct {
 	Channel  channel.Service
 	Framer   *framer.Service
 	Ontology *ontology.Ontology
-	CDC      *cdc.Provider
+	Signals  *signals.Provider
 	Group    *group.Service
 	Closers  []io.Closer
 }
@@ -128,7 +128,7 @@ func Open(ctx context.Context, cfg Config) (d Distribution, err error) {
 		return d, err
 	}
 
-	d.CDC, err = cdc.New(cdc.Config{
+	d.Signals, err = signals.New(signals.Config{
 		Channel:         d.Channel,
 		Framer:          d.Framer,
 		Instrumentation: cfg.Instrumentation.Child("cdc"),
@@ -136,7 +136,7 @@ func Open(ctx context.Context, cfg Config) (d Distribution, err error) {
 	if err != nil {
 		return d, err
 	}
-	c, err := ontologycdc.Propagate(ctx, d.CDC, d.Ontology)
+	c, err := ontologycdc.Propagate(ctx, d.Signals, d.Ontology)
 	d.Closers = append(d.Closers, c)
 	return d, err
 }

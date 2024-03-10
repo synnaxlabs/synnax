@@ -53,6 +53,7 @@ const defaultSelectDirectionButton = ({
 
 export const Direction = ({
   children = defaultSelectDirectionButton,
+  allowMultiple = false,
   ...props
 }: DirectionProps): ReactElement => {
   return (

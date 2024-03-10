@@ -53,13 +53,10 @@ func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
 	if err != nil {
 		return err
 	}
-	key, err := w.Encode(ctx, entry.GorpKey())
+	prefixedKey, err := encodeKey[K](ctx, w, w.prefix(ctx), entry.GorpKey())
 	if err != nil {
 		return err
 	}
-	// NOTE: We need to be careful with this operation in the future.
-	// Because we aren't copying prefix, we're modifying the underlying slice.
-	prefixedKey := append(w.prefix(ctx), key...)
 	if err = w.BaseWriter.Set(ctx, prefixedKey, data, entry.SetOptions()...); err != nil {
 		return err
 	}
@@ -67,11 +64,11 @@ func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
 }
 
 func (w *Writer[K, E]) delete(ctx context.Context, key K) error {
-	data, err := w.Encode(nil, key)
+	encodedKey, err := encodeKey[K](ctx, w, w.prefix(ctx), key)
 	if err != nil {
 		return err
 	}
 	// NOTE: We need to be careful with this operation in the future.
 	// Because we aren't copying prefix, we're modifying the underlying slice.
-	return w.BaseWriter.Delete(ctx, append(w.prefix(ctx), data...))
+	return w.BaseWriter.Delete(ctx, encodedKey)
 }

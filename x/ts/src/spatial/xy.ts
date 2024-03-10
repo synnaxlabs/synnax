@@ -25,6 +25,7 @@ export { clientXY, xy, type ClientXY as Client, type XY };
 
 /** A crude representation of a {@link XY} coordinate as a zod schema. */
 export const crudeZ = z.union([
+  z.number(),
   xy,
   numberCouple,
   dimensions,
@@ -38,17 +39,19 @@ export type Crude = z.infer<typeof crudeZ>;
 /**
  * @constructs XY
  * @param x - A crude representation of the XY coordinate as a number, number couple,
- * dimensions, signed dimensions, or client XY.
+ * dimensions, signed dimensions, or mouse event. If it's a mouse event, the clientX and
+ * clientY coordinates are preferred over the x and y coordinates.
  * @param y - If x is a number, the y coordinate. If x is a number and this argument is
  * not given, the y coordinate is assumed to be the same as the x coordinate.
  */
-export const construct = (x: Crude | number, y?: number): XY => {
+export const construct = (x: Crude, y?: number): XY => {
+  // The order in which we execute these checks is very important.
   if (typeof x === "number") return { x, y: y ?? x };
   if (Array.isArray(x)) return { x: x[0], y: x[1] };
   if ("signedWidth" in x) return { x: x.signedWidth, y: x.signedHeight };
   if ("clientX" in x) return { x: x.clientX, y: x.clientY };
   if ("width" in x) return { x: x.width, y: x.height };
-  return { ...x };
+  return { x: x.x, y: x.y };
 };
 
 /** An x and y coordinate of zero */
@@ -63,11 +66,12 @@ export const INFINITY = { x: Infinity, y: Infinity };
 /** An x and y coordinate of NaN */
 export const NAN = { x: NaN, y: NaN };
 
-/** @returns true if the two XY coordinates are semntically equal. */
-export const equals = (a: Crude, b: Crude): boolean => {
+/** @returns true if the two XY coordinates are semantically equal. */
+export const equals = (a: Crude, b: Crude, threshold: number = 0): boolean => {
   const a_ = construct(a);
   const b_ = construct(b);
-  return a_.x === b_.x && a_.y === b_.y;
+  if (threshold === 0) return a_.x === b_.x && a_.y === b_.y;
+  return Math.abs(a_.x - b_.x) <= threshold && Math.abs(a_.y - b_.y) <= threshold;
 };
 
 /** Is zero is true if the XY coordinate has a semantic x and y value of zero. */
@@ -94,15 +98,28 @@ export const translateY = (c: Crude, y: number): XY => {
   return { x: p.x, y: p.y + y };
 };
 
+type TranslateOverloadOne = (a: Crude, b: Crude, ...cb: Crude[]) => XY;
+type TranslateOverloadTwo = (a: Crude, direction: Direction, value: number) => XY;
+
 /**
  * @returns the given coordinate translated by an arbitrary number of translation
  * coordinates.
  */
-export const translate = (a: Crude, b: Crude, ...cb: Crude[]): XY =>
-  [a, b, ...cb].reduce((p: XY, c) => {
-    const xy = construct(c);
+export const translate: TranslateOverloadOne & TranslateOverloadTwo = (
+  a,
+  b,
+  v,
+  ...cb
+): XY => {
+  if (typeof b === "string" && typeof v === "number") {
+    if (b === "x") return translateX(a, v);
+    return translateY(a, v);
+  }
+  return [a, b, v ?? ZERO, ...cb].reduce((p: XY, c) => {
+    const xy = construct(c as Crude);
     return { x: p.x + xy.x, y: p.y + xy.y };
   }, ZERO);
+};
 
 /**
  * @returns the given coordinate the given direction set to the given value.
@@ -151,6 +168,12 @@ export const isNan = (a: Crude): boolean => {
   return Number.isNaN(xy.x) || Number.isNaN(xy.y);
 };
 
+/** @returns true if both the x and y coordinates of the given coordinate are finite. */
+export const isFinite = (a: Crude): boolean => {
+  const xy = construct(a);
+  return Number.isFinite(xy.x) && Number.isFinite(xy.y);
+}
+
 /** @returns the coordinate represented as a couple of the form [x, y]. */
 export const couple = (a: Crude): NumberCouple => {
   const xy = construct(a);
@@ -162,3 +185,8 @@ export const css = (a: Crude): { left: number; top: number } => {
   const xy = construct(a);
   return { left: xy.x, top: xy.y };
 };
+
+export const truncate = (a: Crude, precision: number = 0): XY => {
+  const xy = construct(a);
+  return { x: Number(xy.x.toFixed(precision)), y: Number(xy.y.toFixed(precision)) };
+}

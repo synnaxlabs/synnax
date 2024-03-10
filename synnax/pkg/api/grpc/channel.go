@@ -48,11 +48,11 @@ var (
 )
 
 func translateChannelKeysForward(keys []channel.Key) []uint32 {
-	return unsafe.ConvertSlice[channel.Key, uint32](keys)
+	return unsafe.ReinterpretSlice[channel.Key, uint32](keys)
 }
 
 func translateChannelKeysBackward(keys []uint32) []channel.Key {
-	return unsafe.ConvertSlice[uint32, channel.Key](keys)
+	return unsafe.ReinterpretSlice[uint32, channel.Key](keys)
 }
 
 func (t channelCreateRequestTranslator) Forward(
@@ -91,7 +91,7 @@ func (t channelRetrieveRequestTranslator) Forward(
 		NodeKey: uint32(msg.NodeKey),
 		Names:   msg.Names,
 		Search:  msg.Search,
-		Keys:    unsafe.ConvertSlice[channel.Key, uint32](msg.Keys),
+		Keys:    unsafe.ReinterpretSlice[channel.Key, uint32](msg.Keys),
 	}, nil
 }
 
@@ -103,7 +103,7 @@ func (t channelRetrieveRequestTranslator) Backward(
 		NodeKey: core.NodeKey(msg.NodeKey),
 		Names:   msg.Names,
 		Search:  msg.Search,
-		Keys:    unsafe.ConvertSlice[uint32, channel.Key](msg.Keys),
+		Keys:    unsafe.ReinterpretSlice[uint32, channel.Key](msg.Keys),
 	}, nil
 }
 
@@ -151,11 +151,6 @@ func translateChannelBackward(
 		IsIndex:     msg.IsIndex,
 		Index:       channel.Key(msg.Index),
 	}
-}
-
-type server struct {
-	create   *createServer
-	retrieve *retrieveServer
 }
 
 func newChannel(a *api.Transport) []fgrpc.BindableTransport {

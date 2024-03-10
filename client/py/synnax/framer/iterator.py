@@ -51,7 +51,7 @@ class _Response(Payload):
     variant: _ResponseVariant
     command: _Command
     ack: bool
-    error: ExceptionPayload | None
+    error: str | None
     frame: FramePayload
 
 
@@ -196,7 +196,7 @@ class Iterator:
             raise exc
 
     def __iter__(self):
-        self.seek_first()
+        print(self.seek_first())
         return self
 
     def __next__(self):

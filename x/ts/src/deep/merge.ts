@@ -9,9 +9,8 @@
 
 import { type Partial } from "@/deep/partial";
 import { isObject } from "@/identity";
-import { type UnknownRecord } from "@/record";
 
-export const merge = <T extends UnknownRecord<T>>(
+export const merge = <T>(
   base: T,
   ...objects: Array<Partial<T>>
 ): T => {
@@ -23,7 +22,6 @@ export const merge = <T extends UnknownRecord<T>>(
       try {
         if (isObject(source[key])) {
           if (!(key in base)) Object.assign(base, { [key]: {} });
-          // @ts-expect-error
           merge(base[key], source[key]);
         } else {
           Object.assign(base, { [key]: source[key] });

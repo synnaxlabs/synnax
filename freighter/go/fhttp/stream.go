@@ -250,7 +250,8 @@ func (s *streamServer[RQ, RS]) fiberHandler(c *fiber.Ctx) error {
 		return fiber.ErrUpgradeRequired
 	}
 	iMD := parseRequestCtx(c, address.Address(s.path))
-	ecd, err := httputil.DetermineEncoderDecoder(iMD.Params.GetDefault(fiber.HeaderContentType, "").(string))
+	headerContentType := iMD.Params.GetDefault(fiber.HeaderContentType, "").(string)
+	ecd, err := httputil.DetermineEncoderDecoder(headerContentType)
 	if err != nil {
 		// If we can't determin the encoder/decoder, we can't continue, so we sent a best effort string.
 		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
@@ -265,7 +266,7 @@ func (s *streamServer[RQ, RS]) fiberHandler(c *fiber.Ctx) error {
 					stream := &serverStream[RQ, RS]{core: newCore[RQ, RS](context.TODO(), c.Conn, ecd, zap.S())}
 
 					errPayload := ferrors.Encode(s.handler(stream.ctx, stream))
-					if errPayload.Type == ferrors.Nil {
+					if errPayload.Type == ferrors.TypeNil {
 						errPayload = ferrors.Encode(freighter.EOF)
 					}
 
@@ -321,7 +322,7 @@ func (s *streamServer[RQ, RS]) fiberHandler(c *fiber.Ctx) error {
 		}))
 	setResponseCtx(c, oCtx)
 	fErr := ferrors.Encode(err)
-	if fErr.Type == ferrors.Nil {
+	if fErr.Type == ferrors.TypeNil {
 		return nil
 	}
 	c.Status(fiber.StatusBadRequest)

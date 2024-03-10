@@ -8,9 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { type Store } from "@reduxjs/toolkit";
-import { type Synnax, type ranger } from "@synnaxlabs/client";
+import { type ontology, type Synnax, type ranger } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Menu, Tree } from "@synnaxlabs/pluto";
+import { Menu, type Haul } from "@synnaxlabs/pluto";
+import { Tree } from "@synnaxlabs/pluto/tree";
 import { toArray } from "@synnaxlabs/x";
 
 import { Group } from "@/group";
@@ -18,7 +19,7 @@ import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { setRanges } from "@/lineplot/slice";
 import { Ontology } from "@/ontology";
-import { defineWindowLayout } from "@/range/Define";
+import { editLayout } from "@/range/EditLayout";
 import { type Range } from "@/range/range";
 import { select } from "@/range/selectors";
 import { type StoreState, add, remove, setActive } from "@/range/slice";
@@ -46,7 +47,6 @@ const handleDelete = async ({
   client,
   store,
   selection: { resources },
-  state: { nodes, setNodes },
 }: Ontology.TreeContextMenuProps): Promise<void> => {
   const keys = resources.map((r) => r.id.key);
   await client.ranges.delete(keys);
@@ -64,10 +64,14 @@ const handleRename: Ontology.HandleTreeRename = ({
   void (async () => {
     if (client == null || id.type !== "range") return;
     await client.ranges.rename(id.key, name);
-    const next = Tree.updateNode(state.nodes, id.toString(), (node) => ({
-      ...node,
-      name,
-    }));
+    const next = Tree.updateNode({
+      tree: state.nodes,
+      key: id.toString(),
+      updater: (node) => ({
+        ...node,
+        name,
+      }),
+    });
     state.setNodes([...next]);
     const existing = select(store.getState(), id.key);
     if (existing == null) return;
@@ -139,8 +143,8 @@ const handleAddToNewPlot = async ({
 const handleEdit = ({
   selection: { resources },
   placeLayout,
-}: Ontology.TreeContextMenuProps) => {
-  placeLayout({ ...defineWindowLayout, key: resources[0].id.key });
+}: Ontology.TreeContextMenuProps): void => {
+  placeLayout({ ...editLayout("Edit Range"), key: resources[0].id.key });
 };
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
@@ -207,6 +211,13 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   );
 };
 
+const haulItems = ({ id }: ontology.Resource): Haul.Item[] => [
+  {
+    type: "range",
+    key: id.key,
+  },
+];
+
 export const ONTOLOGY_SERVICE: Ontology.Service = {
   type: "range",
   hasChildren: true,
@@ -214,7 +225,7 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   canDrop: () => true,
   onSelect: handleSelect,
   TreeContextMenu,
-  haulItems: () => [],
+  haulItems,
   allowRename: () => true,
   onRename: handleRename,
 };

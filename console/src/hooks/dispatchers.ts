@@ -17,12 +17,12 @@ import { useStore } from "react-redux";
 export type Syncer<S, T> = (
   s: Synnax,
   a: T,
-  store: Store<S, PayloadAction<T>>
+  store: Store<S, PayloadAction<T>>,
 ) => Promise<void>;
 
 export const useSyncerDispatch = <S, T>(
   f: Syncer<S, T>,
-  debounce: number = 0
+  debounce: number = 0,
 ): Dispatch<PayloadAction<T>> => {
   const client = PSynnax.use();
   const store = useStore<S, PayloadAction<T>>();
@@ -32,7 +32,7 @@ export const useSyncerDispatch = <S, T>(
       return r;
     },
     debounce,
-    [f, store, client]
+    [f, store, client],
   );
 
   return useCallback(
@@ -41,6 +41,6 @@ export const useSyncerDispatch = <S, T>(
       update(r);
       return r;
     },
-    [update]
+    [update],
   );
 };

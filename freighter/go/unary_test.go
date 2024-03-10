@@ -47,7 +47,7 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 				client unaryClient
 			)
 			BeforeAll(func() {
-				addr = "localhost:8080"
+				addr = "localhost:8081"
 				server, client = impl.start(addr)
 			})
 			AfterAll(func() {

@@ -9,7 +9,8 @@
 
 import type {
   Action as CoreAction,
-  AnyAction,
+  Tuple,
+  UnknownAction,
   ConfigureStoreOptions as BaseOpts,
   EnhancedStore,
   StoreEnhancer,
@@ -21,7 +22,6 @@ import { Middlewares, configureMiddleware } from "@/middleware";
 import { Runtime } from "@/runtime";
 import {
   Action,
-  PreloadedState,
   StoreState,
   setWindowLabel,
   setWindowStage,
@@ -39,45 +39,23 @@ export type Enhancers = readonly StoreEnhancer[];
  */
 export interface ConfigureStoreOptions<
   S extends StoreState,
-  A extends CoreAction = AnyAction,
-  M extends Middlewares<S> = Middlewares<S>,
-  E extends Enhancers = [StoreEnhancer]
+  A extends CoreAction = UnknownAction,
+  M extends Tuple<Middlewares<S>> = Tuple<Middlewares<S>>,
+  E extends Tuple<Enhancers> = Tuple<Enhancers>
 > extends Omit<BaseOpts<S, A, M, E>, "preloadedState"> {
-  runtime: Runtime<S, A>;
+  runtime: Runtime<S, A | Action>;
   debug?: boolean;
-  preloadedState?: PreloadedState<S> | (() => Promise<PreloadedState<S> | undefined>);
+  preloadedState?: S | (() => Promise<S | undefined>);
   enablePrerender?: boolean;
   defaultWindowProps?: Omit<WindowProps, "key">;
 }
 
-/**
- * configureStore replaces the standard Redux Toolkit configureStore function
- * with one that enables drift to synchronize state between windows. The API
- * is identical to the standard configureStore function, except for two
- * important differences.
- *
- * @param options.runtime - The core runtime of the application. This should
- * be chosen based on the platform you are running on (Tauri, Electron, etc.).
- * @param options.debug - If true, drift will log debug information to the
- * console. @default false
- * @param props.enablePrerender - If true, drift will create an invisible, prerendered
- * window before it is needed. While it adds an additional process to your application,
- * it also dramatically reduces the time it takes to open a new window. @default true
- * @param props.defaultWindowProps - A partial set of window props to merge with
- * the props passed to drift.createWindow. This is useful for setting default window
- * properties, especially with prerendering. @default {}
- * @param options - The standard Redux Toolkit configureStore options.
- *
- * @returns A !PROMISE! that resolves to a Redux store. This is necessary because
- * the store must receive it's initial state from the main window, which is
- * an asynchronous operation. The promise will resolve when the store is configured
- * and the window is ready for use.
- */
-export const configureStore = async <
+/* The internal function. We export with a strict type annotation so TS doesn't complain */
+const configureStoreInternal = async <
   S extends StoreState,
-  A extends CoreAction = AnyAction,
-  M extends Middlewares<S> = Middlewares<S>,
-  E extends Enhancers = [StoreEnhancer]
+  A extends CoreAction = UnknownAction,
+  M extends Tuple<Middlewares<S>> = Tuple<Middlewares<S>>,
+  E extends Tuple<Enhancers> = Tuple<Enhancers>
 >({
   runtime,
   preloadedState,
@@ -108,16 +86,16 @@ export const configureStore = async <
 
 const receivePreloadedState = async <
   S extends StoreState,
-  A extends CoreAction = AnyAction
+  A extends CoreAction = UnknownAction
 >(
   runtime: Runtime<S, A>,
   store: () => EnhancedStore<S, A | Action> | undefined,
   preloadedState:
-    | (() => Promise<PreloadedState<S> | undefined>)
-    | PreloadedState<S>
+    | (() => Promise<S | undefined>)
+    | S
     | undefined
-): Promise<PreloadedState<S> | undefined> =>
-  await new Promise<PreloadedState<S> | undefined>((resolve) => {
+): Promise<S | undefined> =>
+  await new Promise<S | undefined>((resolve) => {
     void listen(runtime, store, resolve);
     if (runtime.isMain()) {
       if (typeof preloadedState === "function")
@@ -125,3 +103,36 @@ const receivePreloadedState = async <
       else resolve(preloadedState);
     } else void runtime.emit({ sendState: true }, MAIN_WINDOW);
   });
+
+
+/**
+ * configureStore replaces the standard Redux Toolkit configureStore function
+ * with one that enables drift to synchronize state between windows. The API
+ * is identical to the standard configureStore function, except for two
+ * important differences.
+ *
+ * @param options.runtime - The core runtime of the application. This should
+ * be chosen based on the platform you are running on (Tauri, Electron, etc.).
+ * @param options.debug - If true, drift will log debug information to the
+ * console. @default false
+ * @param props.enablePrerender - If true, drift will create an invisible, prerendered
+ * window before it is needed. While it adds an additional process to your application,
+ * it also dramatically reduces the time it takes to open a new window. @default true
+ * @param props.defaultWindowProps - A partial set of window props to merge with
+ * the props passed to drift.createWindow. This is useful for setting default window
+ * properties, especially with prerendering. @default {}
+ * @param options - The standard Redux Toolkit configureStore options.
+ *
+ * @returns A !PROMISE! that resolves to a Redux store. This is necessary because
+ * the store must receive it's initial state from the main window, which is
+ * an asynchronous operation. The promise will resolve when the store is configured
+ * and the window is ready for use.
+ */
+export const configureStore: <
+  S extends StoreState,
+  A extends CoreAction = UnknownAction,
+  M extends Tuple<Middlewares<S>> = Tuple<Middlewares<S>>,
+  E extends Tuple<Enhancers> = Tuple<Enhancers>
+>(
+  options: ConfigureStoreOptions<S, A, M, E>
+) => Promise<EnhancedStore<S, A | Action>> = configureStoreInternal;

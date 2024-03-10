@@ -7,27 +7,27 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { Action, AnyAction } from "@reduxjs/toolkit";
+import type { Action, UnknownAction } from "@reduxjs/toolkit";
 
-import { PreloadedState, StoreState } from "@/state";
+import { StoreState } from "@/state";
 import { WindowProps } from "@/window";
 import { dimensions, xy } from "@synnaxlabs/x";
 
 /**
  * An event emitted by drift to communicate state changes.
  */
-export interface Event<S extends StoreState, A extends Action = AnyAction> {
+export interface Event<S extends StoreState, A extends Action = UnknownAction> {
   /** The key of the window that emitted the event */
   emitter: string;
   /** A redux state action */
   action?: A;
   /** The entire redux store state. Sent only on the creation of new windows */
-  state?: PreloadedState<S>;
+  state?: S;
   /** sendState is set to true when the window is requesting a state forward */
   sendState?: boolean;
 }
 
-export interface Sender<S extends StoreState, A extends Action = AnyAction> {
+export interface Sender<S extends StoreState, A extends Action = UnknownAction> {
   /**
    * Emits an event to all windows in the application.
    * @param event - The event to emit.
@@ -36,7 +36,7 @@ export interface Sender<S extends StoreState, A extends Action = AnyAction> {
   emit: (event: Omit<Event<S, A>, "emitter">, to?: string) => Promise<void>;
 }
 
-export interface Receiver<S extends StoreState, A extends Action = AnyAction> {
+export interface Receiver<S extends StoreState, A extends Action = UnknownAction> {
   /**
    * Listens for an event from any window in the application.
    * @param lis - The callback to call when the event is received.
@@ -55,7 +55,7 @@ export interface MainChecker {
 /**
  * Communicator allows for event communication between windows.
  */
-export interface Communicator<S extends StoreState, A extends Action = AnyAction>
+export interface Communicator<S extends StoreState, A extends Action = UnknownAction>
   extends Sender<S, A>,
     Receiver<S, A>,
     MainChecker {}
@@ -113,7 +113,7 @@ export interface Manager {
  * An interface that represents the core runtime of the application.
  * Drift uses this runtime to manage windows and communicate between them.
  */
-export interface Runtime<S extends StoreState, A extends Action = AnyAction>
+export interface Runtime<S extends StoreState, A extends Action = UnknownAction>
   extends Communicator<S, A>,
     Properties,
     Manager {}

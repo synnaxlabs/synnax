@@ -14,11 +14,13 @@ import {
   Synnax,
   Dropdown,
   Button,
-  List,
   Input,
   Align,
+  Menu,
   componentRenderProp,
 } from "@synnaxlabs/pluto";
+import { List } from "@synnaxlabs/pluto/list";
+import { Text } from "@synnaxlabs/pluto/text";
 import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
@@ -32,7 +34,7 @@ import "@/workspace/Selector.css";
 export const Selector = (): ReactElement => {
   const client = Synnax.use();
   const d = useDispatch();
-  const p = Layout.usePlacer();
+  const place = Layout.usePlacer();
   const active = useSelectActive();
   const dProps = Dropdown.use();
   const handleChange = useCallback(
@@ -48,53 +50,81 @@ export const Selector = (): ReactElement => {
         d(add({ workspaces: [ws] }));
       })();
     },
-    [active, client, d, dProps.close]
+    [active, client, d, dProps.close],
   );
+
+  const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement => {
+    const handleSelect = (key: string): void => {
+      switch (key) {
+        case "delete":
+          return;
+        case "edit":
+          place(createWindowLayout("Edit Workspace"));
+      }
+      if (key === "new") {
+        place(createWindowLayout());
+      }
+    };
+    return (
+      <Menu.ContextMenuMenu keys={keys} onChange={handleSelect}>
+        <Menu.ContextMenuItem itemKey="new">New Workspace</Menu.ContextMenuItem>
+        <Menu.ContextMenuItem itemKey="delete">Delete Workspace</Menu.ContextMenuItem>
+        <Menu.ContextMenuItem itemKey="edit">Edit Workspace</Menu.ContextMenuItem>
+      </Menu.ContextMenuMenu>
+    );
+  };
 
   return (
     <Dropdown.Dialog
       {...dProps}
       bordered={false}
-      matchTriggerWidth
+      variant="floating"
       className={CSS(CSS.BE("workspace", "selector"))}
+      keepMounted={false}
     >
       <Button.Button
         startIcon={<Icon.Workspace key="workspace" />}
         endIcon={<Icon.Caret.Down key="down" />}
-        variant={dProps.visible ? "outlined" : "text"}
+        variant="text"
         onClick={() => dProps.toggle()}
-        size="small"
+        size="medium"
         className={CSS.B("trigger")}
+        shade={8}
+        weight={400}
       >
         {active?.name ?? "No Workspace"}
       </Button.Button>
-      <Align.Pack direction="y">
+      <Align.Pack direction="y" style={{ width: 500 }}>
         <List.List>
           <List.Selector
             value={active == null ? [] : [active.key]}
             onChange={handleChange}
             allowMultiple={false}
-          />
-          <Align.Pack direction="x">
+          >
             <List.Search searcher={client?.workspaces}>
-              {(props) => <Input.Text {...props} />}
+              {(p) => (
+                <Input.Text
+                  size="large"
+                  placeholder={
+                    <Text.WithIcon level="p" startIcon={<Icon.Search key="search" />}>
+                      Search Workspaces
+                    </Text.WithIcon>
+                  }
+                  {...p}
+                >
+                  <Button.Button
+                    startIcon={<Icon.Add />}
+                    variant="outlined"
+                    onClick={() => place(createWindowLayout())}
+                    iconSpacing="small"
+                  >
+                    New
+                  </Button.Button>
+                </Input.Text>
+              )}
             </List.Search>
-            <Button.Icon
-              onClick={() => {
-                d(setActive(null));
-                dProps.close();
-              }}
-            >
-              <Icon.Close />
-            </Button.Icon>
-            <Button.Icon
-              onClick={() => p(createWindowLayout)}
-              style={{ borderRadius: 0 }}
-            >
-              <Icon.Add />
-            </Button.Icon>
-          </Align.Pack>
-          <List.Core>{componentRenderProp(SelectorListItem)}</List.Core>
+            <List.Core>{componentRenderProp(SelectorListItem)}</List.Core>
+          </List.Selector>
         </List.List>
       </Align.Pack>
     </Dropdown.Dialog>
@@ -102,30 +132,17 @@ export const Selector = (): ReactElement => {
 };
 
 export const SelectorListItem = ({
-  entry: { key, name },
-  hovered,
   onSelect,
-  selected,
   ...props
 }: List.ItemProps): ReactElement => {
+  const { entry } = props;
   const handleSelect: MouseEventHandler = (e): void => {
     e.stopPropagation();
-    onSelect?.(key);
+    onSelect?.(entry.key);
   };
   return (
-    <Button.Button
-      onClick={handleSelect}
-      variant="text"
-      className={CSS(
-        CSS.BE("palette", "item"),
-        hovered && CSS.BEM("palette", "item", "hovered"),
-        selected && CSS.BEM("palette", "item", "selected"),
-        CSS.BEM("palette", "item", "command")
-      )}
-      sharp
-      {...props}
-    >
-      {name}
-    </Button.Button>
+    <List.ItemFrame {...props} onClick={handleSelect}>
+      <Text.Text level="p">{entry.name}</Text.Text>
+    </List.ItemFrame>
   );
 };

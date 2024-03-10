@@ -19,52 +19,48 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	FrameService_Iterate_FullMethodName = "/api.v1.FrameService/Iterate"
-	FrameService_Write_FullMethodName   = "/api.v1.FrameService/write"
-	FrameService_Stream_FullMethodName  = "/api.v1.FrameService/Stream"
+	FrameIteratorService_Exec_FullMethodName = "/api.v1.FrameIteratorService/Exec"
 )
 
-// FrameServiceClient is the client API for FrameService service.
+// FrameIteratorServiceClient is the client API for FrameIteratorService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type FrameServiceClient interface {
-	Iterate(ctx context.Context, opts ...grpc.CallOption) (FrameService_IterateClient, error)
-	Write(ctx context.Context, opts ...grpc.CallOption) (FrameService_WriteClient, error)
-	Stream(ctx context.Context, opts ...grpc.CallOption) (FrameService_StreamClient, error)
+type FrameIteratorServiceClient interface {
+	Exec(ctx context.Context, opts ...grpc.CallOption) (FrameIteratorService_ExecClient, error)
 }
 
-type frameServiceClient struct {
+type frameIteratorServiceClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewFrameServiceClient(cc grpc.ClientConnInterface) FrameServiceClient {
-	return &frameServiceClient{cc}
+func NewFrameIteratorServiceClient(cc grpc.ClientConnInterface) FrameIteratorServiceClient {
+	return &frameIteratorServiceClient{cc}
 }
 
-func (c *frameServiceClient) Iterate(ctx context.Context, opts ...grpc.CallOption) (FrameService_IterateClient, error) {
-	stream, err := c.cc.NewStream(ctx, &FrameService_ServiceDesc.Streams[0], FrameService_Iterate_FullMethodName, opts...)
+func (c *frameIteratorServiceClient) Exec(ctx context.Context, opts ...grpc.CallOption) (FrameIteratorService_ExecClient, error) {
+	stream, err := c.cc.NewStream(ctx, &FrameIteratorService_ServiceDesc.Streams[0], FrameIteratorService_Exec_FullMethodName, opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &frameServiceIterateClient{stream}
+	x := &frameIteratorServiceExecClient{stream}
 	return x, nil
 }
 
-type FrameService_IterateClient interface {
+type FrameIteratorService_ExecClient interface {
 	Send(*FrameIteratorRequest) error
 	Recv() (*FrameIteratorResponse, error)
 	grpc.ClientStream
 }
 
-type frameServiceIterateClient struct {
+type frameIteratorServiceExecClient struct {
 	grpc.ClientStream
 }
 
-func (x *frameServiceIterateClient) Send(m *FrameIteratorRequest) error {
+func (x *frameIteratorServiceExecClient) Send(m *FrameIteratorRequest) error {
 	return x.ClientStream.SendMsg(m)
 }
 
-func (x *frameServiceIterateClient) Recv() (*FrameIteratorResponse, error) {
+func (x *frameIteratorServiceExecClient) Recv() (*FrameIteratorResponse, error) {
 	m := new(FrameIteratorResponse)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
@@ -72,121 +68,51 @@ func (x *frameServiceIterateClient) Recv() (*FrameIteratorResponse, error) {
 	return m, nil
 }
 
-func (c *frameServiceClient) Write(ctx context.Context, opts ...grpc.CallOption) (FrameService_WriteClient, error) {
-	stream, err := c.cc.NewStream(ctx, &FrameService_ServiceDesc.Streams[1], FrameService_Write_FullMethodName, opts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &frameServiceWriteClient{stream}
-	return x, nil
-}
-
-type FrameService_WriteClient interface {
-	Send(*FrameWriterRequest) error
-	Recv() (*FrameWriterResponse, error)
-	grpc.ClientStream
-}
-
-type frameServiceWriteClient struct {
-	grpc.ClientStream
-}
-
-func (x *frameServiceWriteClient) Send(m *FrameWriterRequest) error {
-	return x.ClientStream.SendMsg(m)
-}
-
-func (x *frameServiceWriteClient) Recv() (*FrameWriterResponse, error) {
-	m := new(FrameWriterResponse)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
-func (c *frameServiceClient) Stream(ctx context.Context, opts ...grpc.CallOption) (FrameService_StreamClient, error) {
-	stream, err := c.cc.NewStream(ctx, &FrameService_ServiceDesc.Streams[2], FrameService_Stream_FullMethodName, opts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &frameServiceStreamClient{stream}
-	return x, nil
-}
-
-type FrameService_StreamClient interface {
-	Send(*FrameStreamerRequest) error
-	Recv() (*FrameStreamerResponse, error)
-	grpc.ClientStream
-}
-
-type frameServiceStreamClient struct {
-	grpc.ClientStream
-}
-
-func (x *frameServiceStreamClient) Send(m *FrameStreamerRequest) error {
-	return x.ClientStream.SendMsg(m)
-}
-
-func (x *frameServiceStreamClient) Recv() (*FrameStreamerResponse, error) {
-	m := new(FrameStreamerResponse)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
-// FrameServiceServer is the server API for FrameService service.
-// All implementations should embed UnimplementedFrameServiceServer
+// FrameIteratorServiceServer is the server API for FrameIteratorService service.
+// All implementations should embed UnimplementedFrameIteratorServiceServer
 // for forward compatibility
-type FrameServiceServer interface {
-	Iterate(FrameService_IterateServer) error
-	Write(FrameService_WriteServer) error
-	Stream(FrameService_StreamServer) error
+type FrameIteratorServiceServer interface {
+	Exec(FrameIteratorService_ExecServer) error
 }
 
-// UnimplementedFrameServiceServer should be embedded to have forward compatible implementations.
-type UnimplementedFrameServiceServer struct {
+// UnimplementedFrameIteratorServiceServer should be embedded to have forward compatible implementations.
+type UnimplementedFrameIteratorServiceServer struct {
 }
 
-func (UnimplementedFrameServiceServer) Iterate(FrameService_IterateServer) error {
-	return status.Errorf(codes.Unimplemented, "method Iterate not implemented")
-}
-func (UnimplementedFrameServiceServer) Write(FrameService_WriteServer) error {
-	return status.Errorf(codes.Unimplemented, "method write not implemented")
-}
-func (UnimplementedFrameServiceServer) Stream(FrameService_StreamServer) error {
-	return status.Errorf(codes.Unimplemented, "method Stream not implemented")
+func (UnimplementedFrameIteratorServiceServer) Exec(FrameIteratorService_ExecServer) error {
+	return status.Errorf(codes.Unimplemented, "method Exec not implemented")
 }
 
-// UnsafeFrameServiceServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to FrameServiceServer will
+// UnsafeFrameIteratorServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to FrameIteratorServiceServer will
 // result in compilation errors.
-type UnsafeFrameServiceServer interface {
-	mustEmbedUnimplementedFrameServiceServer()
+type UnsafeFrameIteratorServiceServer interface {
+	mustEmbedUnimplementedFrameIteratorServiceServer()
 }
 
-func RegisterFrameServiceServer(s grpc.ServiceRegistrar, srv FrameServiceServer) {
-	s.RegisterService(&FrameService_ServiceDesc, srv)
+func RegisterFrameIteratorServiceServer(s grpc.ServiceRegistrar, srv FrameIteratorServiceServer) {
+	s.RegisterService(&FrameIteratorService_ServiceDesc, srv)
 }
 
-func _FrameService_Iterate_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(FrameServiceServer).Iterate(&frameServiceIterateServer{stream})
+func _FrameIteratorService_Exec_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(FrameIteratorServiceServer).Exec(&frameIteratorServiceExecServer{stream})
 }
 
-type FrameService_IterateServer interface {
+type FrameIteratorService_ExecServer interface {
 	Send(*FrameIteratorResponse) error
 	Recv() (*FrameIteratorRequest, error)
 	grpc.ServerStream
 }
 
-type frameServiceIterateServer struct {
+type frameIteratorServiceExecServer struct {
 	grpc.ServerStream
 }
 
-func (x *frameServiceIterateServer) Send(m *FrameIteratorResponse) error {
+func (x *frameIteratorServiceExecServer) Send(m *FrameIteratorResponse) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func (x *frameServiceIterateServer) Recv() (*FrameIteratorRequest, error) {
+func (x *frameIteratorServiceExecServer) Recv() (*FrameIteratorRequest, error) {
 	m := new(FrameIteratorRequest)
 	if err := x.ServerStream.RecvMsg(m); err != nil {
 		return nil, err
@@ -194,25 +120,119 @@ func (x *frameServiceIterateServer) Recv() (*FrameIteratorRequest, error) {
 	return m, nil
 }
 
-func _FrameService_Write_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(FrameServiceServer).Write(&frameServiceWriteServer{stream})
+// FrameIteratorService_ServiceDesc is the grpc.ServiceDesc for FrameIteratorService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var FrameIteratorService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "api.v1.FrameIteratorService",
+	HandlerType: (*FrameIteratorServiceServer)(nil),
+	Methods:     []grpc.MethodDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "Exec",
+			Handler:       _FrameIteratorService_Exec_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
+		},
+	},
+	Metadata: "v1/framer.proto",
 }
 
-type FrameService_WriteServer interface {
+const (
+	FrameWriterService_Exec_FullMethodName = "/api.v1.FrameWriterService/Exec"
+)
+
+// FrameWriterServiceClient is the client API for FrameWriterService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type FrameWriterServiceClient interface {
+	Exec(ctx context.Context, opts ...grpc.CallOption) (FrameWriterService_ExecClient, error)
+}
+
+type frameWriterServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewFrameWriterServiceClient(cc grpc.ClientConnInterface) FrameWriterServiceClient {
+	return &frameWriterServiceClient{cc}
+}
+
+func (c *frameWriterServiceClient) Exec(ctx context.Context, opts ...grpc.CallOption) (FrameWriterService_ExecClient, error) {
+	stream, err := c.cc.NewStream(ctx, &FrameWriterService_ServiceDesc.Streams[0], FrameWriterService_Exec_FullMethodName, opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &frameWriterServiceExecClient{stream}
+	return x, nil
+}
+
+type FrameWriterService_ExecClient interface {
+	Send(*FrameWriterRequest) error
+	Recv() (*FrameWriterResponse, error)
+	grpc.ClientStream
+}
+
+type frameWriterServiceExecClient struct {
+	grpc.ClientStream
+}
+
+func (x *frameWriterServiceExecClient) Send(m *FrameWriterRequest) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *frameWriterServiceExecClient) Recv() (*FrameWriterResponse, error) {
+	m := new(FrameWriterResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+// FrameWriterServiceServer is the server API for FrameWriterService service.
+// All implementations should embed UnimplementedFrameWriterServiceServer
+// for forward compatibility
+type FrameWriterServiceServer interface {
+	Exec(FrameWriterService_ExecServer) error
+}
+
+// UnimplementedFrameWriterServiceServer should be embedded to have forward compatible implementations.
+type UnimplementedFrameWriterServiceServer struct {
+}
+
+func (UnimplementedFrameWriterServiceServer) Exec(FrameWriterService_ExecServer) error {
+	return status.Errorf(codes.Unimplemented, "method Exec not implemented")
+}
+
+// UnsafeFrameWriterServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to FrameWriterServiceServer will
+// result in compilation errors.
+type UnsafeFrameWriterServiceServer interface {
+	mustEmbedUnimplementedFrameWriterServiceServer()
+}
+
+func RegisterFrameWriterServiceServer(s grpc.ServiceRegistrar, srv FrameWriterServiceServer) {
+	s.RegisterService(&FrameWriterService_ServiceDesc, srv)
+}
+
+func _FrameWriterService_Exec_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(FrameWriterServiceServer).Exec(&frameWriterServiceExecServer{stream})
+}
+
+type FrameWriterService_ExecServer interface {
 	Send(*FrameWriterResponse) error
 	Recv() (*FrameWriterRequest, error)
 	grpc.ServerStream
 }
 
-type frameServiceWriteServer struct {
+type frameWriterServiceExecServer struct {
 	grpc.ServerStream
 }
 
-func (x *frameServiceWriteServer) Send(m *FrameWriterResponse) error {
+func (x *frameWriterServiceExecServer) Send(m *FrameWriterResponse) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func (x *frameServiceWriteServer) Recv() (*FrameWriterRequest, error) {
+func (x *frameWriterServiceExecServer) Recv() (*FrameWriterRequest, error) {
 	m := new(FrameWriterRequest)
 	if err := x.ServerStream.RecvMsg(m); err != nil {
 		return nil, err
@@ -220,25 +240,119 @@ func (x *frameServiceWriteServer) Recv() (*FrameWriterRequest, error) {
 	return m, nil
 }
 
-func _FrameService_Stream_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(FrameServiceServer).Stream(&frameServiceStreamServer{stream})
+// FrameWriterService_ServiceDesc is the grpc.ServiceDesc for FrameWriterService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var FrameWriterService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "api.v1.FrameWriterService",
+	HandlerType: (*FrameWriterServiceServer)(nil),
+	Methods:     []grpc.MethodDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "Exec",
+			Handler:       _FrameWriterService_Exec_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
+		},
+	},
+	Metadata: "v1/framer.proto",
 }
 
-type FrameService_StreamServer interface {
+const (
+	FrameStreamerService_Exec_FullMethodName = "/api.v1.FrameStreamerService/Exec"
+)
+
+// FrameStreamerServiceClient is the client API for FrameStreamerService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type FrameStreamerServiceClient interface {
+	Exec(ctx context.Context, opts ...grpc.CallOption) (FrameStreamerService_ExecClient, error)
+}
+
+type frameStreamerServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewFrameStreamerServiceClient(cc grpc.ClientConnInterface) FrameStreamerServiceClient {
+	return &frameStreamerServiceClient{cc}
+}
+
+func (c *frameStreamerServiceClient) Exec(ctx context.Context, opts ...grpc.CallOption) (FrameStreamerService_ExecClient, error) {
+	stream, err := c.cc.NewStream(ctx, &FrameStreamerService_ServiceDesc.Streams[0], FrameStreamerService_Exec_FullMethodName, opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &frameStreamerServiceExecClient{stream}
+	return x, nil
+}
+
+type FrameStreamerService_ExecClient interface {
+	Send(*FrameStreamerRequest) error
+	Recv() (*FrameStreamerResponse, error)
+	grpc.ClientStream
+}
+
+type frameStreamerServiceExecClient struct {
+	grpc.ClientStream
+}
+
+func (x *frameStreamerServiceExecClient) Send(m *FrameStreamerRequest) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *frameStreamerServiceExecClient) Recv() (*FrameStreamerResponse, error) {
+	m := new(FrameStreamerResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+// FrameStreamerServiceServer is the server API for FrameStreamerService service.
+// All implementations should embed UnimplementedFrameStreamerServiceServer
+// for forward compatibility
+type FrameStreamerServiceServer interface {
+	Exec(FrameStreamerService_ExecServer) error
+}
+
+// UnimplementedFrameStreamerServiceServer should be embedded to have forward compatible implementations.
+type UnimplementedFrameStreamerServiceServer struct {
+}
+
+func (UnimplementedFrameStreamerServiceServer) Exec(FrameStreamerService_ExecServer) error {
+	return status.Errorf(codes.Unimplemented, "method Exec not implemented")
+}
+
+// UnsafeFrameStreamerServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to FrameStreamerServiceServer will
+// result in compilation errors.
+type UnsafeFrameStreamerServiceServer interface {
+	mustEmbedUnimplementedFrameStreamerServiceServer()
+}
+
+func RegisterFrameStreamerServiceServer(s grpc.ServiceRegistrar, srv FrameStreamerServiceServer) {
+	s.RegisterService(&FrameStreamerService_ServiceDesc, srv)
+}
+
+func _FrameStreamerService_Exec_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(FrameStreamerServiceServer).Exec(&frameStreamerServiceExecServer{stream})
+}
+
+type FrameStreamerService_ExecServer interface {
 	Send(*FrameStreamerResponse) error
 	Recv() (*FrameStreamerRequest, error)
 	grpc.ServerStream
 }
 
-type frameServiceStreamServer struct {
+type frameStreamerServiceExecServer struct {
 	grpc.ServerStream
 }
 
-func (x *frameServiceStreamServer) Send(m *FrameStreamerResponse) error {
+func (x *frameStreamerServiceExecServer) Send(m *FrameStreamerResponse) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func (x *frameServiceStreamServer) Recv() (*FrameStreamerRequest, error) {
+func (x *frameStreamerServiceExecServer) Recv() (*FrameStreamerRequest, error) {
 	m := new(FrameStreamerRequest)
 	if err := x.ServerStream.RecvMsg(m); err != nil {
 		return nil, err
@@ -246,29 +360,17 @@ func (x *frameServiceStreamServer) Recv() (*FrameStreamerRequest, error) {
 	return m, nil
 }
 
-// FrameService_ServiceDesc is the grpc.ServiceDesc for FrameService service.
+// FrameStreamerService_ServiceDesc is the grpc.ServiceDesc for FrameStreamerService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var FrameService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "api.v1.FrameService",
-	HandlerType: (*FrameServiceServer)(nil),
+var FrameStreamerService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "api.v1.FrameStreamerService",
+	HandlerType: (*FrameStreamerServiceServer)(nil),
 	Methods:     []grpc.MethodDesc{},
 	Streams: []grpc.StreamDesc{
 		{
-			StreamName:    "Iterate",
-			Handler:       _FrameService_Iterate_Handler,
-			ServerStreams: true,
-			ClientStreams: true,
-		},
-		{
-			StreamName:    "write",
-			Handler:       _FrameService_Write_Handler,
-			ServerStreams: true,
-			ClientStreams: true,
-		},
-		{
-			StreamName:    "Stream",
-			Handler:       _FrameService_Stream_Handler,
+			StreamName:    "Exec",
+			Handler:       _FrameStreamerService_Exec_Handler,
 			ServerStreams: true,
 			ClientStreams: true,
 		},

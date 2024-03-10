@@ -11,7 +11,7 @@ import { type DragEvent, useEffect } from "react";
 
 import { xy, box } from "@synnaxlabs/x";
 
-import { useStateRef } from "@/hooks/useStateRef";
+import { useStateRef } from "@/hooks/ref";
 import { Triggers } from "@/triggers";
 
 import { type UseVirtualCursorDragProps } from "./types";

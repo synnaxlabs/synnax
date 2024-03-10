@@ -12,7 +12,7 @@ import { useState, type ReactElement } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Icon } from "@synnaxlabs/media";
 import { Align, Button, Header, Input, Nav, Synnax } from "@synnaxlabs/pluto";
-import { useForm } from "react-hook-form";
+import { FormProvider, useForm } from "react-hook-form";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
 
@@ -20,11 +20,13 @@ import { Layout } from "@/layout";
 import { useSelectActiveKey } from "@/workspace/selectors";
 import { add } from "@/workspace/slice";
 
-export const createWindowLayout: Layout.LayoutState = {
+export const createWindowLayout = (
+  name: string = "Create Workspace",
+): Layout.LayoutState => ({
   key: "createWorkspace",
   type: "createWorkspace",
   windowKey: "createWorkspace",
-  name: "Create Workspace",
+  name,
   location: "window",
   window: {
     resizable: false,
@@ -32,14 +34,14 @@ export const createWindowLayout: Layout.LayoutState = {
     navTop: true,
     transparent: true,
   },
-};
+});
 
 const formSchema = z.object({ name: z.string().nonempty() });
 
 type CreateFormProps = z.infer<typeof formSchema>;
 
 export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
-  const { control, handleSubmit } = useForm({
+  const methods = useForm({
     defaultValues: {
       name: "",
     },
@@ -69,21 +71,30 @@ export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
 
   return (
     <Align.Space style={{ height: "100%" }}>
-      <Header.Header level="h4" divided>
-        <Header.Title startIcon={<Icon.Workspace />}>Create a Workspace</Header.Title>
-      </Header.Header>
-      <form
+      <Align.Space
+        el="form"
         onSubmit={(e) => {
           e.preventDefault();
-          void handleSubmit(onSubmit)(e);
+          void methods.handleSubmit(onSubmit)(e);
         }}
-        style={{ flexGrow: 1 }}
+        style={{ flexGrow: 1, padding: "2rem" }}
         id="create-workspace"
+        justify="center"
       >
-        <Align.Space className="console-form">
-          <Input.ItemControlled name="name" control={control} grow autoFocus />
-        </Align.Space>
-      </form>
+        <FormProvider {...methods}>
+          <Input.HFItem className="console-form" name="name">
+            {(p) => (
+              <Input.Text
+                placeholder="Workspace Name"
+                variant="natural"
+                autoFocus
+                level="h3"
+                {...p}
+              />
+            )}
+          </Input.HFItem>
+        </FormProvider>
+      </Align.Space>
       <Nav.Bar location="bottom" size={48}>
         <Nav.Bar.End style={{ padding: "1rem" }}>
           <Button.Button

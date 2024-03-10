@@ -7,13 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement, useCallback, useRef } from "react";
 
 import { type channel } from "@synnaxlabs/client";
 import {
   box,
-  type bounds,
-  type direction,
   location as loc,
   type TimeRange,
   type TimeSpan,
@@ -24,10 +22,10 @@ import { HAUL_TYPE } from "@/channel/types";
 import { type Color } from "@/color";
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
-import { Remote } from "@/telem/remote";
+import { usePrevious } from "@/hooks";
+import { telem } from "@/telem/aether";
 import { type Text } from "@/text";
 import { type Viewport } from "@/viewport";
-import { type axis } from "@/vis/axis";
 import { LinePlot as Core } from "@/vis/lineplot";
 import { Tooltip } from "@/vis/lineplot/tooltip";
 import { Measure } from "@/vis/measure";
@@ -35,19 +33,14 @@ import { Rule } from "@/vis/rule";
 
 import "@/channel/LinePlot.css";
 
-export interface AxisProps {
-  id: string;
-  location: loc.Crude;
-  labelDirection?: direction.Direction;
-  bounds?: bounds.Bounds;
-  color: Color.Crude;
-  showGrid?: boolean;
-  type: axis.TickType;
-  tickSpacing?: number;
+/** Props for an axis in {@link LinePlot} */
+export interface AxisProps extends Core.AxisProps {
+  /** A unique identifier for the axis */
+  key: string;
 }
 
 export interface BaseLineProps {
-  id: string;
+  key: string;
   axes: {
     x: string;
     y: string;
@@ -64,18 +57,18 @@ export interface BaseLineProps {
 
 export interface StaticLineProps extends BaseLineProps {
   variant: "static";
-  range: TimeRange;
+  timeRange: TimeRange;
 }
 
 export interface DynamicLineProps extends BaseLineProps {
   variant: "dynamic";
-  span: TimeSpan;
+  timeSpan: TimeSpan;
 }
 
 export type LineProps = StaticLineProps | DynamicLineProps;
 
 export interface RuleProps {
-  id: string;
+  key: string;
   position: number;
   color: Color.Crude;
   axis: string;
@@ -84,20 +77,25 @@ export interface RuleProps {
   lineDash?: number;
   units?: string;
 }
+
 export interface LinePlotProps extends Core.LinePlotProps {
+  // Axes
   axes: AxisProps[];
+  onAxisChannelDrop?: (axis: string, channels: channel.Key[]) => void;
+  onAxisChange?: (axis: Partial<AxisProps> & { key: string }) => void;
+  // Lines
   lines: LineProps[];
+  onLineChange?: (line: Partial<LineProps> & { key: string }) => void;
+  // Rules
   rules?: RuleProps[];
+  onRuleChange?: (rule: Partial<RuleProps> & { key: string }) => void;
+  // Title
   title?: string;
   showTitle?: boolean;
   onTitleChange?: (value: string) => void;
   titleLevel?: Text.Level;
+  // Legend
   showLegend?: boolean;
-  onLineLabelChange?: (id: string, value: string) => void;
-  onLineColorChange?: (id: string, value: Color.Color) => void;
-  onRuleLabelChange?: (id: string, value: string) => void;
-  onRulePositionChange?: (id: string, value: number) => void;
-  onAxisChannelDrop?: (axis: string, channels: channel.Key[]) => void;
   enableTooltip?: boolean;
   enableMeasure?: boolean;
   initialViewport?: Viewport.UseProps["initial"];
@@ -115,48 +113,49 @@ export const LinePlot = ({
   onTitleChange,
   showLegend = true,
   titleLevel = "h4",
-  onLineLabelChange,
-  onLineColorChange,
-  onRuleLabelChange,
-  onRulePositionChange,
+  onLineChange,
+  onRuleChange,
   onAxisChannelDrop,
+  onAxisChange,
   rules,
   enableTooltip = true,
   enableMeasure = false,
   initialViewport = box.DECIMAL,
   onViewportChange,
   viewportTriggers,
-  ...restProps
+  ...props
 }: LinePlotProps): ReactElement => {
   const xAxes = axes.filter(({ location: l }) => loc.isY(l));
+  const ref = useRef<Viewport.UseRefValue>();
+  const prevLinesLength = usePrevious(lines.length);
+  const prevHold = usePrevious(props.hold);
+  if (
+    (prevLinesLength === 0 && lines.length !== 0) ||
+    (prevHold === true && props.hold === false)
+  )
+    ref.current?.reset();
   return (
-    <Core.LinePlot {...restProps}>
+    <Core.LinePlot {...props}>
       {xAxes.map((a, i) => {
-        const _lines = lines.filter((l) => l.axes.x === a.id);
-        const _axes = axes.filter(({ location: l }) => loc.isX(l));
-        const _rules = rules?.filter((r) =>
-          [..._axes.map(({ id }) => id), a.id].includes(r.axis),
+        const axisLines = lines.filter((l) => l.axes.x === a.key);
+        const yAxes = axes.filter(({ location: l }) => loc.isX(l));
+        const axisRules = rules?.filter((r) =>
+          [...yAxes.map(({ key: id }) => id), a.key].includes(r.axis),
         );
         return (
           <XAxis
-            key={a.id}
-            {...a}
+            key={a.key}
+            axis={a}
             index={i}
-            lines={_lines}
-            yAxes={_axes}
-            rules={_rules}
-            onRuleLabelChange={onRuleLabelChange}
-            onRulePositionChange={onRulePositionChange}
+            lines={axisLines}
+            yAxes={yAxes}
+            rules={axisRules}
             onAxisChannelDrop={onAxisChannelDrop}
+            onAxisChange={onAxisChange}
           />
         );
       })}
-      {showLegend && (
-        <Core.Legend
-          onLabelChange={onLineLabelChange}
-          onColorChange={onLineColorChange}
-        />
-      )}
+      {showLegend && <Core.Legend onLineChange={onLineChange} />}
       {showTitle && (
         <Core.Title value={title} onChange={onTitleChange} level={titleLevel} />
       )}
@@ -164,6 +163,7 @@ export const LinePlot = ({
         initial={initialViewport}
         onChange={onViewportChange}
         triggers={viewportTriggers}
+        ref={ref}
       >
         {enableTooltip && <Tooltip.Tooltip />}
         {enableMeasure && <Measure.Measure />}
@@ -172,28 +172,25 @@ export const LinePlot = ({
   );
 };
 
-interface XAxisProps extends AxisProps {
-  lines: LineProps[];
+interface XAxisProps
+  extends Pick<
+    LinePlotProps,
+    "onRuleChange" | "lines" | "rules" | "onAxisChannelDrop" | "onAxisChange"
+  > {
+  axis: AxisProps;
   yAxes: AxisProps[];
-  rules?: RuleProps[];
-  onRuleLabelChange?: (id: string, value: string) => void;
-  onRulePositionChange?: (id: string, value: number) => void;
-  onAxisChannelDrop?: (axis: string, channels: channel.Key[]) => void;
   index: number;
 }
 
 const XAxis = ({
-  id,
   yAxes,
   lines,
-  showGrid,
   index,
   rules,
-  onRuleLabelChange,
-  onRulePositionChange,
+  onRuleChange,
   onAxisChannelDrop,
-  location: loc,
-  ...props
+  onAxisChange,
+  axis: { location, key, showGrid, ...axis },
 }: XAxisProps): ReactElement => {
   const dropProps = Haul.useDrop({
     type: "Channel.LinePlot.XAxis",
@@ -202,74 +199,77 @@ const XAxis = ({
       ({ items }) => {
         const dropped = Haul.filterByType(HAUL_TYPE, items);
         onAxisChannelDrop?.(
-          id,
+          key,
           dropped.map(({ key }) => key as channel.Key),
         );
         return dropped;
       },
-      [id, onAxisChannelDrop],
+      [key, onAxisChannelDrop],
     ),
   });
 
-  const _rules = rules?.filter((r) => r.axis === id);
+  const xRules = rules?.filter((r) => r.axis === key);
   return (
     <Core.XAxis
-      {...props}
+      {...axis}
       {...dropProps}
-      location={loc as location.Y}
+      location={location as location.Y}
       showGrid={showGrid ?? index === 0}
       className={CSS(
         CSS.dropRegion(Haul.canDropOfType(HAUL_TYPE)(Haul.useDraggingState())),
       )}
+      onAutoBoundsChange={(bounds) => onAxisChange?.({ key, bounds })}
     >
       {yAxes.map((a, i) => {
-        const lines_ = lines.filter((l) => l.axes.y === a.id);
-        const rules_ = rules?.filter((r) => r.axis === a.id);
+        const yLines = lines.filter((l) => l.axes.y === a.key);
+        const yRules = rules?.filter((r) => r.axis === a.key);
         return (
           <YAxis
-            key={a.id}
-            {...a}
-            lines={lines_}
-            rules={rules_}
-            showGrid={showGrid ?? (index === 0 && i === 0)}
-            onRuleLabelChange={onRuleLabelChange}
-            onRulePositionChange={onRulePositionChange}
+            key={a.key}
+            axis={{
+              ...a,
+              showGrid: showGrid ?? (index === 0 && i === 0),
+            }}
+            lines={yLines}
+            rules={yRules}
+            onRuleChange={onRuleChange}
             onAxisChannelDrop={onAxisChannelDrop}
+            onAxisChange={onAxisChange}
           />
         );
       })}
-      {_rules?.map((r) => (
+      {xRules?.map((rule) => (
         <Rule.Rule
-          aetherKey={r.id}
-          key={r.id}
-          {...r}
-          onLabelChange={(value) => onRuleLabelChange?.(r.id, value)}
-          onPositionChange={(value) => onRulePositionChange?.(r.id, value)}
+          aetherKey={rule.key}
+          {...rule}
+          key={rule.key}
+          onLabelChange={(value) => onRuleChange?.({ key: rule.key, label: value })}
+          onPositionChange={(value) =>
+            onRuleChange?.({ key: rule.key, position: value })
+          }
         />
       ))}
     </Core.XAxis>
   );
 };
 
-interface YAxisProps extends AxisProps {
-  lines: LineProps[];
-  rules?: RuleProps[];
-  onRuleLabelChange?: (id: string, value: string) => void;
-  onRulePositionChange?: (id: string, value: number) => void;
-  onAxisChannelDrop?: (axis: string, channels: channel.Key[]) => void;
+interface YAxisProps
+  extends Pick<
+    LinePlotProps,
+    "onRuleChange" | "lines" | "rules" | "onAxisChannelDrop" | "onAxisChange"
+  > {
+  axis: AxisProps;
 }
 
 const lineKey = ({ channels: { x, y } }: LineProps): string => `${x ?? 0}-${y}`;
 
 const YAxis = ({
-  id,
   lines,
   rules,
-  onRuleLabelChange,
-  onRulePositionChange,
+  onRuleChange,
   onAxisChannelDrop,
-  location: loc,
-  ...props
+  onAxisChange,
+  axis: { key, location: loc, ...props },
 }: YAxisProps): ReactElement => {
   const dropProps = Haul.useDrop({
     type: "Channel.LinePlot.YAxis",
@@ -278,12 +278,12 @@ const YAxis = ({
       ({ items }) => {
         const dropped = Haul.filterByType(HAUL_TYPE, items);
         onAxisChannelDrop?.(
-          id,
+          key,
           dropped.map(({ key }) => key as channel.Key),
         );
         return dropped;
       },
-      [id, onAxisChannelDrop],
+      [key, onAxisChannelDrop],
     ),
   });
 
@@ -295,41 +295,69 @@ const YAxis = ({
       {...dropProps}
       location={loc as loc.X}
       className={CSS(CSS.dropRegion(Haul.canDropOfType(HAUL_TYPE)(dragging)))}
+      onAutoBoundsChange={(bounds) => onAxisChange?.({ key, bounds })}
     >
       {lines.map((l) => (
-        <Line key={lineKey(l)} {...l} />
+        <Line key={lineKey(l)} line={l} />
       ))}
       {rules?.map((r) => (
         <Rule.Rule
-          aetherKey={r.id}
-          key={r.id}
+          aetherKey={r.key}
           {...r}
-          onLabelChange={(value) => onRuleLabelChange?.(r.id, value)}
-          onPositionChange={(value) => onRulePositionChange?.(r.id, value)}
+          key={r.key}
+          onLabelChange={(value) => onRuleChange?.({ key: r.key, label: value })}
+          onPositionChange={(value) => onRuleChange?.({ key: r.key, position: value })}
         />
       ))}
     </Core.YAxis>
   );
 };
 
-const Line = (props: LineProps): ReactElement =>
-  props.variant === "static" ? <StaticLine {...props} /> : <DynamicLine {...props} />;
+const Line = ({ line }: { line: LineProps }): ReactElement =>
+  line.variant === "static" ? <StaticLine line={line} /> : <DynamicLine line={line} />;
 
 const DynamicLine = ({
-  span,
-  channels: { x, y },
-  ...props
-}: DynamicLineProps): ReactElement => {
-  const telem = Remote.useDynamicXYSource({ span, x, y });
-  return <Core.Line telem={telem} {...props} />;
+  line: {
+    key,
+    timeSpan,
+    channels: { x, y },
+    ...props
+  },
+}: {
+  line: DynamicLineProps;
+}): ReactElement => {
+  const keepFor = timeSpan.valueOf() * 3;
+  const yTelem = telem.streamChannelData({
+    timeSpan,
+    channel: y,
+    keepFor,
+  });
+  const hasX = x != null && x !== 0;
+  const xTelem = telem.streamChannelData({
+    timeSpan,
+    channel: hasX ? x : y,
+    useIndexOfChannel: !hasX,
+    keepFor,
+  });
+  return <Core.Line aetherKey={key} y={yTelem} x={xTelem} {...props} />;
 };
 
 const StaticLine = ({
-  range,
-  id,
-  channels: { x, y },
-  ...props
-}: StaticLineProps): ReactElement => {
-  const telem = Remote.useXYSource({ timeRange: range, x, y });
-  return <Core.Line aetherKey={id} telem={telem} {...props} />;
+  line: {
+    timeRange,
+    key,
+    channels: { x, y },
+    ...props
+  },
+}: {
+  line: StaticLineProps;
+}): ReactElement => {
+  const yTelem = telem.channelData({ timeRange, channel: y });
+  const hasX = x != null && x !== 0;
+  const xTelem = telem.channelData({
+    timeRange,
+    channel: hasX ? x : y,
+    useIndexOfChannel: !hasX,
+  });
+  return <Core.Line aetherKey={key} y={yTelem} x={xTelem} {...props} />;
 };

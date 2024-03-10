@@ -10,7 +10,7 @@
  */
 
 import React from "react";
-import { Pluto } from "../src";
+import { Pluto, Theming } from "../src";
 import "./index.css";
 import 'reactflow/dist/style.css';
 

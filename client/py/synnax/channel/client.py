@@ -73,7 +73,7 @@ class Channel(ChannelPayload):
         caller.
         :param is_index: Boolean indicating whether the channel is an index. Index
         channels should have ax data type of synnax.TIMESTAMP.
-        :param index: The key or channel that indexes this channel.
+        :param index: The key of the channel that indexes this channel.
         :param leaseholder: The node that holds the lease for this channel. If you
         don't know what this is, leave it at the default value of 0.
         :param _frame_client: The backing client for reading and writing data to and
@@ -330,7 +330,7 @@ def _multiple_results_error(
 ) -> MultipleResultsError:
     msg = f"""
 
-Multiple channels matching '{channel}' found. If you'd like to retrieve all
+{len(results)} channels matching '{channel}' found. If you'd like to retrieve all
 of them, pass in '{channel}' as an array i.e. ['{channel}'] instead of {channel}.
 
 The channels found were:

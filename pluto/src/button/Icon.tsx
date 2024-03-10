@@ -19,7 +19,7 @@ import { Tooltip } from "@/tooltip";
 
 /** The props for the {@link Icon} */
 export interface IconProps extends BaseProps {
-  children: ReactElement;
+  children: ReactElement | string;
   loading?: boolean;
 }
 
@@ -54,11 +54,13 @@ const CoreIcon = forwardRef<HTMLButtonElement, IconProps>(
         onClick={disabled ? undefined : onClick}
         {...props}
       >
-        {cloneElement(children, {
-          color: color(variant, disabled, props.color),
-          fill: "currentColor",
-          ...children.props,
-        })}
+        {typeof children === "string"
+          ? children
+          : cloneElement(children, {
+              color: color(variant, disabled, props.color),
+              fill: "currentColor",
+              ...children.props,
+            })}
       </button>
     );
   },
@@ -67,7 +69,7 @@ const CoreIcon = forwardRef<HTMLButtonElement, IconProps>(
 CoreIcon.displayName = "ButtonIcon";
 
 /**
- * Button.Icon a button that only renders an icon without any text.
+ * Use.Icon a button that only renders an icon without any text.
  *
  * @param props - Props for the component, which are passed down to the underlying
  * element.

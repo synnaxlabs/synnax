@@ -203,7 +203,7 @@ func (s *ServerStream[RQ, RS]) Receive() (req RQ, err error) {
 		return req, freighter.StreamClosed
 	case msg := <-s.requests:
 		// Any error message means the Stream should die.
-		if msg.error.Type != ferrors.Empty {
+		if msg.error.Type != ferrors.TypeEmpty {
 			s.receiveErr = ferrors.Decode(msg.error)
 			return req, s.receiveErr
 		}
@@ -217,7 +217,7 @@ func (s *ServerStream[RQ, RS]) exec(
 ) {
 	err := handler(ctx, s)
 	errPayload := ferrors.Encode(err)
-	if errPayload.Type == ferrors.Nil {
+	if errPayload.Type == ferrors.TypeNil {
 		errPayload = ferrors.Encode(freighter.EOF)
 	}
 	close(s.serverClosed)
@@ -272,7 +272,7 @@ func (c *ClientStream[RQ, RS]) Receive() (res RS, err error) {
 	case msg := <-c.responses:
 		// If our message contains an error, that means the server serverClosed the stream (i.e. serverClosed chan
 		// is serverClosed), so we don't need explicitly listen for its closure.
-		if msg.error.Type != ferrors.Empty {
+		if msg.error.Type != ferrors.TypeEmpty {
 			if c.receiveErr == nil {
 				c.receiveErr = ferrors.Decode(msg.error)
 			}

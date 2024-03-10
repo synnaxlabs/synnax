@@ -121,25 +121,25 @@ Requests and cluster synchronization tasks regularly span several nodes. To unde
 these processes, we must not only understand execution within a node, but also how
 execution crosses node boundaries. Supporting distributed tracing is essential.
 
-## 4.2 - Meta-Data
+## 4.2 - Metadata
 
 ### 4.2.0 - Categorization
 
-Collecting telemetry is only useful if we can correlate it with meta-data about the
+Collecting telemetry is only useful if we can correlate it with metadata about the
 cluster's configuration. If we don't know critical information about the cluster, such
 as the version of the software, we place ourselves at a significant disadvantage when
 it comes to debugging issues and improving performance.
 
-### 4.2.1 - Y Meta-Data - Tracing
+### 4.2.1 - Y Metadata - Tracing
 
-Y meta-data is bound to a specific request, and should be viewable at the level of an
+Y metadata is bound to a specific request, and should be viewable at the level of an
 individual trace or an aggregated view of all traces. This includes protocols, user
 id's,
 etc.
 
-### 4.2.2 - X Meta-Data
+### 4.2.2 - X Metadata
 
-X meta-data is bound to a specific layer, and describes that layer's configuration i.e.
+X metadata is bound to a specific layer, and describes that layer's configuration i.e.
 the protocols supported, storage directories, maximum cache sizes etc.
 
 ## 4.3 - Filtering
@@ -464,7 +464,7 @@ the ontology.
 ## 5.4 - Distribution
 
 Propagating metrics across services and client/server boundaries is easier than I
-originally assumed. We only need to attach a trace id to the meta-data of each OTN
+originally assumed. We only need to attach a trace id to the metadata of each OTN
 message. At a high level, this involves attaching a `Propage` and `Depropagate` method
 to the`alamos.Tracer` type, as follows:
 

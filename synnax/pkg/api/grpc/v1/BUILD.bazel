@@ -1,0 +1,35 @@
+proto_library(
+    name = "api_proto",
+    srcs = [
+        "auth.proto",
+        "channel.proto",
+        "connectivity.proto",
+        "device.proto",
+        "framer.proto",
+        "ranger.proto",
+    ],
+    deps = [
+        "@com_google_protobuf//:empty_proto",
+        "@ferrors_protos//ferrors/v1:ferrors_proto",
+        "@telem_protos//telempb:telem_proto",
+    ],
+)
+
+load("@rules_proto_grpc//cpp:defs.bzl", "cpp_grpc_library")
+
+cpp_grpc_library(
+    name = "api_grpc",
+    protos = [":api_proto"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "@ferrors_protos//ferrors/v1:ferrors_grpc",
+        "@telem_protos//telempb:telem_grpc",
+    ],
+)
+
+load("@rules_proto_grpc//cpp:defs.bzl", "cpp_grpc_compile")
+
+cpp_grpc_compile(
+    name = "api_grpc_comp",
+    protos = [":api_proto"],
+)

@@ -69,105 +69,158 @@ class TestRangeClient:
         rng = client.ranges.search(two_ranges[0].name)
         assert len(rng) > 0
 
-
-@pytest.mark.ranger
-class TestRangeChannelResolution:
-    @pytest.fixture(scope="class")
-    def rng(self, client: sy.Synnax) -> sy.Range:
-        name = f"test_{np.random.randint(0, 10000)}"
-        return client.ranges.create(
-            name=name,
-            time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
-        )
-
-    @pytest.fixture(scope="class", autouse=True)
-    def two_channels(self, client: sy.Synnax, rng: sy.Range) -> list[sy.Channel]:
-        return client.channels.create(
-            [
-                sy.Channel(
-                    name=f"{rng.name}_test1",
-                    data_type=sy.DataType.FLOAT32,
-                    rate=1 * sy.Rate.HZ,
-                ),
-                sy.Channel(
-                    name=f"{rng.name}_test2",
-                    data_type=sy.DataType.FLOAT32,
-                    rate=1 * sy.Rate.HZ,
-                ),
-            ]
-        )
-
-    def test_access_by_key(self, rng: sy.Range, two_channels: list[sy.Channel]):
-        """Should access a channel by key"""
-        assert rng[two_channels[0].key].key == two_channels[0].key
-
-    def test_access_by_name(self, rng: sy.Range, two_channels: list[sy.Channel]):
-        """Should access a channel by name"""
-        assert rng[two_channels[0].name].name == two_channels[0].name
-
-    def test_access_by_regex(self, rng: sy.Range, two_channels: list[sy.Channel]):
-        """Should access a channel by regex"""
-        channels = rng[f"{rng.name}_.*"]
-        found = 0
-        for ch in channels:
-            found += 1
-        assert found == 2
-
-
-@pytest.mark.ranger
-class TestRangeKV:
-    def test_set_get_delete_single(self, client: sy.Synnax):
+    def test_create_retrieve_if_name_exists(
+        self, two_ranges: list[sy.Range], client: sy.Synnax
+    ):
+        """Should retrieve a range if it already exists"""
         rng = client.ranges.create(
-            name="test",
-            time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+            name=two_ranges[0].name,
+            time_range=two_ranges[0].time_range,
+            retrieve_if_name_exists=True,
         )
-        rng.meta_data.set("test", "test")
-        assert rng.meta_data.get("test") == "test"
-        rng.meta_data.delete("test")
-        with pytest.raises(sy.exceptions.QueryError):
-            rng.meta_data.get("test")
+        assert rng.name == two_ranges[0].name
+        assert rng.key == two_ranges[0].key
 
-    def test_set_get_delete_multiple(self, client: sy.Synnax):
-        rng = client.ranges.create(
-            name="test",
-            time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
-        )
-        rng.meta_data.set({"test": "test", "test2": "test2"})
-        assert rng.meta_data.get(["test", "test2"]) == {
-            "test": "test",
-            "test2": "test2",
-        }
-        rng.meta_data.delete(["test", "test2"])
-        with pytest.raises(sy.exceptions.QueryError):
-            rng.meta_data.get(["test", "test2"])
+    @pytest.mark.ranger
+    class TestRangeDelete:
+        @pytest.fixture(scope="class")
+        def rng(self, client: sy.Synnax) -> sy.Range:
+            return client.ranges.create(
+                name="test",
+                time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+            )
 
+        def test_delete_by_key(self, rng: sy.Range, client: sy.Synnax):
+            """Should delete a range by key"""
+            client.ranges.delete(rng.key)
+            with pytest.raises(sy.exceptions.QueryError):
+                client.ranges.retrieve(rng.key)
 
-@pytest.mark.ranger
-class TestRangeAlias:
-    def test_basic_alias(self, client: sy.Synnax):
-        ch = client.channels.create(
-            name="test", data_type=sy.DataType.INT8, rate=1 * sy.Rate.HZ
-        )
-        rng = client.ranges.create(
-            name="test",
-            time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
-        )
-        rng.set_alias(ch.key, "alt_test")
-        assert rng["alt_test"].key == ch.key
-        assert rng["alt_test"].name == ch.name
+        def test_delete_by_name(self, rng: sy.Range, client: sy.Synnax):
+            """Should delete a range by name"""
+            client.ranges.delete([rng.name])
+            with pytest.raises(sy.exceptions.QueryError):
+                client.ranges.retrieve(rng.name)
 
-    def test_alias_not_found(self, client: sy.Synnax):
-        rng = client.ranges.create(
-            name="test",
-            time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
-        )
-        with pytest.raises(sy.exceptions.QueryError):
-            rng["not_found"]
+    @pytest.mark.ranger
+    class TestRangeChannelResolution:
+        @pytest.fixture(scope="class")
+        def rng(self, client: sy.Synnax) -> sy.Range:
+            name = f"test_{np.random.randint(0, 10000)}"
+            return client.ranges.create(
+                name=name,
+                time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+            )
 
-    def test_channel_not_found_on_set(self, client: sy.Synnax):
-        rng = client.ranges.create(
-            name="test",
-            time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
-        )
-        with pytest.raises(sy.exceptions.QueryError):
-            rng.set_alias("not_found", "test")
+        @pytest.fixture(scope="class", autouse=True)
+        def two_channels(self, client: sy.Synnax, rng: sy.Range) -> list[sy.Channel]:
+            return client.channels.create(
+                [
+                    sy.Channel(
+                        name=f"{rng.name}_test1",
+                        data_type=sy.DataType.FLOAT32,
+                        rate=1 * sy.Rate.HZ,
+                    ),
+                    sy.Channel(
+                        name=f"{rng.name}_test2",
+                        data_type=sy.DataType.FLOAT32,
+                        rate=1 * sy.Rate.HZ,
+                    ),
+                ]
+            )
+
+        def test_access_by_key(self, rng: sy.Range, two_channels: list[sy.Channel]):
+            """Should access a channel by key"""
+            assert rng[two_channels[0].key].key == two_channels[0].key
+
+        def test_access_by_name(self, rng: sy.Range, two_channels: list[sy.Channel]):
+            """Should access a channel by name"""
+            assert rng[two_channels[0].name].name == two_channels[0].name
+
+        def test_access_by_regex(self, rng: sy.Range, two_channels: list[sy.Channel]):
+            """Should access a channel by regex"""
+            channels = rng[f"{rng.name}_.*"]
+            found = 0
+            for ch in channels:
+                found += 1
+            assert found == 2
+
+    @pytest.mark.ranger
+    class TestRangeKV:
+        def test_set_get_delete_single(self, client: sy.Synnax):
+            rng = client.ranges.create(
+                name="test",
+                time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+            )
+            rng.meta_data.set("test", "test")
+            assert rng.meta_data.get("test") == "test"
+            rng.meta_data.delete("test")
+            with pytest.raises(sy.exceptions.QueryError):
+                rng.meta_data.get("test")
+
+        def test_set_get_delete_multiple(self, client: sy.Synnax):
+            rng = client.ranges.create(
+                name="test",
+                time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+            )
+            rng.meta_data.set({"test": "test", "test2": "test2"})
+            assert rng.meta_data.get(["test", "test2"]) == {
+                "test": "test",
+                "test2": "test2",
+            }
+            rng.meta_data.delete(["test", "test2"])
+            with pytest.raises(sy.exceptions.QueryError):
+                rng.meta_data.get(["test", "test2"])
+
+    @pytest.mark.ranger
+    class TestRangeAlias:
+        def test_basic_alias(self, client: sy.Synnax):
+            ch = client.channels.create(
+                name="test", data_type=sy.DataType.INT8, rate=1 * sy.Rate.HZ
+            )
+            rng = client.ranges.create(
+                name="test",
+                time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+            )
+            rng.set_alias(ch.key, "alt_test")
+            assert rng["alt_test"].key == ch.key
+            assert rng["alt_test"].name == ch.name
+
+        def test_alias_not_found(self, client: sy.Synnax):
+            rng = client.ranges.create(
+                name="test",
+                time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+            )
+            with pytest.raises(sy.exceptions.QueryError):
+                rng["not_found"]
+
+        def test_channel_not_found_on_set(self, client: sy.Synnax):
+            rng = client.ranges.create(
+                name="test",
+                time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+            )
+            with pytest.raises(sy.exceptions.QueryError):
+                rng.set_alias("not_found", "test")
+
+    @pytest.mark.ranger
+    class TestActiveRanges:
+        def test_set_active(self, client: sy.Synnax):
+            """It should correctly create a range and set it as active"""
+            rng = client.ranges.create(
+                name="test",
+                time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+            )
+            client.ranges.set_active(rng.key)
+
+            assert client.ranges.retrieve_active().key == rng.key
+
+        def test_clear_active(self, client: sy.Synnax):
+            """It should correctly create a range and set it as active"""
+            rng = client.ranges.create(
+                name="test",
+                time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+            )
+            client.ranges.set_active(rng.key)
+            client.ranges.clear_active()
+
+            assert client.ranges.retrieve_active() is None

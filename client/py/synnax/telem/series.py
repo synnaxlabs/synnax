@@ -9,7 +9,9 @@
 
 from __future__ import annotations
 
+from pydantic import PrivateAttr
 import uuid
+import json
 from datetime import datetime
 
 import numpy as np
@@ -32,7 +34,7 @@ class Series(Payload):
         return super().__new__(overload_comparison_operators(cls, "__array__"))
 
     """Series is a strongly typed array of telemetry samples backed by an underlying
-    binary buffers. It is interoperable with np.ndarray, meaning that it can be safely
+    binary buffer. It is interoperable with np.ndarray, meaning that it can be safely
     passed as an argument to any function/method that accepts a numpy array.
 
     Series also have an optional 'time_range' property that can be used to define the
@@ -47,18 +49,27 @@ class Series(Payload):
     Series' data. This property is guaranteed to be defined when reading data from
     a Synnax cluster, and is particularly useful for understanding the alignment of
     samples in relation to another series. This is especially relevant in the context
-    of a Frame (framer.Frame). The start of the time range represents the timestamp of
-    the first sample in the array (inclusive), while the end of the time range is set
-    to the nanosecond AFTER the last sample in the array (exclusive).
+    of a Frame (framer.Frame). When set by the Cluster, the start of the time range
+    represents the timestamp of the first sample in the array (inclusive), while the
+    end of the time range is set to the nanosecond AFTER the last sample in the array
+    (exclusive).
     """
     data_type: DataType
     """The data type of the Series"""
     data: bytes
     """The underlying buffer"""
     alignment: int = 0
+    __len_cache: int | None = PrivateAttr(None)
 
     def __len__(self) -> int:
-        return self.data_type.density.sample_count(len(self.data))
+        if self.__len_cache is not None:
+            return self.__len_cache
+
+        if self.data_type.has_fixed_density:
+            return self.data_type.density.sample_count(len(self.data))
+
+        self.__len_cache = self.data.count(b"\n")
+        return self.__len_cache
 
     def __init__(
         self,
@@ -82,7 +93,14 @@ class Series(Payload):
             data_ = data.astype(data_type.np).tobytes()
         elif isinstance(data, list):
             data_type = data_type or DataType(data)
-            data_ = np.array(data, dtype=data_type.np).tobytes()
+            if data_type == DataType.JSON:
+                data_ = b"\n".join([json.dumps(d).encode("utf-8") for d in data]) + b"\n"
+            elif data_type == DataType.STRING:
+                data_ = b"\n".join([d.encode("utf-8") for d in data]) + b"\n"
+            elif data_type == DataType.UUID:
+                data_ = b"".join(d.bytes for d in data)
+            else:
+                data_ = np.array(data, dtype=data_type.np).tobytes()
         else:
             if data_type is None:
                 raise ValueError(
@@ -93,26 +111,89 @@ class Series(Payload):
         super().__init__(
             data_type=data_type, data=data_, time_range=time_range, alignment=alignment
         )
+        self.__len_cache = None
 
     class Config:
         arbitrary_types_allowed = True
 
-    def __array__(self) -> np.ndarray:
+    def __array__(self, *args, **kwargs) -> np.ndarray:
         """Implemented to that the Series can be passed around as a numpy array. See
         https://numpy.org/doc/stable/user/basics.interoperability.html#the-array-method.
         """
-        return np.frombuffer(self.data, dtype=self.data_type.np)
+        if not self.data_type.has_np:
+            raise ValueError(f"""
+                [Series] - {self.data_type} does not have a numpy equivalent, so it can't
+                be interpreted as a numpy array.
+                """)
 
-    def __getitem__(self, index: int) -> float:
+        if len(args) > 0:
+            return np.array(self.__array__(), *args, **kwargs)
+        return np.frombuffer(self.data, dtype=self.data_type.np, **kwargs)
+
+    def to_numpy(self, *args, **kwargs) -> np.ndarray:
+        """Converts the Series to a numpy array. This is necessary for matplotlib
+        interop.
+        """
+        return self.__array__(*args, **kwargs)
+
+    def __getitem__(self, index: int) -> SampleValue:
+        if not self.data_type.has_np and index < 0:
+            index = len(self) + index
+
         if self.data_type == DataType.UUID:
-            start = self.data_type.density.sample_count(index)
-            end = start + self.data_type.density + 1
+            start = self.data_type.density.size_span(index)
+            end = start + self.data_type.density
             d = self.data[start:end]
             return uuid.UUID(bytes=d)
+
+        if self.data_type == DataType.JSON:
+            d = self.__newline_getitem__(index)
+            return json.loads(d)
+
+        if self.data_type == DataType.STRING:
+            d = self.__newline_getitem__(index)
+            return d.decode("utf-8")
+
         return self.__array__()[index]
 
+    def __newline_getitem__(self, index: int) -> bytes:
+        if index == 0:
+            start = 0
+        else:
+            start = self.data.find(b"\n")
+            while start >= 0 and index > 1:
+                start = self.data.find(b"\n", start + 1)
+                index -= 1
+            start += 1
+
+        if start < 0:
+            raise IndexError(f"[Series] - Index {index} out of bounds")
+
+        end = self.data.find(b"\n", start)
+        if end < 0:
+            end = len(self.data)
+        return self.data[start:end]
+
     def __iter__(self):
-        return iter(self.__array__())
+        if self.data_type == DataType.UUID:
+            yield from [self[i] for i in range(len(self))]
+        elif self.data_type == DataType.JSON:
+            for v in self.__iter__newline():
+                yield json.loads(v)
+        elif self.data_type == DataType.STRING:
+            for v in self.__iter__newline():
+                yield v.decode("utf-8")
+        else:
+            yield from self.__array__()
+
+    def __iter__newline(self):
+        curr = 0
+        while curr < len(self.data):
+            end = self.data.find(b"\n", curr)
+            if end < 0:
+                end = len(self.data)
+            yield self.data[curr:end]
+            curr = end + 1
 
     @property
     def size(self) -> Size:
@@ -138,8 +219,10 @@ class Series(Payload):
             return False
 
 
+SampleValue = np.number | uuid.UUID | dict | str
 TypedCrudeSeries = Series | pd.Series | np.ndarray
-CrudeSeries = Series | bytes | pd.Series | np.ndarray | list | float | int | TimeStamp
+CrudeSeries = Series | bytes | pd.Series | np.ndarray | list[float] | list[
+    str] | list[dict] | float | int | TimeStamp
 
 
 def elapsed_seconds(d: np.ndarray) -> np.ndarray:

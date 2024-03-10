@@ -27,6 +27,7 @@ export const payload = z.object({
   leaseholder: z.number(),
   index: z.number(),
   isIndex: z.boolean(),
+  alias: z.string().optional(),
 });
 
 export type Payload = z.infer<typeof payload>;

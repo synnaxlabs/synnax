@@ -38,7 +38,7 @@ class _Receiver(StreamReceiver[RS]):
     __exc: Exception | None
 
     def __init__(self, internal: AsyncStreamReceiver[RS]):
-        self.__responses = Queue(maxsize=1)
+        self.__responses = Queue(maxsize=100)
         self.__internal = internal
         self.__exc = None
 

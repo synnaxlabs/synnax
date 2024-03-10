@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Channel, TimeRange } from "@synnaxlabs/client";
+import { type alamos } from "@synnaxlabs/alamos";
+import { type Channel, type TimeRange } from "@synnaxlabs/client";
 import { type Series } from "@synnaxlabs/x";
 
 import { Dynamic } from "@/telem/client/cache/dynamic";
@@ -18,12 +19,12 @@ import {
 } from "@/telem/client/cache/static";
 
 export class Cache {
-  channel: Channel;
-  static: Static;
-  dynamic: Dynamic;
+  readonly channel: Channel;
+  readonly static: Static;
+  readonly dynamic: Dynamic;
 
-  constructor(dynamicCap: number, channel: Channel) {
-    this.static = new Static();
+  constructor(dynamicCap: number, channel: Channel, ins: alamos.Instrumentation) {
+    this.static = new Static(ins);
     this.dynamic = new Dynamic(dynamicCap, channel.dataType);
     this.channel = channel;
   }
@@ -32,20 +33,12 @@ export class Cache {
     const { flushed, allocated } = this.dynamic.write(series);
     // Buffers that have been flushed out of the dynamic cache are written to the
     // static cache.
-    if (flushed.length > 0) {
-      this.static.write(
-        new TimeRange(
-          flushed[0].timeRange.start,
-          flushed[flushed.length - 1].timeRange.end,
-        ),
-        flushed,
-      );
-    }
+    if (flushed.length > 0) this.static.write(flushed);
     return allocated;
   }
 
-  writeStatic(tr: TimeRange, series: Series[]): void {
-    this.static.write(tr, series);
+  writeStatic(series: Series[]): void {
+    this.static.write(series);
   }
 
   dirtyRead(tr: TimeRange): DirtyReadResult {

@@ -46,14 +46,18 @@ func (g *GRPCBranch) Serve(ctx BranchContext) error {
 	return filterCloserError(g.server.Serve(ctx.Lis))
 }
 
-// Stop implements Branch.
-func (g *GRPCBranch) Stop() { g.server.GracefulStop() }
+// Stop implements Branch. Stop is safe to call even if Serve has not been called.
+func (g *GRPCBranch) Stop() {
+	if g.server != nil {
+		g.server.GracefulStop()
+	}
+}
 
 func (g *GRPCBranch) credentials(ctx BranchContext) grpc.ServerOption {
 	if *ctx.Security.Insecure {
 		return grpc.Creds(insecure.NewCredentials())
 	}
-	// If we're running insecure mode, use mux credentials that pass TLS handshake
+	// If we're running in secure mode, use mux credentials that pass TLS handshake
 	// information from the TLS multiplexer to the grpc server, which allows
 	// our services that need mTLS to validate against it.
 	return grpc.Creds(&fgrpc.MuxCredentials{Instrumentation: ctx.Instrumentation})

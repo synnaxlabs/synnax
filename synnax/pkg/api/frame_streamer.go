@@ -27,13 +27,13 @@ type (
 	StreamerStream        = freighter.ServerStream[FrameStreamerRequest, FrameStreamerResponse]
 )
 
-func (s *FrameService) Stream(ctx context.Context, stream StreamerStream) errors.Typed {
+func (s *FrameService) Stream(ctx context.Context, stream StreamerStream) error {
 	streamer, err := s.openStreamer(ctx, stream)
-	if err.Occurred() {
+	if err != nil {
 		return err
 	}
 	var (
-		sCtx, cancel = signal.WithCancel(ctx, signal.WithInstrumentation(s.Instrumentation))
+		sCtx, cancel = signal.WithCancel(ctx, signal.WithInstrumentation(s.Instrumentation.Child("frame_streamer")))
 		receiver     = &freightfluence.Receiver[FrameStreamerRequest]{Receiver: stream}
 		sender       = &freightfluence.TransformSender[FrameStreamerResponse, FrameStreamerResponse]{
 			Sender: freighter.SenderNopCloser[FrameStreamerResponse]{StreamSender: stream},
@@ -53,10 +53,10 @@ func (s *FrameService) Stream(ctx context.Context, stream StreamerStream) errors
 	plumber.MustConnect[FrameStreamerResponse](pipe, "streamer", "sender", 10)
 	plumber.MustConnect[FrameStreamerRequest](pipe, "receiver", "streamer", 10)
 	pipe.Flow(sCtx, confluence.CloseInletsOnExit())
-	return errors.MaybeUnexpected(sCtx.Wait())
+	return sCtx.Wait()
 }
 
-func (s *FrameService) openStreamer(ctx context.Context, stream StreamerStream) (framer.Streamer, errors.Typed) {
+func (s *FrameService) openStreamer(ctx context.Context, stream StreamerStream) (framer.Streamer, error) {
 	req, err := stream.Receive()
 	if err != nil {
 		return nil, errors.Unexpected(err)
@@ -65,5 +65,5 @@ func (s *FrameService) openStreamer(ctx context.Context, stream StreamerStream) 
 		Start: req.Start,
 		Keys:  req.Keys,
 	})
-	return reader, errors.MaybeUnexpected(err)
+	return reader, err
 }

@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Key } from "@/deep/key";
-import { type UnknownRecord } from "@/record";
+import { type Key } from "@/deep/path";
 
-export const deleteD = <T extends UnknownRecord<T>, D extends number = 5>(
+export const deleteD = <T extends any, D extends number = 5>(
   target: T,
   ...keys: Array<Key<T, D>>
 ): T => {

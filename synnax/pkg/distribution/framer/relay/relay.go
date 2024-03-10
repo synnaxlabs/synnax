@@ -36,7 +36,7 @@ var (
 	DefaultConfig                       = Config{}
 )
 
-// Override implements config.Config.
+// Override implements config.Properties.
 func (c Config) Override(other Config) Config {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Transport = override.Nil(c.Transport, other.Transport)
@@ -46,11 +46,11 @@ func (c Config) Override(other Config) Config {
 	return c
 }
 
-// Validate implements config.Config.
+// Validate implements config.Properties.
 func (c Config) Validate() error {
 	v := validate.New("relay")
 	validate.NotNil(v, "Transport", c.Transport)
-	validate.NotNil(v, "HostResolver", c.HostResolver)
+	validate.NotNil(v, "HostProvider", c.HostResolver)
 	validate.NotNil(v, "TS", c.TS)
 	validate.NotNil(v, "FreeWrites", c.FreeWrites)
 	return v.Error()

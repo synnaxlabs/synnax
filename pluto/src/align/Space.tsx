@@ -51,12 +51,13 @@ export type SpaceElementType =
   | "footer"
   | "button"
   | "dialog"
-  | "a";
+  | "a"
+  | "form";
 
 export interface SpaceExtensionProps {
   empty?: boolean;
   size?: ComponentSize | number;
-  direction?: direction.Direction;
+  direction?: direction.Crude;
   reverse?: boolean;
   justify?: Justification;
   align?: Alignment;
@@ -74,6 +75,9 @@ export type SpaceProps<E extends SpaceElementType = "div"> = Omit<
 > &
   SpaceExtensionProps;
 
+export const shouldReverse = (direction: direction.Crude, reverse?: boolean): boolean =>
+  reverse ?? (direction === "right" || direction === "bottom");
+
 const CoreSpace = <E extends SpaceElementType>(
   {
     style,
@@ -84,7 +88,7 @@ const CoreSpace = <E extends SpaceElementType>(
     empty = false,
     size = "medium",
     justify = "start",
-    reverse = false,
+    reverse,
     direction: direction_ = "y",
     wrap = false,
     bordered = false,
@@ -95,6 +99,7 @@ const CoreSpace = <E extends SpaceElementType>(
   ref: ForwardedRef<JSX.IntrinsicElements[E]>,
 ): ReactElement => {
   const dir = direction.construct(direction_);
+  reverse = shouldReverse(direction_, reverse);
 
   let gap: number | string | undefined;
   if (empty) [size, gap] = [0, 0];
@@ -113,7 +118,7 @@ const CoreSpace = <E extends SpaceElementType>(
   if (shrink != null) style.flexShrink = Number(shrink);
 
   return (
-    // @ts-expect-error
+    // @ts-expect-error - TODO: fix generic element props
     <Generic.Element<E>
       el={el}
       ref={ref}

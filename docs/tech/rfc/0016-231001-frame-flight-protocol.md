@@ -19,7 +19,7 @@ array that can be unpacked at the receiver, and thus recreate the frame.
 # 1 - Vocabulary
 
 **Frame** - Data structure for wrapping primitive arrays with identifying
-meta-data into aligned arrays that streamline the telemetry transfer process. </b>
+metadata into aligned arrays that streamline the telemetry transfer process. </b>
 **Telemetry** - Data samples received from sensors and sent to actuators; typically
 stored on Synnax server. More details available [here](../../../pluto). </b>
 **Series** - A strongly typed collection of telemetry samples over a time range. The
@@ -42,7 +42,7 @@ meet the various demands of Synnax.
 ## 5.0 - Dynamic Analysis of Algorithm
 
 Within the frame data structure, the idea is to find information that could be sent in a
-header, or in meta-data only packet at initialization. These specific similarities were
+header, or in metadata only packet at initialization. These specific similarities were
 chosen to compress because when sending telemetry, the common case would normally send
 the same amount of data on all channels, and would all sample within the same time range.
 Therefore, the important things to test for are

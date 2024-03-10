@@ -21,5 +21,5 @@ var ctx = context.Background()
 
 func TestAuth(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "authenticator Suite")
+	RunSpecs(t, "Authenticator Suite")
 }

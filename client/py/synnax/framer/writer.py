@@ -57,14 +57,14 @@ class _Request(Payload):
 class _Response(Payload):
     command: _Command
     ack: bool
-    error: ExceptionPayload | None
+    error: str | None
     end: TimeStamp | None
 
 
 class Writer:
     """CoreWriter is used to write a range of telemetry to a set of channels in time
     order. It should not be instantiated directly, and should instead be created using
-    the frame py.
+    the Synnax client.
 
     The writer is a streaming protocol that is heavily optimized for performance. This
     comes at the cost of increased complexity, and should only be used directly when

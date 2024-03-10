@@ -53,14 +53,14 @@ export const Aggregator = Aether.wrap<AggregatorProps>(
 
     if (maxHistory != null && statuses.length > maxHistory) {
       const slice = Math.floor(maxHistory * 0.9);
-      setState((state) => ({ ...state, statuses: statuses.slice(slice) }));
+      setState((state) => ({ ...state, statuses: statuses.slice(0, slice) }));
     }
 
     const handleAdd: ContextValue["add"] = useCallback(
       (status) => {
         const t = TimeStamp.now();
         const spec: status.Spec = { time: t, key: t.toString(), ...status };
-        setState((state) => ({ ...state, statuses: [...state.statuses, spec] }));
+        setState((state) => ({ ...state, statuses: [spec, ...state.statuses] }));
       },
       [setState],
     );
@@ -107,7 +107,11 @@ export const useNotifications = (
 
   const filtered = statuses.filter((status) => {
     const new_ = status.time.after(threshold);
-    if (new_) setTimeout(() => setThreshold(status.time), expiration.milliseconds);
+    if (new_)
+      setTimeout(
+        () => setThreshold((p) => (status.time.after(p) ? status.time : p)),
+        expiration.milliseconds,
+      );
     return new_ && !silenced.includes(status.key);
   });
 

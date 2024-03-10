@@ -94,7 +94,7 @@ export const Provider = Aether.wrap<ProviderProps>(
     if (theme == null || toggleTheme == null || setTheme == null) {
       ret = useProvider({
         themes: theming.themes,
-        defaultTheme: "synnaxLight",
+        defaultTheme: "synnaxDark",
       });
     } else {
       ret = {

@@ -19,10 +19,28 @@
         }
     }
 
-    .console-notifications {
-        & > .pluto-space {
-            height: 6rem;
-            padding: 1rem;
+    
+}
+
+.console-notifications {
+    .console-notification {
+        padding: 1rem;
+        &:not(:last-child) {
+            border-bottom: var(--pluto-border);
+        }
+        border-color: var(--pluto-gray-l3);
+
+        & .console-notification__message {
+            font-weight: 450;
+        }
+
+        & .console-notification__time {
+            color: var(--pluto-gray-l7);
+            font-weight: 450;
+        }
+
+        & .console-notification__description {
+            color: var(--pluto-gray-l8);
         }
     }
 }
@@ -38,7 +56,7 @@
     border-left: 2px var(--pluto-primary-z) solid !important;
 }
 
-.console-palette input.pluto-haul-drop-region {
-    background: var(--haul-l0) !important;
+.console-palette__input.pluto-haul-drop-region .pluto-input__internal {
+    background: var(--haul-background) !important;
     border-color: var(--haul-border-color) !important;
 }

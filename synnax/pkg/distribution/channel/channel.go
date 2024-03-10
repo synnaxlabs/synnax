@@ -62,8 +62,6 @@ func (c Key) Bytes() []byte {
 	return b
 }
 
-const strKeySep = "-"
-
 // String implements fmt.Stringer.
 func (c Key) String() string { return strconv.Itoa(int(c)) }
 
@@ -110,7 +108,7 @@ func KeysFromOntologyIDs(ids []ontology.ID) (keys Keys, err error) {
 func (k Keys) Storage() []ts.ChannelKey { return k.Uint32() }
 
 // Uint32 converts the Keys to a slice of uint32.
-func (k Keys) Uint32() []uint32 { return unsafe.ConvertSlice[Key, uint32](k) }
+func (k Keys) Uint32() []uint32 { return unsafe.ReinterpretSlice[Key, uint32](k) }
 
 // UniqueNodeKeys returns a slice of all UNIQUE node Keys for the given keys.
 func (k Keys) UniqueNodeKeys() (keys []core.NodeKey) {

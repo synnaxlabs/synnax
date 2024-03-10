@@ -8,12 +8,9 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/hooks/useClickOutside";
-export * from "@/hooks/useSearch";
+export * from "@/hooks/useFilter";
 export * from "@/hooks/useTransforms";
-export * from "@/memo/useMemoCompare";
-export * from "@/hooks/useAsyncEffect";
-export * from "@/hooks/useSize";
+export * from "@/hooks/effect";
+export * from "@/hooks/useResize";
 export * from "@/hooks/useDebouncedCallback";
-export * from "@/hooks/useSyncedRef";
-export * from "@/hooks/useStateRef";
-export * from "@/hooks/useCombinedStateAndRef";
+export * from "@/hooks/ref";

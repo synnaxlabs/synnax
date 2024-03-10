@@ -83,12 +83,12 @@ class Frame:
     def __init__(
         self,
         columns_or_data: ChannelKeys
-        | ChannelNames
-        | DataFrame
-        | Frame
-        | FramePayload
-        | dict[ChannelKey, TypedCrudeSeries]
-        | None = None,
+                         | ChannelNames
+                         | DataFrame
+                         | Frame
+                         | FramePayload
+                         | dict[ChannelKey, TypedCrudeSeries]
+                         | None = None,
         series: list[TypedCrudeSeries] | None = None,
     ):
         if isinstance(columns_or_data, Frame):

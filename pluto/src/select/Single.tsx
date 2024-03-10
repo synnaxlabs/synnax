@@ -13,41 +13,44 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from "react";
 
 import {
   type AsyncTermSearcher,
   type Key,
-  type KeyedRenderableRecord,
   primitiveIsZero,
+  type Keyed,
 } from "@synnaxlabs/x";
 
-import { Align } from "@/align";
 import { CSS } from "@/css";
 import { Dropdown } from "@/dropdown";
 import { useAsyncEffect } from "@/hooks";
-import { type UseSelectMultipleProps } from "@/hooks/useSelectMultiple";
 import { Input } from "@/input";
 import { List as CoreList } from "@/list";
+import {
+  selectValueIsZero,
+  type UseSelectSingleProps,
+  type UseSelectOnChangeExtra,
+} from "@/list/useSelect";
 import { ClearButton } from "@/select/ClearButton";
-import { List } from "@/select/List";
+import { Core } from "@/select/List";
 
 import "@/select/Single.css";
 
-export interface SingleProps<
-  K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
-> extends Omit<Dropdown.DialogProps, "onChange" | "visible" | "children">,
-    Input.Control<K>,
+export interface SingleProps<K extends Key, E extends Keyed<K>>
+  extends Omit<
+      Dropdown.DialogProps,
+      "onChange" | "visible" | "children" | "variant" | "close"
+    >,
+    Omit<UseSelectSingleProps<K, E>, "data" | "allowMultiple">,
     Omit<CoreList.ListProps<K, E>, "children">,
-    Pick<Input.TextProps, "variant"> {
+    Pick<Input.TextProps, "variant" | "disabled"> {
   tagKey?: keyof E | ((e: E) => string | number);
   columns?: Array<CoreList.ColumnSpec<K, E>>;
   inputProps?: Omit<Input.TextProps, "onChange">;
   searcher?: AsyncTermSearcher<string, K, E>;
-  allowClear?: boolean;
+  hideColumnHeader?: boolean;
 }
 
 /**
@@ -67,10 +70,7 @@ export interface SingleProps<
  * @param props.onChange - The callback to be invoked when the selected value changes.
  * @param props.value - The currently selected value.
  */
-export const Single = <
-  K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
->({
+export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   onChange,
   value,
   tagKey = "key",
@@ -78,40 +78,38 @@ export const Single = <
   data,
   emptyContent,
   inputProps,
-  allowClear = true,
+  allowNone,
   searcher,
   className,
   variant,
+  hideColumnHeader = false,
+  disabled,
   ...props
 }: SingleProps<K, E>): ReactElement => {
-  const { ref, visible, open, close } = Dropdown.use();
-  const initialValue = useRef<K>(value);
+  const { visible, open, close } = Dropdown.use();
   const [selected, setSelected] = useState<E | null>(null);
   const searchMode = searcher != null;
 
+  // This hook runs to make sure we have the selected entry populated when the value
+  // changes externally.
   useAsyncEffect(async () => {
-    if (searcher == null || selected?.key === value || primitiveIsZero(value)) return;
-    const [e] = await searcher.retrieve([value]);
-    setSelected(e ?? null);
+    if (selected?.key === value) return;
+    if (selectValueIsZero(value)) return setSelected(null);
+    let nextSelected: E | null = null;
+    if (searchMode) {
+      const [e] = await searcher.retrieve([value]);
+      nextSelected = e ?? null;
+    } else if (data != null) nextSelected = data.find((e) => e.key === value) ?? null;
+    setSelected(nextSelected);
   }, [searcher, value]);
 
-  useEffect(() => {
-    if (selected?.key === value) return;
-    setSelected(data?.find((e) => e.key === value) ?? null);
-  }, [value]);
-
-  const handleChange: UseSelectMultipleProps<K, E>["onChange"] = useCallback(
-    ([v], e): void => {
+  const handleChange = useCallback<UseSelectSingleProps<K, E>["onChange"]>(
+    (v: K, e: UseSelectOnChangeExtra<K, E>): void => {
+      setSelected(v == null ? null : e.entries[0]);
       close();
-      if (v == null) {
-        if (!allowClear) return;
-        setSelected(null);
-        return onChange(initialValue.current);
-      }
-      setSelected(e.entries[0]);
-      onChange(v);
+      onChange(v, e);
     },
-    [onChange, allowClear],
+    [onChange, allowNone],
   );
 
   const InputWrapper = useMemo(
@@ -120,63 +118,62 @@ export const Single = <
   );
 
   return (
-    <CoreList.List data={data} emptyContent={emptyContent}>
-      <Dropdown.Dialog
-        ref={ref}
-        visible={visible}
-        className={CSS.B("select")}
-        matchTriggerWidth
-        {...props}
-      >
-        <InputWrapper searcher={searcher}>
-          {({ onChange }) => (
-            <SingleInput
-              variant={variant}
-              onChange={onChange}
-              onFocus={open}
-              selected={selected}
-              tagKey={tagKey}
-              visible={visible}
-              allowClear={allowClear}
-              className={className}
-            />
-          )}
-        </InputWrapper>
-        <List<K, E>
-          visible={visible}
-          value={[value]}
-          onChange={handleChange}
-          allowMultiple={false}
-          columns={columns}
-        />
-      </Dropdown.Dialog>
-    </CoreList.List>
+    <Core<K, E>
+      close={close}
+      open={open}
+      data={data}
+      emtpyContent={emptyContent}
+      allowMultiple={false}
+      visible={visible}
+      value={value}
+      hideColumnHeader={hideColumnHeader}
+      onChange={handleChange}
+      allowNone={allowNone}
+      columns={columns}
+      {...props}
+    >
+      <InputWrapper<K, E> searcher={searcher}>
+        {({ onChange }) => (
+          <SingleInput<K, E>
+            variant={variant}
+            onChange={onChange}
+            onFocus={open}
+            selected={selected}
+            tagKey={tagKey}
+            visible={visible}
+            allowNone={allowNone}
+            className={className}
+            disabled={disabled}
+          />
+        )}
+      </InputWrapper>
+    </Core>
   );
 };
 
-export interface SelectInputProps<K extends Key, E extends KeyedRenderableRecord<K, E>>
-  extends Omit<Input.TextProps, "value"> {
+export interface SelectInputProps<K extends Key, E extends Keyed<K>>
+  extends Omit<Input.TextProps, "value" | "onFocus"> {
   tagKey: keyof E | ((e: E) => string | number);
   selected: E | null;
   visible: boolean;
   debounceSearch?: number;
-  allowClear?: boolean;
+  allowNone?: boolean;
+  onFocus: () => void;
 }
 
-const SingleInput = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
+const SingleInput = <K extends Key, E extends Keyed<K>>({
   tagKey,
   selected,
   visible,
   onChange,
   onFocus,
-  allowClear = true,
+  allowNone = true,
   debounceSearch = 250,
+  placeholder = "Select...",
   className,
   ...props
 }: SelectInputProps<K, E>): ReactElement => {
-  const {
-    select: { clear },
-  } = CoreList.useContext();
+  const { clear } = CoreList.useSelectionUtils();
   // We maintain our own value state for two reasons:
   //
   //  1. So we can avoid executing a search when the user selects an item and hides the
@@ -203,7 +200,13 @@ const SingleInput = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
 
   const handleFocus: FocusEventHandler<HTMLInputElement> = (e) => {
     setInternalValue("");
-    onFocus?.(e);
+    onFocus?.();
+  };
+
+  const handleClick: React.MouseEventHandler<HTMLInputElement> = (e) => {
+    if (visible) return;
+    e.preventDefault();
+    onFocus?.();
   };
 
   const handleClear = (): void => {
@@ -211,25 +214,18 @@ const SingleInput = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
     clear?.();
   };
 
-  const input = (
+  return (
     <Input.Text
-      className={CSS.BE("select", "input")}
+      className={CSS(CSS.BE("select", "input"), className)}
       value={internalValue}
       onChange={handleChange}
       onFocus={handleFocus}
       style={{ flexGrow: 1 }}
+      onClick={handleClick}
+      placeholder={placeholder}
       {...props}
-    />
+    >
+      {allowNone && <ClearButton onClick={handleClear} />}
+    </Input.Text>
   );
-
-  if (allowClear) {
-    return (
-      <Align.Pack direction="x" className={CSS(className, CSS.B("select-input"))}>
-        {input}
-        <ClearButton onClick={handleClear} />
-      </Align.Pack>
-    );
-  }
-
-  return input;
 };

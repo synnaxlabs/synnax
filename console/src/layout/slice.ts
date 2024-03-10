@@ -12,7 +12,7 @@ import type { PayloadAction } from "@reduxjs/toolkit";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { Haul, Mosaic, Theming } from "@synnaxlabs/pluto";
 import { type deep, type location } from "@synnaxlabs/x";
-import { nanoid } from "nanoid";
+import { nanoid } from "nanoid/non-secure";
 
 import { type LayoutState } from "@/layout/layout";
 

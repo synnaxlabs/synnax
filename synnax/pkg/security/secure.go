@@ -77,6 +77,7 @@ func (p *secureProvider) TLS() *tls.Config {
 		GetClientCertificate: p.getClientCert,
 		CipherSuites:         defaultCipherSuites,
 		MinVersion:           tls.VersionTLS10,
+		NextProtos:           []string{"http/1.1", "h2"},
 	}
 }
 
