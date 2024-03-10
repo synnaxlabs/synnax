@@ -119,6 +119,7 @@ func (c Config) toStorage() ts.WriterConfig {
 		Channels:       c.Keys.Storage(),
 		Start:          c.Start,
 		Authorities:    c.Authorities,
+		Mode:           c.Mode,
 	}
 }
 

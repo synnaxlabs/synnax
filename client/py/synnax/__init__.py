@@ -23,7 +23,7 @@ from synnax.exceptions import (
     UnexpectedError,
     ValidationError,
 )
-from synnax.framer import BufferedWriter, Frame, Iterator, Streamer, Writer
+from synnax.framer import BufferedWriter, Frame, Iterator, Streamer, Writer, WriterMode
 from synnax.options import SynnaxOptions
 from synnax.ranger import Range
 from synnax.synnax import Synnax

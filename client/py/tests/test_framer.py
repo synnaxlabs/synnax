@@ -42,6 +42,7 @@ class TestChannelWriteRead:
 @pytest.mark.writer
 class TestWriter:
     def test_basic_write(self, channel: sy.Channel, client: sy.Synnax):
+        """Should write data to the Synnax database"""
         with client.new_writer(0, channel.key) as w:
             data = np.random.rand(10).astype(np.float64)
             w.write(pd.DataFrame({channel.key: data}))
@@ -49,9 +50,10 @@ class TestWriter:
             w.commit()
 
     def test_write_by_name(self, channel: sy.Channel, client: sy.Synnax):
+        """Should write data by name to the Synnax cluster"""
         with client.new_writer(0, channel.name) as w:
             data = np.random.rand(10).astype(np.float64)
-            w.write(pd.DataFrame({channel.key: data}))
+            w.write(pd.DataFrame({channel.name: data}))
             w.commit()
 
     def test_write_frame_unknown_channel_name(
@@ -59,6 +61,7 @@ class TestWriter:
         channel: sy.Channel,
         client: sy.Synnax,
     ):
+        """Should throw a validation error when writing to an unknown channel"""
         with client.new_writer(0, channel.key) as w:
             data = np.random.rand(10).astype(np.float64)
             with pytest.raises(sy.ValidationError):
@@ -69,27 +72,47 @@ class TestWriter:
         channel: sy.Channel,
         client: sy.Synnax,
     ):
+        """Should throw a validation error when writing an unknown frame by key"""
         with client.new_writer(0, channel.key) as w:
             data = np.random.rand(10).astype(np.float64)
             with pytest.raises(sy.ValidationError):
                 w.write(pd.DataFrame({123: data}))
 
-    @pytest.mark.focus
     def test_write_frame_idx_no_timestamps(
         self,
         indexed_pair: tuple[sy.Channel, sy.Channel],
         client: sy.Synnax,
     ):
+        """Should throw a validation error on close when writing an indexed frame
+        w/o the correct timing
+        """
         [idx, data_ch] = indexed_pair
         with pytest.raises(sy.ValidationError):
             with client.new_writer(0, [idx.key, data_ch.key]) as w:
                 data = np.random.rand(10).astype(np.float64)
                 w.write(pd.DataFrame({data_ch.key: data}))
 
+    @pytest.mark.focus
+    @pytest.mark.asyncio
+    async def test_write_persist_only_mode(
+        self,
+        channel: sy.Channel,
+        client: sy.Synnax,
+    ):
+        """Should not stream written data"""
+        with client.new_writer(0, channel.key, mode=sy.WriterMode.PERSIST_ONLY) as w:
+            async with await client.new_async_streamer(channel.key) as s:
+                data = np.random.rand(10).astype(np.float64)
+                w.write(pd.DataFrame({channel.key: data}))
+                with pytest.raises(TimeoutError):
+                    async with asyncio.timeout(0.2):
+                        await s.read()
+
 
 @pytest.mark.framer
 class TestStreamer:
     def test_basic_stream(self, channel: sy.Channel, client: sy.Synnax):
+        """Should correctly stream data for a channel"""
         with client.new_streamer(channel.key) as s:
             with client.new_writer(sy.TimeStamp.now(), channel.key) as w:
                 data = np.random.rand(10).astype(np.float64)
