@@ -2,8 +2,6 @@ name: Publish PyPI Packages
 
 on:
   push:
-    branches:
-      main
   workflow_dispatch:
 
 jobs:
