@@ -27,16 +27,17 @@ var _ = Describe("Ontology", Ordered, func() {
 		db      *gorp.DB
 		svc     *user.Service
 		userKey uuid.UUID
+		otg     *ontology.Ontology
 	)
 	BeforeAll(func() {
 		userKey = uuid.New()
 		db = gorp.Wrap(memkv.New())
-		otg, err := ontology.Open(ctx, ontology.Config{DB: db})
-		Expect(err).To(BeNil())
+		otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
 		g := MustSucceed(group.OpenService(group.Config{DB: db, Ontology: otg}))
 		svc = MustSucceed(user.NewService(ctx, user.Config{DB: db, Ontology: otg, Group: g}))
 	})
 	AfterAll(func() {
+		Expect(otg.Close()).To(Succeed())
 		Expect(db.Close()).To(Succeed())
 	})
 	Describe("Schema", func() {
