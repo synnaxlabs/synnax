@@ -39,7 +39,7 @@ type streamImplementation interface {
 
 var streamImplementations = []streamImplementation{
 	&httpStreamImplementation{},
-	//&mockStreamImplementation{},
+	&mockStreamImplementation{},
 }
 
 var _ = Describe("Stream", Ordered, Serial, func() {
@@ -301,6 +301,7 @@ func (impl *httpStreamImplementation) start(
 	server := fhttp.StreamServer[request, response](router, "/")
 	router.BindTo(impl.app)
 	go func() {
+		defer GinkgoRecover()
 		Expect(impl.app.Listen(host.PortString())).To(Succeed())
 	}()
 	Eventually(func(g Gomega) {
