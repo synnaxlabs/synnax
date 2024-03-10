@@ -2,26 +2,13 @@ name: Publish PyPI Packages
 
 on:
   push:
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
   publish:
     runs-on: ubuntu-latest
-    # There are three relevant directories:
-    # client/py
-    # freighter/py
-    # alamos/py
-    # These are the dependencies
-    # client/py -> freighter/py and alamos/py
-    # freighter/py -> alamos/py
-    # alamos/py -> None
-    # we use poetry for dependency management and use relative paths to specify these mono-repo dependencies
-    # in development. In order to publish to PyPI, we need to replace these relative paths with the actual
-    # package versions. This is done by the following steps:
-    # Get the latest versions for each package by reading the pyproject.toml files
-    # Replace the relative paths with the actual package versions
-    # Publish the packages to PyPI
-
     steps:
       - name: Checkout
         uses: actions/checkout@v2
