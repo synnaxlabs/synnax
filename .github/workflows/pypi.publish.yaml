@@ -53,6 +53,8 @@ jobs:
           cd ../../freighter/py
           sed -i -E "/^\[tool\.poetry\.dependencies\]$/,/^\[.*\]$/ s/alamos = .*/alamos = \"^$ALAMOS_VERSION\"/" pyproject.toml
 
+          poetry config pypi-token.pypi ${{ secrets.PYPI_TOKEN }}
+
           cd ../../alamos/py
           echo "Updating alamos version to $ALAMOS_VERSION"
           echo "Locking alamos dependencies"
