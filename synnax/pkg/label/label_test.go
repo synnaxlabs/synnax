@@ -29,11 +29,12 @@ var _ = Describe("Label", Ordered, func() {
 		db  *gorp.DB
 		svc *label.Service
 		w   label.Writer
+		otg *ontology.Ontology
 		tx  gorp.Tx
 	)
 	BeforeAll(func() {
 		db = gorp.Wrap(memkv.New())
-		otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
+		otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
 		g := MustSucceed(group.OpenService(group.Config{DB: db, Ontology: otg}))
 		svc = MustSucceed(label.OpenService(ctx, label.Config{
 			DB:       db,
@@ -42,6 +43,7 @@ var _ = Describe("Label", Ordered, func() {
 		}))
 	})
 	AfterAll(func() {
+		Expect(otg.Close()).To(Succeed())
 		Expect(db.Close()).To(Succeed())
 	})
 	BeforeEach(func() {

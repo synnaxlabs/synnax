@@ -250,7 +250,8 @@ func (s *streamServer[RQ, RS]) fiberHandler(c *fiber.Ctx) error {
 		return fiber.ErrUpgradeRequired
 	}
 	iMD := parseRequestCtx(c, address.Address(s.path))
-	ecd, err := httputil.DetermineEncoderDecoder(iMD.Params.GetDefault(fiber.HeaderContentType, "").(string))
+	headerContentType := iMD.Params.GetDefault(fiber.HeaderContentType, "").(string)
+	ecd, err := httputil.DetermineEncoderDecoder(headerContentType)
 	if err != nil {
 		// If we can't determine the encoder/decoder, we can't continue, so we sent a best effort string.
 		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
