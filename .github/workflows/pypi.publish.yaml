@@ -71,7 +71,7 @@ jobs:
             echo "Locking freighter dependencies"
             # wait until this command exits with 0
             poetry lock -n && break
-            poetry cache clear --all -n
+            poetry cache clear --all -n .
             echo "Failed to lock dependencies, retrying in 1 seconds"
             sleep 1
           done
@@ -86,7 +86,7 @@ jobs:
             echo "Locking client dependencies"
             # wait until this command exits with 0
             poetry lock -n && break
-            poetry cache clear --all -n
+            poetry cache clear --all -n .
             echo "Failed to lock dependencies, retrying in 1 seconds"
             sleep 1
           done
