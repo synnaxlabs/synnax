@@ -250,11 +250,8 @@ func (s *streamServer[RQ, RS]) fiberHandler(c *fiber.Ctx) error {
 		return fiber.ErrUpgradeRequired
 	}
 	iMD := parseRequestCtx(c, address.Address(s.path))
-	headerContentType := iMD.Params.GetDefault(fiber.HeaderContentType, "").([]string)
-	if len(headerContentType) == 0 {
-		c.Status(fiber.StatusBadRequest).SendString("missing content-type header")
-	}
-	ecd, err := httputil.DetermineEncoderDecoder(headerContentType[0])
+	headerContentType := iMD.Params.GetDefault(fiber.HeaderContentType, "").(string)
+	ecd, err := httputil.DetermineEncoderDecoder(headerContentType)
 	if err != nil {
 		// If we can't determin the encoder/decoder, we can't continue, so we sent a best effort string.
 		return c.Status(fiber.StatusBadRequest).SendString(err.Error())

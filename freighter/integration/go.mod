@@ -52,6 +52,7 @@ require (
 	github.com/rogpeppe/go-internal v1.12.0 // indirect
 	github.com/samber/lo v1.39.0 // indirect
 	github.com/savsgio/gotils v0.0.0-20240303185622-093b76447511 // indirect
+	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/synnaxlabs/alamos v0.0.0-00010101000000-000000000000 // indirect
 	github.com/uptrace/uptrace-go v1.23.1 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
