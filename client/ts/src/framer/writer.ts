@@ -178,9 +178,10 @@ export class Writer {
     data?: NativeTypedArray,
   ): Promise<boolean> {
     const isKeyOrName = ["string", "number"].includes(typeof frame);
-    if (isKeyOrName) 
+    if (isKeyOrName)
       frame = new Frame(frame, new Series({ data: data as NativeTypedArray }));
     frame = this.adapter.adapt(new Frame(frame));
+    // @ts-expect-error
     this.stream.send({ command: Command.Write, frame: frame.toPayload() });
     return true;
   }
