@@ -63,8 +63,8 @@ func (idx *index) insert(ctx context.Context, p pointer) error {
 func (idx *index) insertTombstone(ctx context.Context, p pointer) {
 	_, span := idx.T.Bench(ctx, "insert tombstone")
 	defer span.End()
-	idx.mu.Unlock()
-	defer idx.mu.Lock()
+	idx.mu.Lock()
+	defer idx.mu.Unlock()
 
 	if idx.mu.tombstones == nil {
 		idx.mu.tombstones = make(map[uint16][]pointer)
