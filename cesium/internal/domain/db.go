@@ -140,6 +140,23 @@ func (db *DB) NewIterator(cfg IteratorConfig) *Iterator {
 	return i
 }
 
+func (db *DB) NewLockedIterator(cfg IteratorConfig) *LockedIterator {
+	i := &LockedIterator{
+		Iterator: Iterator{
+			Instrumentation: db.Instrumentation.Child("locked iterator"),
+			idx:             db.idx,
+			readerFactory:   db.newReader,
+		},
+		acquireLock: func() {
+			db.idx.mu.Lock()
+		},
+		relinquishLock: func() { db.idx.mu.Unlock() },
+	}
+	i.acquireLock()
+	i.SetBounds(cfg.Bounds)
+	return i
+}
+
 func (db *DB) GetBounds() (tr telem.TimeRange) {
 	db.idx.mu.RLock()
 	defer db.idx.mu.RUnlock()
@@ -151,7 +168,7 @@ func (db *DB) GetBounds() (tr telem.TimeRange) {
 	return tr
 }
 
-// Note that tr is ONLY used to set the tombstone information and is NOT used to find the pointers needed
+// Delete tombstones all pointers ranging from [db.get(startPosition).start + startOffset, db.get(endPosition).end - endOffset)
 func (db *DB) Delete(ctx context.Context, startPosition int, endPosition int, startOffset int64, endOffset int64, tr telem.TimeRange) error {
 	db.idx.mu.RLock()
 	start, ok := db.idx.get(startPosition)

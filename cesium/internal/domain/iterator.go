@@ -146,3 +146,18 @@ func (i *Iterator) reload() bool {
 	i.value = ptr
 	return i.valid
 }
+
+type LockedIterator struct {
+	Iterator
+	acquireLock    func()
+	relinquishLock func()
+}
+
+func (i *LockedIterator) Close() error {
+	err := i.Close()
+	if err != nil {
+		return err
+	}
+	i.relinquishLock()
+	return nil
+}
