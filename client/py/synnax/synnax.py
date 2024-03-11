@@ -115,11 +115,13 @@ class Synnax(Client):
             channel_retriever=ch_retriever,
             writer=range_creator,
             retriever=range_retriever,
-            signals=self.signals
+            signals=self.signals,
         )
         self.control = ControlClient(self, ch_retriever)
-        self.hardware = HardwareClient(HardwareWriter(client=self._transport.unary),
-                                       HardwareRetriever(client=self._transport.unary))
+        self.hardware = HardwareClient(
+            HardwareWriter(client=self._transport.unary),
+            HardwareRetriever(client=self._transport.unary),
+        )
 
     def close(self):
         """Shuts down the client and closes all connections. All open iterators or

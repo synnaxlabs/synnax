@@ -28,7 +28,7 @@ from synnax.framer.adapter import ReadFrameAdapter, WriteFrameAdapter
 from synnax.framer.frame import Frame
 from synnax.framer.iterator import Iterator
 from synnax.framer.streamer import AsyncStreamer, Streamer
-from synnax.framer.writer import Writer
+from synnax.framer.writer import Writer, WriterMode
 from synnax.telem import CrudeTimeStamp, Series, TimeRange, TimeStamp
 from synnax.telem.control import Authority, CrudeAuthority
 
@@ -65,6 +65,7 @@ class Client:
         name: str = "",
         strict: bool = False,
         suppress_warnings: bool = False,
+        mode: WriterMode = WriterMode.PERSIST_STREAM,
     ) -> Writer:
         """Opens a new writer on the given channels.
 
@@ -93,6 +94,7 @@ class Client:
             suppress_warnings=suppress_warnings,
             authorities=authorities,
             name=name,
+            mode=mode,
         )
 
     def new_iterator(
@@ -130,7 +132,12 @@ class Client:
         :param data: The telemetry to write to the channel.
         :returns: None.
         """
-        with self.new_writer(start, to, strict=strict) as w:
+        with self.new_writer(
+            start=start,
+            channels=to,
+            strict=strict,
+            mode=WriterMode.PERSIST_ONLY
+        ) as w:
             w.write(to, data)
             ts, ok = w.commit()
             return ts

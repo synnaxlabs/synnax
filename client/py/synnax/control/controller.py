@@ -97,9 +97,11 @@ class Controller:
         self.retriever = retriever
         self.receiver.start()
 
-    def set(self,
-            ch: ChannelKey | ChannelName | dict[ChannelKey | ChannelName, int | float],
-            value: int | float | None = None):
+    def set(
+        self,
+        ch: ChannelKey | ChannelName | dict[ChannelKey | ChannelName, int | float],
+        value: int | float | None = None,
+    ):
         if isinstance(ch, dict):
             values = list(ch.values())
             channels = retrieve_required(self.retriever, list(ch.keys()))

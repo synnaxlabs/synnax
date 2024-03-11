@@ -16,7 +16,7 @@ client = sy.Synnax()
 
 @client.ranges.on_create
 def handle(rng: sy.Range):
-    plt.plot(rng['Time'], rng['Data'])
+    plt.plot(rng["Time"], rng["Data"])
     plt.savefig("range.png")
 
 

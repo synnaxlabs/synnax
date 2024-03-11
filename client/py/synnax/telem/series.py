@@ -94,7 +94,9 @@ class Series(Payload):
         elif isinstance(data, list):
             data_type = data_type or DataType(data)
             if data_type == DataType.JSON:
-                data_ = b"\n".join([json.dumps(d).encode("utf-8") for d in data]) + b"\n"
+                data_ = (
+                    b"\n".join([json.dumps(d).encode("utf-8") for d in data]) + b"\n"
+                )
             elif data_type == DataType.STRING:
                 data_ = b"\n".join([d.encode("utf-8") for d in data]) + b"\n"
             elif data_type == DataType.UUID:
@@ -121,10 +123,12 @@ class Series(Payload):
         https://numpy.org/doc/stable/user/basics.interoperability.html#the-array-method.
         """
         if not self.data_type.has_np:
-            raise ValueError(f"""
+            raise ValueError(
+                f"""
                 [Series] - {self.data_type} does not have a numpy equivalent, so it can't
                 be interpreted as a numpy array.
-                """)
+                """
+            )
 
         if len(args) > 0:
             return np.array(self.__array__(), *args, **kwargs)
@@ -221,8 +225,18 @@ class Series(Payload):
 
 SampleValue = np.number | uuid.UUID | dict | str
 TypedCrudeSeries = Series | pd.Series | np.ndarray
-CrudeSeries = Series | bytes | pd.Series | np.ndarray | list[float] | list[
-    str] | list[dict] | float | int | TimeStamp
+CrudeSeries = (
+    Series
+    | bytes
+    | pd.Series
+    | np.ndarray
+    | list[float]
+    | list[str]
+    | list[dict]
+    | float
+    | int
+    | TimeStamp
+)
 
 
 def elapsed_seconds(d: np.ndarray) -> np.ndarray:

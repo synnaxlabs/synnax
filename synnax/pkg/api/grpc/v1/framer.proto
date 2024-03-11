@@ -46,6 +46,7 @@ message FrameWriterConfig {
     repeated uint32 authorities = 2;
     int64 start = 3;
     ControlSubject control_subject = 4;
+    int32 mode = 5;
 }
 
 message ControlSubject {

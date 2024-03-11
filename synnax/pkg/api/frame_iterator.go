@@ -14,6 +14,7 @@ import (
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/ferrors"
 	"github.com/synnaxlabs/freighter/freightfluence"
+	"github.com/synnaxlabs/synnax/pkg/api/errors"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/x/confluence"
@@ -56,7 +57,7 @@ func (s *FrameService) Iterate(ctx context.Context, stream FrameIteratorStream) 
 	plumber.MustConnect[iterator.Request](pipe, "receiver", "iterator", 1)
 
 	pipe.Flow(sCtx, confluence.CloseInletsOnExit())
-	return sCtx.Wait()
+	return errors.Auto(sCtx.Wait())
 }
 
 func (s *FrameService) openIterator(ctx context.Context, srv FrameIteratorStream) (framer.StreamIterator, error) {

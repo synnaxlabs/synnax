@@ -259,9 +259,9 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 						next freighter.Next,
 					) (freighter.Context, error) {
 						c++
-						oMd, err := next(ctx)
+						oMd, _ := next(ctx)
 						c++
-						return oMd, err
+						return oMd, nil
 					}))
 					ctx, cancel := context.WithCancel(context.TODO())
 					defer cancel()
