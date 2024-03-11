@@ -211,8 +211,8 @@ func (fc *fileController) atDescriptorLimit() bool {
 	fc.writers.RLock()
 	fc.readers.RLock()
 	defer func() {
-		fc.writers.RUnlock()
 		fc.readers.RUnlock()
+		fc.writers.RUnlock()
 	}()
 	return len(fc.readers.open)+len(fc.writers.open) >= fc.MaxDescriptors
 }
