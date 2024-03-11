@@ -20,10 +20,10 @@ client = sy.Synnax(
 
 try:
     with client.control.acquire(
-            name="Press Sequence",
-            write_authorities=[sy.Authority.ABSOLUTE - 1],
-            write=["gse_doc_0", "gse_doc_1"],
-            read=["gse_ai_0"],
+        name="Press Sequence",
+        write_authorities=[sy.Authority.ABSOLUTE - 1],
+        write=["gse_doc_0", "gse_doc_1"],
+        read=["gse_ai_0"],
     ) as auto:
         curr_target = 100
         start = sy.TimeStamp.now()
@@ -31,8 +31,8 @@ try:
         for i in range(5):
             auto["gse_doc_0"] = True
             if auto.wait_until(
-                    lambda c: c.gse_ai_0 > curr_target,
-                    timeout=10 * sy.TimeSpan.SECOND,
+                lambda c: c.gse_ai_0 > curr_target,
+                timeout=10 * sy.TimeSpan.SECOND,
             ):
                 curr_target += 100
                 auto["gse_doc_0"] = False
@@ -45,9 +45,8 @@ try:
             time_range=sy.TimeRange(
                 start=start,
                 end=sy.TimeStamp.now(),
-            )
+            ),
         )
 finally:
     time.sleep(100)
     print("Auto Done")
-

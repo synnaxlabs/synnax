@@ -133,7 +133,6 @@ class RouteError(Exception):
 
 
 def _decode(encoded: freighter.ExceptionPayload) -> Exception | None:
-    print(encoded)
     if not encoded.type.startswith(_FREIGHTER_EXCEPTION_PREFIX):
         return None
 

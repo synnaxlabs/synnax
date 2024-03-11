@@ -115,7 +115,3 @@ class Writer:
         if exc is not None:
             raise exc
         return res
-
-
-
-

@@ -10,8 +10,8 @@
 import { z } from "zod";
 
 export class Authority extends Number {
-  static readonly ABSOLUTE = 255;
-  static readonly DEFAULT = 1;
+  static readonly Absolute = 255;
+  static readonly Default = 1;
 
   static readonly z = z.union([
     z.instanceof(Authority),

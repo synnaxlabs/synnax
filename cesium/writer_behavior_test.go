@@ -111,6 +111,45 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 
 		})
 	})
+	Describe("Stream Only Mode", func() {
+		It("Should not persist data", func() {
+			var (
+				basic1      cesium.ChannelKey = 21
+				basic1Index cesium.ChannelKey = 22
+			)
+			By("Creating a channel")
+			Expect(db.CreateChannel(
+				ctx,
+				cesium.Channel{Key: basic1Index, IsIndex: true, DataType: telem.TimeStampT},
+				cesium.Channel{Key: basic1, Index: basic1Index, DataType: telem.Int64T},
+			)).To(Succeed())
+			w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+				Channels: []cesium.ChannelKey{basic1, basic1Index},
+				Start:    10 * telem.SecondTS,
+				Mode:     cesium.WriterStreamOnly,
+			}))
+
+			By("Writing data to the channel")
+			ok := w.Write(cesium.NewFrame(
+				[]cesium.ChannelKey{basic1Index, basic1},
+				[]telem.Series{
+					telem.NewSecondsTSV(10, 11, 12, 13),
+					telem.NewSeriesV[int64](1, 2, 3, 4),
+				}),
+			)
+			Expect(ok).To(BeTrue())
+			end, ok := w.Commit()
+			Expect(ok).To(BeTrue())
+			Expect(w.Close()).To(Succeed())
+			Expect(end).To(Equal(13*telem.SecondTS + 1))
+
+			By("Reading the data back")
+			frame := MustSucceed(db.Read(ctx, telem.TimeRangeMax, basic1))
+			Expect(frame.Series).To(HaveLen(0))
+			tsFrame := MustSucceed(db.Read(ctx, telem.TimeRangeMax, basic1Index))
+			Expect(tsFrame.Series).To(HaveLen(0))
+		})
+	})
 	Describe("Open Errors", func() {
 		Specify("Channel that does not exist", func() {
 			_, err := db.OpenWriter(
