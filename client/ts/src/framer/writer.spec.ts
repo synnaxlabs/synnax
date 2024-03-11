@@ -17,14 +17,13 @@ import { randomSeries } from "@/util/telem";
 
 const client = newClient();
 
-const newChannel = async (): Promise<channel.Channel> => {
-  return await client.channels.create({
+const newChannel = async (): Promise<channel.Channel> =>
+  await client.channels.create({
     name: "test",
     leaseholder: 1,
     rate: Rate.hz(1),
     dataType: DataType.FLOAT64,
   });
-};
 
 describe("Writer", () => {
   describe("Writer", () => {
@@ -60,6 +59,7 @@ describe("Writer", () => {
       } finally {
         await writer.close();
       }
+      // Simulating a timeout.
       const v = await Promise.race([
         stream.read(),
         new Promise((resolve) => setTimeout(() => resolve(123), 250)),
