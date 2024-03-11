@@ -11,6 +11,7 @@ import { DataType, Rate, TimeRange, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
 import { type channel } from "@/channel";
+import { WriterMode } from "@/framer/writer";
 import { newClient } from "@/setupspecs";
 import { randomSeries } from "@/util/telem";
 
@@ -37,6 +38,33 @@ describe("Writer", () => {
         await writer.close();
       }
       expect(true).toBeTruthy();
+    });
+    test("write to unknown channel key", async () => {
+      const ch = await newChannel();
+      const writer = await client.telem.newWriter({ start: 0, channels: ch.key });
+      await expect(
+        writer.write("billy bob", randomSeries(10, DataType.FLOAT64)),
+      ).rejects.toThrow("Channel billy bob was not provided");
+      await writer.close();
+    });
+    test("stream when mode is set ot persist only", async () => {
+      const ch = await newChannel();
+      const stream = await client.telem.newStreamer(ch.key);
+      const writer = await client.telem.newWriter({
+        start: 0,
+        channels: ch.key,
+        mode: WriterMode.PersistOnly,
+      });
+      try {
+        await writer.write(ch.key, randomSeries(10, ch.dataType));
+      } finally {
+        await writer.close();
+      }
+      const v = await Promise.race([
+        stream.read(),
+        new Promise((resolve) => setTimeout(() => resolve(123), 250)),
+      ]);
+      expect(v).toEqual(123);
     });
   });
   describe("Client", () => {

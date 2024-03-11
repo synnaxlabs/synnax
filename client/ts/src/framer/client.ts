@@ -57,7 +57,7 @@ export class Client {
     channels,
     controlSubject,
     authorities = Authority.Absolute,
-    mode = WriterMode.WriterPersistStream,
+    mode = WriterMode.PersistStream,
   }: WriterConfig): Promise<Writer> {
     return await Writer._open(this.retriever, this.stream, {
       start: start ?? TimeStamp.now(),
@@ -92,7 +92,7 @@ export class Client {
     const w = await this.newWriter({
       start,
       channels: to,
-      mode: WriterMode.WriterPersistOnly,
+      mode: WriterMode.PersistOnly,
     });
     try {
       await w.write(to, data);

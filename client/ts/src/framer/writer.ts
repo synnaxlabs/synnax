@@ -40,9 +40,9 @@ enum Command {
 }
 
 export enum WriterMode {
-  WriterPersistStream = 1,
-  WriterPersistOnly = 2,
-  WriterStreamOnly = 3,
+  PersistStream = 1,
+  PersistOnly = 2,
+  StreamOnly = 3,
 }
 
 const netConfigZ = z.object({
@@ -178,9 +178,8 @@ export class Writer {
     data?: NativeTypedArray,
   ): Promise<boolean> {
     const isKeyOrName = ["string", "number"].includes(typeof frame);
-    if (isKeyOrName) {
+    if (isKeyOrName) 
       frame = new Frame(frame, new Series({ data: data as NativeTypedArray }));
-    }
     frame = this.adapter.adapt(new Frame(frame));
     this.stream.send({ command: Command.Write, frame: frame.toPayload() });
     return true;
