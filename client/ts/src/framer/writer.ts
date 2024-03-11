@@ -168,7 +168,7 @@ export class Writer {
   ): Promise<boolean> {
     const isKeyOrName = ["string", "number"].includes(typeof frame);
     if (isKeyOrName) {
-      frame = new Frame(frame, new Series({data: data as NativeTypedArray}));
+      frame = new Frame(frame, new Series({ data: data as NativeTypedArray }));
     }
     frame = this.adapter.adapt(new Frame(frame));
     // @ts-expect-error
