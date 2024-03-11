@@ -36,13 +36,21 @@ enum Command {
   Commit = 2,
   Error = 3,
   SetAuthority = 4,
+  SetMode = 5,
+}
+
+export enum WriterMode {
+  PersistStream = 1,
+  PersistOnly = 2,
+  StreamOnly = 3,
 }
 
 const netConfigZ = z.object({
   start: TimeStamp.z.optional(),
   controlSubject: controlSubjectZ.optional(),
-  keys: z.number().array(),
+  keys: z.number().array().optional(),
   authorities: Authority.z.array().optional(),
+  mode: z.nativeEnum(WriterMode).optional(),
 });
 
 const reqZ = z.object({
@@ -66,6 +74,7 @@ export interface WriterConfig {
   channels: Params;
   controlSubject?: ControlSubject;
   authorities?: Authority | Authority[];
+  mode?: WriterMode;
 }
 
 /**
@@ -124,9 +133,10 @@ export class Writer {
     client: StreamClient,
     {
       channels,
-      authorities = Authority.ABSOLUTE,
+      authorities = Authority.Absolute,
       controlSubject: subject,
       start,
+      mode,
     }: WriterConfig,
   ): Promise<Writer> {
     const adapter = await ForwardFrameAdapter.open(retriever, channels);
@@ -139,6 +149,7 @@ export class Writer {
         keys: adapter.keys,
         controlSubject: subject,
         authorities: toArray(authorities),
+        mode,
       },
     });
     return writer;
@@ -167,11 +178,9 @@ export class Writer {
     data?: NativeTypedArray,
   ): Promise<boolean> {
     const isKeyOrName = ["string", "number"].includes(typeof frame);
-    if (isKeyOrName) {
+    if (isKeyOrName) 
       frame = new Frame(frame, new Series({ data: data as NativeTypedArray }));
-    }
     frame = this.adapter.adapt(new Frame(frame));
-    // @ts-expect-error
     this.stream.send({ command: Command.Write, frame: frame.toPayload() });
     return true;
   }
@@ -183,6 +192,14 @@ export class Writer {
         keys: Object.keys(value).map((k) => Number(k)),
         authorities: Object.values(value),
       },
+    });
+    return res.ack;
+  }
+
+  async setMode(mode: WriterMode): Promise<boolean> {
+    const res = await this.execute({
+      command: Command.SetMode,
+      config: { mode },
     });
     return res.ack;
   }
@@ -221,7 +238,6 @@ export class Writer {
   }
 
   async execute(req: Request): Promise<Response> {
-    // @ts-expect-error
     this.stream.send(req);
     while (true) {
       const res = await this.stream.receive();

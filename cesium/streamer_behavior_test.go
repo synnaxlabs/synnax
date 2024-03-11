@@ -64,9 +64,42 @@ var _ = Describe("Streamer Behavior", Ordered, func() {
 			Expect(w.Close()).To(Succeed())
 		})
 	})
+	Describe("Writer is in WriterPersistOnly mode", func() {
+		It("Should not receive any frames", func() {
+			var basic2 cesium.ChannelKey = 3
+			By("Creating a channel")
+			Expect(db.CreateChannel(
+				ctx,
+				cesium.Channel{Key: basic2, DataType: telem.Int64T, Rate: 1 * telem.Hz},
+			)).To(Succeed())
+			w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+				Channels: []cesium.ChannelKey{basic2},
+				Start:    10 * telem.SecondTS,
+				Mode:     cesium.WriterPersistOnly,
+			}))
+			r := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
+				Channels: []cesium.ChannelKey{basic2},
+			}))
+			i, o := confluence.Attach(r, 1)
+			sCtx, cancel := signal.WithCancel(ctx)
+			defer cancel()
+			r.Flow(sCtx, confluence.CloseInletsOnExit())
+
+			d := telem.NewSeriesV[int64](1, 2, 3)
+			Expect(w.Write(cesium.NewFrame(
+				[]cesium.ChannelKey{basic2},
+				[]telem.Series{d},
+			))).To(BeTrue())
+
+			Consistently(o.Outlet()).ShouldNot(Receive())
+			i.Close()
+			Expect(sCtx.Wait()).To(Succeed())
+			Expect(w.Close()).To(Succeed())
+		})
+	})
 	Describe("Virtual Channels", func() {
 		It("Should describe to written frames for virtual channels", func() {
-			var basic2 cesium.ChannelKey = 2
+			var basic2 cesium.ChannelKey = 4
 			By("Creating a channel")
 			Expect(db.CreateChannel(
 				ctx,

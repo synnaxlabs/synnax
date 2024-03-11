@@ -13,15 +13,13 @@ from warnings import warn
 
 from freighter import (
     EOF,
-    ExceptionPayload,
     Payload,
     Stream,
     StreamClient,
     decode_exception,
 )
 from numpy import can_cast as np_can_cast
-from pandas import DataFrame
-from pandas import concat as pd_concat
+from pandas import DataFrame, concat as pd_concat
 
 from synnax import io
 from synnax.channel.payload import ChannelKey, ChannelKeys, ChannelName, ChannelNames
@@ -39,6 +37,13 @@ class _Command(int, Enum):
     COMMIT = 2
     ERROR = 3
     SET_AUTHORITY = 4
+    SET_MODE = 5
+
+
+class WriterMode(int, Enum):
+    PERSIST_STREAM = 1
+    PERSIST_ONLY = 2
+    STREAM_ONLY = 3
 
 
 class _Config(Payload):
@@ -46,6 +51,7 @@ class _Config(Payload):
     control_subject: Subject
     start: TimeStamp | None = None
     keys: ChannelKeys
+    mode: WriterMode
 
 
 class _Request(Payload):
@@ -106,6 +112,7 @@ class Writer:
     __adapter: WriteFrameAdapter
     __suppress_warnings: bool = False
     __strict: bool = False
+    __mode: WriterMode
 
     start: CrudeTimeStamp
 
@@ -118,11 +125,13 @@ class Writer:
         authorities: list[Authority] | Authority = Authority.ABSOLUTE,
         suppress_warnings: bool = False,
         strict: bool = False,
+        mode: WriterMode = WriterMode.PERSIST_STREAM,
     ) -> None:
         self.start = start
         self.__adapter = adapter
         self.__suppress_warnings = suppress_warnings
         self.__strict = strict
+        self.__mode = mode
         self.__stream = client.stream(self.__ENDPOINT, _Request, _Response)
         self.__open(name, authorities)
 
@@ -136,6 +145,7 @@ class Writer:
             keys=self.__adapter.keys,
             start=TimeStamp(self.start),
             authorities=normalize(authorities),
+            mode=self.__mode,
         )
         self.__stream.send(_Request(command=_Command.OPEN, config=config))
         _, exc = self.__stream.receive()
@@ -144,12 +154,13 @@ class Writer:
 
     def write(
         self,
-        columns_or_data: ChannelName
-        | ChannelKey
-        | ChannelKeys
-        | ChannelNames
-        | Frame
-        | dict[ChannelKey | ChannelName, CrudeSeries],
+        channels_or_data: ChannelName
+                          | ChannelKey
+                          | ChannelKeys
+                          | ChannelNames
+                          | Frame
+                          | dict[ChannelKey | ChannelName, CrudeSeries]
+                          | DataFrame,
         series: CrudeSeries | list[CrudeSeries] | None = None,
     ) -> bool:
         """Writes the given frame to the database. The provided frame must:
@@ -169,7 +180,7 @@ class Writer:
         if self.__stream.received():
             return False
 
-        frame = self.__adapter.adapt(columns_or_data, series)
+        frame = self.__adapter.adapt(channels_or_data, series)
         self.__check_keys(frame)
         self.__prep_data_types(frame)
 
@@ -197,6 +208,22 @@ class Writer:
             if err is not None:
                 raise err
             if res.command == _Command.SET_AUTHORITY:
+                return res.ack
+
+    def set_mode(self, value: WriterMode) -> bool:
+        err = self.__stream.send(
+            _Request(
+                command=_Command.SET_MODE,
+                config=_Config(mode=value),
+            )
+        )
+        if err is not None:
+            raise err
+        while True:
+            res, err = self.__stream.receive()
+            if err is not None:
+                raise err
+            if res.command == _Command.SET_MODE:
                 return res.ack
 
     def commit(self) -> tuple[TimeStamp, bool]:
@@ -242,12 +269,16 @@ class Writer:
         be placed in a 'finally' block.
         """
         self.__stream.close_send()
-        res, err = self.__stream.receive()
-        if err is None:
-            assert res is not None
-            err = decode_exception(res.error)
-        if err is not None and not isinstance(err, EOF):
-            raise err
+        while True:
+            res, err = self.__stream.receive()
+            if err is None:
+                assert res is not None
+                err = decode_exception(res.error)
+
+            if err is not None:
+                if isinstance(err, EOF):
+                    return
+                raise err
 
     def __enter__(self):
         return self

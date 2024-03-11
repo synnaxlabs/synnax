@@ -230,17 +230,19 @@ class RangeClient:
         @functools.wraps(f)
         def wrapper(state: LatestState):
             d = state[RANGE_SET_CHANNEL]
-            f(Range(
-                name=d["name"],
-                key=d["key"],
-                time_range=TimeRange(
-                    start=d["time_range"]["start"],
-                    end=d["time_range"]["end"],
-                ),
-                _frame_client=self.__frame_client,
-                _channel_retriever=self.__channel_retriever,
-                _kv=KV(d["key"], self.__unary_client),
-                _aliaser=Aliaser(d["key"], self.__unary_client),
-            ))
+            f(
+                Range(
+                    name=d["name"],
+                    key=d["key"],
+                    time_range=TimeRange(
+                        start=d["time_range"]["start"],
+                        end=d["time_range"]["end"],
+                    ),
+                    _frame_client=self.__frame_client,
+                    _channel_retriever=self.__channel_retriever,
+                    _kv=KV(d["key"], self.__unary_client),
+                    _aliaser=Aliaser(d["key"], self.__unary_client),
+                )
+            )
 
         return self.__signals.on([RANGE_SET_CHANNEL], lambda s: True)(wrapper)

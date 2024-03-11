@@ -63,7 +63,7 @@ class Retriever:
         res, exc = self.__client.send(
             RETRIEVE_TASK_ENDPOINT,
             _RetrieveTaskRequest(rack=rack, keys=keys),
-            _RetrieveTaskResponse
+            _RetrieveTaskResponse,
         )
         if exc is not None:
             raise exc
@@ -76,7 +76,7 @@ class Retriever:
         res, exc = self.__client.send(
             RETRIEVE_DEVICE_ENDPOINT,
             _RetrieveDeviceRequest(keys=keys),
-            _RetrieveDeviceResponse
+            _RetrieveDeviceResponse,
         )
         if exc is not None:
             raise exc
@@ -89,7 +89,7 @@ class Retriever:
         res, exc = self.__client.send(
             RETRIEVE_RACK_ENDPOINT,
             _RetrieveRackRequest(keys=keys),
-            _RetrieveRackResponse
+            _RetrieveRackResponse,
         )
         if exc is not None:
             raise exc

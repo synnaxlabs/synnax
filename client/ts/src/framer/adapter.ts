@@ -9,6 +9,7 @@
 
 import { type Key, type Name, type Params } from "@/channel/payload";
 import { type Retriever, analyzeParams } from "@/channel/retriever";
+import { ValidationError } from "@/errors";
 import { type Frame } from "@/framer/frame";
 
 export class BackwardFrameAdapter {
@@ -95,22 +96,28 @@ export class ForwardFrameAdapter {
     this.adapter = a;
     normalized.forEach((name) => {
       const channel = fetched.find((channel) => channel.name === name);
-      if (channel == null) throw new Error(`Channel ${name} not found`);
+      if (channel == null) throw new ValidationError(`Channel ${name} was not provided in the list of channels when opening the writer`);
       a.set(channel.name, channel.key);
     });
     this.keys = fetched.map((c) => c.key);
   }
 
   adapt(fr: Frame): Frame {
-    if (this.adapter == null) return fr;
+    if (this.adapter == null) {
+      // assert that every col if of type number
+      fr.columns.forEach((col) => { 
+        if (typeof col !== "number") throw new ValidationError(`Channel ${col} was not provided in the list of channels when opening the writer`);
+      });
+      return fr;
+    }
     const a = this.adapter;
-    return fr.map((k, arr) => {
-      if (typeof k === "string") {
-        const key = a.get(k);
-        if (key == null) throw new Error(`Channel ${k} not found`);
+    return fr.map((col, arr) => {
+      if (typeof col === "string") {
+        const key = a.get(col);
+        if (key == null) throw new Error(`Channel ${col} not found`);
         return [key, arr];
       }
-      return [k, arr];
+      return [col, arr];
     });
   }
 }

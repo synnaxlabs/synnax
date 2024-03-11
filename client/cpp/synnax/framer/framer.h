@@ -32,16 +32,16 @@ using namespace synnax;
 namespace synnax {
 
 /// @brief type alias for streamer network transport stream.
-typedef freighter::Stream<api::v1::FrameStreamerResponse, api::v1::FrameStreamerRequest> StreamerStream;
+typedef freighter::Stream <api::v1::FrameStreamerResponse, api::v1::FrameStreamerRequest> StreamerStream;
 
 /// @brief typ;e alias for frame writer network transport.
-typedef freighter::StreamClient<api::v1::FrameStreamerResponse, api::v1::FrameStreamerRequest> StreamerClient;
+typedef freighter::StreamClient <api::v1::FrameStreamerResponse, api::v1::FrameStreamerRequest> StreamerClient;
 
 /// @brief type alias for writer network transports stream.
-typedef freighter::Stream<api::v1::FrameWriterResponse, api::v1::FrameWriterRequest> WriterStream;
+typedef freighter::Stream <api::v1::FrameWriterResponse, api::v1::FrameWriterRequest> WriterStream;
 
 /// @brief type alias for writer network transport.
-typedef freighter::StreamClient<api::v1::FrameWriterResponse, api::v1::FrameWriterRequest> WriterClient;
+typedef freighter::StreamClient <api::v1::FrameWriterResponse, api::v1::FrameWriterRequest> WriterClient;
 
 
 /// @brief Frame type.
@@ -146,6 +146,12 @@ private:
     friend class FrameClient;
 };
 
+enum WriterMode : uint8_t {
+    WriterPersistStream = 1,
+    WriterPersistOnly = 2,
+    WriterStreamOnly = 3
+};
+
 /// @brief configuration for opening a new Writer. For more information on writers,
 /// see https://docs.synnaxlabs.com/concepts/write-domains.
 class WriterConfig {
@@ -167,6 +173,14 @@ public:
     /// @brief sets identifying information for the writer. The subject's key and name
     /// will be used to identify the writer in control transfer scenarios.
     synnax::Subject subject;
+
+    /// @brief sets whether the writer is configured to persist data, stream it, or both.
+    /// Options are:
+    ///     - WriterPersistStream: persist data and stream it.
+    ///     - WriterPersistOnly: persist data only.
+    ///     - WriterStreamOnly: stream data only.
+    WriterMode mode;
+
 private:
     /// @brief binds the configuration fields to it's protobuf representation.
     void toProto(api::v1::FrameWriterConfig *f) const;
@@ -201,6 +215,15 @@ public:
     /// @returns false if an error occurred in the write pipeline. After an error occurs,
     /// the caller must acknowledge the error by calling error() or close() on the writer.
     bool write(Frame fr);
+
+    /// @brief sets whether the writer is configured to persist data, stream it, or both.
+    /// @param mode the mode to set the writer to. Options are:
+    ///     - WriterPersistStream: persist data and stream it.
+    ///    - WriterPersistOnly: persist data only.
+    ///    - WriterStreamOnly: stream data only.
+    ///
+    bool setMode(WriterMode mode);
+
 
     /// @brief commits all pending writes to the Synnax cluster. Commit can be called
     /// multiple times, committing any new writes made since the last commit.
