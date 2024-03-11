@@ -32,7 +32,7 @@ func (db *DB) DeleteChannel(ch ChannelKey) error {
 				}
 				otherDB := db.unaryDBs[otherDBKey]
 				if otherDB.Channel.Index == udb.Config.Channel.Key {
-					return errors.New("Could not delete index channel with other channels depending on it")
+					return errors.New("[cesium] - could not delete index channel with other channels depending on it")
 				}
 			}
 		}
@@ -69,12 +69,18 @@ func (db *DB) DeleteTimeRange(ctx context.Context, ch ChannelKey, tr telem.TimeR
 	// cannot delete an index channel that other channels rely on
 	if udb.Config.Channel.IsIndex {
 		for otherDBKey := range db.unaryDBs {
-			if otherDBKey == ch {
+			if otherDBKey == ch || db.unaryDBs[otherDBKey].Channel.Index != udb.Config.Channel.Key {
 				continue
 			}
 			otherDB := db.unaryDBs[otherDBKey]
-			if otherDB.Channel.Index == udb.Config.Channel.Key && otherDB.Domain.GetBounds().OverlapsWith(tr) {
-				return errors.New("Could not delete index channel with other channels depending on it")
+			// we must determine whether there is another db that has data in the timerange tr
+			i := otherDB.Domain.NewIterator(domain.IterRange(otherDB.Domain.GetBounds()))
+
+			if i.SeekGE(ctx, tr.Start) && i.TimeRange().OverlapsWith(tr) {
+				return errors.New("[cesium] - could not delete index channel with other channels depending on it")
+			}
+			if i.SeekLE(ctx, tr.End) && i.TimeRange().OverlapsWith(tr) {
+				return errors.New("[cesium] - could not delete index channel with other channels depending on it")
 			}
 		}
 	}
@@ -85,9 +91,11 @@ func (db *DB) DeleteTimeRange(ctx context.Context, ch ChannelKey, tr telem.TimeR
 func (db *DB) GarbageCollect(ctx context.Context, maxsizeRead uint32, maxGoRoutine int64) (collected bool, err error) {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
-	sem := semaphore.NewWeighted(maxGoRoutine)
-	wg := &sync.WaitGroup{}
-	c := errutil.NewCatch(errutil.WithAggregation())
+	var (
+		sem = semaphore.NewWeighted(maxGoRoutine)
+		wg  = &sync.WaitGroup{}
+		c   = errutil.NewCatch(errutil.WithAggregation())
+	)
 
 	for _, udb := range db.unaryDBs {
 		if err = sem.Acquire(ctx, 1); err != nil {
@@ -121,7 +129,7 @@ func (db *DB) AutoGC(ctx context.Context, maxSizeRead uint32, GCInterval time.Du
 		case <-ticker.C:
 			collected, err := db.GarbageCollect(ctx, maxSizeRead, maxGoRoutine)
 			if err != nil {
-				panic(err)
+				db.L.Error(errors.Wrap(err, "[cesium] - GC error").Error())
 			}
 			if collected {
 				collectedTimes += 1
