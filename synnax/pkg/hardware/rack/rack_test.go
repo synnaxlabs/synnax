@@ -78,7 +78,7 @@ var _ = Describe("Rack", Ordered, func() {
 			Expect(res).To(Equal(*r))
 		})
 	})
-	Describe("Delete", func() {
+	Describe("DeleteChannel", func() {
 		It("Should delete a rack by its key", func() {
 			r := &rack.Rack{Name: "rack4"}
 			Expect(w.Create(ctx, r)).To(Succeed())

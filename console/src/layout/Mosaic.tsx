@@ -9,12 +9,20 @@
 
 import { type ReactElement, memo, useCallback } from "react";
 
+import { ontology } from "@synnaxlabs/client";
 import { Logo } from "@synnaxlabs/media";
-import { Mosaic as Core, Eraser, useDebouncedCallback } from "@synnaxlabs/pluto";
+import {
+  Mosaic as Core,
+  Eraser,
+  Synnax,
+  useDebouncedCallback,
+} from "@synnaxlabs/pluto";
 import { type location } from "@synnaxlabs/x";
+import { useStore } from "react-redux";
 
 import { useSyncerDispatch } from "@/hooks/dispatchers";
 import { Content } from "@/layout/Content";
+import { usePlacer } from "@/layout/hooks";
 import { useSelectMosaic } from "@/layout/selectors";
 import {
   moveMosaicTab,
@@ -24,6 +32,9 @@ import {
   selectMosaicTab,
 } from "@/layout/slice";
 import { LinePlot } from "@/lineplot";
+import { SERVICES } from "@/services";
+import { type RootStore } from "@/store";
+import { Vis } from "@/vis";
 import { Workspace } from "@/workspace";
 
 const EmptyContent = (): ReactElement => (
@@ -34,11 +45,13 @@ const EmptyContent = (): ReactElement => (
 
 const emptyContent = <EmptyContent />;
 
-export interface LayoutMosaicProps extends Pick<Core.MosaicProps, "onCreate"> {}
-
 /** LayoutMosaic renders the central layout mosaic of the application. */
-export const Mosaic = memo(({ onCreate }: LayoutMosaicProps): ReactElement => {
+export const Mosaic = memo((): ReactElement => {
   const [windowKey, mosaic] = useSelectMosaic();
+
+  const client = Synnax.use();
+  const store = useStore();
+  const placer = usePlacer();
 
   const syncer = Workspace.useLayoutSyncer();
   const dispatch = useSyncerDispatch(syncer, 1000);
@@ -48,6 +61,31 @@ export const Mosaic = memo(({ onCreate }: LayoutMosaicProps): ReactElement => {
       dispatch(moveMosaicTab({ key, tabKey, loc, windowKey }));
     },
     [dispatch, windowKey],
+  );
+
+  const handleCreate = useCallback(
+    (mosaicKey: number, location: location.Location, tabKeys?: string[]) => {
+      if (tabKeys == null) {
+        placer(Vis.create({ tab: { mosaicKey, location }, location: "mosaic" }));
+        return;
+      }
+      tabKeys.forEach((tabKey) => {
+        const res = ontology.stringIDZ.safeParse(tabKey);
+        if (res.success) {
+          const id = new ontology.ID(res.data);
+          if (client == null) return;
+          SERVICES[id.type].onMosaicDrop?.({
+            client,
+            store: store as RootStore,
+            id,
+            nodeKey: mosaicKey,
+            location,
+            placeLayout: placer,
+          });
+        } else placer(Vis.create({ tab: { mosaicKey, location }, location: "mosaic" }));
+      });
+    },
+    [placer, store, client],
   );
 
   LinePlot.useTriggerHold({
@@ -94,7 +132,7 @@ export const Mosaic = memo(({ onCreate }: LayoutMosaicProps): ReactElement => {
       onResize={handleResize}
       emptyContent={emptyContent}
       onRename={handleRename}
-      onCreate={onCreate}
+      onCreate={handleCreate}
       size="medium"
     >
       {(tab) => <Content key={tab.tabKey} layoutKey={tab.tabKey} />}

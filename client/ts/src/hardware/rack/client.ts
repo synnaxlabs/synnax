@@ -8,14 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { type framer } from "@/framer";
-import { type NewRack, type RackPayload } from "@/hardware/rack/payload";
+import { RackKey, type NewRack, type RackPayload } from "@/hardware/rack/payload";
 import { type Retriever } from "@/hardware/rack/retriever";
 import { type Writer } from "@/hardware/rack/writer";
 import { type NewTask, type Task } from "@/hardware/task/payload";
 import { type Retriever as TaskRetriever } from "@/hardware/task/retriever";
 import { type Writer as TaskWriter } from "@/hardware/task/writer";
+import { AsyncTermSearcher, toArray } from "@synnaxlabs/x";
 
-export class Client {
+export class Client implements AsyncTermSearcher<string, RackKey, Rack> {
   private readonly retriever: Retriever;
   private readonly writer: Writer;
   private readonly frameClient: framer.Client;
@@ -41,8 +42,23 @@ export class Client {
     return this.sugar(res)[0];
   }
 
-  async retrieve(key: number): Promise<Rack> {
-    const res = await this.retriever.retrieve([key]);
+  async search(term: string): Promise<Rack[]> {
+    const res = await this.retriever.search(term);
+    return this.sugar(res);
+  }
+
+  async page(offset: number, limit: number): Promise<Rack[]> {
+    const res = await this.retriever.page(offset, limit);
+    return this.sugar(res);
+  }
+
+  async retrieve(key: RackKey): Promise<Rack>;
+
+  async retrieve(keys: RackKey[]): Promise<Rack[]>;
+
+  async retrieve(key: RackKey | RackKey[]): Promise<Rack | Rack[]> {
+    const res = await this.retriever.retrieve(toArray(key));
+    if (Array.isArray(key)) return this.sugar(res);
     return this.sugar(res)[0];
   }
 

@@ -136,7 +136,7 @@ func Open(ctx context.Context, cfg Config) (d Distribution, err error) {
 	if err != nil {
 		return d, err
 	}
-	c, err := ontologycdc.Propagate(ctx, d.Signals, d.Ontology)
+	c, err := ontologycdc.Publish(ctx, d.Signals, d.Ontology)
 	d.Closers = append(d.Closers, c)
 	return d, err
 }

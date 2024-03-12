@@ -49,7 +49,7 @@ const TABS = [
   },
 ];
 
-export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
+export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const { name } = Layout.useSelectRequired(layoutKey);
   const dispatch = useDispatch();
   const toolbar = useSelectToolbar();

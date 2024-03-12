@@ -16,7 +16,7 @@ export interface MiddlewareEffectArgs<S, LP, DP> {
 }
 
 export type MiddlewareEffect<S, LP, DP = LP> = (
-  args: MiddlewareEffectArgs<S, LP, DP>
+  args: MiddlewareEffectArgs<S, LP, DP>,
 ) => void;
 
 export const dispatchEffect =
@@ -27,11 +27,11 @@ export const dispatchEffect =
 export const effectMiddleware =
   <S, LP, DP>(
     deps: string[],
-    effects: Array<MiddlewareEffect<S, LP, DP>>
-  ): Middleware<Record<string, never>, S, Dispatch<PayloadAction<LP>>> =>
+    effects: Array<MiddlewareEffect<S, LP, DP>>,
+  ): Middleware<Dispatch<PayloadAction<LP>>, S, Dispatch<PayloadAction<LP>>> =>
   ({ getState, dispatch }) =>
   (next) =>
-  (action) => {
+  (action: PayloadAction<LP>) => {
     const state = next(action);
     if (deps.includes(action.type))
       effects.forEach((factory) => {

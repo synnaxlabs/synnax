@@ -29,6 +29,3 @@ export interface LocalState {
   command: LocalCommand;
   status: LocalStatus;
 }
-
-/** A subset of Cluster that satisfies RenderableRecord */
-export type RenderableCluster = Omit<Cluster, "props" | "state">;

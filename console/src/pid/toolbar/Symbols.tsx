@@ -23,10 +23,7 @@ import { addElement } from "@/pid/slice";
 
 import "@/pid/toolbar/Symbols.css";
 
-const LIST_DATA = Object.values(PID.SYMBOLS).map((el) => ({
-  key: el.variant,
-  ...el,
-}));
+const LIST_DATA = Object.values(PID.SYMBOLS);
 
 export const Symbols = ({ layoutKey }: { layoutKey: string }): ReactElement => {
   const dispatch = useDispatch();
@@ -44,7 +41,7 @@ export const Symbols = ({ layoutKey }: { layoutKey: string }): ReactElement => {
             zIndex: spec.zIndex,
           },
           props: {
-            variant,
+            key: variant,
             ...initialProps,
           },
         }),
@@ -60,12 +57,16 @@ export const Symbols = ({ layoutKey }: { layoutKey: string }): ReactElement => {
           {(p) => <Input.Text {...p} placeholder="Type to search..." size="small" />}
         </List.Filter>
       </Align.Space>
-      <List.Core direction="x" className={CSS.B("pid-symbols")} wrap>
+      <List.Core<string, PID.Spec<any>>
+        direction="x"
+        className={CSS.B("pid-symbols")}
+        wrap
+      >
         {(p) => (
           <SymbolsButton
             key={p.key}
             el={p.entry}
-            onClick={() => handleAddElement(p.entry.type)}
+            onClick={() => handleAddElement(p.entry.key)}
             theme={theme}
           />
         )}
@@ -77,13 +78,13 @@ export const Symbols = ({ layoutKey }: { layoutKey: string }): ReactElement => {
 interface SymbolsButtonProps
   extends PropsWithChildren,
     ComponentPropsWithoutRef<"button"> {
-  el: PIDSymbols.Spec<any>;
+  el: PID.Spec<any>;
   theme: Theming.Theme;
 }
 
 const SymbolsButton = ({
   children,
-  el: { name, variant, Preview, defaultProps },
+  el: { name, key, Preview, defaultProps },
   theme,
   ...props
 }: SymbolsButtonProps): ReactElement => {
@@ -93,25 +94,25 @@ const SymbolsButton = ({
   });
 
   const handleDragStart = useCallback(() => {
-    startDrag([{ type: "pid-element", key: variant }]);
-  }, [variant]);
+    startDrag([{ type: "pid-element", key }]);
+  }, [key]);
 
   return (
-    <>
-      <Align.Space
-        className={CSS.BE("pid-symbols", "button")}
-        justify="spaceBetween"
-        align="center"
-        draggable
-        {...props}
-        {...dragProps}
-        onDragStart={handleDragStart}
-      >
-        <Text.Text level="small">{name}</Text.Text>
-        <Align.Space className="preview-wrapper" align="center" justify="center">
-          <Preview {...defaultProps(theme)} scale={0.8} />
-        </Align.Space>
+    // @ts-expect-error - generic elements
+    <Align.Space
+      el="button"
+      className={CSS.BE("pid-symbols", "button")}
+      justify="spaceBetween"
+      align="center"
+      draggable
+      {...props}
+      {...dragProps}
+      onDragStart={handleDragStart}
+    >
+      <Text.Text level="small">{name}</Text.Text>
+      <Align.Space className="preview-wrapper" align="center" justify="center">
+        <Preview {...defaultProps(theme)} scale={0.8} />
       </Align.Space>
-    </>
+    </Align.Space>
   );
 };

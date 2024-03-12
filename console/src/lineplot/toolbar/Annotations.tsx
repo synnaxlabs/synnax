@@ -172,13 +172,13 @@ export const Annotations = ({ layoutKey }: AnnotationsProps): ReactElement => {
           <Header.Title>{`Rule - ${selectedRule.label}`}</Header.Title>
         </Header.Header>
         <Align.Space direction="x" style={{ padding: "2rem" }} wrap>
-          <Input.Item<string>
+          <Input.Item
             label="Label"
             onChange={handleLabelChange}
             value={selectedRule.label}
             variant="shadow"
           />
-          <Input.Item<string>
+          <Input.Item
             label="Units"
             onChange={handleUnitsChange}
             value={selectedRule.units}

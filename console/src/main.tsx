@@ -39,7 +39,7 @@ import "@/index.css";
 import "@synnaxlabs/media/dist/style.css";
 // import "@synnaxlabs/pluto/dist/style.css";
 
-const layoutRenderers = {
+const layoutRenderers: Record<string, Layout.Renderer> = {
   main: LayoutMain,
   connectCluster: Cluster.Connect,
   visualization: Vis.LayoutSelector,

@@ -26,10 +26,15 @@ import (
 	"time"
 )
 
-var _ = Describe("Observable", Ordered, Serial, func() {
+const (
+	publisherSetChannelName    = "publisher_set"
+	publisherDeleteChannelName = "publisher_delete"
+)
+
+var _ = Describe("Publisher", Ordered, Serial, func() {
 	var (
 		obs           observe.Observer[[]change.Change[[]byte, struct{}]]
-		cfg           signals.ObservableConfig
+		cfg           signals.ObservablePublisherConfig
 		closer        io.Closer
 		streamer      framer.Streamer
 		requests      confluence.Inlet[framer.StreamerRequest]
@@ -38,24 +43,24 @@ var _ = Describe("Observable", Ordered, Serial, func() {
 	)
 	BeforeEach(func() {
 		obs = observe.New[[]change.Change[[]byte, struct{}]]()
-		cfg = signals.ObservableConfig{
-			Set:        channel.Channel{Name: "observable_set", DataType: telem.UUIDT},
-			Delete:     channel.Channel{Name: "observable_delete", DataType: telem.UUIDT},
-			Observable: obs,
+		cfg = signals.ObservablePublisherConfig{
+			SetChannel:    channel.Channel{Name: publisherSetChannelName, DataType: telem.UUIDT},
+			DeleteChannel: channel.Channel{Name: publisherDeleteChannelName, DataType: telem.UUIDT},
+			Observable:    obs,
 		}
-		closer = MustSucceed(dist.Signals.SubscribeToObservable(ctx, cfg))
+		closer = MustSucceed(dist.Signals.PublishFromObservable(ctx, cfg))
 		Expect(dist.Channel.NewRetrieve().
-			WhereNames("observable_set").
-			Entry(&cfg.Set).
+			WhereNames(publisherSetChannelName).
+			Entry(&cfg.SetChannel).
 			Exec(ctx, nil),
 		).To(Succeed())
 		Expect(dist.Channel.NewRetrieve().
-			WhereNames("observable_delete").
-			Entry(&cfg.Delete).
+			WhereNames(publisherDeleteChannelName).
+			Entry(&cfg.DeleteChannel).
 			Exec(ctx, nil),
 		).To(Succeed())
 		streamer = MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
-			Keys:  channel.Keys{cfg.Set.Key(), cfg.Delete.Key()},
+			Keys:  channel.Keys{cfg.SetChannel.Key(), cfg.DeleteChannel.Key()},
 			Start: telem.Now(),
 		}))
 		requests, responses = confluence.Attach(streamer, 2)
@@ -80,7 +85,7 @@ var _ = Describe("Observable", Ordered, Serial, func() {
 		}})
 		var streamRes framer.StreamerResponse
 		Eventually(responses.Outlet(), "5s").Should(Receive(&streamRes))
-		Expect(streamRes.Frame.Keys).To(ConsistOf(cfg.Set.Key()))
+		Expect(streamRes.Frame.Keys).To(ConsistOf(cfg.SetChannel.Key()))
 		Expect(streamRes.Frame.Series[0].Data).To(HaveLen(int(telem.Bit128)))
 		Expect(streamRes.Frame.Series[0].Data).To(Equal(uid[:]))
 	})

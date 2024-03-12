@@ -28,11 +28,11 @@ import (
 	"strings"
 )
 
-// GorpConfig is the configuration for opening a Signals pipeline that subscribes
+// GorpPublisherConfig is the configuration for opening a Signals pipeline that subscribes
 // changes to a particular entry type in a gorp.DB. It's not typically necessary
 // to instantiate this configuration directly, instead use a helper function
-// such as GorpConfigUUID.
-type GorpConfig[K gorp.Key, E gorp.Entry[K]] struct {
+// such as GorpPublisherConfigUUID.
+type GorpPublisherConfig[K gorp.Key, E gorp.Entry[K]] struct {
 	// DB is the DB to subscribe to.
 	DB *gorp.DB
 	// SetDataType is the data type of the key used by the DB.
@@ -49,17 +49,17 @@ type GorpConfig[K gorp.Key, E gorp.Entry[K]] struct {
 	DeleteName string
 }
 
-var _ config.Config[GorpConfig[uuid.UUID, gorp.Entry[uuid.UUID]]] = GorpConfig[uuid.UUID, gorp.Entry[uuid.UUID]]{}
+var _ config.Config[GorpPublisherConfig[uuid.UUID, gorp.Entry[uuid.UUID]]] = GorpPublisherConfig[uuid.UUID, gorp.Entry[uuid.UUID]]{}
 
-func DefaultGorpConfig[K gorp.Key, E gorp.Entry[K]]() GorpConfig[K, E] {
+func DefaultGorpPublisherConfig[K gorp.Key, E gorp.Entry[K]]() GorpPublisherConfig[K, E] {
 	t := types.Name[E]()
-	return GorpConfig[K, E]{
+	return GorpPublisherConfig[K, E]{
 		SetName:    fmt.Sprintf("sy_%s_set", strings.ToLower(t)),
 		DeleteName: fmt.Sprintf("sy_%s_delete", strings.ToLower(t)),
 	}
 }
 
-func (g GorpConfig[K, E]) Override(other GorpConfig[K, E]) GorpConfig[K, E] {
+func (g GorpPublisherConfig[K, E]) Override(other GorpPublisherConfig[K, E]) GorpPublisherConfig[K, E] {
 	g.DB = override.Nil(g.DB, other.DB)
 	g.SetDataType = override.String(g.SetDataType, other.SetDataType)
 	g.DeleteDataType = override.String(g.DeleteDataType, other.DeleteDataType)
@@ -70,8 +70,8 @@ func (g GorpConfig[K, E]) Override(other GorpConfig[K, E]) GorpConfig[K, E] {
 	return g
 }
 
-func (g GorpConfig[K, E]) Validate() error {
-	v := validate.New("cdc.GorpConfig")
+func (g GorpPublisherConfig[K, E]) Validate() error {
+	v := validate.New("cdc.GorpPublisherConfig")
 	validate.NotEmptyString(v, "SetName", g.SetName)
 	validate.NotEmptyString(v, "DeleteName", g.DeleteName)
 	validate.NotNil(v, "DB", g.DB)
@@ -92,11 +92,11 @@ func marshalJSON[K gorp.Key, E gorp.Entry[K]](e E) ([]byte, error) {
 	return append(b, '\n'), nil
 }
 
-// GorpConfigUUID is a helper function for creating a Signals pipeline that propagates
+// GorpPublisherConfigUUID is a helper function for creating a Signals pipeline that propagates
 // changes to UUID keyed gorp entries written to the provided DB. The returned
-// configuration should be passed to SubscribeToGorp.
-func GorpConfigUUID[E gorp.Entry[uuid.UUID]](db *gorp.DB) GorpConfig[uuid.UUID, E] {
-	return GorpConfig[uuid.UUID, E]{
+// configuration should be passed to PublishFromGorp.
+func GorpPublisherConfigUUID[E gorp.Entry[uuid.UUID]](db *gorp.DB) GorpPublisherConfig[uuid.UUID, E] {
+	return GorpPublisherConfig[uuid.UUID, E]{
 		DB:             db,
 		DeleteDataType: telem.UUIDT,
 		SetDataType:    telem.JSONT,
@@ -105,8 +105,8 @@ func GorpConfigUUID[E gorp.Entry[uuid.UUID]](db *gorp.DB) GorpConfig[uuid.UUID, 
 	}
 }
 
-func GorpConfigNumeric[K types.Numeric, E gorp.Entry[K]](db *gorp.DB, dt telem.DataType) GorpConfig[K, E] {
-	return GorpConfig[K, E]{
+func GorpPublisherConfigNumeric[K types.Numeric, E gorp.Entry[K]](db *gorp.DB, dt telem.DataType) GorpPublisherConfig[K, E] {
+	return GorpPublisherConfig[K, E]{
 		DB:             db,
 		DeleteDataType: dt,
 		SetDataType:    dt,
@@ -119,8 +119,8 @@ func GorpConfigNumeric[K types.Numeric, E gorp.Entry[K]](db *gorp.DB, dt telem.D
 	}
 }
 
-func GorpConfigPureNumeric[K types.Numeric, E gorp.Entry[K]](db *gorp.DB, dt telem.DataType) GorpConfig[K, E] {
-	return GorpConfig[K, E]{
+func GorpPublisherConfigPureNumeric[K types.Numeric, E gorp.Entry[K]](db *gorp.DB, dt telem.DataType) GorpPublisherConfig[K, E] {
+	return GorpPublisherConfig[K, E]{
 		DB:             db,
 		DeleteDataType: dt,
 		SetDataType:    dt,
@@ -137,8 +137,8 @@ func GorpConfigPureNumeric[K types.Numeric, E gorp.Entry[K]](db *gorp.DB, dt tel
 	}
 }
 
-func GorpConfigString[E gorp.Entry[string]](db *gorp.DB) GorpConfig[string, E] {
-	return GorpConfig[string, E]{
+func GorpPublisherConfigString[E gorp.Entry[string]](db *gorp.DB) GorpPublisherConfig[string, E] {
+	return GorpPublisherConfig[string, E]{
 		DB:             db,
 		DeleteDataType: telem.StringT,
 		SetDataType:    telem.JSONT,
@@ -147,15 +147,15 @@ func GorpConfigString[E gorp.Entry[string]](db *gorp.DB) GorpConfig[string, E] {
 	}
 }
 
-// SubscribeToGorp opens a Signals pipeline that subscribes to the sets and deletes of a
+// PublishFromGorp opens a Signals pipeline that subscribes to the sets and deletes of a
 // particular entry type in the configured gorp.DB. The returned io.Closer should be
 // closed to stop the Signals pipeline.
-func SubscribeToGorp[K gorp.Key, E gorp.Entry[K]](
+func PublishFromGorp[K gorp.Key, E gorp.Entry[K]](
 	ctx context.Context,
 	svc *Provider,
-	cfgs ...GorpConfig[K, E],
+	cfgs ...GorpPublisherConfig[K, E],
 ) (io.Closer, error) {
-	cfg, err := config.New(DefaultGorpConfig[K, E](), cfgs...)
+	cfg, err := config.New(DefaultGorpPublisherConfig[K, E](), cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -184,18 +184,12 @@ func SubscribeToGorp[K gorp.Key, E gorp.Entry[K]](
 				return out
 			},
 		}
-		obsCfg = ObservableConfig{
-			Name:       fmt.Sprintf("gorp_%s", strings.ToLower(types.Name[E]())),
-			Observable: obs,
-			Set: channel.Channel{
-				Name:     cfg.SetName,
-				DataType: cfg.SetDataType,
-			},
-			Delete: channel.Channel{
-				Name:     cfg.DeleteName,
-				DataType: cfg.DeleteDataType,
-			},
+		obsCfg = ObservablePublisherConfig{
+			Name:          fmt.Sprintf("gorp_%s", strings.ToLower(types.Name[E]())),
+			Observable:    obs,
+			SetChannel:    channel.Channel{Name: cfg.SetName, DataType: cfg.SetDataType},
+			DeleteChannel: channel.Channel{Name: cfg.DeleteName, DataType: cfg.DeleteDataType},
 		}
 	)
-	return svc.SubscribeToObservable(ctx, obsCfg)
+	return svc.PublishFromObservable(ctx, obsCfg)
 }

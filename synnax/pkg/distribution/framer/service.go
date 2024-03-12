@@ -42,6 +42,25 @@ type Readable interface {
 	NewStreamIterator(ctx context.Context, cfg IteratorConfig) (StreamIterator, error)
 }
 
+type Streamable interface {
+	NewStreamer(ctx context.Context, cfg StreamerConfig) (Streamer, error)
+}
+
+type ReadWriteable interface {
+	Writable
+	Readable
+}
+
+type ReadWriteStreamable interface {
+	Writable
+	Readable
+}
+
+type WriteStreamable interface {
+	Writable
+	Streamable
+}
+
 type Config struct {
 	alamos.Instrumentation
 	ChannelReader channel.Readable

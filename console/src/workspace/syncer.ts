@@ -27,7 +27,7 @@ export const useLayoutSyncer = (): Syncer<Layout.StoreState & StoreState, any> =
 
 export const syncLayout = async (
   store: Store<Layout.StoreState & StoreState>,
-  client: Synnax
+  client: Synnax,
 ): Promise<void> => {
   const s = store.getState();
   const key = selectActiveKey(s);

@@ -63,7 +63,7 @@ var _ = Describe("Label", Ordered, func() {
 			Expect(l.Key).ToNot(Equal(uuid.Nil))
 		})
 	})
-	Describe("Delete", func() {
+	Describe("DeleteChannel", func() {
 		It("Should delete a label", func() {
 			l := &label.Label{
 				Name:  "Label",

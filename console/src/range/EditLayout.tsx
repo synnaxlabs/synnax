@@ -7,14 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useRef, type ReactElement, useState, useMemo } from "react";
+import { type ReactElement, useRef } from "react";
 
-import { zodResolver } from "@hookform/resolvers/zod";
-import { TimeRange, TimeStamp } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
-import { Align, Button, Nav, Synnax, Text, useAsyncEffect } from "@synnaxlabs/pluto";
+import { TimeRange, TimeStamp, UnexpectedError } from "@synnaxlabs/client";
+import { Icon, Logo } from "@synnaxlabs/media";
+import { Align, Button, Form, Nav, Synnax, Text } from "@synnaxlabs/pluto";
 import { Input } from "@synnaxlabs/pluto/input";
-import { FormProvider, useForm } from "react-hook-form";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useDispatch } from "react-redux";
 import { v4 as uuidv4 } from "uuid";
 import { z } from "zod";
@@ -33,12 +32,12 @@ const formSchema = z.object({
   labels: z.string().array(),
 });
 
-const RANGE_WINDOW_KEY = "defineRange";
+const CREATE_RANGE_WINDOW_KEY = "defineRange";
 
 export const editLayout = (name: string = "Create Range"): Layout.LayoutState => ({
-  key: RANGE_WINDOW_KEY,
-  type: RANGE_WINDOW_KEY,
-  windowKey: RANGE_WINDOW_KEY,
+  key: CREATE_RANGE_WINDOW_KEY,
+  type: CREATE_RANGE_WINDOW_KEY,
+  windowKey: CREATE_RANGE_WINDOW_KEY,
   name,
   location: "window",
   window: {
@@ -51,154 +50,136 @@ export const editLayout = (name: string = "Create Range"): Layout.LayoutState =>
 
 type DefineRangeFormProps = z.infer<typeof formSchema>;
 
-export const EditLayout = ({
-  layoutKey,
-  onClose,
-}: Layout.RendererProps): ReactElement => {
-  const now = useMemo(() => TimeStamp.now().valueOf(), []);
+export const EditLayout = (props: Layout.RendererProps): ReactElement => {
+  const { layoutKey } = props;
+  const now = useRef(TimeStamp.now().valueOf()).current;
   const range = useSelect(layoutKey);
-  const [loading, setLoading] = useState(false);
   const client = Synnax.use();
-  let defaultValues: DefineRangeFormProps = {
-    name: "",
-    start: now,
-    end: now,
-    labels: [],
-  };
-  const isCreate = layoutKey === RANGE_WINDOW_KEY;
-  const isEdit = client != null && !isCreate && range != null;
-  const isRemoteEdit = isEdit && range?.variant === "static" && range.persisted;
-
-  if (range != null && range.variant === "static")
-    defaultValues = {
-      name: range.name,
-      start: range.timeRange.start,
-      end: range.timeRange.end,
-      labels: [],
-    };
-
-  const methods = useForm({
-    defaultValues,
-    resolver: zodResolver(formSchema),
-  });
-
-  useAsyncEffect(async () => {
-    if (!isRemoteEdit) return;
-    const rng = await client.ranges.retrieve(layoutKey);
-    methods.reset({
-      name: rng.name,
-      start: rng.timeRange.start.valueOf(),
-      end: rng.timeRange.start.valueOf(),
-      labels: [],
-    });
-  }, [isEdit]);
-
-  const dispatch = useDispatch();
-  const savePermanently = useRef(false);
-
-  const onSubmit = async ({
-    name,
-    start,
-    end,
-    labels,
-  }: DefineRangeFormProps): Promise<void> => {
-    const startTS = new TimeStamp(start, "UTC");
-    const endTS = new TimeStamp(end, "UTC");
-    name = name.trim();
-    if (name.length === 0) name = range?.name!;
-    // remove leading and trailing whitespace
-    const key = isCreate ? uuidv4() : layoutKey;
-
-    const persisted = savePermanently.current || isRemoteEdit;
-
-    if (persisted && client != null) {
-      try {
-        setLoading(true);
-        const rng = await client.ranges.create({
-          name,
-          timeRange: new TimeRange(startTS, endTS),
-          key,
-        });
-        // await rng.addLabel(...labels);
-      } finally {
-        setLoading(false);
+  const isCreate = layoutKey === CREATE_RANGE_WINDOW_KEY;
+  const isRemoteEdit = !isCreate && (range == null || range.persisted);
+  const initialValues = useQuery<DefineRangeFormProps>({
+    queryKey: ["range", layoutKey],
+    queryFn: async () => {
+      if (isCreate)
+        return {
+          name: "",
+          start: now,
+          end: now,
+          labels: [],
+        };
+      if (range == null || range.persisted) {
+        if (client == null) throw new UnexpectedError("Client is not available");
+        const rng = await client.ranges.retrieve(layoutKey);
+        return {
+          name: rng.name,
+          start: rng.timeRange.start.valueOf(),
+          end: rng.timeRange.end.valueOf(),
+          labels: [],
+        };
       }
-    }
-    dispatch(
-      add({
-        ranges: [
-          {
-            variant: "static",
-            name,
-            timeRange: { start: startTS.valueOf(), end: endTS.valueOf() },
-            key,
-            persisted,
-          },
-        ],
-      }),
-    );
-    onClose();
-  };
+      if (range.variant !== "static") throw new UnexpectedError("Range is not static");
+      return {
+        name: range.name,
+        start: range.timeRange.start,
+        end: range.timeRange.end,
+        labels: [],
+      };
+    },
+  });
+  if (initialValues.isPending) return <Logo.Watermark variant="loader" />;
+  if (initialValues.isError) throw initialValues.error;
+  return (
+    <EditLayoutForm
+      isRemoteEdit={isRemoteEdit}
+      initialValues={initialValues.data}
+      {...props}
+    />
+  );
+};
 
-  const formRef = useRef<HTMLFormElement>(null);
+interface EditLayoutFormProps extends Layout.RendererProps {
+  initialValues: DefineRangeFormProps;
+  isRemoteEdit: boolean;
+  onClose: () => void;
+}
+
+const EditLayoutForm = ({
+  layoutKey,
+  initialValues,
+  isRemoteEdit,
+  onClose,
+}: EditLayoutFormProps): ReactElement => {
+  const methods = Form.use({ values: initialValues, schema: formSchema });
+  const dispatch = useDispatch();
+  const client = Synnax.use();
+  const isCreate = layoutKey === CREATE_RANGE_WINDOW_KEY;
+
+  const { mutate, isPending } = useMutation({
+    mutationFn: async (persist: boolean) => {
+      if (!methods.validate()) return;
+      let { start, end, name } = methods.value();
+      const startTS = new TimeStamp(start, "UTC");
+      const endTS = new TimeStamp(end, "UTC");
+      name = name.trim();
+      const key = isCreate ? uuidv4() : layoutKey;
+      const persisted = persist || isRemoteEdit;
+      const tr = new TimeRange(startTS, endTS);
+      if (persisted && client != null)
+        await client.ranges.create({ key, name, timeRange: tr });
+      dispatch(
+        add({
+          ranges: [
+            {
+              variant: "static",
+              name,
+              timeRange: { start: startTS.valueOf(), end: endTS.valueOf() },
+              key,
+              persisted,
+            },
+          ],
+        }),
+      );
+      onClose();
+    },
+  });
 
   return (
     <Align.Space className={CSS.B("range-edit-layout")} grow>
-      <Align.Space
-        el="form"
-        ref={formRef}
-        size="small"
-        grow
-        className="console-form"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void methods.handleSubmit(onSubmit)(e);
-        }}
-        justify="center"
-        id="define-range"
-        noValidate
-      >
-        <FormProvider {...methods}>
-          <Input.HFItem<string> name="name">
-            {(p) => (
-              <Input.Text
-                autoFocus
-                level="h2"
-                variant="natural"
-                placeholder="Range Name"
-                {...p}
-              />
-            )}
-          </Input.HFItem>
-          <Align.Space direction="x" size="large">
-            <Input.HFItem<number> name="start" label="From">
-              {(p) => <Input.DateTime level="h4" variant="natural" {...p} />}
-            </Input.HFItem>
-            <Text.WithIcon level="h4" startIcon={<Icon.Arrow.Right />} />
-            <Input.HFItem<number> name="end" label="To">
-              {(p) => <Input.DateTime level="h4" variant="natural" {...p} />}
-            </Input.HFItem>
-          </Align.Space>
-        </FormProvider>
-      </Align.Space>
+      <Form.Form {...methods}>
+        <Form.Field<string> path="name">
+          {(p) => (
+            <Input.Text
+              autoFocus
+              level="h2"
+              variant="natural"
+              placeholder="Range Name"
+              {...p}
+            />
+          )}
+        </Form.Field>
+        <Align.Space direction="x" size="large">
+          <Form.Field<number> path="start" label="From">
+            {(p) => <Input.DateTime level="h4" variant="natural" {...p} />}
+          </Form.Field>
+          <Text.WithIcon level="h4" startIcon={<Icon.Arrow.Right />} />
+          <Form.Field<number> path="end" label="To">
+            {(p) => <Input.DateTime level="h4" variant="natural" {...p} />}
+          </Form.Field>
+        </Align.Space>
+      </Form.Form>
       <Nav.Bar location="bottom" size={48}>
         <Nav.Bar.End style={{ padding: "1rem" }}>
           {isCreate && (
             <Button.Button
-              onClick={() => {
-                savePermanently.current = true;
-                formRef.current?.requestSubmit();
-              }}
+              onClick={() => mutate(true)}
               variant="outlined"
-              disabled={client == null || loading}
-              loading={loading}
+              disabled={client == null || isPending}
+              loading={isPending}
             >
               Save to Synnax
             </Button.Button>
           )}
-          <Button.Button onClick={() => formRef.current?.requestSubmit()}>
-            Save Locally
-          </Button.Button>
+          <Button.Button onClick={() => mutate(false)}>Save Locally</Button.Button>
         </Nav.Bar.End>
       </Nav.Bar>
     </Align.Space>
