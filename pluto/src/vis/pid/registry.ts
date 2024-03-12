@@ -190,14 +190,14 @@ const valve: Spec<ValveProps> = {
 };
 
 const solenoidValve: Spec<SolenoidValveProps> = {
-  name: "Solenoid Valve",
+  name: "Pneumatic Valve",
   variant: "solenoidValve",
   Form: SolenoidValveForm,
   Symbol: SolenoidValve,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
     label: {
-      label: "Solenoid Valve",
+      label: "Pneumatic Valve",
       level: "p",
       orientation: "top",
     },

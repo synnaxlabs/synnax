@@ -90,29 +90,8 @@ export class StreamChannelValue
   }
 
   async read(): Promise<void> {
-    try {
-      const { channel } = this.props;
-      // Read from a little bit before now to a little bit after now to make sure we
-      // get all available data.
-      const timeRange = TimeStamp.now()
-        .sub(TimeStamp.seconds(10))
-        .spanRange(TimeSpan.seconds(20));
-      const res = await this.client.read(timeRange, [channel]);
-      // This is the right place to set valid to true, because this means the read was
-      // successful and we have a buffer to read from.
-      this.valid = true;
-      const newData = res[channel].data;
-      if (newData.length !== 0) {
-        const first = newData[newData.length - 1];
-        first.acquire();
-        this.leadingBuffer = first;
-      }
-      // Start listening for new data.
-      await this.updateStreamHandler();
-    } catch (e) {
-      // TODO: improve error handling.
-      console.error(e);
-    }
+    this.valid = true;
+    await this.updateStreamHandler();
   }
 
   private async updateStreamHandler(): Promise<void> {
@@ -248,7 +227,7 @@ export class StreamChannelData
     const res = await this.client.read(tr, [key]);
     const newData = res[key].data;
     newData.forEach((d) => d.acquire());
-    this.data.push(...res[key].data);
+    this.data.push(...newData);
     await this.updateStreamHandler(key);
     this.valid = true;
   }

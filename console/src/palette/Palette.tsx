@@ -120,7 +120,6 @@ export const Palette = ({
               visible={showDropdown}
               className={CSS.B("palette")}
               location="bottom"
-              matchTriggerWidth
             >
               <PaletteInput
                 mode={mode}

@@ -66,10 +66,13 @@ export const useField = (<I extends Input.Value, O extends Input.Value = I>({
     setState(get<I>(path, allowNull));
     return bind(path, setState, false);
   }, [path, bind, setState]);
-  if (state == null && !allowNull) throw new Error("Field state is null");
+  if (state == null) {
+    if (!allowNull) throw new Error(`Field state is null: ${path}`);
+    return null;
+  }
   return {
     onChange: useCallback((value: O) => set(path, value), [path, set]),
-    ...(state as FieldState<I>),
+    ...state,
   };
 }) as UseField;
 
@@ -174,6 +177,7 @@ export interface FieldProps<
   children?: RenderProp<Input.Control<I, O>>;
   padHelpText?: boolean;
   visible?: boolean | ((state: FieldState<I>) => boolean);
+  hideIfNull?: boolean;
 }
 
 const defaultInput = componentRenderProp(Input.Text);
@@ -191,9 +195,11 @@ export const Field = <
   label,
   padHelpText = true,
   visible = true,
+  hideIfNull = false,
   ...props
 }: FieldProps<I, O>): ReactElement | null => {
-  const field = useField<I, O>({ path });
+  const field = useField<I, O>({ path, allowNull: hideIfNull });
+  if (field == null) return null;
   if (path == null) throw new Error("Path is required");
   if (label == null) label = Case.capitalize(deep.element(path, -1));
   visible = typeof visible === "function" ? visible(field) : visible;
@@ -380,7 +386,8 @@ export const use = <Z extends z.ZodTypeAny>({
     const { listeners } = ref.current;
     ref.current.state = values;
     listeners.forEach((lis, key) => {
-      const v = get(key, false);
+      const v = get(key, true);
+      if (v == null) return;
       lis.forEach((l) => l(v));
     });
   }, [sync, values]);

@@ -15,7 +15,7 @@
     }
 }
 
-.pluto-dropdown.pluto--floating .pluto-dropdown__dialog {
+.pluto-dropdown__dialog.pluto--floating {
     transform: translateY(1rem);
 
     &.pluto--top.pluto--left {
