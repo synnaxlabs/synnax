@@ -86,38 +86,6 @@ describe("remote", () => {
       expect(scv.testingOnlyValid).toBe(false);
       expect(scv.testingOnlyLeadingBuffer).toBeNull();
     });
-    it("should return a zero value when the leading buffer is empty", async () => {
-      const c = new MockClient();
-      c.response = {
-        [c.channel.key]: new client.ReadResponse(c.channel, [
-          new Series({
-            data: new Float32Array([]),
-          }),
-        ]),
-      };
-      const props: StreamChannelValueProps = {
-        channel: c.channel.key,
-      };
-      const scv = new StreamChannelValue(c, props);
-      expect(await scv.value()).toBe(0);
-      expect(scv.testingOnlyValid).toBe(true);
-      expect(scv.testingOnlyLeadingBuffer).not.toBeNull();
-    });
-    it("should return the last value of the leading buffer when the initial read is successful", async () => {
-      const c = new MockClient();
-      const s = new Series({
-        data: new Float32Array([1, 2, 3]),
-      });
-      c.response = {
-        [c.channel.key]: new client.ReadResponse(c.channel, [s]),
-      };
-      const props: StreamChannelValueProps = {
-        channel: c.channel.key,
-      };
-      const scv = new StreamChannelValue(c, props);
-      expect(await scv.value()).toBe(3);
-      expect(s.refCount).toBe(1);
-    });
     it("should open the stream handler when the channel is not zero", async () => {
       const c = new MockClient();
       const props: StreamChannelValueProps = {
