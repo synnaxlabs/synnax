@@ -2,13 +2,13 @@
 
 [[package]]
 name = "alamos"
-version = "0.2.21"
+version = "0.2.22"
 description = ""
 optional = false
 python-versions = ">=3.11,<4.0"
 files = [
-    {file = "alamos-0.2.21-py3-none-any.whl", hash = "sha256:50b60907594e5e56045e0aef675fa860100f74eb7c14320276c86f26d1f15ca1"},
-    {file = "alamos-0.2.21.tar.gz", hash = "sha256:31817e0217c9f45e8fc85868bde08c9f04e6c17a773057b5f5e5f427f4c7401f"},
+    {file = "alamos-0.2.22-py3-none-any.whl", hash = "sha256:d6b9511b89de7de42dc115ac45ca9a7631cbb366eff39039f5589243ee14445f"},
+    {file = "alamos-0.2.22.tar.gz", hash = "sha256:d3f0c08bb7ef50e70f455fb5143142fe734ce5ea6a0c138be4a7eaa5e36a9c2a"},
 ]
 
 [package.dependencies]
@@ -3338,17 +3338,17 @@ tests = ["cython", "littleutils", "pygments", "pytest", "typeguard"]
 
 [[package]]
 name = "synnax-freighter"
-version = "0.5.21"
+version = "0.5.22"
 description = ""
 optional = false
 python-versions = ">=3.11,<4.0"
 files = [
-    {file = "synnax_freighter-0.5.21-py3-none-any.whl", hash = "sha256:ee8599bf10c982cb602e53077c97525494e9275dfd94ff717375c9b36b5f95df"},
-    {file = "synnax_freighter-0.5.21.tar.gz", hash = "sha256:f69bc89098b49db94b394d25a7c037b9ae7ada52ff0ce14c365ebbc287934446"},
+    {file = "synnax_freighter-0.5.22-py3-none-any.whl", hash = "sha256:6f0132ca68de8a05b4ede9a4f3c4dba8a2e1e7fffc5fbc8508d8c55188305f3f"},
+    {file = "synnax_freighter-0.5.22.tar.gz", hash = "sha256:82a8df27a3eae17b244f8235f1abf6fcc795388cb690380480122be272ee002f"},
 ]
 
 [package.dependencies]
-alamos = ">=0.2.21,<0.3.0"
+alamos = ">=0.2.22,<0.3.0"
 janus = ">=1.0.0,<2.0.0"
 msgpack = ">=1.0.4,<2.0.0"
 pydantic = ">=1.10.0,<2.0.0"
@@ -3762,4 +3762,4 @@ testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "p
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "f8a7941ffa002a89e6c963d5ad6fe689d809ebf41d9c3a28828c8fe4ea6c07a1"
+content-hash = "d658c46dc17428810f6b53ebda40cd6637fbbf092d12708808aa11fb3581828b"
