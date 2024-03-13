@@ -7,20 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, memo, useCallback } from "react";
+import { type ReactElement, memo, useCallback, useLayoutEffect } from "react";
 
 import { ontology } from "@synnaxlabs/client";
 import { Logo } from "@synnaxlabs/media";
 import {
   Mosaic as Core,
   Eraser,
+  Nav,
   Synnax,
   useDebouncedCallback,
 } from "@synnaxlabs/pluto";
+import { type Tabs } from "@synnaxlabs/pluto/tabs";
 import { type location } from "@synnaxlabs/x";
-import { useStore } from "react-redux";
+import { useDispatch, useStore } from "react-redux";
 
+import { NAV_DRAWERS, NavDrawer, NavMenu } from "@/components/nav/Nav";
 import { useSyncerDispatch } from "@/hooks/dispatchers";
+import { Layout } from "@/layout";
 import { Content } from "@/layout/Content";
 import { usePlacer } from "@/layout/hooks";
 import { useSelectMosaic } from "@/layout/selectors";
@@ -30,12 +34,16 @@ import {
   rename,
   resizeMosaicTab,
   selectMosaicTab,
+  setNavdrawer,
 } from "@/layout/slice";
+import { NAV_SIZES } from "@/layouts/LayoutMain";
 import { LinePlot } from "@/lineplot";
 import { SERVICES } from "@/services";
 import { type RootStore } from "@/store";
 import { Vis } from "@/vis";
 import { Workspace } from "@/workspace";
+
+import "@/layouts/mosaic/Mosaic.css";
 
 const EmptyContent = (): ReactElement => (
   <Eraser.Eraser>
@@ -133,10 +141,41 @@ export const Mosaic = memo((): ReactElement => {
       emptyContent={emptyContent}
       onRename={handleRename}
       onCreate={handleCreate}
-      size="medium"
     >
-      {(tab) => <Content key={tab.tabKey} layoutKey={tab.tabKey} />}
+      {({ tabKey }: Tabs.Tab) => <Content key={tabKey} layoutKey={tabKey} />}
     </Core.Mosaic>
   );
 });
-Mosaic.displayName = "LayoutMosaic";
+Mosaic.displayName = "Mosaic";
+
+export const Window = memo(({ layoutKey }: Layout.RendererProps): ReactElement => {
+  const { menuItems, onSelect } = Layout.useNavDrawer("bottom", NAV_DRAWERS);
+  const d = useDispatch();
+  useLayoutEffect(() => {
+    d(
+      setNavdrawer({
+        windowKey: layoutKey,
+        location: "bottom",
+        menuItems: ["visualization"],
+        activeItem: "visualization",
+      }),
+    );
+  }, [layoutKey]);
+  return (
+    <>
+      <Mosaic />
+      <NavDrawer location="bottom" />
+      <Nav.Bar
+        className="console-main-nav"
+        location="bottom"
+        style={{ paddingRight: "1.5rem" }}
+        size={7 * 6}
+      >
+        <Nav.Bar.End>
+          <NavMenu onChange={onSelect}>{menuItems}</NavMenu>
+        </Nav.Bar.End>
+      </Nav.Bar>
+    </>
+  );
+});
+Window.displayName = "MosaicWindow";

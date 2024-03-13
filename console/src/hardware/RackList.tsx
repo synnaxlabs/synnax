@@ -16,16 +16,12 @@ export const RackList = (): ReactElement => {
     },
   });
 
-  return (
-    <List.List>
-      <List.Core>{(p) => <RackListItem {...p} />}</List.Core>
-    </List.List>
-  );
+  return <List.List></List.List>;
 };
 
-interface RackListItemProps extends List.ItemProps<hardware.rack.{
-  : hardware.rack.Rack;
-  
-}
+// interface RackListItemProps extends List.ItemProps<hardware.rack.{
+//   : hardware.rack.Rack;
 
-const RackListItem = () => {};
+// }
+
+// const RackListItem = () => {};

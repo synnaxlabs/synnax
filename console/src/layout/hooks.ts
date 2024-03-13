@@ -204,28 +204,36 @@ export const useNavDrawer = (
   location: NavdrawerLocation,
   items: NavDrawerItem[],
 ): UseNavDrawerReturn => {
+  const windowKey = useSelectWindowKey() as string;
   const state = useSelectNavDrawer(location);
   const dispatch = useDispatch();
+  const onResize = useDebouncedCallback(
+    (size) => {
+      dispatch(resizeNavdrawer({ windowKey, location, size }));
+    },
+    100,
+    [dispatch, windowKey],
+  );
+  if (state == null) {
+    return {
+      activeItem: undefined,
+      menuItems: [],
+      onSelect: () => {},
+      onResize: () => {},
+    };
+  }
   let activeItem: NavDrawerItem | undefined;
   let menuItems: NavMenuItem[] = [];
   if (state.activeItem != null)
     activeItem = items.find((item) => item.key === state.activeItem);
   menuItems = items.filter((item) => state.menuItems.includes(item.key));
 
-  const onResize = useDebouncedCallback(
-    (size) => {
-      dispatch(resizeNavdrawer({ location, size }));
-    },
-    100,
-    [dispatch],
-  );
-
   if (activeItem != null) activeItem.initialSize = state.size;
 
   return {
     activeItem,
     menuItems,
-    onSelect: (key: string) => dispatch(setNavdrawerVisible({ key })),
+    onSelect: (key: string) => dispatch(setNavdrawerVisible({ windowKey, key })),
     onResize,
   };
 };

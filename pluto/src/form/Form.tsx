@@ -198,7 +198,7 @@ export const Field = <
   hideIfNull = false,
   ...props
 }: FieldProps<I, O>): ReactElement | null => {
-  const field = useField<I, O>({ path, allowNull: hideIfNull });
+  const field = useField<I, O>({ path, allowNull: hideIfNull as true });
   if (field == null) return null;
   if (path == null) throw new Error("Path is required");
   if (label == null) label = Case.capitalize(deep.element(path, -1));

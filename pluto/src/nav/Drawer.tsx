@@ -19,8 +19,6 @@ import { Eraser } from "@/vis/eraser";
 
 import "@/nav/Drawer.css";
 
-import { act } from "react-dom/test-utils";
-
 export interface DrawerItem {
   key: string;
   content: ReactElement;

@@ -239,6 +239,7 @@ export class Writer {
   }
 
   async execute(req: Request): Promise<Response> {
+    // @ts-expect-error
     this.stream.send(req);
     while (true) {
       const res = await this.stream.receive();

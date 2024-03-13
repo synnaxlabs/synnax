@@ -10,6 +10,7 @@
 import { type ReactElement, useCallback, useMemo, useRef } from "react";
 
 import { type PayloadAction } from "@reduxjs/toolkit";
+import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Icon } from "@synnaxlabs/media";
 import {
   Control,
@@ -114,7 +115,10 @@ const SymbolRenderer = ({
     [dispatch, symbolKey, layoutKey, key],
   );
 
-  const C = Core.SYMBOLS[key as Core.SymbolVariant];
+  const C = Core.SYMBOLS[key as Core.Variant];
+  if (C == null) {
+    throw new Error(`Symbol ${key} not found`);
+  }
 
   const zoom = useSelectViewport(layoutKey);
 
@@ -131,6 +135,7 @@ const SymbolRenderer = ({
 };
 
 export const Loaded: Layout.Renderer = ({ layoutKey }) => {
+  const windowKey = useSelectWindowKey() as string;
   const { name } = Layout.useSelectRequired(layoutKey);
   const pid = useSelect(layoutKey);
 
@@ -199,11 +204,12 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
 
   const handleDrop = useCallback(
     ({ items, event }: Haul.OnDropProps): Haul.Item[] => {
+      console.log(items);
       const valid = Haul.filterByType(HAUL_TYPE, items);
       if (ref.current == null) return valid;
       const region = box.construct(ref.current);
       valid.forEach(({ key, data }) => {
-        const spec = Core.SYMBOLS[key as Core.SymbolVariant];
+        const spec = Core.SYMBOLS[key as Core.Variant];
         if (spec == null) return;
         const pos = calculatePos(
           region,
@@ -264,11 +270,12 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
     if (!pid.editable) return;
     dispatch(
       Layout.setNavdrawerVisible({
+        windowKey,
         key: "visualization",
         value: true,
       }) as PayloadAction<SyncPayload>,
     );
-  }, [dispatch, pid.editable]);
+  }, [windowKey, dispatch, pid.editable]);
 
   return (
     <div
