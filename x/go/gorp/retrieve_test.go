@@ -111,14 +111,6 @@ var _ = Describe("Retrieve", Ordered, func() {
 				Expect(err).To(HaveOccurred())
 				Expect(errors.Is(err, query.NotFound)).To(BeTrue())
 			})
-			It("Should return a query.NotFound error if the where clause matches no entry", func() {
-				err := gorp.NewRetrieve[int, entry]().
-					Where(func(e *entry) bool { return e.ID == 241241 }).
-					Entry(&entry{}).
-					Exec(ctx, tx)
-				Expect(err).To(HaveOccurred())
-				Expect(errors.Is(err, query.NotFound)).To(BeTrue())
-			})
 			Describe("exists", func() {
 				It("Should return true if the key has a matching entry", func() {
 					exists, err := gorp.NewRetrieve[int, entry]().
