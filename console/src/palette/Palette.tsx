@@ -340,7 +340,6 @@ export const CommandListItem = ({
   entry: { icon, name, key },
   hovered,
   onSelect,
-  style,
   translate,
   ...props
 }: List.ItemProps<string, Command>): ReactElement => {
@@ -362,7 +361,6 @@ export const CommandListItem = ({
       style={{
         position: "absolute",
         transform: `translateY(${translate}px)`,
-        ...style,
       }}
       {...props}
     >
@@ -378,6 +376,7 @@ export const createResourceListItem = (
     entry: { name, key, id },
     hovered,
     onSelect,
+    translate,
     ...props
   }: List.ItemProps<string, ontology.Resource>): ReactElement | null => {
     if (id == null) return null;
@@ -393,6 +392,10 @@ export const createResourceListItem = (
           hovered && CSS.BEM("palette", "item", "hovered"),
           CSS.BEM("palette", "item", "resource"),
         )}
+        style={{
+          position: "absolute",
+          transform: `translateY(${translate}px)`,
+        }}
         {...props}
       >
         {name}

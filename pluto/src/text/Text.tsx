@@ -7,7 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ForwardedRef, forwardRef, type ReactElement } from "react";
+import {
+  type ForwardedRef,
+  forwardRef,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 
 import { Color } from "@/color";
 import { CSS } from "@/css";
@@ -23,7 +28,7 @@ export interface CoreProps<L extends text.Level = text.Level> {
   /* The level of text to display i.e. p, h1, h2 */
   level: L;
   /* The text to display */
-  children?: (string | number | boolean) | Array<string | number | boolean>;
+  children?: ReactNode;
   /* The color of the text */
   color?: Color.Crude;
   /* NoWrap prevents the text from wrapping */

@@ -18,7 +18,7 @@ import { v4 as uuidV4 } from "uuid";
 import { type Layout } from "@/layout";
 
 export type NodeProps = object & {
-  key: PID.SymbolVariant;
+  key: PID.Variant;
   color?: Color.Crude;
 };
 

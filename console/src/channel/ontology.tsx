@@ -11,7 +11,13 @@ import { type ReactElement } from "react";
 
 import { ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { type Haul, Menu, Channel, telem } from "@synnaxlabs/pluto";
+import {
+  type Haul,
+  Menu,
+  Channel,
+  telem,
+  type PID as PlutoPID,
+} from "@synnaxlabs/pluto";
 import { Tree } from "@synnaxlabs/pluto/tree";
 
 import { Menu as ConsoleMenu } from "@/components";
@@ -75,6 +81,13 @@ const haulItems = ({ name, id }: ontology.Resource): Haul.Item[] => {
     },
     outlet: "stringifier",
   });
+  const pidSymbolProps: PlutoPID.ValueProps = {
+    label: {
+      label: name,
+      level: "p",
+    },
+    telem: t,
+  };
   return [
     {
       type: "channel",
@@ -83,9 +96,7 @@ const haulItems = ({ name, id }: ontology.Resource): Haul.Item[] => {
     {
       type: PID.HAUL_TYPE,
       key: "value",
-      data: {
-        telem: t,
-      },
+      data: pidSymbolProps,
     },
   ];
 };

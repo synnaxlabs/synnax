@@ -170,14 +170,12 @@ const IndividualProperties = ({
   element: NodeElementInfo;
   onChange: (key: string, props: any) => void;
 }): ReactElement => {
-  const C = PID.SYMBOLS[selected.props.key as PID.SymbolVariant];
+  const C = PID.SYMBOLS[selected.props.key as PID.Variant];
 
   const formMethods = Form.use({
     values: deep.copy(selected.props),
     sync: true,
-    onChange: (values) => {
-      onChange(selected.key, values);
-    },
+    onChange: (values: any) => onChange(selected.key, values),
   });
 
   return (

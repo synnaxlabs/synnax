@@ -63,7 +63,11 @@ const handleRename: Ontology.HandleTreeRename = ({
 }) => {
   void client.workspaces.linePlot.rename(id.key, name);
   store.dispatch(Layout.rename({ key: id.key, name }));
-  const next = Tree.updateNode(nodes, id.toString(), (node) => ({ ...node, name }));
+  const next = Tree.updateNode({
+    tree: nodes,
+    key: id.toString(),
+    updater: (node) => ({ ...node, name }),
+  });
   setNodes([...next]);
 };
 

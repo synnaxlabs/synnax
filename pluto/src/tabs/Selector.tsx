@@ -33,8 +33,8 @@ export interface TabSpec {
   editable?: boolean;
 }
 
-export interface SelectorProps extends Omit<Align.SpaceProps, "children" | "size"> {
-  size: ComponentSize;
+export interface SelectorProps extends Omit<Align.SpaceProps, "children"> {
+  size?: ComponentSize;
 }
 
 const CLS = "tabs-selector";

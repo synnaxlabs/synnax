@@ -86,7 +86,7 @@ export interface UseNotificationsProps {
 
 const DEFAULT_EXPIRATION = TimeSpan.seconds(5);
 
-interface Notification extends status.Spec {
+export interface Notification extends status.Spec {
   count: number;
 }
 

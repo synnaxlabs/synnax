@@ -36,7 +36,6 @@ import {
   selectMosaicTab,
   setNavdrawer,
 } from "@/layout/slice";
-import { NAV_SIZES } from "@/layouts/LayoutMain";
 import { LinePlot } from "@/lineplot";
 import { SERVICES } from "@/services";
 import { type RootStore } from "@/store";

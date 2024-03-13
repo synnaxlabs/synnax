@@ -31,7 +31,7 @@ export interface SliceState {
   layouts: Record<string, LayoutState>;
   hauling: Haul.DraggingState;
   mosaics: Record<string, MosaicState>;
-  nav: Record<string, NavState>;
+  nav: { main: MainNavState } & Record<string, PartialNavState>;
   alreadyCheckedGetStarted: boolean;
 }
 
@@ -40,8 +40,12 @@ export interface MosaicState {
   root: Mosaic.Node;
 }
 
-export interface NavState {
+export interface MainNavState {
   drawers: NavDrawerState;
+}
+
+export interface PartialNavState {
+  drawers: Partial<NavDrawerState>;
 }
 
 export type NavdrawerLocation = "right" | "left" | "bottom";
@@ -131,7 +135,6 @@ export const PERSIST_EXCLUDE = ["alreadyCheckedGetStarted"].map(
 export type PlacePayload = LayoutState;
 /** Signature for the removeLayout action. */
 export interface RemovePayload {
-  location: NavdrawerLocation;
   keys: string[];
 }
 /** Signature for the setTheme action. */
@@ -326,7 +329,9 @@ export const { actions, reducer } = createSlice({
       state,
       { payload: { windowKey, location, size } }: PayloadAction<ResizeNavdrawerPayload>,
     ) => {
-      state.nav[windowKey].drawers[location].size = size;
+      const navState = state.nav[windowKey];
+      if (navState?.drawers[location] == null) return;
+      (navState.drawers[location] as NavdrawerEntryState).size = size;
     },
     setNavdrawerVisible: (
       state,

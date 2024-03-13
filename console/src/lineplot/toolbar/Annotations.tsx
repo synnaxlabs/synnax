@@ -17,7 +17,6 @@ import {
   Header,
   Input,
   Status,
-  componentRenderProp,
   Select,
   Align,
   Theming,
@@ -172,65 +171,55 @@ export const Annotations = ({ layoutKey }: AnnotationsProps): ReactElement => {
           <Header.Title>{`Rule - ${selectedRule.label}`}</Header.Title>
         </Header.Header>
         <Align.Space direction="x" style={{ padding: "2rem" }} wrap>
-          <Input.Item
-            label="Label"
-            onChange={handleLabelChange}
-            value={selectedRule.label}
-            variant="shadow"
-          />
-          <Input.Item
-            label="Units"
-            onChange={handleUnitsChange}
-            value={selectedRule.units}
-            variant="shadow"
-          />
-          <Input.Item<number>
-            label="Position"
-            onChange={handlePositionChange}
-            value={selectedRule.position ?? 0}
-            variant="shadow"
-          >
-            {componentRenderProp(Input.Numeric)}
+          <Input.Item label="Label">
+            <Input.Text
+              variant="shadow"
+              onChange={handleLabelChange}
+              value={selectedRule.label}
+            />
           </Input.Item>
-          <Input.Item<Color.Crude, Color.Color, Color.SwatchProps>
-            label="Color"
-            onChange={handleColorChange}
-            value={new Color.Color(selectedRule.color)}
-          >
-            {componentRenderProp(Color.Swatch)}
+          <Input.Item label="Units">
+            <Input.Text
+              variant="shadow"
+              onChange={handleUnitsChange}
+              value={selectedRule.units}
+            />
           </Input.Item>
-          <Input.Item<Vis.AxisKey>
-            label="Axis"
-            onChange={handleAxisChange}
-            value={selectedRule.axis}
-          >
-            {(props) => (
-              <Select.Single
-                columns={[{ key: "name", name: "Axis" }]}
-                data={Vis.AXIS_KEYS.map((a) => ({ name: a.toUpperCase(), key: a }))}
-                tagKey="name"
-                allowNone={false}
-                {...props}
-              />
-            )}
+          <Input.Item label="Position">
+            <Input.Numeric
+              variant="shadow"
+              onChange={handlePositionChange}
+              value={selectedRule.position ?? 0}
+            />
           </Input.Item>
-          <Input.Item<number, number, Input.NumericProps>
-            label="Line Width"
-            onChange={handleLineWidthChange}
-            value={selectedRule.lineWidth}
-            bounds={{ lower: 1, upper: 10 }}
-            variant="shadow"
-          >
-            {componentRenderProp(Input.Numeric)}
+          <Input.Item label="Color">
+            <Color.Swatch value={selectedRule.color} onChange={handleColorChange} />
           </Input.Item>
-          <Input.Item<number, number, Input.NumericProps>
-            label="Line Dash"
-            onChange={handleLineDashChange}
-            value={selectedRule.lineDash}
-            bounds={{ lower: 0, upper: 50 }}
-            variant="shadow"
-          >
-            {componentRenderProp(Input.Numeric)}
+          <Input.Item label="Axis">
+            <Select.Single
+              onChange={handleAxisChange}
+              value={selectedRule.axis}
+              columns={[{ key: "name", name: "Axis" }]}
+              data={Vis.AXIS_KEYS.map((a) => ({ name: a.toUpperCase(), key: a }))}
+              tagKey="name"
+              allowNone={false}
+            />
+          </Input.Item>
+          <Input.Item label="Line Width">
+            <Input.Numeric
+              variant="shadow"
+              bounds={{ lower: 1, upper: 10 }}
+              onChange={handleLineWidthChange}
+              value={selectedRule.lineWidth}
+            />
+          </Input.Item>
+          <Input.Item label="Line Dash">
+            <Input.Numeric
+              variant="shadow"
+              bounds={{ lower: 0, upper: 50 }}
+              onChange={handleLineDashChange}
+              value={selectedRule.lineDash}
+            />
           </Input.Item>
         </Align.Space>
       </Align.Space>
@@ -290,7 +279,7 @@ export const Annotations = ({ layoutKey }: AnnotationsProps): ReactElement => {
                 itemHeight={27}
                 style={{ height: "100%", width: 200 }}
               >
-                {({ onSelect, selected, style, entry: { key, label } }) => (
+                {({ onSelect, selected, translate, entry: { key, label } }) => (
                   <Button.Button
                     key={key}
                     id={key}
@@ -302,7 +291,8 @@ export const Annotations = ({ layoutKey }: AnnotationsProps): ReactElement => {
                       onSelect?.(key);
                     }}
                     style={{
-                      ...style,
+                      position: "absolute",
+                      transform: `translateY(${translate}px)`,
                       width: "100%",
                       backgroundColor: selected ? "var(--pluto-primary-z-20)" : "",
                       borderRadius: 0,

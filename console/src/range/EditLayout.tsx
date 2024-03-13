@@ -145,28 +145,30 @@ const EditLayoutForm = ({
 
   return (
     <Align.Space className={CSS.B("range-edit-layout")} grow>
-      <Form.Form {...methods}>
-        <Form.Field<string> path="name">
-          {(p) => (
-            <Input.Text
-              autoFocus
-              level="h2"
-              variant="natural"
-              placeholder="Range Name"
-              {...p}
-            />
-          )}
-        </Form.Field>
-        <Align.Space direction="x" size="large">
-          <Form.Field<number> path="start" label="From">
-            {(p) => <Input.DateTime level="h4" variant="natural" {...p} />}
+      <Align.Space className="console-form" justify="center" grow>
+        <Form.Form {...methods}>
+          <Form.Field<string> path="name">
+            {(p) => (
+              <Input.Text
+                autoFocus
+                level="h2"
+                variant="natural"
+                placeholder="Range Name"
+                {...p}
+              />
+            )}
           </Form.Field>
-          <Text.WithIcon level="h4" startIcon={<Icon.Arrow.Right />} />
-          <Form.Field<number> path="end" label="To">
-            {(p) => <Input.DateTime level="h4" variant="natural" {...p} />}
-          </Form.Field>
-        </Align.Space>
-      </Form.Form>
+          <Align.Space direction="x" size="large">
+            <Form.Field<number> path="start" label="From">
+              {(p) => <Input.DateTime level="h4" variant="natural" {...p} />}
+            </Form.Field>
+            <Text.WithIcon level="h4" startIcon={<Icon.Arrow.Right />} />
+            <Form.Field<number> path="end" label="To">
+              {(p) => <Input.DateTime level="h4" variant="natural" {...p} />}
+            </Form.Field>
+          </Align.Space>
+        </Form.Form>
+      </Align.Space>
       <Nav.Bar location="bottom" size={48}>
         <Nav.Bar.End style={{ padding: "1rem" }}>
           {isCreate && (
