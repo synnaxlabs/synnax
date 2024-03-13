@@ -15,8 +15,7 @@ import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { NavControls as LineNavControls } from "@/lineplot/NavControls";
 import { NavControls as PidNavControls } from "@/pid/NavControls";
-
-import { type LayoutType } from "./types";
+import { type LayoutType } from "@/vis/types";
 
 const REGISTRY: Record<LayoutType, FC> = {
   lineplot: LineNavControls,

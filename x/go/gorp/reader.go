@@ -64,7 +64,7 @@ func (r Reader[K, E]) Get(ctx context.Context, key K) (e E, err error) {
 	return e, r.Decode(ctx, b, &e)
 }
 
-// GetMany retrieves multiple entries from the database. Entries that are not
+// GetMany retrieves isMultiple entries from the database. Entries that are not
 // found are simply omitted from the returned slice.
 func (r Reader[K, E]) GetMany(ctx context.Context, keys []K) ([]E, error) {
 	var (

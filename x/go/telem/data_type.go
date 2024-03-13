@@ -22,6 +22,10 @@ type DataType string
 // density, DensityUnknown is returned.
 func (d DataType) Density() Density { return dataTypeDensities[d] }
 
+func (d DataType) IsVariable() bool {
+	return d == BytesT || d == StringT || d == JSONT
+}
+
 func NewDataType[T any](v T) DataType {
 	t := reflect.TypeOf(v)
 	dt, ok := dataTypes[strings.ToLower(t.Name())]

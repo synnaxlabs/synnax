@@ -10,7 +10,8 @@
  */
 
 .pluto-color-picker {
-    border: none;
+    border: var(--pluto-border-l4) !important;
+    border-radius: inherit !important;
     width: 37rem !important;
     box-shadow: none !important;
     padding: 1rem !important;

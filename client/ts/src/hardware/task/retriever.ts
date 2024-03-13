@@ -16,6 +16,8 @@ import { type Task, taskZ } from "@/hardware/task/payload";
 const retrieveReqZ = z.object({
   rack: rackKeyZ.optional(),
   keys: z.string().array().optional(),
+  offset: z.number().optional(),
+  limit: z.number().optional(),
 });
 
 const rerieveResS = z.object({
@@ -38,6 +40,26 @@ export class Retriever {
       this.client,
       RETRIEVE_ENDPOINT,
       params,
+      rerieveResS,
+    );
+    return res.tasks;
+  }
+
+  async search(term: string): Promise<Task[]> {
+    const res = await sendRequired<typeof retrieveReqZ, typeof rerieveResS>(
+      this.client,
+      RETRIEVE_ENDPOINT,
+      { keys: [term] },
+      rerieveResS,
+    );
+    return res.tasks;
+  }
+
+  async page(offset: number, limit: number): Promise<Task[]> {
+    const res = await sendRequired<typeof retrieveReqZ, typeof rerieveResS>(
+      this.client,
+      RETRIEVE_ENDPOINT,
+      { offset, limit },
       rerieveResS,
     );
     return res.tasks;

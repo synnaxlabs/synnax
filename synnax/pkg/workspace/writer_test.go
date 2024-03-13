@@ -49,7 +49,7 @@ var _ = Describe("Writer", func() {
 			Expect(res.Layout).To(Equal("data"))
 		})
 	})
-	Describe("Delete", func() {
+	Describe("DeleteChannel", func() {
 		It("Should delete a workspace", func() {
 			ws := workspace.Workspace{Name: "test", Author: author.Key}
 			Expect(svc.NewWriter(tx).Create(ctx, &ws)).To(Succeed())

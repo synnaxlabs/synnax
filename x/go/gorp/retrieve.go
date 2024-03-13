@@ -67,7 +67,7 @@ func (r Retrieve[K, E]) Entries(entries *[]E) Retrieve[K, E] {
 }
 
 // Entry binds the entry that the Params will fill results into. Repeated calls to Entry
-// or Entries will override All previous calls to Entries or Entry. If  multiple results
+// or Entries will override All previous calls to Entries or Entry. If  isMultiple results
 // are returned by the query, entry will be set to the last result.
 func (r Retrieve[K, E]) Entry(entry *E) Retrieve[K, E] {
 	SetEntry[K](r.Params, entry)
@@ -243,20 +243,23 @@ func filterRetrieve[K Key, E Entry[K]](
 	ctx context.Context,
 	q query.Parameters,
 	tx Tx,
-) error {
+) (err error) {
 	var (
 		limit, limitOk = GetLimit(q)
 		offset         = GetOffset(q)
 		f              = getFilters[K, E](q)
 		entries        = GetEntries[K, E](q)
-		iter, err      = WrapReader[K, E](tx).OpenIterator(IterOptions{
-			prefix: getWherePrefix(q),
-		})
-		validCount int
+		validCount     int
 	)
+	iter, err := WrapReader[K, E](tx).OpenIterator(IterOptions{
+		prefix: getWherePrefix(q),
+	})
 	if err != nil {
 		return err
 	}
+	defer func() {
+		err = errors.CombineErrors(err, iter.Close())
+	}()
 	for iter.First(); iter.Valid(); iter.Next() {
 		v := iter.Value(ctx)
 		if f.exec(v) {
@@ -266,5 +269,11 @@ func filterRetrieve[K Key, E Entry[K]](
 			}
 		}
 	}
-	return iter.Close()
+	if entries.isMultiple {
+		return nil
+	}
+	//if entries.changes == 0 {
+	//	return errors.Wrapf(query.NotFound, "no entries found")
+	//}
+	return nil
 }

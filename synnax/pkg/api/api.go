@@ -14,7 +14,9 @@
 package api
 
 import (
+	"github.com/synnaxlabs/synnax/pkg/api/latency"
 	"go/types"
+	"time"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
@@ -216,8 +218,10 @@ func (a *API) BindTo(t Transport) {
 	var (
 		tk                 = tokenMiddleware(a.provider.auth.token)
 		instrumentation    = lo.Must(falamos.Middleware(falamos.Config{Instrumentation: a.config.Instrumentation}))
-		insecureMiddleware = []freighter.Middleware{instrumentation, errors.Middleware()}
-		secureMiddleware   = make([]freighter.Middleware, len(insecureMiddleware))
+		insecureMiddleware = []freighter.Middleware{
+			latency.Middleware(50 * time.Millisecond),
+			instrumentation, errors.Middleware()}
+		secureMiddleware = make([]freighter.Middleware, len(insecureMiddleware))
 	)
 	copy(secureMiddleware, insecureMiddleware)
 	//if !*a.config.Insecure {

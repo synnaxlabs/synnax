@@ -15,7 +15,8 @@ import { Input } from "@synnaxlabs/pluto/input";
 
 import { type AxisKey, axisLabel } from "@/vis/axis";
 
-export interface SelectMultipleAxesInputItemProps extends Input.ItemProps {
+export interface SelectMultipleAxesInputItemProps
+  extends Omit<Input.ItemProps, "onChange"> {
   axis: AxisKey;
   onChange: (key: AxisKey, v: channel.Key[]) => void;
   value: channel.Key[];
@@ -30,12 +31,12 @@ export const SelectMultipleAxesInputItem = ({
   <Input.Item direction="x" label={axisLabel(axis)} {...props}>
     <Channel.SelectMultiple
       value={value}
-      onChange={useCallback((v) => onChange(axis, v), [onChange, axis])}
+      onChange={useCallback((v: channel.Key[]) => onChange(axis, v), [onChange, axis])}
     />
   </Input.Item>
 );
 
-export interface SelectAxisInputItemProps extends Input.ItemProps {
+export interface SelectAxisInputItemProps extends Omit<Input.ItemProps, "onChange"> {
   axis: AxisKey;
   onChange: (key: AxisKey, v: channel.Key) => void;
   value: channel.Key;
@@ -49,7 +50,7 @@ export const SelectAxisInputItem = ({
 }: SelectAxisInputItemProps): ReactElement => (
   <Input.Item direction="x" label={axisLabel(axis)} {...props}>
     <Channel.SelectSingle
-      onChange={useCallback((v) => onChange(axis, v), [axis, onChange])}
+      onChange={useCallback((v: channel.Key) => onChange(axis, v), [axis, onChange])}
       value={value}
     />
   </Input.Item>

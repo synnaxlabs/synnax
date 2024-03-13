@@ -90,6 +90,15 @@ func (f Frame) FilterKeys(keys channel.Keys) Frame {
 	return Frame{Keys: fKeys, Series: fArrays}
 }
 
+func (f Frame) Get(key channel.Key) (series []telem.Series) {
+	for i, k := range f.Keys {
+		if k == key {
+			series = append(series, f.Series[i])
+		}
+	}
+	return series
+}
+
 func MergeFrames(frames []Frame) (f Frame) {
 	if len(frames) == 0 {
 		return f

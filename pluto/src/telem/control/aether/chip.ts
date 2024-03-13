@@ -44,7 +44,7 @@ export class Chip extends aether.Leaf<typeof chipStateZ, InternalState> {
 
     if (this.state.triggered && !this.prevState.triggered) {
       this.internal.sink
-        .set(this.state.status.data?.authority !== Authority.ABSOLUTE.valueOf())
+        .set(this.state.status.data?.authority !== Authority.Absolute.valueOf())
         .catch(console.error);
     }
 

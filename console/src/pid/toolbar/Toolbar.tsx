@@ -10,7 +10,8 @@
 import { type ReactElement, useCallback } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import { Align, Status, Tabs, Text } from "@synnaxlabs/pluto";
+import { Align, Status, Tabs } from "@synnaxlabs/pluto";
+import { Text } from "@synnaxlabs/pluto/text";
 import { useDispatch } from "react-redux";
 
 import { ToolbarHeader, ToolbarTitle } from "@/components";

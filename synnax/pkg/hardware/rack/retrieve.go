@@ -13,6 +13,7 @@ package rack
 
 import (
 	"context"
+	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
 	"github.com/synnaxlabs/x/gorp"
@@ -52,6 +53,13 @@ func (r Retrieve) Limit(limit int) Retrieve {
 
 func (r Retrieve) Offset(offset int) Retrieve {
 	r.gorp = r.gorp.Offset(offset)
+	return r
+}
+
+func (r Retrieve) WhereNode(node core.NodeKey) Retrieve {
+	r.gorp = r.gorp.Where(func(rack *Rack) bool {
+		return rack.Key.Node() == node
+	})
 	return r
 }
 

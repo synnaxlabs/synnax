@@ -109,7 +109,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(res).To(Equal(*m))
 		})
 	})
-	Describe("Delete", func() {
+	Describe("DeleteChannel", func() {
 		It("Should correctly delete a module", func() {
 			m := &task.Task{
 				Key:  task.NewKey(rack_.Key, 0),

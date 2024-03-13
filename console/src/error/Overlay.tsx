@@ -24,7 +24,6 @@ import { Theming } from "@synnaxlabs/pluto/theming";
 import { appWindow } from "@tauri-apps/api/window";
 import { ErrorBoundary, type ErrorBoundaryProps } from "react-error-boundary";
 
-import { Controls } from "@/components";
 import { CSS } from "@/css";
 import { NAV_SIZES } from "@/layouts/LayoutMain";
 
@@ -32,7 +31,7 @@ import "@/error/Overlay.css";
 
 export interface ErrorOverlayProps extends PropsWithChildren<{}> {}
 
-const messageTranslation = {
+const messageTranslation: Record<string, string> = {
   "[persist] - windows open":
     "It seems like you have Synnax open from multiple windows. Please close all other windows and reopen Synnax.",
 };
@@ -60,7 +59,7 @@ const FallbackRender: ErrorBoundaryProps["fallbackRender"] = ({
   const os = OS.use();
 
   return (
-    <Align.Space directon="y" className={CSS.B("error-overlay")}>
+    <Align.Space direction="y" className={CSS.B("error-overlay")}>
       <Nav.Bar
         data-tauri-drag-region
         location="top"
@@ -113,10 +112,10 @@ const FallbackRender: ErrorBoundaryProps["fallbackRender"] = ({
       <Align.Center role="alert">
         <Align.Space direction="x" className={CSS.B("dialog")} size={20}>
           <Logo variant="icon" />
-          <Align.Space directon="y" align="start" className={CSS.B("details")}>
+          <Align.Space direction="y" align="start" className={CSS.B("details")}>
             <Text.Text level="h1">Something went wrong</Text.Text>
             <Status.Text variant="error" hideIcon level="h3">
-              {messageTranslation[error.message] || error.message}
+              {messageTranslation[error.message] ?? error.message}
             </Status.Text>
             <Text.Text className={CSS.B("stack")} level="p">
               {error.stack}

@@ -40,7 +40,13 @@ export const NavTop = ({ title }: NavTopProps): ReactElement => {
         {os === "Windows" && <Logo className="console-main-nav-top__logo" />}
       </Nav.Bar.Start>
       <Nav.Bar.AbsoluteCenter>
-        <Text.Text level="p" shade={7} weight={450}>
+        <Text.Text
+          className="console-main-nav-top__title"
+          data-tauri-drag-region
+          level="p"
+          shade={7}
+          weight={450}
+        >
           {title}
         </Text.Text>
       </Nav.Bar.AbsoluteCenter>

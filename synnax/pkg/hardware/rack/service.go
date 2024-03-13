@@ -55,7 +55,7 @@ func (c Config) Override(other Config) Config {
 
 // Validate implements config.Properties.
 func (c Config) Validate() error {
-	v := validate.New("rack")
+	v := validate.New("hardware.rack")
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "ontology", c.Ontology)
 	validate.NotNil(v, "group", c.Group)
@@ -97,7 +97,7 @@ func OpenService(ctx context.Context, configs ...Config) (s *Service, err error)
 		return
 	}
 
-	cdcS, err := signals.SubscribeToGorp(ctx, cfg.Signals, signals.GorpConfigPureNumeric[Key, Rack](cfg.DB, telem.Uint32T))
+	cdcS, err := signals.PublishFromGorp(ctx, cfg.Signals, signals.GorpPublisherConfigPureNumeric[Key, Rack](cfg.DB, telem.Uint32T))
 	s.shutdownSignals = cdcS
 
 	return s, nil

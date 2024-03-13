@@ -15,12 +15,15 @@ import (
 	"github.com/synnaxlabs/x/signal"
 )
 
-type Subscriber[V Value] struct {
+// ObservablePublisher is a Source that subscribes to an ObservableSubscriber and
+// publishes the values to its outlets.
+type ObservablePublisher[V Value] struct {
 	AbstractUnarySource[V]
 	observe.Observable[V]
 }
 
-func (s *Subscriber[V]) Flow(ctx signal.Context, opts ...Option) {
+// Flow implements the Flow interface.
+func (s *ObservablePublisher[V]) Flow(ctx signal.Context, opts ...Option) {
 	ctx.Go(func(ctx context.Context) error {
 		remove := s.Observable.OnChange(func(ctx context.Context, v V) {
 			_ = signal.SendUnderContext(ctx, s.Out.Inlet(), v)
@@ -31,13 +34,17 @@ func (s *Subscriber[V]) Flow(ctx signal.Context, opts ...Option) {
 	})
 }
 
-type TransformSubscriber[V Value, T Value] struct {
+// ObservableTransformPublisher is a Source that subscribes to an ObservableSubscriber,
+// transforms the value through a provided transform function, and publishes the
+// transformed value to its outlets.
+type ObservableTransformPublisher[V Value, T Value] struct {
 	AbstractUnarySource[T]
 	Transform TransformFunc[V, T]
 	observe.Observable[V]
 }
 
-func (ts *TransformSubscriber[V, T]) Flow(ctx signal.Context, opts ...Option) {
+// Flow implements the Flow interface.
+func (ts *ObservableTransformPublisher[V, T]) Flow(ctx signal.Context, opts ...Option) {
 	o := NewOptions(opts)
 	o.AttachClosables(ts.Out)
 	ctx.Go(func(ctx context.Context) error {
@@ -53,34 +60,34 @@ func (ts *TransformSubscriber[V, T]) Flow(ctx signal.Context, opts ...Option) {
 	}, o.Signal...)
 }
 
-// Observable is a Sink that allows callers to subscribe to values passed to it.
-type Observable[V Value] struct {
+// ObservableSubscriber is a Sink that allows callers to subscribe to values passed to it.
+type ObservableSubscriber[V Value] struct {
 	UnarySink[V]
 	observe.Observer[V]
 }
 
-func (o *Observable[V]) sink(ctx context.Context, v V) error {
+func (o *ObservableSubscriber[V]) sink(ctx context.Context, v V) error {
 	o.Observer.Notify(ctx, v)
 	return nil
 }
 
-// NewObservable creates a new Observable Segment.
-func NewObservable[V Value]() *Observable[V] {
-	o := &Observable[V]{Observer: observe.New[V]()}
+// NewObservableSubscriber creates a new ObservableSubscriber Segment.
+func NewObservableSubscriber[V Value]() *ObservableSubscriber[V] {
+	o := &ObservableSubscriber[V]{Observer: observe.New[V]()}
 	o.UnarySink.Sink = o.sink
 	return o
 }
 
-type TransformObservable[V Value, T Value] struct {
+type ObservableTransformSubscriber[V Value, T Value] struct {
 	UnarySink[V]
 	Transform TransformFunc[V, T]
 	observe.Observer[T]
 }
 
-func NewTransformObservable[V Value, T Value](
+func NewObservableTransformSubscriber[V Value, T Value](
 	f TransformFunc[V, T],
-) *TransformObservable[V, T] {
-	o := &TransformObservable[V, T]{
+) *ObservableTransformSubscriber[V, T] {
+	o := &ObservableTransformSubscriber[V, T]{
 		Transform: f,
 		Observer:  observe.New[T](),
 	}
@@ -88,7 +95,7 @@ func NewTransformObservable[V Value, T Value](
 	return o
 }
 
-func (o *TransformObservable[V, T]) sink(ctx context.Context, v V) error {
+func (o *ObservableTransformSubscriber[V, T]) sink(ctx context.Context, v V) error {
 	t, ok, err := o.Transform(ctx, v)
 	if err != nil || !ok {
 		return err
@@ -99,23 +106,23 @@ func (o *TransformObservable[V, T]) sink(ctx context.Context, v V) error {
 
 type GeneratorTransformObservable[V Value, T Value] struct {
 	UnarySink[V]
-	GeneratorTransform GeneratorTransformFunc[V, T]
+	Generator GeneratorFunc[V, T]
 	observe.Observer[T]
 }
 
 func NewGeneratorTransformObservable[V Value, T Value](
-	f GeneratorTransformFunc[V, T],
+	f GeneratorFunc[V, T],
 ) *GeneratorTransformObservable[V, T] {
 	o := &GeneratorTransformObservable[V, T]{
-		GeneratorTransform: f,
-		Observer:           observe.New[T](),
+		Generator: f,
+		Observer:  observe.New[T](),
 	}
 	o.UnarySink.Sink = o.sink
 	return o
 }
 
 func (o *GeneratorTransformObservable[V, T]) sink(ctx context.Context, v V) error {
-	t, ok, err := o.GeneratorTransform(ctx, v)
+	t, ok, err := o.Generator(ctx, v)
 	if err != nil || !ok {
 		return err
 	}

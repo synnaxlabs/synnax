@@ -10,7 +10,7 @@
 import { MdDarkMode } from "react-icons/md";
 
 import { setActiveTheme } from "@/layout/slice";
-import { Command, CommandSelectionContext } from "@/palette/Palette";
+import { type Command, type CommandSelectionContext } from "@/palette/Palette";
 
 export const toggleThemeCommand: Command = {
   icon: <MdDarkMode />,

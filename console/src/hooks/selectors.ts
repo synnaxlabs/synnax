@@ -28,7 +28,7 @@ export const useMemoSelect = <S extends object, R>(
   deps: unknown[],
 ): R => useSelector(useCallback(memoize(selector), deps));
 
-export const selectByKeys = <K extends Key, S extends Keyed<K, S>>(
+export const selectByKeys = <K extends Key, S extends Keyed<K>>(
   state: S[] | Record<K, S>,
   keys?: K[],
 ): S[] => {
@@ -37,7 +37,7 @@ export const selectByKeys = <K extends Key, S extends Keyed<K, S>>(
   return state.filter((s) => keys.includes(s.key));
 };
 
-export const selectByKey = <K extends Key, S extends Keyed<K, S>>(
+export const selectByKey = <K extends Key, S extends Keyed<K>>(
   state: Record<string, S>,
   key?: string | null,
   defaultKey?: string | null,
