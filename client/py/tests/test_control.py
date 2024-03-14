@@ -9,6 +9,7 @@
 
 import threading
 import time
+from janus import Queue
 
 import pytest
 
@@ -46,13 +47,13 @@ class TestController:
     def test_valve_toggle(self, client: sy.Synnax):
         press_end_cmd_time, press_en_cmd, press_en, daq_time = create_valve_set(client)
 
-        def sequence():
+        def sequence(ev: threading.Event):
+            ev.wait()
             with client.control.acquire(
                 name="Basic Valve Toggle",
                 read=[press_en.key],
                 write=[press_en_cmd.key],
             ) as auto:
-                time.sleep(0.05)
                 auto[press_en_cmd.key] = True
                 assert auto.wait_until(
                     lambda c: c[press_en.key],
@@ -64,19 +65,22 @@ class TestController:
                     timeout=2 * sy.TimeSpan.SECOND,
                 )
 
-        def daq():
+        def daq(ev: threading.Event):
             with client.control.acquire(
                 name="Basic Valve Toggle",
                 read=[press_en_cmd.key],
                 write=[press_en.key],
             ) as auto:
+                ev.set()
                 auto.wait_until(lambda c: c[press_en_cmd.key])
                 auto[press_en.key] = True
                 auto.wait_until(lambda c: not c[press_en_cmd.key])
                 auto[press_en.key] = False
 
-        t1 = threading.Thread(target=sequence)
-        t2 = threading.Thread(target=daq)
+        ev = threading.Event()
+        t1 = threading.Thread(target=sequence, kwargs={'ev': ev})
+        t2 = threading.Thread(target=daq, kwargs={'ev': ev})
+
         t2.start()
         t1.start()
         t1.join()

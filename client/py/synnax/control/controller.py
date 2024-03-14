@@ -96,6 +96,7 @@ class Controller:
         self.receiver = _Receiver(frame_client, read, retriever, self)
         self.retriever = retriever
         self.receiver.start()
+        self.receiver.bootup_ack.wait()
 
     def set(
         self,
@@ -199,6 +200,7 @@ class _Receiver(Thread):
     processors: dict[uuid.UUID, Processor]
     retriever: ChannelRetriever
     controller: Controller
+    bootup_ack: Event
 
     def __init__(
         self,
@@ -211,6 +213,7 @@ class _Receiver(Thread):
         self.client = client
         self.state = State(retriever)
         self.controller = controller
+        self.bootup_ack = Event()
         self.processors = {}
         super().__init__()
 
@@ -218,7 +221,6 @@ class _Receiver(Thread):
         loop = events.new_event_loop()
         try:
             events.set_event_loop(loop)
-
             loop.run_until_complete(self.__run())
         finally:
             try:
@@ -240,6 +242,7 @@ class _Receiver(Thread):
     async def __run(self):
         self.queue = Queue(maxsize=1)
         self.streamer = await self.client.new_async_streamer(self.channels)
+        self.bootup_ack.set()
         create_task(self.__listen_for_close())
 
         async for frame in self.streamer:

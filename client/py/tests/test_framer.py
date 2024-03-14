@@ -92,7 +92,6 @@ class TestWriter:
                 data = np.random.rand(10).astype(np.float64)
                 w.write(pd.DataFrame({data_ch.key: data}))
 
-    @pytest.mark.focus
     @pytest.mark.asyncio
     async def test_write_persist_only_mode(
         self,
