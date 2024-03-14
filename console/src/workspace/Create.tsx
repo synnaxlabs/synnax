@@ -71,7 +71,7 @@ export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
 
   return (
     <Align.Space style={{ height: "100%" }}>
-      <Align.Space justify="center" grow>
+      <Align.Space className="console-form" justify="center" grow>
         <Form.Form {...methods}>
           <Form.Field<string> path="name">
             {(p) => (
