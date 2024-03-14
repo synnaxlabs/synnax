@@ -17,7 +17,7 @@ import {
   type ForwardedRef,
 } from "react";
 
-import { box, xy, dimensions, location, scale, deep } from "@synnaxlabs/x";
+import { box, xy, dimensions, location, scale } from "@synnaxlabs/x";
 
 import { useStateRef } from "@/hooks/ref";
 import { useMemoCompare } from "@/memo";
@@ -252,6 +252,39 @@ export const use = ({
       ),
     [threshold_],
   );
+
+  const t = Triggers.useHeldRef({
+    triggers: [["Control"]],
+  });
+
+  useEffect(() => {
+    const handler = (e: WheelEvent): void => {
+      if (canvasRef.current == null) return;
+      let sf = 1;
+      if (e.deltaY < 0) sf += 0.03;
+      else sf -= 0.03;
+      const canvasBox = box.construct(canvasRef.current);
+      const rawCursor = xy.construct(e);
+      if (!box.contains(canvasBox, rawCursor) || e.target !== canvasRef.current) return;
+      const s2 = constructScale(stateRef.current, box.construct(canvasRef.current));
+      const cursor = s2.pos(xy.construct(e));
+      const s = scale.XY.magnify({ x: t.current.held ? 1 : sf, y: sf });
+      let next = s.box(stateRef.current);
+      next = box.translate(next, {
+        x: t.current.held ? 0 : cursor.x * (1 - sf),
+        y: cursor.y * (1 - sf),
+      });
+      setStateRef(next);
+      onChange?.({
+        stage: "end",
+        box: next,
+        cursor: xy.construct(e),
+        mode: "zoom",
+      });
+    };
+    window.addEventListener("wheel", handler);
+    return () => window.removeEventListener("wheel", handler);
+  }, [setStateRef, onChange]);
 
   Triggers.useDrag({
     bound: canvasRef,
