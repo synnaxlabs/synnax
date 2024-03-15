@@ -18,6 +18,7 @@
     background: var(--pluto-gray-l1);
     border: var(--pluto-border);
     border-radius: var(--pluto-border-radius);
+    box-shadow: var(--pluto-shadow-menu);
     padding: 1rem;
 
     &.pluto--center {
@@ -77,7 +78,7 @@
             top: 100%;
         }
         &.pluto--right {
-            transform: translate(var(--pos-x) , calc(var(--pos-y) - calc(-100% - 1rem)));
+            transform: translate(var(--pos-x) , calc(var(--pos-y) + calc(-100% - 1rem)));
         }
         &.pluto--left {
             transform: translate(calc(var(--pos-x) - 100%), calc(var(--pos-y) + calc(-100% - 1rem)));

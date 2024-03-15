@@ -22,12 +22,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/errors"
 	"github.com/synnaxlabs/synnax/pkg/auth"
 	"github.com/synnaxlabs/synnax/pkg/auth/token"
-	"github.com/synnaxlabs/synnax/pkg/device"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
+	"github.com/synnaxlabs/synnax/pkg/hardware"
+	"github.com/synnaxlabs/synnax/pkg/label"
 	"github.com/synnaxlabs/synnax/pkg/ranger"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/synnax/pkg/user"
@@ -55,7 +56,8 @@ type Config struct {
 	PID           *pid.Service
 	LinePlot      *lineplot.Service
 	Token         *token.Service
-	Device        *device.Service
+	Label         *label.Service
+	Hardware      *hardware.Service
 	Authenticator auth.Authenticator
 	Enforcer      access.Enforcer
 	Cluster       dcore.Cluster
@@ -67,7 +69,7 @@ var (
 	DefaultConfig                       = Config{}
 )
 
-// Validate implements config.Config.
+// Validate implements config.Properties.
 func (c Config) Validate() error {
 	v := validate.New("api")
 	validate.NotNil(v, "channel", c.Channel)
@@ -84,12 +86,13 @@ func (c Config) Validate() error {
 	validate.NotNil(v, "group", c.Group)
 	validate.NotNil(v, "pid", c.PID)
 	validate.NotNil(v, "lineplot", c.LinePlot)
-	validate.NotNil(v, "device", c.Device)
+	validate.NotNil(v, "hardware", c.Hardware)
 	validate.NotNil(v, "insecure", c.Insecure)
+	validate.NotNil(v, "label", c.Label)
 	return v.Error()
 }
 
-// Override implements config.Config.
+// Override implements config.Properties.
 func (c Config) Override(other Config) Config {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Channel = override.Nil(c.Channel, other.Channel)
@@ -108,7 +111,8 @@ func (c Config) Override(other Config) Config {
 	c.Insecure = override.Nil(c.Insecure, other.Insecure)
 	c.PID = override.Nil(c.PID, other.PID)
 	c.LinePlot = override.Nil(c.LinePlot, other.LinePlot)
-	c.Device = override.Nil(c.Device, other.Device)
+	c.Label = override.Nil(c.Label, other.Label)
+	c.Hardware = override.Nil(c.Hardware, other.Hardware)
 	return c
 }
 
@@ -170,13 +174,22 @@ type Transport struct {
 	LinePlotDelete   freighter.UnaryServer[LinePlotDeleteRequest, types.Nil]
 	LinePlotRename   freighter.UnaryServer[LinePlotRenameRequest, types.Nil]
 	LinePlotSetData  freighter.UnaryServer[LinePlotSetDataRequest, types.Nil]
+	// LABEL
+	LabelCreate   freighter.UnaryServer[LabelCreateRequest, LabelCreateResponse]
+	LabelRetrieve freighter.UnaryServer[LabelRetrieveRequest, LabelRetrieveResponse]
+	LabelDelete   freighter.UnaryServer[LabelDeleteRequest, types.Nil]
+	LabelSet      freighter.UnaryServer[LabelSetRequest, types.Nil]
+	LabelRemove   freighter.UnaryServer[LabelRemoveRequest, types.Nil]
 	// DEVICE
-	DeviceCreateRack     freighter.UnaryServer[DeviceCreateRackRequest, DeviceCreateRackResponse]
-	DeviceRetrieveRack   freighter.UnaryServer[DeviceRetrieveRackRequest, DeviceRetrieveRackResponse]
-	DeviceDeleteRack     freighter.UnaryServer[DeviceDeleteRackRequest, types.Nil]
-	DeviceCreateModule   freighter.UnaryServer[DeviceCreateModuleRequest, DeviceCreateModuleResponse]
-	DeviceRetrieveModule freighter.UnaryServer[DeviceRetrieveModuleRequest, DeviceRetrieveModuleResponse]
-	DeviceDeleteModule   freighter.UnaryServer[DeviceDeleteModuleRequest, types.Nil]
+	HardwareCreateRack     freighter.UnaryServer[HardwareCreateRackRequest, HardwareCreateRackResponse]
+	HardwareRetrieveRack   freighter.UnaryServer[HardwareRetrieveRackRequest, HardwareRetrieveRackResponse]
+	HardwareDeleteRack     freighter.UnaryServer[HardwareDeleteRackRequest, types.Nil]
+	HardwareCreateTask     freighter.UnaryServer[HardwareCreateTaskRequest, HardwareCreateTaskResponse]
+	HardwareRetrieveTask   freighter.UnaryServer[HardwareRetrieveTaskRequest, HardwareRetrieveTaskResponse]
+	HardwareDeleteTask     freighter.UnaryServer[HardwareDeleteTaskRequest, types.Nil]
+	HardwareCreateDevice   freighter.UnaryServer[HardwareCreateDeviceRequest, HardwareCreateDeviceResponse]
+	HardwareRetrieveDevice freighter.UnaryServer[HardwareRetrieveDeviceRequest, HardwareRetrieveDeviceResponse]
+	HardwareDeleteDevice   freighter.UnaryServer[HardwareDeleteDeviceRequest, types.Nil]
 }
 
 // API wraps all implemented API services into a single container. Protocol-specific
@@ -193,7 +206,8 @@ type API struct {
 	Workspace    *WorkspaceService
 	PID          *PIDService
 	LinePlot     *LinePlotService
-	Device       *DeviceService
+	Label        *LabelService
+	Hardware     *HardwareService
 }
 
 // BindTo binds the API to the provided Transport implementation.
@@ -283,13 +297,23 @@ func (a *API) BindTo(t Transport) {
 		t.LinePlotRetrieve,
 		t.LinePlotDelete,
 
-		// DEVICE
-		t.DeviceCreateRack,
-		t.DeviceRetrieveRack,
-		t.DeviceDeleteModule,
-		t.DeviceCreateModule,
-		t.DeviceRetrieveModule,
-		t.DeviceDeleteModule,
+		// LABEL
+		t.LabelCreate,
+		t.LabelRetrieve,
+		t.LabelDelete,
+		t.LabelSet,
+		t.LabelRemove,
+
+		// HARDWARE
+		t.HardwareCreateRack,
+		t.HardwareRetrieveRack,
+		t.HardwareDeleteTask,
+		t.HardwareCreateTask,
+		t.HardwareRetrieveTask,
+		t.HardwareDeleteTask,
+		t.HardwareCreateDevice,
+		t.HardwareRetrieveDevice,
+		t.HardwareDeleteDevice,
 	)
 
 	// AUTH
@@ -357,13 +381,23 @@ func (a *API) BindTo(t Transport) {
 	t.LinePlotRetrieve.BindHandler(a.LinePlot.Retrieve)
 	t.LinePlotDelete.BindHandler(a.LinePlot.Delete)
 
-	// DEVICE
-	t.DeviceCreateRack.BindHandler(a.Device.CreateRack)
-	t.DeviceRetrieveRack.BindHandler(a.Device.RetrieveRack)
-	t.DeviceDeleteRack.BindHandler(a.Device.DeleteRack)
-	t.DeviceCreateModule.BindHandler(a.Device.CreateModule)
-	t.DeviceRetrieveModule.BindHandler(a.Device.RetrieveModule)
-	t.DeviceDeleteModule.BindHandler(a.Device.DeleteModule)
+	// LABEL
+	t.LabelCreate.BindHandler(a.Label.Create)
+	t.LabelRetrieve.BindHandler(a.Label.Retrieve)
+	t.LabelDelete.BindHandler(a.Label.Delete)
+	t.LabelSet.BindHandler(a.Label.Set)
+	t.LabelRemove.BindHandler(a.Label.Remove)
+
+	// HARDWARE
+	t.HardwareCreateRack.BindHandler(a.Hardware.CreateRack)
+	t.HardwareRetrieveRack.BindHandler(a.Hardware.RetrieveRack)
+	t.HardwareDeleteRack.BindHandler(a.Hardware.DeleteRack)
+	t.HardwareCreateTask.BindHandler(a.Hardware.CreateTask)
+	t.HardwareRetrieveTask.BindHandler(a.Hardware.RetrieveTask)
+	t.HardwareDeleteTask.BindHandler(a.Hardware.DeleteTask)
+	t.HardwareCreateDevice.BindHandler(a.Hardware.CreateDevice)
+	t.HardwareRetrieveDevice.BindHandler(a.Hardware.RetrieveDevice)
+	t.HardwareDeleteDevice.BindHandler(a.Hardware.DeleteDevice)
 }
 
 // New instantiates the delta API using the provided Config. This should probably
@@ -383,6 +417,7 @@ func New(configs ...Config) (API, error) {
 	api.Workspace = NewWorkspaceService(api.provider)
 	api.PID = NewPIDService(api.provider)
 	api.LinePlot = NewLinePlotService(api.provider)
-	api.Device = NewDeviceService(api.provider)
+	api.Label = NewLabelService(api.provider)
+	api.Hardware = NewHardwareService(api.provider)
 	return api, nil
 }

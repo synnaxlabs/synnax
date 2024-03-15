@@ -87,69 +87,74 @@ class WriteFrameAdapter:
 
     def adapt(
         self,
-        colums_or_data: ChannelPayload
-        | ChannelName
-        | ChannelKey
-        | ChannelKeys
-        | ChannelNames
-        | Frame
-        | dict[ChannelKey | ChannelName, CrudeSeries],
+        columns_or_data: ChannelPayload
+                         | ChannelName
+                         | ChannelKey
+                         | ChannelKeys
+                         | ChannelNames
+                         | Frame
+                         | dict[ChannelKey | ChannelName, CrudeSeries]
+                         | DataFrame,
         series: CrudeSeries | list[CrudeSeries] | None = None,
     ) -> Frame:
-        if isinstance(colums_or_data, (ChannelName, ChannelKey)):
+        if isinstance(columns_or_data, (ChannelName, ChannelKey)):
             if isinstance(series, list) and len(list) > 1:
                 raise ValidationError(
                     f"""
-                Received a single channel {'name' if isinstance(colums_or_data, ChannelName) else 'key'}
+                Received a single channel {'name' if isinstance(columns_or_data, ChannelName) else 'key'}
                 but multiple series.
                 """
                 )
 
-            pld = self.__adapt_ch(colums_or_data)
+            pld = self.__adapt_ch(columns_or_data)
             series = Series(data_type=pld.data_type, data=series)
             return Frame([pld.key], [series])
 
-        if isinstance(colums_or_data, list):
-            keys = []
+        if isinstance(columns_or_data, list):
+            cols = []
             o_series = []
-            for i, ch in enumerate(colums_or_data):
+            for i, ch in enumerate(columns_or_data):
                 pld = self.__adapt_ch(ch)
                 if i >= len(series):
                     raise ValidationError(
                         f"""
-                    Received {len(colums_or_data)} channels but only {len(series)} series.
+                    Received {len(columns_or_data)} channels but only {len(series)} series.
                     """
                     )
                 s = Series(data_type=pld.data_type, data=series[i])
-                keys.append(pld.key)
+                cols.append(pld.key)
                 o_series.append(s)
 
-            return Frame(keys, o_series)
+            return Frame(cols, o_series)
 
-        is_frame = isinstance(colums_or_data, Frame)
-        is_df = isinstance(colums_or_data, DataFrame)
+        is_frame = isinstance(columns_or_data, Frame)
+        is_df = isinstance(columns_or_data, DataFrame)
         if is_frame or is_df:
             if is_df:
-                colums_or_data = Frame(colums_or_data)
+                columns_or_data = Frame(columns_or_data)
             if self.__adapter is None:
-                return colums_or_data
-            keys = [
-                self.__adapter[k] if isinstance(k, ChannelName) else k
-                for k in colums_or_data.columns
-            ]
-            return Frame(columns_or_data=keys, series=colums_or_data.series)
+                return columns_or_data
+            try:
+                cols = [
+                    self.__adapter[col] if isinstance(col, ChannelName) else col
+                    for col in columns_or_data.columns
+                ]
+            except KeyError as e:
+                raise ValidationError(f"Channel {e} was not provided in the list of "
+                                      f"channels when the writer was opened.")
+            return Frame(columns_or_data=cols, series=columns_or_data.series)
 
-        if isinstance(colums_or_data, dict):
-            keys = []
+        if isinstance(columns_or_data, dict):
+            cols = []
             series = []
-            for k, v in colums_or_data.items():
+            for k, v in columns_or_data.items():
                 pld = self.__adapt_ch(k)
                 s = Series(data_type=pld.data_type, data=v)
-                keys.append(pld.key)
+                cols.append(pld.key)
                 series.append(s)
 
-            return Frame(keys, series)
+            return Frame(cols, series)
 
         raise TypeError(
-            f"""Cannot construct frame from {colums_or_data} and {series}"""
+            f"""Cannot construct frame from {columns_or_data} and {series}"""
         )

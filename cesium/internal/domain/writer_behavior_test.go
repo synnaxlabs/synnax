@@ -10,6 +10,8 @@
 package domain_test
 
 import (
+	"sync"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
@@ -18,7 +20,6 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
-	"sync"
 )
 
 var _ = Describe("WriterBehavior", func() {
@@ -43,6 +44,7 @@ var _ = Describe("WriterBehavior", func() {
 					domain.WriterConfig{
 						Start: 10 * telem.SecondTS,
 					}))
+				Expect(w.Write([]byte{1, 2, 3, 4, 5, 6})).To(Equal(6))
 				Expect(w.Commit(ctx, 15*telem.SecondTS)).To(Succeed())
 				Expect(w.Close()).To(Succeed())
 				_, err := db.NewWriter(ctx, domain.WriterConfig{

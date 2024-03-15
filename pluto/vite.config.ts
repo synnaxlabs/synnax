@@ -12,14 +12,15 @@ import { lib } from "@synnaxlabs/vite-plugin";
 import { defineConfig } from "vite";
 
 export default defineConfig({
+  base: "/pluto/",
   plugins: [lib({ name: "pluto" })],
   build: {
     sourcemap: true,
-    minify: false,
+    minify: true,
     lib: {
       entry: {
         index: path.resolve(".", "src/index.ts"),
-        aether: path.resolve(".", "src/aetherIndex.ts"),
+        ether: path.resolve(".", "src/ether.ts"),
         tabs: path.resolve(".", "src/tabs/index.ts"),
         theming: path.resolve(".", "src/theming/index.ts"),
         menu: path.resolve(".", "src/menu/index.ts"),
@@ -33,15 +34,18 @@ export default defineConfig({
         input: path.resolve(".", "src/input/index.ts"),
         triggers: path.resolve(".", "src/triggers/index.ts"),
         list: path.resolve(".", "src/list/index.ts"),
+        css: path.resolve(".", "src/css/index.ts"),
+        color: path.resolve(".", "src/color/index.ts"),
       },
     },
     rollupOptions: {
-      external: ["react", "react-dom", "react-hook-form", "@synnaxlabs/client", "zod"],
+      external: ["react", "react-dom", "react-hook-form", "zod"],
       output: {
         globals: {
           react: "React",
           "react-dom": "ReactDOM",
         },
+        preserveModules: false,
       },
     },
   },

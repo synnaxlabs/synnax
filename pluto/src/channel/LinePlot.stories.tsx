@@ -39,14 +39,14 @@ const LINES: LineProps[] = [
   {
     key: "0",
     variant: "dynamic",
-    span: TimeSpan.seconds(5),
+    timeSpan: TimeSpan.seconds(5),
     axes: {
       x: "x",
       y: "y",
     },
     channels: {
-      x: 65537,
-      y: 65538,
+      x: 65538,
+      y: 65539,
     },
     color: "#F733FF",
     strokeWidth: 2,
@@ -64,7 +64,7 @@ export const Primary = (): ReactElement => {
         left: 0,
       }}
     >
-      <LinePlot axes={AXES} lines={LINES} />
+      <LinePlot axes={AXES} lines={LINES} clearOverscan={10} />
     </Canvas.Canvas>
   );
 };

@@ -12,7 +12,10 @@ import { type ReactElement } from "react";
 import { Text } from "@synnaxlabs/pluto";
 import { type Optional } from "@synnaxlabs/x";
 
+import { CSS } from "@/css";
 import { useSelect } from "@/version/selectors";
+
+import "@/version/Badge.css";
 
 type BadgeProps<L extends Text.Level> = Optional<Text.TextProps<L>, "level">;
 
@@ -22,7 +25,7 @@ export const Badge = <L extends Text.Level>({
 }: BadgeProps<L>): ReactElement => {
   const v = useSelect();
   return (
-    <Text.Text level={level} {...props}>
+    <Text.Text className={CSS.B("version-badge")} level={level} {...props}>
       {"v" + v}
     </Text.Text>
   );

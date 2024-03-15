@@ -17,27 +17,27 @@ import {
   Key,
 } from "@synnaxlabs/x";
 
-export interface TableColumn<K extends Key, E extends KeyedRenderableRecord<K, E>> {
+export interface TableColumn<K extends Key, E extends Keyed<K>> {
   key: keyof E;
   name?: string;
   width?: number;
   type?: "code";
 }
 
-export interface TableHighlight<K extends Key, E extends KeyedRenderableRecord<K, E>> {
+export interface TableHighlight<K extends Key, E extends Keyed<K>> {
   key: string;
   columns?: Array<keyof E>;
   rows?: bounds.Bounds;
   color: string;
 }
 
-export interface TableProps<K extends Key, E extends KeyedRenderableRecord<K, E>> {
+export interface TableProps<K extends Key, E extends Keyed<K>> {
   columns: Array<TableColumn<K, E>>;
   data: E[];
   highlights?: Array<TableHighlight<K, E>>;
 }
 
-export const Table = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
+export const Table = <K extends Key, E extends Keyed<K>>({
   columns,
   data,
   highlights = [],
@@ -71,7 +71,7 @@ export const Table = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
   );
 };
 
-interface TableRowProps<K extends Key, E extends KeyedRenderableRecord<K, E>> {
+interface TableRowProps<K extends Key, E extends Keyed<K>> {
   index: number;
   dataLength: number;
   columns: Array<TableColumn<K, E>>;
@@ -79,7 +79,7 @@ interface TableRowProps<K extends Key, E extends KeyedRenderableRecord<K, E>> {
   highlights: Array<TableHighlight<K, E>>;
 }
 
-const TableRow = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
+const TableRow = <K extends Key, E extends Keyed<K>>({
   index,
   dataLength,
   columns,
@@ -102,7 +102,7 @@ const TableRow = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
   );
 };
 
-interface TableCellProps<K extends Key, E extends KeyedRenderableRecord<K, E>> {
+interface TableCellProps<K extends Key, E extends Keyed<K>> {
   index: number;
   dataLength: number;
   highlights: Array<TableHighlight<K, E>>;
@@ -110,7 +110,7 @@ interface TableCellProps<K extends Key, E extends KeyedRenderableRecord<K, E>> {
   column: TableColumn<K, E>;
 }
 
-const TableCell = <K extends Key, E extends KeyedRenderableRecord<K, E>>({
+const TableCell = <K extends Key, E extends Keyed<K>>({
   index,
   dataLength,
   highlights,

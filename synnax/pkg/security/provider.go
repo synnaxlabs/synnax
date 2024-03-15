@@ -61,14 +61,14 @@ var (
 	}
 )
 
-// Override implements Config.
+// Override implements Properties.
 func (s ProviderConfig) Override(other ProviderConfig) ProviderConfig {
 	s.LoaderConfig = s.LoaderConfig.Override(other.LoaderConfig)
 	s.Insecure = override.Nil(s.Insecure, other.Insecure)
 	return s
 }
 
-// Validate implements Config.
+// Validate implements Properties.
 func (s ProviderConfig) Validate() error {
 	v := validate.New("security.OtelProvider")
 	validate.NotNil(v, "Insecure", s.Insecure)

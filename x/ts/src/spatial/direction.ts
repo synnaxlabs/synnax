@@ -32,16 +32,16 @@ export const construct = (c: Crude): Direction => {
   else return "x";
 };
 
-export const swap = (direction: Direction): Direction =>
-  direction === "x" ? "y" : "x";
+export const swap = (direction: CrudeDirection): Direction =>
+  construct(direction) === "x" ? "y" : "x";
 
-export const dimension = (direction: Direction): Dimension =>
-  direction === "x" ? "width" : "height";
+export const dimension = (direction: CrudeDirection): Dimension =>
+  construct(direction) === "x" ? "width" : "height";
 
-export const location = (direction: Direction): Location =>
-  direction === "x" ? "left" : "top";
+export const location = (direction: CrudeDirection): Location =>
+  construct(direction) === "x" ? "left" : "top";
 
 export const isDirection = (c: unknown): c is Direction => crude.safeParse(c).success;
 
-export const signedDimension = (direction: Direction): SignedDimension =>
-  direction === "x" ? "signedWidth" : "signedHeight";
+export const signedDimension = (direction: CrudeDirection): SignedDimension =>
+  construct(direction) === "x" ? "signedWidth" : "signedHeight";

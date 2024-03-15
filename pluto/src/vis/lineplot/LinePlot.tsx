@@ -19,7 +19,6 @@ import {
   useEffect,
   useMemo,
   useRef,
-  useState,
 } from "react";
 
 import { location, type Destructor, deep, direction, box } from "@synnaxlabs/x";
@@ -28,10 +27,16 @@ import { type z } from "zod";
 import { Aether } from "@/aether";
 import { type Color } from "@/color";
 import { CSS } from "@/css";
-import { useMemoDeepEqualProps, useResize, useEffectCompare } from "@/hooks";
+import { useEffectCompare, useCombinedStateAndRef } from "@/hooks";
+import { useMemoDeepEqualProps } from "@/memo";
 import { type Viewport } from "@/viewport";
+import { Canvas } from "@/vis/canvas";
 import { lineplot } from "@/vis/lineplot/aether";
-import { type GridPositionSpec, filterGridPositions } from "@/vis/lineplot/aether/grid";
+import {
+  type GridPositionSpec,
+  filterGridPositions,
+  type GridSpec,
+} from "@/vis/lineplot/aether/grid";
 
 import "@/vis/lineplot/LinePlot.css";
 
@@ -72,11 +77,13 @@ export const useGridPosition = (
     () => {
       location.outer.parse(meta.loc);
       setAxis(meta);
-      return () => removeAxis(meta.key);
     },
     ([a], [b]) => deep.equal(a, b),
     [meta],
   );
+  useEffect(() => {
+    return () => removeAxis(key);
+  }, []);
   const dir = direction.swap(location.direction(meta.loc));
   const gridArea =
     dir === "x"
@@ -111,7 +118,7 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
     hold,
     ...props
   }): ReactElement => {
-    const [lines, setLines] = useState<LineState>([]);
+    const [lines, setLines, linesRef] = useCombinedStateAndRef<LineState>([]);
 
     const aetherMemoProps = useMemoDeepEqualProps({ clearOverscan, hold });
 
@@ -122,7 +129,7 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
       initialState: {
         container: box.ZERO,
         viewport: box.DECIMAL,
-        grid: [],
+        grid: {},
         ...aetherMemoProps,
       },
     });
@@ -165,30 +172,31 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
       [setState],
     );
 
-    const ref = useResize(handleResize, { debounce });
+    const ref = Canvas.useRegion(handleResize);
 
     const setAxis: LinePlotContextValue["setAxis"] = useCallback(
       (meta: GridPositionSpec) =>
         setState((prev) => ({
           ...prev,
-          grid: [...prev.grid.filter(({ key }) => key !== meta.key), meta],
+          grid: { ...prev.grid, [meta.key]: meta },
         })),
       [setState],
     );
 
     const removeAxis = useCallback(
       (key: string) =>
-        setState((prev) => ({
-          ...prev,
-          grid: prev.grid.filter(({ key: k }) => k !== key),
-        })),
+        setState((prev) => {
+          const { [key]: _, ...grid } = prev.grid;
+          return { ...prev, grid };
+        }),
       [setState],
     );
 
     const setLine = useCallback(
-      (meta: LineSpec) =>
-        setLines((prev) => [...prev.filter(({ key }) => key !== meta.key), meta]),
-      [setLines],
+      (meta: LineSpec) => {
+        setLines((prev) => [...prev.filter(({ key }) => key !== meta.key), meta]);
+      },
+      [setLines, setViewport],
     );
 
     const removeLine = useCallback(
@@ -196,7 +204,7 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
       [setLine],
     );
 
-    const cssGrid = buildPlotGrid(grid);
+    const cssGrid = useMemo(() => buildPlotGrid(grid), [grid]);
 
     const contextValue = useMemo<LinePlotContextValue>(
       () => ({
@@ -234,7 +242,7 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
   },
 );
 
-const buildPlotGrid = (grid: GridPositionSpec[]): CSSProperties => {
+const buildPlotGrid = (grid: GridSpec): CSSProperties => {
   const builder = CSS.newGridBuilder();
   filterGridPositions("top", grid).forEach(({ key, size }) =>
     builder.addRow(`axis-start-${key}`, `axis-end-${key}`, size),

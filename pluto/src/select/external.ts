@@ -11,3 +11,4 @@ export * from "@/select/Multiple";
 export * from "@/select/Single";
 export * from "@/select/Button";
 export * from "@/select/Direction";
+export * from "@/select/DataType";

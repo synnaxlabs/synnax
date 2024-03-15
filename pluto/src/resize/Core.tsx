@@ -30,7 +30,7 @@ export interface CoreProps
   showHandle?: boolean;
 }
 
-export const Core = forwardRef(
+export const Core = forwardRef<HTMLDivElement, CoreProps>(
   (
     {
       location: cloc,

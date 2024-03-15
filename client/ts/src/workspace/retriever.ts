@@ -43,8 +43,7 @@ export class Retriever {
 
   async retrieve(params: Params): Promise<Workspace[]> {
     const normalized = toArray(params);
-    const res = await this.execute({ keys: normalized });
-    return res;
+    return await this.execute({ keys: normalized });
   }
 
   async retrieveByAuthor(author: string): Promise<Workspace[]> {

@@ -44,6 +44,7 @@ import { useDispatch, useStore } from "react-redux";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { type Ontology } from "@/ontology";
+import { type Service } from "@/ontology/service";
 import { Notifications } from "@/palette/Notifications";
 import { TooltipContent } from "@/palette/Tooltip";
 import { type Mode, type TriggerConfig } from "@/palette/types";
@@ -51,8 +52,9 @@ import { type RootStore } from "@/store";
 
 import "@/palette/Palette.css";
 
+type OntologySearcher = AsyncTermSearcher<string, string, ontology.Resource>;
+
 export interface PaletteProps {
-  searcher: AsyncTermSearcher<string, string, ontology.Resource>;
   commands: Command[];
   services: Ontology.Services;
   triggers: TriggerConfig;
@@ -64,7 +66,6 @@ type Key = string;
 
 export const Palette = ({
   commands,
-  searcher,
   services,
   triggers,
   commandSymbol,
@@ -79,8 +80,8 @@ export const Palette = ({
 
   const notifications = Status.useNotifications({ expiration: TimeSpan.seconds(5) });
 
-  const handleSelect: List.SelectorProps<Key, Entry>["onChange"] = useCallback(
-    ([key]: Key[], { entries }) => {
+  const handleSelect = useCallback(
+    (key: Key, { entries }: List.UseSelectOnChangeExtra<Key, Entry>) => {
       dropdown.close();
       if (mode === "command") {
         const entry = entries[0];
@@ -110,39 +111,37 @@ export const Palette = ({
 
   return (
     <List.List>
-      <Tooltip.Dialog location="bottom" hide={showDropdown}>
-        <TooltipContent triggers={triggers} />
-        <Dropdown.Dialog
-          ref={dropdown.ref}
-          visible={showDropdown}
-          className={CSS.B("palette")}
-          location="bottom"
-          matchTriggerWidth
-        >
-          <PaletteInput
-            mode={mode}
-            setMode={setMode}
-            searcher={searcher}
-            commandSymbol={commandSymbol}
-            triggerConfig={triggers}
-            commands={commands}
-            visible={dropdown.visible}
-            open={dropdown.open}
-          />
-          <>
-            {dropdown.visible && (
-              <PaletteList
+      <List.Selector value={null} onChange={handleSelect} allowMultiple={false}>
+        <List.Hover disabled={!dropdown.visible} initialHover={0}>
+          <Tooltip.Dialog location="bottom" hide={showDropdown}>
+            <TooltipContent triggers={triggers} />
+            <Dropdown.Dialog
+              {...dropdown}
+              visible={showDropdown}
+              className={CSS.B("palette")}
+              location="bottom"
+            >
+              <PaletteInput
                 mode={mode}
-                resourceTypes={services}
-                onSelect={handleSelect}
+                setMode={setMode}
+                searcher={client?.ontology}
+                commandSymbol={commandSymbol}
+                triggerConfig={triggers}
+                commands={commands}
                 visible={dropdown.visible}
+                open={dropdown.open}
               />
-            )}
-            {showDivider && <Divider.Divider direction="x" />}
-            <Notifications {...notifications} />
-          </>
-        </Dropdown.Dialog>
-      </Tooltip.Dialog>
+              <>
+                {dropdown.visible && (
+                  <PaletteList mode={mode} resourceTypes={services} />
+                )}
+                {showDivider && <Divider.Divider direction="x" />}
+                <Notifications {...notifications} />
+              </>
+            </Dropdown.Dialog>
+          </Tooltip.Dialog>
+        </List.Hover>
+      </List.Selector>
     </List.List>
   );
 };
@@ -151,7 +150,7 @@ export interface PaletteInputProps
   mode: Mode;
   visible: boolean;
   setMode: (mode: Mode) => void;
-  searcher: AsyncTermSearcher<string, string, ontology.Resource>;
+  searcher?: OntologySearcher;
   commandSymbol: string;
   triggerConfig: TriggerConfig;
   commands: Command[];
@@ -180,7 +179,7 @@ export const PaletteInput = ({
   const inputRef = useRef<HTMLInputElement>(null);
 
   const { setSourceData, setTransform, deleteTransform, setEmptyContent } =
-    List.useContext<Key, Entry>();
+    List.useDataUtilContext<Key, Entry>();
 
   const handleBlur = useCallback(() => setValue(""), []);
 
@@ -204,7 +203,7 @@ export const PaletteInput = ({
 
   const handleSearch = useDebouncedCallback(
     (term: string) => {
-      if (term.length === 0) return setEmptyContent(TYPE_TO_SEARCH);
+      if (term.length === 0 || searcher == null) return setEmptyContent(TYPE_TO_SEARCH);
       searcher
         .search(term)
         .then((d) => {
@@ -318,18 +317,12 @@ export const PaletteInput = ({
   );
 };
 
-export interface PalleteListProps extends Pick<Dropdown.DialogProps, "visible"> {
+export interface PalleteListProps {
   mode: Mode;
-  onSelect: List.SelectorProps<Key, Entry>["onChange"];
-  resourceTypes: Record<string, ResourceType>;
+  resourceTypes: Record<string, Service>;
 }
 
-const PaletteList = ({
-  mode,
-  onSelect,
-  visible,
-  resourceTypes,
-}: PalleteListProps): ReactElement => {
+const PaletteList = ({ mode, resourceTypes }: PalleteListProps): ReactElement => {
   const item = useMemo(() => {
     const Item = (
       mode === "command" ? CommandListItem : createResourceListItem(resourceTypes)
@@ -337,13 +330,9 @@ const PaletteList = ({
     return componentRenderProp(Item);
   }, [mode, resourceTypes]);
   return (
-    <>
-      <List.Selector value={[]} onChange={onSelect} allowMultiple={false} />
-      {visible && <List.Hover />}
-      <List.Core.Virtual className={CSS.BE("palette", "list")} itemHeight={27}>
-        {item}
-      </List.Core.Virtual>
-    </>
+    <List.Core.Virtual className={CSS.BE("palette", "list")} itemHeight={27}>
+      {item}
+    </List.Core.Virtual>
   );
 };
 
@@ -351,6 +340,7 @@ export const CommandListItem = ({
   entry: { icon, name, key },
   hovered,
   onSelect,
+  translate,
   ...props
 }: List.ItemProps<string, Command>): ReactElement => {
   const handleSelect: MouseEventHandler = (e): void => {
@@ -368,6 +358,10 @@ export const CommandListItem = ({
         CSS.BEM("palette", "item", "command"),
       )}
       sharp
+      style={{
+        position: "absolute",
+        transform: `translateY(${translate}px)`,
+      }}
       {...props}
     >
       {name}
@@ -382,6 +376,7 @@ export const createResourceListItem = (
     entry: { name, key, id },
     hovered,
     onSelect,
+    translate,
     ...props
   }: List.ItemProps<string, ontology.Resource>): ReactElement | null => {
     if (id == null) return null;
@@ -397,6 +392,10 @@ export const createResourceListItem = (
           hovered && CSS.BEM("palette", "item", "hovered"),
           CSS.BEM("palette", "item", "resource"),
         )}
+        style={{
+          position: "absolute",
+          transform: `translateY(${translate}px)`,
+        }}
         {...props}
       >
         {name}

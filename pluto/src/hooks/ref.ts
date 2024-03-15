@@ -93,3 +93,10 @@ export const useCombinedStateAndRef = <T extends Primitive | object>(
 
   return [s, setStateAndRef, ref as React.MutableRefObject<T>];
 };
+
+export const usePrevious = <T>(value: T): T | undefined => {
+  const ref = useRef<T>();
+  const prev = ref.current;
+  ref.current = value;
+  return prev;
+};

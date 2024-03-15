@@ -13,70 +13,70 @@ export class SugaredOffscreenCanvasRenderingContext2D
   implements OffscreenCanvasRenderingContext2D
 {
   readonly scale_: scale.XY;
-  private readonly wrap: OffscreenCanvasRenderingContext2D;
+  readonly wrapped: OffscreenCanvasRenderingContext2D;
 
   constructor(
     wrap: OffscreenCanvasRenderingContext2D,
     scale_: scale.XY = scale.XY.IDENTITY,
   ) {
-    this.wrap = wrap;
+    this.wrapped = wrap;
     this.scale_ = scale_;
   }
 
   reset(): void {
-    this.wrap.reset();
+    this.wrapped.reset();
   }
 
   applyScale(scale: scale.XY): SugaredOffscreenCanvasRenderingContext2D {
-    return new SugaredOffscreenCanvasRenderingContext2D(this.wrap, scale);
+    return new SugaredOffscreenCanvasRenderingContext2D(this, scale);
   }
 
   get canvas(): OffscreenCanvas {
-    return this.wrap.canvas;
+    return this.wrapped.canvas;
   }
 
   get miterLimit(): number {
-    return this.wrap.miterLimit;
+    return this.wrapped.miterLimit;
   }
 
   set miterLimit(value: number) {
-    this.wrap.miterLimit = this.scale_.x.dim(value);
+    this.wrapped.miterLimit = this.scale_.x.dim(value);
   }
 
   get globalAlpha(): number {
-    return this.wrap.globalAlpha;
+    return this.wrapped.globalAlpha;
   }
 
   set globalAlpha(value: number) {
-    this.wrap.globalAlpha = value;
+    this.wrapped.globalAlpha = value;
   }
 
   get globalCompositeOperation(): GlobalCompositeOperation {
-    return this.wrap.globalCompositeOperation;
+    return this.wrapped.globalCompositeOperation;
   }
 
   set globalCompositeOperation(value: GlobalCompositeOperation) {
-    this.wrap.globalCompositeOperation = value;
+    this.wrapped.globalCompositeOperation = value;
   }
 
   get fillStyle(): string | CanvasGradient | CanvasPattern {
-    return this.wrap.fillStyle;
+    return this.wrapped.fillStyle;
   }
 
   set fillStyle(value: string | CanvasGradient | CanvasPattern) {
-    this.wrap.fillStyle = value;
+    this.wrapped.fillStyle = value;
   }
 
   get strokeStyle(): string | CanvasGradient | CanvasPattern {
-    return this.wrap.strokeStyle;
+    return this.wrapped.strokeStyle;
   }
 
   set strokeStyle(value: string | CanvasGradient | CanvasPattern) {
-    this.wrap.strokeStyle = value;
+    this.wrapped.strokeStyle = value;
   }
 
   commit(): void {
-    this.wrap.commit();
+    this.wrapped.commit();
   }
 
   drawImage(image: CanvasImageSource, dx: number, dy: number): void;
@@ -129,26 +129,26 @@ export class SugaredOffscreenCanvasRenderingContext2D
     dh?: unknown,
   ): void {
     // @ts-expect-error - typescript overloads cause issues here
-    this.wrap.drawImage(image, sx, sy, sw, sh, dx, dy, dw, dh);
+    this.wrapped.drawImage(image, sx, sy, sw, sh, dx, dy, dw, dh);
   }
 
   beginPath(): void {
-    this.wrap.beginPath();
+    this.wrapped.beginPath();
   }
 
   clip(fillRule?: CanvasFillRule | undefined): void;
   clip(path: Path2D, fillRule?: CanvasFillRule | undefined): void;
   clip(path?: unknown, fillRule?: unknown): void {
     // @ts-expect-error - typescript overloads cause issues here
-    this.wrap.clip(path, fillRule);
+    this.wrapped.clip(path, fillRule);
   }
 
   fill(fillRule?: CanvasFillRule | undefined): void;
   fill(path: Path2D, fillRule?: CanvasFillRule | undefined): void;
   fill(path?: unknown, fillRule?: unknown): void {
-    if (path == null) return this.wrap.fill();
+    if (path == null) return this.wrapped.fill();
     // @ts-expect-error - typescript overloads cause issues here
-    this.wrap.fill(path, fillRule);
+    this.wrapped.fill(path, fillRule);
   }
 
   isPointInPath(x: number, y: number, fillRule?: CanvasFillRule | undefined): boolean;
@@ -160,36 +160,36 @@ export class SugaredOffscreenCanvasRenderingContext2D
   ): boolean;
   isPointInPath(path: unknown, x: unknown, y?: unknown, fillRule?: unknown): boolean {
     // @ts-expect-error - typescript overloads cause issues here
-    return this.wrap.isPointInPath(path, x, y, fillRule);
+    return this.wrapped.isPointInPath(path, x, y, fillRule);
   }
 
   isPointInStroke(x: number, y: number): boolean;
   isPointInStroke(path: Path2D, x: number, y: number): boolean;
   isPointInStroke(path: unknown, x: unknown, y?: unknown): boolean {
     // @ts-expect-error - typescript overloads cause issues here
-    return this.wrap.isPointInStroke(path, x, y);
+    return this.wrapped.isPointInStroke(path, x, y);
   }
 
   stroke(): void;
   stroke(path: Path2D): void;
   stroke(path?: Path2D): void {
-    if (path == null) return this.wrap.stroke();
-    this.wrap.stroke(path);
+    if (path == null) return this.wrapped.stroke();
+    this.wrapped.stroke(path);
   }
 
   createConicGradient(startAngle: number, x: number, y: number): CanvasGradient {
-    return this.wrap.createConicGradient(startAngle, x, y);
+    return this.wrapped.createConicGradient(startAngle, x, y);
   }
 
   createLinearGradient(x0: number, y0: number, x1: number, y1: number): CanvasGradient {
-    return this.wrap.createLinearGradient(x0, y0, x1, y1);
+    return this.wrapped.createLinearGradient(x0, y0, x1, y1);
   }
 
   createPattern(
     image: CanvasImageSource,
     repetition: string | null,
   ): CanvasPattern | null {
-    return this.wrap.createPattern(image, repetition);
+    return this.wrapped.createPattern(image, repetition);
   }
 
   createRadialGradient(
@@ -200,15 +200,15 @@ export class SugaredOffscreenCanvasRenderingContext2D
     y1: number,
     r1: number,
   ): CanvasGradient {
-    return this.wrap.createRadialGradient(x0, y0, r0, x1, y1, r1);
+    return this.wrapped.createRadialGradient(x0, y0, r0, x1, y1, r1);
   }
 
   get filter(): string {
-    return this.wrap.filter;
+    return this.wrapped.filter;
   }
 
   set filter(value: string) {
-    this.wrap.filter = value;
+    this.wrapped.filter = value;
   }
 
   createImageData(
@@ -219,7 +219,7 @@ export class SugaredOffscreenCanvasRenderingContext2D
   createImageData(imagedata: ImageData): ImageData;
   createImageData(sw: unknown, sh?: unknown, settings?: unknown): ImageData {
     // @ts-expect-error - typescript overloads cause issues here
-    return this.wrap.createImageData(sw, sh, settings);
+    return this.wrapped.createImageData(sw, sh, settings);
   }
 
   getImageData(
@@ -229,7 +229,7 @@ export class SugaredOffscreenCanvasRenderingContext2D
     sh: number,
     settings?: ImageDataSettings | undefined,
   ): ImageData {
-    return this.wrap.getImageData(sx, sy, sw, sh, settings);
+    return this.wrapped.getImageData(sx, sy, sw, sh, settings);
   }
 
   putImageData(imagedata: ImageData, dx: number, dy: number): void;
@@ -251,24 +251,32 @@ export class SugaredOffscreenCanvasRenderingContext2D
     dirtyWidth?: unknown,
     dirtyHeight?: unknown,
   ): void {
-    // @ts-expect-error - typescript overloads cause issues here
-    this.wrap.putImageData(imagedata, dx, dy, dirtyX, dirtyY, dirtyWidth, dirtyHeight);
+    this.wrapped.putImageData(
+      // @ts-expect-error - typescript overloads cause issues here
+      imagedata,
+      dx,
+      dy,
+      dirtyX,
+      dirtyY,
+      dirtyWidth,
+      dirtyHeight,
+    );
   }
 
   get imageSmoothingEnabled(): boolean {
-    return this.wrap.imageSmoothingEnabled;
+    return this.wrapped.imageSmoothingEnabled;
   }
 
   set imageSmoothingEnabled(value: boolean) {
-    this.wrap.imageSmoothingEnabled = value;
+    this.wrapped.imageSmoothingEnabled = value;
   }
 
   get imageSmoothingQuality(): ImageSmoothingQuality {
-    return this.wrap.imageSmoothingQuality;
+    return this.wrapped.imageSmoothingQuality;
   }
 
   set imageSmoothingQuality(value: ImageSmoothingQuality) {
-    this.wrap.imageSmoothingQuality = value;
+    this.wrapped.imageSmoothingQuality = value;
   }
 
   arc(
@@ -279,7 +287,7 @@ export class SugaredOffscreenCanvasRenderingContext2D
     endAngle: number,
     counterclockwise?: boolean | undefined,
   ): void {
-    this.wrap.arc(
+    this.wrapped.arc(
       this.scale_.x.pos(x),
       this.scale_.y.pos(y),
       this.scale_.x.dim(radius),
@@ -290,7 +298,7 @@ export class SugaredOffscreenCanvasRenderingContext2D
   }
 
   arcTo(x1: number, y1: number, x2: number, y2: number, radius: number): void {
-    this.wrap.arcTo(
+    this.wrapped.arcTo(
       this.scale_.x.pos(x1),
       this.scale_.y.pos(y1),
       this.scale_.x.pos(x2),
@@ -307,7 +315,7 @@ export class SugaredOffscreenCanvasRenderingContext2D
     x: number,
     y: number,
   ): void {
-    this.wrap.bezierCurveTo(
+    this.wrapped.bezierCurveTo(
       this.scale_.x.pos(cp1x),
       this.scale_.y.pos(cp1y),
       this.scale_.x.pos(cp2x),
@@ -318,7 +326,7 @@ export class SugaredOffscreenCanvasRenderingContext2D
   }
 
   closePath(): void {
-    this.wrap.closePath();
+    this.wrapped.closePath();
   }
 
   ellipse(
@@ -331,7 +339,7 @@ export class SugaredOffscreenCanvasRenderingContext2D
     endAngle: number,
     counterclockwise?: boolean | undefined,
   ): void {
-    this.wrap.ellipse(
+    this.wrapped.ellipse(
       this.scale_.x.pos(x),
       this.scale_.y.pos(y),
       this.scale_.x.dim(radiusX),
@@ -344,15 +352,15 @@ export class SugaredOffscreenCanvasRenderingContext2D
   }
 
   lineTo(x: number, y: number): void {
-    this.wrap.lineTo(this.scale_.x.pos(x), this.scale_.y.pos(y));
+    this.wrapped.lineTo(this.scale_.x.pos(x), this.scale_.y.pos(y));
   }
 
   moveTo(x: number, y: number): void {
-    this.wrap.moveTo(this.scale_.x.pos(x), this.scale_.y.pos(y));
+    this.wrapped.moveTo(this.scale_.x.pos(x), this.scale_.y.pos(y));
   }
 
   quadraticCurveTo(cpx: number, cpy: number, x: number, y: number): void {
-    this.wrap.quadraticCurveTo(
+    this.wrapped.quadraticCurveTo(
       this.scale_.x.pos(cpx),
       this.scale_.y.pos(cpy),
       this.scale_.x.pos(x),
@@ -361,7 +369,7 @@ export class SugaredOffscreenCanvasRenderingContext2D
   }
 
   rect(x: number, y: number, w: number, h: number): void {
-    this.wrap.rect(
+    this.wrapped.rect(
       this.scale_.x.pos(x),
       this.scale_.y.pos(y),
       this.scale_.x.dim(w),
@@ -376,7 +384,7 @@ export class SugaredOffscreenCanvasRenderingContext2D
     h: number,
     radii?: number | DOMPointInit | Array<number | DOMPointInit> | undefined,
   ): void {
-    this.wrap.roundRect(
+    this.wrapped.roundRect(
       this.scale_.x.pos(x),
       this.scale_.y.pos(y),
       this.scale_.x.dim(w),
@@ -386,54 +394,54 @@ export class SugaredOffscreenCanvasRenderingContext2D
   }
 
   get lineCap(): CanvasLineCap {
-    return this.wrap.lineCap;
+    return this.wrapped.lineCap;
   }
 
   set lineCap(value: CanvasLineCap) {
-    this.wrap.lineCap = value;
+    this.wrapped.lineCap = value;
   }
 
   get lineDashOffset(): number {
-    return this.wrap.lineDashOffset;
+    return this.wrapped.lineDashOffset;
   }
 
   set lineDashOffset(value: number) {
-    this.wrap.lineDashOffset = this.scale_.x.dim(value);
+    this.wrapped.lineDashOffset = this.scale_.x.dim(value);
   }
 
   get lineJoin(): CanvasLineJoin {
-    return this.wrap.lineJoin;
+    return this.wrapped.lineJoin;
   }
 
   set lineJoin(value: CanvasLineJoin) {
-    this.wrap.lineJoin = value;
+    this.wrapped.lineJoin = value;
   }
 
   get lineWidth(): number {
-    return this.wrap.lineWidth;
+    return this.wrapped.lineWidth;
   }
 
   set lineWidth(value: number) {
-    this.wrap.lineWidth = this.scale_.x.dim(value);
+    this.wrapped.lineWidth = this.scale_.x.dim(value);
   }
 
   getLineDash(): number[] {
-    return this.wrap.getLineDash();
+    return this.wrapped.getLineDash();
   }
 
   setLineDash(segments: number[]): void;
   setLineDash(segments: Iterable<number>): void;
   setLineDash(segments: number[] | Iterable<number>): void {
     const scaled = Array.from(segments).map((v) => this.scale_.x.dim(v));
-    this.wrap.setLineDash(scaled);
+    this.wrapped.setLineDash(scaled);
   }
 
   clearRect(x: number, y: number, w: number, h: number): void {
-    this.wrap.clearRect(x, y, w, h);
+    this.wrapped.clearRect(x, y, w, h);
   }
 
   fillRect(x: number, y: number, w: number, h: number): void {
-    this.wrap.fillRect(
+    this.wrapped.fillRect(
       this.scale_.x.pos(x),
       this.scale_.y.pos(y),
       this.scale_.x.dim(w),
@@ -442,7 +450,7 @@ export class SugaredOffscreenCanvasRenderingContext2D
   }
 
   strokeRect(x: number, y: number, w: number, h: number): void {
-    this.wrap.strokeRect(
+    this.wrapped.strokeRect(
       this.scale_.x.pos(x),
       this.scale_.y.pos(y),
       this.scale_.x.dim(w),
@@ -451,43 +459,43 @@ export class SugaredOffscreenCanvasRenderingContext2D
   }
 
   get shadowBlur(): number {
-    return this.wrap.shadowBlur;
+    return this.wrapped.shadowBlur;
   }
 
   set shadowBlur(value: number) {
-    this.wrap.shadowBlur = value;
+    this.wrapped.shadowBlur = value;
   }
 
   get shadowColor(): string {
-    return this.wrap.shadowColor;
+    return this.wrapped.shadowColor;
   }
 
   set shadowColor(value: string) {
-    this.wrap.shadowColor = value;
+    this.wrapped.shadowColor = value;
   }
 
   get shadowOffsetX(): number {
-    return this.wrap.shadowOffsetX;
+    return this.wrapped.shadowOffsetX;
   }
 
   set shadowOffsetX(value: number) {
-    this.wrap.shadowOffsetX = value;
+    this.wrapped.shadowOffsetX = value;
   }
 
   get shadowOffsetY(): number {
-    return this.wrap.shadowOffsetY;
+    return this.wrapped.shadowOffsetY;
   }
 
   restore(): void {
-    this.wrap.restore();
+    this.wrapped.restore();
   }
 
   save(): void {
-    this.wrap.save();
+    this.wrapped.save();
   }
 
   fillText(text: string, x: number, y: number, maxWidth?: number | undefined): void {
-    this.wrap.fillText(
+    this.wrapped.fillText(
       text,
       this.scale_.x.pos(x),
       this.scale_.y.pos(y),
@@ -496,14 +504,14 @@ export class SugaredOffscreenCanvasRenderingContext2D
   }
 
   measureText(text: string): TextMetrics {
-    this.wrap.font = scaleFontSize(this.wrap.font, this.scale_.x.reverse());
-    const metrics = this.wrap.measureText(text);
-    this.wrap.font = scaleFontSize(this.wrap.font, this.scale_.x);
+    this.wrapped.font = scaleFontSize(this.wrapped.font, this.scale_.x.reverse());
+    const metrics = this.wrapped.measureText(text);
+    this.wrapped.font = scaleFontSize(this.wrapped.font, this.scale_.x);
     return metrics;
   }
 
   strokeText(text: string, x: number, y: number, maxWidth?: number | undefined): void {
-    this.wrap.strokeText(
+    this.wrapped.strokeText(
       text,
       this.scale_.x.pos(x),
       this.scale_.y.pos(y),
@@ -512,59 +520,59 @@ export class SugaredOffscreenCanvasRenderingContext2D
   }
 
   get direction(): CanvasDirection {
-    return this.wrap.direction;
+    return this.wrapped.direction;
   }
 
   set direction(value: CanvasDirection) {
-    this.wrap.direction = value;
+    this.wrapped.direction = value;
   }
 
   get font(): string {
-    return this.wrap.font;
+    return this.wrapped.font;
   }
 
   set font(value: string) {
-    this.wrap.font = scaleFontSize(value, this.scale_.x);
+    this.wrapped.font = scaleFontSize(value, this.scale_.x);
   }
 
   get fontKerning(): CanvasFontKerning {
-    return this.wrap.fontKerning;
+    return this.wrapped.fontKerning;
   }
 
   set fontKerning(value: CanvasFontKerning) {
-    this.wrap.fontKerning = value;
+    this.wrapped.fontKerning = value;
   }
 
   get textAlign(): CanvasTextAlign {
-    return this.wrap.textAlign;
+    return this.wrapped.textAlign;
   }
 
   set textAlign(value: CanvasTextAlign) {
-    this.wrap.textAlign = value;
+    this.wrapped.textAlign = value;
   }
 
   get textBaseline(): CanvasTextBaseline {
-    return this.wrap.textBaseline;
+    return this.wrapped.textBaseline;
   }
 
   set textBaseline(value: CanvasTextBaseline) {
-    this.wrap.textBaseline = value;
+    this.wrapped.textBaseline = value;
   }
 
   getTransform(): DOMMatrix {
-    return this.wrap.getTransform();
+    return this.wrapped.getTransform();
   }
 
   resetTransform(): void {
-    this.wrap.resetTransform();
+    this.wrapped.resetTransform();
   }
 
   rotate(angle: number): void {
-    this.wrap.rotate(angle);
+    this.wrapped.rotate(angle);
   }
 
   scale(x: number, y: number): void {
-    this.wrap.scale(x, y);
+    this.wrapped.scale(x, y);
   }
 
   setTransform(a: number, b: number, c: number, d: number, e: number, f: number): void;
@@ -578,15 +586,15 @@ export class SugaredOffscreenCanvasRenderingContext2D
     f?: unknown,
   ): void {
     // @ts-expect-error
-    this.wrap.setTransform(a, b, c, d, e, f);
+    this.wrapped.setTransform(a, b, c, d, e, f);
   }
 
   transform(a: number, b: number, c: number, d: number, e: number, f: number): void {
-    this.wrap.transform(a, b, c, d, e, f);
+    this.wrapped.transform(a, b, c, d, e, f);
   }
 
   translate(x: number, y: number): void {
-    this.wrap.translate(x, y);
+    this.wrapped.translate(x, y);
   }
 }
 

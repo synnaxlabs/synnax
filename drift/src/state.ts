@@ -8,13 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import {
-  type PreloadedState as BasePreloadedState,
-  type CombinedState,
   type PayloadAction,
   createSlice,
   nanoid,
+  Reducer,
 } from "@reduxjs/toolkit";
-import type { NoInfer } from "@reduxjs/toolkit/dist/tsHelpers";
 import { box, deep, type dimensions, xy } from "@synnaxlabs/x";
 
 import {
@@ -45,14 +43,10 @@ export interface StoreState {
   drift: SliceState;
 }
 
-export type PreloadedState<S extends StoreState> = BasePreloadedState<
-  CombinedState<NoInfer<S>>
->;
-
 // Disabling consistent type definitions here because 'empty' interfaces can't be named,
 // which raises an error on build.
 // eslint-disable-next-line @typescript-eslint/consistent-type-definitions
-type MaybeKeyPayload = { key?: string };
+export type MaybeKeyPayload = { key?: string };
 export interface KeyPayload {
   key: string;
 }
@@ -77,6 +71,7 @@ export type CreateWindowPayload = WindowProps & {
   prerenderLabel?: string;
 };
 export type CloseWindowPayload = MaybeKeyPayload;
+export type ReloadWindowPayload = MaybeKeyPayload;
 export type SetWindowClosedPayload = MaybeKeyPayload;
 export type FocusWindowPayload = MaybeKeyPayload;
 export type SetWindowMinimizedPayload = MaybeKeyPayload & MaybeBooleanPayload;
@@ -101,6 +96,7 @@ export type SetConfigPayload = Partial<Config>;
 
 /** Type representing all possible actions that are drift related. */
 export type Payload =
+  | LabelPayload
   | CreateWindowPayload
   | CloseWindowPayload
   | SetWindowStatePayload
@@ -124,7 +120,8 @@ export type Payload =
   | SetWindowTitlePayload
   | FocusWindowPayload
   | SetWindowDecorationsPayload
-  | SetConfigPayload;
+  | SetConfigPayload
+  | ReloadWindowPayload;
 
 /** Type representing all possible actions that are drift related. */
 export type Action = PayloadAction<Payload>;
@@ -287,18 +284,33 @@ const slice = createSlice({
     }),
     closeWindow: assertLabel<CloseWindowPayload>((s, { payload: { label } }) => {
       const win = s.windows[label];
-      if (win == null) return;
-      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+      win.stage = "closing";
+      if (win == null || win.processCount > 0) return;
       delete s.windows[label];
-      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
       delete s.labelKeys[label];
-      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
       delete s.keyLabels[win.key];
     }),
+    reloadWindow: assertLabel<ReloadWindowPayload>((s, a) => {
+      const win = s.windows[a.payload.label];
+      win.stage = "reloading";
+      if (win == null || win.processCount > 0) return;
+      window.location.reload();
+    }),
     registerProcess: assertLabel<MaybeKeyPayload>(incrementCounter("processCount")),
-    completeProcess: assertLabel<MaybeKeyPayload>(
-      incrementCounter("processCount", true),
-    ),
+    completeProcess: assertLabel<MaybeKeyPayload>((s, a) => {
+      incrementCounter("processCount", true)(s, a)
+      const win = s.windows[a.payload.label];
+      if (win.processCount === 0) {
+        if (win.stage === "reloading") {
+          window.location.reload();
+        } else {
+          s.windows[a.payload.label].visible = false;
+          delete s.windows[a.payload.label];
+          delete s.labelKeys[a.payload.label];
+          delete s.keyLabels[win.key]
+        }
+      }
+    }),
     setWindowError: (s: SliceState, a: PayloadAction<SetWindowErrorPaylod>) => {
       s.windows[a.payload.key].error = a.payload.message;
     },
@@ -340,7 +352,6 @@ const slice = createSlice({
 });
 
 export const {
-  reducer,
   actions: {
     setConfig,
     setWindowProps,
@@ -352,6 +363,7 @@ export const {
     completeProcess,
     setWindowError,
     focusWindow,
+    reloadWindow,
     setWindowMinimized,
     setWindowMaximized,
     setWindowVisible,
@@ -368,6 +380,10 @@ export const {
     setWindowDecorations,
   },
 } = slice;
+
+
+
+export const reducer: Reducer<SliceState, Action> = slice.reducer;
 
 /**
  * @returns true if the given action type is a drift action.

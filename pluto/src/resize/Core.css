@@ -57,4 +57,16 @@
 
 .pluto-resize__handle {
     position: absolute;
+    transition: border-color 0.1s ease-in-out, border-width 0.1s ease-in-out;
+    z-index: 4;
+
+    &:hover {
+        border-color: var(--pluto-primary-z);
+        border-width: 2px;
+    }
+
+    &:active {
+        border-color: var(--pluto-primary-p1);
+        border-width: 2px;
+    }
 }

@@ -10,26 +10,17 @@
 import { type ReactElement } from "react";
 
 import { Icon, Logo } from "@synnaxlabs/media";
-import {
-  Divider,
-  Nav,
-  Menu as PMenu,
-  Button,
-  OS,
-  Triggers,
-  Synnax,
-  Text,
-} from "@synnaxlabs/pluto";
-import { location } from "@synnaxlabs/x";
+import { Divider, Nav, Button, OS, Text } from "@synnaxlabs/pluto";
 
 import { Cluster } from "@/cluster";
 import { Controls } from "@/components";
+import { NAV_DRAWERS, NavMenu } from "@/components/nav/Nav";
 import { CSS } from "@/css";
 import { Docs } from "@/docs";
+import { Label } from "@/label";
 import { Layout } from "@/layout";
 import { NAV_SIZES } from "@/layouts/LayoutMain/constants";
 import { LinePlot } from "@/lineplot";
-import { Toolbar } from "@/ontology/Toolbar";
 import { Palette } from "@/palette/Palette";
 import { type TriggerConfig } from "@/palette/types";
 import { PID } from "@/pid";
@@ -40,13 +31,6 @@ import { Vis } from "@/vis";
 import { Workspace } from "@/workspace";
 
 import "@/layouts/LayoutMain/Nav.css";
-
-export const NAV_DRAWERS: Layout.NavDrawerItem[] = [
-  Cluster.Toolbar,
-  Toolbar,
-  Range.Toolbar,
-  Vis.Toolbar,
-];
 
 const DEFAULT_TRIGGER: TriggerConfig = {
   defaultMode: "command",
@@ -62,14 +46,13 @@ const COMMANDS = [
   ...Workspace.COMMANDS,
   ...Cluster.COMMANDS,
   ...Range.COMMANDS,
+  ...Label.COMMANDS,
 ];
 
 const NavTopPalette = (): ReactElement => {
-  const client = Synnax.use();
   return (
     <Palette
       commands={COMMANDS}
-      searcher={client?.ontology}
       triggers={DEFAULT_TRIGGER}
       services={SERVICES}
       commandSymbol=">"
@@ -94,7 +77,7 @@ export const NavTop = (): ReactElement => {
       data-tauri-drag-region
       location="top"
       size={NAV_SIZES.top}
-      className="console-main-nav-top"
+      className={CSS(CSS.B("main-nav"), CSS.B("main-nav-top"))}
     >
       <Nav.Bar.Start className="console-main-nav-top__start" data-tauri-drag-region>
         <Controls className="console-controls--macos" visibleIfOS="MacOS" />
@@ -127,37 +110,11 @@ export const NavTop = (): ReactElement => {
         >
           <Icon.QuestionMark />
         </Button.Icon>
-        <Button.Icon
-          size="medium"
-          tooltip={<Text.Text level="small">Settings</Text.Text>}
-        >
-          <Icon.Settings />
-        </Button.Icon>
         <Controls className="console-controls--windows" visibleIfOS="Windows" />
       </Nav.Bar.End>
     </Nav.Bar>
   );
 };
-
-export const NavMenu = ({
-  children,
-  ...props
-}: {
-  children: Layout.NavMenuItem[];
-} & Omit<PMenu.MenuProps, "children">): ReactElement => (
-  <PMenu.Menu {...props}>
-    {children.map(({ key, tooltip, icon }) => (
-      <PMenu.Item.Icon
-        key={key}
-        itemKey={key}
-        size="large"
-        tooltip={<Text.Text level="small">{tooltip}</Text.Text>}
-      >
-        {icon}
-      </PMenu.Item.Icon>
-    ))}
-  </PMenu.Menu>
-);
 
 /**
  * NavLeft is the left navigation drawer for the Synnax Console. Try to keep this component
@@ -167,7 +124,7 @@ export const NavLeft = (): ReactElement => {
   const { onSelect, menuItems } = Layout.useNavDrawer("left", NAV_DRAWERS);
   const os = OS.use();
   return (
-    <Nav.Bar location="left" size={NAV_SIZES.side}>
+    <Nav.Bar className={CSS.B("main-nav")} location="left" size={NAV_SIZES.side}>
       {os !== "Windows" && (
         <Nav.Bar.Start className="console-main-nav-left__start" bordered>
           <Logo className="console-main-nav-left__logo" />
@@ -191,7 +148,7 @@ export const NavRight = (): ReactElement | null => {
     NAV_DRAWERS,
   );
   return (
-    <Nav.Bar location="right" size={NAV_SIZES.side}>
+    <Nav.Bar className={CSS.B("main-nav")} location="right" size={NAV_SIZES.side}>
       <Nav.Bar.Content className="console-main-nav__content" size="small">
         <NavMenu onChange={onSelect}>{menuItems}</NavMenu>
       </Nav.Bar.Content>
@@ -210,40 +167,18 @@ export const NavRight = (): ReactElement | null => {
  */
 export const NavBottom = (): ReactElement => {
   return (
-    <Nav.Bar location="bottom" size={NAV_SIZES.bottom}>
+    <Nav.Bar className={CSS.B("main-nav")} location="bottom" size={NAV_SIZES.bottom}>
       <Nav.Bar.Start>
         <Vis.NavControls />
       </Nav.Bar.Start>
-      <Nav.Bar.End className="console-main-nav-bottom__end">
-        <Triggers.Status variant="info" />
+      <Nav.Bar.End className="console-main-nav-bottom__end" empty>
         <Divider.Divider />
         <Version.Badge level="p" />
         <Divider.Divider />
-        <Cluster.NameBadge />
+        <Cluster.Dropdown />
         <Divider.Divider />
         <Cluster.ConnectionBadge />
       </Nav.Bar.End>
     </Nav.Bar>
-  );
-};
-
-export interface NavDrawerProps {
-  location: Layout.NavdrawerLocation;
-}
-
-export const NavDrawer = ({ aetherKey, location: l, ...props }): ReactElement => {
-  const { activeItem, onResize, onSelect } = Layout.useNavDrawer(l, NAV_DRAWERS);
-  return (
-    <Nav.Drawer
-      location={l}
-      className={CSS(
-        CSS.B("main-nav-drawer"),
-        CSS.BM("main-nav-drawer", location.direction(l)),
-      )}
-      activeItem={activeItem}
-      onResize={onResize}
-      onSelect={onSelect}
-      {...props}
-    />
   );
 };

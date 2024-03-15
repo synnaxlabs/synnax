@@ -75,3 +75,8 @@ synnax-data/**
 
 # |||| TLS ||||
 **/certs*/**
+
+# |||| BINARIES ||||
+
+**/bin/**
+!**/bin/.gitkeep

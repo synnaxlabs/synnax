@@ -10,7 +10,7 @@
 import { dimensions, xy } from "@synnaxlabs/x";
 
 /** Represents the state of a window in it's lifecycle  */
-export type WindowStage = "creating" | "created" | "closing" | "closed";
+export type WindowStage = "creating" | "created" | "closing" | "closed" | "reloading";
 
 export const MAIN_WINDOW = "main";
 export const PRERENDER_WINDOW = "prerender";

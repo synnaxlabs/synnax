@@ -19,7 +19,7 @@ import { Instrumentation } from "@synnaxlabs/alamos";
 
 import { Aether } from "@/aether";
 import { alamos } from "@/alamos/aether";
-import { useMemoDeepEqualProps } from "@/hooks";
+import { useMemoDeepEqualProps } from "@/memo";
 
 export interface ContextValue {
   instrumentation: Instrumentation;

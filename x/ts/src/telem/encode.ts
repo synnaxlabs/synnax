@@ -7,16 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { registerCustomTypeEncoder } from "@/binary";
+import { binary } from "@/binary";
 import { DataType, Density, Rate, TimeSpan, TimeStamp } from "@/telem/telem";
 
 const valueOfEncoder = (value: unknown): unknown => value?.valueOf();
 
-registerCustomTypeEncoder({ Class: TimeStamp, write: valueOfEncoder });
-registerCustomTypeEncoder({ Class: TimeSpan, write: valueOfEncoder });
-registerCustomTypeEncoder({
+binary.registerCustomTypeEncoder({ Class: TimeStamp, write: valueOfEncoder });
+binary.registerCustomTypeEncoder({ Class: TimeSpan, write: valueOfEncoder });
+binary.registerCustomTypeEncoder({
   Class: DataType,
   write: (v: unknown) => (v as DataType).toString,
 });
-registerCustomTypeEncoder({ Class: Rate, write: valueOfEncoder });
-registerCustomTypeEncoder({ Class: Density, write: valueOfEncoder });
+binary.registerCustomTypeEncoder({ Class: Rate, write: valueOfEncoder });
+binary.registerCustomTypeEncoder({ Class: Density, write: valueOfEncoder });

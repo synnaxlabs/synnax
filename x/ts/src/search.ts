@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type CompareF } from "@/compare/compare";
-import { type Key, type KeyedRecord } from "@/record";
+import { type Key, type Keyed } from "@/record";
 
 const binary = <T>(arr: T[], target: T, compare: CompareF<T>): number => {
   let left = 0;
@@ -27,13 +27,13 @@ export const Search = {
   binary,
 };
 
-export interface TermSearcher<T, K extends Key, E extends KeyedRecord<K, E>> {
+export interface TermSearcher<T, K extends Key, E extends Keyed<K>> {
   search: (term: T) => E[];
   retrieve: (keys: K[]) => E[];
   page: (offset: number, limit: number) => E[];
 }
 
-export interface AsyncTermSearcher<T, K extends Key, E extends KeyedRecord<K, E>> {
+export interface AsyncTermSearcher<T, K extends Key, E extends Keyed<K>> {
   search: (term: T) => Promise<E[]>;
   retrieve: (keys: K[]) => Promise<E[]>;
   page: (offset: number, limit: number) => Promise<E[]>;

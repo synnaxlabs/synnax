@@ -26,7 +26,7 @@ export class Program extends GLProgram {
 
   constructor(ctx: Context) {
     super(ctx, VERT_SHADER, FRAG_SHADER);
-    this.positionBuffer = ctx.gl.createBuffer();
+    this.positionBuffer = ctx.gl.createBuffer()!;
     ctx.gl.bindBuffer(ctx.gl.ARRAY_BUFFER, this.positionBuffer);
     ctx.gl.bufferData(ctx.gl.ARRAY_BUFFER, POSITIONS, ctx.gl.STATIC_DRAW);
   }

@@ -13,6 +13,7 @@ import { fireEvent, render } from "@testing-library/react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { type List } from "@/list";
+import { type UseSelectOnChangeExtra } from "@/list/useSelect";
 import { Select } from "@/select";
 import { mockBoundingClientRect } from "@/testutil/dom";
 import { Triggers } from "@/triggers";
@@ -54,8 +55,20 @@ const mockOptions: MockRecord[] = [
   },
 ];
 
-const SelectMultiple = (): ReactElement => {
+interface SelectMultipleProps
+  extends Partial<Select.MultipleProps<string, MockRecord>> {}
+
+const SelectMultiple = (props: SelectMultipleProps): ReactElement => {
   const [value, setValue] = useState<string[]>([]);
+
+  const handleChange = (
+    v: string[],
+    extra: UseSelectOnChangeExtra<string, MockRecord>,
+  ): void => {
+    props.onChange?.(v, extra);
+    setValue(v);
+  };
+
   return (
     <Triggers.Provider>
       <Select.Multiple<string, MockRecord>
@@ -63,13 +76,46 @@ const SelectMultiple = (): ReactElement => {
         data={mockOptions}
         tagKey="name"
         value={value}
-        onChange={setValue}
+        onChange={handleChange}
+        {...props}
       />
     </Triggers.Provider>
   );
 };
 
-const PLACEHOLDER = "Search...";
+export interface SelectSingleProps
+  extends Partial<Select.SingleProps<string, MockRecord>> {}
+
+const SelectSingle = ({
+  onChange,
+  value: propsValue,
+  ...props
+}: SelectSingleProps): ReactElement => {
+  const [value, setValue] = useState<string | null>(null);
+
+  const handleChange = (
+    v: string,
+    extra: UseSelectOnChangeExtra<string, MockRecord>,
+  ): void => {
+    onChange?.(v, extra);
+    setValue(v);
+  };
+
+  return (
+    <Triggers.Provider>
+      <Select.Single<string, MockRecord>
+        columns={mockColumns}
+        data={mockOptions}
+        tagKey="name"
+        value={propsValue ?? value}
+        onChange={handleChange}
+        {...props}
+      />
+    </Triggers.Provider>
+  );
+};
+
+const PLACEHOLDER = "Select...";
 
 describe("Select", () => {
   beforeAll(() => {
@@ -107,7 +153,7 @@ describe("Select", () => {
       fireEvent.click(c.getByText(PLACEHOLDER));
       fireEvent.click(c.getByText("John"));
       const j = await c.findAllByText("John");
-      fireEvent.click(j[0].nextSibling as HTMLElement);
+      fireEvent.click(j[1]);
       const j2 = c.queryAllByText("John");
       expect(j2.length).toBe(1);
     });
@@ -124,6 +170,82 @@ describe("Select", () => {
       expect(j.length).toBe(1);
       expect(j2.length).toBe(1);
       expect(j3.length).toBe(1);
+    });
+    it("should call the onChange handler when the user selects an item", async () => {
+      const onChange = vi.fn();
+      const c = render(<SelectMultiple onChange={onChange} />);
+      fireEvent.click(c.getByText(PLACEHOLDER));
+      fireEvent.click(c.getByText("John"));
+      expect(onChange).toHaveBeenCalledWith(["1"], {
+        clicked: mockOptions[0].key,
+        clickedIndex: 0,
+        entries: [mockOptions[0]],
+      });
+    });
+    it("should call the onChange handler when the clears the selection", async () => {
+      const onChange = vi.fn();
+      const c = render(<SelectMultiple onChange={onChange} />);
+      fireEvent.click(c.getByText(PLACEHOLDER));
+      fireEvent.click(c.getByText("John"));
+      fireEvent.click(c.getByLabelText("clear"));
+      expect(onChange).toHaveBeenCalledWith([], {
+        clicked: null,
+        clickedIndex: 0,
+        entries: [],
+      });
+    });
+  });
+  describe("Select.Single", () => {
+    it("should render a search input", () => {
+      const c = render(<SelectSingle />);
+      expect(c.getByText(PLACEHOLDER)).toBeTruthy();
+    });
+    it("should render a list of options when the input area is selected", () => {
+      const c = render(<SelectSingle />);
+      fireEvent.click(c.getByText(PLACEHOLDER));
+      expect(c.getByText("John")).toBeTruthy();
+    });
+    it("should not render a list of options when the input area is not selected", () => {
+      const c = render(<SelectSingle />);
+      const el = c.getByText("John");
+      expect(
+        el.parentElement?.parentElement?.parentElement?.parentElement?.className,
+      ).toContain("hidden");
+    });
+    it("should allow the user to select an item", async () => {
+      const c = render(<SelectSingle />);
+      fireEvent.click(c.getByText(PLACEHOLDER));
+      fireEvent.click(c.getByText("John"));
+      const input = await c.findByDisplayValue("John");
+      expect(input).toBeTruthy();
+    });
+    it("should allow the user to clear the selected item", async () => {
+      const c = render(<SelectSingle />);
+      fireEvent.click(c.getByText(PLACEHOLDER));
+      fireEvent.click(c.getByText("John"));
+      fireEvent.click(c.getByLabelText("clear"));
+      const input = c.queryByDisplayValue("John");
+      expect(input).toBeFalsy();
+    });
+    it("should call the onChange handler when the user selects an item", async () => {
+      const onChange = vi.fn();
+      const c = render(<SelectSingle onChange={onChange} />);
+      fireEvent.click(c.getByText(PLACEHOLDER));
+      fireEvent.click(c.getByText("John"));
+      expect(onChange).toHaveBeenCalled();
+    });
+    it("should call the onChange handler when the user clears the input", async () => {
+      const onChange = vi.fn();
+      const c = render(<SelectSingle onChange={onChange} />);
+      fireEvent.click(c.getByText(PLACEHOLDER));
+      fireEvent.click(c.getByText("John"));
+      fireEvent.click(c.getByLabelText("clear"));
+      expect(onChange).toHaveBeenCalledTimes(2);
+      expect(onChange).toHaveBeenCalledWith(null, {
+        clicked: null,
+        clickedIndex: 0,
+        entries: [],
+      });
     });
   });
 });

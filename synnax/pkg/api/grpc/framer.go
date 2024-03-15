@@ -81,8 +81,10 @@ func (t frameWriterRequestTranslator) Forward(
 	return &gapi.FrameWriterRequest{
 		Command: int32(msg.Command),
 		Config: &gapi.FrameWriterConfig{
-			Keys:  translateChannelKeysForward(msg.Config.Keys),
-			Start: int64(msg.Config.Start),
+			Keys:        translateChannelKeysForward(msg.Config.Keys),
+			Start:       int64(msg.Config.Start),
+			Mode:        int32(msg.Config.Mode),
+			Authorities: msg.Config.Authorities,
 		},
 		Frame: translateFrameForward(msg.Frame),
 	}, nil
@@ -98,8 +100,10 @@ func (t frameWriterRequestTranslator) Backward(
 	r.Command = writer.Command(msg.Command)
 	if msg.Config != nil {
 		r.Config = api.FrameWriterConfig{
-			Keys:  translateChannelKeysBackward(msg.Config.Keys),
-			Start: telem.TimeStamp(msg.Config.Start),
+			Keys:        translateChannelKeysBackward(msg.Config.Keys),
+			Start:       telem.TimeStamp(msg.Config.Start),
+			Mode:        writer.Mode(msg.Config.Mode),
+			Authorities: msg.Config.Authorities,
 		}
 	}
 	r.Frame = translateFrameBackward(msg.Frame)

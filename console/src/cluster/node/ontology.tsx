@@ -16,7 +16,6 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   icon: <Icon.Node />,
   hasChildren: true,
   canDrop: () => false,
-  contextMenu: () => <></>,
   onSelect: () => {},
   haulItems: () => [],
   allowRename: () => false,

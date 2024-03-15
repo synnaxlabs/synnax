@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { compare, type xy, type CompareF } from "@synnaxlabs/x";
+import { compare, type xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { useMemoCompare } from "@/memo";
@@ -178,8 +178,16 @@ export interface Event {
 export type Callback = (e: Event) => void;
 
 /** Parses the TriggerKey from the provided KeyboardEvent or MouseEvent. */
-export const eventKey = (e: KeyboardEvent | MouseEvent): Key =>
-  e instanceof KeyboardEvent ? keyboardKey(e) : mouseKey(e.button);
+export const eventKey = (
+  e:
+    | KeyboardEvent
+    | MouseEvent
+    | React.KeyboardEvent<HTMLElement>
+    | React.MouseEvent<HTMLElement>,
+): Key => {
+  if (e.type.includes("key")) return keyboardKey(e as KeyboardEvent);
+  return mouseKey((e as MouseEvent).button);
+};
 
 /* Tracks a list of keys that have an opinionated location i.e. "Left"  or "Right"
  as Triggers is location agnostic. */
@@ -190,7 +198,9 @@ const INCLUDES_KEYS: Key[] = ["Control", "Alt", "Shift"];
  * @param e - The KeyboardEvent to parse.
  * @returns the TriggerKey.
  */
-export const keyboardKey = (e: KeyboardEvent): Key => {
+export const keyboardKey = (
+  e: KeyboardEvent | React.KeyboardEvent<HTMLElement>,
+): Key => {
   if (["Digit", "Key"].some((k) => e.code.startsWith(k))) return e.code.slice(-1);
   if (e.code.includes("Meta")) return "Control";
   const includeKey = INCLUDES_KEYS.find((k) => e.code.includes(k));
@@ -278,10 +288,10 @@ export const diff = (a: Trigger[], b: Trigger[]): [Trigger[], Trigger[]] => {
  * the triggers will be considered equal.
  * @returns a comparison function that determines if two triggers are semantically equal.
  */
-const compareF = (loose: boolean): CompareF<Trigger> =>
+const compareF = (loose: boolean): compare.CompareF<Trigger> =>
   loose ? _looseCompare : compare.unorderedPrimitiveArrays;
 
-const _looseCompare: CompareF<Trigger> = (a, b) =>
+const _looseCompare: compare.CompareF<Trigger> = (a, b) =>
   a.every((k) => b.includes(k)) ? compare.EQUAL : compare.LESS_THAN;
 
 /** ModeConfig is a mapping of modes to triggers along with a default mode. */

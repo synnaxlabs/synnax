@@ -19,9 +19,9 @@ describe("framer.Frame", () => {
         const f = new framer.Frame(
           ["a", "b", "c"],
           [
-            new Series(new Float32Array([1, 2, 3])),
-            new Series(new Float32Array([1, 2, 3])),
-            new Series(new Float32Array([1, 2, 3])),
+            new Series({data: new Float32Array([1, 2, 3])}),
+            new Series({data: new Float32Array([1, 2, 3])}),
+            new Series({data: new Float32Array([1, 2, 3])}),
           ],
         );
         expect(f.length).toEqual(9);
@@ -32,9 +32,9 @@ describe("framer.Frame", () => {
         const f = new framer.Frame(
           [12, 13, 14],
           [
-            new Series(new Float32Array([1, 2, 3])),
-            new Series(new Float32Array([1, 2, 3])),
-            new Series(new Float32Array([1, 2, 3])),
+            new Series({data: new Float32Array([1, 2, 3])}),
+            new Series({data: new Float32Array([1, 2, 3])}),
+            new Series({data: new Float32Array([1, 2, 3])}),
           ],
         );
         expect(f.length).toEqual(9);
@@ -42,25 +42,25 @@ describe("framer.Frame", () => {
       });
 
       test("from a single name and an array of arrays", () => {
-        const f = new framer.Frame("a", [new Series(new Float32Array([1, 2, 3]))]);
+        const f = new framer.Frame("a", [new Series({data: new Float32Array([1, 2, 3])})]);
         expect(f.length).toEqual(3);
         expect(f.colType).toEqual("name");
       });
 
       test("from a single key and an array of arrays", () => {
-        const f = new framer.Frame(12, [new Series(new Float32Array([1, 2, 3]))]);
+        const f = new framer.Frame(12, [new Series({data: new Float32Array([1, 2, 3])})]);
         expect(f.length).toEqual(3);
         expect(f.colType).toEqual("key");
       });
 
       test("from a single key and a single array", () => {
-        const f = new framer.Frame(12, new Series(new Float32Array([1, 2, 3])));
+        const f = new framer.Frame(12, new Series({data: new Float32Array([1, 2, 3])}));
         expect(f.length).toEqual(3);
         expect(f.colType).toEqual("key");
       });
 
       test("from a single name and a single array", () => {
-        const f = new framer.Frame("a", new Series(new Float32Array([1, 2, 3])));
+        const f = new framer.Frame("a", new Series({data: new Float32Array([1, 2, 3])}));
         expect(f.length).toEqual(3);
         expect(f.colType).toEqual("name");
       });
@@ -82,7 +82,7 @@ describe("framer.Frame", () => {
 
       test("from record", () => {
         const f = new framer.Frame({
-          a: new Series(new Float32Array([1, 2, 3])),
+          a: new Series({data: new Float32Array([1, 2, 3])}),
         });
         expect(f.length.valueOf()).toEqual(3);
         expect(f.columns.length).toEqual(1);
@@ -91,7 +91,7 @@ describe("framer.Frame", () => {
 
       test("from map", () => {
         const f = new framer.Frame(
-          new Map([[12, new Series(new Float32Array([1, 2, 3]))]]),
+          new Map([[12, new Series({data: new Float32Array([1, 2, 3])})]]),
         );
         expect(f.length).toEqual(3);
         expect(f.columns.length).toEqual(1);
@@ -106,8 +106,8 @@ describe("framer.Frame", () => {
             new framer.Frame(
               ["a", "b", "c"],
               [
-                new Series(new Float32Array([1, 2, 3])),
-                new Series(new Float32Array([1, 2, 3])),
+                new Series({data: new Float32Array([1, 2, 3])}),
+                new Series({data: new Float32Array([1, 2, 3])}),
               ],
             ),
         ).toThrow();
@@ -119,12 +119,12 @@ describe("framer.Frame", () => {
     it("should return false if a key has more than one array", () => {
       const f = new framer.Frame(
         new Map([
-          [12, [new Series(new Float32Array([1, 2, 3]))]],
+          [12, [new Series({data: new Float32Array([1, 2, 3])})]],
           [
             13,
             [
-              new Series(new Float32Array([1, 2, 3])),
-              new Series(new Float32Array([1, 2, 3])),
+              new Series({data: new Float32Array([1, 2, 3])}),
+              new Series({data: new Float32Array([1, 2, 3])}),
             ],
           ],
         ]),
@@ -137,8 +137,8 @@ describe("framer.Frame", () => {
     it("should return false if there is more than one key", () => {
       const f = new framer.Frame(
         new Map([
-          [12, [new Series(new Float32Array([1, 2, 3]))]],
-          [13, [new Series(new Float32Array([1, 2, 3]))]],
+          [12, [new Series({data: new Float32Array([1, 2, 3])})]],
+          [13, [new Series({data: new Float32Array([1, 2, 3])})]],
         ]),
       );
       expect(f.isHorizontal).toEqual(false);
@@ -152,21 +152,19 @@ describe("framer.Frame", () => {
           [
             12,
             [
-              new Series(
-                new Float32Array([1, 2, 3]),
-                undefined,
-                new TimeRange(500, 50000),
-              ),
+              new Series({
+                data: new Float32Array([1, 2, 3]),
+                timeRange: new TimeRange(500, 50000),
+              }),
             ],
           ],
           [
             13,
             [
-              new Series(
-                new Float32Array([1, 2, 3]),
-                undefined,
-                new TimeRange(500, 50000),
-              ),
+              new Series({
+                data: new Float32Array([1, 2, 3]),
+                timeRange: new TimeRange(500, 50000),
+    }),
             ],
           ],
         ]),
@@ -180,21 +178,19 @@ describe("framer.Frame", () => {
           [
             12,
             [
-              new Series(
-                new Float32Array([1, 2, 3]),
-                undefined,
-                new TimeRange(500, 50000),
-              ),
+              new Series({
+                data: new Float32Array([1, 2, 3]),
+                timeRange: new TimeRange(500, 50000),
+    }),
             ],
           ],
           [
             13,
             [
-              new Series(
-                new Float32Array([1, 2, 3]),
-                undefined,
-                new TimeRange(500, 50001),
-              ),
+              new Series({
+                data: new Float32Array([1, 2, 3]),
+                timeRange: new TimeRange(500, 50001),
+    }),
             ],
           ],
         ]),
@@ -211,21 +207,19 @@ describe("framer.Frame", () => {
             [
               12,
               [
-                new Series(
-                  new Float32Array([1, 2, 3]),
-                  undefined,
-                  new TimeRange(40, 50000),
-                ),
+                new Series({
+                  data: new Float32Array([1, 2, 3]),
+                  timeRange: new TimeRange(40, 50000),
+      }),
               ],
             ],
             [
               13,
               [
-                new Series(
-                  new Float32Array([1, 2, 3]),
-                  undefined,
-                  new TimeRange(500, 50001),
-                ),
+                new Series({
+                  data: new Float32Array([1, 2, 3]),
+                  timeRange: new TimeRange(500, 50001),
+      }),
               ],
             ],
           ]),
@@ -237,16 +231,14 @@ describe("framer.Frame", () => {
     describe("key provided", () => {
       it("should return the time range of the key", () => {
         const f = new framer.Frame({
-          a: new Series(
-            new Float32Array([1, 2, 3]),
-            undefined,
-            new TimeRange(40, 50000),
-          ),
-          b: new Series(
-            new Float32Array([1, 2, 3]),
-            undefined,
-            new TimeRange(500, 50001),
-          ),
+          a: new Series({
+            data: new Float32Array([1, 2, 3]),
+            timeRange: new TimeRange(40, 50000),
+        }),
+          b: new Series({
+            data: new Float32Array([1, 2, 3]),
+            timeRange: new TimeRange(500, 50001),
+        }),
         });
         expect(f.timeRange("a")).toEqual(new TimeRange(40, 50000));
       });
@@ -259,21 +251,19 @@ describe("framer.Frame", () => {
             [
               12,
               [
-                new Series(
-                  new Float32Array([1, 2, 3]),
-                  undefined,
-                  new TimeRange(40, 50000),
-                ),
+                new Series({
+                  data: new Float32Array([1, 2, 3]),
+                  timeRange: new TimeRange(40, 50000),
+      }),
               ],
             ],
             [
               13,
               [
-                new Series(
-                  new Float32Array([1, 2, 3]),
-                  undefined,
-                  new TimeRange(500, 50001),
-                ),
+                new Series({
+                  data: new Float32Array([1, 2, 3]),
+                  timeRange: new TimeRange(500, 50001),
+      }),
               ],
             ],
           ]),
@@ -290,21 +280,19 @@ describe("framer.Frame", () => {
           [
             12,
             [
-              new Series(
-                new Float32Array([1, 2, 3]),
-                undefined,
-                new TimeRange(40, 50000),
-              ),
+              new Series({
+                data: new Float32Array([1, 2, 3]),
+                timeRange: new TimeRange(40, 50000),
+    }),
             ],
           ],
           [
             13,
             [
-              new Series(
-                new Float32Array([1, 2, 3]),
-                undefined,
-                new TimeRange(500, 50001),
-              ),
+              new Series({
+                data: new Float32Array([1, 2, 3]),
+                timeRange: new TimeRange(500, 50001),
+    }),
             ],
           ],
         ]),

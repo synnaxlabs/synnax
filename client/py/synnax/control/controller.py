@@ -36,7 +36,7 @@ class State:
 
     def __init__(self, retrieve: ChannelRetriever):
         self.__retriever = retrieve
-        self.value = {}
+        self.value = dict()
 
     def update(self, value: framer.Frame):
         for i, key in enumerate(value.columns):
@@ -51,19 +51,19 @@ class State:
 
 
 class Processor(Protocol):
-    def process(self, state: State) -> Any:
+    def process(self, state: Controller) -> Any:
         ...
 
 
 class WaitUntil(Processor):
     event: Event
-    callback: Callable[[State], bool]
+    callback: Callable[[Controller], bool]
 
-    def __init__(self, callback: Callable[[State], bool]):
+    def __init__(self, callback: Callable[[Controller], bool]):
         self.event = Event()
         self.callback = callback
 
-    def process(self, state: State) -> Any:
+    def process(self, state: Controller) -> Any:
         if self.callback(state):
             self.event.set()
         return None
@@ -93,11 +93,24 @@ class Controller:
             channels=write_keys,
             authorities=write_authorities,
         )
-        self.receiver = _Receiver(frame_client, read, retriever)
+        self.receiver = _Receiver(frame_client, read, retriever, self)
         self.retriever = retriever
         self.receiver.start()
+        self.receiver.bootup_ack.wait()
 
-    def set(self, ch: ChannelKey | ChannelName, value: int | float):
+    def set(
+        self,
+        ch: ChannelKey | ChannelName | dict[ChannelKey | ChannelName, int | float],
+        value: int | float | None = None,
+    ):
+        if isinstance(ch, dict):
+            values = list(ch.values())
+            channels = retrieve_required(self.retriever, list(ch.keys()))
+            now = TimeStamp.now()
+            updated = {channels[i].key: values[i] for i in range(len(channels))}
+            updated_idx = {channels[i].index: now for i in range(len(channels))}
+            self.writer.write({**updated, **updated_idx})
+            return
         ch = retrieve_required(self.retriever, ch)[0]
         self.writer.write({ch.key: value, ch.index: TimeStamp.now()})
 
@@ -107,7 +120,7 @@ class Controller:
 
     def wait_until(
         self,
-        callback: Callable[[State], bool],
+        callback: Callable[[Controller], bool],
         timeout: CrudeTimeSpan = None,
     ) -> bool:
         processor = WaitUntil(callback)
@@ -135,6 +148,19 @@ class Controller:
             super().__setattr__(key, value)
         except AttributeError:
             self.set(key, value)
+
+    def get(self, ch: ChannelKey | ChannelName) -> int | float:
+        ch = retrieve_required(self.retriever, ch)[0]
+        return self.receiver.state[ch.key]
+
+    def __getitem__(self, item):
+        return self.get(item)
+
+    def __getattr__(self, item):
+        try:
+            return super().__getattr__(item)
+        except AttributeError:
+            return self.get(item)
 
     def __enter__(self) -> Controller:
         return self
@@ -173,16 +199,21 @@ class _Receiver(Thread):
     streamer: framer.AsyncStreamer
     processors: dict[uuid.UUID, Processor]
     retriever: ChannelRetriever
+    controller: Controller
+    bootup_ack: Event
 
     def __init__(
         self,
         client: framer.Client,
         channels: ChannelParams,
         retriever: ChannelRetriever,
+        controller: Controller,
     ):
         self.channels = retriever.retrieve(channels)
         self.client = client
         self.state = State(retriever)
+        self.controller = controller
+        self.bootup_ack = Event()
         self.processors = {}
         super().__init__()
 
@@ -190,7 +221,6 @@ class _Receiver(Thread):
         loop = events.new_event_loop()
         try:
             events.set_event_loop(loop)
-
             loop.run_until_complete(self.__run())
         finally:
             try:
@@ -203,7 +233,7 @@ class _Receiver(Thread):
 
     def __process(self):
         for processor in self.processors.values():
-            processor.process(self.state)
+            processor.process(self.controller)
 
     async def __listen_for_close(self):
         await self.queue.async_q.get()
@@ -212,6 +242,7 @@ class _Receiver(Thread):
     async def __run(self):
         self.queue = Queue(maxsize=1)
         self.streamer = await self.client.new_async_streamer(self.channels)
+        self.bootup_ack.set()
         create_task(self.__listen_for_close())
 
         async for frame in self.streamer:

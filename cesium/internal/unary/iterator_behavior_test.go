@@ -120,6 +120,23 @@ var _ = Describe("Iterator Behavior", func() {
 					Expect(iter.Next(ctx, unary.AutoSpan)).To(BeFalse())
 					Expect(iter.Close()).To(Succeed())
 				})
+				//FSpecify("Partial Time Range 2 - Reg", func() {
+				//	Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16))).To(Succeed())
+				//	Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6, 7))).To(Succeed())
+				//	iter := db.OpenIterator(unary.IteratorConfig{
+				//		Bounds:        (12 * telem.SecondTS).SpanRange(3 * telem.Second),
+				//		AutoChunkSize: 2,
+				//	})
+				//	Expect(iter.SeekFirst(ctx)).To(BeTrue())
+				//	//Expect(iter.View()).To(Equal((12 * telem.SecondTS).SpanRange(0)))
+				//	Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
+				//	Expect(iter.Value().Series[0]).To(Equal(telem.NewSeriesV[int64](3, 4)))
+				//	Expect(iter.Len()).To(Equal(int64(2)))
+				//	Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
+				//	Expect(iter.Len()).To(Equal(int64(1)))
+				//	Expect(iter.Next(ctx, unary.AutoSpan)).To(BeFalse())
+				//	Expect(iter.Close()).To(Succeed())
+				//})
 				Specify("Multi TimeRange - Uneven Crossing", func() {
 					Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16))).To(Succeed())
 					Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6, 7))).To(Succeed())

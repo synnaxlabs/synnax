@@ -9,18 +9,20 @@
 
 import { type bounds, type scale } from "@synnaxlabs/x";
 
-import { CSS } from "@/css";
 import { type FindResult } from "@/vis/line/aether/line";
+import {
+  type AxisRenderProps,
+  coreAxisStateZ,
+  CoreAxis,
+} from "@/vis/lineplot/aether/axis";
 import { type YAxis } from "@/vis/lineplot/aether/YAxis";
-
-import { type AxisRenderProps, coreAxisStateZ, CoreAxis } from "./axis";
 
 export const xAxisStateZ = coreAxisStateZ;
 
 export interface XAxisRenderProps extends AxisRenderProps {}
 
 export class XAxis extends CoreAxis<typeof coreAxisStateZ, YAxis> {
-  static readonly TYPE = CSS.BE("line-plot", "x-axis");
+  static readonly TYPE = "XAxis";
   schema = coreAxisStateZ;
 
   async render(props: XAxisRenderProps): Promise<void> {

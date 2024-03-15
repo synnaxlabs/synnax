@@ -36,14 +36,14 @@ var (
 	DefaultReporterConfig = ReporterConfig{}
 )
 
-// Validate implements config.Config.
+// Validate implements config.Properties.
 func (r ReporterConfig) Validate() error {
 	v := validate.New("alamos.ReporterConfig")
 	validate.NotNil(v, "Filter", r.Filter)
 	return v.Error()
 }
 
-// Override implement config.Config.
+// Override implement config.Properties.
 func (r ReporterConfig) Override(other ReporterConfig) ReporterConfig {
 	r.Filter = override.Nil(r.Filter, other.Filter)
 	return r

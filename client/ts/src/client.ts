@@ -15,10 +15,16 @@ import { channel } from "@/channel";
 import { connection } from "@/connection";
 import { errorsMiddleware } from "@/errors";
 import { framer } from "@/framer";
+import { label } from "@/label";
 import { ontology } from "@/ontology";
 import { ranger } from "@/ranger";
 import { Transport } from "@/transport";
 import { workspace } from "@/workspace";
+import { hardware } from "./hardware";
+import { device } from "./hardware/device";
+import { rack } from "./hardware/rack";
+import { task } from "./hardware/task";
+import { randomUUID } from "crypto";
 
 export const synnaxPropsZ = z.object({
   host: z.string().min(1),
@@ -27,6 +33,7 @@ export const synnaxPropsZ = z.object({
   password: z.string().optional(),
   connectivityPollFrequency: TimeSpan.z.default(TimeSpan.seconds(30)),
   secure: z.boolean().optional().default(false),
+  name: z.string().optional(),
 });
 
 export type SynnaxProps = z.input<typeof synnaxPropsZ>;
@@ -52,6 +59,8 @@ export default class Synnax {
   readonly ontology: ontology.Client;
   readonly props: ParsedSynnaxProps;
   readonly workspaces: workspace.Client;
+  readonly labels: label.Client;
+  readonly hardware: hardware.Client;
   static readonly connectivity = connection.Checker;
 
   /**
@@ -92,18 +101,37 @@ export default class Synnax {
     this.connectivity = new connection.Checker(
       this.transport.unary,
       connectivityPollFrequency,
+      props.name,
     );
     this.ontology = new ontology.Client(this.transport.unary, this.telem);
     const rangeRetriever = new ranger.Retriever(this.transport.unary);
     const rangeWriter = new ranger.Writer(this.transport.unary);
+    this.labels = new label.Client(this.transport.unary, this.telem);
     this.ranges = new ranger.Client(
       this.telem,
       rangeRetriever,
       rangeWriter,
       this.transport.unary,
       chRetriever,
+      this.labels,
     );
     this.workspaces = new workspace.Client(this.transport.unary);
+    const devices = new device.Client(
+      new device.Retriever(this.transport.unary),
+      new device.Writer(this.transport.unary),
+      this.telem,
+    );
+    const taskRetriever = new task.Retriever(this.transport.unary);
+    const taskWriter = new task.Writer(this.transport.unary);
+    const tasks = new task.Client(taskRetriever, taskWriter);
+    const racks = new rack.Client(
+      new rack.Retriever(this.transport.unary),
+      new rack.Writer(this.transport.unary),
+      this.telem,
+      taskWriter,
+      taskRetriever,
+    );
+    this.hardware = new hardware.Client(tasks, racks, devices);
   }
 
   close(): void {

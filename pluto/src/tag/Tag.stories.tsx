@@ -23,6 +23,7 @@ Primary.args = {
   children: "Tag",
   onClose: () => undefined,
   variant: "outlined",
+  color: "var(--pluto-primary-z)",
   size: "small",
 };
 

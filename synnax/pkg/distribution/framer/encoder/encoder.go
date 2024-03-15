@@ -1,3 +1,12 @@
+// Copyright 2024 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 // For detailed information about the specifications,
 // please refer to the official RFC 0016 document.
 // Document here: docs/tech/rfc/0016-231001-frame-flight-protocol.md
@@ -24,7 +33,7 @@ func (m DecoderEncoder) Encode(src framer.Frame) (dst []byte, err error) {
 	var (
 		curDataSize, index               int             = -1, 0
 		startTime, endTime               telem.TimeStamp = 0, 0
-		byteArraySize                    int             = 1 // Set to one to handle start array
+		byteArraySize                    int             = 1 // Label to one to handle start array
 		encoded                          []byte
 		sizeFlag, alignFlag, channelFlag uint8 = 1, 1, 0
 	)

@@ -61,6 +61,9 @@ module.exports = {
                 warnOnUnassignedImports: true,
             },
         ],
+        "no-restricted-imports": ["error", {
+            "patterns": [".*"]
+        }],
         "import/no-unresolved": [2],
         "import/named": "off",
         "react/react-in-jsx-scope": "off",
@@ -70,6 +73,8 @@ module.exports = {
         "@typescript-eslint/no-namespace": "off",
         "@typescript-eslint/no-confusing-void-expression": "off",
         "@typescript-eslint/ban-types": "off",
+        "react/no-unescaped-entities": "off",
+        "@typescript-eslint/non-nullable-type-assertion-style": "off",
     },
     settings: {
         "import/resolver": {

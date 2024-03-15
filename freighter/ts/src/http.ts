@@ -1,3 +1,12 @@
+// Copyright 2024 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 /* eslint-disable @typescript-eslint/no-var-requires */
 // Copyright 2023 Synnax Labs, Inc.
 //
@@ -71,7 +80,12 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
     request.body = this.encoder.encode(req ?? {});
 
     const [, err] = await this.executeMiddleware(
-      { target: url.toString(), protocol: this.endpoint.protocol, params: {}, role: "client" },
+      {
+        target: url.toString(),
+        protocol: this.endpoint.protocol,
+        params: {},
+        role: "client",
+      },
       async (ctx: Context): Promise<[Context, Error | null]> => {
         const outCtx: Context = { ...ctx, params: {} };
         request.headers = {

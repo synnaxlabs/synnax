@@ -12,14 +12,14 @@ import type { Meta, StoryFn } from "@storybook/react";
 import { Button } from "@/button";
 import { Dropdown } from "@/dropdown";
 
-const story: Meta<typeof Dropdown.DialogProps> = {
+const story: Meta<typeof Dropdown.Dialog> = {
   title: "Dropdown",
   component: Dropdown.Dialog,
 };
 
 export const Primary: StoryFn<typeof Dropdown.Dialog> = () => {
   return (
-    <Dropdown.Dialog visible style={{ position: "fixed", bottom: 100 }}>
+    <Dropdown.Dialog close={close} visible style={{ position: "fixed", bottom: 100 }}>
       <Button.Button>Hello</Button.Button>
       <h1>Content</h1>
     </Dropdown.Dialog>

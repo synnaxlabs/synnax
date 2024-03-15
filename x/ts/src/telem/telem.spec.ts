@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, it, test } from "vitest";
 
 import { DataType, Density, Rate, Size, TimeRange, TimeSpan, TimeStamp } from "@/telem";
 
@@ -290,6 +290,22 @@ describe("TimeRange", () => {
     const two = new TimeRange(new TimeStamp(1001), new TimeStamp(2000));
     expect(tr.overlapsWith(two)).toBeFalsy();
     expect(two.overlapsWith(tr)).toBeFalsy();
+  });
+  describe("boundBy", () => {
+    it("should bound the time range to the provided constraints", () => {
+      const tr = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(4));
+      const bound = new TimeRange(TimeSpan.seconds(2), TimeSpan.seconds(3));
+      const bounded = tr.boundBy(bound);
+      const expected = new TimeRange(TimeSpan.seconds(2), TimeSpan.seconds(3));
+      expect(bounded.equals(expected)).toBeTruthy();
+    })
+    it("should bound the time range even if the start is after the end", () => {
+      const tr = new TimeRange(TimeSpan.seconds(4), TimeSpan.seconds(1));
+      const bound = new TimeRange(TimeSpan.seconds(2), TimeSpan.seconds(3));
+      const bounded = tr.boundBy(bound);
+      const expected = new TimeRange(TimeSpan.seconds(3), TimeSpan.seconds(2));
+      expect(bounded.equals(expected)).toBeTruthy();
+    })
   });
 });
 

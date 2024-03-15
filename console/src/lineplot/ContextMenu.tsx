@@ -53,7 +53,7 @@ export const ContextMenuContent = ({
   };
 
   return (
-    <Core.Menu onChange={handleSelect} size="small" iconSpacing="small">
+    <Core.Menu onChange={handleSelect} iconSpacing="small">
       <Menu.Item.HardReload />
       {!box.isZero(selection) && (
         <>

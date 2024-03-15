@@ -124,7 +124,7 @@ type Source[I Value] interface {
 // type of operation.
 type TransformFunc[I, O Value] func(ctx context.Context, i I) (o O, ok bool, err error)
 
-type GeneratorTransformFunc[I, O Value] func(ctx context.Context, i I) (gen func() O, ok bool, err error)
+type GeneratorFunc[I, O Value] func(ctx context.Context, i I) (gen func() O, ok bool, err error)
 
 // Inlet is the end of a Stream that accepts values and can be addressed.
 type Inlet[V Value] interface {

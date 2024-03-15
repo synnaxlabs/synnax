@@ -13,7 +13,6 @@ import (
 	"context"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cdc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core/mock"
@@ -22,8 +21,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
-	ontologycdc "github.com/synnaxlabs/synnax/pkg/distribution/ontology/cdc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
+	ontologycdc "github.com/synnaxlabs/synnax/pkg/distribution/ontology/signals"
+	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	tmock "github.com/synnaxlabs/synnax/pkg/distribution/transport/mock"
 	"github.com/synnaxlabs/x/errutil"
 )
@@ -89,7 +89,7 @@ func (b *Builder) New(ctx context.Context) distribution.Distribution {
 		Transport:       trans,
 	}))
 
-	d.CDC = lo.Must(cdc.New(cdc.Config{
+	d.Signals = lo.Must(signals.New(signals.Config{
 		Instrumentation: d.Instrumentation,
 		Channel:         d.Channel,
 		Framer:          d.Framer,
@@ -99,7 +99,7 @@ func (b *Builder) New(ctx context.Context) distribution.Distribution {
 	// trying to find free channels. We're going to resolve this issue in #105:
 	// https://github.com/synnaxlabs/synnax/issues/105
 	if d.Cluster.HostKey().IsBootstrapper() {
-		d.Closers = append(d.Closers, lo.Must(ontologycdc.Propagate(ctx, d.CDC, d.Ontology)))
+		d.Closers = append(d.Closers, lo.Must(ontologycdc.Publish(ctx, d.Signals, d.Ontology)))
 	}
 
 	b.Nodes[core.Cluster.HostKey()] = d

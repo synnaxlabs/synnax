@@ -10,16 +10,19 @@
 package cmd
 
 import (
+	"bufio"
 	"context"
-	"github.com/synnaxlabs/synnax/pkg/device"
+	"os"
+	"os/signal"
+	"time"
+
+	"github.com/synnaxlabs/synnax/pkg/hardware"
+	"github.com/synnaxlabs/synnax/pkg/label"
 	"github.com/synnaxlabs/synnax/pkg/ranger"
 	"github.com/synnaxlabs/synnax/pkg/version"
 	"github.com/synnaxlabs/synnax/pkg/workspace"
 	"github.com/synnaxlabs/synnax/pkg/workspace/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/workspace/pid"
-	"os"
-	"os/signal"
-	"time"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/security"
@@ -67,6 +70,10 @@ will bootstrap a new cluster.
 	Run:     func(cmd *cobra.Command, _ []string) { start(cmd) },
 }
 
+var (
+	stopKeyWord = "stop"
+)
+
 // start a Synnax node using the configuration specified by the command line flags,
 // environment variables, and configuration files.
 func start(cmd *cobra.Command) {
@@ -96,6 +103,15 @@ func start(cmd *cobra.Command) {
 
 	sCtx, cancel := xsignal.WithCancel(cmd.Context(), xsignal.WithInstrumentation(ins))
 	defer cancel()
+
+	go func() {
+		scanner := bufio.NewScanner(os.Stdin)
+		for scanner.Scan() {
+			if scanner.Text() == stopKeyWord {
+				interruptC <- os.Interrupt
+			}
+		}
+	}()
 
 	// Perform the rest of the startup within a separate goroutine, so we can properly
 	// handle signal interrupts.
@@ -138,7 +154,7 @@ func start(cmd *cobra.Command) {
 			DB:       gorpDB,
 			Ontology: dist.Ontology,
 			Group:    dist.Group,
-			CDC:      dist.CDC,
+			Signals:  dist.Signals,
 		})
 		if err != nil {
 			return err
@@ -155,7 +171,20 @@ func start(cmd *cobra.Command) {
 		if err != nil {
 			return err
 		}
-		deviceSvc, err := device.OpenService(ctx, device.Config{DB: gorpDB, Ontology: dist.Ontology, Group: dist.Group, Host: dist.Cluster, CDC: dist.CDC})
+		labelSvc, err := label.OpenService(ctx, label.Config{
+			DB:       gorpDB,
+			Ontology: dist.Ontology,
+			Group:    dist.Group,
+			Signals:  dist.Signals,
+		})
+		deviceSvc, err := hardware.OpenService(ctx, hardware.Config{
+			DB:           gorpDB,
+			Ontology:     dist.Ontology,
+			Group:        dist.Group,
+			HostProvider: dist.Cluster,
+			Signals:      dist.Signals,
+			Channel:      dist.Channel,
+		})
 		if err != nil {
 			return err
 		}
@@ -183,7 +212,8 @@ func start(cmd *cobra.Command) {
 			Group:           dist.Group,
 			Ranger:          rangeSvc,
 			Workspace:       workspaceSvc,
-			Device:          deviceSvc,
+			Label:           labelSvc,
+			Hardware:        deviceSvc,
 		})
 		if err != nil {
 			return err
@@ -209,6 +239,7 @@ func start(cmd *cobra.Command) {
 			return err
 		}
 		sCtx.Go(func(_ context.Context) error {
+			defer cancel()
 			return srv.Serve()
 		}, xsignal.WithKey("server"))
 		defer srv.Stop()
@@ -224,7 +255,7 @@ func start(cmd *cobra.Command) {
 	}
 
 	if err := sCtx.Wait(); err != nil && !errors.Is(err, context.Canceled) {
-		ins.L.Fatal("shutdown failed", zap.Error(err))
+		ins.L.Fatal("synnax failed", zap.Error(err))
 	}
 	ins.L.Info("shutdown successful")
 }

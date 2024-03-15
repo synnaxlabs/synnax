@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Drift, selectWindow } from "@synnaxlabs/drift";
+import { UnexpectedError } from "@synnaxlabs/client";
+import { type Drift, selectWindow, selectWindowKey } from "@synnaxlabs/drift";
 import { type Haul, type Mosaic, Theming } from "@synnaxlabs/pluto";
 
 import { selectByKey, selectByKeys, useMemoSelect } from "@/hooks";
@@ -63,7 +64,7 @@ export const useSelectRequired = (key: string): LayoutState =>
  */
 export const selectMosaic = (
   state: StoreState & Drift.StoreState,
-  windowKey?: string
+  windowKey?: string,
 ): [string, Mosaic.Node] => {
   const win = selectWindow(state, windowKey);
   if (win == null) throw new Error(`Window ${windowKey ?? ""} not found`);
@@ -94,15 +95,25 @@ export const selectActiveThemeKey = (state: StoreState): string =>
  */
 export const selectTheme = (
   state: StoreState,
-  key?: string
+  key?: string,
 ): Theming.Theme | null | undefined => {
   const t = selectByKey(
     selectSliceState(state).themes,
     key,
-    selectActiveThemeKey(state)
+    selectActiveThemeKey(state),
   );
   if (t == null) return t;
   return Theming.themeZ.parse(t);
+};
+
+export const selectRawTheme = (state: StoreState, key?: string): Theming.ThemeSpec => {
+  const t = selectByKey(
+    selectSliceState(state).themes,
+    key,
+    selectActiveThemeKey(state),
+  );
+  if (t == null) throw new UnexpectedError(`Theme ${key} not found`);
+  return t;
 };
 
 /**
@@ -136,16 +147,26 @@ export const useSelectMany = (keys?: string[]): LayoutState[] =>
   useMemoSelect((state: StoreState) => selectMany(state, keys), [keys]);
 
 export const selectNavDrawer = (
-  state: StoreState,
-  loc: NavdrawerLocation
-): NavdrawerEntryState => state.layout.nav.drawers[loc];
+  state: StoreState & Drift.StoreState,
+  loc: NavdrawerLocation,
+): NavdrawerEntryState | null => {
+  const winKey = selectWindowKey(state) as string;
+  const navState = selectSliceState(state).nav[winKey];
+  if (navState == null) return null;
+  return navState.drawers[loc] ?? null;
+};
 
-export const useSelectNavDrawer = (loc: NavdrawerLocation): NavdrawerEntryState =>
-  useMemoSelect((state: StoreState) => selectNavDrawer(state, loc), [loc]);
+export const useSelectNavDrawer = (
+  loc: NavdrawerLocation,
+): NavdrawerEntryState | null =>
+  useMemoSelect(
+    (state: StoreState & Drift.StoreState) => selectNavDrawer(state, loc),
+    [loc],
+  );
 
 export const selectActiveMosaicTabKey = (
   state: StoreState & Drift.StoreState,
-  windowKey?: string
+  windowKey?: string,
 ): string | null => {
   const win = selectWindow(state, windowKey);
   if (win == null) throw new Error(`Window ${windowKey ?? ""} not found`);
@@ -157,7 +178,7 @@ export const useSelectActiveMosaicTabKey = (): string | null =>
 
 export const selectActiveMosaicTab = (
   state: StoreState & Drift.StoreState,
-  windowKey?: string
+  windowKey?: string,
 ): LayoutState | undefined => {
   const activeTabKey = selectActiveMosaicTabKey(state, windowKey);
   if (activeTabKey == null) return undefined;

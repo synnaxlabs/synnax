@@ -27,17 +27,18 @@ var _ = Describe("User", Ordered, func() {
 	var (
 		db      *gorp.DB
 		svc     *user.Service
+		otg     *ontology.Ontology
 		userKey uuid.UUID
 	)
 	BeforeAll(func() {
 		userKey = uuid.New()
 		db = gorp.Wrap(memkv.New())
-		otg, err := ontology.Open(ctx, ontology.Config{DB: db})
-		Expect(err).To(BeNil())
+		otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
 		g := MustSucceed(group.OpenService(group.Config{DB: db, Ontology: otg}))
 		svc = MustSucceed(user.NewService(ctx, user.Config{DB: db, Ontology: otg, Group: g}))
 	})
 	AfterAll(func() {
+		Expect(otg.Close()).To(Succeed())
 		Expect(db.Close()).To(Succeed())
 	})
 	Describe("Create", func() {
@@ -53,7 +54,7 @@ var _ = Describe("User", Ordered, func() {
 			Expect(errors.Is(w.Create(ctx, u), query.UniqueViolation)).To(BeTrue())
 		})
 	})
-	Describe("Rename", func() {
+	Describe("Update", func() {
 		It("Should update the user", func() {
 			w := svc.NewWriter(nil)
 			u := user.User{Username: "test2"}

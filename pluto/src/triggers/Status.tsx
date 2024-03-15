@@ -9,27 +9,20 @@
 
 import { type ReactElement, useEffect, useState } from "react";
 
-import { Status as CoreStatus } from "@/status";
+import { Text } from "@/text";
 import { useContext } from "@/triggers/Provider";
 import { type Trigger } from "@/triggers/triggers";
 
-export interface StatusProps extends CoreStatus.TextProps {}
+export interface StatusProps extends Text.TextProps {}
 
 export const Status = (props: StatusProps): ReactElement => {
   const { listen } = useContext();
   const [trigger, setTrigger] = useState<Trigger>([]);
 
   useEffect(
-    () =>
-      listen(({ next: [trigger] }) => {
-        setTrigger(trigger ?? []);
-      }),
+    () => listen(({ next: [trigger] }) => setTrigger(trigger ?? [])),
     [listen, setTrigger],
   );
 
-  return (
-    <CoreStatus.Text hideIcon {...props}>
-      {trigger.join(" ")}
-    </CoreStatus.Text>
-  );
+  return <Text.Text {...props}>{trigger.join(" ")}</Text.Text>;
 };

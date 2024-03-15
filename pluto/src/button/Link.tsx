@@ -17,10 +17,10 @@ export interface LinkProps<L extends Text.Level = "h1">
   extends ButtonProps,
     Pick<Text.LinkProps<L>, "href" | "target"> {}
 /**
- * Button.Link renders a button that looks like a link and redirects to the given href
+ * Use.Link renders a button that looks like a link and redirects to the given href
  * when clicked.
  *
- * @param props - Props for the component. Identical to the props for the Button component,
+ * @param props - Props for the component. Identical to the props for the Use component,
  * excluding 'variant', and  adding the following:
  * @param props.href - The URL to redirect to when the button is clicked.
  * @param props.target - The target of the link. Defaults to "_self".

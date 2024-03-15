@@ -22,7 +22,7 @@ import { Authority } from "@/control/authority";
 import { Frame } from "@/framer/frame";
 import { Iterator } from "@/framer/iterator";
 import { Streamer } from "@/framer/streamer";
-import { Writer, type WriterConfig } from "@/framer/writer";
+import { Writer, WriterMode, type WriterConfig } from "@/framer/writer";
 
 export class Client {
   private readonly stream: StreamClient;
@@ -56,13 +56,15 @@ export class Client {
     start,
     channels,
     controlSubject,
-    authorities = Authority.ABSOLUTE,
+    authorities = Authority.Absolute,
+    mode = WriterMode.PersistStream,
   }: WriterConfig): Promise<Writer> {
     return await Writer._open(this.retriever, this.stream, {
       start: start ?? TimeStamp.now(),
       controlSubject,
       channels,
       authorities,
+      mode,
     });
   }
 
@@ -87,7 +89,11 @@ export class Client {
     start: CrudeTimeStamp,
     data: NativeTypedArray,
   ): Promise<void> {
-    const w = await this.newWriter({ start, channels: to });
+    const w = await this.newWriter({
+      start,
+      channels: to,
+      mode: WriterMode.PersistOnly,
+    });
     try {
       await w.write(to, data);
       if (!(await w.commit())) throw (await w.error()) as Error;

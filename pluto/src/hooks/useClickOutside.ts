@@ -9,6 +9,16 @@
 
 import { type RefObject, useCallback, useEffect } from "react";
 
+import { box, xy } from "@synnaxlabs/x";
+
+import { useSyncedRef } from "@/hooks";
+
+export interface UseClickOutsideProps {
+  ref: RefObject<HTMLElement>;
+  exclude?: Array<RefObject<HTMLElement>>;
+  onClickOutside: () => void;
+}
+
 /**
  * A hooks that calls the provided callback when a click event occurs outside of the
  * provided ref.
@@ -16,14 +26,23 @@ import { type RefObject, useCallback, useEffect } from "react";
  * @param onClickOutside - The callback to call when a click event occurs outside of the
  * provided ref.
  */
-export const useClickOutside = (
-  ref: RefObject<HTMLElement>,
-  onClickOutside: () => void,
-): void => {
+export const useClickOutside = ({
+  ref,
+  onClickOutside,
+  exclude,
+}: UseClickOutsideProps): void => {
+  const excludeRef = useSyncedRef(exclude);
   const handleClickOutside = useCallback(
-    ({ target }: MouseEvent): void => {
+    (e: MouseEvent): void => {
       const el = ref.current;
-      if (el == null || el.contains(target as Node)) return;
+      if (
+        el == null ||
+        el.contains(e.target as Node) ||
+        box.contains(el, xy.construct(e)) ||
+        (excludeRef.current != null &&
+          excludeRef.current.some((r) => r.current?.contains(e.target as Node)))
+      )
+        return;
       onClickOutside();
     },
     [onClickOutside],

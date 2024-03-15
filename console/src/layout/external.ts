@@ -13,7 +13,6 @@ export * from "@/layout/GetStarted";
 export * from "@/layout/layout";
 export * from "@/layout/middleware";
 export * from "@/layout/Window";
-export * from "@/layout/Mosaic";
 export * from "@/layout/selectors";
 export * from "@/layout/palette";
 export * from "@/layout/slice";

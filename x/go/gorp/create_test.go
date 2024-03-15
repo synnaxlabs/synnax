@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/memkv"
+	"strconv"
 )
 
 type entry struct {
@@ -25,6 +26,15 @@ type entry struct {
 func (m entry) GorpKey() int { return m.ID }
 
 func (m entry) SetOptions() []interface{} { return nil }
+
+type prefixEntry struct {
+	ID   int
+	Data string
+}
+
+func (m prefixEntry) GorpKey() []byte { return []byte("prefix-" + strconv.Itoa(m.ID)) }
+
+func (m prefixEntry) SetOptions() []interface{} { return nil }
 
 type entryTwo struct {
 	ID   int

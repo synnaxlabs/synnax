@@ -34,6 +34,7 @@ export interface CSSType extends BEM {
   newGridBuilder: () => CSSGridBuilder;
   inheritDims: (inherit?: boolean) => string | false;
   dropRegion: (active: boolean) => false | string;
+  triggerExclude: (value: boolean) => string | false;
   px: (value: number) => string;
 }
 

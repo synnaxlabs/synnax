@@ -24,7 +24,6 @@ export const axisStateZ = tickFactoryProps.extend({
   showGrid: z.boolean().optional().default(true),
   location: location.outer,
   gridColor: color.Color.z,
-  size: z.number().default(0),
 });
 
 export type AxisState = z.input<typeof axisStateZ>;
@@ -33,6 +32,7 @@ export type ParsedAxisState = z.output<typeof axisStateZ>;
 export interface AxisProps extends Omit<TickFactoryContext, "size"> {
   plot: box.Box;
   position: xy.XY;
+  size: number;
 }
 
 export interface Axis {

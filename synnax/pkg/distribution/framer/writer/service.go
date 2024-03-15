@@ -61,6 +61,10 @@ type Config struct {
 	// absolute authority for all channels.
 	// [OPTIONAL]
 	Authorities []control.Authority `json:"authorities" msgpack:"authorities"`
+	// Mode sets the persistence and streaming mode for the writer. The default mode is
+	// WriterModePersistStream. See the ts.WriterMode documentation for more.
+	// [OPTIONAL]
+	Mode ts.WriterMode `json:"mode" msgpack:"mode"`
 }
 
 func (c Config) setKeyAuthorities(authorities []keyAuthority) Config {
@@ -94,6 +98,7 @@ func DefaultConfig() Config {
 			Key: uuid.New().String(),
 		},
 		Authorities: []control.Authority{control.Absolute},
+		Mode:        ts.WriterPersistStream,
 	}
 }
 
@@ -114,10 +119,11 @@ func (c Config) toStorage() ts.WriterConfig {
 		Channels:       c.Keys.Storage(),
 		Start:          c.Start,
 		Authorities:    c.Authorities,
+		Mode:           c.Mode,
 	}
 }
 
-// Validate implements config.Config.
+// Validate implements config.Properties.
 func (c Config) Validate() error {
 	v := validate.New("distribution.framer.writer")
 	validate.NotEmptySlice(v, "keys", c.Keys)
@@ -129,13 +135,14 @@ func (c Config) Validate() error {
 	return v.Error()
 }
 
-// Override implements config.Config.
+// Override implements config.Properties.
 func (c Config) Override(other Config) Config {
 	c.ControlSubject.Name = override.String(c.ControlSubject.Name, other.ControlSubject.Name)
 	c.ControlSubject.Key = override.String(c.ControlSubject.Key, other.ControlSubject.Key)
 	c.Keys = override.Slice(c.Keys, other.Keys.Unique())
 	c.Start = override.Zero(c.Start, other.Start)
 	c.Authorities = override.Slice(c.Authorities, other.Authorities)
+	c.Mode = override.Numeric(c.Mode, other.Mode)
 	return c
 }
 
@@ -168,18 +175,17 @@ var (
 	DefaultServiceConfig = ServiceConfig{}
 )
 
-// Validate implements config.Config.
+// Validate implements config.Properties.
 func (cfg ServiceConfig) Validate() error {
 	v := validate.New("distribution.framer.writer")
 	validate.NotNil(v, "TS", cfg.TS)
 	validate.NotNil(v, "ChannelReader", cfg.ChannelReader)
 	validate.NotNil(v, "HostProvider", cfg.HostResolver)
 	validate.NotNil(v, "Transport", cfg.Transport)
-	//validate.NotNil(v, "FreeWrites", cfg.FreeWrites)
 	return v.Error()
 }
 
-// Override implements config.Config.
+// Override implements config.Properties.
 func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	cfg.TS = override.Nil(cfg.TS, other.TS)
 	cfg.ChannelReader = override.Nil(cfg.ChannelReader, other.ChannelReader)
@@ -302,7 +308,7 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 	if hasFree {
 		routeValidatorTo = freeWriterAddr
 		switchTargets = append(switchTargets, freeWriterAddr)
-		w := s.newFree(ctx)
+		w := s.newFree(cfg.Mode)
 		plumber.SetSegment[Request, Response](pipe, freeWriterAddr, w)
 		receiverAddresses = append(receiverAddresses, freeWriterAddr)
 	}

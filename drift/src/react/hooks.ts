@@ -7,9 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type EffectCallback, useRef } from "react";
+import { type EffectCallback, useRef, useEffect } from "react";
 
 import { useSelectWindow } from "@/react/selectors";
+import { useDispatch } from "react-redux";
+import { completeProcess, registerProcess } from "@/state";
+import { AsyncDestructor, Destructor } from "@synnaxlabs/x";
 
 /**
  * A hook that allows a user to tap into the lifecycle of a window.
@@ -23,14 +26,47 @@ import { useSelectWindow } from "@/react/selectors";
  */
 export const useWindowLifecycle = (cb: EffectCallback, key?: string): void => {
   const win = useSelectWindow(key);
-  if (win == null) return;
-  const { stage } = win;
+  const dispatch = useDispatch();
   const destructor = useRef<(() => void) | null>(null);
-  if (stage === "created" && destructor.current == null) {
-    const c = cb();
-    if (c != null) destructor.current = c;
-  } else if (stage === "closing" && destructor.current != null) {
-    destructor.current();
-    destructor.current = null;
-  }
+  useEffect(() => {
+    if (win == null) return;
+    const { stage } = win;
+    if (stage === "created" && destructor.current == null) {
+      const c = cb();
+      if (c != null) destructor.current = c;
+      dispatch(registerProcess({ key: win.key }));
+    } else if ((stage === "closing" || stage === "reloading") && destructor.current != null) {
+      destructor.current();
+      destructor.current = null;
+      dispatch(completeProcess({ key: win.key }));
+    }
+  }, [win])
 };
+
+export const useAsyncWindowLifecycle = (cb: () => (Promise<AsyncDestructor | undefined>), key?: string): void => {
+  const win = useSelectWindow(key);
+  const dispatch = useDispatch();
+  const destructor = useRef<AsyncDestructor | null>(null);
+  const promiseOut = useRef<boolean>(false);
+  useEffect(() => {
+    if (win == null) return;
+    const { stage } = win;
+    if (stage === "created" && destructor.current == null) {
+      promiseOut.current = true;
+      cb().then((d) => {
+        destructor.current = d ?? (async () => {});
+        dispatch(registerProcess({ key: win.key }));
+      }).finally(() => {
+        promiseOut.current = false;
+      });
+    } else if ((stage === "closing" || stage === "reloading") && destructor.current != null) {
+      const f = destructor.current;
+      destructor.current = null;
+      f().then(() => {
+        destructor.current = null;
+      }).finally(() => {
+        dispatch(completeProcess({ key: win.key }));
+      });
+    }
+  }, [win])
+}

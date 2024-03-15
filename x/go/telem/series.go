@@ -9,7 +9,10 @@
 
 package telem
 
-import "github.com/synnaxlabs/x/types"
+import (
+	"bytes"
+	"github.com/synnaxlabs/x/types"
+)
 
 type Series struct {
 	// TimeRange represents the time range occupied by the series' data.
@@ -26,6 +29,17 @@ func (s Series) Len() int64 { return s.DataType.Density().SampleCount(s.Size()) 
 
 // Size returns the number of bytes in the Series.
 func (s Series) Size() Size { return Size(len(s.Data)) }
+
+func (s Series) Split() [][]byte {
+	if s.DataType.IsVariable() {
+		return bytes.Split(s.Data, []byte("\n"))
+	}
+	o := make([][]byte, s.Len())
+	for i := int64(0); i < s.Len(); i++ {
+		o[i] = s.Data[i*int64(s.DataType.Density()) : (i+1)*int64(s.DataType.Density())]
+	}
+	return o
+}
 
 func ValueAt[T types.Numeric](a Series, i int64) T {
 	b := a.Data[i*int64(a.DataType.Density()) : (i+1)*int64(a.DataType.Density())]

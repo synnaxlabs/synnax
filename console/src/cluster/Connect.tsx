@@ -9,25 +9,18 @@
 
 import { type ReactElement, useState } from "react";
 
-import { zodResolver } from "@hookform/resolvers/zod";
 import { synnaxPropsZ } from "@synnaxlabs/client";
 import type { connection, SynnaxProps } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
-import {
-  Button,
-  Header,
-  Input,
-  Nav,
-  Align,
-  componentRenderProp,
-  Status,
-} from "@synnaxlabs/pluto";
+import { Nav, componentRenderProp, Status, Form } from "@synnaxlabs/pluto";
+import { Align } from "@synnaxlabs/pluto/align";
+import { Button } from "@synnaxlabs/pluto/button";
+import { Input } from "@synnaxlabs/pluto/input";
 import { Case } from "@synnaxlabs/x";
-import { type FieldValues, useForm } from "react-hook-form";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
 
-import { ConnectionStatusBadge, statusVariants } from "@/cluster/Badges";
+import { statusVariants } from "@/cluster/Badges";
+import { useSelectMany } from "@/cluster/selectors";
 import { setActive, set } from "@/cluster/slice";
 import { testConnection } from "@/cluster/testConnection";
 import { CSS } from "@/css";
@@ -35,13 +28,11 @@ import { type Layout } from "@/layout";
 
 import "@/cluster/Connect.css";
 
-const formSchema = synnaxPropsZ.extend({ name: z.string() });
-
 export const connectWindowLayout: Layout.LayoutState = {
   key: "connectCluster",
   windowKey: "connectCluster",
   type: "connectCluster",
-  name: "Connect a Cluster",
+  name: "Connect Cluster",
   location: "window",
   window: {
     resizable: false,
@@ -62,38 +53,53 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
   const [connState, setConnState] = useState<connection.State | null>(null);
   const [loading, setLoading] = useState<"test" | "submit" | null>(null);
 
-  const {
-    getValues,
-    trigger,
-    control: c,
-    handleSubmit: _handleSubmit,
-  } = useForm({ resolver: zodResolver(formSchema) });
+  const names = useSelectMany().map((c) => c.name);
 
-  const handleSubmit = _handleSubmit(async (_data: FieldValues): Promise<void> => {
-    const { name, ...data } = _data;
-    setConnState(null);
-    setLoading("submit");
-    const state = await testConnection(data as SynnaxProps);
-    setLoading(null);
-    if (state.status !== "connected") return setConnState(state);
-    dispatch(
-      set({
-        key: state.clusterKey,
-        name,
-        props: data as SynnaxProps,
-      })
-    );
-    dispatch(setActive(state.clusterKey));
-    onClose();
+  const formSchema = synnaxPropsZ.omit({ connectivityPollFrequency: true }).extend({
+    name: z.string().refine((n) => !names.includes(n), {
+      message: "A cluster with this name already exists",
+    }),
+  });
+
+  const handleSubmit = (): void => {
+    void (async () => {
+      if (!methods.validate()) return;
+      const data = methods.value();
+      setConnState(null);
+      setLoading("submit");
+      const state = await testConnection(data);
+      setLoading(null);
+      if (state.status !== "connected") return setConnState(state);
+      dispatch(
+        set({
+          key: state.clusterKey,
+          name: data.name,
+          props: data as SynnaxProps,
+        }),
+      );
+      dispatch(setActive(state.clusterKey));
+      onClose();
+    })();
+  };
+
+  const methods = Form.use<typeof formSchema>({
+    schema: formSchema,
+    values: {
+      name: "",
+      host: "",
+      port: 9090,
+      username: "",
+      password: "",
+      secure: false,
+    },
   });
 
   const handleTestConnection = (): void => {
     void (async (): Promise<void> => {
-      const valid = await trigger();
-      if (!valid) return;
+      if (!methods.validate()) return;
       setConnState(null);
       setLoading("test");
-      const state = await testConnection(getValues() as SynnaxProps);
+      const state = await testConnection(methods.value() as SynnaxProps);
       setConnState(state);
       setLoading(null);
     })();
@@ -101,60 +107,39 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
 
   return (
     <Align.Space grow className={CSS.B("connect-cluster")}>
-      <Header.Header level="h4">
-        <Header.Title startIcon={<Icon.Cluster />}>Connect a Cluster</Header.Title>
-      </Header.Header>
-      <Align.Space className="console-form" grow>
-        {/* eslint-disable-next-line @typescript-eslint/no-misused-promises */}
-        <form onSubmit={handleSubmit} id="connect-cluster">
-          <Align.Space>
-            <Input.ItemControlled
-              name="name"
-              placeholder="My Synnax Cluster"
-              control={c}
-              autoFocus
-            />
-            <Align.Space direction="x">
-              <Input.ItemControlled
-                name="host"
-                placeholder="localhost"
-                control={c}
-                grow
-              />
-              <Input.ItemControlled
-                name="port"
-                type="number"
-                placeholder="9090"
-                control={c}
-                className={CSS.BE("input", "port")}
-              />
-            </Align.Space>
-            <Input.ItemControlled name="username" placeholder="Harry" control={c} />
-            <Align.Space direction="x">
-              <Input.ItemControlled
-                name="password"
-                placeholder="Seldon"
-                type="password"
-                control={c}
-                className={CSS.BE("input", "password")}
-              />
-              <Input.ItemControlled<boolean, boolean, Input.SwitchProps>
-                name="secure"
-                control={c}
-              >
-                {componentRenderProp(Input.Switch)}
-              </Input.ItemControlled>
-            </Align.Space>
+      <Form.Form {...methods}>
+        <Align.Space className="console-form" grow empty justify="center">
+          <Form.Field<string> path="name">
+            {(p) => <Input.Text placeholder="My Synnax Cluster" autoFocus {...p} />}
+          </Form.Field>
+          <Align.Space direction="x">
+            <Form.Field<string> path="host" grow>
+              {(p) => <Input.Text placeholder="localhost" {...p} />}
+            </Form.Field>
+            <Form.Field<string> path="port" className={CSS.BE("input", "port")}>
+              {(p) => <Input.Text placeholder="9090" {...p} />}
+            </Form.Field>
           </Align.Space>
-        </form>
-      </Align.Space>
+          <Form.Field<string> path="username">
+            {(p) => <Input.Text placeholder="Harry" {...p} />}
+          </Form.Field>
+          <Align.Space direction="x">
+            <Form.Field<string> path="password" className={CSS.BE("input", "password")}>
+              {(p) => <Input.Text {...p} placeholder="Seldon" type="password" />}
+            </Form.Field>
+            <Form.Field<boolean> path="secure">
+              {componentRenderProp(Input.Switch)}
+            </Form.Field>
+          </Align.Space>
+        </Align.Space>
+      </Form.Form>
       <Nav.Bar location="bottom" size={48}>
         <Nav.Bar.Start className={CSS.BE("footer", "start")}>
           {connState != null && (
             <Status.Text variant={statusVariants[connState.status]}>
               {connState.status === "connected"
                 ? Case.capitalize(connState.status)
-                : (connState.message as string)}
+                : connState.message}
             </Status.Text>
           )}
         </Nav.Bar.Start>
@@ -169,8 +154,7 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
           </Button.Button>
 
           <Button.Button
-            type="submit"
-            form="connect-cluster"
+            onClick={handleSubmit}
             loading={loading === "submit"}
             disabled={loading !== null}
           >

@@ -24,7 +24,7 @@ export class Controller {
   }
 
   static control(ctx: aether.Context, f: RequestF): void {
-    ctx.set(Controller.CONTEXT_KEY, new Controller(f));
+    ctx.set(Controller.CONTEXT_KEY, new Controller(f), false);
   }
 
   static useRequest(ctx: aether.Context): RequestF {

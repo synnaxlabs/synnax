@@ -14,6 +14,7 @@ import {
   QueryError,
   type framer,
   type Synnax,
+  UnexpectedError,
 } from "@synnaxlabs/client";
 import {
   compare,
@@ -22,9 +23,11 @@ import {
   TimeRange,
   type SeriesDigest,
   TimeSpan,
+  type AsyncDestructor,
+  debounce,
 } from "@synnaxlabs/x";
 import { Mutex } from "async-mutex";
-import { nanoid } from "nanoid";
+import { nanoid } from "nanoid/non-secure";
 
 import { cache } from "@/telem/client/cache";
 
@@ -68,7 +71,7 @@ export interface ReadClient {
 
 /** A client that can be used to stream telemetry from the Synnax cluster. */
 export interface StreamClient {
-  stream: (handler: StreamHandler, keys: channel.Keys) => Promise<Destructor>;
+  stream: (handler: StreamHandler, keys: channel.Keys) => Promise<AsyncDestructor>;
 }
 
 /**
@@ -77,6 +80,7 @@ export interface StreamClient {
  * client to make it easy to stub out for testing.
  */
 export interface Client extends ChannelClient, ReadClient, StreamClient {
+  key: string;
   /** Close closes the client, releasing all resources from the cache. */
   close: () => void;
 }
@@ -87,9 +91,11 @@ export interface Client extends ChannelClient, ReadClient, StreamClient {
  * set, all operations will throw an error.
  */
 export class Proxy implements Client {
-  private _client: Client | null = null;
+  key: string = nanoid();
+  _client: Client | null = null;
 
   swap(client: Client | null): void {
+    this.key = nanoid();
     this._client?.close();
     this._client = client;
   }
@@ -108,7 +114,7 @@ export class Proxy implements Client {
   }
 
   /** Stream implements StreamClient. */
-  async stream(handler: StreamHandler, keys: channel.Keys): Promise<Destructor> {
+  async stream(handler: StreamHandler, keys: channel.Keys): Promise<AsyncDestructor> {
     return await this.client.stream(handler, keys);
   }
 
@@ -123,6 +129,11 @@ export class Proxy implements Client {
   }
 }
 
+interface ListenerEntry {
+  valid: boolean;
+  keys: channel.Keys;
+}
+
 /**
  * Core wraps a Synnax client to implement the pluto telemetry Client interface,
  * adding a transparent caching layer.
@@ -131,14 +142,34 @@ export class Core implements Client {
   readonly key: string = nanoid();
   private readonly core: Synnax;
   private readonly ins: alamos.Instrumentation;
-  private readonly mu: Mutex = new Mutex();
   private readonly cache = new Map<channel.Key, cache.Cache>();
-  private readonly listeners = new Map<StreamHandler, channel.Keys>();
-  private _streamer: framer.Streamer | null = null;
+  private readonly listeners = new Map<StreamHandler, ListenerEntry>();
+  private streamerRunLoop: Promise<void> | null = null;
+  private readonly streamerMu: Mutex = new Mutex();
+  private streamer: framer.Streamer | null = null;
+  private readonly channelRetriever: AsyncBatchRetriever;
 
   constructor(wrap: Synnax, ins: alamos.Instrumentation) {
     this.core = wrap;
     this.ins = ins;
+    this.channelRetriever = new AsyncBatchRetriever(
+      async (keys) => await this.core.channels.retrieve(keys),
+    );
+  }
+
+  async populateMissingCacheEntries(keys: channel.Keys): Promise<void> {
+    const toFetch: channel.Keys = [];
+    for (const key of keys) {
+      if (this.cache.has(key)) continue;
+      toFetch.push(key);
+    }
+    if (toFetch.length === 0) return;
+    const channels = await this.channelRetriever.retrieve(toFetch);
+    for (const c of channels) {
+      const ins = this.ins.child(`cache-${c.name}-${c.key}`);
+      const cache_ = new cache.Cache(CACHE_BUFFER_SIZE, c, ins);
+      if (!this.cache.has(c.key)) this.cache.set(c.key, cache_);
+    }
   }
 
   /** Implements ChannelClient. */
@@ -159,10 +190,12 @@ export class Core implements Client {
     const releasers: Destructor[] = [];
     const responses: Record<channel.Key, ReadResponse> = {};
 
+    await this.populateMissingCacheEntries(channels);
+
     try {
       for (const key of channels) {
         // Read from cache.
-        const cache = await this.getCache(key);
+        const cache = this.getCache(key);
         const { series, gaps, done } = await cache.dirtyReadForStaticWrite(tr);
         releasers.push(done);
         // In this case we have all the data we need and don't need to execute a fetch
@@ -202,17 +235,21 @@ export class Core implements Client {
       for (const [, [range, keys]] of toFetch) {
         const frame = await this.core.telem.read(range, keys);
         for (const key of keys) {
-          const cache = await this.getCache(key);
-          cache.writeStatic(range, frame.get(key));
+          const cache = this.getCache(key);
+          const data = frame.get(key);
+          if (data.length > 0) cache.writeStatic(data);
         }
       }
+    } catch (e) {
+      this.ins.L.error("read failed", { tr: tr.toPrettyString(), channels, error: e });
+      throw e;
     } finally {
       releasers.forEach((r) => r());
     }
 
     // Re-read from cache so we get correct ordering.
     for (const key of channels) {
-      const cache = await this.getCache(key);
+      const cache = this.getCache(key);
       const { series } = cache.dirtyRead(tr);
       responses[key] = new ReadResponse(cache.channel, series);
     }
@@ -228,13 +265,14 @@ export class Core implements Client {
   }
 
   /** Implements StreamClient. */
-  async stream(handler: StreamHandler, keys: channel.Keys): Promise<Destructor> {
-    return await this.mu.runExclusive(async () => {
-      this.ins.L.debug("updating stream", { keys });
-      this.listeners.set(handler, keys);
+  async stream(handler: StreamHandler, keys: channel.Keys): Promise<AsyncDestructor> {
+    await this.populateMissingCacheEntries(keys);
+    return await this.streamerMu.runExclusive(async () => {
+      this.ins.L.debug("adding stream handler", { keys });
+      this.listeners.set(handler, { valid: true, keys });
       const dynamicBuffs: Record<channel.Key, ReadResponse> = {};
       for (const key of keys) {
-        const c = await this.getCache(key);
+        const c = this.getCache(key);
         dynamicBuffs[key] = new ReadResponse(
           c.channel,
           c.dynamic.buffer != null ? [c.dynamic.buffer] : [],
@@ -242,7 +280,7 @@ export class Core implements Client {
       }
       handler(dynamicBuffs);
       await this.updateStreamer();
-      return () => this.removeStreamHandler(handler);
+      return async () => await this.removeStreamHandler(handler);
     });
   }
 
@@ -250,69 +288,77 @@ export class Core implements Client {
   close(): void {
     this.ins.L.info("closing client", { key: this.key });
     this.cache.clear();
-    this._streamer?.close();
+    this.streamer?.close();
   }
 
-  private removeStreamHandler(handler: StreamHandler): void {
-    void this.mu.runExclusive(async () => {
-      this.ins.L.debug("removing stream handler", { handler });
-      if (this.listeners.delete(handler)) return await this.updateStreamer();
-      this.ins.L.warn("attempted to remove non-existent stream handler", { handler });
+  private async removeStreamHandler(handler: StreamHandler): Promise<void> {
+    await this.streamerMu.runExclusive(() => {
+      const entry = this.listeners.get(handler);
+      if (entry == null) return;
+      entry.valid = false;
     });
+    setTimeout(() => {
+      void this.streamerMu.runExclusive(async () => {
+        this.ins.L.debug("removing stream handler");
+        if (this.listeners.delete(handler)) return await this.updateStreamer();
+        this.ins.L.warn("attempted to remove non-existent stream handler");
+      });
+    }, 5000);
   }
 
-  private async getCache(key: channel.Key): Promise<cache.Cache> {
+  private getCache(key: channel.Key): cache.Cache {
     const c = this.cache.get(key);
     if (c != null) return c;
-    const channel = await this.core.channels.retrieve(key);
-    const cache_ = new cache.Cache(CACHE_BUFFER_SIZE, channel);
-    this.cache.set(key, cache_);
-    return cache_;
+    throw new UnexpectedError(`cache entry for ${key} not found`);
   }
 
   private async updateStreamer(): Promise<void> {
     // Assemble the set of keys we need to stream.
     const keys = new Set<channel.Key>();
-    this.listeners.forEach((v) => v.forEach((k) => keys.add(k)));
+    this.listeners.forEach((v) => v.keys.forEach((k) => keys.add(k)));
 
     // If we have no keys to stream, close the streamer to save network chatter.
     if (keys.size === 0) {
       this.ins.L.info("no keys to stream, closing streamer");
-      this._streamer?.close();
-      this._streamer = null;
+      this.streamer?.close();
+      if (this.streamerRunLoop != null) await this.streamerRunLoop;
+      this.streamer = null;
+      this.ins.L.info("streamer closed successfully");
       return;
     }
 
     const arrKeys = Array.from(keys);
-    if (compare.primitiveArrays(arrKeys, this._streamer?.keys ?? []) === compare.EQUAL)
+    if (compare.primitiveArrays(arrKeys, this.streamer?.keys ?? []) === compare.EQUAL) {
+      this.ins.L.debug("streamer keys unchanged", { keys: arrKeys });
       return;
-
-    // Update or create the streamer.
-    if (this._streamer == null) {
-      this.ins.L.info("creating new streamer", { keys: arrKeys });
-      this._streamer = await this.core.telem.newStreamer(arrKeys);
-      void this.start(this._streamer);
     }
 
-    this.ins.L.debug("updating streamer", { prev: this._streamer.keys, next: arrKeys });
+    // Update or create the streamer.
+    if (this.streamer == null) {
+      this.ins.L.info("creating new streamer", { keys: arrKeys });
+      this.streamer = await this.core.telem.newStreamer(arrKeys);
+      this.streamerRunLoop = this.runStreamer(this.streamer);
+    }
 
-    await this._streamer.update(arrKeys);
+    this.ins.L.debug("updating streamer", { prev: this.streamer.keys, next: arrKeys });
+
+    await this.streamer.update(arrKeys);
   }
 
-  private async start(streamer: framer.Streamer): Promise<void> {
+  private async runStreamer(streamer: framer.Streamer): Promise<void> {
     for await (const frame of streamer) {
       const changed: ReadResponse[] = [];
       for (const k of frame.keys) {
         const series = frame.get(k);
-        const cache = await this.getCache(k);
+        const cache = this.getCache(k);
         const out = cache.writeDynamic(series);
         changed.push(new ReadResponse(cache.channel, out));
       }
-      this.listeners.forEach((keys, handler) => {
-        const notify = changed.filter((r) => keys.includes(r.channel.key));
+      this.listeners.forEach((entry, handler) => {
+        const notify = changed.filter((r) => entry.keys.includes(r.channel.key));
         if (notify.length === 0) return;
         const d = Object.fromEntries(notify.map((r) => [r.channel.key, r]));
-        handler(d);
+        if (entry.valid) handler(d);
       });
     }
   }
@@ -349,5 +395,51 @@ export class ReadResponse {
       timeRange: this.timeRange.toPrettyString(),
       series: this.data.map((s) => s.digest),
     };
+  }
+}
+
+interface PromiseFns<T> {
+  resolve: (value: T) => void;
+  reject: (reason?: any) => void;
+}
+
+// no interval
+class AsyncBatchRetriever {
+  private readonly mu = new Mutex();
+  private readonly requests = new Map<channel.Keys, PromiseFns<channel.Channel[]>>();
+  private readonly fn: (batch: channel.Keys) => Promise<channel.Channel[]>;
+  private readonly debouncedRun: () => void;
+
+  constructor(fn: (batch: channel.Key[]) => Promise<channel.Channel[]>) {
+    this.fn = fn;
+    this.debouncedRun = debounce(() => {
+      void this.run();
+    }, 10);
+  }
+
+  async retrieve(t: channel.Key[]): Promise<channel.Channel[]> {
+    // eslint-disable-next-line @typescript-eslint/promise-function-async
+    const a = new Promise<channel.Channel[]>((resolve, reject) => {
+      void this.mu.runExclusive(() => {
+        this.requests.set(t, { resolve, reject });
+        this.debouncedRun();
+      });
+    });
+    return await a;
+  }
+
+  async run(): Promise<void> {
+    await this.mu.runExclusive(async () => {
+      const keys = Array.from(this.requests.keys()).flat();
+      try {
+        const channels = await this.fn(keys);
+        this.requests.forEach((fns) => {
+          fns.resolve(channels.filter((c) => keys.includes(c.key)));
+        });
+      } catch (e) {
+        this.requests.forEach((fns) => fns.reject(e));
+      }
+      this.requests.clear();
+    });
   }
 }

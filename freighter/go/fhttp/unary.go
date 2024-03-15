@@ -141,7 +141,9 @@ func parseRequestCtx(c *fiber.Ctx, target address.Address) freighter.Context {
 	headers := c.GetReqHeaders()
 	md.Params = make(freighter.Params, len(headers))
 	for k, v := range c.GetReqHeaders() {
-		md.Params[k] = v
+		if len(v) > 0 {
+			md.Params[k] = v[0]
+		}
 	}
 	for k, v := range parseQueryString(c) {
 		if isFreighterQueryStringParam(k) {

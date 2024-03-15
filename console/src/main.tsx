@@ -11,20 +11,26 @@ import { type ReactElement, useCallback } from "react";
 
 import { Provider } from "@synnaxlabs/drift/react";
 import { Pluto, type Haul, type Triggers, type state } from "@synnaxlabs/pluto";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import ReactDOM from "react-dom/client";
 import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
 import { Docs } from "@/docs";
+import { ErrorOverlay } from "@/error/Overlay";
+import { HardwareConfigure } from "@/hardware/configure";
+import { NewDevice } from "@/hardware/device/new";
+import { HardwareStatus } from "@/hardware/status";
+import { Label } from "@/label";
 import { Layout } from "@/layout";
 import { LayoutMain } from "@/layouts/LayoutMain";
+import { Mosaic } from "@/layouts/mosaic";
 import { LinePlot } from "@/lineplot";
 import { Ontology } from "@/ontology";
 import { PID } from "@/pid";
 import { Range } from "@/range";
 import { SERVICES } from "@/services";
 import { store } from "@/store";
-import { Table } from "@/table";
 import { Version } from "@/version";
 import { Vis } from "@/vis";
 import WorkerURL from "@/worker?worker&url";
@@ -34,19 +40,22 @@ import "@/index.css";
 import "@synnaxlabs/media/dist/style.css";
 import "@synnaxlabs/pluto/dist/style.css";
 
-const layoutRenderers = {
+const layoutRenderers: Record<string, Layout.Renderer> = {
   main: LayoutMain,
   connectCluster: Cluster.Connect,
   visualization: Vis.LayoutSelector,
-  defineRange: Range.Define,
+  defineRange: Range.EditLayout,
   getStarted: Layout.GetStarted,
   docs: Docs.Docs,
   vis: Vis.LayoutSelector,
-  mosaic: Layout.Mosaic,
+  mosaic: Mosaic.Window,
   createWorkspace: Workspace.Create,
+  [Label.manageWindowLayout.type]: Label.Manage,
   [LinePlot.LAYOUT_TYPE]: LinePlot.LinePlot,
   [PID.LAYOUT_TYPE]: PID.PID,
-  [Table.LAYOUT_TYPE]: Table.Table,
+  [HardwareStatus.LAYOUT_TYPE]: HardwareStatus.Status,
+  [HardwareConfigure.LAYOUT_TYPE]: HardwareConfigure.Configure,
+  [NewDevice.LAYOUT_TYPE]: NewDevice.Configure,
 };
 
 const PREVENT_DEFAULT_TRIGGERS: Triggers.Trigger[] = [
@@ -58,6 +67,8 @@ const PREVENT_DEFAULT_TRIGGERS: Triggers.Trigger[] = [
 const triggersProps: Triggers.ProviderProps = {
   preventDefaultOn: PREVENT_DEFAULT_TRIGGERS,
 };
+
+const client = new QueryClient();
 
 const MainUnderContext = (): ReactElement => {
   const theme = Layout.useThemeProvider();
@@ -79,32 +90,42 @@ const MainUnderContext = (): ReactElement => {
   const activeRange = Range.useSelect();
 
   return (
-    <Pluto.Provider
-      {...theme}
-      channelAlias={{ activeRange: activeRange?.key }}
-      workerEnabled
-      connParams={cluster?.props}
-      workerURL={WorkerURL}
-      triggers={triggersProps}
-      haul={{ useState: useHaulState }}
-    >
-      <Vis.Canvas>
-        <Layout.Window />
-      </Vis.Canvas>
-    </Pluto.Provider>
+    <QueryClientProvider client={client}>
+      <Pluto.Provider
+        {...theme}
+        channelAlias={{ activeRange: activeRange?.key }}
+        workerEnabled
+        connParams={cluster?.props}
+        workerURL={WorkerURL}
+        triggers={triggersProps}
+        haul={{ useState: useHaulState }}
+        alamos={{
+          level: "debug",
+          include: ["aether.telem"],
+        }}
+      >
+        <Vis.Canvas>
+          <Layout.Window />
+        </Vis.Canvas>
+      </Pluto.Provider>
+    </QueryClientProvider>
   );
 };
 
 const Main = (): ReactElement | null => {
   return (
-    <Provider store={store} errorContent={(e) => <h1>{e.message}</h1>}>
-      <Layout.RendererProvider value={layoutRenderers}>
-        <Ontology.ServicesProvider services={SERVICES}>
-          <MainUnderContext />
-        </Ontology.ServicesProvider>
-      </Layout.RendererProvider>
-    </Provider>
+    <ErrorOverlay>
+      <Provider store={store}>
+        <Layout.RendererProvider value={layoutRenderers}>
+          <Ontology.ServicesProvider services={SERVICES}>
+            <MainUnderContext />
+          </Ontology.ServicesProvider>
+        </Layout.RendererProvider>
+      </Provider>
+    </ErrorOverlay>
   );
 };
 
-ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(<Main />);
+const rootEl = document.getElementById("root") as unknown as HTMLElement;
+
+ReactDOM.createRoot(rootEl).render(<Main />);

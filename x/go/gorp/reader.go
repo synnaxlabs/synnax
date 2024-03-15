@@ -13,9 +13,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/synnaxlabs/x/types"
-	"go.uber.org/zap"
-
 	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/binary"
@@ -23,6 +20,7 @@ import (
 	"github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/types"
 )
 
 // Reader wraps a key-value reader to provide a strongly typed interface for
@@ -66,7 +64,7 @@ func (r Reader[K, E]) Get(ctx context.Context, key K) (e E, err error) {
 	return e, r.Decode(ctx, b, &e)
 }
 
-// GetMany retrieves multiple entries from the database. Entries that are not
+// GetMany retrieves isMultiple entries from the database. Entries that are not
 // found are simply omitted from the returned slice.
 func (r Reader[K, E]) GetMany(ctx context.Context, keys []K) ([]E, error) {
 	var (
@@ -98,16 +96,21 @@ func (r Reader[K, E]) GetMany(ctx context.Context, keys []K) ([]E, error) {
 	return entries, nil
 }
 
+type IterOptions struct {
+	prefix []byte
+}
+
 // OpenIterator opens a new Iterator over the entries in the Reader.
-func (r Reader[K, E]) OpenIterator() (*Iterator[E], error) {
-	base, err := r.BaseReader.OpenIterator(kv.IterPrefix(r.prefix(context.TODO())))
+func (r Reader[K, E]) OpenIterator(opts IterOptions) (iter *Iterator[E], err error) {
+	prefixedKey := append(r.prefix(context.TODO()), opts.prefix...)
+	base, err := r.BaseReader.OpenIterator(kv.IterPrefix(prefixedKey))
 	return WrapIterator[E](base, r), err
 }
 
 // OpenNexter opens a new Nexter that can be used to iterate over
 // the entries in the reader in sequential order.
 func (r Reader[K, E]) OpenNexter() (iter.NexterCloser[E], error) {
-	i, err := r.OpenIterator()
+	i, err := r.OpenIterator(IterOptions{})
 	return &next[E]{Iterator: i}, err
 }
 
@@ -197,18 +200,19 @@ func (t TxReader[K, E]) Next(ctx context.Context) (op change.Change[K, E], ok bo
 	if !bytes.HasPrefix(kvOp.Key, pref) {
 		return t.Next(ctx)
 	}
-	if err := t.tools.Decode(ctx, kvOp.Key[len(pref):], &op.Key); err != nil {
-		zap.S().DPanic("[gorp.TxReader] - unexpected failure to decode key: ", err)
+	var err error
+	if op.Key, err = decodeKey[K](ctx, t.tools, pref, kvOp.Key); err != nil {
+		panic(err)
 		return op, false
 	}
 	op.Variant = kvOp.Variant
 	if op.Variant != change.Set {
-		return
+		return op, true
 	}
 	// Panicking in development here right now. Don't want to extend the footprint of
 	// TxReader to NexterCloser.
 	if err := t.tools.Decode(ctx, kvOp.Value, &op.Value); err != nil {
-		zap.S().DPanic("[gorp.TxReader] - unexpected failure to decode value: ", err)
+		panic(err)
 		return op, false
 	}
 	op.Key = op.Value.GorpKey()

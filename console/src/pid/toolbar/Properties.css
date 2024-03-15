@@ -9,6 +9,6 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-pid-properties {
-    padding: 2rem;
-}
+ .console-pid-properties-pad {
+    padding: 2rem 3rem;
+ }

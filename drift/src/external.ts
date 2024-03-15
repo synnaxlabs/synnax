@@ -29,6 +29,7 @@ export {
   completeProcess,
   initialState,
   setWindowDecorations,
+  reloadWindow,
   SLICE_NAME,
 } from "@/state";
 export type {

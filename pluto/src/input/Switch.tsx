@@ -14,7 +14,7 @@ import { type BaseProps } from "@/input/types";
 
 import "@/input/Switch.css";
 
-export interface SwitchProps extends BaseProps<boolean> {}
+export interface SwitchProps extends Omit<BaseProps<boolean>, "placeholder"> {}
 
 const CLS = "input-switch";
 

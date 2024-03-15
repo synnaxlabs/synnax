@@ -39,7 +39,7 @@ type streamImplementation interface {
 
 var streamImplementations = []streamImplementation{
 	&httpStreamImplementation{},
-	//&mockStreamImplementation{},
+	&mockStreamImplementation{},
 }
 
 var _ = Describe("Stream", Ordered, Serial, func() {
@@ -127,7 +127,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 				})
 
 			})
-			Describe("Error Handling", func() {
+			Describe("Details Handling", func() {
 
 				Describe("Server returns a non-nil error", func() {
 					It("Should send the error to the client", func() {
@@ -259,9 +259,9 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 						next freighter.Next,
 					) (freighter.Context, error) {
 						c++
-						oMd, err := next(ctx)
+						oMd, _ := next(ctx)
 						c++
-						return oMd, err
+						return oMd, nil
 					}))
 					ctx, cancel := context.WithCancel(context.TODO())
 					defer cancel()
@@ -301,6 +301,7 @@ func (impl *httpStreamImplementation) start(
 	server := fhttp.StreamServer[request, response](router, "/")
 	router.BindTo(impl.app)
 	go func() {
+		defer GinkgoRecover()
 		Expect(impl.app.Listen(host.PortString())).To(Succeed())
 	}()
 	Eventually(func(g Gomega) {

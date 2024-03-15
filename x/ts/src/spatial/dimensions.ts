@@ -62,3 +62,8 @@ export const min = (crude: Crude[]): Dimensions => ({
   width: Math.min(...crude.map((c) => construct(c).width)),
   height: Math.min(...crude.map((c) => construct(c).height)),
 });
+
+export const scale = (ca: Crude, factor: number): Dimensions => {
+  const a = construct(ca);
+  return { width: a.width * factor, height: a.height * factor };
+}

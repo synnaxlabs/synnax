@@ -78,7 +78,7 @@ var (
 	}
 )
 
-// Override implements the config.Config interface.
+// Override implements the config.Properties interface.
 func (c Config) Override(other Config) Config {
 	c.ListenAddress = override.String(c.ListenAddress, other.ListenAddress)
 	c.Security.Insecure = override.Nil(c.Security.Insecure, other.Security.Insecure)
@@ -89,7 +89,7 @@ func (c Config) Override(other Config) Config {
 	return c
 }
 
-// Validate implements the config.Config interface.
+// Validate implements the config.Properties interface.
 func (c Config) Validate() error {
 	v := validate.New("server")
 	validate.NotEmptyString(v, "listenAddress", c.ListenAddress)
@@ -136,7 +136,7 @@ func (s *Server) Stop() {
 	for _, b := range s.Branches {
 		b.Stop()
 	}
-	<-s.wg.Stopped()
+	_ = s.wg.Wait()
 }
 
 func (s *Server) serveSecure(sCtx signal.Context, lis net.Listener) error {

@@ -16,11 +16,11 @@ import {
   type TZInfo,
 } from "@synnaxlabs/x";
 
+import { type text } from "@/text/core";
 import { Text } from "@/text/Text";
 import type { TextProps } from "@/text/Text";
-import { type Level } from "@/text/types";
 
-export type DateTimeProps<L extends Level = "h1"> = Omit<
+export type DateTimeProps<L extends text.Level = "h1"> = Omit<
   TextProps<L>,
   "children" | "ref"
 > & {
@@ -30,7 +30,7 @@ export type DateTimeProps<L extends Level = "h1"> = Omit<
   displayTZ?: TZInfo;
 };
 
-export const CoreDateTime = <L extends Level = "h1">(
+export const CoreDateTime = <L extends text.Level = "h1">(
   {
     format = "dateTime",
     suppliedTZ = "UTC",
@@ -47,6 +47,6 @@ export const CoreDateTime = <L extends Level = "h1">(
 );
 
 // @ts-expect-error
-export const DateTime = forwardRef(CoreDateTime) as <L extends Level = "h1">(
+export const DateTime = forwardRef(CoreDateTime) as <L extends text.Level = "h1">(
   props: DateTimeProps<L> & { ref?: React.Ref<L> },
 ) => ReactElement;

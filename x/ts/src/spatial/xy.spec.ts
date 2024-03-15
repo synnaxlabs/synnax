@@ -46,6 +46,14 @@ test("translate", () => {
   expect(p.x).toEqual(6);
   expect(p.y).toEqual(7);
 });
+
+test("translate multiple", () => {
+  let p = xy.construct([1, 2]);
+  p = xy.translate(p, [5, 5], [2, 2]);
+  expect(p.x).toEqual(8);
+  expect(p.y).toEqual(9);
+});
+
 describe("equals", () => {
   const TESTS: Array<[xy.Crude, xy.Crude, boolean]> = [
     [[1, 1], { x: 1, y: 1 }, true],

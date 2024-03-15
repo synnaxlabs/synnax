@@ -16,7 +16,7 @@ import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { PID } from "@/pid";
-import { Table } from "@/table";
+// import { Table } from "@/table";
 import { create } from "@/vis/create";
 
 import { LayoutSelector } from "./LayoutSelector";
@@ -42,7 +42,6 @@ const SelectVis = ({ layoutKey }: ToolbarProps): ReactElement => (
 const TOOLBARS: Record<LayoutType | "vis", FC<ToolbarProps>> = {
   pid: PID.Toolbar,
   lineplot: LinePlot.Toolbar,
-  table: Table.Toolbar,
   vis: SelectVis,
 };
 const NoVis = (): ReactElement => {
