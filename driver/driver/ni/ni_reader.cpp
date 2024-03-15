@@ -320,6 +320,7 @@ void niDaqWriter::init(json config, synnax::ChannelKey ack_index_key) {
 
         config.channelType = (type == "digitalOutput") ? DIGITAL_OUT
                             : (type == "index") ? INDEX_CHANNEL
+                            : (type == "ackIndex") ? INDEX_CHANNEL
                             : INVALID_CHANNEL;
 
         channel_configs.push_back(config);

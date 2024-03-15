@@ -15,6 +15,7 @@
 #include "driver/pipeline/acq.h"
 #include "driver/ni/ni_reader.h" // to get channel config info
 #include "driver/pipeline/acqReader.h"
+#include "driver/pipeline/ctrl.h"
 
 #pragma once
 
@@ -45,6 +46,19 @@ private:
 };
 
 // TODO: createDigitalWriterTask
+class NiDigitalWriterTask : public module::Module {
+public:
+    NiDigitalWriterTask(){};
+    void init(const std::shared_ptr<synnax::Synnax> client,
+              std::unique_ptr<daq::daqWriter> daq_writer,
+              synnax::WriterConfig writer_config,
+              synnax::StreamerConfig streamer_config);
+
+    freighter::Error startAcquisition();
+    freighter::Error stopAcquisition();
+private:
+    pipeline::Ctrl ctrl_pipeline;
+};
 
 
 
@@ -64,6 +78,11 @@ public:
                                                                 json &config_err);
 
     std::unique_ptr <NiDigitalReaderTask> createDigitalReaderTask(TaskHandle taskhandle,
+                                                                std::shared_ptr<synnax::Synnax> client,
+                                                                const json &config,
+                                                                json &config_err);
+
+    std::unique_ptr <NiDigitalWriterTask> createDigitalWriterTask(TaskHandle taskhandle,
                                                                 std::shared_ptr<synnax::Synnax> client,
                                                                 const json &config,
                                                                 json &config_err);

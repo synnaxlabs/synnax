@@ -18,6 +18,7 @@
 TEST(CtrlTests, testCtrlNi){
 
     std::cout << "Test Ctrl: " << std::endl;
+
     /// set up test infrustructure
     // create synnax client config
     auto client_config = synnax::Config{
@@ -63,7 +64,6 @@ TEST(CtrlTests, testCtrlNi){
             {"stream_rate", 30}, // same as above
             {"device", "Dev1"}
     };
-
     add_index_channel_JSON(config, "ack_idx", ack_idx.key);
     add_DO_channel_JSON(config, "cmd", cmd.key, ack.key, 0, 0);
 
@@ -105,12 +105,8 @@ TEST(CtrlTests, testCtrlNi){
         std::vector<synnax::ChannelKey>{cmd_idx.key, cmd.key},
         now,
     };
-    // create another streamer to read cmd channel internally
-    auto [cmdStreamer, cmdSerr] = client->telem.openStreamer(streamerConfig);
-    ASSERT_FALSE(cmdSerr) << cmdSerr.message();
-    std::this_thread::sleep_for(std::chrono::seconds(1));
 
-// instantiate and initialize the daq writer
+    // instantiate and initialize the daq writer
     TaskHandle taskHandle;
     DAQmxCreateTask("",&taskHandle);
     auto daq_writer = std::make_unique<ni::niDaqWriter>(taskHandle);
@@ -139,22 +135,20 @@ TEST(CtrlTests, testCtrlNi){
     auto [end, ok] = cmdWriter.commit();
     std::this_thread::sleep_for(std::chrono::seconds(1)); // sleep (TODO: remove this later)
 
-//    std::cout << "Frame written to cmd channel" << std::endl;
-    // try to read using cmd streamer
-//    auto [cmd_frame, cmdErr] = cmdStreamer.read();
-//    std::cout << "Frame read from cmd channel" << std::endl;
 
 
     // read from ack channel
     auto [ack_frame, recErr] = ackStreamer.read();
     ASSERT_FALSE(recErr) << recErr.message();
     std::cout << "TEST: Ack frame size: " << ack_frame.size() << std::endl;
-//    ASSERT_EQ(ack_frame.series->at(1).uint8()[0], 1);
+    //ASSERT_EQ(ack_frame.series->at(1).uint8()[0], 1);
     ASSERT_TRUE(ack_frame.series->at(1).uint8()[0] == 1); // assert ack frame is correct
+
     // stop the pipeline
     std::cout << "TEST: Ack frame size: " << ack_frame.size() << std::endl;
     ctrl.stop();
     std::cout << "Pipeline stopped" << std::endl;
+
     // close the writer and streamer
     auto wcErr = cmdWriter.close();
     ASSERT_FALSE(wcErr) << wcErr.message();

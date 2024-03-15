@@ -19,6 +19,8 @@
 #include <utility>
 
 
+// TODO: move to pipeline namespace
+
 class Acq { // Acquisition Pipeline Class
 public:
     void start();
