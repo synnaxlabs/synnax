@@ -57,6 +57,7 @@ func (c WriterConfig) domain() domain.WriterConfig {
 }
 
 func (c WriterConfig) controlTimeRange() telem.TimeRange {
+	// for contorlTimerange(), not sure if we should always use the end of time as opposed to the start of the next domain
 	return c.Start.Range(lo.Ternary(c.End.IsZero(), telem.TimeStampMax, c.End))
 }
 
@@ -85,20 +86,25 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (w *Writer, 
 		Subject:   cfg.Subject,
 	}
 	var (
-		g  *controller.Gate[controlledWriter]
-		ok bool
+		g            *controller.Gate[controlledWriter]
+		regionExists bool
 	)
-	g, transfer, ok, err = db.Controller.OpenGate(gateCfg)
+	// race condition here: regionExists might change
+	g, transfer, regionExists, err = db.Controller.OpenGate(gateCfg)
 	if err != nil {
 		return nil, transfer, err
 	}
-	if !ok {
+	// by the time we get here
+	if !regionExists {
 		dw, err := db.Domain.NewWriter(ctx, cfg.domain())
 		if err != nil {
 			return nil, transfer, err
 		}
 		gateCfg.TimeRange = cfg.controlTimeRange()
-		g, transfer, err = db.Controller.RegisterAndOpenGate(gateCfg, controlledWriter{
+		// registering a new region because none current exists there
+		// control hand-offs
+		// control authority: 8 bit integer (0-256)
+		g, transfer, err = db.Controller.RegisterRegionAndOpenGate(gateCfg, controlledWriter{
 			Writer:     dw,
 			channelKey: db.Channel.Key,
 		})
@@ -142,6 +148,7 @@ func (w *Writer) Write(series telem.Series) (a telem.Alignment, err error) {
 	if err := w.Channel.ValidateSeries(series); err != nil {
 		return 0, err
 	}
+	// ok signifies whether w is allowed to write
 	dw, ok := w.control.Authorize()
 	if !ok {
 		return 0, controller.Unauthorized(w.control.Subject.Name, w.Channel.Key)

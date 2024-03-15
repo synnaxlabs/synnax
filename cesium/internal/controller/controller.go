@@ -57,6 +57,7 @@ func (g *Gate[E]) Authorize() (e E, ok bool) {
 	g.r.RLock()
 	// In the case of exclusive concurrency, we only need to check if the gate is the
 	// current gate.
+	// Unary writers will always be exclusive control
 	if g.concurrency == control.Exclusive {
 		ok = g.r.curr == g
 	} else {
@@ -273,6 +274,7 @@ func (c *Controller[E]) LeadingState() *State {
 	return first.curr.State()
 }
 
+// OpenGate checks whether a region exists in the requested timerange, and creates a new
 func (c *Controller[E]) OpenGate(cfg GateConfig) (g *Gate[E], t Transfer, exists bool, err error) {
 	cfg, err = config.New(DefaultGateConfig, cfg)
 	if err != nil {
@@ -281,10 +283,13 @@ func (c *Controller[E]) OpenGate(cfg GateConfig) (g *Gate[E], t Transfer, exists
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	for _, r := range c.regions {
+		// check if there is an existing region that overlaps with that timerange
 		if r.timeRange.OverlapsWith(cfg.TimeRange) {
+			// v1 optimization: one writer can only overlap with one region at any given time
 			if exists {
 				return nil, t, true, errors.Newf("[controller] - encountered multiple control regions for time range %s", cfg.TimeRange)
 			}
+			// if there is, we open a new gate on that region
 			g, t, err = r.open(cfg, c.concurrency)
 			if err != nil {
 				return nil, t, false, err
@@ -319,7 +324,7 @@ func (c *Controller[E]) register(
 	return nil
 }
 
-func (c *Controller[E]) RegisterAndOpenGate(
+func (c *Controller[E]) RegisterRegionAndOpenGate(
 	cfg GateConfig,
 	entity E,
 ) (*Gate[E], Transfer, error) {

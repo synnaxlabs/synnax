@@ -36,7 +36,7 @@ func (db *DB) OpenWriter(_ context.Context, cfg WriterConfig) (w *Writer, transf
 	if !ok {
 		gateCfg.TimeRange = cfg.domain()
 		a := telem.Alignment(0)
-		g, transfer, err = db.controller.RegisterAndOpenGate(gateCfg, &controlEntity{ck: db.Channel.Key, align: a})
+		g, transfer, err = db.controller.RegisterRegionAndOpenGate(gateCfg, &controlEntity{ck: db.Channel.Key, align: a})
 	}
 	w.control = g
 	db.openWriters.Add(1)
