@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/unsafe"
 	"strconv"
 )
@@ -27,9 +28,15 @@ import (
 // node-local identifier.
 type Key uint32
 
+type LocalKey types.Uint20
+
 // NewKey generates a new Key from the provided components.
-func NewKey(nodeKey core.NodeKey, localKey uint16) (key Key) {
-	return Key(nodeKey)<<16 | Key(localKey)
+func NewKey(nodeKey core.NodeKey, localKey LocalKey) (key Key) {
+	// Node key is first 12 bits,
+	k1 := uint32(nodeKey) << 20
+	// Local key is the last 20 bits
+	k2 := uint32(localKey)
+	return Key(k1 | k2)
 }
 
 func MustParseKey(key string) Key { return lo.Must(ParseKey(key)) }
@@ -41,7 +48,7 @@ func ParseKey(s string) (k Key, err error) {
 
 // Leaseholder returns the id of the node embedded in the key. This node is the leaseholder
 // node for the Channel.
-func (c Key) Leaseholder() core.NodeKey { return core.NodeKey(c >> 16) }
+func (c Key) Leaseholder() core.NodeKey { return core.NodeKey(c >> 20) }
 
 // Free returns true when the channel has a leaseholder node i.e. it is not a non-leased
 // virtual channel.
@@ -50,7 +57,9 @@ func (c Key) Free() bool { return c.Leaseholder() == core.Free }
 // StorageKey returns a unique identifier for the Channel to use with a ts.DB.
 func (c Key) StorageKey() uint32 { return uint32(c) }
 
-func (c Key) LocalKey() uint16 { return uint16(c & 0xFFFF) }
+func (c Key) LocalKey() LocalKey {
+	return LocalKey(c & 0xFFFFF)
+}
 
 // Lease implements the proxy.Entry interface.
 func (c Key) Lease() core.NodeKey { return c.Leaseholder() }
@@ -176,11 +185,11 @@ type Channel struct {
 	Rate telem.Rate `json:"rate" msgpack:"rate"`
 	// LocalKey is a unique identifier for the channel with relation to its leaseholder.
 	// When creating a channel, a unique key will be generated.
-	LocalKey uint16 `json:"local_key" msgpack:"local_key"`
+	LocalKey LocalKey `json:"local_key" msgpack:"local_key"`
 	// LocalIndex is the channel used to index the channel's values. The LocalIndex is
 	// used to associate a value with a timestamp. If zero, the channel's data will be
 	// indexed using its rate. One of LocalIndex or Rate must be non-zero.
-	LocalIndex uint16 `json:"local_index" msgpack:"local_index"`
+	LocalIndex LocalKey `json:"local_index" msgpack:"local_index"`
 	// Virtual is set to true if the channel is a virtual channel. The data from virtual
 	// channels is not persisted into the DB.
 	Virtual bool `json:"virtual" msgpack:"virtual"`

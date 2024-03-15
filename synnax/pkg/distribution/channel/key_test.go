@@ -15,15 +15,26 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/x/mathutil"
+	"github.com/synnaxlabs/x/types"
 )
 
 var _ = Describe("Keys", func() {
-	Describe("Keys", func() {
-		Describe("Name", func() {
-			It("Should create a new key with the given node Name and cesium key", func() {
-				k := channel.NewKey(core.NodeKey(1), 2)
+	Describe("Key", func() {
+		Describe("Construction", func() {
+			It("Should return the correct leaseholder for the key", func() {
+				k := channel.NewKey(core.NodeKey(1), 1)
+				// print out the bytes of the key
 				Expect(k.Leaseholder()).To(Equal(core.NodeKey(1)))
-				Expect(k.LocalKey()).To(Equal(uint16(2)))
+			})
+			It("Should return the correct localKey for the key", func() {
+				k := channel.NewKey(core.NodeKey(1), 2)
+				Expect(k.LocalKey()).To(Equal(types.Uint20(2)))
+			})
+			It("Should correctly handle the maximum value of a 12 bit node key and 20 bit cesium key", func() {
+				k := channel.NewKey(core.NodeKey(mathutil.MaxUint12), mathutil.MaxUint20)
+				Expect(k.Leaseholder()).To(Equal(core.NodeKey(mathutil.MaxUint12)))
+				Expect(k.LocalKey()).To(Equal(mathutil.MaxUint20))
 			})
 		})
 		Describe("Lease", func() {
