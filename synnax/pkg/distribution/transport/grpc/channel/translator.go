@@ -16,7 +16,6 @@ import (
 	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
 	channelv1 "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/gen/go/channel/v1"
 	"github.com/synnaxlabs/x/telem"
-	"github.com/synnaxlabs/x/types"
 )
 
 type createMessageTranslator struct{}
@@ -51,11 +50,11 @@ func (c createMessageTranslator) Backward(
 	var tr channel.CreateMessage
 	for _, ch := range msg.Channels {
 		tr.Channels = append(tr.Channels, channel.Channel{
-			LocalKey:    types.Uint20(ch.StorageKey),
+			LocalKey:    channel.LocalKey(ch.StorageKey),
 			Name:        ch.Name,
 			Leaseholder: dcore.NodeKey(ch.NodeId),
 			DataType:    telem.DataType(ch.DataType),
-			LocalIndex:  types.Uint20(ch.StorageIndex),
+			LocalIndex:  channel.LocalKey(ch.StorageIndex),
 			IsIndex:     ch.IsIndex,
 			Rate:        telem.Rate(ch.Rate),
 		})

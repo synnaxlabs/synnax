@@ -272,7 +272,7 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 	plumber.SetSegment[Response, Response](
 		pipe,
 		synchronizerAddr,
-		newSynchronizer(len(cfg.Keys.UniqueNodeKeys()), v.signal),
+		newSynchronizer(len(cfg.Keys.UniqueLeaseholders()), v.signal),
 	)
 
 	switchTargets := make([]address.Address, 0, 3)

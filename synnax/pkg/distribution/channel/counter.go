@@ -14,7 +14,6 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/mathutil"
-	"github.com/synnaxlabs/x/types"
 )
 
 type counter struct {
@@ -26,11 +25,10 @@ func openCounter(ctx context.Context, db kv.ReadWriter, key []byte) (*counter, e
 	return &counter{wrap: wrap}, err
 }
 
-func (c *counter) add(delta types.Uint20) (types.Uint20, error) {
-	// Check if adding the delta will overflow the counter
+func (c *counter) add(delta LocalKey) (LocalKey, error) {
 	if c.wrap.Value()+int64(delta) > int64(mathutil.MaxUint20) {
 		return 0, errors.New("maximum number of channels created")
 	}
 	next, err := c.wrap.Add(int64(delta))
-	return types.Uint20(next), err
+	return LocalKey(next), err
 }

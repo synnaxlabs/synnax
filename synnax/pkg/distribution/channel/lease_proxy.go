@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/types"
 )
 
 type leaseProxy struct {
@@ -105,7 +104,7 @@ func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Chann
 	}
 	oChannels = append(oChannels, batch.Gateway...)
 	*_channels = oChannels
-	return nil
+	return lp.maybeSetResources(ctx, tx, oChannels)
 }
 
 func (lp *leaseProxy) createFreeVirtual(
@@ -136,10 +135,10 @@ func (lp *leaseProxy) maybeRetrieveExisting(
 ) (toCreate []Channel, err error) {
 	// This is the value we would increment by if retrieveIfNameExists is false or
 	// if we don't find any names that already exist.
-	incCounterBy := types.Uint20(len(*channels))
+	incCounterBy := LocalKey(len(*channels))
 
 	if retrieveIfNameExists {
-		names := NamesFromChannels(*channels)
+		names := Names(*channels)
 		if err = gorp.NewRetrieve[Key, Channel]().Where(func(c *Channel) bool {
 			v := lo.IndexOf(names, c.Name)
 			exists := v != -1
@@ -165,7 +164,7 @@ func (lp *leaseProxy) maybeRetrieveExisting(
 	toCreate = make([]Channel, 0, incCounterBy)
 	for i, ch := range *channels {
 		if ch.LocalKey == 0 {
-			ch.LocalKey = nextCounterValue - incCounterBy + types.Uint20(len(toCreate)) + 1
+			ch.LocalKey = nextCounterValue - incCounterBy + LocalKey(len(toCreate)) + 1
 			toCreate = append(toCreate, ch)
 		} else if ch.IsIndex {
 			ch.LocalIndex = ch.LocalKey
@@ -193,7 +192,7 @@ func (lp *leaseProxy) createGateway(
 	if err := gorp.NewCreate[Key, Channel]().Entries(&toCreate).Exec(ctx, tx); err != nil {
 		return err
 	}
-	return lp.maybeSetResources(ctx, tx, toCreate)
+	return nil
 }
 
 func (lp *leaseProxy) maybeSetResources(
@@ -201,27 +200,19 @@ func (lp *leaseProxy) maybeSetResources(
 	txn gorp.Tx,
 	channels []Channel,
 ) error {
-	if lp.Ontology == nil {
+	if lp.Ontology == nil || lp.Group == nil {
 		return nil
 	}
-	ids := lo.Map(channels, func(ch Channel, i int) ontology.ID {
+	ids := lo.Map(channels, func(ch Channel, _ int) ontology.ID {
 		return OntologyID(ch.Key())
 	})
 	w := lp.Ontology.NewWriter(txn)
 	if err := w.DefineManyResources(ctx, ids); err != nil {
 		return err
 	}
-	if err := w.DefineFromOneToManyRelationships(
-		ctx,
-		group.OntologyID(lp.group.Key),
-		ontology.ParentOf,
-		ids,
-	); err != nil {
-		return err
-	}
 	return w.DefineFromOneToManyRelationships(
 		ctx,
-		core.NodeOntologyID(lp.HostResolver.HostKey()),
+		group.OntologyID(lp.group.Key),
 		ontology.ParentOf,
 		ids,
 	)

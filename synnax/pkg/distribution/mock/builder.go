@@ -14,6 +14,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
@@ -63,11 +64,11 @@ func (b *Builder) New(ctx context.Context) distribution.Distribution {
 	d.Ontology = lo.Must(ontology.Open(ctx, ontology.Config{DB: d.Storage.Gorpify()}))
 	d.Group = lo.Must(group.OpenService(group.Config{Ontology: d.Ontology, DB: d.Storage.Gorpify()}))
 
-	nodeOntologySvc := &dcore.NodeOntologyService{
+	nodeOntologySvc := &cluster.NodeOntologyService{
 		Cluster:  d.Cluster,
 		Ontology: d.Ontology,
 	}
-	clusterOntologySvc := &dcore.ClusterOntologyService{Cluster: d.Cluster}
+	clusterOntologySvc := &cluster.OntologyService{Cluster: d.Cluster}
 	d.Ontology.RegisterService(nodeOntologySvc)
 	d.Ontology.RegisterService(clusterOntologySvc)
 	nodeOntologySvc.ListenForChanges(ctx)

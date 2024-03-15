@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -87,11 +88,11 @@ func Open(ctx context.Context, cfg Config) (d Distribution, err error) {
 
 	d.Ontology.RegisterService(d.Group)
 
-	nodeOntologySvc := &core.NodeOntologyService{
+	nodeOntologySvc := &cluster.NodeOntologyService{
 		Ontology: d.Ontology,
 		Cluster:  d.Cluster,
 	}
-	clusterOntologySvc := &core.ClusterOntologyService{Cluster: d.Cluster}
+	clusterOntologySvc := &cluster.OntologyService{Cluster: d.Cluster}
 	d.Ontology.RegisterService(clusterOntologySvc)
 	d.Ontology.RegisterService(nodeOntologySvc)
 

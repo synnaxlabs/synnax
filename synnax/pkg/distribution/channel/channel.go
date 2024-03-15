@@ -10,7 +10,7 @@
 package channel
 
 import (
-	"encoding/binary"
+	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/unsafe"
+	"github.com/synnaxlabs/x/validate"
 	"strconv"
 )
 
@@ -28,6 +29,9 @@ import (
 // node-local identifier.
 type Key uint32
 
+// LocalKey represents a unique identifier for a Channel with relation to its leaseholder.
+// It has a maximum addressable space of 2^20 (1,048,576) unique keys. This is the limiting
+// factor of the number of channels that can be created per node in Synnax.
 type LocalKey types.Uint20
 
 // NewKey generates a new Key from the provided components.
@@ -39,11 +43,17 @@ func NewKey(nodeKey core.NodeKey, localKey LocalKey) (key Key) {
 	return Key(k1 | k2)
 }
 
+// MustParseKey is a convenience function that wraps ParseKey and panics if the key
+// has an invalid format.
 func MustParseKey(key string) Key { return lo.Must(ParseKey(key)) }
 
-func ParseKey(s string) (k Key, err error) {
+// ParseKey attempts to parse the string representation of a Key into a Key.
+func ParseKey(s string) (Key, error) {
 	k_, err := strconv.Atoi(s)
-	return Key(k_), err
+	if err != nil {
+		return Key(0), errors.Wrapf(validate.Error, "%s is not a valid channel key", s)
+	}
+	return Key(k_), nil
 }
 
 // Leaseholder returns the id of the node embedded in the key. This node is the leaseholder
@@ -54,22 +64,15 @@ func (c Key) Leaseholder() core.NodeKey { return core.NodeKey(c >> 20) }
 // virtual channel.
 func (c Key) Free() bool { return c.Leaseholder() == core.Free }
 
-// StorageKey returns a unique identifier for the Channel to use with a ts.DB.
-func (c Key) StorageKey() uint32 { return uint32(c) }
+// StorageKey returns the storage layer representation of the channel key.
+func (c Key) StorageKey() ts.ChannelKey { return ts.ChannelKey(c) }
 
-func (c Key) LocalKey() LocalKey {
-	return LocalKey(c & 0xFFFFF)
-}
+// LocalKey returns the local key for the Channel. See the LocalKey type for more.
+func (c Key) LocalKey() LocalKey { return LocalKey(c & 0xFFFFF) }
 
-// Lease implements the proxy.Entry interface.
+// Lease implements the proxy.Entry interface, which routes Channel operations to the
+// correct node in the cluster.
 func (c Key) Lease() core.NodeKey { return c.Leaseholder() }
-
-// Bytes returns the Key as a byte slice.
-func (c Key) Bytes() []byte {
-	b := make([]byte, 4)
-	binary.BigEndian.PutUint32(b, uint32(c))
-	return b
-}
 
 // String implements fmt.Stringer.
 func (c Key) String() string { return strconv.Itoa(int(c)) }
@@ -79,48 +82,43 @@ type Keys []Key
 
 // KeysFromChannels returns a slice of Keys from a slice of Channel(s).
 func KeysFromChannels(channels []Channel) (keys Keys) {
-	keys = make(Keys, len(channels))
-	for i, channel := range channels {
-		keys[i] = channel.Key()
-	}
-	return keys
+	return lo.Map(channels, func(channel Channel, _ int) Key { return channel.Key() })
 }
 
-func NamesFromChannels(channels []Channel) (names []string) {
-	names = make([]string, len(channels))
-	for i, channel := range channels {
-		names[i] = channel.Name
-	}
-	return names
+// Names returns the names of the channels.
+func Names(channels []Channel) []string {
+	return lo.Map(channels, func(channel Channel, _ int) string { return channel.Name })
 }
 
-func KeysFromUint32(keys []uint32) Keys {
-	nKeys := make(Keys, len(keys))
-	for i, key := range keys {
-		nKeys[i] = Key(key)
-	}
-	return nKeys
-}
+// KeysFromUint32 returns a slice of Keys from a slice of uint32. NOTE: This does
+// not copy the slice, it just reinterprets the memory.
+func KeysFromUint32(keys []uint32) Keys { return unsafe.ReinterpretSlice[uint32, Key](keys) }
 
+// KeysFromOntologyIDs returns a slice of Keys from a slice of ontology.ID(s). This
+// function will skip any ontology.ID(s) that are not of the correct type.
 func KeysFromOntologyIDs(ids []ontology.ID) (keys Keys, err error) {
-	keys = make(Keys, len(ids))
-	for i, id := range ids {
-		keys[i], err = ParseKey(id.Key)
-		if err != nil {
-			return keys, err
+	keys = make(Keys, 0, len(ids))
+	var key Key
+	for _, id := range ids {
+		if id.Type == ontologyType {
+			key, err = ParseKey(id.Key)
+			if err != nil {
+				return
+			}
+			keys = append(keys, key)
 		}
 	}
-	return keys, err
+	return
 }
 
-// Storage calls Key.StorageKey() on each key and returns a slice with the results.
+// Storage returns the storage layer representation of the channel keys.
 func (k Keys) Storage() []ts.ChannelKey { return k.Uint32() }
 
 // Uint32 converts the Keys to a slice of uint32.
 func (k Keys) Uint32() []uint32 { return unsafe.ReinterpretSlice[Key, uint32](k) }
 
-// UniqueNodeKeys returns a slice of all UNIQUE node Keys for the given keys.
-func (k Keys) UniqueNodeKeys() (keys []core.NodeKey) {
+// UniqueLeaseholders returns a slice of all UNIQUE leaseholders for the given Keys.
+func (k Keys) UniqueLeaseholders() (keys []core.NodeKey) {
 	for _, key := range k {
 		keys = append(keys, key.Leaseholder())
 	}
@@ -129,16 +127,13 @@ func (k Keys) UniqueNodeKeys() (keys []core.NodeKey) {
 
 // Strings returns the keys as a slice of strings.
 func (k Keys) Strings() []string {
-	s := make([]string, len(k))
-	for i, key := range k {
-		s[i] = key.String()
-	}
-	return s
+	return lo.Map(k, func(key Key, _ int) string { return key.String() })
 }
 
+// Contains returns true if the slice contains the given key, false otherwise.
 func (k Keys) Contains(key Key) bool {
-	for _, k := range k {
-		if k == key {
+	for _, ko := range k {
+		if ko == key {
 			return true
 		}
 	}
@@ -231,18 +226,17 @@ func (c Channel) Free() bool { return c.Leaseholder == core.Free }
 
 func (c Channel) Storage() ts.Channel {
 	return ts.Channel{
-		Key:         uint32(c.Key()),
+		Key:         c.Key().StorageKey(),
 		DataType:    c.DataType,
 		IsIndex:     c.IsIndex,
 		Rate:        c.Rate,
-		Index:       uint32(c.Index()),
+		Index:       ts.ChannelKey(c.Index()),
 		Virtual:     c.Virtual,
 		Concurrency: c.Concurrency,
 	}
 }
 
+// toStorage converts a slice of Channels to their storage layer equivalent.
 func toStorage(channels []Channel) []ts.Channel {
-	return lo.Map(channels, func(channel Channel, _ int) ts.Channel {
-		return channel.Storage()
-	})
+	return lo.Map(channels, func(c Channel, _ int) ts.Channel { return c.Storage() })
 }

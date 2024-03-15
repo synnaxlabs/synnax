@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package core
+package cluster
 
 import (
 	"context"
 	"fmt"
+	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"strconv"
 
 	"github.com/google/uuid"
@@ -32,7 +33,7 @@ const (
 
 // NodeOntologyID returns a unique identifier for a Node to use within a resource
 // Ontology.
-func NodeOntologyID(key NodeKey) ontology.ID {
+func NodeOntologyID(key core.NodeKey) ontology.ID {
 	return ontology.ID{Type: nodeOntologyType, Key: strconv.Itoa(int(key))}
 }
 
@@ -64,7 +65,7 @@ var (
 type NodeOntologyService struct {
 	alamos.Instrumentation
 	Ontology *ontology.Ontology
-	Cluster  Cluster
+	Cluster  core.Cluster
 }
 
 var _ ontology.Service = (*NodeOntologyService)(nil)
@@ -72,11 +73,11 @@ var _ ontology.Service = (*NodeOntologyService)(nil)
 // ListenForChanges starts listening for changes to the cluster topology (nodes leaving,
 // joining, changing state, etc.) and updates the ontolgoy accordinly.
 func (s *NodeOntologyService) ListenForChanges(ctx context.Context) {
-	if err := s.Ontology.NewWriter(nil).DefineResource(ctx, NodeOntologyID(Free)); err != nil {
+	if err := s.Ontology.NewWriter(nil).DefineResource(ctx, NodeOntologyID(core.Free)); err != nil {
 		s.L.Error("failed to define free node ontology resource", zap.Error(err))
 	}
 	s.update(ctx, s.Cluster.PeekState())
-	s.Cluster.OnChange(func(ctx context.Context, change ClusterChange) {
+	s.Cluster.OnChange(func(ctx context.Context, change core.ClusterChange) {
 		s.update(ctx, change.State)
 	})
 }
@@ -84,14 +85,14 @@ func (s *NodeOntologyService) ListenForChanges(ctx context.Context) {
 // OnChange implements ontology.Service.
 func (s *NodeOntologyService) OnChange(f func(context.Context, iter.Nexter[schema.Change])) observe.Disconnect {
 	var (
-		translate = func(ch NodeChange, _ int) schema.Change {
+		translate = func(ch core.NodeChange, _ int) schema.Change {
 			return schema.Change{
 				Variant: ch.Variant,
 				Key:     NodeOntologyID(ch.Key),
 				Value:   newNodeResource(ch.Value),
 			}
 		}
-		onChange = func(ctx context.Context, ch ClusterChange) {
+		onChange = func(ctx context.Context, ch core.ClusterChange) {
 			f(ctx, iter.All(lo.Map(ch.Changes, translate)))
 		}
 	)
@@ -101,13 +102,13 @@ func (s *NodeOntologyService) OnChange(f func(context.Context, iter.Nexter[schem
 // OpenNexter implements ontology.Service.
 func (s *NodeOntologyService) OpenNexter() (iter.NexterCloser[ontology.Resource], error) {
 	return iter.NexterNopCloser(
-		iter.All(lo.MapToSlice(s.Cluster.PeekState().Nodes, func(_ NodeKey, n Node) ontology.Resource {
+		iter.All(lo.MapToSlice(s.Cluster.PeekState().Nodes, func(_ core.NodeKey, n core.Node) ontology.Resource {
 			return newNodeResource(n)
 		})),
 	), nil
 }
 
-func (s *NodeOntologyService) update(ctx context.Context, state ClusterState) {
+func (s *NodeOntologyService) update(ctx context.Context, state core.ClusterState) {
 	err := s.Ontology.DB.WithTx(ctx, func(txn gorp.Tx) error {
 		w := s.Ontology.NewWriter(txn)
 		clusterID := ClusterOntologyID(s.Cluster.Key())
@@ -142,11 +143,11 @@ func (s *NodeOntologyService) RetrieveResource(_ context.Context, key string, _ 
 	if err != nil {
 		return schema.Resource{}, err
 	}
-	n, err := s.Cluster.Node(NodeKey(id))
+	n, err := s.Cluster.Node(core.NodeKey(id))
 	return newNodeResource(n), err
 }
 
-func newNodeResource(n Node) schema.Resource {
+func newNodeResource(n core.Node) schema.Resource {
 	r := schema.NewResource(
 		_nodeSchema,
 		NodeOntologyID(n.Key),
@@ -158,26 +159,26 @@ func newNodeResource(n Node) schema.Resource {
 	return r
 }
 
-// ClusterOntologyService implements the ontology.Service to provide resource access
+// OntologyService implements the ontology.Service to provide resource access
 // to metadata about a Cluster.
-type ClusterOntologyService struct {
-	Cluster Cluster
+type OntologyService struct {
+	Cluster core.Cluster
 	// Nothing will ever change about the cluster.
 	observe.Noop[iter.Nexter[schema.Change]]
 }
 
-var _ ontology.Service = (*ClusterOntologyService)(nil)
+var _ ontology.Service = (*OntologyService)(nil)
 
 // Schema implements ontology.Service.
-func (s *ClusterOntologyService) Schema() *schema.Schema { return _clusterSchema }
+func (s *OntologyService) Schema() *schema.Schema { return _clusterSchema }
 
 // RetrieveResource implements ontology.Service.
-func (s *ClusterOntologyService) RetrieveResource(context.Context, string, gorp.Tx) (ontology.Resource, error) {
+func (s *OntologyService) RetrieveResource(context.Context, string, gorp.Tx) (ontology.Resource, error) {
 	return newClusterResource(s.Cluster.Key()), nil
 }
 
 // OpenNexter implements ontology.Service.Relationship
-func (s *ClusterOntologyService) OpenNexter() (iter.NexterCloser[schema.Resource], error) {
+func (s *OntologyService) OpenNexter() (iter.NexterCloser[schema.Resource], error) {
 	return iter.NexterNopCloser(
 		iter.All[schema.Resource]([]schema.Resource{
 			newClusterResource(s.Cluster.Key()),
