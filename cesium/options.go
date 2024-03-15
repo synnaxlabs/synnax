@@ -23,7 +23,7 @@ type options struct {
 	dirname string
 	fs      xfs.FS
 	metaECD binary.EncoderDecoder
-	GCConfig
+	gcCfg   GCConfig
 }
 
 func (o *options) Report() alamos.Report {
@@ -44,7 +44,7 @@ func newOptions(dirname string, opts ...Option) *options {
 func mergeDefaultOptions(o *options) {
 	o.metaECD = override.Nil[binary.EncoderDecoder](&binary.JSONEncoderDecoder{}, o.metaECD)
 	o.fs = override.Nil[xfs.FS](xfs.Default, o.fs)
-	o.GCConfig = override.Nil[GCConfig](DefaultGCConfig, o.GCConfig)
+	o.gcCfg = override.Nil[GCConfig](DefaultGCConfig, o.gcCfg)
 }
 
 func WithFS(fs xfs.FS) Option {
@@ -53,9 +53,9 @@ func WithFS(fs xfs.FS) Option {
 	}
 }
 
-func withGC(config GCConfig) Option {
+func WithGC(config GCConfig) Option {
 	return func(o *options) {
-		o.GCConfig = config
+		o.gcCfg = config
 	}
 }
 

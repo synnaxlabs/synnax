@@ -12,7 +12,9 @@ package cesium
 import (
 	"context"
 	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/x/errutil"
+	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"golang.org/x/sync/semaphore"
 	"strconv"
@@ -20,9 +22,20 @@ import (
 	"time"
 )
 
+type GCConfig struct {
+	readChunkSize uint32
+	maxGoroutine  int64
+	gcInterval    time.Duration
+}
+
+var DefaultGCConfig = GCConfig{
+	readChunkSize: uint32(20 * telem.Megabyte),
+	maxGoroutine:  10,
+	gcInterval:    30 * time.Second,
+}
+
 func (db *DB) DeleteChannel(ch ChannelKey) error {
 	db.mu.Lock()
-	defer db.mu.Unlock()
 	udb, uok := db.unaryDBs[ch]
 	if uok {
 		if udb.Config.Channel.IsIndex {
@@ -41,6 +54,7 @@ func (db *DB) DeleteChannel(ch ChannelKey) error {
 			return err
 		}
 		delete(db.unaryDBs, ch)
+		db.mu.Unlock()
 		return db.fs.Remove(strconv.Itoa(int(ch)))
 	}
 	vdb, vok := db.virtualDBs[ch]
@@ -52,15 +66,17 @@ func (db *DB) DeleteChannel(ch ChannelKey) error {
 			return err
 		}
 		delete(db.virtualDBs, ch)
+		db.mu.Unlock()
 		return db.fs.Remove(strconv.Itoa(int(ch)))
 	}
 
+	db.mu.Unlock()
 	return ChannelNotFound
 }
 
 func (db *DB) DeleteTimeRange(ctx context.Context, ch ChannelKey, tr telem.TimeRange) error {
-	db.mu.Lock()
-	defer db.mu.Unlock()
+	db.mu.RLock()
+	defer db.mu.RUnlock()
 	udb, uok := db.unaryDBs[ch]
 	if !uok {
 		return ChannelNotFound
@@ -82,13 +98,16 @@ func (db *DB) DeleteTimeRange(ctx context.Context, ch ChannelKey, tr telem.TimeR
 			if i.SeekLE(ctx, tr.End) && i.TimeRange().OverlapsWith(tr) {
 				return errors.New("[cesium] - could not delete index channel with other channels depending on it")
 			}
+
 		}
 	}
 
 	return udb.Delete(ctx, tr)
 }
 
-func (db *DB) GarbageCollect(ctx context.Context, maxsizeRead uint32, maxGoRoutine int64) (collected bool, err error) {
+func (db *DB) garbageCollect(ctx context.Context, readChunkSize uint32, maxGoRoutine int64) (err error) {
+	_, span := db.T.Debug(ctx, "Garbage Collect")
+	defer span.End()
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 	var (
@@ -99,7 +118,7 @@ func (db *DB) GarbageCollect(ctx context.Context, maxsizeRead uint32, maxGoRouti
 
 	for _, udb := range db.unaryDBs {
 		if err = sem.Acquire(ctx, 1); err != nil {
-			return collected, err
+			return err
 		}
 		wg.Add(1)
 		udb := udb
@@ -109,33 +128,20 @@ func (db *DB) GarbageCollect(ctx context.Context, maxsizeRead uint32, maxGoRouti
 				wg.Done()
 			}()
 			c.Exec(func() error {
-				ok, err := udb.GarbageCollect(ctx, maxsizeRead)
-				collected = collected || ok
+				err := udb.GarbageCollect(ctx, readChunkSize)
 				return err
 			})
 		}()
 	}
 	wg.Wait()
-	return collected, c.Error()
+	return c.Error()
 }
 
-func (db *DB) AutoGC(ctx context.Context, maxSizeRead uint32, GCInterval time.Duration, maxGoRoutine int64, quit chan struct{}) (collectedTimes int) {
-	ticker := time.NewTicker(GCInterval * time.Second)
-	defer ticker.Stop()
-	collectedTimes = 0
+func (db *DB) startGC(opts *options) {
+	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(db.Instrumentation))
+	signal.GoTick(sCtx, opts.gcCfg.gcInterval, func(ctx context.Context, time time.Time) error {
+		return db.garbageCollect(ctx, opts.gcCfg.readChunkSize, opts.gcCfg.maxGoroutine)
+	})
 
-	for {
-		select {
-		case <-ticker.C:
-			collected, err := db.GarbageCollect(ctx, maxSizeRead, maxGoRoutine)
-			if err != nil {
-				db.L.Error(errors.Wrap(err, "[cesium] - GC error").Error())
-			}
-			if collected {
-				collectedTimes += 1
-			}
-		case <-quit:
-			return
-		}
-	}
+	db.shutdown = signal.NewShutdown(sCtx, cancel)
 }

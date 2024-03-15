@@ -10,16 +10,13 @@
 package cesium
 
 import (
-	"context"
 	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/meta"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/cesium/internal/virtual"
-	"github.com/synnaxlabs/x/signal"
 	"strconv"
-	"time"
 )
 
 func Open(dirname string, opts ...Option) (*DB, error) {
@@ -52,7 +49,7 @@ func Open(dirname string, opts ...Option) (*DB, error) {
 		}
 	}
 
-	_db.openGC(o)
+	_db.startGC(o)
 
 	return _db, nil
 }
@@ -113,13 +110,4 @@ func openFS(opts *options) error {
 	_fs, err := opts.fs.Sub(opts.dirname)
 	opts.fs = _fs
 	return err
-}
-
-func (db *DB) openGC(opts *options) {
-	ctx, cancel := signal.Isolated()
-	signal.GoTick(ctx, opts.gcInterval, func(ctx context.Context, time time.Time) error {
-		return db.garbageCollect(ctx, opts.maxSizeRead, opts.maxGoroutine)
-	})
-
-	db.closeGC = cancel
 }
