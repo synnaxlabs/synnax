@@ -47,8 +47,7 @@ func provisionServices() (*mock.CoreBuilder, map[core.NodeKey]channel.Service) {
 		core2 = builder.New()
 	)
 	otg1 := MustSucceed(ontology.Open(ctx, ontology.Config{
-		DB:           core1.Storage.Gorpify(),
-		EnableSearch: config.False(),
+		DB: core1.Storage.Gorpify(),
 	}))
 	builder.AttachCloser(otg1)
 	g1 := MustSucceed(group.OpenService(group.Config{
@@ -57,8 +56,7 @@ func provisionServices() (*mock.CoreBuilder, map[core.NodeKey]channel.Service) {
 	}))
 	builder.AttachCloser(g1)
 	otg2 := MustSucceed(ontology.Open(ctx, ontology.Config{
-		DB:           core2.Storage.Gorpify(),
-		EnableSearch: config.False(),
+		DB: core2.Storage.Gorpify(),
 	}))
 	builder.AttachCloser(otg2)
 	g2 := MustSucceed(group.OpenService(group.Config{
