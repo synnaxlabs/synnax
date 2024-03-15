@@ -51,6 +51,7 @@ type DB struct {
 		inlet  confluence.Inlet[WriterRequest]
 		outlet confluence.Outlet[WriterResponse]
 	}
+	closeGC context.CancelFunc
 }
 
 // Write implements DB.
@@ -95,5 +96,9 @@ func (db *DB) Close() error {
 		c.Exec(u.Close)
 	}
 	c.Exec(db.relay.close)
+	c.Exec(func() error {
+		db.closeGC()
+		return nil
+	})
 	return nil
 }
