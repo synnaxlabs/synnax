@@ -123,8 +123,7 @@ func (db *DB) Read(ctx context.Context, tr telem.TimeRange) (frame core.Frame, e
 }
 
 func (db *DB) Delete(ctx context.Context, tr telem.TimeRange) error {
-	bounds := db.Domain.GetBounds()
-	i := db.Domain.NewIterator(domain.IteratorConfig{Bounds: bounds})
+	i := db.Domain.NewLockedIterator(domain.IterRange(db.Domain.GetBounds()))
 	if ok := i.SeekGE(ctx, tr.Start); !ok {
 		return errors.New("Start TS not found")
 	}
@@ -151,7 +150,12 @@ func (db *DB) Delete(ctx context.Context, tr telem.TimeRange) error {
 	endOffset := approxDist.Lower + 1
 	endPosition := i.Position()
 
-	return db.Domain.Delete(ctx, startPosition, endPosition, startOffset*int64(db.Channel.DataType.Density()), endOffset*int64(db.Channel.DataType.Density()), tr)
+	err = db.Domain.Delete(ctx, startPosition, endPosition, startOffset*int64(db.Channel.DataType.Density()), endOffset*int64(db.Channel.DataType.Density()), tr)
+	if err != nil {
+		return err
+	}
+
+	return i.Close()
 }
 
 func (db *DB) GarbageCollect(ctx context.Context, maxSizeRead uint32) (bool, error) {

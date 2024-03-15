@@ -140,20 +140,10 @@ func (db *DB) NewIterator(cfg IteratorConfig) *Iterator {
 	return i
 }
 
-func (db *DB) NewLockedIterator(cfg IteratorConfig) *LockedIterator {
-	i := &LockedIterator{
-		Iterator: Iterator{
-			Instrumentation: db.Instrumentation.Child("locked iterator"),
-			idx:             db.idx,
-			readerFactory:   db.newReader,
-		},
-		acquireLock: func() {
-			db.idx.mu.Lock()
-		},
-		relinquishLock: func() { db.idx.mu.Unlock() },
-	}
-	i.acquireLock()
-	i.SetBounds(cfg.Bounds)
+// NewLockedIterator calls NewIterator, then makes it acquire a mutex lock
+func (db *DB) NewLockedIterator(cfg IteratorConfig) *Iterator {
+	i := db.NewIterator(cfg)
+	i.Lock(func() { db.idx.mu.Lock() }, func() { db.idx.mu.Unlock() })
 	return i
 }
 
@@ -170,21 +160,14 @@ func (db *DB) GetBounds() (tr telem.TimeRange) {
 
 // Delete tombstones all pointers ranging from [db.get(startPosition).start + startOffset, db.get(endPosition).end - endOffset)
 func (db *DB) Delete(ctx context.Context, startPosition int, endPosition int, startOffset int64, endOffset int64, tr telem.TimeRange) error {
-	db.idx.mu.RLock()
-	start, ok := db.idx.get(startPosition)
+	start, ok := db.idx.get(startPosition, false)
 	if !ok {
-		db.idx.mu.RUnlock()
 		return errors.New("Invalid starting position")
 	}
-	end, ok := db.idx.get(endPosition)
+	end, ok := db.idx.get(endPosition, false)
 	if !ok {
-		db.idx.mu.RUnlock()
 		return errors.New("Invalid ending position")
 	}
-	db.idx.mu.RUnlock()
-
-	db.idx.mu.Lock()
-	defer db.idx.mu.Unlock()
 
 	if startPosition != endPosition {
 		// remove end of start pointer
@@ -196,10 +179,10 @@ func (db *DB) Delete(ctx context.Context, startPosition int, endPosition int, st
 			fileKey: start.fileKey,
 			offset:  start.offset + uint32(startOffset),
 			length:  start.length - uint32(startOffset), // length of {tr.Start, start.End}
-		})
+		}, false)
 
 		for _, p := range db.idx.mu.pointers[startPosition+1 : endPosition] {
-			db.idx.insertTombstone(ctx, p)
+			db.idx.insertTombstone(ctx, p, false)
 		}
 
 		// remove start of end pointer
@@ -211,7 +194,7 @@ func (db *DB) Delete(ctx context.Context, startPosition int, endPosition int, st
 			fileKey: end.fileKey,
 			offset:  end.offset,
 			length:  end.length - uint32(endOffset), // length of {end.Start, tr.End}
-		})
+		}, false)
 	} else {
 		db.idx.insertTombstone(ctx, pointer{
 			TimeRange: telem.TimeRange{
@@ -221,7 +204,7 @@ func (db *DB) Delete(ctx context.Context, startPosition int, endPosition int, st
 			fileKey: start.fileKey,
 			offset:  uint32(startOffset),
 			length:  start.length - uint32(startOffset) - uint32(endOffset),
-		})
+		}, false)
 	}
 
 	// remove old pointers
@@ -337,7 +320,7 @@ func minInt(a uint32, b uint32) int {
 // Close closes the DB. Close should not be called concurrently with any other DB methods.
 func (db *DB) Close() error {
 	w := errutil.NewCatch(errutil.WithAggregation())
-	w.Exec(db.idx.close)
+	w.Exec(func() error { return db.idx.close(true) })
 	w.Exec(db.files.close)
 	return w.Error()
 }

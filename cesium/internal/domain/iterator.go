@@ -52,8 +52,25 @@ type Iterator struct {
 	value pointer
 	// valid stores whether the iterator is currently valid.
 	valid bool
+	// locked stores whether the iterator is operating on a mutex lock
+	locked bool
+	// onClose stores a function that runs upon closing or unlocking the iterator, e.g. unlocking a Mutex
+	onUnlock func()
 	// readerFactory gets a new reader for the given domain pointer.
 	readerFactory func(ctx context.Context, ptr pointer) (*Reader, error)
+}
+
+// Lock sets an iterator to be locked, and takes in a function that gets executed directly, and another function to be stored in onClose
+func (i *Iterator) Lock(onLock func(), onUnlock func()) {
+	i.onUnlock = onUnlock
+	onLock()
+	i.locked = true
+}
+
+// Unlock sets an iterator to be unlocked, and runs the pre-set function to be run when unlocking
+func (i *Iterator) Unlock() {
+	i.onUnlock()
+	i.locked = false
 }
 
 // SetBounds sets the iterator's bounds. The iterator is invalidated, and will not be
@@ -76,7 +93,7 @@ func (i *Iterator) SeekLast(ctx context.Context) bool { return i.SeekLE(ctx, i.B
 // timestamp. If no such domain exists, SeekLE returns false.
 func (i *Iterator) SeekLE(ctx context.Context, stamp telem.TimeStamp) bool {
 	i.valid = true
-	i.position = i.idx.searchLE(ctx, stamp)
+	i.position = i.idx.searchLE(ctx, stamp, true)
 	return i.reload()
 }
 
@@ -85,7 +102,7 @@ func (i *Iterator) SeekLE(ctx context.Context, stamp telem.TimeStamp) bool {
 // provided timestamp. If no such domain exists, SeekGE returns false.
 func (i *Iterator) SeekGE(ctx context.Context, stamp telem.TimeStamp) bool {
 	i.valid = true
-	i.position = i.idx.searchGE(ctx, stamp)
+	i.position = i.idx.searchGE(ctx, stamp, !i.locked)
 	return i.reload()
 }
 
@@ -129,14 +146,19 @@ func (i *Iterator) NewReader(ctx context.Context) (*Reader, error) {
 func (i *Iterator) Len() int64 { return int64(i.value.length) }
 
 // Close closes the iterator.
-func (i *Iterator) Close() error { return nil }
+func (i *Iterator) Close() error {
+	if i.locked {
+		i.onUnlock()
+	}
+	return nil
+}
 
 func (i *Iterator) reload() bool {
 	if i.position == -1 {
 		i.valid = false
 		return i.valid
 	}
-	ptr, ok := i.idx.get(i.position)
+	ptr, ok := i.idx.get(i.position, !i.locked)
 	if !ok || !ptr.OverlapsWith(i.Bounds) {
 		i.valid = false
 		// it's important that we return here, so we don't clear the current value
@@ -145,19 +167,4 @@ func (i *Iterator) reload() bool {
 	}
 	i.value = ptr
 	return i.valid
-}
-
-type LockedIterator struct {
-	Iterator
-	acquireLock    func()
-	relinquishLock func()
-}
-
-func (i *LockedIterator) Close() error {
-	err := i.Close()
-	if err != nil {
-		return err
-	}
-	i.relinquishLock()
-	return nil
 }
