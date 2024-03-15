@@ -34,7 +34,7 @@ type indexUpdate struct {
 var _ observe.Observable[indexUpdate] = (*index)(nil)
 
 // insert adds a new pointer to the index.
-func (idx *index) insert(ctx context.Context, p pointer) error {
+func (idx *index) insert(ctx context.Context, p pointer, withLock bool) error {
 	_, span := idx.T.Bench(ctx, "insert")
 	defer span.End()
 	idx.mu.RLock()
@@ -56,15 +56,17 @@ func (idx *index) insert(ctx context.Context, p pointer) error {
 		}
 	}
 	idx.mu.RUnlock()
-	idx.insertAt(ctx, insertAt, p)
+	idx.insertAt(ctx, insertAt, p, withLock)
 	return nil
 }
 
-func (idx *index) insertTombstone(ctx context.Context, p pointer) {
+func (idx *index) insertTombstone(ctx context.Context, p pointer, withLock bool) {
 	_, span := idx.T.Bench(ctx, "insert tombstone")
 	defer span.End()
-	idx.mu.Lock()
-	defer idx.mu.Unlock()
+	if withLock {
+		idx.mu.Lock()
+		defer idx.mu.Unlock()
+	}
 
 	if idx.mu.tombstones == nil {
 		idx.mu.tombstones = make(map[uint16][]pointer)
@@ -73,16 +75,20 @@ func (idx *index) insertTombstone(ctx context.Context, p pointer) {
 	idx.mu.tombstones[p.fileKey] = append(idx.mu.tombstones[p.fileKey], p)
 }
 
-func (idx *index) overlap(tr telem.TimeRange) bool {
-	idx.mu.RLock()
-	defer idx.mu.RUnlock()
+func (idx *index) overlap(tr telem.TimeRange, withLock bool) bool {
+	if withLock {
+		idx.mu.RLock()
+		defer idx.mu.RUnlock()
+	}
 	_, overlap := idx.unprotectedSearch(tr)
 	return overlap
 }
 
-func (idx *index) update(ctx context.Context, p pointer) (err error) {
+func (idx *index) update(ctx context.Context, p pointer, withLock bool) (err error) {
 	_, span := idx.T.Bench(ctx, "update")
-	idx.mu.RLock()
+	if withLock {
+		idx.mu.RLock()
+	}
 	if len(idx.mu.pointers) == 0 {
 		idx.mu.RUnlock()
 		return span.EndWith(RangeNotFound)
@@ -92,8 +98,10 @@ func (idx *index) update(ctx context.Context, p pointer) (err error) {
 	if p.Start != idx.mu.pointers[lastI].Start {
 		updateAt, _ = idx.unprotectedSearch(p.Start.SpanRange(0))
 	}
-	idx.mu.RUnlock()
-	return span.EndWith(idx.updateAt(ctx, updateAt, p))
+	if withLock {
+		idx.mu.RUnlock()
+	}
+	return span.EndWith(idx.updateAt(ctx, updateAt, p, withLock))
 }
 
 func (idx *index) afterLast(ts telem.TimeStamp) bool {
@@ -104,7 +112,7 @@ func (idx *index) beforeFirst(ts telem.TimeStamp) bool {
 	return ts.Before(idx.mu.pointers[0].Start)
 }
 
-func (idx *index) insertAt(ctx context.Context, i int, p pointer) {
+func (idx *index) insertAt(ctx context.Context, i int, p pointer, withLock bool) {
 	idx.modifyAfter(ctx, i, func() {
 		if i == 0 {
 			idx.mu.pointers = append([]pointer{p}, idx.mu.pointers...)
@@ -113,10 +121,10 @@ func (idx *index) insertAt(ctx context.Context, i int, p pointer) {
 		} else {
 			idx.mu.pointers = append(idx.mu.pointers[:i], append([]pointer{p}, idx.mu.pointers[i:]...)...)
 		}
-	})
+	}, withLock)
 }
 
-func (idx *index) updateAt(ctx context.Context, i int, p pointer) (err error) {
+func (idx *index) updateAt(ctx context.Context, i int, p pointer, withLock bool) (err error) {
 	ptrs := idx.mu.pointers
 	idx.modifyAfter(ctx, i, func() {
 		oldP := ptrs[i]
@@ -131,42 +139,52 @@ func (idx *index) updateAt(ctx context.Context, i int, p pointer) (err error) {
 		} else {
 			idx.mu.pointers[i] = p
 		}
-	})
+	}, withLock)
 	return
 }
 
-func (idx *index) modifyAfter(ctx context.Context, i int, f func()) {
+func (idx *index) modifyAfter(ctx context.Context, i int, f func(), withLock bool) {
 	update := indexUpdate{afterIndex: i}
 	defer func() {
 		idx.Observer.Notify(ctx, update)
 	}()
-	idx.mu.Lock()
-	defer idx.mu.Unlock()
+	if withLock {
+		idx.mu.Lock()
+		defer idx.mu.Unlock()
+	}
 	f()
 }
 
-func (idx *index) searchLE(ctx context.Context, ts telem.TimeStamp) (i int) {
+func (idx *index) searchLE(ctx context.Context, ts telem.TimeStamp, withLock bool) (i int) {
 	_, span := idx.T.Bench(ctx, "searchLE")
-	idx.read(func() {
-		i, _ = idx.unprotectedSearch(ts.SpanRange(0))
-	})
+	if withLock {
+		idx.mu.RLock()
+	}
+	i, _ = idx.unprotectedSearch(ts.SpanRange(0))
+	if withLock {
+		idx.mu.RUnlock()
+	}
 	span.End()
 	return
 }
 
-func (idx *index) searchGE(ctx context.Context, ts telem.TimeStamp) (i int) {
+func (idx *index) searchGE(ctx context.Context, ts telem.TimeStamp, withLock bool) (i int) {
 	_, span := idx.T.Bench(ctx, "searchGE")
-	idx.read(func() {
-		var exact bool
-		i, exact = idx.unprotectedSearch(ts.SpanRange(0))
-		if !exact {
-			if i == len(idx.mu.pointers) {
-				i = -1
-			} else {
-				i += 1
-			}
+	if withLock {
+		idx.mu.RLock()
+	}
+	var exact bool
+	i, exact = idx.unprotectedSearch(ts.SpanRange(0))
+	if !exact {
+		if i == len(idx.mu.pointers) {
+			i = -1
+		} else {
+			i += 1
 		}
-	})
+	}
+	if withLock {
+		idx.mu.RUnlock()
+	}
 	span.End()
 	return
 }
@@ -193,14 +211,18 @@ func (idx *index) unprotectedSearch(tr telem.TimeRange) (int, bool) {
 }
 
 // get the i-th pointer
-func (idx *index) get(i int) (pointer, bool) {
-	idx.mu.RLock()
+func (idx *index) get(i int, withLock bool) (pointer, bool) {
+	if withLock {
+		idx.mu.RLock()
+	}
 	if i < 0 || i >= len(idx.mu.pointers) {
 		idx.mu.RUnlock()
 		return pointer{}, false
 	}
 	v := idx.mu.pointers[i]
-	idx.mu.RUnlock()
+	if withLock {
+		idx.mu.RUnlock()
+	}
 	return v, true
 }
 
@@ -210,9 +232,13 @@ func (idx *index) read(f func()) {
 	idx.mu.RUnlock()
 }
 
-func (idx *index) close() error {
-	idx.mu.Lock()
+func (idx *index) close(withLock bool) error {
+	if withLock {
+		idx.mu.Lock()
+	}
 	idx.mu.pointers = nil
-	idx.mu.Unlock()
+	if withLock {
+		idx.mu.Unlock()
+	}
 	return nil
 }

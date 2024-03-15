@@ -123,15 +123,14 @@ func (db *DB) Read(ctx context.Context, tr telem.TimeRange) (frame core.Frame, e
 }
 
 func (db *DB) Delete(ctx context.Context, tr telem.TimeRange) error {
-	bounds := db.Domain.GetBounds()
-	i := db.Domain.NewIterator(domain.IteratorConfig{Bounds: bounds})
+	i := db.Domain.NewLockedIterator(domain.IterRange(db.Domain.GetBounds()))
 	if ok := i.SeekGE(ctx, tr.Start); !ok {
 		return errors.New("Start TS not found")
 	}
 	approxDist, err := db.index().Distance(ctx, telem.TimeRange{
 		Start: i.TimeRange().Start,
 		End:   tr.Start,
-	}, false)
+	}, false, false)
 	if err != nil {
 		return err
 	}
@@ -144,22 +143,27 @@ func (db *DB) Delete(ctx context.Context, tr telem.TimeRange) error {
 	approxDist, err = db.index().Distance(ctx, telem.TimeRange{
 		Start: tr.End,
 		End:   i.TimeRange().End,
-	}, false)
+	}, false, false)
 	if err != nil {
 		return err
 	}
 	endOffset := approxDist.Lower + 1
 	endPosition := i.Position()
 
-	return db.Domain.Delete(ctx, startPosition, endPosition, startOffset*int64(db.Channel.DataType.Density()), endOffset*int64(db.Channel.DataType.Density()), tr)
+	err = db.Domain.Delete(ctx, startPosition, endPosition, startOffset*int64(db.Channel.DataType.Density()), endOffset*int64(db.Channel.DataType.Density()), tr)
+	if err != nil {
+		return err
+	}
+
+	return i.Close()
 }
 
-func (db *DB) GarbageCollect(ctx context.Context, maxSizeRead uint32) (bool, error) {
+func (db *DB) GarbageCollect(ctx context.Context, maxSizeRead uint32) error {
 	if db.openIteratorWriters.Value() > 0 {
-		return false, nil
+		return nil
 	}
 	err := db.Domain.CollectTombstone(ctx, maxSizeRead)
-	return true, err
+	return err
 }
 
 func (db *DB) Close() error { return db.Domain.Close() }
