@@ -26,7 +26,7 @@ import (
 	ontologycdc "github.com/synnaxlabs/synnax/pkg/distribution/ontology/signals"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	tmock "github.com/synnaxlabs/synnax/pkg/distribution/transport/mock"
-	"github.com/synnaxlabs/x/errutil"
+	"github.com/synnaxlabs/x/errors"
 )
 
 type Builder struct {
@@ -109,7 +109,7 @@ func (b *Builder) New(ctx context.Context) distribution.Distribution {
 }
 
 func (b *Builder) Close() error {
-	c := errutil.NewCatch(errutil.WithAggregation())
+	c := errors.NewCatcher(errors.WithAggregation())
 	for _, node := range b.Nodes {
 		c.Exec(node.Close)
 	}

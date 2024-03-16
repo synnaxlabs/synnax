@@ -12,6 +12,7 @@ import { z } from "zod";
 
 import { type Device, deviceKeyZ, deviceZ } from "@/hardware/device/payload";
 import { AsyncTermSearcher } from "@synnaxlabs/x";
+import { nullableArrayZ } from "@/util/zod";
 
 const RETRIEVE_ENDPOINT = "/hardware/device/retrieve";
 
@@ -23,7 +24,7 @@ const retrieveDeviceReqZ = z.object({
 });
 
 const retrieveDeviceResZ = z.object({
-  devices: deviceZ.array(),
+  devices: nullableArrayZ(deviceZ),
 });
 
 export class Retriever {

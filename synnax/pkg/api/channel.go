@@ -11,13 +11,12 @@ package api
 
 import (
 	"context"
-	roacherrors "github.com/cockroachdb/errors"
 	"github.com/google/uuid"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/api/errors"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/ranger"
+	roacherrors "github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -55,7 +54,7 @@ func NewChannelService(p Provider) *ChannelService {
 // ChannelCreateRequest is a request to create a Channel in the cluster.
 type ChannelCreateRequest struct {
 	// Channel is a template for the Channel to create.
-	Channels []Channel `json:"channels" msgpack:"channels" validate:"required,dive"`
+	Channels []Channel `json:"channels" msgpack:"channels"`
 }
 
 // ChannelCreateResponse is the response returned after a set of channels have
@@ -69,12 +68,9 @@ func (s *ChannelService) Create(
 	ctx context.Context,
 	req ChannelCreateRequest,
 ) (res ChannelCreateResponse, _ error) {
-	if err := s.Validate(req); err != nil {
-		return res, err
-	}
 	translated, err := translateChannelsBackward(req.Channels)
 	if err != nil {
-		return res, errors.Parse(err)
+		return res, err
 	}
 	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
 		err := s.internal.NewWriter(tx).CreateMany(ctx, &translated)
@@ -125,18 +121,18 @@ func (s *ChannelService) Retrieve(
 		err := s.ranger.NewRetrieve().WhereKeys(req.RangeKey).Entry(&resRng).Exec(ctx, nil)
 		isNotFound := roacherrors.Is(err, query.NotFound)
 		if err != nil && !isNotFound {
-			return ChannelRetrieveResponse{}, errors.Auto(err)
+			return ChannelRetrieveResponse{}, err
 		}
 		// We can still do a best effort search without the range even if we don't find it.
 		if !isNotFound && hasSearch {
 			keys, err := resRng.SearchAliases(ctx, req.Search)
 			if err != nil {
-				return ChannelRetrieveResponse{}, errors.Auto(err)
+				return ChannelRetrieveResponse{}, err
 			}
 			aliasChannels = make([]channel.Channel, 0, len(keys))
 			err = s.internal.NewRetrieve().WhereKeys(keys...).Entries(&aliasChannels).Exec(ctx, nil)
 			if err != nil {
-				return ChannelRetrieveResponse{}, errors.Auto(err)
+				return ChannelRetrieveResponse{}, err
 			}
 		}
 	}

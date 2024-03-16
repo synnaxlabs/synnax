@@ -55,6 +55,7 @@ synnax= "synnax.cli.synnax:synnax"
 
 [tool.pytest.ini_options]
 markers = [
+    "auth: mark test as an auth test",
     "channel: mark test as a channel test",
     "framer: mark test as a framer test",
     "writer: mark test as a writer test",

@@ -11,10 +11,9 @@ package fmock
 
 import (
 	"context"
-	roacherrors "github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/freighter"
-	"github.com/synnaxlabs/freighter/ferrors"
 	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/errors"
 	"go/types"
 )
 
@@ -84,7 +83,7 @@ func (s *StreamServer[RQ, RS]) exec(
 	srv *ServerStream[RQ, RS],
 ) (freighter.Context, error) {
 	if s.Handler == nil {
-		return ctx, roacherrors.New("no handler bound to stream server")
+		return ctx, errors.New("no handler bound to stream server")
 	}
 	return s.MiddlewareCollector.Exec(
 		ctx,
@@ -203,8 +202,8 @@ func (s *ServerStream[RQ, RS]) Receive() (req RQ, err error) {
 		return req, freighter.StreamClosed
 	case msg := <-s.requests:
 		// Any error message means the Stream should die.
-		if msg.error.Type != ferrors.TypeEmpty {
-			s.receiveErr = ferrors.Decode(msg.error)
+		if msg.error.Type != errors.TypeEmpty {
+			s.receiveErr = errors.Decode(s.ctx, msg.error)
 			return req, s.receiveErr
 		}
 		return msg.payload, nil
@@ -216,9 +215,9 @@ func (s *ServerStream[RQ, RS]) exec(
 	handler func(ctx context.Context, server freighter.ServerStream[RQ, RS]) error,
 ) {
 	err := handler(ctx, s)
-	errPayload := ferrors.Encode(err)
-	if errPayload.Type == ferrors.TypeNil {
-		errPayload = ferrors.Encode(freighter.EOF)
+	errPayload := errors.Encode(ctx, err, true)
+	if errPayload.Type == errors.TypeNil {
+		errPayload = errors.Encode(ctx, freighter.EOF, true)
 	}
 	close(s.serverClosed)
 	s.responses <- message[RS]{error: errPayload}
@@ -272,9 +271,9 @@ func (c *ClientStream[RQ, RS]) Receive() (res RS, err error) {
 	case msg := <-c.responses:
 		// If our message contains an error, that means the server serverClosed the stream (i.e. serverClosed chan
 		// is serverClosed), so we don't need explicitly listen for its closure.
-		if msg.error.Type != ferrors.TypeEmpty {
+		if msg.error.Type != errors.TypeEmpty {
 			if c.receiveErr == nil {
-				c.receiveErr = ferrors.Decode(msg.error)
+				c.receiveErr = errors.Decode(c.ctx, msg.error)
 			}
 			return res, c.receiveErr
 		}
@@ -288,12 +287,12 @@ func (c *ClientStream[RQ, RS]) CloseSend() error {
 		return nil
 	}
 	c.sendErr = freighter.StreamClosed
-	c.requests <- message[RQ]{error: ferrors.Encode(freighter.EOF)}
+	c.requests <- message[RQ]{error: errors.Encode(c.ctx, freighter.EOF, true)}
 	close(c.clientClosed)
 	return nil
 }
 
 type message[P freighter.Payload] struct {
 	payload P
-	error   ferrors.Payload
+	error   errors.Payload
 }

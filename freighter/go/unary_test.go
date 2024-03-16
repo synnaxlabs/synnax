@@ -67,7 +67,7 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 					Expect(res).To(Equal(response{ID: 1, Message: "hello"}))
 				})
 			})
-			Describe("Details Handling", func() {
+			Describe("Error Handling", func() {
 				It("Should correctly return a custom error to the client", func() {
 					server.BindHandler(func(ctx context.Context, req request) (response, error) {
 						return response{}, myCustomError
@@ -109,7 +109,7 @@ func (h *httpUnaryImplementation) start(host address.Address) (unaryServer, unar
 	factory := fhttp.NewClientFactory(fhttp.ClientFactoryConfig{
 		EncoderDecoder: httputil.JSONEncoderDecoder,
 	})
-	server := fhttp.UnaryServer[request, response](router, "/")
+	server := fhttp.UnaryServer[request, response](router, false, "/")
 	client := fhttp.UnaryClient[request, response](factory)
 	router.BindTo(h.app)
 	h.app.Get("/health", func(c *fiber.Ctx) error {

@@ -22,6 +22,7 @@ import {
   type Payload,
   payload,
 } from "@/channel/payload";
+import { nullableArrayZ } from "@/util/zod";
 
 const reqZ = z.object({
   leaseholder: z.number().optional(),
@@ -36,7 +37,7 @@ const reqZ = z.object({
 type Request = z.infer<typeof reqZ>;
 
 const resZ = z.object({
-  channels: payload.array(),
+  channels: nullableArrayZ(payload),
 });
 
 export interface Retriever {

@@ -13,10 +13,10 @@ import (
 	"context"
 	"io"
 
-	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/errors"
 	"google.golang.org/grpc"
 )
 

@@ -21,7 +21,7 @@ import (
 	mockstorage "github.com/synnaxlabs/synnax/pkg/storage/mock"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errutil"
+	"github.com/synnaxlabs/x/errors"
 	"io"
 )
 
@@ -104,7 +104,7 @@ func (cb *CoreBuilder) AttachCloser(closer io.Closer) {
 // Close shuts down all other nodes in the cluster. It is not safe to call this method
 // while the nodes are still in use.
 func (cb *CoreBuilder) Close() error {
-	c := errutil.NewCatch(errutil.WithAggregation())
+	c := errors.NewCatcher(errors.WithAggregation())
 	for _, closer := range cb.closers {
 		c.Exec(closer.Close)
 	}

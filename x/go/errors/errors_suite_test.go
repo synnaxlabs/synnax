@@ -7,16 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package errutil
+package errors_test
 
-import "github.com/cockroachdb/errors"
+import (
+	"context"
+	"testing"
 
-// IsAny returns true if err is any of the given errors.
-func IsAny(err error, errs ...error) bool {
-	for _, e := range errs {
-		if errors.Is(err, e) {
-			return true
-		}
-	}
-	return false
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+)
+
+var ctx = context.Background()
+
+func TestErrors(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Errors Suite")
 }

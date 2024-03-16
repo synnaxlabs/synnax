@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,25 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package errutil_test
+package errors_test
 
 import (
 	"fmt"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/x/errutil"
+	"github.com/synnaxlabs/x/errors"
 )
 
-var _ = Describe("Catch", func() {
-	Describe("Catch", func() {
+var _ = Describe("Catcher", func() {
+	Describe("Catcher", func() {
 		Context("No error encountered", func() {
 			var (
 				counter int
-				catcher *errutil.Catch
+				catcher *errors.Catcher
 			)
 			BeforeEach(func() {
 				counter = 1
-				catcher = errutil.NewCatch()
+				catcher = errors.NewCatcher()
 				for i := 0; i < 4; i++ {
 					catcher.Exec(func() error {
 						counter++
@@ -44,11 +44,11 @@ var _ = Describe("Catch", func() {
 		Context("Errors encountered", func() {
 			var (
 				counter int
-				catcher *errutil.Catch
+				catcher *errors.Catcher
 			)
 			BeforeEach(func() {
 				counter = 1
-				catcher = errutil.NewCatch()
+				catcher = errors.NewCatcher()
 				for i := 0; i < 4; i++ {
 					catcher.Exec(func() error {
 						if i == 2 {
@@ -74,7 +74,7 @@ var _ = Describe("Catch", func() {
 
 		})
 		Context("Aggregation", func() {
-			var catcher = errutil.NewCatch(errutil.WithAggregation())
+			var catcher = errors.NewCatcher(errors.WithAggregation())
 			It("Should aggregate the errors", func() {
 				counter := 1
 				for i := 0; i < 4; i++ {

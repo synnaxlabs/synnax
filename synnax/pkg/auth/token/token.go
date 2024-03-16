@@ -15,7 +15,9 @@ import (
 	"crypto/rsa"
 	"github.com/golang-jwt/jwt"
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/synnax/pkg/auth"
 	"github.com/synnaxlabs/synnax/pkg/security"
+	"github.com/synnaxlabs/x/errors"
 	"time"
 )
 
@@ -39,7 +41,11 @@ func (s *Service) New(issuer uuid.UUID) (string, error) {
 		Issuer:    issuer.String(),
 		ExpiresAt: time.Now().Add(s.Expiration).Unix(),
 	})
-	return claims.SignedString(key)
+	v, err := claims.SignedString(key)
+	if err != nil {
+		return v, errors.Wrap(auth.Error, err.Error())
+	}
+	return v, nil
 }
 
 // Validate validates the given token. Returns the UUID of the issuer along with any
@@ -69,10 +75,13 @@ func (s *Service) validate(token string) (uuid.UUID, *jwt.StandardClaims, error)
 		return s.publicKey(), nil
 	})
 	if err != nil {
-		return uuid.Nil, claims, err
+		return uuid.Nil, claims, errors.Wrap(auth.Error, err.Error())
 	}
 	id, err := uuid.Parse(claims.Issuer)
-	return id, claims, err
+	if err != nil {
+		return uuid.Nil, claims, errors.Wrap(auth.Error, err.Error())
+	}
+	return id, claims, nil
 }
 
 func (s *Service) isCloseToExpired(claims *jwt.StandardClaims) bool {

@@ -9,17 +9,17 @@
 
 import pytest
 
-from synnax import AuthError, Synnax
-from synnax.exceptions import ValidationError
+import synnax as sy
 
 
+@pytest.mark.auth
 class TestAuthentication:
     def test_invalid_credentials(self):
         """
         Should raise an AuthError
         """
-        with pytest.raises(AuthError):
-            Synnax(
+        with pytest.raises(sy.AuthError):
+            sy.Synnax(
                 host="localhost",
                 port=9090,
                 username="synnax",
@@ -30,8 +30,8 @@ class TestAuthentication:
         """
         Should raise a ValidationError
         """
-        with pytest.raises(ValidationError):
-            Synnax(
+        with pytest.raises(sy.FieldError):
+            sy.Synnax(
                 host="localhost",
                 port=9090,
                 username="synnax",

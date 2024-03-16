@@ -40,6 +40,7 @@ markers = [
     "ws: mark test as a websocket test",
     "http: mark test as an http test",
     "sync: mark test as a sync test"
+    "exception: mark test as an exception test",
 ]
 
 

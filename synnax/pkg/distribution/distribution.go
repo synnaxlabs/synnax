@@ -23,7 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	channeltransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/channel"
 	frametransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/framer"
-	"github.com/synnaxlabs/x/errutil"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	"io"
 )
@@ -53,7 +53,7 @@ type Distribution struct {
 
 // Close closes the distribution layer.
 func (d Distribution) Close() error {
-	e := errutil.NewCatch(errutil.WithAggregation())
+	e := errors.NewCatcher(errors.WithAggregation())
 	e.Exec(d.Ontology.Close)
 	e.Exec(d.Framer.Close)
 	for _, c := range d.Closers {

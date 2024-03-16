@@ -14,14 +14,13 @@ from synnax.exceptions import (
     AuthError,
     ContiguityError,
     Field,
-    GeneralError,
-    ParseError,
     QueryError,
     MultipleResultsError,
-    NoResultsError,
+    NotFoundError,
     RouteError,
     UnexpectedError,
     ValidationError,
+    FieldError,
 )
 from synnax.framer import BufferedWriter, Frame, Iterator, Streamer, Writer, WriterMode
 from synnax.options import SynnaxOptions

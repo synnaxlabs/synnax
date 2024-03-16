@@ -11,12 +11,12 @@ package ranger
 
 import (
 	"context"
-	"github.com/cockroachdb/errors"
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
 	"github.com/synnaxlabs/synnax/pkg/label"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -58,6 +58,9 @@ func (r Range) Get(ctx context.Context, key []byte) ([]byte, error) {
 			Entry(&res).
 			Exec(ctx, r.tx)
 	)
+	if errors.Is(err, query.NotFound) {
+		return nil, errors.Wrapf(err, "key %s not found on range", key)
+	}
 	return res.Value, err
 }
 

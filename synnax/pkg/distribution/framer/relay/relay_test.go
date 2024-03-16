@@ -22,7 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/x/confluence"
-	"github.com/synnaxlabs/x/errutil"
+	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -126,7 +126,7 @@ func gatewayOnlyScenario() scenario {
 		relay:    svc.relay,
 		writer:   svc.writer,
 		close: xio.CloserFunc(func() error {
-			e := errutil.NewCatch(errutil.WithAggregation())
+			e := errors.NewCatcher(errors.WithAggregation())
 			e.Exec(builder.Close)
 			for _, svc := range services {
 				e.Exec(svc.relay.Close)
@@ -158,7 +158,7 @@ func peerOnlyScenario() scenario {
 		relay:    svc.relay,
 		writer:   svc.writer,
 		close: xio.CloserFunc(func() error {
-			e := errutil.NewCatch(errutil.WithAggregation())
+			e := errors.NewCatcher(errors.WithAggregation())
 			e.Exec(builder.Close)
 			for _, svc := range services {
 				e.Exec(svc.relay.Close)
@@ -189,7 +189,7 @@ func mixedScenario() scenario {
 		relay:    svc.relay,
 		writer:   svc.writer,
 		close: xio.CloserFunc(func() error {
-			e := errutil.NewCatch(errutil.WithAggregation())
+			e := errors.NewCatcher(errors.WithAggregation())
 			e.Exec(builder.Close)
 			for _, svc := range services {
 				e.Exec(svc.relay.Close)

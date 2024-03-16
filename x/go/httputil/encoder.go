@@ -10,8 +10,8 @@
 package httputil
 
 import (
-	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/errors"
 )
 
 // EncoderDecoder is an interface that extends binary.EncoderDecoder to

@@ -15,8 +15,6 @@ export { Channel } from "@/channel/client";
 export {
   AuthError,
   ContiguityError,
-  GeneralError,
-  ParseError,
   QueryError,
   RouteError,
   UnexpectedError,

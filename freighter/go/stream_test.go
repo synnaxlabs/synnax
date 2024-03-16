@@ -11,7 +11,6 @@ package freighter_test
 
 import (
 	"context"
-	"github.com/cockroachdb/errors"
 	"github.com/gofiber/fiber/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -20,6 +19,7 @@ import (
 	"github.com/synnaxlabs/freighter/fhttp"
 	"github.com/synnaxlabs/freighter/fmock"
 	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/httputil"
 	. "github.com/synnaxlabs/x/testutil"
 	"net/http"
@@ -298,7 +298,7 @@ func (impl *httpStreamImplementation) start(
 	impl.app.Get("/health", func(c *fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusOK)
 	})
-	server := fhttp.StreamServer[request, response](router, "/")
+	server := fhttp.StreamServer[request, response](router, true, "/")
 	router.BindTo(impl.app)
 	go func() {
 		defer GinkgoRecover()

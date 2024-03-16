@@ -11,7 +11,7 @@ package channel
 
 import (
 	"context"
-	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/mathutil"
 )

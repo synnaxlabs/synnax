@@ -10,7 +10,7 @@
 package access
 
 import (
-	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/x/errors"
 )
 
 var (

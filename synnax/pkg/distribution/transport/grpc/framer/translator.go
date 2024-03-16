@@ -68,27 +68,27 @@ type writerResponseTranslator struct{}
 
 // Backward implements the fgrpc.Translator interface.
 func (writerResponseTranslator) Backward(
-	_ context.Context,
+	ctx context.Context,
 	res *tsv1.WriterResponse,
 ) (writer.Response, error) {
 	return writer.Response{
 		Command: writer.Command(res.Command),
 		SeqNum:  int(res.SeqNum),
 		Ack:     res.Ack,
-		Error:   fgrpc.DecodeError(res.Error),
+		Error:   fgrpc.DecodeError(ctx, res.Error),
 	}, nil
 }
 
 // Forward implements the fgrpc.Translator interface.
 func (writerResponseTranslator) Forward(
-	_ context.Context,
+	ctx context.Context,
 	res writer.Response,
 ) (*tsv1.WriterResponse, error) {
 	return &tsv1.WriterResponse{
 		Command: int32(res.Command),
 		SeqNum:  int32(res.SeqNum),
 		Ack:     res.Ack,
-		Error:   fgrpc.EncodeError(res.Error),
+		Error:   fgrpc.EncodeError(ctx, res.Error, true),
 	}, nil
 }
 
@@ -126,7 +126,7 @@ type iteratorResponseTranslator struct{}
 
 // Backward implements the fgrpc.Translator interface.
 func (iteratorResponseTranslator) Backward(
-	_ context.Context,
+	ctx context.Context,
 	res *tsv1.IteratorResponse,
 ) (iterator.Response, error) {
 	return iterator.Response{
@@ -135,14 +135,14 @@ func (iteratorResponseTranslator) Backward(
 		Ack:     res.Ack,
 		SeqNum:  int(res.SeqNum),
 		Command: iterator.Command(res.Command),
-		Error:   fgrpc.DecodeError(res.Error),
+		Error:   fgrpc.DecodeError(ctx, res.Error),
 		Frame:   translateFrameForward(res.Frame),
 	}, nil
 }
 
 // Forward implements the fgrpc.Translator interface.
 func (iteratorResponseTranslator) Forward(
-	_ context.Context,
+	ctx context.Context,
 	res iterator.Response,
 ) (*tsv1.IteratorResponse, error) {
 	return &tsv1.IteratorResponse{
@@ -151,7 +151,7 @@ func (iteratorResponseTranslator) Forward(
 		Ack:     res.Ack,
 		SeqNum:  int32(res.SeqNum),
 		Command: int32(res.Command),
-		Error:   fgrpc.EncodeError(res.Error),
+		Error:   fgrpc.EncodeError(ctx, res.Error, true),
 		Frame:   translateFrameBackward(res.Frame),
 	}, nil
 }
@@ -175,22 +175,22 @@ func (w relayRequestTranslator) Forward(
 type relayResponseTranslator struct{}
 
 func (w relayResponseTranslator) Backward(
-	_ context.Context,
+	ctx context.Context,
 	res *tsv1.RelayResponse,
 ) (relay.Response, error) {
 	return relay.Response{
 		Frame: translateFrameForward(res.Frame),
-		Error: fgrpc.DecodeError(res.Error),
+		Error: fgrpc.DecodeError(ctx, res.Error),
 	}, nil
 }
 
 func (w relayResponseTranslator) Forward(
-	_ context.Context,
+	ctx context.Context,
 	res relay.Response,
 ) (*tsv1.RelayResponse, error) {
 	return &tsv1.RelayResponse{
 		Frame: translateFrameBackward(res.Frame),
-		Error: fgrpc.EncodeError(res.Error),
+		Error: fgrpc.EncodeError(ctx, res.Error, true),
 	}, nil
 }
 

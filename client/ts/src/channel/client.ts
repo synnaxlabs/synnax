@@ -29,7 +29,7 @@ import {
   type NewPayload,
 } from "@/channel/payload";
 import { analyzeParams, type Retriever } from "@/channel/retriever";
-import { QueryError } from "@/errors";
+import { MultipleResultsError, NotFoundError, QueryError } from "@/errors";
 import { type framer } from "@/framer";
 
 /**
@@ -164,9 +164,10 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
     if (normalized.length === 0) return [];
     const res = this.sugar(await this.retriever.retrieve(channels, rangeKey));
     if (!single) return res;
-    if (res.length === 0) throw new QueryError(`channel matching ${actual} not found`);
+    if (res.length === 0)
+      throw new NotFoundError(`channel matching ${actual} not found`);
     if (res.length > 1)
-      throw new QueryError(`multiple channels matching ${actual} found`);
+      throw new MultipleResultsError(`multiple channels matching ${actual} found`);
     return res[0];
   }
 

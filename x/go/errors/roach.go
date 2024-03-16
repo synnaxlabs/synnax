@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package ferrors
+package errors
 
 import (
 	"context"
@@ -15,18 +15,7 @@ import (
 	"github.com/cockroachdb/errors"
 )
 
-func init() {
-	Register(roachEncode, roachDecode)
-}
-
-// Encode implements Provider.
-func roachEncode(ctx context.Context, err error) (Payload, bool) {
-	var tErr Error
-	// Case where the error is typed and not of type roach, so it's the responsibility
-	// of another provider to encode it.
-	if errors.As(err, &tErr) && tErr.FreighterType() != TypeRoach {
-		return Payload{}, false
-	}
+func roachEncode(ctx context.Context, err error) Payload {
 	// Case where error is of type roach or not typed.
 	// If the type isn't registered, attempt to encode the error using
 	// cockroachdb's error package. This used for go-to-go transport.
@@ -35,9 +24,9 @@ func roachEncode(ctx context.Context, err error) (Payload, bool) {
 	// If we couldn't encode the error, return a standardized unknown
 	// payload along with the error string.
 	if err != nil {
-		return Payload{Type: TypeUnknown, Data: err.Error()}, true
+		return Payload{Type: TypeUnknown, Data: err.Error()}
 	}
-	return Payload{Type: TypeRoach, Data: hex.EncodeToString(b)}, true
+	return Payload{Type: TypeRoach, Data: hex.EncodeToString(b)}
 }
 
 // Decode implements Provider.

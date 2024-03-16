@@ -7,12 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package ferrors
+package errors
 
 import (
 	"context"
-	"github.com/cockroachdb/errors"
-	"go.uber.org/zap"
 	"strings"
 )
 
@@ -20,7 +18,7 @@ import (
 // It includes type information as well as encoded error data.
 type Payload struct {
 	// Type is the type of the error.
-	Type Type `json:"type" msgpack:"type"`
+	Type string `json:"type" msgpack:"type"`
 	// Data is the encoded error data.
 	Data string `json:"data" msgpack:"data"`
 }
@@ -36,7 +34,7 @@ func (p *Payload) Unmarshal(d string) {
 		p.Type = TypeUnknown
 		p.Data = d
 	} else {
-		p.Type = Type(a[0])
+		p.Type = a[0]
 		p.Data = a[1]
 	}
 }
@@ -45,87 +43,71 @@ var _registry = newRegistry()
 
 // Register registers an error type with the given type.
 func Register(encode EncodeFunc, decode DecodeFunc) {
-	_registry.register(providerFunc{encode: encode, decode: decode})
+	_registry.register(provider{encode: encode, decode: decode})
 }
 
 // Encode encodes an error into a payload. If the type of the error cannot be
 // determined, returns a payload with type TypeUnknown and the error message. If
 // the error is nil, returns a payload with type TypeNil.
-func Encode(e error) Payload { return _registry.encode(e) }
+func Encode(ctx context.Context, e error, internal bool) Payload {
+	return _registry.encode(ctx, e, internal)
+}
 
 // Decode decodes a payload into an error. If the payload's type is TypeUnknown,
 // returns an error with the payload's data as the message. If the payload's
 // type is TypeNil, returns nil.
-func Decode(p Payload) error { return _registry.decode(p) }
+func Decode(ctx context.Context, p Payload) error { return _registry.decode(ctx, p) }
 
 type EncodeFunc func(context.Context, error) (Payload, bool)
 
 type DecodeFunc func(context.Context, Payload) (error, bool)
 
-type Provider interface {
-	Encode(context.Context, error) (Payload, bool)
-	Decode(context.Context, Payload) (error, bool)
-}
-
-type providerFunc struct {
+type provider struct {
 	encode EncodeFunc
 	decode DecodeFunc
-}
-
-var _ Provider = providerFunc{}
-
-func (p providerFunc) Encode(ctx context.Context, err error) (Payload, bool) {
-	return p.encode(ctx, err)
-}
-
-func (p providerFunc) Decode(ctx context.Context, pld Payload) (error, bool) {
-	return p.decode(ctx, pld)
 }
 
 // registry is a registry of error providers. It is used to encode and decode errors
 // into payloads for transport over the network.
 type registry struct {
-	providers []Provider
+	providers []provider
 }
 
 func newRegistry() *registry {
-	return &registry{providers: make([]Provider, 0)}
+	return &registry{providers: make([]provider, 0)}
 }
 
-func (r *registry) register(e Provider) {
+func (r *registry) register(e provider) {
 	r.providers = append(r.providers, e)
 }
 
-func (r *registry) encode(e error) Payload {
+func (r *registry) encode(ctx context.Context, e error, internal bool) Payload {
 	// If the error is nil, return a standardized payload.
 	if e == nil {
 		return Payload{Type: TypeNil}
 	}
-
 	for _, p := range r.providers {
-		if payload, ok := p.Encode(context.Background(), e); ok {
+		if payload, ok := p.encode(ctx, e); ok {
 			return payload
 		}
 	}
-
-	var tErr Error
-	if errors.As(e, &tErr) {
-		zap.L().Sugar().Warnf(
-			"[freighter.errors.Errors] - type %s not registered. returning unknown payload",
-			tErr.FreighterType(),
-		)
+	if internal {
+		return roachEncode(ctx, e)
 	}
 	return Payload{Type: TypeUnknown, Data: e.Error()}
 }
 
-func (r *registry) decode(p Payload) error {
+func (r *registry) decode(ctx context.Context, p Payload) error {
 	if p.Type == TypeNil {
 		return nil
 	}
 	for _, prov := range r.providers {
-		if err, ok := prov.Decode(context.Background(), p); ok {
+		if err, ok := prov.decode(ctx, p); ok {
 			return err
 		}
 	}
-	return errors.New(p.Data)
+	if err, ok := roachDecode(ctx, p); ok {
+		return err
+	}
+	return New(p.Data)
 }
