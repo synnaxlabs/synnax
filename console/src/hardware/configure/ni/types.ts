@@ -23,6 +23,17 @@ const linearScaleZ = z.object({
 
 export type LinearScale = z.infer<typeof linearScaleZ>;
 
+const DEFAULT_LINEAR_SCALE: LinearScale = {
+  type: "none",
+  one: { x: 0, y: 0 },
+  two: { x: 0, y: 0 },
+};
+
+export const DEFAULT_SCALES: Record<LinearScaleType, LinearScale> = {
+  linear: DEFAULT_LINEAR_SCALE,
+  none: DEFAULT_LINEAR_SCALE,
+};
+
 const analogInputScaleZ = linearScaleZ;
 
 const analogInputVoltageChannelZ = z.object({

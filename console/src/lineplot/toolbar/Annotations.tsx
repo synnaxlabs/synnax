@@ -201,7 +201,7 @@ export const Annotations = ({ layoutKey }: AnnotationsProps): ReactElement => {
               value={selectedRule.axis}
               columns={[{ key: "name", name: "Axis" }]}
               data={Vis.AXIS_KEYS.map((a) => ({ name: a.toUpperCase(), key: a }))}
-              tagKey="name"
+              entryRenderKey="name"
               allowNone={false}
             />
           </Input.Item>

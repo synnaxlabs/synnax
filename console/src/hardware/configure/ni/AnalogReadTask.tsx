@@ -1,4 +1,4 @@
-import { useState, type ReactElement, useEffect, useMemo } from "react";
+import { useState, type ReactElement, useCallback } from "react";
 
 import { Channel, Form, Select, Synnax } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
@@ -6,10 +6,12 @@ import { Input } from "@synnaxlabs/pluto/input";
 import { Text } from "@synnaxlabs/pluto/text";
 import { useQuery } from "@tanstack/react-query";
 
+import { CSS } from "@/css";
 import { ChannelList } from "@/hardware/configure/ni/ChannelList";
 import {
-  type LinearScale,
   analogReadTaskConfigZ,
+  DEFAULT_SCALES,
+  type LinearScale,
   type LinearScaleType,
 } from "@/hardware/configure/ni/types";
 
@@ -34,6 +36,7 @@ export const AnalogReadTask = ({
   });
 
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
+  const [selecedChanneIndex, setSelectedChannelIndex] = useState<number>(0);
 
   return (
     <Form.Form {...methods}>
@@ -41,9 +44,16 @@ export const AnalogReadTask = ({
         <ChannelList
           path="channels"
           selected={selectedChannels}
-          onSelect={setSelectedChannels}
+          onSelect={useCallback(
+            (v, i) => {
+              setSelectedChannels(v);
+              setSelectedChannelIndex(i);
+            },
+            [setSelectedChannels, setSelectedChannelIndex],
+          )}
         />
       </Align.Space>
+      <ChannelForm path={`channels.${selecedChanneIndex}`} />
     </Form.Form>
   );
 };
@@ -53,29 +63,35 @@ interface ChannelFormProps {
 }
 
 const ChannelForm = ({ path }: ChannelFormProps): ReactElement => {
-  const { get } = Form.useContext();
-
   return (
     <Align.Space className={CSS.B("details")}>
       <Text.Text level="h3">Channel Properties</Text.Text>
       <Form.Field<number> label="Port" path={`${path}.port`}>
         {(p) => <Input.Numeric {...p} />}
       </Form.Field>
-      {/* <Form.Field<number>
+      <Form.Field<number>
         label="Line"
-        path={`${prefix}.line`}
+        path={`${path}.line`}
+        hideIfNull
         visible={(fs) => fs.value !== 0}
       >
         {(p) => <Input.Numeric {...p} />}
-      </Form.Field> */}
+      </Form.Field>
       <Form.Field<number> label="Channel" path={`${path}.channel`}>
         {(p) => <Channel.SelectSingle {...p} />}
       </Form.Field>
-      <Form.Field<LinearScaleType> label="Scale Type" path={`${path}.scale.type`}>
+      <Form.Field<LinearScaleType>
+        label="Scale Type"
+        path={`${path}.scale.type`}
+        onChange={(v, { set, get }) => {
+          const { value: prev } = get<LinearScale>({ path: `${path}.scale` });
+          if (prev.type === v) return;
+          set({ path: `${path}.scale`, value: DEFAULT_SCALES[v] });
+        }}
+      >
         {(p) => <SelectScale {...p} />}
       </Form.Field>
-      <SelectScale value={scaleType} onChange={setScaleType} />
-      {scaleType === "two-point-linear" && <LinearTwoPoint path={`${prefix}.scale`} />}
+      <ScaleForm path={`${path}.scale`} />
     </Align.Space>
   );
 };
@@ -96,7 +112,9 @@ const SCALE_DATA: ScaleEntry[] = [
   },
 ];
 
-const SelectScale = (props: Omit<Select.ButtonProps<string>, "data">): ReactElement => (
+const SelectScale = (
+  props: Omit<Select.ButtonProps<LinearScaleType>, "data">,
+): ReactElement => (
   <Select.DropdownButton<string, ScaleEntry>
     entryRenderKey="label"
     columns={[
@@ -106,17 +124,20 @@ const SelectScale = (props: Omit<Select.ButtonProps<string>, "data">): ReactElem
       },
     ]}
     data={SCALE_DATA}
-    renderKey="label"
+    entryRenderKey="label"
     {...props}
   />
 );
 
-interface LinearTwoPointProps {
+interface ScaleFormProps {
   path: string;
 }
 
-const LinearTwoPoint = ({ path }: LinearTwoPointProps): ReactElement => {
-  const value = Form.useField({ path });
+const ScaleForm = ({ path }: ScaleFormProps): ReactElement | null => {
+  const typeField = Form.useField<LinearScaleType>({
+    path: `${path}.type`,
+  });
+  if (typeField.value === "none") return null;
   return (
     <Align.Space direction="y" grow>
       <Align.Space direction="x">

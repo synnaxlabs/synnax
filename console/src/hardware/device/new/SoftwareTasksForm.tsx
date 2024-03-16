@@ -321,7 +321,7 @@ const SelectScale = (props: Omit<Select.ButtonProps<string>, "data">): ReactElem
       },
     ]}
     data={SCALE_DATA}
-    renderKey="label"
+    entryRenderKey="label"
     {...props}
   />
 );

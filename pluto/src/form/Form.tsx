@@ -83,8 +83,8 @@ export const useField = (<I extends Input.Value, O extends Input.Value = I>({
 
   const handleChange = useCallback(
     (value: O) => {
-      set({ path, value });
       onChange?.(value, ctx);
+      set({ path, value });
     },
     [path, set, onChange],
   );
