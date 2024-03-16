@@ -70,52 +70,63 @@ var (
 	Error = errors.New("validation error")
 )
 
-func NotNil(v *Validator, name string, value any) bool {
+type FieldError struct {
+	Field   string
+	Message string
+}
+
+func (f FieldError) Error() string { return f.Field + ": " + f.Message }
+
+func NewFieldError(field, message string) FieldError {
+	errors.Cause()
+}
+
+func NotNil(v *Validator, field string, value any) bool {
 	isNil := value == nil || (reflect.ValueOf(value).Kind() == reflect.Ptr && reflect.ValueOf(value).IsNil())
-	return v.Ternaryf(isNil, "%s must be non-nil", name)
+	return v.Ternaryf(isNil, "%s must be non-nil", field)
 }
 
-func Positive[T types.Numeric](v *Validator, name string, value T) bool {
-	return v.Ternaryf(value <= 0, "%s must be positive", name)
+func Positive[T types.Numeric](v *Validator, field string, value T) bool {
+	return v.Ternaryf(value <= 0, "%s must be positive", field)
 }
 
-func GreaterThan[T types.Numeric](v *Validator, name string, value T, threshold T) bool {
-	return v.Ternaryf(value <= threshold, "%s must be greater than %d", name, threshold)
+func GreaterThan[T types.Numeric](v *Validator, field string, value T, threshold T) bool {
+	return v.Ternaryf(value <= threshold, "%s must be greater than %d", field, threshold)
 }
 
-func GreaterThanEq[T types.Numeric](v *Validator, name string, value T, threshold T) bool {
+func GreaterThanEq[T types.Numeric](v *Validator, field string, value T, threshold T) bool {
 	return v.Ternaryf(
 		value < threshold,
-		"%s must be greater than or equal to %d", name, threshold)
+		"%s must be greater than or equal to %d", field, threshold)
 }
 
-func NonZero[T types.Numeric](v *Validator, name string, value T) bool {
+func NonZero[T types.Numeric](v *Validator, field string, value T) bool {
 	return v.Ternaryf(
 		value == 0,
-		"%s must be non-zero", name)
+		"%s must be non-zero", field)
 }
 
-func NonZeroable(v *Validator, name string, value override.Zeroable) bool {
+func NonZeroable(v *Validator, field string, value override.Zeroable) bool {
 	return v.Ternaryf(
 		value.IsZero(),
-		"%s must be non-zero", name,
+		"%s must be non-zero", field,
 	)
 }
 
-func NonNegative[T types.Numeric](v *Validator, name string, value T) bool {
+func NonNegative[T types.Numeric](v *Validator, field string, value T) bool {
 	return v.Ternaryf(
 		value < 0,
-		"%s must be non-negative", name)
+		"%s must be non-negative", field)
 }
 
-func NotEmptySlice[T any](v *Validator, name string, value []T) bool {
+func NotEmptySlice[T any](v *Validator, field string, value []T) bool {
 	return v.Ternaryf(
 		len(value) == 0,
-		"%s must be non-empty", name)
+		"%s must be non-empty", field)
 }
 
-func NotEmptyString[T ~string](v *Validator, name string, value T) bool {
-	return v.Ternaryf(value == "", "%s must be set", name)
+func NotEmptyString[T ~string](v *Validator, field string, value T) bool {
+	return v.Ternaryf(value == "", "%s must be set", field)
 }
 
 func MapDoesNotContainF[K comparable, V any](

@@ -11,17 +11,10 @@ package api
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/api/errors"
-	"github.com/go-playground/validator/v10"
 	"go.uber.org/zap"
 	"reflect"
 	"strings"
 )
-
-func newValidator() *validator.Validate {
-	v := validator.New()
-	v.RegisterTagNameFunc(tagNameFunc)
-	return v
-}
 
 var tagNames = []string{"json", "msgpack"}
 

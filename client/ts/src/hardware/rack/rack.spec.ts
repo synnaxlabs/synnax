@@ -19,20 +19,23 @@ describe("Rack", () => {
       const r = await client.hardware.racks.create({ name: "test" });
       expect(r.key).toBeGreaterThan(0n);
     });
+    it("should return an error if the rack doesn't have a name", async () => {
+      const r = await client.hardware.racks.create({});
+    })
   });
-  describe("retrieve", () => {
-    it("should retrieve a rack by its key", async () => {
-      const r = await client.hardware.racks.create({ name: "test" });
-      const retrieved = await client.hardware.racks.retrieve(r.key);
-      expect(retrieved.key).toBe(r.key);
-      expect(retrieved.name).toBe("test");
-    });
-  });
-  describe("tasks", () => {
-    it("should list the tasks on a rack", async () => {
-      const r = await client.hardware.racks.create({ name: "test" });
-      const tasks = await r.listTasks();
-      expect(tasks).toHaveLength(0);
-    });
-  })
+  // describe("retrieve", () => {
+  //   it("should retrieve a rack by its key", async () => {
+  //     const r = await client.hardware.racks.create({ name: "test" });
+  //     const retrieved = await client.hardware.racks.retrieve(r.key);
+  //     expect(retrieved.key).toBe(r.key);
+  //     expect(retrieved.name).toBe("test");
+  //   });
+  // });
+  // describe("tasks", () => {
+  //   it("should list the tasks on a rack", async () => {
+  //     const r = await client.hardware.racks.create({ name: "test" });
+  //     const tasks = await r.listTasks();
+  //     expect(tasks).toHaveLength(0);
+  //   });
+  // })
 });

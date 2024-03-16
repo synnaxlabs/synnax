@@ -32,6 +32,9 @@ func (w Writer) Create(ctx context.Context, r *Rack) (err error) {
 			return
 		}
 	}
+	if err := r.Validate(); err != nil {
+		return err
+	}
 	if err = gorp.NewCreate[Key, Rack]().Entry(r).Exec(ctx, w.tx); err != nil {
 		return
 	}

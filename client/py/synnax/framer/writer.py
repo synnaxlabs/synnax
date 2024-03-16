@@ -10,7 +10,9 @@
 from enum import Enum
 from uuid import uuid4
 from warnings import warn
+from typing import overload
 
+import numpy as np
 from freighter import (
     EOF,
     Payload,
@@ -68,23 +70,21 @@ class _Response(Payload):
 
 
 class Writer:
-    """CoreWriter is used to write a range of telemetry to a set of channels in time
-    order. It should not be instantiated directly, and should instead be created using
-    the Synnax client.
+    """Write is used to write telemetry to a set of channels in time order. It should
+    not be constructed directly, and should instead be created using the Synnax client.
 
     The writer is a streaming protocol that is heavily optimized for performance. This
     comes at the cost of increased complexity, and should only be used directly when
     writing large volumes of data (such as recording telemetry from a sensor or
     ingesting data from a file). Simpler methods (such as the frame writer's write
-    method)
-    should be used in most cases.
+    method) should be used in most cases.
 
     The protocol is as follows:
 
-    1. The writer is opened with a starting timestamp and a list of channel keys. The
-    writer will fail to open if the starting timestamp overlaps with any existing
-    telemetry for any of the channels specified. If the writer is opened successfully,
-    the caller is then free to write frames to the writer.
+    1. The writer is opened with a starting timestamp and a list of channel keys (or
+    names). The writer will fail to open if the starting timestamp overlaps with any
+    existing telemetry for any of the channels specified. If the writer is opened
+    successfully, the caller is then free to write frames to the writer.
 
     2. To writer a frame, the caller can use the write method and follow the validation
     rules described in its method's documentation. This process is asynchronous, meaning
@@ -152,6 +152,25 @@ class Writer:
         if exc is not None:
             raise exc
 
+    @overload
+    def write(self, channels_or_data: ChannelName, series: CrudeSeries):
+        ...
+
+    @overload
+    def write(self, channels_or_data: ChannelKeys | ChannelNames,
+              series: list[CrudeSeries]):
+        ...
+
+    @overload
+    def write(
+        self,
+        channels_or_data: Frame |
+                          dict[ChannelKey | ChannelName, CrudeSeries] |
+                          DataFrame |
+                          dict[ChannelKey | ChannelName, float | np.number]
+    ):
+        ...
+
     def write(
         self,
         channels_or_data: ChannelName
@@ -160,12 +179,36 @@ class Writer:
                           | ChannelNames
                           | Frame
                           | dict[ChannelKey | ChannelName, CrudeSeries]
+                          | dict[ChannelKey | ChannelName, float | np.number]
                           | DataFrame,
         series: CrudeSeries | list[CrudeSeries] | None = None,
     ) -> bool:
-        """Writes the given frame to the database. The provided frame must:
+        """Writes the given data to the database. The formats are listed below. Before
+        we get into them, here are some important terms to know.
 
-        :param frame: The frame to write to the database. The frame must:
+            1. Channel ID -> the key or name of the channel(s) you're writing to.
+            j2. Series or CrudeSeries -> the data for that channel, which can be
+            represented as a synnax Series type, a numpy array, or a simple Python
+            list. You can also provide a single numeric (or, in the case of variable
+            length types, a string or JSON) value and Synnax will convert it into a
+            Series for you.
+
+        Here are the formats you can use to write data to a Synnax cluster:
+
+            1. Channel ID and a single series: Writes the series for the given channel.
+            2. A list of channel ids and their corresponding series: Assumes a
+            one to one mapping of ids to series i.e. the channel id at index i
+            corresponds to the series at index i.
+            3. A Synnax Frame (see the Frame documentation for more).
+            4. A dictionary of channel ids to series i.e. write the series for the
+            given channel id.
+            5. A pandas dataframe where the columns are the channel ids and the rows
+            are the series to write.
+            6. A dictionary of channel ids to a single
+            numeric value. Synnax will convert this into a series for you.
+
+        There are a few important rules to keep in mind when writing data to a Synnax
+        cluster:
 
             1. Have exactly one array for each key in the list of keys provided to the
             writer's open method.
@@ -300,8 +343,8 @@ class Writer:
             raise ValidationError(Field("keys", f"frame has extra keys {extra}"))
 
     def __prep_data_types(self, frame: Frame):
-        for i, (label, series) in enumerate(frame.items()):
-            ch = self.__adapter.retriever.retrieve(label)[0]  # type: ignore
+        for i, (col, series) in enumerate(frame.items()):
+            ch = self.__adapter.retriever.retrieve(col)[0]  # type: ignore
             if series.data_type != ch.data_type:
                 if (
                     not np_can_cast(series.data_type.np, ch.data_type.np)
@@ -309,9 +352,9 @@ class Writer:
                 ):
                     raise ValidationError(
                         Field(
-                            str(label),
-                            f"""label {label} has type {series.data_type} but channel {ch.key}
-                                            expects type {ch.data_type}""",
+                            str(col),
+                            f"""Column {col} has type {series.data_type} but channel
+                            {ch.key} expects type {ch.data_type}""",
                         )
                     )
                 elif not self.__suppress_warnings and not (
@@ -319,11 +362,12 @@ class Writer:
                     and series.data_type == DataType.INT64
                 ):
                     warn(
-                        f"""Series for channel {ch.name} has type {series.data_type} but channel
-                        expects type {ch.data_type}. We can safely convert between the two,
-                        but this can cause performance degradations and is not recommended.
-                        To suppress this warning, set suppress_warnings=True when constructing
-                        the writer. To raise an error instead, set strict=True when constructing
+                        f"""Series for channel {ch.name} has type {series.data_type} but
+                        channel expects type {ch.data_type}. We can safely convert
+                        between the two, but this can cause performance degradations
+                        and is not recommended. To suppress this warning,
+                        set suppress_warnings=True when constructing the writer. To
+                        raise an error instead, set strict=True when constructing
                         the writer."""
                     )
                 frame.series[i] = series.astype(ch.data_type)
