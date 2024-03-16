@@ -58,13 +58,13 @@ export const LayoutSelector = ({
           >
             PID
           </Button.Button>
-          {/* <Button.Button
+          <Button.Button
             variant="outlined"
             onClick={() => place(HardwareStatus.create({ key: layoutKey }))}
             startIcon={<Icon.Hardware />}
           >
             Hardware Status
-          </Button.Button> */}
+          </Button.Button>
         </Align.Space>
       </Align.Center>
     </Eraser.Eraser>

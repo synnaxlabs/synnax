@@ -35,7 +35,7 @@ export const extrapolateIdentifier = (identifier: string): string => {
 };
 
 export const PropertiesForm = (): ReactElement => {
-  Form.useFieldListener<string, string>("properties.name", (state, { set, get }) => {
+  Form.useFieldListener<string>("properties.name", (state, { set, get }) => {
     const id = get("properties.identifier");
     if (!id.touched) set("properties.identifier", extrapolateIdentifier(state.value));
   });

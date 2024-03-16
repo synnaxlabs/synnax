@@ -29,15 +29,9 @@ import {
   type NIChannel,
   type NITask,
 } from "@/hardware/configure/ni/types";
-import {
-  type PhysicalChannelPlan,
-  type Configuration,
-  type PhysicalGroupPlan,
-} from "@/hardware/device/new/types";
+import { type PhysicalGroupPlan } from "@/hardware/device/new/types";
 
 import "@/hardware/device/new/SoftwareTasksForm.css";
-
-import { useFormContext } from "react-hook-form";
 
 interface MostRecentSelectedState {
   type: "task" | "channel";

@@ -38,7 +38,7 @@ import { type Layout } from "@/layout";
 
 import "@/hardware/configure/Configure.css";
 
-import { analodReadTaskConfigZ } from "./ni/types";
+import { analogReadTaskConfigZ } from "./ni/types";
 
 type AnalogInputConfig = z.infer<typeof AnalogReadTask.analodReadTaskConfigZ>;
 
@@ -48,7 +48,7 @@ export const Configure: Layout.Renderer = ({ layoutKey, onClose }): ReactElement
     handleSubmit,
     getValues,
   } = useForm<AnalogInputConfig>({
-    resolver: zodResolver(analodReadTaskConfigZ),
+    resolver: zodResolver(analogReadTaskConfigZ),
     defaultValues: {
       type: "ni-analog-input",
       device: "",
