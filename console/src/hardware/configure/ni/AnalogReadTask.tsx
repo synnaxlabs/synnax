@@ -113,10 +113,9 @@ const SCALE_DATA: ScaleEntry[] = [
 ];
 
 const SelectScale = (
-  props: Omit<Select.ButtonProps<LinearScaleType>, "data">,
+  props: Omit<Select.DropdownButtonProps<LinearScaleType, ScaleEntry>, "data">,
 ): ReactElement => (
-  <Select.DropdownButton<string, ScaleEntry>
-    entryRenderKey="label"
+  <Select.DropdownButton<LinearScaleType, ScaleEntry>
     columns={[
       {
         key: "label",

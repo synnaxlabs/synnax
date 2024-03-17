@@ -36,8 +36,6 @@ import { type z } from "zod";
 import { CSS } from "@/css";
 import { type Layout } from "@/layout";
 
-import "@/hardware/configure/Configure.css";
-
 import { analogReadTaskConfigZ } from "./ni/types";
 
 type AnalogInputConfig = z.infer<typeof AnalogReadTask.analodReadTaskConfigZ>;

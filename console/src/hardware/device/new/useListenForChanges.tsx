@@ -9,14 +9,13 @@
 
 import { type ReactElement } from "react";
 
-import { type hardware } from "@synnaxlabs/client";
+import { type device } from "@synnaxlabs/client";
 import { Button, Status, Synnax, useAsyncEffect } from "@synnaxlabs/pluto";
 import { type change } from "@synnaxlabs/x";
 
+import { create } from "@/hardware/device/new/Configure";
 import { Layout } from "@/layout";
 import { type NotificationAdapter } from "@/palette/Notifications";
-
-import { create } from "./Configure";
 
 export const useListenForChanges = (): void => {
   const client = Synnax.use();
@@ -24,10 +23,10 @@ export const useListenForChanges = (): void => {
 
   useAsyncEffect(async () => {
     if (client == null) return;
-    const tracker = await client.hardware.openDeviceTracker();
+    const tracker = await client.hardware.devices.openDeviceTracker();
     tracker.onChange((changes) => {
       const sets = changes.filter(({ variant }) => variant === "set") as Array<
-        change.Set<string, hardware.DevicePayload>
+        change.Set<string, device.Device>
       >;
       sets.forEach(({ value: dev }) => {
         addStatus({
@@ -38,7 +37,9 @@ export const useListenForChanges = (): void => {
         });
       });
     });
-    return async () => await tracker.close();
+    return () => {
+      void tracker.close();
+    };
   }, [client, addStatus]);
 };
 

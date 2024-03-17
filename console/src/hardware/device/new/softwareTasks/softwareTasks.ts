@@ -18,7 +18,7 @@ import {
   type EnrichedProperties,
   type PhysicalGroupPlan,
   type PhysicalPlan,
-} from "./types";
+} from "../types";
 
 const buildAnalogReadTask = (
   properties: EnrichedProperties,

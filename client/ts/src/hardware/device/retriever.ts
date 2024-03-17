@@ -11,7 +11,6 @@ import { type UnaryClient, sendRequired } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
 import { type Device, deviceKeyZ, deviceZ } from "@/hardware/device/payload";
-import { AsyncTermSearcher } from "@synnaxlabs/x";
 import { nullableArrayZ } from "@/util/zod";
 
 const RETRIEVE_ENDPOINT = "/hardware/device/retrieve";

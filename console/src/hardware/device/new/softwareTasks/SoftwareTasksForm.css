@@ -9,17 +9,8 @@
  * included in the file licenses/APL.txt.
  */
 
-
-.console-module-form {
-    position: relative;
-    overflow: hidden;
-    max-height: 100%;
-    height: 100%;
-    padding: 10rem;
-
+.console-software-tasks {
     & .console-header {
-        padding: 5rem;
-
         & .description {
             max-height: 150px;
             overflow: auto;
@@ -31,31 +22,25 @@
     }
 
     & .console-config {
-        height: 100%;
-        max-height: 100%;
         overflow: hidden;
         position: relative;
         border: var(--pluto-border);
         border-radius: calc(var(--pluto-border-radius) * 2);
     }
 
-    & .console-groups {
-        height: 100%;
+    & .console-tasks {
+        height: 440px;
         border-right: var(--pluto-border);
         max-width: 300px;
     }
 
     & .console-channels {
-        max-height: 100%;
-        max-width: 400px;
+        height: 440px;
         overflow: hidden;
-        border-right: var(--pluto-border);
     }
 
     & .console-details {
-        height: 100%;
-        overflow: hidden;
-        padding: 5rem;
+        padding: 3rem;
     }
 
     & .console-bad-port .console-port {

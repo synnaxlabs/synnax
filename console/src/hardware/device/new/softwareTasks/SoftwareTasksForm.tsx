@@ -17,6 +17,7 @@ import {
   Header,
   Select,
   Status,
+  CSS as PCSS,
 } from "@synnaxlabs/pluto";
 import { Input } from "@synnaxlabs/pluto/input";
 import { List } from "@synnaxlabs/pluto/list";
@@ -31,7 +32,7 @@ import {
 } from "@/hardware/configure/ni/types";
 import { type PhysicalGroupPlan } from "@/hardware/device/new/types";
 
-import "@/hardware/device/new/SoftwareTasksForm.css";
+import "@/hardware/device/new/softwareTasks/SoftwareTasksForm.css";
 
 interface MostRecentSelectedState {
   type: "task" | "channel";
@@ -61,19 +62,23 @@ export const SoftwareTasksForm = (): ReactElement => {
   };
 
   return (
-    <Align.Space direction="y" className={CSS.B("software-tasks")} grow>
-      <Text.Text level="h2">
-        Let's setup the first acquistiion & control tasks for your device.
-      </Text.Text>
-      <Align.Space direction="x" className={CSS.B("config")} empty>
-        <TaskList selectedTask={selectedTask?.key} onSelectTask={handleSelectTask} />
-        {selectedTask != null && (
-          <ChannelList
-            selectedChannels={selectedChannels}
-            selectedTaskIndex={selectedTask?.index}
-            onSelectChannels={handleSelectChannels}
-          />
-        )}
+    <Align.Space direction="x" className={CSS.B("software-tasks")} size={10} grow>
+      <Align.Space className={CSS.B("description")} direction="y" size="small">
+        <Text.Text level="h2">
+          Let's setup the first acquistiion & control tasks for your device.
+        </Text.Text>
+      </Align.Space>
+      <Align.Space direction="y" className={CSS.B("form")} grow empty>
+        <Align.Space direction="x" empty>
+          <TaskList selectedTask={selectedTask?.key} onSelectTask={handleSelectTask} />
+          {selectedTask != null && (
+            <ChannelList
+              selectedChannels={selectedChannels}
+              selectedTaskIndex={selectedTask?.index}
+              onSelectChannels={handleSelectChannels}
+            />
+          )}
+        </Align.Space>
         {mostRecentSelected != null && (
           <Details selected={mostRecentSelected} taskIndex={selectedTask?.index} />
         )}
@@ -179,7 +184,7 @@ export const ChannelListItem = ({
   const hasLine = "line" in entry;
   const childValues = Form.useChildFieldValues<NIChannel>({
     path: `softwarePlan.tasks.${groupIndex}.config.channels.${props.index}`,
-    allowNull: true,
+    optional: true,
   });
   if (childValues == null) return <></>;
   return (
@@ -189,7 +194,7 @@ export const ChannelListItem = ({
       justify="spaceBetween"
       align="center"
     >
-      <Align.Space direction="y" size="small">
+      <Align.Space direction="y" size={0.5}>
         <Align.Space direction="x">
           <Text.Text level="p" weight={500} shade={6} style={{ width: "3rem" }}>
             {childValues.port} {hasLine && `/${entry.line}`}
@@ -239,7 +244,6 @@ const Details = ({ selected, taskIndex }: DetailsPorps): ReactElement | null => 
     return <></>;
     // return <TaskForm index={selected.index} />;
   }
-  console.log(taskIndex);
   return (
     <ChannelForm
       key={`${taskIndex}-${selected.index}`}
@@ -257,10 +261,10 @@ interface ChannelFormProps {
 const ChannelForm = ({ taskIndex, index }: ChannelFormProps): ReactElement => {
   const { get } = Form.useContext();
   const [scaleType, setScaleType] = useState(
-    get<LinearScale>(
-      `softwarePlan.tasks.${taskIndex}.config.channels.${index}.scale`,
-      true,
-    )?.value?.type ?? "none",
+    get<LinearScale>({
+      path: `softwarePlan.tasks.${taskIndex}.config.channels.${index}.scale`,
+      optional: true,
+    })?.value?.type ?? "none",
   );
   console.log(scaleType);
   const prefix = `softwarePlan.tasks.${taskIndex}.config.channels.${index}`;
@@ -268,14 +272,14 @@ const ChannelForm = ({ taskIndex, index }: ChannelFormProps): ReactElement => {
   // We should only need to do this on first render, since the groups are static.
   const channelOptions = useMemo(
     () =>
-      get<PhysicalGroupPlan[]>(`physicalPlan.groups`, false)
+      get<PhysicalGroupPlan[]>({ path: `physicalPlan.groups`, optional: false })
         .value.map((g) => g.channels)
         .flat(),
     [],
   );
 
   return (
-    <Align.Space className={CSS.B("details")}>
+    <Align.Space className={CSS.B("details")} grow empty>
       <Text.Text level="h3">Channel Properties</Text.Text>
       <Form.Field<number> label="Port" path={`${prefix}.port`}>
         {(p) => <Input.Numeric {...p} />}
@@ -290,7 +294,7 @@ const ChannelForm = ({ taskIndex, index }: ChannelFormProps): ReactElement => {
       <Form.Field<string> label="Channel" path={`${prefix}.channel`}>
         {(p) => <Channel.SelectSingle data={channelOptions} {...p} />}
       </Form.Field>
-      <SelectScale value={scaleType} onChange={setScaleType} />
+      {/* <SelectScale value={scaleType} onChange={setScaleType} /> */}
       {scaleType === "two-point-linear" && <LinearTwoPoint name={`${prefix}.scale`} />}
     </Align.Space>
   );
@@ -321,7 +325,6 @@ const SelectScale = (props: Omit<Select.ButtonProps<string>, "data">): ReactElem
       },
     ]}
     data={SCALE_DATA}
-    entryRenderKey="label"
     {...props}
   />
 );
@@ -333,7 +336,7 @@ interface LinearTwoPointProps {
 const LinearTwoPoint = ({ name }: LinearTwoPointProps): ReactElement => {
   const value = Form.useField({
     path: name,
-    allowNull: true,
+    optional: true,
   });
   console.log(value);
   const isValid = value.value != null && value.value.type === "linear";

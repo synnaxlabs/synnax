@@ -84,6 +84,8 @@ func (db *DB) validateNewChannel(ch Channel) error {
 	validate.Positive(v, "key", ch.Key)
 	validate.NotEmptyString(v, "data type", ch.DataType)
 	v.Exec(func() error {
+		db.mu.RLock()
+		defer db.mu.RUnlock()
 		_, uOk := db.unaryDBs[ch.Key]
 		_, vOk := db.virtualDBs[ch.Key]
 		if uOk || vOk {

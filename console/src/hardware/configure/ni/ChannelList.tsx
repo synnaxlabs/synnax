@@ -1,10 +1,11 @@
 import { type ReactElement } from "react";
 
-import { Align, Form, Header, Status } from "@synnaxlabs/pluto";
+import { Align, Channel, Form, Header, Status } from "@synnaxlabs/pluto";
 import { Button } from "@synnaxlabs/pluto/button";
 import { List } from "@synnaxlabs/pluto/list";
 import { Text } from "@synnaxlabs/pluto/text";
 
+import { CSS } from "@/css";
 import { CHANNEL_TYPE_DISPLAY, type NIChannel } from "@/hardware/configure/ni/types";
 
 export interface ChannelListProps {
@@ -53,9 +54,10 @@ export const ChannelListItem = ({
   const hasLine = "line" in entry;
   const childValues = Form.useChildFieldValues<NIChannel>({
     path: `${path}.${props.index}`,
-    allowNull: true,
+    optional: true,
   });
   if (childValues == null) return <></>;
+  const channelName = Channel.useName(entry.channel);
   return (
     <List.ItemFrame
       {...props}
@@ -69,7 +71,7 @@ export const ChannelListItem = ({
             {childValues.port} {hasLine && `/${entry.line}`}
           </Text.Text>
           <Text.Text level="p" weight={500} shade={9}>
-            {childValues.name}
+            {channelName}
           </Text.Text>
         </Align.Space>
         <Text.Text level="p" shade={6}>

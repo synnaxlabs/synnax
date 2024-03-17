@@ -14,6 +14,7 @@ import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
 import { NavDrawer } from "@/components/nav/Nav";
+import { NewDevice } from "@/hardware/device/new";
 import { Layout } from "@/layout";
 import { NavBottom, NavLeft, NavRight, NavTop } from "@/layouts/LayoutMain/Nav";
 import { Mosaic } from "@/layouts/mosaic";
@@ -31,6 +32,7 @@ export const LayoutMain = (): ReactElement => {
   }, []);
 
   Cluster.useLocalServer();
+  NewDevice.useListenForChanges();
 
   return (
     <>

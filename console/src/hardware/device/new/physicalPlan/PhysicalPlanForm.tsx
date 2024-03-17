@@ -10,7 +10,7 @@
 import { useState, type ReactElement, memo, useCallback } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import { Form, Haul, Select } from "@synnaxlabs/pluto";
+import { Form, Haul, Select, CSS as PCSS } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 import { Header } from "@synnaxlabs/pluto/header";
 import { Input } from "@synnaxlabs/pluto/input";
@@ -24,7 +24,7 @@ import {
   type PhysicalGroupPlan,
 } from "@/hardware/device/new/types";
 
-import "@/hardware/device/new/PhysicalPlanForm.css";
+import "@/hardware/device/new/physicalPlan/PhysicalPlanForm.css";
 
 interface MostRecentSelectedState {
   key: string;
@@ -36,6 +36,41 @@ interface SelectedGroupState {
   index: number;
   key: string;
 }
+
+const channelRoleDocumentation: Record<string, ReactElement> = {
+  analogInput: (
+    <Text.Text level="p">
+      This channel will store data from an analog input on your device. We recommend
+      using 32-bit floating points numbers for these channels, as they'll perform much
+      better than their 64-bit alternatives.
+    </Text.Text>
+  ),
+  index: (
+    <Text.Text level="p">
+      This channel will store a timestamp every time a sample is collected from this
+      group. This channel is called an 'index' channel because it is used to keep track
+      of (or 'index') the time at which each sample was collected. You can use this
+      channel for time-based lookups of data across multiple channels.
+    </Text.Text>
+  ),
+};
+
+const groupRoleDocumentation: Record<string, ReactElement> = {
+  analogInput: (
+    <Text.Text level="p">
+      This group of channels will store data from the analog inputs on your device. The
+      first channel (the 'index' channel) will store timestamps for each sample
+      collected from the other channels in the group.
+    </Text.Text>
+  ),
+  digitalOutputCommand: (
+    <Text.Text level="p">
+      By default, this group has two channels. The command channel will store and send
+      commands to the corresponding digital output on the device. The timestamp (or
+      'index') channel will store timestamps for when the command was send.
+    </Text.Text>
+  ),
+};
 
 export const PhysicalPlanForm = (): ReactElement => {
   const model = Form.useField<string>({ path: "properties.model" }).value;
@@ -72,46 +107,56 @@ export const PhysicalPlanForm = (): ReactElement => {
   }, [setMostRecentSelected, setSelectedChannels]);
 
   return (
-    <Align.Space direction="y" className={CSS.B("module-form")} empty>
-      <Align.Space direction="y" className={CSS.B("header")}>
+    <Align.Space direction="x" grow className={CSS.B("physical-plan")} size={10}>
+      <Align.Space direction="y" className={CSS.B("description")}>
         <Text.Text level="h2" weight={600}>
           Here are the channels we'll create for your {model} device
         </Text.Text>
         <Align.Space className="description" direction="y" size="small">
-          <Text.Text level="p" shade={8}>
+          <Text.Text level="p">
             These channels will store data from the inputs and send commands to the
-            outputs of your device.
+            outputs of your device. We'll just focus on creating them for now, and you
+            can define parameters like calibration and sampling rate later.
           </Text.Text>
-          <Text.Text level="p" shade={8}>
-            They are separated into indepedent sampling groups.{" "}
-            <b>All channels in a group must be sampled together</b>, although Each group
-            has a special{" "}
-            <span style={{ color: "var(--pluto-secondary-z)" }}>index </span>
-            channel that stores the timestamps for the samples emitted by the rest of
-            the channels in the group.
+          <Text.Text level="p">
+            They are separated into indepedent sampling groups. We've automatically
+            identified the channel groupings we think would work well for your device.
           </Text.Text>
-          <Text.Text level="p" shade={8}>
-            We've automatically identified the channel groupings we think would work
-            well for your device. Click on a group to see what its purpose is, and split
-            any groups that need to have indepedendent sampling rates.
+          <Text.Text level="p">
+            <b>All channels in a group must be sampled together</b>. What does this
+            mean? Let's say you have two analog input channels (ai_1 and ai_2) that are
+            part of the same group. It's not possible to sample ai_1 at 1 kHz in one
+            acquisition task and ai_2 at 10 Hz in another. If you need to sample them at
+            different rates, split them into separate groups.
           </Text.Text>
+          <Text.Text level="p">
+            Click on a group to see what its purpose is, and split any groups that need
+            to have indepedendent sampling rates.{" "}
+          </Text.Text>
+          <Text.Text level="p">
+            Don't worry, you can reconfigure the channels for the device later if you
+            need to.
+          </Text.Text>
+          <Text.Text level="p"></Text.Text>
         </Align.Space>
       </Align.Space>
-      <Align.Space direction="x" className={CSS.B("config")} grow empty>
-        <GroupList
-          selectedGroup={selectedGroup?.key}
-          onSelectGroup={handleGroupSelect}
-          clearSelection={clearSelection}
-        />
-        {selectedGroup != null && (
-          <ChannelList
-            key={selectedGroup.key}
-            selectedGroupIndex={selectedGroup.index}
-            selectedChannels={selectedChannels}
-            onSelectChannels={handleChannelSelect}
+      <Align.Space direction="y" bordered className={CSS.B("form")} grow empty>
+        <Align.Space direction="x" empty className={PCSS(PCSS.bordered("bottom"))}>
+          <GroupList
+            selectedGroup={selectedGroup?.key}
+            onSelectGroup={handleGroupSelect}
+            clearSelection={clearSelection}
           />
-        )}
-        <Align.Space className={CSS.B("details")} grow>
+          {selectedGroup != null && (
+            <ChannelList
+              key={selectedGroup.key}
+              selectedGroupIndex={selectedGroup.index}
+              selectedChannels={selectedChannels}
+              onSelectChannels={handleChannelSelect}
+            />
+          )}
+        </Align.Space>
+        <Align.Space className={CSS.B("details")} grow empty>
           {mostRecentSelected != null && (
             <Details selected={mostRecentSelected} groupIndex={selectedGroup?.index} />
           )}
@@ -138,7 +183,7 @@ const GroupList = ({
   return (
     <Align.Space className={CSS.B("groups")} grow empty>
       <Header.Header level="h3">
-        <Header.Title weight={500}>Groups</Header.Title>
+        <Header.Title weight={500}>Sampling Groups</Header.Title>
         <Header.Actions>
           {[
             {
@@ -191,6 +236,7 @@ const GroupListItem = ({
     index,
     entry: { name, channels },
     hovered,
+    selected,
   } = props;
 
   const [draggingOver, setDraggingOver] = useState<boolean>(false);
@@ -204,13 +250,13 @@ const GroupListItem = ({
     onDrop: ({ items }) => {
       props.onSelect?.(props.entry.key);
       const path = `physicalPlan.groups.${index}.channels`;
-      const v = ctx.get<PhysicalChannelPlan[]>(path, false);
-      ctx.set(
+      const v = ctx.get<PhysicalChannelPlan[]>({ path });
+      ctx.set({
         path,
-        v.value
+        value: v.value
           .concat(items.map((i) => ({ ...(i.data as PhysicalChannelPlan) })))
           .sort((a, b) => a.port - b.port),
-      );
+      });
       setDraggingOver(false);
       return items;
     },
@@ -223,6 +269,8 @@ const GroupListItem = ({
       {...drop}
       hovered={hovered || draggingOver}
       onDragLeave={() => setDraggingOver(false)}
+      direction="x"
+      justify="spaceBetween"
     >
       <Align.Space direction="y" size="small">
         <Text.Text level="p" weight={500}>
@@ -237,6 +285,7 @@ const GroupListItem = ({
           </Text.Text>
         </Align.Space>
       </Align.Space>
+      {selected && <Text.WithIcon level="p" startIcon={<Icon.Caret.Right />} />}
     </List.ItemFrame>
   );
 };
@@ -349,7 +398,7 @@ export const ChannelListItem = memo(
 
     const methods = Form.useContext();
     const [validPort, setValidPort] = useState<boolean>(
-      methods.get(prefix, true)?.status.variant !== "error",
+      methods.get({ path: prefix, optional: true })?.status.variant !== "error",
     );
     Form.useFieldListener(
       `physicalPlan.groups.${groupIndex}.channels.${props.index}.port`,
@@ -370,7 +419,7 @@ export const ChannelListItem = memo(
       ];
       if (selected.includes(props.entry.key)) {
         const channels = methods
-          .get<PhysicalChannelPlan[]>(groupChannels, false)
+          .get<PhysicalChannelPlan[]>({ path: groupChannels })
           .value.filter((c) => selected.includes(c.key));
         haulItems = channels.map((c) => ({
           key: c.key,
@@ -380,17 +429,19 @@ export const ChannelListItem = memo(
       }
       startDrag(haulItems, ({ dropped }) => {
         const keys = dropped.map((d) => d.key);
-        const channels = methods.get<PhysicalChannelPlan[]>(groupChannels, false).value;
-        methods.set(
-          groupChannels,
-          channels.filter((c) => !keys.includes(c.key)),
-        );
+        const channels = methods.get<PhysicalChannelPlan[]>({
+          path: groupChannels,
+        }).value;
+        methods.set({
+          path: groupChannels,
+          value: channels.filter((c) => !keys.includes(c.key)),
+        });
       });
     }, [startDrag, props.entry.key, groupIndex, getSelected, methods.get, methods.set]);
 
     const childValues = Form.useChildFieldValues<PhysicalChannelPlan>({
       path: prefix,
-      allowNull: true,
+      optional: true,
     });
     if (childValues == null) return null;
     return (
@@ -428,6 +479,8 @@ const ChannelForm = ({ index, groupIndex }: ChannelFormProps): ReactElement | nu
   const ctx = Form.useContext();
   if (!ctx.has(prefix)) return null;
 
+  const role = ctx.get({ path: `${prefix}.role` }).value;
+
   return (
     <>
       <Form.Field<string> path={`${prefix}.name`} label="Name" showLabel={false}>
@@ -441,16 +494,20 @@ const ChannelForm = ({ index, groupIndex }: ChannelFormProps): ReactElement | nu
           />
         )}
       </Form.Field>
-      <Form.Field<number> path={`${prefix}.dataType`} label="Data Type">
-        {(p) => <Select.DataType {...p} allowNone={false} hideColumnHeader />}
-      </Form.Field>
-      <Form.Field<number>
-        path={`${prefix}.port`}
-        label="Port"
-        visible={(fs) => fs.value !== 0}
-      >
-        {(p) => <Input.Numeric {...p} />}
-      </Form.Field>
+      <Align.Space direction="x" grow>
+        <Form.Field<number> path={`${prefix}.dataType`} label="Data Type" grow>
+          {(p) => (
+            <Select.DataType {...p} location="top" allowNone={false} hideColumnHeader />
+          )}
+        </Form.Field>
+        <Form.Field<number>
+          path={`${prefix}.port`}
+          label="Port"
+          visible={(fs) => fs.value !== 0}
+        >
+          {(p) => <Input.Numeric {...p} />}
+        </Form.Field>
+      </Align.Space>
       <Form.Field<number>
         path={`${prefix}.line`}
         label="Line"
@@ -458,6 +515,9 @@ const ChannelForm = ({ index, groupIndex }: ChannelFormProps): ReactElement | nu
       >
         {(p) => <Input.Numeric {...p} />}
       </Form.Field>
+      <Text.Text level="p" shade={7}>
+        {channelRoleDocumentation[role]}
+      </Text.Text>
     </>
   );
 };
@@ -467,5 +527,29 @@ interface GroupFormProps {
 }
 
 const GroupForm = ({ index }: GroupFormProps): ReactElement => {
-  return <h2>{index}</h2>;
+  const prefix = `physicalPlan.groups.${index}`;
+  const role = Form.useField<string>({ path: `${prefix}.role` }).value;
+  return (
+    <>
+      <Form.Field<string> path={`${prefix}.name`} label="Name" showLabel={false}>
+        {(p) => (
+          <Input.Text
+            variant="natural"
+            level="h2"
+            placeholder="Group Name"
+            autoFocus
+            {...p}
+          />
+        )}
+      </Form.Field>
+      {/* <Form.Field<string> path={`${prefix}.role`} label="Role" showLabel={false}>
+        {(p) => (
+          <Select.Role {...p} location="top" allowNone={false} hideColumnHeader />
+        )}
+      </Form.Field> */}
+      <Text.Text level="p" shade={7}>
+        {groupRoleDocumentation[role]}
+      </Text.Text>
+    </>
+  );
 };
