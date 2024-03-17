@@ -11,8 +11,8 @@ package unary
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/domain"
@@ -98,14 +98,6 @@ func (db *DB) OpenIterator(cfg IteratorConfig) *Iterator {
 	return i
 }
 
-func (db *DB) TryClose() error {
-	if db.openIteratorWriters.Value() > 0 {
-		return errors.New(fmt.Sprintf("[cesium] - channel has %d unclosed writers/iterators accessing it", db.openIteratorWriters.Value()))
-	} else {
-		return db.Close()
-	}
-}
-
 // Read at the unary level
 func (db *DB) Read(ctx context.Context, tr telem.TimeRange) (frame core.Frame, err error) {
 	iter := db.OpenIterator(IterRange(tr))
@@ -122,48 +114,12 @@ func (db *DB) Read(ctx context.Context, tr telem.TimeRange) (frame core.Frame, e
 	return
 }
 
-func (db *DB) Delete(ctx context.Context, tr telem.TimeRange) error {
-	i := db.Domain.NewLockedIterator(domain.IterRange(db.Domain.GetBounds()))
-	if ok := i.SeekGE(ctx, tr.Start); !ok {
-		return errors.New("Start TS not found")
-	}
-	approxDist, err := db.index().Distance(ctx, telem.TimeRange{
-		Start: i.TimeRange().Start,
-		End:   tr.Start,
-	}, false, false)
-	if err != nil {
-		return err
-	}
-	startOffset := approxDist.Upper
-	startPosition := i.Position()
-
-	if ok := i.SeekLE(ctx, tr.End); !ok {
-		return errors.New("End TS not found")
-	}
-	approxDist, err = db.index().Distance(ctx, telem.TimeRange{
-		Start: tr.End,
-		End:   i.TimeRange().End,
-	}, false, false)
-	if err != nil {
-		return err
-	}
-	endOffset := approxDist.Lower + 1
-	endPosition := i.Position()
-
-	err = db.Domain.Delete(ctx, startPosition, endPosition, startOffset*int64(db.Channel.DataType.Density()), endOffset*int64(db.Channel.DataType.Density()), tr)
-	if err != nil {
-		return err
-	}
-
-	return i.Close()
-}
-
-func (db *DB) GarbageCollect(ctx context.Context, maxSizeRead uint32) error {
+func (db *DB) TryClose() error {
 	if db.openIteratorWriters.Value() > 0 {
-		return nil
+		return errors.New(fmt.Sprintf("[cesium] - channel has %d unclosed writers/iterators accessing it", db.openIteratorWriters.Value()))
+	} else {
+		return db.Close()
 	}
-	err := db.Domain.CollectTombstone(ctx, maxSizeRead)
-	return err
 }
 
 func (db *DB) Close() error { return db.Domain.Close() }

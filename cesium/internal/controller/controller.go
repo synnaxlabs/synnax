@@ -11,6 +11,7 @@ package controller
 
 import (
 	"github.com/cockroachdb/errors"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/control"
@@ -165,22 +166,35 @@ func (r *region[E]) unprotectedUpdate(
 }
 
 // unprotectedRelease releases a gate from the region without locking. If the gate is the
-// last gate in the region, the region will be removed from the controller and the
-// entity and true will be returned. Otherwise, the entity and false will be returned.
+// last gate in the region, the region will be removed from the controller
 func (r *region[E]) unprotectedRelease(g *Gate[E]) (e E, t Transfer) {
 	delete(r.gates, g)
+
 	if len(r.gates) == 0 {
 		r.controller.remove(r)
 		t.From = g.State()
 		return r.entity, t
 	}
+
+	if len(r.gates) == 1 {
+		t.From = r.curr.State()
+		for k := range r.gates {
+			r.curr = k
+			t.To = k.State()
+			if k.Stealth {
+				k.Authority = control.Absolute
+			}
+		}
+		return r.entity, t
+	}
+
 	if g == r.curr {
 		t.From = r.curr.State()
 		r.curr = nil
 		for og := range r.gates {
 			// Three cases here: no one is in control, provided gate has higher authority,
 			// provided gate has equal authority and a higher position.
-			if r.curr == nil || og.Authority > r.curr.Authority || (og.Authority == r.curr.Authority && og.position < r.curr.position) {
+			if r.curr == nil || og.Authority > r.curr.Authority || (og.Authority == r.curr.Authority && (r.curr.Stealth || og.position < r.curr.position)) {
 				r.curr = og
 				t.To = og.State()
 			}
@@ -196,6 +210,9 @@ func (r *region[E]) unprotectedOpen(g *Gate[E]) (t Transfer, err error) {
 			err = errors.Wrapf(validate.Error, "[controller] - gate with subject key %s already exists", g.Subject.Key)
 			return
 		}
+	}
+	if g.Stealth {
+		g.Authority = lo.Ternary[control.Authority](len(r.gates) == 0, control.Absolute, 0)
 	}
 	if r.curr == nil || g.Authority > r.curr.Authority {
 		if r.curr != nil {
@@ -233,6 +250,11 @@ type GateConfig struct {
 	// Subject sets the identity of the gate, and is used to track changes in control
 	// within the db.
 	Subject control.Subject
+	// Stealth is an adaptive state of Authority. When a gate is said to be in stealth,
+	// it has the lowest possible authority so long as there are other gates on the
+	// region. Once it is the only gate in the region, it has the highest authority
+	// until it is closed
+	Stealth bool
 }
 
 var (
@@ -274,9 +296,11 @@ func (c *Controller[E]) LeadingState() *State {
 	return first.curr.State()
 }
 
-// OpenGate checks whether a region exists in the requested timerange, and creates a new
-func (c *Controller[E]) OpenGate(cfg GateConfig) (g *Gate[E], t Transfer, exists bool, err error) {
+// OpenGateAndMaybeRegister checks whether a region exists in the requested timerange, and creates a new one if there does
+// Otherwise, it registers that region and opens a gate
+func (c *Controller[E]) OpenGateAndMaybeRegister(cfg GateConfig, callback func() (E, error)) (g *Gate[E], t Transfer, createdRegion bool, err error) {
 	cfg, err = config.New(DefaultGateConfig, cfg)
+	var exists bool
 	if err != nil {
 		return nil, t, false, err
 	}
@@ -287,7 +311,7 @@ func (c *Controller[E]) OpenGate(cfg GateConfig) (g *Gate[E], t Transfer, exists
 		if r.timeRange.OverlapsWith(cfg.TimeRange) {
 			// v1 optimization: one writer can only overlap with one region at any given time
 			if exists {
-				return nil, t, true, errors.Newf("[controller] - encountered multiple control regions for time range %s", cfg.TimeRange)
+				return nil, t, false, errors.Newf("[controller] - encountered multiple control regions for time range %s", cfg.TimeRange)
 			}
 			// if there is, we open a new gate on that region
 			g, t, err = r.open(cfg, c.concurrency)
@@ -298,7 +322,18 @@ func (c *Controller[E]) OpenGate(cfg GateConfig) (g *Gate[E], t Transfer, exists
 			exists = true
 		}
 	}
-	return g, t, exists, nil
+
+	if !exists {
+		e, err := callback()
+		if err != nil {
+			return g, t, false, err
+		}
+		r := c.insertNewRegion(cfg.TimeRange, e)
+		createdRegion = true
+		g, t, err = r.open(cfg, c.concurrency)
+		r.gates[g] = struct{}{}
+	}
+	return
 }
 
 func (c *Controller[E]) Register(
@@ -322,22 +357,6 @@ func (c *Controller[E]) register(
 	}
 	c.insertNewRegion(t, entity)
 	return nil
-}
-
-func (c *Controller[E]) RegisterRegionAndOpenGate(
-	cfg GateConfig,
-	entity E,
-) (*Gate[E], Transfer, error) {
-	cfg, err := config.New(DefaultGateConfig, cfg)
-	if err != nil {
-		return nil, Transfer{}, err
-	}
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	r := c.insertNewRegion(cfg.TimeRange, entity)
-	g, t, err := r.open(cfg, c.concurrency)
-	r.gates[g] = struct{}{}
-	return g, t, err
 }
 
 func (c *Controller[E]) insertNewRegion(

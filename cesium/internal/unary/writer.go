@@ -85,30 +85,19 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (w *Writer, 
 		Authority: cfg.Authority,
 		Subject:   cfg.Subject,
 	}
-	var (
-		g            *controller.Gate[controlledWriter]
-		regionExists bool
-	)
-	// race condition here: regionExists might change
-	g, transfer, regionExists, err = db.Controller.OpenGate(gateCfg)
+	var g *controller.Gate[controlledWriter]
+	g, transfer, _, err = db.Controller.OpenGateAndMaybeRegister(gateCfg, func() (controlledWriter, error) {
+		dw, err := db.Domain.NewWriter(ctx, cfg.domain())
+
+		return controlledWriter{
+			Writer:     dw,
+			channelKey: db.Channel.Key,
+		}, err
+	})
 	if err != nil {
 		return nil, transfer, err
 	}
-	// by the time we get here
-	if !regionExists {
-		dw, err := db.Domain.NewWriter(ctx, cfg.domain())
-		if err != nil {
-			return nil, transfer, err
-		}
-		gateCfg.TimeRange = cfg.controlTimeRange()
-		// registering a new region because none current exists there
-		// control hand-offs
-		// control authority: 8 bit integer (0-256)
-		g, transfer, err = db.Controller.RegisterRegionAndOpenGate(gateCfg, controlledWriter{
-			Writer:     dw,
-			channelKey: db.Channel.Key,
-		})
-	}
+
 	w.control = g
 	db.openIteratorWriters.Add(1)
 	return w, transfer, err
