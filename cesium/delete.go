@@ -23,15 +23,20 @@ import (
 )
 
 type GCConfig struct {
-	readChunkSize uint32
-	maxGoroutine  int64
-	gcInterval    time.Duration
+	// ReadChunkSize is the maximum number of bytes to be read into memory while garbage collecting
+	ReadChunkSize uint32
+
+	// MaxGoroutine is the maximum number of GoRoutines that can be launched for each try of garbage collection
+	MaxGoroutine int64
+
+	// GcTryInterval is the interval of time between two tries of garbage collection are started
+	GcTryInterval time.Duration
 }
 
 var DefaultGCConfig = GCConfig{
-	readChunkSize: uint32(20 * telem.Megabyte),
-	maxGoroutine:  10,
-	gcInterval:    30 * time.Second,
+	ReadChunkSize: uint32(20 * telem.Megabyte),
+	MaxGoroutine:  10,
+	GcTryInterval: 30 * time.Second,
 }
 
 func (db *DB) DeleteChannel(ch ChannelKey) error {
@@ -139,8 +144,8 @@ func (db *DB) garbageCollect(ctx context.Context, readChunkSize uint32, maxGoRou
 
 func (db *DB) startGC(opts *options) {
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(db.Instrumentation))
-	signal.GoTick(sCtx, opts.gcCfg.gcInterval, func(ctx context.Context, time time.Time) error {
-		return db.garbageCollect(ctx, opts.gcCfg.readChunkSize, opts.gcCfg.maxGoroutine)
+	signal.GoTick(sCtx, opts.gcCfg.GcTryInterval, func(ctx context.Context, time time.Time) error {
+		return db.garbageCollect(ctx, opts.gcCfg.ReadChunkSize, opts.gcCfg.MaxGoroutine)
 	})
 
 	db.shutdown = signal.NewShutdown(sCtx, cancel)

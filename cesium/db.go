@@ -13,6 +13,7 @@ import (
 	"context"
 	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/confluence"
+	"io"
 	"sync"
 
 	"github.com/cockroachdb/errors"
@@ -51,7 +52,7 @@ type DB struct {
 		inlet  confluence.Inlet[WriterRequest]
 		outlet confluence.Outlet[WriterResponse]
 	}
-	closeGC context.CancelFunc
+	shutdown io.Closer
 }
 
 // Write implements DB.
@@ -96,9 +97,8 @@ func (db *DB) Close() error {
 		c.Exec(u.Close)
 	}
 	c.Exec(db.relay.close)
-	c.Exec(func() error {
-		db.closeGC()
-		return nil
-	})
+	//c.Exec(func() error {
+	//	return db.shutdown.Close()
+	//})
 	return nil
 }

@@ -3,7 +3,6 @@ package unary
 import (
 	"context"
 	"errors"
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/x/control"
@@ -11,14 +10,7 @@ import (
 )
 
 func (db *DB) Delete(ctx context.Context, tr telem.TimeRange) error {
-	gateCfg := controller.GateConfig{
-		TimeRange: tr,
-		Authority: 0,
-		Subject:   control.Subject{Key: uuid.New().String(), Name: "Delete Writer"},
-		Stealth:   true,
-	}
-
-	g, _, _, err := db.Controller.OpenGateAndMaybeRegister(gateCfg, func() (controlledWriter, error) {
+	g, _, err := db.Controller.OpenAbsoluteGateIfUncontrolled(tr, control.Subject{Key: "Delete Writer"}, func() (controlledWriter, error) {
 		return controlledWriter{
 			Writer:     nil,
 			channelKey: db.Channel.Key,
