@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type alamos } from "@synnaxlabs/alamos";
-import { type Channel, type TimeRange } from "@synnaxlabs/client";
+import { type channel, type TimeRange } from "@synnaxlabs/client";
 import { type Series } from "@synnaxlabs/x";
 
 import { Dynamic } from "@/telem/client/cache/dynamic";
@@ -19,11 +19,15 @@ import {
 } from "@/telem/client/cache/static";
 
 export class Cache {
-  readonly channel: Channel;
+  readonly channel: channel.Payload;
   readonly static: Static;
   readonly dynamic: Dynamic;
 
-  constructor(dynamicCap: number, channel: Channel, ins: alamos.Instrumentation) {
+  constructor(
+    dynamicCap: number,
+    channel: channel.Payload,
+    ins: alamos.Instrumentation,
+  ) {
     this.static = new Static(ins);
     this.dynamic = new Dynamic(dynamicCap, channel.dataType);
     this.channel = channel;

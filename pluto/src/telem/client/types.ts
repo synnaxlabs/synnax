@@ -1,11 +1,11 @@
-import { TimeRange, type Channel, type Series, type channel } from "@synnaxlabs/client";
+import { TimeRange, type Series, type channel } from "@synnaxlabs/client";
 import { type SeriesDigest } from "@synnaxlabs/x";
 
 export class ReadResponse {
-  channel: Channel;
+  channel: channel.Payload;
   data: Series[];
 
-  constructor(channel: Channel, data: Series[]) {
+  constructor(channel: channel.Payload, data: Series[]) {
     this.channel = channel;
     this.data = data;
   }
