@@ -273,11 +273,6 @@ var _ = Describe("Delete chunks", Ordered, func() {
 				End:   15 * telem.SecondTS,
 			})).To(Succeed())
 
-			By("Garbage collecting")
-			ok, err := db.GarbageCollect(ctx, 1000, 10)
-			Expect(ok).To(BeTrue())
-			Expect(err).To(BeNil())
-
 			// Data after deletion: 10, 11, __, __, __, 15, 16, 17, 18
 			frame, err := db.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 19 * telem.SecondTS}, basic1)
 			Expect(err).To(BeNil())

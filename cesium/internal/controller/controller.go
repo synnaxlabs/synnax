@@ -11,7 +11,6 @@ package controller
 
 import (
 	"github.com/cockroachdb/errors"
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/control"
@@ -181,9 +180,6 @@ func (r *region[E]) unprotectedRelease(g *Gate[E]) (e E, t Transfer) {
 		for k := range r.gates {
 			r.curr = k
 			t.To = k.State()
-			if k.Stealth {
-				k.Authority = control.Absolute
-			}
 		}
 		return r.entity, t
 	}
@@ -194,7 +190,7 @@ func (r *region[E]) unprotectedRelease(g *Gate[E]) (e E, t Transfer) {
 		for og := range r.gates {
 			// Three cases here: no one is in control, provided gate has higher authority,
 			// provided gate has equal authority and a higher position.
-			if r.curr == nil || og.Authority > r.curr.Authority || (og.Authority == r.curr.Authority && (r.curr.Stealth || og.position < r.curr.position)) {
+			if r.curr == nil || og.Authority > r.curr.Authority || (og.Authority == r.curr.Authority && og.position < r.curr.position) {
 				r.curr = og
 				t.To = og.State()
 			}
@@ -211,9 +207,7 @@ func (r *region[E]) unprotectedOpen(g *Gate[E]) (t Transfer, err error) {
 			return
 		}
 	}
-	if g.Stealth {
-		g.Authority = lo.Ternary[control.Authority](len(r.gates) == 0, control.Absolute, 0)
-	}
+
 	if r.curr == nil || g.Authority > r.curr.Authority {
 		if r.curr != nil {
 			t.From = r.curr.State()
@@ -250,11 +244,6 @@ type GateConfig struct {
 	// Subject sets the identity of the gate, and is used to track changes in control
 	// within the db.
 	Subject control.Subject
-	// Stealth is an adaptive state of Authority. When a gate is said to be in stealth,
-	// it has the lowest possible authority so long as there are other gates on the
-	// region. Once it is the only gate in the region, it has the highest authority
-	// until it is closed
-	Stealth bool
 }
 
 var (
@@ -294,6 +283,51 @@ func (c *Controller[E]) LeadingState() *State {
 		return nil
 	}
 	return first.curr.State()
+}
+
+// OpenAbsoluteGateIfUncontrolled opens an absolute gate on a region if it is not under control of another region.
+// Otherwise, it returns an error
+func (c *Controller[E]) OpenAbsoluteGateIfUncontrolled(tr telem.TimeRange, s control.Subject, callback func() (E, error)) (g *Gate[E], t Transfer, err error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	gateCfg := GateConfig{
+		TimeRange: tr,
+		Authority: control.Absolute,
+		Subject:   s,
+	}
+	var exists bool
+
+	for _, r := range c.regions {
+		// check if there is an existing region that overlaps with that time range
+		// if there is, then that means a gate is already in control of it
+		// therefore this method returns false since it could not
+		if r.timeRange.OverlapsWith(tr) {
+			if exists {
+				return nil, t, errors.Newf("[controller] - encountered multiple control regions for time range %s", tr)
+			}
+			if len(r.gates) != 0 {
+				return nil, t, errors.Newf("[controller] - region already being controlled")
+			}
+
+			g, t, err = r.open(gateCfg, c.concurrency)
+			if err != nil {
+				return nil, t, err
+			}
+			r.gates[g] = struct{}{}
+			exists = true
+		}
+	}
+	if !exists {
+		e, err := callback()
+		if err != nil {
+			return g, t, err
+		}
+		r := c.insertNewRegion(tr, e)
+		g, t, err = r.open(gateCfg, c.concurrency)
+		r.gates[g] = struct{}{}
+	}
+	return
 }
 
 // OpenGateAndMaybeRegister checks whether a region exists in the requested timerange, and creates a new one if there does

@@ -438,128 +438,52 @@ var _ = Describe("Control", func() {
 			})
 		})
 	})
-
-	Context("Stealth", func() {
-		It("Should let stealth gate take control when it is the only one", func() {
+	Context("OpenAbsoluteGateIfUncontrolled", func() {
+		It("Should take control when there are no other gates in the region", func() {
 			c := controller.New[testEntity](control.Exclusive)
-			stealthGate, t, createdRegion := MustSucceed3(c.OpenGateAndMaybeRegister(controller.GateConfig{
-				TimeRange: telem.TimeRangeMax,
-				Authority: 0,
-				Subject:   control.Subject{Key: "stealthGate"},
-				Stealth:   true,
-			}, createEntityAndNoError))
+			Expect(c.Register(telem.TimeRangeMax, testEntity{})).To(Succeed())
+			By("Getting an absolute gate on an uncontrolled region")
+			g, t := MustSucceed2(c.OpenAbsoluteGateIfUncontrolled(telem.TimeRangeMax, control.Subject{Key: "g"}, createEntityAndNoError))
 			Expect(t.Occurred()).To(BeTrue())
-			Expect(createdRegion).To(BeTrue())
-			_, authorized := stealthGate.Authorize()
+			_, authorized := g.Authorize()
 			Expect(authorized).To(BeTrue())
-		})
-		It("Should be in stealth until all other writers are released", func() {
-			c := controller.New[testEntity](control.Exclusive)
-			By("Making a basic gate")
+
+			By("Creating another gate on that region")
 			g1, t, createdRegion := MustSucceed3(c.OpenGateAndMaybeRegister(controller.GateConfig{
-				TimeRange: telem.TimeRangeMax,
-				Authority: 0,
-				Subject:   control.Subject{Key: "g1"},
-				Stealth:   false,
-			}, createEntityAndNoError))
-			Expect(t.Occurred()).To(BeTrue())
-			Expect(createdRegion).To(BeTrue())
-			_, authorized := g1.Authorize()
-			Expect(authorized).To(BeTrue())
-
-			By("Making a stealth gate")
-			stealthGate, t, createdRegion := MustSucceed3(c.OpenGateAndMaybeRegister(controller.GateConfig{
-				TimeRange: telem.TimeRangeMax,
-				Authority: 0,
-				Subject:   control.Subject{Key: "stealthGate"},
-				Stealth:   true,
-			}, createEntityAndNoError))
-			Expect(t.Occurred()).To(BeFalse())
-			Expect(createdRegion).To(BeFalse())
-			_, authorized = stealthGate.Authorize()
-			Expect(authorized).To(BeFalse())
-			_, authorized = g1.Authorize()
-			Expect(authorized).To(BeTrue())
-
-			By("Releasing the basic gate")
-			_, t = g1.Release()
-			Expect(t.Occurred()).To(BeTrue())
-
-			By("Now, stealth gate should come out of stealth")
-			_, authorized = stealthGate.Authorize()
-			Expect(authorized).To(BeTrue())
-
-			By("This stealth gate should have absolute authority")
-			g2, t, createdRegion := MustSucceed3(c.OpenGateAndMaybeRegister(controller.GateConfig{
 				TimeRange: telem.TimeRangeMax,
 				Authority: control.Absolute,
-				Subject:   control.Subject{Key: "g2"},
-				Stealth:   false,
+				Subject:   control.Subject{Key: "g1"},
 			}, createEntityAndNoError))
-			Expect(t.Occurred()).To(BeFalse())
 			Expect(createdRegion).To(BeFalse())
-			_, authorized = g2.Authorize()
+			Expect(t.Occurred()).To(BeFalse())
+			_, authorized = g1.Authorize()
 			Expect(authorized).To(BeFalse())
-			_, authorized = stealthGate.Authorize()
-			Expect(authorized).To(BeTrue())
-
-			By("Releasing the stealth gate")
-			_, t = stealthGate.Release()
-			Expect(t.Occurred()).To(BeTrue())
-			_, authorized = g2.Authorize()
+			_, authorized = g.Authorize()
 			Expect(authorized).To(BeTrue())
 		})
-		It("Should not take control when there is another gate of authority 0", func() {
+
+		It("Should fail when there is another gate in the region", func() {
 			c := controller.New[testEntity](control.Exclusive)
-			By("Making a basic gate")
 			g1, t, createdRegion := MustSucceed3(c.OpenGateAndMaybeRegister(controller.GateConfig{
-				TimeRange: telem.TimeRangeMax,
+				TimeRange: telem.TimeRange{
+					Start: 10 * telem.SecondTS,
+					End:   100 * telem.SecondTS,
+				},
 				Authority: 0,
 				Subject:   control.Subject{Key: "g1"},
-				Stealth:   false,
 			}, createEntityAndNoError))
-			Expect(t.Occurred()).To(BeTrue())
 			Expect(createdRegion).To(BeTrue())
+			Expect(t.Occurred()).To(BeTrue())
 			_, authorized := g1.Authorize()
 			Expect(authorized).To(BeTrue())
 
-			By("Making a stealth gate")
-			stealthGate, t, createdRegion := MustSucceed3(c.OpenGateAndMaybeRegister(controller.GateConfig{
-				TimeRange: telem.TimeRangeMax,
-				Authority: 0,
-				Subject:   control.Subject{Key: "stealthGate"},
-				Stealth:   true,
-			}, createEntityAndNoError))
+			_, t, err := c.OpenAbsoluteGateIfUncontrolled(telem.TimeRange{
+				Start: 99 * telem.SecondTS,
+				End:   110 * telem.SecondTS,
+			}, control.Subject{Key: "g2"}, createEntityAndNoError)
 			Expect(t.Occurred()).To(BeFalse())
-			Expect(createdRegion).To(BeFalse())
-			_, authorized = stealthGate.Authorize()
-			Expect(authorized).To(BeFalse())
-			_, authorized = g1.Authorize()
-			Expect(authorized).To(BeTrue())
-
-			g2, t, createdRegion := MustSucceed3(c.OpenGateAndMaybeRegister(controller.GateConfig{
-				TimeRange: telem.TimeRangeMax,
-				Authority: 0,
-				Subject:   control.Subject{Key: "g2"},
-				Stealth:   false,
-			}, createEntityAndNoError))
-			Expect(t.Occurred()).To(BeFalse())
-			Expect(createdRegion).To(BeFalse())
-
-			By("This stealth gate should have lower authority than the gate with 0 priority")
-			_, t = g1.Release()
-			Expect(t.Occurred()).To(BeTrue())
-
-			_, authorized = stealthGate.Authorize()
-			Expect(authorized).To(BeFalse())
-			_, authorized = g2.Authorize()
-			Expect(authorized).To(BeTrue())
-
-			By("Releasing the other gate")
-			_, t = g2.Release()
-			Expect(t.Occurred()).To(BeTrue())
-			_, authorized = stealthGate.Authorize()
-			Expect(authorized).To(BeTrue())
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("already being controlled"))
 		})
 	})
 })
