@@ -10,23 +10,37 @@ import {
 import { type Mock, describe, expect, it, vi } from "vitest";
 
 import { CacheManager } from "@/telem/client/cacheManager";
-import {
-  ChannelRetriever,
-  type RetrieveRemoteFunc,
-} from "@/telem/client/channelRetriever";
 import { type ReadRemoteFunc, Reader } from "@/telem/client/reader";
 
-const basicRemoteRetrieveFunc: RetrieveRemoteFunc = async (batch) => {
-  return batch.map(
-    (key) =>
-      new channel.Channel({
-        key,
-        name: `channel-${key}`,
-        dataType: DataType.FLOAT32,
-        isIndex: false,
-      }),
-  );
-};
+class MockRetriever implements channel.Retriever {
+  async search(term: string, rangeKey?: string): Promise<channel.Payload[]> {
+    throw new Error("Method not implemented.");
+  }
+
+  async page(
+    offset: number,
+    limit: number,
+    rangeKey?: string,
+  ): Promise<channel.Payload[]> {
+    throw new Error("Method not implemented.");
+  }
+
+  async retrieve(
+    channels: channel.Params,
+    rangeKey?: string,
+  ): Promise<channel.Payload[]> {
+    const { normalized } = channel.analyzeParams(channels);
+    return normalized.map(
+      (key) =>
+        new channel.Channel({
+          key: key as number,
+          name: `channel-${key}`,
+          dataType: DataType.FLOAT32,
+          isIndex: false,
+        }),
+    );
+  }
+}
 
 const basicRemoteReadFunc =
   (fn: Mock): ReadRemoteFunc =>
@@ -45,9 +59,10 @@ const basicRemoteReadFunc =
     );
   };
 
+const retriever = new channel.DebouncedBatchRetriever(new MockRetriever(), 10);
+
 describe("channelRetriever", () => {
   it("should correctly execute a simple read", async () => {
-    const retriever = new ChannelRetriever(basicRemoteRetrieveFunc);
     const manager = new CacheManager(retriever, alamos.NOOP);
     const remoteReadF = vi.fn();
     const reader = new Reader(manager, basicRemoteReadFunc(remoteReadF), alamos.NOOP);
@@ -64,7 +79,6 @@ describe("channelRetriever", () => {
     expect(() => manager.get(2)).not.toThrow();
   });
   it("should skip a read if the value is in the cache", async () => {
-    const retriever = new ChannelRetriever(basicRemoteRetrieveFunc);
     const manager = new CacheManager(retriever, alamos.NOOP);
     const remoteReadF = vi.fn();
     const reader = new Reader(manager, basicRemoteReadFunc(remoteReadF), alamos.NOOP);
@@ -85,7 +99,6 @@ describe("channelRetriever", () => {
     expect(res2[2].data[0].at(0)).toBe(1);
   });
   it("should correctly batch multiple read requests with exactly the same time range", async () => {
-    const retriever = new ChannelRetriever(basicRemoteRetrieveFunc);
     const manager = new CacheManager(retriever, alamos.NOOP);
     const remoteReadF = vi.fn();
     const reader = new Reader(manager, basicRemoteReadFunc(remoteReadF), alamos.NOOP);
@@ -106,7 +119,6 @@ describe("channelRetriever", () => {
     expect(res2[1][5].data).toHaveLength(1);
   });
   it("should correclty batch multiple read requests with different time ranges", async () => {
-    const retriever = new ChannelRetriever(basicRemoteRetrieveFunc);
     const manager = new CacheManager(retriever, alamos.NOOP);
     const remoteReadF = vi.fn();
     const reader = new Reader(manager, basicRemoteReadFunc(remoteReadF), alamos.NOOP);
@@ -129,7 +141,6 @@ describe("channelRetriever", () => {
     expect(res2[1][5].data).toHaveLength(1);
   });
   it("should correctly batch multiple read requests with time ranges within 5 milliseconds of each other", async () => {
-    const retriever = new ChannelRetriever(basicRemoteRetrieveFunc);
     const manager = new CacheManager(retriever, alamos.NOOP);
     const remoteReadF = vi.fn();
     const reader = new Reader(manager, basicRemoteReadFunc(remoteReadF), alamos.NOOP);

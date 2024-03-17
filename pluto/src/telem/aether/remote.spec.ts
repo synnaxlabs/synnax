@@ -196,6 +196,7 @@ describe("remote", () => {
       // Data
       response: Record<channel.Key, client.ReadResponse> = {
         [this.channel.key]: new client.ReadResponse(this.channel, []),
+        [this.channel.index]: new client.ReadResponse(this.indexChannel, []),
       };
 
       async retrieveChannel(key: channel.Key): Promise<channel.Channel> {

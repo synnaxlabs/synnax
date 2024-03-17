@@ -2,16 +2,15 @@ import { type alamos } from "@synnaxlabs/alamos";
 import { UnexpectedError, type channel } from "@synnaxlabs/client";
 
 import { cache } from "@/telem/client/cache";
-import { type ChannelRetriever } from "@/telem/client/channelRetriever";
 
 export const CACHE_BUFFER_SIZE = 10000;
 
 export class CacheManager {
   private readonly ins: alamos.Instrumentation;
   private readonly cache = new Map<channel.Key, cache.Cache>();
-  private readonly channelRetriever: ChannelRetriever;
+  private readonly channelRetriever: channel.Retriever;
 
-  constructor(ret: ChannelRetriever, ins: alamos.Instrumentation) {
+  constructor(ret: channel.Retriever, ins: alamos.Instrumentation) {
     this.ins = ins;
     this.channelRetriever = ret;
   }

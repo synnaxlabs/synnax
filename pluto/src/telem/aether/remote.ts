@@ -119,7 +119,7 @@ const fetchChannelKeyAndDataTYpe = async (
   fetchFromIndex: boolean,
 ): Promise<{ key: channel.Key; dataType: DataType }> => {
   const c = await client.retrieveChannel(channel);
-  if (!fetchFromIndex) return { key: channel, dataType: c.dataType };
+  if (!fetchFromIndex || c.isIndex) return { key: channel, dataType: c.dataType };
   return { key: c.index, dataType: DataType.TIMESTAMP };
 };
 
