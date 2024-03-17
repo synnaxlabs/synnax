@@ -113,7 +113,7 @@ export class StreamChannelValue
   }
 }
 
-const fetchChannelKeyAndDataTYpe = async (
+const fetchChannelProperties = async (
   client: client.ChannelClient,
   channel: channel.Key,
   fetchFromIndex: boolean,
@@ -157,7 +157,7 @@ export class ChannelData
     // If either of these conditions is true, leave the telem invalid
     // and return an empty array.
     if (timeRange.isZero || channel === 0) return [bounds.ZERO, []];
-    const chan = await fetchChannelKeyAndDataTYpe(this.client, channel, indexOfChannel);
+    const chan = await fetchChannelProperties(this.client, channel, indexOfChannel);
     if (!this.valid) await this.readFixed(chan.key);
     let b = bounds.max(this.data.map((d) => d.bounds));
     if (chan.dataType.equals(DataType.TIMESTAMP))
@@ -206,11 +206,7 @@ export class StreamChannelData
     const { channel, useIndexOfChannel, timeSpan } = this.props;
     if (channel === 0) return [bounds.ZERO, []];
     const now = TimeStamp.now();
-    const ch = await fetchChannelKeyAndDataTYpe(
-      this.client,
-      channel,
-      useIndexOfChannel,
-    );
+    const ch = await fetchChannelProperties(this.client, channel, useIndexOfChannel);
     if (!this.valid) await this.read(ch.key);
     let b = bounds.max(
       this.data

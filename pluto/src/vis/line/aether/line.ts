@@ -198,17 +198,11 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     i.requestRender(render.REASON_LAYOUT);
   }
 
-  async prefetch(): Promise<void> {
-    await Promise.all([this.internal.xTelem.value(), this.internal.yTelem.value()]);
-  }
-
   async xBounds(): Promise<bounds.Bounds> {
-    await this.prefetch();
     return (await this.internal.xTelem.value())[0];
   }
 
   async yBounds(): Promise<bounds.Bounds> {
-    await this.prefetch();
     return (await this.internal.yTelem.value())[0];
   }
 
@@ -269,7 +263,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
       downsample,
       scale: scale.xyScaleToTransform(dataToDecimalScale),
       props: props.region,
-      ops: digests(ops),
+      ops: () => digests(ops),
     });
     const clearProg = prog.setAsActive();
     ops.forEach((op) => {
