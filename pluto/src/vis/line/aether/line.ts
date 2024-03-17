@@ -198,11 +198,17 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     i.requestRender(render.REASON_LAYOUT);
   }
 
+  async prefetch(): Promise<void> {
+    await Promise.all([this.internal.xTelem.value(), this.internal.yTelem.value()]);
+  }
+
   async xBounds(): Promise<bounds.Bounds> {
+    await this.prefetch();
     return (await this.internal.xTelem.value())[0];
   }
 
   async yBounds(): Promise<bounds.Bounds> {
+    await this.prefetch();
     return (await this.internal.yTelem.value())[0];
   }
 
@@ -254,9 +260,8 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     const { downsample } = this.state;
     const { xTelem, yTelem, prog } = this.internal;
     const { dataToDecimalScale } = props;
-    const [, xData] = await xTelem.value();
+    const [[, xData], [, yData]] = await Promise.all([xTelem.value(), yTelem.value()]);
     xData.forEach((x) => x.updateGLBuffer(prog.ctx.gl));
-    const [, yData] = await yTelem.value();
     yData.forEach((y) => y.updateGLBuffer(prog.ctx.gl));
     const ops = buildDrawOperations(xData, yData, downsample);
     this.internal.instrumentation.L.debug("render", {

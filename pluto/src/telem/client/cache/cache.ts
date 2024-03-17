@@ -48,4 +48,9 @@ export class Cache {
   async dirtyReadForStaticWrite(tr: TimeRange): Promise<DirtyReadForWriteResult> {
     return await this.static.dirtyReadForWrite(tr);
   }
+
+  close(): void {
+    this.dynamic.close();
+    this.static.close();
+  }
 }

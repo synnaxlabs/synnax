@@ -1,7 +1,7 @@
 {
   "name": "@synnaxlabs/client",
   "private": false,
-  "version": "0.15.2",
+  "version": "0.15.3",
   "type": "module",
   "description": "The Client Library for Synnax",
   "repository": "https://github.com/synnaxlabs/synnax/tree/main/client/ts",
@@ -26,6 +26,7 @@
   "dependencies": {
     "@synnaxlabs/freighter": "workspace:*",
     "@synnaxlabs/x": "workspace:*",
+    "async-mutex": "^0.4.0",
     "zod": "3.22.4"
   },
   "devDependencies": {

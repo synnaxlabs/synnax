@@ -64,7 +64,7 @@ describe("remote", () => {
         return this.streamDestructorF;
       }
 
-      close(): void {}
+      async close(): Promise<void> {}
     }
 
     it("should return a zero value when no channel has been set", async () => {
@@ -365,7 +365,7 @@ describe("remote", () => {
         return this.streamDestructorF;
       }
 
-      close(): void {}
+      async close(): Promise<void> {}
     }
 
     it("should return a zero value when no channel has been set", async () => {
