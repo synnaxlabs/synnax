@@ -28,9 +28,10 @@ import {
   payload,
   type NewPayload,
 } from "@/channel/payload";
-import { analyzeParams, type Retriever } from "@/channel/retriever";
+import { analyzeParams, CacheRetriever, ClusterRetriever, DebouncedBatchRetriever, type Retriever } from "@/channel/retriever";
 import { QueryError } from "@/errors";
 import { type framer } from "@/framer";
+import { UnaryClient } from "@synnaxlabs/freighter";
 
 /**
  * Represents a Channel in a Synnax database. It should not be instantiated
@@ -120,10 +121,17 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
   private readonly frameClient: framer.Client;
   private readonly retriever: Retriever;
   private readonly creator: Creator;
+  private readonly client: UnaryClient;
 
-  constructor(segmentClient: framer.Client, retriever: Retriever, creator: Creator) {
+  constructor(
+    segmentClient: framer.Client, 
+    retriever: Retriever,
+    client: UnaryClient,
+    creator: Creator
+    ) {
     this.frameClient = segmentClient;
     this.retriever = retriever;
+    this.client = client;
     this.creator = creator;
   }
 
@@ -180,6 +188,10 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
 
   async page(offset: number, limit: number, rangeKey?: string): Promise<Channel[]> {
     return this.sugar(await this.retriever.page(offset, limit, rangeKey));
+  }
+
+  createDebouncedBatchRetriever(deb:number = 10): Retriever {
+    return new CacheRetriever(new DebouncedBatchRetriever(new ClusterRetriever(this.client),deb))
   }
 
   private sugar(payloads: Payload[]): Channel[] {

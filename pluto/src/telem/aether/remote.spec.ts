@@ -64,7 +64,7 @@ describe("remote", () => {
         return this.streamDestructorF;
       }
 
-      close(): void {}
+      async close(): Promise<void> {}
     }
 
     it("should return a zero value when no channel has been set", async () => {
@@ -196,6 +196,7 @@ describe("remote", () => {
       // Data
       response: Record<channel.Key, client.ReadResponse> = {
         [this.channel.key]: new client.ReadResponse(this.channel, []),
+        [this.channel.index]: new client.ReadResponse(this.indexChannel, []),
       };
 
       async retrieveChannel(key: channel.Key): Promise<channel.Channel> {
@@ -365,7 +366,7 @@ describe("remote", () => {
         return this.streamDestructorF;
       }
 
-      close(): void {}
+      async close(): Promise<void> {}
     }
 
     it("should return a zero value when no channel has been set", async () => {

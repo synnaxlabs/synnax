@@ -41,6 +41,7 @@ export class Provider extends aether.Composite<typeof stateZ, ContextValue> {
         this.internal.synnax?.close();
         this.internal.synnax = null;
       }
+      console.log("SET");
       set(this.ctx, this.internal);
       return;
     }
@@ -57,6 +58,7 @@ export class Provider extends aether.Composite<typeof stateZ, ContextValue> {
     this.internal.synnax.connectivity.onChange((state) =>
       this.setState((p) => ({ ...p, state })),
     );
+    console.log("SET");
     set(this.ctx, this.internal);
   }
 }

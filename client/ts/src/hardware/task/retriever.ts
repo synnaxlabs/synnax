@@ -21,7 +21,7 @@ const retrieveReqZ = z.object({
 });
 
 const rerieveResS = z.object({
-  tasks: taskZ.array(),
+  tasks: z.union([taskZ.array(), z.null().transform(() => [])]),
 });
 
 export type RetrieveRequest = z.infer<typeof retrieveReqZ>;

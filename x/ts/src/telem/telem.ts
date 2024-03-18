@@ -427,6 +427,22 @@ export class TimeSpan extends Number implements Stringer {
     else super(value);
   }
 
+  lessThan(other: CrudeTimeSpan): boolean {
+    return this.valueOf() < new TimeSpan(other).valueOf();
+  }
+
+  greaterThan(other: CrudeTimeSpan): boolean {
+    return this.valueOf() > new TimeSpan(other).valueOf();
+  }
+
+  lessThanOrEqual(other: CrudeTimeSpan): boolean {
+    return this.valueOf() <= new TimeSpan(other).valueOf();
+  }
+
+  greaterThanOrEqual(other: CrudeTimeSpan): boolean {
+    return this.valueOf() >= new TimeSpan(other).valueOf();
+  }
+
   remainder(divisor: TimeSpan): TimeSpan {
     return remainder(this, divisor);
   }
