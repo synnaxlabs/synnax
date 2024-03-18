@@ -1,60 +1,74 @@
-// Copyright 2023 Synnax Labs, Inc.
-//
-// Use of this software is governed by the Business Source License included in the file
-// licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with the Business Source
-// License, use of this software will be governed by the Apache License, Version 2.0,
-// included in the file licenses/APL.txt.
-
 import { type alamos } from "@synnaxlabs/alamos";
-import { type channel, type TimeRange } from "@synnaxlabs/client";
-import { type Series } from "@synnaxlabs/x";
+import { TimeSpan, UnexpectedError, type channel } from "@synnaxlabs/client";
+import { type Required } from "@synnaxlabs/x";
 
-import { Dynamic } from "@/telem/client/cache/dynamic";
-import {
-  type DirtyReadResult,
-  Static,
-  type DirtyReadForWriteResult,
-} from "@/telem/client/cache/static";
+import { Unary } from "@/telem/client/cache/unary";
+
+export const CACHE_BUFFER_SIZE = 10000;
+
+/** Props for instantiating an @see Cache */
+export interface CacheProps {
+  /** For logging purposes */
+  instrumentation: alamos.Instrumentation;
+  /** Used to populate new cache entries with relevant info about the channel */
+  channelRetriever: channel.Retriever;
+  /**
+   * Sets the size of the buffer in the dynamic cache
+   * TODO: At some point this value should be calculated dynamically using heuristics
+   * @default 10000
+   */
+  dynamicBufferSize?: number;
+  /**
+   * Sets the interval at which the cache will garbage collect, removing data that
+   * currently in use by the rest of hte program.
+   * @default TimeSpan.seconds(30)
+   */
+  gcInterval?: TimeSpan;
+}
 
 export class Cache {
-  readonly channel: channel.Payload;
-  readonly static: Static;
-  readonly dynamic: Dynamic;
+  private readonly props: Required<CacheProps>;
+  private readonly cache = new Map<channel.Key, Unary>();
+  private readonly gcInterval: ReturnType<typeof setInterval>;
 
-  constructor(
-    dynamicCap: number,
-    channel: channel.Payload,
-    ins: alamos.Instrumentation,
-  ) {
-    this.static = new Static(ins);
-    this.dynamic = new Dynamic(dynamicCap, channel.dataType);
-    this.channel = channel;
+  constructor(props: CacheProps) {
+    this.props = {
+      dynamicBufferSize: CACHE_BUFFER_SIZE,
+      gcInterval: TimeSpan.seconds(30),
+      ...props,
+    };
+    this.gcInterval = setInterval(
+      () => this.garbageCollect(),
+      this.props.gcInterval.milliseconds,
+    );
   }
 
-  writeDynamic(series: Series[]): Series[] {
-    const { flushed, allocated } = this.dynamic.write(series);
-    // Buffers that have been flushed out of the dynamic cache are written to the
-    // static cache.
-    if (flushed.length > 0) this.static.write(flushed);
-    return allocated;
+  async populateMissing(keys: channel.Keys): Promise<void> {
+    const { instrumentation: ins, channelRetriever, dynamicBufferSize } = this.props;
+    const toFetch: channel.Keys = [];
+    for (const key of keys) if (!this.cache.has(key)) toFetch.push(key);
+    if (toFetch.length === 0) return;
+    const channels = await channelRetriever.retrieve(toFetch);
+    for (const c of channels) {
+      const unaryIns = ins.child(`cache-${c.name}-${c.key}`);
+      const unary = new Unary(dynamicBufferSize, c, unaryIns);
+      if (!this.cache.has(c.key)) this.cache.set(c.key, unary);
+    }
   }
 
-  writeStatic(series: Series[]): void {
-    this.static.write(series);
+  get(key: channel.Key): Unary {
+    const c = this.cache.get(key);
+    if (c != null) return c;
+    throw new UnexpectedError(`cache entry for ${key} not found`);
   }
 
-  dirtyRead(tr: TimeRange): DirtyReadResult {
-    return this.static.dirtyRead(tr);
-  }
-
-  async dirtyReadForStaticWrite(tr: TimeRange): Promise<DirtyReadForWriteResult> {
-    return await this.static.dirtyReadForWrite(tr);
+  private garbageCollect(): void {
+    this.cache.forEach((c) => c.garbageCollect());
   }
 
   close(): void {
-    this.dynamic.close();
-    this.static.close();
+    clearInterval(this.gcInterval);
+    this.cache.forEach((c) => c.close());
+    this.cache.clear();
   }
 }

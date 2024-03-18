@@ -3,7 +3,7 @@ import { DataType, UnexpectedError, channel } from "@synnaxlabs/client";
 import { toArray } from "@synnaxlabs/x";
 import { describe, it, vi, expect } from "vitest";
 
-import { CacheManager } from "@/telem/client/cacheManager";
+import { Cache } from "@/telem/client/cache/cache";
 
 class MockRetriever implements channel.Retriever {
   func: (channels: channel.Params, rangeKey?: string) => Promise<channel.Payload[]>;
@@ -51,7 +51,7 @@ describe("cacheManager", () => {
         );
       });
       const retriever = new channel.DebouncedBatchRetriever(ret, 10);
-      const manager = new CacheManager(retriever, alamos.NOOP);
+      const manager = new Cache(retriever, alamos.NOOP);
       expect(() => manager.get(1)).toThrow(UnexpectedError);
       await manager.populateMissing([1, 2]);
       expect(manager.get(1)).toBeDefined();
@@ -73,7 +73,7 @@ describe("cacheManager", () => {
       });
 
       const retriever = new channel.DebouncedBatchRetriever(ret, 10);
-      const manager = new CacheManager(retriever, alamos.NOOP);
+      const manager = new Cache(retriever, alamos.NOOP);
       await manager.populateMissing([1, 2]);
       const existing = manager.get(1);
       await manager.populateMissing([1, 2]);

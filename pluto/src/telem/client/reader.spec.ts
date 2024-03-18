@@ -9,7 +9,7 @@ import {
 } from "@synnaxlabs/client";
 import { type Mock, describe, expect, it, vi } from "vitest";
 
-import { CacheManager } from "@/telem/client/cacheManager";
+import { Cache } from "@/telem/client/cache/cache";
 import { type ReadRemoteFunc, Reader } from "@/telem/client/reader";
 
 class MockRetriever implements channel.Retriever {
@@ -63,7 +63,7 @@ const retriever = new channel.DebouncedBatchRetriever(new MockRetriever(), 10);
 
 describe("channelRetriever", () => {
   it("should correctly execute a simple read", async () => {
-    const manager = new CacheManager(retriever, alamos.NOOP);
+    const manager = new Cache(retriever, alamos.NOOP);
     const remoteReadF = vi.fn();
     const reader = new Reader(manager, basicRemoteReadFunc(remoteReadF), alamos.NOOP);
     const tr = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(3));
@@ -79,7 +79,7 @@ describe("channelRetriever", () => {
     expect(() => manager.get(2)).not.toThrow();
   });
   it("should skip a read if the value is in the cache", async () => {
-    const manager = new CacheManager(retriever, alamos.NOOP);
+    const manager = new Cache(retriever, alamos.NOOP);
     const remoteReadF = vi.fn();
     const reader = new Reader(manager, basicRemoteReadFunc(remoteReadF), alamos.NOOP);
     const tr = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(3));
@@ -99,7 +99,7 @@ describe("channelRetriever", () => {
     expect(res2[2].data[0].at(0)).toBe(1);
   });
   it("should correctly batch multiple read requests with exactly the same time range", async () => {
-    const manager = new CacheManager(retriever, alamos.NOOP);
+    const manager = new Cache(retriever, alamos.NOOP);
     const remoteReadF = vi.fn();
     const reader = new Reader(manager, basicRemoteReadFunc(remoteReadF), alamos.NOOP);
     const tr = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(3));
@@ -119,7 +119,7 @@ describe("channelRetriever", () => {
     expect(res2[1][5].data).toHaveLength(1);
   });
   it("should correclty batch multiple read requests with different time ranges", async () => {
-    const manager = new CacheManager(retriever, alamos.NOOP);
+    const manager = new Cache(retriever, alamos.NOOP);
     const remoteReadF = vi.fn();
     const reader = new Reader(manager, basicRemoteReadFunc(remoteReadF), alamos.NOOP);
     const tr1 = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(3));
@@ -141,7 +141,7 @@ describe("channelRetriever", () => {
     expect(res2[1][5].data).toHaveLength(1);
   });
   it("should correctly batch multiple read requests with time ranges within 5 milliseconds of each other", async () => {
-    const manager = new CacheManager(retriever, alamos.NOOP);
+    const manager = new Cache(retriever, alamos.NOOP);
     const remoteReadF = vi.fn();
     const reader = new Reader(manager, basicRemoteReadFunc(remoteReadF), alamos.NOOP);
     const tr1 = new TimeRange(TimeSpan.milliseconds(999), TimeSpan.seconds(1));

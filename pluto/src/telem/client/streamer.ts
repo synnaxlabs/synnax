@@ -3,7 +3,7 @@ import { type framer, type channel, type Synnax } from "@synnaxlabs/client";
 import { compare, type AsyncDestructor } from "@synnaxlabs/x";
 import { Mutex } from "async-mutex";
 
-import { type CacheManager } from "@/telem/client/cacheManager";
+import { type Cache } from "@/telem/client/cache/cache";
 import { ReadResponse } from "@/telem/client/types";
 
 export type StreamHandler = (data: Record<channel.Key, ReadResponse>) => void;
@@ -18,11 +18,11 @@ export class Streamer {
   private readonly ins: alamos.Instrumentation;
   private readonly mu: Mutex = new Mutex();
   private readonly listeners = new Map<StreamHandler, ListenerEntry>();
-  private readonly cache: CacheManager;
+  private readonly cache: Cache;
   private streamerRunLoop: Promise<void> | null = null;
   private streamer: framer.Streamer | null = null;
 
-  constructor(cache: CacheManager, core: Synnax, ins: alamos.Instrumentation) {
+  constructor(cache: Cache, core: Synnax, ins: alamos.Instrumentation) {
     this.core = core;
     this.ins = ins;
     this.cache = cache;
@@ -37,10 +37,8 @@ export class Streamer {
       const dynamicBuffs: Record<channel.Key, ReadResponse> = {};
       for (const key of keys) {
         const c = this.cache.get(key);
-        dynamicBuffs[key] = new ReadResponse(
-          c.channel,
-          c.dynamic.buffer != null ? [c.dynamic.buffer] : [],
-        );
+        const bufs = c.leadingBuffer != null ? [c.leadingBuffer] : [];
+        dynamicBuffs[key] = new ReadResponse(c.channel, bufs);
       }
       handler(dynamicBuffs);
       await this.updateStreamer();

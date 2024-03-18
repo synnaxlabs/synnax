@@ -8,8 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { alamos } from "@synnaxlabs/alamos";
-import { TimeRange, type Series, type Destructor, bounds } from "@synnaxlabs/x";
-import { Mutex } from "async-mutex";
+import { TimeRange, type Series, bounds, TimeStamp, TimeSpan } from "@synnaxlabs/x";
 
 import { convertSeriesFloat32 } from "@/telem/aether/convertSeries";
 
@@ -18,15 +17,13 @@ export interface DirtyReadResult {
   gaps: TimeRange[];
 }
 
-export interface DirtyReadForWriteResult {
-  series: Series[];
-  gaps: TimeRange[];
-  done: Destructor;
+interface CacheEntry {
+  data: Series;
+  addedAt: TimeStamp;
 }
 
 export class Static {
-  private readonly mu = new Mutex();
-  private data: Series[] = [];
+  private data: CacheEntry[] = [];
   private readonly ins: alamos.Instrumentation;
 
   constructor(ins: alamos.Instrumentation = alamos.NOOP) {
@@ -34,6 +31,7 @@ export class Static {
   }
 
   write(series: Series[]): void {
+    if (series.length === 0) return;
     series.forEach((s) => this.writeOne(convertSeriesFloat32(s)));
     this.checkIntegrity(series);
   }
@@ -41,13 +39,13 @@ export class Static {
   private writeOne(series: Series): void {
     if (series.length === 0) return;
     const insertionPlan = bounds.buildInsertionPlan(
-      this.data.map((s) => s.alignmentBounds),
+      this.data.map((s) => s.data.alignmentBounds),
       series.alignmentBounds,
     );
     if (insertionPlan === null) {
       this.ins.L.debug("Found no viable insertion plan", {
         inserting: series.digest,
-        cacheContents: this.data.map((s) => s.digest),
+        cacheContents: this.data.map((s) => s.data.digest),
       });
       return;
     }
@@ -55,11 +53,14 @@ export class Static {
     series = series.slice(removeBefore, series.data.length - removeAfter);
     // This means we executed a redundant read.
     if (series.length === 0) return;
-    this.data.splice(insertInto, deleteInBetween, series);
+    this.data.splice(insertInto, deleteInBetween, {
+      data: series,
+      addedAt: TimeStamp.now(),
+    });
   }
 
   private checkIntegrity(write: Series[]): void {
-    const allBounds = this.data.map((s) => s.alignmentBounds);
+    const allBounds = this.data.map((s) => s.data.alignmentBounds);
     const invalid = allBounds.some((b, i) => {
       return allBounds.some((b2, j) => {
         if (i === j) return false;
@@ -68,16 +69,18 @@ export class Static {
       });
     });
     if (invalid) {
-      this.ins.L.debug("Cache is in an invalid state - bounds overlap!", {
+      this.ins.L.debug("Cache is in an invalid state - bounds overlap!", () => ({
         write: write.map((s) => s.digest),
-        cacheContents: this.data.map((s) => s.digest),
-      });
+        cacheContents: this.data.map((s) => s.data.digest),
+      }));
       throw new Error("Invalid state");
     }
   }
 
   dirtyRead(tr: TimeRange): DirtyReadResult {
-    const series = this.data.filter((s) => s.timeRange.overlapsWith(tr));
+    const series = this.data
+      .filter(({ data }) => data.timeRange.overlapsWith(tr))
+      .map(({ data }) => data);
     if (series.length === 0) return { series: [], gaps: [tr] };
     const gaps = series
       .map((s, i) => {
@@ -92,9 +95,12 @@ export class Static {
     return { series, gaps };
   }
 
-  async dirtyReadForWrite(tr: TimeRange): Promise<DirtyReadForWriteResult> {
-    const done = await this.mu.acquire();
-    return { ...this.dirtyRead(tr), done };
+  garbageCollect(): void {
+    this.data = this.data.filter(
+      (s) =>
+        s.data.refCount === 0 &&
+        TimeStamp.since(s.addedAt).greaterThan(TimeSpan.seconds(5)),
+    );
   }
 
   close(): void {
