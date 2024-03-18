@@ -97,8 +97,6 @@ func (db *DB) Close() error {
 		c.Exec(u.Close)
 	}
 	c.Exec(db.relay.close)
-	//c.Exec(func() error {
-	//	return db.shutdown.Close()
-	//})
+	c.Exec(db.shutdown.Close)
 	return nil
 }

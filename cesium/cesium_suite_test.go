@@ -24,12 +24,7 @@ func openMemDB() *cesium.DB {
 	return MustSucceed(cesium.Open(
 		"./testdata",
 		cesium.MemBacked(),
-		//	cesium.WithGC(&cesium.GCConfig{
-		//		ReadChunkSize: uint32(100 * telem.Megabyte),
-		//		MaxGoroutine:  10,
-		//		GcTryInterval: time.Duration(5000 * telem.Millisecond)}),
-	),
-	)
+	))
 }
 
 func TestCesium(t *testing.T) {

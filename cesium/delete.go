@@ -50,12 +50,14 @@ func (db *DB) DeleteChannel(ch ChannelKey) error {
 				}
 				otherDB := db.unaryDBs[otherDBKey]
 				if otherDB.Channel.Index == udb.Config.Channel.Key {
+					db.mu.Unlock()
 					return errors.New("[cesium] - could not delete index channel with other channels depending on it")
 				}
 			}
 		}
 
 		if err := udb.TryClose(); err != nil {
+			db.mu.Unlock()
 			return err
 		}
 		delete(db.unaryDBs, ch)
@@ -65,9 +67,11 @@ func (db *DB) DeleteChannel(ch ChannelKey) error {
 	vdb, vok := db.virtualDBs[ch]
 	if vok {
 		if db.digests.key == ch {
+			db.mu.Unlock()
 			return errors.New("[cesium] - cannot delete update digest channel")
 		}
 		if err := vdb.TryClose(); err != nil {
+			db.mu.Unlock()
 			return err
 		}
 		delete(db.virtualDBs, ch)

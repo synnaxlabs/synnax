@@ -49,7 +49,7 @@ func Open(dirname string, opts ...Option) (*DB, error) {
 		}
 	}
 
-	//_db.startGC(o)
+	_db.startGC(o)
 
 	return _db, nil
 }
