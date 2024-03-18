@@ -159,7 +159,7 @@ export class Core implements Client {
   /** Implements Client. */
   async close(): Promise<void> {
     this.ins.L.info("closing client", { key: this.key });
-    this.cache.close();
     await this.streamer.close();
+    this.cache.close();
   }
 }
