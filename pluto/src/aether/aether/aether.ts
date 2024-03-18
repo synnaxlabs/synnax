@@ -284,15 +284,15 @@ export class Leaf<S extends z.ZodTypeAny, IS extends {} = {}> implements Compone
    * AetherComposite.
    */
   async internalUpdate({ variant, path, ctx, state }: Update): Promise<void> {
+    if (this.deleted) return;
     this._ctx = ctx;
     if (variant === "state") {
       this.validatePath(path);
       const state_ = prettyParse(this._schema, state, `${this.type}:${this.key}`);
       if (this._state != null) {
-        this.instrumentation.L.debug("updating state", {
-          // To prevent unneccessary diffing when instrumentation is disabled
-          diff: () => deep.difference(this.state, state),
-        });
+        this.instrumentation.L.debug("updating state", () => ({
+          diff: deep.difference(this.state, state),
+        }));
       } else {
         this.instrumentation.L.debug("setting initial state", { state });
       }

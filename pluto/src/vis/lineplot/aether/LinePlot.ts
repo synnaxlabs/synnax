@@ -125,7 +125,6 @@ export class LinePlot extends aether.Composite<
     const { instrumentation } = this.internal;
     if (this.deleted) {
       instrumentation.L.debug("deleted, skipping render", { key: this.key });
-      renderCtx.erase(this.state.container, this.state.clearOverscan, ...canvases);
       return;
     }
 

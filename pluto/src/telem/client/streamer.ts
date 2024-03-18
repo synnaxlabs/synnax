@@ -86,6 +86,7 @@ export class Streamer {
 
     // Update or create the streamer.
     if (this.streamer == null) {
+      console.log("NEW STREAMER");
       this.ins.L.info("creating new streamer", { keys: arrKeys });
       this.streamer = await this.core.telem.newStreamer(arrKeys);
       this.streamerRunLoop = this.runStreamer(this.streamer);
@@ -93,24 +94,35 @@ export class Streamer {
 
     this.ins.L.debug("updating streamer", { prev: this.streamer.keys, next: arrKeys });
 
-    await this.streamer.update(arrKeys);
+    try {
+      await this.streamer.update(arrKeys);
+    } catch (e) {
+      this.ins.L.error("failed to update streamer", { error: e });
+      throw e;
+    }
   }
 
   private async runStreamer(streamer: framer.Streamer): Promise<void> {
-    for await (const frame of streamer) {
-      const changed: ReadResponse[] = [];
-      for (const k of frame.keys) {
-        const series = frame.get(k);
-        const cache = this.cache.get(k);
-        const out = cache.writeDynamic(series);
-        changed.push(new ReadResponse(cache.channel, out));
+    try {
+      for await (const frame of streamer) {
+        const changed: ReadResponse[] = [];
+        for (const k of frame.keys) {
+          const series = frame.get(k);
+          const cache = this.cache.get(k);
+          const out = cache.writeDynamic(series);
+          changed.push(new ReadResponse(cache.channel, out));
+        }
+        this.listeners.forEach((entry, handler) => {
+          if (!entry.valid) return;
+          const notify = changed.filter((r) => entry.keys.includes(r.channel.key));
+          if (notify.length === 0) return;
+          const d = Object.fromEntries(notify.map((r) => [r.channel.key, r]));
+          handler(d);
+        });
       }
-      this.listeners.forEach((entry, handler) => {
-        const notify = changed.filter((r) => entry.keys.includes(r.channel.key));
-        if (notify.length === 0) return;
-        const d = Object.fromEntries(notify.map((r) => [r.channel.key, r]));
-        if (entry.valid) handler(d);
-      });
+    } catch (e) {
+      this.ins.L.error("streamer failed", { error: e });
+      throw e;
     }
   }
 

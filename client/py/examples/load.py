@@ -64,11 +64,12 @@ for i in range(NUM_SENSORS):
     )
     sensors.append(ch)
 
-write_to = [*[s.key for s in sensors], sensor_idx.key]
+write_to = [*[s.key for s in sensors], *[v.key for v in valve_acks], sensor_idx.key]
 
-rate = (sy.Rate.HZ * 50).period.seconds
+rate = (sy.Rate.HZ * 200).period.seconds
 
 valve_states = {v.key: False for v in valve_acks}
+data = {v.key: [np.float32(valve_states[v.key])] for v in valve_acks}
 
 i = 0
 
@@ -78,17 +79,16 @@ with client.new_streamer([a.key for a in valve_commands]) as streamer:
 
         while True:
             time.sleep(rate)
-            # if streamer.received:
-            #     f = streamer.read()
-            #     for k in f.columns:
-            #         valve_states[command_to_res[k].key] = f[k][0] > 0.5
+            if streamer.received:
+                f = streamer.read()
+                for k in f.columns:
+                    data[command_to_res[k].key] = [np.float32(f[k][0] > 0.5)]
 
-            #     # if np.random.random() > 0.9:
-            #     #     valve_states[v.key] = not valve_states[v.key]
-            #     #     data[v.key] = [np.float32(valve_states[v.key])]
-            data = pd.DataFrame({s.key: [np.float32(np.sin(i / 1000) * 25 +
-                                                    np.random.random())] for
-                                 s in sensors})
+                # if np.random.random() > 0.9:
+                #     valve_states[v.key] = not valve_states[v.key]
+                #     data[v.key] = [np.float32(valve_states[v.key])]
+            for s in sensors:
+                data[s.key] = [np.float32(np.sin(i / 1000) * 25 + np.random.random())]
             data[sensor_idx.key] = [sy.TimeStamp.now()]
             writer.write(data)
             i += 1
