@@ -24,6 +24,7 @@ import { HardwareStatus } from "@/hardware/status";
 import { Label } from "@/label";
 import { Layout } from "@/layout";
 import { LayoutMain } from "@/layouts/LayoutMain";
+import { Mosaic } from "@/layouts/mosaic";
 import { LinePlot } from "@/lineplot";
 import { Ontology } from "@/ontology";
 import { PID } from "@/pid";
@@ -39,7 +40,7 @@ import "@/index.css";
 import "@synnaxlabs/media/dist/style.css";
 import "@synnaxlabs/pluto/dist/style.css";
 
-const layoutRenderers = {
+const layoutRenderers: Record<string, Layout.Renderer> = {
   main: LayoutMain,
   connectCluster: Cluster.Connect,
   visualization: Vis.LayoutSelector,
@@ -47,7 +48,7 @@ const layoutRenderers = {
   getStarted: Layout.GetStarted,
   docs: Docs.Docs,
   vis: Vis.LayoutSelector,
-  mosaic: Layout.Mosaic,
+  mosaic: Mosaic.Window,
   createWorkspace: Workspace.Create,
   [Label.manageWindowLayout.type]: Label.Manage,
   [LinePlot.LAYOUT_TYPE]: LinePlot.LinePlot,
@@ -99,7 +100,7 @@ const MainUnderContext = (): ReactElement => {
         triggers={triggersProps}
         haul={{ useState: useHaulState }}
         alamos={{
-          level: "debug",
+          level: "info",
           include: [],
         }}
       >

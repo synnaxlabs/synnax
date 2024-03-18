@@ -106,4 +106,8 @@ export class Dynamic {
     res.allocated.push(...nextRes.allocated);
     return res;
   }
+
+  close(): void {
+    this.buffer = null;
+  }
 }

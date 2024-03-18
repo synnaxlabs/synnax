@@ -10,7 +10,6 @@
 import { useState, type ReactElement, useCallback } from "react";
 
 import { box, xy, location, type UnknownRecord, direction } from "@synnaxlabs/x";
-import { useViewport } from "reactflow";
 
 import { Aether } from "@/aether";
 import { Align } from "@/align";
@@ -22,14 +21,13 @@ import { Text } from "@/text";
 import { Theming } from "@/theming";
 import { Tooltip } from "@/tooltip";
 import { Button as CoreButton } from "@/vis/button";
+import { useInitialViewport } from "@/vis/diagram/aether/Diagram";
 import { Labeled, type LabelExtensionProps } from "@/vis/pid/Labeled";
 import { Primitives } from "@/vis/pid/primitives";
 import { Toggle } from "@/vis/toggle";
 import { Value as CoreValue } from "@/vis/value";
 
 import "@/vis/pid/Symbols.css";
-
-import { useInitialViewport } from "@/vis/diagram/aether/Diagram";
 
 export interface ControlStateProps extends Omit<Align.SpaceProps, "direction"> {
   showChip?: boolean;

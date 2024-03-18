@@ -9,6 +9,7 @@
 
 import { useCallback, type ReactElement, type MouseEventHandler } from "react";
 
+import { type workspace } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Synnax,
@@ -16,7 +17,6 @@ import {
   Button,
   Input,
   Align,
-  Menu,
   componentRenderProp,
 } from "@synnaxlabs/pluto";
 import { List } from "@synnaxlabs/pluto/list";
@@ -52,27 +52,6 @@ export const Selector = (): ReactElement => {
     },
     [active, client, d, dProps.close],
   );
-
-  const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement => {
-    const handleSelect = (key: string): void => {
-      switch (key) {
-        case "delete":
-          return;
-        case "edit":
-          place(createWindowLayout("Edit Workspace"));
-      }
-      if (key === "new") {
-        place(createWindowLayout());
-      }
-    };
-    return (
-      <Menu.ContextMenuMenu keys={keys} onChange={handleSelect}>
-        <Menu.ContextMenuItem itemKey="new">New Workspace</Menu.ContextMenuItem>
-        <Menu.ContextMenuItem itemKey="delete">Delete Workspace</Menu.ContextMenuItem>
-        <Menu.ContextMenuItem itemKey="edit">Edit Workspace</Menu.ContextMenuItem>
-      </Menu.ContextMenuMenu>
-    );
-  };
 
   return (
     <Dropdown.Dialog
@@ -134,7 +113,7 @@ export const Selector = (): ReactElement => {
 export const SelectorListItem = ({
   onSelect,
   ...props
-}: List.ItemProps): ReactElement => {
+}: List.ItemProps<string, workspace.Workspace>): ReactElement => {
   const { entry } = props;
   const handleSelect: MouseEventHandler = (e): void => {
     e.stopPropagation();

@@ -7,12 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type PIDSymbols,
-  type Control,
-  type PID,
-  type Viewport,
-} from "@synnaxlabs/pluto";
+import { UnexpectedError } from "@synnaxlabs/client";
+import { type Control, type Diagram, type Viewport } from "@synnaxlabs/pluto";
 
 import { useMemoSelect } from "@/hooks";
 import {
@@ -63,16 +59,14 @@ export const selectSelectedElementsProps = (
 export interface NodeElementInfo {
   key: string;
   type: "node";
-  node: PID.Node;
-  variant: PIDSymbols.Variant;
+  node: Diagram.Node;
   props: NodeProps;
 }
 
 export interface EdgeElementInfo {
   key: string;
   type: "edge";
-  edge: PID.Edge;
-  props: NodeProps;
+  edge: Diagram.Edge;
 }
 
 export type ElementInfo = NodeElementInfo | EdgeElementInfo;
@@ -83,23 +77,18 @@ export const useSelectSelectedElementsProps = (layoutKey: string): ElementInfo[]
     [layoutKey],
   );
 
-export const selectElementProps = (
+export const selectNodeProps = (
   state: StoreState,
   layoutKey: string,
   key: string,
-): ElementInfo => {
+): NodeProps => {
   const pid = select(state, layoutKey);
-  const node = pid.nodes.find((node) => node.key === key);
-  return {
-    key,
-    node: node!,
-    props: pid.props[key],
-  };
+  return pid.props[key];
 };
 
-export const useSelectElementProps = (layoutKey: string, key: string): ElementInfo =>
+export const useSelectNodeProps = (layoutKey: string, key: string): NodeProps =>
   useMemoSelect(
-    (state: StoreState) => selectElementProps(state, layoutKey, key),
+    (state: StoreState) => selectNodeProps(state, layoutKey, key),
     [layoutKey, key],
   );
 
@@ -120,10 +109,10 @@ export const selectViewportMode = (state: StoreState): Viewport.Mode =>
 export const useSelectViewportMode = (): Viewport.Mode =>
   useMemoSelect(selectViewportMode, []);
 
-export const selectViewport = (state: StoreState, key: string): PID.Viewport =>
+export const selectViewport = (state: StoreState, key: string): Diagram.Viewport =>
   select(state, key).viewport;
 
-export const useSelectViewport = (key: string): PID.Viewport =>
+export const useSelectViewport = (key: string): Diagram.Viewport =>
   useMemoSelect((state: StoreState) => selectViewport(state, key), [key]);
 
 export const selectControlStatus = (

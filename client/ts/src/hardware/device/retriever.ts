@@ -11,11 +11,15 @@ import { type UnaryClient, sendRequired } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
 import { type Device, deviceKeyZ, deviceZ } from "@/hardware/device/payload";
+import { AsyncTermSearcher } from "@synnaxlabs/x";
 
 const RETRIEVE_ENDPOINT = "/hardware/device/retrieve";
 
 const retrieveDeviceReqZ = z.object({
-  keys: deviceKeyZ.array(),
+  search: z.string().optional(),
+  limit: z.number().optional(),
+  offset: z.number().optional(),
+  keys: deviceKeyZ.array().optional(),
 });
 
 const retrieveDeviceResZ = z.object({
@@ -28,6 +32,23 @@ export class Retriever {
   constructor(client: UnaryClient) {
     this.client = client;
   }
+
+  async search(term: string): Promise<Device[]> {
+    const res = await sendRequired<
+      typeof retrieveDeviceReqZ,
+      typeof retrieveDeviceResZ
+    >(this.client, RETRIEVE_ENDPOINT, { keys: [term] }, retrieveDeviceResZ);
+    return res.devices;
+  }
+
+  async page(offset: number, limit: number): Promise<Device[]> {
+    const res = await sendRequired<
+      typeof retrieveDeviceReqZ,
+      typeof retrieveDeviceResZ
+    >(this.client, RETRIEVE_ENDPOINT, { offset, limit }, retrieveDeviceResZ);
+    return res.devices;
+  }
+  
 
   async retrieve(keys: string[]): Promise<Device[]> {
     const res = await sendRequired<

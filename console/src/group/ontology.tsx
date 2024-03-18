@@ -34,7 +34,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const ungroupIcon = isDelete ? <Icon.Delete /> : <Icon.Group />;
 
   return (
-    <Menu.Menu onChange={onSelect} level="small" size="small" iconSpacing="medium">
+    <Menu.Menu onChange={onSelect} level="small" iconSpacing="medium">
       <Menu.Item itemKey="ungroup" startIcon={ungroupIcon}>
         {isDelete ? "Delete" : "Ungroup"}
       </Menu.Item>

@@ -30,7 +30,7 @@ import (
 // this entity should generate a unique address (preferably through address.Rand)
 // and use it throughout its lifecycle. To update the requested keys, the entity
 // should send a demand with variant Label, and to remove the demand, it should
-// send a demand with variant Delete.
+// send a demand with variant DeleteChannel.
 type demand = changex.Change[address.Address, Request]
 
 // tap is a tap into a relay, whether another node's distribution relay or the hosts

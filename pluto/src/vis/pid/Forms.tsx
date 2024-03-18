@@ -88,13 +88,10 @@ const OrientationControl: Form.FieldT<SymbolOrientation> = (props): ReactElement
   </Form.Field>
 );
 
-const LabelControls: Form.FieldT<LabelExtensionProps> = ({
-  path,
-  ...props
-}): ReactElement => (
-  <Align.Space direction="x" grow align="stretch">
+const LabelControls: Form.FieldT<LabelExtensionProps> = ({ path }): ReactElement => (
+  <Align.Space direction="x" align="stretch">
     <Form.Field<string> path={path + ".label"} label="Label" padHelpText={false} grow>
-      {(p) => <Input.Text {...p} />}
+      {(p) => <Input.Text selectOnFocus {...p} />}
     </Form.Field>
     <Form.Field<Text.Level>
       path={path + ".level"}
@@ -107,7 +104,7 @@ const LabelControls: Form.FieldT<LabelExtensionProps> = ({
 );
 
 const ColorControl: Form.FieldT<Color.Crude> = (props): ReactElement => (
-  <Form.Field label="Color" align="start" padHelpText={false} {...props}>
+  <Form.Field hideIfNull label="Color" align="start" padHelpText={false} {...props}>
     {({ value, onChange, ...props }) => (
       <Color.Swatch
         value={value ?? Color.ZERO.setAlpha(1).rgba255}

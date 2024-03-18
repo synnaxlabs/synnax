@@ -9,18 +9,17 @@
  * included in the file licenses/APL.txt.
  */
 
- html {
+html {
     overflow: hidden;
- }
+}
 
- body {
+body {
     overflow: hidden;
- }
+}
 
-
- #root {
+#root {
     overflow: hidden;
- }
+}
 
 .console-main {
     height: 100%;
@@ -44,6 +43,10 @@
 
 .console-main-nav-left__logo {
     width: 100%;
+}
+
+.console-main-nav-top__title {
+    cursor: default;
 }
 
 .console-background {

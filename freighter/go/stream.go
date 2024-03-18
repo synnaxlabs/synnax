@@ -36,7 +36,7 @@ type StreamServer[RQ, RS Payload] interface {
 	//
 	// Transient errors (errors that may be fatal to a request, but not to the stream)
 	// should be returned as part of the response itself. This is typically in the
-	// form of an 'Error' struct field in the response type RS.
+	// form of an 'Details' struct field in the response type RS.
 	//
 	// Fatal errors (errors that prevent the server from processing any future requests)
 	// should be returned from the handle function itself (f). If the handle function

@@ -90,29 +90,8 @@ export class StreamChannelValue
   }
 
   async read(): Promise<void> {
-    try {
-      const { channel } = this.props;
-      // Read from a little bit before now to a little bit after now to make sure we
-      // get all available data.
-      const timeRange = TimeStamp.now()
-        .sub(TimeStamp.seconds(10))
-        .spanRange(TimeSpan.seconds(20));
-      const res = await this.client.read(timeRange, [channel]);
-      // This is the right place to set valid to true, because this means the read was
-      // successful and we have a buffer to read from.
-      this.valid = true;
-      const newData = res[channel].data;
-      if (newData.length !== 0) {
-        const first = newData[newData.length - 1];
-        first.acquire();
-        this.leadingBuffer = first;
-      }
-      // Start listening for new data.
-      await this.updateStreamHandler();
-    } catch (e) {
-      // TODO: improve error handling.
-      console.error(e);
-    }
+    this.valid = true;
+    await this.updateStreamHandler();
   }
 
   private async updateStreamHandler(): Promise<void> {
@@ -134,15 +113,14 @@ export class StreamChannelValue
   }
 }
 
-const fetchChannel = async (
+const fetchChannelProperties = async (
   client: client.ChannelClient,
   channel: channel.Key,
   fetchFromIndex: boolean,
-): Promise<channel.Channel> => {
-  if (!fetchFromIndex) return await client.retrieveChannel(channel);
+): Promise<{ key: channel.Key; dataType: DataType }> => {
   const c = await client.retrieveChannel(channel);
-  if (c.isIndex) return c;
-  return await client.retrieveChannel(c.index);
+  if (!fetchFromIndex || c.isIndex) return { key: channel, dataType: c.dataType };
+  return { key: c.index, dataType: DataType.TIMESTAMP };
 };
 
 const channelDataSourcePropsZ = z.object({
@@ -179,7 +157,7 @@ export class ChannelData
     // If either of these conditions is true, leave the telem invalid
     // and return an empty array.
     if (timeRange.isZero || channel === 0) return [bounds.ZERO, []];
-    const chan = await fetchChannel(this.client, channel, indexOfChannel);
+    const chan = await fetchChannelProperties(this.client, channel, indexOfChannel);
     if (!this.valid) await this.readFixed(chan.key);
     let b = bounds.max(this.data.map((d) => d.bounds));
     if (chan.dataType.equals(DataType.TIMESTAMP))
@@ -228,7 +206,7 @@ export class StreamChannelData
     const { channel, useIndexOfChannel, timeSpan } = this.props;
     if (channel === 0) return [bounds.ZERO, []];
     const now = TimeStamp.now();
-    const ch = await fetchChannel(this.client, channel, useIndexOfChannel);
+    const ch = await fetchChannelProperties(this.client, channel, useIndexOfChannel);
     if (!this.valid) await this.read(ch.key);
     let b = bounds.max(
       this.data
@@ -248,7 +226,7 @@ export class StreamChannelData
     const res = await this.client.read(tr, [key]);
     const newData = res[key].data;
     newData.forEach((d) => d.acquire());
-    this.data.push(...res[key].data);
+    this.data.push(...newData);
     await this.updateStreamHandler(key);
     this.valid = true;
   }

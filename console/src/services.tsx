@@ -21,6 +21,19 @@ import { ONTOLOGY_SERVICE as RANGE_ONTOLOGY_SERVICE } from "@/range/ontology";
 import { User } from "@/user";
 import { Workspace } from "@/workspace";
 
+export const EMPTY_ONTOLOGY_SERVICE: Service = {
+  type: "rack",
+  icon: <></>,
+  hasChildren: true,
+  canDrop: () => false,
+  onMosaicDrop: () => {},
+  TreeContextMenu: () => <></>,
+  onSelect: () => {},
+  haulItems: () => [],
+  allowRename: () => false,
+  onRename: () => {},
+};
+
 export const SERVICES: Record<ontology.ResourceType, Service> = {
   pid: PID.ONTOLOGY_SERVICE,
   channel: CHANNEL_ONTOLOGY_SERVICE,
@@ -32,4 +45,7 @@ export const SERVICES: Record<ontology.ResourceType, Service> = {
   range: RANGE_ONTOLOGY_SERVICE,
   workspace: Workspace.ONTOLOGY_SERVICE,
   lineplot: LinePlot.ONTOLOGY_SERVICE,
+  "range-alias": EMPTY_ONTOLOGY_SERVICE,
+  label: EMPTY_ONTOLOGY_SERVICE,
+  rack: EMPTY_ONTOLOGY_SERVICE,
 };

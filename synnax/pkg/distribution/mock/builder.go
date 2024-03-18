@@ -99,7 +99,7 @@ func (b *Builder) New(ctx context.Context) distribution.Distribution {
 	// trying to find free channels. We're going to resolve this issue in #105:
 	// https://github.com/synnaxlabs/synnax/issues/105
 	if d.Cluster.HostKey().IsBootstrapper() {
-		d.Closers = append(d.Closers, lo.Must(ontologycdc.Propagate(ctx, d.Signals, d.Ontology)))
+		d.Closers = append(d.Closers, lo.Must(ontologycdc.Publish(ctx, d.Signals, d.Ontology)))
 	}
 
 	b.Nodes[core.Cluster.HostKey()] = d

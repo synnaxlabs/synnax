@@ -12,22 +12,18 @@ import {
   type PropsWithChildren,
   type ReactElement,
   type MouseEventHandler,
+  type MouseEvent,
 } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import {
-  Button,
-  Dropdown as Core,
-  Text,
-  Align,
-  List as CoreList,
-  Synnax,
-  Menu as PMenu,
-} from "@synnaxlabs/pluto";
+import { Button, Dropdown as Core, Align, Synnax } from "@synnaxlabs/pluto";
+import { List as CoreList } from "@synnaxlabs/pluto/list";
+import { Menu as PMenu } from "@synnaxlabs/pluto/menu";
+import { Text } from "@synnaxlabs/pluto/text";
 import { useDispatch } from "react-redux";
 
 import { connectWindowLayout } from "@/cluster/Connect";
-import { type RenderableCluster } from "@/cluster/core";
+import { type Cluster } from "@/cluster/core";
 import { LOCAL_KEY } from "@/cluster/local";
 import { useSelect, useSelectLocalState, useSelectMany } from "@/cluster/selectors";
 import { remove, setActive, setLocalState } from "@/cluster/slice";
@@ -54,7 +50,7 @@ export const List = (): ReactElement => {
   };
 
   const contextMenu = useCallback(
-    ({ keys: [key] }: PMenu.ContextMenuProps): ReactElement => {
+    ({ keys: [key] }: PMenu.ContextMenuMenuProps): ReactElement | null => {
       if (key == null) return null;
       const handleSelect = (menuKey: string): void => {
         if (key == null) return;
@@ -62,9 +58,9 @@ export const List = (): ReactElement => {
           case "remove":
             return handleRemove([key]);
           case "connect":
-            return handleConnect([key]);
+            return handleConnect(key);
           case "disconnect":
-            return handleConnect([]);
+            return handleConnect(null);
         }
       };
 
@@ -122,16 +118,13 @@ export const List = (): ReactElement => {
         menu={contextMenu}
         {...menuProps}
       >
-        <CoreList.List<string, RenderableCluster>
-          data={data}
-          emptyContent={<NoneConnected />}
-        >
+        <CoreList.List<string, Cluster> data={data} emptyContent={<NoneConnected />}>
           <CoreList.Selector
             value={selected}
             onChange={handleConnect}
             allowMultiple={false}
           >
-            <CoreList.Core style={{ height: "100%", width: "100%" }}>
+            <CoreList.Core<string, Cluster> style={{ height: "100%", width: "100%" }}>
               {(p) => <ListItem {...p} />}
             </CoreList.Core>
           </CoreList.Selector>
@@ -141,9 +134,7 @@ export const List = (): ReactElement => {
   );
 };
 
-const ListItem = (
-  props: CoreList.ItemProps<string, RenderableCluster>,
-): ReactElement => {
+const ListItem = (props: CoreList.ItemProps<string, Cluster>): ReactElement => {
   const dispatch = useDispatch();
   const { status, pid } = useSelectLocalState();
   const isLocal = props.entry.key === LOCAL_KEY;
@@ -190,14 +181,16 @@ const ListItem = (
       </Align.Space>
       {isLocal && (
         <Align.Space direction="y" align="end" size="small">
-          <Button.Icon
-            disabled={status === "starting" || status === "stopping"}
-            onClick={handleClick}
-            variant="outlined"
-            loading={loading}
-          >
-            {icon}
-          </Button.Icon>
+          {icon != null && (
+            <Button.Icon
+              disabled={status === "starting" || status === "stopping"}
+              onClick={handleClick}
+              variant="outlined"
+              loading={loading}
+            >
+              {icon}
+            </Button.Icon>
+          )}
           <Text.Text level="p" shade={6}>
             PID {isLocal ? pid : "N/A"}
           </Text.Text>
@@ -219,10 +212,12 @@ export const NoneConnectedBoundary = ({
 
 export const NoneConnected = (): ReactElement => {
   const placer = Layout.usePlacer();
-  const handleCluster: Text.TextProps["onClick"] = (e) => {
+
+  const handleCluster: Text.TextProps["onClick"] = (e: MouseEvent) => {
     e.stopPropagation();
     placer(connectWindowLayout);
   };
+
   return (
     <Align.Space empty style={{ height: "100%", position: "relative" }}>
       <Align.Center direction="y" style={{ height: "100%" }} size="small">
@@ -235,7 +230,7 @@ export const NoneConnected = (): ReactElement => {
   );
 };
 
-export const Dropdown = () => {
+export const Dropdown = (): ReactElement => {
   const dropProps = Core.use();
   const cluster = useSelect();
 

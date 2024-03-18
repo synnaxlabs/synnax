@@ -7,16 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useState, type ReactElement } from "react";
+import { type ReactElement } from "react";
 
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Icon } from "@synnaxlabs/media";
-import { Align, Button, Header, Input, Nav, Synnax } from "@synnaxlabs/pluto";
-import { FormProvider, useForm } from "react-hook-form";
+import { Align, Button, Form, Nav, Synnax } from "@synnaxlabs/pluto";
+import { Input } from "@synnaxlabs/pluto/input";
+import { type UnknownRecord } from "@synnaxlabs/x";
+import { useMutation } from "@tanstack/react-query";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
 
 import { Layout } from "@/layout";
+import { type SliceState } from "@/layout/slice";
 import { useSelectActiveKey } from "@/workspace/selectors";
 import { add } from "@/workspace/slice";
 
@@ -36,53 +37,43 @@ export const createWindowLayout = (
   },
 });
 
-const formSchema = z.object({ name: z.string().nonempty() });
-
-type CreateFormProps = z.infer<typeof formSchema>;
+const formSchema = z.object({
+  name: z.string().min(1, { message: "Workspace must hav a name" }),
+});
 
 export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
-  const methods = useForm({
-    defaultValues: {
+  const methods = Form.use({
+    values: {
       name: "",
     },
-    resolver: zodResolver(formSchema),
+    schema: formSchema,
   });
-  const [loading, setLoading] = useState(false);
 
   const client = Synnax.use();
   const dispatch = useDispatch();
   const active = useSelectActiveKey();
 
-  const onSubmit = async ({ name }: CreateFormProps): Promise<void> => {
-    if (client == null) return;
-    try {
-      setLoading(true);
+  const { mutate, isPending } = useMutation({
+    mutationKey: [],
+    mutationFn: async () => {
+      if (methods.validate() || client == null) return;
+      const { name } = methods.value();
       const ws = await client.workspaces.create({
         name,
-        layout: Layout.ZERO_SLICE_STATE,
+        layout: Layout.ZERO_SLICE_STATE as unknown as UnknownRecord,
       });
       dispatch(add({ workspaces: [ws] }));
-      if (active != null) dispatch(Layout.setWorkspace({ slice: ws.layout }));
+      if (active != null)
+        dispatch(Layout.setWorkspace({ slice: ws.layout as unknown as SliceState }));
       onClose();
-    } finally {
-      setLoading(false);
-    }
-  };
+    },
+  });
 
   return (
     <Align.Space style={{ height: "100%" }}>
-      <Align.Space
-        el="form"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void methods.handleSubmit(onSubmit)(e);
-        }}
-        style={{ flexGrow: 1, padding: "2rem" }}
-        id="create-workspace"
-        justify="center"
-      >
-        <FormProvider {...methods}>
-          <Input.HFItem className="console-form" name="name">
+      <Align.Space className="console-form" justify="center" grow>
+        <Form.Form {...methods}>
+          <Form.Field<string> path="name">
             {(p) => (
               <Input.Text
                 placeholder="Workspace Name"
@@ -92,16 +83,17 @@ export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
                 {...p}
               />
             )}
-          </Input.HFItem>
-        </FormProvider>
+          </Form.Field>
+        </Form.Form>
       </Align.Space>
       <Nav.Bar location="bottom" size={48}>
         <Nav.Bar.End style={{ padding: "1rem" }}>
           <Button.Button
             type="submit"
             form="create-workspace"
-            loading={loading}
-            disabled={loading}
+            loading={isPending}
+            disabled={isPending}
+            onClick={() => mutate()}
           >
             Save
           </Button.Button>

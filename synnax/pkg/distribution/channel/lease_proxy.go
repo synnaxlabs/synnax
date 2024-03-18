@@ -28,7 +28,7 @@ type leaseProxy struct {
 	group         group.Group
 }
 
-const leasedCounterSuffix = ".distribution.channel.counter.leased"
+const leasedCounterSuffix = ".distribution.channel.leasedCounter"
 const freeCounterSuffix = ".distribution.channel.counter.free"
 
 func newLeaseProxy(cfg ServiceConfig, g group.Group) (*leaseProxy, error) {
@@ -45,11 +45,11 @@ func newLeaseProxy(cfg ServiceConfig, g group.Group) (*leaseProxy, error) {
 		group:         g,
 	}
 	if cfg.HostResolver.HostKey() == core.Bootstrapper {
-		freeCounterKey := []byte(cfg.HostResolver.HostKey().String() + freeCounterSuffix)
-		c, err := kv.OpenCounter(context.TODO(), cfg.ClusterDB, freeCounterKey)
-		if err != nil {
-			return nil, err
-		}
+		//freeCounterKey := []byte(cfg.HostResolver.HostKey().String() + freeCounterSuffix)
+		//c, err := kv.OpenCounter(context.TODO(), cfg.ClusterDB, freeCounterKey)
+		//if err != nil {
+		//	return nil, err
+		//}
 		p.freeCounter = c
 	}
 	p.Transport.CreateServer().BindHandler(p.handle)

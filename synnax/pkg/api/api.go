@@ -14,8 +14,6 @@
 package api
 
 import (
-	"go/types"
-
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
@@ -40,6 +38,7 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
+	"go/types"
 )
 
 // Config is all required configuration parameters and services necessary to

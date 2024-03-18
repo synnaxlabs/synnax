@@ -9,15 +9,18 @@
  * included in the file licenses/APL.txt.
  */
 
- .pluto-symbol-primitive {
+.pluto-symbol-primitive {
     position: relative;
     display: inline-flex;
     width: fit-content;
     height: fit-content;
 
     .react-flow__handle {
-        scale: calc( 1 / var(--pluto-diagram-zoom, 1));
-        transform: translate(calc(var(--pluto-diagram-zoom, 1) * -50%), calc(var(--pluto-diagram-zoom, 1) * -50%));
+        scale: calc(1 / var(--pluto-diagram-zoom, 1));
+        transform: translate(
+            calc(var(--pluto-diagram-zoom, 1) * -50%),
+            calc(var(--pluto-diagram-zoom, 1) * -50%)
+        );
     }
 
     & svg {
@@ -86,7 +89,6 @@
         }
     }
 
-
     & .pluto-body {
         fill: rgb(var(--pluto-symbol-color));
     }
@@ -111,6 +113,7 @@
     border-width: 2px;
     display: flex;
     padding: 0;
+    flex-grow: 0;
     align-items: center;
     justify-content: center;
 

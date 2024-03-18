@@ -99,6 +99,7 @@ export const Swatch = ({
       visible={visible}
       className={CSS.BE("color-swatch", "dropdown")}
       keepMounted={false}
+      variant="floating"
     >
       {swatch}
       <Picker value={value} onChange={onChange} />

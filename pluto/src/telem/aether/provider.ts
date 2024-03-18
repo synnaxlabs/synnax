@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Instrumentation } from "@synnaxlabs/alamos";
-import { UnexpectedError } from "@synnaxlabs/client";
+import { type Synnax, UnexpectedError } from "@synnaxlabs/client";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -37,6 +37,7 @@ export class BaseProvider
   static readonly TYPE = "TelemProvider";
   static readonly stateZ = providerStateZ;
   schema = BaseProvider.stateZ;
+  prevClient: Synnax | null = null;
 
   create<T>(spec: telem.Spec): T {
     const { instrumentation: I } = this.internal;
@@ -66,11 +67,12 @@ export class BaseProvider
     const client_ = synnax.use(this.ctx);
     const I = alamos.useInstrumentation(this.ctx, "telem");
     this.internal.instrumentation = I.child("provider");
-    if (client_ != null) {
+    if (client_ != null && client_ !== this.prevClient) {
+      this.prevClient = client_;
       I.L.info("swapping client", { client: client_ });
-      this.client.swap(new client.Core(client_, this.internal.instrumentation));
-    } else {
-      this.client.swap(null);
+      await this.client.swap(new client.Core(client_, this.internal.instrumentation));
+    } else if (client_ == null) {
+      await this.client.swap(null);
     }
     telem.setProvider(this.ctx, this);
   }

@@ -26,6 +26,12 @@ data_ch = client.channels.create(
     data_type=sy.DataType.FLOAT32,
 )
 
+data_ch_2 = client.channels.create(
+    name="Data 2",
+    index=time_ch.key,
+    data_type=sy.DataType.FLOAT32,
+)
+
 N_SAMPLES = int(5000)
 start = sy.TimeStamp.now()
 stamps = np.linspace(
@@ -33,9 +39,12 @@ stamps = np.linspace(
 )
 data = np.linspace(1, 10, N_SAMPLES, dtype=np.float32)
 
+data_2 = np.linspace(5, 30, N_SAMPLES, dtype=np.float32)
+
 r = sy.TimeRange.MAX
 time_ch.write(start, stamps)
 data_ch.write(start, data)
+data_ch_2.write(start, data_2)
 
 print(
     f"""
