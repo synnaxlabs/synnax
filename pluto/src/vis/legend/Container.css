@@ -20,7 +20,7 @@
     border-radius: 1rem;
     max-height: 50%;
     overflow-y: auto;
-    overflow-x: hidden;
+    overflow-x: visible;
     width: fit-content;
     .pluto-color-swatch {
         width: 3rem;

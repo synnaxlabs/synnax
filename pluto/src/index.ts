@@ -45,8 +45,6 @@ export { Line } from "@/vis/line";
 export { Measure } from "@/vis/measure";
 export { Diagram } from "@/vis/diagram";
 export { Rule } from "@/vis/rule";
-export { Table } from "@/vis/table";
-export { Cell as TableCell } from "@/vis/table/cell";
 export { Value } from "@/vis/value";
 export { PID } from "@/vis/pid";
 export { Pluto } from "@/pluto";

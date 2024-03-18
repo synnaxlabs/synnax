@@ -84,9 +84,9 @@ import {
 } from "@/vis/pid/Symbols";
 
 export interface Spec<P extends object> {
+  key: Variant;
   name: string;
-  variant: string;
-  Form: FC<SymbolFormProps<P>>;
+  Form: FC<SymbolFormProps>;
   Symbol: FC<SymbolProps<P>>;
   defaultProps: (t: Theming.Theme) => P;
   Preview: FC<SymbolProps<P>>;
@@ -153,7 +153,7 @@ const ZERO_TOGGLE_PROPS = {
 
 const threeWayValve: Spec<ThreeWayValveProps> = {
   name: "Three Way Valve",
-  variant: "threeWayValve",
+  key: "threeWayValve",
   Form: CommonToggleForm,
   Symbol: ThreeWayValve,
   defaultProps: (t) => ({
@@ -172,7 +172,7 @@ const threeWayValve: Spec<ThreeWayValveProps> = {
 
 const valve: Spec<ValveProps> = {
   name: "Valve",
-  variant: "valve",
+  key: "valve",
   Form: CommonToggleForm,
   Symbol: Valve,
   defaultProps: (t) => ({
@@ -190,18 +190,19 @@ const valve: Spec<ValveProps> = {
 };
 
 const solenoidValve: Spec<SolenoidValveProps> = {
-  name: "Solenoid Valve",
-  variant: "solenoidValve",
+  name: "Pneumatic Valve",
+  key: "solenoidValve",
   Form: SolenoidValveForm,
   Symbol: SolenoidValve,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
     label: {
-      label: "Solenoid Valve",
+      label: "Pneumatic Valve",
       level: "p",
       orientation: "top",
     },
     orientation: "left",
+    normallyOpen: false,
     ...ZERO_TOGGLE_PROPS,
   }),
   Preview: SolenoidValvePreview,
@@ -210,7 +211,7 @@ const solenoidValve: Spec<SolenoidValveProps> = {
 
 const fourWayValve: Spec<ValveProps> = {
   name: "Four Way Valve",
-  variant: "fourWayValve",
+  key: "fourWayValve",
   Form: CommonToggleForm,
   Symbol: FourWayValve,
   defaultProps: (t) => ({
@@ -229,7 +230,7 @@ const fourWayValve: Spec<ValveProps> = {
 
 const angledValve: Spec<AngledValveProps> = {
   name: "Angled Valve",
-  variant: "angledValve",
+  key: "angledValve",
   Form: CommonToggleForm,
   Symbol: AngledValve,
   defaultProps: (t) => ({
@@ -248,7 +249,7 @@ const angledValve: Spec<AngledValveProps> = {
 
 const pump: Spec<PumpProps> = {
   name: "Pump",
-  variant: "pump",
+  key: "pump",
   Form: CommonToggleForm,
   Symbol: Pump,
   defaultProps: (t) => ({
@@ -267,7 +268,7 @@ const pump: Spec<PumpProps> = {
 
 const tank: Spec<TankProps> = {
   name: "Tank",
-  variant: "tank",
+  key: "tank",
   Form: TankForm,
   Symbol: Tank,
   defaultProps: (t) => ({
@@ -289,7 +290,7 @@ const tank: Spec<TankProps> = {
 
 const reliefValve: Spec<ReliefValveProps> = {
   name: "Relief Valve",
-  variant: "reliefValve",
+  key: "reliefValve",
   Form: CommonNonToggleForm,
   Symbol: ReliefValve,
   defaultProps: (t) => ({
@@ -307,7 +308,7 @@ const reliefValve: Spec<ReliefValveProps> = {
 
 const regulator: Spec<RegulatorProps> = {
   name: "Regulator",
-  variant: "regulator",
+  key: "regulator",
   Form: CommonNonToggleForm,
   Symbol: Regulator,
   defaultProps: (t) => ({
@@ -325,7 +326,7 @@ const regulator: Spec<RegulatorProps> = {
 
 const burstDisc: Spec<ReliefValveProps> = {
   name: "Burst Disc",
-  variant: "burstDisc",
+  key: "burstDisc",
   Form: CommonNonToggleForm,
   Symbol: BurstDisc,
   defaultProps: (t) => ({
@@ -343,7 +344,7 @@ const burstDisc: Spec<ReliefValveProps> = {
 
 const cap: Spec<ReliefValveProps> = {
   name: "Cap",
-  variant: "cap",
+  key: "cap",
   Form: CommonNonToggleForm,
   Symbol: Cap,
   defaultProps: (t) => ({
@@ -361,7 +362,7 @@ const cap: Spec<ReliefValveProps> = {
 
 const manualValve: Spec<ManualValveProps> = {
   name: "Manual Valve",
-  variant: "manualValve",
+  key: "manualValve",
   Form: CommonNonToggleForm,
   Symbol: ManualValve,
   defaultProps: (t) => ({
@@ -379,7 +380,7 @@ const manualValve: Spec<ManualValveProps> = {
 
 const filter: Spec<FilterProps> = {
   name: "Filter",
-  variant: "filter",
+  key: "filter",
   Form: CommonNonToggleForm,
   Symbol: Filter,
   defaultProps: (t) => ({
@@ -397,7 +398,7 @@ const filter: Spec<FilterProps> = {
 
 const needleValve: Spec<NeedleValveProps> = {
   name: "Needle Valve",
-  variant: "needleValve",
+  key: "needleValve",
   Form: CommonNonToggleForm,
   Symbol: NeedleValve,
   defaultProps: (t) => ({
@@ -414,7 +415,7 @@ const needleValve: Spec<NeedleValveProps> = {
 
 const checkValve: Spec<CheckValveProps> = {
   name: "Check Valve",
-  variant: "checkValve",
+  key: "checkValve",
   Form: CommonNonToggleForm,
   Symbol: CheckValve,
   defaultProps: (t) => ({
@@ -432,7 +433,7 @@ const checkValve: Spec<CheckValveProps> = {
 
 const orifice: Spec<OrificeProps> = {
   name: "Orifice",
-  variant: "orifice",
+  key: "orifice",
   Form: CommonNonToggleForm,
   Symbol: Orifice,
   defaultProps: (t) => ({
@@ -450,7 +451,7 @@ const orifice: Spec<OrificeProps> = {
 
 const angledReliefValve: Spec<ReliefValveProps> = {
   name: "Angled Relief Valve",
-  variant: "angledReliefValve",
+  key: "angledReliefValve",
   Form: CommonNonToggleForm,
   Symbol: AngledReliefValve,
   defaultProps: (t) => ({
@@ -468,12 +469,13 @@ const angledReliefValve: Spec<ReliefValveProps> = {
 
 const value: Spec<ValueProps> = {
   name: "Value",
-  variant: "value",
+  key: "value",
   Form: ValueForm,
   Symbol: Value,
   Preview: ValuePreview,
   defaultProps: (t) => ({
     color: t.colors.gray.l9.rgba255,
+    units: "psi",
     level: "h5",
     label: {
       label: "Value",
@@ -500,7 +502,7 @@ const value: Spec<ValueProps> = {
 
 const button: Spec<ButtonProps> = {
   name: "Button",
-  variant: "button",
+  key: "button",
   Symbol: Button,
   Form: ButtonForm,
   Preview: ButtonPreview,
@@ -530,7 +532,7 @@ const button: Spec<ButtonProps> = {
 
 const switch_: Spec<SwitchProps> = {
   name: "Switch",
-  variant: "switch",
+  key: "switch",
   Symbol: Switch,
   Preview: SwitchPreview,
   Form: CommonToggleForm,

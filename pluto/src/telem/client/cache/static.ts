@@ -26,7 +26,7 @@ export interface DirtyReadForWriteResult {
 
 export class Static {
   private readonly mu = new Mutex();
-  private readonly data: Series[] = [];
+  private data: Series[] = [];
   private readonly ins: alamos.Instrumentation;
 
   constructor(ins: alamos.Instrumentation = alamos.NOOP) {
@@ -95,5 +95,9 @@ export class Static {
   async dirtyReadForWrite(tr: TimeRange): Promise<DirtyReadForWriteResult> {
     const done = await this.mu.acquire();
     return { ...this.dirtyRead(tr), done };
+  }
+
+  close(): void {
+    this.data = [];
   }
 }

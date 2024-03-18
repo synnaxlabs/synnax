@@ -34,7 +34,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const ungroupIcon = isDelete ? <Icon.Delete /> : <Icon.Group />;
 
   return (
-    <Menu.Menu onChange={onSelect} level="small" size="small" iconSpacing="medium">
+    <Menu.Menu onChange={onSelect} level="small" iconSpacing="medium">
       <Menu.Item itemKey="ungroup" startIcon={ungroupIcon}>
         {isDelete ? "Delete" : "Ungroup"}
       </Menu.Item>
@@ -121,7 +121,6 @@ export const fromSelection = async ({
   const res = await client.ontology.retrieve(otgID);
   await client.ontology.moveChildren(parentID, res.id, ...resourcesToGroup);
   const newGroupNode = Ontology.toTreeNode(services, res);
-  newGroupNode.forcePosition = nodesOfMinDepth[0].position;
   let nextNodes = Tree.setNode({
     tree: state.nodes,
     destination: selection.parent.key,

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod";
+import { unknown, z } from "zod";
 
 import type * as bounds from "@/spatial/bounds";
 import type * as dimensions from "@/spatial/dimensions";
@@ -331,3 +331,25 @@ export const isBox = (value: unknown): value is Box => {
 };
 
 export const aspect = (b: Box): number => width(b) / height(b);
+
+export const translate = (b: Box, t: xy.XY): Box => {
+  const b_ = construct(b);
+  return construct(
+    xy.translate(b_.one, t),
+    xy.translate(b_.two, t),
+    undefined,
+    undefined,
+    b_.root,
+  );
+}
+
+export const truncate = (b: Box, precision: number = 0): Box => {
+  const b_ = construct(b);
+  return construct(
+    xy.truncate(b_.one, precision),
+    xy.truncate(b_.two, precision),
+    undefined,
+    undefined,
+    b_.root,
+  );
+}

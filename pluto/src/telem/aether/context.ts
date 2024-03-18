@@ -11,12 +11,11 @@ import { type Destructor, deep } from "@synnaxlabs/x";
 import { type Handler } from "@synnaxlabs/x/dist/observe/observe";
 
 import { type aether } from "@/aether/aether";
-import { type telem } from "@/telem/aether";
-
-import { type Factory } from "./factory";
-import { type Spec } from "./telem";
+import { type Factory } from "@/telem/aether/factory";
+import { type Sink, type Source, type Spec } from "@/telem/aether/telem";
 
 export interface Provider {
+  clusterKey: string;
   key: string;
   equals: (other: Provider) => boolean;
   registerFactory: (f: Factory) => void;
@@ -34,28 +33,17 @@ export const setProvider = (ctx: aether.Context, prov: Provider): void =>
 export const registerFactory = (ctx: aether.Context, f: Factory): void =>
   useProvider(ctx).registerFactory(f);
 
-export const shouldUpdate = (
-  ctx: aether.Context,
-  prevProv: Provider,
-  spec: Spec,
-  prevSpec: Spec,
-): boolean => {
-  const nextProv = useProvider(ctx);
-  if (prevProv.key !== nextProv.key) return true;
-  if (prevProv.equals(nextProv)) return false;
-  if (deep.equal(spec, prevSpec)) return false;
-  return true;
-};
-
-class MemoizedSource<V> implements telem.Source<V> {
+class MemoizedSource<V> implements Source<V> {
   private readonly spec: Spec;
   private readonly prov: Provider;
-  private readonly wrapped: telem.Source<V>;
+  private readonly wrapped: Source<V>;
+  private readonly prevKey: string;
 
-  constructor(wrapped: telem.Source<V>, prevProv: Provider, prevSpec: Spec) {
+  constructor(wrapped: Source<V>, prevProv: Provider, prevSpec: Spec) {
     this.wrapped = wrapped;
     this.spec = prevSpec;
     this.prov = prevProv;
+    this.prevKey = prevProv.clusterKey;
   }
 
   async value(): Promise<V> {
@@ -71,19 +59,21 @@ class MemoizedSource<V> implements telem.Source<V> {
   }
 
   shouldUpdate(prov: Provider, spec: Spec): boolean {
-    return !this.prov.equals(prov) || !deep.equal(this.spec, spec);
+    return this.prevKey !== prov.clusterKey || !deep.equal(this.spec, spec);
   }
 }
 
-class MemoizedSink<V> implements telem.Sink<V> {
+class MemoizedSink<V> implements Sink<V> {
   private readonly spec: Spec;
   private readonly prov: Provider;
-  private readonly wrapped: telem.Sink<V>;
+  private readonly prevKey: string;
+  private readonly wrapped: Sink<V>;
 
-  constructor(wrapped: telem.Sink<V>, prevProv: Provider, prevSpec: Spec) {
+  constructor(wrapped: Sink<V>, prevProv: Provider, prevSpec: Spec) {
     this.wrapped = wrapped;
     this.spec = prevSpec;
     this.prov = prevProv;
+    this.prevKey = prevProv.clusterKey;
   }
 
   async set(value: V): Promise<void> {
@@ -95,15 +85,15 @@ class MemoizedSink<V> implements telem.Sink<V> {
   }
 
   shouldUpdate(prov: Provider, spec: Spec): boolean {
-    return !this.prov.equals(prov) || !deep.equal(this.spec, spec);
+    return this.prevKey !== prov.clusterKey || !deep.equal(this.spec, spec);
   }
 }
 
 export const useSource = async <V>(
   ctx: aether.Context,
   spec: Spec,
-  prev: telem.Source<V>,
-): Promise<telem.Source<V>> => {
+  prev: Source<V>,
+): Promise<Source<V>> => {
   const prov = useProvider(ctx);
   if (prev instanceof MemoizedSource) {
     if (!prev.shouldUpdate(prov, spec)) return prev;
@@ -115,8 +105,8 @@ export const useSource = async <V>(
 export const useSink = async <V>(
   ctx: aether.Context,
   spec: Spec,
-  prev: telem.Sink<V>,
-): Promise<telem.Sink<V>> => {
+  prev: Sink<V>,
+): Promise<Sink<V>> => {
   const prov = useProvider(ctx);
   if (prev instanceof MemoizedSink) {
     if (!prev.shouldUpdate(prov, spec)) return prev;

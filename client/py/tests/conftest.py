@@ -35,3 +35,19 @@ def channel(client: synnax.Synnax) -> Channel:
         rate=25 * telem.Rate.HZ,
         data_type=telem.DataType.FLOAT64,
     )
+
+
+@pytest.fixture
+def indexed_pair(client: synnax.Synnax) -> tuple[Channel, Channel]:
+    v = random.randint(0, 100000)
+    idx = client.channels.create(
+        name=f"test-{v}-time",
+        is_index=True,
+        data_type=telem.DataType.TIMESTAMP,
+    )
+    data = client.channels.create(
+        name=f"test-{v}-data",
+        index=idx.key,
+        data_type=telem.DataType.FLOAT64,
+    )
+    return idx, data

@@ -14,7 +14,7 @@ import { z } from "zod";
 import { type color } from "@/color/core";
 import { type status } from "@/status/aether";
 
-const transferrable = z.union([z.instanceof(ArrayBuffer)]);
+const transferrable = z.instanceof(ArrayBuffer);
 
 /**
  * Metadata about a telemetry source. This metadata can be thought of as a pointer
@@ -107,7 +107,7 @@ export type NumberSourceSpec = z.infer<typeof numberSourceSpecZ>;
 
 export type NumberSink = Sink<number>;
 export const numberSinkSpecZ = sinkSpecZ.extend({ valueType: z.literal("number") });
-export type NumberSinkSPec = z.infer<typeof numberSinkSpecZ>;
+export type NumberSinkSpec = z.infer<typeof numberSinkSpecZ>;
 
 export type ColorSource = Source<color.Color>;
 export const colorSourceSpecZ = sourceSpecZ.extend({ valueType: z.literal("color") });

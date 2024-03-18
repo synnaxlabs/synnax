@@ -1,3 +1,12 @@
+#  Copyright 2024 Synnax Labs, Inc.
+#
+#  Use of this software is governed by the Business Source License included in the file
+#  licenses/BSL.txt.
+#
+#  As of the Change Date specified in that file, in accordance with the Business Source
+#  License, use of this software will be governed by the Apache License, Version 2.0,
+#  included in the file licenses/APL.txt.
+
 import math
 
 import synnax as sy
@@ -13,15 +22,9 @@ client = sy.Synnax(
 
 ANALOG_CHANNELS = range(0, 80)
 
-ai_idx = sy.Channel(
-    name="gse_ai_time",
-    data_type=sy.DataType.TIMESTAMP,
-    is_index=True
-)
+ai_idx = sy.Channel(name="gse_ai_time", data_type=sy.DataType.TIMESTAMP, is_index=True)
 doa_idx = sy.Channel(
-    name="gse_doa_time",
-    data_type=sy.DataType.TIMESTAMP,
-    is_index=True
+    name="gse_doa_time", data_type=sy.DataType.TIMESTAMP, is_index=True
 )
 ai_idx = client.channels.create(ai_idx, retrieve_if_name_exists=True)
 doa_idx = client.channels.create(doa_idx, retrieve_if_name_exists=True)
@@ -31,7 +34,8 @@ ai_channels = [
         name=f"gse_ai_{i}",
         index=ai_idx.key,
         data_type=sy.DataType.FLOAT32,
-    ) for i in ANALOG_CHANNELS
+    )
+    for i in ANALOG_CHANNELS
 ]
 ai_channels = client.channels.create(ai_channels, retrieve_if_name_exists=True)
 
@@ -42,26 +46,27 @@ doa_channels = [
         name=f"gse_doa_{i}",
         index=doa_idx.key,
         data_type=sy.DataType.FLOAT32,
-    ) for i in DIGITAL_CHANNELS
+    )
+    for i in DIGITAL_CHANNELS
 ]
 doa_channels = client.channels.create(doa_channels, retrieve_if_name_exists=True)
 
 doc_index_channels = [
-    sy.Channel(
-        name=f"gse_doc_{i}_time",
-        data_type=sy.DataType.TIMESTAMP,
-        is_index=True
-    ) for i in DIGITAL_CHANNELS
+    sy.Channel(name=f"gse_doc_{i}_time", data_type=sy.DataType.TIMESTAMP, is_index=True)
+    for i in DIGITAL_CHANNELS
 ]
 
-doc_index_channels = client.channels.create(doc_index_channels, retrieve_if_name_exists=True)
+doc_index_channels = client.channels.create(
+    doc_index_channels, retrieve_if_name_exists=True
+)
 
 doc_channels = [
     sy.Channel(
         name=f"gse_doc_{i}",
         index=doc_index_channels[i].key,
         data_type=sy.DataType.FLOAT32,
-    ) for i in DIGITAL_CHANNELS
+    )
+    for i in DIGITAL_CHANNELS
 ]
 
 doc_channels = client.channels.create(doc_channels, retrieve_if_name_exists=True)
@@ -73,14 +78,21 @@ state = {
     **{ch.key: i for i, ch in enumerate(ai_channels)},
 }
 
-doc_channels_to_ack = {cmd.key: doa_channels[i].key for i, cmd in enumerate(doc_channels)}
+doc_channels_to_ack = {
+    cmd.key: doa_channels[i].key for i, cmd in enumerate(doc_channels)
+}
 
 i = 0
 with client.new_streamer([c.key for c in doc_channels]) as streamer:
     with client.new_writer(
-            sy.TimeStamp.now(),
-            channels=[ai_idx.key, doa_idx.key, *[c.key for c in ai_channels], *[c.key for c in doa_channels]],
-            name="Writer",
+        sy.TimeStamp.now(),
+        channels=[
+            ai_idx.key,
+            doa_idx.key,
+            *[c.key for c in ai_channels],
+            *[c.key for c in doa_channels],
+        ],
+        name="Writer",
     ) as writer:
         press = 0
         while True:
@@ -97,7 +109,7 @@ with client.new_streamer([c.key for c in doc_channels]) as streamer:
             for j, ch in enumerate(doa_channels):
                 if state[ch.key] == 1:
                     if (j % 2) == 0:
-                        state[ai_channels[math.floor(j /2)].key] += 1
+                        state[ai_channels[math.floor(j / 2)].key] += 1
                     else:
                         state[ai_channels[math.floor(j / 2)].key] -= 1
 

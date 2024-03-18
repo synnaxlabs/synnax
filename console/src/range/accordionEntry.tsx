@@ -19,7 +19,6 @@ import {
   Synnax,
   useAsyncEffect,
   Tooltip,
-  Button,
 } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 import { List as Core } from "@synnaxlabs/pluto/list";
@@ -31,7 +30,7 @@ import { Menu } from "@/components";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { editLayout } from "@/range/EditLayout";
-import type { Range } from "@/range/range";
+import type { Range, StaticRange } from "@/range/range";
 import { useSelect, useSelectMultiple } from "@/range/selectors";
 import { add, remove, setActive } from "@/range/slice";
 
@@ -110,6 +109,12 @@ export const List = (): ReactElement => {
     })();
   };
 
+  const handleSetActive = (key: string): void => {
+    void (async () => {
+      await client?.ranges.setActive(key);
+    })();
+  };
+
   const ContextMenu = ({
     keys: [key],
   }: PMenu.ContextMenuMenuProps): ReactElement | null => {
@@ -130,6 +135,9 @@ export const List = (): ReactElement => {
         case "save":
           if (rng == null) return;
           return handleSave(rng.key);
+        case "setActive":
+          if (rng == null) return;
+          return handleSetActive(rng.key);
       }
     };
     return (
@@ -168,9 +176,11 @@ export const List = (): ReactElement => {
   return (
     <PMenu.ContextMenu menu={(p) => <ContextMenu {...p} />} {...menuProps}>
       <div style={{ flexGrow: 1 }}>
-        <Core.List data={ranges.filter((r) => r.variant === "static")}>
+        <Core.List<string, StaticRange>
+          data={ranges.filter((r) => r.variant === "static") as StaticRange[]}
+        >
           <Core.Selector
-            value={selectedRange?.key}
+            value={selectedRange?.key ?? null}
             onChange={handleSelect}
             allowMultiple={false}
             allowNone={true}
@@ -185,7 +195,7 @@ export const List = (): ReactElement => {
   );
 };
 
-interface ListItemProps extends Core.ItemProps<string, Range> {}
+interface ListItemProps extends Core.ItemProps<string, StaticRange> {}
 
 const ListItem = (props: ListItemProps): ReactElement => {
   const { entry } = props;
@@ -228,7 +238,7 @@ const ListItem = (props: ListItemProps): ReactElement => {
           }}
         >
           {labels.map((l) => (
-            <Tag.Tag key={l.key} level="small" color={l.color}>
+            <Tag.Tag key={l.key} size="small" color={l.color}>
               {l.name}
             </Tag.Tag>
           ))}

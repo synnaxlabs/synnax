@@ -25,7 +25,6 @@ import { lineplot } from "@/vis/lineplot/aether";
 import { tooltip } from "@/vis/lineplot/tooltip/aether";
 import { measure } from "@/vis/measure/aether";
 import { rule } from "@/vis/rule/aether";
-import { table } from "@/vis/table/aether";
 import { toggle } from "@/vis/toggle/aether";
 import { value } from "@/vis/value/aether";
 
@@ -52,7 +51,6 @@ export const render = (): void => {
     ...button.REGISTRY,
     ...alamos.REGISTRY,
     ...eraser.REGISTRY,
-    ...table.REGISTRY,
   };
 
   aether.render({

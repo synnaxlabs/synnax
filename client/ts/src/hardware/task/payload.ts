@@ -15,6 +15,8 @@ export const taskKeyZ = z
   .or(z.number())
   .transform((k) => k.toString());
 
+export type TaskKey = z.infer<typeof taskKeyZ>;
+
 export const taskZ = z.object({
   key: taskKeyZ,
   name: z.string(),

@@ -178,7 +178,7 @@ func (r *txReader) Count() int { return r.count }
 
 // Next implements kv.TxReader.
 func (r *txReader) Next(_ context.Context) (kv.Change, bool) {
-	kind, k, v, ok := r.BatchReader.Next()
+	kind, k, v, ok, _ := r.BatchReader.Next()
 	if !ok {
 		return kv.Change{}, false
 	}
@@ -197,5 +197,4 @@ func translateError(err error) error {
 		return kv.NotFound
 	}
 	return err
-
 }

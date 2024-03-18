@@ -16,17 +16,14 @@ import {
   useEffect,
 } from "react";
 
-import { type Key, type KeyedRenderableRecord } from "@synnaxlabs/x";
+import { type Keyed, type Key } from "@synnaxlabs/x";
 
 import { useCombinedStateAndRef, useSyncedRef } from "@/hooks";
 import { useRequiredContext } from "@/hooks/useRequiredContext";
 import { useTransforms, type UseTransformsReturn } from "@/hooks/useTransforms";
 import { type state } from "@/state";
 
-export interface DataContextValue<
-  K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
-> {
+export interface DataContextValue<K extends Key = Key, E extends Keyed<K> = Keyed<K>> {
   transformedData: E[];
   sourceData: E[];
   emptyContent?: React.ReactElement;
@@ -34,7 +31,7 @@ export interface DataContextValue<
 
 export interface DataUtilContextValue<
   K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
+  E extends Keyed<K> = Keyed<K>,
 > extends Omit<UseTransformsReturn<E>, "transform"> {
   setSourceData: state.Set<E[]>;
   getSourceData: () => E[];
@@ -58,46 +55,43 @@ const DataUtilContext = createContext<DataUtilContextValue | null>({
 
 export const useDataContext = <
   K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
+  E extends Keyed<K> = Keyed<K>,
 >(): DataContextValue<K, E> =>
   useRequiredContext(DataContext) as DataContextValue<K, E>;
 
 export const useDataUtilContext = <
   K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
+  E extends Keyed<K> = Keyed<K>,
 >(): DataUtilContextValue<K, E> =>
   useRequiredContext(DataUtilContext) as unknown as DataUtilContextValue<K, E>;
 
 export const useTransformedData = <
   K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
+  E extends Keyed<K> = Keyed<K>,
 >(): E[] => useDataContext<K, E>().transformedData;
 
 export const useSourceData = <
   K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
+  E extends Keyed<K> = Keyed<K>,
 >(): E[] => useDataContext<K, E>().sourceData;
 
 export const useGetTransformedData = <
   K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
+  E extends Keyed<K> = Keyed<K>,
 >(): (() => E[]) => useDataUtilContext<K, E>().getTransformedData;
 
 export const useSetSourceData = <
   K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
+  E extends Keyed<K> = Keyed<K>,
 >(): state.Set<E[]> => useDataUtilContext<K, E>().setSourceData;
 
-export interface DataProviderProps<K extends Key, E extends KeyedRenderableRecord<K, E>>
+export interface DataProviderProps<K extends Key, E extends Keyed<K>>
   extends PropsWithChildren<{}> {
   data?: E[];
   emptyContent?: React.ReactElement;
 }
 
-export const DataProvider = <
-  K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
->({
+export const DataProvider = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   data: sourceData,
   emptyContent: emptyContentProp,
   children,

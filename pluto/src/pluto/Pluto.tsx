@@ -33,7 +33,7 @@ export interface ProviderProps
     Partial<Theming.ProviderProps>,
     Synnax.ProviderProps {
   workerEnabled?: boolean;
-  workerURL?: URL;
+  workerURL?: URL | string;
   alamos?: Alamos.ProviderProps;
   tooltip?: Tooltip.ConfigProps;
   triggers?: Triggers.ProviderProps;

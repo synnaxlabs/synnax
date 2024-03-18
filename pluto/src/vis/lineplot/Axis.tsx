@@ -112,7 +112,7 @@ export const axisFactory = (dir: direction.Direction): FC<AxisProps> => {
       const gridStyle = useGridPosition(
         {
           loc: location,
-          key: aetherKey,
+          key: `${aetherType}-${aetherKey}`,
           size: size + labelSize,
           order: "last",
         },

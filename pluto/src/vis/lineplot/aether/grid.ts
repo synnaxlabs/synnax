@@ -17,22 +17,25 @@ export const gridPositionSpecZ = z.object({
   loc: location.outer,
 });
 
+export const gridSpecZ = z.record(gridPositionSpecZ);
+
 export type GridPositionSpec = z.input<typeof gridPositionSpecZ>;
+export type GridSpec = z.input<typeof gridSpecZ>;
 
 export const filterGridPositions = (
   loc: location.Outer,
-  grid: GridPositionSpec[],
+  grid: GridSpec,
 ): GridPositionSpec[] =>
-  grid
+  Object.values(grid)
     .filter(({ loc: l }) => l === loc)
     .sort((a, b) => compare.order(a.order, b.order));
 
 export const calculateGridPosition = (
   key: string,
-  grid: GridPositionSpec[],
+  grid: GridSpec,
   container: box.Box,
 ): xy.XY => {
-  const axis = grid.find(({ key: k }) => k === key);
+  const axis = grid[key];
   if (axis == null) return xy.ZERO;
   const loc = location.construct(axis.loc);
   const axes = filterGridPositions(loc as location.Outer, grid);
@@ -53,10 +56,7 @@ export const calculateGridPosition = (
   }
 };
 
-export const calculatePlotBox = (
-  grid: GridPositionSpec[],
-  container: box.Box,
-): box.Box => {
+export const calculatePlotBox = (grid: GridSpec, container: box.Box): box.Box => {
   const left = filterGridPositions("left", grid);
   const right = filterGridPositions("right", grid);
   const top = filterGridPositions("top", grid);

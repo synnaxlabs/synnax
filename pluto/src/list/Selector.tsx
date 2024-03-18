@@ -15,7 +15,7 @@ import {
   type ReactElement,
 } from "react";
 
-import { type Key, type KeyedRenderableRecord, nullToArr } from "@synnaxlabs/x";
+import { type Key, type Keyed, nullToArr } from "@synnaxlabs/x";
 
 import { useSyncedRef } from "@/hooks";
 import { useGetTransformedData } from "@/list/Data";
@@ -33,7 +33,7 @@ interface SelectUtilContextValue<K extends Key = Key> {
 
 export type SelectorProps<
   K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
+  E extends Keyed<K> = Keyed<K>,
 > = PropsWithChildren<Omit<UseSelectProps<K, E>, "data">>;
 
 const SelectionContext = createContext<SelectContextValue>({
@@ -61,10 +61,7 @@ export const useSelectionUtils = <K extends Key = Key>(): SelectUtilContextValue
  * @param props - The props for the List.Selector component. These props are identical
  * to the props for {@link useSelect} hook.
  */
-export const Selector = <
-  K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
->({
+export const Selector = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   value,
   children,
   ...props

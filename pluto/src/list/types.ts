@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Key, type KeyedRenderableRecord } from "@synnaxlabs/x";
+import { type Key, type Keyed } from "@synnaxlabs/x";
 
 export interface ItemProps<
   K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
+  E extends Keyed<K> = Keyed<K>,
 > {
   entry: E;
   index: number;
@@ -22,6 +22,6 @@ export interface ItemProps<
   translate?: number;
 }
 
-export type ItemRenderProp<K extends Key, E extends KeyedRenderableRecord<K, E>> = (
+export type ItemRenderProp<K extends Key, E extends Keyed<K>> = (
   props: ItemProps<K, E> & { key: K },
-) => React.ReactElement;
+) => React.ReactElement | null;

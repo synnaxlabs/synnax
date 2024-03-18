@@ -57,12 +57,12 @@ export class Dynamic {
     };
   }
 
-  private allocate(length: number, alignment: number, start: TimeStamp): Series {
+  private allocate(capacity: number, alignment: number, start: TimeStamp): Series {
     this.counter++;
     return Series.alloc({
-      length,
+      capacity,
       dataType: DataType.FLOAT32,
-      timeRange: start.spanRange(TimeStamp.MAX),
+      timeRange: start.range(TimeStamp.MAX),
       sampleOffset: this.dataType.equals(DataType.TIMESTAMP)
         ? BigInt(start.valueOf())
         : 0,
@@ -105,5 +105,9 @@ export class Dynamic {
     res.flushed.push(...nextRes.flushed);
     res.allocated.push(...nextRes.allocated);
     return res;
+  }
+
+  close(): void {
+    this.buffer = null;
   }
 }

@@ -9,14 +9,14 @@
 
 import { type PropsWithChildren, type ReactElement } from "react";
 
-import { type Key, type KeyedRenderableRecord } from "@synnaxlabs/x";
+import { type Keyed, type Key } from "@synnaxlabs/x";
 
-import { DataProvider } from "./Data";
-import { InfiniteProvider } from "./Infinite";
+import { DataProvider } from "@/list/Data";
+import { InfiniteProvider } from "@/list/Infinite";
 
 export interface ListProps<
   K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
+  E extends Keyed<K> = Keyed<K>,
 > extends PropsWithChildren<unknown> {
   data?: E[];
   emptyContent?: ReactElement;
@@ -36,7 +36,7 @@ export interface ListProps<
  */
 export const List = <
   K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
+  E extends Keyed<K> = Keyed<K>,
 >({
   children,
   data,
@@ -50,53 +50,3 @@ export const List = <
     </InfiniteProvider>
   );
 };
-
-type NestedKeys<T> =
-  Cleanup<T> extends infer U
-    ? U extends object
-      ?
-          | ValueOf<{ [K in keyof U]-?: (x: PrefixKeys<NestedKeys<U[K]>, K>) => void }>
-          | ((x: U) => void) extends (x: infer I) => void
-        ? { [K in keyof I]: I[K] }
-        : never
-      : U
-    : never;
-
-type Cleanup<T> = 0 extends 1 & T
-  ? unknown
-  : T extends readonly any[]
-    ? Exclude<keyof T, keyof any[]> extends never
-      ? Record<`${number}`, T[number]>
-      : Omit<T, keyof any[]>
-    : T;
-
-type PrefixKeys<V, K extends PropertyKey> = V extends object
-  ? {
-      [P in keyof V as `${Extract<K, string | number>}.${Extract<P, string | number>}`]: V[P];
-    }
-  : { [P in K]: V };
-
-type ValueOf<T> = T[keyof T];
-
-type Test = NestedKeys<Example>;
-
-const test: Test = {
-  a: "test",
-  dogs: {
-    0: { name: "test" },
-  },
-  tasks: {
-    channels: {
-      0: {
-        ports: {
-          0: {
-            line: "test",
-          },
-        },
-      },
-    },
-  },
-};
-
-type T = ValueOf<Test>;
-const v: T["tasks.channels.0.ports.0.line"] = "test";

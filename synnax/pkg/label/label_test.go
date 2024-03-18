@@ -1,3 +1,12 @@
+// Copyright 2024 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 package label_test
 
 import (
@@ -20,11 +29,12 @@ var _ = Describe("Label", Ordered, func() {
 		db  *gorp.DB
 		svc *label.Service
 		w   label.Writer
+		otg *ontology.Ontology
 		tx  gorp.Tx
 	)
 	BeforeAll(func() {
 		db = gorp.Wrap(memkv.New())
-		otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
+		otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
 		g := MustSucceed(group.OpenService(group.Config{DB: db, Ontology: otg}))
 		svc = MustSucceed(label.OpenService(ctx, label.Config{
 			DB:       db,
@@ -33,6 +43,7 @@ var _ = Describe("Label", Ordered, func() {
 		}))
 	})
 	AfterAll(func() {
+		Expect(otg.Close()).To(Succeed())
 		Expect(db.Close()).To(Succeed())
 	})
 	BeforeEach(func() {
@@ -52,7 +63,7 @@ var _ = Describe("Label", Ordered, func() {
 			Expect(l.Key).ToNot(Equal(uuid.Nil))
 		})
 	})
-	Describe("Delete", func() {
+	Describe("DeleteChannel", func() {
 		It("Should delete a label", func() {
 			l := &label.Label{
 				Name:  "Label",

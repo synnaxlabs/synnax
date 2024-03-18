@@ -14,16 +14,15 @@ import { Icon } from "@synnaxlabs/media";
 import { Align } from "@/align";
 import { CSS } from "@/css";
 import { type Variant } from "@/status/aether/types";
+import { variantColors } from "@/status/colors";
 import { Text as BaseText } from "@/text";
-
-import { variantColors } from "./colors";
 
 export interface TextDigest {
   variant: Variant;
 }
 
 export interface TextProps
-  extends Omit<BaseText.TextProps, "level" | "wrap">,
+  extends Omit<BaseText.WithIconProps, "level" | "wrap">,
     Omit<TextDigest, "children"> {
   level?: BaseText.Level;
   hideIcon?: boolean;
@@ -36,15 +35,18 @@ const CoreText = ({
   hideIcon = false,
   className,
   ...props
-}: TextProps): ReactElement => (
-  <BaseText.WithIcon
-    color={variantColors[variant]}
-    className={CSS(className, CSS.B("status-text"))}
-    level={level}
-    startIcon={!hideIcon && <Icon.Circle />}
-    {...props}
-  />
-);
+}: TextProps): ReactElement => {
+  const icon = variant === "loading" ? <Icon.Loading /> : <Icon.Circle />;
+  return (
+    <BaseText.WithIcon
+      color={variantColors[variant]}
+      className={CSS(className, CSS.B("status-text"))}
+      level={level}
+      startIcon={!hideIcon && icon}
+      {...props}
+    />
+  );
+};
 
 export interface TextCenteredProps extends TextProps {}
 

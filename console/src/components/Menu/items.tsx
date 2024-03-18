@@ -9,7 +9,7 @@
 
 import { type ReactElement } from "react";
 
-import { Drft, reloadWindow } from "@synnaxlabs/drift";
+import { reloadWindow } from "@synnaxlabs/drift";
 import { Icon } from "@synnaxlabs/media";
 import { Menu } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";

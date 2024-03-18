@@ -44,54 +44,60 @@ const entriesOptKey query.Parameter = "entries"
 // Entries is a query option used to bind entities from a retrieve query or
 // write values to a create query.
 type Entries[K Key, E Entry[K]] struct {
-	// multiple is a boolean flag indicating whether the query expects one or multiple
+	// isMultiple is a boolean flag indicating whether the query expects one or isMultiple
 	// entities.
-	multiple bool
+	isMultiple bool
 	// entry is used when the client expects/passes a single entry.
 	entry *E
 	// entries are used when the client expects/passes a slice of entries.
 	entries *[]E
+	changes int
 }
 
 // Add adds the provided entry to the query. If the client expects a single result,
 // sets the entry to the provided value. If the client expects a slice of entries,
 // appends the provided value to the slice.
 func (e *Entries[K, E]) Add(entry E) {
-	if e.multiple {
+	if e.isMultiple {
 		*e.entries = append(*e.entries, entry)
 	} else if e.entry != nil {
 		*e.entry = entry
 	}
+	e.changes++
 }
 
 func (e *Entries[K, E]) Replace(entries []E) {
-	if e.multiple {
+	if e.isMultiple {
 		*e.entries = entries
+		e.changes += len(entries)
 		return
 	}
 	if len(entries) != 0 && e.entry != nil {
 		*e.entry = entries[0]
+		e.changes++
 	}
 }
 
 func (e *Entries[K, E]) Set(i int, entry E) {
-	if e.multiple {
+	if e.isMultiple {
 		(*e.entries)[i] = entry
+		e.changes++
 	} else if i == 0 {
 		*e.entry = entry
+		e.changes++
 	}
 }
 
 // All returns a slice of all entries currently bound to the query.
 func (e *Entries[K, E]) All() []E {
-	if e.multiple {
+	if e.isMultiple {
 		return *e.entries
 	}
 	return []E{*e.entry}
 }
 
 func (e *Entries[K, E]) Any() bool {
-	if e.multiple {
+	if e.isMultiple {
 		return len(*e.entries) > 0
 	}
 	return e.entry != nil
@@ -101,13 +107,13 @@ func (e *Entries[K, E]) Any() bool {
 //
 //	Calls to SetEntry will override All previous calls to SetEntry or SetEntries.
 func SetEntry[K Key, E Entry[K]](q query.Parameters, entry *E) {
-	q.Set(entriesOptKey, &Entries[K, E]{entry: entry, multiple: false})
+	q.Set(entriesOptKey, &Entries[K, E]{entry: entry, isMultiple: false})
 }
 
 // SetEntries sets the entries that the query will fill results into or write results to.
 // Calls to SetEntries will override All previous calls to SetEntry or SetEntries.
 func SetEntries[K Key, E Entry[K]](q query.Parameters, e *[]E) {
-	q.Set(entriesOptKey, &Entries[K, E]{entries: e, multiple: true})
+	q.Set(entriesOptKey, &Entries[K, E]{entries: e, isMultiple: true})
 }
 
 // GetEntries returns the entries that the query will fill results into or write
@@ -143,9 +149,27 @@ func encodeKey[K Key](
 	prefix []byte,
 	key K,
 ) ([]byte, error) {
+	// if the key is already a byte slice, we can just append it to the prefix
+	if b, ok := any(key).([]byte); ok {
+		return append(prefix, b...), nil
+	}
 	byteKey, err := encoder.Encode(ctx, key)
 	if err != nil {
 		return nil, err
 	}
 	return append(prefix, byteKey...), nil
+}
+
+func decodeKey[K Key](
+	ctx context.Context,
+	decoder binary.Decoder,
+	prefix []byte,
+	b []byte,
+) (v K, err error) {
+	// if the key is a byte slice, we can just return it
+	if _, ok := any(v).([]byte); ok {
+		return any(b).(K), nil
+	}
+	return v, decoder.Decode(ctx, b[len(prefix):], &v)
+
 }

@@ -1,13 +1,16 @@
+// Copyright 2024 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import { useState, type ReactElement, memo, useCallback } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import {
-  Form,
-  Haul,
-  Select,
-  type UseSelectOnChangeExtra,
-  type UseSelectProps,
-} from "@synnaxlabs/pluto";
+import { Form, Haul, Select } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 import { Header } from "@synnaxlabs/pluto/header";
 import { Input } from "@synnaxlabs/pluto/input";
@@ -54,7 +57,7 @@ export const PhysicalPlanForm = (): ReactElement => {
   const handleChannelSelect = useCallback(
     (
       keys: string[],
-      { clickedIndex, clicked }: UseSelectOnChangeExtra<string>,
+      { clickedIndex, clicked }: List.UseSelectOnChangeExtra<string>,
     ): void => {
       if (clickedIndex == null || clicked == null) return;
       setSelectedChannels(keys);
@@ -241,7 +244,7 @@ const GroupListItem = ({
 interface ChannelListProps {
   selectedGroupIndex: number;
   selectedChannels: string[];
-  onSelectChannels: UseSelectProps["onChange"];
+  onSelectChannels: List.UseSelectProps["onChange"];
 }
 
 const CHANNEL_LIST_COLUMNS: Array<List.ColumnSpec<string, PhysicalChannelPlan>> = [

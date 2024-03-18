@@ -28,7 +28,7 @@ type leaseProxy struct {
 	group         group.Group
 }
 
-const leasedCounterSuffix = ".distribution.channel.counter.leased"
+const leasedCounterSuffix = ".distribution.channel.leasedCounter"
 const freeCounterSuffix = ".distribution.channel.counter.free"
 
 func newLeaseProxy(cfg ServiceConfig, g group.Group) (*leaseProxy, error) {
@@ -45,11 +45,11 @@ func newLeaseProxy(cfg ServiceConfig, g group.Group) (*leaseProxy, error) {
 		group:         g,
 	}
 	if cfg.HostResolver.HostKey() == core.Bootstrapper {
-		freeCounterKey := []byte(cfg.HostResolver.HostKey().String() + freeCounterSuffix)
-		c, err := kv.OpenCounter(context.TODO(), cfg.ClusterDB, freeCounterKey)
-		if err != nil {
-			return nil, err
-		}
+		//freeCounterKey := []byte(cfg.HostResolver.HostKey().String() + freeCounterSuffix)
+		//c, err := kv.OpenCounter(context.TODO(), cfg.ClusterDB, freeCounterKey)
+		//if err != nil {
+		//	return nil, err
+		//}
 		p.freeCounter = c
 	}
 	p.Transport.CreateServer().BindHandler(p.handle)
@@ -201,31 +201,30 @@ func (lp *leaseProxy) maybeSetResources(
 	txn gorp.Tx,
 	channels []Channel,
 ) error {
-	if lp.Ontology != nil {
-		w := lp.Ontology.NewWriter(txn)
-		for _, ch := range channels {
-			rtk := OntologyID(ch.Key())
-			if err := w.DefineResource(ctx, rtk); err != nil {
-				return err
-			}
-			if err := w.DefineRelationship(
-				ctx,
-				core.NodeOntologyID(ch.Leaseholder),
-				ontology.ParentOf,
-				rtk,
-			); err != nil {
-				return err
-			}
-			if err := w.DefineRelationship(
-				ctx, group.OntologyID(lp.group.Key),
-				ontology.ParentOf,
-				rtk,
-			); err != nil {
-				return err
-			}
-		}
+	if lp.Ontology == nil {
+		return nil
 	}
-	return nil
+	ids := lo.Map(channels, func(ch Channel, i int) ontology.ID {
+		return OntologyID(ch.Key())
+	})
+	w := lp.Ontology.NewWriter(txn)
+	if err := w.DefineManyResources(ctx, ids); err != nil {
+		return err
+	}
+	if err := w.DefineFromOneToManyRelationships(
+		ctx,
+		group.OntologyID(lp.group.Key),
+		ontology.ParentOf,
+		ids,
+	); err != nil {
+		return err
+	}
+	return w.DefineFromOneToManyRelationships(
+		ctx,
+		core.NodeOntologyID(lp.HostResolver.HostKey()),
+		ontology.ParentOf,
+		ids,
+	)
 }
 
 func (lp *leaseProxy) createRemote(

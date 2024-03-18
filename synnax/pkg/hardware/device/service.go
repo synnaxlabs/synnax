@@ -71,7 +71,7 @@ func OpenService(ctx context.Context, configs ...Config) (s *Service, err error)
 		return s, nil
 	}
 
-	cdcS, err := signals.SubscribeToGorp(ctx, cfg.Signals, signals.GorpConfigString[Device](cfg.DB))
+	cdcS, err := signals.PublishFromGorp(ctx, cfg.Signals, signals.GorpPublisherConfigString[Device](cfg.DB))
 	if err != nil {
 		return
 	}

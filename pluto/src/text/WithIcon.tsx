@@ -25,17 +25,16 @@ export type WithIconProps<
   E extends Align.SpaceElementType = "div",
   L extends text.Level = "h1",
 > = Omit<Align.SpaceProps<E>, "children" | "color"> &
-  Omit<CoreProps<L>, "children"> & {
+  CoreProps<L> & {
     startIcon?: false | ReactElement | ReactElement[];
     endIcon?: false | ReactElement | ReactElement[];
-    children?: ReactNode;
     divided?: boolean;
     noWrap?: boolean;
   };
 
 export const WithIcon = <
   E extends Align.SpaceElementType = "div",
-  L extends text.Level = "h1",
+  L extends text.Level = text.Level,
 >({
   level = "h1" as L,
   divided = false,

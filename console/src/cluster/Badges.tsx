@@ -25,7 +25,7 @@ export interface ConnectionStateBadgeProps {
 export const statusVariants: Record<connection.Status, Status.Variant> = {
   connected: "success",
   failed: "error",
-  connecting: "info",
+  connecting: "loading",
   disconnected: "warning",
 };
 

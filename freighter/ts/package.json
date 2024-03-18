@@ -1,7 +1,7 @@
 {
   "name": "@synnaxlabs/freighter",
   "private": false,
-  "version": "0.5.0",
+  "version": "0.7.1",
   "type": "module",
   "description": "a modular transport abstraction",
   "repository": "https://github.com/synnaxlabs/synnax/tree/main/freighter/ts",
@@ -31,7 +31,7 @@
     "@synnaxlabs/x": "workspace:*",
     "js-convert-case": "^4.2.0",
     "msgpackr": "^1.10.0",
-    "node-fetch": "3.3.2",
+    "node-fetch": "2.6.11",
     "ws": "^8.15.1",
     "zod": "3.22.4"
   },
@@ -39,11 +39,11 @@
     "@synnaxlabs/tsconfig": "workspace:*",
     "@synnaxlabs/vite-plugin": "workspace:*",
     "@types/node": "^20.10.5",
-    "@vitest/coverage-v8": "^1.1.0",
+    "@vitest/coverage-v8": "^1.2.2",
     "eslint-config-synnaxlabs": "workspace:*",
     "typescript": "^5.3.3",
-    "vite": "^5.0.10",
-    "vitest": "^1.1.0"
+    "vite": "^5.1.2",
+    "vitest": "^1.2.2"
   },
   "main": "dist/freighter.cjs.js",
   "module": "dist/freighter.es.js",

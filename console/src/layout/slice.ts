@@ -31,7 +31,7 @@ export interface SliceState {
   layouts: Record<string, LayoutState>;
   hauling: Haul.DraggingState;
   mosaics: Record<string, MosaicState>;
-  nav: NavState;
+  nav: { main: MainNavState } & Record<string, PartialNavState>;
   alreadyCheckedGetStarted: boolean;
 }
 
@@ -40,8 +40,12 @@ export interface MosaicState {
   root: Mosaic.Node;
 }
 
-export interface NavState {
+export interface MainNavState {
   drawers: NavDrawerState;
+}
+
+export interface PartialNavState {
+  drawers: Partial<NavDrawerState>;
 }
 
 export type NavdrawerLocation = "right" | "left" | "bottom";
@@ -104,18 +108,20 @@ export const ZERO_SLICE_STATE: SliceState = {
   },
   hauling: Haul.ZERO_DRAGGING_STATE,
   nav: {
-    drawers: {
-      left: {
-        activeItem: null,
-        menuItems: ["clusters", "resources"],
-      },
-      right: {
-        activeItem: null,
-        menuItems: ["range"],
-      },
-      bottom: {
-        activeItem: null,
-        menuItems: ["visualization"],
+    main: {
+      drawers: {
+        left: {
+          activeItem: null,
+          menuItems: ["clusters", "resources"],
+        },
+        right: {
+          activeItem: null,
+          menuItems: ["range"],
+        },
+        bottom: {
+          activeItem: null,
+          menuItems: ["visualization"],
+        },
       },
     },
   },
@@ -154,10 +160,16 @@ interface RenamePayload {
 }
 
 interface ResizeNavdrawerPayload {
+  windowKey: string;
   location: NavdrawerLocation;
   size: number;
 }
 interface SetHaulingPayload extends Haul.DraggingState {}
+
+export interface SetNavDrawerPayload extends NavdrawerEntryState {
+  location: NavdrawerLocation;
+  windowKey: string;
+}
 
 export interface SetSlicePayload {
   keepNav?: boolean;
@@ -165,6 +177,7 @@ export interface SetSlicePayload {
 }
 
 interface SetNavdrawerVisiblePayload {
+  windowKey: string;
   key?: string;
   location?: NavdrawerLocation;
   value?: boolean;
@@ -180,9 +193,7 @@ export const { actions, reducer } = createSlice({
       const prev = state.layouts[key];
       const mosaic = state.mosaics[layout.windowKey];
 
-      if (layout.type === MOSAIC_WINDOW_TYPE) {
-        state.mosaics[key] = ZERO_MOSAIC_STATE;
-      }
+      if (layout.type === MOSAIC_WINDOW_TYPE) state.mosaics[key] = ZERO_MOSAIC_STATE;
 
       // If we're moving from a mosaic, remove the tab.
       if (prev != null && prev.location === "mosaic" && location !== "mosaic")
@@ -251,6 +262,7 @@ export const { actions, reducer } = createSlice({
       [prevMosaic.root] = Mosaic.removeTab(prevMosaic.root, tabKey);
       state.mosaics[prevWindowKey] = prevMosaic;
       const mosaic = state.mosaics[windowKey];
+      if (mosaic.activeTab == null) mosaic.activeTab = tabKey;
       state.layouts[tabKey].windowKey = windowKey;
 
       const mosaicTab = {
@@ -308,24 +320,43 @@ export const { actions, reducer } = createSlice({
       const next = keys[(index + 1) % keys.length];
       state.activeTheme = next;
     },
+    setNavdrawer: (state, { payload }: PayloadAction<SetNavDrawerPayload>) => {
+      const { windowKey, location, ...rest } = payload;
+      if (!(windowKey in state.nav)) state.nav[windowKey] = { drawers: {} };
+      state.nav[windowKey].drawers[location] = rest;
+    },
     resizeNavdrawer: (
       state,
-      { payload: { location, size } }: PayloadAction<ResizeNavdrawerPayload>,
+      { payload: { windowKey, location, size } }: PayloadAction<ResizeNavdrawerPayload>,
     ) => {
-      state.nav.drawers[location].size = size;
+      const navState = state.nav[windowKey];
+      if (navState?.drawers[location] == null) return;
+      (navState.drawers[location] as NavdrawerEntryState).size = size;
     },
     setNavdrawerVisible: (
       state,
-      { payload: { key, location, value } }: PayloadAction<SetNavdrawerVisiblePayload>,
+      {
+        payload: { windowKey, key, location, value },
+      }: PayloadAction<SetNavdrawerVisiblePayload>,
     ) => {
+      let navState = state.nav[windowKey];
+      if (navState == null) {
+        navState = { drawers: {} };
+        state.nav[windowKey] = navState;
+      }
+
       if (key != null) {
-        Object.values(state.nav.drawers).forEach((drawer) => {
+        Object.values(navState.drawers).forEach((drawer) => {
           if (drawer.menuItems.includes(key)) {
             drawer.activeItem = value ?? drawer.activeItem !== key ? key : null;
           }
         });
       } else if (location != null) {
-        const drawer = state.nav.drawers[location];
+        let drawer = navState.drawers[location];
+        if (drawer == null) {
+          drawer = { activeItem: null, menuItems: [] };
+          navState.drawers[location] = drawer;
+        }
         if (value === true && drawer.activeItem == null)
           drawer.activeItem = drawer.menuItems[0];
         else if (value === false) drawer.activeItem = null;
@@ -385,6 +416,7 @@ export const {
   selectMosaicTab,
   resizeMosaicTab,
   rename,
+  setNavdrawer,
   resizeNavdrawer,
   setNavdrawerVisible,
   maybeCreateGetStartedTab,
@@ -403,6 +435,7 @@ export const createMosaicWindow = (): Omit<LayoutState, "windowKey"> => ({
   type: MOSAIC_WINDOW_TYPE,
   location: "window",
   window: {
+    size: { width: 800, height: 600 },
     navTop: true,
   },
 });

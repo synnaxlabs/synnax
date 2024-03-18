@@ -24,13 +24,12 @@ import {
   Header,
 } from "@synnaxlabs/pluto";
 import { FormProvider, useForm } from "react-hook-form";
+import { type z } from "zod";
 
 import { CSS } from "@/css";
 import { type Layout } from "@/layout";
 
 import "@/label/Manage.css";
-
-import { type z } from "zod";
 
 const MANAGE_LABELS_WINDOW_KEY = "manageLabels";
 
@@ -100,6 +99,7 @@ export const Manage = ({ onClose }: Layout.RendererProps): ReactElement => {
               );
             return (
               <ListItem
+                key={l.key}
                 label={l}
                 onDelete={handleDelete}
                 onEdit={() => setEditing(i)}

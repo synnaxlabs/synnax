@@ -18,12 +18,14 @@ import {
 } from "react";
 
 import { box, location as loc, xy } from "@synnaxlabs/x";
+import { createPortal } from "react-dom";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
 import { useClickOutside, useResize, useCombinedRefs, useSyncedRef } from "@/hooks";
 import { chooseLocation } from "@/tooltip/Dialog";
 import { Triggers } from "@/triggers";
+import { findParent } from "@/util/findParent";
 
 import "@/dropdown/Dropdown.css";
 
@@ -81,7 +83,6 @@ export interface DialogProps
   location?: loc.Y | loc.XY;
   children: [ReactNode, ReactNode];
   keepMounted?: boolean;
-  matchTriggerWidth?: boolean;
   variant?: "connected" | "floating";
 }
 
@@ -113,7 +114,6 @@ export const Dialog = ({
   location,
   keepMounted = true,
   className,
-  matchTriggerWidth = false,
   variant = "connected",
   close,
   // It's common to pass these in, so we'll destructure and ignore them so we don't
@@ -132,7 +132,20 @@ export const Dialog = ({
   const calculatePosition = useCallback(() => {
     if (targetRef.current == null) return;
     const windowBox = box.construct(0, 0, window.innerWidth, window.innerHeight);
-    const targetBox = box.construct(targetRef.current);
+    let targetBox = box.construct(targetRef.current);
+    // Look for parent elements of the box that are absolutely positioned
+    const parent =
+      variant === "floating"
+        ? document.documentElement
+        : findParent(targetRef.current, (el) => {
+            if (el === null) return false;
+            const style = window.getComputedStyle(el);
+            return style.position === "absolute";
+          });
+    if (parent != null) {
+      const parentBox = box.construct(parent);
+      targetBox = box.translate(targetBox, xy.scale(box.topLeft(parentBox), -1));
+    }
     const xyLoc = chooseLocation(locationRef.current, targetBox, windowBox);
     if (xyLoc.x === "center") xyLoc.x = "left";
     const pos = xy.construct(
@@ -152,7 +165,7 @@ export const Dialog = ({
   const resizeRef = useResize(calculatePosition);
   const combinedRef = useCombinedRefs(targetRef, resizeRef);
   const dialogStyle: CSSProperties = { ...xy.css(pos) };
-  if (matchTriggerWidth) dialogStyle.width = width;
+  if (variant === "connected") dialogStyle.width = width;
 
   const C = variant === "connected" ? Align.Pack : Align.Space;
 
@@ -162,34 +175,35 @@ export const Dialog = ({
     onClickOutside: close,
   });
 
+  let child: ReactElement = (
+    <Align.Space
+      ref={dialogRef}
+      className={CSS(
+        CSS.BE("dropdown", "dialog"),
+        CSS.loc(loc_.x),
+        CSS.loc(loc_.y),
+        CSS.visible(visible),
+        CSS.M(variant),
+      )}
+      role="dialog"
+      empty
+      style={dialogStyle}
+    >
+      {(keepMounted || visible) && children[1]}
+    </Align.Space>
+  );
+  if (variant === "floating") child = createPortal(child, document.body);
+
   return (
     <C
       {...props}
       ref={combinedRef}
-      className={CSS(
-        className,
-        CSS.B("dropdown"),
-        CSS.visible(visible),
-        CSS.M(variant),
-      )}
+      className={CSS(className, CSS.B("dropdown"), CSS.visible(visible))}
       direction="y"
       reverse={loc_.y === "top"}
     >
       {children[0]}
-      <Align.Space
-        ref={dialogRef}
-        className={CSS(
-          CSS.BE("dropdown", "dialog"),
-          CSS.loc(loc_.x),
-          CSS.loc(loc_.y),
-          CSS.visible(visible),
-        )}
-        role="dialog"
-        empty
-        style={dialogStyle}
-      >
-        {(keepMounted || visible) && children[1]}
-      </Align.Space>
+      {child}
     </C>
   );
 };

@@ -10,9 +10,9 @@
 import { type ReactElement } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import { Status, PID, Input, Align, Button, Diagram } from "@synnaxlabs/pluto";
+import { Status, PID, Input, Align, Button, Diagram, Form } from "@synnaxlabs/pluto";
 import { Color } from "@synnaxlabs/pluto/color";
-import { box, location, xy } from "@synnaxlabs/x";
+import { box, deep, location, xy } from "@synnaxlabs/x";
 import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
@@ -20,6 +20,7 @@ import {
   type ElementInfo,
   useSelectSelectedElementsProps,
   useSelectViewport,
+  type NodeElementInfo,
 } from "@/pid/selectors";
 import { setElementProps, setNodePositions } from "@/pid/slice";
 
@@ -50,8 +51,8 @@ export const PropertiesControls = ({ layoutKey }: PropertiesProps): ReactElement
     const groups: Record<string, ElementInfo[]> = {};
     elements.forEach((e) => {
       let color: Color.Color | null = null;
-      if (e.type === "edge") color = new Color.Color(e.edge.color ?? Color.ZERO);
-      else if ("color" in e.props) color = new Color.Color(e.props.color);
+      if (e.type === "edge") color = new Color.Color(e.edge.color);
+      else if (e.props.color != null) color = new Color.Color(e.props.color);
       if (color === null) return;
       const hex = color.hex;
       if (!(hex in groups)) groups[hex] = [];
@@ -86,6 +87,7 @@ export const PropertiesControls = ({ layoutKey }: PropertiesProps): ReactElement
         } catch (e) {
           console.log(e);
         }
+        return null;
       })
       .filter((el) => el !== null) as Diagram.NodeLayout[];
 
@@ -98,7 +100,7 @@ export const PropertiesControls = ({ layoutKey }: PropertiesProps): ReactElement
                 <Color.Swatch
                   key={elements[0].key}
                   value={hex}
-                  onChange={(color) => {
+                  onChange={(color: Color.Color) => {
                     elements.forEach((e) => {
                       handleChange(e.key, { color: color.hex });
                     });
@@ -152,16 +154,35 @@ export const PropertiesControls = ({ layoutKey }: PropertiesProps): ReactElement
 
   if (selected.type === "edge")
     return <EdgeProperties edge={selected} onChange={handleChange} />;
+  return (
+    <IndividualProperties
+      key={selected.key}
+      element={selected}
+      onChange={handleChange}
+    />
+  );
+};
 
-  const C = PID.SYMBOLS[selected.props.variant as PID.Variant];
+const IndividualProperties = ({
+  element: selected,
+  onChange,
+}: {
+  element: NodeElementInfo;
+  onChange: (key: string, props: any) => void;
+}): ReactElement => {
+  const C = PID.SYMBOLS[selected.props.key as PID.Variant];
+
+  const formMethods = Form.use({
+    values: deep.copy(selected.props),
+    sync: true,
+    onChange: (values: any) => onChange(selected.key, values),
+  });
 
   return (
     <Align.Space className={CSS.B("pid-properties")} size="small">
-      <C.Form
-        key={selected.key}
-        value={selected.props}
-        onChange={(props) => handleChange(selected.key, props)}
-      />
+      <Form.Form {...formMethods}>
+        <C.Form {...formMethods} key={selected.key} />
+      </Form.Form>
     </Align.Space>
   );
 };
@@ -178,7 +199,7 @@ const EdgeProperties = ({ edge, onChange }: EdgePropertiesProps): ReactElement =
       <Input.Item label="Color" align="start">
         <Color.Swatch
           value={edge.edge.color ?? Color.ZERO}
-          onChange={(color) => {
+          onChange={(color: Color.Color) => {
             onChange(edge.key, { color: color.hex });
           }}
         />

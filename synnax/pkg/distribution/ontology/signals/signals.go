@@ -25,7 +25,8 @@ import (
 	"io"
 )
 
-func Propagate(
+// Publish publishes changes from the provided ontology into the provided signals.Provider.
+func Publish(
 	ctx context.Context,
 	prov *signals.Provider,
 	otg *ontology.Ontology,
@@ -41,31 +42,31 @@ func Propagate(
 			})
 		},
 	}
-	resourceObserverCloser, err := prov.SubscribeToObservable(ctx, signals.ObservableConfig{
-		Name:       "ontology_resource",
-		Observable: resourceObserver,
-		Set:        channel.Channel{Name: "sy_ontology_resource_set", DataType: telem.StringT},
-		Delete:     channel.Channel{Name: "sy_ontology_resource_delete", DataType: telem.StringT},
+	resourceObserverCloser, err := prov.PublishFromObservable(ctx, signals.ObservablePublisherConfig{
+		Name:          "ontology_resource",
+		Observable:    resourceObserver,
+		SetChannel:    channel.Channel{Name: "sy_ontology_resource_set", DataType: telem.StringT},
+		DeleteChannel: channel.Channel{Name: "sy_ontology_resource_delete", DataType: telem.StringT},
 	})
 	if err != nil {
 		return nil, err
 	}
-	relationshipObserver := observe.Translator[gorp.TxReader[string, ontology.Relationship], []change.Change[[]byte, struct{}]]{
+	relationshipObserver := observe.Translator[gorp.TxReader[[]byte, ontology.Relationship], []change.Change[[]byte, struct{}]]{
 		Observable: otg.RelationshipObserver,
-		Translate: func(nexter gorp.TxReader[string, ontology.Relationship]) []change.Change[[]byte, struct{}] {
-			return iter.MapToSlice(ctx, nexter, func(ch change.Change[string, ontology.Relationship]) change.Change[[]byte, struct{}] {
+		Translate: func(nexter gorp.TxReader[[]byte, ontology.Relationship]) []change.Change[[]byte, struct{}] {
+			return iter.MapToSlice(ctx, nexter, func(ch change.Change[[]byte, ontology.Relationship]) change.Change[[]byte, struct{}] {
 				return change.Change[[]byte, struct{}]{
-					Key:     append([]byte(ch.Key), '\n'),
+					Key:     append(ch.Key, '\n'),
 					Variant: ch.Variant,
 				}
 			})
 		},
 	}
-	relationshipObserverCloser, err := prov.SubscribeToObservable(ctx, signals.ObservableConfig{
-		Name:       "ontology_relationship",
-		Observable: relationshipObserver,
-		Set:        channel.Channel{Name: "sy_ontology_relationship_set", DataType: telem.StringT},
-		Delete:     channel.Channel{Name: "sy_ontology_relationship_delete", DataType: telem.StringT},
+	relationshipObserverCloser, err := prov.PublishFromObservable(ctx, signals.ObservablePublisherConfig{
+		Name:          "ontology_relationship",
+		Observable:    relationshipObserver,
+		SetChannel:    channel.Channel{Name: "sy_ontology_relationship_set", DataType: telem.StringT},
+		DeleteChannel: channel.Channel{Name: "sy_ontology_relationship_delete", DataType: telem.StringT},
 	})
 	return xio.MultiCloser{resourceObserverCloser, relationshipObserverCloser}, nil
 }
@@ -89,13 +90,15 @@ func DecodeRelationships(ser []byte) ([]ontology.Relationship, error) {
 	)
 	for _, b := range ser {
 		if b == '\n' {
-			relationship, err := ontology.ParseRelationship(buf.String())
+			relationship, err := ontology.ParseRelationship(buf.Bytes())
 			if err != nil {
 				return nil, err
 			}
 			relationships = append(relationships, relationship)
 			buf.Reset()
 			continue
+		} else {
+
 		}
 		buf.WriteByte(b)
 	}

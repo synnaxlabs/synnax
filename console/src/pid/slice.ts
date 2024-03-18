@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type PayloadAction, createSlice } from "@reduxjs/toolkit";
-import { type Control, type Viewport, type Diagram } from "@synnaxlabs/pluto";
+import { type Control, type Viewport, type Diagram, type PID } from "@synnaxlabs/pluto";
 import { Color } from "@synnaxlabs/pluto/color";
 import { type Theming } from "@synnaxlabs/pluto/theming";
 import { box, scale, xy, deep } from "@synnaxlabs/x";
@@ -18,7 +18,8 @@ import { v4 as uuidV4 } from "uuid";
 import { type Layout } from "@/layout";
 
 export type NodeProps = object & {
-  variant: PIDSymbols.Variant;
+  key: PID.Variant;
+  color?: Color.Crude;
 };
 
 export interface State {
@@ -238,6 +239,7 @@ export const { actions, reducer } = createSlice({
           ...node,
           position: xy.translate(node.position, console),
           key,
+          selected: true,
         };
       });
       const nextEdges = state.copy.edges.map((edge) => {
@@ -247,10 +249,17 @@ export const { actions, reducer } = createSlice({
           key,
           source: keys[edge.source],
           target: keys[edge.target],
+          selected: true,
         };
       });
-      pid.edges = [...pid.edges, ...nextEdges];
-      pid.nodes = [...pid.nodes, ...nextNodes];
+      pid.edges = [
+        ...pid.edges.map((edge) => ({ ...edge, selected: false })),
+        ...nextEdges,
+      ];
+      pid.nodes = [
+        ...pid.nodes.map((node) => ({ ...node, selected: false })),
+        ...nextNodes,
+      ];
     },
     create: (state, { payload }: PayloadAction<CreatePayload>) => {
       const { key: layoutKey } = payload;
@@ -276,7 +285,7 @@ export const { actions, reducer } = createSlice({
       const { layoutKeys } = payload;
       layoutKeys.forEach((layoutKey) => {
         const pid = state.pids[layoutKey];
-        if (pid.control === "acquired") pid.controlAcquireTrigger = -1;
+        if (pid.control === "acquired") pid.controlAcquireTrigger -= 1;
         // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
         delete state.pids[layoutKey];
       });
@@ -343,7 +352,8 @@ export const { actions, reducer } = createSlice({
         if (source == null || target == null) return;
         const sourceProps = pid.props[source.key];
         const targetProps = pid.props[target.key];
-        if (sourceProps.color === targetProps.color) edge.color = sourceProps.color;
+        if (sourceProps.color === targetProps.color && sourceProps.color != null)
+          edge.color = sourceProps.color;
       });
       pid.edges = edges;
       const anySelected =
@@ -371,8 +381,7 @@ export const { actions, reducer } = createSlice({
       const pid = state.pids[layoutKey];
       clearSelections(pid);
       if (pid.control === "acquired") {
-        pid.controlAcquireTrigger = -1;
-        pid.control = "released";
+        pid.controlAcquireTrigger -= 1;
       }
       if (pid.snapshot) return;
       pid.editable = editable;
@@ -381,7 +390,8 @@ export const { actions, reducer } = createSlice({
       let { layoutKey, status } = payload;
       const pid = state.pids[layoutKey];
       if (status == null) status = pid.control === "released" ? "acquired" : "released";
-      pid.controlAcquireTrigger += -2 * Number(status === "released") + 1;
+      if (status === "released") pid.controlAcquireTrigger -= 1;
+      else pid.controlAcquireTrigger += 1;
     },
     setControlStatus: (state, { payload }: PayloadAction<SetControlStatusPayload>) => {
       const { layoutKey, control } = payload;
@@ -432,7 +442,7 @@ export const { actions, reducer } = createSlice({
   },
 });
 
-const clearOtherSelections = (state: SliceState, layoutKey: string) => {
+const clearOtherSelections = (state: SliceState, layoutKey: string): void => {
   Object.keys(state.pids).forEach((key) => {
     // If any of the nodes or edges in other Diagram slices are selected, deselect them.
     if (key === layoutKey) return;

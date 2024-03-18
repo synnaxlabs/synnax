@@ -47,7 +47,7 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 				client unaryClient
 			)
 			BeforeAll(func() {
-				addr = "localhost:8080"
+				addr = "localhost:8081"
 				server, client = impl.start(addr)
 			})
 			AfterAll(func() {
@@ -67,7 +67,7 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 					Expect(res).To(Equal(response{ID: 1, Message: "hello"}))
 				})
 			})
-			Describe("Error Handling", func() {
+			Describe("Details Handling", func() {
 				It("Should correctly return a custom error to the client", func() {
 					server.BindHandler(func(ctx context.Context, req request) (response, error) {
 						return response{}, myCustomError

@@ -28,10 +28,10 @@ export class Eraser extends aether.Leaf<typeof eraserStateZ, InternalState> {
 
   private readonly eraser: render.Eraser = new render.Eraser();
 
-  afterUpdate(): void {
+  async afterUpdate(): Promise<void> {
     if (this.deleted) return;
     this.internal.render = render.Context.use(this.ctx);
-    void this.internal.render.loop.set({
+    await this.internal.render.loop.set({
       key: `${this.type}-${this.key}`,
       render: this.render.bind(this),
       priority: "high",
@@ -39,8 +39,8 @@ export class Eraser extends aether.Leaf<typeof eraserStateZ, InternalState> {
     });
   }
 
-  afterDelete(): void {
-    void this.internal.render.loop.set({
+  async afterDelete(): Promise<void> {
+    await this.internal.render.loop.set({
       key: `${this.type}-${this.key}`,
       render: this.render.bind(this),
       priority: "high",

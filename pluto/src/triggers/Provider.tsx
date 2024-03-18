@@ -68,6 +68,7 @@ const shouldNotTriggerOnKeyDown = (key: string, e: KeyboardEvent): boolean => {
     return true;
   if (e.target instanceof HTMLElement && e.target.matches("[contenteditable]"))
     return true;
+  return false;
 };
 
 export const Provider = ({

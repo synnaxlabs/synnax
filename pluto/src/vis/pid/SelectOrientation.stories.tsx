@@ -1,3 +1,12 @@
+// Copyright 2024 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import { useState, type ReactElement } from "react";
 
 import type { Meta, StoryFn } from "@storybook/react";
@@ -22,11 +31,6 @@ const Example = (): ReactElement => {
   return (
     <Align.Space align="start">
       <SelectOrientation value={value} onChange={setValue} />;
-      <ReliefValve
-        label={{ label: "Label", orientation: value.outer }}
-        orientation={value.inner}
-        color="#000000"
-      />
     </Align.Space>
   );
 };

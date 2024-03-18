@@ -32,7 +32,7 @@ export const SelectRange = (props: SelectSingleRangeProps): ReactElement => (
 );
 
 export interface SelectMultipleInputItemProps
-  extends Omit<Input.ItemProps, "label">,
+  extends Omit<Input.ItemProps, "label" | "onChange">,
     Pick<SelectMultipleRangesProps, "data"> {
   value: string[];
   onChange: (value: string[]) => void;
@@ -48,7 +48,7 @@ const SelectEmptyContent = (): ReactElement => {
       <Button.Button
         variant="outlined"
         onClick={() => {
-          newLayout(editLayout);
+          newLayout(editLayout());
         }}
       >
         Define a Range
@@ -74,7 +74,7 @@ export const SelectMultipleInputItem = ({
 );
 
 export interface SelectInputItemProps
-  extends Omit<Input.ItemProps, "label">,
+  extends Omit<Input.ItemProps, "label" | "onChange">,
     Input.Control<string>,
     Pick<SelectSingleRangeProps, "data"> {}
 

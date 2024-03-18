@@ -18,10 +18,10 @@ import { Dropdown } from "@/dropdown";
 import { Triggers } from "@/triggers";
 
 const TestDropdown = (): ReactElement => {
-  const { toggle, visible } = Dropdown.use();
+  const { toggle, visible, close } = Dropdown.use();
 
   return (
-    <Dropdown.Dialog visible={visible}>
+    <Dropdown.Dialog close={close} visible={visible}>
       <Button.Button onClick={() => toggle()}>Toggle</Button.Button>
       <p>Content</p>
     </Dropdown.Dialog>
