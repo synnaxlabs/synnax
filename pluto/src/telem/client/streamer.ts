@@ -1,9 +1,9 @@
-import { type alamos } from "@synnaxlabs/alamos";
+import { alamos } from "@synnaxlabs/alamos";
 import { type framer, type channel, type Synnax } from "@synnaxlabs/client";
-import { compare, type AsyncDestructor } from "@synnaxlabs/x";
+import { compare, type AsyncDestructor, type Required } from "@synnaxlabs/x";
 import { Mutex } from "async-mutex";
 
-import { type CacheManager } from "@/telem/client/cacheManager";
+import { type Cache } from "@/telem/client/cache/cache";
 import { ReadResponse } from "@/telem/client/types";
 
 export type StreamHandler = (data: Record<channel.Key, ReadResponse>) => void;
@@ -13,34 +13,42 @@ interface ListenerEntry {
   keys: channel.Keys;
 }
 
+interface StreamerProps {
+  core: Synnax;
+  cache: Cache;
+  instrumentation?: alamos.Instrumentation;
+}
+
 export class Streamer {
-  private readonly core: Synnax;
-  private readonly ins: alamos.Instrumentation;
+  private readonly props: Required<StreamerProps>;
+
   private readonly mu: Mutex = new Mutex();
   private readonly listeners = new Map<StreamHandler, ListenerEntry>();
-  private readonly cache: CacheManager;
   private streamerRunLoop: Promise<void> | null = null;
   private streamer: framer.Streamer | null = null;
 
-  constructor(cache: CacheManager, core: Synnax, ins: alamos.Instrumentation) {
-    this.core = core;
-    this.ins = ins;
-    this.cache = cache;
+  constructor(props: StreamerProps) {
+    this.props = {
+      instrumentation: alamos.NOOP,
+      ...props,
+    };
   }
 
   /** Implements StreamClient. */
   async stream(handler: StreamHandler, keys: channel.Keys): Promise<AsyncDestructor> {
-    await this.cache.populateMissing(keys);
+    const {
+      cache,
+      instrumentation: { L },
+    } = this.props;
+    await cache.populateMissing(keys);
     return await this.mu.runExclusive(async () => {
-      this.ins.L.debug("adding stream handler", { keys });
+      L.debug("adding stream handler", { keys });
       this.listeners.set(handler, { valid: true, keys });
       const dynamicBuffs: Record<channel.Key, ReadResponse> = {};
       for (const key of keys) {
-        const c = this.cache.get(key);
-        dynamicBuffs[key] = new ReadResponse(
-          c.channel,
-          c.dynamic.buffer != null ? [c.dynamic.buffer] : [],
-        );
+        const unary = cache.get(key);
+        const bufs = unary.leadingBuffer != null ? [unary.leadingBuffer] : [];
+        dynamicBuffs[key] = new ReadResponse(unary.channel, bufs);
       }
       handler(dynamicBuffs);
       await this.updateStreamer();
@@ -49,6 +57,9 @@ export class Streamer {
   }
 
   private async removeStreamHandler(handler: StreamHandler): Promise<void> {
+    const {
+      instrumentation: { L },
+    } = this.props;
     await this.mu.runExclusive(() => {
       const entry = this.listeners.get(handler);
       if (entry == null) return;
@@ -56,60 +67,68 @@ export class Streamer {
     });
     setTimeout(() => {
       void this.mu.runExclusive(async () => {
-        this.ins.L.debug("removing stream handler");
+        L.debug("removing stream handler");
         if (this.listeners.delete(handler)) return await this.updateStreamer();
-        this.ins.L.warn("attempted to remove non-existent stream handler");
+        L.warn("attempted to remove non-existent stream handler");
       });
     }, 5000);
   }
 
   private async updateStreamer(): Promise<void> {
+    const {
+      instrumentation: { L },
+      core,
+    } = this.props;
     // Assemble the set of keys we need to stream.
     const keys = new Set<channel.Key>();
     this.listeners.forEach((v) => v.keys.forEach((k) => keys.add(k)));
 
     // If we have no keys to stream, close the streamer to save network chatter.
     if (keys.size === 0) {
-      this.ins.L.info("no keys to stream, closing streamer");
+      L.info("no keys to stream, closing streamer");
       this.streamer?.close();
       if (this.streamerRunLoop != null) await this.streamerRunLoop;
       this.streamer = null;
-      this.ins.L.info("streamer closed successfully");
+      L.info("streamer closed successfully");
       return;
     }
 
     const arrKeys = Array.from(keys);
     if (compare.primitiveArrays(arrKeys, this.streamer?.keys ?? []) === compare.EQUAL) {
-      this.ins.L.debug("streamer keys unchanged", { keys: arrKeys });
+      L.debug("streamer keys unchanged", { keys: arrKeys });
       return;
     }
 
     // Update or create the streamer.
     if (this.streamer == null) {
-      this.ins.L.info("creating new streamer", { keys: arrKeys });
-      this.streamer = await this.core.telem.newStreamer(arrKeys);
+      L.info("creating new streamer", { keys: arrKeys });
+      this.streamer = await core.telem.newStreamer(arrKeys);
       this.streamerRunLoop = this.runStreamer(this.streamer);
     }
 
-    this.ins.L.debug("updating streamer", { prev: this.streamer.keys, next: arrKeys });
+    L.debug("updating streamer", { prev: this.streamer.keys, next: arrKeys });
 
     try {
       await this.streamer.update(arrKeys);
     } catch (e) {
-      this.ins.L.error("failed to update streamer", { error: e });
+      L.error("failed to update streamer", { error: e });
       throw e;
     }
   }
 
   private async runStreamer(streamer: framer.Streamer): Promise<void> {
+    const {
+      cache,
+      instrumentation: { L },
+    } = this.props;
     try {
       for await (const frame of streamer) {
         const changed: ReadResponse[] = [];
         for (const k of frame.keys) {
           const series = frame.get(k);
-          const cache = this.cache.get(k);
-          const out = cache.writeDynamic(series);
-          changed.push(new ReadResponse(cache.channel, out));
+          const unary = cache.get(k);
+          const out = unary.writeDynamic(series);
+          changed.push(new ReadResponse(unary.channel, out));
         }
         this.listeners.forEach((entry, handler) => {
           if (!entry.valid) return;
@@ -120,7 +139,7 @@ export class Streamer {
         });
       }
     } catch (e) {
-      this.ins.L.error("streamer failed", { error: e });
+      L.error("streamer run loop failed", { error: e });
       throw e;
     }
   }

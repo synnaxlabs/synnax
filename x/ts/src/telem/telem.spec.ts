@@ -206,6 +206,48 @@ describe("TimeSpan", () => {
   test("sub", () => {
     expect(TimeSpan.seconds(1).sub(TimeSpan.SECOND).isZero).toBeTruthy();
   });
+
+  const TRUNCATE_TESTS = [
+    [TimeSpan.days(1).add(TimeSpan.nanoseconds(50)), TimeSpan.DAY, TimeSpan.days(1)],
+    [TimeSpan.hours(1).add(TimeSpan.minutes(30)), TimeSpan.HOUR, TimeSpan.hours(1)],
+  ];
+
+  test("truncate", () => {
+    TRUNCATE_TESTS.forEach(([ts, unit, expected]) => {
+      expect(ts.truncate(unit).equals(expected),
+      `expected ${expected.toString()} got ${ts.truncate(unit).toString()}`
+      ).toBeTruthy();
+    });
+  })
+
+  const REMAINDER_TESTS = [
+    [TimeSpan.days(1).add(TimeSpan.nanoseconds(50)), TimeSpan.DAY, TimeSpan.nanoseconds(50)],
+    [TimeSpan.hours(1).add(TimeSpan.minutes(30)), TimeSpan.HOUR, TimeSpan.minutes(30)],
+  ];
+
+  test("remainder", () => {
+    REMAINDER_TESTS.forEach(([ts, unit, expected]) => {
+      expect(ts.remainder(unit).equals(expected)).toBeTruthy();
+    });
+  })
+
+  const TO_STRING_TESTS = [
+    [TimeSpan.nanoseconds(1), "1ns"],
+    [TimeSpan.microseconds(1), "1µs"],
+    [TimeSpan.milliseconds(1), "1ms"],
+    [TimeSpan.seconds(1), "1s"],
+    [TimeSpan.minutes(1), "1m"],
+    [TimeSpan.hours(1), "1h"],
+    [TimeSpan.days(1), "1d"],
+    [TimeSpan.milliseconds(1).add(TimeSpan.microseconds(500)).add(TimeSpan.nanoseconds(50)), "1ms 500µs 50ns"],
+    [TimeSpan.seconds(1).add(TimeSpan.microseconds(500)), "1s 500µs"],
+  ];
+
+  test("toString", () => {
+    TO_STRING_TESTS.forEach(([ts, expected]) => {
+      expect(ts.toString()).toEqual(expected);
+    });
+  })
 });
 
 describe("Rate", () => {
@@ -316,3 +358,20 @@ describe("DataType", () => {
     expect(v.dt === "int32").toBeTruthy();
   });
 });
+
+describe("Size", () => {
+  const TO_STRING_TESTS = [
+    [Size.bytes(1), "1B"],
+    [Size.kilobytes(1), "1KB"],
+    [Size.megabytes(1), "1MB"],
+    [Size.gigabytes(1), "1GB"],
+    [Size.terabytes(1), "1TB"],
+    [Size.megabytes(4).add(Size.kilobytes(500)), "4MB 500KB"],
+  ]
+
+  test("toString", () => {
+    TO_STRING_TESTS.forEach(([size, expected]) => {
+      expect(size.toString()).toEqual(expected);
+    });
+  });
+})
