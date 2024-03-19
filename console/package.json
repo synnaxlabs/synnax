@@ -1,7 +1,7 @@
 {
   "name": "@synnaxlabs/console",
   "private": true,
-  "version": "0.18.5",
+  "version": "0.18.6",
   "type": "module",
   "scripts": {
     "dev": "tauri dev",
