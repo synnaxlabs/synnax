@@ -55,7 +55,7 @@ export class Unary {
   }
 
   get leadingBuffer(): Series | null {
-    return this.dynamic.buffer;
+    return this.dynamic.leadingBuffer;
   }
 
   writeStatic(series: Series[]): void {
