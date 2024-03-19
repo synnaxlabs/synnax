@@ -7,12 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type alamos } from "@synnaxlabs/alamos";
+import { alamos } from "@synnaxlabs/alamos";
 import { type channel, type TimeRange } from "@synnaxlabs/client";
-import { type Series } from "@synnaxlabs/x";
+import { Size, type Series } from "@synnaxlabs/x";
 
-import { Dynamic } from "@/telem/client/cache/dynamic";
-import { type DirtyReadResult, Static } from "@/telem/client/cache/static";
+import { Dynamic, type DynamicProps } from "@/telem/client/cache/dynamic";
+import {
+  type DirtyReadResult,
+  Static,
+  type CacheGCMetrics as CacheGCResult,
+  type StaticProps,
+} from "@/telem/client/cache/static";
+
+interface UnaryProps extends StaticProps, Pick<DynamicProps, "dynamicBufferSize"> {
+  channel: channel.Payload;
+}
 
 export class Unary {
   readonly channel: channel.Payload;
@@ -21,15 +30,14 @@ export class Unary {
   private readonly static: Static;
   private readonly dynamic: Dynamic;
 
-  constructor(
-    dynamicCap: number,
-    channel: channel.Payload,
-    ins: alamos.Instrumentation,
-  ) {
-    this.ins = ins;
-    this.static = new Static(ins);
-    this.dynamic = new Dynamic(dynamicCap, channel.dataType);
-    this.channel = channel;
+  constructor(props: UnaryProps) {
+    this.channel = props.channel;
+    this.ins = props.instrumentation ?? alamos.NOOP;
+    this.static = new Static(props);
+    this.dynamic = new Dynamic({
+      dynamicBufferSize: props.dynamicBufferSize,
+      dataType: this.channel.dataType,
+    });
   }
 
   writeDynamic(series: Series[]): Series[] {
@@ -68,13 +76,14 @@ export class Unary {
     return this.static.dirtyRead(tr);
   }
 
-  garbageCollect(): void {
+  gc(): CacheGCResult {
     if (this.closed) {
       this.ins.L.warn(
         `Ignoring attempted garbage collection on a closed cache for channel ${this.channel.name}`,
       );
+      return { purgedSeries: 0, purgedBytes: Size.bytes(0) };
     }
-    this.static.garbageCollect();
+    return this.static.gc();
   }
 
   close(): void {

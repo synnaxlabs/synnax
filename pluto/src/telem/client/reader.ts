@@ -1,4 +1,4 @@
-import { type alamos } from "@synnaxlabs/alamos";
+import { alamos } from "@synnaxlabs/alamos";
 import { type framer, type channel } from "@synnaxlabs/client";
 import { TimeSpan, type TimeRange, debounce } from "@synnaxlabs/x";
 import { Mutex } from "async-mutex";
@@ -34,7 +34,7 @@ interface ReaderProps {
    */
   batchDebounce?: TimeSpan;
   /** Used for logging, tracing, etc. */
-  instrumentation: alamos.Instrumentation;
+  instrumentation?: alamos.Instrumentation;
 }
 
 interface ReaderMu {
@@ -59,6 +59,7 @@ export class Reader {
 
   constructor(props: ReaderProps) {
     this.props = {
+      instrumentation: alamos.NOOP,
       batchDebounce: TimeSpan.milliseconds(50),
       ...props,
     };

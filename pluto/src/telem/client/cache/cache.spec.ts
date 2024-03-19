@@ -14,15 +14,11 @@ class MockRetriever implements channel.Retriever {
     this.func = func;
   }
 
-  async search(term: string, rangeKey?: string): Promise<channel.Payload[]> {
+  async search(): Promise<channel.Payload[]> {
     throw new Error("Method not implemented.");
   }
 
-  async page(
-    offset: number,
-    limit: number,
-    rangeKey?: string,
-  ): Promise<channel.Payload[]> {
+  async page(): Promise<channel.Payload[]> {
     throw new Error("Method not implemented.");
   }
 
@@ -51,7 +47,10 @@ describe("cacheManager", () => {
         );
       });
       const retriever = new channel.DebouncedBatchRetriever(ret, 10);
-      const manager = new Cache(retriever, alamos.NOOP);
+      const manager = new Cache({
+        channelRetriever: retriever,
+        instrumentation: alamos.NOOP,
+      });
       expect(() => manager.get(1)).toThrow(UnexpectedError);
       await manager.populateMissing([1, 2]);
       expect(manager.get(1)).toBeDefined();
@@ -73,7 +72,10 @@ describe("cacheManager", () => {
       });
 
       const retriever = new channel.DebouncedBatchRetriever(ret, 10);
-      const manager = new Cache(retriever, alamos.NOOP);
+      const manager = new Cache({
+        channelRetriever: retriever,
+        instrumentation: alamos.NOOP,
+      });
       await manager.populateMissing([1, 2]);
       const existing = manager.get(1);
       await manager.populateMissing([1, 2]);
