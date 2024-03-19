@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "alamos"
-version = "0.2.28"
+version = "0.2.29"
 description = ""
 authors = ["Emiliano Bonilla <ebonilla@synnaxlabs.com>"]
 readme = "README.md"
