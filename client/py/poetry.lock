@@ -2,13 +2,13 @@
 
 [[package]]
 name = "alamos"
-version = "0.2.30"
+version = "0.2.31"
 description = ""
 optional = false
-python-versions = ">=3.11,<4.0"
+python-versions = "<4.0,>=3.11"
 files = [
-    {file = "alamos-0.2.30-py3-none-any.whl", hash = "sha256:05765e6375c8d56b02ccbfc402a028c811cb174eb7c1ddcd6c2067c30c8b8816"},
-    {file = "alamos-0.2.30.tar.gz", hash = "sha256:bedc27cd49b6c255a7ec75952a925d5dc818ff8dff2107f9879e9b261dd4ce9b"},
+    {file = "alamos-0.2.31-py3-none-any.whl", hash = "sha256:74625286b24fcda6e0273664f8a0892d7ab279b387220ca3ec2772f0a5d14630"},
+    {file = "alamos-0.2.31.tar.gz", hash = "sha256:0eee3feac485b2f10311273ffeefeba3b412c583ba414a6fef89b38caa70aefb"},
 ]
 
 [package.dependencies]
@@ -3335,17 +3335,17 @@ tests = ["cython", "littleutils", "pygments", "pytest", "typeguard"]
 
 [[package]]
 name = "synnax-freighter"
-version = "0.5.30"
+version = "0.5.31"
 description = ""
 optional = false
-python-versions = ">=3.11,<4.0"
+python-versions = "<4.0,>=3.11"
 files = [
-    {file = "synnax_freighter-0.5.30-py3-none-any.whl", hash = "sha256:ee39f456d6372341e89261efe7e0062df331668a893edb561496731170d8f126"},
-    {file = "synnax_freighter-0.5.30.tar.gz", hash = "sha256:c5ed2aaa542045536f1da77edf08d05a611dbb357371d8c3ac18e7dfe40ef637"},
+    {file = "synnax_freighter-0.5.31-py3-none-any.whl", hash = "sha256:b375a7849fcff6ef97043724be294268ef9dd3cf7f62a4faab53b09ab63a9d60"},
+    {file = "synnax_freighter-0.5.31.tar.gz", hash = "sha256:0d094122f7e19915e8a22d25dc564cd95c768a5544d471d2f59118b76c10f998"},
 ]
 
 [package.dependencies]
-alamos = ">=0.2.30,<0.3.0"
+alamos = ">=0.2.31,<0.3.0"
 janus = ">=1.0.0,<2.0.0"
 msgpack = ">=1.0.4,<2.0.0"
 pydantic = ">=1.10.0,<2.0.0"
@@ -3759,4 +3759,4 @@ testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "p
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "772a44347d16f5dbadfcc46e1c9165a80eb7f636b4f1e37d30a394c35da61c98"
+content-hash = "ecd43b389b7a5e9343d34866ce158d9fa4254cc50af5104444fcece5a87ebfad"
