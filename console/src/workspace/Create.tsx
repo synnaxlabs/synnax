@@ -56,7 +56,7 @@ export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
   const { mutate, isPending } = useMutation({
     mutationKey: [],
     mutationFn: async () => {
-      if (methods.validate() || client == null) return;
+      if (!methods.validate() || client == null) return;
       const { name } = methods.value();
       const ws = await client.workspaces.create({
         name,
