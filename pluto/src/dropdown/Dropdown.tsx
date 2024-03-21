@@ -17,7 +17,7 @@ import {
   type ReactNode,
 } from "react";
 
-import { box, location as loc, xy } from "@synnaxlabs/x";
+import { box, type location as loc, xy, position } from "@synnaxlabs/x";
 import { createPortal } from "react-dom";
 
 import { Align } from "@/align";
@@ -87,13 +87,13 @@ export interface DialogProps
 }
 
 interface State {
-  pos: xy.XY;
+  box: box.Box;
   loc: loc.XY;
   width: number;
 }
 
 const ZERO_STATE: State = {
-  pos: xy.ZERO,
+  box: box.ZERO,
   loc: { x: "left", y: "bottom" },
   width: 0,
 };
@@ -126,12 +126,15 @@ export const Dialog = ({
   const visibleRef = useRef<boolean | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
 
-  const [{ pos, loc: loc_, width }, setState] = useState<State>({ ...ZERO_STATE });
+  const [{ box: dialogBox_, loc: loc_, width }, setState] = useState<State>({
+    ...ZERO_STATE,
+  });
   const locationRef = useSyncedRef(location);
 
   const calculatePosition = useCallback(() => {
-    if (targetRef.current == null) return;
+    if (targetRef.current == null || dialogRef.current == null) return;
     const windowBox = box.construct(0, 0, window.innerWidth, window.innerHeight);
+
     let targetBox = box.construct(targetRef.current);
     // Look for parent elements of the box that are absolutely positioned
     const parent =
@@ -142,17 +145,46 @@ export const Dialog = ({
             const style = window.getComputedStyle(el);
             return style.position === "absolute";
           });
+    let dialogBox = box.construct(dialogRef.current);
+    if (box.width(dialogBox) < 10 || box.height(dialogBox) < 10) {
+      dialogBox = box.resize(dialogBox, { width: box.width(targetBox), height: 100 });
+    }
     if (parent != null) {
       const parentBox = box.construct(parent);
       targetBox = box.translate(targetBox, xy.scale(box.topLeft(parentBox), -1));
     }
-    const xyLoc = chooseLocation(locationRef.current, targetBox, windowBox);
-    if (xyLoc.x === "center") xyLoc.x = "left";
-    const pos = xy.construct(
-      box.loc(targetBox, loc.swap(xyLoc.x)),
-      box.loc(targetBox, xyLoc.y),
-    );
-    setState({ pos, loc: { ...xyLoc }, width: box.width(targetBox) });
+    const props: position.DialogProps = {
+      container: windowBox,
+      target: targetBox,
+      dialog: dialogBox,
+    };
+    if (variant === "floating") {
+      props.alignments = ["end"];
+      props.disable = ["center"];
+    } else {
+      props.alignments = ["center"];
+      props.disable = [{ y: "center" }];
+      props.initial = { x: "center" };
+    }
+    console.log(props);
+    let { adjustedDialog, location } = position.dialog(props);
+    console.log(location);
+
+    if (variant === "connected") {
+      if (location.y === "top") {
+        adjustedDialog = box.translate(adjustedDialog, { x: 0, y: 1 });
+      } else {
+        adjustedDialog = box.translate(adjustedDialog, { x: 0, y: -1 });
+      }
+    } else {
+      if (location.y === "top") {
+        adjustedDialog = box.translate(adjustedDialog, { x: 0, y: -6 });
+      } else {
+        adjustedDialog = box.translate(adjustedDialog, { x: 0, y: 6 });
+      }
+    }
+
+    setState({ loc: location, box: adjustedDialog, width: box.width(targetBox) });
   }, [variant]);
 
   if (targetRef.current != null) {
@@ -164,7 +196,7 @@ export const Dialog = ({
 
   const resizeRef = useResize(calculatePosition);
   const combinedRef = useCombinedRefs(targetRef, resizeRef);
-  const dialogStyle: CSSProperties = { ...xy.css(pos) };
+  const dialogStyle: CSSProperties = { ...xy.css(box.topLeft(dialogBox_)) };
   if (variant === "connected") dialogStyle.width = width;
 
   const C = variant === "connected" ? Align.Pack : Align.Space;

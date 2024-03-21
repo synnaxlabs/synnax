@@ -278,21 +278,7 @@ export const yBounds = (b: Crude): bounds.Bounds => {
   return { lower: b_.one.y, upper: b_.two.y };
 };
 
-export const setRoot = (b: Box, corner: location.CornerXY): Box => copy(b, corner);
-
-export const convertRoot = (b: Box, corner: location.CornerXY): Box => {
-  const nextOne: xy.XY = { x: 0, y: 0 };
-  const nextTwo: xy.XY = { x: 0, y: 0 };
-  if (b.root.x !== corner.x) {
-    nextOne.x = b.one.x + -1 * Number(b.root.x === "right") * width(b);
-    nextTwo.x = b.two.x + -1 * Number(b.root.x === "left") * width(b);
-  }
-  if (b.root.y !== corner.y) {
-    nextOne.y = b.one.y + -1 * Number(b.root.y === "bottom") * height(b);
-    nextTwo.y = b.two.y + -1 * Number(b.root.y === "top") * height(b);
-  }
-  return construct(nextOne, nextTwo, undefined, undefined, corner);
-};
+export const reRoot = (b: Box, corner: location.CornerXY): Box => copy(b, corner);
 
 /**
  * Reposition a box so that it is visible within a given bound.
@@ -347,6 +333,16 @@ export const translate = (b: Box, t: xy.XY): Box => {
   );
 };
 
+export const intersect = (a: Box, b: Box): Box => {
+  const x = Math.max(left(a), left(b));
+  const y = Math.max(top(a), top(b));
+  const x2 = Math.min(right(a), right(b));
+  const y2 = Math.min(bottom(a), bottom(b));
+  return construct({ x, y }, { x: x2, y: y2 }, undefined, undefined, a.root);
+};
+
+export const area = (b: Box): number => width(b) * height(b);
+
 export const truncate = (b: Box, precision: number = 0): Box => {
   const b_ = construct(b);
   return construct(
@@ -356,4 +352,35 @@ export const truncate = (b: Box, precision: number = 0): Box => {
     undefined,
     b_.root,
   );
+};
+
+export const constructWithAlternateRoot = (
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  currRoot: location.XY,
+  newRoot: location.CornerXY,
+): Box => {
+  const first = { x, y };
+  const second = { x: x + width, y: y + height };
+  if (currRoot.x !== newRoot.x) {
+    if (currRoot.x === "center") {
+      first.x -= width / 2;
+      second.x -= width / 2;
+    } else {
+      first.x -= width;
+      second.x -= width;
+    }
+  }
+  if (currRoot.y !== newRoot.y) {
+    if (currRoot.y === "center") {
+      first.y -= height / 2;
+      second.y -= height / 2;
+    } else {
+      first.y -= height;
+      second.y -= height;
+    }
+  }
+  return construct(first, second, undefined, undefined, newRoot);
 };

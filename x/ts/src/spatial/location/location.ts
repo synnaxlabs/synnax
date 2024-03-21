@@ -94,28 +94,44 @@ export type XY = z.infer<typeof xy>;
 export type CornerXY = z.infer<typeof corner>;
 export type CornerXYString = "topLeft" | "topRight" | "bottomLeft" | "bottomRight";
 
-export const TOP_LEFT: CornerXY = { x: "left", y: "top" };
-export const TOP_RIGHT: CornerXY = { x: "right", y: "top" };
-export const BOTTOM_LEFT: CornerXY = { x: "left", y: "bottom" };
-export const BOTTOM_RIGHT: CornerXY = { x: "right", y: "bottom" };
-export const CENTER: XY = { x: "center", y: "center" };
-export const TOP_CENTER: XY = { x: "center", y: "top" };
-export const BOTTOM_CENTER: XY = { x: "center", y: "bottom" };
-export const RIGHT_CENTER: XY = { x: "right", y: "center" };
-export const LEFT_CENTER: XY = { x: "left", y: "center" };
-export const XY_LOCATIONS: XY[] = [
+export const TOP_LEFT: CornerXY = Object.freeze({ x: "left", y: "top" });
+export const TOP_RIGHT: CornerXY = Object.freeze({ x: "right", y: "top" });
+export const BOTTOM_LEFT: CornerXY = Object.freeze({ x: "left", y: "bottom" });
+export const BOTTOM_RIGHT: CornerXY = Object.freeze({ x: "right", y: "bottom" });
+export const CENTER: XY = Object.freeze({ x: "center", y: "center" });
+export const TOP_CENTER: XY = Object.freeze({ x: "center", y: "top" });
+export const BOTTOM_CENTER: XY = Object.freeze({ x: "center", y: "bottom" });
+export const RIGHT_CENTER: XY = Object.freeze({ x: "right", y: "center" });
+export const LEFT_CENTER: XY = Object.freeze({ x: "left", y: "center" });
+export const XY_LOCATIONS: readonly XY[] = Object.freeze([
+  LEFT_CENTER,
+  RIGHT_CENTER,
+  TOP_CENTER,
+  BOTTOM_CENTER,
   TOP_LEFT,
   TOP_RIGHT,
   BOTTOM_LEFT,
   BOTTOM_RIGHT,
   CENTER,
-  TOP_CENTER,
-  BOTTOM_CENTER,
-  RIGHT_CENTER,
-  LEFT_CENTER,
-];
+]);
 
 export const xyEquals = (a: XY, b: XY): boolean => a.x === b.x && a.y === b.y;
+
+export const xyMatches = (a: XY, l: Partial<XY> | Location): boolean => {
+  if (typeof l === "object") {
+    let ok = true;
+    if ("x" in l) {
+      const ok_ = a.x === l.x;
+      if (!ok_) ok = false;
+    }
+    if ("y" in l) {
+      const ok_ = a.y === l.y;
+      if (!ok_) ok = false;
+    }
+    return ok;
+  }
+  return a.x === l || a.y === l;
+};
 
 export const xyCouple = (a: XY): [Location, Location] => [a.x, a.y];
 

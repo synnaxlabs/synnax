@@ -73,6 +73,18 @@ const LOCATION_TRANSLATIONS: Record<string, (p: xy.XY, container: box.Box) => xy
   [location.xyToString(location.BOTTOM_LEFT)]: (p, c) => xy.translateX(p, box.width(c)),
 };
 
+const bestLocation = <C extends location.Location>(
+  container: box.Box,
+  window: box.Box,
+  options: C[],
+): C => {
+  for (const location of options) {
+    const distance = Math.abs(box.loc(window, location) - box.loc(container, location));
+    if (distance > SIZE_THRESHOLD) return location;
+  }
+  return options[0];
+};
+
 export const chooseLocation = (
   cornerOrLocation: location.Outer | Partial<location.XY> | undefined,
   target: box.Box,

@@ -14,4 +14,5 @@ export * from "@/spatial/direction";
 export * from "@/spatial/location";
 export * from "@/spatial/xy";
 export * from "@/spatial/scale";
+export * from "@/spatial/position";
 export * as spatial from "@/spatial/spatial";

@@ -16,9 +16,9 @@
 }
 
 .pluto-dropdown__dialog.pluto--floating {
-    transform: translateY(1rem);
+    /* transform: translateY(1rem); */
 
-    &.pluto--top.pluto--left {
+    /* &.pluto--top.pluto--left {
         transform: translate(-100%, calc(-100% - 1rem));
     }
 
@@ -28,7 +28,7 @@
 
     &.pluto--top.pluto--right {
         transform: translateY(calc(-100% - 1rem));
-    }
+    } */
 }
 
 .pluto-dropdown__dialog {
@@ -37,15 +37,12 @@
     box-shadow: var(--pluto-shadow-menu);
     overflow: hidden;
     background: var(--pluto-gray-l1);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    border-radius: 6px;
 
     & .pluto-pack.pluto--rounded {
-        --pluto-pack-br: 6px;
+        --pluto-pack-br: 1rem !important;
     }
 
-    &.pluto--top {
+    /* &.pluto--top {
         transform: translateY(calc(-100% + 1px));
     }
 
@@ -55,7 +52,7 @@
 
     &.pluto--left {
         transform: translateX(-100%);
-    }
+    } */
 
     transition: opacity 0.075s ease-in-out;
     &.pluto--hidden {

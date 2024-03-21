@@ -7,12 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type Alignment,
-  type Order,
-  type XLocation,
-  type YLocation,
-} from "@/spatial/base";
+import { type Alignment, type XLocation, type YLocation } from "@/spatial/base";
 import { box } from "@/spatial/box";
 import { direction } from "@/spatial/direction";
 import { location } from "@/spatial/location";
@@ -38,11 +33,13 @@ export interface DialogProps {
   container: box.Crude;
   target: box.Crude;
   dialog: box.Crude;
-  initial?: location.Outer | Partial<location.Outer> | location.XY;
+  alignments?: Alignment[];
+  initial?: location.Outer | Partial<location.XY> | location.XY;
+  disable?: Array<location.Location | Partial<location.XY>>;
 }
 
 const parseInitialPosition = (
-  initial?: location.Outer | Partial<location.Outer> | location.XY,
+  initial?: location.Outer | Partial<location.XY> | location.XY,
 ): Partial<location.XY> => {
   if (initial == null) return { x: undefined, y: undefined };
   const parsedXYLoc = location.xy.safeParse(initial);
@@ -54,100 +51,86 @@ const parseInitialPosition = (
       ? { x: parsedLoc.data as XLocation, y: undefined }
       : { x: undefined, y: parsedLoc.data as YLocation };
   }
-  throw new Error(`Invalid initial position: ${initial}`);
+  return initial as Partial<location.XY>;
 };
 
-const Y_LOCATION_PREFERENCES: location.Y[] = ["top", "bottom"];
-const X_LOCATION_PREFERENCES: location.X[] = ["left", "right"];
-const OUTER_LOCATION_PREFERENCES: location.Outer[] = [
-  ...X_LOCATION_PREFERENCES,
-  ...Y_LOCATION_PREFERENCES,
-];
-
-interface BestLocationProps<C extends location.Location> {
-  target: box.Crude;
-  dialog: box.Crude;
-  container: box.Crude;
-  options: C[];
-  direction: direction.Direction;
+export interface DialogReturn {
+  location: location.XY;
+  adjustedDialog: box.Box;
 }
 
-const bestLocation = <C extends location.Location>({
-  target,
-  dialog,
-  container,
-  options,
-  direction,
-}: BestLocationProps<C>): C =>
-  options.find((l) => {
-    const distance = Math.abs(box.loc(container, l) - box.loc(target, l));
-    return distance > box.dim(dialog, direction);
-  }) ?? options[0];
-
 export const dialog = ({
-  container,
-  target,
-  dialog,
+  container: containerCrude,
+  target: targetCrude,
+  dialog: dialogCrude,
   initial,
-}: DialogProps): Partial<location.XY> => {
+  alignments = ["start"],
+  disable = [],
+}: DialogProps): DialogReturn => {
   const initialPos = parseInitialPosition(initial);
   const options = location.XY_LOCATIONS.filter(
     (l) =>
       !location.xyEquals(l, location.CENTER) &&
       (initialPos.x == null || l.x === initialPos.x) &&
-      (initialPos.y == null || l.y === initialPos.y),
-  );
+      (initialPos.y == null || l.y === initialPos.y) &&
+      !disable.some((d) => location.xyMatches(l, d)),
+  )
+    .map((l) => alignments?.map((a) => [l, a]))
+    .flat() as Array<[location.XY, Alignment]>;
 
-  return initialPos;
+  const container = box.construct(containerCrude);
+  const target = box.construct(targetCrude);
+  const dialog = box.construct(dialogCrude);
+
+  // maximum value of a number in js
+  let bestOptionArea = -Infinity;
+  const res: DialogReturn = { location: location.CENTER, adjustedDialog: dialog };
+  options.forEach(([option, alignment]) => {
+    const [adjustedBox, area] = evaluateOption({
+      option,
+      alignment,
+      container,
+      target,
+      dialog,
+    });
+    if (area > bestOptionArea) {
+      bestOptionArea = area;
+      res.location = option;
+      res.adjustedDialog = adjustedBox;
+    }
+  });
+
+  return res;
 };
 
 interface EvaluateOptionProps {
   option: location.XY;
-  order: Alignment;
-  container: box.Crude;
-  target: box.Crude;
-  dialog: box.Crude;
+  alignment: Alignment;
+  container: box.Box;
+  target: box.Box;
+  dialog: box.Box;
 }
 
 const evaluateOption = ({
   option,
-  order,
+  alignment,
   container,
   target,
   dialog,
-}: EvaluateOptionProps): number => {
-  const root = getRoot(option, order);
+}: EvaluateOptionProps): [box.Box, number] => {
+  const root = getRoot(option, alignment);
+  const targetPoint = box.xyLoc(target, option);
+  const dialogBox = box.constructWithAlternateRoot(
+    targetPoint.x,
+    targetPoint.y,
+    box.width(dialog),
+    box.height(dialog),
+    root,
+    location.TOP_LEFT,
+  );
+  const area = box.area(box.intersect(dialogBox, container));
+  return [dialogBox, area];
 };
-
-// REASONING TABLE
-//
-// TL, S -> BR
-// TL, C -> BC
-// TL, E -> BL
-// TR, S -> BL
-// TR, C -> BC
-// TR, E -> BR
-// TC, S -> BL
-// TC, C -> BC
-// TC, E -> BR
-// CL, S -> BR
-// CL, C -> CR
-// CL, E -> TR
-// CR, S -> BL
-// CR, C -> CL
-// CR, E -> TL
-// BL, S -> TR
-// BL, C -> TC
-// BL, E -> TL
-// BR, S -> TL
-// BR, C -> TC
-// BR, E -> TR
-// BC, S -> TL
-// BC, C -> TC
-// BC, E -> TR
-// BL, S -> TR
-// BL, C -> TC
-// BL, E -> TL
 
 const X_ALIGNMENT_MAP: Record<Alignment, location.X | location.Center> = {
   start: "left",
@@ -156,20 +139,20 @@ const X_ALIGNMENT_MAP: Record<Alignment, location.X | location.Center> = {
 };
 
 const Y_ALIGNMENT_MAP: Record<Alignment, location.Y | location.Center> = {
-  start: "top",
+  start: "bottom",
   center: "center",
-  end: "bottom",
+  end: "top",
 };
 
-export const getRoot = (option: location.XY, order: Alignment): location.XY => {
+export const getRoot = (option: location.XY, alignment: Alignment): location.XY => {
   const out: location.XY = { x: "center", y: "center" };
   if (option.y !== "center") {
     out.y = location.swap(option.y) as location.Y;
-    const swapper = option.y === "bottom" ? location.swap : (v: location.Location) => v;
-    out.x = swapper(X_ALIGNMENT_MAP[order]) as location.X;
+    const swapper = option.x === "left" ? location.swap : (v: location.Location) => v;
+    out.x = swapper(X_ALIGNMENT_MAP[alignment]) as location.X;
   } else {
     out.x = location.swap(option.x) as location.X;
-    out.y = Y_ALIGNMENT_MAP[order];
+    out.y = Y_ALIGNMENT_MAP[alignment];
   }
   return out;
 };

@@ -134,10 +134,35 @@ describe("Box", () => {
       expect(box.bottomRight(b)).toEqual({ x: 15, y: 15 });
     });
   });
-  describe("convertRoot", () => {
-    const spec: Array<[box.Box,
-    location.OuterXY,
-
-  ]
-  })
+  describe("constructWithAlternateRoot", () => {
+    it("should construct a box with the given root", () => {
+      const b = box.constructWithAlternateRoot(
+        10,
+        10,
+        10,
+        10,
+        location.BOTTOM_RIGHT,
+        location.TOP_LEFT,
+      );
+      expect(box.topLeft(b)).toEqual({ x: 0, y: 0 });
+      const b2 = box.constructWithAlternateRoot(
+        10,
+        10,
+        10,
+        10,
+        location.TOP_LEFT,
+        location.TOP_LEFT,
+      );
+      expect(box.topLeft(b2)).toEqual({ x: 10, y: 10 });
+      const b3 = box.constructWithAlternateRoot(
+        10,
+        10,
+        10,
+        10,
+        location.BOTTOM_LEFT,
+        location.TOP_LEFT,
+      );
+      expect(box.topLeft(b3)).toEqual({ x: 10, y: 0 });
+    });
+  });
 });
