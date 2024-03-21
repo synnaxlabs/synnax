@@ -38,6 +38,10 @@ export const deploymentNav: PageNavNode = {
       href: "/deployment/systemd-service",
       name: "Systemd Service",
     },
-    
+    {
+      key: "/deployment/installing-certificates",
+      href: "/deployment/installing-certificates",
+      name: "Installing Certificates",
+    }
   ],
 };
