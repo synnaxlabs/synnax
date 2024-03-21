@@ -47,7 +47,8 @@ func (i *Iterator) View() telem.TimeRange { return i.view }
 
 func (i *Iterator) SeekFirst(ctx context.Context) bool {
 	ok := i.internal.SeekFirst(ctx)
-	i.seekReset(i.internal.TimeRange().Start)
+	//i.seekReset(i.internal.TimeRange().Start)
+	i.seekReset(i.internal.TimeRange().BoundBy(i.bounds).Start)
 	return ok
 }
 
@@ -125,6 +126,7 @@ func (i *Iterator) autoNext(ctx context.Context) bool {
 			return false
 		}
 		startOffset := i.Channel.DataType.Density().Size(startApprox.Upper)
+
 		series, n, err := i.read(
 			ctx,
 			startOffset,
