@@ -10,17 +10,28 @@
 from alamos import Instrumentation, trace
 from freighter import Payload, UnaryClient
 
-from synnax.channel.payload import ChannelPayload
+from synnax.channel.payload import ChannelPayload, ChannelKeys, ChannelNames
 
 
-class _Request(Payload):
+class _CreateRequest(Payload):
     channels: list[ChannelPayload]
 
 
-_Response = _Request
+_Response = _CreateRequest
+
+_CHANNEL_CREATE_ENDPOINT = "/channel/create"
+_CHANNEL_DELETE_ENDPOINT = "/channel/delete"
 
 
-class ChannelCreator:
+class _DeleteRequest(Payload):
+    keys: ChannelKeys | None
+    names: ChannelNames | None
+
+
+class _DeleteResponse(Payload):
+    ...
+
+class ChannelWriter:
     __ENDPOINT = "/channel/create"
     __client: UnaryClient
     instrumentation: Instrumentation
@@ -38,8 +49,20 @@ class ChannelCreator:
         self,
         channels: list[ChannelPayload],
     ) -> list[ChannelPayload]:
-        req = _Request(channels=channels)
+        req = _CreateRequest(channels=channels)
         res, exc = self.__client.send(self.__ENDPOINT, req, _Response)
         if exc is not None:
             raise exc
         return res.channels
+
+    @trace("debug")
+    def delete(
+        self,
+        keys: ChannelKeys = None,
+        names: ChannelNames = None,
+    ) -> None:
+        req = _DeleteRequest(keys=keys, names=names)
+        res, exc = self.__client.send(_CHANNEL_DELETE_ENDPOINT, req, _DeleteResponse)
+        if exc is not None:
+            raise exc
+        return res

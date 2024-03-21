@@ -16,13 +16,15 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
+	"github.com/synnaxlabs/x/errutil"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv"
 )
 
 type leaseProxy struct {
 	ServiceConfig
-	router        proxy.BatchFactory[Channel]
+	createRouter  proxy.BatchFactory[Channel]
+	deleteRouter  proxy.BatchFactory[Key]
 	leasedCounter *kv.AtomicInt64Counter
 	freeCounter   *kv.AtomicInt64Counter
 	group         group.Group
@@ -40,7 +42,8 @@ func newLeaseProxy(cfg ServiceConfig, g group.Group) (*leaseProxy, error) {
 
 	p := &leaseProxy{
 		ServiceConfig: cfg,
-		router:        proxy.BatchFactory[Channel]{Host: cfg.HostResolver.HostKey()},
+		createRouter:  proxy.BatchFactory[Channel]{Host: cfg.HostResolver.HostKey()},
+		deleteRouter:  proxy.BatchFactory[Key]{Host: cfg.HostResolver.HostKey()},
 		leasedCounter: c,
 		group:         g,
 	}
@@ -75,7 +78,7 @@ func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Chann
 			channels[i].Leaseholder = lp.HostResolver.HostKey()
 		}
 	}
-	batch := lp.router.Batch(channels)
+	batch := lp.createRouter.Batch(channels)
 	oChannels := make([]Channel, 0, len(channels))
 	for nodeKey, entries := range batch.Peers {
 		remoteChannels, err := lp.createRemote(ctx, nodeKey, entries, retrieveIfNameExists)
@@ -243,4 +246,56 @@ func (lp *leaseProxy) createRemote(
 		return nil, err
 	}
 	return res.Channels, nil
+}
+
+func (lp *leaseProxy) deleteByName(ctx context.Context, tx gorp.Tx, names []string) error {
+	var res []Channel
+	if err := gorp.NewRetrieve[Key, Channel]().Entries(&res).Where(func(c *Channel) bool {
+		return lo.Contains(names, c.Name)
+	}).Exec(ctx, tx); err != nil {
+		return err
+	}
+	keys := KeysFromChannels(res)
+	return lp.delete(ctx, tx, keys)
+}
+
+func (lp *leaseProxy) delete(ctx context.Context, tx gorp.Tx, keys Keys) error {
+	batch := lp.deleteRouter.Batch(keys)
+	for nodeKey, entries := range batch.Peers {
+		err := lp.deleteRemote(ctx, nodeKey, entries)
+		if err != nil {
+			return err
+		}
+	}
+	if len(batch.Free) > 0 {
+		err := lp.deleteFreeVirtual(ctx, tx, batch.Free)
+		if err != nil {
+			return err
+		}
+	}
+	return lp.deleteGateway(ctx, tx, batch.Gateway)
+}
+
+func (lp *leaseProxy) deleteFreeVirtual(ctx context.Context, tx gorp.Tx, channels Keys) error {
+	return gorp.NewDelete[Key, Channel]().WhereKeys(channels...).Exec(ctx, tx)
+}
+
+func (lp *leaseProxy) deleteGateway(ctx context.Context, tx gorp.Tx, keys Keys) error {
+	if err := gorp.NewDelete[Key, Channel]().WhereKeys(keys...).Exec(ctx, tx); err != nil {
+		return err
+	}
+	c := errutil.NewCatch(errutil.WithAggregation())
+	for _, key := range keys {
+		c.Exec(func() error { return lp.TSChannel.DeleteChannel(key.StorageKey()) })
+	}
+	return c.Error()
+}
+
+func (lp *leaseProxy) deleteRemote(ctx context.Context, target core.NodeKey, keys Keys) error {
+	addr, err := lp.HostResolver.Resolve(target)
+	if err != nil {
+		return err
+	}
+	_, err = lp.Transport.DeleteClient().Send(ctx, addr, DeleteRequest{Keys: keys})
+	return err
 }

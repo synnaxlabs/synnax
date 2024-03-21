@@ -12,7 +12,7 @@ from freighter import URL
 
 from synnax.auth import AuthenticationClient
 from synnax.channel import ChannelClient
-from synnax.channel.create import ChannelCreator
+from synnax.channel.writer import ChannelWriter
 from synnax.channel.retrieve import CacheChannelRetriever, ClusterChannelRetriever
 from synnax.config import try_load_options_if_none_provided
 from synnax.control import Client as ControlClient
@@ -99,7 +99,7 @@ class Synnax(Client):
             ClusterChannelRetriever(self._transport.unary, instrumentation),
             instrumentation,
         )
-        ch_creator = ChannelCreator(self._transport.unary, instrumentation)
+        ch_creator = ChannelWriter(self._transport.unary, instrumentation)
         super().__init__(
             client=self._transport.stream,
             async_client=self._transport.stream_async,

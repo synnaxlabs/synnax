@@ -25,6 +25,9 @@ func New() (a api.Transport, transports []fgrpc.BindableTransport) {
 	transports = append(transports, newRanger(&a))
 	transports = append(transports, newHardware(&a))
 
+	// Channel
+	a.ChannelDelete = fnoop.UnaryServer[api.ChannelDeleteRequest, types.Nil]{}
+
 	// AUTH
 	a.AuthChangeUsername = fnoop.UnaryServer[api.ChangeUsernameRequest, types.Nil]{}
 	a.AuthChangePassword = fnoop.UnaryServer[api.ChangePasswordRequest, types.Nil]{}

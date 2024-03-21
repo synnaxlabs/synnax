@@ -4,20 +4,28 @@ package channel.v1;
 
 import "google/protobuf/empty.proto";
 
-service ChannelService {
-  rpc Exec(CreateMessage) returns (CreateMessage) {}
+service ChannelCreateService {
+    rpc Exec(CreateMessage) returns (CreateMessage) {}
+}
+
+service ChannelDeleteService {
+    rpc Exec(DeleteRequest) returns (google.protobuf.Empty) {}
 }
 
 message CreateMessage {
-  repeated Channel channels = 1;
+    repeated Channel channels = 1;
+}
+
+message DeleteRequest {
+    repeated uint32 keys = 3;
 }
 
 message Channel {
-  string name = 1;
-  int32 node_id = 2;
-  int32 storage_key = 3;
-  double rate = 4;
-  string data_type = 5;
-	int32 storage_index = 6;
-	bool is_index = 7;
+    string name = 1;
+    int32 node_id = 2;
+    uint32 storage_key = 3;
+    double rate = 4;
+    string data_type = 5;
+    int32 storage_index = 6;
+    bool is_index = 7;
 }

@@ -13,34 +13,43 @@ import (
 	"github.com/synnaxlabs/freighter/fmock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/x/address"
+	"go/types"
 )
 
 type ChannelNetwork struct {
-	Internal *fmock.Network[channel.CreateMessage, channel.CreateMessage]
+	CreateNet *fmock.Network[channel.CreateMessage, channel.CreateMessage]
+	DeleteNet *fmock.Network[channel.DeleteRequest, types.Nil]
 }
 
 func (c *ChannelNetwork) New(add address.Address) channel.Transport {
 	return &ChannelTransport{
-		client: c.Internal.UnaryClient(),
-		server: c.Internal.UnaryServer(add),
+		createClient: c.CreateNet.UnaryClient(),
+		createServer: c.CreateNet.UnaryServer(add),
+		deleteClient: c.DeleteNet.UnaryClient(),
+		deleteServer: c.DeleteNet.UnaryServer(add),
 	}
 }
 
 func NewChannelNetwork() *ChannelNetwork {
-	return &ChannelNetwork{Internal: fmock.NewNetwork[channel.CreateMessage, channel.CreateMessage]()}
+	return &ChannelNetwork{
+		CreateNet: fmock.NewNetwork[channel.CreateMessage, channel.CreateMessage](),
+		DeleteNet: fmock.NewNetwork[channel.DeleteRequest, types.Nil](),
+	}
 }
 
 type ChannelTransport struct {
-	client channel.CreateTransportClient
-	server channel.CreateTransportServer
+	createClient channel.CreateTransportClient
+	createServer channel.CreateTransportServer
+	deleteClient channel.DeleteTransportClient
+	deleteServer channel.DeleteTransportServer
 }
 
 var _ channel.Transport = (*ChannelTransport)(nil)
 
-func (c ChannelTransport) CreateClient() channel.CreateTransportClient {
-	return c.client
-}
+func (c ChannelTransport) CreateClient() channel.CreateTransportClient { return c.createClient }
 
-func (c ChannelTransport) CreateServer() channel.CreateTransportServer {
-	return c.server
-}
+func (c ChannelTransport) CreateServer() channel.CreateTransportServer { return c.createServer }
+
+func (c ChannelTransport) DeleteClient() channel.DeleteTransportClient { return c.deleteClient }
+
+func (c ChannelTransport) DeleteServer() channel.DeleteTransportServer { return c.deleteServer }
