@@ -16,8 +16,8 @@ import synnax as sy
 
 client = sy.Synnax()
 
-NUM_VALVES = 40
-NUM_SENSORS = 250
+NUM_VALVES = 5
+NUM_SENSORS = 25
 
 valve_commands = []
 valve_acks = []
@@ -66,7 +66,7 @@ for i in range(NUM_SENSORS):
 
 write_to = [*[s.key for s in sensors], *[v.key for v in valve_acks], sensor_idx.key]
 
-rate = (sy.Rate.HZ * 200).period.seconds
+rate = (sy.Rate.HZ * 30).period.seconds
 
 valve_states = {v.key: False for v in valve_acks}
 data = {v.key: [np.float32(valve_states[v.key])] for v in valve_acks}

@@ -45,7 +45,6 @@
       "longDescription": "",
       "macOS": {
         "entitlements": null,
-        "exceptionDomain": "",
         "frameworks": [],
         "providerShortName": null,
         "signingIdentity": null

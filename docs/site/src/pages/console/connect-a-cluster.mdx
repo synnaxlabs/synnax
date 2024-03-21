@@ -53,11 +53,11 @@ monitors the connection to the cluster and displays it in the bottom right corne
     },
     {
       name: "Username",
-      description: "The username to use when connecting to the cluster."
+      description: "The username to use when connecting to the cluster. If you didn't set a username when starting the cluster, this defaults to 'synnax'."
     },
     {
       name: "Password",
-      description: "The password to use when connecting to the cluster."
+      description: "The password to use when connecting to the cluster. If you didn't set a password when starting the cluster, this defaults to 'seldon'."
     },
     {
       name: "Secure",
@@ -66,6 +66,11 @@ monitors the connection to the cluster and displays it in the bottom right corne
     }
   ]}
 />
+
+<div class="info warning">
+<b>Note - </b> The console will not connect to remote clusters (i.e. host is not 'localhost')
+started with the `--insecure` flag.
+</div>
 
 ## Switching Clusters
 

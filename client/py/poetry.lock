@@ -2,13 +2,13 @@
 
 [[package]]
 name = "alamos"
-version = "0.2.30"
+version = "0.2.34"
 description = ""
 optional = false
-python-versions = ">=3.11,<4.0"
+python-versions = "<4.0,>=3.11"
 files = [
-    {file = "alamos-0.2.30-py3-none-any.whl", hash = "sha256:05765e6375c8d56b02ccbfc402a028c811cb174eb7c1ddcd6c2067c30c8b8816"},
-    {file = "alamos-0.2.30.tar.gz", hash = "sha256:bedc27cd49b6c255a7ec75952a925d5dc818ff8dff2107f9879e9b261dd4ce9b"},
+    {file = "alamos-0.2.34-py3-none-any.whl", hash = "sha256:71cebd26e7bc1573c9607ede681bc4ea6f1e43c6601888bc241206cf8fd6fb32"},
+    {file = "alamos-0.2.34.tar.gz", hash = "sha256:a832a698352614f43c759c9ec320b1d94c916c9d82b74b7f0e0405b718ad4053"},
 ]
 
 [package.dependencies]
@@ -2039,12 +2039,12 @@ test = ["pytest", "pytest-console-scripts", "pytest-jupyter", "pytest-tornasync"
 
 [[package]]
 name = "nptdms"
-version = "1.8.0"
+version = "1.9.0"
 description = "Cross-platform, NumPy based module for reading TDMS files produced by LabView"
 optional = false
 python-versions = "*"
 files = [
-    {file = "npTDMS-1.8.0.tar.gz", hash = "sha256:0feb8ecc8e2784816c3a62ed010da36385a5c11e27d57cc8b0af1882d1eb45ae"},
+    {file = "npTDMS-1.9.0.tar.gz", hash = "sha256:0e65c237e9d50b9b8e162b9c34171353a5ea05f4019c99c3e8ebc00722361cbc"},
 ]
 
 [package.dependencies]
@@ -3335,17 +3335,17 @@ tests = ["cython", "littleutils", "pygments", "pytest", "typeguard"]
 
 [[package]]
 name = "synnax-freighter"
-version = "0.5.30"
+version = "0.5.34"
 description = ""
 optional = false
-python-versions = ">=3.11,<4.0"
+python-versions = "<4.0,>=3.11"
 files = [
-    {file = "synnax_freighter-0.5.30-py3-none-any.whl", hash = "sha256:ee39f456d6372341e89261efe7e0062df331668a893edb561496731170d8f126"},
-    {file = "synnax_freighter-0.5.30.tar.gz", hash = "sha256:c5ed2aaa542045536f1da77edf08d05a611dbb357371d8c3ac18e7dfe40ef637"},
+    {file = "synnax_freighter-0.5.34-py3-none-any.whl", hash = "sha256:97ca22b684971b789cacc02786cba3bbfc590bce05b7382bf064895b22d2f81a"},
+    {file = "synnax_freighter-0.5.34.tar.gz", hash = "sha256:e16495a26fc6030fac41c662b00eb74bde0de34efe04d0c19e33fcdf83ae1026"},
 ]
 
 [package.dependencies]
-alamos = ">=0.2.30,<0.3.0"
+alamos = ">=0.2.34,<0.3.0"
 janus = ">=1.0.0,<2.0.0"
 msgpack = ">=1.0.4,<2.0.0"
 pydantic = ">=1.10.0,<2.0.0"
@@ -3759,4 +3759,4 @@ testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "p
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "772a44347d16f5dbadfcc46e1c9165a80eb7f636b4f1e37d30a394c35da61c98"
+content-hash = "633b58857ad6bdddcafdeaedb974b67a407ae84f7609483d7f96250a0ef3aed4"
