@@ -36,8 +36,8 @@ simply run:
 docker run -p 9090:9090 synnaxlabs/synnax --listen=localhost:9090 --mem --insecure
 ```
 
-This will pull the latest version of Synnax from Docker Hub and start a single node cluster with
-the following parameters:
+This will pull the latest version of Synnax from Docker Hub and start a single node 
+cluster with the following parameters:
 
 `-p 9090:9090` - This maps port 9090 on the host to port 9090 in the container. This allows
 access to the Synnax node from the host machine.
@@ -50,6 +50,11 @@ connect when deploying a multi-node cluster.
 development.
 
 `--insecure` - Tells the node to run without TLS.
+
+Starting the node will also provision a root user with the username `synnax` and the 
+password `seldon`.
+
+For detailed documentation on the `start` command, see the [CLI Reference](/deployment/cli-reference).
 
 </Fragment>
 <Icon.OS.Linux slot="linux-icon" />
@@ -93,6 +98,11 @@ development.
 
 `--insecure` - Tells the node to run without TLS.
 
+Starting the node will also provision a root user with the username `synnax` and the 
+password `seldon`.
+
+For detailed documentation on the `start` command, see the [CLI Reference](/deployment/cli-reference).
+
 </Fragment>
 <Icon.OS.MacOS slot="macos-icon" />
 <Fragment slot="macos">
@@ -134,6 +144,11 @@ connect when deploying a multi-node cluster.
 development.
 
 `--insecure` - Tells the node to run without TLS.
+
+Starting the node will also provision a root user with the username `synnax` and the 
+password `seldon`.
+
+For detailed documentation on the `start` command, see the [CLI Reference](/deployment/cli-reference).
 
 </Fragment>
 <Icon.OS.Windows slot="windows-icon" />
