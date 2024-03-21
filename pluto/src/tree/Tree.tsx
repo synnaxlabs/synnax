@@ -238,8 +238,6 @@ export const DefaultItem = memo(
       onDragStart: handleDragStart,
       onClick: () => onSelect?.(key),
       style: {
-        position: "absolute",
-        transform: `translateY(${translate}px)`,
         [offsetKey]: `${depth * 1.5 + 1}rem`,
       },
       startIcon: startIcons,
@@ -250,6 +248,13 @@ export const DefaultItem = memo(
       href,
       ...dropProps,
     };
+
+    if (translate != null)
+      baseProps.style = {
+        ...baseProps.style,
+        position: "absolute",
+        transform: `translateY(${translate}px)`,
+      };
 
     const Base = href != null ? Button.Link : Button.Button;
 

@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type alamos } from "@synnaxlabs/alamos";
+import { alamos } from "@synnaxlabs/alamos";
 import { type channel, QueryError, type Synnax } from "@synnaxlabs/client";
 import { type TimeRange, type AsyncDestructor } from "@synnaxlabs/x";
 import { nanoid } from "nanoid/non-secure";
 
-import { CacheManager } from "@/telem/client/cacheManager";
+import { cache } from "@/telem/client/cache";
 import { Reader } from "@/telem/client/reader";
 import { Streamer, type StreamHandler } from "@/telem/client/streamer";
 import { type ReadResponse } from "@/telem/client/types";
@@ -111,31 +111,41 @@ export class Proxy implements Client {
   }
 }
 
+interface CoreProps {
+  core: Synnax;
+  instrumentation: alamos.Instrumentation;
+}
+
 /**
  * Core wraps a Synnax client to implement the pluto telemetry Client interface,
  * adding a transparent caching layer.
  */
 export class Core implements Client {
   readonly key: string = nanoid();
-  private readonly core: Synnax;
   private readonly ins: alamos.Instrumentation;
 
-  private readonly cache: CacheManager;
-  private readonly channelRetriever: channel.Retriever;
+  private readonly cache: cache.Cache;
   private readonly reader: Reader;
   private readonly streamer: Streamer;
+  private readonly channelRetriever: channel.Retriever;
 
-  constructor(wrap: Synnax, ins: alamos.Instrumentation) {
-    this.core = wrap;
-    this.ins = ins;
-    this.channelRetriever = this.core.channels.createDebouncedBatchRetriever(10);
-    this.cache = new CacheManager(this.channelRetriever, ins);
-    this.reader = new Reader(
-      this.cache,
-      async (tr, keys) => await this.core.telem.read(tr, keys),
-      ins,
-    );
-    this.streamer = new Streamer(this.cache, this.core, ins);
+  constructor({ instrumentation, core }: CoreProps) {
+    this.ins = instrumentation ?? alamos.NOOP;
+    this.channelRetriever = core.channels.createDebouncedBatchRetriever(10);
+    this.cache = new cache.Cache({
+      channelRetriever: this.channelRetriever,
+      instrumentation: this.ins.child("cache"),
+    });
+    this.reader = new Reader({
+      cache: this.cache,
+      readRemote: async (tr, keys) => await core.telem.read(tr, keys),
+      instrumentation: this.ins.child("reader"),
+    });
+    this.streamer = new Streamer({
+      cache: this.cache,
+      core,
+      instrumentation: this.ins.child("streamer"),
+    });
   }
 
   /** Implements ChannelClient. */
@@ -145,6 +155,7 @@ export class Core implements Client {
     return res[0];
   }
 
+  /** Implements ChannelClient */
   async read(
     tr: TimeRange,
     keys: channel.Keys,

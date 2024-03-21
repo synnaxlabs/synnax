@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Instrumentation } from "@synnaxlabs/alamos";
+import { UnexpectedError } from "@synnaxlabs/client";
 import {
   DataType,
   bounds,
@@ -84,15 +85,16 @@ export class Context extends render.GLProgram {
   translationBuffer: WebGLBuffer;
 
   private static readonly CONTEXT_KEY = "pluto-line-gl-program";
-  private readonly aAttribLoc: number;
 
   private constructor(ctx: render.Context) {
     super(ctx, VERT_SHADER, FRAG_SHADER);
-    this.translationBuffer = ctx.gl.createBuffer()!;
-    this.aAttribLoc = 0;
+    const buf = ctx.gl.createBuffer();
+    if (buf == null)
+      throw new UnexpectedError("Failed to create buffer from WebGL context");
+    this.translationBuffer = buf;
   }
 
-  bindPropsAndState(
+  bindCommonPropsAndState(
     { dataToDecimalScale: s, region }: LineProps,
     { strokeWidth, color }: ParsedState,
   ): number {
@@ -274,7 +276,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
       ops: () => digests(ops),
     }));
     const clearProg = prog.setAsActive();
-    const instances = prog.bindPropsAndState(props, this.state);
+    const instances = prog.bindCommonPropsAndState(props, this.state);
     ops.forEach((op) => {
       prog.bindScale(offsetScale(dataToDecimalScale, op));
       prog.draw(op, instances);
@@ -316,9 +318,7 @@ const offsetScale = (scale: scale.XY, op: DrawOperation): scale.XY =>
     scale.y.dim(Number(op.y.sampleOffset)),
   );
 
-export const REGISTRY: aether.ComponentRegistry = {
-  [Line.TYPE]: Line,
-};
+export const REGISTRY: aether.ComponentRegistry = { [Line.TYPE]: Line };
 
 interface DrawOperation {
   x: Series;
@@ -361,7 +361,7 @@ const buildDrawOperations = (
         ySeries.length - yOffset,
       );
 
-      if (amountOfOverlap > 0) {
+      if (amountOfOverlap > 0)
         ops.push({
           x: xSeries,
           y: ySeries,
@@ -370,7 +370,6 @@ const buildDrawOperations = (
           count: amountOfOverlap,
           downsample,
         });
-      }
     });
   });
 
@@ -395,8 +394,4 @@ const findSeriesThatOverlapWith = (x: Series, y: Series[]): Series[] =>
   });
 
 const digests = (ops: DrawOperation[]): DrawOperationDigest[] =>
-  ops.map((op) => ({
-    ...op,
-    x: op.x.digest,
-    y: op.y.digest,
-  }));
+  ops.map((op) => ({ ...op, x: op.x.digest, y: op.y.digest }));
