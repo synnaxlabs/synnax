@@ -79,7 +79,7 @@ we can also wrap all of their rides in a ‘century training’ range to keep th
 
 ### Arrays
 
-While domains and ranges virtually separate areas of related data, [arrays](/concepts/arrays-and-frames) are used to hold
+While domains and ranges virtually separate areas of related data, arrays are used to hold
 the actual samples. Arrays are strongly typed and hold their values in time-order. When
 writing data to the cluster, a user must provide a frame (see below) containing an array
 of samples for each channel they wish to write to. When reading data, they receive a frame
@@ -91,7 +91,7 @@ the cluster will have one specified.
 
 ### Frames
 
-A [frame](/concepts/arrays-and-frames) is a collection of related arrays. These arrays
+A frame is a collection of related arrays. These arrays
 forrm a table like structure comparable to a pandas `DataFrame` in Python or a `data.frame`
 in R. Each column holds a one or more arrays. They're the fundamental unit of data transfer
 within a cluster, and are used for reads, writes, and internal replication.

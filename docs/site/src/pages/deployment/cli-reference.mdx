@@ -109,6 +109,16 @@ synnax start -l localhost:9090 -p localhost:9091,localhost:9092
             default: "node.key",
             description: "Path to the node key file relative to the certs-dir.",
         },
+        {
+            option: "--username",
+            default: "synnax",
+            description: "Username for the database root user."
+        },
+        {
+            option: "--password",
+            default: "seldon",
+            description: "Password for the database root user."
+        }
     ]}
 />
 
