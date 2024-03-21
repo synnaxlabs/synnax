@@ -57,7 +57,6 @@ func (g *Gate[E]) Authorize() (e E, ok bool) {
 	g.r.RLock()
 	// In the case of exclusive concurrency, we only need to check if the gate is the
 	// current gate.
-	// Unary writers will always be exclusive control
 	if g.concurrency == control.Exclusive {
 		ok = g.r.curr == g
 	} else {
@@ -164,8 +163,9 @@ func (r *region[E]) unprotectedUpdate(
 	return
 }
 
-// unprotectedRelease releases a gate from the region without locking. If the gate is the
-// last gate in the region, the region will be removed from the controller
+// unprotectedRelease releases a gate from the region without locking.
+// If the gate is the last gate in the region, the region will be removed from
+// the controller.
 func (r *region[E]) unprotectedRelease(g *Gate[E]) (e E, t Transfer) {
 	delete(r.gates, g)
 
@@ -200,7 +200,7 @@ func (r *region[E]) unprotectedRelease(g *Gate[E]) (e E, t Transfer) {
 }
 
 func (r *region[E]) unprotectedOpen(g *Gate[E]) (t Transfer, err error) {
-	// Check if any gates have the same subject key
+	// Check if any gates have the same subject key.
 	for og := range r.gates {
 		if og.Subject.Key == g.Subject.Key {
 			err = errors.Wrapf(validate.Error, "[controller] - gate with subject key %s already exists", g.Subject.Key)
@@ -285,36 +285,50 @@ func (c *Controller[E]) LeadingState() *State {
 	return first.curr.State()
 }
 
-// OpenAbsoluteGateIfUncontrolled opens an absolute gate on a region if it is not under control of another region.
-// Otherwise, it returns an error
+// OpenAbsoluteGateIfUncontrolled opens a region and an absolute gate on a timerange if
+// it is not under control of another region otherwise. Otherwise, it returns an error
 func (c *Controller[E]) OpenAbsoluteGateIfUncontrolled(tr telem.TimeRange, s control.Subject, callback func() (E, error)) (g *Gate[E], t Transfer, err error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	gateCfg := GateConfig{
-		TimeRange: tr,
-		Authority: control.Absolute,
-		Subject:   s,
-	}
-	var exists bool
+	var (
+		gateCfg = GateConfig{
+			TimeRange: tr,
+			Authority: control.Absolute,
+			Subject:   s,
+		}
+		exists = false
+	)
 
 	for _, r := range c.regions {
-		// check if there is an existing region that overlaps with that time range
-		// if there is, then that means a gate is already in control of it
-		// therefore this method returns false since it could not
+		// Check if there is an existing region that overlaps with that time range,
+		// if there is, then that means a gate is already in control of it,
+		// therefore this method should not create an absolute gate.
 		if r.timeRange.OverlapsWith(tr) {
 			if exists {
 				return nil, t, errors.Newf("[controller] - encountered multiple control regions for time range %s", tr)
 			}
-			if len(r.gates) != 0 {
+
+			r.Lock()
+			if r.curr != nil {
+				r.Unlock()
 				return nil, t, errors.Newf("[controller] - region already being controlled")
 			}
 
-			g, t, err = r.open(gateCfg, c.concurrency)
+			g = &Gate[E]{
+				r:           r,
+				GateConfig:  gateCfg,
+				position:    r.counter,
+				concurrency: c.concurrency,
+			}
+
+			t, err = r.unprotectedOpen(g)
 			if err != nil {
 				return nil, t, err
 			}
 			r.gates[g] = struct{}{}
+
+			r.Unlock()
 			exists = true
 		}
 	}
@@ -330,27 +344,28 @@ func (c *Controller[E]) OpenAbsoluteGateIfUncontrolled(tr telem.TimeRange, s con
 	return
 }
 
-// OpenGateAndMaybeRegister checks whether a region exists in the requested timerange, and creates a new one if there does
-// Otherwise, it registers that region and opens a gate
-func (c *Controller[E]) OpenGateAndMaybeRegister(cfg GateConfig, callback func() (E, error)) (g *Gate[E], t Transfer, createdRegion bool, err error) {
+// OpenGateAndMaybeRegister checks whether a region exists in the requested timerange,
+// and creates a new one if one does. Otherwise, it registers that region and opens a
+// new gate with absolute authority.
+func (c *Controller[E]) OpenGateAndMaybeRegister(cfg GateConfig, callback func() (E, error)) (g *Gate[E], t Transfer, err error) {
 	cfg, err = config.New(DefaultGateConfig, cfg)
 	var exists bool
 	if err != nil {
-		return nil, t, false, err
+		return nil, t, err
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	for _, r := range c.regions {
-		// check if there is an existing region that overlaps with that timerange
+		// Check if there is an existing region that overlaps with that timerange.
 		if r.timeRange.OverlapsWith(cfg.TimeRange) {
-			// v1 optimization: one writer can only overlap with one region at any given time
+			// v1 optimization: one writer can only overlap with one region at any given time.
 			if exists {
-				return nil, t, false, errors.Newf("[controller] - encountered multiple control regions for time range %s", cfg.TimeRange)
+				return nil, t, errors.Newf("[controller] - encountered multiple control regions for time range %s", cfg.TimeRange)
 			}
-			// if there is, we open a new gate on that region
+			// If there is an existing region, we open a new gate on that region.
 			g, t, err = r.open(cfg, c.concurrency)
 			if err != nil {
-				return nil, t, false, err
+				return nil, t, err
 			}
 			r.gates[g] = struct{}{}
 			exists = true
@@ -360,10 +375,9 @@ func (c *Controller[E]) OpenGateAndMaybeRegister(cfg GateConfig, callback func()
 	if !exists {
 		e, err := callback()
 		if err != nil {
-			return g, t, false, err
+			return g, t, err
 		}
 		r := c.insertNewRegion(cfg.TimeRange, e)
-		createdRegion = true
 		g, t, err = r.open(cfg, c.concurrency)
 		r.gates[g] = struct{}{}
 	}

@@ -38,7 +38,7 @@ func Open(dirname string, opts ...Option) (*DB, error) {
 		options:    o,
 		unaryDBs:   make(map[core.ChannelKey]unary.DB, len(info)),
 		virtualDBs: make(map[core.ChannelKey]virtual.DB, len(info)),
-		relay:      newRelay(sCtx, cancel),
+		relay:      newRelay(sCtx),
 		shutdown:   signal.NewShutdown(sCtx, cancel),
 	}
 	for _, i := range info {
