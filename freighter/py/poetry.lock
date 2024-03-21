@@ -2,13 +2,13 @@
 
 [[package]]
 name = "alamos"
-version = "0.2.33"
+version = "0.2.34"
 description = ""
 optional = false
 python-versions = "<4.0,>=3.11"
 files = [
-    {file = "alamos-0.2.33-py3-none-any.whl", hash = "sha256:2936605d47ac101750e72d9e856ee6873db8c88d13f898db2e9317aca863b7d0"},
-    {file = "alamos-0.2.33.tar.gz", hash = "sha256:632cf6ee9c823f1ed7c4a15ba2d6f0b6cf550d8d6eaa0ba9292757a77a4a0e55"},
+    {file = "alamos-0.2.34-py3-none-any.whl", hash = "sha256:71cebd26e7bc1573c9607ede681bc4ea6f1e43c6601888bc241206cf8fd6fb32"},
+    {file = "alamos-0.2.34.tar.gz", hash = "sha256:a832a698352614f43c759c9ec320b1d94c916c9d82b74b7f0e0405b718ad4053"},
 ]
 
 [package.dependencies]
@@ -1137,4 +1137,4 @@ testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "p
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "af6e340f36785eb82ce6c7e1a9120ed23569c38d4e51f64e43fa96b2caec32bd"
+content-hash = "aa1ab71c47902c62d7c193d18329aae088b9c2c5a8b923ba9720c6db6caf7121"
