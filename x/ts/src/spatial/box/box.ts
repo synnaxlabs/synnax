@@ -9,11 +9,11 @@
 
 import { unknown, z } from "zod";
 
-import type * as bounds from "@/spatial/bounds";
-import type * as dimensions from "@/spatial/dimensions";
-import * as direction from "@/spatial/direction";
-import * as location from "@/spatial/location";
-import * as xy from "@/spatial/xy";
+import type * as bounds from "@/spatial/bounds/bounds";
+import type * as dimensions from "@/spatial/dimensions/dimensions";
+import * as direction from "@/spatial/direction/direction";
+import * as location from "@/spatial/location/location";
+import * as xy from "@/spatial/xy/xy";
 
 const cssPos = z.union([z.number(), z.string()]);
 
@@ -39,7 +39,7 @@ export type Box = z.infer<typeof box>;
 export type CSS = z.infer<typeof cssBox>;
 export type DOMRect = z.infer<typeof domRect>;
 
-type Crude = DOMRect | Box | { getBoundingClientRect: () => DOMRect };
+export type Crude = DOMRect | Box | { getBoundingClientRect: () => DOMRect };
 
 /** A box centered at (0,0) with a width and height of 0. */
 export const ZERO = { one: xy.ZERO, two: xy.ZERO, root: location.TOP_LEFT };
@@ -115,10 +115,8 @@ export const construct = (
   return b;
 };
 
-export const resize = (
-  b: Box,
-  dims: dimensions.Dimensions,
-): Box => construct(b.one, dims);
+export const resize = (b: Box, dims: dimensions.Dimensions): Box =>
+  construct(b.one, dims);
 
 /**
  * Checks if a box contains a point or another box.
@@ -188,8 +186,6 @@ export const dim = (
     direction.construct(dir) === "y" ? signedHeight(b) : signedWidth(b);
   return signed ? dim : Math.abs(dim);
 };
-
-
 
 /** @returns the pont corresponding to the given corner of the box. */
 export const xyLoc = (b: Crude, l: location.XY): xy.XY => {
@@ -282,7 +278,21 @@ export const yBounds = (b: Crude): bounds.Bounds => {
   return { lower: b_.one.y, upper: b_.two.y };
 };
 
-export const reRoot = (b: Box, corner: location.CornerXY): Box => copy(b, corner);
+export const setRoot = (b: Box, corner: location.CornerXY): Box => copy(b, corner);
+
+export const convertRoot = (b: Box, corner: location.CornerXY): Box => {
+  const nextOne: xy.XY = { x: 0, y: 0 };
+  const nextTwo: xy.XY = { x: 0, y: 0 };
+  if (b.root.x !== corner.x) {
+    nextOne.x = b.one.x + -1 * Number(b.root.x === "right") * width(b);
+    nextTwo.x = b.two.x + -1 * Number(b.root.x === "left") * width(b);
+  }
+  if (b.root.y !== corner.y) {
+    nextOne.y = b.one.y + -1 * Number(b.root.y === "bottom") * height(b);
+    nextTwo.y = b.two.y + -1 * Number(b.root.y === "top") * height(b);
+  }
+  return construct(nextOne, nextTwo, undefined, undefined, corner);
+};
 
 /**
  * Reposition a box so that it is visible within a given bound.
@@ -293,10 +303,7 @@ export const reRoot = (b: Box, corner: location.CornerXY): Box => copy(b, corner
  * @returns the repsoitioned box and a boolean indicating if the box was repositioned
  * or not.
  */
-export const positionSoVisible = (
-  target_: Crude,
-  bound_: Crude,
-): [Box, boolean] => {
+export const positionSoVisible = (target_: Crude, bound_: Crude): [Box, boolean] => {
   const target = construct(target_);
   const bound = construct(bound_);
   if (contains(bound, target)) return [target, false];
@@ -314,10 +321,7 @@ export const positionSoVisible = (
  * @param bound The box to reposition within - Only works if the root is topLeft
  * @returns the repsoitioned box
  */
-export const positionInCenter = (
-  target_: Crude,
-  bound_: Crude,
-): Box => {
+export const positionInCenter = (target_: Crude, bound_: Crude): Box => {
   const target = construct(target_);
   const bound = construct(bound_);
   const x_ = x(bound) + (width(bound) - width(target)) / 2;
@@ -341,7 +345,7 @@ export const translate = (b: Box, t: xy.XY): Box => {
     undefined,
     b_.root,
   );
-}
+};
 
 export const truncate = (b: Box, precision: number = 0): Box => {
   const b_ = construct(b);
@@ -352,4 +356,4 @@ export const truncate = (b: Box, precision: number = 0): Box => {
     undefined,
     b_.root,
   );
-}
+};

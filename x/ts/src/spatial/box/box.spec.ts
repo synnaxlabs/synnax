@@ -9,9 +9,9 @@
 
 import { describe, test, expect, it } from "vitest";
 
-import * as box from "@/spatial/box";
-import * as location from "@/spatial/location";
-import type * as xy from "@/spatial/xy";
+import * as box from "@/spatial/box/box";
+import * as location from "@/spatial/location/location";
+import type * as xy from "@/spatial/xy/xy";
 
 describe("Box", () => {
   describe("construction", () => {
@@ -134,4 +134,10 @@ describe("Box", () => {
       expect(box.bottomRight(b)).toEqual({ x: 15, y: 15 });
     });
   });
+  describe("convertRoot", () => {
+    const spec: Array<[box.Box,
+    location.OuterXY,
+
+  ]
+  })
 });
