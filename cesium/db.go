@@ -96,7 +96,6 @@ func (db *DB) Close() error {
 	for _, u := range db.unaryDBs {
 		c.Exec(u.Close)
 	}
-	c.Exec(db.relay.close)
 	c.Exec(db.shutdown.Close)
 	return nil
 }

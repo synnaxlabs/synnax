@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/meta"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/cesium/internal/virtual"
+	"github.com/synnaxlabs/x/signal"
 	"strconv"
 )
 
@@ -27,6 +28,8 @@ func Open(dirname string, opts ...Option) (*DB, error) {
 
 	o.L.Info("opening cesium time series engine", o.Report().ZapFields()...)
 
+	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(o.Instrumentation))
+
 	info, err := o.fs.List("")
 	if err != nil {
 		return nil, err
@@ -35,7 +38,8 @@ func Open(dirname string, opts ...Option) (*DB, error) {
 		options:    o,
 		unaryDBs:   make(map[core.ChannelKey]unary.DB, len(info)),
 		virtualDBs: make(map[core.ChannelKey]virtual.DB, len(info)),
-		relay:      newRelay(o),
+		relay:      newRelay(sCtx, cancel),
+		shutdown:   signal.NewShutdown(sCtx, cancel),
 	}
 	for _, i := range info {
 		key := core.ChannelKey(lo.Must(strconv.Atoi(i.Name())))
@@ -49,7 +53,7 @@ func Open(dirname string, opts ...Option) (*DB, error) {
 		}
 	}
 
-	_db.startGC(o)
+	_db.startGC(sCtx, o)
 
 	return _db, nil
 }
