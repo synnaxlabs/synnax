@@ -57,7 +57,8 @@ func (c WriterConfig) domain() domain.WriterConfig {
 }
 
 func (c WriterConfig) controlTimeRange() telem.TimeRange {
-	// for contorlTimerange(), not sure if we should always use the end of time as opposed to the start of the next domain
+	// The automatic controlTimeRange is until the end of time, but we are not sure if
+	// we should use this or the start of next domain.
 	return c.Start.Range(lo.Ternary(c.End.IsZero(), telem.TimeStampMax, c.End))
 }
 
@@ -86,7 +87,7 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (w *Writer, 
 		Subject:   cfg.Subject,
 	}
 	var g *controller.Gate[controlledWriter]
-	g, transfer, _, err = db.Controller.OpenGateAndMaybeRegister(gateCfg, func() (controlledWriter, error) {
+	g, transfer, err = db.Controller.OpenGateAndMaybeRegister(gateCfg, func() (controlledWriter, error) {
 		dw, err := db.Domain.NewWriter(ctx, cfg.domain())
 
 		return controlledWriter{

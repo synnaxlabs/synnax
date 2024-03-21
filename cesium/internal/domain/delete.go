@@ -9,7 +9,7 @@ import (
 	"strconv"
 )
 
-// Delete tombstones all pointers ranging from [db.get(startPosition).start + startOffset, db.get(endPosition).end - endOffset)
+// Delete adds all pointers ranging from [db.get(startPosition).start + startOffset, db.get(endPosition).end - endOffset) into tombstone
 func (db *DB) Delete(ctx context.Context, startPosition int, endPosition int, startOffset int64, endOffset int64, tr telem.TimeRange) error {
 	start, ok := db.idx.get(startPosition, false)
 	if !ok {
@@ -92,15 +92,18 @@ func (db *DB) Delete(ctx context.Context, startPosition int, endPosition int, st
 	return nil
 }
 
-func (db *DB) CollectTombstone(ctx context.Context, maxSizeRead uint32) error {
+func (db *DB) CollectTombstones(ctx context.Context, maxSizeRead uint32) error {
 	db.idx.mu.Lock()
 	defer db.idx.mu.Unlock()
 
 	for fileKey, tombstones := range db.idx.mu.tombstones {
 		var (
-			cumuOffset   uint32 = 0
-			pointerPtr          = 0
-			tombstonePtr        = 0
+			// priorTombstoneLength tracks the number of lengths of all tombstone
+			// pointers before the current pointer during the course of rewriting
+			// pointers
+			priorTombstoneLength uint32 = 0
+			pointerPtr                  = 0
+			tombstonePtr                = 0
 		)
 
 		r, err := db.files.acquireReader(ctx, fileKey)
@@ -120,7 +123,7 @@ func (db *DB) CollectTombstone(ctx context.Context, maxSizeRead uint32) error {
 			}
 
 			for tombstonePtr < len(tombstones) && currentPointer.offset > tombstones[tombstonePtr].offset {
-				cumuOffset += db.idx.mu.tombstones[fileKey][tombstonePtr].length
+				priorTombstoneLength += db.idx.mu.tombstones[fileKey][tombstonePtr].length
 				tombstonePtr++
 			}
 
@@ -132,13 +135,13 @@ func (db *DB) CollectTombstone(ctx context.Context, maxSizeRead uint32) error {
 				if err != nil && err != io.EOF {
 					return err
 				}
-				_, err = f.WriteAt(buf, int64(currentPointer.offset)+int64(n)-int64(cumuOffset))
+				_, err = f.WriteAt(buf, int64(currentPointer.offset)+int64(n)-int64(priorTombstoneLength))
 				if err != nil {
 					return err
 				}
 				n += _n
 			}
-			currentPointer.offset -= cumuOffset
+			currentPointer.offset -= priorTombstoneLength
 			pointerPtr += 1
 		}
 

@@ -67,6 +67,6 @@ func (db *DB) GarbageCollect(ctx context.Context, maxSizeRead uint32) error {
 	if db.openIteratorWriters.Value() > 0 {
 		return nil
 	}
-	err := db.Domain.CollectTombstone(ctx, maxSizeRead)
+	err := db.Domain.CollectTombstones(ctx, maxSizeRead)
 	return err
 }

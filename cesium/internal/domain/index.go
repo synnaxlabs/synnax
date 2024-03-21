@@ -189,7 +189,7 @@ func (idx *index) searchGE(ctx context.Context, ts telem.TimeStamp, withLock boo
 	return
 }
 
-// binary searches for a pointer overlapping a telem.TimeRange
+// unprotectedSearch binary searches for a pointer overlapping tr
 func (idx *index) unprotectedSearch(tr telem.TimeRange) (int, bool) {
 	if len(idx.mu.pointers) == 0 {
 		return -1, false
@@ -210,7 +210,7 @@ func (idx *index) unprotectedSearch(tr telem.TimeRange) (int, bool) {
 	return end, false
 }
 
-// get the i-th pointer
+// get gets the i-th pointer in the domain, if it is out of bounds, it returns false
 func (idx *index) get(i int, withLock bool) (pointer, bool) {
 	if withLock {
 		idx.mu.RLock()
