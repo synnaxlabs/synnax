@@ -37,7 +37,9 @@ var _ observe.Observable[indexUpdate] = (*index)(nil)
 func (idx *index) insert(ctx context.Context, p pointer, withLock bool) error {
 	_, span := idx.T.Bench(ctx, "insert")
 	defer span.End()
-	idx.mu.RLock()
+	if withLock {
+		idx.mu.RLock()
+	}
 	insertAt := 0
 	if p.fileKey == 0 {
 		panic("fileKey must be set")
@@ -49,14 +51,23 @@ func (idx *index) insert(ctx context.Context, p pointer, withLock bool) error {
 		} else if !idx.beforeFirst(p.End) {
 			i, overlap := idx.unprotectedSearch(p.TimeRange)
 			if overlap {
-				idx.mu.RUnlock()
+				if withLock {
+					idx.mu.RUnlock()
+				}
 				return span.EndWith(ErrDomainOverlap)
 			}
 			insertAt = i + 1
 		}
 	}
-	idx.mu.RUnlock()
-	idx.insertAt(ctx, insertAt, p, withLock)
+
+	// If we want to run this function with lock, then we already locked it, therefore
+	// we must call insertAt with no lock.
+	// If we want to run this function with no lock, then we still should not lock
+	idx.insertAt(ctx, insertAt, p, false)
+
+	if withLock {
+		idx.mu.RUnlock()
+	}
 	return nil
 }
 
@@ -90,7 +101,9 @@ func (idx *index) update(ctx context.Context, p pointer, withLock bool) (err err
 		idx.mu.RLock()
 	}
 	if len(idx.mu.pointers) == 0 {
-		idx.mu.RUnlock()
+		if withLock {
+			idx.mu.RUnlock()
+		}
 		return span.EndWith(RangeNotFound)
 	}
 	lastI := len(idx.mu.pointers) - 1
@@ -216,7 +229,9 @@ func (idx *index) get(i int, withLock bool) (pointer, bool) {
 		idx.mu.RLock()
 	}
 	if i < 0 || i >= len(idx.mu.pointers) {
-		idx.mu.RUnlock()
+		if withLock {
+			idx.mu.RUnlock()
+		}
 		return pointer{}, false
 	}
 	v := idx.mu.pointers[i]

@@ -11,17 +11,29 @@ import (
 
 // Delete adds all pointers ranging from [db.get(startPosition).start + startOffset, db.get(endPosition).end - endOffset) into tombstone
 func (db *DB) Delete(ctx context.Context, startPosition int, endPosition int, startOffset int64, endOffset int64, tr telem.TimeRange, withLock bool) error {
+	if startPosition > endPosition {
+		return errors.New("[cesium] Deletion starting position cannot be greater than ending position")
+	}
+
 	if withLock {
 		db.idx.mu.Lock()
 		defer db.idx.mu.Unlock()
 	}
 	start, ok := db.idx.get(startPosition, false)
 	if !ok {
-		return errors.New("Invalid starting position")
+		return errors.New("[cesium] Deletion starting at invalid position")
 	}
 	end, ok := db.idx.get(endPosition, false)
 	if !ok {
-		return errors.New("Invalid ending position")
+		return errors.New("[cesium] Deletion ending at invalid position")
+	}
+
+	if startOffset > int64(start.length) {
+		return errors.New("[cesium] Deletion start offset cannot be greater than the length of that pointer")
+	}
+
+	if endOffset > int64(end.length) {
+		return errors.New("[cesium] Deletion end offset cannot be greater than the length of that pointer")
 	}
 
 	if startPosition != endPosition {
@@ -51,6 +63,9 @@ func (db *DB) Delete(ctx context.Context, startPosition int, endPosition int, st
 			length:  end.length - uint32(endOffset), // length of {end.Start, tr.End}
 		}, false)
 	} else {
+		if uint32(startOffset)+uint32(endOffset) > start.length {
+			return errors.New("[cesium] Sum of deletion start offset and end offset cannot exceed the length of that pointer when they point at same pointer ")
+		}
 		db.idx.insertTombstone(ctx, pointer{
 			TimeRange: telem.TimeRange{
 				Start: tr.Start,
