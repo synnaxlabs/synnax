@@ -54,7 +54,7 @@ func (db *DB) Delete(ctx context.Context, tr telem.TimeRange) error {
 	endOffset := approxDist.Lower + 1
 	endPosition := i.Position()
 
-	err = db.Domain.Delete(ctx, startPosition, endPosition, startOffset*int64(db.Channel.DataType.Density()), endOffset*int64(db.Channel.DataType.Density()), tr)
+	err = db.Domain.Delete(ctx, startPosition, endPosition, startOffset*int64(db.Channel.DataType.Density()), endOffset*int64(db.Channel.DataType.Density()), tr, false)
 	if err != nil {
 		return err
 	}

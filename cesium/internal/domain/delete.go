@@ -10,7 +10,11 @@ import (
 )
 
 // Delete adds all pointers ranging from [db.get(startPosition).start + startOffset, db.get(endPosition).end - endOffset) into tombstone
-func (db *DB) Delete(ctx context.Context, startPosition int, endPosition int, startOffset int64, endOffset int64, tr telem.TimeRange) error {
+func (db *DB) Delete(ctx context.Context, startPosition int, endPosition int, startOffset int64, endOffset int64, tr telem.TimeRange, withLock bool) error {
+	if withLock {
+		db.idx.mu.Lock()
+		defer db.idx.mu.Unlock()
+	}
 	start, ok := db.idx.get(startPosition, false)
 	if !ok {
 		return errors.New("Invalid starting position")

@@ -69,7 +69,7 @@ func (idx *index) insertTombstone(ctx context.Context, p pointer, withLock bool)
 	}
 
 	if idx.mu.tombstones == nil {
-		idx.mu.tombstones = make(map[uint16][]pointer)
+
 	}
 
 	idx.mu.tombstones[p.fileKey] = append(idx.mu.tombstones[p.fileKey], p)
