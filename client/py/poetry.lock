@@ -2,13 +2,13 @@
 
 [[package]]
 name = "alamos"
-version = "0.2.31"
+version = "0.2.33"
 description = ""
 optional = false
 python-versions = "<4.0,>=3.11"
 files = [
-    {file = "alamos-0.2.31-py3-none-any.whl", hash = "sha256:74625286b24fcda6e0273664f8a0892d7ab279b387220ca3ec2772f0a5d14630"},
-    {file = "alamos-0.2.31.tar.gz", hash = "sha256:0eee3feac485b2f10311273ffeefeba3b412c583ba414a6fef89b38caa70aefb"},
+    {file = "alamos-0.2.33-py3-none-any.whl", hash = "sha256:2936605d47ac101750e72d9e856ee6873db8c88d13f898db2e9317aca863b7d0"},
+    {file = "alamos-0.2.33.tar.gz", hash = "sha256:632cf6ee9c823f1ed7c4a15ba2d6f0b6cf550d8d6eaa0ba9292757a77a4a0e55"},
 ]
 
 [package.dependencies]
@@ -2039,12 +2039,12 @@ test = ["pytest", "pytest-console-scripts", "pytest-jupyter", "pytest-tornasync"
 
 [[package]]
 name = "nptdms"
-version = "1.8.0"
+version = "1.9.0"
 description = "Cross-platform, NumPy based module for reading TDMS files produced by LabView"
 optional = false
 python-versions = "*"
 files = [
-    {file = "npTDMS-1.8.0.tar.gz", hash = "sha256:0feb8ecc8e2784816c3a62ed010da36385a5c11e27d57cc8b0af1882d1eb45ae"},
+    {file = "npTDMS-1.9.0.tar.gz", hash = "sha256:0e65c237e9d50b9b8e162b9c34171353a5ea05f4019c99c3e8ebc00722361cbc"},
 ]
 
 [package.dependencies]
@@ -3335,17 +3335,17 @@ tests = ["cython", "littleutils", "pygments", "pytest", "typeguard"]
 
 [[package]]
 name = "synnax-freighter"
-version = "0.5.31"
+version = "0.5.33"
 description = ""
 optional = false
 python-versions = "<4.0,>=3.11"
 files = [
-    {file = "synnax_freighter-0.5.31-py3-none-any.whl", hash = "sha256:b375a7849fcff6ef97043724be294268ef9dd3cf7f62a4faab53b09ab63a9d60"},
-    {file = "synnax_freighter-0.5.31.tar.gz", hash = "sha256:0d094122f7e19915e8a22d25dc564cd95c768a5544d471d2f59118b76c10f998"},
+    {file = "synnax_freighter-0.5.33-py3-none-any.whl", hash = "sha256:3a6293b61a92e5ec34f80b2f2f10537e94652ae5d9a30ef604ea1b9ed7551c38"},
+    {file = "synnax_freighter-0.5.33.tar.gz", hash = "sha256:cf4148d708f495be22320f9891ff28d28c9c5d3b096442ca7fe9a641defd9ae5"},
 ]
 
 [package.dependencies]
-alamos = ">=0.2.31,<0.3.0"
+alamos = ">=0.2.33,<0.3.0"
 janus = ">=1.0.0,<2.0.0"
 msgpack = ">=1.0.4,<2.0.0"
 pydantic = ">=1.10.0,<2.0.0"
@@ -3759,4 +3759,4 @@ testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "p
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "ecd43b389b7a5e9343d34866ce158d9fa4254cc50af5104444fcece5a87ebfad"
+content-hash = "c97e93e72623dcac2cbfe4eaa0430d2191b088eb551e4f5f010057977426b41a"
