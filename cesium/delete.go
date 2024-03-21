@@ -12,7 +12,6 @@ package cesium
 import (
 	"context"
 	"github.com/cockroachdb/errors"
-	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/x/errutil"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -39,6 +38,9 @@ var DefaultGCConfig = GCConfig{
 	GcTryInterval: 30 * time.Second,
 }
 
+// DeleteChannel deletes a channel by its key.
+// This method returns an error if there are other channels depending on the current
+// channel, or if the current channel is being written to or read from.
 func (db *DB) DeleteChannel(ch ChannelKey) error {
 	db.mu.Lock()
 	udb, uok := db.unaryDBs[ch]
@@ -83,31 +85,33 @@ func (db *DB) DeleteChannel(ch ChannelKey) error {
 	return ChannelNotFound
 }
 
+// DeleteTimeRange deletes a timerange of data in the database in a given channel
+// This method return an error if there are other channels depending on the timerange
+// that we are trying to delete
 func (db *DB) DeleteTimeRange(ctx context.Context, ch ChannelKey, tr telem.TimeRange) error {
-	db.mu.RLock()
-	defer db.mu.RUnlock()
+	db.mu.Lock()
+	defer db.mu.Unlock()
 	udb, uok := db.unaryDBs[ch]
 	if !uok {
 		return ChannelNotFound
 	}
 
-	// cannot delete an index channel that other channels rely on
+	// Cannot delete an index channel that other channels rely on.
 	if udb.Config.Channel.IsIndex {
 		for otherDBKey := range db.unaryDBs {
 			if otherDBKey == ch || db.unaryDBs[otherDBKey].Channel.Index != udb.Config.Channel.Key {
 				continue
 			}
 			otherDB := db.unaryDBs[otherDBKey]
-			// we must determine whether there is another db that has data in the timerange tr
-			i := otherDB.Domain.NewIterator(domain.IterRange(otherDB.Domain.GetBounds()))
-
-			if i.SeekGE(ctx, tr.Start) && i.TimeRange().OverlapsWith(tr) {
-				return errors.New("[cesium] - could not delete index channel with other channels depending on it")
-			}
-			if i.SeekLE(ctx, tr.End) && i.TimeRange().OverlapsWith(tr) {
+			// We must determine whether there is an indexed db that has data in the timerange tr.
+			hasOverlap, err := otherDB.Overlaps(ctx, tr)
+			if err != nil {
 				return errors.New("[cesium] - could not delete index channel with other channels depending on it")
 			}
 
+			if hasOverlap {
+				return errors.New("[cesium] - could not delete index channel with other channels depending on it")
+			}
 		}
 	}
 
@@ -118,7 +122,6 @@ func (db *DB) garbageCollect(ctx context.Context, readChunkSize uint32, maxGoRou
 	_, span := db.T.Debug(ctx, "Garbage Collect")
 	defer span.End()
 	db.mu.RLock()
-	defer db.mu.RUnlock()
 	var (
 		sem = semaphore.NewWeighted(maxGoRoutine)
 		wg  = &sync.WaitGroup{}
@@ -142,15 +145,18 @@ func (db *DB) garbageCollect(ctx context.Context, readChunkSize uint32, maxGoRou
 			})
 		}()
 	}
+
+	db.mu.RUnlock()
 	wg.Wait()
 	return c.Error()
 }
 
-func (db *DB) startGC(opts *options) {
-	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(db.Instrumentation))
+func (db *DB) startGC(sCtx signal.Context, opts *options) {
 	signal.GoTick(sCtx, opts.gcCfg.GcTryInterval, func(ctx context.Context, time time.Time) error {
-		return db.garbageCollect(ctx, opts.gcCfg.ReadChunkSize, opts.gcCfg.MaxGoroutine)
+		err := db.garbageCollect(ctx, opts.gcCfg.ReadChunkSize, opts.gcCfg.MaxGoroutine)
+		if err != nil {
+			db.L.Error(err.Error())
+		}
+		return nil
 	})
-
-	db.shutdown = signal.NewShutdown(sCtx, cancel)
 }

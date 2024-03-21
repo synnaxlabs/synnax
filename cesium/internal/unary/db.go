@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/x/atomic"
+	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -98,7 +99,31 @@ func (db *DB) OpenIterator(cfg IteratorConfig) *Iterator {
 	return i
 }
 
-// Read at the unary level
+// Overlaps check whether there is a timerange in the unary DB's underlying domain that
+// overlaps with the given timerange. Note that this function will return false if there
+// is an open writer that could write into the requested timerange
+func (db *DB) Overlaps(ctx context.Context, tr telem.TimeRange) (bool, error) {
+	g, _, err := db.Controller.OpenAbsoluteGateIfUncontrolled(tr, control.Subject{Key: "Delete Writer"}, func() (controlledWriter, error) {
+		return controlledWriter{
+			Writer:     nil,
+			channelKey: db.Channel.Key,
+		}, nil
+	})
+
+	if err != nil {
+		return true, err
+	}
+
+	_, ok := g.Authorize()
+	if !ok {
+		g.Release()
+		return true, nil
+	}
+
+	return db.Overlaps(ctx, tr)
+}
+
+// Read reads a timerange of data at the unary level.
 func (db *DB) Read(ctx context.Context, tr telem.TimeRange) (frame core.Frame, err error) {
 	iter := db.OpenIterator(IterRange(tr))
 	if err != nil {
@@ -116,7 +141,7 @@ func (db *DB) Read(ctx context.Context, tr telem.TimeRange) (frame core.Frame, e
 
 func (db *DB) TryClose() error {
 	if db.openIteratorWriters.Value() > 0 {
-		return errors.New(fmt.Sprintf("[cesium] - channel has %d unclosed writers/iterators accessing it", db.openIteratorWriters.Value()))
+		return errors.New(fmt.Sprintf("[cesium] - cannot delete channel because there are currently %d unclosed writers/iterators accessing it", db.openIteratorWriters.Value()))
 	} else {
 		return db.Close()
 	}

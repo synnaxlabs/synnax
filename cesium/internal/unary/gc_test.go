@@ -80,7 +80,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 			Expect(err).To(BeNil())
 			Expect(fi.Size()).To(Equal(int64(720)))
 
-			Expect(rateDB.Domain.CollectTombstone(ctx, 1000)).To(Succeed())
+			Expect(rateDB.Domain.CollectTombstones(ctx, 1000)).To(Succeed())
 
 			fi, err = rateDB.FS.Stat("1.domain")
 			Expect(err).To(BeNil())
@@ -122,7 +122,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 			Expect(err).To(BeNil())
 			Expect(fi.Size()).To(Equal(int64(720)))
 
-			Expect(rateDB.Domain.CollectTombstone(ctx, 10)).To(Succeed())
+			Expect(rateDB.Domain.CollectTombstones(ctx, 10)).To(Succeed())
 
 			fi, err = rateDB.FS.Stat("1.domain")
 			Expect(err).To(BeNil())
@@ -171,7 +171,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 			Expect(err).To(BeNil())
 			Expect(fi.Size()).To(Equal(int64(80)))
 
-			Expect(dataDB.Domain.CollectTombstone(ctx, 1000)).To(Succeed())
+			Expect(dataDB.Domain.CollectTombstones(ctx, 1000)).To(Succeed())
 
 			fi, err = dataDB.FS.Stat("1.domain")
 			Expect(err).To(BeNil())
@@ -222,7 +222,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 			Expect(err).To(BeNil())
 			Expect(fi.Size()).To(Equal(int64(720)))
 
-			Expect(dataDB.Domain.CollectTombstone(ctx, 1000)).To(Succeed())
+			Expect(dataDB.Domain.CollectTombstones(ctx, 1000)).To(Succeed())
 
 			fi, err = dataDB.FS.Stat("1.domain")
 			Expect(err).To(BeNil())

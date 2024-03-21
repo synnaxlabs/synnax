@@ -38,24 +38,6 @@ var _ = Describe("Delete", Ordered, func() {
 				cesium.Channel{Key: 15, IsIndex: true, DataType: telem.TimeStampT},
 				cesium.Channel{Key: 16, Index: 15, DataType: telem.Int64T},
 			)).To(Succeed())
-			w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
-				Channels: []cesium.ChannelKey{15, 16},
-				Start:    10 * telem.SecondTS,
-			}))
-
-			By("Writing data to the channel")
-			ok := w.Write(cesium.NewFrame(
-				[]cesium.ChannelKey{16, 15},
-				[]telem.Series{
-					telem.NewSeriesV[int64](100, 101, 102),
-					telem.NewSecondsTSV(10, 11, 12),
-				}),
-			)
-			Expect(ok).To(BeTrue())
-			_, ok = w.Commit()
-			Expect(ok).To(BeTrue())
-			Expect(w.Close()).To(Succeed())
-			Expect(w.Close()).To(Succeed())
 
 			By("Deleting channel")
 			Expect(db.DeleteChannel(15)).ToNot(Succeed())

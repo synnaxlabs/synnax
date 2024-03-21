@@ -156,6 +156,19 @@ func (db *DB) GetBounds() (tr telem.TimeRange) {
 	return tr
 }
 
+func (db *DB) Overlaps(ctx context.Context, tr telem.TimeRange) (bool, error) {
+	i := db.NewLockedIterator(IterRange(db.GetBounds()))
+
+	if i.SeekGE(ctx, tr.Start) && i.TimeRange().OverlapsWith(tr) {
+		return true, nil
+	}
+	if i.SeekLE(ctx, tr.End) && i.TimeRange().OverlapsWith(tr) {
+		return true, nil
+	}
+
+	return false, i.Close()
+}
+
 // Close closes the DB. Close should not be called concurrently with any other DB methods.
 func (db *DB) Close() error {
 	w := errutil.NewCatch(errutil.WithAggregation())
