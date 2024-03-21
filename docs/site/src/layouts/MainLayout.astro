@@ -218,33 +218,14 @@ const {
         .search-box {
             position: absolute;
             left: 50%;
+            z-index: 50000;
             transform: translateX(-50%);
-            z-index: 1000;
             & .pluto-input {
-                width: 50vw;
-                max-width: 700px;
-            }
-
-            &.pluto--visible {
-                position: fixed;
-                left: 50%;
-                transform: translateX(-50%);
-                box-shadow: var(--box-shadow);
-
-                & .pluto-input {
-                    width: 80vw;
-                    max-width: 900px;
-                    height: 40px;
-                }
+                width: 80vw;
+                max-width: 900px;
             }
 
             .pluto-dropdown__dialog {
-                position: absolute;
-                left: 0 !important;
-                top: 36px !important;
-                box-shadow: var(--box-shadow);
-                background: var(--pluto-gray-l1);
-
                 .hovered {
                     background: var(--pluto-gray-l3);
                 }
