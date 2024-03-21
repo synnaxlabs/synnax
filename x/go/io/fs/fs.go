@@ -10,11 +10,10 @@
 package fs
 
 import (
-	"github.com/cockroachdb/errors"
 	"github.com/cockroachdb/pebble/vfs"
 	"io"
 	"os"
-	"path"
+	goPath "path"
 	"sort"
 )
 
@@ -32,13 +31,13 @@ type File interface {
 const defaultPerm = 0755
 
 type FS interface {
-	Open(pth string, flag int) (File, error)
-	Sub(pth string) (FS, error)
-	List(pth string) ([]os.FileInfo, error)
-	Exists(pth string) (bool, error)
-	Remove(pth string) error
-	Rename(pth string, newPth string) error
-	Stat(pth string) (os.FileInfo, error)
+	Open(path string, flag int) (File, error)
+	Sub(path string) (FS, error)
+	List(path string) ([]os.FileInfo, error)
+	Exists(path string) (bool, error)
+	Remove(path string) error
+	Rename(path string, newPath string) error
+	Stat(path string) (os.FileInfo, error)
 }
 
 type subFS struct {
@@ -47,31 +46,31 @@ type subFS struct {
 }
 
 func (s *subFS) Open(name string, flag int) (File, error) {
-	return s.FS.Open(path.Join(s.dir, name), flag)
+	return s.FS.Open(goPath.Join(s.dir, name), flag)
 }
 
 func (s *subFS) Sub(name string) (FS, error) {
-	return s.FS.Sub(path.Join(s.dir, name))
+	return s.FS.Sub(goPath.Join(s.dir, name))
 }
 
 func (s *subFS) Exists(name string) (bool, error) {
-	return s.FS.Exists(path.Join(s.dir, name))
+	return s.FS.Exists(goPath.Join(s.dir, name))
 }
 
 func (s *subFS) List(name string) ([]os.FileInfo, error) {
-	return s.FS.List(path.Join(s.dir, name))
+	return s.FS.List(goPath.Join(s.dir, name))
 }
 
 func (s *subFS) Remove(name string) error {
-	return s.FS.Remove(path.Join(s.dir, name))
+	return s.FS.Remove(goPath.Join(s.dir, name))
 }
 
 func (s *subFS) Rename(oldName string, newName string) error {
-	return s.FS.Rename(path.Join(s.dir, oldName), path.Join(s.dir, newName))
+	return s.FS.Rename(goPath.Join(s.dir, oldName), goPath.Join(s.dir, newName))
 }
 
 func (s *subFS) Stat(name string) (os.FileInfo, error) {
-	return s.FS.Stat(path.Join(s.dir, name))
+	return s.FS.Stat(goPath.Join(s.dir, name))
 }
 
 type defaultFS struct {
@@ -80,27 +79,27 @@ type defaultFS struct {
 
 var Default FS = &defaultFS{perm: defaultPerm}
 
-func (d *defaultFS) Open(pth string, flag int) (File, error) {
-	return os.OpenFile(pth, flag, d.perm)
+func (d *defaultFS) Open(path string, flag int) (File, error) {
+	return os.OpenFile(path, flag, d.perm)
 }
 
-func (d *defaultFS) Sub(pth string) (FS, error) {
-	if err := os.MkdirAll(pth, d.perm); err != nil {
+func (d *defaultFS) Sub(path string) (FS, error) {
+	if err := os.MkdirAll(path, d.perm); err != nil {
 		return nil, err
 	}
-	return &subFS{dir: pth, FS: d}, nil
+	return &subFS{dir: path, FS: d}, nil
 }
 
-func (d *defaultFS) Exists(pth string) (bool, error) {
-	_, err := os.Stat(pth)
+func (d *defaultFS) Exists(path string) (bool, error) {
+	_, err := os.Stat(path)
 	if os.IsNotExist(err) {
 		return false, nil
 	}
 	return true, err
 }
 
-func (d *defaultFS) List(pth string) ([]os.FileInfo, error) {
-	entries, err := os.ReadDir(pth)
+func (d *defaultFS) List(path string) ([]os.FileInfo, error) {
+	entries, err := os.ReadDir(path)
 	if err != nil {
 		return nil, err
 	}
@@ -114,19 +113,16 @@ func (d *defaultFS) List(pth string) ([]os.FileInfo, error) {
 	return infos, nil
 }
 
-func (d *defaultFS) Remove(pth string) error {
-	if e, err := d.Exists(pth); err != nil || !e {
-		return errors.New("Invalid file path")
-	}
-	return os.RemoveAll(pth)
+func (d *defaultFS) Remove(path string) error {
+	return os.RemoveAll(path)
 }
 
-func (d *defaultFS) Rename(pth string, newPth string) error {
-	return os.Rename(pth, newPth)
+func (d *defaultFS) Rename(path string, newPath string) error {
+	return os.Rename(path, newPath)
 }
 
-func (d *defaultFS) Stat(pth string) (os.FileInfo, error) {
-	return os.Stat(pth)
+func (d *defaultFS) Stat(path string) (os.FileInfo, error) {
+	return os.Stat(path)
 }
 
 func NewMem() FS {
@@ -167,11 +163,11 @@ func (m *memFS) Open(name string, flag int) (File, error) {
 	}
 }
 
-func (m *memFS) Sub(pth string) (FS, error) {
-	if err := m.FS.MkdirAll(path.Clean(pth), m.perm); err != nil {
+func (m *memFS) Sub(path string) (FS, error) {
+	if err := m.FS.MkdirAll(goPath.Clean(path), m.perm); err != nil {
 		return nil, err
 	}
-	return &subFS{dir: pth, FS: m}, nil
+	return &subFS{dir: path, FS: m}, nil
 }
 
 func (m *memFS) Exists(name string) (bool, error) {
@@ -185,14 +181,14 @@ func (m *memFS) Exists(name string) (bool, error) {
 	return false, err
 }
 
-func (m *memFS) List(pth string) ([]os.FileInfo, error) {
-	entries, err := m.FS.List(pth)
+func (m *memFS) List(path string) ([]os.FileInfo, error) {
+	entries, err := m.FS.List(path)
 	if err != nil {
 		return nil, err
 	}
 	infos := make([]os.FileInfo, len(entries))
 	for i, e := range entries {
-		infos[i], err = m.FS.Stat(path.Join(pth, e))
+		infos[i], err = m.FS.Stat(goPath.Join(path, e))
 		if err != nil {
 			return nil, err
 		}
@@ -204,17 +200,14 @@ func (m *memFS) List(pth string) ([]os.FileInfo, error) {
 	return infos, nil
 }
 
-func (m *memFS) Remove(pth string) error {
-	if e, err := m.Exists(pth); err != nil || !e {
-		return errors.New("Invalid file path")
-	}
-	return m.RemoveAll(pth)
+func (m *memFS) Remove(path string) error {
+	return m.RemoveAll(path)
 }
 
-func (m *memFS) Rename(pth string, newPth string) error {
-	return m.FS.Rename(pth, newPth)
+func (m *memFS) Rename(path string, newPath string) error {
+	return m.FS.Rename(path, newPath)
 }
 
-func (m *memFS) Stat(pth string) (os.FileInfo, error) {
-	return m.FS.Stat(pth)
+func (m *memFS) Stat(path string) (os.FileInfo, error) {
+	return m.FS.Stat(path)
 }

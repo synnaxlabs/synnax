@@ -22,9 +22,9 @@ var _ = Describe("FS", func() {
 		func() fs.FS {
 			return fs.NewMem()
 		},
-		//func() fs.FS {
-		//	return MustSucceed(fs.OSDirFS("./testData"))
-		//},
+		func() fs.FS {
+			return MustSucceed(fs.Default.Sub("./testData"))
+		},
 	}
 
 	for _, fsBuilder := range fileSystems {
@@ -32,9 +32,9 @@ var _ = Describe("FS", func() {
 		BeforeEach(func() {
 			myMemFS = fsBuilder()
 		})
-		//AfterEach(func() {
-		//	Expect(os.RemoveAll("./testData")).To(Succeed())
-		//})
+		AfterEach(func() {
+			Expect(os.RemoveAll("./testData")).To(Succeed())
+		})
 		Describe("Open", func() {
 			Describe("Create test CREATE flag", func() {
 				It("Should create a file in MemFS", func() {
