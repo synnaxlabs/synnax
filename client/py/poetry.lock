@@ -2,13 +2,13 @@
 
 [[package]]
 name = "alamos"
-version = "0.2.34"
+version = "0.2.35"
 description = ""
 optional = false
 python-versions = "<4.0,>=3.11"
 files = [
-    {file = "alamos-0.2.34-py3-none-any.whl", hash = "sha256:71cebd26e7bc1573c9607ede681bc4ea6f1e43c6601888bc241206cf8fd6fb32"},
-    {file = "alamos-0.2.34.tar.gz", hash = "sha256:a832a698352614f43c759c9ec320b1d94c916c9d82b74b7f0e0405b718ad4053"},
+    {file = "alamos-0.2.35-py3-none-any.whl", hash = "sha256:6590984950774811631c79645602ef21048e38805bfd9ed1c2fd642b00cc2705"},
+    {file = "alamos-0.2.35.tar.gz", hash = "sha256:17e3dfb1ec492cdb19f1acb2236fe0b41839596cc4dbf9e4856a15765f72977a"},
 ]
 
 [package.dependencies]
@@ -1953,13 +1953,13 @@ test = ["flaky", "ipykernel (>=6.19.3)", "ipython", "ipywidgets", "nbconvert (>=
 
 [[package]]
 name = "nbconvert"
-version = "7.16.2"
+version = "7.16.3"
 description = "Converting Jupyter Notebooks (.ipynb files) to other formats.  Output formats include asciidoc, html, latex, markdown, pdf, py, rst, script.  nbconvert can be used both as a Python library (`import nbconvert`) or as a command line tool (invoked as `jupyter nbconvert ...`)."
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "nbconvert-7.16.2-py3-none-any.whl", hash = "sha256:0c01c23981a8de0220255706822c40b751438e32467d6a686e26be08ba784382"},
-    {file = "nbconvert-7.16.2.tar.gz", hash = "sha256:8310edd41e1c43947e4ecf16614c61469ebc024898eb808cce0999860fc9fb16"},
+    {file = "nbconvert-7.16.3-py3-none-any.whl", hash = "sha256:ddeff14beeeedf3dd0bc506623e41e4507e551736de59df69a91f86700292b3b"},
+    {file = "nbconvert-7.16.3.tar.gz", hash = "sha256:a6733b78ce3d47c3f85e504998495b07e6ea9cf9bf6ec1c98dda63ec6ad19142"},
 ]
 
 [package.dependencies]
@@ -1985,7 +1985,7 @@ docs = ["ipykernel", "ipython", "myst-parser", "nbsphinx (>=0.2.12)", "pydata-sp
 qtpdf = ["nbconvert[qtpng]"]
 qtpng = ["pyqtwebengine (>=5.15)"]
 serve = ["tornado (>=6.1)"]
-test = ["flaky", "ipykernel", "ipywidgets (>=7.5)", "pytest"]
+test = ["flaky", "ipykernel", "ipywidgets (>=7.5)", "pytest (>=7)"]
 webpdf = ["playwright"]
 
 [[package]]
@@ -3335,17 +3335,17 @@ tests = ["cython", "littleutils", "pygments", "pytest", "typeguard"]
 
 [[package]]
 name = "synnax-freighter"
-version = "0.5.34"
+version = "0.5.35"
 description = ""
 optional = false
 python-versions = "<4.0,>=3.11"
 files = [
-    {file = "synnax_freighter-0.5.34-py3-none-any.whl", hash = "sha256:97ca22b684971b789cacc02786cba3bbfc590bce05b7382bf064895b22d2f81a"},
-    {file = "synnax_freighter-0.5.34.tar.gz", hash = "sha256:e16495a26fc6030fac41c662b00eb74bde0de34efe04d0c19e33fcdf83ae1026"},
+    {file = "synnax_freighter-0.5.35-py3-none-any.whl", hash = "sha256:e498e0a7606d3a756928a9a2ecb7112e37788f36bee1a99b7899cef0d14eda36"},
+    {file = "synnax_freighter-0.5.35.tar.gz", hash = "sha256:0edd77f7e4bb67991310564c6d473855132164124b71bd0d37d04cebeae5431e"},
 ]
 
 [package.dependencies]
-alamos = ">=0.2.34,<0.3.0"
+alamos = ">=0.2.35,<0.3.0"
 janus = ">=1.0.0,<2.0.0"
 msgpack = ">=1.0.4,<2.0.0"
 pydantic = ">=1.10.0,<2.0.0"
@@ -3759,4 +3759,4 @@ testing = ["big-O", "jaraco.functools", "jaraco.itertools", "more-itertools", "p
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "633b58857ad6bdddcafdeaedb974b67a407ae84f7609483d7f96250a0ef3aed4"
+content-hash = "4ee89677c0af41bb56392d79377eeced57c5b5d5af385003e7ce9318023fe9f4"
