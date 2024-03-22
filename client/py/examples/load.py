@@ -93,6 +93,8 @@ with client.new_streamer([a.key for a in valve_commands]) as streamer:
             writer.write(data)
             i += 1
             if i % 500 == 0:
-                print(f"Sent {i} frames in "
-                      f"{sy.TimeSpan((sy.TimeStamp.now() - start) / i)}")
+                print(
+                    f"Sent {i} frames in "
+                    f"{sy.TimeSpan((sy.TimeStamp.now() - start) / i)}"
+                )
                 print(writer.commit())

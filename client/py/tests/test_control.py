@@ -9,9 +9,9 @@
 
 import threading
 import time
-from janus import Queue
 
 import pytest
+from janus import Queue
 
 import synnax as sy
 
@@ -78,8 +78,8 @@ class TestController:
                 auto[press_en.key] = False
 
         ev = threading.Event()
-        t1 = threading.Thread(target=sequence, kwargs={'ev': ev})
-        t2 = threading.Thread(target=daq, kwargs={'ev': ev})
+        t1 = threading.Thread(target=sequence, kwargs={"ev": ev})
+        t2 = threading.Thread(target=daq, kwargs={"ev": ev})
 
         t2.start()
         t1.start()

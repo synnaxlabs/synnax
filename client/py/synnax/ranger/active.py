@@ -6,11 +6,11 @@
 #  As of the Change Date specified in that file, in accordance with the Business Source
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
-from alamos import Instrumentation, NOOP
+from alamos import NOOP, Instrumentation
 from freighter import Payload, UnaryClient
 
-from synnax.ranger.payload import RangePayload, RangeKey
 from synnax.exceptions import QueryError
+from synnax.ranger.payload import RangeKey, RangePayload
 
 
 class _SetActiveRequest(Payload):

@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type UnaryClient } from "@synnaxlabs/freighter";
 import {
   DataType,
   Rate,
@@ -19,7 +20,6 @@ import {
   type CrudeTimeSpan,
 } from "@synnaxlabs/x";
 
-import { type Creator } from "@/channel/creator";
 import {
   type Key,
   type KeyOrName,
@@ -28,10 +28,16 @@ import {
   payload,
   type NewPayload,
 } from "@/channel/payload";
-import { analyzeParams, CacheRetriever, ClusterRetriever, DebouncedBatchRetriever, type Retriever } from "@/channel/retriever";
+import {
+  analyzeParams,
+  CacheRetriever,
+  ClusterRetriever,
+  DebouncedBatchRetriever,
+  type Retriever,
+} from "@/channel/retriever";
+import { type Writer } from "@/channel/writer";
 import { QueryError } from "@/errors";
 import { type framer } from "@/framer";
-import { UnaryClient } from "@synnaxlabs/freighter";
 
 /**
  * Represents a Channel in a Synnax database. It should not be instantiated
@@ -120,19 +126,19 @@ export class Channel {
 export class Client implements AsyncTermSearcher<string, Key, Channel> {
   private readonly frameClient: framer.Client;
   private readonly retriever: Retriever;
-  private readonly creator: Creator;
+  private readonly writer: Writer;
   private readonly client: UnaryClient;
 
   constructor(
-    segmentClient: framer.Client, 
+    segmentClient: framer.Client,
     retriever: Retriever,
     client: UnaryClient,
-    creator: Creator
-    ) {
+    writer: Writer,
+  ) {
     this.frameClient = segmentClient;
     this.retriever = retriever;
     this.client = client;
-    this.creator = creator;
+    this.writer = writer;
   }
 
   async create(channel: NewPayload): Promise<Channel>;
@@ -151,7 +157,7 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
    */
   async create(channels: NewPayload | NewPayload[]): Promise<Channel | Channel[]> {
     const single = !Array.isArray(channels);
-    const res = this.sugar(await this.creator.create(toArray(channels)));
+    const res = this.sugar(await this.writer.create(toArray(channels)));
     return single ? res[0] : res;
   }
 
@@ -178,6 +184,12 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
     return res[0];
   }
 
+  async delete(channels: Params): Promise<void> {
+    const { normalized, variant } = analyzeParams(channels);
+    if (variant === "keys") return await this.writer.delete({ keys: normalized });
+    return await this.writer.delete({ names: normalized });
+  }
+
   async search(term: string, rangeKey?: string): Promise<Channel[]> {
     return this.sugar(await this.retriever.search(term, rangeKey));
   }
@@ -190,8 +202,10 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
     return this.sugar(await this.retriever.page(offset, limit, rangeKey));
   }
 
-  createDebouncedBatchRetriever(deb:number = 10): Retriever {
-    return new CacheRetriever(new DebouncedBatchRetriever(new ClusterRetriever(this.client),deb))
+  createDebouncedBatchRetriever(deb: number = 10): Retriever {
+    return new CacheRetriever(
+      new DebouncedBatchRetriever(new ClusterRetriever(this.client), deb),
+    );
   }
 
   private sugar(payloads: Payload[]): Channel[] {

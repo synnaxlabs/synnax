@@ -11,15 +11,10 @@ from enum import Enum
 from uuid import uuid4
 from warnings import warn
 
-from freighter import (
-    EOF,
-    Payload,
-    Stream,
-    StreamClient,
-    decode_exception,
-)
+from freighter import EOF, Payload, Stream, StreamClient, decode_exception
 from numpy import can_cast as np_can_cast
-from pandas import DataFrame, concat as pd_concat
+from pandas import DataFrame
+from pandas import concat as pd_concat
 
 from synnax import io
 from synnax.channel.payload import ChannelKey, ChannelKeys, ChannelName, ChannelNames
@@ -155,12 +150,12 @@ class Writer:
     def write(
         self,
         channels_or_data: ChannelName
-                          | ChannelKey
-                          | ChannelKeys
-                          | ChannelNames
-                          | Frame
-                          | dict[ChannelKey | ChannelName, CrudeSeries]
-                          | DataFrame,
+        | ChannelKey
+        | ChannelKeys
+        | ChannelNames
+        | Frame
+        | dict[ChannelKey | ChannelName, CrudeSeries]
+        | DataFrame,
         series: CrudeSeries | list[CrudeSeries] | None = None,
     ) -> bool:
         """Writes the given frame to the database. The provided frame must:

@@ -44,39 +44,55 @@ describe("Channel", () => {
       expect(two.key).not.toEqual(0);
     });
   });
-  test("retrieve by key", async () => {
-    const channel = await client.channels.create({
-      name: "test",
-      leaseholder: 1,
-      rate: Rate.hz(1),
-      dataType: DataType.FLOAT32,
+
+  describe("retrieve", async () => {
+    test("retrieve by key", async () => {
+      const channel = await client.channels.create({
+        name: "test",
+        leaseholder: 1,
+        rate: Rate.hz(1),
+        dataType: DataType.FLOAT32,
+      });
+      const retrieved = await client.channels.retrieve(channel.key);
+      expect(retrieved.name).toEqual("test");
+      expect(retrieved.leaseholder).toEqual(1);
+      expect(retrieved.rate).toEqual(Rate.hz(1));
+      expect(retrieved.dataType).toEqual(DataType.FLOAT32);
     });
-    const retrieved = await client.channels.retrieve(channel.key);
-    expect(retrieved.name).toEqual("test");
-    expect(retrieved.leaseholder).toEqual(1);
-    expect(retrieved.rate).toEqual(Rate.hz(1));
-    expect(retrieved.dataType).toEqual(DataType.FLOAT32);
-  });
-  test("retrieve by key - not found", async () => {
-    await expect(async () => await client.channels.retrieve("1-1000")).rejects.toThrow(
-      QueryError,
-    );
+    test("retrieve by key - not found", async () => {
+      await expect(
+        async () => await client.channels.retrieve("1-1000"),
+      ).rejects.toThrow(QueryError);
+    });
+    test("retrieve by name", async () => {
+      const retrieved = await client.channels.retrieve(["test"]);
+      expect(retrieved.length).toBeGreaterThan(0);
+      retrieved.forEach((ch) => expect(ch.name).toEqual("test"));
+    });
+    test("retrieve by key - not found", async () => {
+      await expect(
+        async () => await client.channels.retrieve("1-1000"),
+      ).rejects.toThrow(QueryError);
+    });
+    test("retrieve by name", async () => {
+      const retrieved = await client.channels.retrieve(["test"]);
+      expect(retrieved.length).toBeGreaterThan(0);
+      retrieved.forEach((ch) => expect(ch.name).toEqual("test"));
+    });
   });
 
-  test("retrieve by name", async () => {
-    const retrieved = await client.channels.retrieve(["test"]);
-    expect(retrieved.length).toBeGreaterThan(0);
-    retrieved.forEach((ch) => expect(ch.name).toEqual("test"));
-  });
-  test("retrieve by key - not found", async () => {
-    await expect(async () => await client.channels.retrieve("1-1000")).rejects.toThrow(
-      QueryError,
-    );
-  });
-
-  test("retrieve by name", async () => {
-    const retrieved = await client.channels.retrieve(["test"]);
-    expect(retrieved.length).toBeGreaterThan(0);
-    retrieved.forEach((ch) => expect(ch.name).toEqual("test"));
+  describe("delete", async () => {
+    test("delete by key", async () => {
+      const channel = await client.channels.create({
+        name: "test",
+        leaseholder: 1,
+        rate: Rate.hz(1),
+        dataType: DataType.FLOAT32,
+      });
+      await client.channels.delete(channel.key);
+      await expect(
+        async () => await client.channels.retrieve(channel.key),
+      ).rejects.toThrow(QueryError);
+    });
   });
 });

@@ -15,15 +15,16 @@ from synnax.exceptions import (
     ContiguityError,
     Field,
     GeneralError,
-    ParseError,
-    QueryError,
     MultipleResultsError,
     NoResultsError,
+    ParseError,
+    QueryError,
     RouteError,
     UnexpectedError,
     ValidationError,
 )
 from synnax.framer import BufferedWriter, Frame, Iterator, Streamer, Writer, WriterMode
+from synnax.hardware import Device, Rack, Task
 from synnax.options import SynnaxOptions
 from synnax.ranger import Range
 from synnax.synnax import Synnax
@@ -48,4 +49,3 @@ from synnax.telem import (
     convert_time_units,
     elapsed_seconds,
 )
-from synnax.hardware import Task, Rack, Device

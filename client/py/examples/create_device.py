@@ -7,9 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import synnax as sy
-from uuid import uuid4
 import json
+from uuid import uuid4
+
+import synnax as sy
 
 client = sy.Synnax()
 

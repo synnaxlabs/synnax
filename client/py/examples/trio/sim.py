@@ -8,9 +8,9 @@
 #  included in the file licenses/APL.txt.
 
 import math
+import time
 
 import synnax as sy
-import time
 
 client = sy.Synnax(
     host="localhost",

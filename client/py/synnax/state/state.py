@@ -8,9 +8,9 @@
 #  included in the file licenses/APL.txt.
 
 from synnax.channel import ChannelKey, ChannelName
-from synnax.telem import Series
 from synnax.channel.retrieve import ChannelRetriever, retrieve_required
 from synnax.framer import Frame
+from synnax.telem import Series
 
 
 class State:

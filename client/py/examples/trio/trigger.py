@@ -7,9 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import synnax as sy
 import matplotlib.pyplot as plt
 from test_complete import test_complete
+
+import synnax as sy
 
 
 @test_complete()

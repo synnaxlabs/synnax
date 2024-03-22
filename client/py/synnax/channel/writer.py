@@ -10,7 +10,7 @@
 from alamos import Instrumentation, trace
 from freighter import Payload, UnaryClient
 
-from synnax.channel.payload import ChannelPayload, ChannelKeys, ChannelNames
+from synnax.channel.payload import ChannelKeys, ChannelNames, ChannelPayload
 
 
 class _CreateRequest(Payload):
@@ -30,6 +30,7 @@ class _DeleteRequest(Payload):
 
 class _DeleteResponse(Payload):
     ...
+
 
 class ChannelWriter:
     __ENDPOINT = "/channel/create"
