@@ -7,21 +7,32 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+"""
+This example demonstrates streaming data from a large number of channels into Synnax,
+while also acknowledging commands sent to a large number of simulated valves. This
+example essentially serves as a basic simulated data acquisition system (DAQ).
+"""
+
 import time
 
 import numpy as np
-import pandas as pd
-
 import synnax as sy
 
+# We've logged in via the CLI, so there's no need to provide credentials here.
+# See https://docs.synnaxlabs.com/python-client/get-started for more information.
 client = sy.Synnax()
 
-NUM_VALVES = 5
-NUM_SENSORS = 25
+NUM_VALVES = 50
+NUM_SENSORS = 250
 
+# Some lists to store our channels.
 valve_commands = []
-valve_acks = []
+valve_responses = []
 
+# Maps the keys of valve command channels to response channels.
+command_to_res = {}
+
+# Stores the timestamps for both the sensors and the valve responses.
 sensor_idx = client.channels.create(
     name="Sensor Time",
     is_index=True,
@@ -29,70 +40,89 @@ sensor_idx = client.channels.create(
     retrieve_if_name_exists=True,
 )
 
-sensors = []
-command_to_res = {}
-
+# Create the necessary channels for each valve.
 for i in range(NUM_VALVES):
+    # The index channel for the command is used to track the time at which the command
+    # was sent.
     cmd_idx = client.channels.create(
         name=f"Valve Command Time {i}",
         is_index=True,
         data_type=sy.DataType.TIMESTAMP,
         retrieve_if_name_exists=True,
     )
-    cmd = client.channels.create(
-        name=f"Valve Command {i}",
-        index=cmd_idx.key,
-        data_type=sy.DataType.FLOAT32,
+    cmd_res = client.channels.create([
+        # The command channel is used to send a command to the valve.
+        sy.Channel(
+            name=f"Valve Command {i}",
+            index=cmd_idx.key,
+            data_type=sy.DataType.UINT8,
+        ),
+        # The response channel is used to acknowledge the command from our simulated
+        # DAQ.
+        sy.Channel(
+            name=f"Valve Response {i}",
+            index=sensor_idx.key,
+            data_type=sy.DataType.UINT8,
+        )],
         retrieve_if_name_exists=True,
     )
-    res = client.channels.create(
-        name=f"Valve Response {i}",
-        index=sensor_idx.key,
-        data_type=sy.DataType.FLOAT32,
-        retrieve_if_name_exists=True,
-    )
+    cmd = cmd_res[0]
+    res = cmd_res[1]
     valve_commands.append(cmd)
-    valve_acks.append(res)
+    valve_responses.append(res)
     command_to_res[cmd.key] = res
 
-for i in range(NUM_SENSORS):
-    ch = client.channels.create(
+sensors = [
+    sy.Channel(
         name=f"Sensor {i}",
         index=sensor_idx.key,
         data_type=sy.DataType.FLOAT32,
-        retrieve_if_name_exists=True,
-    )
-    sensors.append(ch)
+    ) for i in range(NUM_SENSORS)
+]
 
-write_to = [*[s.key for s in sensors], *[v.key for v in valve_acks], sensor_idx.key]
+sensors = client.channels.create(sensors, retrieve_if_name_exists=True)
 
-rate = (sy.Rate.HZ * 30).period.seconds
+# Define the list of channels we'll write to i.e. the sensors and the valve responses as
+# well as the sensor index.
+write_to = [*[s.key for s in sensors], *[v.key for v in valve_responses], sensor_idx.key]
 
-valve_states = {v.key: False for v in valve_acks}
-data = {v.key: [np.float32(valve_states[v.key])] for v in valve_acks}
+# Define the list of channels we'll read from i.e. the incoming valve commands.
+read_from = [v.key for v in valve_commands]
 
-i = 0
+# Define a crude rate at which we'll write data.
+rate = (sy.Rate.HZ * 50).period.seconds
 
+# Set up the initial state of the valves (closed).
+sensor_states = {v.key: np.uint8(False) for v in valve_responses}
+
+# Open a streamer to listen for incoming valve commands.
 with client.new_streamer([a.key for a in valve_commands]) as streamer:
+    i = 0
+
+    # Open a writer to write data to Synnax.
     with client.new_writer(sy.TimeStamp.now(), write_to) as writer:
         start = sy.TimeStamp.now()
 
         while True:
             time.sleep(rate)
+
+            # If we've received a command, update the state of the corresponding valve.
             if streamer.received:
                 f = streamer.read()
                 for k in f.columns:
-                    data[command_to_res[k].key] = [np.float32(f[k][0] > 0.5)]
+                    # 1 is open, 0 is closed.
+                    sensor_states[command_to_res[k].key] = np.uint8(f[k][-1] > 0.9)
 
-                # if np.random.random() > 0.9:
-                #     valve_states[v.key] = not valve_states[v.key]
-                #     data[v.key] = [np.float32(valve_states[v.key])]
             for s in sensors:
-                data[s.key] = [np.float32(np.sin(i / 1000) * 25 + np.random.random())]
-            data[sensor_idx.key] = [sy.TimeStamp.now()]
-            writer.write(data)
+                sensor_states[s.key] = np.float32(np.sin(i / 1000) + np.random.random())
+
+            sensor_states[sensor_idx.key] = sy.TimeStamp.now()
+            # Write the new data
+            writer.write(sensor_states)
+
             i += 1
+
+            # Every 500 iterations, commit the data to Synnax.
             if i % 500 == 0:
-                print(f"Sent {i} frames in "
-                      f"{sy.TimeSpan((sy.TimeStamp.now() - start) / i)}")
-                print(writer.commit())
+                if not writer.commit():
+                    break
