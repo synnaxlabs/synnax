@@ -100,7 +100,7 @@ const MainUnderContext = (): ReactElement => {
         triggers={triggersProps}
         haul={{ useState: useHaulState }}
         alamos={{
-          level: "debug",
+          level: "info",
           include: ["aether.telem"],
         }}
       >

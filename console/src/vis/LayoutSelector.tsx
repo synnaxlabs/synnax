@@ -14,7 +14,6 @@ import { Eraser, Button, Text } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 
 import { CSS } from "@/css";
-import { HardwareStatus } from "@/hardware/status";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { PID } from "@/pid";
