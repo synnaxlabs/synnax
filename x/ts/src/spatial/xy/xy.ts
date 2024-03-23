@@ -44,7 +44,12 @@ export type Crude = z.infer<typeof crudeZ>;
  * @param y - If x is a number, the y coordinate. If x is a number and this argument is
  * not given, the y coordinate is assumed to be the same as the x coordinate.
  */
-export const construct = (x: Crude, y?: number): XY => {
+export const construct = (x: Crude | Direction, y?: number): XY => {
+  if (typeof x === "string") {
+    if (y === undefined) throw new Error("The y coordinate must be given.");
+    if (x === "x") return { x: y, y: 0 };
+    return { x: 0, y };
+  }
   // The order in which we execute these checks is very important.
   if (typeof x === "number") return { x, y: y ?? x };
   if (Array.isArray(x)) return { x: x[0], y: x[1] };
@@ -98,19 +103,14 @@ export const translateY = (c: Crude, y: number): XY => {
   return { x: p.x, y: p.y + y };
 };
 
-type TranslateOverloadOne = (a: Crude, b: Crude, ...cb: Crude[]) => XY;
-type TranslateOverloadTwo = (a: Crude, direction: Direction, value: number) => XY;
+interface Translate {
+  /** @returns the sum of the given coordinates. */
+  (a: Crude, b: Crude, ...cb: Crude[]): XY;
+  /** @returns the coordinates translated in the given direction by the given value. */
+  (a: Crude, direction: Direction, value: number): XY;
+}
 
-/**
- * @returns the given coordinate translated by an arbitrary number of translation
- * coordinates.
- */
-export const translate: TranslateOverloadOne & TranslateOverloadTwo = (
-  a,
-  b,
-  v,
-  ...cb
-): XY => {
+export const translate: Translate = (a, b, v, ...cb): XY => {
   if (typeof b === "string" && typeof v === "number") {
     if (b === "x") return translateX(a, v);
     return translateY(a, v);
@@ -172,7 +172,7 @@ export const isNan = (a: Crude): boolean => {
 export const isFinite = (a: Crude): boolean => {
   const xy = construct(a);
   return Number.isFinite(xy.x) && Number.isFinite(xy.y);
-}
+};
 
 /** @returns the coordinate represented as a couple of the form [x, y]. */
 export const couple = (a: Crude): NumberCouple => {
@@ -189,4 +189,4 @@ export const css = (a: Crude): { left: number; top: number } => {
 export const truncate = (a: Crude, precision: number = 0): XY => {
   const xy = construct(a);
   return { x: Number(xy.x.toFixed(precision)), y: Number(xy.y.toFixed(precision)) };
-}
+};

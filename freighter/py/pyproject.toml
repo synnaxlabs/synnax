@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "synnax-freighter"
-version = "0.5.36"
+version = "0.5.41"
 description = ""
 authors = ["emiliano bonilla <emilbon99@gmail.com>"]
 packages = [
@@ -16,7 +16,7 @@ profile = "black"
 
 [tool.poetry.dependencies]
 python = "^3.11"
-websockets = "^12.0"
+websockets = "^11.0.3"
 msgpack = "^1.0.4"
 urllib3 = "^2.0.3"
 janus = "^1.0.0"
@@ -40,7 +40,6 @@ markers = [
     "ws: mark test as a websocket test",
     "http: mark test as an http test",
     "sync: mark test as a sync test"
-    "exception: mark test as an exception test",
 ]
 
 

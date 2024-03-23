@@ -23,6 +23,7 @@ import {
   type BooleanSourceSpec,
   MultiSourceTransformer,
   type StringSourceSpec,
+  type NumberSourceSpec,
 } from "@/telem/aether/telem";
 
 export class TransformerFactory implements Factory {
@@ -39,6 +40,8 @@ export class TransformerFactory implements Factory {
         return new BooleanStatus(spec.props);
       case StringifyNumber.TYPE:
         return new StringifyNumber(spec.props);
+      case RollingAverage.TYPE:
+        return new RollingAverage(spec.props);
     }
     return null;
   }
@@ -180,4 +183,42 @@ export const stringifyNumber = (
   type: StringifyNumber.TYPE,
   variant: "source",
   valueType: "string",
+});
+
+export const rollingAverageProps = z.object({
+  windowSize: z.number().optional().default(5),
+});
+
+export class RollingAverage extends UnarySourceTransformer<
+  number,
+  number,
+  typeof rollingAverageProps
+> {
+  static readonly TYPE = "rolling-average";
+  static readonly propsZ = meanProps;
+  schema = rollingAverageProps;
+  private values: number[] = [];
+
+  protected transform(value: number): number {
+    if (this.props.windowSize < 2) return value;
+    return this.values.reduce((a, b) => a + b, 0) / this.values.length;
+  }
+
+  protected shouldNotify(value: number): boolean {
+    if (this.props.windowSize < 2) return true;
+    if (this.values.length > this.props.windowSize) {
+      this.values = [];
+    }
+    this.values.push(value);
+    return this.values.length === this.props.windowSize;
+  }
+}
+
+export const rollingAverage = (
+  props: z.input<typeof rollingAverageProps>,
+): NumberSourceSpec => ({
+  props,
+  type: RollingAverage.TYPE,
+  variant: "source",
+  valueType: "number",
 });

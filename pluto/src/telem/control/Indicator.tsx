@@ -57,7 +57,7 @@ export const Indicator = Aether.wrap<IndicatorProps>(
     else parsedColor = "var(--pluto-gray-l8)";
 
     return (
-      <Tooltip.Dialog location={{ x: "center", y: "right" }}>
+      <Tooltip.Dialog location={{ x: "center", y: "bottom" }}>
         <Text.Text level="p">{status.message}</Text.Text>
         <div
           className={CSS.B("indicator")}

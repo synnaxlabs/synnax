@@ -11,7 +11,7 @@ import { z } from "zod";
 
 import { type Stringer } from "@/primitive";
 import { addSamples } from "@/telem/series";
-import { Crude } from "@/spatial/location";
+import { Crude } from "@/spatial/location/location";
 
 export type TZInfo = "UTC" | "local";
 
