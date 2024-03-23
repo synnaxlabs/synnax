@@ -10,12 +10,12 @@
 import { z } from "zod";
 
 import { clamp } from "@/clamp";
-import * as bounds from "@/spatial/bounds";
-import { type Box, isBox } from "@/spatial/box";
-import * as box from "@/spatial/box";
-import type * as dims from "@/spatial/dimensions";
-import * as location from "@/spatial/location";
-import * as xy from "@/spatial/xy";
+import * as bounds from "@/spatial/bounds/bounds";
+import { type Box, isBox } from "@/spatial/box/box";
+import * as box from "@/spatial/box/box";
+import type * as dims from "@/spatial/dimensions/dimensions";
+import * as location from "@/spatial/location/location";
+import * as xy from "@/spatial/xy/xy";
 
 export const crudeXYTransform = z.object({ offset: xy.crudeZ, scale: xy.crudeZ });
 

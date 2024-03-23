@@ -9,7 +9,7 @@
 
 import { describe, expect, test } from "vitest";
 
-import * as xy from "@/spatial/xy";
+import * as xy from "@/spatial/xy/xy";
 
 describe("XY", () => {
   describe("construction", () => {

@@ -9,7 +9,7 @@
 
 import { describe, expect, test } from "vitest";
 
-import * as direction from "@/spatial/direction";
+import * as direction from "@/spatial/direction/direction";
 
 describe("Direction", () => {
   describe("construction", () => {
