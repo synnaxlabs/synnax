@@ -71,7 +71,7 @@ export const Selector = (): ReactElement => {
       >
         {active?.name ?? "No Workspace"}
       </Button.Button>
-      <Align.Pack direction="y" style={{ width: 500, height: 350 }}>
+      <Align.Pack direction="y" style={{ width: 500, height: 150 }}>
         <List.List>
           <List.Selector
             value={active == null ? [] : [active.key]}

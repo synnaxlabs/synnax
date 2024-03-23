@@ -35,10 +35,11 @@ export interface DialogProps {
   dialog: box.Crude;
   alignments?: Alignment[];
   initial?: location.Outer | Partial<location.XY> | location.XY;
+  prefer?: Array<location.Outer | Partial<location.XY> | location.XY>;
   disable?: Array<location.Location | Partial<location.XY>>;
 }
 
-const parseInitialPosition = (
+const parseLocationOptions = (
   initial?: location.Outer | Partial<location.XY> | location.XY,
 ): Partial<location.XY> => {
   if (initial == null) return { x: undefined, y: undefined };
@@ -64,17 +65,32 @@ export const dialog = ({
   target: targetCrude,
   dialog: dialogCrude,
   initial,
+  prefer,
   alignments = ["start"],
   disable = [],
 }: DialogProps): DialogReturn => {
-  const initialPos = parseInitialPosition(initial);
-  const options = location.XY_LOCATIONS.filter(
-    (l) =>
-      !location.xyEquals(l, location.CENTER) &&
-      (initialPos.x == null || l.x === initialPos.x) &&
-      (initialPos.y == null || l.y === initialPos.y) &&
-      !disable.some((d) => location.xyMatches(l, d)),
-  )
+  const initialLocs = parseLocationOptions(initial);
+
+  let options = location.XY_LOCATIONS;
+  if (prefer != null) {
+    const parsedPrefer = prefer.map((p) => parseLocationOptions(p));
+    options = options.slice().sort((a, b) => {
+      const hasPreferA = parsedPrefer.findIndex((p) => location.xyMatches(a, p));
+      const hasPreferB = parsedPrefer.findIndex((p) => location.xyMatches(b, p));
+      if (hasPreferA > -1 && hasPreferB > -1) return hasPreferA - hasPreferB;
+      if (hasPreferA > -1) return -1;
+      if (hasPreferB > -1) return 1;
+      return 0;
+    });
+  }
+  const mappedOptions = options
+    .filter(
+      (l) =>
+        !location.xyEquals(l, location.CENTER) &&
+        (initialLocs.x == null || l.x === initialLocs.x) &&
+        (initialLocs.y == null || l.y === initialLocs.y) &&
+        !disable.some((d) => location.xyMatches(l, d)),
+    )
     .map((l) => alignments?.map((a) => [l, a]))
     .flat() as Array<[location.XY, Alignment]>;
 
@@ -85,7 +101,7 @@ export const dialog = ({
   // maximum value of a number in js
   let bestOptionArea = -Infinity;
   const res: DialogReturn = { location: location.CENTER, adjustedDialog: dialog };
-  options.forEach(([option, alignment]) => {
+  mappedOptions.forEach(([option, alignment]) => {
     const [adjustedBox, area] = evaluateOption({
       option,
       alignment,

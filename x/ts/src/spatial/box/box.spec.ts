@@ -50,6 +50,20 @@ describe("Box", () => {
       expect(box.bottomLeft(b)).toEqual({ x: 0, y: 10 });
       expect(box.bottomRight(b)).toEqual({ x: 10, y: 10 });
     });
+    test("from first coordinate and raw params", () => {
+      const b = box.construct({ x: 0, y: 0 }, 10, 10);
+      expect(box.topLeft(b)).toEqual({ x: 0, y: 0 });
+      expect(box.topRight(b)).toEqual({ x: 10, y: 0 });
+      expect(box.bottomLeft(b)).toEqual({ x: 0, y: 10 });
+      expect(box.bottomRight(b)).toEqual({ x: 10, y: 10 });
+    });
+    test("from first coordinate and raw params 2", () => {
+      const b = box.construct({ x: 0, y: 0 }, undefined, 10, 10);
+      expect(box.topLeft(b)).toEqual({ x: 0, y: 0 });
+      expect(box.topRight(b)).toEqual({ x: 10, y: 0 });
+      expect(box.bottomLeft(b)).toEqual({ x: 0, y: 10 });
+      expect(box.bottomRight(b)).toEqual({ x: 10, y: 10 });
+    });
   });
   describe("zod schema", () => {
     const CASES: Array<[string, unknown]> = [
@@ -163,6 +177,64 @@ describe("Box", () => {
         location.TOP_LEFT,
       );
       expect(box.topLeft(b3)).toEqual({ x: 10, y: 0 });
+    });
+  });
+  describe("resize", () => {
+    it("should resize the x dimension of the box", () => {
+      const b = box.construct(0, 0, 10, 10);
+      const b2 = box.resize(b, "x", 20);
+      expect(box.height(b2)).toBe(10);
+      expect(box.width(b2)).toBe(20);
+      expect(box.topLeft(b2)).toEqual({ x: 0, y: 0 });
+      expect(box.topRight(b2)).toEqual({ x: 20, y: 0 });
+      expect(box.bottomLeft(b2)).toEqual({ x: 0, y: 10 });
+      expect(box.bottomRight(b2)).toEqual({ x: 20, y: 10 });
+    });
+    it("should resize the y dimension of the box", () => {
+      const b = box.construct(0, 0, 10, 10);
+      const b2 = box.resize(b, "y", 20);
+      expect(box.height(b2)).toBe(20);
+      expect(box.width(b2)).toBe(10);
+      expect(box.topLeft(b2)).toEqual({ x: 0, y: 0 });
+      expect(box.topRight(b2)).toEqual({ x: 10, y: 0 });
+      expect(box.bottomLeft(b2)).toEqual({ x: 0, y: 20 });
+      expect(box.bottomRight(b2)).toEqual({ x: 10, y: 20 });
+    });
+    it("should resize both dimensions of the box", () => {
+      const b = box.construct(0, 0, 10, 10);
+      const b2 = box.resize(b, { width: 20, height: 20 });
+      expect(box.height(b2)).toBe(20);
+      expect(box.width(b2)).toBe(20);
+      expect(box.topLeft(b2)).toEqual({ x: 0, y: 0 });
+      expect(box.topRight(b2)).toEqual({ x: 20, y: 0 });
+      expect(box.bottomLeft(b2)).toEqual({ x: 0, y: 20 });
+      expect(box.bottomRight(b2)).toEqual({ x: 20, y: 20 });
+    });
+  });
+  describe("translate", () => {
+    it("should translate the box by the given coordinate", () => {
+      const b = box.construct(0, 0, 10, 10);
+      const b2 = box.translate(b, { x: 10, y: 10 });
+      expect(box.topLeft(b2)).toEqual({ x: 10, y: 10 });
+      expect(box.topRight(b2)).toEqual({ x: 20, y: 10 });
+      expect(box.bottomLeft(b2)).toEqual({ x: 10, y: 20 });
+      expect(box.bottomRight(b2)).toEqual({ x: 20, y: 20 });
+    });
+    it("should translate the box by the given x amount", () => {
+      const b = box.construct(0, 0, 10, 10);
+      const b2 = box.translate(b, "x", 10);
+      expect(box.topLeft(b2)).toEqual({ x: 10, y: 0 });
+      expect(box.topRight(b2)).toEqual({ x: 20, y: 0 });
+      expect(box.bottomLeft(b2)).toEqual({ x: 10, y: 10 });
+      expect(box.bottomRight(b2)).toEqual({ x: 20, y: 10 });
+    });
+    it("should translate the box by the given y amount", () => {
+      const b = box.construct(0, 0, 10, 10);
+      const b2 = box.translate(b, "y", 10);
+      expect(box.topLeft(b2)).toEqual({ x: 0, y: 10 });
+      expect(box.topRight(b2)).toEqual({ x: 10, y: 10 });
+      expect(box.bottomLeft(b2)).toEqual({ x: 0, y: 20 });
+      expect(box.bottomRight(b2)).toEqual({ x: 10, y: 20 });
     });
   });
 });
