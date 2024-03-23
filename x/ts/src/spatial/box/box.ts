@@ -9,11 +9,11 @@
 
 import { unknown, z } from "zod";
 
-import type * as bounds from "@/spatial/bounds";
-import type * as dimensions from "@/spatial/dimensions";
-import * as direction from "@/spatial/direction";
-import * as location from "@/spatial/location";
-import * as xy from "@/spatial/xy";
+import type * as bounds from "@/spatial/bounds/bounds";
+import type * as dimensions from "@/spatial/dimensions/dimensions";
+import * as direction from "@/spatial/direction/direction";
+import * as location from "@/spatial/location/location";
+import * as xy from "@/spatial/xy/xy";
 
 const cssPos = z.union([z.number(), z.string()]);
 
@@ -39,7 +39,7 @@ export type Box = z.infer<typeof box>;
 export type CSS = z.infer<typeof cssBox>;
 export type DOMRect = z.infer<typeof domRect>;
 
-type Crude = DOMRect | Box | { getBoundingClientRect: () => DOMRect };
+export type Crude = DOMRect | Box | { getBoundingClientRect: () => DOMRect };
 
 /** A box centered at (0,0) with a width and height of 0. */
 export const ZERO = { one: xy.ZERO, two: xy.ZERO, root: location.TOP_LEFT };
@@ -115,10 +115,39 @@ export const construct = (
   return b;
 };
 
-export const resize = (
-  b: Box,
-  dims: dimensions.Dimensions,
-): Box => construct(b.one, dims);
+export interface Resize {
+  /** 
+   * Sets the dimensions of the box to the given dimensions.
+   * @example resize(b, { width: 10, height: 10 }) // Sets the box to a 10x10 box.
+   */
+  (b: Crude, dims: dimensions.Dimensions | dimensions.Signed): Box;
+  /** 
+   * Sets the dimension along the given direction to the given amount. 
+   * @example resize(b, "x", 10) // Sets the width of the box to 10.
+   * @example resize(b, "y", 10) // Sets the height of the box to 10.
+  */
+  (b: Crude, direction: direction.Direction, amount: number): Box;
+}
+
+export const resize: Resize = (
+  b: Crude, 
+  dims: dimensions.Dimensions | dimensions.Signed | direction.Direction, 
+  amount?: number,
+): Box => {
+  const b_ = construct(b);
+  if (typeof dims === "string") {
+    if (amount == null) throw new Error("Invalid arguments for resize");
+    const dir = direction.construct(dims);
+    return construct(
+      b_.one,
+      undefined,
+      dir === "x" ? amount : width(b_),
+      dir === "y" ? amount : height(b_),
+      b_.root,
+    );
+  }
+  return construct(b_.one, dims, undefined, undefined, b_.root);
+}
 
 /**
  * Checks if a box contains a point or another box.
@@ -188,8 +217,6 @@ export const dim = (
     direction.construct(dir) === "y" ? signedHeight(b) : signedWidth(b);
   return signed ? dim : Math.abs(dim);
 };
-
-
 
 /** @returns the pont corresponding to the given corner of the box. */
 export const xyLoc = (b: Crude, l: location.XY): xy.XY => {
@@ -293,10 +320,7 @@ export const reRoot = (b: Box, corner: location.CornerXY): Box => copy(b, corner
  * @returns the repsoitioned box and a boolean indicating if the box was repositioned
  * or not.
  */
-export const positionSoVisible = (
-  target_: Crude,
-  bound_: Crude,
-): [Box, boolean] => {
+export const positionSoVisible = (target_: Crude, bound_: Crude): [Box, boolean] => {
   const target = construct(target_);
   const bound = construct(bound_);
   if (contains(bound, target)) return [target, false];
@@ -314,10 +338,7 @@ export const positionSoVisible = (
  * @param bound The box to reposition within - Only works if the root is topLeft
  * @returns the repsoitioned box
  */
-export const positionInCenter = (
-  target_: Crude,
-  bound_: Crude,
-): Box => {
+export const positionInCenter = (target_: Crude, bound_: Crude): Box => {
   const target = construct(target_);
   const bound = construct(bound_);
   const x_ = x(bound) + (width(bound) - width(target)) / 2;
@@ -332,7 +353,19 @@ export const isBox = (value: unknown): value is Box => {
 
 export const aspect = (b: Box): number => width(b) / height(b);
 
-export const translate = (b: Box, t: xy.XY): Box => {
+interface Translate {
+  /** @returns the box translated by the given coordinates. */
+  (b: Crude, t: xy.Crude): Box;
+  /** @returns the box translated in the given direction by the given amount. */
+  (b: Crude, direction: direction.Direction, amount: number): Box;
+}
+
+export const translate = (b: Crude, t: xy.XY | direction.Direction, amount?: number): Box => {
+  if (typeof t === "string") {
+    if (amount == null) throw new Error(`Undefined amount passed into box.translate`);
+    const dir = direction.construct(t);
+    t = xy.construct(dir, amount);
+  }
   const b_ = construct(b);
   return construct(
     xy.translate(b_.one, t),
@@ -341,7 +374,17 @@ export const translate = (b: Box, t: xy.XY): Box => {
     undefined,
     b_.root,
   );
-}
+};
+
+export const intersect = (a: Box, b: Box): Box => {
+  const x = Math.max(left(a), left(b));
+  const y = Math.max(top(a), top(b));
+  const x2 = Math.min(right(a), right(b));
+  const y2 = Math.min(bottom(a), bottom(b));
+  return construct({ x, y }, { x: x2, y: y2 }, undefined, undefined, a.root);
+};
+
+export const area = (b: Box): number => width(b) * height(b);
 
 export const truncate = (b: Box, precision: number = 0): Box => {
   const b_ = construct(b);
@@ -352,4 +395,35 @@ export const truncate = (b: Box, precision: number = 0): Box => {
     undefined,
     b_.root,
   );
-}
+};
+
+export const constructWithAlternateRoot = (
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  currRoot: location.XY,
+  newRoot: location.CornerXY,
+): Box => {
+  const first = { x, y };
+  const second = { x: x + width, y: y + height };
+  if (currRoot.x !== newRoot.x) {
+    if (currRoot.x === "center") {
+      first.x -= width / 2;
+      second.x -= width / 2;
+    } else {
+      first.x -= width;
+      second.x -= width;
+    }
+  }
+  if (currRoot.y !== newRoot.y) {
+    if (currRoot.y === "center") {
+      first.y -= height / 2;
+      second.y -= height / 2;
+    } else {
+      first.y -= height;
+      second.y -= height;
+    }
+  }
+  return construct(first, second, undefined, undefined, newRoot);
+};
