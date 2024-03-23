@@ -13,6 +13,7 @@ import {
   type ReactElement,
   useCallback,
   useRef,
+  useEffect,
 } from "react";
 
 import { box, runtime, scale, xy } from "@synnaxlabs/x";
@@ -58,7 +59,7 @@ export const Canvas = Aether.wrap<CanvasProps>(
     aetherKey,
     ...props
   }): ReactElement => {
-    const [{ path }, { bootstrapped }, setState] = Aether.use({
+    const [{ path }, { bootstrapped, dpr }, setState] = Aether.use({
       aetherKey,
       type: canvas.Canvas.TYPE,
       schema: canvas.canvasStateZ,
@@ -81,6 +82,18 @@ export const Canvas = Aether.wrap<CanvasProps>(
     );
 
     const resizeRef = useResize(handleResize, { debounce });
+
+    useEffect(() => {
+      // Handle device pixel ratio change i.e. when the user moves the window to a
+      // different display.
+      const handleChange = (): void => {
+        if (window.devicePixelRatio === dpr) return;
+        setState((p) => ({ ...p, dpr: window.devicePixelRatio }));
+      };
+      window
+        .matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`)
+        .addEventListener("change", handleChange, { once: true });
+    }, [dpr]);
 
     const refCallback = useCallback(
       (el: HTMLCanvasElement | null) => {

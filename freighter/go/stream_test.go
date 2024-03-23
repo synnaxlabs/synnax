@@ -11,7 +11,6 @@ package freighter_test
 
 import (
 	"context"
-	"github.com/cockroachdb/errors"
 	"github.com/gofiber/fiber/v2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -20,6 +19,7 @@ import (
 	"github.com/synnaxlabs/freighter/fhttp"
 	"github.com/synnaxlabs/freighter/fmock"
 	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/httputil"
 	. "github.com/synnaxlabs/x/testutil"
 	"net/http"
@@ -39,7 +39,7 @@ type streamImplementation interface {
 
 var streamImplementations = []streamImplementation{
 	&httpStreamImplementation{},
-	//&mockStreamImplementation{},
+	&mockStreamImplementation{},
 }
 
 var _ = Describe("Stream", Ordered, Serial, func() {
@@ -259,9 +259,9 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 						next freighter.Next,
 					) (freighter.Context, error) {
 						c++
-						oMd, err := next(ctx)
+						oMd, _ := next(ctx)
 						c++
-						return oMd, err
+						return oMd, nil
 					}))
 					ctx, cancel := context.WithCancel(context.TODO())
 					defer cancel()
@@ -298,9 +298,10 @@ func (impl *httpStreamImplementation) start(
 	impl.app.Get("/health", func(c *fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusOK)
 	})
-	server := fhttp.StreamServer[request, response](router, "/")
+	server := fhttp.StreamServer[request, response](router, true, "/")
 	router.BindTo(impl.app)
 	go func() {
+		defer GinkgoRecover()
 		Expect(impl.app.Listen(host.PortString())).To(Succeed())
 	}()
 	Eventually(func(g Gomega) {

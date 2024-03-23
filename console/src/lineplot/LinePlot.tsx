@@ -10,6 +10,7 @@
 import { type ReactElement, useCallback, useMemo } from "react";
 
 import { type channel } from "@synnaxlabs/client";
+import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
   useAsyncEffect,
   Viewport,
@@ -80,6 +81,7 @@ const syncer: Syncer<
 };
 
 const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
+  const windowKey = useSelectWindowKey() as string;
   const { name } = Layout.useSelectRequired(layoutKey);
   const vis = useSelect(layoutKey);
   const ranges = selectRanges(layoutKey);
@@ -236,8 +238,11 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
   }, [vis.viewport.renderTrigger]);
 
   const handleDoubleClick = useCallback(
-    () => dispatch(Layout.setNavdrawerVisible({ key: "visualization", value: true })),
-    [dispatch],
+    () =>
+      dispatch(
+        Layout.setNavdrawerVisible({ windowKey, key: "visualization", value: true }),
+      ),
+    [windowKey, dispatch],
   );
 
   const props = Menu.useContextMenu();

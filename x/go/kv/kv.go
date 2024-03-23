@@ -19,9 +19,9 @@ import (
 	"context"
 	"io"
 
-	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/change"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
 )

@@ -65,16 +65,16 @@ func (c ObservablePublisherConfig) Validate() error {
 	v := validate.New("signals.ObservablePublisherConfig")
 	validate.NotEmptyString(v, "Label.Name", c.SetChannel.Name)
 	validate.NotEmptyString(v, "DeleteChannel.Name", c.DeleteChannel.Name)
-	v.Ternaryf(!c.SetChannel.Free(), nonFree, c.SetChannel.Leaseholder)
-	v.Ternaryf(!c.DeleteChannel.Free(), nonFree, c.DeleteChannel.Leaseholder)
-	v.Ternaryf(!c.SetChannel.Virtual, nonVirtual, c.SetChannel.Name)
-	v.Ternaryf(!c.DeleteChannel.Virtual, nonVirtual, c.DeleteChannel.Name)
+	v.Ternaryf("setChannel.leaseholder", !c.SetChannel.Free(), nonFree, c.SetChannel.Leaseholder)
+	v.Ternaryf("deleteChannel.leaseholder", !c.DeleteChannel.Free(), nonFree, c.DeleteChannel.Leaseholder)
+	v.Ternaryf("setChannel.virtual", !c.SetChannel.Virtual, nonVirtual, c.SetChannel.Name)
+	v.Ternaryf("deleteChannel.virtual", !c.DeleteChannel.Virtual, nonVirtual, c.DeleteChannel.Name)
 	validate.NotNil(v, "ObservableSubscriber", c.Observable)
 	return v.Error()
 }
 
 // Override implements config.Properties.
-func (c ObservablePublisherConfig) Override(other ObservablePublisherConfig) ObservablePublisherConfig {
+func (c ObservableConfig) Override(other ObservableConfig) ObservableConfig {
 	c.Name = override.If(c.Name, other.Name, c.Name == "")
 	c.SetChannel = override.If(c.SetChannel, other.SetChannel, c.SetChannel.Name == "")
 	c.DeleteChannel = override.If(c.DeleteChannel, other.DeleteChannel, c.DeleteChannel.Name == "")

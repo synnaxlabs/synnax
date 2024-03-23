@@ -75,6 +75,13 @@ func (s *Service) NewRetrieve() Retrieve {
 	return newRetrieve(s.DB)
 }
 
+func (s *Service) Close() error {
+	if s.signals != nil {
+		return s.signals.Close()
+	}
+	return nil
+}
+
 type Writer struct {
 	tx  gorp.Tx
 	otg ontology.Writer

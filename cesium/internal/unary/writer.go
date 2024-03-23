@@ -11,14 +11,16 @@ package unary
 
 import (
 	"context"
-	"github.com/cockroachdb/errors"
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -27,6 +29,27 @@ type WriterConfig struct {
 	End       telem.TimeStamp
 	Subject   control.Subject
 	Authority control.Authority
+	Persist   *bool
+}
+
+var (
+	_                   config.Config[WriterConfig] = WriterConfig{}
+	DefaultWriterConfig                             = WriterConfig{
+		Persist: config.True(),
+	}
+)
+
+func (c WriterConfig) Validate() error {
+	return nil
+}
+
+func (c WriterConfig) Override(other WriterConfig) WriterConfig {
+	c.Start = override.Zero(c.Start, other.Start)
+	c.End = override.Zero(c.End, other.End)
+	c.Subject = override.If(c.Subject, other.Subject, other.Subject.Key != "")
+	c.Authority = override.Numeric(c.Authority, other.Authority)
+	c.Persist = override.Nil(c.Persist, other.Persist)
+	return c
 }
 
 func (c WriterConfig) domain() domain.WriterConfig {
@@ -49,7 +72,11 @@ type Writer struct {
 	pos int
 }
 
-func (db *DB) OpenWriter(ctx context.Context, cfg WriterConfig) (w *Writer, transfer controller.Transfer, err error) {
+func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (w *Writer, transfer controller.Transfer, err error) {
+	cfg, err := config.New(DefaultWriterConfig, cfgs...)
+	if err != nil {
+		return nil, transfer, err
+	}
 	w = &Writer{WriterConfig: cfg, Channel: db.Channel, idx: db.index()}
 	gateCfg := controller.GateConfig{
 		TimeRange: cfg.controlTimeRange(),
@@ -109,7 +136,7 @@ func (w *Writer) len(dw *domain.Writer) int64 {
 }
 
 // Write validates and writes the given array.
-func (w *Writer) Write(series telem.Series) (telem.Alignment, error) {
+func (w *Writer) Write(series telem.Series) (a telem.Alignment, err error) {
 	if err := w.Channel.ValidateSeries(series); err != nil {
 		return 0, err
 	}
@@ -117,13 +144,17 @@ func (w *Writer) Write(series telem.Series) (telem.Alignment, error) {
 	if !ok {
 		return 0, controller.Unauthorized(w.control.Subject.Name, w.Channel.Key)
 	}
-	alignment := telem.Alignment(w.len(dw.Writer))
+	a = telem.Alignment(w.len(dw.Writer))
 	if w.Channel.IsIndex {
 		w.updateHwm(series)
 	}
-	_, err := dw.Write(series.Data)
-	return alignment, err
+	if *w.Persist {
+		_, err = dw.Write(series.Data)
+	}
+	return
 }
+
+func (w *Writer) SetPersist(persist bool) { w.Persist = config.Bool(persist) }
 
 func (w *Writer) SetAuthority(a control.Authority) controller.Transfer {
 	return w.control.SetAuthority(a)

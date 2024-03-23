@@ -10,3 +10,4 @@
 export * from "@/hardware/task/client";
 export * from "@/hardware/task/retriever";
 export * from "@/hardware/task/writer";
+export * from "@/hardware/task/payload";

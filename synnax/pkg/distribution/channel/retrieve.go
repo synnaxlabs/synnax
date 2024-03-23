@@ -11,13 +11,11 @@ package channel
 
 import (
 	"context"
-	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/query"
 	"regexp"
 	"strings"
 )
@@ -36,6 +34,8 @@ func newRetrieve(tx gorp.Tx, otg *ontology.Ontology) Retrieve {
 	return Retrieve{gorp: gorp.NewRetrieve[Key, Channel](), tx: tx, otg: otg}
 }
 
+// Search sets the search term for the query. Note that the fuzzy search will be executed
+// before any other filters that are applied.
 func (r Retrieve) Search(term string) Retrieve { r.searchTerm = term; return r }
 
 // Entry binds the Channel that Retrieve will fill results into. This is an identical
@@ -81,10 +81,7 @@ func (r Retrieve) Limit(limit int) Retrieve { r.gorp.Limit(limit); return r }
 
 // Offset offsets the results returned by the query. This is an identical interface to
 // gorp.Retrieve.
-func (r Retrieve) Offset(offset int) Retrieve {
-	r.gorp.Offset(offset)
-	return r
-}
+func (r Retrieve) Offset(offset int) Retrieve { r.gorp.Offset(offset); return r }
 
 // Exec executes the query, binding
 func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
@@ -102,7 +99,7 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 		}
 		r = r.WhereKeys(keys...)
 	}
-	return r.maybeEnrichError(r.gorp.Exec(ctx, gorp.OverrideTx(r.tx, tx)))
+	return r.gorp.Exec(ctx, gorp.OverrideTx(r.tx, tx))
 }
 
 // Exists checks if the query has results matching its parameters. If used in conjunction
@@ -110,18 +107,6 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 // Otherwise, Exists returns true if the query has ANY results.
 func (r Retrieve) Exists(ctx context.Context, tx gorp.Tx) (bool, error) {
 	return r.gorp.Exists(ctx, gorp.OverrideTx(r.tx, tx))
-}
-
-func (r Retrieve) maybeEnrichError(err error) error {
-	if err == nil {
-		return nil
-	}
-	if errors.Is(err, query.NotFound) && len(r.keys) > 0 {
-		channels := gorp.GetEntries[Key, Channel](r.gorp.Params).All()
-		diff, _ := r.keys.Difference(KeysFromChannels(channels))
-		return errors.Wrapf(query.NotFound, "channels with keys %v not found", diff)
-	}
-	return err
 }
 
 func formatNameMatcher(name string) func(name string) bool {

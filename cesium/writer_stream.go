@@ -11,7 +11,6 @@ package cesium
 
 import (
 	"context"
-	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/index"
@@ -19,7 +18,8 @@ import (
 	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
-	"github.com/synnaxlabs/x/errutil"
+	"github.com/synnaxlabs/x/errors"
+	errors2 "github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -37,6 +37,9 @@ const (
 	WriterError
 	// WriterSetAuthority represents a call to Writer.SetAuthority.
 	WriterSetAuthority
+	// WriterSetMode sets the operating WriterMode for the Writer. See the WriterMode
+	// documentation for more.
+	WriterSetMode
 )
 
 // WriterRequest is a request containing an arrow.Record to write to the DB.
@@ -44,7 +47,8 @@ type WriterRequest struct {
 	// Command is the command to execute on the Writer.
 	Command WriterCommand
 	// Frame is the arrow record to write to the DB.
-	Frame  Frame
+	Frame Frame
+	// Config is used for updating the parameters in WriterSetAuthority and WriterSetMode.
 	Config WriterConfig
 }
 
@@ -115,40 +119,50 @@ func (w *streamWriter) Flow(ctx signal.Context, opts ...confluence.Option) {
 				if !ok {
 					return w.close(ctx)
 				}
-				if req.Command < WriterWrite || req.Command > WriterSetAuthority {
-					panic("[cesium.streamWriter] - invalid command")
-				}
-				if req.Command == WriterError {
-					w.seqNum++
-					w.sendRes(req, false, w.err, 0)
-					w.err = nil
-					continue
-				}
-				if req.Command == WriterSetAuthority {
-					w.seqNum++
-					w.setAuthority(ctx, req.Config)
-					w.sendRes(req, true, nil, 0)
-					continue
-				}
-				if w.err != nil {
-					w.seqNum++
-					w.sendRes(req, false, nil, 0)
-					continue
-				}
-				if req.Command == WriterCommit {
-					w.seqNum++
-					var end telem.TimeStamp
-					end, w.err = w.commit(ctx)
-					w.sendRes(req, w.err == nil, nil, end)
-				} else {
-					if w.err = w.write(req); w.err != nil {
-						w.seqNum++
-						w.sendRes(req, false, nil, 0)
-					}
-				}
+				w.process(ctx, req)
 			}
 		}
 	}, o.Signal...)
+}
+
+func (w *streamWriter) process(ctx context.Context, req WriterRequest) {
+	if req.Command < WriterWrite || req.Command > WriterSetAuthority {
+		panic("[cesium.streamWriter] - invalid command")
+	}
+	if req.Command == WriterError {
+		w.seqNum++
+		w.sendRes(req, false, w.err, 0)
+		w.err = nil
+		return
+	}
+	if req.Command == WriterSetAuthority {
+		w.seqNum++
+		w.setAuthority(ctx, req.Config)
+		w.sendRes(req, true, nil, 0)
+		return
+	}
+	if req.Command == WriterSetMode {
+		w.seqNum++
+		w.setMode(req.Config)
+		w.sendRes(req, true, nil, 0)
+		return
+	}
+	if w.err != nil {
+		w.seqNum++
+		w.sendRes(req, false, nil, 0)
+		return
+	}
+	if req.Command == WriterCommit {
+		w.seqNum++
+		var end telem.TimeStamp
+		end, w.err = w.commit(ctx)
+		w.sendRes(req, w.err == nil, nil, end)
+	} else {
+		if w.err = w.write(req); w.err != nil {
+			w.seqNum++
+			w.sendRes(req, false, nil, 0)
+		}
+	}
 }
 
 func (w *streamWriter) setAuthority(ctx context.Context, cfg WriterConfig) {
@@ -157,6 +171,13 @@ func (w *streamWriter) setAuthority(ctx context.Context, cfg WriterConfig) {
 	}
 	u := ControlUpdate{Transfers: make([]controller.Transfer, 0, len(w.internal))}
 	if len(cfg.Channels) == 0 {
+		for _, chW := range w.virtual.internal {
+			transfer := chW.SetAuthority(cfg.Authorities[0])
+			if transfer.Occurred() {
+				u.Transfers = append(u.Transfers, transfer)
+			}
+		}
+
 		for _, idx := range w.internal {
 			for _, chW := range idx.internal {
 				transfer := chW.SetAuthority(cfg.Authorities[0])
@@ -177,11 +198,29 @@ func (w *streamWriter) setAuthority(ctx context.Context, cfg WriterConfig) {
 					}
 				}
 			}
+			for _, chW := range w.virtual.internal {
+				if chW.Channel.Key == ch {
+					transfer := chW.SetAuthority(cfg.authority(i))
+					if transfer.Occurred() {
+						u.Transfers = append(u.Transfers, transfer)
+					}
+				}
+			}
 		}
 	}
 	if len(u.Transfers) > 0 {
 		w.updateDBControl(ctx, u)
 	}
+}
+
+func (w *streamWriter) setMode(cfg WriterConfig) {
+	persist := cfg.Mode < WriterStreamOnly
+	for _, idx := range w.internal {
+		for _, chW := range idx.internal {
+			chW.SetPersist(persist)
+		}
+	}
+	w.Mode = cfg.Mode
 }
 
 func (w *streamWriter) sendRes(req WriterRequest, ack bool, err error, end telem.TimeStamp) {
@@ -213,7 +252,9 @@ func (w *streamWriter) write(req WriterRequest) (err error) {
 			return err
 		}
 	}
-	w.relay.Inlet() <- req.Frame
+	if w.Mode != WriterPersistOnly {
+		w.relay.Inlet() <- req.Frame
+	}
 	return nil
 }
 
@@ -232,7 +273,7 @@ func (w *streamWriter) commit(ctx context.Context) (telem.TimeStamp, error) {
 }
 
 func (w *streamWriter) close(ctx context.Context) error {
-	c := errutil.NewCatch(errutil.WithAggregation())
+	c := errors2.NewCatcher(errors2.WithAggregation())
 	u := ControlUpdate{Transfers: make([]controller.Transfer, 0, len(w.internal))}
 	for _, idx := range w.internal {
 		c.Exec(func() error {
@@ -368,7 +409,7 @@ func (w *idxWriter) Commit(ctx context.Context) (telem.TimeStamp, error) {
 	}
 	// because the range is exclusive, we need to add 1 nanosecond to the end
 	end.Lower++
-	c := errutil.NewCatch(errutil.WithAggregation())
+	c := errors2.NewCatcher(errors2.WithAggregation())
 	for _, chW := range w.internal {
 		c.Exec(func() error { return chW.CommitWithEnd(ctx, end.Lower) })
 	}
@@ -376,7 +417,7 @@ func (w *idxWriter) Commit(ctx context.Context) (telem.TimeStamp, error) {
 }
 
 func (w *idxWriter) Close() (ControlUpdate, error) {
-	c := errutil.NewCatch(errutil.WithAggregation())
+	c := errors2.NewCatcher(errors2.WithAggregation())
 	update := ControlUpdate{
 		Transfers: make([]controller.Transfer, 0, len(w.internal)),
 	}
@@ -435,7 +476,7 @@ func (w virtualWriter) write(fr Frame) (Frame, error) {
 }
 
 func (w virtualWriter) Close() (ControlUpdate, error) {
-	c := errutil.NewCatch(errutil.WithAggregation())
+	c := errors2.NewCatcher(errors2.WithAggregation())
 	update := ControlUpdate{
 		Transfers: make([]controller.Transfer, 0, len(w.internal)),
 	}

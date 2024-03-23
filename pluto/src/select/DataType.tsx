@@ -42,6 +42,6 @@ export const DataType = (props: DataTypeProps): ReactElement => (
     {...props}
     data={DATA}
     columns={COLUMNS}
-    tagKey="name"
+    entryRenderKey="name"
   />
 );

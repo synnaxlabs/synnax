@@ -15,49 +15,22 @@
     }
 }
 
-.pluto-dropdown.pluto--floating .pluto-dropdown__dialog {
-    transform: translateY(1rem);
-
-    &.pluto--top.pluto--left {
-        transform: translate(-100%, calc(-100% - 1rem));
-    }
-
-    &.pluto--bottom.pluto--left {
-        transform: translate(-100%, 1rem);
-    }
-
-    &.pluto--top.pluto--right {
-        transform: translateY(calc(-100% - 1rem));
-    }
-}
-
 .pluto-dropdown__dialog {
     max-height: 360px;
     position: fixed;
     box-shadow: var(--pluto-shadow-menu);
     overflow: hidden;
     background: var(--pluto-gray-l1);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
     border-radius: 6px;
 
     & .pluto-pack.pluto--rounded {
         --pluto-pack-br: 6px;
     }
 
-    &.pluto--top {
-        transform: translateY(calc(-100% + 1px));
+    &.pluto--floating {
+        transition: opacity 0.075s ease-in-out;
     }
 
-    &.pluto--top.pluto--left {
-        transform: translate(-100%, calc(-100% + 1px));
-    }
-
-    &.pluto--bottom.pluto--left {
-        transform: translateX(-100%);
-    }
-
-    transition: opacity 0.075s ease-in-out;
     &.pluto--hidden {
         opacity: 0;
         z-index: -1;

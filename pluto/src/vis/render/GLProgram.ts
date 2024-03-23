@@ -29,6 +29,7 @@ export class GLProgram {
   private readonly vertShader: string;
   /** The code for the fragment shader. */
   private readonly fragShader: string;
+  uniformLocCache = new Map<string, WebGLUniformLocation>();
 
   /**
    * @constructor compiles the given vertex and fragment shaders under the given
@@ -75,8 +76,11 @@ export class GLProgram {
   }
 
   private getUniformLoc(name: string): WebGLUniformLocation {
+    const v = this.uniformLocCache.get(name);
+    if (v != null) return v;
     const loc = this.ctx.gl.getUniformLocation(this.prog, name);
     if (loc == null) throw new Error(`unexpected missing uniform ${name}`);
+    this.uniformLocCache.set(name, loc);
     return loc;
   }
 

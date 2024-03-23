@@ -26,7 +26,7 @@ export const linePlotStateZ = z.object({
   container: box.box,
   viewport: box.box,
   hold: z.boolean().optional().default(false),
-  grid: z.array(gridPositionSpecZ),
+  grid: z.record(gridPositionSpecZ),
   clearOverscan: xy.crudeZ,
 });
 
@@ -48,7 +48,7 @@ export class LinePlot extends aether.Composite<
 
   schema = linePlotStateZ;
 
-  afterUpdate(): void {
+  async afterUpdate(): Promise<void> {
     this.internal.instrumentation = alamos.useInstrumentation(this.ctx, "lineplot");
     this.internal.aggregate = status.useAggregate(this.ctx);
     this.internal.renderCtx = render.Context.use(this.ctx);
@@ -56,7 +56,7 @@ export class LinePlot extends aether.Composite<
     this.requestRender("high", render.REASON_LAYOUT);
   }
 
-  afterDelete(): void {
+  async afterDelete(): Promise<void> {
     this.internal.renderCtx = render.Context.use(this.ctx);
     this.requestRender("high", render.REASON_LAYOUT);
   }
@@ -121,6 +121,7 @@ export class LinePlot extends aether.Composite<
   private async render(
     canvases: render.CanvasVariant[],
   ): Promise<render.Cleanup | undefined> {
+    const { renderCtx } = this.internal;
     const { instrumentation } = this.internal;
     if (this.deleted) {
       instrumentation.L.debug("deleted, skipping render", { key: this.key });
@@ -138,7 +139,6 @@ export class LinePlot extends aether.Composite<
       canvases,
     });
 
-    const { renderCtx } = this.internal;
     const os = xy.construct(this.state.clearOverscan);
     const removeCanvasScissor = renderCtx.scissor(
       this.state.container,

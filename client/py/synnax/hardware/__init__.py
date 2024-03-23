@@ -10,4 +10,3 @@
 from synnax.hardware.payload import Task, Device, Rack
 from synnax.hardware.writer import Writer
 from synnax.hardware.client import Client
-

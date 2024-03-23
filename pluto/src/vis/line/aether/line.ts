@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Instrumentation } from "@synnaxlabs/alamos";
+import { UnexpectedError } from "@synnaxlabs/client";
 import {
   DataType,
   bounds,
@@ -87,10 +88,13 @@ export class Context extends render.GLProgram {
 
   private constructor(ctx: render.Context) {
     super(ctx, VERT_SHADER, FRAG_SHADER);
-    this.translationBuffer = ctx.gl.createBuffer()!;
+    const buf = ctx.gl.createBuffer();
+    if (buf == null)
+      throw new UnexpectedError("Failed to create buffer from WebGL context");
+    this.translationBuffer = buf;
   }
 
-  bindPropsAndState(
+  bindCommonPropsAndState(
     { dataToDecimalScale: s, region }: LineProps,
     { strokeWidth, color }: ParsedState,
   ): number {
@@ -102,6 +106,12 @@ export class Context extends render.GLProgram {
     this.uniformXY("u_scale", scaleTransform.scale);
     this.uniformXY("u_offset", scaleTransform.offset);
     return this.attrStrokeWidth(strokeWidth);
+  }
+
+  bindScale(s: scale.XY): void {
+    const transform = scale.xyScaleToTransform(s);
+    this.uniformXY("u_scale", transform.scale);
+    this.uniformXY("u_offset", transform.offset);
   }
 
   draw(
@@ -133,16 +143,16 @@ export class Context extends render.GLProgram {
   ): void {
     const { gl } = this.ctx;
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-    const n = gl.getAttribLocation(this.prog, `a_${dir}`);
+    const aLoc = gl.getAttribLocation(this.prog, `a_${dir}`);
     gl.vertexAttribPointer(
-      n,
+      aLoc,
       1,
       gl.FLOAT,
       false,
       FLOAT_32_DENSITY * downsample,
       FLOAT_32_DENSITY * alignment,
     );
-    gl.enableVertexAttribArray(n);
+    gl.enableVertexAttribArray(aLoc);
   }
 
   /**
@@ -178,17 +188,8 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
   static readonly TYPE = "line";
   schema: typeof stateZ = stateZ;
 
-  afterUpdate(): void {
+  async afterUpdate(): Promise<void> {
     if (this.deleted) return;
-    this.internalAfterUpdate().catch(() => {
-      this.internal.instrumentation.L.error("afterUpdate", {
-        key: this.key,
-        reason: "failed",
-      });
-    });
-  }
-
-  private async internalAfterUpdate(): Promise<void> {
     const { internal: i } = this;
     i.xTelem = await telem.useSource(this.ctx, this.state.x, i.xTelem);
     i.yTelem = await telem.useSource(this.ctx, this.state.y, i.yTelem);
@@ -200,16 +201,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     i.requestRender(render.REASON_LAYOUT);
   }
 
-  afterDelete(): void {
-    this.internalAfterDelete().catch(() => {
-      this.internal.instrumentation.L.error("afterDelete", {
-        key: this.key,
-        reason: "failed",
-      });
-    });
-  }
-
-  private async internalAfterDelete(): Promise<void> {
+  async afterDelete(): Promise<void> {
     const { internal: i } = this;
     await i.xTelem.cleanup?.();
     await i.yTelem.cleanup?.();
@@ -272,23 +264,21 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     const { downsample } = this.state;
     const { xTelem, yTelem, prog } = this.internal;
     const { dataToDecimalScale } = props;
-    const [, xData] = await xTelem.value();
+    const [[, xData], [, yData]] = await Promise.all([xTelem.value(), yTelem.value()]);
     xData.forEach((x) => x.updateGLBuffer(prog.ctx.gl));
-    const [, yData] = await yTelem.value();
     yData.forEach((y) => y.updateGLBuffer(prog.ctx.gl));
     const ops = buildDrawOperations(xData, yData, downsample);
-    this.internal.instrumentation.L.debug("render", {
+    this.internal.instrumentation.L.debug("render", () => ({
       key: this.key,
       downsample,
       scale: scale.xyScaleToTransform(dataToDecimalScale),
       props: props.region,
-      ops: digests(ops),
-    });
+      ops: () => digests(ops),
+    }));
     const clearProg = prog.setAsActive();
+    const instances = prog.bindCommonPropsAndState(props, this.state);
     ops.forEach((op) => {
-      const { x, y } = op;
-      const p = { ...props, dataToDecimalScale: offsetScale(dataToDecimalScale, x, y) };
-      const instances = prog.bindPropsAndState(p, this.state);
+      prog.bindScale(offsetScale(dataToDecimalScale, op));
       prog.draw(op, instances);
     });
     clearProg();
@@ -322,15 +312,13 @@ const copyBuffer = (buf: Float32Array, times: number): Float32Array => {
   return newBuf;
 };
 
-const offsetScale = (scale: scale.XY, x: Series, y: Series): scale.XY =>
+const offsetScale = (scale: scale.XY, op: DrawOperation): scale.XY =>
   scale.translate(
-    scale.x.dim(Number(x.sampleOffset)),
-    scale.y.dim(Number(y.sampleOffset)),
+    scale.x.dim(Number(op.x.sampleOffset)),
+    scale.y.dim(Number(op.y.sampleOffset)),
   );
 
-export const REGISTRY: aether.ComponentRegistry = {
-  [Line.TYPE]: Line,
-};
+export const REGISTRY: aether.ComponentRegistry = { [Line.TYPE]: Line };
 
 interface DrawOperation {
   x: Series;
@@ -373,7 +361,7 @@ const buildDrawOperations = (
         ySeries.length - yOffset,
       );
 
-      if (amountOfOverlap > 0) {
+      if (amountOfOverlap > 0)
         ops.push({
           x: xSeries,
           y: ySeries,
@@ -382,7 +370,6 @@ const buildDrawOperations = (
           count: amountOfOverlap,
           downsample,
         });
-      }
     });
   });
 
@@ -407,8 +394,4 @@ const findSeriesThatOverlapWith = (x: Series, y: Series[]): Series[] =>
   });
 
 const digests = (ops: DrawOperation[]): DrawOperationDigest[] =>
-  ops.map((op) => ({
-    ...op,
-    x: op.x.digest,
-    y: op.y.digest,
-  }));
+  ops.map((op) => ({ ...op, x: op.x.digest, y: op.y.digest }));

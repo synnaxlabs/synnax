@@ -7,50 +7,66 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+
+"""
+This example demonstrates the basics of reading and writing data from an index and data
+channel in Synnax. We'll write a linearly increasing line of data to a data channel and
+read it back to plot it.
+"""
+
 import matplotlib.pyplot as plt
 import numpy as np
 
 import synnax as sy
 
+
+# We've logged in via the CLI, so there's no need to provide credentials here.
+# See https://docs.synnaxlabs.com/python-client/get-started for more information.
 client = sy.Synnax()
 
-time_ch = client.channels.create(
-    name="Time",
+# Create an index channel that will be used to store our timestamps.
+time_channel = client.channels.create(
+    name="basic_read_write_time",
     is_index=True,
     data_type=sy.DataType.TIMESTAMP,
 )
 
-data_ch = client.channels.create(
-    name="Data",
-    index=time_ch.key,
+# Create a data channel that will be used to store our data.
+data_channel = client.channels.create(
+    name="basic_read_write_data",
+    # We need to specify the index channel that will be used to store the timestamps
+    # for this data channel.
+    index=time_channel.key,
     data_type=sy.DataType.FLOAT32,
 )
 
-N_SAMPLES = int(5000)
+N_SAMPLES = 5000
+
+# We'll start our write at the current time. This timestamp should be the same as or
+# just before the first timestamp we write.
 start = sy.TimeStamp.now()
-stamps = np.linspace(
-    int(start), int(start + 100 * sy.TimeSpan.SECOND), N_SAMPLES, dtype=np.int64
-)
+
+# We'll end our write 100 seconds later
+end = start + 100 * sy.TimeSpan.SECOND
+
+# Generate linearly space int64 timestamps
+stamps = np.linspace(start, end, N_SAMPLES, dtype=np.int64)
+
+# Generate a line from 1 to 10
 data = np.linspace(1, 10, N_SAMPLES, dtype=np.float32)
 
-r = sy.TimeRange.MAX
-time_ch.write(start, stamps)
-data_ch.write(start, data)
+# Write the data to the channel. Note that we need to write the timestamps first,
+# otherwise writing the data will fail.
+time_channel.write(start, stamps)
+data_channel.write(start, data)
 
-print(
-    f"""
-Time channel: {time_ch.key}
-Data channel: {data_ch.key}
-"""
-)
+# Define the time range to read the data back from.
+time_range = sy.TimeRange(start, end)
 
-res_stamps = time_ch.read(r)
-res_data = data_ch.read(r)
+# Read the data back. The order doesn't matter here.
+res_stamps = time_channel.read(time_range)
+res_data = data_channel.read(time_range)
 
-client.ranges.create(
-    name="Time Range",
-    time_range=sy.TimeRange(start, start + 100 * sy.TimeSpan.SECOND),
-)
-
+# Plot the data
 plt.plot(res_stamps, res_data)
 plt.show()

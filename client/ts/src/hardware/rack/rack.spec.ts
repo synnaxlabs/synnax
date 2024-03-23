@@ -9,6 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
+import { FieldError } from "@/errors";
 import { newClient } from "@/setupspecs";
 
 const client = newClient();
@@ -18,6 +19,10 @@ describe("Rack", () => {
     it("should create a single rack", async () => {
       const r = await client.hardware.racks.create({ name: "test" });
       expect(r.key).toBeGreaterThan(0n);
+    });
+    it("should return an error if the rack doesn't have a name", async () => {
+      // @ts-expect-error
+      await expect(client.hardware.racks.create({})).rejects.toThrow(FieldError);
     });
   });
   describe("retrieve", () => {
@@ -34,5 +39,5 @@ describe("Rack", () => {
       const tasks = await r.listTasks();
       expect(tasks).toHaveLength(0);
     });
-  })
+  });
 });

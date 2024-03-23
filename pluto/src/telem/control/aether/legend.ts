@@ -28,7 +28,7 @@ export class Legend extends aether.Leaf<typeof legendStateZ, InternalState> {
   static readonly TYPE = "Legend";
   schema = legendStateZ;
 
-  afterUpdate(): void {
+  async afterUpdate(): Promise<void> {
     const { internal: i } = this;
     i.stateProv = StateProvider.use(this.ctx);
 
@@ -44,7 +44,7 @@ export class Legend extends aether.Leaf<typeof legendStateZ, InternalState> {
     });
   }
 
-  afterDelete(): void {
+  async afterDelete(): Promise<void> {
     const { internal: i } = this;
     i.disconnectStateProv?.();
   }

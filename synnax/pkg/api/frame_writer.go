@@ -12,15 +12,14 @@ package api
 import (
 	"context"
 	"github.com/synnaxlabs/freighter"
-	"github.com/synnaxlabs/freighter/ferrors"
 	"github.com/synnaxlabs/freighter/freightfluence"
-	"github.com/synnaxlabs/synnax/pkg/api/errors"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -33,6 +32,7 @@ type FrameWriterConfig struct {
 	ControlSubject control.Subject `json:"control_subject" msgpack:"control_subject"`
 	Start          telem.TimeStamp `json:"start" msgpack:"start"`
 	Keys           channel.Keys    `json:"keys" msgpack:"keys"`
+	Mode           writer.Mode     `json:"mode" msgpack:"mode"`
 }
 
 // FrameWriterRequest represents a request to write Internal data for a set of channels.
@@ -102,6 +102,10 @@ func (s *FrameService) Write(_ctx context.Context, stream FrameWriterStream) err
 				r.Config.Keys = req.Config.Keys
 			}
 
+			if r.Command == writer.SetMode {
+				r.Config.Mode = req.Config.Mode
+			}
+
 			return r, true, nil
 		},
 	}
@@ -109,7 +113,7 @@ func (s *FrameService) Write(_ctx context.Context, stream FrameWriterStream) err
 		Sender: freighter.SenderNopCloser[framer.WriterResponse]{StreamSender: stream},
 		Transform: func(ctx context.Context, resp framer.WriterResponse) (framer.WriterResponse, bool, error) {
 			if resp.Error != nil {
-				resp.Error = ferrors.Encode(errors.Unexpected(resp.Error))
+				resp.Error = errors.Encode(ctx, resp.Error, false)
 			}
 			return resp, true, nil
 		},
@@ -124,13 +128,14 @@ func (s *FrameService) Write(_ctx context.Context, stream FrameWriterStream) err
 	plumber.MustConnect[FrameWriterResponse](pipe, "writer", "sender", 1)
 
 	pipe.Flow(ctx, confluence.CloseInletsOnExit())
-	return ctx.Wait()
+	err = ctx.Wait()
+	return err
 }
 
 func (s *FrameService) openWriter(ctx context.Context, srv FrameWriterStream) (framer.StreamWriter, error) {
 	req, err := srv.Receive()
 	if err != nil {
-		return nil, errors.Unexpected(err)
+		return nil, err
 	}
 
 	authorities := make([]control.Authority, len(req.Config.Authorities))
@@ -143,9 +148,10 @@ func (s *FrameService) openWriter(ctx context.Context, srv FrameWriterStream) (f
 		Start:          req.Config.Start,
 		Keys:           req.Config.Keys,
 		Authorities:    authorities,
+		Mode:           req.Config.Mode,
 	})
 	if err != nil {
-		return nil, errors.Query(err)
+		return nil, err
 	}
 	// Let the client know the writer is ready to receive segments.
 	return w, srv.Send(FrameWriterResponse{

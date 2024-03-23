@@ -24,6 +24,7 @@ import { HardwareStatus } from "@/hardware/status";
 import { Label } from "@/label";
 import { Layout } from "@/layout";
 import { LayoutMain } from "@/layouts/LayoutMain";
+import { Mosaic } from "@/layouts/mosaic";
 import { LinePlot } from "@/lineplot";
 import { Ontology } from "@/ontology";
 import { PID } from "@/pid";
@@ -47,7 +48,7 @@ const layoutRenderers: Record<string, Layout.Renderer> = {
   getStarted: Layout.GetStarted,
   docs: Docs.Docs,
   vis: Vis.LayoutSelector,
-  mosaic: Layout.Mosaic,
+  mosaic: Mosaic.Window,
   createWorkspace: Workspace.Create,
   [Label.manageWindowLayout.type]: Label.Manage,
   [LinePlot.LAYOUT_TYPE]: LinePlot.LinePlot,
@@ -99,8 +100,8 @@ const MainUnderContext = (): ReactElement => {
         triggers={triggersProps}
         haul={{ useState: useHaulState }}
         alamos={{
-          level: "debug",
-          include: ["control-state"],
+          level: "info",
+          include: ["aether.telem"],
         }}
       >
         <Vis.Canvas>

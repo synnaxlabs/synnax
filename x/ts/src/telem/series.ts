@@ -46,6 +46,7 @@ export interface SeriesDigest {
   alignment: bounds.Bounds;
   timeRange?: string;
   length: number;
+  capacity: number;
 }
 
 interface BaseSeriesProps {
@@ -62,7 +63,7 @@ export interface SeriesProps extends BaseSeriesProps {
 }
 
 export interface SeriesAllocProps extends BaseSeriesProps {
-  length: number;
+  capacity: number;
   dataType: CrudeDataType;
 }
 
@@ -106,7 +107,7 @@ export class Series {
   /** Tracks the number of entities currently using this array. */
   private _refCount: number = 0;
 
-  static alloc({ length, dataType, ...props }: SeriesAllocProps): Series {
+  static alloc({ capacity: length, dataType, ...props }: SeriesAllocProps): Series {
     if (length === 0)
       throw new Error("[Series] - cannot allocate an array of length 0");
     const data = new new DataType(dataType).Array(length);
@@ -188,13 +189,21 @@ export class Series {
       throw new Error("cannot release an array with a negative reference count");
   }
 
+  /**
+   * Writes the given series to this series. If the series being written exceeds the 
+   * remaining of series being written to, only the portion that fits will be written. 
+   * @param other the series to write to this series. The data type of the series written
+   * must be the same as the data type of the series being written to.
+   * @returns the number of samples written. If the entire series fits, this value is
+   * equal to the length of the series being written.
+   */
   write(other: Series): number {
     if (!other.dataType.equals(this.dataType))
       throw new Error("buffer must be of the same type as this array");
 
     // We've filled the entire underlying buffer
     if (this.writePos === FULL_BUFFER) return 0;
-    const available = this.cap - this.writePos;
+    const available = this.capacity - this.writePos;
 
     const toWrite = available < other.length ? other.slice(0, available) : other;
     this.underlyingData.set(toWrite.data as any, this.writePos);
@@ -256,19 +265,19 @@ export class Series {
     return this._timeRange!;
   }
 
-  /** @returns the capacity of the underlying buffer in bytes. */
-  get byteCap(): Size {
+  /** @returns the capacity of the series in bytes. */
+  get byteCapacity(): Size {
     return new Size(this.buffer.byteLength);
   }
 
-  /** @returns the capacity of the underlying buffer in samples. */
-  get cap(): number {
-    return this.dataType.density.length(this.byteCap);
+  /** @returns the capacity of the series in samples. */
+  get capacity(): number {
+    return this.dataType.density.length(this.byteCapacity);
   }
 
-  /** @returns the length of the underlying buffer in samples. */
+  /** @returns the length of the series in bytes. */
   get byteLength(): Size {
-    if (this.writePos === FULL_BUFFER) return this.byteCap;
+    if (this.writePos === FULL_BUFFER) return this.byteCapacity;
     return this.dataType.density.size(this.writePos);
   }
 
@@ -371,9 +380,17 @@ export class Series {
     return addSamples(this.max, -this.min);
   }
 
-  at(index: number): SampleValue {
+  at(index: number, required: true): SampleValue;
+
+  at(index: number, required?: false): SampleValue | undefined;
+
+  at(index: number, required?: boolean): SampleValue | undefined {
+    if (index < 0) index = this.length + index;
     const v = this.data[index];
-    if (v == null) return undefined as any;
+    if (v == null) {
+      if (required) throw new Error(`[series] - no value at index ${index}`);
+      return undefined;
+    }
     return addSamples(v, this.sampleOffset);
   }
 
@@ -388,7 +405,7 @@ export class Series {
     const cf = compare.newF(value);
     while (left <= right) {
       const mid = Math.floor((left + right) / 2);
-      const cmp = cf(this.at(mid), value);
+      const cmp = cf(this.at(mid, true), value);
       if (cmp === 0) return mid;
       if (cmp < 0) left = mid + 1;
       else right = mid - 1;
@@ -414,7 +431,7 @@ export class Series {
     // This means we only need to buffer part of the array.
     if (this.writePos !== FULL_BUFFER) {
       if (prevBuffer === 0) {
-        gl.bufferData(gl.ARRAY_BUFFER, this.byteCap.valueOf(), gl.STATIC_DRAW);
+        gl.bufferData(gl.ARRAY_BUFFER, this.byteCapacity.valueOf(), gl.STATIC_DRAW);
       }
       const byteOffset = this.dataType.density.size(prevBuffer).valueOf();
       const slice = this.underlyingData.slice(this.gl.prevBuffer, this.writePos);
@@ -439,6 +456,7 @@ export class Series {
       alignment: this.alignmentBounds,
       timeRange: this._timeRange?.toString(),
       length: this.length,
+      capacity: this.capacity,
     };
   }
 

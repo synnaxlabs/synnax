@@ -33,7 +33,7 @@ export class Provider extends aether.Composite<typeof stateZ, ContextValue> {
   static readonly stateZ = stateZ;
   schema = Provider.stateZ;
 
-  afterUpdate(): void {
+  async afterUpdate(): Promise<void> {
     if (!this.ctx.has(CONTEXT_KEY)) set(this.ctx, ZERO_CONTEXT_VALUE);
     if (this.state.props == null) {
       if (this.internal.synnax != null) {

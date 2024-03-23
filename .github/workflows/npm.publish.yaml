@@ -1,4 +1,4 @@
-name: Publish Package
+name: Publish NPM Packages
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
       - main
 
 jobs:
-  build:
+  publish:
     runs-on: ubuntu-latest
 
     steps:

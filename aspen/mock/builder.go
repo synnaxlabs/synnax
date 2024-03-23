@@ -13,7 +13,7 @@ import (
 	"context"
 	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/errutil"
+	"github.com/synnaxlabs/x/errors"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -75,7 +75,7 @@ func (b *Builder) New(opts ...aspen.Option) (*aspen.DB, error) {
 }
 
 func (b *Builder) Close() error {
-	c := errutil.NewCatch(errutil.WithAggregation())
+	c := errors.NewCatcher(errors.WithAggregation())
 	for _, ni := range b.Nodes {
 		c.Exec(ni.DB.Close)
 	}

@@ -20,7 +20,6 @@ package writer
 
 import (
 	"context"
-	"github.com/cockroachdb/errors"
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
@@ -34,6 +33,7 @@ import (
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -61,6 +61,10 @@ type Config struct {
 	// absolute authority for all channels.
 	// [OPTIONAL]
 	Authorities []control.Authority `json:"authorities" msgpack:"authorities"`
+	// Mode sets the persistence and streaming mode for the writer. The default mode is
+	// WriterModePersistStream. See the ts.WriterMode documentation for more.
+	// [OPTIONAL]
+	Mode ts.WriterMode `json:"mode" msgpack:"mode"`
 }
 
 func (c Config) setKeyAuthorities(authorities []keyAuthority) Config {
@@ -94,6 +98,7 @@ func DefaultConfig() Config {
 			Key: uuid.New().String(),
 		},
 		Authorities: []control.Authority{control.Absolute},
+		Mode:        ts.WriterPersistStream,
 	}
 }
 
@@ -114,6 +119,7 @@ func (c Config) toStorage() ts.WriterConfig {
 		Channels:       c.Keys.Storage(),
 		Start:          c.Start,
 		Authorities:    c.Authorities,
+		Mode:           c.Mode,
 	}
 }
 
@@ -123,6 +129,7 @@ func (c Config) Validate() error {
 	validate.NotEmptySlice(v, "keys", c.Keys)
 	validate.NotEmptyString(v, "ControlSubject.Key", c.ControlSubject.Key)
 	v.Ternaryf(
+		"authorities",
 		len(c.Authorities) != 1 && len(c.Authorities) != len(c.Keys),
 		"authorities must be a single authority or a slice of authorities with the same length as keys",
 	)
@@ -136,6 +143,7 @@ func (c Config) Override(other Config) Config {
 	c.Keys = override.Slice(c.Keys, other.Keys.Unique())
 	c.Start = override.Zero(c.Start, other.Start)
 	c.Authorities = override.Slice(c.Authorities, other.Authorities)
+	c.Mode = override.Numeric(c.Mode, other.Mode)
 	return c
 }
 
@@ -175,7 +183,6 @@ func (cfg ServiceConfig) Validate() error {
 	validate.NotNil(v, "ChannelReader", cfg.ChannelReader)
 	validate.NotNil(v, "HostProvider", cfg.HostResolver)
 	validate.NotNil(v, "Transport", cfg.Transport)
-	//validate.NotNil(v, "FreeWrites", cfg.FreeWrites)
 	return v.Error()
 }
 
@@ -266,7 +273,7 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 	plumber.SetSegment[Response, Response](
 		pipe,
 		synchronizerAddr,
-		newSynchronizer(len(cfg.Keys.UniqueNodeKeys()), v.signal),
+		newSynchronizer(len(cfg.Keys.UniqueLeaseholders()), v.signal),
 	)
 
 	switchTargets := make([]address.Address, 0, 3)
@@ -302,7 +309,7 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 	if hasFree {
 		routeValidatorTo = freeWriterAddr
 		switchTargets = append(switchTargets, freeWriterAddr)
-		w := s.newFree(ctx)
+		w := s.newFree(cfg.Mode)
 		plumber.SetSegment[Request, Response](pipe, freeWriterAddr, w)
 		receiverAddresses = append(receiverAddresses, freeWriterAddr)
 	}

@@ -22,19 +22,21 @@ interface NotificationsProps extends Status.UseNotificationsReturn {
   adapters?: NotificationAdapter[];
 }
 
-interface SugaredSpec extends Status.Spec {
+interface SugaredNotification extends Status.Notification {
   actions?: ReactElement | Button.ButtonProps[];
 }
 
-export type NotificationAdapter = (status: Status.Spec) => null | SugaredSpec;
+export type NotificationAdapter = (
+  status: Status.Notification,
+) => null | SugaredNotification;
 
 export const Notifications = ({
   statuses,
   silence,
   adapters,
 }: NotificationsProps): ReactElement => (
-  <List.List<string, Status.Spec> data={statuses}>
-    <List.Core<string, Status.Spec> className={CSS(CSS.B("notifications"))}>
+  <List.List<string, Status.Notification> data={statuses}>
+    <List.Core<string, Status.Notification> className={CSS(CSS.B("notifications"))}>
       {({ entry }) => (
         <Notification
           key={entry.key}
@@ -48,7 +50,7 @@ export const Notifications = ({
 );
 
 interface NotificationProps {
-  status: Status.Spec;
+  status: Status.Notification;
   adapters?: NotificationAdapter[];
   silence: (key: string) => void;
 }
@@ -58,7 +60,7 @@ const Notification = ({
   adapters = [notificationAdapter],
   silence,
 }: NotificationProps): ReactElement => {
-  const adapted = useMemo(() => {
+  const adapted: Status.Notification | SugaredNotification = useMemo(() => {
     for (const adapter of adapters) {
       const result = adapter(status);
       if (result != null) return result;
@@ -111,15 +113,17 @@ const Notification = ({
           </Text.Text>
         )}
       </Align.Space>
-      {adapted.actions != null && (
+      {"actions" in adapted && adapted.actions != null && (
         <Align.Space
           direction="x"
           align="center"
           className={CSS(CSS.BE("notification", "actions"))}
         >
-          {toArray(adapted.actions).map((action, i) => (
-            <Action key={i} action={action} />
-          ))}
+          {toArray<ReactElement | Button.ButtonProps>(adapted.actions).map(
+            (action, i) => (
+              <Action key={i} action={action} />
+            ),
+          )}
         </Align.Space>
       )}
       <Button.Icon variant="text" size="small" onClick={() => silence(key)}>

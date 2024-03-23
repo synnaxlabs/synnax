@@ -88,13 +88,10 @@ const OrientationControl: Form.FieldT<SymbolOrientation> = (props): ReactElement
   </Form.Field>
 );
 
-const LabelControls: Form.FieldT<LabelExtensionProps> = ({
-  path,
-  ...props
-}): ReactElement => (
-  <Align.Space direction="x" grow align="stretch">
+const LabelControls: Form.FieldT<LabelExtensionProps> = ({ path }): ReactElement => (
+  <Align.Space direction="x" align="stretch">
     <Form.Field<string> path={path + ".label"} label="Label" padHelpText={false} grow>
-      {(p) => <Input.Text {...p} />}
+      {(p) => <Input.Text selectOnFocus {...p} />}
     </Form.Field>
     <Form.Field<Text.Level>
       path={path + ".level"}
@@ -107,7 +104,7 @@ const LabelControls: Form.FieldT<LabelExtensionProps> = ({
 );
 
 const ColorControl: Form.FieldT<Color.Crude> = (props): ReactElement => (
-  <Form.Field label="Color" align="start" padHelpText={false} {...props}>
+  <Form.Field hideIfNull label="Color" align="start" padHelpText={false} {...props}>
     {({ value, onChange, ...props }) => (
       <Color.Swatch
         value={value ?? Color.ZERO.setAlpha(1).rgba255}
@@ -330,11 +327,18 @@ const ValueTelemForm = ({ path }: { path: string }): ReactElement => {
   const stringifier = telem.stringifyNumberProps.parse(
     sourceP.segments.stringifier.props,
   );
+  const rollingAverage = telem.rollingAverageProps.parse(
+    sourceP.segments.rollingAverage.props,
+  );
   const handleSourceChange = (v: channel.Key | null): void => {
     const t = telem.sourcePipeline("string", {
       connections: [
         {
           from: "valueStream",
+          to: "rollingAverage",
+        },
+        {
+          from: "rollingAverage",
           to: "stringifier",
         },
       ],
@@ -342,6 +346,9 @@ const ValueTelemForm = ({ path }: { path: string }): ReactElement => {
         valueStream: telem.streamChannelValue({ channel: v ?? 0 }),
         stringifier: telem.stringifyNumber({
           precision: stringifier.precision ?? 2,
+        }),
+        rollingAverage: telem.rollingAverage({
+          windowSize: rollingAverage.windowSize ?? 1,
         }),
       },
       outlet: "stringifier",
@@ -354,12 +361,40 @@ const ValueTelemForm = ({ path }: { path: string }): ReactElement => {
       connections: [
         {
           from: "valueStream",
+          to: "rollingAverage",
+        },
+        {
+          from: "rollingAverage",
           to: "stringifier",
         },
       ],
       segments: {
         valueStream: telem.streamChannelValue({ channel: source.channel }),
         stringifier: telem.stringifyNumber({ precision }),
+        rollingAverage: telem.rollingAverage({ windowSize: rollingAverage.windowSize }),
+      },
+      outlet: "stringifier",
+    });
+    onChange({ ...value, telem: t });
+  };
+
+  const handleRollingAverageChange = (windowSize: number): void => {
+    console.log(stringifier.precision);
+    const t = telem.sourcePipeline("string", {
+      connections: [
+        {
+          from: "valueStream",
+          to: "rollingAverage",
+        },
+        {
+          from: "rollingAverage",
+          to: "stringifier",
+        },
+      ],
+      segments: {
+        stringifier: telem.stringifyNumber({ precision: stringifier.precision ?? 2 }),
+        valueStream: telem.streamChannelValue({ channel: source.channel }),
+        rollingAverage: telem.rollingAverage({ windowSize }),
       },
       outlet: "stringifier",
     });
@@ -381,6 +416,13 @@ const ValueTelemForm = ({ path }: { path: string }): ReactElement => {
           value={stringifier.precision ?? 2}
           bounds={{ lower: 0, upper: 10 }}
           onChange={handlePrecisionChange}
+        />
+      </Input.Item>
+      <Input.Item label="Averaging Window" align="start">
+        <Input.Numeric
+          value={rollingAverage.windowSize ?? 1}
+          bounds={{ lower: 1, upper: 100 }}
+          onChange={handleRollingAverageChange}
         />
       </Input.Item>
     </FormWrapper>

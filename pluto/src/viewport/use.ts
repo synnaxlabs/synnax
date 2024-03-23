@@ -14,7 +14,7 @@ import {
   useImperativeHandle,
   useRef,
   useState,
-  ForwardedRef,
+  type ForwardedRef,
 } from "react";
 
 import { box, xy, dimensions, location, scale } from "@synnaxlabs/x";
@@ -44,7 +44,9 @@ export interface UseProps {
   resetOnDoubleClick?: boolean;
   threshold?: dimensions.Dimensions;
   initial?: box.Box;
-  ref?: MutableRefObject<UseRefValue | undefined> | ForwardedRef<UseRefValue | undefined>;
+  ref?:
+    | MutableRefObject<UseRefValue | undefined>
+    | ForwardedRef<UseRefValue | undefined>;
 }
 
 export interface UseReturn {
@@ -52,6 +54,8 @@ export interface UseReturn {
   maskBox: box.Box;
   ref: React.MutableRefObject<HTMLDivElement | null>;
 }
+
+const TRUNC_PRECISION = 4;
 
 type StringLiteral<T> = T extends string ? (string extends T ? never : T) : never;
 
@@ -129,7 +133,7 @@ export const use = ({
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const threshold = dimensions.construct(threshold_);
 
-  useEffect(() => setStateRef(initial), [initial]);
+  useEffect(() => setStateRef(() => box.truncate(initial, 3)), [initial]);
   useEffect(() => setMaskMode(defaultMode), [defaultMode]);
 
   const [triggerConfig, reducedTriggerConfig, purgedTriggers, reducedPurgedTriggers] =
@@ -187,7 +191,7 @@ export const use = ({
             setMaskBox(box.ZERO);
             return next;
           }
-          return prev;
+          return box.truncate(prev, TRUNC_PRECISION);
         });
       }
 
@@ -203,6 +207,7 @@ export const use = ({
 
       setMaskBox((prev) => (!box.isZero(prev) ? box.ZERO : prev));
       const next = handlePan(box_, stateRef.current, canvas);
+      if (box.equals(next, stateRef.current)) return;
       onChange?.({
         box: next,
         mode,
@@ -240,10 +245,46 @@ export const use = ({
   );
 
   const handleZoomSelect = useCallback(
-    (box: box.Box, prev: box.Box, canvas: box.Box): box.Box | null =>
-      constructScale(prev, canvas).box(fullSize(threshold, box, canvas)),
+    (b: box.Box, prev: box.Box, canvas: box.Box): box.Box | null =>
+      box.truncate(
+        constructScale(prev, canvas).box(fullSize(threshold, b, canvas)),
+        TRUNC_PRECISION,
+      ),
     [threshold_],
   );
+
+  const t = Triggers.useHeldRef({
+    triggers: [["Control"]],
+  });
+
+  useEffect(() => {
+    const handler = (e: WheelEvent): void => {
+      if (canvasRef.current == null) return;
+      let sf = 1;
+      if (e.deltaY < 0) sf -= 0.035;
+      else sf += 0.035;
+      const canvasBox = box.construct(canvasRef.current);
+      const rawCursor = xy.construct(e);
+      if (!box.contains(canvasBox, rawCursor) || e.target !== canvasRef.current) return;
+      const s2 = constructScale(stateRef.current, box.construct(canvasRef.current));
+      const cursor = s2.pos(xy.construct(e));
+      const s = scale.XY.magnify({ x: t.current.held ? 1 : sf, y: sf });
+      let next = s.box(stateRef.current);
+      next = box.translate(next, {
+        x: t.current.held ? 0 : cursor.x * (1 - sf),
+        y: cursor.y * (1 - sf),
+      });
+      setStateRef(next);
+      onChange?.({
+        stage: "end",
+        box: next,
+        cursor: xy.construct(e),
+        mode: "zoom",
+      });
+    };
+    window.addEventListener("wheel", handler);
+    return () => window.removeEventListener("wheel", handler);
+  }, [setStateRef, onChange]);
 
   Triggers.useDrag({
     bound: canvasRef,
@@ -281,7 +322,10 @@ const constructScale = (prev: box.Box, canvas: box.Box): scale.XY =>
 const handlePan = (b: box.Box, prev: box.Box, canvas: box.Box): box.Box => {
   let dims = box.signedDims(constructScale(prev, canvas).box(b));
   dims = { signedWidth: -dims.signedWidth, signedHeight: -dims.signedHeight };
-  return scale.XY.translate(xy.construct(dims)).box(prev);
+  return box.truncate(
+    scale.XY.translate(xy.construct(dims)).box(prev),
+    TRUNC_PRECISION,
+  );
 };
 
 const fullSize = (

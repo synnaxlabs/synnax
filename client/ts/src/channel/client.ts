@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type UnaryClient } from "@synnaxlabs/freighter";
 import {
   DataType,
   Rate,
@@ -28,8 +29,14 @@ import {
   payload,
   type NewPayload,
 } from "@/channel/payload";
-import { analyzeParams, type Retriever } from "@/channel/retriever";
-import { QueryError } from "@/errors";
+import {
+  analyzeParams,
+  CacheRetriever,
+  ClusterRetriever,
+  DebouncedBatchRetriever,
+  type Retriever,
+} from "@/channel/retriever";
+import { MultipleResultsError, NotFoundError } from "@/errors";
 import { type framer } from "@/framer";
 
 /**
@@ -120,10 +127,17 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
   private readonly frameClient: framer.Client;
   private readonly retriever: Retriever;
   private readonly creator: Creator;
+  private readonly client: UnaryClient;
 
-  constructor(segmentClient: framer.Client, retriever: Retriever, creator: Creator) {
+  constructor(
+    segmentClient: framer.Client,
+    retriever: Retriever,
+    client: UnaryClient,
+    creator: Creator,
+  ) {
     this.frameClient = segmentClient;
     this.retriever = retriever;
+    this.client = client;
     this.creator = creator;
   }
 
@@ -164,9 +178,10 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
     if (normalized.length === 0) return [];
     const res = this.sugar(await this.retriever.retrieve(channels, rangeKey));
     if (!single) return res;
-    if (res.length === 0) throw new QueryError(`channel matching ${actual} not found`);
+    if (res.length === 0)
+      throw new NotFoundError(`channel matching ${actual} not found`);
     if (res.length > 1)
-      throw new QueryError(`multiple channels matching ${actual} found`);
+      throw new MultipleResultsError(`multiple channels matching ${actual} found`);
     return res[0];
   }
 
@@ -180,6 +195,12 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
 
   async page(offset: number, limit: number, rangeKey?: string): Promise<Channel[]> {
     return this.sugar(await this.retriever.page(offset, limit, rangeKey));
+  }
+
+  createDebouncedBatchRetriever(deb: number = 10): Retriever {
+    return new CacheRetriever(
+      new DebouncedBatchRetriever(new ClusterRetriever(this.client), deb),
+    );
   }
 
   private sugar(payloads: Payload[]): Channel[] {

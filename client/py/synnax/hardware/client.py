@@ -41,7 +41,9 @@ class Client:
     def retrieve_rack(self, keys: list[int] | None = None) -> list[Rack]:
         return self.__retriever.retrieve_rack(keys)
 
-    def retrieve_task(self, rack: int | None = None, keys: list[int] | None = None) -> list[Task]:
+    def retrieve_task(
+        self, rack: int | None = None, keys: list[int] | None = None
+    ) -> list[Task]:
         return self.__retriever.retrieve_task(rack, keys)
 
     def retrieve_device(self, keys: list[str] | None = None) -> list[Device]:

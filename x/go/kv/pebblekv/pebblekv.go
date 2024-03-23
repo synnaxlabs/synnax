@@ -13,10 +13,10 @@ package pebblekv
 
 import (
 	"context"
-	"github.com/cockroachdb/errors"
 	"github.com/cockroachdb/pebble"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/change"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/observe"
 )
@@ -178,7 +178,7 @@ func (r *txReader) Count() int { return r.count }
 
 // Next implements kv.TxReader.
 func (r *txReader) Next(_ context.Context) (kv.Change, bool) {
-	kind, k, v, ok := r.BatchReader.Next()
+	kind, k, v, ok, _ := r.BatchReader.Next()
 	if !ok {
 		return kv.Change{}, false
 	}
@@ -197,5 +197,4 @@ func translateError(err error) error {
 		return kv.NotFound
 	}
 	return err
-
 }

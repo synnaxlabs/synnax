@@ -11,9 +11,9 @@ package domain
 
 import (
 	"context"
-	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -140,10 +140,14 @@ func (w *Writer) Commit(ctx context.Context, end telem.TimeStamp) error {
 	if err := w.validateCommitRange(end); err != nil {
 		return span.EndWith(err)
 	}
+	length := w.internal.Len()
+	if length == 0 {
+		return nil
+	}
 	ptr := pointer{
 		TimeRange: telem.TimeRange{Start: w.Start, End: end},
 		offset:    uint32(w.internal.Offset()),
-		length:    uint32(w.internal.Len()),
+		length:    uint32(length),
 		fileKey:   w.fileKey,
 	}
 	f := lo.Ternary(w.prevCommit.IsZero(), w.idx.insert, w.idx.update)

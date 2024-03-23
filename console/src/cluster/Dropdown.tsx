@@ -12,17 +12,13 @@ import {
   type PropsWithChildren,
   type ReactElement,
   type MouseEventHandler,
+  type MouseEvent,
 } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import {
-  Button,
-  Dropdown as Core,
-  Align,
-  Synnax,
-  Menu as PMenu,
-} from "@synnaxlabs/pluto";
+import { Button, Dropdown as Core, Align, Synnax } from "@synnaxlabs/pluto";
 import { List as CoreList } from "@synnaxlabs/pluto/list";
+import { Menu as PMenu } from "@synnaxlabs/pluto/menu";
 import { Text } from "@synnaxlabs/pluto/text";
 import { useDispatch } from "react-redux";
 
@@ -54,7 +50,7 @@ export const List = (): ReactElement => {
   };
 
   const contextMenu = useCallback(
-    ({ keys: [key] }: PMenu.ContextMenuProps): ReactElement | null => {
+    ({ keys: [key] }: PMenu.ContextMenuMenuProps): ReactElement | null => {
       if (key == null) return null;
       const handleSelect = (menuKey: string): void => {
         if (key == null) return;
@@ -185,14 +181,16 @@ const ListItem = (props: CoreList.ItemProps<string, Cluster>): ReactElement => {
       </Align.Space>
       {isLocal && (
         <Align.Space direction="y" align="end" size="small">
-          <Button.Icon
-            disabled={status === "starting" || status === "stopping"}
-            onClick={handleClick}
-            variant="outlined"
-            loading={loading}
-          >
-            {icon}
-          </Button.Icon>
+          {icon != null && (
+            <Button.Icon
+              disabled={status === "starting" || status === "stopping"}
+              onClick={handleClick}
+              variant="outlined"
+              loading={loading}
+            >
+              {icon}
+            </Button.Icon>
+          )}
           <Text.Text level="p" shade={6}>
             PID {isLocal ? pid : "N/A"}
           </Text.Text>
@@ -215,7 +213,7 @@ export const NoneConnectedBoundary = ({
 export const NoneConnected = (): ReactElement => {
   const placer = Layout.usePlacer();
 
-  const handleCluster: Text.TextProps["onClick"] = (e) => {
+  const handleCluster: Text.TextProps["onClick"] = (e: MouseEvent) => {
     e.stopPropagation();
     placer(connectWindowLayout);
   };
@@ -232,7 +230,7 @@ export const NoneConnected = (): ReactElement => {
   );
 };
 
-export const Dropdown = () => {
+export const Dropdown = (): ReactElement => {
   const dropProps = Core.use();
   const cluster = useSelect();
 

@@ -74,6 +74,10 @@ func (w *Writer) Write(series telem.Series) (telem.Alignment, error) {
 	return a, nil
 }
 
+func (w *Writer) SetAuthority(a control.Authority) controller.Transfer {
+	return w.control.SetAuthority(a)
+}
+
 func (w *Writer) Close() (controller.Transfer, error) {
 	_, t := w.control.Release()
 	return t, nil

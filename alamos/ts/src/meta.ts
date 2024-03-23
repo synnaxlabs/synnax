@@ -26,7 +26,7 @@ export class Meta {
   }
 
   child(key: string): Meta {
-    return new Meta(key, this.extendPath(key), this.serviceName);
+    return new Meta(key, this.extendPath(key), this.serviceName, this.noop);
   }
 
   extendPath(key: string): string {

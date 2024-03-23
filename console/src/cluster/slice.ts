@@ -62,9 +62,7 @@ export const LOCAL: Cluster = {
 
 export const INITIAL_STATE: SliceState = {
   activeCluster: null,
-  clusters: {
-    [LOCAL_CLUSTER_KEY]: LOCAL,
-  },
+  clusters: {},
   localState: {
     pid: 0,
     command: "stop",

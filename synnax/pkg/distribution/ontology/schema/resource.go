@@ -14,8 +14,8 @@ import (
 	"github.com/synnaxlabs/x/validate"
 	"strings"
 
-	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/x/change"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 )
 

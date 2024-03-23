@@ -150,7 +150,7 @@ export const SelectMultiple = ({
     [startDrag, handleSuccessfulDrop],
   );
 
-  const tagKey = useCallback(
+  const entryRenderKey = useCallback(
     (e: channel.Payload) => aliases[e.key] ?? e.name,
     [aliases],
   );
@@ -165,7 +165,7 @@ export const SelectMultiple = ({
       onChange={onChange}
       columns={columns}
       emptyContent={emptyContent}
-      tagKey={tagKey}
+      entryRenderKey={entryRenderKey}
       {...dropProps}
       {...props}
     />
@@ -235,7 +235,7 @@ export const SelectSingle = ({
     [startDrag, value],
   );
 
-  const tagKey = useCallback(
+  const entryRenderKey = useCallback(
     (e: channel.Payload) => aliases[e.key] ?? e.name,
     [aliases],
   );
@@ -251,7 +251,7 @@ export const SelectSingle = ({
       searcher={searcher}
       columns={columns}
       emptyContent={emptyContent}
-      tagKey={tagKey}
+      entryRenderKey={entryRenderKey}
       {...dragProps}
       {...props}
     />

@@ -7,17 +7,32 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type hardware } from "@synnaxlabs/client";
+import { type task } from "@synnaxlabs/client";
 import { xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
+const linearScaleTypeZ = z.enum(["linear", "none"]);
+
+export type LinearScaleType = z.infer<typeof linearScaleTypeZ>;
+
 const linearScaleZ = z.object({
-  type: z.literal("linear"),
+  type: linearScaleTypeZ,
   one: xy.xy,
   two: xy.xy,
 });
 
 export type LinearScale = z.infer<typeof linearScaleZ>;
+
+const DEFAULT_LINEAR_SCALE: LinearScale = {
+  type: "none",
+  one: { x: 0, y: 0 },
+  two: { x: 0, y: 0 },
+};
+
+export const DEFAULT_SCALES: Record<LinearScaleType, LinearScale> = {
+  linear: DEFAULT_LINEAR_SCALE,
+  none: DEFAULT_LINEAR_SCALE,
+};
 
 const analogInputScaleZ = linearScaleZ;
 
@@ -27,14 +42,14 @@ const analogInputVoltageChannelZ = z.object({
   enabled: z.boolean(),
   port: z.number(),
   channel: z.number(),
-  scale: z.optional(analogInputScaleZ),
+  scale: analogInputScaleZ,
 });
 
 export const analogReadChannelZ = analogInputVoltageChannelZ;
 
 export type AnalogInputVoltageChannel = z.infer<typeof analogInputVoltageChannelZ>;
 
-export const analodReadTaskConfigZ = z
+export const analogReadTaskConfigZ = z
   .object({
     device: z.string().min(1),
     sampleRate: z.number().min(0).max(50000),
@@ -51,9 +66,9 @@ export const analodReadTaskConfigZ = z
     },
   );
 
-export type AnalogReadTaskConfig = z.infer<typeof analodReadTaskConfigZ>;
+export type AnalogReadTaskConfig = z.infer<typeof analogReadTaskConfigZ>;
 
-export type AnalogReadTask = hardware.Task<"ni.analogRead", AnalogReadTaskConfig>;
+export type AnalogReadTask = task.Task<"ni.analogRead", AnalogReadTaskConfig>;
 
 const digitalOutputChannelZ = z.object({
   key: z.string(),
@@ -86,7 +101,7 @@ export const digitalWriteTaskConfigZ = z.object({
 
 export type DigitalWriteTaskConfig = z.infer<typeof digitalWriteTaskConfigZ>;
 
-export type DigitalWriteTask = hardware.Task<"ni.digitalWrite", DigitalWriteTaskConfig>;
+export type DigitalWriteTask = task.Task<"ni.digitalWrite", DigitalWriteTaskConfig>;
 
 const digitalReadChannelZ = digitalInputChannelZ;
 
@@ -97,7 +112,7 @@ export const digitalReadTaskConfigZ = z.object({
 
 export type DigitalReadTaskConfig = z.infer<typeof digitalReadTaskConfigZ>;
 
-export type DigitalReadTask = hardware.Task<"ni.analogWrite", DigitalReadTaskConfig>;
+export type DigitalReadTask = task.Task<"ni.analogWrite", DigitalReadTaskConfig>;
 
 export type NITask = AnalogReadTask | DigitalWriteTask | DigitalReadTask;
 

@@ -10,8 +10,8 @@
 package cesium
 
 import (
-	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
@@ -82,6 +82,25 @@ func (w *Writer) Error() error {
 	}
 	w.logger.DPanic(unexpectedSteamClosure)
 	return errors.New(unexpectedSteamClosure)
+}
+
+func (w *Writer) SetMode(mode WriterMode) bool {
+	if w.hasAccumulatedErr {
+		return false
+	}
+	select {
+	case <-w.responses.Outlet():
+		w.hasAccumulatedErr = true
+		return false
+	case w.requests.Inlet() <- WriterRequest{Command: WriterSetMode, Config: WriterConfig{Mode: mode}}:
+	}
+	for res := range w.responses.Outlet() {
+		if res.Command == WriterSetMode {
+			return res.Ack
+		}
+	}
+	w.logger.DPanic(unexpectedSteamClosure)
+	return false
 }
 
 func (w *Writer) Close() (err error) {

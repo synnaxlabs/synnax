@@ -18,7 +18,7 @@ import { v4 as uuidV4 } from "uuid";
 import { type Layout } from "@/layout";
 
 export type NodeProps = object & {
-  key: PID.SymbolVariant;
+  key: PID.Variant;
   color?: Color.Crude;
 };
 
@@ -285,7 +285,7 @@ export const { actions, reducer } = createSlice({
       const { layoutKeys } = payload;
       layoutKeys.forEach((layoutKey) => {
         const pid = state.pids[layoutKey];
-        if (pid.control === "acquired") pid.controlAcquireTrigger = -1;
+        if (pid.control === "acquired") pid.controlAcquireTrigger -= 1;
         // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
         delete state.pids[layoutKey];
       });
@@ -381,8 +381,7 @@ export const { actions, reducer } = createSlice({
       const pid = state.pids[layoutKey];
       clearSelections(pid);
       if (pid.control === "acquired") {
-        pid.controlAcquireTrigger = -1;
-        pid.control = "released";
+        pid.controlAcquireTrigger -= 1;
       }
       if (pid.snapshot) return;
       pid.editable = editable;
@@ -391,7 +390,8 @@ export const { actions, reducer } = createSlice({
       let { layoutKey, status } = payload;
       const pid = state.pids[layoutKey];
       if (status == null) status = pid.control === "released" ? "acquired" : "released";
-      pid.controlAcquireTrigger += -2 * Number(status === "released") + 1;
+      if (status === "released") pid.controlAcquireTrigger -= 1;
+      else pid.controlAcquireTrigger += 1;
     },
     setControlStatus: (state, { payload }: PayloadAction<SetControlStatusPayload>) => {
       const { layoutKey, control } = payload;

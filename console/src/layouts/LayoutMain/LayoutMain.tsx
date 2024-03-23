@@ -13,14 +13,11 @@ import { Align } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
+import { NavDrawer } from "@/components/nav/Nav";
+import { NewDevice } from "@/hardware/device/new";
 import { Layout } from "@/layout";
-import {
-  NavBottom,
-  NavDrawer,
-  NavLeft,
-  NavRight,
-  NavTop,
-} from "@/layouts/LayoutMain/Nav";
+import { NavBottom, NavLeft, NavRight, NavTop } from "@/layouts/LayoutMain/Nav";
+import { Mosaic } from "@/layouts/mosaic";
 
 import "@/layouts/LayoutMain/LayoutMain.css";
 
@@ -35,6 +32,7 @@ export const LayoutMain = (): ReactElement => {
   }, []);
 
   Cluster.useLocalServer();
+  NewDevice.useListenForChanges();
 
   return (
     <>
@@ -48,7 +46,7 @@ export const LayoutMain = (): ReactElement => {
           <Align.Space className="console-main--driven" direction="x" empty>
             <NavDrawer location="left" />
             <main className="console-main--driven" style={{ position: "relative" }}>
-              <Layout.Mosaic />
+              <Mosaic.Mosaic />
             </main>
             <NavDrawer location="right" />
           </Align.Space>

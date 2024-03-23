@@ -9,6 +9,7 @@
 
 import { type ReactElement } from "react";
 
+import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Icon, Logo } from "@synnaxlabs/media";
 import { Align, Synnax, Eraser } from "@synnaxlabs/pluto";
 import { Button } from "@synnaxlabs/pluto/button";
@@ -31,6 +32,7 @@ export const GetStarted = (): ReactElement => {
 };
 
 const NoCluster = (): ReactElement => {
+  const windowKey = useSelectWindowKey() as string;
   const placer = usePlacer();
   const dispatch = useDispatch();
 
@@ -45,7 +47,7 @@ const NoCluster = (): ReactElement => {
   const handleVisualize: Button.ButtonProps["onClick"] = (e) => {
     e.stopPropagation();
     placer(Vis.create({}));
-    dispatch(setNavdrawerVisible({ key: Vis.Toolbar.key, value: true }));
+    dispatch(setNavdrawerVisible({ windowKey, key: Vis.Toolbar.key, value: true }));
   };
 
   const handleDocs: Text.LinkProps["onClick"] = (e) => {

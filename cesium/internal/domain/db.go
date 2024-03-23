@@ -11,10 +11,10 @@ package domain
 
 import (
 	"context"
-	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errutil"
+	"github.com/synnaxlabs/x/errors"
+	errors2 "github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
@@ -140,7 +140,7 @@ func (db *DB) NewIterator(cfg IteratorConfig) *Iterator {
 
 // Close closes the DB. Close should not be called concurrently with any other DB methods.
 func (db *DB) Close() error {
-	w := errutil.NewCatch(errutil.WithAggregation())
+	w := errors2.NewCatcher(errors2.WithAggregation())
 	w.Exec(db.idx.close)
 	w.Exec(db.files.close)
 	return w.Error()

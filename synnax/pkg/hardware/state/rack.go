@@ -95,7 +95,7 @@ func Open(ctx context.Context, configs ...Config) (t *Tracker, err error) {
 		return
 	}
 	var racks []rack.Rack
-	if err := cfg.Rack.NewRetrieve().
+	if err = cfg.Rack.NewRetrieve().
 		WhereNode(cfg.HostProvider.HostKey()).
 		Entries(&racks).
 		Exec(ctx, nil); err != nil {
@@ -107,7 +107,7 @@ func Open(ctx context.Context, configs ...Config) (t *Tracker, err error) {
 	}
 	for _, r := range racks {
 		var tasks []task.Task
-		if err := cfg.Task.NewRetrieve().
+		if err = cfg.Task.NewRetrieve().
 			WhereRack(r.Key).
 			Entries(&tasks).
 			Exec(ctx, nil); err != nil {

@@ -11,7 +11,7 @@ import { z } from "zod";
 
 import { type Stringer } from "@/primitive";
 import { addSamples } from "@/telem/series";
-import { Crude } from "@/spatial/location";
+import { Crude } from "@/spatial/location/location";
 
 export type TZInfo = "UTC" | "local";
 
@@ -425,6 +425,22 @@ export class TimeSpan extends Number implements Stringer {
   constructor(value: CrudeTimeSpan) {
     if (value instanceof Number) super(value.valueOf());
     else super(value);
+  }
+
+  lessThan(other: CrudeTimeSpan): boolean {
+    return this.valueOf() < new TimeSpan(other).valueOf();
+  }
+
+  greaterThan(other: CrudeTimeSpan): boolean {
+    return this.valueOf() > new TimeSpan(other).valueOf();
+  }
+
+  lessThanOrEqual(other: CrudeTimeSpan): boolean {
+    return this.valueOf() <= new TimeSpan(other).valueOf();
+  }
+
+  greaterThanOrEqual(other: CrudeTimeSpan): boolean {
+    return this.valueOf() >= new TimeSpan(other).valueOf();
   }
 
   remainder(divisor: TimeSpan): TimeSpan {
@@ -1132,6 +1148,50 @@ export class Size extends Number implements Stringer {
     return Size.bytes(this.valueOf() - other.valueOf());
   }
 
+  truncate(span: CrudeSize): Size {
+    return new Size(Math.trunc(this.valueOf() / span.valueOf()) * span.valueOf());
+  }
+
+  remainder(span: CrudeSize): Size {
+    return Size.bytes(this.valueOf() % span.valueOf());
+  }
+
+  get gigabytes(): number {
+    return this.valueOf() / Size.GIGABYTE.valueOf();
+  }
+
+  get megabytes(): number {
+    return this.valueOf() / Size.MEGABYTE.valueOf();
+  }
+
+  get kilobytes(): number {
+    return this.valueOf() / Size.KILOBYTE.valueOf();
+  }
+
+  get terabytes(): number {
+    return this.valueOf() / Size.TERABYTE.valueOf();
+  }
+
+  toString(): string {
+    const totalTB = this.truncate(Size.TERABYTE);
+    const totalGB = this.truncate(Size.GIGABYTE);
+    const totalMB = this.truncate(Size.MEGABYTE);
+    const totalKB = this.truncate(Size.KILOBYTE);
+    const totalB = this.truncate(Size.BYTE);
+    const tb = totalTB;
+    const gb = totalGB.sub(totalTB);
+    const mb = totalMB.sub(totalGB);
+    const kb = totalKB.sub(totalMB);
+    const bytes = totalB.sub(totalKB);
+    let str = "";
+    if (!tb.isZero) str += `${tb.terabytes}TB `;
+    if (!gb.isZero) str += `${gb.gigabytes}GB `;
+    if (!mb.isZero) str += `${mb.megabytes}MB `;
+    if (!kb.isZero) str += `${kb.kilobytes}KB `;
+    if (!bytes.isZero || str === "") str += `${bytes.valueOf()}B`;
+    return str.trim();
+  }
+
   /**
    * Creates a Size from the given number of bytes.
    *
@@ -1167,6 +1227,7 @@ export class Size extends Number implements Stringer {
   static megabytes(value: CrudeSize = 1): Size {
     return Size.kilobytes(value.valueOf() * 1e3);
   }
+
 
   /** A megabyte */
   static readonly MEGABYTE = Size.megabytes(1);
@@ -1206,7 +1267,7 @@ export class Size extends Number implements Stringer {
     z.instanceof(Size),
   ]);
 
-  isZero(): boolean {
+  get isZero(): boolean {
     return this.valueOf() === 0;
   }
 }

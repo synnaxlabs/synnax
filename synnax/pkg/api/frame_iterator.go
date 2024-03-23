@@ -12,12 +12,12 @@ package api
 import (
 	"context"
 	"github.com/synnaxlabs/freighter"
-	"github.com/synnaxlabs/freighter/ferrors"
 	"github.com/synnaxlabs/freighter/freightfluence"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
 )
 
@@ -44,7 +44,7 @@ func (s *FrameService) Iterate(ctx context.Context, stream FrameIteratorStream) 
 	sender := &freightfluence.TransformSender[iterator.Response, iterator.Response]{
 		Sender: freighter.SenderNopCloser[iterator.Response]{StreamSender: stream},
 		Transform: func(ctx context.Context, res iterator.Response) (iterator.Response, bool, error) {
-			res.Error = ferrors.Encode(res.Error)
+			res.Error = errors.Encode(ctx, res.Error, false)
 			return res, true, nil
 		},
 	}

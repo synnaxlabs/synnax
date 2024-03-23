@@ -47,7 +47,7 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 				client unaryClient
 			)
 			BeforeAll(func() {
-				addr = "localhost:8080"
+				addr = "localhost:8081"
 				server, client = impl.start(addr)
 			})
 			AfterAll(func() {
@@ -109,7 +109,7 @@ func (h *httpUnaryImplementation) start(host address.Address) (unaryServer, unar
 	factory := fhttp.NewClientFactory(fhttp.ClientFactoryConfig{
 		EncoderDecoder: httputil.JSONEncoderDecoder,
 	})
-	server := fhttp.UnaryServer[request, response](router, "/")
+	server := fhttp.UnaryServer[request, response](router, false, "/")
 	client := fhttp.UnaryClient[request, response](factory)
 	router.BindTo(h.app)
 	h.app.Get("/health", func(c *fiber.Ctx) error {

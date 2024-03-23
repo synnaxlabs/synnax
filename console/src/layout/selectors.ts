@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { UnexpectedError } from "@synnaxlabs/client";
-import { type Drift, selectWindow } from "@synnaxlabs/drift";
+import { type Drift, selectWindow, selectWindowKey } from "@synnaxlabs/drift";
 import { type Haul, type Mosaic, Theming } from "@synnaxlabs/pluto";
 
 import { selectByKey, selectByKeys, useMemoSelect } from "@/hooks";
@@ -147,12 +147,22 @@ export const useSelectMany = (keys?: string[]): LayoutState[] =>
   useMemoSelect((state: StoreState) => selectMany(state, keys), [keys]);
 
 export const selectNavDrawer = (
-  state: StoreState,
+  state: StoreState & Drift.StoreState,
   loc: NavdrawerLocation,
-): NavdrawerEntryState => state.layout.nav.drawers[loc];
+): NavdrawerEntryState | null => {
+  const winKey = selectWindowKey(state) as string;
+  const navState = selectSliceState(state).nav[winKey];
+  if (navState == null) return null;
+  return navState.drawers[loc] ?? null;
+};
 
-export const useSelectNavDrawer = (loc: NavdrawerLocation): NavdrawerEntryState =>
-  useMemoSelect((state: StoreState) => selectNavDrawer(state, loc), [loc]);
+export const useSelectNavDrawer = (
+  loc: NavdrawerLocation,
+): NavdrawerEntryState | null =>
+  useMemoSelect(
+    (state: StoreState & Drift.StoreState) => selectNavDrawer(state, loc),
+    [loc],
+  );
 
 export const selectActiveMosaicTabKey = (
   state: StoreState & Drift.StoreState,

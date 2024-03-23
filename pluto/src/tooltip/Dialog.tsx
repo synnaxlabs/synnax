@@ -103,7 +103,7 @@ export const chooseLocation = (
   if (parse.success) {
     return location.constructXY(parse.data, chooseRemainingLocation(parse.data));
   } else if (cornerOrLocation != null) {
-    const v = { ...cornerOrLocation as Partial<location.XY>} ;
+    const v = { ...(cornerOrLocation as Partial<location.XY>) };
     if (v.x == null && v.y != null)
       v.x = chooseRemainingLocation(location.construct(v.y)) as location.X;
     else if (v.y == null && v.x != null)
@@ -112,7 +112,8 @@ export const chooseLocation = (
       v.x = bestLocation(target, window, LOCATION_PREFERENCES) as location.X;
       v.y = chooseRemainingLocation(location.construct(v.x)) as location.Y;
     }
-    return location.constructXY(v as location.XY);
+    const l = location.constructXY(v as location.XY);
+    return l;
   }
   const chosen = bestLocation(target, window, LOCATION_PREFERENCES);
   return location.constructXY(chosen, chooseRemainingLocation(chosen));

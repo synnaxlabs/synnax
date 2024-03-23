@@ -14,7 +14,8 @@ import {
   useCallback,
 } from "react";
 
-import { Align, Text, PID, Theming, Haul, Input, List } from "@synnaxlabs/pluto";
+import { Align, Text, PID, Theming, Haul, Input } from "@synnaxlabs/pluto";
+import { List } from "@synnaxlabs/pluto/list";
 import { nanoid } from "nanoid/non-secure";
 import { useDispatch } from "react-redux";
 
@@ -30,7 +31,7 @@ export const Symbols = ({ layoutKey }: { layoutKey: string }): ReactElement => {
   const theme = Theming.use();
 
   const handleAddElement = useCallback(
-    (variant: PID.SymbolVariant) => {
+    (variant: PID.Variant) => {
       const spec = PID.SYMBOLS[variant];
       const initialProps = spec.defaultProps(theme);
       dispatch(

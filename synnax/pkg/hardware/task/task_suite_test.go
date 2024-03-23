@@ -19,7 +19,7 @@ import (
 
 var ctx = context.Background()
 
-func TestModule(t *testing.T) {
+func TestTask(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Task Suite")
 }

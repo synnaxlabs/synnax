@@ -28,13 +28,14 @@ var _ = Describe("Task", Ordered, func() {
 	var (
 		db    *gorp.DB
 		svc   *task.Service
+		otg   *ontology.Ontology
 		w     task.Writer
 		tx    gorp.Tx
 		rack_ *rack.Rack
 	)
 	BeforeAll(func() {
 		db = gorp.Wrap(memkv.New())
-		otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
+		otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
 		g := MustSucceed(group.OpenService(group.Config{DB: db, Ontology: otg}))
 		rackSvc := MustSucceed(rack.OpenService(ctx, rack.Config{DB: db, Ontology: otg, Group: g, HostProvider: mock.StaticHostKeyProvider(1)}))
 		svc = MustSucceed(task.OpenService(ctx, task.Config{
@@ -55,8 +56,9 @@ var _ = Describe("Task", Ordered, func() {
 		Expect(tx.Close()).To(Succeed())
 	})
 	AfterAll(func() {
-		Expect(db.Close()).To(Succeed())
 		Expect(svc.Close()).To(Succeed())
+		Expect(otg.Close()).To(Succeed())
+		Expect(db.Close()).To(Succeed())
 	})
 	Describe("Key", func() {
 		It("Should construct and deconstruct a key from its components", func() {

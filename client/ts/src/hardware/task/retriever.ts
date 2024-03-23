@@ -12,6 +12,7 @@ import { z } from "zod";
 
 import { rackKeyZ } from "@/hardware/rack/payload";
 import { type Task, taskZ } from "@/hardware/task/payload";
+import { nullableArrayZ } from "@/util/zod";
 
 const retrieveReqZ = z.object({
   rack: rackKeyZ.optional(),
@@ -21,7 +22,7 @@ const retrieveReqZ = z.object({
 });
 
 const rerieveResS = z.object({
-  tasks: taskZ.array(),
+  tasks: nullableArrayZ(taskZ),
 });
 
 export type RetrieveRequest = z.infer<typeof retrieveReqZ>;

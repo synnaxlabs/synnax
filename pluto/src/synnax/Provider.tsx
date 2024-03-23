@@ -83,6 +83,15 @@ export const Provider = Aether.wrap<ProviderProps>(
         connectivityPollFrequency: TimeSpan.seconds(5),
       });
 
+      setState({
+        synnax: c,
+        state: {
+          clusterKey: "",
+          status: "connecting",
+          message: "Connecting...",
+        },
+      });
+
       const connectivity = await c.connectivity.check();
 
       setState({

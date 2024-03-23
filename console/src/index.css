@@ -9,10 +9,6 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-form {
-    padding: 1rem 3rem;
-}
-
 html {
     overscroll-behavior: none;
     overflow: hidden;

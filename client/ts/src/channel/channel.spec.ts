@@ -10,7 +10,7 @@
 import { DataType, Rate } from "@synnaxlabs/x";
 import { describe, test, expect } from "vitest";
 
-import { QueryError } from "@/errors";
+import { NotFoundError, QueryError } from "@/errors";
 import { newClient } from "@/setupspecs";
 
 const client = newClient();
@@ -70,7 +70,7 @@ describe("Channel", () => {
   });
   test("retrieve by key - not found", async () => {
     await expect(async () => await client.channels.retrieve("1-1000")).rejects.toThrow(
-      QueryError,
+      NotFoundError,
     );
   });
 

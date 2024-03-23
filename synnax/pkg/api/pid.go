@@ -12,7 +12,6 @@ package api
 import (
 	"context"
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/api/errors"
 	"github.com/synnaxlabs/synnax/pkg/workspace/pid"
 	"github.com/synnaxlabs/x/gorp"
 	"go/types"
@@ -70,7 +69,7 @@ type PIDSetDataRequest struct {
 
 func (s *PIDService) SetData(ctx context.Context, req PIDSetDataRequest) (res types.Nil, err error) {
 	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
-		return errors.Auto(s.internal.NewWriter(tx).SetData(ctx, req.Key, req.Data))
+		return s.internal.NewWriter(tx).SetData(ctx, req.Key, req.Data)
 	})
 }
 
@@ -110,6 +109,6 @@ type PIDCopyResponse struct {
 
 func (s *PIDService) Copy(ctx context.Context, req PIDCopyRequest) (res PIDCopyResponse, err error) {
 	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
-		return errors.Auto(s.internal.NewWriter(tx).Copy(ctx, req.Key, req.Name, req.Snapshot, &res.PID))
+		return s.internal.NewWriter(tx).Copy(ctx, req.Key, req.Name, req.Snapshot, &res.PID)
 	})
 }

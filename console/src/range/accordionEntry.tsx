@@ -109,6 +109,12 @@ export const List = (): ReactElement => {
     })();
   };
 
+  const handleSetActive = (key: string): void => {
+    void (async () => {
+      await client?.ranges.setActive(key);
+    })();
+  };
+
   const ContextMenu = ({
     keys: [key],
   }: PMenu.ContextMenuMenuProps): ReactElement | null => {
@@ -129,6 +135,9 @@ export const List = (): ReactElement => {
         case "save":
           if (rng == null) return;
           return handleSave(rng.key);
+        case "setActive":
+          if (rng == null) return;
+          return handleSetActive(rng.key);
       }
     };
     return (
@@ -229,7 +238,7 @@ const ListItem = (props: ListItemProps): ReactElement => {
           }}
         >
           {labels.map((l) => (
-            <Tag.Tag key={l.key} level="small" color={l.color}>
+            <Tag.Tag key={l.key} size="small" color={l.color}>
               {l.name}
             </Tag.Tag>
           ))}

@@ -67,6 +67,5 @@ const reconcileVersions = async <S extends RequiredState>(
   const storedVersion = state.version.version;
   const tauriVersion = await getVersion();
   if (storedVersion !== tauriVersion) return undefined;
-  state.cluster.localState.status = "stopped";
   return state;
 };

@@ -49,6 +49,7 @@ const handleDelete = async ({
   selection: { resources },
 }: Ontology.TreeContextMenuProps): Promise<void> => {
   const keys = resources.map((r) => r.id.key);
+  console.log("DELETE", keys);
   await client.ranges.delete(keys);
   store.dispatch(remove({ keys }));
 };

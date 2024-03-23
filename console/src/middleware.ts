@@ -31,11 +31,10 @@ export const effectMiddleware =
   ): Middleware<Dispatch<PayloadAction<LP>>, S, Dispatch<PayloadAction<LP>>> =>
   ({ getState, dispatch }) =>
   (next) =>
-  (action: PayloadAction<LP>) => {
-    const state = next(action);
+  (unknownAction) => {
+    const action = unknownAction as PayloadAction<LP>;
+    const state = next(unknownAction);
     if (deps.includes(action.type))
-      effects.forEach((factory) => {
-        factory({ getState, dispatch, action });
-      });
+      effects.forEach((factory) => factory({ getState, dispatch, action }));
     return state;
   };

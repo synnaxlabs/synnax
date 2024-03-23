@@ -100,6 +100,9 @@ importers:
       '@synnaxlabs/x':
         specifier: workspace:*
         version: link:../../x/ts
+      async-mutex:
+        specifier: ^0.4.0
+        version: 0.4.0
       zod:
         specifier: 3.22.4
         version: 3.22.4
@@ -116,6 +119,9 @@ importers:
       '@vitest/coverage-v8':
         specifier: 1.2.2
         version: 1.2.2(vitest@1.2.2)
+      eslint:
+        specifier: ^8.55.0
+        version: 8.56.0
       eslint-config-synnaxlabs:
         specifier: workspace:*
         version: link:../../configs/eslint
@@ -558,7 +564,7 @@ importers:
         version: 0.17.0(@types/react@18.2.48)
       '@synnaxlabs/x':
         specifier: ^0.10.0
-        version: link:../x/ts
+        version: 0.10.0
       '@typeform/embed':
         specifier: ^4.5.0
         version: 4.8.1
@@ -869,6 +875,9 @@ importers:
       '@vitest/coverage-v8':
         specifier: 1.2.2
         version: 1.2.2(vitest@1.2.2)
+      eslint:
+        specifier: ^8.55.0
+        version: 8.56.0
       eslint-config-synnaxlabs:
         specifier: workspace:*
         version: link:../../configs/eslint
