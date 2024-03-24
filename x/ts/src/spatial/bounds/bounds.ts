@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { type Bounds, bounds, type CrudeBounds } from "@/spatial/base";
-import { resolveObjectURL } from "buffer";
 
 export { type Bounds, bounds };
 

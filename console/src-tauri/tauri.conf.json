@@ -8,7 +8,7 @@
   },
   "package": {
     "productName": "Synnax",
-    "version": "0.18.7"
+    "version": "0.19.2"
   },
   "tauri": {
     "allowlist": {
@@ -59,7 +59,8 @@
       }
     },
     "security": {
-      "csp": null
+      "csp": null,
+      "dangerousUseHttpScheme": true
     },
     "updater": {
       "active": true,

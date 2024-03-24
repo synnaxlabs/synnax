@@ -42,7 +42,7 @@ def create_valve_set(
     return press_end_cmd_time, press_en_cmd, press_en, daq_time
 
 
-@pytest.mark.control
+@pytest.mark.controller
 class TestController:
     def test_valve_toggle(self, client: sy.Synnax):
         press_end_cmd_time, press_en_cmd, press_en, daq_time = create_valve_set(client)

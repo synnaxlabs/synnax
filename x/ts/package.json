@@ -33,6 +33,7 @@
     "@synnaxlabs/vite-plugin": "workspace:*",
     "@types/node": "^20.8.7",
     "@vitest/coverage-v8": "^1.2.2",
+    "eslint": "^8.55.0",
     "eslint-config-synnaxlabs": "workspace:*",
     "vite": "^5.1.2",
     "vitest": "^1.2.2"

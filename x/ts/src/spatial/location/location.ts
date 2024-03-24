@@ -26,6 +26,8 @@ import {
   type Direction,
   crudeLocation,
   type CrudeLocation,
+  centerlocation,
+  type CenterLocation,
 } from "@/spatial/base";
 
 export {
@@ -43,6 +45,7 @@ export const y = yLocation;
 export type X = XLocation;
 export type Y = YLocation;
 export type Outer = OuterLocation;
+export type Center = CenterLocation;
 
 const SWAPPED: Record<Location, Location> = {
   top: "bottom",
@@ -81,55 +84,90 @@ export const direction = (cl: Crude): Direction => {
   return "x";
 };
 
-export const xy = z.object({ x: location, y: location });
+export const xy = z.object({
+  x: xLocation.or(centerlocation),
+  y: yLocation.or(centerlocation),
+});
 export const corner = z.object({ x: xLocation, y: yLocation });
 
 export type XY = z.infer<typeof xy>;
 export type CornerXY = z.infer<typeof corner>;
 export type CornerXYString = "topLeft" | "topRight" | "bottomLeft" | "bottomRight";
 
-export const TOP_LEFT: CornerXY = { x: "left", y: "top" };
-export const TOP_RIGHT: CornerXY = { x: "right", y: "top" };
-export const BOTTOM_LEFT: CornerXY = { x: "left", y: "bottom" };
-export const BOTTOM_RIGHT: CornerXY = { x: "right", y: "bottom" };
-export const CENTER: XY = { x: "center", y: "center" };
-export const TOP_CENTER: XY = { x: "center", y: "top" };
-export const BOTTOM_CENTER: XY = { x: "center", y: "bottom" };
-export const RIGHT_CENTER: XY = { x: "right", y: "center" };
-export const LEFT_CENTER: XY = { x: "left", y: "center" };
+export const TOP_LEFT: CornerXY = Object.freeze({ x: "left", y: "top" });
+export const TOP_RIGHT: CornerXY = Object.freeze({ x: "right", y: "top" });
+export const BOTTOM_LEFT: CornerXY = Object.freeze({ x: "left", y: "bottom" });
+export const BOTTOM_RIGHT: CornerXY = Object.freeze({ x: "right", y: "bottom" });
+export const CENTER: XY = Object.freeze({ x: "center", y: "center" });
+export const TOP_CENTER: XY = Object.freeze({ x: "center", y: "top" });
+export const BOTTOM_CENTER: XY = Object.freeze({ x: "center", y: "bottom" });
+export const RIGHT_CENTER: XY = Object.freeze({ x: "right", y: "center" });
+export const LEFT_CENTER: XY = Object.freeze({ x: "left", y: "center" });
+export const XY_LOCATIONS: readonly XY[] = Object.freeze([
+  LEFT_CENTER,
+  RIGHT_CENTER,
+  TOP_CENTER,
+  BOTTOM_CENTER,
+  TOP_LEFT,
+  TOP_RIGHT,
+  BOTTOM_LEFT,
+  BOTTOM_RIGHT,
+  CENTER,
+]);
 
 export const xyEquals = (a: XY, b: XY): boolean => a.x === b.x && a.y === b.y;
 
+export const xyMatches = (a: XY, l: Partial<XY> | Location): boolean => {
+  if (typeof l === "object") {
+    let ok = true;
+    if ("x" in l) {
+      const ok_ = a.x === l.x;
+      if (!ok_) ok = false;
+    }
+    if ("y" in l) {
+      const ok_ = a.y === l.y;
+      if (!ok_) ok = false;
+    }
+    return ok;
+  }
+  return a.x === l || a.y === l;
+};
+
 export const xyCouple = (a: XY): [Location, Location] => [a.x, a.y];
 
-export const isX = (a: Crude): boolean => direction(construct(a)) === "x";
+export const isX = (a: Crude): a is XLocation | CenterLocation =>
+  direction(construct(a)) === "x";
 
-export const isY = (a: Crude): boolean => direction(construct(a)) === "y";
+export const isY = (a: Crude): a is YLocation => direction(construct(a)) === "y";
 
 export const xyToString = (a: XY): string => `${a.x}${Case.capitalize(a.y)}`;
 
 export const constructXY = (x: Crude | XY, y?: Crude): XY => {
-  let one: Location;
-  let two: Location;
+  let parsedX: Location;
+  let parsedY: Location;
   if (typeof x === "object" && "x" in x) {
-    one = x.x;
-    two = x.y;
+    parsedX = x.x;
+    parsedY = x.y;
   } else {
-    one = construct(x);
-    two = construct(y ?? x);
+    parsedX = construct(x);
+    parsedY = construct(y ?? x);
   }
-  if (direction(one) === direction(two) && one !== "center" && two !== "center")
+  if (
+    direction(parsedX) === direction(parsedY) &&
+    parsedX !== "center" &&
+    parsedY !== "center"
+  )
     throw new Error(
-      `[XYLocation] - encountered two locations with the same direction: ${one.toString()} - ${two.toString()}`,
+      `[XYLocation] - encountered two locations with the same direction: ${parsedX.toString()} - ${parsedY.toString()}`,
     );
-  const xy = CENTER;
-  if (one === "center") {
-    if (direction(two) === "x") [xy.x, xy.y] = [two, one];
-    else [xy.x, xy.y] = [one, two];
-  } else if (two === "center") {
-    if (direction(one) === "x") [xy.x, xy.y] = [one, two];
-    else [xy.x, xy.y] = [two, one];
-  } else if (direction(one) === "x") [xy.x, xy.y] = [one, two];
-  else [xy.x, xy.y] = [two, one];
+  const xy = { ...CENTER };
+  if (parsedX === "center") {
+    if (isX(parsedY)) [xy.x, xy.y] = [parsedY, parsedX];
+    else [xy.x, xy.y] = [parsedX, parsedY];
+  } else if (parsedY === "center") {
+    if (isX(parsedX)) [xy.x, xy.y] = [parsedX, parsedY];
+    else [xy.x, xy.y] = [parsedY, parsedX];
+  } else if (isX(parsedX)) [xy.x, xy.y] = [parsedX, parsedY as YLocation];
+  else [xy.x, xy.y] = [parsedY as XLocation, parsedX as YLocation];
   return xy;
 };

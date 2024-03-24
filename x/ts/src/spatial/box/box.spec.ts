@@ -9,9 +9,9 @@
 
 import { describe, test, expect, it } from "vitest";
 
-import * as box from "@/spatial/box";
-import * as location from "@/spatial/location";
-import type * as xy from "@/spatial/xy";
+import * as box from "@/spatial/box/box";
+import * as location from "@/spatial/location/location";
+import type * as xy from "@/spatial/xy/xy";
 
 describe("Box", () => {
   describe("construction", () => {
@@ -45,6 +45,20 @@ describe("Box", () => {
     });
     test("from raw params", () => {
       const b = box.construct(0, 0, 10, 10);
+      expect(box.topLeft(b)).toEqual({ x: 0, y: 0 });
+      expect(box.topRight(b)).toEqual({ x: 10, y: 0 });
+      expect(box.bottomLeft(b)).toEqual({ x: 0, y: 10 });
+      expect(box.bottomRight(b)).toEqual({ x: 10, y: 10 });
+    });
+    test("from first coordinate and raw params", () => {
+      const b = box.construct({ x: 0, y: 0 }, 10, 10);
+      expect(box.topLeft(b)).toEqual({ x: 0, y: 0 });
+      expect(box.topRight(b)).toEqual({ x: 10, y: 0 });
+      expect(box.bottomLeft(b)).toEqual({ x: 0, y: 10 });
+      expect(box.bottomRight(b)).toEqual({ x: 10, y: 10 });
+    });
+    test("from first coordinate and raw params 2", () => {
+      const b = box.construct({ x: 0, y: 0 }, undefined, 10, 10);
       expect(box.topLeft(b)).toEqual({ x: 0, y: 0 });
       expect(box.topRight(b)).toEqual({ x: 10, y: 0 });
       expect(box.bottomLeft(b)).toEqual({ x: 0, y: 10 });
@@ -132,6 +146,95 @@ describe("Box", () => {
       expect(box.topRight(b)).toEqual({ x: 15, y: 5 });
       expect(box.bottomLeft(b)).toEqual({ x: 5, y: 15 });
       expect(box.bottomRight(b)).toEqual({ x: 15, y: 15 });
+    });
+  });
+  describe("constructWithAlternateRoot", () => {
+    it("should construct a box with the given root", () => {
+      const b = box.constructWithAlternateRoot(
+        10,
+        10,
+        10,
+        10,
+        location.BOTTOM_RIGHT,
+        location.TOP_LEFT,
+      );
+      expect(box.topLeft(b)).toEqual({ x: 0, y: 0 });
+      const b2 = box.constructWithAlternateRoot(
+        10,
+        10,
+        10,
+        10,
+        location.TOP_LEFT,
+        location.TOP_LEFT,
+      );
+      expect(box.topLeft(b2)).toEqual({ x: 10, y: 10 });
+      const b3 = box.constructWithAlternateRoot(
+        10,
+        10,
+        10,
+        10,
+        location.BOTTOM_LEFT,
+        location.TOP_LEFT,
+      );
+      expect(box.topLeft(b3)).toEqual({ x: 10, y: 0 });
+    });
+  });
+  describe("resize", () => {
+    it("should resize the x dimension of the box", () => {
+      const b = box.construct(0, 0, 10, 10);
+      const b2 = box.resize(b, "x", 20);
+      expect(box.height(b2)).toBe(10);
+      expect(box.width(b2)).toBe(20);
+      expect(box.topLeft(b2)).toEqual({ x: 0, y: 0 });
+      expect(box.topRight(b2)).toEqual({ x: 20, y: 0 });
+      expect(box.bottomLeft(b2)).toEqual({ x: 0, y: 10 });
+      expect(box.bottomRight(b2)).toEqual({ x: 20, y: 10 });
+    });
+    it("should resize the y dimension of the box", () => {
+      const b = box.construct(0, 0, 10, 10);
+      const b2 = box.resize(b, "y", 20);
+      expect(box.height(b2)).toBe(20);
+      expect(box.width(b2)).toBe(10);
+      expect(box.topLeft(b2)).toEqual({ x: 0, y: 0 });
+      expect(box.topRight(b2)).toEqual({ x: 10, y: 0 });
+      expect(box.bottomLeft(b2)).toEqual({ x: 0, y: 20 });
+      expect(box.bottomRight(b2)).toEqual({ x: 10, y: 20 });
+    });
+    it("should resize both dimensions of the box", () => {
+      const b = box.construct(0, 0, 10, 10);
+      const b2 = box.resize(b, { width: 20, height: 20 });
+      expect(box.height(b2)).toBe(20);
+      expect(box.width(b2)).toBe(20);
+      expect(box.topLeft(b2)).toEqual({ x: 0, y: 0 });
+      expect(box.topRight(b2)).toEqual({ x: 20, y: 0 });
+      expect(box.bottomLeft(b2)).toEqual({ x: 0, y: 20 });
+      expect(box.bottomRight(b2)).toEqual({ x: 20, y: 20 });
+    });
+  });
+  describe("translate", () => {
+    it("should translate the box by the given coordinate", () => {
+      const b = box.construct(0, 0, 10, 10);
+      const b2 = box.translate(b, { x: 10, y: 10 });
+      expect(box.topLeft(b2)).toEqual({ x: 10, y: 10 });
+      expect(box.topRight(b2)).toEqual({ x: 20, y: 10 });
+      expect(box.bottomLeft(b2)).toEqual({ x: 10, y: 20 });
+      expect(box.bottomRight(b2)).toEqual({ x: 20, y: 20 });
+    });
+    it("should translate the box by the given x amount", () => {
+      const b = box.construct(0, 0, 10, 10);
+      const b2 = box.translate(b, "x", 10);
+      expect(box.topLeft(b2)).toEqual({ x: 10, y: 0 });
+      expect(box.topRight(b2)).toEqual({ x: 20, y: 0 });
+      expect(box.bottomLeft(b2)).toEqual({ x: 10, y: 10 });
+      expect(box.bottomRight(b2)).toEqual({ x: 20, y: 10 });
+    });
+    it("should translate the box by the given y amount", () => {
+      const b = box.construct(0, 0, 10, 10);
+      const b2 = box.translate(b, "y", 10);
+      expect(box.topLeft(b2)).toEqual({ x: 0, y: 10 });
+      expect(box.topRight(b2)).toEqual({ x: 10, y: 10 });
+      expect(box.bottomLeft(b2)).toEqual({ x: 0, y: 20 });
+      expect(box.bottomRight(b2)).toEqual({ x: 10, y: 20 });
     });
   });
 });
