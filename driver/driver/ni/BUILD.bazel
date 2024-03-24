@@ -33,6 +33,7 @@ cc_library(
         "//driver/breaker:breaker",
         "//driver/pipeline:acqReader",
         "//driver/modules:module",
+        "//driver/errors:errors",
         "@synnax//synnax/testutil",
     ],
     copts = ["/std:c++17"],

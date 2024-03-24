@@ -44,8 +44,8 @@ void Acq::run() {
     // start daq read
     auto dq_err = daq_reader->start();
     if (!dq_err.ok()) { // daq read error
-        if (dq_err.type == TYPE_TRANSIENT_HARDWARE_ERROR && breaker->wait()) run();
-        else if(dq_err.type == TYPE_PERMANENT_HARDWARE_ERROR) {
+        if (dq_err.type == driver::TYPE_TRANSIENT_HARDWARE_ERROR && breaker->wait()) run();
+        else if(dq_err.type == driver::TYPE_PERMANENT_HARDWARE_ERROR) {
             this->error_info = daq_reader->getErrorInfo();
             daq_reader->stop(); // TODO: remove this line? Error Handling
             return;
@@ -67,8 +67,8 @@ void Acq::run() {
         auto [frame, error] = daq_reader->read();
         if (!error.ok()) {
             // Any other type means we've encountered a critical hardware failure
-            retry = error.type == TYPE_TRANSIENT_HARDWARE_ERROR;
-            if(error.type == TYPE_PERMANENT_HARDWARE_ERROR) {
+            retry = error.type == driver::TYPE_TRANSIENT_HARDWARE_ERROR;
+            if(error.type == driver::TYPE_PERMANENT_HARDWARE_ERROR) {
                 this->error_info = daq_reader->getErrorInfo();
                 daq_reader->stop(); // TODO: remove this line? Error Handling
                 return;

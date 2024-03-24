@@ -20,12 +20,12 @@
 #include <cassert>
 
 using json = nlohmann::json;
-using namespace ni;
+using namespace ni; // TODO; remove
 
 ///////////////////////////////////////////////////////////////////////////////////
 // NI Error Handling
 ///////////////////////////////////////////////////////////////////////////////////
-int checkNIError(int32 error, json &errInfo){
+int ni::checkNIError(int32 error, json &errInfo){
     if(error < 0){
         char errBuff[2048] = {'\0'};
         DAQmxGetExtendedErrorInfo(errBuff,2048);
@@ -41,7 +41,7 @@ int checkNIError(int32 error, json &errInfo){
 
 niDaqReader::niDaqReader(TaskHandle taskHandle) : taskHandle(taskHandle) {}
 
-std::pair<json,int32> ni::niDaqReader::init(json config, uint64_t acquisition_rate, uint64_t stream_rate) {
+std::pair<json,int> ni::niDaqReader::init(json config, uint64_t acquisition_rate, uint64_t stream_rate) {
     std::cout << "Init Reader" << std::endl;
     std::vector<channel_config> channel_configs;
     auto channels = config["channels"];
@@ -74,6 +74,7 @@ std::pair<json,int32> ni::niDaqReader::init(json config, uint64_t acquisition_ra
     if(err < 0){
         return {err_info, -1};
     }
+    return {err_info, 0};
 }
 
 // TODO: I want to make a producer consumer model here instead? This works for now but come back to
@@ -147,7 +148,9 @@ std::pair<json,int> ni::niDaqReader::init(std::vector<channel_config> channels, 
     this->bufferSize = this->numChannels*this->numSamplesPerChannel;
     this->data = new double[bufferSize];
     this->digitalData = new uInt8[bufferSize]; // TODO don't let multiple news happen
+    return {this->errInfo, 0};
 }
+
 
 freighter::Error ni::niDaqReader::configure(synnax::Module config){
     return freighter::NIL;
@@ -157,7 +160,7 @@ freighter::Error ni::niDaqReader::start(){
    auto err = ni::checkNIError(DAQmxStartTask(taskHandle),
                                this->errInfo);
    if(err < 0){
-       return freighter::Error(TYPE_CRITICAL_HARDWARE_ERROR);
+       return freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
    }
    return freighter::NIL;
 }
@@ -167,12 +170,12 @@ freighter::Error ni::niDaqReader::stop(){ //TODO: don't let multiple closes happ
     auto err1 = ni::checkNIError(DAQmxStopTask(taskHandle),
                                 this->errInfo);
     if(err1 < 0){
-        err = freighter::Error(TYPE_CRITICAL_HARDWARE_ERROR);
+        err = freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
     }
     auto err2 = ni::checkNIError(DAQmxClearTask(taskHandle),
                                  this->errInfo);
     if(err2 < 0){
-        err = freighter::Error(TYPE_CRITICAL_HARDWARE_ERROR);
+        err = freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
     }
     delete[] data; // free the data buffer TODO: change this to a smart pointer
     delete[] digitalData; // free the digital data buffer TODO: change this to a smart pointer
@@ -197,7 +200,7 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readAnalog(){
                                    NULL),
                            this->errInfo);
     if (err < 0) {
-        return{NULL, TYPE_CRITICAL_HARDWARE_ERROR};
+        return{std::move(f), driver::TYPE_CRITICAL_HARDWARE_ERROR};
     }
 
     std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
@@ -213,7 +216,7 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readAnalog(){
                            errInfo);
     std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
    if (err < 0) {
-        return{NULL, TYPE_CRITICAL_HARDWARE_ERROR};
+        return{std::move(f), driver::TYPE_CRITICAL_HARDWARE_ERROR};
     }
     // we interpolate the timestamps between the initial and final timestamp to ensure non-overlapping timestamps between read iterations
     uint64_t diff = final_timestamp - initial_timestamp;
@@ -254,7 +257,7 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readDigital(){
     int err = 0;
     //initial read to flush buffer
     std::cout << "Flushing buffer" << std::endl;
-    err = ni::CheckNIError(DAQmxReadDigitalLines(this->taskHandle, //TODO: come back to and make sure this call to flush will be fine at any scale (elham)
+    err = ni::checkNIError(DAQmxReadDigitalLines(this->taskHandle, //TODO: come back to and make sure this call to flush will be fine at any scale (elham)
                                      -1, // reads all available samples in the buffer
                                      -1,
                                      DAQmx_Val_GroupByChannel,
@@ -265,12 +268,12 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readDigital(){
                                      NULL),
                            this->errInfo);
     if (err < 0) {
-        return{NULL, TYPE_CRITICAL_HARDWARE_ERROR};
+        return{std::move(f), driver::TYPE_CRITICAL_HARDWARE_ERROR};
     }
     std::cout << "performing actual read" << std::endl;
     std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
     // actual read to of digital lines
-    err = ni::CheckNIError(DAQmxReadDigitalLines(this->taskHandle,                                      //task handle
+    err = ni::checkNIError(DAQmxReadDigitalLines(this->taskHandle,                                      //task handle
                                      this->numSamplesPerChannel,                            //numSampsPerChan
                                      -1,                                                    //timeout
                                      DAQmx_Val_GroupByChannel,                              //dataLayout
@@ -282,7 +285,7 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readDigital(){
                            this->errInfo);                                                 //reserved
     std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
     if (err < 0) {
-        return{NULL, TYPE_CRITICAL_HARDWARE_ERROR};
+        return{std::move(f), driver::TYPE_CRITICAL_HARDWARE_ERROR};
     }
     std::cout << "Read complete " << std::endl;
     std::cout << "Samples Read: " << samplesRead << std::endl;
@@ -332,7 +335,7 @@ json ni::niDaqReader::getErrorInfo() {
     if(errInfo.empty()){
         return NULL;
     } else {
-        this->stop()
+        this->stop();
         return errInfo;
     }
 }
@@ -379,6 +382,7 @@ std::pair<json,int> niDaqWriter::init(json config, synnax::ChannelKey ack_index_
     if(err < 0){
         return {error_info, -1};
     }
+    return {error_info, 0};
 }
 
 std::pair<json,int> ni::niDaqWriter::init(std::vector <channel_config> channels){
@@ -405,6 +409,7 @@ std::pair<json,int> ni::niDaqWriter::init(std::vector <channel_config> channels)
     for(int i = 0; i < this->bufferSize; i++){
         writeBuffer[i] = 0;
     }
+    return {this->errInfo, 0};
 }
 
 freighter::Error ni::niDaqWriter::configure(synnax::Module config){
@@ -415,7 +420,7 @@ freighter::Error ni::niDaqWriter::start(){
     auto err = ni::checkNIError(DAQmxStartTask(taskHandle),
                                 this->errInfo);
     if(err < 0){
-        return freighter::Error(TYPE_CRITICAL_HARDWARE_ERROR);
+        return freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
     }
     return freighter::NIL;
 }
@@ -426,12 +431,12 @@ freighter::Error ni::niDaqWriter::stop(){
     auto err1 = ni::checkNIError(DAQmxStopTask(taskHandle),
                                  this->errInfo);
     if(err1 < 0){
-        err = freighter::Error(TYPE_CRITICAL_HARDWARE_ERROR);
+        err = freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
     }
     auto err2 = ni::checkNIError(DAQmxClearTask(taskHandle),
                                  this->errInfo);
     if(err2 < 0){
-        err = freighter::Error(TYPE_CRITICAL_HARDWARE_ERROR);
+        err = freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
     }
     DAQmxClearTask(taskHandle);
     delete[] writeBuffer;
@@ -462,7 +467,7 @@ std::pair <synnax::Frame, freighter::Error> ni::niDaqWriter::writeDigital(synnax
                                         NULL),
                            this->errInfo); // reserved
     if(err < 0){
-       return {NULL, TYPE_CRITICAL_HARDWARE_ERROR};
+       return {synnax::Frame(0), driver::TYPE_CRITICAL_HARDWARE_ERROR};
     }
     // Construct acknowledgement frame
     auto ack_frame = synnax::Frame(ack_queue.size() + 1);
@@ -501,7 +506,7 @@ json ni::niDaqWriter::getErrorInfo() {
     if(errInfo.empty()){
         return NULL;
     } else {
-        this->stop()
+        this->stop();
         return errInfo;
     }
 }

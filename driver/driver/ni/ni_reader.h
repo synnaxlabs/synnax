@@ -15,6 +15,7 @@
 #include "driver/pipeline/acqReader.h"
 #include "driver/modules/module.h"
 #include <queue>
+#include "driver/errors/errors.h"
 
 namespace ni {
     typedef enum {
