@@ -19,6 +19,12 @@ func configureRootFlags() {
 		"config file",
 	)
 
+	rootCmd.Flags().Bool(
+		"version",
+		false,
+		"Print the version of Synnax",
+	)
+
 	rootCmd.PersistentFlags().String(
 		"certs-dir",
 		cert.DefaultLoaderConfig.CertsDir,
