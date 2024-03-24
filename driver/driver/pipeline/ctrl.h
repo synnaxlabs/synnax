@@ -24,6 +24,7 @@ namespace pipeline {
              std::shared_ptr<synnax::Synnax> client,
              std::unique_ptr<daq::daqWriter> daq_writer);
         Ctrl();
+        void setStateChannelKey(synnax::ChannelKey state_channel_key, synnax::ChannelKey state_channel_idx_key);
 
     private:
 /// @brief threading.
@@ -52,7 +53,13 @@ namespace pipeline {
         synnax::TimeSpan commit_interval = synnax::TimeSpan(1); // TODO: comeback to and move to constructor?
         synnax::TimeStamp last_commit;
 
+        /// @brief error handling
+        json error_info;
+        synnax::ChannelKey state_channel_key;
+        synnax::ChannelKey state_channel_idx_key;
+        std::unqiue_ptr<synnax::Writer> state_writer;
+        std::WriterConfig state_writer_config;
 
-
+        void postError();
     };
 }

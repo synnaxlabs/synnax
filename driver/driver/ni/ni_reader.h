@@ -46,13 +46,14 @@ namespace ni {
     class niDaqReader : public daq::AcqReader { // public keyword required to store pointer to niDaqreader in a pointer to acqReader
     public:
         niDaqReader(TaskHandle taskHandle);
-        void init(std::vector <channel_config> channels, uint64_t acquisition_rate, uint64_t stream_rate);
-        void init(json channels, uint64_t acquisition_rate, uint64_t stream_rate);
+        std::pair<json,int> init(std::vector <channel_config> channels, uint64_t acquisition_rate, uint64_t stream_rate);
+        std::pair<json, int> init(json channels, uint64_t acquisition_rate, uint64_t stream_rate);
         std::pair <synnax::Frame, freighter::Error> read();
         freighter::Error configure(synnax::Module config);  // TODO: remove
         freighter::Error stop();
         freighter::Error start();
 //        freighter::Error parseJSONConfig(json config);
+        json getErrorInfo();
     private:
         std::vector <channel_config> channels;
         std::uint64_t acq_rate = 0;
@@ -66,19 +67,22 @@ namespace ni {
         uInt8* digitalData; /// @brief pointer to heap allocated dataBuffer to provide to DAQmx read functions
         int bufferSize = 0; // size of the data buffer
         int numSamplesPerChannel =0 ;
+        json errInfo;
     };
+
 
     class   niDaqWriter : public daq::daqWriter {
     public:
         niDaqWriter(TaskHandle taskHandle);
-        void init(std::vector <channel_config> channels);
-        void init(json channels, synnax::ChannelKey ack_index_key);
+        std::pair<json,int> init(std::vector <channel_config> channels);
+        std::pair<json,int> init(json channels, synnax::ChannelKey ack_index_key);
         std::pair <synnax::Frame, freighter::Error> write(synnax::Frame frame);
         freighter::Error configure(synnax::Module config);  // TODO: remove
         std::pair <synnax::Frame, freighter::Error> writeDigital(synnax::Frame frame);
         freighter::Error stop();
         freighter::Error start();
         freighter::Error formatData(synnax::Frame frame);
+        json getErrorInfo();
     private:
         std::vector <channel_config> channels;
         std::int64_t numChannels = 0;
@@ -92,5 +96,8 @@ namespace ni {
         std::vector<synnax::ChannelKey> cmd_channel_keys;
         std::queue<synnax::ChannelKey> ack_queue; // queue of ack channels to write to
         synnax::ChannelKey ack_index_key;
+        json errInfo;
     };
+    // Global Function for DAQmx Error Handling
+    int checkNIError(int32 error, json &errInfo);
 }

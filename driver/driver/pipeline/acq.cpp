@@ -45,6 +45,11 @@ void Acq::run() {
     auto dq_err = daq_reader->start();
     if (!dq_err.ok()) { // daq read error
         if (dq_err.type == TYPE_TRANSIENT_HARDWARE_ERROR && breaker->wait()) run();
+        else if(dq_err.type == TYPE_PERMANENT_HARDWARE_ERROR) {
+            this->error_info = daq_reader->getErrorInfo();
+            daq_reader->stop(); // TODO: remove this line? Error Handling
+            return;
+        }
         return;
     }
 
@@ -62,8 +67,12 @@ void Acq::run() {
         auto [frame, error] = daq_reader->read();
         if (!error.ok()) {
             // Any other type means we've encountered a critical hardware failure
-            // or configuration error and can't proceed.
             retry = error.type == TYPE_TRANSIENT_HARDWARE_ERROR;
+            if(error.type == TYPE_PERMANENT_HARDWARE_ERROR) {
+                this->error_info = daq_reader->getErrorInfo();
+                daq_reader->stop(); // TODO: remove this line? Error Handling
+                return;
+            }
         }
 
         if (!writer.write(std::move(frame))) { // write frame to channel
@@ -87,10 +96,29 @@ void Acq::run() {
             last_commit = now;
         }
     }
-    daq_reader->stop();
+    daq_reader->stop(); // TODO: catch error
     auto err = writer.close();
     if (retry && breaker->wait()) run();
 }
 
+void Acq::setStateChannelKey(synnax::ChannelKey state_channel_key, synnax::ChannelKey state_channel_idx_key) {
+    this->state_channel_key = state_channel_key;
+    this->state_channel_idx_key = state_channel_idx_key;
 
+    this->state_writer_config = synnax::WriterConfig{
+        std::vector<synnax::ChannelKey>{state_channel_key, state_channel_idx_key},
+        synnax::TimeStamp::now(),
+        std::vector<synnax::Authority>{synnax::ABSOLUTTE, synnax::ABSOLUTTE},
+        synnax::Subject{"state_writer"}
+    };
+    freighter::Error wErr;
+    [state_writer,wErr] = client->telem.openWriter(state_writer_config); // perform error handling for opening stateWriter
+}
 
+void Acq::postError() {
+    auto frame = synnax::Frame(2);
+    frame.add(state_channel_idx_key, synnax::Series(std::vector<uint64_t>{synnax::TimeStamp::now().value}, synnax::TIMESTAMP));
+    frame.add(state_channel_key, synnax::Series(std::vector<string>{this->error_info.dump()}));
+    state_writer.write(std::move(frame));
+    state_writer.commit();
+}

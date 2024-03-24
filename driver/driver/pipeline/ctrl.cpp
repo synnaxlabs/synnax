@@ -110,7 +110,27 @@ void Ctrl::run(){
     if (retry && breaker->wait()) run();
 }
 
+void Acq::setStateChannelKey(synnax::ChannelKey state_channel_key, synnax::ChannelKey state_channel_idx_key) {
+    this->state_channel_key = state_channel_key;
+    this->state_channel_idx_key = state_channel_idx_key;
 
+    this->state_writer_config = synnax::WriterConfig{
+            std::vector<synnax::ChannelKey>{state_channel_key, state_channel_idx_key},
+            synnax::TimeStamp::now(),
+            std::vector<synnax::Authority>{synnax::ABSOLUTTE, synnax::ABSOLUTTE},
+            synnax::Subject{"state_writer"}
+    };
+    freighter::Error wErr;
+    [state_writer,wErr] = client->telem.openWriter(state_writer_config); // perform error handling for opening stateWriter
+}
+
+void Acq::postError() {
+    auto frame = synnax::Frame(2);
+    frame.add(state_channel_idx_key, synnax::Series(std::vector<uint64_t>{synnax::TimeStamp::now().value}, synnax::TIMESTAMP));
+    frame.add(state_channel_key, synnax::Series(std::vector<string>{this->error_info.dump()}));
+    state_writer.write(std::move(frame));
+    state_writer.commit();
+}
 //void Inbound::execute() {
 //    daq_writer->start();
 //    while (running) {

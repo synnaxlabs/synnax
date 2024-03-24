@@ -74,16 +74,19 @@ public:
 
     std::unique_ptr <NiAnalogReaderTask> createAnalogReaderTask(TaskHandle taskhandle,
                                                                 std::shared_ptr<synnax::Synnax> client,
+                                                                bool &valid_config,
                                                                 const json &config,
                                                                 json &config_err);
 
     std::unique_ptr <NiDigitalReaderTask> createDigitalReaderTask(TaskHandle taskhandle,
                                                                 std::shared_ptr<synnax::Synnax> client,
+                                                                bool &valid_config,
                                                                 const json &config,
                                                                 json &config_err);
 
     std::unique_ptr <NiDigitalWriterTask> createDigitalWriterTask(TaskHandle taskhandle,
                                                                 std::shared_ptr<synnax::Synnax> client,
+                                                                bool &valid_config,
                                                                 const json &config,
                                                                 json &config_err);
 

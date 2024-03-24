@@ -23,12 +23,25 @@ using json = nlohmann::json;
 using namespace ni;
 
 ///////////////////////////////////////////////////////////////////////////////////
+// NI Error Handling
+///////////////////////////////////////////////////////////////////////////////////
+int checkNIError(int32 error, json &errInfo){
+    if(error < 0){
+        char errBuff[2048] = {'\0'};
+        DAQmxGetExtendedErrorInfo(errBuff,2048);
+        errInfo["error"] = errBuff;
+        return -1;
+    }
+    return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////////
 // niDaqReader
 ///////////////////////////////////////////////////////////////////////////////////
 
 niDaqReader::niDaqReader(TaskHandle taskHandle) : taskHandle(taskHandle) {}
 
-void ni::niDaqReader::init(json config, uint64_t acquisition_rate, uint64_t stream_rate) {
+std::pair<json,int32> ni::niDaqReader::init(json config, uint64_t acquisition_rate, uint64_t stream_rate) {
     std::cout << "Init Reader" << std::endl;
     std::vector<channel_config> channel_configs;
     auto channels = config["channels"];
@@ -57,27 +70,31 @@ void ni::niDaqReader::init(json config, uint64_t acquisition_rate, uint64_t stre
         channel_configs.push_back(config);
     }
     // todo need to add an index channel
-    init(channel_configs, acquisition_rate, stream_rate);
+    auto [err_info, err] =  init(channel_configs, acquisition_rate, stream_rate);
+    if(err < 0){
+        return {err_info, -1};
+    }
 }
 
 // TODO: I want to make a producer consumer model here instead? This works for now but come back to
 
-void ni::niDaqReader::init(std::vector<channel_config> channels, uint64_t acquisition_rate, uint64_t stream_rate) {
+std::pair<json,int> ni::niDaqReader::init(std::vector<channel_config> channels, uint64_t acquisition_rate, uint64_t stream_rate) {
     char errBuff[2048] = {'\0'};
     this->stream_rate = stream_rate;
     this->channels = channels;
     this->acq_rate = acquisition_rate;
-
+    int err = 0;
     for(auto &channel : channels){ // iterate through channels, check name and determine what tasks need to be created
         switch(channel.channelType){
             case ANALOG_VOLTAGE_IN:
-                DAQmxCreateAIVoltageChan(taskHandle,
+                err = ni::checkNIError(DAQmxCreateAIVoltageChan(taskHandle,
                                          channel.name.c_str(),
                                          "",
                                          DAQmx_Val_Cfg_Default,
                                          channel.min_val,
                                          channel.max_val,
-                                         DAQmx_Val_Volts, NULL);
+                                         DAQmx_Val_Volts, NULL),
+                             errInfo);
                 taskType = ANALOG_READER;
                 break;
             case THERMOCOUPLE_IN:               //TODO: Implement
@@ -89,48 +106,47 @@ void ni::niDaqReader::init(std::vector<channel_config> channels, uint64_t acquis
                 taskType = ANALOG_READER;
                 break;
             case DIGITAL_IN:
-                DAQmxCreateDIChan(taskHandle,
+                err = ni::checkNIError(DAQmxCreateDIChan(taskHandle,
                                   channel.name.c_str(),
                                   "",
-                                  DAQmx_Val_ChanPerLine);
+                                  DAQmx_Val_ChanPerLine),
+                            this->errInfo);
                 taskType = DIGITAL_READER;
                 break;
         }
         this->numChannels++; // change to handle index channels
+        if(err < 0){
+            return {this->errInfo, -1};
+        }
     }
 
     if( taskType == ANALOG_READER){ // only configure timing if we are reading analog data
-        int err = DAQmxCfgSampClkTiming(taskHandle,
+         err = ni::checkNIError(DAQmxCfgSampClkTiming(taskHandle,
                                         "",
                                         acquisition_rate,
                                         DAQmx_Val_Rising,
                                         DAQmx_Val_ContSamps,
-                                        acquisition_rate);
-        if(err < 0){
-            std::cout << "ERROR" << std::endl;
-            DAQmxGetExtendedErrorInfo(errBuff,2048);
-            printf("DAQmx Error: %s\n",errBuff);
-        }
+                                        acquisition_rate),
+                     this->errInfo);
     }else if (taskType == DIGITAL_READER){
 //        DAQmxSetSampTimingType(taskHandle, DAQmx_Val_SampClk);
-        int err = DAQmxCfgSampClkTiming(taskHandle,
+        err = ni::checkNIError(DAQmxCfgSampClkTiming(taskHandle,
                                         "",
                                         acquisition_rate,
                                         DAQmx_Val_Rising,
                                         DAQmx_Val_ContSamps,
-                                        acquisition_rate);
-        if(err < 0){
-            std::cout << "ERROR" << std::endl;
-            DAQmxGetExtendedErrorInfo(errBuff,2048);
-            printf("DAQmx Error: %s\n",errBuff);
-        }
+                                        acquisition_rate),
+                         this->errInfo);
+    }
+
+    if(err < 0){
+        return {this->errInfo, -1};
     }
 
     this->numSamplesPerChannel =  std::floor(acquisition_rate/stream_rate);
     this->bufferSize = this->numChannels*this->numSamplesPerChannel;
     this->data = new double[bufferSize];
-    this->digitalData = new uInt8[bufferSize];
-//    printf("configured\n");
+    this->digitalData = new uInt8[bufferSize]; // TODO don't let multiple news happen
 }
 
 freighter::Error ni::niDaqReader::configure(synnax::Module config){
@@ -138,16 +154,29 @@ freighter::Error ni::niDaqReader::configure(synnax::Module config){
 }
 
 freighter::Error ni::niDaqReader::start(){
-   DAQmxStartTask(taskHandle);
+   auto err = ni::checkNIError(DAQmxStartTask(taskHandle),
+                               this->errInfo);
+   if(err < 0){
+       return freighter::Error(TYPE_CRITICAL_HARDWARE_ERROR);
+   }
    return freighter::NIL;
 }
 
-freighter::Error ni::niDaqReader::stop(){
-    int daqmx_err = DAQmxStopTask(taskHandle);
-    daqmx_err = DAQmxClearTask(taskHandle);
-    delete[] data; // free the data buffer
-    delete[] digitalData; // free the digital data buffer
-    return freighter::NIL;
+freighter::Error ni::niDaqReader::stop(){ //TODO: don't let multiple closes happen
+    auto err = freighter::NIL;
+    auto err1 = ni::checkNIError(DAQmxStopTask(taskHandle),
+                                this->errInfo);
+    if(err1 < 0){
+        err = freighter::Error(TYPE_CRITICAL_HARDWARE_ERROR);
+    }
+    auto err2 = ni::checkNIError(DAQmxClearTask(taskHandle),
+                                 this->errInfo);
+    if(err2 < 0){
+        err = freighter::Error(TYPE_CRITICAL_HARDWARE_ERROR);
+    }
+    delete[] data; // free the data buffer TODO: change this to a smart pointer
+    delete[] digitalData; // free the digital data buffer TODO: change this to a smart pointer
+    return err;
 }
 
 std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readAnalog(){
@@ -156,31 +185,35 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readAnalog(){
     float64 flush[1000];                     // to flush buffer before performing a read
     signed long flushRead;
     synnax::Frame f = synnax::Frame(numChannels);
+    int err = 0;
     // initial read to flush buffer
-    auto err1 = DAQmxReadAnalogF64(this->taskHandle,
+    err = ni::checkNIError(DAQmxReadAnalogF64(this->taskHandle,
                                    -1,                          // reads all available samples in buffer
                                    10.0,
                                    DAQmx_Val_GroupByChannel,
                                    flush,
                                    1000,
                                    &samplesRead,
-                                   NULL);
+                                   NULL),
+                           this->errInfo);
+    if (err < 0) {
+        return{NULL, TYPE_CRITICAL_HARDWARE_ERROR};
+    }
 
     std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
     // actual read of analog lines
-    auto err = DAQmxReadAnalogF64(this->taskHandle,
+    err = ni::checkNIError(DAQmxReadAnalogF64(this->taskHandle,
                                   this->numSamplesPerChannel,
                                   -1,
                                   DAQmx_Val_GroupByChannel,
                                   this->data,
                                   this->bufferSize,
                                   &samplesRead,
-                                  NULL);
+                                  NULL),
+                           errInfo);
     std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
-    if (err < 0) {
-        std::cout << "ERROR" << std::endl;
-        DAQmxGetExtendedErrorInfo(errBuff,2048);
-        printf("DAQmx Error: %s\n",errBuff);
+   if (err < 0) {
+        return{NULL, TYPE_CRITICAL_HARDWARE_ERROR};
     }
     // we interpolate the timestamps between the initial and final timestamp to ensure non-overlapping timestamps between read iterations
     uint64_t diff = final_timestamp - initial_timestamp;
@@ -218,9 +251,10 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readDigital(){
     signed long flushRead;
     synnax::Frame f = synnax::Frame(numChannels);
     int32 * numBytesPerSamp;
+    int err = 0;
     //initial read to flush buffer
     std::cout << "Flushing buffer" << std::endl;
-    auto errFlush = DAQmxReadDigitalLines(this->taskHandle, //TODO: come back to and make sure this call to flush will be fine at any scale (elham)
+    err = ni::CheckNIError(DAQmxReadDigitalLines(this->taskHandle, //TODO: come back to and make sure this call to flush will be fine at any scale (elham)
                                      -1, // reads all available samples in the buffer
                                      -1,
                                      DAQmx_Val_GroupByChannel,
@@ -228,16 +262,15 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readDigital(){
                                      1000,
                                      &samplesRead,
                                      numBytesPerSamp,
-                                     NULL);
-    if (errFlush < 0) {
-        std::cout << "ERROR" << std::endl;
-        DAQmxGetExtendedErrorInfo(errBuff,2048);
-        printf("DAQmx Error: %s\n",errBuff);
+                                     NULL),
+                           this->errInfo);
+    if (err < 0) {
+        return{NULL, TYPE_CRITICAL_HARDWARE_ERROR};
     }
     std::cout << "performing actual read" << std::endl;
     std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
     // actual read to of digital lines
-    auto err = DAQmxReadDigitalLines(this->taskHandle,                                      //task handle
+    err = ni::CheckNIError(DAQmxReadDigitalLines(this->taskHandle,                                      //task handle
                                      this->numSamplesPerChannel,                            //numSampsPerChan
                                      -1,                                                    //timeout
                                      DAQmx_Val_GroupByChannel,                              //dataLayout
@@ -245,14 +278,13 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readDigital(){
                                      10000,          //arraySizeInSamps
                                      &samplesRead,                                          //sampsPerChanRead
                                      NULL,                                       //numBytesPerSamp
-                                     NULL);                                                 //reserved
+                                     NULL),
+                           this->errInfo);                                                 //reserved
     std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
-    std::cout << "Read complete " << std::endl;
     if (err < 0) {
-        std::cout << "ERROR" << std::endl;
-        DAQmxGetExtendedErrorInfo(errBuff,2048);
-        printf("DAQmx Error: %s\n",errBuff);
+        return{NULL, TYPE_CRITICAL_HARDWARE_ERROR};
     }
+    std::cout << "Read complete " << std::endl;
     std::cout << "Samples Read: " << samplesRead << std::endl;
     // we interpolate the timestamps between the initial and final timestamp to ensure non-overlapping timestamps between read iterations
     uint64_t diff = final_timestamp - initial_timestamp;
@@ -295,6 +327,16 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::read(){
     }
 }
 
+
+json ni::niDaqReader::getErrorInfo() {
+    if(errInfo.empty()){
+        return NULL;
+    } else {
+        this->stop()
+        return errInfo;
+    }
+}
+
 ///////////////////////////////////////////////////////////////////////////////////
 // niDaqWriter
 ///////////////////////////////////////////////////////////////////////////////////
@@ -302,8 +344,7 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::read(){
 
 niDaqWriter::niDaqWriter(TaskHandle taskHandle) : taskHandle(taskHandle) {}
 
-void niDaqWriter::init(json config, synnax::ChannelKey ack_index_key) {
-    //print json
+std::pair<json,int> niDaqWriter::init(json config, synnax::ChannelKey ack_index_key) {
     std::vector<channel_config> channel_configs;
     auto channels = config["channels"];
     auto deviceName = config["device"].get<std::string>();
@@ -328,25 +369,36 @@ void niDaqWriter::init(json config, synnax::ChannelKey ack_index_key) {
         cmd_channel_keys.push_back(channel["cmd_key"].get<uint32_t>());
         ack_channel_keys.push_back(channel["ack_key"].get<uint32_t>());
     }
-    init(channel_configs);
     // set ack index channel keys
     this->ack_index_key = ack_index_key;
     assert(ack_index_key != 0);
     assert(cmd_channel_keys.size() == ack_channel_keys.size());
     assert(cmd_channel_keys.size() != 0);
     assert(ack_channel_keys.size() != 0);
+    auto [error_info, err] = init(channel_configs);
+    if(err < 0){
+        return {error_info, -1};
+    }
 }
 
-void ni::niDaqWriter::init(std::vector <channel_config> channels){
+std::pair<json,int> ni::niDaqWriter::init(std::vector <channel_config> channels){
+    int err = 0;
     this->channels = channels;
     for(auto &channel : channels){ // iterate through channels, check name and determine what tasks need to be created
         switch(channel.channelType){
             case DIGITAL_OUT:
-                DAQmxCreateDOChan(taskHandle, channel.name.c_str(), "", DAQmx_Val_ChanPerLine);
+                err = ni::checkNIError(DAQmxCreateDOChan(taskHandle,
+                                                   channel.name.c_str(),
+                                                   "",
+                                                   DAQmx_Val_ChanPerLine),
+                                 errInfo);
                 taskType = DIGITAL_WRITER;
                 break;
         }
         this->numChannels++; // change to handle index channels
+        if(err < 0){
+            return {this->errInfo, -1};
+        }
     }
     this->bufferSize = this->numChannels;
     this->writeBuffer = new uint8_t[this->bufferSize];
@@ -360,15 +412,30 @@ freighter::Error ni::niDaqWriter::configure(synnax::Module config){
 }
 
 freighter::Error ni::niDaqWriter::start(){
-    DAQmxStartTask(taskHandle);
+    auto err = ni::checkNIError(DAQmxStartTask(taskHandle),
+                                this->errInfo);
+    if(err < 0){
+        return freighter::Error(TYPE_CRITICAL_HARDWARE_ERROR);
+    }
     return freighter::NIL;
 }
 
 freighter::Error ni::niDaqWriter::stop(){
-    int daqmx_err = DAQmxStopTask(taskHandle);
-    daqmx_err = DAQmxClearTask(taskHandle);
+    auto err = freighter::NIL;
+
+    auto err1 = ni::checkNIError(DAQmxStopTask(taskHandle),
+                                 this->errInfo);
+    if(err1 < 0){
+        err = freighter::Error(TYPE_CRITICAL_HARDWARE_ERROR);
+    }
+    auto err2 = ni::checkNIError(DAQmxClearTask(taskHandle),
+                                 this->errInfo);
+    if(err2 < 0){
+        err = freighter::Error(TYPE_CRITICAL_HARDWARE_ERROR);
+    }
+    DAQmxClearTask(taskHandle);
     delete[] writeBuffer;
-    return freighter::NIL;
+    return err;
 }
 
 std::pair <synnax::Frame, freighter::Error> ni::niDaqWriter::write(synnax::Frame frame){ // TODO: should this function get a Frame or a bit vector of setpoints instead?
@@ -384,20 +451,19 @@ std::pair <synnax::Frame, freighter::Error> ni::niDaqWriter::writeDigital(synnax
     char errBuff[2048] = {'\0'};
     signed long samplesWritten = 0;
     formatData(std::move(frame));
-    auto err = DAQmxWriteDigitalLines(taskHandle,
+    int err = 0;
+    err = ni::checkNIError(DAQmxWriteDigitalLines(this->taskHandle,
                                         1, // number of samples per channel
                                         1, // auto start
                                         10.0, // timeout
                                         DAQmx_Val_GroupByChannel, //data layout
                                         writeBuffer, // data
                                         &samplesWritten, // samples written
-                                        NULL); // reserved
+                                        NULL),
+                           this->errInfo); // reserved
     if(err < 0){
-        std::cout << "ERROR" << std::endl;
-        DAQmxGetExtendedErrorInfo(errBuff,2048);
-        printf("DAQmx Error: %s\n",errBuff);
+       return {NULL, TYPE_CRITICAL_HARDWARE_ERROR};
     }
-
     // Construct acknowledgement frame
     auto ack_frame = synnax::Frame(ack_queue.size() + 1);
     ack_frame.add(ack_index_key, synnax::Series(std::vector<uint64_t>{synnax::TimeStamp::now().value}, synnax::TIMESTAMP));
@@ -429,6 +495,15 @@ freighter::Error ni::niDaqWriter::formatData(synnax::Frame frame){
         frame_index++;
     }
     return freighter::NIL;
+}
+
+json ni::niDaqWriter::getErrorInfo() {
+    if(errInfo.empty()){
+        return NULL;
+    } else {
+        this->stop()
+        return errInfo;
+    }
 }
 
 // TODO create a helper function that takes in a frame and formats into the data to pass into writedigital

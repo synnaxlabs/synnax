@@ -29,6 +29,7 @@ public:
              std::shared_ptr<synnax::Synnax> client, //TODO: make const?
              std::unique_ptr<daq::AcqReader> daq_reader);
     Acq();
+    void setStateChannelKey(synnax::ChannelKey state_channel_key, synnax::ChannelKey state_channel_idx_key);
 
 private:
     /// @brief threading.
@@ -61,6 +62,14 @@ private:
     /// @brief mutex for shared variables
 //    static std::mutex mut;
 
+    /// @brief error handling
+    json error_info;
+    synnax::ChannelKey state_channel_key;
+    synnax::ChannelKey state_channel_idx_key;
+    std::unique_ptr<synnax::writer::Writer> state_writer;
+    std::WriterConfig state_writer_config;
+
     void run();
+    void postError();
 //    void runInternal();
 };

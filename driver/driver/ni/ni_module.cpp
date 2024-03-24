@@ -80,7 +80,7 @@ freighter::Error NiDigitalWriterTask::stopAcquisition(){
 bool niTaskFactory::validChannelConfig(const json &config, json &config_err){
     printf("Validate Config \n");
     if (config.find("channels") == config.end()){ // TODO: also assert that there is at least one channel entry
-        config_err = "Property: channels - not found in config";
+        config_err = "Property: channels - not found in config"; // TODO: change these errors
         return false;
     }
     if (config.find("acq_rate") == config.end()){
@@ -133,6 +133,7 @@ std::unique_ptr<module::Module> niTaskFactory::createModule(TaskHandle taskhandl
 
 std::unique_ptr <NiAnalogReaderTask> niTaskFactory::createAnalogReaderTask(TaskHandle taskhandle,
                                                                            std::shared_ptr<synnax::Synnax> client,
+                                                                           bool &valid_config,
                                                                            const json &config,
                                                                            json &config_err){
     std::uint64_t acq_rate;
@@ -146,8 +147,8 @@ std::unique_ptr <NiAnalogReaderTask> niTaskFactory::createAnalogReaderTask(TaskH
     stream_rate = uInt64(config["stream_rate"]);
 
     //print acq and stream rate
-    printf("Acq Rate: %d\n", acq_rate);
-    printf("Stream Rate: %d\n", stream_rate);
+    printf("Acq Rate: %d\n", acq_rate);         //TODO: remove
+    printf("Stream Rate: %d\n", stream_rate);   //TODO: remove
 
 
     // create vector of channel keys to construct writer
@@ -175,9 +176,14 @@ std::unique_ptr <NiAnalogReaderTask> niTaskFactory::createAnalogReaderTask(TaskH
 
     // create daq_reader and init
     auto daq_reader = std::make_unique<ni::niDaqReader>(taskhandle);
-    daq_reader->init(config, acq_rate, stream_rate);
-    //create module
+    auto [err_info, err] = daq_reader->init(config, acq_rate, stream_rate);
+    if(err < 0){
+        config_err = err_info;
+        valid_config = false;
+        return nullptr;
+    }
 
+    //create module
     auto module = std::make_unique<NiAnalogReaderTask>();
     module->init(client, std::move(daq_reader), writer_config);
     std::cout << "Creating Analog Reader Task" << std::endl;
@@ -187,6 +193,7 @@ std::unique_ptr <NiAnalogReaderTask> niTaskFactory::createAnalogReaderTask(TaskH
 
 std::unique_ptr <NiDigitalReaderTask> niTaskFactory::createDigitalReaderTask(TaskHandle taskhandle,
                                                                            std::shared_ptr<synnax::Synnax> client,
+                                                                           bool &valid_config,
                                                                            const json &config,
                                                                            json &config_err){
     std::uint64_t acq_rate;
@@ -229,9 +236,13 @@ std::unique_ptr <NiDigitalReaderTask> niTaskFactory::createDigitalReaderTask(Tas
 
     // create daq_reader and init
     auto daq_reader = std::make_unique<ni::niDaqReader>(taskhandle);
-    daq_reader->init(config, acq_rate, stream_rate);
+    auto [err_info, err] = daq_reader->init(config, acq_rate, stream_rate);
+    if(err < 0){
+        config_err = err_info;
+        valid_config = false;
+        return nullptr;
+    }
     //create module
-
     auto module = std::make_unique<NiDigitalReaderTask>();
     module->init(client, std::move(daq_reader), writer_config);
     std::cout << "Creating Analog Reader Task" << std::endl;
@@ -240,6 +251,7 @@ std::unique_ptr <NiDigitalReaderTask> niTaskFactory::createDigitalReaderTask(Tas
 
 std::unique_ptr <NiDigitalWriterTask> niTaskFactory::createDigitalWriterTask(TaskHandle taskhandle,
                                                                              std::shared_ptr<synnax::Synnax> client,
+                                                                             bool &valid_config,
                                                                              const json &config,
                                                                              json &config_err){
     std::uint64_t acq_rate; //TODO: I dont need acq_rate and stream_rate here?
@@ -302,11 +314,16 @@ std::unique_ptr <NiDigitalWriterTask> niTaskFactory::createDigitalWriterTask(Tas
             synnax::TimeStamp::now(),
     };
 
-    //instatiate daq_writer and init
+    // instatiate daq_writer and init
     auto daq_writer = std::make_unique<ni::niDaqWriter>(taskhandle);
-    daq_writer->init(config, ack_idx_key);
+    auto [err_info, err] = daq_writer->init(config, ack_idx_key);
+    if(err < 0){
+        config_err = err_info;
+        valid_config = false;
+        return nullptr;
+    }
 
-    //create module
+    // create module
     auto module = std::make_unique<NiDigitalWriterTask>();
     module->init(client, std::move(daq_writer), ack_writer_config, cmd_streamer_config);
     std::cout << "Creating Digital Writer Task" << std::endl;

@@ -29,6 +29,4 @@ namespace daq
         // other members
         // a structure to store errors?
     };
-
-
 }
