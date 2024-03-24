@@ -320,7 +320,7 @@ const offsetScale = (scale: scale.XY, op: DrawOperation): scale.XY =>
 
 export const REGISTRY: aether.ComponentRegistry = { [Line.TYPE]: Line };
 
-interface DrawOperation {
+export interface DrawOperation {
   x: Series;
   y: Series;
   xOffset: number;
@@ -334,7 +334,7 @@ interface DrawOperationDigest extends Omit<DrawOperation, "x" | "y"> {
   y: SeriesDigest;
 }
 
-const buildDrawOperations = (
+export const buildDrawOperations = (
   x: Series[],
   y: Series[],
   downsample: number,
@@ -380,7 +380,11 @@ const findSeriesThatOverlapWith = (x: Series, y: Series[]): Series[] =>
   y.filter((ys) => {
     // This is just a runtime check that both series' have time ranges defined.
     const haveTimeRanges = x._timeRange != null && ys._timeRange != null;
-    if (!haveTimeRanges) return false;
+    if (!haveTimeRanges) {
+      throw new UnexpectedError(
+        `Encountered series without time range in buildDrawOperations. X series present: ${x._timeRange != null}, Y series present: ${ys._timeRange != null}`,
+      );
+    }
     // If the time ranges of the x and y series overlap, we meet the first condition
     // for drawing them together.
     const timeRangesOverlap = x.timeRange.overlapsWith(ys.timeRange);
