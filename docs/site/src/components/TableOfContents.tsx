@@ -62,7 +62,7 @@ export const TableOfContents = ({
     const observerOptions: IntersectionObserverInit = {
       // Negative top margin accounts for `scroll-margin`.
       // Negative bottom margin means heading needs to be towards top of viewport to trigger intersection.
-      rootMargin: "-100px 0% -66%",
+      rootMargin: "-50px 0% -66%",
       threshold: 1,
     };
 
@@ -89,7 +89,7 @@ export const TableOfContents = ({
       <div ref={toc}>
         <Menu.Menu value={currentID}>
           {headings
-            .filter(({ depth }) => depth > 1 && depth < 3)
+            .filter(({ depth }) => depth > 1)
             .map((heading) => (
               <Menu.Item.Link
                 href={`#${heading.slug}`}

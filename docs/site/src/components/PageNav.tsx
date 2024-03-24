@@ -76,7 +76,7 @@ export const PageNav = ({ currentPage }: TOCProps): ReactElement | null => {
   // Split the current page by slashes and remove and get the first part
   const selectedTab = currentPage.split("/").filter((part) => part !== "")[0];
 
-  console.log(selectedTab)
+  console.log(selectedTab);
 
   const { visible, toggle } = Dropdown.use({ initialVisible: false });
 
