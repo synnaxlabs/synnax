@@ -1,6 +1,5 @@
 ---
-import Header from "@/components/Header.astro";
-import Footer from "@/components/Footer.astro";
+import Header from "@/components/Header.astro"
 import { PageNav } from "@/components/PageNav";
 import "@synnaxlabs/pluto/dist/style.css";
 import "@synnaxlabs/media/dist/style.css";
@@ -48,10 +47,10 @@ const {
   <Header />
   <section>
     <nav class="docs-nav">
-      <PageNav client:idle currentPage={Astro.url.pathname} />
+      <PageNav client:load currentPage={Astro.url.pathname} />
     </nav>
     <main>
-      <article transition:animate="fade">
+      <article transition:animate="none">
         <h1 class="article-title">{heading ?? title}</h1>
         <h4 class="article-description">{description}</h3>
         <slot />
@@ -61,7 +60,6 @@ const {
       <TableOfContents client:idle headings={headings} />
     </nav>
   </section>
-  <Footer />
 
   <script>
     import { startThemeDriver } from "@/util/theme";
@@ -167,6 +165,7 @@ const {
     }
 
     .table-of-contents {
+      width: 250px;
       & h5 {
         font-weight: 500;
       }
@@ -203,7 +202,62 @@ const {
       }
     }
 
-        a {
+    .search-box {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1000;
+      & .pluto-input {
+        width: 50vw;
+        max-width: 700px;
+      }
+
+      &.pluto--visible {
+        position: fixed;
+        left: 50%;
+        transform: translateX(-50%);
+        box-shadow: var(--box-shadow);
+
+        & .pluto-input {
+          width: 80vw;
+          max-width: 900px;
+          height: 40px;
+        }
+      }
+
+      .pluto-dropdown__dialog {
+        position: absolute;
+        left: 0 !important;
+        top: 36px !important;
+        box-shadow: var(--box-shadow);
+        background: var(--pluto-gray-l1);
+
+        .hovered {
+          background: var(--pluto-gray-l3);
+        }
+
+        & .search-result {
+          padding: 2rem;
+          &:hover {
+            background: var(--pluto-gray-l3);
+          }
+
+          & b {
+            background: var(--pluto-primary-z-30);
+          }
+
+          & small {
+            color: var(--pluto-gray-l7);
+          }
+        }
+
+        & a:hover {
+          text-decoration: none;
+        }
+      }
+    }
+
+    a {
       color: var(--pluto-primary-p1);
       text-decoration: none;
     }
@@ -322,11 +376,11 @@ const {
     }
 
     article :is(video, img) {
-      width: 100%;
+      /* width: 100%; */
       border-radius: 1rem !important;
       border: var(--pluto-border-l4);
-      box-shadow: 0 0 1rem 0 var(--pluto-gray-l4);
-      border-radius: calc(var(--pluto-border-radius) * 2);
+      /* box-shadow: 0 0 1rem 0 var(--pluto-gray-l4); */
+      /* border-radius: calc(var(--pluto-border-radius) * 2); */
 
       @media (prefers-color-scheme: dark) {
         box-shadow: 0 0 2rem 0 rgba(50, 50, 50, 0.1);
@@ -398,8 +452,6 @@ const {
     table > :not(caption) > * > * {
       position: relative;
       border-width: 0 1px;
-      /* border-color: var(--pluto-border-color); */
-      /* border-style: solid; */
       padding: 1.25rem 1.5rem;
     }
 

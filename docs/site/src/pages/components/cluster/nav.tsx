@@ -19,6 +19,16 @@ export const clusterNav: PageNavNode = {
       name: "Quick Start",
     },
     {
+      key: "/components/cluster/concepts",
+      href: "/components/cluster/concepts",
+      name: "Concepts",
+    },
+    {
+      key: "/components/cluster/production",
+      href: "/components/cluster/production",
+      name: "Production",
+    },
+    {
       key: "/components/cluster/requirements",
       href: "/components/cluster/requirements",
       name: "Requirements",
