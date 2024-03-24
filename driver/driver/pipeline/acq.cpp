@@ -47,6 +47,7 @@ void Acq::run() {
         if (dq_err.type == driver::TYPE_TRANSIENT_HARDWARE_ERROR && breaker->wait()) run();
         else if(dq_err.type == driver::TYPE_CRITICAL_HARDWARE_ERROR) {
             this->error_info = daq_reader->getErrorInfo();
+            this->postError();
             daq_reader->stop(); // TODO: remove this line? Error Handling
             return;
         }
@@ -70,6 +71,7 @@ void Acq::run() {
             retry = error.type == driver::TYPE_TRANSIENT_HARDWARE_ERROR;
             if(error.type == driver::TYPE_CRITICAL_HARDWARE_ERROR) {
                 this->error_info = daq_reader->getErrorInfo();
+                this->postError();
                 daq_reader->stop(); // TODO: remove this line? Error Handling
                 return;
             }

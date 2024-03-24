@@ -42,6 +42,12 @@ void Ctrl::run(){
     auto daq_err = daq_writer->start();
     if(!daq_err.ok()) { // daq read error
         if (daq_err.type == driver::TYPE_TRANSIENT_HARDWARE_ERROR && breaker->wait()) run();
+        else if(daq_err.type == driver::TYPE_CRITICAL_HARDWARE_ERROR) {
+            this->error_info = daq_writer->getErrorInfo();
+            this->postError();
+            daq_writer->stop(); // TODO: remove this line? Error Handling
+            return;
+        }
         return;
     }
     // start synnax writer
@@ -82,6 +88,13 @@ void Ctrl::run(){
         auto [ack_frame, daq_err] = daq_writer->write(std::move(cmd_frame));
         if(!daq_err.ok()){
             if(daq_err.type == freighter::TYPE_UNREACHABLE && breaker->wait()) run();
+            else if(daq_err.type == driver::TYPE_CRITICAL_HARDWARE_ERROR) {
+                this->error_info = daq_writer->getErrorInfo();
+                this->postError();
+                daq_writer->stop(); // TODO: remove this line? Error Handling
+                writer.close();
+                return;
+            }
             return;
         }
         // write ack_frame to server
