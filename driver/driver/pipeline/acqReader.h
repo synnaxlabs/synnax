@@ -7,7 +7,9 @@
 #include <atomic>
 #include <memory>
 #include <thread>
+#include "nlohmann/json.hpp" // for json parsing
 
+using json = nlohmann::json;
 namespace daq
 {
     class AcqReader //TODD: change to daqReader
@@ -18,6 +20,7 @@ namespace daq
         virtual freighter::Error configure(synnax::Module config) = 0; // TODO: remove?
         virtual freighter::Error start() = 0;
         virtual freighter::Error stop() = 0;
+        virtual json getErrorInfo() = 0;
     };
 
     class daqWriter{
@@ -26,6 +29,7 @@ namespace daq
         virtual freighter::Error start() = 0;
         virtual freighter::Error stop() = 0;
         virtual freighter::Error configure(synnax::Module config) = 0; // TODO: remove?
+        virtual json getErrorInfo() = 0;
         // other members
         // a structure to store errors?
     };

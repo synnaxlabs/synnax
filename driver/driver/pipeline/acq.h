@@ -66,8 +66,8 @@ private:
     json error_info;
     synnax::ChannelKey state_channel_key;
     synnax::ChannelKey state_channel_idx_key;
-    std::unique_ptr<synnax::writer::Writer> state_writer;
-    std::WriterConfig state_writer_config;
+    std::unique_ptr<synnax::Writer> state_writer;
+    synnax::WriterConfig state_writer_config;
 
     void run();
     void postError();

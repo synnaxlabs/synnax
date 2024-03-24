@@ -11,7 +11,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//driver/breaker",
-        "//driver/errors",
+        "//driver/errors:errors",
         "//driver/modules:module",
         "@nlohmann_json//:json",
         "@synnax//synnax",
@@ -29,6 +29,7 @@ cc_library(
     deps = [
         "@com_github_google_glog//:glog",
         "@synnax//synnax",
+        "@nlohmann_json//:json",
     ],
     copts = ["/std:c++17"],
 )

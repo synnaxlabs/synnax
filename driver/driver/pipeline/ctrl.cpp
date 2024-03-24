@@ -41,7 +41,7 @@ void Ctrl::run(){
     // start daq writer
     auto daq_err = daq_writer->start();
     if(!daq_err.ok()) { // daq read error
-        if (daq_err.type == TYPE_TRANSIENT_HARDWARE_ERROR && breaker->wait()) run();
+        if (daq_err.type == driver::TYPE_TRANSIENT_HARDWARE_ERROR && breaker->wait()) run();
         return;
     }
     // start synnax writer
@@ -110,7 +110,7 @@ void Ctrl::run(){
     if (retry && breaker->wait()) run();
 }
 
-void Acq::setStateChannelKey(synnax::ChannelKey state_channel_key, synnax::ChannelKey state_channel_idx_key) {
+void Ctrl::setStateChannelKey(synnax::ChannelKey state_channel_key, synnax::ChannelKey state_channel_idx_key) {
     this->state_channel_key = state_channel_key;
     this->state_channel_idx_key = state_channel_idx_key;
 
@@ -120,16 +120,17 @@ void Acq::setStateChannelKey(synnax::ChannelKey state_channel_key, synnax::Chann
             std::vector<synnax::Authority>{synnax::ABSOLUTTE, synnax::ABSOLUTTE},
             synnax::Subject{"state_writer"}
     };
-    freighter::Error wErr;
-    [state_writer,wErr] = client->telem.openWriter(state_writer_config); // perform error handling for opening stateWriter
+
+    auto [writer,wErr] = client->telem.openWriter(state_writer_config); // perform error handling for opening stateWriter
+    this->state_writer = std::unique_ptr<synnax::Writer>(&writer);
 }
 
-void Acq::postError() {
+void Ctrl::postError() {
     auto frame = synnax::Frame(2);
     frame.add(state_channel_idx_key, synnax::Series(std::vector<uint64_t>{synnax::TimeStamp::now().value}, synnax::TIMESTAMP));
-    frame.add(state_channel_key, synnax::Series(std::vector<string>{this->error_info.dump()}));
-    state_writer.write(std::move(frame));
-    state_writer.commit();
+    frame.add(state_channel_key, synnax::Series(std::vector<std::string>{this->error_info.dump()}));
+    state_writer->write(std::move(frame));
+    state_writer->commit();
 }
 //void Inbound::execute() {
 //    daq_writer->start();
