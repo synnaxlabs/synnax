@@ -261,8 +261,8 @@ export const use = ({
     const handler = (e: WheelEvent): void => {
       if (canvasRef.current == null) return;
       let sf = 1;
-      if (e.deltaY < 0) sf += 0.03;
-      else sf -= 0.03;
+      if (e.deltaY < 0) sf -= 0.035;
+      else sf += 0.035;
       const canvasBox = box.construct(canvasRef.current);
       const rawCursor = xy.construct(e);
       if (!box.contains(canvasBox, rawCursor) || e.target !== canvasRef.current) return;

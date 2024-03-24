@@ -68,7 +68,7 @@ export const useResize = <E extends HTMLElement>(
   useEffect(() => {
     if (ref.current != null && enabled) startObserving(ref.current);
     return () => obs.current?.disconnect();
-  }, [startObserving]);
+  }, [startObserving, enabled]);
 
   return useCallback(
     (el: E | null) => {

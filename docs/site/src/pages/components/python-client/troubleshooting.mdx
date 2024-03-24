@@ -111,9 +111,6 @@ any other Python installations and remove them.
 ## Installing Python
 
 On MacOS we recommend using [homebrew](https://brew.sh/) to install Python. Homebrew
-and configuring newer Python versions much easier than through the installer. 
-
-To install Python, make sure you have homebrew installed and run the following
 makes configuring newer Python versions much easier than using the installer. 
 
 To install Python, make sure you have [homebrew](https://brew.sh/) installed and run 
@@ -166,7 +163,6 @@ command instead of `python` to work with Synnax.
 ### Python is not available on your PATH
 
 If you've checked for alternative commands and still get an older version or a `command
-If you've checked for alternative commands and still get an older version or a `command
 not found` error, it's likely that Python is not available on your `PATH`.
 
 #### Find where Python is installed
@@ -206,7 +202,6 @@ Finally, retry the command listed above to check your Python version.
 If you've followed the steps above and still can't get Python to display the correct
 version, your `PATH` variable may have multiple Python installations listed, where an
 earlier version overrides the newer one. Try searching through your `PATH` variable for
-any other Python installations and remove them. 
 any other Python installations and remove them. You can check the contents of your `PATH`
 variable by running:
 
@@ -227,9 +222,9 @@ The first culprit may be an incorrect version of pip. To check your version, run
 pip --version
 ```
 
-At the end of the output, you should see `(python3.10.x)` or higher in parenthesis. If 
-you have Python 3.10 or higher installed, but the version in parenthesis is lower,
-your `PATH` variable may be pointing to the wrong version of `pip`.
+At the end of the output, you should see `(python3.10)` or higher in parenthesis. If 
+you have python 3.10 or higher installed, but the version in parenthesis is lower,
+yoru `PATH` variable may be pointing to the wrong version of `pip`.
 
 If you installed Python using homebrew, `pip` should be installed in 
 `/opt/homebrew/bin/pip{version}` where `{version}` is the version of Python you have 
@@ -376,4 +371,3 @@ echo $PATH
 ```
 </Fragment>
 </Tabs>
-

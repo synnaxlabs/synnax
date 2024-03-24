@@ -1,0 +1,192 @@
+// Copyright 2023 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { z } from "zod";
+
+import {
+  clientXY,
+  dimensions,
+  numberCouple,
+  xy,
+  type NumberCouple,
+  type ClientXY,
+  type XY,
+  signedDimensions,
+  type Direction,
+} from "@/spatial/base";
+
+export { clientXY, xy, type ClientXY as Client, type XY };
+
+/** A crude representation of a {@link XY} coordinate as a zod schema. */
+export const crudeZ = z.union([
+  z.number(),
+  xy,
+  numberCouple,
+  dimensions,
+  signedDimensions,
+  clientXY,
+]);
+
+/** A crude representation of a {@link XY} coordinate. */
+export type Crude = z.infer<typeof crudeZ>;
+
+/**
+ * @constructs XY
+ * @param x - A crude representation of the XY coordinate as a number, number couple,
+ * dimensions, signed dimensions, or mouse event. If it's a mouse event, the clientX and
+ * clientY coordinates are preferred over the x and y coordinates.
+ * @param y - If x is a number, the y coordinate. If x is a number and this argument is
+ * not given, the y coordinate is assumed to be the same as the x coordinate.
+ */
+export const construct = (x: Crude | Direction, y?: number): XY => {
+  if (typeof x === "string") {
+    if (y === undefined) throw new Error("The y coordinate must be given.");
+    if (x === "x") return { x: y, y: 0 };
+    return { x: 0, y };
+  }
+  // The order in which we execute these checks is very important.
+  if (typeof x === "number") return { x, y: y ?? x };
+  if (Array.isArray(x)) return { x: x[0], y: x[1] };
+  if ("signedWidth" in x) return { x: x.signedWidth, y: x.signedHeight };
+  if ("clientX" in x) return { x: x.clientX, y: x.clientY };
+  if ("width" in x) return { x: x.width, y: x.height };
+  return { x: x.x, y: x.y };
+};
+
+/** An x and y coordinate of zero */
+export const ZERO = { x: 0, y: 0 };
+
+/** An x and y coordinate of one */
+export const ONE = { x: 1, y: 1 };
+
+/** An x and y coordinate of infinity */
+export const INFINITY = { x: Infinity, y: Infinity };
+
+/** An x and y coordinate of NaN */
+export const NAN = { x: NaN, y: NaN };
+
+/** @returns true if the two XY coordinates are semantically equal. */
+export const equals = (a: Crude, b: Crude, threshold: number = 0): boolean => {
+  const a_ = construct(a);
+  const b_ = construct(b);
+  if (threshold === 0) return a_.x === b_.x && a_.y === b_.y;
+  return Math.abs(a_.x - b_.x) <= threshold && Math.abs(a_.y - b_.y) <= threshold;
+};
+
+/** Is zero is true if the XY coordinate has a semantic x and y value of zero. */
+export const isZero = (c: Crude): boolean => equals(c, ZERO);
+
+/**
+ * @returns the given coordinate scaled by the given factors. If only one factor is given,
+ * the y factor is assumed to be the same as the x factor.
+ */
+export const scale = (c: Crude, x: number, y: number = x): XY => {
+  const p = construct(c);
+  return { x: p.x * x, y: p.y * y };
+};
+
+/** @returns the given coordinate translated in the X direction by the given amount. */
+export const translateX = (c: Crude, x: number): XY => {
+  const p = construct(c);
+  return { x: p.x + x, y: p.y };
+};
+
+/** @returns the given coordinate translated in the Y direction by the given amount. */
+export const translateY = (c: Crude, y: number): XY => {
+  const p = construct(c);
+  return { x: p.x, y: p.y + y };
+};
+
+interface Translate {
+  /** @returns the sum of the given coordinates. */
+  (a: Crude, b: Crude, ...cb: Crude[]): XY;
+  /** @returns the coordinates translated in the given direction by the given value. */
+  (a: Crude, direction: Direction, value: number): XY;
+}
+
+export const translate: Translate = (a, b, v, ...cb): XY => {
+  if (typeof b === "string" && typeof v === "number") {
+    if (b === "x") return translateX(a, v);
+    return translateY(a, v);
+  }
+  return [a, b, v ?? ZERO, ...cb].reduce((p: XY, c) => {
+    const xy = construct(c as Crude);
+    return { x: p.x + xy.x, y: p.y + xy.y };
+  }, ZERO);
+};
+
+/**
+ * @returns the given coordinate the given direction set to the given value.
+ * @example set({ x: 1, y: 2 }, "x", 3) // { x: 3, y: 2 }
+ */
+export const set = (c: Crude, direction: Direction, value: number): XY => {
+  const xy = construct(c);
+  if (direction === "x") return { x: value, y: xy.y };
+  return { x: xy.x, y: value };
+};
+
+/** @returns the magnitude of the distance between the two given coordinates. */
+export const distance = (ca: Crude, cb: Crude): number => {
+  const a = construct(ca);
+  const b = construct(cb);
+  return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);
+};
+
+/** @returns the magnitude of the x distance between the two given coordinates. */
+export const xDistance = (ca: Crude, cb: Crude): number => {
+  const a = construct(ca);
+  const b = construct(cb);
+  return Math.abs(a.x - b.x);
+};
+
+/** @returns the magnitude of the y distance between the two given coordinates. */
+export const yDistance = (ca: Crude, cb: Crude): number => {
+  const a = construct(ca);
+  const b = construct(cb);
+  return Math.abs(a.y - b.y);
+};
+
+/**
+ * @returns the translation that would need to be applied to move the first coordinate
+ * to the second coordinate.
+ */
+export const translation = (ca: Crude, cb: Crude): XY => {
+  const a = construct(ca);
+  const b = construct(cb);
+  return { x: b.x - a.x, y: b.y - a.y };
+};
+
+/** @returns true if both the x and y coordinates of the given coordinate are NaN. */
+export const isNan = (a: Crude): boolean => {
+  const xy = construct(a);
+  return Number.isNaN(xy.x) || Number.isNaN(xy.y);
+};
+
+/** @returns true if both the x and y coordinates of the given coordinate are finite. */
+export const isFinite = (a: Crude): boolean => {
+  const xy = construct(a);
+  return Number.isFinite(xy.x) && Number.isFinite(xy.y);
+};
+
+/** @returns the coordinate represented as a couple of the form [x, y]. */
+export const couple = (a: Crude): NumberCouple => {
+  const xy = construct(a);
+  return [xy.x, xy.y];
+};
+
+/** @returns the coordinate represented as css properties in the form { left, top }. */
+export const css = (a: Crude): { left: number; top: number } => {
+  const xy = construct(a);
+  return { left: xy.x, top: xy.y };
+};
+
+export const truncate = (a: Crude, precision: number = 0): XY => {
+  const xy = construct(a);
+  return { x: Number(xy.x.toFixed(precision)), y: Number(xy.y.toFixed(precision)) };
+};

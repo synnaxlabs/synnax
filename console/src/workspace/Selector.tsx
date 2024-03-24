@@ -56,10 +56,8 @@ export const Selector = (): ReactElement => {
   return (
     <Dropdown.Dialog
       {...dProps}
-      bordered={false}
       variant="floating"
       className={CSS(CSS.BE("workspace", "selector"))}
-      keepMounted={false}
     >
       <Button.Button
         startIcon={<Icon.Workspace key="workspace" />}
@@ -73,7 +71,7 @@ export const Selector = (): ReactElement => {
       >
         {active?.name ?? "No Workspace"}
       </Button.Button>
-      <Align.Pack direction="y" style={{ width: 500 }}>
+      <Align.Pack direction="y" style={{ width: 500, height: 150 }}>
         <List.List>
           <List.Selector
             value={active == null ? [] : [active.key]}

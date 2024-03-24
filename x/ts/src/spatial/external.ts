@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * as bounds from "@/spatial/bounds";
-export * as box from "@/spatial/box";
-export * as dimensions from "@/spatial/dimensions";
-export * as direction from "@/spatial/direction";
-export * as location from "@/spatial/location";
-export * as xy from "@/spatial/xy";
-export * as scale from "@/spatial/scale";
+export * from "@/spatial/bounds";
+export { box } from "@/spatial/box";
+export * from "@/spatial/dimensions";
+export * from "@/spatial/direction";
+export * from "@/spatial/location";
+export * from "@/spatial/xy";
+export * from "@/spatial/scale";
+export * from "@/spatial/position";
 export * as spatial from "@/spatial/spatial";

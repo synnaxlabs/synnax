@@ -12,7 +12,6 @@ import { box, runtime } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
-import { OS } from "@/os";
 import { Context } from "@/vis/line/aether/line";
 import { render } from "@/vis/render";
 
