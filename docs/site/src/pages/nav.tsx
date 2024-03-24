@@ -8,10 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { clusterNav } from "@/pages/components/cluster/nav";
+import { conceptsNav } from "@/pages/components/concepts/nav";
 import { consoleNav } from "@/pages/components/console/nav";
 import { pythonClientNav } from "@/pages/components/python-client/nav";
-import { conceptsNav } from "@/pages/components/concepts/nav";
-import { analystsNav } from "@/pages/roles/analysts/nav";
+import { analystNav } from "@/pages/roles/analyst/nav";
+import { sysAdminNav } from "@/pages/roles/sys-admin/nav";
 
 export const componentsPages = [
   {
@@ -24,12 +25,12 @@ export const componentsPages = [
   pythonClientNav,
   consoleNav,
 ];
-
 export const rolesPages = [
   {
     name: "Get Started",
     key: "/",
     href: "/",
   },
-  analystsNav,
+  analystNav,
+  sysAdminNav,
 ];

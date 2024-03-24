@@ -1,44 +1,52 @@
+---
+layout: "@/layouts/MainLayout.astro"
+title: "Deployment Concepts"
+description: "Essential concepts for deploying Synnax in production."
+---
 import { Image } from "@/components/Media";
 
-## Deployment Concepts
 
-## Introduction
-
-This page guides System Administrators through the essential concepts need to deploy
-Synnax effectively in a production environment. This page will conceptually address
+This page guides System Administrators through the essential concepts they need to deploy
+Synnax effectively in a production environment. This page will address
 the topology of a Synnax deployment (clusters, nodes), and the considerations that
 should be taken into account when deploying Synnax (workload, networking, security, etc.).
-This page will also link to more detailed guides on specific deployment workloads.
+This page will also link to more detailed guides on deployment workflows.
 
 ## Key Terms
 
 ### Node
 
+
 A node is a running instance of the Synnax database. It is a single executable
 that can run on Windows, Linux, MacOS, or inside of a container. A node's primary
 responsibility is to permanently store and serve sensor data to users. It's useful
 to think of a node as the heart of a Synnax deployment. All traffic related to data
-recording, control sequences, etc. is routed through and processed by a node.
+recording, control sequences, and other tasks is routed through and processed by a node.
 
-It's important to note that a node is not the same thing as the Synnax Console UI. The
-Console UI contains a local node embedded inside for single person usage of Synnax. For
-deployment in a multi-user organization, it's common to run a node on a separate server
-and have multiple users connect to it via the console UI.
+A node is not the same as the [Synnax Console UI](/components/console/get-started). The Console UI contains a 
+local node embedded inside for single person usage of Synnax. For deployment in a 
+multi-user organization, it's common to run a node on a separate server and have 
+multiple users connect to it via the console.
 
 ### Cluster
 
 A cluster is a group of interconnected nodes that work together in order to function as
-a single Synnax database. Nodes within a cluster will coordinate reads and writes of data
+a single, unified database. Nodes within a cluster will coordinate reads and writes 
 to distribute data storage and processing. This allows a cluster to scale horizontally,
 growing to meet the needs of its application.
 
-The smallest possible cluster is a single node. While a single node cluster has less
-fault tolerance than a multi-node cluster, it's perfectly okay to deploy Synnax in
-production with just a single node. As your needs grow, you can add additional nodes
-in order to balance the workload.
+The smallest possible cluster is a single node. The [quick start](/roles/sys-admin/quick-start)
+guide is an example of a single node deployment.
 
-It's important to note that multi-node clusters are experimental and not yet recommended
+
+While single node clusters are less fault tolerant than a multi-node deployments, 
+it's perfectly okay to deploy Synnax in production with just a single node. As your 
+needs grow, you can add additional nodes in order to balance the workload.
+
+<div class="info">
+<b>Note -</b> Multi-node clusters are experimental and not yet recommended
 for production use.
+</div>
 
 ## Deployment Considerations
 
@@ -46,8 +54,8 @@ for production use.
 
 Perhaps the most important consideration when deploying Synnax is the workload that
 you expect to place on your cluster. Synnax is designed to handle very data intensive
-operations, but performance is ultimately limited by the specifications of the hardware
-you deploy it on and the quality of the network used for communication.
+operations, but performance is ultimately limited by the hardware specifications and
+network quality.
 
 The workloads that Synnax serves are generally split into two categories: real-time
 hardware operations and long term data storage. We'll address each of these in turn.
@@ -60,15 +68,19 @@ switch and high quality, well-protected cabling. Generally speaking, it's best t
 deploy Synnax as close to the hardware as possible.
 
 For single node clusters, we typically see our users deploy Synnax on the same computer
-that their data acquisition devices are connected.
+that their data acquisition devices are connected to. Here's an example of a simple Synnax
+deployment. It has a central node that is connected to data acquisition devices and 
+operator machines.
+
+<Image client:only="react" id="roles/sys-admin/concepts/real-time-deployment" themed={false} />
 
 We caution against using a cloud deployment or any public network for real-time hardware
-operations, as this poses a significant risk to the stability of your system, and exposes
+control, as this poses a significant risk to the stability of your system, and exposes
 your cluster to potential security threats.
 
 #### Long Term Data Storage
 
-When using Synnax for long term data storage or low-rate live data streaming
+When using Synnax for long term data storage or low-rate live streaming
 (less than 5 samples per second), network stability and latency are less critical,
 and the primary concern becomes sustainable, scalable storage capacity and maximum
 availability to users.
@@ -76,7 +88,11 @@ availability to users.
 Our customers typically deploy Synnax on-prem within their own data centers, although
 deploying Synnax in the cloud with a publicly exposed endpoint is also a viable option.
 Synnax can run on bare metal, virtual machines, or you can use our docker images to
-deploy Synnax in a containerized environment.
+deploy Synnax in a containerized environment. Here's an example of a cloud 
+deployment with post processing systems, analyst machines, and a custom data application
+all connecting to a single node cluster:
+
+<Image client:only="react" id="roles/sys-admin/concepts/storage-deployment" themed={false} />
 
 ### Networking
 
@@ -91,6 +107,3 @@ analysis scripts, device drivers, etc.).
 
 When running in production, we recommend encrypting all traffic to and from your Synnax
 cluster with SSL/TLS. See the [Security](#security) section for more details.
-
-<Image id="docs/console/get-started-light.png">
-<Image id="guides/exploratory-analysis-in-python/filter-results" themed={false} />

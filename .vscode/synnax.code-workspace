@@ -107,7 +107,18 @@
       "editor.defaultFormatter": "ms-python.black-formatter"
     },
     "python.formatting.provider": "none",
-    "eslint.workingDirectories": [{"mode": "auto"}],
+    "eslint.workingDirectories": [
+      {
+        "mode": "auto"
+      }
+    ],
+    "cSpell.enableFiletypes": [
+      "mdx"
+    ],
+    "cSpell.words": [
+      "astro",
+      "Synnax"
+    ],
   },
   "extensions": {
     "recommendations": [

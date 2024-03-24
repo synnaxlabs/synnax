@@ -1,0 +1,189 @@
+---
+layout: "@/layouts/MainLayout.astro"
+title: "Deploy"
+heading: "Start a Single Node Cluster"
+description: "This page will walk you through starting a single node cluster for testing,
+learning, or development."
+---
+
+import { Icon } from "@synnaxlabs/media";
+
+import SynnaxDownloadURL from "@/components/SynnaxDownloadURL.astro";
+import SynnaxMoveCommand from "@/components/SynnaxMoveCommand.astro";
+import { Tabs } from "@/components/Tabs";
+
+Select your operating system below.
+
+<Tabs
+    client:only="react"
+    tabs={[
+        { name: "Docker", tabKey: "docker"},
+        { name: "Linux", tabKey: "linux" },
+        { name: "MacOS", tabKey: "macos" },
+        { name: "Windows", tabKey: "windows" },
+    ]}
+>
+<Icon.OS.Docker slot="docker-icon" />
+<Fragment slot="docker">
+
+## Using Docker
+
+The simplest way to start a single node cluster is by using the `synnaxlabs/synnax` Docker image,
+simply run:
+
+```cmd
+docker run -p 9090:9090 synnaxlabs/synnax --listen=localhost:9090 --mem --insecure
+```
+
+This will pull the latest version of Synnax from Docker Hub and start a single node cluster with
+the following parameters:
+
+`-p 9090:9090` - This maps port 9090 on the host to port 9090 in the container. This allows
+access to the Synnax node from the host machine.
+
+`--listen=localhost:9090` - This sets the address that the node will listen on. This
+is the reachable adress of the node, and is also the address that other nodes will use to
+connect when deploying a multi-node cluster.
+
+`--mem` - Tells the node to store all data in memory, which is useful for learning and
+development.
+
+`--insecure` - Tells the node to run without TLS.
+
+If you're interested in more details on these flags, see the [CLI Reference](/components/cluster/cli-reference).
+
+To stop the node, simply press `Ctrl+C` in the terminal.
+
+</Fragment>
+<Icon.OS.Linux slot="linux-icon" />
+<Fragment slot="linux">
+## Using Linux
+
+To start a single node cluster on Linux, first download the latest Synnax binary
+by running:
+
+<SynnaxDownloadURL os="linux" />
+
+Then, move the binary to `/usr/local/bin`:
+
+<SynnaxMoveCommand os="linux" />
+
+Next, give execution permissions to the binary:
+
+```cmd
+chmod +x /usr/local/bin/synnax
+```
+
+<div class="info">
+<b>Note - </b> You'll need to make sure that `/usr/local/bin` is in your `PATH` environment
+variable. You can do this temporarily by running `export PATH=$PATH:/usr/local/bin`.
+</div>
+
+Finally, start the node:
+
+```cmd
+synnax start --listen=localhost:9090 --mem --insecure
+```
+
+This will start a single node cluster with the following parameters:
+
+`--listen=localhost:9090` - This sets the address that the node will listen on. This
+is the reachable address of the node, and is also the address that other nodes will use to
+connect when deploying a multi-node cluster.
+
+`--mem` - Tells the node to store all data in memory, which is useful for learning and
+development.
+
+`--insecure` - Tells the node to run without TLS.
+
+If you're interested in more details on these flags, see the [CLI Reference](/components/cluster/cli-reference).
+
+To stop the node, simply press `Ctrl+C` in the terminal.
+
+
+</Fragment>
+<Icon.OS.MacOS slot="macos-icon" />
+<Fragment slot="macos">
+## Using MacOS
+
+To start a single node cluster on macOS, first download the latest Synnax binary
+by running:
+
+<SynnaxDownloadURL os="macos" />
+
+Next, move the binary to `usr/local/bin`:
+
+<SynnaxMoveCommand os="macos" />
+
+Then, give execution permissions to the binary:
+
+```cmd
+chmod +x /usr/local/bin/synnax
+```
+
+<div class="info">
+<b>Note - </b> You'll need to make sure that `/usr/local/bin` is in your `PATH` environment
+variable. You can do this temporarily by running `export PATH=$PATH:/usr/local/bin`.
+</div>
+
+Finally, start the node:
+
+```cmd
+synnax start --listen=localhost:9090 --mem --insecure
+```
+
+This will start a single node cluster with the following parameters:
+
+`--listen=localhost:9090` - This sets the address that the node will listen on. This
+is the reachable adress of the node, and is also the address that other nodes will use to
+connect when deploying a multi-node cluster.
+
+`--mem` - Tells the node to store all data in memory, which is useful for learning and
+development.
+
+`--insecure` - Tells the node to run without TLS.
+
+If you're interested in more details on these flags, see the [CLI Reference](/components/cluster/cli-reference).
+
+To stop the node, simply press `Ctrl+C` in the terminal.
+
+</Fragment>
+<Icon.OS.Windows slot="windows-icon" />
+<Fragment slot="windows">
+
+## Using Windows
+
+To start a single node cluster on Windows, use the following script to 
+download the latest Synnax binary and move it into your `PATH`:
+
+<SynnaxDownloadURL os="windows" />
+
+<div class="info">
+<b>Note - </b> We recommend adding `;$env:appdata/synnax` to your `PATH` environment variable, which 
+will allow you to execute synnax commands from any shell. See [Microsoft's Environment Variable](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_environment_variables?view=powershell-7.4#saving-changes-to-environment-variables)
+documentation for more.
+</div>
+
+To start the node, run
+
+```cmd
+synnax start --listen=localhost:9090 --mem --insecure
+```
+
+This will start a single node cluster with the following parameters:
+
+`--listen=localhost:9090` - This sets the address that the node will listen on. This
+is the reachable address of the node, and is also the address that other nodes will use to
+connect when deploying a multi-node cluster.
+
+`--mem` - Tells the node to store all data in memory, which is useful for learning and
+development.
+
+`--insecure` - Tells the node to run without TLS.
+
+If you're interested in more details on these flags, see the [CLI Reference](/components/cluster/cli-reference).
+
+To stop the node, simply press `Ctrl+C` in the terminal.
+
+</Fragment>
+</Tabs>

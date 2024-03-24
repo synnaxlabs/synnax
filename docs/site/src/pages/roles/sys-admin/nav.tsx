@@ -9,9 +9,9 @@
 
 import { type PageNavNode } from "@/components/PageNav";
 
-export const analystsNav: PageNavNode = {
-  key: "Sys Admins",
-  name: "Sys Admins",
+export const sysAdminNav: PageNavNode = {
+  key: "sys-admin",
+  name: "System Administrators",
   children: [
     {
       name: "Quick Start",
@@ -24,9 +24,9 @@ export const analystsNav: PageNavNode = {
       key: "/roles/sys-admin/concepts",
     },
     {
-      name: "Production Deployment",
-      href: "/roles/sys-admin/production-deployment",
-      key: "/roles/sys-admin/production-deployment",
+      name: "Production",
+      href: "/roles/sys-admin/production",
+      key: "/roles/sys-admin/production",
     },
     {
       name: "Hardware Requirements",

@@ -9,14 +9,14 @@
 
 import { type PageNavNode } from "@/components/PageNav";
 
-export const analystsNav: PageNavNode = {
-  key: "analysts",
+export const analystNav: PageNavNode = {
+  key: "analyst",
   name: "Analysts",
   children: [
     {
       name: "Exploratory Analysis in Python",
-      href: "/roles/analysts/exploratory-analysis-in-python",
-      key: "/roles/analysts/exploratory-analysis-in-python",
+      href: "/roles/analyst/exploratory-analysis-in-python",
+      key: "/roles/analyst/exploratory-analysis-in-python",
     },
   ],
 };
