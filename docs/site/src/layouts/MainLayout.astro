@@ -47,12 +47,12 @@ const {
   <Header />
   <section>
     <nav class="docs-nav">
-      <PageNav client:idle currentPage={Astro.url.pathname} />
+      <PageNav client:load currentPage={Astro.url.pathname} />
     </nav>
     <main>
-      <article transition:animate="fade">
+      <article transition:animate="none">
         <h1 class="article-title">{heading ?? title}</h1>
-        <h3 class="article-description">{description}</h3>
+        <h4 class="article-description">{description}</h3>
         <slot />
       </article>
     </main>
@@ -165,12 +165,20 @@ const {
     }
 
     .table-of-contents {
+      width: 250px;
       & h5 {
         font-weight: 500;
       }
 
       .heading {
         border-bottom: none;
+      }
+
+      & .header-link {
+        box-shadow: inset -1px 0 0 0 var(--pluto-border-color);
+        &.depth-3 {
+          margin-left: 2rem;
+        }
       }
 
       & .pluto-menu-item {
@@ -184,7 +192,7 @@ const {
 
         &:is(.pluto--selected, :hover) {
           background: none;
-          border-right: 2px solid var(--pluto-text-color);
+          box-shadow: inset -2px 0 0 0 var(--pluto-primary-z);
           border-radius: 0 !important;
           & small {
             font-weight: 500 !important;
@@ -444,8 +452,6 @@ const {
     table > :not(caption) > * > * {
       position: relative;
       border-width: 0 1px;
-      /* border-color: var(--pluto-border-color); */
-      /* border-style: solid; */
       padding: 1.25rem 1.5rem;
     }
 

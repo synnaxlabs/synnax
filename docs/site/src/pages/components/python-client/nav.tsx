@@ -39,6 +39,11 @@ export const pythonClientNav: PageNavNode = {
       name: "Write Telemetry",
     },
     {
+      key: "/components/python-client/examples",
+      href: "/components/python-client/examples",
+      name: "Examples",
+    },
+    {
       key: "/components/python-client/troubleshooting",
       href: "/components/python-client/troubleshooting",
       name: "Troubleshooting",

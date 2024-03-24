@@ -35,14 +35,12 @@ export const registerFactory = (ctx: aether.Context, f: Factory): void =>
 
 class MemoizedSource<V> implements Source<V> {
   private readonly spec: Spec;
-  private readonly prov: Provider;
   private readonly wrapped: Source<V>;
   private readonly prevKey: string;
 
   constructor(wrapped: Source<V>, prevProv: Provider, prevSpec: Spec) {
     this.wrapped = wrapped;
     this.spec = prevSpec;
-    this.prov = prevProv;
     this.prevKey = prevProv.clusterKey;
   }
 

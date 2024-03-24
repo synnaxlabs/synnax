@@ -487,12 +487,17 @@ const value: Spec<ValueProps> = {
       connections: [
         {
           from: "valueStream",
+          to: "rollingAverage",
+        },
+        {
+          from: "rollingAverage",
           to: "stringifier",
         },
       ],
       segments: {
         valueStream: telem.streamChannelValue({ channel: 0 }),
         stringifier: telem.stringifyNumber({ precision: 2 }),
+        rollingAverage: telem.rollingAverage({ windowSize: 1 }),
       },
       outlet: "stringifier",
     }),

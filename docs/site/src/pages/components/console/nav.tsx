@@ -14,18 +14,18 @@ export const consoleNav: PageNavNode = {
   name: "Console",
   children: [
     {
-      key: "/console/get-started",
-      href: "/console/get-started",
+      key: "/components/console/get-started",
+      href: "/components/console/get-started",
       name: "Get Started",
     },
     {
-      key: "/console/connect-a-cluster",
-      href: "/console/connect-a-cluster",
+      key: "/components/console/connect-a-cluster",
+      href: "/components/console/connect-a-cluster",
       name: "Connect a Cluster",
     },
     {
-      key: "/console/querying-data",
-      href: "/console/querying-data",
+      key: "/components/console/querying-data",
+      href: "/components/console/querying-data",
       name: "Querying Data Using Ranges",
     },
   ],

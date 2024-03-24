@@ -1,9 +1,9 @@
-import { type alamos } from "@synnaxlabs/alamos";
+import { alamos } from "@synnaxlabs/alamos";
 import { type framer, type channel } from "@synnaxlabs/client";
-import { TimeSpan, type Destructor, type TimeRange, debounce } from "@synnaxlabs/x";
+import { TimeSpan, type TimeRange, debounce } from "@synnaxlabs/x";
 import { Mutex } from "async-mutex";
 
-import { type CacheManager } from "@/telem/client/cacheManager";
+import { type Cache } from "@/telem/client/cache/cache";
 import { ReadResponse, responseDigests } from "@/telem/client/types";
 
 interface PromiseFns<T> {
@@ -18,34 +18,158 @@ export type ReadRemoteFunc = (
   keys: channel.Keys,
 ) => Promise<framer.Frame>;
 
-export class Reader {
-  private readonly ins: alamos.Instrumentation;
-  private readonly cache: CacheManager;
-  private readonly readRemote: ReadRemoteFunc;
+interface ReaderProps {
+  /**
+   * Function used to read remote data from the server. Used instead of
+   * passing in a Synnax client directly to make testing easier.
+   */
+  readRemote: ReadRemoteFunc;
+  /** Will read from and populate the given cache with fetched data. */
+  cache: Cache;
+  /**
+   * Used to batch read request to the server to minimize traffic. Larger
+   * values mean slower response times but less traffic. Smaller values mean faster
+   * response times but more traffic.
+   * @default TimeSpan.milliseconds(50)
+   */
+  batchDebounce?: TimeSpan;
+  /** Used for logging, tracing, etc. */
+  instrumentation?: alamos.Instrumentation;
+}
 
-  private readonly mu = new Mutex();
-  private readonly readRequests = new Map<ToFetch, PromiseFns<void>>();
+interface ReaderMu {
+  mu: Mutex;
+  requests: Map<ToFetch, PromiseFns<void>>;
+}
+
+/**
+ * Reader is used for reading telemetry data from the Synnax cluster. See the documentation
+ * in the README for more.
+ */
+export class Reader {
+  private readonly props: Required<ReaderProps>;
+
   private readonly debouncedRead: () => void;
 
-  constructor(
-    cache: CacheManager,
-    fetcher: ReadRemoteFunc,
-    ins: alamos.Instrumentation,
-  ) {
-    this.cache = cache;
-    this.readRemote = fetcher;
-    this.ins = ins;
+  // Guards concurrency between the batchRead function and the read function.
+  private readonly guarded: ReaderMu = {
+    mu: new Mutex(),
+    requests: new Map(),
+  };
+
+  constructor(props: ReaderProps) {
+    this.props = {
+      instrumentation: alamos.NOOP,
+      batchDebounce: TimeSpan.milliseconds(50),
+      ...props,
+    };
     this.debouncedRead = debounce(() => {
       void this.batchRead();
-    }, 50);
+    }, this.props.batchDebounce.milliseconds);
+  }
+
+  /** Implements ReadClient. */
+  async read(
+    tr: TimeRange,
+    channels: channel.Keys,
+  ): Promise<Record<channel.Key, ReadResponse>> {
+    const {
+      instrumentation: { L },
+      cache,
+    } = this.props;
+    L.debug("starting read", { tr: tr.toPrettyString(), channels });
+    const start = performance.now();
+    // Instead of executing a fetch for each channel, we'll batch related time ranges
+    // together to get the most out of each fetch.
+    const toFetch = new Map<string, ToFetch>();
+    const responses: Record<channel.Key, ReadResponse> = {};
+
+    // If this is the first time we're fetching data for these channels, we'll need to
+    // populate new entries in the cache.
+    await cache.populateMissing(channels);
+
+    try {
+      for (const key of channels) {
+        // Try fetching from the cache.
+        const unary = cache.get(key);
+        const { series, gaps } = unary.read(tr);
+        // In this case we have all the data we need and don't need to execute a fetch
+        // for this channel.
+        if (gaps.length === 0) responses[key] = new ReadResponse(unary.channel, series);
+
+        // For each gap in the data, add it in the fetch map.
+        gaps.forEach((gap) => {
+          const exists = toFetch.get(gap.toString());
+          if (exists == null) toFetch.set(gap.toString(), [gap, new Set([key])]);
+          else toFetch.set(gap.toString(), [gap, new Set([...exists[1], key])]);
+        });
+      }
+
+      if (toFetch.size === 0) {
+        L.debug("read satisfied by cache", () => ({
+          tr: tr.toPrettyString(),
+          channels,
+          responses: responseDigests(Object.values(responses)),
+          time: TimeSpan.milliseconds(performance.now() - start).toString(),
+        }));
+        return responses;
+      }
+
+      L.debug("read cache miss", () => ({
+        tr: tr.toPrettyString(),
+        channels,
+        toFetch: Array.from(toFetch.values()).map(([r, k]) => ({
+          timeRange: r.toPrettyString(),
+          channels: k,
+        })),
+        responses: responseDigests(Object.values(responses)),
+      }));
+
+      // Fetch any missing gaps in the data using a batched read. This will automatically
+      // populate the cache with the new data.
+      const { mu, requests } = this.guarded;
+      for (const [, [range, keys]] of toFetch) {
+        await new Promise<void>((resolve, reject) => {
+          void mu.runExclusive(async () => {
+            requests.set([range, keys], { resolve, reject });
+            this.debouncedRead();
+          });
+        });
+      }
+    } catch (e) {
+      L.error("read failed", { tr: tr.toPrettyString(), channels, error: e });
+      throw e;
+    }
+
+    // The cache has fetched all the data we need, so we just re-execute a cache read
+    // to get the new data.
+    for (const key of channels) {
+      const unary = cache.get(key);
+      const { series } = unary.read(tr);
+      responses[key] = new ReadResponse(unary.channel, series);
+    }
+
+    L.debug("read satisfied by fetch", () => ({
+      tr: tr.toPrettyString(),
+      channels,
+      responses: responseDigests(Object.values(responses)),
+      time: TimeSpan.milliseconds(performance.now() - start).toString(),
+    }));
+
+    return responses;
   }
 
   private async batchRead(): Promise<void> {
-    await this.mu.runExclusive(async () => {
+    const {
+      instrumentation: { L },
+      readRemote,
+      cache,
+    } = this.props;
+    const { mu, requests } = this.guarded;
+    await mu.runExclusive(async () => {
       const compressedToFetch: ToFetch[] = [];
-
       try {
-        this.readRequests.forEach((toFetch, k) => {
+        requests.forEach((_, k) => {
           const [tr, keys] = k;
           const groupWith = compressedToFetch.find(
             ([r]) =>
@@ -57,7 +181,7 @@ export class Reader {
             groupWith[1] = new Set([...groupWith[1], ...keys]);
           }
         });
-        this.ins.L.debug("batch read", {
+        L.debug("batch read", {
           toFetch: compressedToFetch.map(([r, k]) => ({
             timeRange: r.toPrettyString(),
             channels: k,
@@ -65,108 +189,20 @@ export class Reader {
         });
         for (const [range, keys] of compressedToFetch) {
           const keysArray = Array.from(keys);
-          const frame = await this.readRemote(range, keysArray);
-          for (const key of keysArray) {
-            const cache = this.cache.get(key);
+          const frame = await readRemote(range, keysArray);
+          keysArray.forEach((key) => {
+            const unary = cache.get(key);
             const data = frame.get(key);
-            if (data.length > 0) {
-              cache.writeStatic(data);
-            }
-          }
-        }
-        this.readRequests.forEach((toFetch) => toFetch.resolve());
-      } catch (e) {
-        this.ins.L.error("batch read failed", { error: e });
-        this.readRequests.forEach((toFetch) => toFetch.reject(e));
-      } finally {
-        this.readRequests.clear();
-      }
-    });
-  }
-
-  /** Implements ReadClient. */
-  async read(
-    tr: TimeRange,
-    channels: channel.Keys,
-  ): Promise<Record<channel.Key, ReadResponse>> {
-    this.ins.L.debug("starting read", { tr: tr.toPrettyString(), channels });
-    const start = performance.now();
-    // Instead of executing a fetch for each channel, we'll batch related time ranges
-    // together to get the most out of each fetch.
-    const toFetch = new Map<string, ToFetch>();
-    const releasers: Destructor[] = [];
-    const responses: Record<channel.Key, ReadResponse> = {};
-
-    await this.cache.populateMissing(channels);
-
-    try {
-      for (const key of channels) {
-        // Read from cache.
-        const cache = this.cache.get(key);
-        const { series, gaps } = cache.dirtyRead(tr);
-        // In this case we have all the data we need and don't need to execute a fetch
-        // for this channel.
-        if (gaps.length === 0) responses[key] = new ReadResponse(cache.channel, series);
-
-        // For each gap in the data, add it in the fetch map.
-        gaps.forEach((gap) => {
-          const exists = toFetch.get(gap.toString());
-          if (exists == null) toFetch.set(gap.toString(), [gap, new Set([key])]);
-          else toFetch.set(gap.toString(), [gap, new Set([...exists[1], key])]);
-        });
-      }
-
-      if (toFetch.size === 0) {
-        this.ins.L.debug("read satisfied by cache", {
-          tr: tr.toPrettyString(),
-          channels,
-          responses: responseDigests(Object.values(responses)),
-          time: TimeSpan.milliseconds(performance.now() - start).toString(),
-        });
-        return responses;
-      }
-
-      this.ins.L.debug("read cache miss", {
-        tr: tr.toPrettyString(),
-        channels,
-        toFetch: Array.from(toFetch.values()).map(([r, k]) => ({
-          timeRange: r.toPrettyString(),
-          channels: k,
-        })),
-        responses: responseDigests(Object.values(responses)),
-      });
-
-      // Fetch any missing gaps in the data. Writing to the cache will automatically
-      // order the data correctly.
-      for (const [, [range, keys]] of toFetch) {
-        await new Promise<void>((resolve, reject) => {
-          void this.mu.runExclusive(async () => {
-            this.readRequests.set([range, keys], { resolve, reject });
-            this.debouncedRead();
+            unary.writeStatic(data);
           });
-        });
+        }
+        requests.forEach((toFetch) => toFetch.resolve());
+      } catch (e) {
+        L.error("batch read failed", { error: e });
+        requests.forEach((toFetch) => toFetch.reject(e));
+      } finally {
+        requests.clear();
       }
-    } catch (e) {
-      this.ins.L.error("read failed", { tr: tr.toPrettyString(), channels, error: e });
-      throw e;
-    } finally {
-      releasers.forEach((r) => r());
-    }
-
-    // Re-read from cache so we get correct ordering.
-    for (const key of channels) {
-      const cache = this.cache.get(key);
-      const { series } = cache.dirtyRead(tr);
-      responses[key] = new ReadResponse(cache.channel, series);
-    }
-
-    this.ins.L.debug("read satisfied by fetch", {
-      tr: tr.toPrettyString(),
-      channels,
-      responses: responseDigests(Object.values(responses)),
-      time: TimeSpan.milliseconds(performance.now() - start).toString(),
     });
-
-    return responses;
   }
 }

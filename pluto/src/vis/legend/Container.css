@@ -15,7 +15,7 @@
     padding: 1rem;
     z-index: 4;
     backdrop-filter: blur(3rem);
-    background-color: var(--pluto-gray-l0-30);
+    background-color: var(--pluto-gray-l1-60);
     -webkit-backdrop-filter: blur(3rem);
     border-radius: 1rem;
     max-height: 50%;

@@ -32,16 +32,19 @@ const modifyTheme = (theme: Theming.ThemeSpec): Theming.ThemeSpec => {
   };
   m.typography.h2 = {
     ...m.typography.h2,
-    weight: 550,
+    size: 4.75,
+    lineHeight: 4.75 * 1.5,
+    weight: 500,
   };
   m.typography.h3 = {
     ...m.typography.h3,
-    lineHeight: m.typography.h3.size * 1.5,
-    weight: 500,
+    size: 3.5,
+    lineHeight: 3.5 * 1.5,
+    weight: 450,
   };
   m.typography.h4 = {
-    ...m.typography.h4,
-    lineHeight: m.typography.h4.size * 1.5,
+    size: 3,
+    lineHeight: 3 * 1.5,
     weight: 500,
   };
 

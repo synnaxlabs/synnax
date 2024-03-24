@@ -112,7 +112,8 @@ export const chooseLocation = (
       v.x = bestLocation(target, window, LOCATION_PREFERENCES) as location.X;
       v.y = chooseRemainingLocation(location.construct(v.x)) as location.Y;
     }
-    return location.constructXY(v as location.XY);
+    const l = location.constructXY(v as location.XY);
+    return l;
   }
   const chosen = bestLocation(target, window, LOCATION_PREFERENCES);
   return location.constructXY(chosen, chooseRemainingLocation(chosen));

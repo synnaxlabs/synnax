@@ -14,29 +14,14 @@ export const sysAdminNav: PageNavNode = {
   name: "System Administrators",
   children: [
     {
-      name: "Quick Start",
-      href: "/roles/sys-admin/quick-start",
-      key: "/roles/sys-admin/quick-start",
-    },
-    {
       name: "Concepts",
       href: "/roles/sys-admin/concepts",
       key: "/roles/sys-admin/concepts",
     },
     {
-      name: "Production",
-      href: "/roles/sys-admin/production",
-      key: "/roles/sys-admin/production",
-    },
-    {
-      name: "Hardware Requirements",
-      href: "/roles/sys-admin/hardware-requirements",
-      key: "/roles/sys-admin/hardware-requirements",
-    },
-    {
-      name: "CLI Reference",
-      href: "/roles/sys-admin/cli-reference",
-      key: "/roles/sys-admin/cli-reference",
+      name: "Deployment with Self-Signed Certificates",
+      href: "/roles/sys-admin/deployment-self-signed",
+      key: "/roles/sys-admin/deployment-self-signed",
     },
   ],
 };
