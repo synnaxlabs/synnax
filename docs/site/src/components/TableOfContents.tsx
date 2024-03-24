@@ -15,6 +15,8 @@ import { Menu } from "@synnaxlabs/pluto/menu";
 import { type MarkdownHeading } from "astro";
 import { unescape } from "html-escaper";
 
+import "@/components/TableOfContents.css";
+
 interface ItemOffset {
   id: string;
   topOffset: number;

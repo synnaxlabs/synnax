@@ -3,6 +3,8 @@ layout: "@/layouts/MainLayout.astro"
 title: "Deployment Concepts"
 description: "Essential concepts for deploying Synnax in production."
 ---
+
+import Note from "@/components/Note.astro";
 import { Image } from "@/components/Media";
 
 
@@ -42,10 +44,10 @@ While single node clusters are less fault tolerant than multi-node deployments,
 it's perfectly okay to deploy Synnax in production with just a single node. As your 
 needs grow, you can add additional nodes in order to balance the workload.
 
-<div class="info">
+<Note variant="info">
 <b>Note -</b> Multi-node clusters are experimental and not yet recommended
 for production use.
-</div>
+</Note>
 
 ## Deployment Considerations
 

@@ -14,7 +14,7 @@ import { Button } from "@synnaxlabs/pluto/button";
 import { runtime } from "@synnaxlabs/x";
 
 export interface OSDownloadButtonEntry {
-  os: OS;
+  os: runtime.OS;
   href: string;
 }
 
@@ -44,18 +44,21 @@ export interface UpdateFile {
   version: string;
   platforms: {
     "darwin-x86_64": {
-      href: string;
+      url: string;
     };
     "linux-x86_64": {
-      href: string;
+      url: string;
     };
     "windows-x86_64": {
-      href: string;
+      url: string;
     };
   };
 }
 
-const OSToUpdateFilePlatform: Record<OS, keyof UpdateFile["platforms"]> = {
+const OSToUpdateFilePlatform: Record<
+  "MacOS" | "Linux" | "Windows",
+  keyof UpdateFile["platforms"]
+> = {
   MacOS: "darwin-x86_64",
   Linux: "linux-x86_64",
   Windows: "windows-x86_64",
@@ -64,13 +67,13 @@ const OSToUpdateFilePlatform: Record<OS, keyof UpdateFile["platforms"]> = {
 const JSON_URL =
   "https://raw.githubusercontent.com/synnaxlabs/synnax/main/console/release-spec.json";
 
-export const SynnaxConsoleDownloadButton = () => {
+export const SynnaxConsoleDownloadButton = (): ReactElement | null => {
   const [updateFile, setUpdateFile] = useState<UpdateFile | null>(null);
 
   useEffect(() => {
     fetch(JSON_URL)
       .then(async (response) => await response.json())
-      .then((f) => setUpdateFile(f))
+      .then((f) => setUpdateFile(f as UpdateFile))
       .catch(() => setUpdateFile(null));
   }, []);
 

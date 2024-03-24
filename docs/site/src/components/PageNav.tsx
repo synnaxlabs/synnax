@@ -17,6 +17,8 @@ import { Tree } from "@synnaxlabs/pluto/tree";
 
 import { componentsPages, rolesPages } from "@/pages/nav";
 
+import "@/components/PageNav.css";
+
 export type PageNavNode = Tree.Node;
 
 export interface TOCProps {
@@ -41,7 +43,11 @@ interface ReferenceTreeProps {
 const ReferenceTree = ({ currentPage }: ReferenceTreeProps): ReactElement => {
   let parts = currentPage.split("/").filter((part) => part !== "");
   if (parts.length === 0) parts = componentsPages.map((p) => p.key);
-  const treeProps = Tree.use({ nodes: componentsPages, initialExpanded: parts, sort: false });
+  const treeProps = Tree.use({
+    nodes: componentsPages,
+    initialExpanded: parts,
+    sort: false,
+  });
   return (
     <Tree.Tree
       {...treeProps}
@@ -57,7 +63,11 @@ const ReferenceTree = ({ currentPage }: ReferenceTreeProps): ReactElement => {
 const Role = ({ currentPage }: TOCProps): ReactElement => {
   let parts = currentPage.split("/").filter((part) => part !== "");
   if (parts.length === 0) parts = rolesPages.map((p) => p.key);
-  const treeProps = Tree.use({ nodes: rolesPages, initialExpanded: parts, sort: false });
+  const treeProps = Tree.use({
+    nodes: rolesPages,
+    initialExpanded: parts,
+    sort: false,
+  });
   return (
     <Tree.Tree
       {...treeProps}
