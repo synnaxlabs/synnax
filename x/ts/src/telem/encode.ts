@@ -16,7 +16,7 @@ binary.registerCustomTypeEncoder({ Class: TimeStamp, write: valueOfEncoder });
 binary.registerCustomTypeEncoder({ Class: TimeSpan, write: valueOfEncoder });
 binary.registerCustomTypeEncoder({
   Class: DataType,
-  write: (v: unknown) => (v as DataType).toString,
+  write: (v: unknown) => (v as DataType).toString(),
 });
 binary.registerCustomTypeEncoder({ Class: Rate, write: valueOfEncoder });
 binary.registerCustomTypeEncoder({ Class: Density, write: valueOfEncoder });

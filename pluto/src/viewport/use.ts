@@ -205,7 +205,7 @@ export const use = ({
         );
       }
 
-      setMaskBox((prev) => (!box.isZero(prev) ? box.ZERO : prev));
+      setMaskBox((prev) => (!box.areaIsZero(prev) ? box.ZERO : prev));
       const next = handlePan(box_, stateRef.current, canvas);
       if (box.equals(next, stateRef.current)) return;
       onChange?.({

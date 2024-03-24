@@ -51,7 +51,6 @@ export const SoftwareTasksForm = (): ReactElement => {
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
 
   const handleSelectTask = (key: string, index: number): void => {
-    console.log("handleSelectTask", key, index);
     setSelectedTask({ key, index });
     setMostRecentSelected({ type: "task", index });
   };
@@ -96,7 +95,6 @@ const TaskList = ({ selectedTask, onSelectTask }: TaskListProps): ReactElement =
   const { value } = Form.useFieldArray<NITask>({
     path: "softwarePlan.tasks",
   });
-  console.log(value);
   return (
     <Align.Space className={CSS.B("tasks")} grow empty>
       <Header.Header level="h3">
@@ -266,7 +264,6 @@ const ChannelForm = ({ taskIndex, index }: ChannelFormProps): ReactElement => {
       optional: true,
     })?.value?.type ?? "none",
   );
-  console.log(scaleType);
   const prefix = `softwarePlan.tasks.${taskIndex}.config.channels.${index}`;
 
   // We should only need to do this on first render, since the groups are static.

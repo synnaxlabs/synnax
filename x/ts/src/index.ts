@@ -15,7 +15,7 @@ export * from "@/optional";
 export * from "@/identity";
 export * from "@/runtime";
 export * from "@/deep";
-export * from "@/debounce";
+export * from "@/debounce/debounce";
 export * from "@/clamp";
 export * from "@/compare";
 export * from "@/runtime";

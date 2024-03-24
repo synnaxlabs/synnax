@@ -68,6 +68,13 @@ export const analogReadTaskConfigZ = z
 
 export type AnalogReadTaskConfig = z.infer<typeof analogReadTaskConfigZ>;
 
+export const ZERO_ANALOG_READ_TASK_CONFIG: AnalogReadTaskConfig = {
+  device: "",
+  sampleRate: 0,
+  streamRate: 0,
+  channels: [],
+};
+
 export type AnalogReadTask = task.Task<"ni.analogRead", AnalogReadTaskConfig>;
 
 const digitalOutputChannelZ = z.object({

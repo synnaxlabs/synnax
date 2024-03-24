@@ -23,6 +23,9 @@ type Writer struct {
 }
 
 func (w Writer) Create(ctx context.Context, d Device) (err error) {
+	if err := d.Validate(); err != nil {
+		return err
+	}
 	if err = gorp.NewCreate[string, Device]().Entry(&d).Exec(ctx, w.tx); err != nil {
 		return
 	}

@@ -82,7 +82,7 @@ type FieldError struct {
 	Message string `json:"message"`
 }
 
-func (fe FieldError) Error() string { return fe.Field + ": " + fe.Message }
+func (fe FieldError) Error() string { return fe.Field + ":" + fe.Message }
 
 func encode(_ context.Context, err error) (errors.Payload, bool) {
 	var fe FieldError

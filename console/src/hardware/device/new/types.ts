@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { hardware } from "@synnaxlabs/client";
+import { task } from "@synnaxlabs/client";
 import { z } from "zod";
 
 // VENDOR
@@ -127,7 +127,7 @@ const physicalDevicePlan = z
 export type PhysicalPlan = z.infer<typeof physicalDevicePlan>;
 
 export const softwarePlanZ = z.object({
-  tasks: z.array(hardware.taskZ),
+  tasks: z.array(task.taskZ),
 });
 
 export type SoftwarePlan = z.infer<typeof softwarePlanZ>;

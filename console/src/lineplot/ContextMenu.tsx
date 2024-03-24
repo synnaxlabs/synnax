@@ -55,7 +55,7 @@ export const ContextMenuContent = ({
   return (
     <Core.Menu onChange={handleSelect} iconSpacing="small">
       <Menu.Item.HardReload />
-      {!box.isZero(selection) && (
+      {!box.areaIsZero(selection) && (
         <>
           <Core.Item itemKey="iso" startIcon={<Icon.Range />}>
             Copy time range as ISO

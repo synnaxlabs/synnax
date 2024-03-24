@@ -692,14 +692,15 @@ const adjustBox = ({
   const labelDims = xy.scale(box.dims(labelBox), 1 / (LABEL_SCALE * zoom));
   const dir = direction.construct(labelOrientation);
   if (dir === "x")
-    position = xy.translateY(
+    position = xy.translate(
       position,
+      "y",
       Math.max((labelDims.y - valueBoxHeight) / 2 - 1, 0),
     );
   if (hasLabel && labelOrientation === "left")
-    position = xy.translateX(position, labelDims.x + 4);
+    position = xy.translate(position, "x", labelDims.x + 4);
   else if (hasLabel && labelOrientation === "top")
-    position = xy.translateY(position, labelDims.y + 4);
+    position = xy.translate(position, "y", labelDims.y + 4);
   return box.construct(position.x, position.y, box.width(outerBox), valueBoxHeight);
 };
 

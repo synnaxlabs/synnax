@@ -74,7 +74,7 @@ func (c ObservablePublisherConfig) Validate() error {
 }
 
 // Override implements config.Properties.
-func (c ObservableConfig) Override(other ObservableConfig) ObservableConfig {
+func (c ObservablePublisherConfig) Override(other ObservablePublisherConfig) ObservablePublisherConfig {
 	c.Name = override.If(c.Name, other.Name, c.Name == "")
 	c.SetChannel = override.If(c.SetChannel, other.SetChannel, c.SetChannel.Name == "")
 	c.DeleteChannel = override.If(c.DeleteChannel, other.DeleteChannel, c.DeleteChannel.Name == "")

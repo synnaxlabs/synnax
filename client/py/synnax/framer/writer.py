@@ -157,30 +157,31 @@ class Writer:
         ...
 
     @overload
-    def write(self, channels_or_data: ChannelKeys | ChannelNames,
-              series: list[CrudeSeries]):
+    def write(
+        self, channels_or_data: ChannelKeys | ChannelNames, series: list[CrudeSeries]
+    ):
         ...
 
     @overload
     def write(
         self,
-        channels_or_data: Frame |
-                          dict[ChannelKey | ChannelName, CrudeSeries] |
-                          DataFrame |
-                          dict[ChannelKey | ChannelName, float | np.number]
+        channels_or_data: Frame
+        | dict[ChannelKey | ChannelName, CrudeSeries]
+        | DataFrame
+        | dict[ChannelKey | ChannelName, float | np.number],
     ):
         ...
 
     def write(
         self,
         channels_or_data: ChannelName
-                          | ChannelKey
-                          | ChannelKeys
-                          | ChannelNames
-                          | Frame
-                          | dict[ChannelKey | ChannelName, CrudeSeries]
-                          | dict[ChannelKey | ChannelName, float | np.number]
-                          | DataFrame,
+        | ChannelKey
+        | ChannelKeys
+        | ChannelNames
+        | Frame
+        | dict[ChannelKey | ChannelName, CrudeSeries]
+        | dict[ChannelKey | ChannelName, float | np.number]
+        | DataFrame,
         series: CrudeSeries | list[CrudeSeries] | None = None,
     ) -> bool:
         """Writes the given data to the database. The formats are listed below. Before

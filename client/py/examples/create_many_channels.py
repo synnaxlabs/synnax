@@ -33,7 +33,8 @@ data_channels = [
         name=f"create_many_channels_data_{i}",
         data_type=sy.DataType.FLOAT64,
         index=time_channel.key,
-    ) for i in range(NUM_CHANNELS)
+    )
+    for i in range(NUM_CHANNELS)
 ]
 
 # Notice how we reassign the result of the create call to the channels variable, this

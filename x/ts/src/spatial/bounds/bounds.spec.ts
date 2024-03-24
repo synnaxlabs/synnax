@@ -26,10 +26,30 @@ describe("Bounds", () => {
         expect(bound.upper).toEqual(2);
       });
     });
+    it("should accept two arguments", () => {
+      const bound = bounds.construct(1, 2);
+      expect(bound.lower).toEqual(1);
+      expect(bound.upper).toEqual(2);
+    });
     it("should consider a single argument as the upper bound", () => {
       const bound = bounds.construct(1);
       expect(bound.lower).toEqual(0);
       expect(bound.upper).toEqual(1);
+    });
+  });
+  describe("equals", () => {
+    it("should return true if the bounds are equal", () => {
+      const a = bounds.construct([1, 2]);
+      const b = bounds.construct([1, 2]);
+      expect(bounds.equals(a, b)).toEqual(true);
+    });
+    it("should return true if both bounds are undefined", () => {
+      expect(bounds.equals(undefined, undefined)).toEqual(true);
+    });
+    it("should return false if the bounds are not equal", () => {
+      const a = bounds.construct([1, 2]);
+      const b = bounds.construct([1, 3]);
+      expect(bounds.equals(a, b)).toEqual(false);
     });
   });
   describe("contains", () => {
@@ -54,7 +74,7 @@ describe("Bounds", () => {
       const b2 = bounds.construct([2, 3]);
       expect(bounds.contains(b1, b2)).toEqual(true);
       expect(bounds.contains(b2, b1)).toEqual(false);
-    })
+    });
     it("should return true if two bounds are equal", () => {
       const b1 = bounds.construct([1, 3]);
       const b2 = bounds.construct([1, 3]);
@@ -113,22 +133,22 @@ describe("Bounds", () => {
       const a = bounds.construct([1, 2]);
       const b = bounds.construct([2, 3]);
       expect(bounds.overlapsWith(a, b)).toEqual(false);
-    })
+    });
     it("should return false if the bounds are adjacent", () => {
       const a = bounds.construct([2, 3]);
       const b = bounds.construct([1, 2]);
       expect(bounds.overlapsWith(a, b)).toEqual(false);
-    })
+    });
     it("should return true if the bounds overlap", () => {
       const a = bounds.construct([1, 2]);
       const b = bounds.construct([1.5, 3]);
       expect(bounds.overlapsWith(a, b)).toEqual(true);
-    })
+    });
     it("should return false if the bounds are disjoint", () => {
       const a = bounds.construct([1, 2]);
       const b = bounds.construct([3, 4]);
       expect(bounds.overlapsWith(a, b)).toEqual(false);
-    })
+    });
     it("should return true if the bounds are equal", () => {
       const a = bounds.construct([1, 2]);
       const b = bounds.construct([1, 2]);
@@ -136,31 +156,89 @@ describe("Bounds", () => {
     });
   });
   describe("findInsertPosition", () => {
-    const SPECS: [bounds.Crude[], number, {index: number, position: number}][] = [
-      [[[1, 3]], 2, { index: 0, position: 1 }],
-      [[[1, 3]], 3, { index: 1, position: 0 }],
-      [[[1, 3]], 4, { index: 1, position: 0 }],
-      [[[1, 3]], 4, { index: 1, position: 0 }],
-      [[[1, 3], [4, 6]], 5, { index: 1, position: 1 }],
-      [[[1, 2], [3, 4]], 3, { index: 1, position: 0 }],
-      [[[1, 3], [3, 4]], 3, { index: 1, position: 0 }],
-      [[[1, 2], [3, 5], [7, 10]], 6, { index: 2, position: 0 }],
-      [[[1, 2], [3, 5], [7, 10]], 2, { index: 1, position: 0 }],
-      [[[1, 2], [3, 5], [7, 10]], 3, { index: 1, position: 0 }],
-      [[[1, 2], [3, 5], [7, 10]], 4, { index: 1, position: 1 }],
-      [[[3,7]], 1, { index: 0, position: 0 }],
-      [[[3,7]], 8, { index: 1, position: 0 }],
-    ]
+    const SPECS: Array<[bounds.Crude[], number, { index: number; position: number }]> =
+      [
+        [[[1, 3]], 2, { index: 0, position: 1 }],
+        [[[1, 3]], 3, { index: 1, position: 0 }],
+        [[[1, 3]], 4, { index: 1, position: 0 }],
+        [[[1, 3]], 4, { index: 1, position: 0 }],
+        [
+          [
+            [1, 3],
+            [4, 6],
+          ],
+          5,
+          { index: 1, position: 1 },
+        ],
+        [
+          [
+            [1, 2],
+            [3, 4],
+          ],
+          3,
+          { index: 1, position: 0 },
+        ],
+        [
+          [
+            [1, 3],
+            [3, 4],
+          ],
+          3,
+          { index: 1, position: 0 },
+        ],
+        [
+          [
+            [1, 2],
+            [3, 5],
+            [7, 10],
+          ],
+          6,
+          { index: 2, position: 0 },
+        ],
+        [
+          [
+            [1, 2],
+            [3, 5],
+            [7, 10],
+          ],
+          2,
+          { index: 1, position: 0 },
+        ],
+        [
+          [
+            [1, 2],
+            [3, 5],
+            [7, 10],
+          ],
+          3,
+          { index: 1, position: 0 },
+        ],
+        [
+          [
+            [1, 2],
+            [3, 5],
+            [7, 10],
+          ],
+          4,
+          { index: 1, position: 1 },
+        ],
+        [[[3, 7]], 1, { index: 0, position: 0 }],
+        [[[3, 7]], 8, { index: 1, position: 0 }],
+      ];
     SPECS.forEach(([b, target, expected]) => {
-      test(`should return ${expected} for ${b} and ${target}`, () => {
+      test(`should return ${expected.index} ${expected.position} for ${b} and ${target}`, () => {
         expect(bounds.findInsertPosition(b, target)).toEqual(expected);
       });
     });
-  })
+  });
   describe("insert", () => {
     describe("formal cases", () => {
       test("insert before adjacent upper", () => {
-        const b: bounds.Crude[] = [[2, 3], [3, 4], [5, 6]];
+        const b: bounds.Crude[] = [
+          [2, 3],
+          [3, 4],
+          [5, 6],
+        ];
         const v: bounds.Crude = [1, 2];
         const result = bounds.insert(b, v);
         expect(result).toEqual([
@@ -171,7 +249,11 @@ describe("Bounds", () => {
         ]);
       });
       test("insert in-between with no overlap", () => {
-        const b: bounds.Crude[] = [[2, 3], [3, 4], [7, 8]];
+        const b: bounds.Crude[] = [
+          [2, 3],
+          [3, 4],
+          [7, 8],
+        ];
         const v: bounds.Crude = [5, 6];
         const result = bounds.insert(b, v);
         expect(result).toEqual([
@@ -182,7 +264,11 @@ describe("Bounds", () => {
         ]);
       });
       test("insert in-between adjacent lower and upper", () => {
-        const b: bounds.Crude[] = [[2, 3], [3, 4], [5, 6]];
+        const b: bounds.Crude[] = [
+          [2, 3],
+          [3, 4],
+          [5, 6],
+        ];
         const v: bounds.Crude = [4, 5];
         const result = bounds.insert(b, v);
         expect(result).toEqual([
@@ -193,7 +279,11 @@ describe("Bounds", () => {
         ]);
       });
       test("insert in-between adjacent lower not upper", () => {
-        const b: bounds.Crude[] = [[2, 3], [3, 4], [7, 8]];
+        const b: bounds.Crude[] = [
+          [2, 3],
+          [3, 4],
+          [7, 8],
+        ];
         const v: bounds.Crude = [4, 6];
         const result = bounds.insert(b, v);
         expect(result).toEqual([
@@ -204,7 +294,11 @@ describe("Bounds", () => {
         ]);
       });
       test("insert in-between overlap lower adjacent upper", () => {
-        const b: bounds.Crude[] = [[2, 4], [5, 6], [7, 8]];
+        const b: bounds.Crude[] = [
+          [2, 4],
+          [5, 6],
+          [7, 8],
+        ];
         const v: bounds.Crude = [3, 5];
         const result = bounds.insert(b, v);
         expect(result).toEqual([
@@ -215,7 +309,11 @@ describe("Bounds", () => {
         ]);
       });
       test("insert in-between adjacent lower contain 1 adjacent upper", () => {
-        const b: bounds.Crude[] = [[2, 4], [5, 6], [7, 8]];
+        const b: bounds.Crude[] = [
+          [2, 4],
+          [5, 6],
+          [7, 8],
+        ];
         const v: bounds.Crude = [4, 7];
         const result = bounds.insert(b, v);
         expect(result).toEqual([
@@ -225,7 +323,11 @@ describe("Bounds", () => {
         ]);
       });
       test("insert in-between overlap lower consume 1 adjacent upper", () => {
-        const b: bounds.Crude[] = [[2, 4], [5, 6], [7, 8]];
+        const b: bounds.Crude[] = [
+          [2, 4],
+          [5, 6],
+          [7, 8],
+        ];
         const v: bounds.Crude = [3, 7];
         const result = bounds.insert(b, v);
         expect(result).toEqual([
@@ -235,7 +337,11 @@ describe("Bounds", () => {
         ]);
       });
       test("insert in-between replace 1", () => {
-        const b: bounds.Crude[] = [[2, 4], [5, 6], [7, 8]];
+        const b: bounds.Crude[] = [
+          [2, 4],
+          [5, 6],
+          [7, 8],
+        ];
         const v: bounds.Crude = [5, 6];
         const result = bounds.insert(b, v);
         expect(result).toEqual([
@@ -245,73 +351,84 @@ describe("Bounds", () => {
         ]);
       });
       test("insert before overlap first", () => {
-        const b: bounds.Crude[] = [[3,7]]
-        const v: bounds.Crude = [1,4]
+        const b: bounds.Crude[] = [[3, 7]];
+        const v: bounds.Crude = [1, 4];
         const result = bounds.insert(b, v);
         expect(result).toEqual([
-          {lower: 1, upper: 3},
-          {lower: 3, upper: 7},
+          { lower: 1, upper: 3 },
+          { lower: 3, upper: 7 },
         ]);
       });
       test("insert before no adjacent", () => {
-        const b: bounds.Crude[] = [[3,7]]
-        const v: bounds.Crude = [1,2]
+        const b: bounds.Crude[] = [[3, 7]];
+        const v: bounds.Crude = [1, 2];
         const result = bounds.insert(b, v);
         expect(result).toEqual([
-          {lower: 1, upper: 2},
-          {lower: 3, upper: 7},
+          { lower: 1, upper: 2 },
+          { lower: 3, upper: 7 },
         ]);
       });
       test("insert after no adjacent", () => {
-        const b: bounds.Crude[] = [[3,7]]
-        const v: bounds.Crude = [8,9]
+        const b: bounds.Crude[] = [[3, 7]];
+        const v: bounds.Crude = [8, 9];
         const result = bounds.insert(b, v);
         expect(result).toEqual([
-          {lower: 3, upper: 7},
-          {lower: 8, upper: 9},
+          { lower: 3, upper: 7 },
+          { lower: 8, upper: 9 },
         ]);
       });
       test("insert after adjacent upper", () => {
-        const b: bounds.Crude[] = [[3,7]]
-        const v: bounds.Crude = [7,9]
+        const b: bounds.Crude[] = [[3, 7]];
+        const v: bounds.Crude = [7, 9];
         const result = bounds.insert(b, v);
         expect(result).toEqual([
-          {lower: 3, upper: 7},
-          {lower: 7, upper: 9},
+          { lower: 3, upper: 7 },
+          { lower: 7, upper: 9 },
         ]);
       });
       test("insert after overlap last", () => {
-        const b: bounds.Crude[] = [[3,7]]
-        const v: bounds.Crude = [5,9]
+        const b: bounds.Crude[] = [[3, 7]];
+        const v: bounds.Crude = [5, 9];
         const result = bounds.insert(b, v);
         expect(result).toEqual([
-          {lower: 3, upper: 7},
-          {lower: 7, upper: 9},
+          { lower: 3, upper: 7 },
+          { lower: 7, upper: 9 },
         ]);
       });
-    })
+    });
     describe("regressions", () => {
       it("should insert a value into a sorted array of bounds", () => {
         const b: bounds.Crude[] = [
-          {lower: 0, upper: 47040},
-          {lower: 47040, upper: 47240},
-          {lower: 47240, upper: 47280},
-          {lower: 47280, upper: 47320},
-          {lower: 47320, upper: 47400},
-        ]
-        const v: bounds.Crude = {lower: 47066, upper: 47066+ 354 }
+          { lower: 0, upper: 47040 },
+          { lower: 47040, upper: 47240 },
+          { lower: 47240, upper: 47280 },
+          { lower: 47280, upper: 47320 },
+          { lower: 47320, upper: 47400 },
+        ];
+        const v: bounds.Crude = { lower: 47066, upper: 47066 + 354 };
         const result = bounds.insert(b, v);
         expect(result).toEqual([
-          {lower: 0, upper: 47040},
-          {lower: 47040, upper: 47240},
-          {lower: 47240, upper: 47066+354},
+          { lower: 0, upper: 47040 },
+          { lower: 47040, upper: 47240 },
+          { lower: 47240, upper: 47066 + 354 },
         ]);
       });
-      it("should insert a value into a sorted array of bounds", () => {
-
-      })
-
-    })
-
-  })
+      it("should insert a value into a sorted array of bounds", () => {});
+    });
+  });
+  describe("linspace", () => {
+    it("should generate the correct array", () => {
+      const b = bounds.construct([1, 3]);
+      const result = bounds.linspace(b);
+      expect(result).toEqual([1, 2]);
+    });
+  });
+  describe("clamp", () => {
+    it("should clamp the provided target to the bounds", () => {
+      const b = bounds.construct([1, 3]);
+      expect(bounds.clamp(b, 0)).toEqual(1);
+      expect(bounds.clamp(b, 2)).toEqual(2);
+      expect(bounds.clamp(b, 4)).toEqual(2);
+    });
+  });
 });

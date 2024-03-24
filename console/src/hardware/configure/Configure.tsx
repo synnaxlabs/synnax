@@ -15,7 +15,6 @@ import { Icon } from "@synnaxlabs/media";
 import {
   Channel,
   Header,
-  Select,
   componentRenderProp,
   Nav,
   Synnax,

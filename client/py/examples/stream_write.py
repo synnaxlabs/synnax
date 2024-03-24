@@ -65,10 +65,12 @@ with client.new_writer(start, [time_ch.key, data_ch.key]) as writer:
         data = np.float32(np.sin(i / 10) * 1)
 
         # Write the data to the writer
-        writer.write({
-            time_ch.key: timestamp,
-            data_ch.key: data,
-        })
+        writer.write(
+            {
+                time_ch.key: timestamp,
+                data_ch.key: data,
+            }
+        )
 
         time.sleep(rough_rate.period.seconds)
 

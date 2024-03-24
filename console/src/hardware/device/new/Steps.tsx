@@ -14,8 +14,12 @@ const TABS: PSteps.Step[] = [
     title: "Channel Creation",
   },
   {
-    key: "softwareTasks",
-    title: "Software Tasks",
+    key: "confirm",
+    title: "Confirm",
+  },
+  {
+    key: "nextSteps",
+    title: "Next Steps",
   },
 ];
 

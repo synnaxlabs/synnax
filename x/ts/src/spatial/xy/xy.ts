@@ -138,20 +138,6 @@ export const distance = (ca: Crude, cb: Crude): number => {
   return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);
 };
 
-/** @returns the magnitude of the x distance between the two given coordinates. */
-export const xDistance = (ca: Crude, cb: Crude): number => {
-  const a = construct(ca);
-  const b = construct(cb);
-  return Math.abs(a.x - b.x);
-};
-
-/** @returns the magnitude of the y distance between the two given coordinates. */
-export const yDistance = (ca: Crude, cb: Crude): number => {
-  const a = construct(ca);
-  const b = construct(cb);
-  return Math.abs(a.y - b.y);
-};
-
 /**
  * @returns the translation that would need to be applied to move the first coordinate
  * to the second coordinate.
@@ -186,6 +172,12 @@ export const css = (a: Crude): { left: number; top: number } => {
   return { left: xy.x, top: xy.y };
 };
 
+/**
+ * Truncate the given coordinates to the given precision.
+ * @param a - The coordinates to truncate.
+ * @param precision - The number of decimal places to truncate to.
+ * @returns The truncated coordinates.
+ */
 export const truncate = (a: Crude, precision: number = 0): XY => {
   const xy = construct(a);
   return { x: Number(xy.x.toFixed(precision)), y: Number(xy.y.toFixed(precision)) };

@@ -107,29 +107,26 @@ const ConfigureInternal = ({ device }: ConfigureInternalProps): ReactElement => 
         }
         setStep("physicalPlan");
       } else if (step === "physicalPlan") {
-        console.log("AB");
-        // const ok = methods.validate("physicalPlan");
-        console.log("BC");
-        // if (!ok) return;
+        const ok = methods.validate("physicalPlan");
+        if (!ok) return;
         const existingPlan = methods.get<SoftwarePlan>({ path: "softwarePlan" }).value;
         if (existingPlan.tasks.length === 0) {
-          const properties = methods.get<EnrichedProperties>({
+          const { value: properties } = methods.get<EnrichedProperties>({
             path: "properties",
-          }).value;
+          });
           const physicalPlan = methods.get<PhysicalPlan>({
             path: "physicalPlan",
           }).value;
           const tasks = buildSoftwareTasks(properties, physicalPlan);
-          console.log("physicalPlan", tasks);
           methods.set({ path: "softwarePlan.tasks", value: tasks });
         }
-        console.log("SETTING STEP");
         setStep("softwareTasks");
       } else if (step === "softwareTasks") {
-        // const ok = methods.validate("softwarePlan");
-        // if (!ok) return;
+        const ok = methods.validate("softwarePlan");
+        if (!ok) return;
         const groups = methods.get<PhysicalPlan>({ path: "physicalPlan" }).value.groups;
         if (client == null) return;
+
         const rack = await client.hardware.racks.retrieve(device.rack);
         const output = new Map<string, number>();
         await Promise.all(
@@ -185,8 +182,6 @@ const ConfigureInternal = ({ device }: ConfigureInternalProps): ReactElement => 
     content = <PropertiesForm value={step} onChange={setStep} />;
   } else if (step === "physicalPlan") {
     content = <PhysicalPlanForm />;
-  } else {
-    content = <SoftwareTasksForm />;
   }
 
   return (

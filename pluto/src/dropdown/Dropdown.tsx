@@ -203,24 +203,22 @@ interface CalcDialogProps {
   dialog: HTMLElement;
 }
 
-const FLOATING_ALIGNMENTS: spatial.Alignment[] = ["end"];
-const FLOATIG_DISABLE_LOCATIONS: location.Location[] = ["center"];
+const FLOATING_PROPS: Partial<position.DialogProps> = {
+  alignments: ["end"],
+  disable: ["center"],
+  prefer: [{ y: "bottom" }],
+};
 const FLOATING_TRANSLATE_AMOUNT: number = 6;
 
 const calcFloatingDialog = ({
-  target,
-  dialog,
+  target: target_,
+  dialog: dialog_,
 }: CalcDialogProps): position.DialogReturn => {
-  const targetBox = box.construct(target);
-  const dialogBox = box.construct(dialog);
-  const windowBox = box.construct(0, 0, window.innerWidth, window.innerHeight);
-
   let { adjustedDialog, location } = position.dialog({
-    container: windowBox,
-    target: targetBox,
-    dialog: dialogBox,
-    alignments: FLOATING_ALIGNMENTS,
-    disable: FLOATIG_DISABLE_LOCATIONS,
+    container: box.construct(0, 0, window.innerWidth, window.innerHeight),
+    target: box.construct(target_),
+    dialog: box.construct(dialog_),
+    ...FLOATING_PROPS,
   });
   adjustedDialog = box.translate(
     adjustedDialog,
@@ -230,10 +228,13 @@ const calcFloatingDialog = ({
   return { adjustedDialog, location };
 };
 
-const CONNECTED_ALIGNMENTS: spatial.Alignment[] = ["center"];
-const CONNECTED_DISABLE_LOCATIONS: Array<Partial<location.XY>> = [{ y: "center" }];
+const CONNECTED_PROPS: Partial<position.DialogProps> = {
+  alignments: ["center"],
+  disable: [{ y: "center" }],
+  initial: { x: "center" },
+  prefer: [{ y: "bottom" }],
+};
 const CONNECTED_TRANSLATE_AMOUNT: number = 1;
-const CONNECTED_INITIAL: Partial<location.XY> = { x: "center" };
 
 const calcConnectedDialog = ({
   target,
@@ -244,9 +245,7 @@ const calcConnectedDialog = ({
     target: targetBox,
     dialog: box.resize(box.construct(dialog), "x", box.width(targetBox)),
     container: box.construct(0, 0, window.innerWidth, window.innerHeight),
-    alignments: CONNECTED_ALIGNMENTS,
-    disable: CONNECTED_DISABLE_LOCATIONS,
-    initial: CONNECTED_INITIAL,
+    ...CONNECTED_PROPS,
   };
 
   let { adjustedDialog, location } = position.dialog(props);

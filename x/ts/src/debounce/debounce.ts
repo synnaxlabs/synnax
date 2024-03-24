@@ -9,7 +9,7 @@
 
 export const debounce = <F extends (...args: any[]) => void>(
   func: F,
-  waitFor: number
+  waitFor: number,
 ): F => {
   let timeout: ReturnType<typeof setTimeout> | null = null;
   if (waitFor === 0) return func;
@@ -27,7 +27,7 @@ export const debounce = <F extends (...args: any[]) => void>(
 
 export const throttle = <F extends (...args: any[]) => void>(
   func: F,
-  waitFor: number
+  waitFor: number,
 ): F => {
   let timeout: ReturnType<typeof setTimeout> | null = null;
   if (waitFor === 0) return func;
@@ -42,4 +42,4 @@ export const throttle = <F extends (...args: any[]) => void>(
   };
 
   return throttled as F;
-}
+};

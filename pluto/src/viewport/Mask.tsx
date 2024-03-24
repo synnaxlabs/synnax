@@ -50,7 +50,7 @@ export const Mask = forwardRef<HTMLDivElement, MaskProps>(
       <div
         style={{
           ...box.css(maskBox),
-          display: box.isZero(maskBox) ? "none" : "block",
+          display: box.areaIsZero(maskBox) ? "none" : "block",
         }}
         className={CSS.BE("viewport-mask", "selection")}
       />

@@ -11,23 +11,6 @@ import { type Alignment, type XLocation, type YLocation } from "@/spatial/base";
 import { box } from "@/spatial/box";
 import { direction } from "@/spatial/direction";
 import { location } from "@/spatial/location";
-import { xy } from "@/spatial/xy";
-
-export const posititonSoVisible = (target: HTMLElement, p: xy.XY): [xy.XY, boolean] => {
-  const { width, height } = target.getBoundingClientRect();
-  const { innerWidth, innerHeight } = window;
-  let changed = false;
-  let nextXY = xy.construct(p);
-  if (p.x + width > innerWidth) {
-    nextXY = xy.translateX(nextXY, -width);
-    changed = true;
-  }
-  if (p.y + height > innerHeight) {
-    nextXY = xy.translateY(nextXY, -height);
-    changed = true;
-  }
-  return [nextXY, changed];
-};
 
 export interface DialogProps {
   container: box.Crude;
@@ -144,7 +127,7 @@ const evaluateOption = ({
     root,
     location.TOP_LEFT,
   );
-  const area = box.area(box.intersect(dialogBox, container));
+  const area = box.area(box.intersection(dialogBox, container));
   return [dialogBox, area];
 };
 

@@ -24,14 +24,14 @@ export const AnalogReadTask = ({
 }: AnalogReadTaskProps): ReactElement | null => {
   const client = Synnax.use();
   const { data } = useQuery({
-    queryKey: [taskKey],
+    queryKey: [taskKey, client?.key],
     queryFn: async () => await client?.hardware.tasks.retrieve(taskKey),
   });
 
   if (data == null) return null;
 
   const methods = Form.use({
-    values: analogReadTaskConfigZ.parse(data.config),
+    values: analogReadTaskConfigZ.parse(ZERO_ANA),
     schema: analogReadTaskConfigZ,
   });
 

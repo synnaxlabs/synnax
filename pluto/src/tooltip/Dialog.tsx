@@ -66,11 +66,14 @@ const LOCATION_PREFERENCES: location.Location[] = [
 ];
 
 const LOCATION_TRANSLATIONS: Record<string, (p: xy.XY, container: box.Box) => xy.XY> = {
-  [location.xyToString(location.TOP_RIGHT)]: (p, c) => xy.translateX(p, -box.width(c)),
-  [location.xyToString(location.TOP_LEFT)]: (p, c) => xy.translateX(p, box.width(c)),
+  [location.xyToString(location.TOP_RIGHT)]: (p, c) =>
+    xy.translate(p, "x", -box.width(c)),
+  [location.xyToString(location.TOP_LEFT)]: (p, c) =>
+    xy.translate(p, "x", box.width(c)),
   [location.xyToString(location.BOTTOM_RIGHT)]: (p, c) =>
-    xy.translateX(p, -box.width(c)),
-  [location.xyToString(location.BOTTOM_LEFT)]: (p, c) => xy.translateX(p, box.width(c)),
+    xy.translate(p, "x", -box.width(c)),
+  [location.xyToString(location.BOTTOM_LEFT)]: (p, c) =>
+    xy.translate(p, "x", box.width(c)),
 };
 
 const bestLocation = <C extends location.Location>(
