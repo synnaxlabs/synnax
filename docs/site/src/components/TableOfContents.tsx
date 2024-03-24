@@ -89,7 +89,7 @@ export const TableOfContents = ({
       <div ref={toc}>
         <Menu.Menu value={currentID}>
           {headings
-            .filter(({ depth }) => depth > 1)
+            .filter(({ depth }) => depth > 1 && depth <= 3)
             .map((heading) => (
               <Menu.Item.Link
                 href={`#${heading.slug}`}
