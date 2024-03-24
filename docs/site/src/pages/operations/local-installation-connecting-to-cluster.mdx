@@ -31,11 +31,25 @@ options were chosen to launch the cluster, use those options instead.
 %%%% Get what these things actually mean from Emiliano
 
 %% Insert paragraph on what a workspace is
+Next, you will be prompted to create a workspace. A workspace is a collection of
+visualizations, either line plots or P&ID diagrams. You can save visualizations
+as part of a workspace so all members of the cluster can view a certain
+workspace. To switch between workspaces, you can choose a different workspace in
+the resources tree or click on a different workspace in the top left.
 
-%% Note on managing multiple workspaces
 
 To visualize data in your workspace, there are two main types of visualizations.
 The first is called a "Line Plot", and is a line graph that allows you to plot
 line charts together. The second type of view is called a "PID view". This,
 which stands for piping and instrumentation diagram, allows you to make a
-schematic of your system with live values that pop up on it. Other 
+schematic of your system with live values that pop up on it.
+
+In the resources tab on the top left, there are several folders. 
+- __Channels__ are the sensor channels that you can track and plot.
+- __Ranges__ are saved times that you can use when loading data to view. For
+  instance, you can save the time of a test as a range with name Test 1, and
+  then load that range on the line plot view when looking at data.
+- __Users__ are a list of all users logged into the cluster. The workspaces
+  created by the users can be found underneath their name.
+- __Workspaces__ list all created workspaces in the cluster. This includes
+  workspaces created by all users.
