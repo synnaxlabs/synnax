@@ -9,22 +9,17 @@
  * included in the file licenses/APL.txt.
  */
 
-
- .pluto-list__item {
+.pluto-list__item {
     position: relative;
     cursor: pointer;
     padding: 2rem;
     border-top: var(--pluto-border);
     margin-top: -1px;
     border-color: var(--pluto-gray-l2);
-    
+
     &:is(:hover, .pluto--hovered) {
         background: var(--pluto-gray-l3);
     }
-
-    /* &:is(:active) {
-        background: var(--pluto-gray-l2);
-    } */
 
     &.pluto--selected {
         background: var(--pluto-gray-l2);
@@ -34,5 +29,4 @@
             box-shadow: inset -2px 0 0 var(--pluto-primary-z);
         }
     }
-
- }
+}

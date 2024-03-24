@@ -12,9 +12,10 @@ import { type ReactElement, useEffect, useState } from "react";
 import { Icon } from "@synnaxlabs/media";
 import { Button } from "@synnaxlabs/pluto/button";
 import { Dropdown } from "@synnaxlabs/pluto/dropdown";
+import { Tabs } from "@synnaxlabs/pluto/tabs";
 import { Tree } from "@synnaxlabs/pluto/tree";
 
-import { pages } from "@/pages/nav";
+import { componentsPages, rolesPages } from "@/pages/nav";
 
 export type PageNavNode = Tree.Node;
 
@@ -33,26 +34,77 @@ export const useDocumentSize = (): number | null => {
   return width;
 };
 
-export const PageNav = ({ currentPage }: TOCProps): ReactElement | null => {
-  const width = useDocumentSize();
-  // split the current page into its parts
+interface ReferenceTreeProps {
+  currentPage: string;
+}
+
+const ReferenceTree = ({ currentPage }: ReferenceTreeProps): ReactElement => {
   let parts = currentPage.split("/").filter((part) => part !== "");
-  const { visible, toggle, ref } = Dropdown.use({ initialVisible: false });
-  if (parts.length === 0) parts = pages.map((p) => p.key);
-  const treeProps = Tree.use({ nodes: pages, initialExpanded: parts, sort: false });
-  const tree = (
+  if (parts.length === 0) parts = componentsPages.map((p) => p.key);
+  const treeProps = Tree.use({ nodes: componentsPages, initialExpanded: parts, sort: false });
+  return (
     <Tree.Tree
       {...treeProps}
+      className="tree reference-tree"
       itemHeight={35}
       virtual={false}
       selected={[currentPage]}
       useMargin
     />
   );
+};
+
+const Role = ({ currentPage }: TOCProps): ReactElement => {
+  let parts = currentPage.split("/").filter((part) => part !== "");
+  if (parts.length === 0) parts = rolesPages.map((p) => p.key);
+  const treeProps = Tree.use({ nodes: rolesPages, initialExpanded: parts, sort: false });
+  return (
+    <Tree.Tree
+      {...treeProps}
+      className="tree role-tree"
+      itemHeight={35}
+      virtual={false}
+      selected={[currentPage]}
+      useMargin
+    />
+  );
+};
+
+export const PageNav = ({ currentPage }: TOCProps): ReactElement | null => {
+  const width = useDocumentSize();
+
+  // Split the current page by slashes and remove and get the first part
+  const selectedTab = currentPage.split("/").filter((part) => part !== "")[0];
+
+  console.log(selectedTab)
+
+  const { visible, toggle } = Dropdown.use({ initialVisible: false });
+
+  const content: Tabs.TabsProps["content"] = ({ tabKey }) => {
+    switch (tabKey) {
+      case "roles":
+        return <Role currentPage={currentPage} />;
+      default:
+        return <ReferenceTree currentPage={currentPage} />;
+    }
+  };
+
+  const tabsProps = Tabs.useStatic({
+    selected: selectedTab,
+    // onSelect: console.log,
+    tabs: [
+      { tabKey: "roles", name: "Roles" },
+      { tabKey: "components", name: "Components" },
+    ],
+    content,
+  });
+
+  const tree = <Tabs.Tabs {...tabsProps} />;
+
   if (width == null) return null;
   if (width > 700) return tree;
   return (
-    <Dropdown.Dialog visible={visible} bordered={false} ref={ref} location="top">
+    <Dropdown.Dialog visible={visible} bordered={false} location="top">
       <Button.Button
         justify="spaceBetween"
         endIcon={<Icon.Copy />}

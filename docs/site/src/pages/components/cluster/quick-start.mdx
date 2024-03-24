@@ -12,8 +12,7 @@ import SynnaxDownloadURL from "@/components/SynnaxDownloadURL.astro";
 import SynnaxMoveCommand from "@/components/SynnaxMoveCommand.astro";
 import { Tabs } from "@/components/Tabs";
 
-This page will walk you through starting a single node cluster for testing, learning, or
-development. To get started, select your operating system below.
+Select your operating system below.
 
 <Tabs
     client:only="react"
@@ -50,6 +49,10 @@ connect when deploying a multi-node cluster.
 development.
 
 `--insecure` - Tells the node to run without TLS.
+
+If you're interested in more details on these flags, see the [CLI Reference](/components/cluster/cli-reference).
+
+To stop the node, simply press `Ctrl+C` in the terminal.
 
 </Fragment>
 <Icon.OS.Linux slot="linux-icon" />
@@ -93,6 +96,11 @@ development.
 
 `--insecure` - Tells the node to run without TLS.
 
+If you're interested in more details on these flags, see the [CLI Reference](/components/cluster/cli-reference).
+
+To stop the node, simply press `Ctrl+C` in the terminal.
+
+
 </Fragment>
 <Icon.OS.MacOS slot="macos-icon" />
 <Fragment slot="macos">
@@ -135,15 +143,47 @@ development.
 
 `--insecure` - Tells the node to run without TLS.
 
+If you're interested in more details on these flags, see the [CLI Reference](/components/cluster/cli-reference).
+
+To stop the node, simply press `Ctrl+C` in the terminal.
+
 </Fragment>
 <Icon.OS.Windows slot="windows-icon" />
 <Fragment slot="windows">
 
 ## Using Windows
 
-Unfortunately, Synnax does not support Windows yet. If you are interested in running Synnax on
-Windows, let us know here. For now, we recommend using Docker or WSL along with the
-instructions for Linux.
+To start a single node cluster on Windows, use the following script to 
+download the latest Synnax binary and move it into your `PATH`:
+
+<SynnaxDownloadURL os="windows" />
+
+<div class="info">
+<b>Note - </b> We recommend adding `;$env:appdata/synnax` to your `PATH` environment variable, which 
+will allow you to execute synnax commands from any shell. See [Microsoft's Environment Variable](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_environment_variables?view=powershell-7.4#saving-changes-to-environment-variables)
+documentation for more.
+</div>
+
+To start the node, run
+
+```cmd
+synnax start --listen=localhost:9090 --mem --insecure
+```
+
+This will start a single node cluster with the following parameters:
+
+`--listen=localhost:9090` - This sets the address that the node will listen on. This
+is the reachable address of the node, and is also the address that other nodes will use to
+connect when deploying a multi-node cluster.
+
+`--mem` - Tells the node to store all data in memory, which is useful for learning and
+development.
+
+`--insecure` - Tells the node to run without TLS.
+
+If you're interested in more details on these flags, see the [CLI Reference](/components/cluster/cli-reference).
+
+To stop the node, simply press `Ctrl+C` in the terminal.
 
 </Fragment>
 </Tabs>
