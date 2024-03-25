@@ -26,12 +26,6 @@ import {
 
 export type SampleValue = number | bigint;
 
-const validateFieldNotNull = (name: string, field: unknown): void => {
-  if (field == null) {
-    throw new Error(`field ${name} is null`);
-  }
-};
-
 interface GL {
   control: GLBufferController | null;
   buffer: WebGLBuffer | null;
@@ -190,8 +184,8 @@ export class Series {
   }
 
   /**
-   * Writes the given series to this series. If the series being written exceeds the 
-   * remaining of series being written to, only the portion that fits will be written. 
+   * Writes the given series to this series. If the series being written exceeds the
+   * remaining of series being written to, only the portion that fits will be written.
    * @param other the series to write to this series. The data type of the series written
    * must be the same as the data type of the series being written to.
    * @returns the number of samples written. If the entire series fits, this value is
@@ -261,8 +255,8 @@ export class Series {
 
   /** @returns the time range of this array. */
   get timeRange(): TimeRange {
-    validateFieldNotNull("timeRange", this._timeRange);
-    return this._timeRange!;
+    if (this._timeRange == null) throw new Error("time range not set on series");
+    return this._timeRange;
   }
 
   /** @returns the capacity of the series in bytes. */
@@ -415,15 +409,16 @@ export class Series {
 
   updateGLBuffer(gl: GLBufferController): void {
     this.gl.control = gl;
-    if (!this.dataType.equals(DataType.FLOAT32))
-      throw new Error("Only FLOAT32 arrays can be used in WebGL");
     const { buffer, bufferUsage, prevBuffer } = this.gl;
-
-    // If no buffer has been created yet, create one.
-    if (buffer == null) this.gl.buffer = gl.createBuffer();
     // If the current write position is the same as the previous buffer, we're already
     // up date.
     if (this.writePos === prevBuffer) return;
+
+    if (!this.dataType.equals(DataType.FLOAT32))
+      throw new Error("Only FLOAT32 arrays can be used in WebGL");
+
+    // If no buffer has been created yet, create one.
+    if (buffer == null) this.gl.buffer = gl.createBuffer();
 
     // Bind the buffer.
     gl.bindBuffer(gl.ARRAY_BUFFER, this.gl.buffer);

@@ -106,7 +106,7 @@ export class Context {
   }
 
   /**
-   * Proapgates the given state for the component with the given key to the main
+   * Propagates the given state for the component with the given key to the main
    * react tree.
    *
    * @param key - The key of the component to propagate the state for.

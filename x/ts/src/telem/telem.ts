@@ -11,7 +11,6 @@ import { z } from "zod";
 
 import { type Stringer } from "@/primitive";
 import { addSamples } from "@/telem/series";
-import { Crude } from "@/spatial/location/location";
 
 export type TZInfo = "UTC" | "local";
 
@@ -896,6 +895,14 @@ export class TimeRange implements Stringer {
     return `${this.start.fString("preciseDate")} - ${this.span.toString()}`;
   }
 
+  /**
+   * Checks if if the two time ranges overlap. If the two time ranges are equal, returns
+   * true.  If the start of one range is equal to the end of the other, returns false.
+   * Just follow the rule [start, end) i.e. start is inclusive and end is exclusive.
+   *
+   * @param other - The other TimeRange to compare to.
+   * @returns True if the two TimeRanges overlap, false otherwise.
+   */
   overlapsWith(other: TimeRange): boolean {
     other = other.makeValid();
     const rng = this.makeValid();
@@ -1227,7 +1234,6 @@ export class Size extends Number implements Stringer {
   static megabytes(value: CrudeSize = 1): Size {
     return Size.kilobytes(value.valueOf() * 1e3);
   }
-
 
   /** A megabyte */
   static readonly MEGABYTE = Size.megabytes(1);

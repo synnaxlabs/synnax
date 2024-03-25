@@ -273,7 +273,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
       downsample,
       scale: scale.xyScaleToTransform(dataToDecimalScale),
       props: props.region,
-      ops: () => digests(ops),
+      ops: digests(ops),
     }));
     const clearProg = prog.setAsActive();
     const instances = prog.bindCommonPropsAndState(props, this.state);
@@ -289,7 +289,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
 const THICKNESS_DIVISOR = 5000;
 
 const newTranslationBuffer = (aspect: number, strokeWidth: number): Float32Array => {
-  return copyBuffer(newDirectionBuffer(aspect), Math.ceil(strokeWidth) - 1).map(
+  return replicateBuffer(newDirectionBuffer(aspect), Math.ceil(strokeWidth) - 1).map(
     (v, i) => Math.floor(i / DIRECTION_COUNT) * (1 / (THICKNESS_DIVISOR * aspect)) * v,
   );
 };
@@ -306,7 +306,7 @@ const newDirectionBuffer = (aspect: number): Float32Array =>
     -1, 0, // left
   ]);
 
-const copyBuffer = (buf: Float32Array, times: number): Float32Array => {
+const replicateBuffer = (buf: Float32Array, times: number): Float32Array => {
   const newBuf = new Float32Array(buf.length * times);
   for (let i = 0; i < times; i++) newBuf.set(buf, i * buf.length);
   return newBuf;

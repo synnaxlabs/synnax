@@ -17,7 +17,7 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type Factory } from "./factory";
+import { type Factory } from "@/telem/aether/factory";
 import {
   AbstractSource,
   type SeriesSourceSpec,
@@ -27,7 +27,7 @@ import {
   type Telem,
   type StringSourceSpec,
   type NumberSourceSpec,
-} from "./telem";
+} from "@/telem/aether/telem";
 
 export class StaticFactory implements Factory {
   type = "static";
