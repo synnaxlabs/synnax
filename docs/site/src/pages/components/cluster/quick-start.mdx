@@ -7,9 +7,9 @@ learning, or development."
 ---
 
 import { Icon } from "@synnaxlabs/media";
-
-import SynnaxDownloadURL from "@/components/SynnaxDownloadURL.astro";
-import SynnaxMoveCommand from "@/components/SynnaxMoveCommand.astro";
+import Note from "@/components/Note.astro";
+import SynnaxDownloadURL from "@/components/deploy/SynnaxDownloadURL.astro";
+import SynnaxMoveCommand from "@/components/deploy/SynnaxMoveCommand.astro";
 import { Tabs } from "@/components/Tabs";
 
 This page will walk you through starting a single node Synnax cluster. To get started,
@@ -75,10 +75,10 @@ Next, give execution permissions to the binary:
 chmod +x /usr/local/bin/synnax
 ```
 
-<div class="info">
+<Note variant="info">
 <b>Note - </b> You'll need to make sure that `/usr/local/bin` is in your `PATH` environment
 variable. You can do this temporarily by running `export PATH=$PATH:/usr/local/bin`.
-</div>
+</Note>
 
 Finally, start the node:
 
@@ -122,10 +122,10 @@ Then, give execution permissions to the binary:
 chmod +x /usr/local/bin/synnax
 ```
 
-<div class="info">
+<Note variant="info">
 <b>Note - </b> You'll need to make sure that `/usr/local/bin` is in your `PATH` environment
 variable. You can do this temporarily by running `export PATH=$PATH:/usr/local/bin`.
-</div>
+</Note>
 
 Finally, start the node:
 
@@ -159,11 +159,11 @@ download the latest Synnax binary and move it into your `PATH`:
 
 <SynnaxDownloadURL os="windows" />
 
-<div class="info">
+<Note variant="info">
 <b>Note - </b> We recommend adding `;$env:appdata/synnax` to your `PATH` environment variable, which 
 will allow you to execute synnax commands from any shell. See [Microsoft's Environment Variable](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_environment_variables?view=powershell-7.4#saving-changes-to-environment-variables)
 documentation for more.
-</div>
+</Note>
 
 To start the node, run
 

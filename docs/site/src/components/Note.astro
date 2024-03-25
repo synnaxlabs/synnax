@@ -1,0 +1,37 @@
+---
+export interface Props {
+    variant: "info" | "warning" | "error";
+}
+
+const { variant = "info" }: Props = Astro.props;
+---
+
+<div class={`note ${variant}`}>
+    <slot />
+</div>
+
+<style>
+    .note {
+        padding: 0.1rem 3rem;
+        margin: 4rem 0;
+        border: var(--pluto-border);
+        border-radius: 1rem;
+
+        & > * {
+            font-size: var(--pluto-small-size);
+            font-family: var(--pluto-font-family);
+            font-weight: var(--pluto-small-weight);
+            line-height: calc(var(--pluto-small-line-height) * 1.2);
+        }
+
+        &.info {
+            background: var(--pluto-primary-z-20);
+            border-color: var(--pluto-primary-z-30);
+        }
+
+        &.warn {
+            background: #fffbe0;
+            border-color: #f9eba8;
+        }
+    }
+</style>

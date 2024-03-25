@@ -5,6 +5,8 @@ heading: "Named Ranges"
 description: "Use named ranges to categorize your cluster's data"
 ---
 
+import Note from "@/components/Note.astro";
+
 Named ranges identify specific periods of time with a label. We can use the
 Python client to read and write telemetry and attach metadata to these named
 ranges.
@@ -155,11 +157,11 @@ tank_pressure = burst_test.tank_pressure
 It's relevant to mention that subsequent calls to `set_alias` will overwrite the previous
 alias. 
 
-<div class="info">
+<Note class="info">
 <b>Note - </b> Aliases are only valid within the context of a named range. If you
 try to access an aliased channel outside of the range, Synnax will not be able to
 find it.
-</div>
+</Note>
 
 ## Attaching Metadata
 
@@ -186,11 +188,11 @@ burst_test.meta_data.set({
 })
 ```
 
-<div class="info">
+<Note variant="info">
 <b>Note - </b> All metadata values are stored as strings. It's up to you to correctly
 cast the values to the appropriate type. We're working on a way to automatically cast
 values based on a schema.
-</div>
+</Note>
 
 ### Retrieving metadata
 
@@ -232,9 +234,9 @@ client.ranges.delete("My Named Range")
 client.ranges.delete(my_named_range.key)
 ```
 
-<div class="info">
+<Note variant="info">
 <b>Note - </b> Deleting a range by name will delete <i>all</i> ranges with that name. Be careful!
-</div>
+</Note>
 
 We can also delete multiple ranges by passing a list of names or keys to the `delete`
 method.

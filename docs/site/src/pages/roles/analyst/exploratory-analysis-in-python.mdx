@@ -5,6 +5,7 @@ description: "Use python to explore and analyze data in Synnax"
 ---
 
 import { Image } from "@/components/Media";
+import Note from "@/components/Note.astro";
 
 This guide will walk you through basic analysis on an example data set using Synnax.
 We'll import the data set, explore it using the Synnax console, run analysis, and
@@ -147,10 +148,10 @@ We'll select the first option, which will automatically guess the channel's data
 from the data in the file. We've now successfully created all of the channels in our
 data set.
 
-<div class="info">
+<Note variant="info">
 <b>Note - </b> The next time we import a data set with the same channels, Synnax will
 automatically detect the channels and skip this process.
-</div>
+</Note>
 
 Now, Synnax will ask us to confirm the starting timestamp for our data set.
 

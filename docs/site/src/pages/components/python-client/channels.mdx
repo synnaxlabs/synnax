@@ -54,12 +54,12 @@ We can also create multiple channels by passing a list to the `create` method. T
 far more efficient than creating many channels individually, and provides the atomic
 guarantee that either all or no channels will be created.
 
-<div class="info">
+<Note variant="info">
 <b>Note</b> - When creating variable rate channels, keep in mind that we need to create 
 index  channels before we can create the channels that use them. We're working on adding
 functionality to the client that will allow us to create all of these channels in a single
 call.
-</div>
+</Note>
 
 ```python
 # We need to create the index first, that way we can provide the index 
@@ -163,11 +163,11 @@ ch = bike_outing["sensor_one"]
 ch = bike_outing.sensor_one
 ```
 
-<div class="info">
+<Note variant="info">
 <b>Note</b> - When using a range, it's possible to retrieve a channel by it's alias
 instead of it's name. For more information, see 
 <a href="/python-client/named-ranges#aliasing-channels">aliasing channels</a>.
-</div>
+</Note>
 
 ### Retrieving channels using regular expressions
 

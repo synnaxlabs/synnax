@@ -7,7 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useState, useCallback, useEffect, useRef, type ReactElement } from "react";
+import {
+  useState,
+  useCallback,
+  useEffect,
+  useRef,
+  type ReactElement,
+  useLayoutEffect,
+} from "react";
 
 import { Icon } from "@synnaxlabs/media";
 import { Align } from "@synnaxlabs/pluto/align";
@@ -17,6 +24,8 @@ import { List } from "@synnaxlabs/pluto/list";
 import { Text } from "@synnaxlabs/pluto/text";
 import { Triggers } from "@synnaxlabs/pluto/triggers";
 
+import "@/components/Search.css";
+
 interface SearchResult {
   key: string;
   title: string;
@@ -24,48 +33,47 @@ interface SearchResult {
   content: string;
   href: string;
 }
+const ALGOLIA_APP_ID = "YWD9T0JXCS";
+const ALGOLIA_SEARCH_ONLY_API_KEY = "1f8b0497301392c94adedf89a98afb6f";
+const ALGOLIA_URL = `https://${ALGOLIA_APP_ID}-dsn.algolia.net/1/indexes/docs_site/query`;
+const ALGOLIA_HEADERS = {
+  "X-Algolia-API-Key": ALGOLIA_SEARCH_ONLY_API_KEY,
+  "X-Algolia-Application-Id": ALGOLIA_APP_ID,
+};
 
 export const Search = (): ReactElement => {
   const d = Dropdown.use();
   const [results, setResults] = useState<SearchResult[]>([]);
   const [value, setValue] = useState<string>("");
-  const inputRef = useRef();
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const handleSearch = useCallback(async (query: string) => {
-    const ALGOLIA_APP_ID = "YWD9T0JXCS";
-    const ALGOLIA_SEARCH_ONLY_API_KEY = "1f8b0497301392c94adedf89a98afb6f";
-
     setValue(query);
-
-    const res = await fetch(
-      `https://${ALGOLIA_APP_ID}-dsn.algolia.net/1/indexes/docs_site/query`,
-      {
-        method: "POST",
-        headers: {
-          "X-Algolia-API-Key": ALGOLIA_SEARCH_ONLY_API_KEY,
-          "X-Algolia-Application-Id": ALGOLIA_APP_ID,
-        },
-        body: JSON.stringify({
-          params: `query=${query}&hitsPerPage=5&attributesToSnippet=content,title:20&highlightPreTag=<b>&highlightPostTag=</b>`,
-        }),
-      },
-    );
+    const res = await fetch(ALGOLIA_URL, {
+      method: "POST",
+      headers: ALGOLIA_HEADERS,
+      body: JSON.stringify({
+        params: `query=${query}&hitsPerPage=5&attributesToSnippet=content,title:20&highlightPreTag=<b>&highlightPostTag=</b>`,
+      }),
+    });
     const json = await res.json();
     setResults(
-      json.hits.map((hit) => ({
+      json.hits.map((hit: any) => ({
         key: hit.objectID,
         title: hit._snippetResult?.title?.value ?? hit.title,
         description: hit.description,
         content: hit._snippetResult.content.value,
         href: hit.href,
-      })),
+      })) as SearchResult[],
     );
   }, []);
 
-  if (!d.visible && value !== "") setValue("");
+  useLayoutEffect(() => {
+    if (!d.visible && value !== "") setValue("");
+  }, [d.visible, value]);
 
   useEffect(() => {
-    window.addEventListener("keydown", (e) => {
+    const handleKeyDown = (e: KeyboardEvent): void => {
       if (e.key === "Escape") {
         d.close();
         inputRef.current?.blur();
@@ -74,12 +82,14 @@ export const Search = (): ReactElement => {
         e.preventDefault();
         inputRef.current?.focus();
       }
-    });
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
   return (
     <Triggers.Provider>
-      <Dropdown.Dialog {...d} className="search-box" matchTriggerWidth>
+      <Dropdown.Dialog {...d} className="search-box">
         <Input.Text
           ref={inputRef}
           placeholder={
@@ -88,10 +98,10 @@ export const Search = (): ReactElement => {
             </Text.WithIcon>
           }
           value={value}
-          onChange={handleSearch}
-          onFocus={() => {
-            d.open();
+          onChange={(v: string) => {
+            void handleSearch(v);
           }}
+          onFocus={d.open}
           centerPlaceholder
         />
         <List.List
@@ -105,37 +115,29 @@ export const Search = (): ReactElement => {
           }
         >
           <List.Hover />
-          <List.Selector
+          <List.Selector<string, SearchResult>
             value={[]}
-            onChange={([k]) => {
-              const el = document.getElementById(k);
-              el?.click();
-            }}
+            allowMultiple={false}
+            onChange={(k: string) => document.getElementById(k)?.click()}
           />
-          <List.Core>
-            {({ entry: result, hovered }) => (
-              <Align.Space
+          <List.Core<string, SearchResult>>
+            {({ entry: { key, href, title, content }, hovered }) => (
+              <Align.Space<"a">
+                id={key.toString()}
                 el="a"
                 direction="y"
                 size="small"
                 className={`search-result ${hovered ? "hovered" : ""}`}
                 aria-selected={true}
-                focused={hovered}
-                id={result.key}
-                onClick={() => {
-                  d.close();
-                }}
-                href={result.href}
-                key={result.key}
+                onClick={d.close}
+                href={href}
+                key={key}
               >
-                <Text.Text
-                  level="h5"
-                  dangerouslySetInnerHTML={{ __html: result.title }}
-                ></Text.Text>
+                <Text.Text level="h5" dangerouslySetInnerHTML={{ __html: title }} />
                 <Text.Text
                   level="small"
-                  dangerouslySetInnerHTML={{ __html: result.content }}
-                ></Text.Text>
+                  dangerouslySetInnerHTML={{ __html: content }}
+                />
               </Align.Space>
             )}
           </List.Core>
