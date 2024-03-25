@@ -30,8 +30,7 @@ import { useCombinedStateAndRef, useDebouncedCallback } from "@/hooks";
 import { useCursorDrag } from "@/hooks/useCursorDrag";
 import { type Key } from "@/triggers/triggers";
 import { connector } from "@/vis/diagram/edge/connector";
-
-import { selectNodeBox } from "../util";
+import { selectNodeBox } from "@/vis/diagram/util";
 
 import "@/vis/diagram/edge/Edge.css";
 

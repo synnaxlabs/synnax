@@ -226,7 +226,7 @@ describe("Bounds", () => {
         [[[3, 7]], 8, { index: 1, position: 0 }],
       ];
     SPECS.forEach(([b, target, expected]) => {
-      test(`should return ${expected.index} ${expected.position} for ${b} and ${target}`, () => {
+      test(`should return ${expected.index}:${expected.position} for ${target}`, () => {
         expect(bounds.findInsertPosition(b, target)).toEqual(expected);
       });
     });
@@ -413,7 +413,6 @@ describe("Bounds", () => {
           { lower: 47240, upper: 47066 + 354 },
         ]);
       });
-      it("should insert a value into a sorted array of bounds", () => {});
     });
   });
   describe("linspace", () => {

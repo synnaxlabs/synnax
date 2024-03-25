@@ -11,7 +11,7 @@ import {
   type PayloadAction,
   createSlice,
   nanoid,
-  Reducer,
+  type Reducer,
 } from "@reduxjs/toolkit";
 import { box, deep, type dimensions, xy } from "@synnaxlabs/x";
 
@@ -90,7 +90,7 @@ export type SetWindowTitlePayload = MaybeKeyPayload & { title: string };
 export type SetWindowLabelPayload = LabelPayload;
 export type SetWindowStatePayload = MaybeKeyPayload & { stage: WindowStage };
 export type SetWindowPropsPayload = LabelPayload & Partial<WindowProps>;
-export type SetWindowErrorPaylod = KeyPayload & { message: string };
+export type SetWindowErrorPayload = KeyPayload & { message: string };
 export type SetWindowDecorationsPayload = KeyPayload & BooleanPayload;
 export type SetConfigPayload = Partial<Config>;
 
@@ -102,7 +102,7 @@ export type Payload =
   | SetWindowStatePayload
   | MaybeKeyPayload
   | SetWindowPropsPayload
-  | SetWindowErrorPaylod
+  | SetWindowErrorPayload
   | SetWindowLabelPayload
   | SetWindowClosedPayload
   | SetWindowMinimizedPayload
@@ -211,7 +211,7 @@ const slice = createSlice({
     setConfig: (s: SliceState, a: PayloadAction<SetConfigPayload>) => {
       s.config = { ...s.config, ...a.payload };
       if (s.config.enablePrerender) return;
-      // If we've disabled prerendering, remove all prerendered windows
+      // If we've disabled prerendering, remove all pre-rendered windows
       s.windows = Object.fromEntries(
         Object.entries(s.windows).filter(([, v]) => v.reserved),
       );
@@ -248,7 +248,7 @@ const slice = createSlice({
         ([, w]) => !w.reserved,
       ) ?? [null, null];
 
-      // If we have an available prerendered window,
+      // If we have an available pre-rendered window,
       // use it.
       if (availableLabel != null) {
         s.windows[availableLabel] = {
@@ -298,7 +298,7 @@ const slice = createSlice({
     }),
     registerProcess: assertLabel<MaybeKeyPayload>(incrementCounter("processCount")),
     completeProcess: assertLabel<MaybeKeyPayload>((s, a) => {
-      incrementCounter("processCount", true)(s, a)
+      incrementCounter("processCount", true)(s, a);
       const win = s.windows[a.payload.label];
       if (win.processCount === 0) {
         if (win.stage === "reloading") {
@@ -307,11 +307,11 @@ const slice = createSlice({
           s.windows[a.payload.label].visible = false;
           delete s.windows[a.payload.label];
           delete s.labelKeys[a.payload.label];
-          delete s.keyLabels[win.key]
+          delete s.keyLabels[win.key];
         }
       }
     }),
-    setWindowError: (s: SliceState, a: PayloadAction<SetWindowErrorPaylod>) => {
+    setWindowError: (s: SliceState, a: PayloadAction<SetWindowErrorPayload>) => {
       s.windows[a.payload.key].error = a.payload.message;
     },
     focusWindow: assertLabel<FocusWindowPayload>((s, a) => {
@@ -380,8 +380,6 @@ export const {
     setWindowDecorations,
   },
 } = slice;
-
-
 
 export const reducer: Reducer<SliceState, Action> = slice.reducer;
 

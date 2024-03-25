@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, it, expect, Test } from "vitest";
+import { describe, it, expect } from "vitest";
 
 import { deep } from "@/deep";
 
@@ -20,7 +20,6 @@ interface TestRecord {
   c: number[];
 }
 
-
 describe("path", () => {
   describe("get", () => {
     it("should get a key", () => {
@@ -29,30 +28,30 @@ describe("path", () => {
         b: {
           c: 2,
         },
-        c: [1]
+        c: [1],
       };
       expect(deep.get(a, "b.c")).toEqual(2);
     });
     it("should get an array index", () => {
-        const a: TestRecord = {
-            a: 1,
-            b: {
-              c: 2,
-            },
-            c: [1, 2, 3],
-        };
-        expect(deep.get(a, "c.1")).toEqual(2);
+      const a: TestRecord = {
+        a: 1,
+        b: {
+          c: 2,
+        },
+        c: [1, 2, 3],
+      };
+      expect(deep.get(a, "c.1")).toEqual(2);
     });
     it("should return the object itself if the key is empty", () => {
-        const a: TestRecord = {
-            a: 1,
-            b: {
-              c: 2,
-            },
-            c: [1, 2, 3],
-        };
-        expect(deep.get(a, "")).toStrictEqual(a);
-    })
+      const a: TestRecord = {
+        a: 1,
+        b: {
+          c: 2,
+        },
+        c: [1, 2, 3],
+      };
+      expect(deep.get(a, "")).toStrictEqual(a);
+    });
   });
   describe("set", () => {
     it("should set a key", () => {
@@ -61,35 +60,35 @@ describe("path", () => {
         b: {
           c: 2,
         },
-        c: [1]
+        c: [1],
       };
       const b: TestRecord = {
         a: 1,
         b: {
           c: 3,
         },
-        c: [1]
+        c: [1],
       };
       deep.set(a, "b.c", 3);
       expect(a).toEqual(b);
     });
     it("should set an array index", () => {
-        const a: TestRecord = {
-            a: 1,
-            b: {
-            c: 2,
-            },
-            c: [1, 2, 3],
-        };
-        const b: TestRecord = {
-            a: 1,
-            b: {
-            c: 2,
-            },
-            c: [1, 4, 3],
-        };
-        deep.set(a, "c.1", 4);
-        expect(a).toEqual(b);
-   });
+      const a: TestRecord = {
+        a: 1,
+        b: {
+          c: 2,
+        },
+        c: [1, 2, 3],
+      };
+      const b: TestRecord = {
+        a: 1,
+        b: {
+          c: 2,
+        },
+        c: [1, 4, 3],
+      };
+      deep.set(a, "c.1", 4);
+      expect(a).toEqual(b);
+    });
   });
 });

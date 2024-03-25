@@ -10,9 +10,8 @@
 import { type UnaryClient } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
-import { QueryError } from "..";
-
-import { type Payload, payloadZ, type Key } from "./payload";
+import { QueryError } from "@/errors";
+import { type Payload, payloadZ, type Key } from "@/ranger/payload";
 
 const setActiveResZ = z.object({});
 

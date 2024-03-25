@@ -26,7 +26,6 @@ const retrieveRackResZ = z.object({
   racks: nullableArrayZ(rackZ),
 });
 
-
 export class Retriever {
   private readonly client: UnaryClient;
 

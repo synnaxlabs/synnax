@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, NativeTypedArray } from "@synnaxlabs/x";
+import { type DataType, type NativeTypedArray } from "@synnaxlabs/x";
 
 export const randomSeries = (length: number, dataType: DataType): NativeTypedArray => {
   // generate random bytes of the correct length

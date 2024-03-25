@@ -7,14 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type ReactElement,
-  forwardRef,
-  useCallback,
-  useState,
-  type FocusEventHandler,
-  useEffect,
-} from "react";
+import { type ReactElement, forwardRef, useCallback, useEffect } from "react";
 
 import { bounds } from "@synnaxlabs/x";
 import { evaluate } from "mathjs";

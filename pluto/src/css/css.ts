@@ -10,10 +10,9 @@
 import { location, direction, type spatial } from "@synnaxlabs/x";
 
 import { type BEM, newBEM } from "@/css/bem";
+import { CSSGridBuilder } from "@/css/grid";
 import { applyCSSVars } from "@/css/vars";
 import { type ComponentSize } from "@/util/component";
-
-import { CSSGridBuilder } from "./grid";
 
 export interface CSSType extends BEM {
   visible: (visible: boolean) => string;

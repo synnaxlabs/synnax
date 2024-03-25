@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { forwardRef, useEffect, useLayoutEffect } from "react";
+import { forwardRef, useLayoutEffect } from "react";
 
 import { TimeStamp } from "@synnaxlabs/x";
 

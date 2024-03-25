@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { UnexpectedError } from "@synnaxlabs/client";
+
 import FRAG_SHADER from "@/vis/render/clear/frag.glsl?raw";
 import VERT_SHADER from "@/vis/render/clear/vert.glsl?raw";
 import { type Context } from "@/vis/render/context";
@@ -26,7 +28,9 @@ export class Program extends GLProgram {
 
   constructor(ctx: Context) {
     super(ctx, VERT_SHADER, FRAG_SHADER);
-    this.positionBuffer = ctx.gl.createBuffer()!;
+    const buffer = ctx.gl.createBuffer();
+    if (buffer == null) throw new UnexpectedError(`webgl: failed to create buffer`);
+    this.positionBuffer = buffer;
     ctx.gl.bindBuffer(ctx.gl.ARRAY_BUFFER, this.positionBuffer);
     ctx.gl.bufferData(ctx.gl.ARRAY_BUFFER, POSITIONS, ctx.gl.STATIC_DRAW);
   }

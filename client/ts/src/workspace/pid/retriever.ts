@@ -11,7 +11,7 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { toArray } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type PID, type Params, pidRemoteZ } from "./payload";
+import { type PID, type Params, pidRemoteZ } from "@/workspace/pid/payload";
 
 const reqZ = z.object({
   keys: z.string().array(),

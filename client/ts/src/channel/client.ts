@@ -36,7 +36,7 @@ import {
   DebouncedBatchRetriever,
   type Retriever,
 } from "@/channel/retriever";
-import { MultipleResultsError, NotFoundError } from "@/errors";
+import { QueryError } from "@/errors";
 import { type framer } from "@/framer";
 
 /**

@@ -10,7 +10,7 @@
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { instrumentation } from "@/dev";
-import { Instrumentation } from "@/instrumentation";
+import { type Instrumentation } from "@/instrumentation";
 import { Tracer } from "@/trace";
 
 describe("Trace", () => {

@@ -105,5 +105,4 @@ export class Logger {
   static readonly NOOP = new Logger();
 }
 
-const parseKV = (kv: KV): UnknownRecord => typeof kv === "function" ? kv() : kv;
-
+const parseKV = (kv: KV): UnknownRecord => (typeof kv === "function" ? kv() : kv);

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Join } from "@/join";
-import { UnknownRecord } from "@/record";
+import { type UnknownRecord } from "@/record";
 
 type Prev = [
   never,
@@ -39,58 +39,61 @@ type Prev = [
 export type Key<T, D extends number = 5> = [D] extends [never]
   ? never
   : T extends object
-  ? {
-      [K in keyof T]-?: K extends string | number
-        ? `${K}` | Join<K, Key<T[K], Prev[D]>>
-        : never;
-    }[keyof T]
-  : "";
+    ? {
+        [K in keyof T]-?: K extends string | number
+          ? `${K}` | Join<K, Key<T[K], Prev[D]>>
+          : never;
+      }[keyof T]
+    : "";
 
-export type Get = 
-&(<T>(obj: T, path: string, allowNull: true) => unknown | null) 
-&(<T>(obj: T, path: string, allowNull?: boolean) => unknown) 
+export type Get = (<T>(obj: T, path: string, allowNull: true) => unknown | null) &
+  (<T>(obj: T, path: string, allowNull?: boolean) => unknown);
 
-export const get: Get = <V>(obj: V, path: string, allowNull: boolean = false): unknown | null => {
-    const parts = (path as string).split(".");
-    if (parts.length === 1 && parts[0] === "") return obj;
-    let result: UnknownRecord = obj as UnknownRecord;
-    for (const part of parts) {
-        const v = result[part];
-        if (v == null) {
-            if (allowNull) return null;
-            throw new Error(`Path ${path} does not exist. ${part} is null`);
-        }
-        result = v as UnknownRecord;
+export const get: Get = <V>(
+  obj: V,
+  path: string,
+  allowNull: boolean = false,
+): unknown | null => {
+  const parts = path.split(".");
+  if (parts.length === 1 && parts[0] === "") return obj;
+  let result: UnknownRecord = obj as UnknownRecord;
+  for (const part of parts) {
+    const v = result[part];
+    if (v == null) {
+      if (allowNull) return null;
+      throw new Error(`Path ${path} does not exist. ${part} is null`);
     }
-    return result;
-}
+    result = v as UnknownRecord;
+  }
+  return result;
+};
 
 export const set = <V>(obj: V, path: string, value: unknown): void => {
-    const parts = (path as string).split(".");
-    let result: UnknownRecord = obj as UnknownRecord;
-    for (let i = 0; i < parts.length - 1; i++) {
-        const part = parts[i];
-        if (result[part] == null) {
-            throw new Error(`Path ${path} does not exist`);
-        }
-        result = result[part] as UnknownRecord;
+  const parts = path.split(".");
+  let result: UnknownRecord = obj as UnknownRecord;
+  for (let i = 0; i < parts.length - 1; i++) {
+    const part = parts[i];
+    if (result[part] == null) {
+      throw new Error(`Path ${path} does not exist`);
     }
-    result[parts[parts.length - 1]] = value;
-}
+    result = result[part] as UnknownRecord;
+  }
+  result[parts[parts.length - 1]] = value;
+};
 
 export const element = (path: string, index: number): string => {
-    const parts = path.split(".");
-    if (index < 0) return parts[parts.length + index];
-    return parts[index];
-}
+  const parts = path.split(".");
+  if (index < 0) return parts[parts.length + index];
+  return parts[index];
+};
 
 export const join = (path: string[]): string => path.join(".");
 
 export const has = <V>(obj: V, path: string): boolean => {
-    try {
-        get<V>(obj, path);
-        return true;
-    } catch {
-        return false;
-    }
-}
+  try {
+    get<V>(obj, path);
+    return true;
+  } catch {
+    return false;
+  }
+};

@@ -12,7 +12,6 @@ import { z } from "zod";
 
 import { type Device, deviceKeyZ, deviceZ } from "@/hardware/device/payload";
 import { nullableArrayZ } from "@/util/zod";
-import { AsyncTermSearcher } from "@synnaxlabs/x";
 
 const RETRIEVE_ENDPOINT = "/hardware/device/retrieve";
 

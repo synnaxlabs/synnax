@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { AsyncTermSearcher, toArray } from "@synnaxlabs/x";
+import { type AsyncTermSearcher, toArray } from "@synnaxlabs/x";
 
 import { type framer } from "@/framer";
-import { type Device, deviceZ, DeviceKey } from "@/hardware/device/payload";
+import { type Device, deviceZ, type DeviceKey } from "@/hardware/device/payload";
 import { type Retriever } from "@/hardware/device/retriever";
 import { type Writer } from "@/hardware/device/writer";
 import { signals } from "@/signals";
@@ -18,7 +18,7 @@ import { signals } from "@/signals";
 const DEVICE_SET_NAME = "sy_device_set";
 const DEVICE_DELETE_NAME = "sy_device_delete";
 
-export class Client implements AsyncTermSearcher<string, DeviceKey, Device>{
+export class Client implements AsyncTermSearcher<string, DeviceKey, Device> {
   private readonly retriever: Retriever;
   private readonly writer: Writer;
   private readonly frameClient: framer.Client;

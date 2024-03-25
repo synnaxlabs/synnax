@@ -107,7 +107,23 @@
       "editor.defaultFormatter": "ms-python.black-formatter"
     },
     "python.formatting.provider": "none",
-    "eslint.workingDirectories": [{"mode": "auto"}],
+    "eslint.workingDirectories": [
+      {
+        "mode": "auto"
+      }
+    ],
+    "cSpell.words": [
+      "Aliaser",
+      "clsx",
+      "downsample",
+      "glsl",
+      "lineplot",
+      "msgpackr",
+      "reduxjs",
+      "renderable",
+      "Synnax",
+      "telem"
+    ],
   },
   "extensions": {
     "recommendations": [

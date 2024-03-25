@@ -7,14 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type AsyncTermSearcher, toArray } from "@synnaxlabs/x";
+
 import { type framer } from "@/framer";
-import { RackKey, type NewRack, type RackPayload } from "@/hardware/rack/payload";
+import { type RackKey, type NewRack, type RackPayload } from "@/hardware/rack/payload";
 import { type Retriever } from "@/hardware/rack/retriever";
 import { type Writer } from "@/hardware/rack/writer";
 import { type NewTask, type Task } from "@/hardware/task/payload";
 import { type Retriever as TaskRetriever } from "@/hardware/task/retriever";
 import { type Writer as TaskWriter } from "@/hardware/task/writer";
-import { AsyncTermSearcher, toArray } from "@synnaxlabs/x";
 
 export class Client implements AsyncTermSearcher<string, RackKey, Rack> {
   private readonly retriever: Retriever;

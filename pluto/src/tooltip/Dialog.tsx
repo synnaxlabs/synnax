@@ -122,16 +122,6 @@ export const chooseLocation = (
   return location.constructXY(chosen, chooseRemainingLocation(chosen));
 };
 
-const getRenderRoot = (target: HTMLElement): HTMLElement => {
-  // get the first parent with a transform property or the body
-  const el: HTMLElement | null = target;
-  // while (el != null) {
-  //   if (el.style.transform?.includes("scale")) return el;
-  //   el = el.parentElement;
-  // }
-  return document.body;
-};
-
 const resolveTarget = (target: HTMLElement, id: string): HTMLElement => {
   // we want to find the first parent that has the given id
   let el: HTMLElement | null = target;
@@ -245,7 +235,7 @@ export const Dialog = ({
 
   const [tip, children_] = children;
 
-  const root = getRenderRoot(document.getElementById(id) ?? document.body);
+  const root = document.body;
 
   return (
     <>
