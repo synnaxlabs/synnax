@@ -146,19 +146,8 @@ func (db *DB) NewLockedIterator(cfg IteratorConfig) *Iterator {
 	return i
 }
 
-func (db *DB) GetBounds() (tr telem.TimeRange) {
-	db.idx.mu.RLock()
-	defer db.idx.mu.RUnlock()
-	p := db.idx.mu.pointers[0]
-	tr.Start = p.Start
-	p = db.idx.mu.pointers[len(db.idx.mu.pointers)-1]
-	tr.End = p.End
-
-	return tr
-}
-
 func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) {
-	i := db.NewLockedIterator(IterRange(db.GetBounds()))
+	i := db.NewLockedIterator(IteratorConfig{Bounds: telem.TimeRangeMax})
 
 	if i.SeekGE(ctx, tr.Start) && i.TimeRange().OverlapsWith(tr) {
 		return true, i.Close()
