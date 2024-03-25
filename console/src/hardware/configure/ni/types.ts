@@ -9,6 +9,7 @@
 
 import { type task } from "@synnaxlabs/client";
 import { xy } from "@synnaxlabs/x";
+import { clientXY } from "node_modules/@synnaxlabs/x/dist/src/spatial/base";
 import { z } from "zod";
 
 const linearScaleTypeZ = z.enum(["linear", "none"]);
@@ -64,7 +65,33 @@ export const analogReadTaskConfigZ = z
       path: ["streamRate"],
       message: "Stream rate must be lower than sample rate",
     },
-  );
+  )
+  .superRefine((cfg, ctx) => {
+    const ports = new Map<number, number>();
+    cfg.channels.forEach(({ port }) => ports.set(port, (ports.get(port) ?? 0) + 1));
+    cfg.channels.forEach((channel, i) => {
+      if ((ports.get(channel.port) ?? 0) < 2) return;
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["channels", i, "port"],
+        message: `Port ${channel.port} has already been used`,
+      });
+    });
+  })
+  .superRefine((cfg, ctx) => {
+    const channels = new Map<number, number>();
+    cfg.channels.forEach(({ channel }) =>
+      channels.set(channel, (channels.get(channel) ?? 0) + 1),
+    );
+    cfg.channels.forEach((channel, i) => {
+      if ((channels.get(channel.channel) ?? 0) < 2) return;
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["channels", i, "channel"],
+        message: `Channel has already been used on port ${channel.port}`,
+      });
+    });
+  });
 
 export type AnalogReadTaskConfig = z.infer<typeof analogReadTaskConfigZ>;
 

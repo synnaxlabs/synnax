@@ -17,7 +17,7 @@ import { Form } from "@/form";
 
 const basicFormSchema = z.object({
   name: z.string(),
-  age: z.number(),
+  age: z.number().min(5),
 });
 
 const FormContainer = (props: PropsWithChildren): ReactElement => {
@@ -127,6 +127,13 @@ describe("Form", () => {
         { wrapper },
       );
       expect(result.current.value).toBe("123-45-6789");
+    });
+    it("should return a bad field status if a validation error occurs", () => {
+      const { result } = renderHook(() => Form.useField<number>({ path: "age" }), {
+        wrapper,
+      });
+      act(() => result.current.onChange(3));
+      expect(result.current.status.variant).toEqual("error");
     });
   });
 });

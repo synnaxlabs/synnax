@@ -95,6 +95,8 @@ export const useField = (<I extends Input.Value, O extends Input.Value = I>({
     return null;
   }
 
+  console.log(state);
+
   return { onChange: handleChange, ...state };
 }) as UseField;
 
@@ -396,6 +398,7 @@ export const use = <Z extends z.ZodTypeAny>({
       return true;
     }
     const issueKeys = new Set(result.error.issues.map((i) => i.path.join(".")));
+    console.log(issueKeys);
     result.error.issues.forEach((issue) => {
       const issuePath = issue.path.join(".");
       status.set(issuePath, {

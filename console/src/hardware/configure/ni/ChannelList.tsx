@@ -23,6 +23,23 @@ export const ChannelList = ({
   onSelect,
 }: ChannelListProps): ReactElement => {
   const { value, push } = Form.useFieldArray<NIChannel>({ path });
+
+  const handleAdd = (): void => {
+    const availablePort = Math.max(0, ...value.map((v) => v.port)) + 1;
+    push({
+      key: nanoid(),
+      type: "analogVoltageInput",
+      enabled: true,
+      scale: {
+        type: "none",
+        one: xy.ZERO,
+        two: xy.ZERO,
+      },
+      port: availablePort,
+      channel: 0,
+    });
+  };
+
   return (
     <Align.Space className={CSS.B("channels")} grow empty>
       <Header.Header level="h3">
@@ -31,20 +48,7 @@ export const ChannelList = ({
           {[
             {
               key: "add",
-              onClick: () => {
-                push({
-                  key: nanoid(),
-                  type: "analogVoltageInput",
-                  enabled: true,
-                  scale: {
-                    type: "none",
-                    one: xy.ZERO,
-                    two: xy.ZERO,
-                  },
-                  port: 0,
-                  channel: 0,
-                });
-              },
+              onClick: handleAdd,
               children: <Icon.Add />,
             },
           ]}
