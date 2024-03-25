@@ -138,7 +138,7 @@ func (db *DB) Delete(ctx context.Context, startPosition int, endPosition int, st
 		})
 	}
 
-	temp := make([]pointer, len(db.idx.mu.pointers)+len(newPointers))
+	temp := make([]pointer, len(db.idx.mu.pointers)+len(newPointers)-1)
 	copy(temp, db.idx.mu.pointers[:startPosition])
 
 	if len(newPointers) != 0 {
