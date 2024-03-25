@@ -9,7 +9,24 @@ import (
 	"strconv"
 )
 
-// Delete adds all pointers ranging from [db.get(startPosition).start + startOffset, db.get(endPosition).end - endOffset) into tombstone
+// Delete adds all pointers ranging from
+// [db.get(startPosition).offset + startOffset, db.get(endPosition).offset + endOffset)
+// into tombstone.
+// Note that the deletion timerange includes the sample at startOffset, and ends at
+// the sample right before endOffset
+//
+// The following invariants are placed on the variables:
+// 0 <= startPosition <= endPosition < len(db.mu.idx.pointers), and must both be valid
+// positions in the index.
+// 0 <= startOffset < len(db.get(startPosition))
+// 0 <= endOffset <= len(db.get(endPosition))
+//
+// If endOffset = 0, the entirety of endPosition pointer is excluded
+// If endOffset = len(db.get(endPosition)), the entirety of endPosition pointer is included
+// If startOffset = 0, the entirety of startPosition pointer is included
+// If startOffset = len(db.get(endPosition)), the operation is invalid
+//
+// If endOffset = startOffset, nothing is deleted
 func (db *DB) Delete(ctx context.Context, startPosition int, endPosition int, startOffset int64, endOffset int64, tr telem.TimeRange, withLock bool) error {
 	if startPosition > endPosition {
 		return errors.New("[cesium] Deletion starting position cannot be greater than ending position")
@@ -28,16 +45,24 @@ func (db *DB) Delete(ctx context.Context, startPosition int, endPosition int, st
 		return errors.New("[cesium] Deletion ending at invalid position")
 	}
 
-	if startOffset > int64(start.length) {
-		return errors.New("[cesium] Deletion start offset cannot be greater than the length of that pointer")
+	if startOffset >= int64(start.length) {
+		return errors.New("[cesium] Deletion start offset cannot be greater than or equal to the length of that pointer")
+	}
+
+	if startOffset < 0 {
+		return errors.New("[cesium] Deletion start offset cannot be less than 0")
 	}
 
 	if endOffset > int64(end.length) {
 		return errors.New("[cesium] Deletion end offset cannot be greater than the length of that pointer")
 	}
 
+	if endOffset < 0 {
+		return errors.New("[cesium] Deletion end offset cannot be less than 0")
+	}
+
 	if startPosition != endPosition {
-		// remove end of start pointer
+		// Remove end of start pointer
 		db.idx.insertTombstone(ctx, pointer{
 			TimeRange: telem.TimeRange{
 				Start: tr.Start,
@@ -52,36 +77,45 @@ func (db *DB) Delete(ctx context.Context, startPosition int, endPosition int, st
 			db.idx.insertTombstone(ctx, p, false)
 		}
 
-		// remove start of end pointer
-		db.idx.insertTombstone(ctx, pointer{
-			TimeRange: telem.TimeRange{
-				Start: end.Start,
-				End:   tr.End,
-			},
-			fileKey: end.fileKey,
-			offset:  end.offset,
-			length:  end.length - uint32(endOffset), // length of {end.Start, tr.End}
-		}, false)
-	} else {
-		if uint32(startOffset)+uint32(endOffset) > start.length {
-			return errors.New("[cesium] Sum of deletion start offset and end offset cannot exceed the length of that pointer when they point at same pointer ")
+		// Remove start of end pointer.
+		if endOffset != 0 {
+			db.idx.insertTombstone(ctx, pointer{
+				TimeRange: telem.TimeRange{
+					Start: end.Start,
+					End:   tr.End,
+				},
+				fileKey: end.fileKey,
+				offset:  end.offset,
+				length:  uint32(endOffset), // length of {end.Start, tr.End}
+			}, false)
 		}
+	} else {
+		if startOffset > endOffset {
+			return errors.New("[cesium] Deletion start offset cannot be greater than end offset in same pointer")
+		}
+
+		if startOffset == endOffset {
+			return nil
+		}
+
 		db.idx.insertTombstone(ctx, pointer{
 			TimeRange: telem.TimeRange{
 				Start: tr.Start,
 				End:   tr.End,
 			},
 			fileKey: start.fileKey,
-			offset:  uint32(startOffset),
-			length:  start.length - uint32(startOffset) - uint32(endOffset),
+			offset:  start.offset + uint32(startOffset),
+			length:  uint32(endOffset - startOffset),
 		}, false)
 	}
 
-	// remove old pointers
+	// Remove old pointers.
 	db.idx.mu.pointers = append(db.idx.mu.pointers[:startPosition+1], db.idx.mu.pointers[endPosition+1:]...)
 
-	newPointers := []pointer{
-		{
+	newPointers := make([]pointer, 0)
+
+	if startOffset != 0 {
+		newPointers = append(newPointers, pointer{
 			TimeRange: telem.TimeRange{
 				Start: start.Start,
 				End:   tr.Start,
@@ -89,22 +123,29 @@ func (db *DB) Delete(ctx context.Context, startPosition int, endPosition int, st
 			fileKey: start.fileKey,
 			offset:  start.offset,
 			length:  uint32(startOffset), // length from start.Start to tr.Start
-		},
-		{
+		})
+	}
+
+	if uint32(endOffset) != end.length {
+		newPointers = append(newPointers, pointer{
 			TimeRange: telem.TimeRange{
 				Start: tr.End,
 				End:   end.End,
 			},
 			fileKey: end.fileKey,
-			offset:  end.offset + end.length - uint32(endOffset), // end.offset + length of from tr.End to tr.End
-			length:  uint32(endOffset),                           // length from tr.End to tr.Start
-		},
+			offset:  end.offset + uint32(endOffset),
+			length:  end.length - uint32(endOffset), // length from tr.End to end.End
+		})
 	}
 
-	temp := make([]pointer, len(db.idx.mu.pointers)+1)
+	temp := make([]pointer, len(db.idx.mu.pointers)+len(newPointers))
 	copy(temp, db.idx.mu.pointers[:startPosition])
-	copy(temp[startPosition:startPosition+2], newPointers)
-	copy(temp[startPosition+2:], db.idx.mu.pointers[startPosition+1:])
+
+	if len(newPointers) != 0 {
+		copy(temp[startPosition:startPosition+len(newPointers)], newPointers)
+	}
+
+	copy(temp[startPosition+len(newPointers):], db.idx.mu.pointers[startPosition+1:])
 
 	db.idx.mu.pointers = temp
 
@@ -119,7 +160,7 @@ func (db *DB) CollectTombstones(ctx context.Context, maxSizeRead uint32) error {
 		var (
 			// priorTombstoneLength tracks the number of lengths of all tombstone
 			// pointers before the current pointer during the course of rewriting
-			// pointers
+			// pointers.
 			priorTombstoneLength uint32 = 0
 			pointerPtr                  = 0
 			tombstonePtr                = 0

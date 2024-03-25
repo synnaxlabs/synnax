@@ -33,7 +33,7 @@ var _ = Describe("Delete", Ordered, func() {
 		It("Should delete a timerange", func() {
 			// Note that we do not need to multiply by Density here since we are
 			// directly writing bytes.
-			Expect(db.Delete(ctx, 0, 2, int64(6), int64(5), telem.TimeRange{Start: 15 * telem.SecondTS, End: 32 * telem.SecondTS}, true)).To(Succeed())
+			Expect(db.Delete(ctx, 0, 2, int64(6), int64(2), telem.TimeRange{Start: 15 * telem.SecondTS, End: 32 * telem.SecondTS}, true)).To(Succeed())
 			iter := db.NewIterator(domain.IteratorConfig{Bounds: telem.TimeRange{
 				Start: 10 * telem.SecondTS,
 				End:   36 * telem.SecondTS,
@@ -55,7 +55,7 @@ var _ = Describe("Delete", Ordered, func() {
 			Expect(p[:5]).To(Equal([]byte{32, 33, 34, 35, 36}))
 		})
 		It("Should delete a timerange on the same pointer", func() {
-			Expect(db.Delete(ctx, 1, 1, int64(2), int64(4), telem.TimeRange{Start: 22 * telem.SecondTS, End: 26 * telem.SecondTS}, true)).To(Succeed())
+			Expect(db.Delete(ctx, 1, 1, int64(2), int64(6), telem.TimeRange{Start: 22 * telem.SecondTS, End: 26 * telem.SecondTS}, true)).To(Succeed())
 			iter := db.NewIterator(domain.IteratorConfig{Bounds: telem.TimeRange{
 				Start: 20 * telem.SecondTS,
 				End:   36 * telem.SecondTS,
@@ -89,30 +89,50 @@ var _ = Describe("Delete", Ordered, func() {
 				Expect(err.Error()).To(ContainSubstring("ending at invalid position"))
 			})
 
-			It("Should return errors when the start pointer is greater than the end pointer", func() {
+			It("Should return errors when the start pointer is greater than or equal to the end pointer", func() {
 				err := db.Delete(ctx, 3, 1, int64(2), int64(3), telem.TimeRange{Start: 22 * telem.SecondTS, End: 30 * telem.SecondTS}, true)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("starting position cannot be greater than ending position"))
 			})
 
-			It("Should return errors when the start offset is greater than the length of the pointer", func() {
+			It("Should return errors when the start offset is greater than or equal to the length of the pointer", func() {
 				err := db.Delete(ctx, 0, 1, int64(10), int64(3), telem.TimeRange{Start: 22 * telem.SecondTS, End: 30 * telem.SecondTS}, true)
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("start offset cannot be greater than"))
+				Expect(err.Error()).To(ContainSubstring("start offset cannot be greater than or equal to"))
 			})
 
-			It("Should return errors when the end offset is greater than the length of the pointer", func() {
+			It("Should return errors when the end offset is greater than or equal to the length of the pointer", func() {
 				err := db.Delete(ctx, 0, 1, int64(2), int64(11), telem.TimeRange{Start: 22 * telem.SecondTS, End: 30 * telem.SecondTS}, true)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("end offset cannot be greater than"))
 			})
 
 			It("Should return errors when the startOffset is after the endOffset for same pointer deletion", func() {
-				err := db.Delete(ctx, 0, 0, int64(4), int64(5), telem.TimeRange{Start: 22 * telem.SecondTS, End: 30 * telem.SecondTS}, true)
+				err := db.Delete(ctx, 0, 0, int64(6), int64(5), telem.TimeRange{Start: 22 * telem.SecondTS, End: 30 * telem.SecondTS}, true)
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("exceed the length"))
+				Expect(err.Error()).To(ContainSubstring("cannot be greater than end offset"))
 			})
 
+			//	Deleting:
+			//	10, 11, 12, 13, 14, 15, 16
+			//	20, 21, 22, 23, 24, 25, 26, 27, 28, 29
+			//	30, 31, 32, 33, 34, 35, 36.
+			It("Should delete a whole pointer", func() {
+				err := db.Delete(ctx, 0, 1, int64(0), int64(0), telem.TimeRange{Start: 10 * telem.SecondTS, End: 20 * telem.SecondTS}, true)
+				Expect(err).ToNot(HaveOccurred())
+
+				iter := db.NewIterator(domain.IteratorConfig{Bounds: telem.TimeRange{
+					Start: 10 * telem.SecondTS,
+					End:   36 * telem.SecondTS,
+				}})
+				Expect(iter.SeekFirst(ctx)).To(BeTrue())
+				Expect(iter.TimeRange()).To(Equal((20 * telem.SecondTS).Range(30 * telem.SecondTS)))
+				r := MustSucceed(iter.NewReader(ctx))
+				p := make([]byte, 10)
+				_, err = r.ReadAt(p, 0)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(p[:10]).To(Equal([]byte{20, 21, 22, 23, 24, 25, 26, 27, 28, 29}))
+			})
 		})
 	})
 })

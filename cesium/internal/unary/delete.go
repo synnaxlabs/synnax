@@ -3,6 +3,7 @@ package unary
 import (
 	"context"
 	"errors"
+	errors2 "github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/x/control"
@@ -29,7 +30,7 @@ func (db *DB) Delete(ctx context.Context, tr telem.TimeRange) error {
 
 	i := db.Domain.NewLockedIterator(domain.IterRange(db.Domain.GetBounds()))
 	if ok := i.SeekGE(ctx, tr.Start); !ok {
-		return errors.New("Start TS not found")
+		return errors2.CombineErrors(i.Close(), errors.New("[cesium] Deletion Start TS not found"))
 	}
 	approxDist, err := db.index().Distance(ctx, telem.TimeRange{
 		Start: i.TimeRange().Start,
@@ -42,21 +43,21 @@ func (db *DB) Delete(ctx context.Context, tr telem.TimeRange) error {
 	startPosition := i.Position()
 
 	if ok := i.SeekLE(ctx, tr.End); !ok {
-		return errors.New("End TS not found")
+		return errors2.CombineErrors(i.Close(), errors.New("[cesium] Deletion End TS not found"))
 	}
 	approxDist, err = db.index().Distance(ctx, telem.TimeRange{
-		Start: tr.End,
-		End:   i.TimeRange().End,
+		Start: i.TimeRange().Start,
+		End:   tr.End,
 	}, false, false)
 	if err != nil {
-		return err
+		return errors2.CombineErrors(i.Close(), err)
 	}
-	endOffset := approxDist.Lower + 1
+	endOffset := approxDist.Upper
 	endPosition := i.Position()
 
 	err = db.Domain.Delete(ctx, startPosition, endPosition, startOffset*int64(db.Channel.DataType.Density()), endOffset*int64(db.Channel.DataType.Density()), tr, false)
 	if err != nil {
-		return err
+		return errors2.CombineErrors(i.Close(), err)
 	}
 
 	g.Release()

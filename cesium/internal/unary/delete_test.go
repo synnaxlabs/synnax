@@ -103,6 +103,19 @@ var _ = Describe("Delete", Ordered, func() {
 			Expect(series1Data).To(ContainElement(17))
 			Expect(series1Data).To(ContainElement(18))
 		})
+		It("Should delete a whole domain", func() {
+			By("Writing data to the channel")
+			Expect(unary.Write(ctx, rateDB, 10*telem.SecondTS, telem.NewSeriesV[int64](10, 11, 12, 13, 14, 15, 16, 17, 18))).To(Succeed())
+
+			By("Deleting channel data")
+			Expect(rateDB.Delete(ctx, telem.TimeRange{
+				Start: 10 * telem.SecondTS,
+				End:   19 * telem.SecondTS,
+			})).To(Succeed())
+
+			iter := rateDB.OpenIterator(unary.IterRange((10 * telem.SecondTS).SpanRange(10 * telem.Second)))
+			Expect(iter.SeekFirst(ctx)).To(BeFalse())
+		})
 	})
 
 	Describe("Simple Index-based channel", func() {
