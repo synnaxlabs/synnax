@@ -409,16 +409,15 @@ export class Series {
 
   updateGLBuffer(gl: GLBufferController): void {
     this.gl.control = gl;
-    const { buffer, bufferUsage, prevBuffer } = this.gl;
-    // If the current write position is the same as the previous buffer, we're already
-    // up date.
-    if (this.writePos === prevBuffer) return;
-
     if (!this.dataType.equals(DataType.FLOAT32))
       throw new Error("Only FLOAT32 arrays can be used in WebGL");
+    const { buffer, bufferUsage, prevBuffer } = this.gl;
 
     // If no buffer has been created yet, create one.
     if (buffer == null) this.gl.buffer = gl.createBuffer();
+    // If the current write position is the same as the previous buffer, we're already
+    // up date.
+    if (this.writePos === prevBuffer) return;
 
     // Bind the buffer.
     gl.bindBuffer(gl.ARRAY_BUFFER, this.gl.buffer);
