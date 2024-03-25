@@ -6,25 +6,28 @@ import {
   DebouncedBatchRetriever,
   type Retriever,
   analyzeParams,
+  type RetrieveOptions,
 } from "@/channel/retriever";
 
 class MockRetriever implements Retriever {
-  func: (channels: Params, rangeKey?: string) => Promise<Payload[]>;
+  func: (channels: Params, options?: RetrieveOptions) => Promise<Payload[]>;
 
-  constructor(func: (channels: Params, rangeKey?: string) => Promise<Payload[]>) {
+  constructor(
+    func: (channels: Params, options?: RetrieveOptions) => Promise<Payload[]>,
+  ) {
     this.func = func;
   }
 
-  async search(term: string, rangeKey?: string): Promise<Payload[]> {
+  async search(term: string): Promise<Payload[]> {
     throw new Error("Method not implemented.");
   }
 
-  async page(offset: number, limit: number, rangeKey?: string): Promise<Payload[]> {
+  async page(offset: number, limit: number): Promise<Payload[]> {
     throw new Error("Method not implemented.");
   }
 
-  async retrieve(channels: Params, rangeKey?: string): Promise<Payload[]> {
-    return await this.func(channels, rangeKey);
+  async retrieve(channels: Params, options?: RetrieveOptions): Promise<Payload[]> {
+    return await this.func(channels, options);
   }
 }
 

@@ -89,10 +89,15 @@ type ChannelRetrieveRequest struct {
 	// Optional parameter that queries a Channel by its name.
 	Names []string `json:"names" msgpack:"names"`
 	// Optional search parameters that fuzzy match a Channel's properties.
-	Search   string    `json:"search" msgpack:"search"`
+	Search string `json:"search" msgpack:"search"`
+	// RangeKey is used for fetching aliases.
 	RangeKey uuid.UUID `json:"range_key" msgpack:"range_key"`
-	Limit    int       `json:"limit" msgpack:"limit"`
-	Offset   int       `json:"offset" msgpack:"offset"`
+	// Limit limits the number of results returned.
+	Limit int `json:"limit" msgpack:"limit"`
+	// Offset offsets the results returned.
+	Offset       int              `json:"offset" msgpack:"offset"`
+	DataTypes    []telem.DataType `json:"data_types" msgpack:"data_types"`
+	NotDataTypes []telem.DataType `json:"not_data_types" msgpack:"not_data_types"`
 }
 
 // ChannelRetrieveResponse is the response for a ChannelRetrieveRequest.
@@ -108,12 +113,14 @@ func (s *ChannelService) Retrieve(
 	req ChannelRetrieveRequest,
 ) (ChannelRetrieveResponse, error) {
 	var (
-		resChannels   []channel.Channel
-		aliasChannels []channel.Channel
-		q             = s.internal.NewRetrieve().Entries(&resChannels)
-		hasNames      = len(req.Names) > 0
-		hasKeys       = len(req.Keys) > 0
-		hasSearch     = len(req.Search) > 0
+		resChannels     []channel.Channel
+		aliasChannels   []channel.Channel
+		q               = s.internal.NewRetrieve().Entries(&resChannels)
+		hasNames        = len(req.Names) > 0
+		hasKeys         = len(req.Keys) > 0
+		hasSearch       = len(req.Search) > 0
+		hasDataTypes    = len(req.DataTypes) > 0
+		hasNotDataTypes = len(req.NotDataTypes) > 0
 	)
 
 	var resRng ranger.Range
@@ -151,6 +158,14 @@ func (s *ChannelService) Retrieve(
 
 	if req.NodeKey != 0 {
 		q = q.WhereNodeKey(req.NodeKey)
+	}
+
+	if hasDataTypes {
+		q = q.WhereDataTypes(req.DataTypes...)
+	}
+
+	if hasNotDataTypes {
+		q = q.WhereNotDataTypes(req.NotDataTypes...)
 	}
 
 	if req.Limit > 0 {

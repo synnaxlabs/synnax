@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/telem"
 	"regexp"
 	"strings"
 )
@@ -50,6 +51,20 @@ func (r Retrieve) Entries(ch *[]Channel) Retrieve { r.gorp.Entries(ch); return r
 // leaseholder node Key.
 func (r Retrieve) WhereNodeKey(nodeKey core.NodeKey) Retrieve {
 	r.gorp.Where(func(ch *Channel) bool { return ch.Leaseholder == nodeKey })
+	return r
+}
+
+// WhereDataTypes filters for channels whose DataType attribute matches the provided
+// data types.
+func (r Retrieve) WhereDataTypes(dataTypes ...telem.DataType) Retrieve {
+	r.gorp.Where(func(ch *Channel) bool { return lo.Contains(dataTypes, ch.DataType) })
+	return r
+}
+
+// WhereNotDataTypes filters for channels whose DataType attribute does not match the
+// provided data types.
+func (r Retrieve) WhereNotDataTypes(dataTypes ...telem.DataType) Retrieve {
+	r.gorp.Where(func(ch *Channel) bool { return !lo.Contains(dataTypes, ch.DataType) })
 	return r
 }
 

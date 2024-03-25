@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 import type { UnaryClient } from "@synnaxlabs/freighter";
 import { debounce } from "@synnaxlabs/x/debounce";
+import { DataType } from "@synnaxlabs/x/telem";
 import { toArray } from "@synnaxlabs/x/toArray";
 import { Mutex } from "async-mutex";
 import { z } from "zod";
@@ -33,18 +34,27 @@ const reqZ = z.object({
   rangeKey: z.string().optional(),
   limit: z.number().optional(),
   offset: z.number().optional(),
+  dataTypes: DataType.z.array().optional(),
+  notDataTypes: DataType.z.array().optional(),
 });
 
 type Request = z.infer<typeof reqZ>;
+
+export type RetrieveOptions = Pick<
+  Request,
+  "rangeKey" | "limit" | "offset" | "dataTypes" | "notDataTypes"
+>;
+
+export type PageOptions = Omit<RetrieveOptions, "offset" | "limit">;
 
 const resZ = z.object({
   channels: nullableArrayZ(payload),
 });
 
 export interface Retriever {
-  retrieve: (channels: Params, rangeKey?: string) => Promise<Payload[]>;
-  search: (term: string, rangeKey?: string) => Promise<Payload[]>;
-  page: (offset: number, limit: number, rangeKey?: string) => Promise<Payload[]>;
+  retrieve: (channels: Params, opts?: RetrieveOptions) => Promise<Payload[]>;
+  search: (term: string, opts?: RetrieveOptions) => Promise<Payload[]>;
+  page: (offset: number, limit: number, opts?: PageOptions) => Promise<Payload[]>;
 }
 
 export class ClusterRetriever implements Retriever {
@@ -55,17 +65,17 @@ export class ClusterRetriever implements Retriever {
     this.client = client;
   }
 
-  async search(term: string, rangeKey?: string): Promise<Payload[]> {
-    return await this.execute({ search: term, rangeKey });
+  async search(term: string, options?: RetrieveOptions): Promise<Payload[]> {
+    return await this.execute({ search: term, ...options });
   }
 
-  async retrieve(channels: Params, rangeKey?: string): Promise<Payload[]> {
+  async retrieve(channels: Params, options?: RetrieveOptions): Promise<Payload[]> {
     const { variant, normalized } = analyzeParams(channels);
-    return await this.execute({ [variant]: normalized, rangeKey });
+    return await this.execute({ [variant]: normalized, ...options });
   }
 
-  async page(offset: number, limit: number, rangeKey?: string): Promise<Payload[]> {
-    return await this.execute({ offset, limit, rangeKey });
+  async page(offset: number, limit: number, options?: PageOptions): Promise<Payload[]> {
+    return await this.execute({ offset, limit, ...options });
   }
 
   private async execute(request: Request): Promise<Payload[]> {
@@ -86,15 +96,15 @@ export class CacheRetriever implements Retriever {
     this.wrapped = wrapped;
   }
 
-  async search(term: string, rangeKey?: string): Promise<Payload[]> {
-    return await this.wrapped.search(term, rangeKey);
+  async search(term: string, options?: RetrieveOptions): Promise<Payload[]> {
+    return await this.wrapped.search(term, options);
   }
 
-  async page(offset: number, limit: number, rangeKey?: string): Promise<Payload[]> {
-    return await this.wrapped.page(offset, limit, rangeKey);
+  async page(offset: number, limit: number, options?: PageOptions): Promise<Payload[]> {
+    return await this.wrapped.page(offset, limit, options);
   }
 
-  async retrieve(channels: Params): Promise<Payload[]> {
+  async retrieve(channels: Params, options?: RetrieveOptions): Promise<Payload[]> {
     const { normalized } = analyzeParams(channels);
     const results: Payload[] = [];
     const toFetch: KeysOrNames = [];
@@ -104,7 +114,7 @@ export class CacheRetriever implements Retriever {
       else toFetch.push(keyOrName as never);
     });
     if (toFetch.length === 0) return results;
-    const fetched = await this.wrapped.retrieve(toFetch);
+    const fetched = await this.wrapped.retrieve(toFetch, options);
     this.updateCache(fetched);
     return results.concat(fetched);
   }
@@ -178,12 +188,16 @@ export class DebouncedBatchRetriever implements Retriever {
     }, deb);
   }
 
-  async search(term: string, rangeKey?: string): Promise<Payload[]> {
-    return await this.wrapped.search(term, rangeKey);
+  async search(term: string, options?: RetrieveOptions): Promise<Payload[]> {
+    return await this.wrapped.search(term, options);
   }
 
-  async page(offset: number, limit: number, rangeKey?: string): Promise<Payload[]> {
-    return await this.wrapped.page(offset, limit, rangeKey);
+  async page(
+    offset: number,
+    limit: number,
+    options?: RetrieveOptions,
+  ): Promise<Payload[]> {
+    return await this.wrapped.page(offset, limit, options);
   }
 
   async retrieve(channels: Params): Promise<Payload[]> {

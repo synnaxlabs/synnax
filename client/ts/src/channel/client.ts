@@ -34,6 +34,8 @@ import {
   CacheRetriever,
   ClusterRetriever,
   DebouncedBatchRetriever,
+  type PageOptions,
+  type RetrieveOptions,
   type Retriever,
 } from "@/channel/retriever";
 import { MultipleResultsError, NotFoundError } from "@/errors";
@@ -161,9 +163,9 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
     return single ? res[0] : res;
   }
 
-  async retrieve(channel: KeyOrName, rangeKey?: string): Promise<Channel>;
+  async retrieve(channel: KeyOrName, options?: RetrieveOptions): Promise<Channel>;
 
-  async retrieve(channels: Params, rangeKey?: string): Promise<Channel[]>;
+  async retrieve(channels: Params, options?: RetrieveOptions): Promise<Channel[]>;
 
   /**
    * Retrieves a channel from the database using the given parameters.
@@ -173,10 +175,13 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
    * @returns The retrieved channel.
    * @raises {QueryError} If the channel does not exist or if multiple results are returned.
    */
-  async retrieve(channels: Params, rangeKey?: string): Promise<Channel | Channel[]> {
+  async retrieve(
+    channels: Params,
+    options?: RetrieveOptions,
+  ): Promise<Channel | Channel[]> {
     const { single, actual, normalized } = analyzeParams(channels);
     if (normalized.length === 0) return [];
-    const res = this.sugar(await this.retriever.retrieve(channels, rangeKey));
+    const res = this.sugar(await this.retriever.retrieve(channels, options));
     if (!single) return res;
     if (res.length === 0)
       throw new NotFoundError(`channel matching ${actual} not found`);
@@ -185,16 +190,22 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
     return res[0];
   }
 
-  async search(term: string, rangeKey?: string): Promise<Channel[]> {
-    return this.sugar(await this.retriever.search(term, rangeKey));
+  async search(term: string, options?: RetrieveOptions): Promise<Channel[]> {
+    return this.sugar(await this.retriever.search(term, options));
   }
 
-  newSearcherUnderRange(rangeKey?: string): AsyncTermSearcher<string, Key, Channel> {
-    return new SearcherUnderRange(this, rangeKey);
+  newSearcherWithOptions(
+    options: RetrieveOptions,
+  ): AsyncTermSearcher<string, Key, Channel> {
+    return new SearcherWithOptions(this, options);
   }
 
-  async page(offset: number, limit: number, rangeKey?: string): Promise<Channel[]> {
-    return this.sugar(await this.retriever.page(offset, limit, rangeKey));
+  async page(
+    offset: number,
+    limit: number,
+    options?: Omit<RetrieveOptions, "limit" | "offset">,
+  ): Promise<Channel[]> {
+    return this.sugar(await this.retriever.page(offset, limit, options));
   }
 
   createDebouncedBatchRetriever(deb: number = 10): Retriever {
@@ -209,24 +220,24 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
   }
 }
 
-class SearcherUnderRange implements AsyncTermSearcher<string, Key, Channel> {
+class SearcherWithOptions implements AsyncTermSearcher<string, Key, Channel> {
   private readonly client: Client;
-  private readonly rangeKey?: string;
+  private readonly options: RetrieveOptions;
 
-  constructor(client: Client, rangeKey?: string) {
+  constructor(client: Client, options: RetrieveOptions) {
     this.client = client;
-    this.rangeKey = rangeKey;
+    this.options = options;
   }
 
-  async search(term: string): Promise<Channel[]> {
-    return await this.client.search(term, this.rangeKey);
+  async search(term: string, options?: RetrieveOptions): Promise<Channel[]> {
+    return await this.client.search(term, { ...this.options, ...options });
   }
 
-  async page(offset: number, limit: number): Promise<Channel[]> {
-    return await this.client.page(offset, limit, this.rangeKey);
+  async page(offset: number, limit: number, options?: PageOptions): Promise<Channel[]> {
+    return await this.client.page(offset, limit, { ...this.options, ...options });
   }
 
-  async retrieve(channels: Key[]): Promise<Channel[]> {
-    return await this.client.retrieve(channels, this.rangeKey);
+  async retrieve(channels: Key[], options?: RetrieveOptions): Promise<Channel[]> {
+    return await this.client.retrieve(channels, { ...this.options, ...options });
   }
 }
