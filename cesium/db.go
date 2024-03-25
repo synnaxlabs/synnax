@@ -93,9 +93,9 @@ func (db *DB) Read(ctx context.Context, tr telem.TimeRange, keys ...core.Channel
 func (db *DB) Close() error {
 	c := errutil.NewCatch(errutil.WithAggregation())
 	db.closeControlDigests()
+	c.Exec(db.shutdown.Close)
 	for _, u := range db.unaryDBs {
 		c.Exec(u.Close)
 	}
-	c.Exec(db.shutdown.Close)
 	return nil
 }

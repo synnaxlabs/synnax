@@ -104,7 +104,7 @@ func (db *DB) DeleteTimeRange(ctx context.Context, ch ChannelKey, tr telem.TimeR
 			}
 			otherDB := db.unaryDBs[otherDBKey]
 			// We must determine whether there is an indexed db that has data in the timerange tr.
-			hasOverlap, err := otherDB.Overlaps(ctx, tr)
+			hasOverlap, err := otherDB.HasDataFor(ctx, tr)
 			if err != nil {
 				return errors.New("[cesium] - could not delete index channel with other channels depending on it")
 			}

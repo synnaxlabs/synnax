@@ -157,14 +157,14 @@ func (db *DB) GetBounds() (tr telem.TimeRange) {
 	return tr
 }
 
-func (db *DB) Overlaps(ctx context.Context, tr telem.TimeRange) (bool, error) {
+func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) {
 	i := db.NewLockedIterator(IterRange(db.GetBounds()))
 
 	if i.SeekGE(ctx, tr.Start) && i.TimeRange().OverlapsWith(tr) {
-		return true, nil
+		return true, i.Close()
 	}
 	if i.SeekLE(ctx, tr.End) && i.TimeRange().OverlapsWith(tr) {
-		return true, nil
+		return true, i.Close()
 	}
 
 	return false, i.Close()
