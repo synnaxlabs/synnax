@@ -141,6 +141,41 @@
       "import": "./dist/destructor.js",
       "require": "./dist/destructor.cjs",
       "types": "./dist/src/destructor.d.ts"
+    },
+    "./debounce": {
+      "import": "./dist/debounce.js",
+      "require": "./dist/debounce.cjs",
+      "types": "./dist/src/debounce/index.d.ts"
+    },
+    "./toArray": {
+      "import": "./dist/toArray.js",
+      "require": "./dist/toArray.cjs",
+      "types": "./dist/src/toArray.d.ts"
+    },
+    "./search": {
+      "import": "./dist/search.js",
+      "require": "./dist/search.cjs",
+      "types": "./dist/src/search.d.ts"
+    },
+    "./unique": {
+      "import": "./dist/unique.js",
+      "require": "./dist/unique.cjs",
+      "types": "./dist/src/unique.d.ts"
+    },
+    "./record": {
+      "import": "./dist/record.js",
+      "require": "./dist/record.cjs",
+      "types": "./dist/src/record.d.ts"
+    },
+    "./change": {
+      "import": "./dist/change.js",
+      "require": "./dist/change.cjs",
+      "types": "./dist/src/change/index.d.ts"
+    },
+    "./identity": {
+      "import": "./dist/identity.js",
+      "require": "./dist/identity.cjs",
+      "types": "./dist/src/identity.d.ts"
     }
   }
 }

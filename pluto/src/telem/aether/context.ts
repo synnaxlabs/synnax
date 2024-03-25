@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Destructor, deep } from "@synnaxlabs/x";
-import { type Handler } from "@synnaxlabs/x/dist/observe/observe";
+import { deep } from "@synnaxlabs/x/deep";
+import { type Destructor } from "@synnaxlabs/x/destructor";
+import { type observe } from "@synnaxlabs/x/observe";
 
 import { type aether } from "@/aether/aether";
-import { type telem } from "@/telem/aether";
 import { type Factory } from "@/telem/aether/factory";
 import { type Sink, type Source, type Spec } from "@/telem/aether/telem";
 
@@ -53,7 +53,7 @@ class MemoizedSource<V> implements Source<V> {
     await this.wrapped.cleanup?.();
   }
 
-  onChange(handler: Handler<void>): Destructor {
+  onChange(handler: observe.Handler<void>): Destructor {
     return this.wrapped.onChange(handler);
   }
 

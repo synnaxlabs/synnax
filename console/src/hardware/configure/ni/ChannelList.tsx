@@ -1,9 +1,12 @@
 import { type ReactElement } from "react";
 
+import { Icon } from "@synnaxlabs/media";
 import { Align, Channel, Form, Header, Status } from "@synnaxlabs/pluto";
 import { Button } from "@synnaxlabs/pluto/button";
 import { List } from "@synnaxlabs/pluto/list";
 import { Text } from "@synnaxlabs/pluto/text";
+import { xy } from "@synnaxlabs/x";
+import { nanoid } from "nanoid";
 
 import { CSS } from "@/css";
 import { CHANNEL_TYPE_DISPLAY, type NIChannel } from "@/hardware/configure/ni/types";
@@ -19,11 +22,33 @@ export const ChannelList = ({
   selected,
   onSelect,
 }: ChannelListProps): ReactElement => {
-  const { value } = Form.useFieldArray<NIChannel>({ path });
+  const { value, push } = Form.useFieldArray<NIChannel>({ path });
   return (
     <Align.Space className={CSS.B("channels")} grow empty>
       <Header.Header level="h3">
         <Header.Title weight={500}>Channels</Header.Title>
+        <Header.Actions>
+          {[
+            {
+              key: "add",
+              onClick: () => {
+                push({
+                  key: nanoid(),
+                  type: "analogVoltageInput",
+                  enabled: true,
+                  scale: {
+                    type: "none",
+                    one: xy.ZERO,
+                    two: xy.ZERO,
+                  },
+                  port: 0,
+                  channel: 0,
+                });
+              },
+              children: <Icon.Add />,
+            },
+          ]}
+        </Header.Actions>
       </Header.Header>
       <List.List<string, NIChannel> data={value}>
         <List.Selector<string, NIChannel>
@@ -52,6 +77,7 @@ export const ChannelListItem = ({
 }): ReactElement => {
   const { entry } = props;
   const hasLine = "line" in entry;
+  const ctx = Form.useContext();
   const childValues = Form.useChildFieldValues<NIChannel>({
     path: `${path}.${props.index}`,
     optional: true,
@@ -79,11 +105,14 @@ export const ChannelListItem = ({
         </Text.Text>
       </Align.Space>
       <Button.Toggle
-        checkedVariant="text"
-        uncheckedVariant="text"
+        checkedVariant="outlined"
+        uncheckedVariant="outlined"
         value={entry.enabled}
         size="small"
         onClick={(e) => e.stopPropagation()}
+        onChange={(v) => {
+          ctx.set({ path: `${path}.${props.index}.enabled`, value: v });
+        }}
         tooltip={
           <Text.Text level="small" style={{ maxWidth: 300 }}>
             Data acquisition for this channel is{" "}

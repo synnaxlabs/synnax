@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
+import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import {
   DataType,
   Rate,
@@ -15,10 +16,9 @@ import {
   type CrudeDensity,
   type Series,
   type TimeRange,
-  type AsyncTermSearcher,
-  toArray,
   type CrudeTimeSpan,
-} from "@synnaxlabs/x";
+} from "@synnaxlabs/x/telem";
+import { toArray } from "@synnaxlabs/x/toArray";
 
 import { type Creator } from "@/channel/creator";
 import {
@@ -36,7 +36,7 @@ import {
   DebouncedBatchRetriever,
   type Retriever,
 } from "@/channel/retriever";
-import { QueryError } from "@/errors";
+import { MultipleResultsError, NotFoundError } from "@/errors";
 import { type framer } from "@/framer";
 
 /**

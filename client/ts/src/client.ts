@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeSpan, TimeStamp, URL } from "@synnaxlabs/x";
-import { nan, z } from "zod";
+import { TimeSpan, TimeStamp } from "@synnaxlabs/x/telem";
+import { URL } from "@synnaxlabs/x/url";
+import { z } from "zod";
 
 import { auth } from "@/auth";
 import { channel } from "@/channel";

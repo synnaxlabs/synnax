@@ -1,4 +1,4 @@
-import { DataType, Rate } from "@synnaxlabs/x";
+import { DataType, Rate } from "@synnaxlabs/x/telem";
 import { describe, expect, it, vi } from "vitest";
 
 import { type Params, type Payload } from "@/channel/payload";

@@ -38,7 +38,14 @@ export default defineConfig({
         telem: path.resolve(".", "src/telem/index.ts"),
         url: path.resolve(".", "src/url/index.ts"),
         worker: path.resolve(".", "src/worker/index.ts"),
+        debounce: path.resolve(".", "src/debounce/index.ts"),
         destructor: path.resolve(".", "src/destructor.ts"), 
+        toArray: path.resolve(".", "src/toArray.ts"),
+        search: path.resolve(".", "src/search.ts"),
+        unique: path.resolve(".", "src/unique.ts"),
+        record: path.resolve(".", "src/record.ts"),
+        change: path.resolve(".", "src/change/index.ts"),
+        identity: path.resolve(".", "src/identity.ts"),
       }
     }
   },

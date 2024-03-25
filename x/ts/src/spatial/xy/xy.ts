@@ -60,16 +60,16 @@ export const construct = (x: Crude | Direction, y?: number): XY => {
 };
 
 /** An x and y coordinate of zero */
-export const ZERO = { x: 0, y: 0 };
+export const ZERO = Object.freeze({ x: 0, y: 0 });
 
 /** An x and y coordinate of one */
-export const ONE = { x: 1, y: 1 };
+export const ONE = Object.freeze({ x: 1, y: 1 });
 
 /** An x and y coordinate of infinity */
-export const INFINITY = { x: Infinity, y: Infinity };
+export const INFINITY = Object.freeze({ x: Infinity, y: Infinity });
 
 /** An x and y coordinate of NaN */
-export const NAN = { x: NaN, y: NaN };
+export const NAN = Object.freeze({ x: NaN, y: NaN });
 
 /** @returns true if the two XY coordinates are semantically equal. */
 export const equals = (a: Crude, b: Crude, threshold: number = 0): boolean => {

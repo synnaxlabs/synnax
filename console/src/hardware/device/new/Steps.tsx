@@ -7,11 +7,11 @@ export interface StepsProps extends Input.Control<string> {}
 const TABS: PSteps.Step[] = [
   {
     key: "properties",
-    title: "Properties",
+    title: "Define Properties",
   },
   {
     key: "physicalPlan",
-    title: "Channel Creation",
+    title: "Create Channels",
   },
   {
     key: "confirm",

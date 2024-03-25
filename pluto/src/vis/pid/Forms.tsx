@@ -379,7 +379,6 @@ const ValueTelemForm = ({ path }: { path: string }): ReactElement => {
   };
 
   const handleRollingAverageChange = (windowSize: number): void => {
-    console.log(stringifier.precision);
     const t = telem.sourcePipeline("string", {
       connections: [
         {

@@ -15,6 +15,7 @@
     & .console-groups {
         width: 240px;
         max-width: 240px;
+        height: 440px;
     }
 
     & .console-channels {

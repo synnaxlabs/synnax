@@ -187,8 +187,6 @@ const GroupList = ({
         <Header.Actions>
           {[
             {
-              icon: "add",
-              label: "Add Group",
               onClick: () => {
                 const key = nanoid();
                 onSelectGroup(key, value.length);

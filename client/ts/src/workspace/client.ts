@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { type UnknownRecord, type AsyncTermSearcher } from "@synnaxlabs/x";
+import { type UnknownRecord } from "@synnaxlabs/x/record";
+import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 
 import { linePlot } from "@/workspace/lineplot";
 import { type Key, type Workspace } from "@/workspace/payload";

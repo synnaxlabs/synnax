@@ -15,10 +15,10 @@ client.hardware.create_device(
     ]
 )
 
-client.hardware.create_task([
-    sy.Task(
-        key=rack[0].key,
-        name="Analog Read Task 1",
-        type="ni.analogRead",
-    )
-])
+# client.hardware.create_task([
+#     sy.Task(
+#         key=rack[0].key,
+#         name="Analog Read Task 1",
+#         type="ni.analogRead",
+#     )
+# ])

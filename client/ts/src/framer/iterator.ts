@@ -14,7 +14,7 @@ import {
   TimeRange,
   TimeSpan,
   TimeStamp,
-} from "@synnaxlabs/x";
+} from "@synnaxlabs/x/telem";
 import { z } from "zod";
 
 import { type Params } from "@/channel/payload";

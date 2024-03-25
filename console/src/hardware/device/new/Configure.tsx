@@ -17,6 +17,7 @@ import { useQuery } from "@tanstack/react-query";
 import { CSS } from "@/css";
 import { enrich } from "@/hardware/configure/ni/enrich";
 import { type NITask } from "@/hardware/configure/ni/types";
+import { Confirm } from "@/hardware/device/new/Confirm";
 import { buildPhysicalDevicePlan } from "@/hardware/device/new/physicalPlan/physicalPlan";
 import { PhysicalPlanForm } from "@/hardware/device/new/physicalPlan/PhysicalPlanForm";
 import {
@@ -24,7 +25,6 @@ import {
   PropertiesForm,
 } from "@/hardware/device/new/properties/PropertiesForm";
 import { buildSoftwareTasks } from "@/hardware/device/new/softwareTasks/softwareTasks";
-import { SoftwareTasksForm } from "@/hardware/device/new/softwareTasks/SoftwareTasksForm";
 import { Steps } from "@/hardware/device/new/Steps";
 import {
   configurationZ,
@@ -107,8 +107,8 @@ const ConfigureInternal = ({ device }: ConfigureInternalProps): ReactElement => 
         }
         setStep("physicalPlan");
       } else if (step === "physicalPlan") {
-        const ok = methods.validate("physicalPlan");
-        if (!ok) return;
+        // const ok = methods.validate("physicalPlan");
+        // if (!ok) return;
         const existingPlan = methods.get<SoftwarePlan>({ path: "softwarePlan" }).value;
         if (existingPlan.tasks.length === 0) {
           const { value: properties } = methods.get<EnrichedProperties>({
@@ -120,59 +120,7 @@ const ConfigureInternal = ({ device }: ConfigureInternalProps): ReactElement => 
           const tasks = buildSoftwareTasks(properties, physicalPlan);
           methods.set({ path: "softwarePlan.tasks", value: tasks });
         }
-        setStep("softwareTasks");
-      } else if (step === "softwareTasks") {
-        const ok = methods.validate("softwarePlan");
-        if (!ok) return;
-        const groups = methods.get<PhysicalPlan>({ path: "physicalPlan" }).value.groups;
-        if (client == null) return;
-
-        const rack = await client.hardware.racks.retrieve(device.rack);
-        const output = new Map<string, number>();
-        await Promise.all(
-          groups.map(async (g) => {
-            const rawIdx = g.channels.find((c) => c.isIndex);
-            if (rawIdx == null) return;
-            const idx = await client.channels.create({
-              name: rawIdx.name,
-              isIndex: true,
-              dataType: rawIdx?.dataType,
-            });
-            const rawDataChannels = g.channels.filter(
-              (c) => !c.isIndex && c.synnaxChannel == null,
-            );
-            const data = await client.channels.create(
-              rawDataChannels.map((c) => ({
-                name: c.name,
-                dataType: c.dataType,
-                index: idx.key,
-              })),
-            );
-            data.forEach((c, i): void => {
-              rawDataChannels[i].synnaxChannel = c.key;
-            });
-            rawIdx.synnaxChannel = idx.key;
-            g.channels.forEach((c) => {
-              output.set(c.key, c.synnaxChannel);
-            });
-          }),
-        );
-
-        const tasks = methods.get<NITask[]>({ path: "softwarePlan.tasks" }).value;
-        if (client == null) return;
-
-        tasks.forEach((t) => {
-          t.config.channels.forEach((c) => {
-            c.channel = output.get(c.key) as string;
-          });
-        });
-
-        const t = tasks[0];
-        await rack.createTask({
-          name: t.name,
-          type: t.type,
-          config: t.config,
-        });
+        setStep("confirm");
       }
     })();
   };
@@ -182,6 +130,8 @@ const ConfigureInternal = ({ device }: ConfigureInternalProps): ReactElement => 
     content = <PropertiesForm value={step} onChange={setStep} />;
   } else if (step === "physicalPlan") {
     content = <PhysicalPlanForm />;
+  } else if (step === "confirm") {
+    content = <Confirm />;
   }
 
   return (

@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 import type { UnaryClient } from "@synnaxlabs/freighter";
-import { debounce, toArray } from "@synnaxlabs/x";
+import { debounce } from "@synnaxlabs/x/debounce";
+import { toArray } from "@synnaxlabs/x/toArray";
+import { Mutex } from "async-mutex";
 import { z } from "zod";
 
 import {
@@ -21,7 +23,6 @@ import {
   type Payload,
   payload,
 } from "@/channel/payload";
-import { Mutex } from "async-mutex";
 import { nullableArrayZ } from "@/util/zod";
 
 const reqZ = z.object({

@@ -33,7 +33,7 @@ export {
   TimeRange,
   TimeSpan,
   TimeStamp,
-} from "@synnaxlabs/x";
+} from "@synnaxlabs/x/telem";
 export type {
   NativeTypedArray,
   CrudeDataType,
@@ -45,7 +45,7 @@ export type {
   SampleValue,
   TimeStampStringFormat,
   TZInfo,
-} from "@synnaxlabs/x";
+} from "@synnaxlabs/x/telem";
 export { workspace } from "@/workspace";
 export { ranger } from "@/ranger";
 export { label } from "@/label";

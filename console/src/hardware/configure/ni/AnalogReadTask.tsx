@@ -1,19 +1,21 @@
 import { useState, type ReactElement, useCallback } from "react";
 
-import { Channel, Form, Select, Synnax } from "@synnaxlabs/pluto";
+import { Channel, Form, Select, Device, Header } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 import { Input } from "@synnaxlabs/pluto/input";
 import { Text } from "@synnaxlabs/pluto/text";
-import { useQuery } from "@tanstack/react-query";
 
 import { CSS } from "@/css";
 import { ChannelList } from "@/hardware/configure/ni/ChannelList";
 import {
   analogReadTaskConfigZ,
   DEFAULT_SCALES,
+  ZERO_ANALOG_READ_TASK_CONFIG,
   type LinearScale,
   type LinearScaleType,
 } from "@/hardware/configure/ni/types";
+
+import "@/hardware/configure/ni/AnalogReadTask.css";
 
 export interface AnalogReadTaskProps {
   taskKey: string;
@@ -22,39 +24,54 @@ export interface AnalogReadTaskProps {
 export const AnalogReadTask = ({
   taskKey,
 }: AnalogReadTaskProps): ReactElement | null => {
-  const client = Synnax.use();
-  const { data } = useQuery({
-    queryKey: [taskKey, client?.key],
-    queryFn: async () => await client?.hardware.tasks.retrieve(taskKey),
-  });
+  // const client = Synnax.use();
+  // const { data } = useQuery({
+  //   queryKey: [taskKey, client?.key],
+  //   queryFn: async () => await client?.hardware.tasks.retrieve(taskKey),
+  // });
 
-  if (data == null) return null;
+  // if (data == null) return null;
 
   const methods = Form.use({
-    values: analogReadTaskConfigZ.parse(ZERO_ANA),
+    values: analogReadTaskConfigZ.parse(ZERO_ANALOG_READ_TASK_CONFIG),
     schema: analogReadTaskConfigZ,
   });
 
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
-  const [selecedChanneIndex, setSelectedChannelIndex] = useState<number>(0);
+  const [selectedChannelIndex, setSelectedChannelIndex] = useState<number | null>(null);
 
   return (
-    <Form.Form {...methods}>
-      <Align.Space>
-        <ChannelList
-          path="channels"
-          selected={selectedChannels}
-          onSelect={useCallback(
-            (v, i) => {
-              setSelectedChannels(v);
-              setSelectedChannelIndex(i);
-            },
-            [setSelectedChannels, setSelectedChannelIndex],
+    <Align.Space className={CSS.B("ni-analog-read-task")} direction="y" grow empty>
+      <Form.Form {...methods}>
+        <Align.Space direction="x">
+          <Form.Field<string> path="device" label="Device">
+            {(p) => <Device.SelectSingle {...p} />}
+          </Form.Field>
+          <Form.Field<number> label="Sample Rate" path="sampleRate">
+            {(p) => <Input.Numeric {...p} />}
+          </Form.Field>
+          <Form.Field<number> label="Stream Rate" path="streamRate">
+            {(p) => <Input.Numeric {...p} />}
+          </Form.Field>
+        </Align.Space>
+        <Align.Space direction="x" empty>
+          <ChannelList
+            path="channels"
+            selected={selectedChannels}
+            onSelect={useCallback(
+              (v, i) => {
+                setSelectedChannels(v);
+                setSelectedChannelIndex(i);
+              },
+              [setSelectedChannels, setSelectedChannelIndex],
+            )}
+          />
+          {selectedChannelIndex != null && (
+            <ChannelForm path={`channels.${selectedChannelIndex}`} />
           )}
-        />
-      </Align.Space>
-      <ChannelForm path={`channels.${selecedChanneIndex}`} />
-    </Form.Form>
+        </Align.Space>
+      </Form.Form>
+    </Align.Space>
   );
 };
 
@@ -65,33 +82,37 @@ interface ChannelFormProps {
 const ChannelForm = ({ path }: ChannelFormProps): ReactElement => {
   return (
     <Align.Space className={CSS.B("details")}>
-      <Text.Text level="h3">Channel Properties</Text.Text>
-      <Form.Field<number> label="Port" path={`${path}.port`}>
-        {(p) => <Input.Numeric {...p} />}
-      </Form.Field>
-      <Form.Field<number>
-        label="Line"
-        path={`${path}.line`}
-        hideIfNull
-        visible={(fs) => fs.value !== 0}
-      >
-        {(p) => <Input.Numeric {...p} />}
-      </Form.Field>
-      <Form.Field<number> label="Channel" path={`${path}.channel`}>
-        {(p) => <Channel.SelectSingle {...p} />}
-      </Form.Field>
-      <Form.Field<LinearScaleType>
-        label="Scale Type"
-        path={`${path}.scale.type`}
-        onChange={(v, { set, get }) => {
-          const { value: prev } = get<LinearScale>({ path: `${path}.scale` });
-          if (prev.type === v) return;
-          set({ path: `${path}.scale`, value: DEFAULT_SCALES[v] });
-        }}
-      >
-        {(p) => <SelectScale {...p} />}
-      </Form.Field>
-      <ScaleForm path={`${path}.scale`} />
+      <Header.Header level="h3">
+        <Header.Title weight={500}>Channel Properties</Header.Title>
+      </Header.Header>
+      <Align.Space direction="y" className="form">
+        <Form.Field<number> label="Port" path={`${path}.port`}>
+          {(p) => <Input.Numeric {...p} />}
+        </Form.Field>
+        <Form.Field<number>
+          label="Line"
+          path={`${path}.line`}
+          hideIfNull
+          visible={(fs) => fs.value !== 0}
+        >
+          {(p) => <Input.Numeric {...p} />}
+        </Form.Field>
+        <Form.Field<number> label="Channel" path={`${path}.channel`}>
+          {(p) => <Channel.SelectSingle {...p} />}
+        </Form.Field>
+        <Form.Field<LinearScaleType>
+          label="Scale Type"
+          path={`${path}.scale.type`}
+          onChange={(v, { set, get }) => {
+            const { value: prev } = get<LinearScale>({ path: `${path}.scale` });
+            if (prev.type === v) return;
+            set({ path: `${path}.scale`, value: DEFAULT_SCALES[v] });
+          }}
+        >
+          {(p) => <SelectScale {...p} />}
+        </Form.Field>
+        <ScaleForm path={`${path}.scale`} />
+      </Align.Space>
     </Align.Space>
   );
 };

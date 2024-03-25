@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { type UnknownRecord } from "@synnaxlabs/x";
+import { type UnknownRecord } from "@synnaxlabs/x/record";
 
 import { type Key, type Params, type PID } from "@/workspace/pid/payload";
 import { Retriever } from "@/workspace/pid/retriever";

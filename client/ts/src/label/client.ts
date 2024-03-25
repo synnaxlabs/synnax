@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { type AsyncTermSearcher } from "@synnaxlabs/x";
+import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 
 import { type framer } from "@/framer";
 import { type Key, type Label, labelZ } from "@/label/payload";

@@ -382,7 +382,6 @@ export const use = <Z extends z.ZodTypeAny>({
   const validate = useCallback((path?: string): boolean => {
     if (schemaRef.current == null) return true;
     const { state, status, listeners } = ref.current;
-    console.log(schemaRef.current);
     const result = schemaRef.current.safeParse(state);
     // if (path == null) status.clear();
     // else status.delete(path);

@@ -322,13 +322,13 @@ export const buildPhysicalDevicePlan = (
   };
   if (input.analogInput.portCount > 0)
     plan.groups.push(...buildAnalogInputGroups(input, identifier));
-  // if (input.analogOutput.portCount > 0)
-  //   plan.groups.push(...buildAnalogOutputGroups(input, identifier));
-  // if (input.digitalInput.portCount > 0)
-  //   plan.groups.push(...buildDigitalInputGroups(input, identifier));
-  // if (input.digitalOutput.portCount > 0)
-  //   plan.groups.push(...buildDigitalOutputGroups(input, identifier));
-  // if (input.digitalInputOutput.portCount > 0)
-  //   plan.groups.push(...buildDigitalInputOutputGroups(input, identifier));
+  if (input.analogOutput.portCount > 0)
+    plan.groups.push(...buildAnalogOutputGroups(input, identifier));
+  if (input.digitalInput.portCount > 0)
+    plan.groups.push(...buildDigitalInputGroups(input, identifier));
+  if (input.digitalOutput.portCount > 0)
+    plan.groups.push(...buildDigitalOutputGroups(input, identifier));
+  if (input.digitalInputOutput.portCount > 0)
+    plan.groups.push(...buildDigitalInputOutputGroups(input, identifier));
   return plan;
 };
