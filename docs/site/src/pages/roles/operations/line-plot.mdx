@@ -8,3 +8,65 @@ import { Image } from "@/components/Media";
 The line plot visualization is the main visualization tool in Synnax. In this
 visualization, you can graph data. An example visualization is shown below:
 
+<Image client:only="react" id="roles/operations/line-plot/line-plot-main-view"  />
+
+Make sure to click the graph button in the bottom right corner to pop up the
+visualization properties.
+
+## Data Tab
+The data tab has several properties underneath it:
+- Y1 lets you select which channels to plot along the left-hand axis
+- Y2 lets you select which channels to plot along the right-hand axis
+- Ranges lets you select which time ranges to plot. Data will only be plotted
+  that took place over these time ranges. If you select multiple ranges, the
+  x-axis will scale to accomodate both.
+    - _Rolling_ time ranges allow you to view the most recent time increment of
+      data. These are intented for cases where the user wants live data to come
+      into the line plot.
+- X1 lets you select the x-axis to be scaled by a channel instead of time. Note
+  that only data that will be viewed will be the data from the selected time
+  range.
+
+## Line Tab
+The line tab has several properties underneath it:
+- Label allows you to change what text appears for the channels in the graph
+  legend.
+- Line width lets you change how many pixels the lines are.
+- Downsampling lets you change how many times the channels get plotted. If
+  downsampling is n, it plots every nth data point.
+- Color changes the color of the line on the graph.
+
+## Axes Tab
+The axes tab has several properties underneath it:
+- Lower bound and upper bound decides the limits for the axes.
+- Tick spacing determines how far apart the tick marks are.
+- If you add a label, this will add a title to the axis.
+- Label direction determines whether the letters in the label are vertical or
+  horizontal.
+- Label size determines the size of the label.
+
+## Properties Tab
+The properties tab has several properties underneath it:
+- Title allows you to change the title of the plot. This will change it in the
+  workspace tab and on the top of the graph.
+- The title switch determines whether the title is viewed in the chart.
+- The legend switch determines whether the legend is viewed in the chart.
+
+## Navigating the plot
+- Zoom on the plot by clicking the magnifying glass in the bottom left or by
+  Alt (Windows) / ⌥ (Mac) + left click. This will adjust the axes of the graph to the box made.
+- Pan the plot by clicking the arrows in the bottom left or by pressing shift +
+  left click.
+- Select data by clicking the box with dotted lines in the bottom left or by
+  left clicking and dragging. This box allows you to export data in various
+  formats.
+- Reset the zoom by clicking the bracketed box in the bottom left or by clicking
+  ^ + Left Click.
+- Show tooltip on hover enables you to hover over the graph and see all channel
+  values at a certain data point.
+- Slope allows you to click two points on the graph and calculate the slope
+  in between them. It also allows you to see the difference in the x and the y
+  axis. To change the first point, press the 1 key and click on the graph. To
+  change the second point, press the 2 key and click on the graph.
+- Pause live plotting, also accessible by the H key, freezes any live plotting.
+
