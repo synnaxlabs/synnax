@@ -134,3 +134,8 @@ There's one more very important, yet less seen and/or modified tool we use to bu
 Synnax front end software: [vite](https://vitejs.dev/). Vite is the underlying engine
 that turbo uses to build our packages. You'll never need to run vite directly, but it's
 important to know that it's there.
+
+## Generating Libraries with Multiple Entrypoints
+
+Make sure your `tsconfig.json` has 'composite' set to true. This is necessary for
+building libraries with multiple entrypoints. 

@@ -1,6 +1,7 @@
 import { alamos } from "@synnaxlabs/alamos";
 import { type framer, type channel } from "@synnaxlabs/client";
-import { TimeSpan, type TimeRange, debounce } from "@synnaxlabs/x";
+import { debounce } from "@synnaxlabs/x/debounce";
+import { TimeSpan, type TimeRange } from "@synnaxlabs/x/telem";
 import { Mutex } from "async-mutex";
 
 import { type Cache } from "@/telem/client/cache/cache";

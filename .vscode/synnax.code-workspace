@@ -120,6 +120,7 @@
       "lineplot",
       "msgpackr",
       "reduxjs",
+      "renderable",
       "Synnax",
       "telem"
     ],

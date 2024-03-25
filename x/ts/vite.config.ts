@@ -7,14 +7,40 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import path from "path";
 import { lib } from "@synnaxlabs/vite-plugin";
 import { defineConfig } from "vite";
 
 export default defineConfig({
+  base: "/x/",
   plugins: [lib({ name: "x" })],
   build: {
     sourcemap: true,
-    minify: false,
+    minify: true,
+    lib: {
+      entry: {
+        index: path.resolve(".", "src/index.ts"),
+        binary: path.resolve(".", "src/binary/index.ts"),
+        compare: path.resolve(".", "src/compare/index.ts"),
+        deep: path.resolve(".", "src/deep/index.ts"),
+        kv: path.resolve(".", "src/kv/index.ts"),
+        runtime: path.resolve(".", "src/runtime/index.ts"),
+        observe: path.resolve(".", "src/observe/index.ts"),
+        box: path.resolve(".", "src/spatial/box/index.ts"),
+        bounds: path.resolve(".", "src/spatial/bounds/index.ts"),
+        dimensions: path.resolve(".", "src/spatial/dimensions/index.ts"),
+        direction: path.resolve(".", "src/spatial/direction/index.ts"),
+        location: path.resolve(".", "src/spatial/location/index.ts"),
+        position: path.resolve(".", "src/spatial/position/index.ts"),
+        scale: path.resolve(".", "src/spatial/scale/index.ts"),
+        xy: path.resolve(".", "src/spatial/xy/index.ts"),
+        spatial: path.resolve(".", "src/spatial/index.ts"),
+        telem: path.resolve(".", "src/telem/index.ts"),
+        url: path.resolve(".", "src/url/index.ts"),
+        worker: path.resolve(".", "src/worker/index.ts"),
+        destructor: path.resolve(".", "src/destructor.ts"), 
+      }
+    }
   },
   test: {
     globals: true,
