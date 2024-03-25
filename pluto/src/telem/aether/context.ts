@@ -91,7 +91,7 @@ export const useSource = async <V>(
   ctx: aether.Context,
   spec: Spec,
   prev: Source<V>,
-): Promise<Source<V>> => {
+): Promise<MemoizedSource<V>> => {
   const prov = useProvider(ctx);
   if (prev instanceof MemoizedSource) {
     if (!prev.shouldUpdate(prov, spec)) return prev;
@@ -104,7 +104,7 @@ export const useSink = async <V>(
   ctx: aether.Context,
   spec: Spec,
   prev: Sink<V>,
-): Promise<Sink<V>> => {
+): Promise<MemoizedSink<V>> => {
   const prov = useProvider(ctx);
   if (prev instanceof MemoizedSink) {
     if (!prev.shouldUpdate(prov, spec)) return prev;

@@ -9,7 +9,7 @@
 
 import { type ReactElement } from "react";
 
-import { render } from "@testing-library/react";
+import { act, render } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
@@ -49,7 +49,9 @@ describe("Dropdown", () => {
     const toggle = c.getByText("Toggle");
     const dialog = c.getByRole("dialog");
     expect(dialog.className).toContain("hidden");
-    await userEvent.click(toggle);
+    await act(async () => {
+      await userEvent.click(toggle);
+    });
     expect(dialog.className).not.toContain("hidden");
   });
 });
