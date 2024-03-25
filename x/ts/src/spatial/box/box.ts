@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { unknown, z } from "zod";
+import { z } from "zod";
 
 import type * as bounds from "@/spatial/bounds/bounds";
 import type * as dimensions from "@/spatial/dimensions/dimensions";
@@ -116,22 +116,22 @@ export const construct = (
 };
 
 export interface Resize {
-  /** 
+  /**
    * Sets the dimensions of the box to the given dimensions.
    * @example resize(b, { width: 10, height: 10 }) // Sets the box to a 10x10 box.
    */
   (b: Crude, dims: dimensions.Dimensions | dimensions.Signed): Box;
-  /** 
-   * Sets the dimension along the given direction to the given amount. 
+  /**
+   * Sets the dimension along the given direction to the given amount.
    * @example resize(b, "x", 10) // Sets the width of the box to 10.
    * @example resize(b, "y", 10) // Sets the height of the box to 10.
-  */
+   */
   (b: Crude, direction: direction.Direction, amount: number): Box;
 }
 
 export const resize: Resize = (
-  b: Crude, 
-  dims: dimensions.Dimensions | dimensions.Signed | direction.Direction, 
+  b: Crude,
+  dims: dimensions.Dimensions | dimensions.Signed | direction.Direction,
   amount?: number,
 ): Box => {
   const b_ = construct(b);
@@ -147,7 +147,7 @@ export const resize: Resize = (
     );
   }
   return construct(b_.one, dims, undefined, undefined, b_.root);
-}
+};
 
 /**
  * Checks if a box contains a point or another box.
@@ -353,14 +353,11 @@ export const isBox = (value: unknown): value is Box => {
 
 export const aspect = (b: Box): number => width(b) / height(b);
 
-interface Translate {
-  /** @returns the box translated by the given coordinates. */
-  (b: Crude, t: xy.Crude): Box;
-  /** @returns the box translated in the given direction by the given amount. */
-  (b: Crude, direction: direction.Direction, amount: number): Box;
-}
-
-export const translate = (b: Crude, t: xy.XY | direction.Direction, amount?: number): Box => {
+export const translate = (
+  b: Crude,
+  t: xy.XY | direction.Direction,
+  amount?: number,
+): Box => {
   if (typeof t === "string") {
     if (amount == null) throw new Error(`Undefined amount passed into box.translate`);
     const dir = direction.construct(t);

@@ -21,13 +21,21 @@ import { isValidElement } from "@/util/children";
 
 import "@/text/WithIcon.css";
 
+interface IconProps {
+  key?: string | number;
+  color?: string;
+  style?: React.CSSProperties;
+}
+
+type IconElement = ReactElement<IconProps>;
+
 export type WithIconProps<
   E extends Align.SpaceElementType = "div",
   L extends text.Level = "h1",
 > = Omit<Align.SpaceProps<E>, "children" | "color"> &
   CoreProps<L> & {
-    startIcon?: false | ReactElement | ReactElement[];
-    endIcon?: false | ReactElement | ReactElement[];
+    startIcon?: false | IconElement | IconElement[];
+    endIcon?: false | IconElement | IconElement[];
     divided?: boolean;
     noWrap?: boolean;
   };
@@ -76,11 +84,11 @@ export const WithIcon = <
 };
 
 const formatIcons = (
-  icon: false | ReactElement | ReactElement[],
+  icon: false | IconElement | IconElement[],
   color?: string,
 ): ReactElement[] => {
   if (icon === false) return [];
-  return (Children.toArray(icon) as ReactElement[]).map((icon, i) =>
+  return (Children.toArray(icon) as IconElement[]).map((icon, i) =>
     cloneElement(icon, {
       key: i,
       ...icon.props,

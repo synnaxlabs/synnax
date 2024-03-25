@@ -11,7 +11,12 @@ import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { toArray, type UnknownRecord } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type Workspace, workspaceZ, keyZ, workspaceRemoteZ } from "./payload";
+import {
+  type Workspace,
+  workspaceZ,
+  keyZ,
+  workspaceRemoteZ,
+} from "@/workspace/payload";
 
 const crudeWorkspaceZ = workspaceZ.partial({ key: true });
 const workspaceWriteZ = workspaceRemoteZ.partial({ key: true });

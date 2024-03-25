@@ -9,7 +9,6 @@
 
 import { z } from "zod";
 
-
 export const rackKeyZ = z.number();
 
 export type RackKey = z.infer<typeof rackKeyZ>;

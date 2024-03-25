@@ -200,7 +200,10 @@ export class Series {
     const available = this.capacity - this.writePos;
 
     const toWrite = available < other.length ? other.slice(0, available) : other;
-    this.underlyingData.set(toWrite.data as any, this.writePos);
+    this.underlyingData.set(
+      toWrite.data as unknown as ArrayLike<number> & ArrayLike<bigint>,
+      this.writePos,
+    );
     this.maybeRecomputeMinMax(toWrite);
     this.writePos += toWrite.length;
     return toWrite.length;
@@ -382,7 +385,7 @@ export class Series {
     if (index < 0) index = this.length + index;
     const v = this.data[index];
     if (v == null) {
-      if (required) throw new Error(`[series] - no value at index ${index}`);
+      if (required === true) throw new Error(`[series] - no value at index ${index}`);
       return undefined;
     }
     return addSamples(v, this.sampleOffset);

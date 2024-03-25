@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 import type { UnaryClient } from "@synnaxlabs/freighter";
 import { debounce, toArray } from "@synnaxlabs/x";
+import { Mutex } from "async-mutex";
 import { z } from "zod";
 
 import {
@@ -21,7 +22,6 @@ import {
   type Payload,
   payload,
 } from "@/channel/payload";
-import { Mutex } from "async-mutex";
 
 const reqZ = z.object({
   leaseholder: z.number().optional(),
@@ -59,11 +59,11 @@ export class ClusterRetriever implements Retriever {
 
   async retrieve(channels: Params, rangeKey?: string): Promise<Payload[]> {
     const { variant, normalized } = analyzeParams(channels);
-    return await this.execute({ [variant]: normalized, rangeKey});
+    return await this.execute({ [variant]: normalized, rangeKey });
   }
 
   async page(offset: number, limit: number, rangeKey?: string): Promise<Payload[]> {
-    return await this.execute({ offset, limit, rangeKey});
+    return await this.execute({ offset, limit, rangeKey });
   }
 
   private async execute(request: Request): Promise<Payload[]> {
@@ -148,7 +148,7 @@ export type ParamAnalysisResult =
     };
 
 export const analyzeParams = (channels: Params): ParamAnalysisResult => {
-  const normal = (toArray(channels) as KeysOrNames).filter((c) => c != 0);
+  const normal = (toArray(channels) as KeysOrNames).filter((c) => c !== 0);
   return {
     single: !Array.isArray(channels),
     variant: typeof normal[0] === "number" ? "keys" : "names",
@@ -187,8 +187,7 @@ export class DebouncedBatchRetriever implements Retriever {
   async retrieve(channels: Params): Promise<Payload[]> {
     const { normalized, variant } = analyzeParams(channels);
     // Bypass on name fetches for now.
-    if (variant === "names") 
-      return await this.wrapped.retrieve(normalized);
+    if (variant === "names") return await this.wrapped.retrieve(normalized);
     // eslint-disable-next-line @typescript-eslint/promise-function-async
     const a = new Promise<Payload[]>((resolve, reject) => {
       void this.mu.runExclusive(() => {

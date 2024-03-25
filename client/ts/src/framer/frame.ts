@@ -399,7 +399,7 @@ export type FramePayload = z.infer<typeof frameZ>;
 
 export const seriesFromPayload = (series: SeriesPayload): Series => {
   const { dataType, data, timeRange, alignment } = series;
-  return new Series({data, dataType, timeRange, glBufferUsage: "static", alignment});
+  return new Series({ data, dataType, timeRange, glBufferUsage: "static", alignment });
 };
 
 export const seriesToPayload = (series: Series): SeriesPayload => {

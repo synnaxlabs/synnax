@@ -11,7 +11,6 @@ import { type UnaryClient, sendRequired } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
 import { type Device, deviceKeyZ, deviceZ } from "@/hardware/device/payload";
-import { AsyncTermSearcher } from "@synnaxlabs/x";
 
 const RETRIEVE_ENDPOINT = "/hardware/device/retrieve";
 
@@ -48,7 +47,6 @@ export class Retriever {
     >(this.client, RETRIEVE_ENDPOINT, { offset, limit }, retrieveDeviceResZ);
     return res.devices;
   }
-  
 
   async retrieve(keys: string[]): Promise<Device[]> {
     const res = await sendRequired<

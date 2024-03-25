@@ -22,7 +22,7 @@ const resourceTypeZ = z.union([
   z.literal("workspace"),
   z.literal("pid"),
   z.literal("lineplot"),
-  z.literal("rack")
+  z.literal("rack"),
 ]);
 
 export type ResourceType = z.infer<typeof resourceTypeZ>;

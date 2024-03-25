@@ -15,15 +15,15 @@ import { channel } from "@/channel";
 import { connection } from "@/connection";
 import { errorsMiddleware } from "@/errors";
 import { framer } from "@/framer";
+import { hardware } from "@/hardware";
+import { device } from "@/hardware/device";
+import { rack } from "@/hardware/rack";
+import { task } from "@/hardware/task";
 import { label } from "@/label";
 import { ontology } from "@/ontology";
 import { ranger } from "@/ranger";
 import { Transport } from "@/transport";
 import { workspace } from "@/workspace";
-import { hardware } from "@/hardware";
-import { device } from "@/hardware/device";
-import { rack } from "@/hardware/rack";
-import { task } from "@/hardware/task";
 
 export const synnaxPropsZ = z.object({
   host: z.string().min(1),
@@ -96,7 +96,12 @@ export default class Synnax {
     );
     const chCreator = new channel.Creator(this.transport.unary);
     this.telem = new framer.Client(this.transport.stream, chRetriever);
-    this.channels = new channel.Client(this.telem, chRetriever, this.transport.unary, chCreator);
+    this.channels = new channel.Client(
+      this.telem,
+      chRetriever,
+      this.transport.unary,
+      chCreator,
+    );
     this.connectivity = new connection.Checker(
       this.transport.unary,
       connectivityPollFrequency,

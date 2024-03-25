@@ -9,7 +9,12 @@
 
 import { alamos } from "@synnaxlabs/alamos";
 import { UnexpectedError, ValidationError } from "@synnaxlabs/client";
-import { deep, type Sender, type SenderHandler } from "@synnaxlabs/x";
+import {
+  deep,
+  type UnknownRecord,
+  type Sender,
+  type SenderHandler,
+} from "@synnaxlabs/x";
 import { Mutex } from "async-mutex";
 import { z } from "zod";
 
@@ -40,10 +45,10 @@ export interface Update {
    */
   type: string;
   /**
-   * The state to udpate on the component . This is only present if the variant is
+   * The state to update on the component . This is only present if the variant is
    * "state".
    */
-  state: any;
+  state: UnknownRecord;
   /**
    * instrumentation is used for logging and tracing.
    */

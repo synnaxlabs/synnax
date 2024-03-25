@@ -18,7 +18,7 @@ describe("Space", () => {
       <Align.Space size="small">
         <div>Hello</div>
         <div>World</div>
-      </Align.Space>
+      </Align.Space>,
     );
     expect(c.getByText("Hello")).toBeTruthy();
     const world = c.getByText("World");
@@ -31,7 +31,7 @@ describe("Space", () => {
       <Align.Space empty>
         <div>Hello</div>
         <div>World</div>
-      </Align.Space>
+      </Align.Space>,
     );
     expect(c.getByText("Hello")).toBeTruthy();
     const world = c.getByText("World");
@@ -44,7 +44,7 @@ describe("Space", () => {
       <Align.Space size={2}>
         <div>Hello</div>
         <div>World</div>
-      </Align.Space>
+      </Align.Space>,
     );
     expect(c.getByText("Hello")).toBeTruthy();
     const world = c.getByText("World");

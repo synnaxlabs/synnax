@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import type { Action, UnknownAction } from "@reduxjs/toolkit";
-import { debounce as debounceF, dimensions, xy } from "@synnaxlabs/x";
+import { debounce as debounceF, type dimensions, type xy } from "@synnaxlabs/x";
 import type { Event as TauriEvent, UnlistenFn } from "@tauri-apps/api/event";
 import { listen, emit, TauriEvent as TauriEventKey } from "@tauri-apps/api/event";
 import {
@@ -17,14 +17,14 @@ import {
   LogicalPosition,
   LogicalSize,
   getAll,
-  PhysicalPosition,
-  PhysicalSize,
+  type PhysicalPosition,
+  type PhysicalSize,
 } from "@tauri-apps/api/window";
 
-import { Event, Runtime } from "@/runtime";
+import { type Event, type Runtime } from "@/runtime";
 import { decode, encode } from "@/serialization";
-import { setWindowProps, SetWindowPropsPayload, StoreState } from "@/state";
-import { MAIN_WINDOW, WindowProps } from "@/window";
+import { setWindowProps, type SetWindowPropsPayload, type StoreState } from "@/state";
+import { MAIN_WINDOW, type WindowProps } from "@/window";
 
 const actionEvent = "drift://action";
 const tauriError = "tauri://error";
@@ -77,7 +77,7 @@ export class TauriRuntime<S extends StoreState, A extends Action = UnknownAction
     this.release();
     this.unsubscribe[actionEvent] = await listen<string>(
       actionEvent,
-      (event: TauriEvent<string>) => lis(decode(event.payload))
+      (event: TauriEvent<string>) => lis(decode(event.payload)),
     );
     const propsHandlers = newWindowPropsHandlers();
     for (const { key, handler, debounce } of propsHandlers) {
@@ -88,7 +88,7 @@ export class TauriRuntime<S extends StoreState, A extends Action = UnknownAction
           void handler(event).then((action) => {
             if (action != null) lis({ action: action as A, emitter: "WHITELIST" });
           });
-        }, debounce)
+        }, debounce),
       );
     }
   }
@@ -297,7 +297,7 @@ const newWindowPropsHandlers = (): HandlerEntry[] => [
 
 const parsePosition = async (
   position: PhysicalPosition,
-  scaleFactor: number
+  scaleFactor: number,
 ): Promise<xy.XY> => {
   const logical = position.toLogical(scaleFactor);
   return { x: logical.x, y: logical.y };
@@ -305,7 +305,7 @@ const parsePosition = async (
 
 const parseSize = async (
   size: PhysicalSize,
-  scaleFactor: number
+  scaleFactor: number,
 ): Promise<dimensions.Dimensions> => {
   const logical = size.toLogical(scaleFactor);
   return { width: logical.width, height: logical.height };

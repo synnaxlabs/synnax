@@ -206,7 +206,7 @@ describe("Bounds", () => {
         [[[3, 7]], 8, { index: 1, position: 0 }],
       ];
     SPECS.forEach(([b, target, expected]) => {
-      test(`should return ${expected} for ${b} and ${target}`, () => {
+      test(`should return ${expected.index}:${expected.position} for ${target}`, () => {
         expect(bounds.findInsertPosition(b, target)).toEqual(expected);
       });
     });

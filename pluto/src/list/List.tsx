@@ -14,10 +14,8 @@ import { type Keyed, type Key } from "@synnaxlabs/x";
 import { DataProvider } from "@/list/Data";
 import { InfiniteProvider } from "@/list/Infinite";
 
-export interface ListProps<
-  K extends Key = Key,
-  E extends Keyed<K> = Keyed<K>,
-> extends PropsWithChildren<unknown> {
+export interface ListProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>>
+  extends PropsWithChildren<unknown> {
   data?: E[];
   emptyContent?: ReactElement;
 }
@@ -34,10 +32,7 @@ export interface ListProps<
  * @param props.children - Sub-components of the List component to add additional functionality.
  *
  */
-export const List = <
-  K extends Key = Key,
-  E extends Keyed<K> = Keyed<K>,
->({
+export const List = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   children,
   data,
   emptyContent,

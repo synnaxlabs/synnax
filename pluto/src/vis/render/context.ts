@@ -15,7 +15,6 @@ import {
   dimensions,
   type runtime,
 } from "@synnaxlabs/x";
-import { z } from "zod";
 
 import { type aether } from "@/aether/aether";
 import { color } from "@/color/core";

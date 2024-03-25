@@ -113,8 +113,13 @@
       }
     ],
     "cSpell.words": [
+      "Aliaser",
+      "clsx",
       "downsample",
       "glsl",
+      "lineplot",
+      "msgpackr",
+      "reduxjs",
       "Synnax",
       "telem"
     ],

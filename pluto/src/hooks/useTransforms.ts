@@ -9,25 +9,25 @@
 
 import { useCallback, useState } from "react";
 
-import { type UnknownRecord, type ArrayTransform } from "@synnaxlabs/x";
+import { type ArrayTransform } from "@synnaxlabs/x";
 
-export interface ArrayTransformEntry<E extends UnknownRecord = UnknownRecord> {
+export interface ArrayTransformEntry<E> {
   transform: ArrayTransform<E>;
   key: string;
   priority: number;
 }
 
-export interface UseTransformsProps<E extends UnknownRecord = UnknownRecord> {
+export interface UseTransformsProps<E> {
   transforms?: Array<ArrayTransformEntry<E>>;
 }
 
-export interface UseTransformsReturn<E extends UnknownRecord = UnknownRecord> {
+export interface UseTransformsReturn<E> {
   transform: ArrayTransform<E>;
   setTransform: (key: string, t: ArrayTransform<E>, priority?: number) => void;
   deleteTransform: (key: string) => void;
 }
 
-export const useTransforms = <E extends UnknownRecord>({
+export const useTransforms = <E>({
   transforms: initialTransforms = [],
 }: UseTransformsProps<E>): UseTransformsReturn<E> => {
   const [transforms, setTransforms] =

@@ -34,5 +34,5 @@ describe("Rack", () => {
       const tasks = await r.listTasks();
       expect(tasks).toHaveLength(0);
     });
-  })
+  });
 });

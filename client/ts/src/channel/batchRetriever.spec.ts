@@ -1,10 +1,12 @@
-import { describe, expect, it, vi } from "vitest";
-import { newClient } from "@/setupspecs";
-import { DebouncedBatchRetriever, Retriever, analyzeParams } from "@/channel/retriever";
-import { Params, Payload } from "@/channel/payload";
 import { DataType, Rate } from "@synnaxlabs/x";
+import { describe, expect, it, vi } from "vitest";
 
-
+import { type Params, type Payload } from "@/channel/payload";
+import {
+  DebouncedBatchRetriever,
+  type Retriever,
+  analyzeParams,
+} from "@/channel/retriever";
 
 class MockRetriever implements Retriever {
   func: (channels: Params, rangeKey?: string) => Promise<Payload[]>;
@@ -22,30 +24,25 @@ class MockRetriever implements Retriever {
   }
 
   async retrieve(channels: Params, rangeKey?: string): Promise<Payload[]> {
-    return this.func(channels, rangeKey);
+    return await this.func(channels, rangeKey);
   }
-
 }
-
 
 describe("channelRetriever", () => {
   it("should batch multiple retrieve requests", async () => {
     const called = vi.fn();
     const base = new MockRetriever(async (batch): Promise<Payload[]> => {
       called(batch);
-      const {normalized} = analyzeParams(batch);
-      return normalized.map(
-        (key) =>
-          ({
-            key: key as number,
-            name: `channel-${key}`,
-            dataType: DataType.FLOAT32,
-            isIndex: false,
-            rate: Rate.hz(1),
-            leaseholder: 1,
-            index:0 
-          }),
-      );
+      const { normalized } = analyzeParams(batch);
+      return normalized.map((key) => ({
+        key: key as number,
+        name: `channel-${key}`,
+        dataType: DataType.FLOAT32,
+        isIndex: false,
+        rate: Rate.hz(1),
+        leaseholder: 1,
+        index: 0,
+      }));
     });
     const retriever = new DebouncedBatchRetriever(base, 10);
     const res = await Promise.all([
@@ -61,20 +58,17 @@ describe("channelRetriever", () => {
     const called = vi.fn();
     const base = new MockRetriever(async (batch): Promise<Payload[]> => {
       called(batch);
-      const {normalized} = analyzeParams(batch);
-      return normalized.map(
-        (key) =>
-          ({
-            key: key as number,
-            name: `channel-${key}`,
-            dataType: DataType.FLOAT32,
-            isIndex: false,
-            rate: Rate.hz(1),
-            leaseholder: 1,
-            index:0 
-          }),
-      );
-    })
+      const { normalized } = analyzeParams(batch);
+      return normalized.map((key) => ({
+        key: key as number,
+        name: `channel-${key}`,
+        dataType: DataType.FLOAT32,
+        isIndex: false,
+        rate: Rate.hz(1),
+        leaseholder: 1,
+        index: 0,
+      }));
+    });
     const retriever = new DebouncedBatchRetriever(base, 10);
     const res = await Promise.all([
       retriever.retrieve([1]),

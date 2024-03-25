@@ -12,7 +12,11 @@ import { useState } from "react";
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { type UseSelectMultipleProps, useSelect } from "@/list/useSelect";
+import {
+  type UseSelectMultipleProps,
+  useSelect,
+  type UseSelectMultipleReturn,
+} from "@/list/useSelect";
 
 interface Entry {
   key: string;
@@ -34,9 +38,15 @@ const data: Entry[] = [
   },
 ];
 
-const useSelecMultipleWrapper = (
+interface UseSelectMultipleWrapperReturn {
+  value: string[];
+  clear: () => void;
+  onSelect: (key: string) => void;
+}
+
+const useSelectMultipleWrapper = (
   props: Omit<UseSelectMultipleProps<string, Entry>, "data" | "value" | "onChange">,
-) => {
+): UseSelectMultipleWrapperReturn => {
   const [value, setValue] = useState<string[]>([]);
   const { clear, onSelect } = useSelect<string, Entry>({
     ...props,
@@ -47,9 +57,15 @@ const useSelecMultipleWrapper = (
   return { value, clear, onSelect };
 };
 
+interface UseSelectSingleWrapperReturn {
+  value: string | null;
+  clear: () => void;
+  onSelect: (key: string) => void;
+}
+
 const useSelectSingleWrapper = (
   props: Omit<UseSelectMultipleProps<string, Entry>, "data" | "value" | "onChange">,
-) => {
+): UseSelectSingleWrapperReturn => {
   const [value, setValue] = useState<string | null>(null);
   // @ts-expect-error - just for testing purposes so we don't need to configure
   // a different wrapper for the allowNone: false case
@@ -67,21 +83,21 @@ const useSelectSingleWrapper = (
 describe("useSelect", () => {
   describe("multiple selection", () => {
     it("should select two items", () => {
-      const { result } = renderHook(useSelecMultipleWrapper);
+      const { result } = renderHook(useSelectMultipleWrapper);
       act(() => result.current.onSelect("1"));
       expect(result.current.value).toEqual(["1"]);
       act(() => result.current.onSelect("2"));
       expect(result.current.value).toEqual(["1", "2"]);
     });
     it("should deselect an item when you click it again", () => {
-      const { result } = renderHook(useSelecMultipleWrapper);
+      const { result } = renderHook(useSelectMultipleWrapper);
       act(() => result.current.onSelect("1"));
       act(() => result.current.onSelect("2"));
       act(() => result.current.onSelect("1"));
       expect(result.current.value).toEqual(["2"]);
     });
     it("should clear all selections", () => {
-      const { result } = renderHook(useSelecMultipleWrapper);
+      const { result } = renderHook(useSelectMultipleWrapper);
       act(() => result.current.onSelect("1"));
       act(() => result.current.onSelect("2"));
       act(() => result.current.clear());
@@ -90,7 +106,7 @@ describe("useSelect", () => {
     describe("no not allow none", () => {
       it("should not allow clearing all selections", () => {
         const { result } = renderHook(() =>
-          useSelecMultipleWrapper({ allowNone: false }),
+          useSelectMultipleWrapper({ allowNone: false }),
         );
         act(() => result.current.onSelect("1"));
         act(() => result.current.onSelect("2"));
@@ -99,7 +115,7 @@ describe("useSelect", () => {
       });
       it("should not allow removing the last selection", () => {
         const { result } = renderHook(() =>
-          useSelecMultipleWrapper({ allowNone: false }),
+          useSelectMultipleWrapper({ allowNone: false }),
         );
         act(() => result.current.onSelect("1"));
         act(() => result.current.onSelect("1"));
@@ -107,7 +123,7 @@ describe("useSelect", () => {
       });
       it("should automatically populate the first item", () => {
         const { result } = renderHook(() =>
-          useSelecMultipleWrapper({ allowNone: false }),
+          useSelectMultipleWrapper({ allowNone: false }),
         );
         expect(result.current.value).toEqual(["1"]);
       });

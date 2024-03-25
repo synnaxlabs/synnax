@@ -9,21 +9,16 @@
 
 import { type ReactElement, useCallback, useEffect, useRef } from "react";
 
-import {
-  Keyed,
-  type AsyncTermSearcher,
-  type Key,
-} from "@synnaxlabs/x";
+import { type Keyed, type AsyncTermSearcher, type Key } from "@synnaxlabs/x";
 
 import { useSyncedRef } from "@/hooks";
 import { useDebouncedCallback } from "@/hooks/useDebouncedCallback";
 import { Input } from "@/input";
+import { useDataUtilContext } from "@/list/Data";
+import { useInfiniteUtilContext } from "@/list/Infinite";
 import { state } from "@/state";
 import { Status } from "@/status";
 import { type RenderProp, componentRenderProp } from "@/util/renderProp";
-
-import { useDataUtilContext } from "@/list/Data";
-import { useInfiniteUtilContext } from "@/list/Infinite";
 
 export interface SearchProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>>
   extends Input.OptionalControl<string> {

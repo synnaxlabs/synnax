@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type UnaryClient } from "@synnaxlabs/freighter";
 import {
   DataType,
   Rate,
@@ -28,10 +29,15 @@ import {
   payload,
   type NewPayload,
 } from "@/channel/payload";
-import { analyzeParams, CacheRetriever, ClusterRetriever, DebouncedBatchRetriever, type Retriever } from "@/channel/retriever";
+import {
+  analyzeParams,
+  CacheRetriever,
+  ClusterRetriever,
+  DebouncedBatchRetriever,
+  type Retriever,
+} from "@/channel/retriever";
 import { QueryError } from "@/errors";
 import { type framer } from "@/framer";
-import { UnaryClient } from "@synnaxlabs/freighter";
 
 /**
  * Represents a Channel in a Synnax database. It should not be instantiated
@@ -124,11 +130,11 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
   private readonly client: UnaryClient;
 
   constructor(
-    segmentClient: framer.Client, 
+    segmentClient: framer.Client,
     retriever: Retriever,
     client: UnaryClient,
-    creator: Creator
-    ) {
+    creator: Creator,
+  ) {
     this.frameClient = segmentClient;
     this.retriever = retriever;
     this.client = client;
@@ -190,8 +196,10 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
     return this.sugar(await this.retriever.page(offset, limit, rangeKey));
   }
 
-  createDebouncedBatchRetriever(deb:number = 10): Retriever {
-    return new CacheRetriever(new DebouncedBatchRetriever(new ClusterRetriever(this.client),deb))
+  createDebouncedBatchRetriever(deb: number = 10): Retriever {
+    return new CacheRetriever(
+      new DebouncedBatchRetriever(new ClusterRetriever(this.client), deb),
+    );
   }
 
   private sugar(payloads: Payload[]): Channel[] {

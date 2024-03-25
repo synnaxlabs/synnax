@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { AsyncTermSearcher, toArray } from "@synnaxlabs/x";
+import { type AsyncTermSearcher, toArray } from "@synnaxlabs/x";
 
-import { TaskKey, type NewTask, type Task } from "@/hardware/task/payload";
+import { type TaskKey, type NewTask, type Task } from "@/hardware/task/payload";
 import { type RetrieveRequest, type Retriever } from "@/hardware/task/retriever";
 import { type Writer } from "@/hardware/task/writer";
 
