@@ -1,0 +1,27 @@
+cc_library(
+    name = "open62541",
+    srcs = [
+        "open62541/lib/libopen62541.a",
+    ],
+    hdrs = glob([
+        "open62541/include/open62541/*.h",
+        "open62541/include/open62541/plugin/*.h",
+    ]),
+    strip_include_prefix = "open62541/include",
+)
+
+cc_library(
+        hdrs = [
+            "scanner.h",
+        ],
+    name = "opcua",
+    srcs = [
+        "scanner.cpp",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":open62541",
+        "@nlohmann_json//:json",
+        "@synnax//synnax",
+    ],
+)
