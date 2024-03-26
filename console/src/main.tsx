@@ -40,8 +40,10 @@ import "@/index.css";
 import "@synnaxlabs/media/dist/style.css";
 import "@synnaxlabs/pluto/dist/style.css";
 
+import { AnalogReadTask } from "@/hardware/configure/ni/AnalogReadTask";
+
 const layoutRenderers: Record<string, Layout.Renderer> = {
-  main: LayoutMain,
+  main: AnalogReadTask,
   connectCluster: Cluster.Connect,
   visualization: Vis.LayoutSelector,
   defineRange: Range.EditLayout,
@@ -100,7 +102,7 @@ const MainUnderContext = (): ReactElement => {
         triggers={triggersProps}
         haul={{ useState: useHaulState }}
         alamos={{
-          level: "debug",
+          level: "info",
           include: ["aether.telem"],
         }}
       >

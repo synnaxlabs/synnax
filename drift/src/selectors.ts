@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { SliceState, StoreState } from "@/state";
-import { WindowState } from "@/window";
+import { type SliceState, type StoreState } from "@/state";
+import { type WindowState } from "@/window";
 
 export const selectSliceState = (state: StoreState): SliceState => state.drift;
 
 export const selectWindow = (
   state: StoreState,
-  keyOrLabel?: string
+  keyOrLabel?: string,
 ): WindowState | null => {
   const driftState = selectSliceState(state);
   if (keyOrLabel == null) return driftState.windows[driftState.label];
@@ -35,7 +35,7 @@ export const selectWindowKey = (state: StoreState, label?: string): string | nul
 export const selectWindowAttribute = <K extends keyof WindowState>(
   state: StoreState,
   keyOrLabel: string,
-  attr: K
+  attr: K,
 ): WindowState[K] | null => {
   const win = selectWindow(state, keyOrLabel);
   return win != null ? win[attr] : null;

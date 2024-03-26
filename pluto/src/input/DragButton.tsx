@@ -15,12 +15,10 @@ import { GrDrag } from "react-icons/gr";
 import { Button } from "@/button";
 import { CSS } from "@/css";
 import { Cursor } from "@/cursor";
-import { useVirtualCursorDrag } from "@/hooks/useCursorDrag";
+import { useVirtualCursorDragWebKit } from "@/hooks/useCursorDrag/useVirtualCursorDragWebKit";
 import { type Control } from "@/input/types";
 
 import "@/input/DragButton.css";
-
-import { useVirtualCursorDragWebKit } from "@/hooks/useCursorDrag/useVirtualCursorDragWebKit";
 
 export interface DragButtonExtensionProps {
   direction?: direction.Crude;

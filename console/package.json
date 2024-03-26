@@ -1,14 +1,14 @@
 {
   "name": "@synnaxlabs/console",
   "private": true,
-  "version": "0.18.2",
+  "version": "0.19.2",
   "type": "module",
   "scripts": {
     "dev": "tauri dev",
     "kill": "bash ~/Desktop/synnaxlabs/synnax/console/scripts/kill-dev.zsh",
     "build": "tauri build",
     "dev-vite": "vite --force",
-    "build-vite": "vite build",
+    "build-vite": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "lint": "eslint \"src/**/*.ts*\"",
     "fix": "eslint \"src/**/*.ts*\" --fix",

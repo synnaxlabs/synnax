@@ -105,8 +105,6 @@ describe("Series", () => {
     });
   });
 
-
-
   describe("slice", () => {
     it("should slice a lazy array", () => {
       const a = new Series({

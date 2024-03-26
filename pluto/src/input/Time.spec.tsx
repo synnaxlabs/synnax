@@ -21,7 +21,7 @@ describe("Input.Time", () => {
       target: { value: "15:00:00" },
     });
     expect(handleChange).toHaveBeenCalledWith(
-      TimeStamp.hours(15).add(TimeStamp.utcOffset).valueOf()
+      TimeStamp.hours(15).add(TimeStamp.utcOffset).valueOf(),
     );
   });
 });

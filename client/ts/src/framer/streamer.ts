@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { errorZ, type Stream, type StreamClient } from "@synnaxlabs/freighter";
-import { TimeStamp, type CrudeTimeStamp } from "@synnaxlabs/x";
+import { TimeStamp, type CrudeTimeStamp } from "@synnaxlabs/x/telem";
 import { z } from "zod";
 
 import { type Key, type Params } from "@/channel/payload";

@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { observe, type change } from "@synnaxlabs/x";
+import { type change } from "@synnaxlabs/x/change";
+import { observe } from "@synnaxlabs/x/observe";
 
 import { QueryError } from "@/errors";
 import { type Client as FrameClient } from "@/framer/client";

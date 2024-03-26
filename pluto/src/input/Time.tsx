@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { forwardRef, useCallback, useState, type ReactElement } from "react";
+import { forwardRef, useCallback } from "react";
 
 import { TimeSpan, TimeStamp, type TZInfo } from "@synnaxlabs/x";
 
@@ -31,15 +31,15 @@ const DRAG_SCALE = {
   y: TimeSpan.MINUTE.valueOf(),
 };
 
-export interface UseTimeProps
-  extends Pick<TimeProps, "value" | "onChange" | "tzInfo"> {}
+interface UseTimeProps extends Pick<TimeProps, "value" | "onChange" | "tzInfo"> {}
 
-export interface UseTimeReturn {
-  value: string;
-  onChange: (value: string | number) => void;
+interface UseTimeReturn {
+  inputValue: string;
+  ts: TimeStamp;
+  handleChange: (value: number | string) => void;
 }
 
-export const useTime = ({ value, onChange, tzInfo }: UseTimeProps) => {
+const useTime = ({ value, onChange, tzInfo }: UseTimeProps): UseTimeReturn => {
   const ts = new TimeStamp(value, "UTC");
 
   // We want to check for remainder overflow in LOCAL time.

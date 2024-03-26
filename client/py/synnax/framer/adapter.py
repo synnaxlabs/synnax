@@ -88,13 +88,13 @@ class WriteFrameAdapter:
     def adapt(
         self,
         columns_or_data: ChannelPayload
-                         | ChannelName
-                         | ChannelKey
-                         | ChannelKeys
-                         | ChannelNames
-                         | Frame
-                         | dict[ChannelKey | ChannelName, CrudeSeries]
-                         | DataFrame,
+        | ChannelName
+        | ChannelKey
+        | ChannelKeys
+        | ChannelNames
+        | Frame
+        | dict[ChannelKey | ChannelName, CrudeSeries]
+        | DataFrame,
         series: CrudeSeries | list[CrudeSeries] | None = None,
     ) -> Frame:
         if isinstance(columns_or_data, (ChannelName, ChannelKey)):
@@ -140,8 +140,10 @@ class WriteFrameAdapter:
                     for col in columns_or_data.columns
                 ]
             except KeyError as e:
-                raise ValidationError(f"Channel {e} was not provided in the list of "
-                                      f"channels when the writer was opened.")
+                raise ValidationError(
+                    f"Channel {e} was not provided in the list of "
+                    f"channels when the writer was opened."
+                )
             return Frame(columns_or_data=cols, series=columns_or_data.series)
 
         if isinstance(columns_or_data, dict):

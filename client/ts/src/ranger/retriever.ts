@@ -10,7 +10,13 @@
 import { type UnaryClient } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
-import { type Params, type Payload, analyzeParams, keyZ, payloadZ } from "./payload";
+import {
+  type Params,
+  type Payload,
+  analyzeParams,
+  keyZ,
+  payloadZ,
+} from "@/ranger/payload";
 
 const reqZ = z.object({
   keys: keyZ.array().optional(),

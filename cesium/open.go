@@ -10,12 +10,12 @@
 package cesium
 
 import (
-	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/meta"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/cesium/internal/virtual"
+	"github.com/synnaxlabs/x/errors"
 	"strconv"
 )
 

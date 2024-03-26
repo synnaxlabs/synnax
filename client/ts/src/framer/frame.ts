@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Size, Series, TimeRange, toArray, DataType, unique } from "@synnaxlabs/x";
+import { Size, Series, TimeRange, DataType } from "@synnaxlabs/x/telem";
+import { toArray } from "@synnaxlabs/x/toArray";
+import { unique } from "@synnaxlabs/x/unique";
 import { z } from "zod";
 
 import {
@@ -399,7 +401,7 @@ export type FramePayload = z.infer<typeof frameZ>;
 
 export const seriesFromPayload = (series: SeriesPayload): Series => {
   const { dataType, data, timeRange, alignment } = series;
-  return new Series({data, dataType, timeRange, glBufferUsage: "static", alignment});
+  return new Series({ data, dataType, timeRange, glBufferUsage: "static", alignment });
 };
 
 export const seriesToPayload = (series: Series): SeriesPayload => {

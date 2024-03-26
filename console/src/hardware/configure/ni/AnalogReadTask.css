@@ -1,0 +1,27 @@
+.console-ni-analog-read-task {
+    padding: 1rem;
+    border-radius: 1rem;
+    & > :first-child {
+        padding: 5rem;
+        border: var(--pluto-border);
+        border-bottom: none;
+    }
+    & > :not(:first-child) {
+        border: var(--pluto-border);
+        max-height: 60%;
+
+        & > :first-child {
+            border-right: var(--pluto-border);
+            flex-basis: 300px;
+            flex-grow: 0;
+        }
+
+        & > :not(:first-child) {
+            flex-basis: 500px;
+
+            & .form {
+                padding: 5rem;
+            }
+        }
+    }
+}

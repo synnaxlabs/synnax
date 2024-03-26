@@ -204,7 +204,6 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
 
   const handleDrop = useCallback(
     ({ items, event }: Haul.OnDropProps): Haul.Item[] => {
-      console.log(items);
       const valid = Haul.filterByType(HAUL_TYPE, items);
       if (ref.current == null) return valid;
       const region = box.construct(ref.current);

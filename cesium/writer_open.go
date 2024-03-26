@@ -11,7 +11,6 @@ package cesium
 
 import (
 	"context"
-	"github.com/cockroachdb/errors"
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
@@ -20,6 +19,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -89,6 +89,7 @@ func (w WriterConfig) Validate() error {
 	validate.NotNil(v, "ErrOnUnauthorized", w.ErrOnUnauthorized)
 	validate.NotEmptyString(v, "ControlSubject.Key", w.ControlSubject.Key)
 	v.Ternary(
+		"authorities",
 		len(w.Authorities) != len(w.Channels) && len(w.Authorities) != 1,
 		"authority count must be 1 or equal to channel count",
 	)

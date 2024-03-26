@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { type UnknownRecord } from "@synnaxlabs/x";
+import { type UnknownRecord } from "@synnaxlabs/x/record";
 
 import { type LinePlot, type Key, type Params } from "@/workspace/lineplot/payload";
 import { Retriever } from "@/workspace/lineplot/retriever";

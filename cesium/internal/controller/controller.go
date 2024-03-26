@@ -10,10 +10,10 @@
 package controller
 
 import (
-	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Instrumentation } from "@synnaxlabs/alamos";
+import { UnexpectedError } from "@synnaxlabs/client";
 import {
   DataType,
   bounds,
@@ -87,10 +88,13 @@ export class Context extends render.GLProgram {
 
   private constructor(ctx: render.Context) {
     super(ctx, VERT_SHADER, FRAG_SHADER);
-    this.translationBuffer = ctx.gl.createBuffer()!;
+    const buf = ctx.gl.createBuffer();
+    if (buf == null)
+      throw new UnexpectedError("Failed to create buffer from WebGL context");
+    this.translationBuffer = buf;
   }
 
-  bindPropsAndState(
+  bindCommonPropsAndState(
     { dataToDecimalScale: s, region }: LineProps,
     { strokeWidth, color }: ParsedState,
   ): number {
@@ -102,6 +106,12 @@ export class Context extends render.GLProgram {
     this.uniformXY("u_scale", scaleTransform.scale);
     this.uniformXY("u_offset", scaleTransform.offset);
     return this.attrStrokeWidth(strokeWidth);
+  }
+
+  bindScale(s: scale.XY): void {
+    const transform = scale.xyScaleToTransform(s);
+    this.uniformXY("u_scale", transform.scale);
+    this.uniformXY("u_offset", transform.offset);
   }
 
   draw(
@@ -133,16 +143,16 @@ export class Context extends render.GLProgram {
   ): void {
     const { gl } = this.ctx;
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-    const n = gl.getAttribLocation(this.prog, `a_${dir}`);
+    const aLoc = gl.getAttribLocation(this.prog, `a_${dir}`);
     gl.vertexAttribPointer(
-      n,
+      aLoc,
       1,
       gl.FLOAT,
       false,
       FLOAT_32_DENSITY * downsample,
       FLOAT_32_DENSITY * alignment,
     );
-    gl.enableVertexAttribArray(n);
+    gl.enableVertexAttribArray(aLoc);
   }
 
   /**
@@ -254,23 +264,21 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     const { downsample } = this.state;
     const { xTelem, yTelem, prog } = this.internal;
     const { dataToDecimalScale } = props;
-    const [, xData] = await xTelem.value();
+    const [[, xData], [, yData]] = await Promise.all([xTelem.value(), yTelem.value()]);
     xData.forEach((x) => x.updateGLBuffer(prog.ctx.gl));
-    const [, yData] = await yTelem.value();
     yData.forEach((y) => y.updateGLBuffer(prog.ctx.gl));
     const ops = buildDrawOperations(xData, yData, downsample);
-    this.internal.instrumentation.L.debug("render", {
+    this.internal.instrumentation.L.debug("render", () => ({
       key: this.key,
       downsample,
       scale: scale.xyScaleToTransform(dataToDecimalScale),
       props: props.region,
       ops: digests(ops),
-    });
+    }));
     const clearProg = prog.setAsActive();
+    const instances = prog.bindCommonPropsAndState(props, this.state);
     ops.forEach((op) => {
-      const { x, y } = op;
-      const p = { ...props, dataToDecimalScale: offsetScale(dataToDecimalScale, x, y) };
-      const instances = prog.bindPropsAndState(p, this.state);
+      prog.bindScale(offsetScale(dataToDecimalScale, op));
       prog.draw(op, instances);
     });
     clearProg();
@@ -281,7 +289,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
 const THICKNESS_DIVISOR = 5000;
 
 const newTranslationBuffer = (aspect: number, strokeWidth: number): Float32Array => {
-  return copyBuffer(newDirectionBuffer(aspect), Math.ceil(strokeWidth) - 1).map(
+  return replicateBuffer(newDirectionBuffer(aspect), Math.ceil(strokeWidth) - 1).map(
     (v, i) => Math.floor(i / DIRECTION_COUNT) * (1 / (THICKNESS_DIVISOR * aspect)) * v,
   );
 };
@@ -298,23 +306,21 @@ const newDirectionBuffer = (aspect: number): Float32Array =>
     -1, 0, // left
   ]);
 
-const copyBuffer = (buf: Float32Array, times: number): Float32Array => {
+const replicateBuffer = (buf: Float32Array, times: number): Float32Array => {
   const newBuf = new Float32Array(buf.length * times);
   for (let i = 0; i < times; i++) newBuf.set(buf, i * buf.length);
   return newBuf;
 };
 
-const offsetScale = (scale: scale.XY, x: Series, y: Series): scale.XY =>
+const offsetScale = (scale: scale.XY, op: DrawOperation): scale.XY =>
   scale.translate(
-    scale.x.dim(Number(x.sampleOffset)),
-    scale.y.dim(Number(y.sampleOffset)),
+    scale.x.dim(Number(op.x.sampleOffset)),
+    scale.y.dim(Number(op.y.sampleOffset)),
   );
 
-export const REGISTRY: aether.ComponentRegistry = {
-  [Line.TYPE]: Line,
-};
+export const REGISTRY: aether.ComponentRegistry = { [Line.TYPE]: Line };
 
-interface DrawOperation {
+export interface DrawOperation {
   x: Series;
   y: Series;
   xOffset: number;
@@ -328,7 +334,7 @@ interface DrawOperationDigest extends Omit<DrawOperation, "x" | "y"> {
   y: SeriesDigest;
 }
 
-const buildDrawOperations = (
+export const buildDrawOperations = (
   x: Series[],
   y: Series[],
   downsample: number,
@@ -355,7 +361,7 @@ const buildDrawOperations = (
         ySeries.length - yOffset,
       );
 
-      if (amountOfOverlap > 0) {
+      if (amountOfOverlap > 0)
         ops.push({
           x: xSeries,
           y: ySeries,
@@ -364,7 +370,6 @@ const buildDrawOperations = (
           count: amountOfOverlap,
           downsample,
         });
-      }
     });
   });
 
@@ -375,7 +380,11 @@ const findSeriesThatOverlapWith = (x: Series, y: Series[]): Series[] =>
   y.filter((ys) => {
     // This is just a runtime check that both series' have time ranges defined.
     const haveTimeRanges = x._timeRange != null && ys._timeRange != null;
-    if (!haveTimeRanges) return false;
+    if (!haveTimeRanges) {
+      throw new UnexpectedError(
+        `Encountered series without time range in buildDrawOperations. X series present: ${x._timeRange != null}, Y series present: ${ys._timeRange != null}`,
+      );
+    }
     // If the time ranges of the x and y series overlap, we meet the first condition
     // for drawing them together.
     const timeRangesOverlap = x.timeRange.overlapsWith(ys.timeRange);
@@ -389,8 +398,4 @@ const findSeriesThatOverlapWith = (x: Series, y: Series[]): Series[] =>
   });
 
 const digests = (ops: DrawOperation[]): DrawOperationDigest[] =>
-  ops.map((op) => ({
-    ...op,
-    x: op.x.digest,
-    y: op.y.digest,
-  }));
+  ops.map((op) => ({ ...op, x: op.x.digest, y: op.y.digest }));

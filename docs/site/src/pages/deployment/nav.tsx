@@ -19,6 +19,11 @@ export const deploymentNav: PageNavNode = {
       name: "Get Started",
     },
     {
+      key: "/deployment/production",
+      href: "/deployment/production",
+      name: "Production",
+    },
+    {
       key: "/deployment/requirements",
       href: "/deployment/requirements",
       name: "Requirements",
@@ -33,5 +38,10 @@ export const deploymentNav: PageNavNode = {
       href: "/deployment/systemd-service",
       name: "Systemd Service",
     },
+    {
+      key: "/deployment/installing-certificates",
+      href: "/deployment/installing-certificates",
+      name: "Installing Certificates",
+    }
   ],
 };

@@ -9,7 +9,7 @@
 
 import { describe, expect, test } from "vitest";
 
-import { newBEM } from "./bem";
+import { newBEM } from "@/css/bem";
 
 describe("BEM", () => {
   const bem = newBEM("test");

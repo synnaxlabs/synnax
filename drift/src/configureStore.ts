@@ -18,18 +18,18 @@ import type {
 import { configureStore as base } from "@reduxjs/toolkit";
 
 import { listen } from "@/listener";
-import { Middlewares, configureMiddleware } from "@/middleware";
-import { Runtime } from "@/runtime";
+import { type Middlewares, configureMiddleware } from "@/middleware";
+import { type Runtime } from "@/runtime";
 import {
-  Action,
-  StoreState,
+  type Action,
+  type StoreState,
   setWindowLabel,
   setWindowStage,
   closeWindow,
   setConfig,
 } from "@/state";
 import { syncInitial } from "@/sync";
-import { MAIN_WINDOW, WindowProps } from "@/window";
+import { MAIN_WINDOW, type WindowProps } from "@/window";
 
 export type Enhancers = readonly StoreEnhancer[];
 
@@ -41,7 +41,7 @@ export interface ConfigureStoreOptions<
   S extends StoreState,
   A extends CoreAction = UnknownAction,
   M extends Tuple<Middlewares<S>> = Tuple<Middlewares<S>>,
-  E extends Tuple<Enhancers> = Tuple<Enhancers>
+  E extends Tuple<Enhancers> = Tuple<Enhancers>,
 > extends Omit<BaseOpts<S, A, M, E>, "preloadedState"> {
   runtime: Runtime<S, A | Action>;
   debug?: boolean;
@@ -55,7 +55,7 @@ const configureStoreInternal = async <
   S extends StoreState,
   A extends CoreAction = UnknownAction,
   M extends Tuple<Middlewares<S>> = Tuple<Middlewares<S>>,
-  E extends Tuple<Enhancers> = Tuple<Enhancers>
+  E extends Tuple<Enhancers> = Tuple<Enhancers>,
 >({
   runtime,
   preloadedState,
@@ -86,14 +86,11 @@ const configureStoreInternal = async <
 
 const receivePreloadedState = async <
   S extends StoreState,
-  A extends CoreAction = UnknownAction
+  A extends CoreAction = UnknownAction,
 >(
   runtime: Runtime<S, A>,
   store: () => EnhancedStore<S, A | Action> | undefined,
-  preloadedState:
-    | (() => Promise<S | undefined>)
-    | S
-    | undefined
+  preloadedState: (() => Promise<S | undefined>) | S | undefined,
 ): Promise<S | undefined> =>
   await new Promise<S | undefined>((resolve) => {
     void listen(runtime, store, resolve);
@@ -103,7 +100,6 @@ const receivePreloadedState = async <
       else resolve(preloadedState);
     } else void runtime.emit({ sendState: true }, MAIN_WINDOW);
   });
-
 
 /**
  * configureStore replaces the standard Redux Toolkit configureStore function
@@ -132,7 +128,7 @@ export const configureStore: <
   S extends StoreState,
   A extends CoreAction = UnknownAction,
   M extends Tuple<Middlewares<S>> = Tuple<Middlewares<S>>,
-  E extends Tuple<Enhancers> = Tuple<Enhancers>
+  E extends Tuple<Enhancers> = Tuple<Enhancers>,
 >(
-  options: ConfigureStoreOptions<S, A, M, E>
+  options: ConfigureStoreOptions<S, A, M, E>,
 ) => Promise<EnhancedStore<S, A | Action>> = configureStoreInternal;

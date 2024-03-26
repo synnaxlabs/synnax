@@ -72,6 +72,7 @@ func New(pool *fgrpc.Pool) Transport {
 		ServiceDesc: &channelv1.ChannelService_ServiceDesc,
 	}
 	s := &server{
+		Internal:           true,
 		RequestTranslator:  createMessageTranslator{},
 		ResponseTranslator: createMessageTranslator{},
 		ServiceDesc:        &channelv1.ChannelService_ServiceDesc,

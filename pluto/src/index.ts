@@ -55,6 +55,8 @@ export { Eraser } from "@/vis/eraser";
 export { LinePlot } from "@/vis/lineplot";
 export { Ranger } from "@/ranger";
 export { Progress } from "@/progress";
+export { Steps } from "@/steps";
+export { Device } from "@/hardware/device";
 export * from "@/hooks";
 export * from "@/util/renderProp";
 export { Form } from "@/form";

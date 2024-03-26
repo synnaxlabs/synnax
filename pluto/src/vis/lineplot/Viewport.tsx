@@ -19,10 +19,10 @@ import { box, xy } from "@synnaxlabs/x";
 
 import { CSS } from "@/css";
 import { Viewport as Core } from "@/viewport";
+import { type UseRefValue } from "@/viewport/use";
 import { useContext } from "@/vis/lineplot/LinePlot";
 
 import "@/vis/lineplot/Viewport.css";
-import { UseRefValue } from "@/viewport/use";
 
 export interface ViewportProps extends PropsWithChildren, Core.UseProps {}
 
@@ -64,3 +64,4 @@ export const Viewport = forwardRef<UseRefValue | undefined, ViewportProps>(
     );
   },
 );
+Viewport.displayName = "Viewport";

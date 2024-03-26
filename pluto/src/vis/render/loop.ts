@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { TimeSpan } from "@synnaxlabs/x";
 import { Mutex } from "async-mutex";
 
 import { type CanvasVariant } from "@/vis/render/context";
@@ -112,6 +113,7 @@ export class Loop {
   /** Execute the render. */
   private async render(): Promise<void> {
     await this.mutex.runExclusive(async () => {
+      const start = performance.now();
       if (this.requests.size === 0) return;
       const { requests: queue, cleanup } = this;
       for (const [k, f] of cleanup.entries()) {
@@ -132,6 +134,13 @@ export class Loop {
         } catch (e) {
           console.error(e);
         }
+      }
+      const end = performance.now();
+      const span = TimeSpan.milliseconds(end - start);
+      if (span.greaterThan(TimeSpan.milliseconds(25))) {
+        console.warn(
+          `Render loop for ${this.requests.size} took longer than 16ms to execute: ${span.milliseconds}`,
+        );
       }
       this.requests.clear();
     });

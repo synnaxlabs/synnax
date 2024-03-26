@@ -7,7 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { observe, type Destructor, type change, type Series } from "@synnaxlabs/x";
+import { type change } from "@synnaxlabs/x/change";
+import { type Destructor } from "@synnaxlabs/x/destructor";
+import { observe } from "@synnaxlabs/x/observe";
+import { type Series } from "@synnaxlabs/x/telem";
 
 import { type channel } from "@/channel";
 import { type framer } from "@/framer";

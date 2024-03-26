@@ -82,9 +82,10 @@ class TestChannelClient:
             assert two_channels[i].key == channel.key
             assert isinstance(two_channels[i].data_type.density, sy.Density)
 
+    @pytest.mark.focus
     def test_retrieve_by_key_not_found(self, client: sy.Synnax):
         """Should raise QueryError when key not found"""
-        with pytest.raises(sy.NoResultsError):
+        with pytest.raises(sy.NotFoundError):
             client.channels.retrieve("1-100000")
 
     def test_retrieve_by_list_of_names(

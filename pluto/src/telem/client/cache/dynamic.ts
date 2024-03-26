@@ -11,9 +11,28 @@ import { DataType, Series, TimeStamp } from "@synnaxlabs/x";
 
 import { convertSeriesFloat32 } from "@/telem/aether/convertSeries";
 
+/** Response from a write to the @see Dynamic cache. */
 export interface DynamicWriteResponse {
+  /** A list of series that were flushed from the cache during the write i.e. the new
+   * writes were not able to fit in the current buffer, so a new one was allocated
+   * and the old one(s) were flushed. */
   flushed: Series[];
+  /** A list of series that were allocated during the write. */
   allocated: Series[];
+}
+
+/** Props for the @see Dynamic cache. */
+export interface DynamicProps {
+  /**
+   * Sets the maximum size of the buffer that the cache will maintain before flushing
+   * data out to the caller.
+   */
+  dynamicBufferSize: number;
+  /**
+   * Sets the data type for the series written to the cache. Used for buffer allocation
+   * purposes.
+   */
+  dataType: DataType;
 }
 
 /**
@@ -21,10 +40,11 @@ export interface DynamicWriteResponse {
  * for channel data.
  */
 export class Dynamic {
-  buffer: Series | null;
-  private readonly cap: number;
-  private readonly dataType: DataType;
+  private readonly props: DynamicProps;
+
   private counter = 0;
+  /** Current buffer */
+  private buffer: Series | null;
 
   /**
    * @constructor
@@ -32,15 +52,22 @@ export class Dynamic {
    * @param cap - The capacity of the cache buffer.
    * @param dataType - The data type of the channel.
    */
-  constructor(cap: number, dataType: DataType) {
-    this.cap = cap;
-    this.dataType = dataType;
+  constructor(props: DynamicProps) {
+    this.props = props;
     this.buffer = null;
   }
 
   /** @returns the number of samples currenly held in the cache. */
   get length(): number {
     return this.buffer?.length ?? 0;
+  }
+
+  /**
+   * @returns the current buffer being written to by the cache. Under no circumstances
+   * should this be modified by the caller.
+   */
+  get leadingBuffer(): Series | null {
+    return this.buffer;
   }
 
   /**
@@ -63,7 +90,7 @@ export class Dynamic {
       capacity,
       dataType: DataType.FLOAT32,
       timeRange: start.range(TimeStamp.MAX),
-      sampleOffset: this.dataType.equals(DataType.TIMESTAMP)
+      sampleOffset: this.props.dataType.equals(DataType.TIMESTAMP)
         ? BigInt(start.valueOf())
         : 0,
       glBufferUsage: "dynamic",
@@ -73,10 +100,11 @@ export class Dynamic {
   }
 
   private _write(series: Series): DynamicWriteResponse {
+    const { dynamicBufferSize: cap } = this.props;
     const res: DynamicWriteResponse = { flushed: [], allocated: [] };
     // This only happens on the first write to the cache
     if (this.buffer == null) {
-      this.buffer = this.allocate(this.cap, series.alignment, TimeStamp.now());
+      this.buffer = this.allocate(cap, series.alignment, TimeStamp.now());
       res.allocated.push(this.buffer);
     } else if (
       Math.abs(this.buffer.alignment + this.buffer.length - series.alignment) > 1
@@ -87,7 +115,7 @@ export class Dynamic {
       const now = TimeStamp.now();
       this.buffer.timeRange.end = now;
       res.flushed.push(this.buffer);
-      this.buffer = this.allocate(this.cap, series.alignment, now);
+      this.buffer = this.allocate(cap, series.alignment, now);
       res.allocated.push(this.buffer);
     }
     const converted = convertSeriesFloat32(series, this.buffer.sampleOffset);
@@ -99,11 +127,19 @@ export class Dynamic {
     const now = TimeStamp.now();
     this.buffer.timeRange.end = now;
     res.flushed.push(this.buffer);
-    this.buffer = this.allocate(this.cap, series.alignment + amountWritten, now);
+    this.buffer = this.allocate(cap, series.alignment + amountWritten, now);
     res.allocated.push(this.buffer);
     const nextRes = this._write(series.slice(amountWritten));
     res.flushed.push(...nextRes.flushed);
     res.allocated.push(...nextRes.allocated);
     return res;
+  }
+
+  /**
+   * Closes the cache and releases all resources associated with it. After close()
+   * is called, the cache should not be used again.
+   */
+  close(): void {
+    this.buffer = null;
   }
 }

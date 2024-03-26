@@ -7,13 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Primitive } from "@/primitive";
+import { type Primitive } from "@/primitive";
 
 interface DeepEqualBaseRecord {
   equals?: (other: any) => boolean;
 }
 
-export const equal = <T extends unknown | DeepEqualBaseRecord | DeepEqualBaseRecord[] | Primitive[]>(a: T, b: T): boolean => {
+export const equal = <
+  T extends unknown | DeepEqualBaseRecord | DeepEqualBaseRecord[] | Primitive[],
+>(
+  a: T,
+  b: T,
+): boolean => {
   const aIsArray = Array.isArray(a);
   const bIsArray = Array.isArray(b);
   if (aIsArray !== bIsArray) return false;
@@ -21,20 +26,19 @@ export const equal = <T extends unknown | DeepEqualBaseRecord | DeepEqualBaseRec
     const aArr = a as DeepEqualBaseRecord[];
     const bArr = b as DeepEqualBaseRecord[];
     if (aArr.length !== bArr.length) return false;
-    for (let i = 0; i < aArr.length; i++) 
-      if (!equal(aArr[i], bArr[i])) return false;
+    for (let i = 0; i < aArr.length; i++) if (!equal(aArr[i], bArr[i])) return false;
     return true;
   }
-  if (a == null || b == null || typeof a !== "object" || typeof b !== "object") return a === b;
-  if ("equals" in a) 
-    return (a.equals as (other: any) => boolean)(b);
+  if (a == null || b == null || typeof a !== "object" || typeof b !== "object")
+    return a === b;
+  if ("equals" in a) return (a.equals as (other: any) => boolean)(b);
   const aKeys = Object.keys(a);
   const bKeys = Object.keys(b);
   if (aKeys.length !== bKeys.length) return false;
   for (const key of aKeys) {
-    // @ts-expect-error
+    // @ts-expect-error - indexing nested value.
     const aVal = a[key];
-    // @ts-expect-error
+    // @ts-expect-error - indexing nested value.
     const bVal = b[key];
     if (typeof aVal === "object" && typeof bVal === "object") {
       if (!equal(aVal, bVal)) return false;
@@ -52,9 +56,9 @@ export const partialEqual = <T extends unknown | DeepEqualBaseRecord | Primitive
   const partialKeys = Object.keys(partial);
   if (partialKeys.length > baseKeys.length) return false;
   for (const key of partialKeys) {
-    // @ts-expect-error
+    // @ts-expect-error - indexing nested value.
     const baseVal = base[key];
-    // @ts-expect-error
+    // @ts-expect-error - indexing nested value.
     const partialVal = partial[key];
     if (typeof baseVal === "object" && typeof partialVal === "object") {
       if (!partialEqual(baseVal, partialVal)) return false;

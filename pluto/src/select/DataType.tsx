@@ -12,8 +12,7 @@ import { type ReactElement } from "react";
 import { Case, DataType as TelemDataType } from "@synnaxlabs/x";
 
 import { type List } from "@/list";
-
-import { DropdownButton, type DropdownButtonProps } from "./Button";
+import { DropdownButton, type DropdownButtonProps } from "@/select/Button";
 
 interface ListEntry {
   key: string;
@@ -42,6 +41,6 @@ export const DataType = (props: DataTypeProps): ReactElement => (
     {...props}
     data={DATA}
     columns={COLUMNS}
-    tagKey="name"
+    entryRenderKey="name"
   />
 );

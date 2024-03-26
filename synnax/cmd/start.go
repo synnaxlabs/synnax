@@ -29,7 +29,6 @@ import (
 	"google.golang.org/grpc/credentials"
 	insecureGRPC "google.golang.org/grpc/credentials/insecure"
 
-	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/synnaxlabs/alamos"
@@ -48,6 +47,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/user"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	xsignal "github.com/synnaxlabs/x/signal"
 	"go.uber.org/zap"

@@ -26,8 +26,7 @@ import { useSelectionUtils } from "@/list/Selector";
 import { Triggers } from "@/triggers";
 
 // eslint-disable-next-line @typescript-eslint/no-empty-interface
-export interface HoverProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>>
-  extends PropsWithChildren<{}> {
+export interface HoverProps extends PropsWithChildren<{}> {
   disabled?: boolean;
   initialHover?: number;
 }
@@ -54,7 +53,7 @@ export const Hover = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   children,
   initialHover = -1,
   disabled = false,
-}: HoverProps<K, E>): ReactElement => {
+}: HoverProps): ReactElement => {
   const getData = useGetTransformedData<K, E>();
   const { onSelect } = useSelectionUtils();
   const [hover, setHover, ref] = useCombinedStateAndRef<number>(initialHover);

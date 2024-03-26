@@ -15,8 +15,8 @@ import {
   Series,
   TimeStamp,
   type CrudeTimeStamp,
-  toArray,
-} from "@synnaxlabs/x";
+} from "@synnaxlabs/x/telem";
+import { toArray } from "@synnaxlabs/x/toArray";
 import { z } from "zod";
 
 import { type Key, type KeyOrName, type Params } from "@/channel/payload";

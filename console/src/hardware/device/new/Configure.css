@@ -10,29 +10,44 @@
  */
 
 .vendor-logo {
-                width: 2rem;
-                height: 2rem;
-                margin-right: 1rem;
-            }
+    width: 2rem;
+    height: 2rem;
+    margin-right: 1rem;
+}
 
-.console-device-new-configure {
+.console-configure {
+    position: relative;
     height: 100%;
     width: 100%;
 
-
-    & .pluto-tabs {
-        height: calc(100% - 8rem);
+    & .console-description {
+        width: 100%;
+        max-width: 450px;
+        padding: 4rem;
+        & p {
+            font-size: 2.4rem;
+            line-height: 150%;
+        }
     }
 
-    & .pluto-navbar {
-        padding: 0 2rem;
+    .console-content {
+        width: 100%;
+        flex-grow: 1;
+        padding: 3rem;
     }
 
-    & .pluto-tabs-selector__tabs {
+    .console-form {
+        border: var(--pluto-border);
+        border-radius: 1.5rem;
         height: 100%;
-        justify-content: center !important;
     }
 
-
-
+    .pluto-navbar {
+        .pluto--end {
+            padding-right: 2rem;
+        }
+        .pluto--start {
+            padding-left: 2rem;
+        }
+    }
 }

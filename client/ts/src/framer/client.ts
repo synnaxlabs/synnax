@@ -14,7 +14,7 @@ import {
   type TimeRange,
   type CrudeTimeStamp,
   TimeStamp,
-} from "@synnaxlabs/x";
+} from "@synnaxlabs/x/telem";
 
 import { type KeyOrName, type Params } from "@/channel/payload";
 import { type Retriever, analyzeParams } from "@/channel/retriever";

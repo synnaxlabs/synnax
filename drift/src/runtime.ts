@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import type { Action, UnknownAction } from "@reduxjs/toolkit";
+import { type dimensions, type xy } from "@synnaxlabs/x";
 
-import { StoreState } from "@/state";
-import { WindowProps } from "@/window";
-import { dimensions, xy } from "@synnaxlabs/x";
+import { type StoreState } from "@/state";
+import { type WindowProps } from "@/window";
 
 /**
  * An event emitted by drift to communicate state changes.

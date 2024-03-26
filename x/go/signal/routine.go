@@ -12,8 +12,8 @@ package signal
 import (
 	"context"
 	"fmt"
-	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/x/errors"
 	"go.uber.org/zap"
 	"runtime/pprof"
 	"strconv"

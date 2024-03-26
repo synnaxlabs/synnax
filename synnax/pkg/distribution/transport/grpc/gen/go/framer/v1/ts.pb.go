@@ -7,7 +7,7 @@
 package tsv1
 
 import (
-	v1 "github.com/synnaxlabs/freighter/ferrors/v1"
+	v1 "github.com/synnaxlabs/x/errors/v1"
 	telempb "github.com/synnaxlabs/x/telem/telempb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"

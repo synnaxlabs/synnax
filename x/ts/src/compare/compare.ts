@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Primitive, isStringer, type PrimitiveRecord } from "@/primitive";
+import { type Primitive, isStringer } from "@/primitive";
 import { type spatial } from "@/spatial";
 
 export type CompareF<T> = (a: T, b: T) => number;
@@ -20,10 +20,7 @@ export type CompareF<T> = (a: T, b: T) => number;
  * This is used to determine the type of comparison to perform.
  * @param reverse Whether to reverse the sort order.
  */
-export const newF = <T extends Primitive>(
-  v: T,
-  reverse: boolean = false,
-): CompareF<T> => {
+export const newF = <T>(v: T, reverse: boolean = false): CompareF<T> => {
   const t = isStringer(v) ? "stringer" : typeof v;
   let f: CompareF<T>;
   switch (t) {
@@ -58,7 +55,7 @@ export const newF = <T extends Primitive>(
  * comparison to perform.
  * @param reverse Whether to reverse the sort order.
  */
-export const newFieldF = <T extends PrimitiveRecord>(
+export const newFieldF = <T>(
   key: keyof T,
   value: T,
   reverse?: boolean,

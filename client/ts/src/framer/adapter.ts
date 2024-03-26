@@ -96,7 +96,10 @@ export class ForwardFrameAdapter {
     this.adapter = a;
     normalized.forEach((name) => {
       const channel = fetched.find((channel) => channel.name === name);
-      if (channel == null) throw new ValidationError(`Channel ${name} was not provided in the list of channels when opening the writer`);
+      if (channel == null)
+        throw new ValidationError(
+          `Channel ${name} was not provided in the list of channels when opening the writer`,
+        );
       a.set(channel.name, channel.key);
     });
     this.keys = fetched.map((c) => c.key);
@@ -105,8 +108,11 @@ export class ForwardFrameAdapter {
   adapt(fr: Frame): Frame {
     if (this.adapter == null) {
       // assert that every col if of type number
-      fr.columns.forEach((col) => { 
-        if (typeof col !== "number") throw new ValidationError(`Channel ${col} was not provided in the list of channels when opening the writer`);
+      fr.columns.forEach((col) => {
+        if (typeof col !== "number")
+          throw new ValidationError(
+            `Channel ${col} was not provided in the list of channels when opening the writer`,
+          );
       });
       return fr;
     }

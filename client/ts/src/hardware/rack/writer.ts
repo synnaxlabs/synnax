@@ -7,51 +7,57 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type UnaryClient, sendRequired } from "@synnaxlabs/freighter";
 import { z } from "zod";
-import { NewRack, RackPayload, newRackZ, rackKeyZ, rackZ } from "@/hardware/rack/payload";
-import { UnaryClient, sendRequired } from "@synnaxlabs/freighter";
+
+import {
+  type NewRack,
+  type RackPayload,
+  newRackZ,
+  rackKeyZ,
+  rackZ,
+} from "@/hardware/rack/payload";
 
 const CREATE_RACK_ENDPOINT = "/hardware/rack/create";
 const DELETE_RACK_ENDPOINT = "/hardware/rack/delete";
 
 const createReqZ = z.object({
-    racks: newRackZ.array(),
+  racks: newRackZ.array(),
 });
 
 const createResZ = z.object({
-    racks: rackZ.array(),
+  racks: rackZ.array(),
 });
 
 const deleteReqZ = z.object({
-    keys: rackKeyZ.array(),
+  keys: rackKeyZ.array(),
 });
 
 const deleteResZ = z.object({});
 
 export class Writer {
-    private readonly client: UnaryClient;
+  private readonly client: UnaryClient;
 
-    constructor(client: UnaryClient) {
-        this.client = client;
-    }
+  constructor(client: UnaryClient) {
+    this.client = client;
+  }
 
-    async create(racks: NewRack[]): Promise<RackPayload[]> {
-        const res = await sendRequired<typeof createReqZ, typeof createResZ>(
-            this.client,
-            CREATE_RACK_ENDPOINT,
-            { racks },
-            createResZ,
-        );
-        return res.racks;
-    }
+  async create(racks: NewRack[]): Promise<RackPayload[]> {
+    const res = await sendRequired<typeof createReqZ, typeof createResZ>(
+      this.client,
+      CREATE_RACK_ENDPOINT,
+      { racks },
+      createResZ,
+    );
+    return res.racks;
+  }
 
-    async delete(keys: number[]): Promise<void> {
-        await sendRequired<typeof deleteReqZ, typeof deleteResZ>(
-            this.client,
-            DELETE_RACK_ENDPOINT,
-            { keys },
-            deleteResZ,
-        );
-    }
-
+  async delete(keys: number[]): Promise<void> {
+    await sendRequired<typeof deleteReqZ, typeof deleteResZ>(
+      this.client,
+      DELETE_RACK_ENDPOINT,
+      { keys },
+      deleteResZ,
+    );
+  }
 }

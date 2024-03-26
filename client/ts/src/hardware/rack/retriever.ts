@@ -11,6 +11,7 @@ import { type UnaryClient, sendRequired } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
 import { rackKeyZ, rackZ, type RackPayload } from "@/hardware/rack/payload";
+import { nullableArrayZ } from "@/util/zod";
 
 const RETRIEVE_ENDPOINT = "/hardware/rack/retrieve";
 
@@ -22,9 +23,8 @@ const retrieveRackReqZ = z.object({
 });
 
 const retrieveRackResZ = z.object({
-  racks: rackZ.array(),
+  racks: nullableArrayZ(rackZ),
 });
-
 
 export class Retriever {
   private readonly client: UnaryClient;

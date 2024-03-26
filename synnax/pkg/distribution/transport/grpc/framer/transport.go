@@ -90,11 +90,12 @@ func New(pool *fgrpc.Pool) Transport {
 					return framerv1.NewWriterServiceClient(conn).Write(ctx)
 				},
 			},
-			server: &writerServer{writerServerCore: writerServerCore{
-				RequestTranslator:  writerRequestTranslator{},
-				ResponseTranslator: writerResponseTranslator{},
-				ServiceDesc:        &framerv1.WriterService_ServiceDesc,
-			}},
+			server: &writerServer{
+				writerServerCore: writerServerCore{
+					RequestTranslator:  writerRequestTranslator{},
+					ResponseTranslator: writerResponseTranslator{},
+					ServiceDesc:        &framerv1.WriterService_ServiceDesc,
+				}},
 		},
 		iterator: iteratorTransport{
 			server: &iteratorServer{iteratorServerCore: iteratorServerCore{

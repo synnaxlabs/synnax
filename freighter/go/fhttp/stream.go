@@ -12,20 +12,20 @@ package fhttp
 import (
 	"context"
 	"github.com/gofiber/fiber/v2"
+	"github.com/synnaxlabs/x/errors"
 	"go/types"
 	"io"
 	"net/http"
 	"time"
 
-	roacherrors "github.com/cockroachdb/errors"
 	ws "github.com/fasthttp/websocket"
 	fiberws "github.com/gofiber/websocket/v2"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
-	"github.com/synnaxlabs/freighter/ferrors"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/config"
+	roacherrors "github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/httputil"
 	"go.uber.org/zap"
 )
@@ -44,9 +44,9 @@ const (
 )
 
 type message[P freighter.Payload] struct {
-	Type    messageType     `json:"type" msgpack:"type"`
-	Err     ferrors.Payload `json:"error" msgpack:"error"`
-	Payload P               `json:"payload" msgpack:"payload"`
+	Type    messageType    `json:"type" msgpack:"type"`
+	Err     errors.Payload `json:"error" msgpack:"error"`
+	Payload P              `json:"payload" msgpack:"payload"`
 }
 
 func newCore[RQ, RS freighter.Payload](
@@ -201,7 +201,7 @@ func (s *clientStream[RQ, RS]) Receive() (res RS, err error) {
 	// A close message means the server handler exited.
 	if msg.Type == closeMessage {
 		close(s.contextC)
-		s.peerClosed = ferrors.Decode(msg.Err)
+		s.peerClosed = errors.Decode(s.ctx, msg.Err)
 		return res, s.peerClosed
 	}
 
@@ -235,8 +235,9 @@ type streamServer[RQ, RS freighter.Payload] struct {
 	freighter.Reporter
 	freighter.MiddlewareCollector
 	alamos.Instrumentation
-	path    string
-	handler func(ctx context.Context, server freighter.ServerStream[RQ, RS]) error
+	path     string
+	internal bool
+	handler  func(ctx context.Context, server freighter.ServerStream[RQ, RS]) error
 }
 
 func (s *streamServer[RQ, RS]) BindHandler(
@@ -265,9 +266,9 @@ func (s *streamServer[RQ, RS]) fiberHandler(c *fiber.Ctx) error {
 
 					stream := &serverStream[RQ, RS]{core: newCore[RQ, RS](context.TODO(), c.Conn, ecd, zap.S())}
 
-					errPayload := ferrors.Encode(s.handler(stream.ctx, stream))
-					if errPayload.Type == ferrors.TypeNil {
-						errPayload = ferrors.Encode(freighter.EOF)
+					errPayload := errors.Encode(ctx, s.handler(stream.ctx, stream), s.internal)
+					if errPayload.Type == errors.TypeNil {
+						errPayload = errors.Encode(ctx, freighter.EOF, s.internal)
 					}
 
 					if stream.ctx.Err() != nil {
@@ -321,8 +322,8 @@ func (s *streamServer[RQ, RS]) fiberHandler(c *fiber.Ctx) error {
 			})(c)
 		}))
 	setResponseCtx(c, oCtx)
-	fErr := ferrors.Encode(err)
-	if fErr.Type == ferrors.TypeNil {
+	fErr := errors.Encode(oCtx, err, s.internal)
+	if fErr.Type == errors.TypeNil {
 		return nil
 	}
 	c.Status(fiber.StatusBadRequest)
