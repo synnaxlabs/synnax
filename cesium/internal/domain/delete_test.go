@@ -145,6 +145,20 @@ var _ = Describe("Delete", Ordered, func() {
 
 			Expect(iter.Close()).To(Succeed())
 		})
+
+		It("Should delete multiple pointers that add up to the whole db", func() {
+			Expect(db.Delete(ctx, 0, 1, int64(2), int64(3), (12 * telem.SecondTS).Range(23*telem.SecondTS), true)).To(Succeed())
+			Expect(db.Delete(ctx, 1, 1, int64(3), int64(5), (26 * telem.SecondTS).Range(28*telem.SecondTS), true)).To(Succeed())
+			Expect(db.Delete(ctx, 3, 3, 0, 5, (30 * telem.SecondTS).Range(35*telem.SecondTS), true)).To(Succeed())
+			Expect(db.Delete(ctx, 2, 2, 0, 2, (28 * telem.SecondTS).Range(30*telem.SecondTS), true)).To(Succeed())
+			Expect(db.Delete(ctx, 1, 1, 0, 3, (23 * telem.SecondTS).Range(30*telem.SecondTS), true)).To(Succeed())
+			Expect(db.Delete(ctx, 1, 1, 0, 5, (35 * telem.SecondTS).Range(40*telem.SecondTS), true)).To(Succeed())
+			Expect(db.Delete(ctx, 0, 0, 0, 2, (10 * telem.SecondTS).Range(12*telem.SecondTS), true)).To(Succeed())
+			iter := db.NewIterator(domain.IteratorConfig{Bounds: telem.TimeRangeMax})
+
+			Expect(iter.SeekFirst(ctx)).To(BeFalse())
+			Expect(iter.Close()).To(Succeed())
+		})
 	})
 
 	Context("Edge cases", func() {
