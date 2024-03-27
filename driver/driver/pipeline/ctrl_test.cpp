@@ -62,7 +62,7 @@ TEST(CtrlTests, testCtrlNi){
     auto config = json{
             {"acq_rate", 300}, // dont actually need these here
             {"stream_rate", 30}, // same as above
-            {"device", "Dev1"}
+            {"hardware", "Dev1"}
     };
     add_index_channel_JSON(config, "ack_idx", ack_idx.key);
     add_DO_channel_JSON(config, "cmd", cmd.key, ack.key, 0, 0);

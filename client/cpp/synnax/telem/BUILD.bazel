@@ -6,11 +6,12 @@ cc_library(
         "series.h",
         "telem.h",
     ],
+    #    copts = ["/std:c++17"],
     visibility = ["//visibility:public"],
     deps = [
-        "@telem_protos//telempb:telem_grpc",
+        "//x/go/control:control_grpc",
+        "//x/go/telem:telem_grpc",
     ],
-    copts = ["/std:c++17"]
 )
 
 cc_test(
@@ -19,10 +20,10 @@ cc_test(
         "series_test.cpp",
         "telem_test.cpp",
     ],
+    #    copts = ["/std:c++17"],
     deps = [
-        "//synnax/telem",
+        "//client/cpp/synnax",
+        "//client/cpp/synnax/telem",
         "@com_google_googletest//:gtest_main",
     ],
-    copts = ["/std:c++17"]
 )
-

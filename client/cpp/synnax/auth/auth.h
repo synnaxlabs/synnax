@@ -14,8 +14,8 @@
 #include <utility>
 
 /// protos
-#include "v1/auth.pb.h"
-#include "freighter/freighter.h"
+#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/auth.pb.h"
+#include "freighter/cpp/freighter/freighter.h"
 #include <grpcpp/grpcpp.h>
 
 /// Auth meta data key. NOTE: This must be lowercase, GRPC will panic on capitalized

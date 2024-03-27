@@ -20,7 +20,7 @@ TEST(NiWriterTests, testDigitalWriteLine){
     auto config = json{
             {"acq_rate", 300},
             {"stream_rate", 30},
-            {"device", "Dev1"}
+            {"hardware", "Dev1"}
             };
 
     // add a digital channel to the config

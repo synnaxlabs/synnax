@@ -8,23 +8,23 @@
 // included in the file licenses/APL.txt.
 
 /// freighter
-#include "freighter/gRPC/client.h"
+#include "freighter/cpp/freighter/gRPC/client.h"
 
 /// protos and grpc
-#include "v1/framer.pb.h"
-#include "v1/framer.grpc.pb.h"
-#include "v1/ranger.pb.h"
-#include "v1/ranger.grpc.pb.h"
-#include "v1/channel.pb.h"
-#include "v1/channel.grpc.pb.h"
-#include "v1/auth.pb.h"
-#include "v1/auth.grpc.pb.h"
-#include "v1/device.pb.h"
-#include "v1/device.grpc.pb.h"
+#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/framer.pb.h"
+#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/framer.grpc.pb.h"
+#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/ranger.pb.h"
+#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/ranger.grpc.pb.h"
+#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/channel.pb.h"
+#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/channel.grpc.pb.h"
+#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/auth.pb.h"
+#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/auth.grpc.pb.h"
+#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/hardware.pb.h"
+#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/hardware.grpc.pb.h"
 #include "google/protobuf/empty.pb.h"
 
 /// internal
-#include "synnax/transport.h"
+#include "client/cpp/synnax/transport.h"
 
 using namespace api;
 
@@ -126,39 +126,39 @@ Transport::Transport(
     >>(pool, base_target);
 
     rack_create_client = std::make_unique<GRPCUnaryClient<
-            v1::DeviceCreateRackResponse,
-            v1::DeviceCreateRackRequest,
-            v1::DeviceCreateRackService
+            v1::HardwareCreateRackResponse,
+            v1::HardwareCreateRackRequest,
+            v1::HardwareCreateRackService
     >>(pool, base_target);
 
     rack_retrieve = std::make_unique<GRPCUnaryClient<
-            v1::DeviceRetrieveRackResponse,
-            v1::DeviceRetrieveRackRequest,
-            v1::DeviceRetrieveRackService
+            v1::HardwareRetrieveRackResponse,
+            v1::HardwareRetrieveRackRequest,
+            v1::HardwareRetrieveRackService
     >>(pool, base_target);
 
     rack_delete = std::make_unique<GRPCUnaryClient<
             google::protobuf::Empty,
-            v1::DeviceDeleteRackRequest,
-            v1::DeviceDeleteRackService
+            v1::HardwareDeleteRackRequest,
+            v1::HardwareDeleteRackService
     >>(pool, base_target);
 
     module_create = std::make_shared<GRPCUnaryClient<
-            v1::DeviceCreateModuleResponse,
-            v1::DeviceCreateModuleRequest,
-            v1::DeviceCreateModuleService
+            v1::HardwareCreateTaskResponse,
+            v1::HardwareCreateTaskRequest,
+            v1::HardwareCreateTaskService
     >>(pool, base_target);
 
     module_retrieve = std::make_shared<GRPCUnaryClient<
-            v1::DeviceRetrieveModuleResponse,
-            v1::DeviceRetrieveModuleRequest,
-            v1::DeviceRetrieveModuleService
+            v1::HardwareRetrieveTaskResponse,
+            v1::HardwareRetrieveTaskRequest,
+            v1::HardwareRetrieveTaskService
     >>(pool, base_target);
 
     module_delete = std::make_shared<GRPCUnaryClient<
             google::protobuf::Empty,
-            v1::DeviceDeleteModuleRequest,
-            v1::DeviceDeleteModuleService
+            v1::HardwareDeleteTaskRequest,
+            v1::HardwareDeleteTaskService
     >>(pool, base_target);
 }
 

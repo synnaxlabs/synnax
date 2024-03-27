@@ -11,9 +11,9 @@
 #include <vector>
 
 /// internal
-#include "synnax/channel/channel.h"
-#include "synnax/errors/errors.h"
-#include "freighter/freighter.h"
+#include "client/cpp/synnax/channel/channel.h"
+#include "client/cpp/synnax/errors/errors.h"
+#include "freighter/cpp/freighter/freighter.h"
 
 using namespace synnax;
 

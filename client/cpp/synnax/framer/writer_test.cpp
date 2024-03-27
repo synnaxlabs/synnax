@@ -15,8 +15,8 @@
 #include <include/gtest/gtest.h>
 
 /// Internal
-#include "synnax/synnax.h"
-#include "synnax/testutil/testutil.h"
+#include "client/cpp/synnax/synnax.h"
+#include "client/cpp/synnax/testutil/testutil.h"
 
 
 /// @brief it should correctly write a frame of telemetry to the DB.
@@ -41,7 +41,7 @@ TEST(FramerTests, testWriteBasic) {
     auto [writer, wErr] = client.telem.openWriter(synnax::WriterConfig{
             std::vector<synnax::ChannelKey>{time.key, data.key},
             now,
-            std::vector<synnax::Authority>{synnax::ABSOLUTTE, synnax::ABSOLUTTE},
+            std::vector<synnax::Authority>{synnax::ABSOLUTE, synnax::ABSOLUTE},
             synnax::Subject{"test_writer"},
     });
     ASSERT_FALSE(wErr) << wErr.message();

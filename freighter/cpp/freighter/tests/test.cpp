@@ -9,7 +9,7 @@
 
 #include <gtest/gtest.h>
 
-#include "freighter/freighter.h"
+#include "freighter/cpp/freighter/freighter.h"
 
 class BasicMiddleware : public freighter::PassthroughMiddleware {
 private:

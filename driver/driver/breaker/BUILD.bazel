@@ -1,12 +1,12 @@
 cc_library(
     name = "breaker",
     hdrs = ["breaker.h"],
+    copts = ["/std:c++17"],
     visibility = ["//visibility:public"],
     deps = [
+        "//client/cpp/synnax",
         "@com_github_google_glog//:glog",
-        "@synnax//synnax",
     ],
-    copts = ["/std:c++17"]
 )
 
 cc_test(
@@ -15,9 +15,9 @@ cc_test(
     srcs = [
         "breaker_test.cpp",
     ],
+    copts = ["/std:c++17"],
     deps = [
         "//driver/breaker",
         "@com_google_googletest//:gtest_main",
     ],
-    copts = ["/std:c++17"]
 )

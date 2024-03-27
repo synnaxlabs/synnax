@@ -1,0 +1,16 @@
+version: v1
+name: buf.build/synnaxlabs/synnax
+build:
+  excludes:
+    - "node_modules"
+    - "bazel-bin"
+    - "bazel-out"
+    - "bazel-testlogs"
+    - "bazel-synnax"
+    - "freighter/cpp"
+breaking:
+  use:
+    - FILE
+lint:
+  use:
+    - DEFAULT

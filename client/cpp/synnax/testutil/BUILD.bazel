@@ -2,7 +2,7 @@ cc_library(
     name = "testutil",
     srcs = ["testutil.cpp"],
     hdrs = ["testutil.h"],
+    #    copts = ["/std:c++17"],
     visibility = ["//visibility:public"],
-    deps = ["//synnax"],
-    copts = ["/std:c++17"]
+    deps = ["//client/cpp/synnax"],
 )

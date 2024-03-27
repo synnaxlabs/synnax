@@ -4,9 +4,9 @@ cc_library(
         "url.cpp",
     ],
     hdrs = ["freighter.h"],
+    #    copts = ["/std:c++17"],
     visibility = ["//visibility:public"],
     deps = [
-        "@ferrors_protos//ferrors/v1:ferrors_grpc",
+        "//x/go/errors:errors_grpc",
     ],
-    copts = ["/std:c++17"]
 )

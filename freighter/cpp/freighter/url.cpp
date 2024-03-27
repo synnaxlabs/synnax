@@ -11,7 +11,7 @@
 // Created by Emiliano Bonilla on 10/17/23.
 //
 
-#include "freighter/freighter.h"
+#include "freighter.h"
 
 using namespace freighter;
 

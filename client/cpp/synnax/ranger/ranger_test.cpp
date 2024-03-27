@@ -15,9 +15,9 @@
 #include <include/gtest/gtest.h>
 
 /// internal.
-#include "synnax/synnax.h"
-#include "synnax/testutil/testutil.h"
-#include "synnax/errors/errors.h"
+#include "client/cpp/synnax/synnax.h"
+#include "client/cpp/synnax/testutil/testutil.h"
+#include "client/cpp/synnax/errors/errors.h"
 
 
 std::mt19937 mt = random_generator(std::move("Ranger Tests"));

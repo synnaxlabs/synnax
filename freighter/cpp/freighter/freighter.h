@@ -11,12 +11,10 @@
 
 /// Std.
 #include <memory>
-#include <map>
 #include <string>
-#include <utility>
 #include <iostream>
 
-#include "ferrors/v1/ferrors.pb.h"
+#include "x/go/errors/x/go/errors/errors.pb.h"
 
 namespace freighter {
 const std::string TYPE_NIL = "nil";
@@ -45,7 +43,7 @@ public:
         }
     }
 
-    Error(const ferrors::v1::ErrorPayload &err) {
+    Error(const errors::PBPayload &err) {
         type = err.type();
         data = err.data();
     }

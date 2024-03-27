@@ -11,8 +11,8 @@
 #include <include/gtest/gtest.h>
 
 /// Local headers.
-#include "synnax/telem/series.h"
-#include "telempb/telem.pb.h"
+#include "client/cpp/synnax/synnax.h"
+#include "x/go/telem/x/go/telem/telem.pb.h"
 
 /// std.
 #include <iostream>
@@ -46,7 +46,7 @@ TEST(TestSeries, testProto)
 {
     std::vector<uint8_t> vals = {1, 2, 3, 4, 5};
     synnax::Series s{vals};
-    auto s2 = new telempb::Series();
+    auto s2 = new telem::Series();
     s.to_proto(s2);
     synnax::Series s3{*s2};
     auto v = s3.uint8();

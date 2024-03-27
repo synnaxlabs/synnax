@@ -13,12 +13,11 @@ import (
 	"context"
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
-	gapi "github.com/synnaxlabs/synnax/pkg/api/grpc/gen/go/v1"
+	gapi "github.com/synnaxlabs/synnax/pkg/api/grpc/v1"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/x/telem"
-	"github.com/synnaxlabs/x/telem/telempb"
 	"google.golang.org/grpc"
 )
 
@@ -61,7 +60,7 @@ var (
 func translateFrameForward(f api.Frame) *gapi.Frame {
 	return &gapi.Frame{
 		Keys:   translateChannelKeysForward(f.Keys),
-		Series: telempb.TranslateManySeriesForward(f.Series),
+		Series: telem.TranslateManySeriesForward(f.Series),
 	}
 }
 
@@ -70,7 +69,7 @@ func translateFrameBackward(f *gapi.Frame) (of api.Frame) {
 		return
 	}
 	of.Keys = translateChannelKeysBackward(f.Keys)
-	of.Series = telempb.TranslateManySeriesBackward(f.Series)
+	of.Series = telem.TranslateManySeriesBackward(f.Series)
 	return
 }
 
@@ -145,7 +144,7 @@ func (t frameIteratorRequestTranslator) Forward(
 	return &gapi.FrameIteratorRequest{
 		Command: int32(msg.Command),
 		Span:    int64(msg.Span),
-		Range:   telempb.TranslateTimeRangeForward(msg.Bounds),
+		Range:   telem.TranslateTimeRangeForward(msg.Bounds),
 		Keys:    translateChannelKeysForward(msg.Keys),
 		Stamp:   int64(msg.Stamp),
 	}, nil
@@ -158,7 +157,7 @@ func (t frameIteratorRequestTranslator) Backward(
 	return api.FrameIteratorRequest{
 		Command: iterator.Command(msg.Command),
 		Span:    telem.TimeSpan(msg.Span),
-		Bounds:  telempb.TranslateTimeRangeBackward(msg.Range),
+		Bounds:  telem.TranslateTimeRangeBackward(msg.Range),
 		Keys:    translateChannelKeysBackward(msg.Keys),
 		Stamp:   telem.TimeStamp(msg.Stamp),
 	}, nil

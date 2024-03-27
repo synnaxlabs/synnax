@@ -11,8 +11,8 @@
 #include <random>
 
 //// internal
-#include "synnax/synnax.h"
-#include "driver/testutil/testutil.h"
+#include "client/cpp/synnax/synnax.h"
+#include "driver/driver/testutil/testutil.h"
 
 
 synnax::Synnax new_test_client()
@@ -28,98 +28,4 @@ std::mt19937 random_generator(std::string suite_name)
     std::mt19937 mt(rand_seed);
     std::uniform_real_distribution<double> dist(0, 1);
     return mt;
-}
-
-json add_DO_channel_JSON(json &config,
-                                std::string name,
-                                int cmd_key,
-                                int ack_key,
-                                int port,
-                                int line){
-
-    // first construct the json object for the channel
-    json channel;
-    channel["name"] = name;
-    channel["cmd_key"] = cmd_key;
-    channel["ack_key"] = ack_key;
-    channel["type"] = "digitalOutput";
-    channel["port"] = port;
-    channel["line"] = line;
-
-    // now add json to the channels vector
-    // check if the channels array exists
-    if(config.find("channels") == config.end()){
-        config["channels"] = json::array();
-    }
-    config["channels"].push_back(channel);
-    return  channel;
-}
-
-json add_index_channel_JSON(json &config,
-                            std::string name,
-                            int key){
-    json channel;
-    channel["name"] = name;
-    channel["cmd_key"] = 0;
-    channel["ack_key"] = 0;
-    channel["type"] = "index";
-    channel["port"] = 0;
-    channel["line"] = 0;
-    channel["channel"] = key;
-
-    // now add json to the channels vector
-    // check if the channels array exists
-    if(config.find("channels") == config.end()){
-        config["channels"] = json::array();
-    }
-    config["channels"].push_back(channel);
-    return  channel;
-}
-
-json add_ackIndex_channel_JSON(json &config,
-                            std::string name,
-                            int key){
-    json channel;
-    channel["name"] = name;
-    channel["cmd_key"] = 0;
-    channel["ack_key"] = 0;
-    channel["type"] = "ackIndex";
-    channel["port"] = 0;
-    channel["line"] = 0;
-    channel["channel"] = key;
-
-    // now add json to the channels vector
-    // check if the channels array exists
-    if(config.find("channels") == config.end()){
-        config["channels"] = json::array();
-    }
-    config["channels"].push_back(channel);
-    return  channel;
-}
-
-json add_DI_channel_JSON(json &config,
-                         std::string name,
-                         int key,
-                         int port,
-                         int line){
-
-    // first construct the json object for the channel
-    json channel;
-    channel["name"] = name;
-    channel["type"] = "digitalInput";
-    channel["port"] = port;
-    channel["line"] = line;
-    channel["channel"] = key;
-    channel["min_val"] = 0; // these entries just need to exist for json parsing
-    channel["max_val"] = 1; // these entries just need to exist for json parsing
-
-
-
-    // now add json to the channels vector
-    // check if the channels array exists
-    if(config.find("channels") == config.end()){
-        config["channels"] = json::array();
-    }
-    config["channels"].push_back(channel);
-    return  channel;
 }

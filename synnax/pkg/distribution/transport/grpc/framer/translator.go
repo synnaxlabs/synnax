@@ -18,9 +18,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
-	tsv1 "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/gen/go/framer/v1"
+	tsv1 "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/framer/v1"
 	"github.com/synnaxlabs/x/telem"
-	"github.com/synnaxlabs/x/telem/telempb"
 )
 
 var (
@@ -102,7 +101,7 @@ func (iteratorRequestTranslator) Backward(
 	return iterator.Request{
 		Command: iterator.Command(req.Command),
 		Span:    telem.TimeSpan(req.Span),
-		Bounds:  telempb.TranslateTimeRangeBackward(req.Bounds),
+		Bounds:  telem.TranslateTimeRangeBackward(req.Bounds),
 		Stamp:   telem.TimeStamp(req.Stamp),
 		Keys:    channel.KeysFromUint32(req.Keys),
 	}, nil
@@ -116,7 +115,7 @@ func (iteratorRequestTranslator) Forward(
 	return &tsv1.IteratorRequest{
 		Command: int32(req.Command),
 		Span:    int64(req.Span),
-		Bounds:  telempb.TranslateTimeRangeForward(req.Bounds),
+		Bounds:  telem.TranslateTimeRangeForward(req.Bounds),
 		Stamp:   int64(req.Stamp),
 		Keys:    req.Keys.Uint32(),
 	}, nil
@@ -196,13 +195,13 @@ func (w relayResponseTranslator) Forward(
 
 func translateFrameForward(frame *tsv1.Frame) framer.Frame {
 	keys := channel.KeysFromUint32(frame.Keys)
-	series := telempb.TranslateManySeriesBackward(frame.Series)
+	series := telem.TranslateManySeriesBackward(frame.Series)
 	return framer.Frame{Keys: keys, Series: series}
 }
 
 func translateFrameBackward(frame framer.Frame) *tsv1.Frame {
 	return &tsv1.Frame{
 		Keys:   frame.Keys.Uint32(),
-		Series: telempb.TranslateManySeriesForward(frame.Series),
+		Series: telem.TranslateManySeriesForward(frame.Series),
 	}
 }

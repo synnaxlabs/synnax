@@ -12,11 +12,11 @@
 #include <memory>
 
 /// api protos
-#include "v1/framer.pb.h"
+#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/framer.pb.h"
 
 /// internal
-#include "synnax/framer/framer.h"
-#include "synnax/telem/series.h"
+#include "client/cpp/synnax/framer/framer.h"
+#include "client/cpp/synnax/telem/series.h"
 
 using namespace synnax;
 

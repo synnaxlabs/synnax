@@ -11,9 +11,9 @@
 #include <gtest/gtest.h>
 
 /// Local headers.
-#include "freighter/gRPC/protos/service.grpc.pb.h"
-#include "freighter/gRPC/client.h"
-#include "freighter/gRPC/tests/server.h"
+#include "freighter/cpp/freighter/gRPC/protos/freighter/cpp/freighter/gRPC/protos/service.pb.h"
+#include "freighter/cpp/freighter/gRPC/client.h"
+#include "freighter/cpp/freighter/gRPC/tests/server.h"
 
 /// std.
 #include <thread>

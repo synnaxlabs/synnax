@@ -11,7 +11,7 @@
 #include <include/gtest/gtest.h>
 
 /// Internal.
-#include "synnax/framer/framer.h"
+#include "client/cpp/synnax/framer/framer.h"
 
 /// @brief it should construct a frame with a pre-allocated size.
 TEST(FramerTests, testConstruction) {

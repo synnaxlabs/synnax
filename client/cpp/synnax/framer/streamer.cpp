@@ -9,7 +9,7 @@
 
 #include <string>
 
-#include "synnax/framer/framer.h"
+#include "client/cpp/synnax/framer/framer.h"
 
 std::string STREAM_ENDPOINT = "/frame/stream";
 

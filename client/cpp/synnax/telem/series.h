@@ -10,8 +10,8 @@
 #pragma once
 
 /// Local hdrs.
-#include "synnax/telem/telem.h"
-#include "telempb/telem.pb.h"
+#include "client/cpp/synnax/telem/telem.h"
+#include "x/go/telem/x/go/telem/telem.pb.h"
 
 // std.
 #include <string>
@@ -75,13 +75,13 @@ namespace synnax {
             size = total_size;
         }
 
-        explicit Series(const telempb::Series &s) : data_type(s.data_type()) {
+        explicit Series(const telem::PBSeries &s) : data_type(s.data_type()) {
             size = s.data().size();
             data = std::make_unique<std::byte[]>(size);
             memcpy(data.get(), s.data().data(), size);
         }
 
-        void to_proto(telempb::Series *s) const {
+        void to_proto(telem::PBSeries *s) const {
             s->set_data_type(data_type.name());
             s->set_data(data.get(), size);
         }

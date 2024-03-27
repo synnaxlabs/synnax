@@ -13,7 +13,7 @@
 #include <thread>
 #include <glog/logging.h>
 
-#include "synnax/synnax.h"
+#include "client/cpp/synnax/synnax.h"
 
 namespace breaker {
 

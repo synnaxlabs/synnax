@@ -14,8 +14,8 @@
 #include <include/gtest/gtest.h>
 
 /// Internal
-#include "synnax/synnax.h"
-#include "synnax/testutil/testutil.h"
+#include "client/cpp/synnax/synnax.h"
+#include "client/cpp/synnax/testutil/testutil.h"
 
 /// @brief it should correctly receive a frame of streamed telemetry from the DB.
 TEST(FramerTests, testStreamBasic)
@@ -31,7 +31,7 @@ TEST(FramerTests, testStreamBasic)
         auto [writer, wErr] = client.telem.openWriter(synnax::WriterConfig{
             channels,
             now,
-            std::vector<synnax::Authority>{synnax::ABSOLUTTE},
+            std::vector<synnax::Authority>{synnax::ABSOLUTE},
             synnax::Subject{"test_writer"}});
         ASSERT_FALSE(wErr) << wErr.message();
 

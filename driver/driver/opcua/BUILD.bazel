@@ -11,17 +11,36 @@ cc_library(
 )
 
 cc_library(
-        hdrs = [
-            "scanner.h",
-        ],
     name = "opcua",
     srcs = [
         "scanner.cpp",
     ],
+    hdrs = [
+        "scanner.h",
+    ],
     visibility = ["//visibility:public"],
     deps = [
         ":open62541",
+        "//client/cpp/synnax",
         "@nlohmann_json//:json",
-        "@synnax//synnax",
+    ],
+)
+
+cc_test(
+    name = "scanner_test",
+    srcs = [
+        "scanner_test.cpp",
+    ],
+    deps = [
+        ":opcua",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_binary(
+    name = "server",
+    srcs = ["server.cpp"],
+    deps = [
+        ":opcua",
     ],
 )

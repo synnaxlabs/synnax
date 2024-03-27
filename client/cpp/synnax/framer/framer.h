@@ -15,16 +15,16 @@
 #include <memory>
 
 /// Freighter
-#include "freighter/freighter.h"
+#include "freighter/cpp/freighter/freighter.h"
 
 /// Api Protos
-#include "v1/framer.pb.h"
+#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/framer.pb.h"
 
 /// Internal
-#include "synnax/telem/telem.h"
-#include "synnax/telem/series.h"
-#include "synnax/telem/control.h"
-#include "synnax/channel/channel.h"
+#include "client/cpp/synnax/telem/telem.h"
+#include "client/cpp/synnax/telem/series.h"
+#include "client/cpp/synnax/telem/control.h"
+#include "client/cpp/synnax/channel/channel.h"
 
 
 using namespace synnax;

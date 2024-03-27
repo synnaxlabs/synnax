@@ -1,12 +1,11 @@
-# GRPCUnaryClient implementation.
 cc_library(
     name = "gRPC",
     srcs = [],
     hdrs = ["client.h"],
+    copts = ["/std:c++17"],
     visibility = ["//visibility:public"],
     deps = [
-        "//freighter",
+        "//freighter/cpp/freighter",
         "@com_github_grpc_grpc//:grpc++",
     ],
-    copts = ["/std:c++17"]
 )

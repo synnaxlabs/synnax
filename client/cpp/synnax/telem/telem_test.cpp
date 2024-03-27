@@ -11,7 +11,7 @@
 #include <include/gtest/gtest.h>
 
 /// Local headers.
-#include "synnax/telem/telem.h"
+#include "client/cpp/synnax/telem/telem.h"
 
 /// std.
 

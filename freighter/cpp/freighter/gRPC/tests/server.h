@@ -21,7 +21,7 @@
 #include <iostream>
 #include <mutex>
 #include <condition_variable>
-#include "freighter/gRPC/protos/service.grpc.pb.h"
+#include "freighter/cpp/freighter/gRPC/protos/freighter/cpp/freighter/gRPC/protos/service.grpc.pb.h"
 
 /// @brief Used to awake main thread when we are 
 /// done processing messages.

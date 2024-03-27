@@ -1,0 +1,32 @@
+cc_library(
+    name = "driver",
+    srcs = [
+        "driver.cpp",
+        "heartbeat.cpp",
+        "task_manager.cpp",
+    ],
+    hdrs = [
+        "driver.h",
+    ],
+    #    copts = ["/std:c++17"],
+    deps = [
+        "//client/cpp/synnax",
+        "//driver/driver/breaker",
+        "@com_github_google_glog//:glog",
+        "@nlohmann_json//:json",
+    ],
+)
+
+cc_test(
+    name = "test_rack",
+    size = "small",
+    srcs = [
+        "task_manager_test.cpp",
+    ],
+    #    copts = ["/std:c++17"],
+    deps = [
+        "//driver/driver",
+        "//driver/driver/testutil",
+        "@com_google_googletest//:gtest_main",
+    ],
+)

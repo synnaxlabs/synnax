@@ -13,12 +13,12 @@
 #include <memory>
 
 /// internal
-#include "synnax/framer/framer.h"
-#include "synnax/ranger/ranger.h"
-#include "synnax/channel/channel.h"
-#include "synnax/device/device.h"
-#include "synnax/transport.h"
-#include "synnax/errors/errors.h"
+#include "client/cpp/synnax/framer/framer.h"
+#include "client/cpp/synnax/ranger/ranger.h"
+#include "client/cpp/synnax/channel/channel.h"
+#include "client/cpp/synnax/hardware/hardware.h"
+#include "client/cpp/synnax/transport.h"
+#include "client/cpp/synnax/errors/errors.h"
 
 using namespace synnax;
 
@@ -70,7 +70,7 @@ public:
     /// @brief Client for reading and writing telemetry to a cluster.
     FrameClient telem = FrameClient(nullptr, nullptr);
     /// @brief Client for managing devices and their configuration.
-    DeviceClient devices = DeviceClient(nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
+    HardwareClient devices = HardwareClient(nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
 
     /// @brief constructs the Synnax client from the provided configuration.
     explicit Synnax(const Config &cfg) {
@@ -91,7 +91,7 @@ public:
                 std::move(t.range_clear_active)
         );
         telem = FrameClient(std::move(t.frame_stream), std::move(t.frame_write));
-        devices = DeviceClient(
+        devices = HardwareClient(
                 std::move(t.rack_create_client),
                 std::move(t.rack_retrieve),
                 std::move(t.rack_delete),

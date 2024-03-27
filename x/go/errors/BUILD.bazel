@@ -1,0 +1,14 @@
+proto_library(
+    name = "errors_proto",
+    srcs = ["errors.proto"],
+    visibility = ["//visibility:public"],
+)
+
+load("@rules_proto_grpc//cpp:defs.bzl", "cpp_grpc_library")
+
+cpp_grpc_library(
+    name = "errors_grpc",
+    output_mode = "NO_PREFIX",
+    protos = [":errors_proto"],
+    visibility = ["//visibility:public"],
+)

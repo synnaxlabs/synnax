@@ -10,7 +10,7 @@
 #pragma once
 
 /// Abstract class.
-#include "freighter/freighter.h"
+#include "freighter/cpp/freighter/freighter.h"
 
 /// grpc.
 #include <grpc/grpc.h>

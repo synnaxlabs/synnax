@@ -15,17 +15,17 @@
 #include <memory>
 
 /// freighter
-#include "freighter/freighter.h"
+#include "freighter/cpp/freighter/freighter.h"
 
 /// api protos
 #include "google/protobuf/empty.pb.h"
-#include "v1/ranger.pb.h"
+#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/ranger.pb.h"
 
 /// grpc
 #include <grpcpp/grpcpp.h>
 
 /// internal
-#include "synnax/telem/telem.h"
+#include "client/cpp/synnax/telem/telem.h"
 
 
 typedef std::string Key;

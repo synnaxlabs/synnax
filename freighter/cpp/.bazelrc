@@ -1,3 +1,0 @@
-# Specifies compilation with c++ version 17.
-build --action_env=BAZEL_CXXOPTS="-std=c++17" --enable_runfiles
-startup --output_user_root=C:/bazel-tmp

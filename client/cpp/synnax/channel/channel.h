@@ -14,16 +14,16 @@
 #include <utility>
 
 /// freighter
-#include "freighter/freighter.h"
+#include "freighter/cpp/freighter/freighter.h"
 
 /// api protos
-#include "v1/channel.pb.h"
+#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/channel.pb.h"
 
 /// grpc
 #include <grpcpp/grpcpp.h>
 
 /// internal
-#include "synnax/telem/telem.h"
+#include "client/cpp/synnax/telem/telem.h"
 
 
 using namespace synnax;

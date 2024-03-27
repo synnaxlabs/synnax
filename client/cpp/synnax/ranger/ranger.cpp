@@ -8,13 +8,13 @@
 // included in the file licenses/APL.txt.
 
 /// protos
-#include "v1/ranger.pb.h"
-#include "telempb/telem.pb.h"
+#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/ranger.pb.h"
+#include "x/go/telem/x/go/telem/telem.pb.h"
 
 /// internal
-#include "synnax/ranger/ranger.h"
-#include "synnax/telem/telem.h"
-#include "synnax/errors/errors.h"
+#include "client/cpp/synnax/ranger/ranger.h"
+#include "client/cpp/synnax/telem/telem.h"
+#include "client/cpp/synnax/errors/errors.h"
 
 using namespace synnax;
 
@@ -35,7 +35,7 @@ Range::Range(const api::v1::Range &a) :
 void Range::to_proto(api::v1::Range *rng) const {
     rng->set_name(name);
     rng->set_key(key);
-    auto tr = telempb::TimeRange();
+    auto tr = telem::PBTimeRange();
     rng->mutable_time_range()->set_start(time_range.start.value);
     rng->mutable_time_range()->set_end(time_range.end.value);
 }

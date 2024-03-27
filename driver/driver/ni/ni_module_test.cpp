@@ -20,7 +20,7 @@ TEST(NiTasksTests, testAnalogReaderTask_1_index){
    auto config = json{
             {"acq_rate", 300},
             {"stream_rate", 30},
-            {"device", "Dev1"},
+            {"hardware", "Dev1"},
             {"channels", json::array({
                     json{
                             {"key", "fvJ70Zg4syFZOXY7GbaoX"},
@@ -130,7 +130,7 @@ TEST(NiTasksTests, testDigitalReaderTask_1){
     auto config = json{
             {"acq_rate", 100}, // dont actually need these here
             {"stream_rate", 20}, // same as above
-            {"device", "PXI1Slot2_2"}
+            {"hardware", "PXI1Slot2_2"}
     };
     add_index_channel_JSON(config, "idx", idx.key);
     add_DI_channel_JSON(config, "d1", d1.key, 0, 0);
@@ -197,7 +197,7 @@ TEST(NiTasksTests, testsDigitalWriterTask_1){
     auto config = json{
             {"acq_rate", 300}, // dont actually need these here
             {"stream_rate", 30}, // same as above
-            {"device", "Dev1"}
+            {"hardware", "Dev1"}
     };
     add_ackIndex_channel_JSON(config, "ack_idx", ack_idx.key);
     add_DO_channel_JSON(config, "cmd", cmd.key, ack.key, 0, 0);
