@@ -107,7 +107,17 @@
       "editor.defaultFormatter": "ms-python.black-formatter"
     },
     "python.formatting.provider": "none",
-    "eslint.workingDirectories": [{"mode": "auto"}],
+    "eslint.workingDirectories": [
+      {
+        "mode": "auto"
+      }
+    ],
+    "cSpell.words": [
+      "downsample",
+      "glsl",
+      "Synnax",
+      "telem"
+    ],
   },
   "extensions": {
     "recommendations": [

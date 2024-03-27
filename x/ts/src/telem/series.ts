@@ -26,12 +26,6 @@ import {
 
 export type SampleValue = number | bigint;
 
-const validateFieldNotNull = (name: string, field: unknown): void => {
-  if (field == null) {
-    throw new Error(`field ${name} is null`);
-  }
-};
-
 interface GL {
   control: GLBufferController | null;
   buffer: WebGLBuffer | null;
@@ -190,8 +184,8 @@ export class Series {
   }
 
   /**
-   * Writes the given series to this series. If the series being written exceeds the 
-   * remaining of series being written to, only the portion that fits will be written. 
+   * Writes the given series to this series. If the series being written exceeds the
+   * remaining of series being written to, only the portion that fits will be written.
    * @param other the series to write to this series. The data type of the series written
    * must be the same as the data type of the series being written to.
    * @returns the number of samples written. If the entire series fits, this value is
@@ -261,8 +255,8 @@ export class Series {
 
   /** @returns the time range of this array. */
   get timeRange(): TimeRange {
-    validateFieldNotNull("timeRange", this._timeRange);
-    return this._timeRange!;
+    if (this._timeRange == null) throw new Error("time range not set on series");
+    return this._timeRange;
   }
 
   /** @returns the capacity of the series in bytes. */
