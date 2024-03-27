@@ -66,6 +66,24 @@ func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	svc := &Service{Rack: rackSvc, Task: taskSvc, Device: deviceSvc}
+
+	stateSvc, err := state.OpenService(ctx, state.Config{
+		DB:           cfg.DB,
+		Rack:         rackSvc,
+		Task:         taskSvc,
+		Signals:      cfg.Signals,
+		HostProvider: cfg.HostProvider,
+		Channels:     cfg.Channel,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	svc := &Service{
+		Rack:   rackSvc,
+		Task:   taskSvc,
+		Device: deviceSvc,
+		State:  stateSvc,
+	}
 	return svc, nil
 }

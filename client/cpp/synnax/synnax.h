@@ -70,13 +70,12 @@ public:
     /// @brief Client for reading and writing telemetry to a cluster.
     FrameClient telem = FrameClient(nullptr, nullptr);
     /// @brief Client for managing devices and their configuration.
-    HardwareClient devices = HardwareClient(nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
+    HardwareClient hardware = HardwareClient(nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
 
     /// @brief constructs the Synnax client from the provided configuration.
     explicit Synnax(const Config &cfg) {
-//        priv::check_little_endian();
         auto t = Transport(cfg.port, cfg.host, cfg.ca_cert_file, cfg.client_cert_file, cfg.client_key_file);
-        auto auth_mw = std::make_shared<AuthMiddleware>(
+        const auto auth_mw = std::make_shared<AuthMiddleware>(
                 std::move(t.auth_login), cfg.username, cfg.password);
         t.use(auth_mw);
         channels = ChannelClient(std::move(t.chan_retrieve), std::move(t.chan_create));
@@ -91,7 +90,7 @@ public:
                 std::move(t.range_clear_active)
         );
         telem = FrameClient(std::move(t.frame_stream), std::move(t.frame_write));
-        devices = HardwareClient(
+        hardware = HardwareClient(
                 std::move(t.rack_create_client),
                 std::move(t.rack_retrieve),
                 std::move(t.rack_delete),

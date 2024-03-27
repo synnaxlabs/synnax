@@ -29,10 +29,10 @@ public:
     Error() noexcept: type(TYPE_NIL) {
     }
 
-    Error(const std::string &type, const std::string &data) noexcept: type(type), data(data) {
+    Error(const std::string& type, const std::string& data) noexcept: type(type), data(data) {
     }
 
-    Error(const std::string &err) {
+    Error(const std::string& err) {
         type = TYPE_UNKNOWN;
         data = err;
         std::cout << err << std::endl;
@@ -43,7 +43,7 @@ public:
         }
     }
 
-    Error(const errors::PBPayload &err) {
+    Error(const errors::PBPayload& err) {
         type = err.type();
         data = err.data();
     }
@@ -53,25 +53,35 @@ public:
 
     [[nodiscard]] std::string message() const { return type + ":" + data; }
 
-    Error(const Error &other) noexcept {
+    Error(const Error& other) noexcept {
         type = other.type;
         data = other.data;
     }
 
     explicit operator bool() const { return !ok(); }
 
-    friend std::ostream &operator<<(std::ostream &os, const Error &err) {
+    friend std::ostream& operator<<(std::ostream& os, const Error& err) {
         os << err.message();
         return os;
     }
 
-    bool operator==(const Error &other) const { return type == other.type; };
 
-    bool operator!=(const Error &other) const { return type != other.type; };
+    bool matches(const Error& other) const {
+        return matches(other.type);
+    }
 
-    bool operator==(const std::string &other) const { return type == other; };
+    bool matches(const std::string& other) const {
+        auto res = std::mismatch(other.begin(), other.end(), type.begin());
+        return res.first == other.end();
+    }
 
-    bool operator!=(const std::string &other) const { return type != other; };
+    bool operator==(const Error& other) const { return type == other.type; };
+
+    bool operator!=(const Error& other) const { return type != other.type; };
+
+    bool operator==(const std::string& other) const { return type == other; };
+
+    bool operator!=(const std::string& other) const { return type != other; };
 };
 
 static_assert(std::is_nothrow_copy_constructible<Error>::value,
@@ -93,16 +103,16 @@ struct URL {
     URL();
 
     /// @brief Creates a URL with the given IP, port, and path.
-    URL(const std::string &ip, std::uint16_t port, const std::string &path);
+    URL(const std::string& ip, std::uint16_t port, const std::string& path);
 
     /// @brief Parses the given address into a URL.
     /// @throws std::invalid_argument if the address is not a valid URL.
-    explicit URL(const std::string &address);
+    explicit URL(const std::string& address);
 
     /// @brief Creates a child URL by appending the given path to the current path.
     /// @returns the child URL. It is guaranteed to have a single slash between the current path and child path,
     /// and have a trailing slash.
-    [[nodiscard]] URL child(const std::string &child_path) const;
+    [[nodiscard]] URL child(const std::string& child_path) const;
 
     /// @brief Converts the URL to a string.
     /// @returns the URL as a string.
@@ -125,33 +135,33 @@ public:
     }
 
     /// @brief Copy constructor
-    Context(const Context &other) {
+    Context(const Context& other) {
         protocol = other.protocol;
         target = other.target;
         id = other.id;
-        for (auto &param: other.params) {
+        for (auto& param: other.params) {
             params[param.first] = param.second;
         }
     }
 
     /// @brief Copy assignment
-    Context &operator=(const Context &other) {
+    Context& operator=(const Context& other) {
         protocol = other.protocol;
         target = other.target;
         id = other.id;
-        for (auto &param: other.params) {
+        for (auto& param: other.params) {
             params[param.first] = param.second;
         }
         return *this;
     }
 
     /// @brief Gets the parameter with the given key.
-    std::string get(const std::string &key) {
+    std::string get(const std::string& key) {
         return params[key];
     }
 
     /// @brief Sets the given parameter to the given value.
-    void set(const std::string &key, const std::string &value) {
+    void set(const std::string& key, const std::string& value) {
         params[key] = value;
     }
 
@@ -167,7 +177,7 @@ class Middleware {
 public:
     /// @brief Sets the next middleware in the chain.
     /// @param n the next middleware.
-    virtual void setNext(Middleware *n) = 0;
+    virtual void setNext(Middleware* n) = 0;
 
     /// @brief executes the middleware.
     /// @param context the context for the outgoing request. The context for the inbound response can be accessed
@@ -184,10 +194,11 @@ public:
 class PassthroughMiddleware : public Middleware {
 public:
     /// @brief Constructs the middleware with a nullptr next middleware.
-    PassthroughMiddleware() : next(nullptr) {}
+    PassthroughMiddleware() : next(nullptr) {
+    }
 
     /// @implements Middleware::setNext
-    void setNext(Middleware *n) override {
+    void setNext(Middleware* n) override {
         // Set raw ptr to avoid overhead of copying shared ptr, moving ownership.
         next = n;
     }
@@ -197,7 +208,7 @@ public:
 
 private:
     /// @brief the next middleware in the chain.
-    Middleware *next;
+    Middleware* next;
 };
 
 /// @brief A middleware implementation that simply returns the context and a nullptr error. This is useful
@@ -206,7 +217,8 @@ class Finalizer : public Middleware {
 public:
     /// @brief no-op. Ignores the next middleware.
     /// @implements Middleware::setNext
-    void setNext(Middleware *n) override {}
+    void setNext(Middleware* n) override {
+    }
 
     /// @implements Middleware::operator()
     std::pair<Context, freighter::Error> operator()(Context context) override {
@@ -234,8 +246,8 @@ public:
     /// @param finalizer - the last middleware in the chain. This finalizer should NOT call the next middleware in
     /// the chain, as it will be a nullptr. It should instead execute the request and handle the response.
     std::pair<freighter::Context, freighter::Error> exec(
-            const freighter::Context &context,
-            freighter::Middleware *finalizer) {
+        const freighter::Context& context,
+        freighter::Middleware* finalizer) {
         if (middlewares.empty())
             return finalizer->operator()(context);
         for (size_t i = 0; i < middlewares.size(); i++) {
@@ -263,7 +275,7 @@ public:
     /// @param target the target to send the request to.
     /// @param request the request to send.
     /// @returns a pair containing the response and an error.
-    virtual std::pair<response_t, Error> send(const std::string &target, request_t &request) = 0;
+    virtual std::pair<response_t, Error> send(const std::string& target, request_t& request) = 0;
 
     virtual ~UnaryClient() = default;
 };
@@ -281,7 +293,7 @@ public:
 
     /// @brief Sends a request to the stream. It is not safe to call send concurrently with itself or closeSend.
     /// @param request - the request to send.
-    virtual Error send(request_t &request) const = 0;
+    virtual Error send(request_t& request) const = 0;
 
     /// @brief Closes the sending end of the stream, signaling to the server that no more requests will be send,
     /// and (if desired) allowing the server to close the receiving end of the stream.
@@ -304,9 +316,8 @@ public:
     /// @returns a pointer to an object implementing the Stream interface.
 
     virtual std::pair<std::unique_ptr<Stream<response_t, request_t>>, freighter::Error>
-    stream(const std::string &target) = 0;
+    stream(const std::string& target) = 0;
 
     virtual ~StreamClient() = default;
 };
-
 }

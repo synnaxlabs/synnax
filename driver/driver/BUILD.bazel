@@ -3,6 +3,7 @@ cc_library(
     srcs = [
         "driver.cpp",
         "heartbeat.cpp",
+        "task_context.cpp",
         "task_manager.cpp",
     ],
     hdrs = [
@@ -12,6 +13,7 @@ cc_library(
     deps = [
         "//client/cpp/synnax",
         "//driver/driver/breaker",
+        "//driver/driver/jsonutil",
         "@com_github_google_glog//:glog",
         "@nlohmann_json//:json",
     ],
@@ -21,6 +23,7 @@ cc_test(
     name = "test_rack",
     size = "small",
     srcs = [
+        "task_context_test.cpp",
         "task_manager_test.cpp",
     ],
     #    copts = ["/std:c++17"],

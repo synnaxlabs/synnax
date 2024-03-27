@@ -133,7 +133,7 @@ freighter::Error Writer::close() {
     while (true) {
         auto [_, recExc] = stream->receive();
         if (recExc) {
-            if (recExc.type == freighter::EOF_.type) return freighter::NIL;
+            if (recExc.matches(freighter::EOF_)) return freighter::NIL;
             return recExc;
         }
     }

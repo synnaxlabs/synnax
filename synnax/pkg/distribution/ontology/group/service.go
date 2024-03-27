@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 	"io"
 )
@@ -61,7 +62,7 @@ func OpenService(configs ...Config) (*Service, error) {
 
 func (s *Service) CreateOrRetrieve(ctx context.Context, groupName string, parent ontology.ID) (g Group, err error) {
 	err = s.NewRetrieve().Entry(&g).WhereNames(groupName).Exec(ctx, nil)
-	if g.Key != uuid.Nil || err != nil {
+	if !errors.Is(err, query.NotFound) {
 		return g, err
 	}
 	return s.NewWriter(nil).Create(ctx, groupName, parent)

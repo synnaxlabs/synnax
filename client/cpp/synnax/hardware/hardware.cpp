@@ -10,14 +10,16 @@
 
 #include "client/cpp/synnax/hardware/hardware.h"
 
+#include <utility>
+
 using namespace synnax;
 
 Rack::Rack(RackKey key, std::string name) :
         key(key),
-        name(name) {
+        name(std::move(name)) {
 }
 
-Rack::Rack(std::string name) : name(name) {
+Rack::Rack(std::string name) : name(std::move(name)) {
 }
 
 Rack::Rack(const api::v1::Rack &a) :
@@ -26,7 +28,7 @@ Rack::Rack(const api::v1::Rack &a) :
 }
 
 void Rack::to_proto(api::v1::Rack *rack) const {
-    rack->set_key(key.value);
+    rack->set_key(key);
     rack->set_name(name);
 }
 
@@ -69,23 +71,23 @@ freighter::Error HardwareClient::deleteRack(std::uint32_t key) const {
 
 Task::Task(TaskKey key, std::string name, std::string type, std::string config) :
         key(key),
-        name(name),
-        type(type),
-        config(config) {
+        name(std::move(name)),
+        type(std::move(type)),
+        config(std::move(config)) {
 }
 
 Task::Task(RackKey rack, std::string name, std::string type, std::string config) :
-        key(TaskKey(rack, 0)),
-        name(name),
-        type(type),
-        config(config) {
+        key(createTaskKey(rack, 0)),
+        name(std::move(name)),
+        type(std::move(type)),
+        config(std::move(config)) {
 }
 
-Task::Task(const api::v1::Task &a) :
-        key(a.key()),
-        name(a.name()),
-        type(a.type()),
-        config(a.config()) {
+Task::Task(const api::v1::Task &task) :
+        key(task.key()),
+        name(task.name()),
+        type(task.type()),
+        config(task.config()) {
 }
 
 void Task::to_proto(api::v1::Task *task) const {
@@ -125,7 +127,7 @@ freighter::Error TaskClient::del(std::uint64_t key) const {
 
 std::pair<std::vector<Task>, freighter::Error> TaskClient::list() const {
     auto req = api::v1::HardwareRetrieveTaskRequest();
-    req.set_rack(rack.value);
+    req.set_rack(rack);
     auto [res, err] = task_retrieve_client->send(RETRIEVE_MODULE_ENDPOINT, req);
     if (err) return {std::vector<Task>(), err};
     std::vector<Task> tasks = {res.tasks().begin(), res.tasks().end()};

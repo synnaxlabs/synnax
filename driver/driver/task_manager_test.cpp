@@ -24,27 +24,22 @@ public:
     bool configured = false;
 
     std::unique_ptr<driver::Task> createTask(
-            const std::shared_ptr<synnax::Synnax> &client,
-            const synnax::Task &module,
-            bool &valid_config,
-            json &config_err
-    ) override {
-        valid_config = false;
-        config_err["error"] = "test error";
-        return std::make_unique<driver::Task>(module);
+        const std::shared_ptr<driver::TaskContext>& ctx,
+        const driver::Task& task
+    ) {
+        return std::make_unique<driver::Task>();
     }
-
 };
 
 TEST(RackModulesTests, testModuleNominalConfiguration) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    auto [rack, err] = client->devices.createRack("test_rack");
+    auto [rack, err] = client->hardware.createRack("test_rack");
     ASSERT_FALSE(err) << err.message();
-    auto breaker =breaker::Breaker(breaker::Config{
-            "test_breaker",
-            synnax::TimeSpan(1),
-            1,
-            1
+    auto breaker = breaker::Breaker(breaker::Config{
+        "test_breaker",
+        synnax::TimeSpan(1),
+        1,
+        1
     });
     std::unique_ptr<MockModuleFactory> factory = std::make_unique<MockModuleFactory>();
     auto modules = driver::TaskManager(rack.key, client, std::move(factory), breaker);
@@ -52,10 +47,10 @@ TEST(RackModulesTests, testModuleNominalConfiguration) {
     err = modules.start(latch);
     ASSERT_FALSE(err) << err.message();
     auto mod = synnax::Task(
-            rack.key,
-            "test_module",
-            "",
-            ""
+        rack.key,
+        "test_module",
+        "",
+        ""
     );
     auto mod_err = rack.tasks.create(mod);
     ASSERT_FALSE(mod_err) << mod_err.message();
@@ -64,4 +59,3 @@ TEST(RackModulesTests, testModuleNominalConfiguration) {
     err = modules.stop();
     ASSERT_FALSE(err) << err.message();
 }
-

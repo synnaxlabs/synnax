@@ -10,3 +10,13 @@ cc_library(
         "//x/go/errors:errors_grpc",
     ],
 )
+
+cc_test(
+    name = "freighter_test",
+    size = "small",
+    srcs = ["freighter_test.cpp"],
+    deps = [
+        "//freighter/cpp/freighter",
+        "@com_google_googletest//:gtest_main",
+    ],
+)

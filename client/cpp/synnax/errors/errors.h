@@ -13,7 +13,7 @@
 #include <string>
 
 namespace synnax {
-const std::string ERROR_PREFIX = "sy.api.";
+const std::string ERROR_PREFIX = "sy.";
 const std::string VALIDATION_ERROR = ERROR_PREFIX + "validation";
 const std::string QUERY_ERROR = ERROR_PREFIX + "query";
 const std::string MULTIPLE_RESULTS = QUERY_ERROR + ".multiple_results";

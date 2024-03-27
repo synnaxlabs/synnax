@@ -49,3 +49,15 @@ TEST(testFreighter, testMiddlewareCollector) {
     auto result = collector.exec(freighter::Context("test", "1"), &f);
     ASSERT_EQ(result.first.get("test"), "6");
 }
+
+TEST(testFreighter, testErrorEqualsExactlyEqual) {
+    auto err1 = freighter::Error("test", "");
+    auto err2 = freighter::Error("test", "");
+    ASSERT_EQ(err1, err2);
+}
+
+TEST(testFreighter, testErrorHequalHasPrefix) {
+    auto err1 = freighter::Error("test", "");
+    auto err2 = freighter::Error("test-specific", "");
+    ASSERT_TRUE(err2.matches(err1));
+}

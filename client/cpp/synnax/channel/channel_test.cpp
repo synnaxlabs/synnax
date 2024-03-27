@@ -45,7 +45,7 @@ TEST(TestChannel, testCreateValidation)
         0,
         true);
     ASSERT_TRUE(err) << err.message();
-    ASSERT_EQ(err.type, synnax::VALIDATION_ERROR);
+    ASSERT_TRUE(err.matches(synnax::VALIDATION_ERROR));
 }
 
 /// @brief it should create an index based channel and assign it a non-zero key.
@@ -111,7 +111,7 @@ TEST(TestChannel, testRetrieveNotFound)
     auto client = new_test_client();
     auto [retrieved, err] = client.channels.retrieve(22);
     ASSERT_TRUE(err) << err.message();
-    ASSERT_EQ(err.type, synnax::QUERY_ERROR);
+    ASSERT_TRUE(err.matches(synnax::QUERY_ERROR));
 }
 
 /// @brief it should correctly retrieve a channel by name.

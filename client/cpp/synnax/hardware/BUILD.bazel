@@ -15,7 +15,7 @@ cc_library(
 )
 
 cc_test(
-    name = "device_test",
+    name = "hardware_test",
     srcs = [
         "hardware_test.cpp",
     ],
