@@ -28,7 +28,8 @@ type index struct {
 }
 
 type indexUpdate struct {
-	afterIndex int
+	afterIndex  int
+	unprotected bool
 }
 
 var _ observe.Observable[indexUpdate] = (*index)(nil)
@@ -38,7 +39,7 @@ func (idx *index) insert(ctx context.Context, p pointer, withLock bool) error {
 	_, span := idx.T.Bench(ctx, "insert")
 	defer span.End()
 	if withLock {
-		idx.mu.RLock()
+		idx.mu.Lock()
 	}
 	insertAt := 0
 	if p.fileKey == 0 {
@@ -52,7 +53,7 @@ func (idx *index) insert(ctx context.Context, p pointer, withLock bool) error {
 			i, overlap := idx.unprotectedSearch(p.TimeRange)
 			if overlap {
 				if withLock {
-					idx.mu.RUnlock()
+					idx.mu.Unlock()
 				}
 				return span.EndWith(ErrDomainOverlap)
 			}
@@ -60,13 +61,13 @@ func (idx *index) insert(ctx context.Context, p pointer, withLock bool) error {
 		}
 	}
 
-	// If we want to run this function with lock, then we already locked it, therefore
+	// If we want to run this function with lock, then we have already locked it, therefore
 	// we must call insertAt with no lock.
 	// If we want to run this function with no lock, then we still should not lock
 	idx.insertAt(ctx, insertAt, p, false)
 
 	if withLock {
-		idx.mu.RUnlock()
+		idx.mu.Unlock()
 	}
 	return nil
 }
@@ -98,7 +99,7 @@ func (idx *index) overlap(tr telem.TimeRange, withLock bool) bool {
 func (idx *index) update(ctx context.Context, p pointer, withLock bool) (err error) {
 	_, span := idx.T.Bench(ctx, "update")
 	if withLock {
-		idx.mu.RLock()
+		idx.mu.Lock()
 	}
 	if len(idx.mu.pointers) == 0 {
 		if withLock {
@@ -112,7 +113,7 @@ func (idx *index) update(ctx context.Context, p pointer, withLock bool) (err err
 		updateAt, _ = idx.unprotectedSearch(p.Start.SpanRange(0))
 	}
 	if withLock {
-		idx.mu.RUnlock()
+		idx.mu.Unlock()
 	}
 	return span.EndWith(idx.updateAt(ctx, updateAt, p, withLock))
 }
@@ -157,15 +158,17 @@ func (idx *index) updateAt(ctx context.Context, i int, p pointer, withLock bool)
 }
 
 func (idx *index) modifyAfter(ctx context.Context, i int, f func(), withLock bool) {
-	update := indexUpdate{afterIndex: i}
+	update := indexUpdate{afterIndex: i, unprotected: true}
 	defer func() {
 		idx.Observer.Notify(ctx, update)
 	}()
 	if withLock {
 		idx.mu.Lock()
-		defer idx.mu.Unlock()
 	}
 	f()
+	if withLock {
+		idx.mu.Unlock()
+	}
 }
 
 func (idx *index) searchLE(ctx context.Context, ts telem.TimeStamp, withLock bool) (i int) {
