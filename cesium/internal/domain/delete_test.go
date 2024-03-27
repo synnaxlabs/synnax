@@ -160,7 +160,6 @@ var _ = Describe("Delete", Ordered, func() {
 			Expect(iter.Close()).To(Succeed())
 		})
 	})
-
 	Context("Edge cases", func() {
 		It("Should return errors when the start pointer is invalid", func() {
 			err := db.Delete(ctx, -1, 1, int64(2), int64(3), telem.TimeRange{Start: 22 * telem.SecondTS, End: 30 * telem.SecondTS}, true)
