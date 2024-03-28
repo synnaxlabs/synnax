@@ -118,6 +118,7 @@ func Open(configs ...Config) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
+	idx.mu.tombstones = make(map[uint16][]pointer)
 	controller, err := openFileController(cfg)
 	if err != nil {
 		return nil, err
@@ -138,10 +139,30 @@ func (db *DB) NewIterator(cfg IteratorConfig) *Iterator {
 	return i
 }
 
+// NewLockedIterator calls NewIterator, then makes it acquire a mutex lock
+func (db *DB) NewLockedIterator(cfg IteratorConfig) *Iterator {
+	i := db.NewIterator(cfg)
+	i.Lock(func() { db.idx.mu.Lock() }, func() { db.idx.mu.Unlock() })
+	return i
+}
+
+func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) {
+	i := db.NewLockedIterator(IteratorConfig{Bounds: telem.TimeRangeMax})
+
+	if i.SeekGE(ctx, tr.Start) && i.TimeRange().OverlapsWith(tr) {
+		return true, i.Close()
+	}
+	if i.SeekLE(ctx, tr.End) && i.TimeRange().OverlapsWith(tr) {
+		return true, i.Close()
+	}
+
+	return false, i.Close()
+}
+
 // Close closes the DB. Close should not be called concurrently with any other DB methods.
 func (db *DB) Close() error {
 	w := errutil.NewCatch(errutil.WithAggregation())
-	w.Exec(db.idx.close)
+	w.Exec(func() error { return db.idx.close(true) })
 	w.Exec(db.files.close)
 	return w.Error()
 }

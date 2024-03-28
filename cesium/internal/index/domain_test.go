@@ -45,7 +45,7 @@ var _ = Describe("Domain", func() {
 					expected index.DistanceApproximation,
 					expectedErr error,
 				) {
-					actual, err := idx.Distance(ctx, tr /*continuous*/, true)
+					actual, err := idx.Distance(ctx, tr /*continuous*/, true, true)
 					if expectedErr != nil {
 						Expect(err).To(HaveOccurredAs(expectedErr))
 					} else {

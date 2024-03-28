@@ -19,26 +19,22 @@ import (
 )
 
 func (db *DB) OpenWriter(_ context.Context, cfg WriterConfig) (w *Writer, transfer controller.Transfer, err error) {
-	w = &Writer{WriterConfig: cfg, Channel: db.Channel}
+	w = &Writer{WriterConfig: cfg, Channel: db.Channel, decrementCounter: func() { db.openWriters.Add(-1) }}
 	gateCfg := controller.GateConfig{
 		TimeRange: cfg.domain(),
 		Authority: cfg.Authority,
 		Subject:   cfg.Subject,
 	}
-	var (
-		g  *controller.Gate[*controlEntity]
-		ok bool
-	)
-	g, transfer, ok, err = db.controller.OpenGate(gateCfg)
-	if err != nil {
-		return w, transfer, err
-	}
-	if !ok {
-		gateCfg.TimeRange = cfg.domain()
+	var g *controller.Gate[*controlEntity]
+	g, transfer, err = db.controller.OpenGateAndMaybeRegister(gateCfg, func() (*controlEntity, error) {
 		a := telem.Alignment(0)
-		g, transfer, err = db.controller.RegisterAndOpenGate(gateCfg, &controlEntity{ck: db.Channel.Key, align: a})
-	}
+		return &controlEntity{
+			ck:    db.Channel.Key,
+			align: a,
+		}, nil
+	})
 	w.control = g
+	db.openWriters.Add(1)
 	return w, transfer, err
 }
 
@@ -54,8 +50,9 @@ func (cfg WriterConfig) domain() telem.TimeRange {
 }
 
 type Writer struct {
-	Channel core.Channel
-	control *controller.Gate[*controlEntity]
+	Channel          core.Channel
+	decrementCounter func()
+	control          *controller.Gate[*controlEntity]
 	WriterConfig
 }
 
@@ -79,6 +76,7 @@ func (w *Writer) SetAuthority(a control.Authority) controller.Transfer {
 }
 
 func (w *Writer) Close() (controller.Transfer, error) {
+	w.decrementCounter()
 	_, t := w.control.Release()
 	return t, nil
 }

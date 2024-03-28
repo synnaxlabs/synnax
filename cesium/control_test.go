@@ -132,4 +132,7 @@ var _ = Describe("Control", Ordered, func() {
 			Expect(f.Series[0].Data).To(Equal(telem.NewSeriesV[int16](1, 2, 3, 4, 5, 6).Data))
 		})
 	})
+	Describe("Creating update channel with key 0", func() {
+		Expect(db.ConfigureControlUpdateChannel(ctx, 0).Error()).To(ContainSubstring("cannot be 0"))
+	})
 })

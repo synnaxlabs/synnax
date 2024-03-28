@@ -90,7 +90,7 @@ func (db *DB) NewWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) 
 	if err != nil {
 		return nil, err
 	}
-	if db.idx.overlap(cfg.Domain()) {
+	if db.idx.overlap(cfg.Domain(), true) {
 		return nil, ErrDomainOverlap
 	}
 	w := &Writer{
@@ -105,8 +105,8 @@ func (db *DB) NewWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) 
 	// If we don't have a preset end, we defer to using the start of the next domain
 	// as the end of the new domain.
 	if !w.presetEnd {
-		i := w.idx.searchGE(ctx, cfg.Start)
-		ptr, ok := w.idx.get(i)
+		i := w.idx.searchGE(ctx, cfg.Start, true)
+		ptr, ok := w.idx.get(i, true)
 		if !ok {
 			w.End = telem.TimeStampMax
 		} else {
@@ -152,7 +152,7 @@ func (w *Writer) Commit(ctx context.Context, end telem.TimeStamp) error {
 	}
 	f := lo.Ternary(w.prevCommit.IsZero(), w.idx.insert, w.idx.update)
 	w.prevCommit = end
-	return span.EndWith(f(ctx, ptr))
+	return span.EndWith(f(ctx, ptr, true))
 }
 
 // Close closes the writer, releasing any resources it may have been holding. Any

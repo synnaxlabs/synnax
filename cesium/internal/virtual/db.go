@@ -10,10 +10,12 @@
 package virtual
 
 import (
+	"fmt"
 	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/x/atomic"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -27,7 +29,8 @@ func (e *controlEntity) ChannelKey() core.ChannelKey { return e.ck }
 
 type DB struct {
 	Config
-	controller *controller.Controller[*controlEntity]
+	controller  *controller.Controller[*controlEntity]
+	openWriters *atomic.Int32Counter
 }
 
 type Config struct {
@@ -40,11 +43,21 @@ func Open(cfg Config) (db *DB, err error) {
 		return nil, errors.Wrap(validate.Error, "channel is not virtual")
 	}
 	return &DB{
-		Config:     cfg,
-		controller: controller.New[*controlEntity](cfg.Channel.Concurrency),
+		Config:      cfg,
+		controller:  controller.New[*controlEntity](cfg.Channel.Concurrency),
+		openWriters: &atomic.Int32Counter{},
 	}, nil
 }
 
 func (db *DB) LeadingControlState() *controller.State {
 	return db.controller.LeadingState()
 }
+
+func (db *DB) TryClose() error {
+	if db.openWriters.Value() > 0 {
+		return errors.New(fmt.Sprintf("[cesium] - channel has %d unclosed writers accessing it", db.openWriters.Value()))
+	}
+	return db.Close()
+}
+
+func (db *DB) Close() error { return nil }

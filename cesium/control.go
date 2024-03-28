@@ -25,6 +25,9 @@ type ControlUpdate struct {
 }
 
 func (db *DB) ConfigureControlUpdateChannel(ctx context.Context, key ChannelKey) error {
+	if key == 0 {
+		return errors.New("[cesium] - update channel key cannot be 0")
+	}
 	ch, err := db.RetrieveChannel(ctx, key)
 	if errors.Is(err, ChannelNotFound) {
 		ch.Key = key
@@ -63,6 +66,7 @@ func (db *DB) updateControlDigests(
 
 func (db *DB) closeControlDigests() {
 	if db.digests.key != 0 {
+		db.digests.key = 0
 		db.digests.inlet.Close()
 		confluence.Drain(db.digests.outlet)
 	}

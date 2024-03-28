@@ -10,11 +10,15 @@
 package unary
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
+	"github.com/synnaxlabs/x/atomic"
+	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -28,9 +32,10 @@ func (w controlledWriter) ChannelKey() core.ChannelKey { return w.channelKey }
 
 type DB struct {
 	Config
-	Domain     *domain.DB
-	Controller *controller.Controller[controlledWriter]
-	_idx       index.Index
+	Domain              *domain.DB
+	Controller          *controller.Controller[controlledWriter]
+	_idx                index.Index
+	openIteratorWriters *atomic.Int32Counter
 }
 
 func (db *DB) Index() index.Index {
@@ -83,13 +88,63 @@ func (db *DB) OpenIterator(cfg IteratorConfig) *Iterator {
 	cfg = DefaultIteratorConfig.Override(cfg)
 	iter := db.Domain.NewIterator(cfg.ranger())
 	i := &Iterator{
-		idx:            db.index(),
-		Channel:        db.Channel,
-		internal:       iter,
-		IteratorConfig: cfg,
+		idx:              db.index(),
+		Channel:          db.Channel,
+		internal:         iter,
+		IteratorConfig:   cfg,
+		decrementCounter: func() { db.openIteratorWriters.Add(-1) },
 	}
 	i.SetBounds(cfg.Bounds)
+	db.openIteratorWriters.Add(1)
 	return i
+}
+
+// HasDataFor check whether there is a timerange in the unary DB's underlying domain that
+// overlaps with the given timerange. Note that this function will return false if there
+// is an open writer that could write into the requested timerange
+func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) {
+	g, _, err := db.Controller.OpenAbsoluteGateIfUncontrolled(tr, control.Subject{Key: "Delete Writer"}, func() (controlledWriter, error) {
+		return controlledWriter{
+			Writer:     nil,
+			channelKey: db.Channel.Key,
+		}, nil
+	})
+
+	if err != nil {
+		return true, err
+	}
+
+	_, ok := g.Authorize()
+	if !ok {
+		g.Release()
+		return true, nil
+	}
+
+	return db.HasDataFor(ctx, tr)
+}
+
+// Read reads a timerange of data at the unary level.
+func (db *DB) Read(ctx context.Context, tr telem.TimeRange) (frame core.Frame, err error) {
+	iter := db.OpenIterator(IterRange(tr))
+	if err != nil {
+		return
+	}
+	defer func() { err = iter.Close() }()
+	if !iter.SeekFirst(ctx) {
+		return
+	}
+	for iter.Next(ctx, telem.TimeSpanMax) {
+		frame = frame.AppendFrame(iter.Value())
+	}
+	return
+}
+
+func (db *DB) TryClose() error {
+	if db.openIteratorWriters.Value() > 0 {
+		return errors.New(fmt.Sprintf("[cesium] - cannot delete channel because there are currently %d unclosed writers/iterators accessing it", db.openIteratorWriters.Value()))
+	} else {
+		return db.Close()
+	}
 }
 
 func (db *DB) Close() error { return db.Domain.Close() }

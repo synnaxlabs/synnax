@@ -22,9 +22,9 @@ var _ = Describe("FS", func() {
 		func() fs.FS {
 			return fs.NewMem()
 		},
-		//func() fs.FS {
-		//	return MustSucceed(fs.OSDirFS("./testData"))
-		//},
+		func() fs.FS {
+			return MustSucceed(fs.Default.Sub("./testData"))
+		},
 	}
 
 	for _, fsBuilder := range fileSystems {
@@ -32,9 +32,9 @@ var _ = Describe("FS", func() {
 		BeforeEach(func() {
 			myMemFS = fsBuilder()
 		})
-		//AfterEach(func() {
-		//	Expect(os.RemoveAll("./testData")).To(Succeed())
-		//})
+		AfterEach(func() {
+			Expect(os.RemoveAll("./testData")).To(Succeed())
+		})
 		Describe("Open", func() {
 			Describe("Create test CREATE flag", func() {
 				It("Should create a file in MemFS", func() {
@@ -269,6 +269,26 @@ var _ = Describe("FS", func() {
 				Expect(l[0].Name()).To(Equal("file1.json"))
 			})
 
+		})
+
+		Describe("Rename", func() {
+			It("Should rename a file for Mem FS", func() {
+				_, err := myMemFS.Open("a.json", os.O_CREATE)
+				Expect(err).To(BeNil())
+				err = myMemFS.Rename("a.json", "b.json")
+				Expect(err).To(BeNil())
+				Expect(myMemFS.Exists("a.json")).To(BeFalse())
+				Expect(myMemFS.Exists("b.json")).To(BeTrue())
+			})
+
+			It("Should rename a directory for Mem FS", func() {
+				_, err := myMemFS.Sub("a")
+				Expect(err).To(BeNil())
+				err = myMemFS.Rename("a", "b")
+				Expect(err).To(BeNil())
+				Expect(myMemFS.Exists("a")).To(BeFalse())
+				Expect(myMemFS.Exists("b")).To(BeTrue())
+			})
 		})
 	}
 })

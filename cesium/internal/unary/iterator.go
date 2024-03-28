@@ -23,13 +23,14 @@ import (
 type Iterator struct {
 	alamos.Instrumentation
 	IteratorConfig
-	Channel  core.Channel
-	internal *domain.Iterator
-	view     telem.TimeRange
-	frame    core.Frame
-	idx      index.Index
-	bounds   telem.TimeRange
-	err      error
+	Channel          core.Channel
+	decrementCounter func()
+	internal         *domain.Iterator
+	view             telem.TimeRange
+	frame            core.Frame
+	idx              index.Index
+	bounds           telem.TimeRange
+	err              error
 }
 
 const AutoSpan telem.TimeSpan = -1
@@ -188,6 +189,7 @@ func (i *Iterator) Error() error { return i.err }
 func (i *Iterator) Valid() bool { return i.partiallySatisfied() && i.err == nil }
 
 func (i *Iterator) Close() error {
+	i.decrementCounter()
 	return i.internal.Close()
 }
 
@@ -259,7 +261,7 @@ func (i *Iterator) sliceDomain(ctx context.Context) (telem.Offset, telem.Size, e
 func (i *Iterator) approximateStart(ctx context.Context) (startApprox index.DistanceApproximation, err error) {
 	if i.internal.TimeRange().Start.Before(i.view.Start) {
 		target := i.internal.TimeRange().Start.Range(i.view.Start)
-		startApprox, err = i.idx.Distance(ctx, target, true)
+		startApprox, err = i.idx.Distance(ctx, target, true, true)
 	}
 	return
 }
@@ -272,7 +274,7 @@ func (i *Iterator) approximateEnd(ctx context.Context) (endApprox index.Distance
 	endApprox = index.Exactly(i.Channel.DataType.Density().SampleCount(telem.Size(i.internal.Len())))
 	if i.internal.TimeRange().End.After(i.view.End) {
 		target := i.internal.TimeRange().Start.Range(i.view.End)
-		endApprox, err = i.idx.Distance(ctx, target, true)
+		endApprox, err = i.idx.Distance(ctx, target, true, true)
 	}
 	return
 }

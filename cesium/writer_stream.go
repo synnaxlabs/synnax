@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
+	"math"
 )
 
 // WriterCommand is an enumeration of commands that can be sent to a Writer.
@@ -274,7 +275,7 @@ func (w *streamWriter) commit(ctx context.Context) (telem.TimeStamp, error) {
 
 func (w *streamWriter) close(ctx context.Context) error {
 	c := errutil.NewCatch(errutil.WithAggregation())
-	u := ControlUpdate{Transfers: make([]controller.Transfer, 0, len(w.internal))}
+	u := ControlUpdate{Transfers: make([]controller.Transfer, 0, len(w.internal)+1)}
 	for _, idx := range w.internal {
 		c.Exec(func() error {
 			u_, err := idx.Close()
@@ -285,6 +286,17 @@ func (w *streamWriter) close(ctx context.Context) error {
 			return nil
 		})
 	}
+	if w.virtual.internal != nil {
+		c.Exec(func() error {
+			u_, err := w.virtual.Close()
+			if err != nil {
+				return err
+			}
+			u.Transfers = append(u.Transfers, u_.Transfers...)
+			return nil
+		})
+	}
+
 	if len(u.Transfers) > 0 {
 		w.updateDBControl(ctx, u)
 	}
@@ -481,6 +493,9 @@ func (w virtualWriter) Close() (ControlUpdate, error) {
 		Transfers: make([]controller.Transfer, 0, len(w.internal)),
 	}
 	for _, chW := range w.internal {
+		if chW.Channel.Key == math.MaxUint32 {
+			continue
+		}
 		c.Exec(func() error {
 			transfer, err := chW.Close()
 			if err != nil || !transfer.Occurred() {
