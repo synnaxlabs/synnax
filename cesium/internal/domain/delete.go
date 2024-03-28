@@ -18,20 +18,19 @@ import (
 // The following invariants are placed on the variables:
 // 0 <= startPosition <= endPosition < len(db.mu.idx.pointers), and must both be valid
 // positions in the index.
-// 0 <= startOffset < len(db.get(startPosition))
-// 0 <= endOffset <= len(db.get(endPosition))
 //
-// If endOffset = 0, the entirety of endPosition pointer is excluded
-// If endOffset = len(db.get(endPosition)), the entirety of endPosition pointer is included
-// If startOffset = 0, the entirety of startPosition pointer is included
-// If startOffset = len(db.get(endPosition)), the operation is invalid
+// If an endOffset overshoots the length of that pointer, then it is "clipped" to the end
+// i.e. any offset >= length will delete the whole pointer
 //
-// If endOffset = startOffset, nothing is deleted
+// Similarly, if a startOffset undershoots, then it is "clipped" to the start.
+//
+// If endOffset = 0, the entirety of endPosition pointer is excluded.
+// If endOffset = len(db.get(endPosition)), the entirety of endPosition pointer is included.
+// If startOffset = 0, the entirety of startPosition pointer is included.
+// If startOffset = len(db.get(endPosition)), the operation is invalid.
+//
+// ** Special case: if endOffset = -1, then it is equal to the length of the end pointer.
 func (db *DB) Delete(ctx context.Context, startPosition int, endPosition int, startOffset int64, endOffset int64, tr telem.TimeRange, withLock bool) error {
-	if startPosition > endPosition {
-		return errors.New("[cesium] Deletion starting position cannot be greater than ending position")
-	}
-
 	if withLock {
 		db.idx.mu.Lock()
 		defer db.idx.mu.Unlock()
@@ -45,6 +44,19 @@ func (db *DB) Delete(ctx context.Context, startPosition int, endPosition int, st
 		return errors.New("[cesium] Deletion ending at invalid position")
 	}
 
+	if startPosition > endPosition {
+		if startPosition == endPosition+1 && startOffset == 0 && (uint32(endOffset) == end.length || endOffset == -1) {
+			// Deleting nothing.
+			return nil
+		}
+
+		return errors.New("[cesium] Deletion starting position cannot be greater than ending position")
+	}
+
+	if endOffset == -1 {
+		endOffset = int64(end.length)
+	}
+
 	if startOffset >= int64(start.length) {
 		return errors.New("[cesium] Deletion start offset cannot be greater than or equal to the length of that pointer")
 	}
@@ -55,10 +67,6 @@ func (db *DB) Delete(ctx context.Context, startPosition int, endPosition int, st
 
 	if endOffset > int64(end.length) {
 		return errors.New("[cesium] Deletion end offset cannot be greater than the length of that pointer")
-	}
-
-	if endOffset < 0 {
-		return errors.New("[cesium] Deletion end offset cannot be less than 0")
 	}
 
 	if startPosition != endPosition {

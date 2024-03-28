@@ -174,9 +174,14 @@ var _ = Describe("Delete", Ordered, func() {
 		})
 
 		It("Should return errors when the start pointer is greater than or equal to the end pointer", func() {
-			err := db.Delete(ctx, 3, 1, int64(2), int64(3), telem.TimeRange{Start: 22 * telem.SecondTS, End: 30 * telem.SecondTS}, true)
+			err := db.Delete(ctx, 2, 1, int64(2), int64(3), telem.TimeRange{Start: 22 * telem.SecondTS, End: 30 * telem.SecondTS}, true)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("starting position cannot be greater than ending position"))
+		})
+
+		It("Should not return an error when the start pointer is 1 greater than the end pointer and the offsets are 0 and full, respectively", func() {
+			err := db.Delete(ctx, 2, 1, int64(0), int64(10), telem.TimeRange{Start: 40 * telem.SecondTS, End: 39 * telem.SecondTS}, true)
+			Expect(err).ToNot(HaveOccurred())
 		})
 
 		It("Should return errors when the start offset is greater than or equal to the length of the pointer", func() {
@@ -201,8 +206,8 @@ var _ = Describe("Delete", Ordered, func() {
 		//	10, 11, 12, 13, 14, 15, 16
 		//	20, 21, 22, 23, 24, 25, 26, 27, 28, 29
 		//	30, 31, 32, 33, 34, 35, 36.
-		It("Should delete a whole pointer", func() {
-			err := db.Delete(ctx, 0, 1, int64(0), int64(0), telem.TimeRange{Start: 10 * telem.SecondTS, End: 20 * telem.SecondTS}, true)
+		It("Should delete a whole pointer when -1 is passed as endOffset", func() {
+			err := db.Delete(ctx, 0, 0, int64(0), int64(-1), telem.TimeRange{Start: 10 * telem.SecondTS, End: 20 * telem.SecondTS}, true)
 			Expect(err).ToNot(HaveOccurred())
 
 			iter := db.NewIterator(domain.IteratorConfig{Bounds: telem.TimeRange{
