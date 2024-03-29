@@ -32,7 +32,7 @@ TEST(FramerTests, testStreamBasic)
             channels,
             now,
             std::vector<synnax::Authority>{synnax::ABSOLUTE},
-            synnax::Subject{"test_writer"}});
+            synnax::ControlSubject{"test_writer"}});
         ASSERT_FALSE(wErr) << wErr.message();
 
         auto [streamer, sErr] = client.telem.openStreamer(synnax::StreamerConfig{

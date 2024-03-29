@@ -336,6 +336,14 @@ func (w *idxWriter) Write(fr Frame) (Frame, error) {
 		}
 
 		if l == -1 {
+			s := fr.Series[i]
+			if s.DataType.Density() == 0 {
+				return fr, errors.Wrapf(
+					validate.Error,
+					"invalid data type for channel %d, expected %s, got %s",
+					k, telem.TimeStampT, s.DataType,
+				)
+			}
 			l = fr.Series[i].Len()
 		}
 

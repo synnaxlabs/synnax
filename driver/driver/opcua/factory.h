@@ -1,9 +1,0 @@
-
-
-
-namespace opcua {
-class factory {
-
-};
-}
-

@@ -1,0 +1,10 @@
+cc_library(
+    name = "task",
+    hdrs = ["task.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//client/cpp/synnax",
+        "@com_github_google_glog//:glog",
+        "@nlohmann_json//:json",
+    ],
+)

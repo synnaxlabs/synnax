@@ -17,113 +17,21 @@
 
 // external.
 #include "nlohmann/json.hpp"
-#include "jsonutil/jsonutil.h"
 
 // internal.
 #include "client/cpp/synnax/synnax.h"
 #include "driver/driver/breaker/breaker.h"
+#include "task/task.h"
 
 using json = nlohmann::json;
 
 namespace driver {
-/// @brief A command that can be executed on a task in order to change its state.
-struct TaskCommand {
-    /// @brief the key of the task to be commanded.
-    TaskKey task;
-    /// @brief the type of the command to execute.
-    std::string type;
-    /// @brief json arguments to the command.
-    json args;
-
-    TaskCommand(): task(0), args(json::object()) {
-    }
-
-    /// @brief Construct a new Task Command object
-    TaskCommand(TaskKey task, std::string type, json args)
-        : task(task), type(std::move(type)), args(std::move(args)) {
-    }
-
-    /// @brief parses the task command from JSON.
-    std::pair<TaskCommand, freighter::Error> fromJSON(const json& cmd) {
-        auto task_iter = cmd.find("task");
-        if (task_iter == cmd.end()) {
-            return {TaskCommand{}, freighter::Error{"task key not found"}};
-        }
-        auto type_iter = cmd.find("type");
-        if (type_iter == cmd.end()) {
-            return {TaskCommand{}, freighter::Error{"type not found"}};
-        }
-        auto args_iter = cmd.find("args");
-        json args = json::object();
-        if (args_iter != cmd.end()) args = args_iter.value();
-        return {
-            TaskCommand(
-                task_iter.value().get<TaskKey>(),
-                type_iter.value().get<std::string>(),
-                args
-            ),
-            {},
-        };
-    }
-};
-
-
-class Task {
-public:
-    void exec(TaskCommand& cmd);
-
-    void stop();
-
-    virtual ~Task() = default;
-};
-
-const std::string TASK_FAILED = "failed";
-
-struct TaskState {
-    TaskKey task;
-    std::string type;
-    json details;
-
-    json toJSON() {
-        json j;
-        j["task"] = task;
-        j["type"] = type;
-        j["details"] = details;
-        return j;
-    }
-};
-
-class TaskContext {
-public:
-    TaskContext(const std::shared_ptr<Synnax>& client);
-
-
-    void setState(TaskState state);
-private:
-    std::shared_ptr<Synnax> client;
-
-    std::mutex state_mutex;
-    std::unique_ptr<Writer> state_updater;
-    Channel task_state_channel;
-
-};
-
-class TaskFactory {
-public:
-    virtual std::unique_ptr<Task> configureTask(
-        const std::shared_ptr<TaskContext>& ctx,
-        const synnax::Task& task
-    ) = 0;
-
-    virtual ~TaskFactory() = default;
-};
-
 class TaskManager {
 public:
     [[maybe_unused]] TaskManager(
         RackKey rack_key,
         const std::shared_ptr<Synnax>& client,
-        std::unique_ptr<TaskFactory> factory,
+        std::unique_ptr<task::Factory> factory,
         breaker::Breaker breaker
     );
 
@@ -136,16 +44,18 @@ private:
     Rack internal;
 
     const std::shared_ptr<Synnax> client;
-    std::unique_ptr<TaskFactory> factory;
+    std::unique_ptr<task::Factory> factory;
     std::unique_ptr<Streamer> streamer;
 
 
-    std::unordered_map<std::uint64_t, std::unique_ptr<Task>> tasks;
+    std::unordered_map<std::uint64_t, std::unique_ptr<task::Task>> tasks;
 
     Channel task_set_channel;
     Channel task_delete_channel;
     Channel task_cmd_channel;
     Channel task_state_channel;
+
+    std::shared_ptr<task::Context> ctx;
 
     std::thread exec_thread;
     freighter::Error exit_err;
@@ -157,11 +67,11 @@ private:
 
     freighter::Error startInternal();
 
-    void processTaskSet(const Series& series, Writer& comms);
+    void processTaskSet(const Series& series);
 
-    void processTaskDelete(const Series& series, Writer& comms);
+    void processTaskDelete(const Series& series);
 
-    void processTaskCmd(const Series& series, Writer& comms);
+    void processTaskCmd(const Series& series);
 };
 
 class Heartbeat {
@@ -203,14 +113,16 @@ public:
     Driver(
         RackKey key,
         const std::shared_ptr<Synnax>& client,
-        std::unique_ptr<TaskFactory> module_factory,
+        std::unique_ptr<task::Factory> task_factory,
         const breaker::Breaker& brk
     );
 
-    freighter::Error run();
+    void run();
+
+    void stop();
 
 private:
-    RackKey key;
+    RackKey key{};
     TaskManager task_manager;
     Heartbeat heartbeat;
 };

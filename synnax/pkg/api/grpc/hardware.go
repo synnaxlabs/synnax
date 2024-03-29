@@ -158,11 +158,17 @@ func (rackCreateResponseTranslator) Backward(_ context.Context, res *gapi.Hardwa
 }
 
 func (rackRetrieveRequestTranslator) Forward(_ context.Context, req api.HardwareRetrieveRackRequest) (*gapi.HardwareRetrieveRackRequest, error) {
-	return &gapi.HardwareRetrieveRackRequest{Keys: unsafe.ReinterpretSlice[rack.Key, uint32](req.Keys)}, nil
+	return &gapi.HardwareRetrieveRackRequest{
+		Keys:  unsafe.ReinterpretSlice[rack.Key, uint32](req.Keys),
+		Names: req.Names,
+	}, nil
 }
 
 func (rackRetrieveRequestTranslator) Backward(_ context.Context, req *gapi.HardwareRetrieveRackRequest) (api.HardwareRetrieveRackRequest, error) {
-	return api.HardwareRetrieveRackRequest{Keys: unsafe.ReinterpretSlice[uint32, rack.Key](req.Keys)}, nil
+	return api.HardwareRetrieveRackRequest{
+		Keys:  unsafe.ReinterpretSlice[uint32, rack.Key](req.Keys),
+		Names: req.Names,
+	}, nil
 }
 
 func (rackRetrieveResponseTranslator) Forward(_ context.Context, res api.HardwareRetrieveRackResponse) (*gapi.HardwareRetrieveRackResponse, error) {

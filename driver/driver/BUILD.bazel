@@ -3,7 +3,6 @@ cc_library(
     srcs = [
         "driver.cpp",
         "heartbeat.cpp",
-        "task_context.cpp",
         "task_manager.cpp",
     ],
     hdrs = [
@@ -14,13 +13,14 @@ cc_library(
         "//client/cpp/synnax",
         "//driver/driver/breaker",
         "//driver/driver/jsonutil",
+        "//driver/driver/task",
         "@com_github_google_glog//:glog",
         "@nlohmann_json//:json",
     ],
 )
 
 cc_test(
-    name = "test_rack",
+    name = "test_driver",
     size = "small",
     srcs = [
         "task_context_test.cpp",
@@ -31,5 +31,18 @@ cc_test(
         "//driver/driver",
         "//driver/driver/testutil",
         "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_binary(
+    name = "driver_main",
+    srcs = ["main.cpp"],
+    deps = [
+        "//driver/driver",
+        "//driver/driver/breaker",
+        "//driver/driver/opcua",
+        "//driver/driver/task",
+        "@com_github_gflags_gflags//:gflags",
+        "@com_github_google_glog//:glog",
     ],
 )

@@ -32,53 +32,53 @@ enum WriterCommand : uint32_t {
 };
 
 
-std::pair<Writer, freighter::Error> FrameClient::openWriter(const WriterConfig &config) {
-    auto [s, exc] = writer_client->stream(WRITE_ENDPOINT);
-    if (exc) return {Writer(), exc};
-    auto req = api::v1::FrameWriterRequest();
+std::pair<Writer, freighter::Error> FrameClient::openWriter(const WriterConfig& config) const {
+    auto [s, err] = writer_client->stream(WRITE_ENDPOINT);
+    if (err) return {Writer(), err};
+    api::v1::FrameWriterRequest req;
     req.set_command(OPEN);
     config.toProto(req.mutable_config());
-    exc = s->send(req);
-    if (exc) return {Writer(), exc};
+    if (err = s->send(req); err) return {Writer(), err};
     auto [_, recExc] = s->receive();
     return {Writer(std::move(s)), recExc};
 }
 
-Writer::Writer(std::unique_ptr<WriterStream> s): stream(std::move(s)) {}
+Writer::Writer(std::unique_ptr<WriterStream> s): stream(std::move(s)) {
+}
 
 
-void WriterConfig::toProto(api::v1::FrameWriterConfig *f) const {
+void WriterConfig::toProto(api::v1::FrameWriterConfig* f) const {
     subject.to_proto(f->mutable_control_subject());
     f->set_start(start.value);
-    for (auto &auth: authorities) f->add_authorities(auth);
-    for (auto &ch: channels) f->add_keys(ch);
+    for (auto& auth: authorities) f->add_authorities(auth);
+    for (auto& ch: channels) f->add_keys(ch);
     f->set_mode(mode);
 }
 
-bool Writer::write(Frame fr) {
+bool Writer::write(const Frame &fr) {
     assertOpen();
     if (err_accumulated) return false;
     api::v1::FrameWriterRequest req;
     req.set_command(WRITE);
     fr.toProto(req.mutable_frame());
-    auto exc = stream->send(req);
-    if (exc) err_accumulated = true;
+    if (const auto err = stream->send(req); err) err_accumulated = true;
     return !err_accumulated;
 }
 
-bool Writer::setMode(synnax::WriterMode mode) {
+bool Writer::setMode(WriterMode mode) {
     assertOpen();
     if (err_accumulated) return false;
-    auto req = api::v1::FrameWriterRequest();
+
+    api::v1::FrameWriterRequest req;
     req.set_command(SET_MODE);
-    auto config = WriterConfig();
-    config.mode = mode;
+    WriterConfig config = {.mode = mode};
     config.toProto(req.mutable_config());
-    auto exc = stream->send(req);
-    if (exc) {
+
+    if (const auto err = stream->send(req); err) {
         err_accumulated = true;
         return false;
     }
+
     while (true) {
         auto [res, recExc] = stream->receive();
         if (recExc) {
@@ -94,10 +94,10 @@ std::pair<synnax::TimeStamp, bool> Writer::commit() {
     assertOpen();
     if (err_accumulated) return {synnax::TimeStamp(), false};
 
-    auto req = api::v1::FrameWriterRequest();
+    api::v1::FrameWriterRequest req;
     req.set_command(COMMIT);
-    auto exc = stream->send(req);
-    if (exc) {
+
+    if (const auto err = stream->send(req); err) {
         err_accumulated = true;
         return {synnax::TimeStamp(0), false};
     }
@@ -112,29 +112,24 @@ std::pair<synnax::TimeStamp, bool> Writer::commit() {
     }
 }
 
-freighter::Error Writer::error() {
+freighter::Error Writer::error() const {
     assertOpen();
-
-    auto req = api::v1::FrameWriterRequest();
+    api::v1::FrameWriterRequest req;
     req.set_command(ERROR_MODE);
-    auto exc = stream->send(req);
-    if (exc) return exc;
-
+    if (const auto err = stream->send(req); err) return err;
     while (true) {
         auto [res, recExc] = stream->receive();
         if (recExc) return recExc;
-        if (res.command() == ERROR_MODE) return {res.error()};
+        if (res.command() == ERROR_MODE) return freighter::Error(res.error());
     }
 }
 
-freighter::Error Writer::close() {
-    auto exc = stream->closeSend();
-    if (exc) return exc;
+freighter::Error Writer::close() const {
+    if (auto exc = stream->closeSend()) return exc;
     while (true) {
-        auto [_, recExc] = stream->receive();
-        if (recExc) {
-            if (recExc.matches(freighter::EOF_)) return freighter::NIL;
-            return recExc;
+        if (const auto rec_exc = stream->receive().second; rec_exc) {
+            if (rec_exc.matches(freighter::EOF_)) return freighter::NIL;
+            return rec_exc;
         }
     }
 }

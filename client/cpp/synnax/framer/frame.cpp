@@ -21,9 +21,10 @@
 using namespace synnax;
 
 Frame::Frame(
-        std::unique_ptr<std::vector<ChannelKey>> columns,
-        std::unique_ptr<std::vector<synnax::Series>> series
-) : columns(std::move(columns)), series(std::move(series)) {}
+    std::unique_ptr<std::vector<ChannelKey>> columns,
+    std::unique_ptr<std::vector<synnax::Series>> series
+) : columns(std::move(columns)), series(std::move(series)) {
+}
 
 
 Frame::Frame(size_t size) {
@@ -33,14 +34,14 @@ Frame::Frame(size_t size) {
     columns->reserve(size);
 }
 
-Frame::Frame(const api::v1::Frame &f) {
+Frame::Frame(const api::v1::Frame& f) {
     auto key = f.keys();
     columns = std::make_unique<std::vector<ChannelKey>>();
     series = std::make_unique<std::vector<synnax::Series>>();
     series->reserve(f.series_size());
-    for (auto &ser: f.series()) series->emplace_back(ser);
+    for (auto& ser: f.series()) series->emplace_back(ser);
     columns->reserve(key.size());
-    for (auto &k: key) columns->push_back(k);
+    for (auto& k: key) columns->push_back(k);
 }
 
 void Frame::add(ChannelKey col, synnax::Series ser) const {
@@ -48,8 +49,8 @@ void Frame::add(ChannelKey col, synnax::Series ser) const {
     series->push_back(std::move(ser));
 }
 
-void Frame::toProto(api::v1::Frame *f) const {
+void Frame::toProto(api::v1::Frame* f) const {
     f->mutable_keys()->Add(columns->begin(), columns->end());
     f->mutable_series()->Reserve(series->size());
-    for (auto &ser: *series) ser.to_proto(f->add_series());
+    for (auto& ser: *series) ser.to_proto(f->add_series());
 }

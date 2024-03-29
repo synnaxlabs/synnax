@@ -33,6 +33,7 @@ type StreamServerCore[RQ, RQT, RS, RST freighter.Payload] struct {
 	RequestTranslator  Translator[RQ, RQT]
 	ResponseTranslator Translator[RS, RST]
 	ServiceDesc        *grpc.ServiceDesc
+	Internal           bool
 	handler            func(context.Context, freighter.ServerStream[RQ, RS]) error
 	freighter.MiddlewareCollector
 }
@@ -63,7 +64,10 @@ func (s *StreamServerCore[RQ, RQT, RS, RST]) Handler(
 		}),
 	)
 	oCtx = attachContext(oCtx)
-	return err
+	if err == nil {
+		return nil
+	}
+	return errors.Encode(ctx, err, s.Internal)
 }
 
 func (s *StreamClientCore[RQ, RQT, RS, RST]) Stream(

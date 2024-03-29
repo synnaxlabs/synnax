@@ -23,11 +23,9 @@ class MockModuleFactory : public driver::TaskFactory {
 public:
     bool configured = false;
 
-    std::unique_ptr<driver::Task> createTask(
-        const std::shared_ptr<driver::TaskContext>& ctx,
-        const driver::Task& task
-    ) {
-        return std::make_unique<driver::Task>();
+    std::unique_ptr<driver::Task> configureTask(const std::shared_ptr<driver::TaskContext>& ctx,
+                                                const synnax::Task& task) override {
+        return nullptr;
     }
 };
 
@@ -42,9 +40,9 @@ TEST(RackModulesTests, testModuleNominalConfiguration) {
         1
     });
     std::unique_ptr<MockModuleFactory> factory = std::make_unique<MockModuleFactory>();
-    auto modules = driver::TaskManager(rack.key, client, std::move(factory), breaker);
+    auto task_manager = driver::TaskManager(rack.key, client, std::move(factory), breaker);
     std::latch latch{1};
-    err = modules.start(latch);
+    err = task_manager.start(latch);
     ASSERT_FALSE(err) << err.message();
     auto mod = synnax::Task(
         rack.key,
@@ -56,6 +54,6 @@ TEST(RackModulesTests, testModuleNominalConfiguration) {
     ASSERT_FALSE(mod_err) << mod_err.message();
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-    err = modules.stop();
+    err = task_manager.stop();
     ASSERT_FALSE(err) << err.message();
 }

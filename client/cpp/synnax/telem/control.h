@@ -21,7 +21,7 @@ typedef uint8_t Authority;
 
 const Authority ABSOLUTE = 255;
 
-struct Subject {
+struct ControlSubject {
     std::string name;
     std::string key;
 

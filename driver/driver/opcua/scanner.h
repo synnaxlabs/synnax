@@ -2,36 +2,41 @@
 
 #include <string>
 #include <memory>
+
+#include "opcua.h"
 #include "nlohmann/json.hpp"
 #include "client/cpp/synnax/synnax.h"
+#include "driver/driver/task/task.h"
+#include "driver/driver/config/config.h"
 
 using json = nlohmann::json;
 
 
 namespace opcua {
-struct ScannerConfig {
-    std::shared_ptr<synnax::Synnax> client;
-};
-
 struct ScannerScanCommand {
-    std::string endpoint;
-    std::string username;
-    std::string password;
+    ConnectionConfig connection;
 
-    ScannerScanCommand(const json &cmd, json& err, bool &ok);
+    explicit ScannerScanCommand(config::Parser& parser): connection(
+        ConnectionConfig(parser.child("connection"))) {
+    }
 };
 
 const std::string SCAN_CMD_TYPE = "scan";
 
-class Scanner {
+class Scanner final : public task::Task {
 public:
-    explicit Scanner(const ScannerConfig& config);
+    explicit Scanner(std::shared_ptr<task::Context> ctx, synnax::Task task);
 
-    void exec(std::string type, const json &cmd, json &err, bool &ok);
+    void exec(task::Command& cmd) override;
+
+    void stop() override {
+    }
+
 private:
-    std::shared_ptr<synnax::Synnax> client;
+    std::shared_ptr<task::Context> ctx;
+    const synnax::Task task;
 
 
-    void scan(const ScannerScanCommand &cmd, json &err, bool &ok);
+    void scan(const ScannerScanCommand& cmd, json& err, bool& ok);
 };
 }

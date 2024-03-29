@@ -22,33 +22,40 @@
 using json = nlohmann::json;
 
 driver::Driver::Driver(
-    RackKey key,
+    const RackKey key,
     const std::shared_ptr<Synnax>& client,
-    std::unique_ptr<TaskFactory> factory,
+    std::unique_ptr<task::Factory> factory,
     const breaker::Breaker& brk
-): task_manager(key, client, std::move(factory), brk), heartbeat(key, client, brk) {
+): key(key), task_manager(key, client, std::move(factory), brk), heartbeat(key, client, brk) {
 }
 
-freighter::Error driver::Driver::run() {
-    LOG(INFO) << "Starting Node " << key.node_key() << "Rack " << key.value;
+void driver::Driver::run() {
+    LOG(ERROR) << "Starting Rack " << key;
     std::latch rack_latch{1};
-    LOG(INFO) << "Starting task manager";
+    LOG(ERROR) << "Starting task manager";
     auto err = task_manager.start(rack_latch);
     if (err) {
         LOG(ERROR) << "Failed to start task manager: " << err.message();
-        return err;
+        return;
     }
     LOG(INFO) << "Task manager started successfully. Starting heartbeat.";
     err = heartbeat.start(rack_latch);
     if (err) {
         LOG(ERROR) << "Failed to start heartbeat: " << err.message();
         task_manager.stop();
-        return err;
+        return;
     }
     LOG(INFO) << "Rack started successfully. Waiting for shutdown.";
+    rack_latch.wait();
+}
+
+void driver::Driver::stop() {
     auto modules_err = task_manager.stop();
     auto hb_err = heartbeat.stop();
-    rack_latch.wait();
-    if (modules_err) return modules_err;
-    return hb_err;
+    if (modules_err) {
+        LOG(ERROR) << "Failed to stop task manager: " << modules_err.message();
+    }
+    if (hb_err) {
+        LOG(ERROR) << "Failed to stop heartbeat: " << hb_err.message();
+    }
 }

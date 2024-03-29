@@ -57,6 +57,7 @@ message HardwareCreateRackResponse {
 
 message HardwareRetrieveRackRequest {
     repeated uint32 keys = 1;
+    repeated string names = 2;
 }
 
 message HardwareRetrieveRackResponse {

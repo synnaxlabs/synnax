@@ -61,6 +61,7 @@ func (svc *HardwareService) CreateRack(ctx context.Context, req HardwareCreateRa
 
 type HardwareRetrieveRackRequest struct {
 	Keys   []rack.Key `json:"keys" msgpack:"keys"`
+	Names  []string   `json:"names" msgpack:"names"`
 	Search string     `json:"search" msgpack:"search"`
 	Limit  int        `json:"limit" msgpack:"limit"`
 	Offset int        `json:"offset" msgpack:"offset"`
@@ -74,12 +75,16 @@ func (svc *HardwareService) RetrieveRack(ctx context.Context, req HardwareRetrie
 	var (
 		hasSearch = len(req.Search) > 0
 		hasKeys   = len(req.Keys) > 0
+		hasNames  = len(req.Names) > 0
 		hasLimit  = req.Limit > 0
 		hasOffset = req.Offset > 0
 	)
 	q := svc.internal.Rack.NewRetrieve()
 	if hasKeys {
 		q = q.WhereKeys(req.Keys...)
+	}
+	if hasNames {
+		q = q.WhereNames(req.Names...)
 	}
 	if hasSearch {
 		q = q.Search(req.Search)

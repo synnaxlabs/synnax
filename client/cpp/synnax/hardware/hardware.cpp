@@ -36,7 +36,7 @@ void Rack::to_proto(api::v1::Rack *rack) const {
 const std::string RETRIEVE_RACK_ENDPOINT = "/hardware/rack/retrieve";
 const std::string CREATE_RACK_ENDPOINT = "/hardware/rack/create";
 
-std::pair<Rack, freighter::Error> HardwareClient::retrieveRack(std::uint32_t key) const {
+std::pair<Rack, freighter::Error> HardwareClient::retrieveRack(const std::uint32_t key) const {
     auto req = api::v1::HardwareRetrieveRackRequest();
     req.add_keys(key);
     auto [res, err] = rack_retrieve_client->send(RETRIEVE_RACK_ENDPOINT, req);
@@ -45,6 +45,17 @@ std::pair<Rack, freighter::Error> HardwareClient::retrieveRack(std::uint32_t key
     rack.tasks = TaskClient(rack.key, task_create_client, task_retrieve_client, task_delete_client);
     return {rack, err};
 }
+
+std::pair<Rack, freighter::Error> HardwareClient::retrieveRack(const std::string& name) const {
+    auto req = api::v1::HardwareRetrieveRackRequest();
+    req.add_names(name);
+    auto [res, err] = rack_retrieve_client->send(RETRIEVE_RACK_ENDPOINT, req);
+    if (err) return {Rack(), err};
+    auto rack = Rack(res.racks(0));
+    rack.tasks = TaskClient(rack.key, task_create_client, task_retrieve_client, task_delete_client);
+    return {rack, err};
+}
+
 
 freighter::Error HardwareClient::createRack(Rack &rack) const {
     auto req = api::v1::HardwareCreateRackRequest();
@@ -71,6 +82,13 @@ freighter::Error HardwareClient::deleteRack(std::uint32_t key) const {
 
 Task::Task(TaskKey key, std::string name, std::string type, std::string config) :
         key(key),
+        name(std::move(name)),
+        type(std::move(type)),
+        config(std::move(config)) {
+}
+
+Task::Task(std::string name, std::string type, std::string config) :
+        key(createTaskKey(0, 0)),
         name(std::move(name)),
         type(std::move(type)),
         config(std::move(config)) {

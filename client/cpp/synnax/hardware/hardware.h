@@ -85,6 +85,8 @@ public:
     std::string type;
     std::string config;
 
+    Task(std::string name, std::string type, std::string config);
+
     Task(TaskKey key, std::string name, std::string type, std::string config);
 
     Task(RackKey rack, std::string name, std::string type, std::string config);
@@ -147,6 +149,8 @@ public:
 
     Rack(std::string name);
 
+    Rack() = default;
+
     explicit Rack(const api::v1::Rack& rack);
 
     bool operator==(const Rack& rack) const { return rack.key == key; }
@@ -154,7 +158,6 @@ public:
 private:
     void to_proto(api::v1::Rack* rack) const;
 
-    Rack() = default;
 
     friend class HardwareClient;
 };
@@ -186,6 +189,9 @@ public:
 
     [[nodiscard]]
     std::pair<Rack, freighter::Error> retrieveRack(std::uint32_t key) const;
+
+    [[nodiscard]]
+    std::pair<Rack, freighter::Error> retrieveRack(const std::string& name) const;
 
     [[nodiscard]]
     freighter::Error deleteRack(std::uint32_t key) const;

@@ -13,21 +13,24 @@ import { Cache } from "@/telem/client/cache/cache";
 import { type ReadRemoteFunc, Reader } from "@/telem/client/reader";
 
 class MockRetriever implements channel.Retriever {
-  async search(term: string, rangeKey?: string): Promise<channel.Payload[]> {
+  async search(
+    term: string,
+    opts?: channel.RetrieveOptions,
+  ): Promise<channel.Payload[]> {
     throw new Error("Method not implemented.");
   }
 
   async page(
     offset: number,
     limit: number,
-    rangeKey?: string,
+    opts?: channel.PageOptions,
   ): Promise<channel.Payload[]> {
     throw new Error("Method not implemented.");
   }
 
   async retrieve(
     channels: channel.Params,
-    rangeKey?: string,
+    opts?: channel.RetrieveOptions,
   ): Promise<channel.Payload[]> {
     const { normalized } = channel.analyzeParams(channels);
     return normalized.map(

@@ -11,7 +11,7 @@
 
 /// Internal
 #include "synnax/synnax.h"
-#include "acq.h"
+#include "Acquisition.h"
 #include "driver/testutil/testutil.h"
 
 /// @brief it should use niReader and perform a acuisition workflow which
@@ -63,11 +63,11 @@ TEST(AcqTests, testAcqNiAnalogReader){
             std::vector<synnax::ChannelKey>{time.key, data.key},
             now,
             std::vector<synnax::Authority>{synnax::ABSOLUTTE, synnax::ABSOLUTTE},
-            synnax::Subject{"test_writer"},
+            synnax::ControlSubject{"test_writer"},
     };
 
     // instantiate the acq
-    auto acq = Acq::Acq(writerConfig, client, std::move(reader));
+    auto acq = Acquisition::Acquisition(writerConfig, client, std::move(reader));
     acq.start();
     std::this_thread::sleep_for(std::chrono::seconds(200));
     acq.stop();
@@ -122,11 +122,11 @@ TEST(AcqTests, testAcqNiDigitalReader){
             std::vector<synnax::ChannelKey>{idx.key, d1.key},
             now,
             std::vector<synnax::Authority>{synnax::ABSOLUTTE, synnax::ABSOLUTTE},
-            synnax::Subject{"test_writer"},
+            synnax::ControlSubject{"test_writer"},
     };
 
     // instantiate the acq
-    auto acq = Acq::Acq(writerConfig, client, std::move(reader));
+    auto acq = Acquisition::Acquisition(writerConfig, client, std::move(reader));
     acq.start();
     std::this_thread::sleep_for(std::chrono::seconds(200));
     acq.stop();

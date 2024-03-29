@@ -15,21 +15,20 @@ std::string STREAM_ENDPOINT = "/frame/stream";
 
 using namespace synnax;
 
-void StreamerConfig::toProto(api::v1::FrameStreamerRequest *f) const
+void StreamerConfig::toProto(api::v1::FrameStreamerRequest &f) const
 {
-    f->mutable_keys()->Add(channels.begin(), channels.end());
-    f->set_start(start.value);
+    f.mutable_keys()->Add(channels.begin(), channels.end());
+    f.set_start(start.value);
 }
 
-std::pair<Streamer, freighter::Error> FrameClient::openStreamer(const StreamerConfig &config)
+std::pair<Streamer, freighter::Error> FrameClient::openStreamer(const StreamerConfig &config) const
 {
     auto [s, exc] = streamer_client->stream(STREAM_ENDPOINT);
     if (exc)
         return {Streamer(), exc};
-    auto req = new api::v1::FrameStreamerRequest();
+    auto req = api::v1::FrameStreamerRequest();
     config.toProto(req);
-    auto exc2 = s->send(*req);
-    delete req;
+    auto exc2 = s->send(req);
     return {Streamer(std::move(s)), exc2};
 }
 
@@ -60,11 +59,10 @@ freighter::Error Streamer::close() const
 freighter::Error Streamer::setChannels(std::vector<ChannelKey> channels) const
 {
     assertOpen();
-    auto req = new api::v1::FrameStreamerRequest();
-    req->mutable_keys()->Add(channels.begin(), channels.end());
-    auto [_, exc] = stream->send(*req);
-    delete req;
-    return exc;
+    auto req = api::v1::FrameStreamerRequest();
+    req.mutable_keys()->Add(channels.begin(), channels.end());
+    auto err = stream->send(req);
+    return err;
 }
 
 void Streamer::assertOpen() const

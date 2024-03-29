@@ -13,26 +13,39 @@ cc_library(
 cc_library(
     name = "opcua",
     srcs = [
+        "factory.cpp",
+        "reader.cpp",
         "scanner.cpp",
+        "util.cpp",
     ],
     hdrs = [
+        "opcua.h",
+        "reader.h",
         "scanner.h",
+        "util.h",
     ],
     visibility = ["//visibility:public"],
     deps = [
         ":open62541",
         "//client/cpp/synnax",
+        "//driver/driver/config",
+        "//driver/driver/pipeline",
+        "//driver/driver/task",
+        "@com_github_google_glog//:glog",
         "@nlohmann_json//:json",
     ],
 )
 
 cc_test(
-    name = "scanner_test",
+    name = "opcua_test",
     srcs = [
+        "mock_server.h",
+        "reader_test.cpp",
         "scanner_test.cpp",
     ],
     deps = [
         ":opcua",
+        "//driver/driver/testutil",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -41,6 +54,14 @@ cc_binary(
     name = "server",
     srcs = ["server.cpp"],
     deps = [
-        ":opcua",
+        ":open62541",
+    ],
+)
+
+cc_binary(
+    name = "client",
+    srcs = ["client.cpp"],
+    deps = [
+        ":open62541",
     ],
 )

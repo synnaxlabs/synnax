@@ -30,7 +30,7 @@ freighter::Error errorFromGRPCStatus(grpc::Status status)
         return freighter::NIL;
     if (status.error_code() == grpc::StatusCode::UNAVAILABLE)
         return {freighter::TYPE_UNREACHABLE, status.error_message()};
-    return {status.error_message()};
+    return freighter::Error(status.error_message());
 }
 
 /// @brief an internal method for reading the entire contents of certificate files

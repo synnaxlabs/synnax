@@ -8,6 +8,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <glog/logging.h>
 #include "driver/driver/driver.h"
 
 driver::Heartbeat::Heartbeat(
@@ -17,7 +18,6 @@ driver::Heartbeat::Heartbeat(
 ) :
         rack_key(rack),
         client(std::move(client)),
-        generation(generation),
         version(0),
         breaker(std::move(breaker)),
         running(false),
@@ -41,24 +41,28 @@ freighter::Error driver::Heartbeat::stop() {
 
 void driver::Heartbeat::run() {
     std::vector channels = {channel.key};
+    LOG(ERROR) << "Running";
     auto [writer, err] = client->telem.openWriter(WriterConfig{.channels = channels});
     if (err) {
-        if (err.type == freighter::TYPE_UNREACHABLE && breaker.wait()) run();
+        LOG(ERROR) << "Open writer error" << err;
+        if ((err.matches(freighter::TYPE_UNREACHABLE) || err.matches(freighter::STREAM_CLOSED)) && breaker.wait()) run();
         exit_err = err;
         return;
     }
 
     while (running) {
-        auto heartbeat = static_cast<std::uint64_t>(rack_key.value) << 32 | version;
+        auto heartbeat = static_cast<std::uint64_t>(rack_key) << 32 | version;
         auto series = Series(std::vector{heartbeat});
         auto fr = Frame(1);
         fr.add(channel.key, std::move(series));
         if (!writer.write(std::move(fr))) {
             auto w_err = writer.error();
-            if (w_err.type == freighter::TYPE_UNREACHABLE && breaker.wait()) run();
+            std::cout << w_err.message() << std::endl;
+            if ((w_err.matches(freighter::TYPE_UNREACHABLE) || w_err.matches(freighter::STREAM_CLOSED)) && breaker.wait()) run();
             exit_err = w_err;
             break;
         }
+        std::this_thread::sleep_for(std::chrono::seconds(1));
         version++;
     }
     writer.close();

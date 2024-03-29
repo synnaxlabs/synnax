@@ -1,3 +1,6 @@
+//
+// Created by Emiliano Bonilla on 3/29/24.
+//
 /* This work is licensed under a Creative Commons CCZero 1.0 Universal License.
  * See http://creativecommons.org/publicdomain/zero/1.0/ for more information. */
 
@@ -30,35 +33,37 @@ nodeIter(UA_NodeId childId, UA_Boolean isInverse, UA_NodeId referenceTypeId, voi
 }
 
 int main(int argc, char *argv[]) {
+    // UA_Client *client = UA_Client_new();
+    // UA_ClientConfig_setDefault(UA_Client_getConfig(client));
+    //
+    // /* Listing endpoints */
+    // UA_EndpointDescription* endpointArray = NULL;
+    // size_t endpointArraySize = 0;
+    // UA_StatusCode retval = UA_Client_getEndpoints(client, "opc.tcp://0.0.0.0:4840/freeopcua/server",
+    //                                               &endpointArraySize, &endpointArray);
+    // if(retval != UA_STATUSCODE_GOOD) {
+    //     printf("Could not get the endpoints\n");
+    //     UA_Array_delete(endpointArray, endpointArraySize, &UA_TYPES[UA_TYPES_ENDPOINTDESCRIPTION]);
+    //     UA_Client_delete(client);
+    //     return EXIT_SUCCESS;
+    // }
+    // printf("%i endpoints found\n", (int)endpointArraySize);
+    // for(size_t i=0;i<endpointArraySize;i++) {
+    //     printf("URL of endpoint %i is %.*s\n", (int)i,
+    //            (int)endpointArray[i].endpointUrl.length,
+    //            endpointArray[i].endpointUrl.data);
+    // }
+    // UA_Array_delete(endpointArray,endpointArraySize, &UA_TYPES[UA_TYPES_ENDPOINTDESCRIPTION]);
+    // UA_Client_delete(client);
+    //
+    // /* Create a client and connect */
+    // client = UA_Client_new();
+    // UA_ClientConfig_setDefault(UA_Client_getConfig(client));
+    // /* Connect to a server */
+    // /* anonymous connect would be: retval = UA_Client_connect(client, "opc.tcp://localhost:4840"); */
     UA_Client *client = UA_Client_new();
     UA_ClientConfig_setDefault(UA_Client_getConfig(client));
-
-    /* Listing endpoints */
-    UA_EndpointDescription* endpointArray = NULL;
-    size_t endpointArraySize = 0;
-    UA_StatusCode retval = UA_Client_getEndpoints(client, "opc.tcp://0.0.0.0:4840",
-                                                  &endpointArraySize, &endpointArray);
-    if(retval != UA_STATUSCODE_GOOD) {
-        printf("Could not get the endpoints\n");
-        UA_Array_delete(endpointArray, endpointArraySize, &UA_TYPES[UA_TYPES_ENDPOINTDESCRIPTION]);
-        UA_Client_delete(client);
-        return EXIT_SUCCESS;
-    }
-    printf("%i endpoints found\n", (int)endpointArraySize);
-    for(size_t i=0;i<endpointArraySize;i++) {
-        printf("URL of endpoint %i is %.*s\n", (int)i,
-               (int)endpointArray[i].endpointUrl.length,
-               endpointArray[i].endpointUrl.data);
-    }
-    UA_Array_delete(endpointArray,endpointArraySize, &UA_TYPES[UA_TYPES_ENDPOINTDESCRIPTION]);
-    UA_Client_delete(client);
-
-    /* Create a client and connect */
-    client = UA_Client_new();
-    UA_ClientConfig_setDefault(UA_Client_getConfig(client));
-    /* Connect to a server */
-    /* anonymous connect would be: retval = UA_Client_connect(client, "opc.tcp://localhost:4840"); */
-    retval = UA_Client_connect(client, "opc.tcp://0.0.0.0:4840");
+    UA_StatusCode retval = UA_Client_connect(client, "opc.tcp://0.0.0.0:4840");
     if(retval != UA_STATUSCODE_GOOD) {
         printf("Could not connect\n");
         UA_Client_delete(client);
@@ -134,11 +139,10 @@ int main(int argc, char *argv[]) {
     printf("\nReading the value of node (1, \"the.answer\"):\n");
     UA_Variant *val = UA_Variant_new();
     retval = UA_Client_readValueAttribute(client, UA_NODEID_STRING(1, "the.answer"), val);
-    printf("retval: %f\n", val->data);
     if(retval == UA_STATUSCODE_GOOD && UA_Variant_isScalar(val) &&
        val->type == &UA_TYPES[UA_TYPES_INT32]) {
-        value = *(UA_Int32*)val->data;
-        printf("the value is: %i\n", value);
+            value = *(UA_Int32*)val->data;
+            printf("the value is: %i\n", value);
     }
     UA_Variant_delete(val);
 
@@ -157,7 +161,7 @@ int main(int argc, char *argv[]) {
     wReq.nodesToWrite[0].value.value.data = &value;
     UA_WriteResponse wResp = UA_Client_Service_write(client, wReq);
     if(wResp.responseHeader.serviceResult == UA_STATUSCODE_GOOD)
-        printf("the new value is: %i\n", value);
+            printf("the new value is: %i\n", value);
     UA_WriteRequest_clear(&wReq);
     UA_WriteResponse_clear(&wResp);
 

@@ -39,6 +39,7 @@ TEST(testFreighter, testMiddleware) {
     ASSERT_EQ(result.first.get("test"), "5");
 }
 
+
 TEST(testFreighter, testMiddlewareCollector) {
     auto collector = freighter::MiddlewareCollector();
     auto mw1 = std::make_shared<BasicMiddleware>("5");
@@ -48,6 +49,11 @@ TEST(testFreighter, testMiddlewareCollector) {
     collector.use(mw2);
     auto result = collector.exec(freighter::Context("test", "1"), &f);
     ASSERT_EQ(result.first.get("test"), "6");
+}
+
+TEST(testFreighter, testErrorConstructionFromString) {
+    std::string error = "sy.validation---invalid key: 1000: validation error";
+    auto err = freighter::Error(error);
 }
 
 TEST(testFreighter, testErrorEqualsExactlyEqual) {

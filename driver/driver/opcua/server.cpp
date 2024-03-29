@@ -1,7 +1,12 @@
+//
+// Created by Emiliano Bonilla on 3/29/24.
+//
 /* This work is licensed under a Creative Commons CCZero 1.0 Universal License.
  * See http://creativecommons.org/publicdomain/zero/1.0/ for more information. */
 
 #include <open62541/server.h>
+#include <open62541/server_config_default.h>
+
 
 /* Build Instructions (Linux)
  * - g++ server.cpp -lopen62541 -o server */
@@ -10,6 +15,8 @@ using namespace std;
 
 int main() {
     UA_Server *server = UA_Server_new();
+    UA_ServerConfig_setDefault(UA_Server_getConfig(server));
+
 
     // add a variable node to the adresspace
     UA_VariableAttributes attr = UA_VariableAttributes_default;

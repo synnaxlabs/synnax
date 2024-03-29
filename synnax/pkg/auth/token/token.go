@@ -60,7 +60,7 @@ func (s *Service) Validate(token string) (uuid.UUID, error) {
 func (s *Service) ValidateMaybeRefresh(token string) (uuid.UUID, string, error) {
 	id, claims, err := s.validate(token)
 	if err != nil {
-		return id, "", err
+		return id, "", errors.Wrap(auth.Error, err.Error())
 	}
 	if s.isCloseToExpired(claims) {
 		tk, err := s.New(id)

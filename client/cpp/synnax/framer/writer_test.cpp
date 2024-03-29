@@ -42,7 +42,7 @@ TEST(FramerTests, testWriteBasic) {
             std::vector<synnax::ChannelKey>{time.key, data.key},
             now,
             std::vector<synnax::Authority>{synnax::ABSOLUTE, synnax::ABSOLUTE},
-            synnax::Subject{"test_writer"},
+            synnax::ControlSubject{"test_writer"},
     });
     ASSERT_FALSE(wErr) << wErr.message();
 
@@ -69,10 +69,56 @@ TEST(FramerTests, testWriteBasic) {
     ASSERT_TRUE(writer.write(std::move(frame)));
     auto [end, ok] = writer.commit();
     ASSERT_TRUE(ok);
-    std::cout << "end: " << end.value << std::endl;
     ASSERT_EQ(end.value, (now + (synnax::SECOND * 8 + 1)).value);
-    //print end
     auto err = writer.close();
     ASSERT_FALSE(err) << err.message();
 }
 
+TEST(FramerTests, testOpenWriterOnNonexistentChannel) {
+        auto client = new_test_client();
+        auto [time, t_err] = client.channels.create(
+                "time",
+                synnax::TIMESTAMP,
+                0,
+                true
+        );
+        ASSERT_FALSE(t_err) << t_err.message();
+        auto now = synnax::TimeStamp::now();
+        auto [writer, w_err] = client.telem.openWriter(synnax::WriterConfig{
+                std::vector<synnax::ChannelKey>{time.key, 1000},
+                now,
+                std::vector<synnax::Authority>{synnax::ABSOLUTE},
+                synnax::ControlSubject{"test_writer"},
+        });
+        ASSERT_TRUE(w_err) << w_err.message();
+        ASSERT_TRUE(w_err.matches(synnax::QUERY_ERROR));
+}
+
+TEST(FramerTests, testWriteToUnspecifiedChannel) {
+        auto client = new_test_client();
+        auto [time, t_err] = client.channels.create(
+                "time",
+                synnax::TIMESTAMP,
+                0,
+                true
+        );
+        ASSERT_FALSE(t_err) << t_err.message();
+        auto [writer, w_err] = client.telem.openWriter(synnax::WriterConfig{
+                std::vector<synnax::ChannelKey>{time.key},
+                synnax::TimeStamp::now(),
+                std::vector<synnax::Authority>{synnax::ABSOLUTE},
+                synnax::ControlSubject{"test_writer"},
+        });
+        ASSERT_FALSE(w_err) << w_err.message();
+        auto frame = synnax::Frame(1);
+        frame.add(
+                1000,
+                synnax::Series(std::vector<uint8_t>{2, 3, 4, 5, 6, 7, 8, 9})
+        );
+        ASSERT_TRUE(writer.write(frame));
+        auto [end, ok] = writer.commit();
+        ASSERT_FALSE(ok);
+        auto err = writer.error();
+        ASSERT_TRUE(err) << err.message();
+        ASSERT_TRUE(err.matches(synnax::VALIDATION_ERROR)) << err.message();
+}

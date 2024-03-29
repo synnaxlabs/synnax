@@ -20,15 +20,14 @@
 
 using json = nlohmann::json;
 
-
-
 driver::TaskManager::TaskManager(
     RackKey rack_key,
     const std::shared_ptr<Synnax>& client,
-    std::unique_ptr<TaskFactory> factory,
+    std::unique_ptr<task::Factory> factory,
     breaker::Breaker breaker
 ) : rack_key(rack_key),
     client(client),
+    ctx(std::make_shared<task::Context>(client)),
     factory(std::move(factory)),
     exit_err(freighter::NIL),
     breaker(std::move(breaker)),
@@ -40,6 +39,7 @@ const std::string TASK_DELETE_CHANNEL = "sy_task_delete";
 const std::string TASK_CMD_CHANNEL = "sy_task_cmd";
 
 freighter::Error driver::TaskManager::start(std::latch& latch) {
+    LOG(ERROR) << "Starting task manager";
     auto err = startInternal();
     if (err) {
         if (err.type == freighter::TYPE_UNREACHABLE && breaker.wait()) start(latch);
@@ -53,7 +53,7 @@ freighter::Error driver::TaskManager::start(std::latch& latch) {
 
 freighter::Error driver::TaskManager::startInternal() {
     // Fetch info about the rack.
-    auto [rack, rack_err] = client->hardware.retrieveRack(rack_key.value);
+    auto [rack, rack_err] = client->hardware.retrieveRack(rack_key);
     if (rack_err) return rack_err;
     internal = rack;
 
@@ -72,21 +72,19 @@ freighter::Error driver::TaskManager::startInternal() {
     if (task_cmd_err) return task_cmd_err;
     task_cmd_channel = task_cmd;
 
-    // Fetch task state channel.
-    auto [task_state, task_state_err] = client->channels.retrieve(TASK_STATE_CHANNEL);
-    if (task_state_err) return task_state_err;
-    task_state_channel = task_state;
+    LOG(ERROR) << "Checkpoint";
 
     return freighter::NIL;
 }
 
 
 void driver::TaskManager::run(std::latch& latch) {
+    LOG(ERROR) << "Running task manager outer";
     auto err = runInternal();
     if (err) {
         // This is the only error type that we retry on.
         if (err.matches(freighter::TYPE_UNREACHABLE) && breaker.wait()) runInternal();
-        exit_err = err;
+        if (!err.matches(freighter::EOF_)) exit_err = err;
     }
     latch.count_down();
 }
@@ -98,34 +96,32 @@ freighter::Error driver::TaskManager::stop() {
 }
 
 freighter::Error driver::TaskManager::runInternal() {
+    LOG(ERROR) << "Running task manager";
     // Open the streamer.
     std::vector stream_channels = {task_set_channel.key, task_delete_channel.key, task_cmd_channel.key};
     auto [s, open_err] = client->telem.openStreamer(StreamerConfig{.channels = stream_channels});
     if (open_err) return open_err;
     streamer = std::make_unique<Streamer>(std::move(s));
 
-    // Open the writer.
-    std::vector write_channels = {task_state_channel.key};
-    auto [writer, writer_err] = client->telem.openWriter(WriterConfig{.channels = write_channels});
-    if (writer_err) return writer_err;
-
     // If we pass here it means we've re-gained network connectivity and can reset the breaker.
     breaker.reset();
 
     while (true) {
         auto [frame, read_err] = streamer->read();
+        LOG(ERROR) << "Read frame";
         if (read_err) return read_err;
         for (size_t i = 0; i < frame.size(); i++) {
             auto& key = (*frame.columns)[i];
             auto& series = (*frame.series)[i];
-            if (key == task_set_channel.key) processTaskSet(series, writer);
+            if (key == task_set_channel.key) processTaskSet(series);
             else if (key == task_delete_channel.key) processTaskDelete(series);
+            else if (key == task_cmd_channel.key) processTaskCmd(series);
         }
     }
     return freighter::NIL;
 }
 
-void driver::TaskManager::processTaskSet(const Series& series, Writer& comms) {
+void driver::TaskManager::processTaskSet(const Series& series) {
     auto keys = series.uint64();
     for (auto key: keys) {
         // If a module exists with this key, stop and remove it.
@@ -139,42 +135,35 @@ void driver::TaskManager::processTaskSet(const Series& series, Writer& comms) {
             std::cerr << err.message() << std::endl;
             continue;
         }
-
-        json config_err;
-        bool valid_config = true;
-        auto driver_task = factory->createTask(client, sy_task, valid_config, config_err);
-        if (!valid_config) {
-            json state;
-            state["key"] = sy_task.key;
-            state["variant"] = "failed";
-            state["error"] = config_err;
-            auto fr = Frame(1);
-            fr.add(task_state_channel.key, Series(std::vector{to_string(state)}, JSON));
-            comms.write(std::move(fr));
-            continue;
+        LOG(ERROR) << "Configuring task: " << sy_task.name << " with key: " << key << ".";
+        auto [driver_task, ok] = factory->configureTask(ctx, sy_task);
+        if (ok && driver_task != nullptr) {
+            tasks[key] = std::move(driver_task);
         }
-        tasks[key] = std::move(driver_task);
     }
 }
 
-void driver::TaskManager::processTaskCmd(const Series& series, Writer& comms) {
+void driver::TaskManager::processTaskCmd(const Series& series) {
     auto commands = series.string();
     for (const auto& cmd_str: commands) {
+        LOG(ERROR) << "Processing command: " << cmd_str;
         auto cmd_json = json::parse(cmd_str);
-        json err;
-        bool ok = true;
-        auto cmd = TaskCommand(cmd_json, err, ok);
-        if (!ok) continue;
+        auto [cmd, err] = task::Command::fromJSON(cmd_json);
+        if (err) {
+            LOG(ERROR) << "Failed to parse command: " << err;
+            continue;
+        }
         auto it = tasks.find(cmd.task);
         if (it == tasks.end()) {
-            return;
+            LOG(ERROR) << "Could not find task to execute command: " << cmd.task;
+            continue;
         }
         it->second->exec(cmd);
     }
 }
 
 
-void driver::TaskManager::processTaskDelete(const Series& series, Writer& comms) {
+void driver::TaskManager::processTaskDelete(const Series& series) {
     auto keys = series.uint64();
     for (auto key: keys) {
         auto it = tasks.find(key);
@@ -182,11 +171,5 @@ void driver::TaskManager::processTaskDelete(const Series& series, Writer& comms)
             it->second->stop();
             tasks.erase(it);
         }
-        json state;
-        state["key"] = key;
-        state["variant"] = "deleted";
-        auto fr = Frame(1);
-        fr.add(task_state_channel.key, Series(std::vector{to_string(state)}, JSON));
-        comms.write(std::move(fr));
     }
 }

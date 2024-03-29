@@ -13,6 +13,7 @@
 #include <memory>
 #include <string>
 #include <iostream>
+#include <utility>
 
 #include "x/go/errors/x/go/errors/errors.pb.h"
 
@@ -21,18 +22,21 @@ const std::string TYPE_NIL = "nil";
 const std::string TYPE_UNKNOWN = "unknown";
 const std::string TYPE_UNREACHABLE = "freighter.unreachable";
 
+/// @brief a network transportable error with a type and string encoded data.
 class Error {
 public:
     std::string type;
     std::string data;
 
-    Error() noexcept: type(TYPE_NIL) {
+    /// @brief constructs the default version fo the error with TYPE_NIL.
+    Error(): type(TYPE_NIL) {
     }
 
-    Error(const std::string& type, const std::string& data) noexcept: type(type), data(data) {
+    /// @brief constructs the error from a particular string data and data.
+    Error(std::string type, std::string data): type(std::move(type)), data(std::move(data)) {
     }
 
-    Error(const std::string& err) {
+    explicit Error(const std::string& err) {
         type = TYPE_UNKNOWN;
         data = err;
         std::cout << err << std::endl;
@@ -43,20 +47,25 @@ public:
         }
     }
 
-    Error(const errors::PBPayload& err) {
+    explicit Error(const errors::PBPayload& err) {
         type = err.type();
         data = err.data();
     }
 
-
-    [[nodiscard]] bool ok() const { return type == TYPE_NIL; }
-
-    [[nodiscard]] std::string message() const { return type + ":" + data; }
-
+    /// @brief copy constructor.
     Error(const Error& other) noexcept {
         type = other.type;
         data = other.data;
     }
+
+
+    /// @returns true if the error if of TYPE_NIL, and false otherwise.
+    [[nodiscard]] bool ok() const { return type == TYPE_NIL; }
+
+    /// @returns a string formatted error message.
+    [[nodiscard]] std::string message() const { return type + ":" + data; }
+
+
 
     explicit operator bool() const { return !ok(); }
 
@@ -66,13 +75,21 @@ public:
     }
 
 
-    bool matches(const Error& other) const {
+    [[nodiscard]] bool matches(const Error& other) const {
         return matches(other.type);
     }
 
-    bool matches(const std::string& other) const {
+    [[nodiscard]] bool matches(const std::string& other) const {
         auto res = std::mismatch(other.begin(), other.end(), type.begin());
         return res.first == other.end();
+    }
+
+    [[nodiscard]] bool matches(const std::vector<std::string>& types) const {
+        return std::any_of(types.begin(), types.end(), [this](const std::string& t) { return matches(t); });
+    }
+
+    [[nodiscard]] bool matches(const std::vector<Error>& errors) const {
+        return std::any_of(errors.begin(), errors.end(), [this](const Error& e) { return matches(e); });
     }
 
     bool operator==(const Error& other) const { return type == other.type; };
@@ -87,9 +104,10 @@ public:
 static_assert(std::is_nothrow_copy_constructible<Error>::value,
               "Error must be nothrow copy constructible");
 
-const Error NIL = Error{TYPE_NIL, ""};
-const Error STREAM_CLOSED = Error{"freighter.stream_closed", "Stream closed"};
-const Error EOF_ = Error{"freighter.eof", "EOF"};
+const Error NIL = {TYPE_NIL, ""};
+const Error STREAM_CLOSED = {"freighter.stream_closed", "Stream closed"};
+const Error EOF_ = {"freighter.eof", "EOF"};
+const Error UNREACHABLE = {"freighter.unreachable", "Unreachable"};
 
 /// @brief A simple URL builder.
 struct URL {

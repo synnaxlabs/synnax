@@ -18,6 +18,8 @@
 #include "freighter/cpp/freighter/freighter.h"
 #include <grpcpp/grpcpp.h>
 
+#include "client/cpp/synnax/errors/errors.h"
+
 /// Auth meta data key. NOTE: This must be lowercase, GRPC will panic on capitalized
 /// or uppercase keys.
 const std::string HEADER_KEY = "authorization";
