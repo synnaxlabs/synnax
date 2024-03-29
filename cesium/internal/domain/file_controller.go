@@ -11,6 +11,7 @@ package domain
 
 import (
 	"context"
+	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/x/errutil"
 	xio "github.com/synnaxlabs/x/io"
 	"io"
@@ -88,7 +89,7 @@ func (fc *fileController) acquireWriter(ctx context.Context) (uint16, xio.Tracke
 		return w.fileKey, w, span.Error(err)
 	}
 
-	ok, err := fc.gcReaders()
+	ok, err := fc.gcWriters()
 	if err != nil {
 		return 0, nil, span.Error(err)
 	}
@@ -191,17 +192,31 @@ func (fc *fileController) newReader(ctx context.Context, key uint16) (*controlle
 }
 
 func (fc *fileController) gcReaders() (bool, error) {
-	fc.readers.RLock()
+	fc.readers.Lock()
+	defer fc.readers.Unlock()
 	for k, v := range fc.readers.open {
 		for i, r := range v {
 			if r.tryAcquire() {
-				fc.readers.RUnlock()
-				err := r.ReaderAtCloser.Close()
-				fc.readers.Lock()
+				err := r.Close()
+				err = errors.CombineErrors(err, r.ReaderAtCloser.Close())
 				fc.readers.open[k] = append(v[:i], v[i+1:]...)
-				fc.readers.Unlock()
 				return true, err
 			}
+		}
+	}
+	return false, nil
+}
+
+// gcWriters closes all open writers that are not currently being written to
+func (fc *fileController) gcWriters() (bool, error) {
+	fc.writers.Lock()
+	defer fc.writers.Unlock()
+	for k, w := range fc.writers.open {
+		if w.tryAcquire() {
+			err := w.Close()
+			err = errors.CombineErrors(err, w.TrackedWriteCloser.Close())
+			delete(fc.writers.open, k)
+			return true, err
 		}
 	}
 	return false, nil
