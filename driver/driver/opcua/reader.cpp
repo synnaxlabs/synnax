@@ -92,8 +92,8 @@ Reader::Reader(
     auto breaker_config = breaker::Config{
         .name = task.name,
         .base_interval = 1 * SECOND,
-        .scale = 1.2,
         .max_retries = 20,
+        .scale = 1.2,
     };
     breaker = breaker::Breaker(breaker_config);
 
