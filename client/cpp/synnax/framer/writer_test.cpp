@@ -41,7 +41,7 @@ TEST(FramerTests, testWriteBasic) {
     auto [writer, wErr] = client.telem.openWriter(synnax::WriterConfig{
             std::vector<synnax::ChannelKey>{time.key, data.key},
             now,
-            std::vector<synnax::Authority>{synnax::ABSOLUTE, synnax::ABSOLUTE},
+            std::vector<synnax::Authority>{synnax::ABSOLUTTE, synnax::ABSOLUTTE},
             synnax::ControlSubject{"test_writer"},
     });
     ASSERT_FALSE(wErr) << wErr.message();
@@ -87,7 +87,7 @@ TEST(FramerTests, testOpenWriterOnNonexistentChannel) {
         auto [writer, w_err] = client.telem.openWriter(synnax::WriterConfig{
                 std::vector<synnax::ChannelKey>{time.key, 1000},
                 now,
-                std::vector<synnax::Authority>{synnax::ABSOLUTE},
+                std::vector<synnax::Authority>{synnax::ABSOLUTTE},
                 synnax::ControlSubject{"test_writer"},
         });
         ASSERT_TRUE(w_err) << w_err.message();
@@ -106,7 +106,7 @@ TEST(FramerTests, testWriteToUnspecifiedChannel) {
         auto [writer, w_err] = client.telem.openWriter(synnax::WriterConfig{
                 std::vector<synnax::ChannelKey>{time.key},
                 synnax::TimeStamp::now(),
-                std::vector<synnax::Authority>{synnax::ABSOLUTE},
+                std::vector<synnax::Authority>{synnax::ABSOLUTTE},
                 synnax::ControlSubject{"test_writer"},
         });
         ASSERT_FALSE(w_err) << w_err.message();

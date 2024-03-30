@@ -26,7 +26,8 @@ std::pair<synnax::Rack, freighter::Error> retrieveDriverRack(breaker::Breaker& b
 int main(int argc, char* argv[]) {
     google::InitGoogleLogging(argv[0]);
 
-    LOG(INFO) << "Starting driver";
+    LOG(ERROR) << "Starting driver";
+
 
     auto cfg = synnax::Config{
         .host = "localhost",
