@@ -18,8 +18,11 @@ jobs:
           disk-cache: ${{ github.workflow }}
           repository-cache: true
 
-      - name: Build Open62541
-        run: bazel build //driver/vendor/open62541
+      - name: Install CMake
+        run: choco install cmake --installargs '"ADD_CMAKE_TO_PATH=System"'
+
+      - name: Verify CMake installation
+        run: cmake --version
 
 
 
