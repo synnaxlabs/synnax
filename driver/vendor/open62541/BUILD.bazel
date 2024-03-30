@@ -2,14 +2,14 @@ load("@rules_foreign_cc//foreign_cc:defs.bzl", "cmake")
 
 cmake(
     name = "open62541",
-    build_args = [
-        "-DBUILD_SHARED_LIBS=ON",
-        "-DCMAKE_BUILD_TYPE=RelWithDebInfo",
-        "-DUA_NAMESPACE_ZERO=FULL",
-    ],
+    cache_entries = {
+        "BUILD_SHARED_LIBS": "ON",
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "UA_NAMESPACE_ZERO": "FULL",
+    },
     lib_source = "//driver/vendor/open62541:srcs",
-    out_include_dir = "include",
-    out_shared_libs = ["libopen62541.so"],
+    out_shared_libs = ["libopen62541.so"],  # Specify the output shared library name
+    out_static_libs = ["libopen62541.a"],  # Specify the output static library name if needed
 )
 
 filegroup(
