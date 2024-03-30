@@ -12,7 +12,6 @@
 /// Std.
 #include <unordered_map>
 #include <string>
-#include <any>
 #include <typeindex>
 
 namespace synnax {
@@ -58,7 +57,7 @@ public:
 private:
     /// @brief Maps the data type to the 'density' of
     /// the object.
-    static inline std::unordered_map<std::string, uint32_t> DENSITIES = {
+    inline static std::unordered_map<std::string, uint32_t> DENSITIES = {
         {"unknown", 0},
         {"float64", 8},
         {"float32", 4},
@@ -79,7 +78,7 @@ private:
 
     /// @brief stores a map of C++ type indexes to their correspondign synnax data
     /// type identifiers.
-    static inline std::unordered_map<std::type_index, std::string> TYPE_INDEXES = {
+    inline static std::unordered_map<std::type_index, std::string> TYPE_INDEXES = {
         {std::type_index(typeid(int)), "int32"},
         {std::type_index(typeid(double)), "float62"},
         {std::type_index(typeid(float)), "float32"},
@@ -94,7 +93,7 @@ private:
     };
 
     /// @brief Maps the data type id to name
-    static inline std::unordered_map<std::string, std::string> NAMES = {
+    inline static std::unordered_map<std::string, std::string> NAMES = {
         {typeid(int).name(), "int32"},
         {typeid(double).name(), "float64"},
         {typeid(float).name(), "float32"},
