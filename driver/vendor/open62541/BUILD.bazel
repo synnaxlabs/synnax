@@ -5,7 +5,7 @@ cmake(
     cache_entries = {
         "BUILD_SHARED_LIBS": "ON",
         "CMAKE_BUILD_TYPE": "RelWithDebInfo",
-        "DCMAKE_ISNTALL_PREFIX": "$(local_executable_path)",
+        "DCMAKE_ISNTALL_PREFIX": "driver/vendor/open62541/open62541/",
         "UA_NAMESPACE_ZERO": "FULL",
     },
     lib_source = "//driver/vendor/open62541:srcs",
