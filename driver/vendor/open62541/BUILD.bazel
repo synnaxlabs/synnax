@@ -5,11 +5,11 @@ cmake(
     cache_entries = {
         "BUILD_SHARED_LIBS": "ON",
         "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "DCMAKE_ISNTALL_PREFIX": "$(local_executable_path)",
         "UA_NAMESPACE_ZERO": "FULL",
     },
     lib_source = "//driver/vendor/open62541:srcs",
-    out_shared_libs = ["libopen62541.so"],  # Specify the output shared library name
-    out_static_libs = ["libopen62541.a"],  # Specify the output static library name if needed
+    out_static_libs = ["libopen62541.lib"],  # Specify the output static library name if needed
 )
 
 filegroup(
