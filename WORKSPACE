@@ -38,19 +38,19 @@ http_archive(
 # These two dependencies override the versions of the default deps loaded by rules_proto_grpc.
 # For some reason symlinks fail on MacOS with the default versions, so we need to override them.
 
-http_archive(
-    name = "com_google_protobuf",
-    sha256 = "a700a49470d301f1190a487a923b5095bf60f08f4ae4cac9f5f7c36883d17971",
-    strip_prefix = "protobuf-23.4",
-    urls = ["https://github.com/protocolbuffers/protobuf/archive/v23.4.tar.gz"],
-)
+#http_archive(
+#    name = "com_google_protobuf",
+#    sha256 = "a700a49470d301f1190a487a923b5095bf60f08f4ae4cac9f5f7c36883d17971",
+#    strip_prefix = "protobuf-23.4",
+#    urls = ["https://github.com/protocolbuffers/protobuf/archive/v23.4.tar.gz"],
+#)
 
-http_archive(
-    name = "com_github_grpc_grpc",
-    sha256 = "8393767af531b2d0549a4c26cf8ba1f665b16c16fb6c9238a7755e45444881dd",
-    strip_prefix = "grpc-1.57.0",
-    urls = ["https://github.com/grpc/grpc/archive/v1.57.0.tar.gz"],
-)
+#http_archive(
+#    name = "com_github_grpc_grpc",
+#    sha256 = "8393767af531b2d0549a4c26cf8ba1f665b16c16fb6c9238a7755e45444881dd",
+#    strip_prefix = "grpc-1.57.0",
+#    urls = ["https://github.com/grpc/grpc/archive/v1.57.0.tar.gz"],
+#)
 
 # |||||||| END OF MACOS SECTION ||||||||
 
