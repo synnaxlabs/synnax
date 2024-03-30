@@ -57,7 +57,7 @@ struct ReaderConfig {
 /// @brief a task that reads values from an OPC UA server.
 class Reader final : public task::Task {
 public:
-    explicit Reader(std::shared_ptr<task::Context> ctx, synnax::Task task);
+    explicit Reader(const std::shared_ptr<task::Context> &ctx, synnax::Task task);
 
     void exec(task::Command& cmd) override {};
 

@@ -6,7 +6,10 @@ cc_library(
         "series.h",
         "telem.h",
     ],
-    #    copts = ["/std:c++17"],
+    copts = select({
+        "@platforms//os:windows": ["/std:c++17"],
+        "//conditions:default": [],
+    }),
     visibility = ["//visibility:public"],
     deps = [
         "//x/go/control:control_grpc",
@@ -20,7 +23,10 @@ cc_test(
         "series_test.cpp",
         "telem_test.cpp",
     ],
-    #    copts = ["/std:c++17"],
+    copts = select({
+        "@platforms//os:windows": ["/std:c++17"],
+        "//conditions:default": [],
+    }),
     deps = [
         "//client/cpp/synnax",
         "//client/cpp/synnax/telem",

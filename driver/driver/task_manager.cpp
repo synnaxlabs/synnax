@@ -16,6 +16,7 @@
 #include <glog/logging.h>
 
 /// Internal.
+#include "config/config.h"
 #include "driver/driver/driver.h"
 
 using json = nlohmann::json;
@@ -27,7 +28,7 @@ driver::TaskManager::TaskManager(
     breaker::Breaker breaker
 ) : rack_key(rack_key),
     client(client),
-    ctx(std::make_shared<task::Context>(client)),
+    ctx(std::make_shared<task::ContextImpl>(client)),
     factory(std::move(factory)),
     exit_err(freighter::NIL),
     breaker(std::move(breaker)),
@@ -144,13 +145,13 @@ void driver::TaskManager::processTaskSet(const Series& series) {
 }
 
 void driver::TaskManager::processTaskCmd(const Series& series) {
-    auto commands = series.string();
+    const auto commands = series.string();
     for (const auto& cmd_str: commands) {
         LOG(ERROR) << "Processing command: " << cmd_str;
-        auto cmd_json = json::parse(cmd_str);
-        auto [cmd, err] = task::Command::fromJSON(cmd_json);
-        if (err) {
-            LOG(ERROR) << "Failed to parse command: " << err;
+        auto parser = config::Parser(cmd_str);
+        auto cmd = task::Command(parser);
+        if (!parser.ok()) {
+            LOG(ERROR) << "Failed to parse command: " << to_string(parser.error_json());
             continue;
         }
         auto it = tasks.find(cmd.task);
@@ -164,9 +165,9 @@ void driver::TaskManager::processTaskCmd(const Series& series) {
 
 
 void driver::TaskManager::processTaskDelete(const Series& series) {
-    auto keys = series.uint64();
+    const auto keys = series.uint64();
     for (auto key: keys) {
-        auto it = tasks.find(key);
+        const auto it = tasks.find(key);
         if (it != tasks.end()) {
             it->second->stop();
             tasks.erase(it);

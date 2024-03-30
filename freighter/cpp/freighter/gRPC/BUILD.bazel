@@ -2,7 +2,10 @@ cc_library(
     name = "gRPC",
     srcs = [],
     hdrs = ["client.h"],
-    copts = ["/std:c++17"],
+    copts = select({
+        "@platforms//os:windows": ["/std:c++17"],
+        "//conditions:default": [],
+    }),
     visibility = ["//visibility:public"],
     deps = [
         "//freighter/cpp/freighter",

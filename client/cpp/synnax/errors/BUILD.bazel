@@ -2,6 +2,9 @@ cc_library(
     name = "errors",
     srcs = [],
     hdrs = ["errors.h"],
+    copts = select({
+        "@platforms//os:windows": ["/std:c++17"],
+        "//conditions:default": [],
+    }),
     visibility = ["//visibility:public"],
-    #    copts = ["/std:c++17"]
 )

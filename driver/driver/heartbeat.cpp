@@ -17,7 +17,7 @@ driver::Heartbeat::Heartbeat(
         breaker::Breaker breaker
 ) :
         rack_key(rack),
-        client(std::move(client)),
+        client(client),
         version(0),
         breaker(std::move(breaker)),
         running(false),

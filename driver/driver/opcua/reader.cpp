@@ -18,11 +18,12 @@
 
 using namespace opcua;
 
-ReaderConfig::ReaderConfig(config::Parser& parser): connection(
-    parser.child("connection")) {
+ReaderConfig::ReaderConfig(
+    config::Parser& parser
+): connection(parser.child("connection")) {
     rate = Rate(parser.required<std::float_t>("rate"));
     parser.iter("channels", [&](config::Parser& channel_builder) {
-        channels.push_back(ReaderChannelConfig(channel_builder));
+        channels.emplace_back(channel_builder);
     });
 }
 
@@ -32,39 +33,47 @@ public:
     UA_Client* client;
     std::set<ChannelKey> indexes;
 
+    ~ReaderSource() override {
+        UA_Client_disconnect(client);
+        UA_Client_delete(client);
+    }
+
     ReaderSource(
         ReaderConfig cfg,
         UA_Client* client,
-        std::set<synnax::ChannelKey> indexes
+        std::set<ChannelKey> indexes
     )
         : cfg(std::move(cfg)), client(client), indexes(std::move(indexes)) {
     }
 
     std::pair<Frame, freighter::Error> read() override {
         auto fr = Frame(cfg.channels.size() + indexes.size());
-        for (auto i = 0; i < cfg.channels.size(); i++) {
-            auto ch = cfg.channels[i];
+        std::this_thread::sleep_for(cfg.rate.period().nanoseconds());
+        for (const auto& ch: cfg.channels) {
             UA_NodeId node_id = UA_NODEID_STRING_ALLOC(ch.ns, ch.node.c_str());
             UA_Variant* value = UA_Variant_new();
-            UA_StatusCode status = UA_Client_readValueAttribute(client, node_id, value);
+            const UA_StatusCode status = UA_Client_readValueAttribute(
+                client, node_id, value);
             if (status != UA_STATUSCODE_GOOD) {
                 LOG(ERROR) << "Unable to read value from OPCUA server";
             } else {
-                auto val = val_to_series(value, ch.ch.data_type);
+                const auto val = val_to_series(value, ch.ch.data_type);
                 fr.add(ch.key, val);
-                UA_Variant_delete(value);
-                // UA_NodeId_clear(&node_id);
             }
+            UA_Variant_delete(value);
+            UA_NodeId_clear(&node_id);
         }
-        auto now = synnax::TimeStamp::now();
-        for (const auto& idx: indexes)
-            fr.add(idx, Series(now));
+        const auto now = synnax::TimeStamp::now();
+        for (const auto& idx: indexes) fr.add(idx, Series(now));
         return std::make_pair(std::move(fr), freighter::NIL);
     }
 };
 
 
-Reader::Reader(std::shared_ptr<task::Context> ctx, synnax::Task task): ctx(ctx) {
+Reader::Reader(
+    const std::shared_ptr<task::Context>& ctx,
+    synnax::Task task
+): ctx(ctx) {
     // Step 1. Parse the configuration to ensure that it is valid.
     auto parser = config::Parser(task.config);
     cfg = ReaderConfig(parser);
@@ -110,8 +119,11 @@ Reader::Reader(std::shared_ptr<task::Context> ctx, synnax::Task task): ctx(ctx) 
         auto ch = cfg.channels[i];
         UA_Variant* value = UA_Variant_new();
         UA_NodeId myIntegerNodeID = UA_NODEID_STRING_ALLOC(1, ch.node.c_str());
-        UA_StatusCode status = UA_Client_readValueAttribute(
-            ua_client, myIntegerNodeID, value);
+        const UA_StatusCode status = UA_Client_readValueAttribute(
+            ua_client,
+            myIntegerNodeID,
+            value
+        );
         if (status != UA_STATUSCODE_GOOD) {
             if (status == UA_STATUSCODE_BADNODEIDUNKNOWN) {
                 parser.field_err("channels." + std::to_string(i),

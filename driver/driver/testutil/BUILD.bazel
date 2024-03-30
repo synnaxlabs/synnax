@@ -2,10 +2,13 @@ cc_library(
     name = "testutil",
     srcs = ["testutil.cpp"],
     hdrs = ["testutil.h"],
+    copts = select({
+        "@platforms//os:windows": ["/std:c++17"],
+        "//conditions:default": [],
+    }),
     visibility = ["//visibility:public"],
     deps = [
         "//client/cpp/synnax",
         "@nlohmann_json//:json",
     ],
-    #    copts = ["/std:c++17"]
 )

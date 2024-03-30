@@ -12,7 +12,10 @@ cc_test(
     name = "grpc_test",
     size = "small",
     srcs = ["test.cpp"],
-    #    copts = ["/std:c++17"],
+    copts = select({
+        "@platforms//os:windows": ["/std:c++17"],
+        "//conditions:default": [],
+    }),
     deps = [
         ":server",
         "//freighter/cpp/freighter/gRPC/protos:service_grpc",

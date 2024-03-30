@@ -1,0 +1,11 @@
+name: "Driver Build"
+on:
+  push:
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      -

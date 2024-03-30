@@ -47,8 +47,6 @@ TEST(OPCUAReaderTest, testReaderConfigurationFromJSON) {
         {
             "connection", json{
                 {"endpoint", "opc.tcp://0.0.0.0:4840"},
-                {"username", "user"},
-                {"password", "pass"},
             }
         },
         {"rate", 22.5},

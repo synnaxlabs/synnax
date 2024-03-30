@@ -8,7 +8,10 @@ cc_library(
     hdrs = [
         "framer.h",
     ],
-    #    copts = ["/std:c++17"],
+    copts = select({
+        "@platforms//os:windows": ["/std:c++17"],
+        "//conditions:default": [],
+    }),
     visibility = ["//visibility:public"],
     deps = [
         "//client/cpp/synnax/channel",
@@ -27,7 +30,10 @@ cc_test(
         "streamer_test.cpp",
         "writer_test.cpp",
     ],
-    #    copts = ["/std:c++17"],
+    copts = select({
+        "@platforms//os:windows": ["/std:c++17"],
+        "//conditions:default": [],
+    }),
     deps = [
         "//client/cpp/synnax",
         "//client/cpp/synnax/testutil",

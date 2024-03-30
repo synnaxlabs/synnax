@@ -27,12 +27,15 @@ const std::string HEADER_KEY = "authorization";
 const std::string HEADER_VALUE_PREFIX = "Bearer ";
 
 /// @brief type alias for the auth login transport.
-typedef freighter::UnaryClient<api::v1::LoginResponse, api::v1::LoginRequest> AuthLoginClient;
+typedef freighter::UnaryClient<
+    api::v1::LoginResponse,
+    api::v1::LoginRequest
+> AuthLoginClient;
 
 
 /// @brief AuthMiddleware for authenticating requests using a bearer token. AuthMiddleware has
 /// no preference on order when provided to use.
-class AuthMiddleware : public freighter::PassthroughMiddleware {
+class AuthMiddleware final : public freighter::PassthroughMiddleware {
 private:
     /// Token to be used for authentication. Empty when auth_attempted is false or error
     /// is not nil.
@@ -49,23 +52,30 @@ private:
     std::string username;
     /// Password to be used for authentication.
     std::string password;
+    std::uint32_t max_retries;
+    /// Number of times authentication has been retried.
+    std::uint32_t retry_count = 0;
 
 public:
     AuthMiddleware(
-            std::unique_ptr<AuthLoginClient> login_client,
-            std::string username,
-            std::string password
-    ) :
-            login_client(std::move(login_client)), username(std::move(username)), password(std::move(password)) {
+        std::unique_ptr<AuthLoginClient> login_client,
+        std::string username,
+        std::string password,
+        std::uint32_t max_retries
+    ) : login_client(std::move(login_client)),
+        username(std::move(username)),
+        password(std::move(password)),
+        max_retries(max_retries) {
     }
 
     /// Implements freighter::AuthMiddleware::operator().
-    std::pair<freighter::Context, freighter::Error> operator()(freighter::Context context) override {
+    std::pair<freighter::Context, freighter::Error> operator()(
+        freighter::Context context) override {
         if (!auth_attempted) {
             api::v1::LoginRequest req;
             req.set_username(username);
             req.set_password(password);
-            auto [res, exc] = login_client->send("/auth_login/login", req);
+            auto [res, exc] = login_client->send("/auth/login", req);
             if (exc) {
                 err = exc;
                 return {context, err};
@@ -75,7 +85,11 @@ public:
         }
         if (err) return {context, err};
         context.set(HEADER_KEY, HEADER_VALUE_PREFIX + token);
-        return freighter::PassthroughMiddleware::operator()(context);
+        auto [res, err] = freighter::PassthroughMiddleware::operator()(context);
+        if (err.matches(INVALID_TOKEN) && retry_count < max_retries) {
+            retry_count++;
+            this->operator()(context);
+        }
+        return {res, err};
     }
 };
-

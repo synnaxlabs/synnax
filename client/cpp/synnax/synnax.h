@@ -66,40 +66,45 @@ public:
     /// @brief Client for creating and retrieving channels in a cluster.
     ChannelClient channels = ChannelClient(nullptr, nullptr);
     /// @brief Client for creating, retrieving, and performing operations on ranges in a cluster.
-    RangeClient ranges = RangeClient(nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
+    RangeClient ranges = RangeClient(nullptr, nullptr, nullptr, nullptr, nullptr,
+                                     nullptr, nullptr, nullptr);
     /// @brief Client for reading and writing telemetry to a cluster.
     FrameClient telem = FrameClient(nullptr, nullptr);
     /// @brief Client for managing devices and their configuration.
-    HardwareClient hardware = HardwareClient(nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
+    HardwareClient hardware = HardwareClient(nullptr, nullptr, nullptr, nullptr,
+                                             nullptr, nullptr);
 
     /// @brief constructs the Synnax client from the provided configuration.
-    explicit Synnax(const Config &cfg) {
-        auto t = Transport(cfg.port, cfg.host, cfg.ca_cert_file, cfg.client_cert_file, cfg.client_key_file);
+    explicit Synnax(const Config& cfg) {
+        auto t = Transport(cfg.port, cfg.host, cfg.ca_cert_file, cfg.client_cert_file,
+                           cfg.client_key_file);
         const auto auth_mw = std::make_shared<AuthMiddleware>(
-                std::move(t.auth_login), cfg.username, cfg.password);
+            std::move(t.auth_login),
+            cfg.username,
+            cfg.password,
+            5
+        );
         t.use(auth_mw);
         channels = ChannelClient(std::move(t.chan_retrieve), std::move(t.chan_create));
         ranges = RangeClient(
-                std::move(t.range_retrieve),
-                std::move(t.range_create),
-                t.range_kv_get,
-                t.range_kv_set,
-                t.range_kv_delete,
-                std::move(t.range_set_active),
-                std::move(t.range_retrieve_active),
-                std::move(t.range_clear_active)
+            std::move(t.range_retrieve),
+            std::move(t.range_create),
+            t.range_kv_get,
+            t.range_kv_set,
+            t.range_kv_delete,
+            std::move(t.range_set_active),
+            std::move(t.range_retrieve_active),
+            std::move(t.range_clear_active)
         );
         telem = FrameClient(std::move(t.frame_stream), std::move(t.frame_write));
         hardware = HardwareClient(
-                std::move(t.rack_create_client),
-                std::move(t.rack_retrieve),
-                std::move(t.rack_delete),
-                t.module_create,
-                t.module_retrieve,
-                t.module_delete
+            std::move(t.rack_create_client),
+            std::move(t.rack_retrieve),
+            std::move(t.rack_delete),
+            t.module_create,
+            t.module_retrieve,
+            t.module_delete
         );
     }
 };
 }
-
-

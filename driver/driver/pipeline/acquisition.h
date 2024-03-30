@@ -21,6 +21,7 @@
 namespace pipeline {
 class Source {
 public:
+    virtual ~Source() = default;
     virtual std::pair<Frame, freighter::Error> read() = 0;
 };
 

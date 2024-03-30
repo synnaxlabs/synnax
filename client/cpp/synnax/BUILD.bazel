@@ -7,7 +7,10 @@ cc_library(
         "synnax.h",
         "transport.h",
     ],
-    #    copts = ["/std:c++17"],
+    copts = select({
+        "@platforms//os:windows": ["/std:c++17"],
+        "//conditions:default": [],
+    }),
     visibility = ["//visibility:public"],
     deps = [
         "//client/cpp/synnax/auth",

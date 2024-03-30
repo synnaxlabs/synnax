@@ -1,15 +1,16 @@
-//
-// Created by Emiliano Bonilla on 3/27/24.
-//
-
 #pragma once
 
+/// std.
 #include <memory>
-#include <sys/stat.h>
 
-#include "client/cpp/synnax/synnax.h"
+/// external.
 #include "glog/logging.h"
 #include "nlohmann/json.hpp"
+
+/// internal.
+#include "client/cpp/synnax/synnax.h"
+#include "driver/driver/config/config.h"
+
 
 using json = nlohmann::json;
 
@@ -17,48 +18,39 @@ namespace task {
 /// @brief A command that can be executed on a task in order to change its state.
 struct Command {
     /// @brief the key of the task to be commanded.
-    TaskKey task;
+    TaskKey task = 0;
     /// @brief the type of the command to execute.
-    std::string type;
+    std::string type = "";
     /// @brief json arguments to the command.
-    json args;
+    json args = {};
 
-    Command(): task(0), args(json::object()) {
+    Command() = default;
+
+    /// @brief constructs the command from the provided configuration parser.
+    explicit Command(
+        config::Parser parser
+    ): task(parser.required<TaskKey>("task")),
+       type(parser.required<std::string>("type")),
+       args(parser.required<json>("args")) {
     }
 
     /// @brief Construct a new Task Command object
-    Command(TaskKey task, std::string type, json args)
+    Command(const TaskKey task, std::string type, json args)
         : task(task), type(std::move(type)), args(std::move(args)) {
-    }
-
-    /// @brief parses the task command from JSON.
-    static std::pair<Command, freighter::Error> fromJSON(const json& cmd) {
-        auto task_iter = cmd.find("task");
-        if (task_iter == cmd.end()) {
-            return {Command{}, freighter::Error{"task key not found"}};
-        }
-        auto type_iter = cmd.find("type");
-        if (type_iter == cmd.end()) {
-            return {Command{}, freighter::Error{"type not found"}};
-        }
-        auto args_iter = cmd.find("args");
-        json args = json::object();
-        if (args_iter != cmd.end()) args = args_iter.value();
-        return {
-            Command(
-                task_iter.value().get<TaskKey>(),
-                type_iter.value().get<std::string>(),
-                args
-            ),
-            {},
-        };
     }
 };
 
+/// @brief interface for a task that can be executed by the driver. Tasks should be
+/// constructed by an @see Factory.
 class Task {
 public:
+    /// @brief executes the command on the task. The task is responsible for updating
+    /// its state.
     virtual void exec(Command& cmd) = 0;
 
+    /// @brief stops the task, halting activities and freeing all resources. stop
+    /// is called when the task is no longer needed, and is typically followed by a
+    /// a call to the destructor.
     virtual void stop() = 0;
 
     virtual ~Task() = default;
@@ -66,10 +58,15 @@ public:
 
 const std::string TASK_FAILED = "failed";
 
+/// @brief struct that represents the network portable state of a task. Used both
+/// internally by a task and externally by the driver to track its state.
 struct State {
-    TaskKey task;
-    std::string type;
-    json details;
+    /// @brief the key of the task.
+    TaskKey task = 0;
+    /// @brief the type of the task.
+    std::string type = "";
+    /// @brief relevant details about the current state of the task.
+    json details = {};
 
     json toJSON() {
         json j;
@@ -80,30 +77,34 @@ struct State {
     }
 };
 
+/// @brief name of the channel used in Synnax to communicate state updates.
 const std::string TASK_STATE_CHANNEL = "sy_task_state";
 
+/// @brief an interface for a standard context that is provided to every task in the
+/// driver. This context provides access to the Synnax client and alllows tasks to
+/// easily update their state.
 class Context {
 public:
+    /// @brief the client used to communicate with the Synnax server.
     std::shared_ptr<Synnax> client;
 
     Context() = default;
 
     virtual ~Context() = default;
 
-    explicit Context(std::shared_ptr<Synnax> client): client(std::move(client)) {
+    explicit Context(std::shared_ptr<Synnax> client): client(client) {
     }
 
+    /// @brief updates the state of the task in the Synnax cluster.
     virtual void setState(State state) = 0;
 };
 
+/// @brief a mock context that can be used for testing tasks.
 class MockContext final : public Context {
-private:
-    std::mutex state_mutex;
-
 public:
-    std::vector<State> states;
+    std::vector<State> states{};
 
-    explicit MockContext(std::shared_ptr<Synnax> client): Context(std::move(client)) {
+    explicit MockContext(std::shared_ptr<Synnax> client): Context(client) {
     }
 
 
@@ -112,11 +113,15 @@ public:
         states.push_back(state);
         state_mutex.unlock();
     }
+
+private:
+    std::mutex state_mutex;
 };
 
 class ContextImpl final : public Context {
 public:
-    std::shared_ptr<Synnax> client;
+    explicit ContextImpl(std::shared_ptr<Synnax> client): Context(client) {
+    }
 
     void setState(State state) override {
         state_mutex.lock();
@@ -169,7 +174,7 @@ public:
 
 class MultiFactory final : public Factory {
 public:
-    MultiFactory(std::vector<std::shared_ptr<Factory>>&& factories)
+    explicit MultiFactory(std::vector<std::shared_ptr<Factory>>&& factories)
         : factories(std::move(factories)) {
     }
 

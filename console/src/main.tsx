@@ -43,7 +43,7 @@ import "@synnaxlabs/pluto/dist/style.css";
 import { AnalogReadTask } from "@/hardware/configure/ni/AnalogReadTask";
 
 const layoutRenderers: Record<string, Layout.Renderer> = {
-  main: AnalogReadTask,
+  main: ,
   connectCluster: Cluster.Connect,
   visualization: Vis.LayoutSelector,
   defineRange: Range.EditLayout,

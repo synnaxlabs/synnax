@@ -1,17 +1,23 @@
 cc_library(
     name = "daqmx_hds",
-    hdrs=["daqmx.h"],
-    deps=["@nidaqmx//:lib"],
-    visibility=["//visibility:public"],
+    hdrs = ["daqmx.h"],
+    visibility = ["//visibility:public"],
+    deps = ["@nidaqmx//:lib"],
 )
 
 cc_library(
     name = "syscfg_hds",
-    hdrs = ["nisyscfg_errors.h", "nisyscfg_wide.h", "nisyscfg.h"],
-    deps = ["@nisyscfg//:lib", "@nidaqmx//:lib"],
-    visibility=["//visibility:public"],
+    hdrs = [
+        "nisyscfg.h",
+        "nisyscfg_errors.h",
+        "nisyscfg_wide.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "@nidaqmx//:lib",
+        "@nisyscfg//:lib",
+    ],
 )
-
 
 cc_library(
     name = "ni",
@@ -25,37 +31,45 @@ cc_library(
         "nisyscfg_errors.h",
         "nisyscfg_wide.h",
     ],
+    copts = ["/std:c++17"],
+    linkopts = ["user32.lib"],
+    target_compatible_with = select({
+        "@platforms//os:windows": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    visibility = ["//visibility:public"],
     deps = [
-        "@nlohmann_json//:json",
-        "@synnax//synnax",
         "daqmx_hds",
         "syscfg_hds",
-        "//driver/breaker:breaker",
-        "//driver/pipeline:acqReader",
+        "//driver/breaker",
+        "//driver/errors",
         "//driver/modules:module",
-        "//driver/errors:errors",
+        "//driver/pipeline:acqReader",
+        "@nlohmann_json//:json",
+        "@synnax//synnax",
         "@synnax//synnax/testutil",
     ],
-    copts = ["/std:c++17"],
-    linkopts = ['user32.lib'],
-    visibility=["//visibility:public"]
 )
 
 cc_library(
     name = "ni_module",
     srcs = ["ni_module.cpp"],
     hdrs = ["ni_module.h"],
+    copts = ["/std:c++17"],
+    target_compatible_with = select({
+        "@platforms//os:windows": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    visibility = ["//visibility:public"],
     deps = [
         "ni",
+        "//driver/breaker",
+        "//driver/modules:module",
+        "//driver/pipeline",
+        "//driver/pipeline:acqReader",
         "@nlohmann_json//:json",
         "@synnax//synnax",
-        "//driver/breaker:breaker",
-        "//driver/pipeline:acqReader",
-        "//driver/modules:module",
-        "//driver/pipeline:pipeline"
     ],
-    copts = ["/std:c++17"],
-    visibility=["//visibility:public"]
 )
 
 cc_test(
@@ -63,13 +77,13 @@ cc_test(
     srcs = [
         "ni_reader_test.cpp",
     ],
-    deps = [
-        "ni",
-        "@com_google_googletest//:gtest_main",
-        "daqmx_hds",
-        "syscfg_hds",
-    ],
     copts = ["/std:c++17"],
+    deps = [
+        "daqmx_hds",
+        "ni",
+        "syscfg_hds",
+        "@com_google_googletest//:gtest_main",
+    ],
 )
 
 cc_test(
@@ -77,14 +91,14 @@ cc_test(
     srcs = [
         "ni_writer_test.cpp",
     ],
-    deps= [
-        "ni",
-        "@com_google_googletest//:gtest_main",
+    copts = ["/std:c++17"],
+    deps = [
         "daqmx_hds",
+        "ni",
         "syscfg_hds",
         "//driver/testutil",
+        "@com_google_googletest//:gtest_main",
     ],
-    copts = ["/std:c++17"],
 )
 
 cc_test(
@@ -92,11 +106,11 @@ cc_test(
     srcs = [
         "ni_module_test.cpp",
     ],
+    copts = ["/std:c++17"],
     deps = [
         "ni_module",
+        "//driver/testutil",
         "@com_google_googletest//:gtest_main",
         "@synnax//synnax/testutil",
-        "//driver/testutil",
     ],
-    copts = ["/std:c++17"],
 )

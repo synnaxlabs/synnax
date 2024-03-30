@@ -21,6 +21,8 @@ import (
 	"time"
 )
 
+var Invalid = errors.Wrap(auth.Error, "invalid token")
+
 // Service is a service for generating and validating tokens with UUID issuers.
 type Service struct {
 	// KeyProvider is the service used to generate and validate keys.
@@ -43,7 +45,7 @@ func (s *Service) New(issuer uuid.UUID) (string, error) {
 	})
 	v, err := claims.SignedString(key)
 	if err != nil {
-		return v, errors.Wrap(auth.Error, err.Error())
+		return v, Invalid
 	}
 	return v, nil
 }

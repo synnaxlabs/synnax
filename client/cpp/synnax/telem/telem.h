@@ -19,15 +19,17 @@ namespace synnax {
 /// @brief Holds the name and properties of a datatype.
 class DataType {
 public:
-    DataType(): value("unknown") {}
+    DataType(): value("unknown") {
+    }
 
     /// @brief Holds the id of the data type
     std::string value;
 
     explicit DataType(std::string data_type) {
         if (!DENSITIES.count(data_type)) {
-            if (!NAMES.count(data_type)) throw std::runtime_error(
-                "Tried to create unknown datatype " + data_type);
+            if (!NAMES.count(data_type))
+                throw std::runtime_error(
+                    "Tried to create unknown datatype " + data_type);
             data_type = NAMES[data_type];
         }
         value = data_type;
@@ -438,9 +440,7 @@ public:
 
     Rate operator*(const float& other) const { return Rate(value * other); }
 
-    TimeSpan period() {
-        return TimeSpan(1 / value * 1e9);
-    }
+    [[nodiscard]] TimeSpan period() const { return TimeSpan(1 / value * 1e9); }
 };
 
 /// @brief a single hertz. Can be made into many hertz through multiplication
