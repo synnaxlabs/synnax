@@ -10,7 +10,7 @@
 #pragma once
 
 /// std
-#include <numbers>
+#include <cstdint>
 #include <string>
 
 /// api protos
