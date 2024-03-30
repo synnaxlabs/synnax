@@ -5,7 +5,7 @@ cc_library(
     ],
     hdrs = ["freighter.h"],
     copts = select({
-        "@platforms//os:windows": ["/std:c++20"],
+        "@platforms//os:windows": ["/std:c++17"],
         "//conditions:default": [],
     }),
     visibility = ["//visibility:public"],
@@ -19,7 +19,7 @@ cc_test(
     size = "small",
     srcs = ["freighter_test.cpp"],
     copts = select({
-        "@platforms//os:windows": ["/std:c++20"],
+        "@platforms//os:windows": ["/std:c++17"],
         "//conditions:default": [],
     }),
     deps = [

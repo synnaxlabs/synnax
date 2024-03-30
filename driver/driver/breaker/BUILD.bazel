@@ -2,7 +2,7 @@ cc_library(
     name = "breaker",
     hdrs = ["breaker.h"],
     copts = select({
-        "@platforms//os:windows": ["/std:c++20"],
+        "@platforms//os:windows": ["/std:c++17"],
         "//conditions:default": [],
     }),
     visibility = ["//visibility:public"],
@@ -19,7 +19,7 @@ cc_test(
         "breaker_test.cpp",
     ],
     copts = select({
-        "@platforms//os:windows": ["/std:c++20"],
+        "@platforms//os:windows": ["/std:c++17"],
         "//conditions:default": [],
     }),
     deps = [

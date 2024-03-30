@@ -3,7 +3,7 @@ cc_library(
     srcs = ["testutil.cpp"],
     hdrs = ["testutil.h"],
     copts = select({
-        "@platforms//os:windows": ["/std:c++20"],
+        "@platforms//os:windows": ["/std:c++17"],
         "//conditions:default": [],
     }),
     visibility = ["//visibility:public"],

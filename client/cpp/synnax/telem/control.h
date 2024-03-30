@@ -10,14 +10,14 @@
 #pragma once
 
 /// std
-//#include <numbers>
+#include <numbers>
 #include <string>
 
 /// api protos
 #include "x/go/control/x/go/control/control.pb.h"
 
 namespace synnax {
-typedef uint8_t Authority;
+typedef std::uint8_t Authority;
 
 const Authority ABSOLUTE = 255;
 

@@ -31,7 +31,7 @@ cc_library(
         "nisyscfg_errors.h",
         "nisyscfg_wide.h",
     ],
-    copts = ["/std:c++20"],
+    copts = ["/std:c++17"],
     linkopts = ["user32.lib"],
     target_compatible_with = select({
         "@platforms//os:windows": [],
@@ -55,7 +55,7 @@ cc_library(
     name = "ni_module",
     srcs = ["ni_module.cpp"],
     hdrs = ["ni_module.h"],
-    copts = ["/std:c++20"],
+    copts = ["/std:c++17"],
     target_compatible_with = select({
         "@platforms//os:windows": [],
         "//conditions:default": ["@platforms//:incompatible"],
@@ -77,7 +77,7 @@ cc_test(
     srcs = [
         "ni_reader_test.cpp",
     ],
-    copts = ["/std:c++20"],
+    copts = ["/std:c++17"],
     deps = [
         "daqmx_hds",
         "ni",
@@ -91,7 +91,7 @@ cc_test(
     srcs = [
         "ni_writer_test.cpp",
     ],
-    copts = ["/std:c++20"],
+    copts = ["/std:c++17"],
     deps = [
         "daqmx_hds",
         "ni",
@@ -106,7 +106,7 @@ cc_test(
     srcs = [
         "ni_module_test.cpp",
     ],
-    copts = ["/std:c++20"],
+    copts = ["/std:c++17"],
     deps = [
         "ni_module",
         "//driver/testutil",
