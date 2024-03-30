@@ -7,21 +7,21 @@
 #include "driver/driver/opcua/util.h"
 
 /// @brief maps OPCUA data types to their corresponding Synnax types.
-std::map<UA_UInt16, DataType> data_type_map = {
-    {UA_NS0ID_BOOLEAN, UINT8},
-    {UA_NS0ID_SBYTE, INT8},
-    {UA_NS0ID_BYTE, UINT8},
-    {UA_NS0ID_INT16, INT16},
-    {UA_NS0ID_UINT16, UINT16},
-    {UA_NS0ID_INT32, INT32},
-    {UA_NS0ID_UINT32, UINT32},
-    {UA_NS0ID_INT64, INT64},
-    {UA_NS0ID_UINT64, UINT64},
-    {UA_NS0ID_FLOAT, FLOAT32},
-    {UA_NS0ID_DOUBLE, FLOAT64},
-    {UA_NS0ID_STRING, STRING},
-    {UA_NS0ID_DATETIME, TIMESTAMP},
-    {UA_NS0ID_GUID, UINT128},
+std::map<UA_UInt16, synnax::DataType> data_type_map = {
+    {UA_NS0ID_BOOLEAN, synnax::UINT8},
+    {UA_NS0ID_SBYTE, synnax::INT8},
+    {UA_NS0ID_BYTE, synnax::UINT8},
+    {UA_NS0ID_INT16, synnax::INT16},
+    {UA_NS0ID_UINT16, synnax::UINT16},
+    {UA_NS0ID_INT32, synnax::INT32},
+    {UA_NS0ID_UINT32, synnax::UINT32},
+    {UA_NS0ID_INT64, synnax::INT64},
+    {UA_NS0ID_UINT64, synnax::UINT64},
+    {UA_NS0ID_FLOAT, synnax::FLOAT32},
+    {UA_NS0ID_DOUBLE, synnax::FLOAT64},
+    {UA_NS0ID_STRING, synnax::STRING},
+    {UA_NS0ID_DATETIME, synnax::TIMESTAMP},
+    {UA_NS0ID_GUID, synnax::UINT128},
 };
 
 synnax::Series val_to_series(UA_Variant* val, synnax::DataType dt) {
