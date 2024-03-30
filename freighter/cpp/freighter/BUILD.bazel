@@ -18,6 +18,10 @@ cc_test(
     name = "freighter_test",
     size = "small",
     srcs = ["freighter_test.cpp"],
+    copts = select({
+        "@platforms//os:windows": ["/std:c++17"],
+        "//conditions:default": [],
+    }),
     deps = [
         "//freighter/cpp/freighter",
         "@com_google_googletest//:gtest_main",
