@@ -24,6 +24,15 @@ jobs:
       - name: Verify CMake installation
         run: cmake --version
 
+      - name: Build Open62541
+        shell: bash
+        run:
+          mkdir build && cd build
+          cmake -DBUILD_SHARED_LIBS=ON -DCMAKE_BUILD_TYPE=RelWithDebInfo -DUA_NAMESPACE_ZERO=FULL ..
+          make
+          make install
+        working-directory: driver/vendor/open62541/open62541
+
 
 
 
