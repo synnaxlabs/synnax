@@ -7,7 +7,7 @@ cc_library(
         "telem.h",
     ],
     copts = select({
-        "@platforms//os:windows": ["/std:c++17"],
+        "@platforms//os:windows": ["/std:c++20"],
         "//conditions:default": [],
     }),
     visibility = ["//visibility:public"],
@@ -24,7 +24,7 @@ cc_test(
         "telem_test.cpp",
     ],
     copts = select({
-        "@platforms//os:windows": ["/std:c++17"],
+        "@platforms//os:windows": ["/std:c++20"],
         "//conditions:default": [],
     }),
     deps = [

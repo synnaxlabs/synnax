@@ -1,4 +1,4 @@
 # Specifies compilation with c++ version 17.
-build --action_env=BAZEL_CXXOPTS="-std=c++17" --enable_runfiles
+build --action_env=BAZEL_CXXOPTS="-std=c++20" --enable_runfiles --host_cxxopt="-std=c++20"
 # THIS LINE SHOULD ONLY BE COMMENTED IN FOR WINDOWS
 # startup --output_user_root=C:/tmp

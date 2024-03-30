@@ -1,3 +1,0 @@
-# Specifies compilation with c++ version 20.
-build:windows --action_env=BAZEL_CXXOPTS="-std=c++17"
-startup:windows --output_user_root=C:/tmp
