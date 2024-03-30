@@ -2,27 +2,6 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 
 # /////////////////////////////////////////////////////////////////////////////////////
-# //////////////////////////////RULES FOREIGN CC ///////////////////////////////////////
-
-
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-
-http_archive(
-    name = "rules_foreign_cc",
-    # TODO: Get the latest sha256 value from a bazel debug message or the latest
-    #       release on the releases page: https://github.com/bazelbuild/rules_foreign_cc/releases
-    #
-    # sha256 = "...",
-    strip_prefix = "rules_foreign_cc-51152aac9d6d8b887802a47ec08a1a37ef2c4885",
-    url = "https://github.com/bazelbuild/rules_foreign_cc/archive/51152aac9d6d8b887802a47ec08a1a37ef2c4885.tar.gz",
-)
-
-load("@rules_foreign_cc//foreign_cc:repositories.bzl", "rules_foreign_cc_dependencies")
-
-rules_foreign_cc_dependencies()
-
-
-# /////////////////////////////////////////////////////////////////////////////////////
 # /////////////////////////////////////// GLOG ////////////////////////////////////////
 # /////////////////////////////////////////////////////////////////////////////////////
 
@@ -107,15 +86,7 @@ load("@com_github_grpc_grpc//bazel:grpc_extra_deps.bzl", "grpc_extra_deps")
 
 grpc_extra_deps()
 
-# /////////////////////////////////////////////////////////////////////////////////////
-# /////////////////////////////////////// SKYLIB ///////////////////////////////////////
-# /////////////////////////////////////////////////////////////////////////////////////
 
-http_archive(
-    name = "bazel_skylib",
-    strip_prefix = "bazel-skylib-master",
-    urls = ["https://github.com/bazelbuild/bazel-skylib/archive/master.zip"],
-)
 
 # /////////////////////////////////////////////////////////////////////////////////////
 # /////////////////////////////////////// NLOHMANN JSON ///////////////////////////////
@@ -149,8 +120,17 @@ git_repository(
 
 new_local_repository(
     name = "open62541",
-    path = "./driver/vendor/open6251/out"
-    build_file="@//driver/vendor/open2541:BUILD.bazel"
+    path = "./driver/vendor/open62541/open62541/out",
+    build_file="@//driver/vendor/open62541:BUILD.bazel"
 )
 
 
+# /////////////////////////////////////////////////////////////////////////////////////
+# /////////////////////////////////////// SKYLIB ///////////////////////////////////////
+# /////////////////////////////////////////////////////////////////////////////////////
+
+http_archive(
+    name = "bazel_skylib",
+    strip_prefix = "bazel-skylib-master",
+    urls = ["https://github.com/bazelbuild/bazel-skylib/archive/master.zip"],
+)

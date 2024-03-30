@@ -11,12 +11,12 @@ jobs:
       - name: Update Submodules
         run: git submodule update --init --recursive
 
-#      - name: Setup Bazel
-#        uses: bazel-contrib/setup-bazel@0.8.1
-#        with:
-#          bazelisk-cache: true
-#          disk-cache: ${{ github.workflow }}
-#          repository-cache: true
+      - name: Setup Bazel
+        uses: bazel-contrib/setup-bazel@0.8.1
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}
+          repository-cache: true
 
       - name: Install CMake
         run: choco install cmake --installargs '"ADD_CMAKE_TO_PATH=System"'
@@ -29,12 +29,11 @@ jobs:
         run: |
           mkdir build && cd build
           cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DUA_NAMESPACE_ZERO=FULL -DCMAKE_INSTALL_PREFIX=../out ..
-          ls
-          # install the open62541.sln file
           cmake --build . --config RelWithDebInfo --target install
-
-
         working-directory: driver/vendor/open62541/open62541
+
+      - name: Build Driver
+        run: bazel build //driver/driver:driver_main
 
 
 

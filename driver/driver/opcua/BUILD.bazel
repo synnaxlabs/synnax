@@ -1,16 +1,4 @@
 cc_library(
-    name = "open62541",
-    srcs = [
-        "open62541/lib/libopen62541.a",
-    ],
-    hdrs = glob([
-        "open62541/include/open62541/*.h",
-        "open62541/include/open62541/plugin/*.h",
-    ]),
-    strip_include_prefix = "open62541/include",
-)
-
-cc_library(
     name = "opcua",
     srcs = [
         "factory.cpp",
@@ -26,13 +14,13 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        ":open62541",
         "//client/cpp/synnax",
         "//driver/driver/config",
         "//driver/driver/pipeline",
         "//driver/driver/task",
         "@com_github_google_glog//:glog",
         "@nlohmann_json//:json",
+        "@open62541",
     ],
 )
 
