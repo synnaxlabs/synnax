@@ -24,10 +24,6 @@ std::map<UA_UInt16, synnax::DataType> data_type_map = {
     {UA_NS0ID_GUID, synnax::UINT128},
 };
 
-synnax::Series val_to_series(UA_Variant* val, synnax::DataType dt) {
-
-}
-
 std::pair<UA_Client*, bool> opcua::connect(
     opcua::ConnectionConfig& cfg,
     synnax::Task &task,
