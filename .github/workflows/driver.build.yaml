@@ -21,14 +21,6 @@ jobs:
       - name: Install CMake
         run: choco install cmake --installargs '"ADD_CMAKE_TO_PATH=System"'
 
-      - name: Install Sphinx
-        run: |
-          pip install sphinx
-
-      - name: Install Latex
-        run: |
-          choco install miktex
-
       - name: Verify CMake installation
         run: cmake --version
 
@@ -36,7 +28,7 @@ jobs:
         shell: bash
         run: |
           mkdir build && cd build
-          cmake -DBUILD_SHARED_LIBS=ON -DCMAKE_BUILD_TYPE=RelWithDebInfo -DUA_NAMESPACE_ZERO=FULL ..
+          cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DUA_NAMESPACE_ZERO=FULL -DCMAKE_INSTALL_PREFIX=../out ..
           ls
           # install the open62541.sln file
           cmake --build . --config RelWithDebInfo --target install

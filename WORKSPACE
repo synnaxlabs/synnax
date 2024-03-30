@@ -131,24 +131,26 @@ git_repository(
 # /////////////////////////////////////// NIDAQMX /////////////////////////////////////
 # /////////////////////////////////////////////////////////////////////////////////////
 
-new_local_repository(
-    name = "nidaqmx",
-    path = "C:\\Program Files (x86)\\National Instruments\\Shared\\ExternalCompilerSupport\\C\\lib64\\msvc",
-    build_file="@//driver/vendor/nidaqmx:BUILD.bazel"
-)
+#new_local_repository(
+#    name = "nidaqmx",
+#    path = "C:\\Program Files (x86)\\National Instruments\\Shared\\ExternalCompilerSupport\\C\\lib64\\msvc",
+#    build_file="@//driver/vendor/nidaqmx:BUILD.bazel"
+#)
 
-new_local_repository(
-    name = "nisyscfg",
-    path = "C:\\Program Files (x86)\\National Instruments\\Shared\\ExternalCompilerSupport\\C\\lib64\\msvc",
-    build_file="@//driver/vendor/nisyscfg:BUILD.bazel"
-)
+#new_local_repository(
+#    name = "nisyscfg",
+#    path = "C:\\Program Files (x86)\\National Instruments\\Shared\\ExternalCompilerSupport\\C\\lib64\\msvc",
+#    build_file="@//driver/vendor/nisyscfg:BUILD.bazel"
+#)
 
 # /////////////////////////////////////////////////////////////////////////////////////
 # /////////////////////////////////////// OPEN2541 /////////////////////////////////////
 # /////////////////////////////////////////////////////////////////////////////////////
 
 new_local_repository(
-    name = "open2541",
-    path = "//driver/vendor/open2541",
+    name = "open62541",
+    path = "./driver/vendor/open6251/out"
     build_file="@//driver/vendor/open2541:BUILD.bazel"
 )
+
+
