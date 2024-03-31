@@ -1,7 +1,7 @@
 cc_library(
-    name = "gRPC",
+    name = "grpc",
     srcs = [],
-    hdrs = ["client.h"],
+    hdrs = ["grpc.h"],
     copts = select({
         "@platforms//os:windows": ["/std:c++20"],
         "//conditions:default": [],

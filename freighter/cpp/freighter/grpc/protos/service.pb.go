@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.33.0
 // 	protoc        (unknown)
-// source: freighter/cpp/freighter/gRPC/protos/service.proto
+// source: freighter/cpp/freighter/grpc/protos/service.proto
 
 package protos
 
@@ -31,7 +31,7 @@ type Message struct {
 func (x *Message) Reset() {
 	*x = Message{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_freighter_cpp_freighter_gRPC_protos_service_proto_msgTypes[0]
+		mi := &file_freighter_cpp_freighter_grpc_protos_service_proto_msgTypes[0]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -44,7 +44,7 @@ func (x *Message) String() string {
 func (*Message) ProtoMessage() {}
 
 func (x *Message) ProtoReflect() protoreflect.Message {
-	mi := &file_freighter_cpp_freighter_gRPC_protos_service_proto_msgTypes[0]
+	mi := &file_freighter_cpp_freighter_grpc_protos_service_proto_msgTypes[0]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -57,7 +57,7 @@ func (x *Message) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Message.ProtoReflect.Descriptor instead.
 func (*Message) Descriptor() ([]byte, []int) {
-	return file_freighter_cpp_freighter_gRPC_protos_service_proto_rawDescGZIP(), []int{0}
+	return file_freighter_cpp_freighter_grpc_protos_service_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *Message) GetPayload() string {
@@ -67,9 +67,9 @@ func (x *Message) GetPayload() string {
 	return ""
 }
 
-var File_freighter_cpp_freighter_gRPC_protos_service_proto protoreflect.FileDescriptor
+var File_freighter_cpp_freighter_grpc_protos_service_proto protoreflect.FileDescriptor
 
-var file_freighter_cpp_freighter_gRPC_protos_service_proto_rawDesc = []byte{
+var file_freighter_cpp_freighter_grpc_protos_service_proto_rawDesc = []byte{
 	0x0a, 0x31, 0x66, 0x72, 0x65, 0x69, 0x67, 0x68, 0x74, 0x65, 0x72, 0x2f, 0x63, 0x70, 0x70, 0x2f,
 	0x66, 0x72, 0x65, 0x69, 0x67, 0x68, 0x74, 0x65, 0x72, 0x2f, 0x67, 0x52, 0x50, 0x43, 0x2f, 0x70,
 	0x72, 0x6f, 0x74, 0x6f, 0x73, 0x2f, 0x73, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x2e, 0x70, 0x72,
@@ -96,22 +96,22 @@ var file_freighter_cpp_freighter_gRPC_protos_service_proto_rawDesc = []byte{
 }
 
 var (
-	file_freighter_cpp_freighter_gRPC_protos_service_proto_rawDescOnce sync.Once
-	file_freighter_cpp_freighter_gRPC_protos_service_proto_rawDescData = file_freighter_cpp_freighter_gRPC_protos_service_proto_rawDesc
+	file_freighter_cpp_freighter_grpc_protos_service_proto_rawDescOnce sync.Once
+	file_freighter_cpp_freighter_grpc_protos_service_proto_rawDescData = file_freighter_cpp_freighter_grpc_protos_service_proto_rawDesc
 )
 
-func file_freighter_cpp_freighter_gRPC_protos_service_proto_rawDescGZIP() []byte {
-	file_freighter_cpp_freighter_gRPC_protos_service_proto_rawDescOnce.Do(func() {
-		file_freighter_cpp_freighter_gRPC_protos_service_proto_rawDescData = protoimpl.X.CompressGZIP(file_freighter_cpp_freighter_gRPC_protos_service_proto_rawDescData)
+func file_freighter_cpp_freighter_grpc_protos_service_proto_rawDescGZIP() []byte {
+	file_freighter_cpp_freighter_grpc_protos_service_proto_rawDescOnce.Do(func() {
+		file_freighter_cpp_freighter_grpc_protos_service_proto_rawDescData = protoimpl.X.CompressGZIP(file_freighter_cpp_freighter_grpc_protos_service_proto_rawDescData)
 	})
-	return file_freighter_cpp_freighter_gRPC_protos_service_proto_rawDescData
+	return file_freighter_cpp_freighter_grpc_protos_service_proto_rawDescData
 }
 
-var file_freighter_cpp_freighter_gRPC_protos_service_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
-var file_freighter_cpp_freighter_gRPC_protos_service_proto_goTypes = []interface{}{
+var file_freighter_cpp_freighter_grpc_protos_service_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
+var file_freighter_cpp_freighter_grpc_protos_service_proto_goTypes = []interface{}{
 	(*Message)(nil), // 0: test.Message
 }
-var file_freighter_cpp_freighter_gRPC_protos_service_proto_depIdxs = []int32{
+var file_freighter_cpp_freighter_grpc_protos_service_proto_depIdxs = []int32{
 	0, // 0: test.UnaryMessageService.Exec:input_type -> test.Message
 	0, // 1: test.StreamMessageService.Exec:input_type -> test.Message
 	0, // 2: test.UnaryMessageService.Exec:output_type -> test.Message
@@ -123,13 +123,13 @@ var file_freighter_cpp_freighter_gRPC_protos_service_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for field type_name
 }
 
-func init() { file_freighter_cpp_freighter_gRPC_protos_service_proto_init() }
-func file_freighter_cpp_freighter_gRPC_protos_service_proto_init() {
-	if File_freighter_cpp_freighter_gRPC_protos_service_proto != nil {
+func init() { file_freighter_cpp_freighter_grpc_protos_service_proto_init() }
+func file_freighter_cpp_freighter_grpc_protos_service_proto_init() {
+	if File_freighter_cpp_freighter_grpc_protos_service_proto != nil {
 		return
 	}
 	if !protoimpl.UnsafeEnabled {
-		file_freighter_cpp_freighter_gRPC_protos_service_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
+		file_freighter_cpp_freighter_grpc_protos_service_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*Message); i {
 			case 0:
 				return &v.state
@@ -146,18 +146,18 @@ func file_freighter_cpp_freighter_gRPC_protos_service_proto_init() {
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: file_freighter_cpp_freighter_gRPC_protos_service_proto_rawDesc,
+			RawDescriptor: file_freighter_cpp_freighter_grpc_protos_service_proto_rawDesc,
 			NumEnums:      0,
 			NumMessages:   1,
 			NumExtensions: 0,
 			NumServices:   2,
 		},
-		GoTypes:           file_freighter_cpp_freighter_gRPC_protos_service_proto_goTypes,
-		DependencyIndexes: file_freighter_cpp_freighter_gRPC_protos_service_proto_depIdxs,
-		MessageInfos:      file_freighter_cpp_freighter_gRPC_protos_service_proto_msgTypes,
+		GoTypes:           file_freighter_cpp_freighter_grpc_protos_service_proto_goTypes,
+		DependencyIndexes: file_freighter_cpp_freighter_grpc_protos_service_proto_depIdxs,
+		MessageInfos:      file_freighter_cpp_freighter_grpc_protos_service_proto_msgTypes,
 	}.Build()
-	File_freighter_cpp_freighter_gRPC_protos_service_proto = out.File
-	file_freighter_cpp_freighter_gRPC_protos_service_proto_rawDesc = nil
-	file_freighter_cpp_freighter_gRPC_protos_service_proto_goTypes = nil
-	file_freighter_cpp_freighter_gRPC_protos_service_proto_depIdxs = nil
+	File_freighter_cpp_freighter_grpc_protos_service_proto = out.File
+	file_freighter_cpp_freighter_grpc_protos_service_proto_rawDesc = nil
+	file_freighter_cpp_freighter_grpc_protos_service_proto_goTypes = nil
+	file_freighter_cpp_freighter_grpc_protos_service_proto_depIdxs = nil
 }

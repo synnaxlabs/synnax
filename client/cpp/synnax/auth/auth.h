@@ -11,12 +11,10 @@
 
 /// std
 #include <string>
-#include <utility>
 
 /// protos
 #include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/auth.pb.h"
 #include "freighter/cpp/freighter/freighter.h"
-#include <grpcpp/grpcpp.h>
 
 #include "client/cpp/synnax/errors/errors.h"
 
@@ -43,7 +41,7 @@ private:
     /// Whether or not an authentication attempt was made with the server. If set to true
     /// and err is not nil, authentication has failed and the middleware will not attempt
     /// to authenticate again.
-    bool auth_attempted = false;
+    bool authenticated = false;
     /// Accumulated error from authentication attempts.
     freighter::Error err = freighter::NIL;
     /// Transport for authentication requests.
@@ -52,6 +50,7 @@ private:
     std::string username;
     /// Password to be used for authentication.
     std::string password;
+    /// The maximum number of times to retry authentication.
     std::uint32_t max_retries;
     /// Number of times authentication has been retried.
     std::uint32_t retry_count = 0;
@@ -69,9 +68,8 @@ public:
     }
 
     /// Implements freighter::AuthMiddleware::operator().
-    std::pair<freighter::Context, freighter::Error> operator()(
-        freighter::Context context) override {
-        if (!auth_attempted) {
+    std::pair<freighter::Context, freighter::Error> operator()(freighter::Context context) override {
+        if (!authenticated) {
             api::v1::LoginRequest req;
             req.set_username(username);
             req.set_password(password);
@@ -81,15 +79,17 @@ public:
                 return {context, err};
             }
             token = res.token();
-            auth_attempted = true;
+            authenticated = true;
         }
         if (err) return {context, err};
         context.set(HEADER_KEY, HEADER_VALUE_PREFIX + token);
         auto [res, err] = freighter::PassthroughMiddleware::operator()(context);
-        if (err.matches(INVALID_TOKEN) && retry_count < max_retries) {
+        if (err.matches(synnax::INVALID_TOKEN) && retry_count < max_retries) {
+            authenticated = false;
             retry_count++;
-            this->operator()(context);
+            return this->operator()(context);
         }
+        retry_count = 0;
         return {res, err};
     }
 };

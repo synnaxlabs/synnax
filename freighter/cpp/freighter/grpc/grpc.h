@@ -170,7 +170,7 @@ private:
 /// @implements freighter::UnaryClient
 /// @see freighter::UnaryClient
 template <typename response_t, typename request_t, typename rpc_t>
-class GRPCUnaryClient : public freighter::UnaryClient<response_t, request_t>,
+class GRPCUnaryClient final: public freighter::UnaryClient<response_t, request_t>,
                         freighter::Finalizer
 {
 
@@ -272,7 +272,7 @@ private:
 /// @implements freighter::StreamClient
 /// @see freighter::StreamClient
 template <typename response_t, typename request_t, typename rpc_t>
-class GRPCStreamClient : public freighter::StreamClient<response_t, request_t>,
+class GRPCStreamClient final: public freighter::StreamClient<response_t, request_t>,
                          freighter::PassthroughMiddleware
 {
 public:
@@ -299,7 +299,7 @@ public:
     {
         // Requires lock to do this or else DNS resolver gets overloaded.
         mut.lock();
-        freighter::Context ctx = freighter::Context("grpc", base_target.child(target).toString());
+        auto ctx = freighter::Context("grpc", base_target.child(target).toString());
 
         // Get context id quickly.
         ctx.id = ++largest_id;

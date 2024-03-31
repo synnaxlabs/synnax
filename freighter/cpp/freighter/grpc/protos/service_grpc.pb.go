@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.3.0
 // - protoc             (unknown)
-// source: freighter/cpp/freighter/gRPC/protos/service.proto
+// source: freighter/cpp/freighter/grpc/protos/service.proto
 
 package protos
 
@@ -15,7 +15,7 @@ import (
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the grpc package it is being compiled against.
-// Requires gRPC-Go v1.32.0 or later.
+// Requires grpc-Go v1.32.0 or later.
 const _ = grpc.SupportPackageIsVersion7
 
 const (
@@ -103,7 +103,7 @@ var UnaryMessageService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "freighter/cpp/freighter/gRPC/protos/service.proto",
+	Metadata: "freighter/cpp/freighter/grpc/protos/service.proto",
 }
 
 const (
@@ -223,5 +223,5 @@ var StreamMessageService_ServiceDesc = grpc.ServiceDesc{
 			ClientStreams: true,
 		},
 	},
-	Metadata: "freighter/cpp/freighter/gRPC/protos/service.proto",
+	Metadata: "freighter/cpp/freighter/grpc/protos/service.proto",
 }

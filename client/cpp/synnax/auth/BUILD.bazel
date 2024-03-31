@@ -8,9 +8,24 @@ cc_library(
     }),
     visibility = ["//visibility:public"],
     deps = [
-        "//freighter/cpp/freighter/gRPC",
+        "//client/cpp/synnax/errors",
+        "//freighter/cpp/freighter/grpc",
         "//synnax/pkg/api/grpc/v1:api_grpc",
-        "//x/go/telem:telem_grpc",
         "@com_github_grpc_grpc//:grpc++",
+    ],
+)
+
+cc_test(
+    name = "auth_test",
+    srcs = ["auth_test.cpp"],
+    copts = select({
+        "@platforms//os:windows": ["/std:c++20"],
+        "//conditions:default": [],
+    }),
+    deps = [
+        ":auth",
+        "//freighter/cpp/freighter/mock",
+        "@com_google_googletest//:gtest",
+        "@com_google_googletest//:gtest_main",
     ],
 )

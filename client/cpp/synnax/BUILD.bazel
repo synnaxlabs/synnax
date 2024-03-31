@@ -19,7 +19,7 @@ cc_library(
         "//client/cpp/synnax/hardware",
         "//client/cpp/synnax/ranger",
         "//client/cpp/synnax/telem",
-        "//freighter/cpp/freighter/gRPC",
+        "//freighter/cpp/freighter/grpc",
         "//synnax/pkg/api/grpc/v1:api_grpc",
         "@com_github_grpc_grpc//:grpc++",
     ],

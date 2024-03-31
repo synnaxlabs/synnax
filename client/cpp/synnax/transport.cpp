@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 /// freighter
-#include "freighter/cpp/freighter/gRPC/client.h"
+#include "freighter/cpp/freighter/grpc/client.h"
 
 /// protos and grpc
 #include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/framer.pb.h"
