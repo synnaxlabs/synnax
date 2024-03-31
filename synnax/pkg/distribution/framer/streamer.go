@@ -147,7 +147,7 @@ func (s *Service) NewStreamer(ctx context.Context, cfg StreamerConfig) (Streamer
 		if err != nil {
 			return nil, err
 		}
-		iterReq, iterRes := confluence.Attach(iter, 1)
+		iterReq, iterRes := confluence.Attach(iter, 30)
 		l.iter.flow = iter
 		l.iter.requests = iterReq
 		l.iter.responses = iterRes
@@ -156,7 +156,7 @@ func (s *Service) NewStreamer(ctx context.Context, cfg StreamerConfig) (Streamer
 	if err != nil {
 		return nil, err
 	}
-	relayReq, relayRes := confluence.Attach(rel, 1)
+	relayReq, relayRes := confluence.Attach(rel, 30)
 	l.relay.flow = rel
 	l.relay.requests = relayReq
 	l.relay.responses = relayRes
