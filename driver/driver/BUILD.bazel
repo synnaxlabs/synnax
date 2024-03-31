@@ -47,6 +47,7 @@ cc_binary(
         "@platforms//os:windows": ["/std:c++20"],
         "//conditions:default": [],
     }),
+    linkopts = ["-DEFAULTLIB:ws2_32.lib"],
     deps = [
         "//driver/driver",
         "//driver/driver/breaker",
