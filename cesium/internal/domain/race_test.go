@@ -15,7 +15,7 @@ var _ = Describe("Race conditions", Ordered, func() {
 	BeforeAll(func() {
 		db = MustSucceed(domain.Open(domain.Config{FS: fs.NewMem()}))
 	})
-	FDescribe("domain/newWriter can fail to find domain overlap errors", func() {
+	Describe("domain/newWriter can fail to find domain overlap errors", func() {
 		It("Should be broken", func() {
 			By("Creating some new writers and using them to write data")
 			i := 10
