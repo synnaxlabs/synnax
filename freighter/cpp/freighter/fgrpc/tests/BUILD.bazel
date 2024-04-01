@@ -3,8 +3,8 @@ cc_library(
     srcs = [],
     hdrs = ["server.h"],
     deps = [
-        "//freighter/cpp/freighter/grpc",
-        "//freighter/cpp/freighter/grpc/protos:service_grpc",
+        "//freighter/cpp/freighter/fgrpc",
+        "//freighter/cpp/freighter/fgrpc/protos:service_grpc",
     ],
 )
 
@@ -18,7 +18,7 @@ cc_test(
     }),
     deps = [
         ":server",
-        "//freighter/cpp/freighter/grpc/protos:service_grpc",
+        "//freighter/cpp/freighter/fgrpc/protos:service_grpc",
         "@com_google_googletest//:gtest_main",
     ],
 )

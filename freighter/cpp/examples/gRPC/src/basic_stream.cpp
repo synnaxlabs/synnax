@@ -9,7 +9,7 @@
 
 // This is the client library for grpc freighter.
 // It contains the standard freighter interface.
-#include "freighter/grpc/client.h"
+#include "freighter/fgrpc/client.h"
 
 // Our generated proto file that we wish to send. 
 #include "src/protos/message_service.grpc.pb.h"

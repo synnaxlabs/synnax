@@ -11,12 +11,15 @@
 #include <gtest/gtest.h>
 
 /// Local headers.
-#include "freighter/cpp/freighter/grpc/protos/freighter/cpp/freighter/grpc/protos/service.pb.h"
-#include "freighter/cpp/freighter/grpc/client.h"
-#include "freighter/cpp/freighter/grpc/tests/server.h"
+#include "freighter/cpp/freighter/fgrpc/protos/freighter/cpp/freighter/fgrpc/protos/service.pb.h"
+#include "freighter/cpp/freighter/fgrpc/client.h"
+#include "freighter/cpp/freighter/fgrpc/tests/server.h"
 
 /// std.
 #include <thread>
+
+#include "freighter/cpp/freighter/freighter.h"
+#include "freighter/cpp/freighter/fgrpc/grpc.h"
 
 /// Internal response type uses message.
 using response_t = test::Message;
@@ -88,13 +91,13 @@ TEST(testGRPC, testFailedUnary) {
     // Note that the easiest way to cause a failure
     // here is to simply not set up a server, so that
     // we don't get a response.
-    auto pool = std::make_shared<GRPCPool>();
-    auto client = GRPCUnaryClient<response_t, request_t, unary_rpc_t>(pool, base_target);
+    auto pool = std::make_shared<fgrpc::Pool>();
+    auto client = fgrpc::Pool<response_t, request_t, unary_rpc_t>(pool, base_target);
     auto mes = test::Message();
     mes.set_payload("Sending to Server");
     auto [res, err] = client.send("", mes);
     ASSERT_EQ(res.payload(), "");
-    ASSERT_EQ(err.type, freighter::TYPE_UNREACHABLE);
+    ASSERT_TRUE(err.matches(freighter::UNREACHABLE));
 }
 
 ///// @brief Test sending a message to multiple targets.

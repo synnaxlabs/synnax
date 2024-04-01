@@ -9,8 +9,11 @@
 
 #pragma once
 
-/// Abstract class.
+/// interface.
 #include "freighter/cpp/freighter/freighter.h"
+
+/// std.
+#include <mutex>
 
 /// grpc.
 #include <grpc/grpc.h>
@@ -20,22 +23,19 @@
 #include <grpcpp/create_channel.h>
 #include <grpcpp/security/credentials.h>
 
-/// std.
-#include <mutex>
 
 /// @brief converts a grpc::Status to a freighter::Error.
-freighter::Error errorFromGRPCStatus(grpc::Status status)
-{
+inline freighter::Error errorFromGRPCStatus(grpc::Status status) {
     if (status.ok())
         return freighter::NIL;
     if (status.error_code() == grpc::StatusCode::UNAVAILABLE)
-        return {freighter::TYPE_UNREACHABLE, status.error_message()};
+        return {freighter::UNREACHABLE.type, status.error_message()};
     return freighter::Error(status.error_message());
 }
 
 /// @brief an internal method for reading the entire contents of certificate files
 /// into a string.
-std::string readFile(const std::string &path) {
+inline std::string readFile(const std::string &path) {
     std::string data;
     FILE *f = fopen(path.c_str(), "r");
     if (f == nullptr)
@@ -54,23 +54,21 @@ std::string readFile(const std::string &path) {
     return data;
 }
 
-class GRPCPool
-{
-private:
+namespace fgrpc {
+class Pool {
     /// @brief A map of channels to targets.
-    std::unordered_map<std::string, std::shared_ptr<grpc::Channel>> channels;
+    std::unordered_map<std::string, std::shared_ptr<grpc::Channel> > channels{};
 
     /// @brief GRPC credentials to provide when connecting to a target.
-    std::shared_ptr<grpc::ChannelCredentials> credentials = grpc::InsecureChannelCredentials();
+    std::shared_ptr<grpc::ChannelCredentials> credentials =
+            grpc::InsecureChannelCredentials();
 
 public:
-    GRPCPool() = default;
-
+    Pool() = default;
 
     /// @brief Instantiates the GRPC pool to use TLS encryption where the CA certificate
     /// is located at the provided path.
-    explicit GRPCPool(const std::string &ca_path)
-    {
+    explicit Pool(const std::string &ca_path) {
         grpc::SslCredentialsOptions opts;
         opts.pem_root_certs = readFile(ca_path);
         credentials = grpc::SslCredentials(opts);
@@ -79,11 +77,11 @@ public:
     /// @brief instantiates the GRPC pool to use TLS encryption and authentication
     /// where the CA certificate, client certificate, and client key are located at
     /// the provided paths.
-    GRPCPool(
+    Pool(
         const std::string &ca_path,
         const std::string &cert_path,
-        const std::string &key_path)
-    {
+        const std::string &key_path
+    ) {
         grpc::SslCredentialsOptions opts;
         opts.pem_root_certs = readFile(ca_path);
         opts.pem_cert_chain = readFile(cert_path);
@@ -92,13 +90,14 @@ public:
     }
 
     /// @brief instantiates a GRPC pool with the provided credentials.
-    GRPCPool(std::shared_ptr<grpc::ChannelCredentials> credentials) : credentials(credentials) {}
+    Pool(std::shared_ptr<grpc::ChannelCredentials> credentials) : credentials(
+        credentials) {
+    }
 
     /// @brief Get a channel for a given target.
     /// @param target The target to connect to.
     /// @returns A channel to the target.
-    std::shared_ptr<grpc::Channel> getChannel(const std::string &target)
-    {
+    std::shared_ptr<grpc::Channel> getChannel(const std::string &target) {
         if (channels.find(target) == channels.end()) {
             channels[target] = grpc::CreateChannel(target, credentials);
         }
@@ -107,94 +106,96 @@ public:
 };
 
 /// @brief freighter stream object.
-template <typename response_t, typename request_t, typename rpc_t>
-class GRPCStream : public freighter::Stream<response_t, request_t>
-{
+template<typename response_t, typename request_t, typename rpc_t>
+class GRPCStream final : public freighter::Stream<response_t, request_t>,
+                         freighter::Finalizer {
 public:
     /// Each streamer needs to manage its own context.
-    grpc::ClientContext context;
+    grpc::ClientContext context{};
 
     /// @brief Ctor saves GRPCUnaryClient stream object to use under the hood.
-    explicit GRPCStream(std::shared_ptr<grpc::Channel> channel, freighter::Context &ctx)
-    {
+    GRPCStream(
+        std::shared_ptr<grpc::Channel> channel,
+        freighter::Context &ctx,
+        const freighter::MiddlewareCollector &mw
+    ): mw(mw) {
         // Note that the streamer also sets up its own internal stub.
         stub = rpc_t::NewStub(channel);
-        for (auto &param : ctx.params)
+        for (auto &param: ctx.params)
             context.AddMetadata(param.first, param.second);
         stream = stub->Exec(&context);
     }
 
     /// @brief Streamer send.
-    freighter::Error send(request_t &request) const override
-    {
+    freighter::Error send(request_t &request) const override {
         if (stream->Write(request))
             return freighter::NIL;
         return freighter::STREAM_CLOSED;
     }
 
     /// @brief Streamer read.
-    std::pair<response_t, freighter::Error> receive() const override
-    {
+    std::pair<response_t, freighter::Error> receive() override {
         response_t res;
         if (stream->Read(&res))
             return {res, freighter::NIL};
-        if (err)
-            return {res, err};
-        grpc::Status stat = stream->Finish();
-        if (stat.ok())
-            return {res, freighter::EOF_};
-        return {res, freighter::Error(stat.error_message())};
+        auto [_, err] = mw.exec(freighter::Context("grpc", ""), this);
+        return {res, err};
     }
 
     /// @brief Closing streamer.
-    freighter::Error closeSend() const override
-    {
-        stream->WritesDone();
-        return freighter::NIL;
+    void closeSend() const override { stream->WritesDone(); }
+
+    std::pair<freighter::Context, freighter::Error> operator()(
+        freighter::Context outbound) override {
+        if (closed) return {outbound, freighter::STREAM_CLOSED};
+        const grpc::Status status = stream->Finish();
+        closed = true;
+        return {outbound, errorFromGRPCStatus(status)};
     }
 
 private:
-    freighter::Error err = freighter::NIL;
+    freighter::MiddlewareCollector mw;
 
     /// The internal streaming type for GRPCUnaryClient.
-    std::unique_ptr<grpc::ClientReaderWriter<request_t, response_t>> stream;
+    std::unique_ptr<grpc::ClientReaderWriter<request_t, response_t> > stream;
 
     /// Stub to manage connection.
-    std::unique_ptr<typename rpc_t::Stub> stub;
+    std::unique_ptr<typename rpc_t::Stub> stub{};
 
-    /// Last target managed.
-    std::string last_target;
+    ///
+    bool closed = false;
 };
 
 /// @brief An implementation of freighter::UnaryClient that uses GRPC as the backing transport. Safe to be shared between threads.
 /// @implements freighter::UnaryClient
 /// @see freighter::UnaryClient
-template <typename response_t, typename request_t, typename rpc_t>
-class GRPCUnaryClient final: public freighter::UnaryClient<response_t, request_t>,
-                        freighter::Finalizer
-{
-
+template<typename response_t, typename request_t, typename rpc_t>
+class UnaryClient final : public freighter::UnaryClient<response_t, request_t>,
+                          freighter::Finalizer {
 public:
-    GRPCUnaryClient(
-        std::shared_ptr<GRPCPool> pool,
+    UnaryClient(
+        std::shared_ptr<Pool> pool,
         const std::string &base_target) : pool(pool),
-                                          base_target(freighter::URL(base_target))
-    {
+                                          base_target(freighter::URL(base_target)) {
     }
 
-    GRPCUnaryClient(std::shared_ptr<GRPCPool> pool) : pool(pool) {}
+    UnaryClient(std::shared_ptr<Pool> pool) : pool(pool) {
+    }
 
     /// @brief Adds a middleware to the chain.
     /// @implements UnaryClient::use
-    void use(std::shared_ptr<freighter::Middleware> middleware) override { mw.use(middleware); }
+    void use(std::shared_ptr<freighter::Middleware> middleware) override {
+        mw.use(middleware);
+    }
 
     /// @brief Interface for unary send.
     /// @param target
     /// @param request Should be of a generated proto message type.
     /// @returns Should be of a generated proto message type.
-    std::pair<response_t, freighter::Error> send(const std::string &target, request_t &request) override
-    {
-        freighter::Context ctx = freighter::Context("grpc", base_target.child(target).toString());
+    std::pair<response_t, freighter::Error> send(const std::string &target,
+                                                 request_t &request) override {
+        freighter::Context ctx = freighter::Context(
+            "grpc", base_target.child(target).toString());
 
         // Set this context's id to largest id.
         mut.lock();
@@ -214,11 +215,11 @@ public:
     }
 
     /// @brief the finalizer that executes the request.
-    std::pair<freighter::Context, freighter::Error> operator()(freighter::Context outboundContext) override
-    {
+    std::pair<freighter::Context, freighter::Error> operator()(
+        freighter::Context outboundContext) override {
         // Set outbound metadata.
         grpc::ClientContext grpcContext;
-        for (auto &param : outboundContext.params)
+        for (auto &param: outboundContext.params)
             grpcContext.AddMetadata(param.first, param.second);
 
         // Execute request.
@@ -241,8 +242,9 @@ public:
         mut.unlock();
 
         // Set inbound metadata.
-        auto inboundContext = freighter::Context(outboundContext.protocol, outboundContext.target);
-        for (auto &meta : grpcContext.GetServerInitialMetadata())
+        auto inboundContext = freighter::Context(outboundContext.protocol,
+                                                 outboundContext.target);
+        for (auto &meta: grpcContext.GetServerInitialMetadata())
             inboundContext.set(std::string(meta.first.begin(), meta.first.end()),
                                std::string(meta.second.begin(), meta.second.end()));
         return {inboundContext, freighter::NIL};
@@ -253,13 +255,14 @@ private:
     freighter::MiddlewareCollector mw;
 
     /// GRPCPool to pool connections across clients.
-    std::shared_ptr<GRPCPool> pool;
+    std::shared_ptr<Pool> pool;
 
     /// Base target for all request.
     freighter::URL base_target;
 
     /// Used to map from context id to request/ response pair.
-    std::unordered_map<int, std::pair<request_t, response_t>> latest_requests_and_responses;
+    std::unordered_map<int, std::pair<request_t, response_t> >
+    latest_requests_and_responses;
 
     /// Used to keep track of the largest id.
     int largest_id = 0;
@@ -271,32 +274,33 @@ private:
 /// @brief An implementation of freighter::StreamClient that uses GRPC as the backing transport. Safe to be shared between threads.
 /// @implements freighter::StreamClient
 /// @see freighter::StreamClient
-template <typename response_t, typename request_t, typename rpc_t>
-class GRPCStreamClient final: public freighter::StreamClient<response_t, request_t>,
-                         freighter::PassthroughMiddleware
-{
+template<typename response_t, typename request_t, typename rpc_t>
+class StreamClient final : public freighter::StreamClient<response_t, request_t>,
+                           freighter::PassthroughMiddleware {
 public:
-    GRPCStreamClient(
-        std::shared_ptr<GRPCPool> pool,
+    StreamClient(
+        std::shared_ptr<Pool> pool,
         const std::string &base_target) : pool(pool),
-                                          base_target(freighter::URL(base_target))
-    {
+                                          base_target(freighter::URL(base_target)) {
     }
 
-    explicit GRPCStreamClient(std::shared_ptr<GRPCPool> pool) : pool(pool) {}
+    explicit StreamClient(std::shared_ptr<Pool> pool) : pool(pool) {
+    }
 
     /// @brief Adds a middleware to the chain.
     /// @implements StreamClient::use
-    void use(std::shared_ptr<freighter::Middleware> middleware) override { mw.use(middleware); }
+    void use(std::shared_ptr<freighter::Middleware> middleware) override {
+        mw.use(middleware);
+    }
 
     /// @brief Interface for stream.
     /// @param target The server's IP.
     /// @returns A stream object, which can be used to listen to the server.
     /// NOTE: Sharing stream invocations is not thread safe.
     /// It is suggested to create one StreamClient and create a stream per thread.
-    std::pair<std::unique_ptr<freighter::Stream<response_t, request_t>>, freighter::Error>
-    stream(const std::string &target) override
-    {
+    std::pair<std::unique_ptr<freighter::Stream<response_t, request_t> >,
+        freighter::Error>
+    stream(const std::string &target) override {
         // Requires lock to do this or else DNS resolver gets overloaded.
         mut.lock();
         auto ctx = freighter::Context("grpc", base_target.child(target).toString());
@@ -306,7 +310,7 @@ public:
         mut.unlock();
 
         // Mut is unlocked for expensive exec function call.
-        auto [_, exc] = mw.exec(ctx, this);
+        auto [_, err] = mw.exec(ctx, this);
 
         // Lock again to read data in latest_streams.
         mut.lock();
@@ -314,17 +318,23 @@ public:
         latest_streams.erase(ctx.id);
         mut.unlock();
 
-        return {std::move(latest_stream), exc};
+        return {std::move(latest_stream), err};
     }
 
     /// @brief the finalizer that opens the stream.
-    std::pair<freighter::Context, freighter::Error> operator()(freighter::Context outboundContext) override
-    {
+    std::pair<freighter::Context, freighter::Error> operator()(
+        freighter::Context outboundContext) override {
         auto channel = pool->getChannel(outboundContext.target);
-        auto latest_stream = std::make_unique<GRPCStream<response_t, request_t, rpc_t>>(channel, outboundContext);
+        auto latest_stream = std::make_unique<GRPCStream<response_t, request_t,
+            rpc_t> >(
+            channel,
+            outboundContext,
+            mw
+        );
         // Set inbound metadata.
-        auto inboundContext = freighter::Context(outboundContext.protocol, outboundContext.target);
-        for (auto &meta : latest_stream->context.GetServerTrailingMetadata())
+        auto inboundContext = freighter::Context(outboundContext.protocol,
+                                                 outboundContext.target);
+        for (auto &meta: latest_stream->context.GetServerTrailingMetadata())
             inboundContext.set(meta.first.data(), meta.second.data());
 
         mut.lock();
@@ -336,7 +346,7 @@ public:
 
 private:
     /// GRPCPool to pool connections across clients.
-    std::shared_ptr<GRPCPool> pool;
+    std::shared_ptr<Pool> pool;
 
     /// Middleware collector.
     freighter::MiddlewareCollector mw;
@@ -345,7 +355,10 @@ private:
     freighter::URL base_target;
 
     /// Map from context instances to latest streams.
-    std::unordered_map<int, std::unique_ptr<freighter::Stream<response_t, request_t>>> latest_streams;
+    std::unordered_map<
+        int,
+        std::unique_ptr<freighter::Stream<response_t, request_t> >
+    > latest_streams{};
 
     /// Largest id a context has at the moment.
     int largest_id = 0;
@@ -353,3 +366,4 @@ private:
     /// Lock for mutual exclusion.
     std::mutex mut;
 };
+}

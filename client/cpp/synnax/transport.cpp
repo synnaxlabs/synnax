@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 /// freighter
-#include "freighter/cpp/freighter/grpc/client.h"
+#include "freighter/cpp/freighter/fgrpc/fgrpc.h"
 
 /// protos and grpc
 #include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/framer.pb.h"
@@ -36,126 +36,126 @@ Transport::Transport(
         const std::string &client_key_file
     ) {
     auto base_target = freighter::URL(ip, port, "").toString();
-    std::shared_ptr<GRPCPool> pool = nullptr;
+    std::shared_ptr<fgrpc::Pool> pool = nullptr;
     if (ca_cert_file.empty() && client_cert_file.empty() && client_key_file.empty()) {
-        pool = std::make_shared<GRPCPool>();
+        pool = std::make_shared<fgrpc::Pool>();
     } else if (client_cert_file.empty() && client_key_file.empty()) {
-        pool = std::make_shared<GRPCPool>(ca_cert_file);
+        pool = std::make_shared<fgrpc::Pool>(ca_cert_file);
     } else {
-        pool = std::make_shared<GRPCPool>(ca_cert_file, client_cert_file, client_key_file);
+        pool = std::make_shared<fgrpc::Pool>(ca_cert_file, client_cert_file, client_key_file);
     }
 
 
-    auth_login = std::make_unique<GRPCUnaryClient<
+    auth_login = std::make_unique<fgrpc::UnaryClient<
             v1::LoginResponse,
             v1::LoginRequest,
             v1::AuthLoginService
     >>(pool, base_target);
 
 
-    frame_stream = std::make_unique<GRPCStreamClient<
+    frame_stream = std::make_unique<fgrpc::StreamClient<
             v1::FrameStreamerResponse,
             v1::FrameStreamerRequest,
             v1::FrameStreamerService
     >>(pool, base_target);
 
-    frame_write = std::make_unique<GRPCStreamClient<
+    frame_write = std::make_unique<fgrpc::StreamClient<
             v1::FrameWriterResponse,
             v1::FrameWriterRequest,
             v1::FrameWriterService
     >>(pool, base_target);
 
-    chan_create = std::make_unique<GRPCUnaryClient<
+    chan_create = std::make_unique<fgrpc::UnaryClient<
             v1::ChannelCreateResponse,
             v1::ChannelCreateRequest,
             v1::ChannelCreateService
     >>(pool, base_target);
 
-    chan_retrieve = std::make_unique<GRPCUnaryClient<
+    chan_retrieve = std::make_unique<fgrpc::UnaryClient<
             v1::ChannelRetrieveResponse,
             v1::ChannelRetrieveRequest,
             v1::ChannelRetrieveService
     >>(pool, base_target);
 
-    range_retrieve = std::make_unique<GRPCUnaryClient<
+    range_retrieve = std::make_unique<fgrpc::UnaryClient<
             v1::RangeRetrieveResponse,
             v1::RangeRetrieveRequest,
             v1::RangeRetrieveService
     >>(pool, base_target);
 
-    range_create = std::make_unique<GRPCUnaryClient<
+    range_create = std::make_unique<fgrpc::UnaryClient<
             v1::RangeCreateResponse,
             v1::RangeCreateRequest,
             v1::RangeCreateService
     >>(pool, base_target);
 
-    range_kv_delete = std::make_shared<GRPCUnaryClient<
+    range_kv_delete = std::make_shared<fgrpc::UnaryClient<
             google::protobuf::Empty,
             v1::RangeKVDeleteRequest,
             v1::RangeKVDeleteService
     >>(pool, base_target);
 
-    range_kv_get = std::make_shared<GRPCUnaryClient<
+    range_kv_get = std::make_shared<fgrpc::UnaryClient<
             v1::RangeKVGetResponse,
             v1::RangeKVGetRequest,
             v1::RangeKVGetService
     >>(pool, base_target);
 
-    range_kv_set = std::make_shared<GRPCUnaryClient<
+    range_kv_set = std::make_shared<fgrpc::UnaryClient<
             google::protobuf::Empty,
             v1::RangeKVSetRequest,
             v1::RangeKVSetService
     >>(pool, base_target);
 
-    range_set_active = std::make_unique<GRPCUnaryClient<
+    range_set_active = std::make_unique<fgrpc::UnaryClient<
             google::protobuf::Empty,
             v1::RangeSetActiveRequest,
             v1::RangeSetActiveService
     >>(pool, base_target);
 
-    range_retrieve_active = std::make_unique<GRPCUnaryClient<
+    range_retrieve_active = std::make_unique<fgrpc::UnaryClient<
             v1::RangeRetrieveActiveResponse,
             google::protobuf::Empty,
             v1::RangeRetrieveActiveService
     >>(pool, base_target);
 
-    range_clear_active = std::make_unique<GRPCUnaryClient<
+    range_clear_active = std::make_unique<fgrpc::UnaryClient<
             google::protobuf::Empty,
             google::protobuf::Empty,
             v1::RangeClearActiveService
     >>(pool, base_target);
 
-    rack_create_client = std::make_unique<GRPCUnaryClient<
+    rack_create_client = std::make_unique<fgrpc::UnaryClient<
             v1::HardwareCreateRackResponse,
             v1::HardwareCreateRackRequest,
             v1::HardwareCreateRackService
     >>(pool, base_target);
 
-    rack_retrieve = std::make_unique<GRPCUnaryClient<
+    rack_retrieve = std::make_unique<fgrpc::UnaryClient<
             v1::HardwareRetrieveRackResponse,
             v1::HardwareRetrieveRackRequest,
             v1::HardwareRetrieveRackService
     >>(pool, base_target);
 
-    rack_delete = std::make_unique<GRPCUnaryClient<
+    rack_delete = std::make_unique<fgrpc::UnaryClient<
             google::protobuf::Empty,
             v1::HardwareDeleteRackRequest,
             v1::HardwareDeleteRackService
     >>(pool, base_target);
 
-    module_create = std::make_shared<GRPCUnaryClient<
+    module_create = std::make_shared<fgrpc::UnaryClient<
             v1::HardwareCreateTaskResponse,
             v1::HardwareCreateTaskRequest,
             v1::HardwareCreateTaskService
     >>(pool, base_target);
 
-    module_retrieve = std::make_shared<GRPCUnaryClient<
+    module_retrieve = std::make_shared<fgrpc::UnaryClient<
             v1::HardwareRetrieveTaskResponse,
             v1::HardwareRetrieveTaskRequest,
             v1::HardwareRetrieveTaskService
     >>(pool, base_target);
 
-    module_delete = std::make_shared<GRPCUnaryClient<
+    module_delete = std::make_shared<fgrpc::UnaryClient<
             google::protobuf::Empty,
             v1::HardwareDeleteTaskRequest,
             v1::HardwareDeleteTaskService

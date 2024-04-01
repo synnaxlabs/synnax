@@ -40,7 +40,7 @@ struct Config {
 /// @see breaker::Config for information on configuring the breaker.
 class Breaker {
 public:
-    explicit Breaker(const Config& config) : config(config),
+    explicit Breaker(const Config &config) : config(config),
                                              interval(config.base_interval),
                                              retries(0) {
     }
@@ -50,27 +50,24 @@ public:
     /// @brief triggers the breaker. If the maximum number of retries has been exceeded,
     /// immediately returns false. Otherwise, sleeps the current thread for the current
     /// retry interval and returns true. Also Logs information about the breaker trigger.
-    bool wait() { return true; }
+    bool wait() { return wait(""); }
 
     /// @brief triggers the breaker. If the maximum number of retries has been exceeded,
     /// immediately returns false. Otherwise, sleeps the current thread for the current
     /// retry interval and returns true.
     /// @param message a message to inject additional information into the logs about what
     /// error occured to trigger the breaker.
-    bool wait(const std::string message) {
-        if (retries >= config.max_retries) {
-            LOG(ERROR) << "Breaker " << config.name <<
-                    " exceeded the maximum retry count of " << config.max_retries <<
-                    ". Exiting.";
+    bool wait(const std::string &message) {
+        retries++;
+        if (retries > config.max_retries) {
+            LOG(ERROR) << config.name << " exceeded the maximum retry count of " << config.max_retries << ". Exiting." << "Error: " << message << ".";
             return false;
         }
-        LOG(ERROR) << "Breaker " << config.name << " triggered " << retries << "/" <<
-                config.max_retries << " times. Error: " << message << ". Retrying in "
-                << interval / SECOND <<
-                " seconds.";
+        LOG(ERROR) << config.name << " failed " << retries << "/" <<
+                config.max_retries << " times. " << "Retrying in " << interval / SECOND << " seconds. "
+                "Error: " << message << ".";
         std::this_thread::sleep_for(interval.nanoseconds());
         interval = interval * config.scale;
-        retries++;
         return true;
     }
 

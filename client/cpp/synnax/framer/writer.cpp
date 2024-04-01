@@ -38,7 +38,8 @@ std::pair<Writer, freighter::Error> FrameClient::openWriter(const WriterConfig& 
     api::v1::FrameWriterRequest req;
     req.set_command(OPEN);
     config.toProto(req.mutable_config());
-    if (err = s->send(req); err) return {Writer(), err};
+    err = s->send(req);
+    if (err) return {Writer(), err};
     auto [_, recExc] = s->receive();
     return {Writer(std::move(s)), recExc};
 }
@@ -125,7 +126,7 @@ freighter::Error Writer::error() const {
 }
 
 freighter::Error Writer::close() const {
-    if (auto exc = stream->closeSend()) return exc;
+    stream->closeSend();
     while (true) {
         if (const auto rec_exc = stream->receive().second; rec_exc) {
             if (rec_exc.matches(freighter::EOF_)) return freighter::NIL;

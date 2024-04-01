@@ -22,15 +22,20 @@ var (
 	// are invalid.
 	InvalidCredentials = password.Invalid
 	// Error is the base error for all authentication related errors.
-	Error = base.AuthError
+	Error        = base.AuthError
+	InvalidToken = errors.Wrap(base.AuthError, "invalid token")
 )
 
 const (
 	errorType              = "sy.auth"
 	invalidCredentialsType = errorType + ".invalid-credentials"
+	invalidTokenType       = errorType + ".invalid-token"
 )
 
 func encode(_ context.Context, err error) (errors.Payload, bool) {
+	if errors.Is(err, InvalidToken) {
+		return errors.Payload{Type: invalidTokenType, Data: err.Error()}, true
+	}
 	if errors.Is(err, InvalidCredentials) {
 		return errors.Payload{Type: invalidCredentialsType, Data: err.Error()}, true
 	}

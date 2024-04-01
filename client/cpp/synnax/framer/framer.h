@@ -129,7 +129,7 @@ public:
     /// will exhaust the stream and eventually return an EOF.
     /// @note closeSend() is safe to call concurrently with read(), but not with any
     /// other DB methods.
-    freighter::Error closeSend() const;
+    void closeSend() const;
 
 private:
 

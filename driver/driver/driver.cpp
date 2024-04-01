@@ -31,7 +31,7 @@ driver::Driver::Driver(
 
 void driver::Driver::run() {
     LOG(ERROR) << "Starting Rack " << key;
-    std::latch rack_latch{1};
+    std::latch rack_latch{2};
     LOG(ERROR) << "Starting task manager";
     auto err = task_manager.start(rack_latch);
     if (err) {

@@ -29,11 +29,6 @@ struct ReaderChannelConfig {
     }
 };
 
-const std::vector RETRY_ON = {
-    freighter::UNREACHABLE,
-    freighter::STREAM_CLOSED
-};
-
 struct ReaderConfig {
     ConnectionConfig connection;
     /// @brief sets the acquisition rate.
@@ -79,9 +74,8 @@ private:
         auto indexes = std::set<ChannelKey>();
         auto [channels, c_err] = ctx->client->channels.retrieve(cfg.channelKeys());
         if (c_err) {
-            if (c_err.matches(RETRY_ON) && breaker.wait(c_err.message()))
-                return
-                        retrieveAdditionalChannelInfo();
+            if (c_err.matches(freighter::UNREACHABLE) && breaker.wait(c_err.message()))
+                return retrieveAdditionalChannelInfo();
             return {{channelKeys, indexes}, c_err};
         }
         for (auto i = 0; i < channels.size(); i++) {

@@ -22,7 +22,7 @@ Acquisition::Acquisition(
     std::shared_ptr<task::Context> ctx,
     WriterConfig writer_config,
     std::unique_ptr<Source> source,
-    const breaker::Config& breaker_config
+    const breaker::Config &breaker_config
 ): ctx(std::move(ctx)),
    writer_config(std::move(writer_config)),
    source(std::move(source)),
@@ -40,29 +40,20 @@ void Acquisition::stop() {
     thread.join();
 }
 
-const std::vector RETRY_ON = {
-    freighter::UNREACHABLE,
-    freighter::STREAM_CLOSED,
-};
-
 void Acquisition::run() {
     auto [writer, wo_err] = ctx->client->telem.openWriter(writer_config);
     if (wo_err) {
-        if (wo_err.matches(RETRY_ON) && breaker.wait(wo_err.message())) run();
+        if (wo_err.matches(freighter::UNREACHABLE) && breaker.wait(wo_err.message()))
+            run();
         return;
     }
-
     while (running) {
         auto [frame, source_err] = source->read();
         if (source_err) break;
         if (!writer.write(frame)) break;
     }
 
-    if (
-        const auto err = writer.close();
-        err.matches(RETRY_ON) && breaker.wait(err.message())
-    )
-        run();
-
+    const auto err = writer.close();
+    if (err.matches(freighter::UNREACHABLE) && breaker.wait(err.message())) run();
     running = false;
 }

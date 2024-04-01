@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.3.0
 // - protoc             (unknown)
-// source: freighter/cpp/freighter/grpc/protos/service.proto
+// source: freighter/cpp/freighter/fgrpc/protos/service.proto
 
 package protos
 
@@ -103,7 +103,7 @@ var UnaryMessageService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "freighter/cpp/freighter/grpc/protos/service.proto",
+	Metadata: "freighter/cpp/freighter/fgrpc/protos/service.proto",
 }
 
 const (
@@ -223,5 +223,5 @@ var StreamMessageService_ServiceDesc = grpc.ServiceDesc{
 			ClientStreams: true,
 		},
 	},
-	Metadata: "freighter/cpp/freighter/grpc/protos/service.proto",
+	Metadata: "freighter/cpp/freighter/fgrpc/protos/service.proto",
 }

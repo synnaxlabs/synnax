@@ -19,6 +19,6 @@ const std::string QUERY_ERROR = ERROR_PREFIX + "query";
 const std::string MULTIPLE_RESULTS = QUERY_ERROR + ".multiple_results";
 const std::string NOT_FOUND = QUERY_ERROR + ".not_found";
 const std::string AUTH_ERROR = ERROR_PREFIX + "auth";
-const std::string INVALID_TOKEN = AUTH_ERROR + ".invalid_token";
+const std::string INVALID_TOKEN = AUTH_ERROR + ".invalid-token";
 const std::string INVALID_CREDENTIALS = AUTH_ERROR + ".invalid-credentials";
 }

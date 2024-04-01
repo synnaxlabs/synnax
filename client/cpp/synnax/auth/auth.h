@@ -81,7 +81,6 @@ public:
             token = res.token();
             authenticated = true;
         }
-        if (err) return {context, err};
         context.set(HEADER_KEY, HEADER_VALUE_PREFIX + token);
         auto [res, err] = freighter::PassthroughMiddleware::operator()(context);
         if (err.matches(synnax::INVALID_TOKEN) && retry_count < max_retries) {

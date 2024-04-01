@@ -41,19 +41,14 @@ std::pair<Frame, freighter::Error> Streamer::read() const
     return {Frame(fr.frame()), exc};
 }
 
-freighter::Error Streamer::closeSend() const {
-    return stream->closeSend();
-}
+void Streamer::closeSend() const { stream->closeSend(); }
 
 freighter::Error Streamer::close() const
 {
-    auto exc = stream->closeSend();
-    if (exc)
-        return exc;
-    auto [res, recExc] = stream->receive();
-    if (recExc.type == freighter::EOF_.type)
-        return freighter::NIL;
-    return recExc;
+    closeSend();
+    auto [res, err] = stream->receive();
+    if (err.matches(freighter::EOF_)) return freighter::NIL;
+    return err;
 }
 
 freighter::Error Streamer::setChannels(std::vector<ChannelKey> channels) const
@@ -61,8 +56,7 @@ freighter::Error Streamer::setChannels(std::vector<ChannelKey> channels) const
     assertOpen();
     auto req = api::v1::FrameStreamerRequest();
     req.mutable_keys()->Add(channels.begin(), channels.end());
-    auto err = stream->send(req);
-    return err;
+    return stream->send(req);
 }
 
 void Streamer::assertOpen() const

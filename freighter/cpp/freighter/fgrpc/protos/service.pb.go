@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.33.0
 // 	protoc        (unknown)
-// source: freighter/cpp/freighter/grpc/protos/service.proto
+// source: freighter/cpp/freighter/fgrpc/protos/service.proto
 
 package protos
 

@@ -50,15 +50,10 @@ void Control::stop() {
     acks_thread.join();
 }
 
-const std::vector RETRY_ON = {
-    freighter::UNREACHABLE,
-    freighter::STREAM_CLOSED,
-};
-
 void Control::runCommands(std::latch& latch) {
     auto [streamer, so_err] = ctx->client->telem.openStreamer(streamer_config);
     if (so_err) {
-        if (so_err.matches(RETRY_ON) && cmd_breaker.wait()) return runCommands(latch);
+        if (so_err.matches(freighter::UNREACHABLE) && cmd_breaker.wait()) return runCommands(latch);
         return latch.count_down();
     }
 
@@ -73,7 +68,7 @@ void Control::runCommands(std::latch& latch) {
     }
     if (
         const auto err = streamer.close();
-        err.matches(RETRY_ON) && cmd_breaker.wait()
+        err.matches(freighter::UNREACHABLE) && cmd_breaker.wait()
     )
         return runCommands(latch);
 
@@ -83,7 +78,7 @@ void Control::runCommands(std::latch& latch) {
 void Control::runStateUpdates(std::latch& latch) {
     auto [sw, so_err] = ctx->client->telem.openWriter(writer_config);
     if (so_err) {
-        if (so_err.matches(RETRY_ON) && state_breaker.wait())
+        if (so_err.matches(freighter::UNREACHABLE) && state_breaker.wait())
             return
                     runStateUpdates(latch);
         return latch.count_down();
@@ -98,5 +93,5 @@ void Control::runStateUpdates(std::latch& latch) {
     }
 
     auto err = state_writer.close();
-    if (err.matches(RETRY_ON) && state_breaker.wait()) runStateUpdates(latch);
+    if (err.matches(freighter::UNREACHABLE) && state_breaker.wait()) runStateUpdates(latch);
 }

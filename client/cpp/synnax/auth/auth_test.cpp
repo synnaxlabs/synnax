@@ -32,6 +32,7 @@ TEST(TestAuth, testLoginHappyPath) {
     EXPECT_TRUE(err.matches(freighter::NIL));
 }
 
+/// @brief it should return an error if credentials are invalid.
 TEST(TestAuth, testLoginInvalidCredentials) {
     auto res = api::v1::LoginResponse();
     res.set_token("abc");
@@ -53,6 +54,7 @@ TEST(TestAuth, testLoginInvalidCredentials) {
     EXPECT_TRUE(err.matches(synnax::INVALID_CREDENTIALS));
 }
 
+/// @brief it should retry authentication if the authentication token is invalid.
 TEST(TestAuth, testLoginRetry) {
     auto res = api::v1::LoginResponse();
     res.set_token("abc");
@@ -80,6 +82,7 @@ TEST(TestAuth, testLoginRetry) {
     EXPECT_TRUE(err.matches(freighter::NIL));
 }
 
+/// @brief it should return an invalid token error if the maximum number of retries is exceeded.
 TEST(TestAuth, testExceedMaxRetries) {
     auto res = api::v1::LoginResponse();
     res.set_token("abc");

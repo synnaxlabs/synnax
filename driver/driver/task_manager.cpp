@@ -7,100 +7,92 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// Std.
+/// std.
 #include <latch>
 #include <utility>
+#include <memory>
 
-/// External.
-#include "nlohmann/json.hpp"
+/// external.
 #include <glog/logging.h>
 
-/// Internal.
-#include "config/config.h"
+/// internal.
+#include "driver/driver/config/config.h"
 #include "driver/driver/driver.h"
 
-using json = nlohmann::json;
-
 driver::TaskManager::TaskManager(
-    RackKey rack_key,
-    const std::shared_ptr<Synnax>& client,
+    const RackKey rack_key,
+    const std::shared_ptr<Synnax> &client,
     std::unique_ptr<task::Factory> factory,
     breaker::Breaker breaker
 ) : rack_key(rack_key),
-    client(client),
-    ctx(std::make_shared<task::ContextImpl>(client)),
+    internal(rack_key, ""),
+    ctx(std::make_shared<task::SynnaxContext>(client)),
     factory(std::move(factory)),
-    exit_err(freighter::NIL),
-    breaker(std::move(breaker)),
-    internal(rack_key, "") {
+    breaker(std::move(breaker)) {
 }
 
 const std::string TASK_SET_CHANNEL = "sy_task_set";
 const std::string TASK_DELETE_CHANNEL = "sy_task_delete";
 const std::string TASK_CMD_CHANNEL = "sy_task_cmd";
 
-freighter::Error driver::TaskManager::start(std::latch& latch) {
-    LOG(ERROR) << "Starting task manager";
-    auto err = startInternal();
+freighter::Error driver::TaskManager::start(std::latch &latch) {
+    LOG(INFO) << "starting task manager";
+    auto err = startGuarded();
     if (err) {
-        if (err.type == freighter::TYPE_UNREACHABLE && breaker.wait()) start(latch);
+        if (err.matches(freighter::UNREACHABLE) && breaker.wait()) start(latch);
         latch.count_down();
         return err;
     }
     breaker.reset();
-    exec_thread = std::thread(&TaskManager::run, this, std::ref(latch));
+    run_thread = std::thread(&TaskManager::run, this, std::ref(latch));
     return freighter::NIL;
 }
 
-freighter::Error driver::TaskManager::startInternal() {
+freighter::Error driver::TaskManager::startGuarded() {
     // Fetch info about the rack.
-    auto [rack, rack_err] = client->hardware.retrieveRack(rack_key);
+    auto [rack, rack_err] = ctx->client->hardware.retrieveRack(rack_key);
     if (rack_err) return rack_err;
     internal = rack;
 
     // Fetch task set channel.
-    auto [task_set, task_set_err] = client->channels.retrieve(TASK_SET_CHANNEL);
+    auto [task_set, task_set_err] = ctx->client->channels.retrieve(TASK_SET_CHANNEL);
     if (task_set_err) return task_set_err;
     task_set_channel = task_set;
 
     // Fetch task delete channel.
-    auto [task_delete, task_delete_err] = client->channels.retrieve(TASK_DELETE_CHANNEL);
-    if (task_delete_err) return task_delete_err;
-    task_delete_channel = task_delete;
+    auto [task_del, task_del_err] = ctx->client->channels.retrieve(TASK_DELETE_CHANNEL);
+    if (task_del_err) return task_del_err;
+    task_delete_channel = task_del;
 
     // Fetch task command channel.
-    auto [task_cmd, task_cmd_err] = client->channels.retrieve(TASK_CMD_CHANNEL);
-    if (task_cmd_err) return task_cmd_err;
+    auto [task_cmd, task_cmd_err] = ctx->client->channels.retrieve(TASK_CMD_CHANNEL);
     task_cmd_channel = task_cmd;
 
-    LOG(ERROR) << "Checkpoint";
-
-    return freighter::NIL;
+    return task_cmd_err;
 }
 
 
-void driver::TaskManager::run(std::latch& latch) {
-    LOG(ERROR) << "Running task manager outer";
-    auto err = runInternal();
-    if (err) {
-        // This is the only error type that we retry on.
-        if (err.matches(freighter::TYPE_UNREACHABLE) && breaker.wait()) runInternal();
-        if (!err.matches(freighter::EOF_)) exit_err = err;
-    }
+void driver::TaskManager::run(std::latch &latch) {
+    const auto err = runGuarded();
+    if (err.matches(freighter::UNREACHABLE) && breaker.wait(err.message()))
+        return run(latch);
     latch.count_down();
+    run_err = err;
 }
 
 freighter::Error driver::TaskManager::stop() {
-    auto err = streamer->closeSend();
-    exec_thread.join();
-    return exit_err;
+    streamer->closeSend();
+    run_thread.join();
+    return run_err;
 }
 
-freighter::Error driver::TaskManager::runInternal() {
-    LOG(ERROR) << "Running task manager";
-    // Open the streamer.
-    std::vector stream_channels = {task_set_channel.key, task_delete_channel.key, task_cmd_channel.key};
-    auto [s, open_err] = client->telem.openStreamer(StreamerConfig{.channels = stream_channels});
+freighter::Error driver::TaskManager::runGuarded() {
+    const std::vector<ChannelKey> stream_channels = {
+        task_set_channel.key, task_delete_channel.key, task_cmd_channel.key
+    };
+    auto [s, open_err] = ctx->client->telem.openStreamer(StreamerConfig{
+        .channels = stream_channels
+    });
     if (open_err) return open_err;
     streamer = std::make_unique<Streamer>(std::move(s));
 
@@ -109,11 +101,10 @@ freighter::Error driver::TaskManager::runInternal() {
 
     while (true) {
         auto [frame, read_err] = streamer->read();
-        LOG(ERROR) << "Read frame";
         if (read_err) return read_err;
         for (size_t i = 0; i < frame.size(); i++) {
-            auto& key = (*frame.columns)[i];
-            auto& series = (*frame.series)[i];
+            const auto &key = (*frame.columns)[i];
+            const auto &series = (*frame.series)[i];
             if (key == task_set_channel.key) processTaskSet(series);
             else if (key == task_delete_channel.key) processTaskDelete(series);
             else if (key == task_cmd_channel.key) processTaskCmd(series);
@@ -122,7 +113,7 @@ freighter::Error driver::TaskManager::runInternal() {
     return freighter::NIL;
 }
 
-void driver::TaskManager::processTaskSet(const Series& series) {
+void driver::TaskManager::processTaskSet(const Series &series) {
     auto keys = series.uint64();
     for (auto key: keys) {
         // If a module exists with this key, stop and remove it.
@@ -136,7 +127,8 @@ void driver::TaskManager::processTaskSet(const Series& series) {
             std::cerr << err.message() << std::endl;
             continue;
         }
-        LOG(ERROR) << "Configuring task: " << sy_task.name << " with key: " << key << ".";
+        LOG(ERROR) << "Configuring task: " << sy_task.name << " with key: " << key <<
+                ".";
         auto [driver_task, ok] = factory->configureTask(ctx, sy_task);
         if (ok && driver_task != nullptr) {
             tasks[key] = std::move(driver_task);
@@ -144,14 +136,14 @@ void driver::TaskManager::processTaskSet(const Series& series) {
     }
 }
 
-void driver::TaskManager::processTaskCmd(const Series& series) {
+void driver::TaskManager::processTaskCmd(const Series &series) {
     const auto commands = series.string();
-    for (const auto& cmd_str: commands) {
+    for (const auto &cmd_str: commands) {
         LOG(ERROR) << "Processing command: " << cmd_str;
         auto parser = config::Parser(cmd_str);
         auto cmd = task::Command(parser);
         if (!parser.ok()) {
-            LOG(ERROR) << "Failed to parse command: " << to_string(parser.error_json());
+            LOG(ERROR) << "Failed to parse command: " << parser.error_json().dump();
             continue;
         }
         auto it = tasks.find(cmd.task);
@@ -164,7 +156,7 @@ void driver::TaskManager::processTaskCmd(const Series& series) {
 }
 
 
-void driver::TaskManager::processTaskDelete(const Series& series) {
+void driver::TaskManager::processTaskDelete(const Series &series) {
     const auto keys = series.uint64();
     for (auto key: keys) {
         const auto it = tasks.find(key);

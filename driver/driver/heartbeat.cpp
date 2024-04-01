@@ -44,7 +44,7 @@ void driver::Heartbeat::run() {
     auto [writer, err] = client->telem.openWriter(WriterConfig{.channels = channels});
     if (err) {
         LOG(ERROR) << "Open writer error" << err;
-        if ((err.matches(freighter::TYPE_UNREACHABLE) || err.matches(freighter::STREAM_CLOSED)) && breaker.wait()) run();
+        if ((err.matches(freighter::UNREACHABLE)) && breaker.wait()) run();
         exit_err = err;
         return;
     }
@@ -57,7 +57,7 @@ void driver::Heartbeat::run() {
         if (!writer.write(std::move(fr))) {
             auto w_err = writer.error();
             std::cout << w_err.message() << std::endl;
-            if ((w_err.matches(freighter::TYPE_UNREACHABLE) || w_err.matches(freighter::STREAM_CLOSED)) && breaker.wait()) run();
+            if (w_err.matches(freighter::UNREACHABLE) && breaker.wait()) run();
             exit_err = w_err;
             break;
         }

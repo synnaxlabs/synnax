@@ -118,9 +118,9 @@ private:
     std::mutex state_mutex;
 };
 
-class ContextImpl final : public Context {
+class SynnaxContext final : public Context {
 public:
-    explicit ContextImpl(std::shared_ptr<Synnax> client): Context(client) {
+    explicit SynnaxContext(std::shared_ptr<Synnax> client): Context(client) {
     }
 
     void setState(State state) override {

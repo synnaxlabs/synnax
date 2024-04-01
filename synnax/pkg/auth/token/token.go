@@ -18,10 +18,16 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/auth"
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/x/errors"
+	"strings"
 	"time"
 )
 
-var Invalid = errors.Wrap(auth.Error, "invalid token")
+func isVerificationError(err error) bool {
+	if err == nil {
+		return false
+	}
+	return strings.Contains(err.Error(), "verification")
+}
 
 // Service is a service for generating and validating tokens with UUID issuers.
 type Service struct {
@@ -45,7 +51,7 @@ func (s *Service) New(issuer uuid.UUID) (string, error) {
 	})
 	v, err := claims.SignedString(key)
 	if err != nil {
-		return v, Invalid
+		return v, auth.InvalidToken
 	}
 	return v, nil
 }
@@ -62,7 +68,7 @@ func (s *Service) Validate(token string) (uuid.UUID, error) {
 func (s *Service) ValidateMaybeRefresh(token string) (uuid.UUID, string, error) {
 	id, claims, err := s.validate(token)
 	if err != nil {
-		return id, "", errors.Wrap(auth.Error, err.Error())
+		return id, "", err
 	}
 	if s.isCloseToExpired(claims) {
 		tk, err := s.New(id)
@@ -77,6 +83,9 @@ func (s *Service) validate(token string) (uuid.UUID, *jwt.StandardClaims, error)
 		return s.publicKey(), nil
 	})
 	if err != nil {
+		if isVerificationError(err) {
+			return uuid.Nil, claims, auth.InvalidToken
+		}
 		return uuid.Nil, claims, errors.Wrap(auth.Error, err.Error())
 	}
 	id, err := uuid.Parse(claims.Issuer)
