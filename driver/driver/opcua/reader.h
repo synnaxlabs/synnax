@@ -1,11 +1,9 @@
 #pragma once
 
-/// internal.
 #include "opcua.h"
-#include  "driver/driver/config/config.h"
+#include "driver/driver/config/config.h"
 #include "driver/driver/task/task.h"
 #include "driver/driver/pipeline/acquisition.h"
-
 
 namespace opcua {
 struct ReaderChannelConfig {
@@ -34,7 +32,6 @@ struct ReaderConfig {
     /// @brief sets the acquisition rate.
     Rate rate;
 
-
     /// @brief the list of channels to read from the server.
     std::vector<ReaderChannelConfig> channels;
 
@@ -59,7 +56,6 @@ public:
     void stop() override {
         pipe.stop();
     }
-
 private:
     std::shared_ptr<task::Context> ctx;
     ReaderConfig cfg;

@@ -9,19 +9,13 @@
 
 #pragma once
 
-/// std.
 #include <memory>
 #include <thread>
-
-/// internal.
 #include <latch>
-
 #include "client/cpp/synnax/synnax.h"
 #include "driver/driver/task/task.h"
 #include "driver/driver/breaker/breaker.h"
 
-
-#pragma once
 namespace pipeline {
 class Sink {
 public:

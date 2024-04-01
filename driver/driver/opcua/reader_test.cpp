@@ -1,15 +1,9 @@
-/// external.
 #include <gtest/gtest.h>
 #include "nlohmann/json.hpp"
-
-/// synnax internal.
 #include "driver/driver/testutil/testutil.h"
 #include "driver/driver/opcua/mock_server.h"
-
-/// client internal.
 #include "reader.h"
 #include "mock_server.h"
-
 
 using json = nlohmann::json;
 

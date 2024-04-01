@@ -1,13 +1,7 @@
-//
-// Created by Emiliano Bonilla on 3/29/24.
-//
-
 #pragma once
 
 #include "opcua.h"
 #include "client/cpp/synnax/synnax.h"
-
-/// external.
 #include "open62541/types.h"
 #include "open62541/nodeids.h"
 #include "open62541/types.h"

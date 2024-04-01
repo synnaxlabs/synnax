@@ -7,15 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// std.
 #include <latch>
 #include <utility>
 #include <memory>
-
-/// external.
 #include <glog/logging.h>
-
-/// internal.
 #include "driver/driver/config/config.h"
 #include "driver/driver/driver.h"
 

@@ -1,7 +1,4 @@
-/// std.
 #include <map>
-
-/// internal.
 #include "client/cpp/synnax/synnax.h"
 #include "driver/driver/opcua/opcua.h"
 #include "driver/driver/opcua/util.h"

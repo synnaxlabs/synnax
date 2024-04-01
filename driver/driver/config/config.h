@@ -1,9 +1,6 @@
 #pragma once
 
-/// std.
 #include <string>
-
-/// external.
 #include "nlohmann/json.hpp"
 
 using json = nlohmann::json;

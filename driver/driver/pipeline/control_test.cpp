@@ -4,9 +4,7 @@
 
 #include <stdio.h>
 #include <thread>
-
 #include <include/gtest/gtest.h>
-
 #include "synnax/synnax.h"
 #include "driver/testutil/testutil.h"
 #include "ctrl.h"
@@ -14,7 +12,6 @@
 
 /// @brief it should use niReader and perform a control workflow
 /// which includes init, start, stop, and write functions and also commits ack frames to server
-
 TEST(CtrlTests, testCtrlNi){
 
     std::cout << "Test Ctrl: " << std::endl;

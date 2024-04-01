@@ -7,18 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// std
 #include <string>
 #include <random>
-
-/// GTest
 #include <include/gtest/gtest.h>
-
-/// internal.
 #include "client/cpp/synnax/synnax.h"
 #include "client/cpp/synnax/testutil/testutil.h"
 #include "client/cpp/synnax/errors/errors.h"
-
 
 std::mt19937 gen_rand = random_generator(std::move("Ranger Tests"));
 

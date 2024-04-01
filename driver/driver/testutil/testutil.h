@@ -9,11 +9,9 @@
 
 #pragma once
 
-/// std
 #include <random>
 #include <string>
 #include "nlohmann/json.hpp"
-//// internal
 #include "client/cpp/synnax/synnax.h"
 
 using json = nlohmann::json;

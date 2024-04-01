@@ -7,13 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// std
 #include <random>
-
-//// internal
 #include "client/cpp/synnax/synnax.h"
 #include "driver/driver/testutil/testutil.h"
-
 
 synnax::Synnax new_test_client()
 {

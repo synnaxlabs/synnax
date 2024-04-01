@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 #include <csignal>
-
 #include "driver/driver/driver.h"
 #include "task/task.h"
 #include "glog/logging.h"

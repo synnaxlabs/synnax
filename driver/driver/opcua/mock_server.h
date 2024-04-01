@@ -8,9 +8,6 @@
 #include <thread>
 #include <open62541/server.h>
 
-/* Build Instructions (Linux)
- * - g++ mock_server.h -lopen62541 -o server */
-
 using namespace std;
 
 struct MockServerChannel {

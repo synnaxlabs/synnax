@@ -2,7 +2,6 @@
 
 #include <string>
 #include <memory>
-
 #include "opcua.h"
 #include "nlohmann/json.hpp"
 #include "client/cpp/synnax/synnax.h"
@@ -10,7 +9,6 @@
 #include "driver/driver/config/config.h"
 
 using json = nlohmann::json;
-
 
 namespace opcua {
 struct ScannerScanCommand {

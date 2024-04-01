@@ -9,11 +9,9 @@
 
 #pragma once
 
-/// std.
 #include <memory>
 #include <string>
 #include <iostream>
-
 #include "x/go/errors/x/go/errors/errors.pb.h"
 
 namespace freighter {

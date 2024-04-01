@@ -9,13 +9,8 @@
 
 #pragma once
 
-/// std.
 #include <thread>
-
-/// external.
 #include "glog/logging.h"
-
-/// internal.
 #include "client/cpp/synnax/synnax.h"
 
 namespace breaker {

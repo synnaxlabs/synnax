@@ -7,17 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// GTest.
-#include <gtest/gtest.h>
-
-/// Local headers.
+#include <thread>
+#include "gtest/gtest.h"
 #include "freighter/cpp/freighter/fgrpc/protos/freighter/cpp/freighter/fgrpc/protos/service.pb.h"
 #include "freighter/cpp/freighter/fgrpc/client.h"
 #include "freighter/cpp/freighter/fgrpc/tests/server.h"
-
-/// std.
-#include <thread>
-
 #include "freighter/cpp/freighter/freighter.h"
 #include "freighter/cpp/freighter/fgrpc/grpc.h"
 

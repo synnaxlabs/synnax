@@ -12,7 +12,7 @@
 #include <string>
 #include "freighter/cpp/freighter/freighter.h"
 #include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/channel.pb.h"
-#include <grpcpp/grpcpp.h>
+#include "grpcpp/grpcpp.h"
 #include "client/cpp/synnax/telem/telem.h"
 
 using namespace synnax;

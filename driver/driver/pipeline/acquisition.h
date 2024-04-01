@@ -9,11 +9,8 @@
 
 #pragma once
 
-/// std.
 #include <atomic>
 #include <thread>
-
-/// internal.
 #include "client/cpp/synnax/synnax.h"
 #include "driver/driver/breaker/breaker.h"
 #include "driver/driver/task/task.h"

@@ -7,14 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// GTest.
 #include <include/gtest/gtest.h>
-
-/// Local headers.
 #include "client/cpp/synnax/synnax.h"
 #include "x/go/telem/x/go/telem/telem.pb.h"
-
-/// std.
 #include <iostream>
 
 ///// @brief create basic int series.

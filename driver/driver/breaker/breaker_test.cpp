@@ -7,10 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// GTest.
-#include <gtest/gtest.h>
-
-/// Local headers.
+#include "gtest/gtest.h"
 #include "driver/breaker/breaker.h"
 
 // @brief it should correctly wait for an expended number of requests.

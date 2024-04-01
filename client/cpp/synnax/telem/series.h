@@ -9,11 +9,8 @@
 
 #pragma once
 
-/// Local hdrs.
 #include "client/cpp/synnax/telem/telem.h"
 #include "x/go/telem/x/go/telem/telem.pb.h"
-
-// std.
 #include <string>
 #include <vector>
 #include <cstddef>

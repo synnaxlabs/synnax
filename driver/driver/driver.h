@@ -9,16 +9,11 @@
 
 #pragma once
 
-// std.
 #include <unordered_map>
 #include <thread>
 #include <latch>
 #include <memory>
-
-// external.
 #include "nlohmann/json.hpp"
-
-// internal.
 #include "client/cpp/synnax/synnax.h"
 #include "driver/driver/breaker/breaker.h"
 #include "task/task.h"

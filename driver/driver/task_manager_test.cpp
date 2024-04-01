@@ -7,11 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// GTest
 #include <gtest/gtest.h>
 #include <latch>
-
-/// Local headers.
 #include "driver/driver/driver.h"
 #include "driver/driver/testutil/testutil.h"
 #include "driver/driver/breaker/breaker.h"

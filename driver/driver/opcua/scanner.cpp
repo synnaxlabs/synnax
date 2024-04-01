@@ -1,18 +1,14 @@
 #include <memory>
 #include <utility>
-
 #include "nlohmann/json.hpp"
 #include "scanner.h"
-
 #include "driver/driver/config/config.h"
 #include "open62541/client_config_default.h"
 #include "open62541/client_highlevel.h"
 #include "open62541/client_subscriptions.h"
 #include "open62541/plugin/log_stdout.h"
 
-
 using namespace opcua;
-
 
 Scanner::Scanner(std::shared_ptr<task::Context> ctx, synnax::Task  task): ctx(std::move(ctx)), task(std::move(task)) {
 }

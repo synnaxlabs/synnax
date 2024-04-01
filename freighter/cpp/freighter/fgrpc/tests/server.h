@@ -7,11 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// @brief This file abstracts the server side for GRPCUnaryClient testing.
-
 #pragma once
 
-// NOTE: This class is only used for testing purposes.
 #include <grpc/grpc.h>
 #include <grpcpp/security/server_credentials.h>
 #include <grpcpp/server.h>

@@ -7,7 +7,6 @@
 #include <open62541/server.h>
 #include <open62541/server_config_default.h>
 
-
 /* Build Instructions (Linux)
  * - g++ server.cpp -lopen62541 -o server */
 

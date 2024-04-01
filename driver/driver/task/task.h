@@ -1,16 +1,10 @@
 #pragma once
 
-/// std.
 #include <memory>
-
-/// external.
 #include "glog/logging.h"
 #include "nlohmann/json.hpp"
-
-/// internal.
 #include "client/cpp/synnax/synnax.h"
 #include "driver/driver/config/config.h"
-
 
 using json = nlohmann::json;
 
