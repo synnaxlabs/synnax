@@ -11,28 +11,33 @@ import (
 )
 
 var _ = Describe("Race conditions", Ordered, func() {
-	var db *domain.DB
+	var (
+		db *domain.DB
+		wg sync.WaitGroup
+	)
 	BeforeAll(func() {
 		db = MustSucceed(domain.Open(domain.Config{FS: fs.NewMem()}))
 	})
-	Describe("domain/newWriter can fail to find domain overlap errors", func() {
+	Describe("NewWriter can create writers with incorrect bounds", func() {
 		It("Should be broken", func() {
-			By("Creating some new writers and using them to write data")
-			i := 10
-			var wg sync.WaitGroup
+			By("Creating some new writers while data is being written")
+			i := 40
+
 			wg.Add(30)
-			for i < 40 {
+
+			for i > 10 {
 				go func(i int) {
 					defer wg.Done()
 					w := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{
 						Start: telem.TimeStamp(i) * telem.SecondTS,
-						End:   100 * telem.SecondTS,
 					}))
-					_, err := w.Write([]byte{byte(i + 1), byte(i + 2), byte(i + 3), byte(i + 4)})
+					_, err := w.Write([]byte{byte(i), byte(i + 1)})
+					Expect(err).ToNot(HaveOccurred())
+					err = w.Commit(ctx, telem.TimeStamp(i+1)*telem.SecondTS)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(w.Close()).To(Succeed())
 				}(i)
-				i++
+				i--
 			}
 			wg.Wait()
 		})

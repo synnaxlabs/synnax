@@ -105,8 +105,10 @@ func (db *DB) NewWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) 
 	// If we don't have a preset end, we defer to using the start of the next domain
 	// as the end of the new domain.
 	if !w.presetEnd {
-		i := w.idx.searchGE(ctx, cfg.Start, true)
-		ptr, ok := w.idx.get(i, true)
+		w.idx.mu.Lock()
+		i := w.idx.searchGE(ctx, cfg.Start, false)
+		ptr, ok := w.idx.get(i, false)
+		w.idx.mu.Unlock()
 		if !ok {
 			w.End = telem.TimeStampMax
 		} else {

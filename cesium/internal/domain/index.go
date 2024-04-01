@@ -100,11 +100,9 @@ func (idx *index) update(ctx context.Context, p pointer, withLock bool) (err err
 	_, span := idx.T.Bench(ctx, "update")
 	if withLock {
 		idx.mu.Lock()
+		defer idx.mu.Unlock()
 	}
 	if len(idx.mu.pointers) == 0 {
-		if withLock {
-			idx.mu.RUnlock()
-		}
 		return span.EndWith(RangeNotFound)
 	}
 	lastI := len(idx.mu.pointers) - 1
@@ -112,10 +110,7 @@ func (idx *index) update(ctx context.Context, p pointer, withLock bool) (err err
 	if p.Start != idx.mu.pointers[lastI].Start {
 		updateAt, _ = idx.unprotectedSearch(p.Start.SpanRange(0))
 	}
-	if withLock {
-		idx.mu.Unlock()
-	}
-	return span.EndWith(idx.updateAt(ctx, updateAt, p, withLock))
+	return span.EndWith(idx.updateAt(ctx, updateAt, p, false))
 }
 
 func (idx *index) afterLast(ts telem.TimeStamp) bool {
@@ -138,6 +133,7 @@ func (idx *index) insertAt(ctx context.Context, i int, p pointer, withLock bool)
 	}, withLock)
 }
 
+// updateAt updates the i-th pointer in the index
 func (idx *index) updateAt(ctx context.Context, i int, p pointer, withLock bool) (err error) {
 	ptrs := idx.mu.pointers
 	idx.modifyAfter(ctx, i, func() {
@@ -157,6 +153,7 @@ func (idx *index) updateAt(ctx context.Context, i int, p pointer, withLock bool)
 	return
 }
 
+// modifyAfter updates the i-th pointer and notifies an index update
 func (idx *index) modifyAfter(ctx context.Context, i int, f func(), withLock bool) {
 	update := indexUpdate{afterIndex: i, unprotected: true}
 	defer func() {
