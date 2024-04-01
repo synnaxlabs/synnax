@@ -9,58 +9,55 @@
 
 #pragma once
 
-/// Std
 #include <vector>
 #include <utility>
 #include <memory>
 
-/// Freighter
 #include "freighter/cpp/freighter/freighter.h"
-
-/// Api Protos
 #include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/framer.pb.h"
-
-/// Internal
 #include "client/cpp/synnax/telem/telem.h"
 #include "client/cpp/synnax/telem/series.h"
 #include "client/cpp/synnax/telem/control.h"
 #include "client/cpp/synnax/channel/channel.h"
 
-
 using namespace synnax;
 
 namespace synnax {
 /// @brief type alias for streamer network transport stream.
-typedef freighter::Stream<api::v1::FrameStreamerResponse, api::v1::FrameStreamerRequest> StreamerStream;
+typedef freighter::Stream<api::v1::FrameStreamerResponse, api::v1::FrameStreamerRequest>
+StreamerStream;
 
 /// @brief typ;e alias for frame writer network transport.
-typedef freighter::StreamClient<api::v1::FrameStreamerResponse, api::v1::FrameStreamerRequest> StreamerClient;
+typedef freighter::StreamClient<api::v1::FrameStreamerResponse,
+    api::v1::FrameStreamerRequest> StreamerClient;
 
 /// @brief type alias for writer network transports stream.
-typedef freighter::Stream<api::v1::FrameWriterResponse, api::v1::FrameWriterRequest> WriterStream;
+typedef freighter::Stream<api::v1::FrameWriterResponse, api::v1::FrameWriterRequest>
+WriterStream;
 
 /// @brief type alias for writer network transport.
-typedef freighter::StreamClient<api::v1::FrameWriterResponse, api::v1::FrameWriterRequest> WriterClient;
+typedef freighter::StreamClient<api::v1::FrameWriterResponse,
+    api::v1::FrameWriterRequest> WriterClient;
 
 
 /// @brief Frame type.
 class Frame {
 public:
-    std::unique_ptr<std::vector<ChannelKey>> columns;
-    std::unique_ptr<std::vector<synnax::Series>> series;
+    std::unique_ptr<std::vector<ChannelKey> > columns;
+    std::unique_ptr<std::vector<synnax::Series> > series;
 
     Frame() = default;
 
     Frame(
-        std::unique_ptr<std::vector<ChannelKey>> columns,
-        std::unique_ptr<std::vector<synnax::Series>> series
+        std::unique_ptr<std::vector<ChannelKey> > columns,
+        std::unique_ptr<std::vector<synnax::Series> > series
     );
 
     explicit Frame(size_t size);
 
-    explicit Frame(const api::v1::Frame& f);
+    explicit Frame(const api::v1::Frame &f);
 
-    void toProto(api::v1::Frame* f) const;
+    void toProto(api::v1::Frame *f) const;
 
     void add(ChannelKey col, synnax::Series ser) const;
 
@@ -132,7 +129,6 @@ public:
     void closeSend() const;
 
 private:
-
     /// @brief true if the streamer has been closed.
     bool closed = false;
 
@@ -186,7 +182,7 @@ public:
 
 private:
     /// @brief binds the configuration fields to it's protobuf representation.
-    void toProto(api::v1::FrameWriterConfig* f) const;
+    void toProto(api::v1::FrameWriterConfig *f) const;
 
     friend class FrameClient;
     friend class Writer;
@@ -246,6 +242,7 @@ public:
     freighter::Error close() const;
 
     Writer() = default;
+
 private:
     /// @brief whether an error has occurred in the write pipeline.
     bool err_accumulated = false;
@@ -272,8 +269,9 @@ private:
 
 public:
     FrameClient(std::unique_ptr<StreamerClient> streamer_client,
-                std::unique_ptr<WriterClient> writer_client) : streamer_client(std::move(streamer_client)),
-                                                               writer_client(std::move(writer_client)) {
+                std::unique_ptr<WriterClient> writer_client) : streamer_client(
+            std::move(streamer_client)),
+        writer_client(std::move(writer_client)) {
     }
 
 
@@ -283,7 +281,7 @@ public:
     /// if the writer could not be opened. In the case where ok() is false, the writer
     /// will be in an invalid state and does not need to be closed. If ok() is true,
     /// The writer must be closed after use to avoid leaking resources.
-    std::pair<Writer, freighter::Error> openWriter(const WriterConfig& config) const;
+    std::pair<Writer, freighter::Error> openWriter(const WriterConfig &config) const;
 
     /// @brief opens a new frame streamer using the given configuration. For information
     /// on configuration parameters, see StreamerConfig.
@@ -291,6 +289,7 @@ public:
     /// if the streamer could not be opened. In the case where ok() is false, the
     /// streamer will be in an invalid state and does not need to be closed. If ok()
     /// is true, the streamer must be closed after use to avoid leaking resources.
-    std::pair<Streamer, freighter::Error> openStreamer(const StreamerConfig& config) const;
+    std::pair<Streamer, freighter::Error> openStreamer(
+        const StreamerConfig &config) const;
 };
 }

@@ -9,10 +9,7 @@
 
 #pragma once
 
-/// std.
 #include <memory>
-
-/// internal
 #include "client/cpp/synnax/framer/framer.h"
 #include "client/cpp/synnax/ranger/ranger.h"
 #include "client/cpp/synnax/channel/channel.h"
@@ -25,16 +22,16 @@ using namespace synnax;
 
 namespace synnax {
 ///// @brief Internal namespace. Do not use.
-//namespace priv {
-///// @brief Does a best effort check to ensure the machine is little endian, and warns the user if it is not.
-//void check_little_endian() {
-//    int num = 1;
-//    if (*(char *) &num == 1) return;
-//    std::cout
-//            << "WARNING: Detected big endian system, which Synnax does not support. This may silently corrupt telemetry."
-//            << std::endl;
-//}
-//}
+namespace priv {
+/// @brief Does a best effort check to ensure the machine is little endian, and warns the user if it is not.
+inline void check_little_endian() {
+    int num = 1;
+    if (*(char *) &num == 1) return;
+    std::cout
+            << "WARNING: Detected big endian system, which Synnax does not support. This may silently corrupt telemetry."
+            << std::endl;
+}
+}
 
 /// @brief Configuration for opening a Synnax client.
 /// @see Synnax
@@ -75,9 +72,15 @@ public:
                                              nullptr, nullptr);
 
     /// @brief constructs the Synnax client from the provided configuration.
-    explicit Synnax(const Config& cfg) {
-        auto t = Transport(cfg.port, cfg.host, cfg.ca_cert_file, cfg.client_cert_file,
-                           cfg.client_key_file);
+    explicit Synnax(const Config &cfg) {
+        auto t = Transport(
+            cfg.port,
+            cfg.host,
+            cfg.ca_cert_file,
+            cfg.client_cert_file,
+            cfg.client_key_file
+        );
+        priv::check_little_endian();
         const auto auth_mw = std::make_shared<AuthMiddleware>(
             std::move(t.auth_login),
             cfg.username,

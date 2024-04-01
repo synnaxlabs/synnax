@@ -8,9 +8,8 @@
 // included in the file licenses/APL.txt.
 
 // GTest
-#include <include/gtest/gtest.h>
 
-// Internal
+#include "gtest/gtest.h"
 #include "client/cpp/synnax/synnax.h"
 #include "client/cpp/synnax/testutil/testutil.h"
 

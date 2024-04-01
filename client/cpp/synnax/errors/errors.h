@@ -9,7 +9,6 @@
 
 #pragma once
 
-/// std
 #include <string>
 
 namespace synnax {

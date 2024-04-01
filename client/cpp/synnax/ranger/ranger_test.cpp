@@ -20,7 +20,7 @@
 #include "client/cpp/synnax/errors/errors.h"
 
 
-std::mt19937 mt = random_generator(std::move("Ranger Tests"));
+std::mt19937 gen_rand = random_generator(std::move("Ranger Tests"));
 
 /// @brief it should create a new range and assign it a non-zero key.
 TEST(RangerTests, testCreate) {
@@ -61,7 +61,7 @@ TEST(RangerTests, testRetrieveByKey) {
 /// @brief it should retrieve a range by its name.
 TEST(RangerTests, testRetrieveByName) {
     auto client = new_test_client();
-    auto rand_name = std::to_string(mt());
+    auto rand_name = std::to_string(gen_rand());
     auto [range, err] = client.ranges.create(
             rand_name,
             synnax::TimeRange(
@@ -89,7 +89,7 @@ TEST(RangerTests, testRetrieveByNameNotFound) {
 /// @brief it should retrieve multiple ranges by their names.
 TEST(RangerTests, testRetrieveMultipleByName) {
     auto client = new_test_client();
-    auto rand_name = std::to_string(mt());
+    auto rand_name = std::to_string(gen_rand());
     auto [range, err] = client.ranges.create(
             rand_name,
             synnax::TimeRange(

@@ -7,29 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// protos
 #include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/ranger.pb.h"
 #include "x/go/telem/x/go/telem/telem.pb.h"
-
-/// internal
 #include "client/cpp/synnax/ranger/ranger.h"
 #include "client/cpp/synnax/telem/telem.h"
 #include "client/cpp/synnax/errors/errors.h"
 
 using namespace synnax;
 
-
 Range::Range(const std::string &name, synnax::TimeRange time_range) :
         name(name),
         time_range(time_range) {
 }
 
-
-Range::Range(const api::v1::Range &a) :
-        key(a.key()),
-        name(a.name()),
+Range::Range(const api::v1::Range &rng) :
+        key(rng.key()),
+        name(rng.name()),
         time_range(
-                synnax::TimeRange(synnax::TimeStamp(a.time_range().start()), synnax::TimeStamp(a.time_range().end()))) {
+                synnax::TimeRange(rng.time_range().start(), rng.time_range().end())) {
 }
 
 void Range::to_proto(api::v1::Range *rng) const {
@@ -39,7 +34,6 @@ void Range::to_proto(api::v1::Range *rng) const {
     rng->mutable_time_range()->set_start(time_range.start.value);
     rng->mutable_time_range()->set_end(time_range.end.value);
 }
-
 
 const std::string RETRIEVE_ENDPOINT = "/range/retrieve";
 const std::string CREATE_ENDPOINT = "/range/create";
@@ -70,7 +64,6 @@ std::pair<Range, freighter::Error> RangeClient::activeRange() {
     return {Range(), freighter::NIL};
 }
 
-
 std::pair<std::vector<Range>, freighter::Error> RangeClient::retrieveMany(api::v1::RangeRetrieveRequest &req) const {
     auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, req);
     if (err) return {std::vector<Range>(), err};
@@ -91,7 +84,6 @@ std::pair<std::vector<Range>, freighter::Error> RangeClient::retrieveByKey(std::
     return retrieveMany(req);
 }
 
-
 freighter::Error RangeClient::create(std::vector<Range> &ranges) const {
     auto req = api::v1::RangeCreateRequest();
     req.mutable_ranges()->Reserve(ranges.size());
@@ -104,7 +96,6 @@ freighter::Error RangeClient::create(std::vector<Range> &ranges) const {
         }
     return err;
 }
-
 
 freighter::Error RangeClient::create(Range &range) const {
     auto req = api::v1::RangeCreateRequest();

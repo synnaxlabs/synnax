@@ -1,12 +1,5 @@
-//
-// Created by Emiliano Bonilla on 3/31/24.
-//
-
-/// GTest
 #include <gtest/gtest.h>
 #include <memory>
-
-/// protos and grpc
 #include "client/cpp/synnax/auth/auth.h"
 #include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/auth.pb.h"
 #include "freighter/cpp/freighter/mock/mock.h"

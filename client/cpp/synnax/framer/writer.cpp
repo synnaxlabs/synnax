@@ -7,14 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// std
 #include <string>
-
-
-/// api protos
 #include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/framer.pb.h"
-
-/// internal
 #include "client/cpp/synnax/framer/framer.h"
 
 const std::string WRITE_ENDPOINT = "/frame/write";
@@ -32,7 +26,8 @@ enum WriterCommand : uint32_t {
 };
 
 
-std::pair<Writer, freighter::Error> FrameClient::openWriter(const WriterConfig& config) const {
+std::pair<Writer, freighter::Error> FrameClient::openWriter(
+    const WriterConfig &config) const {
     auto [s, err] = writer_client->stream(WRITE_ENDPOINT);
     if (err) return {Writer(), err};
     api::v1::FrameWriterRequest req;
@@ -48,11 +43,11 @@ Writer::Writer(std::unique_ptr<WriterStream> s): stream(std::move(s)) {
 }
 
 
-void WriterConfig::toProto(api::v1::FrameWriterConfig* f) const {
+void WriterConfig::toProto(api::v1::FrameWriterConfig *f) const {
     subject.to_proto(f->mutable_control_subject());
     f->set_start(start.value);
-    for (auto& auth: authorities) f->add_authorities(auth);
-    for (auto& ch: channels) f->add_keys(ch);
+    for (auto &auth: authorities) f->add_authorities(auth);
+    for (auto &ch: channels) f->add_keys(ch);
     f->set_mode(mode);
 }
 
@@ -72,7 +67,7 @@ bool Writer::setMode(WriterMode mode) {
 
     api::v1::FrameWriterRequest req;
     req.set_command(SET_MODE);
-    WriterConfig config = {.mode = mode};
+    const WriterConfig config = {.mode = mode};
     config.toProto(req.mutable_config());
 
     if (const auto err = stream->send(req); err) {

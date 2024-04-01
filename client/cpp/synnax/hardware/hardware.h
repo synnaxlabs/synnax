@@ -9,19 +9,11 @@
 
 #pragma once
 
-/// std.
 #include <string>
 #include <vector>
-
-/// freighter
 #include "freighter/cpp/freighter/freighter.h"
-
-/// api protos
 #include "google/protobuf/empty.pb.h"
 #include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/hardware.pb.h"
-
-
-/// internal
 #include "client/cpp/synnax/telem/telem.h"
 
 using namespace synnax;

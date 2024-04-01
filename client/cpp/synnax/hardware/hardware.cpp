@@ -7,24 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-
-#include "client/cpp/synnax/hardware/hardware.h"
-
 #include <utility>
+#include "client/cpp/synnax/hardware/hardware.h"
 
 using namespace synnax;
 
-Rack::Rack(RackKey key, std::string name) :
-        key(key),
-        name(std::move(name)) {
+Rack::Rack(RackKey key, std::string name) : key(key),
+                                            name(std::move(name)) {
 }
 
 Rack::Rack(std::string name) : name(std::move(name)) {
 }
 
-Rack::Rack(const api::v1::Rack &a) :
-        key(a.key()),
-        name(a.name()) {
+Rack::Rack(const api::v1::Rack &rack) : key(rack.key()),
+                                     name(rack.name()) {
 }
 
 void Rack::to_proto(api::v1::Rack *rack) const {
@@ -36,23 +32,27 @@ void Rack::to_proto(api::v1::Rack *rack) const {
 const std::string RETRIEVE_RACK_ENDPOINT = "/hardware/rack/retrieve";
 const std::string CREATE_RACK_ENDPOINT = "/hardware/rack/create";
 
-std::pair<Rack, freighter::Error> HardwareClient::retrieveRack(const std::uint32_t key) const {
+std::pair<Rack, freighter::Error> HardwareClient::retrieveRack(
+    const std::uint32_t key) const {
     auto req = api::v1::HardwareRetrieveRackRequest();
     req.add_keys(key);
     auto [res, err] = rack_retrieve_client->send(RETRIEVE_RACK_ENDPOINT, req);
     if (err) return {Rack(), err};
     auto rack = Rack(res.racks(0));
-    rack.tasks = TaskClient(rack.key, task_create_client, task_retrieve_client, task_delete_client);
+    rack.tasks = TaskClient(rack.key, task_create_client, task_retrieve_client,
+                            task_delete_client);
     return {rack, err};
 }
 
-std::pair<Rack, freighter::Error> HardwareClient::retrieveRack(const std::string& name) const {
+std::pair<Rack, freighter::Error> HardwareClient::retrieveRack(
+    const std::string &name) const {
     auto req = api::v1::HardwareRetrieveRackRequest();
     req.add_names(name);
     auto [res, err] = rack_retrieve_client->send(RETRIEVE_RACK_ENDPOINT, req);
     if (err) return {Rack(), err};
     auto rack = Rack(res.racks(0));
-    rack.tasks = TaskClient(rack.key, task_create_client, task_retrieve_client, task_delete_client);
+    rack.tasks = TaskClient(rack.key, task_create_client, task_retrieve_client,
+                            task_delete_client);
     return {rack, err};
 }
 
@@ -63,11 +63,13 @@ freighter::Error HardwareClient::createRack(Rack &rack) const {
     auto [res, err] = rack_create_client->send(CREATE_RACK_ENDPOINT, req);
     if (err) return err;
     rack.key = res.racks().at(0).key();
-    rack.tasks = TaskClient(rack.key, task_create_client, task_retrieve_client, task_delete_client);
+    rack.tasks = TaskClient(rack.key, task_create_client, task_retrieve_client,
+                            task_delete_client);
     return err;
 }
 
-std::pair<Rack, freighter::Error> HardwareClient::createRack(const std::string &name) const {
+std::pair<Rack, freighter::Error> HardwareClient::createRack(
+    const std::string &name) const {
     auto rack = Rack(name);
     auto err = createRack(rack);
     return {rack, err};
@@ -80,32 +82,31 @@ freighter::Error HardwareClient::deleteRack(std::uint32_t key) const {
     return err;
 }
 
-Task::Task(TaskKey key, std::string name, std::string type, std::string config) :
-        key(key),
-        name(std::move(name)),
-        type(std::move(type)),
-        config(std::move(config)) {
+Task::Task(TaskKey key, std::string name, std::string type,
+           std::string config) : key(key),
+                                 name(std::move(name)),
+                                 type(std::move(type)),
+                                 config(std::move(config)) {
 }
 
-Task::Task(std::string name, std::string type, std::string config) :
-        key(createTaskKey(0, 0)),
-        name(std::move(name)),
-        type(std::move(type)),
-        config(std::move(config)) {
+Task::Task(std::string name, std::string type,
+           std::string config) : key(createTaskKey(0, 0)),
+                                 name(std::move(name)),
+                                 type(std::move(type)),
+                                 config(std::move(config)) {
 }
 
-Task::Task(RackKey rack, std::string name, std::string type, std::string config) :
-        key(createTaskKey(rack, 0)),
-        name(std::move(name)),
-        type(std::move(type)),
-        config(std::move(config)) {
+Task::Task(RackKey rack, std::string name, std::string type,
+           std::string config) : key(createTaskKey(rack, 0)),
+                                 name(std::move(name)),
+                                 type(std::move(type)),
+                                 config(std::move(config)) {
 }
 
-Task::Task(const api::v1::Task &task) :
-        key(task.key()),
-        name(task.name()),
-        type(task.type()),
-        config(task.config()) {
+Task::Task(const api::v1::Task &task) : key(task.key()),
+                                        name(task.name()),
+                                        type(task.type()),
+                                        config(task.config()) {
 }
 
 void Task::to_proto(api::v1::Task *task) const {
@@ -151,5 +152,3 @@ std::pair<std::vector<Task>, freighter::Error> TaskClient::list() const {
     std::vector<Task> tasks = {res.tasks().begin(), res.tasks().end()};
     return {tasks, err};
 }
-
-

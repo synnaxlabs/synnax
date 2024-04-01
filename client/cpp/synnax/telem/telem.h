@@ -9,16 +9,16 @@
 
 #pragma once
 
-/// Std.
 #include <unordered_map>
 #include <string>
 #include <typeindex>
+#include <cstdint>
 
 namespace synnax {
 /// @brief Holds the name and properties of a datatype.
 class DataType {
 public:
-    DataType(): value("unknown") {
+    DataType(): value("") {
     }
 
     /// @brief Holds the id of the data type
@@ -38,7 +38,7 @@ public:
     template<typename T>
     DataType static from_type() {
         if (!TYPE_INDEXES.count(std::type_index(typeid(T))))
-            return DataType("unknown");
+            return DataType("");
         return DataType(TYPE_INDEXES[std::type_index(typeid(T))]);
     }
 
@@ -50,15 +50,15 @@ public:
 
     /////////////////////////////////// COMPARISON ///////////////////////////////////
 
-    bool operator==(const DataType& other) const { return value == other.value; }
+    bool operator==(const DataType &other) const { return value == other.value; }
 
-    bool operator!=(const DataType& other) const { return value != other.value; }
+    bool operator!=(const DataType &other) const { return value != other.value; }
 
 private:
     /// @brief Maps the data type to the 'density' of
     /// the object.
     inline static std::unordered_map<std::string, uint32_t> DENSITIES = {
-        {"unknown", 0},
+        {"", 0},
         {"float64", 8},
         {"float32", 4},
         {"int8", 1},
@@ -108,7 +108,8 @@ private:
     };
 };
 
-const auto DATA_TYPE_UNKNOWN = DataType("unknown");
+/// @brief
+const auto DATA_TYPE_UNKNOWN = DataType("");
 /// @brief identifier for a fixed-size float64 data type in a Synnax cluster.
 const auto FLOAT64 = DataType("float64");
 /// @brief identifier for a fixed-size float32 data type in a Synnax cluster.
@@ -147,106 +148,106 @@ const auto JSON = DataType("json");
 class TimeSpan {
 public:
     /// @property value holds the internal, primitive value of the timespan.
-    unsigned long long value;
+    std::uint64_t value;
 
     TimeSpan() = default;
 
     /// @brief Constructs a timespan from the given unsigned long long, interpreting it as a nanosecond-precision
     /// timespan.
-    explicit TimeSpan(unsigned long long i) : value(i) {
+    explicit TimeSpan(const std::uint64_t i) : value(i) {
     }
 
     ///////////////////////////////////// COMPARISON /////////////////////////////////////
 
-    bool operator==(const TimeSpan& other) const { return value == other.value; }
+    bool operator==(const TimeSpan &other) const { return value == other.value; }
 
-    bool operator!=(const TimeSpan& other) const { return value != other.value; }
+    bool operator!=(const TimeSpan &other) const { return value != other.value; }
 
-    bool operator<(const TimeSpan& other) const { return value < other.value; }
+    bool operator<(const TimeSpan &other) const { return value < other.value; }
 
-    bool operator>(const TimeSpan& other) const { return value > other.value; }
+    bool operator>(const TimeSpan &other) const { return value > other.value; }
 
-    bool operator<=(const TimeSpan& other) const { return value <= other.value; }
+    bool operator<=(const TimeSpan &other) const { return value <= other.value; }
 
-    bool operator>=(const TimeSpan& other) const { return value >= other.value; }
+    bool operator>=(const TimeSpan &other) const { return value >= other.value; }
 
     //////////////////////////////////// ADDITION /////////////////////////////////////
 
-    TimeSpan operator+(const TimeSpan& other) const {
+    TimeSpan operator+(const TimeSpan &other) const {
         return TimeSpan(value + other.value);
     }
 
-    friend TimeSpan operator+(const unsigned long long& lhs, const TimeSpan& rhs) {
+    friend TimeSpan operator+(const unsigned long long &lhs, const TimeSpan &rhs) {
         return TimeSpan(lhs + rhs.value);
     }
 
-    TimeSpan operator+(const unsigned long long& other) const {
+    TimeSpan operator+(const unsigned long long &other) const {
         return TimeSpan(value + other);
     }
 
     /////////////////////////////////// SUBTRACTION ///////////////////////////////////
 
-    TimeSpan operator-(const TimeSpan& other) const {
+    TimeSpan operator-(const TimeSpan &other) const {
         return TimeSpan(value - other.value);
     }
 
-    friend TimeSpan operator-(const unsigned long long& lhs, const TimeSpan& rhs) {
+    friend TimeSpan operator-(const unsigned long long &lhs, const TimeSpan &rhs) {
         return TimeSpan(lhs - rhs.value);
     }
 
-    TimeSpan operator-(const unsigned long long& other) const {
+    TimeSpan operator-(const unsigned long long &other) const {
         return TimeSpan(value - other);
     }
 
     ////////////////////////////////// MULTIPLICATION /////////////////////////////////
 
-    TimeSpan operator*(const TimeSpan& other) const {
+    TimeSpan operator*(const TimeSpan &other) const {
         return TimeSpan(value * other.value);
     }
 
-    TimeSpan operator*(const float& other) const { return TimeSpan(value * other); }
+    TimeSpan operator*(const float &other) const { return TimeSpan(value * other); }
 
-    friend TimeSpan operator*(const unsigned long long& lhs, const TimeSpan& rhs) {
+    friend TimeSpan operator*(const unsigned long long &lhs, const TimeSpan &rhs) {
         return TimeSpan(lhs * rhs.value);
     }
 
-    TimeSpan operator*(const unsigned long long& other) const {
+    TimeSpan operator*(const unsigned long long &other) const {
         return TimeSpan(value * other);
     }
 
-    TimeSpan operator*(const int& other) const { return TimeSpan(value * other); }
+    TimeSpan operator*(const int &other) const { return TimeSpan(value * other); }
 
     ////////////////////////////////// DIVISION /////////////////////////////////
 
-    TimeSpan operator/(const TimeSpan& other) const {
+    TimeSpan operator/(const TimeSpan &other) const {
         return TimeSpan(value / other.value);
     }
 
-    friend TimeSpan operator/(const unsigned long long& lhs, const TimeSpan& rhs) {
+    friend TimeSpan operator/(const unsigned long long &lhs, const TimeSpan &rhs) {
         return TimeSpan(lhs / rhs.value);
     }
 
-    TimeSpan operator/(const unsigned long long& other) const {
+    TimeSpan operator/(const unsigned long long &other) const {
         return TimeSpan(value / other);
     }
 
     ////////////////////////////////// MODULO /////////////////////////////////
 
-    TimeSpan operator%(const TimeSpan& other) const {
+    TimeSpan operator%(const TimeSpan &other) const {
         return TimeSpan(value % other.value);
     }
 
-    friend TimeSpan operator%(const unsigned long long& lhs, const TimeSpan& rhs) {
+    friend TimeSpan operator%(const unsigned long long &lhs, const TimeSpan &rhs) {
         return TimeSpan(lhs % rhs.value);
     }
 
-    TimeSpan operator%(const unsigned long long& other) const {
+    TimeSpan operator%(const unsigned long long &other) const {
         return TimeSpan(value % other);
     }
 
     ////////////////////////////////// OSTREAM /////////////////////////////////
 
-    friend std::ostream& operator<<(std::ostream& os, const TimeSpan& ts) {
+    friend std::ostream &operator<<(std::ostream &os, const TimeSpan &ts) {
         return os << ts.value;
     }
 
@@ -267,11 +268,11 @@ public:
 
     /// @brief Constructs a timestamp from the given unsigned long long, interpreting it as a nanosecond-precision UTC
     /// timestamp.
-    explicit TimeStamp(unsigned long long value) : value(value) {
+    explicit TimeStamp(const std::uint64_t value) : value(value) {
     }
 
     /// @brief interprets the given TimeSpan as a TimeStamp.
-    explicit TimeStamp(TimeSpan ts) : value(ts.value) {
+    explicit TimeStamp(const TimeSpan ts) : value(ts.value) {
     }
 
     TimeStamp static now() {
@@ -284,77 +285,77 @@ public:
 
     ///////////////////////////////////// COMPARISON /////////////////////////////////////
 
-    bool operator==(const TimeStamp& other) const { return value == other.value; }
+    bool operator==(const TimeStamp &other) const { return value == other.value; }
 
-    bool operator!=(const TimeStamp& other) const { return value != other.value; }
+    bool operator!=(const TimeStamp &other) const { return value != other.value; }
 
-    bool operator<(const TimeStamp& other) const { return value < other.value; }
+    bool operator<(const TimeStamp &other) const { return value < other.value; }
 
-    bool operator>(const TimeStamp& other) const { return value > other.value; }
+    bool operator>(const TimeStamp &other) const { return value > other.value; }
 
-    bool operator<=(const TimeStamp& other) const { return value <= other.value; }
+    bool operator<=(const TimeStamp &other) const { return value <= other.value; }
 
-    bool operator>=(const TimeStamp& other) const { return value >= other.value; }
+    bool operator>=(const TimeStamp &other) const { return value >= other.value; }
 
     //////////////////////////////////// ADDITION /////////////////////////////////////
 
-    TimeStamp operator+(const TimeStamp& other) const {
+    TimeStamp operator+(const TimeStamp &other) const {
         return TimeStamp(value + other.value);
     }
 
-    friend TimeStamp operator+(const unsigned long long& lhs, const TimeStamp& rhs) {
+    friend TimeStamp operator+(const unsigned long long &lhs, const TimeStamp &rhs) {
         return TimeStamp(lhs + rhs.value);
     }
 
-    TimeStamp operator+(const TimeSpan& other) const {
+    TimeStamp operator+(const TimeSpan &other) const {
         return TimeStamp(value + other.value);
     }
 
     /////////////////////////////////// SUBTRACTION ///////////////////////////////////
 
-    TimeSpan operator-(const TimeStamp& other) const {
+    TimeSpan operator-(const TimeStamp &other) const {
         return TimeSpan(value - other.value);
     }
 
-    friend TimeSpan operator-(const unsigned long long& lhs, const TimeStamp& rhs) {
+    friend TimeSpan operator-(const unsigned long long &lhs, const TimeStamp &rhs) {
         return TimeSpan(lhs - rhs.value);
     }
 
-    TimeSpan operator-(const TimeSpan& other) const {
+    TimeSpan operator-(const TimeSpan &other) const {
         return TimeSpan(value - other.value);
     }
 
     ////////////////////////////////// MULTIPLICATION /////////////////////////////////
 
-    TimeStamp operator*(const TimeStamp& other) const {
+    TimeStamp operator*(const TimeStamp &other) const {
         return TimeStamp(value * other.value);
     }
 
-    TimeStamp operator/(const TimeStamp& other) const {
+    TimeStamp operator/(const TimeStamp &other) const {
         return TimeStamp(value / other.value);
     }
 
-    TimeStamp operator%(const TimeStamp& other) const {
+    TimeStamp operator%(const TimeStamp &other) const {
         return TimeStamp(value % other.value);
     }
 
-    TimeStamp operator+=(const TimeStamp& other) {
+    TimeStamp operator+=(const TimeStamp &other) {
         return TimeStamp(value += other.value);
     }
 
-    TimeStamp operator-=(const TimeStamp& other) {
+    TimeStamp operator-=(const TimeStamp &other) {
         return TimeStamp(value -= other.value);
     }
 
-    TimeStamp operator*=(const TimeStamp& other) {
+    TimeStamp operator*=(const TimeStamp &other) {
         return TimeStamp(value *= other.value);
     }
 
-    TimeStamp operator/=(const TimeStamp& other) {
+    TimeStamp operator/=(const TimeStamp &other) {
         return TimeStamp(value /= other.value);
     }
 
-    TimeStamp operator%=(const TimeStamp& other) {
+    TimeStamp operator%=(const TimeStamp &other) {
         return TimeStamp(value %= other.value);
     }
 };
@@ -367,21 +368,26 @@ public:
     TimeRange() = default;
 
     /// @brief constructs a TimeRange from the given start and end timestamps.
-    TimeRange(TimeStamp start, TimeStamp end) : start(TimeStamp(start)), end(end) {
+    TimeRange(const TimeStamp start, const TimeStamp end) : start(start), end(end) {
     }
 
-    /// @brief returns true if the given timestamp is within the range, start inclusive, end exclusive.
-    [[nodiscard]] bool contains(TimeStamp time) const {
+    TimeRange(const std::uint64_t start, const std::uint64_t end) : start(start), end(end) {
+    }
+
+    /// @brief returns true if the given timestamp is within the range, start inclusive,
+    /// end exclusive.
+    [[nodiscard]] bool contains(const TimeStamp time) const {
         return start <= time && time < end;
     }
 
-    /// @brief returns true if the TimeRange contains the given TimeRange. If the two time ranges are equal,
-    /// returns true. In this case, the two time ranges contain each other.
-    [[nodiscard]] bool contains(TimeRange tr) const {
+    /// @brief returns true if the TimeRange contains the given TimeRange. If the two
+    /// time ranges are equal, returns true. In this case, the two time ranges contain
+    /// each other.
+    [[nodiscard]] bool contains(const TimeRange tr) const {
         return tr.start >= start && tr.end <= end;
     }
 
-    bool operator==(const TimeRange& other) const {
+    bool operator==(const TimeRange &other) const {
         return start == other.start && end == other.end;
     }
 };
@@ -390,54 +396,54 @@ class Rate {
 public:
     float value;
 
-    explicit Rate(float i) : value(i) {
+    explicit Rate(const float i) : value(i) {
     }
 
     Rate() = default;
 
     //////////////////////////////////// COMPARISON ///////////////////////////////////
 
-    bool operator==(const Rate& other) const { return value == other.value; }
+    bool operator==(const Rate &other) const { return value == other.value; }
 
-    bool operator!=(const Rate& other) const { return value != other.value; }
+    bool operator!=(const Rate &other) const { return value != other.value; }
 
-    bool operator<(const Rate& other) const { return value < other.value; }
+    bool operator<(const Rate &other) const { return value < other.value; }
 
-    bool operator>(const Rate& other) const { return value > other.value; }
+    bool operator>(const Rate &other) const { return value > other.value; }
 
-    bool operator<=(const Rate& other) const { return value <= other.value; }
+    bool operator<=(const Rate &other) const { return value <= other.value; }
 
-    bool operator>=(const Rate& other) const { return value >= other.value; }
+    bool operator>=(const Rate &other) const { return value >= other.value; }
 
     //////////////////////////////////// ADDITION ///////////////////////////////////
 
-    Rate operator+(const Rate& other) const { return Rate(value + other.value); }
+    Rate operator+(const Rate &other) const { return Rate(value + other.value); }
 
-    friend Rate operator+(const float& lhs, const Rate& rhs) {
+    friend Rate operator+(const float &lhs, const Rate &rhs) {
         return Rate(lhs + rhs.value);
     }
 
-    Rate operator+(const float& other) const { return Rate(value + other); }
+    Rate operator+(const float &other) const { return Rate(value + other); }
 
     /////////////////////////////////// SUBTRACTION ///////////////////////////////////
 
-    Rate operator-(const Rate& other) const { return Rate(value - other.value); }
+    Rate operator-(const Rate &other) const { return Rate(value - other.value); }
 
-    friend Rate operator-(const float& lhs, const Rate& rhs) {
+    friend Rate operator-(const float &lhs, const Rate &rhs) {
         return Rate(lhs - rhs.value);
     }
 
-    Rate operator-(const float& other) const { return Rate(value - other); }
+    Rate operator-(const float &other) const { return Rate(value - other); }
 
     ////////////////////////////////// MULTIPLICATION /////////////////////////////////
 
-    Rate operator*(const Rate& other) const { return Rate(value * other.value); }
+    Rate operator*(const Rate &other) const { return Rate(value * other.value); }
 
-    friend Rate operator*(const float& lhs, const Rate& rhs) {
+    friend Rate operator*(const float &lhs, const Rate &rhs) {
         return Rate(lhs * rhs.value);
     }
 
-    Rate operator*(const float& other) const { return Rate(value * other); }
+    Rate operator*(const float &other) const { return Rate(value * other); }
 
     [[nodiscard]] TimeSpan period() const { return TimeSpan(1 / value * 1e9); }
 };
