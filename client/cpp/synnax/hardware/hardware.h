@@ -21,38 +21,38 @@ using namespace synnax;
 namespace synnax {
 /// @brief type alias for the transport used to create a rack.
 typedef freighter::UnaryClient<
-    api::v1::HardwareCreateRackResponse,
-    api::v1::HardwareCreateRackRequest
+    api::v1::HardwareCreateRackRequest,
+    api::v1::HardwareCreateRackResponse
 > HardwareCreateRackClient;
 
 /// @brief type alias for the transport used to retrieve a rack.
 typedef freighter::UnaryClient<
-    api::v1::HardwareRetrieveRackResponse,
-    api::v1::HardwareRetrieveRackRequest
+    api::v1::HardwareRetrieveRackRequest,
+    api::v1::HardwareRetrieveRackResponse
 > HardwareRetrieveRackClient;
 
 /// @brief type alias for the transport used to delete a rack.
 typedef freighter::UnaryClient<
-    google::protobuf::Empty,
-    api::v1::HardwareDeleteRackRequest
+    api::v1::HardwareDeleteRackRequest,
+    google::protobuf::Empty
 > HardwareDeleteRackClient;
 
 /// @brief type alias for the transport used to create a task.
 typedef freighter::UnaryClient<
-    api::v1::HardwareCreateTaskResponse,
-    api::v1::HardwareCreateTaskRequest
+    api::v1::HardwareCreateTaskRequest,
+    api::v1::HardwareCreateTaskResponse
 > HardwareCreateTaskClient;
 
 /// @brief type alias for the transport used to retrieve a task.
 typedef freighter::UnaryClient<
-    api::v1::HardwareRetrieveTaskResponse,
-    api::v1::HardwareRetrieveTaskRequest
+    api::v1::HardwareRetrieveTaskRequest,
+    api::v1::HardwareRetrieveTaskResponse
 > HardwareRetrieveTaskClient;
 
 /// @brief type alias for the transport used to delete a task.
 typedef freighter::UnaryClient<
-    google::protobuf::Empty,
-    api::v1::HardwareDeleteTaskRequest
+    api::v1::HardwareDeleteTaskRequest,
+    google::protobuf::Empty
 > HardwareDeleteTaskClient;
 
 

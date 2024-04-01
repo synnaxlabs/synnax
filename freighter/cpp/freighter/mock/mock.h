@@ -7,7 +7,7 @@
 #include "freighter/cpp/freighter/freighter.h"
 
 template<typename RQ, typename RS>
-class MockUnaryClient final : public freighter::UnaryClient<RS, RQ>,
+class MockUnaryClient final : public freighter::UnaryClient<RQ, RS>,
                               freighter::Finalizer {
 public:
     std::vector<RQ> requests{};

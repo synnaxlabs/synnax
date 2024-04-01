@@ -8,6 +8,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//client/cpp/synnax",
+        "//freighter/cpp/freighter",
         "@com_github_google_glog//:glog",
     ],
 )

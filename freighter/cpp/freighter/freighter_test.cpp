@@ -33,7 +33,7 @@ TEST(testFreighter, testMiddleware) {
     auto middleware = BasicMiddleware("5");
     auto finalizer = BasicFinalizer();
     middleware.setNext(&finalizer);
-    auto context = freighter::Context("test", "1");
+    auto context = freighter::Context("test", "1", freighter::UNARY);
     auto result = middleware(context);
     ASSERT_EQ(result.first.get("test"), "5");
 }
@@ -46,7 +46,7 @@ TEST(testFreighter, testMiddlewareCollector) {
     auto f = BasicFinalizer();
     collector.use(mw1);
     collector.use(mw2);
-    auto result = collector.exec(freighter::Context("test", "1"), &f);
+    auto result = collector.exec(freighter::Context("test", "1", freighter::UNARY), &f);
     ASSERT_EQ(result.first.get("test"), "6");
 }
 

@@ -29,10 +29,10 @@ public:
         RackKey rack_key,
         const std::shared_ptr<Synnax> &client,
         std::unique_ptr<task::Factory> factory,
-        breaker::Breaker breaker
+        breaker::Config breaker
     );
 
-    freighter::Error start(std::latch &latch);
+    freighter::Error start(std::atomic<bool> &done);
 
     freighter::Error stop();
 
@@ -53,7 +53,7 @@ private:
 
     std::thread run_thread;
     freighter::Error run_err;
-    void run(std::latch &latch);
+    void run(std::atomic<bool> &done);
     freighter::Error runGuarded();
 
     freighter::Error startGuarded();
@@ -68,10 +68,10 @@ public:
     Heartbeat(
         RackKey rack_key,
         std::shared_ptr<Synnax> client,
-        breaker::Breaker breaker
+        breaker::Config breaker_config
     );
 
-    freighter::Error start(std::latch &latch);
+    freighter::Error start(std::atomic<bool> &done);
 
     freighter::Error stop();
 
@@ -83,7 +83,6 @@ private:
     Channel channel;
 
     // Heartbeat
-    std::uint32_t generation;
     std::uint32_t version;
 
     // Breaker
@@ -91,9 +90,13 @@ private:
 
     // Threading
     std::atomic<bool> running;
-    std::thread exec_thread;
+    std::thread run_thread;
+    freighter::Error run_err;
 
-    void run();
+    void run(std::atomic<bool> &done);
+    freighter::Error runGuarded();
+
+    freighter::Error startGuarded();
 };
 
 class Driver {
@@ -102,10 +105,10 @@ public:
         RackKey key,
         const std::shared_ptr<Synnax> &client,
         std::unique_ptr<task::Factory> task_factory,
-        const breaker::Breaker &brk
+        breaker::Config breaker_config
     );
 
-    void run();
+    freighter::Error run();
 
     void stop();
 

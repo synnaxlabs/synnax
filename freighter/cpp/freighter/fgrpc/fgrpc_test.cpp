@@ -9,17 +9,16 @@
 
 #include <thread>
 #include "gtest/gtest.h"
-#include "freighter/cpp/freighter/fgrpc/protos/freighter/cpp/freighter/fgrpc/protos/service.pb.h"
-#include "freighter/cpp/freighter/fgrpc/client.h"
-#include "freighter/cpp/freighter/fgrpc/tests/server.h"
+#include "freighter/cpp/freighter/fgrpc/mock/freighter/cpp/freighter/fgrpc/mock/service.grpc.pb.h"
+#include "freighter/cpp/freighter/fgrpc/fgrpc.h"
+#include "freighter/cpp/freighter/fgrpc/mock/server.h"
 #include "freighter/cpp/freighter/freighter.h"
-#include "freighter/cpp/freighter/fgrpc/grpc.h"
 
 /// Internal response type uses message.
-using response_t = test::Message;
-using request_t = test::Message;
-using unary_rpc_t = test::UnaryMessageService;
-using stream_rpc_t = test::StreamMessageService;
+using RQ = test::Message;
+using RS = test::Message;
+using UNARY_RPC = test::UnaryMessageService;
+using STREAM_RPC = test::StreamMessageService;
 
 auto base_target = "localhost:8080";
 
@@ -36,8 +35,8 @@ TEST(testGRPC, testBasicUnary) {
     std::thread s(server, base_target);
     // Sleep for 100 ms to make sure server is up.
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
-    auto pool = std::make_shared<GRPCPool>();
-    auto client = GRPCUnaryClient<response_t, request_t, unary_rpc_t>(pool, base_target);
+    auto pool = std::make_shared<fgrpc::Pool>();
+    auto client = fgrpc::UnaryClient<RQ, RS, UNARY_RPC>(pool, base_target);
     auto mes = test::Message();
     mes.set_payload("Sending to Server");
     auto [res, err] = client.send("", mes);
@@ -68,8 +67,8 @@ TEST(testGRPC, testMiddlewareInjection) {
     std::thread s(server, base_target);
     // Sleep for 100 ms to make sure server is up.
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
-    auto pool = std::make_shared<GRPCPool>();
-    auto client = GRPCUnaryClient<response_t, request_t, unary_rpc_t>(pool, base_target);
+    auto pool = std::make_shared<fgrpc::Pool>();
+    auto client = fgrpc::UnaryClient<RQ, RS, UNARY_RPC>(pool, base_target);
     auto mw = std::make_shared<myMiddleware>();
     client.use(mw);
     auto mes = test::Message();
@@ -86,7 +85,7 @@ TEST(testGRPC, testFailedUnary) {
     // here is to simply not set up a server, so that
     // we don't get a response.
     auto pool = std::make_shared<fgrpc::Pool>();
-    auto client = fgrpc::Pool<response_t, request_t, unary_rpc_t>(pool, base_target);
+    auto client = fgrpc::UnaryClient<RQ, RS, UNARY_RPC>(pool, base_target);
     auto mes = test::Message();
     mes.set_payload("Sending to Server");
     auto [res, err] = client.send("", mes);
@@ -103,8 +102,8 @@ TEST(testGRPC, testMultipleTargets) {
     // wait for servers to start.
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
-    auto pool = std::make_shared<GRPCPool>();
-    auto client = GRPCUnaryClient<response_t, request_t, unary_rpc_t>(pool);
+    auto pool = std::make_shared<fgrpc::Pool>();
+    auto client = fgrpc::UnaryClient<RQ, RS, UNARY_RPC>(pool);
     auto mes_one = test::Message();
     mes_one.set_payload("Sending to Server One");
     auto [res_one, err] = client.send(target_one, mes_one);
@@ -128,8 +127,8 @@ TEST(testGRPC, testBasicStream) {
     std::thread s(server, target);
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
-    auto pool = std::make_shared<GRPCPool>();
-    auto client = GRPCStreamClient<response_t, request_t, stream_rpc_t>(pool, base_target);
+    auto pool = std::make_shared<fgrpc::Pool>();
+    auto client = fgrpc::StreamClient<RQ, RS, STREAM_RPC>(pool, base_target);
     auto mes = test::Message();
 
     auto [streamer, err] = client.stream("");
@@ -137,7 +136,7 @@ TEST(testGRPC, testBasicStream) {
     mes.set_payload("Sending to Streaming Server");
     err = streamer->send(mes);
     ASSERT_FALSE(err) << err.message();
-    ASSERT_FALSE(streamer->closeSend());
+    streamer->closeSend();
     auto [res, err2] = streamer->receive();
     ASSERT_FALSE(err2) << err2.message();
     ASSERT_EQ(res.payload(), "Read request: Sending to Streaming Server");
@@ -155,8 +154,8 @@ TEST(testGRPC, testMultipleStreamObjects) {
     std::thread s2(server, target_two);
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
-    auto pool = std::make_shared<GRPCPool>();
-    auto client = GRPCStreamClient<response_t, request_t, stream_rpc_t>(pool);
+    auto pool = std::make_shared<fgrpc::Pool>();
+    auto client = fgrpc::StreamClient<RQ, RS, STREAM_RPC>(pool);
     auto mes_one = test::Message();
     auto mes_two = test::Message();
 
@@ -190,8 +189,8 @@ TEST(testGRPC, testSendMultipleMessages) {
     std::thread s(server, target);
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
-    auto pool = std::make_shared<GRPCPool>();
-    auto client = GRPCStreamClient<response_t, request_t, stream_rpc_t>(pool, base_target);
+    auto pool = std::make_shared<fgrpc::Pool>();
+    auto client = fgrpc::StreamClient<RQ, RS, STREAM_RPC>(pool, base_target);
     auto mes = test::Message();
     auto mes_two = test::Message();
 
@@ -219,8 +218,8 @@ TEST(testGRPC, testSendMultipleMessages) {
 ///// @brief Test sending and receiving one message.
 TEST(testGRPC, testStreamError) {
     std::string target("localhost:8080");
-    auto pool = std::make_shared<GRPCPool>();
-    auto client = GRPCStreamClient<response_t, request_t, stream_rpc_t>(pool, base_target);
+    auto pool = std::make_shared<fgrpc::Pool>();
+    auto client = fgrpc::StreamClient<RQ, RS, STREAM_RPC>(pool, base_target);
     auto mes = test::Message();
 
     auto [streamer, exc] = client.stream(target);
@@ -234,7 +233,7 @@ TEST(testGRPC, testStreamError) {
 
 
 
-void client_send(int num, std::shared_ptr<GRPCUnaryClient<response_t, request_t, unary_rpc_t>> client) {
+void client_send(int num, std::shared_ptr<fgrpc::UnaryClient<RQ, RS, UNARY_RPC>> client) {
     auto mes = test::Message();
     mes.set_payload(std::to_string(num));
     auto [res, err] = client->send("", mes);
@@ -247,8 +246,8 @@ TEST(testGRPC, stressTestUnaryWithManyThreads) {
     std::thread s(server, base_target);
     // Sleep for 100 ms to make sure server is up.
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
-    auto pool = std::make_shared<GRPCPool>();
-    auto global_unary_client = std::make_shared<GRPCUnaryClient<response_t, request_t, unary_rpc_t>>(pool, base_target);
+    auto pool = std::make_shared<fgrpc::Pool>();
+    auto global_unary_client = std::make_shared<fgrpc::UnaryClient<RQ, RS, UNARY_RPC>>(pool, base_target);
 
     auto mw = std::make_shared<myMiddleware>();
     global_unary_client->use(mw);
@@ -265,7 +264,7 @@ TEST(testGRPC, stressTestUnaryWithManyThreads) {
     s.join();
 }
 
-void stream_send(int num, std::shared_ptr<GRPCStreamClient<response_t, request_t, stream_rpc_t>> client) {
+void stream_send(int num, std::shared_ptr<fgrpc::StreamClient<RQ, RS, STREAM_RPC>> client) {
     auto mes = test::Message();
     mes.set_payload(std::to_string(num));
     auto [stream, err] = client->stream("");
@@ -283,8 +282,8 @@ TEST(testGRPC, stressTestStreamWithManyThreads) {
     // Sleep for 100 ms to make sure server is up.
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
-    auto pool = std::make_shared<GRPCPool>();
-    auto global_stream_client = std::make_shared<GRPCStreamClient<response_t, request_t, stream_rpc_t>>(pool, base_target);
+    auto pool = std::make_shared<fgrpc::Pool>();
+    auto global_stream_client = std::make_shared<fgrpc::StreamClient<RQ, RS, STREAM_RPC>>(pool, base_target);
 
     auto mw = std::make_shared<myMiddleware>();
     global_stream_client->use(mw);

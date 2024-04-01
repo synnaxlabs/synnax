@@ -15,19 +15,20 @@
 
 std::unique_ptr<driver::Driver> d;
 
-std::pair<synnax::Rack, freighter::Error> retrieveDriverRack(breaker::Breaker& breaker,
-                                                             const std::shared_ptr<synnax::Synnax>& client) {
+std::pair<synnax::Rack, freighter::Error> retrieveDriverRack(breaker::Breaker &breaker,
+    const std::shared_ptr<synnax::Synnax> &client) {
     auto [rack, err] = client->hardware.retrieveRack("sy_node_1_rack");
-    if (err.matches(freighter::UNREACHABLE) && breaker.wait(err.message())) return retrieveDriverRack(breaker, client);
+    if (err.matches(freighter::UNREACHABLE) && breaker.wait(err.message()))
+        return
+                retrieveDriverRack(breaker, client);
     return {rack, err};
 }
 
-int main(int argc, char* argv[]) {
+int main(int argc, char *argv[]) {
     google::InitGoogleLogging(argv[0]);
-
-    LOG(ERROR) << "Starting driver";
-
-
+    google::SetCommandLineOption("logtostderr", "1");
+    google::SetCommandLineOption("minloglevel", "0");
+    LOG(INFO) << "starting driver";
     auto cfg = synnax::Config{
         .host = "localhost",
         .port = 9090,
@@ -37,32 +38,40 @@ int main(int argc, char* argv[]) {
 
     auto client = std::make_shared<synnax::Synnax>(cfg);
 
-    auto rack_bootup_breaker = breaker::Breaker(breaker::Config{
-        "rack_bootup",
+    breaker::Config breaker_config{
+        "driver",
         synnax::SECOND * 1,
         50,
-        1.2
-    });
+        1.1
+    };
 
-    LOG(INFO) << "Retrieving node internal rack";
+    auto rack_bootup_breaker = breaker::Breaker(breaker_config.child("startup"));
+
+    LOG(INFO) << "retrieving driver meta-data";
     auto [rack, err] = retrieveDriverRack(rack_bootup_breaker, client);
     if (err) {
-        LOG(FATAL) << "Failed to retrieve node internal rack: " << err;
+        LOG(FATAL) << "failed to retrieve driver meta-data - can't proceed without it"
+                << err;
         return 1;
     }
 
     std::unique_ptr<task::Factory> opcua_factory = std::make_unique<opcua::Factory>();
-    std::vector<std::shared_ptr<task::Factory>> factories = {
-        std::move(opcua_factory),
-    };
-    std::unique_ptr<task::Factory> factory = std::make_unique<task::MultiFactory>(std::move(factories));
+    std::vector<std::shared_ptr<task::Factory> > factories = {std::move(opcua_factory)};
+    std::unique_ptr<task::Factory> factory = std::make_unique<task::MultiFactory>(
+        std::move(factories)
+    );
 
-    d = std::make_unique<driver::Driver>(rack.key, client, std::move(factory), rack_bootup_breaker);
-    d->run();
-    signal(SIGINT, [](int signum) {
+    d = std::make_unique<driver::Driver>(
+        rack.key,
+        client,
+        std::move(factory),
+        breaker_config
+    );
+    signal(SIGINT, [](int _) {
+        LOG(INFO) << "received interrupt signal. shutting down";
         d->stop();
-        exit(0);
     });
-    std::cout << "Done" << std::endl;
+    d->run();
+    LOG(INFO) << "shutdown complete";
     return 0;
 }

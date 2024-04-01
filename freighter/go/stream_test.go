@@ -129,7 +129,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 			})
 			Describe("Details Handling", func() {
 
-				Describe("Server returns a non-nil error", func() {
+				Describe("adaptStream returns a non-nil error", func() {
 					It("Should send the error to the client", func() {
 						serverClosed := make(chan struct{})
 						server.BindHandler(func(ctx context.Context, server serverStream) error {

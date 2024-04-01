@@ -1,6 +1,5 @@
 cc_library(
     name = "telem",
-    srcs = ["telem.cpp"],
     hdrs = [
         "control.h",
         "series.h",

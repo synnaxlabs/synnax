@@ -23,10 +23,10 @@
 // response_t, request_t, stream_t, err_t, and rpc_t.
 
 // response_t: The proto compiled response type.
-using response_t = masa::Data;
+using RQ = masa::Data;
 
 // request_t: The proto compiled request type.
-using request_t = masa::Data;
+using RS = masa::Data;
 
 // err_t: In this case, grpc::Status. DO NOT use another type.
 using err_t = grpc::Status;
@@ -35,12 +35,12 @@ using err_t = grpc::Status;
 using rpc_t = masa::Communication;
 
 // stream_t: a grpcStreamer of type grpcStreamer<response_t, request_t, err_t, rpc_t>
-using stream_t = grpcStreamer<response_t, request_t, err_t, rpc_t>;
+using stream_t = grpcStreamer<RQ, RS, err_t, rpc_t>;
 
 int main()
 {
     // We start by creating a client object with our templates.
-    auto client = grpc<response_t, request_t, stream_t, err_t, rpc_t>();
+    auto client = grpc<RQ, RS, stream_t, err_t, rpc_t>();
 
     // We then choose the target that we want to send to.
     std::string target("localhost:8080");

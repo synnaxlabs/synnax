@@ -11,6 +11,7 @@ package fgrpc
 
 import (
 	"context"
+	"google.golang.org/grpc/metadata"
 	"io"
 
 	"github.com/synnaxlabs/alamos"
@@ -53,20 +54,41 @@ func (s *StreamServerCore[RQ, RQT, RS, RST]) BindHandler(
 }
 
 func (s *StreamServerCore[RQ, RQT, RS, RST]) Handler(
-	ctx context.Context, stream freighter.ServerStream[RQ, RS],
+	ctx context.Context, stream grpcServerStream[RQT, RST],
 ) error {
+	attachedInitialMetaData := false
 	oCtx, err := s.MiddlewareCollector.Exec(
 		parseContext(ctx, s.ServiceDesc.ServiceName, freighter.Server, freighter.Stream),
 		freighter.FinalizerFunc(func(md freighter.Context) (freighter.Context, error) {
+			attachedInitialMetaData = true
+			if err := stream.SendHeader(metadata.Pairs("ok", "true")); err != nil {
+				return md, err
+			}
 			return freighter.Context{
 				Context:  md.Context,
-				Protocol: md.Protocol, Params: make(freighter.Params)}, s.handler(ctx, stream)
+				Protocol: md.Protocol,
+				Params:   make(freighter.Params),
+			}, s.handler(ctx, s.adaptStream(stream))
 		}),
 	)
-	oCtx = attachContext(oCtx)
+	if !attachedInitialMetaData {
+		md := metadata.Pairs()
+		for k, v := range oCtx.Params {
+			if vStr, ok := v.(string); ok {
+				md.Append(k, vStr)
+			}
+		}
+		if err != nil {
+			md.Append("error", errors.Encode(ctx, err, s.Internal).Error())
+		}
+		if err := stream.SendHeader(md); err != nil {
+			return err
+		}
+	}
 	if err == nil {
 		return nil
 	}
+	oCtx = attachContext(oCtx)
 	return errors.Encode(ctx, err, s.Internal)
 }
 
@@ -89,7 +111,7 @@ func (s *StreamClientCore[RQ, RQT, RS, RST]) Stream(
 				return oCtx, err
 			}
 			grpcClient, err := s.ClientFunc(ctx, conn.ClientConn)
-			stream = s.Client(grpcClient)
+			stream = s.adaptStream(grpcClient)
 			return parseContext(
 				ctx,
 				s.ServiceDesc.ServiceName,
@@ -101,7 +123,7 @@ func (s *StreamClientCore[RQ, RQT, RS, RST]) Stream(
 	return stream, err
 }
 
-func (s *StreamServerCore[RQ, RQT, RS, RST]) Server(
+func (s *StreamServerCore[RQ, RQT, RS, RST]) adaptStream(
 	stream grpcServerStream[RQT, RST],
 ) freighter.ServerStream[RQ, RS] {
 	return &ServerStream[RQ, RQT, RS, RST]{
@@ -111,7 +133,7 @@ func (s *StreamServerCore[RQ, RQT, RS, RST]) Server(
 	}
 }
 
-func (s *StreamClientCore[RQ, RQT, RS, RST]) Client(
+func (s *StreamClientCore[RQ, RQT, RS, RST]) adaptStream(
 	stream GRPCClientStream[RQT, RST],
 ) freighter.ClientStream[RQ, RS] {
 	return &ClientStream[RQ, RQT, RS, RST]{
@@ -180,10 +202,15 @@ type grpcServerStream[RQ, RS freighter.Payload] interface {
 	Context() context.Context
 	Send(msg RS) error
 	Recv() (RQ, error)
+	SetHeader(metadata.MD) error
+	SendHeader(metadata.MD) error
+	SetTrailer(metadata.MD)
 }
 
 type GRPCClientStream[RQ, RS freighter.Payload] interface {
-	grpcServerStream[RS, RQ]
+	Context() context.Context
+	Send(msg RQ) error
+	Recv() (RS, error)
 	CloseSend() error
 }
 

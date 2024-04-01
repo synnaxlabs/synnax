@@ -23,38 +23,50 @@ using namespace synnax;
 
 namespace synnax {
 /// @brief type alias for streamer network transport stream.
-typedef freighter::Stream<api::v1::FrameStreamerResponse, api::v1::FrameStreamerRequest>
-StreamerStream;
+typedef freighter::Stream<
+    api::v1::FrameStreamerRequest,
+    api::v1::FrameStreamerResponse
+> StreamerStream;
 
 /// @brief typ;e alias for frame writer network transport.
-typedef freighter::StreamClient<api::v1::FrameStreamerResponse,
-    api::v1::FrameStreamerRequest> StreamerClient;
+typedef freighter::StreamClient<
+    api::v1::FrameStreamerRequest,
+    api::v1::FrameStreamerResponse
+> StreamerClient;
 
 /// @brief type alias for writer network transports stream.
-typedef freighter::Stream<api::v1::FrameWriterResponse, api::v1::FrameWriterRequest>
-WriterStream;
+typedef freighter::Stream<
+    api::v1::FrameWriterRequest,
+    api::v1::FrameWriterResponse
+> WriterStream;
 
 /// @brief type alias for writer network transport.
-typedef freighter::StreamClient<api::v1::FrameWriterResponse,
-    api::v1::FrameWriterRequest> WriterClient;
+typedef freighter::StreamClient<
+    api::v1::FrameWriterRequest,
+    api::v1::FrameWriterResponse
+> WriterClient;
 
 
 /// @brief Frame type.
-class Frame {
-public:
-    std::unique_ptr<std::vector<ChannelKey> > columns;
+struct Frame {
+    std::unique_ptr<std::vector<ChannelKey> > channels;
     std::unique_ptr<std::vector<synnax::Series> > series;
 
     Frame() = default;
 
     Frame(
-        std::unique_ptr<std::vector<ChannelKey> > columns,
+        std::unique_ptr<std::vector<ChannelKey> > channels,
         std::unique_ptr<std::vector<synnax::Series> > series
     );
 
     explicit Frame(size_t size);
 
     explicit Frame(const api::v1::Frame &f);
+
+    Frame(
+        ChannelKey chan,
+        synnax::Series ser
+    );
 
     void toProto(api::v1::Frame *f) const;
 

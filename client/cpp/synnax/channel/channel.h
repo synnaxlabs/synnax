@@ -23,14 +23,14 @@ typedef std::uint32_t ChannelKey;
 
 /// @brief freighter retrieve transport.
 typedef freighter::UnaryClient<
-    api::v1::ChannelRetrieveResponse,
-    api::v1::ChannelRetrieveRequest
+    api::v1::ChannelRetrieveRequest,
+    api::v1::ChannelRetrieveResponse
 > ChannelRetrieveClient;
 
 /// @brief freighter create transport.
 typedef freighter::UnaryClient<
-    api::v1::ChannelCreateResponse,
-    api::v1::ChannelCreateRequest
+    api::v1::ChannelCreateRequest,
+    api::v1::ChannelCreateResponse
 > ChannelCreateClient;
 
 class ChannelClient;

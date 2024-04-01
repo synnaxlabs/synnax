@@ -3,17 +3,19 @@
 #include "nlohmann/json.hpp"
 #include "scanner.h"
 #include "driver/driver/config/config.h"
-#include "open62541/client_config_default.h"
-#include "open62541/client_highlevel.h"
-#include "open62541/client_subscriptions.h"
-#include "open62541/plugin/log_stdout.h"
+#include "include/open62541/statuscodes.h"
+#include "include/open62541/types.h"
+#include "include/open62541/client_config_default.h"
+#include "include/open62541/client_highlevel.h"
+#include "include/open62541/client.h"
 
 using namespace opcua;
 
-Scanner::Scanner(std::shared_ptr<task::Context> ctx, synnax::Task  task): ctx(std::move(ctx)), task(std::move(task)) {
+Scanner::Scanner(std::shared_ptr<task::Context> ctx,
+                 synnax::Task task): ctx(std::move(ctx)), task(std::move(task)) {
 }
 
-void Scanner::exec(task::Command& cmd) {
+void Scanner::exec(task::Command &cmd) {
     std::cout << cmd.type << std::endl;
     if (cmd.type == SCAN_CMD_TYPE) {
         config::Parser parser(cmd.args);
@@ -31,7 +33,7 @@ void Scanner::exec(task::Command& cmd) {
     }
 }
 
-const char* getDataTypeName(UA_UInt16 dataTypeId) {
+const char *getDataTypeName(UA_UInt16 dataTypeId) {
     switch (dataTypeId) {
         case UA_NS0ID_BOOLEAN: return "Boolean";
         case UA_NS0ID_SBYTE: return "SByte";
@@ -62,10 +64,11 @@ const char* getDataTypeName(UA_UInt16 dataTypeId) {
 }
 
 // Forward declaration of the callback function for recursive calls
-static UA_StatusCode nodeIter(UA_NodeId childId, UA_Boolean isInverse, UA_NodeId referenceTypeId, void* handle);
+static UA_StatusCode nodeIter(UA_NodeId childId, UA_Boolean isInverse,
+                              UA_NodeId referenceTypeId, void *handle);
 
 // Function to recursively iterate through all children
-void iterateChildren(UA_Client* client, UA_NodeId nodeId) {
+void iterateChildren(UA_Client *client, UA_NodeId nodeId) {
     UA_Client_forEachChildNodeCall(client, nodeId, nodeIter, client);
 }
 
@@ -75,23 +78,23 @@ UA_UInt32 depth = 0;
 
 
 // Callback function to handle each child node
-static UA_StatusCode nodeIter(UA_NodeId childId, UA_Boolean isInverse, UA_NodeId referenceTypeId, void* handle) {
-    if (isInverse) {
-        return UA_STATUSCODE_GOOD;
-    }
+static UA_StatusCode nodeIter(UA_NodeId childId, UA_Boolean isInverse,
+                              UA_NodeId referenceTypeId, void *handle) {
+    if (isInverse) return UA_STATUSCODE_GOOD;
 
-    UA_Client* client = (UA_Client *) handle;
-
+    UA_Client *client = (UA_Client *) handle;
 
     // Print indentation based on depth and basic information about the node
     for (UA_UInt32 i = 0; i < depth; i++) {
         printf("  ");
     }
-    printf("Depth %u, NodeID: %u, ReferenceType: %u ", depth, childId.identifier.numeric,
+    printf("Depth %u, NodeID: %u, ReferenceType: %u ", depth,
+           childId.identifier.numeric,
            referenceTypeId.identifier.numeric);
 
     UA_QualifiedName browseName;
-    UA_StatusCode retval = UA_Client_readBrowseNameAttribute(client, childId, &browseName);
+    UA_StatusCode retval = UA_Client_readBrowseNameAttribute(
+        client, childId, &browseName);
     if (retval != UA_STATUSCODE_GOOD) {
         return retval;
     }
@@ -187,12 +190,12 @@ static UA_StatusCode nodeIter(UA_NodeId childId, UA_Boolean isInverse, UA_NodeId
 //    UA_BrowseResponse_clear(&bResp);
 //}
 
-void Scanner::scan(const opcua::ScannerScanCommand& cmd, json& err, bool& ok) {
-    UA_Client* ua_client = UA_Client_new();
+void Scanner::scan(const opcua::ScannerScanCommand &cmd, json &err, bool &ok) {
+    UA_Client *ua_client = UA_Client_new();
 
     UA_ClientConfig_setDefault(UA_Client_getConfig(ua_client));
     UA_StatusCode status;
-    UA_ClientConfig* config = UA_Client_getConfig(ua_client);
+    UA_ClientConfig *config = UA_Client_getConfig(ua_client);
     if (cmd.connection.username.empty() && cmd.connection.password.empty()) {
         status = UA_Client_connect(ua_client, cmd.connection.endpoint.c_str());
     } else {

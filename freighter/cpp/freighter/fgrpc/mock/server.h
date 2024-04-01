@@ -18,7 +18,7 @@
 #include <iostream>
 #include <mutex>
 #include <condition_variable>
-#include "freighter/cpp/freighter/fgrpc/protos/freighter/cpp/freighter/fgrpc/protos/service.grpc.pb.h"
+#include "freighter/cpp/freighter/fgrpc/mock/freighter/cpp/freighter/fgrpc/mock/service.grpc.pb.h"
 
 /// @brief Used to awake main thread when we are 
 /// done processing messages.
@@ -48,6 +48,9 @@ class myStreamServiceImpl final : public test::StreamMessageService::Service {
     /// @brief The implementation of the server side stream.
     grpc::Status
     Exec(grpc::ServerContext *context, grpc::ServerReaderWriter<test::Message, test::Message> *stream) override {
+        // Send initial meta data
+        context->AddInitialMetadata("test", "dog");
+        stream->SendInitialMetadata();
         test::Message request;
         while (stream->Read(&request)) {
             std::unique_lock<std::mutex> lock(mut);

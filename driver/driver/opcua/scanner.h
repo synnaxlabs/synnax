@@ -14,7 +14,7 @@ namespace opcua {
 struct ScannerScanCommand {
     ConnectionConfig connection;
 
-    explicit ScannerScanCommand(config::Parser& parser): connection(
+    explicit ScannerScanCommand(config::Parser parser): connection(
         ConnectionConfig(parser.child("connection"))) {
     }
 };

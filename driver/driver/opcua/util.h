@@ -2,13 +2,13 @@
 
 #include "opcua.h"
 #include "client/cpp/synnax/synnax.h"
-#include "open62541/types.h"
-#include "open62541/nodeids.h"
-#include "open62541/types.h"
-#include "open62541/types_generated.h"
-#include "open62541/client_config_default.h"
-#include "open62541/client.h"
-#include "open62541/statuscodes.h"
+#include "include/open62541/types.h"
+#include "include/open62541/nodeids.h"
+#include "include/open62541/types.h"
+#include "include/open62541/types_generated.h"
+#include "include/open62541/client_config_default.h"
+#include "include/open62541/client.h"
+#include "include/open62541/statuscodes.h"
 
 namespace opcua {
 std::pair<UA_Client *, bool> connect(

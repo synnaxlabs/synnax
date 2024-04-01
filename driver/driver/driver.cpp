@@ -7,54 +7,45 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-
-/// std.
 #include <fstream>
 #include <latch>
-
-// external.
 #include <glog/logging.h>
 #include "nlohmann/json.hpp"
-
-// internal.
 #include "driver/driver/driver.h"
 
 using json = nlohmann::json;
 
 driver::Driver::Driver(
     const RackKey key,
-    const std::shared_ptr<Synnax>& client,
+    const std::shared_ptr<Synnax> &client,
     std::unique_ptr<task::Factory> factory,
-    const breaker::Breaker& brk
-): key(key), task_manager(key, client, std::move(factory), brk), heartbeat(key, client, brk) {
+    breaker::Config breaker_config
+): key(key),
+   task_manager(key, client, std::move(factory), breaker_config.child("task_manager")),
+   heartbeat(key, client, breaker_config.child("heartbeat")) {
 }
 
-void driver::Driver::run() {
-    LOG(ERROR) << "Starting Rack " << key;
-    std::latch rack_latch{2};
-    LOG(ERROR) << "Starting task manager";
-    auto err = task_manager.start(rack_latch);
-    if (err) {
-        LOG(ERROR) << "Failed to start task manager: " << err.message();
-        return;
-    }
-    LOG(INFO) << "Task manager started successfully. Starting heartbeat.";
-    err = heartbeat.start(rack_latch);
-    if (err) {
-        LOG(ERROR) << "Failed to start heartbeat: " << err.message();
-        task_manager.stop();
-        return;
-    }
-    LOG(INFO) << "Rack started successfully. Waiting for shutdown.";
-    rack_latch.wait();
+const std::string VERSION = "0.1.0";
+
+freighter::Error driver::Driver::run() {
+    std::atomic done = false;
+    // auto err = task_manager.start(done);
+    // if (err) return err;
+    auto err = heartbeat.start(done);
+    // if (err) task_manager.stop();
+    LOG(INFO) << "driver started successfully. waiting for shutdown.";
+    done.wait(false);
+    task_manager.stop();
+    heartbeat.stop();
+    return freighter::NIL;
 }
 
 void driver::Driver::stop() {
-    auto modules_err = task_manager.stop();
-    auto hb_err = heartbeat.stop();
-    if (modules_err) {
-        LOG(ERROR) << "Failed to stop task manager: " << modules_err.message();
-    }
+    // const auto tm_err = task_manager.stop();
+    const auto hb_err = heartbeat.stop();
+    // if (tm_err) {
+    //     LOG(ERROR) << "Failed to stop task manager: " << tm_err.message();
+    // }
     if (hb_err) {
         LOG(ERROR) << "Failed to stop heartbeat: " << hb_err.message();
     }

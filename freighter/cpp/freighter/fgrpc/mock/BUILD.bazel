@@ -14,3 +14,14 @@ cpp_grpc_library(
     protos = [":service_proto"],
     visibility = ["//visibility:public"],
 )
+
+cc_library(
+    name = "server",
+    srcs = [],
+    hdrs = ["server.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//freighter/cpp/freighter/fgrpc",
+        "//freighter/cpp/freighter/fgrpc/mock:service_grpc",
+    ],
+)

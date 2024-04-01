@@ -76,8 +76,8 @@ public:
     /// @brief checks if the error matches the provided type. The error matches if the
     /// provided type is equal to or is a prefix of this errors type.
     [[nodiscard]] bool matches(const std::string &other) const {
-        auto res = std::mismatch(other.begin(), other.end(), type.begin());
-        return res.first == other.end();
+        const auto loc = std::mismatch(other.begin(), other.end(), type.begin()).first;
+        return loc == other.end();
     }
 
     //// @brief checks if any of the provided types match the error. An error matches if
@@ -140,30 +140,43 @@ struct URL {
     [[nodiscard]] std::string toString() const;
 };
 
+enum TransportVariant {
+    UNARY,
+    STREAM
+};
+
 /// @brief A Context object that can be used to inject metadata into an outbound request or process metadata from
 /// an inbound response.
 class Context {
 public:
+    /// @brief unique hash used to retreive sent data.
+    int id;
     /// @brief The protocol used to send the request. Should be set by the underlying transport implementation.
     std::string protocol;
     /// @brief The target passed to UnaryClient::send or StreamClient::stream along with any base target configured
     /// in the underlying transport.
     std::string target;
+    /// @brief The transport variant that the context is associated with. Can either be
+    /// a streaming (STREAM) or unary (UNARY) transport.
+    TransportVariant variant;
 
     /// @brief Constructs the context with an empty set of parameters.
-    Context(std::string protocol, std::string target) : protocol(std::move(protocol)),
-                                                        target(std::move(target)) {
+    Context(
+        std::string protocol,
+        std::string target,
+        const TransportVariant variant
+    ) : id(0),
+        protocol(std::move(protocol)),
+        target(std::move(target)), variant(variant) {
         params = std::unordered_map<std::string, std::string>();
     }
 
     /// @brief Copy constructor
-    Context(const Context &other) {
-        protocol = other.protocol;
-        target = other.target;
-        id = other.id;
-        for (auto &param: other.params) {
-            params[param.first] = param.second;
-        }
+    Context(const Context &other): id(other.id),
+                                   protocol(other.protocol),
+                                   target(other.target),
+                                   variant(other.variant) {
+        for (const auto &[k, v]: other.params) params[k] = v;
     }
 
     /// @brief Copy assignment
@@ -171,9 +184,8 @@ public:
         protocol = other.protocol;
         target = other.target;
         id = other.id;
-        for (auto &param: other.params) {
-            params[param.first] = param.second;
-        }
+        variant = other.variant;
+        for (auto &[k, v]: other.params) params[k] = v;
         return *this;
     }
 
@@ -182,15 +194,14 @@ public:
         return params[key];
     }
 
-    /// @brief Sets the given parameter to the given value.
-    void set(const std::string &key, const std::string &value) {
-        params[key] = value;
+    bool has(const std::string &key) {
+        return params.find(key) != params.end();
     }
 
-    std::unordered_map<std::string, std::string> params;
+    /// @brief Sets the given parameter to the given value.
+    void set(const std::string &key, const std::string &value) { params[key] = value; }
 
-    /// @brief unique hash used to retreive sent data.
-    int id;
+    std::unordered_map<std::string, std::string> params;
 };
 
 /// @brief Interface for middleware that can be used to parse/attach metadata to a request, handle errors, or
@@ -295,9 +306,9 @@ private:
 };
 
 /// @brief The client side interface for a simple request-response transport between two entities.
-/// @tparam response_t the expected response type.
-/// @tparam request_t the request type.
-template<typename response_t, typename request_t>
+/// @tparam RS the expected response type.
+/// @tparam RQ the request type.
+template<typename RQ, typename RS>
 class UnaryClient {
 public:
     /// @brief binds the middleware to the given transport. Middleware is executed in the order it is added
@@ -308,36 +319,34 @@ public:
     /// @param target the target to send the request to.
     /// @param request the request to send.
     /// @returns a pair containing the response and an error.
-    virtual std::pair<response_t, Error> send(const std::string &target,
-                                              request_t &request) = 0;
+    virtual std::pair<RS, Error> send(const std::string &target, RQ &request) = 0;
 
     virtual ~UnaryClient() = default;
 };
 
 /// @brief An interface for a bidirectional stream between two entities.
-/// @tparam response_t the expected response type.
-/// @tparam request_t the request type.
-/// @tparam err_t the error type.
-template<typename response_t, typename request_t>
+/// @tparam RS the expected response type.
+/// @tparam RQ the request type.
+template<typename RQ, typename RS>
 class Stream {
 public:
     /// @brief Receives a response from the stream. It's not safe to call receive concurrently with itself.
     /// @returns a pair containing the response and an error.
-    virtual std::pair<response_t, Error> receive() = 0;
+    virtual std::pair<RS, Error> receive() = 0;
 
     /// @brief Sends a request to the stream. It is not safe to call send concurrently with itself or closeSend.
     /// @param request - the request to send.
-    virtual Error send(request_t &request) const = 0;
+    virtual Error send(RQ &request) const = 0;
 
     /// @brief Closes the sending end of the stream, signaling to the server that no more requests will be send,
     /// and (if desired) allowing the server to close the receiving end of the stream.
-    virtual void closeSend() const = 0;
+    virtual void closeSend() = 0;
 
     virtual ~Stream() = default;
 };
 
 /// @brief The client side interface for opening bidirectional streams between two entities.
-template<typename response_t, typename request_t>
+template<typename RQ, typename RS>
 class StreamClient {
 public:
     /// @brief binds the middleware to the given transport. Middleware is executed in the order it is added
@@ -349,7 +358,7 @@ public:
     /// @param target the target to open the stream to.
     /// @returns a pointer to an object implementing the Stream interface.
 
-    virtual std::pair<std::unique_ptr<Stream<response_t, request_t> >, freighter::Error>
+    virtual std::pair<std::unique_ptr<Stream<RQ, RS> >, freighter::Error>
     stream(const std::string &target) = 0;
 
     virtual ~StreamClient() = default;

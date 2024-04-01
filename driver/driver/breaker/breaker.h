@@ -27,6 +27,10 @@ struct Config {
     /// @brief sets the rate at which the base_interval will scale on each successive
     /// call to wait(). We do not recommend setting this factor lower than 1.
     float_t scale;
+
+    Config child(const std::string &name) const {
+        return Config{name, base_interval, max_retries, scale};
+    }
 };
 
 
@@ -46,6 +50,8 @@ public:
     /// immediately returns false. Otherwise, sleeps the current thread for the current
     /// retry interval and returns true. Also Logs information about the breaker trigger.
     bool wait() { return wait(""); }
+
+    bool wait(const freighter::Error &err) { return wait(err.message()); }
 
     /// @brief triggers the breaker. If the maximum number of retries has been exceeded,
     /// immediately returns false. Otherwise, sleeps the current thread for the current

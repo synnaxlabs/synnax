@@ -238,7 +238,7 @@ type writerServer struct{ *writerServerCore }
 func (f *writerServer) Exec(
 	server gapi.FrameWriterService_ExecServer,
 ) error {
-	return f.Handler(server.Context(), f.Server(server))
+	return f.Handler(server.Context(), server)
 }
 
 func (f *writerServer) BindTo(reg grpc.ServiceRegistrar) {
@@ -250,7 +250,7 @@ type iteratorServer struct{ *iteratorServerCore }
 func (f *iteratorServer) Exec(
 	server gapi.FrameIteratorService_ExecServer,
 ) error {
-	return f.Handler(server.Context(), f.Server(server))
+	return f.Handler(server.Context(), server)
 }
 
 func (f *iteratorServer) BindTo(reg grpc.ServiceRegistrar) {
@@ -260,9 +260,9 @@ func (f *iteratorServer) BindTo(reg grpc.ServiceRegistrar) {
 type streamerServer struct{ *streamServerCore }
 
 func (f *streamerServer) Exec(
-	server gapi.FrameStreamerService_ExecServer,
+	stream gapi.FrameStreamerService_ExecServer,
 ) error {
-	return f.Handler(server.Context(), f.Server(server))
+	return f.Handler(stream.Context(), stream)
 }
 
 func (f *streamerServer) BindTo(reg grpc.ServiceRegistrar) {

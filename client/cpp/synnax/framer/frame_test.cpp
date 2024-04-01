@@ -27,6 +27,6 @@ TEST(FramerTests, toProto) {
     ASSERT_EQ(p->series_size(), 1);
     auto f2 = synnax::Frame(*p);
     ASSERT_EQ(f2.size(), 1);
-    ASSERT_EQ(f2.columns->at(0), 65537);
+    ASSERT_EQ(f2.channels->at(0), 65537);
     ASSERT_EQ(f2.series->at(0).float32()[0], 1);
 }

@@ -18,7 +18,7 @@ driver::TaskManager::TaskManager(
     const RackKey rack_key,
     const std::shared_ptr<Synnax> &client,
     std::unique_ptr<task::Factory> factory,
-    breaker::Breaker breaker
+    breaker::Config breaker
 ) : rack_key(rack_key),
     internal(rack_key, ""),
     ctx(std::make_shared<task::SynnaxContext>(client)),
@@ -30,16 +30,16 @@ const std::string TASK_SET_CHANNEL = "sy_task_set";
 const std::string TASK_DELETE_CHANNEL = "sy_task_delete";
 const std::string TASK_CMD_CHANNEL = "sy_task_cmd";
 
-freighter::Error driver::TaskManager::start(std::latch &latch) {
+freighter::Error driver::TaskManager::start(std::atomic<bool> &done) {
     LOG(INFO) << "starting task manager";
-    auto err = startGuarded();
+    const auto err = startGuarded();
     if (err) {
-        if (err.matches(freighter::UNREACHABLE) && breaker.wait()) start(latch);
-        latch.count_down();
+        if (err.matches(freighter::UNREACHABLE) && breaker.wait(err)) start(done);
+        done = true;
         return err;
     }
     breaker.reset();
-    run_thread = std::thread(&TaskManager::run, this, std::ref(latch));
+    run_thread = std::thread(&TaskManager::run, this, std::ref(done));
     return freighter::NIL;
 }
 
@@ -67,17 +67,20 @@ freighter::Error driver::TaskManager::startGuarded() {
 }
 
 
-void driver::TaskManager::run(std::latch &latch) {
+void driver::TaskManager::run(std::atomic<bool> &done) {
     const auto err = runGuarded();
     if (err.matches(freighter::UNREACHABLE) && breaker.wait(err.message()))
-        return run(latch);
-    latch.count_down();
+        return run(done);
+    done = true;
     run_err = err;
 }
 
 freighter::Error driver::TaskManager::stop() {
+    if (!run_thread.joinable()) return freighter::NIL;
+    LOG(INFO) << "stopping task manager";
     streamer->closeSend();
     run_thread.join();
+    LOG(INFO) << "task manager stopped";
     return run_err;
 }
 
@@ -96,16 +99,16 @@ freighter::Error driver::TaskManager::runGuarded() {
 
     while (true) {
         auto [frame, read_err] = streamer->read();
-        if (read_err) return read_err;
+        if (read_err) break;
         for (size_t i = 0; i < frame.size(); i++) {
-            const auto &key = (*frame.columns)[i];
+            const auto &key = (*frame.channels)[i];
             const auto &series = (*frame.series)[i];
             if (key == task_set_channel.key) processTaskSet(series);
             else if (key == task_delete_channel.key) processTaskDelete(series);
             else if (key == task_cmd_channel.key) processTaskCmd(series);
         }
     }
-    return freighter::NIL;
+    return streamer->close();
 }
 
 void driver::TaskManager::processTaskSet(const Series &series) {
