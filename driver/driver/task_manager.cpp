@@ -69,8 +69,7 @@ freighter::Error driver::TaskManager::startGuarded() {
 
 void driver::TaskManager::run(std::atomic<bool> &done) {
     const auto err = runGuarded();
-    if (err.matches(freighter::UNREACHABLE) && breaker.wait(err.message()))
-        return run(done);
+    if (err.matches(freighter::UNREACHABLE) && breaker.wait(err)) return run(done);
     done = true;
     run_err = err;
 }
@@ -94,6 +93,7 @@ freighter::Error driver::TaskManager::runGuarded() {
     if (open_err) return open_err;
     streamer = std::make_unique<Streamer>(std::move(s));
 
+    LOG(INFO) << "task manager run loop operational";
     // If we pass here it means we've re-gained network connectivity and can reset the breaker.
     breaker.reset();
 

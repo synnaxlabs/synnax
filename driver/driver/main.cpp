@@ -15,12 +15,13 @@
 
 std::unique_ptr<driver::Driver> d;
 
-std::pair<synnax::Rack, freighter::Error> retrieveDriverRack(breaker::Breaker &breaker,
-    const std::shared_ptr<synnax::Synnax> &client) {
+std::pair<synnax::Rack, freighter::Error> retrieveDriverRack(
+    breaker::Breaker &breaker,
+    const std::shared_ptr<synnax::Synnax> &client
+) {
     auto [rack, err] = client->hardware.retrieveRack("sy_node_1_rack");
     if (err.matches(freighter::UNREACHABLE) && breaker.wait(err.message()))
-        return
-                retrieveDriverRack(breaker, client);
+        return retrieveDriverRack(breaker, client);
     return {rack, err};
 }
 

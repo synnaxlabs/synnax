@@ -12,6 +12,7 @@
 #include <thread>
 #include "glog/logging.h"
 #include "client/cpp/synnax/synnax.h"
+#include "freighter/cpp/freighter/freighter.h"
 
 namespace breaker {
 /// @brief struct for configuring a breaker.
@@ -29,7 +30,7 @@ struct Config {
     float_t scale;
 
     Config child(const std::string &name) const {
-        return Config{name, base_interval, max_retries, scale};
+        return Config{this->name + "." + name, base_interval, max_retries, scale};
     }
 };
 

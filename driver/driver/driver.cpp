@@ -29,10 +29,13 @@ const std::string VERSION = "0.1.0";
 
 freighter::Error driver::Driver::run() {
     std::atomic done = false;
-    // auto err = task_manager.start(done);
-    // if (err) return err;
-    auto err = heartbeat.start(done);
-    // if (err) task_manager.stop();
+    auto err = task_manager.start(done);
+    if (err) return err;
+    err = heartbeat.start(done);
+    if (err) {
+        task_manager.stop();
+        return err;
+    }
     LOG(INFO) << "driver started successfully. waiting for shutdown.";
     done.wait(false);
     task_manager.stop();

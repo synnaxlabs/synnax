@@ -11,7 +11,7 @@ namespace config {
 /// configurations.
 class Parser {
 public:
-    std::shared_ptr<std::vector<json> > errors{};
+    std::shared_ptr<std::vector<json> > errors;
 
     /// @brief constructs a parser for accessing values on the given JSON configuration.
     explicit Parser(json config): errors(std::make_shared<std::vector<json> >()),
@@ -21,7 +21,7 @@ public:
     /// @brief constructs a parser for accessing values on the given stringified
     /// JSON configuration. If the string is not valid JSON, immediately binds an error
     /// to the parser.
-    explicit Parser(const std::string &encoded) {
+    explicit Parser(const std::string &encoded): errors(std::make_shared<std::vector<json> >()) {
         try {
             config = json::parse(encoded);
         } catch (const json::parse_error &e) {
@@ -31,7 +31,7 @@ public:
     }
 
     /// @brief default constructor constructs a parser that will fail fast.
-    Parser(): noop(true) {
+    Parser(): errors(nullptr), noop(true) {
     }
 
 
@@ -103,6 +103,7 @@ public:
     /// @param path The JSON path to the field.
     /// @param message The error message to bind.
     void field_err(const std::string &path, const std::string &message) const {
+        if (noop) return;
         errors->push_back({
             {"path", path_prefix + path},
             {"message", message}
@@ -110,7 +111,10 @@ public:
     }
 
     /// @returns true if the parser has accumulated no errors, false otherwise.
-    [[nodiscard]] bool ok() const { return errors->empty(); }
+    [[nodiscard]] bool ok() const {
+        if (noop) return false;
+        return errors->empty();
+    }
 
     /// @returns the parser's errors as a JSON object of the form {"errors": [ACCUMULATED_ERRORS]}.
     [[nodiscard]] json error_json() const {
