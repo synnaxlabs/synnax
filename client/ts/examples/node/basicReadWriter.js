@@ -8,8 +8,6 @@ const client = new Synnax({
     secure: false
 });
 
-
-
 const time_channel = await client.channels.create({
     name: "basic_read_write_time",
     isIndex: true,
@@ -26,7 +24,6 @@ const data_channel = await client.channels.create({
 const N_SAMPLES = 500;
 
 const start = TimeStamp.now();
-
 
 const data = Float32Array.from({ length: N_SAMPLES }, (_, i) => Math.sin(i / 100));
 const time = BigInt64Array.from({ length: N_SAMPLES }, (_, i) => start.add(TimeSpan.milliseconds(i)).bigInt);
