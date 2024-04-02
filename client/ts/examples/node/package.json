@@ -1,16 +1,16 @@
 {
   "name": "examples",
-  "type":"module",
+  "type": "module",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
   "scripts": {
     "main": "node index.js"
   },
-  "dependencies": {
-    "@synnaxlabs/client": "workspace:*"
-  },
   "keywords": [],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "dependencies": {
+    "@synnaxlabs/client": "^0.16.3"
+  }
 }

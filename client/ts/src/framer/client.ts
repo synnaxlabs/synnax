@@ -97,7 +97,7 @@ export class Client {
     try {
       await w.write(to, data);
       if (!(await w.commit())) throw (await w.error()) as Error;
-    } catch {
+    } finally {
       await w.close();
     }
   }
@@ -116,7 +116,11 @@ export class Client {
   private async readFrame(tr: TimeRange, params: Params): Promise<Frame> {
     const i = await this.newIterator(tr, params);
     const frame = new Frame();
-    for await (const f of i) frame.push(f);
+    try {
+      for await (const f of i) frame.push(f);
+    } finally {
+      await i.close();
+    }
     return frame;
   }
 }

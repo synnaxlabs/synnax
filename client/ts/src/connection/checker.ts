@@ -52,7 +52,11 @@ export class Checker {
    * @param pollFreq - The frequency at which to poll the cluster for
    *   connectivity information.
    */
-  constructor(client: UnaryClient, pollFreq: TimeSpan = TimeSpan.seconds(30), name?: string) {
+  constructor(
+    client: UnaryClient,
+    pollFreq: TimeSpan = TimeSpan.seconds(30),
+    name?: string,
+  ) {
     this._state = { ...DEFAULT };
     this.client = client;
     this.pollFrequency = pollFreq;
