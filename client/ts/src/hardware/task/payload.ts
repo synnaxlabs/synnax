@@ -10,10 +10,11 @@
 import { type UnknownRecord } from "@synnaxlabs/x";
 import { z } from "zod";
 
-export const taskKeyZ = z
-  .bigint()
-  .or(z.number())
-  .transform((k) => k.toString());
+export const taskKeyZ = z.union([
+  z.string(),
+  z.bigint().transform((k) => k.toString()),
+  z.number().transform((k) => k.toString()),
+])
 
 export type TaskKey = z.infer<typeof taskKeyZ>;
 

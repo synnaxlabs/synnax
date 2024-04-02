@@ -96,7 +96,7 @@ export class Client {
     });
     try {
       await w.write(to, data);
-      if (!(await w.commit())) throw (await w.error()) as Error;
+      await w.commit();
     } finally {
       await w.close();
     }

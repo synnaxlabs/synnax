@@ -244,7 +244,6 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
   async create(channels: NewPayload[]): Promise<Channel[]>;
 
   async create(channels: NewPayload | NewPayload[]): Promise<Channel | Channel[]> {
-    console.log("ABC");
     const single = !Array.isArray(channels);
     const payloads = await this.creator.create(toArray(channels));
     const res = this.sugar(payloads);

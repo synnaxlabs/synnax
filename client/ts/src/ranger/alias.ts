@@ -31,7 +31,7 @@ const resolveResZ = z.object({
 
 const setReqZ = z.object({
   range: keyZ,
-  aliases: z.record(channelKeyZ, z.string()),
+  aliases: z.record(channelKeyZ.or(z.string()), z.string()),
 });
 
 const setResZ = z.unknown();
@@ -93,6 +93,7 @@ export class Aliaser {
       this.client,
       Aliaser.RESOLVE_ENDPOINT,
       { range: this.rangeKey, aliases: toFetch },
+      resolveReqZ,
       resolveResZ,
     );
     Object.entries(res.aliases).forEach(([alias, key]) => this.cache.set(alias, key));
@@ -103,11 +104,9 @@ export class Aliaser {
     await sendRequired<typeof setReqZ, typeof setResZ>(
       this.client,
       Aliaser.SET_ENDPOINT,
-      {
-        range: this.rangeKey,
-        aliases,
-      },
-      z.unknown(),
+      { range: this.rangeKey, aliases },
+      setReqZ,
+      setResZ,
     );
   }
 
@@ -116,9 +115,8 @@ export class Aliaser {
       await sendRequired<typeof listReqZ, typeof listResZ>(
         this.client,
         Aliaser.LIST_ENDPOINT,
-        {
-          range: this.rangeKey,
-        },
+        { range: this.rangeKey },
+        listReqZ,
         listResZ,
       )
     ).aliases;
@@ -128,10 +126,8 @@ export class Aliaser {
     await sendRequired<typeof deleteReqZ, typeof deleteResZ>(
       this.client,
       Aliaser.DELETE_ENDPOINT,
-      {
-        range: this.rangeKey,
-        channels: aliases,
-      },
+      { range: this.rangeKey, channels: aliases },
+      deleteReqZ,
       deleteResZ,
     );
   }

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Size, Series, TimeRange, toArray, DataType, unique } from "@synnaxlabs/x";
+import { Size, Series, TimeRange, toArray, DataType, unique, TimeStamp } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
@@ -222,7 +222,7 @@ export class Frame {
    * @returns true if the frame is weakly aligned. A frame is weakly aligned if it meets
    * the time range occupied by all arrays of a particular channel is the same for all
    * channels in the frame. This means that the arrays for a particular channel can have
-   * gaps betwen them.
+   * gaps between them.
    */
   get isWeaklyAligned(): boolean {
     if (this.columns.length <= 1) return true;
@@ -233,8 +233,8 @@ export class Frame {
   timeRange(col?: KeyOrName): TimeRange {
     if (col == null) {
       if (this.columns.length === 0) return TimeRange.ZERO;
-      const start = Math.min(...this.series.map((a) => a.timeRange.start.valueOf()));
-      const end = Math.max(...this.series.map((a) => a.timeRange.end.valueOf()));
+      const start = TimeStamp.min(...this.series.map((a) => a.timeRange.start));
+      const end = TimeStamp.max(...this.series.map((a) => a.timeRange.end));
       return new TimeRange(start, end);
     }
     const group = this.get(col);

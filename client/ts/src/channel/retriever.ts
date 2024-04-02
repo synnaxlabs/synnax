@@ -33,7 +33,7 @@ const reqZ = z.object({
   offset: z.number().optional(),
 });
 
-type Request = z.infer<typeof reqZ>;
+type Request = z.input<typeof reqZ>;
 
 const resZ = z.object({
   channels: payload.array(),
@@ -67,7 +67,7 @@ export class ClusterRetriever implements Retriever {
   }
 
   private async execute(request: Request): Promise<Payload[]> {
-    const [res, err] = await this.client.send(ClusterRetriever.ENDPOINT, request, resZ);
+    const [res, err] = await this.client.send(ClusterRetriever.ENDPOINT, request, reqZ, resZ);
     if (err != null) throw err;
     return res.channels;
   }

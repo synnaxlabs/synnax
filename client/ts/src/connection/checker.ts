@@ -77,7 +77,7 @@ export class Checker {
   async check(): Promise<State> {
     const prevStatus = this._state.status;
     try {
-      const [res, err] = await this.client.send(Checker.ENDPOINT, null, responseZ);
+      const [res, err] = await this.client.send(Checker.ENDPOINT, {}, z.object({}), responseZ);
       if (err != null) throw err;
       this._state.status = "connected";
       this._state.message = `Connected to ${this.name ?? "cluster"}`;
