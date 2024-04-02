@@ -337,6 +337,10 @@ export class TimeStamp extends Number implements Stringer {
     return this.sub(this.remainder(span));
   }
 
+  get bigInt(): bigint {
+    return BigInt(this.valueOf());
+  }
+
   /**
    * @returns A new TimeStamp representing the current time in UTC. It's important to
    * note that this TimeStamp is only accurate to the millisecond level (that's the best

@@ -43,6 +43,25 @@ describe("Channel", () => {
       });
       expect(two.key).not.toEqual(0);
     });
+    test("create many", async () => {
+      const channels = await client.channels.create([
+        {
+          name: "test1",
+          leaseholder: 1,
+          rate: Rate.hz(1),
+          dataType: DataType.FLOAT32,
+        },
+        {
+          name: "test2",
+          leaseholder: 1,
+          rate: Rate.hz(1),
+          dataType: DataType.FLOAT32,
+        },
+      ]);
+      expect(channels.length).toEqual(2);
+      expect(channels[0].name).toEqual("test1");
+      expect(channels[1].name).toEqual("test2");
+    });
   });
   test("retrieve by key", async () => {
     const channel = await client.channels.create({
@@ -62,7 +81,6 @@ describe("Channel", () => {
       QueryError,
     );
   });
-
   test("retrieve by name", async () => {
     const retrieved = await client.channels.retrieve(["test"]);
     expect(retrieved.length).toBeGreaterThan(0);
@@ -73,7 +91,6 @@ describe("Channel", () => {
       QueryError,
     );
   });
-
   test("retrieve by name", async () => {
     const retrieved = await client.channels.retrieve(["test"]);
     expect(retrieved.length).toBeGreaterThan(0);

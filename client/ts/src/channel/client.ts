@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type UnaryClient } from "@synnaxlabs/freighter";
 import {
   DataType,
   Rate,
@@ -16,7 +17,7 @@ import {
   type TimeRange,
   type AsyncTermSearcher,
   toArray,
-  type CrudeTimeSpan,
+  type CrudeTimeStamp,
 } from "@synnaxlabs/x";
 
 import { type Creator } from "@/channel/creator";
@@ -28,10 +29,15 @@ import {
   payload,
   type NewPayload,
 } from "@/channel/payload";
-import { analyzeParams, CacheRetriever, ClusterRetriever, DebouncedBatchRetriever, type Retriever } from "@/channel/retriever";
-import { QueryError } from "@/errors";
+import {
+  analyzeParams,
+  CacheRetriever,
+  ClusterRetriever,
+  DebouncedBatchRetriever,
+  type Retriever,
+} from "@/channel/retriever";
+import { MultipleResultsError, NoResultsError, ValidationError } from "@/errors";
 import { type framer } from "@/framer";
-import { UnaryClient } from "@synnaxlabs/freighter";
 
 /**
  * Represents a Channel in a Synnax database. Typically, channels should not be
@@ -148,7 +154,7 @@ export class Channel {
    * @param start - The starting timestamp of the first sample in data.
    * @param data - THe telemetry to write to the channel.
    */
-  async write(start: CrudeTimeSpan, data: NativeTypedArray): Promise<void> {
+  async write(start: CrudeTimeStamp, data: NativeTypedArray): Promise<void> {
     return await this.framer.write(this.key, start, data);
   }
 }
@@ -191,7 +197,8 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
    * @param isIndex - Set to true if the channel is an index channel, and false otherwise.
    * Index channels must have a data type of `DataType.TIMESTAMP`.
    * @returns the created channel. {@see Channel}
-   * @throws {ValidationError} if any of the parameters for creating the channel are invalid.
+   * @throws {ValidationError} if any of the parameters for creating the channel are
+   * invalid.
    *
    * @example
    * ```typescript
@@ -237,8 +244,10 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
   async create(channels: NewPayload[]): Promise<Channel[]>;
 
   async create(channels: NewPayload | NewPayload[]): Promise<Channel | Channel[]> {
+    console.log("ABC");
     const single = !Array.isArray(channels);
-    const res = this.sugar(await this.creator.create(toArray(channels)));
+    const payloads = await this.creator.create(toArray(channels));
+    const res = this.sugar(payloads);
     return single ? res[0] : res;
   }
 
@@ -292,9 +301,10 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
     if (normalized.length === 0) return [];
     const res = this.sugar(await this.retriever.retrieve(channels, rangeKey));
     if (!single) return res;
-    if (res.length === 0) throw new QueryError(`channel matching ${actual} not found`);
+    if (res.length === 0)
+      throw new NoResultsError(`channel matching ${actual} not found`);
     if (res.length > 1)
-      throw new QueryError(`multiple channels matching ${actual} found`);
+      throw new MultipleResultsError(`multiple channels matching ${actual} found`);
     return res[0];
   }
 
@@ -310,8 +320,10 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
     return this.sugar(await this.retriever.page(offset, limit, rangeKey));
   }
 
-  createDebouncedBatchRetriever(deb:number = 10): Retriever {
-    return new CacheRetriever(new DebouncedBatchRetriever(new ClusterRetriever(this.client),deb))
+  createDebouncedBatchRetriever(deb: number = 10): Retriever {
+    return new CacheRetriever(
+      new DebouncedBatchRetriever(new ClusterRetriever(this.client), deb),
+    );
   }
 
   private sugar(payloads: Payload[]): Channel[] {

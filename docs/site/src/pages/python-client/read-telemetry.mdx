@@ -4,8 +4,8 @@ title: "Read Telemetry"
 description: "Use the Python client to read from a Synnax cluster"
 ---
 
-Synnax supports several different ways of reading data from a cluster. We can read 
-directly from a channel, fetch a named range and access its data, or leverage server
+The Python client supports several different ways of reading data from a cluster. We can 
+read directly from a channel, fetch a named range and access its data, or leverage server
 side iterators for processing large queries.
 
 ## Reading from a Channel
@@ -47,7 +47,7 @@ time range queried.
 ## Reading from Multiple Channels
 
 We can also read from multiple channels at once by calling the `read` method on the
-`Client` class. This method takes a list of channel names/keys and a time range.
+`client`.  This method takes a list of channel names/keys and a time range.
 
 ```python
 frame = client.read_frame(start, end, ["my_precise_tc", "time"])

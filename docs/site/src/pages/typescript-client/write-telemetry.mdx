@@ -1,0 +1,180 @@
+---
+layout: "@/layouts/MainLayout.astro"
+title: "Write Telemetry"
+description: "Use the Typescript client to write to a Synnax cluster"
+---
+
+The Synnax typescript client supports multiple methods for writing data to a cluster. We
+can write directly to a channel, or we can write to multiple channels in a streaming
+fashion using a writer.
+
+## Writing to a Channel
+
+### The simplest write - fixed rate
+
+Writing to a fixed rate channel is as simple as calling the channel's `write` method.
+We'll create teh following fixed rate channel as an example:
+
+```typescript
+import { DataType, Rate } from "@synnaxlabs/client";
+
+const myTemperatureSensor = await client.channels.create({
+    name: "temperature",
+    rate: Rate.hz(5),
+    dataType: DataType.FLOAT32
+});
+```
+
+Then, we'll provide our data and a timestamp marking the first sample to the `write`
+method:
+
+```typescript
+import { TimeStamp } from "@synnaxlabs/client";
+
+// Our temperature data
+const data = new Float32Array([20.0, 20.1, 20.2, 20.3, 20.4]);
+
+// The timestamp of the first sample. All other samples will be spaced from this
+// timestamp according to the channel's rate. In this case, the rate is 5Hz, so
+// the samples will be spaced 200ms apart i.e.
+// 20.0 @ start + 0ms
+// 20.1 @ start + 200ms
+// 20.2 @ start + 400ms
+// 20.3 @ start + 600ms
+// 20.4 @ start + 800ms
+const start = TimeStamp.now();
+
+// Write the data
+await myTemperatureSensor.write(TimeStamp.now(), data);
+```
+
+If we had multiple channels, we would pass the same timestamp to each channel's `write`
+method. This would ensure that the data is correctly aligned across all channels.
+
+```typescript
+const temperatureData = new Float32Array([20.0, 20.1, 20.2, 20.3, 20.4]);
+const pressureData = new Float32Array([1000.0, 1000.1, 1000.2, 1000.3, 1000.4]);
+
+const start = TimeStamp.now();
+
+await myTemperatureSensor.write(start, temperatureData);
+await myPressureSensor.write(start, pressureData);
+```
+
+### Writing to a channel with a variable rate
+
+Writing to a variable rate channel requires us to write to a channel's index before 
+we write it's data. We'll create the following index-indexed pair as an example:
+
+```typescript
+import { DataType } from "@synnaxlabs/client";
+
+const timeChannel = await client.channels.create({
+    name: "time",
+    dataType: DataType.TIMESTAMP,
+    isIndex: true,
+});
+
+const temperatureChannel = await client.channels.create({
+    name: "temperature",
+    dataType: DataType.FLOAT32,
+    index: timeChannel.key
+});
+```
+
+Then, we'll make sure to write teimstamps to the index before we write data to the
+channel:
+
+```typescript
+
+import { TimeStamp, TimeSpan } from "@synnaxlabs/client";
+
+const start = TimeStamp.now();
+const timestamps = new BigInt64Array([
+    start.bigInt,
+    start.add(TimeSpan.seconds(1)).bigInt,
+    start.add(TimeSpan.seconds(2)).bigInt,
+    start.add(TimeSpan.seconds(3)).bigInt,
+    start.add(TimeSpan.seconds(4)).bigInt
+]);
+const temperatures = new Float32Array([20.0, 20.1, 20.2, 20.3, 20.4]);
+
+// Write the timestamps to the index first
+await timeChannel.write(start, timestamps);
+// Then write the data
+await temperatureChannel.write(start, temperatures);
+```
+
+Notice how we align the two arrays by using the common `start` timestamp. This tells
+Synnax that the first sample in the `temperatures`  array is associated with the first
+timestamp in the `timestamps` array, and so on.
+
+Synnax will raise a `ValidationError` if the index does not contain a corresponding
+timestamp for every sample in the data array. After all, it wouldn't make sense to have
+a temperature reading without an associated timestamp.
+
+## Using a Writer
+
+While the above methods are great for writing static, existing data, it's common to want 
+to write data in a streaming fashion for use in control sequences and live dashbaords.
+The `Writer` class is designed to handle this use case (and is actually used under the hood
+by the above methods).
+
+Writers are a bit more complicated to operate, so we recommend reading the [concepts](/concepts/write-domains#transactions) page to learn more about
+how they work.
+
+### Opening a Writer
+
+We'll create the following index-indexed pair to use with our writer.
+
+```typescript
+import { DataType } from "@synnaxlabs/client";
+
+const timeChannel = await client.channels.create({
+    name: "time",
+    dataType: DataType.TIMESTAMP,
+    isIndex: true,
+});
+
+const temperatureChannel = await client.channels.create({
+    name: "temperature",
+    dataType: DataType.FLOAT32,
+    index: timeChannel.key
+});
+```
+
+Then, we'll open a writer for both of these channels by using the `telem.openWriter`
+method on the client.
+
+```typescript
+import { TimeStamp } from "@synnaxlabs/client";
+
+const writer = await client.telem.newWriter({
+    start: TimeStamp.now(),
+    channels: [timeChannel.key, temperatureChannel.key]
+});
+
+try {
+    for (let i = 0; i < 100; i++) {
+        const timestamp = TimeStamp.now();
+        const temperature = new Float32Array([20.0 + i]);
+        await writer.write(timestamp, [timestamp, temperature]);
+        await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    await writer.commit():
+} finally {
+    await writer.close()
+}
+```
+
+This example will write 100 samples to the `temperature` channel, each roughly 100ms 
+apart, and will commit all writes when finished.
+
+It's typical to write and commit millions of samples over the course of hours or days,
+intermittently calling commit to ensure that the data is safely stored in the cluster.
+
+It's very important to free the writer resources when finished by calling the `close`
+method. If `close` is not called at the end of the writer, other writers may not 
+be able to write to the same channels. We typically recommend placing the writer operations
+inside a try-finally block to ensure that the writer is always closed.
+
