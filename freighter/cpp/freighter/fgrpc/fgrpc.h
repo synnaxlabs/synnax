@@ -270,7 +270,7 @@ public:
 private:
     freighter::MiddlewareCollector mw;
 
-    std::unique_ptr<grpc::ClientReaderWriter<RS, RQ> > stream;
+    std::unique_ptr<grpc::ClientReaderWriter<RQ, RS> > stream;
     /// For god knows what reason, GRPC requries us to keep these around so
     /// the stream doesn't die.
     grpc::ClientContext grpc_ctx{};
@@ -342,7 +342,7 @@ public:
             req_ctx.target,
             freighter::STREAM
         );
-        auto latest_stream = std::make_unique<Stream<RS, RQ, RPC> >(
+        auto latest_stream = std::make_unique<Stream<RQ, RS, RPC> >(
             channel,
             mw,
             req_ctx,
@@ -369,7 +369,7 @@ private:
     /// Map from context instances to latest streams.
     std::unordered_map<
         int,
-        std::unique_ptr<freighter::Stream<RS, RQ> >
+        std::unique_ptr<freighter::Stream<RQ, RS> >
     > latest_streams{};
 
     /// Largest id a context has at the moment.

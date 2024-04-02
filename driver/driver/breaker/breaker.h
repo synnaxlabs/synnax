@@ -61,11 +61,13 @@ public:
     bool wait(const std::string &message) {
         retries++;
         if (retries > config.max_retries) {
-            LOG(ERROR) << config.name << " exceeded the maximum retry count of " << config.max_retries << ". Exiting." << "Error: " << message << ".";
+            LOG(ERROR) << config.name << " exceeded the maximum retry count of " <<
+                    config.max_retries << ". Exiting." << "Error: " << message << ".";
             return false;
         }
         LOG(ERROR) << config.name << " failed " << retries << "/" <<
-                config.max_retries << " times. " << "Retrying in " << interval / SECOND << " seconds. "
+                config.max_retries << " times. " << "Retrying in " << interval / SECOND
+                << " seconds. "
                 "Error: " << message << ".";
         std::this_thread::sleep_for(interval.nanoseconds());
         interval = interval * config.scale;

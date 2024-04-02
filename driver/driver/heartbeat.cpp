@@ -68,9 +68,9 @@ freighter::Error driver::Heartbeat::runGuarded() {
     if (err) return err;
     LOG(INFO) << "heartbeat run loop operational";
     while (running) {
-        LOG(INFO) << "Run LOOP";
         const auto heartbeat = static_cast<std::uint64_t>(rack_key) << 32 | version;
         if (!writer.write(Frame(channel.key, Series(heartbeat)))) break;
+        breaker.reset();
         std::this_thread::sleep_for(std::chrono::seconds(1));
         version++;
     }
