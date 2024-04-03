@@ -7,7 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Size, Series, TimeRange, toArray, DataType, unique, TimeStamp } from "@synnaxlabs/x";
+import {
+  Size,
+  Series,
+  TimeRange,
+  toArray,
+  DataType,
+  unique,
+  TimeStamp,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
@@ -59,7 +67,7 @@ export type CrudeFrame =
  *
  * - A frame is weakly aligned if it meets the time range occupied by all arrays of a
  * particular channel is the same for all channels in the frame. This means that the
- * arrays for a particular channel can have gaps betwen them.
+ * arrays for a particular channel can have gaps between them.
  *
  * - A strongly aligned frame means that all channels share the same rate/index and
  * there are no gaps in time between arrays. Strongly aligned frames are natural
@@ -113,7 +121,7 @@ export class Frame {
         Object.entries(columnsOrData).forEach(([k, v]) => {
           const key = parseInt(k);
           if (!isNaN(key)) return this.push(key, ...toArray(v));
-          else this.push(k, ...toArray(v))
+          else this.push(k, ...toArray(v));
         });
       return;
     }
@@ -403,7 +411,7 @@ export type FramePayload = z.infer<typeof frameZ>;
 
 export const seriesFromPayload = (series: SeriesPayload): Series => {
   const { dataType, data, timeRange, alignment } = series;
-  return new Series({data, dataType, timeRange, glBufferUsage: "static", alignment});
+  return new Series({ data, dataType, timeRange, glBufferUsage: "static", alignment });
 };
 
 export const seriesToPayload = (series: Series): SeriesPayload => {

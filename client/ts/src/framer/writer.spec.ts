@@ -43,7 +43,7 @@ describe("Writer", () => {
       const writer = await client.telem.newWriter({ start: 0, channels: ch.key });
       await expect(
         writer.write("billy bob", randomSeries(10, DataType.FLOAT64)),
-      ).rejects.toThrow("Channel billy bob was not provided");
+      ).rejects.toThrow("Channel billy bob not found");
       await writer.close();
     });
     test("stream when mode is set ot persist only", async () => {

@@ -9,7 +9,7 @@
 
 import { type StreamClient } from "@synnaxlabs/freighter";
 import {
-  type NativeTypedArray,
+  type TypedArray,
   type Series,
   type TimeRange,
   type CrudeTimeStamp,
@@ -87,7 +87,7 @@ export class Client {
   async write(
     to: KeyOrName,
     start: CrudeTimeStamp,
-    data: NativeTypedArray,
+    data: TypedArray,
   ): Promise<void> {
     const w = await this.newWriter({
       start,

@@ -401,6 +401,15 @@ describe("DataType", () => {
     const v = JSON.parse(JSON.stringify({ dt }));
     expect(v.dt === "int32").toBeTruthy();
   });
+
+  describe("isVariable", () => {
+    it("should return true if the data type has a variable length", () => {
+      expect(DataType.INT32.isVariable).toBe(false);
+    });
+    it("should return false if the data type does not have a variable length", () => {
+      expect(DataType.STRING.isVariable).toBe(true);
+    });
+  });
 });
 
 describe("Size", () => {

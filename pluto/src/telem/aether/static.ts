@@ -9,7 +9,7 @@
 
 import {
   Series,
-  nativeTypedArray,
+  TypedArray,
   Rate,
   DataType,
   TimeRange,
@@ -48,7 +48,7 @@ export class StaticFactory implements Factory {
 }
 
 export const fixedSeriesPropsZ = z.object({
-  data: z.array(nativeTypedArray),
+  data: z.array(TypedArray),
   offsets: z.array(z.number()).optional().default([]),
 });
 

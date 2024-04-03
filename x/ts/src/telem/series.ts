@@ -16,12 +16,16 @@ import { type GLBufferController, type GLBufferUsage } from "@/telem/gl";
 import {
   convertDataType,
   DataType,
-  type NativeTypedArray,
+  type TypedArray,
   type Rate,
   Size,
   TimeRange,
-  type TimeStamp,
+  TimeStamp,
   type CrudeDataType,
+  type TelemValue,
+  isTelemValue,
+  TimeSpan,
+  type CrudeTimeStamp,
 } from "@/telem/telem";
 
 export type SampleValue = number | bigint;
@@ -52,8 +56,29 @@ interface BaseSeriesProps {
   key?: string;
 }
 
+export type CrudeSeries =
+  | Series
+  | ArrayBuffer
+  | TypedArray
+  | string[]
+  | number[]
+  | boolean[]
+  | unknown[]
+  | TimeStamp[]
+  | Date[]
+  | TelemValue;
+
+export const isCrudeSeries = (value: unknown): value is CrudeSeries => {
+  if (value == null) return false;
+  if (Array.isArray(value)) return true;
+  if (value instanceof ArrayBuffer) return true;
+  if (ArrayBuffer.isView(value) && !(value instanceof DataView)) return true;
+  if (value instanceof Series) return true;
+  return isTelemValue(value);
+};
+
 export interface SeriesProps extends BaseSeriesProps {
-  data: ArrayBuffer | NativeTypedArray;
+  data: CrudeSeries;
 }
 
 export interface SeriesAllocProps extends BaseSeriesProps {
@@ -93,13 +118,109 @@ export class Series {
   readonly _timeRange?: TimeRange;
   readonly alignment: number = 0;
   /** A cached minimum value. */
-  private _min?: SampleValue;
+  private _cachedMin?: SampleValue;
   /** A cached maximum value. */
-  private _max?: SampleValue;
+  private _cachedMax?: SampleValue;
   /** The write position of the buffer. */
   private writePos: number = FULL_BUFFER;
   /** Tracks the number of entities currently using this array. */
   private _refCount: number = 0;
+  private _cachedLength?: number;
+
+  constructor(props: SeriesProps | CrudeSeries) {
+    if (isCrudeSeries(props)) props = { data: props };
+    const {
+      dataType,
+      timeRange,
+      sampleOffset = 0,
+      glBufferUsage = "static",
+      alignment = 0,
+      key = nanoid(),
+    } = props;
+    const { data } = props;
+    if (data instanceof Series) {
+      this.key = data.key;
+      this.dataType = data.dataType;
+      this.sampleOffset = data.sampleOffset;
+      this.gl = data.gl;
+      this._data = data._data;
+      this._timeRange = data._timeRange;
+      this.alignment = data.alignment;
+      this._cachedMin = data._cachedMin;
+      this._cachedMax = data._cachedMax;
+      this.writePos = data.writePos;
+      this._refCount = data._refCount;
+      this._cachedLength = data._cachedLength;
+      return;
+    }
+    const isSingle = isTelemValue(data);
+    const isArray = Array.isArray(data);
+
+    if (dataType != null) this.dataType = new DataType(dataType);
+    else {
+      if (data instanceof ArrayBuffer)
+        throw new Error(
+          "cannot infer data type from an ArrayBuffer instance when constructing a Series. Please provide a data type.",
+        );
+      else if (isArray || isSingle) {
+        let first: TelemValue | unknown = data as TelemValue;
+        if (!isSingle) {
+          if (data.length === 0)
+            throw new Error(
+              "cannot infer data type from a zero length JS array when constructing a Series. Please provide a data type.",
+            );
+          first = data[0];
+        }
+        if (typeof first === "string") this.dataType = DataType.STRING;
+        else if (typeof first === "number") this.dataType = DataType.FLOAT64;
+        else if (typeof first === "bigint") this.dataType = DataType.INT64;
+        else if (typeof first === "boolean") this.dataType = DataType.BOOLEAN;
+        else if (
+          first instanceof TimeStamp ||
+          first instanceof Date ||
+          first instanceof TimeStamp
+        )
+          this.dataType = DataType.TIMESTAMP;
+        else if (typeof first === "object") this.dataType = DataType.JSON;
+        else
+          throw new Error(
+            `cannot infer data type of ${typeof first} when constructing a Series from a JS array`,
+          );
+      } else this.dataType = new DataType(data);
+    }
+
+    if (!isArray && !isSingle) this._data = data;
+    else {
+      let data_ = isSingle ? [data] : data;
+      const first = data_[0];
+      if (
+        first instanceof TimeStamp ||
+        first instanceof Date ||
+        first instanceof TimeSpan
+      )
+        data_ = data_.map((v) => new TimeStamp(v as CrudeTimeStamp).valueOf());
+      if (this.dataType.equals(DataType.STRING)) {
+        this._cachedLength = data_.length;
+        this._data = new TextEncoder().encode(data_.join("\n") + "\n");
+      } else if (this.dataType.equals(DataType.JSON)) {
+        this._cachedLength = data_.length;
+        this._data = new TextEncoder().encode(
+          data_.map((d) => JSON.stringify(d)).join("\n") + "\n",
+        );
+      } else this._data = new this.dataType.Array(data_ as number[] & bigint[]).buffer;
+    }
+
+    this.key = key;
+    this.alignment = alignment;
+    this.sampleOffset = sampleOffset ?? 0;
+    this._timeRange = timeRange;
+    this.gl = {
+      control: null,
+      buffer: null,
+      prevBuffer: 0,
+      bufferUsage: glBufferUsage,
+    };
+  }
 
   static alloc({ capacity: length, dataType, ...props }: SeriesAllocProps): Series {
     if (length === 0)
@@ -139,37 +260,6 @@ export class Series {
     return new Series({ data: buffer, dataType: DataType.JSON, timeRange });
   }
 
-  constructor({
-    data,
-    dataType,
-    timeRange,
-    sampleOffset = 0,
-    glBufferUsage = "static",
-    alignment = 0,
-    key = nanoid(),
-  }: SeriesProps) {
-    if (dataType == null && !(data instanceof ArrayBuffer)) {
-      this.dataType = new DataType(data);
-    } else if (dataType != null) {
-      this.dataType = new DataType(dataType);
-    } else {
-      throw new Error(
-        "must provide a data type when constructing a Series from a buffer",
-      );
-    }
-    this.key = key;
-    this.alignment = alignment;
-    this.sampleOffset = sampleOffset ?? 0;
-    this._data = data;
-    this._timeRange = timeRange;
-    this.gl = {
-      control: null,
-      buffer: null,
-      prevBuffer: 0,
-      bufferUsage: glBufferUsage,
-    };
-  }
-
   acquire(gl?: GLBufferController): void {
     this._refCount++;
     if (gl != null) this.updateGLBuffer(gl);
@@ -200,8 +290,9 @@ export class Series {
     const available = this.capacity - this.writePos;
 
     const toWrite = available < other.length ? other.slice(0, available) : other;
-    this.underlyingData.set(toWrite.data as any, this.writePos);
+    this.underlyingData.set(toWrite.data as ArrayLike<any>, this.writePos);
     this.maybeRecomputeMinMax(toWrite);
+    this._cachedLength = undefined;
     this.writePos += toWrite.length;
     return toWrite.length;
   }
@@ -211,12 +302,12 @@ export class Series {
     return this._data;
   }
 
-  private get underlyingData(): NativeTypedArray {
+  private get underlyingData(): TypedArray {
     return new this.dataType.Array(this._data);
   }
 
   /** @returns a native typed array with the proper data type. */
-  get data(): NativeTypedArray {
+  get data(): TypedArray {
     if (this.writePos === FULL_BUFFER) return this.underlyingData;
     return new this.dataType.Array(this._data, 0, this.writePos);
   }
@@ -277,8 +368,19 @@ export class Series {
 
   /** @returns the number of samples in this array. */
   get length(): number {
+    if (this._cachedLength != null) return this._cachedLength;
+    if (this.dataType.isVariable) return this.calculateCachedLength();
     if (this.writePos === FULL_BUFFER) return this.data.length;
     return this.writePos;
+  }
+
+  private calculateCachedLength(): number {
+    let cl = 0;
+    this.data.forEach((v) => {
+      if (v === 10) cl++;
+    });
+    this._cachedLength = cl;
+    return cl;
   }
 
   /**
@@ -309,43 +411,47 @@ export class Series {
   private calcRawMax(): SampleValue {
     if (this.length === 0) return -Infinity;
     if (this.dataType.equals(DataType.TIMESTAMP)) {
-      this._max = this.data[this.data.length - 1];
+      this._cachedMax = this.data[this.data.length - 1];
     } else if (this.dataType.usesBigInt) {
       const d = this.data as BigInt64Array;
-      this._max = d.reduce((a, b) => (a > b ? a : b));
+      this._cachedMax = d.reduce((a, b) => (a > b ? a : b));
     } else {
       const d = this.data as Float64Array;
-      this._max = d.reduce((a, b) => (a > b ? a : b));
+      this._cachedMax = d.reduce((a, b) => (a > b ? a : b));
     }
-    return this._max;
+    return this._cachedMax;
   }
 
   /** @returns the maximum value in the array */
   get max(): SampleValue {
+    if (this.dataType.isVariable)
+      throw new Error("cannot calculate maximum on a variable length data type");
     if (this.writePos === 0) return -Infinity;
-    else if (this._max == null) this._max = this.calcRawMax();
-    return addSamples(this._max, this.sampleOffset);
+    else if (this._cachedMax == null) this._cachedMax = this.calcRawMax();
+    return addSamples(this._cachedMax, this.sampleOffset);
   }
 
   private calcRawMin(): SampleValue {
     if (this.length === 0) return Infinity;
     if (this.dataType.equals(DataType.TIMESTAMP)) {
-      this._min = this.data[0];
+      this._cachedMin = this.data[0];
     } else if (this.dataType.usesBigInt) {
       const d = this.data as BigInt64Array;
-      this._min = d.reduce((a, b) => (a < b ? a : b));
+      this._cachedMin = d.reduce((a, b) => (a < b ? a : b));
     } else {
       const d = this.data as Float64Array;
-      this._min = d.reduce((a, b) => (a < b ? a : b));
+      this._cachedMin = d.reduce((a, b) => (a < b ? a : b));
     }
-    return this._min;
+    return this._cachedMin;
   }
 
   /** @returns the minimum value in the array */
   get min(): SampleValue {
+    if (this.dataType.isVariable)
+      throw new Error("cannot calculate minimum on a variable length data type");
     if (this.writePos === 0) return Infinity;
-    else if (this._min == null) this._min = this.calcRawMin();
-    return addSamples(this._min, this.sampleOffset);
+    else if (this._cachedMin == null) this._cachedMin = this.calcRawMin();
+    return addSamples(this._cachedMin, this.sampleOffset);
   }
 
   /** @returns the bounds of this array. */
@@ -354,13 +460,13 @@ export class Series {
   }
 
   private maybeRecomputeMinMax(update: Series): void {
-    if (this._min != null) {
-      const min = update._min ?? update.calcRawMin();
-      if (min < this._min) this._min = min;
+    if (this._cachedMin != null) {
+      const min = update._cachedMin ?? update.calcRawMin();
+      if (min < this._cachedMin) this._cachedMin = min;
     }
-    if (this._max != null) {
-      const max = update._max ?? update.calcRawMax();
-      if (max > this._max) this._max = max;
+    if (this._cachedMax != null) {
+      const max = update._cachedMax ?? update.calcRawMax();
+      if (max > this._cachedMax) this._cachedMax = max;
     }
   }
 
@@ -382,7 +488,7 @@ export class Series {
     if (index < 0) index = this.length + index;
     const v = this.data[index];
     if (v == null) {
-      if (required) throw new Error(`[series] - no value at index ${index}`);
+      if (required === true) throw new Error(`[series] - no value at index ${index}`);
       return undefined;
     }
     return addSamples(v, this.sampleOffset);

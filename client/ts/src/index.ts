@@ -37,7 +37,7 @@ export {
   TimeStamp,
 } from "@synnaxlabs/x";
 export type {
-  NativeTypedArray,
+  TypedArray,
   CrudeDataType,
   CrudeDensity,
   CrudeRate,

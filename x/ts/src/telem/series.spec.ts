@@ -11,13 +11,37 @@ import { describe, expect, test, it } from "vitest";
 import { z } from "zod";
 
 import { MockGLBufferController } from "@/mock/MockGLBufferController";
-import { Series } from "@/telem/series";
-import { DataType, Rate, Size, TimeRange, TimeStamp } from "@/telem/telem";
+import { Series, isCrudeSeries } from "@/telem/series";
+import { DataType, Rate, Size, TimeRange, TimeSpan, TimeStamp } from "@/telem/telem";
 
 describe("Series", () => {
   describe("construction", () => {
-    test("valid from native", () => {
-      const a = new Series({ data: new Float32Array([1, 2, 3]) });
+    const IS_CRUDE_SERIES_SPEC: Array<[unknown, boolean]> = [
+      [{}, false],
+      [{ constructor: {} }, false],
+      [1, true],
+      [[1, 2, 3], true],
+      [["a", "b", "c"], true],
+      [new Float32Array([12]), true],
+    ];
+    IS_CRUDE_SERIES_SPEC.forEach(([value, expected]) => {
+      it(`should return ${expected} for ${JSON.stringify(value)}`, () => {
+        expect(isCrudeSeries(value)).toEqual(expected);
+      });
+    });
+
+    test("from another series", () => {
+      const a = new Series({
+        data: new Float32Array([1, 2, 3]),
+        timeRange: new TimeRange(TimeStamp.seconds(5), TimeStamp.seconds(20)),
+      });
+      const b = new Series(a);
+      expect(b.buffer).toBe(a.buffer);
+      expect(b.timeRange).toBe(a.timeRange);
+    });
+
+    test("valid from typed array", () => {
+      const a = new Series(new Float32Array([1, 2, 3]));
       expect(a.dataType.toString()).toBe(DataType.FLOAT32.toString());
       expect(a.length).toEqual(3);
       expect(a.byteLength).toEqual(Size.bytes(12));
@@ -37,6 +61,74 @@ describe("Series", () => {
         // eslint-disable-next-line no-new
         new Series({ data: new ArrayBuffer(4) });
       }).toThrow();
+    });
+
+    test("valid from js array", () => {
+      const a = new Series({ data: [1, 2, 3], dataType: DataType.FLOAT32 });
+      expect(a.dataType.toString()).toBe(DataType.FLOAT32.toString());
+      expect(a.length).toEqual(3);
+      expect(a.byteLength).toEqual(Size.bytes(12));
+      expect(a.byteCapacity).toEqual(Size.bytes(12));
+      expect(a.capacity).toEqual(3);
+    });
+
+    it("should assume float64 when JS numbers are passed as data", () => {
+      const s = new Series({ data: [1, 2, 3] });
+      expect(s.dataType.equals(DataType.FLOAT64));
+    });
+
+    it("should assume float64 when a single number is passed in", () => {
+      const s = new Series(1);
+      expect(s.dataType.equals(DataType.FLOAT64)).toBeTruthy();
+    });
+
+    it("should assume string when JS strings are passed as data", () => {
+      const s = new Series({ data: ["apple", "banana", "carrot"] });
+      expect(s.dataType.equals(DataType.STRING));
+      expect(s.length).toEqual(3);
+    });
+
+    it("should assume string when a single string is passed as data", () => {
+      const s = new Series("abc");
+      expect(s.dataType.equals(DataType.STRING)).toBeTruthy();
+      expect(s.length).toEqual(1);
+    });
+
+    it("should assume JSON when JS objects are passed as data", () => {
+      const s = new Series({ data: [{ a: 1, b: "apple" }] });
+      expect(s.dataType.equals(DataType.JSON));
+      expect(s.length).toEqual(1);
+    });
+
+    it("should correctly interpret a bigint as an int64", () => {
+      const s = new Series(1n);
+      expect(s.dataType.equals(DataType.INT64)).toBeTruthy();
+      expect(s.length).toEqual(1);
+    });
+
+    it("should correctly interpret a TimeStamp object as a data type of timestamp", () => {
+      const s = new Series(TimeStamp.now());
+      expect(s.dataType).toEqual(DataType.TIMESTAMP);
+    });
+
+    it("should correctly interpret an array of TimeStamps as a data type of timestamp", () => {
+      const s = new Series([TimeStamp.now(), TimeStamp.now().add(TimeSpan.seconds(1))]);
+      expect(s.dataType).toEqual(DataType.TIMESTAMP);
+    });
+
+    it("should correctly interpret a Date object as a data type of timestamp", () => {
+      const s = new Series(new Date());
+      expect(s.dataType).toEqual(DataType.TIMESTAMP);
+    });
+
+    it("should encode objects as JSON", () => {
+      const a = new Series({ data: [{ a: 1, b: "apple" }], dataType: DataType.JSON });
+      expect(a.dataType.toString()).toBe(DataType.JSON.toString());
+    });
+
+    it("should correctly separate strings", () => {
+      const a = new Series({ data: ["apple"], dataType: DataType.STRING });
+      expect(a.dataType.toString()).toBe(DataType.STRING.toString());
     });
 
     test("from buffer with data type provided", () => {
@@ -134,6 +226,11 @@ describe("Series", () => {
       });
       expect(series.max).toEqual(3);
       expect(series.min).toEqual(1);
+    });
+    it("should throw an error if that data type is not numeric", () => {
+      const series = new Series({ data: ["a", "b", "c"] });
+      expect(() => series.max == null).toThrow();
+      expect(() => series.min == null).toThrow();
     });
   });
 

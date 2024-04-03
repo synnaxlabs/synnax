@@ -13,7 +13,7 @@ import { z } from "zod";
 
 import { type Key, type Params } from "@/channel/payload";
 import { type Retriever } from "@/channel/retriever";
-import { BackwardFrameAdapter } from "@/framer/adapter";
+import { ReadFrameAdapter } from "@/framer/adapter";
 import { Frame, frameZ } from "@/framer/frame";
 import { StreamProxy } from "@/framer/streamProxy";
 
@@ -31,11 +31,11 @@ const ENDPOINT = "/frame/stream";
 
 export class Streamer implements AsyncIterator<Frame>, AsyncIterable<Frame> {
   private readonly stream: StreamProxy<typeof reqZ, typeof resZ>;
-  private readonly adapter: BackwardFrameAdapter;
+  private readonly adapter: ReadFrameAdapter;
 
   private constructor(
     stream: Stream<typeof reqZ, typeof resZ>,
-    adapter: BackwardFrameAdapter,
+    adapter: ReadFrameAdapter,
   ) {
     this.stream = new StreamProxy("Streamer", stream);
     this.adapter = adapter;
@@ -51,7 +51,7 @@ export class Streamer implements AsyncIterator<Frame>, AsyncIterable<Frame> {
     retriever: Retriever,
     client: StreamClient,
   ): Promise<Streamer> {
-    const adapter = await BackwardFrameAdapter.open(retriever, channels);
+    const adapter = await ReadFrameAdapter.open(retriever, channels);
     const stream = await client.stream(ENDPOINT, reqZ, resZ);
     const streamer = new Streamer(stream, adapter);
     stream.send({ start: new TimeStamp(start), keys: adapter.keys });
