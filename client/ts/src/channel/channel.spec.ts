@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, Rate } from "@synnaxlabs/x";
-import { describe, test, expect } from "vitest";
+import { DataType, Rate, TimeStamp } from "@synnaxlabs/x";
+import { describe, test, expect, it } from "vitest";
 
 import { QueryError } from "@/errors";
 import { newClient } from "@/setupspecs";
@@ -62,6 +62,72 @@ describe("Channel", () => {
       expect(channels[0].name).toEqual("test1");
       expect(channels[1].name).toEqual("test2");
     });
+    describe("retrieveIfNameExists", () => {
+      it("should retrieve the existing channel when it exists", async () => {
+        const name = `test-${Math.random()}-${TimeStamp.now().valueOf()}`
+        const channel = await client.channels.create({
+          name,
+          leaseholder: 1,
+          rate: Rate.hz(1),
+          dataType: DataType.FLOAT32,
+        });
+        const channelTwo = await client.channels.create({
+          name,
+          leaseholder: 1,
+          rate: Rate.hz(1),
+          dataType: DataType.FLOAT32,
+        },
+        {retrieveIfNameExists: true}
+        );
+        expect(channelTwo.key).toEqual(channel.key);
+      });
+      it("should create a new channel when it does not exist", async () => {
+        const name = `test-${Math.random()}-${TimeStamp.now().valueOf()}`
+        const channel = await client.channels.create({
+          name,
+          leaseholder: 1,
+          rate: Rate.hz(1),
+          dataType: DataType.FLOAT32,
+        });
+        const channelTwo = await client.channels.create({
+          name: `${name}-2`,
+          leaseholder: 1,
+          rate: Rate.hz(1),
+          dataType: DataType.FLOAT32,
+        },
+        {retrieveIfNameExists: true}
+        );
+        expect(channelTwo.key).not.toEqual(channel.key);
+      });
+      it("should retrieve and create the correct channels when creating many", async () => {
+        const name = `test-${Math.random()}-${TimeStamp.now().valueOf()}`
+        const channel = await client.channels.create({
+          name,
+          leaseholder: 1,
+          rate: Rate.hz(1),
+          dataType: DataType.FLOAT32,
+        });
+        const channelTwo = await client.channels.create([
+          {
+            name,
+            leaseholder: 1,
+            rate: Rate.hz(1),
+            dataType: DataType.FLOAT32,
+          },
+          {
+            name: `${name}-2`,
+            leaseholder: 1,
+            rate: Rate.hz(1),
+            dataType: DataType.FLOAT32,
+          },
+        ],
+        {retrieveIfNameExists: true}
+        );
+        expect(channelTwo.length).toEqual(2);
+        expect(channelTwo[0].key).toEqual(channel.key);
+        expect(channelTwo[1].key).not.toEqual(channel.key);
+      });
+    })
   });
   test("retrieve by key", async () => {
     const channel = await client.channels.create({

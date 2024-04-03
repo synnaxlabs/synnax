@@ -39,6 +39,10 @@ import {
 import { MultipleResultsError, NoResultsError, ValidationError } from "@/errors";
 import { type framer } from "@/framer";
 
+interface CreateOptions {
+  retrieveIfNameExists?: boolean;
+}
+
 /**
  * Represents a Channel in a Synnax database. Typically, channels should not be
  * instantiated directly, but instead created via the `.channels.create` or retrieved
@@ -216,7 +220,7 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
    * });
    * ```
    */
-  async create(channel: NewPayload): Promise<Channel>;
+  async create(channel: NewPayload, options?: CreateOptions): Promise<Channel>;
 
   /**
    * Creates multiple channels with the given properties. The order of the channels
@@ -241,13 +245,21 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
    *
    * @param channels
    */
-  async create(channels: NewPayload[]): Promise<Channel[]>;
+  async create(channels: NewPayload[], options?: CreateOptions): Promise<Channel[]>;
 
-  async create(channels: NewPayload | NewPayload[]): Promise<Channel | Channel[]> {
+  async create(channels: NewPayload | NewPayload[], options: CreateOptions = {}): Promise<Channel | Channel[]> {
+    const { retrieveIfNameExists = false } = options;
     const single = !Array.isArray(channels);
-    const payloads = await this.creator.create(toArray(channels));
-    const res = this.sugar(payloads);
-    return single ? res[0] : res;
+    let toCreate = toArray(channels);
+    let created: Channel[] = [];
+    if (retrieveIfNameExists) {
+      const res = await this.retriever.retrieve(toCreate.map((c) => c.name));
+      const existingNames = new Set(res.map((c) => c.name));
+      toCreate = toCreate.filter((c) => !existingNames.has(c.name));
+      created = this.sugar(res);
+    }
+    created = created.concat(this.sugar(await this.creator.create(toCreate)));
+    return single ? created[0] : created;
   }
 
   /**
