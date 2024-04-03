@@ -31,7 +31,7 @@ import {
   type Subject as ControlSubject,
 } from "@/control/state";
 import { WriteFrameAdapter } from "@/framer/adapter";
-import { type Frame, frameZ } from "@/framer/frame";
+import { frameZ, type CrudeFrame } from "@/framer/frame";
 import { StreamProxy } from "@/framer/streamProxy";
 
 enum Command {
@@ -163,7 +163,7 @@ export class Writer {
 
   async write(channel: KeysOrNames, data: CrudeSeries[]): Promise<boolean>;
 
-  async write(frame: Frame): Promise<boolean>;
+  async write(frame: CrudeFrame): Promise<boolean>;
 
   /**
    * Writes the given frame to the database.
@@ -180,7 +180,7 @@ export class Writer {
    * should acknowledge the error by calling the error method or closing the writer.
    */
   async write(
-    channelsOrData: Params | Record<KeyOrName, CrudeSeries> | Frame,
+    channelsOrData: Params | Record<KeyOrName, CrudeSeries> | CrudeFrame,
     series?: CrudeSeries | CrudeSeries[],
   ): Promise<boolean> {
     const frame = await this.adapter.adapt(channelsOrData, series);

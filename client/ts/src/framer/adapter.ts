@@ -18,7 +18,7 @@ import {
 } from "@/channel/payload";
 import { type Retriever, analyzeParams, retrieveRequired } from "@/channel/retriever";
 import { ValidationError } from "@/errors";
-import { Frame } from "@/framer/frame";
+import { type CrudeFrame, Frame } from "@/framer/frame";
 
 export class ReadFrameAdapter {
   private adapter: Map<Key, Name> | null;
@@ -55,10 +55,10 @@ export class ReadFrameAdapter {
     this.keys = Array.from(this.adapter.keys());
   }
 
-  adapt(columns_or_data: Frame): Frame {
-    if (this.adapter == null) return columns_or_data;
+  adapt(columnsOrData: Frame): Frame {
+    if (this.adapter == null) return columnsOrData;
     const a = this.adapter;
-    return columns_or_data.map((k, arr) => {
+    return columnsOrData.map((k, arr) => {
       if (typeof k === "number") {
         const name = a.get(k);
         if (name == null) throw new Error(`Channel ${k} not found`);
@@ -102,7 +102,7 @@ export class WriteFrameAdapter {
   }
 
   async adapt(
-    columnsOrData: Params | Record<KeyOrName, CrudeSeries> | Frame,
+    columnsOrData: Params | Record<KeyOrName, CrudeSeries> | CrudeFrame,
     series?: CrudeSeries | CrudeSeries[],
   ): Promise<Frame> {
     if (typeof columnsOrData === "string" || typeof columnsOrData === "number") {
@@ -135,9 +135,7 @@ export class WriteFrameAdapter {
       const cols = [];
       const data = [];
       for (let i = 0; i < columnsOrData.length; i++) {
-        console.log(columnsOrData[i]);
         const pld = await this.fetchChannel(columnsOrData[i]);
-        console.log(pld.key);
         if (i >= series.length) {
           throw new ValidationError(`
           Received an array of channel names or keys but not enough series.
@@ -153,10 +151,11 @@ export class WriteFrameAdapter {
       return new Frame(cols, data);
     }
 
-    if (columnsOrData instanceof Frame) {
-      if (this.adapter == null) return columnsOrData;
+    if (columnsOrData instanceof Frame || columnsOrData instanceof Map) {
+      const fr = new Frame(columnsOrData);
+      if (this.adapter == null) return fr;
       let cols: Key[] = [];
-      cols = columnsOrData.columns.map((col_) => {
+      cols = fr.columns.map((col_) => {
         const col = typeof col_ === "string" ? this.adapter?.get(col_) : col_;
         if (col == null)
           throw new ValidationError(`
@@ -164,7 +163,7 @@ export class WriteFrameAdapter {
         `);
         return col;
       });
-      return new Frame(cols, columnsOrData.series);
+      return new Frame(cols, fr.series);
     }
 
     const cols = [];

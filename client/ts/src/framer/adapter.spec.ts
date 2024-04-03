@@ -104,4 +104,15 @@ describe("WriteFrameAdapter", () => {
     expect(res.get(timeCh.key)[0].at(0)).toEqual(Number(ts));
     expect(res.get(dataCh.key)[0].at(0)).toEqual(1);
   });
+
+  it("should correctly adapt a map of series", async () => {
+    const ts = TimeStamp.now().valueOf();
+    const m = new Map();
+    m.set(timeCh.key, new Series(ts));
+    const res = await adapter.adapt(m);
+    expect(res.columns).toHaveLength(1);
+    expect(res.series).toHaveLength(1);
+    expect(res.get(timeCh.key)).toHaveLength(1);
+    expect(res.get(timeCh.key)[0].at(0)).toEqual(Number(ts));
+  });
 });

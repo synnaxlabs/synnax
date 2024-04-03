@@ -84,11 +84,7 @@ export class Client {
    * data type as the channel.
    * @throws if the channel does not exist.
    */
-  async write(
-    to: KeyOrName,
-    start: CrudeTimeStamp,
-    data: TypedArray,
-  ): Promise<void> {
+  async write(to: KeyOrName, start: CrudeTimeStamp, data: TypedArray): Promise<void> {
     const w = await this.newWriter({
       start,
       channels: to,
