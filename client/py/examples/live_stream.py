@@ -23,7 +23,7 @@ import synnax as sy
 client = sy.Synnax()
 
 
-# We can just specify the names of the channels we'd like to read from.
+# We can just specify the names of the channels we'd like to stream from.
 read_from = ["stream_write_example_time", "stream_write_example_data"]
 
 # Open the streamer as a context manager. This will make sure the streamer is properly
