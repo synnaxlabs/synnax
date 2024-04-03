@@ -32,12 +32,7 @@ const streamer = await client.telem.newStreamer(read_from);
 try {
     // Loop through the frames in the streamer. Each iteration will block until a new 
     // frame is available, and then we'll just print it out.
-    for await (const frame of streamer) 
-        console.log({
-            time: new TimeStamp(frame.get("stream_write_example_time")[0].at(0)).toString(),
-            data1: frame.get("stream_write_example_data_1")[0].at(0),
-            data2: frame.get("stream_write_example_data_2")[0].at(0)
-        })
+    for await (const frame of streamer) console.log(frame.latest());
 } finally {
     streamer.close();
     // Close the client when we're done with it.

@@ -372,5 +372,32 @@ describe("framer.Frame", () => {
       );
       expect(f.latest()).toEqual({ 12: 6, 13: 7 });
     });
+
+    it("should not add a key if no samples exist for the channel", () => {
+      const f = new framer.Frame(
+        new Map([
+          [
+            12,
+            [
+              new Series({
+                data: new Float32Array([1, 2, 3]),
+                timeRange: new TimeRange(40, 50000),
+              }),
+            ],
+          ],
+          [
+            13,
+            [
+              new Series({
+                data: new Float32Array([1, 2, 3]),
+                timeRange: new TimeRange(500, 50001),
+              }),
+            ],
+          ],
+          [14, []],
+        ]),
+      );
+      expect(f.latest()).toEqual({ 12: 3, 13: 3 });
+    });
   });
 });
