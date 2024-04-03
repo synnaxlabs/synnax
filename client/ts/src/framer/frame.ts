@@ -15,6 +15,7 @@ import {
   DataType,
   unique,
   TimeStamp,
+  type TelemValue,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -254,6 +255,14 @@ export class Frame {
     return new TimeRange(
       group[0].timeRange.start,
       group[group.length - 1].timeRange.end,
+    );
+  }
+
+  latest(): Record<string, TelemValue> {
+    return Object.fromEntries(
+      this.columns
+        .map((c, i) => [c, this.series[i].at(-1)])
+        .filter(([_, v]) => v != null),
     );
   }
 
