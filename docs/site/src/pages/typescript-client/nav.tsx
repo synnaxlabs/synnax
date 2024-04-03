@@ -33,5 +33,10 @@ export const typescriptClientNav: PageNavNode = {
             href: "/typescript-client/write-telemetry",
             name: "Write Telemetry",
         },
+        {
+            key: "/typescript-client/stream-telemetry",
+            href: "/typescript-client/stream-telemetry",
+            name: "Stream Telemetry"
+        }
     ]
 }

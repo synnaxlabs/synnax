@@ -147,7 +147,7 @@ Then, we'll open a writer for both of these channels by using the `telem.openWri
 method on the client.
 
 ```typescript
-import { TimeStamp } from "@synnaxlabs/client";
+import { TimeStamp, Series, Frame } from "@synnaxlabs/client";
 
 const writer = await client.telem.newWriter({
     start: TimeStamp.now(),
@@ -156,12 +156,12 @@ const writer = await client.telem.newWriter({
 
 try {
     for (let i = 0; i < 100; i++) {
-        const timestamps = new BigInt64Array([TimeStamp.now()]);
-        const temperatures = new Float32Array([20.0 + i]);
-        await writer.write({
+        const timestamps = new Series({ data: new BigInt64Array([TimeStamp.now().valueOf()]) });
+        const temperatures = new Series({ data: new Float32Array([20.0 + i]) });
+        await writer.write(new Frame({
             [timeChannel.key]: timestamps,
             [temperatureChannel.key]: temperatures
-        });
+        }));
         await new Promise(resolve => setTimeout(resolve, 100));
     }
     await writer.commit():

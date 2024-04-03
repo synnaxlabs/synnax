@@ -54,16 +54,10 @@ try {
         i++;
         const timestamp = TimeStamp.now();
         const data = Math.sin(i / 10);
-        const fr = new framer.Frame(
-            [
-                timeChannel.key, 
-                dataChannel.key
-            ],
-            [
-                new Series({ data: new timeChannel.dataType.Array([timestamp]) }),
-                new Series({ data: new dataChannel.dataType.Array([data]) })
-            ]
-        );
+        const fr = new framer.Frame({
+            [timeChannel.key]: new Series({ data: new timeChannel.dataType.Array([timestamp]) }),
+            [dataChannel.key]: new Series({ data: new dataChannel.dataType.Array([data]) })
+        });
         await writer.write(fr);
 
         if (i % 60 == 0) 
