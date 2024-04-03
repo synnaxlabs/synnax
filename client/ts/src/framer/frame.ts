@@ -110,7 +110,11 @@ export class Frame {
         validateMatchedColsAndArrays(data_.keys, arrays);
         data_.keys.forEach((key, i) => this.push(key, arrays[i]));
       } else
-        Object.entries(columnsOrData).forEach(([k, v]) => this.push(k, ...toArray(v)));
+        Object.entries(columnsOrData).forEach(([k, v]) => {
+          const key = parseInt(k);
+          if (!isNaN(key)) return this.push(key, ...toArray(v));
+          else this.push(k, ...toArray(v))
+        });
       return;
     }
 

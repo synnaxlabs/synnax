@@ -132,6 +132,8 @@ importers:
         specifier: 1.2.2
         version: 1.2.2(@types/node@20.10.5)
 
+  client/ts/examples/node: {}
+
   configs/eslint:
     dependencies:
       '@typescript-eslint/eslint-plugin':

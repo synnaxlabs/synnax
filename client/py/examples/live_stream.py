@@ -24,7 +24,7 @@ client = sy.Synnax()
 
 
 # We can just specify the names of the channels we'd like to read from.
-read_from = ["Stream Write Example Time", "Stream Write Example Data"]
+read_from = ["stream_write_example_time", "stream_write_example_data"]
 
 # Open the streamer as a context manager. This will make sure the streamer is properly
 # closed when we're done reading. We'll read from both the time and data channels. In
