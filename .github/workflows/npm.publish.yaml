@@ -2,8 +2,8 @@ name: Publish NPM Packages
 
 on:
   push:
-    # branches:
-    #   - main
+     branches:
+       - main
 
 jobs:
   publish:
@@ -38,7 +38,7 @@ jobs:
 
       - name: Publish
         run: |
-          pnpm publish -r --access public  --publish-branch ebonilla/sy-443-prep-ts-client-for-release
+          pnpm publish -r --access public
 
 
 
