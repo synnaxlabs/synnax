@@ -94,9 +94,6 @@ importers:
 
   client/ts:
     dependencies:
-      '@synnaxlabs/client':
-        specifier: workspace:^
-        version: 'link:'
       '@synnaxlabs/freighter':
         specifier: workspace:*
         version: link:../../freighter/ts
@@ -9606,7 +9603,7 @@ packages:
       std-env: 3.7.0
       test-exclude: 6.0.0
       v8-to-istanbul: 9.2.0
-      vitest: 1.2.2(@types/node@20.10.5)
+      vitest: 1.2.2(@vitest/ui@1.0.4)(jsdom@23.0.1)
     transitivePeerDependencies:
       - supports-color
     dev: true
