@@ -156,9 +156,12 @@ const writer = await client.telem.newWriter({
 
 try {
     for (let i = 0; i < 100; i++) {
-        const timestamp = TimeStamp.now();
-        const temperature = new Float32Array([20.0 + i]);
-        await writer.write(timestamp, [timestamp, temperature]);
+        const timestamps = new BigInt64Array([TimeStamp.now()]);
+        const temperatures = new Float32Array([20.0 + i]);
+        await writer.write({
+            [timeChannel.key]: timestamps,
+            [temperatureChannel.key]: temperatures
+        });
         await new Promise(resolve => setTimeout(resolve, 100));
     }
     await writer.commit():
