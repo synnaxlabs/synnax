@@ -4,6 +4,28 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+overrides:
+  react: ^18.2.0
+  react-dom: ^18.2.0
+  uuid: ^9.0.1
+  nanoid: ^3.0.0
+  '@reduxjs/toolkit': ^2.2.0
+  react-redux: ^9.1.0
+  vite: 5.1.2
+  vite-tsconfig-paths: 4.3.1
+  vite-plugin-dts: 3.7.2
+  '@vitejs/plugin-react': ^4.2.0
+  vitest: 1.2.2
+  '@vitest/coverage-v8': 1.2.2
+  typescript: ^5.3.3
+  proxy-memoize: 1.2.0
+  '@tanstack/react-virtual': 3.0.0-beta.54
+  zod: 3.22.4
+  node-fetch: 2.6.11
+  prettier: 3.2.5
+  react-hook-form: ^7.50.1
+  '@tauri-apps/api': ^1.5.3
+
 importers:
 
   .:
@@ -112,12 +134,6 @@ importers:
       vitest:
         specifier: 1.2.2
         version: 1.2.2(@types/node@20.10.5)
-
-  client/ts/examples/node:
-    dependencies:
-      '@synnaxlabs/client':
-        specifier: workspace:^
-        version: link:../..
 
   configs/eslint:
     dependencies:
@@ -9590,7 +9606,7 @@ packages:
       std-env: 3.7.0
       test-exclude: 6.0.0
       v8-to-istanbul: 9.2.0
-      vitest: 1.2.2(@types/node@20.10.5)
+      vitest: 1.2.2(@vitest/ui@1.0.4)(jsdom@23.0.1)
     transitivePeerDependencies:
       - supports-color
     dev: true
