@@ -38,7 +38,7 @@ jobs:
 
       - name: Publish
         run: |
-          pnpm publish -r --access public --publish-branch ebonilla/sy-447-improve-ts-client-frame-access-api
+          pnpm publish -r --access public 
 
 
 
