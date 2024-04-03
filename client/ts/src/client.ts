@@ -48,19 +48,19 @@ export type ParsedSynnaxProps = z.output<typeof synnaxPropsZ>;
  */
 // eslint-disable-next-line import/no-default-export
 export default class Synnax {
-  private readonly transport: Transport;
   readonly createdAt: TimeStamp;
+  readonly props: ParsedSynnaxProps;
   readonly telem: framer.Client;
   readonly ranges: ranger.Client;
   readonly channels: channel.Client;
   readonly auth: auth.Client | undefined;
   readonly connectivity: connection.Checker;
   readonly ontology: ontology.Client;
-  readonly props: ParsedSynnaxProps;
   readonly workspaces: workspace.Client;
   readonly labels: label.Client;
   readonly hardware: hardware.Client;
   static readonly connectivity = connection.Checker;
+  private readonly transport: Transport;
 
   /**
    * @param props.host - Hostname of a node in the cluster.

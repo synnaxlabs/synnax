@@ -9,12 +9,33 @@
 
 import { describe, expect, it, test } from "vitest";
 
+import { binary } from "@/binary";
 import { DataType, Density, Rate, Size, TimeRange, TimeSpan, TimeStamp } from "@/telem";
 
 describe("TimeStamp", () => {
   test("construct", () => {
     const ts = new TimeStamp(1000);
     expect(ts.equals(TimeSpan.MICROSECOND)).toBeTruthy();
+  });
+
+  test("construct from NaN", () => {
+    const ts = new TimeStamp(NaN);
+    expect(ts.isZero).toBeTruthy();
+  });
+
+  test("construct from infinity", () => {
+    const ts = new TimeStamp(Infinity);
+    expect(ts.equals(TimeStamp.MAX)).toBeTruthy();
+  });
+
+  test("construct from negative infinity", () => {
+    const ts = new TimeStamp(-Infinity);
+    expect(ts.equals(TimeStamp.MIN)).toBeTruthy();
+  });
+
+  test("encode", () => {
+    const ts = TimeStamp.now();
+    new binary.JSONEncoderDecoder().encode(ts);
   });
 
   test("construct from TimeStamp", () => {
@@ -63,7 +84,7 @@ describe("TimeStamp", () => {
     const ts2 = new TimeStamp("2021-01-01", "local");
     expect(ts2.date().getUTCFullYear()).toEqual(2021);
     expect(ts2.date().getUTCHours()).toEqual(
-      TimeStamp.utcOffset.valueOf() / TimeStamp.HOUR.valueOf(),
+      Number(TimeStamp.utcOffset.valueOf() / TimeStamp.HOUR.valueOf()),
     );
     expect(ts2.date().getUTCMinutes()).toEqual(0);
   });

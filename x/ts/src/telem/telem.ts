@@ -64,7 +64,7 @@ const remainder = <T extends TimeStamp | TimeSpan>(
  * 1. A number representing the number of milliseconds since the Unix epoch.
  * 2. A javascript Date object.
  * 3. An array of numbers satisfying the DateComponents type, where the first element is the
- *   year, the second is the month, and the third is the day. To increaase resolution
+ *   year, the second is the month, and the third is the day. To incraase resolution
  *   when using this method, use the add method. It's important to note that this initializes
  *   a timestamp at midnight UTC, regardless of the timezone specified.
  * 4. An ISO compliant date or date time string. The time zone component is ignored.
@@ -77,31 +77,50 @@ const remainder = <T extends TimeStamp | TimeSpan>(
  * @example ts = new TimeStamp([2021, 1, 1]).add(1 * TimeSpan.HOUR) // 1/1/2021 at 1am UTC
  * @example ts = new TimeStamp("2021-01-01T12:30:00Z") // 1/1/2021 at 12:30pm UTC
  */
-export class TimeStamp extends Number implements Stringer {
+export class TimeStamp implements Stringer {
+  private readonly value: bigint;
+  readonly encodeValue: true = true;
+
   constructor(value?: CrudeTimeStamp, tzInfo: TZInfo = "UTC") {
-    if (value == null) return TimeStamp.now();
+    if (value == null) this.value = TimeStamp.now().valueOf();
     else if (value instanceof Date)
-      super(value.getTime() * TimeStamp.MILLISECOND.valueOf());
+      this.value = BigInt(value.getTime()) * TimeStamp.MILLISECOND.valueOf();
     else if (typeof value === "string")
-      super(TimeStamp.parseDateTimeString(value, tzInfo).valueOf());
-    else if (Array.isArray(value)) super(TimeStamp.parseDate(value));
+      this.value = TimeStamp.parseDateTimeString(value, tzInfo).valueOf();
+    else if (Array.isArray(value)) this.value = TimeStamp.parseDate(value);
     else {
-      let offset = 0;
+      let offset: bigint = BigInt(0);
       if (value instanceof Number) value = value.valueOf();
       if (tzInfo === "local") offset = TimeStamp.utcOffset.valueOf();
-      super(value.valueOf() + offset);
+      if (typeof value === "number") {
+        if (isFinite(value)) value = Math.trunc(value);
+        else {
+          if (isNaN(value)) value = 0;
+          if (value === Infinity) value = TimeStamp.MAX;
+          else value = TimeStamp.MIN;
+        }
+      }
+      this.value = BigInt(value.valueOf()) + offset;
     }
   }
 
-  private static parseDate([year = 1970, month = 1, day = 1]: DateComponents): number {
+  private static parseDate([year = 1970, month = 1, day = 1]: DateComponents): bigint {
     const date = new Date(year, month - 1, day, 0, 0, 0, 0);
     // We truncate here to only get the date component regardless of the time zone.
-    return new TimeStamp(date.getTime() * TimeStamp.MILLISECOND.valueOf())
+    return new TimeStamp(BigInt(date.getTime()) * TimeStamp.MILLISECOND.valueOf())
       .truncate(TimeStamp.DAY)
       .valueOf();
   }
 
-  private static parseTimeString(time: string, tzInfo: TZInfo = "UTC"): number {
+  encode(): string {
+    return this.value.toString();
+  }
+
+  valueOf(): bigint {
+    return this.value;
+  }
+
+  private static parseTimeString(time: string, tzInfo: TZInfo = "UTC"): bigint {
     const [hours, minutes, mbeSeconds] = time.split(":");
     let seconds = "00";
     let milliseconds: string | undefined = "00";
@@ -114,15 +133,15 @@ export class TimeStamp extends Number implements Stringer {
     return base.valueOf();
   }
 
-  private static parseDateTimeString(str: string, tzInfo: TZInfo = "UTC"): number {
+  private static parseDateTimeString(str: string, tzInfo: TZInfo = "UTC"): bigint {
     if (!str.includes("/") && !str.includes("-"))
       return TimeStamp.parseTimeString(str, tzInfo);
     const d = new Date(str);
-    // Essentialy to note that this makes the date midnight in UTC! Not local!
+    // Essential to note that this makes the date midnight in UTC! Not local!
     // As a result, we need to add the tzInfo offset back in.
     if (!str.includes(":")) d.setUTCHours(0, 0, 0, 0);
     return new TimeStamp(
-      d.getTime() * TimeStamp.MILLISECOND.valueOf(),
+      BigInt(d.getTime()) * TimeStamp.MILLISECOND.valueOf(),
       tzInfo,
     ).valueOf();
   }
@@ -166,7 +185,9 @@ export class TimeStamp extends Number implements Stringer {
   }
 
   static get utcOffset(): TimeSpan {
-    return new TimeSpan(new Date().getTimezoneOffset() * TimeStamp.MINUTE.valueOf());
+    return new TimeSpan(
+      BigInt(new Date().getTimezoneOffset()) * TimeStamp.MINUTE.valueOf(),
+    );
   }
 
   /**
@@ -233,7 +254,7 @@ export class TimeStamp extends Number implements Stringer {
    * @returns True if the TimeStamp represents the unix epoch, false otherwise.
    */
   get isZero(): boolean {
-    return this.valueOf() === 0;
+    return this.valueOf() === BigInt(0);
   }
 
   /**
@@ -288,7 +309,7 @@ export class TimeStamp extends Number implements Stringer {
    *   TimeSpan.
    */
   add(span: CrudeTimeSpan): TimeStamp {
-    return new TimeStamp(this.valueOf() + span.valueOf());
+    return new TimeStamp(this.valueOf() + BigInt(span.valueOf()));
   }
 
   /**
@@ -299,14 +320,14 @@ export class TimeStamp extends Number implements Stringer {
    *   TimeSpan.
    */
   sub(span: CrudeTimeSpan): TimeStamp {
-    return new TimeStamp(this.valueOf() - span.valueOf());
+    return new TimeStamp(this.valueOf() - BigInt(span.valueOf()));
   }
 
   /**
    * @returns The number of milliseconds since the unix epoch.
    */
   milliseconds(): number {
-    return this.valueOf() / TimeStamp.MILLISECOND.valueOf();
+    return Number(this.valueOf() / TimeStamp.MILLISECOND.valueOf());
   }
 
   toString(): string {
@@ -337,10 +358,6 @@ export class TimeStamp extends Number implements Stringer {
     return this.sub(this.remainder(span));
   }
 
-  get bigInt(): bigint {
-    return BigInt(this.valueOf());
-  }
-
   /**
    * @returns A new TimeStamp representing the current time in UTC. It's important to
    * note that this TimeStamp is only accurate to the millisecond level (that's the best
@@ -348,6 +365,24 @@ export class TimeStamp extends Number implements Stringer {
    */
   static now(): TimeStamp {
     return new TimeStamp(new Date());
+  }
+
+  static max(...timestamps: CrudeTimeStamp[]): TimeStamp {
+    let max = TimeStamp.MIN;
+    for (const ts of timestamps) {
+      const t = new TimeStamp(ts);
+      if (t.after(max)) max = t;
+    }
+    return max;
+  }
+
+  static min(...timestamps: CrudeTimeStamp[]): TimeStamp {
+    let min = TimeStamp.MAX;
+    for (const ts of timestamps) {
+      const t = new TimeStamp(ts);
+      if (t.before(min)) min = t;
+    }
+    return min;
   }
 
   /** @returns a new TimeStamp n nanoseconds after the unix epoch */
@@ -407,7 +442,7 @@ export class TimeStamp extends Number implements Stringer {
   static readonly DAY = TimeStamp.days(1);
 
   /** The maximum possible value for a timestamp */
-  static readonly MAX = new TimeStamp(9122272036554776000);
+  static readonly MAX = new TimeStamp((1n << 63n) - 1n);
 
   /** The minimum possible value for a timestamp */
   static readonly MIN = new TimeStamp(0);
@@ -417,6 +452,8 @@ export class TimeStamp extends Number implements Stringer {
 
   /** A zod schema for validating timestamps */
   static readonly z = z.union([
+    z.object({ value: z.bigint() }).transform((v) => new TimeStamp(v.value)),
+    z.string().transform((n) => new TimeStamp(BigInt(n))),
     z.instanceof(Number).transform((n) => new TimeStamp(n)),
     z.number().transform((n) => new TimeStamp(n)),
     z.instanceof(TimeStamp),
@@ -424,10 +461,21 @@ export class TimeStamp extends Number implements Stringer {
 }
 
 /** TimeSpan represents a nanosecond precision duration. */
-export class TimeSpan extends Number implements Stringer {
+export class TimeSpan implements Stringer {
+  private readonly value: bigint;
+  readonly encodeValue: true = true;
+
   constructor(value: CrudeTimeSpan) {
-    if (value instanceof Number) super(value.valueOf());
-    else super(value);
+    if (typeof value === "number") value = Math.trunc(value.valueOf());
+    this.value = BigInt(value.valueOf());
+  }
+
+  encode(): string {
+    return this.value.toString();
+  }
+
+  valueOf(): bigint {
+    return this.value;
   }
 
   lessThan(other: CrudeTimeSpan): boolean {
@@ -451,11 +499,9 @@ export class TimeSpan extends Number implements Stringer {
   }
 
   truncate(span: TimeSpan): TimeSpan {
-    return new TimeSpan(Math.trunc(this.valueOf() / span.valueOf()) * span.valueOf());
-  }
-
-  multiply(factor: number): TimeSpan {
-    return new TimeSpan(this.valueOf() * factor);
+    return new TimeSpan(
+      BigInt(Math.trunc(Number(this.valueOf() / span.valueOf()))) * span.valueOf(),
+    );
   }
 
   toString(): string {
@@ -487,35 +533,35 @@ export class TimeSpan extends Number implements Stringer {
 
   /** @returns the decimal number of days in the timespan */
   get days(): number {
-    return this.valueOf() / TimeSpan.DAY.valueOf();
+    return Number(this.valueOf() / TimeSpan.DAY.valueOf());
   }
 
   /** @returns the decimal number of hours in the timespan */
   get hours(): number {
-    return this.valueOf() / TimeSpan.HOUR.valueOf();
+    return Number(this.valueOf() / TimeSpan.HOUR.valueOf());
   }
 
   /** @returns the decimal number of minutes in the timespan */
   get minutes(): number {
-    return this.valueOf() / TimeSpan.MINUTE.valueOf();
+    return Number(this.valueOf() / TimeSpan.MINUTE.valueOf());
   }
 
   /** @returns The number of seconds in the TimeSpan. */
   get seconds(): number {
-    return this.valueOf() / TimeSpan.SECOND.valueOf();
+    return Number(this.valueOf() / TimeSpan.SECOND.valueOf());
   }
 
   /** @returns The number of milliseconds in the TimeSpan. */
   get milliseconds(): number {
-    return this.valueOf() / TimeSpan.MILLISECOND.valueOf();
+    return Number(this.valueOf() / TimeSpan.MILLISECOND.valueOf());
   }
 
   get microseconds(): number {
-    return this.valueOf() / TimeSpan.MICROSECOND.valueOf();
+    return Number(this.valueOf() / TimeSpan.MICROSECOND.valueOf());
   }
 
   get nanoseconds(): number {
-    return this.valueOf();
+    return Number(this.valueOf());
   }
 
   /**
@@ -524,7 +570,7 @@ export class TimeSpan extends Number implements Stringer {
    * @returns True if the TimeSpan represents a zero duration, false otherwise.
    */
   get isZero(): boolean {
-    return this.valueOf() === 0;
+    return this.valueOf() === BigInt(0);
   }
 
   /**
@@ -646,16 +692,18 @@ export class TimeSpan extends Number implements Stringer {
   static readonly DAY = TimeSpan.days(1);
 
   /** The maximum possible value for a TimeSpan. */
-  static readonly MAX = new TimeSpan(this.MAX_SAFE_INTEGER);
+  static readonly MAX = new TimeSpan((1n << 63n) - 1n);
 
   /** The minimum possible value for a TimeSpan. */
-  static readonly MIN = new TimeSpan(-this.MAX_SAFE_INTEGER);
+  static readonly MIN = new TimeSpan(0);
 
   /** The zero value for a TimeSpan. */
   static readonly ZERO = new TimeSpan(0);
 
   /** A zod schema for validating and transforming timespans */
   static readonly z = z.union([
+    z.object({ value: z.bigint() }).transform((v) => new TimeSpan(v.value)),
+    z.string().transform((n) => new TimeSpan(BigInt(n))),
     z.instanceof(Number).transform((n) => new TimeSpan(n)),
     z.number().transform((n) => new TimeSpan(n)),
     z.instanceof(TimeSpan),
@@ -1283,6 +1331,8 @@ export class Size extends Number implements Stringer {
 }
 
 export type CrudeTimeStamp =
+  | bigint
+  | BigInt
   | TimeStamp
   | TimeSpan
   | number
@@ -1291,7 +1341,7 @@ export type CrudeTimeStamp =
   | DateComponents
   | Number;
 export type TimeStampT = number;
-export type CrudeTimeSpan = TimeSpan | TimeStamp | number | Number;
+export type CrudeTimeSpan = bigint | BigInt | TimeSpan | TimeStamp | number | Number;
 export type TimeSpanT = number;
 export type CrudeRate = Rate | number | Number;
 export type RateT = number;

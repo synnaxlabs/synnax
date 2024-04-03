@@ -7,27 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { addExtension, pack, unpack } from "msgpackr";
+import { pack, unpack } from "msgpackr";
 import { type ZodSchema, type z } from "zod";
 
 import { Case } from "@/case";
-
-/**
- * CustomTypeEncoder is an interface for a class that needs to transform its
- * value before encoding.
- */
-interface CustomTypeEncoder {
-  /** The Class the custom encoder is set for */
-  Class: Function;
-
-  /**
-   * The function that transforms the value before encoding;
-   *
-   * @param instance - The instance of the class to transform.
-   * @returns The transformed value.
-   */
-  write: <P>(instance: P) => unknown;
-}
+import { isObject } from "@/identity";
 
 /**
  * EncoderDecoder is an entity that encodes and decodes messages to and from a
@@ -54,10 +38,6 @@ export interface EncoderDecoder {
   decode: <P>(data: Uint8Array | ArrayBuffer, schema?: ZodSchema<P>) => P;
 }
 
-interface StaticEncoderDecoder {
-  registerCustomType: (encoder: CustomTypeEncoder) => void;
-}
-
 /** MsgpackEncoderDecoder is a msgpack implementation of EncoderDecoder. */
 export class MsgpackEncoderDecoder implements EncoderDecoder {
   contentType = "application/msgpack";
@@ -73,19 +53,25 @@ export class MsgpackEncoderDecoder implements EncoderDecoder {
     const unpacked = Case.toCamel(unpack(new Uint8Array(data)));
     return schema != null ? schema.parse(unpacked) : (unpacked as P);
   }
-
-  static registerCustomType(encoder: CustomTypeEncoder): void {
-    addExtension({ type: 0, ...encoder });
-  }
 }
 
 /** JSONEncoderDecoder is a JSON implementation of EncoderDecoder. */
 export class JSONEncoderDecoder implements EncoderDecoder {
   contentType = "application/json";
+  readonly decoder: TextDecoder;
+
+  constructor() {
+    this.decoder = new TextDecoder();
+  }
 
   encode(payload: unknown): ArrayBuffer {
     const json = JSON.stringify(Case.toSnake(payload), (_, v) => {
       if (ArrayBuffer.isView(v)) return Array.from(v as Uint8Array);
+      if (isObject(v) && "encode_value" in v) {
+        if (typeof v.value === "bigint") return v.value.toString();
+        return v.value;
+      }
+      if (typeof v === "bigint") return v.toString();
       return v;
     });
     return new TextEncoder().encode(json);
@@ -95,7 +81,7 @@ export class JSONEncoderDecoder implements EncoderDecoder {
     data: Uint8Array | ArrayBuffer,
     schema?: P,
   ): z.output<P> {
-    const unpacked = Case.toCamel(JSON.parse(new TextDecoder().decode(data)));
+    const unpacked = Case.toCamel(JSON.parse(this.decoder.decode(data)));
     return schema != null ? schema.parse(unpacked) : (unpacked as P);
   }
 
@@ -106,13 +92,3 @@ export const ENCODERS: EncoderDecoder[] = [
   new MsgpackEncoderDecoder(),
   new JSONEncoderDecoder(),
 ];
-
-export const ENCODER_CLASSES: StaticEncoderDecoder[] = [
-  MsgpackEncoderDecoder,
-  JSONEncoderDecoder,
-];
-
-export const registerCustomTypeEncoder = (encoder: CustomTypeEncoder): void =>
-  ENCODER_CLASSES.forEach((encoderClass) => {
-    encoderClass.registerCustomType(encoder);
-  });
