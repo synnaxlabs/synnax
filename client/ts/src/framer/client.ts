@@ -9,7 +9,7 @@
 
 import { type StreamClient } from "@synnaxlabs/freighter";
 import {
-  type NativeTypedArray,
+  type TypedArray,
   type Series,
   type TimeRange,
   type CrudeTimeStamp,
@@ -84,11 +84,7 @@ export class Client {
    * data type as the channel.
    * @throws if the channel does not exist.
    */
-  async write(
-    to: KeyOrName,
-    start: CrudeTimeStamp,
-    data: NativeTypedArray,
-  ): Promise<void> {
+  async write(to: KeyOrName, start: CrudeTimeStamp, data: TypedArray): Promise<void> {
     const w = await this.newWriter({
       start,
       channels: to,

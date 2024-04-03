@@ -18,7 +18,11 @@ const client = new Synnax({
 });
 
 // We can just specify the names of the channels we'd like to stream from.
-const read_from = ["stream_write_example_time", "stream_write_example_data"]
+const read_from = [
+    "stream_write_example_time", 
+    "stream_write_example_data_1", 
+    "stream_write_example_data_2"
+]
 
 const streamer = await client.telem.newStreamer(read_from);
 
@@ -28,11 +32,7 @@ const streamer = await client.telem.newStreamer(read_from);
 try {
     // Loop through the frames in the streamer. Each iteration will block until a new 
     // frame is available, and then we'll just print it out.
-    for await (const frame of streamer) 
-        console.log({
-            time: new TimeStamp(frame.get("stream_write_example_time")[0].at(0)).toString(),
-            data: frame.get("stream_write_example_data")[0].at(0)
-        })
+    for await (const frame of streamer) console.log(frame.latest());
 } finally {
     streamer.close();
     // Close the client when we're done with it.

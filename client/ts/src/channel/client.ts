@@ -11,7 +11,7 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import {
   DataType,
   Rate,
-  type NativeTypedArray,
+  type TypedArray,
   type CrudeDensity,
   type Series,
   type TimeRange,
@@ -158,7 +158,7 @@ export class Channel {
    * @param start - The starting timestamp of the first sample in data.
    * @param data - THe telemetry to write to the channel.
    */
-  async write(start: CrudeTimeStamp, data: NativeTypedArray): Promise<void> {
+  async write(start: CrudeTimeStamp, data: TypedArray): Promise<void> {
     return await this.framer.write(this.key, start, data);
   }
 }
@@ -170,7 +170,7 @@ export class Channel {
  */
 export class Client implements AsyncTermSearcher<string, Key, Channel> {
   private readonly frameClient: framer.Client;
-  private readonly retriever: Retriever;
+  readonly retriever: Retriever;
   private readonly creator: Creator;
   private readonly client: UnaryClient;
 
@@ -247,7 +247,10 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
    */
   async create(channels: NewPayload[], options?: CreateOptions): Promise<Channel[]>;
 
-  async create(channels: NewPayload | NewPayload[], options: CreateOptions = {}): Promise<Channel | Channel[]> {
+  async create(
+    channels: NewPayload | NewPayload[],
+    options: CreateOptions = {},
+  ): Promise<Channel | Channel[]> {
     const { retrieveIfNameExists = false } = options;
     const single = !Array.isArray(channels);
     let toCreate = toArray(channels);

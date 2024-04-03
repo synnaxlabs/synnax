@@ -1029,7 +1029,7 @@ export class DataType extends String implements Stringer {
   /**
    * @returns the TypedArray constructor for the DataType.
    */
-  get Array(): NativeTypedArrayConstructor {
+  get Array(): TypedArrayConstructor {
     const v = DataType.ARRAY_CONSTRUCTORS.get(this.toString());
     if (v == null)
       throw new Error(`unable to find array constructor for ${this.valueOf()}`);
@@ -1045,6 +1045,10 @@ export class DataType extends String implements Stringer {
     return this.valueOf();
   }
 
+  get isVariable(): boolean {
+    return this.equals(DataType.JSON) || this.equals(DataType.STRING);
+  }
+
   get density(): Density {
     const v = DataType.DENSITIES.get(this.toString());
     if (v == null) throw new Error(`unable to find density for ${this.valueOf()}`);
@@ -1057,7 +1061,7 @@ export class DataType extends String implements Stringer {
    * @param array - The TypedArray to check.
    * @returns True if the TypedArray is of the same type as the DataType.
    */
-  checkArray(array: NativeTypedArray): boolean {
+  checkArray(array: TypedArray): boolean {
     return array.constructor === this.Array;
   }
 
@@ -1091,6 +1095,8 @@ export class DataType extends String implements Stringer {
   static readonly UINT16 = new DataType("uint16");
   /** Represents a 8-bit unsigned integer value. */
   static readonly UINT8 = new DataType("uint8");
+  /** Represents a boolean value. Alias for UINT8. */
+  static readonly BOOLEAN = this.UINT8;
   /** Represents a 64-bit unix epoch. */
   static readonly TIMESTAMP = new DataType("timestamp");
   /** Represents a UUID data type */
@@ -1102,23 +1108,25 @@ export class DataType extends String implements Stringer {
    * newline character. */
   static readonly JSON = new DataType("json");
 
-  static readonly ARRAY_CONSTRUCTORS: Map<string, NativeTypedArrayConstructor> =
-    new Map<string, NativeTypedArrayConstructor>([
-      [DataType.UINT8.toString(), Uint8Array],
-      [DataType.UINT16.toString(), Uint16Array],
-      [DataType.UINT32.toString(), Uint32Array],
-      [DataType.UINT64.toString(), BigUint64Array],
-      [DataType.FLOAT32.toString(), Float32Array],
-      [DataType.FLOAT64.toString(), Float64Array],
-      [DataType.INT8.toString(), Int8Array],
-      [DataType.INT16.toString(), Int16Array],
-      [DataType.INT32.toString(), Int32Array],
-      [DataType.INT64.toString(), BigInt64Array],
-      [DataType.TIMESTAMP.toString(), BigInt64Array],
-      [DataType.STRING.toString(), Uint8Array],
-      [DataType.JSON.toString(), Uint8Array],
-      [DataType.UUID.toString(), Uint8Array],
-    ]);
+  static readonly ARRAY_CONSTRUCTORS: Map<string, TypedArrayConstructor> = new Map<
+    string,
+    TypedArrayConstructor
+  >([
+    [DataType.UINT8.toString(), Uint8Array],
+    [DataType.UINT16.toString(), Uint16Array],
+    [DataType.UINT32.toString(), Uint32Array],
+    [DataType.UINT64.toString(), BigUint64Array],
+    [DataType.FLOAT32.toString(), Float32Array],
+    [DataType.FLOAT64.toString(), Float64Array],
+    [DataType.INT8.toString(), Int8Array],
+    [DataType.INT16.toString(), Int16Array],
+    [DataType.INT32.toString(), Int32Array],
+    [DataType.INT64.toString(), BigInt64Array],
+    [DataType.TIMESTAMP.toString(), BigInt64Array],
+    [DataType.STRING.toString(), Uint8Array],
+    [DataType.JSON.toString(), Uint8Array],
+    [DataType.UUID.toString(), Uint8Array],
+  ]);
 
   static readonly ARRAY_CONSTRUCTOR_DATA_TYPES: Map<string, DataType> = new Map<
     string,
@@ -1347,7 +1355,7 @@ export type CrudeRate = Rate | number | Number;
 export type RateT = number;
 export type CrudeDensity = Density | number | Number;
 export type DensityT = number;
-export type CrudeDataType = DataType | string | NativeTypedArray;
+export type CrudeDataType = DataType | string | TypedArray;
 export type DataTypeT = string;
 export type CrudeSize = Size | number | Number;
 export type SizeT = number;
@@ -1356,7 +1364,7 @@ export interface CrudeTimeRange {
   end: CrudeTimeStamp;
 }
 
-export const nativeTypedArray = z.union([
+export const typedArrayZ = z.union([
   z.instanceof(Uint8Array),
   z.instanceof(Uint16Array),
   z.instanceof(Uint32Array),
@@ -1369,9 +1377,9 @@ export const nativeTypedArray = z.union([
   z.instanceof(BigInt64Array),
 ]);
 
-export type NativeTypedArray = z.infer<typeof nativeTypedArray>;
+export type TypedArray = z.infer<typeof typedArrayZ>;
 
-type NativeTypedArrayConstructor =
+type TypedArrayConstructor =
   | Uint8ArrayConstructor
   | Uint16ArrayConstructor
   | Uint32ArrayConstructor
@@ -1382,14 +1390,35 @@ type NativeTypedArrayConstructor =
   | Int16ArrayConstructor
   | Int32ArrayConstructor
   | BigInt64ArrayConstructor;
-type TelemValue = number | bigint;
+type NumericTelemValue = number | bigint;
+export type TelemValue =
+  | number
+  | bigint
+  | string
+  | boolean
+  | Date
+  | TimeStamp
+  | TimeSpan;
+
+export const isTelemValue = (value: unknown): value is TelemValue => {
+  const ot = typeof value;
+  return (
+    ot === "string" ||
+    ot === "number" ||
+    ot === "boolean" ||
+    ot === "bigint" ||
+    value instanceof TimeStamp ||
+    value instanceof TimeSpan ||
+    value instanceof Date
+  );
+};
 
 export const convertDataType = (
   source: DataType,
   target: DataType,
-  value: TelemValue,
+  value: NumericTelemValue,
   offset: number | bigint = 0,
-): TelemValue => {
+): NumericTelemValue => {
   if (source.usesBigInt && !target.usesBigInt) return Number(value) - Number(offset);
   if (!source.usesBigInt && target.usesBigInt) return BigInt(value) - BigInt(offset);
   return addSamples(value, -offset);

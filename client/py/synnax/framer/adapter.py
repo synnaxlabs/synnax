@@ -88,16 +88,20 @@ class WriteFrameAdapter:
     def adapt(
         self,
         columns_or_data: ChannelPayload
-                         | ChannelName
-                         | ChannelKey
-                         | ChannelKeys
-                         | ChannelNames
+                         | ChannelParams
                          | Frame
                          | dict[ChannelKey | ChannelName, CrudeSeries]
                          | DataFrame,
         series: CrudeSeries | list[CrudeSeries] | None = None,
     ) -> Frame:
         if isinstance(columns_or_data, (ChannelName, ChannelKey)):
+            if series is None:
+                raise ValidationError(
+                    f"""
+                Received a single channel {'name' if isinstance(columns_or_data, ChannelName) else 'key'}
+                but no series.
+                """
+                )
             if isinstance(series, list) and len(list) > 1:
                 raise ValidationError(
                     f"""
@@ -111,6 +115,12 @@ class WriteFrameAdapter:
             return Frame([pld.key], [series])
 
         if isinstance(columns_or_data, list):
+            if series is None:
+                raise ValidationError(
+                    f"""
+                Received {len(columns_or_data)} channels but no series.
+                """
+                )
             cols = []
             o_series = []
             for i, ch in enumerate(columns_or_data):

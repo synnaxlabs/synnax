@@ -11,23 +11,27 @@
 import type { Stream, StreamClient } from "@synnaxlabs/freighter";
 import { decodeError, errorZ } from "@synnaxlabs/freighter";
 import {
-  type NativeTypedArray,
-  Series,
   TimeStamp,
   type CrudeTimeStamp,
   toArray,
+  type CrudeSeries,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type Key, type KeyOrName, type Params } from "@/channel/payload";
+import {
+  type KeysOrNames,
+  type Key,
+  type KeyOrName,
+  type Params,
+} from "@/channel/payload";
 import { type Retriever } from "@/channel/retriever";
 import { Authority } from "@/control/authority";
 import {
   subjectZ as controlSubjectZ,
   type Subject as ControlSubject,
 } from "@/control/state";
-import { ForwardFrameAdapter } from "@/framer/adapter";
-import { type CrudeFrame, Frame, frameZ } from "@/framer/frame";
+import { WriteFrameAdapter } from "@/framer/adapter";
+import { frameZ, type CrudeFrame } from "@/framer/frame";
 import { StreamProxy } from "@/framer/streamProxy";
 
 enum Command {
@@ -118,11 +122,11 @@ export interface WriterConfig {
 export class Writer {
   private static readonly ENDPOINT = "/frame/write";
   private readonly stream: StreamProxy<typeof reqZ, typeof resZ>;
-  private readonly adapter: ForwardFrameAdapter;
+  private readonly adapter: WriteFrameAdapter;
 
   private constructor(
     stream: Stream<typeof reqZ, typeof resZ>,
-    adapter: ForwardFrameAdapter,
+    adapter: WriteFrameAdapter,
   ) {
     this.stream = new StreamProxy("Writer", stream);
     this.adapter = adapter;
@@ -139,7 +143,7 @@ export class Writer {
       mode,
     }: WriterConfig,
   ): Promise<Writer> {
-    const adapter = await ForwardFrameAdapter.open(retriever, channels);
+    const adapter = await WriteFrameAdapter.open(retriever, channels);
     const stream = await client.stream(Writer.ENDPOINT, reqZ, resZ);
     const writer = new Writer(stream, adapter);
     await writer.execute({
@@ -155,7 +159,9 @@ export class Writer {
     return writer;
   }
 
-  async write(channel: KeyOrName, data: NativeTypedArray): Promise<boolean>;
+  async write(channel: KeyOrName, data: CrudeSeries): Promise<boolean>;
+
+  async write(channel: KeysOrNames, data: CrudeSeries[]): Promise<boolean>;
 
   async write(frame: CrudeFrame): Promise<boolean>;
 
@@ -174,14 +180,11 @@ export class Writer {
    * should acknowledge the error by calling the error method or closing the writer.
    */
   async write(
-    frame: CrudeFrame | KeyOrName,
-    data?: NativeTypedArray,
+    channelsOrData: Params | Record<KeyOrName, CrudeSeries> | CrudeFrame,
+    series?: CrudeSeries | CrudeSeries[],
   ): Promise<boolean> {
-    const isKeyOrName = ["string", "number"].includes(typeof frame);
-    if (isKeyOrName)
-      frame = new Frame(frame, new Series({ data: data as NativeTypedArray }));
-    frame = this.adapter.adapt(new Frame(frame));
-    // @ts-expect-error
+    const frame = await this.adapter.adapt(channelsOrData, series);
+    // @ts-expect-error - zod issues
     this.stream.send({ command: Command.Write, frame: frame.toPayload() });
     return true;
   }

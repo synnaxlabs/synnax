@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 import type { UnaryClient } from "@synnaxlabs/freighter";
 import { debounce, toArray } from "@synnaxlabs/x";
+import { Mutex } from "async-mutex";
 import { z } from "zod";
 
 import {
@@ -21,7 +22,7 @@ import {
   type Payload,
   payload,
 } from "@/channel/payload";
-import { Mutex } from "async-mutex";
+import { QueryError, ValidationError } from "@/errors";
 
 const reqZ = z.object({
   leaseholder: z.number().optional(),
@@ -59,15 +60,20 @@ export class ClusterRetriever implements Retriever {
 
   async retrieve(channels: Params, rangeKey?: string): Promise<Payload[]> {
     const { variant, normalized } = analyzeParams(channels);
-    return await this.execute({ [variant]: normalized, rangeKey});
+    return await this.execute({ [variant]: normalized, rangeKey });
   }
 
   async page(offset: number, limit: number, rangeKey?: string): Promise<Payload[]> {
-    return await this.execute({ offset, limit, rangeKey});
+    return await this.execute({ offset, limit, rangeKey });
   }
 
   private async execute(request: Request): Promise<Payload[]> {
-    const [res, err] = await this.client.send(ClusterRetriever.ENDPOINT, request, reqZ, resZ);
+    const [res, err] = await this.client.send(
+      ClusterRetriever.ENDPOINT,
+      request,
+      reqZ,
+      resZ,
+    );
     if (err != null) throw err;
     return res.channels;
   }
@@ -148,10 +154,17 @@ export type ParamAnalysisResult =
     };
 
 export const analyzeParams = (channels: Params): ParamAnalysisResult => {
-  const normal = (toArray(channels) as KeysOrNames).filter((c) => c != 0);
+  let normal = (toArray(channels) as KeysOrNames).filter((c) => c !== 0);
+  let variant: "names" | "keys" = "keys";
+  if (typeof normal[0] === "string") {
+    if (isNaN(parseInt(normal[0]))) variant = "names";
+    else {
+      normal = normal.map((v) => parseInt(v as string));
+    }
+  }
   return {
     single: !Array.isArray(channels),
-    variant: typeof normal[0] === "number" ? "keys" : "names",
+    variant,
     normalized: normal,
     actual: channels,
   } as const as ParamAnalysisResult;
@@ -187,8 +200,7 @@ export class DebouncedBatchRetriever implements Retriever {
   async retrieve(channels: Params): Promise<Payload[]> {
     const { normalized, variant } = analyzeParams(channels);
     // Bypass on name fetches for now.
-    if (variant === "names") 
-      return await this.wrapped.retrieve(normalized);
+    if (variant === "names") return await this.wrapped.retrieve(normalized);
     // eslint-disable-next-line @typescript-eslint/promise-function-async
     const a = new Promise<Payload[]>((resolve, reject) => {
       void this.mu.runExclusive(() => {
@@ -216,3 +228,18 @@ export class DebouncedBatchRetriever implements Retriever {
     });
   }
 }
+
+export const retrieveRequired = async (
+  r: Retriever,
+  params: Params,
+): Promise<Payload[]> => {
+  const { normalized } = analyzeParams(params);
+  const results = await r.retrieve(normalized);
+  const notFound: KeyOrName[] = [];
+  normalized.forEach((v) => {
+    if (results.find((c) => c.name === v || c.key === v) == null) notFound.push(v);
+  });
+  if (notFound.length > 0)
+    throw new QueryError(`Could not find channels: ${JSON.stringify(notFound)}`);
+  return results;
+};

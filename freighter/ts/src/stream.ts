@@ -47,7 +47,7 @@ export interface StreamSender<RQ extends z.ZodTypeAny> {
   * @raises freighter.StreamClosed: if the client called close_send()
   * @raises Error: if the transport fails.
   */
-  send: (req: z.input<RQ>) => Error | null;
+  send: (req: z.input<RQ> | z.output<RQ>) => Error | null;
 }
 
 /**

@@ -23,9 +23,15 @@ const timeChannel = await client.channels.create({
 }, { retrieveIfNameExists: true });
 
 // Create a data channel that will be used to store our fake sensor data.
-const dataChannel = await client.channels.create({
-    name: "stream_write_example_data",
+const dataChannel1 = await client.channels.create({
+    name: "stream_write_example_data_1",
     dataType: "float32",
+    index: timeChannel.key,
+}, { retrieveIfNameExists: true });
+
+const dataChannel2 = await client.channels.create({
+    name: "stream_write_example_data_2",
+    dataType: "int32",
     index: timeChannel.key,
 }, { retrieveIfNameExists: true });
 
@@ -44,7 +50,7 @@ const commitInterval = 500;
 
 const writer = await client.telem.newWriter({
     start, 
-    channels: [timeChannel.key, dataChannel.key]
+    channels: [timeChannel.key, dataChannel1.key, dataChannel2.key]
 });
 
 try {
@@ -53,12 +59,13 @@ try {
         await new Promise(resolve => setTimeout(resolve, roughRate.period.milliseconds));
         i++;
         const timestamp = TimeStamp.now();
-        const data = Math.sin(i / 10);
-        const fr = new framer.Frame({
-            [timeChannel.key]: new Series({ data: new timeChannel.dataType.Array([timestamp]) }),
-            [dataChannel.key]: new Series({ data: new dataChannel.dataType.Array([data]) })
+        const data2= i % 2;
+        const data1 = Math.sin(i / 10);
+        await writer.write({
+            [timeChannel.key]: timestamp,
+            [dataChannel1.key]: data1,
+            [dataChannel2.key]: data2,
         });
-        await writer.write(fr);
 
         if (i % 60 == 0) 
             console.log(`Writing sample ${i} at ${timestamp.toISOString()}`)
