@@ -60,8 +60,8 @@ export const withinSizeThreshold = (prev: number, next: number): boolean =>
 export const EMPTY_LINEAR_BOUNDS = bounds.DECIMAL;
 const now = TimeStamp.now();
 export const EMPTY_TIME_BOUNDS: bounds.Bounds = {
-  lower: now.valueOf(),
-  upper: now.add(TimeSpan.HOUR).valueOf(),
+  lower: Number(now.valueOf()),
+  upper: Number(now.add(TimeSpan.HOUR).valueOf()),
 };
 
 export const emptyBounds = (type: TickType): bounds.Bounds =>

@@ -40,7 +40,8 @@ export class Writer {
     const res = await sendRequired<typeof createReqZ, typeof createResZ>(
       this.client,
       CREATE_ENDPOINT,
-      createReqZ.parse({ devices }),
+      { devices },
+      createReqZ,
       createResZ,
     );
     return res.devices;
@@ -51,6 +52,7 @@ export class Writer {
       this.client,
       DELETE_ENDPOINT,
       { keys },
+      deleteReqZ,
       deleteResZ,
     );
   }

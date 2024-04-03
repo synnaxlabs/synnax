@@ -1,7 +1,7 @@
 {
   "name": "@synnaxlabs/client",
   "private": false,
-  "version": "0.15.3",
+  "version": "0.17.2",
   "type": "module",
   "description": "The Client Library for Synnax",
   "repository": "https://github.com/synnaxlabs/synnax/tree/main/client/ts",
@@ -39,7 +39,7 @@
     "vite": "^5.1.2",
     "vitest": "^1.2.2"
   },
-  "main": "dist/client.cjs.js",
-  "module": "dist/client.es.js",
+  "main": "dist/client.cjs",
+  "module": "dist/client.js",
   "types": "dist/index.d.ts"
 }

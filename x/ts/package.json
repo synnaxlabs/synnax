@@ -1,7 +1,7 @@
 {
   "name": "@synnaxlabs/x",
   "private": false,
-  "version": "0.12.0",
+  "version": "0.14.1",
   "type": "module",
   "description": "Common Utilities for Synnax Labs",
   "repository": "https://github.com/synnaxlabs/synnax/tree/main/x/go",
@@ -11,7 +11,7 @@
     "data acquisition",
     "big data",
     "telemetry",
-    "control syustems"
+    "control systems"
   ],
   "scripts": {
     "build": "tsc --noEmit && vite build",
@@ -38,7 +38,7 @@
     "vite": "^5.1.2",
     "vitest": "^1.2.2"
   },
-  "main": "dist/x.cjs.js",
-  "module": "dist/x.es.js",
+  "main": "dist/x.cjs",
+  "module": "dist/x.js",
   "types": "dist/index.d.ts"
 }

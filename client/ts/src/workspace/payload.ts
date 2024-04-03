@@ -19,7 +19,7 @@ export type Params = Key | Key[];
 export const workspaceZ = z.object({
   name: z.string(),
   key: keyZ,
-  layout: unknownRecordZ,
+  layout: unknownRecordZ.or(z.string().transform((s) => JSON.parse(s) as UnknownRecord)),
 });
 
 export const workspaceRemoteZ = workspaceZ.omit({ layout: true }).extend({

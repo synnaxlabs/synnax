@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { forwardRef, useEffect, useLayoutEffect } from "react";
+import { forwardRef, useLayoutEffect } from "react";
 
-import { TimeStamp } from "@synnaxlabs/x";
+import { TimeStamp, type xy } from "@synnaxlabs/x";
 
 import { CSS } from "@/css";
 import { DragButton, type DragButtonExtensionProps } from "@/input/DragButton";
@@ -22,9 +22,9 @@ export interface DateProps extends BaseProps<number>, DragButtonExtensionProps {
   showDragHandle?: boolean;
 }
 
-const DRAG_SCALE = {
-  x: TimeStamp.HOUR.valueOf(),
-  y: TimeStamp.days(0.75).valueOf(),
+const DRAG_SCALE: xy.XY = {
+  x: Number(TimeStamp.HOUR.valueOf()),
+  y: Number(TimeStamp.days(0.75).valueOf()),
 };
 
 export interface UseDateProps extends Pick<DateProps, "value" | "onChange"> {}
@@ -46,7 +46,7 @@ export const useDate = ({ value, onChange }: UseDateProps): UseDateReturn => {
     const tsV = local.sub(local.remainder(TimeStamp.DAY));
     // We have a correcly zeroed timestamp in local, now
     // add back the UTC offset to get the UTC timestamp.
-    onChange(new TimeStamp(tsV, "local").valueOf());
+    onChange(Number(new TimeStamp(tsV, "local").valueOf()));
   }, [value]);
 
   const handleChange = (value: string | number): void => {
@@ -61,7 +61,7 @@ export const useDate = ({ value, onChange }: UseDateProps): UseDateReturn => {
     // will prevent values over a day. We interpret the input as
     // local, which adds the UTC offset back in.
     else ts = new TimeStamp(value, "local");
-    onChange(ts.valueOf());
+    onChange(Number(ts.valueOf()));
   };
 
   // The props value is in UTC, but we want the user

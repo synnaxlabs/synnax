@@ -226,6 +226,11 @@ const {
             }
 
             .pluto-dropdown__dialog {
+                position: absolute !important;
+                left: 50% !important;
+                transform: translate(-50%, -20px);
+                width: 80vw;
+                max-width: 900px;
                 .hovered {
                     background: var(--pluto-gray-l3);
                 }
@@ -266,7 +271,7 @@ const {
             --astro-code-token-function: #20a4f3;
             --astro-code-token-punctuation: var(--pluto-text-color);
             --astro-code-token-keyword: #dc136c;
-            --astro-code-token-constant: var(--astro-code-token-string-expression);
+            --astro-code-token-constant: var(--pluto-text-color);
         }
 
         a:hover:not(.pluto-btn) {

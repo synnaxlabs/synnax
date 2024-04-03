@@ -50,7 +50,7 @@ describe("Series", () => {
         dataType: DataType.FLOAT32,
         timeRange: new TimeRange(1, 2),
       });
-      expect(a.timeRange.span.valueOf()).toBe(1);
+      expect(a.timeRange.span.valueOf()).toBe(1n);
     });
 
     describe("allocation", () => {
@@ -104,8 +104,6 @@ describe("Series", () => {
       }).toThrow();
     });
   });
-
-
 
   describe("slice", () => {
     it("should slice a lazy array", () => {

@@ -1,0 +1,49 @@
+---
+layout: "@/layouts/MainLayout.astro"
+title: "Read Telemetry"
+heading: "Read Telemetry"
+description: "Use the Typescript client to stream telemetry from a Synnax cluster"
+---
+
+Streaming telemetry is useful for real-time processing, visualization, and monitoring.
+This page guides you through using the Typescript client to stream telemetry from a 
+Synnax cluster.
+
+## Simple Example
+
+To start streaming data, call the `telem.newStreamer` method on the client and provide
+a list of channels to stream.
+
+```typescript
+const streamer = await client.telem.newStreamer(["temperature1", "temperature2"]);
+```
+
+Then, read the next incoming telemetry frame, call the `read` method on the streamer.
+
+```typescript
+const frame = await streamer.read();
+```
+
+This call will block until a new frame is available. This frame **may not contain data
+for every channel specified**. For example, if we're reading from two sensors that
+are being sampled by different devices at different rates, we may receive a frame
+containing data only for the first channel, followed by a frame containing data only
+for the second channel.
+
+After you're done streaming, it's essential that you call the `close` method on the
+streamer to release the network connection and other related resources. 
+
+```typescript
+streamer.close();
+```
+
+## Using an Async For Loop
+
+The streamer implements an async iterator, which can be useful for continuously 
+processing incoming frames of telemetry.
+
+```typescript
+for await (const frame of streamer) {
+  // Process the frame
+}
+```

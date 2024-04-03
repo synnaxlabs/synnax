@@ -1,12 +1,12 @@
 {
   "name": "@synnaxlabs/console",
   "private": true,
-  "version": "0.19.2",
+  "version": "0.20.0",
   "type": "module",
   "scripts": {
     "dev": "tauri dev",
     "kill": "bash ~/Desktop/synnaxlabs/synnax/console/scripts/kill-dev.zsh",
-    "build": "tauri build",
+    "build": "tsc --noEmit && tauri build",
     "dev-vite": "vite --force",
     "build-vite": "vite build",
     "preview": "vite preview",

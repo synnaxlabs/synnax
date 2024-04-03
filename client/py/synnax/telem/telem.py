@@ -39,6 +39,8 @@ class TimeStamp(int):
     """
 
     def __new__(cls, value: CrudeTimeStamp):
+        if isinstance(value, str):
+            value = int(value)
         if isinstance(value, TimeStamp):
             return value
         if isinstance(value, TimeSpan):
@@ -68,6 +70,7 @@ class TimeStamp(int):
     @classmethod
     def validate(cls, v):
         """Implemented for pydantic validation"""
+        # if its a string, cast the string to a number
         return cls(v)
 
     @classmethod
@@ -200,6 +203,8 @@ class TimeSpan(int):
     """
 
     def __new__(cls, value: CrudeTimeSpan):
+        if isinstance(value, str):
+            value = int(value)
         if isinstance(value, timedelta):
             value = int(float(TimeSpan.SECOND) * value.total_seconds())
         elif isinstance(value, np.timedelta64):
