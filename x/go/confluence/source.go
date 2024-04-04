@@ -12,7 +12,6 @@ package confluence
 import (
 	"context"
 	"fmt"
-	"github.com/sirupsen/logrus"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/signal"
 	"time"
@@ -34,7 +33,7 @@ func (ams *AbstractMultiSource[V]) SendToEach(ctx context.Context, v V) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-time.After(5 * time.Millisecond):
-			logrus.Warn("[confluence.AbstractMultiSource] - slow consumer")
+			fmt.Print("warning - slow source consumer")
 		case inlet.Inlet() <- v:
 		}
 	}
