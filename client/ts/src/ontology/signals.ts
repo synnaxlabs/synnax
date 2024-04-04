@@ -128,7 +128,7 @@ export class ChangeTracker {
   }
 
   static async open(client: FrameClient, retriever: Retriever): Promise<ChangeTracker> {
-    const streamer = await client.newStreamer([
+    const streamer = await client.openStreamer([
       RESOURCE_SET_NAME,
       RESOURCE_DELETE_NAME,
       RELATIONSHIP_SET_NAME,

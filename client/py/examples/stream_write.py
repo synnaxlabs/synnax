@@ -55,7 +55,7 @@ commit_interval = 500
 # closed when we're done writing. We'll write to both the time and data channels. In
 # this example, we provide the keys of the channels we want to write to, but you can
 # also provide the names and write that way.
-with client.new_writer(start, [time_ch.key, data_ch.key]) as writer:
+with client.open_writer(start, [time_ch.key, data_ch.key]) as writer:
     i = 0
     while True:
         # Generate our timestamp and data value

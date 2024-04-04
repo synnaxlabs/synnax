@@ -111,7 +111,7 @@ export class StateTracker implements observe.Observable<Transfer[]> {
   }
 
   static async open(client: FrameClient): Promise<StateTracker> {
-    const streamer = await client.newStreamer("sy_node_1_control");
+    const streamer = await client.openStreamer("sy_node_1_control");
     return new StateTracker(streamer);
   }
 

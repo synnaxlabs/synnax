@@ -26,9 +26,9 @@ const newChannel = async (): Promise<channel.Channel> =>
 describe("Streamer", () => {
   test("happy path", async () => {
     const ch = await newChannel();
-    const streamer = await client.telem.newStreamer(ch.key);
+    const streamer = await client.telem.openStreamer(ch.key);
     await new Promise((resolve) => setTimeout(resolve, 100));
-    const writer = await client.telem.newWriter({
+    const writer = await client.telem.openWriter({
       start: TimeStamp.now(),
       channels: ch.key,
     });

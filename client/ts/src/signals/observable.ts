@@ -71,7 +71,7 @@ export class Observable<K, V>
     deleteChannel: channel.Key | channel.Name,
     ecd: Decoder<K, V>,
   ): Promise<Observable<K, V>> {
-    const stream = await client.newStreamer([
+    const stream = await client.openStreamer([
       setChannel,
       deleteChannel,
     ] as channel.Keys);

@@ -40,7 +40,7 @@ export class Client {
    * @param keys - A list of channel keys to iterate over.
    * @returns a new {@link TypedIterator}.
    */
-  async newIterator(tr: TimeRange, channels: Params): Promise<Iterator> {
+  async openIterator(tr: TimeRange, channels: Params): Promise<Iterator> {
     return await Iterator._open(tr, channels, this.retriever, this.stream);
   }
 
@@ -52,7 +52,7 @@ export class Client {
    * for more information.
    * @returns a new {@link RecordWriter}.
    */
-  async newWriter({
+  async openWriter({
     start,
     channels,
     controlSubject,
@@ -68,7 +68,7 @@ export class Client {
     });
   }
 
-  async newStreamer(
+  async openStreamer(
     params: Params,
     from: TimeStamp = TimeStamp.now(),
   ): Promise<Streamer> {
@@ -85,7 +85,7 @@ export class Client {
    * @throws if the channel does not exist.
    */
   async write(to: KeyOrName, start: CrudeTimeStamp, data: TypedArray): Promise<void> {
-    const w = await this.newWriter({
+    const w = await this.openWriter({
       start,
       channels: to,
       mode: WriterMode.PersistOnly,
@@ -110,7 +110,7 @@ export class Client {
   }
 
   private async readFrame(tr: TimeRange, params: Params): Promise<Frame> {
-    const i = await this.newIterator(tr, params);
+    const i = await this.openIterator(tr, params);
     const frame = new Frame();
     try {
       for await (const f of i) frame.push(f);

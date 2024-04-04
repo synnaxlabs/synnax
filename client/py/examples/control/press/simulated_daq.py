@@ -83,8 +83,8 @@ valve_command_to_response_channels = {
 }
 
 i = 0
-with client.new_streamer([c.key for c in valve_command_channels]) as streamer:
-    with client.new_writer(
+with client.open_streamer([c.key for c in valve_command_channels]) as streamer:
+    with client.open_writer(
         sy.TimeStamp.now(),
         channels=[
             daq_time_ch.key,
