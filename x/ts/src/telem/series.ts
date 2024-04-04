@@ -801,13 +801,18 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
     return this.series.reduce((a, b) => a + b.length, 0);
   }
 
-  at(index: number): T {
+  at(index: number, required: true): T;
+
+  at(index: number, required?: false): T | undefined;
+
+  at(index: number, required: boolean = false): T | undefined {
     if (index < 0) index = this.length + index;
     for (const ser of this.series) {
-      if (index < ser.length) return ser.at(index, true);
+      if (index < ser.length) return ser.at(index, required as true);
       index -= ser.length;
     }
-    throw new Error(`[series] - no value at index ${index}`);
+    if (required) throw new Error(`[series] - no value at index ${index}`);
+    return undefined;
   }
 
   [Symbol.iterator](): Iterator<T> {

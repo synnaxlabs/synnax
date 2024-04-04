@@ -35,6 +35,7 @@ export {
   TimeRange,
   TimeSpan,
   TimeStamp,
+  MultiSeries,
 } from "@synnaxlabs/x";
 export type {
   TypedArray,

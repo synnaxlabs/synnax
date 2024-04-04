@@ -37,6 +37,11 @@ export const typescriptClientNav: PageNavNode = {
             key: "/typescript-client/stream-telemetry",
             href: "/typescript-client/stream-telemetry",
             name: "Stream Telemetry"
+        },
+        {
+            key: "/typescript-client/series-and-frames",
+            href: "/typescript-client/series-and-frames",
+            name: "Series and Frames"
         }
     ]
 }
