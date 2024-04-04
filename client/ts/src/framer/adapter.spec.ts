@@ -41,7 +41,7 @@ describe("WriteFrameAdapter", () => {
     expect(res.series).toHaveLength(2);
     expect(res.get(timeCh.key)).toHaveLength(1);
     expect(res.get(dataCh.key)).toHaveLength(1);
-    expect(res.get(timeCh.key).at(0)).toEqual(Number(ts));
+    expect(res.get(timeCh.key).at(0)).toEqual(ts);
     expect(res.get(dataCh.key).at(0)).toEqual(1);
   });
 
@@ -55,7 +55,7 @@ describe("WriteFrameAdapter", () => {
     expect(res2.series).toHaveLength(2);
     expect(res2.get(timeCh.key)).toHaveLength(1);
     expect(res2.get(dataCh.key)).toHaveLength(1);
-    expect(res2.get(timeCh.key).at(0)).toEqual(Number(ts));
+    expect(res2.get(timeCh.key).at(0)).toEqual(ts);
     expect(res2.get(dataCh.key).at(0)).toEqual(1);
   });
 
@@ -75,7 +75,7 @@ describe("WriteFrameAdapter", () => {
     );
     expect(res4.get(timeCh.key)).toHaveLength(1);
     expect(res4.get(dataCh.key)).toHaveLength(1);
-    expect(res4.get(timeCh.key).at(0)).toEqual(Number(ts));
+    expect(res4.get(timeCh.key).at(0)).toEqual(ts);
     expect(res4.get(dataCh.key).at(0)).toEqual(1);
   });
 
@@ -88,7 +88,7 @@ describe("WriteFrameAdapter", () => {
     const res = await adapter.adapt(fr);
     expect(res.columns).toHaveLength(2);
     expect(res.series).toHaveLength(2);
-    expect(res.get(timeCh.key).at(0)).toEqual(Number(ts));
+    expect(res.get(timeCh.key).at(0)).toEqual(ts);
     expect(res.get(dataCh.key).at(0)).toEqual(1);
   });
 
@@ -101,7 +101,7 @@ describe("WriteFrameAdapter", () => {
     const res = await adapter.adapt(fr);
     expect(res.columns).toHaveLength(2);
     expect(res.series).toHaveLength(2);
-    expect(res.get(timeCh.key).at(0)).toEqual(Number(ts));
+    expect(res.get(timeCh.key).at(0)).toEqual(ts);
     expect(res.get(dataCh.key).at(0)).toEqual(1);
   });
 
@@ -113,6 +113,6 @@ describe("WriteFrameAdapter", () => {
     expect(res.columns).toHaveLength(1);
     expect(res.series).toHaveLength(1);
     expect(res.get(timeCh.key)).toHaveLength(1);
-    expect(res.get(timeCh.key).at(0)).toEqual(Number(ts));
+    expect(res.get(timeCh.key).at(0)).toEqual(ts);
   });
 });

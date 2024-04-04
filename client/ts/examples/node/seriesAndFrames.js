@@ -60,5 +60,104 @@ const tr = new TimeRange(start, start.add(TimeSpan.seconds(5)));
 series = new Series({
   data: [1, 2, 3, 4, 5],
   dataType: "float64",
-  timeRange: new TimeRange({ start, end: start.add(TimeSpan.seconds(6)) })
+  timeRange: new TimeRange(start, start.add(TimeSpan.seconds(6)))
 });
+
+series = new Series([1, 2, 3, 4, 5]);
+console.log(series.length); // 5
+
+const stringSeries = new Series(["apple", "banana", "cherry"]);
+console.log(stringSeries.length); // 3
+
+import { DataType } from "@synnaxlabs/client";
+
+series = new Series([1, 2, 3, 4, 5]);
+console.log(series.dataType.toString()); // "float64"
+console.log(series.dataType.equals(DataType.STRING)); // true
+
+series = new Series([1, 2, 3, 4, 5]);
+console.log(series.max); // 5
+console.log(series.min); // 1
+console.log(series.bounds); // { lower: 1, upper: 5 }
+
+import { Frame } from "@synnaxlabs/client";
+
+// Construct a frame for the given channel names.
+let frame = new Frame({
+  "channel1": new Series([1, 2, 3, 4, 5]),
+  "channel2": new Series([5, 4, 3, 2, 1]),
+  "channel3": new Series([1, 1, 1, 1, 1]),
+});
+
+// Construct a frame for the given channel keys
+frame = new Frame({
+  1: new Series([1, 2, 3, 4, 5]),
+  2: new Series([5, 4, 3, 2, 1]),
+  // Notice that series do not need to be the same length.
+  3: new Series([1, 1, 1]),
+});
+
+// Construct a frame from a map
+frame = new Frame(new Map([
+  ["channel1", new Series([1, 2, 3, 4, 5])],
+  ["channel2", new Series([5, 4, 3, 2, 1])],
+  ["channel3", new Series([1, 1, 1, 1, 1])],
+]));
+
+// Or from an array of keys and series
+frame = new Frame(["channel1", "channel2", "channel3"], [
+  new Series([1, 2, 3, 4, 5]),
+  new Series([5, 4, 3, 2, 1]),
+  new Series([1, 1, 1, 1, 1]),
+]);
+
+// Or construct a frame with multiple series for a single channel
+frame = new Frame({
+  "channel1": [
+    new Series([1, 2, 3, 4, 5]),
+    new Series([5, 4, 3, 2, 1]),
+    new Series([1, 1, 1, 1, 1]),
+  ],
+  "channel2": [
+    new Series([1, 2, 3, 4, 5]),
+  ],
+});
+
+import { MultiSeries } from "@synnaxlabs/client";
+
+frame = new Frame({
+  "channel1": [new Series([1, 2]), new Series([3, 4, 5])],
+  "channel2": new Series([5, 4, 3, 2, 1]),
+  "channel3": new Series([1, 1, 1, 1, 1]),
+});
+
+const multiSeries = frame.get("channel1");
+// Access a value
+console.log(multiSeries.at(0)); // 1
+
+// Access a value from a specific series
+console.log(multiSeries.series[0].at(0)); // 1
+
+// Construct a Javascript array from the MultiSeries
+jsArray = [...multiSeries];
+console.log(jsArray); // [ 1, 2, 3, 4, 5 ]
+
+frame = new Frame({
+  "channel1": new Series([1, 2, 3, 4, 5]),
+  "channel2": new Series([5, 4, 3, 2, 1]),
+  "channel3": new Series([1, 1]),
+});
+
+let obj = frame.at(3);
+console.log(obj); // { channel1: 1, channel2: 5, channel3: undefined }
+
+frame = new Frame({
+  "channel1": new Series([1, 2, 3, 4, 5]),
+  "channel2": new Series([5, 4, 3, 2, 1]),
+  "channel3": new Series([1, 1]),
+});
+try {
+  obj = frame.at(3, true); // Throws an error
+} catch (e) {
+  console.log(e.message); // no value at index 
+}
