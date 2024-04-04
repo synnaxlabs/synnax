@@ -102,6 +102,8 @@ func (l *streamer) Flow(sCtx signal.Context, opts ...confluence.Option) {
 					return nil
 				}
 				if err := signal.SendUnderContext(ctx, l.Out.Inlet(), StreamerResponse{Frame: res.Frame}); err != nil {
+					l.relay.requests.Close()
+					confluence.Drain(l.relay.responses)
 					return err
 				}
 			case req, ok := <-l.In.Outlet():
@@ -116,6 +118,8 @@ func (l *streamer) Flow(sCtx signal.Context, opts ...confluence.Option) {
 					l.Out.Inlet() <- StreamerResponse{Frame: core.NewFrameFromStorage(u)}
 				}
 				if err := signal.SendUnderContext(ctx, l.relay.requests.Inlet(), relay.Request{Keys: req.Keys}); err != nil {
+					l.relay.requests.Close()
+					confluence.Drain(l.relay.responses)
 					return err
 				}
 			}
@@ -157,6 +161,8 @@ func (s *Service) NewStreamer(ctx context.Context, cfg StreamerConfig) (Streamer
 		return nil, err
 	}
 	relayReq, relayRes := confluence.Attach(rel, 30)
+	relayReq.SetInletAddress("relay-reader")
+	relayRes.SetOutletAddress("relay-reader")
 	l.relay.flow = rel
 	l.relay.requests = relayReq
 	l.relay.responses = relayRes

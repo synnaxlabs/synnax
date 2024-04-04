@@ -12,8 +12,10 @@ package confluence
 import (
 	"context"
 	"fmt"
+	"github.com/sirupsen/logrus"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/signal"
+	"time"
 )
 
 // AbstractMultiSource is a basic implementation of a Source that can send values to
@@ -28,8 +30,12 @@ func (ams *AbstractMultiSource[V]) OutTo(inlets ...Inlet[V]) { ams.Out = append(
 // SendToEach sends the provided value to each Inlet in the Source.
 func (ams *AbstractMultiSource[V]) SendToEach(ctx context.Context, v V) error {
 	for _, inlet := range ams.Out {
-		if err := signal.SendUnderContext(ctx, inlet.Inlet(), v); err != nil {
-			return err
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(5 * time.Millisecond):
+			logrus.Warn("[confluence.AbstractMultiSource] - slow consumer")
+		case inlet.Inlet() <- v:
 		}
 	}
 	return nil
