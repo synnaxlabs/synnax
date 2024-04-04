@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { DataType, Rate, TimeStamp } from "@synnaxlabs/x";
-import { describe, test, expect } from "vitest";
+import { describe, test, expect, it } from "vitest";
 
 import { type channel } from "@/channel";
 import { newClient } from "@/setupspecs";
@@ -39,5 +39,17 @@ describe("Streamer", () => {
     }
     const d = await streamer.read();
     expect(d.get(ch.key)[0].data).toEqual(new Float64Array([1, 2, 3]));
+  });
+  test("open with config", async () => {
+    const ch = await newChannel();
+    await expect(
+      client.telem.openStreamer({
+        channels: ch.key,
+        from: TimeStamp.now(),
+      }),
+    ).resolves.not.toThrow();
+  });
+  it("should not throw an error when the streamer is opened with zero channels", async () => {
+    await expect(client.telem.openStreamer([])).resolves.not.toThrow();
   });
 });
