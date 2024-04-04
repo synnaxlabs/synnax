@@ -877,15 +877,24 @@ export class TimeRange implements Stringer {
    */
   end: TimeStamp;
 
+  constructor(tr: CrudeTimeRange);
+
+  constructor(start: CrudeTimeStamp, end: CrudeTimeStamp);
+
   /**
    * Creates a TimeRange from the given start and end TimeStamps.
    *
    * @param start - A TimeStamp representing the start of the range.
    * @param end - A TimeStamp representing the end of the range.
    */
-  constructor(start: CrudeTimeStamp, end: CrudeTimeStamp) {
-    this.start = new TimeStamp(start);
-    this.end = new TimeStamp(end);
+  constructor(start: CrudeTimeStamp | CrudeTimeRange, end?: CrudeTimeStamp) {
+    if (typeof start === "object" && "start" in start) {
+      this.start = new TimeStamp(start.start);
+      this.end = new TimeStamp(start.end);
+    } else {
+      this.start = new TimeStamp(start);
+      this.end = new TimeStamp(end);
+    }
   }
 
   /** @returns The TimeSpan occupied by the TimeRange. */

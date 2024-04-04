@@ -35,3 +35,30 @@ series = new Series([1, 2, 3, 4, 5]);
 let easierSeries = series.as("number");
 // Now we have a guarantee that this is a series of numbers.
 v = easierSeries.at(0);
+console.log(v);
+
+series = new Series({ data: [1, 2, 3, 4, 5], dataType: "int8" });
+const ta = series.data;
+console.log(ta); // Int8Array [ 1, 2, 3, 4, 5 ]
+
+series = new Series([1, 2, 3, 4, 5]);
+let jsArray = [...series];
+console.log(jsArray); // [ 1, 2, 3, 4, 5 ]
+const jsArray2 = Array.from(series);
+console.log(jsArray2); // [ 1, 2, 3, 4, 5 ]
+
+series = new Series([{ red: "cherry", yellow: "banana", orange: "orange" }]);
+jsArray = [...series];
+console.log(jsArray); // [ { red: 'cherry', yellow: 'banana', orange: 'orange' } ]
+
+import { TimeRange, TimeStamp, TimeSpan } from "@synnaxlabs/client";
+
+const start = TimeStamp.now();
+
+const tr = new TimeRange(start, start.add(TimeSpan.seconds(5)));
+
+series = new Series({
+  data: [1, 2, 3, 4, 5],
+  dataType: "float64",
+  timeRange: new TimeRange({ start, end: start.add(TimeSpan.seconds(6)) })
+});

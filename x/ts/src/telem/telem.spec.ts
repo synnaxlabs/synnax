@@ -314,6 +314,15 @@ describe("TimeRange", () => {
     expect(tr.end.equals(new TimeStamp(1000))).toBeTruthy();
   });
 
+  test("construct from object", () => {
+    const tr = new TimeRange({
+      start: new TimeStamp(1000),
+      end: new TimeStamp(100000),
+    });
+    expect(tr.start.equals(new TimeStamp(1000))).toBeTruthy();
+    expect(tr.end.equals(new TimeStamp(100000))).toBeTruthy();
+  });
+
   test("span", () => {
     const tr = new TimeRange(new TimeStamp(0), new TimeStamp(1000));
     expect(tr.span.equals(TimeSpan.MICROSECOND)).toBeTruthy();
