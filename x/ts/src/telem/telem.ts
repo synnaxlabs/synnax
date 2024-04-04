@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod";
+import { object, z } from "zod";
 
 import { type Stringer } from "@/primitive";
 import { addSamples } from "@/telem/series";
@@ -1390,7 +1390,7 @@ type TypedArrayConstructor =
   | Int16ArrayConstructor
   | Int32ArrayConstructor
   | BigInt64ArrayConstructor;
-type NumericTelemValue = number | bigint;
+export type NumericTelemValue = number | bigint;
 export type TelemValue =
   | number
   | bigint

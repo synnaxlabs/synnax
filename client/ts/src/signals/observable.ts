@@ -55,11 +55,11 @@ export class Observable<K, V>
       const changes: Array<change.Change<K, V>> = [];
       if (this.deleteChannel != null) {
         const deletes = frame.get(this.deleteChannel);
-        changes.push(...deletes.flatMap((s) => this.decoder("delete", s)));
+        changes.push(...deletes.series.flatMap((s) => this.decoder("delete", s)));
       }
       if (this.setChannel != null) {
         const sets = frame.get(this.setChannel);
-        changes.push(...sets.flatMap((s) => this.decoder("set", s)));
+        changes.push(...sets.series.flatMap((s) => this.decoder("set", s)));
       }
       this.base.notify(changes);
     }

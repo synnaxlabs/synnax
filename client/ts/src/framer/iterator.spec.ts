@@ -52,7 +52,7 @@ describe("Iterator", () => {
       let c = 0;
       while (await iter.next(TimeSpan.seconds(1))) {
         c++;
-        expect(iter.value.get(ch.key)[0]).toHaveLength(25);
+        expect(iter.value.get(ch.key)).toHaveLength(25);
       }
       expect(c).toEqual(3);
     } finally {

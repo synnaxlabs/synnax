@@ -400,4 +400,32 @@ describe("framer.Frame", () => {
       expect(f.latest()).toEqual({ 12: 3, 13: 3 });
     });
   });
+
+  describe("sample access", () => {
+    it("should return the sample at the given index", () => {
+      const f = new framer.Frame(
+        new Map([
+          [
+            12,
+            [
+              new Series({
+                data: new Float32Array([1, 2, 3]),
+                timeRange: new TimeRange(40, 50000),
+              }),
+            ],
+          ],
+          [
+            13,
+            [
+              new Series({
+                data: new Float32Array([1, 2, 3]),
+                timeRange: new TimeRange(500, 50001),
+              }),
+            ],
+          ],
+        ]),
+      );
+      expect(f.get(12).at(0)).toEqual(1);
+    });
+  });
 });

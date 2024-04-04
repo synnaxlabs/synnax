@@ -16,6 +16,7 @@ import {
   unique,
   TimeStamp,
   type TelemValue,
+  MultiSeries,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -252,10 +253,7 @@ export class Frame {
     }
     const group = this.get(col);
     if (group == null) return TimeRange.ZERO;
-    return new TimeRange(
-      group[0].timeRange.start,
-      group[group.length - 1].timeRange.end,
-    );
+    return group.timeRange;
   }
 
   latest(): Record<string, TelemValue> {
@@ -274,7 +272,7 @@ export class Frame {
    * @returns lazy arrays matching the given channel key or name.
    * @param key the channel key or name.
    */
-  get(key: KeyOrName): Series[];
+  get(key: KeyOrName): MultiSeries;
 
   /**
    * @returns a frame with the given channel keys or names.
@@ -282,9 +280,9 @@ export class Frame {
    */
   get(keys: Keys | Names): Frame;
 
-  get(key: KeyOrName | Keys | Names): Series[] | Frame {
+  get(key: KeyOrName | Keys | Names): MultiSeries | Frame {
     if (Array.isArray(key)) return this.filter((k) => (key as Keys).includes(k as Key));
-    return this.series.filter((_, i) => this.columns[i] === key);
+    return new MultiSeries(this.series.filter((_, i) => this.columns[i] === key));
   }
 
   /**

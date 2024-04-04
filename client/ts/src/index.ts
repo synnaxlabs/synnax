@@ -44,7 +44,8 @@ export type {
   CrudeSize,
   CrudeTimeSpan,
   CrudeTimeStamp,
-  SampleValue,
+  TelemValue,
+  NumericTelemValue,
   TimeStampStringFormat,
   TZInfo,
 } from "@synnaxlabs/x";

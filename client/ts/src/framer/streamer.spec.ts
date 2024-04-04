@@ -38,7 +38,7 @@ describe("Streamer", () => {
       await writer.close();
     }
     const d = await streamer.read();
-    expect(d.get(ch.key)[0].data).toEqual(new Float64Array([1, 2, 3]));
+    expect(Array.from(d.get(ch.key))).toEqual([1, 2, 3]);
   });
   test("open with config", async () => {
     const ch = await newChannel();
