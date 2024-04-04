@@ -220,9 +220,10 @@ const {
             left: 50%;
             z-index: 50000;
             transform: translateX(-50%);
+
             & .pluto-input {
                 width: 80vw;
-                max-width: 900px;
+                max-width: 700px;
             }
 
             .pluto-dropdown__dialog {
@@ -230,7 +231,7 @@ const {
                 left: 50% !important;
                 transform: translate(-50%, -20px);
                 width: 80vw;
-                max-width: 900px;
+                max-width: 700px;
                 .hovered {
                     background: var(--pluto-gray-l3);
                 }
@@ -252,6 +253,15 @@ const {
 
                 & a:hover {
                     text-decoration: none;
+                }
+            }
+
+            @media (max-width: 700px) {
+                & .pluto-input {
+                    width: 200px;
+                }
+                & .pluto-dropdown__dialog {
+                    width: 200px;
                 }
             }
         }

@@ -42,6 +42,11 @@ export const typescriptClientNav: PageNavNode = {
             key: "/typescript-client/series-and-frames",
             href: "/typescript-client/series-and-frames",
             name: "Series and Frames"
+        },
+        {
+            key: "/typescript-client/examples",
+            href: "/typescript-client/examples",
+            name: "Examples"
         }
     ]
 }

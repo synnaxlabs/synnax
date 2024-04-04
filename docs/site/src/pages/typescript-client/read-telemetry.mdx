@@ -14,9 +14,9 @@ on a channel.
 
 ```typescript
 
-channel = await client.channels.retrieve("temperature");
-start = new Date('2023-02-12T12:30:00Z');
-end = new Date('2022-02-12T14:30:00Z');
+const channel = await client.channels.retrieve("temperature");
+const start = new Date('2023-02-12T12:30:00Z');
+const end = new Date('2022-02-12T14:30:00Z');
 
 const data = await channel.read(start, end);
 ```
