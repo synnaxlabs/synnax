@@ -24,15 +24,16 @@ const read_from = [
     "stream_write_example_data_2"
 ]
 
-const streamer = await client.telem.newStreamer(read_from);
+const streamer = await client.telem.openStreamer(read_from);
 
 // It's very important that we close the streamer when we're done with it to release 
 // network connections and other resources, so we wrap the streaming loop in a try-finally
 // block.
 try {
     // Loop through the frames in the streamer. Each iteration will block until a new 
-    // frame is available, and then we'll just print it out.
-    for await (const frame of streamer) console.log(frame.latest());
+    // frame is available, and then we'll just print out the last sample for each
+    // channel in the frame.
+    for await (const frame of streamer) console.log(frame.at(-1));
 } finally {
     streamer.close();
     // Close the client when we're done with it.

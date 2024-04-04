@@ -529,6 +529,49 @@ describe("Series", () => {
       ]);
     });
   });
+
+  describe("as", () => {
+    describe("number", () => {
+      it("should correctly interpret the series as numeric", () => {
+        const s = new Series([1, 2, 3]);
+        const s2 = s.as("number");
+        expect(s2.at(0)).toEqual(1);
+      });
+      it("should throw an error if the series is not numeric", () => {
+        const s = new Series(["a", "b", "c"]);
+        expect(() => {
+          s.as("number");
+        }).toThrow();
+      });
+    });
+    describe("string", () => {
+      it("should correctly interpret the series as a string", () => {
+        const s = new Series(["apple", "banana", "carrot"]);
+        const s2 = s.as("string");
+        expect(s2.at(0)).toEqual("apple");
+      });
+      it("should throw an error if the series is not a string", () => {
+        const s = new Series([1, 2, 3]);
+        expect(() => {
+          s.as("string");
+        }).toThrow();
+      });
+    });
+    describe("bigint", () => {
+      it("should correctly interpret the series as a bigint", () => {
+        const s = new Series([BigInt(1), BigInt(2), BigInt(3)]);
+        console.log(s.dataType);
+        const s2 = s.as("bigint");
+        expect(s2.at(0)).toEqual(BigInt(1));
+      });
+      it("should throw an error if the series is not a bigint", () => {
+        const s = new Series([1, 2, 3]);
+        expect(() => {
+          s.as("bigint");
+        }).toThrow();
+      });
+    });
+  });
 });
 
 describe("MultiSeries", () => {

@@ -48,7 +48,7 @@ const roughRate = Rate.hz(40);
 // historical reads every 500 samples.
 const commitInterval = 500;
 
-const writer = await client.telem.newWriter({
+const writer = await client.telem.openWriter({
     start, 
     channels: [timeChannel.key, dataChannel1.key, dataChannel2.key]
 });

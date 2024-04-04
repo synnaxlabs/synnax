@@ -149,7 +149,7 @@ method on the client.
 ```typescript
 import { TimeStamp, Series, Frame } from "@synnaxlabs/client";
 
-const writer = await client.telem.newWriter({
+const writer = await client.telem.openWriter({
     start: TimeStamp.now(),
     channels: [timeChannel.key, temperatureChannel.key]
 });

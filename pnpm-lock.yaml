@@ -847,9 +847,6 @@ importers:
       js-convert-case:
         specifier: ^4.2.0
         version: 4.2.0
-      msgpackr:
-        specifier: ^1.9.9
-        version: 1.9.9
       nanoid:
         specifier: ^3.0.0
         version: 3.0.0
@@ -9606,7 +9603,7 @@ packages:
       std-env: 3.7.0
       test-exclude: 6.0.0
       v8-to-istanbul: 9.2.0
-      vitest: 1.2.2(@vitest/ui@1.0.4)(jsdom@23.0.1)
+      vitest: 1.2.2(@types/node@20.8.7)
     transitivePeerDependencies:
       - supports-color
     dev: true
@@ -15974,12 +15971,6 @@ packages:
 
   /msgpackr@1.10.0:
     resolution: {integrity: sha512-rVQ5YAQDoZKZLX+h8tNq7FiHrPJoeGHViz3U4wIcykhAEpwF/nH2Vbk8dQxmpX5JavkI8C7pt4bnkJ02ZmRoUw==}
-    optionalDependencies:
-      msgpackr-extract: 3.0.2
-    dev: false
-
-  /msgpackr@1.9.9:
-    resolution: {integrity: sha512-sbn6mioS2w0lq1O6PpGtsv6Gy8roWM+o3o4Sqjd6DudrL/nOugY+KyJUimoWzHnf9OkO0T6broHFnYE/R05t9A==}
     optionalDependencies:
       msgpackr-extract: 3.0.2
     dev: false

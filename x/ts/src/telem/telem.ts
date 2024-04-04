@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { object, z } from "zod";
+import { z } from "zod";
 
 import { type Stringer } from "@/primitive";
 import { addSamples } from "@/telem/series";
@@ -1047,6 +1047,18 @@ export class DataType extends String implements Stringer {
 
   get isVariable(): boolean {
     return this.equals(DataType.JSON) || this.equals(DataType.STRING);
+  }
+
+  get isNumeric(): boolean {
+    return !this.isVariable && !this.equals(DataType.UUID);
+  }
+
+  get isInteger(): boolean {
+    return this.toString().startsWith("int");
+  }
+
+  get isFloat(): boolean {
+    return this.toString().startsWith("float");
   }
 
   get density(): Density {

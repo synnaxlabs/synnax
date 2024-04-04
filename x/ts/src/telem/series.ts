@@ -577,20 +577,35 @@ export class Series<T extends TelemValue = TelemValue> {
     }
   }
 
-  as(dataType: "string"): Series<string>;
+  as(jsType: "string"): Series<string>;
 
-  as(dataType: "number"): Series<number>;
+  as(jsType: "number"): Series<number>;
 
-  as(dataType: "bigint"): Series<bigint>;
+  as(jsType: "bigint"): Series<bigint>;
 
-  as(dataType: "numeric"): Series<NumericTelemValue>;
-
-  as<T extends TelemValue>(dataType: CrudeDataType): Series<T> {
-    if (!new DataType(dataType).equals(this.dataType))
-      throw new Error(
-        `cannot convert series of type ${this.dataType.toString()} to ${dataType.toString()}`,
-      );
-    return this as unknown as Series<T>;
+  as<T extends TelemValue>(jsType: "string" | "number" | "bigint"): Series<T> {
+    if (jsType === "string") {
+      if (!this.dataType.equals(DataType.STRING))
+        throw new Error(
+          `cannot convert series of type ${this.dataType.toString()} to string`,
+        );
+      return this as unknown as Series<T>;
+    }
+    if (jsType === "number") {
+      if (!this.dataType.isNumeric)
+        throw new Error(
+          `cannot convert series of type ${this.dataType.toString()} to number`,
+        );
+      return this as unknown as Series<T>;
+    }
+    if (jsType === "bigint") {
+      if (!this.dataType.equals(DataType.INT64))
+        throw new Error(
+          `cannot convert series of type ${this.dataType.toString()} to bigint`,
+        );
+      return this as unknown as Series<T>;
+    }
+    throw new Error(`cannot convert series to ${jsType as string}`);
   }
 
   get digest(): SeriesDigest {
@@ -748,6 +763,8 @@ export const addSamples = (
 ): NumericTelemValue => {
   if (typeof a === "bigint" && typeof b === "bigint") return a + b;
   if (typeof a === "number" && typeof b === "number") return a + b;
+  if (b === 0) return a;
+  if (a === 0) return b;
   return Number(a) + Number(b);
 };
 
@@ -764,13 +781,11 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
     this.series = series;
   }
 
-  as(dataType: "string"): MultiSeries<string>;
+  as(jsType: "string"): MultiSeries<string>;
 
-  as(dataType: "number"): MultiSeries<number>;
+  as(jsType: "number"): MultiSeries<number>;
 
-  as(dataType: "bigint"): MultiSeries<bigint>;
-
-  as(dataType: "numeric"): MultiSeries<NumericTelemValue>;
+  as(jsType: "bigint"): MultiSeries<bigint>;
 
   as<T extends TelemValue>(dataType: CrudeDataType): MultiSeries<T> {
     if (!new DataType(dataType).equals(this.dataType))
