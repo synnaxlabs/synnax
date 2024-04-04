@@ -11,7 +11,7 @@ import { describe, expect, test, it } from "vitest";
 import { z } from "zod";
 
 import { MockGLBufferController } from "@/mock/MockGLBufferController";
-import { Series, isCrudeSeries } from "@/telem/series";
+import { Series, isCrudeSeries, MultiSeries } from "@/telem/series";
 import { DataType, Rate, Size, TimeRange, TimeSpan, TimeStamp } from "@/telem/telem";
 
 describe("Series", () => {
@@ -193,6 +193,48 @@ describe("Series", () => {
       });
       expect(() => {
         series.at(3, true);
+      }).toThrow();
+    });
+    it("should return the correct value for a string series", () => {
+      const series = new Series({
+        data: ["apple", "banana", "carrot"],
+        dataType: DataType.STRING,
+      });
+      expect(series.at(0)).toEqual("apple");
+      expect(series.at(1)).toEqual("banana");
+      expect(series.at(2)).toEqual("carrot");
+      expect(series.at(-1)).toEqual("carrot");
+    });
+    it("should return the correct value for a JSON series", () => {
+      const series = new Series({
+        data: [
+          { a: 1, b: "apple" },
+          { a: 2, b: "banana" },
+        ],
+        dataType: DataType.JSON,
+      });
+      expect(series.at(0)).toEqual({ a: 1, b: "apple" });
+      expect(series.at(1)).toEqual({ a: 2, b: "banana" });
+    });
+    it("should throw an error if the index is out of bounds for a string series", () => {
+      const series = new Series({
+        data: ["apple", "banana", "carrot"],
+        dataType: DataType.STRING,
+      });
+      expect(() => {
+        series.at(3, true);
+      }).toThrow();
+    });
+    it("should throw an error if the index is out of bounds for a JSON series", () => {
+      const series = new Series({
+        data: [
+          { a: 1, b: "apple" },
+          { a: 2, b: "banana" },
+        ],
+        dataType: DataType.JSON,
+      });
+      expect(() => {
+        series.at(2, true);
       }).toThrow();
     });
   });
@@ -459,6 +501,154 @@ describe("Series", () => {
       series.write(writeOne);
       expect(series.binarySearch(3)).toEqual(2);
       expect(series.binarySearch(6)).toEqual(5);
+    });
+  });
+
+  describe("array construction", () => {
+    it("should correctly a JS array from a series", () => {
+      const s = new Series([1, 2, 3]);
+      const arr = Array.from(s);
+      expect(arr).toEqual([1, 2, 3]);
+    });
+    it("should correctly construct a js array from a string series", () => {
+      const s = new Series(["apple", "banana", "carrot"]);
+      const arr = Array.from(s);
+      expect(arr).toEqual(["apple", "banana", "carrot"]);
+    });
+    it("should correctly construct a JS array from a JSON series", () => {
+      const s = new Series([
+        { a: 1, b: "apple" },
+        { a: 2, b: "banana" },
+        { a: 3, b: "carrot" },
+      ]);
+      const arr = Array.from(s);
+      expect(arr).toEqual([
+        { a: 1, b: "apple" },
+        { a: 2, b: "banana" },
+        { a: 3, b: "carrot" },
+      ]);
+    });
+  });
+
+  describe("as", () => {
+    describe("number", () => {
+      it("should correctly interpret the series as numeric", () => {
+        const s = new Series([1, 2, 3]);
+        const s2 = s.as("number");
+        expect(s2.at(0)).toEqual(1);
+      });
+      it("should throw an error if the series is not numeric", () => {
+        const s = new Series(["a", "b", "c"]);
+        expect(() => {
+          s.as("number");
+        }).toThrow();
+      });
+    });
+    describe("string", () => {
+      it("should correctly interpret the series as a string", () => {
+        const s = new Series(["apple", "banana", "carrot"]);
+        const s2 = s.as("string");
+        expect(s2.at(0)).toEqual("apple");
+      });
+      it("should throw an error if the series is not a string", () => {
+        const s = new Series([1, 2, 3]);
+        expect(() => {
+          s.as("string");
+        }).toThrow();
+      });
+    });
+    describe("bigint", () => {
+      it("should correctly interpret the series as a bigint", () => {
+        const s = new Series([BigInt(1), BigInt(2), BigInt(3)]);
+        console.log(s.dataType);
+        const s2 = s.as("bigint");
+        expect(s2.at(0)).toEqual(BigInt(1));
+      });
+      it("should throw an error if the series is not a bigint", () => {
+        const s = new Series([1, 2, 3]);
+        expect(() => {
+          s.as("bigint");
+        }).toThrow();
+      });
+    });
+  });
+});
+
+describe("MultiSeries", () => {
+  describe("length", () => {
+    it("should correctly return the length of the multi-series", () => {
+      const a = new Series(new Float32Array([1, 2, 3]));
+      const b = new Series(new Float32Array([4, 5, 6]));
+      const multi = new MultiSeries([a, b]);
+      expect(multi.length).toEqual(6);
+    });
+  });
+  describe("at", () => {
+    it("should correctly return the value at a particular index", () => {
+      const a = new Series(new Float32Array([1, 2, 3]));
+      const b = new Series(new Float32Array([4, 5, 6]));
+      const multi = new MultiSeries([a, b]);
+      expect(multi.at(0)).toEqual(1);
+      expect(multi.at(1)).toEqual(2);
+      expect(multi.at(2)).toEqual(3);
+      expect(multi.at(3)).toEqual(4);
+      expect(multi.at(4)).toEqual(5);
+      expect(multi.at(5)).toEqual(6);
+    });
+    it("should correctly return a value via negative indexing", () => {
+      const a = new Series(new Float32Array([1, 2, 3]));
+      const b = new Series(new Float32Array([4, 5, 6]));
+      const multi = new MultiSeries([a, b]);
+      expect(multi.at(-1)).toEqual(6);
+      expect(multi.at(-2)).toEqual(5);
+      expect(multi.at(-3)).toEqual(4);
+      expect(multi.at(-4)).toEqual(3);
+      expect(multi.at(-5)).toEqual(2);
+      expect(multi.at(-6)).toEqual(1);
+    });
+  });
+
+  describe("array construction", () => {
+    it("should correctly construct a JS array from a multi-series", () => {
+      const a = new Series(new Float32Array([1, 2, 3]));
+      const b = new Series(new Float32Array([4, 5, 6]));
+      const multi = new MultiSeries([a, b]);
+      const arr = Array.from(multi);
+      expect(arr).toEqual([1, 2, 3, 4, 5, 6]);
+    });
+    it("should correctly construct a JS array from a multi-series of strings", () => {
+      const a = new Series(["apple", "banana", "carrot"]);
+      const b = new Series(["dog", "elephant", "fox"]);
+      const multi = new MultiSeries([a, b]);
+      const arr = Array.from(multi);
+      expect(arr).toEqual(["apple", "banana", "carrot", "dog", "elephant", "fox"]);
+    });
+    it("should correctly construct a JS array from a multi-series of JSON", () => {
+      const a = new Series([
+        { a: 1, b: "apple" },
+        { a: 2, b: "banana" },
+        { a: 3, b: "carrot" },
+      ]);
+      const b = new Series([
+        { a: 4, b: "dog" },
+        { a: 5, b: "elephant" },
+        { a: 6, b: "fox" },
+      ]);
+      const multi = new MultiSeries([a, b]);
+      const arr = Array.from(multi);
+      expect(arr).toEqual([
+        { a: 1, b: "apple" },
+        { a: 2, b: "banana" },
+        { a: 3, b: "carrot" },
+        { a: 4, b: "dog" },
+        { a: 5, b: "elephant" },
+        { a: 6, b: "fox" },
+      ]);
+    });
+    it("should correctly construct a JS array from a multi-series with no series", () => {
+      const multi = new MultiSeries([]);
+      const arr = Array.from(multi);
+      expect(arr).toEqual([]);
     });
   });
 });

@@ -16,6 +16,7 @@ import {
   unique,
   TimeStamp,
   type TelemValue,
+  MultiSeries,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -34,6 +35,7 @@ const columnType = (columns: Params): ColumnType => {
   const arrKeys = toArray(columns);
   if (arrKeys.length === 0) return null;
   if (typeof arrKeys[0] === "number") return "key";
+  if (!isNaN(parseInt(arrKeys[0]))) return "key";
   return "name";
 };
 
@@ -252,18 +254,11 @@ export class Frame {
     }
     const group = this.get(col);
     if (group == null) return TimeRange.ZERO;
-    return new TimeRange(
-      group[0].timeRange.start,
-      group[group.length - 1].timeRange.end,
-    );
+    return group.timeRange;
   }
 
-  latest(): Record<string, TelemValue> {
-    return Object.fromEntries(
-      this.columns
-        .map((c, i) => [c, this.series[i].at(-1)])
-        .filter(([_, v]) => v != null),
-    );
+  latest(): Record<string, TelemValue | undefined> {
+    return this.at(-1);
   }
 
   get timeRanges(): TimeRange[] {
@@ -274,7 +269,7 @@ export class Frame {
    * @returns lazy arrays matching the given channel key or name.
    * @param key the channel key or name.
    */
-  get(key: KeyOrName): Series[];
+  get(key: KeyOrName): MultiSeries;
 
   /**
    * @returns a frame with the given channel keys or names.
@@ -282,9 +277,9 @@ export class Frame {
    */
   get(keys: Keys | Names): Frame;
 
-  get(key: KeyOrName | Keys | Names): Series[] | Frame {
+  get(key: KeyOrName | Keys | Names): MultiSeries | Frame {
     if (Array.isArray(key)) return this.filter((k) => (key as Keys).includes(k as Key));
-    return this.series.filter((_, i) => this.columns[i] === key);
+    return new MultiSeries(this.series.filter((_, i) => this.columns[i] === key));
   }
 
   /**
@@ -362,6 +357,18 @@ export class Frame {
       const a = this.series[i];
       fn(k, a, i);
     });
+  }
+
+  at(index: number, required: true): Record<KeyOrName, TelemValue>;
+
+  at(index: number, required?: false): Record<KeyOrName, TelemValue | undefined>;
+
+  at(index: number, required = false): Record<KeyOrName, TelemValue | undefined> {
+    const res: Record<KeyOrName, TelemValue> = {};
+    this.uniqueColumns.forEach((k) => {
+      res[k] = this.get(k).at(index, required as true);
+    });
+    return res;
   }
 
   /**

@@ -149,18 +149,16 @@ method on the client.
 ```typescript
 import { TimeStamp, Series, Frame } from "@synnaxlabs/client";
 
-const writer = await client.telem.newWriter({
+const writer = await client.telem.openWriter({
     start: TimeStamp.now(),
     channels: [timeChannel.key, temperatureChannel.key]
 });
 
 try {
     for (let i = 0; i < 100; i++) {
-        const timestamps = new Series({ data: new BigInt64Array([TimeStamp.now().valueOf()]) });
-        const temperatures = new Series({ data: new Float32Array([20.0 + i]) });
         await writer.write(new Frame({
-            [timeChannel.key]: timestamps,
-            [temperatureChannel.key]: temperatures
+            [timeChannel.key]: TimeStamp.now(),
+            [temperatureChannel.key]: 20.0 + i,
         }));
         await new Promise(resolve => setTimeout(resolve, 100));
     }

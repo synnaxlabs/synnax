@@ -35,6 +35,7 @@ export {
   TimeRange,
   TimeSpan,
   TimeStamp,
+  MultiSeries,
 } from "@synnaxlabs/x";
 export type {
   TypedArray,
@@ -44,7 +45,8 @@ export type {
   CrudeSize,
   CrudeTimeSpan,
   CrudeTimeStamp,
-  SampleValue,
+  TelemValue,
+  NumericTelemValue,
   TimeStampStringFormat,
   TZInfo,
 } from "@synnaxlabs/x";

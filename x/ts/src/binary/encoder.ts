@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { pack, unpack } from "msgpackr";
 import { type ZodSchema, type z } from "zod";
 
 import { Case } from "@/case";
@@ -36,23 +35,6 @@ export interface EncoderDecoder {
    * @param schema - The schema to decode the data with.
    */
   decode: <P>(data: Uint8Array | ArrayBuffer, schema?: ZodSchema<P>) => P;
-}
-
-/** MsgpackEncoderDecoder is a msgpack implementation of EncoderDecoder. */
-export class MsgpackEncoderDecoder implements EncoderDecoder {
-  contentType = "application/msgpack";
-
-  encode(payload: unknown): ArrayBuffer {
-    return pack(Case.toSnake(payload));
-  }
-
-  decode<P extends z.ZodTypeAny>(
-    data: Uint8Array | ArrayBuffer,
-    schema?: P,
-  ): z.output<P> {
-    const unpacked = Case.toCamel(unpack(new Uint8Array(data)));
-    return schema != null ? schema.parse(unpacked) : (unpacked as P);
-  }
 }
 
 /** JSONEncoderDecoder is a JSON implementation of EncoderDecoder. */
@@ -88,7 +70,4 @@ export class JSONEncoderDecoder implements EncoderDecoder {
   static registerCustomType(): void {}
 }
 
-export const ENCODERS: EncoderDecoder[] = [
-  new MsgpackEncoderDecoder(),
-  new JSONEncoderDecoder(),
-];
+export const ENCODERS: EncoderDecoder[] = [new JSONEncoderDecoder()];

@@ -11,11 +11,11 @@ Synnax cluster.
 
 ## Simple Example
 
-To start streaming data, call the `telem.newStreamer` method on the client and provide
+To start streaming data, call the `telem.openStreamer` method on the client and provide
 a list of channels to stream.
 
 ```typescript
-const streamer = await client.telem.newStreamer(["temperature1", "temperature2"]);
+const streamer = await client.telem.openStreamer(["temperature1", "temperature2"]);
 ```
 
 Then, read the next incoming telemetry frame, call the `read` method on the streamer.
@@ -29,6 +29,8 @@ for every channel specified**. For example, if we're reading from two sensors th
 are being sampled by different devices at different rates, we may receive a frame
 containing data only for the first channel, followed by a frame containing data only
 for the second channel.
+
+For more details on how to work with the returned frames, see the [Series and Frames](/typescript-client/series-and-frames) page.
 
 After you're done streaming, it's essential that you call the `close` method on the
 streamer to release the network connection and other related resources. 
@@ -45,5 +47,8 @@ processing incoming frames of telemetry.
 ```typescript
 for await (const frame of streamer) {
   // Process the frame
+  const latestSamples = frame.at(-1);
 }
 ```
+
+

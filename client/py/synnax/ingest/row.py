@@ -53,7 +53,7 @@ class RowIngestionEngine:
         self.reader = reader
         self.client = client
         self.reader.set_chunk_size(self.get_chunk_size())
-        self.writer = self.client.new_writer(start, [ch.key for ch in channels])
+        self.writer = self.client.open_writer(start, [ch.key for ch in channels])
         self.end = start
 
     def get_chunk_size(self):

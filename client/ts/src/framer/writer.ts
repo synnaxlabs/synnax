@@ -74,8 +74,8 @@ const resZ = z.object({
 type Response = z.infer<typeof resZ>;
 
 export interface WriterConfig {
-  start: CrudeTimeStamp;
   channels: Params;
+  start?: CrudeTimeStamp;
   controlSubject?: ControlSubject;
   authorities?: Authority | Authority[];
   mode?: WriterMode;
@@ -83,35 +83,35 @@ export interface WriterConfig {
 
 /**
  * Writer is used to write telemetry to a set of channels in time order.
- * It should not be instantiated directly, and should instead be instantited via the
+ * It should not be instantiated directly, and should instead be instantiated via the
  * FramerClient {@link FrameClient#openWriter}.
  *
- * The writer is a streaming protocol that is heavily optimized for prerformance. This
- * comes at the cost of icnreased complexity, and should only be used directly when
- * writing large volumes of data (such as recording telemetry from a sensor or ingsting
- * data froma file). Simpler methods (such as the frame client's write method) should
+ * The writer is a streaming protocol that is heavily optimized for performance. This
+ * comes at the cost of increased complexity, and should only be used directly when
+ * writing large volumes of data (such as recording telemetry from a sensor or ingesting
+ * data from file). Simpler methods (such as the frame client's write method) should
  * be used for most use cases.
  *
  * The protocol is as follows:
  *
  * 1. The writer is opened with a starting timestamp and a list of channel keys. The
- * writer will fail to open if the starting timstamp overlaps with any existing telemetry
- * for any channels specified. If the writer opens successfuly, the caller is then
+ * writer will fail to open if the starting timestamp overlaps with any existing telemetry
+ * for any channels specified. If the writer opens successfully, the caller is then
  * free to write frames to the writer.
  *
  * 2. To write a frame, the caller can use the write method and follow the validation
  * rules described in its method's documentation. This process is asynchronous, meaning
  * that write calls may return before teh frame has been written to the cluster. This
  * also means that the writer can accumulate an error after write is called. If the writer
- * accumulates an erorr, all subsequent write and commit calls will return False. The
- * caller can check for errors by calling the error mehtod, which returns the accumulated
+ * accumulates an error, all subsequent write and commit calls will return False. The
+ * caller can check for errors by calling the error method, which returns the accumulated
  * error and resets the writer for future use. The caller can also check for errors by
  * closing the writer, which will throw any accumulated error.
  *
  * 3. To commit the written frames to the cluster, the caller can call the commit method.
  * Unlike write, commit is synchronous, meaning that it will not return until the frames
- * have been written to the cluster. If the writer has accumulated an erorr, commit will
- * return false. After the caller acknowledges the erorr, they can attempt to commit again.
+ * have been written to the cluster. If the writer has accumulated an error, commit will
+ * return false. After the caller acknowledges the error, they can attempt to commit again.
  * Commit can be called several times throughout a writer's lifetime, and will only
  * commit the frames that have been written since the last commit.
  *
@@ -137,10 +137,10 @@ export class Writer {
     client: StreamClient,
     {
       channels,
+      start = TimeStamp.now(),
       authorities = Authority.Absolute,
       controlSubject: subject,
-      start,
-      mode,
+      mode = WriterMode.PersistStream,
     }: WriterConfig,
   ): Promise<Writer> {
     const adapter = await WriteFrameAdapter.open(retriever, channels);

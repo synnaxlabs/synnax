@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-misused-new */
 // Copyright 2023 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
@@ -26,9 +27,8 @@ import {
   isTelemValue,
   TimeSpan,
   type CrudeTimeStamp,
+  type NumericTelemValue,
 } from "@/telem/telem";
-
-export type SampleValue = number | bigint;
 
 interface GL {
   control: GLBufferController | null;
@@ -40,7 +40,7 @@ interface GL {
 export interface SeriesDigest {
   key: string;
   dataType: string;
-  sampleOffset: SampleValue;
+  sampleOffset: NumericTelemValue;
   alignment: bounds.Bounds;
   timeRange?: string;
   length: number;
@@ -50,7 +50,7 @@ export interface SeriesDigest {
 interface BaseSeriesProps {
   dataType?: CrudeDataType;
   timeRange?: TimeRange;
-  sampleOffset?: SampleValue;
+  sampleOffset?: NumericTelemValue;
   glBufferUsage?: GLBufferUsage;
   alignment?: number;
   key?: string;
@@ -99,7 +99,7 @@ export interface SeriesMemInfo {
  * Series is a strongly typed array of telemetry samples backed by an underlying binary
  * buffer.
  */
-export class Series {
+export class Series<T extends TelemValue = TelemValue> {
   key: string = "";
   /** The data type of the array */
   readonly dataType: DataType;
@@ -108,7 +108,7 @@ export class Series {
    * downwards. Typically used to convert arrays to lower precision while preserving
    * the relative range of actual values.
    */
-  sampleOffset: SampleValue;
+  sampleOffset: NumericTelemValue;
   /**
    * Stores information about the buffer state of this array into a WebGL buffer.
    */
@@ -118,9 +118,9 @@ export class Series {
   readonly _timeRange?: TimeRange;
   readonly alignment: number = 0;
   /** A cached minimum value. */
-  private _cachedMin?: SampleValue;
+  private _cachedMin?: NumericTelemValue;
   /** A cached maximum value. */
-  private _cachedMax?: SampleValue;
+  private _cachedMax?: NumericTelemValue;
   /** The write position of the buffer. */
   private writePos: number = FULL_BUFFER;
   /** Tracks the number of entities currently using this array. */
@@ -138,6 +138,7 @@ export class Series {
       key = nanoid(),
     } = props;
     const { data } = props;
+
     if (data instanceof Series) {
       this.key = data.key;
       this.dataType = data.dataType;
@@ -375,6 +376,8 @@ export class Series {
   }
 
   private calculateCachedLength(): number {
+    if (!this.dataType.isVariable)
+      throw new Error("cannot calculate length of a non-variable length data type");
     let cl = 0;
     this.data.forEach((v) => {
       if (v === 10) cl++;
@@ -392,7 +395,7 @@ export class Series {
    * WARNING: This method is expensive and copies the entire underlying array. There
    * also may be untimely precision issues when converting between data types.
    */
-  convert(target: DataType, sampleOffset: SampleValue = 0): Series {
+  convert(target: DataType, sampleOffset: NumericTelemValue = 0): Series {
     if (this.dataType.equals(target)) return this;
     const data = new target.Array(this.length);
     for (let i = 0; i < this.length; i++) {
@@ -408,7 +411,7 @@ export class Series {
     });
   }
 
-  private calcRawMax(): SampleValue {
+  private calcRawMax(): NumericTelemValue {
     if (this.length === 0) return -Infinity;
     if (this.dataType.equals(DataType.TIMESTAMP)) {
       this._cachedMax = this.data[this.data.length - 1];
@@ -423,7 +426,7 @@ export class Series {
   }
 
   /** @returns the maximum value in the array */
-  get max(): SampleValue {
+  get max(): NumericTelemValue {
     if (this.dataType.isVariable)
       throw new Error("cannot calculate maximum on a variable length data type");
     if (this.writePos === 0) return -Infinity;
@@ -431,7 +434,7 @@ export class Series {
     return addSamples(this._cachedMax, this.sampleOffset);
   }
 
-  private calcRawMin(): SampleValue {
+  private calcRawMin(): NumericTelemValue {
     if (this.length === 0) return Infinity;
     if (this.dataType.equals(DataType.TIMESTAMP)) {
       this._cachedMin = this.data[0];
@@ -446,7 +449,7 @@ export class Series {
   }
 
   /** @returns the minimum value in the array */
-  get min(): SampleValue {
+  get min(): NumericTelemValue {
     if (this.dataType.isVariable)
       throw new Error("cannot calculate minimum on a variable length data type");
     if (this.writePos === 0) return Infinity;
@@ -476,22 +479,48 @@ export class Series {
     _ = this.min;
   }
 
-  get range(): SampleValue {
+  get range(): NumericTelemValue {
     return addSamples(this.max, -this.min);
   }
 
-  at(index: number, required: true): SampleValue;
+  at(index: number, required: true): T;
 
-  at(index: number, required?: false): SampleValue | undefined;
+  at(index: number, required?: false): T | undefined;
 
-  at(index: number, required?: boolean): SampleValue | undefined {
+  at(index: number, required?: boolean): T | undefined {
+    if (this.dataType.isVariable) return this.atVariable(index, required ?? false);
     if (index < 0) index = this.length + index;
     const v = this.data[index];
     if (v == null) {
       if (required === true) throw new Error(`[series] - no value at index ${index}`);
       return undefined;
     }
-    return addSamples(v, this.sampleOffset);
+    return addSamples(v, this.sampleOffset) as T;
+  }
+
+  private atVariable(index: number, required: boolean): T | undefined {
+    if (index < 0) index = this.length + index;
+    let start = 0;
+    let end = 0;
+    for (let i = 0; i < this.data.length; i++) {
+      if (this.data[i] === 10) {
+        if (index === 0) {
+          end = i;
+          break;
+        }
+        start = i + 1;
+        index--;
+      }
+    }
+    if (end === 0) end = this.data.length;
+    if (start >= end || index > 0) {
+      if (required) throw new Error(`[series] - no value at index ${index}`);
+      return undefined;
+    }
+    const slice = this.data.slice(start, end);
+    if (this.dataType.equals(DataType.STRING))
+      return new TextDecoder().decode(slice) as unknown as T;
+    return JSON.parse(new TextDecoder().decode(slice)) as unknown as T;
   }
 
   /**
@@ -499,13 +528,13 @@ export class Series {
    * The underlying array must be sorted. If it is not, the behavior of this method is undefined.
    * @param value the value to search for.
    */
-  binarySearch(value: SampleValue): number {
+  binarySearch(value: NumericTelemValue): number {
     let left = 0;
     let right = this.length - 1;
     const cf = compare.newF(value);
     while (left <= right) {
       const mid = Math.floor((left + right) / 2);
-      const cmp = cf(this.at(mid, true), value);
+      const cmp = cf(this.at(mid, true) as NumericTelemValue, value);
       if (cmp === 0) return mid;
       if (cmp < 0) left = mid + 1;
       else right = mid - 1;
@@ -548,6 +577,37 @@ export class Series {
     }
   }
 
+  as(jsType: "string"): Series<string>;
+
+  as(jsType: "number"): Series<number>;
+
+  as(jsType: "bigint"): Series<bigint>;
+
+  as<T extends TelemValue>(jsType: "string" | "number" | "bigint"): Series<T> {
+    if (jsType === "string") {
+      if (!this.dataType.equals(DataType.STRING))
+        throw new Error(
+          `cannot convert series of type ${this.dataType.toString()} to string`,
+        );
+      return this as unknown as Series<T>;
+    }
+    if (jsType === "number") {
+      if (!this.dataType.isNumeric)
+        throw new Error(
+          `cannot convert series of type ${this.dataType.toString()} to number`,
+        );
+      return this as unknown as Series<T>;
+    }
+    if (jsType === "bigint") {
+      if (!this.dataType.equals(DataType.INT64))
+        throw new Error(
+          `cannot convert series of type ${this.dataType.toString()} to bigint`,
+        );
+      return this as unknown as Series<T>;
+    }
+    throw new Error(`cannot convert series to ${jsType as string}`);
+  }
+
   get digest(): SeriesDigest {
     return {
       key: this.key,
@@ -587,6 +647,17 @@ export class Series {
     return this.gl.buffer;
   }
 
+  [Symbol.iterator](): Iterator<T> {
+    if (this.dataType.isVariable) {
+      const s = new StringSeriesIterator(this);
+      if (this.dataType.equals(DataType.JSON)) {
+        return new JSONSeriesIterator(s) as Iterator<T>;
+      }
+      return s as Iterator<T>;
+    }
+    return new FixedSeriesIterator(this) as Iterator<T>;
+  }
+
   slice(start: number, end?: number): Series {
     if (start <= 0 && (end == null || end >= this.length)) return this;
     const data = this.data.slice(start, end);
@@ -612,8 +683,187 @@ export class Series {
   }
 }
 
-export const addSamples = (a: SampleValue, b: SampleValue): SampleValue => {
+class StringSeriesIterator implements Iterator<string> {
+  private readonly series: Series;
+  private index: number;
+  private readonly decoder: TextDecoder;
+
+  constructor(series: Series) {
+    if (!series.dataType.isVariable)
+      throw new Error(
+        "cannot create a variable series iterator for a non-variable series",
+      );
+    this.series = series;
+    this.index = 0;
+    this.decoder = new TextDecoder();
+  }
+
+  next(): IteratorResult<string> {
+    const start = this.index;
+    const data = this.series.data;
+    while (this.index < data.length && data[this.index] !== 10) this.index++;
+    const end = this.index;
+    if (start === end) return { done: true, value: undefined };
+    this.index++;
+    const s = this.decoder.decode(this.series.buffer.slice(start, end));
+    return { done: false, value: s };
+  }
+
+  [Symbol.iterator](): Iterator<TelemValue> {
+    return this;
+  }
+}
+
+class JSONSeriesIterator implements Iterator<unknown> {
+  private readonly wrapped: Iterator<string>;
+
+  constructor(wrapped: Iterator<string>) {
+    this.wrapped = wrapped;
+  }
+
+  next(): IteratorResult<object> {
+    const next = this.wrapped.next();
+    if (next.done === true) return { done: true, value: undefined };
+    return { done: false, value: JSON.parse(next.value) };
+  }
+
+  [Symbol.iterator](): Iterator<object> {
+    return this;
+  }
+
+  [Symbol.toStringTag] = "JSONSeriesIterator";
+}
+
+class FixedSeriesIterator implements Iterator<NumericTelemValue> {
+  series: Series;
+  index: number;
+  constructor(series: Series) {
+    this.series = series;
+    this.index = 0;
+  }
+
+  next(): IteratorResult<NumericTelemValue> {
+    if (this.index >= this.series.length) return { done: true, value: undefined };
+    return {
+      done: false,
+      value: this.series.at(this.index++, true) as NumericTelemValue,
+    };
+  }
+
+  [Symbol.iterator](): Iterator<NumericTelemValue> {
+    return this;
+  }
+
+  [Symbol.toStringTag] = "SeriesIterator";
+}
+
+export const addSamples = (
+  a: NumericTelemValue,
+  b: NumericTelemValue,
+): NumericTelemValue => {
   if (typeof a === "bigint" && typeof b === "bigint") return a + b;
   if (typeof a === "number" && typeof b === "number") return a + b;
+  if (b === 0) return a;
+  if (a === 0) return b;
   return Number(a) + Number(b);
 };
+
+export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<T> {
+  readonly series: Array<Series<T>>;
+
+  constructor(series: Array<Series<T>>) {
+    if (series.length !== 0) {
+      const type = series[0].dataType;
+      for (let i = 1; i < series.length; i++)
+        if (!series[i].dataType.equals(type))
+          throw new Error("[multi-series] - series must have the same data type");
+    }
+    this.series = series;
+  }
+
+  as(jsType: "string"): MultiSeries<string>;
+
+  as(jsType: "number"): MultiSeries<number>;
+
+  as(jsType: "bigint"): MultiSeries<bigint>;
+
+  as<T extends TelemValue>(dataType: CrudeDataType): MultiSeries<T> {
+    if (!new DataType(dataType).equals(this.dataType))
+      throw new Error(
+        `cannot convert series of type ${this.dataType.toString()} to ${dataType.toString()}`,
+      );
+    return this as unknown as MultiSeries<T>;
+  }
+
+  get dataType(): DataType {
+    if (this.series.length === 0) return DataType.UNKNOWN;
+    return this.series[0].dataType;
+  }
+
+  get timeRange(): TimeRange {
+    if (this.series.length === 0) return TimeRange.ZERO;
+    return new TimeRange(
+      this.series[0].timeRange.start,
+      this.series[this.series.length - 1].timeRange.end,
+    );
+  }
+
+  push(series: Series<T>): void {
+    this.series.push(series);
+  }
+
+  get length(): number {
+    return this.series.reduce((a, b) => a + b.length, 0);
+  }
+
+  at(index: number, required: true): T;
+
+  at(index: number, required?: false): T | undefined;
+
+  at(index: number, required: boolean = false): T | undefined {
+    if (index < 0) index = this.length + index;
+    for (const ser of this.series) {
+      if (index < ser.length) return ser.at(index, required as true);
+      index -= ser.length;
+    }
+    if (required) throw new Error(`[series] - no value at index ${index}`);
+    return undefined;
+  }
+
+  [Symbol.iterator](): Iterator<T> {
+    if (this.series.length === 0)
+      return {
+        next(): IteratorResult<T> {
+          return { done: true, value: undefined };
+        },
+      };
+    return new MultiSeriesIterator<T>(this.series);
+  }
+}
+
+class MultiSeriesIterator<T extends TelemValue = TelemValue> implements Iterator<T> {
+  private readonly series: Array<Series<T>>;
+  private seriesIndex: number;
+  private internal: Iterator<T>;
+
+  constructor(series: Array<Series<T>>) {
+    this.series = series;
+    this.seriesIndex = 0;
+    this.internal = series[0][Symbol.iterator]();
+  }
+
+  next(): IteratorResult<T> {
+    const next = this.internal.next();
+    if (next.done === false) return next;
+    if (this.seriesIndex === this.series.length - 1)
+      return { done: true, value: undefined };
+    this.internal = this.series[++this.seriesIndex][Symbol.iterator]();
+    return this.next();
+  }
+
+  [Symbol.iterator](): Iterator<TelemValue | unknown> {
+    return this;
+  }
+
+  [Symbol.toStringTag] = "MultiSeriesIterator";
+}

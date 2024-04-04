@@ -28,7 +28,7 @@ read_from = ["stream_write_example_time", "stream_write_example_data"]
 
 # Open the streamer as a context manager. This will make sure the streamer is properly
 # closed when we're done reading. We'll read from both the time and data channels. In
-with client.new_streamer(read_from) as s:
+with client.open_streamer(read_from) as s:
     # Loop through the frames in the streamer. Each iteration will block until a new
     # frame is available, then we'll just print it out.
     for frame in s:

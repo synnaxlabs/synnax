@@ -48,7 +48,7 @@ class IOFactory:
 
         raise NotImplementedError(f"File type not supported: {path}")
 
-    def new_writer(self, path: Path) -> FileWriter:
+    def open_writer(self, path: Path) -> FileWriter:
         if not path.parent.exists():
             raise FileNotFoundError(f"File not found: {path}")
 

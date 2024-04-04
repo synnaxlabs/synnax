@@ -877,15 +877,24 @@ export class TimeRange implements Stringer {
    */
   end: TimeStamp;
 
+  constructor(tr: CrudeTimeRange);
+
+  constructor(start: CrudeTimeStamp, end: CrudeTimeStamp);
+
   /**
    * Creates a TimeRange from the given start and end TimeStamps.
    *
    * @param start - A TimeStamp representing the start of the range.
    * @param end - A TimeStamp representing the end of the range.
    */
-  constructor(start: CrudeTimeStamp, end: CrudeTimeStamp) {
-    this.start = new TimeStamp(start);
-    this.end = new TimeStamp(end);
+  constructor(start: CrudeTimeStamp | CrudeTimeRange, end?: CrudeTimeStamp) {
+    if (typeof start === "object" && "start" in start) {
+      this.start = new TimeStamp(start.start);
+      this.end = new TimeStamp(start.end);
+    } else {
+      this.start = new TimeStamp(start);
+      this.end = new TimeStamp(end);
+    }
   }
 
   /** @returns The TimeSpan occupied by the TimeRange. */
@@ -1047,6 +1056,18 @@ export class DataType extends String implements Stringer {
 
   get isVariable(): boolean {
     return this.equals(DataType.JSON) || this.equals(DataType.STRING);
+  }
+
+  get isNumeric(): boolean {
+    return !this.isVariable && !this.equals(DataType.UUID);
+  }
+
+  get isInteger(): boolean {
+    return this.toString().startsWith("int");
+  }
+
+  get isFloat(): boolean {
+    return this.toString().startsWith("float");
   }
 
   get density(): Density {
@@ -1390,7 +1411,7 @@ type TypedArrayConstructor =
   | Int16ArrayConstructor
   | Int32ArrayConstructor
   | BigInt64ArrayConstructor;
-type NumericTelemValue = number | bigint;
+export type NumericTelemValue = number | bigint;
 export type TelemValue =
   | number
   | bigint

@@ -151,8 +151,8 @@ MPV_LAST_OPEN = None
 scuba_pressure = 0
 l_stand_pressure = 0
 
-with client.new_streamer([TPC_CMD, MPV_CMD, PRESS_ISO_CMD, VENT_CMD, ]) as streamer:
-    with client.new_writer(
+with client.open_streamer([TPC_CMD, MPV_CMD, PRESS_ISO_CMD, VENT_CMD, ]) as streamer:
+    with client.open_writer(
             sy.TimeStamp.now(),
             channels=[
                 DAQ_TIME,

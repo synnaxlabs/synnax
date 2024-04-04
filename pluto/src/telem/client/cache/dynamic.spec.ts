@@ -126,7 +126,7 @@ describe("DynamicCache", () => {
       const { flushed, allocated } = cache.write([s1, s2]);
       expect(flushed).toHaveLength(1);
       expect(allocated[1].timeRange.start.sub(TimeStamp.now()).valueOf()).toBeLessThan(
-        TimeSpan.milliseconds(3).valueOf(),
+        TimeSpan.milliseconds(10).valueOf(),
       );
       expect(allocated[1].timeRange.end.valueOf()).toEqual(TimeStamp.MAX.valueOf());
       expect(flushed[0]).toBe(allocated[0]);

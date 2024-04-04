@@ -41,8 +41,8 @@ describe("WriteFrameAdapter", () => {
     expect(res.series).toHaveLength(2);
     expect(res.get(timeCh.key)).toHaveLength(1);
     expect(res.get(dataCh.key)).toHaveLength(1);
-    expect(res.get(timeCh.key)[0].at(0)).toEqual(Number(ts));
-    expect(res.get(dataCh.key)[0].at(0)).toEqual(1);
+    expect(res.get(timeCh.key).at(0)).toEqual(ts);
+    expect(res.get(dataCh.key).at(0)).toEqual(1);
   });
 
   it("should correctly adapt a record of names to single values", async () => {
@@ -55,8 +55,8 @@ describe("WriteFrameAdapter", () => {
     expect(res2.series).toHaveLength(2);
     expect(res2.get(timeCh.key)).toHaveLength(1);
     expect(res2.get(dataCh.key)).toHaveLength(1);
-    expect(res2.get(timeCh.key)[0].at(0)).toEqual(Number(ts));
-    expect(res2.get(dataCh.key)[0].at(0)).toEqual(1);
+    expect(res2.get(timeCh.key).at(0)).toEqual(ts);
+    expect(res2.get(dataCh.key).at(0)).toEqual(1);
   });
 
   it("should correctly adapt a single name to a single series", async () => {
@@ -64,7 +64,7 @@ describe("WriteFrameAdapter", () => {
     expect(res3.columns).toHaveLength(1);
     expect(res3.series).toHaveLength(1);
     expect(res3.get(dataCh.key)).toHaveLength(1);
-    expect(res3.get(dataCh.key)[0].at(0)).toEqual(1);
+    expect(res3.get(dataCh.key).at(0)).toEqual(1);
   });
 
   it("should correctly adapt multiple names to multiple series", async () => {
@@ -75,8 +75,8 @@ describe("WriteFrameAdapter", () => {
     );
     expect(res4.get(timeCh.key)).toHaveLength(1);
     expect(res4.get(dataCh.key)).toHaveLength(1);
-    expect(res4.get(timeCh.key)[0].at(0)).toEqual(Number(ts));
-    expect(res4.get(dataCh.key)[0].at(0)).toEqual(1);
+    expect(res4.get(timeCh.key).at(0)).toEqual(ts);
+    expect(res4.get(dataCh.key).at(0)).toEqual(1);
   });
 
   it("should correctly adapt a frame keyed by name", async () => {
@@ -88,8 +88,8 @@ describe("WriteFrameAdapter", () => {
     const res = await adapter.adapt(fr);
     expect(res.columns).toHaveLength(2);
     expect(res.series).toHaveLength(2);
-    expect(res.get(timeCh.key)[0].at(0)).toEqual(Number(ts));
-    expect(res.get(dataCh.key)[0].at(0)).toEqual(1);
+    expect(res.get(timeCh.key).at(0)).toEqual(ts);
+    expect(res.get(dataCh.key).at(0)).toEqual(1);
   });
 
   it("should not modify a frame keyed by key", async () => {
@@ -101,8 +101,8 @@ describe("WriteFrameAdapter", () => {
     const res = await adapter.adapt(fr);
     expect(res.columns).toHaveLength(2);
     expect(res.series).toHaveLength(2);
-    expect(res.get(timeCh.key)[0].at(0)).toEqual(Number(ts));
-    expect(res.get(dataCh.key)[0].at(0)).toEqual(1);
+    expect(res.get(timeCh.key).at(0)).toEqual(ts);
+    expect(res.get(dataCh.key).at(0)).toEqual(1);
   });
 
   it("should correctly adapt a map of series", async () => {
@@ -113,6 +113,6 @@ describe("WriteFrameAdapter", () => {
     expect(res.columns).toHaveLength(1);
     expect(res.series).toHaveLength(1);
     expect(res.get(timeCh.key)).toHaveLength(1);
-    expect(res.get(timeCh.key)[0].at(0)).toEqual(Number(ts));
+    expect(res.get(timeCh.key).at(0)).toEqual(ts);
   });
 });

@@ -2,8 +2,8 @@ name: Publish NPM Packages
 
 on:
   push:
-    branches:
-      - main
+     branches:
+       - main
 
 jobs:
   publish:
@@ -38,7 +38,7 @@ jobs:
 
       - name: Publish
         run: |
-          pnpm publish -r --access public 
+          pnpm publish -r --access public
 
 
 
