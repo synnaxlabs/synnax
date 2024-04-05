@@ -37,7 +37,7 @@ export class Retriever {
     const res = await sendRequired<
       typeof retrieveDeviceReqZ,
       typeof retrieveDeviceResZ
-    >(this.client, RETRIEVE_ENDPOINT, { keys: [term] }, retrieveDeviceResZ);
+    >(this.client, RETRIEVE_ENDPOINT, { keys: [term] }, retrieveDeviceReqZ, retrieveDeviceResZ);
     return res.devices;
   }
 
@@ -45,7 +45,7 @@ export class Retriever {
     const res = await sendRequired<
       typeof retrieveDeviceReqZ,
       typeof retrieveDeviceResZ
-    >(this.client, RETRIEVE_ENDPOINT, { offset, limit }, retrieveDeviceResZ);
+    >(this.client, RETRIEVE_ENDPOINT, { offset, limit }, retrieveDeviceReqZ, retrieveDeviceResZ);
     return res.devices;
   }
 
@@ -54,7 +54,7 @@ export class Retriever {
     const res = await sendRequired<
       typeof retrieveDeviceReqZ,
       typeof retrieveDeviceResZ
-    >(this.client, RETRIEVE_ENDPOINT, { keys }, retrieveDeviceResZ);
+    >(this.client, RETRIEVE_ENDPOINT, { keys }, retrieveDeviceReqZ, retrieveDeviceResZ);
     return res.devices;
   }
 }

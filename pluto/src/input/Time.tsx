@@ -27,19 +27,19 @@ export interface TimeProps extends BaseProps<number>, DragButtonExtensionProps {
 }
 
 const DRAG_SCALE = {
-  x: TimeSpan.SECOND.valueOf() * 0.5,
-  y: TimeSpan.MINUTE.valueOf(),
+  x: Number(TimeSpan.SECOND.valueOf()) * 0.5,
+  y: Number(TimeSpan.MINUTE.valueOf()),
 };
 
 interface UseTimeProps extends Pick<TimeProps, "value" | "onChange" | "tzInfo"> {}
 
-interface UseTimeReturn {
+export interface UseTimeReturn {
   inputValue: string;
   ts: TimeStamp;
-  handleChange: (value: number | string) => void;
+  handleChange: BaseProps<string | number>["onChange"];
 }
 
-const useTime = ({ value, onChange, tzInfo }: UseTimeProps): UseTimeReturn => {
+export const useTime = ({ value, onChange, tzInfo }: UseTimeProps): UseTimeReturn => {
   const ts = new TimeStamp(value, "UTC");
 
   // We want to check for remainder overflow in LOCAL time.
@@ -50,7 +50,7 @@ const useTime = ({ value, onChange, tzInfo }: UseTimeProps): UseTimeReturn => {
     const tsV = local.remainder(TimeStamp.DAY);
     // We have a correcly zeroed timestamp in local, now
     // add back the UTC offset to get the UTC timestamp.
-    onChange(new TimeStamp(tsV, "local").valueOf());
+    onChange(Number(new TimeStamp(tsV, "local").valueOf()));
   }
 
   const handleChange = useCallback(
@@ -59,7 +59,7 @@ const useTime = ({ value, onChange, tzInfo }: UseTimeProps): UseTimeReturn => {
       if (typeof value === "number") ts = new TimeStamp(value, "UTC");
       else if (value.length === 0) return;
       else ts = new TimeStamp(value, "local");
-      onChange(ts.valueOf());
+      onChange(Number(ts.valueOf()));
     },
     [onChange, tzInfo],
   );
@@ -112,14 +112,14 @@ export const Time = forwardRef<HTMLInputElement, TimeProps>(
         className={CSS(CSS.B("input-time"), className)}
         type="time"
         step="1"
-        onChange={handleChange as BaseProps["onChange"]}
+        onChange={handleChange}
         {...props}
       >
         {showDragHandle && (
           <DragButton
             direction={dragDirection}
-            value={ts.valueOf()}
-            onChange={handleChange as BaseProps["onChange"]}
+            value={Number(ts.valueOf())}
+            onChange={handleChange}
             dragScale={DRAG_SCALE}
           />
         )}

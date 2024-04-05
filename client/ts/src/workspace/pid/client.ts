@@ -12,7 +12,7 @@ import { type UnknownRecord } from "@synnaxlabs/x/record";
 
 import { type Key, type Params, type PID } from "@/workspace/pid/payload";
 import { Retriever } from "@/workspace/pid/retriever";
-import { Writer, type UncreatedPID } from "@/workspace/pid/writer";
+import { Writer, type NewPID } from "@/workspace/pid/writer";
 
 export class Client {
   private readonly writer: Writer;
@@ -23,7 +23,7 @@ export class Client {
     this.retriever = new Retriever(client);
   }
 
-  async create(workspace: string, pid: UncreatedPID): Promise<PID> {
+  async create(workspace: string, pid: NewPID): Promise<PID> {
     return await this.writer.create(workspace, pid);
   }
 

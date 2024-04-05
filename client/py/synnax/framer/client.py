@@ -56,7 +56,7 @@ class Client:
         self.__channels = retriever
         self.instrumentation = instrumentation
 
-    def new_writer(
+    def open_writer(
         self,
         start: CrudeTimeStamp,
         channels: ChannelParams,
@@ -97,7 +97,7 @@ class Client:
             mode=mode,
         )
 
-    def new_iterator(
+    def open_iterator(
         self,
         tr: TimeRange,
         params: ChannelParams,
@@ -132,8 +132,11 @@ class Client:
         :param data: The telemetry to write to the channel.
         :returns: None.
         """
-        with self.new_writer(
-            start=start, channels=to, strict=strict, mode=WriterMode.PERSIST_ONLY
+        with self.open_writer(
+            start=start,
+            channels=to,
+            strict=strict,
+            mode=WriterMode.PERSIST_ONLY
         ) as w:
             w.write(to, data)
             ts, ok = w.commit()
@@ -180,7 +183,7 @@ class Client:
             )
         return series
 
-    def new_streamer(
+    def open_streamer(
         self,
         params: ChannelParams,
         from_: CrudeTimeStamp | None = None,
@@ -214,7 +217,7 @@ class Client:
         params: ChannelParams,
     ) -> Frame:
         fr = Frame()
-        with self.new_iterator(tr, params) as i:
+        with self.open_iterator(tr, params) as i:
             for frame in i:
                 fr.append(frame)
         return fr

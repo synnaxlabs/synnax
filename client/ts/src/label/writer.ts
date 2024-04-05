@@ -56,6 +56,7 @@ export class Writer {
       this.client,
       CREATE_ENDPOINT,
       { labels: toArray(labels) },
+      createReqZ,
       createResZ,
     );
     return res.labels;
@@ -66,6 +67,7 @@ export class Writer {
       this.client,
       DELETE_ENDPOINT,
       { keys: toArray(keys) },
+      deleteReqZ,
       emptyResZ,
     );
   }
@@ -75,6 +77,7 @@ export class Writer {
       this.client,
       SET_ENDPOINT,
       { id, labels },
+      setReqZ,
       emptyResZ,
     );
   }
@@ -84,6 +87,7 @@ export class Writer {
       this.client,
       REMOVE_ENDPOINT,
       { id, labels },
+      removeReqZ,
       emptyResZ,
     );
   }

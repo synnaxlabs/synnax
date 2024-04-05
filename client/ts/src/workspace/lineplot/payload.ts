@@ -17,13 +17,7 @@ export type Params = Key | Key[];
 export const linePlotZ = z.object({
   key: z.string(),
   name: z.string(),
-  data: unknownRecordZ,
-});
-
-export const linePlotRemoteZ = z.object({
-  key: z.string(),
-  name: z.string(),
-  data: z.string().transform((s) => JSON.parse(s) as UnknownRecord),
+  data: unknownRecordZ.or(z.string().transform((s) => JSON.parse(s) as UnknownRecord)),
 });
 
 export type LinePlot = z.infer<typeof linePlotZ>;

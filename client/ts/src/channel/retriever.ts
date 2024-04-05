@@ -24,6 +24,7 @@ import {
   type Payload,
   payload,
 } from "@/channel/payload";
+import { QueryError, ValidationError } from "@/errors";
 import { nullableArrayZ } from "@/util/zod";
 
 const reqZ = z.object({
@@ -38,7 +39,7 @@ const reqZ = z.object({
   notDataTypes: DataType.z.array().optional(),
 });
 
-type Request = z.infer<typeof reqZ>;
+type Request = z.input<typeof reqZ>;
 
 export type RetrieveOptions = Pick<
   Request,
@@ -79,7 +80,12 @@ export class ClusterRetriever implements Retriever {
   }
 
   private async execute(request: Request): Promise<Payload[]> {
-    const [res, err] = await this.client.send(ClusterRetriever.ENDPOINT, request, resZ);
+    const [res, err] = await this.client.send(
+      ClusterRetriever.ENDPOINT,
+      request,
+      reqZ,
+      resZ,
+    );
     if (err != null) throw err;
     return res.channels;
   }
@@ -160,10 +166,17 @@ export type ParamAnalysisResult =
     };
 
 export const analyzeParams = (channels: Params): ParamAnalysisResult => {
-  const normal = (toArray(channels) as KeysOrNames).filter((c) => c !== 0);
+  let normal = (toArray(channels) as KeysOrNames).filter((c) => c !== 0);
+  let variant: "names" | "keys" = "keys";
+  if (typeof normal[0] === "string") {
+    if (isNaN(parseInt(normal[0]))) variant = "names";
+    else {
+      normal = normal.map((v) => parseInt(v as string));
+    }
+  }
   return {
     single: !Array.isArray(channels),
-    variant: typeof normal[0] === "number" ? "keys" : "names",
+    variant,
     normalized: normal,
     actual: channels,
   } as const as ParamAnalysisResult;
@@ -231,3 +244,18 @@ export class DebouncedBatchRetriever implements Retriever {
     });
   }
 }
+
+export const retrieveRequired = async (
+  r: Retriever,
+  params: Params,
+): Promise<Payload[]> => {
+  const { normalized } = analyzeParams(params);
+  const results = await r.retrieve(normalized);
+  const notFound: KeyOrName[] = [];
+  normalized.forEach((v) => {
+    if (results.find((c) => c.name === v || c.key === v) == null) notFound.push(v);
+  });
+  if (notFound.length > 0)
+    throw new QueryError(`Could not find channels: ${JSON.stringify(notFound)}`);
+  return results;
+};

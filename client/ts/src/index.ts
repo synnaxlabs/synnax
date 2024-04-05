@@ -33,16 +33,18 @@ export {
   TimeRange,
   TimeSpan,
   TimeStamp,
+  MultiSeries,
 } from "@synnaxlabs/x/telem";
 export type {
-  NativeTypedArray,
+  TypedArray,
   CrudeDataType,
   CrudeDensity,
   CrudeRate,
   CrudeSize,
   CrudeTimeSpan,
   CrudeTimeStamp,
-  SampleValue,
+  TelemValue,
+  NumericTelemValue,
   TimeStampStringFormat,
   TZInfo,
 } from "@synnaxlabs/x/telem";

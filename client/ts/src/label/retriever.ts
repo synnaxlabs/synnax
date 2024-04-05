@@ -57,6 +57,7 @@ export class Retriever {
     const [res, err] = await this.client.send<typeof reqZ, typeof resZ>(
       Retriever.ENDPOINT,
       req,
+      reqZ,
       resZ,
     );
     if (err != null) throw err;

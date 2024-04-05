@@ -7,16 +7,27 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type UnaryClient } from "@synnaxlabs/freighter";
+import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
-import { type ID } from "@/ontology/payload";
+import { idZ, type ID } from "@/ontology/payload";
 
 const ENDPOINTS = {
   ADD_CHILDREN: "/ontology/add-children",
   REMOVE_CHILDREN: "/ontology/remove-children",
   MOVE_CHILDREN: "/ontology/move-children",
 };
+
+const addRemoveChildrenReqZ = z.object({
+  id: idZ,
+  children: idZ.array(),
+});
+
+const moveChildrenReqZ = z.object({
+  from: idZ,
+  to: idZ,
+  children: idZ.array(),
+});
 
 export class Writer {
   client: UnaryClient;
@@ -26,24 +37,27 @@ export class Writer {
   }
 
   async addChildren(id: ID, ...children: ID[]): Promise<void> {
-    const req = { id, children };
-    const [, err] = await this.client.send(ENDPOINTS.ADD_CHILDREN, req, z.object({}));
-    if (err != null) throw err;
+    await sendRequired<typeof addRemoveChildrenReqZ, z.ZodTypeAny>(
+      this.client, 
+      ENDPOINTS.ADD_CHILDREN, 
+      { id, children },
+      addRemoveChildrenReqZ, 
+      z.object({})
+    );
   }
 
   async removeChildren(id: ID, ...children: ID[]): Promise<void> {
-    const req = { id, children };
-    const [, err] = await this.client.send(
+    await sendRequired<typeof addRemoveChildrenReqZ, z.ZodTypeAny>(
+      this.client,
       ENDPOINTS.REMOVE_CHILDREN,
-      req,
+      { id, children },
+      addRemoveChildrenReqZ,
       z.object({}),
     );
-    if (err != null) throw err;
   }
 
   async moveChildren(from: ID, to: ID, ...children: ID[]): Promise<void> {
     const req = { from, to, children };
-    const [, err] = await this.client.send(ENDPOINTS.MOVE_CHILDREN, req, z.object({}));
-    if (err != null) throw err;
+    await sendRequired(this.client, ENDPOINTS.MOVE_CHILDREN, req, moveChildrenReqZ, z.object({}));
   }
 }

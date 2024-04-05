@@ -30,8 +30,8 @@ const fromClientRange = (ranges: ranger.Range | ranger.Range[]): Range[] =>
     key: range.key,
     name: range.name,
     timeRange: {
-      start: range.timeRange.start.valueOf(),
-      end: range.timeRange.end.valueOf(),
+      start: Number(range.timeRange.start.valueOf()),
+      end: Number(range.timeRange.end.valueOf()),
     },
     persisted: true,
   }));

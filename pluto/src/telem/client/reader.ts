@@ -194,7 +194,7 @@ export class Reader {
           keysArray.forEach((key) => {
             const unary = cache.get(key);
             const data = frame.get(key);
-            unary.writeStatic(data);
+            unary.writeStatic(data.series);
           });
         }
         requests.forEach((toFetch) => toFetch.resolve());

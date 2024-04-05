@@ -38,6 +38,7 @@ export class Retriever {
       this.client,
       RETRIEVE_ENDPOINT,
       { offset, limit },
+      retrieveRackReqZ,
       retrieveRackResZ,
     );
     return res.racks;
@@ -48,6 +49,7 @@ export class Retriever {
       this.client,
       RETRIEVE_ENDPOINT,
       { search: term },
+      retrieveRackReqZ,
       retrieveRackResZ,
     );
     return res.racks;
@@ -58,6 +60,7 @@ export class Retriever {
       this.client,
       RETRIEVE_ENDPOINT,
       { keys },
+      retrieveRackReqZ,
       retrieveRackResZ,
     );
     return res.racks;

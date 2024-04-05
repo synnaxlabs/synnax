@@ -16,9 +16,7 @@ cannot be written all at once.
 """
 
 import time
-
 import numpy as np
-
 import synnax as sy
 
 # We've logged in via the CLI, so there's no need to provide credentials here.
@@ -27,7 +25,7 @@ client = sy.Synnax()
 
 # Create an index channel that will be used to store our timestamps.
 time_ch = client.channels.create(
-    name="Stream Write Example Time",
+    name="stream__write_example_time",
     is_index=True,
     data_type=sy.DataType.TIMESTAMP,
     retrieve_if_name_exists=True,
@@ -35,7 +33,7 @@ time_ch = client.channels.create(
 
 # Create a data channel that will be used to store our fake sensor data.
 data_ch = client.channels.create(
-    name="Stream Write Example Data",
+    name="stream_write_example_data",
     index=time_ch.key,
     data_type=sy.DataType.FLOAT32,
     retrieve_if_name_exists=True,
@@ -57,12 +55,12 @@ commit_interval = 500
 # closed when we're done writing. We'll write to both the time and data channels. In
 # this example, we provide the keys of the channels we want to write to, but you can
 # also provide the names and write that way.
-with client.new_writer(start, [time_ch.key, data_ch.key]) as writer:
+with client.open_writer(start, [time_ch.key, data_ch.key]) as writer:
     i = 0
     while True:
         # Generate our timestamp and data value
         timestamp = np.int64(sy.TimeStamp.now())
-        data = np.float32(np.sin(i / 10) * 1)
+        data = np.float32(np.sin(i / 10))
 
         # Write the data to the writer
         writer.write(

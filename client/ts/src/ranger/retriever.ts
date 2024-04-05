@@ -49,7 +49,7 @@ export class Retriever {
   }
 
   private async execute(request: Request): Promise<Payload[]> {
-    const [res, err] = await this.client.send(this.ENDPOINT, request, resZ);
+    const [res, err] = await this.client.send(this.ENDPOINT, request, reqZ, resZ);
     if (err != null) throw err;
     return res.ranges;
   }

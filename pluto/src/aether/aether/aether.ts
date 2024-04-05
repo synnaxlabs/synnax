@@ -296,7 +296,7 @@ export class Leaf<S extends z.ZodTypeAny, IS extends {} = {}> implements Compone
       const state_ = prettyParse(this._schema, state, `${this.type}:${this.key}`);
       if (this._state != null) {
         this.instrumentation.L.debug("updating state", () => ({
-          diff: deep.difference(this.state, state),
+          diff: deep.difference(this.state, state_),
         }));
       } else {
         this.instrumentation.L.debug("setting initial state", { state });

@@ -73,15 +73,15 @@ export class ChangeTracker {
     if (allResources.length > 0) this.resourceObs.notify(resSets.concat(resDeletes));
     const relSets = this.parseRelationshipSets(frame);
     const relDeletes = this.parseRelationshipDeletes(frame);
-    const allRels = relSets.concat(relDeletes);
-    if (allRels.length > 0) this.relationshipObs.notify(relSets.concat(relDeletes));
+    const allRelationships = relSets.concat(relDeletes);
+    if (allRelationships.length > 0)
+      this.relationshipObs.notify(relSets.concat(relDeletes));
   }
 
   private parseRelationshipSets(frame: Frame): RelationshipChange[] {
     const relationships = frame.get(RELATIONSHIP_SET_NAME);
     if (relationships.length === 0) return [];
-    // We should only ever get one series of relationships
-    return relationships[0].toStrings().map((rel) => ({
+    return Array.from(relationships.as("string")).map((rel) => ({
       variant: "set",
       key: parseRelationship(rel),
       value: undefined,
@@ -91,8 +91,7 @@ export class ChangeTracker {
   private parseRelationshipDeletes(frame: Frame): RelationshipChange[] {
     const relationships = frame.get(RELATIONSHIP_DELETE_NAME);
     if (relationships.length === 0) return [];
-    // We should only ever get one series of relationships
-    return relationships[0].toStrings().map((rel) => ({
+    return Array.from(relationships.as("string")).map((rel) => ({
       variant: "delete",
       key: parseRelationship(rel),
     }));
@@ -102,7 +101,7 @@ export class ChangeTracker {
     const sets = frame.get(RESOURCE_SET_NAME);
     if (sets.length === 0) return [];
     // We should only ever get one series of sets
-    const ids = sets[0].toStrings().map((id) => new ID(id));
+    const ids = Array.from(sets.as("string")).map((id: string) => new ID(id));
     try {
       const resources = await this.retriever.retrieve(ids);
       return resources.map((resource) => ({
@@ -123,13 +122,14 @@ export class ChangeTracker {
     const deletes = frame.get(RESOURCE_DELETE_NAME);
     if (deletes.length === 0) return [];
     // We should only ever get one series of deletes
-    return deletes[0]
-      .toStrings()
-      .map((str) => ({ variant: "delete", key: new ID(str) }));
+    return Array.from(deletes.as("string")).map((str) => ({
+      variant: "delete",
+      key: new ID(str),
+    }));
   }
 
   static async open(client: FrameClient, retriever: Retriever): Promise<ChangeTracker> {
-    const streamer = await client.newStreamer([
+    const streamer = await client.openStreamer([
       RESOURCE_SET_NAME,
       RESOURCE_DELETE_NAME,
       RELATIONSHIP_SET_NAME,

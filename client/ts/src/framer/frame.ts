@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Size, Series, TimeRange, DataType } from "@synnaxlabs/x/telem";
+import { Size, Series, TimeRange, DataType, type TelemValue, MultiSeries } from "@synnaxlabs/x/telem";
 import { toArray } from "@synnaxlabs/x/toArray";
 import { unique } from "@synnaxlabs/x/unique";
 import { z } from "zod";
@@ -27,6 +27,7 @@ const columnType = (columns: Params): ColumnType => {
   const arrKeys = toArray(columns);
   if (arrKeys.length === 0) return null;
   if (typeof arrKeys[0] === "number") return "key";
+  if (!isNaN(parseInt(arrKeys[0]))) return "key";
   return "name";
 };
 
@@ -61,7 +62,7 @@ export type CrudeFrame =
  *
  * - A frame is weakly aligned if it meets the time range occupied by all arrays of a
  * particular channel is the same for all channels in the frame. This means that the
- * arrays for a particular channel can have gaps betwen them.
+ * arrays for a particular channel can have gaps between them.
  *
  * - A strongly aligned frame means that all channels share the same rate/index and
  * there are no gaps in time between arrays. Strongly aligned frames are natural
@@ -112,7 +113,11 @@ export class Frame {
         validateMatchedColsAndArrays(data_.keys, arrays);
         data_.keys.forEach((key, i) => this.push(key, arrays[i]));
       } else
-        Object.entries(columnsOrData).forEach(([k, v]) => this.push(k, ...toArray(v)));
+        Object.entries(columnsOrData).forEach(([k, v]) => {
+          const key = parseInt(k);
+          if (!isNaN(key)) return this.push(key, ...toArray(v));
+          else this.push(k, ...toArray(v));
+        });
       return;
     }
 
@@ -129,8 +134,8 @@ export class Frame {
     }
 
     throw new ValidationError(
-      `[Frame] - invalid frame construction parameters. data parameter ust be a frame 
-    payload, a list of lazy arrays, a lazy array, a map, or a record keyed by channel 
+      `[Frame] - invalid frame construction parameters. data parameter ust be a frame
+    payload, a list of lazy arrays, a lazy array, a map, or a record keyed by channel
     name. keys parameter must be a set of channel keys or channel names.`,
     );
   }
@@ -224,7 +229,7 @@ export class Frame {
    * @returns true if the frame is weakly aligned. A frame is weakly aligned if it meets
    * the time range occupied by all arrays of a particular channel is the same for all
    * channels in the frame. This means that the arrays for a particular channel can have
-   * gaps betwen them.
+   * gaps between them.
    */
   get isWeaklyAligned(): boolean {
     if (this.columns.length <= 1) return true;
@@ -235,16 +240,17 @@ export class Frame {
   timeRange(col?: KeyOrName): TimeRange {
     if (col == null) {
       if (this.columns.length === 0) return TimeRange.ZERO;
-      const start = Math.min(...this.series.map((a) => a.timeRange.start.valueOf()));
-      const end = Math.max(...this.series.map((a) => a.timeRange.end.valueOf()));
+      const start = TimeStamp.min(...this.series.map((a) => a.timeRange.start));
+      const end = TimeStamp.max(...this.series.map((a) => a.timeRange.end));
       return new TimeRange(start, end);
     }
     const group = this.get(col);
     if (group == null) return TimeRange.ZERO;
-    return new TimeRange(
-      group[0].timeRange.start,
-      group[group.length - 1].timeRange.end,
-    );
+    return group.timeRange;
+  }
+
+  latest(): Record<string, TelemValue | undefined> {
+    return this.at(-1);
   }
 
   get timeRanges(): TimeRange[] {
@@ -255,7 +261,7 @@ export class Frame {
    * @returns lazy arrays matching the given channel key or name.
    * @param key the channel key or name.
    */
-  get(key: KeyOrName): Series[];
+  get(key: KeyOrName): MultiSeries;
 
   /**
    * @returns a frame with the given channel keys or names.
@@ -263,9 +269,9 @@ export class Frame {
    */
   get(keys: Keys | Names): Frame;
 
-  get(key: KeyOrName | Keys | Names): Series[] | Frame {
+  get(key: KeyOrName | Keys | Names): MultiSeries | Frame {
     if (Array.isArray(key)) return this.filter((k) => (key as Keys).includes(k as Key));
-    return this.series.filter((_, i) => this.columns[i] === key);
+    return new MultiSeries(this.series.filter((_, i) => this.columns[i] === key));
   }
 
   /**
@@ -343,6 +349,18 @@ export class Frame {
       const a = this.series[i];
       fn(k, a, i);
     });
+  }
+
+  at(index: number, required: true): Record<KeyOrName, TelemValue>;
+
+  at(index: number, required?: false): Record<KeyOrName, TelemValue | undefined>;
+
+  at(index: number, required = false): Record<KeyOrName, TelemValue | undefined> {
+    const res: Record<KeyOrName, TelemValue> = {};
+    this.uniqueColumns.forEach((k) => {
+      res[k] = this.get(k).at(index, required as true);
+    });
+    return res;
   }
 
   /**

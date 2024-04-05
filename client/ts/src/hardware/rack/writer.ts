@@ -42,22 +42,25 @@ export class Writer {
     this.client = client;
   }
 
-  async create(racks: NewRack[]): Promise<RackPayload[]> {
-    const res = await sendRequired<typeof createReqZ, typeof createResZ>(
-      this.client,
-      CREATE_RACK_ENDPOINT,
-      { racks },
-      createResZ,
-    );
-    return res.racks;
-  }
+    async create(racks: NewRack[]): Promise<RackPayload[]> {
+        const res = await sendRequired<typeof createReqZ, typeof createResZ>(
+            this.client,
+            CREATE_RACK_ENDPOINT,
+            { racks },
+            createReqZ,
+            createResZ,
+        );
+        return res.racks;
+    }
 
-  async delete(keys: number[]): Promise<void> {
-    await sendRequired<typeof deleteReqZ, typeof deleteResZ>(
-      this.client,
-      DELETE_RACK_ENDPOINT,
-      { keys },
-      deleteResZ,
-    );
-  }
+    async delete(keys: number[]): Promise<void> {
+        await sendRequired<typeof deleteReqZ, typeof deleteResZ>(
+            this.client,
+            DELETE_RACK_ENDPOINT,
+            { keys },
+            deleteReqZ,
+            deleteResZ,
+        );
+    }
+
 }

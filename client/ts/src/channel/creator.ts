@@ -35,6 +35,7 @@ export class Creator {
     const [res, err] = await this.client.send<typeof reqZ, typeof resZ>(
       Creator.ENDPOINT,
       req,
+      reqZ,
       resZ,
     );
     if (err != null) throw err;

@@ -172,14 +172,16 @@ func (i *Domain) search(ts telem.TimeStamp, r *domain.Reader) (DistanceApproxima
 		start int64 = 0
 		end         = (r.Len() / 8) - 1
 		buf         = make([]byte, 8)
+		midTs telem.TimeStamp
+		err   error
 	)
 	for start <= end {
 		mid := (start + end) / 2
-		midTs, err := readStamp(r, mid*8, buf)
+		midTs, err = readStamp(r, mid*8, buf)
 		if err != nil {
 			return Exactly[int64](0), err
 		}
-		if midTs == ts {
+		if ts == midTs {
 			return Exactly(mid), nil
 		} else if midTs < ts {
 			start = mid + 1

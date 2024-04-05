@@ -22,14 +22,16 @@ import {
   pidRemoteZ,
 } from "@/workspace/pid/payload";
 
-export const crudePIDz = pidZ.partial({ key: true });
-export const pidWriteZ = pidRemoteZ.partial({ key: true, snapshot: true });
+export const newPIDZ = pidZ.partial({ key: true, snapshot: true }).transform((p) => ({
+  ...p,
+  data: JSON.stringify(p.data),
+}));
 
-export type UncreatedPID = z.infer<typeof pidWriteZ>;
+export type NewPID = z.input<typeof newPIDZ>;
 
 const createReqZ = z.object({
   workspace: workspaceKeyZ,
-  pids: pidWriteZ.array(),
+  pids: newPIDZ.array(),
 });
 
 const createResZ = z.object({
@@ -79,12 +81,13 @@ export class Writer {
     this.client = client;
   }
 
-  async create(workspace: string, pid: UncreatedPID): Promise<PID> {
+  async create(workspace: string, pid: NewPID): Promise<PID> {
     const pid_ = { ...pid, data: JSON.stringify(pid.data) };
     const res = await sendRequired<typeof createReqZ, typeof createResZ>(
       this.client,
       CREATE_ENDPOINT,
       { workspace, pids: [pid_] },
+      createReqZ,
       createResZ,
     );
 
@@ -96,6 +99,7 @@ export class Writer {
       this.client,
       COPY_ENDPOINT,
       { key, name, snapshot },
+      copyReqZ,
       copyResZ,
     );
     return res.pid;
@@ -107,6 +111,7 @@ export class Writer {
       this.client,
       DELETE_ENDPOINT,
       { keys: normalized },
+      deleteReqZ,
       deleteResZ,
     );
   }
@@ -116,6 +121,7 @@ export class Writer {
       this.client,
       RENAME_ENDPOINT,
       { key: pid, name },
+      renameReqZ,
       renameResZ,
     );
   }
@@ -125,6 +131,7 @@ export class Writer {
       this.client,
       SET_DATA_ENDPOINT,
       { key: pid, data: JSON.stringify(data) },
+      setDataReqZ,
       renameResZ,
     );
   }

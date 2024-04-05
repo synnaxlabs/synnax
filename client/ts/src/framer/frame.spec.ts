@@ -211,7 +211,7 @@ describe("framer.Frame", () => {
 
   describe("timeRange", () => {
     describe("no key provided", () => {
-      it("should return the maxium time range of the frame", () => {
+      it("should return the maximum time range of the frame", () => {
         const f = new framer.Frame(
           new Map([
             [
@@ -310,6 +310,200 @@ describe("framer.Frame", () => {
       const pld = f.toPayload();
       expect(pld.keys).toEqual([12, 13]);
       expect(pld.series?.[0].data.byteLength).toEqual(12);
+    });
+  });
+
+  describe("latest", () => {
+    it("should return the latest sample from each column in the frame", () => {
+      const f = new framer.Frame(
+        new Map([
+          [
+            12,
+            [
+              new Series({
+                data: new Float32Array([1, 2, 3]),
+                timeRange: new TimeRange(40, 50000),
+              }),
+            ],
+          ],
+          [
+            13,
+            [
+              new Series({
+                data: new Float32Array([1, 2, 3]),
+                timeRange: new TimeRange(500, 50001),
+              }),
+            ],
+          ],
+        ]),
+      );
+      expect(f.latest()).toEqual({ 12: 3, 13: 3 });
+    });
+    it("should return the latest sample for each col in the frame - even with multiple series per col", () => {
+      const f = new framer.Frame(
+        new Map([
+          [
+            12,
+            [
+              new Series({
+                data: new Float32Array([1, 2, 3]),
+                timeRange: new TimeRange(40, 50000),
+              }),
+              new Series({
+                data: new Float32Array([4, 5, 6]),
+                timeRange: new TimeRange(40, 50000),
+              }),
+            ],
+          ],
+          [
+            13,
+            [
+              new Series({
+                data: new Float32Array([1, 2, 3]),
+                timeRange: new TimeRange(500, 50001),
+              }),
+              new Series({
+                data: new Float32Array([4, 5, 7]),
+                timeRange: new TimeRange(500, 50001),
+              }),
+            ],
+          ],
+        ]),
+      );
+      expect(f.latest()).toEqual({ 12: 6, 13: 7 });
+    });
+
+    it("should not add a key if no samples exist for the channel", () => {
+      const f = new framer.Frame(
+        new Map([
+          [
+            12,
+            [
+              new Series({
+                data: new Float32Array([1, 2, 3]),
+                timeRange: new TimeRange(40, 50000),
+              }),
+            ],
+          ],
+          [
+            13,
+            [
+              new Series({
+                data: new Float32Array([1, 2, 3]),
+                timeRange: new TimeRange(500, 50001),
+              }),
+            ],
+          ],
+          [14, []],
+        ]),
+      );
+      expect(f.latest()).toEqual({ 12: 3, 13: 3 });
+    });
+  });
+
+  describe("sample access", () => {
+    it("should return the sample at the given index", () => {
+      const f = new framer.Frame(
+        new Map([
+          [
+            12,
+            [
+              new Series({
+                data: new Float32Array([1, 2, 3]),
+                timeRange: new TimeRange(40, 50000),
+              }),
+            ],
+          ],
+          [
+            13,
+            [
+              new Series({
+                data: new Float32Array([1, 2, 3]),
+                timeRange: new TimeRange(500, 50001),
+              }),
+            ],
+          ],
+        ]),
+      );
+      expect(f.get(12).at(0)).toEqual(1);
+    });
+  });
+
+  describe("at", () => {
+    it("should return the sample at the given index", () => {
+      const f = new framer.Frame(
+        new Map([
+          [
+            12,
+            [
+              new Series({
+                data: new Float32Array([1, 2, 3]),
+                timeRange: new TimeRange(40, 50000),
+              }),
+            ],
+          ],
+          [
+            13,
+            [
+              new Series({
+                data: new Float32Array([1, 2, 3]),
+                timeRange: new TimeRange(500, 50001),
+              }),
+            ],
+          ],
+        ]),
+      );
+      expect(f.at(0)).toEqual({ 12: 1, 13: 1 });
+    });
+    it("should throw an error if required is true and the index is out of bounds", () => {
+      const f = new framer.Frame(
+        new Map([
+          [
+            12,
+            [
+              new Series({
+                data: new Float32Array([1, 2, 3]),
+                timeRange: new TimeRange(40, 50000),
+              }),
+            ],
+          ],
+          [
+            13,
+            [
+              new Series({
+                data: new Float32Array([1, 2, 3]),
+                timeRange: new TimeRange(500, 50001),
+              }),
+            ],
+          ],
+        ]),
+      );
+      expect(() => f.at(3, true)).toThrow();
+    });
+    it("should return undefined if required is false and the index is out of bounds", () => {
+      const f = new framer.Frame(
+        new Map([
+          [
+            12,
+            [
+              new Series({
+                data: new Float32Array([1, 2, 3]),
+                timeRange: new TimeRange(40, 50000),
+              }),
+            ],
+          ],
+          [
+            13,
+            [
+              new Series({
+                data: new Float32Array([1, 2]),
+                timeRange: new TimeRange(500, 50001),
+              }),
+            ],
+          ],
+        ]),
+      );
+      expect(f.at(2)).toEqual({ 12: 3, 13: undefined });
     });
   });
 });

@@ -45,8 +45,8 @@ export type NewPayload = z.input<typeof newPayload>;
 export const parseChannels = (channels: NewPayload[]): NewPayload[] =>
   channels.map((channel) => ({
     name: channel.name,
-    dataType: new DataType(channel.dataType),
-    rate: new Rate(channel.rate ?? 0),
+    dataType: channel.dataType,
+    rate: channel.rate ?? 0,
     leaseholder: channel.leaseholder,
     index: channel.index,
     isIndex: channel.isIndex,

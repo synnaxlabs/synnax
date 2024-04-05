@@ -100,7 +100,7 @@ var _ = Describe("TypedWriter", Ordered, func() {
 			})
 			It("Should create the channel without error", func() {
 				Expect(ch.Key().Leaseholder()).To(Equal(aspen.Free))
-				Expect(ch.Key().LocalKey()).To(Equal(channel.LocalKey(1)))
+				Expect(ch.Key().LocalKey()).To(Equal(uint16(5)))
 				channels, err := builder.Cores[1].Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey())
 				Expect(err).To(MatchError(query.NotFound))
 				Expect(channels).To(HaveLen(0))

@@ -76,7 +76,7 @@ export class Rack {
   key: number;
   name: string;
   private readonly writer: TaskWriter;
-  private readonly retriever: TaskRetriever;
+  private readonly tasks: TaskRetriever;
 
   constructor(
     key: number,
@@ -87,11 +87,11 @@ export class Rack {
     this.key = key;
     this.name = name;
     this.writer = _writer;
-    this.retriever = _retriever;
+    this.tasks = _retriever;
   }
 
   async listTasks(): Promise<Task[]> {
-    return await this.retriever.retrieve({ rack: this.key });
+    return await this.tasks.retrieve({ rack: this.key });
   }
 
   async retrieveTasks(): Promise<Task[]> {
@@ -99,7 +99,6 @@ export class Rack {
   }
 
   async createTask(task: NewTask): Promise<Task> {
-    // @ts-expect-error
     task.key = (
       (BigInt(this.key) << 32n) +
       (BigInt(task.key ?? 0) & 0xffffffffn)

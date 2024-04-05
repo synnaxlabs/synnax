@@ -49,8 +49,8 @@ func (s *FrameService) Stream(ctx context.Context, stream StreamerStream) error 
 	plumber.SetSegment[FrameStreamerRequest, FrameStreamerResponse](pipe, "streamer", streamer)
 	plumber.SetSink[FrameStreamerResponse](pipe, "sender", sender)
 	plumber.SetSource[FrameStreamerRequest](pipe, "receiver", receiver)
-	plumber.MustConnect[FrameStreamerResponse](pipe, "streamer", "sender", 10)
-	plumber.MustConnect[FrameStreamerRequest](pipe, "receiver", "streamer", 10)
+	plumber.MustConnect[FrameStreamerResponse](pipe, "streamer", "sender", 70)
+	plumber.MustConnect[FrameStreamerRequest](pipe, "receiver", "streamer", 70)
 	pipe.Flow(sCtx, confluence.CloseInletsOnExit())
 	return sCtx.Wait()
 }

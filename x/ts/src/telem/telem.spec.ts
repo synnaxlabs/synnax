@@ -9,12 +9,33 @@
 
 import { describe, expect, it, test } from "vitest";
 
+import { binary } from "@/binary";
 import { DataType, Density, Rate, Size, TimeRange, TimeSpan, TimeStamp } from "@/telem";
 
 describe("TimeStamp", () => {
   test("construct", () => {
     const ts = new TimeStamp(1000);
     expect(ts.equals(TimeSpan.MICROSECOND)).toBeTruthy();
+  });
+
+  test("construct from NaN", () => {
+    const ts = new TimeStamp(NaN);
+    expect(ts.isZero).toBeTruthy();
+  });
+
+  test("construct from infinity", () => {
+    const ts = new TimeStamp(Infinity);
+    expect(ts.equals(TimeStamp.MAX)).toBeTruthy();
+  });
+
+  test("construct from negative infinity", () => {
+    const ts = new TimeStamp(-Infinity);
+    expect(ts.equals(TimeStamp.MIN)).toBeTruthy();
+  });
+
+  test("encode", () => {
+    const ts = TimeStamp.now();
+    new binary.JSONEncoderDecoder().encode(ts);
   });
 
   test("construct from TimeStamp", () => {
@@ -63,7 +84,7 @@ describe("TimeStamp", () => {
     const ts2 = new TimeStamp("2021-01-01", "local");
     expect(ts2.date().getUTCFullYear()).toEqual(2021);
     expect(ts2.date().getUTCHours()).toEqual(
-      TimeStamp.utcOffset.valueOf() / TimeStamp.HOUR.valueOf(),
+      Number(TimeStamp.utcOffset.valueOf() / TimeStamp.HOUR.valueOf()),
     );
     expect(ts2.date().getUTCMinutes()).toEqual(0);
   });
@@ -293,6 +314,15 @@ describe("TimeRange", () => {
     expect(tr.end.equals(new TimeStamp(1000))).toBeTruthy();
   });
 
+  test("construct from object", () => {
+    const tr = new TimeRange({
+      start: new TimeStamp(1000),
+      end: new TimeStamp(100000),
+    });
+    expect(tr.start.equals(new TimeStamp(1000))).toBeTruthy();
+    expect(tr.end.equals(new TimeStamp(100000))).toBeTruthy();
+  });
+
   test("span", () => {
     const tr = new TimeRange(new TimeStamp(0), new TimeStamp(1000));
     expect(tr.span.equals(TimeSpan.MICROSECOND)).toBeTruthy();
@@ -379,6 +409,15 @@ describe("DataType", () => {
     const dt = DataType.INT32;
     const v = JSON.parse(JSON.stringify({ dt }));
     expect(v.dt === "int32").toBeTruthy();
+  });
+
+  describe("isVariable", () => {
+    it("should return true if the data type has a variable length", () => {
+      expect(DataType.INT32.isVariable).toBe(false);
+    });
+    it("should return false if the data type does not have a variable length", () => {
+      expect(DataType.STRING.isVariable).toBe(true);
+    });
   });
 });
 

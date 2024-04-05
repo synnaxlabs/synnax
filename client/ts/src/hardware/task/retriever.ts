@@ -21,7 +21,7 @@ const retrieveReqZ = z.object({
   limit: z.number().optional(),
 });
 
-const rerieveResS = z.object({
+const retrieveResZ = z.object({
   tasks: nullableArrayZ(taskZ),
 });
 
@@ -37,31 +37,34 @@ export class Retriever {
   }
 
   async retrieve(params: RetrieveRequest): Promise<Task[]> {
-    const res = await sendRequired<typeof retrieveReqZ, typeof rerieveResS>(
+    const res = await sendRequired<typeof retrieveReqZ, typeof retrieveResZ>(
       this.client,
       RETRIEVE_ENDPOINT,
       params,
-      rerieveResS,
+      retrieveReqZ,
+      retrieveResZ,
     );
     return res.tasks;
   }
 
   async search(term: string): Promise<Task[]> {
-    const res = await sendRequired<typeof retrieveReqZ, typeof rerieveResS>(
+    const res = await sendRequired<typeof retrieveReqZ, typeof retrieveResZ>(
       this.client,
       RETRIEVE_ENDPOINT,
       { keys: [term] },
-      rerieveResS,
+      retrieveReqZ,
+      retrieveResZ,
     );
     return res.tasks;
   }
 
   async page(offset: number, limit: number): Promise<Task[]> {
-    const res = await sendRequired<typeof retrieveReqZ, typeof rerieveResS>(
+    const res = await sendRequired<typeof retrieveReqZ, typeof retrieveResZ>(
       this.client,
       RETRIEVE_ENDPOINT,
       { offset, limit },
-      rerieveResS,
+      retrieveReqZ,
+      retrieveResZ,
     );
     return res.tasks;
   }

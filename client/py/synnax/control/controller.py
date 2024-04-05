@@ -87,7 +87,7 @@ class Controller:
         write_channels = retrieve_required(retriever, write)
         write_keys = [ch.index for ch in write_channels if ch.index != 0]
         write_keys.extend([ch.key for ch in write_channels])
-        self.writer = frame_client.new_writer(
+        self.writer = frame_client.open_writer(
             name=name,
             start=TimeStamp.now(),
             channels=write_keys,

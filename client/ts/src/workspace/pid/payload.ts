@@ -17,7 +17,7 @@ export type Params = Key | Key[];
 export const pidZ = z.object({
   key: z.string(),
   name: z.string(),
-  data: unknownRecordZ,
+  data: unknownRecordZ.or(z.string().transform((s) => JSON.parse(s) as UnknownRecord)),
   snapshot: z.boolean(),
 });
 

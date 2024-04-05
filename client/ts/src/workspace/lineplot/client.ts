@@ -12,7 +12,7 @@ import { type UnknownRecord } from "@synnaxlabs/x/record";
 
 import { type LinePlot, type Key, type Params } from "@/workspace/lineplot/payload";
 import { Retriever } from "@/workspace/lineplot/retriever";
-import { type CrudeLinePlot, Writer } from "@/workspace/lineplot/writer";
+import { type NewLinePlot, Writer } from "@/workspace/lineplot/writer";
 
 export class Client {
   private readonly writer: Writer;
@@ -23,7 +23,7 @@ export class Client {
     this.retriever = new Retriever(client);
   }
 
-  async create(workspace: string, pid: CrudeLinePlot): Promise<LinePlot> {
+  async create(workspace: string, pid: NewLinePlot): Promise<LinePlot> {
     return await this.writer.create(workspace, pid);
   }
 

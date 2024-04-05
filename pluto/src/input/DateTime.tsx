@@ -36,8 +36,9 @@ export const DateTime = ({
     if (nextStr.length < 23) nextStr += ".000";
 
     ts = ts.add(
-      (TimeStamp.now().date().getTimezoneOffset() - ts.date().getTimezoneOffset()) *
-        TimeSpan.MINUTE.valueOf(),
+      BigInt(
+        TimeStamp.now().date().getTimezoneOffset() - ts.date().getTimezoneOffset(),
+      ) * TimeSpan.MINUTE.valueOf(),
     );
     let ok = false;
     try {
@@ -50,7 +51,7 @@ export const DateTime = ({
       setValueIsValid(false);
       return;
     }
-    onChange(ts.valueOf());
+    onChange(Number(ts.valueOf()));
     setValueIsValid(true);
   };
 

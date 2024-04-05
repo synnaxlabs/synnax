@@ -18,22 +18,23 @@ import {
   type Params,
   keyZ,
   type Key,
-  linePlotRemoteZ,
 } from "@/workspace/lineplot/payload";
 import { keyZ as workspaceKeyZ } from "@/workspace/payload";
 
-export const crudeLinePlotZ = linePlotZ.partial({ key: true });
-export const linePlotWriteZ = linePlotRemoteZ.partial({ key: true });
+export const newLinePlotZ = linePlotZ.partial({ key: true }).transform((p) => ({
+  ...p,
+  data: JSON.stringify(p.data),
+}));
 
-export type CrudeLinePlot = z.infer<typeof crudeLinePlotZ>;
+export type NewLinePlot = z.input<typeof newLinePlotZ>;
 
 const createReqZ = z.object({
   workspace: workspaceKeyZ,
-  linePlots: linePlotWriteZ.array(),
+  linePlots: newLinePlotZ.array(),
 });
 
 const createResZ = z.object({
-  linePlots: linePlotRemoteZ.array(),
+  linePlots: linePlotZ.array(),
 });
 
 const deleteReqZ = z.object({
@@ -68,12 +69,13 @@ export class Writer {
     this.client = client;
   }
 
-  async create(workspace: string, plot: CrudeLinePlot): Promise<LinePlot> {
+  async create(workspace: string, plot: NewLinePlot): Promise<LinePlot> {
     const pid_ = { ...plot, data: JSON.stringify(plot.data) };
     const res = await sendRequired<typeof createReqZ, typeof createResZ>(
       this.client,
       CREATE_ENDPOINT,
       { workspace, linePlots: [pid_] },
+      createReqZ,
       createResZ,
     );
 
@@ -86,6 +88,7 @@ export class Writer {
       this.client,
       DELETE_ENDPOINT,
       { keys: normalized },
+      deleteReqZ,
       deleteResZ,
     );
   }
@@ -95,6 +98,7 @@ export class Writer {
       this.client,
       RENAME_ENDPOINT,
       { key: pid, name },
+      renameReqZ,
       renameResZ,
     );
   }
@@ -104,7 +108,8 @@ export class Writer {
       this.client,
       SET_DATA_ENDPOINT,
       { key: pid, data: JSON.stringify(data) },
-      renameResZ,
+      setDataReqZ,
+      setDataResZ,
     );
   }
 }
