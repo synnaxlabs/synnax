@@ -16,7 +16,6 @@ import { List } from "@synnaxlabs/pluto/list";
 import { toArray } from "@synnaxlabs/x";
 
 import { CSS } from "@/css";
-import { notificationAdapter } from "@/hardware/device/new/useListenForChanges";
 
 interface NotificationsProps extends Status.UseNotificationsReturn {
   adapters?: NotificationAdapter[];
@@ -57,10 +56,11 @@ interface NotificationProps {
 
 const Notification = ({
   status,
-  adapters = [notificationAdapter],
+  adapters,
   silence,
 }: NotificationProps): ReactElement => {
   const adapted: Status.Notification | SugaredNotification = useMemo(() => {
+    if (adapters == null || adapters.length === 0) return status;
     for (const adapter of adapters) {
       const result = adapter(status);
       if (result != null) return result;

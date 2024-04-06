@@ -174,7 +174,7 @@ const EditLayoutForm = ({
       </Align.Space>
       <Nav.Bar location="bottom" size={48}>
         <Nav.Bar.End style={{ padding: "1rem" }}>
-          {isCreate && (
+          {(isCreate || !isRemoteEdit) && (
             <Button.Button
               onClick={() => mutate(true)}
               variant="outlined"
@@ -184,7 +184,9 @@ const EditLayoutForm = ({
               Save to Synnax
             </Button.Button>
           )}
-          <Button.Button onClick={() => mutate(false)}>Save Locally</Button.Button>
+          <Button.Button onClick={() => mutate(false)}>
+            Save {!isRemoteEdit && "Locally"}
+          </Button.Button>
         </Nav.Bar.End>
       </Nav.Bar>
     </Align.Space>

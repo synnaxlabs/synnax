@@ -38,9 +38,13 @@ export const Selector = (): ReactElement => {
   const active = useSelectActive();
   const dProps = Dropdown.use();
   const handleChange = useCallback(
-    (v: string) => {
+    (v: string | null) => {
       dProps.close();
-      if (v === null) return;
+      if (v === null) {
+        d(setActive(null));
+        d(Layout.clearWorkspace());
+        return;
+      }
       void (async () => {
         if (v == null) {
           d(setActive(null));
@@ -85,6 +89,7 @@ export const Selector = (): ReactElement => {
             value={active?.key ?? null}
             onChange={handleChange}
             allowMultiple={false}
+            allowNone={true}
           >
             <List.Search searcher={client?.workspaces}>
               {(p) => (
@@ -98,10 +103,21 @@ export const Selector = (): ReactElement => {
                   {...p}
                 >
                   <Button.Button
+                    startIcon={<Icon.Close />}
+                    variant="outlined"
+                    onClick={() => handleChange(null)}
+                    iconSpacing="small"
+                    tooltip="Switch to no workspace"
+                  >
+                    Clear
+                  </Button.Button>
+                  <Button.Button
                     startIcon={<Icon.Add />}
                     variant="outlined"
                     onClick={() => place(createWindowLayout())}
                     iconSpacing="small"
+                    tooltip="Create a new workspace"
+                    tooltipLocation={{ y: "bottom" }}
                   >
                     New
                   </Button.Button>
