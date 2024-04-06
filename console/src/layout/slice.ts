@@ -298,10 +298,10 @@ export const { actions, reducer } = createSlice({
       state,
       { payload: { key: tabKey, name } }: PayloadAction<RenamePayload>,
     ) => {
-      if (name.length === 0) return;
       const layout = state.layouts[tabKey];
       if (layout == null) return;
       const mosaic = state.mosaics[layout.windowKey];
+      layout.name = name;
       mosaic.root = Mosaic.renameTab(mosaic.root, tabKey, name);
       state.mosaics[layout.windowKey] = mosaic;
     },

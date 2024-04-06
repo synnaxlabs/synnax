@@ -14,17 +14,15 @@ import { type Keyed, type Key } from "@synnaxlabs/x";
 import { DataProvider } from "@/list/Data";
 import { InfiniteProvider } from "@/list/Infinite";
 
-export interface ListProps<
-  K extends Key = Key,
-  E extends Keyed<K> = Keyed<K>,
-> extends PropsWithChildren<unknown> {
+export interface ListProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>>
+  extends PropsWithChildren<unknown> {
   data?: E[];
   emptyContent?: ReactElement;
 }
 
 /**
  * The main component for building a List. By itself, it does not render any HTML, and
- * should be used in conjunction with its subcomponents (List.'X') to build a list
+ * should be used in conjunction with its sub-components (List.'X') to build a list
  * component to fit your needs.
  *
  * @param props - The props for the List component.
@@ -34,10 +32,7 @@ export interface ListProps<
  * @param props.children - Sub-components of the List component to add additional functionality.
  *
  */
-export const List = <
-  K extends Key = Key,
-  E extends Keyed<K> = Keyed<K>,
->({
+export const List = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   children,
   data,
   emptyContent,

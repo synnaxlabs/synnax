@@ -38,7 +38,7 @@ export const Selector = (): ReactElement => {
   const active = useSelectActive();
   const dProps = Dropdown.use();
   const handleChange = useCallback(
-    ([v]: string[]) => {
+    (v: string) => {
       dProps.close();
       if (v === null) return;
       void (async () => {
@@ -48,6 +48,13 @@ export const Selector = (): ReactElement => {
         } else if (client == null) return;
         const ws = await client.workspaces.retrieve(v);
         d(add({ workspaces: [ws] }));
+        console.log(ws.layout);
+        d(
+          Layout.setWorkspace({
+            slice: ws.layout as unknown as Layout.SliceState,
+            keepNav: false,
+          }),
+        );
       })();
     },
     [active, client, d, dProps.close],
@@ -56,6 +63,7 @@ export const Selector = (): ReactElement => {
   return (
     <Dropdown.Dialog
       {...dProps}
+      keepMounted={false}
       variant="floating"
       className={CSS(CSS.BE("workspace", "selector"))}
     >
@@ -71,10 +79,10 @@ export const Selector = (): ReactElement => {
       >
         {active?.name ?? "No Workspace"}
       </Button.Button>
-      <Align.Pack direction="y" style={{ width: 500, height: 150 }}>
+      <Align.Pack direction="y" style={{ width: 500, height: 200 }}>
         <List.List>
           <List.Selector
-            value={active == null ? [] : [active.key]}
+            value={active?.key ?? null}
             onChange={handleChange}
             allowMultiple={false}
           >
