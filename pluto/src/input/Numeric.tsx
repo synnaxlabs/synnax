@@ -7,27 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type ReactElement,
-  forwardRef,
-  useCallback,
-  useState,
-  type FocusEventHandler,
-  useEffect,
-} from "react";
+import { type ReactElement, forwardRef, useCallback, useEffect } from "react";
 
 import { bounds } from "@synnaxlabs/x";
 import { evaluate } from "mathjs";
 
 import { useCombinedStateAndRef, useSyncedRef } from "@/hooks";
-import { DragButton, type DragButtonExtensionProps } from "@/input/DragButton";
-import { Text } from "@/input/Text";
+import { DragButton, type DragButtonExtraProps } from "@/input/DragButton";
+import { Text, type TextExtraProps } from "@/input/Text";
 import { type BaseProps } from "@/input/types";
 import { Triggers } from "@/triggers";
 
 export interface NumericProps
   extends Omit<BaseProps<number>, "type" | "onBlur">,
-    DragButtonExtensionProps {
+    DragButtonExtraProps,
+    TextExtraProps {
   selectOnFocus?: boolean;
   showDragHandle?: boolean;
   bounds?: bounds.Crude;
@@ -93,15 +87,12 @@ export const Numeric = forwardRef<HTMLInputElement, NumericProps>(
       let v = 0;
       try {
         v = evaluate(internalValueRef.current);
-        ok = true;
+        ok = v != null;
       } catch (e) {
         ok = false;
       }
-      if (ok) {
-        onChange?.(bounds.clamp(propsBounds, v));
-      } else {
-        setInternalValue(valueRef.current.toString());
-      }
+      if (ok) onChange?.(bounds.clamp(propsBounds, v));
+      else setInternalValue(valueRef.current.toString());
     }, [onChange, setInternalValue]);
 
     const updateActualValueRef = useSyncedRef(updateActualValue);

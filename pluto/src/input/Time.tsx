@@ -12,7 +12,7 @@ import { forwardRef, useCallback } from "react";
 import { TimeSpan, TimeStamp, type TZInfo } from "@synnaxlabs/x";
 
 import { CSS } from "@/css";
-import { DragButton, type DragButtonExtensionProps } from "@/input/DragButton";
+import { DragButton, type DragButtonExtraProps } from "@/input/DragButton";
 import { Text } from "@/input/Text";
 import { type BaseProps } from "@/input/types";
 
@@ -21,7 +21,7 @@ import "@/input/Time.css";
 export const combineDateAndTimeValue = (date: number, time: number): TimeStamp =>
   new TimeStamp(date).add(time).sub(TimeStamp.utcOffset);
 
-export interface TimeProps extends BaseProps<number>, DragButtonExtensionProps {
+export interface TimeProps extends BaseProps<number>, DragButtonExtraProps {
   tzInfo?: TZInfo;
   showDragHandle?: boolean;
 }

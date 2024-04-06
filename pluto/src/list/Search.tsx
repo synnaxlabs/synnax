@@ -9,21 +9,16 @@
 
 import { type ReactElement, useCallback, useEffect, useRef } from "react";
 
-import {
-  Keyed,
-  type AsyncTermSearcher,
-  type Key,
-} from "@synnaxlabs/x";
+import { type Keyed, type AsyncTermSearcher, type Key } from "@synnaxlabs/x";
 
 import { useSyncedRef } from "@/hooks";
 import { useDebouncedCallback } from "@/hooks/useDebouncedCallback";
 import { Input } from "@/input";
+import { useDataUtilContext } from "@/list/Data";
+import { useInfiniteUtilContext } from "@/list/Infinite";
 import { state } from "@/state";
 import { Status } from "@/status";
 import { type RenderProp, componentRenderProp } from "@/util/renderProp";
-
-import { useDataUtilContext } from "@/list/Data";
-import { useInfiniteUtilContext } from "@/list/Infinite";
 
 export interface SearchProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>>
   extends Input.OptionalControl<string> {
@@ -57,7 +52,7 @@ export const Search = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   onChange,
   pageSize = 10,
 }: SearchProps<K, E>): ReactElement | null => {
-  const [internalValue, setInternvalValue] = state.usePurePassthrough({
+  const [internalValue, setInternalValue] = state.usePurePassthrough({
     value,
     onChange,
     initial: "",
@@ -132,10 +127,10 @@ export const Search = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
 
   const handleChange = useCallback(
     (term: string) => {
-      setInternvalValue(term);
+      setInternalValue(term);
       debounced(term);
     },
-    [setInternvalValue, debounced],
+    [setInternalValue, debounced],
   );
 
   return children({ value: internalValue, onChange: handleChange });

@@ -13,6 +13,7 @@ import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { Haul, Mosaic, Theming } from "@synnaxlabs/pluto";
 import { type deep, type location } from "@synnaxlabs/x";
 import { nanoid } from "nanoid/non-secure";
+import { FaCircleArrowDown } from "react-icons/fa6";
 
 import { type LayoutState } from "@/layout/layout";
 
@@ -298,10 +299,10 @@ export const { actions, reducer } = createSlice({
       state,
       { payload: { key: tabKey, name } }: PayloadAction<RenamePayload>,
     ) => {
-      if (name.length === 0) return;
       const layout = state.layouts[tabKey];
       if (layout == null) return;
       const mosaic = state.mosaics[layout.windowKey];
+      layout.name = name;
       mosaic.root = Mosaic.renameTab(mosaic.root, tabKey, name);
       state.mosaics[layout.windowKey] = mosaic;
     },
@@ -404,6 +405,15 @@ export const { actions, reducer } = createSlice({
         nav: keepNav ? state.nav : slice.nav,
       };
     },
+    clearWorkspace: (state) => {
+      return {
+        ...ZERO_SLICE_STATE,
+        hauling: state.hauling,
+        themes: state.themes,
+        activeTheme: state.activeTheme,
+        nav: state.nav,
+      };
+    },
   },
 });
 
@@ -422,6 +432,7 @@ export const {
   maybeCreateGetStartedTab,
   setHauled,
   setWorkspace,
+  clearWorkspace,
 } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;

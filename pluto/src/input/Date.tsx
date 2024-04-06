@@ -12,13 +12,13 @@ import { forwardRef, useLayoutEffect } from "react";
 import { TimeStamp, type xy } from "@synnaxlabs/x";
 
 import { CSS } from "@/css";
-import { DragButton, type DragButtonExtensionProps } from "@/input/DragButton";
+import { DragButton, type DragButtonExtraProps } from "@/input/DragButton";
 import { Text } from "@/input/Text";
 import { type BaseProps } from "@/input/types";
 
 import "@/input/Date.css";
 
-export interface DateProps extends BaseProps<number>, DragButtonExtensionProps {
+export interface DateProps extends BaseProps<number>, DragButtonExtraProps {
   showDragHandle?: boolean;
 }
 

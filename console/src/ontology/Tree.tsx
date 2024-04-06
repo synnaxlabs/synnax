@@ -17,10 +17,10 @@ import {
   Haul,
   useStateRef as useRefAsState,
   useCombinedStateAndRef,
-  componentRenderProp,
   type state,
 } from "@synnaxlabs/pluto";
 import { Tree as Core } from "@synnaxlabs/pluto/tree";
+import { deep } from "@synnaxlabs/x";
 import { useStore } from "react-redux";
 
 import { Layout } from "@/layout";
@@ -96,17 +96,22 @@ const handleResourcesChange = async (
     tree: nodes,
     keys: removed.map((id) => id.toString()),
   });
+  let changed = false;
   nextTree = updated.reduce(
     (nextTree, node) =>
       Core.updateNode({
         tree: nextTree,
         key: node.id.toString(),
-        updater: (n) => ({ ...n, ...toTreeNode(services, node) }),
+        updater: (n) => {
+          const next = { ...n, ...toTreeNode(services, node) };
+          if (!changed && !deep.equal(next, n)) changed = true;
+          return next;
+        },
         throwOnMissing: false,
       }),
     nextTree,
   );
-  setNodes([...nextTree]);
+  if (changed) setNodes([...nextTree]);
 };
 
 const handleRelationshipsChange = async (
