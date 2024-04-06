@@ -7,7 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useEffect, type PropsWithChildren, type ReactElement } from "react";
+import {
+  useCallback,
+  useEffect,
+  type PropsWithChildren,
+  type ReactElement,
+} from "react";
 
 import { Logo } from "@synnaxlabs/media";
 import {
@@ -23,11 +28,14 @@ import { CSS as PCSS } from "@synnaxlabs/pluto/css";
 import { Theming } from "@synnaxlabs/pluto/theming";
 import { appWindow } from "@tauri-apps/api/window";
 import { ErrorBoundary, type ErrorBoundaryProps } from "react-error-boundary";
+import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
 import { NAV_SIZES } from "@/layouts/LayoutMain";
 
 import "@/error/Overlay.css";
+
+import { REVERT_STATE } from "@/persist/state";
 
 export interface ErrorOverlayProps extends PropsWithChildren<{}> {}
 
@@ -40,6 +48,8 @@ const FallbackRender: ErrorBoundaryProps["fallbackRender"] = ({
   error,
   resetErrorBoundary,
 }) => {
+  const d = useDispatch();
+
   useEffect(() => {
     // grab the prefers-color-scheme media query
     try {
@@ -57,6 +67,10 @@ const FallbackRender: ErrorBoundaryProps["fallbackRender"] = ({
   }, []);
 
   const os = OS.use();
+
+  const handleTryAgain = useCallback(() => {
+    d(REVERT_STATE);
+  }, [d]);
 
   return (
     <Align.Space direction="y" className={CSS.B("error-overlay")}>
@@ -120,7 +134,7 @@ const FallbackRender: ErrorBoundaryProps["fallbackRender"] = ({
             <Text.Text className={CSS.B("stack")} level="p">
               {error.stack}
             </Text.Text>
-            <Button.Button onClick={resetErrorBoundary}>Try again</Button.Button>
+            <Button.Button onClick={handleTryAgain}>Try again</Button.Button>
           </Align.Space>
         </Align.Space>
       </Align.Center>

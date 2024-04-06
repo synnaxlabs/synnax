@@ -115,8 +115,10 @@
     "cSpell.words": [
       "downsample",
       "glsl",
+      "immer",
       "syncer",
       "Synnax",
+      "Tauri",
       "telem"
     ],
   },

@@ -12,17 +12,18 @@ import {
   type Dispatch,
   type Middleware,
   type MiddlewareAPI,
+  type Action,
 } from "@reduxjs/toolkit";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { debounce, deep, type UnknownRecord } from "@synnaxlabs/x";
 import { getVersion } from "@tauri-apps/api/app";
 import { appWindow } from "@tauri-apps/api/window";
 
-import { Cluster } from "@/cluster";
 import { TauriKV } from "@/persist/kv";
 import { type Version } from "@/version";
 
 const PERSISTED_STATE_KEY = "console-persisted-state";
+const DB_VERSION_KEY = "console-version";
 
 export interface RequiredState extends Version.StoreState {}
 
@@ -30,29 +31,52 @@ export interface Config<S extends RequiredState> {
   exclude: Array<deep.Key<S>>;
 }
 
+export const REVERT_STATE: Action = {
+  type: "persist.revert-state",
+};
+
+const persistedStateKey = (version: number): string =>
+  `${PERSISTED_STATE_KEY}.${version}`;
+
+interface StateVersionValue {
+  version: number;
+}
+
 export const open = async <S extends RequiredState>({
   exclude = [],
 }: Config<S>): Promise<[S | undefined, Middleware<UnknownRecord, S>]> => {
   if (appWindow.label !== MAIN_WINDOW) return [undefined, noOpMiddleware];
-  const db = new TauriKV<S>();
-  await db.openAck();
-  let state = (await db.get(PERSISTED_STATE_KEY)) ?? undefined;
+  const db = new TauriKV();
+  let version = (await db.get<StateVersionValue>(DB_VERSION_KEY))?.version ?? 0;
+  let state = (await db.get<S>(persistedStateKey(version))) ?? undefined;
   if (state != null) state = await reconcileVersions(state);
+
+  const revert = (): void => {
+    if (appWindow.label !== MAIN_WINDOW) return;
+    version--;
+    db.set(DB_VERSION_KEY, { version })
+      .then(() => window.location.reload())
+      .catch(console.error);
+  };
 
   const persist = debounce((store: MiddlewareAPI<Dispatch<UnknownAction>, S>) => {
     if (appWindow.label !== MAIN_WINDOW) return;
+    version++;
     // We need to make a deep copy here to make immer happy
     // when we do exclusions.
     const deepCopy = deep.copy(store.getState());
     const filtered = deep.deleteD<S>(deepCopy, ...exclude);
-    db.set(PERSISTED_STATE_KEY, filtered).catch(console.error);
+    db.set(persistedStateKey(version), filtered).catch(console.error);
+    db.set(DB_VERSION_KEY, { version }).catch(console.error);
+    db.delete(persistedStateKey(version - 4)).catch(console.error);
   }, 500);
 
   return [
     state,
     (store) => (next) => (action) => {
       const result = next(action);
-      persist(store);
+      if ((action as Action | undefined)?.type === REVERT_STATE.type) revert();
+      else persist(store);
       return result;
     },
   ];

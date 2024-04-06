@@ -106,15 +106,15 @@ const MainUnderContext = (): ReactElement => {
 
 const Main = (): ReactElement | null => {
   return (
-    <ErrorOverlay>
-      <Provider store={store}>
+    <Provider store={store}>
+      <ErrorOverlay>
         <Layout.RendererProvider value={layoutRenderers}>
           <Ontology.ServicesProvider services={SERVICES}>
             <MainUnderContext />
           </Ontology.ServicesProvider>
         </Layout.RendererProvider>
-      </Provider>
-    </ErrorOverlay>
+      </ErrorOverlay>
+    </Provider>
   );
 };
 
