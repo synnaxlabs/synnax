@@ -18,13 +18,15 @@ from datetime import datetime
 
 channel = client.channels.retrieve("my_precise_tc")
 
-start = datetime.datetime("2023-2-12 12:30:00")
-end = datetime.datetime("2023-2-12 14:30:00")
+time_format = "%Y-%m-%d %H:%M:%S"
+
+start = datetime.strptime("2023-2-12 12:30:00", time_format)
+end = datetime.strptime("2023-2-12 14:30:00", time_format)
 
 data = channel.read(start, end)
 ```
 
-The returned data is an instance of the `Series` class, but for all intensive purposes
+The returned data is an instance of the `Series` class, but for all intents and purposes
 can be treated exactly like a `numpy.ndarray`. For example, we can perform vectorized
 operations on the data.
 
@@ -74,14 +76,14 @@ exactly the range of time we're interested in reading. [Named ranges](/python-cl
 are a useful way of categorizing important time ranges in a cluster's data. We can read
 directly from these named ranges.
 
-We can access chanenl's on a `Range` object and call `read` on them to access their
+We can access channel's on a `Range` object and call `read` on them to access their
 data.
 
 ```python
 rng = client.ranges.retrieve("My Interesting Test")
 
 # Read the data from the channel
-data = rng.m_precise_tc.read()
+data = rng.my_precise_tc.read()
 
 data = data - 273.15
 ```
@@ -90,7 +92,7 @@ It turns out that we don't even need to call the `read` method at all. We can ju
 the channel name directly to perform operations on the data.
 
 ```python
-data = rng.m_precise_tc - 273.15
+data = rng.my_precise_tc - 273.15
 ```
 
 We can also plot the data just as easily.
@@ -99,7 +101,7 @@ We can also plot the data just as easily.
 import matplotlib.pyplot as plt
 
 # Plot time on the x-axis and temperature on the y-axis
-plt.plot(rng.time, rng.m_precise_tc)
+plt.plot(rng.time, rng.my_precise_tc)
 ```
 
 ## Reading with Iterators
@@ -113,7 +115,7 @@ consistently sized chunks.
 
 
 ```python
-with client.new_iterator(start, end, "my_precise_tc", chunk_size=100) as it:
+with client.open_iterator(start, end, "my_precise_tc", chunk_size=100) as it:
     for frame in it:
         # Do something with the frame
 ```

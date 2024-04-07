@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 """
-This example demonstrates how to stream live data from a channel in Synnax.
+This example demonstrates how to asynchronously stream live data from a channel in Synnax.
 Live-streaming is useful for real-time data processing and analysis, and is an
 integral part of Synnax's control sequence and data streaming capabilities.
 
@@ -16,6 +16,7 @@ This example is meant to be used in conjunction with the stream_write.py example
 assumes that example is running in a separate terminal.
 """
 
+import asyncio
 import synnax as sy
 
 # We've logged in via the CLI, so there's no need to provide credentials here.
@@ -29,10 +30,17 @@ read_from = [
     "stream_write_example_data_2"
 ]
 
-# Open the streamer as a context manager. This will make sure the streamer is properly
-# closed when we're done reading. We'll read from both the time and data channels. In
-with client.open_streamer(read_from) as s:
-    # Loop through the frames in the streamer. Each iteration will block until a new
-    # frame is available, then we'll just print it out.
-    for frame in s:
-        print(frame)
+
+async def run():
+    # Open the streamer as a context manager. This will make sure the streamer is
+    # properly closed when we're done reading. We'll read from both the time and data
+    # channels.
+    async with await client.open_async_streamer(read_from) as s:
+        # Loop through the frames in the streamer. Each iteration will block until a new
+        # frame is available, then we'll just print it out.
+        async for frame in s:
+            print(frame)
+
+
+# Run the async function
+asyncio.run(run())

@@ -39,6 +39,11 @@ export const pythonClientNav: PageNavNode = {
       name: "Write Telemetry",
     },
     {
+      key: "/python-client/stream-telemetry",
+      href: "/python-client/stream-telemetry",
+      name: "Stream Telemetry",
+    },
+    {
       key: "/python-client/examples",
       href: "/python-client/examples",
       name: "Examples",

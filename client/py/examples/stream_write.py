@@ -25,17 +25,23 @@ client = sy.Synnax()
 
 # Create an index channel that will be used to store our timestamps.
 time_ch = client.channels.create(
-    name="stream__write_example_time",
+    name="stream_write_example_time",
     is_index=True,
     data_type=sy.DataType.TIMESTAMP,
     retrieve_if_name_exists=True,
 )
 
-# Create a data channel that will be used to store our fake sensor data.
-data_ch = client.channels.create(
-    name="stream_write_example_data",
+# Create two data channels that will be used to store our data values. We'll write to
+data_ch_1 = client.channels.create(
+    name="stream_write_example_data_1",
     index=time_ch.key,
     data_type=sy.DataType.FLOAT32,
+    retrieve_if_name_exists=True,
+)
+data_ch_2 = client.channels.create(
+    name="stream_write_example_data_2",
+    index=time_ch.key,
+    data_type=sy.DataType.UINT8,
     retrieve_if_name_exists=True,
 )
 
@@ -55,17 +61,19 @@ commit_interval = 500
 # closed when we're done writing. We'll write to both the time and data channels. In
 # this example, we provide the keys of the channels we want to write to, but you can
 # also provide the names and write that way.
-with client.open_writer(start, [time_ch.key, data_ch.key]) as writer:
+with client.open_writer(start, [time_ch.key, data_ch_1.key, data_ch_2.key]) as writer:
     i = 0
     while True:
         # Generate our timestamp and data value
         timestamp = np.int64(sy.TimeStamp.now())
-        data = np.float32(np.sin(i / 10))
+        data_1 = np.float32(np.sin(i / 10))
+        data_2 = i % 2
 
         # Write the data to the writer
         writer.write({
             time_ch.key: timestamp,
-            data_ch.key: data,
+            data_ch_1.key: data_1,
+            data_ch_2.key: data_2,
         })
 
         time.sleep(rough_rate.period.seconds)
@@ -76,6 +84,7 @@ with client.open_writer(start, [time_ch.key, data_ch.key]) as writer:
             print(f"Writing sample {i} at {sy.TimeStamp.now()}")
 
         if i % 500 == 0:
+            print(f"Committing at {sy.TimeStamp.now()}")
             # Commit the writer. This method will return false if the commit fails i.e.
             # we've made an invalid write or someone has already written to this region.
             if not writer.commit():
