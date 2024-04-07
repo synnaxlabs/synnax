@@ -35,7 +35,7 @@ import { NAV_SIZES } from "@/layouts/LayoutMain";
 
 import "@/error/Overlay.css";
 
-import { REVERT_STATE } from "@/persist/state";
+import { CLEAR_STATE, REVERT_STATE } from "@/persist/state";
 
 export interface ErrorOverlayProps extends PropsWithChildren<{}> {}
 
@@ -68,9 +68,13 @@ const FallbackRender: ErrorBoundaryProps["fallbackRender"] = ({
 
   const os = OS.use();
 
-  const handleTryAgain = useCallback(() => {
+  const handleTryAgain = (): void => {
     d(REVERT_STATE);
-  }, [d]);
+  };
+
+  const handleClear = (): void => {
+    d(CLEAR_STATE);
+  };
 
   return (
     <Align.Space direction="y" className={CSS.B("error-overlay")}>
@@ -134,7 +138,12 @@ const FallbackRender: ErrorBoundaryProps["fallbackRender"] = ({
             <Text.Text className={CSS.B("stack")} level="p">
               {error.stack}
             </Text.Text>
-            <Button.Button onClick={handleTryAgain}>Try again</Button.Button>
+            <Align.Space direction="x">
+              <Button.Button onClick={handleTryAgain}>Try again</Button.Button>
+              <Button.Button onClick={handleClear} variant="outlined">
+                Clear Storage and Hard Reset
+              </Button.Button>
+            </Align.Space>
           </Align.Space>
         </Align.Space>
       </Align.Center>

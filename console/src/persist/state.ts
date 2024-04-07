@@ -35,6 +35,10 @@ export const REVERT_STATE: Action = {
   type: "persist.revert-state",
 };
 
+export const CLEAR_STATE: Action = {
+  type: "persist.clear-state",
+};
+
 const persistedStateKey = (version: number): string =>
   `${PERSISTED_STATE_KEY}.${version}`;
 
@@ -42,25 +46,35 @@ interface StateVersionValue {
   version: number;
 }
 
+const KEEP_HISTORY = 4;
+
 export const open = async <S extends RequiredState>({
   exclude = [],
   migrator,
 }: Config<S>): Promise<[S | undefined, Middleware<UnknownRecord, S>]> => {
   if (appWindow.label !== MAIN_WINDOW) return [undefined, noOpMiddleware];
   const db = new TauriKV();
-  let version = (await db.get<StateVersionValue>(DB_VERSION_KEY))?.version ?? 0;
+  let version: number = (await db.get<StateVersionValue>(DB_VERSION_KEY))?.version ?? 0;
   let state = (await db.get<S>(persistedStateKey(version))) ?? undefined;
   if (state != null && migrator != null) {
     state = migrator(state);
     await db.set(PERSISTED_STATE_KEY, state).catch(console.error);
   }
 
-  const revert = (): void => {
+  const revert = async (): Promise<void> => {
     if (appWindow.label !== MAIN_WINDOW) return;
     version--;
-    db.set(DB_VERSION_KEY, { version })
-      .then(() => window.location.reload())
-      .catch(console.error);
+    await db.set(DB_VERSION_KEY, { version });
+    window.location.reload();
+  };
+
+  const clear = async (): Promise<void> => {
+    if (appWindow.label !== MAIN_WINDOW) return;
+    for (let i = version; i >= version - KEEP_HISTORY - 1; i--)
+      await db.delete(persistedStateKey(i));
+    version = 0;
+    await db.set(DB_VERSION_KEY, { version });
+    window.location.reload();
   };
 
   const persist = debounce((store: MiddlewareAPI<Dispatch<UnknownAction>, S>) => {
@@ -72,14 +86,16 @@ export const open = async <S extends RequiredState>({
     const filtered = deep.deleteD<S>(deepCopy, ...exclude);
     db.set(persistedStateKey(version), filtered).catch(console.error);
     db.set(DB_VERSION_KEY, { version }).catch(console.error);
-    db.delete(persistedStateKey(version - 4)).catch(console.error);
+    db.delete(persistedStateKey(version - KEEP_HISTORY)).catch(console.error);
   }, 500);
 
   return [
     state,
     (store) => (next) => (action) => {
       const result = next(action);
-      if ((action as Action | undefined)?.type === REVERT_STATE.type) revert();
+      const type = (action as Action | undefined)?.type;
+      if (type === REVERT_STATE.type) revert().catch(console.error);
+      else if (type === CLEAR_STATE.type) clear().catch(console.error);
       else persist(store);
       return result;
     },
