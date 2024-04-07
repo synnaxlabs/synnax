@@ -11,7 +11,7 @@ import { type PayloadAction, createSlice } from "@reduxjs/toolkit";
 import { type Control, type Viewport, type Diagram, type PID } from "@synnaxlabs/pluto";
 import { Color } from "@synnaxlabs/pluto/color";
 import { type Theming } from "@synnaxlabs/pluto/theming";
-import { box, scale, xy, deep } from "@synnaxlabs/x";
+import { box, scale, xy, deep, migrate } from "@synnaxlabs/x";
 import { nanoid } from "nanoid/non-secure";
 import { v4 as uuidV4 } from "uuid";
 
@@ -22,7 +22,7 @@ export type NodeProps = object & {
   color?: Color.Crude;
 };
 
-export interface State {
+export interface State extends migrate.Migratable {
   editable: boolean;
   snapshot: boolean;
   remoteCreated: boolean;
@@ -57,7 +57,7 @@ export interface ToolbarState {
   activeTab: ToolbarTab;
 }
 
-export interface SliceState {
+export interface SliceState extends migrate.Migratable {
   mode: Viewport.Mode;
   copy: CopyBuffer;
   toolbar: ToolbarState;
@@ -71,6 +71,7 @@ export interface StoreState {
 }
 
 export const ZERO_STATE: State = {
+  version: "0.0.0",
   snapshot: false,
   nodes: [],
   edges: [],
@@ -82,7 +83,8 @@ export const ZERO_STATE: State = {
   controlAcquireTrigger: 0,
 };
 
-export const ZERO_PID_SLICE_STATE: SliceState = {
+export const ZERO_SLICE_STATE: SliceState = {
+  version: "0.0.0",
   mode: "select",
   copy: { ...ZERO_COPY_BUFFER },
   toolbar: { activeTab: "symbols" },
@@ -145,7 +147,7 @@ export interface SetControlStatusPayload {
   control: Control.Status;
 }
 
-export interface TogggleControlPayload {
+export interface ToggleControlPayload {
   layoutKey: string;
   status: Control.Status;
 }
@@ -188,9 +190,13 @@ export const calculatePos = (
   return s.pos(cursor);
 };
 
+const MIGRATIONS: migrate.Migrations = {};
+
+export const migrateSlice = migrate.migrator<SliceState, SliceState>(MIGRATIONS);
+
 export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
-  initialState: ZERO_PID_SLICE_STATE,
+  initialState: ZERO_SLICE_STATE,
   reducers: {
     copySelection: (state, _: PayloadAction<CopySelectionPayload>) => {
       // for each pid, find the keys of the selected nodes and edges
@@ -386,7 +392,7 @@ export const { actions, reducer } = createSlice({
       if (pid.snapshot) return;
       pid.editable = editable;
     },
-    toggleControl: (state, { payload }: PayloadAction<TogggleControlPayload>) => {
+    toggleControl: (state, { payload }: PayloadAction<ToggleControlPayload>) => {
       let { layoutKey, status } = payload;
       const pid = state.pids[layoutKey];
       if (status == null) status = pid.control === "released" ? "acquired" : "released";
