@@ -34,7 +34,7 @@ func IterRange(tr telem.TimeRange) IteratorConfig { return IteratorConfig{Bounds
 // Iterator is not safe for concurrent use, but it is safe to have multiple iterators over
 // the same DB.
 //
-// It's important to not that an Iterator does NOT iterator over a snapshot of the DB,
+// It's important to note that an Iterator does NOT iterate over a snapshot of the DB,
 // and is not isolated from any writes that may be committed during the iterators lifetime.
 // This means that the position of an iterator may shift unexpectedly. There are plans
 // to implement MVCC in the future, but until then you have been warned.
