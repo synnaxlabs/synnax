@@ -241,7 +241,7 @@ class _Receiver(Thread):
 
     async def __run(self):
         self.queue = Queue(maxsize=1)
-        self.streamer = await self.client.new_async_streamer(self.channels)
+        self.streamer = await self.client.open_async_streamer(self.channels)
         self.bootup_ack.set()
         create_task(self.__listen_for_close())
 

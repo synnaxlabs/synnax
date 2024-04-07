@@ -196,7 +196,7 @@ class Client:
             client=self.__client,
         )
 
-    async def new_async_streamer(
+    async def open_async_streamer(
         self,
         params: ChannelParams,
         from_: CrudeTimeStamp | None = None,
