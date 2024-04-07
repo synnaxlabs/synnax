@@ -19,6 +19,7 @@ import {
   deep,
   toArray,
   box,
+  migrate,
 } from "@synnaxlabs/x";
 import { nanoid } from "nanoid/non-secure";
 
@@ -168,7 +169,7 @@ export const ZERO_RANGES_STATE: RangesState = {
 
 export type SugaredRangesState = Vis.MultiXAxisRecord<Range>;
 
-export interface State {
+export interface State extends migrate.Migratable {
   key: string;
   remoteCreated: boolean;
   title: TitleState;
@@ -206,6 +207,7 @@ export const ZERO_AXES_STATE: AxesState = {
 };
 
 export const ZERO_LINE_VIS: State = {
+  version: "0.0.0",
   key: "",
   remoteCreated: false,
   title: ZERO_TITLE_STATE,
@@ -248,7 +250,7 @@ export const ZERO_LINE_CONTROL_STATE: ControlState = {
   enableTooltip: true,
 };
 
-export interface SliceState {
+export interface SliceState extends migrate.Migratable {
   mode: Viewport.Mode;
   control: ControlState;
   toolbar: ToolbarState;
@@ -261,7 +263,8 @@ export interface StoreState {
   [SLICE_NAME]: SliceState;
 }
 
-export const ZERO_LINE_SLICE_STATE: SliceState = {
+export const ZERO_SLICE_STATE: SliceState = {
+  version: "0.0.0",
   mode: "zoom",
   control: ZERO_LINE_CONTROL_STATE,
   toolbar: {
@@ -419,9 +422,13 @@ const updateLines = (state: State): LineState[] => {
   return lines;
 };
 
+const MIGRATIONS: migrate.Migrations = {};
+
+export const migrateSlice = migrate.migrator<SliceState, SliceState>(MIGRATIONS);
+
 export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
-  initialState: ZERO_LINE_SLICE_STATE,
+  initialState: ZERO_SLICE_STATE,
   reducers: {
     create: (state, { payload }: PayloadAction<CreatePayload>) => {
       const { key: layoutKey } = payload;

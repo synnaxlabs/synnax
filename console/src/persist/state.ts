@@ -15,10 +15,8 @@ import {
 } from "@reduxjs/toolkit";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { debounce, deep, type UnknownRecord } from "@synnaxlabs/x";
-import { getVersion } from "@tauri-apps/api/app";
 import { appWindow } from "@tauri-apps/api/window";
 
-import { Cluster } from "@/cluster";
 import { TauriKV } from "@/persist/kv";
 import { type Version } from "@/version";
 
@@ -27,22 +25,28 @@ const PERSISTED_STATE_KEY = "console-persisted-state";
 export interface RequiredState extends Version.StoreState {}
 
 export interface Config<S extends RequiredState> {
+  migrator?: (state: S) => S;
   exclude: Array<deep.Key<S>>;
 }
 
 export const open = async <S extends RequiredState>({
   exclude = [],
+  migrator,
 }: Config<S>): Promise<[S | undefined, Middleware<UnknownRecord, S>]> => {
   if (appWindow.label !== MAIN_WINDOW) return [undefined, noOpMiddleware];
   const db = new TauriKV<S>();
   await db.openAck();
   let state = (await db.get(PERSISTED_STATE_KEY)) ?? undefined;
-  if (state != null) state = await reconcileVersions(state);
+  console.log(state);
+  if (state != null && migrator != null) {
+    state = migrator(state);
+    await db.set(PERSISTED_STATE_KEY, state).catch(console.error);
+  }
 
   const persist = debounce((store: MiddlewareAPI<Dispatch<UnknownAction>, S>) => {
     if (appWindow.label !== MAIN_WINDOW) return;
     // We need to make a deep copy here to make immer happy
-    // when we do exclusions.
+    // when we do deep deletes.
     const deepCopy = deep.copy(store.getState());
     const filtered = deep.deleteD<S>(deepCopy, ...exclude);
     db.set(PERSISTED_STATE_KEY, filtered).catch(console.error);
@@ -60,12 +64,3 @@ export const open = async <S extends RequiredState>({
 
 const noOpMiddleware: Middleware<UnknownRecord, any> = () => (next) => (action) =>
   next(action);
-
-const reconcileVersions = async <S extends RequiredState>(
-  state: S,
-): Promise<S | undefined> => {
-  const storedVersion = state.version.version;
-  const tauriVersion = await getVersion();
-  if (storedVersion !== tauriVersion) return undefined;
-  return state;
-};

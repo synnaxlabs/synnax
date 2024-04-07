@@ -115,8 +115,14 @@
     "cSpell.words": [
       "downsample",
       "glsl",
+      "immer",
+      "lineplot",
+      "Migratable",
+      "Navdrawer",
+      "reduxjs",
       "syncer",
       "Synnax",
+      "tauri",
       "telem"
     ],
   },
