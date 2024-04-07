@@ -70,7 +70,6 @@ export type Payload = RootAction["payload"];
 export type RootStore = Store<RootState, RootAction>;
 
 const DEFAULT_WINDOW_PROPS: Omit<Drift.WindowProps, "key"> = {
-  transparent: true,
   fileDropEnabled: false,
 };
 

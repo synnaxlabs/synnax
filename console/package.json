@@ -1,7 +1,7 @@
 {
   "name": "@synnaxlabs/console",
   "private": true,
-  "version": "0.20.3",
+  "version": "0.20.4",
   "type": "module",
   "scripts": {
     "dev": "tauri dev",
@@ -17,7 +17,6 @@
   },
   "dependencies": {
     "@fontsource/inter": "^5.0.16",
-    "@hookform/resolvers": "^3.3.4",
     "@reduxjs/toolkit": "^2.2.0",
     "@synnaxlabs/client": "workspace:*",
     "@synnaxlabs/drift": "workspace:*",

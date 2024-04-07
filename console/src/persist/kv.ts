@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type kv } from "@synnaxlabs/x";
 import { Store } from "tauri-plugin-store-api";
 
 export const multipleWindowsOpen = new Error("[persist] - windows open");

@@ -68,11 +68,6 @@ impl<R: Runtime> WindowExt for Window<R> {
     }
 }
 
-#[derive(Clone, serde::Serialize)]
-struct Payload {
-    message: String,
-}
-
 fn main() {
     let builder = tauri::Builder::default();
     builder
