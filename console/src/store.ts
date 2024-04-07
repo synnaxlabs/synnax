@@ -73,8 +73,21 @@ const DEFAULT_WINDOW_PROPS: Omit<Drift.WindowProps, "key"> = {
   fileDropEnabled: false,
 };
 
+export const migrateState = (prev: RootState): RootState => ({
+  ...prev,
+  layout: Layout.migrateSlice(prev.layout),
+  pid: PID.migrateSlice(prev.pid),
+  line: LinePlot.migrateSlice(prev.line),
+  version: Version.migrateSlice(prev.version),
+  workspace: Workspace.migrateSlice(prev.workspace),
+  range: Range.migrateSlice(prev.range),
+  docs: Docs.migrateSlice(prev.docs),
+  cluster: Cluster.migrateSlice(prev.cluster),
+});
+
 const newStore = async (): Promise<RootStore> => {
   const [preloadedState, persistMiddleware] = await Persist.open<RootState>({
+    migrator: migrateState,
     exclude: PERSIST_EXCLUDE,
   });
   return await Drift.configureStore<RootState, RootAction>({

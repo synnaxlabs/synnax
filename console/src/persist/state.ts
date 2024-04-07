@@ -16,7 +16,6 @@ import {
 } from "@reduxjs/toolkit";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { debounce, deep, type UnknownRecord } from "@synnaxlabs/x";
-import { getVersion } from "@tauri-apps/api/app";
 import { appWindow } from "@tauri-apps/api/window";
 
 import { TauriKV } from "@/persist/kv";
@@ -28,6 +27,7 @@ const DB_VERSION_KEY = "console-version";
 export interface RequiredState extends Version.StoreState {}
 
 export interface Config<S extends RequiredState> {
+  migrator?: (state: S) => S;
   exclude: Array<deep.Key<S>>;
 }
 
@@ -44,12 +44,16 @@ interface StateVersionValue {
 
 export const open = async <S extends RequiredState>({
   exclude = [],
+  migrator,
 }: Config<S>): Promise<[S | undefined, Middleware<UnknownRecord, S>]> => {
   if (appWindow.label !== MAIN_WINDOW) return [undefined, noOpMiddleware];
   const db = new TauriKV();
   let version = (await db.get<StateVersionValue>(DB_VERSION_KEY))?.version ?? 0;
   let state = (await db.get<S>(persistedStateKey(version))) ?? undefined;
-  if (state != null) state = await reconcileVersions(state);
+  if (state != null && migrator != null) {
+    state = migrator(state);
+    await db.set(PERSISTED_STATE_KEY, state).catch(console.error);
+  }
 
   const revert = (): void => {
     if (appWindow.label !== MAIN_WINDOW) return;
@@ -63,7 +67,7 @@ export const open = async <S extends RequiredState>({
     if (appWindow.label !== MAIN_WINDOW) return;
     version++;
     // We need to make a deep copy here to make immer happy
-    // when we do exclusions.
+    // when we do deep deletes.
     const deepCopy = deep.copy(store.getState());
     const filtered = deep.deleteD<S>(deepCopy, ...exclude);
     db.set(persistedStateKey(version), filtered).catch(console.error);
@@ -84,12 +88,3 @@ export const open = async <S extends RequiredState>({
 
 const noOpMiddleware: Middleware<UnknownRecord, any> = () => (next) => (action) =>
   next(action);
-
-const reconcileVersions = async <S extends RequiredState>(
-  state: S,
-): Promise<S | undefined> => {
-  const storedVersion = state.version.version;
-  const tauriVersion = await getVersion();
-  if (storedVersion !== tauriVersion) return undefined;
-  return state;
-};
