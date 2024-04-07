@@ -188,9 +188,13 @@ func (i *Iterator) Error() error { return i.err }
 
 func (i *Iterator) Valid() bool { return i.partiallySatisfied() && i.err == nil }
 
-func (i *Iterator) Close() error {
+func (i *Iterator) Close() (err error) {
+	err = i.internal.Close()
+	if err != nil {
+		return
+	}
 	i.decrementCounter()
-	return i.internal.Close()
+	return
 }
 
 func (i *Iterator) accumulate(ctx context.Context) bool {

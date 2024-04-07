@@ -12,158 +12,206 @@ package cesium_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium"
-	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/x/confluence"
-	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	"runtime"
 )
 
-var _ = Describe("Delete", Ordered, func() {
-	var db *cesium.DB
+var _ = Describe("Delete Channel", Ordered, func() {
+	var (
+		db       *cesium.DB
+		uChannel cesium.ChannelKey = 10
+		vChannel cesium.ChannelKey = 11
+		udb                        = cesium.Channel{Key: uChannel, IsIndex: false, Rate: 1 * telem.Hz, DataType: telem.Int64T}
+		vdb                        = cesium.Channel{Key: vChannel, IsIndex: false, Rate: 1 * telem.Hz, DataType: telem.Int64T}
+	)
 	BeforeAll(func() { db = openMemDB() })
 	AfterAll(func() { Expect(db.Close()).To(Succeed()) })
-	Describe("Delete a channel when there are no iterators/writers", func() {
-		Specify("Deleting a nonexistent channel", func() {
+	Describe("Error paths", func() {
+		Specify("Deleting a nonexistent channel should error", func() {
 			Expect(db.DeleteChannel(9)).To(MatchError(query.Error))
 		})
-		Specify("Deleting an index channel that other channels rely on", func() {
-			Expect(db.CreateChannel(
-				ctx,
-				cesium.Channel{Key: 15, IsIndex: true, DataType: telem.TimeStampT},
-				cesium.Channel{Key: 16, Index: 15, DataType: telem.Int64T},
-			)).To(Succeed())
-
-			By("Deleting channel")
-			Expect(db.DeleteChannel(15)).ToNot(Succeed())
-		})
-		Specify("Simple unary channel", func() {
-			By("Creating a channel")
-			Expect(db.CreateChannel(
-				ctx,
-				cesium.Channel{Key: 1, Rate: 10 * telem.Hz, DataType: telem.Float64T},
-			)).To(Succeed())
-			By("Creating a writer on it")
-			w := MustSucceed(db.OpenWriter(
-				ctx,
-				cesium.WriterConfig{
-					Channels: []cesium.ChannelKey{1},
-					Start:    10 * telem.SecondTS,
-				}))
-			By("Trying to delete it")
-			Expect(db.DeleteChannel(1).Error()).To(ContainSubstring("1 unclosed"))
-			By("Closing the writer")
-			Expect(w.Close()).To(Succeed())
-			By("Trying to delete it again")
-			Expect(db.DeleteChannel(1)).To(Succeed())
-			By("Trying to retrieve the channel")
-			_, err := db.RetrieveChannel(ctx, 1)
-			Expect(err).To(MatchError(query.Error))
-		})
-
-		Specify("Simple virtual channel", func() {
-			By("Creating a channel")
-			Expect(db.CreateChannel(
-				ctx,
-				cesium.Channel{Key: 1, DataType: telem.Float64T, Virtual: true},
-			)).To(Succeed())
-			By("Creating a writer on it")
-			w := MustSucceed(db.OpenWriter(
-				ctx,
-				cesium.WriterConfig{
-					Channels: []cesium.ChannelKey{1},
-					Start:    10 * telem.SecondTS,
-				}))
-			By("Trying to delete it")
-			Expect(db.DeleteChannel(1).Error()).To(ContainSubstring("1 unclosed"))
-			By("Closing the writer")
-			Expect(w.Close()).To(Succeed())
-			By("Trying to delete it again")
-			Expect(db.DeleteChannel(1)).To(Succeed())
-			By("Trying to retrieve the channel")
-			_, err := db.RetrieveChannel(ctx, 1)
-			Expect(err).To(MatchError(query.Error))
-		})
-
-		Specify("Indexed unary channels", func() {
-			By("Creating two channels")
-			Expect(db.CreateChannel(
-				ctx,
-				cesium.Channel{Key: 2, IsIndex: true, DataType: telem.TimeStampT},
-				cesium.Channel{Key: 3, Index: 2, DataType: telem.Int64T},
-			)).To(Succeed())
-			By("Creating writers on them")
-			w := MustSucceed(db.OpenWriter(
-				ctx,
-				cesium.WriterConfig{
-					Channels: []cesium.ChannelKey{2, 3},
-					Start:    10 * telem.SecondTS,
-				}))
-
-			By("Trying to delete them")
-			Expect(db.DeleteChannel(2).Error()).To(ContainSubstring("depending"))
-			Expect(db.DeleteChannel(3).Error()).To(ContainSubstring("1 unclosed"))
-
-			By("Closing the writer")
-			Expect(w.Close()).To(Succeed())
-			By("Trying to delete them again")
-			Expect(db.DeleteChannel(3)).To(Succeed())
-			Expect(db.DeleteChannel(2)).To(Succeed())
-
-			By("Trying to retrieve the channels")
-			_, err2 := db.RetrieveChannel(ctx, 2)
-			_, err3 := db.RetrieveChannel(ctx, 3)
-			Expect(err2).To(MatchError(query.Error))
-			Expect(err3).To(MatchError(query.Error))
-		})
-
-		Specify("Controlled streamwriters", func() {
-			var (
-				controlKey cesium.ChannelKey = 7
-				basic3     cesium.ChannelKey = 8
-			)
-			Expect(db.ConfigureControlUpdateChannel(ctx, controlKey)).To(Succeed())
-			Expect(db.CreateChannel(
-				ctx,
-				cesium.Channel{Key: basic3, DataType: telem.Int64T, Rate: 1 * telem.Hz},
-			)).To(Succeed())
-			streamer := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
-				Channels: []cesium.ChannelKey{controlKey},
-			}))
-			i, o := confluence.Attach(streamer, 1)
-			sCtx, cancel := signal.WithCancel(ctx)
-			defer cancel()
-			streamer.Flow(sCtx, confluence.CloseInletsOnExit())
-			// Do a best effort schedule for the streamer to boot up
-			runtime.Gosched()
-			w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
-				Channels:       []cesium.ChannelKey{basic3},
-				ControlSubject: control.Subject{Name: "Writer"},
-				Start:          10 * telem.SecondTS,
-			}))
-			Expect(db.DeleteChannel(basic3).Error()).To(ContainSubstring("1 unclosed"))
-			var r cesium.StreamerResponse
-			Eventually(o.Outlet()).Should(Receive(&r))
-			Expect(r.Frame.Keys).To(HaveLen(1))
-			u := MustSucceed(cesium.DecodeControlUpdate(ctx, r.Frame.Series[0]))
-			t, ok := lo.Find(u.Transfers, func(t controller.Transfer) bool {
-				return t.To.Resource == basic3
+		Describe("Deleting a channel that is being written to should error", func() {
+			Specify("Virtual Channel", func() {
+				Expect(db.CreateChannel(ctx, vdb)).To(Succeed())
+				w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Channels: []cesium.ChannelKey{vChannel}, Start: 10 * telem.SecondTS}))
+				Expect(db.DeleteChannel(vChannel).Error()).To(ContainSubstring("currently 1 unclosed writers/iterators"))
+				Expect(w.Close()).To(Succeed())
+				Expect(db.DeleteChannel(vChannel)).To(Succeed())
 			})
-			Expect(ok).To(BeTrue())
-			Expect(t.To.Subject.Name).To(Equal("Writer"))
-			Expect(w.Close()).To(Succeed())
-			Eventually(o.Outlet()).Should(Receive(&r))
-			Expect(r.Frame.Keys).To(HaveLen(1))
-			i.Close()
-			Expect(sCtx.Wait()).To(Succeed())
 
-			Expect(db.DeleteChannel(basic3)).To(Succeed())
-			Expect(db.DeleteChannel(controlKey).Error()).To(ContainSubstring("cannot delete update digest channel"))
+			Specify("Unary Channel", func() {
+				Expect(db.CreateChannel(ctx, udb)).To(Succeed())
+				w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Channels: []cesium.ChannelKey{uChannel}, Start: 10 * telem.SecondTS}))
+				Expect(db.DeleteChannel(uChannel).Error()).To(ContainSubstring("currently 1 unclosed writers/iterators"))
+				Expect(w.Close()).To(Succeed())
+				Expect(db.DeleteChannel(uChannel)).To(Succeed())
+			})
+		})
+		Describe("Deleting a channel that is being read from should error", func() {
+			Specify("Virtual Channel", func() {
+				Expect(db.CreateChannel(ctx, vdb)).To(Succeed())
+				i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{Bounds: telem.TimeRangeMax, Channels: []cesium.ChannelKey{vChannel}}))
+				Expect(db.DeleteChannel(vChannel).Error()).To(ContainSubstring("currently 1 unclosed writers/iterators"))
+				Expect(i.Close()).To(Succeed())
+				Expect(db.DeleteChannel(vChannel)).To(Succeed())
+			})
+
+			Specify("Unary Channel", func() {
+				Expect(db.CreateChannel(ctx, udb)).To(Succeed())
+				i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{Bounds: telem.TimeRangeMax, Channels: []cesium.ChannelKey{uChannel}}))
+				Expect(db.DeleteChannel(uChannel).Error()).To(ContainSubstring("currently 1 unclosed writers/iterators"))
+				Expect(i.Close()).To(Succeed())
+				Expect(db.DeleteChannel(uChannel)).To(Succeed())
+			})
+		})
+		Describe("Deleting a channel that is being streamed from should error", func() {
+			Specify("Virtual Channel", func() {
+				By("Creating a channel")
+				Expect(db.CreateChannel(ctx, vdb)).To(Succeed())
+				By("Opening a streamer on the channel")
+				s := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{Channels: []cesium.ChannelKey{vChannel}}))
+				sCtx, cancel := signal.WithCancel(ctx)
+
+				By("Start streaming")
+				i, _ := confluence.Attach(s, 1)
+				s.Flow(sCtx, confluence.CloseInletsOnExit())
+
+				By("Expecting delete channel to fail because there is an open streamer")
+				err := db.DeleteChannel(vChannel)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("All other operations should still happen without error")
+				cancel()
+				i.Close()
+			})
+
+			Specify("Unary Channel", func() {
+				By("Creating a channel")
+				Expect(db.CreateChannel(ctx, udb)).To(Succeed())
+				By("Opening a streamer on the channel")
+				s := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{Channels: []cesium.ChannelKey{uChannel}}))
+				sCtx, cancel := signal.WithCancel(ctx)
+
+				By("Start streaming")
+				i, _ := confluence.Attach(s, 1)
+				s.Flow(sCtx, confluence.CloseInletsOnExit())
+
+				By("Expecting delete channel to fail because there is an open streamer")
+				err := db.DeleteChannel(uChannel)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("All other operations should still happen without error")
+				cancel()
+				i.Close()
+			})
+
+			Describe("StreamIterator", func() {
+				Specify("Virtual", func() {
+					Expect(db.CreateChannel(ctx, vdb)).To(Succeed())
+					it := MustSucceed(db.NewStreamIterator(cesium.IteratorConfig{Bounds: telem.TimeRangeMax, Channels: []cesium.ChannelKey{vChannel}}))
+
+					err := db.DeleteChannel(vChannel)
+					Expect(err.Error()).To(ContainSubstring("1 unclosed writers/iterators"))
+
+					sCtx, cancel := signal.Isolated()
+					i, _ := confluence.Attach(it, 1)
+					it.Flow(sCtx)
+
+					i.Close()
+					Expect(sCtx.Wait()).To(Succeed())
+					cancel()
+
+					Expect(db.DeleteChannel(vChannel)).To(Succeed())
+				})
+
+				Specify("Unary", func() {
+					Expect(db.CreateChannel(ctx, udb)).To(Succeed())
+					it := MustSucceed(db.NewStreamIterator(cesium.IteratorConfig{Bounds: telem.TimeRangeMax, Channels: []cesium.ChannelKey{uChannel}}))
+
+					err := db.DeleteChannel(uChannel)
+					Expect(err.Error()).To(ContainSubstring("1 unclosed writers/iterators"))
+
+					sCtx, cancel := signal.Isolated()
+					i, _ := confluence.Attach(it, 1)
+					it.Flow(sCtx)
+
+					i.Close()
+					Expect(sCtx.Wait()).To(Succeed())
+					cancel()
+
+					Expect(db.DeleteChannel(uChannel)).To(Succeed())
+				})
+			})
+
+			Describe("StreamWriter", func() {
+				Specify("Virtual", func() {
+					Expect(db.CreateChannel(ctx, vdb)).To(Succeed())
+					it := MustSucceed(db.NewStreamWriter(ctx, cesium.WriterConfig{Start: 10 * telem.SecondTS, Channels: []cesium.ChannelKey{vChannel}}))
+
+					err := db.DeleteChannel(vChannel)
+					Expect(err.Error()).To(ContainSubstring("1 unclosed writers/iterators"))
+
+					sCtx, cancel := signal.Isolated()
+					i, _ := confluence.Attach(it, 1)
+					it.Flow(sCtx)
+
+					i.Close()
+					Expect(sCtx.Wait()).To(Succeed())
+					cancel()
+
+					Expect(db.DeleteChannel(vChannel)).To(Succeed())
+				})
+
+				Specify("Unary", func() {
+					Expect(db.CreateChannel(ctx, udb)).To(Succeed())
+					it := MustSucceed(db.NewStreamWriter(ctx, cesium.WriterConfig{Start: 10 * telem.SecondTS, Channels: []cesium.ChannelKey{uChannel}}))
+
+					err := db.DeleteChannel(uChannel)
+					Expect(err.Error()).To(ContainSubstring("1 unclosed writers/iterators"))
+
+					sCtx, cancel := signal.Isolated()
+					i, _ := confluence.Attach(it, 1)
+					it.Flow(sCtx)
+
+					i.Close()
+					Expect(sCtx.Wait()).To(Succeed())
+					cancel()
+
+					Expect(db.DeleteChannel(uChannel)).To(Succeed())
+				})
+			})
+			Specify("Deleting an index channel that other channels rely on should error", func() {
+				Expect(db.CreateChannel(
+					ctx,
+					cesium.Channel{Key: 15, IsIndex: true, DataType: telem.TimeStampT},
+					cesium.Channel{Key: 16, Index: 15, DataType: telem.Int64T},
+					cesium.Channel{Key: 17, Index: 15, DataType: telem.Int16T},
+				)).To(Succeed())
+
+				By("Deleting channel")
+				err := db.DeleteChannel(15)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("could not delete index channel with other channels depending on it"))
+
+				By("Deleting channels that depend on it")
+				Expect(db.DeleteChannel(16)).To(Succeed())
+				Expect(db.DeleteChannel(15)).ToNot(Succeed())
+				Expect(db.DeleteChannel(17)).To(Succeed())
+
+				By("Deleting the index channel again")
+				Expect(db.DeleteChannel(15)).To(Succeed())
+				_, err = db.RetrieveChannel(ctx, 15)
+				Expect(err).To(MatchError(cesium.ChannelNotFound))
+			})
+			Specify("Deleting control channel should error", func() {
+				var controlKey cesium.ChannelKey = 7
+				Expect(db.ConfigureControlUpdateChannel(ctx, controlKey)).To(Succeed())
+				Expect(db.DeleteChannel(controlKey).Error()).To(ContainSubstring("cannot delete update digest channel"))
+			})
 		})
 	})
 	Describe("Deleting Index Channel when other channels depend on it", func() {

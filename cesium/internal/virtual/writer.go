@@ -76,7 +76,7 @@ func (w *Writer) SetAuthority(a control.Authority) controller.Transfer {
 }
 
 func (w *Writer) Close() (controller.Transfer, error) {
-	w.decrementCounter()
 	_, t := w.control.Release()
+	w.decrementCounter()
 	return t, nil
 }

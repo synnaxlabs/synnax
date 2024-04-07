@@ -202,10 +202,14 @@ func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.
 }
 
 func (w *Writer) Close() (controller.Transfer, error) {
-	w.decrementCounter()
 	dw, t := w.control.Release()
 	if t.IsRelease() {
-		return t, dw.Close()
+		err := dw.Close()
+		if err == nil {
+			w.decrementCounter()
+		}
+		return t, err
 	}
+
 	return t, nil
 }
