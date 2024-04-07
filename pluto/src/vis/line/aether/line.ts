@@ -81,17 +81,22 @@ export interface LineProps {
   dataToDecimalScale: scale.XY;
 }
 
+interface TranslationBufferCacheEntry {
+  glBuffer: WebGLBuffer;
+  jsBuffer: Float32Array;
+}
+
 export class Context extends render.GLProgram {
-  translationBuffer: WebGLBuffer;
+  private readonly translationBufferCache = new Map<
+    string,
+    TranslationBufferCacheEntry
+  >();
 
   private static readonly CONTEXT_KEY = "pluto-line-gl-program";
 
   private constructor(ctx: render.Context) {
     super(ctx, VERT_SHADER, FRAG_SHADER);
-    const buf = ctx.gl.createBuffer();
-    if (buf == null)
-      throw new UnexpectedError("Failed to create buffer from WebGL context");
-    this.translationBuffer = buf;
+    this.translationBufferCache = new Map();
   }
 
   bindCommonPropsAndState(
@@ -155,6 +160,27 @@ export class Context extends render.GLProgram {
     gl.enableVertexAttribArray(aLoc);
   }
 
+  private getAndBindTranslationBuffer(
+    strokeWidth: number,
+  ): TranslationBufferCacheEntry {
+    const { gl } = this.ctx;
+    const key = `${this.ctx.aspect}:${strokeWidth}`;
+    const existing = this.translationBufferCache.get(key);
+    if (existing != null) {
+      gl.bindBuffer(gl.ARRAY_BUFFER, existing.glBuffer);
+      return existing;
+    }
+    const buf = gl.createBuffer();
+    if (buf == null)
+      throw new UnexpectedError("Failed to create buffer from WebGL context");
+    const translationBuffer = newTranslationBuffer(this.ctx.aspect, strokeWidth);
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, translationBuffer, gl.DYNAMIC_DRAW);
+    const entry = { glBuffer: buf, jsBuffer: translationBuffer };
+    this.translationBufferCache.set(key, entry);
+    return entry;
+  }
+
   /**
    * We apply stroke width by drawing the line multiple times, each time with a slight
    * transformation. This is done as simply as possible. We draw the "centered" line
@@ -165,14 +191,12 @@ export class Context extends render.GLProgram {
    */
   private attrStrokeWidth(strokeWidth: number): number {
     const { gl } = this.ctx;
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.translationBuffer);
-    const translationBuffer = newTranslationBuffer(this.ctx.aspect, strokeWidth);
-    gl.bufferData(gl.ARRAY_BUFFER, translationBuffer, gl.DYNAMIC_DRAW);
+    const { jsBuffer } = this.getAndBindTranslationBuffer(strokeWidth);
     const loc = gl.getAttribLocation(this.prog, "a_translate");
     gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(loc);
     gl.vertexAttribDivisor(loc, 1);
-    return translationBuffer.length / 2;
+    return jsBuffer.length / 2;
   }
 }
 
