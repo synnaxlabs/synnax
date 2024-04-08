@@ -148,21 +148,28 @@ var _ = Describe("Writer Behavior", func() {
 		var db = MustSucceed(unary.Open(unary.Config{
 			FS: fs.NewMem(),
 			Channel: core.Channel{
-				Key:      2,
+				Key:      100,
 				DataType: telem.TimeStampT,
-				IsIndex:  true,
 			},
 		}))
 		It("Should not allow operations on a closed iterator", func() {
 			var (
-				w, _ = MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{Start: 1 * telem.SecondTS}))
-				e    = cesium.EntityClosed("unary iterator")
+				w, t = MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
+					Start:   10 * telem.SecondTS,
+					Subject: control.Subject{Key: "foo"}},
+				))
+				e = cesium.EntityClosed("unary writer")
 			)
-			Expect(w.Close()).To(Succeed())
-			Expect(w.Commit(ctx)).To(MatchError(e))
-			Expect(w.Write(telem.Series{Data: []byte{1, 2, 3}})).To(MatchError(e))
-			Expect(w.Close()).To(MatchError(e))
+			Expect(t.Occurred()).To(BeTrue())
+			_, err := w.Close()
+			Expect(err).ToNot(HaveOccurred())
+			_, err = w.Commit(ctx)
+			Expect(err).To(MatchError(e))
+			_, err = w.Write(telem.Series{Data: []byte{1, 2, 3}})
+			Expect(err).To(MatchError(e))
+			_, err = w.Close()
+			Expect(err).To(MatchError(e))
+			Expect(db.Close()).To(Succeed())
 		})
-		Expect(db.Close()).To(Succeed())
 	})
 })
