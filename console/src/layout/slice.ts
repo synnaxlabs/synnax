@@ -11,13 +11,13 @@ import { createSlice } from "@reduxjs/toolkit";
 import type { PayloadAction } from "@reduxjs/toolkit";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { Haul, Mosaic, Theming } from "@synnaxlabs/pluto";
-import { type deep, type location } from "@synnaxlabs/x";
+import { migrate, type deep, type location } from "@synnaxlabs/x";
 import { nanoid } from "nanoid/non-secure";
 
 import { type LayoutState } from "@/layout/layout";
 
 /** The state of the layout slice */
-export interface SliceState {
+export interface SliceState extends migrate.Migratable {
   /** The current theme. */
   activeTheme: string;
   /**
@@ -96,7 +96,12 @@ const ZERO_MOSAIC_STATE: MosaicState = {
   },
 };
 
+const MIGRATIONS: migrate.Migrations = {};
+
+export const migrateSlice = migrate.migrator<SliceState, SliceState>(MIGRATIONS);
+
 export const ZERO_SLICE_STATE: SliceState = {
+  version: "0.0.0",
   activeTheme: "synnaxDark",
   themes: Theming.themes,
   alreadyCheckedGetStarted: false,
@@ -131,7 +136,7 @@ export const PERSIST_EXCLUDE = ["alreadyCheckedGetStarted"].map(
   (key) => `${SLICE_NAME}.${key}`,
 ) as Array<deep.Key<StoreState>>;
 
-/** Signature for the placeLayut action. */
+/** Signature for the placeLayout action. */
 export type PlacePayload = LayoutState;
 /** Signature for the removeLayout action. */
 export interface RemovePayload {
@@ -298,10 +303,10 @@ export const { actions, reducer } = createSlice({
       state,
       { payload: { key: tabKey, name } }: PayloadAction<RenamePayload>,
     ) => {
-      if (name.length === 0) return;
       const layout = state.layouts[tabKey];
       if (layout == null) return;
       const mosaic = state.mosaics[layout.windowKey];
+      layout.name = name;
       mosaic.root = Mosaic.renameTab(mosaic.root, tabKey, name);
       state.mosaics[layout.windowKey] = mosaic;
     },
@@ -404,6 +409,15 @@ export const { actions, reducer } = createSlice({
         nav: keepNav ? state.nav : slice.nav,
       };
     },
+    clearWorkspace: (state) => {
+      return {
+        ...ZERO_SLICE_STATE,
+        hauling: state.hauling,
+        themes: state.themes,
+        activeTheme: state.activeTheme,
+        nav: state.nav,
+      };
+    },
   },
 });
 
@@ -422,6 +436,7 @@ export const {
   maybeCreateGetStartedTab,
   setHauled,
   setWorkspace,
+  clearWorkspace,
 } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;

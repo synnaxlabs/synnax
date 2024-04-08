@@ -17,13 +17,15 @@ To create a named range, we can use the `client.ranges.create` method:
 import synnax as sy
 from datetime import datetime
 
+time_format = "%Y-%m-%d %H:%M:%S"
+
 my_named_range = client.ranges.create(
     # This name does not need to be unique, but it's a good idea to
     # pick something that will be easy to identify later.
     name="My Named Range",
     time_range=sy.TimeRange(
-        start = datetime.datetime("2023-2-12 12:30:00")
-        end = datetime.datetime("2023-2-12 14:30:00")
+        start = datetime.strptime("2023-2-12 12:30:00", time_format),
+        end = datetime.strptime("2023-2-12 14:30:00", time_format),
     ),
 )
 ```
@@ -39,8 +41,8 @@ we can pass in the `retrieve_if_name_exists` parameter:
 my_named_range = client.ranges.create(
     name="My Named Range",
     time_range=sy.TimeRange(
-        start = datetime.datetime("2023-2-12 12:30:00")
-        end = datetime.datetime("2023-2-12 14:30:00")
+        start = datetime.strptime("2023-2-12 12:30:00", time_format),
+        end = datetime.strptime("2023-2-12 14:30:00", time_format),
     ),
     retrieve_if_name_exists=True,
 )
@@ -118,10 +120,10 @@ returned list. Here's a simple example where we plot the data from all of our
 pressure channels:
 
 ```python
-import matplolib.pyplot as plt
+import matplotlib.pyplot as plt
 
 for ch in my_named_range["^pressure"]:
-    plt.plot(ch, my_named_range.timestamps, label=ch.name)
+    plt.plot(my_named_range.timestamps, ch, label=ch.name)
 ```
 
 Note that this iteration pattern is valid even if we only have one channel that matches
@@ -149,7 +151,7 @@ burst_test.set_alias("daq_analog_input_1", "pressure_2")
 We can now access the channel using its alias:
 
 ```python
-tank_pressure = burst_test.tank_pressure
+tank_pressure = burst_test.pressure_2
 ```
 
 It's relevant to mention that subsequent calls to `set_alias` will overwrite the previous

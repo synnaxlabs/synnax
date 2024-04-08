@@ -95,6 +95,10 @@ export class UnexpectedError extends BaseError {
  */
 export class QueryError extends BaseError {}
 
+export class NoResultsError extends QueryError {}
+
+export class MultipleResultsError extends QueryError {}
+
 /**
  * RouteError is raised when a routing error occurs.
  */

@@ -40,7 +40,7 @@ export const select = (
   state: StoreState,
   key?: string | null,
 ): Cluster | null | undefined =>
-  selectByKey(selectSliceState(state).clusters, key, selectActiveKey(state));
+  selectByKey(selectSliceState(state).dogs, key, selectActiveKey(state));
 
 /**
  * Selects a cluster from the cluster store.
@@ -61,7 +61,7 @@ export const useSelect = (key?: string): Cluster | null | undefined =>
  * selected.
  */
 export const selectMany = (s: StoreState, keys?: string[]): Cluster[] =>
-  selectByKeys(s.cluster.clusters, keys);
+  selectByKeys(s.cluster.dogs, keys);
 
 /**
  * Selects a subset of clusters from the cluster store.

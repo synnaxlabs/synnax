@@ -26,7 +26,7 @@ export const Basic = (): ReactElement => {
 };
 
 export const Time = (): ReactElement => {
-  const [value, setValue] = useState(TimeStamp.now().valueOf());
+  const [value, setValue] = useState(Number(TimeStamp.now().valueOf()));
   return (
     <>
       <Input.Time value={value} onChange={setValue} />
@@ -39,7 +39,7 @@ export const Time = (): ReactElement => {
 };
 
 export const Date = (): ReactElement => {
-  const [value, setValue] = useState(TimeStamp.now().valueOf());
+  const [value, setValue] = useState(Number(TimeStamp.now().valueOf()));
   return (
     <>
       <Input.Date value={value} onChange={setValue} />;
@@ -52,7 +52,7 @@ export const Date = (): ReactElement => {
 };
 
 export const DateTime = (): ReactElement => {
-  const [value, setValue] = useState(TimeStamp.now().valueOf());
+  const [value, setValue] = useState(Number(TimeStamp.now().valueOf()));
   return (
     <>
       <Input.DateTime value={value} onChange={setValue} />;
@@ -64,7 +64,7 @@ export const DateTime = (): ReactElement => {
   );
 };
 
-export const Number = (): ReactElement => {
+export const Number_ = (): ReactElement => {
   const [value, setValue] = useState<number>(0);
   return <Input.Numeric value={value} onChange={setValue} />;
 };

@@ -9,11 +9,11 @@
 
 import { createSlice } from "@reduxjs/toolkit";
 import type { PayloadAction } from "@reduxjs/toolkit";
-import { TimeSpan } from "@synnaxlabs/x";
+import { TimeSpan, migrate } from "@synnaxlabs/x";
 
 import { type Range } from "@/range/range";
 
-export interface SliceState {
+export interface SliceState extends migrate.Migratable {
   activeRange: string | null;
   ranges: Record<string, Range>;
 }
@@ -24,7 +24,12 @@ export interface StoreState {
   [SLICE_NAME]: SliceState;
 }
 
+export const MIGRATIONS: migrate.Migrations = {};
+
+export const migrateSlice = migrate.migrator<SliceState, SliceState>(MIGRATIONS);
+
 export const initialState: SliceState = {
+  version: "0.0.0",
   activeRange: null,
   ranges: {
     rolling30s: {

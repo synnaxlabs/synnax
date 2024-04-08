@@ -34,7 +34,7 @@ const handleDelete = ({
     const active = resources.find((r) => r.id.key === activeKey);
     if (active != null) {
       store.dispatch(setActive(null));
-      store.dispatch(Layout.setWorkspace({ slice: Layout.ZERO_SLICE_STATE }));
+      store.dispatch(Layout.clearWorkspace());
     }
     await client.workspaces.delete(...resources.map((r) => r.id.key));
     const next = Tree.removeNode({

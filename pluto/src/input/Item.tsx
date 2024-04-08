@@ -7,23 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useCallback, type ReactElement } from "react";
+import { type ReactElement } from "react";
 
 import { direction } from "@synnaxlabs/x";
-import {
-  type UseControllerProps,
-  useController,
-  useFormContext,
-} from "react-hook-form";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
 import { HelpText } from "@/input/HelpText";
 import { Label } from "@/input/Label";
-import { Text } from "@/input/Text";
-import { type Control, type Value } from "@/input/types";
-import { camelToTitle } from "@/util/case";
-import { componentRenderProp, type RenderProp } from "@/util/renderProp";
 
 import "@/input/Item.css";
 
@@ -85,59 +76,5 @@ export const Item = ({
       {showLabel && <Label>{label}</Label>}
       {inputAndHelp}
     </Align.Space>
-  );
-};
-
-export type ItemControlledProps<
-  I extends Value = string | number,
-  O extends Value = I,
-> = Omit<ItemProps, "children"> &
-  Omit<UseControllerProps<any, string>, "controller"> & {
-    children?: RenderProp<
-      Control<I, O> & { onBlur?: () => void; ref?: React.Ref<any> }
-    >;
-    alsoValidate?: string[];
-    padHelpText?: boolean;
-  };
-
-const defaultChild = componentRenderProp(Text);
-
-export const HFItem = <I extends Value = string | number, O extends Value = I>({
-  name,
-  rules,
-  shouldUnregister,
-  defaultValue,
-  label,
-  children = defaultChild as unknown as RenderProp<Control<I, O>>,
-  alsoValidate,
-  padHelpText = true,
-  ref: _,
-  ...props
-}: ItemControlledProps<I, O>): ReactElement => {
-  const { field, fieldState } = useController({
-    rules,
-    name,
-  });
-  const { trigger } = useFormContext();
-  if (label == null) label = camelToTitle(name);
-
-  const handleBlur = useCallback(() => {
-    field.onBlur();
-    if (alsoValidate != null) void trigger(alsoValidate);
-  }, [field.onBlur, trigger, alsoValidate, name]);
-
-  return (
-    <Item
-      label={label}
-      padHelpText={padHelpText}
-      helpText={fieldState.error?.message}
-      {...props}
-    >
-      {children({
-        onChange: field.onChange,
-        value: field.value,
-        onBlur: handleBlur,
-      })}
-    </Item>
   );
 };

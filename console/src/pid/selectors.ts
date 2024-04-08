@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { UnexpectedError } from "@synnaxlabs/client";
 import { type Control, type Diagram, type Viewport } from "@synnaxlabs/pluto";
 
 import { useMemoSelect } from "@/hooks";

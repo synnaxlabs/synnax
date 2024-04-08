@@ -12,6 +12,7 @@ package confluence
 import (
 	"context"
 	"fmt"
+	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/timeout"
@@ -68,12 +69,12 @@ type DynamicDeltaMultiplier[V Value] struct {
 	timeout        time.Duration
 }
 
-func NewDynamicDeltaMultiplier[V Value](timeout time.Duration, connectionBuffers ...int) *DynamicDeltaMultiplier[V] {
+func NewDynamicDeltaMultiplier[V Value](connectionBuffers ...int) *DynamicDeltaMultiplier[V] {
 	buf := parseBuffer(connectionBuffers)
 	return &DynamicDeltaMultiplier[V]{
-		timeout:        timeout,
 		connections:    make(chan []Inlet[V], buf),
 		disconnections: make(chan []Inlet[V], buf),
+		timeout:        20 * time.Millisecond,
 	}
 }
 
@@ -88,12 +89,9 @@ func (d *DynamicDeltaMultiplier[V]) Disconnect(inlets ...Inlet[V]) {
 func (d *DynamicDeltaMultiplier[v]) Flow(ctx signal.Context, opts ...Option) {
 	o := NewOptions(opts)
 	ctx.Go(func(ctx context.Context) error {
-		var timer *time.Timer
-		if d.timeout > 0 {
-			timer = time.NewTimer(d.timeout)
-		}
+		timer := time.NewTimer(d.timeout)
 		defer func() {
-			if timer != nil && !timer.Stop() {
+			if !timer.Stop() {
 				<-timer.C
 			}
 			d.disconnectAll()
@@ -110,20 +108,15 @@ func (d *DynamicDeltaMultiplier[v]) Flow(ctx signal.Context, opts ...Option) {
 				if !ok {
 					return nil
 				}
-				var err error
-				if timer != nil {
-					if !timer.Stop() {
-						// If the timer had already fired, drain the channel.
-						select {
-						case <-timer.C:
-						default:
-						}
+				if !timer.Stop() {
+					// If the timer had already fired, drain the channel.
+					select {
+					case <-timer.C:
+					default:
 					}
-					timer.Reset(d.timeout)
-					err = d.Source.SendToEachWithTimeout(ctx, res, timer.C)
-				} else {
-					err = d.Source.SendToEach(ctx, res)
 				}
+				timer.Reset(d.timeout)
+				err := d.Source.SendToEachWithTimeout(ctx, res, timer.C)
 				if err != nil {
 					if !errors.Is(err, timeout.Timeout) {
 						return err

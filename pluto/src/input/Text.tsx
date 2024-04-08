@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { forwardRef } from "react";
+import { forwardRef, useRef } from "react";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
@@ -16,10 +16,13 @@ import { Text as CoreText } from "@/text";
 
 import "@/input/Input.css";
 
-export interface TextProps extends BaseProps<string> {
+export interface TextExtraProps {
   selectOnFocus?: boolean;
   centerPlaceholder?: boolean;
+  resetOnBlurIfEmpty?: boolean;
 }
+
+export interface TextProps extends BaseProps<string>, TextExtraProps {}
 
 /**
  * A controlled string input component.
@@ -31,6 +34,8 @@ export interface TextProps extends BaseProps<string> {
  * @param props.size - The size of the input: "small" | "medium" | "large".
  * @param props.selectOnFocus - Whether the input should select its contents when focused.
  * @param props.centerPlaceholder - Whether the placeholder should be centered.
+ * @param props.resetOnBlurIfEmpty - Whether the input should reset to its previous value if
+ * blurred while empty.
  */
 export const Text = forwardRef<HTMLInputElement, TextProps>(
   (
@@ -48,56 +53,70 @@ export const Text = forwardRef<HTMLInputElement, TextProps>(
       sharp = false,
       children,
       level,
+      onBlur,
+      resetOnBlurIfEmpty = false,
       ...props
     },
     ref,
-  ) => (
-    <Align.Pack
-      style={style}
-      className={CSS(
-        CSS.B("input"),
-        level == null && CSS.size(size),
-        CSS.BM("input", variant),
-        CSS.sharp(sharp),
-        className,
-      )}
-      align="center"
-      size={size}
-    >
-      <div className={CSS.BE("input", "internal")}>
-        {(value == null || value.length === 0) && (
-          <div
-            className={CSS(
-              CSS.BE("input", "placeholder"),
-              centerPlaceholder && CSS.M("centered"),
-            )}
-          >
-            {CoreText.formatChildren(
-              level ?? CoreText.ComponentSizeLevels[size],
-              placeholder,
-            )}
-          </div>
+  ) => {
+    const cachedFocusRef = useRef("");
+
+    const handleBlur = (e: React.FocusEvent<HTMLInputElement>): void => {
+      if (resetOnBlurIfEmpty && e.target.value === "")
+        onChange?.(cachedFocusRef.current);
+      onBlur?.(e);
+    };
+
+    return (
+      <Align.Pack
+        style={style}
+        className={CSS(
+          CSS.B("input"),
+          level == null && CSS.size(size),
+          CSS.BM("input", variant),
+          CSS.sharp(sharp),
+          className,
         )}
-        <input
-          ref={ref}
-          value={value}
-          onChange={(e) => {
-            onChange?.(e.target.value);
-          }}
-          role="textbox"
-          autoCapitalize="off"
-          autoComplete="off"
-          autoCorrect="off"
-          onFocus={(e) => {
-            onFocus?.(e);
-            if (selectOnFocus) setTimeout(() => e.target.select(), 2);
-          }}
-          className={CSS(CSS.visible(false), level != null && CSS.BM("text", level))}
-          {...props}
-        />
-      </div>
-      {children}
-    </Align.Pack>
-  ),
+        align="center"
+        size={size}
+      >
+        <div className={CSS.BE("input", "internal")}>
+          {(value == null || value.length === 0) && (
+            <div
+              className={CSS(
+                CSS.BE("input", "placeholder"),
+                centerPlaceholder && CSS.M("centered"),
+              )}
+            >
+              {CoreText.formatChildren(
+                level ?? CoreText.ComponentSizeLevels[size],
+                placeholder,
+              )}
+            </div>
+          )}
+          <input
+            ref={ref}
+            value={value}
+            onChange={(e) => {
+              onChange?.(e.target.value);
+            }}
+            role="textbox"
+            autoCapitalize="off"
+            autoComplete="off"
+            autoCorrect="off"
+            onFocus={(e) => {
+              onFocus?.(e);
+              cachedFocusRef.current = e.target.value;
+              if (selectOnFocus) setTimeout(() => e.target.select(), 2);
+            }}
+            onBlur={handleBlur}
+            className={CSS(CSS.visible(false), level != null && CSS.BM("text", level))}
+            {...props}
+          />
+        </div>
+        {children}
+      </Align.Pack>
+    );
+  },
 );
 Text.displayName = "Input";

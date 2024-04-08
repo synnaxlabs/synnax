@@ -12,7 +12,6 @@ import { type ReactElement, useEffect } from "react";
 import { Align } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
-import { Cluster } from "@/cluster";
 import { NavDrawer } from "@/components/nav/Nav";
 import { Layout } from "@/layout";
 import { NavBottom, NavLeft, NavRight, NavTop } from "@/layouts/LayoutMain/Nav";

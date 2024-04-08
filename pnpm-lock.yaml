@@ -23,7 +23,6 @@ overrides:
   zod: 3.22.4
   node-fetch: 2.6.11
   prettier: 3.2.5
-  react-hook-form: ^7.50.1
   '@tauri-apps/api': ^1.5.3
 
 importers:
@@ -87,7 +86,7 @@ importers:
         version: 5.3.3
       vite:
         specifier: 5.1.2
-        version: 5.1.2(@types/node@20.10.5)
+        version: 5.1.2(@types/node@20.8.7)
       vitest:
         specifier: 1.2.2
         version: 1.2.2(@vitest/ui@1.0.4)(jsdom@23.0.1)
@@ -119,6 +118,9 @@ importers:
       '@vitest/coverage-v8':
         specifier: 1.2.2
         version: 1.2.2(vitest@1.2.2)
+      eslint:
+        specifier: ^8.55.0
+        version: 8.56.0
       eslint-config-synnaxlabs:
         specifier: workspace:*
         version: link:../../configs/eslint
@@ -205,7 +207,7 @@ importers:
         version: 5.3.3
       vite:
         specifier: 5.1.2
-        version: 5.1.2(@types/node@20.10.5)
+        version: 5.1.2(@types/node@20.8.7)
       vite-plugin-dts:
         specifier: 3.7.2
         version: 3.7.2(typescript@5.3.3)(vite@5.1.2)
@@ -218,9 +220,6 @@ importers:
       '@fontsource/inter':
         specifier: ^5.0.16
         version: 5.0.16
-      '@hookform/resolvers':
-        specifier: ^3.3.4
-        version: 3.3.4(react-hook-form@7.50.1)
       '@reduxjs/toolkit':
         specifier: ^2.2.0
         version: 2.2.0(react-redux@9.1.0)(react@18.2.0)
@@ -260,15 +259,15 @@ importers:
       react-error-boundary:
         specifier: ^4.0.12
         version: 4.0.12(react@18.2.0)
-      react-hook-form:
-        specifier: ^7.50.1
-        version: 7.50.1(react@18.2.0)
       react-icons:
         specifier: ^5.0.1
         version: 5.0.1(react@18.2.0)
       react-redux:
         specifier: ^9.1.0
         version: 9.1.0(@types/react@18.2.48)(react@18.2.0)(redux@5.0.1)
+      tauri-plugin-store-api:
+        specifier: github:tauri-apps/tauri-plugin-store#v1
+        version: github.com/tauri-apps/tauri-plugin-store/02243686d0507d2aeeb2924cd889dd0bcb47ecef
       uuid:
         specifier: ^9.0.1
         version: 9.0.1
@@ -314,7 +313,7 @@ importers:
         version: 5.3.3
       vite:
         specifier: 5.1.2
-        version: 5.1.2(@types/node@20.10.5)
+        version: 5.1.2
       vite-tsconfig-paths:
         specifier: 4.3.1
         version: 4.3.1(typescript@5.3.3)(vite@5.1.2)
@@ -442,7 +441,7 @@ importers:
         version: 5.3.3
       vite:
         specifier: 5.1.2
-        version: 5.1.2(@types/node@20.10.5)
+        version: 5.1.2(@types/node@20.8.7)
       vite-plugin-lib:
         specifier: ^2.0.6
         version: 2.0.6(typescript@5.3.3)(vite@5.1.2)
@@ -485,7 +484,7 @@ importers:
         version: 5.3.3
       vite:
         specifier: 5.1.2
-        version: 5.1.2(@types/node@20.10.5)
+        version: 5.1.2(@types/node@20.8.7)
       vite-tsconfig-paths:
         specifier: 4.3.1
         version: 4.3.1(typescript@5.3.3)(vite@5.1.2)
@@ -501,9 +500,6 @@ importers:
       js-convert-case:
         specifier: ^4.2.0
         version: 4.2.0
-      msgpackr:
-        specifier: ^1.10.0
-        version: 1.10.0
       node-fetch:
         specifier: 2.6.11
         version: 2.6.11
@@ -647,9 +643,6 @@ importers:
       react-dom:
         specifier: ^18.2.0
         version: 18.2.0(react@18.2.0)
-      react-hook-form:
-        specifier: ^7.50.1
-        version: 7.50.1(react@18.2.0)
       reactflow:
         specifier: ^11.10.1
         version: 11.10.1(@types/react@18.2.43)(react-dom@18.2.0)(react@18.2.0)
@@ -788,7 +781,7 @@ importers:
         version: 5.3.3
       vite:
         specifier: 5.1.2
-        version: 5.1.2(@types/node@20.10.5)
+        version: 5.1.2(@types/node@20.8.7)
       vite-tsconfig-paths:
         specifier: 4.3.1
         version: 4.3.1(typescript@5.3.3)(vite@5.1.2)
@@ -847,9 +840,6 @@ importers:
       js-convert-case:
         specifier: ^4.2.0
         version: 4.2.0
-      msgpackr:
-        specifier: ^1.9.9
-        version: 1.9.9
       nanoid:
         specifier: ^3.0.0
         version: 3.0.0
@@ -4916,7 +4906,7 @@ packages:
       magic-string: 0.27.0
       react-docgen-typescript: 2.2.2(typescript@5.3.3)
       typescript: 5.3.3
-      vite: 5.1.2(@types/node@20.10.5)
+      vite: 5.1.2(@types/node@20.8.7)
     dev: true
 
   /@jridgewell/gen-mapping@0.3.3:
@@ -7553,7 +7543,7 @@ packages:
       magic-string: 0.30.5
       rollup: 3.29.4
       typescript: 5.3.3
-      vite: 5.1.2(@types/node@20.10.5)
+      vite: 5.1.2(@types/node@20.8.7)
     transitivePeerDependencies:
       - encoding
       - supports-color
@@ -7938,7 +7928,7 @@ packages:
       react: 18.2.0
       react-docgen: 7.0.1
       react-dom: 18.2.0(react@18.2.0)
-      vite: 5.1.2(@types/node@20.10.5)
+      vite: 5.1.2(@types/node@20.8.7)
     transitivePeerDependencies:
       - '@preact/preset-vite'
       - encoding
@@ -9077,7 +9067,6 @@ packages:
     resolution: {integrity: sha512-21TKHHh3eUHIi2MloeptJWALuCu5H7HQTdTrWIFReA8ad+aggoX+lRes3ex7/FtpC+sVUpFMQ+QTfYr74mruiQ==}
     dependencies:
       undici-types: 5.25.3
-    dev: true
 
   /@types/normalize-package-data@2.4.4:
     resolution: {integrity: sha512-37i+OaWTh9qeK4LSHPsyRC7NahnGotNuZvjLSgcPzblpHB3rrCJxAOgI5gCdKm7coonsaX1Of0ILiTcnZjbfxA==}
@@ -9585,7 +9574,7 @@ packages:
       '@babel/plugin-transform-react-jsx-source': 7.23.3(@babel/core@7.23.7)
       '@types/babel__core': 7.20.5
       react-refresh: 0.14.0
-      vite: 5.1.2(@types/node@20.10.5)
+      vite: 5.1.2
     transitivePeerDependencies:
       - supports-color
 
@@ -9607,7 +9596,7 @@ packages:
       std-env: 3.7.0
       test-exclude: 6.0.0
       v8-to-istanbul: 9.2.0
-      vitest: 1.2.2(@types/node@20.8.7)
+      vitest: 1.2.2(@vitest/ui@1.0.4)(jsdom@23.0.1)
     transitivePeerDependencies:
       - supports-color
     dev: true
@@ -10405,7 +10394,7 @@ packages:
       tsconfck: 3.0.0(typescript@5.3.3)
       unist-util-visit: 4.1.2
       vfile: 5.3.7
-      vite: 5.1.2(@types/node@20.10.5)
+      vite: 5.1.2(@types/node@20.8.7)
       vitefu: 0.2.5(vite@5.1.2)
       which-pm: 2.1.1
       yargs-parser: 21.1.1
@@ -10488,7 +10477,7 @@ packages:
       tsconfck: 3.0.2(typescript@5.3.3)
       unist-util-visit: 5.0.0
       vfile: 6.0.1
-      vite: 5.1.2(@types/node@20.10.5)
+      vite: 5.1.2(@types/node@20.8.7)
       vitefu: 0.2.5(vite@5.1.2)
       which-pm: 2.1.1
       yargs-parser: 21.1.1
@@ -15979,12 +15968,6 @@ packages:
       msgpackr-extract: 3.0.2
     dev: false
 
-  /msgpackr@1.9.9:
-    resolution: {integrity: sha512-sbn6mioS2w0lq1O6PpGtsv6Gy8roWM+o3o4Sqjd6DudrL/nOugY+KyJUimoWzHnf9OkO0T6broHFnYE/R05t9A==}
-    optionalDependencies:
-      msgpackr-extract: 3.0.2
-    dev: false
-
   /muggle-string@0.3.1:
     resolution: {integrity: sha512-ckmWDJjphvd/FvZawgygcUeQCxzvohjFO5RxTjj4eq8kw359gFF3E1brjfI+viLMxss5JrHTDRHZvu2/tuy0Qg==}
     dev: true
@@ -18961,7 +18944,6 @@ packages:
 
   /undici-types@5.25.3:
     resolution: {integrity: sha512-Ga1jfYwRn7+cP9v8auvEXN1rX3sWqlayd4HP7OKk4mZWylEmu3KzXDUGrQUN6Ol7qo1gPvB2e5gX6udnyEPgdA==}
-    dev: true
 
   /undici-types@5.26.5:
     resolution: {integrity: sha512-JlCMO+ehdEIKqlFxk6IfVoAUVmgz7cU7zD/h9XZ0qzeosSHmUJVOzSQvvYSYWXkFXC+IfLKSIffhv0sVZup6pA==}
@@ -19376,7 +19358,7 @@ packages:
       debug: 4.3.4
       pathe: 1.1.1
       picocolors: 1.0.0
-      vite: 5.1.2(@types/node@20.10.5)
+      vite: 5.1.2(@types/node@20.8.7)
     transitivePeerDependencies:
       - '@types/node'
       - less
@@ -19446,7 +19428,7 @@ packages:
       debug: 4.3.4
       kolorist: 1.8.0
       typescript: 5.3.3
-      vite: 5.1.2(@types/node@20.10.5)
+      vite: 5.1.2(@types/node@20.8.7)
       vue-tsc: 1.8.27(typescript@5.3.3)
     transitivePeerDependencies:
       - '@types/node'
@@ -19462,7 +19444,7 @@ packages:
     dependencies:
       picocolors: 1.0.0
       typescript: 5.3.3
-      vite: 5.1.2(@types/node@20.10.5)
+      vite: 5.1.2(@types/node@20.8.7)
       vite-plugin-dts: 3.7.2(typescript@5.3.3)(vite@5.1.2)
     transitivePeerDependencies:
       - '@types/node'
@@ -19481,11 +19463,45 @@ packages:
       debug: 4.3.4
       globrex: 0.1.2
       tsconfck: 3.0.2(typescript@5.3.3)
-      vite: 5.1.2(@types/node@20.10.5)
+      vite: 5.1.2
     transitivePeerDependencies:
       - supports-color
       - typescript
     dev: true
+
+  /vite@5.1.2:
+    resolution: {integrity: sha512-uwiFebQbTWRIGbCaTEBVAfKqgqKNKMJ2uPXsXeLIZxM8MVMjoS3j0cG8NrPxdDIadaWnPSjrkLWffLSC+uiP3Q==}
+    engines: {node: ^18.0.0 || >=20.0.0}
+    hasBin: true
+    peerDependencies:
+      '@types/node': ^18.0.0 || >=20.0.0
+      less: '*'
+      lightningcss: ^1.21.0
+      sass: '*'
+      stylus: '*'
+      sugarss: '*'
+      terser: ^5.4.0
+    peerDependenciesMeta:
+      '@types/node':
+        optional: true
+      less:
+        optional: true
+      lightningcss:
+        optional: true
+      sass:
+        optional: true
+      stylus:
+        optional: true
+      sugarss:
+        optional: true
+      terser:
+        optional: true
+    dependencies:
+      esbuild: 0.19.11
+      postcss: 8.4.35
+      rollup: 4.9.4
+    optionalDependencies:
+      fsevents: 2.3.3
 
   /vite@5.1.2(@types/node@20.10.5):
     resolution: {integrity: sha512-uwiFebQbTWRIGbCaTEBVAfKqgqKNKMJ2uPXsXeLIZxM8MVMjoS3j0cG8NrPxdDIadaWnPSjrkLWffLSC+uiP3Q==}
@@ -19521,6 +19537,7 @@ packages:
       rollup: 4.9.4
     optionalDependencies:
       fsevents: 2.3.3
+    dev: true
 
   /vite@5.1.2(@types/node@20.8.7):
     resolution: {integrity: sha512-uwiFebQbTWRIGbCaTEBVAfKqgqKNKMJ2uPXsXeLIZxM8MVMjoS3j0cG8NrPxdDIadaWnPSjrkLWffLSC+uiP3Q==}
@@ -19556,7 +19573,6 @@ packages:
       rollup: 4.9.4
     optionalDependencies:
       fsevents: 2.3.3
-    dev: true
 
   /vitefu@0.2.5(vite@5.1.2):
     resolution: {integrity: sha512-SgHtMLoqaeeGnd2evZ849ZbACbnwQCIwRH57t18FxcXoZop0uQu0uzlIhJBlF/eWVzuce0sHeqPcDo+evVcg8Q==}
@@ -19566,7 +19582,7 @@ packages:
       vite:
         optional: true
     dependencies:
-      vite: 5.1.2(@types/node@20.10.5)
+      vite: 5.1.2(@types/node@20.8.7)
     dev: false
 
   /vitest@1.2.2(@types/node@20.10.5):
@@ -19728,7 +19744,7 @@ packages:
       strip-literal: 1.3.0
       tinybench: 2.5.1
       tinypool: 0.8.2
-      vite: 5.1.2(@types/node@20.10.5)
+      vite: 5.1.2(@types/node@20.8.7)
       vite-node: 1.2.2
       why-is-node-running: 2.2.2
     transitivePeerDependencies:
@@ -20342,4 +20358,12 @@ packages:
 
   /zwitch@2.0.4:
     resolution: {integrity: sha512-bXE4cR/kVZhKZX/RjPEflHaKVhUVl85noU3v6b8apfQEc1x4A+zBxjZ4lN8LqGd6WZ3dl98pY4o717VFmoPp+A==}
+    dev: false
+
+  github.com/tauri-apps/tauri-plugin-store/02243686d0507d2aeeb2924cd889dd0bcb47ecef:
+    resolution: {tarball: https://codeload.github.com/tauri-apps/tauri-plugin-store/tar.gz/02243686d0507d2aeeb2924cd889dd0bcb47ecef}
+    name: tauri-plugin-store-api
+    version: 0.0.0
+    dependencies:
+      '@tauri-apps/api': 1.5.3
     dev: false

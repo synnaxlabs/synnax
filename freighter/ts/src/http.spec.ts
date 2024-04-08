@@ -36,6 +36,7 @@ describe("http", () => {
         message: "hello",
       },
       messageZ,
+      messageZ,
     );
     expect(error).toBeNull();
     expect(response).toEqual({ id: 2, message: "hello" });
@@ -45,6 +46,7 @@ describe("http", () => {
     const [response, error] = await client.send<typeof messageZ>(
       "/not-found",
       {},
+      messageZ,
       messageZ,
     );
     expect(error?.message).toEqual("Not Found");
@@ -59,6 +61,7 @@ describe("http", () => {
     const [response, error] = await client.send<typeof messageZ>(
       "/middlewareCheck",
       {},
+      messageZ,
       messageZ,
     );
     expect(error).toBeNull();

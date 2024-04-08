@@ -87,7 +87,7 @@ class Controller:
         write_channels = retrieve_required(retriever, write)
         write_keys = [ch.index for ch in write_channels if ch.index != 0]
         write_keys.extend([ch.key for ch in write_channels])
-        self.writer = frame_client.new_writer(
+        self.writer = frame_client.open_writer(
             name=name,
             start=TimeStamp.now(),
             channels=write_keys,
@@ -241,7 +241,7 @@ class _Receiver(Thread):
 
     async def __run(self):
         self.queue = Queue(maxsize=1)
-        self.streamer = await self.client.new_async_streamer(self.channels)
+        self.streamer = await self.client.open_async_streamer(self.channels)
         self.bootup_ack.set()
         create_task(self.__listen_for_close())
 
