@@ -23,6 +23,7 @@ type Writer struct {
 	wg                signal.WaitGroup
 	logger            *zap.Logger
 	hasAccumulatedErr bool
+	closed            bool
 }
 
 const unexpectedSteamClosure = "[cesium] - unexpected early closure of response stream"
@@ -41,7 +42,7 @@ func wrapStreamWriter(internal StreamWriter) *Writer {
 }
 
 func (w *Writer) Write(frame Frame) bool {
-	if w.hasAccumulatedErr {
+	if w.closed || w.hasAccumulatedErr {
 		return false
 	}
 	select {
@@ -54,7 +55,7 @@ func (w *Writer) Write(frame Frame) bool {
 }
 
 func (w *Writer) Commit() (telem.TimeStamp, bool) {
-	if w.hasAccumulatedErr {
+	if w.closed || w.hasAccumulatedErr {
 		return 0, false
 	}
 	select {
@@ -73,6 +74,9 @@ func (w *Writer) Commit() (telem.TimeStamp, bool) {
 }
 
 func (w *Writer) Error() error {
+	if w.closed {
+		return EntityClosed("cesium writer")
+	}
 	w.requests.Inlet() <- WriterRequest{Command: WriterError}
 	for res := range w.responses.Outlet() {
 		if res.Command == WriterError {
@@ -85,7 +89,7 @@ func (w *Writer) Error() error {
 }
 
 func (w *Writer) SetMode(mode WriterMode) bool {
-	if w.hasAccumulatedErr {
+	if w.closed || w.hasAccumulatedErr {
 		return false
 	}
 	select {
@@ -104,6 +108,10 @@ func (w *Writer) SetMode(mode WriterMode) bool {
 }
 
 func (w *Writer) Close() (err error) {
+	if w.closed {
+		return EntityClosed("cesium writer")
+	}
+	w.closed = true
 	w.requests.Close()
 	for range w.responses.Outlet() {
 	}

@@ -82,6 +82,7 @@ type Writer struct {
 	fileKey    uint16
 	internal   xio.TrackedWriteCloser
 	presetEnd  bool
+	closed     bool
 }
 
 // NewWriter opens a new Writer using the given configuration.
@@ -124,7 +125,12 @@ func (w *Writer) Len() int64 { return w.internal.Len() }
 // Writer writes binary telemetry to the domain. Write is not safe to call concurrently
 // with any other Writer methods. The contents of p are safe to modify after Write
 // returns.
-func (w *Writer) Write(p []byte) (n int, err error) { return w.internal.Write(p) }
+func (w *Writer) Write(p []byte) (n int, err error) {
+	if w.closed {
+		return 0, EntityClosed("domain writer")
+	}
+	return w.internal.Write(p)
+}
 
 // Commit commits the domain to the DB, making it available for reading by other processes.
 // If the WriterConfig.End parameter was set, Commit will ignore the provided timestamp
@@ -136,6 +142,9 @@ func (w *Writer) Write(p []byte) (n int, err error) { return w.internal.Write(p)
 // return an error.
 func (w *Writer) Commit(ctx context.Context, end telem.TimeStamp) error {
 	ctx, span := w.T.Prod(ctx, "commit")
+	if w.closed {
+		return EntityClosed("domain writer")
+	}
 	if w.presetEnd {
 		end = w.End
 	}
@@ -160,9 +169,18 @@ func (w *Writer) Commit(ctx context.Context, end telem.TimeStamp) error {
 // Close closes the writer, releasing any resources it may have been holding. Any
 // uncommitted data will be discarded. Close is not idempotent, and is also not
 // safe to call concurrently with any other writer methods.
-func (w *Writer) Close() error { return w.internal.Close() }
+func (w *Writer) Close() error {
+	if w.closed {
+		return EntityClosed("domain writer")
+	}
+	w.closed = true
+	return w.internal.Close()
+}
 
 func (w *Writer) validateCommitRange(end telem.TimeStamp) error {
+	if w.closed {
+		return EntityClosed("domain writer")
+	}
 	if !w.prevCommit.IsZero() && end.Before(w.prevCommit) {
 		return errors.Wrap(validate.Error, "commit timestamp must be strictly greater than the previous commit")
 	}

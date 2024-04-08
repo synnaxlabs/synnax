@@ -12,6 +12,7 @@ package unary_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/control"
@@ -141,5 +142,27 @@ var _ = Describe("Writer Behavior", func() {
 				Expect(t.Occurred()).To(BeTrue())
 			})
 		})
+	})
+
+	Describe("Close", func() {
+		var db = MustSucceed(unary.Open(unary.Config{
+			FS: fs.NewMem(),
+			Channel: core.Channel{
+				Key:      2,
+				DataType: telem.TimeStampT,
+				IsIndex:  true,
+			},
+		}))
+		It("Should not allow operations on a closed iterator", func() {
+			var (
+				w, _ = MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{Start: 1 * telem.SecondTS}))
+				e    = cesium.EntityClosed("unary iterator")
+			)
+			Expect(w.Close()).To(Succeed())
+			Expect(w.Commit(ctx)).To(MatchError(e))
+			Expect(w.Write(telem.Series{Data: []byte{1, 2, 3}})).To(MatchError(e))
+			Expect(w.Close()).To(MatchError(e))
+		})
+		Expect(db.Close()).To(Succeed())
 	})
 })

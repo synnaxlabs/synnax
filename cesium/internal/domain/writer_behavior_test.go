@@ -161,4 +161,17 @@ var _ = Describe("WriterBehavior", func() {
 			})
 		})
 	})
+	Describe("Close", func() {
+		It("Should not allow operations on a closed writer", func() {
+			var (
+				w = MustSucceed(db.NewWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS}))
+				e = domain.EntityClosed("domain writer")
+			)
+			Expect(w.Close()).To(Succeed())
+			Expect(w.Commit(ctx, telem.TimeStampMax)).To(MatchError(e))
+			_, err := w.Write([]byte{1, 2, 3})
+			Expect(err).To(MatchError(e))
+			Expect(w.Close()).To(MatchError(e))
+		})
+	})
 })

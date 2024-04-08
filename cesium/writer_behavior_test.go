@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -370,6 +371,22 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 			))).To(BeTrue())
 
 			Expect(w.Close()).To(Succeed())
+		})
+	})
+
+	Describe("Close", func() {
+		It("Should not allow operations on a closed iterator", func() {
+			Expect(db.CreateChannel(ctx, cesium.Channel{Key: 100, DataType: telem.Int64T, Rate: 1 * telem.Hz})).To(Succeed())
+			var (
+				i = MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Channels: []core.ChannelKey{100}, Start: 10 * telem.SecondTS}))
+				e = cesium.EntityClosed("cesium writer")
+			)
+			Expect(i.Close()).To(Succeed())
+			Expect(i.Close()).To(MatchError(e))
+			Expect(i.Write(cesium.Frame{Series: []telem.Series{{Data: []byte{1, 2, 3}}}})).To(BeFalse())
+			_, ok := i.Commit()
+			Expect(ok).To(BeFalse())
+			Expect(i.Error()).To(MatchError(e))
 		})
 	})
 })

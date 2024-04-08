@@ -58,6 +58,7 @@ type Iterator struct {
 	onUnlock func()
 	// readerFactory gets a new reader for the given domain pointer.
 	readerFactory func(ctx context.Context, ptr pointer) (*Reader, error)
+	closed        bool
 }
 
 // Lock sets an iterator to be locked, and takes in a function that gets executed directly, and another function to be stored in onClose
@@ -139,6 +140,9 @@ func (i *Iterator) TimeRange() telem.TimeRange { return i.value.TimeRange }
 // domain. The returned Reader is not safe for concurrent use, but it is safe to have
 // multiple Readers open over the same domain.
 func (i *Iterator) NewReader(ctx context.Context) (*Reader, error) {
+	if i.closed {
+		return nil, EntityClosed("domain iterator")
+	}
 	return i.readerFactory(ctx, i.value)
 }
 
@@ -147,13 +151,21 @@ func (i *Iterator) Len() int64 { return int64(i.value.length) }
 
 // Close closes the iterator.
 func (i *Iterator) Close() error {
+	if i.closed {
+		return EntityClosed("domain iterator")
+	}
 	if i.locked {
 		i.onUnlock()
 	}
+	i.closed = true
 	return nil
 }
 
 func (i *Iterator) reload() bool {
+	if i.closed {
+		i.valid = false
+		return i.valid
+	}
 	if i.position == -1 {
 		i.valid = false
 		return i.valid

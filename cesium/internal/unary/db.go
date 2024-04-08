@@ -11,7 +11,6 @@ package unary
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
@@ -22,6 +21,8 @@ import (
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 )
+
+var EntityClosed = func(entityName string) error { return fmt.Errorf("[cesium] - %s is already closed", entityName) }
 
 type controlledWriter struct {
 	*domain.Writer
@@ -141,7 +142,7 @@ func (db *DB) Read(ctx context.Context, tr telem.TimeRange) (frame core.Frame, e
 
 func (db *DB) TryClose() error {
 	if db.openIteratorWriters.Value() > 0 {
-		return errors.New(fmt.Sprintf("[cesium] - cannot delete channel because there are currently %d unclosed writers/iterators accessing it", db.openIteratorWriters.Value()))
+		return fmt.Errorf("[cesium] - cannot delete channel because there are currently %d unclosed writers/iterators accessing it", db.openIteratorWriters.Value())
 	} else {
 		return db.Close()
 	}

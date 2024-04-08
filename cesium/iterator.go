@@ -28,6 +28,7 @@ type Iterator struct {
 	shutdown context.CancelFunc
 	wg       signal.WaitGroup
 	logger   *zap.Logger
+	closed   bool
 }
 
 func wrapStreamIterator(wrap *streamIterator) *Iterator {
@@ -95,6 +96,10 @@ func (i *Iterator) Value() Frame { return i.frame }
 
 // Close implements Iterator.
 func (i *Iterator) Close() error {
+	if i.closed {
+		return EntityClosed("cesium iterator")
+	}
+	i.closed = true
 	i.inlet.Close()
 	err := i.wg.Wait()
 	i.shutdown()
@@ -107,6 +112,9 @@ func (i *Iterator) exec(req IteratorRequest) bool {
 }
 
 func (i *Iterator) execErr(req IteratorRequest) (bool, error) {
+	if i.closed {
+		return false, EntityClosed("cesium iterator")
+	}
 	i.frame = Frame{}
 	i.inlet.Inlet() <- req
 	for res := range i.outlet.Outlet() {
