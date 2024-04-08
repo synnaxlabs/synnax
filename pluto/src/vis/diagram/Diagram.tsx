@@ -192,6 +192,8 @@ export const NodeRenderer = memo(
 );
 NodeRenderer.displayName = "NodeRenderer";
 
+const DELETE_KEY_CODES: Triggers.Trigger = ["Backspace", "Delete"];
+
 const Core = Aether.wrap<DiagramProps>(
   diagram.Diagram.TYPE,
   // eslint-disable-next-line react/display-name
@@ -416,6 +418,7 @@ const Core = Aether.wrap<DiagramProps>(
             fitViewOptions={FIT_VIEW_OPTIONS}
             selectionMode={SelectionMode.Partial}
             proOptions={PRO_OPTIONS}
+            deleteKeyCode={DELETE_KEY_CODES}
             {...props}
             style={{
               [CSS.var("diagram-zoom")]: viewport.zoom,

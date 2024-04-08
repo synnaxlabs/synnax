@@ -36,7 +36,7 @@ export const Text = <L extends Core.Level>({
   return (
     <Align.Space className={className} style={style} direction="x">
       {trigger.map((t) => (
-        // @ts-expect-error
+        // @ts-expect-error - issues with generic element types
         <Core.Keyboard<L> key={t} {...props}>
           {CUSTOM_TEXT[t] ?? t}
         </Core.Keyboard>

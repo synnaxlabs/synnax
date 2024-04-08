@@ -14,5 +14,5 @@ const isWindows = runtime.getOS() === "Windows";
 
 export const Symbols = {
   Meta: isWindows ? Icon.Keyboard.Control : Icon.Keyboard.Command,
-  Alt: isWindows ? Icon.Keyboard.Alt : Icon.Keyboard.Option,
+  Alt: isWindows ? () => "Alt" : Icon.Keyboard.Option,
 };
