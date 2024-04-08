@@ -99,7 +99,7 @@ export const NavControls = (): ReactElement => {
         ClickMode,
         { key: ClickMode; icon: ReactElement; tooltip: ReactNode }
       >
-        value={control.clickMode!}
+        value={control.clickMode}
         onChange={handleClickModeChange}
         size="medium"
         bordered={false}
