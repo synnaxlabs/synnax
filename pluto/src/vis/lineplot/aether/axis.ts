@@ -36,7 +36,7 @@ export const coreAxisStateZ = axis.axisStateZ
       })
       .or(z.boolean().optional().default(true)),
     autoBoundPadding: z.number().optional(),
-    autoBoundUpdateInterval: TimeSpan.z.optional().default(TimeSpan.seconds(1)),
+    autoBoundUpdateInterval: TimeSpan.z.optional().default(TimeSpan.seconds(2)),
     size: z.number().optional().default(0),
     label: z.string().optional().default(""),
     labelSize: z.number().optional().default(0),

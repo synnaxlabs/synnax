@@ -20,7 +20,7 @@ import { type Control } from "@/input/types";
 
 import "@/input/DragButton.css";
 
-export interface DragButtonExtensionProps {
+export interface DragButtonExtraProps {
   direction?: direction.Crude;
   dragDirection?: direction.Crude;
   dragScale?: xy.Crude | number;
@@ -40,7 +40,7 @@ export interface DragButtonProps
       | "onBlur"
     >,
     Control<number>,
-    DragButtonExtensionProps {
+    DragButtonExtraProps {
   onDragEnd?: (value: number) => void;
   onBlur?: () => void;
 }

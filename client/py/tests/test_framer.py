@@ -100,7 +100,7 @@ class TestWriter:
     ):
         """Should not stream written data"""
         with client.open_writer(0, channel.key, mode=sy.WriterMode.PERSIST_ONLY) as w:
-            async with await client.new_async_streamer(channel.key) as s:
+            async with await client.open_async_streamer(channel.key) as s:
                 data = np.random.rand(10).astype(np.float64)
                 w.write(pd.DataFrame({channel.key: data}))
                 with pytest.raises(TimeoutError):
@@ -125,7 +125,7 @@ class TestAsyncStreamer:
     @pytest.mark.asyncio
     async def test_basic_stream(self, channel: sy.Channel, client: sy.Synnax):
         with client.open_writer(sy.TimeStamp.now(), channel.key) as w:
-            async with await client.new_async_streamer(channel.key) as s:
+            async with await client.open_async_streamer(channel.key) as s:
                 time.sleep(0.1)
                 data = np.random.rand(10).astype(np.float64)
                 w.write(pd.DataFrame({channel.key: data}))

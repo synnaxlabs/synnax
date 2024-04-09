@@ -52,7 +52,7 @@ export const Search = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   onChange,
   pageSize = 10,
 }: SearchProps<K, E>): ReactElement | null => {
-  const [internalValue, setInternvalValue] = state.usePurePassthrough({
+  const [internalValue, setInternalValue] = state.usePurePassthrough({
     value,
     onChange,
     initial: "",
@@ -127,10 +127,10 @@ export const Search = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
 
   const handleChange = useCallback(
     (term: string) => {
-      setInternvalValue(term);
+      setInternalValue(term);
       debounced(term);
     },
-    [setInternvalValue, debounced],
+    [setInternalValue, debounced],
   );
 
   return children({ value: internalValue, onChange: handleChange });

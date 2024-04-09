@@ -26,8 +26,8 @@ NUM_VALVES = 50
 NUM_SENSORS = 250
 
 # Some lists to store our channels.
-valve_commands = []
-valve_responses = []
+valve_commands = list()
+valve_responses = list()
 
 # Maps the keys of valve command channels to response channels.
 command_to_res = {}
@@ -116,7 +116,7 @@ with client.open_streamer([a.key for a in valve_commands]) as streamer:
             # If we've received a command, update the state of the corresponding valve.
             if streamer.received:
                 f = streamer.read()
-                for k in f.columns:
+                for k in f.channels:
                     # 1 is open, 0 is closed.
                     sensor_states[command_to_res[k].key] = np.uint8(f[k][-1] > 0.9)
 

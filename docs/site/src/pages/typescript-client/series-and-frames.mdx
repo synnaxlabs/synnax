@@ -5,14 +5,14 @@ heading: "Series and Frames"
 description: "Work with series and frames to access and manipulate data from Synnax."
 ---
 
-Series and Frames are the two fundamental data types used for working with channel data
+Series and Frames are the two fundamental structures used for working with channel data
 in Synnax. This guide will walk you through how to use the `Frame` and `Series` classes
 exposed by the Typescript client.
 
 ## Series
 
 A series is a strongly typed array of telemetry samples. A series can contain any data
-you want it to, but in the context of Synnax a series it almost always represents a set
+you want it to, but in the context of Synnax it almost always represents a set of
 contiguous samples from a single channel. 
 
 ### Constructing a Series
@@ -129,7 +129,7 @@ console.log(jsArray); // [ { red: 'cherry', yellow: 'banana', orange: 'orange' }
 
 ### The Time Range Property
 
-Whenever you read a series from Synnnax, it will have a `timeRange` property that
+Whenever you read a series from Synnax, it will have a `timeRange` property that
 represents the time range occupied by the samples in the Series. This method can be
 useful for getting a high-level understanding of when the samples were recorded without
 needing to query an index channel.

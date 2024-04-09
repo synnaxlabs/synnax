@@ -9,7 +9,7 @@ Streaming telemetry is useful for real-time processing, visualization, and monit
 This page guides you through using the Typescript client to stream telemetry from a 
 Synnax cluster.
 
-## Simple Example
+## Open a Streamer
 
 To start streaming data, call the `telem.openStreamer` method on the client and provide
 a list of channels to stream.
@@ -18,13 +18,15 @@ a list of channels to stream.
 const streamer = await client.telem.openStreamer(["temperature1", "temperature2"]);
 ```
 
-Then, read the next incoming telemetry frame, call the `read` method on the streamer.
+## Reading Frames
+
+Then, to read the next incoming telemetry frame, call the `read` method on the streamer.
 
 ```typescript
 const frame = await streamer.read();
 ```
 
-This call will block until a new frame is available. This frame **may not contain data
+This call will block until a new frame is available. **This frame may not contain data
 for every channel specified**. For example, if we're reading from two sensors that
 are being sampled by different devices at different rates, we may receive a frame
 containing data only for the first channel, followed by a frame containing data only
@@ -32,14 +34,7 @@ for the second channel.
 
 For more details on how to work with the returned frames, see the [Series and Frames](/typescript-client/series-and-frames) page.
 
-After you're done streaming, it's essential that you call the `close` method on the
-streamer to release the network connection and other related resources. 
-
-```typescript
-streamer.close();
-```
-
-## Using an Async For Loop
+### Using an Async For Loop
 
 The streamer implements an async iterator, which can be useful for continuously 
 processing incoming frames of telemetry.
@@ -50,5 +45,29 @@ for await (const frame of streamer) {
   const latestSamples = frame.at(-1);
 }
 ```
+
+## Closing the Streamer
+
+After you're done streaming, it's essential that you call the `close` method on the
+streamer to release the network connection and other related resources. 
+
+```typescript
+streamer.close();
+```
+
+We recommend using the `streamer` object within a `try-finally` block when possible. This
+ensures that the streamer is always closed, even if an exception is thrown.
+
+```typescript
+const streamer = await client.telem.openStreamer(["temperature1", "temperature2"]);
+try {
+  for await (const frame of streamer) {
+    // Process the frame
+  }
+} finally {
+  streamer.close();
+}
+```
+
 
 

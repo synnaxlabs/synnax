@@ -103,7 +103,7 @@ with client.open_streamer([c.key for c in valve_command_channels]) as streamer:
 
             if streamer.received:
                 f = streamer.read()
-                for k in f.columns:
+                for k in f.channels:
                     state[valve_command_to_response_channels[k]] = f[k][-1]
 
             now = sy.TimeStamp.now()

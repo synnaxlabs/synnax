@@ -133,10 +133,7 @@ class Client:
         :returns: None.
         """
         with self.open_writer(
-            start=start,
-            channels=to,
-            strict=strict,
-            mode=WriterMode.PERSIST_ONLY
+            start=start, channels=to, strict=strict, mode=WriterMode.PERSIST_ONLY
         ) as w:
             w.write(to, data)
             ts, ok = w.commit()
@@ -196,7 +193,7 @@ class Client:
             client=self.__client,
         )
 
-    async def new_async_streamer(
+    async def open_async_streamer(
         self,
         params: ChannelParams,
         from_: CrudeTimeStamp | None = None,

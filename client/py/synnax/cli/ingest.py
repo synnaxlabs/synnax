@@ -195,8 +195,8 @@ def validate_channels_exist(ctx: Context, cli: IngestionCLI) -> str | None:
     assert cli.client is not None
 
     ctx.console.info("Validating that channels exist...")
-    cli.not_found = []
-    cli.db_channels = []
+    cli.not_found = list()
+    cli.db_channels = list()
     for channel in cli.filtered_channels:
         ch = maybe_select_channel(
             ctx,
@@ -382,7 +382,7 @@ def create_channels(ctx: Context, cli: IngestionCLI) -> str | None:
     if idx_grouped is None or dt_grouped is None:
         return None
 
-    to_create = []
+    to_create = list()
     for rate_or_index, channels in idx_grouped.items():
         is_rate = isinstance(rate_or_index, Rate)
         for ch in channels:

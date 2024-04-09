@@ -17,7 +17,6 @@ import { Controls } from "@/components";
 import { NAV_DRAWERS, NavMenu } from "@/components/nav/Nav";
 import { CSS } from "@/css";
 import { Docs } from "@/docs";
-import { Label } from "@/label";
 import { Layout } from "@/layout";
 import { NAV_SIZES } from "@/layouts/LayoutMain/constants";
 import { LinePlot } from "@/lineplot";
@@ -46,7 +45,6 @@ const COMMANDS = [
   ...Workspace.COMMANDS,
   ...Cluster.COMMANDS,
   ...Range.COMMANDS,
-  ...Label.COMMANDS,
 ];
 
 const NavTopPalette = (): ReactElement => {

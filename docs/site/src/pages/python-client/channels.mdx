@@ -42,7 +42,7 @@ time_index_channel = client.channels.create(
 
 # Create an indexed channel that stores 32-bit floats
 my_precise_tc = client.channels.create(
-    name="my-precise-tc"
+    name="my_precise_tc",
     data_type=sy.DataType.FLOAT32,
     index=time_index_channel.key, # Pass the key of the index channel here.
 )
@@ -67,23 +67,23 @@ call.
 time_index = client.channels.create(
     name="time",
     data_type=sy.DataType.TIMESTAMP,
-    is_index=true,
+    is_index=True,
 )
 
 sensor_one = sy.Channel(
-    name="sensor-one",
+    name="sensor_one",
     data_type=sy.DataType.FLOAT32,
     index=time_index.key,
 )
 
 sensor_two = sy.Channel(
-    name="sensor-two",
+    name="sensor_two",
     data_type=sy.DataType.FLOAT64,
     index=time_index.key,
 )
 
 sensor_three = sy.Channel(
-    name="sensor-three",
+    name="sensor_three",
     data_type=sy.DataType.INT8,
     rate=25 * sy.Rate.KHZ,
 )
@@ -104,7 +104,7 @@ accomplish this, we can use the `retrieve_if_name_exists` flag.
 ```python
 # Create a channel if it doesn't exist
 my_channel = client.channels.create(
-    name="my-channel",
+    name="my_channel",
     data_type=sy.DataType.FLOAT32,
     rate=100 * sy.Rate.HZ,
     retrieve_if_name_exists=True,
@@ -122,7 +122,7 @@ method.
 
 ```python
 # By name
-my_precise_tc = client.channels.retrieve("my-precise-tc")
+my_precise_tc = client.channels.retrieve("my_precise_tc")
 # If you know the key, you can also retrieve by key
 my_precise_tc = client.channels.retrieve(my_precise_tc.key)
 ```
@@ -139,9 +139,9 @@ We can also retrieve multiple channels by passing a list of names or keys to the
 
 ```python
 # By name
-my_channels = client.channels.retrieve(["my-precise-tc", "my-precise-tc"])
-# By key
-my_channels = client.channels.retrieve([my_precise_tc.key, my_precise_tc.key])
+my_channels = client.channels.retrieve(["sensor_one", "sensor_two"])
+# By key if you know them
+my_channels = client.channels.retrieve([sensor_one.key, sensor_two.key])
 ```
 
 Note that Synnax will not raise a `QueryError` if it cannot find a channel matching a 
@@ -164,8 +164,8 @@ ch = bike_outing.sensor_one
 ```
 
 <div class="info">
-<b>Note</b> - When using a range, it's possible to retrieve a channel by it's alias
-instead of it's name. For more information, see 
+<b>Note</b> - When using a range, it's possible to retrieve a channel by its alias
+instead of its name. For more information, see 
 <a href="/python-client/named-ranges#aliasing-channels">aliasing channels</a>.
 </div>
 

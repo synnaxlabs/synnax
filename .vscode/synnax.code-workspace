@@ -121,7 +121,16 @@
       "msgpackr",
       "reduxjs",
       "renderable",
+      "immer",
+      "lineplot",
+      "Migratable",
+      "Navdrawer",
+      "reduxjs",
+      "immer",
+      "syncer",
       "Synnax",
+      "tauri",
+      "Tauri",
       "telem"
     ],
   },
@@ -133,3 +142,4 @@
     ]
   }
 }
+
