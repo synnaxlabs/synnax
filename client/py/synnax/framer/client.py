@@ -133,10 +133,7 @@ class Client:
         :returns: None.
         """
         with self.open_writer(
-            start=start,
-            channels=to,
-            strict=strict,
-            mode=WriterMode.PERSIST_ONLY
+            start=start, channels=to, strict=strict, mode=WriterMode.PERSIST_ONLY
         ) as w:
             w.write(to, data)
             ts, ok = w.commit()

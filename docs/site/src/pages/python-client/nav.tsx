@@ -44,6 +44,11 @@ export const pythonClientNav: PageNavNode = {
       name: "Stream Telemetry",
     },
     {
+      key: "/python-client/series-and-frames",
+      href: "/python-client/series-and-frames",
+      name: "Series and Frames",
+    },
+    {
       key: "/python-client/examples",
       href: "/python-client/examples",
       name: "Examples",

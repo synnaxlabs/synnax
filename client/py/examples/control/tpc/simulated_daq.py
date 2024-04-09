@@ -25,28 +25,20 @@ daq_time = client.channels.create(
     name=DAQ_TIME,
     data_type=sy.DataType.TIMESTAMP,
     is_index=True,
-    retrieve_if_name_exists=True
+    retrieve_if_name_exists=True,
 )
 
 tpc_cmd_time = client.channels.create(
     name="tpc_vlv_cmd_time",
     data_type=sy.DataType.TIMESTAMP,
     is_index=True,
-    retrieve_if_name_exists=True
+    retrieve_if_name_exists=True,
 )
 
 tpc_cmd = client.channels.create(
     [
-        sy.Channel(
-            name=TPC_CMD,
-            data_type=sy.DataType.UINT8,
-            index=tpc_cmd_time.key
-        ),
-        sy.Channel(
-            name=TPC_ACK,
-            data_type=sy.DataType.UINT8,
-            index=daq_time.key
-        ),
+        sy.Channel(name=TPC_CMD, data_type=sy.DataType.UINT8, index=tpc_cmd_time.key),
+        sy.Channel(name=TPC_ACK, data_type=sy.DataType.UINT8, index=daq_time.key),
     ],
     retrieve_if_name_exists=True,
 )
@@ -55,21 +47,13 @@ mpv_cmd_time = client.channels.create(
     name="mpv_vlv_cmd_time",
     data_type=sy.DataType.TIMESTAMP,
     is_index=True,
-    retrieve_if_name_exists=True
+    retrieve_if_name_exists=True,
 )
 
 mpv_cmd = client.channels.create(
     [
-        sy.Channel(
-            name=MPV_CMD,
-            data_type=sy.DataType.UINT8,
-            index=mpv_cmd_time.key
-        ),
-        sy.Channel(
-            name=MPV_ACK,
-            data_type=sy.DataType.UINT8,
-            index=daq_time.key
-        ),
+        sy.Channel(name=MPV_CMD, data_type=sy.DataType.UINT8, index=mpv_cmd_time.key),
+        sy.Channel(name=MPV_ACK, data_type=sy.DataType.UINT8, index=daq_time.key),
     ],
     retrieve_if_name_exists=True,
 )
@@ -78,7 +62,7 @@ press_iso_cmd_time = client.channels.create(
     name="press_iso_cmd_time",
     data_type=sy.DataType.TIMESTAMP,
     is_index=True,
-    retrieve_if_name_exists=True
+    retrieve_if_name_exists=True,
 )
 
 press_iso_cmd = client.channels.create(
@@ -86,13 +70,9 @@ press_iso_cmd = client.channels.create(
         sy.Channel(
             name=PRESS_ISO_CMD,
             data_type=sy.DataType.UINT8,
-            index=press_iso_cmd_time.key
+            index=press_iso_cmd_time.key,
         ),
-        sy.Channel(
-            name=PRESS_ISO_ACK,
-            data_type=sy.DataType.UINT8,
-            index=daq_time.key
-        ),
+        sy.Channel(name=PRESS_ISO_ACK, data_type=sy.DataType.UINT8, index=daq_time.key),
     ],
     retrieve_if_name_exists=True,
 )
@@ -101,21 +81,13 @@ vent_cmd_time = client.channels.create(
     name="vent_cmd_time",
     data_type=sy.DataType.TIMESTAMP,
     is_index=True,
-    retrieve_if_name_exists=True
+    retrieve_if_name_exists=True,
 )
 
 vent_cmd = client.channels.create(
     [
-        sy.Channel(
-            name=VENT_CMD,
-            data_type=sy.DataType.UINT8,
-            index=vent_cmd_time.key
-        ),
-        sy.Channel(
-            name=VENT_ACK,
-            data_type=sy.DataType.UINT8,
-            index=daq_time.key
-        ),
+        sy.Channel(name=VENT_CMD, data_type=sy.DataType.UINT8, index=vent_cmd_time.key),
+        sy.Channel(name=VENT_ACK, data_type=sy.DataType.UINT8, index=daq_time.key),
     ],
     retrieve_if_name_exists=True,
 )
@@ -124,14 +96,14 @@ client.channels.create(
     name=PRESS_TANK_PT,
     data_type=sy.DataType.FLOAT32,
     index=daq_time.key,
-    retrieve_if_name_exists=True
+    retrieve_if_name_exists=True,
 )
 
 client.channels.create(
     name=FUEL_TANK_PT,
     data_type=sy.DataType.FLOAT32,
     index=daq_time.key,
-    retrieve_if_name_exists=True
+    retrieve_if_name_exists=True,
 )
 
 rate = (sy.Rate.HZ * 50).period.seconds
@@ -151,18 +123,25 @@ MPV_LAST_OPEN = None
 scuba_pressure = 0
 l_stand_pressure = 0
 
-with client.open_streamer([TPC_CMD, MPV_CMD, PRESS_ISO_CMD, VENT_CMD, ]) as streamer:
+with client.open_streamer(
+    [
+        TPC_CMD,
+        MPV_CMD,
+        PRESS_ISO_CMD,
+        VENT_CMD,
+    ]
+) as streamer:
     with client.open_writer(
-            sy.TimeStamp.now(),
-            channels=[
-                DAQ_TIME,
-                TPC_ACK,
-                MPV_ACK,
-                PRESS_ISO_ACK,
-                VENT_ACK,
-                FUEL_TANK_PT,
-                PRESS_TANK_PT,
-            ]
+        sy.TimeStamp.now(),
+        channels=[
+            DAQ_TIME,
+            TPC_ACK,
+            MPV_ACK,
+            PRESS_ISO_ACK,
+            VENT_ACK,
+            FUEL_TANK_PT,
+            PRESS_TANK_PT,
+        ],
     ) as w:
         i = 0
         while True:
@@ -171,7 +150,7 @@ with client.open_streamer([TPC_CMD, MPV_CMD, PRESS_ISO_CMD, VENT_CMD, ]) as stre
                 if streamer.received:
                     while streamer.received:
                         f = streamer.read()
-                        for k in f.columns:
+                        for k in f.channels:
                             print(k, f[k])
                             DAQ_STATE[k] = f[k][0]
 
@@ -191,7 +170,11 @@ with client.open_streamer([TPC_CMD, MPV_CMD, PRESS_ISO_CMD, VENT_CMD, ]) as stre
                 if press_iso_open:
                     scuba_delta += 2.5
 
-                if tpc_open and scuba_pressure > 0 and not l_stand_pressure > scuba_pressure:
+                if (
+                    tpc_open
+                    and scuba_pressure > 0
+                    and not l_stand_pressure > scuba_pressure
+                ):
                     scuba_delta -= 1
                     l_stand_delta += 1
 
@@ -202,7 +185,9 @@ with client.open_streamer([TPC_CMD, MPV_CMD, PRESS_ISO_CMD, VENT_CMD, ]) as stre
                     scuba_delta -= 1
 
                 if mpv_open:
-                    l_stand_delta -= 0.1 * sy.TimeSpan(sy.TimeStamp.now() - MPV_LAST_OPEN).seconds
+                    l_stand_delta -= (
+                        0.1 * sy.TimeSpan(sy.TimeStamp.now() - MPV_LAST_OPEN).seconds
+                    )
 
                 scuba_pressure += scuba_delta
                 l_stand_pressure += l_stand_delta
@@ -213,15 +198,17 @@ with client.open_streamer([TPC_CMD, MPV_CMD, PRESS_ISO_CMD, VENT_CMD, ]) as stre
 
                 now = sy.TimeStamp.now()
 
-                ok = w.write({
-                    DAQ_TIME: now,
-                    TPC_ACK: int(tpc_open),
-                    MPV_ACK: int(mpv_open),
-                    PRESS_ISO_ACK: int(press_iso_open),
-                    VENT_ACK: int(vent_open),
-                    PRESS_TANK_PT: scuba_pressure,
-                    FUEL_TANK_PT: l_stand_pressure,
-                })
+                ok = w.write(
+                    {
+                        DAQ_TIME: now,
+                        TPC_ACK: int(tpc_open),
+                        MPV_ACK: int(mpv_open),
+                        PRESS_ISO_ACK: int(press_iso_open),
+                        VENT_ACK: int(vent_open),
+                        PRESS_TANK_PT: scuba_pressure,
+                        FUEL_TANK_PT: l_stand_pressure,
+                    }
+                )
 
                 i += 1
                 if (i % 40) == 0:

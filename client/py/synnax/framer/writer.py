@@ -155,12 +155,12 @@ class Writer:
     def write(
         self,
         channels_or_data: ChannelName
-                          | ChannelKey
-                          | ChannelKeys
-                          | ChannelNames
-                          | Frame
-                          | dict[ChannelKey | ChannelName, CrudeSeries]
-                          | DataFrame,
+        | ChannelKey
+        | ChannelKeys
+        | ChannelNames
+        | Frame
+        | dict[ChannelKey | ChannelName, CrudeSeries]
+        | DataFrame,
         series: CrudeSeries | list[CrudeSeries] | None = None,
     ) -> bool:
         """Writes the given frame to the database. The provided frame must:
@@ -287,8 +287,8 @@ class Writer:
         self.close()
 
     def __check_keys(self, frame: Frame):
-        missing = set(self.__adapter.keys) - set(frame.columns)
-        extra = set(frame.columns) - set(self.__adapter.keys)
+        missing = set(self.__adapter.keys) - set(frame.channels)
+        extra = set(frame.channels) - set(self.__adapter.keys)
         if missing and extra:
             raise ValidationError(
                 Field(

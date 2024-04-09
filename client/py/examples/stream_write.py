@@ -70,11 +70,13 @@ with client.open_writer(start, [time_ch.key, data_ch_1.key, data_ch_2.key]) as w
         data_2 = i % 2
 
         # Write the data to the writer
-        writer.write({
-            time_ch.key: timestamp,
-            data_ch_1.key: data_1,
-            data_ch_2.key: data_2,
-        })
+        writer.write(
+            {
+                time_ch.key: timestamp,
+                data_ch_1.key: data_1,
+                data_ch_2.key: data_2,
+            }
+        )
 
         time.sleep(rough_rate.period.seconds)
 

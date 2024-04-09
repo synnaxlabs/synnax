@@ -26,8 +26,8 @@ NUM_VALVES = 50
 NUM_SENSORS = 250
 
 # Some lists to store our channels.
-valve_commands = []
-valve_responses = []
+valve_commands = list()
+valve_responses = list()
 
 # Maps the keys of valve command channels to response channels.
 command_to_res = {}
@@ -50,20 +50,22 @@ for i in range(NUM_VALVES):
         data_type=sy.DataType.TIMESTAMP,
         retrieve_if_name_exists=True,
     )
-    cmd_res = client.channels.create([
-        # The command channel is used to send a command to the valve.
-        sy.Channel(
-            name=f"Valve Command {i}",
-            index=cmd_idx.key,
-            data_type=sy.DataType.UINT8,
-        ),
-        # The response channel is used to acknowledge the command from our simulated
-        # DAQ.
-        sy.Channel(
-            name=f"Valve Response {i}",
-            index=sensor_idx.key,
-            data_type=sy.DataType.UINT8,
-        )],
+    cmd_res = client.channels.create(
+        [
+            # The command channel is used to send a command to the valve.
+            sy.Channel(
+                name=f"Valve Command {i}",
+                index=cmd_idx.key,
+                data_type=sy.DataType.UINT8,
+            ),
+            # The response channel is used to acknowledge the command from our simulated
+            # DAQ.
+            sy.Channel(
+                name=f"Valve Response {i}",
+                index=sensor_idx.key,
+                data_type=sy.DataType.UINT8,
+            ),
+        ],
         retrieve_if_name_exists=True,
     )
     cmd = cmd_res[0]
@@ -77,14 +79,19 @@ sensors = [
         name=f"Sensor {i}",
         index=sensor_idx.key,
         data_type=sy.DataType.FLOAT32,
-    ) for i in range(NUM_SENSORS)
+    )
+    for i in range(NUM_SENSORS)
 ]
 
 sensors = client.channels.create(sensors, retrieve_if_name_exists=True)
 
 # Define the list of channels we'll write to i.e. the sensors and the valve responses as
 # well as the sensor index.
-write_to = [*[s.key for s in sensors], *[v.key for v in valve_responses], sensor_idx.key]
+write_to = [
+    *[s.key for s in sensors],
+    *[v.key for v in valve_responses],
+    sensor_idx.key,
+]
 
 # Define the list of channels we'll read from i.e. the incoming valve commands.
 read_from = [v.key for v in valve_commands]
@@ -109,7 +116,7 @@ with client.open_streamer([a.key for a in valve_commands]) as streamer:
             # If we've received a command, update the state of the corresponding valve.
             if streamer.received:
                 f = streamer.read()
-                for k in f.columns:
+                for k in f.channels:
                     # 1 is open, 0 is closed.
                     sensor_states[command_to_res[k].key] = np.uint8(f[k][-1] > 0.9)
 

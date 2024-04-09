@@ -26,7 +26,7 @@ client = sy.Synnax()
 read_from = [
     "stream_write_example_time",
     "stream_write_example_data_1",
-    "stream_write_example_data_2"
+    "stream_write_example_data_2",
 ]
 
 # Open the streamer as a context manager. This will make sure the streamer is properly
