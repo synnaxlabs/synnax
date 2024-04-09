@@ -16,7 +16,11 @@ import {
   type KeyOrName,
   type Payload,
 } from "@/channel/payload";
-import { type Retriever, analyzeParams, retrieveRequired } from "@/channel/retriever";
+import {
+  type Retriever,
+  analyzeChannelParams,
+  retrieveRequired,
+} from "@/channel/retriever";
 import { ValidationError } from "@/errors";
 import { type CrudeFrame, Frame } from "@/framer/frame";
 
@@ -38,10 +42,10 @@ export class ReadFrameAdapter {
   }
 
   async update(channels: Params): Promise<void> {
-    const { variant, normalized } = analyzeParams(channels);
+    const { variant, normalized } = analyzeChannelParams(channels);
     if (variant === "keys") {
       this.adapter = null;
-      this.keys = normalized;
+      this.keys = normalized as Key[];
       return;
     }
     const fetched = await this.retriever.retrieve(normalized);

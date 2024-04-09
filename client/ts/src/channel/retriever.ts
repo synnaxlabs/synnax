@@ -22,7 +22,7 @@ import {
   payload,
 } from "@/channel/payload";
 import { QueryError } from "@/errors";
-import { type ParamAnalysisResult, analyzeParams } from "@/util/params";
+import { type ParamAnalysisResult, analyzeParams } from "@/util/retrieve";
 import { nullableArrayZ } from "@/util/zod";
 
 const reqZ = z.object({
@@ -50,7 +50,7 @@ const resZ = z.object({
   channels: nullableArrayZ(payload),
 });
 
-const analyzeChannelParams = (
+export const analyzeChannelParams = (
   channels: Params,
 ): ParamAnalysisResult<KeyOrName, { number: "keys"; string: "names" }> =>
   analyzeParams(channels, {

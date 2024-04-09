@@ -14,7 +14,7 @@ import { z } from "zod";
 
 import { type framer } from "@/framer";
 import { type task } from "@/hardware/task";
-import { analyzeParams } from "@/util/params";
+import { analyzeParams, checkForMultipleOrNoResults } from "@/util/retrieve";
 import { nullableArrayZ } from "@/util/zod";
 
 export const rackKeyZ = z.number();
@@ -38,6 +38,7 @@ const DELETE_RACK_ENDPOINT = "/hardware/rack/delete";
 
 const retrieveRackReqZ = z.object({
   keys: rackKeyZ.array().optional(),
+  names: z.string().array().optional(),
   search: z.string().optional(),
   offset: z.number().optional(),
   limit: z.number().optional(),
@@ -133,7 +134,7 @@ export class Client implements AsyncTermSearcher<string, RackKey, Rack> {
   async retrieve(
     params: string | RackKey | string[] | RackKey[],
   ): Promise<Rack | Rack[]> {
-    const { variant, normalized } = analyzeParams(params, {
+    const { variant, normalized, single } = analyzeParams(params, {
       string: "names",
       number: "keys",
     });
@@ -144,11 +145,13 @@ export class Client implements AsyncTermSearcher<string, RackKey, Rack> {
       retrieveRackReqZ,
       retrieveRackResZ,
     );
-    return this.sugar(res.racks);
+    const sugared = this.sugar(res.racks);
+    checkForMultipleOrNoResults("Rack", params, sugared, single);
+    return single ? sugared[0] : sugared;
   }
 
   private sugar(payloads: RackPayload[]): Rack[] {
-    return payloads.map((payload) => new Rack(payload.key, payload.name, this.tasks));
+    return payloads.map(({ key, name }) => new Rack(key, name, this.tasks));
   }
 }
 
@@ -171,7 +174,7 @@ export class Rack {
     return [];
   }
 
-  async createTask(task: task.NewTask): Promise<task.NewTask> {
+  async createTask(task: task.NewTask): Promise<task.Task> {
     task.key = (
       (BigInt(this.key) << 32n) +
       (BigInt(task.key ?? 0) & 0xffffffffn)

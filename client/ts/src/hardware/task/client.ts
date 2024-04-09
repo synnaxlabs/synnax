@@ -13,7 +13,9 @@ import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import { toArray } from "@synnaxlabs/x/toArray";
 import { z } from "zod";
 
+import { analyzeChannelParams } from "@/channel/retriever";
 import { rack } from "@/hardware/rack";
+import { analyzeParams } from "@/util/retrieve";
 import { nullableArrayZ } from "@/util/zod";
 
 export const taskKeyZ = z.union([
@@ -43,7 +45,7 @@ export type NewTask = z.input<typeof newTaskZ>;
 export type Task<
   T extends string = string,
   C extends UnknownRecord = UnknownRecord,
-> = Omit<z.infer<typeof taskZ>, "config" | "type"> & { type: T; config: C };
+> = Omit<z.output<typeof taskZ>, "config" | "type"> & { type: T; config: C };
 
 const retrieveReqZ = z.object({
   rack: rack.rackKeyZ.optional(),
@@ -139,20 +141,21 @@ export class Client implements AsyncTermSearcher<string, TaskKey, Task> {
   async retrieve(key: string): Promise<Task>;
 
   async retrieve(rack: number | string | string[]): Promise<Task | Task[]> {
-    const params: RetrieveRequest = {};
-    let multi: boolean = true;
-    if (typeof rack === "number") params.rack = rack;
-    else if (typeof rack === "string") {
-      multi = false;
-      params.keys = [rack];
-    } else params.keys = toArray(rack);
+    const { single, normalized, variant } = analyzeParams(
+      rack,
+      {
+        number: "rack",
+        string: "keys",
+      },
+      { convertNumericStrings: false },
+    );
     const res = await sendRequired<typeof retrieveReqZ, typeof retrieveResZ>(
       this.client,
       RETRIEVE_ENDPOINT,
-      params,
+      variant === "rack" ? { rack: rack as number } : { keys: normalized as string[] },
       retrieveReqZ,
       retrieveResZ,
     );
-    return multi ? res.tasks : res.tasks[0];
+    return single && variant !== "rack" ? res.tasks[0] : res.tasks;
   }
 }

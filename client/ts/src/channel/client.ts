@@ -16,10 +16,9 @@ import {
   type CrudeDensity,
   type Series,
   type TimeRange,
-  type AsyncTermSearcher,
-  toArray,
-  type CrudeTimeSpan,
-} from "@synnaxlabs/x";
+  type CrudeTimeStamp,
+} from "@synnaxlabs/x/telem";
+import { toArray } from "@synnaxlabs/x/toArray";
 
 import { type Creator } from "@/channel/creator";
 import {
@@ -31,7 +30,7 @@ import {
   type NewPayload,
 } from "@/channel/payload";
 import {
-  analyzeParams,
+  analyzeChannelParams,
   CacheRetriever,
   ClusterRetriever,
   DebouncedBatchRetriever,
@@ -39,8 +38,9 @@ import {
   type PageOptions,
   type RetrieveOptions,
 } from "@/channel/retriever";
-import { MultipleResultsError, NoResultsError, ValidationError } from "@/errors";
+import { MultipleResultsError, NotFoundError, ValidationError } from "@/errors";
 import { type framer } from "@/framer";
+import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 interface CreateOptions {
   retrieveIfNameExists?: boolean;
@@ -317,15 +317,11 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
     channels: Params,
     options?: RetrieveOptions,
   ): Promise<Channel | Channel[]> {
-    const { single, actual, normalized } = analyzeParams(channels);
+    const { single, actual, normalized } = analyzeChannelParams(channels);
     if (normalized.length === 0) return [];
     const res = this.sugar(await this.retriever.retrieve(channels, options));
-    if (!single) return res;
-    if (res.length === 0)
-      throw new NotFoundError(`channel matching ${actual} not found`);
-    if (res.length > 1)
-      throw new MultipleResultsError(`multiple channels matching ${actual} found`);
-    return res[0];
+    checkForMultipleOrNoResults("channel", actual, res, single);
+    return single ? res[0] : res;
   }
 
   async search(term: string, options?: RetrieveOptions): Promise<Channel[]> {

@@ -16,7 +16,7 @@ import {
 } from "@synnaxlabs/x/telem";
 
 import { type KeyOrName, type Params } from "@/channel/payload";
-import { type Retriever, analyzeParams } from "@/channel/retriever";
+import { type Retriever, analyzeChannelParams } from "@/channel/retriever";
 import { Frame } from "@/framer/frame";
 import { Iterator } from "@/framer/iterator";
 import { Streamer, type StreamerConfig } from "@/framer/streamer";
@@ -116,7 +116,7 @@ export class Client {
   async read(tr: TimeRange, channels: Params): Promise<Frame>;
 
   async read(tr: TimeRange, channels: Params): Promise<Series | Frame> {
-    const { single } = analyzeParams(channels);
+    const { single } = analyzeChannelParams(channels);
     const fr = await this.readFrame(tr, channels);
     if (single) return fr.series[0];
     return fr;

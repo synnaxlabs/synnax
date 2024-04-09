@@ -15,13 +15,13 @@ import { z } from "zod";
 import { type framer } from "@/framer";
 import { rackKeyZ } from "@/hardware/rack/client";
 import { signals } from "@/signals";
+import { checkForMultipleOrNoResults } from "@/util/retrieve";
 import { nullableArrayZ } from "@/util/zod";
 
 const DEVICE_SET_NAME = "sy_device_set";
 const DEVICE_DELETE_NAME = "sy_device_delete";
 
 const RETRIEVE_ENDPOINT = "/hardware/device/retrieve";
-
 const CREATE_ENDPOINT = "/hardware/device/create";
 const DELETE_ENDPOINT = "/hardware/device/delete";
 
@@ -54,14 +54,14 @@ const deleteReqZ = z.object({
 
 const deleteResZ = z.object({});
 
-const retrieveDeviceReqZ = z.object({
+const retrieveReqZ = z.object({
   search: z.string().optional(),
   limit: z.number().optional(),
   offset: z.number().optional(),
   keys: deviceKeyZ.array().optional(),
 });
 
-const retrieveDeviceResZ = z.object({
+const retrieveResZ = z.object({
   devices: nullableArrayZ(deviceZ),
 });
 
@@ -80,43 +80,35 @@ export class Client implements AsyncTermSearcher<string, DeviceKey, Device> {
 
   async retrieve(keys: string | string[]): Promise<Device | Device[]> {
     const isSingle = !Array.isArray(keys);
-    const res = await sendRequired<
-      typeof retrieveDeviceReqZ,
-      typeof retrieveDeviceResZ
-    >(
+    const res = await sendRequired(
       this.client,
       RETRIEVE_ENDPOINT,
       { keys: toArray(keys) },
-      retrieveDeviceReqZ,
-      retrieveDeviceResZ,
+      retrieveReqZ,
+      retrieveResZ,
     );
+    checkForMultipleOrNoResults("Device", keys, res.devices, isSingle);
     return isSingle ? res.devices[0] : res.devices;
   }
 
   async search(term: string): Promise<Device[]> {
-    const res = await sendRequired<
-      typeof retrieveDeviceReqZ,
-      typeof retrieveDeviceResZ
-    >(
+    const res = await sendRequired(
       this.client,
       RETRIEVE_ENDPOINT,
       { keys: [term] },
-      retrieveDeviceReqZ,
-      retrieveDeviceResZ,
+      retrieveReqZ,
+      retrieveResZ,
     );
     return res.devices;
   }
 
   async page(offset: number, limit: number): Promise<Device[]> {
-    const res = await sendRequired<
-      typeof retrieveDeviceReqZ,
-      typeof retrieveDeviceResZ
-    >(
+    const res = await sendRequired(
       this.client,
       RETRIEVE_ENDPOINT,
       { offset, limit },
-      retrieveDeviceReqZ,
-      retrieveDeviceResZ,
+      retrieveReqZ,
+      retrieveResZ,
     );
     return res.devices;
   }
@@ -125,7 +117,7 @@ export class Client implements AsyncTermSearcher<string, DeviceKey, Device> {
 
   async create(devices: Device | Device[]): Promise<Device | Device[]> {
     const isSingle = !Array.isArray(devices);
-    const res = await sendRequired<typeof createReqZ, typeof createResZ>(
+    const res = await sendRequired(
       this.client,
       CREATE_ENDPOINT,
       { devices: toArray(devices) },
@@ -136,7 +128,7 @@ export class Client implements AsyncTermSearcher<string, DeviceKey, Device> {
   }
 
   async delete(keys: string | string[]): Promise<void> {
-    await sendRequired<typeof deleteReqZ, typeof deleteResZ>(
+    await sendRequired(
       this.client,
       DELETE_ENDPOINT,
       { keys: toArray(keys) },

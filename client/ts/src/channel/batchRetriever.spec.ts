@@ -5,8 +5,8 @@ import { type Params, type Payload } from "@/channel/payload";
 import {
   DebouncedBatchRetriever,
   type Retriever,
-  analyzeParams,
   type RetrieveOptions,
+  analyzeChannelParams,
 } from "@/channel/retriever";
 
 class MockRetriever implements Retriever {
@@ -36,7 +36,7 @@ describe("channelRetriever", () => {
     const called = vi.fn();
     const base = new MockRetriever(async (batch): Promise<Payload[]> => {
       called(batch);
-      const { normalized } = analyzeParams(batch);
+      const { normalized } = analyzeChannelParams(batch);
       return normalized.map((key) => ({
         key: key as number,
         name: `channel-${key}`,
@@ -61,7 +61,7 @@ describe("channelRetriever", () => {
     const called = vi.fn();
     const base = new MockRetriever(async (batch): Promise<Payload[]> => {
       called(batch);
-      const { normalized } = analyzeParams(batch);
+      const { normalized } = analyzeChannelParams(batch);
       return normalized.map((key) => ({
         key: key as number,
         name: `channel-${key}`,

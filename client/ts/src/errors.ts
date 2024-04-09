@@ -79,10 +79,6 @@ export class MultipleResultsError extends QueryError {
   static readonly TYPE = QueryError.TYPE + ".multiple_results";
 }
 
-export class NoResultsError extends QueryError {}
-
-export class MultipleResultsError extends QueryError {}
-
 /**
  * RouteError is raised when a routing error occurs.
  */
