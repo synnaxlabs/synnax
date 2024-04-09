@@ -133,6 +133,8 @@ var _ = Describe("Control", Ordered, func() {
 		})
 	})
 	Describe("Creating update channel with key 0", func() {
-		Expect(db.ConfigureControlUpdateChannel(ctx, 0).Error()).To(ContainSubstring("cannot be 0"))
+		It("Should not allow it", func() {
+			Expect(db.ConfigureControlUpdateChannel(ctx, 0).Error()).To(ContainSubstring("key must be positive"))
+		})
 	})
 })

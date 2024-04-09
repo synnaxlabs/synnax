@@ -12,6 +12,7 @@ package unary
 import (
 	"context"
 	"fmt"
+	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/domain"
@@ -142,7 +143,7 @@ func (db *DB) Read(ctx context.Context, tr telem.TimeRange) (frame core.Frame, e
 
 func (db *DB) TryClose() error {
 	if db.openIteratorWriters.Value() > 0 {
-		return fmt.Errorf("[cesium] - cannot delete channel because there are currently %d unclosed writers/iterators accessing it", db.openIteratorWriters.Value())
+		return errors.Newf("[cesium] - cannot close channel because there are currently %d unclosed writers/iterators accessing it", db.openIteratorWriters.Value())
 	} else {
 		return db.Close()
 	}

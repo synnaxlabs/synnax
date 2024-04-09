@@ -26,9 +26,8 @@ type Int32Counter struct {
 // must have exclusive write access to the file.
 func NewInt32Counter(f ReaderAtWriterAtCloser) *Int32Counter {
 	i := &Int32Counter{
-		wrapped: int32(0),
-		f:       f,
-		buf:     make([]byte, 4),
+		f:   f,
+		buf: make([]byte, 4),
 	}
 	return i
 }

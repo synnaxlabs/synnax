@@ -141,7 +141,7 @@ func (i *Iterator) TimeRange() telem.TimeRange { return i.value.TimeRange }
 // multiple Readers open over the same domain.
 func (i *Iterator) NewReader(ctx context.Context) (*Reader, error) {
 	if i.closed {
-		return nil, EntityClosed("domain iterator")
+		return nil, EntityClosed("domain.iterator")
 	}
 	return i.readerFactory(ctx, i.value)
 }
@@ -152,7 +152,7 @@ func (i *Iterator) Len() int64 { return int64(i.value.length) }
 // Close closes the iterator.
 func (i *Iterator) Close() error {
 	if i.closed {
-		return EntityClosed("domain iterator")
+		return EntityClosed("domain.iterator")
 	}
 	if i.locked {
 		i.onUnlock()

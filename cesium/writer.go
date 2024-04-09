@@ -75,7 +75,7 @@ func (w *Writer) Commit() (telem.TimeStamp, bool) {
 
 func (w *Writer) Error() error {
 	if w.closed {
-		return EntityClosed("cesium writer")
+		return EntityClosed("cesium.writer")
 	}
 	w.requests.Inlet() <- WriterRequest{Command: WriterError}
 	for res := range w.responses.Outlet() {
@@ -109,7 +109,7 @@ func (w *Writer) SetMode(mode WriterMode) bool {
 
 func (w *Writer) Close() (err error) {
 	if w.closed {
-		return EntityClosed("cesium writer")
+		return EntityClosed("cesium.writer")
 	}
 	w.closed = true
 	w.requests.Close()

@@ -379,7 +379,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 			Expect(db.CreateChannel(ctx, cesium.Channel{Key: 100, DataType: telem.Int64T, Rate: 1 * telem.Hz})).To(Succeed())
 			var (
 				i = MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Channels: []core.ChannelKey{100}, Start: 10 * telem.SecondTS}))
-				e = cesium.EntityClosed("cesium writer")
+				e = cesium.EntityClosed("cesium.writer")
 			)
 			Expect(i.Close()).To(Succeed())
 			Expect(i.Close()).To(MatchError(e))

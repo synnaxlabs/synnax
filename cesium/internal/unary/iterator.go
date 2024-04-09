@@ -49,7 +49,7 @@ func (i *Iterator) View() telem.TimeRange { return i.view }
 
 func (i *Iterator) SeekFirst(ctx context.Context) bool {
 	if i.closed {
-		i.err = EntityClosed("unary iterator")
+		i.err = EntityClosed("unary.iterator")
 		return false
 	}
 	ok := i.internal.SeekFirst(ctx)
@@ -60,7 +60,7 @@ func (i *Iterator) SeekFirst(ctx context.Context) bool {
 
 func (i *Iterator) SeekLast(ctx context.Context) bool {
 	if i.closed {
-		i.err = EntityClosed("unary iterator")
+		i.err = EntityClosed("unary.iterator")
 		return false
 	}
 	ok := i.internal.SeekLast(ctx)
@@ -70,7 +70,7 @@ func (i *Iterator) SeekLast(ctx context.Context) bool {
 
 func (i *Iterator) SeekLE(ctx context.Context, ts telem.TimeStamp) bool {
 	if i.closed {
-		i.err = EntityClosed("unary iterator")
+		i.err = EntityClosed("unary.iterator")
 		return false
 	}
 	i.seekReset(ts)
@@ -79,7 +79,7 @@ func (i *Iterator) SeekLE(ctx context.Context, ts telem.TimeStamp) bool {
 
 func (i *Iterator) SeekGE(ctx context.Context, ts telem.TimeStamp) bool {
 	if i.closed {
-		i.err = EntityClosed("unary iterator")
+		i.err = EntityClosed("unary.iterator")
 		return false
 	}
 	i.seekReset(ts)
@@ -88,7 +88,7 @@ func (i *Iterator) SeekGE(ctx context.Context, ts telem.TimeStamp) bool {
 
 func (i *Iterator) Next(ctx context.Context, span telem.TimeSpan) (ok bool) {
 	if i.closed {
-		i.err = EntityClosed(("unary iterator"))
+		i.err = EntityClosed(("unary.iterator"))
 		return false
 	}
 	ctx, span_ := i.T.Bench(ctx, "Next")
@@ -123,7 +123,7 @@ func (i *Iterator) Next(ctx context.Context, span telem.TimeSpan) (ok bool) {
 
 func (i *Iterator) autoNext(ctx context.Context) bool {
 	if i.closed {
-		i.err = EntityClosed("unary iterator")
+		i.err = EntityClosed("unary.iterator")
 		return false
 	}
 	i.view.Start = i.view.End
@@ -176,7 +176,7 @@ func (i *Iterator) autoNext(ctx context.Context) bool {
 
 func (i *Iterator) Prev(ctx context.Context, span telem.TimeSpan) (ok bool) {
 	if i.closed {
-		i.err = EntityClosed("unary iterator")
+		i.err = EntityClosed("unary.iterator")
 		return false
 	}
 	ctx, span_ := i.T.Bench(ctx, "Prev")
@@ -219,7 +219,7 @@ func (i *Iterator) Valid() bool { return i.partiallySatisfied() && i.err == nil 
 
 func (i *Iterator) Close() (err error) {
 	if i.closed {
-		return EntityClosed("unary iterator")
+		return EntityClosed("unary.iterator")
 	}
 	i.decrementCounter()
 	i.closed = true
@@ -228,7 +228,7 @@ func (i *Iterator) Close() (err error) {
 
 func (i *Iterator) accumulate(ctx context.Context) bool {
 	if i.closed {
-		i.err = EntityClosed("unary iterator")
+		i.err = EntityClosed("unary.iterator")
 		return false
 	}
 	if !i.internal.TimeRange().OverlapsWith(i.view) {
@@ -250,7 +250,7 @@ func (i *Iterator) accumulate(ctx context.Context) bool {
 
 func (i *Iterator) insert(series telem.Series) {
 	if i.closed {
-		i.err = EntityClosed("unary iterator")
+		i.err = EntityClosed("unary.iterator")
 		return
 	}
 	if series.Len() == 0 {
@@ -265,7 +265,7 @@ func (i *Iterator) insert(series telem.Series) {
 
 func (i *Iterator) read(ctx context.Context, offset telem.Offset, size telem.Size) (series telem.Series, n int, err error) {
 	if i.closed {
-		err = EntityClosed("unary iterator")
+		err = EntityClosed("unary.iterator")
 		return
 	}
 	series.DataType = i.Channel.DataType
@@ -288,7 +288,7 @@ func (i *Iterator) read(ctx context.Context, offset telem.Offset, size telem.Siz
 
 func (i *Iterator) sliceDomain(ctx context.Context) (telem.Offset, telem.Size, error) {
 	if i.closed {
-		return 0, 0, EntityClosed("unary iterator")
+		return 0, 0, EntityClosed("unary.iterator")
 	}
 	startApprox, err := i.approximateStart(ctx)
 	if err != nil {
@@ -308,7 +308,7 @@ func (i *Iterator) sliceDomain(ctx context.Context) (telem.Offset, telem.Size, e
 // before the start of the range, the returned value will be zero.
 func (i *Iterator) approximateStart(ctx context.Context) (startApprox index.DistanceApproximation, err error) {
 	if i.closed {
-		return index.DistanceApproximation{}, EntityClosed("unary iterator")
+		return index.DistanceApproximation{}, EntityClosed("unary.iterator")
 	}
 	if i.internal.TimeRange().Start.Before(i.view.Start) {
 		target := i.internal.TimeRange().Start.Range(i.view.Start)
@@ -323,7 +323,7 @@ func (i *Iterator) approximateStart(ctx context.Context) (startApprox index.Dist
 // range.
 func (i *Iterator) approximateEnd(ctx context.Context) (endApprox index.DistanceApproximation, err error) {
 	if i.closed {
-		return index.DistanceApproximation{}, EntityClosed("unary iterator")
+		return index.DistanceApproximation{}, EntityClosed("unary.iterator")
 	}
 	endApprox = index.Exactly(i.Channel.DataType.Density().SampleCount(telem.Size(i.internal.Len())))
 	if i.internal.TimeRange().End.After(i.view.End) {
@@ -335,7 +335,7 @@ func (i *Iterator) approximateEnd(ctx context.Context) (endApprox index.Distance
 
 func (i *Iterator) satisfied() bool {
 	if i.closed {
-		i.err = EntityClosed("unary iterator")
+		i.err = EntityClosed("unary.iterator")
 		return false
 	}
 	if !i.partiallySatisfied() {
@@ -350,7 +350,7 @@ func (i *Iterator) partiallySatisfied() bool { return len(i.frame.Series) > 0 }
 
 func (i *Iterator) reset(nextView telem.TimeRange) {
 	if i.closed {
-		i.err = EntityClosed("unary iterator")
+		i.err = EntityClosed("unary.iterator")
 		return
 	}
 	i.frame = core.Frame{}
@@ -359,7 +359,7 @@ func (i *Iterator) reset(nextView telem.TimeRange) {
 
 func (i *Iterator) seekReset(ts telem.TimeStamp) {
 	if i.closed {
-		i.err = EntityClosed("unary iterator")
+		i.err = EntityClosed("unary.iterator")
 		return
 	}
 	i.reset(ts.SpanRange(0))

@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/x/errutil"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
+	"go.uber.org/zap"
 	"golang.org/x/sync/semaphore"
 	"strconv"
 	"sync"
@@ -36,6 +37,10 @@ var DefaultGCConfig = GCConfig{
 	ReadChunkSize: uint32(20 * telem.Megabyte),
 	MaxGoroutine:  10,
 	GcTryInterval: 30 * time.Second,
+}
+
+func channelDirName(ch ChannelKey) string {
+	return strconv.Itoa(int(ch))
 }
 
 // DeleteChannel deletes a channel by its key.
@@ -64,21 +69,17 @@ func (db *DB) DeleteChannel(ch ChannelKey) error {
 		}
 		delete(db.unaryDBs, ch)
 		db.mu.Unlock()
-		return db.fs.Remove(strconv.Itoa(int(ch)))
+		return db.fs.Remove(channelDirName(ch))
 	}
 	vdb, vok := db.virtualDBs[ch]
 	if vok {
-		if db.digests.key == ch {
-			db.mu.Unlock()
-			return errors.New("[cesium] - cannot delete update digest channel")
-		}
 		if err := vdb.TryClose(); err != nil {
 			db.mu.Unlock()
 			return err
 		}
 		delete(db.virtualDBs, ch)
 		db.mu.Unlock()
-		return db.fs.Remove(strconv.Itoa(int(ch)))
+		return db.fs.Remove(channelDirName(ch))
 	}
 
 	db.mu.Unlock()
@@ -105,12 +106,8 @@ func (db *DB) DeleteTimeRange(ctx context.Context, ch ChannelKey, tr telem.TimeR
 			otherDB := db.unaryDBs[otherDBKey]
 			// We must determine whether there is an indexed db that has data in the timerange tr.
 			hasOverlap, err := otherDB.HasDataFor(ctx, tr)
-			if err != nil {
-				return errors.New("[cesium] - could not delete index channel with other channels depending on it")
-			}
-
-			if hasOverlap {
-				return errors.New("[cesium] - could not delete index channel with other channels depending on it")
+			if err != nil || hasOverlap {
+				return errors.Newf("[cesium] - could not delete index channel %s with other channels depending on it", ch)
 			}
 		}
 	}
@@ -118,8 +115,8 @@ func (db *DB) DeleteTimeRange(ctx context.Context, ch ChannelKey, tr telem.TimeR
 	return udb.Delete(ctx, tr)
 }
 
-func (db *DB) garbageCollect(ctx context.Context, readChunkSize uint32, maxGoRoutine int64) (err error) {
-	_, span := db.T.Debug(ctx, "Garbage Collect")
+func (db *DB) garbageCollect(ctx context.Context, readChunkSize uint32, maxGoRoutine int64) error {
+	_, span := db.T.Debug(ctx, "garbage_collect")
 	defer span.End()
 	db.mu.RLock()
 	var (
@@ -129,7 +126,7 @@ func (db *DB) garbageCollect(ctx context.Context, readChunkSize uint32, maxGoRou
 	)
 
 	for _, udb := range db.unaryDBs {
-		if err = sem.Acquire(ctx, 1); err != nil {
+		if err := sem.Acquire(ctx, 1); err != nil {
 			return err
 		}
 		wg.Add(1)
@@ -155,7 +152,7 @@ func (db *DB) startGC(sCtx signal.Context, opts *options) {
 	signal.GoTick(sCtx, opts.gcCfg.GcTryInterval, func(ctx context.Context, time time.Time) error {
 		err := db.garbageCollect(ctx, opts.gcCfg.ReadChunkSize, opts.gcCfg.MaxGoroutine)
 		if err != nil {
-			db.L.Error(err.Error())
+			db.L.Error("garbage collection accumulated in failure", zap.Error(err))
 		}
 		return nil
 	})

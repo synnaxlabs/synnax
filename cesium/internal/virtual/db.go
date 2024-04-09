@@ -57,7 +57,7 @@ func (db *DB) LeadingControlState() *controller.State {
 
 func (db *DB) TryClose() error {
 	if db.openWriters.Value() > 0 {
-		return errors.New(fmt.Sprintf("[cesium] - channel has %d unclosed writers accessing it", db.openWriters.Value()))
+		return errors.Newf(fmt.Sprintf("[cesium] - cannot close channel because there are currently %d unclosed writers accessing it", db.openWriters.Value()))
 	}
 	return db.Close()
 }

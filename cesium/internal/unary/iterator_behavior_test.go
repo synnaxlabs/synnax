@@ -196,7 +196,7 @@ var _ = Describe("Iterator Behavior", func() {
 		It("Should not allow operations on a closed iterator", func() {
 			var (
 				i = db.OpenIterator(unary.IteratorConfig{Bounds: telem.TimeRangeMax})
-				e = cesium.EntityClosed("unary iterator")
+				e = cesium.EntityClosed("unary.iterator")
 			)
 			Expect(i.Close()).To(Succeed())
 			Expect(i.SeekFirst(ctx)).To(BeFalse())

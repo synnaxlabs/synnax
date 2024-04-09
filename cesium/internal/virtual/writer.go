@@ -59,7 +59,7 @@ type Writer struct {
 
 func (w *Writer) Write(series telem.Series) (telem.Alignment, error) {
 	if w.closed {
-		return 0, EntityClosed("virtual writer")
+		return 0, EntityClosed("virtual.writer")
 	}
 	if err := w.Channel.ValidateSeries(series); err != nil {
 		return 0, err
@@ -81,7 +81,7 @@ func (w *Writer) SetAuthority(a control.Authority) controller.Transfer {
 
 func (w *Writer) Close() (controller.Transfer, error) {
 	if w.closed {
-		return controller.Transfer{}, EntityClosed("virtual writer")
+		return controller.Transfer{}, EntityClosed("virtual.writer")
 	}
 	w.closed = true
 	_, t := w.control.Release()

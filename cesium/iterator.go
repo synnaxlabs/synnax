@@ -97,7 +97,7 @@ func (i *Iterator) Value() Frame { return i.frame }
 // Close implements Iterator.
 func (i *Iterator) Close() error {
 	if i.closed {
-		return EntityClosed("cesium iterator")
+		return EntityClosed("cesium.iterator")
 	}
 	i.closed = true
 	i.inlet.Close()
@@ -113,7 +113,7 @@ func (i *Iterator) exec(req IteratorRequest) bool {
 
 func (i *Iterator) execErr(req IteratorRequest) (bool, error) {
 	if i.closed {
-		return false, EntityClosed("cesium iterator")
+		return false, EntityClosed("cesium.iterator")
 	}
 	i.frame = Frame{}
 	i.inlet.Inlet() <- req

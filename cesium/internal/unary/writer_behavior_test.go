@@ -152,13 +152,13 @@ var _ = Describe("Writer Behavior", func() {
 				DataType: telem.TimeStampT,
 			},
 		}))
-		It("Should not allow operations on a closed iterator", func() {
+		It("Should not allow operations on a closed writer", func() {
 			var (
 				w, t = MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
 					Start:   10 * telem.SecondTS,
 					Subject: control.Subject{Key: "foo"}},
 				))
-				e = cesium.EntityClosed("unary writer")
+				e = cesium.EntityClosed("unary.writer")
 			)
 			Expect(t.Occurred()).To(BeTrue())
 			_, err := w.Close()
