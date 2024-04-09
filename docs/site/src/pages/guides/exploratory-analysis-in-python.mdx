@@ -178,11 +178,11 @@ Next, we'll retrieve the named range referencing the data we just imported:
 data = client.ranges.retrieve("April 9 Wetdress")
 ```
 
-`ec_pressure_5` on our data set contains our flowmeters' pressure differential readings 
-in psi. To make things easier to work with, we'll alias `ec_pressure_5` to `flow_dp`:
+`ec_pressure_12` on our data set contains our flowmeter's pressure differential readings 
+in psi. To make things easier to work with, we'll alias `ec_pressure_12` to `flow_dp`:
 
 ```python
-data.ec_pressure_5.set_alias("flow_dp")
+data.ec_pressure_12.set_alias("flow_dp")
 ```
 
 Next, we'll filter our data set to only include samples where `flow_dp` is greater than 
