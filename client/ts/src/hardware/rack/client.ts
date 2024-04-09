@@ -170,8 +170,8 @@ export class Rack {
     return await this.tasks.retrieve(this.key);
   }
 
-  async retrieveTasks(): Promise<task.Task[]> {
-    return [];
+  async retrieveTaskByName(name: string): Promise<task.Task> {
+    return await this.tasks.retrieveByName(name, this.key);
   }
 
   async createTask(task: task.NewTask): Promise<task.Task> {

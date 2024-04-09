@@ -26,7 +26,7 @@ namespace driver {
 class TaskManager {
 public:
     TaskManager(
-        RackKey rack_key,
+        Rack rack,
         const std::shared_ptr<Synnax> &client,
         std::unique_ptr<task::Factory> factory,
         breaker::Config breaker
@@ -102,7 +102,7 @@ private:
 class Driver {
 public:
     Driver(
-        RackKey key,
+        Rack rack,
         const std::shared_ptr<Synnax> &client,
         std::unique_ptr<task::Factory> task_factory,
         breaker::Config breaker_config

@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 import { ZodError } from "zod";
 
+import { NotFoundError } from "@/errors";
 import { newClient } from "@/setupspecs";
 
 const client = newClient();
@@ -46,6 +46,12 @@ describe("Rack", () => {
       const r = await client.hardware.racks.create({ name: "test" });
       const tasks = await r.listTasks();
       expect(tasks).toHaveLength(0);
+    });
+    it("should throw an error if a task cannot be found by name", async () => {
+      const r = await client.hardware.racks.create({ name: "test" });
+      await expect(
+        async () => await r.retrieveTaskByName("nonexistent"),
+      ).rejects.toThrow(NotFoundError);
     });
   });
 });

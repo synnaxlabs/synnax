@@ -13,7 +13,6 @@ import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import { toArray } from "@synnaxlabs/x/toArray";
 import { z } from "zod";
 
-import { analyzeChannelParams } from "@/channel/retriever";
 import { rack } from "@/hardware/rack";
 import { analyzeParams, checkForMultipleOrNoResults } from "@/util/retrieve";
 import { nullableArrayZ } from "@/util/zod";
@@ -30,9 +29,12 @@ export const taskZ = z.object({
   key: taskKeyZ,
   name: z.string(),
   type: z.string(),
-  config: z
-    .record(z.unknown())
-    .or(z.string().transform((c) => JSON.parse(c))) as z.ZodType<UnknownRecord>,
+  config: z.record(z.unknown()).or(
+    z.string().transform((c) => {
+      if (c === "") return {};
+      return JSON.parse(c);
+    }),
+  ) as z.ZodType<UnknownRecord>,
 });
 
 export const newTaskZ = taskZ.omit({ key: true }).extend({
@@ -159,11 +161,11 @@ export class Client implements AsyncTermSearcher<string, TaskKey, Task> {
     return single && variant !== "rack" ? res.tasks[0] : res.tasks;
   }
 
-  async retrieveByName(name: string): Promise<Task> {
+  async retrieveByName(name: string, rack?: number): Promise<Task> {
     const res = await sendRequired<typeof retrieveReqZ, typeof retrieveResZ>(
       this.client,
       RETRIEVE_ENDPOINT,
-      { names: [name] },
+      { names: [name], rack },
       retrieveReqZ,
       retrieveResZ,
     );

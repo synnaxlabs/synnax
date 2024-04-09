@@ -29,7 +29,7 @@ int main(int argc, char *argv[]) {
     google::InitGoogleLogging(argv[0]);
     google::SetCommandLineOption("logtostderr", "1");
     google::SetCommandLineOption("minloglevel", "0");
-    LOG(INFO) << "starting driver";
+    LOG(INFO) << "[Driver] starting up";
     auto cfg = synnax::Config{
         .host = "localhost",
         .port = 9090,
@@ -48,11 +48,10 @@ int main(int argc, char *argv[]) {
 
     auto rack_bootup_breaker = breaker::Breaker(breaker_config.child("startup"));
 
-    LOG(INFO) << "retrieving driver meta-data";
+    LOG(INFO) << "[Driver] retrieving meta-data";
     auto [rack, err] = retrieveDriverRack(rack_bootup_breaker, client);
     if (err) {
-        LOG(FATAL) << "failed to retrieve driver meta-data - can't proceed without it"
-                << err;
+        LOG(FATAL) << "[Driver] failed to retrieve meta-data - can't proceed without it. Exiting." << err;
         return 1;
     }
 
@@ -63,16 +62,16 @@ int main(int argc, char *argv[]) {
     );
 
     d = std::make_unique<driver::Driver>(
-        rack.key,
+        rack,
         client,
         std::move(factory),
         breaker_config
     );
     signal(SIGINT, [](int _) {
-        LOG(INFO) << "received interrupt signal. shutting down";
+        LOG(INFO) << "[Driver] received interrupt signal. shutting down";
         d->stop();
     });
     d->run();
-    LOG(INFO) << "shutdown complete";
+    LOG(INFO) << "[Driver] shutdown complete";
     return 0;
 }

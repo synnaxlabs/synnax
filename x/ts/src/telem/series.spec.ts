@@ -98,6 +98,7 @@ describe("Series", () => {
       const s = new Series({ data: [{ a: 1, b: "apple" }] });
       expect(s.dataType.equals(DataType.JSON));
       expect(s.length).toEqual(1);
+      expect(s.data.at(-1)).toEqual(10);
     });
 
     it("should correctly interpret a bigint as an int64", () => {

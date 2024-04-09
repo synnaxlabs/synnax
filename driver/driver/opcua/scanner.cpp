@@ -11,8 +11,10 @@
 
 using namespace opcua;
 
-Scanner::Scanner(std::shared_ptr<task::Context> ctx,
-                 synnax::Task task): ctx(std::move(ctx)), task(std::move(task)) {
+Scanner::Scanner(
+    std::shared_ptr<task::Context> ctx,
+    synnax::Task task
+): ctx(std::move(ctx)), task(std::move(task)) {
 }
 
 void Scanner::exec(task::Command &cmd) {

@@ -38,9 +38,11 @@ struct Command {
 /// constructed by an @see Factory.
 class Task {
 public:
+    synnax::TaskKey key = 0;
+
     /// @brief executes the command on the task. The task is responsible for updating
     /// its state.
-    virtual void exec(Command& cmd) = 0;
+    virtual void exec(Command &cmd) = 0;
 
     /// @brief stops the task, halting activities and freeing all resources. stop
     /// is called when the task is no longer needed, and is typically followed by a
@@ -158,9 +160,14 @@ private:
 
 class Factory {
 public:
+    virtual std::vector<std::pair<synnax::Task, std::unique_ptr<Task>> > configureInitialTasks(
+        const std::shared_ptr<Context> &ctx,
+        const synnax::Rack &rack
+    ) { return {}; }
+
     virtual std::pair<std::unique_ptr<Task>, bool> configureTask(
-        const std::shared_ptr<Context>& ctx,
-        const synnax::Task& task
+        const std::shared_ptr<Context> &ctx,
+        const synnax::Task &task
     ) = 0;
 
     virtual ~Factory() = default;
@@ -168,14 +175,28 @@ public:
 
 class MultiFactory final : public Factory {
 public:
-    explicit MultiFactory(std::vector<std::shared_ptr<Factory>>&& factories)
+    explicit MultiFactory(std::vector<std::shared_ptr<Factory> > &&factories)
         : factories(std::move(factories)) {
     }
 
+    std::vector<std::pair<synnax::Task, std::unique_ptr<Task>> > configureInitialTasks(
+        const std::shared_ptr<Context> &ctx,
+        const synnax::Rack &rack
+    ) override {
+        std::vector<std::pair<synnax::Task, std::unique_ptr<Task>> > tasks;
+        for (const auto &factory: factories) {
+            auto new_tasks = factory->configureInitialTasks(ctx, rack);
+            for (auto &task: new_tasks) tasks.emplace_back(std::move(task));
+        }
+        return tasks;
+    }
+
     std::pair<std::unique_ptr<Task>, bool>
-    configureTask(const std::shared_ptr<Context>& ctx,
-                  const synnax::Task& task) override {
-        for (const auto& factory: factories) {
+    configureTask(
+        const std::shared_ptr<Context> &ctx,
+        const synnax::Task &task
+    ) override {
+        for (const auto &factory: factories) {
             auto [t, ok] = factory->configureTask(ctx, task);
             if (ok) return {std::move(t), true};
         }
@@ -183,6 +204,6 @@ public:
     }
 
 private:
-    std::vector<std::shared_ptr<Factory>> factories;
+    std::vector<std::shared_ptr<Factory> > factories;
 };
 }

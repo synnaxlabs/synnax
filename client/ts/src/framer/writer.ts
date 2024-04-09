@@ -10,11 +10,7 @@
 /* eslint-disable @typescript-eslint/no-throw-literal */
 import type { Stream, StreamClient } from "@synnaxlabs/freighter";
 import { decodeError, errorZ } from "@synnaxlabs/freighter";
-import {
-  TimeStamp,
-  type CrudeTimeStamp,
-  type CrudeSeries
-} from "@synnaxlabs/x/telem";
+import { TimeStamp, type CrudeTimeStamp, type CrudeSeries } from "@synnaxlabs/x/telem";
 import { toArray } from "@synnaxlabs/x/toArray";
 import { z } from "zod";
 

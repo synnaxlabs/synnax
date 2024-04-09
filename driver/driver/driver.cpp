@@ -16,13 +16,13 @@
 using json = nlohmann::json;
 
 driver::Driver::Driver(
-    const RackKey key,
+    Rack rack,
     const std::shared_ptr<Synnax> &client,
     std::unique_ptr<task::Factory> factory,
     breaker::Config breaker_config
-): key(key),
-   task_manager(key, client, std::move(factory), breaker_config.child("task_manager")),
-   heartbeat(key, client, breaker_config.child("heartbeat")) {
+): key(rack.key),
+   task_manager(rack, client, std::move(factory), breaker_config.child("task_manager")),
+   heartbeat(rack.key, client, breaker_config.child("heartbeat")) {
 }
 
 const std::string VERSION = "0.1.0";
@@ -36,7 +36,7 @@ freighter::Error driver::Driver::run() {
         task_manager.stop();
         return err;
     }
-    LOG(INFO) << "driver started successfully. waiting for shutdown.";
+    LOG(INFO) << "[Driver] started successfully. waiting for shutdown.";
     done.wait(false);
     task_manager.stop();
     heartbeat.stop();
@@ -44,11 +44,11 @@ freighter::Error driver::Driver::run() {
 }
 
 void driver::Driver::stop() {
-    // const auto tm_err = task_manager.stop();
+    const auto tm_err = task_manager.stop();
     const auto hb_err = heartbeat.stop();
-    // if (tm_err) {
-    //     LOG(ERROR) << "Failed to stop task manager: " << tm_err.message();
-    // }
+    if (tm_err) {
+        LOG(ERROR) << "Failed to stop task manager: " << tm_err.message();
+    }
     if (hb_err) {
         LOG(ERROR) << "Failed to stop heartbeat: " << hb_err.message();
     }

@@ -10,17 +10,17 @@
 #include <latch>
 #include <utility>
 #include <memory>
-#include <glog/logging.h>
+#include "glog/logging.h"
 #include "driver/driver/config/config.h"
 #include "driver/driver/driver.h"
 
 driver::TaskManager::TaskManager(
-    const RackKey rack_key,
+    Rack rack,
     const std::shared_ptr<Synnax> &client,
     std::unique_ptr<task::Factory> factory,
     breaker::Config breaker
-) : rack_key(rack_key),
-    internal(rack_key, ""),
+) : rack_key(rack.key),
+    internal(rack),
     ctx(std::make_shared<task::SynnaxContext>(client)),
     factory(std::move(factory)),
     breaker(std::move(breaker)) {
@@ -31,9 +31,8 @@ const std::string TASK_DELETE_CHANNEL = "sy_task_delete";
 const std::string TASK_CMD_CHANNEL = "sy_task_cmd";
 
 freighter::Error driver::TaskManager::start(std::atomic<bool> &done) {
-    LOG(INFO) << "starting task manager";
-    const auto err = startGuarded();
-    if (err) {
+    LOG(INFO) << "[Task Manager] starting up";
+    if (const auto err = startGuarded(); err) {
         if (err.matches(freighter::UNREACHABLE) && breaker.wait(err)) start(done);
         done = true;
         return err;
@@ -63,6 +62,21 @@ freighter::Error driver::TaskManager::startGuarded() {
     auto [task_cmd, task_cmd_err] = ctx->client->channels.retrieve(TASK_CMD_CHANNEL);
     task_cmd_channel = task_cmd;
 
+    // Retrieve all of the tasks that are already configured and start them.
+    LOG(INFO) << "[Task Manager] pulling and configuring existing tasks from Synnax";
+    auto [tasks, tasks_err] = rack.tasks.list();
+    if (tasks_err) return tasks_err;
+    for (const auto &task: tasks) {
+        auto [driver_task, ok] = factory->configureTask(ctx, task);
+        if (ok && driver_task != nullptr)
+            this->tasks[task.key] = std::move(driver_task);
+    }
+
+    LOG(INFO) << "[Task Manager] configuring initial tasks from factory";
+    auto initial_tasks = factory->configureInitialTasks(ctx, this->internal);
+    for (auto &[sy_task, task]: initial_tasks)
+        this->tasks[sy_task.key] = std::move(task);
+
     return task_cmd_err;
 }
 
@@ -76,15 +90,15 @@ void driver::TaskManager::run(std::atomic<bool> &done) {
 
 freighter::Error driver::TaskManager::stop() {
     if (!run_thread.joinable()) return freighter::NIL;
-    LOG(INFO) << "stopping task manager";
+    LOG(INFO) << "[Task Manager] shutting down";
     streamer->closeSend();
     run_thread.join();
-    LOG(INFO) << "task manager stopped";
+    LOG(INFO) << "[Task Manager] shut down";
     return run_err;
 }
 
 freighter::Error driver::TaskManager::runGuarded() {
-    const std::vector<ChannelKey> stream_channels = {
+    const std::vector stream_channels = {
         task_set_channel.key, task_delete_channel.key, task_cmd_channel.key
     };
     auto [s, open_err] = ctx->client->telem.openStreamer(StreamerConfig{
@@ -93,12 +107,13 @@ freighter::Error driver::TaskManager::runGuarded() {
     if (open_err) return open_err;
     streamer = std::make_unique<Streamer>(std::move(s));
 
-    LOG(INFO) << "task manager run loop operational";
+    LOG(INFO) << "[Task Manager] operational";
     // If we pass here it means we've re-gained network connectivity and can reset the breaker.
     breaker.reset();
 
     while (true) {
         auto [frame, read_err] = streamer->read();
+        LOG(INFO) << "[Task Manager] received frame";
         if (read_err) break;
         for (size_t i = 0; i < frame.size(); i++) {
             const auto &key = (*frame.channels)[i];
@@ -128,14 +143,13 @@ void driver::TaskManager::processTaskSet(const Series &series) {
         LOG(ERROR) << "Configuring task: " << sy_task.name << " with key: " << key <<
                 ".";
         auto [driver_task, ok] = factory->configureTask(ctx, sy_task);
-        if (ok && driver_task != nullptr) {
-            tasks[key] = std::move(driver_task);
-        }
+        if (ok && driver_task != nullptr) tasks[key] = std::move(driver_task);
     }
 }
 
 void driver::TaskManager::processTaskCmd(const Series &series) {
     const auto commands = series.string();
+    LOG(INFO) <<  series.size << " commands received";
     for (const auto &cmd_str: commands) {
         LOG(ERROR) << "Processing command: " << cmd_str;
         auto parser = config::Parser(cmd_str);

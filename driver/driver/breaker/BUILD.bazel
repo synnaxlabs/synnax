@@ -24,7 +24,7 @@ cc_test(
         "//conditions:default": [],
     }),
     deps = [
-        "//driver/breaker",
+        "//driver/driver/breaker",
         "@com_google_googletest//:gtest_main",
     ],
 )

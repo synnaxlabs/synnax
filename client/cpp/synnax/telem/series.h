@@ -163,7 +163,6 @@ public:
     /// @brief Holds what type of data is being used.
     DataType data_type;
 
-private:
     size_t size;
 };
 }

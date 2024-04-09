@@ -38,7 +38,6 @@ export const connectWindowLayout: Layout.LayoutState = {
     resizable: false,
     size: { height: 430, width: 650 },
     navTop: true,
-    transparent: true,
   },
 };
 

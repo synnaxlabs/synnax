@@ -95,8 +95,6 @@ export const useField = (<I extends Input.Value, O extends Input.Value = I>({
     return null;
   }
 
-  console.log(state);
-
   return { onChange: handleChange, ...state };
 }) as UseField;
 

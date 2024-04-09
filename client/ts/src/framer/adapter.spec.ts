@@ -115,4 +115,20 @@ describe("WriteFrameAdapter", () => {
     expect(res.get(timeCh.key)).toHaveLength(1);
     expect(res.get(timeCh.key).at(0)).toEqual(ts);
   });
+
+  it("should correctly adapt a name and JSON value", async () => {
+    const jsonChannel = await client.channels.create({
+      name: `json-${Math.random()}-${TimeStamp.now().toString()}`,
+      dataType: DataType.JSON,
+      virtual: true,
+    });
+    const adapter = await WriteFrameAdapter.open(client.channels.retriever, [
+      jsonChannel.key,
+    ]);
+    const res = await adapter.adapt(jsonChannel.name, [{ dog: "blue" }]);
+    expect(res.columns).toHaveLength(1);
+    expect(res.series).toHaveLength(1);
+    expect(res.get(jsonChannel.key)).toHaveLength(1);
+    expect(res.get(jsonChannel.key).at(0)).toEqual({ dog: "blue" });
+  });
 });

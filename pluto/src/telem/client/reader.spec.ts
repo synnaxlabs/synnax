@@ -32,7 +32,7 @@ class MockRetriever implements channel.Retriever {
     channels: channel.Params,
     opts?: channel.RetrieveOptions,
   ): Promise<channel.Payload[]> {
-    const { normalized } = channel.analyzeParams(channels);
+    const { normalized } = channel.analyzeChannelParams(channels);
     return normalized.map(
       (key) =>
         new channel.Channel({

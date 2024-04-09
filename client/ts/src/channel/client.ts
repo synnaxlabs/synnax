@@ -38,7 +38,7 @@ import {
   type PageOptions,
   type RetrieveOptions,
 } from "@/channel/retriever";
-import { MultipleResultsError, NotFoundError, ValidationError } from "@/errors";
+import { ValidationError } from "@/errors";
 import { type framer } from "@/framer";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
