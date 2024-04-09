@@ -9,7 +9,6 @@
 import type { UnaryClient } from "@synnaxlabs/freighter";
 import { debounce } from "@synnaxlabs/x/debounce";
 import { DataType } from "@synnaxlabs/x/telem";
-import { toArray } from "@synnaxlabs/x/toArray";
 import { Mutex } from "async-mutex";
 import { z } from "zod";
 
@@ -18,13 +17,12 @@ import {
   type KeyOrName,
   type Keys,
   type KeysOrNames,
-  type Name,
-  type Names,
   type Params,
   type Payload,
   payload,
 } from "@/channel/payload";
-import { QueryError, ValidationError } from "@/errors";
+import { QueryError } from "@/errors";
+import { type ParamAnalysisResult, analyzeParams } from "@/util/params";
 import { nullableArrayZ } from "@/util/zod";
 
 const reqZ = z.object({
@@ -52,6 +50,14 @@ const resZ = z.object({
   channels: nullableArrayZ(payload),
 });
 
+const analyzeChannelParams = (
+  channels: Params,
+): ParamAnalysisResult<KeyOrName, { number: "keys"; string: "names" }> =>
+  analyzeParams(channels, {
+    number: "keys",
+    string: "names",
+  });
+
 export interface Retriever {
   retrieve: (channels: Params, opts?: RetrieveOptions) => Promise<Payload[]>;
   search: (term: string, opts?: RetrieveOptions) => Promise<Payload[]>;
@@ -71,7 +77,7 @@ export class ClusterRetriever implements Retriever {
   }
 
   async retrieve(channels: Params, options?: RetrieveOptions): Promise<Payload[]> {
-    const { variant, normalized } = analyzeParams(channels);
+    const { variant, normalized } = analyzeChannelParams(channels);
     return await this.execute({ [variant]: normalized, ...options });
   }
 
@@ -111,7 +117,10 @@ export class CacheRetriever implements Retriever {
   }
 
   async retrieve(channels: Params, options?: RetrieveOptions): Promise<Payload[]> {
-    const { normalized } = analyzeParams(channels);
+    const { normalized } = analyzeParams<string | number>(channels, {
+      string: "names",
+      number: "keys",
+    });
     const results: Payload[] = [];
     const toFetch: KeysOrNames = [];
     normalized.forEach((keyOrName) => {
@@ -138,49 +147,6 @@ export class CacheRetriever implements Retriever {
     return this.cache.get(key);
   }
 }
-
-export type ParamAnalysisResult =
-  | {
-      single: true;
-      variant: "names";
-      normalized: Names;
-      actual: Name;
-    }
-  | {
-      single: true;
-      variant: "keys";
-      normalized: Keys;
-      actual: Key;
-    }
-  | {
-      single: false;
-      variant: "keys";
-      normalized: Keys;
-      actual: Keys;
-    }
-  | {
-      single: false;
-      variant: "names";
-      normalized: Names;
-      actual: Names;
-    };
-
-export const analyzeParams = (channels: Params): ParamAnalysisResult => {
-  let normal = (toArray(channels) as KeysOrNames).filter((c) => c !== 0);
-  let variant: "names" | "keys" = "keys";
-  if (typeof normal[0] === "string") {
-    if (isNaN(parseInt(normal[0]))) variant = "names";
-    else {
-      normal = normal.map((v) => parseInt(v as string));
-    }
-  }
-  return {
-    single: !Array.isArray(channels),
-    variant,
-    normalized: normal,
-    actual: channels,
-  } as const as ParamAnalysisResult;
-};
 
 export interface PromiseFns<T> {
   resolve: (value: T) => void;
@@ -214,13 +180,13 @@ export class DebouncedBatchRetriever implements Retriever {
   }
 
   async retrieve(channels: Params): Promise<Payload[]> {
-    const { normalized, variant } = analyzeParams(channels);
+    const { normalized, variant } = analyzeChannelParams(channels);
     // Bypass on name fetches for now.
     if (variant === "names") return await this.wrapped.retrieve(normalized);
     // eslint-disable-next-line @typescript-eslint/promise-function-async
     const a = new Promise<Payload[]>((resolve, reject) => {
       void this.mu.runExclusive(() => {
-        this.requests.set(normalized, { resolve, reject });
+        this.requests.set(normalized as Key[], { resolve, reject });
         this.debouncedRun();
       });
     });
@@ -249,7 +215,7 @@ export const retrieveRequired = async (
   r: Retriever,
   params: Params,
 ): Promise<Payload[]> => {
-  const { normalized } = analyzeParams(params);
+  const { normalized } = analyzeChannelParams(params);
   const results = await r.retrieve(normalized);
   const notFound: KeyOrName[] = [];
   normalized.forEach((v) => {

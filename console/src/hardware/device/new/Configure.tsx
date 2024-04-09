@@ -15,7 +15,6 @@ import { Align } from "@synnaxlabs/pluto/align";
 import { useQuery } from "@tanstack/react-query";
 
 import { CSS } from "@/css";
-import { enrich } from "@/hardware/configure/ni/enrich";
 import { type NITask } from "@/hardware/configure/ni/types";
 import { Confirm } from "@/hardware/device/new/Confirm";
 import { buildPhysicalDevicePlan } from "@/hardware/device/new/physicalPlan/physicalPlan";
@@ -34,6 +33,8 @@ import {
   type PhysicalPlan,
 } from "@/hardware/device/new/types";
 import { type Layout } from "@/layout";
+
+import { enrich } from "@/hardware/configure/ni/enrich";
 
 import "@/hardware/device/new/Configure.css";
 
