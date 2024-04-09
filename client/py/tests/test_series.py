@@ -12,7 +12,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from synnax.telem import DataType, Series, TimeStamp
+from synnax.telem import DataType, Series, TimeStamp, MultiSeries, TimeRange, TimeSpan
 
 
 @pytest.mark.telem
@@ -177,3 +177,87 @@ class TestSeries:
         """Should correctly access the series by index"""
         s = Series(["hello", "world"], data_type=DataType.STRING)
         assert s[-1] == "world"
+
+
+@pytest.mark.telem
+@pytest.mark.series
+class TestMultiSeries:
+    def test_construction_from_multiple_series(self):
+        """Should correctly construct a MultiSeries from multiple Series :)"""
+        s1 = Series([1, 2, 3], data_type=DataType.INT8)
+        s2 = Series([4, 5, 6], data_type=DataType.INT8)
+        s = MultiSeries([s1, s2])
+        assert len(s) == 6
+
+    def test_construction_mismatched_data_types(self):
+        """Should throw a ValueError"""
+        s1 = Series([1, 2, 3], data_type=DataType.INT8)
+        s2 = Series([4, 5, 6], data_type=DataType.INT16)
+        with pytest.raises(ValueError):
+            MultiSeries([s1, s2])
+
+    def test_construction_from_none(self):
+        """Should throw a ValueError"""
+        s = MultiSeries([])
+        assert len(s) == 0
+
+    def test_conversion_to_numpy(self):
+        """Should correctly convert the MultiSeries to a numpy array"""
+        s1 = Series([1, 2, 3], data_type=DataType.INT8)
+        s2 = Series([4, 5, 6], data_type=DataType.INT8)
+        s = MultiSeries([s1, s2])
+        assert len(s.to_numpy()) == 6
+        assert s.to_numpy().dtype == np.int8
+
+    def test_time_range(self):
+        """Should correctly return the time range of the MultiSeries"""
+        s1 = Series(
+            data=[1, 2, 3],
+            data_type=DataType.INT8,
+            time_range=TimeRange(start=1 * TimeSpan.SECOND, end=3 * TimeSpan.SECOND),
+        )
+        s2 = Series(
+            data=[4, 5, 6],
+            data_type=DataType.INT8,
+            time_range=TimeRange(start=4 * TimeSpan.SECOND, end=6 * TimeSpan.SECOND),
+        )
+        s = MultiSeries([s1, s2])
+        assert s.time_range.start == 1 * TimeSpan.SECOND
+        assert s.time_range.end == 6 * TimeSpan.SECOND
+
+    def test_access_by_index(self):
+        """Should correctly access the MultiSeries by index"""
+        s1 = Series([1, 2, 3], data_type=DataType.INT8)
+        s2 = Series([4, 5, 6], data_type=DataType.INT8)
+        s = MultiSeries([s1, s2])
+        assert s[0] == 1
+        assert s[1] == 2
+        assert s[2] == 3
+        assert s[5] == 6
+        assert s[-1] == 6
+
+    def test_conversion_to_list_string(self):
+        """Should correctly convert the MultiSeries to a list of strings"""
+        s1 = Series(["hello", "world"], data_type=DataType.STRING)
+        s2 = Series(["blue", "dog"], data_type=DataType.STRING)
+        s = MultiSeries([s1, s2])
+        assert list(s) == ["hello", "world", "blue", "dog"]
+
+    def test_conversion_to_list_numeric(self):
+        """Should correctly convert the MultiSeries to a list of numbers"""
+        s1 = Series([1, 2, 3], data_type=DataType.INT8)
+        s2 = Series([4, 5, 6], data_type=DataType.INT8)
+        s = MultiSeries([s1, s2])
+        assert list(s) == [1, 2, 3, 4, 5, 6]
+
+    def test_conversion_to_list_json(self):
+        """Should correctly convert the MultiSeries to a list of dicts"""
+        s1 = Series([{"hello": "world"}, {"blue": "dog"}], data_type=DataType.JSON)
+        s2 = Series([{"red": "car"}, {"green": "tree"}], data_type=DataType.JSON)
+        s = MultiSeries([s1, s2])
+        assert list(s) == [
+            {"hello": "world"},
+            {"blue": "dog"},
+            {"red": "car"},
+            {"green": "tree"},
+        ]

@@ -55,9 +55,9 @@ class IOFactory:
         if not path.parent.is_dir():
             raise IsADirectoryError(f"Path is a directory: {path}")
 
-        for _Writer in self.writers:
-            if _Writer.match(path):
-                return _Writer(path)
+        for Writer in self.writers:
+            if Writer.match(path):
+                return Writer(path)
 
         raise NotImplementedError(f"File type not supported: {path}")
 

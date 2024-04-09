@@ -22,7 +22,7 @@ class State:
         self.value = dict()
 
     def update(self, frame: Frame):
-        for key in frame.columns:
+        for key in frame.channels:
             self.value[key] = frame[key]
 
     def __getitem__(self, ch: ChannelKey):

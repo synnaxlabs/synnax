@@ -27,7 +27,7 @@ client = sy.Synnax()
 read_from = [
     "stream_write_example_time",
     "stream_write_example_data_1",
-    "stream_write_example_data_2"
+    "stream_write_example_data_2",
 ]
 
 

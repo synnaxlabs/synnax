@@ -54,9 +54,9 @@ class ReadFrameAdapter:
         if self.__adapter is None:
             return fr
         keys = [
-            self.__adapter[k] if isinstance(k, ChannelKey) else k for k in fr.columns
+            self.__adapter[k] if isinstance(k, ChannelKey) else k for k in fr.channels
         ]
-        return Frame(columns_or_data=keys, series=fr.series)
+        return Frame(channels=keys, series=fr.series)
 
 
 class WriteFrameAdapter:
@@ -87,84 +87,86 @@ class WriteFrameAdapter:
 
     def adapt(
         self,
-        columns_or_data: ChannelPayload
-                         | ChannelParams
-                         | Frame
-                         | dict[ChannelKey | ChannelName, CrudeSeries]
-                         | DataFrame,
+        channels_or_data: ChannelPayload
+        | ChannelParams
+        | Frame
+        | dict[ChannelKey | ChannelName, CrudeSeries]
+        | DataFrame,
         series: CrudeSeries | list[CrudeSeries] | None = None,
     ) -> Frame:
-        if isinstance(columns_or_data, (ChannelName, ChannelKey)):
+        if isinstance(channels_or_data, (ChannelName, ChannelKey)):
             if series is None:
                 raise ValidationError(
                     f"""
-                Received a single channel {'name' if isinstance(columns_or_data, ChannelName) else 'key'}
+                Received a single channel {'name' if isinstance(channels_or_data, ChannelName) else 'key'}
                 but no series.
                 """
                 )
             if isinstance(series, list) and len(list) > 1:
                 raise ValidationError(
                     f"""
-                Received a single channel {'name' if isinstance(columns_or_data, ChannelName) else 'key'}
+                Received a single channel {'name' if isinstance(channels_or_data, ChannelName) else 'key'}
                 but multiple series.
                 """
                 )
 
-            pld = self.__adapt_ch(columns_or_data)
+            pld = self.__adapt_ch(channels_or_data)
             series = Series(data_type=pld.data_type, data=series)
             return Frame([pld.key], [series])
 
-        if isinstance(columns_or_data, list):
+        if isinstance(channels_or_data, list):
             if series is None:
                 raise ValidationError(
                     f"""
-                Received {len(columns_or_data)} channels but no series.
+                Received {len(channels_or_data)} channels but no series.
                 """
                 )
-            cols = []
-            o_series = []
-            for i, ch in enumerate(columns_or_data):
+            channels = list()
+            o_series = list()
+            for i, ch in enumerate(channels_or_data):
                 pld = self.__adapt_ch(ch)
                 if i >= len(series):
                     raise ValidationError(
                         f"""
-                    Received {len(columns_or_data)} channels but only {len(series)} series.
+                    Received {len(channels_or_data)} channels but only {len(series)} series.
                     """
                     )
                 s = Series(data_type=pld.data_type, data=series[i])
-                cols.append(pld.key)
+                channels.append(pld.key)
                 o_series.append(s)
 
-            return Frame(cols, o_series)
+            return Frame(channels, o_series)
 
-        is_frame = isinstance(columns_or_data, Frame)
-        is_df = isinstance(columns_or_data, DataFrame)
+        is_frame = isinstance(channels_or_data, Frame)
+        is_df = isinstance(channels_or_data, DataFrame)
         if is_frame or is_df:
             if is_df:
-                columns_or_data = Frame(columns_or_data)
+                channels_or_data = Frame(channels_or_data)
             if self.__adapter is None:
-                return columns_or_data
+                return channels_or_data
             try:
-                cols = [
+                channels = [
                     self.__adapter[col] if isinstance(col, ChannelName) else col
-                    for col in columns_or_data.columns
+                    for col in channels_or_data.channels
                 ]
             except KeyError as e:
-                raise ValidationError(f"Channel {e} was not provided in the list of "
-                                      f"channels when the writer was opened.")
-            return Frame(columns_or_data=cols, series=columns_or_data.series)
+                raise ValidationError(
+                    f"Channel {e} was not provided in the list of "
+                    f"channels when the writer was opened."
+                )
+            return Frame(channels=channels, series=channels_or_data.series)
 
-        if isinstance(columns_or_data, dict):
-            cols = []
-            series = []
-            for k, v in columns_or_data.items():
+        if isinstance(channels_or_data, dict):
+            channels = list()
+            series = list()
+            for k, v in channels_or_data.items():
                 pld = self.__adapt_ch(k)
                 s = Series(data_type=pld.data_type, data=v)
-                cols.append(pld.key)
+                channels.append(pld.key)
                 series.append(s)
 
-            return Frame(cols, series)
+            return Frame(channels, series)
 
         raise TypeError(
-            f"""Cannot construct frame from {columns_or_data} and {series}"""
+            f"""Cannot construct frame from {channels_or_data} and {series}"""
         )
