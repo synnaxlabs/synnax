@@ -13,6 +13,7 @@ package task
 
 import (
 	"context"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
 	"github.com/synnaxlabs/synnax/pkg/hardware/rack"
@@ -28,6 +29,13 @@ type Retrieve struct {
 
 func (r Retrieve) Search(term string) Retrieve {
 	r.searchTerm = term
+	return r
+}
+
+func (r Retrieve) WhereNames(names ...string) Retrieve {
+	r.gorp = r.gorp.Where(func(m *Task) bool {
+		return lo.Contains(names, m.Name)
+	})
 	return r
 }
 

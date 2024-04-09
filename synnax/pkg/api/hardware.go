@@ -139,6 +139,7 @@ func (svc *HardwareService) CreateTask(ctx context.Context, req HardwareCreateTa
 type HardwareRetrieveTaskRequest struct {
 	Rack   rack.Key
 	Keys   []task.Key `json:"keys" msgpack:"keys"`
+	Names  []string   `json:"names" msgpack:"names"`
 	Search string     `json:"search" msgpack:"search"`
 	Limit  int        `json:"limit" msgpack:"limit"`
 	Offset int        `json:"offset" msgpack:"offset"`
@@ -152,10 +153,14 @@ func (svc *HardwareService) RetrieveTask(ctx context.Context, req HardwareRetrie
 	var (
 		hasSearch = len(req.Search) > 0
 		hasKeys   = len(req.Keys) > 0
+		hasNames  = len(req.Names) > 0
 		hasLimit  = req.Limit > 0
 		hasOffset = req.Offset > 0
 	)
 	q := svc.internal.Task.NewRetrieve()
+	if hasNames {
+		q = q.WhereNames(req.Names...)
+	}
 	if hasKeys {
 		q = q.WhereKeys(req.Keys...)
 	}

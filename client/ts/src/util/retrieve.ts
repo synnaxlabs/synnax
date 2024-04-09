@@ -47,7 +47,9 @@ type TypeName<T> = T extends string
           ? "function"
           : "object";
 
-type PartialTypeNameRecord<T extends Primitive> = Partial<Record<TypeName<T>, string>>;
+export type PartialTypeNameRecord<T extends Primitive> = Partial<
+  Record<TypeName<T>, string>
+>;
 
 export type ParamAnalysisResult<
   T extends Primitive,
@@ -59,10 +61,10 @@ export interface AnalyzeParamsOptions {
 }
 
 export const analyzeParams = <
-  T extends Primitive,
+  T extends Primitive = Primitive,
   K extends PartialTypeNameRecord<T> = PartialTypeNameRecord<T>,
 >(
-  args: string | number | string[] | number[],
+  args: T extends any ? T | T[] : never,
   variantMap: K,
   { convertNumericStrings = true }: AnalyzeParamsOptions = {},
 ): ParamAnalysisResult<T, K> => {
@@ -96,6 +98,6 @@ export const checkForMultipleOrNoResults = <T, R>(
     throw new NotFoundError(`${name} not found matching ${JSON.stringify(params)}`);
   if (results.length > 1)
     throw new MultipleResultsError(
-      `Expected one ${name} matching ${JSON.stringify(params)}`,
+      `Expected one ${name} matching ${JSON.stringify(params)}, but found ${results.length}`,
     );
 };

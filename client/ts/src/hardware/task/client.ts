@@ -15,7 +15,7 @@ import { z } from "zod";
 
 import { analyzeChannelParams } from "@/channel/retriever";
 import { rack } from "@/hardware/rack";
-import { analyzeParams } from "@/util/retrieve";
+import { analyzeParams, checkForMultipleOrNoResults } from "@/util/retrieve";
 import { nullableArrayZ } from "@/util/zod";
 
 export const taskKeyZ = z.union([
@@ -50,6 +50,7 @@ export type Task<
 const retrieveReqZ = z.object({
   rack: rack.rackKeyZ.optional(),
   keys: z.string().array().optional(),
+  names: z.string().array().optional(),
   offset: z.number().optional(),
   limit: z.number().optional(),
 });
@@ -61,7 +62,6 @@ const retrieveResZ = z.object({
 export type RetrieveRequest = z.infer<typeof retrieveReqZ>;
 
 const RETRIEVE_ENDPOINT = "/hardware/task/retrieve";
-
 const CREATE_ENDPOINT = "/hardware/task/create";
 const DELETE_ENDPOINT = "/hardware/task/delete";
 
@@ -157,5 +157,17 @@ export class Client implements AsyncTermSearcher<string, TaskKey, Task> {
       retrieveResZ,
     );
     return single && variant !== "rack" ? res.tasks[0] : res.tasks;
+  }
+
+  async retrieveByName(name: string): Promise<Task> {
+    const res = await sendRequired<typeof retrieveReqZ, typeof retrieveResZ>(
+      this.client,
+      RETRIEVE_ENDPOINT,
+      { names: [name] },
+      retrieveReqZ,
+      retrieveResZ,
+    );
+    checkForMultipleOrNoResults("Task", name, res.tasks, true);
+    return res.tasks[0];
   }
 }
