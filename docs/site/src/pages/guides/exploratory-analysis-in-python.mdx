@@ -198,7 +198,7 @@ We'll also clean up our `Time` channel to use elapsed seconds instead of unix ep
 nanoseconds. We can use the `sy.elapsed_seconds` utility to accomplish this:
 
 ```python
-elapsed_time = sy.elapsed_seconds(data.Time)
+elapsed_time = sy.elapsed_seconds(filtered_time)
 ```
 
 Finally, we'll plot our data with matplotlib:
