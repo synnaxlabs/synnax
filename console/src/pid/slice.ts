@@ -275,6 +275,7 @@ export const { actions, reducer } = createSlice({
         clearSelections(pid);
       }
       state.pids[layoutKey] = pid;
+      state.toolbar.activeTab = "symbols";
     },
     clearSelection: (state, { payload }: PayloadAction<ClearSelectionPayload>) => {
       const { layoutKey } = payload;

@@ -17,11 +17,11 @@ export interface Spec {
 }
 
 export const create = (
-  props: Omit<Partial<LayoutState>, "type">
+  props: Omit<Partial<LayoutState>, "type">,
 ): Omit<LayoutState, "windowKey"> => {
   const {
     location = "mosaic",
-    name = "Visualizaton",
+    name = "Visualization",
     key = uuidv4(),
     window,
     tab,
