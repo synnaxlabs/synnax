@@ -13,10 +13,11 @@ import {
   Text,
 } from "@synnaxlabs/pluto";
 import { useMutation } from "@tanstack/react-query";
+import { nanoid } from "nanoid";
 import { z } from "zod";
 
 import { CSS } from "@/css";
-import { type Layout } from "@/layout";
+import { CreateChannels } from "@/hardware/opcua/new/CreateChannels";
 
 import "@/hardware/opcua/Configure.css";
 
@@ -27,8 +28,21 @@ const connectionConfigZ = z.object({
   password: z.string().optional(),
 });
 
+export const channelZ = z.object({
+  dataType: z.string(),
+  name: z.string(),
+  nodeId: z.number(),
+});
+
+const groupZ = z.object({
+  key: z.string(),
+  name: z.string(),
+  channels: channelZ.array(),
+});
+
 const configureZ = z.object({
   connection: connectionConfigZ,
+  groups: groupZ.array(),
 });
 
 export const connectWindowLayout: Layout.LayoutState = {
@@ -67,6 +81,7 @@ export const Configure = (): ReactElement => {
         username: "",
         password: "",
       },
+      groups: [],
     },
   });
 
@@ -82,7 +97,16 @@ export const Configure = (): ReactElement => {
           { connection: methods.get({ path: "connection" }).value },
           TimeSpan.seconds(1),
         );
-        console.log(state);
+        methods.set({
+          path: "groups",
+          value: [
+            {
+              key: nanoid(),
+              name: "Group 1",
+              channels: state.details.map((c) => ({ ...c, key: nanoid() })),
+            },
+          ],
+        });
         setStep("createChannels");
       }
     },
@@ -92,7 +116,7 @@ export const Configure = (): ReactElement => {
   if (step === "connect") {
     content = <Connect />;
   } else if (step === "createChannels") {
-    content = <h1>CreateChannels</h1>;
+    content = <CreateChannels />;
   }
 
   return (

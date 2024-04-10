@@ -70,4 +70,6 @@ export class JSONEncoderDecoder implements EncoderDecoder {
   static registerCustomType(): void {}
 }
 
-export const ENCODERS: EncoderDecoder[] = [new JSONEncoderDecoder()];
+export const JSON_ENCODER_DECODER = new JSONEncoderDecoder();
+
+export const ENCODERS: EncoderDecoder[] = [JSON_ENCODER_DECODER];
