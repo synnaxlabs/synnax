@@ -6,14 +6,14 @@ import { Input } from "@synnaxlabs/pluto/input";
 import { Text } from "@synnaxlabs/pluto/text";
 
 import { CSS } from "@/css";
-import { ChannelList } from "@/hardware/configure/ni/ChannelList";
+import { ChannelList } from "@/hardware/ni/ChannelList";
 import {
   analogReadTaskConfigZ,
   DEFAULT_SCALES,
   ZERO_ANALOG_READ_TASK_CONFIG,
   type LinearScale,
   type LinearScaleType,
-} from "@/hardware/configure/ni/types";
+} from "@/hardware/ni/types";
 
 import "@/hardware/configure/ni/AnalogReadTask.css";
 

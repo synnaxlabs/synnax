@@ -31,6 +31,21 @@ int main() {
                               parentReferenceNodeId, myIntegerName,
                               UA_NODEID_NULL, attr, NULL, NULL);
 
+    // // add another variable node to the adresspace
+    UA_VariableAttributes attr2 = UA_VariableAttributes_default;
+    UA_Double myDouble = 3.14;
+    UA_Variant_setScalarCopy(&attr2.value, &myDouble, &UA_TYPES[UA_TYPES_DOUBLE]);
+    attr2.description = UA_LOCALIZEDTEXT_ALLOC("en-US","the answer 2");
+    attr2.displayName = UA_LOCALIZEDTEXT_ALLOC("en-US","the answer 2");
+    attr2.accessLevel = UA_ACCESSLEVELMASK_READ | UA_ACCESSLEVELMASK_WRITE;
+    UA_NodeId myDoubleNodeId = UA_NODEID_STRING_ALLOC(1, "the.answer2");
+    UA_QualifiedName myDoubleName = UA_QUALIFIEDNAME_ALLOC(1, "the answer 2");
+    UA_Server_addVariableNode(server, myDoubleNodeId, parentNodeId,
+                              parentReferenceNodeId, myDoubleName,
+                              UA_NODEID_NULL, attr2, NULL, NULL);
+
+
+
     /* allocations on the heap need to be freed */
     UA_VariableAttributes_clear(&attr);
     UA_NodeId_clear(&myIntegerNodeId);

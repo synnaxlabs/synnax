@@ -14,9 +14,10 @@ import { Align } from "@synnaxlabs/pluto/align";
 import { Text } from "@synnaxlabs/pluto/text";
 
 import { CSS } from "@/css";
+import { type Vendor } from "@/hardware/ni/new/types";
+
 import { SelectModel } from "@/hardware/configure/ni/SelectModel";
 import { SelectVendor } from "@/hardware/device/new/SelectVendor";
-import { type Vendor } from "@/hardware/device/new/types";
 
 import "@/hardware/device/new/properties/PropertiesForm.css";
 

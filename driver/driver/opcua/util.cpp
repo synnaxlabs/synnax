@@ -44,7 +44,7 @@ std::pair<UA_Client*, bool> opcua::connect(
     if (status != UA_STATUSCODE_GOOD) {
         ctx->setState({
             .task = task.key,
-            .type = "failed",
+            .variant = "error",
             .details = json {
                 {"message", "Failed to connect to the OPC UA server."}
             }

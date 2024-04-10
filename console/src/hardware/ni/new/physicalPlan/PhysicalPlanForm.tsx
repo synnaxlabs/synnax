@@ -22,9 +22,9 @@ import { CSS } from "@/css";
 import {
   type PhysicalChannelPlan,
   type PhysicalGroupPlan,
-} from "@/hardware/device/new/types";
+} from "@/hardware/ni/new/types";
 
-import "@/hardware/device/new/physicalPlan/PhysicalPlanForm.css";
+import "@/hardware/ni/new/physicalPlan/PhysicalPlanForm.css";
 
 interface MostRecentSelectedState {
   key: string;

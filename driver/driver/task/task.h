@@ -15,6 +15,9 @@ struct Command {
     TaskKey task = 0;
     /// @brief the type of the command to execute.
     std::string type = "";
+    /// @brief an optional key to assign to the command. This is useful for tracking
+    /// state updates related to the command.
+    std::string key = "";
     /// @brief json arguments to the command.
     json args = {};
 
@@ -25,6 +28,7 @@ struct Command {
         config::Parser parser
     ): task(parser.required<TaskKey>("task")),
        type(parser.required<std::string>("type")),
+       key(parser.optional<std::string>("key", "")),
        args(parser.required<json>("args")) {
     }
 
@@ -52,7 +56,7 @@ public:
     virtual ~Task() = default;
 };
 
-const std::string TASK_FAILED = "failed";
+const std::string TASK_FAILED = "error";
 
 /// @brief struct that represents the network portable state of a task. Used both
 /// internally by a task and externally by the driver to track its state.
@@ -60,14 +64,18 @@ struct State {
     /// @brief the key of the task.
     TaskKey task = 0;
     /// @brief the type of the task.
-    std::string type = "";
+    std::string variant = "";
+    /// @brief an optional key to assign to the state update. This is particularly
+    /// useful for identifying responses to commands.
+    std::string key = "";
     /// @brief relevant details about the current state of the task.
     json details = {};
 
     json toJSON() {
         json j;
         j["task"] = task;
-        j["type"] = type;
+        j["key"] = key;
+        j["variant"] = variant;
         j["details"] = details;
         return j;
     }
@@ -161,7 +169,8 @@ private:
 
 class Factory {
 public:
-    virtual std::vector<std::pair<synnax::Task, std::unique_ptr<Task>> > configureInitialTasks(
+    virtual std::vector<std::pair<synnax::Task, std::unique_ptr<Task> > >
+    configureInitialTasks(
         const std::shared_ptr<Context> &ctx,
         const synnax::Rack &rack
     ) { return {}; }
@@ -180,11 +189,11 @@ public:
         : factories(std::move(factories)) {
     }
 
-    std::vector<std::pair<synnax::Task, std::unique_ptr<Task>> > configureInitialTasks(
+    std::vector<std::pair<synnax::Task, std::unique_ptr<Task> > > configureInitialTasks(
         const std::shared_ptr<Context> &ctx,
         const synnax::Rack &rack
     ) override {
-        std::vector<std::pair<synnax::Task, std::unique_ptr<Task>> > tasks;
+        std::vector<std::pair<synnax::Task, std::unique_ptr<Task> > > tasks;
         for (const auto &factory: factories) {
             auto new_tasks = factory->configureInitialTasks(ctx, rack);
             for (auto &task: new_tasks) tasks.emplace_back(std::move(task));

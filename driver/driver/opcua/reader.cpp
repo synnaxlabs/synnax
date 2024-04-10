@@ -75,7 +75,7 @@ Reader::Reader(
         LOG(ERROR) << "failed to parse configuration for " << task.name;
         ctx->setState({
             .task = task.key,
-            .type = "failed",
+            .variant = "error",
             .details = parser.error_json(),
         });
         return;
@@ -96,7 +96,7 @@ Reader::Reader(
     if (err) {
         ctx->setState({
             .task = task.key,
-            .type = "failed",
+            .variant = "error",
             .details = json{
                 {"message", err.message()}
             }
@@ -136,7 +136,7 @@ Reader::Reader(
     if (!parser.ok()) {
         ctx->setState({
             .task = task.key,
-            .type = "failed",
+            .variant = "error",
             .details = parser.error_json(),
         });
         return;

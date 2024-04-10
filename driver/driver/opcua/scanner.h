@@ -11,21 +11,30 @@
 using json = nlohmann::json;
 
 namespace opcua {
-struct ScannerScanCommand {
+struct ScannnerScanCommandArgs {
     ConnectionConfig connection;
 
-    explicit ScannerScanCommand(config::Parser parser): connection(
+    explicit ScannnerScanCommandArgs(config::Parser parser): connection(
+        ConnectionConfig(parser.child("connection"))) {
+    }
+};
+
+struct ScannerTestConnectionCommandArgs {
+    ConnectionConfig connection;
+
+    explicit ScannerTestConnectionCommandArgs(config::Parser parser): connection(
         ConnectionConfig(parser.child("connection"))) {
     }
 };
 
 const std::string SCAN_CMD_TYPE = "scan";
+const std::string TEST_CONNECTION_CMD_TYPE = "test_connection";
 
 class Scanner final : public task::Task {
 public:
     explicit Scanner(std::shared_ptr<task::Context> ctx, synnax::Task task);
 
-    void exec(task::Command& cmd) override;
+    void exec(task::Command &cmd) override;
 
     void stop() override {
     }
@@ -34,7 +43,8 @@ private:
     std::shared_ptr<task::Context> ctx;
     const synnax::Task task;
 
+    void scan(const task::Command &cmd) const;
 
-    void scan(const ScannerScanCommand& cmd, json& err, bool& ok);
+    void testConnection(const task::Command &cmd) const;
 };
 }

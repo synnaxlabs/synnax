@@ -4,7 +4,7 @@ import { type channel } from "@synnaxlabs/client";
 import { Align, Button, Form, Synnax, Text } from "@synnaxlabs/pluto";
 import { useMutation } from "@tanstack/react-query";
 
-import { type PhysicalPlan } from "@/hardware/device/new/types";
+import { type PhysicalPlan } from "@/hardware/ni/new/types";
 
 //   const ok = methods.validate("softwarePlan");
 //   if (!ok) return;

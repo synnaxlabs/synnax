@@ -9,12 +9,12 @@
 
 import { Icon } from "@synnaxlabs/media";
 
-import { connectWindowLayout } from "@/hardware/configure/opcua/Scan";
+import { connectWindowLayout } from "@/hardware/opcua/Configure";
 import { type Command } from "@/palette/Palette";
 
 export const createCommand: Command = {
   key: "opcua-connect-server",
-  name: "OPCUA: Connect a Server",
+  name: "OPCUA: Connect a New Server",
   icon: <Icon.PID />,
   onSelect: ({ placeLayout }) => placeLayout(connectWindowLayout),
 };

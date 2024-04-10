@@ -18,7 +18,7 @@ import { useDispatch } from "react-redux";
 import { Cluster } from "@/cluster";
 import { Docs } from "@/docs";
 import { ErrorOverlay } from "@/error/Overlay";
-import { AnalogReadTask } from "@/hardware/configure/ni/AnalogReadTask";
+import { OPCUA } from "@/hardware/opcua";
 import { Layout } from "@/layout";
 import { LayoutMain } from "@/layouts/LayoutMain";
 import { Mosaic } from "@/layouts/mosaic";
@@ -37,10 +37,8 @@ import "@/index.css";
 import "@synnaxlabs/media/dist/style.css";
 import "@synnaxlabs/pluto/dist/style.css";
 
-import { Connect, connectWindowLayout } from "@/hardware/configure/opcua/Scan";
-
 const layoutRenderers: Record<string, Layout.Renderer> = {
-  main: Connect,
+  main: LayoutMain,
   connectCluster: Cluster.Connect,
   visualization: Vis.LayoutSelector,
   defineRange: Range.EditLayout,
@@ -51,7 +49,7 @@ const layoutRenderers: Record<string, Layout.Renderer> = {
   createWorkspace: Workspace.Create,
   [LinePlot.LAYOUT_TYPE]: LinePlot.LinePlot,
   [PID.LAYOUT_TYPE]: PID.PID,
-  [connectWindowLayout.type]: Connect,
+  [OPCUA.connectWindowLayout.type]: OPCUA.Configure,
 };
 
 const PREVENT_DEFAULT_TRIGGERS: Triggers.Trigger[] = [

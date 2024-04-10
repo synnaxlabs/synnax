@@ -180,7 +180,6 @@ export class Writer {
     series?: CrudeSeries | CrudeSeries[],
   ): Promise<boolean> {
     const frame = await this.adapter.adapt(channelsOrData, series);
-    console.log(frame);
     // @ts-expect-error - zod issues
     this.stream.send({ command: Command.Write, frame: frame.toPayload() });
     return true;

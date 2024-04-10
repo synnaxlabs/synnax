@@ -8,11 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient, sendRequired } from "@synnaxlabs/freighter";
-import { type UnknownRecord } from "@synnaxlabs/x";
+import { type UnknownRecord } from "@synnaxlabs/x/record";
 import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
+import { TimeSpan, type CrudeTimeSpan } from "@synnaxlabs/x/telem";
 import { toArray } from "@synnaxlabs/x/toArray";
+import { nanoid } from "nanoid";
 import { z } from "zod";
 
+import { type framer } from "@/framer";
+import { type Frame } from "@/framer/frame";
 import { rack } from "@/hardware/rack";
 import { analyzeParams, checkForMultipleOrNoResults } from "@/util/retrieve";
 import { nullableArrayZ } from "@/util/zod";
@@ -44,10 +48,105 @@ export const newTaskZ = taskZ.omit({ key: true }).extend({
 
 export type NewTask = z.input<typeof newTaskZ>;
 
-export type Task<
+export type TaskPayload<
   T extends string = string,
   C extends UnknownRecord = UnknownRecord,
 > = Omit<z.output<typeof taskZ>, "config" | "type"> & { type: T; config: C };
+
+export const stateZ = z.object({
+  task: taskKeyZ,
+  variant: z.string(),
+  key: z.string(),
+  details: z
+    .record(z.unknown())
+    .or(
+      z.string().transform((c) => {
+        if (c === "") return {};
+        return JSON.parse(c);
+      }),
+    )
+    .or(z.array(z.unknown()))
+    .or(z.null()),
+});
+
+type State = z.infer<typeof stateZ>;
+
+export const commandZ = z.object({
+  task: taskKeyZ,
+  type: z.string(),
+  key: z.string(),
+  args: z.record(z.unknown()).or(
+    z.string().transform((c) => {
+      if (c === "") return {};
+      return JSON.parse(c);
+    }),
+  ) as z.ZodType<UnknownRecord>,
+});
+
+export class Task<T extends string = string, C extends UnknownRecord = UnknownRecord> {
+  readonly key: TaskKey;
+  readonly name: string;
+  readonly type: T;
+  readonly config: C;
+  private readonly frameClient: framer.Client;
+
+  constructor(
+    key: TaskKey,
+    name: string,
+    type: T,
+    config: C,
+    frameClient: framer.Client,
+  ) {
+    this.key = key;
+    this.name = name;
+    this.type = type;
+    this.config = config;
+    this.frameClient = frameClient;
+  }
+
+  async executeCommandSync(
+    type: string,
+    args: UnknownRecord,
+    timeout: CrudeTimeSpan,
+  ): Promise<State> {
+    const streamer = await this.frameClient.openStreamer({
+      channels: ["sy_task_state"],
+    });
+    const writer = await this.frameClient.openWriter({
+      channels: ["sy_task_cmd"],
+    });
+    const key = nanoid();
+    await writer.write("sy_task_cmd", [
+      {
+        task: this.key,
+        type,
+        key,
+        args,
+      },
+    ]);
+    await writer.close();
+    let res: State;
+    const to = new Promise((resolve) =>
+      setTimeout(() => resolve(false), new TimeSpan(timeout).milliseconds),
+    );
+    while (true) {
+      const frame = (await Promise.any([streamer.read(), to])) as Frame | false;
+      if (frame === false) {
+        throw new Error("Command timed out");
+      }
+      console.log(frame.at(-1).sy_task_state);
+      const parsed = stateZ.safeParse(frame.at(-1).sy_task_state);
+      if (parsed.success) {
+        res = parsed.data;
+        if (res.key === key) break;
+      } else {
+        console.error(parsed.error);
+      }
+    }
+    streamer.close();
+    return res;
+  }
+}
 
 const retrieveReqZ = z.object({
   rack: rack.rackKeyZ.optional(),
@@ -81,11 +180,13 @@ const deleteReqZ = z.object({
 
 const deleteResZ = z.object({});
 
-export class Client implements AsyncTermSearcher<string, TaskKey, Task> {
+export class Client implements AsyncTermSearcher<string, TaskKey, TaskPayload> {
   private readonly client: UnaryClient;
+  private readonly frameClient: framer.Client;
 
-  constructor(client: UnaryClient) {
+  constructor(client: UnaryClient, frameClient: framer.Client) {
     this.client = client;
+    this.frameClient = frameClient;
   }
 
   async create(task: NewTask): Promise<Task>;
@@ -101,7 +202,8 @@ export class Client implements AsyncTermSearcher<string, TaskKey, Task> {
       createReqZ,
       createResZ,
     );
-    return isSingle ? res.tasks[0] : res.tasks;
+    const sugared = this.sugar(res.tasks);
+    return isSingle ? sugared[0] : sugared;
   }
 
   async delete(keys: bigint | bigint[]): Promise<void> {
@@ -114,7 +216,7 @@ export class Client implements AsyncTermSearcher<string, TaskKey, Task> {
     );
   }
 
-  async search(term: string): Promise<Task[]> {
+  async search(term: string): Promise<TaskPayload[]> {
     const res = await sendRequired<typeof retrieveReqZ, typeof retrieveResZ>(
       this.client,
       RETRIEVE_ENDPOINT,
@@ -125,7 +227,7 @@ export class Client implements AsyncTermSearcher<string, TaskKey, Task> {
     return res.tasks;
   }
 
-  async page(offset: number, limit: number): Promise<Task[]> {
+  async page(offset: number, limit: number): Promise<TaskPayload[]> {
     const res = await sendRequired<typeof retrieveReqZ, typeof retrieveResZ>(
       this.client,
       RETRIEVE_ENDPOINT,
@@ -158,7 +260,8 @@ export class Client implements AsyncTermSearcher<string, TaskKey, Task> {
       retrieveReqZ,
       retrieveResZ,
     );
-    return single && variant !== "rack" ? res.tasks[0] : res.tasks;
+    const sugared = this.sugar(res.tasks);
+    return single && variant !== "rack" ? sugared[0] : sugared;
   }
 
   async retrieveByName(name: string, rack?: number): Promise<Task> {
@@ -170,6 +273,13 @@ export class Client implements AsyncTermSearcher<string, TaskKey, Task> {
       retrieveResZ,
     );
     checkForMultipleOrNoResults("Task", name, res.tasks, true);
-    return res.tasks[0];
+    return this.sugar(res.tasks)[0];
+  }
+
+  private sugar(payloads: TaskPayload[]): Task[] {
+    return payloads.map(
+      ({ key, name, type, config }) =>
+        new Task(key, name, type, config, this.frameClient),
+    );
   }
 }

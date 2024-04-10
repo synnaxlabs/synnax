@@ -29,8 +29,6 @@ export const LayoutMain = (): ReactElement => {
     d(Layout.maybeCreateGetStartedTab());
   }, []);
 
-  Cluster.useLocalServer();
-
   return (
     <>
       <NavTop />

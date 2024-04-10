@@ -15,23 +15,23 @@ import { Align } from "@synnaxlabs/pluto/align";
 import { useQuery } from "@tanstack/react-query";
 
 import { CSS } from "@/css";
-import { type NITask } from "@/hardware/configure/ni/types";
-import { Confirm } from "@/hardware/device/new/Confirm";
-import { buildPhysicalDevicePlan } from "@/hardware/device/new/physicalPlan/physicalPlan";
-import { PhysicalPlanForm } from "@/hardware/device/new/physicalPlan/PhysicalPlanForm";
+import { Confirm } from "@/hardware/ni/new/Confirm";
+import { buildPhysicalDevicePlan } from "@/hardware/ni/new/physicalPlan/physicalPlan";
+import { PhysicalPlanForm } from "@/hardware/ni/new/physicalPlan/PhysicalPlanForm";
 import {
   extrapolateIdentifier,
   PropertiesForm,
-} from "@/hardware/device/new/properties/PropertiesForm";
-import { buildSoftwareTasks } from "@/hardware/device/new/softwareTasks/softwareTasks";
-import { Steps } from "@/hardware/device/new/Steps";
+} from "@/hardware/ni/new/properties/PropertiesForm";
+import { buildSoftwareTasks } from "@/hardware/ni/new/softwareTasks/softwareTasks";
+import { Steps } from "@/hardware/ni/new/Steps";
 import {
   configurationZ,
   type Configuration,
   type EnrichedProperties,
   type SoftwarePlan,
   type PhysicalPlan,
-} from "@/hardware/device/new/types";
+} from "@/hardware/ni/new/types";
+import { type NITask } from "@/hardware/ni/types";
 import { type Layout } from "@/layout";
 
 import { enrich } from "@/hardware/configure/ni/enrich";

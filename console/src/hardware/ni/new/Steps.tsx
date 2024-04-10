@@ -4,7 +4,7 @@ import { type Input, Steps as PSteps } from "@synnaxlabs/pluto";
 
 export interface StepsProps extends Input.Control<string> {}
 
-const TABS: PSteps.Step[] = [
+const STEPS: PSteps.Step[] = [
   {
     key: "properties",
     title: "Define Properties",
@@ -24,5 +24,5 @@ const TABS: PSteps.Step[] = [
 ];
 
 export const Steps = ({ value, onChange }: StepsProps): ReactElement => (
-  <PSteps.Steps steps={TABS} value={value} onChange={onChange} />
+  <PSteps.Steps steps={STEPS} value={value} onChange={onChange} />
 );

@@ -122,7 +122,7 @@ export default class Synnax {
     );
     this.workspaces = new workspace.Client(this.transport.unary);
     const devices = new device.Client(this.transport.unary, this.telem);
-    const tasks = new task.Client(this.transport.unary);
+    const tasks = new task.Client(this.transport.unary, this.telem);
     const racks = new rack.Client(this.transport.unary, this.telem, tasks);
     this.hardware = new hardware.Client(tasks, racks, devices);
   }

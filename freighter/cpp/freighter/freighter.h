@@ -17,6 +17,7 @@
 namespace freighter {
 const std::string TYPE_NIL = "nil";
 const std::string TYPE_UNKNOWN = "unknown";
+const std::string TYPE_UNREACHABLE = "freighter.unreachable";
 
 /// @brief a network transportable error with a type and string encoded data.
 class Error {
@@ -107,9 +108,9 @@ public:
 
 const Error UNKNOWN = {"unknown", ""};
 const Error NIL = {"nil", ""};
-const Error STREAM_CLOSED = {"freighter.unreachable.stream_closed", "Stream closed"};
+const Error STREAM_CLOSED = {TYPE_UNREACHABLE + ".stream_closed", "Stream closed"};
 const Error EOF_ = {"freighter.eof", "EOF"};
-const Error UNREACHABLE = {"freighter.unreachable", "Unreachable"};
+const Error UNREACHABLE = {TYPE_UNREACHABLE, "Unreachable"};
 
 
 /// @brief A simple URL builder.

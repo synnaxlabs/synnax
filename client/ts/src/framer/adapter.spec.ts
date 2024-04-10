@@ -1,4 +1,4 @@
-import { DataType, Series, TimeStamp } from "@synnaxlabs/x";
+import { DataType, Series, TimeStamp } from "@synnaxlabs/x/telem";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { type channel } from "@/channel";

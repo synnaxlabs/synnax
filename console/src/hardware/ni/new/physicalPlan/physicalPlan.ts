@@ -14,7 +14,7 @@ import {
   type PhysicalChannelPlan,
   type PhysicalGroupPlan,
   type EnrichedProperties,
-} from "@/hardware/device/new/types";
+} from "@/hardware/ni/new/types";
 
 const buildAnalogInputGroups = (
   info: EnrichedProperties,

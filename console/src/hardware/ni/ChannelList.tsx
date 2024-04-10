@@ -9,7 +9,7 @@ import { xy } from "@synnaxlabs/x";
 import { nanoid } from "nanoid";
 
 import { CSS } from "@/css";
-import { CHANNEL_TYPE_DISPLAY, type NIChannel } from "@/hardware/configure/ni/types";
+import { CHANNEL_TYPE_DISPLAY, type NIChannel } from "@/hardware/ni/types";
 
 export interface ChannelListProps {
   path: string;

@@ -12,7 +12,7 @@ import { type hardware } from "@synnaxlabs/client";
 import {
   DigitalWriteTaskConfig,
   type AnalogReadTaskConfig,
-} from "@/hardware/configure/ni/types";
+} from "@/hardware/ni/types";
 
 import {
   type EnrichedProperties,

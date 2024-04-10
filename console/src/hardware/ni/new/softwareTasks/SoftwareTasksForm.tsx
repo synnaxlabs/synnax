@@ -29,8 +29,8 @@ import {
   type LinearScale,
   type NIChannel,
   type NITask,
-} from "@/hardware/configure/ni/types";
-import { type PhysicalGroupPlan } from "@/hardware/device/new/types";
+} from "@/hardware/ni/types";
+import { type PhysicalGroupPlan } from "@/hardware/ni/new/types";
 
 import "@/hardware/device/new/softwareTasks/SoftwareTasksForm.css";
 
