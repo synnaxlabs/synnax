@@ -11,16 +11,11 @@ std::pair<std::unique_ptr<task::Task>, bool> opcua::Factory::configureTask(
         auto scanner = std::make_unique<Scanner>(ctx, task);
         return {std::move(scanner), true};
     }
-
     if (task.type == "opcuaReader") {
-        auto reader = std::make_unique<Reader>(
-            ctx,
-            task
-        );
+        auto reader = std::make_unique<Reader>(ctx, task);
         std::cout << "opcuaReader" << std::endl;
         return {std::move(reader), true};
     }
-
     return {nullptr, false};
 }
 

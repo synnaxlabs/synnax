@@ -90,9 +90,9 @@ static UA_StatusCode nodeIter(UA_NodeId childId, UA_Boolean isInverse,
     for (UA_UInt32 i = 0; i < depth; i++) {
         printf("  ");
     }
-    printf("Depth %u, NodeID: %u, ReferenceType: %u ", depth,
-           childId.identifier.numeric,
-           referenceTypeId.identifier.numeric);
+    // printf("Depth %u, NodeID: %u, ReferenceType: %u ", depth,
+    //        childId.identifier.numeric,
+    //        referenceTypeId.identifier.numeric);
 
     UA_QualifiedName browseName;
     UA_StatusCode retval = UA_Client_readBrowseNameAttribute(
@@ -100,7 +100,7 @@ static UA_StatusCode nodeIter(UA_NodeId childId, UA_Boolean isInverse,
     if (retval != UA_STATUSCODE_GOOD) {
         return retval;
     }
-    printf("BrowseName: %.*s\n", (int) browseName.name.length, browseName.name.data);
+    // printf("BrowseName: %.*s\n", (int) browseName.name.length, browseName.name.data);
 
     if (depth >= MAX_DEPTH) {
         return UA_STATUSCODE_GOOD;
@@ -221,6 +221,8 @@ void Scanner::scan(const opcua::ScannerScanCommand &cmd, json &err, bool &ok) {
 
     // Begin recursive iteration
     iterateChildren(ua_client, rootFolderId);
+
+    printf("Schema introspection complete.\n");
 
     ctx->setState({
         .task = task.key,

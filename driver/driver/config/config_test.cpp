@@ -271,3 +271,18 @@ TEST(testConfig, testIterFieldChildFieldInvalidType) {
     EXPECT_EQ(err["message"], "type must be number, but is string");
 }
 
+TEST(testConfig, testInterpretStringAsNumber) {
+    struct MyConfig {
+        std::float_t dog;
+    };
+    const json j = {
+        {"dog", "1.232"}
+    };
+
+    MyConfig v;
+    config::Parser parser(j);
+    v.dog = parser.required<std::float_t>("dog");
+    EXPECT_TRUE(parser.ok());
+    // assert that the value is close to the expected value.
+    ASSERT_NEAR(v.dog, 1.232, 0.0001);
+}

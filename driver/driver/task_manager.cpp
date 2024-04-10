@@ -149,7 +149,7 @@ void driver::TaskManager::processTaskSet(const Series &series) {
 
 void driver::TaskManager::processTaskCmd(const Series &series) {
     const auto commands = series.string();
-    LOG(INFO) <<  series.size << " commands received";
+    LOG(INFO) <<  commands.size() << " commands received";
     for (const auto &cmd_str: commands) {
         LOG(ERROR) << "Processing command: " << cmd_str;
         auto parser = config::Parser(cmd_str);

@@ -31,7 +31,7 @@ export const Connect = (): ReactElement => {
 
   const methods = Form.use<typeof connectionConfigZ>({
     values: {
-      endpoint: "opc.tcp://localhost:4840",
+      endpoint: "opc.tcp://0.0.0.0:4840",
       username: "",
       password: "",
     },
@@ -41,18 +41,17 @@ export const Connect = (): ReactElement => {
     if (!methods.validate() || client == null) return;
     const rack = await client.hardware.racks.retrieve("sy_node_1_rack");
     const task = await rack.retrieveTaskByName("OPCUA Scanner");
-    console.log(task);
-    const writer = await client.telem.openWriter({ channels: ["sy_task_cmd"] });
     const streamer = await client.telem.openStreamer({ channels: ["sy_task_state"] });
-    console.log(writer);
+    const writer = await client.telem.openWriter({ channels: ["sy_task_cmd"] });
     const s = new Series([
       {
         task: task.key,
         type: "scan",
-        args: methods.value(),
+        args: {
+          connection: methods.value(),
+        },
       },
     ]);
-    console.log(new Uint8Array(s.data.buffer));
     await writer.write("sy_task_cmd", s);
     for await (const frame of streamer) console.log(frame.at(-1));
   };

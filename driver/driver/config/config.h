@@ -1,5 +1,7 @@
 #pragma once
 
+#include <sstream>
+#include <type_traits>
 #include <string>
 #include "nlohmann/json.hpp"
 
@@ -44,6 +46,15 @@ public:
         if (iter == config.end()) {
             field_err(path, "This field is required");
             return T();
+        }
+        if (iter->is_string() && std::is_arithmetic<T>::value) {
+            T value;
+            std::istringstream iss(iter->get<std::string>());
+            if (!(iss >> value)) {
+                field_err(path, "Expected a number");
+                return T();
+            }
+            return value;
         }
         return get<T>(path, iter);
     }

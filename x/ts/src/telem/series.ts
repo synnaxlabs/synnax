@@ -101,6 +101,7 @@ export interface SeriesMemInfo {
  */
 export class Series<T extends TelemValue = TelemValue> {
   key: string = "";
+  isSynnaxSeries = true;
   /** The data type of the array */
   readonly dataType: DataType;
   /**
@@ -139,19 +140,25 @@ export class Series<T extends TelemValue = TelemValue> {
     } = props;
     const { data } = props;
 
-    if (data instanceof Series) {
-      this.key = data.key;
-      this.dataType = data.dataType;
-      this.sampleOffset = data.sampleOffset;
-      this.gl = data.gl;
-      this._data = data._data;
-      this._timeRange = data._timeRange;
-      this.alignment = data.alignment;
-      this._cachedMin = data._cachedMin;
-      this._cachedMax = data._cachedMax;
-      this.writePos = data.writePos;
-      this._refCount = data._refCount;
-      this._cachedLength = data._cachedLength;
+    if (
+      data instanceof Series ||
+      (typeof data === "object" &&
+        "isSynnaxSeries" in data &&
+        data.isSynnaxSeries === true)
+    ) {
+      const data_ = data as Series;
+      this.key = data_.key;
+      this.dataType = data_.dataType;
+      this.sampleOffset = data_.sampleOffset;
+      this.gl = data_.gl;
+      this._data = data_._data;
+      this._timeRange = data_._timeRange;
+      this.alignment = data_.alignment;
+      this._cachedMin = data_._cachedMin;
+      this._cachedMax = data_._cachedMax;
+      this.writePos = data_.writePos;
+      this._refCount = data_._refCount;
+      this._cachedLength = data_._cachedLength;
       return;
     }
     const isSingle = isTelemValue(data);

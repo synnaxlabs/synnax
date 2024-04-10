@@ -431,6 +431,7 @@ export const seriesFromPayload = (series: SeriesPayload): Series => {
 };
 
 export const seriesToPayload = (series: Series): SeriesPayload => {
+  console.log(series, series.data, series.data.buffer);
   return {
     timeRange: series._timeRange,
     dataType: series.dataType,
