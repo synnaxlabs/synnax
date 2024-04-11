@@ -120,7 +120,7 @@ func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) 
 		return true, nil
 	}
 
-	return db.HasDataFor(ctx, tr)
+	return db.Domain.HasDataFor(ctx, tr)
 }
 
 // Read reads a timerange of data at the unary level.
