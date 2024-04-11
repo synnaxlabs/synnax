@@ -23,8 +23,6 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-var EntityClosed = func(entityName string) error { return fmt.Errorf("[cesium] - %s is already closed", entityName) }
-
 type controlledWriter struct {
 	*domain.Writer
 	channelKey core.ChannelKey

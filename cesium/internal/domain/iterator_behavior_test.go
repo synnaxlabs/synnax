@@ -12,7 +12,7 @@ package domain_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
@@ -152,7 +152,7 @@ var _ = Describe("Iterator Behavior", func() {
 		It("Should not allow operations on a closed iterator", func() {
 			var (
 				i = db.NewIterator(domain.IterRange(telem.TimeRangeMax))
-				e = cesium.EntityClosed("domain.iterator")
+				e = core.EntityClosed("domain.iterator")
 			)
 			Expect(i.Close()).To(Succeed())
 			Expect(i.SeekFirst(ctx)).To(BeFalse())

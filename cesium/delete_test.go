@@ -13,8 +13,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/confluence"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -31,8 +31,8 @@ var _ = Describe("Delete Channel", Ordered, func() {
 	BeforeAll(func() { db = openMemDB() })
 	AfterAll(func() { Expect(db.Close()).To(Succeed()) })
 	Describe("Error paths", func() {
-		Specify("Deleting a nonexistent channel should error", func() {
-			Expect(db.DeleteChannel(9)).To(MatchError(query.Error))
+		Specify("Deleting a nonexistent channel should be idempotent", func() {
+			Expect(db.DeleteChannel(9)).To(Succeed())
 		})
 		Describe("Deleting a channel that is being written to should error", func() {
 			Specify("Virtual Channel", func() {
@@ -179,7 +179,7 @@ var _ = Describe("Delete Channel", Ordered, func() {
 				By("Deleting the index channel again")
 				Expect(db.DeleteChannel(15)).To(Succeed())
 				_, err = db.RetrieveChannel(ctx, 15)
-				Expect(err).To(MatchError(cesium.ChannelNotFound))
+				Expect(err).To(MatchError(core.ChannelNotFound))
 			})
 			Specify("Deleting control digest channel should error", func() {
 				var controlKey cesium.ChannelKey = 7
@@ -266,8 +266,8 @@ var _ = Describe("Delete chunks", Ordered, func() {
 	})
 	AfterAll(func() { Expect(db.Close()).To(Succeed()) })
 	Describe("Error paths", func() {
-		It("Should not allow deletion of non-existent channel", func() {
-			Expect(db.DeleteTimeRange(ctx, 1, telem.TimeRangeMax)).To(MatchError(cesium.ChannelNotFound))
+		It("Should be idempotent for deletion of non-existent channel", func() {
+			Expect(db.DeleteTimeRange(ctx, 1, telem.TimeRangeMax)).To(MatchError(core.ChannelNotFound))
 		})
 	})
 	Describe("Simple Rate-based channel", func() {

@@ -20,8 +20,6 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-var EntityClosed = func(entityName string) error { return fmt.Errorf("[cesium] - %s is already closed", entityName) }
-
 type controlEntity struct {
 	ck    core.ChannelKey
 	align telem.Alignment

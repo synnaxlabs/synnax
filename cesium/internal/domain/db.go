@@ -11,7 +11,6 @@ package domain
 
 import (
 	"context"
-	"fmt"
 	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/config"
@@ -30,7 +29,6 @@ var (
 	ErrDomainOverlap = errors.Wrap(validate.Error, "domain overlaps with an existing domain")
 	// RangeNotFound is returned when a requested domain is not found in the DB.
 	RangeNotFound = errors.Wrap(query.NotFound, "domain not found")
-	EntityClosed  = func(entityName string) error { return fmt.Errorf("[cesium] - %s is already closed", entityName) }
 )
 
 // DB provides a persistent, concurrent store for reading and writing domains of telemetry

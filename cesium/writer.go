@@ -11,6 +11,7 @@ package cesium
 
 import (
 	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -27,6 +28,8 @@ type Writer struct {
 }
 
 const unexpectedSteamClosure = "[cesium] - unexpected early closure of response stream"
+
+var writerClosedError = core.EntityClosed("cesium.writer")
 
 func wrapStreamWriter(internal StreamWriter) *Writer {
 	sCtx, _ := signal.Isolated()
@@ -75,7 +78,7 @@ func (w *Writer) Commit() (telem.TimeStamp, bool) {
 
 func (w *Writer) Error() error {
 	if w.closed {
-		return EntityClosed("cesium.writer")
+		return writerClosedError
 	}
 	w.requests.Inlet() <- WriterRequest{Command: WriterError}
 	for res := range w.responses.Outlet() {
@@ -109,7 +112,7 @@ func (w *Writer) SetMode(mode WriterMode) bool {
 
 func (w *Writer) Close() (err error) {
 	if w.closed {
-		return EntityClosed("cesium.writer")
+		return writerClosedError
 	}
 	w.closed = true
 	w.requests.Close()

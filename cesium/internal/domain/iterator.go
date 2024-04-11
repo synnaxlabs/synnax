@@ -12,6 +12,7 @@ package domain
 import (
 	"context"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -23,6 +24,8 @@ type IteratorConfig struct {
 	// [REQUIRED]
 	Bounds telem.TimeRange
 }
+
+var iteratorClosedError = core.EntityClosed("domain.iterator")
 
 // IterRange generates an IteratorConfig that iterates over the provided time domain.
 func IterRange(tr telem.TimeRange) IteratorConfig { return IteratorConfig{Bounds: tr} }
@@ -54,11 +57,11 @@ type Iterator struct {
 	valid bool
 	// locked stores whether the iterator is operating on a mutex lock
 	locked bool
-	// onClose stores a function that runs upon closing or unlocking the iterator, e.g. unlocking a Mutex
-	onUnlock func()
 	// readerFactory gets a new reader for the given domain pointer.
 	readerFactory func(ctx context.Context, ptr pointer) (*Reader, error)
-	closed        bool
+	onUnlock      func()
+	// closed stores whether the iterator is still open
+	closed bool
 }
 
 // Lock sets an iterator to be locked, and takes in a function that gets executed directly, and another function to be stored in onClose
@@ -66,12 +69,6 @@ func (i *Iterator) Lock(onLock func(), onUnlock func()) {
 	i.onUnlock = onUnlock
 	onLock()
 	i.locked = true
-}
-
-// Unlock sets an iterator to be unlocked, and runs the pre-set function to be run when unlocking
-func (i *Iterator) Unlock() {
-	i.onUnlock()
-	i.locked = false
 }
 
 // SetBounds sets the iterator's bounds. The iterator is invalidated, and will not be
@@ -141,7 +138,7 @@ func (i *Iterator) TimeRange() telem.TimeRange { return i.value.TimeRange }
 // multiple Readers open over the same domain.
 func (i *Iterator) NewReader(ctx context.Context) (*Reader, error) {
 	if i.closed {
-		return nil, EntityClosed("domain.iterator")
+		return nil, iteratorClosedError
 	}
 	return i.readerFactory(ctx, i.value)
 }
@@ -152,20 +149,17 @@ func (i *Iterator) Len() int64 { return int64(i.value.length) }
 // Close closes the iterator.
 func (i *Iterator) Close() error {
 	if i.closed {
-		return EntityClosed("domain.iterator")
+		return iteratorClosedError
 	}
 	if i.locked {
 		i.onUnlock()
 	}
 	i.closed = true
+	i.valid = false
 	return nil
 }
 
 func (i *Iterator) reload() bool {
-	if i.closed {
-		i.valid = false
-		return i.valid
-	}
 	if i.position == -1 {
 		i.valid = false
 		return i.valid

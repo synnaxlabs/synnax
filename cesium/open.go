@@ -53,7 +53,8 @@ func Open(dirname string, opts ...Option) (*DB, error) {
 		}
 	}
 
-	_db.startGC(sCtx, o)
+	// starts garbage collection
+	//_db.startGC(sCtx, o)
 
 	return _db, nil
 }
@@ -100,7 +101,7 @@ func (db *DB) openVirtualOrUnary(ch Channel) error {
 				}
 				idxDB, ok = db.unaryDBs[u.Channel.Index]
 				if !ok {
-					return errors.Wrapf(ChannelNotFound, "index %d", u.Channel.Index)
+					return errors.Wrapf(core.ChannelNotFound, "index %d", u.Channel.Index)
 				}
 			}
 			u.SetIndex((&idxDB).Index())

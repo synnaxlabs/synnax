@@ -14,6 +14,7 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/cesium/internal/core"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -32,6 +33,8 @@ type WriterConfig struct {
 	// [OPTIONAL]
 	End telem.TimeStamp
 }
+
+var writerClosedError = core.EntityClosed("domain.writer")
 
 // Domain returns the Domain occupied by the theoretical domain formed by the configuration.
 // If End is not set, assumes the Domain has a zero span starting at Start.
@@ -127,7 +130,7 @@ func (w *Writer) Len() int64 { return w.internal.Len() }
 // returns.
 func (w *Writer) Write(p []byte) (n int, err error) {
 	if w.closed {
-		return 0, EntityClosed("domain.writer")
+		return 0, writerClosedError
 	}
 	return w.internal.Write(p)
 }
@@ -143,7 +146,7 @@ func (w *Writer) Write(p []byte) (n int, err error) {
 func (w *Writer) Commit(ctx context.Context, end telem.TimeStamp) error {
 	ctx, span := w.T.Prod(ctx, "commit")
 	if w.closed {
-		return EntityClosed("domain.writer")
+		return span.EndWith(writerClosedError)
 	}
 	if w.presetEnd {
 		end = w.End
@@ -171,16 +174,13 @@ func (w *Writer) Commit(ctx context.Context, end telem.TimeStamp) error {
 // safe to call concurrently with any other writer methods.
 func (w *Writer) Close() error {
 	if w.closed {
-		return EntityClosed("domain.writer")
+		return writerClosedError
 	}
 	w.closed = true
 	return w.internal.Close()
 }
 
 func (w *Writer) validateCommitRange(end telem.TimeStamp) error {
-	if w.closed {
-		return EntityClosed("domain.writer")
-	}
 	if !w.prevCommit.IsZero() && end.Before(w.prevCommit) {
 		return errors.Wrap(validate.Error, "commit timestamp must be strictly greater than the previous commit")
 	}

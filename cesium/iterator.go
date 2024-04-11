@@ -11,6 +11,7 @@ package cesium
 
 import (
 	"context"
+	"github.com/synnaxlabs/cesium/internal/core"
 
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/confluence"
@@ -20,6 +21,8 @@ import (
 )
 
 const AutoSpan = unary.AutoSpan
+
+var iteratorClosedError = core.EntityClosed("cesium.iterator")
 
 type Iterator struct {
 	inlet    confluence.Inlet[IteratorRequest]
@@ -97,7 +100,7 @@ func (i *Iterator) Value() Frame { return i.frame }
 // Close implements Iterator.
 func (i *Iterator) Close() error {
 	if i.closed {
-		return EntityClosed("cesium.iterator")
+		return iteratorClosedError
 	}
 	i.closed = true
 	i.inlet.Close()
@@ -113,7 +116,7 @@ func (i *Iterator) exec(req IteratorRequest) bool {
 
 func (i *Iterator) execErr(req IteratorRequest) (bool, error) {
 	if i.closed {
-		return false, EntityClosed("cesium.iterator")
+		return false, iteratorClosedError
 	}
 	i.frame = Frame{}
 	i.inlet.Inlet() <- req

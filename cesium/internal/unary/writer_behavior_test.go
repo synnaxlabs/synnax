@@ -12,7 +12,6 @@ package unary_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/control"
@@ -158,7 +157,7 @@ var _ = Describe("Writer Behavior", func() {
 					Start:   10 * telem.SecondTS,
 					Subject: control.Subject{Key: "foo"}},
 				))
-				e = cesium.EntityClosed("unary.writer")
+				e = core.EntityClosed("unary.writer")
 			)
 			Expect(t.Occurred()).To(BeTrue())
 			_, err := w.Close()

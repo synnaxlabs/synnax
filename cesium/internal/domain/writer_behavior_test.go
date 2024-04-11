@@ -10,6 +10,7 @@
 package domain_test
 
 import (
+	"github.com/synnaxlabs/cesium/internal/core"
 	"sync"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -165,7 +166,7 @@ var _ = Describe("WriterBehavior", func() {
 		It("Should not allow operations on a closed writer", func() {
 			var (
 				w = MustSucceed(db.NewWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS}))
-				e = domain.EntityClosed("domain.writer")
+				e = core.EntityClosed("domain.writer")
 			)
 			Expect(w.Close()).To(Succeed())
 			Expect(w.Commit(ctx, telem.TimeStampMax)).To(MatchError(e))

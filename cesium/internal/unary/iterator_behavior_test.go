@@ -12,7 +12,6 @@ package unary_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/io/fs"
@@ -196,7 +195,7 @@ var _ = Describe("Iterator Behavior", func() {
 		It("Should not allow operations on a closed iterator", func() {
 			var (
 				i = db.OpenIterator(unary.IteratorConfig{Bounds: telem.TimeRangeMax})
-				e = cesium.EntityClosed("unary.iterator")
+				e = core.EntityClosed("unary.iterator")
 			)
 			Expect(i.Close()).To(Succeed())
 			Expect(i.SeekFirst(ctx)).To(BeFalse())

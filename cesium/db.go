@@ -11,26 +11,15 @@ package cesium
 
 import (
 	"context"
-	"fmt"
 	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/confluence"
 	"io"
 	"sync"
 
-	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/cesium/internal/core"
-	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/errutil"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
-)
-
-var (
-	// ChannelNotFound is returned when a channel or a range of data cannot be found in the DB.
-	ChannelNotFound  = errors.Wrap(query.NotFound, "[cesium] - channel not found")
-	ErrDiscontinuous = index.ErrDiscontinuous
-	EntityClosed     = func(entityName string) error { return fmt.Errorf("[cesium] - %s is already closed", entityName) }
 )
 
 type (

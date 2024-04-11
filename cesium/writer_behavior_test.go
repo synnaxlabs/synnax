@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -159,7 +160,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					Channels: []cesium.ChannelKey{55000},
 					Start:    10 * telem.SecondTS,
 				})
-			Expect(err).To(MatchError(cesium.ChannelNotFound))
+			Expect(err).To(MatchError(core.ChannelNotFound))
 		})
 	})
 	Describe("Frame Errors", Ordered, func() {
@@ -288,7 +289,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				_, ok = w.Commit()
 				Expect(ok).To(BeFalse())
 				err := w.Close()
-				Expect(err).To(MatchError(cesium.ErrDiscontinuous))
+				Expect(err).To(MatchError(index.ErrDiscontinuous))
 			})
 			Specify("Index not defined at all", func() {
 				Expect(db.CreateChannel(
@@ -311,7 +312,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				Expect(ok).To(BeTrue())
 				_, ok = w.Commit()
 				Expect(ok).To(BeFalse())
-				Expect(w.Close()).To(MatchError(cesium.ErrDiscontinuous))
+				Expect(w.Close()).To(MatchError(index.ErrDiscontinuous))
 			})
 		})
 	})
@@ -379,7 +380,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 			Expect(db.CreateChannel(ctx, cesium.Channel{Key: 100, DataType: telem.Int64T, Rate: 1 * telem.Hz})).To(Succeed())
 			var (
 				i = MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Channels: []core.ChannelKey{100}, Start: 10 * telem.SecondTS}))
-				e = cesium.EntityClosed("cesium.writer")
+				e = core.EntityClosed("cesium.writer")
 			)
 			Expect(i.Close()).To(Succeed())
 			Expect(i.Close()).To(MatchError(e))

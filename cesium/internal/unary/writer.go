@@ -37,6 +37,7 @@ var (
 	DefaultWriterConfig                             = WriterConfig{
 		Persist: config.True(),
 	}
+	writerClosedError = core.EntityClosed("unary.writer")
 )
 
 func (c WriterConfig) Validate() error {
@@ -137,7 +138,7 @@ func (w *Writer) len(dw *domain.Writer) int64 {
 // Write validates and writes the given array.
 func (w *Writer) Write(series telem.Series) (a telem.Alignment, err error) {
 	if w.closed {
-		return 0, EntityClosed("unary.writer")
+		return 0, writerClosedError
 	}
 	if err := w.Channel.ValidateSeries(series); err != nil {
 		return 0, err
@@ -173,7 +174,7 @@ func (w *Writer) updateHwm(series telem.Series) {
 // Commit commits the written series to the database.
 func (w *Writer) Commit(ctx context.Context) (telem.TimeStamp, error) {
 	if w.closed {
-		return telem.TimeStampMax, EntityClosed("unary.writer")
+		return telem.TimeStampMax, writerClosedError
 	}
 	if w.Channel.IsIndex {
 		return w.commitWithEnd(ctx, w.hwm+1)
@@ -183,16 +184,13 @@ func (w *Writer) Commit(ctx context.Context) (telem.TimeStamp, error) {
 
 func (w *Writer) CommitWithEnd(ctx context.Context, end telem.TimeStamp) (err error) {
 	if w.closed {
-		return EntityClosed(("unary.writer"))
+		return core.EntityClosed(("unary.writer"))
 	}
 	_, err = w.commitWithEnd(ctx, end)
 	return err
 }
 
 func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.TimeStamp, error) {
-	if w.closed {
-		return telem.TimeStampMax, EntityClosed("unary.writer")
-	}
 	dw, ok := w.control.Authorize()
 	if !ok {
 		return 0, controller.Unauthorized(w.control.Subject.String(), w.Channel.Key)
@@ -216,7 +214,7 @@ func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.
 
 func (w *Writer) Close() (controller.Transfer, error) {
 	if w.closed {
-		return controller.Transfer{}, EntityClosed(("unary.writer"))
+		return controller.Transfer{}, writerClosedError
 	}
 
 	w.closed = true

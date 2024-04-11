@@ -12,6 +12,7 @@ package cesium
 import (
 	"context"
 	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/errutil"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -46,6 +47,7 @@ func channelDirName(ch ChannelKey) string {
 // DeleteChannel deletes a channel by its key.
 // This method returns an error if there are other channels depending on the current
 // channel, or if the current channel is being written to or read from.
+// Does nothing if channel does not exist.
 func (db *DB) DeleteChannel(ch ChannelKey) error {
 	db.mu.Lock()
 	udb, uok := db.unaryDBs[ch]
@@ -83,7 +85,7 @@ func (db *DB) DeleteChannel(ch ChannelKey) error {
 	}
 
 	db.mu.Unlock()
-	return ChannelNotFound
+	return nil
 }
 
 // DeleteTimeRange deletes a timerange of data in the database in a given channel
@@ -94,7 +96,7 @@ func (db *DB) DeleteTimeRange(ctx context.Context, ch ChannelKey, tr telem.TimeR
 	defer db.mu.Unlock()
 	udb, uok := db.unaryDBs[ch]
 	if !uok {
-		return ChannelNotFound
+		return core.ChannelNotFound
 	}
 
 	// Cannot delete an index channel that other channels rely on.

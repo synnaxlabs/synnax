@@ -36,6 +36,8 @@ type Iterator struct {
 
 const AutoSpan telem.TimeSpan = -1
 
+var iteratorClosedError = core.EntityClosed("unary.iterator")
+
 func (i *Iterator) SetBounds(tr telem.TimeRange) {
 	i.bounds = tr
 	i.internal.SetBounds(tr)
@@ -49,18 +51,17 @@ func (i *Iterator) View() telem.TimeRange { return i.view }
 
 func (i *Iterator) SeekFirst(ctx context.Context) bool {
 	if i.closed {
-		i.err = EntityClosed("unary.iterator")
+		i.err = iteratorClosedError
 		return false
 	}
 	ok := i.internal.SeekFirst(ctx)
-	//i.seekReset(i.internal.TimeRange().BoundBy(i.bounds).Start)
 	i.seekReset(i.internal.TimeRange().Start)
 	return ok
 }
 
 func (i *Iterator) SeekLast(ctx context.Context) bool {
 	if i.closed {
-		i.err = EntityClosed("unary.iterator")
+		i.err = iteratorClosedError
 		return false
 	}
 	ok := i.internal.SeekLast(ctx)
@@ -70,7 +71,7 @@ func (i *Iterator) SeekLast(ctx context.Context) bool {
 
 func (i *Iterator) SeekLE(ctx context.Context, ts telem.TimeStamp) bool {
 	if i.closed {
-		i.err = EntityClosed("unary.iterator")
+		i.err = iteratorClosedError
 		return false
 	}
 	i.seekReset(ts)
@@ -79,7 +80,7 @@ func (i *Iterator) SeekLE(ctx context.Context, ts telem.TimeStamp) bool {
 
 func (i *Iterator) SeekGE(ctx context.Context, ts telem.TimeStamp) bool {
 	if i.closed {
-		i.err = EntityClosed("unary.iterator")
+		i.err = iteratorClosedError
 		return false
 	}
 	i.seekReset(ts)
@@ -88,7 +89,7 @@ func (i *Iterator) SeekGE(ctx context.Context, ts telem.TimeStamp) bool {
 
 func (i *Iterator) Next(ctx context.Context, span telem.TimeSpan) (ok bool) {
 	if i.closed {
-		i.err = EntityClosed(("unary.iterator"))
+		i.err = core.EntityClosed(("unary.iterator"))
 		return false
 	}
 	ctx, span_ := i.T.Bench(ctx, "Next")
@@ -122,10 +123,6 @@ func (i *Iterator) Next(ctx context.Context, span telem.TimeSpan) (ok bool) {
 }
 
 func (i *Iterator) autoNext(ctx context.Context) bool {
-	if i.closed {
-		i.err = EntityClosed("unary.iterator")
-		return false
-	}
 	i.view.Start = i.view.End
 	endApprox, err := i.idx.Stamp(ctx, i.view.Start, i.IteratorConfig.AutoChunkSize, false)
 	if err != nil {
@@ -176,7 +173,7 @@ func (i *Iterator) autoNext(ctx context.Context) bool {
 
 func (i *Iterator) Prev(ctx context.Context, span telem.TimeSpan) (ok bool) {
 	if i.closed {
-		i.err = EntityClosed("unary.iterator")
+		i.err = iteratorClosedError
 		return false
 	}
 	ctx, span_ := i.T.Bench(ctx, "Prev")
@@ -219,7 +216,7 @@ func (i *Iterator) Valid() bool { return i.partiallySatisfied() && i.err == nil 
 
 func (i *Iterator) Close() (err error) {
 	if i.closed {
-		return EntityClosed("unary.iterator")
+		return iteratorClosedError
 	}
 	i.decrementCounter()
 	i.closed = true
@@ -227,10 +224,6 @@ func (i *Iterator) Close() (err error) {
 }
 
 func (i *Iterator) accumulate(ctx context.Context) bool {
-	if i.closed {
-		i.err = EntityClosed("unary.iterator")
-		return false
-	}
 	if !i.internal.TimeRange().OverlapsWith(i.view) {
 		return false
 	}
@@ -249,10 +242,6 @@ func (i *Iterator) accumulate(ctx context.Context) bool {
 }
 
 func (i *Iterator) insert(series telem.Series) {
-	if i.closed {
-		i.err = EntityClosed("unary.iterator")
-		return
-	}
 	if series.Len() == 0 {
 		return
 	}
@@ -264,10 +253,6 @@ func (i *Iterator) insert(series telem.Series) {
 }
 
 func (i *Iterator) read(ctx context.Context, offset telem.Offset, size telem.Size) (series telem.Series, n int, err error) {
-	if i.closed {
-		err = EntityClosed("unary.iterator")
-		return
-	}
 	series.DataType = i.Channel.DataType
 	series.TimeRange = i.internal.TimeRange().BoundBy(i.view)
 	series.Data = make([]byte, size)
@@ -287,9 +272,6 @@ func (i *Iterator) read(ctx context.Context, offset telem.Offset, size telem.Siz
 }
 
 func (i *Iterator) sliceDomain(ctx context.Context) (telem.Offset, telem.Size, error) {
-	if i.closed {
-		return 0, 0, EntityClosed("unary.iterator")
-	}
 	startApprox, err := i.approximateStart(ctx)
 	if err != nil {
 		return 0, 0, err
@@ -307,9 +289,6 @@ func (i *Iterator) sliceDomain(ctx context.Context) (telem.Offset, telem.Size, e
 // range and the start of the current iterator view. If the start of the current view is
 // before the start of the range, the returned value will be zero.
 func (i *Iterator) approximateStart(ctx context.Context) (startApprox index.DistanceApproximation, err error) {
-	if i.closed {
-		return index.DistanceApproximation{}, EntityClosed("unary.iterator")
-	}
 	if i.internal.TimeRange().Start.Before(i.view.Start) {
 		target := i.internal.TimeRange().Start.Range(i.view.Start)
 		startApprox, err = i.idx.Distance(ctx, target, true, true)
@@ -322,9 +301,6 @@ func (i *Iterator) approximateStart(ctx context.Context) (startApprox index.Dist
 // after the end of the range, the returned value will be the number of samples in the
 // range.
 func (i *Iterator) approximateEnd(ctx context.Context) (endApprox index.DistanceApproximation, err error) {
-	if i.closed {
-		return index.DistanceApproximation{}, EntityClosed("unary.iterator")
-	}
 	endApprox = index.Exactly(i.Channel.DataType.Density().SampleCount(telem.Size(i.internal.Len())))
 	if i.internal.TimeRange().End.After(i.view.End) {
 		target := i.internal.TimeRange().Start.Range(i.view.End)
@@ -334,10 +310,6 @@ func (i *Iterator) approximateEnd(ctx context.Context) (endApprox index.Distance
 }
 
 func (i *Iterator) satisfied() bool {
-	if i.closed {
-		i.err = EntityClosed("unary.iterator")
-		return false
-	}
 	if !i.partiallySatisfied() {
 		return false
 	}
@@ -349,23 +321,15 @@ func (i *Iterator) satisfied() bool {
 func (i *Iterator) partiallySatisfied() bool { return len(i.frame.Series) > 0 }
 
 func (i *Iterator) reset(nextView telem.TimeRange) {
-	if i.closed {
-		i.err = EntityClosed("unary.iterator")
-		return
-	}
 	i.frame = core.Frame{}
 	i.view = nextView
 }
 
 func (i *Iterator) seekReset(ts telem.TimeStamp) {
-	if i.closed {
-		i.err = EntityClosed("unary.iterator")
-		return
-	}
 	i.reset(ts.SpanRange(0))
 	i.err = nil
 }
 
-func (i *Iterator) atStart() bool { return !i.closed && i.view.Start == i.bounds.Start }
+func (i *Iterator) atStart() bool { return i.view.Start == i.bounds.Start }
 
-func (i *Iterator) atEnd() bool { return !i.closed && i.view.End == i.bounds.End }
+func (i *Iterator) atEnd() bool { return i.view.End == i.bounds.End }
