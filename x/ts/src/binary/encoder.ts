@@ -9,7 +9,7 @@
 
 import { type ZodSchema, type z } from "zod";
 
-import { Case } from "@/case";
+import { caseconv } from "@/caseconv";
 import { isObject } from "@/identity";
 
 /**
@@ -60,12 +60,12 @@ export class JSONEncoderDecoder implements EncoderDecoder {
   }
 
   decodeString<P extends z.ZodTypeAny>(data: string, schema?: P): z.output<P> {
-    const unpacked = Case.toCamel(JSON.parse(data));
+    const unpacked = caseconv.toCamel(JSON.parse(data));
     return schema != null ? schema.parse(unpacked) : (unpacked as z.output<P>);
   }
 
   encodeString(payload: unknown): string {
-    return JSON.stringify(Case.toSnake(payload), (_, v) => {
+    return JSON.stringify(caseconv.toSnake(payload), (_, v) => {
       if (ArrayBuffer.isView(v)) return Array.from(v as Uint8Array);
       if (isObject(v) && "encode_value" in v) {
         if (typeof v.value === "bigint") return v.value.toString();

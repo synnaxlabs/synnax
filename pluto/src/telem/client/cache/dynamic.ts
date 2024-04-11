@@ -121,7 +121,7 @@ export class Dynamic {
     const converted = convertSeriesFloat32(series, this.buffer.sampleOffset);
     const amountWritten = this.buffer.write(converted);
     // This means that the current buffer is large enough to fit the entire incoming
-    // series. We're done in this case.
+    // series. We're done in this caseconv.
     if (amountWritten === series.length) return res;
     // Push the current buffer to the flushed list.
     const now = TimeStamp.now();

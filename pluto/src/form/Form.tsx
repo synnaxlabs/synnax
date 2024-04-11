@@ -21,7 +21,7 @@ import {
   useEffect,
 } from "react";
 
-import { Case, deep, shallowCopy, type Destructor, toArray } from "@synnaxlabs/x";
+import { caseconv, deep, shallowCopy, type Destructor, toArray } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { useSyncedRef } from "@/hooks/ref";
@@ -235,7 +235,7 @@ export const Field = <
   });
   if (field == null) return null;
   if (path == null) throw new Error("No path provided to Form Field");
-  if (label == null) label = Case.capitalize(deep.element(path, -1));
+  if (label == null) label = caseconv.capitalize(deep.element(path, -1));
   visible = typeof visible === "function" ? visible(field) : visible;
   if (!visible) return null;
   const helpText = field.touched ? field.status.message : "";

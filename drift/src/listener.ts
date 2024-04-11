@@ -39,7 +39,7 @@ export const listen = async <S extends StoreState, A extends Action = UnknownAct
 ): Promise<void> =>
   await communicator.subscribe(({ action, emitter, state, sendState }) => {
     const s = getStore();
-    // Case where we're receivign preloaded state.
+    // case where we're receivign preloaded state.
     if (s == null) {
       if (state != null) return resolve(state);
       return;

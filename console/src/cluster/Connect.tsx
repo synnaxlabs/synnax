@@ -15,7 +15,7 @@ import { Nav, componentRenderProp, Status, Form } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 import { Button } from "@synnaxlabs/pluto/button";
 import { Input } from "@synnaxlabs/pluto/input";
-import { Case } from "@synnaxlabs/x";
+import { case } from "@synnaxlabs/x";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
 
@@ -137,7 +137,7 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
           {connState != null && (
             <Status.Text variant={statusVariants[connState.status]}>
               {connState.status === "connected"
-                ? Case.capitalize(connState.status)
+                ? caseconv.capitalize(connState.status)
                 : connState.message}
             </Status.Text>
           )}

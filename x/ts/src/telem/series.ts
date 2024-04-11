@@ -11,7 +11,7 @@
 import { nanoid } from "nanoid/non-secure";
 import { type z } from "zod";
 
-import { Case } from "@/case";
+import { caseconv } from "@/caseconv";
 import { compare } from "@/compare";
 import { bounds } from "@/spatial";
 import { type GLBufferController, type GLBufferUsage } from "@/telem/gl";
@@ -350,7 +350,7 @@ export class Series<T extends TelemValue = TelemValue> {
       .decode(this.buffer)
       .split("\n")
       .slice(0, -1)
-      .map((s) => schema.parse(Case.toCamel(JSON.parse(s))));
+      .map((s) => schema.parse(caseconv.toCamel(JSON.parse(s))));
   }
 
   /** @returns the time range of this array. */
@@ -528,7 +528,9 @@ export class Series<T extends TelemValue = TelemValue> {
     const slice = this.data.slice(start, end);
     if (this.dataType.equals(DataType.STRING))
       return new TextDecoder().decode(slice) as unknown as T;
-    return Case.toCamel(JSON.parse(new TextDecoder().decode(slice))) as unknown as T;
+    return caseconv.toCamel(
+      JSON.parse(new TextDecoder().decode(slice)),
+    ) as unknown as T;
   }
 
   /**
@@ -732,7 +734,7 @@ class JSONSeriesIterator implements Iterator<unknown> {
   next(): IteratorResult<object> {
     const next = this.wrapped.next();
     if (next.done === true) return { done: true, value: undefined };
-    return { done: false, value: Case.toCamel(JSON.parse(next.value)) };
+    return { done: false, value: caseconv.toCamel(JSON.parse(next.value)) };
   }
 
   [Symbol.iterator](): Iterator<object> {

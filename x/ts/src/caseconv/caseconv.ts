@@ -15,13 +15,8 @@ const options = {
   keepTypesOnRecursion: [Number, String, Uint8Array],
 };
 
-const snakeKeys = <T>(entity: T): T => _snakeKeys(entity, options) as T;
+export const toSnake = <T>(entity: T): T => _snakeKeys(entity, options) as T;
 
-const camelKeys = <T>(entity: T): T => _camelKeys(entity, options) as T;
+export const toCamel = <T>(entity: T): T => _camelKeys(entity, options) as T;
 
-export namespace Case {
-  export const toSnake = snakeKeys;
-  export const toCamel = camelKeys;
-  export const capitalize = (str: string): string =>
-    str[0].toUpperCase() + str.slice(1);
-}
+export const capitalize = (str: string): string => str[0].toUpperCase() + str.slice(1);
