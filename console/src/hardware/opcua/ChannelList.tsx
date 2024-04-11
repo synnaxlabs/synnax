@@ -23,21 +23,13 @@ export const ChannelList = ({
   selected,
   onSelect,
 }: ChannelListProps): ReactElement => {
-  const { value, push } = Form.useFieldArray<NIChannel>({ path });
+  const { value, push } = Form.useFieldArray<ReadChannel>({ path });
 
   const handleAdd = (): void => {
-    const availablePort = Math.max(0, ...value.map((v) => v.port)) + 1;
     push({
       key: nanoid(),
-      type: "analogVoltageInput",
-      enabled: true,
-      scale: {
-        type: "none",
-        one: xy.ZERO,
-        two: xy.ZERO,
-      },
-      port: availablePort,
       channel: 0,
+      nodeId: 0,
     });
   };
 

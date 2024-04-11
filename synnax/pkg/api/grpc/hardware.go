@@ -252,11 +252,29 @@ func (taskDeleteRequestTranslator) Backward(_ context.Context, req *gapi.Hardwar
 }
 
 func translateDeviceForward(d *api.Device) *gapi.Device {
-	return &gapi.Device{Key: d.Key, Name: d.Name, Make: d.Make, Model: d.Model, Properties: d.Properties}
+	return &gapi.Device{
+		Key:        d.Key,
+		Name:       d.Name,
+		Location:   d.Location,
+		Identifier: d.Identifier,
+		Rack:       uint32(d.Rack),
+		Make:       d.Make,
+		Model:      d.Model,
+		Properties: d.Properties,
+	}
 }
 
 func translateDeviceBackward(d *gapi.Device) *api.Device {
-	return &api.Device{Key: d.Key, Name: d.Name, Make: d.Make, Model: d.Model, Properties: d.Properties}
+	return &api.Device{
+		Key:        d.Key,
+		Name:       d.Name,
+		Rack:       rack.Key(d.Rack),
+		Location:   d.Location,
+		Identifier: d.Identifier,
+		Make:       d.Make,
+		Model:      d.Model,
+		Properties: d.Properties,
+	}
 }
 
 func translateDevicesForward(ds []api.Device) []*gapi.Device {

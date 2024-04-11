@@ -50,6 +50,7 @@ const layoutRenderers: Record<string, Layout.Renderer> = {
   [LinePlot.LAYOUT_TYPE]: LinePlot.LinePlot,
   [PID.LAYOUT_TYPE]: PID.PID,
   [OPCUA.connectWindowLayout.type]: OPCUA.Configure,
+  [OPCUA.readTaskLayout.type]: OPCUA.ReadTask,
 };
 
 const PREVENT_DEFAULT_TRIGGERS: Triggers.Trigger[] = [

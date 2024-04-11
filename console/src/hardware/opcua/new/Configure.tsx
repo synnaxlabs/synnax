@@ -1,6 +1,6 @@
 import { useState, type ReactElement } from "react";
 
-import { TimeSpan } from "@synnaxlabs/client";
+import { DataType, TimeSpan } from "@synnaxlabs/client";
 import {
   Align,
   Button,
@@ -14,15 +14,16 @@ import {
 } from "@synnaxlabs/pluto";
 import { useMutation } from "@tanstack/react-query";
 import { nanoid } from "nanoid";
+import { v4 as uuidv4 } from "uuid";
 import { z } from "zod";
 
 import { CSS } from "@/css";
 import { CreateChannels } from "@/hardware/opcua/new/CreateChannels";
+import { type Layout } from "@/layout";
 
-import "@/hardware/opcua/Configure.css";
+import "@/hardware/opcua/new/Configure.css";
 
 const connectionConfigZ = z.object({
-  name: z.string(),
   endpoint: z.string(),
   username: z.string().optional(),
   password: z.string().optional(),
@@ -40,9 +41,13 @@ const groupZ = z.object({
   channels: channelZ.array(),
 });
 
+type Group = z.infer<typeof groupZ>;
+
 const configureZ = z.object({
+  name: z.string(),
   connection: connectionConfigZ,
   groups: groupZ.array(),
+  role: z.enum(["index", "data"]),
 });
 
 export const connectWindowLayout: Layout.LayoutState = {
@@ -75,8 +80,8 @@ export const Configure = (): ReactElement => {
 
   const methods = Form.use<typeof configureZ>({
     values: {
+      name: "",
       connection: {
-        name: "",
         endpoint: "opc.tcp://0.0.0.0:4840",
         username: "",
         password: "",
@@ -89,8 +94,8 @@ export const Configure = (): ReactElement => {
     mutationKey: [step, client?.key],
     mutationFn: async () => {
       if (!methods.validate() || client == null) return;
+      const rack = await client.hardware.racks.retrieve("sy_node_1_rack");
       if (step === "connect") {
-        const rack = await client.hardware.racks.retrieve("sy_node_1_rack");
         const task = await rack.retrieveTaskByName("OPCUA Scanner");
         const state = await task.executeCommandSync(
           "scan",
@@ -103,11 +108,57 @@ export const Configure = (): ReactElement => {
             {
               key: nanoid(),
               name: "Group 1",
-              channels: state.details.map((c) => ({ ...c, key: nanoid() })),
+              channels: [
+                ...state.details.map((c) => ({ ...c, role: "data", key: nanoid() })),
+                { key: nanoid(), name: "Time", dataType: "timestamp", role: "index" },
+              ],
             },
           ],
         });
         setStep("createChannels");
+      } else if (step === "createChannels") {
+        console.log("HELLO");
+        const rack = await client.hardware.racks.retrieve("sy_node_1_rack");
+        console.log("BLOC");
+        const task = await rack.retrieveTaskByName("OPCUA Scanner");
+        const state = await task.executeCommandSync(
+          "scan",
+          { connection: methods.get({ path: "connection" }).value },
+          TimeSpan.seconds(1),
+        );
+        try {
+          await client.hardware.devices.create({
+            key: uuidv4(),
+            name: methods.get<string>({ path: "name" }).value,
+            model: "opcua",
+            make: "opcua",
+            rack: rack.key,
+            location: methods.get<string>({ path: "connection.endpoint" }).value,
+            properties: {
+              connection: methods.get({ path: "connection" }).value,
+              channels: state.details,
+            },
+          });
+        } catch (e) {
+          console.error(e);
+        }
+        console.log("Created device");
+        const groups = methods.get<Group[]>({ path: "groups" }).value;
+        for (const group of groups) {
+          console.log("ABC");
+          const idx = await client.channels.create({
+            name: group.name,
+            isIndex: true,
+            dataType: DataType.TIMESTAMP,
+          });
+          await client.channels.create(
+            group.channels.map((c) => ({
+              name: c.name,
+              dataType: new DataType(c.dataType),
+              index: idx.key,
+            })),
+          );
+        }
       }
     },
   });
@@ -189,7 +240,7 @@ const Connect = (): ReactElement => {
         className={CSS.B("form")}
         style={{ padding: "2rem" }}
       >
-        <Form.Field<string> path="connection.name">
+        <Form.Field<string> path="name">
           {(p) => <Input.Text placeholder="Name" autoFocus {...p} />}
         </Form.Field>
         <Form.Field<string> path="connection.endpoint">

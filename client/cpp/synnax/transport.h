@@ -47,4 +47,7 @@ public:
     std::shared_ptr<HardwareCreateTaskClient> module_create;
     std::shared_ptr<HardwareRetrieveTaskClient> module_retrieve;
     std::shared_ptr<HardwareDeleteTaskClient> module_delete;
+    std::unique_ptr<HardwareCreateDeviceClient> device_create;
+    std::unique_ptr<HardwareRetrieveDeviceClient> device_retrieve;
+    std::unique_ptr<HardwareDeleteDeviceClient> device_delete;
 };

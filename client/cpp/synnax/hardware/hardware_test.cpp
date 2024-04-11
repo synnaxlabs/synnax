@@ -90,3 +90,48 @@ TEST(HardwareTests, testListTasks) {
     ASSERT_EQ(synnax::taskKeyRack(tasks[0].key), r.key);
     ASSERT_NE(synnax::taskKeyLocal(tasks[0].key), 0);
 }
+
+/// @brief it should correctly create a device.
+TEST(HardwareTests, testCreateDevice) {
+    auto client = new_test_client();
+    auto r = Rack("test_rack");
+    auto err = client.hardware.createRack(r);
+    ASSERT_FALSE(err) << err.message();
+    auto d = Device(
+        "asdfjahsdfkasjdfhaks",
+        "test_device",
+        r.key,
+        "test_location",
+        "test_identifier",
+        "test_make",
+        "test_model",
+        "test_properties"
+    );
+    auto err2 = client.hardware.createDevice(d);
+    ASSERT_FALSE(err2) << err2.message();
+    ASSERT_EQ(d.name, "test_device");
+}
+
+/// @brief it should correctly retrieve a device.
+TEST(HardwareTests, testRetrieveDevice) {
+    auto client = new_test_client();
+    auto r = Rack("test_rack");
+    auto err = client.hardware.createRack(r);
+    ASSERT_FALSE(err) << err.message();
+    auto d = Device(
+        "asdfjahsdfkasjdfhaks",
+        "test_device",
+        r.key,
+        "test_location",
+        "test_identifier",
+        "test_make",
+        "test_model",
+        "test_properties"
+    );
+    auto err2 = client.hardware.createDevice(d);
+    ASSERT_FALSE(err2) << err2.message();
+    auto [d2, d2err] = client.hardware.retrieveDevice(d.key);
+    ASSERT_FALSE(d2err) << d2err.message();
+    ASSERT_EQ(d2.name, "test_device");
+    ASSERT_EQ(d2.key, d.key);
+}

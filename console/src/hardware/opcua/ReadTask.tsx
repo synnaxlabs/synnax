@@ -9,12 +9,25 @@
 
 import { useCallback, useState, type ReactElement } from "react";
 
-import { Align, Device, Form, Input } from "@synnaxlabs/pluto";
+import { Align, Button, Device, Form, Input, Synnax } from "@synnaxlabs/pluto";
+import { useMutation } from "@tanstack/react-query";
 
+import { CSS } from "@/css";
 import { ChannelList } from "@/hardware/opcua/ChannelList";
 import { readTaskConfigZ } from "@/hardware/opcua/types";
+import { type Layout } from "@/layout";
+
+export const readTaskLayout: Layout.LayoutState = {
+  name: "Configure OPC UA Read Task",
+  key: "readOPCUATask",
+  type: "readOPCUATask",
+  windowKey: "readOPCUATask",
+  location: "mosaic",
+};
 
 export const ReadTask = (): ReactElement => {
+  const client = Synnax.use();
+  const [taskKey, setTaskKey] = useState<string | undefined>(undefined);
   const methods = Form.use({
     schema: readTaskConfigZ,
     values: {
@@ -27,6 +40,21 @@ export const ReadTask = (): ReactElement => {
 
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
   const [selectedChannelIndex, setSelectedChannelIndex] = useState<number | null>(null);
+
+  const configure = useMutation({
+    mutationKey: [client?.key],
+    mutationFn: async () => {
+      if (client == null) return;
+      const rack = await client.hardware.racks.retrieve("sy_node_1_rack");
+      const t = await rack.createTask({
+        key: taskKey,
+        name: "OPCUA Read Task",
+        type: "opcuaReader",
+        config: methods.value(),
+      });
+      setTaskKey(t.key);
+    },
+  });
 
   return (
     <Align.Space className={CSS.B("opcua-read-task")} direction="y" grow empty>
@@ -56,6 +84,7 @@ export const ReadTask = (): ReactElement => {
           />
         </Align.Space>
       </Form.Form>
+      <Button.Button onClick={() => configure.mutate()}>Configure</Button.Button>
     </Align.Space>
   );
 };

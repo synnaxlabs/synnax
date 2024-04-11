@@ -14,7 +14,7 @@ using namespace opcua;
 
 ReaderConfig::ReaderConfig(
     config::Parser& parser
-): connection(parser.child("connection")) {
+): device(parser.required<std::string>("device")) {
     rate = Rate(parser.required<std::float_t>("rate"));
     parser.iter("channels", [&](config::Parser& channel_builder) {
         channels.emplace_back(channel_builder);
@@ -72,7 +72,7 @@ Reader::Reader(
     auto parser = config::Parser(task.config);
     cfg = ReaderConfig(parser);
     if (!parser.ok()) {
-        LOG(ERROR) << "failed to parse configuration for " << task.name;
+        LOG(ERROR) << "[OPC UA Reader] failed to parse configuration for " << task.name;
         ctx->setState({
             .task = task.key,
             .variant = "error",
@@ -81,7 +81,7 @@ Reader::Reader(
         return;
     }
 
-    LOG(INFO) << "successfully parsed configuration for " << task.name;
+    LOG(INFO) << "[OPC UA Reader] successfully parsed configuration for " << task.name;
 
     auto breaker_config = breaker::Config{
         .name = task.name,
@@ -160,5 +160,16 @@ Reader::Reader(
         std::move(source),
         breaker_config
     );
+    ctx->setState({
+        .task = task.key,
+        .variant = "success",
+        .details = {}
+    });
     pipe.start();
+}
+
+void Reader::exec(task::Command &cmd) {
+    if (cmd.type == "start") return pipe.start();
+    else if (cmd.type == "stop") return pipe.stop();
+    LOG(ERROR) << "unknown command type: " << cmd.type;
 }

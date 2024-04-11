@@ -28,7 +28,9 @@ struct ReaderChannelConfig {
 };
 
 struct ReaderConfig {
-    ConnectionConfig connection;
+    /// @brief the device representing the OPC UA server to read from.
+    std::string device;
+
     /// @brief sets the acquisition rate.
     Rate rate;
 
@@ -51,11 +53,9 @@ class Reader final : public task::Task {
 public:
     explicit Reader(const std::shared_ptr<task::Context> &ctx, synnax::Task task);
 
-    void exec(task::Command& cmd) override {};
+    void exec(task::Command& cmd) override;
 
-    void stop() override {
-        pipe.stop();
-    }
+    void stop() override {}
 private:
     std::shared_ptr<task::Context> ctx;
     ReaderConfig cfg;

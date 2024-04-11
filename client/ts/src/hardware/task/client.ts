@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient, sendRequired } from "@synnaxlabs/freighter";
+import { binary } from "@synnaxlabs/x";
 import { type UnknownRecord } from "@synnaxlabs/x/record";
 import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import { TimeSpan, type CrudeTimeSpan } from "@synnaxlabs/x/telem";
@@ -36,7 +37,7 @@ export const taskZ = z.object({
   config: z.record(z.unknown()).or(
     z.string().transform((c) => {
       if (c === "") return {};
-      return JSON.parse(c);
+      return binary.JSON_ECD.decodeString(c);
     }),
   ) as z.ZodType<UnknownRecord>,
 });

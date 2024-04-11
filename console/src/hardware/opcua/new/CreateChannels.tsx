@@ -142,7 +142,6 @@ const GroupList = ({
   clearSelection,
 }: GroupListProps): ReactElement => {
   const { push, value } = Form.useFieldArray<PhysicalGroupPlan>({ path: "groups" });
-  console.log(value);
   return (
     <Align.Space className={CSS.B("groups")} grow empty>
       <Header.Header level="h3">

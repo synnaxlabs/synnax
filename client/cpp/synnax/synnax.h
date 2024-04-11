@@ -68,8 +68,17 @@ public:
     /// @brief Client for reading and writing telemetry to a cluster.
     FrameClient telem = FrameClient(nullptr, nullptr);
     /// @brief Client for managing devices and their configuration.
-    HardwareClient hardware = HardwareClient(nullptr, nullptr, nullptr, nullptr,
-                                             nullptr, nullptr);
+    HardwareClient hardware = HardwareClient(
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr
+    );
 
     /// @brief constructs the Synnax client from the provided configuration.
     explicit Synnax(const Config &cfg) {
@@ -106,7 +115,10 @@ public:
             std::move(t.rack_delete),
             t.module_create,
             t.module_retrieve,
-            t.module_delete
+            t.module_delete,
+            std::move(t.device_create),
+            std::move(t.device_retrieve),
+            std::move(t.device_delete)
         );
     }
 };

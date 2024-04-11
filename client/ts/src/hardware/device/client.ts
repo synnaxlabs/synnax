@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient, sendRequired } from "@synnaxlabs/freighter";
-import { toArray } from "@synnaxlabs/x";
+import { type UnknownRecord, toArray } from "@synnaxlabs/x";
+import { binary } from "@synnaxlabs/x/binary";
 import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import { z } from "zod";
 
@@ -34,14 +35,25 @@ export const deviceZ = z.object({
   make: z.string(),
   model: z.string(),
   location: z.string(),
-  properties: z.string(),
+  properties: z.record(z.unknown()).or(
+    z.string().transform((c) => {
+      if (c === "") return {};
+      return binary.JSON_ECD.decodeString(c);
+    }),
+  ) as z.ZodType<UnknownRecord>,
 });
 
 export type Device = z.infer<typeof deviceZ>;
 export type DeviceKey = z.infer<typeof deviceKeyZ>;
 
+export const newDeviceZ = deviceZ.extend({
+  properties: z.unknown().transform((c) => binary.JSON_ECD.encodeString(c)),
+});
+
+export type NewDevice = z.input<typeof newDeviceZ>;
+
 const createReqZ = z.object({
-  devices: deviceZ.array(),
+  devices: newDeviceZ.array(),
 });
 
 const createResZ = z.object({
@@ -113,9 +125,11 @@ export class Client implements AsyncTermSearcher<string, DeviceKey, Device> {
     return res.devices;
   }
 
-  async create(device: Device): Promise<Device>;
+  async create(device: NewDevice): Promise<Device>;
 
-  async create(devices: Device | Device[]): Promise<Device | Device[]> {
+  async create(devices: NewDevice[]): Promise<Device[]>;
+
+  async create(devices: NewDevice | NewDevice[]): Promise<Device | Device[]> {
     const isSingle = !Array.isArray(devices);
     const res = await sendRequired(
       this.client,

@@ -40,14 +40,32 @@ export interface EncoderDecoder {
 /** JSONEncoderDecoder is a JSON implementation of EncoderDecoder. */
 export class JSONEncoderDecoder implements EncoderDecoder {
   contentType = "application/json";
-  readonly decoder: TextDecoder;
+  private readonly decoder: TextDecoder;
+  private readonly encoder: TextEncoder;
 
   constructor() {
     this.decoder = new TextDecoder();
+    this.encoder = new TextEncoder();
   }
 
   encode(payload: unknown): ArrayBuffer {
-    const json = JSON.stringify(Case.toSnake(payload), (_, v) => {
+    return this.encoder.encode(this.encodeString(payload)).buffer;
+  }
+
+  decode<P extends z.ZodTypeAny>(
+    data: Uint8Array | ArrayBuffer,
+    schema?: P,
+  ): z.output<P> {
+    return this.decodeString(this.decoder.decode(data), schema);
+  }
+
+  decodeString<P extends z.ZodTypeAny>(data: string, schema?: P): z.output<P> {
+    const unpacked = Case.toCamel(JSON.parse(data));
+    return schema != null ? schema.parse(unpacked) : (unpacked as z.output<P>);
+  }
+
+  encodeString(payload: unknown): string {
+    return JSON.stringify(Case.toSnake(payload), (_, v) => {
       if (ArrayBuffer.isView(v)) return Array.from(v as Uint8Array);
       if (isObject(v) && "encode_value" in v) {
         if (typeof v.value === "bigint") return v.value.toString();
@@ -56,20 +74,11 @@ export class JSONEncoderDecoder implements EncoderDecoder {
       if (typeof v === "bigint") return v.toString();
       return v;
     });
-    return new TextEncoder().encode(json);
-  }
-
-  decode<P extends z.ZodTypeAny>(
-    data: Uint8Array | ArrayBuffer,
-    schema?: P,
-  ): z.output<P> {
-    const unpacked = Case.toCamel(JSON.parse(this.decoder.decode(data)));
-    return schema != null ? schema.parse(unpacked) : (unpacked as P);
   }
 
   static registerCustomType(): void {}
 }
 
-export const JSON_ENCODER_DECODER = new JSONEncoderDecoder();
+export const JSON_ECD = new JSONEncoderDecoder();
 
-export const ENCODERS: EncoderDecoder[] = [JSON_ENCODER_DECODER];
+export const ENCODERS: EncoderDecoder[] = [JSON_ECD];

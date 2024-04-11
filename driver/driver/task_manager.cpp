@@ -93,6 +93,7 @@ freighter::Error driver::TaskManager::stop() {
     LOG(INFO) << "[Task Manager] shutting down";
     streamer->closeSend();
     run_thread.join();
+    for (auto &[key, task]: tasks) task->stop();
     LOG(INFO) << "[Task Manager] shut down";
     return run_err;
 }
@@ -140,10 +141,10 @@ void driver::TaskManager::processTaskSet(const Series &series) {
             std::cerr << err.message() << std::endl;
             continue;
         }
-        LOG(ERROR) << "Configuring task: " << sy_task.name << " with key: " << key <<
-                ".";
+        LOG(INFO) << "[Task Manager] configuring task " << sy_task.name << " with key: " << key << ".";
         auto [driver_task, ok] = factory->configureTask(ctx, sy_task);
         if (ok && driver_task != nullptr) tasks[key] = std::move(driver_task);
+        else LOG(ERROR) << "[Task Managr] failed to configure task: " << sy_task.name;
     }
 }
 

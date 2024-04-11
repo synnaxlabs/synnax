@@ -20,7 +20,7 @@ Rack::Rack(std::string name) : name(std::move(name)) {
 }
 
 Rack::Rack(const api::v1::Rack &rack) : key(rack.key()),
-                                     name(rack.name()) {
+                                        name(rack.name()) {
 }
 
 void Rack::to_proto(api::v1::Rack *rack) const {
@@ -151,4 +151,43 @@ std::pair<std::vector<Task>, freighter::Error> TaskClient::list() const {
     if (err) return {std::vector<Task>(), err};
     std::vector<Task> tasks = {res.tasks().begin(), res.tasks().end()};
     return {tasks, err};
+}
+
+std::pair<Device, freighter::Error> HardwareClient::retrieveDevice(
+    const std::string &key) const {
+    auto req = api::v1::HardwareRetrieveDeviceRequest();
+    req.add_keys(key);
+    auto [res, err] = device_retrieve_client->send(RETRIEVE_RACK_ENDPOINT, req);
+    if (err) return {Device(), err};
+    return {Device(res.devices(0)), err};
+}
+
+freighter::Error HardwareClient::createDevice(Device &device) const {
+    auto req = api::v1::HardwareCreateDeviceRequest();
+    device.to_proto(req.add_devices());
+    auto [res, err] = device_create_client->send(CREATE_RACK_ENDPOINT, req);
+    if (err) return err;
+    device.key = res.devices().at(0).key();
+    return err;
+}
+
+Device::Device(const api::v1::Device &device): key(device.key()),
+                                               name(device.name()),
+                                               rack(device.rack()),
+                                               location(device.location()),
+                                               identifier(device.identifier()),
+                                               make(device.make()),
+                                               model(device.model()),
+                                               properties(device.properties()) {
+}
+
+void Device::to_proto(api::v1::Device *device) const {
+    device->set_key(key);
+    device->set_name(name);
+    device->set_rack(rack);
+    device->set_location(location);
+    device->set_identifier(identifier);
+    device->set_make(make);
+    device->set_model(model);
+    device->set_properties(properties);
 }

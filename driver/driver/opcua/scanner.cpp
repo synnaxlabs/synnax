@@ -33,7 +33,7 @@ static UA_StatusCode nodeIter(UA_NodeId childId, UA_Boolean isInverse,
 
 const int MAX_DEPTH = 2;
 
-struct ScannedChannel {
+struct DeviceNode {
     std::string name;
     std::uint32_t node_id;
     synnax::DataType data_type;
@@ -50,7 +50,7 @@ struct ScannedChannel {
 struct ScanContext {
     std::shared_ptr<UA_Client> client;
     UA_UInt32 depth;
-    std::shared_ptr<std::vector<ScannedChannel> > channels;
+    std::shared_ptr<std::vector<DeviceNode> > channels;
 };
 
 // Function to recursively iterate through all children
@@ -125,7 +125,7 @@ void Scanner::scan(const task::Command &cmd) const {
     auto scan_ctx = new ScanContext{
         ua_client,
         0,
-        std::make_shared<std::vector<ScannedChannel>>()
+        std::make_shared<std::vector<DeviceNode>>()
     };
     iterateChildren(scan_ctx, rootFolderId);
 
