@@ -44,7 +44,7 @@ export const taskZ = z.object({
 
 export const newTaskZ = taskZ.omit({ key: true }).extend({
   key: taskKeyZ.transform((k) => k.toString()).optional(),
-  config: z.unknown().transform((c) => JSON.stringify(c)),
+  config: z.unknown().transform((c) => binary.JSON_ECD.encodeString(c)),
 });
 
 export type NewTask = z.input<typeof newTaskZ>;

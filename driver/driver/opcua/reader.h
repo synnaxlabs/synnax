@@ -32,7 +32,10 @@ struct ReaderConfig {
     std::string device;
 
     /// @brief sets the acquisition rate.
-    Rate rate;
+    Rate sample_rate;
+
+    /// @brief sets the stream rate.
+    Rate stream_rate;
 
     /// @brief the list of channels to read from the server.
     std::vector<ReaderChannelConfig> channels;
@@ -67,6 +70,7 @@ private:
     std::pair<std::pair<std::vector<ChannelKey>, std::set<ChannelKey>>, freighter::Error>
     retrieveAdditionalChannelInfo() {
         auto channelKeys = cfg.channelKeys();
+        if (channelKeys.empty()) return {{channelKeys, {}}, freighter::Error()};
         auto indexes = std::set<ChannelKey>();
         auto [channels, c_err] = ctx->client->channels.retrieve(cfg.channelKeys());
         if (c_err) {

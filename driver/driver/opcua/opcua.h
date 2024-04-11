@@ -16,13 +16,19 @@ struct ConnectionConfig {
     ConnectionConfig() = default;
 
     explicit ConnectionConfig(
-        config::Parser builder
-    ): endpoint(builder.required<std::string>("endpoint")),
-       username(builder.optional<std::string>("username", "")),
-       password(builder.optional<std::string>("password", "")) {
+        config::Parser parser
+    ): endpoint(parser.required<std::string>("endpoint")),
+       username(parser.optional<std::string>("username", "")),
+       password(parser.optional<std::string>("password", "")) {
     }
 };
 
+struct DeviceProperties {
+    ConnectionConfig connection;
+
+    explicit DeviceProperties(config::Parser parser): connection(parser.child("connection")) {
+    }
+};
 
 class Factory final : public task::Factory {
     std::pair<std::unique_ptr<task::Task>, bool> configureTask(
