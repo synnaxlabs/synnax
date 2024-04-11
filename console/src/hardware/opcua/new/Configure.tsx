@@ -23,12 +23,6 @@ import { type Layout } from "@/layout";
 
 import "@/hardware/opcua/new/Configure.css";
 
-const connectionConfigZ = z.object({
-  endpoint: z.string(),
-  username: z.string().optional(),
-  password: z.string().optional(),
-});
-
 export const channelZ = z.object({
   dataType: z.string(),
   name: z.string(),

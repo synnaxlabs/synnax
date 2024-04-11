@@ -190,7 +190,10 @@ const SingleInput = <K extends Key, E extends Keyed<K>>({
     if (selected == null) return;
     if (typeof entryRenderKey === "function")
       return setInternalValue(entryRenderKey(selected).toString());
-    else return setInternalValue((selected?.[entryRenderKey] as string | number).toString());
+    else
+      return setInternalValue(
+        (selected?.[entryRenderKey] as string | number).toString(),
+      );
   }, [selected, visible, entryRenderKey]);
 
   const handleChange = (v: string): void => {

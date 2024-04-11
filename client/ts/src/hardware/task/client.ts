@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient, sendRequired } from "@synnaxlabs/freighter";
-import { binary } from "@synnaxlabs/x";
+import { binary, type observe } from "@synnaxlabs/x";
 import { type UnknownRecord } from "@synnaxlabs/x/record";
 import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import { TimeSpan, type CrudeTimeSpan } from "@synnaxlabs/x/telem";
@@ -21,6 +21,9 @@ import { type Frame } from "@/framer/frame";
 import { rack } from "@/hardware/rack";
 import { analyzeParams, checkForMultipleOrNoResults } from "@/util/retrieve";
 import { nullableArrayZ } from "@/util/zod";
+
+const TASK_STATE_CHANNEL = "sy_task_state";
+const TASK_CMD_CHANNEL = "sy_task_cmd";
 
 export const taskKeyZ = z.union([
   z.string(),
@@ -70,7 +73,12 @@ export const stateZ = z.object({
     .or(z.null()),
 });
 
-type State = z.infer<typeof stateZ>;
+type State<D extends UnknownRecord = UnknownRecord> = Omit<
+  z.infer<typeof stateZ>,
+  "details"
+> & {
+  details: D;
+};
 
 export const commandZ = z.object({
   task: taskKeyZ,
@@ -105,40 +113,26 @@ export class Task<T extends string = string, C extends UnknownRecord = UnknownRe
     this.frameClient = frameClient;
   }
 
-  async executeCommandSync(
+  async executeCommandSync<D extends UnknownRecord = UnknownRecord>(
     type: string,
     args: UnknownRecord,
     timeout: CrudeTimeSpan,
-  ): Promise<State> {
-    const streamer = await this.frameClient.openStreamer({
-      channels: ["sy_task_state"],
-    });
-    const writer = await this.frameClient.openWriter({
-      channels: ["sy_task_cmd"],
-    });
+  ): Promise<State<D>> {
+    const streamer = await this.frameClient.openStreamer(TASK_STATE_CHANNEL);
+    const writer = await this.frameClient.openWriter(TASK_CMD_CHANNEL);
     const key = nanoid();
-    await writer.write("sy_task_cmd", [
-      {
-        task: this.key,
-        type,
-        key,
-        args,
-      },
-    ]);
+    await writer.write(TASK_STATE_CHANNEL, [{ task: this.key, type, key, args }]);
     await writer.close();
-    let res: State;
+    let res: State<D>;
     const to = new Promise((resolve) =>
       setTimeout(() => resolve(false), new TimeSpan(timeout).milliseconds),
     );
     while (true) {
       const frame = (await Promise.any([streamer.read(), to])) as Frame | false;
-      if (frame === false) {
-        throw new Error("Command timed out");
-      }
-      console.log(frame.at(-1).sy_task_state);
+      if (frame === false) throw new Error("Command timed out");
       const parsed = stateZ.safeParse(frame.at(-1).sy_task_state);
       if (parsed.success) {
-        res = parsed.data;
+        res = parsed.data as State<D>;
         if (res.key === key) break;
       } else {
         console.error(parsed.error);
@@ -147,6 +141,10 @@ export class Task<T extends string = string, C extends UnknownRecord = UnknownRe
     streamer.close();
     return res;
   }
+
+  async observeState<D extends UnknownRecord = UnknownRecord>(): Promise<
+    observe.Observable<State<D>>
+  > {}
 }
 
 const retrieveReqZ = z.object({

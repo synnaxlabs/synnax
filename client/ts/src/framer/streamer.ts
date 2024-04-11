@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { errorZ, type Stream, type StreamClient } from "@synnaxlabs/freighter";
+import { observe } from "@synnaxlabs/x";
 import { TimeStamp, type CrudeTimeStamp } from "@synnaxlabs/x/telem";
 import { z } from "zod";
 
@@ -86,5 +87,28 @@ export class Streamer implements AsyncIterator<Frame>, AsyncIterable<Frame> {
 
   [Symbol.asyncIterator](): AsyncIterator<Frame, any, undefined> {
     return this;
+  }
+}
+
+export class ObservableStreamer<V = Frame>
+  extends observe.Observer<Frame, V>
+  implements observe.ObservableAsyncCloseable<V>
+{
+  private readonly streamer: Streamer;
+  private readonly closePromise: Promise<void>;
+
+  constructor(streamer: Streamer, transform?: observe.Transform<Frame, V>) {
+    super(transform);
+    this.streamer = streamer;
+    this.closePromise = this.stream();
+  }
+
+  async close(): Promise<void> {
+    this.streamer.close();
+    await this.closePromise;
+  }
+
+  private async stream(): Promise<void> {
+    for await (const frame of this.streamer) this.notify(frame);
   }
 }

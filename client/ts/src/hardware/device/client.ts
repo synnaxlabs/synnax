@@ -43,26 +43,27 @@ export const deviceZ = z.object({
   ) as z.ZodType<UnknownRecord>,
 });
 
-export type Device = z.infer<typeof deviceZ>;
+export type Device<P extends UnknownRecord = UnknownRecord> = Omit<
+  z.output<typeof deviceZ>,
+  "properties"
+> & { properties: P };
+
 export type DeviceKey = z.infer<typeof deviceKeyZ>;
 
 export const newDeviceZ = deviceZ.extend({
   properties: z.unknown().transform((c) => binary.JSON_ECD.encodeString(c)),
 });
 
-export type NewDevice = z.input<typeof newDeviceZ>;
+export type NewDevice<P extends UnknownRecord = UnknownRecord> = Omit<
+  z.input<typeof newDeviceZ>,
+  "properties"
+> & { properties: P };
 
-const createReqZ = z.object({
-  devices: newDeviceZ.array(),
-});
+const createReqZ = z.object({ devices: newDeviceZ.array() });
 
-const createResZ = z.object({
-  devices: deviceZ.array(),
-});
+const createResZ = z.object({ devices: deviceZ.array() });
 
-const deleteReqZ = z.object({
-  keys: deviceKeyZ.array(),
-});
+const deleteReqZ = z.object({ keys: deviceKeyZ.array() });
 
 const deleteResZ = z.object({});
 
@@ -71,11 +72,17 @@ const retrieveReqZ = z.object({
   limit: z.number().optional(),
   offset: z.number().optional(),
   keys: deviceKeyZ.array().optional(),
+  names: z.string().array().optional(),
+  makes: z.string().array().optional(),
 });
 
-const retrieveResZ = z.object({
-  devices: nullableArrayZ(deviceZ),
-});
+type RetrieveRequest = z.input<typeof retrieveReqZ>;
+
+export type RetrieveOptions = Pick<RetrieveRequest, "limit" | "offset" | "makes">;
+
+type PageOptions = Pick<RetrieveOptions, "makes">;
+
+const retrieveResZ = z.object({ devices: nullableArrayZ(deviceZ) });
 
 export class Client implements AsyncTermSearcher<string, DeviceKey, Device> {
   private readonly client: UnaryClient;
@@ -86,43 +93,54 @@ export class Client implements AsyncTermSearcher<string, DeviceKey, Device> {
     this.frameClient = frameClient;
   }
 
-  async retrieve(key: string): Promise<Device>;
+  async retrieve<P extends UnknownRecord = UnknownRecord>(
+    key: string,
+    options?: RetrieveOptions,
+  ): Promise<Device<P>>;
 
-  async retrieve(keys: string[]): Promise<Device[]>;
+  async retrieve<P extends UnknownRecord = UnknownRecord>(
+    keys: string[],
+    options?: RetrieveOptions,
+  ): Promise<Array<Device<P>>>;
 
-  async retrieve(keys: string | string[]): Promise<Device | Device[]> {
+  async retrieve<P extends UnknownRecord = UnknownRecord>(
+    keys: string | string[],
+    options?: RetrieveOptions,
+  ): Promise<Device<P> | Array<Device<P>>> {
     const isSingle = !Array.isArray(keys);
     const res = await sendRequired(
       this.client,
       RETRIEVE_ENDPOINT,
-      { keys: toArray(keys) },
+      { keys: toArray(keys), ...options },
       retrieveReqZ,
       retrieveResZ,
     );
     checkForMultipleOrNoResults("Device", keys, res.devices, isSingle);
-    return isSingle ? res.devices[0] : res.devices;
+    return (isSingle ? res.devices[0] : res.devices) as Device<P> | Array<Device<P>>;
   }
 
-  async search(term: string): Promise<Device[]> {
-    const res = await sendRequired(
-      this.client,
-      RETRIEVE_ENDPOINT,
-      { keys: [term] },
-      retrieveReqZ,
-      retrieveResZ,
-    );
-    return res.devices;
+  async search(term: string, options?: RetrieveOptions): Promise<Device[]> {
+    return (
+      await sendRequired(
+        this.client,
+        RETRIEVE_ENDPOINT,
+        { search: term, ...options },
+        retrieveReqZ,
+        retrieveResZ,
+      )
+    ).devices;
   }
 
-  async page(offset: number, limit: number): Promise<Device[]> {
-    const res = await sendRequired(
-      this.client,
-      RETRIEVE_ENDPOINT,
-      { offset, limit },
-      retrieveReqZ,
-      retrieveResZ,
-    );
-    return res.devices;
+  async page(offset: number, limit: number, options?: PageOptions): Promise<Device[]> {
+    return (
+      await sendRequired(
+        this.client,
+        RETRIEVE_ENDPOINT,
+        { offset, limit, ...options },
+        retrieveReqZ,
+        retrieveResZ,
+      )
+    ).devices;
   }
 
   async create(device: NewDevice): Promise<Device>;
@@ -152,12 +170,23 @@ export class Client implements AsyncTermSearcher<string, DeviceKey, Device> {
   }
 
   async openDeviceTracker(): Promise<signals.Observable<string, Device>> {
-    return await signals.Observable.open<string, Device>(
+    return await signals.openObservable<string, Device>(
       this.frameClient,
       DEVICE_SET_NAME,
       DEVICE_DELETE_NAME,
       decodeDeviceChanges,
     );
+  }
+
+  newSearcherWithOptions(
+    options: RetrieveOptions,
+  ): AsyncTermSearcher<string, DeviceKey, Device> {
+    return {
+      search: async (term: string) => await this.search(term, options),
+      retrieve: async (keys: string[]) => await this.retrieve(keys, options),
+      page: async (offset: number, limit: number) =>
+        await this.page(offset, limit, options),
+    };
   }
 }
 

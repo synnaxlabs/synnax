@@ -80,7 +80,7 @@ export class Client implements AsyncTermSearcher<string, Key, Label> {
   }
 
   async openChangeTracker(): Promise<signals.Observable<string, Label>> {
-    return await signals.Observable.open<string, Label>(
+    return await signals.openObservable<string, Label>(
       this.frameClient,
       LABEL_SET_NAME,
       LABEL_DELETE_NAME,

@@ -133,7 +133,7 @@ export class Aliaser {
   }
 
   async openChangeTracker(): Promise<signals.Observable<string, Alias>> {
-    return await signals.Observable.open<string, Alias>(
+    return await signals.openObservable<string, Alias>(
       this.frameClient,
       ALIAS_SET_NAME,
       ALIAS_DELETE_NAME,

@@ -249,7 +249,7 @@ export const Field = <
 
 type Listener<V = unknown> = (state: FieldState<V>) => void;
 
-interface FieldState<V = unknown> {
+export interface FieldState<V = unknown> {
   value: V;
   status: status.CrudeSpec;
   touched: boolean;

@@ -10,6 +10,7 @@
 import { type ReactElement } from "react";
 
 import { type device } from "@synnaxlabs/client";
+import { type AsyncTermSearcher } from "@synnaxlabs/x";
 
 import { type List } from "@/list";
 import { Select } from "@/select";
@@ -27,14 +28,23 @@ const deviceColumns: Array<List.ColumnSpec<device.DeviceKey, device.Device>> = [
 ];
 
 export interface SelectSingleProps
-  extends Omit<Select.SingleProps<device.DeviceKey, device.Device>, "columns"> {}
+  extends Omit<Select.SingleProps<device.DeviceKey, device.Device>, "columns"> {
+  searchOptions?: device.RetrieveOptions;
+}
 
-export const SelectSingle = (props: SelectSingleProps): ReactElement => {
+export const SelectSingle = ({
+  searchOptions,
+  ...props
+}: SelectSingleProps): ReactElement => {
   const client = Synnax.use();
+  let searcher: AsyncTermSearcher<string, device.DeviceKey, device.Device> | undefined =
+    client?.hardware.devices;
+  if (searchOptions != null && client != null)
+    searcher = client.hardware.devices.newSearcherWithOptions(searchOptions);
   return (
     <Select.Single<device.DeviceKey, device.Device>
       columns={deviceColumns}
-      searcher={client?.hardware.devices}
+      searcher={searcher}
       entryRenderKey={"name"}
       {...props}
     />
