@@ -26,7 +26,7 @@ type Domain struct {
 var _ Index = (*Domain)(nil)
 
 // Distance implements Index.
-func (i *Domain) Distance(ctx context.Context, tr telem.TimeRange, continuous bool, withLock bool) (approx DistanceApproximation, err error) {
+func (i *Domain) Distance(ctx context.Context, tr telem.TimeRange, continuous bool) (approx DistanceApproximation, err error) {
 	var startApprox, endApprox DistanceApproximation
 	ctx, span := i.T.Bench(ctx, "distance")
 	defer func() { _ = span.EndWith(err, ErrDiscontinuous) }()
