@@ -20,7 +20,7 @@ daq_time_ch = client.channels.create(
     name="daq_time",
     is_index=True,
     data_type=sy.DataType.TIMESTAMP,
-    retrieve_if_name_exists=True
+    retrieve_if_name_exists=True,
 )
 
 sensor_channels = [
@@ -35,21 +35,25 @@ sensor_channels = client.channels.create(sensor_channels, retrieve_if_name_exist
 
 NUM_VALVE_CHANNELS = range(0, 3)
 
-valve_response_channels = client.channels.create([
-    sy.Channel(
-        name=f"valve_response_{i}",
-        index=daq_time_ch.key,
-        data_type=sy.DataType.FLOAT32,
-    )
-    for i in NUM_VALVE_CHANNELS
-], retrieve_if_name_exists=True)
+valve_response_channels = client.channels.create(
+    [
+        sy.Channel(
+            name=f"valve_response_{i}",
+            index=daq_time_ch.key,
+            data_type=sy.DataType.FLOAT32,
+        )
+        for i in NUM_VALVE_CHANNELS
+    ],
+    retrieve_if_name_exists=True,
+)
 
 valve_command_time_channels = [
     sy.Channel(
         name=f"valve_command_{i}_time",
         data_type=sy.DataType.TIMESTAMP,
         is_index=True,
-    ) for i in NUM_VALVE_CHANNELS
+    )
+    for i in NUM_VALVE_CHANNELS
 ]
 
 valve_command_time_channels = client.channels.create(
@@ -78,8 +82,8 @@ state = {
 }
 
 valve_command_to_response_channels = {
-    cmd.key: valve_response_channels[i].key for i, cmd in
-    enumerate(valve_command_channels)
+    cmd.key: valve_response_channels[i].key
+    for i, cmd in enumerate(valve_command_channels)
 }
 
 i = 0
@@ -99,7 +103,7 @@ with client.open_streamer([c.key for c in valve_command_channels]) as streamer:
 
             if streamer.received:
                 f = streamer.read()
-                for k in f.columns:
+                for k in f.channels:
                     state[valve_command_to_response_channels[k]] = f[k][-1]
 
             now = sy.TimeStamp.now()

@@ -16,11 +16,7 @@ PRESS_2_STEP = 50  # PSI
 PRESS_STEP_DELAY = (1 * sy.TimeSpan.SECOND).seconds  # Seconds
 
 client = sy.Synnax(
-    host="localhost",
-    port=9090,
-    username="synnax",
-    password="seldon",
-    secure=False
+    host="localhost", port=9090, username="synnax", password="seldon", secure=False
 )
 
 
@@ -47,24 +43,21 @@ FUEL_TANK_PT = "fuel_tank_pt"
 
 try:
     with client.control.acquire(
-            "Autosequence",
-            write=[
-                TPC_CMD,
-                MPV_CMD,
-                PRESS_ISO_CMD,
-                VENT_CMD
-            ],
-            read=[TPC_CMD_ACK, PRESS_TANK_PT, FUEL_TANK_PT],
-            write_authorities=[250]
+        "Autosequence",
+        write=[TPC_CMD, MPV_CMD, PRESS_ISO_CMD, VENT_CMD],
+        read=[TPC_CMD_ACK, PRESS_TANK_PT, FUEL_TANK_PT],
+        write_authorities=[250],
     ) as auto:
         try:
             print("Starting TPC Test. Setting initial system state.")
-            auto.set({
-                TPC_CMD: 0,
-                MPV_CMD: 0,
-                PRESS_ISO_CMD: 0,
-                VENT_CMD: 1,
-            })
+            auto.set(
+                {
+                    TPC_CMD: 0,
+                    MPV_CMD: 0,
+                    PRESS_ISO_CMD: 0,
+                    VENT_CMD: 1,
+                }
+            )
 
             time.sleep(2)
 
@@ -119,22 +112,25 @@ try:
                 time_range=sy.TimeRange(start, sy.TimeStamp.now()),
             )
 
-            auto.set({
-                TPC_CMD: 1,
-                PRESS_ISO_CMD: 0,
-                # Open vent
-                VENT_CMD: 0,
-                MPV_CMD: 0,
-            })
+            auto.set(
+                {
+                    TPC_CMD: 1,
+                    PRESS_ISO_CMD: 0,
+                    # Open vent
+                    VENT_CMD: 0,
+                    MPV_CMD: 0,
+                }
+            )
         except KeyboardInterrupt:
             print("Test interrupted. Safeing System")
-            auto.set({
-                TPC_CMD: 1,
-                PRESS_ISO_CMD: 0,
-                VENT_CMD: 0,
-                MPV_CMD: 1,
-            })
+            auto.set(
+                {
+                    TPC_CMD: 1,
+                    PRESS_ISO_CMD: 0,
+                    VENT_CMD: 0,
+                    MPV_CMD: 1,
+                }
+            )
 finally:
     print("Auto complete")
     time.sleep(100)
-

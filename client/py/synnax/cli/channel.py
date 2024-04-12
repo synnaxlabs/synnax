@@ -108,7 +108,7 @@ def group_channel_names(
     grouped = {}
     for entry in matchers:
         entry = entry.strip()
-        channels = []
+        channels = list()
         if entry.isdigit():
             index = int(entry)
             if index < 0 or index >= len(options):
