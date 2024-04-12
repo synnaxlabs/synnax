@@ -291,7 +291,7 @@ func (i *Iterator) sliceDomain(ctx context.Context) (telem.Offset, telem.Size, e
 func (i *Iterator) approximateStart(ctx context.Context) (startApprox index.DistanceApproximation, err error) {
 	if i.internal.TimeRange().Start.Before(i.view.Start) {
 		target := i.internal.TimeRange().Start.Range(i.view.Start)
-		startApprox, err = i.idx.Distance(ctx, target, true, true)
+		startApprox, err = i.idx.Distance(ctx, target, true)
 	}
 	return
 }
@@ -304,7 +304,7 @@ func (i *Iterator) approximateEnd(ctx context.Context) (endApprox index.Distance
 	endApprox = index.Exactly(i.Channel.DataType.Density().SampleCount(telem.Size(i.internal.Len())))
 	if i.internal.TimeRange().End.After(i.view.End) {
 		target := i.internal.TimeRange().Start.Range(i.view.End)
-		endApprox, err = i.idx.Distance(ctx, target, true, true)
+		endApprox, err = i.idx.Distance(ctx, target, true)
 	}
 	return
 }

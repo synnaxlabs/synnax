@@ -68,7 +68,7 @@ func (db *DB) Delete(ctx context.Context, tr telem.TimeRange) error {
 		approxDist, err := db.index().Distance(ctx, telem.TimeRange{
 			Start: i.TimeRange().Start,
 			End:   tr.Start,
-		}, false, false)
+		}, false)
 		if err != nil {
 			return err
 		}
@@ -88,7 +88,7 @@ func (db *DB) Delete(ctx context.Context, tr telem.TimeRange) error {
 		approxDist, err := db.index().Distance(ctx, telem.TimeRange{
 			Start: i.TimeRange().Start,
 			End:   tr.End,
-		}, false, false)
+		}, false)
 		if err != nil {
 			return errors2.CombineErrors(i.Close(), err)
 		}
