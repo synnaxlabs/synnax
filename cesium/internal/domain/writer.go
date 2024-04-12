@@ -11,9 +11,9 @@ package domain
 
 import (
 	"context"
-	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"

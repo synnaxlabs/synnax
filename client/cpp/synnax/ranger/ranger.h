@@ -9,23 +9,15 @@
 
 #pragma once
 
-/// std.
 #include <string>
 #include <vector>
 #include <memory>
-
-/// freighter
-#include "freighter/freighter.h"
-
-/// api protos
+#include "freighter/cpp/freighter/freighter.h"
 #include "google/protobuf/empty.pb.h"
-#include "v1/ranger.pb.h"
-
-/// grpc
-#include <grpcpp/grpcpp.h>
+#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/ranger.pb.h"
 
 /// internal
-#include "synnax/telem/telem.h"
+#include "client/cpp/synnax/telem/telem.h"
 
 
 typedef std::string Key;
@@ -33,54 +25,53 @@ typedef std::string Key;
 using namespace synnax;
 
 namespace synnax {
-
 /// @brief type alias for the transport used to retrieve ranges.
-typedef freighter::UnaryClient <
-api::v1::RangeRetrieveResponse,
-api::v1::RangeRetrieveRequest
+typedef freighter::UnaryClient<
+    api::v1::RangeRetrieveRequest,
+    api::v1::RangeRetrieveResponse
 > RangeRetrieveClient;
 
 /// @brief type alias for the transport used to create ranges.
-typedef freighter::UnaryClient <
-api::v1::RangeCreateResponse,
-api::v1::RangeCreateRequest
+typedef freighter::UnaryClient<
+    api::v1::RangeCreateRequest,
+    api::v1::RangeCreateResponse
 > RangeCreateClient;
 
 
 /// @brief type alias for the transport used to get range-scoped key-values.
-typedef freighter::UnaryClient <
-api::v1::RangeKVGetResponse,
-api::v1::RangeKVGetRequest
+typedef freighter::UnaryClient<
+    api::v1::RangeKVGetRequest,
+    api::v1::RangeKVGetResponse
 > RangeKVGetClient;
 
 /// @brief type alias for the transport used to set range-scoped key-values.
-typedef freighter::UnaryClient <
-google::protobuf::Empty,
-api::v1::RangeKVSetRequest
+typedef freighter::UnaryClient<
+    api::v1::RangeKVSetRequest,
+    google::protobuf::Empty
 > RangeKVSetClient;
 
 /// @brief type alias for the transport used to delete range-scoped key-values.
-typedef freighter::UnaryClient <
-google::protobuf::Empty,
-api::v1::RangeKVDeleteRequest
+typedef freighter::UnaryClient<
+    api::v1::RangeKVDeleteRequest,
+    google::protobuf::Empty
 > RangeKVDeleteClient;
 
 /// @brief type alias for the transport used to set the active range.
-typedef freighter::UnaryClient <
-google::protobuf::Empty,
-api::v1::RangeSetActiveRequest
+typedef freighter::UnaryClient<
+    api::v1::RangeSetActiveRequest,
+    google::protobuf::Empty
 > RangeSetActiveClient;
 
 /// @brief type alias for the transport used to retrieve the active range.
-typedef freighter::UnaryClient <
-api::v1::RangeRetrieveActiveResponse,
-google::protobuf::Empty
+typedef freighter::UnaryClient<
+    google::protobuf::Empty,
+    api::v1::RangeRetrieveActiveResponse
 > RangeRetrieveActiveClient;
 
 /// @brief type alias for the transport used to clear the active range.
-typedef freighter::UnaryClient <
-google::protobuf::Empty,
-google::protobuf::Empty
+typedef freighter::UnaryClient<
+    google::protobuf::Empty,
+    google::protobuf::Empty
 > RangeClearActiveClient;
 
 /// @brief a range-scoped key-value store for storing meta-data and configuration
@@ -91,14 +82,16 @@ private:
     std::shared_ptr<RangeKVGetClient> kv_get_client;
     std::shared_ptr<RangeKVSetClient> kv_set_client;
     std::shared_ptr<RangeKVDeleteClient> kv_delete_client;
+
 public:
     RangeKV(
-            std::string range_key,
-            std::shared_ptr<RangeKVGetClient> kv_get_client,
-            std::shared_ptr<RangeKVSetClient> kv_set_client,
-            std::shared_ptr<RangeKVDeleteClient> kv_delete_client
+        std::string range_key,
+        std::shared_ptr<RangeKVGetClient> kv_get_client,
+        std::shared_ptr<RangeKVSetClient> kv_set_client,
+        std::shared_ptr<RangeKVDeleteClient> kv_delete_client
     ) : range_key(range_key), kv_get_client(kv_get_client),
-        kv_set_client(kv_set_client), kv_delete_client(kv_delete_client) {}
+        kv_set_client(kv_set_client), kv_delete_client(kv_delete_client) {
+    }
 
 
     /// @brief gets the value of the given key.
@@ -106,7 +99,8 @@ public:
     /// @returns a pair containing the value and an error where ok() is false if the
     /// value could not be retrieved. Use err.message() to get the error message
     /// or err.type to get the error type.
-    [[nodiscard]] std::pair<std::string, freighter::Error> get(const std::string &key) const;
+    [[nodiscard]] std::pair<std::string, freighter::Error> get(
+        const std::string &key) const;
 
     /// @brief sets the value of the given key.
     /// @param key - the key to set the value of.
@@ -114,7 +108,8 @@ public:
     /// @returns an error where ok() is false if the value could not be set.
     /// Use err.message() to get the error message or err.type to get the error type.
     /// @note this will overwrite any existing value for the given key.
-    [[nodiscard]] freighter::Error set(const std::string &key, const std::string &value) const;
+    [[nodiscard]] freighter::Error set(const std::string &key,
+                                       const std::string &value) const;
 
     /// @brief deletes the value of the given key.
     /// @param key - the key to delete the value of.
@@ -159,26 +154,25 @@ private:
 
 /// @brief a client for performing operations on the ranges in a Synnax cluster.
 class RangeClient {
-
 public:
     RangeClient(
-            std::unique_ptr<RangeRetrieveClient> retrieve_client,
-            std::unique_ptr<RangeCreateClient> create_client,
-            std::shared_ptr<RangeKVGetClient> kv_get_client,
-            std::shared_ptr<RangeKVSetClient> kv_set_client,
-            std::shared_ptr<RangeKVDeleteClient> kv_delete_client,
-            std::unique_ptr<RangeSetActiveClient> set_active_client,
-            std::unique_ptr<RangeRetrieveActiveClient> retrieve_active_client,
-            std::unique_ptr<RangeClearActiveClient> clear_active_client
-    ) :
-            retrieve_client(std::move(retrieve_client)),
-            create_client(std::move(create_client)),
-            kv_get_client(kv_get_client),
-            kv_set_client(kv_set_client),
-            kv_delete_client(kv_delete_client),
-            set_active_client(std::move(set_active_client)),
-            retrieve_active_client(std::move(retrieve_active_client)),
-            clear_active_client(std::move(clear_active_client)) {}
+        std::unique_ptr<RangeRetrieveClient> retrieve_client,
+        std::unique_ptr<RangeCreateClient> create_client,
+        std::shared_ptr<RangeKVGetClient> kv_get_client,
+        std::shared_ptr<RangeKVSetClient> kv_set_client,
+        std::shared_ptr<RangeKVDeleteClient> kv_delete_client,
+        std::unique_ptr<RangeSetActiveClient> set_active_client,
+        std::unique_ptr<RangeRetrieveActiveClient> retrieve_active_client,
+        std::unique_ptr<RangeClearActiveClient> clear_active_client
+    ) : retrieve_client(std::move(retrieve_client)),
+        create_client(std::move(create_client)),
+        kv_get_client(kv_get_client),
+        kv_set_client(kv_set_client),
+        kv_delete_client(kv_delete_client),
+        set_active_client(std::move(set_active_client)),
+        retrieve_active_client(std::move(retrieve_active_client)),
+        clear_active_client(std::move(clear_active_client)) {
+    }
 
     /// @brief retrieves the currently active range in the cluster.
     /// @returns a pair containing the currently active range and an error. error.ok()
@@ -237,7 +231,8 @@ public:
     /// @returns a pair containing the created range and an error where ok() is false
     /// if the range could not be created. Use err.message() to get the error
     /// message or err.type to get the error type.
-    [[nodiscard]] std::pair<Range, freighter::Error> create(std::string name, synnax::TimeRange time_range) const;
+    [[nodiscard]] std::pair<Range, freighter::Error> create(
+        std::string name, synnax::TimeRange time_range) const;
 
     /// @brief sets the range with the given key as the active range in the cluster.
     /// @param key - the key of the range to set as active.
@@ -275,8 +270,7 @@ private:
     std::unique_ptr<RangeClearActiveClient> clear_active_client;
 
     /// @brief retrieves multiple ranges.
-    std::pair<std::vector<Range>, freighter::Error> retrieveMany(api::v1::RangeRetrieveRequest &req) const;
-
+    std::pair<std::vector<Range>, freighter::Error> retrieveMany(
+        api::v1::RangeRetrieveRequest &req) const;
 };
-
 }

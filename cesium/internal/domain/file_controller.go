@@ -11,7 +11,7 @@ package domain
 
 import (
 	"context"
-	"github.com/synnaxlabs/x/errutil"
+	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 	"io"
 	"os"
@@ -218,7 +218,7 @@ func (fc *fileController) gcWriters() (bool, error) {
 func (fc *fileController) close() error {
 	fc.writers.Lock()
 	defer fc.writers.Unlock()
-	c := errutil.NewCatch(errutil.WithAggregation())
+	c := errors.NewCatcher(errors.WithAggregation())
 	for _, w := range fc.writers.open {
 		c.Exec(w.TrackedWriteCloser.Close)
 	}

@@ -14,6 +14,7 @@ package device
 import (
 	"github.com/synnaxlabs/synnax/pkg/hardware/rack"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/validate"
 )
 
 type Device struct {
@@ -43,3 +44,12 @@ func (d Device) GorpKey() string { return d.Key }
 
 // SetOptions implements gorp.Entry.
 func (d Device) SetOptions() []interface{} { return nil }
+
+// Validate validates the device for creation.
+func (d Device) Validate() error {
+	v := validate.New("hardware.device")
+	validate.NonZero(v, "rack", d.Rack)
+	validate.NotEmptyString(v, "location", d.Location)
+	validate.NotEmptyString(v, "name", d.Name)
+	return v.Error()
+}

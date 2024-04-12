@@ -1,3 +1,12 @@
+// Copyright 2024 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 //
 // Created by Synnax on 2/18/2024.
 //
@@ -91,8 +100,8 @@ bool niTaskFactory::validChannelConfig(const json &config, json &config_err){
         config_err = "Property: stream_rate - not found in config";
         return false;
     }
-    if (config.find("device") == config.end()){
-        config_err = "Property: device - not found in config";
+    if (config.find("hardware") == config.end()){
+        config_err = "Property: hardware - not found in config";
         return false;
     }
     return true;
@@ -163,7 +172,7 @@ std::unique_ptr <NiAnalogReaderTask> niTaskFactory::createAnalogReaderTask(TaskH
 
 
     // Concatenate analog_reader  with device name
-    std::string devName = config["device"];
+    std::string devName = config["hardware"];
     std::string writerName = devName + "_analog_reader"; //TODO:  Is this the right convention?
 
     //create writer config
@@ -223,7 +232,7 @@ std::unique_ptr <NiDigitalReaderTask> niTaskFactory::createDigitalReaderTask(Tas
 
 
     // Concatenate analog_reader  with device name
-    std::string devName = config["device"];
+    std::string devName = config["hardware"];
     std::string writerName = devName + "_digital_reader"; //TODO:  Is this the right convention?
 
     //create writer config
@@ -297,7 +306,7 @@ std::unique_ptr <NiDigitalWriterTask> niTaskFactory::createDigitalWriterTask(Tas
     // TODO: assert that ack_idx is found
 
     // concatenate digital_writer with device name
-    std::string devName = config["device"];
+    std::string devName = config["hardware"];
     std::string writerName = devName + "_digital_writer"; //TODO:  Is this the right convention?
 
     // create a writer config to writer ack channels

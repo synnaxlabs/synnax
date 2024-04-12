@@ -46,7 +46,7 @@ export interface SingleProps<K extends Key, E extends Keyed<K>>
     Omit<UseSelectSingleProps<K, E>, "data" | "allowMultiple">,
     Omit<CoreList.ListProps<K, E>, "children">,
     Pick<Input.TextProps, "variant" | "disabled"> {
-  tagKey?: keyof E | ((e: E) => string | number);
+  entryRenderKey?: keyof E | ((e: E) => string | number);
   columns?: Array<CoreList.ColumnSpec<K, E>>;
   inputProps?: Omit<Input.TextProps, "onChange">;
   searcher?: AsyncTermSearcher<string, K, E>;
@@ -64,7 +64,7 @@ export interface SingleProps<K extends Key, E extends Keyed<K>>
  * @param props.data - The data to be used to populate the select options.
  * @param props.columns - The columns to be used to render the select options in the
  * dropdown. See the {@link ListColumn} type for more details on available options.
- * @param props.tagKey - The option field rendered when selected. Defaults to "key".
+ * @param props.entryRenderKey - The option field rendered when selected. Defaults to "key".
  * @param props.location - Whether to render the dropdown above or below the select
  * component. Defaults to "below".
  * @param props.onChange - The callback to be invoked when the selected value changes.
@@ -73,7 +73,7 @@ export interface SingleProps<K extends Key, E extends Keyed<K>>
 export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   onChange,
   value,
-  tagKey = "key",
+  entryRenderKey = "key",
   columns = [],
   data,
   emptyContent,
@@ -139,7 +139,7 @@ export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
             onChange={onChange}
             onFocus={open}
             selected={selected}
-            tagKey={tagKey}
+            entryRenderKey={entryRenderKey}
             visible={visible}
             allowNone={allowNone}
             className={className}
@@ -153,7 +153,7 @@ export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
 
 export interface SelectInputProps<K extends Key, E extends Keyed<K>>
   extends Omit<Input.TextProps, "value" | "onFocus"> {
-  tagKey: keyof E | ((e: E) => string | number);
+  entryRenderKey: keyof E | ((e: E) => string | number);
   selected: E | null;
   visible: boolean;
   debounceSearch?: number;
@@ -162,7 +162,7 @@ export interface SelectInputProps<K extends Key, E extends Keyed<K>>
 }
 
 const SingleInput = <K extends Key, E extends Keyed<K>>({
-  tagKey,
+  entryRenderKey,
   selected,
   visible,
   onChange,
@@ -188,10 +188,13 @@ const SingleInput = <K extends Key, E extends Keyed<K>>({
     if (visible) return;
     if (primitiveIsZero(selected?.key)) return setInternalValue("");
     if (selected == null) return;
-    if (typeof tagKey === "function")
-      return setInternalValue(tagKey(selected).toString());
-    else return setInternalValue((selected?.[tagKey] as string | number).toString());
-  }, [selected, visible, tagKey]);
+    if (typeof entryRenderKey === "function")
+      return setInternalValue(entryRenderKey(selected).toString());
+    else
+      return setInternalValue(
+        (selected?.[entryRenderKey] as string | number).toString(),
+      );
+  }, [selected, visible, entryRenderKey]);
 
   const handleChange = (v: string): void => {
     onChange(v);

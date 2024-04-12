@@ -10,9 +10,9 @@
 package plumber
 
 import (
-	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/x/address"
 	cfs "github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
 	"go/types"
 )

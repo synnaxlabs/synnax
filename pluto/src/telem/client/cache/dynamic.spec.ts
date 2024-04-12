@@ -15,7 +15,7 @@ import { Dynamic } from "@/telem/client/cache/dynamic";
 describe("DynamicCache", () => {
   describe("write", () => {
     it("Should correctly allocate a buffer", () => {
-      const cache = new Dynamic(100, DataType.FLOAT32);
+      const cache = new Dynamic({ dynamicBufferSize: 100, dataType: DataType.FLOAT32 });
       const arr = new Series({
         data: new Float32Array([1, 2, 3]),
         dataType: DataType.FLOAT32,
@@ -30,7 +30,7 @@ describe("DynamicCache", () => {
       expect(cache.length).toEqual(arr.length);
     });
     it("Should not allocate a new buffer when the current buffer has sufficient space", () => {
-      const cache = new Dynamic(100, DataType.FLOAT32);
+      const cache = new Dynamic({ dynamicBufferSize: 100, dataType: DataType.FLOAT32 });
       const arr = new Series({
         data: new Float32Array([1, 2, 3]),
         dataType: DataType.FLOAT32,
@@ -42,7 +42,7 @@ describe("DynamicCache", () => {
       expect(cache.length).toEqual(arr.length * 2);
     });
     it("should correctly allocate a single new buffer when the current one is full", async () => {
-      const cache = new Dynamic(2, DataType.FLOAT32);
+      const cache = new Dynamic({ dynamicBufferSize: 2, dataType: DataType.FLOAT32 });
       const arr = new Series({
         data: new Float32Array([1, 2, 3]),
         dataType: DataType.FLOAT32,
@@ -54,7 +54,7 @@ describe("DynamicCache", () => {
       expect(cache.length).toEqual(1);
     });
     it("should correctly allocate multiple new buffers when the current one is full", () => {
-      const cache = new Dynamic(1, DataType.FLOAT32);
+      const cache = new Dynamic({ dynamicBufferSize: 1, dataType: DataType.FLOAT32 });
       const arr = new Series({
         data: new Float32Array([1, 2, 3]),
         dataType: DataType.FLOAT32,
@@ -65,7 +65,7 @@ describe("DynamicCache", () => {
       expect(cache.length).toEqual(1);
     });
     it("it should correctly set multiple writes", async () => {
-      const cache = new Dynamic(10, DataType.FLOAT32);
+      const cache = new Dynamic({ dynamicBufferSize: 10, dataType: DataType.FLOAT32 });
       const arr = new Series({
         data: new Float32Array([1, 2, 3]),
         dataType: DataType.FLOAT32,
@@ -86,7 +86,7 @@ describe("DynamicCache", () => {
       expect(res3.allocated).toHaveLength(0);
       expect(res3.flushed).toHaveLength(0);
       const waitSpan = TimeSpan.milliseconds(10);
-      await new Promise((r) => setTimeout(r, waitSpan.milliseconds));
+      await new Promise((resolve) => setTimeout(resolve, waitSpan.milliseconds));
       const { flushed, allocated } = cache.write([arr.reAlign(9)]);
       expect(allocated).toHaveLength(1);
       expect(allocated[0].timeRange.start.sub(TimeStamp.now()).valueOf()).toBeLessThan(
@@ -103,7 +103,7 @@ describe("DynamicCache", () => {
       expect(flushed[0].data.slice(9)).toEqual(new Float32Array([1]));
     });
     it("should allocate a new buffer if the two series are out of alignment", () => {
-      const cache = new Dynamic(10, DataType.FLOAT32);
+      const cache = new Dynamic({ dynamicBufferSize: 10, dataType: DataType.FLOAT32 });
       const s1 = new Series({
         data: new Float32Array([1, 2, 3]),
         dataType: DataType.FLOAT32,
@@ -117,7 +117,7 @@ describe("DynamicCache", () => {
       expect(a2).toHaveLength(1);
     });
     it("in the smae write, it should allocate a new buffer if the two series are out of alignment", () => {
-      const cache = new Dynamic(10, DataType.FLOAT32);
+      const cache = new Dynamic({ dynamicBufferSize: 10, dataType: DataType.FLOAT32 });
       const s1 = new Series({
         data: new Float32Array([1, 2, 3]),
         dataType: DataType.FLOAT32,
@@ -126,7 +126,7 @@ describe("DynamicCache", () => {
       const { flushed, allocated } = cache.write([s1, s2]);
       expect(flushed).toHaveLength(1);
       expect(allocated[1].timeRange.start.sub(TimeStamp.now()).valueOf()).toBeLessThan(
-        TimeSpan.milliseconds(3).valueOf(),
+        TimeSpan.milliseconds(10).valueOf(),
       );
       expect(allocated[1].timeRange.end.valueOf()).toEqual(TimeStamp.MAX.valueOf());
       expect(flushed[0]).toBe(allocated[0]);

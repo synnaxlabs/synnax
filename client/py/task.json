@@ -4,662 +4,651 @@
     "device": "Dev1",
     "channels": [
         {
-            "key": "oR-W6avHzV3Y9DHLW7tJv",
+            "key": "SIIJtY4Q3nBAGYnkGv4aK",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 0,
-            "channel": 65702,
+            "channel": 1048580,
             "name": "pxi_ai_idx"
         },
         {
-            "key": "Sr104HcaJKfltv5K1fr5p",
+            "key": "WgEdfttwEvjNp_FyeDjYp",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 1,
-            "channel": 65621,
+            "channel": 1048581,
             "name": "pxi_ai_1"
         },
         {
-            "key": "0hGAfhW8hNSuRosuN2VeL",
+            "key": "81yqbB8gSy-v6iCCJDf0X",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 2,
-            "channel": 65622,
-            "name": "pxi_ai_2",
-            "scale": {
-                "type": "linear",
-                "one": {
-                    "x": 0.5,
-                    "y": 0
-                },
-                "two": {
-                    "x": 4.5,
-                    "y": 500
-                }
-            }
+            "channel": 1048582,
+            "name": "pxi_ai_2"
         },
         {
-            "key": "tKkKRLpTOU11NCKilC6yO",
+            "key": "tAxTcBB1762fBKBRZ7fod",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 3,
-            "channel": 65623,
+            "channel": 1048583,
             "name": "pxi_ai_3"
         },
         {
-            "key": "hTzJQjtbfVROHpvGCfgIo",
+            "key": "18Cm6WVHhTDcXCUL570SC",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 4,
-            "channel": 65624,
+            "channel": 1048584,
             "name": "pxi_ai_4"
         },
         {
-            "key": "ZkaOuIZmxaPGlgMmZKPwa",
+            "key": "nUgl_8Y4sOZAI9-tVqxwN",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 5,
-            "channel": 65625,
+            "channel": 1048585,
             "name": "pxi_ai_5"
         },
         {
-            "key": "cLamA0J43DH0qQyUAMzSd",
+            "key": "5d3V9HQuru_Lqt8nL52PC",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 6,
-            "channel": 65626,
+            "channel": 1048586,
             "name": "pxi_ai_6"
         },
         {
-            "key": "YUr01Oz3ORpAoysRJVll3",
+            "key": "JAx76ifdTWrjOuBYH00Qp",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 7,
-            "channel": 65627,
+            "channel": 1048587,
             "name": "pxi_ai_7"
         },
         {
-            "key": "_zwEC46Iz570EwChwZ2xJ",
+            "key": "FsnLal1U2tckF4MgFxQjq",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 8,
-            "channel": 65628,
+            "channel": 1048588,
             "name": "pxi_ai_8"
         },
         {
-            "key": "dPvpRpFseSFC3Zj8MLYhG",
+            "key": "1UAhHKxXU-ONnccmL1JyP",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 9,
-            "channel": 65629,
+            "channel": 1048589,
             "name": "pxi_ai_9"
         },
         {
-            "key": "IDBGE26FaqIGBK82sX5xV",
+            "key": "p2F6cTpficQfSF3Ypv0jl",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 10,
-            "channel": 65630,
+            "channel": 1048590,
             "name": "pxi_ai_10"
         },
         {
-            "key": "HuaPqxoXQWycNzUJbT5w1",
+            "key": "akv1m6L_paefUr12EdkRE",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 11,
-            "channel": 65631,
+            "channel": 1048591,
             "name": "pxi_ai_11"
         },
         {
-            "key": "pmHRlD-G011pTenHxuuZe",
+            "key": "_T28QBzEhKeURnuYyvwbn",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 12,
-            "channel": 65632,
+            "channel": 1048592,
             "name": "pxi_ai_12"
         },
         {
-            "key": "MgETBvTTn8EMpa9nnExYJ",
+            "key": "-0S5PS__X6L7e_UeGCnPy",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 13,
-            "channel": 65633,
+            "channel": 1048593,
             "name": "pxi_ai_13"
         },
         {
-            "key": "nZpciMbRfmQheoAeAMp_n",
+            "key": "lfyNqEIfEqbGlEfRU_WvP",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 14,
-            "channel": 65634,
+            "channel": 1048594,
             "name": "pxi_ai_14"
         },
         {
-            "key": "Jb-2qlgP3TWR90A2SNnlC",
+            "key": "3Sg_PPyf361w2dnWgiTKv",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 15,
-            "channel": 65635,
+            "channel": 1048595,
             "name": "pxi_ai_15"
         },
         {
-            "key": "JClUH7_tFagkla4eh3egF",
+            "key": "LOPmeO8cmQf8K4MQMbGmw",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 16,
-            "channel": 65636,
+            "channel": 1048596,
             "name": "pxi_ai_16"
         },
         {
-            "key": "Ya2quUDh4S5rLvJZs4-X6",
+            "key": "onbqLd8wjwFuw0u3brpka",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 17,
-            "channel": 65637,
+            "channel": 1048597,
             "name": "pxi_ai_17"
         },
         {
-            "key": "CQa4jBClYXqg9CGB5u7s6",
+            "key": "PpP9A4dqmkKpHXc2BvQCd",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 18,
-            "channel": 65638,
+            "channel": 1048598,
             "name": "pxi_ai_18"
         },
         {
-            "key": "XnHHMv4Ec_cAoPQ0TQIxj",
+            "key": "7ZP4Kigf3jZmjYeD--B7A",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 19,
-            "channel": 65639,
+            "channel": 1048599,
             "name": "pxi_ai_19"
         },
         {
-            "key": "oSo8XGsEiwYs6F9ZSr5f4",
+            "key": "W5p5MkfLhZ3uZD173wIbg",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 20,
-            "channel": 65640,
+            "channel": 1048600,
             "name": "pxi_ai_20"
         },
         {
-            "key": "cJXqVBOlPtjrdKKhnHMk5",
+            "key": "vasjz1y5G_fexiiX9Kbwo",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 21,
-            "channel": 65641,
+            "channel": 1048601,
             "name": "pxi_ai_21"
         },
         {
-            "key": "Ym3cbWCC0gbxDR1kYajZK",
+            "key": "6pQKGEKInXrIwAavzkOh5",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 22,
-            "channel": 65642,
+            "channel": 1048602,
             "name": "pxi_ai_22"
         },
         {
-            "key": "q5kOto7uxqor27tFROAxe",
+            "key": "9ZsOp52TWgbbhBnu2oXfL",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 23,
-            "channel": 65643,
+            "channel": 1048603,
             "name": "pxi_ai_23"
         },
         {
-            "key": "uxbFnan-VSkWRKsaVxoi_",
+            "key": "bTNt8wEtxem4CUimre6r7",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 24,
-            "channel": 65644,
+            "channel": 1048604,
             "name": "pxi_ai_24"
         },
         {
-            "key": "2FZ2zjwd2izT849Hp2Xax",
+            "key": "3l9eisa3hESxCqT48XUBX",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 25,
-            "channel": 65645,
+            "channel": 1048605,
             "name": "pxi_ai_25"
         },
         {
-            "key": "-q7C7D70wuGyjsjzY9I4Y",
+            "key": "T3gplvY-tRBUZBypu2A45",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 26,
-            "channel": 65646,
+            "channel": 1048606,
             "name": "pxi_ai_26"
         },
         {
-            "key": "4BGgJStetTUqI9AWoDSV2",
+            "key": "7czjTWJW0fNa9CdPLeMc4",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 27,
-            "channel": 65647,
+            "channel": 1048607,
             "name": "pxi_ai_27"
         },
         {
-            "key": "tMuTec09FRiH_SLcuG04f",
+            "key": "sQZ4_g7iklHc44o3Y6V8X",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 28,
-            "channel": 65648,
+            "channel": 1048608,
             "name": "pxi_ai_28"
         },
         {
-            "key": "jdSxJmgygHxpj_6NzkKpG",
+            "key": "Df2j5bxhyB7gErM2jt5Ef",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 29,
-            "channel": 65649,
+            "channel": 1048609,
             "name": "pxi_ai_29"
         },
         {
-            "key": "6XrVjPmqvbU3pMQkCvo30",
+            "key": "LQuBbEPe4b7fkGDPKbLHa",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 30,
-            "channel": 65650,
+            "channel": 1048610,
             "name": "pxi_ai_30"
         },
         {
-            "key": "o3e-Z669saKfKPUijt3HJ",
+            "key": "G8GnR1L8fM4Im6iMnf6FJ",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 31,
-            "channel": 65651,
+            "channel": 1048611,
             "name": "pxi_ai_31"
         },
         {
-            "key": "KH5wjFpX5zVXBz1uF0heo",
+            "key": "jo87k4X7xvMRGPN7IODVu",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 32,
-            "channel": 65652,
+            "channel": 1048612,
             "name": "pxi_ai_32"
         },
         {
-            "key": "GQ4MEximWIgL6E1sBNuaX",
+            "key": "Ob5OYB_wIgIrLSZMnjc38",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 33,
-            "channel": 65653,
+            "channel": 1048613,
             "name": "pxi_ai_33"
         },
         {
-            "key": "tWBgisxXL_ClUOlSl0Nnt",
+            "key": "2ENs7exDhFrVeG3KYzhA2",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 34,
-            "channel": 65654,
+            "channel": 1048614,
             "name": "pxi_ai_34"
         },
         {
-            "key": "43bJYU3VPcdXqahpWWqmT",
+            "key": "VGSSjLEEIlrnZ94eiXhLx",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 35,
-            "channel": 65655,
+            "channel": 1048615,
             "name": "pxi_ai_35"
         },
         {
-            "key": "Qix4Yb70fSVmEd7s-VNQr",
+            "key": "chHTvb-fYmMO4tzfn3Szt",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 36,
-            "channel": 65656,
+            "channel": 1048616,
             "name": "pxi_ai_36"
         },
         {
-            "key": "9RmzHTICPoDzHSYkEUxZG",
+            "key": "pl8vHQg1lR9JA0m48fnGs",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 37,
-            "channel": 65657,
+            "channel": 1048617,
             "name": "pxi_ai_37"
         },
         {
-            "key": "xxEsgye1TkgxhOQ90yz7p",
+            "key": "zSbEnz0KR9_MynKRIb6a1",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 38,
-            "channel": 65658,
+            "channel": 1048618,
             "name": "pxi_ai_38"
         },
         {
-            "key": "1vlwtyibrZx1YIgq6sET3",
+            "key": "bWZMeWCWRA_YcC7MyQNdn",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 39,
-            "channel": 65659,
+            "channel": 1048619,
             "name": "pxi_ai_39"
         },
         {
-            "key": "BLlhLWqNfrFdQU8tv5HLo",
+            "key": "KkKSuNraNYoGGU6w8uwp3",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 40,
-            "channel": 65660,
+            "channel": 1048620,
             "name": "pxi_ai_40"
         },
         {
-            "key": "LpOrsBakhLeY2-3Hipzfm",
+            "key": "mhPovJLq7TCfN3ef89ysk",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 41,
-            "channel": 65661,
+            "channel": 1048621,
             "name": "pxi_ai_41"
         },
         {
-            "key": "TBhyHh3h6ecE6f0x9u3q8",
+            "key": "Yz9XeTpaNyU6JvoNesq_1",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 42,
-            "channel": 65662,
+            "channel": 1048622,
             "name": "pxi_ai_42"
         },
         {
-            "key": "Pg5197wzA6vZiGq--zBwn",
+            "key": "uuRcgeKAc5NK0LMCIpeA8",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 43,
-            "channel": 65663,
+            "channel": 1048623,
             "name": "pxi_ai_43"
         },
         {
-            "key": "D30l2rJwCbLWWvow8mNtJ",
+            "key": "HhxBjEQ-AMm0VdXvBsses",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 44,
-            "channel": 65664,
+            "channel": 1048624,
             "name": "pxi_ai_44"
         },
         {
-            "key": "R3XZ6gj0kIm5wrEPam1vK",
+            "key": "8WKn9IyOcsxDqup8DZaLa",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 45,
-            "channel": 65665,
+            "channel": 1048625,
             "name": "pxi_ai_45"
         },
         {
-            "key": "iI_14WHum-e4FtI8YerGA",
+            "key": "CLgZ-W1gSl84JpofWLBMe",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 46,
-            "channel": 65666,
+            "channel": 1048626,
             "name": "pxi_ai_46"
         },
         {
-            "key": "h5ZYj00eCqbZ2qBJLmdwO",
+            "key": "O6kdD8xgzpRSe0CpnrFn_",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 47,
-            "channel": 65667,
+            "channel": 1048627,
             "name": "pxi_ai_47"
         },
         {
-            "key": "nPDZy02s9F8qfu7Z0oAEb",
+            "key": "NAHC-sHSPqWvtfmmsWi9I",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 48,
-            "channel": 65668,
+            "channel": 1048628,
             "name": "pxi_ai_48"
         },
         {
-            "key": "rHGtJIAUbVrbc4DQ16h_P",
+            "key": "86MeN6Te84nwyo_6Yjupb",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 49,
-            "channel": 65669,
+            "channel": 1048629,
             "name": "pxi_ai_49"
         },
         {
-            "key": "2oqaseTcXwU2hguU6WFox",
+            "key": "p8ZF_93CTXtlXPAGlG72T",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 50,
-            "channel": 65670,
+            "channel": 1048630,
             "name": "pxi_ai_50"
         },
         {
-            "key": "6jzyhi2UijQVPahuWVoV2",
+            "key": "xiUvt8xFgA3lfV_D3QfEy",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 51,
-            "channel": 65671,
+            "channel": 1048631,
             "name": "pxi_ai_51"
         },
         {
-            "key": "8H8hD9kXAKr3kp3-JnUnj",
+            "key": "VyLqu_1Psrzg5KCBxaPjH",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 52,
-            "channel": 65672,
+            "channel": 1048632,
             "name": "pxi_ai_52"
         },
         {
-            "key": "SFbAQGGup14hYHVZBGx9B",
+            "key": "xVPokdOtNL0ihegPHJ-vI",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 53,
-            "channel": 65673,
+            "channel": 1048633,
             "name": "pxi_ai_53"
         },
         {
-            "key": "49ArgewAT9HPLbeuHB1VY",
+            "key": "OeP592FStiS95m9FpHQrA",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 54,
-            "channel": 65674,
+            "channel": 1048634,
             "name": "pxi_ai_54"
         },
         {
-            "key": "j-9rw9yyBk2jE5h6ITwyh",
+            "key": "DiHX1-QJfTVEWwmdeG1Li",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 55,
-            "channel": 65675,
+            "channel": 1048635,
             "name": "pxi_ai_55"
         },
         {
-            "key": "mVhJDHNgLwBd0se4weamB",
+            "key": "hkUWzjOFD0kM2cEeXpA7D",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 56,
-            "channel": 65676,
+            "channel": 1048636,
             "name": "pxi_ai_56"
         },
         {
-            "key": "KMPEUWC6nroy6n6BNltiF",
+            "key": "jjHYZ0L_p6jOkMwnClUAb",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 57,
-            "channel": 65677,
+            "channel": 1048637,
             "name": "pxi_ai_57"
         },
         {
-            "key": "ifWjem3kfb_WIjHRCbjQb",
+            "key": "fiL4k9DlcIPKA0Yp8jjNs",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 58,
-            "channel": 65678,
+            "channel": 1048638,
             "name": "pxi_ai_58"
         },
         {
-            "key": "bLh0v9pHkvvE6EOG2Mg5L",
+            "key": "mfqtDPJKYcZNaCIf1BYkP",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 59,
-            "channel": 65679,
+            "channel": 1048639,
             "name": "pxi_ai_59"
         },
         {
-            "key": "op-pZDrwIVOoWj54ggMiZ",
+            "key": "cXZaBJW2luPRgLwRiQJdv",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 60,
-            "channel": 65680,
+            "channel": 1048640,
             "name": "pxi_ai_60"
         },
         {
-            "key": "zYOpFSgFzASUFBRtdK1Gl",
+            "key": "V30-xcB8_4FfOFj9p_jbI",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 61,
-            "channel": 65681,
+            "channel": 1048641,
             "name": "pxi_ai_61"
         },
         {
-            "key": "FUWmUeGI_juTual3A7cHV",
+            "key": "NJGtjuzPTLMQL-YVfbGh3",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 62,
-            "channel": 65682,
+            "channel": 1048642,
             "name": "pxi_ai_62"
         },
         {
-            "key": "dqv6yyKZGUnXcBHdjtF_Z",
+            "key": "Rl1_HYG3sA_gOfAQ_vvRU",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 63,
-            "channel": 65683,
+            "channel": 1048643,
             "name": "pxi_ai_63"
         },
         {
-            "key": "xzye96owQLuxUf82jD4Gp",
+            "key": "fACg88lIgNA8zHi877YyX",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 64,
-            "channel": 65684,
+            "channel": 1048644,
             "name": "pxi_ai_64"
         },
         {
-            "key": "i5X4FKNoHxcgShjOplYTJ",
+            "key": "5TpxR7qebnEG53TmyFdXu",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 65,
-            "channel": 65685,
+            "channel": 1048645,
             "name": "pxi_ai_65"
         },
         {
-            "key": "6OOHPzaZhUReP61lCYIa7",
+            "key": "F38_9vM1PSZt9oJLvwuDT",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 66,
-            "channel": 65686,
+            "channel": 1048646,
             "name": "pxi_ai_66"
         },
         {
-            "key": "LScX5JkdgUVw7bnBd62V5",
+            "key": "sAC0Un01MFTNExsTR5bWA",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 67,
-            "channel": 65687,
+            "channel": 1048647,
             "name": "pxi_ai_67"
         },
         {
-            "key": "lhZGhQ0tAz-EOrNY5DXJi",
+            "key": "zFRkT_YHhN9Xp8kY4wAMn",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 68,
-            "channel": 65688,
+            "channel": 1048648,
             "name": "pxi_ai_68"
         },
         {
-            "key": "wvKgKHPt98R0o4cU4OJ_V",
+            "key": "y-0dFwFJQfwFWBKmnw7fv",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 69,
-            "channel": 65689,
+            "channel": 1048649,
             "name": "pxi_ai_69"
         },
         {
-            "key": "8YVeff4gGmdcTY-nCCwkY",
+            "key": "RAQnVoZ78TwMLv2MxJFcV",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 70,
-            "channel": 65690,
+            "channel": 1048650,
             "name": "pxi_ai_70"
         },
         {
-            "key": "vDEuk1SBMsR4ilNSGCmdg",
+            "key": "k5WZB5aCouu8HmE6-YSdU",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 71,
-            "channel": 65691,
+            "channel": 1048651,
             "name": "pxi_ai_71"
         },
         {
-            "key": "sWdl5fu1oYvu8e0L5O0ym",
+            "key": "x3zge-aARTX63v_oaE4y3",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 72,
-            "channel": 65692,
+            "channel": 1048652,
             "name": "pxi_ai_72"
         },
         {
-            "key": "h5BjXVb5vhoIM9BGBRfMZ",
+            "key": "bXuVMlbOaVLhjX-dXW-iZ",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 73,
-            "channel": 65693,
+            "channel": 1048653,
             "name": "pxi_ai_73"
         },
         {
-            "key": "x_wSPPO9cB9A70tQPCfib",
+            "key": "IWdPKNX-vkD7yY8nNmxmr",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 74,
-            "channel": 65694,
+            "channel": 1048654,
             "name": "pxi_ai_74"
         },
         {
-            "key": "FygOGGHXwqQOs0LQ4MhwI",
+            "key": "e8E7pBXQow69Ar3I6Z-60",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 75,
-            "channel": 65695,
+            "channel": 1048655,
             "name": "pxi_ai_75"
         },
         {
-            "key": "vGKovRTFnDzrIxO7oG_qG",
+            "key": "pmRT8RyM193RhO-CxxQ7G",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 76,
-            "channel": 65696,
+            "channel": 1048656,
             "name": "pxi_ai_76"
         },
         {
-            "key": "r3Ol3lFLjxXMrc7B4tutM",
+            "key": "y8tTJtYiXR_B2QF17IFgs",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 77,
-            "channel": 65697,
+            "channel": 1048657,
             "name": "pxi_ai_77"
         },
         {
-            "key": "COR2FatT-hj0K5-CM0I39",
+            "key": "RrHDEaVGHh8mqxoS_zyZY",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 78,
-            "channel": 65698,
+            "channel": 1048658,
             "name": "pxi_ai_78"
         },
         {
-            "key": "6wqRAb2qYlwO6r2Cltjzo",
+            "key": "P6E8nM026pO8i8fh6pWU3",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 79,
-            "channel": 65699,
+            "channel": 1048659,
             "name": "pxi_ai_79"
         },
         {
-            "key": "leV85oT4mo6fWoDSQ0OBF",
+            "key": "5x31gYzqtDYlcZacaBFEq",
             "type": "analogVoltageInput",
             "enabled": true,
             "port": 80,
-            "channel": 65700,
+            "channel": 1048660,
             "name": "pxi_ai_80"
         }
     ]

@@ -11,25 +11,13 @@ package api
 
 import (
 	"context"
-	roacherrors "github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/x/query"
 	"go/types"
 
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/synnax/pkg/api/errors"
 	"github.com/synnaxlabs/synnax/pkg/ranger"
 	"github.com/synnaxlabs/x/gorp"
 )
-
-// Copyright 2023 Synnax Labs, Inc.
-//
-// Use of this software is governed by the Business Source License included in the file
-// licenses/BSL.txt.
-//
-// As of the Change Date specified in that file, in accordance with the Business Source
-// License, use of this software will be governed by the Apache License, Version 2.0,
-// included in the file licenses/APL.txt.
 
 type Range = ranger.Range
 
@@ -137,9 +125,7 @@ func (s *RangeService) KVGet(ctx context.Context, req RangeKVGetRequest) (res Ra
 	pairs := make(map[string]string, len(req.Keys))
 	for _, key := range req.Keys {
 		value, err := r.Get(ctx, []byte(key))
-		if roacherrors.Is(err, query.NotFound) {
-			return res, errors.Query(roacherrors.Wrapf(query.NotFound, "key %s not found on range", key))
-		} else if err != nil {
+		if err != nil {
 			return res, err
 		}
 		pairs[key] = string(value)
@@ -293,7 +279,7 @@ type RangeSetActiveRequest struct {
 
 func (s *RangeService) SetActive(ctx context.Context, req RangeSetActiveRequest) (res types.Nil, _ error) {
 	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
-		return errors.Auto(s.internal.SetActiveRange(ctx, req.Range, tx))
+		return s.internal.SetActiveRange(ctx, req.Range, tx)
 	})
 }
 

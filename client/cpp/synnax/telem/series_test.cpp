@@ -7,14 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// GTest.
 #include <include/gtest/gtest.h>
-
-/// Local headers.
-#include "synnax/telem/series.h"
-#include "telempb/telem.pb.h"
-
-/// std.
+#include "client/cpp/synnax/synnax.h"
+#include "x/go/telem/x/go/telem/telem.pb.h"
 #include <iostream>
 
 ///// @brief create basic int series.
@@ -24,6 +19,7 @@ TEST(TestSeries, testConstruction)
     synnax::Series s{vals};
     ASSERT_EQ(s.data_type, synnax::UINT8);
     auto v = s.uint8();
+    ASSERT_EQ(v.size(), vals.size());
     for (size_t i = 0; i < vals.size(); i++) {
         ASSERT_EQ(v[i], vals[i]);
     }
@@ -33,7 +29,7 @@ TEST(TestSeries, testConstruction)
 TEST(TestSeries, testString)
 {
     std::vector<std::string> vals = {"hello", "world"};
-    synnax::Series s{vals};
+    Series s{vals};
     ASSERT_EQ(s.data_type, synnax::STRING);
     auto v = s.string();
     for (size_t i = 0; i < vals.size(); i++) {
@@ -45,10 +41,10 @@ TEST(TestSeries, testString)
 TEST(TestSeries, testProto)
 {
     std::vector<uint8_t> vals = {1, 2, 3, 4, 5};
-    synnax::Series s{vals};
-    auto s2 = new telempb::Series();
+    Series s{vals};
+    auto s2 = new telem::PBSeries();
     s.to_proto(s2);
-    synnax::Series s3{*s2};
+    Series s3{*s2};
     auto v = s3.uint8();
     for (size_t i = 0; i < vals.size(); i++) {
         ASSERT_EQ(v[i], vals[i]);

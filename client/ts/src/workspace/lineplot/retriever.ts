@@ -7,15 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type UnaryClient } from "@synnaxlabs/freighter";
-import { toArray } from "@synnaxlabs/x";
+import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
+import { toArray } from "@synnaxlabs/x/toArray";
 import { z } from "zod";
 
-import {
-  type LinePlot,
-  type Params,
-  linePlotRemoteZ,
-} from "@/workspace/lineplot/payload";
+import { type LinePlot, type Params, linePlotZ } from "@/workspace/lineplot/payload";
 
 const reqZ = z.object({
   keys: z.string().array(),
@@ -24,7 +20,7 @@ const reqZ = z.object({
 type Request = z.infer<typeof reqZ>;
 
 const resZ = z.object({
-  linePlots: linePlotRemoteZ.array(),
+  linePlots: linePlotZ.array(),
 });
 
 export class Retriever {
@@ -37,13 +33,8 @@ export class Retriever {
 
   async retrieve(params: Params): Promise<LinePlot[]> {
     const normalized = toArray(params);
-    const res = await this.execute({ keys: normalized });
-    return res;
-  }
-
-  private async execute(request: Request): Promise<LinePlot[]> {
-    const [res, err] = await this.client.send(this.ENDPOINT, request, resZ);
-    if (err != null) throw err;
-    return res.linePlots;
+    return (
+      await sendRequired(this.client, this.ENDPOINT, { keys: normalized }, reqZ, resZ)
+    ).linePlots;
   }
 }

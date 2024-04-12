@@ -13,15 +13,18 @@ package rack
 
 import (
 	"context"
+	"fmt"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"io"
@@ -92,6 +95,19 @@ func OpenService(ctx context.Context, configs ...Config) (s *Service, err error)
 
 	s = &Service{Config: cfg, group: g, localKeyCounter: c}
 	cfg.Ontology.RegisterService(s)
+
+	driverRack := fmt.Sprintf("sy_node_%s_rack", cfg.HostProvider.HostKey())
+	var existingRack Rack
+	if err := s.NewRetrieve().WhereNames(driverRack).Entry(&existingRack).Exec(ctx, cfg.DB); err != nil {
+		if errors.Is(err, query.NotFound) {
+			w := s.NewWriter(nil)
+			if err := w.Create(ctx, &Rack{Name: driverRack}); err != nil {
+				return nil, err
+			}
+		} else {
+			return nil, err
+		}
+	}
 
 	if cfg.Signals == nil {
 		return

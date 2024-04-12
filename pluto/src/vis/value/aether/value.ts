@@ -79,7 +79,7 @@ export class Value
   async render({ viewportScale = scale.XY.IDENTITY }): Promise<void> {
     const { render: renderCtx, telem, theme } = this.internal;
     const b = box.construct(this.state.box);
-    if (box.isZero(b)) return;
+    if (box.areaIsZero(b)) return;
     const canvas = renderCtx.upper2d.applyScale(viewportScale);
     const value = await telem.value();
     canvas.font = this.state.font;

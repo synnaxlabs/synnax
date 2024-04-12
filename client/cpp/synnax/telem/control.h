@@ -10,22 +10,22 @@
 #pragma once
 
 /// std
-//#include <numbers>
+// #include <cstdint>
 #include <string>
 
 /// api protos
-#include "v1/framer.pb.h"
+#include "x/go/control/x/go/control/control.pb.h"
 
 namespace synnax {
-typedef uint8_t Authority;
+typedef std::uint8_t Authority;
 
 const Authority ABSOLUTTE = 255;
 
-struct Subject {
+struct ControlSubject {
     std::string name;
     std::string key;
 
-    void to_proto(api::v1::ControlSubject *s) const {
+    void to_proto(control::ControlSubject *s) const {
         s->set_name(name);
         s->set_key(key);
     }

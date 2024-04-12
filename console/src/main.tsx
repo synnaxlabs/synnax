@@ -18,10 +18,7 @@ import { useDispatch } from "react-redux";
 import { Cluster } from "@/cluster";
 import { Docs } from "@/docs";
 import { ErrorOverlay } from "@/error/Overlay";
-import { HardwareConfigure } from "@/hardware/configure";
-import { NewDevice } from "@/hardware/device/new";
-import { HardwareStatus } from "@/hardware/status";
-import { Label } from "@/label";
+import { OPCUA } from "@/hardware/opcua";
 import { Layout } from "@/layout";
 import { LayoutMain } from "@/layouts/LayoutMain";
 import { Mosaic } from "@/layouts/mosaic";
@@ -50,12 +47,10 @@ const layoutRenderers: Record<string, Layout.Renderer> = {
   vis: Vis.LayoutSelector,
   mosaic: Mosaic.Window,
   createWorkspace: Workspace.Create,
-  [Label.manageWindowLayout.type]: Label.Manage,
   [LinePlot.LAYOUT_TYPE]: LinePlot.LinePlot,
   [PID.LAYOUT_TYPE]: PID.PID,
-  [HardwareStatus.LAYOUT_TYPE]: HardwareStatus.Status,
-  [HardwareConfigure.LAYOUT_TYPE]: HardwareConfigure.Configure,
-  [NewDevice.LAYOUT_TYPE]: NewDevice.Configure,
+  [OPCUA.connectWindowLayout.type]: OPCUA.Configure,
+  [OPCUA.readTaskLayout.type]: OPCUA.ReadTask,
 };
 
 const PREVENT_DEFAULT_TRIGGERS: Triggers.Trigger[] = [
@@ -100,7 +95,7 @@ const MainUnderContext = (): ReactElement => {
         triggers={triggersProps}
         haul={{ useState: useHaulState }}
         alamos={{
-          level: "debug",
+          level: "info",
           include: ["aether.telem"],
         }}
       >
@@ -114,15 +109,15 @@ const MainUnderContext = (): ReactElement => {
 
 const Main = (): ReactElement | null => {
   return (
-    <ErrorOverlay>
-      <Provider store={store}>
+    <Provider store={store}>
+      <ErrorOverlay>
         <Layout.RendererProvider value={layoutRenderers}>
           <Ontology.ServicesProvider services={SERVICES}>
             <MainUnderContext />
           </Ontology.ServicesProvider>
         </Layout.RendererProvider>
-      </Provider>
-    </ErrorOverlay>
+      </ErrorOverlay>
+    </Provider>
   );
 };
 

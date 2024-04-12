@@ -15,19 +15,33 @@ export interface Observable<T> {
   onChange: (handler: Handler<T>) => Destructor;
 }
 
-export class Observer<T> implements Observable<T> {
-  private readonly handlers: Map<Handler<T>, null>;
+export interface ObservableAsyncCloseable<T> extends Observable<T> {
+  close: () => Promise<void>;
+}
 
-  constructor(handlers?: Map<Handler<T>, null>) {
+export type Transform<I, O> = (value: I) => [O, boolean];
+
+export class Observer<I, O = I> implements Observable<O> {
+  private readonly handlers: Map<Handler<O>, null>;
+  private readonly transform?: Transform<I, O>;
+
+  constructor(transform?: Transform<I, O>, handlers?: Map<Handler<O>, null>) {
+    this.transform = transform;
     this.handlers = handlers ?? new Map();
   }
 
-  onChange(handler: Handler<T>): Destructor {
+  onChange(handler: Handler<O>): Destructor {
     this.handlers.set(handler, null);
     return () => this.handlers.delete(handler);
   }
 
-  notify(value: T): void {
-    this.handlers.forEach((_, handler) => handler(value));
+  notify(value: I): void {
+    let newValue: O = value as unknown as O;
+    if (this.transform != null) {
+      let changed: boolean;
+      [newValue, changed] = this.transform(value);
+      if (!changed) return;
+    }
+    this.handlers.forEach((_, handler) => handler(newValue));
   }
 }

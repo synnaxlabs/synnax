@@ -2,26 +2,32 @@ cc_library(
     name = "ranger",
     srcs = ["ranger.cpp"],
     hdrs = ["ranger.h"],
+    copts = select({
+        "@platforms//os:windows": ["/std:c++20"],
+        "//conditions:default": [],
+    }),
     visibility = ["//visibility:public"],
     deps = [
-        "//synnax/errors",
-        "//synnax/telem",
-        "@Freighter//freighter/gRPC",
-        "@api_protos//v1:api_grpc",
+        "//client/cpp/synnax/errors",
+        "//client/cpp/synnax/telem",
+        "//freighter/cpp/freighter/fgrpc",
+        "//synnax/pkg/api/grpc/v1:api_grpc",
+        "//x/go/telem:telem_grpc",
         "@com_github_grpc_grpc//:grpc++",
-        "@telem_protos//telempb:telem_grpc",
     ],
-    copts = ["/std:c++17"]
 )
 
 cc_test(
     name = "ranger_test",
     srcs = ["ranger_test.cpp"],
+    copts = select({
+        "@platforms//os:windows": ["/std:c++20"],
+        "//conditions:default": [],
+    }),
     deps = [
-        "//synnax",
-        "//synnax/errors",
-        "//synnax/testutil",
+        "//client/cpp/synnax",
+        "//client/cpp/synnax/errors",
+        "//client/cpp/synnax/testutil",
         "@com_google_googletest//:gtest_main",
     ],
-    copts = ["/std:c++17"]
 )

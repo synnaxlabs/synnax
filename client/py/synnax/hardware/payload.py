@@ -30,3 +30,4 @@ class Device(Payload):
     make: str = ""
     model: str = ""
     properties: str = ""
+

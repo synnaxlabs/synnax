@@ -12,8 +12,11 @@ package confluence
 import (
 	"context"
 	"fmt"
+	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/timeout"
+	"time"
 )
 
 // Delta is an abstract Segment that reads values from an input Stream
@@ -63,6 +66,7 @@ type DynamicDeltaMultiplier[V Value] struct {
 	Source         AbstractMultiSource[V]
 	connections    chan []Inlet[V]
 	disconnections chan []Inlet[V]
+	timeout        time.Duration
 }
 
 func NewDynamicDeltaMultiplier[V Value](connectionBuffers ...int) *DynamicDeltaMultiplier[V] {
@@ -70,6 +74,7 @@ func NewDynamicDeltaMultiplier[V Value](connectionBuffers ...int) *DynamicDeltaM
 	return &DynamicDeltaMultiplier[V]{
 		connections:    make(chan []Inlet[V], buf),
 		disconnections: make(chan []Inlet[V], buf),
+		timeout:        20 * time.Millisecond,
 	}
 }
 
@@ -84,7 +89,13 @@ func (d *DynamicDeltaMultiplier[V]) Disconnect(inlets ...Inlet[V]) {
 func (d *DynamicDeltaMultiplier[v]) Flow(ctx signal.Context, opts ...Option) {
 	o := NewOptions(opts)
 	ctx.Go(func(ctx context.Context) error {
-		defer d.disconnectAll()
+		timer := time.NewTimer(d.timeout)
+		defer func() {
+			if !timer.Stop() {
+				<-timer.C
+			}
+			d.disconnectAll()
+		}()
 		for {
 			select {
 			case <-ctx.Done():
@@ -97,8 +108,20 @@ func (d *DynamicDeltaMultiplier[v]) Flow(ctx signal.Context, opts ...Option) {
 				if !ok {
 					return nil
 				}
-				if err := d.Source.SendToEach(ctx, res); err != nil {
-					return err
+				if !timer.Stop() {
+					// If the timer had already fired, drain the channel.
+					select {
+					case <-timer.C:
+					default:
+					}
+				}
+				timer.Reset(d.timeout)
+				err := d.Source.SendToEachWithTimeout(ctx, res, timer.C)
+				if err != nil {
+					if !errors.Is(err, timeout.Timeout) {
+						return err
+					}
+					fmt.Println("delta - slow consumer")
 				}
 			}
 		}

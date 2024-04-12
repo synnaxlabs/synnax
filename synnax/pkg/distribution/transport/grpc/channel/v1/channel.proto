@@ -4,6 +4,8 @@ package channel.v1;
 
 import "google/protobuf/empty.proto";
 
+option go_package = "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/channel/v1";
+
 service ChannelService {
   rpc Exec(CreateMessage) returns (CreateMessage) {}
 }

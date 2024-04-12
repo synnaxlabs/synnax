@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
-	framerv1 "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/gen/go/framer/v1"
+	framerv1 "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/framer/v1"
 	"google.golang.org/grpc"
 )
 
@@ -90,11 +90,12 @@ func New(pool *fgrpc.Pool) Transport {
 					return framerv1.NewWriterServiceClient(conn).Write(ctx)
 				},
 			},
-			server: &writerServer{writerServerCore: writerServerCore{
-				RequestTranslator:  writerRequestTranslator{},
-				ResponseTranslator: writerResponseTranslator{},
-				ServiceDesc:        &framerv1.WriterService_ServiceDesc,
-			}},
+			server: &writerServer{
+				writerServerCore: writerServerCore{
+					RequestTranslator:  writerRequestTranslator{},
+					ResponseTranslator: writerResponseTranslator{},
+					ServiceDesc:        &framerv1.WriterService_ServiceDesc,
+				}},
 		},
 		iterator: iteratorTransport{
 			server: &iteratorServer{iteratorServerCore: iteratorServerCore{
@@ -138,13 +139,13 @@ func New(pool *fgrpc.Pool) Transport {
 type writerServer struct{ writerServerCore }
 
 func (w *writerServer) Write(server framerv1.WriterService_WriteServer) error {
-	return w.Handler(server.Context(), w.Server(server))
+	return w.Handler(server.Context(), server)
 }
 
 type iteratorServer struct{ iteratorServerCore }
 
 func (t *iteratorServer) Iterate(server framerv1.IteratorService_IterateServer) error {
-	return t.Handler(server.Context(), t.Server(server))
+	return t.Handler(server.Context(), server)
 }
 
 // Transport is a grpc backed implementation of the framer.Transport interface.
@@ -200,7 +201,7 @@ func (t iteratorTransport) Server() iterator.TransportServer { return t.server }
 type relayServer struct{ relayServerCore }
 
 func (t *relayServer) Relay(server framerv1.RelayService_RelayServer) error {
-	return t.Handler(server.Context(), t.Server(server))
+	return t.Handler(server.Context(), server)
 }
 
 type relayTransport struct {

@@ -11,8 +11,8 @@ package ontology
 
 import (
 	"context"
-	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 )
 

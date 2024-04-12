@@ -4,9 +4,26 @@ cc_library(
         "url.cpp",
     ],
     hdrs = ["freighter.h"],
+    copts = select({
+        "@platforms//os:windows": ["/std:c++20"],
+        "//conditions:default": [],
+    }),
     visibility = ["//visibility:public"],
     deps = [
-        "@ferrors_protos//ferrors/v1:ferrors_grpc",
+        "//x/go/errors:errors_grpc",
     ],
-    copts = ["/std:c++17"]
+)
+
+cc_test(
+    name = "freighter_test",
+    size = "small",
+    srcs = ["freighter_test.cpp"],
+    copts = select({
+        "@platforms//os:windows": ["/std:c++20"],
+        "//conditions:default": [],
+    }),
+    deps = [
+        "//freighter/cpp/freighter",
+        "@com_google_googletest//:gtest_main",
+    ],
 )

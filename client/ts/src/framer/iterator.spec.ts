@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, Rate, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { DataType, Rate, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x/telem";
 import { describe, test, expect } from "vitest";
 
 import { type channel } from "@/channel";
@@ -28,7 +28,7 @@ const newChannel = async (): Promise<channel.Channel> => {
 describe("Iterator", () => {
   test("happy path", async () => {
     const ch = await newChannel();
-    const writer = await client.telem.newWriter({
+    const writer = await client.telem.openWriter({
       start: TimeStamp.SECOND,
       channels: ch.key,
     });
@@ -42,7 +42,7 @@ describe("Iterator", () => {
       await writer.close();
     }
 
-    const iter = await client.telem.newIterator(
+    const iter = await client.telem.openIterator(
       new TimeRange(TimeSpan.ZERO, TimeSpan.seconds(4)),
       [ch.key],
     );
@@ -52,7 +52,7 @@ describe("Iterator", () => {
       let c = 0;
       while (await iter.next(TimeSpan.seconds(1))) {
         c++;
-        expect(iter.value.get(ch.key)[0]).toHaveLength(25);
+        expect(iter.value.get(ch.key)).toHaveLength(25);
       }
       expect(c).toEqual(3);
     } finally {

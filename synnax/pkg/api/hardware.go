@@ -61,6 +61,7 @@ func (svc *HardwareService) CreateRack(ctx context.Context, req HardwareCreateRa
 
 type HardwareRetrieveRackRequest struct {
 	Keys   []rack.Key `json:"keys" msgpack:"keys"`
+	Names  []string   `json:"names" msgpack:"names"`
 	Search string     `json:"search" msgpack:"search"`
 	Limit  int        `json:"limit" msgpack:"limit"`
 	Offset int        `json:"offset" msgpack:"offset"`
@@ -74,12 +75,16 @@ func (svc *HardwareService) RetrieveRack(ctx context.Context, req HardwareRetrie
 	var (
 		hasSearch = len(req.Search) > 0
 		hasKeys   = len(req.Keys) > 0
+		hasNames  = len(req.Names) > 0
 		hasLimit  = req.Limit > 0
 		hasOffset = req.Offset > 0
 	)
 	q := svc.internal.Rack.NewRetrieve()
 	if hasKeys {
 		q = q.WhereKeys(req.Keys...)
+	}
+	if hasNames {
+		q = q.WhereNames(req.Names...)
 	}
 	if hasSearch {
 		q = q.Search(req.Search)
@@ -134,6 +139,7 @@ func (svc *HardwareService) CreateTask(ctx context.Context, req HardwareCreateTa
 type HardwareRetrieveTaskRequest struct {
 	Rack   rack.Key
 	Keys   []task.Key `json:"keys" msgpack:"keys"`
+	Names  []string   `json:"names" msgpack:"names"`
 	Search string     `json:"search" msgpack:"search"`
 	Limit  int        `json:"limit" msgpack:"limit"`
 	Offset int        `json:"offset" msgpack:"offset"`
@@ -147,10 +153,14 @@ func (svc *HardwareService) RetrieveTask(ctx context.Context, req HardwareRetrie
 	var (
 		hasSearch = len(req.Search) > 0
 		hasKeys   = len(req.Keys) > 0
+		hasNames  = len(req.Names) > 0
 		hasLimit  = req.Limit > 0
 		hasOffset = req.Offset > 0
 	)
 	q := svc.internal.Task.NewRetrieve()
+	if hasNames {
+		q = q.WhereNames(req.Names...)
+	}
 	if hasKeys {
 		q = q.WhereKeys(req.Keys...)
 	}
@@ -208,6 +218,8 @@ func (svc *HardwareService) CreateDevice(ctx context.Context, req HardwareCreate
 
 type HardwareRetrieveDeviceRequest struct {
 	Keys   []string `json:"keys" msgpack:"keys"`
+	Names  []string `json:"names" msgpack:"names"`
+	Makes  []string `json:"makes" msgpack:"makes"`
 	Search string   `json:"search" msgpack:"search"`
 	Limit  int      `json:"limit" msgpack:"limit"`
 	Offset int      `json:"offset" msgpack:"offset"`
@@ -221,6 +233,8 @@ func (svc *HardwareService) RetrieveDevice(ctx context.Context, req HardwareRetr
 	var (
 		hasSearch = len(req.Search) > 0
 		hasKeys   = len(req.Keys) > 0
+		hasNames  = len(req.Names) > 0
+		hasMakes  = len(req.Makes) > 0
 		hasLimit  = req.Limit > 0
 		hasOffset = req.Offset > 0
 	)
@@ -231,11 +245,17 @@ func (svc *HardwareService) RetrieveDevice(ctx context.Context, req HardwareRetr
 	if hasSearch {
 		q = q.Search(req.Search)
 	}
+	if hasNames {
+		q = q.WhereNames(req.Names...)
+	}
 	if hasLimit {
 		q = q.Limit(req.Limit)
 	}
 	if hasOffset {
 		q = q.Offset(req.Offset)
+	}
+	if hasMakes {
+		q = q.WhereMakes(req.Makes...)
 	}
 	return res, q.Entries(&res.Devices).Exec(ctx, nil)
 }

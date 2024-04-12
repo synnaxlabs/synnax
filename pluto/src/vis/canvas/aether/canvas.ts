@@ -12,7 +12,6 @@ import { box, runtime } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
-import { OS } from "@/os";
 import { Context } from "@/vis/line/aether/line";
 import { render } from "@/vis/render";
 
@@ -51,9 +50,9 @@ export class Canvas extends aether.Composite<typeof canvasStateZ> {
         );
       renderCtx = render.Context.create(
         this.ctx,
-        glCanvas,
-        lower2dCanvas,
-        upper2dCanvas,
+        glCanvas as OffscreenCanvas,
+        lower2dCanvas as OffscreenCanvas,
+        upper2dCanvas as OffscreenCanvas,
         os,
       );
       Context.create(this.ctx);

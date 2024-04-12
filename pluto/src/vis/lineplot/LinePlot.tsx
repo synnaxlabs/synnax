@@ -19,6 +19,7 @@ import {
   useEffect,
   useMemo,
   useRef,
+  useState,
 } from "react";
 
 import { location, type Destructor, deep, direction, box } from "@synnaxlabs/x";
@@ -27,7 +28,7 @@ import { type z } from "zod";
 import { Aether } from "@/aether";
 import { type Color } from "@/color";
 import { CSS } from "@/css";
-import { useEffectCompare, useCombinedStateAndRef } from "@/hooks";
+import { useEffectCompare } from "@/hooks";
 import { useMemoDeepEqualProps } from "@/memo";
 import { type Viewport } from "@/viewport";
 import { Canvas } from "@/vis/canvas";
@@ -118,7 +119,7 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
     hold,
     ...props
   }): ReactElement => {
-    const [lines, setLines, linesRef] = useCombinedStateAndRef<LineState>([]);
+    const [lines, setLines] = useState<LineState>([]);
 
     const aetherMemoProps = useMemoDeepEqualProps({ clearOverscan, hold });
 

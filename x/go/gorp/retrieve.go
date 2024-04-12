@@ -12,9 +12,11 @@ package gorp
 
 import (
 	"context"
-	"github.com/cockroachdb/errors"
+	"fmt"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/types"
 )
 
 // Retrieve is a query that retrieves Entries from the DB.
@@ -272,8 +274,11 @@ func filterRetrieve[K Key, E Entry[K]](
 	if entries.isMultiple {
 		return nil
 	}
-	//if entries.changes == 0 {
-	//	return errors.Wrapf(query.NotFound, "no entries found")
-	//}
+	if entries.changes == 0 {
+		return errors.Wrapf(
+			query.NotFound,
+			fmt.Sprintf("no %s found matching query", types.PluralName[E]()),
+		)
+	}
 	return nil
 }

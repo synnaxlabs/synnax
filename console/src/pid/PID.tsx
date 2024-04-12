@@ -140,6 +140,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
   const pid = useSelect(layoutKey);
 
   const dispatch = useSyncerDispatch<Layout.StoreState & StoreState, SyncPayload>(
+    // @ts-expect-error - typescript can't identify property keys set as constants.
     syncer,
     1000,
   );
@@ -204,7 +205,6 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
 
   const handleDrop = useCallback(
     ({ items, event }: Haul.OnDropProps): Haul.Item[] => {
-      console.log(items);
       const valid = Haul.filterByType(HAUL_TYPE, items);
       if (ref.current == null) return valid;
       const region = box.construct(ref.current);

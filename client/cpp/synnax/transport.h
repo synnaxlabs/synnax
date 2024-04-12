@@ -10,11 +10,11 @@
 #pragma once
 
 /// internal
-#include "synnax/framer/framer.h"
-#include "synnax/channel/channel.h"
-#include "synnax/ranger/ranger.h"
-#include "synnax/auth/auth.h"
-#include "synnax/device/device.h"
+#include "client/cpp/synnax/framer/framer.h"
+#include "client/cpp/synnax/channel/channel.h"
+#include "client/cpp/synnax/ranger/ranger.h"
+#include "client/cpp/synnax/auth/auth.h"
+#include "client/cpp/synnax/hardware/hardware.h"
 
 class Transport {
 public:
@@ -41,10 +41,13 @@ public:
     std::unique_ptr<RangeSetActiveClient> range_set_active;
     std::unique_ptr<RangeRetrieveActiveClient> range_retrieve_active;
     std::unique_ptr<RangeClearActiveClient> range_clear_active;
-    std::unique_ptr<DeviceCreateRackClient> rack_create_client;
-    std::unique_ptr<DeviceRetrieveRackClient> rack_retrieve;
-    std::unique_ptr<DeviceDeleteRackClient> rack_delete;
-    std::shared_ptr<DeviceCreateModuleClient> module_create;
-    std::shared_ptr<DeviceRetrieveModuleClient> module_retrieve;
-    std::shared_ptr<DeviceDeleteModuleClient> module_delete;
+    std::unique_ptr<HardwareCreateRackClient> rack_create_client;
+    std::unique_ptr<HardwareRetrieveRackClient> rack_retrieve;
+    std::unique_ptr<HardwareDeleteRackClient> rack_delete;
+    std::shared_ptr<HardwareCreateTaskClient> module_create;
+    std::shared_ptr<HardwareRetrieveTaskClient> module_retrieve;
+    std::shared_ptr<HardwareDeleteTaskClient> module_delete;
+    std::unique_ptr<HardwareCreateDeviceClient> device_create;
+    std::unique_ptr<HardwareRetrieveDeviceClient> device_retrieve;
+    std::unique_ptr<HardwareDeleteDeviceClient> device_delete;
 };

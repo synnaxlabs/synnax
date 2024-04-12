@@ -7,11 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// GTest.
 #include <include/gtest/gtest.h>
-
-/// Internal.
-#include "synnax/framer/framer.h"
+#include "client/cpp/synnax/framer/framer.h"
 
 /// @brief it should construct a frame with a pre-allocated size.
 TEST(FramerTests, testConstruction) {
@@ -30,6 +27,6 @@ TEST(FramerTests, toProto) {
     ASSERT_EQ(p->series_size(), 1);
     auto f2 = synnax::Frame(*p);
     ASSERT_EQ(f2.size(), 1);
-    ASSERT_EQ(f2.columns->at(0), 65537);
+    ASSERT_EQ(f2.channels->at(0), 65537);
     ASSERT_EQ(f2.series->at(0).float32()[0], 1);
 }

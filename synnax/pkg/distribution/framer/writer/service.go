@@ -20,7 +20,6 @@ package writer
 
 import (
 	"context"
-	"github.com/cockroachdb/errors"
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
@@ -34,6 +33,7 @@ import (
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -129,6 +129,7 @@ func (c Config) Validate() error {
 	validate.NotEmptySlice(v, "keys", c.Keys)
 	validate.NotEmptyString(v, "ControlSubject.Key", c.ControlSubject.Key)
 	v.Ternaryf(
+		"authorities",
 		len(c.Authorities) != 1 && len(c.Authorities) != len(c.Keys),
 		"authorities must be a single authority or a slice of authorities with the same length as keys",
 	)
@@ -272,7 +273,7 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 	plumber.SetSegment[Response, Response](
 		pipe,
 		synchronizerAddr,
-		newSynchronizer(len(cfg.Keys.UniqueNodeKeys()), v.signal),
+		newSynchronizer(len(cfg.Keys.UniqueLeaseholders()), v.signal),
 	)
 
 	switchTargets := make([]address.Address, 0, 3)

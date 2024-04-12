@@ -36,7 +36,7 @@ export const coreAxisStateZ = axis.axisStateZ
       })
       .or(z.boolean().optional().default(true)),
     autoBoundPadding: z.number().optional(),
-    autoBoundUpdateInterval: TimeSpan.z.optional().default(TimeSpan.seconds(1)),
+    autoBoundUpdateInterval: TimeSpan.z.optional().default(TimeSpan.seconds(2)),
     size: z.number().optional().default(0),
     label: z.string().optional().default(""),
     labelSize: z.number().optional().default(0),
@@ -60,8 +60,8 @@ export const withinSizeThreshold = (prev: number, next: number): boolean =>
 export const EMPTY_LINEAR_BOUNDS = bounds.DECIMAL;
 const now = TimeStamp.now();
 export const EMPTY_TIME_BOUNDS: bounds.Bounds = {
-  lower: now.valueOf(),
-  upper: now.add(TimeSpan.HOUR).valueOf(),
+  lower: Number(now.valueOf()),
+  upper: Number(now.add(TimeSpan.HOUR).valueOf()),
 };
 
 export const emptyBounds = (type: TickType): bounds.Bounds =>

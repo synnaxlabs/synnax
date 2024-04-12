@@ -2,12 +2,30 @@ cc_library(
     name = "auth",
     srcs = [],
     hdrs = ["auth.h"],
+    copts = select({
+        "@platforms//os:windows": ["/std:c++20"],
+        "//conditions:default": [],
+    }),
     visibility = ["//visibility:public"],
     deps = [
-        "@Freighter//freighter/gRPC",
-        "@api_protos//v1:api_grpc",
+        "//client/cpp/synnax/errors",
+        "//freighter/cpp/freighter/fgrpc",
+        "//synnax/pkg/api/grpc/v1:api_grpc",
         "@com_github_grpc_grpc//:grpc++",
-        "@telem_protos//telempb:telem_grpc",
     ],
-    copts = ["/std:c++17"]
+)
+
+cc_test(
+    name = "auth_test",
+    srcs = ["auth_test.cpp"],
+    copts = select({
+        "@platforms//os:windows": ["/std:c++20"],
+        "//conditions:default": [],
+    }),
+    deps = [
+        ":auth",
+        "//freighter/cpp/freighter/mock",
+        "@com_google_googletest//:gtest",
+        "@com_google_googletest//:gtest_main",
+    ],
 )

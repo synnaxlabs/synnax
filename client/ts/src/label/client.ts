@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { type AsyncTermSearcher } from "@synnaxlabs/x";
+import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 
 import { type framer } from "@/framer";
 import { type Key, type Label, labelZ } from "@/label/payload";
@@ -80,7 +80,7 @@ export class Client implements AsyncTermSearcher<string, Key, Label> {
   }
 
   async openChangeTracker(): Promise<signals.Observable<string, Label>> {
-    return await signals.Observable.open<string, Label>(
+    return await signals.openObservable<string, Label>(
       this.frameClient,
       LABEL_SET_NAME,
       LABEL_DELETE_NAME,

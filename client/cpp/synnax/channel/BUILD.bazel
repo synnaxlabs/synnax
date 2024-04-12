@@ -4,25 +4,31 @@ cc_library(
         "channel.cpp",
     ],
     hdrs = ["channel.h"],
+    copts = select({
+        "@platforms//os:windows": ["/std:c++20"],
+        "//conditions:default": [],
+    }),
     visibility = ["//visibility:public"],
     deps = [
-        "//synnax/errors",
-        "//synnax/telem",
-        "@Freighter//freighter/gRPC",
-        "@api_protos//v1:api_grpc",
+        "//client/cpp/synnax/errors",
+        "//client/cpp/synnax/telem",
+        "//freighter/cpp/freighter/fgrpc",
+        "//synnax/pkg/api/grpc/v1:api_grpc",
         "@com_github_grpc_grpc//:grpc++",
     ],
-    copts = ["/std:c++17"]
 )
 
 cc_test(
     name = "channel_test",
     srcs = ["channel_test.cpp"],
+    copts = select({
+        "@platforms//os:windows": ["/std:c++20"],
+        "//conditions:default": [],
+    }),
     deps = [
-        "//synnax",
-        "//synnax/testutil:testutil",
         ":channel",
+        "//client/cpp/synnax",
+        "//client/cpp/synnax/testutil",
         "@com_google_googletest//:gtest_main",
     ],
-    copts = ["/std:c++17"]
 )

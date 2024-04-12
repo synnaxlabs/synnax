@@ -32,9 +32,7 @@ type RouterConfig struct {
 var _ config.Config[RouterConfig] = RouterConfig{}
 
 // Validate implements config.Properties.
-func (r RouterConfig) Validate() error {
-	return nil
-}
+func (r RouterConfig) Validate() error { return nil }
 
 // Override implements config.Properties.
 func (r RouterConfig) Override(other RouterConfig) RouterConfig {
@@ -91,8 +89,9 @@ func (r *Router) register(
 	})
 }
 
-func StreamServer[RQ, RS freighter.Payload](r *Router, path string) freighter.StreamServer[RQ, RS] {
+func StreamServer[RQ, RS freighter.Payload](r *Router, internal bool, path string) freighter.StreamServer[RQ, RS] {
 	s := &streamServer[RQ, RS]{
+		internal:        internal,
 		Reporter:        streamReporter,
 		path:            path,
 		Instrumentation: r.Instrumentation,
@@ -101,8 +100,9 @@ func StreamServer[RQ, RS freighter.Payload](r *Router, path string) freighter.St
 	return s
 }
 
-func UnaryServer[RQ, RS freighter.Payload](r *Router, path string) freighter.UnaryServer[RQ, RS] {
+func UnaryServer[RQ, RS freighter.Payload](r *Router, internal bool, path string) freighter.UnaryServer[RQ, RS] {
 	us := &unaryServer[RQ, RS]{
+		internal: internal,
 		Reporter: unaryReporter,
 		path:     path,
 		requestParser: func(c *fiber.Ctx, ecd httputil.EncoderDecoder) (req RQ, _ error) {

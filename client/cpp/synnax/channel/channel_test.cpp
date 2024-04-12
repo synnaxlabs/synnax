@@ -7,23 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/// std
 #include <string>
 #include <random>
-
-/// GTest
 #include <include/gtest/gtest.h>
+#include "client/cpp/synnax/synnax.h"
+#include "client/cpp/synnax/errors/errors.h"
+#include "client/cpp/synnax/testutil/testutil.h"
 
-/// internal
-#include "synnax/synnax.h"
-#include "synnax/errors/errors.h"
-#include "synnax/testutil/testutil.h"
-
-std::mt19937 mt = random_generator(std::move("Channel Tests"));
+std::mt19937 gen_rand = random_generator(std::move("Channel Tests"));
 
 /// @brief it should create a rate based channel and assign it a non-zero key.
-TEST(TestChannel, testCreate)
-{
+TEST(TestChannel, testCreate) {
     auto client = new_test_client();
     auto [channel, err] = client.channels.create(
         "test",
@@ -36,8 +30,7 @@ TEST(TestChannel, testCreate)
 
 /// @brief it should return a validation error when an index channel has the
 /// wrong data type.
-TEST(TestChannel, testCreateValidation)
-{
+TEST(TestChannel, testCreateValidation) {
     auto client = new_test_client();
     auto [channel, err] = client.channels.create(
         "validation",
@@ -45,12 +38,11 @@ TEST(TestChannel, testCreateValidation)
         0,
         true);
     ASSERT_TRUE(err) << err.message();
-    ASSERT_EQ(err.type, synnax::VALIDATION_ERROR);
+    ASSERT_TRUE(err.matches(synnax::VALIDATION_ERROR));
 }
 
 /// @brief it should create an index based channel and assign it a non-zero key.
-TEST(TestChannel, testCreateIndex)
-{
+TEST(TestChannel, testCreateIndex) {
     auto client = new_test_client();
     auto [index, err] = client.channels.create(
         "test",
@@ -72,22 +64,21 @@ TEST(TestChannel, testCreateIndex)
 }
 
 /// @brief it should create many channels and assign them all non-zero keys.
-TEST(TestChannel, testCreateMany)
-{
-    auto client = new_test_client();
+TEST(TestChannel, testCreateMany) {
+    const auto client = new_test_client();
     auto channels = std::vector<synnax::Channel>{
         {"test1", synnax::FLOAT64, 2 * synnax::HZ},
         {"test2", synnax::FLOAT64, 4 * synnax::HZ},
-        {"test3", synnax::FLOAT64, 8 * synnax::HZ}};
+        {"test3", synnax::FLOAT64, 8 * synnax::HZ}
+    };
     ASSERT_TRUE(client.channels.create(channels).ok());
     ASSERT_EQ(channels.size(), 3);
-    for (auto &channel : channels)
-        ASSERT_FALSE(channel.key == 0);
+    for (const auto &ch: channels)
+        ASSERT_FALSE(ch.key == 0);
 }
 
 /// @brief it should retrieve a channel by key.
-TEST(TestChannel, testRetrieve)
-{
+TEST(TestChannel, testRetrieve) {
     auto client = new_test_client();
     auto [channel, err] = client.channels.create(
         "test",
@@ -106,19 +97,17 @@ TEST(TestChannel, testRetrieve)
 }
 
 /// @brief it should return a query error when the channel cannot be found.
-TEST(TestChannel, testRetrieveNotFound)
-{
+TEST(TestChannel, testRetrieveNotFound) {
     auto client = new_test_client();
     auto [retrieved, err] = client.channels.retrieve(22);
     ASSERT_TRUE(err) << err.message();
-    ASSERT_EQ(err.type, synnax::QUERY_ERROR);
+    ASSERT_TRUE(err.matches(synnax::QUERY_ERROR));
 }
 
 /// @brief it should correctly retrieve a channel by name.
-TEST(TestChannel, testRetrieveByName)
-{
+TEST(TestChannel, testRetrieveByName) {
     auto client = new_test_client();
-    auto rand_name = std::to_string(mt());
+    auto rand_name = std::to_string(gen_rand());
     auto [channel, err] = client.channels.create(
         rand_name,
         synnax::FLOAT64,
@@ -136,8 +125,7 @@ TEST(TestChannel, testRetrieveByName)
 }
 
 /// @brief it should return the correct error when a channel cannot be found by name.
-TEST(TestChannel, testRetrieveByNameNotFound)
-{
+TEST(TestChannel, testRetrieveByNameNotFound) {
     auto client = new_test_client();
     auto [retrieved, err] = client.channels.retrieve("my_definitely_not_found");
     ASSERT_TRUE(err) << err.message();
@@ -145,25 +133,22 @@ TEST(TestChannel, testRetrieveByNameNotFound)
 }
 
 /// @brief it should retrieve many channels by their key.
-TEST(TestChannel, testRetrieveMany)
-{
+TEST(TestChannel, testRetrieveMany) {
     auto client = new_test_client();
     auto channels = std::vector<synnax::Channel>{
         {"test1", synnax::FLOAT64, 5 * synnax::HZ},
         {"test2", synnax::FLOAT64, 10 * synnax::HZ},
-        {"test3", synnax::FLOAT64, 20 * synnax::HZ}};
+        {"test3", synnax::FLOAT64, 20 * synnax::HZ}
+    };
     ASSERT_TRUE(client.channels.create(channels).ok());
     auto [retrieved, exc] = client.channels.retrieve(
         std::vector<ChannelKey>{channels[0].key, channels[1].key, channels[2].key});
     ASSERT_FALSE(exc) << exc.message();
     ASSERT_EQ(channels.size(), retrieved.size());
-    for (auto &channel : channels)
-    {
+    for (auto &channel: channels) {
         auto found = false;
-        for (auto &r : retrieved)
-        {
-            if (r.key == channel.key)
-            {
+        for (auto &r: retrieved) {
+            if (r.key == channel.key) {
                 found = true;
                 ASSERT_EQ(channel.name, r.name);
                 ASSERT_EQ(channel.key, r.key);

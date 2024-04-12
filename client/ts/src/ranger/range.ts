@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Series, TimeRange } from "@synnaxlabs/x";
+import { type Series, TimeRange } from "@synnaxlabs/x/telem";
 
 import { type Key, type Params, type Name } from "@/channel/payload";
 import { type Retriever as ChannelRetriever } from "@/channel/retriever";

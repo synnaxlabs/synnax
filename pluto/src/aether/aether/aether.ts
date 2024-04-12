@@ -9,7 +9,12 @@
 
 import { alamos } from "@synnaxlabs/alamos";
 import { UnexpectedError, ValidationError } from "@synnaxlabs/client";
-import { deep, type Sender, type SenderHandler } from "@synnaxlabs/x";
+import {
+  deep,
+  type UnknownRecord,
+  type Sender,
+  type SenderHandler,
+} from "@synnaxlabs/x";
 import { Mutex } from "async-mutex";
 import { z } from "zod";
 
@@ -40,10 +45,10 @@ export interface Update {
    */
   type: string;
   /**
-   * The state to udpate on the component . This is only present if the variant is
+   * The state to update on the component . This is only present if the variant is
    * "state".
    */
-  state: any;
+  state: UnknownRecord;
   /**
    * instrumentation is used for logging and tracing.
    */
@@ -106,7 +111,7 @@ export class Context {
   }
 
   /**
-   * Proapgates the given state for the component with the given key to the main
+   * Propagates the given state for the component with the given key to the main
    * react tree.
    *
    * @param key - The key of the component to propagate the state for.
@@ -284,15 +289,15 @@ export class Leaf<S extends z.ZodTypeAny, IS extends {} = {}> implements Compone
    * AetherComposite.
    */
   async internalUpdate({ variant, path, ctx, state }: Update): Promise<void> {
+    if (this.deleted) return;
     this._ctx = ctx;
     if (variant === "state") {
       this.validatePath(path);
       const state_ = prettyParse(this._schema, state, `${this.type}:${this.key}`);
       if (this._state != null) {
-        this.instrumentation.L.debug("updating state", {
-          // To prevent unneccessary diffing when instrumentation is disabled
-          diff: () => deep.difference(this.state, state),
-        });
+        this.instrumentation.L.debug("updating state", () => ({
+          diff: deep.difference(this.state, state_),
+        }));
       } else {
         this.instrumentation.L.debug("setting initial state", { state });
       }

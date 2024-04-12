@@ -1,9 +1,0 @@
-cc_test(
-    name = "freighter_test",
-    size = "small",
-    srcs = ["test.cpp"],
-    deps = [
-        "//freighter",
-        "@com_google_googletest//:gtest_main",
-    ],
-)

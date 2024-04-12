@@ -58,6 +58,9 @@ func resolveChannelKey(
 	if key != 0 {
 		return key, nil
 	}
+	if name == "" {
+		return 0, nil
+	}
 	var ch channel.Channel
 	err := svc.NewRetrieve().WhereNames(name).Entry(&ch).Exec(ctx, nil)
 	return ch.Key(), err
@@ -83,16 +86,23 @@ func (s *Provider) Subscribe(
 	if err != nil {
 		return nil, err
 	}
-	cfg.SetChannelKey, err = resolveChannelKey(sCtx, cfg.SetChannelKey, cfg.SetChannelName, s.Channel)
+	setKey, err := resolveChannelKey(sCtx, cfg.SetChannelKey, cfg.SetChannelName, s.Channel)
 	if err != nil {
 		return nil, err
 	}
-	cfg.DeleteChannelKey, err = resolveChannelKey(sCtx, cfg.DeleteChannelKey, cfg.DeleteChannelName, s.Channel)
+	delKey, err := resolveChannelKey(sCtx, cfg.DeleteChannelKey, cfg.DeleteChannelName, s.Channel)
 	if err != nil {
 		return nil, err
+	}
+	keys := make([]channel.Key, 0, 2)
+	if setKey != 0 {
+		keys = append(keys, setKey)
+	}
+	if delKey != 0 {
+		keys = append(keys, delKey)
 	}
 	streamer, err := s.Framer.NewStreamer(sCtx, framer.StreamerConfig{
-		Keys:  []channel.Key{cfg.SetChannelKey, cfg.DeleteChannelKey},
+		Keys:  keys,
 		Start: telem.TimeStampMax,
 	})
 	if err != nil {

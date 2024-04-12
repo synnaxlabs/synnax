@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient, sendRequired } from "@synnaxlabs/freighter";
-import { isObject, toArray } from "@synnaxlabs/x";
+import { isObject } from "@synnaxlabs/x/identity";
+import { toArray } from "@synnaxlabs/x/toArray";
 import { z } from "zod";
 
 import { type Key, keyZ } from "@/ranger/payload";
@@ -58,6 +59,7 @@ export class KV {
     const [res, err] = await this.client.send(
       KV.GET_ENDPOINT,
       { range: this.rangeKey, keys: toArray(keys) },
+      getReqZ,
       getResZ,
     );
     if (err != null) throw err;
@@ -68,7 +70,7 @@ export class KV {
 
   async set(kv: Record<string, string>): Promise<void>;
 
-  async set(key: string | Record<string, string>, value?: string): Promise<void> {
+  async set(key: string | Record<string, string>, value: string = ""): Promise<void> {
     await sendRequired(
       this.client,
       KV.SET_ENDPOINT,
@@ -76,6 +78,7 @@ export class KV {
         range: this.rangeKey,
         pairs: isObject(key) ? key : { [key]: value },
       },
+      setReqZ,
       z.unknown(),
     );
   }
@@ -85,6 +88,7 @@ export class KV {
       this.client,
       KV.DELETE_ENDPOINT,
       { range: this.rangeKey, keys: toArray(key) },
+      deleteReqZ,
       z.unknown(),
     );
   }

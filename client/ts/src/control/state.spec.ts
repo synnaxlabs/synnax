@@ -19,6 +19,6 @@ describe("state", () => {
     const s = await control.StateTracker.open(client.telem);
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(s.states.size).toBeGreaterThan(0);
-    s.close();
+    await s.close();
   });
 });

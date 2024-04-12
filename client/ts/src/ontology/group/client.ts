@@ -9,11 +9,10 @@
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
 
-import { type ID } from "@/ontology/payload";
-
 import { Group } from "@/ontology/group/group";
 import { type Payload } from "@/ontology/group/payload";
 import { Writer } from "@/ontology/group/writer";
+import { type ID } from "@/ontology/payload";
 
 export class Client {
   private readonly creator: Writer;

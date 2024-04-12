@@ -17,14 +17,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/kv"
 )
 
 type leaseProxy struct {
 	ServiceConfig
 	router        proxy.BatchFactory[Channel]
-	leasedCounter *kv.AtomicInt64Counter
-	freeCounter   *kv.AtomicInt64Counter
+	leasedCounter *counter
+	freeCounter   *counter
 	group         group.Group
 }
 
@@ -33,7 +32,7 @@ const freeCounterSuffix = ".distribution.channel.counter.free"
 
 func newLeaseProxy(cfg ServiceConfig, g group.Group) (*leaseProxy, error) {
 	leasedCounterKey := []byte(cfg.HostResolver.HostKey().String() + leasedCounterSuffix)
-	c, err := kv.OpenCounter(context.TODO(), cfg.ClusterDB, leasedCounterKey)
+	c, err := openCounter(context.TODO(), cfg.ClusterDB, leasedCounterKey)
 	if err != nil {
 		return nil, err
 	}
@@ -45,11 +44,11 @@ func newLeaseProxy(cfg ServiceConfig, g group.Group) (*leaseProxy, error) {
 		group:         g,
 	}
 	if cfg.HostResolver.HostKey() == core.Bootstrapper {
-		//freeCounterKey := []byte(cfg.HostResolver.HostKey().String() + freeCounterSuffix)
-		//c, err := kv.OpenCounter(context.TODO(), cfg.ClusterDB, freeCounterKey)
-		//if err != nil {
-		//	return nil, err
-		//}
+		freeCounterKey := []byte(cfg.HostResolver.HostKey().String() + freeCounterSuffix)
+		c, err := openCounter(context.TODO(), cfg.ClusterDB, freeCounterKey)
+		if err != nil {
+			return nil, err
+		}
 		p.freeCounter = c
 	}
 	p.Transport.CreateServer().BindHandler(p.handle)
@@ -105,7 +104,7 @@ func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Chann
 	}
 	oChannels = append(oChannels, batch.Gateway...)
 	*_channels = oChannels
-	return nil
+	return lp.maybeSetResources(ctx, tx, oChannels)
 }
 
 func (lp *leaseProxy) createFreeVirtual(
@@ -131,15 +130,15 @@ func (lp *leaseProxy) maybeRetrieveExisting(
 	ctx context.Context,
 	tx gorp.Tx,
 	channels *[]Channel,
-	counter *kv.AtomicInt64Counter,
+	counter *counter,
 	retrieveIfNameExists bool,
 ) (toCreate []Channel, err error) {
 	// This is the value we would increment by if retrieveIfNameExists is false or
 	// if we don't find any names that already exist.
-	incCounterBy := uint16(len(*channels))
+	incCounterBy := LocalKey(len(*channels))
 
 	if retrieveIfNameExists {
-		names := NamesFromChannels(*channels)
+		names := Names(*channels)
 		if err = gorp.NewRetrieve[Key, Channel]().Where(func(c *Channel) bool {
 			v := lo.IndexOf(names, c.Name)
 			exists := v != -1
@@ -157,7 +156,7 @@ func (lp *leaseProxy) maybeRetrieveExisting(
 		}
 	}
 
-	v, err := counter.Add(int64(incCounterBy))
+	nextCounterValue, err := counter.add(incCounterBy)
 	if err != nil {
 		return
 	}
@@ -165,7 +164,7 @@ func (lp *leaseProxy) maybeRetrieveExisting(
 	toCreate = make([]Channel, 0, incCounterBy)
 	for i, ch := range *channels {
 		if ch.LocalKey == 0 {
-			ch.LocalKey = uint16(v) - incCounterBy + uint16(len(toCreate)) + 1
+			ch.LocalKey = nextCounterValue - incCounterBy + LocalKey(len(toCreate)) + 1
 			toCreate = append(toCreate, ch)
 		} else if ch.IsIndex {
 			ch.LocalIndex = ch.LocalKey
@@ -193,7 +192,7 @@ func (lp *leaseProxy) createGateway(
 	if err := gorp.NewCreate[Key, Channel]().Entries(&toCreate).Exec(ctx, tx); err != nil {
 		return err
 	}
-	return lp.maybeSetResources(ctx, tx, toCreate)
+	return nil
 }
 
 func (lp *leaseProxy) maybeSetResources(
@@ -201,27 +200,19 @@ func (lp *leaseProxy) maybeSetResources(
 	txn gorp.Tx,
 	channels []Channel,
 ) error {
-	if lp.Ontology == nil {
+	if lp.Ontology == nil || lp.Group == nil {
 		return nil
 	}
-	ids := lo.Map(channels, func(ch Channel, i int) ontology.ID {
+	ids := lo.Map(channels, func(ch Channel, _ int) ontology.ID {
 		return OntologyID(ch.Key())
 	})
 	w := lp.Ontology.NewWriter(txn)
 	if err := w.DefineManyResources(ctx, ids); err != nil {
 		return err
 	}
-	if err := w.DefineFromOneToManyRelationships(
-		ctx,
-		group.OntologyID(lp.group.Key),
-		ontology.ParentOf,
-		ids,
-	); err != nil {
-		return err
-	}
 	return w.DefineFromOneToManyRelationships(
 		ctx,
-		core.NodeOntologyID(lp.HostResolver.HostKey()),
+		group.OntologyID(lp.group.Key),
 		ontology.ParentOf,
 		ids,
 	)

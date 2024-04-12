@@ -22,13 +22,13 @@ export interface SelectMultipleRangesProps
 
 export const SelectMultipleRanges = (
   props: SelectMultipleRangesProps,
-): ReactElement => <Select.Multiple columns={listColumns} tagKey="name" {...props} />;
+): ReactElement => <Select.Multiple columns={listColumns} entryRenderKey="name" {...props} />;
 
 export interface SelectSingleRangeProps
   extends Omit<Select.SingleProps<string, Range>, "columns"> {}
 
 export const SelectRange = (props: SelectSingleRangeProps): ReactElement => (
-  <Select.Single columns={listColumns} {...props} tagKey="name" />
+  <Select.Single columns={listColumns} {...props} entryRenderKey="name" />
 );
 
 export interface SelectMultipleInputItemProps

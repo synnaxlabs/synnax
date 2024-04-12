@@ -77,7 +77,7 @@ jobs:
         working-directory: ./freighter/integration
 
   test-python:
-    needs: [build-integration-image]
+    needs: [ build-integration-image ]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
@@ -131,7 +131,7 @@ jobs:
           - 8080:8080
 
   test-typescript:
-    needs: [build-integration-image]
+    needs: [ build-integration-image ]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
@@ -184,3 +184,29 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
         ports:
           - 8080:8080
+
+  test-cpp:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Setup Bazel
+        uses: bazel-contrib/setup-bazel@0.8.1
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}
+          repository-cache: true
+
+      - name: Run Tests
+        run: bazel test //freighter/cpp/freighter:freighter_test
+        shell: bash
+#    services:
+#      integration:
+#        image: ghcr.io/synnaxlabs/freighter-go-integration:latest
+#        credentials:
+#          username: ${{ github.actor }}
+#          password: ${{ secrets.GITHUB_TOKEN }}
+#        ports:
+#          - 8080:8080
+

@@ -15,7 +15,7 @@ import (
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/gen/go/channel/v1"
+	channelv1 "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/channel/v1"
 	"google.golang.org/grpc"
 )
 
@@ -72,6 +72,7 @@ func New(pool *fgrpc.Pool) Transport {
 		ServiceDesc: &channelv1.ChannelService_ServiceDesc,
 	}
 	s := &server{
+		Internal:           true,
 		RequestTranslator:  createMessageTranslator{},
 		ResponseTranslator: createMessageTranslator{},
 		ServiceDesc:        &channelv1.ChannelService_ServiceDesc,

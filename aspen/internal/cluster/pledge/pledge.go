@@ -31,10 +31,10 @@ package pledge
 
 import (
 	"context"
-	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/iter"
 	xrand "github.com/synnaxlabs/x/rand"
 	xtime "github.com/synnaxlabs/x/time"

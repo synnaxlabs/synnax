@@ -4,28 +4,29 @@ proto_library(
         "auth.proto",
         "channel.proto",
         "connectivity.proto",
-        "device.proto",
         "framer.proto",
+        "hardware.proto",
         "ranger.proto",
     ],
-    deps = [
-        "@com_google_protobuf//:empty_proto",
-        "@ferrors_protos//ferrors/v1:ferrors_proto",
-        "@telem_protos//telempb:telem_proto",
-    ],
     visibility = ["//visibility:public"],
+    deps = [
+        "//x/go/control:control_proto",
+        "//x/go/errors:errors_proto",
+        "//x/go/telem:telem_proto",
+        "@com_google_protobuf//:empty_proto",
+    ],
 )
 
 load("@rules_proto_grpc//cpp:defs.bzl", "cpp_grpc_library")
 
 cpp_grpc_library(
     name = "api_grpc",
+    output_mode = "NO_PREFIX",
     protos = [":api_proto"],
-    deps = [
-        "@ferrors_protos//ferrors/v1:ferrors_grpc",
-        "@telem_protos//telempb:telem_grpc",
-    ],
     visibility = ["//visibility:public"],
+    deps = [
+        "//x/go/control:control_grpc",
+        "//x/go/errors:errors_grpc",
+        "//x/go/telem:telem_grpc",
+    ],
 )
-
-

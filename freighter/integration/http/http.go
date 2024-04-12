@@ -11,10 +11,10 @@ package http
 
 import (
 	"context"
-	"github.com/cockroachdb/errors"
 	"github.com/gofiber/fiber/v2"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/fhttp"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/testutil"
 	"go.uber.org/zap"
 )

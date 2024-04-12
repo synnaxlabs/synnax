@@ -13,6 +13,7 @@ import (
 	"context"
 	"encoding/binary"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/hardware/rack"
@@ -24,6 +25,7 @@ import (
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 	"io"
@@ -60,6 +62,7 @@ type Config struct {
 	Rack         *rack.Service
 	Task         *task.Service
 	Signals      *signals.Provider
+	Channels     channel.Writeable
 	HostProvider core.HostProvider
 	DB           *gorp.DB
 }
@@ -72,10 +75,11 @@ var (
 func (c Config) Override(other Config) Config {
 	c.Rack = override.Nil(c.Rack, other.Rack)
 	c.Task = override.Nil(c.Task, other.Task)
-	c.Instrumentation = override.Nil(c.Instrumentation, other.Instrumentation)
+	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.HostProvider = override.Nil(c.HostProvider, other.HostProvider)
+	c.Channels = override.Nil(c.Channels, other.Channels)
 	return c
 }
 
@@ -86,10 +90,11 @@ func (c Config) Validate() error {
 	validate.NotNil(v, "signals", c.Signals)
 	validate.NotNil(v, "db", c.DB)
 	validate.NotNil(v, "host", c.HostProvider)
+	validate.NotNil(v, "channels", c.Channels)
 	return v.Error()
 }
 
-func Open(ctx context.Context, configs ...Config) (t *Tracker, err error) {
+func OpenService(ctx context.Context, configs ...Config) (t *Tracker, err error) {
 	cfg, err := config.New[Config](DefaultConfig, configs...)
 	if err != nil {
 		return
@@ -119,6 +124,32 @@ func Open(ctx context.Context, configs ...Config) (t *Tracker, err error) {
 		}
 		t.Racks[r.Key] = r
 	}
+	if err := cfg.Channels.CreateManyIfNamesDontExist(
+		ctx,
+		&[]channel.Channel{
+			{
+				Name:        "sy_rack_heartbeat",
+				DataType:    telem.Uint64T,
+				Leaseholder: cfg.HostProvider.HostKey(),
+				Virtual:     true,
+			},
+			{
+				Name:        "sy_task_state",
+				DataType:    telem.JSONT,
+				Leaseholder: cfg.HostProvider.HostKey(),
+				Virtual:     true,
+			},
+			{
+				Name:        "sy_task_cmd",
+				DataType:    telem.JSONT,
+				Leaseholder: cfg.HostProvider.HostKey(),
+				Virtual:     true,
+			},
+		},
+	); err != nil {
+		return nil, err
+	}
+
 	heartBeatObs, err := cfg.Signals.Subscribe(sCtx, signals.ObservableSubscriberConfig{
 		SetChannelName: "sy_rack_heartbeat",
 	})

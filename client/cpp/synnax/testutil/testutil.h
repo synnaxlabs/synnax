@@ -13,13 +13,14 @@
 #include <random>
 
 //// internal
-#include "synnax/synnax.h"
+#include "client/cpp/synnax/synnax.h"
 
 const synnax::Config test_client_config = {
     "localhost",
     9090,
     "synnax",
-    "seldon"};
+    "seldon"
+};
 
 /// @brief instantiates a new client for testing purposes. The cluster
 /// is expected to be running on localhost:9090 in insecure mode.

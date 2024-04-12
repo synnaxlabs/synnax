@@ -9,41 +9,28 @@
 
 #pragma once
 
-/// std
 #include <string>
-#include <utility>
-
-/// freighter
-#include "freighter/freighter.h"
-
-/// api protos
-#include "v1/channel.pb.h"
-
-/// grpc
-#include <grpcpp/grpcpp.h>
-
-/// internal
-#include "synnax/telem/telem.h"
-
+#include "freighter/cpp/freighter/freighter.h"
+#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/channel.pb.h"
+#include "grpcpp/grpcpp.h"
+#include "client/cpp/synnax/telem/telem.h"
 
 using namespace synnax;
 
-
 namespace synnax {
-
 /// @brief an alias for the type of a channel's key.
 typedef std::uint32_t ChannelKey;
 
 /// @brief freighter retrieve transport.
 typedef freighter::UnaryClient<
-        api::v1::ChannelRetrieveResponse,
-        api::v1::ChannelRetrieveRequest
+    api::v1::ChannelRetrieveRequest,
+    api::v1::ChannelRetrieveResponse
 > ChannelRetrieveClient;
 
 /// @brief freighter create transport.
 typedef freighter::UnaryClient<
-        api::v1::ChannelCreateResponse,
-        api::v1::ChannelCreateRequest
+    api::v1::ChannelCreateRequest,
+    api::v1::ChannelCreateResponse
 > ChannelCreateClient;
 
 class ChannelClient;
@@ -53,7 +40,6 @@ class ChannelClient;
 /// See https:://docs.synnaxlabs.com/concepts/channels for an introduction to channels
 /// and how they work.
 class Channel {
-
 public:
     /// @brief A human-readable name for the channel.
     std::string name;
@@ -85,10 +71,10 @@ public:
     /// @param index the index of the channel.
     /// @param is_index whether the channel is an index channel.
     Channel(
-            const std::string &name,
-            synnax::DataType data_type,
-            ChannelKey index,
-            bool is_index = false
+        const std::string &name,
+        synnax::DataType data_type,
+        ChannelKey index,
+        bool is_index = false
     );
 
     /// @brief constructs a new rate based channel.
@@ -96,9 +82,9 @@ public:
     /// @param data_type the data type of the channel.
     /// @param rate the rate of the channel.
     Channel(
-            const std::string &name,
-            synnax::DataType data_type,
-            synnax::Rate rate
+        const std::string &name,
+        synnax::DataType data_type,
+        synnax::Rate rate
     );
 
     /// @brief constructs the channel from its protobuf type.
@@ -115,9 +101,10 @@ private:
 class ChannelClient {
 public:
     ChannelClient(std::unique_ptr<ChannelRetrieveClient> retrieve_client,
-                  std::unique_ptr<ChannelCreateClient> create_client) :
-            retrieve_client(std::move(retrieve_client)),
-            create_client(std::move(create_client)) {}
+                  std::unique_ptr<ChannelCreateClient> create_client) : retrieve_client(
+            std::move(retrieve_client)),
+        create_client(std::move(create_client)) {
+    }
 
     /// @brief Creates the given channel in the Synnax cluster.
     /// @param channel The channel to create.
@@ -144,10 +131,10 @@ public:
     /// channel will be invalid. Use err.message() to get the error message or err.type
     /// to get the error type.
     [[nodiscard]] std::pair<Channel, freighter::Error> create(
-            const std::string& name,
-            synnax::DataType data_type,
-            ChannelKey index,
-            bool is_index = false
+        const std::string &name,
+        synnax::DataType data_type,
+        ChannelKey index,
+        bool is_index = false
     ) const;
 
     /// @brief creates a new rate based channel.
@@ -160,9 +147,9 @@ public:
     /// channel will be invalid. Use err.message() to get the error message or err.type
     /// to get the error type.
     [[nodiscard]] std::pair<Channel, freighter::Error> create(
-            const std::string& name,
-            synnax::DataType data_type,
-            synnax::Rate rate
+        const std::string &name,
+        synnax::DataType data_type,
+        synnax::Rate rate
     ) const;
 
     /// @brief retrieves a channel with the given name.
@@ -175,7 +162,7 @@ public:
     /// channel will be invalid. Use err.message() to get the error message or err.type
     /// to get the error type.
     [[nodiscard]] std::pair<Channel, freighter::Error> retrieve(
-            const std::string &name) const;
+        const std::string &name) const;
 
     /// @brief retrieves a channel with the given key.
     /// @param key the key of the channel to retrieve.
@@ -185,7 +172,8 @@ public:
     /// if the channel could not be retrieved. In the case of an error, the returned
     /// channel will be invalid. Use err.message() to get the error message or err.type
     /// to get the error type.
-    [[nodiscard]] std::pair<Channel, freighter::Error> retrieve(std::uint32_t key) const;
+    [[nodiscard]] std::pair<Channel, freighter::Error>
+    retrieve(std::uint32_t key) const;
 
     /// @brief retrieves channels with the given names.
     /// @param names the names of the channels to retrieve.
@@ -213,5 +201,4 @@ private:
     /// @brief transport for creating channels.
     std::unique_ptr<ChannelCreateClient> create_client;
 };
-
 }

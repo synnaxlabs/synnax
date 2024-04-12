@@ -32,9 +32,15 @@ scale.
 
 # Development Status
 
-Synnax is currently in alpha and is under active development. The API is unstable and
-may change at any time. Synnax follows [semantic versioning](https://semver.org/)
-guidelines.
+Synnax is currently in beta and is under active development. The APIs are mostly stable
+and are unlikely to change significantly.
+
+Versions prior to 1.x.x follow modified Semantic Versioning. Versions with the same 
+patch (e.g. 0.0.1 and 0.0.2) are guaranteed to maintain the same API, while minor 
+versions may include API changes.
+
+Our team is targeting a v1 release before the end of 2024, at which point all APIs
+will be stable and follow strict semantic versioning.
 
 # How to Contribute
 

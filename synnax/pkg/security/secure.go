@@ -13,8 +13,8 @@ import (
 	"crypto"
 	"crypto/tls"
 	"crypto/x509"
-	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
+	"github.com/synnaxlabs/x/errors"
 	"os"
 )
 

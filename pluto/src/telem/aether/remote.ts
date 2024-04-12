@@ -113,15 +113,14 @@ export class StreamChannelValue
   }
 }
 
-const fetchChannel = async (
+const fetchChannelProperties = async (
   client: client.ChannelClient,
   channel: channel.Key,
   fetchFromIndex: boolean,
-): Promise<channel.Channel> => {
-  if (!fetchFromIndex) return await client.retrieveChannel(channel);
+): Promise<{ key: channel.Key; dataType: DataType }> => {
   const c = await client.retrieveChannel(channel);
-  if (c.isIndex) return c;
-  return await client.retrieveChannel(c.index);
+  if (!fetchFromIndex || c.isIndex) return { key: channel, dataType: c.dataType };
+  return { key: c.index, dataType: DataType.TIMESTAMP };
 };
 
 const channelDataSourcePropsZ = z.object({
@@ -158,13 +157,13 @@ export class ChannelData
     // If either of these conditions is true, leave the telem invalid
     // and return an empty array.
     if (timeRange.isZero || channel === 0) return [bounds.ZERO, []];
-    const chan = await fetchChannel(this.client, channel, indexOfChannel);
+    const chan = await fetchChannelProperties(this.client, channel, indexOfChannel);
     if (!this.valid) await this.readFixed(chan.key);
     let b = bounds.max(this.data.map((d) => d.bounds));
     if (chan.dataType.equals(DataType.TIMESTAMP))
       b = {
-        upper: Math.min(b.upper, this.props.timeRange.end.valueOf()),
-        lower: Math.max(b.lower, this.props.timeRange.start.valueOf()),
+        upper: Math.min(b.upper, Number(this.props.timeRange.end.valueOf())),
+        lower: Math.max(b.lower, Number(this.props.timeRange.start.valueOf())),
       };
     return [b, this.data];
   }
@@ -207,7 +206,7 @@ export class StreamChannelData
     const { channel, useIndexOfChannel, timeSpan } = this.props;
     if (channel === 0) return [bounds.ZERO, []];
     const now = TimeStamp.now();
-    const ch = await fetchChannel(this.client, channel, useIndexOfChannel);
+    const ch = await fetchChannelProperties(this.client, channel, useIndexOfChannel);
     if (!this.valid) await this.read(ch.key);
     let b = bounds.max(
       this.data
@@ -217,7 +216,7 @@ export class StreamChannelData
     if (ch.dataType.equals(DataType.TIMESTAMP))
       b = {
         upper: b.upper,
-        lower: Math.max(b.lower, b.upper - timeSpan.valueOf()),
+        lower: Math.max(b.lower, b.upper - Number(timeSpan.valueOf())),
       };
     return [b, this.data];
   }

@@ -26,9 +26,6 @@ var _ = Describe("Search", func() {
 		})
 		DescribeTable("Term Searching",
 			func(resource schema.Resource, term string) {
-				//idx.Register(ctx, schema.Schema{
-				//	Type: "test",
-				//})
 				Expect(idx.Index([]schema.Resource{resource})).To(Succeed())
 				res := MustSucceed(idx.Search(ctx, search.Request{
 					Type: "test",
@@ -68,6 +65,44 @@ var _ = Describe("Search", func() {
 				ID:   ontology.ID{Type: "test", Key: "1"},
 				Name: "Channel",
 			}, "ch"),
+		)
+		DescribeTable("Term Prioritization",
+			func(resources []schema.Resource, term string, first ontology.ID) {
+				Expect(idx.Index(resources)).To(Succeed())
+				res := MustSucceed(idx.Search(ctx, search.Request{
+					Type: "test",
+					Term: term,
+				}))
+				Expect(res[0].Key).To(Equal(first.Key))
+			},
+			Entry("Exact Match First", []schema.Resource{
+				{
+					ID:   ontology.ID{Type: "test", Key: "1"},
+					Name: "test",
+				},
+				{
+					ID:   ontology.ID{Type: "test", Key: "2"},
+					Name: "test2",
+				},
+			}, "test", ontology.ID{Type: "test", Key: "1"}),
+			Entry("Exact Match Multiple Words", []schema.Resource{
+				{
+					ID:   ontology.ID{Type: "test", Key: "3"},
+					Name: "October 30 Gooster",
+				},
+				{
+					ID:   ontology.ID{Type: "test", Key: "4"},
+					Name: "October 31 Gooster",
+				},
+				{
+					ID:   ontology.ID{Type: "test", Key: "1"},
+					Name: "October 28 Gooster",
+				},
+				{
+					ID:   ontology.ID{Type: "test", Key: "2"},
+					Name: "October 29 Gooster",
+				},
+			}, "October 28 Gooster", ontology.ID{Type: "test", Key: "1"}),
 		)
 		DescribeTable("No Results",
 			func(resource schema.Resource, term string) {

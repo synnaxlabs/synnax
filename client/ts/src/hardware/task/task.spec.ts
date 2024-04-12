@@ -43,5 +43,18 @@ describe("Hardware", () => {
         expect(retrieved.type).toBe("ni");
       });
     });
+    describe("retrieveByName", () => {
+      it("should retrieve a task by its name", async () => {
+        const name = `test-${Date.now()}-${Math.random()}`;
+        const r = await client.hardware.racks.create({ name });
+        const m = await r.createTask({
+          name,
+          config: { a: "dog" },
+          type: "ni",
+        });
+        const retrieved = await client.hardware.tasks.retrieveByName(name);
+        expect(retrieved.key).toBe(m.key);
+      });
+    });
   });
 });

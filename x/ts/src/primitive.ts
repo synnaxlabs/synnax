@@ -35,7 +35,7 @@ export const primitiveIsZero = (value: Primitive): boolean => {
     case "number":
       return value === 0;
     case "bigint":
-      return value === BigInt(0);
+      return value === 0n;
     case "boolean":
       return !value;
     case "undefined":

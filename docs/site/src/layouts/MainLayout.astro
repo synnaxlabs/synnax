@@ -10,613 +10,615 @@ import { Align } from "@synnaxlabs/pluto/align";
 import { Icon } from "@synnaxlabs/media";
 import { Search } from "@/components/Search";
 const {
-  headings,
-  frontmatter: { title, heading, description },
+    headings,
+    frontmatter: { title, heading, description },
 } = Astro.props;
 ---
 
 <script>
-  import { getVersion } from "@/util/fetchVersion";
+    import { getVersion } from "@/util/fetchVersion";
 
-  getVersion().then((version) => {
-    document.querySelector(".version").innerHTML = version;
-  });
+    getVersion().then((version) => {
+        document.querySelector(".version").innerHTML = version;
+    });
 </script>
 
 <html transition:animate="none">
-  <head>
-    <SEO
-      title={title}
-      titleTemplate="%s | Synnax"
-      titleDefault="Synnax"
-      description={description}
-      extend={{
-        link: [
-          {
-            rel: "icon",
-            href: "/favicon.svg",
-          },
-        ],
-        meta: [
-          {
-            name: "viewport",
-            content: "width=device-width, initial-scale=1.0",
-          },
-        ],
-      }}
-    />
-    <ViewTransitions />
-  </head>
-  <header class="pluto--bordered-bottom">
-    <Align.Space
-      className="header-content"
-      direction="x"
-      justify="spaceBetween"
-      align="center"
-    >
-      <a href="/">
-        <Logo style={{ height: "5rem" }} variant="title" />
-      </a>
-      <Search client:only="react" />
-      <Align.Space direction="x" align="center">
-        <p class="version" transition:persist></p>
-        <a href="https://github.com/synnaxlabs/synnax">
-          <Icon.Logo.Github
-            style={{ height: "3rem", width: "3rem" }}
-            fill="var(--pluto-text-color)"
-          />
-        </a>
-      </Align.Space>
-    </Align.Space>
-  </header>
-  <section>
-    <nav class="docs-nav">
-      <PageNav client:idle currentPage={Astro.url.pathname} />
-    </nav>
-    <article transition:animate="fade">
-      <h1 class="article-title">{heading ?? title}</h1>
-      <h3 class="article-description">{description}</h3>
-      <slot />
-    </article>
-    <nav class="docs-toc pluto--bordered-left">
-      <TableOfContents client:idle headings={headings} />
-    </nav>
-  </section>
+    <head>
+        <SEO
+            title={title}
+            titleTemplate="%s | Synnax"
+            titleDefault="Synnax"
+            description={description}
+            extend={{
+                link: [
+                    {
+                        rel: "icon",
+                        href: "/favicon.svg",
+                    },
+                ],
+                meta: [
+                    {
+                        name: "viewport",
+                        content: "width=device-width, initial-scale=1.0",
+                    },
+                ],
+            }}
+        />
+        <ViewTransitions />
+    </head>
+    <header class="pluto--bordered-bottom">
+        <Align.Space
+            className="header-content"
+            direction="x"
+            justify="spaceBetween"
+            align="center"
+        >
+            <a href="/">
+                <Logo style={{ height: "5rem" }} variant="title" />
+            </a>
+            <Search client:only="react" />
+            <Align.Space direction="x" align="center">
+                <p class="version" transition:persist></p>
+                <a href="https://github.com/synnaxlabs/synnax">
+                    <Icon.Logo.Github
+                        style={{ height: "3rem", width: "3rem" }}
+                        fill="var(--pluto-text-color)"
+                    />
+                </a>
+            </Align.Space>
+        </Align.Space>
+    </header>
+    <section>
+        <nav class="docs-nav">
+            <PageNav client:idle currentPage={Astro.url.pathname} />
+        </nav>
+        <article transition:animate="fade">
+            <h1 class="article-title">{heading ?? title}</h1>
+            <h3 class="article-description">{description}</h3>
+            <slot />
+        </article>
+        <nav class="docs-toc pluto--bordered-left">
+            <TableOfContents client:idle headings={headings} />
+        </nav>
+    </section>
 
-  <script>
-    import { startThemeDriver } from "@/util/theme";
-    import { startUpdatingIframeHref } from "@/util/iframe";
-    startThemeDriver();
-    startUpdatingIframeHref();
-    document.addEventListener("astro:after-swap", () => {
-      startThemeDriver();
-      startUpdatingIframeHref();
-    });
-  </script>
+    <script>
+        import { startThemeDriver } from "@/util/theme";
+        import { startUpdatingIframeHref } from "@/util/iframe";
+        startThemeDriver();
+        startUpdatingIframeHref();
+        document.addEventListener("astro:after-swap", () => {
+            startThemeDriver();
+            startUpdatingIframeHref();
+        });
+    </script>
 
-  <style is:global>
-    .pluto-tabs-selector__button p {
-      margin: 0;
-    }
-
-    .chip {
-      text-decoration: none !important;
-      flex-grow: 1;
-      min-width: 275px;
-      flex-basis: 275px;
-      & div {
-        height: 100%;
-        transition: all 0.1s ease-in-out;
-        border: var(--pluto-border-l4);
-        padding: 1rem 3rem;
-        border-radius: var(--pluto-border-radius);
-        &:hover {
-          border-color: var(--pluto-primary-z);
-          cursor: pointer;
-
-          & h4 {
-            color: var(--pluto-primary-z);
-          }
-          & p {
-            color: var(--pluto-gray-l9);
-          }
-        }
-      }
-      & h4 {
-        color: var(--pluto-primary-p1);
-      }
-      & p {
-        color: var(--pluto-gray-l7);
-      }
-    }
-
-    .info {
-      padding: 0.1rem 3rem;
-      margin: 4rem 0;
-      background: var(--pluto-primary-z-20);
-      border: var(--pluto-border);
-      border-color: var(--pluto-primary-z-30);
-      border-radius: var(--pluto-border-radius);
-      & > * {
-        font-size: var(--pluto-small-size);
-        font-family: var(--pluto-font-family);
-        font-weight: var(--pluto-small-weight);
-        line-height: calc(var(--pluto-small-line-height) * 1.2);
-      }
-    }
-
-    nav {
-      & p,
-      small {
-        white-space: normal !important;
-      }
-      & small {
-        margin-top: 2px !important;
-      }
-    }
-
-    .docs-get-started-chip {
-      overflow: hidden;
-
-      & .text-container {
-        transition: all 0.15s ease-in-out;
-        position: relative;
-        top: 45px;
-      }
-
-      & p {
-        color: var(--pluto-gray-l7);
-      }
-
-      :hover {
-        & p {
-          opacity: 1;
+    <style is:global>
+        .pluto-tabs-selector__button p {
+            margin: 0;
         }
 
-        & .text-container {
-          top: 0px;
-        }
-      }
-    }
+        .chip {
+            text-decoration: none !important;
+            flex-grow: 1;
+            min-width: 275px;
+            flex-basis: 275px;
+            & div {
+                height: 100%;
+                transition: all 0.1s ease-in-out;
+                border: var(--pluto-border-l4);
+                padding: 1rem 3rem;
+                border-radius: var(--pluto-border-radius);
+                &:hover {
+                    border-color: var(--pluto-primary-z);
+                    cursor: pointer;
 
-    .table-of-contents {
-      & h5 {
-        font-weight: 500;
-      }
-
-      .heading {
-        border-bottom: none;
-      }
-
-      & .pluto-menu-item {
-        white-space: normal;
-        height: fit-content;
-        padding: 0.75rem 2rem;
-        border-right: 2px solid transparent;
-        & small {
-          color: var(--pluto-gray-l6) !important;
-        }
-
-        &:is(.pluto--selected, :hover) {
-          background: none;
-          border-right: 2px solid var(--pluto-text-color);
-          border-radius: 0 !important;
-          & small {
-            font-weight: 500 !important;
-            color: var(--pluto-text-color) !important;
-          }
-        }
-      }
-    }
-
-    .search-box {
-      position: absolute;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 1000;
-      & .pluto-input {
-        width: 50vw;
-        max-width: 700px;
-      }
-
-      &.pluto--visible {
-        position: fixed;
-        left: 50%;
-        transform: translateX(-50%);
-        box-shadow: var(--box-shadow);
-
-        & .pluto-input {
-          width: 80vw;
-          max-width: 900px;
-          height: 40px;
-        }
-      }
-
-      .pluto-dropdown__dialog {
-        position: absolute;
-        left: 0 !important;
-        top: 36px !important;
-        box-shadow: var(--box-shadow);
-        background: var(--pluto-gray-l1);
-
-        .hovered {
-          background: var(--pluto-gray-l3);
-        }
-
-        & .search-result {
-          padding: 2rem;
-          &:hover {
-            background: var(--pluto-gray-l3);
-          }
-
-          & b {
-            background: var(--pluto-primary-z-30);
-          }
-
-          & small {
-            color: var(--pluto-gray-l7);
-          }
-        }
-
-        & a:hover {
-          text-decoration: none;
-        }
-      }
-    }
-
-    a {
-      color: var(--pluto-primary-p1);
-      text-decoration: none;
-    }
-
-    :root {
-      --nav-height: 10rem;
-      --max-width: 1400px;
-      --astro-code-color-text: var(--pluto-text-color);
-      --astro-code-color-background: var(--pluto-gray-l1);
-      --astro-code-token-comment: var(--pluto-gray-l5);
-      --astro-code-token-string-expression: #00b023;
-      --astro-code-token-function: #20a4f3;
-      --astro-code-token-punctuation: var(--pluto-text-color);
-      --astro-code-token-keyword: #dc136c;
-      --astro-code-token-constant: var(--astro-code-token-string-expression);
-    }
-
-    a:hover:not(.pluto-btn) {
-      text-decoration: underline;
-    }
-
-    .pluto-tree {
-      .pluto-text {
-        color: var(--pluto-gray-l6);
-        font-size: var(--pluto-small-size);
-        line-height: var(--pluto-small-line-height);
-        font-weight: var(--pluto-small-weight);
-      }
-
-      overflow-x: hidden;
-
-      .pluto-btn {
-        padding-top: 1rem;
-        padding-bottom: 1rem;
-        background: none !important;
-        height: auto;
-
-        &:hover {
-          & .pluto-text {
-            font-weight: 500;
-            color: var(--pluto-text-color);
-          }
-
-          & path:is(:not([fill="none"]), [stroke="#000"]) {
-            fill: var(--pluto-text-color) !important;
-          }
-        }
-
-        &:not(.pluto--has-children) {
-          border-left: 1px solid var(--pluto-gray-l3);
-          border-radius: 0 !important;
-
-          &.pluto--selected {
-            border-left: 2px solid var(--pluto-primary-p1);
-            background: none;
-            .pluto-text {
-              color: var(--pluto-text-color);
-              font-weight: 500;
+                    & h4 {
+                        color: var(--pluto-primary-z);
+                    }
+                    & p {
+                        color: var(--pluto-gray-l9);
+                    }
+                }
             }
-          }
-
-          &:hover {
-            background: none !important;
-            border-left: 2px solid var(--pluto-text-color);
-          }
+            & h4 {
+                color: var(--pluto-primary-p1);
+            }
+            & p {
+                color: var(--pluto-gray-l7);
+            }
         }
-      }
 
-      .pluto-text-icon path:is(:not([fill="none"]), [stroke="#000"]) {
-        fill: var(--pluto-gray-l5) !important;
-      }
-    }
+        .info {
+            padding: 0.1rem 3rem;
+            margin: 4rem 0;
+            background: var(--pluto-primary-z-20);
+            border: var(--pluto-border);
+            border-color: var(--pluto-primary-z-30);
+            border-radius: 1rem;
+            & > * {
+                font-size: var(--pluto-small-size);
+                font-family: var(--pluto-font-family);
+                font-weight: var(--pluto-small-weight);
+                line-height: calc(var(--pluto-small-line-height) * 1.2);
+            }
 
-    .copy-code {
-      position: absolute;
-      top: 25%;
-      right: 20px;
-      border-color: var(--pluto-gray-l4);
-      opacity: 0;
-      transition: all 0.15s ease-in-out;
-    }
+            &.warning {
+                /* pick a nice shad of yello */
+                background: #ffff0033;
+                border-color: #d5d500;
+            }
+        }
 
-    pre:hover .copy-code {
-      opacity: 1;
-    }
+        nav {
+            & p,
+            small {
+                white-space: normal !important;
+            }
+            & small {
+                margin-top: 2px !important;
+            }
+        }
 
-    .copy-code svg > * {
-      fill: var(--pluto-gray-l4);
-    }
+        .docs-get-started-chip {
+            overflow: hidden;
 
-    .copy-code:hover svg > * {
-      fill: var(--pluto-gray-l5);
-    }
+            & .text-container {
+                transition: all 0.15s ease-in-out;
+                position: relative;
+                top: 45px;
+            }
 
-    header h1,
-    header h2,
-    header p {
-      margin: 0 !important;
-    }
+            & p {
+                color: var(--pluto-gray-l7);
+            }
 
-    li {
-      margin: 0.5rem;
-    }
+            :hover {
+                & p {
+                    opacity: 1;
+                }
 
-    article h1,
-    article h3,
-    article h4,
-    article h5,
-    article h6,
-    article p,
-    article table,
-    article video {
-      margin: 2.5rem 0;
-    }
+                & .text-container {
+                    top: 0px;
+                }
+            }
+        }
 
-    article h2 {
-      margin: 4rem 0;
-    }
+        .table-of-contents {
+            & h5 {
+                font-weight: 500;
+            }
 
-    article img {
-      margin: 2rem -2rem;
-    }
+            .heading {
+                border-bottom: none;
+            }
 
-    article .pluto-tabs-selector {
-      margin: 1.5rem 0;
-    }
+            & .pluto-menu-item {
+                white-space: normal;
+                height: fit-content;
+                padding: 0.75rem 2rem;
+                border-right: 2px solid transparent;
+                & small {
+                    color: var(--pluto-gray-l6) !important;
+                }
 
-    article :is(video, img) {
-      width: 100%;
-      border-radius: 1rem !important;
-      border: var(--pluto-border);
-      box-shadow: 0 0 1rem 0 var(--pluto-gray-l4);
-      border-radius: calc(var(--pluto-border-radius) * 2);
+                &:is(.pluto--selected, :hover) {
+                    background: none;
+                    border-right: 2px solid var(--pluto-text-color);
+                    border-radius: 0 !important;
+                    & small {
+                        font-weight: 500 !important;
+                        color: var(--pluto-text-color) !important;
+                    }
+                }
+            }
+        }
 
-      @media (prefers-color-scheme: dark) {
-        box-shadow: 0 0 2rem 0 rgba(50, 50, 50, 0.1);
-      }
-    }
+        .search-box {
+            position: absolute;
+            left: 50%;
+            z-index: 50000;
+            transform: translateX(-50%);
 
-    article img {
-      width: calc(100% + 4rem);
-    }
+            & .pluto-input {
+                width: 80vw;
+                max-width: 700px;
+            }
 
-    code:not(.astro-code code) {
-      padding: 0.25rem 1rem;
-      background: var(--pluto-gray-l3);
-    }
+            .pluto-dropdown__dialog {
+                position: absolute !important;
+                left: 50% !important;
+                transform: translate(-50%, -20px);
+                width: 80vw;
+                max-width: 700px;
+                .hovered {
+                    background: var(--pluto-gray-l3);
+                }
 
-    code {
-      font-size: var(--pluto-small-size);
-      line-height: var(--pluto-small-line-height);
-    }
+                & .search-result {
+                    padding: 2rem;
+                    &:hover {
+                        background: var(--pluto-gray-l3);
+                    }
 
-    .pluto-tabs-selector__btn--uneditable {
-      padding: 0 3rem;
+                    & b {
+                        background: var(--pluto-primary-z-30);
+                    }
 
-      .pluto-text-icon {
-        gap: 1.5rem;
-      }
+                    & small {
+                        color: var(--pluto-gray-l7);
+                    }
+                }
 
-      .pluto-text {
-        margin: 0 !important;
-      }
-    }
+                & a:hover {
+                    text-decoration: none;
+                }
+            }
 
-    li {
-      font-size: var(--pluto-p-size);
-    }
+            @media (max-width: 700px) {
+                & .pluto-input {
+                    width: 200px;
+                }
+                & .pluto-dropdown__dialog {
+                    width: 200px;
+                }
+            }
+        }
 
-    .astro-code {
-      padding: 3rem;
-      position: relative;
-      border: var(--pluto-border);
-      border-radius: var(--pluto-border-radius);
-      margin: 3rem 1rem;
-      overflow-x: auto !important;
-      overflow-y: visible !important;
-    }
+        a {
+            color: var(--pluto-primary-p1);
+            text-decoration: none;
+        }
 
-    .pluto-dropdown__dialog {
-      border: none;
-      border-top: var(--pluto-border);
-      overflow: auto;
-      max-height: 40vh;
-    }
+        :root {
+            --nav-height: 10rem;
+            --max-width: 1400px;
+            --astro-code-color-text: var(--pluto-text-color);
+            --astro-code-color-background: var(--pluto-gray-l1);
+            --astro-code-token-comment: var(--pluto-gray-l5);
+            --astro-code-token-string-expression: #00b023;
+            --astro-code-token-function: #20a4f3;
+            --astro-code-token-punctuation: var(--pluto-text-color);
+            --astro-code-token-keyword: #dc136c;
+            --astro-code-token-constant: var(--pluto-text-color);
+        }
 
-    .pluto-dropdown > button {
-      border-top: var(--pluto-border) !important;
-      margin-top: 1px;
-    }
+        a:hover:not(.pluto-btn) {
+            text-decoration: underline;
+        }
 
-    .pluto-pack {
-      border: none !important;
-    }
+        .pluto-tree {
+            .pluto-text {
+                color: var(--pluto-gray-l6);
+                font-size: var(--pluto-small-size);
+                line-height: var(--pluto-small-line-height);
+                font-weight: var(--pluto-small-weight);
+            }
 
-    code {
-      border-radius: var(--pluto-border-radius);
-    }
+            overflow-x: hidden;
 
-    table > :not(caption) > * {
-      border-width: 1px 0;
-      border-color: var(--pluto-border-color);
-      border-style: solid;
-    }
+            .pluto-btn {
+                padding-top: 1rem;
+                padding-bottom: 1rem;
+                background: none !important;
+                height: auto;
 
-    table > :not(caption) > * > * {
-      position: relative;
-      border-width: 0 1px;
-      border-color: var(--pluto-border-color);
-      border-style: solid;
-      padding: 1.25rem 1.5rem;
-    }
+                &:hover {
+                    & .pluto-text {
+                        font-weight: 500;
+                        color: var(--pluto-text-color);
+                    }
 
-    table td {
-      font-size: var(--pluto-small-size);
-    }
+                    & path:is(:not([fill="none"]), [stroke="#000"]) {
+                        fill: var(--pluto-text-color) !important;
+                    }
+                }
 
-    table thead th {
-      padding: 1.5rem 1.5rem;
-      font-weight: 600;
-    }
+                &:not(.pluto--has-children) {
+                    border-left: 1px solid var(--pluto-gray-l3);
+                    border-radius: 0 !important;
 
-    table thead tr {
-      border-width: 2px;
-    }
+                    &.pluto--selected {
+                        border-left: 2px solid var(--pluto-primary-p1);
+                        background: none;
+                        .pluto-text {
+                            color: var(--pluto-text-color);
+                            font-weight: 500;
+                        }
+                    }
 
-    table th {
-      text-align: start;
-    }
+                    &:hover {
+                        background: none !important;
+                        border-left: 2px solid var(--pluto-text-color);
+                    }
+                }
+            }
 
-    table {
-      width: calc(100% - 4px);
-      border-spacing: 0;
-      background: transparent;
-      border-collapse: collapse;
-      overflow-x: auto;
-      border-style: hidden;
-      border-radius: var(--pluto-border-radius);
-      box-shadow: 0 0 0 1px var(--pluto-border-color);
-    }
-  </style>
+            .pluto-text-icon path:is(:not([fill="none"]), [stroke="#000"]) {
+                fill: var(--pluto-gray-l5) !important;
+            }
+        }
 
-  <style>
-    :root {
-      --max-width: 1500px;
-    }
+        .copy-code {
+            position: absolute;
+            top: 25%;
+            right: 20px;
+            border-color: var(--pluto-gray-l4);
+            opacity: 0;
+            transition: all 0.15s ease-in-out;
+        }
 
-    .article-title {
-      width: fit-content;
-    }
+        pre:hover .copy-code {
+            opacity: 1;
+        }
 
-    .article-title::after {
-      content: "";
-      display: block;
-      width: 100px;
-      margin-top: 2rem;
-      height: 2px;
-      background: var(--pluto-primary-p1);
-    }
+        .copy-code svg > * {
+            fill: var(--pluto-gray-l4);
+        }
 
-    .article-description {
-      color: var(--pluto-gray-l8);
-      font-weight: 350;
-    }
+        .copy-code:hover svg > * {
+            fill: var(--pluto-gray-l5);
+        }
 
-    h1 {
-      padding-bottom: 1rem;
-    }
+        header h1,
+        header h2,
+        header p {
+            margin: 0 !important;
+        }
 
-    header {
-      display: flex;
-      justify-content: center;
-      flex-basis: 10rem;
-      flex-grow: 1;
-      flex-shrink: 0;
-      width: 100%;
-    }
+        li {
+            margin: 0.5rem;
+        }
 
-    .header-content {
-      width: 100%;
-      max-width: var(--max-width);
-      display: flex;
-      align-items: center;
-      padding: 0 5rem;
-    }
+        article h1,
+        article h3,
+        article h4,
+        article h5,
+        article h6,
+        article p,
+        article table,
+        article video {
+            margin: 2.5rem 0;
+        }
 
-    body {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
+        article h2 {
+            margin: 4rem 0;
+        }
 
-    @media (max-width: 1600px) {
-      body {
-        align-items: unset;
-      }
-    }
+        article img {
+            margin: 2rem -2rem;
+        }
 
-    @media (max-width: 1100px) {
-      .docs-toc {
-        display: none;
-      }
-    }
+        article .pluto-tabs-selector {
+            margin: 1.5rem 0;
+        }
 
-    @media (min-width: 1500px) {
-      section {
-        width: var(--max-width);
-      }
-    }
+        article :is(video, img) {
+            width: 100%;
+            border-radius: 1rem !important;
+            border: var(--pluto-border);
+            box-shadow: 0 0 1rem 0 var(--pluto-gray-l4);
+            border-radius: calc(var(--pluto-border-radius) * 2);
 
-    .docs-nav {
-      border-right: var(--pluto-border);
-    }
+            @media (prefers-color-scheme: dark) {
+                box-shadow: 0 0 2rem 0 rgba(50, 50, 50, 0.1);
+            }
+        }
 
-    @media (max-width: 700px) {
-      section {
-        flex-direction: column-reverse;
-      }
-      .docs-nav {
-        overflow-y: inherit;
-        border-right: none;
-        flex-basis: 0px;
-        padding: 0px;
-      }
-      article {
-        padding: 2rem !important;
-      }
-    }
+        article img {
+            width: calc(100% + 4rem);
+        }
 
-    section {
-      display: flex;
-      flex-wrap: nowrap;
-      flex-grow: 9999;
-      flex-basis: 0;
-      height: calc(100% - 10rem);
-    }
+        code:not(.astro-code code) {
+            padding: 0.25rem 1rem;
+            background: var(--pluto-gray-l3);
+        }
 
-    nav:first-child {
-      flex-basis: 210px;
-    }
+        code {
+            font-size: var(--pluto-small-size);
+            line-height: var(--pluto-small-line-height);
+        }
 
-    nav {
-      padding: 3rem 0;
-      flex-basis: 210px;
-      overflow-y: auto;
-    }
+        .pluto-tabs-selector__btn--uneditable {
+            padding: 0 3rem;
 
-    article {
-      flex-basis: 0;
-      flex-grow: 9999;
-      padding: 5rem 8rem;
-      overflow-y: auto;
-    }
-  </style>
+            .pluto-text-icon {
+                gap: 1.5rem;
+            }
+
+            .pluto-text {
+                margin: 0 !important;
+            }
+        }
+
+        li {
+            font-size: var(--pluto-p-size);
+        }
+
+        .astro-code {
+            padding: 3rem;
+            position: relative;
+            border: var(--pluto-border);
+            border-radius: var(--pluto-border-radius);
+            margin: 3rem 1rem;
+            overflow-x: auto !important;
+            overflow-y: visible !important;
+        }
+
+        .pluto-dropdown__dialog {
+            border: none;
+            border-top: var(--pluto-border);
+            overflow: auto;
+            max-height: 40vh;
+        }
+
+        .pluto-dropdown > button {
+            border-top: var(--pluto-border) !important;
+            margin-top: 1px;
+        }
+
+        .pluto-pack {
+            border: none !important;
+        }
+
+        code {
+            border-radius: var(--pluto-border-radius);
+        }
+
+        table > :not(caption) > * {
+            border-width: 1px 0;
+            border-color: var(--pluto-border-color);
+            border-style: solid;
+        }
+
+        table > :not(caption) > * > * {
+            position: relative;
+            border-width: 0 1px;
+            border-color: var(--pluto-border-color);
+            border-style: solid;
+            padding: 1.25rem 1.5rem;
+        }
+
+        table td {
+            font-size: var(--pluto-small-size);
+        }
+
+        table thead th {
+            padding: 1.5rem 1.5rem;
+            font-weight: 600;
+        }
+
+        table thead tr {
+            border-width: 2px;
+        }
+
+        table th {
+            text-align: start;
+        }
+
+        table {
+            width: calc(100% - 4px);
+            border-spacing: 0;
+            background: transparent;
+            border-collapse: collapse;
+            overflow-x: auto;
+            border-style: hidden;
+            border-radius: var(--pluto-border-radius);
+            box-shadow: 0 0 0 1px var(--pluto-border-color);
+        }
+    </style>
+
+    <style>
+        :root {
+            --max-width: 1500px;
+        }
+
+        .article-title {
+            width: fit-content;
+        }
+
+        .article-title::after {
+            content: "";
+            display: block;
+            width: 100px;
+            margin-top: 2rem;
+            height: 2px;
+            background: var(--pluto-primary-p1);
+        }
+
+        .article-description {
+            color: var(--pluto-gray-l8);
+            font-weight: 350;
+        }
+
+        h1 {
+            padding-bottom: 1rem;
+        }
+
+        header {
+            display: flex;
+            justify-content: center;
+            flex-basis: 10rem;
+            flex-grow: 1;
+            flex-shrink: 0;
+            width: 100%;
+        }
+
+        .header-content {
+            width: 100%;
+            max-width: var(--max-width);
+            display: flex;
+            align-items: center;
+            padding: 0 5rem;
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        @media (max-width: 1600px) {
+            body {
+                align-items: unset;
+            }
+        }
+
+        @media (max-width: 1100px) {
+            .docs-toc {
+                display: none;
+            }
+        }
+
+        @media (min-width: 1500px) {
+            section {
+                width: var(--max-width);
+            }
+        }
+
+        .docs-nav {
+            border-right: var(--pluto-border);
+        }
+
+        @media (max-width: 700px) {
+            section {
+                flex-direction: column-reverse;
+            }
+            .docs-nav {
+                overflow-y: inherit;
+                border-right: none;
+                flex-basis: 0px;
+                padding: 0px;
+            }
+            article {
+                padding: 2rem !important;
+            }
+        }
+
+        section {
+            display: flex;
+            flex-wrap: nowrap;
+            flex-grow: 9999;
+            flex-basis: 0;
+            height: calc(100% - 10rem);
+        }
+
+        nav:first-child {
+            flex-basis: 210px;
+        }
+
+        nav {
+            padding: 3rem 0;
+            flex-basis: 210px;
+            overflow-y: auto;
+        }
+
+        article {
+            flex-basis: 0;
+            flex-grow: 9999;
+            padding: 5rem 8rem;
+            overflow-y: auto;
+        }
+    </style>
 </html>

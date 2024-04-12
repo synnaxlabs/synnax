@@ -9,7 +9,7 @@
 
 import { type ReactElement } from "react";
 
-import { Keyed, type Key } from "@synnaxlabs/x";
+import { type Keyed, type Key } from "@synnaxlabs/x";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";

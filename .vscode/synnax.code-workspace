@@ -115,6 +115,26 @@
     "files.associations": {
       "xstring": "cpp"
     },
+    "cSpell.words": [
+      "Aliaser",
+      "caseconv",
+      "clsx",
+      "downsample",
+      "glsl",
+      "immer",
+      "lineplot",
+      "Migratable",
+      "msgpackr",
+      "Navdrawer",
+      "OPCUA",
+      "reduxjs",
+      "renderable",
+      "syncer",
+      "Synnax",
+      "tauri",
+      "Tauri",
+      "telem"
+    ],
   },
   "extensions": {
     "recommendations": [
@@ -124,3 +144,4 @@
     ]
   }
 }
+

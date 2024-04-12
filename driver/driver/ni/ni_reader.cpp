@@ -45,7 +45,7 @@ std::pair<json,int> ni::niDaqReader::init(json config, uint64_t acquisition_rate
     std::cout << "Init Reader" << std::endl;
     std::vector<channel_config> channel_configs;
     auto channels = config["channels"];
-    auto deviceName = config["device"].get<std::string>();
+    auto deviceName = config["hardware"].get<std::string>();
     for (auto &channel : channels) {
         auto type = channel["type"].get<std::string>();
         channel_config config;
@@ -354,7 +354,7 @@ niDaqWriter::niDaqWriter(TaskHandle taskHandle) : taskHandle(taskHandle) {}
 std::pair<json,int> niDaqWriter::init(json config, synnax::ChannelKey ack_index_key) {
     std::vector<channel_config> channel_configs;
     auto channels = config["channels"];
-    auto deviceName = config["device"].get<std::string>();
+    auto deviceName = config["hardware"].get<std::string>();
     for (auto &channel : channels) {
         channel_config config;
 

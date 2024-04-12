@@ -75,6 +75,9 @@ module.exports = {
         "@typescript-eslint/ban-types": "off",
         "react/no-unescaped-entities": "off",
         "@typescript-eslint/non-nullable-type-assertion-style": "off",
+        "@typescript-eslint/no-empty-interface": "off",
+        "@typescript-eslint/ban-ts-comment": "off",
+        "@typescript-eslint/no-dynamic-delete": "off",
     },
     settings: {
         "import/resolver": {

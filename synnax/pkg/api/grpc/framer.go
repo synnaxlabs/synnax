@@ -13,12 +13,11 @@ import (
 	"context"
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
-	gapi "github.com/synnaxlabs/synnax/pkg/api/grpc/gen/go/v1"
+	gapi "github.com/synnaxlabs/synnax/pkg/api/grpc/v1"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/x/telem"
-	"github.com/synnaxlabs/x/telem/telempb"
 	"google.golang.org/grpc"
 )
 
@@ -61,7 +60,7 @@ var (
 func translateFrameForward(f api.Frame) *gapi.Frame {
 	return &gapi.Frame{
 		Keys:   translateChannelKeysForward(f.Keys),
-		Series: telempb.TranslateManySeriesForward(f.Series),
+		Series: telem.TranslateManySeriesForward(f.Series),
 	}
 }
 
@@ -70,12 +69,12 @@ func translateFrameBackward(f *gapi.Frame) (of api.Frame) {
 		return
 	}
 	of.Keys = translateChannelKeysBackward(f.Keys)
-	of.Series = telempb.TranslateManySeriesBackward(f.Series)
+	of.Series = telem.TranslateManySeriesBackward(f.Series)
 	return
 }
 
 func (t frameWriterRequestTranslator) Forward(
-	_ context.Context,
+	ctx context.Context,
 	msg api.FrameWriterRequest,
 ) (*gapi.FrameWriterRequest, error) {
 	return &gapi.FrameWriterRequest{
@@ -91,7 +90,7 @@ func (t frameWriterRequestTranslator) Forward(
 }
 
 func (t frameWriterRequestTranslator) Backward(
-	_ context.Context,
+	ctx context.Context,
 	msg *gapi.FrameWriterRequest,
 ) (r api.FrameWriterRequest, err error) {
 	if msg == nil {
@@ -111,7 +110,7 @@ func (t frameWriterRequestTranslator) Backward(
 }
 
 func (t frameWriterResponseTranslator) Forward(
-	_ context.Context,
+	ctx context.Context,
 	msg api.FrameWriterResponse,
 ) (*gapi.FrameWriterResponse, error) {
 	return &gapi.FrameWriterResponse{
@@ -119,13 +118,13 @@ func (t frameWriterResponseTranslator) Forward(
 		Ack:     msg.Ack,
 		Counter: int32(msg.SeqNum),
 		NodeKey: int32(msg.NodeKey),
-		Error:   fgrpc.EncodeError(msg.Error),
+		Error:   fgrpc.EncodeError(ctx, msg.Error, false),
 		End:     int64(msg.End),
 	}, nil
 }
 
 func (t frameWriterResponseTranslator) Backward(
-	_ context.Context,
+	ctx context.Context,
 	msg *gapi.FrameWriterResponse,
 ) (api.FrameWriterResponse, error) {
 	return api.FrameWriterResponse{
@@ -133,39 +132,39 @@ func (t frameWriterResponseTranslator) Backward(
 		Ack:     msg.Ack,
 		SeqNum:  int(msg.Counter),
 		NodeKey: core.NodeKey(msg.NodeKey),
-		Error:   fgrpc.DecodeError(msg.Error),
+		Error:   fgrpc.DecodeError(ctx, msg.Error),
 		End:     telem.TimeStamp(msg.End),
 	}, nil
 }
 
 func (t frameIteratorRequestTranslator) Forward(
-	_ context.Context,
+	ctx context.Context,
 	msg api.FrameIteratorRequest,
 ) (*gapi.FrameIteratorRequest, error) {
 	return &gapi.FrameIteratorRequest{
 		Command: int32(msg.Command),
 		Span:    int64(msg.Span),
-		Range:   telempb.TranslateTimeRangeForward(msg.Bounds),
+		Range:   telem.TranslateTimeRangeForward(msg.Bounds),
 		Keys:    translateChannelKeysForward(msg.Keys),
 		Stamp:   int64(msg.Stamp),
 	}, nil
 }
 
 func (t frameIteratorRequestTranslator) Backward(
-	_ context.Context,
+	ctx context.Context,
 	msg *gapi.FrameIteratorRequest,
 ) (api.FrameIteratorRequest, error) {
 	return api.FrameIteratorRequest{
 		Command: iterator.Command(msg.Command),
 		Span:    telem.TimeSpan(msg.Span),
-		Bounds:  telempb.TranslateTimeRangeBackward(msg.Range),
+		Bounds:  telem.TranslateTimeRangeBackward(msg.Range),
 		Keys:    translateChannelKeysBackward(msg.Keys),
 		Stamp:   telem.TimeStamp(msg.Stamp),
 	}, nil
 }
 
 func (t frameIteratorResponseTranslator) Forward(
-	_ context.Context,
+	ctx context.Context,
 	msg api.FrameIteratorResponse,
 ) (*gapi.FrameIteratorResponse, error) {
 	return &gapi.FrameIteratorResponse{
@@ -175,12 +174,12 @@ func (t frameIteratorResponseTranslator) Forward(
 		Ack:     msg.Ack,
 		SeqNum:  int32(msg.SeqNum),
 		Frame:   translateFrameForward(msg.Frame),
-		Error:   fgrpc.EncodeError(msg.Error),
+		Error:   fgrpc.EncodeError(ctx, msg.Error, false),
 	}, nil
 }
 
 func (t frameIteratorResponseTranslator) Backward(
-	_ context.Context,
+	ctx context.Context,
 	msg *gapi.FrameIteratorResponse,
 ) (api.FrameIteratorResponse, error) {
 	return api.FrameIteratorResponse{
@@ -190,12 +189,12 @@ func (t frameIteratorResponseTranslator) Backward(
 		Ack:     msg.Ack,
 		SeqNum:  int(msg.SeqNum),
 		Frame:   translateFrameBackward(msg.Frame),
-		Error:   fgrpc.DecodeError(msg.Error),
+		Error:   fgrpc.DecodeError(ctx, msg.Error),
 	}, nil
 }
 
 func (t frameStreamerRequestTranslator) Forward(
-	_ context.Context,
+	ctx context.Context,
 	msg api.FrameStreamerRequest,
 ) (*gapi.FrameStreamerRequest, error) {
 	return &gapi.FrameStreamerRequest{
@@ -205,7 +204,7 @@ func (t frameStreamerRequestTranslator) Forward(
 }
 
 func (t frameStreamerRequestTranslator) Backward(
-	_ context.Context,
+	ctx context.Context,
 	msg *gapi.FrameStreamerRequest,
 ) (api.FrameStreamerRequest, error) {
 	return api.FrameStreamerRequest{
@@ -215,22 +214,22 @@ func (t frameStreamerRequestTranslator) Backward(
 }
 
 func (t frameStreamerResponseTranslator) Forward(
-	_ context.Context,
+	ctx context.Context,
 	msg api.FrameStreamerResponse,
 ) (*gapi.FrameStreamerResponse, error) {
 	return &gapi.FrameStreamerResponse{
 		Frame: translateFrameForward(msg.Frame),
-		Error: fgrpc.EncodeError(msg.Error),
+		Error: fgrpc.EncodeError(ctx, msg.Error, false),
 	}, nil
 }
 
 func (t frameStreamerResponseTranslator) Backward(
-	_ context.Context,
+	ctx context.Context,
 	msg *gapi.FrameStreamerResponse,
 ) (api.FrameStreamerResponse, error) {
 	return api.FrameStreamerResponse{
 		Frame: translateFrameBackward(msg.Frame),
-		Error: fgrpc.DecodeError(msg.Error),
+		Error: fgrpc.DecodeError(ctx, msg.Error),
 	}, nil
 }
 
@@ -239,7 +238,7 @@ type writerServer struct{ *writerServerCore }
 func (f *writerServer) Exec(
 	server gapi.FrameWriterService_ExecServer,
 ) error {
-	return f.Handler(server.Context(), f.Server(server))
+	return f.Handler(server.Context(), server)
 }
 
 func (f *writerServer) BindTo(reg grpc.ServiceRegistrar) {
@@ -251,7 +250,7 @@ type iteratorServer struct{ *iteratorServerCore }
 func (f *iteratorServer) Exec(
 	server gapi.FrameIteratorService_ExecServer,
 ) error {
-	return f.Handler(server.Context(), f.Server(server))
+	return f.Handler(server.Context(), server)
 }
 
 func (f *iteratorServer) BindTo(reg grpc.ServiceRegistrar) {
@@ -261,9 +260,9 @@ func (f *iteratorServer) BindTo(reg grpc.ServiceRegistrar) {
 type streamerServer struct{ *streamServerCore }
 
 func (f *streamerServer) Exec(
-	server gapi.FrameStreamerService_ExecServer,
+	stream gapi.FrameStreamerService_ExecServer,
 ) error {
-	return f.Handler(server.Context(), f.Server(server))
+	return f.Handler(stream.Context(), stream)
 }
 
 func (f *streamerServer) BindTo(reg grpc.ServiceRegistrar) {

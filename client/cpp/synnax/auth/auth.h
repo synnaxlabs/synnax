@@ -9,14 +9,10 @@
 
 #pragma once
 
-/// std
 #include <string>
-#include <utility>
-
-/// protos
-#include "v1/auth.pb.h"
-#include "freighter/freighter.h"
-#include <grpcpp/grpcpp.h>
+#include "freighter/cpp/freighter/freighter.h"
+#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/auth.pb.h"
+#include "client/cpp/synnax/errors/errors.h"
 
 /// Auth meta data key. NOTE: This must be lowercase, GRPC will panic on capitalized
 /// or uppercase keys.
@@ -25,12 +21,15 @@ const std::string HEADER_KEY = "authorization";
 const std::string HEADER_VALUE_PREFIX = "Bearer ";
 
 /// @brief type alias for the auth login transport.
-typedef freighter::UnaryClient<api::v1::LoginResponse, api::v1::LoginRequest> AuthLoginClient;
+typedef freighter::UnaryClient<
+    api::v1::LoginRequest,
+    api::v1::LoginResponse
+> AuthLoginClient;
 
 
 /// @brief AuthMiddleware for authenticating requests using a bearer token. AuthMiddleware has
 /// no preference on order when provided to use.
-class AuthMiddleware : public freighter::PassthroughMiddleware {
+class AuthMiddleware final : public freighter::PassthroughMiddleware {
 private:
     /// Token to be used for authentication. Empty when auth_attempted is false or error
     /// is not nil.
@@ -38,42 +37,51 @@ private:
     /// Whether or not an authentication attempt was made with the server. If set to true
     /// and err is not nil, authentication has failed and the middleware will not attempt
     /// to authenticate again.
-    bool auth_attempted = false;
-    /// Accumulated error from authentication attempts.
-    freighter::Error err = freighter::NIL;
+    bool authenticated = false;
     /// Transport for authentication requests.
     std::unique_ptr<AuthLoginClient> login_client;
     /// Username to be used for authentication.
     std::string username;
     /// Password to be used for authentication.
     std::string password;
+    /// The maximum number of times to retry authentication.
+    std::uint32_t max_retries;
+    /// Number of times authentication has been retried.
+    std::uint32_t retry_count = 0;
 
 public:
     AuthMiddleware(
-            std::unique_ptr<AuthLoginClient> login_client,
-            std::string username,
-            std::string password
-    ) :
-            login_client(std::move(login_client)), username(std::move(username)), password(std::move(password)) {
+        std::unique_ptr<AuthLoginClient> login_client,
+        std::string username,
+        std::string password,
+        std::uint32_t max_retries
+    ) : login_client(std::move(login_client)),
+        username(std::move(username)),
+        password(std::move(password)),
+        max_retries(max_retries) {
     }
 
     /// Implements freighter::AuthMiddleware::operator().
-    std::pair<freighter::Context, freighter::Error> operator()(freighter::Context context) override {
-        if (!auth_attempted) {
+    std::pair<freighter::Context, freighter::Error> operator()(
+        freighter::Context context
+    ) override {
+        if (!authenticated) {
             api::v1::LoginRequest req;
             req.set_username(username);
             req.set_password(password);
-            auto [res, exc] = login_client->send("/auth_login/login", req);
-            if (exc) {
-                err = exc;
-                return {context, err};
-            }
+            auto [res, err] = login_client->send("/auth/login", req);
+            if (err) return {context, err};
             token = res.token();
-            auth_attempted = true;
+            authenticated = true;
+            retry_count = 0;
         }
-        if (err) return {context, err};
         context.set(HEADER_KEY, HEADER_VALUE_PREFIX + token);
-        return freighter::PassthroughMiddleware::operator()(context);
+        auto [res, err] = freighter::PassthroughMiddleware::operator()(context);
+        if (err.matches(synnax::INVALID_TOKEN) && retry_count < max_retries) {
+            authenticated = false;
+            retry_count++;
+            return this->operator()(context);
+        }
+        return {res, err};
     }
 };
-

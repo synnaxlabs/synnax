@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Destructor, binary, observe } from "@synnaxlabs/x";
+import { binary } from "@synnaxlabs/x/binary";
+import { type Destructor } from "@synnaxlabs/x/destructor";
+import { observe } from "@synnaxlabs/x/observe";
 import { z } from "zod";
 
 import { type Key as ChannelKey } from "@/channel/payload";
@@ -111,7 +113,7 @@ export class StateTracker implements observe.Observable<Transfer[]> {
   }
 
   static async open(client: FrameClient): Promise<StateTracker> {
-    const streamer = await client.newStreamer("sy_node_1_control");
+    const streamer = await client.openStreamer("sy_node_1_control");
     return new StateTracker(streamer);
   }
 

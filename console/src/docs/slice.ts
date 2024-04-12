@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
+import { migrate } from "@synnaxlabs/x";
 
 /**
  * The name of the docs slice in a larger store.
@@ -21,7 +22,7 @@ export interface Location {
 }
 
 /** The state of the docs slice */
-export interface SliceState {
+export interface SliceState extends migrate.Migratable {
   location: Location;
 }
 
@@ -34,6 +35,7 @@ export interface StoreState {
 }
 
 const initialState: SliceState = {
+  version: "0.0.0",
   location: {
     path: "",
     heading: "",
@@ -42,6 +44,10 @@ const initialState: SliceState = {
 
 /** Payload for the setDocsPath action. */
 export type SetLocationPayload = Location;
+
+export const MIGRATIONS: migrate.Migrations = {};
+
+export const migrateSlice = migrate.migrator<SliceState, SliceState>(MIGRATIONS);
 
 export const { actions, reducer } = createSlice({
   name: SLICE_NAME,

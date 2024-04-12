@@ -225,7 +225,7 @@ export type UseReturn<S extends z.ZodTypeAny> = [
  * 1. An object containing metadata about the generated component. This object contains
  * a path property, which is an array of strings representing the path to the component
  * in the aether component tree.
- * 2. The component's current state. This is synchronised with the worker thread, and
+ * 2. The component's current state. This is synchronized with the worker thread, and
  * can be updated by both the worker and the main thread.
  * 3. A function that can be used to update the component's state. This function takes
  * in both the next state and an optional array of transferable objects. The next state
@@ -261,7 +261,7 @@ export const use = <S extends z.ZodTypeAny>(props: UseProps<S>): UseReturn<S> =>
         setInternalState((prev) => {
           const nextS = next(prev);
           // This makes our setter impure, so it's something we should be wary of causing
-          // unexpected behaviour in the the future.
+          // unexpected behavior in the the future.
           setAetherState(nextS, transfer);
           return nextS;
         });

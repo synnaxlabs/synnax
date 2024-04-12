@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, Rate, TimeStamp } from "@synnaxlabs/x";
-import { describe, test, expect } from "vitest";
+import { describe, test, expect, it } from "vitest";
+import { DataType, Rate, TimeStamp } from "@synnaxlabs/x/telem";
 
 import { type channel } from "@/channel";
 import { newClient } from "@/setupspecs";
@@ -26,8 +26,9 @@ const newChannel = async (): Promise<channel.Channel> =>
 describe("Streamer", () => {
   test("happy path", async () => {
     const ch = await newChannel();
-    const streamer = await client.telem.newStreamer(ch.key);
-    const writer = await client.telem.newWriter({
+    const streamer = await client.telem.openStreamer(ch.key);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    const writer = await client.telem.openWriter({
       start: TimeStamp.now(),
       channels: ch.key,
     });
@@ -37,6 +38,18 @@ describe("Streamer", () => {
       await writer.close();
     }
     const d = await streamer.read();
-    expect(d.get(ch.key)[0].data).toEqual(new Float64Array([1, 2, 3]));
+    expect(Array.from(d.get(ch.key))).toEqual([1, 2, 3]);
+  });
+  test("open with config", async () => {
+    const ch = await newChannel();
+    await expect(
+      client.telem.openStreamer({
+        channels: ch.key,
+        from: TimeStamp.now(),
+      }),
+    ).resolves.not.toThrow();
+  });
+  it("should not throw an error when the streamer is opened with zero channels", async () => {
+    await expect(client.telem.openStreamer([])).resolves.not.toThrow();
   });
 });

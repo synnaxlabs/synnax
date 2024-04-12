@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeSpan, TimeStamp, URL } from "@synnaxlabs/x";
+import { TimeSpan, TimeStamp } from "@synnaxlabs/x/telem";
+import { URL } from "@synnaxlabs/x/url";
 import { z } from "zod";
 
 import { auth } from "@/auth";
@@ -15,16 +16,15 @@ import { channel } from "@/channel";
 import { connection } from "@/connection";
 import { errorsMiddleware } from "@/errors";
 import { framer } from "@/framer";
+import { hardware } from "@/hardware";
+import { device } from "@/hardware/device";
+import { rack } from "@/hardware/rack";
+import { task } from "@/hardware/task";
 import { label } from "@/label";
 import { ontology } from "@/ontology";
 import { ranger } from "@/ranger";
 import { Transport } from "@/transport";
 import { workspace } from "@/workspace";
-import { hardware } from "./hardware";
-import { device } from "./hardware/device";
-import { rack } from "./hardware/rack";
-import { task } from "./hardware/task";
-import { randomUUID } from "crypto";
 
 export const synnaxPropsZ = z.object({
   host: z.string().min(1),
@@ -49,19 +49,19 @@ export type ParsedSynnaxProps = z.output<typeof synnaxPropsZ>;
  */
 // eslint-disable-next-line import/no-default-export
 export default class Synnax {
-  private readonly transport: Transport;
   readonly createdAt: TimeStamp;
+  readonly props: ParsedSynnaxProps;
   readonly telem: framer.Client;
   readonly ranges: ranger.Client;
   readonly channels: channel.Client;
   readonly auth: auth.Client | undefined;
   readonly connectivity: connection.Checker;
   readonly ontology: ontology.Client;
-  readonly props: ParsedSynnaxProps;
   readonly workspaces: workspace.Client;
   readonly labels: label.Client;
   readonly hardware: hardware.Client;
   static readonly connectivity = connection.Checker;
+  private readonly transport: Transport;
 
   /**
    * @param props.host - Hostname of a node in the cluster.
@@ -97,7 +97,12 @@ export default class Synnax {
     );
     const chCreator = new channel.Creator(this.transport.unary);
     this.telem = new framer.Client(this.transport.stream, chRetriever);
-    this.channels = new channel.Client(this.telem, chRetriever, chCreator);
+    this.channels = new channel.Client(
+      this.telem,
+      chRetriever,
+      this.transport.unary,
+      chCreator,
+    );
     this.connectivity = new connection.Checker(
       this.transport.unary,
       connectivityPollFrequency,
@@ -116,22 +121,14 @@ export default class Synnax {
       this.labels,
     );
     this.workspaces = new workspace.Client(this.transport.unary);
-    const devices = new device.Client(
-      new device.Retriever(this.transport.unary),
-      new device.Writer(this.transport.unary),
-      this.telem,
-    );
-    const taskRetriever = new task.Retriever(this.transport.unary);
-    const taskWriter = new task.Writer(this.transport.unary);
-    const tasks = new task.Client(taskRetriever, taskWriter);
-    const racks = new rack.Client(
-      new rack.Retriever(this.transport.unary),
-      new rack.Writer(this.transport.unary),
-      this.telem,
-      taskWriter,
-      taskRetriever,
-    );
+    const devices = new device.Client(this.transport.unary, this.telem);
+    const tasks = new task.Client(this.transport.unary, this.telem);
+    const racks = new rack.Client(this.transport.unary, this.telem, tasks);
     this.hardware = new hardware.Client(tasks, racks, devices);
+  }
+
+  get key(): string {
+    return this.createdAt.valueOf().toString();
   }
 
   close(): void {

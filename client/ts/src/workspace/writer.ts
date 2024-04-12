@@ -8,18 +8,26 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { toArray, type UnknownRecord } from "@synnaxlabs/x";
+import { type UnknownRecord } from "@synnaxlabs/x/record";
+import { toArray } from "@synnaxlabs/x/toArray";
 import { z } from "zod";
 
-import { type Workspace, workspaceZ, keyZ, workspaceRemoteZ } from "./payload";
+import {
+  type Workspace,
+  workspaceZ,
+  keyZ,
+  workspaceRemoteZ,
+} from "@/workspace/payload";
 
-const crudeWorkspaceZ = workspaceZ.partial({ key: true });
-const workspaceWriteZ = workspaceRemoteZ.partial({ key: true });
+const newWorkspaceZ = workspaceZ.partial({ key: true }).transform((w) => ({
+  ...w,
+  layout: JSON.stringify(w.layout),
+}));
 
-export type CrudeWorkspace = z.infer<typeof crudeWorkspaceZ>;
+export type NewWorkspace = z.input<typeof newWorkspaceZ>;
 
 const createReqZ = z.object({
-  workspaces: workspaceWriteZ.partial({ key: true }).array(),
+  workspaces: newWorkspaceZ.array(),
 });
 
 const createResZ = z.object({
@@ -60,15 +68,12 @@ export class Writer {
     this.client = client;
   }
 
-  async create(workspaces: CrudeWorkspace | CrudeWorkspace[]): Promise<Workspace[]> {
-    const ws = toArray(workspaces).map((w) => ({
-      ...w,
-      layout: JSON.stringify(w.layout),
-    }));
+  async create(workspaces: NewWorkspace | NewWorkspace[]): Promise<Workspace[]> {
     const res = await sendRequired<typeof createReqZ, typeof createResZ>(
       this.client,
       CREATE_ENDPOINT,
-      { workspaces: ws },
+      { workspaces: toArray(workspaces) },
+      createReqZ,
       createResZ,
     );
     return res.workspaces;
@@ -79,6 +84,7 @@ export class Writer {
       this.client,
       DELETE_ENDPOINT,
       { keys: toArray(keys) },
+      deleteReqZ,
       deleteResZ,
     );
   }
@@ -88,6 +94,7 @@ export class Writer {
       this.client,
       RENAME_ENDPOINT,
       { key, name },
+      renameReqZ,
       renameResZ,
     );
   }
@@ -97,6 +104,7 @@ export class Writer {
       this.client,
       SET_LAYOUT_ENDPOINT,
       { key, layout: JSON.stringify(layout) },
+      setLayoutReqZ,
       setLayoutResZ,
     );
   }

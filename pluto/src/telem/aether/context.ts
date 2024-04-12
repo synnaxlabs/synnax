@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Destructor, deep } from "@synnaxlabs/x";
-import { type Handler } from "@synnaxlabs/x/dist/observe/observe";
+import { deep } from "@synnaxlabs/x/deep";
+import { type Destructor } from "@synnaxlabs/x/destructor";
+import { type observe } from "@synnaxlabs/x/observe";
 
 import { type aether } from "@/aether/aether";
 import { type Factory } from "@/telem/aether/factory";
@@ -35,14 +36,12 @@ export const registerFactory = (ctx: aether.Context, f: Factory): void =>
 
 class MemoizedSource<V> implements Source<V> {
   private readonly spec: Spec;
-  private readonly prov: Provider;
   private readonly wrapped: Source<V>;
   private readonly prevKey: string;
 
   constructor(wrapped: Source<V>, prevProv: Provider, prevSpec: Spec) {
     this.wrapped = wrapped;
     this.spec = prevSpec;
-    this.prov = prevProv;
     this.prevKey = prevProv.clusterKey;
   }
 
@@ -54,7 +53,7 @@ class MemoizedSource<V> implements Source<V> {
     await this.wrapped.cleanup?.();
   }
 
-  onChange(handler: Handler<void>): Destructor {
+  onChange(handler: observe.Handler<void>): Destructor {
     return this.wrapped.onChange(handler);
   }
 
@@ -93,7 +92,7 @@ export const useSource = async <V>(
   ctx: aether.Context,
   spec: Spec,
   prev: Source<V>,
-): Promise<Source<V>> => {
+): Promise<MemoizedSource<V>> => {
   const prov = useProvider(ctx);
   if (prev instanceof MemoizedSource) {
     if (!prev.shouldUpdate(prov, spec)) return prev;
@@ -106,7 +105,7 @@ export const useSink = async <V>(
   ctx: aether.Context,
   spec: Spec,
   prev: Sink<V>,
-): Promise<Sink<V>> => {
+): Promise<MemoizedSink<V>> => {
   const prov = useProvider(ctx);
   if (prev instanceof MemoizedSink) {
     if (!prev.shouldUpdate(prov, spec)) return prev;
