@@ -252,7 +252,8 @@ var _ = Describe("Delete Channel", Ordered, func() {
 			Expect(fs.Exists(strconv.Itoa(int(key)))).To(BeTrue())
 			Expect(fsDB.DeleteChannel(key)).To(Succeed())
 			Expect(fs.Exists(strconv.Itoa(int(key)))).To(BeFalse())
-
+			_, err := fsDB.RetrieveChannel(ctx, key)
+			Expect(err).To(MatchError(core.ChannelNotFound))
 		})
 		It("Should delete a unary channel", func() {
 			Expect(fsDB.CreateChannel(
@@ -263,12 +264,16 @@ var _ = Describe("Delete Channel", Ordered, func() {
 			Expect(fs.Exists(strconv.Itoa(int(key)))).To(BeTrue())
 			Expect(fsDB.DeleteChannel(key)).To(Succeed())
 			Expect(fs.Exists(strconv.Itoa(int(key)))).To(BeFalse())
+			_, err := fsDB.RetrieveChannel(ctx, key)
+			Expect(err).To(MatchError(core.ChannelNotFound))
 		})
 		It("Should delete a virtual channel", func() {
 			Expect(fsDB.CreateChannel(ctx, cesium.Channel{Key: key, Virtual: true, DataType: telem.Int64T})).To(Succeed())
 			Expect(fs.Exists(strconv.Itoa(int(key)))).To(BeTrue())
 			Expect(fsDB.DeleteChannel(key)).To(Succeed())
 			Expect(fs.Exists(strconv.Itoa(int(key)))).To(BeFalse())
+			_, err := fsDB.RetrieveChannel(ctx, key)
+			Expect(err).To(MatchError(core.ChannelNotFound))
 		})
 	})
 })
