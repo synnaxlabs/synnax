@@ -1,32 +1,34 @@
 ---
 layout: "@/layouts/MainLayout.astro"
-title: "Console Installation"
-description: "This page describes how to install the Synnax console and gives an overview of its use."
+title: "UI Overview"
+heading: "Console UI Overview"
+description: "Learn how to navigate the Synnax console UI."
 ---
 import { Image } from "@/components/Media";
 import Note from "@/components/Note.astro";
+import { Icon } from "@synnaxlabs/media";
+import { Text } from "@synnaxlabs/pluto";
 
-## Prerequisites
-
-#### Start a local cluster
-
-This guide assumes you've started a local cluster running on `localhost:9090` using the
-instructions [here](/deploy/get-started). You're more than welcome to use a remote
-cluster, but you'll need to keep in mind that those connection parameters may be different
-than the ones used in this guide.
-
-#### Install the Synnax Console
-
-We're going to be using the Synnax console. To install it, follow the
-instructions [here](/console/get-started).
 
 ## UI Overview
 An image of the Synnax console is shown below.
 
-<Image client:only="react" id="roles/operations/installation/ui-main-view"  />
+<Image client:only="react" id="console/ui-overview/ui-main-view"/>
 
-- The folder on the left side is the file tree of the resources that the Synnax
-  console uses. Click on the folder to open the file tree
+<>
+  <ul>
+    <li>
+        <Text.Text level="p">
+        <Icon.Resources /> __Resources__ are located on the left-hand side of the
+        </Text.Text>
+    </li>
+  </ul>
+</>
+
+The folder on the left side is the file tree of the resources that the Synnax
+  console uses. Click on the folder to open the file tree.
+
+
 - Your workspaces are listed as tabs along the top.
 - The + button in the top right allows you to add another visualization to your
   current workspace.
@@ -51,7 +53,7 @@ An exploded view of the resources file tree is shown below:
 <Image client:only="react" id="roles/operations/installation/resources-tree"  />
 
 
-In the resources tab on the top left, there are several folders. 
+In the resources tab on the top left, there are several folders.
 - __Channels__ are the sensor channels that you can track and plot.
 - __Clusters__ is the list of all nodes currently connected to the cluster.
 - __Labels__ are not currently implemented in Synnax.
@@ -63,6 +65,7 @@ In the resources tab on the top left, there are several folders.
   created by the users can be found underneath their name.
 - __Workspaces__ list all created workspaces in the cluster. This tree includes
   workspaces created by all users.
+
 
 ## Visualizations
 
@@ -84,4 +87,3 @@ Choose a name for the range and the start and end times. The start and end times
 will be the local time of your machine. If you want the range to be viewable by
 others in your cluster, click "Save to Synnax". If you want the range to be
 viewable only by yourself, click "Save locally".
-

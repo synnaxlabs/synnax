@@ -24,6 +24,11 @@ export const consoleNav: PageNavNode = {
       name: "Connect a Cluster",
     },
     {
+      key: "/components/console/ui-overview",
+      href: "/components/console/ui-overview",
+      name: "UI Overview",
+    },
+    {
       key: "/components/console/querying-data",
       href: "/components/console/querying-data",
       name: "Querying Data Using Ranges",
