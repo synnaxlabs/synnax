@@ -17,6 +17,7 @@ cc_library(
     name = "ni",
     srcs = [
         "ni_reader.cpp",
+        "ni_scanner.cpp"
     ],
     hdrs = [
         "daqmx.h",
@@ -24,6 +25,7 @@ cc_library(
         "nisyscfg.h",
         "nisyscfg_errors.h",
         "nisyscfg_wide.h",
+        "ni_scanner.h",
     ],
     deps = [
         "@nlohmann_json//:json",
@@ -100,3 +102,19 @@ cc_test(
     ],
     copts = ["/std:c++17"],
 )
+
+cc_test(
+    name = "ni_scanner_test",
+    srcs = [
+        "ni_scanner_test.cpp",
+    ],
+    deps = [
+        "ni",
+        "@com_google_googletest//:gtest_main",
+        "daqmx_hds",
+        "syscfg_hds",
+        "//driver/testutil",
+    ],
+    copts = ["/std:c++17"],
+)
+

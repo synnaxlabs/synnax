@@ -107,7 +107,14 @@
       "editor.defaultFormatter": "ms-python.black-formatter"
     },
     "python.formatting.provider": "none",
-    "eslint.workingDirectories": [{"mode": "auto"}],
+    "eslint.workingDirectories": [
+      {
+        "mode": "auto"
+      }
+    ],
+    "files.associations": {
+      "xstring": "cpp"
+    },
   },
   "extensions": {
     "recommendations": [

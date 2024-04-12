@@ -4,16 +4,20 @@
 
 #include "ni_scanner.h"
 #include "nisyscfg.h"
+#include "nlohmann/json.hpp"
 
 ni::NiScanner::NiScanner() {}
 
 ni::NiScanner::~NiScanner() {}
 
-ni::NiScanner::json ni::NiScanner::getDevices() {
+json ni::NiScanner::getDevices() {
     json j;
     char productName[1024] = "";
     char serialNumber[1024] = "";
     char isSimulated[1024] = "";
+    char isDevice[1024] = "";
+    char isChassis[1024] = "";
+
     NISysCfgStatus status = NISysCfg_OK;
     NISysCfgEnumResourceHandle resourcesHandle = NULL;
     NISysCfgResourceHandle resource = NULL;
@@ -31,21 +35,33 @@ ni::NiScanner::json ni::NiScanner::getDevices() {
             NULL,                   // expert handle
             &session                //session handle
     );
+
+    // create a filter to find only valid NI devices
+    NISysCfgCreateFilter(session, &filter);
+    NISysCfgSetFilterProperty(filter, NISysCfgFilterPropertyIsDevice, NISysCfgBoolTrue);
+
     // Attempt to find hardware
-    NISysCfgFindHardware(session, NISysCfgFilterModeAll, filter, NULL, &resourcesHandle);
+    auto err =  NISysCfgFindHardware(session, NISysCfgFilterModeAll, filter, NULL, &resourcesHandle);
+    if(err != NISysCfg_OK){
+        return ""; // TODO: handle error more meaningfully
+    }
     j["devices"] = json::array();
     // Iterate through all hardware found and grab the relevant information
-    while(NISysCfgNextResource(session, resourcesHandle, &resource)  == NISysCfg_OK) { // instead  do while (!= NISysCfgWarningNoMoreItems) ?
+    while(NISysCfgNextResource(session, resourcesHandle, &resource)  ==  NISysCfg_OK) { // instead  do while (!= NISysCfgWarningNoMoreItems) ?
         json device;
         NISysCfgGetResourceProperty(resource, NISysCfgResourcePropertyProductName, productName);
         NISysCfgGetResourceProperty(resource, NISysCfgResourcePropertySerialNumber, serialNumber);
         NISysCfgGetResourceProperty(resource, NISysCfgResourcePropertyProductName, productName);
         NISysCfgGetResourceProperty(resource, NISysCfgResourcePropertyIsSimulated, isSimulated);
+        NISysCfgGetResourceProperty(resource, NISysCfgResourcePropertyIsChassis, isChassis);
         device["productName"] = productName;
         device["serialNumber"] = serialNumber;
-        device["isSimulated"] = isSimulated;
+        device["isSimulated"] = (isSimulated) ? 1 : 0;
+        device["isChassis"] = (isChassis) ? 1 : 0;
         j["devices"].push_back(device);
     }
+    NISysCfgCloseHandle(filter);
     NISysCfgCloseHandle(resourcesHandle);
-    return json;
+    NISysCfgCloseHandle(session);
+    return j;
 }

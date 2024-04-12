@@ -80,6 +80,7 @@ std::pair<json,int> ni::niDaqReader::init(json config, uint64_t acquisition_rate
 // TODO: I want to make a producer consumer model here instead? This works for now but come back to
 
 std::pair<json,int> ni::niDaqReader::init(std::vector<channel_config> channels, uint64_t acquisition_rate, uint64_t stream_rate) {
+    printf("Init Reader\n");
     char errBuff[2048] = {'\0'};
     this->stream_rate = stream_rate;
     this->channels = channels;
@@ -88,6 +89,7 @@ std::pair<json,int> ni::niDaqReader::init(std::vector<channel_config> channels, 
     for(auto &channel : channels){ // iterate through channels, check name and determine what tasks need to be created
         switch(channel.channelType){
             case ANALOG_VOLTAGE_IN:
+                printf("Creating AI Voltage Channel\n");
                 err = ni::checkNIError(DAQmxCreateAIVoltageChan(taskHandle,
                                          channel.name.c_str(),
                                          "",
@@ -160,6 +162,8 @@ freighter::Error ni::niDaqReader::start(){
    auto err = ni::checkNIError(DAQmxStartTask(taskHandle),
                                this->errInfo);
    if(err < 0){
+       printf("Error starting task\n"); // print error info
+       printf("Error: %s\n", errInfo.dump().c_str());
        return freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
    }
    return freighter::NIL;

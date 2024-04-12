@@ -9,7 +9,7 @@
 
 #include "nlohmann/json.hpp"
 
-usign json = nlohmann::json;
+using json = nlohmann::json;
 
 namespace ni {
     class NiScanner {
@@ -21,3 +21,4 @@ namespace ni {
 
     };
 }
+
