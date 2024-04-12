@@ -11,7 +11,7 @@
 // Created by Synnax on 2/18/2024.
 //
 
-#include "driver/ni/ni_module.h"
+#include "driver/driver/ni/ni_module.h"
 #include "ni_module.h"
 #include <cassert>
 #include <stdio.h>

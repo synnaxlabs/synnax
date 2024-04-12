@@ -11,9 +11,9 @@
 // Created by Emiliano Bonilla on 1/3/24.
 //
 
-#include "ni_reader.h"
+#include "driver/driver/ni/ni_reader.h"
 #include "nlohmann/json.hpp"
-#include "synnax/telem/telem.h"
+#include "client/cpp/synnax/telem/telem.h"
 #include <utility>
 #include <chrono>
 #include <stdio.h>
@@ -154,9 +154,7 @@ std::pair<json,int> ni::niDaqReader::init(std::vector<channel_config> channels, 
 }
 
 
-freighter::Error ni::niDaqReader::configure(synnax::Module config){
-    return freighter::NIL;
-}
+
 
 freighter::Error ni::niDaqReader::start(){
    auto err = ni::checkNIError(DAQmxStartTask(taskHandle),
@@ -414,10 +412,6 @@ std::pair<json,int> ni::niDaqWriter::init(std::vector <channel_config> channels)
         writeBuffer[i] = 0;
     }
     return {this->errInfo, 0};
-}
-
-freighter::Error ni::niDaqWriter::configure(synnax::Module config){
-    return freighter::NIL;
 }
 
 freighter::Error ni::niDaqWriter::start(){

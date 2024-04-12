@@ -12,8 +12,8 @@
 //
 
 #include <include/gtest/gtest.h>
-#include "synnax/synnax.h"
-#include "ni_reader.h"
+#include "client/cpp/synnax/synnax.h"
+#include "driver/driver/ni/ni_reader.h"
 #include <stdio.h>
 #include "driver/testutil/testutil.h"
 

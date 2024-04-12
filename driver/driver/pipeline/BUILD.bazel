@@ -1,23 +1,57 @@
 cc_library(
     name = "pipeline",
     srcs = [
-        "acquisition.cpp",
-        "control.cpp",
+        "ctrl.cpp",
+        "acq.cpp",
     ],
     hdrs = [
-        "acquisition.h",
-        "control.h",
+        "ctrl.h",
+        "acq.h",
     ],
-    copts = select({
-        "@platforms//os:windows": ["/std:c++20"],
-        "//conditions:default": [],
-    }),
     visibility = ["//visibility:public"],
     deps = [
+        "//driver/breaker",
+        "//driver/errors:errors",
+        "//driver/modules:module",
+        "@nlohmann_json//:json",
         "//client/cpp/synnax",
-        "//driver/driver/breaker",
-        "//driver/driver/errors",
-        "//driver/driver/task",
+        "//driver/ni",
+        "acqReader"
+    ],
+    copts = ["/std:c++17"],
+)
+
+cc_library(
+    name = "acqReader",
+    hdrs = ["acqReader.h"],
+
+    visibility = ["//visibility:public"],
+    deps = [
+        "@com_github_google_glog//:glog",
+        "//client/cpp/synnax",
         "@nlohmann_json//:json",
     ],
+    copts = ["/std:c++17"],
+)
+
+cc_test (
+    name = "acq_test",
+    srcs = ["acq_test.cpp"],
+    deps = [
+        "pipeline",
+        "@com_google_googletest//:gtest_main",
+        "//driver/testutil",
+    ],
+    copts = ["/std:c++17"],
+)
+
+cc_test(
+    name = "ctrl_test",
+    srcs = ["ctrl_test.cpp"],
+    deps = [
+        "pipeline",
+        "@com_google_googletest//:gtest_main",
+        "//driver/testutil",
+    ],
+    copts = ["/std:c++17"],
 )

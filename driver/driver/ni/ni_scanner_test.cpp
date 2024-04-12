@@ -3,8 +3,8 @@
 //
 
 #include <include/gtest/gtest.h>
-#include "ni_scanner.h"
-#include "synnax/synnax.h"
+#include "driver/driver/ni/ni_scanner.h"
+#include "client/cpp/synnax/synnax.h"
 #include <stdio.h>
 
 TEST(NiScannerTests, testGetDevices){

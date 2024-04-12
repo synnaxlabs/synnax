@@ -12,8 +12,8 @@
 //
 
 #include <include/gtest/gtest.h>
-#include "synnax/synnax.h"
-#include "ni_reader.h"
+#include "client/cpp/synnax/synnax.h"
+#include "driver/driver/ni/ni_reader.h"
 #include <stdio.h>
 
 /// @brief it should read data from a daq and correctly construct a synnax frame from the dataI

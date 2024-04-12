@@ -16,15 +16,15 @@
 
 #endif //DRIVER_NI__MODULE_H
 
-#include "synnax/synnax.h"
+#include "client/cpp/synnax/synnax.h"
 #include <memory>
 #include <utility>
 #include "nlohmann/json.hpp" // for json parsing
-#include "driver/modules/module.h"
-#include "driver/pipeline/acq.h"
-#include "driver/ni/ni_reader.h" // to get channel config info
-#include "driver/pipeline/acqReader.h"
-#include "driver/pipeline/ctrl.h"
+#include "driver/driver/modules/module.h"
+#include "driver/driver/pipeline/acq.h"
+#include "driver/driver/ni/ni_reader.h" // to get channel config info
+#include "driver/driver/pipeline/acqReader.h"
+#include "driver/driver/pipeline/ctrl.h"
 
 #pragma once
 

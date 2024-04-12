@@ -9,11 +9,11 @@
 
 #pragma once
 #include "daqmx.h"
-#include "synnax/synnax.h"
+#include "client/cpp/synnax/synnax.h"
 #include <string>
 #include <vector>
-#include "driver/pipeline/acqReader.h"
-#include "driver/modules/module.h"
+#include "driver/driver/pipeline/acqReader.h"
+#include "driver/driver/modules/module.h"
 #include <queue>
 #include "driver/errors/errors.h"
 
@@ -50,7 +50,6 @@ namespace ni {
         std::pair<json,int> init(std::vector <channel_config> channels, uint64_t acquisition_rate, uint64_t stream_rate);
         std::pair<json, int> init(json channels, uint64_t acquisition_rate, uint64_t stream_rate);
         std::pair <synnax::Frame, freighter::Error> read();
-        freighter::Error configure(synnax::Module config);  // TODO: remove
         freighter::Error stop();
         freighter::Error start();
 //        freighter::Error parseJSONConfig(json config);
@@ -78,7 +77,6 @@ namespace ni {
         std::pair<json,int> init(std::vector <channel_config> channels);
         std::pair<json,int> init(json channels, synnax::ChannelKey ack_index_key);
         std::pair <synnax::Frame, freighter::Error> write(synnax::Frame frame);
-        freighter::Error configure(synnax::Module config);  // TODO: remove
         std::pair <synnax::Frame, freighter::Error> writeDigital(synnax::Frame frame);
         freighter::Error stop();
         freighter::Error start();

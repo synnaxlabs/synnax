@@ -2,7 +2,7 @@ cc_library(
     name = "daqmx_hds",
     hdrs = ["daqmx.h"],
     visibility = ["//visibility:public"],
-    deps = ["@nidaqmx//:lib"],
+    deps = ["@nidaqmx"],
 )
 
 cc_library(
@@ -14,8 +14,8 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "@nidaqmx//:lib",
-        "@nisyscfg//:lib",
+        "@nidaqmx",
+        "@nisyscfg",
     ],
 )
 
@@ -43,13 +43,12 @@ cc_library(
     deps = [
         "daqmx_hds",
         "syscfg_hds",
-        "//driver/breaker",
-        "//driver/errors",
-        "//driver/modules:module",
-        "//driver/pipeline:acqReader",
+        "//driver/driver/breaker",
+        "//driver/driver/errors",
+        "//driver/driver/pipeline:acqReader",
+        "//client/cpp/synnax",
+        "//driver/driver/modules:module",
         "@nlohmann_json//:json",
-        "@synnax//synnax",
-        "@synnax//synnax/testutil",
     ],
 )
 
