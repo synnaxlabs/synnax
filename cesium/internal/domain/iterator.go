@@ -55,20 +55,10 @@ type Iterator struct {
 	value pointer
 	// valid stores whether the iterator is currently valid.
 	valid bool
-	// locked stores whether the iterator is operating on a mutex lock
-	locked bool
 	// readerFactory gets a new reader for the given domain pointer.
 	readerFactory func(ctx context.Context, ptr pointer) (*Reader, error)
-	onUnlock      func()
 	// closed stores whether the iterator is still open
 	closed bool
-}
-
-// Lock sets an iterator to be locked, and takes in a function that gets executed directly, and another function to be stored in onClose
-func (i *Iterator) Lock(onLock func(), onUnlock func()) {
-	i.onUnlock = onUnlock
-	onLock()
-	i.locked = true
 }
 
 // SetBounds sets the iterator's bounds. The iterator is invalidated, and will not be
@@ -91,7 +81,7 @@ func (i *Iterator) SeekLast(ctx context.Context) bool { return i.SeekLE(ctx, i.B
 // timestamp. If no such domain exists, SeekLE returns false.
 func (i *Iterator) SeekLE(ctx context.Context, stamp telem.TimeStamp) bool {
 	i.valid = true
-	i.position = i.idx.searchLE(ctx, stamp, !i.locked)
+	i.position = i.idx.searchLE(ctx, stamp)
 	return i.reload()
 }
 
@@ -100,7 +90,7 @@ func (i *Iterator) SeekLE(ctx context.Context, stamp telem.TimeStamp) bool {
 // provided timestamp. If no such domain exists, SeekGE returns false.
 func (i *Iterator) SeekGE(ctx context.Context, stamp telem.TimeStamp) bool {
 	i.valid = true
-	i.position = i.idx.searchGE(ctx, stamp, !i.locked)
+	i.position = i.idx.searchGE(ctx, stamp)
 	return i.reload()
 }
 
@@ -151,9 +141,6 @@ func (i *Iterator) Close() error {
 	if i.closed {
 		return iteratorClosedError
 	}
-	if i.locked {
-		i.onUnlock()
-	}
 	i.closed = true
 	i.valid = false
 	return nil
@@ -164,7 +151,7 @@ func (i *Iterator) reload() bool {
 		i.valid = false
 		return i.valid
 	}
-	ptr, ok := i.idx.get(i.position, !i.locked)
+	ptr, ok := i.idx.get(i.position)
 	if !ok || !ptr.OverlapsWith(i.Bounds) {
 		i.valid = false
 		// it's important that we return here, so we don't clear the current value

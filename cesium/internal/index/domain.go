@@ -11,6 +11,7 @@ package index
 
 import (
 	"context"
+	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/x/telem"
@@ -30,13 +31,8 @@ func (i *Domain) Distance(ctx context.Context, tr telem.TimeRange, continuous bo
 	ctx, span := i.T.Bench(ctx, "distance")
 	defer func() { _ = span.EndWith(err, ErrDiscontinuous) }()
 
-	var iter *domain.Iterator
-	if withLock {
-		iter = i.DB.NewIterator(domain.IteratorConfig{Bounds: tr})
-	} else {
-		iter = i.DB.NewIterator(domain.IteratorConfig{Bounds: tr})
-		iter.Lock(func() {}, func() {})
-	}
+	var iter = i.DB.NewIterator(domain.IteratorConfig{Bounds: tr})
+	defer func() { err = errors.CombineErrors(err, iter.Close()) }()
 
 	if !iter.SeekFirst(ctx) || (!iter.TimeRange().ContainsRange(tr) && continuous) {
 		err = ErrDiscontinuous

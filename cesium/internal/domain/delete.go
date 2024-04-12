@@ -30,16 +30,12 @@ import (
 // If startOffset = len(db.get(endPosition)), the operation is invalid.
 //
 // ** Special case: if endOffset = -1, then it is equal to the length of the end pointer.
-func (db *DB) Delete(ctx context.Context, startPosition int, endPosition int, startOffset int64, endOffset int64, tr telem.TimeRange, withLock bool) error {
-	if withLock {
-		db.idx.mu.Lock()
-		defer db.idx.mu.Unlock()
-	}
-	start, ok := db.idx.get(startPosition, false)
+func (db *DB) Delete(ctx context.Context, startPosition int, endPosition int, startOffset int64, endOffset int64, tr telem.TimeRange) error {
+	start, ok := db.idx.get(startPosition)
 	if !ok {
 		return errors.New("[cesium] Deletion starting at invalid position")
 	}
-	end, ok := db.idx.get(endPosition, false)
+	end, ok := db.idx.get(endPosition)
 	if !ok {
 		return errors.New("[cesium] Deletion ending at invalid position")
 	}
@@ -79,10 +75,10 @@ func (db *DB) Delete(ctx context.Context, startPosition int, endPosition int, st
 			fileKey: start.fileKey,
 			offset:  start.offset + uint32(startOffset),
 			length:  start.length - uint32(startOffset), // length of {tr.Start, start.End}
-		}, false)
+		})
 
 		for _, p := range db.idx.mu.pointers[startPosition+1 : endPosition] {
-			db.idx.insertTombstone(ctx, p, false)
+			db.idx.insertTombstone(ctx, p)
 		}
 
 		// Remove start of end pointer.
@@ -95,7 +91,7 @@ func (db *DB) Delete(ctx context.Context, startPosition int, endPosition int, st
 				fileKey: end.fileKey,
 				offset:  end.offset,
 				length:  uint32(endOffset), // length of {end.Start, tr.End}
-			}, false)
+			})
 		}
 	} else {
 		if startOffset > endOffset {
@@ -114,7 +110,7 @@ func (db *DB) Delete(ctx context.Context, startPosition int, endPosition int, st
 			fileKey: start.fileKey,
 			offset:  start.offset + uint32(startOffset),
 			length:  uint32(endOffset - startOffset),
-		}, false)
+		})
 	}
 
 	// Remove old pointers.

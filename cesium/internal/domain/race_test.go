@@ -18,6 +18,9 @@ var _ = Describe("Race conditions", Ordered, func() {
 	BeforeAll(func() {
 		db = MustSucceed(domain.Open(domain.Config{FS: fs.NewMem()}))
 	})
+	AfterAll(func() {
+		Expect(db.Close()).To(Succeed())
+	})
 	Describe("NewWriter can create writers with incorrect bounds", func() {
 		It("Should be broken", func() {
 			By("Creating some new writers while data is being written")

@@ -89,7 +89,7 @@ func (i *Iterator) SeekGE(ctx context.Context, ts telem.TimeStamp) bool {
 
 func (i *Iterator) Next(ctx context.Context, span telem.TimeSpan) (ok bool) {
 	if i.closed {
-		i.err = core.EntityClosed(("unary.iterator"))
+		i.err = iteratorClosedError
 		return false
 	}
 	ctx, span_ := i.T.Bench(ctx, "Next")

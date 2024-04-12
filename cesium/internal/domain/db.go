@@ -139,15 +139,8 @@ func (db *DB) NewIterator(cfg IteratorConfig) *Iterator {
 	return i
 }
 
-// NewLockedIterator calls NewIterator, then makes it acquire a mutex lock
-func (db *DB) NewLockedIterator(cfg IteratorConfig) *Iterator {
-	i := db.NewIterator(cfg)
-	i.Lock(func() { db.idx.mu.Lock() }, func() { db.idx.mu.Unlock() })
-	return i
-}
-
 func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) {
-	i := db.NewLockedIterator(IteratorConfig{Bounds: telem.TimeRangeMax})
+	i := db.NewIterator(IteratorConfig{Bounds: telem.TimeRangeMax})
 
 	if i.SeekGE(ctx, tr.Start) && i.TimeRange().OverlapsWith(tr) {
 		return true, i.Close()
@@ -162,7 +155,7 @@ func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) 
 // Close closes the DB. Close should not be called concurrently with any other DB methods.
 func (db *DB) Close() error {
 	w := errutil.NewCatch(errutil.WithAggregation())
-	w.Exec(func() error { return db.idx.close(true) })
+	w.Exec(func() error { return db.idx.close() })
 	w.Exec(db.files.close)
 	return w.Error()
 }

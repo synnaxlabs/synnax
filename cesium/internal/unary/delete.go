@@ -56,7 +56,7 @@ func (db *DB) Delete(ctx context.Context, tr telem.TimeRange) error {
 		return controller.Unauthorized(g.Subject.Name, db.Channel.Key)
 	}
 
-	i := db.Domain.NewLockedIterator(domain.IteratorConfig{Bounds: telem.TimeRangeMax})
+	i := db.Domain.NewIterator(domain.IteratorConfig{Bounds: telem.TimeRangeMax})
 	if ok := i.SeekGE(ctx, tr.Start); !ok {
 		return errors2.CombineErrors(i.Close(), errors.New("[cesium] Deletion Start TS not found"))
 	}
@@ -99,9 +99,9 @@ func (db *DB) Delete(ctx context.Context, tr telem.TimeRange) error {
 	endPosition := i.Position()
 
 	if endOffset == -1 {
-		err = db.Domain.Delete(ctx, startPosition, endPosition, startOffset*int64(db.Channel.DataType.Density()), endOffset, tr, false)
+		err = db.Domain.Delete(ctx, startPosition, endPosition, startOffset*int64(db.Channel.DataType.Density()), endOffset, tr)
 	} else {
-		err = db.Domain.Delete(ctx, startPosition, endPosition, startOffset*int64(db.Channel.DataType.Density()), endOffset*int64(db.Channel.DataType.Density()), tr, false)
+		err = db.Domain.Delete(ctx, startPosition, endPosition, startOffset*int64(db.Channel.DataType.Density()), endOffset*int64(db.Channel.DataType.Density()), tr)
 	}
 
 	if err != nil {
