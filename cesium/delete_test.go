@@ -15,9 +15,11 @@ import (
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/confluence"
+	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"strconv"
 )
 
 var _ = Describe("Delete Channel", Ordered, func() {
@@ -228,23 +230,45 @@ var _ = Describe("Delete Channel", Ordered, func() {
 		})
 	})
 	Describe("Happy paths", func() {
+		var (
+			fsDB *cesium.DB
+			fs                   = MustSucceed(xfs.Default.Sub("./testdata"))
+			key  core.ChannelKey = 101
+		)
+
+		BeforeAll(func() {
+			fsDB = MustSucceed(cesium.Open("", cesium.WithFS(fs)))
+		})
+		AfterAll(func() {
+			Expect(xfs.Default.Remove("./testdata")).To(Succeed())
+			Expect(fsDB.Close()).To(Succeed())
+		})
 		It("Should delete an index unary channel", func() {
-			Expect(db.CreateChannel(
+			Expect(fsDB.CreateChannel(
 				ctx,
-				cesium.Channel{Key: 101, IsIndex: true, DataType: telem.TimeStampT},
+				cesium.Channel{Key: key, IsIndex: true, DataType: telem.TimeStampT},
 			)).To(Succeed())
-			Expect(db.DeleteChannel(101)).To(Succeed())
+			Expect(fsDB.WriteArray(ctx, key, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13))).To(Succeed())
+			Expect(fs.Exists(strconv.Itoa(int(key)))).To(BeTrue())
+			Expect(fsDB.DeleteChannel(key)).To(Succeed())
+			Expect(fs.Exists(strconv.Itoa(int(key)))).To(BeFalse())
+
 		})
 		It("Should delete a unary channel", func() {
-			Expect(db.CreateChannel(
+			Expect(fsDB.CreateChannel(
 				ctx,
-				cesium.Channel{Key: 101, Rate: 1 * telem.Hz, DataType: telem.TimeStampT},
+				cesium.Channel{Key: key, Rate: 1 * telem.Hz, DataType: telem.Int64T},
 			)).To(Succeed())
-			Expect(db.DeleteChannel(101)).To(Succeed())
+			Expect(fsDB.WriteArray(ctx, key, 10*telem.SecondTS, telem.NewSeriesV[int64](10, 11, 12, 13))).To(Succeed())
+			Expect(fs.Exists(strconv.Itoa(int(key)))).To(BeTrue())
+			Expect(fsDB.DeleteChannel(key)).To(Succeed())
+			Expect(fs.Exists(strconv.Itoa(int(key)))).To(BeFalse())
 		})
 		It("Should delete a virtual channel", func() {
-			Expect(db.CreateChannel(ctx, cesium.Channel{Key: 101, Virtual: true, DataType: telem.TimeStampT})).To(Succeed())
-
+			Expect(fsDB.CreateChannel(ctx, cesium.Channel{Key: key, Virtual: true, DataType: telem.Int64T})).To(Succeed())
+			Expect(fs.Exists(strconv.Itoa(int(key)))).To(BeTrue())
+			Expect(fsDB.DeleteChannel(key)).To(Succeed())
+			Expect(fs.Exists(strconv.Itoa(int(key)))).To(BeFalse())
 		})
 	})
 })
@@ -440,7 +464,7 @@ var _ = Describe("Delete chunks", Ordered, func() {
 	})
 
 	Describe("Deleting Index Channel when other channels depend on it", func() {
-		It("Should not allow such deletion when another channel is indexed by it on the sa me time range", func() {
+		It("Should not allow such deletion when another channel is indexed by it on the same time range", func() {
 			By("Creating an indexed channel and a channel indexed by it")
 			Expect(db.CreateChannel(
 				ctx,
