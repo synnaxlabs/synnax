@@ -383,7 +383,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				e = core.EntityClosed("cesium.writer")
 			)
 			Expect(i.Close()).To(Succeed())
-			Expect(i.Close()).To(MatchError(e))
+			Expect(i.Close()).To(Succeed())
 			Expect(i.Write(cesium.Frame{Series: []telem.Series{{Data: []byte{1, 2, 3}}}})).To(BeFalse())
 			_, ok := i.Commit()
 			Expect(ok).To(BeFalse())

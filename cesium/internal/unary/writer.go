@@ -37,7 +37,7 @@ var (
 	DefaultWriterConfig                             = WriterConfig{
 		Persist: config.True(),
 	}
-	writerClosedError = core.EntityClosed("unary.writer")
+	WriterClosedError = core.EntityClosed("unary.writer")
 )
 
 func (c WriterConfig) Validate() error {
@@ -82,7 +82,7 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (w *Writer, 
 	if err != nil {
 		return nil, transfer, err
 	}
-	w = &Writer{WriterConfig: cfg, Channel: db.Channel, idx: db.index(), decrementCounter: func() { db.openIteratorWriters.Add(-1) }}
+	w = &Writer{WriterConfig: cfg, Channel: db.Channel, idx: db.index(), decrementCounter: func() { db.mu.Add(-1) }}
 	gateCfg := controller.GateConfig{
 		TimeRange: cfg.controlTimeRange(),
 		Authority: cfg.Authority,
@@ -102,7 +102,7 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (w *Writer, 
 	}
 
 	w.control = g
-	db.openIteratorWriters.Add(1)
+	db.mu.Add(1)
 	return w, transfer, err
 }
 
@@ -138,7 +138,7 @@ func (w *Writer) len(dw *domain.Writer) int64 {
 // Write validates and writes the given array.
 func (w *Writer) Write(series telem.Series) (a telem.Alignment, err error) {
 	if w.closed {
-		return 0, writerClosedError
+		return 0, WriterClosedError
 	}
 	if err := w.Channel.ValidateSeries(series); err != nil {
 		return 0, err
@@ -174,7 +174,7 @@ func (w *Writer) updateHwm(series telem.Series) {
 // Commit commits the written series to the database.
 func (w *Writer) Commit(ctx context.Context) (telem.TimeStamp, error) {
 	if w.closed {
-		return telem.TimeStampMax, writerClosedError
+		return telem.TimeStampMax, WriterClosedError
 	}
 	if w.Channel.IsIndex {
 		return w.commitWithEnd(ctx, w.hwm+1)
@@ -214,7 +214,7 @@ func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.
 
 func (w *Writer) Close() (controller.Transfer, error) {
 	if w.closed {
-		return controller.Transfer{}, writerClosedError
+		return controller.Transfer{}, nil
 	}
 
 	w.closed = true

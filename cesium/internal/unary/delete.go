@@ -113,7 +113,9 @@ func (db *DB) Delete(ctx context.Context, tr telem.TimeRange) error {
 }
 
 func (db *DB) GarbageCollect(ctx context.Context, maxSizeRead uint32) error {
-	if db.openIteratorWriters.Value() > 0 {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+	if db.mu.openIteratorWriters > 0 {
 		return nil
 	}
 	err := db.Domain.CollectTombstones(ctx, maxSizeRead)

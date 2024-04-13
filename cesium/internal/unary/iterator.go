@@ -23,20 +23,20 @@ import (
 type Iterator struct {
 	alamos.Instrumentation
 	IteratorConfig
-	Channel          core.Channel
-	decrementCounter func()
-	internal         *domain.Iterator
-	view             telem.TimeRange
-	frame            core.Frame
-	idx              index.Index
-	bounds           telem.TimeRange
-	err              error
-	closed           bool
+	Channel  core.Channel
+	onClose  func()
+	internal *domain.Iterator
+	view     telem.TimeRange
+	frame    core.Frame
+	idx      index.Index
+	bounds   telem.TimeRange
+	err      error
+	closed   bool
 }
 
 const AutoSpan telem.TimeSpan = -1
 
-var iteratorClosedError = core.EntityClosed("unary.iterator")
+var IteratorClosedError = core.EntityClosed("unary.iterator")
 
 func (i *Iterator) SetBounds(tr telem.TimeRange) {
 	i.bounds = tr
@@ -51,7 +51,7 @@ func (i *Iterator) View() telem.TimeRange { return i.view }
 
 func (i *Iterator) SeekFirst(ctx context.Context) bool {
 	if i.closed {
-		i.err = iteratorClosedError
+		i.err = IteratorClosedError
 		return false
 	}
 	ok := i.internal.SeekFirst(ctx)
@@ -61,7 +61,7 @@ func (i *Iterator) SeekFirst(ctx context.Context) bool {
 
 func (i *Iterator) SeekLast(ctx context.Context) bool {
 	if i.closed {
-		i.err = iteratorClosedError
+		i.err = IteratorClosedError
 		return false
 	}
 	ok := i.internal.SeekLast(ctx)
@@ -71,7 +71,7 @@ func (i *Iterator) SeekLast(ctx context.Context) bool {
 
 func (i *Iterator) SeekLE(ctx context.Context, ts telem.TimeStamp) bool {
 	if i.closed {
-		i.err = iteratorClosedError
+		i.err = IteratorClosedError
 		return false
 	}
 	i.seekReset(ts)
@@ -80,7 +80,7 @@ func (i *Iterator) SeekLE(ctx context.Context, ts telem.TimeStamp) bool {
 
 func (i *Iterator) SeekGE(ctx context.Context, ts telem.TimeStamp) bool {
 	if i.closed {
-		i.err = iteratorClosedError
+		i.err = IteratorClosedError
 		return false
 	}
 	i.seekReset(ts)
@@ -89,7 +89,7 @@ func (i *Iterator) SeekGE(ctx context.Context, ts telem.TimeStamp) bool {
 
 func (i *Iterator) Next(ctx context.Context, span telem.TimeSpan) (ok bool) {
 	if i.closed {
-		i.err = iteratorClosedError
+		i.err = IteratorClosedError
 		return false
 	}
 	ctx, span_ := i.T.Bench(ctx, "Next")
@@ -173,7 +173,7 @@ func (i *Iterator) autoNext(ctx context.Context) bool {
 
 func (i *Iterator) Prev(ctx context.Context, span telem.TimeSpan) (ok bool) {
 	if i.closed {
-		i.err = iteratorClosedError
+		i.err = IteratorClosedError
 		return false
 	}
 	ctx, span_ := i.T.Bench(ctx, "Prev")
@@ -216,9 +216,9 @@ func (i *Iterator) Valid() bool { return i.partiallySatisfied() && i.err == nil 
 
 func (i *Iterator) Close() (err error) {
 	if i.closed {
-		return iteratorClosedError
+		return nil
 	}
-	i.decrementCounter()
+	i.onClose()
 	i.closed = true
 	return i.internal.Close()
 }

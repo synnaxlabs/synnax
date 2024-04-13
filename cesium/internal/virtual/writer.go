@@ -18,10 +18,10 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-var writerClosedError = core.EntityClosed("virtual.writer")
+var WriterClosedError = core.EntityClosed("virtual.writer")
 
 func (db *DB) OpenWriter(_ context.Context, cfg WriterConfig) (w *Writer, transfer controller.Transfer, err error) {
-	w = &Writer{WriterConfig: cfg, Channel: db.Channel, decrementCounter: func() { db.openWriters.Add(-1) }}
+	w = &Writer{WriterConfig: cfg, Channel: db.Channel, onClose: func() { db.mu.Add(-1) }}
 	gateCfg := controller.GateConfig{
 		TimeRange: cfg.domain(),
 		Authority: cfg.Authority,
@@ -36,7 +36,7 @@ func (db *DB) OpenWriter(_ context.Context, cfg WriterConfig) (w *Writer, transf
 		}, nil
 	})
 	w.control = g
-	db.openWriters.Add(1)
+	db.mu.Add(1)
 	return w, transfer, err
 }
 
@@ -52,16 +52,16 @@ func (cfg WriterConfig) domain() telem.TimeRange {
 }
 
 type Writer struct {
-	Channel          core.Channel
-	decrementCounter func()
-	control          *controller.Gate[*controlEntity]
-	closed           bool
+	Channel core.Channel
+	onClose func()
+	control *controller.Gate[*controlEntity]
+	closed  bool
 	WriterConfig
 }
 
 func (w *Writer) Write(series telem.Series) (telem.Alignment, error) {
 	if w.closed {
-		return 0, writerClosedError
+		return 0, WriterClosedError
 	}
 	if err := w.Channel.ValidateSeries(series); err != nil {
 		return 0, err
@@ -83,10 +83,10 @@ func (w *Writer) SetAuthority(a control.Authority) controller.Transfer {
 
 func (w *Writer) Close() (controller.Transfer, error) {
 	if w.closed {
-		return controller.Transfer{}, writerClosedError
+		return controller.Transfer{}, nil
 	}
 	w.closed = true
 	_, t := w.control.Release()
-	w.decrementCounter()
+	w.onClose()
 	return t, nil
 }

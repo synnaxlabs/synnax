@@ -50,41 +50,96 @@ func channelDirName(ch ChannelKey) string {
 // Does nothing if channel does not exist.
 func (db *DB) DeleteChannel(ch ChannelKey) error {
 	db.mu.Lock()
+	err := db.deleteChannel(ch)
+	if err != nil {
+		db.mu.Unlock()
+		return err
+	}
+
+	db.mu.Unlock()
+
+	return db.fs.Remove(channelDirName(ch))
+}
+
+func (db *DB) DeleteChannels(chs ...ChannelKey) (err error) {
+	db.mu.Lock()
+	var (
+		indexChannels       = make([]ChannelKey, 0)
+		directoriesToRemove = make([]string, 0)
+	)
+
+	defer func() {
+		// Pool all directories to remove
+		for _, name := range directoriesToRemove {
+			if _err := db.fs.Remove(name); _err != nil {
+				err = errors.CombineErrors(err, _err)
+				return
+			}
+		}
+	}()
+
+	// Do a pass first to remove all rate-based channels
+	for _, ch := range chs {
+		if udb, uok := db.unaryDBs[ch]; uok && udb.Channel.IsIndex {
+			indexChannels = append(indexChannels, ch)
+			continue
+		}
+
+		err = db.deleteChannel(ch)
+		if err != nil {
+			db.mu.Unlock()
+			return
+		}
+
+		directoriesToRemove = append(directoriesToRemove, channelDirName(ch))
+	}
+
+	// Do another pass to remove all index channels
+	for _, ch := range indexChannels {
+		err = db.deleteChannel(ch)
+		if err != nil {
+			db.mu.Unlock()
+			return
+		}
+
+		directoriesToRemove = append(directoriesToRemove, channelDirName(ch))
+	}
+
+	db.mu.Unlock()
+
+	return nil
+}
+
+func (db *DB) deleteChannel(ch ChannelKey) error {
 	udb, uok := db.unaryDBs[ch]
 	if uok {
-		if udb.Config.Channel.IsIndex {
+		if udb.Channel.IsIndex {
 			for otherDBKey := range db.unaryDBs {
 				if otherDBKey == ch {
 					continue
 				}
 				otherDB := db.unaryDBs[otherDBKey]
 				if otherDB.Channel.Index == udb.Config.Channel.Key {
-					db.mu.Unlock()
 					return errors.New("[cesium] - could not delete index channel with other channels depending on it")
 				}
 			}
 		}
 
 		if err := udb.TryClose(); err != nil {
-			db.mu.Unlock()
 			return err
 		}
 		delete(db.unaryDBs, ch)
-		db.mu.Unlock()
-		return db.fs.Remove(channelDirName(ch))
+		return nil
 	}
 	vdb, vok := db.virtualDBs[ch]
 	if vok {
 		if err := vdb.TryClose(); err != nil {
-			db.mu.Unlock()
 			return err
 		}
 		delete(db.virtualDBs, ch)
-		db.mu.Unlock()
-		return db.fs.Remove(channelDirName(ch))
+		return nil
 	}
 
-	db.mu.Unlock()
 	return nil
 }
 
