@@ -19,7 +19,7 @@ a cluster.
 
 ## Installation
 
-The `synnax` library requires Python 3.9 or higher, and can be installed directly using 
+The `synnax` library requires Python 3.9 or higher, and can be installed directly using
 `pip` or with your package manager of choice:
 
 ```bash
@@ -28,7 +28,7 @@ pip install synnax
 
 <Note variant="info">
 <b>Note</b> - Python can be difficult to get installed and running correctly, so we've put together
-a troubleshooting guide that you can reference [here]().
+a troubleshooting guide that you can reference [here](/python-client/troubleshooting).
 </Note>
 
 ## Authenticating with a Cluster
@@ -40,7 +40,7 @@ store your credentials, or by passing them directly to the client. We'll cover b
 
 The easiest way to authenticate with a Synnax cluster is with the `login` command.
 This will permanently store your credentials in the operating system's keychain,
-and allow you to use the client without passing credentials directly. 
+and allow you to use the client without passing credentials directly.
 
 We highly recommend using this method when using Synnax for data analysis, as it makes
 it easy to use the client in a Jupyter notebook and share scripts without accidentally
@@ -61,19 +61,19 @@ This command will prompt us for the following information:
 
 ```
 Enter your Synnax connection parameters:
-Host (localhost): # YOUR HOST 
-Port (9090): # YOUR PORT 
-Username (synnax): # YOUR USERNAME 
-Password: # YOUR PASSWORD 
+Host (localhost): # YOUR HOST
+Port (9090): # YOUR PORT
+Username (synnax): # YOUR USERNAME
+Password: # YOUR PASSWORD
 Secure connection? (y/n) (y):
 ```
 
-For the last question, enter `y` if your cluster is running in secure mode, and `n` 
+For the last question, enter `y` if your cluster is running in secure mode, and `n`
 otherwise. If all goes well, you should see the following message:
 
 ```
 Connection successful!
-Saved credentials. You can now use the Synnax Client without having to log in. 
+Saved credentials. You can now use the Synnax Client without having to log in.
 ```
 
 Now that you've authenticated, you can instantiate the client as follows:
@@ -97,7 +97,7 @@ To authenticate directly, simply pass your connection parameters to the `Synnax`
 import synnax as sy
 
 client = sy.Synnax(
-    host="play.synnaxlabs.com",
+    host="demo.synnaxlabs.com",
     port=9090,
     username="synnax",
     password="seldon",

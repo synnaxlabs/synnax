@@ -13,7 +13,8 @@ import { consoleNav } from "@/pages/components/console/nav";
 import { pythonClientNav } from "@/pages/components/python-client/nav";
 import { analystNav } from "@/pages/roles/analyst/nav";
 import { sysAdminNav } from "@/pages/roles/sys-admin/nav";
-import { operationsNav} from "@/pages/roles/operations/nav";
+import { operationsNav } from "@/pages/roles/operations/nav";
+import { typescriptClientNav } from "@/pages/typescript-client/nav";
 
 export const componentsPages = [
   {
@@ -24,6 +25,7 @@ export const componentsPages = [
   conceptsNav,
   clusterNav,
   pythonClientNav,
+  typescriptClientNav,
   consoleNav,
 ];
 export const rolesPages = [

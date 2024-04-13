@@ -82,7 +82,7 @@ class Scheduler:
         self.__state = State(channel_retriever)
 
     async def start(self):
-        self.__streamer = await self.__frame_client.new_async_streamer(
+        self.__streamer = await self.__frame_client.open_async_streamer(
             list(self.__channels)
         )
         async for frame in self.__streamer:

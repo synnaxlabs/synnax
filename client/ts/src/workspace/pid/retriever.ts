@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type UnaryClient } from "@synnaxlabs/freighter";
+import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { toArray } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -32,14 +32,12 @@ export class Retriever {
   }
 
   async retrieve(params: Params): Promise<PID[]> {
-    const normalized = toArray(params);
-    const res = await this.execute({ keys: normalized });
-    return res;
-  }
-
-  private async execute(request: Request): Promise<PID[]> {
-    const [res, err] = await this.client.send(this.ENDPOINT, request, resZ);
-    if (err != null) throw err;
-    return res.pids;
+    return (await sendRequired(
+      this.client, 
+      this.ENDPOINT, 
+      { keys: toArray(params) }, 
+      reqZ, 
+      resZ,
+    )).pids;
   }
 }

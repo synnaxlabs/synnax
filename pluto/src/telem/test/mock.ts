@@ -86,6 +86,7 @@ export const FACTORY: telem.Factory = {
 export class Provider implements telem.Provider {
   clusterKey: string = "test";
   key: string = "test";
+
   equals(other: telem.Provider): boolean {
     return true;
   }

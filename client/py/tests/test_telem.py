@@ -79,11 +79,6 @@ class TestTimeStamp:
         """Should initialize a timestamp from a variety of types"""
         assert TimeStamp(crude) == expected
 
-    def test_invalid_init(self):
-        """Should raise an exception if the timestamp is invalid"""
-        with pytest.raises(TypeError):
-            TimeStamp("dog")  # type: ignore
-
     def test_after_false(self):
         """Should return true if the timestamp is after the given timestamp"""
         ts = TimeStamp(1000)

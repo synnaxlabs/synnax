@@ -15,13 +15,11 @@ import {
   Select,
   Align,
   Tabs,
-  componentRenderProp,
   useMemoCompare,
   compareArrayDeps,
   Text,
   Button,
 } from "@synnaxlabs/pluto";
-import { type direction } from "@synnaxlabs/x";
 import { useDispatch } from "react-redux";
 
 import { useSelect } from "@/lineplot/selectors";

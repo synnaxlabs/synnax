@@ -60,7 +60,7 @@ const DEFAULT_EXPAND_SIZE = 0.5;
  * consistency and simplicity. If you need more control, look at building a custom
  * accordion component using {@link Resize.Multiple}.
  *
- * @param props - All unused props are passed to the underyling {@link Resize.Multiple}
+ * @param props - All unused props are passed to the underlying {@link Resize.Multiple}
  * component.
  * @param props.entries - The entries to display in the accordion. See the
  * {@link Entry} interface for more details.

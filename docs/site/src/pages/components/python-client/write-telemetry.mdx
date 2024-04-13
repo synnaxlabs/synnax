@@ -20,7 +20,7 @@ for writing data to Synnax.
 
 ### The simplest write - fixed rate
 
-Writing to a fixed rate channel is as simple as calling the channels `write` method.
+Writing to a fixed rate channel is as simple as calling the channel's `write` method.
 We'll create the following fixed rate channel as an example:
 
 ```python
@@ -154,12 +154,12 @@ burst_test.write({
 
 ## Using a Writer
 
-While the above methods are great for writing static, existing data, Synnax provides 
-first-class support for writing large volumes of data over long periods of time. Writers 
-are also essential for streaming telemetry to control sequences and live dashboards.
+While the above methods are great for writing static, existing data, it's common to want
+to write data in a streaming fashion for use in control sequences and live dashboards.
+The `Writer` class is designed to handle this use case (and is actually used under the
+hood by the above methods).
 
-Writers are a bit more complicated to operate that the above methods, so we recommend
-reading the [concepts](/concepts/write-domains#transactions) page to learn more about
+Writers are a bit more complicated to operate, so we recommend reading the [concepts](/concepts/write-domains#transactions) page to learn more about
 how they work.
 
 ### Opening a writer
@@ -186,13 +186,13 @@ my_precise_tc = client.channels.create(
 
 We recommend using writers within a context manager; this automatically closes it,
 ensuring that resources have been freed and sockets are closed. To open the writer,
-we use the `new_writer` method on the client and provide a starting timestamp for the 
+we use the `open_writer` method on the client and provide a starting timestamp for the 
 first sample and a list of channels we'd like to write to.
 
 ```python
 import time
 
-with client.new_writer(
+with client.open_writer(
     start=sy.TimeStamp.now(),
     channels=["timestamps", "my_precise_tc"],
 ) as w:
@@ -205,7 +205,7 @@ with client.new_writer(
     w.commit()
 ```
 
-The above example will write 100 samples to the `my_precise_tc` channel, each spaced
+This example will write 100 samples to the `my_precise_tc` channel, each spaced
 roughly 0.1 seconds apart, and will commit all writes when finished. 
 
 It's typical to write and commit millions of samples over the course of hours or days,

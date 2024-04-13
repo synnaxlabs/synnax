@@ -132,11 +132,14 @@ func (s *Index) Search(ctx context.Context, req Request) ([]schema.ID, error) {
 
 	// this is where we search
 	q := bleve.NewConjunctionQuery(lo.Map(words, func(word string, _ int) query.Query {
-		q := bleve.NewMatchQuery(word)
-		q.SetFuzziness(1)
-		q2 := bleve.NewRegexpQuery(".*[_\\.-]" + word + ".*")
-		q3 := bleve.NewPrefixQuery(word)
-		return bleve.NewDisjunctionQuery(q, q2, q3)
+		fuzzyQ := bleve.NewMatchQuery(word)
+		fuzzyQ.SetFuzziness(1)
+		regexQ := bleve.NewRegexpQuery(".*[_\\.-]" + word + ".*")
+		prefixQ := bleve.NewPrefixQuery(word)
+		exactQ := bleve.NewMatchQuery(word)
+		exactQ.SetFuzziness(0)
+		exactQ.SetBoost(100)
+		return bleve.NewDisjunctionQuery(exactQ, prefixQ, regexQ, fuzzyQ)
 	})...)
 
 	search_ := bleve.NewSearchRequest(q)

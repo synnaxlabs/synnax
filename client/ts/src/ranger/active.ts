@@ -7,17 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type UnaryClient } from "@synnaxlabs/freighter";
+import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
-import { QueryError } from "..";
-
-import { type Payload, payloadZ, type Key } from "./payload";
+import { QueryError } from "@/errors";
+import { type Payload, payloadZ, type Key, keyZ } from "@/ranger/payload";
 
 const setActiveResZ = z.object({});
 
 const retrieveActiveResZ = z.object({
   range: payloadZ,
+});
+
+const setActiveReqZ = z.object({
+  range: keyZ,
+});
+
+const clearActiveReqZ = z.object({
+  range: keyZ,
 });
 
 const clearActiveResZ = z.object({});
@@ -34,14 +41,20 @@ export class Active {
   }
 
   async setActive(range: Key): Promise<void> {
-    const [, err] = await this.client.send(SET_ENDPOINT, { range }, setActiveResZ);
-    if (err != null) throw err;
+    await sendRequired<typeof setActiveReqZ, typeof setActiveResZ>(
+      this.client,
+      SET_ENDPOINT, 
+      { range }, 
+      setActiveReqZ, 
+      setActiveResZ,
+    );
   }
 
   async retrieveActive(): Promise<Payload | null> {
     const [res, err] = await this.client.send(
       RETRIEVE_ENDPOINT,
       {},
+      z.object({}),
       retrieveActiveResZ,
     );
     if (err instanceof QueryError) return null;
@@ -50,7 +63,12 @@ export class Active {
   }
 
   async clearActive(range: Key): Promise<void> {
-    const [, err] = await this.client.send(CLEAR_ENDPOINT, { range }, clearActiveResZ);
-    if (err != null) throw err;
+    await sendRequired<typeof clearActiveReqZ, typeof clearActiveResZ>(
+      this.client,
+      CLEAR_ENDPOINT, 
+      { range }, 
+      clearActiveReqZ,
+      clearActiveResZ,
+    );
   }
 }

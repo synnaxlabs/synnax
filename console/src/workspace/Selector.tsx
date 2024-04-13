@@ -38,9 +38,13 @@ export const Selector = (): ReactElement => {
   const active = useSelectActive();
   const dProps = Dropdown.use();
   const handleChange = useCallback(
-    ([v]: string[]) => {
+    (v: string | null) => {
       dProps.close();
-      if (v === null) return;
+      if (v === null) {
+        d(setActive(null));
+        d(Layout.clearWorkspace());
+        return;
+      }
       void (async () => {
         if (v == null) {
           d(setActive(null));
@@ -48,6 +52,13 @@ export const Selector = (): ReactElement => {
         } else if (client == null) return;
         const ws = await client.workspaces.retrieve(v);
         d(add({ workspaces: [ws] }));
+        console.log(ws.layout);
+        d(
+          Layout.setWorkspace({
+            slice: ws.layout as unknown as Layout.SliceState,
+            keepNav: false,
+          }),
+        );
       })();
     },
     [active, client, d, dProps.close],
@@ -56,6 +67,7 @@ export const Selector = (): ReactElement => {
   return (
     <Dropdown.Dialog
       {...dProps}
+      keepMounted={false}
       variant="floating"
       className={CSS(CSS.BE("workspace", "selector"))}
     >
@@ -71,12 +83,13 @@ export const Selector = (): ReactElement => {
       >
         {active?.name ?? "No Workspace"}
       </Button.Button>
-      <Align.Pack direction="y" style={{ width: 500, height: 150 }}>
+      <Align.Pack direction="y" style={{ width: 500, height: 200 }}>
         <List.List>
           <List.Selector
-            value={active == null ? [] : [active.key]}
+            value={active?.key ?? null}
             onChange={handleChange}
             allowMultiple={false}
+            allowNone={true}
           >
             <List.Search searcher={client?.workspaces}>
               {(p) => (
@@ -90,10 +103,21 @@ export const Selector = (): ReactElement => {
                   {...p}
                 >
                   <Button.Button
+                    startIcon={<Icon.Close />}
+                    variant="outlined"
+                    onClick={() => handleChange(null)}
+                    iconSpacing="small"
+                    tooltip="Switch to no workspace"
+                  >
+                    Clear
+                  </Button.Button>
+                  <Button.Button
                     startIcon={<Icon.Add />}
                     variant="outlined"
                     onClick={() => place(createWindowLayout())}
                     iconSpacing="small"
+                    tooltip="Create a new workspace"
+                    tooltipLocation={{ y: "bottom" }}
                   >
                     New
                   </Button.Button>

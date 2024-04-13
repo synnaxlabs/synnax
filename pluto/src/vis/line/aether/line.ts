@@ -81,17 +81,22 @@ export interface LineProps {
   dataToDecimalScale: scale.XY;
 }
 
+interface TranslationBufferCacheEntry {
+  glBuffer: WebGLBuffer;
+  jsBuffer: Float32Array;
+}
+
 export class Context extends render.GLProgram {
-  translationBuffer: WebGLBuffer;
+  private readonly translationBufferCache = new Map<
+    string,
+    TranslationBufferCacheEntry
+  >();
 
   private static readonly CONTEXT_KEY = "pluto-line-gl-program";
 
   private constructor(ctx: render.Context) {
     super(ctx, VERT_SHADER, FRAG_SHADER);
-    const buf = ctx.gl.createBuffer();
-    if (buf == null)
-      throw new UnexpectedError("Failed to create buffer from WebGL context");
-    this.translationBuffer = buf;
+    this.translationBufferCache = new Map();
   }
 
   bindCommonPropsAndState(
@@ -155,6 +160,27 @@ export class Context extends render.GLProgram {
     gl.enableVertexAttribArray(aLoc);
   }
 
+  private getAndBindTranslationBuffer(
+    strokeWidth: number,
+  ): TranslationBufferCacheEntry {
+    const { gl } = this.ctx;
+    const key = `${this.ctx.aspect}:${strokeWidth}`;
+    const existing = this.translationBufferCache.get(key);
+    if (existing != null) {
+      gl.bindBuffer(gl.ARRAY_BUFFER, existing.glBuffer);
+      return existing;
+    }
+    const buf = gl.createBuffer();
+    if (buf == null)
+      throw new UnexpectedError("Failed to create buffer from WebGL context");
+    const translationBuffer = newTranslationBuffer(this.ctx.aspect, strokeWidth);
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, translationBuffer, gl.DYNAMIC_DRAW);
+    const entry = { glBuffer: buf, jsBuffer: translationBuffer };
+    this.translationBufferCache.set(key, entry);
+    return entry;
+  }
+
   /**
    * We apply stroke width by drawing the line multiple times, each time with a slight
    * transformation. This is done as simply as possible. We draw the "centered" line
@@ -165,14 +191,12 @@ export class Context extends render.GLProgram {
    */
   private attrStrokeWidth(strokeWidth: number): number {
     const { gl } = this.ctx;
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.translationBuffer);
-    const translationBuffer = newTranslationBuffer(this.ctx.aspect, strokeWidth);
-    gl.bufferData(gl.ARRAY_BUFFER, translationBuffer, gl.DYNAMIC_DRAW);
+    const { jsBuffer } = this.getAndBindTranslationBuffer(strokeWidth);
     const loc = gl.getAttribLocation(this.prog, "a_translate");
     gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(loc);
     gl.vertexAttribDivisor(loc, 1);
-    return translationBuffer.length / 2;
+    return jsBuffer.length / 2;
   }
 }
 
@@ -273,7 +297,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
       downsample,
       scale: scale.xyScaleToTransform(dataToDecimalScale),
       props: props.region,
-      ops: () => digests(ops),
+      ops: digests(ops),
     }));
     const clearProg = prog.setAsActive();
     const instances = prog.bindCommonPropsAndState(props, this.state);
@@ -289,7 +313,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
 const THICKNESS_DIVISOR = 5000;
 
 const newTranslationBuffer = (aspect: number, strokeWidth: number): Float32Array => {
-  return copyBuffer(newDirectionBuffer(aspect), Math.ceil(strokeWidth) - 1).map(
+  return replicateBuffer(newDirectionBuffer(aspect), Math.ceil(strokeWidth) - 1).map(
     (v, i) => Math.floor(i / DIRECTION_COUNT) * (1 / (THICKNESS_DIVISOR * aspect)) * v,
   );
 };
@@ -306,7 +330,7 @@ const newDirectionBuffer = (aspect: number): Float32Array =>
     -1, 0, // left
   ]);
 
-const copyBuffer = (buf: Float32Array, times: number): Float32Array => {
+const replicateBuffer = (buf: Float32Array, times: number): Float32Array => {
   const newBuf = new Float32Array(buf.length * times);
   for (let i = 0; i < times; i++) newBuf.set(buf, i * buf.length);
   return newBuf;
@@ -320,7 +344,7 @@ const offsetScale = (scale: scale.XY, op: DrawOperation): scale.XY =>
 
 export const REGISTRY: aether.ComponentRegistry = { [Line.TYPE]: Line };
 
-interface DrawOperation {
+export interface DrawOperation {
   x: Series;
   y: Series;
   xOffset: number;
@@ -334,7 +358,7 @@ interface DrawOperationDigest extends Omit<DrawOperation, "x" | "y"> {
   y: SeriesDigest;
 }
 
-const buildDrawOperations = (
+export const buildDrawOperations = (
   x: Series[],
   y: Series[],
   downsample: number,
@@ -380,7 +404,11 @@ const findSeriesThatOverlapWith = (x: Series, y: Series[]): Series[] =>
   y.filter((ys) => {
     // This is just a runtime check that both series' have time ranges defined.
     const haveTimeRanges = x._timeRange != null && ys._timeRange != null;
-    if (!haveTimeRanges) return false;
+    if (!haveTimeRanges) {
+      throw new UnexpectedError(
+        `Encountered series without time range in buildDrawOperations. X series present: ${x._timeRange != null}, Y series present: ${ys._timeRange != null}`,
+      );
+    }
     // If the time ranges of the x and y series overlap, we meet the first condition
     // for drawing them together.
     const timeRangesOverlap = x.timeRange.overlapsWith(ys.timeRange);

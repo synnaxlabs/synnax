@@ -162,8 +162,8 @@ export class ChannelData
     let b = bounds.max(this.data.map((d) => d.bounds));
     if (chan.dataType.equals(DataType.TIMESTAMP))
       b = {
-        upper: Math.min(b.upper, this.props.timeRange.end.valueOf()),
-        lower: Math.max(b.lower, this.props.timeRange.start.valueOf()),
+        upper: Math.min(b.upper, Number(this.props.timeRange.end.valueOf())),
+        lower: Math.max(b.lower, Number(this.props.timeRange.start.valueOf())),
       };
     return [b, this.data];
   }
@@ -216,7 +216,7 @@ export class StreamChannelData
     if (ch.dataType.equals(DataType.TIMESTAMP))
       b = {
         upper: b.upper,
-        lower: Math.max(b.lower, b.upper - timeSpan.valueOf()),
+        lower: Math.max(b.lower, b.upper - Number(timeSpan.valueOf())),
       };
     return [b, this.data];
   }

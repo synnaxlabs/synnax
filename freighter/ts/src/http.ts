@@ -70,10 +70,12 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
 
   async send<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>(
     target: string,
-    req: z.input<RQ> | null,
-    resSchema: RS | null,
+    req: z.input<RQ> | z.output<RQ>,
+    reqSchema: RQ,
+    resSchema: RS,
   ): Promise<[z.output<RS> | null, Error | null]> {
-    let rs: RS | null = null;
+    req = reqSchema?.parse(req)
+    let res: RS | null = null;
     const url = this.endpoint.child(target);
     const request: RequestInit = {};
     request.method = "POST";
@@ -103,7 +105,7 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
         }
         const data = await httpRes.arrayBuffer();
         if (httpRes?.ok) {
-          if (resSchema != null) rs = this.encoder.decode(data, resSchema);
+          if (resSchema != null) res = this.encoder.decode(data, resSchema);
           return [outCtx, null];
         }
         try {
@@ -124,6 +126,6 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
       },
     );
 
-    return [rs, err];
+    return [res, err];
   }
 }

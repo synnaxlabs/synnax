@@ -149,23 +149,104 @@ const {
       }
     }
 
+        .table-of-contents {
+            & h5 {
+                font-weight: 500;
+            }
+
+            .heading {
+                border-bottom: none;
+            }
+
+            & .pluto-menu-item {
+                white-space: normal;
+                height: fit-content;
+                padding: 0.75rem 2rem;
+                border-right: 2px solid transparent;
+                & small {
+                    color: var(--pluto-gray-l6) !important;
+                }
+
+                &:is(.pluto--selected, :hover) {
+                    background: none;
+                    border-right: 2px solid var(--pluto-text-color);
+                    border-radius: 0 !important;
+                    & small {
+                        font-weight: 500 !important;
+                        color: var(--pluto-text-color) !important;
+                    }
+                }
+            }
+        }
+
+        .search-box {
+            position: absolute;
+            left: 50%;
+            z-index: 50000;
+            transform: translateX(-50%);
+
+            & .pluto-input {
+                width: 80vw;
+                max-width: 700px;
+            }
+
+            .pluto-dropdown__dialog {
+                position: absolute !important;
+                left: 50% !important;
+                transform: translate(-50%, -20px);
+                width: 80vw;
+                max-width: 700px;
+                .hovered {
+                    background: var(--pluto-gray-l3);
+                }
+
+                & .search-result {
+                    padding: 2rem;
+                    &:hover {
+                        background: var(--pluto-gray-l3);
+                    }
+
+                    & b {
+                        background: var(--pluto-primary-z-30);
+                    }
+
+                    & small {
+                        color: var(--pluto-gray-l7);
+                    }
+                }
+
+                & a:hover {
+                    text-decoration: none;
+                }
+            }
+
+            @media (max-width: 700px) {
+                & .pluto-input {
+                    width: 200px;
+                }
+                & .pluto-dropdown__dialog {
+                    width: 200px;
+                }
+            }
+        }
+
         a {
       color: var(--pluto-primary-p1);
       text-decoration: none;
     }
 
-    :root {
-      --nav-height: 10rem;
-      --max-width: 1400px;
-      --astro-code-color-text: var(--pluto-text-color);
-      --astro-code-color-background: var(--pluto-gray-l1);
-      --astro-code-token-comment: var(--pluto-gray-l5);
-      --astro-code-token-string-expression: #00b023;
-      --astro-code-token-function: #20a4f3;
-      --astro-code-token-punctuation: var(--pluto-text-color);
-      --astro-code-token-keyword: #dc136c;
-      --astro-code-token-constant: var(--astro-code-token-string-expression);
-    }
+        :root {
+            --nav-height: 10rem;
+            --max-width: 1400px;
+            --astro-code-color-text: var(--pluto-text-color);
+            --astro-code-color-background: var(--pluto-gray-l1);
+            --astro-code-token-comment: var(--pluto-gray-l5);
+            --astro-code-token-string-expression: #00b023;
+            --astro-code-token-function: #20a4f3;
+            --astro-code-token-punctuation: var(--pluto-text-color);
+            --astro-code-token-keyword: #dc136c;
+            --astro-code-token-constant: var(--pluto-text-color);
+        }
 
     a:hover:not(.pluto-btn) {
       text-decoration: underline;

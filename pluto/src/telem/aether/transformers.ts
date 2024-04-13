@@ -30,8 +30,8 @@ export class TransformerFactory implements Factory {
   type = "transformer";
   create(spec: Spec): Telem | null {
     switch (spec.type) {
-      case Setpoint.TYPE:
-        return new Setpoint(spec.props);
+      case SetPoint.TYPE:
+        return new SetPoint(spec.props);
       case WithinBounds.TYPE:
         return new WithinBounds(spec.props);
       case Mean.TYPE:
@@ -56,18 +56,18 @@ export type SetpointProps = z.infer<typeof setpointProps>;
 
 export const setpoint = (props: SetpointProps): BooleanSinkSpec => ({
   props,
-  type: Setpoint.TYPE,
+  type: SetPoint.TYPE,
   variant: "sink",
   valueType: "boolean",
 });
 
-export class Setpoint
+export class SetPoint
   extends UnarySinkTransformer<boolean, number, typeof setpointProps>
   implements BooleanSink
 {
   static readonly TYPE = "boolean-numeric-converter-sink";
   static readonly propsZ = setpointProps;
-  schema = Setpoint.propsZ;
+  schema = SetPoint.propsZ;
 
   transform(value: boolean): number {
     return value ? this.props.truthy : this.props.falsy;

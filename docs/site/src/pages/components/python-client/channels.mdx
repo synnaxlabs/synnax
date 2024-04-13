@@ -10,7 +10,7 @@ import Note from "@/components/Note.astro";
 The Python client provides interfaces for creating, retrieving, and reading data from
 channels. In this guide, we'll cover the details of each of these operations.
 
-If you're unfamiliar with what channels are and how they work, check out the 
+If you're unfamiliar with what channels are and how they work, check out the
 [channels concepts guide](/concepts/channels).
 
 ## Creating Channels
@@ -45,7 +45,7 @@ time_index_channel = client.channels.create(
 
 # Create an indexed channel that stores 32-bit floats
 my_precise_tc = client.channels.create(
-    name="my-precise-tc"
+    name="my_precise_tc",
     data_type=sy.DataType.FLOAT32,
     index=time_index_channel.key, # Pass the key of the index channel here.
 )
@@ -53,40 +53,40 @@ my_precise_tc = client.channels.create(
 
 ### Creating Multiple Channels
 
-We can also create multiple channels by passing a list to the `create` method. This is 
+We can also create multiple channels by passing a list to the `create` method. This is
 far more efficient than creating many channels individually, and provides the atomic
 guarantee that either all or no channels will be created.
 
 <Note variant="info">
-<b>Note</b> - When creating variable rate channels, keep in mind that we need to create 
-index  channels before we can create the channels that use them. We're working on adding
+<b>Note</b> - When creating variable rate channels, keep in mind that we need to create
+index channels before we can create the channels that use them. We're working on adding
 functionality to the client that will allow us to create all of these channels in a single
 call.
 </Note>
 
 ```python
-# We need to create the index first, that way we can provide the index 
+# We need to create the index first, that way we can provide the index
 # key to our data channels.
 time_index = client.channels.create(
     name="time",
     data_type=sy.DataType.TIMESTAMP,
-    is_index=true,
+    is_index=True,
 )
 
 sensor_one = sy.Channel(
-    name="sensor-one",
+    name="sensor_one",
     data_type=sy.DataType.FLOAT32,
     index=time_index.key,
 )
 
 sensor_two = sy.Channel(
-    name="sensor-two",
+    name="sensor_two",
     data_type=sy.DataType.FLOAT64,
     index=time_index.key,
 )
 
 sensor_three = sy.Channel(
-    name="sensor-three",
+    name="sensor_three",
     data_type=sy.DataType.INT8,
     rate=25 * sy.Rate.KHZ,
 )
@@ -101,13 +101,13 @@ client.channels.create([
 ### Conditionally creating a channel if it doesn't exist
 
 There are situations where we want to ensure that a channel with a particular
-name exists, but don't want to duplicate it if it has already been created. To do 
+name exists, but don't want to duplicate it if it has already been created. To do
 accomplish this, we can use the `retrieve_if_name_exists` flag.
 
 ```python
 # Create a channel if it doesn't exist
 my_channel = client.channels.create(
-    name="my-channel",
+    name="my_channel",
     data_type=sy.DataType.FLOAT32,
     rate=100 * sy.Rate.HZ,
     retrieve_if_name_exists=True,
@@ -120,34 +120,34 @@ Like creating them, we can retrieve channels using the `channels.retrieve` metho
 
 ### Retrieving a single channel
 
-To retrieve a single channel, we can pass the channel's name or key to the `retrieve` 
+To retrieve a single channel, we can pass the channel's name or key to the `retrieve`
 method.
 
 ```python
 # By name
-my_precise_tc = client.channels.retrieve("my-precise-tc")
+my_precise_tc = client.channels.retrieve("my_precise_tc")
 # If you know the key, you can also retrieve by key
 my_precise_tc = client.channels.retrieve(my_precise_tc.key)
 ```
 
 If Synnax finds no channels matching the query, the client will raise a `NoResultsError`.
-If more than one channel matches the query, the client will raise a `MultipleResultsError`. 
+If more than one channel matches the query, the client will raise a `MultipleResultsError`.
 If you'd like to accept no or multiple results, provide a list to the `retrieve` method
 as shown in the next section.
 
 ### Retrieving multiple channels
 
 We can also retrieve multiple channels by passing a list of names or keys to the
-`retrieve` method. 
+`retrieve` method.
 
 ```python
 # By name
-my_channels = client.channels.retrieve(["my-precise-tc", "my-precise-tc"])
-# By key
-my_channels = client.channels.retrieve([my_precise_tc.key, my_precise_tc.key])
+my_channels = client.channels.retrieve(["sensor_one", "sensor_two"])
+# By key if you know them
+my_channels = client.channels.retrieve([sensor_one.key, sensor_two.key])
 ```
 
-Note that Synnax will not raise a `QueryError` if it cannot find a channel matching a 
+Note that Synnax will not raise a `QueryError` if it cannot find a channel matching a
 key or name. Instead, it will simply omit that channel from the list of results.
 
 ### Retrieving a channel using a Range
@@ -168,7 +168,7 @@ ch = bike_outing.sensor_one
 
 <Note variant="info">
 <b>Note</b> - When using a range, it's possible to retrieve a channel by it's alias
-instead of it's name. For more information, see 
+instead of its name. For more information, see
 <a href="/python-client/named-ranges#aliasing-channels">aliasing channels</a>.
 </Note>
 

@@ -14,7 +14,7 @@ import { linePlot } from "@/workspace/lineplot";
 import { type Key, type Workspace } from "@/workspace/payload";
 import { pid } from "@/workspace/pid";
 import { Retriever } from "@/workspace/retriever";
-import { type CrudeWorkspace, Writer } from "@/workspace/writer";
+import { type NewWorkspace, Writer } from "@/workspace/writer";
 
 export class Client implements AsyncTermSearcher<string, Key, Workspace> {
   readonly pid: pid.Client;
@@ -51,10 +51,10 @@ export class Client implements AsyncTermSearcher<string, Key, Workspace> {
     return await this.retriever.page(offset, limit);
   }
 
-  async create(workspace: CrudeWorkspace): Promise<Workspace>;
+  async create(workspace: NewWorkspace): Promise<Workspace>;
 
   async create(
-    workspaces: CrudeWorkspace | CrudeWorkspace[],
+    workspaces: NewWorkspace | NewWorkspace[],
   ): Promise<Workspace | Workspace[]> {
     const isMany = Array.isArray(workspaces);
     const res = await this.writer.create(workspaces);

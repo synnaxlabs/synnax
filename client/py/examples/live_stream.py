@@ -22,13 +22,16 @@ import synnax as sy
 # See https://docs.synnaxlabs.com/python-client/get-started for more information.
 client = sy.Synnax()
 
-
-# We can just specify the names of the channels we'd like to read from.
-read_from = ["Stream Write Example Time", "Stream Write Example Data"]
+# We can just specify the names of the channels we'd like to stream from.
+read_from = [
+    "stream_write_example_time",
+    "stream_write_example_data_1",
+    "stream_write_example_data_2",
+]
 
 # Open the streamer as a context manager. This will make sure the streamer is properly
 # closed when we're done reading. We'll read from both the time and data channels. In
-with client.new_streamer(read_from) as s:
+with client.open_streamer(read_from) as s:
     # Loop through the frames in the streamer. Each iteration will block until a new
     # frame is available, then we'll just print it out.
     for frame in s:

@@ -32,8 +32,8 @@ class _Request(Payload):
 
 
 class _Response(Payload):
-    channels: list[ChannelPayload] = []
-    not_found: list[str] | None = []
+    channels: list[ChannelPayload] = list()
+    not_found: list[str] | None = list()
 
 
 class ChannelRetriever(Protocol):
