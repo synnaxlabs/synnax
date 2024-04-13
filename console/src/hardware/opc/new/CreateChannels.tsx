@@ -23,6 +23,8 @@ import {
   type PhysicalChannelPlan,
   type PhysicalGroupPlan,
 } from "@/hardware/ni/new/types";
+import { SelectNode } from "@/hardware/opc/SelectNode";
+import { type DeviceProperties } from "@/hardware/opc/types";
 
 import "@/hardware/ni/new/physicalPlan/PhysicalPlanForm.css";
 
@@ -37,7 +39,13 @@ interface SelectedGroupState {
   key: string;
 }
 
-export const CreateChannels = (): ReactElement => {
+export interface CreateChannelsProps {
+  deviceProperties: DeviceProperties;
+}
+
+export const CreateChannels = ({
+  deviceProperties,
+}: CreateChannelsProps): ReactElement => {
   const [mostRecentSelected, setMostRecentSelected] =
     useState<MostRecentSelectedState | null>(null);
   const [selectedGroup, setSelectedGroup] = useState<SelectedGroupState | undefined>(
@@ -74,7 +82,7 @@ export const CreateChannels = (): ReactElement => {
     <Align.Space direction="x" grow className={CSS.B("physical-plan")} size={10}>
       <Align.Space direction="y" className={CSS.B("description")}>
         <Text.Text level="h2" weight={600}>
-          Here are the channels we'll create for your opc server
+          Here are the channels we'll create for your OPC UA server
         </Text.Text>
         <Align.Space className="description" direction="y" size="small">
           <Text.Text level="p">
@@ -122,7 +130,11 @@ export const CreateChannels = (): ReactElement => {
         </Align.Space>
         <Align.Space className={CSS.B("details")} grow empty>
           {mostRecentSelected != null && (
-            <Details selected={mostRecentSelected} groupIndex={selectedGroup?.index} />
+            <Details
+              selected={mostRecentSelected}
+              groupIndex={selectedGroup?.index}
+              deviceProperties={deviceProperties}
+            />
           )}
         </Align.Space>
       </Align.Space>
@@ -273,8 +285,8 @@ const CHANNEL_LIST_COLUMNS: Array<List.ColumnSpec<string, PhysicalChannelPlan>> 
     name: "Index",
     visible: true,
     width: 20,
-    render: ({ entry: { isIndex } }) => {
-      return isIndex ? (
+    render: ({ entry: { role } }) => {
+      return role === "index" ? (
         <Text.Text
           level="p"
           color="var(--pluto-secondary-z)"
@@ -403,22 +415,39 @@ ChannelListItem.displayName = "ChannelListItem";
 
 export interface DetailsProps {
   selected: MostRecentSelectedState;
+  deviceProperties: DeviceProperties;
   groupIndex?: number;
 }
 
-const Details = ({ selected, groupIndex }: DetailsProps): ReactElement | null => {
+const Details = ({
+  selected,
+  groupIndex,
+  deviceProperties,
+}: DetailsProps): ReactElement | null => {
+  console.log(selected, groupIndex);
   if (groupIndex == null) return null;
   if (selected.type === "group") return <GroupForm index={selected.index} />;
-  return <ChannelForm index={selected.index} groupIndex={groupIndex} />;
+  return (
+    <ChannelForm
+      index={selected.index}
+      groupIndex={groupIndex}
+      deviceProperties={deviceProperties}
+    />
+  );
 };
 
 interface ChannelFormProps {
   groupIndex: number;
   index: number;
+  deviceProperties: DeviceProperties;
 }
 
-const ChannelForm = ({ index, groupIndex }: ChannelFormProps): ReactElement | null => {
-  const prefix = `channels.groups.${groupIndex}.channels.${index}`;
+const ChannelForm = ({
+  index,
+  groupIndex,
+  deviceProperties,
+}: ChannelFormProps): ReactElement | null => {
+  const prefix = `groups.${groupIndex}.channels.${index}`;
   const ctx = Form.useContext();
   if (!ctx.has(prefix)) return null;
 
@@ -429,22 +458,22 @@ const ChannelForm = ({ index, groupIndex }: ChannelFormProps): ReactElement | nu
           <Input.Text
             variant="natural"
             level="h2"
-            placeholder="Range Name"
+            placeholder="Channel Name"
             autoFocus
             {...p}
           />
         )}
       </Form.Field>
-      <Align.Space direction="x" grow>
-        <Form.Field<number> path={`${prefix}.dataType`} label="Data Type" grow>
-          {(p) => (
-            <Select.DataType {...p} location="top" allowNone={false} hideColumnHeader />
-          )}
-        </Form.Field>
-        {/* <Form.Field<string> path={`${prefix}.node`} label="Port">
-          {(p) => <Input.Text {...p} />}
-        </Form.Field> */}
-      </Align.Space>
+      <Form.Field<string> path={`${prefix}.dataType`} label="Data Type">
+        {(p) => (
+          <Select.DataType {...p} location="top" allowNone={false} hideColumnHeader />
+        )}
+      </Form.Field>
+      <Form.Field<string> path={`${prefix}.nodeId`} label="Node ID" hideIfNull>
+        {(p) => (
+          <SelectNode {...p} data={deviceProperties.channels} allowNone={false} />
+        )}
+      </Form.Field>
     </>
   );
 };

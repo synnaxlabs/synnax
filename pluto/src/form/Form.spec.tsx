@@ -19,11 +19,15 @@ import { Input } from "@/input";
 const basicFormSchema = z.object({
   name: z.string(),
   age: z.number().min(5, "You must be at least 5 years old."),
+  nested: z.object({
+    ssn: z.string(),
+    ein: z.string().optional(),
+  }),
 });
 
 const FormContainer = (props: PropsWithChildren): ReactElement => {
   const methods = Form.use({
-    values: { name: "John Doe", age: 42 },
+    values: { name: "John Doe", age: 42, nested: { ssn: "123-45-6789", ein: "" } },
     schema: basicFormSchema,
   });
   return <Form.Form {...methods}>{props.children}</Form.Form>;
@@ -39,7 +43,7 @@ describe("Form", () => {
       it("should get a value from the form", () => {
         const { result } = renderHook(() =>
           Form.use({
-            values: { name: "John Doe", age: 42 },
+            values: { name: "John Doe", age: 42, nested: { ssn: "123-45-6789" } },
             schema: basicFormSchema,
           }),
         );
@@ -47,10 +51,20 @@ describe("Form", () => {
         expect(field.value).toBe("John Doe");
         expect(field.status.variant).toEqual("success");
       });
+      it("should return the correct nested values", () => {
+        const { result } = renderHook(() =>
+          Form.use({
+            values: { name: "John Doe", age: 42, nested: { ssn: "123-45-6789" } },
+            schema: basicFormSchema,
+          }),
+        );
+        const field = result.current.get({ path: "nested.ssn" });
+        expect(field.value).toBe("123-45-6789");
+      });
       it("should throw an error if optional is false and the field is null", () => {
         const { result } = renderHook(() =>
           Form.use({
-            values: { name: "John Doe", age: 42 },
+            values: { name: "John Doe", age: 42, nested: { ssn: "123-45-6789" } },
             schema: basicFormSchema,
           }),
         );
@@ -59,7 +73,7 @@ describe("Form", () => {
       it("should return null if optional is true and the field is null", () => {
         const { result } = renderHook(() =>
           Form.use({
-            values: { name: "John Doe", age: 42 },
+            values: { name: "John Doe", age: 42, nested: { ssn: "123-45-6789" } },
             schema: basicFormSchema,
           }),
         );
@@ -69,7 +83,7 @@ describe("Form", () => {
       it("should return true if a field is required in the schema", () => {
         const { result } = renderHook(() =>
           Form.use({
-            values: { name: "John Doe", age: 42 },
+            values: { name: "John Doe", age: 42, nested: { ssn: "123-45-6789" } },
             schema: basicFormSchema,
           }),
         );
@@ -81,7 +95,7 @@ describe("Form", () => {
       it("should set a value in the form", () => {
         const { result } = renderHook(() =>
           Form.use({
-            values: { name: "John Doe", age: 42 },
+            values: { name: "John Doe", age: 42, nested: { ssn: "123-45-6789" } },
             schema: basicFormSchema,
           }),
         );
@@ -94,7 +108,7 @@ describe("Form", () => {
       it("should bind a listener for form changes", () => {
         const { result } = renderHook(() =>
           Form.use({
-            values: { name: "John Doe", age: 42 },
+            values: { name: "John Doe", age: 42, nested: { ssn: "123-45-6789" } },
             schema: basicFormSchema,
           }),
         );
@@ -105,6 +119,34 @@ describe("Form", () => {
           listener,
         });
         result.current.set({ path: "name", value: "Jane Doe" });
+        expect(listener).toHaveBeenCalled();
+      });
+    });
+    describe("validate", () => {
+      it("should return false if a validation error occurs", () => {
+        const { result } = renderHook(() =>
+          Form.use({
+            values: { name: "John Doe", age: 3, nested: { ssn: "123-45-6789" } },
+            schema: basicFormSchema,
+          }),
+        );
+        expect(result.current.validate()).toBe(false);
+        expect(result.current.get({ path: "age" }).status.variant).toEqual("error");
+      });
+      it("should call a bound listener if a validation error occurs", () => {
+        const { result } = renderHook(() =>
+          Form.use({
+            values: { name: "John Doe", age: 3, nested: { ssn: "123-45-6789" } },
+            schema: basicFormSchema,
+          }),
+        );
+        const listener = vi.fn();
+        result.current.bind({
+          path: "age",
+          listenToChildren: false,
+          listener,
+        });
+        result.current.validate();
         expect(listener).toHaveBeenCalled();
       });
     });
@@ -185,6 +227,20 @@ describe("Form", () => {
       fireEvent.change(input, { target: { value: 1 } });
       fireEvent.blur(input);
       expect(c.getByText("You must be at least 5 years old.")).toBeTruthy();
+    });
+    describe("Nested Field", () => {
+      it("should return a text field with the correct value", () => {
+        const c = render(<Form.Field path="nested.ssn" />, { wrapper });
+        expect(c.getByDisplayValue("123-45-6789")).toBeTruthy();
+      });
+      it("should mark the nested field as required if it is required in the schema", () => {
+        const c = render(<Form.Field path="nested.ssn" />, { wrapper });
+        expect(c.getByText("*")).toBeTruthy();
+      });
+      it("should not mark the nested field as required if it is not required in the schema", () => {
+        const c = render(<Form.Field path="nested.ein" />, { wrapper });
+        expect(c.queryByText("*")).toBeNull();
+      });
     });
   });
 });

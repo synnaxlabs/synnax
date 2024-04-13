@@ -46,22 +46,40 @@ export type Key<T, D extends number = 5> = [D] extends [never]
       }[keyof T]
     : "";
 
-export type Get = (<T>(obj: T, path: string, allowNull: true) => unknown | null) &
-  (<T>(obj: T, path: string, allowNull?: boolean) => unknown);
+export interface GetOptions {
+  extension?: string;
+}
+
+export type Get = (<T>(
+  obj: T,
+  path: string,
+  allowNull: true,
+  options?: GetOptions,
+) => unknown | null) &
+  (<T>(obj: T, path: string, allowNull?: boolean, options?: GetOptions) => unknown);
 
 export const get: Get = <V>(
   obj: V,
   path: string,
   allowNull: boolean = false,
+  { extension = "" }: GetOptions = {},
 ): unknown | null => {
   const parts = path.split(".");
   if (parts.length === 1 && parts[0] === "") return obj;
   let result: UnknownRecord = obj as UnknownRecord;
   for (const part of parts) {
-    const v = result[part];
+    let v = result[part];
     if (v == null) {
       if (allowNull) return null;
       throw new Error(`Path ${path} does not exist. ${part} is null`);
+    }
+    if (extension !== "" && typeof v === "object" && parts[parts.length - 1] !== part) {
+      const ext = (v as UnknownRecord)[extension];
+      if (ext == null) {
+        if (allowNull) return null;
+        throw new Error(`Path ${path} does not exist. ${part}.${extension} is null`);
+      }
+      v = ext;
     }
     result = v as UnknownRecord;
   }

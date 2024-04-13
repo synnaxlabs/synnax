@@ -30,6 +30,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { nanoid } from "nanoid";
 
 import { CSS } from "@/css";
+import { SelectNodeRemote } from "@/hardware/opc/SelectNode";
 import {
   type ReadTaskChannelConfig,
   readTaskConfigZ,
@@ -37,6 +38,8 @@ import {
   type ReadTaskState,
   type ReadTaskStateDetails,
   type ReadTaskConfig,
+  type NodeId,
+  parseNodeId,
 } from "@/hardware/opc/types";
 import { type Layout } from "@/layout";
 
@@ -77,7 +80,7 @@ export const ReadTask = (): ReactElement => {
       console.log("BB");
       setTaskState(s);
     });
-    return () => stateObserverRef.current?.close().catch(console.error);
+    return async () => await stateObserverRef.current?.close().catch(console.error);
   }, [client?.key, task?.key, setTaskState]);
 
   useEffect(() => {
@@ -273,70 +276,15 @@ interface ChannelFormProps {
 
 const ChannelForm = ({ selectedChannelIndex }: ChannelFormProps): ReactElement => {
   const prefix = `channels.${selectedChannelIndex}`;
+  const dev = Form.useField<string>({ path: "device" }).value;
   return (
     <Align.Space direction="y">
       <Form.Field<number> path={`${prefix}.channel`} label="Channel">
         {(p) => <Channel.SelectSingle {...p} />}
       </Form.Field>
       <Form.Field<string> path={`${prefix}.node`} label="Node">
-        {(p) => <SelectNode {...p} />}
+        {(p) => <SelectNodeRemote device={dev} {...p} />}
       </Form.Field>
     </Align.Space>
-  );
-};
-
-interface UANodeEntry {
-  key: string;
-  name: string;
-  dataType: string;
-}
-
-const SELECT_NODE_COLUMNS: Array<List.ColumnSpec<string, UANodeEntry>> = [
-  {
-    name: "Name",
-    key: "name",
-  },
-  {
-    name: "Data Type",
-    key: "dataType",
-  },
-];
-
-interface SelectNodeProps
-  extends Omit<Select.SingleProps<string, UANodeEntry>, "columns" | "data"> {}
-
-const SelectNode = (props: SelectNodeProps): ReactElement => {
-  const client = Synnax.use();
-  const form = Form.useContext();
-  const nodes = useQuery({
-    queryKey: [client?.key],
-    queryFn: async () => {
-      if (client == null) return;
-      const dev = form.get<string>({ path: "device" });
-      if (dev.status.variant === "success" && dev.value.length > 0) {
-        const device = await client.hardware.devices.retrieve<DeviceProperties>(
-          dev.value,
-        );
-        return device.properties.channels.map((c) => ({
-          key: c.nodeId,
-          name: c.nodeId,
-          dataType: c.dataType,
-        }));
-      }
-
-      return [];
-    },
-  });
-
-  Form.useFieldListener("device", () => {
-    void nodes.refetch();
-  });
-
-  return (
-    <Select.Single<string, UANodeEntry>
-      columns={SELECT_NODE_COLUMNS}
-      data={nodes.data}
-      {...props}
-    />
   );
 };

@@ -79,15 +79,14 @@ static UA_StatusCode nodeIter(
         UA_Variant value;
         UA_Variant_init(&value);
         retval = UA_Client_readValueAttribute(ua_client, child_id, &value);
-        if (retval == UA_STATUSCODE_GOOD && value.type != nullptr)
-            ctx->channels->push_back({
-                variant_data_type(value),
-                std::string((char *) browseName.name.data,
-                            browseName.name.length),
-                std::string((char *) child_id.identifier.string.data,
-                            child_id.identifier.string.length),
-                child_id.namespaceIndex
-            });
+
+        if (retval == UA_STATUSCODE_GOOD && value.type != nullptr) {
+            auto name = std::string((char *) browseName.name.data,
+                                    browseName.name.length);
+            auto node_id = nodeIdToString(child_id);
+            auto dt = variant_data_type(value);
+            ctx->channels->push_back({dt, name, node_id});
+        }
     }
 
     if (ctx->depth >= MAX_DEPTH) return UA_STATUSCODE_GOOD;

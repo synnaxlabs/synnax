@@ -18,6 +18,10 @@
 #include "include/open62541/client_config_default.h"
 #include "include/open62541/client.h"
 #include "include/open62541/statuscodes.h"
+#include <string>
+#include <sstream>
+#include <regex>
+#include <iostream>
 
 namespace opc {
 std::pair<UA_Client *, bool> connect(
@@ -91,4 +95,106 @@ inline std::pair<std::shared_ptr<UA_Client>, freighter::Error> connect(
     }
     return {client, freighter::NIL};
 }
+}
+
+// Helper function to convert string GUID to UA_Guid
+inline UA_Guid stringToGuid(const std::string &guidStr) {
+    UA_Guid guid;
+    unsigned int data4[8];
+    std::sscanf(guidStr.c_str(),
+                "%8x-%4hx-%4hx-%2x%2x-%2x%2x%2x%2x%2x%2x",
+                &guid.data1, &guid.data2, &guid.data3,
+                &data4[0], &data4[1], &data4[2], &data4[3],
+                &data4[4], &data4[5], &data4[6], &data4[7]);
+    for (int i = 0; i < 8; ++i)
+        guid.data4[i] = (UA_Byte) data4[i];
+    return guid;
+}
+
+
+// Helper function to convert a GUID to a string
+inline std::string guidToString(const UA_Guid &guid) {
+    std::ostringstream stream;
+    stream << std::hex << std::setfill('0')
+            << std::setw(8) << guid.data1 << "-"
+            << std::setw(4) << guid.data2 << "-"
+            << std::setw(4) << guid.data3 << "-"
+            << std::setw(2) << (guid.data4[0] & 0xFF) << std::setw(2) << (
+                guid.data4[1] & 0xFF) << "-"
+            << std::setw(2) << (guid.data4[2] & 0xFF) << std::setw(2) << (
+                guid.data4[3] & 0xFF)
+            << std::setw(2) << (guid.data4[4] & 0xFF) << std::setw(2) << (
+                guid.data4[5] & 0xFF)
+            << std::setw(2) << (guid.data4[6] & 0xFF) << std::setw(2) << (
+                guid.data4[7] & 0xFF);
+    return stream.str();
+}
+
+// Parses a string NodeId into a UA_NodeId object
+inline UA_NodeId parseNodeId(const std::string &nodeIdStr) {
+    std::regex regex("NS=(\\d+);(I|S|G|B)=(.+)");
+    std::smatch matches;
+
+    if (!std::regex_search(nodeIdStr, matches, regex)) {
+        std::cerr << "Invalid NodeId format" << std::endl;
+        return UA_NODEID_NULL;
+    }
+
+    int nsIndex = std::stoi(matches[1].str());
+    std::string type = matches[2].str();
+    std::string identifier = matches[3].str();
+
+    UA_NodeId nodeId = UA_NODEID_NULL;
+
+    if (type == "I") {
+        nodeId = UA_NODEID_NUMERIC(nsIndex, std::stoul(identifier));
+    } else if (type == "S") {
+        nodeId = UA_NODEID_STRING_ALLOC(nsIndex, identifier.c_str());
+    } else if (type == "G") {
+        UA_Guid guid = stringToGuid(identifier);
+        nodeId = UA_NODEID_GUID(nsIndex, guid);
+    } else if (type == "B") {
+        // Allocate memory for ByteString
+        size_t len = identifier.length() / 2;
+        UA_Byte *data = (UA_Byte *) UA_malloc(len);
+        for (size_t i = 0; i < len; ++i) {
+            sscanf(&identifier[2 * i], "%2hhx", &data[i]);
+        }
+        nodeId = UA_NODEID_BYTESTRING(nsIndex, (char *) data);
+        UA_free(data); // Free the temporary buffer
+    }
+
+    return nodeId;
+}
+
+
+// Function to build a string identifier from a UA_NodeId
+inline std::string nodeIdToString(const UA_NodeId &nodeId) {
+    std::ostringstream nodeIdStr;
+    nodeIdStr << "NS=" << nodeId.namespaceIndex << ";";
+
+    switch (nodeId.identifierType) {
+        case UA_NODEIDTYPE_NUMERIC:
+            nodeIdStr << "I=" << nodeId.identifier.numeric;
+            break;
+        case UA_NODEIDTYPE_STRING:
+            nodeIdStr << "S=" << std::string((char *) nodeId.identifier.string.data,
+                                             nodeId.identifier.string.length);
+            break;
+        case UA_NODEIDTYPE_GUID:
+            nodeIdStr << "G=" << guidToString(nodeId.identifier.guid);
+            break;
+        case UA_NODEIDTYPE_BYTESTRING:
+            // Convert ByteString to a base64 or similar readable format if needed
+            nodeIdStr << "B=";
+            for (std::size_t i = 0; i < nodeId.identifier.byteString.length; ++i) {
+                nodeIdStr << std::setfill('0') << std::setw(2) << std::hex
+                        << (int) nodeId.identifier.byteString.data[i];
+            }
+            break;
+        default:
+            nodeIdStr << "Unknown";
+    }
+
+    return nodeIdStr.str();
 }

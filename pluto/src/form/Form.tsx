@@ -22,7 +22,7 @@ import {
 } from "react";
 
 import { caseconv, deep, shallowCopy, type Destructor, toArray } from "@synnaxlabs/x";
-import { type z } from "zod";
+import { ParseParams, type z } from "zod";
 
 import { useSyncedRef } from "@/hooks/ref";
 import { Input } from "@/input";
@@ -78,7 +78,11 @@ export const useField = (<I extends Input.Value, O extends Input.Value = I>({
 
   useLayoutEffect(() => {
     setState(get<I>({ path, optional }));
-    return bind({ path, listener: setState, listenToChildren: false });
+    return bind({
+      path,
+      listener: setState,
+      listenToChildren: false,
+    });
   }, [path, bind, setState]);
 
   const handleChange = useCallback(
@@ -351,14 +355,13 @@ export type UseReturn<
   Z extends z.ZodObject<T> = z.ZodObject<T>,
 > = ContextValue<T, Z>;
 
-const fieldIsRequired = <T extends z.ZodRawShape, Z extends z.ZodObject<T>>(
+const getZodField = <T extends z.ZodRawShape, Z extends z.ZodObject<T>>(
   schema: Z,
   path: string,
-): boolean => {
-  const field = deep.get<T>(schema.shape, path, true) as z.ZodTypeAny;
-  if (field == null) return false;
-  return !field.isOptional();
-};
+): z.ZodTypeAny =>
+  deep.get<T>(schema.shape, path, true, {
+    extension: "shape",
+  }) as z.ZodTypeAny;
 
 export const use = <
   T extends z.ZodRawShape = z.ZodRawShape,
@@ -399,20 +402,25 @@ export const use = <
       const { state, status, touched } = ref.current;
       const value = deep.get(state, path, optional);
       if (value == null) return null;
-      return {
+      const fs = {
         value: value as V,
         status: status.get(path) ?? NO_ERROR_STATUS(path),
         touched: touched.has(path),
-        required:
-          schemaRef.current != null ? fieldIsRequired(schemaRef.current, path) : false,
+        required: false,
       };
+      if (schemaRef.current == null) return fs;
+      const schema = schemaRef.current;
+      const zField = getZodField(schema, path);
+      if (zField == null) return fs;
+      fs.required = !zField.isOptional();
+      return fs;
     },
     [],
   ) as GetFunc;
 
   const validate = useCallback((path?: string): boolean => {
     if (schemaRef.current == null) return true;
-    const { state, status, listeners } = ref.current;
+    const { state, status, listeners, touched } = ref.current;
     const result = schemaRef.current.safeParse(state);
     // if (path == null) status.clear();
     // else status.delete(path);
@@ -429,12 +437,24 @@ export const use = <
     const issueKeys = new Set(result.error.issues.map((i) => i.path.join(".")));
     result.error.issues.forEach((issue) => {
       const issuePath = issue.path.join(".");
+      console.log(issuePath, issue.message);
       status.set(issuePath, {
         key: issuePath,
         variant: "error",
         message: issue.message,
       });
-      const fs = get({ path: issuePath });
+      touched.add(issuePath);
+      let fs = get({ path: issuePath, optional: true });
+      // If we can't find the field value, this means the user never set it, so instead
+      // we just to a best effort construction of the field state. This means that if
+      // the user has a field rendered for this path, the error will be displayed.
+      if (fs == null)
+        fs = {
+          value: undefined,
+          status: status.get(issuePath) ?? NO_ERROR_STATUS(issuePath),
+          touched: false,
+          required: false,
+        };
       listeners.get(issuePath)?.forEach((l) => l(fs));
     });
     status.forEach((_, subPath) => {

@@ -44,16 +44,14 @@ opc::Factory::configureInitialTasks(
     }
 
     if (!hasScanner) {
-        LOG(INFO) << "[OPC] creating scanner task";
         auto sy_task = synnax::Task(
             rack.key,
             "opc Scanner",
             "opcScanner",
             ""
         );
-
-        std::cout << rack.key << std::endl;
         auto err= rack.tasks.create(sy_task);
+        LOG(INFO) << "[OPC] created scanner task with key: " << sy_task.key;
         if (err) {
             LOG(ERROR) << "[OPC] Failed to create scanner task: " << err;
             return tasks;

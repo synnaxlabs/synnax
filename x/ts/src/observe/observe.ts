@@ -45,3 +45,20 @@ export class Observer<I, O = I> implements Observable<O> {
     this.handlers.forEach((_, handler) => handler(newValue));
   }
 }
+
+export class BaseObserver<V> implements Observable<V> {
+  private readonly handlers: Map<Handler<V>, null>;
+
+  constructor(handlers?: Map<Handler<V>, null>) {
+    this.handlers = handlers ?? new Map();
+  }
+
+  onChange(handler: Handler<V>): Destructor {
+    this.handlers.set(handler, null);
+    return () => this.handlers.delete(handler);
+  }
+
+  notify(value: V): void {
+    this.handlers.forEach((_, handler) => handler(value));
+  }
+}

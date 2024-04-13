@@ -27,8 +27,20 @@ import { Transport } from "@/transport";
 import { workspace } from "@/workspace";
 
 export const synnaxPropsZ = z.object({
-  host: z.string().min(1),
-  port: z.number().or(z.string()),
+  host: z
+    .string({
+      required_error: "Host is required",
+    })
+    .min(1, "Host is required"),
+  port: z
+    .number({
+      required_error: "Port is required",
+    })
+    .or(
+      z.string({
+        required_error: "Port is required",
+      }),
+    ),
   username: z.string().optional(),
   password: z.string().optional(),
   connectivityPollFrequency: TimeSpan.z.default(TimeSpan.seconds(30)),

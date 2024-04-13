@@ -22,10 +22,9 @@ export const deviceNodeProperties = z.object({
   dataType: z.string(),
   name: z.string(),
   nodeId: z.string(),
-  namespace: z.number(),
 });
 
-type DeviceNodeProperties = z.infer<typeof deviceNodeProperties>;
+export type DeviceNodeProperties = z.infer<typeof deviceNodeProperties>;
 
 export const devicePropertiesZ = z.object({
   connection: connectionConfigZ,
@@ -66,3 +65,63 @@ export const readTaskConfigZ = z
 export type ReadTaskConfig = z.infer<typeof readTaskConfigZ>;
 
 export type Device = device.Device<DeviceProperties>;
+
+type NodeIdType = "Numeric" | "String" | "GUID" | "ByteString";
+
+export interface NodeId {
+  namespaceIndex: number;
+  identifierType: NodeIdType;
+  identifier: string | number; // Strings for String, GUID, and ByteString types, number for Numeric
+}
+
+export const parseNodeId = (nodeIdStr: string): NodeId | null => {
+  const regex = /NS=(\d+);(I|S|G|B)=(.+)/;
+  const match = nodeIdStr.match(regex);
+
+  if (match === null) return null;
+
+  const namespaceIndex = parseInt(match[1], 10);
+  const typeCode = match[2];
+  const identifier = match[3];
+
+  let identifierType: NodeIdType;
+
+  switch (typeCode) {
+    case "I":
+      identifierType = "Numeric";
+      return {
+        namespaceIndex,
+        identifierType,
+        identifier: parseInt(identifier, 10),
+      };
+    case "S":
+      identifierType = "String";
+      break;
+    case "G":
+      identifierType = "GUID";
+      break;
+    case "B":
+      identifierType = "ByteString";
+      break;
+    default:
+      return null;
+  }
+
+  return {
+    namespaceIndex,
+    identifierType,
+    identifier,
+  };
+};
+
+export const nodeIdToString = (nodeId: NodeId): string => {
+  const prefix = `NS=${nodeId.namespaceIndex};`;
+  switch (nodeId.identifierType) {
+    case "Numeric":
+      return `${prefix}I=${nodeId.identifier}`;
+    case "String":
+    case "GUID":
+    case "ByteString":
+      return `${prefix}${nodeId.identifierType.charAt(0)}=${nodeId.identifier}`;
+  }
+};

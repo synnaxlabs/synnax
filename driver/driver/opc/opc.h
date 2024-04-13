@@ -11,6 +11,7 @@
 
 #include "driver/driver/config/config.h"
 #include "driver/driver/task/task.h"
+#include "include/open62541/types.h"
 
 namespace opc {
 /// @brief the configuration for an OPC UA connection.
@@ -44,21 +45,18 @@ struct DeviceNodeProperties {
     synnax::DataType data_type;
     std::string name;
     std::string node_id;
-    std::uint32_t namespace_;
 
     DeviceNodeProperties(
         synnax::DataType data_type,
         std::string name,
-        std::string node_id,
-        std::uint32_t namespace_
-    ): data_type(data_type), name(name), node_id(node_id), namespace_(namespace_) {
+        std::string node_id
+    ): data_type(data_type), name(name), node_id(node_id) {
     }
 
     explicit DeviceNodeProperties(config::Parser parser): data_type(
             synnax::DataType(parser.required<std::string>("data_type"))),
         name(parser.required<std::string>("name")),
-        node_id(parser.required<std::string>("node_id")),
-        namespace_(parser.required<std::uint32_t>("namespace")) {
+        node_id(parser.required<std::string>("node_id")) {
     }
 
     json toJSON() const {
@@ -66,7 +64,6 @@ struct DeviceNodeProperties {
             {"data_type", data_type.name()},
             {"name", name},
             {"node_id", node_id},
-            {"namespace", namespace_}
         };
     }
 };

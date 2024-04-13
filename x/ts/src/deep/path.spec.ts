@@ -52,6 +52,26 @@ describe("path", () => {
       };
       expect(deep.get(a, "")).toStrictEqual(a);
     });
+    describe("with extension", () => {
+      it("should inject the extension into intermediary paths", () => {
+        const v = {
+          a: {
+            shape: {
+              b: {
+                c: 1,
+              },
+            },
+          },
+        };
+        expect(deep.get(v, "a.b", true, { extension: "shape" })).toEqual({ c: 1 });
+      });
+      it("should return the direct path for a top-level key", () => {
+        const v = {
+          a: 1,
+        };
+        expect(deep.get(v, "a", true, { extension: "shape" })).toEqual(1);
+      });
+    });
   });
   describe("set", () => {
     it("should set a key", () => {
