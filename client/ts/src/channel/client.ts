@@ -35,8 +35,8 @@ import {
   DebouncedBatchRetriever,
   type Retriever,
 } from "@/channel/retriever";
-import { MultipleResultsError, NoResultsError, ValidationError } from "@/errors";
 import { type Writer } from "@/channel/writer";
+import { MultipleResultsError, NoResultsError, ValidationError } from "@/errors";
 import { type framer } from "@/framer";
 
 interface CreateOptions {
@@ -261,7 +261,7 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
       toCreate = toCreate.filter((c) => !existingNames.has(c.name));
       created = this.sugar(res);
     }
-    created = created.concat(this.sugar(await this.creator.create(toCreate)));
+    created = created.concat(this.sugar(await this.writer.create(toCreate)));
     return single ? created[0] : created;
   }
 

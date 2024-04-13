@@ -193,7 +193,6 @@ describe("Channel", () => {
     expect(retrieved.length).toBeGreaterThan(0);
     retrieved.forEach((ch) => expect(ch.name).toEqual("test"));
   });
-});
 
   describe("delete", async () => {
     test("delete by key", async () => {
@@ -204,6 +203,18 @@ describe("Channel", () => {
         dataType: DataType.FLOAT32,
       });
       await client.channels.delete(channel.key);
+      await expect(
+        async () => await client.channels.retrieve(channel.key),
+      ).rejects.toThrow(QueryError);
+    });
+    test("delete by name", async () => {
+      const channel = await client.channels.create({
+        name: "test",
+        leaseholder: 1,
+        rate: Rate.hz(1),
+        dataType: DataType.FLOAT32,
+      });
+      await client.channels.delete(["test"]);
       await expect(
         async () => await client.channels.retrieve(channel.key),
       ).rejects.toThrow(QueryError);
