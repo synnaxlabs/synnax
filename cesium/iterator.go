@@ -116,7 +116,7 @@ func (i *Iterator) exec(req IteratorRequest) bool {
 
 func (i *Iterator) execErr(req IteratorRequest) (bool, error) {
 	if i.closed {
-		return false, iteratorClosedError
+		return false, nil
 	}
 	i.frame = Frame{}
 	i.inlet.Inlet() <- req

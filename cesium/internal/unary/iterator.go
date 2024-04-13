@@ -216,7 +216,7 @@ func (i *Iterator) Valid() bool { return i.partiallySatisfied() && i.err == nil 
 
 func (i *Iterator) Close() (err error) {
 	if i.closed {
-		return iteratorClosedError
+		return nil
 	}
 	i.decrementCounter()
 	i.closed = true

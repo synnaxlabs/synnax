@@ -171,7 +171,7 @@ func (w *Writer) Commit(ctx context.Context, end telem.TimeStamp) error {
 // safe to call concurrently with any other writer methods.
 func (w *Writer) Close() error {
 	if w.closed {
-		return writerClosedError
+		return nil
 	}
 	w.closed = true
 	return w.internal.Close()

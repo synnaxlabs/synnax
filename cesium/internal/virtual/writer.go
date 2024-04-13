@@ -83,7 +83,7 @@ func (w *Writer) SetAuthority(a control.Authority) controller.Transfer {
 
 func (w *Writer) Close() (controller.Transfer, error) {
 	if w.closed {
-		return controller.Transfer{}, writerClosedError
+		return controller.Transfer{}, nil
 	}
 	w.closed = true
 	_, t := w.control.Release()

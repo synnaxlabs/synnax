@@ -112,7 +112,7 @@ func (w *Writer) SetMode(mode WriterMode) bool {
 
 func (w *Writer) Close() (err error) {
 	if w.closed {
-		return writerClosedError
+		return nil
 	}
 	w.closed = true
 	w.requests.Close()

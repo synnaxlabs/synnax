@@ -138,9 +138,6 @@ func (i *Iterator) Len() int64 { return int64(i.value.length) }
 
 // Close closes the iterator.
 func (i *Iterator) Close() error {
-	if i.closed {
-		return iteratorClosedError
-	}
 	i.closed = true
 	i.valid = false
 	return nil

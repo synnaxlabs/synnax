@@ -214,7 +214,7 @@ func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.
 
 func (w *Writer) Close() (controller.Transfer, error) {
 	if w.closed {
-		return controller.Transfer{}, writerClosedError
+		return controller.Transfer{}, nil
 	}
 
 	w.closed = true
