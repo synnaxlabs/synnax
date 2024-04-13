@@ -14,7 +14,7 @@ import { pythonClientNav } from "@/pages/components/python-client/nav";
 import { analystNav } from "@/pages/roles/analyst/nav";
 import { sysAdminNav } from "@/pages/roles/sys-admin/nav";
 import { operationsNav } from "@/pages/roles/operations/nav";
-import { typescriptClientNav } from "@/pages/typescript-client/nav";
+import { typescriptClientNav } from "@/pages/components/typescript-client/nav";
 
 export const componentsPages = [
   {

@@ -14,38 +14,38 @@ export const typescriptClientNav: PageNavNode = {
     name: "Typescript Client",
     children: [
         {
-            key: "/typescript-client/get-started",
-            href: "/typescript-client/get-started",
+            key: "/components/typescript-client/get-started",
+            href: "/components/typescript-client/get-started",
             name: "Get Started",
         },
         {
-            key: "/typescript-client/channels",
-            href: "/typescript-client/channels",
+            key: "/components/typescript-client/channels",
+            href: "/components/typescript-client/channels",
             name: "Channels",
         },
         {
-            key: "/typescript-client/read-telemetry",
-            href: "/typescript-client/read-telemetry",
+            key: "/components/typescript-client/read-telemetry",
+            href: "/components/typescript-client/read-telemetry",
             name: "Read Telemetry",
         },
         {
-            key: "/typescript-client/write-telemetry",
-            href: "/typescript-client/write-telemetry",
+            key: "/components/typescript-client/write-telemetry",
+            href: "/components/typescript-client/write-telemetry",
             name: "Write Telemetry",
         },
         {
-            key: "/typescript-client/stream-telemetry",
-            href: "/typescript-client/stream-telemetry",
+            key: "/components/typescript-client/stream-telemetry",
+            href: "/components/typescript-client/stream-telemetry",
             name: "Stream Telemetry"
         },
         {
-            key: "/typescript-client/series-and-frames",
-            href: "/typescript-client/series-and-frames",
+            key: "/components/typescript-client/series-and-frames",
+            href: "/components/typescript-client/series-and-frames",
             name: "Series and Frames"
         },
         {
-            key: "/typescript-client/examples",
-            href: "/typescript-client/examples",
+            key: "/components/typescript-client/examples",
+            href: "/components/typescript-client/examples",
             name: "Examples"
         }
     ]
