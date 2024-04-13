@@ -175,6 +175,11 @@
       "import": "./dist/identity.js",
       "require": "./dist/identity.cjs",
       "types": "./dist/src/identity.d.ts"
+    },
+    "./caseconv": {
+      "import": "./dist/caseconv.js",
+      "require": "./dist/caseconv.cjs",
+      "types": "./dist/src/caseconv/index.d.ts"
     }
   }
 }

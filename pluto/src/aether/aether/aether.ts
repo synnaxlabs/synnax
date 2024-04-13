@@ -9,12 +9,8 @@
 
 import { alamos } from "@synnaxlabs/alamos";
 import { UnexpectedError, ValidationError } from "@synnaxlabs/client";
-import {
-  deep,
-  type UnknownRecord,
-  type Sender,
-  type SenderHandler,
-} from "@synnaxlabs/x";
+import { type UnknownRecord, type Sender, type SenderHandler } from "@synnaxlabs/x";
+import { deep } from "@synnaxlabs/x/deep";
 import { Mutex } from "async-mutex";
 import { z } from "zod";
 

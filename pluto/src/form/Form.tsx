@@ -21,8 +21,10 @@ import {
   useEffect,
 } from "react";
 
-import { caseconv, deep, shallowCopy, type Destructor, toArray } from "@synnaxlabs/x";
-import { ParseParams, type z } from "zod";
+import { shallowCopy, type Destructor, toArray } from "@synnaxlabs/x";
+import { caseconv } from "@synnaxlabs/x/caseconv";
+import { deep } from "@synnaxlabs/x/deep";
+import { type z } from "zod";
 
 import { useSyncedRef } from "@/hooks/ref";
 import { Input } from "@/input";
