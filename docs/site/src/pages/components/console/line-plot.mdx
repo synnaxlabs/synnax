@@ -10,7 +10,7 @@ import { Text } from "@synnaxlabs/pluto";
 The line plot visualization is the main visualization tool in Synnax. In this
 visualization, you can graph data. An example visualization is shown below:
 
-<Image client:only="react" id="roles/operations/line-plot/line-plot-main-view"  />
+<Image client:only="react" id="console/line-plot"  />
 
 <Text.Text level="p">
 Make sure to click the visualize <Icon.Visualize/> button in the bottom right corner to pop up the
@@ -58,19 +58,6 @@ The properties tab has several properties underneath it:
 - The legend switch determines whether the legend is viewed in the chart.
 
 ## Navigating the plot
-- Select data by clicking the box with dotted lines in the bottom left or by
-  left clicking and dragging. This box allows you to export data in various
-  formats.
-- Reset the zoom by clicking the bracketed box in the bottom left or by clicking
-  ^ + Left Click.
-- Show tooltip on hover enables you to hover over the graph and see all channel
-  values at a certain data point.
-- Slope allows you to click two points on the graph and calculate the slope
-  in between them. It also allows you to see the difference in the x and the y
-  axis. To change the first point, press the 1 key and click on the graph. To
-  change the second point, press the 2 key and click on the graph.
-- Pause live plotting, also accessible by the H key, freezes any live plotting.
-
 <Text.Text level="p">
   <ul>
     <li>Zoom on the plot by clicking the <Icon.Zoom/> icon in the bottom left or by pressing <Icon.Keyboard.Alt/> (Windows) / <Icon.Keyboard.Command/> (Mac)
@@ -84,10 +71,4 @@ The properties tab has several properties underneath it:
         in the x and y axes. To change the first point, press the 1 key and click on the graph. To change the second point, press the 2 key and click on the graph.</li>
     <li>Pause live plotting by pressing <Icon.Pause/> or pressing the H key.</li>
   </ul>
-</Text.Text>
-
-<Text.Text level="p">
-<Icon.Pan/>
-<Icon.PID/>
-
 </Text.Text>

@@ -1,41 +1,40 @@
 ---
 layout: "@/layouts/MainLayout.astro"
-title: "PID View"
-description: "This page describes how to use the PID viewer on Synnax console."
+title: "Schematic View"
+description: "This page describes how to use the Schematic viewer on Synnax console."
 ---
 import { Image } from "@/components/Media";
 
-## PID Overview
+## Schematic Overview
 
-The piping and instrumentation diagram (P&ID) view is used to see a diagram of
-your test setup which will read live values. It also allows the user to exercise
-control over various channels in the system in order to manually run a test or
-operation.
+The schematic view is used to see a diagram of your test setup which will read
+live values. It also allows the user to exercise control over various channels
+in the system in order to manually run a test or operation.
 
-An example PID from a simulated DAQ is shown below:
+An example schematic from a simulated DAQ is shown below:
 
-<Image client:only="react" id="roles/operations/pid/pid"  />
+<Image client:only="react" id="console/schematic"  />
 
-There are three modes that the PID viewer can be in: edit mode, neutral mode,
-and control mode. These modes can be switched between by hovering over the
-toolbar in the bottom left of the window. In edit mode, the PID elements can be
-moved to arrange the display. In neutral mode, nothing happens while live
-telemetry comes in. In control mode, the user can activate elements on the PID
-viewer to affect the system state.
+There are three modes that the schematic viewer can be in: edit mode, neutral
+mode, and control mode. These modes can be switched between by hovering over the
+toolbar in the bottom left of the window. In edit mode, the schematic elements
+can be moved to arrange the display. In neutral mode, nothing happens while live
+telemetry comes in. In control mode, the user can activate elements on the
+schematic viewer to affect the system state.
 
 ## Symbols
-The heart of the PID view is symbols. These symbols are a visual representation
-of sensors, actuators, and anything else on a test system. If the symbols are
-not appearing on the bottom of the screen, make sure to tap the visualization
-icon in the bottom right. Synnax has a collection of built-in symbols, such as
-valves, values, and buttons. To place a symbol, drag and drop onto the screen.
-The properties of symbols are detailed below.
+The heart of the schematic view is symbols. These symbols are a visual
+representation of sensors, actuators, and anything else on a test system. If the
+symbols are not appearing on the bottom of the screen, make sure to tap the
+visualization icon in the bottom right. Synnax has a collection of built-in
+symbols, such as valves, values, and buttons. To place a symbol, drag and drop
+onto the screen. The properties of symbols are detailed below.
 
 ### Style
 The style tab on a symbol allows users to edit the symbols label, size,
 orientation, color, and other various visual properties. A value's units can
-also be edited here. To edit this, click on a PID element on the diagram and
-then click the "Properties" tab in the bottom right.
+also be edited here. To edit this, click on a schematic element on the diagram
+and then click the "Properties" tab in the bottom right.
 
 ### Telemetry
 The "Telemetry" tab is a property of the value element, and is for elements that
@@ -50,23 +49,23 @@ strictly receive data.
 ### Control
 The "Control" tab is a property of any element that takes inputs and outputs. An
 example of this is a switch.
-- "Input Channel" is the channel that PID viewer reads from. For instance,
+- "Input Channel" is the channel that schematic viewer reads from. For instance,
   acknowledgement channels are often used as the input channels.
 - "Output Channel" is a write channel that Synnax writes to. This are often
-  write channels on a DAQ. When you click on the PID element to actuate it, this
-  channel is the one that gets changed.
+  write channels on a DAQ. When you click on the schematic element to actuate
+  it, this channel is the one that gets changed.
 
 ### Connection lines
 Every element has spots for connection lines / tubes. When hovering over an
 element, places for these connections appear. You can then drag this line to
-another element to draw a connection line on the PID viewer.
+another element to draw a connection line on the schematic viewer.
 
 First, we can make a diagram off of the provided symbols such as valves, tanks,
 and values. Just drag and drop to make what you want!
 
 Here, I have added two tanks, each with a value attached (for the pressure), and
-also added a valve in between them. Most elements of the PID have nodes that you
-can draw lines between.
+also added a valve in between them. Most elements of the schematic have nodes
+that you can draw lines between.
 
 After clicking an element, there are two options, “style” and “control”. Under
 “Style”, there are options for changing the label, the label size, the color,
@@ -74,13 +73,15 @@ and the orientation for all elements. The orientation buttons allow you to
 change the direction of the symbol or the location of the name. The label
 
 ## Control mode
-In control mode, elements on the PID are able to be activated for manual control
-of the system. Clicking on an actionable element, such as a valve, switch, or
-button, allows you to activate the output channel on that element. The circle on
-the element shows what is in control. If the circle is blue, the current PID
-view has control. If the circle is green, the current PID view has absolute
-control. If the circle is red, the current PID view does not have control as the
-element is part of an automated sequence or controlled by another PID view.
+In control mode, elements on the schematic are able to be activated for manual
+control of the system. Clicking on an actionable element, such as a valve,
+switch, or button, allows you to activate the output channel on that element.
+The circle on the element shows what is in control. If the circle is blue, the
+current schematic view has control. If the circle is green, the current
+schematic view has absolute control. If the circle is red, the current schematic
+view does not have control as the element is part of an automated sequence or
+controlled by another schematic view.
 
-The color of the bar indicates what is controlling the elements on the PID.
-There is a legend on the display indicating what controlling node is what color.
+The color of the bar indicates what is controlling the elements on the
+schematic. There is a legend on the display indicating what controlling node is
+what color.
