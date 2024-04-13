@@ -62,13 +62,10 @@ class Series(Payload):
     __len_cache: int | None = PrivateAttr(None)
 
     def __len__(self) -> int:
-        if self.__len_cache is not None:
-            return self.__len_cache
-
         if self.data_type.has_fixed_density:
             return self.data_type.density.sample_count(len(self.data))
-
-        self.__len_cache = self.data.count(b"\n")
+        if self.__len_cache is None:
+            self.__len_cache = self.data.count(b"\n")
         return self.__len_cache
 
     def __init__(
@@ -246,3 +243,65 @@ def elapsed_seconds(d: np.ndarray) -> np.ndarray:
     :returns: A Series of elapsed seconds.
     """
     return (d - d[0]) / TimeSpan.SECOND
+
+
+class MultiSeries:
+    series: list[Series]
+
+    def __new__(cls, *args, **kwargs):
+        return super().__new__(overload_comparison_operators(cls, "__array__"))
+
+    def __init__(self, series: list[Series]):
+        self.series = series
+        if len(series) > 0:
+            first_dt = series[0].data_type
+            same_dt = all(s.data_type == first_dt for s in series)
+            if not same_dt:
+                raise ValueError(
+                    f"""
+                    [MultiSeries] - All series must have the same data type. Received
+                    {first_dt} and {set(s.data_type for s in series)}.
+                    """
+                )
+
+    def __array__(self) -> np.ndarray:
+        pre_alloc = np.empty((len(self),), dtype=self.series[0].data_type.np)
+        start = 0
+        for s in self.series:
+            end = start + len(s)
+            pre_alloc[start:end] = s.__array__()
+            start = end
+        return pre_alloc
+
+    def to_numpy(self) -> np.ndarray:
+        return self.__array__()
+
+    @property
+    def time_range(self) -> TimeRange | None:
+        if len(self.series) == 0:
+            return TimeRange.ZERO
+        first = self.series[0].time_range
+        last = self.series[-1].time_range
+        if first is None or last is None:
+            return None
+        return TimeRange(start=first.start, end=last.end)
+
+    def __len__(self) -> int:
+        return sum(len(s) for s in self.series)
+
+    def __getitem__(self, index: int) -> SampleValue:
+        if index < 0:
+            index = len(self) + index
+        for s in self.series:
+            if index < len(s):
+                return s[index]
+            index -= len(s)
+        raise IndexError(f"[MultiSeries] - Index {index} out of bounds for {len(self)}")
+
+    def __iter__(self):
+        for s in self.series:
+            yield from s
+
+    @property
+    def size(self) -> Size:
+        return Size(sum(s.size for s in self.series))

@@ -107,7 +107,26 @@
       "editor.defaultFormatter": "ms-python.black-formatter"
     },
     "python.formatting.provider": "none",
-    "eslint.workingDirectories": [{"mode": "auto"}],
+    "eslint.workingDirectories": [
+      {
+        "mode": "auto"
+      }
+    ],
+    "cSpell.words": [
+      "downsample",
+      "glsl",
+      "immer",
+      "lineplot",
+      "Migratable",
+      "Navdrawer",
+      "reduxjs",
+      "immer",
+      "syncer",
+      "Synnax",
+      "tauri",
+      "Tauri",
+      "telem"
+    ],
   },
   "extensions": {
     "recommendations": [

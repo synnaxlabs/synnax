@@ -23,12 +23,10 @@ from synnax.framer.frame import Frame, FramePayload
 class TestFrame:
     def test_construction_from_cols_and_series(self):
         f = sy.Frame(["big", "red", "dog"], [np.array([1, 2, 3]), np.array([4, 5, 6])])
-        assert f.col_type == "names"
         assert f["big"][0] == 1
 
     def test_construction_from_dict(self):
         f = sy.Frame({1: sy.Series([1, 2, 3, 4]), 3: sy.Series([4, 5, 6, 7])})
-        assert f.col_type == "keys"
         assert f[1][0] == 1
 
     def test_construction_from_data_frame(self):
@@ -37,20 +35,21 @@ class TestFrame:
                 {"big": sy.Series([1, 2, 3, 4]), "dog": sy.Series([4, 5, 6, 7])}
             )
         )
-        assert f.col_type == "names"
         assert f["dog"][0] == 4
+
+    def test_construction_from_keys_and_series(self):
+        f = sy.Frame({1: sy.Series([1, 2, 3, 4]), 2: sy.Series([4, 5, 6, 7])})
+        assert f[1][0] == 1
 
     def test_construction_from_frame(self):
         f = sy.Frame({"big": sy.Series([1, 2, 3, 4])})
         f2 = sy.Frame(f)
         assert f is not f2
-        assert f["big"] is f2["big"]
-        assert f.col_type == "names"
+        assert f.series[0] is f2.series[0]
 
     def test_construction_from_payload(self):
         pld = FramePayload([1, 2], [sy.Series([1, 2, 3]), sy.Series([4, 5, 6])])
         f = sy.Frame(pld)
-        assert f.col_type == "keys"
         assert f[1][1] == 2
 
     def test_pandas_interop(self):
@@ -79,7 +78,7 @@ class TestWriteFrameAdapter:
         o = adapter.adapt(
             Frame([channel.key], [sy.Series([1, 2, 3], data_type=sy.DataType.FLOAT64)])
         )
-        assert o.columns[0] == channel.key
+        assert o.channels[0] == channel.key
         assert o.series[0].data_type == sy.DataType.FLOAT64
 
     def test_adaptation_of_names_frame(self, adapter: [WriteFrameAdapter, sy.Channel]):
@@ -88,9 +87,9 @@ class TestWriteFrameAdapter:
         o = adapter.adapt(
             Frame([channel.name], [sy.Series([1, 2, 3], data_type=sy.DataType.FLOAT64)])
         )
-        assert len(o.columns) == 1
+        assert len(o.channels) == 1
         assert len(o.series) == 1
-        assert o.columns[0] == channel.key
+        assert o.channels[0] == channel.key
         assert o.series[0].data_type == sy.DataType.FLOAT64
 
     def test_adaptation_of_name_series(self, adapter: [WriteFrameAdapter, sy.Channel]):
@@ -100,9 +99,9 @@ class TestWriteFrameAdapter:
         o = adapter.adapt(
             channel.name, sy.Series([1, 2, 3], data_type=sy.DataType.FLOAT64)
         )
-        assert len(o.columns) == 1
+        assert len(o.channels) == 1
         assert len(o.series) == 1
-        assert o.columns[0] == channel.key
+        assert o.channels[0] == channel.key
         assert o.series[0].data_type == sy.DataType.FLOAT64
 
     def test_adaptation_of_name_float(self, adapter: [WriteFrameAdapter, sy.Channel]):
@@ -110,9 +109,9 @@ class TestWriteFrameAdapter:
         argument of a float."""
         adapter, channel = adapter
         o = adapter.adapt(channel.name, 1.0)
-        assert len(o.columns) == 1
+        assert len(o.channels) == 1
         assert len(o.series) == 1
-        assert o.columns[0] == channel.key
+        assert o.channels[0] == channel.key
         assert o.series[0].data_type == sy.DataType.FLOAT64
 
     def test_adaptation_of_name_int(self, adapter: [WriteFrameAdapter, sy.Channel]):
@@ -120,9 +119,9 @@ class TestWriteFrameAdapter:
         argument of an int."""
         adapter, channel = adapter
         o = adapter.adapt(channel.name, 1)
-        assert len(o.columns) == 1
+        assert len(o.channels) == 1
         assert len(o.series) == 1
-        assert o.columns[0] == channel.key
+        assert o.channels[0] == channel.key
         assert o.series[0].data_type == sy.DataType.FLOAT64
 
     def test_adaptation_of_names_series(self, adapter: [WriteFrameAdapter, sy.Channel]):
@@ -132,9 +131,9 @@ class TestWriteFrameAdapter:
         o = adapter.adapt(
             [channel.name], [sy.Series([1, 2, 3], data_type=sy.DataType.FLOAT64)]
         )
-        assert len(o.columns) == 1
+        assert len(o.channels) == 1
         assert len(o.series) == 1
-        assert o.columns[0] == channel.key
+        assert o.channels[0] == channel.key
         assert o.series[0].data_type == sy.DataType.FLOAT64
 
     def test_adapataion_of_dict_series(self, adapter: [WriteFrameAdapter, sy.Channel]):
@@ -145,9 +144,9 @@ class TestWriteFrameAdapter:
                 channel.name: sy.Series([1, 2, 3]),
             }
         )
-        assert len(o.columns) == 1
+        assert len(o.channels) == 1
         assert len(o.series) == 1
-        assert o.columns[0] == channel.key
+        assert o.channels[0] == channel.key
         assert o.series[0].data_type == sy.DataType.FLOAT64
 
     def test_adapation_of_dict_float(self, adapter: [WriteFrameAdapter, sy.Channel]):
@@ -158,9 +157,9 @@ class TestWriteFrameAdapter:
                 channel.name: 1.0,
             }
         )
-        assert len(o.columns) == 1
+        assert len(o.channels) == 1
         assert len(o.series) == 1
-        assert o.columns[0] == channel.key
+        assert o.channels[0] == channel.key
         assert o.series[0].data_type == sy.DataType.FLOAT64
 
     def test_adapation_of_dict_timestamp(self, client: sy.Synnax):
@@ -179,9 +178,9 @@ class TestWriteFrameAdapter:
                 ch.name: sy.TimeStamp.now(),
             }
         )
-        assert len(o.columns) == 1
+        assert len(o.channels) == 1
         assert len(o.series) == 1
-        assert o.columns[0] == ch.key
+        assert o.channels[0] == ch.key
         assert o.series[0].data_type == sy.DataType.TIMESTAMP
 
     def test_adapation_of_channel_dict(self, adapter: [WriteFrameAdapter, sy.Channel]):
@@ -192,7 +191,7 @@ class TestWriteFrameAdapter:
                 channel: 1.0,
             }
         )
-        assert len(o.columns) == 1
+        assert len(o.channels) == 1
         assert len(o.series) == 1
-        assert o.columns[0] == channel.key
+        assert o.channels[0] == channel.key
         assert o.series[0].data_type == sy.DataType.FLOAT64

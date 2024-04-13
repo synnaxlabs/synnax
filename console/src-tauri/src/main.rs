@@ -18,7 +18,6 @@
 extern crate objc;
 
 use tauri::{Runtime, Window};
-mod kv;
 use window_shadows::set_shadow;
 
 pub trait WindowExt {
@@ -69,19 +68,10 @@ impl<R: Runtime> WindowExt for Window<R> {
     }
 }
 
-#[derive(Clone, serde::Serialize)]
-struct Payload {
-    message: String,
-}
-
 fn main() {
-    let mut builder = tauri::Builder::default();
-    let mut db_err: String = "".to_string();
-    match kv::open() {
-        Ok(db) => builder = builder.manage(db).invoke_handler(tauri::generate_handler![kv::kv_exec]),
-        Err(e) => db_err = e,
-    };
+    let builder = tauri::Builder::default();
     builder
+    .plugin(tauri_plugin_store::Builder::default().build())
     .on_window_event(move |event| match event.event() {
          tauri::WindowEvent::Focused {..} => {
             event.window().set_transparent_titlebar(true);
@@ -106,13 +96,6 @@ fn main() {
     .on_page_load(move |window, _| {
         window.set_transparent_titlebar(true);
         set_shadow(&window, true).expect("Unsupported platform!");
-        if window.label() != "main" { return };
-        let db_err_ = db_err.clone();
-        let win = window.clone();
-        window.listen("kv_open_req", move |_| {
-            let db_err__ = db_err_.clone(); 
-            win.emit("kv_open_res", Some(Payload { message: db_err__ })).unwrap();
-        });
     })
      .run(tauri::generate_context!())
       .expect("error while running tauri application");

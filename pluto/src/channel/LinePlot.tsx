@@ -326,7 +326,7 @@ const DynamicLine = ({
 }: {
   line: DynamicLineProps;
 }): ReactElement => {
-  const keepFor = timeSpan.valueOf() * 3;
+  const keepFor = Number(timeSpan.valueOf()) * 3;
   const yTelem = telem.streamChannelData({
     timeSpan,
     channel: y,

@@ -46,7 +46,8 @@ export class Writer {
     const res = await sendRequired<typeof createReqZ, typeof createResZ>(
       this.client,
       CREATE_ENDPOINT,
-      { tasks: tasks.map((t) => ({ ...t, config: JSON.stringify(t.config) })) },
+      { tasks },
+      createReqZ,
       createResZ,
     );
     return res.tasks;
@@ -57,6 +58,7 @@ export class Writer {
       this.client,
       DELETE_ENDPOINT,
       { keys },
+      deleteReqZ,
       deleteResZ,
     );
   }

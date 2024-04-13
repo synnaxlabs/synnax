@@ -9,8 +9,9 @@
 
 import { type PayloadAction, createSlice } from "@reduxjs/toolkit";
 import { type workspace } from "@synnaxlabs/client";
+import { migrate } from "@synnaxlabs/x";
 
-export interface SliceState {
+export interface SliceState extends migrate.Migratable {
   active: string | null;
   workspaces: Record<string, workspace.Workspace>;
 }
@@ -22,6 +23,7 @@ export interface StoreState {
 }
 
 export const initialState: SliceState = {
+  version: "0.0.0",
   active: null,
   workspaces: {},
 };
@@ -36,22 +38,24 @@ export interface RenamePayload {
   name: string;
 }
 
-type PA<P> = PayloadAction<P>;
+export const MIGRATIONS: migrate.Migrations = {};
+
+export const migrateSlice = migrate.migrator<SliceState, SliceState>(MIGRATIONS);
 
 export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
   initialState,
   reducers: {
-    setActive: (state, { payload }: PA<SetActivePayload>) => {
+    setActive: (state, { payload }: PayloadAction<SetActivePayload>) => {
       state.active = payload;
     },
-    add: (state, { payload: { workspaces } }: PA<AddPayload>) => {
+    add: (state, { payload: { workspaces } }: PayloadAction<AddPayload>) => {
       workspaces.forEach((workspace) => {
         state.workspaces[workspace.key] = workspace;
         state.active = workspace.key;
       });
     },
-    rename: (state, { payload: { key, name } }: PA<RenamePayload>) => {
+    rename: (state, { payload: { key, name } }: PayloadAction<RenamePayload>) => {
       state.workspaces[key].name = name;
     },
   },

@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, useState } from "react";
+import { type ReactElement, useState } from "react";
 
-import { render } from "@testing-library/react";
+import { act, render } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AiOutlineAim } from "react-icons/ai";
 import { describe, expect, it, vitest } from "vitest";
@@ -28,7 +28,7 @@ describe("Button", () => {
       const c = render(
         <Button.Icon size="small">
           <AiOutlineAim aria-label="icon" />
-        </Button.Icon>
+        </Button.Icon>,
       );
       expect(c.getByLabelText("icon")).toBeTruthy();
     });
@@ -63,7 +63,9 @@ describe("Button", () => {
       const button = label.parentElement as HTMLElement;
       expect(button).toBeTruthy();
       expect(button.className).not.toContain("filled");
-      await userEvent.click(label);
+      await act(async () => {
+        await userEvent.click(label);
+      });
       expect(onChange).toHaveBeenCalled();
       expect(button.className).toContain("filled");
     });

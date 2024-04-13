@@ -55,6 +55,7 @@ export class Writer {
       this.client,
       RENAME_ENDPOINT,
       { key, name },
+      renameReqZ,
       renameResZ,
     );
   }
@@ -64,6 +65,7 @@ export class Writer {
       this.client,
       CREATE_ENDPOINT,
       { ranges },
+      createReqZ,
       createResZ,
     );
     return res.ranges;
@@ -74,6 +76,7 @@ export class Writer {
       this.client,
       DELETE_ENDPOINT,
       { keys },
+      deleteReqZ,
       deleteResZ,
     );
   }

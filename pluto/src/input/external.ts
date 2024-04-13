@@ -13,7 +13,7 @@ export * from "@/input/HelpText";
 export * from "@/input/Text";
 export * from "@/input/Item";
 export * from "@/input/Label";
-export * from "@/input/Number";
+export * from "@/input/Numeric";
 export * from "@/input/Switch";
 export * from "@/input/types";
 export * from "@/input/Time";

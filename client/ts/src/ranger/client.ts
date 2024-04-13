@@ -14,7 +14,6 @@ import { type Retriever as ChannelRetriever } from "@/channel/retriever";
 import { QueryError } from "@/errors";
 import { type framer } from "@/framer";
 import { type label } from "@/label";
-import { type ontology } from "@/ontology";
 import { Active } from "@/ranger/active";
 import { Aliaser } from "@/ranger/alias";
 import { KV } from "@/ranger/kv";

@@ -33,3 +33,5 @@ export * from "@/binary";
 export * from "@/observe";
 export * from "@/change";
 export * from "@/shallowCopy";
+export * from "@/invert";
+export * from "@/migrate";

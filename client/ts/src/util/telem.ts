@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, NativeTypedArray } from "@synnaxlabs/x";
+import { type DataType, type TypedArray } from "@synnaxlabs/x";
 
-export const randomSeries = (length: number, dataType: DataType): NativeTypedArray => {
+export const randomSeries = (length: number, dataType: DataType): TypedArray => {
   // generate random bytes of the correct length
   const bytes = new Uint8Array(length * dataType.density.valueOf());
   for (let i = 0; i < bytes.byteLength; i++) {

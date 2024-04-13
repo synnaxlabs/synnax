@@ -14,19 +14,17 @@ import { aether } from "@/aether/aether";
 
 interface TestLeaf<T extends aether.Component> {
   component: T;
-  setState: (state: any) => void;
-  delete: () => void;
+  setState: (state: any) => Promise<void>;
+  delete: () => Promise<void>;
   stateChange: Mock;
 }
 
-export const render = <T extends aether.Component>(
+export const render = async <T extends aether.Component>(
   constructor: aether.ComponentConstructor,
   initialState: any,
   setOnContext: (ctx: aether.Context) => void,
-): TestLeaf<T> => {
-  const MockSender = {
-    send: vi.fn(),
-  };
+): Promise<TestLeaf<T>> => {
+  const MockSender = { send: vi.fn() };
 
   const ctx = new aether.Context(MockSender, {});
   setOnContext(ctx);
@@ -41,19 +39,13 @@ export const render = <T extends aether.Component>(
   };
 
   const component = new constructor(update) as T;
-  component.internalUpdate(update);
+  await component.internalUpdate(update);
 
   return {
     component,
-    setState: (state: any) => {
-      component.internalUpdate({
-        ...update,
-        state,
-      });
-    },
-    delete: () => {
-      component.internalDelete(update.path);
-    },
+    setState: async (state: any) =>
+      await component.internalUpdate({ ...update, state }),
+    delete: async () => await component.internalDelete(update.path),
     stateChange: MockSender.send,
   };
 };

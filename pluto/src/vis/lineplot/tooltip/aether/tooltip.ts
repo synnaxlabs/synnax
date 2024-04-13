@@ -106,7 +106,7 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
     });
 
     const text = values.map((r) => `${r.label ?? ""}: ${r.value.y.toFixed(2)}`);
-    text.unshift(`Time: ${avgXValue.fString("preciseDate")}`);
+    text.unshift(`Time: ${avgXValue.fString("preciseDate", "local")}`);
 
     const relativePosition = reverseScale.pos(this.state.position);
 

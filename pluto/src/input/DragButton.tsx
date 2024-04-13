@@ -15,14 +15,11 @@ import { GrDrag } from "react-icons/gr";
 import { Button } from "@/button";
 import { CSS } from "@/css";
 import { Cursor } from "@/cursor";
-import { useVirtualCursorDrag } from "@/hooks/useCursorDrag";
+import { useVirtualCursorDragWebKit } from "@/hooks/useCursorDrag/useVirtualCursorDragWebKit";
 import { type Control } from "@/input/types";
 
 import "@/input/DragButton.css";
-
-import { useVirtualCursorDragWebKit } from "@/hooks/useCursorDrag/useVirtualCursorDragWebKit";
-
-export interface DragButtonExtensionProps {
+export interface DragButtonExtraProps {
   direction?: direction.Crude;
   dragDirection?: direction.Crude;
   dragScale?: xy.Crude | number;
@@ -42,7 +39,7 @@ export interface DragButtonProps
       | "onBlur"
     >,
     Control<number>,
-    DragButtonExtensionProps {
+    DragButtonExtraProps {
   onDragEnd?: (value: number) => void;
   onBlur?: () => void;
 }

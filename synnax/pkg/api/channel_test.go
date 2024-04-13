@@ -21,9 +21,10 @@ import (
 
 var _ = Describe("ChannelReader", Ordered, func() {
 	var (
-		builder *mock.Builder
-		prov    api.Provider
-		svc     *api.ChannelService
+		builder        *mock.Builder
+		prov           api.Provider
+		svc            *api.ChannelService
+		createdChannel api.Channel
 	)
 	BeforeAll(func() {
 		builder = mock.Open()
@@ -39,6 +40,7 @@ var _ = Describe("ChannelReader", Ordered, func() {
 		})
 		Expect(err).To(BeNil())
 		Expect(res.Channels).To(HaveLen(1))
+		createdChannel = res.Channels[0]
 	})
 	AfterAll(func() {
 		Expect(builder.Close()).To(Succeed())
@@ -76,7 +78,7 @@ var _ = Describe("ChannelReader", Ordered, func() {
 		})
 		It("Should retrieve a Channel by its key", func() {
 			res, err := svc.Retrieve(context.TODO(), api.ChannelRetrieveRequest{
-				Keys: channel.Keys{channel.NewKey(1, 1)},
+				Keys: channel.Keys{createdChannel.Key},
 			})
 			Expect(err).To(BeNil())
 			Expect(res.Channels).To(HaveLen(1))

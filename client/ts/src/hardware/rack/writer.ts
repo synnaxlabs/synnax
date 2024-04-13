@@ -40,6 +40,7 @@ export class Writer {
             this.client,
             CREATE_RACK_ENDPOINT,
             { racks },
+            createReqZ,
             createResZ,
         );
         return res.racks;
@@ -50,6 +51,7 @@ export class Writer {
             this.client,
             DELETE_RACK_ENDPOINT,
             { keys },
+            deleteReqZ,
             deleteResZ,
         );
     }

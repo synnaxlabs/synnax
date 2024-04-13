@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { UnaryClient } from "@synnaxlabs/freighter";
+import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { toArray } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { ID, type Resource, idZ, resourceSchemaZ } from "@/ontology/payload";
 
-const requestSchema = z.object({
+const reqZ = z.object({
   ids: idZ.array().optional(),
   children: z.boolean().optional(),
   parents: z.boolean().optional(),
@@ -22,9 +22,9 @@ const requestSchema = z.object({
   term: z.string().optional(),
 });
 
-type Request = z.infer<typeof requestSchema>;
+type Request = z.infer<typeof reqZ>;
 
-const responseSchema = z.object({
+const resZ = z.object({
   resources: resourceSchemaZ.array(),
 });
 
@@ -80,12 +80,12 @@ export class Retriever {
   }
 
   private async execute(request: Request): Promise<Resource[]> {
-    const [res, err] = await this.client.send(
+    return (await sendRequired(
+      this.client,
       Retriever.ENDPOINT,
       request,
-      responseSchema,
-    );
-    if (err != null) throw err;
-    return res.resources;
+      reqZ,
+      resZ,
+    )).resources;
   }
 }

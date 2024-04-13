@@ -220,12 +220,18 @@ const {
             left: 50%;
             z-index: 50000;
             transform: translateX(-50%);
+
             & .pluto-input {
                 width: 80vw;
-                max-width: 900px;
+                max-width: 700px;
             }
 
             .pluto-dropdown__dialog {
+                position: absolute !important;
+                left: 50% !important;
+                transform: translate(-50%, -20px);
+                width: 80vw;
+                max-width: 700px;
                 .hovered {
                     background: var(--pluto-gray-l3);
                 }
@@ -249,6 +255,15 @@ const {
                     text-decoration: none;
                 }
             }
+
+            @media (max-width: 700px) {
+                & .pluto-input {
+                    width: 200px;
+                }
+                & .pluto-dropdown__dialog {
+                    width: 200px;
+                }
+            }
         }
 
         a {
@@ -266,7 +281,7 @@ const {
             --astro-code-token-function: #20a4f3;
             --astro-code-token-punctuation: var(--pluto-text-color);
             --astro-code-token-keyword: #dc136c;
-            --astro-code-token-constant: var(--astro-code-token-string-expression);
+            --astro-code-token-constant: var(--pluto-text-color);
         }
 
         a:hover:not(.pluto-btn) {

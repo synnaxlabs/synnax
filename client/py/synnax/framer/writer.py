@@ -282,8 +282,8 @@ class Writer:
         self.close()
 
     def __check_keys(self, frame: Frame):
-        missing = set(self.__adapter.keys) - set(frame.columns)
-        extra = set(frame.columns) - set(self.__adapter.keys)
+        missing = set(self.__adapter.keys) - set(frame.channels)
+        extra = set(frame.channels) - set(self.__adapter.keys)
         if missing and extra:
             raise ValidationError(
                 Field(

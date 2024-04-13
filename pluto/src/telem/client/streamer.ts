@@ -102,7 +102,7 @@ export class Streamer {
     // Update or create the streamer.
     if (this.streamer == null) {
       L.info("creating new streamer", { keys: arrKeys });
-      this.streamer = await core.telem.newStreamer(arrKeys);
+      this.streamer = await core.telem.openStreamer(arrKeys);
       this.streamerRunLoop = this.runStreamer(this.streamer);
     }
 
@@ -127,7 +127,7 @@ export class Streamer {
         for (const k of frame.keys) {
           const series = frame.get(k);
           const unary = cache.get(k);
-          const out = unary.writeDynamic(series);
+          const out = unary.writeDynamic(series.series);
           changed.push(new ReadResponse(unary.channel, out));
         }
         this.listeners.forEach((entry, handler) => {
