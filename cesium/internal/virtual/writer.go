@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-var writerClosedError = core.EntityClosed("virtual.writer")
+var WriterClosedError = core.EntityClosed("virtual.writer")
 
 func (db *DB) OpenWriter(_ context.Context, cfg WriterConfig) (w *Writer, transfer controller.Transfer, err error) {
 	w = &Writer{WriterConfig: cfg, Channel: db.Channel, decrementCounter: func() { db.mu.Add(-1) }}
@@ -61,7 +61,7 @@ type Writer struct {
 
 func (w *Writer) Write(series telem.Series) (telem.Alignment, error) {
 	if w.closed {
-		return 0, writerClosedError
+		return 0, WriterClosedError
 	}
 	if err := w.Channel.ValidateSeries(series); err != nil {
 		return 0, err

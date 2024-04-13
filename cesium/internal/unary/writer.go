@@ -37,7 +37,7 @@ var (
 	DefaultWriterConfig                             = WriterConfig{
 		Persist: config.True(),
 	}
-	writerClosedError = core.EntityClosed("unary.writer")
+	WriterClosedError = core.EntityClosed("unary.writer")
 )
 
 func (c WriterConfig) Validate() error {
@@ -138,7 +138,7 @@ func (w *Writer) len(dw *domain.Writer) int64 {
 // Write validates and writes the given array.
 func (w *Writer) Write(series telem.Series) (a telem.Alignment, err error) {
 	if w.closed {
-		return 0, writerClosedError
+		return 0, WriterClosedError
 	}
 	if err := w.Channel.ValidateSeries(series); err != nil {
 		return 0, err
@@ -174,7 +174,7 @@ func (w *Writer) updateHwm(series telem.Series) {
 // Commit commits the written series to the database.
 func (w *Writer) Commit(ctx context.Context) (telem.TimeStamp, error) {
 	if w.closed {
-		return telem.TimeStampMax, writerClosedError
+		return telem.TimeStampMax, WriterClosedError
 	}
 	if w.Channel.IsIndex {
 		return w.commitWithEnd(ctx, w.hwm+1)

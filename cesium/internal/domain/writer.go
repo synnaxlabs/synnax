@@ -34,7 +34,7 @@ type WriterConfig struct {
 	End telem.TimeStamp
 }
 
-var writerClosedError = core.EntityClosed("domain.writer")
+var WriterClosedError = core.EntityClosed("domain.writer")
 
 // Domain returns the Domain occupied by the theoretical domain formed by the configuration.
 // If End is not set, assumes the Domain has a zero span starting at Start.
@@ -127,7 +127,7 @@ func (w *Writer) Len() int64 { return w.internal.Len() }
 // returns.
 func (w *Writer) Write(p []byte) (n int, err error) {
 	if w.closed {
-		return 0, writerClosedError
+		return 0, WriterClosedError
 	}
 	return w.internal.Write(p)
 }
@@ -143,7 +143,7 @@ func (w *Writer) Write(p []byte) (n int, err error) {
 func (w *Writer) Commit(ctx context.Context, end telem.TimeStamp) error {
 	ctx, span := w.T.Prod(ctx, "commit")
 	if w.closed {
-		return span.EndWith(writerClosedError)
+		return span.EndWith(WriterClosedError)
 	}
 	if w.presetEnd {
 		end = w.End
