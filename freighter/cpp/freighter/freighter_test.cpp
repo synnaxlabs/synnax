@@ -10,44 +10,43 @@
 #include "gtest/gtest.h"
 #include "freighter/cpp/freighter/freighter.h"
 
-class BasicMiddleware : public freighter::PassthroughMiddleware {
-private:
+class BasicMiddleware final : public freighter::PassthroughMiddleware {
     std::string value;
-public:
-    explicit BasicMiddleware(std::string value) : value(std::move(value)) {}
 
-    std::pair<freighter::Context, freighter::Error> operator()(freighter::Context context) override {
+public:
+    explicit BasicMiddleware(std::string value) : value(std::move(value)) {
+    }
+
+    std::pair<freighter::Context, freighter::Error> operator()(
+        freighter::Context context, freighter::Next *next) override {
         context.set("test", value);
-        return freighter::PassthroughMiddleware::operator()(context);
+        return next->operator()(context);
     }
 };
 
-class BasicFinalizer : public freighter::PassthroughMiddleware {
+class BasicFinalizer final : public freighter::Finalizer<int, int> {
 public:
-    std::pair<freighter::Context, freighter::Error> operator()(freighter::Context context) override {
-        return {context, freighter::NIL};
+    freighter::FinalizerReturn<int> operator(
+    )(freighter::Context context, int req) override {
+        return {
+            context,
+            freighter::NIL,
+            req + 1
+        };
     }
 };
-
-TEST(testFreighter, testMiddleware) {
-    auto middleware = BasicMiddleware("5");
-    auto finalizer = BasicFinalizer();
-    middleware.setNext(&finalizer);
-    auto context = freighter::Context("test", "1", freighter::UNARY);
-    auto result = middleware(context);
-    ASSERT_EQ(result.first.get("test"), "5");
-}
 
 
 TEST(testFreighter, testMiddlewareCollector) {
-    auto collector = freighter::MiddlewareCollector();
+    auto collector = freighter::MiddlewareCollector<int, int>();
     auto mw1 = std::make_shared<BasicMiddleware>("5");
     auto mw2 = std::make_shared<BasicMiddleware>("6");
     auto f = BasicFinalizer();
     collector.use(mw1);
     collector.use(mw2);
-    auto result = collector.exec(freighter::Context("test", "1", freighter::UNARY), &f);
-    ASSERT_EQ(result.first.get("test"), "6");
+    auto ctx = freighter::Context("test", "1", freighter::UNARY);
+    auto [res, err] = collector.exec(ctx, &f, 1);
+    ASSERT_EQ(res, 2);
 }
 
 TEST(testFreighter, testErrorConstructionFromString) {

@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "opcua.h"
+#include "opc.h"
 #include "client/cpp/synnax/synnax.h"
 #include "include/open62541/types.h"
 #include "include/open62541/nodeids.h"
@@ -19,9 +19,9 @@
 #include "include/open62541/client.h"
 #include "include/open62541/statuscodes.h"
 
-namespace opcua {
+namespace opc {
 std::pair<UA_Client *, bool> connect(
-    opcua::ConnectionConfig &cfg,
+    opc::ConnectionConfig &cfg,
     synnax::Task &task,
     std::shared_ptr<task::Context> ctx
 );
@@ -71,7 +71,7 @@ inline synnax::DataType variant_data_type(UA_Variant &val) {
 }
 
 inline std::pair<std::shared_ptr<UA_Client>, freighter::Error> connect(
-    const opcua::ConnectionConfig &cfg
+    const opc::ConnectionConfig &cfg
 ) {
     std::shared_ptr<UA_Client> client(UA_Client_new(), UA_Client_delete);
     UA_ClientConfig_setDefault(UA_Client_getConfig(client.get()));

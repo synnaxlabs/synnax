@@ -19,7 +19,7 @@ export interface ObservableAsyncCloseable<T> extends Observable<T> {
   close: () => Promise<void>;
 }
 
-export type Transform<I, O> = (value: I) => [O, boolean];
+export type Transform<I, O> = (value: I) => [O, true] | [O | null, false];
 
 export class Observer<I, O = I> implements Observable<O> {
   private readonly handlers: Map<Handler<O>, null>;
@@ -38,9 +38,9 @@ export class Observer<I, O = I> implements Observable<O> {
   notify(value: I): void {
     let newValue: O = value as unknown as O;
     if (this.transform != null) {
-      let changed: boolean;
-      [newValue, changed] = this.transform(value);
+      const [nv, changed] = this.transform(value);
       if (!changed) return;
+      newValue = nv;
     }
     this.handlers.forEach((_, handler) => handler(newValue));
   }

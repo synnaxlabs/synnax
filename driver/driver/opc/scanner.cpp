@@ -19,9 +19,9 @@
 #include "include/open62541/client_config_default.h"
 #include "include/open62541/client_highlevel.h"
 #include "include/open62541/client.h"
-#include "driver/driver/opcua/util.h"
+#include "driver/driver/opc/util.h"
 
-using namespace opcua;
+using namespace opc;
 
 Scanner::Scanner(
     std::shared_ptr<task::Context> ctx,
@@ -32,79 +32,67 @@ Scanner::Scanner(
 void Scanner::exec(task::Command &cmd) {
     if (cmd.type == SCAN_CMD_TYPE) return scan(cmd);
     if (cmd.type == TEST_CONNECTION_CMD_TYPE) return testConnection(cmd);
-    LOG(ERROR) << "[OPCUA] Scanner received unknown command type: " << cmd.type;
+    LOG(ERROR) << "[OPC] Scanner received unknown command type: " << cmd.type;
 }
 
 
 // Forward declaration of the callback function for recursive calls
-static UA_StatusCode nodeIter(UA_NodeId childId, UA_Boolean isInverse,
-                              UA_NodeId referenceTypeId, void *handle);
+static UA_StatusCode nodeIter(UA_NodeId child_id, UA_Boolean is_inverse,
+                              UA_NodeId reference_type_id, void *handle);
 
 const int MAX_DEPTH = 2;
-
-struct DeviceNode {
-    std::string name;
-    std::uint32_t node_id;
-    synnax::DataType data_type;
-
-    json toJSON() const {
-        return {
-            {"name", name},
-            {"node_id", node_id},
-            {"data_type", data_type.name()}
-        };
-    }
-};
 
 struct ScanContext {
     std::shared_ptr<UA_Client> client;
     UA_UInt32 depth;
-    std::shared_ptr<std::vector<DeviceNode> > channels;
+    std::shared_ptr<std::vector<DeviceNodeProperties> > channels;
 };
 
 // Function to recursively iterate through all children
-void iterateChildren(ScanContext *ctx, UA_NodeId nodeId) {
-    UA_Client_forEachChildNodeCall(ctx->client.get(), nodeId, nodeIter, ctx);
+void iterateChildren(ScanContext *ctx, UA_NodeId node_id) {
+    UA_Client_forEachChildNodeCall(ctx->client.get(), node_id, nodeIter, ctx);
 }
 
 // Callback function to handle each child node
 static UA_StatusCode nodeIter(
-    UA_NodeId childId,
-    UA_Boolean isInverse,
-    UA_NodeId referenceTypeId,
+    UA_NodeId child_id,
+    UA_Boolean is_inverse,
+    UA_NodeId reference_type_id,
     void *handle
 ) {
-    if (isInverse) return UA_STATUSCODE_GOOD;
+    if (is_inverse) return UA_STATUSCODE_GOOD;
     auto *ctx = static_cast<ScanContext *>(handle);
     const auto ua_client = ctx->client.get();
 
     UA_NodeClass nodeClass;
     UA_StatusCode retval = UA_Client_readNodeClassAttribute(
         ctx->client.get(),
-        childId,
+        child_id,
         &nodeClass
     );
     if (retval != UA_STATUSCODE_GOOD) return retval;
 
-    if (nodeClass == UA_NODECLASS_VARIABLE && childId.namespaceIndex != 0) {
+    if (nodeClass == UA_NODECLASS_VARIABLE && child_id.namespaceIndex != 0) {
         UA_QualifiedName browseName;
-        retval = UA_Client_readBrowseNameAttribute(ua_client, childId, &browseName);
+        retval = UA_Client_readBrowseNameAttribute(ua_client, child_id, &browseName);
         if (retval != UA_STATUSCODE_GOOD) return retval;
         UA_Variant value;
         UA_Variant_init(&value);
-        retval = UA_Client_readValueAttribute(ua_client, childId, &value);
+        retval = UA_Client_readValueAttribute(ua_client, child_id, &value);
         if (retval == UA_STATUSCODE_GOOD && value.type != nullptr)
             ctx->channels->push_back({
-                .name = std::string((char *) browseName.name.data,
-                                    browseName.name.length),
-                .node_id = childId.identifier.numeric,
-                .data_type = variant_data_type(value)
+                variant_data_type(value),
+                std::string((char *) browseName.name.data,
+                            browseName.name.length),
+                std::string((char *) child_id.identifier.string.data,
+                            child_id.identifier.string.length),
+                child_id.namespaceIndex
             });
     }
 
     if (ctx->depth >= MAX_DEPTH) return UA_STATUSCODE_GOOD;
     ctx->depth++;
-    iterateChildren(ctx, childId);
+    iterateChildren(ctx, child_id);
     ctx->depth--;
     return UA_STATUSCODE_GOOD;
 }
@@ -130,27 +118,19 @@ void Scanner::scan(const task::Command &cmd) const {
         });
     }
 
-    UA_NodeId rootFolderId = UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER);
+    UA_NodeId root_folder_id = UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER);
     auto scan_ctx = new ScanContext{
         ua_client,
         0,
-        std::make_shared<std::vector<DeviceNode>>()
+        std::make_shared<std::vector<DeviceNodeProperties> >()
     };
-    iterateChildren(scan_ctx, rootFolderId);
-
-    json scan_result = json::array();
-    for (const auto &channel : *scan_ctx->channels)
-        scan_result.push_back(channel.toJSON());
-
-    delete scan_ctx;
-
+    iterateChildren(scan_ctx, root_folder_id);
     ctx->setState({
         .task = task.key,
         .variant = "success",
         .key = cmd.key,
-        .details = scan_result,
+        .details = DeviceProperties(args.connection, *scan_ctx->channels).toJSON(),
     });
-    return;
 }
 
 void Scanner::testConnection(const task::Command &cmd) const {

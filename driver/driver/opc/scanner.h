@@ -11,7 +11,7 @@
 
 #include <string>
 #include <memory>
-#include "opcua.h"
+#include "opc.h"
 #include "nlohmann/json.hpp"
 #include "client/cpp/synnax/synnax.h"
 #include "driver/driver/task/task.h"
@@ -19,7 +19,7 @@
 
 using json = nlohmann::json;
 
-namespace opcua {
+namespace opc {
 struct ScannnerScanCommandArgs {
     ConnectionConfig connection;
 

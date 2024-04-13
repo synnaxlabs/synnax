@@ -11,7 +11,7 @@ import { type ReactElement } from "react";
 
 import type { connection } from "@synnaxlabs/client";
 import { Status, Synnax } from "@synnaxlabs/pluto";
-import { case } from "@synnaxlabs/x";
+import { caseconv } from "@synnaxlabs/x";
 
 import { CSS } from "@/css";
 

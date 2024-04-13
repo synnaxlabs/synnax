@@ -10,8 +10,8 @@
 #include <set>
 #include "include/open62541/client_highlevel.h"
 #include "glog/logging.h"
-#include "driver/driver/opcua/reader.h"
-#include "driver/driver/opcua/util.h"
+#include "driver/driver/opc/reader.h"
+#include "driver/driver/opc/util.h"
 #include "driver/driver/config/config.h"
 #include "include/open62541/client_config_default.h"
 #include "include/open62541/client_subscriptions.h"
@@ -19,7 +19,7 @@
 #include "include/open62541/plugin/log_stdout.h"
 
 
-using namespace opcua;
+using namespace opc;
 
 ReaderConfig::ReaderConfig(
     config::Parser &parser
@@ -58,11 +58,11 @@ public:
             UA_Variant *value = UA_Variant_new();
             const UA_StatusCode status = UA_Client_readValueAttribute(
                 client, node_id, value);
-            if (status != UA_STATUSCODE_GOOD) {
-                LOG(ERROR) << "Unable to read value from OPCUA server";
-            } else {
+            if (status != UA_STATUSCODE_GOOD)
+                LOG(ERROR) << "Unable to read value from opc server";
+            else {
                 const auto val = val_to_series(value, ch.ch.data_type);
-                fr.add(ch.key, val);
+                fr.add(ch.channel, val);
             }
             UA_Variant_delete(value);
             UA_NodeId_clear(&node_id);
@@ -82,7 +82,7 @@ Reader::Reader(
     auto config_parser = config::Parser(task.config);
     cfg = ReaderConfig(config_parser);
     if (!config_parser.ok()) {
-        LOG(ERROR) << "[OPC UA Reader] failed to parse configuration for " << task.name;
+        LOG(ERROR) << "[OPC Reader] failed to parse configuration for " << task.name;
         ctx->setState({
             .task = task.key,
             .variant = "error",
@@ -91,11 +91,11 @@ Reader::Reader(
         return;
     }
 
-    LOG(INFO) << "[OPC UA Reader] successfully parsed configuration for " << task.name;
+    LOG(INFO) << "[OPC Reader] successfully parsed configuration for " << task.name;
 
     auto [device, dev_err] = ctx->client->hardware.retrieveDevice(cfg.device);
     if (dev_err) {
-        LOG(ERROR) << "[OPC UA Reader] failed to retrieve device " << cfg.device <<
+        LOG(ERROR) << "[OPC Reader] failed to retrieve device " << cfg.device <<
                 " error: " << dev_err.message();
         ctx->setState({
             .task = task.key,
@@ -134,7 +134,7 @@ Reader::Reader(
     auto [channelKeys, indexes] = res;
 
     // Connect to the OPC UA server.
-    auto [ua_client, ok] = opcua::connect(properties.connection, task, ctx);
+    auto [ua_client, ok] = opc::connect(properties.connection, task, ctx);
     if (!ok) return;
 
     for (auto i = 0; i < cfg.channels.size(); i++) {
@@ -149,7 +149,7 @@ Reader::Reader(
         if (status != UA_STATUSCODE_GOOD) {
             if (status == UA_STATUSCODE_BADNODEIDUNKNOWN) {
                 config_parser.field_err("channels." + std::to_string(i),
-                                        "opcua node not found");
+                                        "opc node not found");
             } else {
                 config_parser.field_err("channels." + std::to_string(i),
                                         "failed to read value" + std::string(
@@ -179,7 +179,7 @@ Reader::Reader(
     auto writer_cfg = synnax::WriterConfig{
         .channels = channelKeys,
         .start = TimeStamp::now(),
-        .mode = synnax::WriterStreamOnly
+        .mode = synnax::WriterPersistStream
     };
 
     pipe = pipeline::Acquisition(

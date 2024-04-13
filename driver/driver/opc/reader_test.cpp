@@ -10,7 +10,7 @@
 #include <gtest/gtest.h>
 #include "nlohmann/json.hpp"
 #include "driver/driver/testutil/testutil.h"
-#include "driver/driver/opcua/mock_server.h"
+#include "driver/driver/opc/mock_server.h"
 #include "reader.h"
 #include "mock_server.h"
 
@@ -19,7 +19,7 @@ using json = nlohmann::json;
 class Reader {
 };
 
-TEST(OPCUAReaderTest, testReaderConfigurationFromJSON) {
+TEST(opcReaderTest, testReaderConfigurationFromJSON) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
 
     auto [idx, idx_err] = client->channels.create(
@@ -63,7 +63,7 @@ TEST(OPCUAReaderTest, testReaderConfigurationFromJSON) {
 
     auto t = synnax::Task(
         "my_task",
-        "opcuaRead",
+        "opcRead",
         to_string(j)
     );
 
@@ -80,7 +80,7 @@ TEST(OPCUAReaderTest, testReaderConfigurationFromJSON) {
     auto server = MockServer(mock);
     server.start();
     std::this_thread::sleep_for(std::chrono::milliseconds(300));
-    auto reader = opcua::Reader(mockCtx, t);
+    auto reader = opc::Reader(mockCtx, t);
     ASSERT_EQ(mockCtx->states.size(), 0) << to_string(mockCtx->states[0].details);
     std::this_thread::sleep_for(std::chrono::seconds(30));
     reader.stop();

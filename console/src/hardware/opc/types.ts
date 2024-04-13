@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device } from "@synnaxlabs/client";
+import { type task, type device } from "@synnaxlabs/client";
 import { z } from "zod";
 
-const connectionConfigZ = z.object({
+export const connectionConfigZ = z.object({
   endpoint: z.string(),
   username: z.string().optional(),
   password: z.string().optional(),
@@ -18,22 +18,31 @@ const connectionConfigZ = z.object({
 
 export type ConnectionConfig = z.infer<typeof connectionConfigZ>;
 
-export const deviceChannelProperties = z.object({
+export const deviceNodeProperties = z.object({
   dataType: z.string(),
   name: z.string(),
   nodeId: z.string(),
+  namespace: z.number(),
 });
 
-type DeviceChannelProperties = z.infer<typeof deviceChannelProperties>;
+type DeviceNodeProperties = z.infer<typeof deviceNodeProperties>;
 
 export const devicePropertiesZ = z.object({
   connection: connectionConfigZ,
-  channels: deviceChannelProperties.array(),
+  channels: deviceNodeProperties.array(),
 });
 
 export type DeviceProperties = z.infer<typeof devicePropertiesZ>;
 
 export type ReadTaskChannelConfig = z.infer<typeof readTaskChannelConfigZ>;
+
+export const readTaskStateDetails = z.object({
+  running: z.boolean(),
+});
+
+export type ReadTaskStateDetails = z.infer<typeof readTaskStateDetails>;
+
+export type ReadTaskState = task.State<ReadTaskStateDetails>;
 
 export const readTaskChannelConfigZ = z.object({
   key: z.string(),
@@ -53,5 +62,7 @@ export const readTaskConfigZ = z
     path: ["streamRate"],
     message: "Stream rate must be lower than or equal to the sample rate",
   });
+
+export type ReadTaskConfig = z.infer<typeof readTaskConfigZ>;
 
 export type Device = device.Device<DeviceProperties>;

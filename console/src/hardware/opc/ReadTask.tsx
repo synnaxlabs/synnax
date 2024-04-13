@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useCallback, useState, type ReactElement } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
 
+import { type task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -23,6 +24,7 @@ import {
   Status,
   Synnax,
   Text,
+  useAsyncEffect,
 } from "@synnaxlabs/pluto";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { nanoid } from "nanoid";
@@ -32,20 +34,24 @@ import {
   type ReadTaskChannelConfig,
   readTaskConfigZ,
   type DeviceProperties,
-} from "@/hardware/opcua/types";
+  type ReadTaskState,
+  type ReadTaskStateDetails,
+  type ReadTaskConfig,
+} from "@/hardware/opc/types";
 import { type Layout } from "@/layout";
 
 export const readTaskLayout: Layout.LayoutState = {
   name: "Configure OPC UA Read Task",
-  key: "readOPCUATask",
-  type: "readOPCUATask",
-  windowKey: "readOPCUATask",
+  key: "readopcTask",
+  type: "readopcTask",
+  windowKey: "readopcTask",
   location: "mosaic",
 };
 
 export const ReadTask = (): ReactElement => {
   const client = Synnax.use();
-  const [taskKey, setTaskKey] = useState<string | undefined>(undefined);
+  const [task, setTask] = useState<task.Task | undefined>(undefined);
+  const [taskState, setTaskState] = useState<ReadTaskState | null>(null);
   const methods = Form.use({
     schema: readTaskConfigZ,
     values: {
@@ -59,27 +65,66 @@ export const ReadTask = (): ReactElement => {
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
   const [selectedChannelIndex, setSelectedChannelIndex] = useState<number | null>(null);
 
+  const stateObserverRef = useRef<task.StateObservable<ReadTaskStateDetails> | null>(
+    null,
+  );
+
+  useAsyncEffect(async () => {
+    if (client == null || task == null) return;
+    stateObserverRef.current = await task.openStateObserver<ReadTaskStateDetails>();
+    console.log("BB");
+    stateObserverRef.current.onChange((s) => {
+      console.log("BB");
+      setTaskState(s);
+    });
+    return () => stateObserverRef.current?.close().catch(console.error);
+  }, [client?.key, task?.key, setTaskState]);
+
+  useEffect(() => {
+    console.log(taskState);
+  }, [taskState]);
+
   const configure = useMutation({
     mutationKey: [client?.key],
     mutationFn: async () => {
       if (client == null) return;
       const rack = await client.hardware.racks.retrieve("sy_node_1_rack");
-      const t = await rack.createTask({
-        key: taskKey,
-        name: "OPCUA Read Task",
-        type: "opcuaReader",
-        config: methods.value(),
-      });
-      setTaskKey(t.key);
+      try {
+        const v = methods.value();
+        const dev = await client.hardware.devices.retrieve<DeviceProperties>(v.device);
+        setTask(
+          await rack.createTask<ReadTaskConfig>({
+            key: task?.key,
+            name: "opc Read Task",
+            type: "opcReader",
+            config: {
+              ...v,
+              channels: v.channels.map((c) => ({
+                ...c,
+                namespace: dev.properties.channels.find((d) => d.nodeId === c.node)
+                  ?.namespace,
+              })),
+            },
+          }),
+        );
+      } catch (e) {
+        console.error(e);
+      }
     },
   });
 
   return (
-    <Align.Space className={CSS.B("opcua-read-task")} direction="y" grow empty>
+    <Align.Space className={CSS.B("opc-read-task")} direction="y" grow empty>
       <Form.Form {...methods}>
         <Align.Space direction="x">
           <Form.Field<string> path="device" label="Device">
-            {(p) => <Device.SelectSingle {...p} searchOptions={{ makes: ["opcua"] }} />}
+            {(p) => (
+              <Device.SelectSingle
+                {...p}
+                allowNone={false}
+                searchOptions={{ makes: ["opc"] }}
+              />
+            )}
           </Form.Field>
           <Form.Field<number> label="Sample Rate" path="sampleRate">
             {(p) => <Input.Numeric {...p} />}
@@ -273,7 +318,7 @@ const SelectNode = (props: SelectNodeProps): ReactElement => {
           dev.value,
         );
         return device.properties.channels.map((c) => ({
-          key: "string",
+          key: c.nodeId,
           name: c.nodeId,
           dataType: c.dataType,
         }));

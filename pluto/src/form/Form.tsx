@@ -241,7 +241,13 @@ export const Field = <
   const helpText = field.touched ? field.status.message : "";
   const { onChange: fieldOnChange, value } = field;
   return (
-    <Input.Item padHelpText={padHelpText} helpText={helpText} label={label} {...props}>
+    <Input.Item
+      padHelpText={padHelpText}
+      helpText={helpText}
+      label={label}
+      required={field.required}
+      {...props}
+    >
       {children({ onChange: fieldOnChange, value })}
     </Input.Item>
   );
@@ -253,6 +259,7 @@ export interface FieldState<V = unknown> {
   value: V;
   status: status.CrudeSpec;
   touched: boolean;
+  required: boolean;
 }
 
 interface RequiredGetProps {
@@ -287,7 +294,10 @@ interface BindProps<V = unknown> {
 
 type BindFunc = <V = unknown>(props: BindProps<V>) => Destructor;
 
-export interface ContextValue<Z extends z.ZodTypeAny = z.ZodTypeAny> {
+export interface ContextValue<
+  T extends z.ZodRawShape = z.ZodRawShape,
+  Z extends z.ZodObject<T> = z.ZodObject<T>,
+> {
   bind: BindFunc;
   set: SetFunc;
   get: GetFunc;
@@ -303,6 +313,7 @@ export const Context = createContext<ContextValue>({
     value: undefined as unknown as V,
     status: { key: "", variant: "success", message: "" },
     touched: false,
+    required: false,
   }),
   validate: () => false,
   value: () => ({}),
@@ -317,7 +328,7 @@ const NO_ERROR_STATUS = (path: string): status.CrudeSpec => ({
   message: "",
 });
 
-interface UseRef<Z extends z.ZodTypeAny> {
+interface UseRef<T extends z.ZodRawShape, Z extends z.ZodObject<T> = z.ZodObject<T>> {
   state: z.output<Z>;
   status: Map<string, status.CrudeSpec>;
   touched: Set<string>;
@@ -325,22 +336,40 @@ interface UseRef<Z extends z.ZodTypeAny> {
   parentListeners: Map<string, Set<Listener>>;
 }
 
-export interface UseProps<Z extends z.ZodTypeAny = z.ZodTypeAny> {
+export interface UseProps<
+  T extends z.ZodRawShape = z.ZodRawShape,
+  Z extends z.ZodObject<T> = z.ZodObject<T>,
+> {
   values: z.output<Z>;
   sync?: boolean;
   onChange?: (values: z.output<Z>) => void;
   schema?: Z;
 }
 
-export type UseReturn<Z extends z.ZodTypeAny> = ContextValue<Z>;
+export type UseReturn<
+  T extends z.ZodRawShape = z.ZodRawShape,
+  Z extends z.ZodObject<T> = z.ZodObject<T>,
+> = ContextValue<T, Z>;
 
-export const use = <Z extends z.ZodTypeAny>({
+const fieldIsRequired = <T extends z.ZodRawShape, Z extends z.ZodObject<T>>(
+  schema: Z,
+  path: string,
+): boolean => {
+  const field = deep.get<T>(schema.shape, path, true) as z.ZodTypeAny;
+  if (field == null) return false;
+  return !field.isOptional();
+};
+
+export const use = <
+  T extends z.ZodRawShape = z.ZodRawShape,
+  Z extends z.ZodObject<T> = z.ZodObject<T>,
+>({
   values,
   sync = false,
   schema,
   onChange,
-}: UseProps<Z>): UseReturn<Z> => {
-  const ref = useRef<UseRef<Z>>({
+}: UseProps<T, Z>): UseReturn<T, Z> => {
+  const ref = useRef<UseRef<T, Z>>({
     state: values,
     status: new Map(),
     touched: new Set(),
@@ -374,6 +403,8 @@ export const use = <Z extends z.ZodTypeAny>({
         value: value as V,
         status: status.get(path) ?? NO_ERROR_STATUS(path),
         touched: touched.has(path),
+        required:
+          schemaRef.current != null ? fieldIsRequired(schemaRef.current, path) : false,
       };
     },
     [],
@@ -396,7 +427,6 @@ export const use = <Z extends z.ZodTypeAny>({
       return true;
     }
     const issueKeys = new Set(result.error.issues.map((i) => i.path.join(".")));
-    console.log(issueKeys);
     result.error.issues.forEach((issue) => {
       const issuePath = issue.path.join(".");
       status.set(issuePath, {
@@ -450,7 +480,7 @@ export const use = <Z extends z.ZodTypeAny>({
   }, [sync, values]);
 
   return useMemo(
-    (): ContextValue<Z> => ({
+    (): ContextValue<T, Z> => ({
       bind,
       set,
       get,

@@ -16,7 +16,7 @@ import { toArray } from "@synnaxlabs/x/toArray";
 import { nanoid } from "nanoid";
 import { z } from "zod";
 
-import { type framer } from "@/framer";
+import { framer } from "@/framer";
 import { type Frame } from "@/framer/frame";
 import { rack } from "@/hardware/rack";
 import { analyzeParams, checkForMultipleOrNoResults } from "@/util/retrieve";
@@ -50,11 +50,14 @@ export const newTaskZ = taskZ.omit({ key: true }).extend({
   config: z.unknown().transform((c) => binary.JSON_ECD.encodeString(c)),
 });
 
-export type NewTask = z.input<typeof newTaskZ>;
+export type NewTask<
+  C extends UnknownRecord = UnknownRecord,
+  T extends string = string,
+> = Omit<z.output<typeof newTaskZ>, "config"> & { type: T; config: C };
 
 export type TaskPayload<
-  T extends string = string,
   C extends UnknownRecord = UnknownRecord,
+  T extends string = string,
 > = Omit<z.output<typeof taskZ>, "config" | "type"> & { type: T; config: C };
 
 export const stateZ = z.object({
@@ -73,7 +76,7 @@ export const stateZ = z.object({
     .or(z.null()),
 });
 
-type State<D extends UnknownRecord = UnknownRecord> = Omit<
+export type State<D extends UnknownRecord = UnknownRecord> = Omit<
   z.infer<typeof stateZ>,
   "details"
 > & {
@@ -92,7 +95,10 @@ export const commandZ = z.object({
   ) as z.ZodType<UnknownRecord>,
 });
 
-export class Task<T extends string = string, C extends UnknownRecord = UnknownRecord> {
+export type StateObservable<D extends UnknownRecord = UnknownRecord> =
+  observe.ObservableAsyncCloseable<State<D>>;
+
+export class Task<C extends UnknownRecord = UnknownRecord, T extends string = string> {
   readonly key: TaskKey;
   readonly name: string;
   readonly type: T;
@@ -121,7 +127,7 @@ export class Task<T extends string = string, C extends UnknownRecord = UnknownRe
     const streamer = await this.frameClient.openStreamer(TASK_STATE_CHANNEL);
     const writer = await this.frameClient.openWriter(TASK_CMD_CHANNEL);
     const key = nanoid();
-    await writer.write(TASK_STATE_CHANNEL, [{ task: this.key, type, key, args }]);
+    await writer.write(TASK_CMD_CHANNEL, [{ task: this.key, type, key, args }]);
     await writer.close();
     let res: State<D>;
     const to = new Promise((resolve) =>
@@ -142,9 +148,18 @@ export class Task<T extends string = string, C extends UnknownRecord = UnknownRe
     return res;
   }
 
-  async observeState<D extends UnknownRecord = UnknownRecord>(): Promise<
-    observe.Observable<State<D>>
-  > {}
+  async openStateObserver<D extends UnknownRecord = UnknownRecord>(): Promise<
+    StateObservable<D>
+  > {
+    return new framer.ObservableStreamer<State<D>>(
+      await this.frameClient.openStreamer(TASK_STATE_CHANNEL),
+      (frame) => {
+        const s = frame.get(TASK_STATE_CHANNEL);
+        if (s.length === 0) return [null, false];
+        return [s.at(-1), true] as unknown as [State<D>, boolean];
+      },
+    );
+  }
 }
 
 const retrieveReqZ = z.object({
@@ -192,7 +207,9 @@ export class Client implements AsyncTermSearcher<string, TaskKey, TaskPayload> {
 
   async create(tasks: NewTask[]): Promise<Task[]>;
 
-  async create(task: NewTask | NewTask[]): Promise<Task | Task[]> {
+  async create<C extends UnknownRecord, T extends string>(
+    task: NewTask<C, T> | Array<NewTask<C, T>>,
+  ): Promise<Task<C, T> | Array<Task<C, T>>> {
     const isSingle = !Array.isArray(task);
     const res = await sendRequired<typeof createReqZ, typeof createResZ>(
       this.client,
@@ -201,7 +218,7 @@ export class Client implements AsyncTermSearcher<string, TaskKey, TaskPayload> {
       createReqZ,
       createResZ,
     );
-    const sugared = this.sugar(res.tasks);
+    const sugared = this.sugar(res.tasks) as Array<Task<C, T>>;
     return isSingle ? sugared[0] : sugared;
   }
 

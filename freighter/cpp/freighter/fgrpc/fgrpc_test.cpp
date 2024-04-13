@@ -50,9 +50,9 @@ class myMiddleware : public freighter::PassthroughMiddleware {
 public:
     bool ack = false;
 
-    std::pair<freighter::Context, freighter::Error> operator()(freighter::Context context) override {
+    std::pair<freighter::Context, freighter::Error> operator()(freighter::Context context, freighter::Next *next) override {
         context.set("test", "5");
-        auto [outContext, exc] = freighter::PassthroughMiddleware::operator()(context);
+        auto [outContext, exc] = next->operator()(context);
         auto a = outContext.get("test");
         if (a == "dog") {
             ack = true;

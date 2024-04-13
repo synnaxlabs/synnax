@@ -80,7 +80,7 @@ private:
     /// type identifiers.
     inline static std::unordered_map<std::type_index, std::string> TYPE_INDEXES = {
         {std::type_index(typeid(int)), "int32"},
-        {std::type_index(typeid(double)), "float62"},
+        {std::type_index(typeid(double)), "float64"},
         {std::type_index(typeid(float)), "float32"},
         {std::type_index(typeid(long long)), "int64"},
         {std::type_index(typeid(short)), "int16"},

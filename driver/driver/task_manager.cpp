@@ -63,14 +63,14 @@ freighter::Error driver::TaskManager::startGuarded() {
     task_cmd_channel = task_cmd;
 
     // // Retrieve all of the tasks that are already configured and start them.
-    // LOG(INFO) << "[Task Manager] pulling and configuring existing tasks from Synnax";
-    // auto [tasks, tasks_err] = rack.tasks.list();
-    // if (tasks_err) return tasks_err;
-    // for (const auto &task: tasks) {
-    //     auto [driver_task, ok] = factory->configureTask(ctx, task);
-    //     if (ok && driver_task != nullptr)
-    //         this->tasks[task.key] = std::move(driver_task);
-    // }
+    LOG(INFO) << "[Task Manager] pulling and configuring existing tasks from Synnax";
+    auto [tasks, tasks_err] = rack.tasks.list();
+    if (tasks_err) return tasks_err;
+    for (const auto &task: tasks) {
+        auto [driver_task, ok] = factory->configureTask(ctx, task);
+        if (ok && driver_task != nullptr)
+            this->tasks[task.key] = std::move(driver_task);
+    }
 
     LOG(INFO) << "[Task Manager] configuring initial tasks from factory";
     auto initial_tasks = factory->configureInitialTasks(ctx, this->internal);

@@ -17,7 +17,7 @@ import { Controls } from "@/components";
 import { NAV_DRAWERS, NavMenu } from "@/components/nav/Nav";
 import { CSS } from "@/css";
 import { Docs } from "@/docs";
-import { OPCUA } from "@/hardware/opcua";
+import { opc } from "@/hardware/opc";
 import { Layout } from "@/layout";
 import { NAV_SIZES } from "@/layouts/LayoutMain/constants";
 import { LinePlot } from "@/lineplot";
@@ -46,7 +46,7 @@ const COMMANDS = [
   ...Workspace.COMMANDS,
   ...Cluster.COMMANDS,
   ...Range.COMMANDS,
-  ...OPCUA.COMMANDS,
+  ...opc.COMMANDS,
 ];
 
 const NavTopPalette = (): ReactElement => {

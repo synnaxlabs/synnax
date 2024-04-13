@@ -9,10 +9,10 @@
 
 #include <map>
 #include "client/cpp/synnax/synnax.h"
-#include "driver/driver/opcua/opcua.h"
-#include "driver/driver/opcua/util.h"
+#include "driver/driver/opc/opc.h"
+#include "driver/driver/opc/util.h"
 
-/// @brief maps OPCUA data types to their corresponding Synnax types.
+/// @brief maps opc data types to their corresponding Synnax types.
 std::map<UA_UInt16, synnax::DataType> data_type_map = {
     {UA_NS0ID_BOOLEAN, synnax::UINT8},
     {UA_NS0ID_SBYTE, synnax::INT8},
@@ -30,8 +30,8 @@ std::map<UA_UInt16, synnax::DataType> data_type_map = {
     {UA_NS0ID_GUID, synnax::UINT128},
 };
 
-std::pair<UA_Client*, bool> opcua::connect(
-    opcua::ConnectionConfig& cfg,
+std::pair<UA_Client*, bool> opc::connect(
+    opc::ConnectionConfig& cfg,
     synnax::Task &task,
     std::shared_ptr<task::Context> ctx
 ) {

@@ -9,19 +9,19 @@
 
 #pragma once
 
-#include "opcua.h"
+#include "opc.h"
 #include "driver/driver/config/config.h"
 #include "driver/driver/task/task.h"
 #include "driver/driver/pipeline/acquisition.h"
 
-namespace opcua {
+namespace opc {
 struct ReaderChannelConfig {
     /// @brief the namespace index of the node.
     std::uint32_t ns;
     /// @brief the node id.
     std::string node;
     /// @brief the corresponding channel key to write the variable for the node from.
-    ChannelKey key;
+    ChannelKey channel;
     /// @brief the channel fetched from the Synnax server. This does not need to
     /// be provided via the JSON configuration.
     Channel ch;
@@ -30,9 +30,9 @@ struct ReaderChannelConfig {
 
     explicit ReaderChannelConfig(
         config::Parser& parser
-    ): ns(parser.required<std::uint32_t>("ns")),
+    ): ns(parser.required<std::uint32_t>("namespace")),
        node(parser.required<std::string>("node")),
-       key(parser.required<ChannelKey>("key")) {
+       channel(parser.required<ChannelKey>("channel")) {
     }
 };
 
@@ -55,7 +55,7 @@ struct ReaderConfig {
 
     std::vector<ChannelKey> channelKeys() const {
         auto keys = std::vector<ChannelKey>(channels.size());
-        for (std::size_t i = 0; i < channels.size(); i++) keys[i] = channels[i].key;
+        for (std::size_t i = 0; i < channels.size(); i++) keys[i] = channels[i].channel;
         return keys;
     }
 };

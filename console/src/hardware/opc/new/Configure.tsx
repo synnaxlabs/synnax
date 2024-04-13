@@ -18,10 +18,11 @@ import { v4 as uuidv4 } from "uuid";
 import { z } from "zod";
 
 import { CSS } from "@/css";
-import { CreateChannels } from "@/hardware/opcua/new/CreateChannels";
+import { CreateChannels } from "@/hardware/opc/new/CreateChannels";
+import { type DeviceProperties, connectionConfigZ } from "@/hardware/opc/types";
 import { type Layout } from "@/layout";
 
-import "@/hardware/opcua/new/Configure.css";
+import "@/hardware/opc/new/Configure.css";
 
 export const channelZ = z.object({
   dataType: z.string(),
@@ -45,9 +46,9 @@ const configureZ = z.object({
 });
 
 export const connectWindowLayout: Layout.LayoutState = {
-  key: "connectOPCUAServer",
-  windowKey: "connectOPCUAServer",
-  type: "connectOPCUAServer",
+  key: "connectOPCServer",
+  windowKey: "connectOPCServer",
+  type: "connectOPCServer",
   name: "Connect OPC UA Server",
   location: "window",
   window: {
@@ -90,12 +91,13 @@ export const Configure = (): ReactElement => {
       if (!methods.validate() || client == null) return;
       const rack = await client.hardware.racks.retrieve("sy_node_1_rack");
       if (step === "connect") {
-        const task = await rack.retrieveTaskByName("OPCUA Scanner");
-        const state = await task.executeCommandSync(
+        const task = await rack.retrieveTaskByName("opc Scanner");
+        const state = await task.executeCommandSync<DeviceProperties>(
           "scan",
           { connection: methods.get({ path: "connection" }).value },
           TimeSpan.seconds(1),
         );
+        console.log(state);
         methods.set({
           path: "groups",
           value: [
@@ -103,7 +105,11 @@ export const Configure = (): ReactElement => {
               key: nanoid(),
               name: "Group 1",
               channels: [
-                ...state.details.map((c) => ({ ...c, role: "data", key: nanoid() })),
+                ...state.details.channels.map((c) => ({
+                  ...c,
+                  role: "data",
+                  key: nanoid(),
+                })),
                 { key: nanoid(), name: "Time", dataType: "timestamp", role: "index" },
               ],
             },
@@ -111,27 +117,22 @@ export const Configure = (): ReactElement => {
         });
         setStep("createChannels");
       } else if (step === "createChannels") {
-        console.log("HELLO");
         const rack = await client.hardware.racks.retrieve("sy_node_1_rack");
-        console.log("BLOC");
-        const task = await rack.retrieveTaskByName("OPCUA Scanner");
-        const state = await task.executeCommandSync(
+        const task = await rack.retrieveTaskByName("opc Scanner");
+        const state = await task.executeCommandSync<DeviceProperties>(
           "scan",
           { connection: methods.get({ path: "connection" }).value },
-          TimeSpan.seconds(1),
+          TimeSpan.seconds(50),
         );
         try {
           await client.hardware.devices.create({
             key: uuidv4(),
             name: methods.get<string>({ path: "name" }).value,
-            model: "opcua",
-            make: "opcua",
+            model: "opc",
+            make: "opc",
             rack: rack.key,
             location: methods.get<string>({ path: "connection.endpoint" }).value,
-            properties: {
-              connection: methods.get({ path: "connection" }).value,
-              channels: state.details,
-            },
+            properties: state.details,
           });
         } catch (e) {
           console.error(e);
@@ -139,19 +140,24 @@ export const Configure = (): ReactElement => {
         console.log("Created device");
         const groups = methods.get<Group[]>({ path: "groups" }).value;
         for (const group of groups) {
-          console.log("ABC");
-          const idx = await client.channels.create({
-            name: group.name,
-            isIndex: true,
-            dataType: DataType.TIMESTAMP,
-          });
-          await client.channels.create(
-            group.channels.map((c) => ({
-              name: c.name,
-              dataType: new DataType(c.dataType),
-              index: idx.key,
-            })),
-          );
+          console.log("ABC", group.name);
+          try {
+            const idx = await client.channels.create({
+              name: group.name,
+              isIndex: true,
+              dataType: DataType.TIMESTAMP.toString(),
+            });
+            console.log(idx.name);
+            await client.channels.create(
+              group.channels.map((c) => ({
+                name: c.name,
+                dataType: new DataType(c.dataType).toString(),
+                index: idx.key,
+              })),
+            );
+          } catch (e) {
+            console.error(e);
+          }
         }
       }
     },
@@ -199,7 +205,7 @@ const Connect = (): ReactElement => {
     mutationFn: async () => {
       if (!form.validate() || client == null) return;
       const rack = await client.hardware.racks.retrieve("sy_node_1_rack");
-      const task = await rack.retrieveTaskByName("OPCUA Scanner");
+      const task = await rack.retrieveTaskByName("opc Scanner");
       console.log(form.get({ path: "connection" }));
       const state = await task.executeCommandSync(
         "test_connection",
@@ -222,9 +228,9 @@ const Connect = (): ReactElement => {
       size={10}
     >
       <Align.Space className={CSS.B("description")} direction="y">
-        <Text.Text level="h1">Let's connect your OPCUA Server</Text.Text>
+        <Text.Text level="h1">Let's connect your opc Server</Text.Text>
         <Text.Text level="p">
-          To start off, we'll need to know the connection details for your OPCUA server.
+          To start off, we'll need to know the connection details for your opc server.
         </Text.Text>
       </Align.Space>
       <Align.Space

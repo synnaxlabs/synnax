@@ -51,7 +51,7 @@ cc_binary(
     deps = [
         "//driver/driver",
         "//driver/driver/breaker",
-        "//driver/driver/opcua",
+        "//driver/driver/opc",
         "//driver/driver/task",
         "@com_github_gflags_gflags//:gflags",
         "@com_github_google_glog//:glog",

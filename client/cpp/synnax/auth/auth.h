@@ -63,25 +63,30 @@ public:
 
     /// Implements freighter::AuthMiddleware::operator().
     std::pair<freighter::Context, freighter::Error> operator()(
-        freighter::Context context
+        freighter::Context context,
+        freighter::Next *next
     ) override {
         if (!authenticated) {
             api::v1::LoginRequest req;
             req.set_username(username);
             req.set_password(password);
             auto [res, err] = login_client->send("/auth/login", req);
-            if (err) return {context, err};
+            if (err) {
+                std::cout << "READ ERROR: " << err.message() << std::endl;
+                return {context, err};
+            }
             token = res.token();
             authenticated = true;
             retry_count = 0;
         }
         context.set(HEADER_KEY, HEADER_VALUE_PREFIX + token);
-        auto [res, err] = freighter::PassthroughMiddleware::operator()(context);
+        auto [res_ctx, err] = next->operator()(context);
         if (err.matches(synnax::INVALID_TOKEN) && retry_count < max_retries) {
             authenticated = false;
             retry_count++;
-            return this->operator()(context);
+            std::cout << "Retrying authentication, attempt " << retry_count << std::endl;
+            return this->operator()(context, next);
         }
-        return {res, err};
+        return {res_ctx, err};
     }
 };

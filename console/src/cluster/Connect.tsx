@@ -15,7 +15,7 @@ import { Nav, componentRenderProp, Status, Form } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 import { Button } from "@synnaxlabs/pluto/button";
 import { Input } from "@synnaxlabs/pluto/input";
-import { case } from "@synnaxlabs/x";
+import { caseconv } from "@synnaxlabs/x";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
 

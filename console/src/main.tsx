@@ -18,7 +18,7 @@ import { useDispatch } from "react-redux";
 import { Cluster } from "@/cluster";
 import { Docs } from "@/docs";
 import { ErrorOverlay } from "@/error/Overlay";
-import { OPCUA } from "@/hardware/opcua";
+import { opc } from "@/hardware/opc";
 import { Layout } from "@/layout";
 import { LayoutMain } from "@/layouts/LayoutMain";
 import { Mosaic } from "@/layouts/mosaic";
@@ -49,8 +49,8 @@ const layoutRenderers: Record<string, Layout.Renderer> = {
   createWorkspace: Workspace.Create,
   [LinePlot.LAYOUT_TYPE]: LinePlot.LinePlot,
   [PID.LAYOUT_TYPE]: PID.PID,
-  [OPCUA.connectWindowLayout.type]: OPCUA.Configure,
-  [OPCUA.readTaskLayout.type]: OPCUA.ReadTask,
+  [opc.connectWindowLayout.type]: opc.Configure,
+  [opc.readTaskLayout.type]: opc.ReadTask,
 };
 
 const PREVENT_DEFAULT_TRIGGERS: Triggers.Trigger[] = [

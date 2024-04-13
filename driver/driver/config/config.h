@@ -60,7 +60,7 @@ public:
             T value;
             std::istringstream iss(iter->get<std::string>());
             if (!(iss >> value)) {
-                field_err(path, "Expected a number");
+                field_err(path, "Expected a number, got " + iter->get<std::string>());
                 return T();
             }
             return value;

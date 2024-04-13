@@ -8,59 +8,54 @@
 // included in the file licenses/APL.txt.
 
 #include "glog/logging.h"
-#include "driver/driver/opcua/opcua.h"
-#include "driver/driver/opcua/scanner.h"
-#include "driver/driver/opcua/reader.h"
+#include "driver/driver/opc/opc.h"
+#include "driver/driver/opc/scanner.h"
+#include "driver/driver/opc/reader.h"
 
-std::pair<std::unique_ptr<task::Task>, bool> opcua::Factory::configureTask(
+std::pair<std::unique_ptr<task::Task>, bool> opc::Factory::configureTask(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task
 ) {
-    if (task.type == "opcuaScanner") {
-        auto scanner = std::make_unique<Scanner>(ctx, task);
-        return {std::move(scanner), true};
-    }
-    if (task.type == "opcuaReader") {
-        auto reader = std::make_unique<Reader>(ctx, task);
-        std::cout << "opcuaReader" << std::endl;
-        return {std::move(reader), true};
-    }
+    if (task.type == "opcScanner")
+        return {std::make_unique<Scanner>(ctx, task), true};
+    if (task.type == "opcReader")
+        return {std::make_unique<Reader>(ctx, task), true};
     return {nullptr, false};
 }
 
 std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task> > >
-opcua::Factory::configureInitialTasks(
+opc::Factory::configureInitialTasks(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Rack &rack
 ) {
     std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task> > > tasks;
     auto [existing, err] = rack.tasks.list();
     if (err) {
-        LOG(ERROR) << "[OPCUA] Failed to list existing tasks: " << err;
+        LOG(ERROR) << "[OPC] Failed to list existing tasks: " << err;
         return tasks;
     }
     // check if a task with the same type and name already exists
     bool hasScanner = false;
     for (const auto &t: existing) {
-        if (t.type == "opcuaScanner") {
-            LOG(INFO) << "[OPCUA] found existing scanner task. skipping creation";
+        if (t.type == "opcScanner") {
+            LOG(INFO) << "[OPC] found existing scanner task with key: " << t.key << "skipping creation." << std::endl;
             hasScanner = true;
         }
     }
 
     if (!hasScanner) {
-        LOG(INFO) << "[OPCUA] creating scanner task";
+        LOG(INFO) << "[OPC] creating scanner task";
         auto sy_task = synnax::Task(
             rack.key,
-            "OPCUA Scanner",
-            "opcuaScanner",
+            "opc Scanner",
+            "opcScanner",
             ""
         );
 
         std::cout << rack.key << std::endl;
         auto err= rack.tasks.create(sy_task);
         if (err) {
-            LOG(ERROR) << "[OPCUA] Failed to create scanner task: " << err;
+            LOG(ERROR) << "[OPC] Failed to create scanner task: " << err;
             return tasks;
         }
         auto [task, ok] = configureTask(ctx, sy_task);

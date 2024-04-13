@@ -1,5 +1,5 @@
 cc_library(
-    name = "opcua",
+    name = "opc",
     srcs = [
         "factory.cpp",
         "reader.cpp",
@@ -7,7 +7,7 @@ cc_library(
         "util.cpp",
     ],
     hdrs = [
-        "opcua.h",
+        "opc.h",
         "reader.h",
         "scanner.h",
         "util.h",
@@ -29,7 +29,7 @@ cc_library(
 )
 
 cc_test(
-    name = "opcua_test",
+    name = "opc_test",
     srcs = [
         "mock_server.h",
         "reader_test.cpp",
@@ -40,7 +40,7 @@ cc_test(
         "//conditions:default": [],
     }),
     deps = [
-        ":opcua",
+        ":opc",
         "//driver/driver/testutil",
         "@com_google_googletest//:gtest_main",
     ],

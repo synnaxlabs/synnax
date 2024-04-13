@@ -9,19 +9,20 @@
 
 import { type PropsWithChildren, type ReactElement } from "react";
 
-import { act, renderHook } from "@testing-library/react";
+import { act, fireEvent, render, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { Form } from "@/form";
+import { Input } from "@/input";
 
 const basicFormSchema = z.object({
   name: z.string(),
-  age: z.number().min(5),
+  age: z.number().min(5, "You must be at least 5 years old."),
 });
 
 const FormContainer = (props: PropsWithChildren): ReactElement => {
-  const methods = Form.use<typeof basicFormSchema>({
+  const methods = Form.use({
     values: { name: "John Doe", age: 42 },
     schema: basicFormSchema,
   });
@@ -37,7 +38,7 @@ describe("Form", () => {
     describe("get", () => {
       it("should get a value from the form", () => {
         const { result } = renderHook(() =>
-          Form.use<typeof basicFormSchema>({
+          Form.use({
             values: { name: "John Doe", age: 42 },
             schema: basicFormSchema,
           }),
@@ -48,7 +49,7 @@ describe("Form", () => {
       });
       it("should throw an error if optional is false and the field is null", () => {
         const { result } = renderHook(() =>
-          Form.use<typeof basicFormSchema>({
+          Form.use({
             values: { name: "John Doe", age: 42 },
             schema: basicFormSchema,
           }),
@@ -57,7 +58,7 @@ describe("Form", () => {
       });
       it("should return null if optional is true and the field is null", () => {
         const { result } = renderHook(() =>
-          Form.use<typeof basicFormSchema>({
+          Form.use({
             values: { name: "John Doe", age: 42 },
             schema: basicFormSchema,
           }),
@@ -65,11 +66,21 @@ describe("Form", () => {
         const field = result.current.get({ path: "ssn", optional: true });
         expect(field).toBeNull();
       });
+      it("should return true if a field is required in the schema", () => {
+        const { result } = renderHook(() =>
+          Form.use({
+            values: { name: "John Doe", age: 42 },
+            schema: basicFormSchema,
+          }),
+        );
+        const field = result.current.get({ path: "age" });
+        expect(field.required).toBe(true);
+      });
     });
     describe("set", () => {
       it("should set a value in the form", () => {
         const { result } = renderHook(() =>
-          Form.use<typeof basicFormSchema>({
+          Form.use({
             values: { name: "John Doe", age: 42 },
             schema: basicFormSchema,
           }),
@@ -82,7 +93,7 @@ describe("Form", () => {
     describe("bind", () => {
       it("should bind a listener for form changes", () => {
         const { result } = renderHook(() =>
-          Form.use<typeof basicFormSchema>({
+          Form.use({
             values: { name: "John Doe", age: 42 },
             schema: basicFormSchema,
           }),
@@ -134,6 +145,46 @@ describe("Form", () => {
       });
       act(() => result.current.onChange(3));
       expect(result.current.status.variant).toEqual("error");
+    });
+    it("should return true if a field is required in the schema", () => {
+      const { result } = renderHook(() => Form.useField<string>({ path: "name" }), {
+        wrapper,
+      });
+      expect(result.current.required).toBe(true);
+    });
+  });
+  describe("Field", () => {
+    it("should return a text field with the correct value", () => {
+      const c = render(<Form.Field path="name" />, { wrapper });
+      expect(c.getByDisplayValue("John Doe")).toBeTruthy();
+    });
+    it("should render the correct label", () => {
+      const c = render(<Form.Field path="name" label="Full Name" />, { wrapper });
+      expect(c.getByText("Full Name")).toBeTruthy();
+    });
+    it("should capitalize the last part of the path if the label is not provided", () => {
+      const c = render(<Form.Field path="name" />, { wrapper });
+      expect(c.getByText("Name")).toBeTruthy();
+    });
+    it("should render a required indicator if the field is required", () => {
+      const c = render(<Form.Field path="name" />, { wrapper });
+      expect(c.getByText("*")).toBeTruthy();
+    });
+    it("should set the value of the field when the input changes", () => {
+      const c = render(<Form.Field path="name" />, { wrapper });
+      const input = c.getByDisplayValue("John Doe");
+      fireEvent.change(input, { target: { value: "Jane Doe" } });
+      expect(c.getByDisplayValue("Jane Doe")).toBeTruthy();
+    });
+    it("should render help text if validation on the field fails", () => {
+      const c = render(
+        <Form.Field<number> path="age">{(p) => <Input.Numeric {...p} />}</Form.Field>,
+        { wrapper },
+      );
+      const input = c.getByDisplayValue("42");
+      fireEvent.change(input, { target: { value: 1 } });
+      fireEvent.blur(input);
+      expect(c.getByText("You must be at least 5 years old.")).toBeTruthy();
     });
   });
 });

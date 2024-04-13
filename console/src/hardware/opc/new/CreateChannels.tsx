@@ -74,7 +74,7 @@ export const CreateChannels = (): ReactElement => {
     <Align.Space direction="x" grow className={CSS.B("physical-plan")} size={10}>
       <Align.Space direction="y" className={CSS.B("description")}>
         <Text.Text level="h2" weight={600}>
-          Here are the channels we'll create for your OPCUA server
+          Here are the channels we'll create for your opc server
         </Text.Text>
         <Align.Space className="description" direction="y" size="small">
           <Text.Text level="p">

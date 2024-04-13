@@ -11,7 +11,7 @@
 #include "driver/driver/driver.h"
 #include "task/task.h"
 #include "glog/logging.h"
-#include "driver/driver/opcua/opcua.h"
+#include "driver/driver/opc/opc.h"
 
 std::unique_ptr<driver::Driver> d;
 
@@ -55,8 +55,8 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    std::unique_ptr<task::Factory> opcua_factory = std::make_unique<opcua::Factory>();
-    std::vector<std::shared_ptr<task::Factory> > factories = {std::move(opcua_factory)};
+    std::unique_ptr<task::Factory> opc_factory = std::make_unique<opc::Factory>();
+    std::vector<std::shared_ptr<task::Factory> > factories = {std::move(opc_factory)};
     std::unique_ptr<task::Factory> factory = std::make_unique<task::MultiFactory>(
         std::move(factories)
     );

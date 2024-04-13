@@ -9,19 +9,19 @@
 
 import { Icon } from "@synnaxlabs/media";
 
-import { connectWindowLayout } from "@/hardware/opcua/new/Configure";
-import { readTaskLayout } from "@/hardware/opcua/ReadTask";
+import { connectWindowLayout } from "@/hardware/opc/new/Configure";
+import { readTaskLayout } from "@/hardware/opc/ReadTask";
 import { type Command } from "@/palette/Palette";
 
 export const connectServerCommand: Command = {
-  key: "opcua-connect-server",
+  key: "opc-connect-server",
   name: "OPC UA - Connect a New Server",
   icon: <Icon.PID />,
   onSelect: ({ placeLayout }) => placeLayout(connectWindowLayout),
 };
 
 export const createReadTaskCommand: Command = {
-  key: "opcua-create-read-task",
+  key: "opc-create-read-task",
   name: "OPC UA - Create a New Read Task",
   icon: <Icon.PID />,
   onSelect: ({ placeLayout }) => placeLayout(readTaskLayout),

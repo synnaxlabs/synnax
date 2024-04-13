@@ -20,6 +20,7 @@ import "@/input/Item.css";
 
 export interface ItemProps extends Align.SpaceProps {
   label?: string;
+  required?: boolean;
   showLabel?: boolean;
   helpText?: string;
   padHelpText?: boolean;
@@ -40,6 +41,7 @@ export const Item = ({
   direction = "y",
   className,
   children,
+  required,
   align,
   size = "small",
   padHelpText = false,
@@ -73,7 +75,7 @@ export const Item = ({
       align={maybeDefaultAlignment(align, direction)}
       {...props}
     >
-      {showLabel && <Label>{label}</Label>}
+      {showLabel && <Label required={required}>{label}</Label>}
       {inputAndHelp}
     </Align.Space>
   );

@@ -9,7 +9,7 @@
 
 // #include <include/gtest/gtest.h>
 // #include "nlohmann/json.hpp"
-// #include "driver/driver/opcua/scanner.h"
+// #include "driver/driver/opc/scanner.h"
 // #include "client/cpp/synnax/synnax.h"
 //
 // using json = nlohmann::json;
@@ -26,7 +26,7 @@
 //     return synnax::Synnax(test_client_config);
 // }
 //
-// TEST(OPCUAScnannerTest, testScannerCmdParseOnlyEdnpoint) {
+// TEST(opcScnannerTest, testScannerCmdParseOnlyEdnpoint) {
 //     json cmd = {
 //         {"endpoint", "opc.tcp://localhost:4840"},
 //     };
@@ -34,14 +34,14 @@
 //             {"errors", std::vector<json>()}
 //     };
 //     bool ok = true;
-//     auto parsedScanCmd = opcua::ScannerScanCommand(cmd, err, ok);
+//     auto parsedScanCmd = opc::ScannerScanCommand(cmd, err, ok);
 //     EXPECT_TRUE(ok);
 //     EXPECT_EQ(parsedScanCmd.endpoint, "opc.tcp://localhost:4840");
 //     EXPECT_EQ(parsedScanCmd.username, "");
 //     EXPECT_EQ(parsedScanCmd.password, "");
 // }
 //
-// TEST(OPCUAScannerTest, testScannerCmdParseEndpointUsernamePassword) {
+// TEST(opcScannerTest, testScannerCmdParseEndpointUsernamePassword) {
 //     json cmd = {
 //         {"endpoint", "opc.tcp://localhost:4840"},
 //         {"username", "user"},
@@ -51,14 +51,14 @@
 //             {"errors", std::vector<json>()}
 //     };
 //     bool ok = true;
-//     auto parsedScanCmd = opcua::ScannerScanCommand(cmd, err, ok);
+//     auto parsedScanCmd = opc::ScannerScanCommand(cmd, err, ok);
 //     EXPECT_TRUE(ok);
 //     EXPECT_EQ(parsedScanCmd.endpoint, "opc.tcp://localhost:4840");
 //     EXPECT_EQ(parsedScanCmd.username, "user");
 //     EXPECT_EQ(parsedScanCmd.password, "password");
 // }
 //
-// TEST(OPCUAScannerTest, testScannerCmdParseNoEndpoint) {
+// TEST(opcScannerTest, testScannerCmdParseNoEndpoint) {
 //     json cmd = {
 //         {"username", "user"},
 //         {"password", "password"}
@@ -67,7 +67,7 @@
 //             {"errors", std::vector<json>()}
 //     };
 //     bool ok = true;
-//     auto parsedScanCmd = opcua::ScannerScanCommand(cmd, err, ok);
+//     auto parsedScanCmd = opc::ScannerScanCommand(cmd, err, ok);
 //     EXPECT_FALSE(ok);
 //     auto field_err = err["errors"][0];
 //     EXPECT_EQ(field_err["path"], "endpoint");
