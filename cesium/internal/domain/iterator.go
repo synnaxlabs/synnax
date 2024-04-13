@@ -12,6 +12,7 @@ package domain
 import (
 	"context"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -24,6 +25,8 @@ type IteratorConfig struct {
 	Bounds telem.TimeRange
 }
 
+var iteratorClosedError = core.EntityClosed("domain.iterator")
+
 // IterRange generates an IteratorConfig that iterates over the provided time domain.
 func IterRange(tr telem.TimeRange) IteratorConfig { return IteratorConfig{Bounds: tr} }
 
@@ -34,7 +37,7 @@ func IterRange(tr telem.TimeRange) IteratorConfig { return IteratorConfig{Bounds
 // Iterator is not safe for concurrent use, but it is safe to have multiple iterators over
 // the same DB.
 //
-// It's important to not that an Iterator does NOT iterator over a snapshot of the DB,
+// It's important to note that an Iterator does NOT iterate over a snapshot of the DB,
 // and is not isolated from any writes that may be committed during the iterators lifetime.
 // This means that the position of an iterator may shift unexpectedly. There are plans
 // to implement MVCC in the future, but until then you have been warned.
@@ -52,25 +55,10 @@ type Iterator struct {
 	value pointer
 	// valid stores whether the iterator is currently valid.
 	valid bool
-	// locked stores whether the iterator is operating on a mutex lock
-	locked bool
-	// onClose stores a function that runs upon closing or unlocking the iterator, e.g. unlocking a Mutex
-	onUnlock func()
 	// readerFactory gets a new reader for the given domain pointer.
 	readerFactory func(ctx context.Context, ptr pointer) (*Reader, error)
-}
-
-// Lock sets an iterator to be locked, and takes in a function that gets executed directly, and another function to be stored in onClose
-func (i *Iterator) Lock(onLock func(), onUnlock func()) {
-	i.onUnlock = onUnlock
-	onLock()
-	i.locked = true
-}
-
-// Unlock sets an iterator to be unlocked, and runs the pre-set function to be run when unlocking
-func (i *Iterator) Unlock() {
-	i.onUnlock()
-	i.locked = false
+	// closed stores whether the iterator is still open
+	closed bool
 }
 
 // SetBounds sets the iterator's bounds. The iterator is invalidated, and will not be
@@ -93,7 +81,7 @@ func (i *Iterator) SeekLast(ctx context.Context) bool { return i.SeekLE(ctx, i.B
 // timestamp. If no such domain exists, SeekLE returns false.
 func (i *Iterator) SeekLE(ctx context.Context, stamp telem.TimeStamp) bool {
 	i.valid = true
-	i.position = i.idx.searchLE(ctx, stamp, !i.locked)
+	i.position = i.idx.searchLE(ctx, stamp)
 	return i.reload()
 }
 
@@ -102,7 +90,7 @@ func (i *Iterator) SeekLE(ctx context.Context, stamp telem.TimeStamp) bool {
 // provided timestamp. If no such domain exists, SeekGE returns false.
 func (i *Iterator) SeekGE(ctx context.Context, stamp telem.TimeStamp) bool {
 	i.valid = true
-	i.position = i.idx.searchGE(ctx, stamp, !i.locked)
+	i.position = i.idx.searchGE(ctx, stamp)
 	return i.reload()
 }
 
@@ -139,6 +127,9 @@ func (i *Iterator) TimeRange() telem.TimeRange { return i.value.TimeRange }
 // domain. The returned Reader is not safe for concurrent use, but it is safe to have
 // multiple Readers open over the same domain.
 func (i *Iterator) NewReader(ctx context.Context) (*Reader, error) {
+	if i.closed {
+		return nil, iteratorClosedError
+	}
 	return i.readerFactory(ctx, i.value)
 }
 
@@ -147,9 +138,11 @@ func (i *Iterator) Len() int64 { return int64(i.value.length) }
 
 // Close closes the iterator.
 func (i *Iterator) Close() error {
-	if i.locked {
-		i.onUnlock()
+	if i.closed {
+		return iteratorClosedError
 	}
+	i.closed = true
+	i.valid = false
 	return nil
 }
 
@@ -158,7 +151,7 @@ func (i *Iterator) reload() bool {
 		i.valid = false
 		return i.valid
 	}
-	ptr, ok := i.idx.get(i.position, !i.locked)
+	ptr, ok := i.idx.get(i.position)
 	if !ok || !ptr.OverlapsWith(i.Bounds) {
 		i.valid = false
 		// it's important that we return here, so we don't clear the current value

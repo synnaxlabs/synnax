@@ -10,6 +10,7 @@
 package controller_test
 
 import (
+	"github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/controller"
@@ -58,6 +59,45 @@ var _ = Describe("Control", func() {
 			Expect(t.To).ToNot(BeNil())
 			Expect(g).ToNot(BeNil())
 		})
+		It("Should return an error when the configuration is invalid", func() {
+			c := controller.New[testEntity](control.Exclusive)
+			_, _, err := c.OpenGateAndMaybeRegister(controller.GateConfig{
+				TimeRange: telem.TimeRangeZero,
+				Subject:   control.Subject{Key: "a"},
+			}, createEntityAndNoError)
+			Expect(err).To(MatchError(ContainSubstring("TimeRange must be non-zero")))
+		})
+		It("Should return an error when the configuration is invalid", func() {
+			c := controller.New[testEntity](control.Exclusive)
+			_, _, err := c.OpenGateAndMaybeRegister(controller.GateConfig{
+				TimeRange: telem.TimeRangeMax,
+				Subject:   control.Subject{Key: ""},
+			}, createEntityAndNoError)
+			Expect(err).To(MatchError(ContainSubstring("subject.key must be set")))
+		})
+		It("Should return an error when opening a gate of same name", func() {
+			c := controller.New[testEntity](control.Exclusive)
+			g, t := MustSucceed2(c.OpenGateAndMaybeRegister(controller.GateConfig{
+				Subject: control.Subject{
+					Key: "test",
+				},
+				TimeRange: telem.TimeRangeMax,
+				Authority: control.Absolute,
+			}, createEntityAndNoError))
+			Expect(t.Occurred()).To(BeTrue())
+			Expect(t.From).To(BeNil())
+			Expect(t.To).ToNot(BeNil())
+			Expect(g).ToNot(BeNil())
+
+			_, _, err := c.OpenGateAndMaybeRegister(controller.GateConfig{
+				Subject: control.Subject{
+					Key: "test",
+				},
+				TimeRange: telem.TimeRangeMax,
+				Authority: control.Absolute,
+			}, createEntityAndNoError)
+			Expect(err).To(MatchError(ContainSubstring("[controller] - gate with subject key test already exists")))
+		})
 	})
 
 	Describe("LeadingState", func() {
@@ -97,7 +137,19 @@ var _ = Describe("Control", func() {
 			}, createEntityAndNoError)
 			Expect(err).To(HaveOccurred())
 		})
-		It("Should return true if a new region was created", func() {
+		It("Should return an error if callback is invalid", func() {
+			c := controller.New[testEntity](control.Exclusive)
+			_, _, err := c.OpenGateAndMaybeRegister(controller.GateConfig{
+				Subject: control.Subject{
+					Key: "test",
+				},
+				TimeRange: telem.TimeRange{Start: 5, End: 15},
+			}, func() (testEntity, error) {
+				return testEntity{value: 11}, errors.New("haha error")
+			})
+			Expect(err).To(MatchError(Equal("haha error")))
+		})
+		It("Should work if a new region was created", func() {
 			c := controller.New[testEntity](control.Exclusive)
 			g, t := MustSucceed2(c.OpenGateAndMaybeRegister(controller.GateConfig{
 				Subject: control.Subject{
@@ -109,7 +161,7 @@ var _ = Describe("Control", func() {
 			Expect(t.Occurred()).To(BeTrue())
 			Expect(g).ToNot(BeNil())
 		})
-		It("Should return false if a new region was not created", func() {
+		It("Should work if a new region was not created", func() {
 			c := controller.New[testEntity](control.Exclusive)
 			Expect(c.Register(telem.TimeRangeMax, testEntity{value: 12})).To(Succeed())
 			g, t := MustSucceed2(c.OpenGateAndMaybeRegister(controller.GateConfig{

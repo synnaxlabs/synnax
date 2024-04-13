@@ -11,8 +11,8 @@ package unary
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/domain"
@@ -99,10 +99,10 @@ func (db *DB) OpenIterator(cfg IteratorConfig) *Iterator {
 	return i
 }
 
-// Overlaps check whether there is a timerange in the unary DB's underlying domain that
+// HasDataFor check whether there is a timerange in the unary DB's underlying domain that
 // overlaps with the given timerange. Note that this function will return false if there
 // is an open writer that could write into the requested timerange
-func (db *DB) Overlaps(ctx context.Context, tr telem.TimeRange) (bool, error) {
+func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) {
 	g, _, err := db.Controller.OpenAbsoluteGateIfUncontrolled(tr, control.Subject{Key: "Delete Writer"}, func() (controlledWriter, error) {
 		return controlledWriter{
 			Writer:     nil,
@@ -120,7 +120,7 @@ func (db *DB) Overlaps(ctx context.Context, tr telem.TimeRange) (bool, error) {
 		return true, nil
 	}
 
-	return db.Overlaps(ctx, tr)
+	return db.Domain.HasDataFor(ctx, tr)
 }
 
 // Read reads a timerange of data at the unary level.
@@ -141,7 +141,7 @@ func (db *DB) Read(ctx context.Context, tr telem.TimeRange) (frame core.Frame, e
 
 func (db *DB) TryClose() error {
 	if db.openIteratorWriters.Value() > 0 {
-		return errors.New(fmt.Sprintf("[cesium] - cannot delete channel because there are currently %d unclosed writers/iterators accessing it", db.openIteratorWriters.Value()))
+		return errors.Newf("[cesium] - cannot close channel because there are currently %d unclosed writers/iterators accessing it", db.openIteratorWriters.Value())
 	} else {
 		return db.Close()
 	}

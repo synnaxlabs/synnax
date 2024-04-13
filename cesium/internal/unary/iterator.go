@@ -31,9 +31,12 @@ type Iterator struct {
 	idx              index.Index
 	bounds           telem.TimeRange
 	err              error
+	closed           bool
 }
 
 const AutoSpan telem.TimeSpan = -1
+
+var iteratorClosedError = core.EntityClosed("unary.iterator")
 
 func (i *Iterator) SetBounds(tr telem.TimeRange) {
 	i.bounds = tr
@@ -47,29 +50,48 @@ func (i *Iterator) Value() core.Frame { return i.frame }
 func (i *Iterator) View() telem.TimeRange { return i.view }
 
 func (i *Iterator) SeekFirst(ctx context.Context) bool {
+	if i.closed {
+		i.err = iteratorClosedError
+		return false
+	}
 	ok := i.internal.SeekFirst(ctx)
-	//i.seekReset(i.internal.TimeRange().BoundBy(i.bounds).Start)
 	i.seekReset(i.internal.TimeRange().Start)
 	return ok
 }
 
 func (i *Iterator) SeekLast(ctx context.Context) bool {
+	if i.closed {
+		i.err = iteratorClosedError
+		return false
+	}
 	ok := i.internal.SeekLast(ctx)
 	i.seekReset(i.internal.TimeRange().End)
 	return ok
 }
 
 func (i *Iterator) SeekLE(ctx context.Context, ts telem.TimeStamp) bool {
+	if i.closed {
+		i.err = iteratorClosedError
+		return false
+	}
 	i.seekReset(ts)
 	return i.internal.SeekLE(ctx, ts)
 }
 
 func (i *Iterator) SeekGE(ctx context.Context, ts telem.TimeStamp) bool {
+	if i.closed {
+		i.err = iteratorClosedError
+		return false
+	}
 	i.seekReset(ts)
 	return i.internal.SeekGE(ctx, ts)
 }
 
 func (i *Iterator) Next(ctx context.Context, span telem.TimeSpan) (ok bool) {
+	if i.closed {
+		i.err = iteratorClosedError
+		return false
+	}
 	ctx, span_ := i.T.Bench(ctx, "Next")
 	defer func() {
 		ok = i.Valid()
@@ -150,6 +172,10 @@ func (i *Iterator) autoNext(ctx context.Context) bool {
 }
 
 func (i *Iterator) Prev(ctx context.Context, span telem.TimeSpan) (ok bool) {
+	if i.closed {
+		i.err = iteratorClosedError
+		return false
+	}
 	ctx, span_ := i.T.Bench(ctx, "Prev")
 	defer func() {
 		ok = i.Valid()
@@ -188,8 +214,12 @@ func (i *Iterator) Error() error { return i.err }
 
 func (i *Iterator) Valid() bool { return i.partiallySatisfied() && i.err == nil }
 
-func (i *Iterator) Close() error {
+func (i *Iterator) Close() (err error) {
+	if i.closed {
+		return iteratorClosedError
+	}
 	i.decrementCounter()
+	i.closed = true
 	return i.internal.Close()
 }
 
@@ -261,7 +291,7 @@ func (i *Iterator) sliceDomain(ctx context.Context) (telem.Offset, telem.Size, e
 func (i *Iterator) approximateStart(ctx context.Context) (startApprox index.DistanceApproximation, err error) {
 	if i.internal.TimeRange().Start.Before(i.view.Start) {
 		target := i.internal.TimeRange().Start.Range(i.view.Start)
-		startApprox, err = i.idx.Distance(ctx, target, true, true)
+		startApprox, err = i.idx.Distance(ctx, target, true)
 	}
 	return
 }
@@ -274,7 +304,7 @@ func (i *Iterator) approximateEnd(ctx context.Context) (endApprox index.Distance
 	endApprox = index.Exactly(i.Channel.DataType.Density().SampleCount(telem.Size(i.internal.Len())))
 	if i.internal.TimeRange().End.After(i.view.End) {
 		target := i.internal.TimeRange().Start.Range(i.view.End)
-		endApprox, err = i.idx.Distance(ctx, target, true, true)
+		endApprox, err = i.idx.Distance(ctx, target, true)
 	}
 	return
 }

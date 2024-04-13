@@ -37,6 +37,7 @@ var (
 	DefaultWriterConfig                             = WriterConfig{
 		Persist: config.True(),
 	}
+	writerClosedError = core.EntityClosed("unary.writer")
 )
 
 func (c WriterConfig) Validate() error {
@@ -71,8 +72,9 @@ type Writer struct {
 	// hwm is a hot-path optimization when writing to an index channel. We can avoid
 	// unnecessary index lookups by keeping track of the highest timestamp written.
 	// Only valid when Channel.IsIndex is true.
-	hwm telem.TimeStamp
-	pos int
+	hwm    telem.TimeStamp
+	pos    int
+	closed bool
 }
 
 func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (w *Writer, transfer controller.Transfer, err error) {
@@ -135,10 +137,13 @@ func (w *Writer) len(dw *domain.Writer) int64 {
 
 // Write validates and writes the given array.
 func (w *Writer) Write(series telem.Series) (a telem.Alignment, err error) {
+	if w.closed {
+		return 0, writerClosedError
+	}
 	if err := w.Channel.ValidateSeries(series); err != nil {
 		return 0, err
 	}
-	// ok signifies whether w is allowed to write
+	// ok signifies whether w is allowed to write.
 	dw, ok := w.control.Authorize()
 	if !ok {
 		return 0, controller.Unauthorized(w.control.Subject.Name, w.Channel.Key)
@@ -168,6 +173,9 @@ func (w *Writer) updateHwm(series telem.Series) {
 
 // Commit commits the written series to the database.
 func (w *Writer) Commit(ctx context.Context) (telem.TimeStamp, error) {
+	if w.closed {
+		return telem.TimeStampMax, writerClosedError
+	}
 	if w.Channel.IsIndex {
 		return w.commitWithEnd(ctx, w.hwm+1)
 	}
@@ -175,6 +183,9 @@ func (w *Writer) Commit(ctx context.Context) (telem.TimeStamp, error) {
 }
 
 func (w *Writer) CommitWithEnd(ctx context.Context, end telem.TimeStamp) (err error) {
+	if w.closed {
+		return core.EntityClosed(("unary.writer"))
+	}
 	_, err = w.commitWithEnd(ctx, end)
 	return err
 }
@@ -202,10 +213,16 @@ func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.
 }
 
 func (w *Writer) Close() (controller.Transfer, error) {
-	w.decrementCounter()
+	if w.closed {
+		return controller.Transfer{}, writerClosedError
+	}
+
+	w.closed = true
 	dw, t := w.control.Release()
+	w.decrementCounter()
 	if t.IsRelease() {
 		return t, dw.Close()
 	}
+
 	return t, nil
 }

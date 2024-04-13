@@ -31,13 +31,13 @@ type File interface {
 const defaultPerm = 0755
 
 type FS interface {
-	Open(path string, flag int) (File, error)
-	Sub(path string) (FS, error)
-	List(path string) ([]os.FileInfo, error)
-	Exists(path string) (bool, error)
-	Remove(path string) error
-	Rename(path string, newPath string) error
-	Stat(path string) (os.FileInfo, error)
+	Open(name string, flag int) (File, error)
+	Sub(name string) (FS, error)
+	List(name string) ([]os.FileInfo, error)
+	Exists(name string) (bool, error)
+	Remove(name string) error
+	Rename(name string, newPath string) error
+	Stat(name string) (os.FileInfo, error)
 }
 
 type subFS struct {
@@ -79,27 +79,27 @@ type defaultFS struct {
 
 var Default FS = &defaultFS{perm: defaultPerm}
 
-func (d *defaultFS) Open(path string, flag int) (File, error) {
-	return os.OpenFile(path, flag, d.perm)
+func (d *defaultFS) Open(name string, flag int) (File, error) {
+	return os.OpenFile(name, flag, d.perm)
 }
 
-func (d *defaultFS) Sub(path string) (FS, error) {
-	if err := os.MkdirAll(path, d.perm); err != nil {
+func (d *defaultFS) Sub(name string) (FS, error) {
+	if err := os.MkdirAll(name, d.perm); err != nil {
 		return nil, err
 	}
-	return &subFS{dir: path, FS: d}, nil
+	return &subFS{dir: name, FS: d}, nil
 }
 
-func (d *defaultFS) Exists(path string) (bool, error) {
-	_, err := os.Stat(path)
+func (d *defaultFS) Exists(name string) (bool, error) {
+	_, err := os.Stat(name)
 	if os.IsNotExist(err) {
 		return false, nil
 	}
 	return true, err
 }
 
-func (d *defaultFS) List(path string) ([]os.FileInfo, error) {
-	entries, err := os.ReadDir(path)
+func (d *defaultFS) List(name string) ([]os.FileInfo, error) {
+	entries, err := os.ReadDir(name)
 	if err != nil {
 		return nil, err
 	}
@@ -113,16 +113,16 @@ func (d *defaultFS) List(path string) ([]os.FileInfo, error) {
 	return infos, nil
 }
 
-func (d *defaultFS) Remove(path string) error {
-	return os.RemoveAll(path)
+func (d *defaultFS) Remove(name string) error {
+	return os.RemoveAll(name)
 }
 
-func (d *defaultFS) Rename(path string, newPath string) error {
-	return os.Rename(path, newPath)
+func (d *defaultFS) Rename(name string, newName string) error {
+	return os.Rename(name, newName)
 }
 
-func (d *defaultFS) Stat(path string) (os.FileInfo, error) {
-	return os.Stat(path)
+func (d *defaultFS) Stat(name string) (os.FileInfo, error) {
+	return os.Stat(name)
 }
 
 func NewMem() FS {
@@ -163,11 +163,11 @@ func (m *memFS) Open(name string, flag int) (File, error) {
 	}
 }
 
-func (m *memFS) Sub(path string) (FS, error) {
-	if err := m.FS.MkdirAll(goPath.Clean(path), m.perm); err != nil {
+func (m *memFS) Sub(name string) (FS, error) {
+	if err := m.FS.MkdirAll(goPath.Clean(name), m.perm); err != nil {
 		return nil, err
 	}
-	return &subFS{dir: path, FS: m}, nil
+	return &subFS{dir: name, FS: m}, nil
 }
 
 func (m *memFS) Exists(name string) (bool, error) {
@@ -181,14 +181,14 @@ func (m *memFS) Exists(name string) (bool, error) {
 	return false, err
 }
 
-func (m *memFS) List(path string) ([]os.FileInfo, error) {
-	entries, err := m.FS.List(path)
+func (m *memFS) List(name string) ([]os.FileInfo, error) {
+	entries, err := m.FS.List(name)
 	if err != nil {
 		return nil, err
 	}
 	infos := make([]os.FileInfo, len(entries))
 	for i, e := range entries {
-		infos[i], err = m.FS.Stat(goPath.Join(path, e))
+		infos[i], err = m.FS.Stat(goPath.Join(name, e))
 		if err != nil {
 			return nil, err
 		}
@@ -200,14 +200,14 @@ func (m *memFS) List(path string) ([]os.FileInfo, error) {
 	return infos, nil
 }
 
-func (m *memFS) Remove(path string) error {
-	return m.RemoveAll(path)
+func (m *memFS) Remove(name string) error {
+	return m.RemoveAll(name)
 }
 
-func (m *memFS) Rename(path string, newPath string) error {
-	return m.FS.Rename(path, newPath)
+func (m *memFS) Rename(name string, newName string) error {
+	return m.FS.Rename(name, newName)
 }
 
-func (m *memFS) Stat(path string) (os.FileInfo, error) {
-	return m.FS.Stat(path)
+func (m *memFS) Stat(name string) (os.FileInfo, error) {
+	return m.FS.Stat(name)
 }

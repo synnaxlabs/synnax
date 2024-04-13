@@ -38,7 +38,7 @@ type Index interface {
 	// timestamp less than or equal to the start timestamp). Naturally, a time range
 	// whose start timestamp and end timestamps are both known will have an equal lower
 	// and upper bound.
-	Distance(ctx context.Context, tr telem.TimeRange, continuous bool, withLock bool) (DistanceApproximation, error)
+	Distance(ctx context.Context, tr telem.TimeRange, continuous bool) (DistanceApproximation, error)
 	// Stamp calculates an approximate ending timestamp for a range given a known distance
 	// (the inverse of Distance). Stamp assumes the caller is aware of discontinuities
 	// in the underlying time series, and will calculate the ending timestamp even

@@ -11,6 +11,7 @@ package cesium
 
 import (
 	"sync"
+	"time"
 
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/confluence"
@@ -23,7 +24,7 @@ type relay struct {
 }
 
 func newRelay(sCtx signal.Context) *relay {
-	delta := confluence.NewDynamicDeltaMultiplier[Frame]()
+	delta := confluence.NewDynamicDeltaMultiplier[Frame](20 * time.Millisecond)
 	frames := confluence.NewStream[Frame](10)
 	delta.InFrom(frames)
 	delta.Flow(sCtx)

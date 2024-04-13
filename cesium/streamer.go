@@ -50,13 +50,13 @@ type StreamerResponse struct {
 // Issuing a new StreamerRequest updates the set of channels the stream reader
 // subscribes to.
 //
-// To stop receiving values, simply close the inlet of the reader. The reader will then
+// To stop receiving values, simply close the inlet of the streamer. The streamer will then
 // gracefully exit and close its output channel.
 type Streamer = confluence.Segment[StreamerRequest, StreamerResponse]
 
 // NewStreamer opens a new Streamer using the given configuration. To start
 // receiving frames, call Streamer.Flow. The provided context is only used for
-// opening the reader, and cancelling it has no implications after NewStreamer
+// opening the streamer, and cancelling it has no implications after NewStreamer
 // returns.
 func (db *DB) NewStreamer(ctx context.Context, cfg StreamerConfig) (Streamer, error) {
 	return &streamer{

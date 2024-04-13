@@ -13,6 +13,7 @@ import (
 	"context"
 	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/cesium/internal/controller"
+	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
@@ -25,11 +26,8 @@ type ControlUpdate struct {
 }
 
 func (db *DB) ConfigureControlUpdateChannel(ctx context.Context, key ChannelKey) error {
-	if key == 0 {
-		return errors.New("[cesium] - update channel key cannot be 0")
-	}
 	ch, err := db.RetrieveChannel(ctx, key)
-	if errors.Is(err, ChannelNotFound) {
+	if errors.Is(err, core.ChannelNotFound) {
 		ch.Key = key
 		ch.DataType = telem.StringT
 		ch.Virtual = true
