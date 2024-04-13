@@ -175,12 +175,9 @@ class ChannelClient:
         self._retriever = retriever
         self._creator = creator
 
-    def delete(self, channel: ChannelParams) -> None:
+    def delete(self, channels: ChannelParams) -> None:
         """Deletes on or more channels from the cluster"""
-        normal = normalize_channel_params(channel)
-        if normal.variant == "keys":
-            return self._creator.delete(keys=normal.params)
-        self._creator.delete(names=normal.params)
+        self._creator.delete(channels)
 
     @overload
     def create(

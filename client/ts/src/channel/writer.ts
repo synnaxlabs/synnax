@@ -13,7 +13,6 @@ import { z } from "zod";
 import {
   type Payload,
   payload,
-  parseChannels,
   newPayload,
   type NewPayload,
   keyZ,
@@ -41,14 +40,15 @@ export class Writer {
   }
 
   async create(channels: NewPayload[]): Promise<Payload[]> {
-    const req = { channels: parseChannels(channels) };
-    const res = await sendRequired<typeof createReqZ, typeof createResZ>(
-      this.client,
-      CREATE_ENDPOINT,
-      req,
-      createResZ,
-    );
-    return res.channels;
+    return (
+      await sendRequired<typeof createReqZ, typeof createResZ>(
+        this.client,
+        CREATE_ENDPOINT,
+        { channels },
+        createReqZ,
+        createResZ,
+      )
+    ).channels;
   }
 
   async delete(props: DeleteProps): Promise<void> {
@@ -56,6 +56,7 @@ export class Writer {
       this.client,
       DELETE_ENDPOINT,
       props,
+      deleteReqZ,
       deleteResZ,
     );
   }
