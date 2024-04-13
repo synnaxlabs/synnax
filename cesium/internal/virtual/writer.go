@@ -21,7 +21,7 @@ import (
 var WriterClosedError = core.EntityClosed("virtual.writer")
 
 func (db *DB) OpenWriter(_ context.Context, cfg WriterConfig) (w *Writer, transfer controller.Transfer, err error) {
-	w = &Writer{WriterConfig: cfg, Channel: db.Channel, decrementCounter: func() { db.mu.Add(-1) }}
+	w = &Writer{WriterConfig: cfg, Channel: db.Channel, onClose: func() { db.mu.Add(-1) }}
 	gateCfg := controller.GateConfig{
 		TimeRange: cfg.domain(),
 		Authority: cfg.Authority,
@@ -52,10 +52,10 @@ func (cfg WriterConfig) domain() telem.TimeRange {
 }
 
 type Writer struct {
-	Channel          core.Channel
-	decrementCounter func()
-	control          *controller.Gate[*controlEntity]
-	closed           bool
+	Channel core.Channel
+	onClose func()
+	control *controller.Gate[*controlEntity]
+	closed  bool
 	WriterConfig
 }
 
@@ -87,6 +87,6 @@ func (w *Writer) Close() (controller.Transfer, error) {
 	}
 	w.closed = true
 	_, t := w.control.Release()
-	w.decrementCounter()
+	w.onClose()
 	return t, nil
 }

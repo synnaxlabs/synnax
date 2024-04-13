@@ -23,15 +23,15 @@ import (
 type Iterator struct {
 	alamos.Instrumentation
 	IteratorConfig
-	Channel          core.Channel
-	decrementCounter func()
-	internal         *domain.Iterator
-	view             telem.TimeRange
-	frame            core.Frame
-	idx              index.Index
-	bounds           telem.TimeRange
-	err              error
-	closed           bool
+	Channel  core.Channel
+	onClose  func()
+	internal *domain.Iterator
+	view     telem.TimeRange
+	frame    core.Frame
+	idx      index.Index
+	bounds   telem.TimeRange
+	err      error
+	closed   bool
 }
 
 const AutoSpan telem.TimeSpan = -1
@@ -218,7 +218,7 @@ func (i *Iterator) Close() (err error) {
 	if i.closed {
 		return nil
 	}
-	i.decrementCounter()
+	i.onClose()
 	i.closed = true
 	return i.internal.Close()
 }
