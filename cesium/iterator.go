@@ -100,7 +100,7 @@ func (i *Iterator) Value() Frame { return i.frame }
 // Close implements Iterator.
 func (i *Iterator) Close() error {
 	if i.closed {
-		return IteratorClosedError
+		return nil
 	}
 	i.closed = true
 	i.inlet.Close()
@@ -116,7 +116,7 @@ func (i *Iterator) exec(req IteratorRequest) bool {
 
 func (i *Iterator) execErr(req IteratorRequest) (bool, error) {
 	if i.closed {
-		return false, nil
+		return false, IteratorClosedError
 	}
 	i.frame = Frame{}
 	i.inlet.Inlet() <- req
