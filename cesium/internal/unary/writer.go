@@ -82,7 +82,7 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (w *Writer, 
 	if err != nil {
 		return nil, transfer, err
 	}
-	w = &Writer{WriterConfig: cfg, Channel: db.Channel, idx: db.index(), decrementCounter: func() { db.openIteratorWriters.Add(-1) }}
+	w = &Writer{WriterConfig: cfg, Channel: db.Channel, idx: db.index(), decrementCounter: func() { db.mu.Add(-1) }}
 	gateCfg := controller.GateConfig{
 		TimeRange: cfg.controlTimeRange(),
 		Authority: cfg.Authority,
@@ -102,7 +102,7 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (w *Writer, 
 	}
 
 	w.control = g
-	db.openIteratorWriters.Add(1)
+	db.mu.Add(1)
 	return w, transfer, err
 }
 

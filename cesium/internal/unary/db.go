@@ -17,10 +17,10 @@ import (
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
-	"github.com/synnaxlabs/x/atomic"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
+	"sync"
 )
 
 type controlledWriter struct {
@@ -30,12 +30,23 @@ type controlledWriter struct {
 
 func (w controlledWriter) ChannelKey() core.ChannelKey { return w.channelKey }
 
+type openEntityCount struct {
+	sync.RWMutex
+	openIteratorWriters int
+}
+
+func (c *openEntityCount) Add(delta int) {
+	c.Lock()
+	c.openIteratorWriters += delta
+	c.Unlock()
+}
+
 type DB struct {
 	Config
-	Domain              *domain.DB
-	Controller          *controller.Controller[controlledWriter]
-	_idx                index.Index
-	openIteratorWriters *atomic.Int32Counter
+	Domain     *domain.DB
+	Controller *controller.Controller[controlledWriter]
+	_idx       index.Index
+	mu         *openEntityCount
 }
 
 func (db *DB) Index() index.Index {
@@ -88,14 +99,17 @@ func (db *DB) OpenIterator(cfg IteratorConfig) *Iterator {
 	cfg = DefaultIteratorConfig.Override(cfg)
 	iter := db.Domain.NewIterator(cfg.ranger())
 	i := &Iterator{
-		idx:              db.index(),
-		Channel:          db.Channel,
-		internal:         iter,
-		IteratorConfig:   cfg,
-		decrementCounter: func() { db.openIteratorWriters.Add(-1) },
+		idx:            db.index(),
+		Channel:        db.Channel,
+		internal:       iter,
+		IteratorConfig: cfg,
+		decrementCounter: func() {
+			db.mu.Add(-1)
+		},
 	}
 	i.SetBounds(cfg.Bounds)
-	db.openIteratorWriters.Add(1)
+
+	db.mu.Add(1)
 	return i
 }
 
@@ -140,8 +154,10 @@ func (db *DB) Read(ctx context.Context, tr telem.TimeRange) (frame core.Frame, e
 }
 
 func (db *DB) TryClose() error {
-	if db.openIteratorWriters.Value() > 0 {
-		return errors.Newf("[cesium] - cannot close channel because there are currently %d unclosed writers/iterators accessing it", db.openIteratorWriters.Value())
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+	if db.mu.openIteratorWriters > 0 {
+		return errors.Newf("[cesium] - cannot close channel because there are currently %d unclosed writers/iterators accessing it", db.mu.openIteratorWriters)
 	} else {
 		return db.Close()
 	}
