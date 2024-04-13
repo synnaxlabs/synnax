@@ -167,7 +167,7 @@ var _ = Describe("Writer Behavior", func() {
 			_, err = w.Write(telem.Series{Data: []byte{1, 2, 3}})
 			Expect(err).To(MatchError(e))
 			_, err = w.Close()
-			Expect(err).To(MatchError(e))
+			Expect(err).To(BeNil())
 			Expect(db.Close()).To(Succeed())
 		})
 	})

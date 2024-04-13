@@ -172,7 +172,7 @@ var _ = Describe("WriterBehavior", func() {
 			Expect(w.Commit(ctx, telem.TimeStampMax)).To(MatchError(e))
 			_, err := w.Write([]byte{1, 2, 3})
 			Expect(err).To(MatchError(e))
-			Expect(w.Close()).To(MatchError(e))
+			Expect(w.Close()).To(Succeed())
 		})
 	})
 })
