@@ -103,7 +103,7 @@ func (db *DB) OpenIterator(cfg IteratorConfig) *Iterator {
 		Channel:        db.Channel,
 		internal:       iter,
 		IteratorConfig: cfg,
-		decrementCounter: func() {
+		onClose: func() {
 			db.mu.Add(-1)
 		},
 	}
