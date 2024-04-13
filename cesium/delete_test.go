@@ -12,6 +12,7 @@ package cesium_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/confluence"
@@ -59,6 +60,16 @@ var _ = Describe("Delete Channel", Ordered, func() {
 				i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{Bounds: telem.TimeRangeMax, Channels: []cesium.ChannelKey{uChannel}}))
 				Expect(db.DeleteChannel(uChannel)).To(MatchError(ContainSubstring("currently 1 unclosed writers/iterators")))
 				Expect(i.Close()).To(Succeed())
+				Expect(db.DeleteChannel(uChannel)).To(Succeed())
+			})
+
+			Specify("Unary Channel double reader", func() {
+				Expect(db.CreateChannel(ctx, udb)).To(Succeed())
+				i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{Bounds: telem.TimeRangeMax, Channels: []cesium.ChannelKey{uChannel}}))
+				i2 := MustSucceed(db.OpenIterator(cesium.IteratorConfig{Bounds: telem.TimeRangeMax, Channels: []cesium.ChannelKey{uChannel}}))
+				Expect(db.DeleteChannel(uChannel)).To(MatchError(ContainSubstring("currently 2 unclosed writers/iterators")))
+				Expect(i.Close()).To(Succeed())
+				Expect(i2.Close()).To(Succeed())
 				Expect(db.DeleteChannel(uChannel)).To(Succeed())
 			})
 		})
@@ -144,16 +155,20 @@ var _ = Describe("Delete Channel", Ordered, func() {
 
 				Specify("Unary", func() {
 					Expect(db.CreateChannel(ctx, udb)).To(Succeed())
-					it := MustSucceed(db.NewStreamWriter(ctx, cesium.WriterConfig{Start: 10 * telem.SecondTS, Channels: []cesium.ChannelKey{uChannel}}))
+					it1 := MustSucceed(db.NewStreamWriter(ctx, cesium.WriterConfig{Start: 10 * telem.SecondTS, Channels: []cesium.ChannelKey{uChannel}}))
+					it2 := MustSucceed(db.NewStreamWriter(ctx, cesium.WriterConfig{Start: 10 * telem.SecondTS, Channels: []cesium.ChannelKey{uChannel}}))
 
 					err := db.DeleteChannel(uChannel)
-					Expect(err).To(MatchError(ContainSubstring("1 unclosed writers/iterators")))
+					Expect(err).To(MatchError(ContainSubstring("2 unclosed writers/iterators")))
 
 					sCtx, cancel := signal.Isolated()
-					i, _ := confluence.Attach(it, 1)
-					it.Flow(sCtx)
+					i1, _ := confluence.Attach(it1, 1)
+					i2, _ := confluence.Attach(it2, 1)
+					it1.Flow(sCtx)
+					it2.Flow(sCtx)
 
-					i.Close()
+					i1.Close()
+					i2.Close()
 					Expect(sCtx.Wait()).To(Succeed())
 					cancel()
 
@@ -274,6 +289,100 @@ var _ = Describe("Delete Channel", Ordered, func() {
 			Expect(fs.Exists(strconv.Itoa(int(key)))).To(BeFalse())
 			_, err := fsDB.RetrieveChannel(ctx, key)
 			Expect(err).To(MatchError(core.ChannelNotFound))
+		})
+	})
+})
+
+var _ = Describe("Delete Channels", Ordered, func() {
+	var (
+		db       *cesium.DB
+		fs                         = MustSucceed(xfs.Default.Sub("./testdata2"))
+		index1   cesium.ChannelKey = 1
+		data1    cesium.ChannelKey = 2
+		index2   cesium.ChannelKey = 3
+		data2    cesium.ChannelKey = 4
+		data3    cesium.ChannelKey = 5
+		rate     cesium.ChannelKey = 6
+		index3   cesium.ChannelKey = 7
+		channels                   = []cesium.Channel{{Key: index1, IsIndex: true, DataType: telem.TimeStampT, Index: index1},
+			{Key: data1, DataType: telem.Int64T, Index: index1},
+			{Key: index2, IsIndex: true, DataType: telem.TimeStampT, Index: index2},
+			{Key: data2, DataType: telem.Int64T, Index: index2},
+			{Key: data3, DataType: telem.Int64T, Index: index2},
+			{Key: rate, DataType: telem.Int64T, Rate: 2 * telem.Hz},
+			{Key: index3, IsIndex: true, Index: index3, DataType: telem.TimeStampT},
+		}
+	)
+	BeforeAll(func() {
+		db = MustSucceed(cesium.Open("", cesium.WithFS(fs)))
+	})
+
+	AfterAll(func() {
+		Expect(db.Close()).To(Succeed())
+	})
+	BeforeEach(func() { Expect(db.CreateChannel(ctx, channels...)).To(Succeed()) })
+	AfterEach(func() {
+		Expect(db.DeleteChannels(lo.Map(channels, func(c cesium.Channel, _ int) core.ChannelKey { return c.Key })...)).To(Succeed())
+		Expect(xfs.Default.Remove("./testdata2"))
+	})
+	Describe("Happy paths", func() {
+		It("Should be idempotent", func() {
+			Expect(db.DeleteChannels(index1, data1)).To(Succeed())
+			Expect(db.DeleteChannels(index1, data1)).To(Succeed())
+			Expect(db.DeleteChannels(index1, data1)).To(Succeed())
+		})
+		DescribeTable("Deleting permutations of channels", func(chs ...core.ChannelKey) {
+			Expect(db.DeleteChannels(chs...)).To(Succeed())
+			for _, c := range chs {
+				_, err := db.RetrieveChannel(ctx, c)
+				Expect(err).To(MatchError(core.ChannelNotFound))
+				Expect(fs.Exists(strconv.Itoa(int(c)))).To(BeFalse())
+			}
+		},
+			Entry("1 index 1 data", index1, data1),
+			Entry("1 data", data1),
+			Entry("2 data", data1, data2),
+			Entry("1 index, 2 data", index2, data2, data3),
+			Entry("rate", rate),
+			Entry("data and rate", data1, data2, data3, rate),
+			Entry("rate and index", rate, index3),
+			Entry("data and unrelated index", data1, data2, index3),
+			Entry("all", data1, data2, data3, index1, index2, index3, rate),
+		)
+	})
+	Describe("Interrupted deletion", func() {
+		It("Should delete all channels before encountering an error", func() {
+			w1 := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Start: 10 * telem.SecondTS, Channels: []core.ChannelKey{data2, data3}}))
+			w2 := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Start: 10 * telem.SecondTS, Channels: []core.ChannelKey{data2}}))
+			Expect(db.DeleteChannels(rate, data1, data2)).To(MatchError(ContainSubstring("2 unclosed writer")))
+			Expect(w1.Close()).To(Succeed())
+			Expect(fs.Exists(strconv.Itoa(int(rate)))).To(BeFalse())
+			Expect(fs.Exists(strconv.Itoa(int(data1)))).To(BeFalse())
+			Expect(fs.Exists(strconv.Itoa(int(data2)))).To(BeTrue())
+			_, err := db.RetrieveChannel(ctx, rate)
+			Expect(err).To(MatchError(core.ChannelNotFound))
+			_, err = db.RetrieveChannel(ctx, data1)
+			Expect(err).To(MatchError(core.ChannelNotFound))
+			_, err = db.RetrieveChannel(ctx, data2)
+			Expect(err).To(BeNil())
+			Expect(db.DeleteChannels(rate, data1, data3)).To(Succeed())
+			Expect(w2.Close()).To(Succeed())
+		})
+		It("Should delete all channels, but not index channels, before encountering an error", func() {
+			i1 := MustSucceed(db.OpenIterator(cesium.IteratorConfig{Bounds: telem.TimeRangeMax, Channels: []core.ChannelKey{rate, data3}}))
+			i2 := MustSucceed(db.OpenIterator(cesium.IteratorConfig{Bounds: telem.TimeRangeMax, Channels: []core.ChannelKey{data3}}))
+			Expect(db.DeleteChannels(index1, index2, data1, data2, data3)).To(MatchError(ContainSubstring("2 unclosed writer")))
+			Expect(i1.Close()).To(Succeed())
+			Expect(i2.Close()).To(Succeed())
+			Expect(fs.Exists(strconv.Itoa(int(data2)))).To(BeFalse())
+			_, err := db.RetrieveChannel(ctx, data2)
+			Expect(err).To(MatchError(core.ChannelNotFound))
+			Expect(fs.Exists(strconv.Itoa(int(index1)))).To(BeTrue())
+			Expect(fs.Exists(strconv.Itoa(int(index2)))).To(BeTrue())
+			_, err = db.RetrieveChannel(ctx, index1)
+			Expect(err).To(BeNil())
+			_, err = db.RetrieveChannel(ctx, index2)
+			Expect(err).To(BeNil())
 		})
 	})
 })
