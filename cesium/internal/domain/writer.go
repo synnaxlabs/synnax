@@ -14,6 +14,7 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/cesium/internal/core"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -32,6 +33,8 @@ type WriterConfig struct {
 	// [OPTIONAL]
 	End telem.TimeStamp
 }
+
+var WriterClosedError = core.EntityClosed("domain.writer")
 
 // Domain returns the Domain occupied by the theoretical domain formed by the configuration.
 // If End is not set, assumes the Domain has a zero span starting at Start.
@@ -82,6 +85,7 @@ type Writer struct {
 	fileKey    uint16
 	internal   xio.TrackedWriteCloser
 	presetEnd  bool
+	closed     bool
 }
 
 // NewWriter opens a new Writer using the given configuration.
@@ -105,8 +109,7 @@ func (db *DB) NewWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) 
 	// If we don't have a preset end, we defer to using the start of the next domain
 	// as the end of the new domain.
 	if !w.presetEnd {
-		i := w.idx.searchGE(ctx, cfg.Start)
-		ptr, ok := w.idx.get(i)
+		ptr, ok := w.idx.getGE(ctx, cfg.Start)
 		if !ok {
 			w.End = telem.TimeStampMax
 		} else {
@@ -122,7 +125,12 @@ func (w *Writer) Len() int64 { return w.internal.Len() }
 // Writer writes binary telemetry to the domain. Write is not safe to call concurrently
 // with any other Writer methods. The contents of p are safe to modify after Write
 // returns.
-func (w *Writer) Write(p []byte) (n int, err error) { return w.internal.Write(p) }
+func (w *Writer) Write(p []byte) (n int, err error) {
+	if w.closed {
+		return 0, WriterClosedError
+	}
+	return w.internal.Write(p)
+}
 
 // Commit commits the domain to the DB, making it available for reading by other processes.
 // If the WriterConfig.End parameter was set, Commit will ignore the provided timestamp
@@ -134,6 +142,9 @@ func (w *Writer) Write(p []byte) (n int, err error) { return w.internal.Write(p)
 // return an error.
 func (w *Writer) Commit(ctx context.Context, end telem.TimeStamp) error {
 	ctx, span := w.T.Prod(ctx, "commit")
+	if w.closed {
+		return span.EndWith(WriterClosedError)
+	}
 	if w.presetEnd {
 		end = w.End
 	}
@@ -158,7 +169,13 @@ func (w *Writer) Commit(ctx context.Context, end telem.TimeStamp) error {
 // Close closes the writer, releasing any resources it may have been holding. Any
 // uncommitted data will be discarded. Close is not idempotent, and is also not
 // safe to call concurrently with any other writer methods.
-func (w *Writer) Close() error { return w.internal.Close() }
+func (w *Writer) Close() error {
+	if w.closed {
+		return nil
+	}
+	w.closed = true
+	return w.internal.Close()
+}
 
 func (w *Writer) validateCommitRange(end telem.TimeStamp) error {
 	if !w.prevCommit.IsZero() && end.Before(w.prevCommit) {

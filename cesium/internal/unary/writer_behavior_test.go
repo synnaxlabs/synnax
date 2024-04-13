@@ -142,4 +142,33 @@ var _ = Describe("Writer Behavior", func() {
 			})
 		})
 	})
+
+	Describe("Close", func() {
+		var db = MustSucceed(unary.Open(unary.Config{
+			FS: fs.NewMem(),
+			Channel: core.Channel{
+				Key:      100,
+				DataType: telem.TimeStampT,
+			},
+		}))
+		It("Should not allow operations on a closed writer", func() {
+			var (
+				w, t = MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
+					Start:   10 * telem.SecondTS,
+					Subject: control.Subject{Key: "foo"}},
+				))
+				e = core.EntityClosed("unary.writer")
+			)
+			Expect(t.Occurred()).To(BeTrue())
+			_, err := w.Close()
+			Expect(err).ToNot(HaveOccurred())
+			_, err = w.Commit(ctx)
+			Expect(err).To(MatchError(e))
+			_, err = w.Write(telem.Series{Data: []byte{1, 2, 3}})
+			Expect(err).To(MatchError(e))
+			_, err = w.Close()
+			Expect(err).To(BeNil())
+			Expect(db.Close()).To(Succeed())
+		})
+	})
 })

@@ -94,10 +94,8 @@ var _ = Describe("Iterator Behavior", func() {
 					Expect(iter.SeekFirst(ctx)).To(BeTrue())
 					Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
 					Expect(iter.Len()).To(Equal(int64(2)))
-					Expect(iter.Close()).To(Succeed())
 					Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
 					Expect(iter.Len()).To(Equal(int64(2)))
-					Expect(iter.Close()).To(Succeed())
 					Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
 					Expect(iter.Len()).To(Equal(int64(2)))
 					Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
@@ -184,5 +182,27 @@ var _ = Describe("Iterator Behavior", func() {
 
 			})
 		})
+	})
+	Describe("Close", func() {
+		var db = MustSucceed(unary.Open(unary.Config{
+			FS: fs.NewMem(),
+			Channel: core.Channel{
+				Key:      2,
+				DataType: telem.TimeStampT,
+				IsIndex:  true,
+			},
+		}))
+		It("Should not allow operations on a closed iterator", func() {
+			var (
+				i = db.OpenIterator(unary.IteratorConfig{Bounds: telem.TimeRangeMax})
+				e = core.EntityClosed("unary.iterator")
+			)
+			Expect(i.Close()).To(Succeed())
+			Expect(i.SeekFirst(ctx)).To(BeFalse())
+			Expect(i.Error()).To(MatchError(e))
+			Expect(i.Valid()).To(BeFalse())
+			Expect(i.Close()).To(Succeed())
+		})
+		Expect(db.Close()).To(Succeed())
 	})
 })

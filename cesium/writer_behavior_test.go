@@ -13,6 +13,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -52,6 +54,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				end, ok := w.Commit()
 				Expect(ok).To(BeTrue())
 				Expect(w.Close()).To(Succeed())
+
 				Expect(end).To(Equal(13*telem.SecondTS + 1))
 
 				By("Reading the data back")
@@ -157,7 +160,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					Channels: []cesium.ChannelKey{55000},
 					Start:    10 * telem.SecondTS,
 				})
-			Expect(err).To(MatchError(cesium.ChannelNotFound))
+			Expect(err).To(MatchError(core.ChannelNotFound))
 		})
 	})
 	Describe("Frame Errors", Ordered, func() {
@@ -286,7 +289,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				_, ok = w.Commit()
 				Expect(ok).To(BeFalse())
 				err := w.Close()
-				Expect(err).To(MatchError(cesium.ErrDiscontinuous))
+				Expect(err).To(MatchError(index.ErrDiscontinuous))
 			})
 			Specify("Index not defined at all", func() {
 				Expect(db.CreateChannel(
@@ -309,7 +312,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				Expect(ok).To(BeTrue())
 				_, ok = w.Commit()
 				Expect(ok).To(BeFalse())
-				Expect(w.Close()).To(MatchError(cesium.ErrDiscontinuous))
+				Expect(w.Close()).To(MatchError(index.ErrDiscontinuous))
 			})
 		})
 	})
@@ -347,6 +350,44 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 			err := w.Close()
 			Expect(err).To(MatchError(validate.Error))
 			Expect(err.Error()).To(ContainSubstring("expected int64, got float64"))
+		})
+	})
+
+	Describe("Virtual Channels", func() {
+		It("Should write to virtual channel", func() {
+			var virtual1 cesium.ChannelKey = 101
+			By("Creating a channel")
+			Expect(db.CreateChannel(
+				ctx,
+				cesium.Channel{Key: virtual1, DataType: telem.Int64T, Virtual: true},
+			)).To(Succeed())
+			w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+				Channels: []cesium.ChannelKey{virtual1},
+				Start:    10 * telem.SecondTS,
+			}))
+
+			Expect(w.Write(cesium.NewFrame(
+				[]cesium.ChannelKey{virtual1},
+				[]telem.Series{telem.NewSeriesV[int64](1, 2, 3)},
+			))).To(BeTrue())
+
+			Expect(w.Close()).To(Succeed())
+		})
+	})
+
+	Describe("Close", func() {
+		It("Should not allow operations on a closed iterator", func() {
+			Expect(db.CreateChannel(ctx, cesium.Channel{Key: 100, DataType: telem.Int64T, Rate: 1 * telem.Hz})).To(Succeed())
+			var (
+				i = MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Channels: []core.ChannelKey{100}, Start: 10 * telem.SecondTS}))
+				e = core.EntityClosed("cesium.writer")
+			)
+			Expect(i.Close()).To(Succeed())
+			Expect(i.Close()).To(Succeed())
+			Expect(i.Write(cesium.Frame{Series: []telem.Series{{Data: []byte{1, 2, 3}}}})).To(BeFalse())
+			_, ok := i.Commit()
+			Expect(ok).To(BeFalse())
+			Expect(i.Error()).To(MatchError(e))
 		})
 	})
 })

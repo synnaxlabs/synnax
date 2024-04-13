@@ -13,6 +13,7 @@ import (
 	"context"
 	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
@@ -53,7 +54,7 @@ func (db *DB) RetrieveChannel(_ context.Context, key ChannelKey) (Channel, error
 	if vOk {
 		return vCh.Channel, nil
 	}
-	return Channel{}, ChannelNotFound
+	return Channel{}, core.ChannelNotFound
 }
 
 func (db *DB) createChannel(ch Channel) (err error) {

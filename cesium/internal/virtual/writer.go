@@ -18,27 +18,25 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
+var WriterClosedError = core.EntityClosed("virtual.writer")
+
 func (db *DB) OpenWriter(_ context.Context, cfg WriterConfig) (w *Writer, transfer controller.Transfer, err error) {
-	w = &Writer{WriterConfig: cfg, Channel: db.Channel}
+	w = &Writer{WriterConfig: cfg, Channel: db.Channel, onClose: func() { db.mu.Add(-1) }}
 	gateCfg := controller.GateConfig{
 		TimeRange: cfg.domain(),
 		Authority: cfg.Authority,
 		Subject:   cfg.Subject,
 	}
-	var (
-		g  *controller.Gate[*controlEntity]
-		ok bool
-	)
-	g, transfer, ok, err = db.controller.OpenGate(gateCfg)
-	if err != nil {
-		return w, transfer, err
-	}
-	if !ok {
-		gateCfg.TimeRange = cfg.domain()
+	var g *controller.Gate[*controlEntity]
+	g, transfer, err = db.controller.OpenGateAndMaybeRegister(gateCfg, func() (*controlEntity, error) {
 		a := telem.Alignment(0)
-		g, transfer, err = db.controller.RegisterAndOpenGate(gateCfg, &controlEntity{ck: db.Channel.Key, align: a})
-	}
+		return &controlEntity{
+			ck:    db.Channel.Key,
+			align: a,
+		}, nil
+	})
 	w.control = g
+	db.mu.Add(1)
 	return w, transfer, err
 }
 
@@ -55,11 +53,16 @@ func (cfg WriterConfig) domain() telem.TimeRange {
 
 type Writer struct {
 	Channel core.Channel
+	onClose func()
 	control *controller.Gate[*controlEntity]
+	closed  bool
 	WriterConfig
 }
 
 func (w *Writer) Write(series telem.Series) (telem.Alignment, error) {
+	if w.closed {
+		return 0, WriterClosedError
+	}
 	if err := w.Channel.ValidateSeries(series); err != nil {
 		return 0, err
 	}
@@ -79,6 +82,11 @@ func (w *Writer) SetAuthority(a control.Authority) controller.Transfer {
 }
 
 func (w *Writer) Close() (controller.Transfer, error) {
+	if w.closed {
+		return controller.Transfer{}, nil
+	}
+	w.closed = true
 	_, t := w.control.Release()
+	w.onClose()
 	return t, nil
 }

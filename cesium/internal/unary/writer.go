@@ -37,6 +37,7 @@ var (
 	DefaultWriterConfig                             = WriterConfig{
 		Persist: config.True(),
 	}
+	WriterClosedError = core.EntityClosed("unary.writer")
 )
 
 func (c WriterConfig) Validate() error {
@@ -57,19 +58,23 @@ func (c WriterConfig) domain() domain.WriterConfig {
 }
 
 func (c WriterConfig) controlTimeRange() telem.TimeRange {
+	// The automatic controlTimeRange is until the end of time, but we are not sure if
+	// we should use this or the start of next domain.
 	return c.Start.Range(lo.Ternary(c.End.IsZero(), telem.TimeStampMax, c.End))
 }
 
 type Writer struct {
 	WriterConfig
-	Channel core.Channel
-	control *controller.Gate[controlledWriter]
-	idx     index.Index
+	Channel          core.Channel
+	decrementCounter func()
+	control          *controller.Gate[controlledWriter]
+	idx              index.Index
 	// hwm is a hot-path optimization when writing to an index channel. We can avoid
 	// unnecessary index lookups by keeping track of the highest timestamp written.
 	// Only valid when Channel.IsIndex is true.
-	hwm telem.TimeStamp
-	pos int
+	hwm    telem.TimeStamp
+	pos    int
+	closed bool
 }
 
 func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (w *Writer, transfer controller.Transfer, err error) {
@@ -77,32 +82,27 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (w *Writer, 
 	if err != nil {
 		return nil, transfer, err
 	}
-	w = &Writer{WriterConfig: cfg, Channel: db.Channel, idx: db.index()}
+	w = &Writer{WriterConfig: cfg, Channel: db.Channel, idx: db.index(), decrementCounter: func() { db.mu.Add(-1) }}
 	gateCfg := controller.GateConfig{
 		TimeRange: cfg.controlTimeRange(),
 		Authority: cfg.Authority,
 		Subject:   cfg.Subject,
 	}
-	var (
-		g  *controller.Gate[controlledWriter]
-		ok bool
-	)
-	g, transfer, ok, err = db.Controller.OpenGate(gateCfg)
+	var g *controller.Gate[controlledWriter]
+	g, transfer, err = db.Controller.OpenGateAndMaybeRegister(gateCfg, func() (controlledWriter, error) {
+		dw, err := db.Domain.NewWriter(ctx, cfg.domain())
+
+		return controlledWriter{
+			Writer:     dw,
+			channelKey: db.Channel.Key,
+		}, err
+	})
 	if err != nil {
 		return nil, transfer, err
 	}
-	if !ok {
-		dw, err := db.Domain.NewWriter(ctx, cfg.domain())
-		if err != nil {
-			return nil, transfer, err
-		}
-		gateCfg.TimeRange = cfg.controlTimeRange()
-		g, transfer, err = db.Controller.RegisterAndOpenGate(gateCfg, controlledWriter{
-			Writer:     dw,
-			channelKey: db.Channel.Key,
-		})
-	}
+
 	w.control = g
+	db.mu.Add(1)
 	return w, transfer, err
 }
 
@@ -137,9 +137,13 @@ func (w *Writer) len(dw *domain.Writer) int64 {
 
 // Write validates and writes the given array.
 func (w *Writer) Write(series telem.Series) (a telem.Alignment, err error) {
+	if w.closed {
+		return 0, WriterClosedError
+	}
 	if err := w.Channel.ValidateSeries(series); err != nil {
 		return 0, err
 	}
+	// ok signifies whether w is allowed to write.
 	dw, ok := w.control.Authorize()
 	if !ok {
 		return 0, controller.Unauthorized(w.control.Subject.Name, w.Channel.Key)
@@ -169,6 +173,9 @@ func (w *Writer) updateHwm(series telem.Series) {
 
 // Commit commits the written series to the database.
 func (w *Writer) Commit(ctx context.Context) (telem.TimeStamp, error) {
+	if w.closed {
+		return telem.TimeStampMax, WriterClosedError
+	}
 	if w.Channel.IsIndex {
 		return w.commitWithEnd(ctx, w.hwm+1)
 	}
@@ -176,6 +183,9 @@ func (w *Writer) Commit(ctx context.Context) (telem.TimeStamp, error) {
 }
 
 func (w *Writer) CommitWithEnd(ctx context.Context, end telem.TimeStamp) (err error) {
+	if w.closed {
+		return core.EntityClosed(("unary.writer"))
+	}
 	_, err = w.commitWithEnd(ctx, end)
 	return err
 }
@@ -203,9 +213,16 @@ func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.
 }
 
 func (w *Writer) Close() (controller.Transfer, error) {
+	if w.closed {
+		return controller.Transfer{}, nil
+	}
+
+	w.closed = true
 	dw, t := w.control.Release()
+	w.decrementCounter()
 	if t.IsRelease() {
 		return t, dw.Close()
 	}
+
 	return t, nil
 }

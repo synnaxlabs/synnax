@@ -11,6 +11,7 @@ package domain
 
 import (
 	"context"
+	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/x/errutil"
 	xio "github.com/synnaxlabs/x/io"
 	"io"
@@ -35,7 +36,7 @@ type fileController struct {
 	writers struct {
 		sync.RWMutex
 		release chan struct{}
-		open    []controlledWriter
+		open    map[uint16]controlledWriter
 	}
 	readers struct {
 		sync.RWMutex
@@ -58,7 +59,7 @@ func openFileController(cfg Config) (*fileController, error) {
 		counter:     xio.NewInt32Counter(counterF),
 		counterFile: counterF,
 	}
-	fc.writers.open = make([]controlledWriter, 0, cfg.MaxDescriptors)
+	fc.writers.open = make(map[uint16]controlledWriter, cfg.MaxDescriptors)
 	fc.writers.release = make(chan struct{}, cfg.MaxDescriptors)
 	fc.readers.open = make(map[uint16][]controlledReader)
 	fc.readers.release = make(chan struct{}, cfg.MaxDescriptors)
@@ -68,24 +69,27 @@ func openFileController(cfg Config) (*fileController, error) {
 func (fc *fileController) acquireWriter(ctx context.Context) (uint16, xio.TrackedWriteCloser, error) {
 	ctx, span := fc.T.Bench(ctx, "acquireWriter")
 	defer span.End()
-	// attempt to pull a writer from the pool of open writers
+
 	fc.writers.RLock()
-	for _, w := range fc.writers.open {
-		if w.tryAcquire() {
+	for fileKey, w := range fc.writers.open {
+		s, err := fc.FS.Stat(fileKeyName(fileKey))
+		if err != nil {
+			return 0, nil, err
+		}
+
+		if s.Size() <= int64(fc.FileSize) && w.tryAcquire() {
 			fc.writers.RUnlock()
 			return w.fileKey, &w, nil
 		}
 	}
 	fc.writers.RUnlock()
 
-	// if we aren't at the descriptor limit, create a new writer
 	if !fc.atDescriptorLimit() {
 		w, err := fc.newWriter(ctx)
 		return w.fileKey, w, span.Error(err)
 	}
 
-	// otherwise, do a best effort garbage collection of the readers
-	ok, err := fc.gcReaders()
+	ok, err := fc.gcWriters()
 	if err != nil {
 		return 0, nil, span.Error(err)
 	}
@@ -93,7 +97,6 @@ func (fc *fileController) acquireWriter(ctx context.Context) (uint16, xio.Tracke
 		return fc.acquireWriter(ctx)
 	}
 
-	// if we still can't acquire a writer, wait for one to be released
 	<-fc.writers.release
 	return fc.acquireWriter(ctx)
 }
@@ -122,7 +125,7 @@ func (fc *fileController) newWriter(ctx context.Context) (*controlledWriter, err
 		controllerEntry:    newPoolEntry(nextKey, fc.writers.release),
 	}
 	fc.writers.Lock()
-	fc.writers.open = append(fc.writers.open, w)
+	fc.writers.open[nextKey] = w
 	fc.writers.Unlock()
 	return &w, err
 }
@@ -130,24 +133,36 @@ func (fc *fileController) newWriter(ctx context.Context) (*controlledWriter, err
 func (fc *fileController) acquireReader(ctx context.Context, key uint16) (xio.ReaderAtCloser, error) {
 	ctx, span := fc.T.Bench(ctx, "acquireReader")
 	defer span.End()
+
 	fc.readers.RLock()
-	if opts, ok := fc.readers.open[key]; ok {
-		// iterate over the open and find the first available reader
-		for _, r := range opts {
-			if !r.tryAcquire() {
+	if rs, ok := fc.readers.open[key]; ok {
+		for _, r := range rs {
+			if r.tryAcquire() {
 				fc.readers.RUnlock()
 				return &r, nil
 			}
 		}
+
+		if !fc.atDescriptorLimit() {
+			fc.readers.RUnlock()
+			return fc.newReader(ctx, key)
+		}
+
+		<-fc.readers.release
+		fc.readers.RUnlock()
+		return fc.acquireReader(ctx, key)
 	}
-	fc.readers.RUnlock()
+
 	if !fc.atDescriptorLimit() {
+		fc.readers.RUnlock()
 		return fc.newReader(ctx, key)
 	}
-	ok, err := fc.gcWriters()
+
+	ok, err := fc.gcReaders()
 	if err != nil {
-		return nil, span.Error(err)
+		return nil, err
 	}
+	fc.readers.RUnlock()
 	if ok {
 		return fc.acquireReader(ctx, key)
 	}
@@ -156,13 +171,16 @@ func (fc *fileController) acquireReader(ctx context.Context, key uint16) (xio.Re
 }
 
 func (fc *fileController) newReader(ctx context.Context, key uint16) (*controlledReader, error) {
+	ctx, span := fc.T.Bench(ctx, "newReader")
+	defer span.End()
 	file, err := fc.FS.Open(
 		fileKeyName(key),
 		os.O_RDONLY,
 	)
 	if err != nil {
-		return nil, err
+		return nil, span.Error(err)
 	}
+
 	r := controlledReader{
 		ReaderAtCloser:  file,
 		controllerEntry: newPoolEntry(key, fc.readers.release),
@@ -173,26 +191,15 @@ func (fc *fileController) newReader(ctx context.Context, key uint16) (*controlle
 	return &r, err
 }
 
-func (fc *fileController) atDescriptorLimit() bool {
-	fc.writers.RLock()
-	fc.readers.RLock()
-	defer func() {
-		fc.writers.RUnlock()
-		fc.readers.RUnlock()
-	}()
-	return len(fc.readers.open)+len(fc.writers.open) >= fc.MaxDescriptors
-}
-
 func (fc *fileController) gcReaders() (bool, error) {
-	fc.readers.RLock()
+	fc.readers.Lock()
+	defer fc.readers.Unlock()
 	for k, v := range fc.readers.open {
 		for i, r := range v {
 			if r.tryAcquire() {
-				fc.readers.RUnlock()
-				err := r.ReaderAtCloser.Close()
-				fc.readers.Lock()
+				err := r.Close()
+				err = errors.CombineErrors(err, r.ReaderAtCloser.Close())
 				fc.readers.open[k] = append(v[:i], v[i+1:]...)
-				fc.readers.Unlock()
 				return true, err
 			}
 		}
@@ -200,19 +207,71 @@ func (fc *fileController) gcReaders() (bool, error) {
 	return false, nil
 }
 
+// gcWriters closes all open writers that are not currently being written to
 func (fc *fileController) gcWriters() (bool, error) {
-	fc.writers.RLock()
-	for i, w := range fc.writers.open {
+	fc.writers.Lock()
+	defer fc.writers.Unlock()
+	for k, w := range fc.writers.open {
 		if w.tryAcquire() {
-			fc.writers.RUnlock()
-			fc.writers.Lock()
-			err := w.TrackedWriteCloser.Close()
-			fc.writers.open = append(fc.writers.open[:i], fc.writers.open[i+1:]...)
-			fc.writers.Unlock()
+			err := w.Close()
+			err = errors.CombineErrors(err, w.TrackedWriteCloser.Close())
+			delete(fc.writers.open, k)
 			return true, err
 		}
 	}
 	return false, nil
+}
+
+func (fc *fileController) atDescriptorLimit() bool {
+	fc.writers.RLock()
+	fc.readers.RLock()
+	defer func() {
+		fc.readers.RUnlock()
+		fc.writers.RUnlock()
+	}()
+	return len(fc.readers.open)+len(fc.writers.open) >= fc.MaxDescriptors
+}
+
+func (fc *fileController) removeReadersWriters(ctx context.Context, key uint16) error {
+	ctx, span := fc.T.Bench(ctx, "removeReadersWriters")
+	defer span.End()
+
+	fc.readers.RLock()
+	_, ok := fc.readers.open[key]
+	if !ok {
+		return nil
+	}
+
+	c := errutil.NewCatch(errutil.WithAggregation())
+	for _, r := range fc.readers.open[key] {
+		if r.tryAcquire() {
+			c.Exec(r.Close)
+		}
+		c.Exec(r.ReaderAtCloser.Close)
+	}
+
+	fc.readers.RUnlock()
+	fc.readers.Lock()
+	delete(fc.readers.open, key)
+	fc.readers.Unlock()
+
+	w, ok := fc.writers.open[key]
+	if !ok {
+		return c.Error()
+	}
+
+	fc.writers.RLock()
+	if w.tryAcquire() {
+		c.Exec(w.Close)
+	}
+	c.Exec(w.TrackedWriteCloser.Close)
+
+	fc.writers.RUnlock()
+	fc.writers.Lock()
+	delete(fc.writers.open, key)
+	fc.writers.Unlock()
+
+	return c.Error()
 }
 
 func (fc *fileController) close() error {
@@ -251,15 +310,18 @@ type controlledReader struct {
 	xio.ReaderAtCloser
 }
 
-func (c *controlledReader) Close() error { return c.controllerEntry.Close() }
+func (c *controlledReader) Close() error {
+	return c.controllerEntry.Close()
+}
 
+// flag specifies whether the reader/writer is currently in use
 type controllerEntry struct {
 	flag    *atomic.Bool
 	fileKey uint16
-	release chan<- struct{}
+	release chan struct{}
 }
 
-func newPoolEntry(key uint16, release chan<- struct{}) controllerEntry {
+func newPoolEntry(key uint16, release chan struct{}) controllerEntry {
 	ce := controllerEntry{
 		release: release,
 		fileKey: key,
@@ -269,19 +331,17 @@ func newPoolEntry(key uint16, release chan<- struct{}) controllerEntry {
 	return ce
 }
 
-func (pe *controllerEntry) Close() error {
-	if !pe.flag.CompareAndSwap(true, false) {
+func (ce *controllerEntry) Close() error {
+	if !ce.flag.CompareAndSwap(true, false) {
 		panic("controller: entry already closed")
 	}
 	select {
-	case pe.release <- struct{}{}:
+	case ce.release <- struct{}{}:
 	default:
 	}
 	return nil
 }
 
-func (pe *controllerEntry) tryAcquire() bool {
-	return pe.flag.CompareAndSwap(false, true)
+func (ce *controllerEntry) tryAcquire() bool {
+	return ce.flag.CompareAndSwap(false, true)
 }
-
-func (pe *controllerEntry) available() bool { return pe.flag.Load() }

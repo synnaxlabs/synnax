@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/validate"
+	"time"
 )
 
 type Config struct {
@@ -82,7 +83,7 @@ func Open(configs ...Config) (*Relay, error) {
 	tpr.InFrom(peerDemands)
 	r.demands = peerDemands
 
-	r.delta = confluence.NewDynamicDeltaMultiplier[Response]()
+	r.delta = confluence.NewDynamicDeltaMultiplier[Response](20 * time.Millisecond)
 	writes := confluence.NewStream[Response](defaultBuffer)
 	writes.SetInletAddress("delta")
 	writes.SetOutletAddress("taps")
