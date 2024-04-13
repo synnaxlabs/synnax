@@ -15,36 +15,28 @@ An image of the Synnax console is shown below.
 
 <Image client:only="react" id="console/ui-overview/ui-main-view"/>
 
-<>
+<Text.Text level="p">
   <ul>
-    <li>
-        <Text.Text level="p">
-        <Icon.Resources /> __Resources__ are located on the left-hand side of the
-        </Text.Text>
-    </li>
+    <li><Icon.Resources/> __Resources__ are located on the left-hand side of the screen and show the file tree used for Synnax data.</li>
+    <li><Icon.Workspace/> __Workspaces__ are located on the top of the file screen.</li>
+    <li>__Visualizations__ are listed as tabs on the top of the screen. In the view above, the only visualization is the "Get Started" visualization.
+        You can add more visualizations by clicking on the <Icon.Add /> button in the top right.</li>
+    <li>In the top right, there are buttons for <Icon.QuestionMark/> opening documentation, <Icon.Subtract/> minimizing the window,
+        <Icon.Box/> maximizing the window, and <Icon.Close/> closing the window.</li>
+    <li><Icon.Range/> __Ranges__ are specific time periods determined by users where important events happened. To learn more about ranges, you can read the
+        reference page on [querying ranges](/console/querying-data).</li>
+    <li><Icon.Visualize/> __Visualizations__ have properties that are accessed by clicking on the icon in the bottom right.</li>
+    <li><Icon.Cluster/> The current __cluster__ is shown in the bottom right, along with whether the console is connected or disconnected to the cluster.</li>
+    <li>The current version of the Synnax console is shown in the bottom right.</li>
   </ul>
-</>
-
-The folder on the left side is the file tree of the resources that the Synnax
-  console uses. Click on the folder to open the file tree.
-
-
-- Your workspaces are listed as tabs along the top.
-- The + button in the top right allows you to add another visualization to your
-  current workspace.
-- The clock on the right allows you to create a new range to save a specific
-  time range.
-- The graph on the bottom right allows you to open up properties of the current
-  visualization that you are working on.
-
+</Text.Text>
 
 ## Workspaces
 Next, you will be prompted to create a workspace. A workspace is a collection of
-visualizations, either line plots or P&ID diagrams. You can save visualizations
+visualizations, either line plots or schematic diagrams. You can save visualizations
 as part of a workspace so all members of the cluster can view a certain
 workspace. To switch between workspaces, you can choose a different workspace in
-the resources tree or click on a different workspace in the top left. The
-workspace we will be working with is called "Test Workspace"
+the resources tree or click on a different workspace in the top left.
 
 ## Resources File Tree
 
@@ -53,9 +45,10 @@ An exploded view of the resources file tree is shown below:
 <Image client:only="react" id="roles/operations/installation/resources-tree"  />
 
 
-In the resources tab on the top left, there are several folders.
+In the resources tab on the top left, there are several folders:
 - __Channels__ are the sensor channels that you can track and plot.
-- __Clusters__ is the list of all nodes currently connected to the cluster.
+- __Clusters__ is the list of all nodes currently connected to the cluster, and
+  which channels are leased to each node.
 - __Labels__ are not currently implemented in Synnax.
 - __Racks__ are not currently implemented in Synnax.
 - __Ranges__ are saved times that you can use when loading data to view. For
@@ -71,19 +64,8 @@ In the resources tab on the top left, there are several folders.
 
 To visualize data in your workspace, there are two main types of visualizations.
 The first is called a "Line Plot", and is a line graph that allows you to plot
-line charts together. The second type of view is called a "PID view". This view,
-which stands for piping and instrumentation diagram, allows you to make a
-schematic of your system with live values that pop up on it. More information
-about using the line plot is covered [here](/roles/operations/line-plot), and
-information about the PID view is covered [here](/roles/operations/pid).
-
-## Ranges
-
-When you create a range, the following box is shown:
-
-<Image client:only="react" id="roles/operations/installation/create-range"  />
-
-Choose a name for the range and the start and end times. The start and end times
-will be the local time of your machine. If you want the range to be viewable by
-others in your cluster, click "Save to Synnax". If you want the range to be
-viewable only by yourself, click "Save locally".
+line charts together. The second type of view is called a "Schematic". This view
+allows you to make a schematic of your system with live values that pop up on
+it. More information about using the line plot is covered
+[here](line-plot), and information about the schematic view is
+covered [here](schematic).

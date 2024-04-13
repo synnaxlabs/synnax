@@ -4,14 +4,18 @@ title: "Line Plot Visualization"
 description: "This page describes how to use the line plot visualization in the Synnax console."
 ---
 import { Image } from "@/components/Media";
+import { Icon } from "@synnaxlabs/media";
+import { Text } from "@synnaxlabs/pluto";
 
 The line plot visualization is the main visualization tool in Synnax. In this
 visualization, you can graph data. An example visualization is shown below:
 
 <Image client:only="react" id="roles/operations/line-plot/line-plot-main-view"  />
 
-Make sure to click the graph button in the bottom right corner to pop up the
+<Text.Text level="p">
+Make sure to click the visualize <Icon.Visualize/> button in the bottom right corner to pop up the
 visualization properties.
+</Text.Text>
 
 ## Data Tab
 The data tab has several properties underneath it:
@@ -24,10 +28,9 @@ The data tab has several properties underneath it:
       data. These are intented for cases where the user wants live data to come
       into the line plot.
 - X1 lets you select the x-axis to be scaled by a channel instead of time. Note
-  that only data that will be viewed will be the data from the selected time
-  range.
+  that the only data shown will be the data from the selected time range.
 
-## Line Tab
+## Lines Tab
 The line tab has several properties underneath it:
 - Label allows you to change what text appears for the channels in the graph
   legend.
@@ -37,13 +40,15 @@ The line tab has several properties underneath it:
 - Color changes the color of the line on the graph.
 
 ## Axes Tab
-The axes tab has several properties underneath it:
-- Lower bound and upper bound decides the limits for the axes.
-- Tick spacing determines how far apart the tick marks are.
-- If you add a label, this will add a title to the axis.
-- Label direction determines whether the letters in the label are vertical or
-  horizontal.
-- Label size determines the size of the label.
+<Text.Text level="p">
+<ul>
+  <li>Lower bound and upper bound decides the limits for the axes. The <Icon.Auto/> button enables auto-bounding on the graphs.</li>
+  <li>Tick spacing determines how far apart the tick marks are.</li>
+  <li>If you add a label, this will add a title to the axis.</li>
+  <li>Label direction determines whether the letters in the label are vertical or horizontal.</li>
+  <li>Label size determines the size of the label.</li>
+</ul>
+</Text.Text>
 
 ## Properties Tab
 The properties tab has several properties underneath it:
@@ -53,10 +58,6 @@ The properties tab has several properties underneath it:
 - The legend switch determines whether the legend is viewed in the chart.
 
 ## Navigating the plot
-- Zoom on the plot by clicking the magnifying glass in the bottom left or by
-  Alt (Windows) / ⌥ (Mac) + left click. This will adjust the axes of the graph to the box made.
-- Pan the plot by clicking the arrows in the bottom left or by pressing shift +
-  left click.
 - Select data by clicking the box with dotted lines in the bottom left or by
   left clicking and dragging. This box allows you to export data in various
   formats.
@@ -70,3 +71,15 @@ The properties tab has several properties underneath it:
   change the second point, press the 2 key and click on the graph.
 - Pause live plotting, also accessible by the H key, freezes any live plotting.
 
+<Text.Text level="p">
+  <ul>
+    <li>Zoom on the plot by clicking the <Icon.Zoom/> icon in the bottom left or by pressing <Icon.Keyboard.Alt/> (Windows) / <Icon.Keyboard.Command/> (Mac)
+        and left click. This will adjust the axes of the graph to the box made.</li>
+    <li>Pan the plot by clicking <Icon.Pan/> in the bottom left or by pressing <Icon.Keyboard.Shift/> and left click.</li>
+    <li>Select data by clicking <Icon.Selection/> in the bottom left or by pressing <Icon.Keyboard.Alt/> and left click. This box allows you to select data
+        by dragging on the graph. After selecting data you can right click and copy the time range to be used in Python, Typescript, or ISO formats.</li>
+    <li>Reset the zoom by clicking <Icon.Expand/> in the bottom left or by pressing <Icon.Caret.Up/> and left click.</li>
+    <li>Show the tooltip on hover by clicking <Icon.Tooltip/>.</li>
+    <li>The slope button.</li>
+  </ul>
+</Text.Text>

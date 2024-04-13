@@ -33,5 +33,15 @@ export const consoleNav: PageNavNode = {
       href: "/components/console/querying-data",
       name: "Querying Data Using Ranges",
     },
+    {
+      key: "/components/console/line-plot",
+      href: "/components/console/line-plot",
+      name: "Line Plot Visualization",
+    },
+    {
+      key: "/components/console/schematic",
+      href: "/components/console/schematic",
+      name: "Schematic Visualization",
+    },
   ],
 };
