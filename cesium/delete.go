@@ -12,7 +12,6 @@ package cesium
 import (
 	"context"
 	"github.com/cockroachdb/errors"
-	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/errutil"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -47,7 +46,7 @@ func channelDirName(ch ChannelKey) string {
 // DeleteChannel deletes a channel by its key.
 // This method returns an error if there are other channels depending on the current
 // channel, or if the current channel is being written to or read from.
-// Does nothing if channel does not exist.
+// DeleteChannel is idempotent.
 func (db *DB) DeleteChannel(ch ChannelKey) error {
 	db.mu.Lock()
 	err := db.deleteChannel(ch)
@@ -61,6 +60,10 @@ func (db *DB) DeleteChannel(ch ChannelKey) error {
 	return db.fs.Remove(channelDirName(ch))
 }
 
+// DeleteChannels deletes channels by their keys.
+// If it encounters an error while deleting, it guarantees that all the channels deleted
+// from the database will have their directories deleted as well.
+// DeleteChannels is idempotent.
 func (db *DB) DeleteChannels(chs ...ChannelKey) (err error) {
 	db.mu.Lock()
 	var (
@@ -145,13 +148,14 @@ func (db *DB) deleteChannel(ch ChannelKey) error {
 
 // DeleteTimeRange deletes a timerange of data in the database in a given channel
 // This method return an error if there are other channels depending on the timerange
-// that we are trying to delete
+// that we are trying to delete.
+// DeleteTimeRange is idempotent.
 func (db *DB) DeleteTimeRange(ctx context.Context, ch ChannelKey, tr telem.TimeRange) error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 	udb, uok := db.unaryDBs[ch]
 	if !uok {
-		return core.ChannelNotFound
+		return nil
 	}
 
 	// Cannot delete an index channel that other channels rely on.
