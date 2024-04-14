@@ -202,7 +202,7 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readAnalog(){
                                    NULL),
                            this->errInfo);
     if (err < 0) {
-        return{std::move(f), driver::TYPE_CRITICAL_HARDWARE_ERROR};
+        return std::make_pair(std::move(f), freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR, "error reading analog data"));
     }
 
     std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
@@ -218,7 +218,7 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readAnalog(){
                            errInfo);
     std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
    if (err < 0) {
-        return{std::move(f), driver::TYPE_CRITICAL_HARDWARE_ERROR};
+        return std::make_pair(std::move(f), freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR, "Error reading analog data"));
     }
     // we interpolate the timestamps between the initial and final timestamp to ensure non-overlapping timestamps between read iterations
     uint64_t diff = final_timestamp - initial_timestamp;
@@ -245,7 +245,7 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readAnalog(){
     }
     // return synnax frame
     freighter::Error error = freighter::NIL; // TODO: implement error handling
-    return {std::move(f), error};
+    return std::make_pair(std::move(f), error);
 }
 
 std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readDigital(){
@@ -270,7 +270,7 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readDigital(){
                                      NULL),
                            this->errInfo);
     if (err < 0) {
-        return{std::move(f), driver::TYPE_CRITICAL_HARDWARE_ERROR};
+        return std::make_pair(std::move(f), freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR, "Error reading digital data"));
     }
     std::cout << "performing actual read" << std::endl;
     std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
@@ -287,7 +287,7 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readDigital(){
                            this->errInfo);                                                 //reserved
     std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
     if (err < 0) {
-        return{std::move(f), driver::TYPE_CRITICAL_HARDWARE_ERROR};
+        return std::make_pair(std::move(f), freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR, "error reading analog data"));
     }
     std::cout << "Read complete " << std::endl;
     std::cout << "Samples Read: " << samplesRead << std::endl;
@@ -317,7 +317,7 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readDigital(){
     }
     // return synnax frame
     freighter::Error error = freighter::NIL;
-    return {std::move(f), error};
+    return std::make_pair(std::move(f), error);
 }
 
 std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::read(){
@@ -328,7 +328,7 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::read(){
         return readDigital();
     }
     else{
-        return {synnax::Frame(0), freighter::NIL};
+        return std::make_pair(synnax::Frame(0), freighter::NIL);
     }
 }
 
@@ -465,7 +465,7 @@ std::pair <synnax::Frame, freighter::Error> ni::niDaqWriter::writeDigital(synnax
                                         NULL),
                            this->errInfo); // reserved
     if(err < 0){
-       return {synnax::Frame(0), driver::TYPE_CRITICAL_HARDWARE_ERROR};
+        return std::make_pair(synnax::Frame(0), freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR, "Error reading digital data"));
     }
     // Construct acknowledgement frame
     auto ack_frame = synnax::Frame(ack_queue.size() + 1);
@@ -484,13 +484,13 @@ std::pair <synnax::Frame, freighter::Error> ni::niDaqWriter::writeDigital(synnax
 freighter::Error ni::niDaqWriter::formatData(synnax::Frame frame){
     uint32_t frame_index = 0;
     uint32_t cmd_channel_index = 0;
-    for (auto key : *(frame.columns)){ // the order the keys are in is the order the data is written
+    for (auto key : *(frame.channels)){ // the order the keys are in is the order the data is written
         auto it = std::find(cmd_channel_keys.begin(), cmd_channel_keys.end(), key);
         if (it != cmd_channel_keys.end()){
             std::cout << "channel key is " << key << std::endl;
             std::cout << "frame index is" << frame_index << std::endl;
             cmd_channel_index = std::distance(cmd_channel_keys.begin(), it) ;
-            auto &series = frame.series->at(frame_index).uint8();
+            auto series = frame.series->at(frame_index).uint8(); // used to be auto &series
             writeBuffer[cmd_channel_index] = series[0];
 //                    std::cout << "series is " << (uint32_t)series[0] << std::endl;
             ack_queue.push(ack_channel_keys[cmd_channel_index]);

@@ -47,7 +47,7 @@ cc_library(
         "//driver/driver/errors",
         "//driver/driver/pipeline:acqReader",
         "//client/cpp/synnax",
-        "//driver/driver/modules:module",
+#        "//driver/driver/modules:module",
         "@nlohmann_json//:json",
     ],
 )

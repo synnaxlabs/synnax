@@ -13,7 +13,7 @@
 #include <string>
 #include <vector>
 #include "driver/driver/pipeline/acqReader.h"
-#include "driver/driver/modules/module.h"
+//#include "driver/driver/modules/module.h"
 #include <queue>
 #include "driver/driver/errors/errors.h"
 
