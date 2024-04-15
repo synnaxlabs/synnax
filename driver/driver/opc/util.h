@@ -24,10 +24,11 @@
 #include <iostream>
 
 namespace opc {
-std::pair<UA_Client *, bool> connect(
-    opc::ConnectionConfig &cfg,
-    synnax::Task &task,
-    std::shared_ptr<task::Context> ctx
+using ClientDeleter = void (*)(UA_Client *);
+
+
+std::pair<std::shared_ptr<UA_Client>, freighter::Error> connect(
+    opc::ConnectionConfig &cfg
 );
 
 inline synnax::Series val_to_series(UA_Variant *val, synnax::DataType dt) {
@@ -74,27 +75,7 @@ inline synnax::DataType variant_data_type(UA_Variant &val) {
     return synnax::DATA_TYPE_UNKNOWN;
 }
 
-inline std::pair<std::shared_ptr<UA_Client>, freighter::Error> connect(
-    const opc::ConnectionConfig &cfg
-) {
-    std::shared_ptr<UA_Client> client(UA_Client_new(), UA_Client_delete);
-    UA_ClientConfig_setDefault(UA_Client_getConfig(client.get()));
-    UA_StatusCode status;
-    if (cfg.username.empty() && cfg.password.empty())
-        status = UA_Client_connect(client.get(), cfg.endpoint.c_str());
-    else
-        status = UA_Client_connectUsername(client.get(), cfg.endpoint.c_str(),
-                                           cfg.username.c_str(), cfg.password.c_str());
-    if (status != UA_STATUSCODE_GOOD) {
-        const auto status_name = UA_StatusCode_name(status);
-        return {
-            nullptr,
-            freighter::Error(freighter::TYPE_UNREACHABLE,
-                             "Failed to connect: " + std::string(status_name))
-        };
-    }
-    return {client, freighter::NIL};
-}
+
 }
 
 // Helper function to convert string GUID to UA_Guid
@@ -131,12 +112,15 @@ inline std::string guidToString(const UA_Guid &guid) {
 }
 
 // Parses a string NodeId into a UA_NodeId object
-inline UA_NodeId parseNodeId(const std::string &nodeIdStr) {
+inline UA_NodeId parseNodeId(const std::string &path, config::Parser &parser) {
     std::regex regex("NS=(\\d+);(I|S|G|B)=(.+)");
     std::smatch matches;
 
+    const std::string nodeIdStr = parser.required<std::string>(path);
+    if (!parser.ok()) return UA_NODEID_NULL;
+
     if (!std::regex_search(nodeIdStr, matches, regex)) {
-        std::cerr << "Invalid NodeId format" << std::endl;
+        parser.field_err(path, "Invalid NodeId format");
         return UA_NODEID_NULL;
     }
 

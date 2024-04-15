@@ -106,7 +106,7 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
   const testConnection = useMutation({
     mutationKey: [client?.key],
     mutationFn: async () => {
-      if (!methods.validate() || client == null) return;
+      if (!(await methods.validateAsync()) || client == null) return;
       const rack = await client.hardware.racks.retrieve("sy_node_1_rack");
       const task = await rack.retrieveTaskByName("opc Scanner");
       return await task.executeCommandSync<{ message: string }>(
@@ -120,7 +120,7 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
   const handleNextStep = useMutation({
     mutationKey: [step, client?.key],
     mutationFn: async () => {
-      if (!methods.validate() || client == null) return;
+      if (!(await methods.validateAsync()) || client == null) return;
       const rack = await client.hardware.racks.retrieve("sy_node_1_rack");
       if (step === "connect") {
         await testConnection.mutateAsync();
@@ -163,7 +163,7 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
     mutationKey: [client?.key],
     mutationFn: async () => {
       if (
-        !methods.validate() ||
+        !(await methods.validateAsync()) ||
         client == null ||
         rackKey == null ||
         deviceProperties == null

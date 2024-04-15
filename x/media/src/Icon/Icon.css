@@ -22,3 +22,7 @@
     }
 }
 
+.synnax-icon :is(path, circle):is(:not([fill="none"]), [stroke="#000"]) {
+    stroke: inherit !important;
+    fill: inherit !important;
+}

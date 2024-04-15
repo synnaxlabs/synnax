@@ -10,29 +10,31 @@
 #pragma once
 
 #include "opc.h"
+#include "util.h"
 #include "driver/driver/config/config.h"
 #include "driver/driver/task/task.h"
 #include "driver/driver/pipeline/acquisition.h"
 
 namespace opc {
 struct ReaderChannelConfig {
-    /// @brief the namespace index of the node.
-    std::uint32_t ns;
     /// @brief the node id.
-    std::string node;
+    std::string node_id;
+    UA_NodeId node;
     /// @brief the corresponding channel key to write the variable for the node from.
     ChannelKey channel;
     /// @brief the channel fetched from the Synnax server. This does not need to
     /// be provided via the JSON configuration.
     Channel ch;
+    bool enabled;
 
     ReaderChannelConfig() = default;
 
     explicit ReaderChannelConfig(
-        config::Parser& parser
-    ): ns(parser.required<std::uint32_t>("namespace")),
-       node(parser.required<std::string>("node")),
-       channel(parser.required<ChannelKey>("channel")) {
+        config::Parser &parser
+    ): node_id(parser.required<std::string>("node_id")),
+       node(parseNodeId("node_id", parser)),
+       channel(parser.required<ChannelKey>("channel")),
+        enabled(parser.optional<bool>("enabled", true)) {
     }
 };
 
@@ -51,10 +53,11 @@ struct ReaderConfig {
 
     ReaderConfig() = default;
 
-    explicit ReaderConfig(config::Parser& parser);
+    explicit ReaderConfig(config::Parser &parser);
 
     std::vector<ChannelKey> channelKeys() const {
-        auto keys = std::vector<ChannelKey>(channels.size());
+        auto keys = std::vector<ChannelKey>();
+        keys.reserve(channels.size());
         for (std::size_t i = 0; i < channels.size(); i++) keys[i] = channels[i].channel;
         return keys;
     }
@@ -65,18 +68,21 @@ class Reader final : public task::Task {
 public:
     explicit Reader(const std::shared_ptr<task::Context> &ctx, synnax::Task task);
 
-    void exec(task::Command& cmd) override;
+    void exec(task::Command &cmd) override;
 
-    void stop() override {}
+    void stop() override {
+        pipe.stop();
+    }
+
 private:
     std::shared_ptr<task::Context> ctx;
+    synnax::Task task;
     ReaderConfig cfg;
-
     breaker::Breaker breaker;
-
     pipeline::Acquisition pipe;
+    std::pair<std::pair<std::vector<ChannelKey>, std::set<ChannelKey> >,
+        freighter::Error>
 
-    std::pair<std::pair<std::vector<ChannelKey>, std::set<ChannelKey>>, freighter::Error>
     retrieveAdditionalChannelInfo() {
         auto channelKeys = cfg.channelKeys();
         if (channelKeys.empty()) return {{channelKeys, {}}, freighter::Error()};

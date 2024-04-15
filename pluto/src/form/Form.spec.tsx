@@ -15,19 +15,41 @@ import { z } from "zod";
 
 import { Form } from "@/form";
 import { Input } from "@/input";
+import { deep } from "@synnaxlabs/x";
 
-const basicFormSchema = z.object({
-  name: z.string(),
-  age: z.number().min(5, "You must be at least 5 years old."),
-  nested: z.object({
-    ssn: z.string(),
-    ein: z.string().optional(),
-  }),
-});
+const basicFormSchema = z
+  .object({
+    name: z.string(),
+    age: z.number().min(5, "You must be at least 5 years old."),
+    nested: z.object({
+      ssn: z.string(),
+      ein: z.string().optional(),
+    }),
+    array: z.array(z.object({ name: z.string() })),
+  })
+  .superRefine((c, ctx) => {
+    if (c.name === "Billy Bob")
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "You cannot be named Billy Bob.",
+        path: ["name"],
+        params: {
+          variant: "warning",
+        },
+      });
+  })
+  .sourceType();
+
+const initialFormValues: z.infer<typeof basicFormSchema> = {
+  name: "John Doe",
+  age: 42,
+  nested: { ssn: "123-45-6789", ein: "" },
+  array: [{ name: "John Doe" }],
+};
 
 const FormContainer = (props: PropsWithChildren): ReactElement => {
   const methods = Form.use({
-    values: { name: "John Doe", age: 42, nested: { ssn: "123-45-6789", ein: "" } },
+    values: deep.copy(initialFormValues),
     schema: basicFormSchema,
   });
   return <Form.Form {...methods}>{props.children}</Form.Form>;
@@ -43,7 +65,7 @@ describe("Form", () => {
       it("should get a value from the form", () => {
         const { result } = renderHook(() =>
           Form.use({
-            values: { name: "John Doe", age: 42, nested: { ssn: "123-45-6789" } },
+            values: deep.copy(initialFormValues),
             schema: basicFormSchema,
           }),
         );
@@ -54,7 +76,7 @@ describe("Form", () => {
       it("should return the correct nested values", () => {
         const { result } = renderHook(() =>
           Form.use({
-            values: { name: "John Doe", age: 42, nested: { ssn: "123-45-6789" } },
+            values: deep.copy(initialFormValues),
             schema: basicFormSchema,
           }),
         );
@@ -64,7 +86,7 @@ describe("Form", () => {
       it("should throw an error if optional is false and the field is null", () => {
         const { result } = renderHook(() =>
           Form.use({
-            values: { name: "John Doe", age: 42, nested: { ssn: "123-45-6789" } },
+            values: deep.copy(initialFormValues),
             schema: basicFormSchema,
           }),
         );
@@ -73,7 +95,7 @@ describe("Form", () => {
       it("should return null if optional is true and the field is null", () => {
         const { result } = renderHook(() =>
           Form.use({
-            values: { name: "John Doe", age: 42, nested: { ssn: "123-45-6789" } },
+            values: deep.copy(initialFormValues),
             schema: basicFormSchema,
           }),
         );
@@ -83,7 +105,7 @@ describe("Form", () => {
       it("should return true if a field is required in the schema", () => {
         const { result } = renderHook(() =>
           Form.use({
-            values: { name: "John Doe", age: 42, nested: { ssn: "123-45-6789" } },
+            values: deep.copy(initialFormValues),
             schema: basicFormSchema,
           }),
         );
@@ -95,7 +117,7 @@ describe("Form", () => {
       it("should set a value in the form", () => {
         const { result } = renderHook(() =>
           Form.use({
-            values: { name: "John Doe", age: 42, nested: { ssn: "123-45-6789" } },
+            values: deep.copy(initialFormValues),
             schema: basicFormSchema,
           }),
         );
@@ -108,7 +130,7 @@ describe("Form", () => {
       it("should bind a listener for form changes", () => {
         const { result } = renderHook(() =>
           Form.use({
-            values: { name: "John Doe", age: 42, nested: { ssn: "123-45-6789" } },
+            values: deep.copy(initialFormValues),
             schema: basicFormSchema,
           }),
         );
@@ -126,7 +148,7 @@ describe("Form", () => {
       it("should return false if a validation error occurs", () => {
         const { result } = renderHook(() =>
           Form.use({
-            values: { name: "John Doe", age: 3, nested: { ssn: "123-45-6789" } },
+            values: deep.copy({ ...initialFormValues, age: 3 }),
             schema: basicFormSchema,
           }),
         );
@@ -136,7 +158,7 @@ describe("Form", () => {
       it("should call a bound listener if a validation error occurs", () => {
         const { result } = renderHook(() =>
           Form.use({
-            values: { name: "John Doe", age: 3, nested: { ssn: "123-45-6789" } },
+            values: deep.copy({ ...initialFormValues, age: 3 }),
             schema: basicFormSchema,
           }),
         );
@@ -148,6 +170,15 @@ describe("Form", () => {
         });
         result.current.validate();
         expect(listener).toHaveBeenCalled();
+      });
+      it("should return true if all validation errors are just warnings", () => {
+        const { result } = renderHook(() =>
+          Form.use({
+            values: deep.copy({ ...initialFormValues, name: "Billy Bob" }),
+            schema: basicFormSchema,
+          }),
+        );
+        expect(result.current.validate()).toBe(true);
       });
     });
   });
@@ -240,6 +271,20 @@ describe("Form", () => {
       it("should not mark the nested field as required if it is not required in the schema", () => {
         const c = render(<Form.Field path="nested.ein" />, { wrapper });
         expect(c.queryByText("*")).toBeNull();
+      });
+    });
+    describe("Array Field", () => {
+      it("should return a text field with the correct value", () => {
+        const c = render(<Form.Field path="array.0.name" />, { wrapper });
+        expect(c.getByDisplayValue("John Doe")).toBeTruthy();
+      });
+      it("should mark the array field as required if it is required in the schema", () => {
+        const c = render(<Form.Field path="array.0.name" />, { wrapper });
+        expect(c.getByText("*")).toBeTruthy();
+      });
+      it("should not mark the array field as required if it is not required in the schema", () => {
+        const c = render(<Form.Field path="array.0.name" />, { wrapper });
+        expect(c.getByText("*")).toBeTruthy();
       });
     });
   });

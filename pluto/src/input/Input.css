@@ -37,7 +37,7 @@
         }
     }
 
-    & > .pluto-input__internal:focus-within{
+    & > .pluto-input__internal:focus-within {
         border-color: var(--pluto-primary-z) !important;
         & input {
             outline: none;
@@ -121,6 +121,7 @@
     & .pluto-input__internal {
         border: none !important;
         background: none !important;
+        height: initial !important;
     }
 
     & input {
@@ -134,7 +135,6 @@
         }
     }
 }
-
 
 input[type="number"]::-webkit-inner-spin-button {
     /* stylelint-disable-next-line property-no-vendor-prefix */

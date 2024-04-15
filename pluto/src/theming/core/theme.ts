@@ -48,6 +48,13 @@ export const themeZ = z.object({
       p1: color.Color.z,
       p2: color.Color.z,
     }),
+    warning: z.object({
+      m2: color.Color.z,
+      m1: color.Color.z,
+      z: color.Color.z,
+      p1: color.Color.z,
+      p2: color.Color.z,
+    }),
     secondary: z.object({
       m2: color.Color.z,
       m1: color.Color.z,
@@ -103,6 +110,10 @@ const setLightness = (color: color.HSLA, lightness: number): color.HSLA => [
 
 const ERROR_HSLA: color.HSLA = [357, 91, 55, 1];
 
+// Warning
+
+const WARNING_HSLA: color.HSLA = [42, 100, 50, 1];
+
 // Grayscale
 
 const LIGHT_SCALE = [
@@ -149,6 +160,13 @@ const synnaxBase: ThemeSpec = {
       z: color.fromHSLA(ERROR_HSLA),
       p1: color.fromHSLA(setLightness(ERROR_HSLA, 60)),
       p2: color.fromHSLA(setLightness(ERROR_HSLA, 70)),
+    },
+    warning: {
+      m2: color.fromHSLA(setLightness(WARNING_HSLA, 30)),
+      m1: color.fromHSLA(setLightness(WARNING_HSLA, 40)),
+      z: color.fromHSLA(WARNING_HSLA),
+      p1: color.fromHSLA(setLightness(WARNING_HSLA, 60)),
+      p2: color.fromHSLA(setLightness(WARNING_HSLA, 70)),
     },
     visualization: {
       palettes: {

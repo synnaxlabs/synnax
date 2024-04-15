@@ -30,37 +30,36 @@ std::map<UA_UInt16, synnax::DataType> data_type_map = {
     {UA_NS0ID_GUID, synnax::UINT128},
 };
 
-std::pair<UA_Client*, bool> opc::connect(
-    opc::ConnectionConfig& cfg,
-    synnax::Task &task,
-    std::shared_ptr<task::Context> ctx
+opc::ClientDeleter getDefaultClientDeleter() {
+    return [](UA_Client *client) {
+        if (client == nullptr) return;
+        UA_Client_disconnect(client);
+        UA_Client_delete(client);
+    };
+}
+
+std::pair<std::shared_ptr<UA_Client>, freighter::Error> opc::connect(
+    opc::ConnectionConfig &cfg
 ) {
-    UA_Client* client = UA_Client_new();
-    UA_ClientConfig_setDefault(UA_Client_getConfig(client));
-    UA_StatusCode status = UA_Client_connect(client, cfg.endpoint.c_str());
-    if (cfg.username.empty() && cfg.password.empty()) {
-        status = UA_Client_connect(client, cfg.endpoint.c_str());
-    } else {
+    auto client = std::shared_ptr<UA_Client>(
+        UA_Client_new(), getDefaultClientDeleter());
+    UA_ClientConfig_setDefault(UA_Client_getConfig(client.get()));
+    UA_StatusCode status = UA_Client_connect(client.get(), cfg.endpoint.c_str());
+    if (cfg.username.empty() && cfg.password.empty())
+        status = UA_Client_connect(client.get(), cfg.endpoint.c_str());
+    else
         status = UA_Client_connectUsername(
-            client,
+            client.get(),
             cfg.endpoint.c_str(),
             cfg.username.c_str(),
             cfg.password.c_str()
         );
-    }
-    // UA_Client_disconnect(client);
-    // UA_Client_delete(client);
-    if (status != UA_STATUSCODE_GOOD) {
-        ctx->setState({
-            .task = task.key,
-            .variant = "error",
-            .details = json {
-                {"message", "Failed to connect to the OPC UA server."}
-            }
-        });
-        return {nullptr, false};
-    }
-    return {client, true};
+    if (status == UA_STATUSCODE_GOOD) return {std::move(client), freighter::NIL};
+    const auto status_name = UA_StatusCode_name(status);
+    return {
+        std::move(client),
+        freighter::Error(freighter::TYPE_UNREACHABLE,
+                         "Failed to connect: " + std::string(status_name))
+    };
 }
-
 

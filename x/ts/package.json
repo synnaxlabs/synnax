@@ -180,6 +180,11 @@
       "import": "./dist/caseconv.js",
       "require": "./dist/caseconv.cjs",
       "types": "./dist/src/caseconv/index.d.ts"
+    },
+    "./zodutil": {
+      "import": "./dist/zodutil.js",
+      "require": "./dist/zodutil.cjs",
+      "types": "./dist/src/zodutil/index.d.ts"
     }
   }
 }

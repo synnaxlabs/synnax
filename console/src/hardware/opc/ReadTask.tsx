@@ -7,9 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactElement,
+} from "react";
 
-import { type task } from "@synnaxlabs/client";
+import { DataType } from "@synnaxlabs/x/telem";
+import { device, type task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Align,
@@ -25,6 +33,8 @@ import {
   Synnax,
   Text,
   useAsyncEffect,
+  Nav,
+  Menu,
 } from "@synnaxlabs/pluto";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { nanoid } from "nanoid";
@@ -42,27 +52,91 @@ import {
   parseNodeId,
 } from "@/hardware/opc/types";
 import { type Layout } from "@/layout";
+import { z } from "zod";
+
+import "@/hardware/opc/ReadTask.css";
+import { Triggers } from "@synnaxlabs/pluto";
 
 export const readTaskLayout: Layout.LayoutState = {
   name: "Configure OPC UA Read Task",
   key: "readopcTask",
   type: "readopcTask",
   windowKey: "readopcTask",
-  location: "mosaic",
+  location: "window",
+  window: {
+    resizable: false,
+    size: { width: 1200, height: 900 },
+    navTop: true,
+  },
 };
 
 export const ReadTask = (): ReactElement => {
   const client = Synnax.use();
   const [task, setTask] = useState<task.Task | undefined>(undefined);
   const [taskState, setTaskState] = useState<ReadTaskState | null>(null);
+  const [device, setDevice] = useState<device.Device<DeviceProperties> | null>(null);
+
+  const schema = useMemo(
+    () =>
+      z.object({
+        name: z.string(),
+        config: readTaskConfigZ.superRefine(async (cfg, ctx) => {
+          console.log("CCD", client, device);
+          if (client == null || device == null) return;
+          for (let i = 0; i < cfg.channels.length; i++) {
+            const { channel, nodeId } = cfg.channels[i];
+            if (channel === 0 || nodeId.length === 0) continue;
+            const ch = await client.channels.retrieve(channel);
+            const node = device.properties.channels.find((c) => c.nodeId === nodeId);
+            if (node == null) return;
+            const nodeDt = new DataType(node.dataType);
+            if (!nodeDt.canCastTo(ch.dataType)) {
+              ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ["channels", i, "nodeId"],
+                message: `Node data type ${node.dataType} cannot be cast to channel data type ${ch.dataType}`,
+              });
+            } else if (!nodeDt.canSafelyCastTo(ch.dataType)) {
+              ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ["channels", i, "nodeId"],
+                message: `Node data type ${node.dataType} may not be safely cast to channel data type ${ch.dataType}`,
+                params: { variant: "warning" },
+              });
+            }
+          }
+        }),
+      }),
+    [client?.key, device?.key],
+  );
+
   const methods = Form.use({
-    schema: readTaskConfigZ,
+    schema,
     values: {
-      device: "",
-      sampleRate: 50,
-      streamRate: 25,
-      channels: [],
+      name: "OPC Read Task",
+      config: {
+        device: "",
+        sampleRate: 50,
+        streamRate: 25,
+        channels: [],
+      },
     },
+  });
+
+  Form.useFieldListener<string>({
+    ctx: methods,
+    path: "config.device",
+    callback: useCallback(
+      (fs) => {
+        console.log("HELLO");
+        if (!fs.touched || fs.status.variant !== "success" || client == null) return;
+        client.hardware.devices
+          .retrieve<DeviceProperties>(fs.value)
+          .then((d) => setDevice(d))
+          .catch(console.error);
+      },
+      [client?.key, setDevice],
+    ),
   });
 
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
@@ -90,70 +164,107 @@ export const ReadTask = (): ReactElement => {
   const configure = useMutation({
     mutationKey: [client?.key],
     mutationFn: async () => {
-      if (client == null) return;
+      if (!(await methods.validateAsync()) || client == null) return;
       const rack = await client.hardware.racks.retrieve("sy_node_1_rack");
-      try {
-        const v = methods.value();
-        const dev = await client.hardware.devices.retrieve<DeviceProperties>(v.device);
-        setTask(
-          await rack.createTask<ReadTaskConfig>({
-            key: task?.key,
-            name: "opc Read Task",
-            type: "opcReader",
-            config: {
-              ...v,
-              channels: v.channels.map((c) => ({
-                ...c,
-                namespace: dev.properties.channels.find((d) => d.nodeId === c.node)
-                  ?.namespace,
-              })),
-            },
-          }),
-        );
-      } catch (e) {
-        console.error(e);
-      }
+      console.log(methods.value().config);
+      setTask(
+        await rack.createTask<ReadTaskConfig>({
+          key: 281479271677957,
+          name: "opc Read Task",
+          type: "opcReader",
+          config: methods.value().config,
+        }),
+      );
+    },
+  });
+
+  const start = useMutation({
+    mutationKey: [client?.key, "start"],
+    mutationFn: async () => {
+      if (task == null) return;
+      console.log(taskState?.details.running);
+      await task.executeCommand(taskState?.details.running ? "stop" : "start");
     },
   });
 
   return (
     <Align.Space className={CSS.B("opc-read-task")} direction="y" grow empty>
-      <Form.Form {...methods}>
-        <Align.Space direction="x">
-          <Form.Field<string> path="device" label="Device">
-            {(p) => (
-              <Device.SelectSingle
-                {...p}
-                allowNone={false}
-                searchOptions={{ makes: ["opc"] }}
-              />
-            )}
-          </Form.Field>
-          <Form.Field<number> label="Sample Rate" path="sampleRate">
-            {(p) => <Input.Numeric {...p} />}
-          </Form.Field>
-          <Form.Field<number> label="Stream Rate" path="streamRate">
-            {(p) => <Input.Numeric {...p} />}
-          </Form.Field>
-        </Align.Space>
-        <Align.Space direction="x">
-          <ChannelList
-            path="channels"
-            selected={selectedChannels}
-            onSelect={useCallback(
-              (v, i) => {
-                setSelectedChannels(v);
-                setSelectedChannelIndex(i);
-              },
-              [setSelectedChannels, setSelectedChannelIndex],
-            )}
-          />
-        </Align.Space>
-        {selectedChannelIndex != null && (
-          <ChannelForm selectedChannelIndex={selectedChannelIndex} />
-        )}
-      </Form.Form>
-      <Button.Button onClick={() => configure.mutate()}>Configure</Button.Button>
+      <Align.Space className={CSS.B("content")} direction="y" grow>
+        <Form.Form {...methods}>
+          <Align.Space direction="x">
+            <Form.Field<string> path="name">
+              {(p) => <Input.Text variant="natural" level="h1" {...p} label="Name" />}
+            </Form.Field>
+          </Align.Space>
+          <Align.Space direction="x">
+            <Form.Field<string> path="config.device" label="Device" grow>
+              {(p) => (
+                <Device.SelectSingle
+                  {...p}
+                  allowNone={false}
+                  searchOptions={{ makes: ["opc"] }}
+                />
+              )}
+            </Form.Field>
+            <Form.Field<number> label="Sample Rate" path="config.sampleRate">
+              {(p) => <Input.Numeric {...p} />}
+            </Form.Field>
+            <Form.Field<number> label="Stream Rate" path="config.streamRate">
+              {(p) => <Input.Numeric {...p} />}
+            </Form.Field>
+          </Align.Space>
+          <Align.Space
+            className={CSS.B("channel-form-container")}
+            direction="x"
+            bordered
+            rounded
+            grow
+            empty
+          >
+            <ChannelList
+              path="config.channels"
+              selected={selectedChannels}
+              onSelect={useCallback(
+                (v, i) => {
+                  if (v.length > 0) setSelectedChannelIndex(i);
+                  else setSelectedChannelIndex(null);
+                  setSelectedChannels(v);
+                },
+                [setSelectedChannels, setSelectedChannelIndex],
+              )}
+            />
+            <Align.Space className={CSS.B("channel-form")} direction="y" grow>
+              <Header.Header level="h3">
+                <Header.Title weight={500}>Channel Details</Header.Title>
+              </Header.Header>
+              <Align.Space direction="y" className={CSS.B("channel-form-content")} grow>
+                {selectedChannelIndex != null && (
+                  <ChannelForm selectedChannelIndex={selectedChannelIndex} />
+                )}
+              </Align.Space>
+            </Align.Space>
+          </Align.Space>
+        </Form.Form>
+      </Align.Space>
+      <Nav.Bar location="bottom" size={48}>
+        <Nav.Bar.End style={{ paddingRight: "2rem" }}>
+          <Button.ToggleIcon
+            loading={start.isPending}
+            disabled={start.isPending || taskState == null}
+            value={taskState?.details.running ?? false}
+            onClick={() => start.mutate()}
+          >
+            {taskState?.details.running ? <Icon.Pause /> : <Icon.Play />}
+          </Button.ToggleIcon>
+          <Button.Button
+            loading={configure.isPending}
+            disabled={configure.isPending}
+            onClick={() => configure.mutate()}
+          >
+            Configure
+          </Button.Button>
+        </Nav.Bar.End>
+      </Nav.Bar>
     </Align.Space>
   );
 };
@@ -169,13 +280,15 @@ export const ChannelList = ({
   selected,
   onSelect,
 }: ChannelListProps): ReactElement => {
-  const { value, push } = Form.useFieldArray<ReadTaskChannelConfig>({ path });
+  const { value, push, remove } = Form.useFieldArray<ReadTaskChannelConfig>({ path });
+
+  const menuProps = Menu.useContextMenu();
 
   const handleAdd = (): void => {
     push({
       key: nanoid(),
       channel: 0,
-      node: "",
+      nodeId: "",
       enabled: true,
     });
   };
@@ -194,21 +307,58 @@ export const ChannelList = ({
           ]}
         </Header.Actions>
       </Header.Header>
-      <List.List<string, ReadTaskChannelConfig> data={value}>
-        <List.Selector<string, ReadTaskChannelConfig>
-          value={selected}
-          allowNone={false}
-          allowMultiple={true}
-          onChange={(keys, { clickedIndex }) =>
-            clickedIndex != null && onSelect(keys, clickedIndex)
-          }
-          replaceOnSingle
-        >
-          <List.Core<string, ReadTaskChannelConfig> grow>
-            {(props) => <ChannelListItem {...props} path={path} />}
-          </List.Core>
-        </List.Selector>
-      </List.List>
+      <Menu.ContextMenu
+        menu={({ keys }: Menu.ContextMenuMenuProps): ReactElement => {
+          const handleSelect = (key: string): void => {
+            switch (key) {
+              case "remove":
+                const indices = keys
+                  .map((k) => value.findIndex((v) => v.key === k))
+                  .filter((i) => i >= 0);
+                remove(indices);
+                onSelect([], 0);
+                break;
+            }
+          };
+
+          return (
+            <Menu.Menu onChange={handleSelect} level="small">
+              <Menu.Item startIcon={<Icon.Close />} itemKey="remove">
+                Remove
+              </Menu.Item>
+            </Menu.Menu>
+          );
+        }}
+        {...menuProps}
+      >
+        <List.List<string, ReadTaskChannelConfig> data={value}>
+          <List.Selector<string, ReadTaskChannelConfig>
+            value={selected}
+            allowNone={false}
+            allowMultiple={true}
+            onChange={(keys, { clickedIndex }) =>
+              clickedIndex != null && onSelect(keys, clickedIndex)
+            }
+            replaceOnSingle
+          >
+            <List.Core<string, ReadTaskChannelConfig> grow>
+              {(props) => (
+                <ChannelListItem
+                  {...props}
+                  path={path}
+                  remove={() => {
+                    const indices = selected
+                      .map((k) => value.findIndex((v) => v.key === k))
+                      .filter((i) => i >= 0);
+                    remove(indices);
+                    onSelect([], 0);
+                  }}
+                />
+              )}
+            </List.Core>
+          </List.Selector>
+        </List.List>
+      </Menu.ContextMenu>
     </Align.Space>
   );
 };
@@ -218,6 +368,7 @@ export const ChannelListItem = ({
   ...props
 }: List.ItemProps<string, ReadTaskChannelConfig> & {
   path: string;
+  remove?: () => void;
 }): ReactElement => {
   const { entry } = props;
   const ctx = Form.useContext();
@@ -233,6 +384,9 @@ export const ChannelListItem = ({
       entry={childValues}
       justify="spaceBetween"
       align="center"
+      onKeyDown={(e) => {
+        if (["Delete", "Backspace"].includes(e.key)) props.remove?.();
+      }}
     >
       <Align.Space direction="y" size="small">
         <Align.Space direction="x">
@@ -275,16 +429,16 @@ interface ChannelFormProps {
 }
 
 const ChannelForm = ({ selectedChannelIndex }: ChannelFormProps): ReactElement => {
-  const prefix = `channels.${selectedChannelIndex}`;
-  const dev = Form.useField<string>({ path: "device" }).value;
+  const prefix = `config.channels.${selectedChannelIndex}`;
+  const dev = Form.useField<string>({ path: "config.device" }).value;
   return (
-    <Align.Space direction="y">
-      <Form.Field<number> path={`${prefix}.channel`} label="Channel">
-        {(p) => <Channel.SelectSingle {...p} />}
+    <>
+      <Form.Field<number> path={`${prefix}.channel`} label="Synnax Channel" hideIfNull>
+        {(p) => <Channel.SelectSingle allowNone={false} {...p} />}
       </Form.Field>
-      <Form.Field<string> path={`${prefix}.node`} label="Node">
-        {(p) => <SelectNodeRemote device={dev} {...p} />}
+      <Form.Field<string> path={`${prefix}.nodeId`} label="OPC Node" hideIfNull>
+        {(p) => <SelectNodeRemote allowNone={false} device={dev} {...p} />}
       </Form.Field>
-    </Align.Space>
+    </>
   );
 };

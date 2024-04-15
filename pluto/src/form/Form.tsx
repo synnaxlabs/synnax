@@ -24,12 +24,14 @@ import {
 import { shallowCopy, type Destructor, toArray } from "@synnaxlabs/x";
 import { caseconv } from "@synnaxlabs/x/caseconv";
 import { deep } from "@synnaxlabs/x/deep";
-import { type z } from "zod";
+import { z } from "zod";
 
 import { useSyncedRef } from "@/hooks/ref";
 import { Input } from "@/input";
 import { type status } from "@/status/aether";
 import { componentRenderProp, type RenderProp } from "@/util/renderProp";
+import { CSS } from "@/css";
+import { zodutil } from "@synnaxlabs/x/zodutil";
 
 /** Props for the @see useField hook */
 export interface UseFieldProps<I, O = I> {
@@ -104,11 +106,21 @@ export const useField = (<I extends Input.Value, O extends Input.Value = I>({
   return { onChange: handleChange, ...state };
 }) as UseField;
 
-export const useFieldListener = <I extends Input.Value>(
-  path: string,
-  callback: (state: FieldState<I>, extra: ContextValue) => void,
-): void => {
-  const ctx = useContext();
+export interface UseFieldListenerProps<
+  I extends Input.Value,
+  Z extends z.ZodTypeAny = z.ZodTypeAny,
+> {
+  ctx: ContextValue<Z>;
+  path: string;
+  callback: (state: FieldState<I>, extra: ContextValue) => void;
+}
+
+export const useFieldListener = <I extends Input.Value, Z extends z.ZodTypeAny>({
+  path,
+  ctx: override,
+  callback,
+}: UseFieldListenerProps<I, Z>): void => {
+  const ctx = useContext(override);
   useLayoutEffect(
     () =>
       ctx.bind<I>({
@@ -231,6 +243,7 @@ export const Field = <
   hideIfNull = false,
   defaultValue,
   onChange,
+  className,
   ...props
 }: FieldProps<I, O>): ReactElement | null => {
   const field = useField<I, O>({
@@ -250,8 +263,10 @@ export const Field = <
     <Input.Item
       padHelpText={padHelpText}
       helpText={helpText}
+      helpTextVariant={field.status.variant}
       label={label}
       required={field.required}
+      className={CSS(className, CSS.BE("field", path.split(".").join("-")))}
       {...props}
     >
       {children({ onChange: fieldOnChange, value })}
@@ -300,15 +315,13 @@ interface BindProps<V = unknown> {
 
 type BindFunc = <V = unknown>(props: BindProps<V>) => Destructor;
 
-export interface ContextValue<
-  T extends z.ZodRawShape = z.ZodRawShape,
-  Z extends z.ZodObject<T> = z.ZodObject<T>,
-> {
+export interface ContextValue<Z extends z.ZodTypeAny = z.ZodTypeAny> {
   bind: BindFunc;
   set: SetFunc;
   get: GetFunc;
   value: () => z.output<Z>;
   validate: (path?: string) => boolean;
+  validateAsync: (path?: string) => Promise<boolean>;
   has: (path: string) => boolean;
 }
 
@@ -322,11 +335,17 @@ export const Context = createContext<ContextValue>({
     required: false,
   }),
   validate: () => false,
+  validateAsync: () => Promise.resolve(false),
   value: () => ({}),
   has: () => false,
 });
 
-export const useContext = (): ContextValue => reactUseContext(Context);
+export const useContext = <Z extends z.ZodTypeAny = z.ZodTypeAny>(
+  override?: ContextValue<Z>,
+): ContextValue<Z> => {
+  const internal = reactUseContext(Context);
+  return override ?? (internal as unknown as ContextValue<Z>);
+};
 
 const NO_ERROR_STATUS = (path: string): status.CrudeSpec => ({
   key: path,
@@ -334,7 +353,7 @@ const NO_ERROR_STATUS = (path: string): status.CrudeSpec => ({
   message: "",
 });
 
-interface UseRef<T extends z.ZodRawShape, Z extends z.ZodObject<T> = z.ZodObject<T>> {
+interface UseRef<Z extends z.ZodTypeAny> {
   state: z.output<Z>;
   status: Map<string, status.CrudeSpec>;
   touched: Set<string>;
@@ -342,39 +361,31 @@ interface UseRef<T extends z.ZodRawShape, Z extends z.ZodObject<T> = z.ZodObject
   parentListeners: Map<string, Set<Listener>>;
 }
 
-export interface UseProps<
-  T extends z.ZodRawShape = z.ZodRawShape,
-  Z extends z.ZodObject<T> = z.ZodObject<T>,
-> {
+export interface UseProps<Z extends z.ZodTypeAny> {
   values: z.output<Z>;
   sync?: boolean;
   onChange?: (values: z.output<Z>) => void;
   schema?: Z;
 }
 
-export type UseReturn<
-  T extends z.ZodRawShape = z.ZodRawShape,
-  Z extends z.ZodObject<T> = z.ZodObject<T>,
-> = ContextValue<T, Z>;
+export type UseReturn<Z extends z.ZodTypeAny> = ContextValue<Z>;
 
-const getZodField = <T extends z.ZodRawShape, Z extends z.ZodObject<T>>(
-  schema: Z,
-  path: string,
-): z.ZodTypeAny =>
-  deep.get<T>(schema.shape, path, true, {
-    extension: "shape",
-  }) as z.ZodTypeAny;
+const isWarning = (issue: z.ZodIssue): boolean => getVariant(issue) === "warning";
 
-export const use = <
-  T extends z.ZodRawShape = z.ZodRawShape,
-  Z extends z.ZodObject<T> = z.ZodObject<T>,
->({
+const getVariant = (issue: z.ZodIssue): status.Variant =>
+  issue.code === z.ZodIssueCode.custom &&
+  issue.params != null &&
+  "variant" in issue.params
+    ? issue.params.variant
+    : "error";
+
+export const use = <Z extends z.ZodTypeAny>({
   values,
   sync = false,
   schema,
   onChange,
-}: UseProps<T, Z>): UseReturn<T, Z> => {
-  const ref = useRef<UseRef<T, Z>>({
+}: UseProps<Z>): UseReturn<Z> => {
+  const ref = useRef<UseRef<Z>>({
     state: values,
     status: new Map(),
     touched: new Set(),
@@ -412,7 +423,7 @@ export const use = <
       };
       if (schemaRef.current == null) return fs;
       const schema = schemaRef.current;
-      const zField = getZodField(schema, path);
+      const zField = zodutil.getFieldSchema(schema, path, true);
       if (zField == null) return fs;
       fs.required = !zField.isOptional();
       return fs;
@@ -420,53 +431,66 @@ export const use = <
     [],
   ) as GetFunc;
 
+  const validateInternal = useCallback(
+    (result: z.SafeParseReturnType<z.input<Z>, z.output<Z>>): boolean => {
+      const { status, listeners, touched } = ref.current;
+      if (result.success) {
+        const keys = Array.from(status.keys());
+        status.clear();
+        keys.forEach((p) => {
+          const fs = get({ path: p });
+          if (fs == null) return;
+          listeners.get(p)?.forEach((l) => l(fs));
+        });
+        return true;
+      }
+      let success = result.error.issues.every((i) => isWarning(i));
+      const issueKeys = new Set(result.error.issues.map((i) => i.path.join(".")));
+      result.error.issues.forEach((issue) => {
+        const issuePath = issue.path.join(".");
+        status.set(issuePath, {
+          key: issuePath,
+          variant: getVariant(issue),
+          message: issue.message,
+        });
+        touched.add(issuePath);
+        let fs = get({ path: issuePath, optional: true });
+        // If we can't find the field value, this means the user never set it, so instead
+        // we just to a best effort construction of the field state. This means that if
+        // the user has a field rendered for this path, the error will be displayed.
+        if (fs == null)
+          fs = {
+            value: undefined,
+            status: status.get(issuePath) ?? NO_ERROR_STATUS(issuePath),
+            touched: false,
+            required: false,
+          };
+        listeners.get(issuePath)?.forEach((l) => l(fs));
+      });
+      status.forEach((_, subPath) => {
+        if (!issueKeys.has(subPath)) {
+          status.delete(subPath);
+          const fs = get({ path: subPath });
+          listeners.get(subPath)?.forEach((l) => l(fs));
+        }
+      });
+      return success;
+    },
+    [],
+  );
+
   const validate = useCallback((path?: string): boolean => {
     if (schemaRef.current == null) return true;
-    const { state, status, listeners, touched } = ref.current;
-    const result = schemaRef.current.safeParse(state);
-    // if (path == null) status.clear();
-    // else status.delete(path);
-    if (result.success) {
-      const keys = Array.from(status.keys());
-      status.clear();
-      keys.forEach((p) => {
-        const fs = get({ path: p });
-        if (fs == null) return;
-        listeners.get(p)?.forEach((l) => l(fs));
-      });
-      return true;
-    }
-    const issueKeys = new Set(result.error.issues.map((i) => i.path.join(".")));
-    result.error.issues.forEach((issue) => {
-      const issuePath = issue.path.join(".");
-      console.log(issuePath, issue.message);
-      status.set(issuePath, {
-        key: issuePath,
-        variant: "error",
-        message: issue.message,
-      });
-      touched.add(issuePath);
-      let fs = get({ path: issuePath, optional: true });
-      // If we can't find the field value, this means the user never set it, so instead
-      // we just to a best effort construction of the field state. This means that if
-      // the user has a field rendered for this path, the error will be displayed.
-      if (fs == null)
-        fs = {
-          value: undefined,
-          status: status.get(issuePath) ?? NO_ERROR_STATUS(issuePath),
-          touched: false,
-          required: false,
-        };
-      listeners.get(issuePath)?.forEach((l) => l(fs));
-    });
-    status.forEach((_, subPath) => {
-      if (!issueKeys.has(subPath)) {
-        status.delete(subPath);
-        const fs = get({ path: subPath });
-        listeners.get(subPath)?.forEach((l) => l(fs));
-      }
-    });
-    return false;
+    const { state } = ref.current;
+    const result = schemaRef.current.safeParse(state, { async: true });
+    return validateInternal(result);
+  }, []);
+
+  const validateAsync = useCallback(async (path?: string): Promise<boolean> => {
+    if (schemaRef.current == null) return true;
+    const { state } = ref.current;
+    const result = await schemaRef.current.safeParseAsync(state);
+    return validateInternal(result);
   }, []);
 
   const set: SetFunc = useCallback(({ path, value }): void => {
@@ -474,7 +498,7 @@ export const use = <
     touched.add(path);
     if (path.length === 0) ref.current.state = value as z.output<Z>;
     else deep.set(state, path, value);
-    validate();
+    validateAsync();
     listeners.get(path)?.forEach((l) => l(get({ path })));
     parentListeners.forEach((lis, listPath) => {
       if (path.startsWith(listPath)) {
@@ -502,11 +526,12 @@ export const use = <
   }, [sync, values]);
 
   return useMemo(
-    (): ContextValue<T, Z> => ({
+    (): ContextValue<Z> => ({
       bind,
       set,
       get,
       validate,
+      validateAsync,
       value: () => ref.current.state,
       has,
     }),

@@ -139,6 +139,7 @@ export const useSelect = <K extends Key, E extends Keyed<K>>({
     // it to the new value..
     if (selectValueIsZero(propsValue) && allowNone === false && data.length > 0) {
       const first = data[0];
+      shiftValueRef.current = first.key;
       handleChange([first.key], {
         entries: [first],
         clicked: first.key,
@@ -180,7 +181,15 @@ export const useSelect = <K extends Key, E extends Keyed<K>>({
         else nextSelected = [...value, key];
       }
       const v = unique(nextSelected);
-      if (allowNone === false && v.length === 0) return;
+      if (allowNone === false && v.length === 0) {
+        // If we're not allowed to have no select, still call handleChange with the same
+        // value. This is useful when you want to close a dialog on selection.
+        handleChange(value, {
+          entries: data.filter(({ key }) => value.includes(key)),
+          clicked: key,
+          clickedIndex: data.findIndex(({ key: k }) => k === key),
+        });
+      }
       if (v.length === 0) shiftValueRef.current = null;
       handleChange(v, {
         entries: data.filter(({ key }) => nextSelected.includes(key)),

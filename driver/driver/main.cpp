@@ -10,7 +10,7 @@
 #include <csignal>
 #include "driver/driver/driver.h"
 #include "task/task.h"
-#include "glog/logging.h"
+#include <glog/logging.h>
 #include "driver/driver/opc/opc.h"
 
 std::unique_ptr<driver::Driver> d;
@@ -25,9 +25,9 @@ std::pair<synnax::Rack, freighter::Error> retrieveDriverRack(
     return {rack, err};
 }
 
+
 int main(int argc, char *argv[]) {
     google::InitGoogleLogging(argv[0]);
-    google::SetCommandLineOption("logtostderr", "1");
     google::SetCommandLineOption("minloglevel", "0");
     LOG(INFO) << "[Driver] starting up";
     auto cfg = synnax::Config{
@@ -51,7 +51,9 @@ int main(int argc, char *argv[]) {
     LOG(INFO) << "[Driver] retrieving meta-data";
     auto [rack, err] = retrieveDriverRack(rack_bootup_breaker, client);
     if (err) {
-        LOG(FATAL) << "[Driver] failed to retrieve meta-data - can't proceed without it. Exiting." << err;
+        LOG(FATAL) <<
+                "[Driver] failed to retrieve meta-data - can't proceed without it. Exiting."
+                << err;
         return 1;
     }
 

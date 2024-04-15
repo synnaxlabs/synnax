@@ -12,6 +12,8 @@ package cmd
 import (
 	"bufio"
 	"context"
+	"github.com/sirupsen/logrus"
+	"github.com/synnaxlabs/synnax/pkg/hardware/embedded"
 	"os"
 	"os/signal"
 	"time"
@@ -243,6 +245,15 @@ func start(cmd *cobra.Command) {
 			return srv.Serve()
 		}, xsignal.WithKey("server"))
 		defer srv.Stop()
+
+		d, err := embedded.OpenDriver(embedded.Config{Instrumentation: ins})
+		defer func() {
+			logrus.Info("STOPPING")
+			d.Stop()
+		}()
+		if err != nil {
+			return err
+		}
 		<-ctx.Done()
 		return nil
 	}, xsignal.WithKey("start"))

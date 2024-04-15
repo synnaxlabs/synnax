@@ -23,6 +23,7 @@ import { useContext } from "@/triggers/Provider";
 import { diff, filter, purge, type Stage, type Trigger } from "@/triggers/triggers";
 
 export interface UseEvent {
+  target: HTMLElement;
   triggers: Trigger[];
   stage: Stage;
   cursor: xy.XY;
@@ -50,9 +51,9 @@ export const use = ({ triggers, callback: f, region, loose }: UseProps): void =>
       let [added, removed] = diff(nextMatches, prevMatches);
       if (added.length === 0 && removed.length === 0) return;
       added = filterInRegion(e.target, e.cursor, added, region);
-      if (added.length > 0) f?.({ stage: "start", triggers: added, cursor: e.cursor });
-      if (removed.length > 0)
-        f?.({ stage: "end", triggers: removed, cursor: e.cursor });
+      const base = { target: e.target, cursor: e.cursor };
+      if (added.length > 0) f?.({ ...base, stage: "start", triggers: added });
+      if (removed.length > 0) f?.({ ...base, stage: "end", triggers: removed });
     });
   }, [f, memoTriggers, listen, loose, region]);
 };

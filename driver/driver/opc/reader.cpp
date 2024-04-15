@@ -27,24 +27,20 @@ ReaderConfig::ReaderConfig(
     sample_rate = Rate(parser.required<std::float_t>("sample_rate"));
     stream_rate = Rate(parser.required<std::float_t>("stream_rate"));
     parser.iter("channels", [&](config::Parser &channel_builder) {
-        channels.emplace_back(channel_builder);
+        auto ch = ReaderChannelConfig(channel_builder);
+        if (ch.enabled) channels.push_back(ch);
     });
 }
 
 class ReaderSource final : public pipeline::Source {
 public:
     ReaderConfig cfg;
-    UA_Client *client;
+    std::shared_ptr<UA_Client> client;
     std::set<ChannelKey> indexes;
-
-    ~ReaderSource() override {
-        UA_Client_disconnect(client);
-        UA_Client_delete(client);
-    }
 
     ReaderSource(
         ReaderConfig cfg,
-        UA_Client *client,
+        const std::shared_ptr<UA_Client> &client,
         std::set<ChannelKey> indexes
     )
         : cfg(std::move(cfg)), client(client), indexes(std::move(indexes)) {
@@ -54,10 +50,10 @@ public:
         auto fr = Frame(cfg.channels.size() + indexes.size());
         std::this_thread::sleep_for(cfg.sample_rate.period().nanoseconds());
         for (const auto &ch: cfg.channels) {
-            UA_NodeId node_id = UA_NODEID_STRING_ALLOC(ch.ns, ch.node.c_str());
+            if (!ch.enabled) continue;
             UA_Variant *value = UA_Variant_new();
             const UA_StatusCode status = UA_Client_readValueAttribute(
-                client, node_id, value);
+                client.get(), ch.node, value);
             if (status != UA_STATUSCODE_GOOD)
                 LOG(ERROR) << "Unable to read value from opc server";
             else {
@@ -65,13 +61,13 @@ public:
                 fr.add(ch.channel, val);
             }
             UA_Variant_delete(value);
-            UA_NodeId_clear(&node_id);
         }
         const auto now = synnax::TimeStamp::now();
         for (const auto &idx: indexes) fr.add(idx, Series(now));
         return std::make_pair(std::move(fr), freighter::NIL);
     }
 };
+
 
 
 Reader::Reader(
@@ -125,25 +121,29 @@ Reader::Reader(
         ctx->setState({
             .task = task.key,
             .variant = "error",
-            .details = json{
-                {"message", err.message()}
-            }
+            .details = json{{"message", err.message()}}
         });
         return;
     }
     auto [channelKeys, indexes] = res;
 
     // Connect to the OPC UA server.
-    auto [ua_client, ok] = opc::connect(properties.connection, task, ctx);
-    if (!ok) return;
+    auto [ua_client, conn_err] = opc::connect(properties.connection);
+    if (conn_err) {
+        ctx->setState({
+            .task = task.key,
+            .variant = "error",
+            .details = {{"message", conn_err.message()}}
+        });
+        return;
+    }
 
     for (auto i = 0; i < cfg.channels.size(); i++) {
         auto ch = cfg.channels[i];
         UA_Variant *value = UA_Variant_new();
-        UA_NodeId myIntegerNodeID = UA_NODEID_STRING_ALLOC(1, ch.node.c_str());
         const UA_StatusCode status = UA_Client_readValueAttribute(
-            ua_client,
-            myIntegerNodeID,
+            ua_client.get(),
+            ch.node,
             value
         );
         if (status != UA_STATUSCODE_GOOD) {
@@ -155,10 +155,9 @@ Reader::Reader(
                                         "failed to read value" + std::string(
                                             UA_StatusCode_name(status)));
             }
-            LOG(ERROR) << "failed to read value for channel " << ch.node;
+            LOG(ERROR) << "failed to read value for channel " << ch.node_id;
         }
         UA_Variant_delete(value);
-        UA_NodeId_clear(&myIntegerNodeID);
     }
 
     if (!config_parser.ok()) {
@@ -191,13 +190,32 @@ Reader::Reader(
     ctx->setState({
         .task = task.key,
         .variant = "success",
-        .details = {}
+        .details = {
+            {"running", false}
+        }
     });
-    pipe.start();
 }
 
 void Reader::exec(task::Command &cmd) {
-    if (cmd.type == "start") return pipe.start();
-    else if (cmd.type == "stop") return pipe.stop();
+    if (cmd.type == "start") {
+        pipe.start();
+        return ctx->setState({
+            .task = task.key,
+            .variant = "success",
+            .details = {
+                {"running", true}
+            }
+        });
+    }
+    if (cmd.type == "stop") {
+        pipe.stop();
+        return ctx->setState({
+            .task = task.key,
+            .variant = "success",
+            .details = {
+                {"running", false}
+            }
+        });
+    }
     LOG(ERROR) << "unknown command type: " << cmd.type;
 }

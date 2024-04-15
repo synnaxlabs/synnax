@@ -58,7 +58,7 @@ opc::Factory::configureInitialTasks(
         }
         auto [task, ok] = configureTask(ctx, sy_task);
         auto pair = std::make_pair(sy_task, std::move(task));
-        if (!ok) tasks.emplace_back(std::move(pair));
+        if (ok) tasks.emplace_back(std::move(pair));
     }
     return tasks;
 }

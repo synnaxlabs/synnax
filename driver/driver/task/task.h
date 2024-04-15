@@ -38,7 +38,7 @@ struct Command {
     ): task(parser.required<TaskKey>("task")),
        type(parser.required<std::string>("type")),
        key(parser.optional<std::string>("key", "")),
-       args(parser.required<json>("args")) {
+       args(parser.optional<json>("args", json{})) {
     }
 
     /// @brief Construct a new Task Command object

@@ -45,21 +45,52 @@ export type ReadTaskState = task.State<ReadTaskStateDetails>;
 
 export const readTaskChannelConfigZ = z.object({
   key: z.string(),
-  channel: z.number(),
-  node: z.string(),
+  channel: z.number().min(1, "Channel must be specified"),
+  nodeId: z.string().min(1, "Node ID must be specified"),
   enabled: z.boolean(),
 });
 
 export const readTaskConfigZ = z
   .object({
-    device: z.string(),
+    device: z.string().min(1, "Device must be specified"),
     sampleRate: z.number().min(0).max(1000),
     streamRate: z.number().min(0).max(200),
-    channels: readTaskChannelConfigZ.array(),
+    channels: z.array(readTaskChannelConfigZ),
+  }).refine((cfg) => cfg.sampleRate >= cfg.streamRate, {
+    message: "Sample rate must be greater than or equal to stream rate",
+    path: ["sampleRate"],
   })
-  .refine((c) => c.sampleRate >= c.streamRate, {
-    path: ["streamRate"],
-    message: "Stream rate must be lower than or equal to the sample rate",
+  .superRefine((cfg, ctx) => {
+    console.log("DOG");
+    const channels = new Map<number, number>();
+    cfg.channels.forEach(({ channel }) =>
+      channels.set(channel, (channels.get(channel) ?? 0) + 1),
+    );
+    cfg.channels.forEach(({ channel }, i) => {
+      if (channel === 0 || (channels.get(channel) ?? 0) < 2) return;
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["channels", i, "channel"],
+        message: "This channel has already been used elsewhere in the configuration",
+      });
+    });
+  })
+  .superRefine((cfg, ctx) => {
+    const nodeIds = new Map<string, number>();
+    cfg.channels.forEach(({ nodeId }) => 
+      nodeIds.set(nodeId, (nodeIds.get(nodeId) ?? 0) + 1)
+    );
+    cfg.channels.forEach(({ nodeId }, i) => {
+      if (nodeId.length === 0 || (nodeIds.get(nodeId) ?? 0) < 2) return;
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["channels", i, "nodeId"],
+        message: "This node ID has already been used elsewhere in the configuration",
+        params: {
+          variant: "warning",
+        },
+      });
+    });
   });
 
 export type ReadTaskConfig = z.infer<typeof readTaskConfigZ>;

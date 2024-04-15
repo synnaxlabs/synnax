@@ -1076,6 +1076,24 @@ export class DataType extends String implements Stringer {
     return v;
   }
 
+  /** @returns true if the data type can be cast to the other data type without loss of precision. */
+  canSafelyCastTo(other: DataType): boolean {
+    if (this.equals(other)) return true;
+    if (this.isVariable && !other.isVariable || !this.isVariable && other.isVariable) return false;
+    if ((this.isFloat && other.isInteger) || (this.isInteger && other.isFloat)) {
+      return this.density.valueOf() < other.density.valueOf();
+    }
+    if ((this.isFloat && other.isFloat) || (this.isInteger && other.isInteger)) 
+      return this.density.valueOf() <= other.density.valueOf();
+    return false;
+  }
+
+  /** @returns true if the data type can be cast to the other data type, even if there is a loss of precision. */
+  canCastTo(other: DataType): boolean {
+    if (this.isNumeric && other.isNumeric) return true;
+    return this.equals(other);
+  }
+
   /**
    * Checks whether the given TypedArray is of the same type as the DataType.
    *

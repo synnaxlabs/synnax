@@ -107,15 +107,13 @@ void Scanner::scan(const task::Command &cmd) const {
         });
 
     auto [ua_client, err] = connect(args.connection);
-    if (err) {
-        parser.field_err("", "failed to connect");
+    if (err)
         return ctx->setState({
             .task = task.key,
             .key = cmd.key,
             .variant = "error",
-            .details = parser.error_json()
+            .details = {{"message", err.message()}}
         });
-    }
 
     UA_NodeId root_folder_id = UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER);
     auto scan_ctx = new ScanContext{
@@ -147,16 +145,12 @@ void Scanner::testConnection(const task::Command &cmd) const {
             .task = task.key,
             .key = cmd.key,
             .variant = "error",
-            .details = {
-                {"message", err.data}
-            }
+            .details = {{"message", err.data}}
         });
     return ctx->setState({
         .task = task.key,
         .key = cmd.key,
         .variant = "success",
-        .details = {
-            {"message", "Connection successful"}
-        },
+        .details = {{"message", "Connection successful"}},
     });
 }

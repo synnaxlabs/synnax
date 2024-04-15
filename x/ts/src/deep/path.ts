@@ -47,44 +47,57 @@ export type Key<T, D extends number = 5> = [D] extends [never]
     : "";
 
 export interface GetOptions {
-  extension?: string;
+  getter?: (obj: unknown, key: string) => unknown;
 }
 
-export type Get = (<T>(
+export type Get = (<V = unknown, T = UnknownRecord>(
   obj: T,
   path: string,
   allowNull: true,
   options?: GetOptions,
-) => unknown | null) &
-  (<T>(obj: T, path: string, allowNull?: boolean, options?: GetOptions) => unknown);
+) => V | null) &
+  (<V = unknown, T = UnknownRecord>(obj: T, path: string, allowNull?: boolean, options?: GetOptions) => V);
 
-export const get: Get = <V>(
-  obj: V,
+export type TypedGet<V = unknown, T = UnknownRecord> = ((
+  obj: T,
+  path: string,
+  allowNull: true,
+) => V | null) &
+  ((obj: T, path: string, allowNull?: boolean) => V);
+
+export const transformPath = (
+  path: string,
+  replacer: (part: string, index: number, parts: string[]) => string | string[] | undefined,
+): string => {
+  const parts = path.split(".");
+  const result = parts.map((part, index) => {
+    const r = replacer(part, index, parts);
+    if (r == null) return null;
+    if (typeof r === "string") return r;
+    return r.join(".");
+  }).filter((part) => part != null) as string[];
+  return result.join(".");
+}
+
+export const get = (<V = unknown, T = UnknownRecord>(
+  obj: T,
   path: string,
   allowNull: boolean = false,
-  { extension = "" }: GetOptions = {},
-): unknown | null => {
+  { getter = (obj, key) => (obj as UnknownRecord)[key] }: GetOptions = {},
+): V | null => {
   const parts = path.split(".");
-  if (parts.length === 1 && parts[0] === "") return obj;
+  if (parts.length === 1 && parts[0] === "") return obj as unknown as V;
   let result: UnknownRecord = obj as UnknownRecord;
   for (const part of parts) {
-    let v = result[part];
+    let v = getter(result, part);
     if (v == null) {
       if (allowNull) return null;
       throw new Error(`Path ${path} does not exist. ${part} is null`);
     }
-    if (extension !== "" && typeof v === "object" && parts[parts.length - 1] !== part) {
-      const ext = (v as UnknownRecord)[extension];
-      if (ext == null) {
-        if (allowNull) return null;
-        throw new Error(`Path ${path} does not exist. ${part}.${extension} is null`);
-      }
-      v = ext;
-    }
     result = v as UnknownRecord;
   }
-  return result;
-};
+  return result as V;
+}) as unknown as Get;
 
 export const set = <V>(obj: V, path: string, value: unknown): void => {
   const parts = path.split(".");
@@ -107,9 +120,9 @@ export const element = (path: string, index: number): string => {
 
 export const join = (path: string[]): string => path.join(".");
 
-export const has = <V>(obj: V, path: string): boolean => {
+export const has = <V = unknown, T = UnknownRecord>(obj: T, path: string): boolean => {
   try {
-    get<V>(obj, path);
+    get<V, T>(obj, path);
     return true;
   } catch {
     return false;

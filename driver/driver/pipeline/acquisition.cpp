@@ -36,11 +36,12 @@ Acquisition::Acquisition(
 
 
 void Acquisition::start() {
-    running = true;
     thread = std::thread(&Acquisition::run, this);
+    running = true;
 }
 
 void Acquisition::stop() {
+    if (!running) return;
     running = false;
     thread.join();
 }

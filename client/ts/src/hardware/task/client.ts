@@ -119,6 +119,16 @@ export class Task<C extends UnknownRecord = UnknownRecord, T extends string = st
     this.frameClient = frameClient;
   }
 
+  async executeCommand(
+    type: string,
+    args?: UnknownRecord,
+  ): Promise<void> {
+    const writer = await this.frameClient.openWriter(TASK_CMD_CHANNEL);
+    const key = nanoid();
+    await writer.write(TASK_CMD_CHANNEL, [{ task: this.key, type, key, args }]);
+    await writer.close();
+  }
+
   async executeCommandSync<D extends UnknownRecord = UnknownRecord>(
     type: string,
     args: UnknownRecord,
