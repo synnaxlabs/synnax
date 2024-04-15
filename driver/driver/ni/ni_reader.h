@@ -44,11 +44,14 @@ namespace ni {
         //TODO: implement a calibration class later and put that in here too
     } channel_config;
 
+
+
     class niDaqReader : public daq::AcqReader { // public keyword required to store pointer to niDaqreader in a pointer to acqReader
     public:
         niDaqReader(TaskHandle taskHandle);
         std::pair<json,int> init(std::vector <channel_config> channels, uint64_t acquisition_rate, uint64_t stream_rate);
         std::pair<json, int> init(json channels, uint64_t acquisition_rate, uint64_t stream_rate);
+//        int ni::niDaqReader::init(std::string config, uint64_t acquisition_rate, uint64_t stream_rate);
         std::pair <synnax::Frame, freighter::Error> read();
         freighter::Error stop();
         freighter::Error start();

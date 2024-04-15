@@ -21,11 +21,7 @@ TEST(CtrlTests, testCtrlNi){
 
     /// set up test infrustructure
     // create synnax client config
-    auto client_config = synnax::Config{
-            "localhost",
-            9090,
-            "synnax",
-            "seldon"};
+    auto client_config = synnax::Config{ "localhost", 9090,"synnax", "seldon"};
     auto client = std::make_shared<synnax::Synnax>(client_config);
 
     // create all the necessary channels in the synnax client

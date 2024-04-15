@@ -10,12 +10,12 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        "//driver/breaker",
-        "//driver/errors:errors",
-        "//driver/modules:module",
+        "//driver/driver/breaker",
+        "//driver/driver/errors:errors",
+#        "//driver/driver/modules:module",
         "@nlohmann_json//:json",
         "//client/cpp/synnax",
-        "//driver/ni",
+        "//driver/driver/ni",
         "acqReader"
     ],
     copts = ["/std:c++17"],

@@ -11,7 +11,6 @@
 #include "driver/driver/pipeline/acq.h"
 #include "driver/driver/errors/errors.h"
 #include "nlohmann/json.hpp"
-#include "driver/driver/acq.h"
 #include <stdio.h>
 
 #pragma once
@@ -111,7 +110,7 @@ void Acq::setStateChannelKey(synnax::ChannelKey state_channel_key, synnax::Chann
         std::vector<synnax::ChannelKey>{state_channel_key, state_channel_idx_key},
         synnax::TimeStamp::now(),
         std::vector<synnax::Authority>{synnax::ABSOLUTTE, synnax::ABSOLUTTE},
-        synnax::Subject{"state_writer"}
+        synnax::ControlSubject{"state_writer"}
     };
     auto [writer,wErr] = client->telem.openWriter(state_writer_config); // perform error handling for opening stateWriter
     this->state_writer = std::unique_ptr<synnax::Writer>(&writer);

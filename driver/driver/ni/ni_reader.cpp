@@ -18,6 +18,7 @@
 #include <chrono>
 #include <stdio.h>
 #include <cassert>
+#include <driver/driver/config/config.h>
 
 using json = nlohmann::json;
 using namespace ni; // TODO; remove
@@ -77,6 +78,18 @@ std::pair<json,int> ni::niDaqReader::init(json config, uint64_t acquisition_rate
     return {err_info, 0};
 }
 
+//int ni::niDaqReader::init(std::string config, uint64_t acquisition_rate, uint64_t stream_rate) {
+//    config::Parser parser(config);
+//    parser.iter("channels", [&](config::Parser &channel_builder) {
+//        channel_config config;
+//        config.name = channel_builder.required<std::string>("hardware") + "/" + channel_builder.required<std::string>("port") + "/line" + channel_builder.required<std::string>("line");
+//        config.channel_key = channel_builder.required<uint32_t>("channel_key");
+//        config.min_val = channel_builder.required<float>("min_val");
+//        config.max_val = channel_builder.required<float>("max_val");
+//        config.channelType = channel_builder.required<ChannelType>("channelType");
+//        channels.push_back(config);
+//    });
+//}
 // TODO: I want to make a producer consumer model here instead? This works for now but come back to
 
 std::pair<json,int> ni::niDaqReader::init(std::vector<channel_config> channels, uint64_t acquisition_rate, uint64_t stream_rate) {

@@ -20,11 +20,11 @@
 
 /// api protos
 #include "google/protobuf/empty.pb.h"
-#include "v1/device.pb.h"
+#include "synnax/pkg/api/grpc/v1/device.pb.h"
 
 
 /// internal
-#include "synnax/telem/telem.h"
+#include "client/cpp/synnax/telem/telem.h"
 
 using namespace synnax;
 
