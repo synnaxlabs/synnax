@@ -20,7 +20,6 @@ import {
   type CrudeTimeStamp,
 } from "@synnaxlabs/x";
 
-import { type Creator } from "@/channel/creator";
 import {
   type Key,
   type KeyOrName,
@@ -36,6 +35,7 @@ import {
   DebouncedBatchRetriever,
   type Retriever,
 } from "@/channel/retriever";
+import { type Writer } from "@/channel/writer";
 import { MultipleResultsError, NoResultsError, ValidationError } from "@/errors";
 import { type framer } from "@/framer";
 
@@ -170,20 +170,20 @@ export class Channel {
  */
 export class Client implements AsyncTermSearcher<string, Key, Channel> {
   private readonly frameClient: framer.Client;
-  readonly retriever: Retriever;
-  private readonly creator: Creator;
   private readonly client: UnaryClient;
+  private readonly retriever: Retriever;
+  private readonly writer: Writer;
 
   constructor(
     frameClient: framer.Client,
     retriever: Retriever,
     client: UnaryClient,
-    creator: Creator,
+    writer: Writer,
   ) {
     this.frameClient = frameClient;
     this.retriever = retriever;
     this.client = client;
-    this.creator = creator;
+    this.writer = writer;
   }
 
   /**
@@ -261,7 +261,7 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
       toCreate = toCreate.filter((c) => !existingNames.has(c.name));
       created = this.sugar(res);
     }
-    created = created.concat(this.sugar(await this.creator.create(toCreate)));
+    created = created.concat(this.sugar(await this.writer.create(toCreate)));
     return single ? created[0] : created;
   }
 
@@ -320,6 +320,12 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
     if (res.length > 1)
       throw new MultipleResultsError(`multiple channels matching ${actual} found`);
     return res[0];
+  }
+
+  async delete(channels: Params): Promise<void> {
+    const { normalized, variant } = analyzeParams(channels);
+    if (variant === "keys") return await this.writer.delete({ keys: normalized });
+    return await this.writer.delete({ names: normalized });
   }
 
   async search(term: string, rangeKey?: string): Promise<Channel[]> {

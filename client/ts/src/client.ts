@@ -94,7 +94,7 @@ export default class Synnax {
     const chRetriever = new channel.CacheRetriever(
       new channel.ClusterRetriever(this.transport.unary),
     );
-    const chCreator = new channel.Creator(this.transport.unary);
+    const chCreator = new channel.Writer(this.transport.unary);
     this.telem = new framer.Client(this.transport.stream, chRetriever);
     this.channels = new channel.Client(
       this.telem,

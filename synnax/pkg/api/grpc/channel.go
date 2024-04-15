@@ -19,6 +19,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/unsafe"
+	"go/types"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type (
@@ -26,6 +28,7 @@ type (
 	channelCreateResponseTranslator   struct{}
 	channelRetrieveRequestTranslator  struct{}
 	channelRetrieveResponseTranslator struct{}
+	channelDeleteRequestTranslator    struct{}
 	createServer                      = fgrpc.UnaryServer[
 		api.ChannelCreateRequest,
 		*gapi.ChannelCreateRequest,
@@ -38,6 +41,12 @@ type (
 		api.ChannelRetrieveResponse,
 		*gapi.ChannelRetrieveResponse,
 	]
+	deleteServer = fgrpc.UnaryServer[
+		api.ChannelDeleteRequest,
+		*gapi.ChannelDeleteRequest,
+		types.Nil,
+		*emptypb.Empty,
+	]
 )
 
 var (
@@ -45,6 +54,7 @@ var (
 	_ fgrpc.Translator[api.ChannelCreateResponse, *gapi.ChannelCreateResponse]     = (*channelCreateResponseTranslator)(nil)
 	_ fgrpc.Translator[api.ChannelRetrieveRequest, *gapi.ChannelRetrieveRequest]   = (*channelRetrieveRequestTranslator)(nil)
 	_ fgrpc.Translator[api.ChannelRetrieveResponse, *gapi.ChannelRetrieveResponse] = (*channelRetrieveResponseTranslator)(nil)
+	_ fgrpc.Translator[api.ChannelCreateRequest, *gapi.ChannelCreateRequest]       = (*channelCreateRequestTranslator)(nil)
 )
 
 func translateChannelKeysForward(keys []channel.Key) []uint32 {
@@ -121,6 +131,26 @@ func (t channelRetrieveResponseTranslator) Backward(
 	return api.ChannelRetrieveResponse{Channels: lo.Map(msg.Channels, translateChannelBackward)}, nil
 }
 
+func (t channelDeleteRequestTranslator) Forward(
+	_ context.Context,
+	msg api.ChannelDeleteRequest,
+) (*gapi.ChannelDeleteRequest, error) {
+	return &gapi.ChannelDeleteRequest{
+		Keys:  translateChannelKeysForward(msg.Keys),
+		Names: msg.Names,
+	}, nil
+}
+
+func (t channelDeleteRequestTranslator) Backward(
+	_ context.Context,
+	msg *gapi.ChannelDeleteRequest,
+) (api.ChannelDeleteRequest, error) {
+	return api.ChannelDeleteRequest{
+		Keys:  translateChannelKeysBackward(msg.Keys),
+		Names: msg.Names,
+	}, nil
+}
+
 func translateChannelForward(
 	msg api.Channel,
 	_ int,
@@ -164,7 +194,12 @@ func newChannel(a *api.Transport) []fgrpc.BindableTransport {
 		ResponseTranslator: channelRetrieveResponseTranslator{},
 		ServiceDesc:        &gapi.ChannelRetrieveService_ServiceDesc,
 	}
+	d := &deleteServer{
+		RequestTranslator: channelDeleteRequestTranslator{},
+		ServiceDesc:       &gapi.ChannelDeleteService_ServiceDesc,
+	}
 	a.ChannelCreate = c
 	a.ChannelRetrieve = r
-	return []fgrpc.BindableTransport{c, r}
+	a.ChannelDelete = d
+	return []fgrpc.BindableTransport{c, r, d}
 }

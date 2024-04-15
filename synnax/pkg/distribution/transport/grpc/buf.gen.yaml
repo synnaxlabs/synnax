@@ -7,12 +7,13 @@ managed:
       - buf.build/synnaxlabs/freighter
       - buf.build/synnaxlabs/telem
 plugins:
-  - name: go
-    out: gen/go
-    opt: paths=source_relative
-
-  - name: go-grpc
+  - plugin: buf.build/grpc/go:v1.3.0
     out: gen/go
     opt:
       - paths=source_relative
       - require_unimplemented_servers=false
+
+  - plugin: buf.build/protocolbuffers/go
+    out: gen/go
+    opt:
+      - paths=source_relative

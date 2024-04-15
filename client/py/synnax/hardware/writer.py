@@ -9,7 +9,7 @@
 
 from freighter import Payload, UnaryClient
 
-from synnax.hardware.payload import Rack, Task, Device
+from synnax.hardware.payload import Device, Rack, Task
 
 
 class _CreateRackRequest(Payload):

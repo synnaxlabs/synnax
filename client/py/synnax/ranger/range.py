@@ -14,18 +14,13 @@ from uuid import UUID
 import numpy as np
 from pydantic import PrivateAttr
 
-from synnax.channel import (
-    ChannelKey,
-    ChannelName,
-    ChannelPayload,
-    ChannelRetriever,
-)
+from synnax.channel import ChannelKey, ChannelName, ChannelPayload, ChannelRetriever
 from synnax.exceptions import QueryError
 from synnax.framer import Client
 from synnax.ranger.alias import Aliaser
 from synnax.ranger.kv import KV
 from synnax.ranger.payload import RangePayload
-from synnax.telem import Series, TimeRange, DataType, Rate, SampleValue
+from synnax.telem import DataType, Rate, SampleValue, Series, TimeRange
 from synnax.util.interop import overload_comparison_operators
 
 
