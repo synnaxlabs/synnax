@@ -57,7 +57,7 @@ std::pair<driver::Config, freighter::Error> driver::parseConfig(const json &cont
 json driver::readConfig(std::string path) {
     std::ifstream file(path);
     json content = json::object();
-    if (!file.is_open()) {
+    if (file.is_open()) {
         std::string content_str;
         file.seekg(0, std::ios::end);
         content_str.resize(file.tellg());

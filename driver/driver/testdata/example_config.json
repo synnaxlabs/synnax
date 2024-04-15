@@ -9,7 +9,13 @@
     "client_key_file": "/path/to/client_key_file"
   },
   "retry": {
-
-
-  }
+    "base_interval": 2,
+    "max_retries": 40,
+    "scale": 1.3
+  },
+  "rack": {
+    "key": 1,
+    "name": "rack"
+  },
+  "integrations": ["opc"]
 }

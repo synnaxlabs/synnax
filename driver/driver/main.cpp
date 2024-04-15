@@ -10,57 +10,76 @@
 #include <csignal>
 #include <fstream>
 #include <iostream>
+#include <getopt.h>
+
+#include "nlohmann/json.hpp"
+#include "glog/logging.h"
+
 #include "driver/driver/driver.h"
 #include "task/task.h"
-#include <glog/logging.h>
 #include "driver/driver/opc/opc.h"
-#include "nlohmann/json.hpp"
 
 using json = nlohmann::json;
 
 std::unique_ptr<driver::Driver> d;
 
 std::pair<synnax::Rack, freighter::Error> retrieveDriverRack(
+    const driver::Config &config,
     breaker::Breaker &breaker,
     const std::shared_ptr<synnax::Synnax> &client
 ) {
-    auto [rack, err] = client->hardware.retrieveRack("sy_node_1_rack");
+    auto [rack, err] = client->hardware.retrieveRack(
+        config.rack_key != 0 ? config.rack_key : config.rack_name);
     if (err.matches(freighter::UNREACHABLE) && breaker.wait(err.message()))
-        return retrieveDriverRack(breaker, client);
+        return retrieveDriverRack(config, breaker, client);
     return {rack, err};
 }
 
-
-
-
 int main(int argc, char *argv[]) {
+    static struct option long_options[] = {
+        {"config", required_argument, 0, 'c'},
+        {0, 0, 0, 0}
+    };
+
+    int option_index = 0;
+    int c;
+    std::string config_path = "./synnax-driver-config.json";
+    // Variable to store the config file path
+
+    // Parse the command line arguments using getopt_long
+    while ((c = getopt_long(argc, argv, "c:", long_options, &option_index)) != -1) {
+        switch (c) {
+            case 'c':
+                config_path = optarg; // Assign the optarg to your string variable
+                break;
+            case '?':
+                // getopt_long already printed an error message.
+                return 1;
+            default:
+                std::cerr << "Unknown error while parsing options" << std::endl;
+                return 1;
+        }
+    }
+
     google::InitGoogleLogging(argv[0]);
     google::SetCommandLineOption("minloglevel", "0");
-    LOG(INFO) << "[Driver] starting up";
-    auto cfg = synnax::Config{
-        .host = "localhost",
-        .port = 9090,
-        .username = "synnax",
-        .password = "seldon",
-    };
 
-    auto client = std::make_shared<synnax::Synnax>(cfg);
+    auto cfg_json = driver::readConfig(config_path);
+    auto [cfg, cfg_err] = driver::parseConfig(cfg_json);
+    if (cfg_err) {
+        LOG(FATAL) << "[Driver] failed to parse configuration: " << cfg_err;
+        return 1;
+    }
 
-    breaker::Config breaker_config{
-        "driver",
-        synnax::SECOND * 1,
-        50,
-        1.1
-    };
-
-    auto rack_bootup_breaker = breaker::Breaker(breaker_config.child("startup"));
+    auto breaker = breaker::Breaker(cfg.breaker_config);
+    auto client = std::make_shared<synnax::Synnax>(cfg.client_config);
 
     LOG(INFO) << "[Driver] retrieving meta-data";
-    auto [rack, err] = retrieveDriverRack(rack_bootup_breaker, client);
-    if (err) {
+    auto [rack, rack_err] = retrieveDriverRack(cfg, breaker, client);
+    if (rack_err) {
         LOG(FATAL) <<
                 "[Driver] failed to retrieve meta-data - can't proceed without it. Exiting."
-                << err;
+                << rack_err;
         return 1;
     }
 
@@ -74,7 +93,7 @@ int main(int argc, char *argv[]) {
         rack,
         client,
         std::move(factory),
-        breaker_config
+        cfg.breaker_config
     );
     signal(SIGINT, [](int _) {
         LOG(INFO) << "[Driver] received interrupt signal. shutting down";

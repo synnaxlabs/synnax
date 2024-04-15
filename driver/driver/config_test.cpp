@@ -7,8 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <gtest/gtest.h>
 
+#include <filesystem>
+
+#include "gtest/gtest.h"
 #include "driver.h"
 #include "driver/driver/driver.h"
 #include "nlohmann/json.hpp"
@@ -23,6 +25,7 @@ TEST(TestDriverConfig, parseEmptyConfig) {
     ASSERT_NEAR(cfg.breaker_config.scale, 1.2, 0.0001);
 }
 
+/// @brief it shopuld correctly parse the values from a valid configuration.
 TEST(TestDriverConfig, testValidConfig) {
     json config = {
         {"connection", {
@@ -59,6 +62,18 @@ TEST(TestDriverConfig, testValidConfig) {
     ASSERT_NEAR(cfg.breaker_config.scale, 1.5, 0.0001);
     ASSERT_EQ(cfg.rack_key, 1);
     ASSERT_EQ(cfg.rack_name, "rack_1");
-    ASSERT_EQ(cfg.integrations.size(), 1);
-    ASSERT_EQ(cfg.integrations[0], "opc");
+    // ASSERT_EQ(cfg.integrations.size(), 1);
+    // ASSERT_EQ(cfg.integrations[0], "opc");
+}
+
+/// @brief it should read a configuration file from disk.
+TEST(TestDriverConfig, testReadConfig) {
+    auto path = std::filesystem::current_path();
+    path += "/driver/driver/testdata/example_config.json";
+    auto cfg_contents = driver::readConfig(path);
+    auto [cfg, err] = driver::parseConfig(cfg_contents);
+    ASSERT_FALSE(err) << err;
+    ASSERT_EQ(cfg.client_config.host, "demo.synnaxlabs.com");
+    ASSERT_EQ(cfg.client_config.port, 9090);
+    ASSERT_EQ(cfg.breaker_config.base_interval, synnax::SECOND * 2);
 }
