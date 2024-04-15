@@ -171,8 +171,8 @@ export class Channel {
 export class Client implements AsyncTermSearcher<string, Key, Channel> {
   private readonly frameClient: framer.Client;
   private readonly client: UnaryClient;
-  private readonly retriever: Retriever;
-  private readonly writer: Writer;
+  readonly retriever: Retriever;
+  readonly writer: Writer;
 
   constructor(
     frameClient: framer.Client,
