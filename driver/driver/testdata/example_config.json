@@ -1,0 +1,15 @@
+{
+  "connection": {
+    "host": "demo.synnaxlabs.com",
+    "port": 9090,
+    "username": "admin",
+    "password": "admin",
+    "ca_cert_file": "/path/to/ca_cert_file",
+    "client_cert_file": "/path/to/client_cert_file",
+    "client_key_file": "/path/to/client_key_file"
+  },
+  "retry": {
+
+
+  }
+}

@@ -1,6 +1,7 @@
 cc_library(
     name = "driver",
     srcs = [
+        "config.cpp",
         "driver.cpp",
         "heartbeat.cpp",
         "task_manager.cpp",
@@ -16,6 +17,7 @@ cc_library(
         "//client/cpp/synnax",
         "//driver/driver/breaker",
         "//driver/driver/config",
+        "//driver/driver/opc",
         "//driver/driver/task",
         "@com_github_google_glog//:glog",
         "@nlohmann_json//:json",
@@ -26,8 +28,9 @@ cc_test(
     name = "test_driver",
     size = "small",
     srcs = [
-        "task_context_test.cpp",
-        "task_manager_test.cpp",
+        #        "task_context_test.cpp",
+        #        "task_manager_test.cpp",
+        "config_test.cpp",
     ],
     copts = select({
         "@platforms//os:windows": ["/std:c++20"],

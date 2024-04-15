@@ -53,13 +53,17 @@ private:
 
     std::thread run_thread;
     freighter::Error run_err;
+
     void run(std::atomic<bool> &done);
+
     freighter::Error runGuarded();
 
     freighter::Error startGuarded();
 
     void processTaskSet(const Series &series);
+
     void processTaskDelete(const Series &series);
+
     void processTaskCmd(const Series &series);
 };
 
@@ -94,10 +98,23 @@ private:
     freighter::Error run_err;
 
     void run(std::atomic<bool> &done);
+
     freighter::Error runGuarded();
 
     freighter::Error startGuarded();
 };
+
+struct Config {
+    synnax::RackKey rack_key;
+    std::string rack_name;
+    synnax::Config client_config;
+    breaker::Config breaker_config;
+    std::vector<std::string> integrations;
+};
+
+std::pair<Config, freighter::Error> parseConfig(const json &content);
+
+json readConfig(std::string path);
 
 class Driver {
 public:

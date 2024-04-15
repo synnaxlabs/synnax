@@ -97,6 +97,8 @@ struct DeviceProperties {
     }
 };
 
+const std::string INTEGRATION_NAME = "opc";
+
 class Factory final : public task::Factory {
     std::pair<std::unique_ptr<task::Task>, bool> configureTask(
         const std::shared_ptr<task::Context> &ctx,

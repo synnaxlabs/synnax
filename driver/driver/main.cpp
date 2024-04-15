@@ -8,10 +8,15 @@
 // included in the file licenses/APL.txt.
 
 #include <csignal>
+#include <fstream>
+#include <iostream>
 #include "driver/driver/driver.h"
 #include "task/task.h"
 #include <glog/logging.h>
 #include "driver/driver/opc/opc.h"
+#include "nlohmann/json.hpp"
+
+using json = nlohmann::json;
 
 std::unique_ptr<driver::Driver> d;
 
@@ -24,6 +29,8 @@ std::pair<synnax::Rack, freighter::Error> retrieveDriverRack(
         return retrieveDriverRack(breaker, client);
     return {rack, err};
 }
+
+
 
 
 int main(int argc, char *argv[]) {

@@ -9,6 +9,8 @@ cc_library(
     }),
     visibility = ["//visibility:public"],
     deps = [
+        "//client/cpp/synnax/errors",
+        "//freighter/cpp/freighter",
         "@nlohmann_json//:json",
     ],
 )

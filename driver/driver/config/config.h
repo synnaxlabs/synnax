@@ -13,6 +13,8 @@
 #include <type_traits>
 #include <string>
 #include "nlohmann/json.hpp"
+#include "freighter/cpp/freighter/freighter.h"
+#include "client/cpp/synnax/errors/errors.h"
 
 using json = nlohmann::json;
 
@@ -99,6 +101,17 @@ public:
         return {*iter, errors, path_prefix + path + "."};
     }
 
+    Parser optional_child(const std::string &path) const {
+        if (noop) return {};
+        const auto iter = config.find(path);
+        if (iter == config.end()) return {};
+        if (!iter->is_object() && !iter->is_array()) {
+            field_err(path, "Expected an object or array");
+            return {};
+        }
+        return {*iter, errors, path_prefix + path + "."};
+    }
+
     /// @brief Iterates over an array at the given path, executing a function for each element.
     /// If the path does not point to an array, logs an error.
     /// @param path The JSON path to the array.
@@ -141,6 +154,10 @@ public:
         json err;
         err["errors"] = *errors;
         return err;
+    }
+
+    freighter::Error error() const {
+        return freighter::Error{synnax::VALIDATION_ERROR, error_json().dump()};
     }
 
 private:
