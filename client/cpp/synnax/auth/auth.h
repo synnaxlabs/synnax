@@ -72,7 +72,6 @@ public:
             req.set_password(password);
             auto [res, err] = login_client->send("/auth/login", req);
             if (err) {
-                std::cout << "READ ERROR: " << err.message() << std::endl;
                 return {context, err};
             }
             token = res.token();
@@ -84,7 +83,6 @@ public:
         if (err.matches(synnax::INVALID_TOKEN) && retry_count < max_retries) {
             authenticated = false;
             retry_count++;
-            std::cout << "Retrying authentication, attempt " << retry_count << std::endl;
             return this->operator()(context, next);
         }
         return {res_ctx, err};
