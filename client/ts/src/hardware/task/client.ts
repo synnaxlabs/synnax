@@ -33,33 +33,6 @@ export const taskKeyZ = z.union([
 
 export type TaskKey = z.infer<typeof taskKeyZ>;
 
-export const taskZ = z.object({
-  key: taskKeyZ,
-  name: z.string(),
-  type: z.string(),
-  config: z.record(z.unknown()).or(
-    z.string().transform((c) => {
-      if (c === "") return {};
-      return binary.JSON_ECD.decodeString(c);
-    }),
-  ) as z.ZodType<UnknownRecord>,
-});
-
-export const newTaskZ = taskZ.omit({ key: true }).extend({
-  key: taskKeyZ.transform((k) => k.toString()).optional(),
-  config: z.unknown().transform((c) => binary.JSON_ECD.encodeString(c)),
-});
-
-export type NewTask<
-  C extends UnknownRecord = UnknownRecord,
-  T extends string = string,
-> = Omit<z.output<typeof newTaskZ>, "config"> & { type: T; config: C };
-
-export type TaskPayload<
-  C extends UnknownRecord = UnknownRecord,
-  T extends string = string,
-> = Omit<z.output<typeof taskZ>, "config" | "type"> & { type: T; config: C };
-
 export const stateZ = z.object({
   task: taskKeyZ,
   variant: z.string(),
@@ -82,6 +55,39 @@ export type State<D extends UnknownRecord = UnknownRecord> = Omit<
 > & {
   details: D;
 };
+
+export const taskZ = z.object({
+  key: taskKeyZ,
+  name: z.string(),
+  type: z.string(),
+  config: z.record(z.unknown()).or(
+    z.string().transform((c) => {
+      if (c === "") return {};
+      return binary.JSON_ECD.decodeString(c);
+    }),
+  ) as z.ZodType<UnknownRecord>,
+  state: stateZ.optional(),
+});
+
+export const newTaskZ = taskZ.omit({ key: true }).extend({
+  key: taskKeyZ.transform((k) => k.toString()).optional(),
+  config: z.unknown().transform((c) => binary.JSON_ECD.encodeString(c)),
+});
+
+export type NewTask<
+  C extends UnknownRecord = UnknownRecord,
+  D extends UnknownRecord = UnknownRecord,
+  T extends string = string,
+> = Omit<z.output<typeof newTaskZ>, "config" | "state"> & {
+  type: T;
+  config: C;
+  state?: State<D>;
+};
+
+export type TaskPayload<
+  C extends UnknownRecord = UnknownRecord,
+  T extends string = string,
+> = Omit<z.output<typeof taskZ>, "config" | "type"> & { type: T; config: C };
 
 export const commandZ = z.object({
   task: taskKeyZ,
@@ -119,14 +125,12 @@ export class Task<C extends UnknownRecord = UnknownRecord, T extends string = st
     this.frameClient = frameClient;
   }
 
-  async executeCommand(
-    type: string,
-    args?: UnknownRecord,
-  ): Promise<void> {
+  async executeCommand(type: string, args?: UnknownRecord): Promise<string> {
     const writer = await this.frameClient.openWriter(TASK_CMD_CHANNEL);
     const key = nanoid();
     await writer.write(TASK_CMD_CHANNEL, [{ task: this.key, type, key, args }]);
     await writer.close();
+    return key;
   }
 
   async executeCommandSync<D extends UnknownRecord = UnknownRecord>(
@@ -135,10 +139,7 @@ export class Task<C extends UnknownRecord = UnknownRecord, T extends string = st
     timeout: CrudeTimeSpan,
   ): Promise<State<D>> {
     const streamer = await this.frameClient.openStreamer(TASK_STATE_CHANNEL);
-    const writer = await this.frameClient.openWriter(TASK_CMD_CHANNEL);
-    const key = nanoid();
-    await writer.write(TASK_CMD_CHANNEL, [{ task: this.key, type, key, args }]);
-    await writer.close();
+    const cmdKey = await this.executeCommand(type, args);
     let res: State<D>;
     const to = new Promise((resolve) =>
       setTimeout(() => resolve(false), new TimeSpan(timeout).milliseconds),
@@ -149,7 +150,7 @@ export class Task<C extends UnknownRecord = UnknownRecord, T extends string = st
       const parsed = stateZ.safeParse(frame.at(-1).sy_task_state);
       if (parsed.success) {
         res = parsed.data as State<D>;
-        if (res.key === key) break;
+        if (res.key === cmdKey) break;
       } else {
         console.error(parsed.error);
       }
@@ -178,6 +179,7 @@ const retrieveReqZ = z.object({
   names: z.string().array().optional(),
   offset: z.number().optional(),
   limit: z.number().optional(),
+  includeState: z.boolean().optional(),
 });
 
 const retrieveResZ = z.object({
@@ -185,6 +187,11 @@ const retrieveResZ = z.object({
 });
 
 export type RetrieveRequest = z.infer<typeof retrieveReqZ>;
+
+export type RetrieveOptions = Pick<
+  RetrieveRequest,
+  "rack" | "offset" | "limit" | "includeState"
+>;
 
 const RETRIEVE_ENDPOINT = "/hardware/task/retrieve";
 const CREATE_ENDPOINT = "/hardware/task/create";
@@ -264,13 +271,16 @@ export class Client implements AsyncTermSearcher<string, TaskKey, TaskPayload> {
     return res.tasks;
   }
 
-  async retrieve(rack: number): Promise<Task[]>;
+  async retrieve(rack: number, options?: RetrieveOptions): Promise<Task[]>;
 
-  async retrieve(keys: string[]): Promise<Task[]>;
+  async retrieve(keys: string[], options?: RetrieveOptions): Promise<Task[]>;
 
-  async retrieve(key: string): Promise<Task>;
+  async retrieve(key: string, options?: RetrieveOptions): Promise<Task>;
 
-  async retrieve(rack: number | string | string[]): Promise<Task | Task[]> {
+  async retrieve(
+    rack: number | string | string[],
+    options?: RetrieveOptions,
+  ): Promise<Task | Task[]> {
     const { single, normalized, variant } = analyzeParams(
       rack,
       {
@@ -279,10 +289,13 @@ export class Client implements AsyncTermSearcher<string, TaskKey, TaskPayload> {
       },
       { convertNumericStrings: false },
     );
+    let req: RetrieveRequest = { ...options };
+    if (variant === "rack") req.rack = rack as number;
+    else req.keys = normalized as string[];
     const res = await sendRequired<typeof retrieveReqZ, typeof retrieveResZ>(
       this.client,
       RETRIEVE_ENDPOINT,
-      variant === "rack" ? { rack: rack as number } : { keys: normalized as string[] },
+      req,
       retrieveReqZ,
       retrieveResZ,
     );

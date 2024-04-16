@@ -61,6 +61,22 @@ type Task struct {
 	Name   string `json:"name" msgpack:"name"`
 	Type   string `json:"type" msgpack:"type"`
 	Config string `json:"config" msgpack:"config"`
+	State  State  `json:"state" msgpack:"state"`
+}
+
+type Status string
+
+const (
+	StatusStopped Status = "stopped"
+	StatusRunning Status = "running"
+	StatusFailed  Status = "failed"
+)
+
+type State struct {
+	Key        Key    `json:"key" msgpack:"key"`
+	Status     Status `json:"status" msgpack:"status"`
+	DataSaving bool   `json:"data_saving" msgpack:"data_saving"`
+	Details    string `json:"details" msgpack:"details"`
 }
 
 var _ gorp.Entry[Key] = Task{}

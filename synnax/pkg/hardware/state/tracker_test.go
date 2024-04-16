@@ -16,6 +16,7 @@ import (
 var _ = Describe("Tracker", Ordered, func() {
 	var (
 		trackerCfg state.TrackerConfig
+		tracker    *state.Tracker
 	)
 	BeforeAll(func() {
 		rackSvc := MustSucceed(rack.OpenService(ctx, rack.Config{
@@ -44,62 +45,68 @@ var _ = Describe("Tracker", Ordered, func() {
 			HostProvider: dist.Cluster,
 		}
 	})
+	BeforeEach(func() {
+		tracker = MustSucceed(state.OpenTracker(ctx, trackerCfg))
+	})
+	AfterEach(func() {
+		Expect(tracker.Close()).To(Succeed())
+	})
 	Describe("Tracking Rack Updates", func() {
 		It("Should add the rack to state when created", func() {
-			tracker := MustSucceed(state.OpenTracker(ctx, trackerCfg))
 			rackKey := rack.NewKey(dist.Cluster.HostKey(), 1)
 			rack := &rack.Rack{Key: rackKey, Name: "rack1"}
 			Expect(trackerCfg.Rack.NewWriter(nil).Create(ctx, rack)).To(Succeed())
 			Eventually(func(g Gomega) {
-				g.Expect(tracker.Racks).To(HaveKey(rackKey))
+				_, ok := tracker.GetRack(ctx, rackKey)
+				g.Expect(ok).To(BeTrue())
 			}).Should(Succeed())
-			Expect(tracker.Close()).To(Succeed())
 		})
 		It("Should remove the rack from state when deleted", func() {
-			tracker := MustSucceed(state.OpenTracker(ctx, trackerCfg))
 			rackKey := rack.NewKey(dist.Cluster.HostKey(), 1)
 			rack := &rack.Rack{Key: rackKey, Name: "rack1"}
 			Expect(trackerCfg.Rack.NewWriter(nil).Create(ctx, rack)).To(Succeed())
+			Eventually(func(g Gomega) {
+				_, ok := tracker.GetRack(ctx, rackKey)
+				g.Expect(ok).To(BeTrue())
+			}).Should(Succeed())
 			Expect(trackerCfg.Rack.NewWriter(nil).Delete(ctx, rackKey)).To(Succeed())
 			Eventually(func(g Gomega) {
-				g.Expect(tracker.Racks).ToNot(HaveKey(rackKey))
+				_, ok := tracker.GetRack(ctx, rackKey)
+				g.Expect(ok).To(BeFalse())
 			}).Should(Succeed())
-			Eventually(func(g Gomega) {
-				g.Expect(tracker.Racks).ToNot(HaveKey(rackKey))
-			}).Should(Succeed())
-			Expect(tracker.Close()).To(Succeed())
 		})
 	})
 	Describe("Tracking Task Updates", func() {
 		It("Should add the task to state when created", func() {
-			tracker := MustSucceed(state.OpenTracker(ctx, trackerCfg))
 			rack := &rack.Rack{Key: rack.NewKey(dist.Cluster.HostKey(), 1), Name: "rack1"}
 			Expect(trackerCfg.Rack.NewWriter(nil).Create(ctx, rack)).To(Succeed())
 			taskKey := task.NewKey(rack.Key, 1)
 			task := &task.Task{Key: taskKey, Name: "task1"}
 			Expect(trackerCfg.Task.NewWriter(nil).Create(ctx, task)).To(Succeed())
 			Eventually(func(g Gomega) {
-				g.Expect(tracker.Racks[rack.Key].Tasks).To(HaveKey(taskKey))
+				_, ok := tracker.GetTask(ctx, taskKey)
+				g.Expect(ok).To(BeTrue())
 			}).Should(Succeed())
-			Expect(tracker.Close()).To(Succeed())
 		})
 		It("Should remove the task from state when deleted", func() {
-			tracker := MustSucceed(state.OpenTracker(ctx, trackerCfg))
 			rack := &rack.Rack{Key: rack.NewKey(dist.Cluster.HostKey(), 1), Name: "rack1"}
 			Expect(trackerCfg.Rack.NewWriter(nil).Create(ctx, rack)).To(Succeed())
 			taskKey := task.NewKey(rack.Key, 1)
 			task := &task.Task{Key: taskKey, Name: "task1"}
 			Expect(trackerCfg.Task.NewWriter(nil).Create(ctx, task)).To(Succeed())
+			Eventually(func(g Gomega) {
+				_, ok := tracker.GetTask(ctx, taskKey)
+				g.Expect(ok).To(BeTrue())
+			})
 			Expect(trackerCfg.Task.NewWriter(nil).Delete(ctx, taskKey)).To(Succeed())
 			Eventually(func(g Gomega) {
-				g.Expect(tracker.Racks[rack.Key].Tasks).ToNot(HaveKey(taskKey))
+				_, ok := tracker.GetTask(ctx, taskKey)
+				g.Expect(ok).To(BeFalse())
 			}).Should(Succeed())
-			Expect(tracker.Close()).To(Succeed())
 		})
 	})
 	Describe("Tracking Rack Heartbeats", func() {
 		It("Should update the rack heartbeat when received", func() {
-			tracker := MustSucceed(state.OpenTracker(ctx, trackerCfg))
 			rack := &rack.Rack{Key: rack.NewKey(dist.Cluster.HostKey(), 1), Name: "rack1"}
 			Expect(trackerCfg.Rack.NewWriter(nil).Create(ctx, rack)).To(Succeed())
 			var heartbeatCh channel.Channel
@@ -116,27 +123,27 @@ var _ = Describe("Tracker", Ordered, func() {
 			})).To(BeTrue())
 			Expect(w.Close()).To(Succeed())
 			Eventually(func(g Gomega) {
-				g.Expect(tracker.Racks[rack.Key].Heartbeat).To(Equal(uint64(key)))
+				r, ok := tracker.GetRack(ctx, rack.Key)
+				g.Expect(ok).To(BeTrue())
+				g.Expect(r.Heartbeat).To(Equal(key))
 			}).Should(Succeed())
-			Expect(tracker.Close()).To(Succeed())
 		})
 	})
 	Describe("Tracking Task State", func() {
 		It("Should correctly update the state of a task", func() {
-			tracker := MustSucceed(state.OpenTracker(ctx, trackerCfg))
 			rack := &rack.Rack{Key: rack.NewKey(dist.Cluster.HostKey(), 1), Name: "rack1"}
 			Expect(trackerCfg.Rack.NewWriter(nil).Create(ctx, rack)).To(Succeed())
 			taskKey := task.NewKey(rack.Key, 1)
-			task := &task.Task{Key: taskKey, Name: "task1"}
-			Expect(trackerCfg.Task.NewWriter(nil).Create(ctx, task)).To(Succeed())
+			tsk := &task.Task{Key: taskKey, Name: "task1"}
+			Expect(trackerCfg.Task.NewWriter(nil).Create(ctx, tsk)).To(Succeed())
 			var taskStateCh channel.Channel
 			Expect(dist.Channel.NewRetrieve().WhereNames("sy_task_state").Entry(&taskStateCh).Exec(ctx, nil)).To(Succeed())
 			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
 				Start: telem.Now(),
 				Keys:  []channel.Key{taskStateCh.Key()},
 			}))
-			b := MustSucceed((&binary.JSONEncoderDecoder{}).Encode(ctx, state.Task{
-				Status: state.TaskStatusRunning,
+			b := MustSucceed((&binary.JSONEncoderDecoder{}).Encode(ctx, task.State{
+				Status: task.StatusRunning,
 				Key:    taskKey,
 			}))
 			Expect(w.Write(framer.Frame{
@@ -148,9 +155,10 @@ var _ = Describe("Tracker", Ordered, func() {
 			})).To(BeTrue())
 			Expect(w.Close()).To(Succeed())
 			Eventually(func(g Gomega) {
-				g.Expect(tracker.Racks[rack.Key].Tasks[taskKey].Status).To(Equal(state.TaskStatusRunning))
+				t, ok := tracker.GetTask(ctx, taskKey)
+				g.Expect(ok).To(BeTrue())
+				g.Expect(t.Status).To(Equal(task.StatusRunning))
 			}).Should(Succeed())
-			Expect(tracker.Close()).To(Succeed())
 		})
 	})
 })

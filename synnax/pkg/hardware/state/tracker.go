@@ -29,31 +29,20 @@ import (
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 	"io"
+	"sync"
 )
-
-type TaskStatus string
-
-const (
-	TaskStatusStopped TaskStatus = "stopped"
-	TaskStatusRunning TaskStatus = "running"
-	TaskStatusFailed  TaskStatus = "failed"
-)
-
-type Task struct {
-	Key        task.Key   `json:"key" msgpack:"key"`
-	Status     TaskStatus `json:"status" msgpack:"status"`
-	DataSaving bool       `json:"data_saving" msgpack:"data_saving"`
-	Details    string     `json:"details" msgpack:"details"`
-}
 
 type Rack struct {
-	Key       rack.Key          `json:"key" msgpack:"key"`
-	Heartbeat uint64            `json:"heartbeat" msgpack:"heartbeat"`
-	Tasks     map[task.Key]Task `json:"tasks" msgpack:"tasks"`
+	Key       rack.Key                `json:"key" msgpack:"key"`
+	Heartbeat uint64                  `json:"heartbeat" msgpack:"heartbeat"`
+	Tasks     map[task.Key]task.State `json:"tasks" msgpack:"tasks"`
 }
 
 type Tracker struct {
-	Racks         map[rack.Key]*Rack
+	mu struct {
+		sync.RWMutex
+		Racks map[rack.Key]*Rack
+	}
 	stopListeners io.Closer
 }
 
@@ -107,9 +96,8 @@ func OpenTracker(ctx context.Context, configs ...TrackerConfig) (t *Tracker, err
 		return
 	}
 	sCtx, cancel := signal.Isolated()
-	t = &Tracker{
-		Racks: make(map[rack.Key]*Rack, len(racks)),
-	}
+	t = &Tracker{}
+	t.mu.Racks = make(map[rack.Key]*Rack, len(racks))
 	for _, r := range racks {
 		var tasks []task.Task
 		if err = cfg.Task.NewRetrieve().
@@ -118,11 +106,11 @@ func OpenTracker(ctx context.Context, configs ...TrackerConfig) (t *Tracker, err
 			Exec(ctx, nil); err != nil {
 			return
 		}
-		r := &Rack{Key: r.Key, Tasks: make(map[task.Key]Task, len(tasks))}
+		r := &Rack{Key: r.Key, Tasks: make(map[task.Key]task.State, len(tasks))}
 		for _, t := range tasks {
-			r.Tasks[t.Key] = Task{Key: t.Key, Status: TaskStatusStopped}
+			r.Tasks[t.Key] = task.State{Key: t.Key, Status: task.StatusStopped}
 		}
-		t.Racks[r.Key] = r
+		t.mu.Racks[r.Key] = r
 	}
 	if err := cfg.Channels.CreateManyIfNamesDontExist(
 		ctx,
@@ -162,29 +150,33 @@ func OpenTracker(ctx context.Context, configs ...TrackerConfig) (t *Tracker, err
 	taskObs := gorp.Observe[task.Key, task.Task](cfg.DB)
 	rackObs := gorp.Observe[rack.Key, rack.Rack](cfg.DB)
 	dcTaskObs := taskObs.OnChange(func(ctx context.Context, r gorp.TxReader[task.Key, task.Task]) {
+		t.mu.Lock()
+		defer t.mu.Unlock()
 		for c, ok := r.Next(ctx); ok; c, ok = r.Next(ctx) {
 			if c.Variant == change.Delete {
-				delete(t.Racks[c.Key.Rack()].Tasks, c.Key)
+				delete(t.mu.Racks[c.Key.Rack()].Tasks, c.Key)
 			} else {
 				rackKey := c.Key.Rack()
-				rck, rckOk := t.Racks[rackKey]
+				rck, rckOk := t.mu.Racks[rackKey]
 				if !rckOk {
-					rck = &Rack{Key: rackKey, Tasks: make(map[task.Key]Task)}
-					t.Racks[rackKey] = rck
+					rck = &Rack{Key: rackKey, Tasks: make(map[task.Key]task.State)}
+					t.mu.Racks[rackKey] = rck
 				}
 				if _, tskOk := rck.Tasks[c.Key]; !tskOk {
-					rck.Tasks[c.Key] = Task{Key: c.Key, Status: TaskStatusStopped}
+					rck.Tasks[c.Key] = task.State{Key: c.Key, Status: task.StatusStopped}
 				}
 			}
 		}
 	})
 	dcRackObs := rackObs.OnChange(func(ctx context.Context, r gorp.TxReader[rack.Key, rack.Rack]) {
+		t.mu.Lock()
+		defer t.mu.Unlock()
 		for c, ok := r.Next(ctx); ok; c, ok = r.Next(ctx) {
 			if c.Variant == change.Delete {
-				delete(t.Racks, c.Key)
+				delete(t.mu.Racks, c.Key)
 			} else {
-				if _, rackOk := t.Racks[c.Key]; !rackOk {
-					t.Racks[c.Key] = &Rack{Key: c.Key, Tasks: make(map[task.Key]Task)}
+				if _, rackOk := t.mu.Racks[c.Key]; !rackOk {
+					t.mu.Racks[c.Key] = &Rack{Key: c.Key, Tasks: make(map[task.Key]task.State)}
 				}
 			}
 		}
@@ -193,13 +185,15 @@ func OpenTracker(ctx context.Context, configs ...TrackerConfig) (t *Tracker, err
 		return nil, err
 	}
 	heartBeatObs.OnChange(func(ctx context.Context, changes []change.Change[[]byte, struct{}]) {
+		t.mu.Lock()
+		defer t.mu.Unlock()
 		for _, ch := range changes {
 			b := binary.LittleEndian.Uint64(ch.Key)
 			// first 32 bits is the rack key, second
 			// 32 bits is the heartbeat
 			rackKey := rack.Key(b >> 32)
 			heartbeat := b
-			r, ok := t.Racks[rackKey]
+			r, ok := t.mu.Racks[rackKey]
 			if !ok {
 				cfg.L.Warn("rack not found for heartbeat update", zap.Uint64("heartbeat", heartbeat), zap.Uint32("rack", uint32(rackKey)))
 				continue
@@ -208,15 +202,17 @@ func OpenTracker(ctx context.Context, configs ...TrackerConfig) (t *Tracker, err
 		}
 	})
 	taskStateObs.OnChange(func(ctx context.Context, changes []change.Change[[]byte, struct{}]) {
+		t.mu.Lock()
+		defer t.mu.Unlock()
 		// Assume the tasks state is encoded as JSON
 		decoder := &binaryx.JSONEncoderDecoder{}
 		for _, ch := range changes {
-			var taskState Task
+			var taskState task.State
 			if err := decoder.Decode(ctx, ch.Key, &taskState); err != nil {
 				cfg.L.Warn("failed to decode task state", zap.Error(err))
 			}
 			rackKey := taskState.Key.Rack()
-			r, ok := t.Racks[rackKey]
+			r, ok := t.mu.Racks[rackKey]
 			if !ok {
 				cfg.L.Warn("rack not found for task state update", zap.Uint64("task", uint64(taskState.Key)))
 			} else {
@@ -231,6 +227,27 @@ func OpenTracker(ctx context.Context, configs ...TrackerConfig) (t *Tracker, err
 		xio.NopCloserFunc(dcTaskObs),
 	}
 	return
+}
+
+func (t *Tracker) GetTask(ctx context.Context, key task.Key) (task.State, bool) {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	r, ok := t.mu.Racks[key.Rack()]
+	if !ok {
+		return task.State{}, false
+	}
+	tsk, ok := r.Tasks[key]
+	return tsk, ok
+}
+
+func (t *Tracker) GetRack(ctx context.Context, key rack.Key) (Rack, bool) {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	r, ok := t.mu.Racks[key]
+	if !ok {
+		return Rack{}, false
+	}
+	return *r, true
 }
 
 func (t *Tracker) Close() error {
