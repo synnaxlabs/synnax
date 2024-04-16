@@ -184,10 +184,13 @@ func (svc *HardwareService) RetrieveTask(ctx context.Context, req HardwareRetrie
 	if req.IncludeState {
 		for i := range res.Tasks {
 			// Just do a best effort grab here
-			res.Tasks[i].State, _ = svc.internal.State.GetTask(ctx, res.Tasks[i].Key)
+			s, ok := svc.internal.State.GetTask(ctx, res.Tasks[i].Key)
+			if ok {
+				res.Tasks[i].State = &s
+			}
 		}
 	}
-	return res, q.Entries(&res.Tasks).Exec(ctx, nil)
+	return res, err
 }
 
 type HardwareDeleteTaskRequest struct {

@@ -140,7 +140,7 @@ type Writer interface {
 	// does nothing.
 	DefineRelationship(ctx context.Context, from ID, t RelationshipType, to ID) error
 	// DefineFromOneToManyRelationships defines a directional relationship of type t from
-	// the resource with the given Key to multiple resources. If any of the relationships
+	// the resource with the given Task to multiple resources. If any of the relationships
 	// already exist, DefineFromOneToManyRelationships does nothing.
 	DefineFromOneToManyRelationships(ctx context.Context, from ID, t RelationshipType, to []ID) error
 	// DeleteRelationship deletes the relationship with the given Keys and type. If the

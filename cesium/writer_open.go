@@ -87,7 +87,7 @@ func (w WriterConfig) Validate() error {
 	v := validate.New("cesium.WriterConfig")
 	validate.NotEmptySlice(v, "Channels", w.Channels)
 	validate.NotNil(v, "ErrOnUnauthorized", w.ErrOnUnauthorized)
-	validate.NotEmptyString(v, "ControlSubject.Key", w.ControlSubject.Key)
+	validate.NotEmptyString(v, "ControlSubject.Task", w.ControlSubject.Key)
 	v.Ternary(
 		"authorities",
 		len(w.Authorities) != len(w.Channels) && len(w.Authorities) != 1,

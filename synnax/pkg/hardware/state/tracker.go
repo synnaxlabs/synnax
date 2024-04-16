@@ -108,7 +108,7 @@ func OpenTracker(ctx context.Context, configs ...TrackerConfig) (t *Tracker, err
 		}
 		r := &Rack{Key: r.Key, Tasks: make(map[task.Key]task.State, len(tasks))}
 		for _, t := range tasks {
-			r.Tasks[t.Key] = task.State{Key: t.Key, Status: task.StatusStopped}
+			r.Tasks[t.Key] = task.State{Task: t.Key, Variant: task.StatusStopped}
 		}
 		t.mu.Racks[r.Key] = r
 	}
@@ -163,7 +163,7 @@ func OpenTracker(ctx context.Context, configs ...TrackerConfig) (t *Tracker, err
 					t.mu.Racks[rackKey] = rck
 				}
 				if _, tskOk := rck.Tasks[c.Key]; !tskOk {
-					rck.Tasks[c.Key] = task.State{Key: c.Key, Status: task.StatusStopped}
+					rck.Tasks[c.Key] = task.State{Task: c.Key, Variant: task.StatusStopped}
 				}
 			}
 		}
@@ -211,14 +211,13 @@ func OpenTracker(ctx context.Context, configs ...TrackerConfig) (t *Tracker, err
 			if err := decoder.Decode(ctx, ch.Key, &taskState); err != nil {
 				cfg.L.Warn("failed to decode task state", zap.Error(err))
 			}
-			rackKey := taskState.Key.Rack()
+			rackKey := taskState.Task.Rack()
 			r, ok := t.mu.Racks[rackKey]
 			if !ok {
-				cfg.L.Warn("rack not found for task state update", zap.Uint64("task", uint64(taskState.Key)))
+				cfg.L.Warn("rack not found for task state update", zap.Uint64("task", uint64(taskState.Task)))
 			} else {
-				r.Tasks[taskState.Key] = taskState
+				r.Tasks[taskState.Task] = taskState
 			}
-
 		}
 	})
 	t.stopListeners = xio.MultiCloser{

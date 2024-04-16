@@ -121,7 +121,7 @@ func (w Writer) RemoveLabel(
 
 func (w Writer) validate(l Label) error {
 	v := validate.New("label.Label")
-	validate.NotNil(v, "Key", l.Key)
+	validate.NotNil(v, "Task", l.Key)
 	validate.NotEmptyString(v, "Name", l.Name)
 	validate.NonZeroable(v, "Color", l.Color)
 	return v.Error()

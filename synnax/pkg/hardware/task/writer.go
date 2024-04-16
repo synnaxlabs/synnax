@@ -33,7 +33,7 @@ func (w Writer) Create(ctx context.Context, r *Task) (err error) {
 		r.Key = NewKey(r.Rack(), localKey)
 	}
 	// Never persist the state of a task, even if it is not empty.
-	r.State = State{}
+	r.State = nil
 	if err = gorp.NewCreate[Key, Task]().Entry(r).Exec(ctx, w.tx); err != nil {
 		return
 	}

@@ -36,7 +36,7 @@ export type TaskKey = z.infer<typeof taskKeyZ>;
 export const stateZ = z.object({
   task: taskKeyZ,
   variant: z.string(),
-  key: z.string(),
+  key: z.string().optional(),
   details: z
     .record(z.unknown())
     .or(
@@ -49,11 +49,11 @@ export const stateZ = z.object({
     .or(z.null()),
 });
 
-export type State<D extends UnknownRecord = UnknownRecord> = Omit<
+export type State<D extends {} = UnknownRecord> = Omit<
   z.infer<typeof stateZ>,
   "details"
 > & {
-  details: D;
+  details?: D;
 };
 
 export const taskZ = z.object({
@@ -66,7 +66,7 @@ export const taskZ = z.object({
       return binary.JSON_ECD.decodeString(c);
     }),
   ) as z.ZodType<UnknownRecord>,
-  state: stateZ.optional(),
+  state: stateZ.optional().nullable(),
 });
 
 export const newTaskZ = taskZ.omit({ key: true }).extend({
@@ -104,11 +104,16 @@ export const commandZ = z.object({
 export type StateObservable<D extends UnknownRecord = UnknownRecord> =
   observe.ObservableAsyncCloseable<State<D>>;
 
-export class Task<C extends UnknownRecord = UnknownRecord, T extends string = string> {
+export class Task<
+  C extends UnknownRecord = UnknownRecord,
+  D extends {} = UnknownRecord,
+  T extends string = string,
+> {
   readonly key: TaskKey;
   readonly name: string;
   readonly type: T;
   readonly config: C;
+  readonly state?: State<D>;
   private readonly frameClient: framer.Client;
 
   constructor(
@@ -117,11 +122,13 @@ export class Task<C extends UnknownRecord = UnknownRecord, T extends string = st
     type: T,
     config: C,
     frameClient: framer.Client,
+    state?: State<D>,
   ) {
     this.key = key;
     this.name = name;
     this.type = type;
     this.config = config;
+    this.state = state;
     this.frameClient = frameClient;
   }
 
@@ -224,9 +231,13 @@ export class Client implements AsyncTermSearcher<string, TaskKey, TaskPayload> {
 
   async create(tasks: NewTask[]): Promise<Task[]>;
 
-  async create<C extends UnknownRecord, T extends string>(
-    task: NewTask<C, T> | Array<NewTask<C, T>>,
-  ): Promise<Task<C, T> | Array<Task<C, T>>> {
+  async create<
+    C extends UnknownRecord = UnknownRecord,
+    D extends {} = UnknownRecord,
+    T extends string = string,
+  >(
+    task: NewTask<C, D, T> | Array<NewTask<C, D, T>>,
+  ): Promise<Task<C, D, T> | Array<Task<C, D, T>>> {
     const isSingle = !Array.isArray(task);
     const res = await sendRequired<typeof createReqZ, typeof createResZ>(
       this.client,
@@ -235,7 +246,7 @@ export class Client implements AsyncTermSearcher<string, TaskKey, TaskPayload> {
       createReqZ,
       createResZ,
     );
-    const sugared = this.sugar(res.tasks) as Array<Task<C, T>>;
+    const sugared = this.sugar(res.tasks) as Array<Task<C, D, T>>;
     return isSingle ? sugared[0] : sugared;
   }
 
@@ -317,8 +328,8 @@ export class Client implements AsyncTermSearcher<string, TaskKey, TaskPayload> {
 
   private sugar(payloads: TaskPayload[]): Task[] {
     return payloads.map(
-      ({ key, name, type, config }) =>
-        new Task(key, name, type, config, this.frameClient),
+      ({ key, name, type, config, state }) =>
+        new Task(key, name, type, config, this.frameClient, state),
     );
   }
 }

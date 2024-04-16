@@ -310,7 +310,7 @@ type idxWriter struct {
 	idx      struct {
 		// Index is the index used to resolve timestamps for domains in the DB.
 		index.Index
-		// Key is the channel key of the index. This field is not applicable when
+		// Task is the channel key of the index. This field is not applicable when
 		// the index is rate based.
 		key core.ChannelKey
 		// highWaterMark is the highest timestamp written to the index. This watermark

@@ -10,6 +10,8 @@
 import { describe, expect, it } from "vitest";
 
 import { newClient } from "@/setupspecs";
+import { task } from "@/hardware/task";
+import { nanoid } from "nanoid";
 
 const client = newClient();
 
@@ -54,6 +56,32 @@ describe("Hardware", () => {
         });
         const retrieved = await client.hardware.tasks.retrieveByName(name);
         expect(retrieved.key).toBe(m.key);
+      });
+    });
+    describe("retrieve with state", () => {
+      it("should also send the tasks state", async () => {
+        const r = await client.hardware.racks.create({ name: "test" });
+        const t = await r.createTask({
+          name: "test",
+          config: { a: "dog" },
+          type: "ni",
+        });
+        const w = await client.telem.openWriter(["sy_task_state"]);
+        interface StateDetails {
+          dog: string;
+        }
+        const state: task.State<StateDetails> = {
+          key: nanoid(),
+          task: t.key,
+          variant: "success",
+        };
+        expect(await w.write("sy_task_state", [state])).toBeTruthy();
+        await w.close();
+        const retrieved = await client.hardware.tasks.retrieve(t.key, {
+          includeState: true,
+        });
+        expect(retrieved.state).not.toBeNull();
+        expect(retrieved.state?.variant).toBe(state.variant);
       });
     });
   });

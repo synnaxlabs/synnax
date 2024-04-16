@@ -111,7 +111,7 @@ func (m DecoderEncoder) Encode(src framer.Frame) (dst []byte, err error) {
 		lenSeriesData := uint32(len(src.Series[index].Data))
 		dataSize := uint32(m.dtypes[i].Density())
 
-		// Adding Key
+		// Adding Task
 		if channelFlag == 0 {
 			binary.LittleEndian.PutUint32(encoded[byteArraySize:], uint32(src.Keys[index]))
 			byteArraySize += 4
