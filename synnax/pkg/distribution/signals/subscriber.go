@@ -82,24 +82,25 @@ func (s *Provider) Subscribe(
 	sCtx signal.Context,
 	configs ...ObservableSubscriberConfig,
 ) (observe.Observable[[]change.Change[[]byte, struct{}]], error) {
+	var err error
 	cfg, err := config.New(DefaultObservableSubscriberConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
-	setKey, err := resolveChannelKey(sCtx, cfg.SetChannelKey, cfg.SetChannelName, s.Channel)
+	cfg.SetChannelKey, err = resolveChannelKey(sCtx, cfg.SetChannelKey, cfg.SetChannelName, s.Channel)
 	if err != nil {
 		return nil, err
 	}
-	delKey, err := resolveChannelKey(sCtx, cfg.DeleteChannelKey, cfg.DeleteChannelName, s.Channel)
+	cfg.DeleteChannelKey, err = resolveChannelKey(sCtx, cfg.DeleteChannelKey, cfg.DeleteChannelName, s.Channel)
 	if err != nil {
 		return nil, err
 	}
 	keys := make([]channel.Key, 0, 2)
-	if setKey != 0 {
-		keys = append(keys, setKey)
+	if cfg.SetChannelKey != 0 {
+		keys = append(keys, cfg.SetChannelKey)
 	}
-	if delKey != 0 {
-		keys = append(keys, delKey)
+	if cfg.DeleteChannelKey != 0 {
+		keys = append(keys, cfg.DeleteChannelKey)
 	}
 	streamer, err := s.Framer.NewStreamer(sCtx, framer.StreamerConfig{
 		Keys:  keys,

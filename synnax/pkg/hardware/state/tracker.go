@@ -48,16 +48,16 @@ type Task struct {
 
 type Rack struct {
 	Key       rack.Key          `json:"key" msgpack:"key"`
-	Heartbeat uint32            `json:"heartbeat" msgpack:"heartbeat"`
+	Heartbeat uint64            `json:"heartbeat" msgpack:"heartbeat"`
 	Tasks     map[task.Key]Task `json:"tasks" msgpack:"tasks"`
 }
 
 type Tracker struct {
-	Racks         map[rack.Key]Rack
+	Racks         map[rack.Key]*Rack
 	stopListeners io.Closer
 }
 
-type Config struct {
+type TrackerConfig struct {
 	alamos.Instrumentation
 	Rack         *rack.Service
 	Task         *task.Service
@@ -68,11 +68,11 @@ type Config struct {
 }
 
 var (
-	_             config.Config[Config] = Config{}
-	DefaultConfig                       = Config{}
+	_             config.Config[TrackerConfig] = TrackerConfig{}
+	DefaultConfig                              = TrackerConfig{}
 )
 
-func (c Config) Override(other Config) Config {
+func (c TrackerConfig) Override(other TrackerConfig) TrackerConfig {
 	c.Rack = override.Nil(c.Rack, other.Rack)
 	c.Task = override.Nil(c.Task, other.Task)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
@@ -83,7 +83,7 @@ func (c Config) Override(other Config) Config {
 	return c
 }
 
-func (c Config) Validate() error {
+func (c TrackerConfig) Validate() error {
 	v := validate.New("hardware.state")
 	validate.NotNil(v, "rack", c.Rack)
 	validate.NotNil(v, "task", c.Task)
@@ -94,8 +94,8 @@ func (c Config) Validate() error {
 	return v.Error()
 }
 
-func OpenService(ctx context.Context, configs ...Config) (t *Tracker, err error) {
-	cfg, err := config.New[Config](DefaultConfig, configs...)
+func OpenTracker(ctx context.Context, configs ...TrackerConfig) (t *Tracker, err error) {
+	cfg, err := config.New[TrackerConfig](DefaultConfig, configs...)
 	if err != nil {
 		return
 	}
@@ -108,7 +108,7 @@ func OpenService(ctx context.Context, configs ...Config) (t *Tracker, err error)
 	}
 	sCtx, cancel := signal.Isolated()
 	t = &Tracker{
-		Racks: make(map[rack.Key]Rack, len(racks)),
+		Racks: make(map[rack.Key]*Rack, len(racks)),
 	}
 	for _, r := range racks {
 		var tasks []task.Task
@@ -118,7 +118,7 @@ func OpenService(ctx context.Context, configs ...Config) (t *Tracker, err error)
 			Exec(ctx, nil); err != nil {
 			return
 		}
-		r := Rack{Key: r.Key, Tasks: make(map[task.Key]Task, len(tasks))}
+		r := &Rack{Key: r.Key, Tasks: make(map[task.Key]Task, len(tasks))}
 		for _, t := range tasks {
 			r.Tasks[t.Key] = Task{Key: t.Key, Status: TaskStatusStopped}
 		}
@@ -163,21 +163,29 @@ func OpenService(ctx context.Context, configs ...Config) (t *Tracker, err error)
 	rackObs := gorp.Observe[rack.Key, rack.Rack](cfg.DB)
 	dcTaskObs := taskObs.OnChange(func(ctx context.Context, r gorp.TxReader[task.Key, task.Task]) {
 		for c, ok := r.Next(ctx); ok; c, ok = r.Next(ctx) {
-			rackKey := c.Key.Rack()
-			rck, rckOk := t.Racks[rackKey]
-			if !rckOk {
-				rck = Rack{Key: rackKey, Tasks: make(map[task.Key]Task)}
-				t.Racks[rackKey] = rck
-			}
-			if _, tskOk := rck.Tasks[c.Key]; !tskOk {
-				rck.Tasks[c.Key] = Task{Key: c.Key, Status: TaskStatusStopped}
+			if c.Variant == change.Delete {
+				delete(t.Racks[c.Key.Rack()].Tasks, c.Key)
+			} else {
+				rackKey := c.Key.Rack()
+				rck, rckOk := t.Racks[rackKey]
+				if !rckOk {
+					rck = &Rack{Key: rackKey, Tasks: make(map[task.Key]Task)}
+					t.Racks[rackKey] = rck
+				}
+				if _, tskOk := rck.Tasks[c.Key]; !tskOk {
+					rck.Tasks[c.Key] = Task{Key: c.Key, Status: TaskStatusStopped}
+				}
 			}
 		}
 	})
 	dcRackObs := rackObs.OnChange(func(ctx context.Context, r gorp.TxReader[rack.Key, rack.Rack]) {
 		for c, ok := r.Next(ctx); ok; c, ok = r.Next(ctx) {
-			if _, rackOk := t.Racks[c.Key]; !rackOk {
-				t.Racks[c.Key] = Rack{Key: c.Key, Tasks: make(map[task.Key]Task)}
+			if c.Variant == change.Delete {
+				delete(t.Racks, c.Key)
+			} else {
+				if _, rackOk := t.Racks[c.Key]; !rackOk {
+					t.Racks[c.Key] = &Rack{Key: c.Key, Tasks: make(map[task.Key]Task)}
+				}
 			}
 		}
 	})
@@ -190,10 +198,11 @@ func OpenService(ctx context.Context, configs ...Config) (t *Tracker, err error)
 			// first 32 bits is the rack key, second
 			// 32 bits is the heartbeat
 			rackKey := rack.Key(b >> 32)
-			heartbeat := uint32(b)
+			heartbeat := b
 			r, ok := t.Racks[rackKey]
 			if !ok {
-				cfg.L.Warn("rack not found for heartbeat update", zap.Uint32("heartbeat", heartbeat), zap.Uint32("rack", uint32(rackKey)))
+				cfg.L.Warn("rack not found for heartbeat update", zap.Uint64("heartbeat", heartbeat), zap.Uint32("rack", uint32(rackKey)))
+				continue
 			}
 			r.Heartbeat = heartbeat
 		}
@@ -210,8 +219,10 @@ func OpenService(ctx context.Context, configs ...Config) (t *Tracker, err error)
 			r, ok := t.Racks[rackKey]
 			if !ok {
 				cfg.L.Warn("rack not found for task state update", zap.Uint64("task", uint64(taskState.Key)))
+			} else {
+				r.Tasks[taskState.Key] = taskState
 			}
-			r.Tasks[taskState.Key] = taskState
+
 		}
 	})
 	t.stopListeners = xio.MultiCloser{
@@ -220,4 +231,8 @@ func OpenService(ctx context.Context, configs ...Config) (t *Tracker, err error)
 		xio.NopCloserFunc(dcTaskObs),
 	}
 	return
+}
+
+func (t *Tracker) Close() error {
+	return t.stopListeners.Close()
 }

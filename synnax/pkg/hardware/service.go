@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/hardware/state"
 	"github.com/synnaxlabs/synnax/pkg/hardware/task"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 )
 
 type Config = rack.Config
@@ -67,7 +68,7 @@ func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
 		return nil, err
 	}
 
-	stateSvc, err := state.OpenService(ctx, state.Config{
+	stateSvc, err := state.OpenTracker(ctx, state.TrackerConfig{
 		DB:           cfg.DB,
 		Rack:         rackSvc,
 		Task:         taskSvc,
@@ -86,4 +87,12 @@ func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
 		State:  stateSvc,
 	}
 	return svc, nil
+}
+
+func (s *Service) Close() error {
+	e := errors.NewCatcher(errors.WithAggregation())
+	e.Exec(s.Device.Close)
+	e.Exec(s.Task.Close)
+	e.Exec(s.State.Close)
+	return e.Error()
 }

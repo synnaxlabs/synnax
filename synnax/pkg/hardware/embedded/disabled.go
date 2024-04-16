@@ -12,7 +12,9 @@
 
 package embedded
 
-func OpenDriver(cfgs ...Config) (*Driver, error) {
+import "context"
+
+func OpenDriver(ctx context.Context, cfgs ...Config) (*Driver, error) {
 	return &Driver{}, nil
 }
 

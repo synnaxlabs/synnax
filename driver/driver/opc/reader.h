@@ -56,8 +56,7 @@ struct ReaderConfig {
     explicit ReaderConfig(config::Parser &parser);
 
     std::vector<ChannelKey> channelKeys() const {
-        auto keys = std::vector<ChannelKey>();
-        keys.reserve(channels.size());
+        auto keys = std::vector<ChannelKey>(channels.size());
         for (std::size_t i = 0; i < channels.size(); i++) keys[i] = channels[i].channel;
         return keys;
     }
@@ -85,7 +84,7 @@ private:
 
     retrieveAdditionalChannelInfo() {
         auto channelKeys = cfg.channelKeys();
-        if (channelKeys.empty()) return {{channelKeys, {}}, freighter::Error()};
+        if (channelKeys.empty()) return {{channelKeys, {}}, freighter::NIL};
         auto indexes = std::set<ChannelKey>();
         auto [channels, c_err] = ctx->client->channels.retrieve(cfg.channelKeys());
         if (c_err) {

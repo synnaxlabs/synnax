@@ -28,12 +28,18 @@ std::pair<synnax::Rack, freighter::Error> retrieveDriverRack(
     breaker::Breaker &breaker,
     const std::shared_ptr<synnax::Synnax> &client
 ) {
-    auto [rack, err] = client->hardware.retrieveRack(
-        config.rack_key != 0 ? config.rack_key : config.rack_name);
+    std::pair<synnax::Rack, freighter::Error> res;
+    if (config.rack_key != 0)
+        res = client->hardware.retrieveRack(config.rack_key);
+    else
+        res = client->hardware.retrieveRack(config.rack_name);
+    auto err = res.second;
     if (err.matches(freighter::UNREACHABLE) && breaker.wait(err.message()))
         return retrieveDriverRack(config, breaker, client);
-    return {rack, err};
+    return res;
 }
+
+std::atomic<bool> stopped = false;
 
 int main(int argc, char *argv[]) {
     static struct option long_options[] = {
@@ -43,9 +49,12 @@ int main(int argc, char *argv[]) {
 
     int option_index = 0;
     int c;
-    std::string config_path = "./synnax-driver-config.json";
-    // Variable to store the config file path
 
+    FLAGS_logtostderr = 1;
+    google::InitGoogleLogging(argv[0]);
+    google::SetCommandLineOption("minloglevel", "0");
+
+    std::string config_path = "./synnax-driver-config.json";
     // Parse the command line arguments using getopt_long
     while ((c = getopt_long(argc, argv, "c:", long_options, &option_index)) != -1) {
         switch (c) {
@@ -53,23 +62,28 @@ int main(int argc, char *argv[]) {
                 config_path = optarg; // Assign the optarg to your string variable
                 break;
             case '?':
-                // getopt_long already printed an error message.
                 return 1;
             default:
-                std::cerr << "Unknown error while parsing options" << std::endl;
+                LOG(FATAL) << "Unknown error while parsing options";
                 return 1;
         }
     }
 
-    google::InitGoogleLogging(argv[0]);
-    google::SetCommandLineOption("minloglevel", "0");
+    LOG(INFO) << "[Driver] starting up";
 
     auto cfg_json = driver::readConfig(config_path);
+    if (cfg_json.empty())
+        LOG(INFO) << "[Driver] no configuration found at " << config_path << ". We'll just use the default configuration.";
+    else {
+        LOG(INFO) << "[Driver] loaded configuration from " << config_path;
+    }
     auto [cfg, cfg_err] = driver::parseConfig(cfg_json);
     if (cfg_err) {
         LOG(FATAL) << "[Driver] failed to parse configuration: " << cfg_err;
         return 1;
     }
+    LOG(INFO) << "[Driver] configuration parsed successfully";
+    LOG(INFO) << "[Driver] connecting to Synnax at " << cfg.client_config.host << ":" << cfg.client_config.port;
 
     auto breaker = breaker::Breaker(cfg.breaker_config);
     auto client = std::make_shared<synnax::Synnax>(cfg.client_config);
@@ -95,11 +109,16 @@ int main(int argc, char *argv[]) {
         std::move(factory),
         cfg.breaker_config
     );
-    signal(SIGINT, [](int _) {
+    signal(SIGINT, [](int) {
+        if (stopped) return;
         LOG(INFO) << "[Driver] received interrupt signal. shutting down";
+        stopped = true;
         d->stop();
     });
-    d->run();
-    LOG(INFO) << "[Driver] shutdown complete";
+    auto err = d->run();
+    if (err)
+        LOG(FATAL) << "[Driver] failed to start: " << err;
+    else
+        LOG(INFO) << "[Driver] shutdown complete";
     return 0;
 }

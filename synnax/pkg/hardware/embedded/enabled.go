@@ -14,9 +14,11 @@ package embedded
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"embed"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
@@ -25,13 +27,30 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"syscall"
 )
 
 //go:embed assets/driver
 var executable embed.FS
 
-func OpenDriver(cfgs ...Config) (*Driver, error) {
+func OpenDriver(ctx context.Context, cfgs ...Config) (*Driver, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
+
+	ecd := &binary.JSONEncoderDecoder{}
+	cfgFile, err := os.CreateTemp("", "synnax-driver-config*.json")
+	if err != nil {
+		return nil, err
+	}
+	b, err := ecd.Encode(ctx, cfg)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := cfgFile.Write(b); err != nil {
+		return nil, err
+	}
+	if err := cfgFile.Close(); err != nil {
+		return nil, err
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +62,6 @@ func OpenDriver(cfgs ...Config) (*Driver, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	if _, err := tmpFile.Write(data); err != nil {
 		return nil, err
 	}
@@ -53,8 +71,8 @@ func OpenDriver(cfgs ...Config) (*Driver, error) {
 	if err := os.Chmod(tmpFile.Name(), 0755); err != nil {
 		return nil, err
 	}
-
-	d := &Driver{cmd: exec.Command(tmpFile.Name())}
+	d := &Driver{cmd: exec.Command(tmpFile.Name(), "--config", cfgFile.Name())}
+	d.cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	stdoutPipe, err := d.cmd.StdoutPipe()
 	if err != nil {
 		return nil, err
@@ -84,6 +102,7 @@ func OpenDriver(cfgs ...Config) (*Driver, error) {
 	sCtx.Go(func(ctx context.Context) error {
 		defer func() {
 			err = errors.CombineErrors(err, os.Remove(tmpFile.Name()))
+			err = errors.CombineErrors(err, os.Remove(cfgFile.Name()))
 		}()
 		return d.cmd.Wait()
 	}, signal.WithKey("driver-wait"))
@@ -94,7 +113,23 @@ func OpenDriver(cfgs ...Config) (*Driver, error) {
 func pipeOutputToLogger(reader io.ReadCloser, logger *alamos.Logger) {
 	scanner := bufio.NewScanner(reader)
 	for scanner.Scan() {
-		logger.Info(scanner.Text())
+		// Find the first "]" and remove everything before it
+		// This is to remove the timestamp from the log output
+		b := scanner.Bytes()
+		level := string(b[0])
+		idx := bytes.IndexByte(b, ']')
+		filtered := string(b[idx+1:])
+		switch level {
+		case "D":
+			logger.Debug(filtered)
+		case "E", "F":
+			logger.Error(filtered)
+		case "W":
+			logger.Warn(filtered)
+		default:
+			logger.Info(filtered)
+
+		}
 	}
 	if err := scanner.Err(); err != nil {
 		log.Fatal("Error reading data from process", zap.Error(err))
@@ -103,8 +138,9 @@ func pipeOutputToLogger(reader io.ReadCloser, logger *alamos.Logger) {
 
 func (d *Driver) Stop() error {
 	if d.shutdown != nil {
-		d.cmd.Process.Signal(os.Interrupt)
-		return d.shutdown.Close()
+		d.cmd.Process.Signal(syscall.SIGINT)
+		err := d.shutdown.Close()
+		return err
 	}
 	return nil
 }

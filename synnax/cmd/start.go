@@ -12,7 +12,6 @@ package cmd
 import (
 	"bufio"
 	"context"
-	"github.com/sirupsen/logrus"
 	"github.com/synnaxlabs/synnax/pkg/hardware/embedded"
 	"os"
 	"os/signal"
@@ -117,7 +116,7 @@ func start(cmd *cobra.Command) {
 
 	// Perform the rest of the startup within a separate goroutine, so we can properly
 	// handle signal interrupts.
-	sCtx.Go(func(ctx context.Context) error {
+	sCtx.Go(func(ctx context.Context) (err error) {
 
 		secProvider, err := configureSecurity(ins, insecure)
 		if err != nil {
@@ -141,7 +140,9 @@ func start(cmd *cobra.Command) {
 		if err != nil {
 			return err
 		}
-		defer func() { err = dist.Close() }()
+		defer func() {
+			err = errors.CombineErrors(err, dist.Close())
+		}()
 
 		// set up our high level services.
 		gorpDB := dist.Storage.Gorpify()
@@ -179,7 +180,7 @@ func start(cmd *cobra.Command) {
 			Group:    dist.Group,
 			Signals:  dist.Signals,
 		})
-		deviceSvc, err := hardware.OpenService(ctx, hardware.Config{
+		hardwareSvc, err := hardware.OpenService(ctx, hardware.Config{
 			DB:           gorpDB,
 			Ontology:     dist.Ontology,
 			Group:        dist.Group,
@@ -190,6 +191,9 @@ func start(cmd *cobra.Command) {
 		if err != nil {
 			return err
 		}
+		defer func() {
+			err = errors.CombineErrors(err, hardwareSvc.Close())
+		}()
 
 		// Provision the root user.
 		if err := maybeProvisionRootUser(ctx, gorpDB, authenticator, userSvc); err != nil {
@@ -215,7 +219,7 @@ func start(cmd *cobra.Command) {
 			Ranger:          rangeSvc,
 			Workspace:       workspaceSvc,
 			Label:           labelSvc,
-			Hardware:        deviceSvc,
+			Hardware:        hardwareSvc,
 		})
 		if err != nil {
 			return err
@@ -246,16 +250,21 @@ func start(cmd *cobra.Command) {
 		}, xsignal.WithKey("server"))
 		defer srv.Stop()
 
-		d, err := embedded.OpenDriver(embedded.Config{Instrumentation: ins})
-		defer func() {
-			logrus.Info("STOPPING")
-			d.Stop()
-		}()
+		d, err := embedded.OpenDriver(
+			ctx,
+			buildEmbeddedDriverConfig(ins.Child("embedded-driver"), hardwareSvc.Rack.EmbeddedRackName),
+		)
 		if err != nil {
 			return err
 		}
+		defer func() {
+			err = errors.CombineErrors(err, d.Stop())
+		}()
+
+		ins.L.Info("\033[32m Synnax Node Started \033[0m")
+
 		<-ctx.Done()
-		return nil
+		return err
 	}, xsignal.WithKey("start"))
 
 	select {
@@ -331,6 +340,18 @@ func buildServerConfig(
 	cfg.Security.TLS = sec.TLS()
 	cfg.Security.Insecure = config.Bool(viper.GetBool("insecure"))
 	return cfg
+}
+
+func buildEmbeddedDriverConfig(
+	ins alamos.Instrumentation,
+	rackName string,
+) embedded.Config {
+	return embedded.Config{
+		Instrumentation: ins,
+		Address:         address.Address(viper.GetString("address")),
+		RackName:        rackName,
+	}
+
 }
 
 func configureSecurity(ins alamos.Instrumentation, insecure bool) (security.Provider, error) {

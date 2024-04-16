@@ -14,34 +14,23 @@ import { Align, Header } from "@synnaxlabs/pluto";
 
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Layout } from "@/layout";
-import { Range } from "@/range";
-import { editLayout } from "@/range/EditLayout";
 
 const Content = (): ReactElement => {
   const p = Layout.usePlacer();
   return (
     <Align.Space empty style={{ height: "100%" }}>
       <ToolbarHeader>
-        <ToolbarTitle icon={<Icon.Range />}>Ranges</ToolbarTitle>
-        <Header.Actions>
-          {[
-            {
-              children: <Icon.Add />,
-              onClick: () => p(editLayout("Create Range")),
-            },
-          ]}
-        </Header.Actions>
+        <ToolbarTitle icon={<Icon.Task />}>Tasks</ToolbarTitle>
       </ToolbarHeader>
-      <Range.List />
     </Align.Space>
   );
 };
 
 export const Toolbar: Layout.NavDrawerItem = {
-  key: "range",
-  icon: <Icon.Range />,
+  key: "task",
+  icon: <Icon.Task />,
   content: <Content />,
-  tooltip: "Ranges",
+  tooltip: "Tasks",
   initialSize: 300,
   minSize: 225,
   maxSize: 400,

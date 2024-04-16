@@ -10,6 +10,8 @@
 #include <utility>
 #include "client/cpp/synnax/hardware/hardware.h"
 
+#include "client/cpp/synnax/errors/errors.h"
+
 using namespace synnax;
 
 Rack::Rack(RackKey key, std::string name) : key(key),
@@ -50,6 +52,10 @@ std::pair<Rack, freighter::Error> HardwareClient::retrieveRack(
     req.add_names(name);
     auto [res, err] = rack_retrieve_client->send(RETRIEVE_RACK_ENDPOINT, req);
     if (err) return {Rack(), err};
+    if (res.racks_size() == 0)
+        return {Rack(), freighter::Error(synnax::NOT_FOUND, "Rack matching" + name + " not found")};
+    if (res.racks_size() > 1)
+        return {Rack(), freighter::Error(synnax::MULTIPLE_RESULTS, "Multiple racks matching" + name + " found")};
     auto rack = Rack(res.racks(0));
     rack.tasks = TaskClient(rack.key, task_create_client, task_retrieve_client,
                             task_delete_client);

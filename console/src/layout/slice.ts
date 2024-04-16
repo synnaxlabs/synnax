@@ -117,11 +117,11 @@ export const ZERO_SLICE_STATE: SliceState = {
       drawers: {
         left: {
           activeItem: null,
-          menuItems: ["clusters", "resources"],
+          menuItems: ["resources"],
         },
         right: {
           activeItem: null,
-          menuItems: ["range"],
+          menuItems: ["range", "task"],
         },
         bottom: {
           activeItem: null,

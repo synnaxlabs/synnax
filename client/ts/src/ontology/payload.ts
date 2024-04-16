@@ -23,6 +23,8 @@ const resourceTypeZ = z.union([
   z.literal("pid"),
   z.literal("lineplot"),
   z.literal("rack"),
+  z.literal("device"),
+  z.literal("task"),
 ]);
 
 export type ResourceType = z.infer<typeof resourceTypeZ>;

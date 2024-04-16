@@ -12,6 +12,7 @@
 #include "driver/driver/driver.h"
 #include "driver/driver/opc/opc.h"
 #include "nlohmann/json.hpp"
+#include "glog/logging.h"
 
 using json = nlohmann::json;
 
@@ -48,6 +49,7 @@ std::pair<driver::Config, freighter::Error> driver::parseConfig(const json &cont
             .rack_name = rack_name,
             .breaker_config = breaker_config,
             .client_config = synnax_cfg,
+            .integrations = integrations,
         },
         freighter::NIL,
     };
@@ -55,6 +57,7 @@ std::pair<driver::Config, freighter::Error> driver::parseConfig(const json &cont
 
 
 json driver::readConfig(std::string path) {
+    LOG(INFO) << "[Driver] reading configuration from " << path;
     std::ifstream file(path);
     json content = json::object();
     if (file.is_open()) {
@@ -65,6 +68,8 @@ json driver::readConfig(std::string path) {
         file.read(&content_str[0], content_str.size());
         file.close();
         content = json::parse(content_str);
+    } else {
+        LOG(ERROR) << "[Driver] failed to open configuration file at " << path;
     }
     return content;
 }

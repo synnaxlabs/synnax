@@ -31,6 +31,7 @@ import { Vis } from "@/vis";
 import { Workspace } from "@/workspace";
 
 import "@/layouts/LayoutMain/Nav.css";
+import { Persist } from "@/persist";
 
 const DEFAULT_TRIGGER: TriggerConfig = {
   defaultMode: "command",
@@ -47,6 +48,7 @@ const COMMANDS = [
   ...Cluster.COMMANDS,
   ...Range.COMMANDS,
   ...opc.COMMANDS,
+  ...Persist.COMMANDS,
 ];
 
 const NavTopPalette = (): ReactElement => {

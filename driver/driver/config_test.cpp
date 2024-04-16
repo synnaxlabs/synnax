@@ -62,8 +62,8 @@ TEST(TestDriverConfig, testValidConfig) {
     ASSERT_NEAR(cfg.breaker_config.scale, 1.5, 0.0001);
     ASSERT_EQ(cfg.rack_key, 1);
     ASSERT_EQ(cfg.rack_name, "rack_1");
-    // ASSERT_EQ(cfg.integrations.size(), 1);
-    // ASSERT_EQ(cfg.integrations[0], "opc");
+    ASSERT_EQ(cfg.integrations.size(), 1);
+    ASSERT_EQ(cfg.integrations[0], "opc");
 }
 
 /// @brief it should read a configuration file from disk.
@@ -76,4 +76,12 @@ TEST(TestDriverConfig, testReadConfig) {
     ASSERT_EQ(cfg.client_config.host, "demo.synnaxlabs.com");
     ASSERT_EQ(cfg.client_config.port, 9090);
     ASSERT_EQ(cfg.breaker_config.base_interval, synnax::SECOND * 2);
+}
+
+/// @brief it should return an empty JSON object.
+TEST(TestDriverConfig, testReadConfigNoFileFound) {
+    auto path = std::filesystem::current_path();
+    path += "/driver/driver/testdata/does_not_exist.json";
+    auto cfg_contents = driver::readConfig(path);
+    ASSERT_TRUE(cfg_contents.empty());
 }

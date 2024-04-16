@@ -102,7 +102,8 @@ func Open(configs ...Config) (*Relay, error) {
 
 func (r *Relay) Close() error {
 	r.demands.Close()
-	return r.wg.Wait()
+	err := r.wg.Wait()
+	return err
 }
 
 func (r *Relay) connectToDelta(buf int) (confluence.Outlet[Response], observe.Disconnect) {
