@@ -20,7 +20,6 @@ import {
 } from "@synnaxlabs/x/telem";
 import { toArray } from "@synnaxlabs/x/toArray";
 
-import { type Creator } from "@/channel/creator";
 import {
   type Key,
   type KeyOrName,
@@ -38,7 +37,8 @@ import {
   type PageOptions,
   type RetrieveOptions,
 } from "@/channel/retriever";
-import { ValidationError } from "@/errors";
+import { type Writer } from "@/channel/writer";
+import { MultipleResultsError, ValidationError } from "@/errors";
 import { type framer } from "@/framer";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
@@ -173,20 +173,20 @@ export class Channel {
  */
 export class Client implements AsyncTermSearcher<string, Key, Channel> {
   private readonly frameClient: framer.Client;
-  readonly retriever: Retriever;
-  private readonly creator: Creator;
   private readonly client: UnaryClient;
+  readonly retriever: Retriever;
+  readonly writer: Writer;
 
   constructor(
     frameClient: framer.Client,
     retriever: Retriever,
     client: UnaryClient,
-    creator: Creator,
+    writer: Writer,
   ) {
     this.frameClient = frameClient;
     this.retriever = retriever;
     this.client = client;
-    this.creator = creator;
+    this.writer = writer;
   }
 
   /**
@@ -264,7 +264,7 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
       toCreate = toCreate.filter((c) => !existingNames.has(c.name));
       created = this.sugar(res);
     }
-    created = created.concat(this.sugar(await this.creator.create(toCreate)));
+    created = created.concat(this.sugar(await this.writer.create(toCreate)));
     return single ? created[0] : created;
   }
 
@@ -325,6 +325,12 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
 
   async search(term: string, options?: RetrieveOptions): Promise<Channel[]> {
     return this.sugar(await this.retriever.search(term, options));
+  }
+
+  async delete(channels: Params): Promise<void> {
+    const { normalized, variant } = analyzeParams(channels);
+    if (variant === "keys") return await this.writer.delete({ keys: normalized });
+    return await this.writer.delete({ names: normalized });
   }
 
   newSearcherWithOptions(

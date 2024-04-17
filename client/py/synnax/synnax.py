@@ -12,20 +12,20 @@ from freighter import URL
 
 from synnax.auth import AuthenticationClient
 from synnax.channel import ChannelClient
-from synnax.channel.create import ChannelCreator
 from synnax.channel.retrieve import CacheChannelRetriever, ClusterChannelRetriever
+from synnax.channel.writer import ChannelWriter
 from synnax.config import try_load_options_if_none_provided
 from synnax.control import Client as ControlClient
 from synnax.framer import Client
+from synnax.hardware.client import Client as HardwareClient
+from synnax.hardware.retrieve import Retriever as HardwareRetriever
+from synnax.hardware.writer import Writer as HardwareWriter
 from synnax.options import SynnaxOptions
-from synnax.ranger import RangeWriter, RangeRetriever
+from synnax.ranger import RangeRetriever, RangeWriter
 from synnax.ranger.client import RangeClient
+from synnax.signals.signals import Registry
 from synnax.telem import TimeSpan
 from synnax.transport import Transport
-from synnax.signals.signals import Registry
-from synnax.hardware.client import Client as HardwareClient
-from synnax.hardware.writer import Writer as HardwareWriter
-from synnax.hardware.retrieve import Retriever as HardwareRetriever
 
 
 class Synnax(Client):
@@ -99,7 +99,7 @@ class Synnax(Client):
             ClusterChannelRetriever(self._transport.unary, instrumentation),
             instrumentation,
         )
-        ch_creator = ChannelCreator(self._transport.unary, instrumentation)
+        ch_creator = ChannelWriter(self._transport.unary, instrumentation)
         super().__init__(
             client=self._transport.stream,
             async_client=self._transport.stream_async,

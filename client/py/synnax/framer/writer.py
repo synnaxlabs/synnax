@@ -21,7 +21,8 @@ from freighter import (
     decode_exception,
 )
 from numpy import can_cast as np_can_cast
-from pandas import DataFrame, concat as pd_concat
+from pandas import DataFrame
+from pandas import concat as pd_concat
 
 from synnax import io
 from synnax.channel.payload import ChannelKey, ChannelKeys, ChannelName, ChannelNames

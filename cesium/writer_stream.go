@@ -19,10 +19,10 @@ import (
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
-	errors2 "github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
+	"math"
 )
 
 // WriterCommand is an enumeration of commands that can be sent to a Writer.
@@ -273,7 +273,7 @@ func (w *streamWriter) commit(ctx context.Context) (telem.TimeStamp, error) {
 }
 
 func (w *streamWriter) close(ctx context.Context) error {
-	c := errors2.NewCatcher(errors2.WithAggregation())
+	c := errors.NewCatcher(errors.WithAggregation())
 	u := ControlUpdate{Transfers: make([]controller.Transfer, 0, len(w.internal))}
 	for _, idx := range w.internal {
 		c.Exec(func() error {
@@ -285,6 +285,17 @@ func (w *streamWriter) close(ctx context.Context) error {
 			return nil
 		})
 	}
+	if w.virtual.internal != nil {
+		c.Exec(func() error {
+			u_, err := w.virtual.Close()
+			if err != nil {
+				return err
+			}
+			u.Transfers = append(u.Transfers, u_.Transfers...)
+			return nil
+		})
+	}
+
 	if len(u.Transfers) > 0 {
 		w.updateDBControl(ctx, u)
 	}
@@ -417,7 +428,7 @@ func (w *idxWriter) Commit(ctx context.Context) (telem.TimeStamp, error) {
 	}
 	// because the range is exclusive, we need to add 1 nanosecond to the end
 	end.Lower++
-	c := errors2.NewCatcher(errors2.WithAggregation())
+	c := errors.NewCatcher(errors.WithAggregation())
 	for _, chW := range w.internal {
 		c.Exec(func() error { return chW.CommitWithEnd(ctx, end.Lower) })
 	}
@@ -425,7 +436,7 @@ func (w *idxWriter) Commit(ctx context.Context) (telem.TimeStamp, error) {
 }
 
 func (w *idxWriter) Close() (ControlUpdate, error) {
-	c := errors2.NewCatcher(errors2.WithAggregation())
+	c := errors.NewCatcher(errors.WithAggregation())
 	update := ControlUpdate{
 		Transfers: make([]controller.Transfer, 0, len(w.internal)),
 	}
@@ -484,11 +495,14 @@ func (w virtualWriter) write(fr Frame) (Frame, error) {
 }
 
 func (w virtualWriter) Close() (ControlUpdate, error) {
-	c := errors2.NewCatcher(errors2.WithAggregation())
+	c := errors.NewCatcher(errors.WithAggregation())
 	update := ControlUpdate{
 		Transfers: make([]controller.Transfer, 0, len(w.internal)),
 	}
 	for _, chW := range w.internal {
+		if chW.Channel.Key == math.MaxUint32 {
+			continue
+		}
 		c.Exec(func() error {
 			transfer, err := chW.Close()
 			if err != nil || !transfer.Occurred() {

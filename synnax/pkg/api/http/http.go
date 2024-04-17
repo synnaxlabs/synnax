@@ -25,9 +25,10 @@ func New(router *fhttp.Router) (t api.Transport) {
 	t.AuthChangeUsername = fhttp.UnaryServer[api.ChangeUsernameRequest, types.Nil](router, false, "/api/v1/auth/protected/change-username")
 
 	// CHANNEL
-	t.ChannelCreate = fhttp.UnaryServer[api.ChannelCreateRequest, api.ChannelCreateResponse](router, false, "/api/v1/channel/create")
-	t.ChannelRetrieve = fhttp.UnaryServer[api.ChannelRetrieveRequest, api.ChannelRetrieveResponse](router, false, "/api/v1/channel/retrieve")
-	t.ConnectivityCheck = fhttp.UnaryServer[types.Nil, api.ConnectivityCheckResponse](router, false, "/api/v1/connectivity/check")
+	t.ChannelCreate = fhttp.UnaryServer[api.ChannelCreateRequest, api.ChannelCreateResponse](router, "/api/v1/channel/create")
+	t.ChannelRetrieve = fhttp.UnaryServer[api.ChannelRetrieveRequest, api.ChannelRetrieveResponse](router, "/api/v1/channel/retrieve")
+	t.ChannelDelete = fhttp.UnaryServer[api.ChannelDeleteRequest, types.Nil](router, "/api/v1/channel/delete")
+	t.ConnectivityCheck = fhttp.UnaryServer[types.Nil, api.ConnectivityCheckResponse](router, "/api/v1/connectivity/check")
 
 	// FRAME
 	t.FrameWriter = fhttp.StreamServer[api.FrameWriterRequest, api.FrameWriterResponse](router, false, "/api/v1/frame/write")
