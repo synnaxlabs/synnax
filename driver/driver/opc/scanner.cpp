@@ -85,7 +85,8 @@ static UA_StatusCode nodeIter(
                                     browseName.name.length);
             auto node_id = nodeIdToString(child_id);
             auto dt = variant_data_type(value);
-            ctx->channels->push_back({dt, name, node_id});
+            if (dt != synnax::DATA_TYPE_UNKNOWN && !dt.is_variable())
+                ctx->channels->push_back({dt, name, node_id});
         }
     }
 

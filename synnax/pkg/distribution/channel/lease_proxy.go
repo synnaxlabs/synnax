@@ -264,7 +264,10 @@ func (lp *leaseProxy) delete(ctx context.Context, tx gorp.Tx, keys Keys) error {
 			return err
 		}
 	}
-	return lp.deleteGateway(ctx, tx, batch.Gateway)
+	if err := lp.deleteGateway(ctx, tx, batch.Gateway); err != nil {
+		return err
+	}
+	return lp.maybeDeleteResources(ctx, tx, keys)
 }
 
 func (lp *leaseProxy) deleteFreeVirtual(ctx context.Context, tx gorp.Tx, channels Keys) error {
@@ -279,7 +282,21 @@ func (lp *leaseProxy) deleteGateway(ctx context.Context, tx gorp.Tx, keys Keys) 
 	for _, key := range keys {
 		c.Exec(func() error { return lp.TSChannel.DeleteChannel(key.StorageKey()) })
 	}
+	c.Exec(func() error { return lp.maybeDeleteResources(ctx, tx, keys) })
 	return c.Error()
+}
+
+func (lp *leaseProxy) maybeDeleteResources(
+	ctx context.Context,
+	tx gorp.Tx,
+	keys Keys,
+) error {
+	if lp.Ontology == nil {
+		return nil
+	}
+	ids := lo.Map(keys, func(k Key, _ int) ontology.ID { return OntologyID(k) })
+	w := lp.Ontology.NewWriter(tx)
+	return w.DeleteManyResources(ctx, ids)
 }
 
 func (lp *leaseProxy) deleteRemote(ctx context.Context, target core.NodeKey, keys Keys) error {

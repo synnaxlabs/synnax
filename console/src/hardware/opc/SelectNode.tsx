@@ -11,18 +11,23 @@ import {
 } from "@/hardware/opc/types";
 
 interface NodeEntry extends NodeId {
+  name: string;
   key: string;
   dataType: string;
 }
 
 const SELECT_NODE_COLUMNS: Array<List.ColumnSpec<string, NodeEntry>> = [
   {
+    name: "Name",
+    key: "name",
+  },
+  {
     name: "Identifier",
     key: "identifier",
   },
   {
     name: "Namespace",
-    key: "namespace",
+    key: "namespaceIndex",
   },
   {
     name: "Data Type",
@@ -42,15 +47,17 @@ export const SelectNode = ({ data, ...props }: SelectNodeProps): ReactElement =>
         .map((c) => {
           const n = parseNodeId(c.nodeId);
           if (n == null) return null;
-          return { key: c.nodeId, ...n, dataType: c.dataType };
+          return { name: c.name, key: c.nodeId, ...n, dataType: c.dataType };
         })
         .filter((n) => n != null) as NodeEntry[],
     [data],
   );
+  console.log(transformedData);
   return (
     <Select.Single<string, NodeEntry>
       columns={SELECT_NODE_COLUMNS}
       data={transformedData}
+      entryRenderKey={(e) => `${e.name} (${e.key})`}
       {...props}
     />
   );

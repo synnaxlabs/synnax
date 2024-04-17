@@ -48,6 +48,10 @@ public:
     /// @property Essentially how many bytes in memory the datatype holds.
     [[nodiscard]] uint32_t density() const { return DENSITIES[value]; }
 
+    [[nodiscard]] bool is_variable() const {
+        return value == "string" || value == "json";
+    }
+
     /////////////////////////////////// COMPARISON ///////////////////////////////////
 
     bool operator==(const DataType &other) const { return value == other.value; }

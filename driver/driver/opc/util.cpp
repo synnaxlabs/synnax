@@ -12,6 +12,9 @@
 #include "driver/driver/opc/opc.h"
 #include "driver/driver/opc/util.h"
 
+#include "include/open62541/plugin/log_stdout.h"
+#include "glog/logging.h"
+
 /// @brief maps opc data types to their corresponding Synnax types.
 std::map<UA_UInt16, synnax::DataType> data_type_map = {
     {UA_NS0ID_BOOLEAN, synnax::UINT8},
@@ -38,12 +41,45 @@ opc::ClientDeleter getDefaultClientDeleter() {
     };
 }
 
+void customLogger(
+    void *logContext,
+    UA_LogLevel level,
+    UA_LogCategory category,
+    const char *msg,
+    va_list args) {
+
+    // Buffer to store the formatted message
+    char buffer[1024];
+    vsnprintf(buffer, sizeof(buffer), msg, args);
+
+    // Decide on the GLog level based on open62541's log level
+    switch (level) {
+        case UA_LOGLEVEL_TRACE:
+        case UA_LOGLEVEL_DEBUG:
+        case UA_LOGLEVEL_INFO:
+            VLOG(1) << buffer;
+        break;
+        case UA_LOGLEVEL_WARNING:
+            LOG(WARNING) << buffer;
+        break;
+        case UA_LOGLEVEL_ERROR:
+            LOG(ERROR) << buffer;
+        break;
+        case UA_LOGLEVEL_FATAL:
+            LOG(FATAL) << buffer;
+        break;
+        default:
+            LOG(INFO) << buffer; // Default case falls back to INFO level
+    }
+}
+
 std::pair<std::shared_ptr<UA_Client>, freighter::Error> opc::connect(
     opc::ConnectionConfig &cfg
 ) {
     auto client = std::shared_ptr<UA_Client>(
         UA_Client_new(), getDefaultClientDeleter());
-    UA_ClientConfig_setDefault(UA_Client_getConfig(client.get()));
+    UA_ClientConfig *config = UA_Client_getConfig(client.get());
+    config->logging->log = customLogger;
     UA_StatusCode status = UA_Client_connect(client.get(), cfg.endpoint.c_str());
     if (cfg.username.empty() && cfg.password.empty())
         status = UA_Client_connect(client.get(), cfg.endpoint.c_str());
@@ -62,4 +98,3 @@ std::pair<std::shared_ptr<UA_Client>, freighter::Error> opc::connect(
                          "Failed to connect: " + std::string(status_name))
     };
 }
-

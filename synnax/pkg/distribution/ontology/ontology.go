@@ -135,6 +135,10 @@ type Writer interface {
 	// incoming and outgoing relationships.  If the resource does not exist,
 	// DeleteResource does nothing.
 	DeleteResource(ctx context.Context, id ID) error
+	// DeleteManyResources deletes multiple resources with the given IDs along with all of
+	// their incoming and outgoing relationships. If any of the resources do not exist,
+	// DeleteManyResources does nothing.
+	DeleteManyResources(ctx context.Context, ids []ID) error
 	// DefineRelationship defines a directional relationship of type t between the
 	// resources with the given Keys. If the relationship already exists, DefineRelationship
 	// does nothing.

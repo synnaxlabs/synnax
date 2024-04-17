@@ -135,7 +135,7 @@ const handleDeleteAlias = async ({
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const { store, selection, client } = props;
   const activeRange = Range.select(store.getState());
-  const { nodes } = selection;
+  const { nodes, resources } = selection;
 
   const handleSelect = (itemKey: string): void => {
     switch (itemKey) {
@@ -146,7 +146,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         void handleDeleteAlias(props);
         break;
       case "delete":
-        void client.channels.delete(...nodes.map((n) => Number(n.key)));
+        void client.channels.delete(resources.map(({ id }) => Number(id.key)));
         break;
       case "group":
         void Group.fromSelection(props);
@@ -172,6 +172,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           </Menu.Item>
         </>
       )}
+      <Menu.Item itemKey="delete" startIcon={<Icon.Delete />}>
+        Delete
+      </Menu.Item>
     </Menu.Menu>
   );
 };
