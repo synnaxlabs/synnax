@@ -1,0 +1,101 @@
+---
+layout: "@/layouts/MainLayout.astro"
+title: "PID"
+description: "This page describes how to use the PID visualization tool on the Synnax console."
+---
+import { Image } from "@/components/Media";
+import { Video } from "@/components/Media";
+import { Icon } from "@synnaxlabs/media";
+import { Text } from "@synnaxlabs/pluto";
+
+## PID Overview
+
+The PID tool is used to see a diagram of your physical or simulated system.
+which will read live values. It also allows the user to exercise control over
+various channels in the system in order to manually run a test or operation.
+
+The video below lets you see how to launch a PID:
+
+<Video client:only="react" id="console/pid-create-pid" />
+
+An example PID from simulated sensor values is shown below:
+
+<Image client:only="react" id="console/pid-into"  />
+
+There are three modes that the PID viewer can be in: edit mode, view mode, and
+control mode. These modes can be switched between by hovering over the toolbar
+in the bottom left of the window. In edit mode, the PID elements can be moved to
+arrange the display. In view mode, nothing happens while live telemetry comes
+in. In control mode, the user can activate elements on the PID viewer to affect
+the system state.
+
+## Symbols
+<Text.Text level="p"> The heart of the PID view is symbols. These symbols are a
+visual representation of sensors, actuators, and anything else on a test system.
+If the symbols are not appearing on the bottom of the screen, make sure to click
+the visualization <Icon.Visualize/> icon in the bottom right. Synnax has a
+collection of built-in symbols, such as valves, values, and buttons. To place a
+symbol, drag and drop onto the screen. The properties of symbols are detailed
+below. </Text.Text>
+
+## Style
+The style tab on a symbol allows users to edit the symbols label, size,
+orientation, color, and other various visual properties. A value's units can
+also be edited here. To edit this, click on a PID element on the diagram and
+then click the "Properties" tab in the bottom right.
+
+## Telemetry
+The "Telemetry" tab is a property of the value element, and is only for elements
+that receive data. The video below shows placing and setting a value:
+
+<Video client:only="react" id="console/pid-configure-value" />
+
+- "Input Channel" selects which channel data is being read from.
+- "Precision" determines what precision values will appear on the PID. A
+  precision number of 2 means that 2 decimal places will be seen.
+- "Averaging Window" determines how many samples are averaged together to appear
+  on the screen. If the value 2 is selected, the value displayed on screen will
+  be the average of the last 2 values.
+
+## Control
+The "Control" tab is a property of any element that takes inputs and outputs. An
+example of this is a valve.
+
+- "Input Channel" is the channel that PID viewer reads from. For instance,
+  acknowledgement channels are often used as the input channels.
+- "Output Channel" is a write channel that Synnax writes to. This are often
+  write channels on a DAQ. When you click on the PID element to actuate it, this
+  channel is the one that gets changed.
+
+## Connection lines
+Every element has spots for connection lines / tubes. When hovering over an
+element, places for these connections appear. You can then drag this line to
+another element to draw a connection line on the PID viewer.
+
+<Video client:only="react" id="console/pid-draw-conn" />
+
+First, we can make a diagram off of the provided symbols such as valves, tanks,
+and values. Just drag and drop to make what you want!
+
+You can also click several items and align them:
+
+<Video client:only="react" id="console/pid-align-items" />
+
+## Changing Colors
+Selecting multiple elements also allows you to change the color of all elements:
+
+<Video client:only="react" id="console/pid-change-color" />
+
+## Control mode
+In control mode, elements on the PID are able to be activated for manual control
+of the system. Clicking on an actionable element, such as a valve, switch, or
+button, allows you to activate the output channel on that element. The circle on
+the element shows what is in control. If the circle is blue, the current PID
+view has control. If the circle is green, the current PID view has absolute
+control. If the circle is red, the current PID view does not have control as the
+element is part of an automated sequence or controlled by another PID view.
+
+The color of the bar indicates what is controlling the elements on the PID.
+There is a legend on the display indicating what controlling node is what color.
+
+<Video client:only="react" id="console/pid-command-valve" />

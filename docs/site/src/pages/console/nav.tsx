@@ -28,5 +28,10 @@ export const consoleNav: PageNavNode = {
       href: "/console/querying-data",
       name: "Querying Data Using Ranges",
     },
+    {
+      key: "/console/pid",
+      href: "/console/pid",
+      name: "PID",
+    }
   ],
 };
