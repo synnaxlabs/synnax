@@ -280,5 +280,5 @@ var ChannelDeleteService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "v1/channel.proto",
+	Metadata: "synnax/pkg/api/grpc/v1/channel.proto",
 }

@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
-	"math"
 )
 
 // WriterCommand is an enumeration of commands that can be sent to a Writer.
@@ -500,9 +499,9 @@ func (w virtualWriter) Close() (ControlUpdate, error) {
 		Transfers: make([]controller.Transfer, 0, len(w.internal)),
 	}
 	for _, chW := range w.internal {
-		if chW.Channel.Key == math.MaxUint32 {
-			continue
-		}
+		//if chW.Channel.Key == math.MaxUint32 {
+		//	continue
+		//}
 		c.Exec(func() error {
 			transfer, err := chW.Close()
 			if err != nil || !transfer.Occurred() {

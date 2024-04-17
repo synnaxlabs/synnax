@@ -328,9 +328,10 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
   }
 
   async delete(channels: Params): Promise<void> {
-    const { normalized, variant } = analyzeParams(channels);
-    if (variant === "keys") return await this.writer.delete({ keys: normalized });
-    return await this.writer.delete({ names: normalized });
+    const { normalized, variant } = analyzeChannelParams(channels);
+    if (variant === "keys")
+      return await this.writer.delete({ keys: normalized as Key[] });
+    return await this.writer.delete({ names: normalized as string[] });
   }
 
   newSearcherWithOptions(

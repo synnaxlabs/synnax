@@ -118,7 +118,6 @@ const decode = (payload: ErrorPayload): Error | null => {
   }
 
   if (payload.type.startsWith(AuthError.TYPE)) {
-    console.log(payload.type, payload.type.startsWith(InvalidTokenError.TYPE));
     if (payload.type.startsWith(InvalidTokenError.TYPE))
       return new InvalidTokenError(payload.data);
     return new AuthError(payload.data);

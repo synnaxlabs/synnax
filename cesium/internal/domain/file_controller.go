@@ -241,7 +241,7 @@ func (fc *fileController) removeReadersWriters(ctx context.Context, key uint16) 
 		return nil
 	}
 
-	c := errors.NewCatch(errors.WithAggregation())
+	c := errors.NewCatcher(errors.WithAggregation())
 	for _, r := range fc.readers.open[key] {
 		if r.tryAcquire() {
 			c.Exec(r.Close)

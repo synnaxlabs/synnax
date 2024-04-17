@@ -13,14 +13,12 @@ import (
 	"context"
 	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/confluence"
-	errors2 "github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/errors"
 	"io"
 	"sync"
 
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/unary"
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 )
 

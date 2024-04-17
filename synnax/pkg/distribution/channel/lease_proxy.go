@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -274,7 +275,7 @@ func (lp *leaseProxy) deleteGateway(ctx context.Context, tx gorp.Tx, keys Keys) 
 	if err := gorp.NewDelete[Key, Channel]().WhereKeys(keys...).Exec(ctx, tx); err != nil {
 		return err
 	}
-	c := errutil.NewCatch(errutil.WithAggregation())
+	c := errors.NewCatcher(errors.WithAggregation())
 	for _, key := range keys {
 		c.Exec(func() error { return lp.TSChannel.DeleteChannel(key.StorageKey()) })
 	}
