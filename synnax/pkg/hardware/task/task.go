@@ -104,10 +104,11 @@ func (d *Details) UnmarshalJSON(data []byte) error {
 }
 
 type State struct {
-	Key     string  `json:"key" msgpack:"key"`
-	Task    Key     `json:"task" msgpack:"task"`
-	Variant Status  `json:"variant" msgpack:"variant"`
-	Details Details `json:"details" msgpack:"details"`
+	Key      string  `json:"key" msgpack:"key"`
+	Internal bool    `json:"internal" msgpack:"internal"`
+	Task     Key     `json:"task" msgpack:"task"`
+	Variant  Status  `json:"variant" msgpack:"variant"`
+	Details  Details `json:"details" msgpack:"details"`
 }
 
 var _ gorp.Entry[Key] = Task{}

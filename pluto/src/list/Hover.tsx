@@ -21,7 +21,7 @@ import {
 import { type Key, type Keyed } from "@synnaxlabs/x";
 
 import { useCombinedStateAndRef } from "@/hooks";
-import { useGetTransformedData } from "@/list/Data";
+import { useDataContext, useGetTransformedData } from "@/list/Data";
 import { useSelectionUtils } from "@/list/Selector";
 import { Triggers } from "@/triggers";
 
@@ -55,6 +55,7 @@ export const Hover = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   disabled = false,
 }: HoverProps): ReactElement => {
   const getData = useGetTransformedData<K, E>();
+  const { transformedData: data } = useDataContext<K, E>();
   const { onSelect } = useSelectionUtils();
   const [hover, setHover, ref] = useCombinedStateAndRef<number>(initialHover);
   const beforeDisabledRef = useRef(0);
@@ -62,6 +63,10 @@ export const Hover = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
     if (disabled) beforeDisabledRef.current = hover;
     setHover(disabled ? -1 : beforeDisabledRef.current);
   }, [disabled]);
+
+  useEffect(() => {
+    if (hover >= data.length) setHover(0);
+  }, [data.length]);
 
   const handleTrigger = useCallback(
     ({ triggers, stage }: Triggers.UseEvent) => {
