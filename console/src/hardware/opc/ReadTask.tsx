@@ -56,6 +56,7 @@ import { z } from "zod";
 
 import "@/hardware/opc/ReadTask.css";
 import { Triggers } from "@synnaxlabs/pluto";
+import { TaskPayload } from "@synnaxlabs/client/dist/hardware/task/client";
 
 export const readTaskLayout: Layout.LayoutState = {
   name: "Configure OPC UA Read Task",
@@ -70,10 +71,53 @@ export const readTaskLayout: Layout.LayoutState = {
   },
 };
 
-export const ReadTask = (): ReactElement => {
+export const ReadTask: Layout.Renderer = ({ layoutKey }) => {
   const client = Synnax.use();
-  const [task, setTask] = useState<task.Task | undefined>(undefined);
-  const [taskState, setTaskState] = useState<ReadTaskState | null>(null);
+  const fetchTask = useQuery<ReadTaskInternalProps>({
+    queryKey: [client?.key, "task", layoutKey],
+    queryFn: async () => {
+      if (client == null || layoutKey == readTaskLayout.key)
+        return {
+          initialValues: {
+            key: "readopcTask",
+            type: "opcReader",
+            name: "OPC Read Task",
+            config: {
+              device: "",
+              sampleRate: 50,
+              streamRate: 25,
+              channels: [],
+            },
+          },
+        };
+      const t = await client.hardware.tasks.retrieve<ReadTaskConfig, ReadTaskState>(
+        layoutKey,
+        {
+          includeState: true,
+        },
+      );
+      return { initialValues: t, task: t };
+    },
+  });
+  if (fetchTask.isLoading) return <></>;
+  if (fetchTask.isError) return <></>;
+  return <ReadTaskInternal {...fetchTask.data} />;
+};
+
+interface ReadTaskInternalProps {
+  task?: task.Task<ReadTaskConfig, ReadTaskState>;
+  initialValues: task.TaskPayload<ReadTaskConfig, ReadTaskState>;
+}
+
+const ReadTaskInternal = ({
+  initialValues,
+  task: pTask,
+}: ReadTaskInternalProps): ReactElement => {
+  const client = Synnax.use();
+  const [task, setTask] = useState(pTask);
+  const [taskState, setTaskState] = useState<ReadTaskState | null>(
+    initialValues.state ?? null,
+  );
   const [device, setDevice] = useState<device.Device<DeviceProperties> | null>(null);
 
   const schema = useMemo(
@@ -81,7 +125,6 @@ export const ReadTask = (): ReactElement => {
       z.object({
         name: z.string(),
         config: readTaskConfigZ.superRefine(async (cfg, ctx) => {
-          console.log("CCD", client, device);
           if (client == null || device == null) return;
           for (let i = 0; i < cfg.channels.length; i++) {
             const { channel, nodeId } = cfg.channels[i];
@@ -112,15 +155,7 @@ export const ReadTask = (): ReactElement => {
 
   const methods = Form.use({
     schema,
-    values: {
-      name: "OPC Read Task",
-      config: {
-        device: "",
-        sampleRate: 50,
-        streamRate: 25,
-        channels: [],
-      },
-    },
+    values: initialValues,
   });
 
   Form.useFieldListener<string>({
@@ -166,11 +201,10 @@ export const ReadTask = (): ReactElement => {
     mutationFn: async () => {
       if (!(await methods.validateAsync()) || client == null) return;
       const rack = await client.hardware.racks.retrieve("sy_node_1_rack");
-      console.log(methods.value().config);
       setTask(
         await rack.createTask<ReadTaskConfig>({
           key: 281479271677957,
-          name: "opc Read Task",
+          name: methods.value().name,
           type: "opcReader",
           config: methods.value().config,
         }),
@@ -252,7 +286,7 @@ export const ReadTask = (): ReactElement => {
             loading={start.isPending}
             disabled={start.isPending || taskState == null}
             value={taskState?.details.running ?? false}
-            onClick={() => start.mutate()}
+            onChange={() => start.mutate()}
           >
             {taskState?.details.running ? <Icon.Pause /> : <Icon.Play />}
           </Button.ToggleIcon>

@@ -3,6 +3,7 @@ import synnax as sy
 client = sy.Synnax()
 
 
-with client.open_streamer(["sy_task_state"]) as s:
+with client.open_streamer(["sy_rack16_meminfo"]) as s:
     for frame in s:
-        print(frame["sy_task_state"][0])
+        print(sy.TimeStamp.now())
+        print(sy.Size.BYTE * frame["sy_rack16_meminfo"][0])

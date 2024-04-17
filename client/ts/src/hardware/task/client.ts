@@ -76,18 +76,21 @@ export const newTaskZ = taskZ.omit({ key: true }).extend({
 
 export type NewTask<
   C extends UnknownRecord = UnknownRecord,
-  D extends UnknownRecord = UnknownRecord,
   T extends string = string,
-> = Omit<z.output<typeof newTaskZ>, "config" | "state"> & {
+> = Omit<z.input<typeof newTaskZ>, "config" | "state"> & {
   type: T;
   config: C;
-  state?: State<D>;
 };
 
 export type TaskPayload<
   C extends UnknownRecord = UnknownRecord,
+  D extends {} = UnknownRecord,
   T extends string = string,
-> = Omit<z.output<typeof taskZ>, "config" | "type"> & { type: T; config: C };
+> = Omit<z.output<typeof taskZ>, "config" | "type" | "state"> & {
+  type: T;
+  config: C;
+  state?: State<D> | null;
+};
 
 export const commandZ = z.object({
   task: taskKeyZ,
@@ -122,14 +125,24 @@ export class Task<
     type: T,
     config: C,
     frameClient: framer.Client,
-    state?: State<D>,
+    state?: State<D> | null,
   ) {
     this.key = key;
     this.name = name;
     this.type = type;
     this.config = config;
-    this.state = state;
+    if (state !== null) this.state = state;
     this.frameClient = frameClient;
+  }
+
+  get payload(): TaskPayload<C, D> {
+    return {
+      key: this.key,
+      name: this.name,
+      type: this.type,
+      config: this.config,
+      state: this.state,
+    };
   }
 
   async executeCommand(type: string, args?: UnknownRecord): Promise<string> {
@@ -236,7 +249,7 @@ export class Client implements AsyncTermSearcher<string, TaskKey, TaskPayload> {
     D extends {} = UnknownRecord,
     T extends string = string,
   >(
-    task: NewTask<C, D, T> | Array<NewTask<C, D, T>>,
+    task: NewTask<C, T> | Array<NewTask<C, T>>,
   ): Promise<Task<C, D, T> | Array<Task<C, D, T>>> {
     const isSingle = !Array.isArray(task);
     const res = await sendRequired<typeof createReqZ, typeof createResZ>(
@@ -282,16 +295,32 @@ export class Client implements AsyncTermSearcher<string, TaskKey, TaskPayload> {
     return res.tasks;
   }
 
-  async retrieve(rack: number, options?: RetrieveOptions): Promise<Task[]>;
+  async retrieve<
+    C extends UnknownRecord = UnknownRecord,
+    D extends {} = UnknownRecord,
+    T extends string = string,
+  >(rack: number, options?: RetrieveOptions): Promise<Task<C, D, T>[]>;
 
-  async retrieve(keys: string[], options?: RetrieveOptions): Promise<Task[]>;
+  async retrieve<
+    C extends UnknownRecord = UnknownRecord,
+    D extends {} = UnknownRecord,
+    T extends string = string,
+  >(keys: string[], options?: RetrieveOptions): Promise<Task<C, D, T>[]>;
 
-  async retrieve(key: string, options?: RetrieveOptions): Promise<Task>;
+  async retrieve<
+    C extends UnknownRecord = UnknownRecord,
+    D extends {} = UnknownRecord,
+    T extends string = string,
+  >(key: string, options?: RetrieveOptions): Promise<Task<C, D, T>>;
 
-  async retrieve(
+  async retrieve<
+    C extends UnknownRecord = UnknownRecord,
+    D extends {} = UnknownRecord,
+    T extends string = string,
+  >(
     rack: number | string | string[],
     options?: RetrieveOptions,
-  ): Promise<Task | Task[]> {
+  ): Promise<Task<C, D, T> | Task<C, D, T>[]> {
     const { single, normalized, variant } = analyzeParams(
       rack,
       {
@@ -310,7 +339,7 @@ export class Client implements AsyncTermSearcher<string, TaskKey, TaskPayload> {
       retrieveReqZ,
       retrieveResZ,
     );
-    const sugared = this.sugar(res.tasks);
+    const sugared = this.sugar(res.tasks) as Array<Task<C, D, T>>;
     return single && variant !== "rack" ? sugared[0] : sugared;
   }
 

@@ -3,7 +3,7 @@ module github.com/synnaxlabs/synnax
 go 1.21
 
 require (
-	github.com/blevesearch/bleve v1.0.14
+	github.com/blevesearch/bleve/v2 v2.4.0
 	github.com/cockroachdb/cmux v0.0.0-20170110192607-30d10be49292
 	github.com/cockroachdb/errors v1.11.1
 	github.com/cockroachdb/pebble v1.1.0

@@ -134,6 +134,7 @@ func translateChannelForward(
 		Density:     int64(msg.Density),
 		IsIndex:     msg.IsIndex,
 		Index:       uint32(msg.Index),
+		IsVirtual:   msg.Virtual,
 	}
 }
 
@@ -150,6 +151,7 @@ func translateChannelBackward(
 		Density:     telem.Density(msg.Density),
 		IsIndex:     msg.IsIndex,
 		Index:       channel.Key(msg.Index),
+		Virtual:     msg.IsVirtual,
 	}
 }
 

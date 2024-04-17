@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type PropsWithChildren, type ReactElement } from "react";
+import { FC, type PropsWithChildren, type ReactElement } from "react";
 
 import { Aether } from "@/aether";
 import { Alamos } from "@/alamos";
@@ -28,6 +28,16 @@ import { Worker } from "@/worker";
 
 import "@synnaxlabs/media/dist/style.css";
 
+type CanDisabledProps<T extends PropsWithChildren> = T & { disabled?: boolean };
+
+const canDisable =
+  <T extends PropsWithChildren>(C: FC<T>): FC<CanDisabledProps<T>> =>
+  ({ disabled = false, ...props }) =>
+    disabled ? props.children : <C {...(props as T)} />;
+
+const CanDisableTelem = canDisable<Telem.ProviderProps>(Telem.Provider);
+const CanDisableAether = canDisable<Aether.ProviderProps>(Aether.Provider);
+
 export interface ProviderProps
   extends PropsWithChildren,
     Partial<Theming.ProviderProps>,
@@ -39,6 +49,7 @@ export interface ProviderProps
   triggers?: Triggers.ProviderProps;
   haul?: Haul.ProviderProps;
   channelAlias?: Channel.AliasProviderProps;
+  telem?: CanDisabledProps<Telem.ProviderProps>;
 }
 
 export const Provider = ({
@@ -54,18 +65,19 @@ export const Provider = ({
   alamos,
   haul,
   channelAlias,
+  telem,
 }: ProviderProps): ReactElement => {
   return (
     <Triggers.Provider {...triggers}>
       <Tooltip.Config {...tooltip}>
         <Haul.Provider {...haul}>
           <Worker.Provider url={workerURL ?? DefaultWorkerURL} enabled={workerEnabled}>
-            <Aether.Provider workerKey="vis">
+            <CanDisableAether workerKey="vis">
               <Alamos.Provider {...alamos}>
                 <Status.Aggregator>
                   <Synnax.Provider connParams={connParams}>
                     <Channel.AliasProvider {...channelAlias}>
-                      <Telem.Provider>
+                      <CanDisableTelem {...telem}>
                         <Theming.Provider
                           theme={theme}
                           toggleTheme={toggleTheme}
@@ -73,12 +85,12 @@ export const Provider = ({
                         >
                           <Control.StateProvider>{children}</Control.StateProvider>
                         </Theming.Provider>
-                      </Telem.Provider>
+                      </CanDisableTelem>
                     </Channel.AliasProvider>
                   </Synnax.Provider>
                 </Status.Aggregator>
               </Alamos.Provider>
-            </Aether.Provider>
+            </CanDisableAether>
           </Worker.Provider>
         </Haul.Provider>
       </Tooltip.Config>

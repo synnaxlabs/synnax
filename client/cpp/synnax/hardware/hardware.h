@@ -149,6 +149,8 @@ private:
     std::shared_ptr<HardwareDeleteTaskClient> task_delete_client;
 };
 
+inline std::uint16_t rackKeyNode(RackKey key) { return key >> 12; }
+
 class Rack {
 public:
     RackKey key{};

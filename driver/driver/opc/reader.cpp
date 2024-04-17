@@ -17,6 +17,7 @@
 #include "include/open62541/client_subscriptions.h"
 #include "include/open62541/types.h"
 #include "include/open62541/plugin/log_stdout.h"
+#include "driver/driver/pipeline/acquisition.h"
 
 
 using namespace opc;
@@ -69,11 +70,10 @@ public:
 };
 
 
-
 Reader::Reader(
     const std::shared_ptr<task::Context> &ctx,
     synnax::Task task
-): ctx(ctx) {
+): ctx(ctx), task(task) {
     // Step 1. Parse the configuration to ensure that it is valid.
     auto config_parser = config::Parser(task.config);
     cfg = ReaderConfig(config_parser);

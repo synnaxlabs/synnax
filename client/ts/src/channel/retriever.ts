@@ -77,7 +77,10 @@ export class ClusterRetriever implements Retriever {
   }
 
   async retrieve(channels: Params, options?: RetrieveOptions): Promise<Payload[]> {
-    const { variant, normalized } = analyzeChannelParams(channels);
+    let { variant, normalized } = analyzeChannelParams(channels);
+    if (variant === "keys" && (normalized as Key[]).indexOf(0) !== -1)
+      normalized = (normalized as Key[]).filter((k) => k !== 0);
+    if (normalized.length === 0) return [];
     return await this.execute({ [variant]: normalized, ...options });
   }
 

@@ -35,6 +35,7 @@ import { Workspace } from "@/workspace";
 
 import "@/index.css";
 import "@synnaxlabs/media/dist/style.css";
+import { appWindow } from "@tauri-apps/api/window";
 
 const layoutRenderers: Record<string, Layout.Renderer> = {
   main: LayoutMain,

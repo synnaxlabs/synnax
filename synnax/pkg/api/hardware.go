@@ -174,7 +174,7 @@ func (svc *HardwareService) RetrieveTask(ctx context.Context, req HardwareRetrie
 	if hasOffset {
 		q = q.Offset(req.Offset)
 	}
-	if req.Rack.IsValid() {
+	if req.Rack.IsValid() && len(req.Names) == 0 {
 		q = q.WhereRack(req.Rack)
 	}
 	err := q.Entries(&res.Tasks).Exec(ctx, nil)
@@ -183,7 +183,6 @@ func (svc *HardwareService) RetrieveTask(ctx context.Context, req HardwareRetrie
 	}
 	if req.IncludeState {
 		for i := range res.Tasks {
-			// Just do a best effort grab here
 			s, ok := svc.internal.State.GetTask(ctx, res.Tasks[i].Key)
 			if ok {
 				res.Tasks[i].State = &s

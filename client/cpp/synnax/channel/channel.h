@@ -61,6 +61,8 @@ public:
     bool is_index = false;
     /// @brief The leaseholder of the channel.
     std::uint32_t leaseholder = 0;
+    //
+    bool is_virtual = false;
 
     /// @brief constructs an empty, invalid channel.
     Channel() = default;
@@ -85,6 +87,12 @@ public:
         const std::string &name,
         synnax::DataType data_type,
         synnax::Rate rate
+    );
+
+    Channel(
+        const std::string &name,
+        synnax::DataType data_type,
+        bool is_virtual = true
     );
 
     /// @brief constructs the channel from its protobuf type.

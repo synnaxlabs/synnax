@@ -317,11 +317,10 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
     channels: Params,
     options?: RetrieveOptions,
   ): Promise<Channel | Channel[]> {
-    const { single, actual, normalized } = analyzeChannelParams(channels);
-    if (normalized.length === 0) return [];
+    const isSingle = !Array.isArray(channels);
     const res = this.sugar(await this.retriever.retrieve(channels, options));
-    checkForMultipleOrNoResults("channel", actual, res, single);
-    return single ? res[0] : res;
+    checkForMultipleOrNoResults("channel", channels, res, isSingle);
+    return isSingle ? res[0] : res;
   }
 
   async search(term: string, options?: RetrieveOptions): Promise<Channel[]> {

@@ -39,7 +39,16 @@ Channel::Channel(
         const std::string &name,
         synnax::DataType data_type,
         ChannelKey index,
-        bool is_index) : name(name), data_type(data_type), index(index), is_index(is_index) {}
+        bool is_index
+) : name(name), data_type(data_type), index(index), is_index(is_index) {}
+
+Channel::Channel(
+    const std::string &name,
+    synnax::DataType data_type,
+    bool is_virtual
+): name(name), data_type(data_type), is_virtual(is_virtual) {
+}
+
 
 /// @brief binds to the given proto.
 void Channel::to_proto(api::v1::Channel *a) const {
@@ -50,6 +59,7 @@ void Channel::to_proto(api::v1::Channel *a) const {
     a->set_leaseholder(leaseholder);
     a->set_index(index);
     a->set_key(key);
+    a->set_is_virtual(is_virtual);
 }
 
 /// @brief create from channel.

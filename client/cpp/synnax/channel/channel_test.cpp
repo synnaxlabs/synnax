@@ -63,6 +63,16 @@ TEST(TestChannel, testCreateIndex) {
     ASSERT_EQ(indexed.index, index.key);
 }
 
+TEST(TestChannel, testCreateVirtual) {
+    auto ch = synnax::Channel("test", synnax::FLOAT64, true);
+    auto client = new_test_client();
+    auto err = client.channels.create(ch);
+    ASSERT_FALSE(err) << err.message();
+    ASSERT_EQ(ch.name, "test");
+    ASSERT_TRUE(ch.is_virtual);
+    ASSERT_FALSE(ch.key == 0);
+}
+
 /// @brief it should create many channels and assign them all non-zero keys.
 TEST(TestChannel, testCreateMany) {
     const auto client = new_test_client();

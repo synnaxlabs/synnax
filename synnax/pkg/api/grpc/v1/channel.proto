@@ -21,6 +21,7 @@ message Channel {
     int64 density = 6;
     bool is_index = 7;
     uint32 index = 8;
+    bool is_virtual = 9;
 }
 
 message ChannelRetrieveRequest {
