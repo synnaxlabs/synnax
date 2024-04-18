@@ -31,7 +31,7 @@ export const consoleNav: PageNavNode = {
     {
       key: "/console/pid",
       href: "/console/pid",
-      name: "PID",
-    }
+      name: "Control with a P&ID",
+    },
   ],
 };

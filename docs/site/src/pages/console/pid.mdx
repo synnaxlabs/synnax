@@ -1,92 +1,109 @@
 ---
 layout: "@/layouts/MainLayout.astro"
-title: "PID"
-description: "This page describes how to use the PID visualization tool on the Synnax console."
+title: "P&ID Control"
+description: "This page describes how to use the P&ID visualization in the Synnax Console."
 ---
 import { Image } from "@/components/Media";
 import { Video } from "@/components/Media";
 import { Icon } from "@synnaxlabs/media";
 import { Text } from "@synnaxlabs/pluto";
 
-## PID Overview
+A P&ID is used to see a diagram of your physical or simulated system. It displays
+live sensor data and be used to exercise manual control by changing the values of 
+channels tied to actuators. We've added a simple example of a P&ID below.
 
-The PID tool is used to see a diagram of your physical or simulated system.
-which will read live values. It also allows the user to exercise control over
-various channels in the system in order to manually run a test or operation.
+<Image client:only="react" id="console/pid-intro"  />
 
-The video below lets you see how to launch a PID:
+## Creating a P&ID
+
+Creating a P&ID is as simple as adding a new tab and selecting the P&ID visualization.
+
 
 <Video client:only="react" id="console/pid-create-pid" />
 
-An example PID from simulated sensor values is shown below:
+## Modes
 
-<Image client:only="react" id="console/pid-into"  />
+A P&ID has three modes: **view, edit, and control**. To change modes, use the controls
+in the bottom left hand corner of the visualization.
 
-There are three modes that the PID viewer can be in: edit mode, view mode, and
-control mode. These modes can be switched between by hovering over the toolbar
-in the bottom left of the window. In edit mode, the PID elements can be moved to
-arrange the display. In view mode, nothing happens while live telemetry comes
-in. In control mode, the user can activate elements on the PID viewer to affect
-the system state.
+In **edit mode**, symbols can be added, moved, and their properties can be edited.
 
-## Symbols
-<Text.Text level="p"> The heart of the PID view is symbols. These symbols are a
-visual representation of sensors, actuators, and anything else on a test system.
-If the symbols are not appearing on the bottom of the screen, make sure to click
-the visualization <Icon.Visualize/> icon in the bottom right. Synnax has a
-collection of built-in symbols, such as valves, values, and buttons. To place a
-symbol, drag and drop onto the screen. The properties of symbols are detailed
-below. </Text.Text>
+In **view mode**, live data from the system is displayed on the P&ID. Symbols are not
+editable and the user cannot affect the system state.
 
-## Style
-The style tab on a symbol allows users to edit the symbols label, size,
-orientation, color, and other various visual properties. A value's units can
-also be edited here. To edit this, click on a PID element on the diagram and
-then click the "Properties" tab in the bottom right.
+In **control mode**, the user can click on symbols such as valves and buttons to 
+activate them.
 
-## Telemetry
-The "Telemetry" tab is a property of the value element, and is only for elements
-that receive data. The video below shows placing and setting a value:
+## The Symbols Library
+
+<Text.Text level="p"> A P&ID is assembled by dragging symbols out of the library and onto
+the screen. These visual representation of sensors, actuators, and other components on
+your hardware system. If the symbols are not appearing on the bottom of the screen, make 
+sure to click the visualization <Icon.Visualize/> icon in the bottom right. </Text.Text>
+
+Synnax has a collection of built-in symbols including valves, live sensor values, buttons,
+and tanks.
+
+## Changing Symbol Properties
+
+When selected, a symbol's properties will appear in the bottom toolbar. There are several
+tabs that can be used to fine tune the look and behavior of the symbol.
+
+### The Style Tab
+
+The style tab on allows users to edit the symbol's label, size, orientation, color, and 
+other visual properties. 
+
+### The Telemetry Tab
+
+The telemetry tab is available on symbols that receive data. After selecting a channel
+from the dropdown, the P&ID will fetch and display the live data from that channel.
 
 <Video client:only="react" id="console/pid-configure-value" />
 
-- "Input Channel" selects which channel data is being read from.
-- "Precision" determines what precision values will appear on the PID. A
-  precision number of 2 means that 2 decimal places will be seen.
-- "Averaging Window" determines how many samples are averaged together to appear
-  on the screen. If the value 2 is selected, the value displayed on screen will
-  be the average of the last 2 values.
+For the value symbol, the telemetry tab has the following properties:
 
-## Control
-The "Control" tab is a property of any element that takes inputs and outputs. An
-example of this is a valve.
+- **Input Channel** determines which channel to stream data from.
+- **Precision** sets the number of decimal places to display.
+- **Averaging Window** can be used to display a rolling average of the last N samples.
+  For example, a value of 2 will cause the screen to display the average of the last 2
+  samples
 
-- "Input Channel" is the channel that PID viewer reads from. For instance,
-  acknowledgement channels are often used as the input channels.
-- "Output Channel" is a write channel that Synnax writes to. This are often
-  write channels on a DAQ. When you click on the PID element to actuate it, this
-  channel is the one that gets changed.
+### The Control Tab
 
-## Connection lines
-Every element has spots for connection lines / tubes. When hovering over an
-element, places for these connections appear. You can then drag this line to
-another element to draw a connection line on the PID viewer.
+The control tab is available on symbols that can be actuated. Controllable symbols
+have two main properties:
+
+- **Input Channel** represents the display state of the symbol. If the input channel
+has a value of 1, the symbol will be display as solid (except for normally open pneumatic valves).
+- **Output Channel** will be written to when you click on the symbol. If the symbol is
+de-activated, clicking on it will write 1 to the output channel (an activation command).
+If the symbol is activated, clicking on it will write 0 to the output channel (a deactivation
+command).
+
+## Connection Lines
+
+Every symbol has locations to attach connection lines. When hovering over an
+symbol, these attachement points appear. To draw a connection line, click on an attachement
+point and drag the line to a different symbol.
 
 <Video client:only="react" id="console/pid-draw-conn" />
 
-First, we can make a diagram off of the provided symbols such as valves, tanks,
-and values. Just drag and drop to make what you want!
+## Aligning Elements
 
-You can also click several items and align them:
+To align elements, create a selection box by clicking and dragging on the canvas. Then,
+use the vertical or horizontal alignment buttons to align the selected elements.
 
 <Video client:only="react" id="console/pid-align-items" />
 
 ## Changing Colors
-Selecting multiple elements also allows you to change the color of all elements:
+
+You can also change the color of multiple symbols together in the same manner.
 
 <Video client:only="react" id="console/pid-change-color" />
 
 ## Control mode
+
 In control mode, elements on the PID are able to be activated for manual control
 of the system. Clicking on an actionable element, such as a valve, switch, or
 button, allows you to activate the output channel on that element. The circle on
