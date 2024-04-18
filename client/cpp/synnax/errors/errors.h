@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -17,5 +17,5 @@ const std::string ERROR_PREFIX = "sy.api.";
 const std::string VALIDATION_ERROR = ERROR_PREFIX + "validation";
 const std::string QUERY_ERROR = ERROR_PREFIX + "query";
 const std::string MULTIPLE_RESULTS = QUERY_ERROR + ".multiple_results";
-const std::string NO_RESULTS = QUERY_ERROR + ".no_results";
+const std::string NOT_FOUND = QUERY_ERROR + ".not_found";
 }

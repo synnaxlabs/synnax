@@ -7,107 +7,175 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeRange, type Series, type Destructor } from "@synnaxlabs/x";
-import { Mutex } from "async-mutex";
+import { alamos } from "@synnaxlabs/alamos";
+import {
+  TimeRange,
+  type Series,
+  bounds,
+  TimeStamp,
+  TimeSpan,
+  type Required,
+  Size,
+} from "@synnaxlabs/x";
 
-import { convertSeriesFloat32 } from "@/telem/core/convertSeries";
+import { convertSeriesFloat32 } from "@/telem/aether/convertSeries";
 
 export interface DirtyReadResult {
   series: Series[];
   gaps: TimeRange[];
 }
 
-export interface DirtyReadForWriteResult {
-  series: Series[];
-  gaps: TimeRange[];
-  done: Destructor;
+export interface CacheGCMetrics {
+  purgedSeries: number;
+  purgedBytes: Size;
+}
+
+export const zeroCacheGCMetrics = (): CacheGCMetrics => ({
+  purgedSeries: 0,
+  purgedBytes: Size.bytes(0),
+});
+
+/** Props for the @see Static cache. */
+export interface StaticProps {
+  /** Used for logging */
+  instrumentation?: alamos.Instrumentation;
+  /**
+   * Sets the amount of time that a cache entry must be in the cache before it can
+   * be marked as stale and subject to garbage collection.
+   * @default TimeSpan.seconds(20) */
+  staleEntryThreshold?: TimeSpan;
+}
+
+export const DEFAULT_STATIC_PROPS: Required<StaticProps> = {
+  instrumentation: alamos.NOOP,
+  staleEntryThreshold: TimeSpan.seconds(20),
+};
+
+interface CacheEntry {
+  data: Series;
+  addedAt: TimeStamp;
 }
 
 /**
- * A cache for channel data that only accepts pre-written arrays i.e. it performs
- * no allocatio, buffering, or modification of new arrays.
+ * A cache for historical channel data that will not be modified after it is written.
  */
 export class Static {
-  private readonly mu = new Mutex();
-  private readonly entries: CachedRead[];
+  private data: CacheEntry[] = [];
+  private readonly props: Required<StaticProps>;
 
-  constructor() {
-    this.entries = [];
+  constructor(props: StaticProps) {
+    this.props = { ...DEFAULT_STATIC_PROPS, ...props };
   }
 
   /**
-   * @returns the total time range of all entries in the cache.
+   * Writes the given series to the cache, merging written series with any
+   * existing series in the cache.
    */
-  get extent(): TimeRange {
-    if (this.entries.length === 0) return TimeRange.ZERO;
-    const first = this.entries[0].timeRange;
-    const last = this.entries[this.entries.length - 1].timeRange;
-    return new TimeRange(first.start, last.end);
-  }
-
-  /**
-   * @returns a list of all gaps between cache reads.
-   */
-  get gaps(): TimeRange[] {
-    return this.entries.map((r) => r.gap);
-  }
-
-  write(tr: TimeRange, series: Series[]): void {
+  write(series: Series[]): void {
     if (series.length === 0) return;
-    if (series.length === 0 || this.entries.some((e) => e.timeRange.overlapsWith(tr)))
-      return;
-    series = series.map((s) => convertSeriesFloat32(s));
-    const read = new CachedRead(tr, series);
-    const i = this.getInsertionIndex(tr);
-    if (i !== this.entries.length) {
-      read.gap = new TimeRange(this.entries[i].timeRange.end, tr.end);
-    }
-    if (i !== 0) {
-      const prev = this.entries[i - 1];
-      prev.gap = new TimeRange(prev.timeRange.end, tr.start);
-    }
-    this.entries.splice(i, 0, new CachedRead(tr, series));
+    // WebGL only supports Float32 arrays.
+    series.forEach((s) => this.writeOne(convertSeriesFloat32(s)));
+    this.checkIntegrity(series);
   }
 
-  private getInsertionIndex(tr: TimeRange): number {
-    let i = 0;
-    while (i < this.entries.length && this.entries[i].timeRange.start < tr.start) i++;
-    return i;
-  }
-
-  async dirtyReadForWrite(tr: TimeRange): Promise<DirtyReadForWriteResult> {
-    const done = await this.mu.acquire();
-    return {
-      ...this.dirtyRead(tr),
-      done,
-    };
-  }
-
+  /**
+   * Executes a 'dirty' read of the cache, retrieving any series in the cache that overlap
+   * with the given time range. Note that these series may have data that is before or
+   * after the given time range.
+   *
+   * @param tr - The time range to read from the cache.
+   * @returns A list of series that overlap with the given time range and a list of gaps,
+   * representing the missing regions of time between the series and before and after
+   * the first and last series.
+   */
   dirtyRead(tr: TimeRange): DirtyReadResult {
-    const reads = this.entries.filter((r) => r.timeRange.overlapsWith(tr));
-    if (reads.length === 0) return { series: [], gaps: [tr] };
-    const gaps = reads
-      .map((r) => r.gap)
-      .filter((t, i) => i !== reads.length - 1 && !t.isZero);
-    const leadingGap = new TimeRange(tr.start, reads[0].timeRange.start);
-    const trailingGap = new TimeRange(reads[reads.length - 1].timeRange.end, tr.end);
+    const series = this.data
+      .filter(({ data }) => data.timeRange.overlapsWith(tr))
+      .map(({ data }) => data);
+    if (series.length === 0) return { series: [], gaps: [tr] };
+    const gaps = series
+      .map((s, i) => {
+        if (i === 0) return TimeRange.ZERO;
+        return new TimeRange(series[i - 1].timeRange.end, s.timeRange.start);
+      })
+      .filter((t) => !t.isZero && t.isValid);
+    const leadingGap = new TimeRange(tr.start, series[0].timeRange.start);
+    const trailingGap = new TimeRange(series[series.length - 1].timeRange.end, tr.end);
     if (leadingGap.isValid && !leadingGap.isZero) gaps.unshift(leadingGap);
     if (trailingGap.isValid && !trailingGap.isZero) gaps.push(trailingGap);
-    return {
-      series: reads.flatMap((r) => r.data).filter((d) => d.timeRange.overlapsWith(tr)),
-      gaps,
-    };
+    return { series, gaps };
   }
-}
 
-class CachedRead {
-  timeRange: TimeRange;
-  data: Series[];
-  gap: TimeRange;
+  /**
+   * Garbage collects the cache, removing any stale entries.
+   *
+   * @returns metrics about the garbage collection.
+   */
+  gc(): CacheGCMetrics {
+    const res = zeroCacheGCMetrics();
+    const newData = this.data.filter((s) => {
+      const shouldKeep =
+        s.data.refCount === 0 &&
+        TimeStamp.since(s.addedAt).lessThan(this.props.staleEntryThreshold);
+      if (!shouldKeep) res.purgedBytes = res.purgedBytes.add(s.data.byteCapacity);
+      return shouldKeep;
+    });
+    res.purgedSeries = this.data.length - newData.length;
+    this.data = newData;
+    return res;
+  }
 
-  constructor(timeRange: TimeRange, data: Series[]) {
-    this.timeRange = timeRange;
-    this.data = data;
-    this.gap = TimeRange.ZERO;
+  /**
+   * Closes the cache, freeing all of its resources.
+   */
+  close(): void {
+    this.data = [];
+  }
+
+  private writeOne(series: Series): void {
+    const {
+      instrumentation: { L },
+    } = this.props;
+    if (series.length === 0) return;
+    const insertionPlan = bounds.buildInsertionPlan(
+      this.data.map((s) => s.data.alignmentBounds),
+      series.alignmentBounds,
+    );
+    if (insertionPlan === null) {
+      L.debug("Found no viable insertion plan", {
+        inserting: series.digest,
+        cacheContents: this.data.map((s) => s.data.digest),
+      });
+      return;
+    }
+    const { removeBefore, removeAfter, insertInto, deleteInBetween } = insertionPlan;
+    series = series.slice(removeBefore, series.data.length - removeAfter);
+    // This means we executed a redundant read.
+    if (series.length === 0) return;
+    this.data.splice(insertInto, deleteInBetween, {
+      data: series,
+      addedAt: TimeStamp.now(),
+    });
+  }
+
+  private checkIntegrity(write: Series[]): void {
+    const {
+      instrumentation: { L },
+    } = this.props;
+    const allBounds = this.data.map((s) => s.data.alignmentBounds);
+    const invalid = allBounds.some((b, i) => {
+      return allBounds.some((b2, j) => {
+        if (i === j) return false;
+        const ok = bounds.overlapsWith(b, b2);
+        return ok;
+      });
+    });
+    if (invalid) {
+      L.debug("Cache is in an invalid state - bounds overlap!", () => ({
+        write: write.map((s) => s.digest),
+        cacheContents: this.data.map((s) => s.data.digest),
+      }));
+      throw new Error("Invalid state");
+    }
   }
 }

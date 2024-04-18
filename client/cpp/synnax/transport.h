@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -14,6 +14,7 @@
 #include "synnax/channel/channel.h"
 #include "synnax/ranger/ranger.h"
 #include "synnax/auth/auth.h"
+#include "synnax/device/device.h"
 
 class Transport {
 public:
@@ -40,4 +41,10 @@ public:
     std::unique_ptr<RangeSetActiveClient> range_set_active;
     std::unique_ptr<RangeRetrieveActiveClient> range_retrieve_active;
     std::unique_ptr<RangeClearActiveClient> range_clear_active;
+    std::unique_ptr<DeviceCreateRackClient> rack_create_client;
+    std::unique_ptr<DeviceRetrieveRackClient> rack_retrieve;
+    std::unique_ptr<DeviceDeleteRackClient> rack_delete;
+    std::shared_ptr<DeviceCreateModuleClient> module_create;
+    std::shared_ptr<DeviceRetrieveModuleClient> module_retrieve;
+    std::shared_ptr<DeviceDeleteModuleClient> module_delete;
 };

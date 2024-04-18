@@ -18,13 +18,13 @@ const ZERO_UUID = "00000000-0000-0000-0000-000000000000";
 describe("Workspace", () => {
   describe("create", () => {
     test("create one", async () => {
-      const pid = await client.workspaces.create({
+      const ws = await client.workspaces.create({
         name: "PID",
         layout: { one: 1 },
       });
-      expect(pid.name).toEqual("PID");
-      expect(pid.key).not.toEqual(ZERO_UUID);
-      expect(pid.layout.one).toEqual(1);
+      expect(ws.name).toEqual("PID");
+      expect(ws.key).not.toEqual(ZERO_UUID);
+      expect(ws.layout.one).toEqual(1);
     });
   });
   describe("rename", () => {

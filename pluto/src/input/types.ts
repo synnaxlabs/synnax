@@ -9,6 +9,7 @@
 
 import { type ReactNode, type ComponentPropsWithoutRef } from "react";
 
+import { type Text } from "@/text";
 import { type ComponentSize } from "@/util/component";
 
 export type Value = unknown;
@@ -23,17 +24,21 @@ export interface OptionalControl<I extends Value = Value, O extends Value = I>
 
 type HTMLInputProps = Omit<
   ComponentPropsWithoutRef<"input">,
-  "size" | "onChange" | "value" | "children"
+  "size" | "onChange" | "value" | "children" | "placeholder"
 >;
 
-export type Variant = "outlined" | "shadow";
+export type Variant = "outlined" | "shadow" | "natural";
 
-export interface BaseProps<I extends Value = Value, O extends Value = I>
-  extends Omit<HTMLInputProps, "placeholder">,
-    Control<I, O> {
+export interface ExtensionProps<I extends Value = Value, O extends Value = I>
+  extends Control<I, O> {
   size?: ComponentSize;
   variant?: Variant;
   sharp?: boolean;
   placeholder?: ReactNode;
   children?: ReactNode;
+  level?: Text.Level;
 }
+
+export interface BaseProps<I extends Value = Value, O extends Value = I>
+  extends HTMLInputProps,
+    ExtensionProps<I, O> {}

@@ -25,6 +25,22 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// WriterMode sets the operating mode of the writer, optionally enabling or disabling
+// persistence and streaming.
+type WriterMode uint8
+
+// Persist returns true if the current mode should persist data.
+func (w WriterMode) Persist() bool { return w != WriterStreamOnly }
+
+// Stream returns true if the current mode should stream data.
+func (w WriterMode) Stream() bool { return w != WriterPersistOnly }
+
+const (
+	WriterPersistStream = iota + 1
+	WriterPersistOnly
+	WriterStreamOnly
+)
+
 // WriterConfig sets the configuration used to open a new writer on the DB.
 type WriterConfig struct {
 	// Name sets the human-readable name for the writer, which is useful for identifying
@@ -45,6 +61,10 @@ type WriterConfig struct {
 	// In non-control scenarios, this value should be set to true. In scenarios
 	// that require control handoff, this value should be set to false.
 	ErrOnUnauthorized *bool
+	// Mode sets the persistence and streaming mode of the writer. The default
+	// mode is WriterModePersistStream. See the WriterMode documentation for more.
+	// [OPTIONAL] - Defaults to WriterModePersistStream.
+	Mode WriterMode
 }
 
 var (
@@ -58,6 +78,7 @@ func DefaultWriterConfig() WriterConfig {
 		},
 		Authorities:       []control.Authority{control.Absolute},
 		ErrOnUnauthorized: config.False(),
+		Mode:              WriterPersistStream,
 	}
 }
 
@@ -82,6 +103,7 @@ func (w WriterConfig) Override(other WriterConfig) WriterConfig {
 	w.ControlSubject.Name = override.String(w.ControlSubject.Name, other.ControlSubject.Name)
 	w.ControlSubject.Key = override.String(w.ControlSubject.Key, other.ControlSubject.Key)
 	w.ErrOnUnauthorized = override.Nil(w.ErrOnUnauthorized, other.ErrOnUnauthorized)
+	w.Mode = override.Numeric(w.Mode, other.Mode)
 	return w
 }
 
@@ -139,7 +161,7 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 		u, uOk := db.unaryDBs[key]
 		v, vOk := db.virtualDBs[key]
 		if !vOk && !uOk {
-			return nil, ChannelNotFound
+			return nil, core.ChannelNotFound
 		}
 		var (
 			auth     = cfg.authority(i)
@@ -163,6 +185,7 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 				Subject:   cfg.ControlSubject,
 				Start:     cfg.Start,
 				Authority: auth,
+				Persist:   config.Bool(cfg.Mode.Persist()),
 			})
 			if err != nil {
 				return nil, err
@@ -238,7 +261,7 @@ func (db *DB) openDomainIdxWriter(
 	defer db.mu.RUnlock()
 	u, ok := db.unaryDBs[idxKey]
 	if !ok {
-		return nil, ChannelNotFound
+		return nil, core.ChannelNotFound
 	}
 	idx := &index.Domain{DB: u.Domain, Instrumentation: db.Instrumentation}
 	w := &idxWriter{internal: make(map[ChannelKey]*unaryWriterState)}

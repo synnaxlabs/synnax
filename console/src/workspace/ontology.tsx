@@ -11,7 +11,8 @@ import { type ReactElement } from "react";
 
 import { ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Menu, Tree } from "@synnaxlabs/pluto";
+import { Menu } from "@synnaxlabs/pluto";
+import { Tree } from "@synnaxlabs/pluto/tree";
 import { type UnknownRecord, deep } from "@synnaxlabs/x";
 
 import { Group } from "@/group";
@@ -33,10 +34,13 @@ const handleDelete = ({
     const active = resources.find((r) => r.id.key === activeKey);
     if (active != null) {
       store.dispatch(setActive(null));
-      store.dispatch(Layout.setWorkspace({ slice: Layout.ZERO_SLICE_STATE }));
+      store.dispatch(Layout.clearWorkspace());
     }
     await client.workspaces.delete(...resources.map((r) => r.id.key));
-    const next = Tree.removeNode(nodes, ...resources.map((r) => r.id.toString()));
+    const next = Tree.removeNode({
+      tree: nodes,
+      keys: resources.map((r) => r.id.toString()),
+    });
     setNodes([...next]);
   })();
 };
@@ -57,7 +61,7 @@ const handleCreateNewPID = ({
       data: deep.copy(PID.ZERO_STATE) as unknown as UnknownRecord,
     });
     const otg = await client.ontology.retrieve(
-      new ontology.ID({ key: pid.key, type: "pid" })
+      new ontology.ID({ key: pid.key, type: "pid" }),
     );
     placeLayout(
       PID.create({
@@ -65,14 +69,14 @@ const handleCreateNewPID = ({
         key: pid.key,
         name: pid.name,
         snapshot: pid.snapshot,
-      })
+      }),
     );
     setResources([...resources, otg]);
-    const nextNodes = Tree.setNode(
-      nodes,
-      selection.resources[0].key,
-      ...Ontology.toTreeNodes(services, [otg])
-    );
+    const nextNodes = Tree.setNode({
+      tree: nodes,
+      destination: selection.resources[0].key,
+      additions: Ontology.toTreeNodes(services, [otg]),
+    });
     setNodes([...nextNodes]);
   })();
 };
@@ -122,7 +126,7 @@ const handleSelect: Ontology.HandleSelect = ({ selection, client, store }) => {
       Layout.setWorkspace({
         slice: ws.layout as unknown as Layout.SliceState,
         keepNav: false,
-      })
+      }),
     );
   })();
 };
@@ -137,7 +141,11 @@ const handleRename: Ontology.HandleTreeRename = ({
   void client.workspaces.rename(id.key, name);
   store.dispatch(rename({ key: id.key, name }));
 
-  const next = Tree.updateNode(nodes, id.toString(), (node) => ({ ...node, name }));
+  const next = Tree.updateNode({
+    tree: nodes,
+    key: id.toString(),
+    updater: (node) => ({ ...node, name }),
+  });
   setNodes([...next]);
 };
 

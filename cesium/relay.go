@@ -10,8 +10,8 @@
 package cesium
 
 import (
-	"io"
 	"sync"
+	"time"
 
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/confluence"
@@ -19,21 +19,18 @@ import (
 )
 
 type relay struct {
-	delta    *confluence.DynamicDeltaMultiplier[Frame]
-	inlet    confluence.Inlet[Frame]
-	shutdown io.Closer
+	delta *confluence.DynamicDeltaMultiplier[Frame]
+	inlet confluence.Inlet[Frame]
 }
 
-func newRelay(o *options) *relay {
-	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(o.Instrumentation))
-	delta := confluence.NewDynamicDeltaMultiplier[Frame]()
+func newRelay(sCtx signal.Context) *relay {
+	delta := confluence.NewDynamicDeltaMultiplier[Frame](20 * time.Millisecond)
 	frames := confluence.NewStream[Frame](10)
 	delta.InFrom(frames)
 	delta.Flow(sCtx)
 	return &relay{
-		delta:    delta,
-		inlet:    frames,
-		shutdown: signal.NewShutdown(sCtx, cancel),
+		delta: delta,
+		inlet: frames,
 	}
 }
 
@@ -55,5 +52,3 @@ func (r *relay) connect(buffer int) (confluence.Outlet[Frame], func()) {
 		wg.Wait()
 	}
 }
-
-func (r *relay) close() error { return r.shutdown.Close() }

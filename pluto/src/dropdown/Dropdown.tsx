@@ -9,20 +9,29 @@
 
 import {
   type CSSProperties,
-  forwardRef,
   type ReactElement,
-  type RefObject,
   useCallback,
   useEffect,
   useRef,
   useState,
+  type ReactNode,
+  useLayoutEffect,
 } from "react";
 
-import { box, location as loc, xy } from "@synnaxlabs/x";
+import {
+  box,
+  type location as loc,
+  xy,
+  position,
+  location,
+  type spatial,
+  invert,
+} from "@synnaxlabs/x";
+import { createPortal } from "react-dom";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
-import { useClickOutside, useResize, useCombinedRefs } from "@/hooks";
+import { useClickOutside, useResize, useCombinedRefs, useSyncedRef } from "@/hooks";
 import { Triggers } from "@/triggers";
 
 import "@/dropdown/Dropdown.css";
@@ -36,10 +45,9 @@ export interface UseProps {
 /** Return type for the {@link use} hook. */
 export interface UseReturn {
   visible: boolean;
-  ref: RefObject<HTMLDivElement>;
   close: () => void;
   open: () => void;
-  toggle: (vis?: boolean) => void;
+  toggle: (vis?: boolean | unknown) => void;
 }
 
 /**
@@ -51,7 +59,6 @@ export interface UseReturn {
  *
  * @param initialVisible - Whether the dropdown should be visible on mount.
  * @returns visible - Whether the dropdown is visible.
- * @returns ref - The ref to the dropdown parent.
  * @returns close - A function to close the dropdown.
  * @returns open - A function to open the dropdown.
  * @returns toggle - A function to toggle the dropdown.
@@ -60,39 +67,39 @@ export const use = (props?: UseProps): UseReturn => {
   const { initialVisible = false, onVisibleChange } = props ?? {};
   const [visible, setVisible] = useState(initialVisible);
   useEffect(() => onVisibleChange?.(visible), [visible, onVisibleChange]);
-  const ref = useRef<HTMLDivElement>(null);
   const toggle = useCallback(
-    (vis?: boolean) => setVisible((v) => vis ?? !v),
+    (vis?: boolean | unknown) =>
+      setVisible((v) => {
+        if (typeof vis === "boolean") return vis;
+        return !v;
+      }),
     [setVisible, onVisibleChange],
   );
   const open = useCallback(() => toggle(true), [toggle]);
   const close = useCallback(() => toggle(false), [toggle]);
-  useClickOutside(ref, close);
   Triggers.use({ triggers: [["Escape"]], callback: close, loose: true });
-  return { visible, ref, open, close, toggle };
+  return { visible, open, close, toggle };
 };
 
 /** Props for the {@link Dialog} component. */
 export interface DialogProps
-  extends Pick<UseReturn, "visible">,
-    Partial<Omit<UseReturn, "visible" | "ref">>,
+  extends Pick<UseReturn, "visible" | "close">,
+    Partial<Omit<UseReturn, "visible" | "ref" | "close">>,
     Omit<Align.PackProps, "ref" | "reverse" | "size" | "empty"> {
-  location?: loc.Y;
-  children: [ReactElement, ReactElement];
+  location?: loc.Y | loc.XY;
+  children: [ReactNode, ReactNode];
   keepMounted?: boolean;
-  matchTriggerWidth?: boolean;
+  variant?: "connected" | "floating";
 }
 
 interface State {
-  pos: xy.XY;
-  loc: loc.Location;
-  width: number;
+  dialogBox: box.Box;
+  dialogLoc: loc.XY;
 }
 
 const ZERO_STATE: State = {
-  pos: xy.ZERO,
-  loc: "top",
-  width: 0,
+  dialogBox: box.ZERO,
+  dialogLoc: location.BOTTOM_LEFT,
 };
 
 /**
@@ -105,77 +112,149 @@ const ZERO_STATE: State = {
  * @param props.children - Two children are expected: the dropdown trigger (often a button
  * or input) and the dropdown content.
  */
-export const Dialog = forwardRef<HTMLDivElement, DialogProps>(
-  (
-    {
-      visible,
-      children,
-      location,
-      keepMounted = true,
-      className,
-      matchTriggerWidth = false,
-      // It's common to pass these in, so we'll destructure and ignore them so we don't
-      // get an invalid prop on div tag error.
-      open: _o,
-      close: _c,
-      toggle: _t,
-      ...props
-    }: DialogProps,
-    forwardedRef,
-  ): ReactElement => {
-    const ref = useRef<HTMLDivElement>(null);
-    const visibleRef = useRef<boolean | null>(null);
+export const Dialog = ({
+  visible,
+  children,
+  location,
+  keepMounted = true,
+  className,
+  variant = "connected",
+  close,
+  // It's common to pass these in, so we'll destructure and ignore them so we don't
+  // get an invalid prop on div tag error.
+  open: _o,
+  toggle: _t,
+  ...props
+}: DialogProps): ReactElement => {
+  const targetRef = useRef<HTMLDivElement>(null);
+  const visibleRef = useSyncedRef(visible);
+  const dialogRef = useRef<HTMLDivElement>(null);
 
-    const [{ pos, loc: loc_, width }, setState] = useState<State>(ZERO_STATE);
+  const [{ dialogBox, dialogLoc }, setState] = useState<State>({ ...ZERO_STATE });
 
-    const calculatePosition = useCallback(() => {
-      if (ref.current == null) return;
-      const windowBox = box.construct(0, 0, window.innerWidth, window.innerHeight);
-      const b = box.construct(ref.current);
-      const toTop = Math.abs(box.center(b).y - box.top(windowBox));
-      const toBottom = Math.abs(box.center(b).y - box.bottom(windowBox));
-      const loc_ = loc.construct(location ?? (toBottom > toTop ? "bottom" : "top"));
-      const pos = xy.construct(box.left(b), box.loc(b, loc_));
-      setState({ pos, loc: loc_, width: box.width(b) });
-    }, []);
+  const calculatePosition = useCallback(() => {
+    if (targetRef.current == null || dialogRef.current == null || !visibleRef.current)
+      return;
+    const f = variant === "floating" ? calcFloatingDialog : calcConnectedDialog;
+    const { adjustedDialog, location } = f({
+      target: targetRef.current,
+      dialog: dialogRef.current,
+    });
+    setState({ dialogLoc: location, dialogBox: adjustedDialog });
+  }, [variant]);
 
-    if (ref.current != null) {
-      if (visible && (visibleRef.current == null || !visibleRef.current)) {
-        calculatePosition();
-      }
-      visibleRef.current = visible;
-    }
+  useLayoutEffect(() => {
+    calculatePosition();
+  }, [visible, calculatePosition]);
 
-    const resizeRef = useResize(calculatePosition);
-    const combinedRef = useCombinedRefs(forwardedRef, ref, resizeRef);
-    const dialogStyle: CSSProperties = { ...xy.css(pos) };
-    if (matchTriggerWidth) dialogStyle.width = width;
+  const resizeParentRef = useResize(calculatePosition, { enabled: visible });
+  const combinedParentRef = useCombinedRefs(targetRef, resizeParentRef);
 
-    return (
-      <Align.Pack
-        {...props}
-        ref={combinedRef}
-        className={CSS(className, CSS.B("dropdown"), CSS.visible(visible))}
-        direction="y"
-        reverse={loc_ === "top"}
-      >
-        {children[0]}
-        {(keepMounted || visible) && (
-          <Align.Space
-            className={CSS(
-              CSS.BE("dropdown", "dialog"),
-              CSS.loc(loc_),
-              CSS.visible(visible),
-            )}
-            role="dialog"
-            empty
-            style={dialogStyle}
-          >
-            {children[1]}
-          </Align.Space>
-        )}
-      </Align.Pack>
-    );
-  },
-);
+  const resizeDialogRef = useResize(calculatePosition, { enabled: visible });
+  const combinedDialogRef = useCombinedRefs(dialogRef, resizeDialogRef);
+
+  const dialogStyle: CSSProperties = { ...xy.css(box.topLeft(dialogBox)) };
+  if (variant === "connected") dialogStyle.width = box.width(dialogBox);
+
+  const C = variant === "connected" ? Align.Pack : Align.Space;
+
+  useClickOutside({
+    ref: dialogRef,
+    exclude: [targetRef],
+    onClickOutside: close,
+  });
+
+  let child: ReactElement = (
+    <Align.Space
+      ref={combinedDialogRef}
+      className={CSS(
+        CSS.BE("dropdown", "dialog"),
+        CSS.loc(dialogLoc.x),
+        CSS.loc(dialogLoc.y),
+        CSS.visible(visible),
+        CSS.M(variant),
+      )}
+      role="dialog"
+      empty
+      style={dialogStyle}
+    >
+      {(keepMounted || visible) && children[1]}
+    </Align.Space>
+  );
+  if (variant === "floating") child = createPortal(child, document.body);
+
+  return (
+    <C
+      {...props}
+      ref={combinedParentRef}
+      className={CSS(className, CSS.B("dropdown"), CSS.visible(visible))}
+      direction="y"
+      reverse={dialogLoc.y === "top"}
+    >
+      {children[0]}
+      {child}
+    </C>
+  );
+};
 Dialog.displayName = "Dropdown";
+
+interface CalcDialogProps {
+  target: HTMLElement;
+  dialog: HTMLElement;
+}
+
+const FLOATING_ALIGNMENTS: spatial.Alignment[] = ["end"];
+const FLOATIG_DISABLE_LOCATIONS: location.Location[] = ["center"];
+const FLOATING_TRANSLATE_AMOUNT: number = 6;
+
+const calcFloatingDialog = ({
+  target,
+  dialog,
+}: CalcDialogProps): position.DialogReturn => {
+  const targetBox = box.construct(target);
+  const dialogBox = box.construct(dialog);
+  const windowBox = box.construct(0, 0, window.innerWidth, window.innerHeight);
+
+  let { adjustedDialog, location } = position.dialog({
+    container: windowBox,
+    target: targetBox,
+    dialog: dialogBox,
+    alignments: FLOATING_ALIGNMENTS,
+    disable: FLOATIG_DISABLE_LOCATIONS,
+  });
+  adjustedDialog = box.translate(
+    adjustedDialog,
+    "y",
+    invert(location.y === "top") * FLOATING_TRANSLATE_AMOUNT,
+  );
+  return { adjustedDialog, location };
+};
+
+const CONNECTED_ALIGNMENTS: spatial.Alignment[] = ["center"];
+const CONNECTED_DISABLE_LOCATIONS: Array<Partial<location.XY>> = [{ y: "center" }];
+const CONNECTED_TRANSLATE_AMOUNT: number = 1;
+const CONNECTED_INITIAL: Partial<location.XY> = { x: "center" };
+
+const calcConnectedDialog = ({
+  target,
+  dialog,
+}: CalcDialogProps): position.DialogReturn => {
+  const targetBox = box.construct(target);
+  const props: position.DialogProps = {
+    target: targetBox,
+    dialog: box.resize(box.construct(dialog), "x", box.width(targetBox)),
+    container: box.construct(0, 0, window.innerWidth, window.innerHeight),
+    alignments: CONNECTED_ALIGNMENTS,
+    disable: CONNECTED_DISABLE_LOCATIONS,
+    initial: CONNECTED_INITIAL,
+  };
+
+  let { adjustedDialog, location } = position.dialog(props);
+  adjustedDialog = box.translate(
+    adjustedDialog,
+    "y",
+    invert(location.y === "bottom") * CONNECTED_TRANSLATE_AMOUNT,
+  );
+
+  return { adjustedDialog, location };
+};

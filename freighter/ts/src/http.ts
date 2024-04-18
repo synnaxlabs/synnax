@@ -1,3 +1,12 @@
+// Copyright 2024 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 /* eslint-disable @typescript-eslint/no-var-requires */
 // Copyright 2023 Synnax Labs, Inc.
 //
@@ -61,17 +70,24 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
 
   async send<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>(
     target: string,
-    req: z.input<RQ> | null,
-    resSchema: RS | null,
+    req: z.input<RQ> | z.output<RQ>,
+    reqSchema: RQ,
+    resSchema: RS,
   ): Promise<[z.output<RS> | null, Error | null]> {
-    let rs: RS | null = null;
+    req = reqSchema?.parse(req)
+    let res: RS | null = null;
     const url = this.endpoint.child(target);
     const request: RequestInit = {};
     request.method = "POST";
     request.body = this.encoder.encode(req ?? {});
 
     const [, err] = await this.executeMiddleware(
-      { target: url.toString(), protocol: this.endpoint.protocol, params: {}, role: "client" },
+      {
+        target: url.toString(),
+        protocol: this.endpoint.protocol,
+        params: {},
+        role: "client",
+      },
       async (ctx: Context): Promise<[Context, Error | null]> => {
         const outCtx: Context = { ...ctx, params: {} };
         request.headers = {
@@ -89,7 +105,7 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
         }
         const data = await httpRes.arrayBuffer();
         if (httpRes?.ok) {
-          if (resSchema != null) rs = this.encoder.decode(data, resSchema);
+          if (resSchema != null) res = this.encoder.decode(data, resSchema);
           return [outCtx, null];
         }
         try {
@@ -110,6 +126,6 @@ export class HTTPClient extends MiddlewareCollector implements UnaryClient {
       },
     );
 
-    return [rs, err];
+    return [res, err];
   }
 }

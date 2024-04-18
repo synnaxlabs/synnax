@@ -25,6 +25,7 @@
         background: none;
         width: 100%;
         height: 100%;
+
         padding: 0 1.5rem;
 
         &::-webkit-input-placeholder {
@@ -55,6 +56,12 @@
         line-height: var(--pluto-small-line-height);
     }
 
+    &.pluto--large input {
+        font-size: var(--pluto-h5-size);
+        font-weight: var(--pluto-h5-weight);
+        line-height: var(--pluto-h5-line-height);
+    }
+
     &:not(:focus-within) .pluto--centered {
         justify-content: center;
     }
@@ -67,7 +74,7 @@
     height: 100%;
     /* z-index of placeholder is above that of input, so we move it a bit to the right
     to make sure the cursor doesn't look weird. */
-    padding-left: 1.5rem;
+    padding-left: 1.75rem;
     width: 100%;
     display: flex;
     align-items: center;
@@ -78,7 +85,7 @@
         color: var(--pluto-gray-l6);
     }
 
-    & .pluto-text-icon path:is(:not([fill="none"]), [stroke="#000"]) {
+    & .pluto-text-icon svg:not(.logo) path:is(:not([fill="none"]), [stroke="#000"]) {
         stroke: var(--pluto-gray-l6);
         fill: var(--pluto-gray-l6);
     }
@@ -96,6 +103,35 @@
     }
     & .pluto-input__internal {
         background: var(--pluto-gray-l0) !important;
+    }
+}
+
+.pluto-input--natural {
+    background: none !important;
+    & > * {
+        border-color: transparent;
+    }
+
+    &:not(:hover) {
+        & > *:not(.pluto-input__internal) {
+            opacity: 0;
+        }
+    }
+
+    & .pluto-input__internal {
+        border: none !important;
+        background: none !important;
+    }
+
+    & input {
+        padding: 0;
+    }
+
+    & .pluto-input__placeholder {
+        padding-left: 1px;
+        & * {
+            color: var(--pluto-gray-l5);
+        }
     }
 }
 

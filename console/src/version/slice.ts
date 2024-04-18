@@ -9,6 +9,7 @@
 
 import { createSlice } from "@reduxjs/toolkit";
 import type { PayloadAction } from "@reduxjs/toolkit";
+import { migrate } from "@synnaxlabs/x";
 
 export const SLICE_NAME = "version";
 
@@ -25,6 +26,10 @@ const initialState: SliceState = {
 };
 
 export type SetVersionAction = PayloadAction<string>;
+
+export const MIGRATIONS: migrate.Migrations = {};
+
+export const migrateSlice = migrate.migrator<SliceState, SliceState>(MIGRATIONS);
 
 export const { actions, reducer } = createSlice({
   name: SLICE_NAME,

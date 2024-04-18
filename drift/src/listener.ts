@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { Action, AnyAction } from "@reduxjs/toolkit";
+import type { Action, UnknownAction } from "@reduxjs/toolkit";
 
 import { Communicator } from "@/runtime";
-import { PreloadedState, StoreState } from "@/state";
+import { StoreState } from "@/state";
 import { sugar } from "@/sugar";
 import { validateAction } from "@/validate";
 
@@ -20,7 +20,7 @@ export interface StoreStateGetter<S extends StoreState> {
 }
 
 /* A store that can dispatch actions. */
-export interface StoreDispatch<A extends Action = AnyAction> {
+export interface StoreDispatch<A extends Action = UnknownAction> {
   dispatch: (action: A) => void;
 }
 
@@ -32,10 +32,10 @@ export interface StoreDispatch<A extends Action = AnyAction> {
  * @param resolve - A function that resolves a promise requesting
  * the initial store state.
  */
-export const listen = async <S extends StoreState, A extends Action = AnyAction>(
+export const listen = async <S extends StoreState, A extends Action = UnknownAction>(
   communicator: Communicator<S, A>,
   getStore: () => (StoreStateGetter<S> & StoreDispatch<A>) | undefined | null,
-  resolve: (value: PreloadedState<S>) => void
+  resolve: (value: S) => void
 ): Promise<void> =>
   await communicator.subscribe(({ action, emitter, state, sendState }) => {
     const s = getStore();
@@ -49,6 +49,6 @@ export const listen = async <S extends StoreState, A extends Action = AnyAction>
       return s.dispatch(sugar(action, emitter));
     }
     if (sendState === true && communicator.isMain()) {
-      void communicator.emit({ state: s.getState() as PreloadedState<S> }, emitter);
+      void communicator.emit({ state: s.getState() }, emitter);
     }
   });

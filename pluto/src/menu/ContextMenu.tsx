@@ -17,7 +17,8 @@ import {
   useState,
 } from "react";
 
-import { box, unique, xy } from "@synnaxlabs/x";
+import { box, position, unique, xy } from "@synnaxlabs/x";
+import { createPortal } from "react-dom";
 
 import { CSS } from "@/css";
 import { useClickOutside } from "@/hooks";
@@ -28,7 +29,8 @@ import "@/menu/ContextMenu.css";
 interface ContextMenuState {
   visible: boolean;
   keys: string[];
-  xy: xy.XY;
+  position: xy.XY;
+  cursor: xy.XY;
 }
 
 /** Supported event types for triggering a context menu. */
@@ -54,25 +56,29 @@ export interface UseContextMenuReturn extends ContextMenuState {
 
 const INITIAL_STATE: ContextMenuState = {
   visible: false,
+  position: xy.ZERO,
+  cursor: xy.ZERO,
   keys: [],
-  xy: xy.ZERO,
 };
 
 export const CONTEXT_SELECTED = CSS.BM("context", "selected");
 export const CONTEXT_TARGET = CSS.BE("context", "target");
 const CONTEXT_MENU_CONTAINER = CSS.BE("menu-context", "container");
 
-const findTarget = (target: HTMLElement): HTMLElement => {
+const findTarget = (target: HTMLElement): HTMLElement | null => {
   let candidate = target;
-  while (candidate != null && !candidate.classList.contains(CONTEXT_TARGET)) {
+  while (!candidate.classList.contains(CONTEXT_TARGET)) {
     if (candidate.classList.contains(CONTEXT_MENU_CONTAINER)) return target;
-    candidate = candidate.parentElement as HTMLElement;
+    if (candidate.parentElement == null) return target;
+    candidate = candidate.parentElement;
   }
+  if (!candidate.classList.contains(CONTEXT_TARGET)) return target;
   return candidate;
 };
 
 const findSelected = (target_: HTMLElement): HTMLElement[] => {
   const target = findTarget(target_);
+  if (target == null) return [];
   const selected = (target.parentElement?.querySelectorAll(`.${CONTEXT_SELECTED}`) ??
     []) as HTMLElement[];
   return [target, ...Array.from(selected)];
@@ -95,33 +101,36 @@ export const useContextMenu = (): UseContextMenuReturn => {
 
   const handleOpen: ContextMenuOpen = (e, keys) => {
     const p = xy.construct(e);
-    if ("preventDefault" in e) {
+    if (typeof e === "object" && "preventDefault" in e) {
       e.preventDefault();
       // Prevent parent context menus from opening.
       e.stopPropagation();
-      keys = keys ?? unique(findSelected(e.target as HTMLElement).map((el) => el.id));
+      const selected = findSelected(e.target as HTMLElement);
+      keys = keys ?? unique(selected.map((el) => el.id).filter((id) => id.length > 0));
     } else keys = [];
-    setMenuState({ visible: true, keys, xy: p });
+    setMenuState({ visible: true, keys, position: p, cursor: p });
   };
 
   const refCallback = (el: HTMLDivElement): void => {
     menuRef.current = el;
     if (el == null) return;
     setMenuState((prev) => {
-      if (prev.visible) {
-        const [repositioned, changed] = box.positionSoVisible(
-          el,
-          window.document.documentElement,
-        );
-        if (changed) return { ...prev, xy: box.topLeft(repositioned) };
-      }
-      return prev;
+      if (!prev.visible) return prev;
+      const { adjustedDialog } = position.dialog({
+        container: box.construct(0, 0, window.innerWidth, window.innerHeight),
+        dialog: box.construct(el),
+        target: box.construct(prev.cursor, 0, 0),
+        prefer: [{ y: "bottom" }],
+      });
+      const nextPos = box.topLeft(adjustedDialog);
+      if (xy.equals(prev.position, nextPos)) return prev;
+      return { ...prev, position: nextPos };
     });
   };
 
   const hideMenu = (): void => setMenuState(INITIAL_STATE);
 
-  useClickOutside(menuRef, hideMenu);
+  useClickOutside({ ref: menuRef, onClickOutside: hideMenu });
 
   return {
     ...state,
@@ -148,7 +157,7 @@ const ContextMenuCore = (
     visible,
     open,
     close,
-    xy,
+    position: xy,
     keys,
     className,
     ...props
@@ -164,16 +173,18 @@ const ContextMenuCore = (
       {...props}
     >
       {children}
-      {menuC != null && (
-        <div
-          className={CSS(CSS.B("menu-context"), CSS.bordered())}
-          ref={ref}
-          style={{ left: xy.x, top: xy.y }}
-          onClick={close}
-        >
-          {menuC}
-        </div>
-      )}
+      {menuC != null &&
+        createPortal(
+          <div
+            className={CSS(CSS.B("menu-context"), CSS.bordered())}
+            ref={ref}
+            style={{ left: xy.x, top: xy.y }}
+            onClick={close}
+          >
+            {menuC}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 };

@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -11,6 +11,7 @@
 
 /// std
 #include <string>
+#include <utility>
 
 /// protos
 #include "v1/auth.pb.h"
@@ -24,10 +25,7 @@ const std::string HEADER_KEY = "authorization";
 const std::string HEADER_VALUE_PREFIX = "Bearer ";
 
 /// @brief type alias for the auth login transport.
-typedef freighter::UnaryClient<
-        api::v1::LoginResponse,
-        api::v1::LoginRequest
-> AuthLoginClient;
+typedef freighter::UnaryClient<api::v1::LoginResponse, api::v1::LoginRequest> AuthLoginClient;
 
 
 /// @brief AuthMiddleware for authenticating requests using a bearer token. AuthMiddleware has
@@ -53,10 +51,10 @@ private:
 public:
     AuthMiddleware(
             std::unique_ptr<AuthLoginClient> login_client,
-            const std::string &username,
-            const std::string &password
+            std::string username,
+            std::string password
     ) :
-            login_client(std::move(login_client)), username(username), password(password) {
+            login_client(std::move(login_client)), username(std::move(username)), password(std::move(password)) {
     }
 
     /// Implements freighter::AuthMiddleware::operator().

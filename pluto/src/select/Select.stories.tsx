@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, useState } from "react";
+import { type ReactElement, useState } from "react";
 
 import type { Meta, StoryFn } from "@storybook/react";
 
 import { Align } from "@/align";
-import { List } from "@/list";
+import { type List } from "@/list";
 import { Select } from "@/select";
 
 const story: Meta<typeof Select.Multiple> = {
@@ -75,8 +75,24 @@ export const Multiple = (): ReactElement => {
   );
 };
 
+export const DropdownButton = (): ReactElement => {
+  const [value, setValue] = useState<string>("");
+
+  return (
+    <Align.Space>
+      <Select.DropdownButton
+        value={value}
+        onChange={setValue}
+        data={sampleData}
+        columns={sampleColumns}
+        location="top"
+      />
+    </Align.Space>
+  );
+};
+
 const Template = (
-  props: Omit<Select.SingleProps<string, SampleRecord>, "value" | "onChange">
+  props: Omit<Select.SingleProps<string, SampleRecord>, "value" | "onChange">,
 ): ReactElement => {
   const [value, setValue] = useState<string>("");
   return <Select.Single {...props} value={value} onChange={setValue} />;

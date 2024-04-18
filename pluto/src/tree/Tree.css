@@ -12,10 +12,10 @@
 .pluto-tree {
     height: 100%;
 
-
     & button {
         border-radius: 0;
         width: 100%;
+        border-left: 0.3rem solid transparent;
 
         & .pluto-caret path {
             fill: var(--pluto-gray-l6) !important;
@@ -23,17 +23,8 @@
     }
 
     .pluto--dragging-over {
-        background: var(--pluto-primary-z-20);
-        border-bottom: var(--pluto-border);
-        border-color: var(--pluto-primary-z);
-    }
-
-    .pluto--selected {
-        background: var(--pluto-primary-z-20);
-    }
-
-    .pluto--selected:hover {
-        background: var(--pluto-primary-z-10) !important;
+        background: var(--pluto-gray-l3);
+        box-shadow: 0 0.3rem 0 var(--pluto-primary-z);
     }
 
     .pluto-loading-indicator {

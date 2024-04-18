@@ -27,7 +27,7 @@ const messageZ = z.object({
   message: z.string().optional(),
 });
 
-describe.only("http", () => {
+describe("http", () => {
   test("echo", async () => {
     const [response, error] = await client.send<typeof messageZ>(
       "/echo",
@@ -35,6 +35,7 @@ describe.only("http", () => {
         id: 1,
         message: "hello",
       },
+      messageZ,
       messageZ,
     );
     expect(error).toBeNull();
@@ -45,6 +46,7 @@ describe.only("http", () => {
     const [response, error] = await client.send<typeof messageZ>(
       "/not-found",
       {},
+      messageZ,
       messageZ,
     );
     expect(error?.message).toEqual("Not Found");
@@ -59,6 +61,7 @@ describe.only("http", () => {
     const [response, error] = await client.send<typeof messageZ>(
       "/middlewareCheck",
       {},
+      messageZ,
       messageZ,
     );
     expect(error).toBeNull();

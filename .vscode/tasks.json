@@ -1,0 +1,14 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "dev:console-vite",
+      "type": "shell",
+      "isBackground": true,
+      "command": "pnpm",
+      "args": [
+        "dev:console-vite"
+      ],
+    },
+  ]
+}

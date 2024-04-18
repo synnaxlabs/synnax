@@ -9,20 +9,18 @@
 
 import { type StreamClient } from "@synnaxlabs/freighter";
 import {
-  type NativeTypedArray,
   type Series,
   type TimeRange,
   type CrudeTimeStamp,
-  TimeStamp,
+  type CrudeSeries,
 } from "@synnaxlabs/x";
 
 import { type KeyOrName, type Params } from "@/channel/payload";
 import { type Retriever, analyzeParams } from "@/channel/retriever";
-import { Authority } from "@/control/authority";
 import { Frame } from "@/framer/frame";
 import { Iterator } from "@/framer/iterator";
-import { Streamer } from "@/framer/streamer";
-import { Writer, type WriterConfig } from "@/framer/writer";
+import { Streamer, type StreamerConfig } from "@/framer/streamer";
+import { Writer, WriterMode, type WriterConfig } from "@/framer/writer";
 
 export class Client {
   private readonly stream: StreamClient;
@@ -40,7 +38,7 @@ export class Client {
    * @param keys - A list of channel keys to iterate over.
    * @returns a new {@link TypedIterator}.
    */
-  async newIterator(tr: TimeRange, channels: Params): Promise<Iterator> {
+  async openIterator(tr: TimeRange, channels: Params): Promise<Iterator> {
     return await Iterator._open(tr, channels, this.retriever, this.stream);
   }
 
@@ -52,46 +50,63 @@ export class Client {
    * for more information.
    * @returns a new {@link RecordWriter}.
    */
-  async newWriter({
-    start,
-    channels,
-    controlSubject,
-    authorities = Authority.ABSOLUTE,
-  }: WriterConfig): Promise<Writer> {
-    return await Writer._open(this.retriever, this.stream, {
-      start: start ?? TimeStamp.now(),
-      controlSubject,
-      channels,
-      authorities,
-    });
+  async openWriter(config: WriterConfig): Promise<Writer> {
+    return await Writer._open(this.retriever, this.stream, config);
   }
 
-  async newStreamer(
-    params: Params,
-    from: TimeStamp = TimeStamp.now(),
-  ): Promise<Streamer> {
-    return await Streamer._open(from, params, this.retriever, this.stream);
+  /***
+   * Opens a new streamer on the given channels.
+   *
+   * @param channels - A key, name, list of keys, or list of names of the channels to
+   * stream values from.
+   * @throws a QueryError if any of the given channels do not exist.
+   * @returns a new {@link Streamer} that must be closed when done streaming, otherwise
+   * a network socket will remain open.
+   */
+  async openStreamer(channels: Params): Promise<Streamer>;
+
+  /**
+   * Opens a new streamer with the provided configuration.
+   *
+   * @param config - Configuration parameters for the streamer.
+   * @param config.channels - The channels to stream values from. Can be a key, name,
+   * list of keys, or list of names.
+   * @param config.from - If this parameter is set and is before the current time,
+   * the streamer will first read and receive historical data from before this point
+   * and then will start reading new values.
+   *
+   */
+  async openStreamer(config: StreamerConfig): Promise<Streamer>;
+
+  async openStreamer(config: StreamerConfig | Params): Promise<Streamer> {
+    const isObject = typeof config === "object";
+    if (Array.isArray(config) || !isObject) config = { channels: config as Params };
+    return await Streamer._open(this.retriever, this.stream, config as StreamerConfig);
   }
 
   /**
    * Writes telemetry to the given channel starting at the given timestamp.
    *
-   * @param to - The key of the channel to write to.
+   * @param channel - The key of the channel to write to.
    * @param start - The starting timestamp of the first sample in data.
    * @param data  - The telemetry to write. This telemetry must have the same
    * data type as the channel.
    * @throws if the channel does not exist.
    */
   async write(
-    to: KeyOrName,
+    channel: KeyOrName,
     start: CrudeTimeStamp,
-    data: NativeTypedArray,
+    data: CrudeSeries,
   ): Promise<void> {
-    const w = await this.newWriter({ start, channels: to });
+    const w = await this.openWriter({
+      start,
+      channels: channel,
+      mode: WriterMode.PersistOnly,
+    });
     try {
-      await w.write(to, data);
-      if (!(await w.commit())) throw (await w.error()) as Error;
-    } catch {
+      await w.write(channel, data);
+      await w.commit();
+    } finally {
       await w.close();
     }
   }
@@ -108,9 +123,13 @@ export class Client {
   }
 
   private async readFrame(tr: TimeRange, params: Params): Promise<Frame> {
-    const i = await this.newIterator(tr, params);
+    const i = await this.openIterator(tr, params);
     const frame = new Frame();
-    for await (const f of i) frame.push(f);
+    try {
+      for await (const f of i) frame.push(f);
+    } finally {
+      await i.close();
+    }
     return frame;
   }
 }

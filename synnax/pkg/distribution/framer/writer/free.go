@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/x/signal"
 )
 
-func (s *Service) newFree(ctx context.Context) StreamWriter {
+func (s *Service) newFree(mode Mode) StreamWriter {
 	w := &freeWriter{freeWrites: s.FreeWrites}
 	w.Transform = w.transform
 	return w
@@ -26,10 +26,11 @@ type freeWriter struct {
 	confluence.LinearTransform[Request, Response]
 	freeWrites confluence.Inlet[relay.Response]
 	seqNum     int
+	mode       Mode
 }
 
 func (w *freeWriter) transform(ctx context.Context, req Request) (res Response, ok bool, err error) {
-	if req.Command == Data {
+	if req.Command == Data && w.mode.Stream() {
 		err = signal.SendUnderContext(ctx, w.freeWrites.Inlet(), relay.Response{Frame: req.Frame})
 		return
 	}

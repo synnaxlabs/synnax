@@ -47,18 +47,19 @@ export class Client {
   authenticated: boolean;
   user: user.Payload | undefined;
 
-  constructor(client: UnaryClient, creds: InsecureCredentials) {
+  constructor(client: UnaryClient, credentials: InsecureCredentials) {
     this.client = client;
     this.authenticated = false;
-    this.authenticate(creds);
+    this.authenticate(credentials);
   }
 
-  authenticate(creds: InsecureCredentials): void {
+  authenticate(credentials: InsecureCredentials): void {
     this.authenticating = new Promise((resolve, reject) => {
       this.client
         .send<typeof insecureCredentialsZ, typeof tokenResponseZ>(
           LOGIN_ENDPOINT,
-          creds,
+          credentials,
+          insecureCredentialsZ,
           tokenResponseZ,
         )
         .then(([res, err]) => {

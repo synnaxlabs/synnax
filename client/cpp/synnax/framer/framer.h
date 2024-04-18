@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -32,28 +32,16 @@ using namespace synnax;
 namespace synnax {
 
 /// @brief type alias for streamer network transport stream.
-typedef freighter::Stream<
-        api::v1::FrameStreamerResponse,
-        api::v1::FrameStreamerRequest
-> StreamerStream;
+typedef freighter::Stream <api::v1::FrameStreamerResponse, api::v1::FrameStreamerRequest> StreamerStream;
 
 /// @brief typ;e alias for frame writer network transport.
-typedef freighter::StreamClient<
-        api::v1::FrameStreamerResponse,
-        api::v1::FrameStreamerRequest
-> StreamerClient;
+typedef freighter::StreamClient <api::v1::FrameStreamerResponse, api::v1::FrameStreamerRequest> StreamerClient;
 
 /// @brief type alias for writer network transports stream.
-typedef freighter::Stream<
-        api::v1::FrameWriterResponse,
-        api::v1::FrameWriterRequest
-> WriterStream;
+typedef freighter::Stream <api::v1::FrameWriterResponse, api::v1::FrameWriterRequest> WriterStream;
 
 /// @brief type alias for writer network transport.
-typedef freighter::StreamClient<
-        api::v1::FrameWriterResponse,
-        api::v1::FrameWriterRequest
-> WriterClient;
+typedef freighter::StreamClient <api::v1::FrameWriterResponse, api::v1::FrameWriterRequest> WriterClient;
 
 
 /// @brief Frame type.
@@ -112,7 +100,7 @@ public:
     /// If error.ok() is false, then the streamer has failed and must be closed.
     /// @note read is not safe to call concurrently with itself or with close(), but it
     /// is safe to call concurrently with setChannels().
-    std::pair<Frame, freighter::Error> read();
+    std::pair<Frame, freighter::Error> read() const;
 
     /// @brief sets the channels to stream from the Synnax cluster, replacing any
     /// channels set during construction or a previous call to setChannels().
@@ -121,7 +109,7 @@ public:
     /// @param channels - the channels to stream.
     /// @note setChannels is not safe to call concurrently with itself or with close(),
     /// but it is safe to call concurrently with read().
-    freighter::Error setChannels(std::vector<ChannelKey> channels);
+    freighter::Error setChannels(std::vector<ChannelKey> channels) const;
 
     /// @brief closes the streamer and releases any resources associated with it. If any
     /// errors occurred during the stream, they will be returned. A streamer MUST be
@@ -131,13 +119,13 @@ public:
     /// during operation.
     /// @note close() is not safe to call concurrently with itself or any other streamer
     /// methods.
-    freighter::Error close();
+    freighter::Error close() const;
 
     /// @brief closes the sending end of the streamer. Subsequence calls to receive()
     /// will exhaust the stream and eventually return an EOF.
     /// @note closeSend() is safe to call concurrently with read(), but not with any
     /// other DB methods.
-    freighter::Error closeSend();
+    freighter::Error closeSend() const;
 
 private:
     Streamer() = default;
@@ -156,6 +144,12 @@ private:
 
     /// @brief the only class that can construct a streamer.
     friend class FrameClient;
+};
+
+enum WriterMode : uint8_t {
+    WriterPersistStream = 1,
+    WriterPersistOnly = 2,
+    WriterStreamOnly = 3
 };
 
 /// @brief configuration for opening a new Writer. For more information on writers,
@@ -179,6 +173,14 @@ public:
     /// @brief sets identifying information for the writer. The subject's key and name
     /// will be used to identify the writer in control transfer scenarios.
     synnax::Subject subject;
+
+    /// @brief sets whether the writer is configured to persist data, stream it, or both.
+    /// Options are:
+    ///     - WriterPersistStream: persist data and stream it.
+    ///     - WriterPersistOnly: persist data only.
+    ///     - WriterStreamOnly: stream data only.
+    WriterMode mode;
+
 private:
     /// @brief binds the configuration fields to it's protobuf representation.
     void toProto(api::v1::FrameWriterConfig *f) const;
@@ -213,6 +215,15 @@ public:
     /// @returns false if an error occurred in the write pipeline. After an error occurs,
     /// the caller must acknowledge the error by calling error() or close() on the writer.
     bool write(Frame fr);
+
+    /// @brief sets whether the writer is configured to persist data, stream it, or both.
+    /// @param mode the mode to set the writer to. Options are:
+    ///     - WriterPersistStream: persist data and stream it.
+    ///    - WriterPersistOnly: persist data only.
+    ///    - WriterStreamOnly: stream data only.
+    ///
+    bool setMode(WriterMode mode);
+
 
     /// @brief commits all pending writes to the Synnax cluster. Commit can be called
     /// multiple times, committing any new writes made since the last commit.
@@ -260,8 +271,20 @@ public:
             writer_client(std::move(writer_client)) {}
 
 
+    /// @brief opens a new frame writer using the given configuration. For information
+    /// on configuration parameters, see WriterConfig.
+    /// @returns a pair containing the opened writer and an error when ok() is false
+    /// if the writer could not be opened. In the case where ok() is false, the writer
+    /// will be in an invalid state and does not need to be closed. If ok() is true,
+    /// The writer must be closed after use to avoid leaking resources.
     std::pair<Writer, freighter::Error> openWriter(const WriterConfig &config);
 
+    /// @brief opens a new frame streamer using the given configuration. For information
+    /// on configuration parameters, see StreamerConfig.
+    /// @returns a pair containing the opened streamer and an error when ok() is false
+    /// if the streamer could not be opened. In the case where ok() is false, the
+    /// streamer will be in an invalid state and does not need to be closed. If ok()
+    /// is true, the streamer must be closed after use to avoid leaking resources.
     std::pair<Streamer, freighter::Error> openStreamer(const StreamerConfig &config);
 };
 }

@@ -42,24 +42,78 @@ class TestChannelWriteRead:
 @pytest.mark.writer
 class TestWriter:
     def test_basic_write(self, channel: sy.Channel, client: sy.Synnax):
-        with client.new_writer(0, channel.key) as w:
+        """Should write data to the Synnax database"""
+        with client.open_writer(0, channel.key) as w:
             data = np.random.rand(10).astype(np.float64)
             w.write(pd.DataFrame({channel.key: data}))
             w.write(pd.DataFrame({channel.key: data}))
             w.commit()
 
     def test_write_by_name(self, channel: sy.Channel, client: sy.Synnax):
-        with client.new_writer(0, channel.name) as w:
+        """Should write data by name to the Synnax cluster"""
+        with client.open_writer(0, channel.name) as w:
             data = np.random.rand(10).astype(np.float64)
-            w.write(pd.DataFrame({channel.key: data}))
+            w.write(pd.DataFrame({channel.name: data}))
             w.commit()
+
+    def test_write_frame_unknown_channel_name(
+        self,
+        channel: sy.Channel,
+        client: sy.Synnax,
+    ):
+        """Should throw a validation error when writing to an unknown channel"""
+        with client.open_writer(0, channel.key) as w:
+            data = np.random.rand(10).astype(np.float64)
+            with pytest.raises(sy.ValidationError):
+                w.write(pd.DataFrame({"missing": data}))
+
+    def test_write_frame_unknown_channel_key(
+        self,
+        channel: sy.Channel,
+        client: sy.Synnax,
+    ):
+        """Should throw a validation error when writing an unknown frame by key"""
+        with client.open_writer(0, channel.key) as w:
+            data = np.random.rand(10).astype(np.float64)
+            with pytest.raises(sy.ValidationError):
+                w.write(pd.DataFrame({123: data}))
+
+    def test_write_frame_idx_no_timestamps(
+        self,
+        indexed_pair: tuple[sy.Channel, sy.Channel],
+        client: sy.Synnax,
+    ):
+        """Should throw a validation error on close when writing an indexed frame
+        w/o the correct timing
+        """
+        [idx, data_ch] = indexed_pair
+        with pytest.raises(sy.ValidationError):
+            with client.open_writer(0, [idx.key, data_ch.key]) as w:
+                data = np.random.rand(10).astype(np.float64)
+                w.write(pd.DataFrame({data_ch.key: data}))
+
+    @pytest.mark.asyncio
+    async def test_write_persist_only_mode(
+        self,
+        channel: sy.Channel,
+        client: sy.Synnax,
+    ):
+        """Should not stream written data"""
+        with client.open_writer(0, channel.key, mode=sy.WriterMode.PERSIST_ONLY) as w:
+            async with await client.open_async_streamer(channel.key) as s:
+                data = np.random.rand(10).astype(np.float64)
+                w.write(pd.DataFrame({channel.key: data}))
+                with pytest.raises(TimeoutError):
+                    async with asyncio.timeout(0.2):
+                        await s.read()
 
 
 @pytest.mark.framer
 class TestStreamer:
     def test_basic_stream(self, channel: sy.Channel, client: sy.Synnax):
-        with client.new_writer(sy.TimeStamp.now(), channel.key) as w:
-            with client.new_streamer(channel.key) as s:
+        """Should correctly stream data for a channel"""
+        with client.open_streamer(channel.key) as s:
+            with client.open_writer(sy.TimeStamp.now(), channel.key) as w:
                 data = np.random.rand(10).astype(np.float64)
                 w.write(pd.DataFrame({channel.key: data}))
                 frame = s.read()
@@ -70,8 +124,8 @@ class TestStreamer:
 class TestAsyncStreamer:
     @pytest.mark.asyncio
     async def test_basic_stream(self, channel: sy.Channel, client: sy.Synnax):
-        with client.new_writer(sy.TimeStamp.now(), channel.key) as w:
-            async with await client.new_async_streamer(channel.key) as s:
+        with client.open_writer(sy.TimeStamp.now(), channel.key) as w:
+            async with await client.open_async_streamer(channel.key) as s:
                 time.sleep(0.1)
                 data = np.random.rand(10).astype(np.float64)
                 w.write(pd.DataFrame({channel.key: data}))

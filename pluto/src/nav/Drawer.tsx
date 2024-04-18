@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useCallback, useState } from "react";
+import { type ReactElement, useCallback, useState, useLayoutEffect } from "react";
 
 import { type box, location } from "@synnaxlabs/x";
 
@@ -63,11 +63,12 @@ export const Drawer = Aether.wrap<DrawerProps>(
     onResize,
     ...props
   }): ReactElement | null => {
-    if (activeItem == null) return null;
     const dir = location.direction(loc_);
-    const { key, content, ...rest } = activeItem;
-    const handleCollapse = useCallback(() => onSelect?.(key), [onSelect, key]);
-    const erase = Eraser.use({ aetherKey });
+    const handleCollapse = useCallback(
+      () => activeItem != null && onSelect?.(activeItem.key),
+      [onSelect, activeItem?.key],
+    );
+    const { erase, setEnabled } = Eraser.use({ aetherKey });
     const handleResize = useCallback(
       (size: number, box: box.Box) => {
         onResize?.(size, box);
@@ -75,6 +76,11 @@ export const Drawer = Aether.wrap<DrawerProps>(
       },
       [onResize, erase],
     );
+    useLayoutEffect(() => {
+      setEnabled(activeItem != null);
+    }, [activeItem, setEnabled]);
+    if (activeItem == null) return null;
+    const { content, ...rest } = activeItem;
     return (
       <Resize.Single
         className={CSS(CSS.BE("navdrawer", "content"), CSS.dir(dir), className)}
@@ -85,7 +91,7 @@ export const Drawer = Aether.wrap<DrawerProps>(
         {...rest}
         {...props}
       >
-        {content}
+        {activeItem.content}
       </Resize.Single>
     );
   },

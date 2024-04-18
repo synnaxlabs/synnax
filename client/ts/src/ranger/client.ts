@@ -13,6 +13,8 @@ import { type AsyncTermSearcher, toArray } from "@synnaxlabs/x";
 import { type Retriever as ChannelRetriever } from "@/channel/retriever";
 import { QueryError } from "@/errors";
 import { type framer } from "@/framer";
+import { type label } from "@/label";
+import { Active } from "@/ranger/active";
 import { Aliaser } from "@/ranger/alias";
 import { KV } from "@/ranger/kv";
 import {
@@ -29,8 +31,6 @@ import { Range } from "@/ranger/range";
 import { type Retriever } from "@/ranger/retriever";
 import { type Writer } from "@/ranger/writer";
 
-import { Active } from "./active";
-
 export class Client implements AsyncTermSearcher<string, Key, Range> {
   private readonly frameClient: framer.Client;
   private readonly retriever: Retriever;
@@ -38,6 +38,7 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
   private readonly unaryClient: UnaryClient;
   private readonly channels: ChannelRetriever;
   private readonly active: Active;
+  private readonly labelClient: label.Client;
 
   constructor(
     frameClient: framer.Client,
@@ -45,6 +46,7 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
     writer: Writer,
     unary: UnaryClient,
     channels: ChannelRetriever,
+    labelClient: label.Client,
   ) {
     this.frameClient = frameClient;
     this.retriever = retriever;
@@ -52,6 +54,7 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
     this.unaryClient = unary;
     this.channels = channels;
     this.active = new Active(unary);
+    this.labelClient = labelClient;
   }
 
   async create(range: NewPayload): Promise<Range>;
@@ -118,6 +121,7 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
         new KV(payload.key, this.unaryClient),
         new Aliaser(payload.key, this.frameClient, this.unaryClient),
         this.channels,
+        this.labelClient,
       );
     });
   }

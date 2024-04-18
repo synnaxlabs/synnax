@@ -18,14 +18,16 @@ export const Z = <V extends z.ZodTypeAny>(value: V) =>
     value,
   });
 
-export type Change<K, V> =
-  | {
-      variant: "set";
-      key: K;
-      value: V;
-    }
-  | {
-      variant: "delete";
-      key: K;
-      value?: V;
-    };
+export type Set<K, V> = {
+  variant: "set";
+  key: K;
+  value: V;
+};
+
+export type Delete<K, V> = {
+  variant: "delete";
+  key: K;
+  value?: V;
+};
+
+export type Change<K, V> = Set<K, V> | Delete<K, V>;

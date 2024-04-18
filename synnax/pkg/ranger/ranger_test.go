@@ -120,7 +120,7 @@ var _ = Describe("Ranger", Ordered, func() {
 			Expect(retrieveR.Key).To(Equal(r.Key))
 		})
 	})
-	Describe("Delete", func() {
+	Describe("DeleteChannel", func() {
 		It("Should delete a range by its key", func() {
 			r := &ranger.Range{
 				Name: "Range",

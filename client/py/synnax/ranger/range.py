@@ -14,20 +14,14 @@ from uuid import UUID
 import numpy as np
 from pydantic import PrivateAttr
 
-from synnax.channel import (
-    ChannelKey,
-    ChannelName,
-    ChannelPayload,
-    ChannelRetriever,
-)
+from synnax.channel import ChannelKey, ChannelName, ChannelPayload, ChannelRetriever
 from synnax.exceptions import QueryError
 from synnax.framer import Client
 from synnax.ranger.alias import Aliaser
 from synnax.ranger.kv import KV
 from synnax.ranger.payload import RangePayload
-from synnax.telem import Series, TimeRange, DataType, Rate
+from synnax.telem import DataType, Rate, SampleValue, Series, TimeRange
 from synnax.util.interop import overload_comparison_operators
-from synnax.util.memo import memo
 
 
 class _InternalScopedChannel(ChannelPayload):
@@ -67,6 +61,9 @@ class _InternalScopedChannel(ChannelPayload):
         """Converts the channel to a numpy array. This method is necessary
         for numpy interop."""
         return self.read().__array__(*args, **kwargs)
+
+    def __getitem__(self, index: int) -> SampleValue:
+        return self.read().__getitem__(index)
 
     def to_numpy(self) -> np.ndarray:
         """Converts the channel to a numpy array. This method is necessary
@@ -128,6 +125,10 @@ class ScopedChannel:
         for numpy interop."""
         self.__guard()
         return self.__internal[0].__array__(*args, **kwargs)
+
+    def __getitem__(self, index: int) -> SampleValue:
+        self.__guard()
+        return self.__internal[0].__getitem__(index)
 
     def to_numpy(self) -> np.ndarray:
         """Converts the scoped channel to a numpy array. This method is necessary

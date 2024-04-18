@@ -32,7 +32,7 @@ var (
 	DefaultConfig                       = Config{}
 )
 
-// Override implements config.Config.
+// Override implements config.Properties.
 func (c Config) Override(other Config) Config {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
@@ -40,7 +40,7 @@ func (c Config) Override(other Config) Config {
 	return c
 }
 
-// Validate implements config.Config.
+// Validate implements config.Properties.
 func (c Config) Validate() error {
 	v := validate.New("workspace")
 	validate.NotNil(v, "db", c.DB)

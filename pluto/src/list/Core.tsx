@@ -7,32 +7,35 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ComponentPropsWithoutRef, type ReactElement, useRef } from "react";
+import {
+  type ComponentPropsWithoutRef,
+  type ReactElement,
+  useRef,
+  useLayoutEffect,
+} from "react";
 
-import { type Key, type KeyedRenderableRecord } from "@synnaxlabs/x";
+import { type Key, type Keyed } from "@synnaxlabs/x";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
-import { useContext } from "@/list/Context";
-import { type ItemProps } from "@/list/types";
-import { type RenderProp } from "@/util/renderProp";
+import { usePrevious } from "@/hooks/ref";
+import { useDataContext } from "@/list/Data";
+import { useHoverContext } from "@/list/Hover";
+import { useInfiniteContext } from "@/list/Infinite";
+import { useSelection, useSelectionContext, useSelectionUtils } from "@/list/Selector";
+import { type ItemRenderProp } from "@/list/types";
 
 import "@/list/Core.css";
 
-export interface VirtualCoreProps<
-  K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
-> extends Omit<ComponentPropsWithoutRef<"div">, "children"> {
+export interface VirtualCoreProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>>
+  extends Omit<ComponentPropsWithoutRef<"div">, "children"> {
   itemHeight: number;
-  children: RenderProp<ItemProps<K, E>>;
+  children: ItemRenderProp<K, E>;
   overscan?: number;
 }
 
-const VirtualCore = <
-  K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
->({
+const VirtualCore = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   itemHeight,
   children,
   overscan = 5,
@@ -40,14 +43,11 @@ const VirtualCore = <
   ...props
 }: VirtualCoreProps<K, E>): ReactElement => {
   if (itemHeight <= 0) throw new Error("itemHeight must be greater than 0");
-  const {
-    data,
-    emptyContent,
-    columnar: { columns },
-    hover,
-    select,
-    infinite: { hasMore, onFetchMore },
-  } = useContext<K, E>();
+  const { hasMore, onFetchMore } = useInfiniteContext();
+  const { hover: hoverValue, setHover } = useHoverContext();
+  const { transformedData: data, emptyContent } = useDataContext<K, E>();
+  const selected = useSelection();
+  const { onSelect } = useSelectionUtils();
   const parentRef = useRef<HTMLDivElement>(null);
   const virtualizer = useVirtualizer({
     count: data.length,
@@ -56,36 +56,52 @@ const VirtualCore = <
     overscan,
   });
 
+  const prev = usePrevious(data);
+
+  // // Whenever the data changes, scroll to the top of the list
+  useLayoutEffect(() => {
+    if (prev == null || prev.length === 0) return;
+    if (data.length > 0 && data[0].key !== prev[0].key) {
+      virtualizer?.scrollToIndex(0);
+      setHover(0);
+    }
+  }, [data]);
+
   const items = virtualizer.getVirtualItems();
 
   if (items.at(-1)?.index === data.length - 1 && hasMore) {
     onFetchMore?.();
   }
 
+  const empty = data.length === 0;
+
   return (
     <div
       ref={parentRef}
-      className={CSS(className, CSS.BE("list", "container"))}
+      className={CSS(
+        className,
+        CSS.BE("list", "container"),
+        empty && CSS.BM("list", "empty"),
+      )}
       {...props}
     >
-      {data.length === 0 ? (
+      {empty ? (
         emptyContent
       ) : (
-        <div style={{ height: virtualizer.getTotalSize() }}>
+        <div
+          className={CSS.BE("list", "virtualizer")}
+          style={{ height: virtualizer.getTotalSize() }}
+        >
           {items.map(({ index, start }) => {
             const entry = data[index];
             return children({
               key: entry.key,
               index,
-              onSelect: select.onSelect,
+              onSelect,
               entry,
-              columns,
-              selected: select.value.includes(entry.key),
-              hovered: index === hover.value,
-              style: {
-                transform: `translateY(${start}px)`,
-                position: "absolute",
-              },
+              selected: selected.includes(entry.key),
+              hovered: index === hoverValue,
+              translate: start,
             });
           })}
         </div>
@@ -94,15 +110,15 @@ const VirtualCore = <
   );
 };
 
-export const Core = <
-  K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
->(
+export const Core = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>(
   props: Omit<Align.SpaceProps, "children"> & {
-    children: RenderProp<ItemProps<K, E>>;
+    children: ItemRenderProp<K, E>;
   },
 ): ReactElement => {
-  const { data, emptyContent, columnar, hover, select } = useContext<K, E>();
+  const { transformedData: data, emptyContent } = useDataContext<K, E>();
+  const { hover } = useHoverContext();
+  const { selected } = useSelectionContext();
+  const { onSelect } = useSelectionUtils();
 
   return (
     <Align.Space className={CSS.BE("list", "container")} {...props} empty>
@@ -112,14 +128,12 @@ export const Core = <
         <>
           {data.map((entry, index) =>
             props.children({
-              key: entry.key.toString(),
+              key: entry.key,
               index,
-              onSelect: select.onSelect,
+              onSelect,
               entry,
-              columns: columnar.columns,
-              selected: select.value.includes(entry.key),
-              hovered: index === hover.value,
-              style: {},
+              selected: selected.includes(entry.key),
+              hovered: index === hover,
             }),
           )}
         </>

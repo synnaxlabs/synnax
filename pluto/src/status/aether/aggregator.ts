@@ -25,7 +25,7 @@ export class Aggregator extends aether.Composite<typeof aggregatorStateZ> {
   static readonly TYPE: string = "status.Aggregator";
   schema = aggregatorStateZ;
 
-  afterUpdate(): void {
+  async afterUpdate(): Promise<void> {
     this.ctx.set(CONTEXT_KEY, this);
   }
 
@@ -41,6 +41,12 @@ export class Aggregator extends aether.Composite<typeof aggregatorStateZ> {
 export const useAggregate = (ctx: aether.Context): Aggregate => {
   const agg = ctx.get<Aggregator>(CONTEXT_KEY);
   return agg.add.bind(agg);
+};
+
+export const useOptionalAggregate = (ctx: aether.Context): Aggregate => {
+  const agg = ctx.getOptional<Aggregator>(CONTEXT_KEY);
+  if (agg != null) return agg.add.bind(agg);
+  return () => {};
 };
 
 export const REGISTRY: aether.ComponentRegistry = {

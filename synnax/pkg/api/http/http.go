@@ -27,6 +27,7 @@ func New(router *fhttp.Router) (t api.Transport) {
 	// CHANNEL
 	t.ChannelCreate = fhttp.UnaryServer[api.ChannelCreateRequest, api.ChannelCreateResponse](router, "/api/v1/channel/create")
 	t.ChannelRetrieve = fhttp.UnaryServer[api.ChannelRetrieveRequest, api.ChannelRetrieveResponse](router, "/api/v1/channel/retrieve")
+	t.ChannelDelete = fhttp.UnaryServer[api.ChannelDeleteRequest, types.Nil](router, "/api/v1/channel/delete")
 	t.ConnectivityCheck = fhttp.UnaryServer[types.Nil, api.ConnectivityCheckResponse](router, "/api/v1/connectivity/check")
 
 	// FRAME
@@ -82,6 +83,24 @@ func New(router *fhttp.Router) (t api.Transport) {
 	t.LinePlotDelete = fhttp.UnaryServer[api.LinePlotDeleteRequest, types.Nil](router, "/api/v1/workspace/lineplot/delete")
 	t.LinePlotRename = fhttp.UnaryServer[api.LinePlotRenameRequest, types.Nil](router, "/api/v1/workspace/lineplot/rename")
 	t.LinePlotSetData = fhttp.UnaryServer[api.LinePlotSetDataRequest, types.Nil](router, "/api/v1/workspace/lineplot/set-data")
+
+	// LABEL
+	t.LabelCreate = fhttp.UnaryServer[api.LabelCreateRequest, api.LabelCreateResponse](router, "/api/v1/label/create")
+	t.LabelRetrieve = fhttp.UnaryServer[api.LabelRetrieveRequest, api.LabelRetrieveResponse](router, "/api/v1/label/retrieve")
+	t.LabelDelete = fhttp.UnaryServer[api.LabelDeleteRequest, types.Nil](router, "/api/v1/label/delete")
+	t.LabelSet = fhttp.UnaryServer[api.LabelSetRequest, types.Nil](router, "/api/v1/label/set")
+	t.LabelRemove = fhttp.UnaryServer[api.LabelRemoveRequest, types.Nil](router, "/api/v1/label/remove")
+
+	// DEVICE
+	t.HardwareCreateRack = fhttp.UnaryServer[api.HardwareCreateRackRequest, api.HardwareCreateRackResponse](router, "/api/v1/hardware/rack/create")
+	t.HardwareRetrieveRack = fhttp.UnaryServer[api.HardwareRetrieveRackRequest, api.HardwareRetrieveRackResponse](router, "/api/v1/hardware/rack/retrieve")
+	t.HardwareDeleteRack = fhttp.UnaryServer[api.HardwareDeleteRackRequest, types.Nil](router, "/api/v1/hardware/rack/delete")
+	t.HardwareCreateTask = fhttp.UnaryServer[api.HardwareCreateTaskRequest, api.HardwareCreateTaskResponse](router, "/api/v1/hardware/task/create")
+	t.HardwareRetrieveTask = fhttp.UnaryServer[api.HardwareRetrieveTaskRequest, api.HardwareRetrieveTaskResponse](router, "/api/v1/hardware/task/retrieve")
+	t.HardwareDeleteTask = fhttp.UnaryServer[api.HardwareDeleteTaskRequest, types.Nil](router, "/api/v1/hardware/task/delete")
+	t.HardwareCreateDevice = fhttp.UnaryServer[api.HardwareCreateDeviceRequest, api.HardwareCreateDeviceResponse](router, "/api/v1/hardware/device/create")
+	t.HardwareRetrieveDevice = fhttp.UnaryServer[api.HardwareRetrieveDeviceRequest, api.HardwareRetrieveDeviceResponse](router, "/api/v1/hardware/device/retrieve")
+	t.HardwareDeleteDevice = fhttp.UnaryServer[api.HardwareDeleteDeviceRequest, types.Nil](router, "/api/v1/hardware/device/delete")
 
 	return t
 }

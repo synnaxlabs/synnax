@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -19,6 +19,8 @@
 #include "v1/channel.grpc.pb.h"
 #include "v1/auth.pb.h"
 #include "v1/auth.grpc.pb.h"
+#include "v1/device.pb.h"
+#include "v1/device.grpc.pb.h"
 #include "google/protobuf/empty.pb.h"
 
 /// internal
@@ -122,6 +124,42 @@ Transport::Transport(
             google::protobuf::Empty,
             v1::RangeClearActiveService
     >>(pool, base_target);
+
+    rack_create_client = std::make_unique<GRPCUnaryClient<
+            v1::DeviceCreateRackResponse,
+            v1::DeviceCreateRackRequest,
+            v1::DeviceCreateRackService
+    >>(pool, base_target);
+
+    rack_retrieve = std::make_unique<GRPCUnaryClient<
+            v1::DeviceRetrieveRackResponse,
+            v1::DeviceRetrieveRackRequest,
+            v1::DeviceRetrieveRackService
+    >>(pool, base_target);
+
+    rack_delete = std::make_unique<GRPCUnaryClient<
+            google::protobuf::Empty,
+            v1::DeviceDeleteRackRequest,
+            v1::DeviceDeleteRackService
+    >>(pool, base_target);
+
+    module_create = std::make_shared<GRPCUnaryClient<
+            v1::DeviceCreateModuleResponse,
+            v1::DeviceCreateModuleRequest,
+            v1::DeviceCreateModuleService
+    >>(pool, base_target);
+
+    module_retrieve = std::make_shared<GRPCUnaryClient<
+            v1::DeviceRetrieveModuleResponse,
+            v1::DeviceRetrieveModuleRequest,
+            v1::DeviceRetrieveModuleService
+    >>(pool, base_target);
+
+    module_delete = std::make_shared<GRPCUnaryClient<
+            google::protobuf::Empty,
+            v1::DeviceDeleteModuleRequest,
+            v1::DeviceDeleteModuleService
+    >>(pool, base_target);
 }
 
 void Transport::use(const std::shared_ptr<freighter::Middleware>& mw) const {
@@ -137,4 +175,10 @@ void Transport::use(const std::shared_ptr<freighter::Middleware>& mw) const {
     range_set_active->use(mw);
     range_retrieve_active->use(mw);
     range_clear_active->use(mw);
+    rack_create_client->use(mw);
+    rack_retrieve->use(mw);
+    rack_delete->use(mw);
+    module_create->use(mw);
+    module_retrieve->use(mw);
+    module_delete->use(mw);
 }

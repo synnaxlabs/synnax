@@ -7,14 +7,35 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, it, test } from "vitest";
 
+import { binary } from "@/binary";
 import { DataType, Density, Rate, Size, TimeRange, TimeSpan, TimeStamp } from "@/telem";
 
 describe("TimeStamp", () => {
   test("construct", () => {
     const ts = new TimeStamp(1000);
     expect(ts.equals(TimeSpan.MICROSECOND)).toBeTruthy();
+  });
+
+  test("construct from NaN", () => {
+    const ts = new TimeStamp(NaN);
+    expect(ts.isZero).toBeTruthy();
+  });
+
+  test("construct from infinity", () => {
+    const ts = new TimeStamp(Infinity);
+    expect(ts.equals(TimeStamp.MAX)).toBeTruthy();
+  });
+
+  test("construct from negative infinity", () => {
+    const ts = new TimeStamp(-Infinity);
+    expect(ts.equals(TimeStamp.MIN)).toBeTruthy();
+  });
+
+  test("encode", () => {
+    const ts = TimeStamp.now();
+    new binary.JSONEncoderDecoder().encode(ts);
   });
 
   test("construct from TimeStamp", () => {
@@ -34,16 +55,16 @@ describe("TimeStamp", () => {
     const ts2 = new TimeStamp("12:30:00.22");
     expect(
       ts2.equals(
-        TimeSpan.hours(12).add(TimeSpan.minutes(30).add(TimeSpan.milliseconds(22)))
-      )
+        TimeSpan.hours(12).add(TimeSpan.minutes(30).add(TimeSpan.milliseconds(22))),
+      ),
     ).toBeTruthy();
     const ts3 = new TimeStamp("12:30:00.22", "local");
     expect(
       ts3.equals(
         TimeSpan.hours(12)
           .add(TimeSpan.minutes(30).add(TimeSpan.milliseconds(22)))
-          .add(TimeStamp.utcOffset)
-      )
+          .add(TimeStamp.utcOffset),
+      ),
     ).toBeTruthy();
   });
 
@@ -63,7 +84,7 @@ describe("TimeStamp", () => {
     const ts2 = new TimeStamp("2021-01-01", "local");
     expect(ts2.date().getUTCFullYear()).toEqual(2021);
     expect(ts2.date().getUTCHours()).toEqual(
-      TimeStamp.utcOffset.valueOf() / TimeStamp.HOUR.valueOf()
+      Number(TimeStamp.utcOffset.valueOf() / TimeStamp.HOUR.valueOf()),
     );
     expect(ts2.date().getUTCMinutes()).toEqual(0);
   });
@@ -76,7 +97,7 @@ describe("TimeStamp", () => {
   test("range", () => {
     const ts = new TimeStamp(0);
     expect(
-      ts.range(new TimeStamp(1000)).equals(new TimeRange(ts, TimeSpan.microseconds()))
+      ts.range(new TimeStamp(1000)).equals(new TimeRange(ts, TimeSpan.microseconds())),
     ).toBeTruthy();
   });
 
@@ -85,7 +106,7 @@ describe("TimeStamp", () => {
     expect(
       ts
         .spanRange(TimeSpan.microseconds())
-        .equals(new TimeRange(ts, ts.add(TimeSpan.microseconds())))
+        .equals(new TimeRange(ts, ts.add(TimeSpan.microseconds()))),
     ).toBeTruthy();
   });
 
@@ -129,7 +150,7 @@ describe("TimeStamp", () => {
   test("add", () => {
     const ts = new TimeStamp(0);
     expect(
-      ts.add(TimeSpan.microseconds()).equals(new TimeStamp(TimeSpan.microseconds(1)))
+      ts.add(TimeSpan.microseconds()).equals(new TimeStamp(TimeSpan.microseconds(1))),
     ).toBeTruthy();
   });
 
@@ -164,8 +185,8 @@ describe("TimeStamp", () => {
       expect(
         remainder.equals(expectedRemainder),
         `expected ${new TimeSpan(expectedRemainder).toString()} got ${new TimeSpan(
-          remainder
-        ).toString()}`
+          remainder,
+        ).toString()}`,
       ).toBeTruthy();
     });
     test("second", () => {
@@ -206,6 +227,58 @@ describe("TimeSpan", () => {
   test("sub", () => {
     expect(TimeSpan.seconds(1).sub(TimeSpan.SECOND).isZero).toBeTruthy();
   });
+
+  const TRUNCATE_TESTS = [
+    [TimeSpan.days(1).add(TimeSpan.nanoseconds(50)), TimeSpan.DAY, TimeSpan.days(1)],
+    [TimeSpan.hours(1).add(TimeSpan.minutes(30)), TimeSpan.HOUR, TimeSpan.hours(1)],
+  ];
+
+  test("truncate", () => {
+    TRUNCATE_TESTS.forEach(([ts, unit, expected]) => {
+      expect(
+        ts.truncate(unit).equals(expected),
+        `expected ${expected.toString()} got ${ts.truncate(unit).toString()}`,
+      ).toBeTruthy();
+    });
+  });
+
+  const REMAINDER_TESTS = [
+    [
+      TimeSpan.days(1).add(TimeSpan.nanoseconds(50)),
+      TimeSpan.DAY,
+      TimeSpan.nanoseconds(50),
+    ],
+    [TimeSpan.hours(1).add(TimeSpan.minutes(30)), TimeSpan.HOUR, TimeSpan.minutes(30)],
+  ];
+
+  test("remainder", () => {
+    REMAINDER_TESTS.forEach(([ts, unit, expected]) => {
+      expect(ts.remainder(unit).equals(expected)).toBeTruthy();
+    });
+  });
+
+  const TO_STRING_TESTS = [
+    [TimeSpan.nanoseconds(1), "1ns"],
+    [TimeSpan.microseconds(1), "1µs"],
+    [TimeSpan.milliseconds(1), "1ms"],
+    [TimeSpan.seconds(1), "1s"],
+    [TimeSpan.minutes(1), "1m"],
+    [TimeSpan.hours(1), "1h"],
+    [TimeSpan.days(1), "1d"],
+    [
+      TimeSpan.milliseconds(1)
+        .add(TimeSpan.microseconds(500))
+        .add(TimeSpan.nanoseconds(50)),
+      "1ms 500µs 50ns",
+    ],
+    [TimeSpan.seconds(1).add(TimeSpan.microseconds(500)), "1s 500µs"],
+  ];
+
+  test("toString", () => {
+    TO_STRING_TESTS.forEach(([ts, expected]) => {
+      expect(ts.toString()).toEqual(expected);
+    });
+  });
 });
 
 describe("Rate", () => {
@@ -227,7 +300,7 @@ describe("Rate", () => {
 
   test("byteSpan", () =>
     expect(
-      new Rate(1).byteSpan(new Size(32), Density.BIT64).equals(TimeSpan.seconds(4))
+      new Rate(1).byteSpan(new Size(32), Density.BIT64).equals(TimeSpan.seconds(4)),
     ).toBeTruthy());
 
   test("Hz", () => expect(Rate.hz(1).equals(1)).toBeTruthy());
@@ -239,6 +312,15 @@ describe("TimeRange", () => {
     const tr = new TimeRange(new TimeStamp(0), new TimeStamp(1000));
     expect(tr.start.equals(new TimeStamp(0))).toBeTruthy();
     expect(tr.end.equals(new TimeStamp(1000))).toBeTruthy();
+  });
+
+  test("construct from object", () => {
+    const tr = new TimeRange({
+      start: new TimeStamp(1000),
+      end: new TimeStamp(100000),
+    });
+    expect(tr.start.equals(new TimeStamp(1000))).toBeTruthy();
+    expect(tr.end.equals(new TimeStamp(100000))).toBeTruthy();
   });
 
   test("span", () => {
@@ -263,7 +345,7 @@ describe("TimeRange", () => {
   test("swap", () => {
     const tr = new TimeRange(new TimeStamp(0), new TimeStamp(1000));
     expect(
-      tr.swap().equals(new TimeRange(new TimeStamp(1000), new TimeStamp(0)))
+      tr.swap().equals(new TimeRange(new TimeStamp(1000), new TimeStamp(0))),
     ).toBeTruthy();
   });
   describe("contains", () => {
@@ -275,21 +357,50 @@ describe("TimeRange", () => {
     test("TimeRange", () => {
       const tr = new TimeRange(new TimeStamp(0), new TimeStamp(1000));
       expect(
-        tr.contains(new TimeRange(new TimeStamp(500), new TimeStamp(600)))
+        tr.contains(new TimeRange(new TimeStamp(500), new TimeStamp(600))),
       ).toBeTruthy();
       expect(
-        tr.contains(new TimeRange(new TimeStamp(500), new TimeStamp(1001)))
+        tr.contains(new TimeRange(new TimeStamp(500), new TimeStamp(1001))),
       ).toBeFalsy();
     });
   });
-  test("overlapsWith", () => {
-    const tr = new TimeRange(new TimeStamp(0), new TimeStamp(1000));
-    const one = new TimeRange(new TimeStamp(500), new TimeStamp(600));
-    expect(tr.overlapsWith(one)).toBeTruthy();
-    expect(one.overlapsWith(tr)).toBeTruthy();
-    const two = new TimeRange(new TimeStamp(1001), new TimeStamp(2000));
-    expect(tr.overlapsWith(two)).toBeFalsy();
-    expect(two.overlapsWith(tr)).toBeFalsy();
+  describe("overlapsWith", () => {
+    it("should return true if the end of one time range is after the start of the next time range", () => {
+      const tr = new TimeRange(new TimeStamp(0), new TimeStamp(1000));
+      const one = new TimeRange(new TimeStamp(500), new TimeStamp(600));
+      expect(tr.overlapsWith(one)).toBeTruthy();
+      expect(one.overlapsWith(tr)).toBeTruthy();
+    });
+    it("should return false if two time ranges are clearly separate", () => {
+      const tr = new TimeRange(new TimeStamp(0), new TimeStamp(1000));
+      const one = new TimeRange(new TimeStamp(1001), new TimeStamp(2000));
+      expect(tr.overlapsWith(one)).toBeFalsy();
+      expect(one.overlapsWith(tr)).toBeFalsy();
+    });
+    it("should return false if the end of the first time range is the start of the next time range", () => {
+      const tr = new TimeRange(new TimeStamp(0), new TimeStamp(1000));
+      const one = new TimeRange(new TimeStamp(1000), new TimeStamp(2000));
+      expect(tr.overlapsWith(one)).toBeFalsy();
+      expect(one.overlapsWith(tr)).toBeFalsy();
+    });
+    it("should return");
+  });
+
+  describe("boundBy", () => {
+    it("should bound the time range to the provided constraints", () => {
+      const tr = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(4));
+      const bound = new TimeRange(TimeSpan.seconds(2), TimeSpan.seconds(3));
+      const bounded = tr.boundBy(bound);
+      const expected = new TimeRange(TimeSpan.seconds(2), TimeSpan.seconds(3));
+      expect(bounded.equals(expected)).toBeTruthy();
+    });
+    it("should bound the time range even if the start is after the end", () => {
+      const tr = new TimeRange(TimeSpan.seconds(4), TimeSpan.seconds(1));
+      const bound = new TimeRange(TimeSpan.seconds(2), TimeSpan.seconds(3));
+      const bounded = tr.boundBy(bound);
+      const expected = new TimeRange(TimeSpan.seconds(3), TimeSpan.seconds(2));
+      expect(bounded.equals(expected)).toBeTruthy();
+    });
   });
 });
 
@@ -298,5 +409,31 @@ describe("DataType", () => {
     const dt = DataType.INT32;
     const v = JSON.parse(JSON.stringify({ dt }));
     expect(v.dt === "int32").toBeTruthy();
+  });
+
+  describe("isVariable", () => {
+    it("should return true if the data type has a variable length", () => {
+      expect(DataType.INT32.isVariable).toBe(false);
+    });
+    it("should return false if the data type does not have a variable length", () => {
+      expect(DataType.STRING.isVariable).toBe(true);
+    });
+  });
+});
+
+describe("Size", () => {
+  const TO_STRING_TESTS = [
+    [Size.bytes(1), "1B"],
+    [Size.kilobytes(1), "1KB"],
+    [Size.megabytes(1), "1MB"],
+    [Size.gigabytes(1), "1GB"],
+    [Size.terabytes(1), "1TB"],
+    [Size.megabytes(4).add(Size.kilobytes(500)), "4MB 500KB"],
+  ];
+
+  test("toString", () => {
+    TO_STRING_TESTS.forEach(([size, expected]) => {
+      expect(size.toString()).toEqual(expected);
+    });
   });
 });

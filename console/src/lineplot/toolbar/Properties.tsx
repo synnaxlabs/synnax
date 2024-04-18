@@ -9,7 +9,7 @@
 
 import { type ReactElement } from "react";
 
-import { Input, Align, componentRenderProp } from "@synnaxlabs/pluto";
+import { Input, Align } from "@synnaxlabs/pluto";
 import { useDispatch } from "react-redux";
 
 import { Layout } from "@/layout";
@@ -39,25 +39,25 @@ export const Properties = ({ layoutKey }: PropertiesProps): ReactElement => {
 
   return (
     <Align.Space direction="x" style={{ padding: "2rem" }}>
-      <Input.Item<string>
-        label="Title"
-        value={name}
-        onChange={handleTitleRename}
-        grow
-      />
-      <Input.Item<boolean>
-        label="Show Title"
-        value={plot.title.visible}
-        onChange={handleTitleVisibilityChange}
-      >
-        {componentRenderProp(Input.Switch)}
+      <Input.Item label="Title" grow>
+        <Input.Text
+          value={name}
+          onChange={handleTitleRename}
+          selectOnFocus
+          resetOnBlurIfEmpty
+        />
       </Input.Item>
-      <Input.Item<boolean>
-        label="Show Legend"
-        value={plot.legend.visible}
-        onChange={handleLegendVisibilityChange}
-      >
-        {componentRenderProp(Input.Switch)}
+      <Input.Item label="Show Title">
+        <Input.Switch
+          value={plot.title.visible}
+          onChange={handleTitleVisibilityChange}
+        />
+      </Input.Item>
+      <Input.Item label="Show Legend">
+        <Input.Switch
+          value={plot.legend.visible}
+          onChange={handleLegendVisibilityChange}
+        />
       </Input.Item>
     </Align.Space>
   );

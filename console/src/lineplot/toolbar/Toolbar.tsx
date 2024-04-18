@@ -44,16 +44,12 @@ const TABS = [
     name: "Axes",
   },
   {
-    tabKey: "annotations",
-    name: "Annotations",
-  },
-  {
     tabKey: "properties",
     name: "Properties",
   },
 ];
 
-export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
+export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const { name } = Layout.useSelectRequired(layoutKey);
   const dispatch = useDispatch();
   const toolbar = useSelectToolbar();
@@ -96,7 +92,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement => {
       >
         <ToolbarHeader>
           <ToolbarTitle icon={<Icon.Visualize />}>{name}</ToolbarTitle>
-          <Tabs.Selector style={{ borderBottom: "none" }} size="large" />
+          <Tabs.Selector size="medium" />
         </ToolbarHeader>
         <Tabs.Content />
       </Tabs.Provider>

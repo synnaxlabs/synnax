@@ -92,15 +92,15 @@ jobs:
                 - "x/**"
                 - ".github/workflows/client.test.yaml"
 
-      - name: Set up Node
+      - name: Setup Node
         if: steps.filter.outputs.changed == 'true'
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      - name: Set up pnpm
+      - name: Setup pnpm
         if: steps.filter.outputs.changed == 'true'
-        uses: pnpm/action-setup@v2
+        uses: pnpm/action-setup@v3
         with:
           version: 8
 

@@ -9,11 +9,13 @@
 
 import { box, bounds, scale, location, xy } from "@synnaxlabs/x";
 
-import { CSS } from "@/css";
 import { line } from "@/vis/line/aether";
+import {
+  type AxisRenderProps,
+  CoreAxis,
+  coreAxisStateZ,
+} from "@/vis/lineplot/aether/axis";
 import { rule } from "@/vis/rule/aether";
-
-import { type AxisRenderProps, CoreAxis, coreAxisStateZ } from "./axis";
 
 export const yAxisStateZ = coreAxisStateZ.extend({
   location: location.x.optional().default("left"),
@@ -26,7 +28,7 @@ export interface YAxisProps extends AxisRenderProps {
 type Children = line.Line | rule.Rule;
 
 export class YAxis extends CoreAxis<typeof coreAxisStateZ, Children> {
-  static readonly TYPE = CSS.BE("line-plot", "y-axis");
+  static readonly TYPE = "YAxis";
   schema = coreAxisStateZ;
 
   async xBounds(): Promise<bounds.Bounds> {

@@ -62,6 +62,15 @@ export interface ProviderProps extends PropsWithChildren {
   preventDefaultOn?: Trigger[];
 }
 
+const shouldNotTriggerOnKeyDown = (key: string, e: KeyboardEvent): boolean => {
+  if (EXCLUDE_TRIGGERS.includes(key)) return true;
+  if (e.target instanceof HTMLInputElement && ALPHANUMERIC_KEYS_SET.has(key))
+    return true;
+  if (e.target instanceof HTMLElement && e.target.matches("[contenteditable]"))
+    return true;
+  return false;
+};
+
 export const Provider = ({
   children,
   preventDefaultOn,
@@ -91,9 +100,8 @@ export const Provider = ({
     // of the cursor. We might want to move this elsewhere in the future.
     if (["ArrowUp", "ArrowDown"].includes(key)) e.preventDefault();
     // We don't want to trigger any events for excluded keys.
-    if (EXCLUDE_TRIGGERS.includes(key)) return;
     // If our target element is an input, we don't want to trigger any events.
-    if (e.target instanceof HTMLInputElement && ALPHANUMERIC_KEYS_SET.has(key)) return;
+    if (shouldNotTriggerOnKeyDown(key, e as KeyboardEvent)) return;
     setCurr((prev) => {
       const next: Trigger = [...prev.next, key];
       if (prev.next.includes(key)) return prev;

@@ -9,9 +9,13 @@
  * included in the file licenses/APL.txt.
  */
 
- .console-main-nav-top {
+.console-main-nav-top {
     max-width: 100vw;
- }
+}
+
+.console-main-nav {
+    background: var(--pluto-gray-l0);
+}
 
 .console-main-nav-top__start {
     padding: 0rem 2rem;
@@ -44,7 +48,7 @@
 }
 
 .console-main-nav-bottom__end {
-    padding: 0 2rem;
+    padding: 0 1rem;
 }
 
 .console-main-nav-bottom__start {

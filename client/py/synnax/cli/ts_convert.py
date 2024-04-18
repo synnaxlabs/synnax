@@ -157,7 +157,7 @@ def pure_tsconvert(
         )
     )
 
-    writer = IO_FACTORY.new_writer(output_path)
+    writer = IO_FACTORY.open_writer(output_path)
 
     reader.seek_first()
 

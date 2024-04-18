@@ -7,26 +7,27 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Destructor, box, scale, xy } from "@synnaxlabs/x";
+import { box, scale, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { color } from "@/color/core";
-import { telem } from "@/telem/core";
-import { noop } from "@/telem/noop";
+import { telem } from "@/telem/aether";
+import { text } from "@/text/core";
 import { dimensions } from "@/text/dimensions";
 import { theming } from "@/theming/aether";
 import { fontString } from "@/theming/core/fontString";
-import { type Element } from "@/vis/pid/aether/pid";
+import { type Element } from "@/vis/diagram/aether/Diagram";
 import { render } from "@/vis/render";
 
 const valueState = z.object({
   box: box.box,
-  telem: telem.stringSpecZ.optional().default(noop.stringSourceSpec),
-  font: z.string().optional().default(""),
+  telem: telem.stringSourceSpecZ.optional().default(telem.noopStringSourceSpec),
+  font: text.levelZ.optional().default("p"),
   color: color.Color.z.optional().default(color.ZERO),
   precision: z.number().optional().default(2),
-  width: z.number().optional().default(100),
+  minWidth: z.number().optional().default(60),
+  width: z.number().optional(),
 });
 
 export interface ValueProps {
@@ -34,9 +35,9 @@ export interface ValueProps {
 }
 
 interface InternalState {
+  theme: theming.Theme;
   render: render.Context;
   telem: telem.StringSource;
-  cleanupTelem: Destructor;
   requestRender: render.RequestF | null;
   textColor: color.Color;
 }
@@ -49,29 +50,23 @@ export class Value
   static readonly z = valueState;
   schema = Value.z;
 
-  afterUpdate(): void {
-    this.internal.render = render.Context.use(this.ctx);
-    const theme = theming.use(this.ctx);
-    if (this.state.font.length === 0) this.state.font = fontString(theme, "p");
-    if (this.state.color.isZero) this.internal.textColor = theme.colors.gray.l8;
-    else this.internal.textColor = this.state.color;
-    const [t, cleanupTelem] = telem.use<telem.StringSource>(
-      this.ctx,
-      this.key,
-      this.state.telem,
-    );
-    this.internal.telem = t;
-    this.internal.cleanupTelem = cleanupTelem;
+  async afterUpdate(): Promise<void> {
+    const { internal: i } = this;
+    i.render = render.Context.use(this.ctx);
+    i.theme = theming.use(this.ctx);
+    if (this.state.color.isZero) this.internal.textColor = i.theme.colors.gray.l8;
+    else i.textColor = this.state.color;
+    i.telem = await telem.useSource(this.ctx, this.state.telem, i.telem);
     this.internal.telem.onChange(() => this.requestRender());
     this.internal.requestRender = render.Controller.useOptionalRequest(this.ctx);
     this.requestRender();
   }
 
-  afterDelete(): void {
-    const { requestRender, cleanupTelem, render: renderCtx } = this.internal;
-    cleanupTelem();
+  async afterDelete(): Promise<void> {
+    const { requestRender, telem, render: renderCtx } = this.internal;
+    await telem.cleanup?.();
     if (requestRender == null)
-      renderCtx.erase(box.construct(this.state.box), xy.ZERO, "lower2d");
+      renderCtx.erase(box.construct(this.state.box), xy.ZERO, "upper2d");
     else requestRender(render.REASON_LAYOUT);
   }
 
@@ -81,30 +76,42 @@ export class Value
     else void this.render({});
   }
 
-  async render({ s = scale.XY.IDENTITY }): Promise<void> {
-    const { render: renderCtx, telem } = this.internal;
+  async render({ viewportScale = scale.XY.IDENTITY }): Promise<void> {
+    const { render: renderCtx, telem, theme } = this.internal;
     const b = box.construct(this.state.box);
     if (box.isZero(b)) return;
-    const canvas = renderCtx.lower2d.applyScale(s);
-    const value = await telem.string();
+    const canvas = renderCtx.upper2d.applyScale(viewportScale);
+    const value = await telem.value();
     canvas.font = this.state.font;
-    const dims = dimensions(value, this.state.font, canvas);
+    const height = theme.typography[this.state.font].size * theme.sizes.base;
+    const width = dimensions(
+      value,
+      fontString(this.internal.theme, this.state.font),
+      canvas,
+    ).width;
     if (this.internal.requestRender == null)
       renderCtx.erase(box.construct(this.prevState.box));
 
-    if (this.state.width < dims.width)
-      this.setState((p) => ({ ...p, width: dims.width }));
+    const requiredWidth = width + theme.sizes.base * 4;
+
+    if (
+      this.state.width == null ||
+      this.state.width < requiredWidth ||
+      (this.state.minWidth > requiredWidth && this.state.width !== this.state.minWidth)
+    ) {
+      this.setState((p) => ({ ...p, width: Math.max(requiredWidth, p.minWidth) }));
+    }
 
     const labelPosition = xy.couple(
       xy.translate(
         box.topLeft(b),
         {
-          x: box.width(b) / 2,
+          x: 0,
           y: box.height(b) / 2,
         },
         {
-          y: dims.height / 2,
-          x: -dims.width / 2,
+          y: height / 2,
+          x: 12,
         },
       ),
     );

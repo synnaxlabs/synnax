@@ -32,7 +32,10 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
     void (async () => {
       await client.workspaces.pid.delete(keys);
       removeLayout(...keys);
-      const next = Tree.removeNode(state.nodes, ...ids.map((id) => id.toString()));
+      const next = Tree.removeNode({
+        tree: state.nodes,
+        keys: ids.map((id) => id.toString()),
+      });
       state.setNodes([...next]);
     })();
   };
@@ -42,17 +45,17 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
       const pids = await Promise.all(
         resources.map(
           async (res) =>
-            await client.workspaces.pid.copy(res.id.key, res.name + " (copy)", false)
-        )
+            await client.workspaces.pid.copy(res.id.key, res.name + " (copy)", false),
+        ),
       );
       const otgIDs = pids.map(({ key }) => new ontology.ID({ type: "pid", key }));
       const otg = await client.ontology.retrieve(otgIDs);
       state.setResources([...state.resources, ...otg]);
-      const nextTree = Tree.setNode(
-        state.nodes,
-        parent.key,
-        ...Ontology.toTreeNodes(services, otg)
-      );
+      const nextTree = Tree.setNode({
+        tree: state.nodes,
+        destination: parent.key,
+        additions: Ontology.toTreeNodes(services, otg),
+      });
       state.setNodes([...nextTree]);
       Tree.startRenaming(otg[0].id.toString());
     })();
@@ -64,15 +67,15 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
       const pids = await Promise.all(
         resources.map(
           async (res) =>
-            await client.workspaces.pid.copy(res.id.key, res.name + " (snap)", true)
-        )
+            await client.workspaces.pid.copy(res.id.key, res.name + " (snap)", true),
+        ),
       );
       const otgsIDs = pids.map(({ key }) => new ontology.ID({ type: "pid", key }));
       const rangeID = new ontology.ID({ type: "range", key: activeRange.key });
       await client.ontology.moveChildren(
         new ontology.ID(parent.key),
         rangeID,
-        ...otgsIDs
+        ...otgsIDs,
       );
     })();
   };
@@ -113,7 +116,11 @@ const handleRename: Ontology.HandleTreeRename = ({
 }) => {
   void client.workspaces.pid.rename(id.key, name);
   store.dispatch(Layout.rename({ key: id.key, name }));
-  const next = Tree.updateNode(nodes, id.toString(), (node) => ({ ...node, name }));
+  const next = Tree.updateNode({
+    tree: nodes,
+    key: id.toString(),
+    updater: (node) => ({ ...node, name }),
+  });
   setResources([
     ...resources.map((res) => ({
       ...res,
@@ -132,7 +139,7 @@ const handleSelect: Ontology.HandleSelect = ({ client, selection, placeLayout })
         key: pid.key,
         name: pid.name,
         snapshot: pid.snapshot,
-      })
+      }),
     );
   })();
 };
@@ -155,7 +162,7 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
           mosaicKey: nodeKey,
           location,
         },
-      })
+      }),
     );
   })();
 };

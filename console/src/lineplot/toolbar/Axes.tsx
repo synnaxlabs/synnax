@@ -15,13 +15,11 @@ import {
   Select,
   Align,
   Tabs,
-  componentRenderProp,
   useMemoCompare,
   compareArrayDeps,
   Text,
   Button,
 } from "@synnaxlabs/pluto";
-import { type direction } from "@synnaxlabs/x";
 import { useDispatch } from "react-redux";
 
 import { useSelect } from "@/lineplot/selectors";
@@ -73,7 +71,7 @@ export interface LinePlotAxisControlsProps {
   layoutKey: string;
 }
 
-export interface AutoBoundButtonProps extends Button.IconProps {
+export interface AutoBoundButtonProps extends Omit<Button.IconProps, "children"> {
   enabled: boolean;
 }
 
@@ -156,76 +154,58 @@ export const LinePlotAxisControls = ({
   return (
     <Align.Space direction="y" style={{ padding: "2rem" }} size="small">
       <Align.Space direction="x">
-        <Input.Item<number, number, Input.NumericProps>
-          label="Lower Bound"
-          value={axis.bounds.lower}
-          onChange={handleLowerBoundChange}
-          resetValue={0}
-          dragScale={AXES_BOUNDS_DRAG_SCALE}
-          direction="y"
-          grow
-        >
-          {(p) => (
-            <Input.Numeric {...p}>
-              <AutoBoundButton
-                enabled={axis.autoBounds.lower}
-                onClick={handleLowerAutoBoundEnable}
-              />
-            </Input.Numeric>
-          )}
+        <Input.Item label="Lower Bound" direction="y" grow>
+          <Input.Numeric
+            value={axis.bounds.lower}
+            onChange={handleLowerBoundChange}
+            resetValue={0}
+            dragScale={AXES_BOUNDS_DRAG_SCALE}
+          >
+            <AutoBoundButton
+              enabled={axis.autoBounds.lower}
+              onClick={handleLowerAutoBoundEnable}
+            />
+          </Input.Numeric>
         </Input.Item>
-        <Input.Item<number, number, Input.NumericProps>
-          label="Upper Bound"
-          value={axis.bounds.upper}
-          onChange={handleUpperBoundChange}
-          resetValue={0}
-          dragScale={AXES_BOUNDS_DRAG_SCALE}
-          style={{ flexGrow: 1 }}
-        >
-          {(p) => (
-            <Input.Numeric {...p}>
-              <AutoBoundButton
-                enabled={axis.autoBounds.upper}
-                onClick={handleUpperAutoBoundEnable}
-              />
-            </Input.Numeric>
-          )}
+        <Input.Item label="Upper Bound" grow>
+          <Input.Numeric
+            value={axis.bounds.upper}
+            onChange={handleUpperBoundChange}
+            resetValue={0}
+            dragScale={AXES_BOUNDS_DRAG_SCALE}
+          >
+            <AutoBoundButton
+              enabled={axis.autoBounds.upper}
+              onClick={handleUpperAutoBoundEnable}
+            />
+          </Input.Numeric>
         </Input.Item>
-        <Input.Item<number, number, Input.NumericProps>
-          label="Tick Spacing"
-          value={axis.tickSpacing}
-          onChange={handleTickSpacingChange}
-          resetValue={75}
-          dragScale={AXES_BOUNDS_DRAG_SCALE}
-          bounds={{ lower: 1, upper: 200 }}
-          grow
-        >
-          {componentRenderProp(Input.Numeric)}
+        <Input.Item label="Tick Spacing" grow>
+          <Input.Numeric
+            resetValue={75}
+            dragScale={AXES_BOUNDS_DRAG_SCALE}
+            bounds={{ lower: 1, upper: 200 }}
+            value={axis.tickSpacing}
+            onChange={handleTickSpacingChange}
+          />
         </Input.Item>
       </Align.Space>
       <Align.Space direction="x">
-        <Input.Item<string, string, Input.TextProps>
-          label="Label"
-          value={axis.label}
-          placeholder={axisKey.toUpperCase()}
-          onChange={handleLabelChange}
-          grow
-        />
-
-        <Input.Item<direction.Direction, direction.Direction, Select.DirectionProps>
-          label="Label Direction"
-          value={axis.labelDirection}
-          onChange={handleLabelDirectionChange}
-          style={{ minWidth: 90 }}
-        >
-          {componentRenderProp(Select.Direction)}
+        <Input.Item label="Label" grow>
+          <Input.Text
+            placeholder={axisKey.toUpperCase()}
+            value={axis.label}
+            onChange={handleLabelChange}
+          />
         </Input.Item>
-        <Input.Item<Text.Level, Text.Level, Text.SelectLevelProps>
-          label="Label Size"
-          value={axis.labelLevel}
-          onChange={handleLabelLevelChange}
-        >
-          {componentRenderProp(Text.SelectLevel)}
+        <Input.Item label="Label Direction" style={{ minWidth: 90 }}>
+          <Select.Direction
+            value={axis.labelDirection}
+            onChange={handleLabelDirectionChange}
+          />
+        </Input.Item>
+        <Input.Item label="Label Size">
+          <Text.SelectLevel value={axis.labelLevel} onChange={handleLabelLevelChange} />
         </Input.Item>
       </Align.Space>
     </Align.Space>

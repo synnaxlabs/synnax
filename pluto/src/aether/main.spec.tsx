@@ -29,11 +29,11 @@ class ExampleLeaf extends aether.Leaf<typeof exampleProps> {
 
   schema = exampleProps;
 
-  afterUpdate(): void {
+  async afterUpdate(): Promise<void> {
     this.updatef();
   }
 
-  afterDelete(): void {
+  async afterDelete(): Promise<void> {
     this.deletef();
   }
 }
@@ -46,11 +46,11 @@ class ExampleComposite extends aether.Composite<typeof exampleProps, ExampleLeaf
 
   schema = exampleProps;
 
-  afterUpdate(): void {
+  async afterUpdate(): Promise<void> {
     this.updatef();
   }
 
-  afterDelete(): void {
+  async afterDelete(): Promise<void> {
     this.deletef();
   }
 }
@@ -64,11 +64,11 @@ class ContextSetterComposite extends aether.Composite<
 
   schema = exampleProps;
 
-  afterUpdate(): void {
+  async afterUpdate(): Promise<void> {
     this.ctx.set("key", "value");
   }
 
-  afterDelete(): void {
+  async afterDelete(): Promise<void> {
     this.deletef();
   }
 }
@@ -92,7 +92,7 @@ const newProvider = (): [FC<PropsWithChildren>, aether.Root] => {
 
 describe("Aether Main", () => {
   describe("leaf", () => {
-    it("should set the initial state correctly", () => {
+    it("should set the initial state correctly", async () => {
       const [Provider, root] = newProvider();
       const ExampleLeafC = Aether.wrap(ExampleLeaf.TYPE, ({ aetherKey }) => {
         Aether.use({
@@ -108,12 +108,13 @@ describe("Aether Main", () => {
           <ExampleLeafC />
         </Provider>,
       );
+      await new Promise((resolve) => setTimeout(resolve, 10));
       expect(root.children).toHaveLength(1);
       const first = root.children[0] as ExampleLeaf;
       expect(first.type).toBe(ExampleLeaf.TYPE);
       expect(first.state).toEqual({ x: 0 });
     });
-    it("should update the state on a call to setState", () => {
+    it("should update the state on a call to setState", async () => {
       const [Provider, root] = newProvider();
       const ExampleLeafC = Aether.wrap(ExampleLeaf.TYPE, ({ aetherKey }) => {
         const [, , setState] = Aether.use({
@@ -134,6 +135,7 @@ describe("Aether Main", () => {
           <ExampleLeafC />
         </Provider>,
       );
+      await new Promise((resolve) => setTimeout(resolve, 10));
       expect(root.children).toHaveLength(1);
       const first = root.children[0] as ExampleLeaf;
       expect(first.type).toBe(ExampleLeaf.TYPE);

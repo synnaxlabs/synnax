@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds, box, scale, xy } from "@synnaxlabs/x";
+import { TimeStamp, bounds, box, scale, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -43,7 +43,7 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
   static readonly TYPE = "tooltip";
   schema = tooltipStateZ;
 
-  afterUpdate(): void {
+  async afterUpdate(): Promise<void> {
     const theme = theming.use(this.ctx);
     if (this.state.textColor.isZero) this.state.textColor = theme.colors.text;
     if (this.state.backgroundColor.isZero)
@@ -58,23 +58,28 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
     render.Controller.requestRender(this.ctx, render.REASON_TOOL);
   }
 
-  afterDelete(): void {
+  async afterDelete(): Promise<void> {
     render.Controller.requestRender(this.ctx, render.REASON_TOOL);
   }
 
   async render(props: TooltipProps): Promise<void> {
     if (this.deleted || this.state.position == null) return;
     const { region } = props;
-    const s = scale.XY.scale(box.DECIMAL).scale(region);
+    const scale_ = scale.XY.scale(box.DECIMAL).scale(region);
     const reverseScale = scale.XY.scale(region).scale(box.DECIMAL);
     const values = await props.findByXDecimal(
       reverseScale.x.pos(this.state.position.x),
     );
+    const validValues = values.filter((c) => xy.isFinite(c.value));
     const { draw } = this.internal;
 
-    const avgXDecimal = values.reduce((p, c) => p + c.position.x, 0) / values.length;
+    const avgXPosition =
+      validValues.reduce((p, c) => p + c.position.x, 0) / validValues.length;
+    const avgXValue = new TimeStamp(
+      validValues.reduce((p, c) => p + c.value.x, 0) / validValues.length,
+    );
 
-    const rulePosition = s.x.pos(avgXDecimal);
+    const rulePosition = scale_.x.pos(avgXPosition);
     if (!bounds.contains(box.xBounds(region), rulePosition)) return;
 
     draw.rule({
@@ -86,8 +91,8 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
       position: rulePosition,
     });
 
-    values.forEach((r) => {
-      const position = s.pos(r.position);
+    validValues.forEach((r) => {
+      const position = scale_.pos(r.position);
       draw.circle({ fill: r.color.setAlpha(0.5), radius: 8, position });
       draw.circle({ fill: r.color.setAlpha(0.8), radius: 5, position });
       draw.circle({
@@ -101,15 +106,23 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
     });
 
     const text = values.map((r) => `${r.label ?? ""}: ${r.value.y.toFixed(2)}`);
+    text.unshift(`Time: ${avgXValue.fString("preciseDate", "local")}`);
+
+    const relativePosition = reverseScale.pos(this.state.position);
 
     draw.textContainer({
       text,
       backgroundColor: this.state.backgroundColor,
       borderColor: this.state.borderColor,
-      position: xy.translate(this.state.position, [10, 10]),
+      position: this.state.position,
       direction: "y",
       level: "small",
       spacing: 1,
+      offset: { x: 12, y: 12 },
+      root: {
+        x: relativePosition.x > 0.8 ? "right" : "left",
+        y: relativePosition.y > 0.8 ? "top" : "bottom",
+      },
     });
   }
 }

@@ -42,6 +42,25 @@ type Readable interface {
 	NewStreamIterator(ctx context.Context, cfg IteratorConfig) (StreamIterator, error)
 }
 
+type Streamable interface {
+	NewStreamer(ctx context.Context, cfg StreamerConfig) (Streamer, error)
+}
+
+type ReadWriteable interface {
+	Writable
+	Readable
+}
+
+type ReadWriteStreamable interface {
+	Writable
+	Readable
+}
+
+type WriteStreamable interface {
+	Writable
+	Streamable
+}
+
 type Config struct {
 	alamos.Instrumentation
 	ChannelReader channel.Readable
@@ -55,17 +74,17 @@ var (
 	DefaultConfig                       = Config{}
 )
 
-// Validate implements config.Config.
+// Validate implements config.Properties.
 func (c Config) Validate() error {
 	v := validate.New("distribution.framer")
 	validate.NotNil(v, "ChannelReader", c.ChannelReader)
 	validate.NotNil(v, "TS", c.TS)
 	validate.NotNil(v, "Transport", c.Transport)
-	validate.NotNil(v, "HostResolver", c.HostResolver)
+	validate.NotNil(v, "HostProvider", c.HostResolver)
 	return v.Error()
 }
 
-// Override implements config.Config.
+// Override implements config.Properties.
 func (c Config) Override(other Config) Config {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.ChannelReader = override.Nil(c.ChannelReader, other.ChannelReader)

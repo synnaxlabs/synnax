@@ -8,34 +8,37 @@
 // included in the file licenses/APL.txt.
 
 import { type PayloadAction, createSlice } from "@reduxjs/toolkit";
-import { type PID, type Control, type Viewport } from "@synnaxlabs/pluto";
-import { box, scale, xy, deep } from "@synnaxlabs/x";
-import { nanoid } from "nanoid";
+import { type Control, type Viewport, type Diagram, type PID } from "@synnaxlabs/pluto";
+import { Color } from "@synnaxlabs/pluto/color";
+import { type Theming } from "@synnaxlabs/pluto/theming";
+import { box, scale, xy, deep, migrate } from "@synnaxlabs/x";
+import { nanoid } from "nanoid/non-secure";
 import { v4 as uuidV4 } from "uuid";
 
 import { type Layout } from "@/layout";
 
 export type NodeProps = object & {
-  type: string;
+  key: PID.Variant;
+  color?: Color.Crude;
 };
 
-export interface State {
+export interface State extends migrate.Migratable {
   editable: boolean;
   snapshot: boolean;
   remoteCreated: boolean;
-  viewport: PID.Viewport;
-  nodes: PID.Node[];
-  edges: PID.Edge[];
-  props: Record<string, object>;
+  viewport: Diagram.Viewport;
+  nodes: Diagram.Node[];
+  edges: Diagram.Edge[];
+  props: Record<string, NodeProps>;
   control: Control.Status;
   controlAcquireTrigger: number;
 }
 
 interface CopyBuffer {
   pos: xy.Crude;
-  nodes: PID.Node[];
-  edges: PID.Edge[];
-  props: Record<string, object>;
+  nodes: Diagram.Node[];
+  edges: Diagram.Edge[];
+  props: Record<string, NodeProps>;
 }
 
 const ZERO_COPY_BUFFER: CopyBuffer = {
@@ -47,14 +50,14 @@ const ZERO_COPY_BUFFER: CopyBuffer = {
 
 // ||||| TOOLBAR |||||
 
-const TOOLBAR_TABS = ["elements", "properties"] as const;
+const TOOLBAR_TABS = ["symbols", "properties"] as const;
 export type ToolbarTab = (typeof TOOLBAR_TABS)[number];
 
 export interface ToolbarState {
   activeTab: ToolbarTab;
 }
 
-export interface SliceState {
+export interface SliceState extends migrate.Migratable {
   mode: Viewport.Mode;
   copy: CopyBuffer;
   toolbar: ToolbarState;
@@ -68,6 +71,7 @@ export interface StoreState {
 }
 
 export const ZERO_STATE: State = {
+  version: "0.0.0",
   snapshot: false,
   nodes: [],
   edges: [],
@@ -79,23 +83,24 @@ export const ZERO_STATE: State = {
   controlAcquireTrigger: 0,
 };
 
-export const ZERO_PID_SLICE_STATE: SliceState = {
+export const ZERO_SLICE_STATE: SliceState = {
+  version: "0.0.0",
   mode: "select",
   copy: { ...ZERO_COPY_BUFFER },
-  toolbar: { activeTab: "elements" },
+  toolbar: { activeTab: "symbols" },
   pids: {},
 };
 
 export interface SetViewportPayload {
   layoutKey: string;
-  viewport: PID.Viewport;
+  viewport: Diagram.Viewport;
 }
 
 export interface AddElementPayload {
   layoutKey: string;
   key: string;
   props: NodeProps;
-  node?: Partial<PID.Node>;
+  node?: Partial<Diagram.Node>;
 }
 
 export interface SetElementPropsPayload {
@@ -104,14 +109,24 @@ export interface SetElementPropsPayload {
   props: NodeProps;
 }
 
+export interface FixThemeContrastPayload {
+  theme: Theming.ThemeSpec;
+}
+
 export interface SetNodesPayload {
   layoutKey: string;
-  nodes: PID.Node[];
+  mode?: "replace" | "update";
+  nodes: Diagram.Node[];
+}
+
+export interface SetNodePositionsPayload {
+  layoutKey: string;
+  positions: Record<string, xy.XY>;
 }
 
 export interface SetEdgesPayload {
   layoutKey: string;
-  edges: PID.Edge[];
+  edges: Diagram.Edge[];
 }
 
 export interface CreatePayload extends State {
@@ -132,7 +147,7 @@ export interface SetControlStatusPayload {
   control: Control.Status;
 }
 
-export interface TogggleControlPayload {
+export interface ToggleControlPayload {
   layoutKey: string;
   status: Control.Status;
 }
@@ -163,21 +178,25 @@ export interface SetRemoteCreatedPayload {
 export const calculatePos = (
   region: box.Box,
   cursor: xy.XY,
-  viewport: PID.Viewport,
+  viewport: Diagram.Viewport,
 ): xy.XY => {
   const zoomXY = xy.construct(viewport.zoom);
   const s = scale.XY.translate(xy.scale(box.topLeft(region), -1))
+    .translate(xy.scale(viewport.position, -1))
     .magnify({
       x: 1 / zoomXY.x,
       y: 1 / zoomXY.y,
-    })
-    .translate(xy.scale(viewport.position, -1));
+    });
   return s.pos(cursor);
 };
 
+const MIGRATIONS: migrate.Migrations = {};
+
+export const migrateSlice = migrate.migrator<SliceState, SliceState>(MIGRATIONS);
+
 export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
-  initialState: ZERO_PID_SLICE_STATE,
+  initialState: ZERO_SLICE_STATE,
   reducers: {
     copySelection: (state, _: PayloadAction<CopySelectionPayload>) => {
       // for each pid, find the keys of the selected nodes and edges
@@ -226,6 +245,7 @@ export const { actions, reducer } = createSlice({
           ...node,
           position: xy.translate(node.position, console),
           key,
+          selected: true,
         };
       });
       const nextEdges = state.copy.edges.map((edge) => {
@@ -235,11 +255,17 @@ export const { actions, reducer } = createSlice({
           key,
           source: keys[edge.source],
           target: keys[edge.target],
-          points: edge.points.map((point) => xy.translate(point, console)),
+          selected: true,
         };
       });
-      pid.edges = [...pid.edges, ...nextEdges];
-      pid.nodes = [...pid.nodes, ...nextNodes];
+      pid.edges = [
+        ...pid.edges.map((edge) => ({ ...edge, selected: false })),
+        ...nextEdges,
+      ];
+      pid.nodes = [
+        ...pid.nodes.map((node) => ({ ...node, selected: false })),
+        ...nextNodes,
+      ];
     },
     create: (state, { payload }: PayloadAction<CreatePayload>) => {
       const { key: layoutKey } = payload;
@@ -249,6 +275,7 @@ export const { actions, reducer } = createSlice({
         clearSelections(pid);
       }
       state.pids[layoutKey] = pid;
+      state.toolbar.activeTab = "symbols";
     },
     clearSelection: (state, { payload }: PayloadAction<ClearSelectionPayload>) => {
       const { layoutKey } = payload;
@@ -259,13 +286,13 @@ export const { actions, reducer } = createSlice({
       pid.edges.forEach((edge) => {
         edge.selected = false;
       });
-      state.toolbar.activeTab = "elements";
+      state.toolbar.activeTab = "symbols";
     },
     remove: (state, { payload }: PayloadAction<RemovePayload>) => {
       const { layoutKeys } = payload;
       layoutKeys.forEach((layoutKey) => {
         const pid = state.pids[layoutKey];
-        if (pid.control === "acquired") pid.controlAcquireTrigger = -1;
+        if (pid.control === "acquired") pid.controlAcquireTrigger -= 1;
         // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
         delete state.pids[layoutKey];
       });
@@ -296,14 +323,29 @@ export const { actions, reducer } = createSlice({
       }
     },
     setNodes: (state, { payload }: PayloadAction<SetNodesPayload>) => {
-      const { layoutKey, nodes } = payload;
+      const { layoutKey, nodes, mode = "replace" } = payload;
       const pid = state.pids[layoutKey];
-      pid.nodes = nodes;
-      const anySelected = nodes.some((node) => node.selected);
+      if (mode === "replace") pid.nodes = nodes;
+      else {
+        const keys = nodes.map((node) => node.key);
+        pid.nodes = [...pid.nodes.filter((node) => !keys.includes(node.key)), ...nodes];
+      }
+      const anySelected =
+        nodes.some((node) => node.selected) || pid.edges.some((edge) => edge.selected);
       if (anySelected) {
+        if (state.toolbar.activeTab !== "properties")
+          clearOtherSelections(state, layoutKey);
         state.toolbar.activeTab = "properties";
-        clearOtherSelections(state, layoutKey);
-      } else state.toolbar.activeTab = "elements";
+      } else state.toolbar.activeTab = "symbols";
+    },
+    setNodePositions: (state, { payload }: PayloadAction<SetNodePositionsPayload>) => {
+      const { layoutKey, positions } = payload;
+      const pid = state.pids[layoutKey];
+      Object.entries(positions).forEach(([key, position]) => {
+        const node = pid.nodes.find((node) => node.key === key);
+        if (node == null) return;
+        node.position = position;
+      });
     },
     setEdges: (state, { payload }: PayloadAction<SetEdgesPayload>) => {
       const { layoutKey, edges } = payload;
@@ -317,14 +359,17 @@ export const { actions, reducer } = createSlice({
         if (source == null || target == null) return;
         const sourceProps = pid.props[source.key];
         const targetProps = pid.props[target.key];
-        if (sourceProps.color === targetProps.color) edge.color = sourceProps.color;
+        if (sourceProps.color === targetProps.color && sourceProps.color != null)
+          edge.color = sourceProps.color;
       });
       pid.edges = edges;
-      const anySelected = edges.some((edge) => edge.selected);
+      const anySelected =
+        edges.some((edge) => edge.selected) || pid.nodes.some((node) => node.selected);
       if (anySelected) {
+        if (state.toolbar.activeTab !== "properties")
+          clearOtherSelections(state, layoutKey);
         state.toolbar.activeTab = "properties";
-        clearOtherSelections(state, layoutKey);
-      } else state.toolbar.activeTab = "elements";
+      } else state.toolbar.activeTab = "symbols";
     },
     setActiveToolbarTab: (
       state,
@@ -341,22 +386,24 @@ export const { actions, reducer } = createSlice({
     setEditable: (state, { payload }: PayloadAction<SetEditablePayload>) => {
       const { layoutKey, editable } = payload;
       const pid = state.pids[layoutKey];
+      clearSelections(pid);
       if (pid.control === "acquired") {
-        pid.controlAcquireTrigger = -1;
-        pid.control = "released";
+        pid.controlAcquireTrigger -= 1;
       }
       if (pid.snapshot) return;
       pid.editable = editable;
     },
-    toggleControl: (state, { payload }: PayloadAction<TogggleControlPayload>) => {
+    toggleControl: (state, { payload }: PayloadAction<ToggleControlPayload>) => {
       let { layoutKey, status } = payload;
       const pid = state.pids[layoutKey];
       if (status == null) status = pid.control === "released" ? "acquired" : "released";
-      pid.controlAcquireTrigger += -2 * Number(status === "released") + 1;
+      if (status === "released") pid.controlAcquireTrigger -= 1;
+      else pid.controlAcquireTrigger += 1;
     },
     setControlStatus: (state, { payload }: PayloadAction<SetControlStatusPayload>) => {
       const { layoutKey, control } = payload;
       const pid = state.pids[layoutKey];
+      if (pid == null) return;
       pid.control = control;
       if (control === "acquired") pid.editable = false;
     },
@@ -371,12 +418,40 @@ export const { actions, reducer } = createSlice({
       const pid = state.pids[layoutKey];
       pid.remoteCreated = true;
     },
+    fixThemeContrast: (state, { payload }: PayloadAction<FixThemeContrastPayload>) => {
+      const { theme } = payload;
+      const bgColor = new Color.Color(theme.colors.gray.l0);
+      Object.values(state.pids).forEach((pid) => {
+        const { nodes, edges, props } = pid;
+        nodes.forEach((node) => {
+          const nodeProps = props[node.key];
+          if ("color" in nodeProps) {
+            const c = new Color.Color(nodeProps.color as string);
+            // check the contrast of the color
+            if (c.contrast(bgColor) < 1.1) {
+              // if the contrast is too low, change the color to the contrast color
+              nodeProps.color = theme.colors.gray.l9;
+            }
+          }
+        });
+        edges.forEach((edge) => {
+          if (
+            edge.color != null &&
+            new Color.Color(edge.color as string).contrast(bgColor) < 1.1
+          ) {
+            edge.color = theme.colors.gray.l9;
+          } else if (edge.color == null) {
+            edge.color = theme.colors.gray.l9;
+          }
+        });
+      });
+    },
   },
 });
 
-const clearOtherSelections = (state: SliceState, layoutKey: string) => {
+const clearOtherSelections = (state: SliceState, layoutKey: string): void => {
   Object.keys(state.pids).forEach((key) => {
-    // If any of the nodes or edges in other PID slices are selected, deselct them.
+    // If any of the nodes or edges in other Diagram slices are selected, deselect them.
     if (key === layoutKey) return;
     clearSelections(state.pids[key]);
   });
@@ -392,6 +467,7 @@ const clearSelections = (state: State): void => {
 };
 
 export const {
+  setNodePositions,
   toggleControl,
   setControlStatus,
   addElement,
@@ -408,6 +484,7 @@ export const {
   pasteSelection,
   setViewportMode,
   setRemoteCreated,
+  fixThemeContrast,
 } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;

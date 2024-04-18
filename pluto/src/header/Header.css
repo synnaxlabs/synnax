@@ -9,15 +9,12 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-header--divided .pluto-header__actions {
-    padding: 0 1rem;
-}
+ .pluto-header {
+    padding: 0 0.5rem;
+ }
 
 .pluto-header__text {
-    padding: 0 1rem;
-    & .pluto-text {
-        padding: 1rem;
-    }
+    padding: 1rem;
 }
 
 .pluto-header-button-title {

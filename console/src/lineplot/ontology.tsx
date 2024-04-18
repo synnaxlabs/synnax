@@ -27,7 +27,10 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
     void (async () => {
       await client.workspaces.linePlot.delete(keys);
       removeLayout(...keys);
-      const next = Tree.removeNode(nodes, ...ids.map((id) => id.toString()));
+      const next = Tree.removeNode({
+        tree: nodes,
+        keys: ids.map((id) => id.toString()),
+      });
       setNodes([...next]);
     })();
   };
@@ -60,7 +63,11 @@ const handleRename: Ontology.HandleTreeRename = ({
 }) => {
   void client.workspaces.linePlot.rename(id.key, name);
   store.dispatch(Layout.rename({ key: id.key, name }));
-  const next = Tree.updateNode(nodes, id.toString(), (node) => ({ ...node, name }));
+  const next = Tree.updateNode({
+    tree: nodes,
+    key: id.toString(),
+    updater: (node) => ({ ...node, name }),
+  });
   setNodes([...next]);
 };
 
@@ -72,7 +79,7 @@ const handleSelect: Ontology.HandleSelect = ({ client, selection, placeLayout })
         ...(linePlot.data as unknown as State),
         key: linePlot.key,
         name: linePlot.name,
-      })
+      }),
     );
   })();
 };
@@ -94,7 +101,7 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
           mosaicKey: nodeKey,
           location,
         },
-      })
+      }),
     );
   })();
 };

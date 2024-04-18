@@ -15,12 +15,11 @@ import { GrDrag } from "react-icons/gr";
 import { Button } from "@/button";
 import { CSS } from "@/css";
 import { Cursor } from "@/cursor";
-import { useVirtualCursorDrag } from "@/hooks/useCursorDrag";
+import { useVirtualCursorDragWebKit } from "@/hooks/useCursorDrag/useVirtualCursorDragWebKit";
 import { type Control } from "@/input/types";
 
 import "@/input/DragButton.css";
-
-export interface DragButtonExtensionProps {
+export interface DragButtonExtraProps {
   direction?: direction.Crude;
   dragDirection?: direction.Crude;
   dragScale?: xy.Crude | number;
@@ -31,10 +30,40 @@ export interface DragButtonExtensionProps {
 export interface DragButtonProps
   extends Omit<
       Button.IconProps,
-      "direction" | "onChange" | "onDragStart" | "children" | "value"
+      | "direction"
+      | "onChange"
+      | "onDragStart"
+      | "children"
+      | "value"
+      | "onDragEnd"
+      | "onBlur"
     >,
     Control<number>,
-    DragButtonExtensionProps {}
+    DragButtonExtraProps {
+  onDragEnd?: (value: number) => void;
+  onBlur?: () => void;
+}
+
+const calculateValue = (
+  value: number,
+  b: box.Box,
+  normalDragScale: xy.XY,
+  normalDragThreshold: xy.XY | null,
+  elBox: box.Box,
+): number => {
+  const { x, y } = normalDragThreshold ?? xy.construct(box.dims(elBox));
+  if (box.width(b) > x && box.width(b) > box.height(b)) {
+    const offset = box.signedWidth(b) < 0 ? x : -x;
+    value += (box.signedWidth(b) + offset) * normalDragScale.x;
+    Cursor.setGlobalStyle("ew-resize");
+  }
+  if (box.height(b) > y && box.height(b) > box.width(b)) {
+    const offset = box.signedHeight(b) < 0 ? y : -y;
+    value += (box.signedHeight(b) + offset) * normalDragScale.y;
+    Cursor.setGlobalStyle("ns-resize");
+  }
+  return value;
+};
 
 export const DragButton = ({
   direction,
@@ -46,6 +75,7 @@ export const DragButton = ({
   value,
   size,
   resetValue,
+  onDragEnd,
   ...props
 }: DragButtonProps): ReactElement => {
   const vRef = useRef({
@@ -63,40 +93,51 @@ export const DragButton = ({
     if (dragDirection === "y") return xy.construct(0, scale.y);
     return scale;
   }, [dragScale, dragDirection]);
+
   const normalDragThreshold = useMemo(
     () => (dragThreshold != null ? xy.construct(dragThreshold) : null),
     [dragThreshold],
   );
 
-  useVirtualCursorDrag({
+  useVirtualCursorDragWebKit({
     ref: elRef,
     onMove: useCallback(
       (b: box.Box) => {
         if (elRef.current == null) return;
         let value = vRef.current.prev;
         vRef.current.dragging = true;
-        const { x, y } =
-          normalDragThreshold ?? xy.construct(box.dims(box.construct(elRef.current)));
-        if (box.width(b) > x && box.width(b) > box.height(b)) {
-          const offset = box.signedWidth(b) < 0 ? x : -x;
-          value += (box.signedWidth(b) + offset) * normalDragScale.x;
-          Cursor.setGlobalStyle("ew-resize");
-        }
-        if (box.height(b) > y && box.height(b) > box.width(b)) {
-          const offset = box.signedHeight(b) < 0 ? y : -y;
-          value += (box.signedHeight(b) + offset) * normalDragScale.y;
-          Cursor.setGlobalStyle("ns-resize");
-        }
+        value = calculateValue(
+          value,
+          b,
+          normalDragScale,
+          normalDragThreshold,
+          box.construct(elRef.current),
+        );
         vRef.current.curr = value;
         onChange(value);
       },
       [onChange, normalDragScale, normalDragThreshold],
     ),
-    onEnd: useCallback(() => {
-      vRef.current.prev = vRef.current.curr;
-      vRef.current.dragging = false;
-      Cursor.clearGlobalStyle();
-    }, []),
+    onEnd: useCallback(
+      (b: box.Box, _: unknown) => {
+        if (elRef.current == null) return;
+        let value = vRef.current.prev;
+        value = calculateValue(
+          value,
+          b,
+          normalDragScale,
+          normalDragThreshold,
+          box.construct(elRef.current),
+        );
+
+        vRef.current.prev = value;
+        vRef.current.dragging = false;
+        Cursor.clearGlobalStyle();
+        onDragEnd?.(value);
+        props.onBlur?.();
+      },
+      [props.onBlur, onDragEnd, normalDragScale, normalDragThreshold],
+    ),
   });
 
   const handleDoubleClick = useCallback(() => {
@@ -105,6 +146,7 @@ export const DragButton = ({
 
   return (
     <Button.Icon
+      tabIndex={-1}
       ref={elRef}
       variant="outlined"
       className={CSS(CSS.BE("input", "drag-btn"), CSS.dir(direction), className)}

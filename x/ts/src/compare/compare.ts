@@ -114,3 +114,9 @@ export const LESS_THAN = -1;
 
 /** The greater than return value of a compare function. */
 export const GREATER_THAN = 1;
+
+export const isLessThan = (n: number): boolean => n < EQUAL;
+
+export const isGreaterThan = (n: number): boolean => n > EQUAL;
+
+export const isGreaterThanEqual = (n: number): boolean => n >= EQUAL;

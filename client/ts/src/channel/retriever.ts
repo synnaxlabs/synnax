@@ -6,9 +6,9 @@
 // As of the Change Date specified in that file, in accordance with the Business Source
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
-
 import type { UnaryClient } from "@synnaxlabs/freighter";
-import { toArray } from "@synnaxlabs/x";
+import { debounce, toArray } from "@synnaxlabs/x";
+import { Mutex } from "async-mutex";
 import { z } from "zod";
 
 import {
@@ -29,21 +29,21 @@ const reqZ = z.object({
   keys: z.number().array().optional(),
   names: z.string().array().optional(),
   search: z.string().optional(),
-  searchRangeKey: z.string().optional(),
+  rangeKey: z.string().optional(),
   limit: z.number().optional(),
   offset: z.number().optional(),
 });
 
-type Request = z.infer<typeof reqZ>;
+type Request = z.input<typeof reqZ>;
 
 const resZ = z.object({
   channels: payload.array(),
 });
 
 export interface Retriever {
-  retrieve: (channels: Params) => Promise<Payload[]>;
+  retrieve: (channels: Params, rangeKey?: string) => Promise<Payload[]>;
   search: (term: string, rangeKey?: string) => Promise<Payload[]>;
-  page: (offset: number, limit: number) => Promise<Payload[]>;
+  page: (offset: number, limit: number, rangeKey?: string) => Promise<Payload[]>;
 }
 
 export class ClusterRetriever implements Retriever {
@@ -55,20 +55,25 @@ export class ClusterRetriever implements Retriever {
   }
 
   async search(term: string, rangeKey?: string): Promise<Payload[]> {
-    return await this.execute({ search: term, searchRangeKey: rangeKey });
+    return await this.execute({ search: term, rangeKey });
   }
 
-  async retrieve(channels: Params): Promise<Payload[]> {
+  async retrieve(channels: Params, rangeKey?: string): Promise<Payload[]> {
     const { variant, normalized } = analyzeParams(channels);
-    return await this.execute({ [variant]: normalized });
+    return await this.execute({ [variant]: normalized, rangeKey });
   }
 
-  async page(offset: number, limit: number): Promise<Payload[]> {
-    return await this.execute({ offset, limit });
+  async page(offset: number, limit: number, rangeKey?: string): Promise<Payload[]> {
+    return await this.execute({ offset, limit, rangeKey });
   }
 
   private async execute(request: Request): Promise<Payload[]> {
-    const [res, err] = await this.client.send(ClusterRetriever.ENDPOINT, request, resZ);
+    const [res, err] = await this.client.send(
+      ClusterRetriever.ENDPOINT,
+      request,
+      reqZ,
+      resZ,
+    );
     if (err != null) throw err;
     return res.channels;
   }
@@ -85,12 +90,12 @@ export class CacheRetriever implements Retriever {
     this.wrapped = wrapped;
   }
 
-  async search(term: string, searchRangeKey?: string): Promise<Payload[]> {
-    return await this.wrapped.search(term, searchRangeKey);
+  async search(term: string, rangeKey?: string): Promise<Payload[]> {
+    return await this.wrapped.search(term, rangeKey);
   }
 
-  async page(offset: number, limit: number): Promise<Payload[]> {
-    return await this.wrapped.page(offset, limit);
+  async page(offset: number, limit: number, rangeKey?: string): Promise<Payload[]> {
+    return await this.wrapped.page(offset, limit, rangeKey);
   }
 
   async retrieve(channels: Params): Promise<Payload[]> {
@@ -149,12 +154,92 @@ export type ParamAnalysisResult =
     };
 
 export const analyzeParams = (channels: Params): ParamAnalysisResult => {
-  const normal = toArray(channels) as KeysOrNames;
-  if (normal.length === 0) throw new QueryError("No channels provided");
+  let normal = (toArray(channels) as KeysOrNames).filter((c) => c !== 0);
+  let variant: "names" | "keys" = "keys";
+  if (typeof normal[0] === "string") {
+    if (isNaN(parseInt(normal[0]))) variant = "names";
+    else {
+      normal = normal.map((v) => parseInt(v as string));
+    }
+  }
   return {
     single: !Array.isArray(channels),
-    variant: typeof normal[0] === "number" ? "keys" : "names",
+    variant,
     normalized: normal,
     actual: channels,
   } as const as ParamAnalysisResult;
+};
+
+export interface PromiseFns<T> {
+  resolve: (value: T) => void;
+  reject: (reason?: any) => void;
+}
+
+// no interval
+export class DebouncedBatchRetriever implements Retriever {
+  private readonly mu = new Mutex();
+  private readonly requests = new Map<Keys, PromiseFns<Payload[]>>();
+  private readonly wrapped: Retriever;
+  private readonly debouncedRun: () => void;
+
+  constructor(wrapped: Retriever, deb: number) {
+    this.wrapped = wrapped;
+    this.debouncedRun = debounce(() => {
+      void this.run();
+    }, deb);
+  }
+
+  async search(term: string, rangeKey?: string): Promise<Payload[]> {
+    return await this.wrapped.search(term, rangeKey);
+  }
+
+  async page(offset: number, limit: number, rangeKey?: string): Promise<Payload[]> {
+    return await this.wrapped.page(offset, limit, rangeKey);
+  }
+
+  async retrieve(channels: Params): Promise<Payload[]> {
+    const { normalized, variant } = analyzeParams(channels);
+    // Bypass on name fetches for now.
+    if (variant === "names") return await this.wrapped.retrieve(normalized);
+    // eslint-disable-next-line @typescript-eslint/promise-function-async
+    const a = new Promise<Payload[]>((resolve, reject) => {
+      void this.mu.runExclusive(() => {
+        this.requests.set(normalized, { resolve, reject });
+        this.debouncedRun();
+      });
+    });
+    return await a;
+  }
+
+  async run(): Promise<void> {
+    await this.mu.runExclusive(async () => {
+      const allKeys = new Set<Key>();
+      this.requests.forEach((_, keys) => keys.forEach((k) => allKeys.add(k)));
+      try {
+        const channels = await this.wrapped.retrieve(Array.from(allKeys));
+        this.requests.forEach((fns, keys) =>
+          fns.resolve(channels.filter((c) => keys.includes(c.key))),
+        );
+      } catch (e) {
+        this.requests.forEach((fns) => fns.reject(e));
+      } finally {
+        this.requests.clear();
+      }
+    });
+  }
+}
+
+export const retrieveRequired = async (
+  r: Retriever,
+  params: Params,
+): Promise<Payload[]> => {
+  const { normalized } = analyzeParams(params);
+  const results = await r.retrieve(normalized);
+  const notFound: KeyOrName[] = [];
+  normalized.forEach((v) => {
+    if (results.find((c) => c.name === v || c.key === v) == null) notFound.push(v);
+  });
+  if (notFound.length > 0)
+    throw new QueryError(`Could not find channels: ${JSON.stringify(notFound)}`);
+  return results;
 };

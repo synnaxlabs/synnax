@@ -86,7 +86,8 @@ export class Color {
    * @returns true if the given color is semantically equal to this color. Different
    * representations of the same color are considered equal (e.g. hex and rgba).
    */
-  equals(other: Crude): boolean {
+  equals(other?: Crude): boolean {
+    if (other == null) return false;
     const other_ = new Color(other);
     return this.rgba255.every((v, i) => v === other_.rgba255[i]);
   }
@@ -210,6 +211,14 @@ export class Color {
       .map((c) => new Color(c))
       .sort((a, b) => this.contrast(b) - this.contrast(a));
     return best;
+  }
+
+  get isDark(): boolean {
+    return this.luminance < 0.5;
+  }
+
+  get isLight(): boolean {
+    return !this.isDark;
   }
 
   static readonly z = z

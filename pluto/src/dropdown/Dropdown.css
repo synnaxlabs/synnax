@@ -9,30 +9,36 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-dropdown {
-    :is(button, input, .pluto-input__internal):first-child:is(:focus,:focus-within,:hover) {
-        z-index: 5;
+.pluto-dropdown.pluto--visible {
+    :first-child {
+        z-index: 6;
     }
 }
 
 .pluto-dropdown__dialog {
-    background: var(--pluto-gray-l1);
     max-height: 360px;
     position: fixed;
+    box-shadow: var(--pluto-shadow-menu);
+    overflow: hidden;
+    background: var(--pluto-gray-l1);
+    border-radius: 6px;
 
-    &.pluto--top {
-        transform: translateY(calc(-100% + 1px));
-    } 
+    & .pluto-pack.pluto--rounded {
+        --pluto-pack-br: 6px;
+    }
 
+    &.pluto--floating {
+        transition: opacity 0.075s ease-in-out;
+    }
 
     &.pluto--hidden {
         opacity: 0;
         z-index: -1;
         pointer-events: none;
-        height: 0;
     }
 
     &.pluto--visible {
-        z-index: 4;
+        z-index: 5;
+        opacity: 1;
     }
 }

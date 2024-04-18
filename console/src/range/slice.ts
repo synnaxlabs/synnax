@@ -9,13 +9,12 @@
 
 import { createSlice } from "@reduxjs/toolkit";
 import type { PayloadAction } from "@reduxjs/toolkit";
-import { TimeSpan } from "@synnaxlabs/x";
+import { TimeSpan, migrate } from "@synnaxlabs/x";
 
 import { type Range } from "@/range/range";
 
-export interface SliceState {
+export interface SliceState extends migrate.Migratable {
   activeRange: string | null;
-  editBuffer: Partial<Range> | null;
   ranges: Record<string, Range>;
 }
 
@@ -25,7 +24,12 @@ export interface StoreState {
   [SLICE_NAME]: SliceState;
 }
 
+export const MIGRATIONS: migrate.Migrations = {};
+
+export const migrateSlice = migrate.migrator<SliceState, SliceState>(MIGRATIONS);
+
 export const initialState: SliceState = {
+  version: "0.0.0",
   activeRange: null,
   ranges: {
     rolling30s: {
@@ -70,10 +74,6 @@ interface AddPayload {
   ranges: Range[];
 }
 
-interface SetEditBufferPayload {
-  range: Partial<Range> | null;
-}
-
 interface RemovePayload {
   keys: string[];
 }
@@ -99,12 +99,9 @@ export const { actions, reducer } = createSlice({
     setActive: (state, { payload }: PA<SetActivePayload>) => {
       state.activeRange = payload;
     },
-    setEditBuffer: (state, { payload: { range } }: PA<SetEditBufferPayload>) => {
-      state.editBuffer = range;
-    },
   },
 });
-export const { add, remove, setActive, setEditBuffer } = actions;
+export const { add, remove, setActive } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 export type Payload = Action["payload"];

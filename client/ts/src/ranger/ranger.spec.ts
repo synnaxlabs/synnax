@@ -164,4 +164,38 @@ describe("Ranger", () => {
       });
     });
   });
+
+  describe("Labels", () => {
+    describe("set", () => {
+      it("should set a label on a range", async () => {
+        const rng = await client.ranges.create({
+          name: "My New One Second Range",
+          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        });
+        const lbl = await client.labels.create({
+          name: "My New Label",
+          color: "#E774D0",
+        });
+        await rng.addLabel(lbl.key);
+        const retrieved = await rng.labels();
+        expect(retrieved).toEqual([lbl]);
+      });
+    });
+    describe("remove", () => {
+      it("should remove a label from a range", async () => {
+        const rng = await client.ranges.create({
+          name: "My New One Second Range",
+          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        });
+        const lbl = await client.labels.create({
+          name: "My New Label",
+          color: "#E774D0",
+        });
+        await rng.addLabel(lbl.key);
+        await rng.removeLabel(lbl.key);
+        const retrieved = await rng.labels();
+        expect(retrieved).toEqual([]);
+      });
+    });
+  });
 });

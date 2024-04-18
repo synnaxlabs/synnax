@@ -7,33 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type PropsWithChildren,
-  type ReactElement,
-  useEffect,
-  useMemo,
-  useState,
-  useCallback,
-} from "react";
+import { type PropsWithChildren, type ReactElement } from "react";
 
-import { type Key, type KeyedRenderableRecord } from "@synnaxlabs/x";
+import { type Keyed, type Key } from "@synnaxlabs/x";
 
-import { useTransforms } from "@/hooks";
-import { useStateRef } from "@/hooks/ref";
-import { Provider } from "@/list/Context";
-import { type ColumnSpec } from "@/list/types";
+import { DataProvider } from "@/list/Data";
+import { InfiniteProvider } from "@/list/Infinite";
 
-export interface ListProps<
-  K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
-> extends PropsWithChildren<unknown> {
+export interface ListProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>>
+  extends PropsWithChildren<unknown> {
   data?: E[];
   emptyContent?: ReactElement;
 }
 
 /**
  * The main component for building a List. By itself, it does not render any HTML, and
- * should be used in conjunction with its subcomponents (List.'X') to build a list
+ * should be used in conjunction with its sub-components (List.'X') to build a list
  * component to fit your needs.
  *
  * @param props - The props for the List component.
@@ -43,73 +32,16 @@ export interface ListProps<
  * @param props.children - Sub-components of the List component to add additional functionality.
  *
  */
-export const List = <
-  K extends Key = Key,
-  E extends KeyedRenderableRecord<K, E> = KeyedRenderableRecord<K>,
->({
+export const List = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   children,
-  data: propsData,
+  data,
   emptyContent,
 }: ListProps<K, E>): ReactElement => {
-  const [columns, setColumns] = useState<Array<ColumnSpec<K, E>>>([]);
-  const [selected, setSelected] = useState<K[]>([]);
-  const [hover, setHover] = useState<number>(-1);
-  const [onSelect, setOnSelect] = useState<((key: K) => void) | undefined>(undefined);
-  const [clear, setClear] = useState<(() => void) | undefined>(undefined);
-  const { transform, setTransform, deleteTransform } = useTransforms<E>({});
-  const [data, setData] = useState<E[]>(() => propsData ?? []);
-  useEffect(() => {
-    if (propsData != null) setData(propsData);
-  }, [propsData]);
-  const transformedData = useMemo(() => transform(data), [data, transform]);
-  const [emptyContent_, setEmptyContent] = useState<ReactElement | undefined>(
-    emptyContent,
-  );
-  const [fetchMoreRef, setFetchMoreRef] = useStateRef<() => void>(() => {});
-  const [hasMore, setHasMore] = useState<boolean>(true);
-
-  const handleSetFetchMoreRef = useCallback(
-    (ref: () => void): void => setFetchMoreRef(() => ref),
-    [setFetchMoreRef],
-  );
-
-  const onFetchMore = useCallback((): void => fetchMoreRef.current?.(), [fetchMoreRef]);
-
   return (
-    <Provider<K, E>
-      value={{
-        setEmptyContent,
-        sourceData: data,
-        data: transformedData,
-        setSourceData: setData,
-        deleteTransform,
-        setTransform,
-        hover: {
-          value: hover,
-          onChange: setHover,
-        },
-        emptyContent: emptyContent ?? emptyContent_,
-        columnar: {
-          columns,
-          setColumns,
-        },
-        select: {
-          value: selected,
-          onChange: setSelected,
-          setOnSelect,
-          onSelect,
-          clear,
-          setClear,
-        },
-        infinite: {
-          onFetchMore,
-          setOnFetchMore: handleSetFetchMoreRef,
-          hasMore,
-          setHasMore,
-        },
-      }}
-    >
-      {children}
-    </Provider>
+    <InfiniteProvider>
+      <DataProvider<K, E> data={data} emptyContent={emptyContent}>
+        {children}
+      </DataProvider>
+    </InfiniteProvider>
   );
 };

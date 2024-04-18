@@ -9,7 +9,7 @@
 
 import { type ReactElement, useState } from "react";
 
-import type { Meta, StoryFn } from "@storybook/react";
+import type { Meta } from "@storybook/react";
 import { AiOutlineDelete } from "react-icons/ai";
 
 import { Align } from "@/align";
@@ -26,7 +26,7 @@ const story: Meta<typeof Button.Button> = {
   },
 };
 
-export const Primary: StoryFn<typeof Button.Button> = (args: Button.ButtonProps) => (
+export const Primary = (args: Button.ButtonProps): ReactElement => (
   <Align.Space align="start">
     <Button.Button startIcon={<AiOutlineDelete />} {...args} size="small">
       Button
@@ -40,12 +40,7 @@ export const Primary: StoryFn<typeof Button.Button> = (args: Button.ButtonProps)
     <Button.Button startIcon={<AiOutlineDelete />} {...args} size="large" disabled>
       Button
     </Button.Button>
-    <Button.Button
-      startIcon={<AiOutlineDelete />}
-      {...args}
-      size="small"
-      variant="outlined"
-    >
+    <Button.Button {...args} size="small" variant="outlined">
       Button
     </Button.Button>
     <Button.Button

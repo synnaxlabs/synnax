@@ -13,13 +13,14 @@ import {
   type ReactElement,
   useCallback,
   useRef,
+  useEffect,
 } from "react";
 
-import { box, runtime } from "@synnaxlabs/x";
+import { box, runtime, scale, xy } from "@synnaxlabs/x";
 
 import { Aether } from "@/aether";
 import { CSS } from "@/css";
-import { useResize } from "@/hooks";
+import { type UseResizeHandler, useResize } from "@/hooks";
 import { canvas } from "@/vis/canvas/aether";
 
 import "@/vis/canvas/Canvas.css";
@@ -33,7 +34,7 @@ export interface CanvasProps extends Omit<HTMLCanvasProps, "ref"> {
   resizeDebounce?: number;
 }
 
-const ZERO_PROPS = { region: box.ZERO, dpr: 1,os: runtime.getOS() as runtime.OS};
+const ZERO_PROPS = { region: box.ZERO, dpr: 1, os: runtime.getOS() as runtime.OS };
 
 interface Canvases {
   gl: HTMLCanvasElement | null;
@@ -58,7 +59,7 @@ export const Canvas = Aether.wrap<CanvasProps>(
     aetherKey,
     ...props
   }): ReactElement => {
-    const [{ path }, { bootstrapped }, setState] = Aether.use({
+    const [{ path }, { bootstrapped, dpr }, setState] = Aether.use({
       aetherKey,
       type: canvas.Canvas.TYPE,
       schema: canvas.canvasStateZ,
@@ -70,17 +71,29 @@ export const Canvas = Aether.wrap<CanvasProps>(
     const handleResize = useCallback(
       (region: box.Box) => {
         if (canvases.current.bootstrapped)
-          setState((p) => ({
+          setState(() => ({
             bootstrapped: true,
             region,
             dpr: window.devicePixelRatio,
-            os: runtime.getOS({default: "Windows"}) as runtime.OS,
+            os: runtime.getOS({ default: "Windows" }) as runtime.OS,
           }));
       },
       [setState],
     );
 
     const resizeRef = useResize(handleResize, { debounce });
+
+    useEffect(() => {
+      // Handle device pixel ratio change i.e. when the user moves the window to a
+      // different display.
+      const handleChange = (): void => {
+        if (window.devicePixelRatio === dpr) return;
+        setState((p) => ({ ...p, dpr: window.devicePixelRatio }));
+      };
+      window
+        .matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`)
+        .addEventListener("change", handleChange, { once: true });
+    }, [dpr]);
 
     const refCallback = useCallback(
       (el: HTMLCanvasElement | null) => {
@@ -109,7 +122,7 @@ export const Canvas = Aether.wrap<CanvasProps>(
             bootstrapped: false,
             region: box.construct(gl),
             dpr: window.devicePixelRatio,
-            os: runtime.getOS({default: "Windows"}) as runtime.OS,
+            os: runtime.getOS({ default: "Windows" }) as runtime.OS,
           },
           [glCanvas, upper2dCanvas, lower2dCanvas],
         );
@@ -139,3 +152,17 @@ export const Canvas = Aether.wrap<CanvasProps>(
     );
   },
 );
+
+export const useRegion = (f: UseResizeHandler): React.RefCallback<HTMLElement> =>
+  useResize(
+    useCallback(
+      (b, el) => {
+        const canvas = document.querySelector(".pluto-canvas--lower2d");
+        if (canvas == null) return;
+        const b2 = box.construct(canvas);
+        b = scale.XY.translate(xy.scale(box.topLeft(b2), -1)).box(b);
+        f(b, el);
+      },
+      [f],
+    ),
+  );

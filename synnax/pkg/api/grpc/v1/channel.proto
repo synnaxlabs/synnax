@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package api.v1;
 
+import "google/protobuf/empty.proto";
+
 service ChannelCreateService {
     rpc Exec(ChannelCreateRequest) returns (ChannelCreateResponse) {}
 }
@@ -9,6 +11,16 @@ service ChannelCreateService {
 service ChannelRetrieveService {
     rpc Exec(ChannelRetrieveRequest) returns (ChannelRetrieveResponse) {}
 }
+
+service ChannelDeleteService {
+    rpc Exec(ChannelDeleteRequest) returns (google.protobuf.Empty) {}
+}
+
+message ChannelDeleteRequest {
+    repeated uint32 keys = 1;
+    repeated string names = 2;
+}
+
 
 message Channel {
     uint32 key = 1;

@@ -11,7 +11,7 @@ import { type RefCallback, useCallback, useEffect, useRef } from "react";
 
 import { box, debounce as debounceF, type direction } from "@synnaxlabs/x";
 
-import { compareArrayDeps, useMemoCompare } from "@/hooks";
+import { compareArrayDeps, useMemoCompare } from "@/memo";
 
 export interface UseResizeOpts {
   /**
@@ -68,7 +68,7 @@ export const useResize = <E extends HTMLElement>(
   useEffect(() => {
     if (ref.current != null && enabled) startObserving(ref.current);
     return () => obs.current?.disconnect();
-  }, [startObserving]);
+  }, [startObserving, enabled]);
 
   return useCallback(
     (el: E | null) => {

@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+import uuid
 from datetime import datetime, timedelta, timezone, tzinfo
 from math import trunc
 from typing import ClassVar, Literal, TypeAlias, cast, get_args
@@ -38,6 +39,8 @@ class TimeStamp(int):
     """
 
     def __new__(cls, value: CrudeTimeStamp):
+        if isinstance(value, str):
+            value = int(value)
         if isinstance(value, TimeStamp):
             return value
         if isinstance(value, TimeSpan):
@@ -67,6 +70,7 @@ class TimeStamp(int):
     @classmethod
     def validate(cls, v):
         """Implemented for pydantic validation"""
+        # if its a string, cast the string to a number
         return cls(v)
 
     @classmethod
@@ -199,6 +203,8 @@ class TimeSpan(int):
     """
 
     def __new__(cls, value: CrudeTimeSpan):
+        if isinstance(value, str):
+            value = int(value)
         if isinstance(value, timedelta):
             value = int(float(TimeSpan.SECOND) * value.total_seconds())
         elif isinstance(value, np.timedelta64):
@@ -751,6 +757,10 @@ class Density(int):
         """:returns: The number of contained in the given byte Size."""
         return int(size / self)
 
+    def size_span(self, sample_count: int) -> Size:
+        """:returns: The number of bytes occupied by the given number of samples."""
+        return Size(sample_count * self)
+
     def __repr__(self):
         return f"Density({super().__repr__()})"
 
@@ -906,9 +916,12 @@ class DataType(str):
         if isinstance(value, int):
             return DataType.INT64
 
+        if isinstance(value, uuid.UUID):
+            return DataType.UUID
+
         if isinstance(value, list):
             if len(value) == 0:
-                raise ValueError("Cannot convert empty list to DataType")
+                raise ValueError("Cannot extract a data type from an empty list")
 
             if isinstance(value[0], TimeStamp):
                 return DataType.TIMESTAMP
@@ -919,12 +932,25 @@ class DataType(str):
             if isinstance(value[0], int):
                 return DataType.INT64
 
+            if isinstance(value[0], str):
+                return DataType.STRING
+
+            if isinstance(value[0], uuid.UUID):
+                return DataType.UUID
+
+            if isinstance(value[0], dict):
+                return DataType.JSON
+
             raise TypeError(f"Cannot convert {type(value)} to DataType")
 
         if np.issctype(value):
             value = DataType._FROM_NUMPY.get(np.dtype(value), None)
             if value is not None:
                 return value
+
+        if isinstance(value, dict):
+            return DataType.JSON
+
         raise TypeError(f"Cannot convert {type(value)} to DataType")
 
     @classmethod
@@ -953,6 +979,17 @@ class DataType(str):
         return cast(np.dtype, npt)
 
     @property
+    def has_fixed_density(self) -> bool:
+        """:returns: True if the DataType has a fixed density"""
+        d = DataType._DENSITIES.get(self, None)
+        return d is not None and d != Density.UNKNOWN
+
+    @property
+    def has_np(self) -> bool:
+        """:returns: True if the DataType has a corresponding numpy type"""
+        return self in DataType._TO_NUMPY
+
+    @property
     def density(self) -> Density:
         """:returns: The density of the DataType. If the density can't be determined,
         returns Density.UNKNOWN.
@@ -975,6 +1012,8 @@ class DataType(str):
     UINT32: DataType
     UINT16: DataType
     UINT8: DataType
+    STRING: DataType
+    JSON: DataType
     ALL: tuple[DataType, ...]
     _TO_NUMPY: dict[DataType, DTypeLike]
     _FROM_NUMPY: dict[DTypeLike, DataType]
@@ -994,6 +1033,8 @@ DataType.UINT64 = DataType("uint64")
 DataType.UINT32 = DataType("uint32")
 DataType.UINT16 = DataType("uint16")
 DataType.UINT8 = DataType("uint8")
+DataType.JSON = DataType("json")
+DataType.STRING = DataType("string")
 DataType.ALL = (
     DataType.UUID,
     DataType.FLOAT64,
@@ -1006,6 +1047,8 @@ DataType.ALL = (
     DataType.UINT32,
     DataType.UINT16,
     DataType.UINT8,
+    DataType.STRING,
+    DataType.JSON,
 )
 
 CrudeTimeStamp: TypeAlias = (
@@ -1020,7 +1063,6 @@ CrudeDataType: TypeAlias = DTypeLike | DataType | str | list | np.number
 CrudeSize: TypeAlias = int | float | Size
 
 DataType._TO_NUMPY = {
-    DataType.UUID: np.dtype(np.longlong),
     DataType.FLOAT64: np.dtype(np.float64),
     DataType.FLOAT32: np.dtype(np.float32),
     DataType.TIMESTAMP: np.dtype(np.int64),
@@ -1047,6 +1089,8 @@ DataType._DENSITIES = {
     DataType.UINT32: Density.BIT32,
     DataType.UINT16: Density.BIT16,
     DataType.UINT8: Density.BIT8,
+    DataType.STRING: Density.UNKNOWN,
+    DataType.JSON: Density.UNKNOWN,
 }
 
 

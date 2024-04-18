@@ -11,11 +11,11 @@ import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { type change } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { cdc } from "@/cdc";
 import { type channel } from "@/channel";
 import { keyZ as channelKeyZ, type Key as ChannelKey } from "@/channel/payload";
 import { type Client as FrameClient } from "@/framer/client";
 import { type Key, keyZ } from "@/ranger/payload";
+import { signals } from "@/signals";
 
 export const ALIAS_SET_NAME = "sy_range_alias_set";
 export const ALIAS_DELETE_NAME = "sy_range_alias_delete";
@@ -31,7 +31,7 @@ const resolveResZ = z.object({
 
 const setReqZ = z.object({
   range: keyZ,
-  aliases: z.record(channelKeyZ, z.string()),
+  aliases: z.record(channelKeyZ.or(z.string()), z.string()),
 });
 
 const setResZ = z.unknown();
@@ -93,6 +93,7 @@ export class Aliaser {
       this.client,
       Aliaser.RESOLVE_ENDPOINT,
       { range: this.rangeKey, aliases: toFetch },
+      resolveReqZ,
       resolveResZ,
     );
     Object.entries(res.aliases).forEach(([alias, key]) => this.cache.set(alias, key));
@@ -103,11 +104,9 @@ export class Aliaser {
     await sendRequired<typeof setReqZ, typeof setResZ>(
       this.client,
       Aliaser.SET_ENDPOINT,
-      {
-        range: this.rangeKey,
-        aliases,
-      },
-      z.unknown(),
+      { range: this.rangeKey, aliases },
+      setReqZ,
+      setResZ,
     );
   }
 
@@ -116,9 +115,8 @@ export class Aliaser {
       await sendRequired<typeof listReqZ, typeof listResZ>(
         this.client,
         Aliaser.LIST_ENDPOINT,
-        {
-          range: this.rangeKey,
-        },
+        { range: this.rangeKey },
+        listReqZ,
         listResZ,
       )
     ).aliases;
@@ -128,16 +126,14 @@ export class Aliaser {
     await sendRequired<typeof deleteReqZ, typeof deleteResZ>(
       this.client,
       Aliaser.DELETE_ENDPOINT,
-      {
-        range: this.rangeKey,
-        channels: aliases,
-      },
+      { range: this.rangeKey, channels: aliases },
+      deleteReqZ,
       deleteResZ,
     );
   }
 
-  async openChangeTracker(): Promise<cdc.Observable<string, Alias>> {
-    return await cdc.Observable.open<string, Alias>(
+  async openChangeTracker(): Promise<signals.Observable<string, Alias>> {
+    return await signals.Observable.open<string, Alias>(
       this.frameClient,
       ALIAS_SET_NAME,
       ALIAS_DELETE_NAME,
@@ -163,7 +159,7 @@ const aliasZ = z.object({
 const aliasSeparator = "---";
 
 const decodeAliasChanges =
-  (rangeKey: Key): cdc.Decoder<string, Alias> =>
+  (rangeKey: Key): signals.Decoder<string, Alias> =>
   (variant, data) => {
     if (variant === "delete") {
       return data

@@ -23,9 +23,8 @@ import { theming } from "@/theming/aether";
 import { fontString } from "@/theming/core/fontString";
 import { axis } from "@/vis/axis";
 import { type TickType } from "@/vis/axis/ticks";
+import { calculateGridPosition, type GridSpec } from "@/vis/lineplot/aether/grid";
 import { render } from "@/vis/render";
-
-import { calculateGridPosition, type GridPositionSpec } from "./grid";
 
 export const coreAxisStateZ = axis.axisStateZ
   .extend({
@@ -37,7 +36,7 @@ export const coreAxisStateZ = axis.axisStateZ
       })
       .or(z.boolean().optional().default(true)),
     autoBoundPadding: z.number().optional(),
-    autoBoundUpdateInterval: TimeSpan.z.optional().default(TimeSpan.seconds(1)),
+    autoBoundUpdateInterval: TimeSpan.z.optional().default(TimeSpan.seconds(2)),
     size: z.number().optional().default(0),
     label: z.string().optional().default(""),
     labelSize: z.number().optional().default(0),
@@ -61,15 +60,15 @@ export const withinSizeThreshold = (prev: number, next: number): boolean =>
 export const EMPTY_LINEAR_BOUNDS = bounds.DECIMAL;
 const now = TimeStamp.now();
 export const EMPTY_TIME_BOUNDS: bounds.Bounds = {
-  lower: now.valueOf(),
-  upper: now.add(TimeSpan.HOUR).valueOf(),
+  lower: Number(now.valueOf()),
+  upper: Number(now.add(TimeSpan.HOUR).valueOf()),
 };
 
 export const emptyBounds = (type: TickType): bounds.Bounds =>
   type === "linear" ? EMPTY_LINEAR_BOUNDS : EMPTY_TIME_BOUNDS;
 
 export interface AxisRenderProps {
-  grid: GridPositionSpec[];
+  grid: GridSpec;
   plot: box.Box;
   viewport: box.Box;
   container: box.Box;
@@ -107,7 +106,7 @@ export class CoreAxis<
   S extends typeof coreAxisStateZ,
   C extends aether.Component = aether.Component,
 > extends aether.Composite<S, InternalState, C> {
-  afterUpdate(): void {
+  async afterUpdate(): Promise<void> {
     this.internal.render = render.Context.use(this.ctx);
     const theme = theming.use(this.ctx);
     this.state.autoBoundPadding ??=
@@ -119,7 +118,6 @@ export class CoreAxis<
       font: fontString(theme, "small"),
       gridColor: theme.colors.gray.l2,
       ...this.state,
-      size: this.state.size + this.state.labelSize,
     });
     render.Controller.requestRender(this.ctx, render.REASON_LAYOUT);
 
@@ -130,7 +128,7 @@ export class CoreAxis<
     }
   }
 
-  afterDelete(): void {
+  async afterDelete(): Promise<void> {
     render.Controller.requestRender(this.ctx, render.REASON_LAYOUT);
   }
 
@@ -138,11 +136,17 @@ export class CoreAxis<
     if (!props.canvases.includes("lower2d")) return;
     const { core } = this.internal;
     const { grid, container } = props;
-    const position = calculateGridPosition(this.key, grid, container);
-    const p = { ...props, position, decimalToDataScale };
+    const position = calculateGridPosition(`${this.type}-${this.key}`, grid, container);
+    const p = {
+      ...props,
+      position,
+      decimalToDataScale,
+      size: this.state.size + this.state.labelSize,
+    };
     const { size } = core.render(p);
-    if (!withinSizeThreshold(this.state.size, size))
+    if (!withinSizeThreshold(this.state.size, size)) {
       this.setState((p) => ({ ...p, size }));
+    }
   }
 
   async bounds(
@@ -177,8 +181,9 @@ export class CoreAxis<
       this.state.bounds == null ||
       (lower && this.state.bounds.lower !== bounds.lower) ||
       (upper && this.state.bounds.upper !== bounds.upper)
-    )
+    ) {
       this.internal.updateBounds?.(bounds);
+    }
     return [bounds, err];
   }
 
@@ -204,7 +209,7 @@ export const parseAutoBounds = (
 ): { lower: boolean; upper: boolean } => {
   if (typeof autoBounds === "boolean") return { lower: autoBounds, upper: autoBounds };
   return {
-    lower: autoBounds.lower ?? true,
-    upper: autoBounds.upper ?? true,
+    lower: autoBounds?.lower ?? true,
+    upper: autoBounds?.upper ?? true,
   };
 };

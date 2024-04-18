@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/validate"
+	"time"
 )
 
 type Config struct {
@@ -36,7 +37,7 @@ var (
 	DefaultConfig                       = Config{}
 )
 
-// Override implements config.Config.
+// Override implements config.Properties.
 func (c Config) Override(other Config) Config {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Transport = override.Nil(c.Transport, other.Transport)
@@ -46,11 +47,11 @@ func (c Config) Override(other Config) Config {
 	return c
 }
 
-// Validate implements config.Config.
+// Validate implements config.Properties.
 func (c Config) Validate() error {
 	v := validate.New("relay")
 	validate.NotNil(v, "Transport", c.Transport)
-	validate.NotNil(v, "HostResolver", c.HostResolver)
+	validate.NotNil(v, "HostProvider", c.HostResolver)
 	validate.NotNil(v, "TS", c.TS)
 	validate.NotNil(v, "FreeWrites", c.FreeWrites)
 	return v.Error()
@@ -82,7 +83,7 @@ func Open(configs ...Config) (*Relay, error) {
 	tpr.InFrom(peerDemands)
 	r.demands = peerDemands
 
-	r.delta = confluence.NewDynamicDeltaMultiplier[Response]()
+	r.delta = confluence.NewDynamicDeltaMultiplier[Response](20 * time.Millisecond)
 	writes := confluence.NewStream[Response](defaultBuffer)
 	writes.SetInletAddress("delta")
 	writes.SetOutletAddress("taps")

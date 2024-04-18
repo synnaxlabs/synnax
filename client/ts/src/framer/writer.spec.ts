@@ -11,25 +11,25 @@ import { DataType, Rate, TimeRange, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
 import { type channel } from "@/channel";
+import { WriterMode } from "@/framer/writer";
 import { newClient } from "@/setupspecs";
 import { randomSeries } from "@/util/telem";
 
 const client = newClient();
 
-const newChannel = async (): Promise<channel.Channel> => {
-  return await client.channels.create({
+const newChannel = async (): Promise<channel.Channel> =>
+  await client.channels.create({
     name: "test",
     leaseholder: 1,
     rate: Rate.hz(1),
     dataType: DataType.FLOAT64,
   });
-};
 
 describe("Writer", () => {
   describe("Writer", () => {
     test("basic write", async () => {
       const ch = await newChannel();
-      const writer = await client.telem.newWriter({ start: 0, channels: ch.key });
+      const writer = await client.telem.openWriter({ start: 0, channels: ch.key });
       try {
         await writer.write(ch.key, randomSeries(10, ch.dataType));
         await writer.commit();
@@ -37,6 +37,34 @@ describe("Writer", () => {
         await writer.close();
       }
       expect(true).toBeTruthy();
+    });
+    test("write to unknown channel key", async () => {
+      const ch = await newChannel();
+      const writer = await client.telem.openWriter({ start: 0, channels: ch.key });
+      await expect(
+        writer.write("billy bob", randomSeries(10, DataType.FLOAT64)),
+      ).rejects.toThrow("Channel billy bob not found");
+      await writer.close();
+    });
+    test("stream when mode is set ot persist only", async () => {
+      const ch = await newChannel();
+      const stream = await client.telem.openStreamer(ch.key);
+      const writer = await client.telem.openWriter({
+        start: 0,
+        channels: ch.key,
+        mode: WriterMode.PersistOnly,
+      });
+      try {
+        await writer.write(ch.key, randomSeries(10, ch.dataType));
+      } finally {
+        await writer.close();
+      }
+      // Simulating a timeout.
+      const v = await Promise.race([
+        stream.read(),
+        new Promise((resolve) => setTimeout(() => resolve(123), 250)),
+      ]);
+      expect(v).toEqual(123);
     });
   });
   describe("Client", () => {

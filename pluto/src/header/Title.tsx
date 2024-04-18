@@ -9,14 +9,13 @@
 
 import { type ReactElement } from "react";
 
-import { type Optional } from "@synnaxlabs/x";
-
 import { CSS } from "@/css";
 import { useContext } from "@/header/Header";
 import { Text } from "@/text";
 
-export interface TitleProps
-  extends Optional<Omit<Text.WithIconProps, "divided">, "level"> {}
+export interface TitleProps extends Omit<Text.WithIconProps, "divided" | "level"> {
+  level?: Text.Level;
+}
 
 /**
  * Renders the title for the header component.
@@ -36,6 +35,7 @@ export const Title = ({
       className={CSS(CSS.BE("header", "text"), className)}
       level={propsLevel ?? level}
       divided={divided}
+      size={1.5}
       {...props}
     />
   );

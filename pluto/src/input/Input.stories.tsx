@@ -26,7 +26,7 @@ export const Basic = (): ReactElement => {
 };
 
 export const Time = (): ReactElement => {
-  const [value, setValue] = useState(TimeStamp.now().valueOf());
+  const [value, setValue] = useState(Number(TimeStamp.now().valueOf()));
   return (
     <>
       <Input.Time value={value} onChange={setValue} />
@@ -39,7 +39,7 @@ export const Time = (): ReactElement => {
 };
 
 export const Date = (): ReactElement => {
-  const [value, setValue] = useState(TimeStamp.now().valueOf());
+  const [value, setValue] = useState(Number(TimeStamp.now().valueOf()));
   return (
     <>
       <Input.Date value={value} onChange={setValue} />;
@@ -51,9 +51,27 @@ export const Date = (): ReactElement => {
   );
 };
 
-export const Number = (): ReactElement => {
+export const DateTime = (): ReactElement => {
+  const [value, setValue] = useState(Number(TimeStamp.now().valueOf()));
+  return (
+    <>
+      <Input.DateTime value={value} onChange={setValue} />;
+      <Text.DateTime level="h1" format="dateTime" suppliedTZ="UTC" displayTZ="UTC">
+        {value}
+      </Text.DateTime>
+      <h1>{new TimeStamp(value).fString("ISO", "UTC")}</h1>
+    </>
+  );
+};
+
+export const Number_ = (): ReactElement => {
   const [value, setValue] = useState<number>(0);
   return <Input.Numeric value={value} onChange={setValue} />;
+};
+
+export const TextArea = (): ReactElement => {
+  const [value, setValue] = useState("");
+  return <Input.TextArea value={value} onChange={setValue} />;
 };
 
 // eslint-disable-next-line import/no-default-export

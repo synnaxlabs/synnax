@@ -8,11 +8,21 @@
   },
   "package": {
     "productName": "Synnax",
-    "version": "0.14.5"
+    "version": "0.21.1"
   },
   "tauri": {
     "allowlist": {
-      "all": true
+      "all": true,
+      "shell": {
+        "all": true,
+        "scope": [
+          {
+            "name": "bin/sy",
+            "sidecar": true,
+            "args": ["start", "-i", "-l","localhost:9090", "-d", {"validator": "\\S+"}]
+          }
+        ]
+      }
     },
     "bundle": {
       "active": true,
@@ -21,7 +31,9 @@
       "deb": {
         "depends": []
       },
-      "externalBin": [],
+      "externalBin": [
+            "bin/sy"
+      ],
       "icon": [
         "icons/32x32.png",
         "icons/128x128.png",
@@ -33,7 +45,6 @@
       "longDescription": "",
       "macOS": {
         "entitlements": null,
-        "exceptionDomain": "",
         "frameworks": [],
         "providerShortName": null,
         "signingIdentity": null
@@ -48,7 +59,8 @@
       }
     },
     "security": {
-      "csp": null
+      "csp": null,
+      "dangerousUseHttpScheme": true
     },
     "updater": {
       "active": true,
@@ -69,7 +81,7 @@
         "minWidth": 625,
         "minHeight": 375,
         "visible": true,
-        "acceptFirstMouse": false
+        "acceptFirstMouse": true
       }
     ]
   }

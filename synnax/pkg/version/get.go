@@ -11,7 +11,6 @@ package version
 
 import (
 	"embed"
-	"github.com/synnaxlabs/x/git"
 	"go.uber.org/zap"
 	"io"
 	"strings"
@@ -23,6 +22,7 @@ var fs embed.FS
 const unknown = "unknown"
 const errorMsg = "unexpected failure to resolve version"
 
+// Prod returns the production version of Synnax.
 func Prod() string {
 	f, err := fs.Open("VERSION")
 	if err != nil {
@@ -40,14 +40,5 @@ func Prod() string {
 	return vString
 }
 
-func Dev() (string, error) {
-	return git.CurrentCommit(true)
-}
-
-func Get() string {
-	d, err := Dev()
-	if err == nil {
-		return d
-	}
-	return Prod()
-}
+// Get returns the production version of Synnax.
+func Get() string { return Prod() }

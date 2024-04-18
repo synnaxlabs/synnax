@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -141,7 +141,7 @@ TEST(TestChannel, testRetrieveByNameNotFound)
     auto client = new_test_client();
     auto [retrieved, err] = client.channels.retrieve("my_definitely_not_found");
     ASSERT_TRUE(err) << err.message();
-    ASSERT_EQ(err.type, synnax::NO_RESULTS);
+    ASSERT_EQ(err.type, synnax::NOT_FOUND);
 }
 
 /// @brief it should retrieve many channels by their key.

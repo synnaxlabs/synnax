@@ -18,9 +18,15 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-type createMessageTranslator struct{}
+type (
+	createMessageTranslator struct{}
+	deleteRequestTranslator struct{}
+)
 
-var _ fgrpc.Translator[channel.CreateMessage, *channelv1.CreateMessage] = (*createMessageTranslator)(nil)
+var (
+	_ fgrpc.Translator[channel.CreateMessage, *channelv1.CreateMessage] = (*createMessageTranslator)(nil)
+	_ fgrpc.Translator[channel.DeleteRequest, *channelv1.DeleteRequest] = (*deleteRequestTranslator)(nil)
+)
 
 // Forward implements the fgrpc.Translator interface.
 func (c createMessageTranslator) Forward(
@@ -30,7 +36,7 @@ func (c createMessageTranslator) Forward(
 	tr := &channelv1.CreateMessage{}
 	for _, ch := range msg.Channels {
 		tr.Channels = append(tr.Channels, &channelv1.Channel{
-			StorageKey:   int32(ch.LocalKey),
+			StorageKey:   uint32(ch.LocalKey),
 			Name:         ch.Name,
 			NodeId:       int32(ch.Leaseholder),
 			DataType:     string(ch.DataType),
@@ -60,4 +66,20 @@ func (c createMessageTranslator) Backward(
 		})
 	}
 	return tr, nil
+}
+
+// Forward
+func (d deleteRequestTranslator) Forward(
+	_ context.Context,
+	msg channel.DeleteRequest,
+) (*channelv1.DeleteRequest, error) {
+	return &channelv1.DeleteRequest{Keys: channel.Keys(msg.Keys).Uint32()}, nil
+}
+
+// Backward
+func (d deleteRequestTranslator) Backward(
+	_ context.Context,
+	msg *channelv1.DeleteRequest,
+) (channel.DeleteRequest, error) {
+	return channel.DeleteRequest{Keys: channel.KeysFromUint32(msg.Keys)}, nil
 }

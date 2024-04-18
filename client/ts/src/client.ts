@@ -15,6 +15,11 @@ import { channel } from "@/channel";
 import { connection } from "@/connection";
 import { errorsMiddleware } from "@/errors";
 import { framer } from "@/framer";
+import { hardware } from "@/hardware";
+import { device } from "@/hardware/device";
+import { rack } from "@/hardware/rack";
+import { task } from "@/hardware/task";
+import { label } from "@/label";
 import { ontology } from "@/ontology";
 import { ranger } from "@/ranger";
 import { Transport } from "@/transport";
@@ -27,6 +32,7 @@ export const synnaxPropsZ = z.object({
   password: z.string().optional(),
   connectivityPollFrequency: TimeSpan.z.default(TimeSpan.seconds(30)),
   secure: z.boolean().optional().default(false),
+  name: z.string().optional(),
 });
 
 export type SynnaxProps = z.input<typeof synnaxPropsZ>;
@@ -42,17 +48,19 @@ export type ParsedSynnaxProps = z.output<typeof synnaxPropsZ>;
  */
 // eslint-disable-next-line import/no-default-export
 export default class Synnax {
-  private readonly transport: Transport;
   readonly createdAt: TimeStamp;
+  readonly props: ParsedSynnaxProps;
   readonly telem: framer.Client;
   readonly ranges: ranger.Client;
   readonly channels: channel.Client;
   readonly auth: auth.Client | undefined;
   readonly connectivity: connection.Checker;
   readonly ontology: ontology.Client;
-  readonly props: ParsedSynnaxProps;
   readonly workspaces: workspace.Client;
+  readonly labels: label.Client;
+  readonly hardware: hardware.Client;
   static readonly connectivity = connection.Checker;
+  private readonly transport: Transport;
 
   /**
    * @param props.host - Hostname of a node in the cluster.
@@ -86,24 +94,48 @@ export default class Synnax {
     const chRetriever = new channel.CacheRetriever(
       new channel.ClusterRetriever(this.transport.unary),
     );
-    const chCreator = new channel.Creator(this.transport.unary);
+    const chCreator = new channel.Writer(this.transport.unary);
     this.telem = new framer.Client(this.transport.stream, chRetriever);
-    this.channels = new channel.Client(this.telem, chRetriever, chCreator);
+    this.channels = new channel.Client(
+      this.telem,
+      chRetriever,
+      this.transport.unary,
+      chCreator,
+    );
     this.connectivity = new connection.Checker(
       this.transport.unary,
       connectivityPollFrequency,
+      props.name,
     );
     this.ontology = new ontology.Client(this.transport.unary, this.telem);
     const rangeRetriever = new ranger.Retriever(this.transport.unary);
     const rangeWriter = new ranger.Writer(this.transport.unary);
+    this.labels = new label.Client(this.transport.unary, this.telem);
     this.ranges = new ranger.Client(
       this.telem,
       rangeRetriever,
       rangeWriter,
       this.transport.unary,
       chRetriever,
+      this.labels,
     );
     this.workspaces = new workspace.Client(this.transport.unary);
+    const devices = new device.Client(
+      new device.Retriever(this.transport.unary),
+      new device.Writer(this.transport.unary),
+      this.telem,
+    );
+    const taskRetriever = new task.Retriever(this.transport.unary);
+    const taskWriter = new task.Writer(this.transport.unary);
+    const tasks = new task.Client(taskRetriever, taskWriter);
+    const racks = new rack.Client(
+      new rack.Retriever(this.transport.unary),
+      new rack.Writer(this.transport.unary),
+      this.telem,
+      taskWriter,
+      taskRetriever,
+    );
+    this.hardware = new hardware.Client(tasks, racks, devices);
   }
 
   close(): void {

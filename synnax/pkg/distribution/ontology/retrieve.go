@@ -200,14 +200,14 @@ func getIncludeFieldData(q query.Parameters) bool {
 	return v.(bool)
 }
 
-const includeScheamOptKey = "includeSchema"
+const includeSchemaOptKey = "includeSchema"
 
 func setIncludeSchema(q query.Parameters, b bool) {
-	q.Set(includeScheamOptKey, b)
+	q.Set(includeSchemaOptKey, b)
 }
 
 func getIncludeSchema(q query.Parameters) bool {
-	v, ok := q.Get(includeScheamOptKey)
+	v, ok := q.Get(includeSchemaOptKey)
 	if !ok {
 		return true
 	}
@@ -226,15 +226,18 @@ func (r Retrieve) retrieveEntities(
 		if res.ID.IsZero() {
 			return nil, query.NotFound
 		}
-		res, err := r.registrar.retrieveResource(ctx, res.ID, tx)
-		if err != nil {
-			return nil, err
-		}
-		if !includeFieldData {
-			res.Data = nil
-		}
-		if !includeSchema {
-			res.Schema = nil
+		var err error
+		if includeFieldData || includeSchema {
+			res, err = r.registrar.retrieveResource(ctx, res.ID, tx)
+			if err != nil {
+				return nil, err
+			}
+			if !includeFieldData {
+				res.Data = nil
+			}
+			if !includeSchema {
+				res.Schema = nil
+			}
 		}
 		entries.Set(j, res)
 	}
@@ -248,7 +251,7 @@ func (r Retrieve) traverse(
 	resources []Resource,
 ) ([]ID, error) {
 	var nextIDs []ID
-	return nextIDs, gorp.NewRetrieve[string, Relationship]().
+	return nextIDs, gorp.NewRetrieve[[]byte, Relationship]().
 		Where(func(rel *Relationship) bool {
 			for _, resource := range resources {
 				if traverse.Filter(&resource, rel) {

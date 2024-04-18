@@ -10,54 +10,48 @@
 import { type ReactElement, useCallback } from "react";
 
 import { type channel } from "@synnaxlabs/client";
-import { Input, Channel, componentRenderProp } from "@synnaxlabs/pluto";
+import { Channel } from "@synnaxlabs/pluto";
+import { Input } from "@synnaxlabs/pluto/input";
 
 import { type AxisKey, axisLabel } from "@/vis/axis";
 
 export interface SelectMultipleAxesInputItemProps
-  extends Omit<
-    Input.ItemProps<channel.Key[], channel.Key[], Channel.SelectMultipleProps>,
-    "onChange" | "label" | "data"
-  > {
+  extends Omit<Input.ItemProps, "onChange"> {
   axis: AxisKey;
   onChange: (key: AxisKey, v: channel.Key[]) => void;
+  value: channel.Key[];
 }
 
 export const SelectMultipleAxesInputItem = ({
   axis,
   onChange,
+  value,
   ...props
 }: SelectMultipleAxesInputItemProps): ReactElement => (
-  <Input.Item<channel.Key[], channel.Key[], Channel.SelectMultipleProps>
-    direction="x"
-    label={axisLabel(axis)}
-    onChange={useCallback((v) => onChange(axis, v), [onChange, axis])}
-    {...props}
-  >
-    {componentRenderProp(Channel.SelectMultiple)}
+  <Input.Item direction="x" label={axisLabel(axis)} {...props}>
+    <Channel.SelectMultiple
+      value={value}
+      onChange={useCallback((v: channel.Key[]) => onChange(axis, v), [onChange, axis])}
+    />
   </Input.Item>
 );
 
-export interface SelectAxisInputItemProps
-  extends Omit<
-    Input.ItemProps<channel.Key, channel.Key, Channel.SelectSingleProps>,
-    "onChange" | "label" | "data"
-  > {
+export interface SelectAxisInputItemProps extends Omit<Input.ItemProps, "onChange"> {
   axis: AxisKey;
   onChange: (key: AxisKey, v: channel.Key) => void;
+  value: channel.Key;
 }
 
 export const SelectAxisInputItem = ({
   axis,
   onChange,
+  value,
   ...props
 }: SelectAxisInputItemProps): ReactElement => (
-  <Input.Item<channel.Key, channel.Key, Channel.SelectSingleProps>
-    direction="x"
-    label={axisLabel(axis)}
-    onChange={useCallback((v) => onChange(axis, v), [axis, onChange])}
-    {...props}
-  >
-    {componentRenderProp(Channel.SelectSingle)}
+  <Input.Item direction="x" label={axisLabel(axis)} {...props}>
+    <Channel.SelectSingle
+      onChange={useCallback((v: channel.Key) => onChange(axis, v), [axis, onChange])}
+      value={value}
+    />
   </Input.Item>
 );

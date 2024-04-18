@@ -11,6 +11,7 @@ package cesium
 
 import (
 	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -23,9 +24,12 @@ type Writer struct {
 	wg                signal.WaitGroup
 	logger            *zap.Logger
 	hasAccumulatedErr bool
+	closed            bool
 }
 
 const unexpectedSteamClosure = "[cesium] - unexpected early closure of response stream"
+
+var WriterClosedError = core.EntityClosed("cesium.writer")
 
 func wrapStreamWriter(internal StreamWriter) *Writer {
 	sCtx, _ := signal.Isolated()
@@ -41,7 +45,7 @@ func wrapStreamWriter(internal StreamWriter) *Writer {
 }
 
 func (w *Writer) Write(frame Frame) bool {
-	if w.hasAccumulatedErr {
+	if w.closed || w.hasAccumulatedErr {
 		return false
 	}
 	select {
@@ -54,7 +58,7 @@ func (w *Writer) Write(frame Frame) bool {
 }
 
 func (w *Writer) Commit() (telem.TimeStamp, bool) {
-	if w.hasAccumulatedErr {
+	if w.closed || w.hasAccumulatedErr {
 		return 0, false
 	}
 	select {
@@ -73,6 +77,9 @@ func (w *Writer) Commit() (telem.TimeStamp, bool) {
 }
 
 func (w *Writer) Error() error {
+	if w.closed {
+		return WriterClosedError
+	}
 	w.requests.Inlet() <- WriterRequest{Command: WriterError}
 	for res := range w.responses.Outlet() {
 		if res.Command == WriterError {
@@ -84,7 +91,30 @@ func (w *Writer) Error() error {
 	return errors.New(unexpectedSteamClosure)
 }
 
+func (w *Writer) SetMode(mode WriterMode) bool {
+	if w.closed || w.hasAccumulatedErr {
+		return false
+	}
+	select {
+	case <-w.responses.Outlet():
+		w.hasAccumulatedErr = true
+		return false
+	case w.requests.Inlet() <- WriterRequest{Command: WriterSetMode, Config: WriterConfig{Mode: mode}}:
+	}
+	for res := range w.responses.Outlet() {
+		if res.Command == WriterSetMode {
+			return res.Ack
+		}
+	}
+	w.logger.DPanic(unexpectedSteamClosure)
+	return false
+}
+
 func (w *Writer) Close() (err error) {
+	if w.closed {
+		return nil
+	}
+	w.closed = true
 	w.requests.Close()
 	for range w.responses.Outlet() {
 	}

@@ -42,6 +42,7 @@ export class Checker {
   private readonly _state: State;
   private readonly pollFrequency = TimeSpan.seconds(30);
   private readonly client: UnaryClient;
+  private readonly name?: string;
   private interval?: NodeJS.Timeout;
   private readonly onChangeHandlers: Array<(state: State) => void> = [];
   static readonly connectionStateZ = state;
@@ -51,10 +52,15 @@ export class Checker {
    * @param pollFreq - The frequency at which to poll the cluster for
    *   connectivity information.
    */
-  constructor(client: UnaryClient, pollFreq: TimeSpan = TimeSpan.seconds(30)) {
+  constructor(
+    client: UnaryClient,
+    pollFreq: TimeSpan = TimeSpan.seconds(30),
+    name?: string,
+  ) {
     this._state = { ...DEFAULT };
     this.client = client;
     this.pollFrequency = pollFreq;
+    this.name = name;
     void this.check();
     this.startChecking();
   }
@@ -71,10 +77,10 @@ export class Checker {
   async check(): Promise<State> {
     const prevStatus = this._state.status;
     try {
-      const [res, err] = await this.client.send(Checker.ENDPOINT, null, responseZ);
+      const [res, err] = await this.client.send(Checker.ENDPOINT, {}, z.object({}), responseZ);
       if (err != null) throw err;
       this._state.status = "connected";
-      this._state.message = `Connected to cluster ${res.clusterKey}`;
+      this._state.message = `Connected to ${this.name ?? "cluster"}`;
       this._state.clusterKey = res.clusterKey;
     } catch (err) {
       this._state.status = "failed";

@@ -34,3 +34,9 @@
 .pluto-select-multiple__tags::-webkit-scrollbar {
     display: none;
 }
+
+.pluto-select-multiple__tag--invalid {
+    & .pluto-text {
+        color: var(--pluto-error-z);
+    }
+}

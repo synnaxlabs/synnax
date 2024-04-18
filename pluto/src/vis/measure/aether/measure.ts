@@ -55,7 +55,7 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
   static readonly TYPE = "measure";
   schema = measureStateZ;
 
-  afterUpdate(): void {
+  async afterUpdate(): Promise<void> {
     const ctx = render.Context.use(this.ctx);
     this.internal.theme = theming.use(this.ctx);
     this.internal.render = ctx;
@@ -63,7 +63,7 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
     render.Controller.requestRender(this.ctx, render.REASON_TOOL);
   }
 
-  afterDelete(): void {
+  async afterDelete(): Promise<void> {
     render.Controller.requestRender(this.ctx, render.REASON_LAYOUT);
   }
 

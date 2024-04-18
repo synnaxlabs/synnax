@@ -77,8 +77,8 @@ func (w Writer) Delete(ctx context.Context, key uuid.UUID) error {
 
 func (w Writer) validate(r Range) error {
 	v := validate.New("ranger.Range")
-	validate.NotNil(v, "Name", r.Key)
-	validate.NotNil(v, "Name", r.Name)
+	validate.NotNil(v, "Key", r.Key)
+	validate.NotEmptyString(v, "Name", r.Name)
 	validate.NonZero(v, "TimeRange.Start", r.TimeRange.Start)
 	validate.NonZero(v, "TimeRange.end", r.TimeRange.End)
 	return v.Error()

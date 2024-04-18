@@ -35,18 +35,25 @@ export {
   TimeRange,
   TimeSpan,
   TimeStamp,
+  MultiSeries,
 } from "@synnaxlabs/x";
 export type {
-  NativeTypedArray,
+  TypedArray,
   CrudeDataType,
   CrudeDensity,
   CrudeRate,
   CrudeSize,
   CrudeTimeSpan,
   CrudeTimeStamp,
-  SampleValue,
+  TelemValue,
+  NumericTelemValue,
   TimeStampStringFormat,
   TZInfo,
 } from "@synnaxlabs/x";
 export { workspace } from "@/workspace";
 export { ranger } from "@/ranger";
+export { label } from "@/label";
+export { hardware } from "@/hardware";
+export { rack } from "@/hardware/rack";
+export { task } from "@/hardware/task";
+export { device } from "@/hardware/device";

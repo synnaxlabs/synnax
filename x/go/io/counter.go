@@ -11,13 +11,14 @@ package io
 
 import (
 	"encoding/binary"
-	"github.com/synnaxlabs/x/atomic"
+	"sync"
 )
 
 // Int32Counter is an atomic, file backed counter.
 type Int32Counter struct {
-	wrapped *atomic.Int32Counter
+	wrapped int32
 	f       ReaderAtWriterAtCloser
+	mu      sync.RWMutex
 	buf     []byte
 }
 
@@ -25,23 +26,28 @@ type Int32Counter struct {
 // must have exclusive write access to the file.
 func NewInt32Counter(f ReaderAtWriterAtCloser) *Int32Counter {
 	i := &Int32Counter{
-		wrapped: &atomic.Int32Counter{},
-		f:       f,
-		buf:     make([]byte, 4),
+		f:   f,
+		buf: make([]byte, 4),
 	}
 	return i
 }
 
 // Add increments the counter by the provided delta.
 func (c *Int32Counter) Add(delta int32) (int32, error) {
-	v := c.wrapped.Add(delta)
-	binary.LittleEndian.PutUint32(c.buf, uint32(v))
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.wrapped += delta
+	binary.LittleEndian.PutUint32(c.buf, uint32(c.wrapped))
 	_, err := c.f.WriteAt(c.buf, 0)
-	return v, err
+	return c.wrapped, err
 }
 
 // Value returns the current counter value.
-func (c *Int32Counter) Value() int32 { return c.wrapped.Value() }
+func (c *Int32Counter) Value() int32 {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.wrapped
+}
 
 func (c *Int32Counter) load() (int32, error) {
 	_, err := c.f.ReadAt(c.buf, 0)

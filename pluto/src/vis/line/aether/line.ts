@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { type Instrumentation } from "@synnaxlabs/alamos";
+import { UnexpectedError } from "@synnaxlabs/client";
 import {
   DataType,
   bounds,
-  type Destructor,
   type box,
   scale,
   xy,
@@ -24,7 +24,7 @@ import { z } from "zod";
 import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
 import { color } from "@/color/core";
-import { telem } from "@/telem/core";
+import { telem } from "@/telem/aether";
 import FRAG_SHADER from "@/vis/line/aether/frag.glsl?raw";
 import VERT_SHADER from "@/vis/line/aether/vert.glsl?raw";
 import { render } from "@/vis/render";
@@ -32,12 +32,18 @@ import { render } from "@/vis/render";
 const FLOAT_32_DENSITY = DataType.FLOAT32.density.valueOf();
 
 export const stateZ = z.object({
-  telem: telem.xySourceSpecZ,
+  x: telem.seriesSourceSpecZ,
+  y: telem.seriesSourceSpecZ,
   label: z.string().optional(),
   color: color.Color.z,
   strokeWidth: z.number().default(1),
   downsample: z.number().min(1).max(50).optional().default(1),
 });
+
+const safelyGetDataValue = (series: number, index: number, data: Series[]): number => {
+  if (series === -1 || index === -1 || series >= data.length) return NaN;
+  return Number(data[series].at(index));
+};
 
 export type State = z.input<typeof stateZ>;
 export type ParsedState = z.output<typeof stateZ>;
@@ -75,17 +81,25 @@ export interface LineProps {
   dataToDecimalScale: scale.XY;
 }
 
+interface TranslationBufferCacheEntry {
+  glBuffer: WebGLBuffer;
+  jsBuffer: Float32Array;
+}
+
 export class Context extends render.GLProgram {
-  translationBuffer: WebGLBuffer;
+  private readonly translationBufferCache = new Map<
+    string,
+    TranslationBufferCacheEntry
+  >();
 
   private static readonly CONTEXT_KEY = "pluto-line-gl-program";
 
   private constructor(ctx: render.Context) {
     super(ctx, VERT_SHADER, FRAG_SHADER);
-    this.translationBuffer = ctx.gl.createBuffer() as WebGLBuffer;
+    this.translationBufferCache = new Map();
   }
 
-  bindPropsAndState(
+  bindCommonPropsAndState(
     { dataToDecimalScale: s, region }: LineProps,
     { strokeWidth, color }: ParsedState,
   ): number {
@@ -97,6 +111,12 @@ export class Context extends render.GLProgram {
     this.uniformXY("u_scale", scaleTransform.scale);
     this.uniformXY("u_offset", scaleTransform.offset);
     return this.attrStrokeWidth(strokeWidth);
+  }
+
+  bindScale(s: scale.XY): void {
+    const transform = scale.xyScaleToTransform(s);
+    this.uniformXY("u_scale", transform.scale);
+    this.uniformXY("u_offset", transform.offset);
   }
 
   draw(
@@ -128,16 +148,37 @@ export class Context extends render.GLProgram {
   ): void {
     const { gl } = this.ctx;
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-    const n = gl.getAttribLocation(this.prog, `a_${dir}`);
+    const aLoc = gl.getAttribLocation(this.prog, `a_${dir}`);
     gl.vertexAttribPointer(
-      n,
+      aLoc,
       1,
       gl.FLOAT,
       false,
       FLOAT_32_DENSITY * downsample,
       FLOAT_32_DENSITY * alignment,
     );
-    gl.enableVertexAttribArray(n);
+    gl.enableVertexAttribArray(aLoc);
+  }
+
+  private getAndBindTranslationBuffer(
+    strokeWidth: number,
+  ): TranslationBufferCacheEntry {
+    const { gl } = this.ctx;
+    const key = `${this.ctx.aspect}:${strokeWidth}`;
+    const existing = this.translationBufferCache.get(key);
+    if (existing != null) {
+      gl.bindBuffer(gl.ARRAY_BUFFER, existing.glBuffer);
+      return existing;
+    }
+    const buf = gl.createBuffer();
+    if (buf == null)
+      throw new UnexpectedError("Failed to create buffer from WebGL context");
+    const translationBuffer = newTranslationBuffer(this.ctx.aspect, strokeWidth);
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, translationBuffer, gl.DYNAMIC_DRAW);
+    const entry = { glBuffer: buf, jsBuffer: translationBuffer };
+    this.translationBufferCache.set(key, entry);
+    return entry;
   }
 
   /**
@@ -150,22 +191,20 @@ export class Context extends render.GLProgram {
    */
   private attrStrokeWidth(strokeWidth: number): number {
     const { gl } = this.ctx;
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.translationBuffer);
-    const translationBuffer = newTranslationBuffer(this.ctx.aspect, strokeWidth);
-    gl.bufferData(gl.ARRAY_BUFFER, translationBuffer, gl.DYNAMIC_DRAW);
+    const { jsBuffer } = this.getAndBindTranslationBuffer(strokeWidth);
     const loc = gl.getAttribLocation(this.prog, "a_translate");
     gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(loc);
     gl.vertexAttribDivisor(loc, 1);
-    return translationBuffer.length / 2;
+    return jsBuffer.length / 2;
   }
 }
 
 interface InternalState {
   instrumentation: Instrumentation;
   prog: Context;
-  telem: telem.XYSource;
-  cleanupTelem: Destructor;
+  xTelem: telem.SeriesSource;
+  yTelem: telem.SeriesSource;
   requestRender: render.RequestF;
 }
 
@@ -173,92 +212,100 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
   static readonly TYPE = "line";
   schema: typeof stateZ = stateZ;
 
-  afterUpdate(): void {
-    const [t, cleanupTelem] = telem.use<telem.XYSource>(
-      this.ctx,
-      this.key,
-      this.state.telem,
-    );
-    this.internal.instrumentation = alamos.useInstrumentation(this.ctx, "line");
-    this.internal.telem = t;
-    this.internal.cleanupTelem = cleanupTelem;
-    this.internal.prog = Context.use(this.ctx);
-    this.internal.requestRender = render.Controller.useRequest(this.ctx);
-    this.internal.telem.onChange(() => this.internal.requestRender(render.REASON_DATA));
-    this.internal.requestRender(render.REASON_LAYOUT);
+  async afterUpdate(): Promise<void> {
+    if (this.deleted) return;
+    const { internal: i } = this;
+    i.xTelem = await telem.useSource(this.ctx, this.state.x, i.xTelem);
+    i.yTelem = await telem.useSource(this.ctx, this.state.y, i.yTelem);
+    i.instrumentation = alamos.useInstrumentation(this.ctx, "line");
+    i.prog = Context.use(this.ctx);
+    i.requestRender = render.Controller.useRequest(this.ctx);
+    i.xTelem.onChange(() => i.requestRender(render.REASON_DATA));
+    i.yTelem.onChange(() => i.requestRender(render.REASON_DATA));
+    i.requestRender(render.REASON_LAYOUT);
   }
 
-  afterDelete(): void {
-    this.internal.cleanupTelem();
-    this.internal.requestRender(render.REASON_LAYOUT);
+  async afterDelete(): Promise<void> {
+    const { internal: i } = this;
+    await i.xTelem.cleanup?.();
+    await i.yTelem.cleanup?.();
+    i.requestRender(render.REASON_LAYOUT);
   }
 
   async xBounds(): Promise<bounds.Bounds> {
-    return await this.internal.telem.xBounds();
+    return (await this.internal.xTelem.value())[0];
   }
 
   async yBounds(): Promise<bounds.Bounds> {
-    return await this.internal.telem.yBounds();
+    return (await this.internal.yTelem.value())[0];
   }
 
   async findByXValue(props: LineProps, target: number): Promise<FindResult> {
-    const { telem, prog } = this.internal;
-    const data = await telem.x(prog.ctx.gl);
+    const { xTelem, yTelem } = this.internal;
+    const [, xData] = await xTelem.value();
     let [index, series] = [-1, -1];
-    data.find((x, i) => {
+    xData.find((x, i) => {
       const v = x.binarySearch(target);
-      const valid = v !== -1 && v !== x.length;
+      // The returned value gives us the insert position, so anything that is not
+      // a valid index is not a valid value.
+      const valid = v >= 0 && v < x.length;
       if (valid) [index, series] = [v, i];
+      // We can stop the search if we have found a valid value.
       return valid;
     });
-
-    const value = await this.xyValue(series, index);
     const { key } = this;
     const { color, label } = this.state;
-    const position = {
-      x: props.dataToDecimalScale.x.pos(value.x),
-      y: props.dataToDecimalScale.y.pos(value.y),
+    const result = {
+      key,
+      color,
+      label,
+      position: { x: 0, y: 0 },
+      value: { x: NaN, y: NaN },
     };
-    return { key, color, label, value, position };
+
+    if (index === -1 || series === -1) return result;
+
+    const xSeries = xData[series];
+    result.value.x = safelyGetDataValue(series, index, xData);
+    const [, yData] = await yTelem.value();
+    const ySeries = yData.find((ys) =>
+      bounds.contains(ys.alignmentBounds, xSeries.alignment + index),
+    );
+    if (ySeries == null) return result;
+
+    const alignmentDiff = ySeries.alignment - xSeries.alignment;
+    result.value.y = Number(ySeries.at(index - alignmentDiff));
+
+    result.position = {
+      x: props.dataToDecimalScale.x.pos(result.value.x),
+      y: props.dataToDecimalScale.y.pos(result.value.y),
+    };
+    return result;
   }
 
   async render(props: LineProps): Promise<void> {
+    if (this.deleted) return;
     const { downsample } = this.state;
-    const { telem, prog } = this.internal;
+    const { xTelem, yTelem, prog } = this.internal;
     const { dataToDecimalScale } = props;
-    const xData = await telem.x(prog.ctx.gl);
-    const yData = await telem.y(prog.ctx.gl);
+    const [[, xData], [, yData]] = await Promise.all([xTelem.value(), yTelem.value()]);
+    xData.forEach((x) => x.updateGLBuffer(prog.ctx.gl));
+    yData.forEach((y) => y.updateGLBuffer(prog.ctx.gl));
     const ops = buildDrawOperations(xData, yData, downsample);
-    this.internal.instrumentation.L.debug("render", {
+    this.internal.instrumentation.L.debug("render", () => ({
       key: this.key,
       downsample,
       scale: scale.xyScaleToTransform(dataToDecimalScale),
       props: props.region,
       ops: digests(ops),
-    });
+    }));
     const clearProg = prog.setAsActive();
+    const instances = prog.bindCommonPropsAndState(props, this.state);
     ops.forEach((op) => {
-      const { x, y } = op;
-      const p = { ...props, dataToDecimalScale: offsetScale(dataToDecimalScale, x, y) };
-      const instances = prog.bindPropsAndState(p, this.state);
+      prog.bindScale(offsetScale(dataToDecimalScale, op));
       prog.draw(op, instances);
     });
     clearProg();
-  }
-
-  private async xyValue(series: number, index: number): Promise<xy.XY> {
-    const { telem, prog } = this.internal;
-    const x = await telem.x(prog.ctx.gl);
-    const y = await telem.y(prog.ctx.gl);
-    return xy.construct(
-      this.getValue(series, index, x),
-      this.getValue(series, index, y),
-    );
-  }
-
-  private getValue(series: number, index: number, data: Series[]): number {
-    if (series === -1 || index === -1 || series >= data.length) return NaN;
-    return Number(data[series].at(index));
   }
 }
 
@@ -266,8 +313,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
 const THICKNESS_DIVISOR = 5000;
 
 const newTranslationBuffer = (aspect: number, strokeWidth: number): Float32Array => {
-  if (strokeWidth <= 1) return new Float32Array([0, 0]);
-  return copyBuffer(newDirectionBuffer(aspect), Math.ceil(strokeWidth) - 1).map(
+  return replicateBuffer(newDirectionBuffer(aspect), Math.ceil(strokeWidth) - 1).map(
     (v, i) => Math.floor(i / DIRECTION_COUNT) * (1 / (THICKNESS_DIVISOR * aspect)) * v,
   );
 };
@@ -284,23 +330,21 @@ const newDirectionBuffer = (aspect: number): Float32Array =>
     -1, 0, // left
   ]);
 
-const copyBuffer = (buf: Float32Array, times: number): Float32Array => {
+const replicateBuffer = (buf: Float32Array, times: number): Float32Array => {
   const newBuf = new Float32Array(buf.length * times);
   for (let i = 0; i < times; i++) newBuf.set(buf, i * buf.length);
   return newBuf;
 };
 
-const offsetScale = (scale: scale.XY, x: Series, y: Series): scale.XY =>
+const offsetScale = (scale: scale.XY, op: DrawOperation): scale.XY =>
   scale.translate(
-    scale.x.dim(Number(x.sampleOffset)),
-    scale.y.dim(Number(y.sampleOffset)),
+    scale.x.dim(Number(op.x.sampleOffset)),
+    scale.y.dim(Number(op.y.sampleOffset)),
   );
 
-export const REGISTRY: aether.ComponentRegistry = {
-  [Line.TYPE]: Line,
-};
+export const REGISTRY: aether.ComponentRegistry = { [Line.TYPE]: Line };
 
-interface DrawOperation {
+export interface DrawOperation {
   x: Series;
   y: Series;
   xOffset: number;
@@ -314,7 +358,7 @@ interface DrawOperationDigest extends Omit<DrawOperation, "x" | "y"> {
   y: SeriesDigest;
 }
 
-const buildDrawOperations = (
+export const buildDrawOperations = (
   x: Series[],
   y: Series[],
   downsample: number,
@@ -323,42 +367,59 @@ const buildDrawOperations = (
 
   const ops: DrawOperation[] = [];
 
-  x.forEach((xs) => {
-    const b = bounds.construct(xs.alignment, xs.alignment + xs.length);
-    const ySeries = y.filter((y) =>
-      bounds.overlapsWith(b, bounds.construct(y.alignment, y.alignment + y.length)),
-    );
-    ySeries.forEach((ys) => {
-      if (
-        ys._timeRange != null &&
-        xs._timeRange != null &&
-        !ys.timeRange.overlapsWith(xs.timeRange)
-      )
-        return;
+  x.forEach((xSeries) => {
+    const compatibleYSeries = findSeriesThatOverlapWith(xSeries, y);
+    compatibleYSeries.forEach((ySeries) => {
       let xOffset = 0;
       let yOffset = 0;
-      if (xs.alignment < ys.alignment) xOffset = ys.alignment - xs.alignment;
-      else if (ys.alignment < xs.alignment) yOffset = xs.alignment - ys.alignment;
-      const count = Math.min(xs.length - xOffset, ys.length - yOffset);
-      if (count > 0) {
+
+      // This means that the x series starts before the y series.
+      if (xSeries.alignment < ySeries.alignment)
+        xOffset = ySeries.alignment - xSeries.alignment;
+      // This means that the y series starts before the x series.
+      else if (ySeries.alignment < xSeries.alignment)
+        yOffset = xSeries.alignment - ySeries.alignment;
+
+      const amountOfOverlap = Math.min(
+        xSeries.length - xOffset,
+        ySeries.length - yOffset,
+      );
+
+      if (amountOfOverlap > 0)
         ops.push({
-          x: xs,
-          y: ys,
+          x: xSeries,
+          y: ySeries,
           xOffset,
           yOffset,
-          count,
+          count: amountOfOverlap,
           downsample,
         });
-      }
     });
   });
 
   return ops;
 };
 
+const findSeriesThatOverlapWith = (x: Series, y: Series[]): Series[] =>
+  y.filter((ys) => {
+    // This is just a runtime check that both series' have time ranges defined.
+    const haveTimeRanges = x._timeRange != null && ys._timeRange != null;
+    if (!haveTimeRanges) {
+      throw new UnexpectedError(
+        `Encountered series without time range in buildDrawOperations. X series present: ${x._timeRange != null}, Y series present: ${ys._timeRange != null}`,
+      );
+    }
+    // If the time ranges of the x and y series overlap, we meet the first condition
+    // for drawing them together.
+    const timeRangesOverlap = x.timeRange.overlapsWith(ys.timeRange);
+    // If the 'indexes' of the x and y series overlap, we meet the second condition
+    // for drawing them together.
+    const alignmentsOverlap = bounds.overlapsWith(
+      x.alignmentBounds,
+      ys.alignmentBounds,
+    );
+    return timeRangesOverlap && alignmentsOverlap;
+  });
+
 const digests = (ops: DrawOperation[]): DrawOperationDigest[] =>
-  ops.map((op) => ({
-    ...op,
-    x: op.x.digest,
-    y: op.y.digest,
-  }));
+  ops.map((op) => ({ ...op, x: op.x.digest, y: op.y.digest }));

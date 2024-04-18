@@ -7,35 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useEffect, useCallback } from "react";
+import { type ReactElement, useEffect } from "react";
 
-import { ontology } from "@synnaxlabs/client";
-import { Align, Synnax } from "@synnaxlabs/pluto";
-import { type location } from "@synnaxlabs/x";
-import { useDispatch, useStore } from "react-redux";
+import { Align } from "@synnaxlabs/pluto";
+import { useDispatch } from "react-redux";
 
+import { NavDrawer } from "@/components/nav/Nav";
 import { Layout } from "@/layout";
-import { usePlacer } from "@/layout/hooks";
-import {
-  NavBottom,
-  NavDrawer,
-  NavLeft,
-  NavRight,
-  NavTop,
-} from "@/layouts/LayoutMain/Nav";
-import { SERVICES } from "@/services";
-import { type RootStore } from "@/store";
-import { Vis } from "@/vis";
+import { NavBottom, NavLeft, NavRight, NavTop } from "@/layouts/LayoutMain/Nav";
+import { Mosaic } from "@/layouts/mosaic";
 
 import "@/layouts/LayoutMain/LayoutMain.css";
-
-const createNewVis = (
-  placer: Layout.Placer,
-  mosaicKey: number,
-  loc: location.Location,
-): void => {
-  placer(Vis.create({ tab: { mosaicKey, location: loc }, location: "mosaic" }));
-};
 
 /**
  * The center of it all. This is the main layout for the Synnax Console. Try to keep this
@@ -47,31 +29,7 @@ export const LayoutMain = (): ReactElement => {
     d(Layout.maybeCreateGetStartedTab());
   }, []);
 
-  const client = Synnax.use();
-  const store = useStore();
-  const placer = usePlacer();
-
-  const handleCreate = useCallback(
-    (mosaicKey: number, location: location.Location, tabKeys?: string[]) => {
-      if (tabKeys == null) return createNewVis(placer, mosaicKey, location);
-      tabKeys.forEach((tabKey) => {
-        const res = ontology.stringIDZ.safeParse(tabKey);
-        if (res.success) {
-          const id = res.data;
-          if (client == null) return;
-          SERVICES[id.type].onMosaicDrop?.({
-            client,
-            store: store as RootStore,
-            id,
-            nodeKey: mosaicKey,
-            location,
-            placeLayout: placer,
-          });
-        } else placer(Vis.create({ tab: { mosaicKey, location }, location: "mosaic" }));
-      });
-    },
-    [placer, store, client],
-  );
+  // Cluster.useLocalServer();
 
   return (
     <>
@@ -85,7 +43,7 @@ export const LayoutMain = (): ReactElement => {
           <Align.Space className="console-main--driven" direction="x" empty>
             <NavDrawer location="left" />
             <main className="console-main--driven" style={{ position: "relative" }}>
-              <Layout.Mosaic onCreate={handleCreate} />
+              <Mosaic.Mosaic />
             </main>
             <NavDrawer location="right" />
           </Align.Space>

@@ -11,6 +11,7 @@ package index
 
 import (
 	"context"
+	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/x/telem"
@@ -30,7 +31,8 @@ func (i *Domain) Distance(ctx context.Context, tr telem.TimeRange, continuous bo
 	ctx, span := i.T.Bench(ctx, "distance")
 	defer func() { _ = span.EndWith(err, ErrDiscontinuous) }()
 
-	iter := i.DB.NewIterator(domain.IteratorConfig{Bounds: tr})
+	var iter = i.DB.NewIterator(domain.IteratorConfig{Bounds: tr})
+	defer func() { err = errors.CombineErrors(err, iter.Close()) }()
 
 	if !iter.SeekFirst(ctx) || (!iter.TimeRange().ContainsRange(tr) && continuous) {
 		err = ErrDiscontinuous
@@ -172,14 +174,16 @@ func (i *Domain) search(ts telem.TimeStamp, r *domain.Reader) (DistanceApproxima
 		start int64 = 0
 		end         = (r.Len() / 8) - 1
 		buf         = make([]byte, 8)
+		midTs telem.TimeStamp
+		err   error
 	)
 	for start <= end {
 		mid := (start + end) / 2
-		midTs, err := readStamp(r, mid*8, buf)
+		midTs, err = readStamp(r, mid*8, buf)
 		if err != nil {
 			return Exactly[int64](0), err
 		}
-		if midTs == ts {
+		if ts == midTs {
 			return Exactly(mid), nil
 		} else if midTs < ts {
 			start = mid + 1

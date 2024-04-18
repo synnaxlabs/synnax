@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Control, type PID, type Viewport } from "@synnaxlabs/pluto";
+import { type Control, type Diagram, type Viewport } from "@synnaxlabs/pluto";
 
 import { useMemoSelect } from "@/hooks";
 import {
+  type NodeProps,
   type SliceState,
   type State,
   type StoreState,
@@ -54,18 +55,20 @@ export const selectSelectedElementsProps = (
   return [...nodes, ...edges];
 };
 
-export type ElementInfo =
-  | {
-      key: string;
-      type: "node";
-      node: PID.Node;
-      props: object;
-    }
-  | {
-      key: string;
-      type: "edge";
-      edge: PID.Edge;
-    };
+export interface NodeElementInfo {
+  key: string;
+  type: "node";
+  node: Diagram.Node;
+  props: NodeProps;
+}
+
+export interface EdgeElementInfo {
+  key: string;
+  type: "edge";
+  edge: Diagram.Edge;
+}
+
+export type ElementInfo = NodeElementInfo | EdgeElementInfo;
 
 export const useSelectSelectedElementsProps = (layoutKey: string): ElementInfo[] =>
   useMemoSelect(
@@ -73,23 +76,18 @@ export const useSelectSelectedElementsProps = (layoutKey: string): ElementInfo[]
     [layoutKey],
   );
 
-export const selectElementProps = (
+export const selectNodeProps = (
   state: StoreState,
   layoutKey: string,
   key: string,
-): ElementInfo => {
+): NodeProps => {
   const pid = select(state, layoutKey);
-  const node = pid.nodes.find((node) => node.key === key);
-  return {
-    key,
-    node: node as PID.Node,
-    props: pid.props[key],
-  };
+  return pid.props[key];
 };
 
-export const useSelectElementProps = (layoutKey: string, key: string): ElementInfo =>
+export const useSelectNodeProps = (layoutKey: string, key: string): NodeProps =>
   useMemoSelect(
-    (state: StoreState) => selectElementProps(state, layoutKey, key),
+    (state: StoreState) => selectNodeProps(state, layoutKey, key),
     [layoutKey, key],
   );
 
@@ -107,16 +105,22 @@ export const useSelectEditable = (key: string): boolean =>
 export const selectViewportMode = (state: StoreState): Viewport.Mode =>
   selectSliceState(state).mode;
 
-export const useSelectViewporMode = (): Viewport.Mode =>
+export const useSelectViewportMode = (): Viewport.Mode =>
   useMemoSelect(selectViewportMode, []);
 
-export const selecControlStatus = (
+export const selectViewport = (state: StoreState, key: string): Diagram.Viewport =>
+  select(state, key).viewport;
+
+export const useSelectViewport = (key: string): Diagram.Viewport =>
+  useMemoSelect((state: StoreState) => selectViewport(state, key), [key]);
+
+export const selectControlStatus = (
   state: StoreState,
   layoutKey: string,
 ): Control.Status => select(state, layoutKey).control;
 
 export const useSelectControlStatus = (layoutKey: string): Control.Status =>
   useMemoSelect(
-    (state: StoreState) => selecControlStatus(state, layoutKey),
+    (state: StoreState) => selectControlStatus(state, layoutKey),
     [layoutKey],
   );

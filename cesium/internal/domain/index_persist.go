@@ -37,9 +37,9 @@ func openIndexPersist(idx *index, cfg Config) (*indexPersist, error) {
 func (f indexPersist) onChange(ctx context.Context, update indexUpdate) {
 	ctx, span := f.T.Bench(ctx, "onChange")
 	var encoded []byte
-	f.idx.read(func() {
-		encoded = f.encode(update.afterIndex, f.idx.mu.pointers)
-	})
+	f.idx.mu.RLock()
+	encoded = f.encode(update.afterIndex, f.idx.mu.pointers)
+	f.idx.mu.RUnlock()
 	var err error
 	if len(encoded) != 0 {
 		_, err = f.WriteAt(encoded, int64(update.afterIndex*pointerByteSize))

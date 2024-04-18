@@ -9,17 +9,17 @@
 
 import { type ReactElement } from "react";
 
-export type RenderProp<P extends Record<string, any>> = (
+export type RenderProp<P extends Record<string, any>, R = ReactElement | null> = (
   props: P,
-) => ReactElement | null;
+) => R;
 
 /**
  * Component prop takes in a component and turns it into a render prop.
  */
 export const componentRenderProp =
-  <P extends Record<string, any>>(Component: React.ComponentType<P>): RenderProp<P> =>
+  <P extends Record<string, any>, R = ReactElement | null>(Component: React.ComponentType<P>): RenderProp<P, R> =>
   // eslint-disable-next-line react/display-name
-  (props) => <Component {...props} />;
+  (props) => <Component {...props} /> as R;
 
 export const isRenderProp = <P extends Record<string, any>>(
   children: React.ReactNode | RenderProp<P>,

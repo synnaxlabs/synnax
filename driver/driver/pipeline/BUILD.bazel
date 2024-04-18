@@ -1,0 +1,16 @@
+cc_library(
+    name = "pipeline",
+    srcs = [
+        "inbound.cpp",
+        "outbound.cpp",
+    ],
+    hdrs = [
+        "inbound.h",
+        "outbound.h",
+    ],
+    deps = [
+        "//driver/errors",
+        "@nlohmann_json//:json",
+        "@synnax//synnax",
+    ],
+)

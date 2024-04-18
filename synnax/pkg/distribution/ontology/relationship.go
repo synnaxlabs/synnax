@@ -43,18 +43,18 @@ type Relationship struct {
 	Type RelationshipType
 }
 
-var _ gorp.Entry[string] = Relationship{}
+var _ gorp.Entry[[]byte] = Relationship{}
 
 // GorpKey implements the gorp.Entry interface.
-func (r Relationship) GorpKey() string {
-	return r.From.String() + "->" + string(r.Type) + "->" + r.To.String()
+func (r Relationship) GorpKey() []byte {
+	return []byte(r.From.String() + "->" + string(r.Type) + "->" + r.To.String())
 }
 
 // SetOptions implements the gorp.Entry interface.
 func (r Relationship) SetOptions() []interface{} { return nil }
 
-func ParseRelationship(key string) (r Relationship, err error) {
-	split := strings.Split(key, "->")
+func ParseRelationship(key []byte) (r Relationship, err error) {
+	split := strings.Split(string(key), "->")
 	if len(split) != 3 {
 		return r, errors.Wrapf(validate.Error, "invalid relationship key: %s", key)
 	}

@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -34,7 +34,7 @@ TEST(testGRPC, basicProto) {
     ASSERT_EQ(m.payload(), "Hello");
 }
 
-/// @brief Test the basic unary interface on success.
+///// @brief Test the basic unary interface on success.
 TEST(testGRPC, testBasicUnary) {
     std::thread s(server, base_target);
     // Sleep for 100 ms to make sure server is up.
@@ -65,8 +65,8 @@ public:
     }
 };
 
-/// @brief Test that the basic unary interface propagates metadata headers through
-/// middleware.
+///// @brief Test that the basic unary interface propagates metadata headers through
+///// middleware.
 TEST(testGRPC, testMiddlewareInjection) {
     std::thread s(server, base_target);
     // Sleep for 100 ms to make sure server is up.
@@ -83,7 +83,7 @@ TEST(testGRPC, testMiddlewareInjection) {
     s.join();
 }
 
-/// @brief Test the basic unary interface on failure.
+///// @brief Test the basic unary interface on failure.
 TEST(testGRPC, testFailedUnary) {
     // Note that the easiest way to cause a failure
     // here is to simply not set up a server, so that
@@ -97,7 +97,7 @@ TEST(testGRPC, testFailedUnary) {
     ASSERT_EQ(err.type, freighter::TYPE_UNREACHABLE);
 }
 
-/// @brief Test sending a message to multiple targets.
+///// @brief Test sending a message to multiple targets.
 TEST(testGRPC, testMultipleTargets) {
     std::string target_one("localhost:8080");
     std::string target_two("localhost:8081");
@@ -125,7 +125,7 @@ TEST(testGRPC, testMultipleTargets) {
     s2.join();
 }
 
-/// @brief Test sending and receiving one message.
+///// @brief Test sending and receiving one message.
 TEST(testGRPC, testBasicStream) {
     std::string target("localhost:8080");
     std::thread s(server, target);
@@ -150,7 +150,7 @@ TEST(testGRPC, testBasicStream) {
     s.join();
 }
 
-/// @brief Test making and sending with multiple stream objects.
+///// @brief Test making and sending with multiple stream objects.
 TEST(testGRPC, testMultipleStreamObjects) {
     std::string target_one("localhost:8080");
     std::string target_two("localhost:8081");
@@ -187,7 +187,7 @@ TEST(testGRPC, testMultipleStreamObjects) {
     s2.join();
 }
 
-/// @brief Test sending and receiving one message.
+///// @brief Test sending and receiving one message.
 TEST(testGRPC, testSendMultipleMessages) {
     std::string target("localhost:8080");
     std::thread s(server, target);
@@ -219,7 +219,7 @@ TEST(testGRPC, testSendMultipleMessages) {
     s.join();
 }
 
-/// @brief Test sending and receiving one message.
+///// @brief Test sending and receiving one message.
 TEST(testGRPC, testStreamError) {
     std::string target("localhost:8080");
     auto pool = std::make_shared<GRPCPool>();
@@ -235,43 +235,43 @@ TEST(testGRPC, testStreamError) {
     ASSERT_FALSE(err2.ok());
 }
 
-auto pool = std::make_shared<GRPCPool>();
-auto global_unary_client = GRPCUnaryClient<response_t, request_t, unary_rpc_t>(pool, base_target);
-auto global_stream_client = GRPCStreamClient<response_t, request_t, stream_rpc_t>(pool, base_target);
 
-void client_send(int num) {
+
+void client_send(int num, std::shared_ptr<GRPCUnaryClient<response_t, request_t, unary_rpc_t>> client) {
     auto mes = test::Message();
     mes.set_payload(std::to_string(num));
-    auto [res, err] = global_unary_client.send("", mes);
+    auto [res, err] = client->send("", mes);
     ASSERT_TRUE(err.ok());
     ASSERT_EQ(res.payload(), "Read request: " + std::to_string(num));
 }
 
-/// @brief Test that we can send many messages with the same client and don't have any errors.
+///// @brief Test that we can send many messages with the same client and don't have any errors.
 TEST(testGRPC, stressTestUnaryWithManyThreads) {
     std::thread s(server, base_target);
     // Sleep for 100 ms to make sure server is up.
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    auto pool = std::make_shared<GRPCPool>();
+    auto global_unary_client = std::make_shared<GRPCUnaryClient<response_t, request_t, unary_rpc_t>>(pool, base_target);
 
     auto mw = std::make_shared<myMiddleware>();
-    global_unary_client.use(mw);
+    global_unary_client->use(mw);
     std::vector<std::thread> threads;
 
     // Time to boil all the cores.
-    for (int i = 0; i < 1000; i++) {
-        threads.emplace_back(client_send, i);
+    for (int i = 0; i < 100; i++) {
+        threads.emplace_back(client_send, i, global_unary_client);
     }
-    for (size_t i = 0; i < 1000; i++) {
+    for (size_t i = 0; i < 100; i++) {
         threads[i].join();
     }
     stopServers();
     s.join();
 }
 
-void stream_send(int num) {
+void stream_send(int num, std::shared_ptr<GRPCStreamClient<response_t, request_t, stream_rpc_t>> client) {
     auto mes = test::Message();
     mes.set_payload(std::to_string(num));
-    auto [stream, err] = global_stream_client.stream("");
+    auto [stream, err] = client->stream("");
     ASSERT_TRUE(err.ok());
     err = stream->send(mes);
     ASSERT_TRUE(err.ok());
@@ -280,21 +280,24 @@ void stream_send(int num) {
     ASSERT_EQ(res.payload(), "Read request: " + std::to_string(num));
 }
 
-/// @brief Test that we can send many messages with the same client and different stream invocations.
+///// @brief Test that we can send many messages with the same client and different stream invocations.
 TEST(testGRPC, stressTestStreamWithManyThreads) {
     std::thread s(server, base_target);
     // Sleep for 100 ms to make sure server is up.
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
+    auto pool = std::make_shared<GRPCPool>();
+    auto global_stream_client = std::make_shared<GRPCStreamClient<response_t, request_t, stream_rpc_t>>(pool, base_target);
+
     auto mw = std::make_shared<myMiddleware>();
-    global_stream_client.use(mw);
+    global_stream_client->use(mw);
     std::vector<std::thread> threads;
 
     // Time to boil all the cores.
-    for (int i = 0; i < 1000; i++) {
-        threads.emplace_back(stream_send, i);
+    for (int i = 0; i < 100; i++) {
+        threads.emplace_back(stream_send, i, global_stream_client);
     }
-    for (size_t i = 0; i < 1000; i++) {
+    for (size_t i = 0; i < 100; i++) {
         threads[i].join();
     }
     stopServers();

@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useCallback, useMemo } from "react";
+import { type ReactElement, useCallback, useMemo, useEffect } from "react";
 
 import { type channel } from "@synnaxlabs/client";
+import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
   useAsyncEffect,
   Viewport,
@@ -18,12 +19,14 @@ import {
   Synnax,
   Color,
   Menu,
+  usePrevious,
 } from "@synnaxlabs/pluto";
 import { type UnknownRecord, box, location, unique, getEntries } from "@synnaxlabs/x";
 import { useDispatch } from "react-redux";
 
 import { useSyncerDispatch, type Syncer } from "@/hooks/dispatchers";
 import { Layout } from "@/layout";
+import { ContextMenuContent } from "@/lineplot/ContextMenu";
 import {
   useSelect,
   selectRanges,
@@ -53,8 +56,6 @@ import { Range } from "@/range";
 import { Vis } from "@/vis";
 import { Workspace } from "@/workspace";
 
-import { ContextMenuContent } from "./ContextMenu";
-
 interface SyncPayload {
   key?: string;
 }
@@ -71,26 +72,32 @@ const syncer: Syncer<
   const la = Layout.selectRequired(s, key);
   if (!data.remoteCreated) {
     store.dispatch(setRemoteCreated({ key }));
-    await client.workspaces.linePlot.create(ws, {
-      key,
-      name: la.name,
-      data: data as unknown as UnknownRecord,
-    });
-  } else
-    await client.workspaces.linePlot.setData(key, data as unknown as UnknownRecord);
+  }
+  await client.workspaces.linePlot.create(ws, {
+    key,
+    name: la.name,
+    data: data as unknown as UnknownRecord,
+  });
 };
 
 const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
+  const windowKey = useSelectWindowKey() as string;
   const { name } = Layout.useSelectRequired(layoutKey);
   const vis = useSelect(layoutKey);
   const ranges = selectRanges(layoutKey);
   const client = Synnax.use();
-  const dispatch = useSyncerDispatch<
+  const syncDispatch = useSyncerDispatch<
     Layout.StoreState & Workspace.StoreState & StoreState,
     SyncPayload
-  >(syncer, 1000);
+  >(syncer, 500);
+  const dispatch = useDispatch();
 
   const lines = buildLines(vis, ranges);
+
+  const prevName = usePrevious(name);
+  useEffect(() => {
+    if (prevName !== name) syncDispatch(Layout.rename({ key: layoutKey, name }));
+  }, [syncDispatch, name, prevName]);
 
   useAsyncEffect(async () => {
     if (client == null) return;
@@ -103,16 +110,16 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
       key: l.key,
       label: fetched.find((f) => f.key === l.channels.y)?.name,
     }));
-    dispatch(
+    syncDispatch(
       setLine({
         key: layoutKey,
         line: update,
       }),
     );
-  }, [client, lines]);
+  }, [layoutKey, client, lines]);
 
   const handleTitleChange = (name: string): void => {
-    dispatch(Layout.rename({ key: layoutKey, name }));
+    syncDispatch(Layout.rename({ key: layoutKey, name }));
   };
 
   const handleLineChange = useCallback<
@@ -121,21 +128,21 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
     (d): void => {
       const newLine = { ...d } as const as LineState;
       if (d.color != null) newLine.color = Color.toHex(d.color);
-      dispatch(
+      syncDispatch(
         setLine({
           key: layoutKey,
           line: [newLine],
         }),
       );
     },
-    [dispatch, layoutKey],
+    [syncDispatch, layoutKey],
   );
 
   const handleRuleChange = useCallback<
     Exclude<Channel.LinePlotProps["onRuleChange"], undefined>
   >(
     (rule) =>
-      dispatch(
+      syncDispatch(
         setRule({
           key: layoutKey,
           rule: {
@@ -145,14 +152,14 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
           },
         }),
       ),
-    [dispatch, layoutKey],
+    [syncDispatch, layoutKey],
   );
 
   const handleAxisChange = useCallback<
     Exclude<Channel.LinePlotProps["onAxisChange"], undefined>
   >(
     (axis) => {
-      dispatch(
+      syncDispatch(
         setAxis({
           key: layoutKey,
           axisKey: axis.key as Vis.AxisKey,
@@ -161,7 +168,7 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
         }),
       );
     },
-    [dispatch, layoutKey],
+    [syncDispatch, layoutKey],
   );
 
   const propsLines = buildLines(vis, ranges);
@@ -171,7 +178,7 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
   const handleChannelAxisDrop = useCallback(
     (axis: string, channels: channel.Keys): void => {
       if (Vis.X_AXIS_KEYS.includes(axis as Vis.XAxisKey))
-        dispatch(
+        syncDispatch(
           setXChannel({
             key: layoutKey,
             axisKey: axis as Vis.XAxisKey,
@@ -179,7 +186,7 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
           }),
         );
       else
-        dispatch(
+        syncDispatch(
           setYChannels({
             key: layoutKey,
             axisKey: axis as Vis.YAxisKey,
@@ -188,7 +195,7 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
           }),
         );
       if (propsLines.length === 0 && rng != null) {
-        dispatch(
+        syncDispatch(
           setRanges({
             mode: "add",
             key: layoutKey,
@@ -198,21 +205,21 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
         );
       }
     },
-    [dispatch, layoutKey, propsLines.length, rng],
+    [syncDispatch, layoutKey, propsLines.length, rng],
   );
 
   const handleViewportChange: Viewport.UseHandler = useDebouncedCallback(
     ({ box: b, stage, mode }) => {
       if (stage !== "end") return;
       if (mode === "select") {
-        dispatch(
+        syncDispatch(
           setSelection({
             key: layoutKey,
             box: b,
           }),
         );
       } else {
-        dispatch(
+        syncDispatch(
           storeViewport({
             key: layoutKey,
             pan: box.bottomLeft(b),
@@ -222,7 +229,7 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
       }
     },
     100,
-    [dispatch, layoutKey],
+    [syncDispatch, layoutKey],
   );
 
   const { enableTooltip, clickMode, hold } = useSelectControlState();
@@ -237,8 +244,11 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
   }, [vis.viewport.renderTrigger]);
 
   const handleDoubleClick = useCallback(
-    () => dispatch(Layout.setNavdrawerVisible({ key: "visualization", value: true })),
-    [dispatch],
+    () =>
+      dispatch(
+        Layout.setNavdrawerVisible({ windowKey, key: "visualization", value: true }),
+      ),
+    [windowKey, dispatch],
   );
 
   const props = Menu.useContextMenu();
@@ -301,11 +311,11 @@ const buildLines = (
             range.variant === "dynamic"
               ? {
                   variant: "dynamic",
-                  span: range.span,
+                  timeSpan: range.span,
                 }
               : {
                   variant: "static",
-                  range: range.timeRange,
+                  timeRange: range.timeRange,
                 };
 
           return (yChannels as number[]).map((channel) => {
@@ -332,7 +342,7 @@ const buildLines = (
                 y: channel,
               },
               ...variantArg,
-            };
+            } as unknown as Channel.LineProps;
             return v;
           });
         }),

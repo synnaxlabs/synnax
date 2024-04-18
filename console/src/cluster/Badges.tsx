@@ -10,11 +10,12 @@
 import { type ReactElement } from "react";
 
 import type { connection } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
-import { Text, Status, Synnax } from "@synnaxlabs/pluto";
+import { Status, Synnax } from "@synnaxlabs/pluto";
 import { Case } from "@synnaxlabs/x";
 
-import { useSelect } from "@/cluster/selectors";
+import { CSS } from "@/css";
+
+import "@/cluster/Badges.css";
 
 /** Props for the ConnectionStateBadge component. */
 export interface ConnectionStateBadgeProps {
@@ -24,7 +25,7 @@ export interface ConnectionStateBadgeProps {
 export const statusVariants: Record<connection.Status, Status.Variant> = {
   connected: "success",
   failed: "error",
-  connecting: "info",
+  connecting: "loading",
   disconnected: "warning",
 };
 
@@ -37,29 +38,14 @@ export const statusVariants: Record<connection.Status, Status.Variant> = {
 export const ConnectionStatusBadge = ({
   state: { status },
 }: ConnectionStateBadgeProps): ReactElement => (
-  <Status.Text variant={statusVariants[status]}>{Case.capitalize(status)}</Status.Text>
+  <Status.Text
+    className={CSS.B("connection-status-badge")}
+    variant={statusVariants[status]}
+    justify="center"
+  >
+    {Case.capitalize(status)}
+  </Status.Text>
 );
-
-/* The props for the ClusterBadge component. */
-export interface NameBadgeProps {
-  key?: string;
-}
-
-/**
- * Displays the name of the cluster.
- *
- * @param props - The props of the component.
- * @param props.key - The key of the cluster to display. If not provided, the active
- * cluster will be used.
- */
-export const NameBadge = ({ key }: NameBadgeProps): ReactElement => {
-  const cluster = useSelect(key);
-  return (
-    <Text.WithIcon level="p" startIcon={<Icon.Cluster />}>
-      {cluster?.name ?? "No Active Cluster"}
-    </Text.WithIcon>
-  );
-};
 
 /**
  * Displays the connection state of the cluster.

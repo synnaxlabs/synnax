@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { Action, AnyAction } from "@reduxjs/toolkit";
+import type { Action, UnknownAction } from "@reduxjs/toolkit";
 import { debounce as debounceF, dimensions, xy } from "@synnaxlabs/x";
 import type { Event as TauriEvent, UnlistenFn } from "@tauri-apps/api/event";
 import { listen, emit, TauriEvent as TauriEventKey } from "@tauri-apps/api/event";
@@ -34,7 +34,7 @@ const notFound = (key: string): Error => new Error(`Window not found: ${key}`);
 /**
  * A Tauri backed implementation of the drift Runtime.
  */
-export class TauriRuntime<S extends StoreState, A extends Action = AnyAction>
+export class TauriRuntime<S extends StoreState, A extends Action = UnknownAction>
   implements Runtime<S, A>
 {
   private readonly win: WebviewWindow;
@@ -236,7 +236,7 @@ interface HandlerEntry {
   key: TauriEventKey;
   debounce: number;
   condition?: (win: WebviewWindow | null) => Promise<boolean>;
-  handler: (ev: TauriEvent<any>) => Promise<AnyAction | null>;
+  handler: (ev: TauriEvent<any>) => Promise<UnknownAction | null>;
 }
 
 const newWindowPropsHandlers = (): HandlerEntry[] => [

@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import uuid
+
 import numpy as np
 import pytest
 
@@ -130,3 +132,45 @@ class TestChannelClient:
         )
         res_channels = client.channels.retrieve(["^strange_channel_regex_"])
         assert len(res_channels) >= 2
+
+    def test_delete_by_key(self, client: sy.Synnax):
+        """Should delete channels using a list of keys"""
+        channels = client.channels.create(
+            [
+                sy.Channel(
+                    name="test",
+                    rate=1 * sy.Rate.HZ,
+                    data_type=sy.DataType.FLOAT64,
+                ),
+                sy.Channel(
+                    name="test2",
+                    rate=1 * sy.Rate.HZ,
+                    data_type=sy.DataType.FLOAT64,
+                ),
+            ]
+        )
+        keys = [channel.key for channel in channels]
+        client.channels.delete(keys)
+        with pytest.raises(sy.QueryError):
+            client.channels.retrieve(keys)
+
+    def test_delete_by_name(self, client: sy.Synnax):
+        """Should delete channels using a list of names"""
+        channels = client.channels.create(
+            [
+                sy.Channel(
+                    name=str(uuid.uuid4()),
+                    rate=1 * sy.Rate.HZ,
+                    data_type=sy.DataType.FLOAT64,
+                ),
+                sy.Channel(
+                    name=str(uuid.uuid4()),
+                    rate=1 * sy.Rate.HZ,
+                    data_type=sy.DataType.FLOAT64,
+                ),
+            ]
+        )
+        names = [channel.name for channel in channels]
+        client.channels.delete(names)
+        results = client.channels.retrieve(names)
+        assert len(results) == 0

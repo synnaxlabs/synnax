@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -32,7 +32,7 @@ TEST(RangerTests, testCreate) {
                     synnax::TimeStamp(100)
             )
     );
-    ASSERT_FALSE(err);
+    ASSERT_FALSE(err) << err.message();
     ASSERT_EQ(range.name, "test");
     ASSERT_FALSE(range.key.length() == 0);
     ASSERT_EQ(range.time_range.start, synnax::TimeStamp(10));
@@ -83,7 +83,7 @@ TEST(RangerTests, testRetrieveByNameNotFound) {
     auto client = new_test_client();
     auto [got, err] = client.ranges.retrieveByName("not_found");
     ASSERT_TRUE(err);
-    ASSERT_EQ(err.type, synnax::NO_RESULTS);
+    ASSERT_EQ(err.type, synnax::NOT_FOUND);
 }
 
 /// @brief it should retrieve multiple ranges by their names.
@@ -256,5 +256,5 @@ TEST(RangerTests, testClearActive) {
     ASSERT_FALSE(err);
     auto [got, err2] = client.ranges.retrieveActive();
     ASSERT_TRUE(err2);
-    ASSERT_EQ(err2.type, synnax::NO_RESULTS);
+    ASSERT_EQ(err2.type, synnax::NOT_FOUND);
 }

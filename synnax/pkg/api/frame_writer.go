@@ -33,9 +33,10 @@ type FrameWriterConfig struct {
 	ControlSubject control.Subject `json:"control_subject" msgpack:"control_subject"`
 	Start          telem.TimeStamp `json:"start" msgpack:"start"`
 	Keys           channel.Keys    `json:"keys" msgpack:"keys"`
+	Mode           writer.Mode     `json:"mode" msgpack:"mode"`
 }
 
-// FrameWriterRequest represents a request to write Internal data for a set of channels.
+// FrameWriterRequest represents a request to write CreateNet data for a set of channels.
 type FrameWriterRequest struct {
 	Config  FrameWriterConfig `json:"config" msgpack:"config"`
 	Command WriterCommand     `json:"command" msgpack:"command"`
@@ -102,6 +103,10 @@ func (s *FrameService) Write(_ctx context.Context, stream FrameWriterStream) err
 				r.Config.Keys = req.Config.Keys
 			}
 
+			if r.Command == writer.SetMode {
+				r.Config.Mode = req.Config.Mode
+			}
+
 			return r, true, nil
 		},
 	}
@@ -124,7 +129,8 @@ func (s *FrameService) Write(_ctx context.Context, stream FrameWriterStream) err
 	plumber.MustConnect[FrameWriterResponse](pipe, "writer", "sender", 1)
 
 	pipe.Flow(ctx, confluence.CloseInletsOnExit())
-	return ctx.Wait()
+	err = ctx.Wait()
+	return errors.Auto(err)
 }
 
 func (s *FrameService) openWriter(ctx context.Context, srv FrameWriterStream) (framer.StreamWriter, error) {
@@ -143,6 +149,7 @@ func (s *FrameService) openWriter(ctx context.Context, srv FrameWriterStream) (f
 		Start:          req.Config.Start,
 		Keys:           req.Config.Keys,
 		Authorities:    authorities,
+		Mode:           req.Config.Mode,
 	})
 	if err != nil {
 		return nil, errors.Query(err)

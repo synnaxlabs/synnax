@@ -9,7 +9,7 @@
 
 import { type Dispatch, type ReactElement, useCallback, useState } from "react";
 
-import type { AnyAction } from "@reduxjs/toolkit";
+import type { PayloadAction, UnknownAction } from "@reduxjs/toolkit";
 import { Drift } from "@synnaxlabs/drift";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
@@ -43,7 +43,7 @@ import { Workspace } from "@/workspace";
 
 export interface CreatorProps {
   windowKey: string;
-  dispatch: Dispatch<AnyAction>;
+  dispatch: Dispatch<PayloadAction<any>>;
 }
 
 /** A function that creates a layout given a set of utilities. */
@@ -179,10 +179,10 @@ const matchThemeChange = ({
   payload: TauriTheme | null;
 }): keyof typeof Theming.themes => (theme === "dark" ? "synnaxDark" : "synnaxLight");
 
-const synchronizeWithOS = async (dispatch: Dispatch<AnyAction>): AsyncDestructor =>
+const synchronizeWithOS = async (dispatch: Dispatch<UnknownAction>): AsyncDestructor =>
   await appWindow.onThemeChanged((e) => dispatch(setActiveTheme(matchThemeChange(e))));
 
-const setInitialTheme = async (dispatch: Dispatch<AnyAction>): Promise<void> =>
+const setInitialTheme = async (dispatch: Dispatch<UnknownAction>): Promise<void> =>
   dispatch(setActiveTheme(matchThemeChange({ payload: await appWindow.theme() })));
 
 export interface NavMenuItem {
@@ -204,28 +204,36 @@ export const useNavDrawer = (
   location: NavdrawerLocation,
   items: NavDrawerItem[],
 ): UseNavDrawerReturn => {
+  const windowKey = useSelectWindowKey() as string;
   const state = useSelectNavDrawer(location);
   const dispatch = useDispatch();
+  const onResize = useDebouncedCallback(
+    (size) => {
+      dispatch(resizeNavdrawer({ windowKey, location, size }));
+    },
+    100,
+    [dispatch, windowKey],
+  );
+  if (state == null) {
+    return {
+      activeItem: undefined,
+      menuItems: [],
+      onSelect: () => {},
+      onResize: () => {},
+    };
+  }
   let activeItem: NavDrawerItem | undefined;
   let menuItems: NavMenuItem[] = [];
   if (state.activeItem != null)
     activeItem = items.find((item) => item.key === state.activeItem);
   menuItems = items.filter((item) => state.menuItems.includes(item.key));
 
-  const onResize = useDebouncedCallback(
-    (size) => {
-      dispatch(resizeNavdrawer({ location, size }));
-    },
-    100,
-    [dispatch],
-  );
-
   if (activeItem != null) activeItem.initialSize = state.size;
 
   return {
     activeItem,
     menuItems,
-    onSelect: (key: string) => dispatch(setNavdrawerVisible({ key })),
+    onSelect: (key: string) => dispatch(setNavdrawerVisible({ windowKey, key })),
     onResize,
   };
 };

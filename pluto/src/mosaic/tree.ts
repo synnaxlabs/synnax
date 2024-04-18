@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-
+import { deep, type direction, type location, type spatial } from "@synnaxlabs/x";
 
 import { type Node } from "@/mosaic/types";
 import { Tabs } from "@/tabs";
-import { deep, direction, location, spatial } from "@synnaxlabs/x";
 
 const TabNotFound = new Error("Tab not found");
 const InvalidMosaic = new Error("Invalid Mosaic");
@@ -119,7 +118,7 @@ export const autoSelectTabs = (root: Node): [Node, string[]] => {
 export const removeTab = (root: Node, tabKey: string): [Node, string | null] => {
   root = shallowCopyNode(root);
   const [, node] = findMosaicTab(root, tabKey);
-  if (node == null) throw TabNotFound;
+  if (node == null) return [root, null];
   node.tabs = node.tabs?.filter((t) => t.tabKey !== tabKey);
   node.selected = Tabs.resetSelection(node.selected, node.tabs);
   const gced = gc(root);

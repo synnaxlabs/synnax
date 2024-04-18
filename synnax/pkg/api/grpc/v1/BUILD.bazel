@@ -4,6 +4,7 @@ proto_library(
         "auth.proto",
         "channel.proto",
         "connectivity.proto",
+        "device.proto",
         "framer.proto",
         "ranger.proto",
     ],
