@@ -55,7 +55,6 @@ func (i *Iterator) SeekFirst(ctx context.Context) bool {
 		return false
 	}
 	ok := i.internal.SeekFirst(ctx)
-	//i.seekReset(i.internal.TimeRange().Start)
 	i.seekReset(i.internal.TimeRange().BoundBy(i.bounds).Start)
 	return ok
 }
@@ -66,7 +65,7 @@ func (i *Iterator) SeekLast(ctx context.Context) bool {
 		return false
 	}
 	ok := i.internal.SeekLast(ctx)
-	i.seekReset(i.internal.TimeRange().End)
+	i.seekReset(i.internal.TimeRange().BoundBy(i.bounds).End)
 	return ok
 }
 

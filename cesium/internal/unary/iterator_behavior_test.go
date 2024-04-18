@@ -84,7 +84,7 @@ var _ = Describe("Iterator Behavior", func() {
 				Expect(iter.Len()).To(Equal(int64(3)))
 			})
 			Describe("Auto Exhaustion", func() {
-				Specify("Single TimeRange", func() {
+				Specify("Single Domain", func() {
 					Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16))).To(Succeed())
 					Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6, 7))).To(Succeed())
 					iter := db.OpenIterator(unary.IteratorConfig{
@@ -103,7 +103,7 @@ var _ = Describe("Iterator Behavior", func() {
 					Expect(iter.Next(ctx, unary.AutoSpan)).To(BeFalse())
 					Expect(iter.Close()).To(Succeed())
 				})
-				Specify("Partial TimeRange", func() {
+				Specify("Partial Domain", func() {
 					Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16))).To(Succeed())
 					Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6, 7))).To(Succeed())
 					iter := db.OpenIterator(unary.IteratorConfig{
@@ -118,24 +118,59 @@ var _ = Describe("Iterator Behavior", func() {
 					Expect(iter.Next(ctx, unary.AutoSpan)).To(BeFalse())
 					Expect(iter.Close()).To(Succeed())
 				})
-				//FSpecify("Partial Time Range 2 - Reg", func() {
-				//	Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16))).To(Succeed())
-				//	Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6, 7))).To(Succeed())
-				//	iter := db.OpenIterator(unary.IteratorConfig{
-				//		Bounds:        (12 * telem.SecondTS).SpanRange(3 * telem.Second),
-				//		AutoChunkSize: 2,
-				//	})
-				//	Expect(iter.SeekFirst(ctx)).To(BeTrue())
-				//	//Expect(iter.View()).To(Equal((12 * telem.SecondTS).SpanRange(0)))
-				//	Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
-				//	Expect(iter.Value().Series[0]).To(Equal(telem.NewSeriesV[int64](3, 4)))
-				//	Expect(iter.Len()).To(Equal(int64(2)))
-				//	Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
-				//	Expect(iter.Len()).To(Equal(int64(1)))
-				//	Expect(iter.Next(ctx, unary.AutoSpan)).To(BeFalse())
-				//	Expect(iter.Close()).To(Succeed())
-				//})
-				Specify("Multi TimeRange - Uneven Crossing", func() {
+				Specify("Partial Domain 2 - Regression", func() {
+					Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16))).To(Succeed())
+					Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6, 7))).To(Succeed())
+					iter := db.OpenIterator(unary.IteratorConfig{
+						Bounds:        (12 * telem.SecondTS).SpanRange(3 * telem.Second),
+						AutoChunkSize: 2,
+					})
+					Expect(iter.SeekFirst(ctx)).To(BeTrue())
+					Expect(iter.View()).To(Equal((12 * telem.SecondTS).SpanRange(0)))
+					Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
+					Expect(iter.View()).To(Equal((12 * telem.SecondTS).SpanRange(2 * telem.Second)))
+					Expect(iter.Len()).To(Equal(int64(2)))
+					Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
+					Expect(iter.View()).To(Equal((14 * telem.SecondTS).SpanRange(1 * telem.Second)))
+					Expect(iter.Len()).To(Equal(int64(1)))
+					Expect(iter.Next(ctx, unary.AutoSpan)).To(BeFalse())
+					Expect(iter.View()).To(Equal((15 * telem.SecondTS).SpanRange(0)))
+					Expect(iter.Close()).To(Succeed())
+				})
+				// This spec was added due to a bug in the SeekFirst and SeekLast methods
+				// that would cause the iterator view to immediately go out of bounds,
+				// and then cause iter.Value() to return duplicate data even after
+				// calling iter.Next(ctx, unary.AutoSpan)
+				//
+				// In this case (before the fix), calling iter.SeekFirst(ctx) would
+				// return an invalid view of (6 * telem.SecondTS).SpanRange(0), and then
+				// advancing the iterator the first time would cause it to go to
+				// (10 * telem.SecondTS).SpanRange(0), and then calling iter.Value()
+				// would still return 2 values, and then calling Next(ctx, unary.AutoSpan)
+				// would advance the iterator to (10 * telem.SecondTS).SpanRange(2 * telem.Second),
+				// returning the same 2 values again.
+				//
+				// This spec asserts that this behavior is fixed.
+				Specify("Partial Domain 3 - Regression", func() {
+					Expect(unary.Write(ctx, indexDB, 6*telem.SecondTS, telem.NewSecondsTSV(6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16))).To(Succeed())
+					Expect(unary.Write(ctx, db, 6*telem.SecondTS, telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6, 7, 8, 9, 10))).To(Succeed())
+					iter := db.OpenIterator(unary.IteratorConfig{
+						Bounds:        (10 * telem.SecondTS).SpanRange(4 * telem.Second),
+						AutoChunkSize: 2,
+					})
+					Expect(iter.SeekFirst(ctx)).To(BeTrue())
+					Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
+					Expect(iter.View()).To(Equal((10 * telem.SecondTS).SpanRange(2 * telem.Second)))
+					Expect(iter.Len()).To(Equal(int64(2)))
+					Expect(iter.Value().Series[0].Data).To(Equal(telem.NewSeriesV[int64](5, 6).Data))
+					Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
+					Expect(iter.View()).To(Equal((12 * telem.SecondTS).SpanRange(2 * telem.Second)))
+					Expect(iter.Len()).To(Equal(int64(2)))
+					Expect(iter.Value().Series[0].Data).To(Equal(telem.NewSeriesV[int64](7, 8).Data))
+					Expect(iter.Next(ctx, unary.AutoSpan)).To(BeFalse())
+					Expect(iter.Close()).To(Succeed())
+				})
+				Specify("Multi Domain - Uneven Crossing", func() {
 					Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16))).To(Succeed())
 					Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6, 7))).To(Succeed())
 					Expect(unary.Write(ctx, indexDB, 20*telem.SecondTS, telem.NewSecondsTSV(20, 21, 22, 23, 24, 25, 26))).To(Succeed())
