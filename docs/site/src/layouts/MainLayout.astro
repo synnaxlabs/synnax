@@ -316,11 +316,9 @@ const {
                 }
 
                 &:not(.pluto--has-children) {
-                    border-left: 1px solid var(--pluto-gray-l3);
                     border-radius: 0 !important;
 
                     &.pluto--selected {
-                        border-left: 2px solid var(--pluto-primary-p1);
                         background: none;
                         .pluto-text {
                             color: var(--pluto-text-color);
@@ -328,7 +326,7 @@ const {
                         }
                     }
 
-                    &:hover {
+                    &:hover:not(.pluto--selected) {
                         background: none !important;
                         border-left: 2px solid var(--pluto-text-color);
                     }
@@ -386,10 +384,6 @@ const {
             margin: 4rem 0;
         }
 
-        article img {
-            margin: 2rem -2rem;
-        }
-
         article .pluto-tabs-selector {
             margin: 1.5rem 0;
         }
@@ -407,7 +401,7 @@ const {
         }
 
         article img {
-            width: calc(100% + 4rem);
+            width: 100%;
         }
 
         code:not(.astro-code code) {
