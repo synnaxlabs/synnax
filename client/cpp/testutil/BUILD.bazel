@@ -7,5 +7,5 @@ cc_library(
         "//conditions:default": [],
     }),
     visibility = ["//visibility:public"],
-    deps = ["//client/cpp"],
+    deps = ["//client/cpp:synnax"],
 )

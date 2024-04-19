@@ -6,10 +6,11 @@ cc_library(
     hdrs = [
         "heartbeat.h",
     ],
+    visibility = ["//visibility:public"],
     deps = [
-        "//client/cpp",
+        "//client/cpp:synnax",
         "//driver/breaker",
-        "//freighter/cpp",
+        "//freighter/cpp:freighter",
     ],
 )
 
@@ -18,8 +19,10 @@ cc_test(
     srcs = [
         "heartbeat_test.cpp",
     ],
+    visibility = ["//visibility:public"],
     deps = [
         ":heartbeat",
-        "@com_google_googletest//gtest_main",
+        "//driver/testutil",
+        "@com_google_googletest//:gtest_main",
     ],
 )

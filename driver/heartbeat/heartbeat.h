@@ -7,21 +7,28 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include "freighter/freighter.h"
-
 #pragma once
 
-namespace Heartbeat {
+#include "freighter/cpp/freighter.h"
+#include "client/cpp/synnax.h"
+#include "driver/breaker/breaker.h"
+
+namespace heartbeat {
+/// @brief periodically sends an incremented version number and rack key to the cluster
+/// to indicate that the driver is still alive.
 class Heartbeat {
 public:
     Heartbeat(
         RackKey rack_key,
-        std::shared_ptr<Synnax> client,
-        breaker::Config breaker_config
+        const std::shared_ptr<Synnax> &client,
+        const breaker::Config &breaker_config
     );
 
+    /// @brief starts the heartbeat process
+    /// @param done a flag that is set to true when the heartbeat process exits.
     freighter::Error start(std::atomic<bool> &done);
 
+    /// @brief stop the heartbeat process
     freighter::Error stop();
 
 private:

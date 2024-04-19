@@ -45,7 +45,7 @@ public:
                                              retries(0) {
     }
 
-    Breaker() = default;
+    Breaker(): Breaker(Config{"default", TimeSpan(1 * SECOND), 10, 1.1}) {}
 
     /// @brief triggers the breaker. If the maximum number of retries has been exceeded,
     /// immediately returns false. Otherwise, sleeps the current thread for the current

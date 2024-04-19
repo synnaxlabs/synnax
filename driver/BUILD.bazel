@@ -14,7 +14,7 @@ cc_library(
         "//conditions:default": [],
     }),
     deps = [
-        "//client/cpp",
+        "//client/cpp:synnax",
         "//driver/breaker",
         "//driver/config",
         "//driver/opc",

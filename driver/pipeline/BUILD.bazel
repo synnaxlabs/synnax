@@ -14,7 +14,7 @@ cc_library(
     }),
     visibility = ["//visibility:public"],
     deps = [
-        "//client/cpp",
+        "//client/cpp:synnax",
         "//driver/breaker",
         "//driver/errors",
         "//driver/task",

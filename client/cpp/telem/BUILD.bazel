@@ -27,7 +27,7 @@ cc_test(
         "//conditions:default": [],
     }),
     deps = [
-        "//client/cpp",
+        "//client/cpp:synnax",
         "//client/cpp/telem",
         "@com_google_googletest//:gtest_main",
     ],

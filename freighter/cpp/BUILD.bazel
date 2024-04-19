@@ -23,7 +23,7 @@ cc_test(
         "//conditions:default": [],
     }),
     deps = [
-        "//freighter/cpp",
+        "//freighter/cpp:freighter",
         "@com_google_googletest//:gtest_main",
     ],
 )

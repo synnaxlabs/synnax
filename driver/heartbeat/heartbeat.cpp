@@ -7,24 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include "driver/heartbeat/heartbeat.h"
 #include "glog/logging.h"
-#include "driver/driver.h"
 
-driver::Heartbeat::Heartbeat(
-    const RackKey rack,
-    std::shared_ptr<Synnax> client,
-    breaker::Config breaker_config
-) : rack_key(rack),
+heartbeat::Heartbeat::Heartbeat(
+    const RackKey rack_key,
+    const std::shared_ptr<Synnax> &client,
+    const breaker::Config &breaker_config
+) : rack_key(rack_key),
     client(client),
     version(0),
     breaker(breaker_config),
     running(false) {
 }
 
-freighter::Error driver::Heartbeat::start(std::atomic<bool> &done) {
+freighter::Error heartbeat::Heartbeat::start(std::atomic<bool> &done) {
     LOG(INFO) << "[Heartbeat] starting up";
-    const auto err = startGuarded();
-    if (err) {
+    if (const auto err = startGuarded(); err) {
         if (err.matches(freighter::UNREACHABLE) && breaker.wait(err)) start(done);
         done = true;
         return err;
@@ -36,14 +35,14 @@ freighter::Error driver::Heartbeat::start(std::atomic<bool> &done) {
 
 const std::string RACK_HEARTBEAT_CHANNEL = "sy_rack_heartbeat";
 
-freighter::Error driver::Heartbeat::startGuarded() {
+freighter::Error heartbeat::Heartbeat::startGuarded() {
     auto [hb_channel, err] = client->channels.retrieve(RACK_HEARTBEAT_CHANNEL);
     channel = hb_channel;
     return err;
 }
 
 
-freighter::Error driver::Heartbeat::stop() {
+freighter::Error heartbeat::Heartbeat::stop() {
     if (!running) return freighter::NIL;
     running.wait(false);
     LOG(INFO) << "[Heartbeat] shutting down";
@@ -53,14 +52,14 @@ freighter::Error driver::Heartbeat::stop() {
     return run_err;
 }
 
-void driver::Heartbeat::run(std::atomic<bool> &done) {
+void heartbeat::Heartbeat::run(std::atomic<bool> &done) {
     const auto err = runGuarded();
     if (err.matches(freighter::UNREACHABLE) && breaker.wait(err)) return run(done);
     done = true;
     run_err = err;
 }
 
-freighter::Error driver::Heartbeat::runGuarded() {
+freighter::Error heartbeat::Heartbeat::runGuarded() {
     const std::vector channels = {channel.key};
     LOG(INFO) << "[Heartbeat] opening writer";
     auto [writer, err] = client->telem.openWriter(WriterConfig{.channels = channels});

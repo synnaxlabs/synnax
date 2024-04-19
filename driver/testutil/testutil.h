@@ -20,13 +20,22 @@ const synnax::Config test_client_config = {
     "localhost",
     9090,
     "synnax",
-    "seldon"};
+    "seldon"
+};
 
 /// @brief instantiates a new client for testing purposes. The cluster
 /// is expected to be running on localhost:9090 in insecure mode.
-extern synnax::Synnax new_test_client();
+inline extern std::shared_ptr<synnax::Synnax> new_test_client() {
+    return std::make_shared<synnax::Synnax>(test_client_config);
+}
 
 /// @brief creates a new random generator for a test suite, and
 /// outputs the seed to stdout for reproducibility.
-extern std::mt19937 random_generator(std::string suite_name);
-
+extern std::mt19937 random_generator(std::string suite_name) {
+    std::random_device rd;
+    auto rand_seed = rd();
+    std::cout << "Random seed for " << suite_name << " - " << rand_seed << std::endl;
+    std::mt19937 mt(rand_seed);
+    std::uniform_real_distribution<double> dist(0, 1);
+    return mt;
+}
