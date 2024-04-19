@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <latch>
 #include <utility>
 #include <memory>
+#include <thread>
 #include "glog/logging.h"
 #include "driver/config/config.h"
-#include "driver/driver.h"
+#include "task.h"
 
-driver::TaskManager::TaskManager(
+task::Manager::Manager(
     Rack rack,
     const std::shared_ptr<Synnax> &client,
     std::unique_ptr<task::Factory> factory,
@@ -30,7 +30,7 @@ const std::string TASK_SET_CHANNEL = "sy_task_set";
 const std::string TASK_DELETE_CHANNEL = "sy_task_delete";
 const std::string TASK_CMD_CHANNEL = "sy_task_cmd";
 
-freighter::Error driver::TaskManager::start(std::atomic<bool> &done) {
+freighter::Error task::Manager::start(std::atomic<bool> &done) {
     LOG(INFO) << "[Task Manager] starting up";
     if (const auto err = startGuarded(); err) {
         if (err.matches(freighter::UNREACHABLE) && breaker.wait(err)) start(done);
@@ -38,11 +38,11 @@ freighter::Error driver::TaskManager::start(std::atomic<bool> &done) {
         return err;
     }
     breaker.reset();
-    run_thread = std::thread(&TaskManager::run, this, std::ref(done));
+    run_thread = std::thread(&Manager::run, this, std::ref(done));
     return freighter::NIL;
 }
 
-freighter::Error driver::TaskManager::startGuarded() {
+freighter::Error task::Manager::startGuarded() {
     // Fetch info about the rack.
     auto [rack, rack_err] = ctx->client->hardware.retrieveRack(rack_key);
     if (rack_err) return rack_err;
@@ -81,14 +81,14 @@ freighter::Error driver::TaskManager::startGuarded() {
 }
 
 
-void driver::TaskManager::run(std::atomic<bool> &done) {
+void task::Manager::run(std::atomic<bool> &done) {
     const auto err = runGuarded();
     if (err.matches(freighter::UNREACHABLE) && breaker.wait(err)) return run(done);
     done = true;
     run_err = err;
 }
 
-freighter::Error driver::TaskManager::stop() {
+freighter::Error task::Manager::stop() {
     if (!run_thread.joinable()) return freighter::NIL;
     LOG(INFO) << "[Task Manager] shutting down";
     streamer->closeSend();
@@ -98,7 +98,7 @@ freighter::Error driver::TaskManager::stop() {
     return run_err;
 }
 
-freighter::Error driver::TaskManager::runGuarded() {
+freighter::Error task::Manager::runGuarded() {
     const std::vector stream_channels = {
         task_set_channel.key, task_delete_channel.key, task_cmd_channel.key
     };
@@ -127,7 +127,7 @@ freighter::Error driver::TaskManager::runGuarded() {
     return streamer->close();
 }
 
-void driver::TaskManager::processTaskSet(const Series &series) {
+void task::Manager::processTaskSet(const Series &series) {
     auto keys = series.uint64();
     for (auto key: keys) {
         // If a module exists with this key, stop and remove it.
@@ -148,7 +148,7 @@ void driver::TaskManager::processTaskSet(const Series &series) {
     }
 }
 
-void driver::TaskManager::processTaskCmd(const Series &series) {
+void task::Manager::processTaskCmd(const Series &series) {
     const auto commands = series.string();
     LOG(INFO) <<  commands.size() << " commands received";
     for (const auto &cmd_str: commands) {
@@ -169,7 +169,7 @@ void driver::TaskManager::processTaskCmd(const Series &series) {
 }
 
 
-void driver::TaskManager::processTaskDelete(const Series &series) {
+void task::Manager::processTaskDelete(const Series &series) {
     const auto keys = series.uint64();
     for (auto key: keys) {
         const auto it = tasks.find(key);

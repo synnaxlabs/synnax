@@ -3,8 +3,6 @@ cc_library(
     srcs = [
         "config.cpp",
         "driver.cpp",
-        "heartbeat.cpp",
-        "task_manager.cpp",
     ],
     hdrs = [
         "driver.h",
@@ -17,6 +15,7 @@ cc_library(
         "//client/cpp:synnax",
         "//driver/breaker",
         "//driver/config",
+        "//driver/heartbeat",
         "//driver/opc",
         "//driver/task",
         "@com_github_google_glog//:glog",

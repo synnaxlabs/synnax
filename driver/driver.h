@@ -11,20 +11,15 @@
 
 #include <unordered_map>
 #include <thread>
-#include <latch>
-#include <memory>
 #include "nlohmann/json.hpp"
 #include "client/cpp/synnax.h"
 #include "driver/breaker/breaker.h"
+#include "heartbeat/heartbeat.h"
 #include "task/task.h"
 
 using json = nlohmann::json;
 
 namespace driver {
-
-
-
-
 struct Config {
     synnax::RackKey rack_key;
     std::string rack_name;
@@ -52,7 +47,7 @@ public:
 
 private:
     RackKey key{};
-    TaskManager task_manager;
-    Heartbeat heartbeat;
+    task::Manager task_manager;
+    heartbeat::Heartbeat heartbeat;
 };
 }

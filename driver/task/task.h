@@ -10,10 +10,12 @@
 #pragma once
 
 #include <memory>
+#include <thread>
 #include "glog/logging.h"
 #include "nlohmann/json.hpp"
 #include "client/cpp/synnax.h"
 #include "driver/config/config.h"
+#include "driver/breaker/breaker.h"
 
 using json = nlohmann::json;
 

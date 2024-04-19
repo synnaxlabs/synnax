@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <latch>
-
 #include "gtest/gtest.h"
 #include "driver/task/task.h"
 #include "driver/driver.h"
@@ -18,7 +16,7 @@
 
 using json = nlohmann::json;
 
-class MockModuleFactory : public task::Factory {
+class MockTaskFactory : public task::Factory {
 public:
     bool configured = false;
 
@@ -31,7 +29,7 @@ public:
 };
 
 TEST(TaskManagerTests, testModuleNominalConfiguration) {
-    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    auto client = new_test_client();
     auto [rack, err] = client->hardware.createRack("test_rack");
     ASSERT_FALSE(err) << err.message();
     auto breaker = breaker::Breaker(breaker::Config{
@@ -40,20 +38,24 @@ TEST(TaskManagerTests, testModuleNominalConfiguration) {
         1,
         1
     });
-    std::unique_ptr<MockModuleFactory> factory = std::make_unique<MockModuleFactory>();
-    auto task_manager = driver::TaskManager(rack.key, client, std::move(factory),
-                                            breaker);
-    std::latch latch{1};
-    err = task_manager.start(latch);
+    std::unique_ptr<MockTaskFactory> factory = std::make_unique<MockTaskFactory>();
+    auto task_manager = task::Manager(
+        rack.key,
+        client,
+        std::move(factory),
+        breaker
+    );
+    std::atomic done = false;
+    err = task_manager.start(done);
     ASSERT_FALSE(err) << err.message();
-    auto mod = synnax::Task(
+    auto task_err = synnax::Task(
         rack.key,
         "test_module",
         "",
         ""
     );
-    auto mod_err = rack.tasks.create(mod);
-    ASSERT_FALSE(mod_err) << mod_err.message();
+    auto t_err = rack.tasks.create(task_err);
+    ASSERT_FALSE(t_err) << t_err.message();
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
     err = task_manager.stop();
