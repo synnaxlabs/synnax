@@ -5,6 +5,7 @@ description: "Reference for the Synnax Database CLI"
 ---
 
 import { Table } from "@/components/Table";
+import { Tabs } from "@/components/Tabs";
 
 ## Start 
 
@@ -39,12 +40,12 @@ synnax start -l localhost:9090 -p localhost:9091,localhost:9092
     columns={[
         {
             key: "option",
-            name: "Option",
+            name: "Flag",
             type: "code",
             width: 150,
         },
         { key: "default", name: "Default", type: "code" },
-        { key: "description", name: "Description" },
+        { key: "description", name: "Description", type: "html"} 
     ]}
     data={[
         {
@@ -81,12 +82,17 @@ synnax start -l localhost:9090 -p localhost:9091,localhost:9092
             option: "--mem/-m",
             default: "false",
             description:
-                "Starts the node with an in-memory data store. When specified, the data flag is ignored. This is not reccomended for production use.",
+                `Starts the node with an in-memory data store. In this mode, all data will
+                kept in memory, will not be stored on disk, and will be lost when the node is
+                restarted. This can be useful for testing and development, but is not recommended
+                for production use.`,
         },
         {
             option: "--config/c",
-            default: "/usr/local/synnax/config.yaml",
-            description: "Path to a JSON, YAML, or TOML configuration file.",
+            default: "~/.synnax.yaml",
+            description: `Path to a JSON, YAML, or TOML configuration file that can
+                be used to set the node's configuration instead of using flags or environment variables.
+                See <a href="#configuration-files">Configuration Files</a> for more information.`,
         },
         {
             option: "--certs-dir",
@@ -122,4 +128,182 @@ synnax start -l localhost:9090 -p localhost:9091,localhost:9092
     ]}
 />
 
+### Environment Variable Equivalents
 
+The following environment variables can be used in place of the corresponding flags. 
+Command line flags will take precedence over environment variables.
+
+<Table
+    columns={[
+        {
+            key: "option",
+            name: "Flag",
+            type: "code",
+        },
+        {
+            key: "env",
+            name: "Environment Variable",
+            type: "code",
+        },
+    ]}
+    data={[
+        {
+            option: "--listen/-l",
+            env: "SYNNAX_LISTEN",
+        },
+        {
+            option: "--peers/-p",
+            env: "SYNNAX_PEERS",
+        },
+        {
+            option: "--data/-d",
+            env: "SYNNAX_DATA",
+        },
+        {
+            option: "--verbose/-v",
+            env: "SYNNAX_VERBOSE",
+        },
+        {
+            option: "--insecure/-i",
+            env: "SYNNAX_INSECURE",
+        },
+        {
+            option: "--mem/-m",
+            env: "SYNNAX_MEM",
+        },
+        {
+            option: "--config/c",
+            env: "SYNNAX_CONFIG",
+        },
+        {
+            option: "--certs-dir",
+            env: "SYNNAX_CERTS_DIR",
+        },
+        {
+            option: "--ca-cert",
+            env: "SYNNAX_CA_CERT",
+        },
+        {
+            option: "--node-cert",
+            env: "SYNNAX_NODE_CERT",
+        },
+        {
+            option: "--node-key",
+            env: "SYNNAX_NODE_KEY",
+        },
+        {
+            option: "--username",
+            env: "SYNNAX_USERNAME",
+        },
+        {
+            option: "--password",
+            env: "SYNNAX_PASSWORD",
+        }
+    ]}
+/>
+
+### Configuration Files
+
+Synnax will also read configuration files in JSON, TOML and YAML formats. The values set
+in these configuration files take the lowest precedence and will be overridden by any
+environment variables or command line flags.
+
+By default, Synnax will look for a configuration file at `~/.synnax.yaml`. You can specify
+a different configuration file using the `--config` flag or the `SYNNAX_CONFIG` environment
+variable.
+
+Here are example configuration files in various formats.
+
+<Tabs
+client:load="react"
+tabs={[
+    {
+        name: "JSON",
+        tabKey: "json",
+    },
+    {
+        name: "YAML",
+        tabKey: "yaml",
+    },
+    {
+        name: "TOML",
+        tabKey: "toml",
+    },
+]}
+>
+<slot slot="json">
+```json
+{
+    "listen": "localhost:9090",
+    "peers": ["localhost:9091", "localhost:9092"],
+    "data": "/usr/local/synnax/data",
+    "verbose": true,
+    "insecure": false,
+    "mem": false,
+    "config": "/usr/local/synnax/config.yaml",
+    "certs-dir": "/usr/local/synnax/certs",
+    "ca-cert": "ca.crt",
+    "node-cert": "node.crt",
+    "node-key": "node.key",
+    "username": "synnax",
+    "password": "seldon"
+}
+```
+</slot>
+<slot slot="yaml">
+```yaml
+listen: localhost:9090
+peers: 
+  - localhost:9091
+  - localhost:9092
+data: /usr/local/synnax/data
+verbose: true
+insecure: false
+mem: false
+config: /usr/local/synnax/config.yaml
+certs-dir: /usr/local/synnax/certs
+ca-cert: ca.crt
+node-cert: node.crt
+node-key: node.key
+username: synnax
+password: seldon
+```
+</slot>
+<slot slot="toml">
+```toml
+listen = "localhost:9090"
+peers = ["localhost:9091", "localhost:9092"]
+data = "/usr/local/synnax/data"
+verbose = true
+insecure = false
+mem = false
+config = "/usr/local/synnax/config.yaml"
+certs-dir = "/usr/local/synnax/certs"
+ca-cert = "ca.crt"
+node-cert = "node.crt"
+node-key = "node.key"
+username = "synnax"
+password = "seldon"
+```
+</slot>
+</Tabs>
+
+## Version
+
+The `version` command prints the version of the Synnax database CLI. 
+
+### Examples
+
+```cmd
+synnax version
+```
+
+You'll see output similar to the following (the version number may vary):
+
+```cmd
+Synnax version 0.16.5
+```
+
+### Flags
+
+This command has no flags.
