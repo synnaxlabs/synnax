@@ -14,29 +14,19 @@ export const operationsNav: PageNavNode = {
   name: "Test and Operations",
   children: [
     {
-      name: "Conceptual Overview",
+      name: "Synnax for Test and Operations",
       href: "/roles/operations/overview",
       key: "/roles/operations/overview",
     },
     {
-      name: "Console UI Overview",
-      href: "/roles/operations/installation",
-      key: "/roles/operations/installation",
+      name: "Manually Controlling Simulated Tank Pressure",
+      href: "/roles/operations/manual-tank-pressure",
+      key: "/roles/operations/manual-tank-pressure",
     },
     {
-      name: "Line Plot",
-      href: "/roles/operations/line-plot",
-      key: "/roles/operations/line-plot",
-    },
-    {
-      name: "PID View",
-      href: "/roles/operations/pid",
-      key: "/roles/operations/pid",
-    },
-    {
-      name: "Automated Control",
-      href: "/roles/operations/automation",
-      key: "/roles/operations/automation",
+      name: "Writing and Simulating a Pressure Control Sequence",
+      href: "/roles/operations/automated-tank-pressure",
+      key: "/roles/operations/automated-tank-pressure",
     },
   ],
 };

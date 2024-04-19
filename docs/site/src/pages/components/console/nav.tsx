@@ -29,6 +29,11 @@ export const consoleNav: PageNavNode = {
       name: "UI Overview",
     },
     {
+      key: "/components/console/workspaces",
+      href: "/components/console/workspaces",
+      name: "Workspaces"
+    },
+    {
       key: "/components/console/querying-data",
       href: "/components/console/querying-data",
       name: "Querying Data Using Ranges",

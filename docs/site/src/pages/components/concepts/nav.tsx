@@ -16,28 +16,28 @@ export const conceptsNav: PageNavNode = {
   name: "Concepts",
   children: [
     {
-      key: "/concepts/overview",
-      href: "/concepts/overview",
+      key: "/components/concepts/overview",
+      href: "/components/concepts/overview",
       name: "Overview",
     },
     {
-      key: "/concepts/clusters-and-nodes",
-      href: "/concepts/clusters-and-nodes",
+      key: "/components/concepts/clusters-and-nodes",
+      href: "/components/concepts/clusters-and-nodes",
       name: "Clusters and Nodes",
     },
     {
-      key: "/concepts/channels",
-      href: "/concepts/channels",
+      key: "/components/concepts/channels",
+      href: "/components/concepts/channels",
       name: "Channels",
     },
     {
-      key: "/concepts/write-domains",
-      href: "/concepts/write-domains",
+      key: "/components/concepts/write-domains",
+      href: "/components/concepts/write-domains",
       name: "Write Domains",
     },
     {
-      key: "/concepts/read-ranges",
-      href: "/concepts/read-ranges",
+      key: "/components/concepts/read-ranges",
+      href: "/components/concepts/read-ranges",
       name: "Read Ranges",
     },
   ],
