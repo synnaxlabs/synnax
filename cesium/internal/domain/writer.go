@@ -32,6 +32,11 @@ type WriterConfig struct {
 	// be called with a strictly increasing timestamp.
 	// [OPTIONAL]
 	End telem.TimeStamp
+
+	// AutoPersistThreshold is the maximum number of unpersisted samples that can be
+	// stored in the index before it must be flushed to the disk.
+	// To persist every time a telemetry domain is written, set the value of AutoPersistThreshold to 1.
+	AutoPersistThreshold telem.Size
 }
 
 var WriterClosedError = core.EntityClosed("domain.writer")
@@ -80,12 +85,13 @@ func Write(ctx context.Context, db *DB, tr telem.TimeRange, data []byte) error {
 type Writer struct {
 	alamos.Instrumentation
 	WriterConfig
-	prevCommit telem.TimeStamp
-	idx        *index
-	fileKey    uint16
-	internal   xio.TrackedWriteCloser
-	presetEnd  bool
-	closed     bool
+	prevCommit         telem.TimeStamp
+	idx                *index
+	fileKey            uint16
+	internal           xio.TrackedWriteCloser
+	presetEnd          bool
+	unpersistedSamples telem.Size
+	closed             bool
 }
 
 // NewWriter opens a new Writer using the given configuration.
@@ -132,6 +138,29 @@ func (w *Writer) Write(p []byte) (n int, err error) {
 	return w.internal.Write(p)
 }
 
+// WriteAndAutoCommit writes the telemetry p to OS, and upon reaching a certain threshold
+// of unpersisted samples are reached, the index is persisted (flushed to disk).
+func (w *Writer) WriteAndAutoCommit(ctx context.Context, p []byte, end telem.TimeStamp, sampleCount telem.Size) (n int, err error) {
+	if w.closed {
+		return 0, WriterClosedError
+	}
+
+	n, err = w.internal.Write(p)
+	if err != nil {
+		return
+	}
+
+	w.unpersistedSamples += sampleCount
+	if w.unpersistedSamples >= w.AutoPersistThreshold {
+		err = w.commit(ctx, end, true)
+		w.unpersistedSamples = 0
+		return
+	}
+
+	err = w.commit(ctx, end, false)
+	return
+}
+
 // Commit commits the domain to the DB, making it available for reading by other processes.
 // If the WriterConfig.End parameter was set, Commit will ignore the provided timestamp
 // and use the WriterConfig.End parameter instead. If the WriterConfig.End parameter was
@@ -141,6 +170,10 @@ func (w *Writer) Write(p []byte) (n int, err error) {
 // and the provided timestamp overlaps with any other domains within the DB, Commit will
 // return an error.
 func (w *Writer) Commit(ctx context.Context, end telem.TimeStamp) error {
+	return w.commit(ctx, end, true)
+}
+
+func (w *Writer) commit(ctx context.Context, end telem.TimeStamp, persist bool) error {
 	ctx, span := w.T.Prod(ctx, "commit")
 	if w.closed {
 		return span.EndWith(WriterClosedError)
@@ -163,7 +196,7 @@ func (w *Writer) Commit(ctx context.Context, end telem.TimeStamp) error {
 	}
 	f := lo.Ternary(w.prevCommit.IsZero(), w.idx.insert, w.idx.update)
 	w.prevCommit = end
-	return span.EndWith(f(ctx, ptr))
+	return span.EndWith(f(ctx, ptr, persist))
 }
 
 // Close closes the writer, releasing any resources it may have been holding. Any

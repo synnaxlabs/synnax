@@ -34,7 +34,7 @@ type indexUpdate struct {
 var _ observe.Observable[indexUpdate] = (*index)(nil)
 
 // insert adds a new pointer to the index.
-func (idx *index) insert(ctx context.Context, p pointer) error {
+func (idx *index) insert(ctx context.Context, p pointer, persist bool) error {
 	_, span := idx.T.Bench(ctx, "insert")
 	defer span.End()
 	idx.mu.RLock()
@@ -56,7 +56,7 @@ func (idx *index) insert(ctx context.Context, p pointer) error {
 		}
 	}
 	idx.mu.RUnlock()
-	idx.insertAt(ctx, insertAt, p)
+	idx.insertAt(ctx, insertAt, p, persist)
 	return nil
 }
 
@@ -78,7 +78,7 @@ func (idx *index) overlap(tr telem.TimeRange) bool {
 	return overlap
 }
 
-func (idx *index) update(ctx context.Context, p pointer) (err error) {
+func (idx *index) update(ctx context.Context, p pointer, persist bool) (err error) {
 	_, span := idx.T.Bench(ctx, "update")
 	idx.mu.RLock()
 	if len(idx.mu.pointers) == 0 {
@@ -91,7 +91,7 @@ func (idx *index) update(ctx context.Context, p pointer) (err error) {
 		updateAt, _ = idx.unprotectedSearch(p.Start.SpanRange(0))
 	}
 	idx.mu.RUnlock()
-	return span.EndWith(idx.updateAt(ctx, updateAt, p))
+	return span.EndWith(idx.updateAt(ctx, updateAt, p, persist))
 }
 
 func (idx *index) afterLast(ts telem.TimeStamp) bool {
@@ -102,8 +102,8 @@ func (idx *index) beforeFirst(ts telem.TimeStamp) bool {
 	return ts.Before(idx.mu.pointers[0].Start)
 }
 
-func (idx *index) insertAt(ctx context.Context, i int, p pointer) {
-	idx.modifyAfter(ctx, i, func() {
+func (idx *index) insertAt(ctx context.Context, i int, p pointer, persist bool) {
+	f := func() {
 		if i == 0 {
 			idx.mu.pointers = append([]pointer{p}, idx.mu.pointers...)
 		} else if i == len(idx.mu.pointers) {
@@ -111,12 +111,20 @@ func (idx *index) insertAt(ctx context.Context, i int, p pointer) {
 		} else {
 			idx.mu.pointers = append(idx.mu.pointers[:i], append([]pointer{p}, idx.mu.pointers[i:]...)...)
 		}
-	})
+	}
+
+	if persist {
+		idx.modifyAfter(ctx, i, f)
+	} else {
+		idx.mu.Lock()
+		f()
+		idx.mu.Unlock()
+	}
 }
 
-func (idx *index) updateAt(ctx context.Context, i int, p pointer) (err error) {
+func (idx *index) updateAt(ctx context.Context, i int, p pointer, persist bool) (err error) {
 	ptrs := idx.mu.pointers
-	idx.modifyAfter(ctx, i, func() {
+	f := func() {
 		oldP := ptrs[i]
 		if oldP.Start != p.Start {
 			err = RangeNotFound
@@ -129,7 +137,15 @@ func (idx *index) updateAt(ctx context.Context, i int, p pointer) (err error) {
 		} else {
 			idx.mu.pointers[i] = p
 		}
-	})
+	}
+	if persist {
+		idx.modifyAfter(ctx, i, f)
+	} else {
+		idx.mu.Lock()
+		f()
+		idx.mu.Unlock()
+	}
+
 	return
 }
 

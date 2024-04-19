@@ -11,13 +11,17 @@ package domain_test
 
 import (
 	"context"
+	"github.com/synnaxlabs/x/io/fs"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
-var ctx = context.Background()
+var (
+	ctx = context.Background()
+	mfs = fs.NewMem()
+)
 
 func TestDomain(t *testing.T) {
 	RegisterFailHandler(Fail)
