@@ -51,6 +51,47 @@ var _ = Describe("Iterator Behavior", func() {
 			Expect(db.Close()).To(Succeed())
 			Expect(indexDB.Close()).To(Succeed())
 		})
+
+		Describe("Happy Path", func() {
+			Specify("Next", func() {
+				Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15))).To(Succeed())
+				Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6))).To(Succeed())
+
+				Expect(unary.Write(ctx, indexDB, 16*telem.SecondTS, telem.NewSecondsTSV(16, 17, 18, 19))).To(Succeed())
+				Expect(unary.Write(ctx, db, 16*telem.SecondTS, telem.NewSeriesV[int64](7, 8, 9, 10))).To(Succeed())
+
+				iter := db.OpenIterator(unary.IterRange(telem.TimeRangeMax))
+				Expect(iter.SeekFirst(ctx)).To(BeTrue())
+				Expect(iter.View()).To(Equal((10 * telem.SecondTS).SpanRange(0)))
+				Expect(iter.Next(ctx, 5*telem.Second)).To(BeTrue())
+				Expect(iter.View()).To(Equal((10 * telem.SecondTS).SpanRange(5 * telem.Second)))
+				Expect(iter.Next(ctx, 3*telem.Second)).To(BeTrue())
+				Expect(iter.View()).To(Equal((15 * telem.SecondTS).SpanRange(3 * telem.Second)))
+				Expect(iter.Next(ctx, 5*telem.Second)).To(BeTrue())
+				Expect(iter.View()).To(Equal((18 * telem.SecondTS).SpanRange(5 * telem.Second)))
+				Expect(iter.Value().Len()).To(Equal(int64(2)))
+				Expect(iter.Close()).To(Succeed())
+			})
+			Specify("Prev", func() {
+				Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15))).To(Succeed())
+				Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6))).To(Succeed())
+
+				Expect(unary.Write(ctx, indexDB, 16*telem.SecondTS, telem.NewSecondsTSV(16, 17, 18, 19))).To(Succeed())
+				Expect(unary.Write(ctx, db, 16*telem.SecondTS, telem.NewSeriesV[int64](7, 8, 9, 10))).To(Succeed())
+
+				iter := db.OpenIterator(unary.IterRange(telem.TimeRangeMax))
+				Expect(iter.SeekLast(ctx)).To(BeTrue())
+				Expect(iter.View()).To(Equal((19*telem.SecondTS + 1).SpanRange(0)))
+				Expect(iter.Prev(ctx, 5*telem.Second)).To(BeTrue())
+				Expect(iter.View()).To(Equal((14*telem.SecondTS + 1).SpanRange(5 * telem.Second)))
+				Expect(iter.Prev(ctx, 5*telem.Second)).To(BeTrue())
+				Expect(iter.View()).To(Equal((9*telem.SecondTS + 1).SpanRange(5 * telem.Second)))
+				Expect(iter.Len()).To(Equal(int64(5)))
+				Expect(iter.Prev(ctx, 1*telem.Second)).To(BeFalse())
+				Expect(iter.Close()).To(Succeed())
+			})
+		})
+
 		Describe("Requests Exhaustion", func() {
 			Specify("Single TimeRange", func() {
 				Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15))).To(Succeed())
@@ -82,6 +123,7 @@ var _ = Describe("Iterator Behavior", func() {
 				Expect(iter.Next(ctx, 10*telem.Second)).To(BeTrue())
 				Expect(iter.View()).To(Equal((23 * telem.SecondTS).SpanRange(10 * telem.Second)))
 				Expect(iter.Len()).To(Equal(int64(3)))
+
 			})
 			Describe("Auto Exhaustion", func() {
 				Specify("Single Domain", func() {
@@ -135,6 +177,18 @@ var _ = Describe("Iterator Behavior", func() {
 					Expect(iter.Len()).To(Equal(int64(1)))
 					Expect(iter.Next(ctx, unary.AutoSpan)).To(BeFalse())
 					Expect(iter.View()).To(Equal((15 * telem.SecondTS).SpanRange(0)))
+
+					Expect(iter.SeekLast(ctx)).To(BeTrue())
+					Expect(iter.View()).To(Equal((15 * telem.SecondTS).SpanRange(0)))
+					Expect(iter.Prev(ctx, 2*telem.Second)).To(BeTrue())
+					Expect(iter.View()).To(Equal((13 * telem.SecondTS).SpanRange(2 * telem.Second)))
+					Expect(iter.Len()).To(Equal(int64(2)))
+					Expect(iter.Prev(ctx, 3*telem.Second)).To(BeTrue())
+					Expect(iter.View()).To(Equal((12 * telem.SecondTS).Range(13 * telem.SecondTS)))
+					Expect(iter.Len()).To(Equal(int64(1)))
+					Expect(iter.Value().Series[0].Data).To(Equal([]byte{3, 0, 0, 0, 0, 0, 0, 0}))
+					Expect(iter.Prev(ctx, 5*telem.Second)).To(BeFalse())
+
 					Expect(iter.Close()).To(Succeed())
 				})
 				// This spec was added due to a bug in the SeekFirst and SeekLast methods
@@ -168,6 +222,15 @@ var _ = Describe("Iterator Behavior", func() {
 					Expect(iter.Len()).To(Equal(int64(2)))
 					Expect(iter.Value().Series[0].Data).To(Equal(telem.NewSeriesV[int64](7, 8).Data))
 					Expect(iter.Next(ctx, unary.AutoSpan)).To(BeFalse())
+
+					Expect(iter.SeekLast(ctx)).To(BeTrue())
+					Expect(iter.Prev(ctx, 3*telem.Second)).To(BeTrue())
+					Expect(iter.View()).To(Equal((11 * telem.SecondTS).SpanRange(3 * telem.Second)))
+					Expect(iter.Len()).To(Equal(int64(3)))
+					Expect(iter.Prev(ctx, 10*telem.Second)).To(BeTrue())
+					Expect(iter.View()).To(Equal((10 * telem.SecondTS).SpanRange(1 * telem.Second)))
+					Expect(iter.Len()).To(Equal(int64(1)))
+
 					Expect(iter.Close()).To(Succeed())
 				})
 				Specify("Multi Domain - Uneven Crossing", func() {
