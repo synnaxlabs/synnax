@@ -1,0 +1,30 @@
+cc_library(
+    name = "breaker",
+    hdrs = ["breaker.h"],
+    copts = select({
+        "@platforms//os:windows": ["/std:c++20"],
+        "//conditions:default": [],
+    }),
+    visibility = ["//visibility:public"],
+    deps = [
+        "//client/cpp",
+        "//freighter/cpp",
+        "@com_github_google_glog//:glog",
+    ],
+)
+
+cc_test(
+    name = "test_breaker",
+    size = "small",
+    srcs = [
+        "breaker_test.cpp",
+    ],
+    copts = select({
+        "@platforms//os:windows": ["/std:c++20"],
+        "//conditions:default": [],
+    }),
+    deps = [
+        "//driver/breaker",
+        "@com_google_googletest//:gtest_main",
+    ],
+)

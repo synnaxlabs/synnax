@@ -203,7 +203,7 @@ const ReadTaskInternal = ({
       const rack = await client.hardware.racks.retrieve("sy_node_1_rack");
       setTask(
         await rack.createTask<ReadTaskConfig>({
-          key: 281479271677957,
+          key: task?.key,
           name: methods.value().name,
           type: "opcReader",
           config: methods.value().config,

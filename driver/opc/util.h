@@ -1,0 +1,184 @@
+// Copyright 2024 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+#pragma once
+
+#include "opc.h"
+#include "client/cpp/synnax.h"
+#include "include/open62541/types.h"
+#include "include/open62541/nodeids.h"
+#include "include/open62541/types.h"
+#include "include/open62541/types_generated.h"
+#include "include/open62541/client_config_default.h"
+#include "include/open62541/client.h"
+#include "include/open62541/statuscodes.h"
+#include <string>
+#include <sstream>
+#include <regex>
+#include <iostream>
+
+namespace opc {
+using ClientDeleter = void (*)(UA_Client *);
+
+
+std::pair<std::shared_ptr<UA_Client>, freighter::Error> connect(
+    opc::ConnectionConfig &cfg
+);
+
+inline synnax::Series val_to_series(UA_Variant *val, synnax::DataType dt) {
+    if (val->type == &UA_TYPES[UA_TYPES_FLOAT]) {
+        const auto value = *static_cast<UA_Float *>(val->data);
+        if (dt == synnax::FLOAT32) return Series(value);
+        if (dt == synnax::FLOAT64) return Series(static_cast<double>(value));
+    }
+    if (val->type == &UA_TYPES[UA_TYPES_DOUBLE]) {
+        const auto value = *static_cast<UA_Double *>(val->data);
+        // TODO - warn on potential precision drop here
+        if (dt == synnax::FLOAT32) return Series(static_cast<float>(value));
+        if (dt == synnax::FLOAT64) return Series(value);
+    }
+    if (val->type == &UA_TYPES[UA_TYPES_INT32]) {
+        const auto value = *static_cast<UA_Int32 *>(val->data);
+        if (dt == synnax::INT32) return Series(value);
+        if (dt == synnax::INT64) return Series(static_cast<int64_t>(value));
+        if (dt == synnax::UINT32) return Series(static_cast<uint32_t>(value));
+        if (dt == synnax::UINT64) return Series(static_cast<uint64_t>(value));
+    }
+    if (val->type == &UA_TYPES[UA_TYPES_INT64]) {
+        const auto value = *static_cast<UA_Int64 *>(val->data);
+        if (dt == synnax::INT32) return Series(static_cast<int32_t>(value));
+        if (dt == synnax::INT64) return Series(value);
+        if (dt == synnax::UINT32) return Series(static_cast<uint32_t>(value));
+        if (dt == synnax::UINT64) return Series(static_cast<uint64_t>(value));
+    }
+    return Series(1);
+}
+
+inline synnax::DataType variant_data_type(UA_Variant &val) {
+    if (val.type == &UA_TYPES[UA_TYPES_FLOAT]) return synnax::FLOAT32;
+    if (val.type == &UA_TYPES[UA_TYPES_DOUBLE]) return synnax::FLOAT64;
+    if (val.type == &UA_TYPES[UA_TYPES_INT16]) return synnax::INT16;
+    if (val.type == &UA_TYPES[UA_TYPES_INT32]) return synnax::INT32;
+    if (val.type == &UA_TYPES[UA_TYPES_INT64]) return synnax::INT64;
+    if (val.type == &UA_TYPES[UA_TYPES_UINT16]) return synnax::UINT16;
+    if (val.type == &UA_TYPES[UA_TYPES_UINT32]) return synnax::UINT32;
+    if (val.type == &UA_TYPES[UA_TYPES_UINT64]) return synnax::UINT64;
+    if (val.type == &UA_TYPES[UA_TYPES_STRING]) return synnax::STRING;
+    if (val.type == &UA_TYPES[UA_TYPES_DATETIME]) return synnax::TIMESTAMP;
+    if (val.type == &UA_TYPES[UA_TYPES_GUID]) return synnax::UINT128;
+    return synnax::DATA_TYPE_UNKNOWN;
+}
+
+
+}
+
+// Helper function to convert string GUID to UA_Guid
+inline UA_Guid stringToGuid(const std::string &guidStr) {
+    UA_Guid guid;
+    unsigned int data4[8];
+    std::sscanf(guidStr.c_str(),
+                "%8x-%4hx-%4hx-%2x%2x-%2x%2x%2x%2x%2x%2x",
+                &guid.data1, &guid.data2, &guid.data3,
+                &data4[0], &data4[1], &data4[2], &data4[3],
+                &data4[4], &data4[5], &data4[6], &data4[7]);
+    for (int i = 0; i < 8; ++i)
+        guid.data4[i] = (UA_Byte) data4[i];
+    return guid;
+}
+
+
+// Helper function to convert a GUID to a string
+inline std::string guidToString(const UA_Guid &guid) {
+    std::ostringstream stream;
+    stream << std::hex << std::setfill('0')
+            << std::setw(8) << guid.data1 << "-"
+            << std::setw(4) << guid.data2 << "-"
+            << std::setw(4) << guid.data3 << "-"
+            << std::setw(2) << (guid.data4[0] & 0xFF) << std::setw(2) << (
+                guid.data4[1] & 0xFF) << "-"
+            << std::setw(2) << (guid.data4[2] & 0xFF) << std::setw(2) << (
+                guid.data4[3] & 0xFF)
+            << std::setw(2) << (guid.data4[4] & 0xFF) << std::setw(2) << (
+                guid.data4[5] & 0xFF)
+            << std::setw(2) << (guid.data4[6] & 0xFF) << std::setw(2) << (
+                guid.data4[7] & 0xFF);
+    return stream.str();
+}
+
+// Parses a string NodeId into a UA_NodeId object
+inline UA_NodeId parseNodeId(const std::string &path, config::Parser &parser) {
+    std::regex regex("NS=(\\d+);(I|S|G|B)=(.+)");
+    std::smatch matches;
+
+    const std::string nodeIdStr = parser.required<std::string>(path);
+    if (!parser.ok()) return UA_NODEID_NULL;
+
+    if (!std::regex_search(nodeIdStr, matches, regex)) {
+        parser.field_err(path, "Invalid NodeId format");
+        return UA_NODEID_NULL;
+    }
+
+    int nsIndex = std::stoi(matches[1].str());
+    std::string type = matches[2].str();
+    std::string identifier = matches[3].str();
+
+    UA_NodeId nodeId = UA_NODEID_NULL;
+
+    if (type == "I") {
+        nodeId = UA_NODEID_NUMERIC(nsIndex, std::stoul(identifier));
+    } else if (type == "S") {
+        nodeId = UA_NODEID_STRING_ALLOC(nsIndex, identifier.c_str());
+    } else if (type == "G") {
+        UA_Guid guid = stringToGuid(identifier);
+        nodeId = UA_NODEID_GUID(nsIndex, guid);
+    } else if (type == "B") {
+        // Allocate memory for ByteString
+        size_t len = identifier.length() / 2;
+        UA_Byte *data = (UA_Byte *) UA_malloc(len);
+        for (size_t i = 0; i < len; ++i) {
+            sscanf(&identifier[2 * i], "%2hhx", &data[i]);
+        }
+        nodeId = UA_NODEID_BYTESTRING(nsIndex, (char *) data);
+        UA_free(data); // Free the temporary buffer
+    }
+
+    return nodeId;
+}
+
+
+// Function to build a string identifier from a UA_NodeId
+inline std::string nodeIdToString(const UA_NodeId &nodeId) {
+    std::ostringstream nodeIdStr;
+    nodeIdStr << "NS=" << nodeId.namespaceIndex << ";";
+
+    switch (nodeId.identifierType) {
+        case UA_NODEIDTYPE_NUMERIC:
+            nodeIdStr << "I=" << nodeId.identifier.numeric;
+            break;
+        case UA_NODEIDTYPE_STRING:
+            nodeIdStr << "S=" << std::string((char *) nodeId.identifier.string.data,
+                                             nodeId.identifier.string.length);
+            break;
+        case UA_NODEIDTYPE_GUID:
+            nodeIdStr << "G=" << guidToString(nodeId.identifier.guid);
+            break;
+        case UA_NODEIDTYPE_BYTESTRING:
+            // Convert ByteString to a base64 or similar readable format if needed
+            nodeIdStr << "B=";
+            for (std::size_t i = 0; i < nodeId.identifier.byteString.length; ++i) {
+                nodeIdStr << std::setfill('0') << std::setw(2) << std::hex
+                        << (int) nodeId.identifier.byteString.data[i];
+            }
+            break;
+        default:
+            nodeIdStr << "Unknown";
+    }
+
+    return nodeIdStr.str();
+}

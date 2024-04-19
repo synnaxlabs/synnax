@@ -1,0 +1,25 @@
+cc_library(
+    name = "heartbeat",
+    srcs = [
+        "heartbeat.cpp",
+    ],
+    hdrs = [
+        "heartbeat.h",
+    ],
+    deps = [
+        "//client/cpp",
+        "//driver/breaker",
+        "//freighter/cpp",
+    ],
+)
+
+cc_test(
+    name = "heartbeat_test",
+    srcs = [
+        "heartbeat_test.cpp",
+    ],
+    deps = [
+        ":heartbeat",
+        "@com_google_googletest//gtest_main",
+    ],
+)
