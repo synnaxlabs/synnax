@@ -36,7 +36,7 @@ export const Video = ({ id, ...props }: VideoProps): ReactElement => {
   );
 };
 
-export const Image = ({ id, themed = true }: VideoProps): ReactElement => {
+export const Image = ({ id, themed = true, ...props }: VideoProps): ReactElement => {
   let url = `${CDN_ROOT}/${id}`;
   if (themed) {
     const theme = localStorage.getItem("theme") ?? "light";
@@ -44,5 +44,5 @@ export const Image = ({ id, themed = true }: VideoProps): ReactElement => {
     url += `-${modifier}`;
   }
   url += ".png";
-  return <img src={url} className="image" />;
+  return <img src={url} className="image" {...props} />;
 };
