@@ -4,6 +4,7 @@ layout: "@/layouts/MainLayout.astro"
 description: "Reference for the Synnax Database CLI"
 ---
 import Code from "@/components/Code.astro";
+import SynnaxVersionOutput from "@/components/deploy/SynnaxVersionOutput.astro";
 export const components = { pre: Code };
 
 import { Table } from "@/components/Table";
@@ -302,9 +303,7 @@ synnax version
 
 You'll see output similar to the following (the version number may vary):
 
-```cmd
-Synnax version 0.16.5
-```
+<SynnaxVersionOutput />
 
 ### Flags
 
