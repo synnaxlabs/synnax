@@ -233,6 +233,41 @@ var _ = Describe("Iterator Behavior", func() {
 
 					Expect(iter.Close()).To(Succeed())
 				})
+				// The problem mentioned in the above spec also arises in the SeekGE and
+				// SeekLE methods, for example, iter.SeekGE(ctx, 5*telem.SecondTS) would
+				// return true, but result in an invalid view of  (5 * telem.SecondTS).SpanRange(0)
+				Specify("Partial Domain 4 - Regression", func() {
+					Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16))).To(Succeed())
+					Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6, 7))).To(Succeed())
+					Expect(unary.Write(ctx, indexDB, 20*telem.SecondTS, telem.NewSecondsTSV(20, 21, 22, 23, 24, 25, 26))).To(Succeed())
+					Expect(unary.Write(ctx, db, 20*telem.SecondTS, telem.NewSeriesV[int64](8, 9, 10, 11, 12, 13, 14))).To(Succeed())
+					iter := db.OpenIterator(unary.IteratorConfig{
+						Bounds:        (10 * telem.SecondTS).SpanRange(5 * telem.Second),
+						AutoChunkSize: 3,
+					})
+					Expect(iter.SeekGE(ctx, 5*telem.SecondTS)).To(BeTrue())
+					Expect(iter.View()).To(Equal((10 * telem.SecondTS).SpanRange(0)))
+					Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
+					Expect(iter.View()).To(Equal((10 * telem.SecondTS).SpanRange(3 * telem.Second)))
+					Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
+					Expect(iter.View()).To(Equal((13 * telem.SecondTS).SpanRange(2 * telem.Second)))
+					Expect(iter.Value().Series[0].Data).To(Equal([]byte{4, 0, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 0, 0, 0, 0}))
+					Expect(iter.Len()).To(Equal(int64(2)))
+					Expect(iter.Next(ctx, unary.AutoSpan)).To(BeFalse())
+
+					Expect(iter.SeekLE(ctx, 0*telem.SecondTS)).To(BeFalse())
+					Expect(iter.SeekLE(ctx, 40*telem.SecondTS)).To(BeFalse())
+					Expect(iter.View()).To(Equal((15 * telem.SecondTS).SpanRange(0)))
+					Expect(iter.Prev(ctx, 4*telem.Second)).To(BeTrue())
+					Expect(iter.View()).To(Equal((11 * telem.SecondTS).SpanRange(4 * telem.Second)))
+					Expect(iter.Prev(ctx, 5*telem.Second)).To(BeTrue())
+					Expect(iter.View()).To(Equal((10 * telem.SecondTS).SpanRange(1 * telem.Second)))
+					Expect(iter.Len()).To(Equal(int64(1)))
+					Expect(iter.Value().Series[0].Data).To(Equal([]byte{1, 0, 0, 0, 0, 0, 0, 0}))
+					Expect(iter.Prev(ctx, 10*telem.Second)).To(BeFalse())
+
+					Expect(iter.Close()).To(Succeed())
+				})
 				Specify("Multi Domain - Uneven Crossing", func() {
 					Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16))).To(Succeed())
 					Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6, 7))).To(Succeed())

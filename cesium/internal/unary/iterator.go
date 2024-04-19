@@ -74,7 +74,13 @@ func (i *Iterator) SeekLE(ctx context.Context, ts telem.TimeStamp) bool {
 		i.err = IteratorClosedError
 		return false
 	}
-	i.seekReset(ts)
+
+	if i.bounds.OverlapsWith(ts.SpanRange(0)) {
+		i.seekReset(ts)
+	} else {
+		i.seekReset(i.bounds.End)
+	}
+
 	return i.internal.SeekLE(ctx, ts)
 }
 
@@ -83,7 +89,13 @@ func (i *Iterator) SeekGE(ctx context.Context, ts telem.TimeStamp) bool {
 		i.err = IteratorClosedError
 		return false
 	}
-	i.seekReset(ts)
+
+	if i.bounds.OverlapsWith(ts.SpanRange(0)) {
+		i.seekReset(ts)
+	} else {
+		i.seekReset(i.bounds.Start)
+	}
+
 	return i.internal.SeekGE(ctx, ts)
 }
 
