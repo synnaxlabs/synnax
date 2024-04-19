@@ -13,6 +13,7 @@ import { consoleNav } from "./console/nav";
 import { deploymentNav } from "./deployment/nav";
 import { guidesNav } from "./guides/nav";
 import { pythonClientNav } from "./python-client/nav";
+import { plutoNav } from "@/pages/pluto/nav";
 
 export const pages = [
   {
@@ -26,4 +27,5 @@ export const pages = [
   pythonClientNav,
   typescriptClientNav,
   consoleNav,
+  plutoNav,
 ];

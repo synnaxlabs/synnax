@@ -113,6 +113,7 @@
       }
     ],
     "cSpell.words": [
+      "comms",
       "downsample",
       "glsl",
       "immer",
@@ -120,7 +121,6 @@
       "Migratable",
       "Navdrawer",
       "reduxjs",
-      "immer",
       "syncer",
       "Synnax",
       "tauri",

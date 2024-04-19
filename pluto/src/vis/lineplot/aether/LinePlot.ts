@@ -27,7 +27,7 @@ export const linePlotStateZ = z.object({
   viewport: box.box,
   hold: z.boolean().optional().default(false),
   grid: z.record(gridPositionSpecZ),
-  clearOverscan: xy.crudeZ,
+  clearOverscan: xy.crudeZ.optional().default(xy.ZERO),
 });
 
 interface InternalState {

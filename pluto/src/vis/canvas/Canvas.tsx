@@ -25,12 +25,12 @@ import { canvas } from "@/vis/canvas/aether";
 
 import "@/vis/canvas/Canvas.css";
 
-type HTMLCanvasProps = DetailedHTMLProps<
-  CanvasHTMLAttributes<HTMLCanvasElement>,
-  HTMLCanvasElement
+type HTMLDivProps = DetailedHTMLProps<
+  CanvasHTMLAttributes<HTMLDivElement>,
+  HTMLDivElement
 >;
 
-export interface CanvasProps extends Omit<HTMLCanvasProps, "ref"> {
+export interface CanvasProps extends Omit<HTMLDivProps, "ref"> {
   resizeDebounce?: number;
 }
 
@@ -97,7 +97,6 @@ export const Canvas = Aether.wrap<CanvasProps>(
 
     const refCallback = useCallback(
       (el: HTMLCanvasElement | null) => {
-        resizeRef(el);
         if (el == null) return;
 
         // Store the canvas
@@ -132,21 +131,20 @@ export const Canvas = Aether.wrap<CanvasProps>(
 
     return (
       <>
-        <canvas
-          ref={refCallback}
-          className={CSS(CSS.BM("canvas", "lower2d"), className)}
-          {...props}
-        />
-        <canvas
-          ref={refCallback}
-          className={CSS(CSS.BM("canvas", "gl"), className)}
-          {...props}
-        />
-        <canvas
-          ref={refCallback}
-          className={CSS(CSS.BM("canvas", "upper2d"), className)}
-          {...props}
-        />
+        <div className={CSS.B("canvas-container")} {...props} ref={resizeRef}>
+          <canvas
+            ref={refCallback}
+            className={CSS(CSS.B("canvas"), CSS.BM("canvas", "lower2d"), className)}
+          />
+          <canvas
+            ref={refCallback}
+            className={CSS(CSS.B("canvas"), CSS.BM("canvas", "gl"), className)}
+          />
+          <canvas
+            ref={refCallback}
+            className={CSS(CSS.B("canvas"), CSS.BM("canvas", "upper2d"), className)}
+          />
+        </div>
         <Aether.Composite path={path}>{bootstrapped && children}</Aether.Composite>
       </>
     );
