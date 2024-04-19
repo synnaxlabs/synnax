@@ -1,0 +1,74 @@
+---
+import { Icon } from "@synnaxlabs/media";
+import { Button } from "@synnaxlabs/pluto";
+
+const props = Astro.props;
+---
+
+<script>
+    const addListeners = () => {
+        setTimeout(() => {
+            const buttons = document.querySelectorAll(".astro-code-wrapper button");
+            buttons.forEach((button) => {
+                button.addEventListener("click", () => {
+                    const code = button.parentElement?.querySelector("code");
+                    if (code == null) return;
+                    navigator.clipboard.writeText(code.innerText);
+                    const copy = button.querySelector(".copy") as HTMLElement;
+                    const check = button.querySelector(".check") as HTMLElement;
+                    console.log(copy, check);
+                    if (copy == null || check == null) return;
+                    copy.style.display = "none";
+                    check.style.display = "block";
+                    setTimeout(() => {
+                        copy.style.display = "block";
+                        check.style.display = "none";
+                    }, 1000);
+                });
+            });
+        }, 1000);
+    };
+    addListeners();
+    document.addEventListener("astro:after-swap", addListeners);
+</script>
+
+<div class="astro-code-wrapper">
+    <Button.Icon variant="outlined" size="small">
+        <Icon.Copy className="copy" /><Icon.Check className="check" />
+    </Button.Icon>
+    <pre {...props}><slot /></pre>
+</div>
+
+<style is:global>
+    .astro-code-wrapper {
+        position: relative;
+        margin: 3rem 1rem;
+        button {
+            opacity: 0;
+            position: absolute;
+            right: 2.5rem;
+            top: 2.5rem;
+            color: var(--pluto-gray-l7);
+            transition: opacity 0.2s ease-in-out;
+            z-index: 100;
+
+            .check {
+                display: none;
+            }
+        }
+
+        &:hover {
+            button {
+                opacity: 1;
+            }
+        }
+        .astro-code {
+            padding: 3rem;
+            position: relative;
+            border: var(--pluto-border);
+            border-radius: var(--pluto-border-radius);
+            overflow-x: auto !important;
+            overflow-y: visible !important;
+        }
+    }
+</style>

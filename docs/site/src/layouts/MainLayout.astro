@@ -6,11 +6,13 @@ import "@synnaxlabs/media/dist/style.css";
 import { ViewTransitions } from "astro:transitions";
 import { TableOfContents } from "@/components/TableOfContents";
 import { SEO } from "astro-seo";
+import Code from "@/components/Code.astro";
 const {
   headings,
   frontmatter: { title, heading, description },
 } = Astro.props;
 ---
+
 
 <script>
   import { getVersion } from "@/util/fetchVersion";
@@ -53,7 +55,7 @@ const {
       <article transition:animate="none">
         <h1 class="article-title">{heading ?? title}</h1>
         <h4 class="article-description">{description}</h3>
-        <slot />
+        <slot components={{pre: Code}}/>
       </article>
     </main>
     <nav class="docs-toc">
@@ -241,7 +243,7 @@ const {
             --astro-code-color-text: var(--pluto-text-color);
             --astro-code-color-background: var(--pluto-gray-l1);
             --astro-code-token-comment: var(--pluto-gray-l5);
-            --astro-code-token-string-expression: #00b023;
+            --astro-code-token-string-expression: oklch(73.1% 0.2158 148.29);
             --astro-code-token-function: #20a4f3;
             --astro-code-token-punctuation: var(--pluto-text-color);
             --astro-code-token-keyword: #dc136c;
@@ -348,15 +350,6 @@ const {
       font-size: var(--pluto-p-size);
     }
 
-    .astro-code {
-      padding: 3rem;
-      position: relative;
-      border: var(--pluto-border);
-      border-radius: var(--pluto-border-radius);
-      margin: 3rem 1rem;
-      overflow-x: auto !important;
-      overflow-y: visible !important;
-    }
 
     .pluto-dropdown__dialog {
       border: none;

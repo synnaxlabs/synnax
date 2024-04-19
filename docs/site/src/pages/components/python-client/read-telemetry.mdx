@@ -3,6 +3,8 @@ layout: "@/layouts/MainLayout.astro"
 title: "Read Telemetry"
 description: "Use the Python client to read from a Synnax cluster"
 ---
+import Code from "@/components/Code.astro";
+export const components = { pre: Code };
 
 The Python client supports several different ways of reading data from a cluster. We can 
 read directly from a channel, fetch a named range and access its data, or leverage server

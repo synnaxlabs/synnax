@@ -3,6 +3,8 @@ layout: "@/layouts/MainLayout.astro"
 title: "Exploratory Analysis in Python"
 description: "Use python to explore and analyze data in Synnax"
 ---
+import Code from "@/components/Code.astro";
+export const components = { pre: Code };
 
 import { Image } from "@/components/Media";
 import Note from "@/components/Note.astro";

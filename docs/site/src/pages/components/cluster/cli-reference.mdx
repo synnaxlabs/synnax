@@ -3,6 +3,8 @@ title: "CLI Reference"
 layout: "@/layouts/MainLayout.astro"
 description: "Reference for the Synnax Database CLI"
 ---
+import Code from "@/components/Code.astro";
+export const components = { pre: Code };
 
 import { Table } from "@/components/Table";
 import { Tabs } from "@/components/Tabs";
@@ -290,7 +292,7 @@ password = "seldon"
 
 ## Version
 
-The `version` command prints the version of the Synnax database CLI. 
+The `version` command prints the installed version of the Synnax database.
 
 ### Examples
 

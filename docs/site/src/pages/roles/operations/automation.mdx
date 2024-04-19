@@ -3,6 +3,9 @@ layout: "@/layouts/MainLayout.astro"
 title: "Automated Control Sequences"
 description: "This page describes the basics of writing automated control sequences for Synnax."
 ---
+import Code from "@/components/Code.astro";
+export const components = { pre: Code };
+
 import { Image } from "@/components/Media";
 
 One of the most powerful tools Synnax has to offer is the ability to easily
@@ -23,7 +26,7 @@ communicate for reading channels and writing to channels. The initialization
 parameters for this class are the same credentials that you would use to log
 into a server. An example initialization of this class is shown below:
 
-```
+```python
 client = synnax.Synnax(
     host="localhost",
     port=9090,

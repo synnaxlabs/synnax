@@ -3,6 +3,8 @@ layout: "@/layouts/MainLayout.astro"
 title: "Node Installation"
 description: "Install Synnax on a variety of operating systems."
 ---
+import Code from "@/components/Code.astro";
+export const components = { pre: Code };
 
 import { Icon } from "@synnaxlabs/media";
 import { Tabs } from "@/components/Tabs";
@@ -59,7 +61,7 @@ echo 'export PATH=$PATH:/usr/local/bin' >> ~/.zshrc
 If any previous versions of Synnax are installed and available on your `PATH`, you
 may need to remove them to avoid conflicts.
 
-<Note variant="warn">
+<Note variant="warning">
 If you've also installed the [Synnax Python Client](/components/python-client/get-started),
 its `synnax` command may take precedence over the one you just installed. To avoid conflicts,
 rename the binary you've just installed to something else, like `synnax-server` by running:
@@ -119,7 +121,7 @@ echo 'export PATH=$PATH:/usr/local/bin' >> ~/.zshrc
 If any previous versions of Synnax are installed and available on your `PATH`, you
 may need to remove them to avoid conflicts.
 
-<Note variant="warn">
+<Note variant="warning">
 If you've also installed the [Synnax Python Client](/components/python-client/get-started),
 its `synnax` command may take precedence over the one you just installed. To avoid conflicts,
 rename the binary you've just installed to something else, like `synnax-server` by running:

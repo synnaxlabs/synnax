@@ -2,6 +2,8 @@
 layout: "@/layouts/MainLayout.astro"
 title: "Series and Frames"
 ---
+import Code from "@/components/Code.astro";
+export const components = { pre: Code };
 
 Series and Frames are the two fundamental structures used for working with channel data
 in Synnax. This guide will walk you through how to use the `Series` and `Frame` classes

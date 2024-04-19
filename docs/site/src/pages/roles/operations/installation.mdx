@@ -3,6 +3,8 @@ layout: "@/layouts/MainLayout.astro"
 title: "Console Installation"
 description: "This page describes how to install the Synnax console and gives an overview of its use."
 ---
+import Code from "@/components/Code.astro";
+export const components = { pre: Code };
 import { Image } from "@/components/Media";
 import Note from "@/components/Note.astro";
 

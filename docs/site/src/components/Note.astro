@@ -10,7 +10,7 @@ const { variant = "info" }: Props = Astro.props;
     <slot />
 </div>
 
-<style>
+<style is:global>
     .note {
         padding: 0.1rem 3rem;
         margin: 4rem 0;
@@ -29,9 +29,21 @@ const { variant = "info" }: Props = Astro.props;
             border-color: var(--pluto-primary-z-30);
         }
 
-        &.warn {
+        &.warning {
             background: #fffbe0;
             border-color: #f9eba8;
+            @media (prefers-color-scheme: dark) {
+                border-color: #f9eba8;
+                background: #fff4adb0;
+            }
+
+            /* & > *:not(code):not(pre) {
+                color: var(--pluto-gray-l1) !important;
+            }
+
+            & code {
+                color: var(--pluto-text-color) !important;
+            } */
         }
     }
 </style>
