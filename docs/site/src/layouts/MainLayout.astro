@@ -14,14 +14,6 @@ const {
 ---
 
 
-<script>
-  import { getVersion } from "@/util/fetchVersion";
-
-  getVersion().then((version) => {
-    document.querySelector(".version").innerHTML = version;
-  });
-</script>
-
 <html transition:animate="none">
   <head>
     <SEO
@@ -71,6 +63,27 @@ const {
     document.addEventListener("astro:after-swap", () => {
       startThemeDriver();
       startUpdatingIframeHref();
+    });
+  </script>
+
+
+  <script>
+      import { addListeners } from "@/components/codeUtil";
+      console.log("Adding listeners");
+
+      addListeners();
+      document.addEventListener("astro:after-swap", addListeners);
+      new MutationObserver(addListeners).observe(document.body, {
+          childList: true,
+          subtree: true,
+      });
+  </script>
+
+  <script>
+    import { getVersion } from "@/util/fetchVersion";
+
+    getVersion().then((version) => {
+      document.querySelector(".version").innerHTML = version;
     });
   </script>
 

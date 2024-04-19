@@ -1,15 +1,18 @@
 ---
 import { Icon } from "@synnaxlabs/media";
 import { Button } from "@synnaxlabs/pluto";
+import Code from "astro/components/Code.astro";
 
 const props = Astro.props;
 ---
 
 <div class="astro-code-wrapper">
     <Button.Icon variant="outlined" size="small">
-        <Icon.Copy className="copy" /><Icon.Check className="check" />
+        <>
+            <Icon.Copy className="copy" /><Icon.Check className="check" />
+        </>
     </Button.Icon>
-    <pre {...props}><slot /></pre>
+    <Code {...props} />
 </div>
 
 <style is:global>

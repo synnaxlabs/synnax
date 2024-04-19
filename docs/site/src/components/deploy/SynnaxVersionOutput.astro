@@ -1,10 +1,9 @@
 ---
-import Code from "astro/components/Code.astro";
-const { os } = Astro.props;
+import CodeI from "@/components/CodeI.astro";
 
 const VERSION =
     "https://raw.githubusercontent.com/synnaxlabs/synnax/main/synnax/pkg/version/VERSION";
 const version = await (await fetch(VERSION)).text();
 ---
 
-<Code theme="css-variables" lang="" code={`Synnax version ${version}`} />
+<CodeI theme="css-variables" lang="" code={`Synnax version ${version}`} />
