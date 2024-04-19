@@ -9,63 +9,103 @@ import Note from "@/components/Note.astro";
 import { Icon } from "@synnaxlabs/media";
 import { Text } from "@synnaxlabs/pluto";
 
-
-## UI Overview
-An image of the Synnax console is shown below.
-
-<Image client:only="react" id="console/ui-main-view"/>
+## Important Tabs
 
 <Text.Text level="p">
-  <ul>
-    <li><Icon.Resources/> __Resources__ are located on the left-hand side of the screen and show the file tree used for Synnax data.</li>
-    <li><Icon.Workspace/> __Workspaces__ are located on the top of the file screen.</li>
-    <li>__Visualizations__ are listed as tabs on the top of the screen. In the view above, the only visualization is the "Get Started" visualization.
-        You can add more visualizations by clicking on the <Icon.Add /> button in the top right.</li>
-    <li>In the top right, there are buttons for <Icon.QuestionMark/> opening documentation, <Icon.Subtract/> minimizing the window,
-        <Icon.Box/> maximizing the window, and <Icon.Close/> closing the window.</li>
-    <li><Icon.Range/> __Ranges__ are specific time periods determined by users where important events happened. To learn more about ranges, you can read the
-        reference page on [querying ranges](/console/querying-data).</li>
-    <li><Icon.Visualize/> __Visualizations__ have properties that are accessed by clicking on the icon in the bottom right.</li>
-    <li><Icon.Cluster/> The current __cluster__ is shown in the bottom right, along with whether the console is connected or disconnected to the cluster.</li>
-    <li>The current version of the Synnax console is shown in the bottom right.</li>
-  </ul>
+The Synnax Console has several important properties in it. First, there are
+four main tabs that can be opened from the side. These are the
+<Icon.Resources/> __Resources__, <Icon.Range/> __Ranges__, <Icon.Visualize/>
+__Visualizations__, and <Icon.Cluster/> __Clusters__ tabs.
 </Text.Text>
 
-## Workspaces
-Next, you will be prompted to create a workspace. A workspace is a collection of
-visualizations, either line plots or schematic diagrams. You can save visualizations
-as part of a workspace so all members of the cluster can view a certain
-workspace. To switch between workspaces, you can choose a different workspace in
-the resources tree or click on a different workspace in the top left.
+### Resources
 
-## Resources File Tree
+__Insert a video of opening the resources tab.__
 
-An exploded view of the resources file tree is shown below:
-
-<Image client:only="react" id="roles/operations/installation/resources-tree"  />
-
-
-In the resources tab on the top left, there are several folders:
-- __Channels__ are the sensor channels that you can track and plot.
-- __Clusters__ is the list of all nodes currently connected to the cluster, and
-  which channels are leased to each node.
-- __Labels__ are not currently implemented in Synnax.
-- __Racks__ are not currently implemented in Synnax.
-- __Ranges__ are saved times that you can use when loading data to view. For
-  instance, you can save the time of a test as a range with name Test 1, and
-  then load that range on the line plot view when looking at data.
-- __Users__ are a list of all users logged into the cluster. The workspaces
+<Text.Text level="p">
+The <Icon.Resources/> __Resources__ tab list a file tree with folders for
+channels, ranges, users, and workspaces.
+</Text.Text>
+- [Channels](/components/concepts/channels) are the sensor channels that you can
+  track and plot.
+- [Ranges](querying-data) are saved times that you can use
+  when loading data to view.
+- __Users__ are a list of all users registered in the cluster. The workspaces
   created by the users can be found underneath their name.
-- __Workspaces__ list all created workspaces in the cluster. This tree includes
-  workspaces created by all users.
+- [Workspaces](workspaces) list all created workspaces in
+  the cluster. This tree includes workspaces created by all users.
 
+### Ranges
 
-## Visualizations
+__Insert a video of opening a range, typing in information, and saving to
+Synnax__
 
-To visualize data in your workspace, there are two main types of visualizations.
-The first is called a "Line Plot", and is a line graph that allows you to plot
-line charts together. The second type of view is called a "Schematic". This view
-allows you to make a schematic of your system with live values that pop up on
-it. More information about using the line plot is covered
-[here](line-plot), and information about the schematic view is
-covered [here](schematic).
+<Text.Text level="p">
+You can view and create active ranges on the right by clicking the <Icon.Range/>
+__Ranges__ icon. More information about ranges are covered in [Querying Data
+Using Ranges](querying-data).
+</Text.Text>
+
+### Visualization Properties
+
+__Insert a video of opening and closing visualization properties__
+
+<Text.Text level="p">
+When you have a visualization open, you can open the visualization properties by
+clicking the __Visualize__ <Icon.Visualize/> icon in the bottom-right. This allows you to show or
+hide the properties of visualizations.
+</Text.Text>
+
+### Clusters
+
+__Insert a video of adding and connecting to a new cluster.
+
+<Text.Text level="p">
+The list of clusters that you are connected to is found by clicking on the
+__Cluster__ <Icon.Cluster/> icon in the bottom-right. This opens up a list of
+all available clusters. You can add new clusters from here. Also, you can switch
+your current active cluster. The text in the corner indicates whether you are
+connected, disconnected, or have a failed connection with the cluster. More
+information about clusters can be found in the page [connecting a cluster](connect-a-cluster).
+</Text.Text>
+
+## Window Management
+
+The Synnax Console can be easily manipulated to help choose the exact display
+you want.
+
+You can easily open and close tabs on Synnax:
+
+__Insert a video of opening and closing all four main tabs__
+
+You can close tabs either by touching the respective icon or resizing it to the
+edge:
+
+__Insert a video of closing a tab both ways__
+
+You can also have multiple visualizations displayed at the same time:
+
+__Insert a video where you display a line plot or two next to a PID__
+
+## Getting Help
+
+<Text.Text level="p">
+The Synnax documentation can be opened from within the Synnax Console by
+clicking the <Icon.QuestionMark/> icon.
+</Text.Text>
+
+__Insert a video of opening the documentation__
+
+### Search Toolbar
+
+The search toolbar at the top can be used to search for resources or to toggle
+commands. Searching for resouces can be done by searching or pressing ctrl + P.
+As an example of searching for resources, you could search for a test range and
+then have it automatically added as an active range:
+
+__Insert a video of adding a range.__
+
+The search toolbar can run commands by entering a ">" or pressing ctrl + shift +
+P. This allows you to run commands such as toggling the color theme:
+
+__Insert a video of toggling the color theme__
