@@ -36,7 +36,7 @@ type FrameWriterConfig struct {
 	Mode           writer.Mode     `json:"mode" msgpack:"mode"`
 }
 
-// FrameWriterRequest represents a request to write Internal data for a set of channels.
+// FrameWriterRequest represents a request to write CreateNet data for a set of channels.
 type FrameWriterRequest struct {
 	Config  FrameWriterConfig `json:"config" msgpack:"config"`
 	Command WriterCommand     `json:"command" msgpack:"command"`

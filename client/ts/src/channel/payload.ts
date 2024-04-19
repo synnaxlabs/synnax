@@ -36,18 +36,8 @@ export const newPayload = payload.extend({
   key: z.number().optional(),
   leaseholder: z.number().optional(),
   index: z.number().optional(),
-  rate: Rate.z.optional(),
+  rate: Rate.z.optional().default(0),
   isIndex: z.boolean().optional(),
 });
 
 export type NewPayload = z.input<typeof newPayload>;
-
-export const parseChannels = (channels: NewPayload[]): NewPayload[] =>
-  channels.map((channel) => ({
-    name: channel.name,
-    dataType: channel.dataType,
-    rate: channel.rate ?? 0,
-    leaseholder: channel.leaseholder,
-    index: channel.index,
-    isIndex: channel.isIndex,
-  }));

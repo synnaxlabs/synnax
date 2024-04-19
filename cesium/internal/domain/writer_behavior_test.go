@@ -10,6 +10,7 @@
 package domain_test
 
 import (
+	"github.com/synnaxlabs/cesium/internal/core"
 	"sync"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -159,6 +160,19 @@ var _ = Describe("WriterBehavior", func() {
 					Expect(err).To(HaveOccurredAs(domain.ErrDomainOverlap))
 				}
 			})
+		})
+	})
+	Describe("Close", func() {
+		It("Should not allow operations on a closed writer", func() {
+			var (
+				w = MustSucceed(db.NewWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS}))
+				e = core.EntityClosed("domain.writer")
+			)
+			Expect(w.Close()).To(Succeed())
+			Expect(w.Commit(ctx, telem.TimeStampMax)).To(MatchError(e))
+			_, err := w.Write([]byte{1, 2, 3})
+			Expect(err).To(MatchError(e))
+			Expect(w.Close()).To(Succeed())
 		})
 	})
 })

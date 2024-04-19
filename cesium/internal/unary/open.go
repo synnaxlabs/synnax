@@ -69,6 +69,7 @@ func Open(configs ...Config) (*DB, error) {
 		Config:     cfg,
 		Domain:     rangerDB,
 		Controller: controller.New[controlledWriter](cfg.Channel.Concurrency),
+		mu:         &openEntityCount{},
 	}
 	if cfg.Channel.IsIndex {
 		db._idx = &index.Domain{DB: rangerDB, Instrumentation: cfg.Instrumentation}

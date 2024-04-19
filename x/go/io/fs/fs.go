@@ -13,7 +13,7 @@ import (
 	"github.com/cockroachdb/pebble/vfs"
 	"io"
 	"os"
-	"path"
+	goPath "path"
 	"sort"
 )
 
@@ -31,10 +31,13 @@ type File interface {
 const defaultPerm = 0755
 
 type FS interface {
-	Open(pth string, flag int) (File, error)
-	Sub(pth string) (FS, error)
-	List(pth string) ([]os.FileInfo, error)
-	Exists(pth string) (bool, error)
+	Open(name string, flag int) (File, error)
+	Sub(name string) (FS, error)
+	List(name string) ([]os.FileInfo, error)
+	Exists(name string) (bool, error)
+	Remove(name string) error
+	Rename(name string, newPath string) error
+	Stat(name string) (os.FileInfo, error)
 }
 
 type subFS struct {
@@ -43,19 +46,31 @@ type subFS struct {
 }
 
 func (s *subFS) Open(name string, flag int) (File, error) {
-	return s.FS.Open(path.Join(s.dir, name), flag)
+	return s.FS.Open(goPath.Join(s.dir, name), flag)
 }
 
 func (s *subFS) Sub(name string) (FS, error) {
-	return s.FS.Sub(path.Join(s.dir, name))
+	return s.FS.Sub(goPath.Join(s.dir, name))
 }
 
 func (s *subFS) Exists(name string) (bool, error) {
-	return s.FS.Exists(path.Join(s.dir, name))
+	return s.FS.Exists(goPath.Join(s.dir, name))
 }
 
 func (s *subFS) List(name string) ([]os.FileInfo, error) {
-	return s.FS.List(path.Join(s.dir, name))
+	return s.FS.List(goPath.Join(s.dir, name))
+}
+
+func (s *subFS) Remove(name string) error {
+	return s.FS.Remove(goPath.Join(s.dir, name))
+}
+
+func (s *subFS) Rename(oldName string, newName string) error {
+	return s.FS.Rename(goPath.Join(s.dir, oldName), goPath.Join(s.dir, newName))
+}
+
+func (s *subFS) Stat(name string) (os.FileInfo, error) {
+	return s.FS.Stat(goPath.Join(s.dir, name))
 }
 
 type defaultFS struct {
@@ -64,27 +79,27 @@ type defaultFS struct {
 
 var Default FS = &defaultFS{perm: defaultPerm}
 
-func (d *defaultFS) Open(pth string, flag int) (File, error) {
-	return os.OpenFile(pth, flag, d.perm)
+func (d *defaultFS) Open(name string, flag int) (File, error) {
+	return os.OpenFile(name, flag, d.perm)
 }
 
-func (d *defaultFS) Sub(pth string) (FS, error) {
-	if err := os.MkdirAll(pth, d.perm); err != nil {
+func (d *defaultFS) Sub(name string) (FS, error) {
+	if err := os.MkdirAll(name, d.perm); err != nil {
 		return nil, err
 	}
-	return &subFS{dir: pth, FS: d}, nil
+	return &subFS{dir: name, FS: d}, nil
 }
 
-func (d *defaultFS) Exists(pth string) (bool, error) {
-	_, err := os.Stat(pth)
+func (d *defaultFS) Exists(name string) (bool, error) {
+	_, err := os.Stat(name)
 	if os.IsNotExist(err) {
 		return false, nil
 	}
 	return true, err
 }
 
-func (d *defaultFS) List(pth string) ([]os.FileInfo, error) {
-	entries, err := os.ReadDir(pth)
+func (d *defaultFS) List(name string) ([]os.FileInfo, error) {
+	entries, err := os.ReadDir(name)
 	if err != nil {
 		return nil, err
 	}
@@ -98,8 +113,16 @@ func (d *defaultFS) List(pth string) ([]os.FileInfo, error) {
 	return infos, nil
 }
 
-func OSDirFS(dir string) (FS, error) {
-	return (&defaultFS{perm: defaultPerm}).Sub(dir)
+func (d *defaultFS) Remove(name string) error {
+	return os.RemoveAll(name)
+}
+
+func (d *defaultFS) Rename(name string, newName string) error {
+	return os.Rename(name, newName)
+}
+
+func (d *defaultFS) Stat(name string) (os.FileInfo, error) {
+	return os.Stat(name)
 }
 
 func NewMem() FS {
@@ -140,11 +163,11 @@ func (m *memFS) Open(name string, flag int) (File, error) {
 	}
 }
 
-func (m *memFS) Sub(pth string) (FS, error) {
-	if err := m.FS.MkdirAll(path.Clean(pth), m.perm); err != nil {
+func (m *memFS) Sub(name string) (FS, error) {
+	if err := m.FS.MkdirAll(goPath.Clean(name), m.perm); err != nil {
 		return nil, err
 	}
-	return &subFS{dir: pth, FS: m}, nil
+	return &subFS{dir: name, FS: m}, nil
 }
 
 func (m *memFS) Exists(name string) (bool, error) {
@@ -158,14 +181,14 @@ func (m *memFS) Exists(name string) (bool, error) {
 	return false, err
 }
 
-func (m *memFS) List(pth string) ([]os.FileInfo, error) {
-	entries, err := m.FS.List(pth)
+func (m *memFS) List(name string) ([]os.FileInfo, error) {
+	entries, err := m.FS.List(name)
 	if err != nil {
 		return nil, err
 	}
 	infos := make([]os.FileInfo, len(entries))
 	for i, e := range entries {
-		infos[i], err = m.FS.Stat(path.Join(pth, e))
+		infos[i], err = m.FS.Stat(goPath.Join(name, e))
 		if err != nil {
 			return nil, err
 		}
@@ -175,4 +198,16 @@ func (m *memFS) List(pth string) ([]os.FileInfo, error) {
 	})
 
 	return infos, nil
+}
+
+func (m *memFS) Remove(name string) error {
+	return m.RemoveAll(name)
+}
+
+func (m *memFS) Rename(name string, newName string) error {
+	return m.FS.Rename(name, newName)
+}
+
+func (m *memFS) Stat(name string) (os.FileInfo, error) {
+	return m.FS.Stat(name)
 }

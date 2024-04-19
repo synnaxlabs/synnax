@@ -10,12 +10,14 @@
 package virtual
 
 import (
+	"fmt"
 	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
+	"sync"
 )
 
 type controlEntity struct {
@@ -25,9 +27,21 @@ type controlEntity struct {
 
 func (e *controlEntity) ChannelKey() core.ChannelKey { return e.ck }
 
+type openEntityCount struct {
+	sync.RWMutex
+	openWriters int
+}
+
+func (c *openEntityCount) Add(delta int) {
+	c.Lock()
+	c.openWriters += delta
+	c.Unlock()
+}
+
 type DB struct {
 	Config
 	controller *controller.Controller[*controlEntity]
+	mu         *openEntityCount
 }
 
 type Config struct {
@@ -42,9 +56,21 @@ func Open(cfg Config) (db *DB, err error) {
 	return &DB{
 		Config:     cfg,
 		controller: controller.New[*controlEntity](cfg.Channel.Concurrency),
+		mu:         &openEntityCount{},
 	}, nil
 }
 
 func (db *DB) LeadingControlState() *controller.State {
 	return db.controller.LeadingState()
 }
+
+func (db *DB) TryClose() error {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+	if db.mu.openWriters > 0 {
+		return errors.Newf(fmt.Sprintf("[cesium] - cannot close channel because there are currently %d unclosed writers accessing it", db.mu.openWriters))
+	}
+	return db.Close()
+}
+
+func (db *DB) Close() error { return nil }

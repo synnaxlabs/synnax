@@ -23,5 +23,10 @@ export const sysAdminNav: PageNavNode = {
       href: "/roles/sys-admin/deployment-self-signed",
       key: "/roles/sys-admin/deployment-self-signed",
     },
+    {
+      key: "/console/pid",
+      href: "/console/pid",
+      name: "Control with a P&ID",
+    },
   ],
 };

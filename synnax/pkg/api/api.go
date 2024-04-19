@@ -125,6 +125,7 @@ type Transport struct {
 	// CHANNEL
 	ChannelCreate   freighter.UnaryServer[ChannelCreateRequest, ChannelCreateResponse]
 	ChannelRetrieve freighter.UnaryServer[ChannelRetrieveRequest, ChannelRetrieveResponse]
+	ChannelDelete   freighter.UnaryServer[ChannelDeleteRequest, types.Nil]
 	// CONNECTIVITY
 	ConnectivityCheck freighter.UnaryServer[types.Nil, ConnectivityCheckResponse]
 	// FRAME
@@ -239,6 +240,9 @@ func (a *API) BindTo(t Transport) {
 		// CHANNEL
 		t.ChannelCreate,
 		t.ChannelRetrieve,
+		t.ChannelDelete,
+
+		// CONNECTIVITY
 		t.ConnectivityCheck,
 
 		// FRAME
@@ -326,6 +330,7 @@ func (a *API) BindTo(t Transport) {
 	t.ChannelCreate.BindHandler(a.Channel.Create)
 	t.ChannelRetrieve.BindHandler(a.Channel.Retrieve)
 	t.ConnectivityCheck.BindHandler(a.Connectivity.Check)
+	t.ChannelDelete.BindHandler(a.Channel.Delete)
 
 	// FRAME
 	t.FrameWriter.BindHandler(a.Telem.Write)

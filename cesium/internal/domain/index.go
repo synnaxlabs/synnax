@@ -21,7 +21,8 @@ type index struct {
 	alamos.Instrumentation
 	mu struct {
 		sync.RWMutex
-		pointers []pointer
+		pointers   []pointer
+		tombstones map[uint16][]pointer
 	}
 	observe.Observer[indexUpdate]
 }
@@ -57,6 +58,17 @@ func (idx *index) insert(ctx context.Context, p pointer) error {
 	idx.mu.RUnlock()
 	idx.insertAt(ctx, insertAt, p)
 	return nil
+}
+
+func (idx *index) insertTombstone(ctx context.Context, p pointer) {
+	_, span := idx.T.Bench(ctx, "insert tombstone")
+	idx.mu.Lock()
+	defer func() {
+		idx.mu.Unlock()
+		span.End()
+	}()
+
+	idx.mu.tombstones[p.fileKey] = append(idx.mu.tombstones[p.fileKey], p)
 }
 
 func (idx *index) overlap(tr telem.TimeRange) bool {
@@ -124,10 +136,10 @@ func (idx *index) updateAt(ctx context.Context, i int, p pointer) (err error) {
 func (idx *index) modifyAfter(ctx context.Context, i int, f func()) {
 	update := indexUpdate{afterIndex: i}
 	defer func() {
+		idx.mu.Unlock()
 		idx.Observer.Notify(ctx, update)
 	}()
 	idx.mu.Lock()
-	defer idx.mu.Unlock()
 	f()
 }
 
@@ -155,6 +167,30 @@ func (idx *index) searchGE(ctx context.Context, ts telem.TimeStamp) (i int) {
 	})
 	span.End()
 	return
+}
+
+func (idx *index) getGE(ctx context.Context, ts telem.TimeStamp) (ptr pointer, ok bool) {
+	_, span := idx.T.Bench(ctx, "searchGE")
+	idx.mu.RLock()
+	defer func() {
+		span.End()
+		idx.mu.RUnlock()
+	}()
+	var exact bool
+	i, exact := idx.unprotectedSearch(ts.SpanRange(0))
+	if !exact {
+		if i == len(idx.mu.pointers) {
+			return pointer{}, false
+		} else {
+			i += 1
+		}
+	}
+
+	if i < 0 || i >= len(idx.mu.pointers) {
+		return pointer{}, false
+	}
+
+	return idx.mu.pointers[i], true
 }
 
 func (idx *index) unprotectedSearch(tr telem.TimeRange) (int, bool) {

@@ -13,21 +13,13 @@ import (
 	"context"
 	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/confluence"
+	"io"
 	"sync"
 
-	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/cesium/internal/core"
-	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/errutil"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
-)
-
-var (
-	// ChannelNotFound is returned when a channel or a range of data cannot be found in the DB.
-	ChannelNotFound  = errors.Wrap(query.NotFound, "[cesium] - channel not found")
-	ErrDiscontinuous = index.ErrDiscontinuous
 )
 
 type (
@@ -51,6 +43,7 @@ type DB struct {
 		inlet  confluence.Inlet[WriterRequest]
 		outlet confluence.Outlet[WriterResponse]
 	}
+	shutdown io.Closer
 }
 
 // Write implements DB.
@@ -91,9 +84,9 @@ func (db *DB) Read(ctx context.Context, tr telem.TimeRange, keys ...core.Channel
 func (db *DB) Close() error {
 	c := errutil.NewCatch(errutil.WithAggregation())
 	db.closeControlDigests()
+	c.Exec(db.shutdown.Close)
 	for _, u := range db.unaryDBs {
 		c.Exec(u.Close)
 	}
-	c.Exec(db.relay.close)
 	return nil
 }

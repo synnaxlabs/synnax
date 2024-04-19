@@ -137,6 +137,34 @@ const channels = await client.channels.retrieve(["my_temperature_sensor", timeIn
 Note that Synnax will not raise a `NoResultsError` if no channels match the query. Instead,
 it will simply omit that channel from the list of results.
 
+## Deleting Channels
+
+To delete a channel, we can use the `channels.delete` method on the client.
+
+<div class="info">
+<b>Note</b> - Deleting a channel will also delete all of the data stored in that channel.
+This is a permanent operation that cannot be undone. Be careful!
+</div>
+
+To delete a channel, we can use the `channels.delete` method.
+
+```typescript
+# Delete a single channel
+await client.channels.delete("my_precise_tc")
+# Delete multiple channels
+await client.channels.delete(["sensor_one", "sensor_two"])
+# Delete by key
+await client.channels.delete(sensor_three.key)
+# Delete many by key
+await client.channels.delete([sensor_one.key, sensor_two.key, sensor_three.key])
+```
+
+Unlike with retrieving channels, Synnax will not raise an error if it cannot find a
+channel matching the key or name. This means that `delete` is an idempotent operation,
+and is safe to call even if the channel has already been deleted.
+
+Deleting a channel by name will delete **all** channels with that name. 
+
 ## Next Steps
 
 Now that we know how to create and retrieve channels, we can start reading and writing

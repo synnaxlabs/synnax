@@ -7,6 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from synnax.ranger.writer import RangeWriter
 from synnax.ranger.range import Range
 from synnax.ranger.retrieve import RangeRetriever
+from synnax.ranger.writer import RangeWriter
