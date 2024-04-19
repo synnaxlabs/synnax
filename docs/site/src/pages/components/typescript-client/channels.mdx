@@ -108,8 +108,8 @@ const myTemperatureSensor = await client.channels.retrieve("my_temperature_senso
 const myTemperatureSensor = await client.channels.retrieve(myTemperatureSensor.key);
 ```
 
-If Synnax finds no channels matching the query, the client will raise a `NoResultsError`.
-If more than one channel matches the query, the client will raise a `MultipleResultsError`. 
+If Synnax finds no channels matching the query, the client will raise a `NotFoundError`.
+If more than one channel matches the query, the client will raise a `MultipleFoundError`. 
 If you'd like to accept no or multiple results, provide a list to the `retrieve` method
 as shown in the next section.
 
@@ -127,7 +127,7 @@ const channels = await client.channels.retrieve([myTemperatureSensor.key, timeIn
 const channels = await client.channels.retrieve(["my_temperature_sensor", timeIndexChannel.key]);
 ```
 
-Note that Synnax will not raise a `NoResultsError` if no channels match the query. Instead,
+Note that Synnax will not raise a `NotFoundError` if no channels match the query. Instead,
 it will simply omit that channel from the list of results.
 
 ## Deleting Channels

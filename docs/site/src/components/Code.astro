@@ -1,13 +1,16 @@
 ---
 import { Icon } from "@synnaxlabs/media";
 import { Button } from "@synnaxlabs/pluto";
+import { Fragment } from "react";
 
 const props = Astro.props;
 ---
 
 <div class="astro-code-wrapper">
     <Button.Icon variant="outlined" size="small">
-        <Icon.Copy className="copy" /><Icon.Check className="check" />
+        <Fragment>
+            <Icon.Copy className="copy" /><Icon.Check className="check" />
+        </Fragment>
     </Button.Icon>
     <pre {...props}><slot /></pre>
 </div>
@@ -39,7 +42,7 @@ const props = Astro.props;
             padding: 3rem;
             position: relative;
             border: var(--pluto-border);
-            border-radius: var(--pluto-border-radius);
+            border-radius: 1rem;
             overflow-x: auto !important;
             overflow-y: visible !important;
         }

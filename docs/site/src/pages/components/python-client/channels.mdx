@@ -8,8 +8,8 @@ export const components = {pre: Code};
 
 import Note from "@/components/Note.astro";
 
-The Python client provides interfaces for creating, retrieving, and reading data from
-channels. In this guide, we'll cover the details of each of these operations.
+The Python client provides interfaces for creating, retrieving, and deleting
+channels. We'll cover the details of each of these operations in this guide.
 
 If you're unfamiliar with what channels are and how they work, check out the
 [channels concepts guide](/concepts/channels).
@@ -45,11 +45,9 @@ We can create multiple channels by passing a list to the `create` method. This i
 more efficient than creating many channels individually, and provides the atomic
 guarantee that either all or no channels will be created.
 
-<Note variant="info">
 Keep in mind that we need to create index channels before we can create the channels 
 that use them. We're working on adding functionality to the client that will allow us 
 to create all of these channels in a single call.
-</Note>
 
 ```python
 import numpy as np
@@ -128,10 +126,13 @@ my_precise_tc = client.channels.retrieve("my_precise_tc")
 my_precise_tc = client.channels.retrieve(my_precise_tc.key)
 ```
 
-If no channels match the query, `retrieve` will raise a `NoResultsError`. If more than
-one channel matches the query, the client will raise a `MultipleResultsError`. If you'd
-like to accept no or multiple results, provide a list to the `retrieve` method as shown
-in the next section.
+The client will raise a `NotFoundError` if no channels match the query, and a `MultipleFoundError`
+if more than one channel matches the query. If you'd like to accept no or multiple results, 
+provide a list to the `retrieve` method as shown in the next section.
+
+<Note variant="info">
+Retrieving by key is more efficient than by name, and we recommend doing so when possible.
+</Note>
 
 ### Retrieving Multiple Channels
 
@@ -143,10 +144,15 @@ method.
 my_channels = client.channels.retrieve(["sensor_one", "sensor_two"])
 # By key if you know them
 my_channels = client.channels.retrieve([sensor_one.key, sensor_two.key])
+# This won't work!
+my_channels = client.channels.retrieve(["sensor_one", sensor_two.key])
 ```
 
-Note that Synnax will not raise a `NoResultsError` if it cannot find a channel matching a
+Note that Synnax will not raise a `NotFoundError` if it cannot find a channel matching a
 key or name. Instead, the missing channel will simply be omitted from the list of results.
+
+
+
 
 ### Retrieving a Channel Using a Range
 
@@ -182,7 +188,8 @@ sensor_channels = client.channels.retrieve(["^sensor"])
 
 It's important to note that if we're expecting multiple channels to match our pattern,
 we need to pass in a list to the `retrieve` method, otherwise the client will raise
-a `MultipleResultsError`.
+a `MultipleFoundError`.
+
 
 ## Deleting Channels
 

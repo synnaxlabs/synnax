@@ -47,7 +47,7 @@ const {
       <article transition:animate="none">
         <h1 class="article-title">{heading ?? title}</h1>
         <h4 class="article-description">{description}</h3>
-        <slot components={{pre: Code}}/>
+        <slot />
       </article>
     </main>
     <nav class="docs-toc">
@@ -69,8 +69,6 @@ const {
 
   <script>
       import { addListeners } from "@/components/codeUtil";
-      console.log("Adding listeners");
-
       addListeners();
       document.addEventListener("astro:after-swap", addListeners);
       new MutationObserver(addListeners).observe(document.body, {
@@ -256,10 +254,11 @@ const {
             --astro-code-color-text: var(--pluto-text-color);
             --astro-code-color-background: var(--pluto-gray-l1);
             --astro-code-token-comment: var(--pluto-gray-l5);
-            --astro-code-token-string-expression: oklch(73.1% 0.2158 148.29);
-            --astro-code-token-function: #20a4f3;
+            /* forest green */
+            --astro-code-token-string-expression: #219237;
+            --astro-code-token-function: var(--pluto-primary-z);
             --astro-code-token-punctuation: var(--pluto-text-color);
-            --astro-code-token-keyword: #dc136c;
+            --astro-code-token-keyword: #dc1342;
             --astro-code-token-constant: var(--pluto-text-color);
         }
 
@@ -326,11 +325,11 @@ const {
       border-radius: 1rem !important;
       border: var(--pluto-border-l4);
       box-shadow: 0 0 1rem 0 var(--pluto-gray-l4);
-      border-radius: calc(var(--pluto-border-radius) * 2);
 
       @media (prefers-color-scheme: dark) {
         box-shadow: 0 0 2rem 0 rgba(50, 50, 50, 0.1);
       }
+
     }
 
     article img {

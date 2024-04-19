@@ -1,7 +1,7 @@
 ---
 layout: "@/layouts/MainLayout.astro"
 title: "Ranges"
-description: "Use ranges to categorize your cluster's data."
+description: "Use ranges to categorize your data."
 ---
 import Code from "@/components/Code.astro";
 export const components = { pre: Code };
@@ -9,7 +9,7 @@ export const components = { pre: Code };
 import Note from "@/components/Note.astro";
 
 Ranges identify specific periods of time with a name. We can use the Python client to 
-read and write data and attach metadata to these ranges.
+read from, write to, and attach metadata to these ranges.
 
 ## Creating Ranges
 
@@ -32,11 +32,11 @@ my_range = client.ranges.create(
 )
 ```
 
-Synnax will automatically generate a unique `UUID` key for the range.
+Synnax will automatically generate a unique identifier for the range. 
 
-### Creating a Range if it Doesn't Exist
+### Only Create a Range if it Doesn't Exist
 
-If we want to create a range only if one with the same name doesn't already exist,
+If we only want to create a range if one with the same name doesn't already exist,
 we can pass in the `retrieve_if_name_exists` parameter:
 
 ```python
@@ -50,13 +50,12 @@ my_range = client.ranges.create(
 )
 ```
 
-If a range with the same name already exists, Synnax will return the existing range
-instead of creating a new one.
+In the event the range already exists, Synnax will return the existing range instead of 
+creating a new one.
 
 ## Retrieving Ranges
 
-As with creating a range, we can retrieve one using the `client.ranges.retrieve`
-method
+We can fetch a range using the `client.ranges.retrieve` method.
 
 ### Retrieving a Single Range
 
@@ -70,7 +69,7 @@ my_range = client.ranges.retrieve("My Range")
 my_range = client.ranges.retrieve(my_range.key)
 ```
 
-Synnax will raise a `NotFoundError` if the range does not exist, and a `MultipleResultsError`
+Synnax will raise a `NotFoundError` if the range does not exist, and a `MultipleFoundError`
 if multiple ranges with the given name exist. If you'd like to accept multiple or no
 results, provide a list to the `retrieve` method as shown below.
 
@@ -82,19 +81,20 @@ We can retrieve multiple ranges by passing a list of names or keys to the
 ```python
 # By name
 my_ranges = client.ranges.retrieve(["My Range", "My Other Range"])
-
 # By key
 my_ranges = client.ranges.retrieve([my_range.key, my_other_range.key])
+# This won't work!
+my_ranges = client.ranges.retrieve(["My Range", my_other_range.key])
 ```
 
-When providing a list, Synnax will not raise an error if a range cannot be found. Instead,
-it simply omits the missing range from the returned list.
+In these examples, Synnax will not raise an error if a range cannot be found. Instead,
+the missing range will be omitted from the returned list.
 
 ## Working with Channels
 
 ### Accessing Channels
 
-We can access the channels on a range as if they were class properties.
+We can access the channels on a range as if they were class properties or dictionary keys.
 
 ```python
 my_range = client.ranges.retrieve("My Range")
@@ -118,7 +118,7 @@ my_pressure_channels = my_range["^pressure"]
 ```
 
 If we try to access channel-specific methods on the returned object, such as a `name` or 
-`data`, Synnax will raise `MultipleResultsError`. Instead, we should iterate over the 
+`data`, Synnax will raise `MultipleFoundError`. Instead, we should iterate over the 
 returned list. Here's a simple example where we plot the data from all of our
 pressure channels:
 
