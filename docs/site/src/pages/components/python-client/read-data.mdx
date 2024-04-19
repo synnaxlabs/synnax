@@ -1,13 +1,13 @@
 ---
 layout: "@/layouts/MainLayout.astro"
-title: "Read Telemetry"
+title: "Read Data"
 description: "Use the Python client to read from a Synnax cluster"
 ---
 import Code from "@/components/Code.astro";
 export const components = { pre: Code };
 
 The Python client supports several different ways of reading data from a cluster. We can 
-read directly from a channel, fetch a named range and access its data, or leverage server
+read directly from a channel, fetch a range and access its data, or leverage server
 side iterators for processing large queries.
 
 ## Reading from a Channel
@@ -71,12 +71,12 @@ method.
 df = frame.to_df()
 ```
 
-## Reading from a named range
+## Reading Channel Data from a Range
 
 While the above methods are useful for executing precise reads, they require us to know
-exactly the range of time we're interested in reading. [Named ranges](/python-client/named-ranges)
+the exact range of time we're interested in reading. [Ranges](/python-client/named-ranges)
 are a useful way of categorizing important time ranges in a cluster's data. We can read
-directly from these named ranges.
+directly from these ranges.
 
 We can access channel's on a `Range` object and call `read` on them to access their
 data.

@@ -1,21 +1,20 @@
 ---
 layout: "@/layouts/MainLayout.astro"
-title: "Read Telemetry"
-description: "Use the Typescript Client to read from a Synnax cluster"
+title: "Read Data"
+description: "Use the Typescript Client to read from a Synnax Cluster"
 ---
 import Code from "@/components/Code.astro";
 export const components = { pre: Code };
 
 The Typescript client supports several different ways of reading data from a cluster. We
-can read directly from a channel, or use iterators for processing large queries.
+can read directly from a channel, read from multiple channels at once, or use iterators 
+to efficiently process large amounts of data.
 
 ## Reading from a Channel
 
-The simplest way to read data from Synnax is to use the `read` method that is available
-on a channel.
+The simplest way to read data from Synnax is to use the `read` method on a `Channel` object.
 
 ```typescript
-
 const channel = await client.channels.retrieve("temperature");
 const start = new Date('2023-02-12T12:30:00Z');
 const end = new Date('2022-02-12T14:30:00Z');

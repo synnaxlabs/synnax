@@ -170,12 +170,12 @@ Now that we've imported our data set, we can use Python to analyze it. We'll cre
 new Python file and instantiate the Synnax client:
 
 ```python
-impor synnax as sy
+import synnax as sy
 
 client = sy.Synnax()
 ```
 
-Next, we'll retrieve the named range referencing the data we just imported:
+Next, we'll retrieve the range referencing the data we just imported:
 
 ```python
 data = client.ranges.retrieve("April 9 Wetdress")

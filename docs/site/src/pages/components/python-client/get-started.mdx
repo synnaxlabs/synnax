@@ -1,14 +1,12 @@
 ---
 layout: "@/layouts/MainLayout.astro"
-title: "Python - Get Started"
+title: "Python Client"
 heading: "The Synnax Python Client"
-description: "Learn how to use our Python client to interact with a Synnax cluster"
+description: "Learn how to use our Python client to interact with a Synnax cluster."
 ---
 import Code from "@/components/Code.astro";
 export const components = { pre: Code };
-
 import Note from "@/components/Note.astro";
-
 
 Synnax provides first-class support for Python. Our client delivers:
 
@@ -21,15 +19,16 @@ a cluster.
 
 ## Installation
 
-The `synnax` library requires Python 3.9 or higher, and can be installed directly using
-`pip` or with your package manager of choice:
+The `synnax` library requires Python 3.10 or higher, and is available on [PyPI](https://pypi.org/project/synnax/).
+It can be installed directly using `pip` or defined as a requirement in your virtual
+environment of choice:
 
 ```bash
 pip install synnax
 ```
 
 <Note variant="info">
-<b>Note</b> - Python can be difficult to get installed and running correctly, so we've put together
+Python can be difficult to get installed and running correctly, so we've put together
 a troubleshooting guide that you can reference [here](/python-client/troubleshooting).
 </Note>
 
@@ -44,7 +43,7 @@ The easiest way to authenticate with a Synnax cluster is with the `login` comman
 This will permanently store your credentials in the operating system's keychain,
 and allow you to use the client without passing credentials directly.
 
-We highly recommend using this method when using Synnax for data analysis, as it makes
+We highly recommend this method when using Synnax for data analysis, as it makes
 it easy to use the client in a Jupyter notebook and share scripts without accidentally
 revealing your credentials.
 
@@ -55,7 +54,7 @@ synnax login
 ```
 
 <Note variant="info">
-<b>Note</b> - If you get the error `command not found`, you might not have Python scripts
+If you get the error `command not found`, you might not have Python scripts
 in your `PATH` variable. See our troubleshooting guide [here]() for more information.
 </Note>
 
@@ -107,7 +106,7 @@ client = sy.Synnax(
 )
 ```
 
-and retrieve data from channels. Here's an example with environment variables:
+Here's an example with environment variables:
 
 ```python
 import os

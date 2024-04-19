@@ -4,6 +4,7 @@ title: "Channels"
 description: "Learn how to work with channels using the Synnax Typescript client."
 ---
 import Code from "@/components/Code.astro";
+import Note from "@/components/Note.astro";
 export const components = { pre: Code };
 
 The Typescript client provides interfaces for creating, retrieving and reading data from
@@ -15,25 +16,11 @@ of [channels concepts guide](/concepts/channels).
 
 ## Creating Channels
 
-To create channels, we can use the `.channels.create` method on the Synnax client.
+We can create channels using the `.channels.create` method on the client.
 
-#### Creating a single, fixed rate channel
+### Creating a Data Channel and its Index
 
-The simplest channel to create stores samples at a fixed rate.
-
-```typescript
-import { DataType, Rate } from "@synnaxlabs/client";
-
-const myTemperatureSensor = client.channels.create({
-    name: "my_temperature_sensor",
-    dataType: DataType.FLOAT32,
-    rate: Rate.hz(1)
-});
-```
-
-## Creating an indexed channel and its index
-
-Creating variable rate channels first requires us to create an index channel to store 
+Creating a data channel first requires us to create an index channel to store its 
 timestamps.
 
 ```typescript
@@ -41,6 +28,7 @@ import { DataType } from "@synnaxlabs/client";
 
 const timeIndexChannel = await client.channels.create({
     name: "time",
+    // Index channels must have a data type of TIMESTAMP and isIndex set to true
     dataType: DataType.TIMESTAMP,
     isIndex: true,
 });
@@ -48,6 +36,7 @@ const timeIndexChannel = await client.channels.create({
 const myTemperatureSensor = await client.channels.create({
     name: "my_temperature_sensor",
     dataType: DataType.FLOAT32,
+    // Pass the key of the index channel here
     index: timeIndexChannel.key
 });
 ```
@@ -63,16 +52,16 @@ We can also create multiple channels efficiently by providing a list of channels
 `create` method. This is far more efficient than creating channels individually, and
 provides the atomic guarantee that either no or all channels will be created.
 
-<div class="info">
+<Note variant="info">
 <b>Note</b> - When creating variable rate channels, keep in mind that we need to create
 index channels before we can create the channels that use them. 
-</div>
+</Note>
 
 ```typescript
-// We need to create the index first, that way we can provide 
-// its key to our data channels.
 import { Channel } from "@synnaxlabs/client";
 
+// We need to create the index first, that way we can provide 
+// its key to our data channels.
 const timeIndexChannel = await client.channels.create({
     name: "time",
     dataType: DataType.TIMESTAMP,
@@ -97,7 +86,9 @@ const sensorThree = new Channel({
     index: timeIndexChannel.key
 });
 
-const sensors = await client.channels.create([sensorOne, sensorTwo, sensorThree]);
+const sensors = await client.channels.create(
+    [sensorOne, sensorTwo, sensorThree]
+);
 ```
 
 ## Retrieving Channels
@@ -105,7 +96,7 @@ const sensors = await client.channels.create([sensorOne, sensorTwo, sensorThree]
 Like creating them, we can retrieve channels using the `channels.retrieve` method on 
 the client.
 
-### Retrieving a single channel
+### Retrieving a Single channel
 
 To retrieve a single channel, we can pass the channel's name or key to the `retrieve` 
 method.
@@ -151,13 +142,13 @@ This is a permanent operation that cannot be undone. Be careful!
 To delete a channel, we can use the `channels.delete` method.
 
 ```typescript
-# Delete a single channel
+// Delete a single channel
 await client.channels.delete("my_precise_tc")
-# Delete multiple channels
+// Delete multiple channels
 await client.channels.delete(["sensor_one", "sensor_two"])
-# Delete by key
+// Delete by key
 await client.channels.delete(sensor_three.key)
-# Delete many by key
+// Delete many by key
 await client.channels.delete([sensor_one.key, sensor_two.key, sensor_three.key])
 ```
 
@@ -170,5 +161,5 @@ Deleting a channel by name will delete **all** channels with that name.
 ## Next Steps
 
 Now that we know how to create and retrieve channels, we can start reading and writing
-data to them. Check out the [reading telemetry](/typescript-client/read-telemetry)
-and [writing telemetry](/typescript-client/write-telemetry) guides to learn more.
+data to them. Check out the [reading data](/typescript-client/read-data)
+and [writing data](/typescript-client/write-data) guides to learn more.

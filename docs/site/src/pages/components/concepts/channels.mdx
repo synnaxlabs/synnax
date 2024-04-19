@@ -1,7 +1,7 @@
 ---
 layout: "@/layouts/MainLayout.astro"
 title: "Channels"
-description: "Learn how channels represent sensor, actuator, and messaging telemetry in Synnax."
+description: "Learn how channels represent sensor, actuator, and messaging data in Synnax."
 ---
 
 This page walks you through what channels are, their important properties, and how to use
@@ -33,21 +33,21 @@ should be enough for the subsequent sections.
 
 ## Channel Types
 
-Synnax works with two broad categories of telemetry: regular and variable. Regular
-telemetry is emitted by a source at consistently spaced intervals, such as 200Hz. Because
+Synnax works with two broad categories of data: regular and variable. Regular
+data is emitted by a source at consistently spaced intervals, such as 200Hz. Because
 each domain in a channel stores its starting timestamp, we can easily calculate the timestamp
 of the nth sample by virtue of the data’s rate. This means that the cluster can perform
 fast lookups and avoid writing potentially billions of unneeded timestamps.
 
-Variable telemetry arrives at fluctuating rates and is more challenging to work with.
+Variable data arrives at fluctuating rates and is more challenging to work with.
 To handle the inconsistent gaps between samples, the cluster stores the timestamp
 associated with each sample, and then builds indexes around these timestamps in order to
 perform efficient lookups.
 
 To effectively work with these two categories of data, Synnax employs three types of channels:
 
-1. Fixed Rate - Stores telemetry arriving at a consistent rate specified when creating the channel.
-2. Variable Rate Indexed - Stores telemetry arriving at a variable rate. The samples in
+1. Fixed Rate - Stores data arriving at a consistent rate specified when creating the channel.
+2. Variable Rate Indexed - Stores data arriving at a variable rate. The samples in
    these channels are ‘indexed’ by a specified index channel.
 3. Variable Rate Index - Stores the timestamps for samples in one or more indexed channels.
    The samples in these channels must be time-ordered, nanosecond integers. Timestamps in

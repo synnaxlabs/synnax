@@ -13,7 +13,7 @@ exposed by the Typescript client.
 
 ## Series
 
-A series is a strongly typed array of telemetry samples. A series can contain any data
+A series is a strongly typed array of samples. A series can contain any data
 you want it to, but in the context of Synnax it almost always represents a set of
 contiguous samples from a single channel. 
 
@@ -196,7 +196,7 @@ console.log(series.bounds); // { lower: 1, upper: 5 }
 
 A frame is a collection of series from multiple channels. Frames are returned by:
 
-- The `read` method of the Synnax telemetry client (`client.telem.read`)
+- The `read` method of the Synnax data client (`client.telem.read`)
 - The `read` method of a `Streamer` instance (`client.telem.openStreamer`)
 - The `value` property of an `Iterator` instance (`client.telem.openIterator`)
 

@@ -10,7 +10,7 @@ import { Header } from "@synnaxlabs/pluto/header";
 
 This page walks you through the lifecycle of a write to a cluster, and how domains are
 used as units of transaction control. If you're looking for a practical guide on writing
-to a synnax cluster, look [here](/acquire/write-telemetry).
+to a synnax cluster, look [here](/acquire/write-data).
 
 ## What is a Domain?
 
@@ -25,7 +25,7 @@ most databases, transactions in Synnax can last several hours and contain billio
 of samples.
 
 The transaction lifecycle is controlled by a writer. To begin a transaction, a caller
-opens a new writer and then begins writing telemetry frames using a file like interface.
+opens a new writer and then begins writing data frames using a file like interface.
 After they're done writing, the user commits the write to the database, making it available
 for reading. Synnax transactions are unique in that they can be committed **multiple**
 times, where each new commit extends the data written in the previous commit. After the
@@ -49,7 +49,7 @@ Using this information, the database validates the following:
 ### Write Phase
 
 After all validation checks pass, the transaction enters the write phase. During this
-period, a user can write continuous frames of telemetry to the domain. These frames must
+period, a user can write continuous frames of data to the domain. These frames must
 be vertical (i.e. all channels must have a single array specified), and all arrays must 
 have the same number of samples. You can read more about frame alignment here.
 
