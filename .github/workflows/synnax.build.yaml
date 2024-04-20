@@ -80,7 +80,7 @@ jobs:
 
   create-release:
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    # if: github.ref == 'refs/heads/main'
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -110,7 +110,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: synnax-driver-v${{ steps.version.outputs.VERSION }}
-          name: Synnax v${{ steps.version.outputs.VERSION }}
+          name: Synnax Driver v${{ steps.version.outputs.VERSION }}
           draft: false
           prerelease: false
 
