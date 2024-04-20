@@ -184,7 +184,6 @@ jobs:
   #       run: gh release upload synnax-v${{ steps.version.outputs.VERSION }} ./synnax/synnax-v${{ steps.version.outputs.VERSION }}-${{ steps.os.outputs.OS }}
 
   build-driver:
-    needs: create-release
     strategy:
       fail-fast: false
       matrix:
