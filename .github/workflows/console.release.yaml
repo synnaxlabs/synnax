@@ -39,7 +39,6 @@ jobs:
         run: echo "PACKAGE_VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_ENV
         working-directory: ./console
 
-
       - name: Create Release
         if: steps.filter.outputs.changed == 'true'
         id: create-release

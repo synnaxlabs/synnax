@@ -3,7 +3,11 @@ on:
   push:
 jobs:
   build:
-    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.platform }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -18,12 +22,6 @@ jobs:
           disk-cache: ${{ github.workflow }}
           repository-cache: true
 
-      - name: Install CMake
-        run: choco install cmake --installargs '"ADD_CMAKE_TO_PATH=System"'
-
-      - name: Verify CMake installation
-        run: cmake --version
-
       - name: Build Open62541
         shell: bash
         run: |
@@ -34,7 +32,3 @@ jobs:
 
       - name: Build Driver
         run: bazel build //driver/driver:driver_main
-
-
-
-
