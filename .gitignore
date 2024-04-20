@@ -61,7 +61,8 @@ landing/
 
 synnax-data/**
 
-synnax/pkg/hardware/embedded/assets
+synnax/pkg/hardware/embedded/assets/**
+!synnax/pkg/hardware/embedded/assets/.gitkeep
 
 # |||||| BAZEL ||||||
 # Ignore all bazel-* symlinks. There is no full list since this can change
