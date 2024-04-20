@@ -24,7 +24,7 @@ jobs:
 
       - uses: GuillaumeFalourd/setup-windows10-sdk-action@v2
         with:
-          sdk-version: 2200
+          sdk-version: 22000
 
       - name: Build Open62541
         shell: bash
