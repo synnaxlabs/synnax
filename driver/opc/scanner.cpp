@@ -126,8 +126,8 @@ void Scanner::scan(const task::Command &cmd) const {
     iterateChildren(scan_ctx, root_folder_id);
     ctx->setState({
         .task = task.key,
-        .variant = "success",
         .key = cmd.key,
+        .variant = "success",
         .details = DeviceProperties(args.connection, *scan_ctx->channels).toJSON(),
     });
 }

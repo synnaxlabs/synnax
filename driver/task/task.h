@@ -74,11 +74,11 @@ const std::string TASK_FAILED = "error";
 struct State {
     /// @brief the key of the task.
     TaskKey task = 0;
-    /// @brief the type of the task.
-    std::string variant = "";
     /// @brief an optional key to assign to the state update. This is particularly
     /// useful for identifying responses to commands.
     std::string key = "";
+    /// @brief the type of the task.
+    std::string variant = "";
     /// @brief relevant details about the current state of the task.
     json details = {};
 
