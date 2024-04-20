@@ -11,10 +11,18 @@
 
 package embedded
 
-import "embed"
+import (
+	"embed"
+	"os/exec"
+	"syscall"
+)
 
 //go:embed assets/driver
 var executable embed.FS
 
 // driverPath is the path to the driver executable
 const driverName = "driver"
+
+func configureSysProcAttr(cmd *exec.Cmd) {
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+}

@@ -88,7 +88,7 @@ func (d *Driver) start() error {
 			return err
 		}
 		d.cmd = exec.Command(tmpFile.Name(), "--config", cfgFile.Name())
-		d.cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+		configureSysProcAttr(d.cmd)
 		d.mu.Unlock()
 		stdoutPipe, err := d.cmd.StdoutPipe()
 		if err != nil {

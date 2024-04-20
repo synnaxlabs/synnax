@@ -18,3 +18,7 @@ var executable embed.FS
 
 // driverPath is the path to the driver executable
 const driverName = "driver.exe"
+
+func configureSysProcAttr(cmd *exec.Cmd) {
+	return
+}
