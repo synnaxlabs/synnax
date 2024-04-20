@@ -22,6 +22,10 @@ jobs:
           disk-cache: ${{ github.workflow }}
           repository-cache: true
 
+      - uses: GuillaumeFalourd/setup-windows10-sdk-action@v2
+        with:
+          sdk-version: 20348
+
       - name: Build Open62541
         shell: bash
         run: |
