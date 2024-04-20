@@ -58,8 +58,9 @@ opc::Factory::configureInitialTasks(
             return tasks;
         }
         auto [task, ok] = configureTask(ctx, sy_task);
-        auto pair = std::make_pair(sy_task, std::move(task));
-        if (ok && task != nullptr) tasks.emplace_back(std::move(pair));
+        if (ok && task != nullptr)
+            tasks.emplace_back(std::make_pair(sy_task, std::move(task)));
+        else LOG(ERROR) << "[OPC] Failed to configure scanner task";
     }
     return tasks;
 }

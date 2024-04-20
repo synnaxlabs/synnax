@@ -24,9 +24,8 @@ import { useDispatch } from "react-redux";
 
 import { connectWindowLayout } from "@/cluster/Connect";
 import { type Cluster } from "@/cluster/core";
-import { LOCAL_KEY } from "@/cluster/local";
 import { useSelect, useSelectLocalState, useSelectMany } from "@/cluster/selectors";
-import { remove, setActive, setLocalState } from "@/cluster/slice";
+import { LOCAL_CLUSTER_KEY, remove, setActive, setLocalState } from "@/cluster/slice";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 
@@ -137,7 +136,7 @@ export const List = (): ReactElement => {
 const ListItem = (props: CoreList.ItemProps<string, Cluster>): ReactElement => {
   const dispatch = useDispatch();
   const { status, pid } = useSelectLocalState();
-  const isLocal = props.entry.key === LOCAL_KEY;
+  const isLocal = props.entry.key === LOCAL_CLUSTER_KEY;
   let icon: ReactElement | null = null;
   let loading = false;
   if (isLocal) {

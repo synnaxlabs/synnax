@@ -261,7 +261,7 @@ func start(cmd *cobra.Command) {
 			err = errors.CombineErrors(err, d.Stop())
 		}()
 
-		ins.L.Info("\033[32m Synnax Node Started \033[0m")
+		//ins.L.Info("\033[32m Synnax Node Started \033[0m")
 
 		<-ctx.Done()
 		return err

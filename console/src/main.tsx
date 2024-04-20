@@ -35,7 +35,7 @@ import { Workspace } from "@/workspace";
 
 import "@/index.css";
 import "@synnaxlabs/media/dist/style.css";
-import { appWindow } from "@tauri-apps/api/window";
+import "@synnaxlabs/pluto/dist/style.css";
 
 const layoutRenderers: Record<string, Layout.Renderer> = {
   main: LayoutMain,
@@ -83,6 +83,8 @@ const MainUnderContext = (): ReactElement => {
   };
 
   const activeRange = Range.useSelect();
+
+  Cluster.useLocalServer();
 
   return (
     <QueryClientProvider client={client}>

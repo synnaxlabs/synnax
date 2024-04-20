@@ -14,6 +14,7 @@
 #include "driver/opc/util.h"
 #include "driver/config/config.h"
 #include "driver/errors/errors.h"
+#include "driver/loop/loop.h"
 #include "include/open62541/client_config_default.h"
 #include "include/open62541/client_subscriptions.h"
 #include "include/open62541/types.h"
@@ -66,43 +67,85 @@ public:
     ReaderConfig cfg;
     std::shared_ptr<UA_Client> client;
     std::set<ChannelKey> indexes;
+    UA_ReadRequest readRequest;
+    std::vector<UA_ReadValueId> readValueIds;
+    loop::Timer timer;
 
     ReaderSource(
         ReaderConfig cfg,
         const std::shared_ptr<UA_Client> &client,
         std::set<ChannelKey> indexes
-    )
-        : cfg(std::move(cfg)), client(client), indexes(std::move(indexes)) {
+    ) : cfg(std::move(cfg)), client(client), indexes(std::move(indexes)) {
+        UA_ReadRequest_init(&readRequest);
+        initializeReadRequest();
     }
+
+
+    ~ReaderSource() {
+        // UA_ReadRequest_clear(&readRequest);
+    }
+
+    void initializeReadRequest() {
+        // Allocate and prepare readValueIds for enabled channels
+        readValueIds.reserve(cfg.channels.size());
+        for (const auto &ch: cfg.channels) {
+            if (!ch.enabled) continue;
+            UA_ReadValueId rvid;
+            UA_ReadValueId_init(&rvid);
+            rvid.nodeId = ch.node;
+            rvid.attributeId = UA_ATTRIBUTEID_VALUE;
+            readValueIds.push_back(rvid);
+        }
+
+        // Initialize the read request
+        readRequest.nodesToRead = readValueIds.data();
+        readRequest.nodesToReadSize = readValueIds.size();
+    }
+
 
     std::pair<Frame, freighter::Error> read() override {
         auto fr = Frame(cfg.channels.size() + indexes.size());
-        std::this_thread::sleep_for(cfg.sample_rate.period().nanoseconds());
-        for (const auto &ch: cfg.channels) {
-            if (!ch.enabled) continue;
-            UA_Variant *value = UA_Variant_new();
-            const UA_StatusCode status = UA_Client_readValueAttribute(
-                client.get(), ch.node, value);
-            if (status != UA_STATUSCODE_GOOD) {
-                if (status == UA_STATUSCODE_BADCONNECTIONREJECTED || status == UA_STATUSCODE_BADSECURECHANNELCLOSED) {
-                    return std::make_pair(std::move(fr), freighter::Error(
-                                              driver::TYPE_TEMPORARY_HARDWARE_ERROR,
-                                              "connection rejected"
-                                          ));
-                }
+        timer.wait();
+
+
+        UA_ReadResponse readResponse =
+                UA_Client_Service_read(client.get(), readRequest);
+        auto status = readResponse.responseHeader.serviceResult;
+        if (status != UA_STATUSCODE_GOOD) {
+            UA_ReadResponse_clear(&readResponse);
+            if (status == UA_STATUSCODE_BADCONNECTIONREJECTED || status ==
+                UA_STATUSCODE_BADSECURECHANNELCLOSED) {
+                return std::make_pair(std::move(fr), freighter::Error(
+                                          driver::TYPE_TEMPORARY_HARDWARE_ERROR,
+                                          "connection rejected"
+                                      ));
+            }
+            return std::make_pair(std::move(fr), freighter::Error(
+                                      driver::TYPE_CRITICAL_HARDWARE_ERROR,
+                                      "failed to read value: " + std::string(
+                                          UA_StatusCode_name(status))
+                                  ));
+        }
+
+        // Process the read results
+        for (size_t i = 0; i < readResponse.resultsSize; ++i) {
+            UA_Variant *value = &readResponse.results[i].value;
+            const auto &ch = cfg.channels[i];  // Assuming the channels order hasn't changed
+            if (readResponse.results[i].status != UA_STATUSCODE_GOOD) {
+                UA_ReadResponse_clear(&readResponse);
                 return std::make_pair(std::move(fr), freighter::Error(
                                           driver::TYPE_CRITICAL_HARDWARE_ERROR,
-                                          "failed to read value: " + std::string(
-                                              UA_StatusCode_name(status))
-                                      ));
-            } else {
-                const auto val = val_to_series(value, ch.ch.data_type);
-                fr.add(ch.channel, val);
+                                          "Failed to read value: " + std::string(UA_StatusCode_name(readResponse.results[i].status))));
             }
-            UA_Variant_delete(value);
+
+            const auto val = val_to_series(value, ch.ch.data_type);
+            fr.add(ch.channel, val);
         }
+        UA_ReadResponse_clear(&readResponse);
+        // Add index data
         const auto now = synnax::TimeStamp::now();
-        for (const auto &idx: indexes) fr.add(idx, Series(now));
+        for (const auto &idx : indexes) fr.add(idx, Series(now));
+
         return std::make_pair(std::move(fr), freighter::NIL);
     }
 };

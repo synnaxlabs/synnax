@@ -87,8 +87,8 @@ class Factory final : public task::Factory {
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Task &task
     ) override {
-        // if (task.type == "meminfo")
-        //     return {std::make_unique<MemInfo>(ctx, task), true};
+        if (task.type == "meminfo")
+            return {std::make_unique<MemInfo>(ctx, task), true};
         return {nullptr, false};
     }
 
@@ -126,7 +126,7 @@ class Factory final : public task::Factory {
                 return {};
             }
             auto [task, ok] = configureTask(ctx, sy_task);
-            if (ok) tasks.push_back({sy_task, std::move(task)});
+            if (ok && task != nullptr) tasks.push_back({sy_task, std::move(task)});
         }
         return tasks;
     }

@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/x/override"
 	"io"
 	"os/exec"
+	"sync"
 )
 
 type Config struct {
@@ -43,6 +44,8 @@ func (c Config) Override(other Config) Config {
 func (c Config) Validate() error { return nil }
 
 type Driver struct {
+	cfg      Config
+	mu       sync.Mutex
 	cmd      *exec.Cmd
 	shutdown io.Closer
 }

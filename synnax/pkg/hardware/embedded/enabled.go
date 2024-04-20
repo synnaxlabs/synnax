@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 //go:build driver
-// +build driver
 
 package embedded
 
@@ -16,98 +15,124 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"embed"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/breaker"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
 	"go.uber.org/zap"
 	"io"
-	"log"
 	"os"
 	"os/exec"
+	"strings"
 	"syscall"
+	"time"
 )
-
-//go:embed assets/driver
-var executable embed.FS
 
 func OpenDriver(ctx context.Context, cfgs ...Config) (*Driver, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
+	if err != nil {
+		return nil, err
+	}
+	d := &Driver{cfg: cfg}
+	return d, d.start()
+}
 
-	ecd := &binary.JSONEncoderDecoder{}
-	cfgFile, err := os.CreateTemp("", "synnax-driver-config*.json")
-	if err != nil {
-		return nil, err
-	}
-	b, err := ecd.Encode(ctx, cfg)
-	if err != nil {
-		return nil, err
-	}
-	if _, err := cfgFile.Write(b); err != nil {
-		return nil, err
-	}
-	if err := cfgFile.Close(); err != nil {
-		return nil, err
-	}
-	if err != nil {
-		return nil, err
-	}
-	data, err := executable.ReadFile("assets/driver")
-	if err != nil {
-		return nil, err
-	}
-	tmpFile, err := os.CreateTemp("", "driver")
-	if err != nil {
-		return nil, err
-	}
-	if _, err := tmpFile.Write(data); err != nil {
-		return nil, err
-	}
-	if err := tmpFile.Close(); err != nil {
-		return nil, err
-	}
-	if err := os.Chmod(tmpFile.Name(), 0755); err != nil {
-		return nil, err
-	}
-	d := &Driver{cmd: exec.Command(tmpFile.Name(), "--config", cfgFile.Name())}
-	d.cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-	stdoutPipe, err := d.cmd.StdoutPipe()
-	if err != nil {
-		return nil, err
-	}
-	stderrPipe, err := d.cmd.StderrPipe()
-	if err != nil {
-		return nil, err
-	}
-
-	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(cfg.Instrumentation))
+func (d *Driver) start() error {
+	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(d.cfg.Instrumentation))
 	d.shutdown = signal.NewShutdown(sCtx, cancel)
-
-	if err := d.cmd.Start(); err != nil {
-		return nil, err
+	bre := breaker.Breaker{
+		BaseInterval: 1 * time.Second,
+		Scale:        1.1,
+		MaxRetries:   100,
 	}
+	var mf func(ctx context.Context) error
+	mf = func(ctx context.Context) error {
+		d.mu.Lock()
+		ecd := &binary.JSONEncoderDecoder{}
+		cfgFile, err := os.CreateTemp("", "synnax-driver-config*.json")
+		if err != nil {
+			return err
+		}
+		b, err := ecd.Encode(ctx, d.cfg)
+		if err != nil {
+			return err
+		}
+		if _, err := cfgFile.Write(b); err != nil {
+			return err
+		}
+		if err := cfgFile.Close(); err != nil {
+			return err
+		}
 
-	sCtx.Go(func(ctx context.Context) error {
-		pipeOutputToLogger(stdoutPipe, cfg.Instrumentation.L)
-		return nil
-	}, signal.WithKey("driver-stdoutPipe"))
-
-	sCtx.Go(func(ctx context.Context) error {
-		pipeOutputToLogger(stderrPipe, cfg.Instrumentation.L)
-		return nil
-	}, signal.WithKey("driver-stderrPipe"))
-
-	sCtx.Go(func(ctx context.Context) error {
+		data, err := executable.ReadFile("assets/" + driverName)
+		if err != nil {
+			return err
+		}
+		tmpFile, err := os.CreateTemp("", driverName)
+		if err != nil {
+			return err
+		}
+		if _, err := tmpFile.Write(data); err != nil {
+			return err
+		}
+		if err := tmpFile.Close(); err != nil {
+			return err
+		}
 		defer func() {
 			err = errors.CombineErrors(err, os.Remove(tmpFile.Name()))
 			err = errors.CombineErrors(err, os.Remove(cfgFile.Name()))
 		}()
-		return d.cmd.Wait()
-	}, signal.WithKey("driver-wait"))
+		if err := os.Chmod(tmpFile.Name(), 0755); err != nil {
+			return err
+		}
+		d.cmd = exec.Command(tmpFile.Name(), "--config", cfgFile.Name())
+		d.cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+		d.mu.Unlock()
+		stdoutPipe, err := d.cmd.StdoutPipe()
+		if err != nil {
+			return err
+		}
+		stderrPipe, err := d.cmd.StderrPipe()
+		if err != nil {
+			return err
+		}
 
-	return d, err
+		if err := d.cmd.Start(); err != nil {
+			return err
+		}
+
+		internalSCtx, cancel := signal.Isolated(signal.WithInstrumentation(d.cfg.Instrumentation))
+		defer cancel()
+
+		internalSCtx.Go(func(ctx context.Context) error {
+			pipeOutputToLogger(stdoutPipe, d.cfg.L)
+			return nil
+		}, signal.WithKey("driver-stdoutPipe"))
+		internalSCtx.Go(func(ctx context.Context) error {
+			pipeOutputToLogger(stderrPipe, d.cfg.L)
+			return nil
+		}, signal.WithKey("driver-stderrPipe"))
+		internalSCtx.Go(func(ctx context.Context) error {
+			err := d.cmd.Wait()
+			return err
+		}, signal.WithKey("driver-wait"))
+		err = internalSCtx.Wait()
+		isSignal := false
+		if err != nil {
+			isSignal = strings.Contains(err.Error(), "signal")
+			if bre.Wait() && !isSignal {
+				return mf(ctx)
+			}
+		}
+		if isSignal {
+			return nil
+		}
+		return err
+	}
+	sCtx.Go(mf)
+	return nil
 }
 
 func pipeOutputToLogger(reader io.ReadCloser, logger *alamos.Logger) {
@@ -132,12 +157,14 @@ func pipeOutputToLogger(reader io.ReadCloser, logger *alamos.Logger) {
 		}
 	}
 	if err := scanner.Err(); err != nil {
-		log.Fatal("Error reading data from process", zap.Error(err))
+		logger.Error("Error reading from std pipe", zap.Error(err))
 	}
 }
 
 func (d *Driver) Stop() error {
-	if d.shutdown != nil {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if d.shutdown != nil && d.cmd != nil && d.cmd.Process != nil {
 		d.cmd.Process.Signal(syscall.SIGINT)
 		err := d.shutdown.Close()
 		return err
