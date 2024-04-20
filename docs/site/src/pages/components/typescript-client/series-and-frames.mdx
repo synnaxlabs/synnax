@@ -2,7 +2,7 @@
 layout: "@/layouts/MainLayout.astro"
 title: "Series and Frames"
 heading: "Series and Frames"
-description: "Work with series and frames to access and manipulate data from Synnax."
+description: "Work with series and frames to access and manipulate data."
 ---
 import Code from "@/components/Code.astro";
 export const components = { pre: Code };
@@ -55,7 +55,7 @@ const series = new Series([1, "a", 3, "b", 5]);
 
 ### Accessing Data
 
-#### The `at` Method
+#### The At Method
 
 The easiest way to access data from a series is to use the `at` method. This method
 behaves the same as the `at` method on a Javascript array, and allows for negative
@@ -68,7 +68,7 @@ console.log(series.at(0)); // 1
 console.log(series.at(-1)); // 5
 ```
 
-#### The `as` Method
+#### The As Method
 
 An important caveat of `at` is that its return type will be a Synnax `TelemValue` type.
 which is a union of all the possible data types that a series can contain. 
@@ -83,7 +83,7 @@ const v: TelemValue = series.at(0);
 
 
 This can make it difficult to write type-safe code when working with a series. If you
-know that a series should be of a certain javacript type (`number`, `string`, `object`, `bigint`),
+know that a series should be of a certain javascript type (`number`, `string`, `object`, `bigint`),
 you can use the `as` method to validate the data type and return a `Series<T>` of 
 that type. For example:
 
@@ -253,7 +253,7 @@ const frame = new Frame({
 
 ### Accessing Frame Data
 
-#### The `get` Method
+#### The Get Method
 
 The easiest way to access data from a frame is to use the `get` method. This method
 return an instance of a `MultiSeries` class, which is a special type of series that
@@ -280,9 +280,9 @@ const jsArray = [...multiSeries];
 console.log(jsArray); // [ 1, 2, 3, 4, 5 ]
 ```
 
-#### The `at` Method
+#### The At Method
 
-The `at` method can be used to acces a javascript object containing a single value
+The `at` method can be used to access a javascript object containing a single value
 for each channel in the frame.
 
 ```typescript

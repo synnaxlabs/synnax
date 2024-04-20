@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { clusterNav } from "@/pages/components/cluster/nav";
-import { conceptsNav } from "@/pages/components/concepts/nav";
-import { consoleNav } from "@/pages/components/console/nav";
-import { pythonClientNav } from "@/pages/components/python-client/nav";
+import { clusterNav } from "@/pages/components/cluster/_nav";
+import { conceptsNav } from "@/pages/components/concepts/_nav";
+import { consoleNav } from "@/pages/components/console/_nav";
+import { pythonClientNav } from "@/pages/components/python-client/_nav";
 import { analystNav } from "@/pages/roles/analyst/nav";
 import { sysAdminNav } from "@/pages/roles/sys-admin/nav";
 import { operationsNav } from "@/pages/roles/operations/nav";
-import { typescriptClientNav } from "@/pages/components/typescript-client/nav";
+import { typescriptClientNav } from "@/pages/components/typescript-client/_nav";
 
 export const componentsPages = [
   {
@@ -36,5 +36,5 @@ export const rolesPages = [
   },
   analystNav,
   sysAdminNav,
-  operationsNav
+  operationsNav,
 ];

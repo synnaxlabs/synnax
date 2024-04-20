@@ -86,7 +86,7 @@ class TestChannelClient:
 
     def test_retrieve_by_key_not_found(self, client: sy.Synnax):
         """Should raise QueryError when key not found"""
-        with pytest.raises(sy.NoResultsError):
+        with pytest.raises(sy.NotFoundError):
             client.channels.retrieve("1-100000")
 
     def test_retrieve_by_list_of_names(
@@ -111,7 +111,7 @@ class TestChannelClient:
     ):
         """Should raise QueryError when retrieving a single channel with
         multiple matches"""
-        with pytest.raises(sy.MultipleResultsError):
+        with pytest.raises(sy.MultipleFoundError):
             client.channels.retrieve("test.*")
 
     def test_retrieve_by_regex(self, client: sy.Synnax):

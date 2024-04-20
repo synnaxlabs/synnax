@@ -36,7 +36,7 @@ import {
   type Retriever,
 } from "@/channel/retriever";
 import { type Writer } from "@/channel/writer";
-import { MultipleResultsError, NoResultsError, ValidationError } from "@/errors";
+import { MultipleFoundError, NotFoundError, ValidationError } from "@/errors";
 import { type framer } from "@/framer";
 
 interface CreateOptions {
@@ -277,7 +277,7 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
    *
    * @returns The retrieved channel.
    * @throws {NotFoundError} if the channel does not exist in the cluster.
-   * @throws {MultipleResultsError} is only thrown if the channel is retrieved by name,
+   * @throws {MultipleFoundError} is only thrown if the channel is retrieved by name,
    * and multiple channels with the same name exist in the cluster.
    *
    * @example
@@ -316,9 +316,9 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
     const res = this.sugar(await this.retriever.retrieve(channels, rangeKey));
     if (!single) return res;
     if (res.length === 0)
-      throw new NoResultsError(`channel matching ${actual} not found`);
+      throw new NotFoundError(`channel matching ${actual} not found`);
     if (res.length > 1)
-      throw new MultipleResultsError(`multiple channels matching ${actual} found`);
+      throw new MultipleFoundError(`multiple channels matching ${actual} found`);
     return res[0];
   }
 
