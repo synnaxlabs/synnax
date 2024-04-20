@@ -269,13 +269,11 @@ jobs:
           echo "VERSION=$(cat pkg/version/VERSION)" >> $GITHUB_OUTPUT
 
       - name: Build
-        if: steps.filter.outputs.changed == 'true'
         working-directory: ./synnax
         run: |
           go build -tags driver -o synnax-driver-v${{ steps.version.outputs.VERSION }}-${{ steps.os.outputs.OS }}
         
       - name: Upload Release Asset
-        if: steps.filter.outputs.changed == 'true'
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: gh release upload synnax-driver-v${{ steps.version.outputs.VERSION }} ./synnax/synnax-driver-v${{ steps.version.outputs.VERSION }}-${{ steps.os.outputs.OS }}
