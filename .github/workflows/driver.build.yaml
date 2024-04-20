@@ -31,4 +31,4 @@ jobs:
         working-directory: driver/vendor/open62541/open62541
 
       - name: Build Driver
-        run: bazel build //driver/driver:driver_main
+        run: bazel build //driver:driver_main
