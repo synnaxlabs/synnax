@@ -7,12 +7,15 @@ cc_library(
     }),
     hdrs = ["meminfo.h"],
     copts = select({
-        "@bazel_tools//src/conditions:windows": ["/DWINDOWS"],
-        "@bazel_tools//src/conditions:darwin": ["-DMACOS"],
+        "@platforms//os:windows": [
+            "/std:c++20",
+            "/DWINDOWS",
+        ],
+        "@platforms//os:darwin": ["-DMACOS"],
         "//conditions:default": ["-DLINUX"],
     }),
     linkopts = select({
-        "@bazel_tools//src/conditions:windows": ["/DEFAULTLIB:psapi.lib"],
+        "@platforms//os:windows": ["/DEFAULTLIB:psapi.lib"],
         "//conditions:default": [],
     }),
     visibility = ["//visibility:public"],
