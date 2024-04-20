@@ -11,7 +11,10 @@
 
 package embedded
 
-import "embed"
+import (
+	"embed"
+	"os/exec"
+)
 
 //go:embed assets/driver.exe
 var executable embed.FS
