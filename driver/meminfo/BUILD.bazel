@@ -11,12 +11,15 @@ cc_library(
         "@bazel_tools//src/conditions:darwin": ["-DMACOS"],
         "//conditions:default": ["-DLINUX"],
     }),
+    linkopts = select({
+        "@bazel_tools//src/conditions:windows": ["/DEFAULTLIB:psapi.lib"],
+        "//conditions:default": [],
+    }),
     visibility = ["//visibility:public"],
     deps = select({
         "@bazel_tools//src/conditions:windows": [
             "//driver/pipeline",
             "//driver/task",
-            "@psapi",
         ],
         "//conditions:default": [
             "//driver/pipeline",
