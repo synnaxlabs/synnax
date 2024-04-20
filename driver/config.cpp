@@ -47,8 +47,8 @@ std::pair<driver::Config, freighter::Error> driver::parseConfig(const json &cont
         driver::Config{
             .rack_key = rack_key,
             .rack_name = rack_name,
-            .breaker_config = breaker_config,
             .client_config = synnax_cfg,
+            .breaker_config = breaker_config,
             .integrations = integrations,
         },
         freighter::NIL,
