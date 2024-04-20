@@ -11,13 +11,18 @@ package index_test
 
 import (
 	"context"
+	xfs "github.com/synnaxlabs/x/io/fs"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
-var ctx = context.Background()
+var (
+	ctx         = context.Background()
+	fileSystems = map[string]func() xfs.FS{"memFS": func() xfs.FS { return xfs.NewMem() }, "osFS": func() xfs.FS { return xfs.Default }}
+	rootPath    = "testdata"
+)
 
 func TestIndex(t *testing.T) {
 	RegisterFailHandler(Fail)

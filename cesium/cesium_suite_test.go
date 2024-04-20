@@ -14,17 +14,28 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
+	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/testutil"
+	"path"
+	"strconv"
 	"testing"
 )
 
-var ctx = context.Background()
+var (
+	ctx         = context.Background()
+	fileSystems = map[string]func() xfs.FS{"memFS": func() xfs.FS { return xfs.NewMem() }, "osFS": func() xfs.FS { return xfs.Default }}
+	rootPath    = "testdata"
+)
 
-func openMemDB() *cesium.DB {
+func openDBOnFS(fs xfs.FS) *cesium.DB {
 	return MustSucceed(cesium.Open(
-		"./testdata",
-		cesium.MemBacked(),
+		rootPath,
+		cesium.WithFS(fs),
 	))
+}
+
+func pathInDBFromKey(key cesium.ChannelKey) string {
+	return path.Join(rootPath, strconv.Itoa(int(key)))
 }
 
 func TestCesium(t *testing.T) {
