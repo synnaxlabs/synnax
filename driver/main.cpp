@@ -10,7 +10,6 @@
 #include <csignal>
 #include <fstream>
 #include <iostream>
-#include <getopt.h>
 
 #include "nlohmann/json.hpp"
 #include "glog/logging.h"
@@ -43,32 +42,32 @@ std::pair<synnax::Rack, freighter::Error> retrieveDriverRack(
 std::atomic<bool> stopped = false;
 
 int main(int argc, char *argv[]) {
-    static struct option long_options[] = {
-        {"config", required_argument, 0, 'c'},
-        {0, 0, 0, 0}
-    };
+    // static struct option long_options[] = {
+    //     {"config", required_argument, 0, 'c'},
+    //     {0, 0, 0, 0}
+    // };
 
-    int option_index = 0;
-    int c;
+    // int option_index = 0;
+    // int c;
 
     FLAGS_logtostderr = 1;
     google::InitGoogleLogging(argv[0]);
     google::SetCommandLineOption("minloglevel", "0");
 
     std::string config_path = "./synnax-driver-config.json";
-    // Parse the command line arguments using getopt_long
-    while ((c = getopt_long(argc, argv, "c:", long_options, &option_index)) != -1) {
-        switch (c) {
-            case 'c':
-                config_path = optarg; // Assign the optarg to your string variable
-                break;
-            case '?':
-                return 1;
-            default:
-                LOG(FATAL) << "Unknown error while parsing options";
-                return 1;
-        }
-    }
+    // // Parse the command line arguments using getopt_long
+    // while ((c = getopt_long(argc, argv, "c:", long_options, &option_index)) != -1) {
+    //     switch (c) {
+    //         case 'c':
+    //             config_path = optarg; // Assign the optarg to your string variable
+    //             break;
+    //         case '?':
+    //             return 1;
+    //         default:
+    //             LOG(FATAL) << "Unknown error while parsing options";
+    //             return 1;
+    //     }
+    // }
 
     LOG(INFO) << "[Driver] starting up";
 
