@@ -18,7 +18,12 @@
 namespace loop {
 class Timer {
 public:
+    Timer() = default;
+
     explicit  Timer(const synnax::TimeSpan &interval): interval(interval), last(std::chrono::high_resolution_clock::now()) {
+    }
+
+    explicit Timer(const synnax::Rate &rate): interval(rate.period()), last(std::chrono::high_resolution_clock::now()) {
     }
 
     void wait() {

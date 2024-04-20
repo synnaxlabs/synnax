@@ -75,7 +75,7 @@ public:
         ReaderConfig cfg,
         const std::shared_ptr<UA_Client> &client,
         std::set<ChannelKey> indexes
-    ) : cfg(std::move(cfg)), client(client), indexes(std::move(indexes)) {
+    ) : cfg(std::move(cfg)), client(client), indexes(std::move(indexes)), timer(cfg.sample_rate) {
         UA_ReadRequest_init(&readRequest);
         initializeReadRequest();
     }
