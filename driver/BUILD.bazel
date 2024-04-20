@@ -50,7 +50,7 @@ cc_binary(
         "//conditions:default": [],
     }),
     linkopts = select({
-        "@platforms//os:windows": ["/DEFAULTLIB:ws2_32.lib"],
+        "@platforms//os:windows": ["/DEFAULTLIB:ws2_32.lib", "/DEFAULTLIB:iphlpapi.lib", "/DEFAULTLIB:psapi.lib"],
         "//conditions:default": [],
     }),
     deps = [

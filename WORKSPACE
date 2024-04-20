@@ -95,7 +95,7 @@ grpc_extra_deps()
 git_repository(
     name = "nlohmann_json",
     remote = "https://github.com/nlohmann/json",
-    tag = "v3.11.3",
+    commit = "9cca280a4d0ccf0c08f47a99aa71d1b0e52f8d03"
 )
 
 # /////////////////////////////////////////////////////////////////////////////////////
