@@ -98,7 +98,7 @@ const MainUnderContext = (): ReactElement => {
         haul={{ useState: useHaulState }}
         alamos={{
           level: "info",
-          include: ["aether.telem"],
+          include: [],
         }}
       >
         <Vis.Canvas>

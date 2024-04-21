@@ -964,17 +964,25 @@ export class TimeRange implements Stringer {
    * @param other - The other TimeRange to compare to.
    * @returns True if the two TimeRanges overlap, false otherwise.
    */
-  overlapsWith(other: TimeRange): boolean {
+  overlapsWith(other: TimeRange, delta: TimeSpan = TimeSpan.ZERO): boolean {
     other = other.makeValid();
     const rng = this.makeValid();
-    if (other.start.equals(rng.start)) return true;
-    if (other.end.equals(this.start) || other.start.equals(this.end)) return false;
-    return (
-      this.contains(other.end) ||
-      this.contains(other.start) ||
-      other.contains(this.start) ||
-      other.contains(this.end)
-    );
+
+    // If the ranges touch at their boundaries, they do not overlap.
+    if (other.end.equals(rng.start) || rng.end.equals(other.start)) return false;
+
+    // Determine the actual overlapping range
+    const startOverlap = TimeStamp.max(rng.start, other.start);
+    const endOverlap = TimeStamp.min(rng.end, other.end);
+
+    // If end of overlap is before start, then they don't overlap at all
+    if (endOverlap.before(startOverlap)) return false;
+
+    // Calculate the duration of the overlap
+    const overlapDuration = new TimeSpan(endOverlap.sub(startOverlap));
+
+    // Compare the overlap duration with delta
+    return overlapDuration.greaterThanOrEqual(delta);
   }
 
   contains(other: TimeRange): boolean;
@@ -1079,11 +1087,15 @@ export class DataType extends String implements Stringer {
   /** @returns true if the data type can be cast to the other data type without loss of precision. */
   canSafelyCastTo(other: DataType): boolean {
     if (this.equals(other)) return true;
-    if (this.isVariable && !other.isVariable || !this.isVariable && other.isVariable) return false;
+    if (
+      (this.isVariable && !other.isVariable) ||
+      (!this.isVariable && other.isVariable)
+    )
+      return false;
     if ((this.isFloat && other.isInteger) || (this.isInteger && other.isFloat)) {
       return this.density.valueOf() < other.density.valueOf();
     }
-    if ((this.isFloat && other.isFloat) || (this.isInteger && other.isInteger)) 
+    if ((this.isFloat && other.isFloat) || (this.isInteger && other.isInteger))
       return this.density.valueOf() <= other.density.valueOf();
     return false;
   }

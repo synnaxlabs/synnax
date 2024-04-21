@@ -383,7 +383,15 @@ describe("TimeRange", () => {
       expect(tr.overlapsWith(one)).toBeFalsy();
       expect(one.overlapsWith(tr)).toBeFalsy();
     });
-    it("should return");
+    it("should return true only if the overlap is within a threshold", () => {
+      const tr = new TimeRange(TimeStamp.milliseconds(0), TimeStamp.milliseconds(1000));
+      const one = new TimeRange(
+        TimeStamp.milliseconds(998),
+        TimeStamp.milliseconds(2000),
+      );
+      expect(tr.overlapsWith(one, TimeSpan.milliseconds(2))).toBeTruthy();
+      expect(one.overlapsWith(tr, TimeSpan.milliseconds(3))).toBeFalsy();
+    });
   });
 
   describe("boundBy", () => {
@@ -453,11 +461,12 @@ describe("DataType", () => {
       [DataType.BOOLEAN, DataType.INT32, false],
       [DataType.BOOLEAN, DataType.INT64, false],
       [DataType.INT8, DataType.FLOAT32, true],
-    ]
+    ];
     TESTS.forEach(([from, to, expected]) =>
-       it(`should return ${expected} when casting from ${from.toString()} to ${to.toString()}`, () => {
-          expect(from.canSafelyCastTo(to)).toBe(expected);
-        }));
+      it(`should return ${expected} when casting from ${from.toString()} to ${to.toString()}`, () => {
+        expect(from.canSafelyCastTo(to)).toBe(expected);
+      }),
+    );
   });
   describe("canCastTo", () => {
     it("should return true for any two numeric data types", () => {

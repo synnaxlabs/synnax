@@ -61,7 +61,6 @@ export const useLocalServer = (): void => {
     ]);
 
     const handleLog = (v: string): void => {
-      console.log(v);
       // All of our logs are JSON parseable.
       const { level, msg, error } = JSON.parse(v);
 

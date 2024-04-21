@@ -9,11 +9,12 @@
 
 import {
   type CrudeTimeRange,
-  type bounds,
   TimeRange,
   Series,
   DataType,
-} from "@synnaxlabs/x";
+  TimeSpan,
+} from "@synnaxlabs/x/telem";
+import { type bounds } from "@synnaxlabs/x/spatial";
 import { describe, expect, it } from "vitest";
 
 import { buildDrawOperations, type DrawOperation } from "@/vis/line/aether/line";
@@ -292,7 +293,12 @@ describe("line", () => {
         const xSeries = buildSeriesFromEntries(x);
         const ySeries = buildSeriesFromEntries(y);
         const downSample = 1;
-        const drawOperations = buildDrawOperations(xSeries, ySeries, downSample);
+        const drawOperations = buildDrawOperations(
+          xSeries,
+          ySeries,
+          downSample,
+          TimeSpan.ZERO,
+        );
         expect(drawOperations.length).toBe(expected.length);
         drawOperations.forEach((drawOperation: DrawOperation, i: number) => {
           expect(drawOperation.x).toBe(xSeries[expected[i].xSeries]);
