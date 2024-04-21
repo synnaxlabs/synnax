@@ -33,7 +33,7 @@ std::unique_ptr<task::Task> Scanner::configure(
 void Scanner::exec(task::Command &cmd) {
     if (cmd.type == SCAN_CMD_TYPE) return scan(cmd);
     if (cmd.type == TEST_CONNECTION_CMD_TYPE) return testConnection(cmd);
-    LOG(ERROR) << "[OPC] Scanner received unknown command type: " << cmd.type;
+    LOG(ERROR) << "[opc] Scanner received unknown command type: " << cmd.type;
 }
 
 

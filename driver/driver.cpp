@@ -21,7 +21,7 @@ driver::Driver::Driver(
     std::unique_ptr<task::Factory> factory,
     breaker::Config breaker_config
 ): key(rack.key),
-   task_manager(rack, client, std::move(factory), breaker_config.child("task_manager")),
+   task_manager(rack, client, std::move(factory), breaker_config.child("task.manager")),
    heartbeat(rack.key, client, breaker_config.child("heartbeat")) {
 }
 
@@ -36,7 +36,7 @@ freighter::Error driver::Driver::run() {
         task_manager.stop();
         return err;
     }
-    LOG(INFO) << "[Driver] started successfully. waiting for shutdown.";
+    LOG(INFO) << "started successfully. waiting for shutdown.";
     done.wait(false);
     task_manager.stop();
     heartbeat.stop();
@@ -47,9 +47,9 @@ void driver::Driver::stop() {
     const auto tm_err = task_manager.stop();
     const auto hb_err = heartbeat.stop();
     if (tm_err) {
-        LOG(ERROR) << "Failed to stop task manager: " << tm_err.message();
+        LOG(ERROR) << "failed to stop task manager: " << tm_err.message();
     }
     if (hb_err) {
-        LOG(ERROR) << "Failed to stop heartbeat: " << hb_err.message();
+        LOG(ERROR) << "failed to stop heartbeat: " << hb_err.message();
     }
 }

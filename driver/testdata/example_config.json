@@ -17,5 +17,7 @@
     "key": 1,
     "name": "rack"
   },
-  "integrations": ["opc"]
+  "integrations": [
+    "opc"
+  ]
 }

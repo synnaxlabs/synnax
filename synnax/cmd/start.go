@@ -252,7 +252,11 @@ func start(cmd *cobra.Command) {
 
 		d, err := embedded.OpenDriver(
 			ctx,
-			buildEmbeddedDriverConfig(ins.Child("embedded-driver"), hardwareSvc.Rack.EmbeddedRackName),
+			buildEmbeddedDriverConfig(
+				ins.Child("driver"),
+				hardwareSvc.Rack.EmbeddedRackName,
+				insecure,
+			),
 		)
 		if err != nil {
 			return err
@@ -345,13 +349,24 @@ func buildServerConfig(
 func buildEmbeddedDriverConfig(
 	ins alamos.Instrumentation,
 	rackName string,
+	insecure bool,
 ) embedded.Config {
-	return embedded.Config{
+	cfg := embedded.Config{
+		Enabled:         config.True(),
 		Instrumentation: ins,
-		Address:         address.Address(viper.GetString("address")),
+		Address:         address.Address(viper.GetString("listen")),
 		RackName:        rackName,
+		Username:        viper.GetString("username"),
+		Password:        viper.GetString("password"),
 	}
-
+	if insecure {
+		return cfg
+	}
+	loader := buildCertLoaderConfig(ins)
+	cfg.CACertPath = loader.AbsoluteCACertPath()
+	cfg.ClientCertFile = loader.AbsoluteNodeCertPath()
+	cfg.ClientKeyFile = loader.AbsoluteNodeKeyPath()
+	return cfg
 }
 
 func configureSecurity(ins alamos.Instrumentation, insecure bool) (security.Provider, error) {

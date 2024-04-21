@@ -63,6 +63,13 @@ func (l *Logger) Debug(msg string, fields ...zap.Field) {
 	}
 }
 
+func (l *Logger) Named(name string) *Logger {
+	if l != nil {
+		return &Logger{zap: l.zap.Named(name)}
+	}
+	return nil
+}
+
 // Debugf logs a message at the Debug level using the given format. This is a slower
 // method that should not be used in hot paths.
 func (l *Logger) Debugf(format string, args ...interface{}) {

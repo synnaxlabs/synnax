@@ -40,6 +40,9 @@ func OpenDriver(ctx context.Context, cfgs ...Config) (*Driver, error) {
 }
 
 func (d *Driver) start() error {
+	if !*d.cfg.Enabled {
+		return nil
+	}
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(d.cfg.Instrumentation))
 	d.shutdown = signal.NewShutdown(sCtx, cancel)
 	bre := breaker.Breaker{
@@ -55,7 +58,7 @@ func (d *Driver) start() error {
 		if err != nil {
 			return err
 		}
-		b, err := ecd.Encode(ctx, d.cfg)
+		b, err := ecd.Encode(ctx, d.cfg.format())
 		if err != nil {
 			return err
 		}
@@ -87,7 +90,7 @@ func (d *Driver) start() error {
 		if err := os.Chmod(tmpFile.Name(), 0755); err != nil {
 			return err
 		}
-		d.cmd = exec.Command(tmpFile.Name(), "--config", cfgFile.Name())
+		d.cmd = exec.Command(tmpFile.Name(), cfgFile.Name())
 		configureSysProcAttr(d.cmd)
 		d.mu.Unlock()
 		stdoutPipe, err := d.cmd.StdoutPipe()
@@ -109,15 +112,15 @@ func (d *Driver) start() error {
 		internalSCtx.Go(func(ctx context.Context) error {
 			pipeOutputToLogger(stdoutPipe, d.cfg.L)
 			return nil
-		}, signal.WithKey("driver-stdoutPipe"))
+		}, signal.WithKey("stdoutPipe"))
 		internalSCtx.Go(func(ctx context.Context) error {
 			pipeOutputToLogger(stderrPipe, d.cfg.L)
 			return nil
-		}, signal.WithKey("driver-stderrPipe"))
+		}, signal.WithKey("stderrPipe"))
 		internalSCtx.Go(func(ctx context.Context) error {
 			err := d.cmd.Wait()
 			return err
-		}, signal.WithKey("driver-wait"))
+		}, signal.WithKey("wait"))
 		err = internalSCtx.Wait()
 		isSignal := false
 		if err != nil {
@@ -144,16 +147,22 @@ func pipeOutputToLogger(reader io.ReadCloser, logger *alamos.Logger) {
 		level := string(b[0])
 		idx := bytes.IndexByte(b, ']')
 		filtered := string(b[idx+1:])
+		split := strings.Split(filtered, "]")
+		dl := logger
+		if len(split) >= 2 {
+			first := split[0][2:]
+			dl = logger.Named(first)
+			filtered = split[1][1:]
+		}
 		switch level {
 		case "D":
-			logger.Debug(filtered)
+			dl.Debug(filtered)
 		case "E", "F":
-			logger.Error(filtered)
+			dl.Error(filtered)
 		case "W":
-			logger.Warn(filtered)
+			dl.Warn(filtered)
 		default:
-			logger.Info(filtered)
-
+			dl.Info(filtered)
 		}
 	}
 	if err := scanner.Err(); err != nil {

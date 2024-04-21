@@ -31,14 +31,14 @@ opc::Factory::configureInitialTasks(
     std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task> > > tasks;
     auto [existing, err] = rack.tasks.list();
     if (err) {
-        LOG(ERROR) << "[OPC] Failed to list existing tasks: " << err;
+        LOG(ERROR) << "[opc] Failed to list existing tasks: " << err;
         return tasks;
     }
     // check if a task with the same type and name already exists
     bool hasScanner = false;
     for (const auto &t: existing) {
         if (t.type == "opcScanner") {
-            LOG(INFO) << "[OPC] found existing scanner task with key: " << t.key <<
+            LOG(INFO) << "[opc] found existing scanner task with key: " << t.key <<
                     " skipping creation." << std::endl;
             hasScanner = true;
         }
@@ -52,15 +52,15 @@ opc::Factory::configureInitialTasks(
             ""
         );
         auto err = rack.tasks.create(sy_task);
-        LOG(INFO) << "[OPC] created scanner task with key: " << sy_task.key;
+        LOG(INFO) << "[opc] created scanner task with key: " << sy_task.key;
         if (err) {
-            LOG(ERROR) << "[OPC] Failed to create scanner task: " << err;
+            LOG(ERROR) << "[opc] Failed to create scanner task: " << err;
             return tasks;
         }
         auto [task, ok] = configureTask(ctx, sy_task);
         if (ok && task != nullptr)
             tasks.emplace_back(std::make_pair(sy_task, std::move(task)));
-        else LOG(ERROR) << "[OPC] Failed to configure scanner task";
+        else LOG(ERROR) << "[opc] Failed to configure scanner task";
     }
     return tasks;
 }

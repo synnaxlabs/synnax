@@ -90,6 +90,4 @@ export class Toggle
   async render(): Promise<void> {}
 }
 
-export const REGISTRY: aether.ComponentRegistry = {
-  [Toggle.TYPE]: Toggle,
-};
+export const REGISTRY: aether.ComponentRegistry = { [Toggle.TYPE]: Toggle };

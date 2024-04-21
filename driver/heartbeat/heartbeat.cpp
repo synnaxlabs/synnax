@@ -22,7 +22,7 @@ heartbeat::Heartbeat::Heartbeat(
 }
 
 freighter::Error heartbeat::Heartbeat::start(std::atomic<bool> &done) {
-    LOG(INFO) << "[Heartbeat] starting up";
+    LOG(INFO) << "[heartbeat] starting up";
     if (const auto err = startGuarded(); err) {
         if (err.matches(freighter::UNREACHABLE) && breaker.wait(err)) start(done);
         done = true;
@@ -41,14 +41,13 @@ freighter::Error heartbeat::Heartbeat::startGuarded() {
     return err;
 }
 
-
 freighter::Error heartbeat::Heartbeat::stop() {
     if (!running) return freighter::NIL;
     running.wait(false);
-    LOG(INFO) << "[Heartbeat] shutting down";
+    LOG(INFO) << "[heartbeat] shutting down";
     running = false;
     run_thread.join();
-    LOG(INFO) << "[Heartbeat] shut down";
+    LOG(INFO) << "[heartbeat] shut down";
     return run_err;
 }
 
@@ -61,10 +60,10 @@ void heartbeat::Heartbeat::run(std::atomic<bool> &done) {
 
 freighter::Error heartbeat::Heartbeat::runGuarded() {
     const std::vector channels = {channel.key};
-    LOG(INFO) << "[Heartbeat] opening writer";
+    LOG(INFO) << "[heartbeat] opening writer";
     auto [writer, err] = client->telem.openWriter(WriterConfig{.channels = channels});
     if (err) return err;
-    LOG(INFO) << "[Heartbeat] operational";
+    LOG(INFO) << "[heartbeat] operational";
     breaker.reset();
     while (running) {
         // The first 32 bits of the heartbeat are the rack key, while the second 32

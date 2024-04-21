@@ -56,6 +56,22 @@ var (
 	}
 )
 
+func (l LoaderConfig) AbsoluteCAKeyPath() string {
+	return l.CertsDir + "/" + l.CAKeyPath
+}
+
+func (l LoaderConfig) AbsoluteCACertPath() string {
+	return l.CertsDir + "/" + l.CACertPath
+}
+
+func (l LoaderConfig) AbsoluteNodeKeyPath() string {
+	return l.CertsDir + "/" + l.NodeKeyPath
+}
+
+func (l LoaderConfig) AbsoluteNodeCertPath() string {
+	return l.CertsDir + "/" + l.NodeCertPath
+}
+
 // Override implements Properties.
 func (l LoaderConfig) Override(other LoaderConfig) LoaderConfig {
 	l.CertsDir = override.String(l.CertsDir, other.CertsDir)

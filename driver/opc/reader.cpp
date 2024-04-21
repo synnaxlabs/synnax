@@ -158,7 +158,7 @@ std::unique_ptr<task::Task> Reader::configure(
     auto config_parser = config::Parser(task.config);
     auto cfg = ReaderConfig(config_parser);
     if (!config_parser.ok()) {
-        LOG(ERROR) << "[OPC Reader] failed to parse configuration for " << task.name;
+        LOG(ERROR) << "[opc.reader] failed to parse configuration for " << task.name;
         ctx->setState({
             .task = task.key,
             .variant = "error",
@@ -167,11 +167,11 @@ std::unique_ptr<task::Task> Reader::configure(
         return nullptr;
     }
 
-    LOG(INFO) << "[OPC Reader] successfully parsed configuration for " << task.name;
+    LOG(INFO) << "[opc.reader] successfully parsed configuration for " << task.name;
 
     auto [device, dev_err] = ctx->client->hardware.retrieveDevice(cfg.device);
     if (dev_err) {
-        LOG(ERROR) << "[OPC Reader] failed to retrieve device " << cfg.device <<
+        LOG(ERROR) << "[opc.reader] failed to retrieve device " << cfg.device <<
                 " error: " << dev_err.message();
         ctx->setState({
             .task = task.key,
