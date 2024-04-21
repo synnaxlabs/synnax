@@ -3,7 +3,7 @@ layout: "@/layouts/MainLayout.astro"
 title: "Node Installation"
 description: "Install Synnax on a variety of operating systems."
 ---
-import Code from "@/components/Code.astro";
+import Code from "@/components/code/Code.astro";
 export const components = { pre: Code };
 
 import { Icon } from "@synnaxlabs/media";
@@ -161,7 +161,7 @@ To install Synnax on Windows, download the latest binary from the following link
 <SynnaxDownloadURL os="windows" />
 
 <Note variant="info">
-<b>Note - </b> We recommend adding `;$env:appdata/synnax` to your `PATH` environment variable, which 
+ We recommend adding `;$env:appdata/synnax` to your `PATH` environment variable, which 
 will allow you to execute synnax commands from any shell. See [Microsoft's Environment Variable](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_environment_variables?view=powershell-7.4#saving-changes-to-environment-variables)
 documentation for more.
 </Note>

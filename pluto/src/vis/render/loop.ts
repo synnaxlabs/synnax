@@ -65,7 +65,7 @@ const PRIORITY_ORDER: Record<Priority, number> = { high: 1, low: 0 };
  * Implements the core rendering loop for Synnax's aether components, accepting requests
  * into a queue and rendering them in sync with the browser animation frame.
  *
- * --------------------------------- VERY IMPORTANT NOTE -------------------------------
+ * --------------------------------- VERY IMPORTANT ------------------------------
  *
  * This loop intentially permits race conditions on teh requests map access. We tried
  * lockign this with an async mutex, but this resulted in a significant performance

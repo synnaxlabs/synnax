@@ -3,13 +3,16 @@ layout: "@/layouts/MainLayout.astro"
 title: "Ranges"
 description: "Use ranges to categorize your data."
 ---
-import Code from "@/components/Code.astro";
+import { Divider } from "@synnaxlabs/pluto"
+import Code from "@/components/code/Code.astro";
 export const components = { pre: Code };
 
 import Note from "@/components/Note.astro";
 
 Ranges identify specific periods of time with a name. We can use the Python client to 
 read from, write to, and attach metadata to these ranges.
+
+<Divider.Divider direction="x" />
 
 ## Creating Ranges
 
@@ -53,6 +56,8 @@ my_range = client.ranges.create(
 In the event the range already exists, Synnax will return the existing range instead of 
 creating a new one.
 
+<Divider.Divider direction="x" />
+
 ## Retrieving Ranges
 
 We can fetch a range using the `client.ranges.retrieve` method.
@@ -89,6 +94,8 @@ my_ranges = client.ranges.retrieve(["My Range", my_other_range.key])
 
 In these examples, Synnax will not raise an error if a range cannot be found. Instead,
 the missing range will be omitted from the returned list.
+
+<Divider.Divider direction="x" />
 
 ## Working with Channels
 
@@ -162,6 +169,8 @@ Aliases are only valid within the context of a particular range. If you try to a
 aliased channel outside of the range, Synnax will not be able to find it.
 </Note>
 
+<Divider.Divider direction="x" />
+
 ## Attaching Metadata
 
 ### Setting metadata
@@ -223,6 +232,8 @@ del burst_test.meta_data["part_number"]
 # Delete multiple keys
 burst_test.meta_data.delete(["part_number", "test_configuration"])
 ```
+
+<Divider.Divider direction="x" />
 
 ## Deleting Ranges
 

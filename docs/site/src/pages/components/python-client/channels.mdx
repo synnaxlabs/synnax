@@ -3,7 +3,8 @@ layout: "@/layouts/MainLayout.astro"
 title: "Channels"
 description: "Learn how to work with channels using the Synnax Python client."
 ---
-import Code from "@/components/Code.astro";
+import { Divider } from "@synnaxlabs/pluto"
+import Code from "@/components/code/Code.astro";
 export const components = {pre: Code};
 
 import Note from "@/components/Note.astro";
@@ -13,6 +14,8 @@ channels. We'll cover the details of each of these operations in this guide.
 
 If you're unfamiliar with what channels are and how they work, check out the
 [channels concepts guide](/concepts/channels).
+
+<Divider.Divider direction="x" />
 
 ## Creating Channels
 
@@ -26,7 +29,8 @@ Creating a data channel first requires us to create an index channel to store it
 # Create a time channel to store the timestamps of our data channel
 time_index_channel = client.channels.create(
     name="time",
-    # Index channels must have a data type of TIMESTAMP and is_index set to True
+    # Index channels must have a data type of TIMESTAMP and is_index 
+    # set to True
     data_type=sy.DataType.TIMESTAMP, 
     is_index=True,
 )
@@ -111,6 +115,8 @@ my_channels = client.channels.create(
 )
 ```
 
+<Divider.Divider direction="x" />
+
 ## Retrieving Channels
 
 We can retrieve channels using the `channels.retrieve` method.
@@ -171,7 +177,7 @@ ch = bike_outing.sensor_one
 ```
 
 <Note variant="info">
-<b>Note</b> - When using a range, it's possible to retrieve a channel by it's alias
+ When using a range, it's possible to retrieve a channel by it's alias
 instead of its name. For more information, see
 <a href="/python-client/named-ranges#aliasing-channels">aliasing channels</a>.
 </Note>
@@ -190,6 +196,7 @@ It's important to note that if we're expecting multiple channels to match our pa
 we need to pass in a list to the `retrieve` method, otherwise the client will raise
 a `MultipleFoundError`.
 
+<Divider.Divider direction="x" />
 
 ## Deleting Channels
 
@@ -216,6 +223,8 @@ channel matching the key or name. This means that `delete` is an idempotent oper
 and is safe to call even if the channel has already been deleted.
 
 Deleting a channel by name will delete **all** channels with that name. 
+
+<Divider.Divider direction="x" />
 
 ## Next Steps
 

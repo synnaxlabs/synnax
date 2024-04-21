@@ -1,0 +1,80 @@
+---
+const { title, description } = Astro.props;
+---
+
+<article transition:animate="none">
+    <h1 class="article-title">{title}</h1>
+    <h4 class="article-description">{description}</h4>
+    <slot />
+</article>
+
+<style is:global>
+    article {
+        padding: 5rem 8rem;
+        max-width: 814px;
+        flex-shrink: 1;
+        flex-grow: 1;
+        margin-bottom: 25rem;
+        .article-title {
+            width: fit-content;
+        }
+
+        .article-title::after {
+            content: "";
+            display: block;
+            width: 100px;
+            margin-top: 2rem;
+            height: 2px;
+            background: var(--pluto-primary-p1);
+        }
+
+        .article-description {
+            color: var(--pluto-gray-l8);
+            font-weight: 350;
+        }
+
+        h1,
+        h3,
+        h4,
+        h5,
+        h6,
+        p,
+        table,
+        video {
+            margin: 2.5rem 0;
+        }
+
+        h2 {
+            margin: 4rem 0;
+        }
+
+        img {
+            margin: 2rem -2rem;
+        }
+
+        pluto-tabs-selector {
+            margin: 1.5rem 0;
+        }
+
+        video,
+        img {
+            width: 100%;
+            border-radius: 1rem !important;
+            border: var(--pluto-border-l4);
+            box-shadow: 0 0 1rem 0 var(--pluto-gray-l4);
+
+            @media (prefers-color-scheme: dark) {
+                box-shadow: 0 0 2rem 0 rgba(50, 50, 50, 0.1);
+            }
+        }
+
+        img {
+            width: 100%;
+        }
+
+        .pluto-divider {
+            border-top: var(--pluto-border-l4);
+            margin: 5% 0;
+        }
+    }
+</style>

@@ -1,46 +1,49 @@
 ---
 import { Align } from "@synnaxlabs/pluto/align";
 import { Icon, Logo } from "@synnaxlabs/media";
-import { Search } from "@/components/Search";
+import Search from "@/components/search/Search.astro";
 ---
 
 <Align.Space justify="center" align="center" el="header">
-  <Align.Space
-    className="header-content"
-    direction="x"
-    justify="spaceBetween"
-    align="center"
-  >
-    <a href="https://synnaxlabs.com">
-      <Logo style={{ height: "5rem" }} variant="title" />
-    </a>
-    <Search client:only="react" />
-    <Align.Space direction="x" align="center">
-      <p class="version" transition:persist></p>
-      <a href="https://github.com/synnaxlabs/synnax">
-        <Icon.Logo.Github
-          style={{ height: "3rem", width: "3rem" }}
-          fill="var(--pluto-text-color)"
-        />
-      </a>
+    <Align.Space
+        className="header-content"
+        direction="x"
+        justify="spaceBetween"
+        align="center"
+    >
+        <a href="https://synnaxlabs.com">
+            <Logo style={{ height: "5rem" }} variant="title" />
+        </a>
+        <Search />
+        <Align.Space direction="x" align="center">
+            <p class="version" transition:persist></p>
+            <a href="https://github.com/synnaxlabs/synnax">
+                <Icon.Logo.Github
+                    style={{ height: "3rem", width: "3rem" }}
+                    fill="var(--pluto-text-color)"
+                />
+            </a>
+        </Align.Space>
     </Align.Space>
-  </Align.Space>
 </Align.Space>
 
 <style>
-  header {
-    border-bottom: var(--pluto-border);
-    flex-basis: 10rem;
-    flex-grow: 1;
-    flex-shrink: 0;
-    width: 100%;
-  }
+    header {
+        position: sticky;
+        top: 0;
+        background: var(--pluto-gray-l0-80);
+        backdrop-filter: blur(12px);
+        z-index: 100;
+        height: 10rem;
+        border-bottom: var(--pluto-border);
+        width: 100%;
+    }
 
-  .header-content {
-    width: 100%;
-    max-width: var(--max-width);
-    display: flex;
-    align-items: center;
-    padding: 0 5rem;
-  }
+    .header-content {
+        width: 100%;
+        max-width: var(--max-width);
+        display: flex;
+        align-items: center;
+        padding: 0 5rem;
+    }
 </style>

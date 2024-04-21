@@ -1,14 +1,13 @@
 ---
 layout: "@/layouts/MainLayout.astro"
 title: "Write Data"
-heading: "Write Data"
 description: "Use the Python client to write to a Synnax cluster"
 ---
-import Code from "@/components/Code.astro";
+import { Divider } from "@synnaxlabs/pluto"
+import Code from "@/components/code/Code.astro";
 export const components = { pre: Code };
 
 import Note from "@/components/Note.astro";
-
 
 Synnax supports multiple methods for writing data to a cluster. We can write directly
 to a channel, fetch a range and set its data, or leverage writers for writing large
@@ -17,6 +16,8 @@ volumes of data.
 Writes in Synnax are more complicated than reads, and, as such, we recommend checking out
 our [concepts](/docs/concepts/write-domains) page to learn more about the best practices
 for writing data to Synnax.
+
+<Divider.Divider direction="x" />
 
 ## Writing to a Channel
 
@@ -72,6 +73,8 @@ Synnax will raise a `ValidationError` if the index channel does not contain a co
 timestamp for every sample in the data channel. After all, it wouldn't make sense to have
 a temperature reading without an associated timestamp.
 
+<Divider.Divider direction="x" />
+
 ## Writing to a Range
 
 Writing to a range takes away the burden of needing to correctly align the data
@@ -95,16 +98,18 @@ burst_test = client.ranges.create(
 Then, we'll write to the range using the `write` method:
 
 ```python
-temperatures = [55, 55.1, 55.7, 57.2, 58.1, 58.9, 59.1, 59.2, 59.3, 59.4]
-pressures = [100, 100.1, 100.7, 102.2, 103.1, 103.9, 104.1, 104.2, 104.3, 104.4]
+temperatures = [55, 55.1, 55.7, 57.2, 58.1, 58.9, 59.1, 59.2, 59.3]
+pressures = [100, 100.1, 100.7, 102.2, 103.1, 103.9, 104.1, 104.2, 104.3]
 
-# This call to write will assume that the timestamp of the first sample is the start
-# of the range.
+# This call to write will assume that the timestamp of the first sample is 
+# the start of the range.
 burst_test.write({
     "my_precise_tc": temperatures,
     "my_precise_pt": pressures,
 })
 ```
+
+<Divider.Divider direction="x" />
 
 ## Using a Writer
 

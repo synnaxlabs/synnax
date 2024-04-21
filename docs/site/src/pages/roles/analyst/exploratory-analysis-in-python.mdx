@@ -3,7 +3,7 @@ layout: "@/layouts/MainLayout.astro"
 title: "Exploratory Analysis in Python"
 description: "Use Python to explore and analyze data in Synnax"
 ---
-import Code from "@/components/Code.astro";
+import Code from "@/components/code/Code.astro";
 export const components = { pre: Code };
 
 import { Image } from "@/components/Media";
@@ -138,7 +138,7 @@ from the data in the file. We've now successfully created all of the channels in
 data set.
 
 <Note variant="info">
-<b>Note - </b> The next time we import a data set with the same channels, Synnax will
+ The next time we import a data set with the same channels, Synnax will
 automatically detect the channels and skip this process.
 </Note>
 

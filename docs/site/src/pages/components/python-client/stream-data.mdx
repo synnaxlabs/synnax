@@ -4,14 +4,17 @@ title: "Stream Data"
 heading: "Stream Data"
 description: "Use the Python client to stream data from a Synnax cluster"
 ---
-import Code from "@/components/Code.astro";
+import { Divider } from "@synnaxlabs/pluto"
+import Code from "@/components/code/Code.astro";
 export const components = { pre: Code };
 
 Streaming data is useful for real-time processing, visualization, and monitoring. 
 This page guides you through using the Typescript client to stream data from a 
 Synnax cluster.
 
-## Open a Streamer
+<Divider.Divider direction="x" />
+
+## Opening a Streamer
 
 To start streaming data, call the `open_streamer` method on the client and provide a 
 list of channels to stream.
@@ -19,6 +22,8 @@ list of channels to stream.
 ```python
 streamer = client.open_streamer(["channel1", "channel2"])
 ```
+
+<Divider.Divider direction="x" />
 
 ## Reading Frames
 
@@ -43,6 +48,8 @@ incoming frames, blocking on each iteration until a new frame is received.
 for frame in streamer:
     print(frame)
 ```
+
+<Divider.Divider direction="x" />
 
 ## Closing the Streamer
 

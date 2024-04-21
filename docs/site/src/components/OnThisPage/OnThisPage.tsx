@@ -15,17 +15,17 @@ import { Menu } from "@synnaxlabs/pluto/menu";
 import { type MarkdownHeading } from "astro";
 import { unescape } from "html-escaper";
 
-import "@/components/TableOfContents.css";
-
 interface ItemOffset {
   id: string;
   topOffset: number;
 }
 
-export const TableOfContents = ({
+export const OnThisPage = ({
   headings = [],
+  url,
 }: {
   headings?: MarkdownHeading[];
+  url: string;
 }): ReactElement => {
   const toc = useRef<HTMLDivElement | null>();
   const onThisPageID = "on-this-page-heading";
@@ -33,7 +33,7 @@ export const TableOfContents = ({
   const [currentID, setCurrentID] = useState("");
   useEffect(() => {
     const getItemOffsets = (): void => {
-      const titles = document.querySelectorAll("article :is(h1, h2, h3, h4)");
+      const titles = document.querySelectorAll("article :is(h1, h2, h3)");
       itemOffsets.current = Array.from(titles).map((title) => ({
         id: title.id,
         topOffset: title.getBoundingClientRect().top + window.scrollY,
@@ -84,7 +84,7 @@ export const TableOfContents = ({
   if (headings.length === 0) return <></>;
 
   return (
-    <Align.Space className="table-of-contents" size={0.5}>
+    <Align.Space el="nav" className="on-this-page" size={0.5}>
       <Header.Header id={onThisPageID} className="heading" level="h5">
         <Header.Title>On this page</Header.Title>
       </Header.Header>
@@ -99,6 +99,9 @@ export const TableOfContents = ({
                 key={heading.slug}
                 itemKey={heading.slug}
                 id={heading.slug}
+                onClick={() => {
+                  setCurrentID(heading.slug);
+                }}
                 className={`header-link depth-${heading.depth} ${
                   currentID === heading.slug ? "current-header-link" : ""
                 }`.trim()}

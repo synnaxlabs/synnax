@@ -24,8 +24,6 @@ import { List } from "@synnaxlabs/pluto/list";
 import { Text } from "@synnaxlabs/pluto/text";
 import { Triggers } from "@synnaxlabs/pluto/triggers";
 
-import "@/components/Search.css";
-
 interface SearchResult {
   key: string;
   title: string;

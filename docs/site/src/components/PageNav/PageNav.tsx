@@ -17,8 +17,6 @@ import { Tree } from "@synnaxlabs/pluto/tree";
 
 import { componentsPages, rolesPages } from "@/pages/nav";
 
-import "@/components/PageNav.css";
-
 export type PageNavNode = Tree.Node;
 
 export interface TOCProps {

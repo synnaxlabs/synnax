@@ -5,7 +5,7 @@ heading: "Deployment Quick Start"
 description: "Start a single node cluster for testing,
 learning, or development."
 ---
-import Code from "@/components/Code.astro";
+import Code from "@/components/code/Code.astro";
 export const components = { pre: Code };
 
 import { Icon } from "@synnaxlabs/media";
@@ -18,7 +18,7 @@ This page will walk you through starting a single node Synnax cluster. To get st
 select your operating system below:
 
 <Tabs
-    client:load
+    client:idle
     tabs={[
         { name: "Docker", tabKey: "docker"},
         { name: "Linux", tabKey: "linux" },
@@ -78,7 +78,7 @@ chmod +x /usr/local/bin/synnax
 ```
 
 <Note variant="info">
-<b>Note - </b> You'll need to make sure that `/usr/local/bin` is in your `PATH` environment
+ You'll need to make sure that `/usr/local/bin` is in your `PATH` environment
 variable. You can do this temporarily by running `export PATH=$PATH:/usr/local/bin`.
 </Note>
 
@@ -125,7 +125,7 @@ chmod +x /usr/local/bin/synnax
 ```
 
 <Note variant="info">
-<b>Note - </b> You'll need to make sure that `/usr/local/bin` is in your `PATH` environment
+ You'll need to make sure that `/usr/local/bin` is in your `PATH` environment
 variable. You can do this temporarily by running `export PATH=$PATH:/usr/local/bin`.
 </Note>
 
@@ -162,7 +162,7 @@ download the latest Synnax binary and move it into your `PATH`:
 <SynnaxDownloadURL os="windows" />
 
 <Note variant="info">
-<b>Note - </b> We recommend adding `;$env:appdata/synnax` to your `PATH` environment variable, which 
+ We recommend adding `;$env:appdata/synnax` to your `PATH` environment variable, which 
 will allow you to execute synnax commands from any shell. See [Microsoft's Environment Variable](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_environment_variables?view=powershell-7.4#saving-changes-to-environment-variables)
 documentation for more.
 </Note>

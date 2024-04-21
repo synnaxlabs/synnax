@@ -3,7 +3,7 @@ layout: "@/layouts/MainLayout.astro"
 title: "Connect a Cluster"
 description: "Learn how to connect a cluster using the Synnax console."
 ---
-import Code from "@/components/Code.astro";
+import Code from "@/components/code/Code.astro";
 export const components = { pre: Code };
 
 import { Video } from "@/components/Media";
@@ -72,7 +72,7 @@ monitors the connection to the cluster and displays it in the bottom right corne
 />
 
 <Note variant="warning">
-<b>Note - </b> The console will not connect to remote clusters (i.e. host is not 'localhost')
+ The console will not connect to remote clusters (i.e. host is not 'localhost')
 started with the `--insecure` flag.
 </Note>
 

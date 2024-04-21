@@ -1,0 +1,55 @@
+---
+import { Search as S } from "@/components/search/Search";
+---
+
+<S client:only="react" />
+
+<style is:global>
+    .search-box {
+        position: absolute;
+        left: 50%;
+        z-index: 50000;
+        transform: translateX(-50%);
+        --pluto-pack-br: 0.6666rem !important;
+        width: 850px;
+
+        & .pluto-input {
+            --pluto-pack-br: 0.6666rem !important;
+            width: 100%;
+        }
+
+        .pluto-dropdown__dialog {
+            position: absolute !important;
+            left: 50% !important;
+            transform: translate(-50%, -20px);
+
+            & .search-result {
+                padding: 2rem;
+                &:hover {
+                    background: var(--pluto-gray-l3);
+                }
+
+                & b {
+                    background: var(--pluto-primary-z-30);
+                }
+
+                & small {
+                    color: var(--pluto-gray-l7);
+                }
+            }
+
+            & a:hover {
+                text-decoration: none;
+            }
+        }
+
+        @media (max-width: 700px) {
+            & .pluto-input {
+                width: 200px;
+            }
+            & .pluto-dropdown__dialog {
+                width: 200px;
+            }
+        }
+    }
+</style>

@@ -9,7 +9,7 @@
 
 import { Icon } from "@synnaxlabs/media";
 
-import { PageNavNode } from "@/components/PageNav";
+import { PageNavNode } from "@/components/PageNav/PageNav";
 
 export const conceptsNav: PageNavNode = {
   key: "concepts",

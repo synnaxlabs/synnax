@@ -4,7 +4,8 @@ title: "Python Client"
 heading: "The Synnax Python Client"
 description: "Learn how to use our Python client to interact with a Synnax cluster."
 ---
-import Code from "@/components/Code.astro";
+import { Divider } from "@synnaxlabs/pluto"
+import Code from "@/components/code/Code.astro";
 export const components = { pre: Code };
 import Note from "@/components/Note.astro";
 
@@ -16,6 +17,8 @@ Synnax provides first-class support for Python. Our client delivers:
 
 And more. In this section, we'll cover how to install the client and authenticate with
 a cluster.
+
+<Divider.Divider direction="x" />
 
 ## Installation
 
@@ -31,6 +34,8 @@ pip install synnax
 Python can be difficult to get installed and running correctly, so we've put together
 a troubleshooting guide that you can reference [here](/python-client/troubleshooting).
 </Note>
+
+<Divider.Divider direction="x" />
 
 ## Authenticating with a Cluster
 
@@ -120,6 +125,8 @@ client = sy.Synnax(
     secure=bool(os.environ["SYNNAX_SECURE"])
 )
 ```
+
+<Divider.Divider direction="x" />
 
 ## Next Steps
 
