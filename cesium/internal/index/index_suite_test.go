@@ -27,8 +27,14 @@ var (
 )
 
 func TestIndex(t *testing.T) {
+	BeforeSuite(func() {
+		fileSystems, cleanUp = testutil.FileSystems()
+	})
+
+	AfterSuite(func() {
+		Expect(cleanUp()).To(Succeed())
+	})
+
 	RegisterFailHandler(Fail)
-	fileSystems, cleanUp = testutil.FileSystems()
 	RunSpecs(t, "Index Suite")
-	Expect(cleanUp()).To(Succeed())
 }
