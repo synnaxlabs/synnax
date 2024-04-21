@@ -40,8 +40,14 @@ func pathInDBFromKey(key cesium.ChannelKey) string {
 }
 
 func TestCesium(t *testing.T) {
+	BeforeSuite(func() {
+		fileSystems, cleanUp = testutil.FileSystems()
+	})
+
+	AfterSuite(func() {
+		Expect(cleanUp()).To(Succeed())
+	})
+
 	RegisterFailHandler(Fail)
-	fileSystems, cleanUp = testutil.FileSystems()
 	RunSpecs(t, "Cesium Suite")
-	Expect(cleanUp()).To(Succeed())
 }
