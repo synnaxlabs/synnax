@@ -352,7 +352,7 @@ func buildEmbeddedDriverConfig(
 	insecure bool,
 ) embedded.Config {
 	cfg := embedded.Config{
-		Enabled:         config.True(),
+		Enabled:         config.Bool(!viper.GetBool("no-driver")),
 		Instrumentation: ins,
 		Address:         address.Address(viper.GetString("listen")),
 		RackName:        rackName,
