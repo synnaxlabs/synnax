@@ -252,15 +252,23 @@ jobs:
         run: mv bazel-bin/driver/driver_main${{ steps.executable.outputs.EXECUTABLE }} synnax/pkg/hardware/embedded/assets/driver${{ steps.executable.outputs.EXECUTABLE }}
 
       - name: Set up Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
+        if: steps.filter.outputs.changed == 'true'
         with:
-          go-version: 1.22
+          go-version-file: "go.work"
+          cache-dependency-path: |
+            "alamos/go/go.sum"
+            "aspen/go.sum"
+            "cesium/go.sum"
+            "freighter/go/go.sum"
+            "synnax/go.sum"
+            "x/go/go.sum"
 
       - name: Download Dependencies
         working-directory: ./synnax
         run: |
           go mod download
-        
+
       - name: Get Version
         id: version
         working-directory: ./synnax
@@ -272,7 +280,7 @@ jobs:
         working-directory: ./synnax
         run: |
           go build -tags driver -o synnax-driver-v${{ steps.version.outputs.VERSION }}-${{ steps.os.outputs.OS }}
-        
+
       - name: Upload Release Asset
         env:
           GITHUB_TOKEN: ${{ github.token }}

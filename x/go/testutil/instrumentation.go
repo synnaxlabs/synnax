@@ -72,7 +72,7 @@ func newTracer(serviceName string) *alamos.Tracer {
 
 func newLogger() *alamos.Logger {
 	return MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
-		ZapConfig: MustSucceed(zap.NewDevelopment()),
+		ZapConfig: zap.NewDevelopmentConfig(),
 	}))
 }
 
