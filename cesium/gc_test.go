@@ -11,7 +11,7 @@ import (
 
 var _ = Describe("Garbage collection", Ordered, func() {
 	for fsName, fs := range fileSystems {
-		fsName, fs := fsName, fs()
+		fs := fs()
 		Context("FS: "+fsName, Ordered, func() {
 			var (
 				db     *cesium.DB

@@ -19,10 +19,9 @@ import (
 
 var _ = Describe("File Controller", func() {
 	for fsName, fs := range fileSystems {
-		fsName, fs := fsName, fs
+		fs := fs()
 		Context("FS: "+fsName, Ordered, func() {
 			var db *domain.DB
-			fs := fs()
 			AfterEach(func() {
 				Expect(db.Close()).To(Succeed())
 				Expect(fs.Remove(rootPath)).To(Succeed())

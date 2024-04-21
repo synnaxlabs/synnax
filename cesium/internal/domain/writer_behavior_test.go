@@ -24,7 +24,7 @@ import (
 
 var _ = Describe("WriterBehavior", func() {
 	for fsName, fs := range fileSystems {
-		fsName, fs := fsName, fs()
+		fs := fs()
 		Context("FS: "+fsName, func() {
 			var db *domain.DB
 			BeforeEach(func() {

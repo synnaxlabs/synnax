@@ -20,9 +20,8 @@ import (
 
 var _ = Describe("Iterator Behavior", func() {
 	for fsName, fs := range fileSystems {
-		fsName, fs := fsName, fs
+		fs := fs()
 		Context("FS: "+fsName, Ordered, func() {
-			fs := fs()
 			var db *domain.DB
 			BeforeEach(func() {
 				db = MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub(rootPath))}))

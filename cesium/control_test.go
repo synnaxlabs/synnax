@@ -27,7 +27,7 @@ import (
 
 var _ = Describe("Control", func() {
 	for fsName, fs := range fileSystems {
-		fsName, fs := fsName, fs()
+		fs := fs()
 		Context("FS:"+fsName, Ordered, func() {
 			var db *cesium.DB
 			BeforeAll(func() {

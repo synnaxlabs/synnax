@@ -19,7 +19,7 @@ import (
 
 var _ = Describe("Accuracy", func() {
 	for fsName, fs := range fileSystems {
-		fsName, fs := fsName, fs()
+		fs := fs()
 		Context("FS: "+fsName, Ordered, func() {
 			var db *cesium.DB
 			BeforeAll(func() { db = openDBOnFS(fs) })

@@ -20,7 +20,7 @@ import (
 
 var _ = Describe("Domain", func() {
 	for fsName, fs := range fileSystems {
-		fsName, fs := fsName, fs()
+		fs := fs()
 		Describe("FS:"+fsName, func() {
 			var (
 				db  *domain.DB

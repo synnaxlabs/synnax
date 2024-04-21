@@ -19,10 +19,9 @@ import (
 
 var _ = Describe("Delete", Ordered, func() {
 	for fsName, fs := range fileSystems {
-		fsName, fs := fsName, fs
+		fs := fs()
 		Context("FS: "+fsName, func() {
 			var db *domain.DB
-			fs := fs()
 			BeforeEach(func() {
 				db = MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub(rootPath))}))
 				Expect(domain.Write(ctx, db, (10 * telem.SecondTS).SpanRange(10*telem.Second), []byte{10, 11, 12, 13, 14, 15, 16, 17, 18, 19})).To(Succeed())
