@@ -126,10 +126,7 @@ func (d *defaultFS) Stat(name string) (os.FileInfo, error) {
 }
 
 func NewMem() FS {
-	return &memFS{
-		FS:   vfs.NewMem(),
-		perm: defaultPerm,
-	}
+	return &memFS{FS: vfs.NewMem(), perm: defaultPerm}
 }
 
 type memFS struct {

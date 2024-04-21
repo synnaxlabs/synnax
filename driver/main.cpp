@@ -49,32 +49,32 @@ int main(int argc, char *argv[]) {
     std::string config_path = "./synnax-driver-config.json";
     if (argc > 1) config_path = argv[1]; // Use the first argument as the config path if provided
 
-    LOG(INFO) << "starting up";
+    LOG(INFO) << "[main] starting up";
 
     auto cfg_json = driver::readConfig(config_path);
     if (cfg_json.empty())
-        LOG(INFO) << "no configuration found at " << config_path <<
+        LOG(INFO) << "[main] no configuration found at " << config_path <<
                 ". We'll just use the default configuration.";
     else {
-        LOG(INFO) << "loaded configuration from " << config_path;
+        LOG(INFO) << "[main] loaded configuration from " << config_path;
     }
     auto [cfg, cfg_err] = driver::parseConfig(cfg_json);
     if (cfg_err) {
-        LOG(FATAL) << "failed to parse configuration: " << cfg_err;
+        LOG(FATAL) << "[main] failed to parse configuration: " << cfg_err;
         return 1;
     }
-    LOG(INFO) << "configuration parsed successfully";
-    LOG(INFO) << "connecting to Synnax at " << cfg.client_config.host << ":" <<
+    LOG(INFO) << "[main] configuration parsed successfully";
+    LOG(INFO) << "[main] connecting to Synnax at " << cfg.client_config.host << ":" <<
             cfg.client_config.port;
 
     auto breaker = breaker::Breaker(cfg.breaker_config);
     auto client = std::make_shared<synnax::Synnax>(cfg.client_config);
 
-    LOG(INFO) << "retrieving meta-data";
+    LOG(INFO) << "[main] retrieving meta-data";
     auto [rack, rack_err] = retrieveDriverRack(cfg, breaker, client);
     if (rack_err) {
         LOG(FATAL) <<
-                "failed to retrieve meta-data - can't proceed without it. Exiting."
+                "[main] failed to retrieve meta-data - can't proceed without it. Exiting."
                 << rack_err;
         return 1;
     }
@@ -97,14 +97,14 @@ int main(int argc, char *argv[]) {
     );
     signal(SIGINT, [](int) {
         if (stopped) return;
-        LOG(INFO) << "received interrupt signal. shutting down";
+        LOG(INFO) << "[main] received interrupt signal. shutting down";
         stopped = true;
         d->stop();
     });
     auto err = d->run();
     if (err)
-        LOG(FATAL) << "failed to start: " << err;
+        LOG(FATAL) << "[main] failed to start: " << err;
     else
-        LOG(INFO) << "shutdown complete";
+        LOG(INFO) << "[main] shutdown complete";
     return 0;
 }

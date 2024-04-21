@@ -82,6 +82,12 @@ func WithKeyf(format string, args ...interface{}) RoutineOption {
 	}
 }
 
+func AddCallerSkip(skip int) RoutineOption {
+	return func(r *routineOptions) {
+		r.callerSkip = skip
+	}
+}
+
 type deferral struct {
 	key string
 	f   func() error
@@ -125,11 +131,14 @@ type routineOptions struct {
 		cancelOnExit    bool
 		cancelOnExitErr bool
 	}
+	// callerSkip is the number of stack frames to skip when logging.
+	callerSkip int
 }
 
 type routine struct {
 	ctx *core
 	routineOptions
+	L *alamos.Logger
 	// span traces the goroutine's execution.
 	span alamos.Span
 	// state represents the current state of the routine
@@ -276,7 +285,15 @@ func (r *routine) goRun(f func(context.Context) error) {
 }
 
 func newRoutine(c *core, opts []RoutineOption) *routine {
-	return &routine{ctx: c, routineOptions: newRoutineOptions(opts)}
+	r := &routine{
+		ctx:            c,
+		L:              c.L,
+		routineOptions: newRoutineOptions(opts),
+	}
+	if r.callerSkip > 0 {
+		r.L = c.L.WithOptions(zap.AddCallerSkip(r.callerSkip))
+	}
+	return r
 }
 
 func newRoutineOptions(opts []RoutineOption) routineOptions {
