@@ -15,7 +15,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
 	xfs "github.com/synnaxlabs/x/io/fs"
-	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil"
 	"path"
 	"strconv"
 	"testing"
@@ -23,12 +23,13 @@ import (
 
 var (
 	ctx         = context.Background()
-	fileSystems = map[string]func() xfs.FS{"memFS": func() xfs.FS { return xfs.NewMem() }, "osFS": func() xfs.FS { return xfs.Default }}
-	rootPath    = "testdata"
+	rootPath    = "cesium-testdata"
+	fileSystems map[string]func() xfs.FS
+	cleanUp     func() error
 )
 
 func openDBOnFS(fs xfs.FS) *cesium.DB {
-	return MustSucceed(cesium.Open(
+	return testutil.MustSucceed(cesium.Open(
 		rootPath,
 		cesium.WithFS(fs),
 	))
@@ -40,5 +41,7 @@ func pathInDBFromKey(key cesium.ChannelKey) string {
 
 func TestCesium(t *testing.T) {
 	RegisterFailHandler(Fail)
+	fileSystems, cleanUp = testutil.FileSystems()
 	RunSpecs(t, "Cesium Suite")
+	Expect(cleanUp()).To(Succeed())
 }
