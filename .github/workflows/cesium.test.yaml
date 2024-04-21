@@ -30,7 +30,7 @@ jobs:
         with:
           go-version-file: "go.work"
           cache-dependency-path: |
-            "cesium/go.sum"
+            "./cesium/go.sum"
           #            "alamos/go/go.sum"
           #            "aspen/go.sum"
 #            "freighter/go/go.sum"
