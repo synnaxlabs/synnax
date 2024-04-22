@@ -2,11 +2,9 @@
 title: "Get Started"
 layout: "@/layouts/MainLayout.astro"
 ---
-
+import { Divider } from "@synnaxlabs/pluto"
 import Bento from "@/components/Bento.astro";
-
 import { Icon } from "@synnaxlabs/media";
-
 import { Header } from "@synnaxlabs/pluto/header";
 import { Align } from "@synnaxlabs/pluto/align";
 
@@ -25,32 +23,35 @@ Whether you're part of a large team with tens of thousands of sensors & actuator
 individual working on a personal project, Synnax can help you develop and deploy your
 hardware faster.
 
+<Divider.Divider direction="x" />
+
 ## How to Use These Docs
 
-The Synnax documentation is divided into two categories. The [role](#role-guides) based documentation
+The Synnax documentation is divided into two categories. The [guide](#guides) based documentation
 contains workflow oriented guides for specific users, such as test engineers
-or analysts, while the [component](#component-guides) based pages are oriented around the 
+or analysts, while the [reference](#references) based pages are oriented around the 
 main components of the platform.
 
 The navigation bar on the left contains a link to every page in the documentation. Use
 the tabs at the top to switch between the role and component focused browsing. Feel
 free to use the search bar at the top of the page to find specific topics.
 
-## Component Guides
+<Divider.Divider direction="x" />
+
+## References 
 
 The main components of the Synnax platform are:
 
 Component | Description
 --- | ---
-<a href="/component/deploy">Cluster</a> | A horizontally scalable time-series database that provides long term storage and real-time data streaming.
-<a href="/component/console">Console</a> | A desktop application for data-visualization, instrumentation management, and manual hardware operations.
-<a href="/component/autosequence-engine">Autosequence Engine</a> | A tool for programmatically controling actuators on your hardware.
-<a href="/component/signals">Signals</a> | A system for triggering post processing and other workflows based on sensor values and hardware events.
-<a hreef="/component/python-client">Python Client</a> | Our Python library for interacting with a Synnax cluster.
-<a href="/component/typescript-client">Typescript Client</a> | Our Typescript library for interacting with a Synnax cluster.
-<a href="/component/cpp-client">C++ Client</a> | Our C++ library for interacting with a Synnax cluster.
+<a href="/reference/cluster/quick-start">Cluster</a> | A horizontally scalable time-series database that provides long term storage and real-time data streaming.
+<a href="/reference/console/get-started">Console</a> | A desktop application for data-visualization, instrumentation management, and manual hardware operations.
+<a href="/reference/python-client/get-started">Python Client</a> | Our Python library for interacting with a Synnax cluster.
+<a href="/reference/typescript-client/get-started" style={{whiteSpace: "nowrap"}}>Typescript Client</a> | Our Typescript library for interacting with a Synnax cluster.
 
-## Role Guides
+<Divider.Divider direction="x" />
+
+## Guides
 
 The role guides are oriented around the workflows of specific users. These roles are:
 
@@ -60,4 +61,4 @@ Role | Description
 <a href="/role/instrumentation">Instrumentation</a> | Configure and calibrate hardware.
 <a href="/role/test-engineer">Test/Operations</a> | Control hardware and visualize data on the fly.
 <a href="/role/developer">Developer</a> | Extend Synnax with your own applications and develop drivers for custom hardware.
-<a href="/role/sys-admin">System Administrator</a> | Deploy Synnax in your environment of choice.
+<a href="/role/sys-admin" style={{whiteSpace: "nowrap"}}>System Administrator</a> | Deploy Synnax in your environment of choice.

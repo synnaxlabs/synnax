@@ -73,9 +73,10 @@ const {
 
     <script>
         import { getVersion } from "@/util/fetchVersion";
-
         getVersion().then((version) => {
-            document.querySelector(".version").innerHTML = version;
+            const versionElement = document.querySelector(".version");
+            if (versionElement == null) return;
+            versionElement.innerHTML = version;
         });
     </script>
 
@@ -88,12 +89,13 @@ const {
         }
         main {
             position: relative;
+            min-height: calc(100vh - 30rem);
             & > section {
                 display: flex;
                 flex-direction: row;
                 margin: 0 auto;
                 padding: 0 2rem;
-                max-width: 1300px;
+                max-width: 1340px;
             }
         }
         nav {
@@ -105,6 +107,17 @@ const {
     <style is:global>
         .pluto-tabs-selector__button p {
             margin: 0;
+        }
+
+        .styled-scrollbar {
+            &::-webkit-scrollbar {
+                width: 1rem;
+            }
+
+            &::-webkit-scrollbar-thumb {
+                background-color: var(--pluto-border-color);
+                border-radius: 2px;
+            }
         }
 
         html {

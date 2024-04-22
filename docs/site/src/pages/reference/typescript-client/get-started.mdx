@@ -1,0 +1,56 @@
+---
+layout: "@/layouts/MainLayout.astro"
+title: "Typescript - Get Started"
+heading: "The Synnax Typescript Client"
+description: "Learn how to use our Typescript client to interact with a Synnax cluster."
+---
+import { Divider } from "@synnaxlabs/pluto"
+import Code from "@/components/code/Code.astro";
+export const components = { pre: Code };
+
+## Installation
+
+The typescript client is available on npm, and can be installed with your package 
+manager of choice. We'll be using `npm` in our documentation, but feel free to use
+`yarn`, `pnpm`, or any other package manager you prefer.
+
+```bash
+npm install @synnaxlabs/client
+```
+
+<Divider.Divider direction="x" />
+
+## Authenticating with a Cluster
+
+To authenticate with a Synnax cluster, simply instantiate a new client with your 
+connection parameters and credentials.
+
+```typescript
+import { Synnax } from "@synnaxlabs/client";
+
+const client = new Synnax({
+    host: "demo.synnaxlabs.com",
+    port: 9090,
+    username: "synnax",
+    password: "seldon",
+    secure: true,
+});
+```
+
+Here's a breakdown of the parameters you can pass to the client:
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `host` | The hostname of the Synnax cluster | `localhost` |
+| `port` | The port of the Synnax cluster | `9090` |
+| `username` | The username to authenticate with | `""` |
+| `password` | The password to authenticate with | `""` |
+| `secure` | Whether to use TLS encryption. This should be set to `true` if the cluster is using TLS. See [production](/deployment/production) for more information. | `false` |
+
+<Divider.Divider direction="x" />
+
+## Next Steps
+
+Now that you've installed and authenticated the client, you're ready to start using Synnax!
+We recommend starting with the [Channels](/typescript-client/channels) section to learn
+how to create channels and retrieve data from them.

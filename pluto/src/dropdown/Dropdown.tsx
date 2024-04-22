@@ -246,7 +246,7 @@ const calcConnectedDialog = ({
     container: box.construct(0, 0, window.innerWidth, window.innerHeight),
     alignments: CONNECTED_ALIGNMENTS,
     disable: CONNECTED_DISABLE_LOCATIONS,
-    initial: CONNECTED_INITIAL,
+    initial: "bottom",
   };
 
   let { adjustedDialog, location } = position.dialog(props);

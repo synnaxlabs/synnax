@@ -15,7 +15,7 @@ import { Dropdown } from "@synnaxlabs/pluto/dropdown";
 import { Tabs } from "@synnaxlabs/pluto/tabs";
 import { Tree } from "@synnaxlabs/pluto/tree";
 
-import { componentsPages, rolesPages } from "@/pages/nav";
+import { componentsPages, guidesPages } from "@/pages/nav";
 
 export type PageNavNode = Tree.Node;
 
@@ -38,9 +38,9 @@ interface ReferenceTreeProps {
   currentPage: string;
 }
 
-const ReferenceTree = ({ currentPage }: ReferenceTreeProps): ReactElement => {
+const Reference = ({ currentPage }: ReferenceTreeProps): ReactElement => {
   let parts = currentPage.split("/").filter((part) => part !== "");
-  if (parts.length === 0) parts = componentsPages.map((p) => p.key);
+  if (parts.length === 1) parts = componentsPages.map((p) => p.key);
   const treeProps = Tree.use({
     nodes: componentsPages,
     initialExpanded: parts,
@@ -49,7 +49,7 @@ const ReferenceTree = ({ currentPage }: ReferenceTreeProps): ReactElement => {
   return (
     <Tree.Tree
       {...treeProps}
-      className="tree reference-tree"
+      className="tree reference-tree styled-scrollbar"
       itemHeight={35}
       virtual={false}
       selected={[currentPage]}
@@ -58,18 +58,18 @@ const ReferenceTree = ({ currentPage }: ReferenceTreeProps): ReactElement => {
   );
 };
 
-const Role = ({ currentPage }: TOCProps): ReactElement => {
+const Guides = ({ currentPage }: TOCProps): ReactElement => {
   let parts = currentPage.split("/").filter((part) => part !== "");
-  if (parts.length === 0) parts = rolesPages.map((p) => p.key);
+  if (parts.length === 1) parts = guidesPages.map((p) => p.key);
   const treeProps = Tree.use({
-    nodes: rolesPages,
+    nodes: guidesPages,
     initialExpanded: parts,
     sort: false,
   });
   return (
     <Tree.Tree
       {...treeProps}
-      className="tree role-tree"
+      className="tree role-tree styled-scrollbar"
       itemHeight={35}
       virtual={false}
       selected={[currentPage]}
@@ -88,19 +88,18 @@ export const PageNav = ({ currentPage }: TOCProps): ReactElement | null => {
 
   const content: Tabs.TabsProps["content"] = ({ tabKey }) => {
     switch (tabKey) {
-      case "roles":
-        return <Role currentPage={currentPage} />;
+      case "guides":
+        return <Guides currentPage={currentPage} />;
       default:
-        return <ReferenceTree currentPage={currentPage} />;
+        return <Reference currentPage={currentPage} />;
     }
   };
 
   const tabsProps = Tabs.useStatic({
     selected: selectedTab,
-    // onSelect: console.log,
     tabs: [
-      { tabKey: "roles", name: "Roles" },
-      { tabKey: "components", name: "Components" },
+      { tabKey: "guides", name: "Guides" },
+      { tabKey: "reference", name: "Reference" },
     ],
     content,
   });

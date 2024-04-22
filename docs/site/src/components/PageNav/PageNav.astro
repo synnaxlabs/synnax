@@ -8,7 +8,7 @@ import { PageNav as PN } from "@/components/PageNav/PageNav";
 
 <style is:global>
     .page-nav {
-        width: 225px;
+        width: 220px;
         /* flex-shrink: 0; */
         /* overflow: hidden; */
 
@@ -20,6 +20,9 @@ import { PageNav as PN } from "@/components/PageNav/PageNav";
             & * {
                 font-weight: 450 !important;
             }
+            & .pluto-tabs-selector__btn {
+                flex-grow: 1;
+            }
         }
 
         .pluto-tree {
@@ -30,15 +33,6 @@ import { PageNav as PN } from "@/components/PageNav/PageNav";
                 font-size: var(--pluto-small-size);
                 line-height: var(--pluto-small-line-height);
                 font-weight: 400 !important;
-            }
-
-            &::-webkit-scrollbar {
-                width: 1rem;
-            }
-
-            &::-webkit-scrollbar-thumb {
-                background-color: var(--pluto-border-color);
-                border-radius: 2px;
             }
 
             overflow-x: hidden;

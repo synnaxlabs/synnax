@@ -7,20 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { clusterNav } from "@/pages/components/cluster/_nav";
-import { conceptsNav } from "@/pages/components/concepts/_nav";
-import { consoleNav } from "@/pages/components/console/_nav";
-import { pythonClientNav } from "@/pages/components/python-client/_nav";
-import { analystNav } from "@/pages/roles/analyst/nav";
-import { sysAdminNav } from "@/pages/roles/sys-admin/nav";
-import { operationsNav } from "@/pages/roles/operations/nav";
-import { typescriptClientNav } from "@/pages/components/typescript-client/_nav";
+import { clusterNav } from "@/pages/reference/cluster/_nav";
+import { conceptsNav } from "@/pages/reference/concepts/_nav";
+import { consoleNav } from "@/pages/reference/console/_nav";
+import { pythonClientNav } from "@/pages/reference/python-client/_nav";
+import { analystNav } from "@/pages/guides/analyst/nav";
+import { sysAdminNav } from "@/pages/guides/sys-admin/nav";
+import { operationsNav } from "@/pages/guides/operations/nav";
+import { typescriptClientNav } from "@/pages/reference/typescript-client/_nav";
 
 export const componentsPages = [
   {
     name: "Get Started",
-    key: "/",
-    href: "/",
+    key: "/reference/",
+    href: "/reference/",
   },
   conceptsNav,
   clusterNav,
@@ -28,11 +28,11 @@ export const componentsPages = [
   typescriptClientNav,
   consoleNav,
 ];
-export const rolesPages = [
+export const guidesPages = [
   {
     name: "Get Started",
-    key: "/",
-    href: "/",
+    key: "/guides/",
+    href: "/guides/",
   },
   analystNav,
   sysAdminNav,

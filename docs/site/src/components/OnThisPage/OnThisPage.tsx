@@ -14,6 +14,7 @@ import { Header } from "@synnaxlabs/pluto/header";
 import { Menu } from "@synnaxlabs/pluto/menu";
 import { type MarkdownHeading } from "astro";
 import { unescape } from "html-escaper";
+import { OSSelectButton } from "@/components/platform/PlatformTabs";
 
 interface ItemOffset {
   id: string;
@@ -31,9 +32,32 @@ export const OnThisPage = ({
   const onThisPageID = "on-this-page-heading";
   const itemOffsets = useRef<ItemOffset[]>([]);
   const [currentID, setCurrentID] = useState("");
+
+  useEffect(() => {
+    const i = setInterval(() => {
+      const titles = document.querySelectorAll("article :is(h1, h2, h3)");
+      const headerLinks = document.querySelectorAll(".on-this-page .header-link");
+      headerLinks.forEach((link) => {
+        // check if there's a matching title
+        const title = Array.from(titles).find((title) => {
+          return title.id === link.id;
+        });
+        if (title == null) {
+          // set the link display to none
+          link.style.display = "none";
+        } else {
+          link.style.display = "block";
+        }
+      });
+    }, 200);
+    return () => clearInterval(i);
+  }, []);
+
   useEffect(() => {
     const getItemOffsets = (): void => {
       const titles = document.querySelectorAll("article :is(h1, h2, h3)");
+      const headerLinks = document.querySelectorAll(".on-this-page .header-link");
+
       itemOffsets.current = Array.from(titles).map((title) => ({
         id: title.id,
         topOffset: title.getBoundingClientRect().top + window.scrollY,
@@ -79,36 +103,39 @@ export const OnThisPage = ({
     return () => headingsObserver.disconnect();
   }, [toc.current]);
 
-  // If there ar eno headings,
+  // If there are no headings,
   // return an empty div.
   if (headings.length === 0) return <></>;
 
   return (
-    <Align.Space el="nav" className="on-this-page" size={0.5}>
+    <Align.Space el="nav" className="on-this-page" size={2}>
       <Header.Header id={onThisPageID} className="heading" level="h5">
         <Header.Title>On this page</Header.Title>
       </Header.Header>
+      <OSSelectButton />
       <div ref={toc}>
         <Menu.Menu value={currentID}>
           {headings
             .filter(({ depth }) => depth > 1 && depth <= 3)
-            .map((heading) => (
-              <Menu.Item.Link
-                href={`#${heading.slug}`}
-                level="small"
-                key={heading.slug}
-                itemKey={heading.slug}
-                id={heading.slug}
-                onClick={() => {
-                  setCurrentID(heading.slug);
-                }}
-                className={`header-link depth-${heading.depth} ${
-                  currentID === heading.slug ? "current-header-link" : ""
-                }`.trim()}
-              >
-                {unescape(heading.text)}
-              </Menu.Item.Link>
-            ))}
+            .map((heading) => {
+              return (
+                <Menu.Item.Link
+                  href={`#${heading.slug}`}
+                  level="small"
+                  key={heading.slug}
+                  itemKey={heading.slug}
+                  id={heading.slug}
+                  onClick={() => {
+                    setCurrentID(heading.slug);
+                  }}
+                  className={`header-link ${heading.slug} depth-${heading.depth} ${
+                    currentID === heading.slug ? "current-header-link" : ""
+                  }`.trim()}
+                >
+                  {unescape(heading.text)}
+                </Menu.Item.Link>
+              );
+            })}
         </Menu.Menu>
       </div>
     </Align.Space>

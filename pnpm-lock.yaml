@@ -6559,7 +6559,7 @@ packages:
       '@mdx-js/react': 2.3.0(react@18.2.0)
       '@storybook/blocks': 7.6.4(@types/react-dom@18.2.17)(@types/react@18.2.43)(react-dom@18.2.0)(react@18.2.0)
       '@storybook/client-logger': 7.6.4
-      '@storybook/components': 7.6.4(@types/react-dom@18.2.17)(@types/react@18.2.43)(react-dom@18.2.0)(react@18.2.0)
+      '@storybook/reference': 7.6.4(@types/react-dom@18.2.17)(@types/react@18.2.43)(react-dom@18.2.0)(react@18.2.0)
       '@storybook/csf-plugin': 7.6.4
       '@storybook/csf-tools': 7.6.4
       '@storybook/global': 5.0.0
@@ -6685,7 +6685,7 @@ packages:
     dependencies:
       '@storybook/channels': 7.6.4
       '@storybook/client-logger': 7.6.4
-      '@storybook/components': 7.6.4(@types/react-dom@18.2.17)(@types/react@18.2.43)(react-dom@18.2.0)(react@18.2.0)
+      '@storybook/reference': 7.6.4(@types/react-dom@18.2.17)(@types/react@18.2.43)(react-dom@18.2.0)(react@18.2.0)
       '@storybook/core-events': 7.6.4
       '@storybook/csf': 0.1.2
       '@storybook/docs-tools': 7.6.4
@@ -6888,7 +6888,7 @@ packages:
       - supports-color
     dev: true
 
-  /@storybook/components@7.6.4(@types/react-dom@18.2.17)(@types/react@18.2.43)(react-dom@18.2.0)(react@18.2.0):
+  /@storybook/reference@7.6.4(@types/react-dom@18.2.17)(@types/react@18.2.43)(react-dom@18.2.0)(react@18.2.0):
     resolution: {integrity: sha512-K5RvEObJAnX+SbGJbkM1qrZEk+VR2cUhRCSrFnlfMwsn8/60T3qoH7U8bCXf8krDgbquhMwqev5WzDB+T1VV8g==}
     peerDependencies:
       react: ^16.8.0 || ^17.0.0 || ^18.0.0
