@@ -376,18 +376,27 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 	})
 
 	Describe("Close", func() {
+		It("Should close properly with a control setup", func() {
+			Expect(db.ConfigureControlUpdateChannel(ctx, 199)).To(Succeed())
+			Expect(db.CreateChannel(ctx, cesium.Channel{Key: 200, DataType: telem.Int64T, Rate: 1 * telem.Hz})).To(Succeed())
+			Expect(db.CreateChannel(ctx, cesium.Channel{Key: 201, DataType: telem.Int64T, Rate: 1 * telem.Hz})).To(Succeed())
+			Expect(db.CreateChannel(ctx, cesium.Channel{Key: 202, DataType: telem.TimeStampT, IsIndex: true})).To(Succeed())
+
+			w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Channels: []core.ChannelKey{200, 201, 202}, Start: 10 * telem.SecondTS}))
+			Expect(w.Close()).To(Succeed())
+		})
 		It("Should not allow operations on a closed iterator", func() {
 			Expect(db.CreateChannel(ctx, cesium.Channel{Key: 100, DataType: telem.Int64T, Rate: 1 * telem.Hz})).To(Succeed())
 			var (
-				i = MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Channels: []core.ChannelKey{100}, Start: 10 * telem.SecondTS}))
+				w = MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Channels: []core.ChannelKey{100}, Start: 10 * telem.SecondTS}))
 				e = core.EntityClosed("cesium.writer")
 			)
-			Expect(i.Close()).To(Succeed())
-			Expect(i.Close()).To(Succeed())
-			Expect(i.Write(cesium.Frame{Series: []telem.Series{{Data: []byte{1, 2, 3}}}})).To(BeFalse())
-			_, ok := i.Commit()
+			Expect(w.Close()).To(Succeed())
+			Expect(w.Close()).To(Succeed())
+			Expect(w.Write(cesium.Frame{Series: []telem.Series{{Data: []byte{1, 2, 3}}}})).To(BeFalse())
+			_, ok := w.Commit()
 			Expect(ok).To(BeFalse())
-			Expect(i.Error()).To(MatchError(e))
+			Expect(w.Error()).To(MatchError(e))
 		})
 	})
 })
