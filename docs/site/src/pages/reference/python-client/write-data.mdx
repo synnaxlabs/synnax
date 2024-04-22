@@ -21,8 +21,8 @@ for writing data to Synnax.
 
 ## Writing to a Channel
 
-Writing to a channel requires us to write to it index before we write its data. We'll 
-create the following channels to use as examples:
+Writing to a channel requires us to write timestamps to it's index channel before we 
+write the data. We'll create the following channels to use as examples:
 
 ```python
 import synnax as sy
@@ -42,7 +42,7 @@ my_precise_tc = client.channels.create(
 )
 ```
 
-We'll make sure to write timestamps to the index before we write the data to the channel:
+We'll make sure to write timestamps to the index before we write to the data channel.
 
 ```python
 from datetime import datetime
