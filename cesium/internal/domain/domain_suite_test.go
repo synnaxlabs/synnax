@@ -26,15 +26,11 @@ var (
 	cleanUp     func() error
 )
 
+var _ = BeforeSuite(func() { fileSystems, cleanUp = testutil.FileSystems() })
+
+var _ = AfterSuite(func() { Expect(cleanUp()).To(Succeed()) })
+
 func TestDomain(t *testing.T) {
-	BeforeSuite(func() {
-		fileSystems, cleanUp = testutil.FileSystems()
-	})
-
-	AfterSuite(func() {
-		Expect(cleanUp()).To(Succeed())
-	})
-
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Domain Suite")
 }
