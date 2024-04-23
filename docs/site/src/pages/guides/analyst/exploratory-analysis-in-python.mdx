@@ -18,14 +18,14 @@ attach post-processed results.
 #### Start a local cluster
 
 This guide assumes you've started a local cluster running on `localhost:9090` using the
-instructions [here](/deployment/get-started). You're more than welcome to use a remote
+instructions [here](/reference/cluster/quick-start). You're more than welcome to use a remote
 cluster, but you'll need to keep in mind that those connection parameters may be different
 than the ones used in this guide.
 
 #### Install the Synnax Console
 
 We're going to be using the Synnax console to do plot our data. To install it, follow 
-the instructions [here](/console/get-started).
+the instructions [here](/reference/console/get-started).
 
 #### Install and authenticate the Python client
 
@@ -90,7 +90,7 @@ Any any channels indexes (e.g. timestamps)? [y/n] (y):
 Synnax is asking if any of the columns in the contain timestamps that tell us when
 samples were taken. These types of columns are called "indexes" and are used to execute
 queries by time range. If you'd like to read more about the different channel types in
-Synnax, see [this page](/concepts/channels).
+Synnax, see [this page](/reference/concepts/channels).
 
 In our case, we have a 'Time' column that contains timestamps, so we'll enter `y` and hit
 enter. Synnax will then ask us to select the name of our index column:

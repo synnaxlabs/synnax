@@ -36,5 +36,5 @@ export const guidesPages = [
   },
   analystNav,
   sysAdminNav,
-  operationsNav,
+  {/*operationsNav,*/}
 ];
