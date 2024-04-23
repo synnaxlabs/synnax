@@ -23,7 +23,7 @@
     "astro": "^4.6.3",
     "astro-embed": "^0.7.1",
     "astro-seo": "^0.8.3",
-    "clsx": "^2.1.0",
+    "clsx": "^2.1.1",
     "dotenv": "^16.4.5",
     "html-escaper": "^3.0.3",
     "react": "^18.2.0",
