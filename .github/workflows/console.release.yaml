@@ -99,6 +99,8 @@ jobs:
         run: |
           if [ "${{ matrix.platform }}" = "macos-latest" ]; then
             echo "OS=macos" >> $GITHUB_ENV
+          elif [ "${{ matrix.platform }}" = "macos-12" ]; then
+            echo "OS=macos" >> $GITHUB_ENV
           elif [ "${{ matrix.platform }}" = "ubuntu-latest" ]; then
             echo "OS=linux" >> $GITHUB_ENV
           elif [ "${{ matrix.platform }}" = "windows-latest" ]; then
