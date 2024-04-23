@@ -13,7 +13,7 @@ The Python client provides interfaces for creating, retrieving, and deleting
 channels. We'll cover the details of each of these operations in this guide.
 
 If you're unfamiliar with what channels are and how they work, check out the
-[channels concepts guide](/concepts/channels).
+[channels concepts guide](/reference/concepts/channels).
 
 <Divider.Divider direction="x" />
 
@@ -162,7 +162,7 @@ key or name. Instead, the missing channel will simply be omitted from the list o
 
 ### Retrieving a Channel Using a Range
 
-If you've queried a [range](/analyze/access-ranges), you can access channels as
+If you've queried a [range](/reference/python-client/ranges), you can access channels as
 properties. If the channel name is not a valid Python identifier, you can use the
 dictionary accessor (`[]`) instead.
 
@@ -179,7 +179,7 @@ ch = bike_outing.sensor_one
 <Note variant="info">
  When using a range, it's possible to retrieve a channel by it's alias
 instead of its name. For more information, see
-<a href="/python-client/named-ranges#aliasing-channels">aliasing channels</a>.
+<a href="ranges#aliasing-channels">aliasing channels</a>.
 </Note>
 
 ### Retrieving Channels Using Regular Expressions

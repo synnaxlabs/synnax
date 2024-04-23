@@ -6,7 +6,7 @@ import { Divider } from "@synnaxlabs/pluto"
 import Code from "@/components/code/Code.astro";
 export const components = { pre: Code };
 
-Series and Frames are the two fundamental structures used for working with channel data
+Series and frames are the two fundamental structures used for working with channel data
 in Synnax. This guide will walk you through how to use the `Series` and `Frame` classes
 exposed by the Python client.
 
@@ -41,7 +41,7 @@ series = sy.Series(np.array([1, 2, 3, 4, 5], dtype=np.int64))
 # the series will automatically be assumed to be of type string.
 series = sy.Series(["apple", "banana", "cherry"])
 
-# Construct a series fro dictionaries. In this case, the series 
+# Construct a series from dictionaries. In this case, the series 
 # will automatically be assumed to be of type json.
 series = sy.Series([{"a": 1}, {"b": 2}, {"c": 3}])
 ```

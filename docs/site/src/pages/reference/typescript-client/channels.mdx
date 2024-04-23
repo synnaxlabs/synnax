@@ -9,10 +9,10 @@ import Note from "@/components/Note.astro";
 export const components = { pre: Code };
 
 The TypeScript client provides interfaces for creating, retrieving and deleting the
-channels in a Synnax cluster. In this guide, we'll cover the details of each of these 
+channels in a Synnax cluster. In this guide, we'll cover the details of each of these
 operations.
 
-If you're unfamiliar with what channels are and how they work, check out the 
+If you're unfamiliar with what channels are and how they work, check out the
 of [channels concepts guide](/reference/concepts/channels).
 
 <Divider.Divider direction="x" />
@@ -23,7 +23,7 @@ We can create channels using the `.channels.create` method on the client.
 
 ### Creating a Data Channel and its Index
 
-Creating a data channel first requires us to create an index channel to store its 
+Creating a data channel first requires us to create an index channel to store its
 timestamps.
 
 ```typescript
@@ -47,7 +47,7 @@ const tempChannel = await client.channels.create({
 });
 ```
 
-Notice how we set the `isIndex` property to `true` on the `"time"` index channel. This tells 
+Notice how we set the `isIndex` property to `true` on the `"time"` index channel. This tells
 Synnax that this channel will be used to store timestamps for other channels. We then
 pass the `index` property to the temperature sensor channel so it uses the `"time"` channel
 as its index.
@@ -60,13 +60,13 @@ provides the atomic guarantee that either no or all channels will be created.
 
 <Note variant="info">
 When creating variable rate channels, keep in mind that we need to create
-index channels before we can create the channels that use them. 
+index channels before we can create the channels that use them.
 </Note>
 
 ```typescript
 import { Channel } from "@synnaxlabs/client";
 
-// We need to create the index first, that way we can provide 
+// We need to create the index first, that way we can provide
 // its key to our data channels.
 const timeIndexChannel = await client.channels.create({
     name: "time",
@@ -101,12 +101,12 @@ const sensors = await client.channels.create(
 
 ## Retrieving Channels
 
-Like creating them, we can retrieve channels using the `channels.retrieve` method on 
+Like creating them, we can retrieve channels using the `channels.retrieve` method on
 the client.
 
 ### Retrieving a Single channel
 
-To retrieve a single channel, we can pass the channel's name or key to the `retrieve` 
+To retrieve a single channel, we can pass the channel's name or key to the `retrieve`
 method.
 
 ```typescript
@@ -117,13 +117,13 @@ const tempChannel = await client.channels.retrieve(tempChannel.key);
 ```
 
 If Synnax finds no channels matching the query, the client will raise a `NotFoundError`.
-If more than one channel matches the query, the client will raise a `MultipleFoundError`. 
+If more than one channel matches the query, the client will raise a `MultipleFoundError`.
 If you'd like to accept no or multiple results, provide a list to the `retrieve` method
 as shown in the next section.
 
 ### Retrieving multiple channels
 
-We can also retrieve multiple channels by passing a list of names or keys to the 
+We can also retrieve multiple channels by passing a list of names or keys to the
 `retrieve` method.
 
 ```typescript
@@ -170,12 +170,12 @@ Unlike with retrieving channels, Synnax will not raise an error if it cannot fin
 channel matching the key or name. This means that `delete` is an idempotent operation,
 and is safe to call even if the channel has already been deleted.
 
-Deleting a channel by name will delete **all** channels with that name. 
+Deleting a channel by name will delete **all** channels with that name.
 
 <Divider.Divider direction="x" />
 
 ## Next Steps
 
-Now that we know how to create and retrieve channels, we can start reading and writing
-data to them. Check out the [reading data](/reference/typescript-client/read-data)
-and [writing data](/reference/typescript-client/write-data) guides to learn more.
+Now that we know how to create and retrieve channels, we can start reading and
+writing data to them. Check out the [reading data](read-data) and [writing
+data](write-data) guides to learn more.
