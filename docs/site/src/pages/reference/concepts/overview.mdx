@@ -17,13 +17,13 @@ pages will introduce you to the core concepts needed to work effectively with a 
 
 ### Nodes
 
-A [node](/concepts/clusters-and-nodes) is an individual, running instance of the Synnax executable. The host machine
+A [node](clusters-and-nodes) is an individual, running instance of the Synnax executable. The host machine
 can be an edge device, VM, container, or bare metal server. The only requirement is
 that it can store data on disk and has an address reachable by other nodes in the cluster.
 
 ### Clusters
 
-Nodes communicate with each other to form a [cluster](/concepts/clusters-and-nodes). The
+Nodes communicate with each other to form a [cluster](clusters-and-nodes). The
 nodes in a cluster collaborate to read, write, and exchange data. Nodes expose the cluster
 as a monolothic data space, meaning that a user can query a single node for the entire
 cluster’s data without being aware of where it is actually stored.
@@ -44,7 +44,7 @@ from our cyclicts’s speedometer are reported as `float32` values in kilometers
 
 ### Channels
 
-A [channel](/concepts/channels) is a logical collection of samples emitted by or representing the values of a
+A [channel](channels) is a logical collection of samples emitted by or representing the values of a
 single source. We can store the speedometer readings across all the cyclists’s rides in
 a single channel titled “speed-gps”. We can also create channels that store post-processed
 results or simulated values. For example, we can record target speeds for each ride in a
@@ -55,7 +55,7 @@ data type, they can be contained in a channel.
 
 ### Domains
 
-[Domains](/concepts/write-domains) are continuous, non-overlapping time-partitions of a channel’s data. When writing
+[Domains](write-domains) are continuous, non-overlapping time-partitions of a channel’s data. When writing
 to a channel, a user must first define the starting timestamp of a new domain. After
 doing so, they are free to write chunks of data. Once finished, they commit the
 domain with an ending timestamp to atomically persist it to the channel. If the domain
@@ -67,7 +67,7 @@ finished. Over the course of three rides, we’ll create a domain for each ride 
 
 ### Ranges
 
-A [range](/concepts/read-ranges) (short for "time range"), is a user defined region of a channel's data. Unlike
+A [range](read-ranges) (short for "time range"), is a user defined region of a channel's data. Unlike
 domains, ranges are purely for categorization and do not affect the structure of a channel's
 data. Ranges can be subsections of a domain or span multiple domains. They can also overlap
 with or contain other ranges. Ranges are typically used to indicate important events or
