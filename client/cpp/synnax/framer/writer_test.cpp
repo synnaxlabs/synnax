@@ -37,7 +37,7 @@ TEST(FramerTests, testWriteBasic) {
     ASSERT_FALSE(dErr) << dErr.message();
 
     auto now = synnax::TimeStamp::now();
-    auto [writer, wErr] = client.openWriter(synnax::WriterConfig{
+    auto [writer, wErr] = client.telem.openWriter(synnax::WriterConfig{
             .channels = std::vector<synnax::ChannelKey>{time.key, data.key},
             .start = now,
             .authorities = std::vector<synnax::Authority>{synnax::ABSOLUTE, synnax::ABSOLUTE},
