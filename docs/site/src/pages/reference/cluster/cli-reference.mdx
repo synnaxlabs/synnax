@@ -1,0 +1,316 @@
+---
+title: "CLI Reference"
+layout: "@/layouts/MainLayout.astro"
+description: "Reference for the Synnax Database CLI"
+---
+import { Divider } from "@synnaxlabs/pluto"
+import Code from "@/components/code/Code.astro";
+import SynnaxVersionOutput from "@/components/deploy/SynnaxVersionOutput.astro";
+export const components = { pre: Code };
+
+import { Table } from "@/components/Table";
+import { Tabs } from "@/components/Tabs";
+
+
+<Divider.Divider direction="x" />
+
+## Start 
+
+The `start` command starts a node in a Synnax cluster, bootstrapping a new cluster if
+necessary.
+
+### Examples
+
+#### Starting a single-node cluster
+
+We can use the `i` and `m` flags to start a single node in insecure mode with an 
+in-memory data store.
+
+```cmd
+synnax start -l localhost:9090 -im
+```
+
+#### Joining a node to an existing cluster
+
+We can use the `p` flag to join a node to an existing cluster. If the node has no 
+existing cluster data, it will attempt to join the cluster by repeatedly contacting
+each peer in the list until successful.
+
+```cmd
+synnax start -l localhost:9090 -p localhost:9091,localhost:9092
+```
+
+
+### Flags
+
+<Table
+    columns={[
+        {
+            key: "option",
+            name: "Flag",
+            type: "code",
+            width: 150,
+        },
+        { key: "default", name: "Default", type: "code" },
+        { key: "description", name: "Description", type: "html"} 
+    ]}
+    data={[
+        {
+            option: "--listen/-l",
+            default: "localhost:9090",
+            description: `A reachable address and port to listen on for incoming client connections and RPCs from other nodes. This
+                is also the address and port that will be advertised to peers in the cluster.`,
+        },
+        {
+            option: "--peers/-p",
+            default: "[]",
+            description: `A list of comma separated peer nodes in an existing cluster. If this list is not empty, the node will
+            attempt to join the cluster by connecting to each peer in the list. If the list is empty and no existing cluster
+            data is found, the node will bootstrap a new cluster.`,
+        },
+        {
+            option: "--data/-d",
+            default: "/usr/local/synnax/data",
+            description:
+                "The file path to the storage device where Synnax will keep its data.",
+        },
+        {
+            option: "--verbose/-v",
+            default: "false",
+            description: "Enables verbose logging for diagnostic purposes.",
+        },
+        {
+            option: "--insecure/-i",
+            default: "false",
+            description:
+                "Starts the node without TLS encryption. This is not recommended for production use.",
+        },
+        {
+            option: "--mem/-m",
+            default: "false",
+            description:
+                `Starts the node with an in-memory data store. In this mode, all data will
+                kept in memory, will not be stored on disk, and will be lost when the node is
+                restarted. This can be useful for testing and development, but is not recommended
+                for production use.`,
+        },
+        {
+            option: "--config/c",
+            default: "~/.synnax.yaml",
+            description: `Path to a JSON, YAML, or TOML configuration file that can
+                be used to set the node's configuration instead of using flags or environment variables.
+                See <a href="#configuration-files">Configuration Files</a> for more information.`,
+        },
+        {
+            option: "--certs-dir",
+            default: "/usr/local/synnax/certs",
+            description:
+                "Path to the directory containing the TLS certificates for the node.",
+        },
+        {
+            option: "--ca-cert",
+            default: "ca.crt",
+            description: "Path to the CA certificate file relative to the certs-dir.",
+        },
+        {
+            option: "--node-cert",
+            default: "node.crt",
+            description: "Path to the node certificate file relative to the certs-dir.",
+        },
+        {
+            option: "--node-key",
+            default: "node.key",
+            description: "Path to the node key file relative to the certs-dir.",
+        },
+        {
+            option: "--username",
+            default: "synnax",
+            description: "Username for the database root user."
+        },
+        {
+            option: "--password",
+            default: "seldon",
+            description: "Password for the database root user."
+        }
+    ]}
+/>
+
+### Environment Variable Equivalents
+
+The following environment variables can be used in place of the corresponding flags. 
+Command line flags will take precedence over environment variables.
+
+<Table
+    columns={[
+        {
+            key: "option",
+            name: "Flag",
+            type: "code",
+        },
+        {
+            key: "env",
+            name: "Environment Variable",
+            type: "code",
+        },
+    ]}
+    data={[
+        {
+            option: "--listen/-l",
+            env: "SYNNAX_LISTEN",
+        },
+        {
+            option: "--peers/-p",
+            env: "SYNNAX_PEERS",
+        },
+        {
+            option: "--data/-d",
+            env: "SYNNAX_DATA",
+        },
+        {
+            option: "--verbose/-v",
+            env: "SYNNAX_VERBOSE",
+        },
+        {
+            option: "--insecure/-i",
+            env: "SYNNAX_INSECURE",
+        },
+        {
+            option: "--mem/-m",
+            env: "SYNNAX_MEM",
+        },
+        {
+            option: "--config/c",
+            env: "SYNNAX_CONFIG",
+        },
+        {
+            option: "--certs-dir",
+            env: "SYNNAX_CERTS_DIR",
+        },
+        {
+            option: "--ca-cert",
+            env: "SYNNAX_CA_CERT",
+        },
+        {
+            option: "--node-cert",
+            env: "SYNNAX_NODE_CERT",
+        },
+        {
+            option: "--node-key",
+            env: "SYNNAX_NODE_KEY",
+        },
+        {
+            option: "--username",
+            env: "SYNNAX_USERNAME",
+        },
+        {
+            option: "--password",
+            env: "SYNNAX_PASSWORD",
+        }
+    ]}
+/>
+
+### Configuration Files
+
+Synnax will also read configuration files in JSON, TOML and YAML formats. The values set
+in these configuration files take the lowest precedence and will be overridden by any
+environment variables or command line flags.
+
+By default, Synnax will look for a configuration file at `~/.synnax.yaml`. You can specify
+a different configuration file using the `--config` flag or the `SYNNAX_CONFIG` environment
+variable.
+
+Here are example configuration files in various formats.
+
+<Tabs
+client:load
+tabs={[
+    {
+        name: "JSON",
+        tabKey: "json",
+    },
+    {
+        name: "YAML",
+        tabKey: "yaml",
+    },
+    {
+        name: "TOML",
+        tabKey: "toml",
+    },
+]}
+>
+<slot slot="json">
+```json
+{
+    "listen": "localhost:9090",
+    "peers": ["localhost:9091", "localhost:9092"],
+    "data": "/usr/local/synnax/data",
+    "verbose": true,
+    "insecure": false,
+    "mem": false,
+    "config": "/usr/local/synnax/config.yaml",
+    "certs-dir": "/usr/local/synnax/certs",
+    "ca-cert": "ca.crt",
+    "node-cert": "node.crt",
+    "node-key": "node.key",
+    "username": "synnax",
+    "password": "seldon"
+}
+```
+</slot>
+<slot slot="yaml">
+```yaml
+listen: localhost:9090
+peers: 
+  - localhost:9091
+  - localhost:9092
+data: /usr/local/synnax/data
+verbose: true
+insecure: false
+mem: false
+config: /usr/local/synnax/config.yaml
+certs-dir: /usr/local/synnax/certs
+ca-cert: ca.crt
+node-cert: node.crt
+node-key: node.key
+username: synnax
+password: seldon
+```
+</slot>
+<slot slot="toml">
+```toml
+listen = "localhost:9090"
+peers = ["localhost:9091", "localhost:9092"]
+data = "/usr/local/synnax/data"
+verbose = true
+insecure = false
+mem = false
+config = "/usr/local/synnax/config.yaml"
+certs-dir = "/usr/local/synnax/certs"
+ca-cert = "ca.crt"
+node-cert = "node.crt"
+node-key = "node.key"
+username = "synnax"
+password = "seldon"
+```
+</slot>
+</Tabs>
+
+<Divider.Divider direction="x" />
+
+## Version
+
+The `version` command prints the installed version of the Synnax database.
+
+### Examples
+
+```cmd
+synnax version
+```
+
+You'll see output similar to the following:
+
+<SynnaxVersionOutput />
+
+### Flags
+
+This command has no flags.

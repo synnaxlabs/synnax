@@ -31,18 +31,18 @@
     "@synnaxlabs/x": "workspace:*",
     "js-convert-case": "^4.2.0",
     "node-fetch": "2.6.11",
-    "ws": "^8.15.1",
+    "ws": "^8.16.0",
     "zod": "3.22.4"
   },
   "devDependencies": {
     "@synnaxlabs/tsconfig": "workspace:*",
     "@synnaxlabs/vite-plugin": "workspace:*",
-    "@types/node": "^20.10.5",
-    "@vitest/coverage-v8": "^1.2.2",
+    "@types/node": "^20.12.7",
+    "@vitest/coverage-v8": "1.2.2",
     "eslint-config-synnaxlabs": "workspace:*",
-    "typescript": "^5.3.3",
-    "vite": "^5.1.2",
-    "vitest": "^1.2.2"
+    "typescript": "^5.4.5",
+    "vite": "5.1.2",
+    "vitest": "1.2.2"
   },
   "main": "dist/freighter.cjs",
   "module": "dist/freighter.js",

@@ -28,6 +28,8 @@ type (
 	Frame      = core.Frame
 )
 
+var ChannelNotFound = core.ChannelNotFound
+
 func NewFrame(keys []core.ChannelKey, series []telem.Series) Frame {
 	return core.NewFrame(keys, series)
 }

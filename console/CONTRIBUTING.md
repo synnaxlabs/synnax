@@ -28,7 +28,7 @@ pnpm dev:console
 
 If you make a change to an upstream dependency, you will need to rebuild
 it in order for the changes to reflect in the development server. For more
-information on this process, see the [Typescript Build Guide](../docs/tech/typescript/build.md).
+information on this process, see the [TypeScript Build Guide](../docs/tech/typescript/build.md).
 
 In Console, it's particularly common to make a change to [pluto](../pluto/README.md), rebuild it, and see that change reflected in Console.
 

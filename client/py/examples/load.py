@@ -97,7 +97,7 @@ write_to = [
 read_from = [v.key for v in valve_commands]
 
 # Define a crude rate at which we'll write data.
-rate = (sy.Rate.HZ * 50).period.seconds
+rate = (sy.Rate.HZ * 100).period.seconds
 
 # Set up the initial state of the valves (closed).
 sensor_states = {v.key: np.uint8(False) for v in valve_responses}

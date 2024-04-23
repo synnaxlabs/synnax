@@ -8,32 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { trace } from "@opentelemetry/api";
-import { runtime } from "@synnaxlabs/x";
-import uptrace from "@uptrace/web";
 
 import { Instrumentation } from "@/instrumentation";
 import { Logger } from "@/log";
 import { Tracer } from "@/trace";
 
-const configureOpentelemetry = (config: uptrace.Config): void => {
-  if (runtime.RUNTIME === "browser") {
-    uptrace.configureOpentelemetry(config);
-  } else {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const uptrace = require("@uptrace/node");
-    uptrace.configureOpentelemetry(config);
-  }
-};
-
-const DEV_DSN = "http://synnax_dev@localhost:14318/2";
-
 export const instrumentation = (): Instrumentation => {
   const serviceName = "synnax";
-  configureOpentelemetry({
-    dsn: DEV_DSN,
-    serviceName,
-    deploymentEnvironment: "dev",
-  });
   return new Instrumentation({
     key: "",
     serviceName,

@@ -112,17 +112,22 @@
         "mode": "auto"
       }
     ],
+    "cSpell.enableFiletypes": [
+      "mdx"
+    ],
     "cSpell.words": [
+      "astro",
       "downsample",
       "glsl",
       "immer",
+      "keychain",
       "lineplot",
       "Migratable",
       "Navdrawer",
       "reduxjs",
-      "immer",
       "syncer",
       "Synnax",
+      "synnaxlabs",
       "tauri",
       "Tauri",
       "telem"
@@ -136,3 +141,4 @@
     ]
   }
 }
+

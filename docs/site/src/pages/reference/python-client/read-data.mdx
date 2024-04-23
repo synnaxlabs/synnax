@@ -1,0 +1,130 @@
+---
+layout: "@/layouts/MainLayout.astro"
+title: "Read Data"
+description: "Use the Python client to read from a Synnax cluster"
+---
+import { Divider } from "@synnaxlabs/pluto"
+import Code from "@/components/code/Code.astro";
+export const components = { pre: Code };
+
+The Python client supports several different ways of reading data from a cluster. We can 
+read directly from a channel, fetch a range and access its data, or leverage server
+side iterators for processing large queries.
+
+<Divider.Divider direction="x" />
+
+## Reading from a Channel
+
+The simplest way to read data from Synnax is to use the `read` method on the `Channel`
+class. 
+
+```python
+from datetime import datetime
+
+channel = client.channels.retrieve("my_precise_tc")
+
+time_format = "%Y-%m-%d %H:%M:%S"
+
+start = datetime.strptime("2023-2-12 12:30:00", time_format)
+end = datetime.strptime("2023-2-12 14:30:00", time_format)
+
+data = channel.read(start, end)
+```
+
+The returned data is an instance of the `Series` class, but for all intents and purposes
+can be treated exactly like a `numpy.ndarray`. For example, we can perform vectorized
+operations on the data.
+
+```python
+data = data - 273.15
+```
+
+The `Series` class does give us some additional functionality. Most notably, we can
+get the time range occupied by the data.
+
+```python
+tr = data.time_range
+print(tr)
+# 2023-02-12 12:30:00 - 2023-02-12 14:30:00
+```
+
+This method is important, as it's not always the case that data exists for the entire
+time range queried.
+
+<Divider.Divider direction="x" />
+
+## Reading from Multiple Channels
+
+We can also read from multiple channels at once by calling the `read` method on the
+`client`.  This method takes a list of channel names/keys and a time range.
+
+```python
+frame = client.read(start, end, ["my_precise_tc", "time"])
+```
+
+The returned data is an instance of the `Frame` class. We can access `Series` on the
+class by using the `[]` operator.
+
+```python
+data = frame["my_precise_tc"]
+```
+
+We can also convert the `Frame` to a `pandas.DataFrame` by calling the `to_df`
+method.
+
+```python
+df = frame.to_df()
+```
+
+<Divider.Divider direction="x" />
+
+## Reading Channel Data from a Range
+
+While the above methods are useful for executing precise reads, they require us to know
+the exact range of time we're interested in reading. [Ranges](ranges)
+are a useful way of categorizing important time ranges in a cluster's data. We can read
+directly from these ranges.
+
+We can access channels on a `Range` object and call `read` on them to access their data.
+
+```python
+rng = client.ranges.retrieve("My Interesting Test")
+
+# Read the data from the channel
+data = rng.my_precise_tc.read()
+
+data = data - 273.15
+```
+
+It turns out that we don't even need to call the `read` method at all. We can just use
+the channel name directly to perform operations on the data.
+
+```python
+data = rng.my_precise_tc - 273.15
+```
+
+We can also plot the data just as easily.
+
+```python
+import matplotlib.pyplot as plt
+
+# Plot time on the x-axis and temperature on the y-axis
+plt.plot(rng.time, rng.my_precise_tc)
+```
+<Divider.Divider direction="x" />
+
+## Reading with Iterators
+
+Single, multi, and named reads will cover most use cases, but there are situations where 
+it's necessary to process large volumes of data. Sometimes these reads may be too large
+to fit in memory.
+
+Synnax supports server side iterators that allow us to process large queries in 
+consistently sized chunks.
+
+```python
+with client.open_iterator(start, end, "my_precise_tc", chunk_size=100) as it:
+    for frame in it:
+        # Do something with the frame
+```
+
