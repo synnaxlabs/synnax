@@ -12,8 +12,7 @@ import Search from "@/components/search/Search.astro";
         align="center"
     >
         <a href="https://synnaxlabs.com">
-            <Logo style={{ height: "5rem" }} variant="icon" />
-            <Logo style={{ height: "5rem" }} variant="title" />
+            <Logo variant="title" />
         </a>
         <Align.Space direction="x" align="center">
             <p class="version" transition:persist></p>
@@ -44,16 +43,20 @@ import Search from "@/components/search/Search.astro";
             display: none;
         }
 
-        & .synnax-logo--title text {
-            font-weight: unset;
+        & .synnax-logo--title {
+            height: 5rem;
+            text {
+                font-weight: unset;
+            }
         }
 
         @media (max-width: 1100px) {
-            & .synnax-logo--icon {
-                display: block;
-            }
             & .synnax-logo--title {
-                display: none;
+                margin-top: 1rem;
+                height: 7rem;
+                & text {
+                    display: none;
+                }
             }
         }
     }
