@@ -8,23 +8,23 @@ description: "Learn how to create and find data ranges in Synnax"
 import { Video } from "@/components/Media";
 import { Table } from "@/components/Table";
 
-This page walks you through using [ranges](/concepts/read-ranges) to query sections of
+This page walks you through using [ranges](/reference/concepts/read-ranges) to query sections of
 your cluster's data.
 
 ## Prerequisites
 
 This page assumes you've already:
 
--   [Installed the Console](/console/get-started)
--   [Connected to a cluster](/console/connect-a-cluster)
+-   [Installed the Console](get-started)
+-   [Connected to a cluster](connect-a-cluster)
 
 ## Defining New Ranges
 
 The primary means for accessing data in the Synnax console is through ranges. A range 
 is identified by a start timestamp, end timestamp, and name. You can read more conceptually
-about ranges [here](/concepts/read-ranges).
+about ranges [here](/reference/concepts/read-ranges).
 
-### Local ranges
+### Local Ranges
 
 Local ranges exist only within your console, and are not persisted to the cluster. They're
 quite useful for quickly exploring data, and can eventually be converted to persisted
@@ -33,7 +33,7 @@ ranges toolbar.
 
 <Video client:only="react" id="console/new-range" />
 
-### Persisted ranges
+### Persisted Ranges
 
 Persisted ranges are saved permanently to the cluster, and can be accessed by other
 members of your organization. Creating a persisted range is the same as creating a 
@@ -41,7 +41,7 @@ local range, but you'll click the "Save Permanently" button instead.
 
 <Video client:only="react" id="console/new-permanent-range" />
 
-### Parameters for creating a range
+### Parameters for Creating a Range
 
 <Table
     columns={[
@@ -87,7 +87,7 @@ local range, but you'll click the "Save Permanently" button instead.
 There are two ways to find existing ranges in the console. The resources tool bar and
 the command and search palette.
 
-### Through the resources toolbar
+### Through the Resources Toolbar
 
 The resources toolbar is located on the left side of the console, and can be used to 
 browse all of your cluster's resources, including ranges. All of your ranges can
@@ -97,7 +97,7 @@ be found under the "Ranges" section.
 
 We can load a specific range into our ranges table by double clicking on it.
 
-### Through the command and search palette
+### Through the Command and Search Palette
 
 The command and search palette is located in the top center of the console, and can be
 used to search for cluster resources and execute commands. We can find a permanently
@@ -107,4 +107,3 @@ saved range just by typing its name into the palette.
 
 Use the arrow keys to navigate the results, and press enter to load the range you're
 interested in. You can also hover and click using your mouse.
-

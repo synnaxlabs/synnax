@@ -10,13 +10,18 @@ import { Video } from "@/components/Media";
 import { Table } from "@/components/Table";
 import Note from "@/components/Note.astro";
 import { Text } from "@synnaxlabs/pluto";
+import { Divider } from "@synnaxlabs/pluto";
+
+<Divider.Divider direction="x" />
 
 ## Prerequisites
 
 This page assumes you've already:
 
-- [Started a cluster](/components/cluster/quick-start)
+- [Started a cluster](/reference/cluster/quick-start)
 - [Installed the Synnax console](get-started)
+
+<Divider.Divider direction="x" />
 
 ## Adding a New Cluster
 
@@ -76,6 +81,8 @@ monitors the connection to the cluster and displays it in the bottom right corne
 started with the `--insecure` flag.
 </Note>
 
+<Divider.Divider direction="x" />
+
 ## Switching Clusters
 
 If you have multiple clusters, you can switch between them by double clicking on the
@@ -83,7 +90,9 @@ cluster you'd like to to connect in the toolbar.
 
 <Video client:only="react" id="console/switch-clusters" />
 
+<Divider.Divider direction="x" />
+
 ## Next Steps
 
 You can find a basic overview of the console UI on the [UI
-overview](/console/ui-overview) page.
+overview](ui-overview) page.
