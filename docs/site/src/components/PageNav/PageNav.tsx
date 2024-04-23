@@ -51,7 +51,6 @@ const Reference = ({ currentPage }: ReferenceTreeProps): ReactElement => {
     <Tree.Tree
       {...treeProps}
       className="tree reference-tree styled-scrollbar"
-      itemHeight={35}
       virtual={false}
       selected={[currentPage]}
       useMargin
@@ -72,7 +71,6 @@ const Guides = ({ currentPage }: TOCProps): ReactElement => {
     <Tree.Tree
       {...treeProps}
       className="tree role-tree styled-scrollbar"
-      itemHeight={35}
       virtual={false}
       selected={[currentPage]}
       useMargin

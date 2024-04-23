@@ -14,9 +14,9 @@ export const sysAdminNav: PageNavNode = {
   name: "System Administrators",
   children: [
     {
-      name: "Concepts",
-      href: "/guides/sys-admin/concepts",
-      key: "/guides/sys-admin/concepts",
+      name: "Deployment Considerations",
+      href: "/guides/sys-admin/deployment-considerations",
+      key: "/guides/sys-admin/deployment-considerations",
     },
     {
       name: "Deployment with Self-Signed Certificates",

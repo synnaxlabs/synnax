@@ -11,7 +11,8 @@ import { Search as S } from "@/components/search/Search";
         z-index: 50000;
         transform: translateX(-50%);
         --pluto-pack-br: 0.6666rem !important;
-        width: 850px;
+        width: 65vw;
+        max-width: 800px;
 
         & .pluto-input {
             --pluto-pack-br: 0.6666rem !important;
@@ -40,15 +41,6 @@ import { Search as S } from "@/components/search/Search";
 
             & a:hover {
                 text-decoration: none;
-            }
-        }
-
-        @media (max-width: 700px) {
-            & .pluto-input {
-                width: 200px;
-            }
-            & .pluto-dropdown__dialog {
-                width: 200px;
             }
         }
     }

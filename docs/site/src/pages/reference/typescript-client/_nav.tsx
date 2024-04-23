@@ -44,6 +44,11 @@ export const typescriptClientNav: PageNavNode = {
       name: "Series and Frames",
     },
     {
+      key: "/reference/typescript-client/timestamps",
+      href: "/reference/typescript-client/timestamps",
+      name: "Timestamps",
+    },
+    {
       key: "/reference/typescript-client/examples",
       href: "/reference/typescript-client/examples",
       name: "Examples",

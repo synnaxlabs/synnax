@@ -101,6 +101,7 @@ export const Search = (): ReactElement => {
           }}
           onFocus={d.open}
           centerPlaceholder
+          size="large"
         />
         <List.List
           data={results}
