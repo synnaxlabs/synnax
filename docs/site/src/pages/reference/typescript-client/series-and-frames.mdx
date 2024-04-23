@@ -201,9 +201,9 @@ console.log(series.bounds); // { lower: 1, upper: 5 }
 
 A frame is a collection of series from multiple channels. Frames are returned by:
 
-- The `read` method of the Synnax data client (`client.telem.read`)
-- The `read` method of a `Streamer` instance (`client.telem.openStreamer`)
-- The `value` property of an `Iterator` instance (`client.telem.openIterator`)
+- The `read` method of the Synnax data client (`client.read`)
+- The `read` method of a `Streamer` instance (`client.openStreamer`)
+- The `value` property of an `Iterator` instance (`client.openIterator`)
 
 ### Constructing a Frame
 

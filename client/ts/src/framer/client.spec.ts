@@ -10,7 +10,6 @@
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { channel } from "@/channel";
 import { newClient } from "@/setupspecs";
 
 const client = newClient();
@@ -30,11 +29,11 @@ describe("Client", () => {
         index: time.key,
       });
       const start = TimeStamp.now();
-      await client.telem.write(start, {
+      await client.write(start, {
         [time.key]: [start],
         [data.key]: [1],
       });
-      const frame = await client.telem.read(
+      const frame = await client.read(
         {
           start,
           end: start.add(TimeSpan.seconds(1)),
@@ -57,8 +56,8 @@ describe("Client", () => {
         index: time.key,
       });
       const start = TimeStamp.now();
-      await client.telem.write(start, time.key, TimeStamp.now());
-      await client.telem.write(start, data.key, 1);
+      await client.write(start, time.key, TimeStamp.now());
+      await client.write(start, data.key, 1);
     });
   });
 });

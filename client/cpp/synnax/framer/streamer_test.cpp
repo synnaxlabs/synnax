@@ -28,14 +28,14 @@ TEST(FramerTests, testStreamBasic)
         ASSERT_FALSE(cErr) << cErr.message();
         auto now = synnax::TimeStamp::now();
         std::vector<synnax::ChannelKey> channels = {data.key};
-        auto [writer, wErr] = client.telem.openWriter(synnax::WriterConfig{
+        auto [writer, wErr] = client.openWriter(synnax::WriterConfig{
             .channels = channels,
             .start = now,
             .authorities = std::vector<synnax::Authority>{synnax::ABSOLUTE},
             .subject = synnax::Subject{.name = "test_writer"}});
         ASSERT_FALSE(wErr) << wErr.message();
 
-        auto [streamer, sErr] = client.telem.openStreamer(synnax::StreamerConfig{
+        auto [streamer, sErr] = client.openStreamer(synnax::StreamerConfig{
             .channels = channels,
         });
         ASSERT_FALSE(sErr) << sErr.message();

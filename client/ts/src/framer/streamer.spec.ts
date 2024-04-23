@@ -26,9 +26,9 @@ const newChannel = async (): Promise<channel.Channel> =>
 describe("Streamer", () => {
   test("happy path", async () => {
     const ch = await newChannel();
-    const streamer = await client.telem.openStreamer(ch.key);
+    const streamer = await client.openStreamer(ch.key);
     await new Promise((resolve) => setTimeout(resolve, 100));
-    const writer = await client.telem.openWriter({
+    const writer = await client.openWriter({
       start: TimeStamp.now(),
       channels: ch.key,
     });
@@ -43,13 +43,13 @@ describe("Streamer", () => {
   test("open with config", async () => {
     const ch = await newChannel();
     await expect(
-      client.telem.openStreamer({
+      client.openStreamer({
         channels: ch.key,
         from: TimeStamp.now(),
       }),
     ).resolves.not.toThrow();
   });
   it("should not throw an error when the streamer is opened with zero channels", async () => {
-    await expect(client.telem.openStreamer([])).resolves.not.toThrow();
+    await expect(client.openStreamer([])).resolves.not.toThrow();
   });
 });

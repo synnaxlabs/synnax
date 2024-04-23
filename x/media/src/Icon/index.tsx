@@ -89,7 +89,7 @@ import {
 } from "react-icons/md";
 import { PiSelectionPlusBold, PiMagnifyingGlassBold } from "react-icons/pi";
 import { RiSettings3Fill as RiSettingsFill, RiSoundModuleFill } from "react-icons/ri";
-import { SiNpm, SiPnpm, SiPython, SiTypeScript, SiYarn } from "react-icons/si";
+import { SiNpm, SiPnpm, SiPython, SiTypescript, SiYarn } from "react-icons/si";
 import {
   TbArrowRight,
   TbArrowDown,
@@ -178,7 +178,7 @@ export const Icon: IconType = {
   OS: IconOS,
   Box: AiOutlineBorder,
   Python: SiPython,
-  TypeScript: SiTypeScript,
+  TypeScript: SiTypescript,
   NPM: SiNpm,
   PNPM: SiPnpm,
   Yarn: SiYarn,

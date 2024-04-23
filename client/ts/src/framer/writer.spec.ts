@@ -29,7 +29,7 @@ describe("Writer", () => {
   describe("Writer", () => {
     test("basic write", async () => {
       const ch = await newChannel();
-      const writer = await client.telem.openWriter({ start: 0, channels: ch.key });
+      const writer = await client.openWriter({ start: 0, channels: ch.key });
       try {
         await writer.write(ch.key, randomSeries(10, ch.dataType));
         await writer.commit();
@@ -40,7 +40,7 @@ describe("Writer", () => {
     });
     test("write to unknown channel key", async () => {
       const ch = await newChannel();
-      const writer = await client.telem.openWriter({ start: 0, channels: ch.key });
+      const writer = await client.openWriter({ start: 0, channels: ch.key });
       await expect(
         writer.write("billy bob", randomSeries(10, DataType.FLOAT64)),
       ).rejects.toThrow("Channel billy bob not found");
@@ -48,8 +48,8 @@ describe("Writer", () => {
     });
     test("stream when mode is set ot persist only", async () => {
       const ch = await newChannel();
-      const stream = await client.telem.openStreamer(ch.key);
-      const writer = await client.telem.openWriter({
+      const stream = await client.openStreamer(ch.key);
+      const writer = await client.openWriter({
         start: 0,
         channels: ch.key,
         mode: WriterMode.PersistOnly,
@@ -71,8 +71,8 @@ describe("Writer", () => {
     test("Client - basic write", async () => {
       const ch = await newChannel();
       const data = randomSeries(10, ch.dataType);
-      await client.telem.write(TimeStamp.seconds(1), ch.key, data);
-      const res = await client.telem.read(TimeRange.MAX, ch.key);
+      await client.write(TimeStamp.seconds(1), ch.key, data);
+      const res = await client.read(TimeRange.MAX, ch.key);
       expect(res.length).toEqual(data.length);
       expect(res.data).toEqual(data);
     });

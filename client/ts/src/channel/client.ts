@@ -13,11 +13,11 @@ import {
   Rate,
   type TypedArray,
   type CrudeDensity,
-  type Series,
   type TimeRange,
   type AsyncTermSearcher,
   toArray,
   type CrudeTimeStamp,
+  type MultiSeries,
 } from "@synnaxlabs/x";
 
 import {
@@ -148,7 +148,7 @@ export class Channel {
    * @param end - The ending timestamp of the range to read from.
    * @returns A typed array containing the retrieved
    */
-  async read(tr: TimeRange): Promise<Series | undefined> {
+  async read(tr: TimeRange): Promise<MultiSeries> {
     return await this.framer.read(tr, this.key);
   }
 

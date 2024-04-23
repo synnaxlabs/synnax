@@ -9,10 +9,10 @@
 
 import { type StreamClient } from "@synnaxlabs/freighter";
 import {
-  type Series,
   type CrudeTimeStamp,
   type CrudeSeries,
   type CrudeTimeRange,
+  type MultiSeries,
 } from "@synnaxlabs/x";
 
 import { type KeysOrNames, type KeyOrName, type Params } from "@/channel/payload";
@@ -128,6 +128,7 @@ export class Client {
       } finally {
         await w.close();
       }
+      return;
     }
     const w = await this.openWriter({
       start,
@@ -142,14 +143,14 @@ export class Client {
     }
   }
 
-  async read(tr: CrudeTimeRange, channel: KeyOrName): Promise<Series>;
+  async read(tr: CrudeTimeRange, channel: KeyOrName): Promise<MultiSeries>;
 
   async read(tr: CrudeTimeRange, channels: Params): Promise<Frame>;
 
-  async read(tr: CrudeTimeRange, channels: Params): Promise<Series | Frame> {
+  async read(tr: CrudeTimeRange, channels: Params): Promise<MultiSeries | Frame> {
     const { single } = analyzeParams(channels);
     const fr = await this.readFrame(tr, channels);
-    if (single) return fr.series[0];
+    if (single) return fr.get(channels as KeyOrName);
     return fr;
   }
 

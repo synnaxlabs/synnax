@@ -16,9 +16,9 @@ const client = newClient();
 
 describe("state", () => {
   it("should receive the initial control state from the cluster", async () => {
-    const s = await control.StateTracker.open(client.telem);
+    const s = await control.StateTracker.open(client);
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(s.states.size).toBeGreaterThan(0);
-    s.close();
+    await s.close();
   });
 });

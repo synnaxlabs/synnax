@@ -14,7 +14,7 @@ const {
 } = Astro.props;
 ---
 
-<html transition:animate="none">
+<html>
     <head>
         <SEO
             title={title}
@@ -51,20 +51,13 @@ const {
     <Footer />
 
     <script>
-        import { startThemeDriver } from "@/util/theme";
+        import { addListeners } from "@/components/code/codeUtil";
         import { startUpdatingIframeHref } from "@/util/iframe";
-        startThemeDriver();
-        startUpdatingIframeHref();
+        addListeners();
         document.addEventListener("astro:after-swap", () => {
-            startThemeDriver();
+            addListeners();
             startUpdatingIframeHref();
         });
-    </script>
-
-    <script>
-        import { addListeners } from "@/components/code/codeUtil";
-        addListeners();
-        document.addEventListener("astro:after-swap", addListeners);
         new MutationObserver(addListeners).observe(document.body, {
             childList: true,
             subtree: true,
@@ -81,6 +74,291 @@ const {
     </script>
 
     <style is:global>
+        html {
+            @media (prefers-color-scheme: dark) {
+                --pluto-theme-name: Synnax Dark;
+                --pluto-theme-key: synnax-dark;
+                --pluto-primary-m1: #164fa0;
+                --pluto-primary-z: #3774d0;
+                --pluto-primary-p1: #5e94ee;
+                --pluto-primary-z-90: #3774d0e5;
+                --pluto-primary-z-80: #3774d0cc;
+                --pluto-primary-z-70: #3774d0b2;
+                --pluto-primary-z-60: #3774d099;
+                --pluto-primary-z-50: #3774d07f;
+                --pluto-primary-z-40: #3774d066;
+                --pluto-primary-z-30: #3774d04c;
+                --pluto-primary-z-20: #3774d033;
+                --pluto-primary-z-10: #3774d019;
+                --pluto-secondary-m1: #38b261;
+                --pluto-secondary-z: #50c878;
+                --pluto-secondary-p1: #73d393;
+                --pluto-secondary-z-90: #50c878e5;
+                --pluto-secondary-z-80: #50c878cc;
+                --pluto-secondary-z-70: #50c878b2;
+                --pluto-secondary-z-60: #50c87899;
+                --pluto-secondary-z-50: #50c8787f;
+                --pluto-secondary-z-40: #50c87866;
+                --pluto-secondary-z-30: #50c8784c;
+                --pluto-secondary-z-20: #50c87833;
+                --pluto-secondary-z-10: #50c87819;
+                --pluto-gray-l0: #020202;
+                --pluto-gray-l0-90: #020202e5;
+                --pluto-gray-l0-80: #020202cc;
+                --pluto-gray-l0-70: #020202b2;
+                --pluto-gray-l0-60: #02020299;
+                --pluto-gray-l0-50: #0202027f;
+                --pluto-gray-l0-40: #02020266;
+                --pluto-gray-l0-30: #0202024c;
+                --pluto-gray-l0-20: #02020233;
+                --pluto-gray-l0-10: #02020219;
+                --pluto-gray-l1: #080808;
+                --pluto-gray-l1-90: #080808e5;
+                --pluto-gray-l1-80: #080808cc;
+                --pluto-gray-l1-70: #080808b2;
+                --pluto-gray-l1-60: #08080899;
+                --pluto-gray-l1-50: #0808087f;
+                --pluto-gray-l1-40: #08080866;
+                --pluto-gray-l1-30: #0808084c;
+                --pluto-gray-l1-20: #08080833;
+                --pluto-gray-l1-10: #08080819;
+                --pluto-gray-l2: #141414;
+                --pluto-gray-l3: #1a1a1a;
+                --pluto-gray-l3-90: #1a1a1ae5;
+                --pluto-gray-l3-80: #1a1a1acc;
+                --pluto-gray-l3-70: #1a1a1ab2;
+                --pluto-gray-l3-60: #1a1a1a99;
+                --pluto-gray-l3-50: #1a1a1a7f;
+                --pluto-gray-l3-40: #1a1a1a66;
+                --pluto-gray-l3-30: #1a1a1a4c;
+                --pluto-gray-l3-20: #1a1a1a33;
+                --pluto-gray-l3-10: #1a1a1a19;
+                --pluto-gray-l4: #242424;
+                --pluto-gray-l5: #515151;
+                --pluto-gray-l5-90: #515151e5;
+                --pluto-gray-l5-80: #515151cc;
+                --pluto-gray-l5-70: #515151b2;
+                --pluto-gray-l5-60: #51515199;
+                --pluto-gray-l5-50: #5151517f;
+                --pluto-gray-l5-40: #51515166;
+                --pluto-gray-l5-30: #5151514c;
+                --pluto-gray-l5-20: #51515133;
+                --pluto-gray-l5-10: #51515119;
+                --pluto-gray-l6: #7f7f7f;
+                --pluto-gray-l6-90: #7f7f7fe5;
+                --pluto-gray-l6-80: #7f7f7fcc;
+                --pluto-gray-l6-70: #7f7f7fb2;
+                --pluto-gray-l6-60: #7f7f7f99;
+                --pluto-gray-l6-50: #7f7f7f7f;
+                --pluto-gray-l6-40: #7f7f7f66;
+                --pluto-gray-l6-30: #7f7f7f4c;
+                --pluto-gray-l6-20: #7f7f7f33;
+                --pluto-gray-l6-10: #7f7f7f19;
+                --pluto-gray-l7: #9d9d9d;
+                --pluto-gray-l7-90: #9d9d9de5;
+                --pluto-gray-l7-80: #9d9d9dcc;
+                --pluto-gray-l7-70: #9d9d9db2;
+                --pluto-gray-l7-60: #9d9d9d99;
+                --pluto-gray-l7-50: #9d9d9d7f;
+                --pluto-gray-l7-40: #9d9d9d66;
+                --pluto-gray-l7-30: #9d9d9d4c;
+                --pluto-gray-l7-20: #9d9d9d33;
+                --pluto-gray-l7-10: #9d9d9d19;
+                --pluto-gray-l8: #bfbfbf;
+                --pluto-gray-l9: #ededed;
+                --pluto-gray-l9-90: #ededede5;
+                --pluto-gray-l9-80: #edededcc;
+                --pluto-gray-l9-70: #edededb2;
+                --pluto-gray-l9-60: #ededed99;
+                --pluto-gray-l9-50: #ededed7f;
+                --pluto-gray-l9-40: #ededed66;
+                --pluto-gray-l9-30: #ededed4c;
+                --pluto-gray-l9-20: #ededed33;
+                --pluto-gray-l9-10: #ededed19;
+                --pluto-gray-l10: #fdfdfd;
+                --pluto-logo-color: var(--pluto-text-color);
+                --pluto-error-m1: #c30912;
+                --pluto-error-z: #f5242e;
+                --pluto-error-p1: #f63c45;
+                --pluto-white: #ffffff;
+                --pluto-white-rgb: 255, 255, 255;
+                --pluto-black: #000000;
+                --pluto-black-rgb: 0, 0, 0;
+                --pluto-text-color: #ededed;
+                --pluto-text-color-rgb: 237, 237, 237;
+                --pluto-border-color: #1a1a1a;
+                --pluto-base-size: 7px;
+                --pluto-border-radius: 2px;
+                --pluto-border-width: 1px;
+                --pluto-pid-element-stroke-width: 2px;
+                --pluto-font-family: "Inter Variable", sans-serif;
+                --pluto-h1-size: 7rem;
+                --pluto-h1-weight: 450;
+                --pluto-h1-line-height: 8rem;
+                --pluto-h2-size: 4.75rem;
+                --pluto-h2-weight: 500;
+                --pluto-h2-line-height: 150%;
+                --pluto-h3-size: 3.5rem;
+                --pluto-h3-weight: 450;
+                --pluto-h3-line-height: 150%;
+                --pluto-h4-size: 3rem;
+                --pluto-h4-weight: 500;
+                --pluto-h4-line-height: 150%;
+                --pluto-h5-size: 2rem;
+                --pluto-h5-weight: 400;
+                --pluto-h5-line-height: 4.5rem;
+                --pluto-h5-text-transform: none;
+                --pluto-p-size: 2.25rem;
+                --pluto-p-weight: 350;
+                --pluto-p-line-height: 4rem;
+                --pluto-small-size: 2rem;
+                --pluto-small-weight: 350;
+                --pluto-small-line-height: 150%;
+            }
+
+            @media (prefers-color-scheme: light) {
+                --pluto-theme-name: Synnax Light;
+                --pluto-theme-key: synnax-light;
+                --pluto-primary-m1: #164fa0;
+                --pluto-primary-z: #3774d0;
+                --pluto-primary-p1: #5e94ee;
+                --pluto-primary-z-90: #3774d0e5;
+                --pluto-primary-z-80: #3774d0cc;
+                --pluto-primary-z-70: #3774d0b2;
+                --pluto-primary-z-60: #3774d099;
+                --pluto-primary-z-50: #3774d07f;
+                --pluto-primary-z-40: #3774d066;
+                --pluto-primary-z-30: #3774d04c;
+                --pluto-primary-z-20: #3774d033;
+                --pluto-primary-z-10: #3774d019;
+                --pluto-primary-z-5: #3975d00d;
+                --pluto-secondary-m1: #38b261;
+                --pluto-secondary-z: #50c878;
+                --pluto-secondary-p1: #73d393;
+                --pluto-secondary-z-90: #50c878e5;
+                --pluto-secondary-z-80: #50c878cc;
+                --pluto-secondary-z-70: #50c878b2;
+                --pluto-secondary-z-60: #50c87899;
+                --pluto-secondary-z-50: #50c8787f;
+                --pluto-secondary-z-40: #50c87866;
+                --pluto-secondary-z-30: #50c8784c;
+                --pluto-secondary-z-20: #50c87833;
+                --pluto-secondary-z-10: #50c87819;
+                --pluto-gray-l0: #fcfcfc;
+                --pluto-gray-l0-90: #fcfcfce5;
+                --pluto-gray-l0-80: #fcfcfccc;
+                --pluto-gray-l0-70: #fcfcfcb2;
+                --pluto-gray-l0-60: #fcfcfc99;
+                --pluto-gray-l0-50: #fcfcfc7f;
+                --pluto-gray-l0-40: #fcfcfc66;
+                --pluto-gray-l0-30: #fcfcfc4c;
+                --pluto-gray-l0-20: #fcfcfc33;
+                --pluto-gray-l0-10: #fcfcfc19;
+                --pluto-gray-l1: #f9f9f9;
+                --pluto-gray-l1-90: #f9f9f9e5;
+                --pluto-gray-l1-80: #f9f9f9cc;
+                --pluto-gray-l1-70: #f9f9f9b2;
+                --pluto-gray-l1-60: #f9f9f999;
+                --pluto-gray-l1-50: #f9f9f97f;
+                --pluto-gray-l1-40: #f9f9f966;
+                --pluto-gray-l1-30: #f9f9f94c;
+                --pluto-gray-l1-20: #f9f9f933;
+                --pluto-gray-l1-10: #f9f9f919;
+                --pluto-gray-l2: #f4f4f4;
+                --pluto-gray-l3: #ededed;
+                --pluto-gray-l3-90: #ededede5;
+                --pluto-gray-l3-80: #edededcc;
+                --pluto-gray-l3-70: #edededb2;
+                --pluto-gray-l3-60: #ededed99;
+                --pluto-gray-l3-50: #ededed7f;
+                --pluto-gray-l3-40: #ededed66;
+                --pluto-gray-l3-30: #ededed4c;
+                --pluto-gray-l3-20: #ededed33;
+                --pluto-gray-l3-10: #ededed19;
+                --pluto-gray-l4: #d9d9d9;
+                --pluto-gray-l5: #adadad;
+                --pluto-gray-l5-90: #adadade5;
+                --pluto-gray-l5-80: #adadadcc;
+                --pluto-gray-l5-70: #adadadb2;
+                --pluto-gray-l5-60: #adadad99;
+                --pluto-gray-l5-50: #adadad7f;
+                --pluto-gray-l5-40: #adadad66;
+                --pluto-gray-l5-30: #adadad4c;
+                --pluto-gray-l5-20: #adadad33;
+                --pluto-gray-l5-10: #adadad19;
+                --pluto-gray-l6: #878787;
+                --pluto-gray-l6-90: #878787e5;
+                --pluto-gray-l6-80: #878787cc;
+                --pluto-gray-l6-70: #878787b2;
+                --pluto-gray-l6-60: #87878799;
+                --pluto-gray-l6-50: #8787877f;
+                --pluto-gray-l6-40: #87878766;
+                --pluto-gray-l6-30: #8787874c;
+                --pluto-gray-l6-20: #87878733;
+                --pluto-gray-l6-10: #87878719;
+                --pluto-gray-l7: #616161;
+                --pluto-gray-l7-90: #616161e5;
+                --pluto-gray-l7-80: #616161cc;
+                --pluto-gray-l7-70: #616161b2;
+                --pluto-gray-l7-60: #61616199;
+                --pluto-gray-l7-50: #6161617f;
+                --pluto-gray-l7-40: #61616166;
+                --pluto-gray-l7-30: #6161614c;
+                --pluto-gray-l7-20: #61616133;
+                --pluto-gray-l7-10: #61616119;
+                --pluto-gray-l8: #404040;
+                --pluto-gray-l9: #1c1c1c;
+                --pluto-gray-l9-90: #1c1c1ce5;
+                --pluto-gray-l9-80: #1c1c1ccc;
+                --pluto-gray-l9-70: #1c1c1cb2;
+                --pluto-gray-l9-60: #1c1c1c99;
+                --pluto-gray-l9-50: #1c1c1c7f;
+                --pluto-gray-l9-40: #1c1c1c66;
+                --pluto-gray-l9-30: #1c1c1c4c;
+                --pluto-gray-l9-20: #1c1c1c33;
+                --pluto-gray-l9-10: #1c1c1c19;
+                --pluto-gray-l10: #050505;
+                --pluto-logo-color: url(#synnax-linear-gradient);
+                --pluto-error-m1: #c30912;
+                --pluto-error-z: #f5242e;
+                --pluto-error-p1: #f63c45;
+                --pluto-white: #ffffff;
+                --pluto-white-rgb: 255, 255, 255;
+                --pluto-black: #000000;
+                --pluto-black-rgb: 0, 0, 0;
+                --pluto-text-color: #1c1c1c;
+                --pluto-text-color-rgb: 28, 28, 28;
+                --pluto-border-color: #ededed;
+                --pluto-base-size: 7px;
+                --pluto-border-radius: 2px;
+                --pluto-border-width: 1px;
+                --pluto-pid-element-stroke-width: 2px;
+                --pluto-font-family: "Inter Variable", sans-serif;
+                --pluto-h1-size: 7rem;
+                --pluto-h1-weight: 450;
+                --pluto-h1-line-height: 8rem;
+                --pluto-h2-size: 4.75rem;
+                --pluto-h2-weight: 500;
+                --pluto-h2-line-height: 150%;
+                --pluto-h3-size: 3.5rem;
+                --pluto-h3-weight: 450;
+                --pluto-h3-line-height: 150%;
+                --pluto-h4-size: 3rem;
+                --pluto-h4-weight: 500;
+                --pluto-h4-line-height: 150%;
+                --pluto-h5-size: 2rem;
+                --pluto-h5-weight: 400;
+                --pluto-h5-line-height: 4.5rem;
+                --pluto-h5-text-transform: none;
+                --pluto-p-size: 2.25rem;
+                --pluto-p-weight: 350;
+                --pluto-p-line-height: 4rem;
+                --pluto-small-size: 2rem;
+                --pluto-small-weight: 350;
+                --pluto-small-line-height: 150%;
+            }
+        }
+
         * {
             scroll-margin: 20rem;
         }

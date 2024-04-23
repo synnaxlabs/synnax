@@ -139,7 +139,7 @@ export class Controller
           variant: "warning",
         });
 
-      this.writer = await client.telem.openWriter({
+      this.writer = await client.openWriter({
         start: TimeStamp.now(),
         channels: needsControlOf,
         controlSubject: { key: this.key, name: this.state.name },

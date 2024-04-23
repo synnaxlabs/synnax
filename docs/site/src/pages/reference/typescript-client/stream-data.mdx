@@ -17,7 +17,7 @@ To start streaming data, call the `telem.openStreamer` method on the client and 
 a list of channels to stream.
 
 ```typescript
-const streamer = await client.telem.openStreamer(["temperature1", "temperature2"]);
+const streamer = await client.openStreamer(["temperature1", "temperature2"]);
 ```
 
 ## Reading Frames
@@ -61,7 +61,7 @@ We recommend using the `streamer` object within a `try-finally` block when possi
 ensures that the streamer is always closed, even if an exception is thrown.
 
 ```typescript
-const streamer = await client.telem.openStreamer(["temperature1", "temperature2"]);
+const streamer = await client.openStreamer(["temperature1", "temperature2"]);
 try {
   for await (const frame of streamer) {
     // Process the frame
