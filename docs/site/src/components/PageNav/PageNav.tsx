@@ -41,6 +41,7 @@ interface ReferenceTreeProps {
 const Reference = ({ currentPage }: ReferenceTreeProps): ReactElement => {
   let parts = currentPage.split("/").filter((part) => part !== "");
   if (parts.length === 1) parts = componentsPages.map((p) => p.key);
+  if (currentPage === "/guides/") currentPage = "/reference/";
   const treeProps = Tree.use({
     nodes: componentsPages,
     initialExpanded: parts,
@@ -61,6 +62,7 @@ const Reference = ({ currentPage }: ReferenceTreeProps): ReactElement => {
 const Guides = ({ currentPage }: TOCProps): ReactElement => {
   let parts = currentPage.split("/").filter((part) => part !== "");
   if (parts.length === 1) parts = guidesPages.map((p) => p.key);
+  if (currentPage === "/reference/") currentPage = "/guides/";
   const treeProps = Tree.use({
     nodes: guidesPages,
     initialExpanded: parts,
@@ -84,7 +86,7 @@ export const PageNav = ({ currentPage }: TOCProps): ReactElement | null => {
   // Split the current page by slashes and remove and get the first part
   const selectedTab = currentPage.split("/").filter((part) => part !== "")[0];
 
-  const { visible, toggle } = Dropdown.use({ initialVisible: false });
+  const { visible, toggle, close } = Dropdown.use({ initialVisible: false });
 
   const content: Tabs.TabsProps["content"] = ({ tabKey }) => {
     switch (tabKey) {
@@ -98,8 +100,8 @@ export const PageNav = ({ currentPage }: TOCProps): ReactElement | null => {
   const tabsProps = Tabs.useStatic({
     selected: selectedTab,
     tabs: [
-      { tabKey: "guides", name: "Guides" },
       { tabKey: "reference", name: "Reference" },
+      { tabKey: "guides", name: "Guides" },
     ],
     content,
   });
@@ -107,12 +109,12 @@ export const PageNav = ({ currentPage }: TOCProps): ReactElement | null => {
   const tree = <Tabs.Tabs {...tabsProps} />;
 
   if (width == null) return null;
-  if (width > 700) return tree;
+  if (width > 800) return tree;
   return (
-    <Dropdown.Dialog visible={visible} bordered={false} location="top">
+    <Dropdown.Dialog visible={visible} close={close} variant="floating">
       <Button.Button
         justify="spaceBetween"
-        endIcon={<Icon.Copy />}
+        endIcon={<Icon.Menu />}
         variant="text"
         onClick={() => toggle(!visible)}
         size="large"

@@ -11,12 +11,17 @@ const { title, description } = Astro.props;
 <style is:global>
     article {
         padding: 5rem 8rem;
-        max-width: 840px;
+        flex-basis: 840px;
         flex-shrink: 1;
         flex-grow: 1;
         margin-bottom: 25rem;
+        min-width: 0;
         .article-title {
             width: fit-content;
+        }
+
+        @media (max-width: 700px) {
+            padding: 2rem;
         }
 
         .article-title::after {

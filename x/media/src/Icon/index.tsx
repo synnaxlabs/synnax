@@ -40,12 +40,12 @@ import {
   FaStream,
   FaWindows,
 } from "react-icons/fa";
-import { FiMenu } from "react-icons/fi";
 import { GrPan } from "react-icons/gr";
 import { HiDownload, HiLightningBolt, HiOutlinePlus } from "react-icons/hi";
 import { HiSquare3Stack3D } from "react-icons/hi2";
 import { IoMdRefresh } from "react-icons/io";
 import { IoBookSharp, IoCopySharp, IoTime } from "react-icons/io5";
+import { GiHamburgerMenu } from "react-icons/gi";
 import {
   MdEdit,
   MdOutlineDeviceHub,
@@ -183,7 +183,7 @@ export const Icon: IconType = {
   PNPM: SiPnpm,
   Yarn: SiYarn,
   QuestionMark: MdQuestionMark,
-  Menu: FiMenu,
+  Menu: GiHamburgerMenu,
   Logo: {
     Github: AiFillGithub,
     LinkedIn: AiFillLinkedin,

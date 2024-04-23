@@ -6,7 +6,7 @@ description: "Solutions to common issues when working with Synnax in Python"
 ---
 import Code from "@/components/code/Code.astro";
 export const components = { pre: Code };
-
+import { PlatformTabs } from "@/components/platform/PlatformTabs"
 import { Icon } from "@synnaxlabs/media";
 import { Tabs } from "@/components/Tabs";
 import Note from "@/components/Note.astro";
@@ -14,16 +14,7 @@ import Note from "@/components/Note.astro";
 The following sections outline common issues our users encounter when working with the 
 Synnax Python client. To get started, select your operating system below.
 
-<Tabs
-    client:load
-    tabs={[
-        { name: "MacOS", tabKey: "macos" },
-        { name: "Windows", tabKey: "windows" },
-        { name: "Linux", tabKey: "linux" },
-    ]}
->
-
-<Icon.OS.Windows slot="windows-icon" />
+<PlatformTabs client:only="react" exclude={["docker"]}>
 <Fragment slot="windows">
 
 ## Installing Python
@@ -369,4 +360,4 @@ variable by running:
 echo $PATH
 ```
 </Fragment>
-</Tabs>
+</PlatformTabs>

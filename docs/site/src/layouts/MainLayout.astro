@@ -51,16 +51,13 @@ const {
     <Footer />
 
     <script>
-        import { addListeners } from "@/components/code/codeUtil";
+        import { addCodeButtonListeners } from "@/components/code/codeUtil";
         import { startUpdatingIframeHref } from "@/util/iframe";
-        addListeners();
+        addCodeButtonListeners();
+        startUpdatingIframeHref();
         document.addEventListener("astro:after-swap", () => {
-            addListeners();
+            addCodeButtonListeners();
             startUpdatingIframeHref();
-        });
-        new MutationObserver(addListeners).observe(document.body, {
-            childList: true,
-            subtree: true,
         });
     </script>
 
@@ -75,6 +72,16 @@ const {
 
     <style is:global>
         html {
+            --nav-height: 10rem;
+            --max-width: 1400px;
+            --astro-code-color-text: var(--pluto-text-color);
+            --astro-code-color-background: var(--pluto-gray-l1);
+            --astro-code-token-comment: var(--pluto-gray-l5);
+            --astro-code-token-string-expression: #219237;
+            --astro-code-token-function: var(--pluto-primary-z);
+            --astro-code-token-punctuation: var(--pluto-text-color);
+            --astro-code-token-keyword: #dc1342;
+            --astro-code-token-constant: var(--pluto-text-color);
             @media (prefers-color-scheme: dark) {
                 --pluto-theme-name: Synnax Dark;
                 --pluto-theme-key: synnax-dark;
@@ -204,9 +211,9 @@ const {
                 --pluto-h4-size: 3rem;
                 --pluto-h4-weight: 500;
                 --pluto-h4-line-height: 150%;
-                --pluto-h5-size: 2rem;
-                --pluto-h5-weight: 400;
-                --pluto-h5-line-height: 4.5rem;
+                --pluto-h5-size: 2.3333rem;
+                --pluto-h5-weight: 450;
+                --pluto-h5-line-height: 150%;
                 --pluto-h5-text-transform: none;
                 --pluto-p-size: 2.25rem;
                 --pluto-p-weight: 350;
@@ -346,9 +353,9 @@ const {
                 --pluto-h4-size: 3rem;
                 --pluto-h4-weight: 500;
                 --pluto-h4-line-height: 150%;
-                --pluto-h5-size: 2rem;
+                --pluto-h5-size: 2.333333rem;
                 --pluto-h5-weight: 400;
-                --pluto-h5-line-height: 4.5rem;
+                --pluto-h5-line-height: 150%;
                 --pluto-h5-text-transform: none;
                 --pluto-p-size: 2.25rem;
                 --pluto-p-weight: 350;
@@ -375,18 +382,23 @@ const {
                 padding: 0 2rem;
                 max-width: 1340px;
             }
+            @media (max-width: 768px) {
+                & > section {
+                    flex-direction: column;
+                }
+            }
         }
         nav {
             position: sticky;
             top: 18rem;
             height: 100%;
+            & p,
+            small {
+                white-space: normal !important;
+            }
         }
     </style>
     <style is:global>
-        .pluto-tabs-selector__button p {
-            margin: 0;
-        }
-
         .styled-scrollbar {
             &::-webkit-scrollbar {
                 width: 1rem;
@@ -398,49 +410,18 @@ const {
             }
         }
 
-        html {
-            --pluto-gray-n1: white;
-            @media (prefers-color-scheme: dark) {
-                --pluto-gray-n1: var(--pluto-gray-l1);
-            }
-        }
-
-        nav {
-            & p,
-            small {
-                white-space: normal !important;
-            }
-            & small {
-                margin-top: 2px !important;
-            }
-        }
-
         a {
             color: var(--pluto-primary-p1);
             text-decoration: none;
-        }
-
-        :root {
-            --nav-height: 10rem;
-            --max-width: 1400px;
-            --astro-code-color-text: var(--pluto-text-color);
-            --astro-code-color-background: var(--pluto-gray-l1);
-            --astro-code-token-comment: var(--pluto-gray-l5);
-            /* forest green */
-            --astro-code-token-string-expression: #219237;
-            --astro-code-token-function: var(--pluto-primary-z);
-            --astro-code-token-punctuation: var(--pluto-text-color);
-            --astro-code-token-keyword: #dc1342;
-            --astro-code-token-constant: var(--pluto-text-color);
         }
 
         a:hover:not(.pluto-btn) {
             text-decoration: underline;
         }
 
-        header:is(h1, h2, p) {
+        /* header:is(h1, h2, p) {
             margin: 0 !important;
-        }
+        } */
 
         li {
             margin: 0.5rem;
@@ -523,8 +504,6 @@ const {
             border-collapse: collapse;
             overflow-x: auto;
             border-style: hidden;
-            /* border-radius: var(--pluto-border-radius); */
-            /* box-shadow: 0 0 0 1px var(--pluto-border-color); */
         }
     </style>
 </html>

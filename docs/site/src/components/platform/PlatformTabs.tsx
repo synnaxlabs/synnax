@@ -16,14 +16,15 @@ export interface PlatformTabsProps {
 }
 
 export const PlatformTabs = ({ exclude = [], priority = [], ...props }) => {
-  const tabs = [
+  let tabs = [
     { name: "Docker", tabKey: "docker", icon: <Icon.OS.Docker /> },
     { name: "Linux", tabKey: "linux", icon: <Icon.OS.Linux /> },
     { name: "MacOS", tabKey: "macos", icon: <Icon.OS.MacOS /> },
     { name: "Windows", tabKey: "windows", icon: <Icon.OS.Windows /> },
-  ]
-    .filter((tab) => !exclude.includes(tab.tabKey))
-    .sort((a, b) => {
+  ].filter((tab) => !exclude.includes(tab.tabKey));
+
+  if (priority.length > 0)
+    tabs = tabs.sort((a, b) => {
       const aIndex = priority.indexOf(a.tabKey);
       const bIndex = priority.indexOf(b.tabKey);
       // idx of -1 means not in priority list, so it should be sorted to the end
