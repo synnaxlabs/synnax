@@ -71,7 +71,7 @@ describe("Writer", () => {
     test("Client - basic write", async () => {
       const ch = await newChannel();
       const data = randomSeries(10, ch.dataType);
-      await client.telem.write(ch.key, TimeStamp.seconds(1), data);
+      await client.telem.write(TimeStamp.seconds(1), ch.key, data);
       const res = await client.telem.read(TimeRange.MAX, ch.key);
       expect(res.length).toEqual(data.length);
       expect(res.data).toEqual(data);

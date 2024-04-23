@@ -1,7 +1,7 @@
 ---
 layout: "@/layouts/MainLayout.astro"
 title: "Write Data"
-description: "Use the Typescript client to write to a Synnax cluster"
+description: "Use the TypeScript client to write to a Synnax cluster"
 ---
 import Code from "@/components/code/Code.astro";
 export const components = { pre: Code };
@@ -12,61 +12,8 @@ fashion using a writer.
 
 ## Writing to a Channel
 
-### The simplest write - fixed rate
-
-Writing to a fixed rate channel is as simple as calling the channel's `write` method.
-We'll create the following fixed rate channel as an example:
-
-```typescript
-import { DataType, Rate } from "@synnaxlabs/client";
-
-const myTemperatureSensor = await client.channels.create({
-    name: "temperature",
-    rate: Rate.hz(5),
-    dataType: DataType.FLOAT32
-});
-```
-
-Then, we'll provide our data and a timestamp marking the first sample to the `write`
-method:
-
-```typescript
-import { TimeStamp } from "@synnaxlabs/client";
-
-// Our temperature data
-const data = new Float32Array([20.0, 20.1, 20.2, 20.3, 20.4]);
-
-// The timestamp of the first sample. All other samples will be spaced from this
-// timestamp according to the channel's rate. In this case, the rate is 5Hz, so
-// the samples will be spaced 200ms apart i.e.
-// 20.0 @ start + 0ms
-// 20.1 @ start + 200ms
-// 20.2 @ start + 400ms
-// 20.3 @ start + 600ms
-// 20.4 @ start + 800ms
-const start = TimeStamp.now();
-
-// Write the data
-await myTemperatureSensor.write(TimeStamp.now(), data);
-```
-
-If we had multiple channels, we would pass the same timestamp to each channel's `write`
-method. This would ensure that the data is correctly aligned across all channels.
-
-```typescript
-const temperatureData = new Float32Array([20.0, 20.1, 20.2, 20.3, 20.4]);
-const pressureData = new Float32Array([1000.0, 1000.1, 1000.2, 1000.3, 1000.4]);
-
-const start = TimeStamp.now();
-
-await myTemperatureSensor.write(start, temperatureData);
-await myPressureSensor.write(start, pressureData);
-```
-
-### Writing to a channel with a variable rate
-
-Writing to a variable rate channel requires us to write to a channel's index before 
-we write it's data. We'll create the following index-indexed pair as an example:
+Writing to a channel requires us to write timestamps to it's index channel before we write
+the data. We'll create the following channels to use as examples:
 
 ```typescript
 import { DataType } from "@synnaxlabs/client";
@@ -84,8 +31,7 @@ const temperatureChannel = await client.channels.create({
 });
 ```
 
-Then, we'll make sure to write teimstamps to the index before we write data to the
-channel:
+Then, we'll make sure to write timestamps to the index before we write to the data channel.
 
 ```typescript
 

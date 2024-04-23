@@ -110,7 +110,7 @@ the official go tour:
 If you're new to programming, we recommend starting
 with [Learn Python - Full Course for Beginner's](https://www.youtube.com/watch?v=rfscVS0vtbw).
 
-### 1.0.3 - Programming Core in Javascript and Typescript
+### 1.0.3 - Programming Core in Javascript and TypeScript
 
 #### 1.0.3.0 - Recommended Beginner's Course
 
@@ -226,7 +226,7 @@ you've read our [Python build system guide](./python/python.md).
 
 ## 7.1 - PNPM
 
-PNPM is the package manager we use for all of our Typescript code. Make sure you've
+PNPM is the package manager we use for all of our TypeScript code. Make sure you've
 familiarized yourself with some of the basic commands. Documentation is available
 [here](https://pnpm.io/). As a supplement to this, make sure you've read our
 [frontend build system guide](./typescript/build.md).

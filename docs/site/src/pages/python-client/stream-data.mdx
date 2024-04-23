@@ -1,20 +1,14 @@
 ---
 layout: "@/layouts/MainLayout.astro"
 title: "Stream Data"
-heading: "Stream Data"
-description: "Use the Python client to stream data from a Synnax cluster"
+description: "Use the Python client to stream telemetry from a Synnax cluster"
 ---
-import { Divider } from "@synnaxlabs/pluto"
-import Code from "@/components/code/Code.astro";
-export const components = { pre: Code };
 
-Streaming data is useful for real-time processing, visualization, and monitoring. 
-This page guides you through using the TypeScript client to stream data from a 
+Streaming telemetry is useful for real-time processing, visualization, and monitoring. 
+This page guides you through using the TypeScript client to stream telemetry from a 
 Synnax cluster.
 
-<Divider.Divider direction="x" />
-
-## Opening a Streamer
+## Open a Streamer
 
 To start streaming data, call the `open_streamer` method on the client and provide a 
 list of channels to stream.
@@ -23,11 +17,10 @@ list of channels to stream.
 streamer = client.open_streamer(["channel1", "channel2"])
 ```
 
-<Divider.Divider direction="x" />
-
 ## Reading Frames
 
-Then, to read the next incoming frame, call the `read` method on the streamer.
+Then, to read the next incoming telemetry frame, call the `read` method on the 
+StorageManager.
 
 ```python
 frame = streamer.read()
@@ -48,8 +41,6 @@ incoming frames, blocking on each iteration until a new frame is received.
 for frame in streamer:
     print(frame)
 ```
-
-<Divider.Divider direction="x" />
 
 ## Closing the Streamer
 
@@ -73,7 +64,7 @@ with client.open_streamer(["channel1", "channel2"]) as streamer:
 
 ## Using an Async Streamer
 
-If you're interested in using `asyncio` to stream data, you can use the 
+If you're interested in using `asyncio` to stream telemetry, you can use the 
 `open_async_streamer` method on the client. This streamer implements an identical interface
 to a synchronous streamer, but all methods are asynchronous.
 
