@@ -23,7 +23,8 @@ export interface VideoProps
 const CDN_ROOT = "https://synnax.nyc3.cdn.digitaloceanspaces.com/docs";
 
 export const Video = ({ id, ...props }: VideoProps): ReactElement => {
-  const theme = localStorage.getItem("theme") ?? "light";
+  // check if the user prefers dark mode
+  const theme = window.matchMedia("(prefers-color-scheme: dark)").media;
   const modifier = theme?.toLowerCase().includes("dark") ? "dark" : "light";
   return (
     <Core.Video
@@ -37,9 +38,9 @@ export const Video = ({ id, ...props }: VideoProps): ReactElement => {
 };
 
 export const Image = ({ id, themed = true, ...props }: VideoProps): ReactElement => {
+  const theme = window.matchMedia("(prefers-color-scheme: dark)").media;
   let url = `${CDN_ROOT}/${id}`;
   if (themed) {
-    const theme = localStorage.getItem("theme") ?? "light";
     const modifier = theme?.toLowerCase().includes("dark") ? "dark" : "light";
     url += `-${modifier}`;
   }
