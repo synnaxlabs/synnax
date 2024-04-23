@@ -11,7 +11,7 @@ import { type PageNavNode } from "@/components/PageNav/PageNav";
 
 export const typescriptClientNav: PageNavNode = {
   key: "typescript-client",
-  name: "Typescript Client",
+  name: "TypeScript Client",
   children: [
     {
       key: "/reference/typescript-client/get-started",

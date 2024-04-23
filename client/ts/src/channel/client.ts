@@ -159,7 +159,7 @@ export class Channel {
    * @param data - THe telemetry to write to the channel.
    */
   async write(start: CrudeTimeStamp, data: TypedArray): Promise<void> {
-    return await this.framer.write(this.key, start, data);
+    return await this.framer.write(start, this.key, data);
   }
 }
 
