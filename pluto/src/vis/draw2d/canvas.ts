@@ -23,6 +23,46 @@ export class SugaredOffscreenCanvasRenderingContext2D
     this.scale_ = scale_;
   }
 
+  get fontStretch(): CanvasFontStretch {
+    return this.wrapped.fontStretch;
+  }
+
+  set fontStretch(value: CanvasFontStretch) {
+    this.wrapped.fontStretch = value;
+  }
+
+  get fontVariantCaps(): CanvasFontVariantCaps {
+    return this.wrapped.fontVariantCaps;
+  }
+
+  set fontVariantCaps(value: CanvasFontVariantCaps) {
+    this.wrapped.fontVariantCaps = value;
+  }
+
+  get letterSpacing(): string {
+    return this.wrapped.letterSpacing;
+  }
+
+  set letterSpacing(value: string) {
+    this.wrapped.letterSpacing = value;
+  }
+
+  get textRendering(): CanvasTextRendering {
+    return this.wrapped.textRendering;
+  }
+
+  set textRendering(value: CanvasTextRendering) {
+    this.wrapped.textRendering = value;
+  }
+
+  get wordSpacing(): string {
+    return this.wrapped.wordSpacing;
+  }
+
+  set wordSpacing(value: string) {
+    this.wrapped.wordSpacing = value;
+  }
+
   reset(): void {
     this.wrapped.reset();
   }
