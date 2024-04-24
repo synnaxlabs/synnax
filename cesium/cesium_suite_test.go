@@ -39,11 +39,16 @@ func pathInDBFromKey(key cesium.ChannelKey) string {
 	return path.Join(rootPath, strconv.Itoa(int(key)))
 }
 
-var _ = BeforeSuite(func() { fileSystems, cleanUp = testutil.FileSystems() })
-
-var _ = AfterSuite(func() { Expect(cleanUp()).To(Succeed()) })
-
 func TestCesium(t *testing.T) {
 	RegisterFailHandler(Fail)
+	fileSystems, cleanUp = testutil.FileSystems()
 	RunSpecs(t, "Cesium Suite")
+	Expect(cleanUp()).To(Succeed())
 }
+
+//var _ = BeforeSuite(func() {
+//	fileSystems, cleanUp = testutil.FileSystems()
+//	Expect(len(fileSystems)).To(Equal(2))
+//})
+//
+//var _ = AfterSuite(func() { Expect(cleanUp()).To(Succeed()) })
