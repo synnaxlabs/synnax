@@ -265,7 +265,7 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
           axes={axes}
           lines={propsLines}
           rules={vis.rules}
-          clearOverscan={{ x: 5, y: 5 }}
+          clearOverScan={{ x: 5, y: 5 }}
           onTitleChange={handleTitleChange}
           titleLevel={vis.title.level}
           showTitle={vis.title.visible}

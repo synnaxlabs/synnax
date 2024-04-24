@@ -16,7 +16,6 @@
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.0.18",
-    "@hookform/resolvers": "^3.3.4",
     "@synnaxlabs/alamos": "workspace:*",
     "@synnaxlabs/client": "workspace:*",
     "@synnaxlabs/media": "workspace:*",

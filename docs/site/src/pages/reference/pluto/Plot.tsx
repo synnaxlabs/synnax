@@ -6,6 +6,9 @@ import { TimeSpan, xy } from "@synnaxlabs/x";
 export function Plot() {
   return (
     <Pluto.Provider
+      theming={{
+        applyCSSVars: false,
+      }}
       workerURL="/public/worker.js"
       connParams={{
         host: "localhost",
@@ -21,58 +24,47 @@ export function Plot() {
 }
 
 function PlotI() {
-  const client = Synnax.use();
-  const [lines, setLines] = useState<Channel.LineProps[]>([]);
-
-  useAsyncEffect(async () => {
-    if (client == null) return;
-    const [x, y] = await client.channels.retrieve([
-      "stream_write_example_time",
-      "stream_write_example_data_1",
-    ]);
-    setLines([
-      {
-        key: "line1",
-        axes: { x: "x", y: "y" },
-        channels: { x: x.key, y: y.key },
-        variant: "dynamic",
-        color: "#E87E04",
-        label: "Dog",
-        strokeWidth: 2,
-        timeSpan: TimeSpan.seconds(30),
-      },
-    ]);
-  }, [client]);
   return (
     <Canvas.Canvas
       style={{
-        position: "absolute",
-        width: 600,
-        height: 600,
+        width: "100%",
+        height: 500,
       }}
     >
       <Channel.LinePlot
         style={{
-          width: 500,
+          width: "calc(100% - 3rem)",
           height: 500,
         }}
-        clearOverscan={xy.ZERO}
+        clearOverScan={xy.ZERO}
+        lines={[
+          {
+            key: "line1",
+            axes: { x: "x", y: "y" },
+            channels: {
+              x: "stream_write_example_time",
+              y: "stream_write_example_data_1",
+            },
+            variant: "dynamic",
+            color: "#3774d0",
+            label: "Line 1",
+            strokeWidth: 3,
+            timeSpan: TimeSpan.seconds(30),
+          },
+        ]}
         axes={[
           {
             key: "x",
             label: "Time",
             location: "bottom",
-            color: "#FFFFFF",
             type: "time",
           },
           {
             key: "y",
             label: "Value",
             location: "left",
-            color: "#FFFFFF",
           },
         ]}
-        lines={lines}
       />
     </Canvas.Canvas>
   );

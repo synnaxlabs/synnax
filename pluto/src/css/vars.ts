@@ -14,3 +14,8 @@ export const applyCSSVars = (
   Object.entries(vars).forEach(
     ([key, value]) => value != null && element.style.setProperty(key, `${value}`),
   );
+
+export const removeCSSVars = (element: HTMLElement, prefix: string): void =>
+  Array.from(element.style).forEach((key) => {
+    if (key.startsWith(prefix)) element.style.removeProperty(key);
+  });

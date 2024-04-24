@@ -1,0 +1,63 @@
+---
+layout: "@/layouts/MainLayout.astro"
+title: "Line Plot"
+description: "Use the Line Plot component to display real-time or historical data."
+---
+import { Divider } from "@synnaxlabs/pluto"
+import { Plot } from "@/pages/reference/pluto/Plot"
+import Code from "@/components/code/Code.astro";
+export const components = { pre: Code };
+import ComponentFrame from "@/components/pluto/ComponentFrame.astro";
+
+<br />
+
+<ComponentFrame>
+    <Plot client:only="react" />
+</ComponentFrame>
+
+<Divider.Divider direction="x" />
+
+## Channel Module Line Plot
+
+The simplest way to display data is to use the `LinePlot` component from the `Channel`
+module. This component allows you to provide a list of channels to display.
+
+```tsx
+import { Channel } from "@synnaxlabs/pluto"
+
+const MyComponent = () => (
+    <Channel.LinePlot 
+        style={{ width: 800, height: 500 }}
+        lines={[
+            {
+                key: "line1",
+                axes: { x: "x", y: "y" },
+                channels: {
+                    x: "stream_write_example_time",
+                    y: "stream_write_example_data_1"
+                },
+                color: "#3774d0",
+                label: "Line 1",
+                variant: "dynamic",
+                strokeWidth: 2,
+                timeSpan: TimeSpan.seconds(30),
+            }
+        ]}
+        axes={[
+            {
+                key: "x",
+                label: "Time",
+                location: "bottom",
+                type: "time",
+            },
+            {
+                key: "y",
+                label: "Values",
+                location: "left",
+            }
+        ]}
+    />
+);
+```
+
+

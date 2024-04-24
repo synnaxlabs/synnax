@@ -1,0 +1,23 @@
+import { type PageNavNode } from "@/components/PageNav";
+
+export const plutoNav: PageNavNode = {
+  key: "pluto",
+  name: "Pluto Components",
+  children: [
+    {
+      name: "Get Started",
+      key: "/reference/pluto/get-started",
+      href: "/reference/pluto/get-started",
+    },
+    {
+      name: "Provider and Canvas",
+      key: "/reference/pluto/provider-and-canvas",
+      href: "/reference/pluto/provider-and-canvas",
+    },
+    {
+      name: "Line Plot",
+      key: "/reference/pluto/line-plot",
+      href: "/reference/pluto/line-plot",
+    },
+  ],
+};

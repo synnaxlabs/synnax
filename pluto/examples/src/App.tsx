@@ -1,35 +1,30 @@
 import { useState } from "react";
 
 import { Channel, Synnax, useAsyncEffect } from "@synnaxlabs/pluto";
-import { TimeSpan, xy } from "@synnaxlabs/x";
+import { TimeRange, TimeSpan, TimeStamp, xy } from "@synnaxlabs/x";
 
-export function Plot() {
-  const client = Synnax.use();
-  const [lines, setLines] = useState<Channel.LineProps[]>([]);
-
-  useAsyncEffect(async () => {
-    if (client == null) return;
-    const [x, y] = await client.channels.retrieve([
-      "stream_write_example_time",
-      "stream_write_example_data_1",
-    ]);
-    console.log(x, y);
-    setLines([
-      {
-        key: "line1",
-        axes: { x: "x", y: "y" },
-        channels: { x: x.key, y: y.key },
-        variant: "dynamic",
-        color: "#E87E04",
-        label: "Dog",
-        strokeWidth: 2,
-        timeSpan: TimeSpan.seconds(30),
-      },
-    ]);
-  }, [client]);
+export function App() {
   return (
     <Channel.LinePlot
-      clearOverscan={xy.ZERO}
+      lines={[
+        {
+          key: "line1",
+          axes: { x: "x", y: "y" },
+          channels: {
+            x: "stream_write_example_time",
+            y: "stream_write_example_data_1",
+          },
+          variant: "dynamic",
+          color: "#E87E04",
+          label: "Example Data 1",
+          strokeWidth: 3,
+          // timeRange: new TimeRange({
+          //   start: TimeStamp.now().sub(TimeSpan.minutes(1)),
+          //   end: TimeStamp.now().add(TimeSpan.minutes(1)),
+          // }),
+          timeSpan: TimeSpan.seconds(30),
+        },
+      ]}
       axes={[
         {
           key: "x",
@@ -45,7 +40,6 @@ export function Plot() {
           color: "#FFFFFF",
         },
       ]}
-      lines={lines}
     />
   );
 }

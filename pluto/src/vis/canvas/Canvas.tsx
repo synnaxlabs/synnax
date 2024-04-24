@@ -55,8 +55,8 @@ export const Canvas = Aether.wrap<CanvasProps>(
   ({
     children,
     resizeDebounce: debounce = 100,
-    className,
     aetherKey,
+    className,
     ...props
   }): ReactElement => {
     const [{ path }, { bootstrapped, dpr }, setState] = Aether.use({
@@ -70,6 +70,7 @@ export const Canvas = Aether.wrap<CanvasProps>(
 
     const handleResize = useCallback(
       (region: box.Box) => {
+        console.log("Resizing canvas");
         if (canvases.current.bootstrapped)
           setState(() => ({
             bootstrapped: true,
@@ -97,6 +98,7 @@ export const Canvas = Aether.wrap<CanvasProps>(
 
     const refCallback = useCallback(
       (el: HTMLCanvasElement | null) => {
+        resizeRef(el);
         if (el == null) return;
 
         // Store the canvas
@@ -130,23 +132,21 @@ export const Canvas = Aether.wrap<CanvasProps>(
     );
 
     return (
-      <>
-        <div className={CSS.B("canvas-container")} {...props} ref={resizeRef}>
-          <canvas
-            ref={refCallback}
-            className={CSS(CSS.B("canvas"), CSS.BM("canvas", "lower2d"), className)}
-          />
-          <canvas
-            ref={refCallback}
-            className={CSS(CSS.B("canvas"), CSS.BM("canvas", "gl"), className)}
-          />
-          <canvas
-            ref={refCallback}
-            className={CSS(CSS.B("canvas"), CSS.BM("canvas", "upper2d"), className)}
-          />
-        </div>
+      <div className={CSS(CSS.B("canvas-container"), className)} {...props}>
+        <canvas
+          ref={refCallback}
+          className={CSS(CSS.B("canvas"), CSS.BM("canvas", "lower2d"))}
+        />
+        <canvas
+          ref={refCallback}
+          className={CSS(CSS.B("canvas"), CSS.BM("canvas", "gl"))}
+        />
+        <canvas
+          ref={refCallback}
+          className={CSS(CSS.B("canvas"), CSS.BM("canvas", "upper2d"))}
+        />
         <Aether.Composite path={path}>{bootstrapped && children}</Aether.Composite>
-      </>
+      </div>
     );
   },
 );

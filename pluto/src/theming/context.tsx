@@ -85,11 +85,20 @@ export const use = (): theming.Theme => useContext().theme;
 
 export interface ProviderProps
   extends PropsWithChildren<unknown>,
-    Partial<ContextValue> {}
+    Partial<ContextValue> {
+  applyCSSVars?: boolean;
+}
 
 export const Provider = Aether.wrap<ProviderProps>(
   theming.Provider.TYPE,
-  ({ children, theme, setTheme, toggleTheme, aetherKey }): ReactElement => {
+  ({
+    children,
+    theme,
+    setTheme,
+    toggleTheme,
+    aetherKey,
+    applyCSSVars = true,
+  }): ReactElement => {
     let ret: UseProviderReturn;
     if (theme == null || toggleTheme == null || setTheme == null) {
       ret = useProvider({
@@ -115,7 +124,8 @@ export const Provider = Aether.wrap<ProviderProps>(
     }, [ret.theme]);
 
     useLayoutEffect(() => {
-      CSS.applyVars(document.documentElement, toCSSVars(ret.theme));
+      if (applyCSSVars) CSS.applyVars(document.documentElement, toCSSVars(ret.theme));
+      else CSS.removeVars(document.documentElement, "--pluto");
     }, [ret.theme]);
     return (
       <Context.Provider value={ret}>

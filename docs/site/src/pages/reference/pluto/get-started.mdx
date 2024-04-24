@@ -1,0 +1,99 @@
+---
+layout: "@/layouts/MainLayout.astro"
+title: "Pluto Components"
+description: "Use Pluto components to build custom user interfaces"
+---
+import { Divider } from "@synnaxlabs/pluto";
+import Note from "@/components/Note.astro";
+import Code from "@/components/code/Code.astro";
+export const components = { pre: Code };
+
+Powering the inner workings of the [Synnax Console](/reference/console/get-started), 
+Pluto is a [React](https://react.dev/) component library designed to build high-performance, 
+real-time interfaces on top of Synnax. It provides a number of components from simple 
+buttons to complex data visualizations.
+
+<Note variant="warning">
+Pluto is currently in beta and it's API is subject to significant changes before 
+reaching V1.
+</Note>
+ 
+<Divider.Divider direction="x" />
+
+## Installation
+
+Pluto is available on npm, and can be installed with your package manager of choice. We'll
+be using `npm` in our documentation, but feel free to use `yarn`, `pnpm`, or any other
+package manager you prefer.
+
+```bash
+npm install @synnaxlabs/pluto
+```
+
+<Divider.Divider direction="x" />
+
+## Prerequisites and Important Notes
+
+Pluto is designed for high performance and flexibility, and this has come across at the
+cost of ease of use. We're working hard to improve user friendliness!
+
+### Browser Compatibility
+
+Pluto heavily leverages **Web Workers** and the `OffscreenCanvas` API. These features are
+generally available on the latest versions of all major browsers, but may not be 
+compatible with older versions. 
+
+See [here](https://developer.mozilla.org/en-US/docs/Web/API/OffscreenCanvas#browser_compatibility)
+for the `OffscreenCanvas` compatibility table.
+
+### Bundle Size and Import Structure
+
+Pluto is relatively large(~500kb minified and gzipped). As a result, We don't recommend 
+deploying applications that use Pluto in serverless environments or when building 
+applications designed to serve users with a slow bandwidth.
+
+The component library is designed to be tree-shakeable, so you can import only the
+components you need. For example, when importing a `Button` component, you can do:
+
+```typescript
+import { Button } from "@synnaxlabs/pluto/button";
+```
+
+instead of importing the entire library:
+
+```typescript
+import { Button } from "@synnaxlabs/pluto";
+```
+
+### Strict Mode Incompatibility
+
+Pluto uses several mechanisms to manage communication between the main thread and the
+Web Worker. These mechanisms are not yet compatible with React's strict mode. If you
+do use strict mode, you may encounter errors or unexpected behavior.
+
+### Components as Modules
+
+When you import the `Button` above, you're not actually importing the `Button` component 
+itself. Instead, you're importing a module that exports the `Button`, along
+with other useful utilities. With almost every component in Pluto, you'll see a syntax
+resembling the following:
+
+```typescript
+import { Button } from "@synnaxlabs/pluto/button";
+
+const regularButton = <Button.Button>Click me!</Button.Button>;
+const onlyIconButton = <Button.Icon>🚀</Button.Icon>;
+```
+
+This syntax just means we're accessing the `Button` or the `Icon` component from the
+`Button` module. We like this syntax as it adds clarity to the codebase. Some of our
+users don't like it. To get around this, you can destruct the module:
+
+```typescript
+import { Button as PButton } from "@synnaxlabs/pluto/button";
+const { Button, Icon: IconButton } = PButton;
+
+const regularButton = <Button>Click me!</Button>;
+const onlyIconButton = <IconButton>🚀</IconButton>;
+```
+

@@ -46,8 +46,8 @@ export interface BaseLineProps {
     y: string;
   };
   channels: {
-    y: number;
-    x?: number;
+    y: channel.KeyOrName;
+    x?: channel.KeyOrName;
   };
   color: Color.Crude;
   strokeWidth?: number;

@@ -7,15 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { analystNav } from "@/pages/guides/analyst/nav";
+import { sysAdminNav } from "@/pages/guides/sys-admin/nav";
 import { clusterNav } from "@/pages/reference/cluster/_nav";
 import { conceptsNav } from "@/pages/reference/concepts/_nav";
 import { consoleNav } from "@/pages/reference/console/_nav";
+import { plutoNav } from "@/pages/reference/pluto/_nav";
 import { pythonClientNav } from "@/pages/reference/python-client/_nav";
-import { analystNav } from "@/pages/guides/analyst/nav";
-import { sysAdminNav } from "@/pages/guides/sys-admin/nav";
-import { operationsNav } from "@/pages/guides/operations/nav";
 import { typescriptClientNav } from "@/pages/reference/typescript-client/_nav";
-import { plutoNav } from "@/pages/pluto/nav";
 
 export const componentsPages = [
   {

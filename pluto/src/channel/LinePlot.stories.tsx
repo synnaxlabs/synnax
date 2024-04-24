@@ -64,7 +64,7 @@ export const Primary = (): ReactElement => {
         left: 0,
       }}
     >
-      <LinePlot axes={AXES} lines={LINES} clearOverscan={10} />
+      <LinePlot axes={AXES} lines={LINES} clearOverScan={10} />
     </Canvas.Canvas>
   );
 };
