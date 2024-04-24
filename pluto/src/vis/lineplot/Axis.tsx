@@ -47,7 +47,7 @@ export interface AxisProps
 }
 
 export const axisFactory = (dir: direction.Direction): FC<AxisProps> => {
-  const defaultLocaton = dir === "x" ? "bottom" : "left";
+  const defaultLocation = dir === "x" ? "bottom" : "left";
   const aetherType = dir === "x" ? lineplot.XAxis.TYPE : lineplot.YAxis.TYPE;
   const cssClass = `${dir}-axis`;
   return Aether.wrap<AxisProps>(
@@ -56,7 +56,7 @@ export const axisFactory = (dir: direction.Direction): FC<AxisProps> => {
       aetherKey,
       children,
       resizeDebounce: debounce = 0,
-      location = defaultLocaton,
+      location = defaultLocation,
       label = "",
       labelLevel = "small",
       labelDirection = dir,

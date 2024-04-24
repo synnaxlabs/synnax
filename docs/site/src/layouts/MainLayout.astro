@@ -435,9 +435,14 @@ const {
             border-radius: 0.5rem;
         }
 
+        & code:not(:is(h1, h2, h3, h4, h5, h6) code) {
+            font-size: calc(var(--pluto-small-size) * 0.9);
+            line-height: calc(var(--pluto-small-line-height) * 0.9);
+        }
+
         code {
-            font-size: var(--pluto-small-size);
-            line-height: var(--pluto-small-line-height);
+            font-size: inherit;
+            line-height: inherit;
         }
 
         .pluto-tabs-selector__btn--uneditable {
@@ -498,6 +503,7 @@ const {
         }
 
         table {
+            table-layout: auto;
             width: calc(100% - 4px);
             border-spacing: 0;
             background: transparent;

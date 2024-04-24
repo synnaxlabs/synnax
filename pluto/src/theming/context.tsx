@@ -87,6 +87,7 @@ export interface ProviderProps
   extends PropsWithChildren<unknown>,
     Partial<ContextValue> {
   applyCSSVars?: boolean;
+  defaultTheme?: string;
 }
 
 export const Provider = Aether.wrap<ProviderProps>(
@@ -98,12 +99,13 @@ export const Provider = Aether.wrap<ProviderProps>(
     toggleTheme,
     aetherKey,
     applyCSSVars = true,
+    defaultTheme = "synnaxDark",
   }): ReactElement => {
     let ret: UseProviderReturn;
     if (theme == null || toggleTheme == null || setTheme == null) {
       ret = useProvider({
         themes: theming.themes,
-        defaultTheme: "synnaxDark",
+        defaultTheme,
       });
     } else {
       ret = {

@@ -4,34 +4,32 @@ title: "Line Plot"
 description: "Use the Line Plot component to display real-time or historical data."
 ---
 import { Divider } from "@synnaxlabs/pluto"
-import { Plot } from "@/pages/reference/pluto/Plot"
+import { RealTimePlot, HistoricalPlot } from "@/pages/reference/pluto/Plot"
 import Code from "@/components/code/Code.astro";
-export const components = { pre: Code };
+import Table from "@/components/Table.astro";
+export const components = { pre: Code, table: Table };
 import ComponentFrame from "@/components/pluto/ComponentFrame.astro";
 
-<br />
+## Real-Time Plot
+
+### Example
 
 <ComponentFrame>
-    <Plot client:only="react" />
+    <RealTimePlot client:only="react" />
 </ComponentFrame>
 
-<Divider.Divider direction="x" />
-
-## Channel Module Line Plot
-
-The simplest way to display data is to use the `LinePlot` component from the `Channel`
-module. This component allows you to provide a list of channels to display.
+### Code
 
 ```tsx
-import { Channel } from "@synnaxlabs/pluto"
+import { Channel, TimeSpan } from "@synnaxlabs/pluto"
 
-const MyComponent = () => (
+const MyDynamicLinePLot = () => (
     <Channel.LinePlot 
         style={{ width: 800, height: 500 }}
         lines={[
             {
                 key: "line1",
-                axes: { x: "x", y: "y" },
+                axes: { x: "x1", y: "y1" },
                 channels: {
                     x: "stream_write_example_time",
                     y: "stream_write_example_data_1"
@@ -45,13 +43,13 @@ const MyComponent = () => (
         ]}
         axes={[
             {
-                key: "x",
+                key: "x1",
                 label: "Time",
                 location: "bottom",
                 type: "time",
             },
             {
-                key: "y",
+                key: "y1",
                 label: "Values",
                 location: "left",
             }
@@ -60,4 +58,289 @@ const MyComponent = () => (
 );
 ```
 
+## Historical Plot
 
+### Example
+
+<ComponentFrame>
+    <HistoricalPlot client:only="react" />
+</ComponentFrame>
+
+### Code
+
+```tsx
+const MyHistoricalLinePlot = () => (
+    <Channel.LinePlot
+        style={{ width: 800, height: 500 }}
+        lines={[
+            {
+                key: "line1",
+                axes: { x: "x1", y: "y1" },
+                channels: {
+                    x: "stream_write_example_time",
+                    y: "stream_write_example_data_1"
+                },
+                color: "#3774d0",
+                label: "Line 1",
+                variant: "static",
+                strokeWidth: 2,
+                timeRange: {
+                    start: new Date("2022-01-01T00:00:00Z"),
+                    end: new Date("2022-01-02T00:00:00Z"),
+                },
+            }
+        ]}
+        axes={[
+            {
+                key: "x1",
+                label: "Time",
+                location: "bottom",
+                type: "time",
+            },
+            {
+                key: "y1",
+                label: "Values",
+                location: "left",
+            }
+        ]}
+    />
+)
+```
+
+<Divider.Divider direction="x" />
+
+## Props
+
+Here's a summary of the props available for the `Channel.LinePlot` component.
+
+<Table>
+    <thead>
+        <tr>
+            <th>Prop</th>
+            <th>Type</th>
+            <th>Status</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><a href="#lines">`lines`</a></td>
+            <td>`Array<Channel.StaticLineProps | Channel.DynamicLineProps>`</td>
+            <td>Required</td>
+        </tr>
+        <tr>
+            <td><a href="#axes">`axes`</a></td>
+            <td>`Array<Channel.AxisProps>`</td>
+            <td>Required</td>
+        </tr>
+        <tr>
+            <td>`title`</td>
+            <td>`string`</td>
+            <td>Optional</td>
+        </tr>
+        <tr>
+            <td>`showLegend`</td>
+            <td>`boolean`</td>
+            <td>Optional</td>
+        </tr>
+        <tr>
+            <td>`enableTooltip`</td>
+            <td>`boolean`</td>
+            <td>Optional</td>
+        </tr>
+        <tr>
+            <td><code>style</code></td>
+            <td>`React.CSSProperties`</td>
+            <td>Required</td>
+        </tr>
+    </tbody>
+</Table>
+
+### `lines` 
+
+The `lines` prop is an array of objects that defines the lines that will be displayed on
+the plot. There are two types of lines, those with `variant="static"` and those with
+`variant="dynamic"`. A static line is used to display historical data, and requires a
+`timeRange` prop, while a dynamic plots rolling real-time data and requires a `timeSpan`
+prop. Here is a summary of the props available for each type of line.
+
+<Table>
+    <thead>
+        <tr>
+            <th>Prop</th>
+            <th>Type</th>
+            <th>Required/Default</th>
+            <th>Description</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>`key`</td>
+            <td>`string`</td>
+            <td>Required</td>
+            <td>A unique key to identify the line.</td>
+        </tr>
+        <tr>
+            <td>`channels`</td>
+            <td>
+            ```typescript
+            { 
+              x: string | number,
+              y: string | number
+            }
+            ```
+            </td>
+            <td>Required</td>
+            <td>The keys or the names of the channels to plot on the x and y axes.</td>
+        </tr>
+        <tr>
+            <td>`axes`</td>
+            <td>
+            ```typescript
+            { 
+              x: string, 
+              y: string 
+            }
+            ```
+            </td>
+            <td>Required</td>
+            <td>The keys of the <a href="#axes">axes</a> to plot the lines on. For best
+            results, the x-axis should be horizontal and the y-axis should be vertical.</td>
+        </tr>
+        <tr>
+            <td>`variant`</td>
+            <td>`"static" | "dynamic"`</td>
+            <td>Required</td>
+            <td>The type of line to display. See above for more information.</td>
+        </tr>
+        <tr>
+            <td>`timeRange`</td>
+            <td>`CrudeTimeRange`</td>
+            <td>Required for `static` lines.</td>  
+            <td>The time range to display for the line. Data for all channels will be fetched
+            for this time range.</td>
+        </tr>
+        <tr>
+            <td>`timeSpan`</td>
+            <td>`CrudeTimeSpan`</td>
+            <td>Required for `dynamic` lines.</td>
+            <td>The rolling interval to display for the line. Data for all channels will be
+            continuously updated for this time span.</td>
+        </tr>
+        <tr>
+            <td>`color`</td>
+            <td>`string`</td>
+            <td>Required</td>
+            <td>The color of the line.</td>
+        </tr>
+        <tr>
+            <td>`label`</td>
+            <td>`string`</td>
+            <td>`""`</td>
+            <td>The label to display in the legend.</td>
+        </tr>
+        <tr>
+            <td>`strokeWidth`</td>
+            <td>`number`</td>
+            <td>`2`</td>
+            <td>The width of the line.</td>
+        </tr>
+    </tbody>
+</Table>
+
+### `axes`
+
+The `axes` prop is an array of objects that define the axes to display on the plot. 
+
+<Table>
+    <thead>
+        <tr>
+            <th>Prop</th>
+            <th>Type</th>
+            <th>Required/Default</th>
+            <th>Description</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>`key`</td>
+            <td>`string`</td>
+            <td>Required</td>
+            <td>A unique key to identify the axis.</td>
+        </tr>
+        <tr>
+            <td>`label`</td>
+            <td>`string`</td>
+            <td>Required</td>
+            <td>The label to display on the axis.</td>
+        </tr>
+        <tr>
+            <td>`location`</td>
+            <td>`"top" | "bottom" | "left" | "right"`</td>
+            <td>Required</td>
+            <td>The location of the axis. Multiple axes can in the same location. The first axes will be the outermost axis, and the last axes will be the innermost.</td>
+        </tr>
+        <tr>
+            <td>`type`</td>
+            <td>`"time" | "linear"`</td>
+            <td>`"linear"`</td>
+            <td>The scale type to use. A `time` axis will display timestamps, while a `linear`
+            axis will display numerical data.</td>
+        </tr>
+        <tr>
+            <td>`color`</td>
+            <td>`string`</td>
+            <td>`"pluto-gray-l3"`</td>
+            <td>The color of the axis.</td>
+        </tr>
+        <tr>
+            <td>`gridColor`</td>
+            <td>`string`</td>
+            <td>`"pluto-gray-l1"`</td>
+            <td>The color of the grid lines.</td>
+        </tr>
+        <tr>
+            <td>`label`</td>
+            <td>`string`</td>
+            <td>`""`</td>
+            <td>The label to display on the axis.</td>
+        </tr>
+        <tr>
+            <td>`labelLevel`</td>
+            <td>
+            ```typescript
+            "h1" | "h2" | "h3" | 
+            "h4" | "h5" | 
+            "p" | "small"
+            ```
+            </td>
+            <td>`"p"`</td>
+            <td>The size of the label to display, organized by heading level.</td>
+        </tr>
+        <tr>
+            <td>`labelDirection`</td>
+            <td>`"x" | "y"`</td>
+            <td> `"x"` if horizontal, `"y"` if vertical.</td>
+            <td>The orientation of the label. </td>
+        </tr>
+        <tr>
+            <td>`bounds`</td>
+            <td>
+            ```typescript
+            { 
+              lower: number, 
+              upper: number 
+            }
+            ```
+            </td>
+            <td>Automatic</td>
+            <td>The bounds of the axis. If not provided, the bounds will be calculated 
+            and continuously updated based on the data.</td>
+        </tr>
+        <tr>
+            <td>`showGrid`</td>
+            <td>`boolean`</td>
+            <td>`true`</td>
+            <td>Whether to display grid lines on the plot for the axis.</td>
+        </tr>
+    </tbody>
+</Table>

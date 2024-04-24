@@ -105,6 +105,14 @@ export interface LinePlotProps extends Core.LinePlotProps {
 
 const canDrop = Haul.canDropOfType(HAUL_TYPE);
 
+/**
+ * A line plot component that automatically pulls data from specified channels and
+ * displays it. Can be used to render both real-time and historical data.
+ *
+ * @param props - The props for the line plot
+ * @param
+ * @returns
+ */
 export const LinePlot = ({
   lines,
   axes,
