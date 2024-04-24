@@ -138,7 +138,7 @@ export class Core implements Client {
     });
     this.reader = new Reader({
       cache: this.cache,
-      readRemote: async (tr, keys) => await core.telem.read(tr, keys),
+      readRemote: async (tr, keys) => await core.read(tr, keys),
       instrumentation: this.ins.child("reader"),
     });
     this.streamer = new Streamer({

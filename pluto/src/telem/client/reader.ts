@@ -128,14 +128,13 @@ export class Reader {
       // Fetch any missing gaps in the data using a batched read. This will automatically
       // populate the cache with the new data.
       const { mu, requests } = this.guarded;
-      for (const [, [range, keys]] of toFetch) {
+      for (const [, [range, keys]] of toFetch)
         await new Promise<void>((resolve, reject) => {
           void mu.runExclusive(async () => {
             requests.set([range, keys], { resolve, reject });
             this.debouncedRead();
           });
         });
-      }
     } catch (e) {
       L.error("read failed", { tr: tr.toPrettyString(), channels, error: e });
       throw e;

@@ -11,13 +11,23 @@ package unary_test
 
 import (
 	"context"
+	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/testutil"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
-var ctx = context.Background()
+var (
+	ctx         = context.Background()
+	rootPath    = "unary-testdata"
+	fileSystems map[string]func() xfs.FS
+	cleanUp     func() error
+)
+
+var _ = BeforeSuite(func() { fileSystems, cleanUp = testutil.FileSystems() })
+var _ = AfterSuite(func() { Expect(cleanUp()).To(Succeed()) })
 
 func TestUnary(t *testing.T) {
 	RegisterFailHandler(Fail)

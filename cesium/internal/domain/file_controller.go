@@ -86,6 +86,9 @@ func (fc *fileController) acquireWriter(ctx context.Context) (uint16, xio.Tracke
 
 	if !fc.atDescriptorLimit() {
 		w, err := fc.newWriter(ctx)
+		if err != nil {
+			return 0, nil, err
+		}
 		return w.fileKey, w, span.Error(err)
 	}
 

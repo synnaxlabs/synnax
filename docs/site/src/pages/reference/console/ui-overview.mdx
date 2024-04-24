@@ -1,0 +1,123 @@
+---
+layout: "@/layouts/MainLayout.astro"
+title: "UI Overview"
+heading: "Console UI Overview"
+description: "Learn how to navigate the Synnax console UI."
+---
+import { Image } from "@/components/Media";
+import Note from "@/components/Note.astro";
+import { Icon } from "@synnaxlabs/media";
+import { Text } from "@synnaxlabs/pluto";
+import { Divider } from "@synnaxlabs/pluto";
+import { Video } from "@/components/Media";
+
+<Divider.Divider direction="x" />
+
+## Important Tabs
+
+<Text.Text level="p">
+The Synnax Console has several important properties in it. First, there are
+four main tabs that can be opened from the side. These are the
+<Icon.Resources/> __Resources__, <Icon.Range/> __Ranges__, <Icon.Visualize/>
+__Visualizations__, and <Icon.Cluster/> __Clusters__ tabs.
+</Text.Text>
+
+### Resources
+
+<Text.Text level="p">
+The <Icon.Resources/> __Resources__ tab list a file tree with folders for
+channels, ranges, users, and workspaces.
+</Text.Text>
+
+{/*Insert a video of opening the Resources file tree.*/}
+
+- [Channels](/reference/concepts/channels) are the sensor channels that you can
+  track and plot.
+- [Ranges](querying-data) are saved times that you can use
+  when loading data to view.
+- __Users__ are a list of all users registered in the cluster. The workspaces
+  created by the users can be found underneath their name.
+- [Workspaces](workspaces) list all created workspaces in
+  the cluster. This tree includes workspaces created by all users.
+
+### Ranges
+
+<Text.Text level="p">
+You can view and create active ranges on the right by clicking the <Icon.Range/>
+__Ranges__ icon. More information about ranges are covered in [Querying Data
+Using Ranges](querying-data).
+</Text.Text>
+
+{/*Insert a video of opening a range, typing in information, and saving to
+Synnax.*/}
+
+### Visualization Properties
+
+<Text.Text level="p">
+When you have a visualization open, you can open the visualization properties by
+clicking the __Visualize__ <Icon.Visualize/> icon in the bottom-right. This
+allows you to show or hide the properties of visualizations.
+</Text.Text>
+
+{/*Insert a video of opening and closing visualization properties.*/}
+
+### Clusters
+
+<Text.Text level="p">
+The list of clusters that you are connected to is found by clicking on the
+__Cluster__ <Icon.Cluster/> icon in the bottom-right. This opens up a list of
+all available clusters. You can add new clusters from here. Also, you can switch
+your current active cluster. The text in the corner indicates whether you are
+connected, disconnected, or have a failed connection with the cluster. More
+information about clusters can be found in the page about [connecting a
+cluster](connect-a-cluster).
+</Text.Text>
+
+<Video client:only="react" id="console/connect-a-cluster" />
+
+<Divider.Divider direction="x" />
+{/*
+## Window Management
+
+The Synnax Console can be easily manipulated to help choose the exact display
+you want.
+
+You can easily open and close tabs on Synnax:
+
+{/*Insert a video of opening and closing all four main tabs.*
+
+You can close tabs either by touching the respective icon or resizing it to the
+edge:
+
+{/*Insert a video of closing a tab both ways.*
+
+You can also have multiple visualizations displayed at the same time:
+
+{/*Insert a video where you display a line plot or two next to a PID.*
+
+<Divider.Divider direction="x" />
+*/}
+
+## Getting Help
+
+<Text.Text level="p">
+The Synnax documentation can be opened from within the Synnax Console by
+clicking the <Icon.QuestionMark/> icon.
+</Text.Text>
+
+{/*Insert a video of opening the documentation.*/}
+
+### Search Toolbar
+
+The search toolbar at the top can be used to search for resources or to toggle
+commands. Searching for resouces can be done by searching or pressing ctrl + P.
+{/*As an example of searching for resources, you could search for a test range and
+then have it automatically added as an active range:
+
+Insert a video of adding a range using the toolbar.*/}
+
+The search toolbar can run commands by entering a ">" or pressing ctrl + shift +
+P. 
+{/*  This allows you to run commands such as toggling the color theme:
+
+Insert a video of toggling the color theme through the toolbar.*/}

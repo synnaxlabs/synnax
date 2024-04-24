@@ -11,6 +11,6 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@synnaxlabs/client": "^0.18.2"
+    "@synnaxlabs/client": "^0.20.0"
   }
 }
