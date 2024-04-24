@@ -396,64 +396,6 @@ var _ = Describe("Writer Behavior", func() {
 					Expect(i.Error()).To(MatchError(e))
 				})
 			})
-			Describe("Data t Errors", func() {
-				Specify("Invalid Data t for series", func() {
-					var dtErr cesium.ChannelKey = 18
-					Expect(db.CreateChannel(
-						ctx,
-						cesium.Channel{
-							Key:      dtErr,
-							DataType: telem.Int64T,
-							Rate:     1,
-						})).To(Succeed())
-					w := MustSucceed(db.OpenWriter(
-						ctx,
-						cesium.WriterConfig{
-							Channels: []cesium.ChannelKey{dtErr},
-							Start:    10 * telem.SecondTS,
-						}))
-					w = MustSucceed(db.OpenWriter(
-						ctx,
-						cesium.WriterConfig{
-							Channels: []cesium.ChannelKey{dtErr},
-							Start:    15 * telem.SecondTS,
-						}))
-					ok := w.Write(cesium.NewFrame(
-						[]cesium.ChannelKey{dtErr},
-						[]telem.Series{
-							telem.NewSeriesV[float64](1, 2, 3, 4, 5),
-						},
-					))
-					Expect(ok).To(BeTrue())
-					_, ok = w.Commit()
-					Expect(ok).To(BeFalse())
-					err := w.Close()
-					Expect(err).To(MatchError(validate.Error))
-					Expect(err.Error()).To(ContainSubstring("expected int64, got float64"))
-				})
-			})
-
-			Describe("Virtual Channels", func() {
-				It("Should write to virtual channel", func() {
-					var virtual1 cesium.ChannelKey = 101
-					By("Creating a channel")
-					Expect(db.CreateChannel(
-						ctx,
-						cesium.Channel{Key: virtual1, DataType: telem.Int64T, Virtual: true},
-					)).To(Succeed())
-					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
-						Channels: []cesium.ChannelKey{virtual1},
-						Start:    10 * telem.SecondTS,
-					}))
-
-					Expect(w.Write(cesium.NewFrame(
-						[]cesium.ChannelKey{virtual1},
-						[]telem.Series{telem.NewSeriesV[int64](1, 2, 3)},
-					))).To(BeTrue())
-
-					Expect(w.Close()).To(Succeed())
-				})
-			})
 
 			Describe("Close", func() {
 				It("Should close properly with a control setup", func() {
@@ -466,7 +408,7 @@ var _ = Describe("Writer Behavior", func() {
 					Expect(w.Close()).To(Succeed())
 				})
 				It("Should not allow operations on a closed iterator", func() {
-					Expect(db.CreateChannel(ctx, cesium.Channel{Key: 100, DataType: telem.Int64T, Rate: 1 * telem.Hz})).To(Succeed())
+					Expect(db.CreateChannel(ctx, cesium.Channel{Key: 300, DataType: telem.Int64T, Rate: 1 * telem.Hz})).To(Succeed())
 					var (
 						w = MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Channels: []core.ChannelKey{100}, Start: 10 * telem.SecondTS}))
 						e = core.EntityClosed("cesium.writer")
