@@ -31,7 +31,7 @@ import {
   AiOutlineSync,
 } from "react-icons/ai";
 import { BiRename } from "react-icons/bi";
-import { BsLightbulbFill, BsShiftFill, BsSave} from "react-icons/bs";
+import { BsLightbulbFill, BsShiftFill, BsSave } from "react-icons/bs";
 import {
   FaApple,
   FaBezierCurve,
@@ -40,12 +40,12 @@ import {
   FaStream,
   FaWindows,
 } from "react-icons/fa";
-import { FiMenu } from "react-icons/fi";
 import { GrPan } from "react-icons/gr";
 import { HiDownload, HiLightningBolt, HiOutlinePlus } from "react-icons/hi";
 import { HiSquare3Stack3D } from "react-icons/hi2";
 import { IoMdRefresh } from "react-icons/io";
 import { IoBookSharp, IoCopySharp, IoTime } from "react-icons/io5";
+import { GiHamburgerMenu } from "react-icons/gi";
 import {
   MdEdit,
   MdOutlineDeviceHub,
@@ -90,34 +90,41 @@ import {
 import { PiSelectionPlusBold, PiMagnifyingGlassBold } from "react-icons/pi";
 import { RiSettings3Fill as RiSettingsFill, RiSoundModuleFill } from "react-icons/ri";
 import { SiNpm, SiPnpm, SiPython, SiTypescript, SiYarn } from "react-icons/si";
-import { TbArrowRight, TbArrowDown, TbArrowLeft, TbArrowUp, TbPlugConnected, TbPlugConnectedX} from "react-icons/tb";
+import {
+  TbArrowRight,
+  TbArrowDown,
+  TbArrowLeft,
+  TbArrowUp,
+  TbPlugConnected,
+  TbPlugConnectedX,
+} from "react-icons/tb";
 
 import "@/Icon/Icon.css";
 
-export type IconProps  = React.SVGProps<SVGSVGElement>;
+export type IconProps = React.SVGProps<SVGSVGElement>;
 type IconFC = FC<IconProps>;
 
 export const NI: IconFC = (props) => (
   <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 78 51"
-      fill="none"
-      {...props}
-      className={clsx(props.className, "logo")}
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 78 51"
+    fill="none"
+    {...props}
+    className={clsx(props.className, "logo")}
   >
-      <g clipPath="url(#clip0_327_656)">
-          <path
-              d="M17.3026 17.0048V51.0427H0V17.0048H17.3026ZM34.6051 -0.0140575C36.8587 -0.0327593 39.0939 0.392621 41.1831 1.23779C43.2723 2.08297 45.1746 3.33138 46.7813 4.91175C48.388 6.49211 49.6677 8.37348 50.5473 10.4484C51.4269 12.5234 51.8891 14.7512 51.9077 17.0048V51.0427H34.6051V17.0048H17.3026V-0.0140575H34.6051ZM77.8615 -0.0140575V51.0427C75.6074 51.0632 73.3714 50.6391 71.2813 49.7946C69.1913 48.9501 67.2883 47.7018 65.6812 46.1211C64.0741 44.5403 62.7945 42.6582 61.9156 40.5824C61.0366 38.5066 60.5756 36.2779 60.559 34.0238V-0.0140575H77.8615Z"
-              fill="#03B584"></path>
-      </g>
-      <defs>
-          <clipPath id="clip0_327_656">
-              <rect width="77.8615" height="51" fill="white"></rect>
-          </clipPath>
-      </defs>
+    <g clipPath="url(#clip0_327_656)">
+      <path
+        d="M17.3026 17.0048V51.0427H0V17.0048H17.3026ZM34.6051 -0.0140575C36.8587 -0.0327593 39.0939 0.392621 41.1831 1.23779C43.2723 2.08297 45.1746 3.33138 46.7813 4.91175C48.388 6.49211 49.6677 8.37348 50.5473 10.4484C51.4269 12.5234 51.8891 14.7512 51.9077 17.0048V51.0427H34.6051V17.0048H17.3026V-0.0140575H34.6051ZM77.8615 -0.0140575V51.0427C75.6074 51.0632 73.3714 50.6391 71.2813 49.7946C69.1913 48.9501 67.2883 47.7018 65.6812 46.1211C64.0741 44.5403 62.7945 42.6582 61.9156 40.5824C61.0366 38.5066 60.5756 36.2779 60.559 34.0238V-0.0140575H77.8615Z"
+        fill="#03B584"
+      ></path>
+    </g>
+    <defs>
+      <clipPath id="clip0_327_656">
+        <rect width="77.8615" height="51" fill="white"></rect>
+      </clipPath>
+    </defs>
   </svg>
-)
-
+);
 
 const IconOS: Record<runtime.OS, IconFC> = {
   Linux: FaLinux,
@@ -171,12 +178,12 @@ export const Icon: IconType = {
   OS: IconOS,
   Box: AiOutlineBorder,
   Python: SiPython,
-  Typescript: SiTypescript,
+  TypeScript: SiTypescript,
   NPM: SiNpm,
   PNPM: SiPnpm,
   Yarn: SiYarn,
   QuestionMark: MdQuestionMark,
-  Menu: FiMenu,
+  Menu: GiHamburgerMenu,
   Logo: {
     Github: AiFillGithub,
     LinkedIn: AiFillLinkedin,
@@ -235,7 +242,6 @@ export const Icon: IconType = {
   Save: MdSaveAlt,
 };
 
-
 export interface IconType {
   Pause: IconFC;
   Play: IconFC;
@@ -285,7 +291,7 @@ export interface IconType {
   OS: Record<runtime.OS, IconFC>;
   Box: IconFC;
   Python: IconFC;
-  Typescript: IconFC;
+  TypeScript: IconFC;
   NPM: IconFC;
   PNPM: IconFC;
   Yarn: IconFC;

@@ -9,7 +9,6 @@
  * included in the file licenses/APL.txt.
  */
 
-
 .pluto-tabs-selector__btn--closable .pluto-text {
     margin: 0 1rem 0 2.5rem !important;
     padding: 0 0.25rem;
@@ -32,18 +31,15 @@
     &::-webkit-scrollbar-thumb:hover {
         background: var(--pluto-gray-l4);
     }
-
 }
-
 
 .pluto-tabs-selector__btn--uneditable {
     user-select: none;
     padding: 0 1rem;
 }
 
-
 .pluto-tabs-selector.pluto--x {
-    border-bottom: var(--pluto-border);
+    box-shadow: inset 0 -1px 0 var(--pluto-border-color);
     z-index: 3;
 }
 
@@ -54,17 +50,17 @@
 
 .pluto-tabs-selector__btn {
     cursor: pointer;
-    border-color: transparent;
+    border: none;
 
     .pluto-btn-icon {
-            opacity: 0;
-            height: 100% !important;
-            > svg {
-                fill: var(--pluto-gray-l6);
-            }
+        opacity: 0;
+        height: 100% !important;
+        > svg {
+            fill: var(--pluto-gray-l6);
         }
+    }
 
-    &:not(.pluto--selected) .pluto-btn-icon{
+    &:not(.pluto--selected) .pluto-btn-icon {
         &:hover {
             background: var(--pluto-gray-l3);
         }
@@ -74,11 +70,14 @@
         }
     }
 
-    &:not(.pluto--selected) svg:not(.logo) path:is(:not([fill="none"]), [stroke="#000"]) {
+    &:not(.pluto--selected)
+        svg:not(.logo)
+        path:is(:not([fill="none"]), [stroke="#000"]) {
         fill: var(--pluto-gray-l6);
     }
 
-    &:hover, &.pluto--selected {
+    &:hover,
+    &.pluto--selected {
         .pluto-btn-icon {
             opacity: 1;
         }
@@ -86,16 +85,13 @@
 
     &:hover:not(.pluto--selected) {
         background: var(--pluto-gray-l2);
-        border-color: var(--pluto-border-color);
+        /* border-color: var(--pluto-border-color); */
     }
 
     &:active:not(.pluto--selected) {
         background: var(--pluto-gray-l3);
-        border-color: var(--pluto-gray-l4);
+        /* border-color: var(--pluto-gray-l4); */
     }
-
-    
-
 
     .pluto-text {
         margin: 0 2rem;
@@ -108,8 +104,7 @@
     border-right: var(--pluto-border);
     height: 100%;
 
-
-     & .pluto-tabs-selector__btn {
+    & .pluto-tabs-selector__btn {
         justify-content: flex-start !important;
         margin-right: -1px;
         border-right: var(--pluto-border);
@@ -120,30 +115,30 @@
                 color: var(--pluto-text-color);
             }
             box-shadow: inset -1px 0 0 var(--pluto-primary-z);
-            .pluto-btn-icon, .pluto-btn-icon:hover {
+            .pluto-btn-icon,
+            .pluto-btn-icon:hover {
                 box-shadow: inset -1px 0px var(--pluto-primary-z);
             }
         }
     }
-
-    
- }
+}
 
 .pluto--x {
     > .pluto-tabs-selector__btn {
         margin-bottom: -1px;
-        border-bottom: var(--pluto-border);
+        /* border-bottom: var(--pluto-border); */
         height: 100% !important;
-        border-color: transparent;
+        /* border-color: transparent; */
         font-weight: 450;
 
         &.pluto--selected {
-            border-color: var(--pluto-primary-z);
+            /* border-color: var(--pluto-primary-z); */
             .pluto-text {
                 color: var(--pluto-text-color);
             }
-            box-shadow: inset 0 -1px 0 var(--pluto-primary-z);
-            .pluto-btn-icon, .pluto-btn-icon:hover {
+            box-shadow: inset 0 -2px 0 var(--pluto-primary-z);
+            .pluto-btn-icon,
+            .pluto-btn-icon:hover {
                 box-shadow: inset 0 -1px 0 var(--pluto-primary-z);
             }
         }

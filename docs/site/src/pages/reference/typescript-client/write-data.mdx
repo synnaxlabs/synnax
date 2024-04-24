@@ -1,0 +1,129 @@
+---
+layout: "@/layouts/MainLayout.astro"
+title: "Write Data"
+description: "Use the TypeScript client to write to a Synnax cluster"
+---
+import Code from "@/components/code/Code.astro";
+export const components = { pre: Code };
+
+The Synnax typescript client supports multiple methods for writing data to a cluster. We
+can write directly to a channel, or we can write to multiple channels in a streaming
+fashion using a writer.
+
+## Writing to a Channel
+
+Writing to a channel requires us to write timestamps to it's index channel before we write
+the data. We'll create the following channels to use as examples:
+
+```typescript
+import { DataType } from "@synnaxlabs/client";
+
+const timeChannel = await client.channels.create({
+    name: "time",
+    dataType: DataType.TIMESTAMP,
+    isIndex: true,
+});
+
+const temperatureChannel = await client.channels.create({
+    name: "temperature",
+    dataType: DataType.FLOAT32,
+    index: timeChannel.key
+});
+```
+
+Then, we'll make sure to write timestamps to the index before we write to the data channel.
+
+```typescript
+
+import { TimeStamp, TimeSpan } from "@synnaxlabs/client";
+
+const start = TimeStamp.now();
+const timestamps = new BigInt64Array([
+    start.bigInt,
+    start.add(TimeSpan.seconds(1)).bigInt,
+    start.add(TimeSpan.seconds(2)).bigInt,
+    start.add(TimeSpan.seconds(3)).bigInt,
+    start.add(TimeSpan.seconds(4)).bigInt
+]);
+const temperatures = new Float32Array([20.0, 20.1, 20.2, 20.3, 20.4]);
+
+// Write the timestamps to the index first
+await timeChannel.write(start, timestamps);
+// Then write the data
+await temperatureChannel.write(start, temperatures);
+```
+
+Notice how we align the two arrays by using the common `start` timestamp. This tells
+Synnax that the first sample in the `temperatures`  array is associated with the first
+timestamp in the `timestamps` array, and so on.
+
+Synnax will raise a `ValidationError` if the index does not contain a corresponding
+timestamp for every sample in the data array. After all, it wouldn't make sense to have
+a temperature reading without an associated timestamp.
+
+## Using a Writer
+
+While the above methods are great for writing static, existing data, it's common to want 
+to write data in a streaming fashion for use in control sequences and live dashbaords.
+The `Writer` class is designed to handle this use case (and is actually used under the hood
+by the above methods).
+
+Writers are a bit more complicated to operate, so we recommend reading the [concepts](/concepts/write-domains#transactions) page to learn more about
+how they work.
+
+### Opening a Writer
+
+We'll create the following index-indexed pair to use with our writer.
+
+```typescript
+import { DataType } from "@synnaxlabs/client";
+
+const timeChannel = await client.channels.create({
+    name: "time",
+    dataType: DataType.TIMESTAMP,
+    isIndex: true,
+});
+
+const temperatureChannel = await client.channels.create({
+    name: "temperature",
+    dataType: DataType.FLOAT32,
+    index: timeChannel.key
+});
+```
+
+Then, we'll open a writer for both of these channels by using the `openWriter`
+method on the client.
+
+```typescript
+import { TimeStamp, Series, Frame } from "@synnaxlabs/client";
+
+const writer = await client.openWriter({
+    start: TimeStamp.now(),
+    channels: [timeChannel.key, temperatureChannel.key]
+});
+
+try {
+    for (let i = 0; i < 100; i++) {
+        await writer.write(new Frame({
+            [timeChannel.key]: TimeStamp.now(),
+            [temperatureChannel.key]: 20.0 + i,
+        }));
+        await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    await writer.commit():
+} finally {
+    await writer.close()
+}
+```
+
+This example will write 100 samples to the `temperature` channel, each roughly 100ms 
+apart, and will commit all writes when finished.
+
+It's typical to write and commit millions of samples over the course of hours or days,
+intermittently calling commit to ensure that the data is safely stored in the cluster.
+
+It's very important to free the writer resources when finished by calling the `close`
+method. If `close` is not called at the end of the writer, other writers may not 
+be able to write to the same channels. We typically recommend placing the writer operations
+inside a try-finally block to ensure that the writer is always closed.
+

@@ -102,7 +102,7 @@ export class Streamer {
     // Update or create the streamer.
     if (this.streamer == null) {
       L.info("creating new streamer", { keys: arrKeys });
-      this.streamer = await core.telem.openStreamer(arrKeys);
+      this.streamer = await core.openStreamer(arrKeys);
       this.streamerRunLoop = this.runStreamer(this.streamer);
     }
 

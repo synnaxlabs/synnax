@@ -104,7 +104,7 @@ class QueryError(Exception):
     pass
 
 
-class NoResultsError(QueryError):
+class NotFoundError(QueryError):
     """
     Raised when a query returns no results.
     """
@@ -112,7 +112,7 @@ class NoResultsError(QueryError):
     pass
 
 
-class MultipleResultsError(QueryError):
+class MultipleFoundError(QueryError):
     """
     Raised when a query that should return a single result returns multiple.
     """
