@@ -11,7 +11,6 @@ package index_test
 
 import (
 	"context"
-	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/testutil"
 	"testing"
 
@@ -20,15 +19,16 @@ import (
 )
 
 var (
-	ctx         = context.Background()
-	rootPath    = "index-testdata"
-	fileSystems map[string]func() xfs.FS
-	cleanUp     func() error
+	ctx                  = context.Background()
+	rootPath             = "index-testdata"
+	fileSystems, cleanUp = testutil.FileSystems()
 )
 
 func TestIndex(t *testing.T) {
 	RegisterFailHandler(Fail)
-	fileSystems, cleanUp = testutil.FileSystems()
 	RunSpecs(t, "Index Suite")
-	Expect(cleanUp()).To(Succeed())
 }
+
+var _ = BeforeSuite(func() { Expect(fileSystems).To(HaveLen(2)) })
+
+var _ = AfterSuite(func() { Expect(cleanUp()).To(Succeed()) })
