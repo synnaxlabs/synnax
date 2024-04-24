@@ -48,7 +48,6 @@ func TestCesium(t *testing.T) {
 
 //var _ = BeforeSuite(func() {
 //	fileSystems, cleanUp = testutil.FileSystems()
-//	Expect(len(fileSystems)).To(Equal(2))
 //})
 //
 //var _ = AfterSuite(func() { Expect(cleanUp()).To(Succeed()) })

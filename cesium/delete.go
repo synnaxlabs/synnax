@@ -56,12 +56,19 @@ func (db *DB) DeleteChannel(ch ChannelKey) error {
 		return err
 	}
 
-	db.mu.Unlock()
+	// Rename the file first, so we can avoid hogging the mutex while deleting the directory
+	// may take a longer time.
+	err = db.fs.Rename(channelDirName(ch), channelDirName(ch)+"_TO_BE_DELETED")
+	if err != nil {
+		db.mu.Unlock()
+		return nil
+	}
 
-	return db.fs.Remove(channelDirName(ch))
+	db.mu.Unlock()
+	return db.fs.Remove(channelDirName(ch) + "_TO_BE_DELETED")
 }
 
-func (db *DB) DeleteChannels(chs ...ChannelKey) (err error) {
+func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 	db.mu.Lock()
 	var (
 		indexChannels       = make([]ChannelKey, 0)
@@ -69,25 +76,39 @@ func (db *DB) DeleteChannels(chs ...ChannelKey) (err error) {
 	)
 
 	defer func() {
-		// Pool all directories to remove
+		// Rename the files first, so we can avoid hogging the mutex while deleting the directory
+		// may take a longer time.
 		for _, name := range directoriesToRemove {
-			if _err := db.fs.Remove(name); _err != nil {
+			if _err := db.fs.Rename(name, name+"_TO_BE_DELETED"); _err != nil {
+				err = errors.CombineErrors(err, _err)
+				db.mu.Unlock()
+				return
+			}
+		}
+
+		db.mu.Unlock()
+
+		for _, name := range directoriesToRemove {
+			if _err := db.fs.Remove(name + "_TO_BE_DELETED"); _err != nil {
 				err = errors.CombineErrors(err, _err)
 				return
 			}
 		}
 	}()
 
-	// Do a pass first to remove all rate-based channels
+	// Do a pass first to remove all non-index channels
 	for _, ch := range chs {
-		if udb, uok := db.unaryDBs[ch]; uok && udb.Channel.IsIndex {
-			indexChannels = append(indexChannels, ch)
+		udb, uok := db.unaryDBs[ch]
+
+		if !uok || udb.Channel.IsIndex {
+			if udb.Channel.IsIndex {
+				indexChannels = append(indexChannels, ch)
+			}
 			continue
 		}
 
 		err = db.deleteChannel(ch)
 		if err != nil {
-			db.mu.Unlock()
 			return
 		}
 
@@ -98,14 +119,11 @@ func (db *DB) DeleteChannels(chs ...ChannelKey) (err error) {
 	for _, ch := range indexChannels {
 		err = db.deleteChannel(ch)
 		if err != nil {
-			db.mu.Unlock()
 			return
 		}
 
 		directoriesToRemove = append(directoriesToRemove, channelDirName(ch))
 	}
-
-	db.mu.Unlock()
 
 	return nil
 }
