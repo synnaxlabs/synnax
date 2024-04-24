@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 	"golang.org/x/sync/semaphore"
+	"math/rand"
 	"strconv"
 	"sync"
 	"time"
@@ -58,14 +59,17 @@ func (db *DB) DeleteChannel(ch ChannelKey) error {
 
 	// Rename the file first, so we can avoid hogging the mutex while deleting the directory
 	// may take a longer time.
-	err = db.fs.Rename(channelDirName(ch), channelDirName(ch)+"_TO_BE_DELETED")
+	// Rename the file to have a random suffix in case the channel is repeatedly created
+	// and deleted.
+	var newName = channelDirName(ch) + "-DELETE-" + strconv.Itoa(rand.Int())
+	err = db.fs.Rename(channelDirName(ch), newName)
 	if err != nil {
 		db.mu.Unlock()
 		return nil
 	}
 
 	db.mu.Unlock()
-	return db.fs.Remove(channelDirName(ch) + "_TO_BE_DELETED")
+	return db.fs.Remove(channelDirName(ch) + newName)
 }
 
 func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
@@ -76,20 +80,10 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 	)
 
 	defer func() {
-		// Rename the files first, so we can avoid hogging the mutex while deleting the directory
-		// may take a longer time.
-		for _, name := range directoriesToRemove {
-			if _err := db.fs.Rename(name, name+"_TO_BE_DELETED"); _err != nil {
-				err = errors.CombineErrors(err, _err)
-				db.mu.Unlock()
-				return
-			}
-		}
-
 		db.mu.Unlock()
 
 		for _, name := range directoriesToRemove {
-			if _err := db.fs.Remove(name + "_TO_BE_DELETED"); _err != nil {
+			if _err := db.fs.Remove(name); _err != nil {
 				err = errors.CombineErrors(err, _err)
 				return
 			}
@@ -112,7 +106,15 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 			return
 		}
 
-		directoriesToRemove = append(directoriesToRemove, channelDirName(ch))
+		// Rename the files first, so we can avoid hogging the mutex while deleting the directory
+		// may take a longer time.
+		var newName = channelDirName(ch) + "-DELETE-" + strconv.Itoa(rand.Int())
+		err = db.fs.Rename(channelDirName(ch), newName)
+		if err != nil {
+			return
+		}
+
+		directoriesToRemove = append(directoriesToRemove, newName)
 	}
 
 	// Do another pass to remove all index channels
@@ -122,7 +124,13 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 			return
 		}
 
-		directoriesToRemove = append(directoriesToRemove, channelDirName(ch))
+		var newName = channelDirName(ch) + "-DELETE-" + strconv.Itoa(rand.Int())
+		err = db.fs.Rename(channelDirName(ch), newName)
+		if err != nil {
+			return
+		}
+
+		directoriesToRemove = append(directoriesToRemove, newName)
 	}
 
 	return nil
