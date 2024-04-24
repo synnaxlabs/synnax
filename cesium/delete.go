@@ -69,7 +69,7 @@ func (db *DB) DeleteChannel(ch ChannelKey) error {
 	}
 
 	db.mu.Unlock()
-	return db.fs.Remove(channelDirName(ch) + newName)
+	return db.fs.Remove(newName)
 }
 
 func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
@@ -190,7 +190,7 @@ func (db *DB) DeleteTimeRange(ctx context.Context, ch ChannelKey, tr telem.TimeR
 			// We must determine whether there is an indexed db that has data in the timerange tr.
 			hasOverlap, err := otherDB.HasDataFor(ctx, tr)
 			if err != nil || hasOverlap {
-				return errors.Newf("[cesium] - could not delete index channel %s with other channels depending on it", ch)
+				return errors.Newf("[cesium] - could not delete index channel %d with other channels depending on it", ch)
 			}
 		}
 	}

@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"strconv"
 )
 
 var _ = Describe("Delete", func() {
@@ -285,6 +286,9 @@ var _ = Describe("Delete", func() {
 
 						By("Eventually, the deletion should be completed")
 						Eventually(MustSucceed(fs.Exists(pathInDBFromKey(key)))).Should(BeFalse())
+						for _, f := range MustSucceed(fs.List(rootPath)) {
+							Eventually(f.Name()).ShouldNot(HavePrefix(strconv.Itoa(int(key)) + "-DELETE-"))
+						}
 						_, err := db.RetrieveChannel(ctx, key)
 						Expect(err).To(MatchError(core.ChannelNotFound))
 
@@ -304,6 +308,9 @@ var _ = Describe("Delete", func() {
 						Expect(fs.Exists(pathInDBFromKey(key))).To(BeTrue())
 						Expect(db.DeleteChannel(key)).To(Succeed())
 						Eventually(MustSucceed(fs.Exists(pathInDBFromKey(key)))).Should(BeFalse())
+						for _, f := range MustSucceed(fs.List(rootPath)) {
+							Eventually(f.Name()).ShouldNot(HavePrefix(strconv.Itoa(int(key)) + "-DELETE-"))
+						}
 						_, err := db.RetrieveChannel(ctx, key)
 						Expect(err).To(MatchError(core.ChannelNotFound))
 
@@ -318,6 +325,9 @@ var _ = Describe("Delete", func() {
 						Expect(fs.Exists(pathInDBFromKey(key))).To(BeTrue())
 						Expect(db.DeleteChannel(key)).To(Succeed())
 						Eventually(MustSucceed(fs.Exists(pathInDBFromKey(key)))).Should(BeFalse())
+						for _, f := range MustSucceed(fs.List(rootPath)) {
+							Eventually(f.Name()).ShouldNot(HavePrefix(strconv.Itoa(int(key)) + "-DELETE-"))
+						}
 						_, err := db.RetrieveChannel(ctx, key)
 						Expect(err).To(MatchError(core.ChannelNotFound))
 
@@ -354,6 +364,9 @@ var _ = Describe("Delete", func() {
 					Expect(db.DeleteChannels(lo.Map(channels, func(c cesium.Channel, _ int) core.ChannelKey { return c.Key }))).To(Succeed())
 					for _, c := range channels {
 						Expect(fs.Exists(pathInDBFromKey(c.Key))).To(BeFalse())
+						for _, f := range MustSucceed(fs.List(rootPath)) {
+							Eventually(f.Name()).ShouldNot(HavePrefix(strconv.Itoa(int(c.Key)) + "-DELETE-"))
+						}
 					}
 				})
 				Describe("Happy paths", func() {
@@ -367,7 +380,10 @@ var _ = Describe("Delete", func() {
 						for _, c := range chs {
 							_, err := db.RetrieveChannel(ctx, c)
 							Expect(err).To(MatchError(core.ChannelNotFound))
-							Expect(fs.Exists(pathInDBFromKey(c))).To(BeFalse())
+							Eventually(MustSucceed(fs.Exists(pathInDBFromKey(c)))).Should(BeFalse())
+							for _, f := range MustSucceed(fs.List(rootPath)) {
+								Eventually(f.Name()).ShouldNot(HavePrefix(strconv.Itoa(int(c)) + "-DELETE-"))
+							}
 						}
 					},
 						Entry("1 index 1 data", index1, data1),
