@@ -8,11 +8,11 @@ import { Rate, Series, Synnax, TimeStamp, framer } from "@synnaxlabs/client";
 // Connect to a locally running, insecure Synnax cluster. If your connection parameters
 // are different, enter them here.
 const client = new Synnax({
-    host: "localhost",
+    host: "demo.synnaxlabs.com",
     port: 9090,
     username: "synnax",
     password: "seldon",
-    secure: false
+    secure: true
 });
 
 // Create an index channel that will be used to store our timestamps.

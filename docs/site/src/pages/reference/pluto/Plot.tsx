@@ -11,11 +11,11 @@ export function Plot() {
       }}
       workerURL="/public/worker.js"
       connParams={{
-        host: "localhost",
+        host: "demo.synnaxlabs.com",
         port: 9090,
         username: "synnax",
         password: "seldon",
-        secure: false,
+        secure: true,
       }}
     >
       <PlotI />
