@@ -17,7 +17,6 @@ const connParams: SynnaxProps = {
 
 const provideProps: Pluto.ProviderProps = {
   theming: { applyCSSVars: false, theme: { colors: { primary: "#be9223" } } },
-  workerURL: "/public/worker.js",
   connParams,
 };
 
