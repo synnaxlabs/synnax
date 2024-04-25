@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient, sendRequired } from "@synnaxlabs/freighter";
+import { AsyncTermSearcher } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type Device, deviceKeyZ, deviceZ } from "@/hardware/device/payload";
-import { AsyncTermSearcher } from "@synnaxlabs/x";
 
 const RETRIEVE_ENDPOINT = "/hardware/device/retrieve";
 
@@ -37,7 +37,13 @@ export class Retriever {
     const res = await sendRequired<
       typeof retrieveDeviceReqZ,
       typeof retrieveDeviceResZ
-    >(this.client, RETRIEVE_ENDPOINT, { keys: [term] }, retrieveDeviceReqZ, retrieveDeviceResZ);
+    >(
+      this.client,
+      RETRIEVE_ENDPOINT,
+      { keys: [term] },
+      retrieveDeviceReqZ,
+      retrieveDeviceResZ,
+    );
     return res.devices;
   }
 
@@ -45,10 +51,15 @@ export class Retriever {
     const res = await sendRequired<
       typeof retrieveDeviceReqZ,
       typeof retrieveDeviceResZ
-    >(this.client, RETRIEVE_ENDPOINT, { offset, limit }, retrieveDeviceReqZ, retrieveDeviceResZ);
+    >(
+      this.client,
+      RETRIEVE_ENDPOINT,
+      { offset, limit },
+      retrieveDeviceReqZ,
+      retrieveDeviceResZ,
+    );
     return res.devices;
   }
-  
 
   async retrieve(keys: string[]): Promise<Device[]> {
     const res = await sendRequired<

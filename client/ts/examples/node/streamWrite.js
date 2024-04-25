@@ -70,14 +70,14 @@ try {
         if (i % 60 == 0) 
             console.log(`Writing sample ${i} at ${timestamp.toISOString()}`)
 
-        if (i % commitInterval == 0) {
-            // Commit the writer. This method will return false if the commit fails i.e.
-            // we've mad an invalid write or someone has already written to this region.
-            if (!await writer.commit()) {
-                console.error("Failed to commit data");
-                break;
-            };
-        }
+        // if (i % commitInterval == 0) {
+        //     // Commit the writer. This method will return false if the commit fails i.e.
+        //     // we've mad an invalid write or someone has already written to this region.
+        //     if (!await writer.commit()) {
+        //         console.error("Failed to commit data");
+        //         break;
+        //     };
+        // }
     }
 } finally {
     await writer.close();

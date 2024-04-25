@@ -26,8 +26,9 @@ const TestThemeContent = (): ReactElement => {
 
 const TestTheme = (): ReactElement => {
   const a = Theming.useProvider({
-    themes: Theming.themes,
-    defaultTheme: "synnaxDark",
+    themes: Theming.SYNNAX_THEMES,
+    lightTheme: "synnaxLight",
+    darkTheme: "synnaxDark",
   });
   return (
     <Theming.Provider {...a}>

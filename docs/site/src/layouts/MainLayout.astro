@@ -82,6 +82,35 @@ const {
             --astro-code-token-punctuation: var(--pluto-text-color);
             --astro-code-token-keyword: #dc1342;
             --astro-code-token-constant: var(--pluto-text-color);
+            --pluto-base-size: 6px;
+            --pluto-border-radius: 2px;
+            --pluto-border-width: 1px;
+            --pluto-pid-element-stroke-width: 2px;
+            --pluto-font-family: "Inter Variable", sans-serif;
+            --pluto-h1-size: 8rem;
+            --pluto-h1-weight: 450;
+            --pluto-h1-line-height: 150%;
+            --pluto-h2-size: 5.5rem;
+            --pluto-h2-weight: 500;
+            --pluto-h2-line-height: 150%;
+            --pluto-h3-size: 4rem;
+            --pluto-h3-weight: 450;
+            --pluto-h3-line-height: 150%;
+            --pluto-h4-size: 3rem;
+            --pluto-h4-weight: 500;
+            --pluto-h4-line-height: 150%;
+            --pluto-h5-size: 2.3333rem;
+            --pluto-h5-weight: 450;
+            --pluto-h5-line-height: 150%;
+            --pluto-h5-text-transform: none;
+            --pluto-p-size: 2.666rem;
+            --pluto-p-weight: 350;
+            --pluto-p-line-height: 4.666rem;
+            --pluto-small-size: 2.333rem;
+            --pluto-small-weight: 350;
+            --pluto-small-line-height: 150%;
+            --pluto-height-large: 5.5rem;
+            --pluto-height-medium: 4.75rem;
             @media (prefers-color-scheme: dark) {
                 --pluto-theme-name: Synnax Dark;
                 --pluto-theme-key: synnax-dark;
@@ -194,33 +223,6 @@ const {
                 --pluto-text-color: #ededed;
                 --pluto-text-color-rgb: 237, 237, 237;
                 --pluto-border-color: #1a1a1a;
-                --pluto-base-size: 7px;
-                --pluto-border-radius: 2px;
-                --pluto-border-width: 1px;
-                --pluto-pid-element-stroke-width: 2px;
-                --pluto-font-family: "Inter Variable", sans-serif;
-                --pluto-h1-size: 7rem;
-                --pluto-h1-weight: 450;
-                --pluto-h1-line-height: 8rem;
-                --pluto-h2-size: 4.75rem;
-                --pluto-h2-weight: 500;
-                --pluto-h2-line-height: 150%;
-                --pluto-h3-size: 3.5rem;
-                --pluto-h3-weight: 450;
-                --pluto-h3-line-height: 150%;
-                --pluto-h4-size: 3rem;
-                --pluto-h4-weight: 500;
-                --pluto-h4-line-height: 150%;
-                --pluto-h5-size: 2.3333rem;
-                --pluto-h5-weight: 450;
-                --pluto-h5-line-height: 150%;
-                --pluto-h5-text-transform: none;
-                --pluto-p-size: 2.25rem;
-                --pluto-p-weight: 350;
-                --pluto-p-line-height: 4rem;
-                --pluto-small-size: 2rem;
-                --pluto-small-weight: 350;
-                --pluto-small-line-height: 150%;
             }
 
             @media (prefers-color-scheme: light) {
@@ -336,33 +338,6 @@ const {
                 --pluto-text-color: #1c1c1c;
                 --pluto-text-color-rgb: 28, 28, 28;
                 --pluto-border-color: #ededed;
-                --pluto-base-size: 7px;
-                --pluto-border-radius: 2px;
-                --pluto-border-width: 1px;
-                --pluto-pid-element-stroke-width: 2px;
-                --pluto-font-family: "Inter Variable", sans-serif;
-                --pluto-h1-size: 7rem;
-                --pluto-h1-weight: 450;
-                --pluto-h1-line-height: 8rem;
-                --pluto-h2-size: 4.75rem;
-                --pluto-h2-weight: 500;
-                --pluto-h2-line-height: 150%;
-                --pluto-h3-size: 3.5rem;
-                --pluto-h3-weight: 450;
-                --pluto-h3-line-height: 150%;
-                --pluto-h4-size: 3rem;
-                --pluto-h4-weight: 500;
-                --pluto-h4-line-height: 150%;
-                --pluto-h5-size: 2.333333rem;
-                --pluto-h5-weight: 400;
-                --pluto-h5-line-height: 150%;
-                --pluto-h5-text-transform: none;
-                --pluto-p-size: 2.25rem;
-                --pluto-p-weight: 350;
-                --pluto-p-line-height: 4rem;
-                --pluto-small-size: 2rem;
-                --pluto-small-weight: 350;
-                --pluto-small-line-height: 150%;
             }
         }
 
@@ -436,8 +411,8 @@ const {
         }
 
         & code:not(:is(h1, h2, h3, h4, h5, h6) code) {
-            font-size: calc(var(--pluto-small-size) * 0.9);
-            line-height: calc(var(--pluto-small-line-height) * 0.9);
+            font-size: var(--pluto-small-size);
+            line-height: var(--pluto-small-line-height);
         }
 
         code {
@@ -478,8 +453,8 @@ const {
         }
 
         table td {
-            font-size: 2rem;
-            line-height: 3rem;
+            font-size: var(--pluto-small-size);
+            line-height: var(--pluto-small-line-height);
             vertical-align: baseline;
         }
 

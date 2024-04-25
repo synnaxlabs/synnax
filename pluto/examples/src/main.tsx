@@ -10,6 +10,9 @@ const Main = () => {
   return (
     <Pluto.Provider
       workerURL={WorkerURL}
+      theming={{
+        theme: { colors: { primary: "#b57edc" } },
+      }}
       connParams={{
         host: "localhost",
         port: 9090,

@@ -16,7 +16,10 @@ import {
   useLayoutEffect,
   useMemo,
   useState,
+  useCallback,
 } from "react";
+
+import { deep } from "@synnaxlabs/x";
 
 import { Aether } from "@/aether";
 import { CSS } from "@/css";
@@ -34,48 +37,62 @@ export interface ContextValue {
 }
 
 const Context = createContext<ContextValue>({
-  theme: theming.themeZ.parse(theming.themes.synnaxLight),
+  theme: theming.themeZ.parse(theming.SYNNAX_THEMES.synnaxLight),
   toggleTheme: () => undefined,
   setTheme: () => undefined,
 });
 
 export interface UseProviderProps {
-  themes: Record<string, theming.ThemeSpec>;
-  defaultTheme?: string;
+  theme?: deep.Partial<theming.ThemeSpec>;
+  setTheme?: (key: string) => void;
+  toggleTheme?: () => void;
+  themes?: Record<string, theming.ThemeSpec>;
+  lightTheme?: string;
+  darkTheme?: string;
 }
 
 export type UseProviderReturn = ContextValue;
 
+const isDarkMode = (): boolean =>
+  window.matchMedia("(prefers-color-scheme: dark)").matches;
+
 export const useProvider = ({
-  themes,
-  defaultTheme,
+  theme,
+  themes = theming.SYNNAX_THEMES,
+  setTheme,
+  toggleTheme,
+  lightTheme = "synnaxLight",
+  darkTheme = "synnaxDark",
 }: UseProviderProps): UseProviderReturn => {
   const [selected, setSelected] = useState<string>(
-    defaultTheme ?? Object.keys(themes)[0],
+    isDarkMode() ? darkTheme : lightTheme,
   );
 
-  const parsedThemes = useMemo(
-    () =>
-      Object.entries(themes).reduce<Record<string, theming.Theme>>(
-        (acc, [key, value]) => ({ ...acc, [key]: theming.themeZ.parse(value) }),
-        {},
-      ),
-    [themes],
-  );
+  const parsedThemes = useMemo(() => {
+    if (theme != null) {
+      const synnaxLight = theming.themeZ.parse(deep.merge(theming.SYNNAX_LIGHT, theme));
+      const synnaxDark = theming.themeZ.parse(deep.merge(theming.SYNNAX_DARK, theme));
+      return { synnaxLight, synnaxDark };
+    }
+    return Object.entries(themes).reduce<Record<string, theming.Theme>>(
+      (acc, [key, value]) => ({ ...acc, [key]: theming.themeZ.parse(value) }),
+      {},
+    );
+  }, [theme, themes]);
 
-  const toggleTheme = (): void => {
+  const handleToggle = useCallback((): void => {
     const keys = Object.keys(themes);
     const index = keys.indexOf(selected);
     const nextIndex = (index + 1) % keys.length;
     setSelected(keys[nextIndex]);
-  };
+  }, [toggleTheme, selected, themes]);
 
   const parsedTheme = useMemo(() => parsedThemes[selected], [parsedThemes, selected]);
 
   return {
     theme: parsedTheme,
-    toggleTheme,
-    setTheme: setSelected,
+    toggleTheme: toggleTheme ?? handleToggle,
+    setTheme: setTheme ?? setSelected,
   };
 };
 
@@ -83,37 +100,15 @@ export const useContext = (): ContextValue => reactUseContext(Context);
 
 export const use = (): theming.Theme => useContext().theme;
 
-export interface ProviderProps
-  extends PropsWithChildren<unknown>,
-    Partial<ContextValue> {
+export interface ProviderProps extends PropsWithChildren<unknown>, UseProviderProps {
   applyCSSVars?: boolean;
   defaultTheme?: string;
 }
 
 export const Provider = Aether.wrap<ProviderProps>(
   theming.Provider.TYPE,
-  ({
-    children,
-    theme,
-    setTheme,
-    toggleTheme,
-    aetherKey,
-    applyCSSVars = true,
-    defaultTheme = "synnaxDark",
-  }): ReactElement => {
-    let ret: UseProviderReturn;
-    if (theme == null || toggleTheme == null || setTheme == null) {
-      ret = useProvider({
-        themes: theming.themes,
-        defaultTheme,
-      });
-    } else {
-      ret = {
-        theme,
-        toggleTheme,
-        setTheme,
-      };
-    }
+  ({ children, aetherKey, applyCSSVars = true, ...props }): ReactElement => {
+    const ret = useProvider(props);
     const [{ path }, , setAetherTheme] = Aether.use({
       aetherKey,
       type: theming.Provider.TYPE,
@@ -121,9 +116,7 @@ export const Provider = Aether.wrap<ProviderProps>(
       initialState: { theme: ret.theme },
     });
 
-    useEffect(() => {
-      setAetherTheme({ theme: ret.theme });
-    }, [ret.theme]);
+    useEffect(() => setAetherTheme({ theme: ret.theme }), [ret.theme]);
 
     useLayoutEffect(() => {
       if (applyCSSVars) CSS.applyVars(document.documentElement, toCSSVars(ret.theme));

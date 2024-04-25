@@ -19,7 +19,7 @@ export const color = (
 ): Color.Crude | undefined => {
   if (disabled === true) return "var(--pluto-gray-l5)";
   if (color != null) return color;
-  if (variant === "filled") return "var(--pluto-white)";
+  if (variant === "filled") return "var(--pluto-primary-contrast)";
   if (shade != null) return undefined;
   return "var(--pluto-text-color)";
 };

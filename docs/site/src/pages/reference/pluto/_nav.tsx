@@ -15,6 +15,11 @@ export const plutoNav: PageNavNode = {
       href: "/reference/pluto/provider-and-canvas",
     },
     {
+      name: "Theming",
+      key: "/reference/pluto/theming",
+      href: "/reference/pluto/theming",
+    },
+    {
       name: "Line Plot",
       key: "/reference/pluto/line-plot",
       href: "/reference/pluto/line-plot",

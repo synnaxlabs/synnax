@@ -1,0 +1,86 @@
+--- 
+layout: "@/layouts/MainLayout.astro"
+title: "Theming"
+description: "Configure the appearance of Pluto components."
+---
+import { Divider } from "@synnaxlabs/pluto";
+import Note from "@/components/Note.astro";
+import Code from "@/components/code/Code.astro";
+export const components = { pre: Code };
+
+Pluto comes with a theming system that allows you to change the appearance of 
+components. There are two methods for configuring a custom theme: overriding the
+default theme (easier), and creating entirely custom themes (more flexible).
+
+<Divider.Divider direction="x" />
+
+## Overriding the Default Theme
+
+We've put together a default dark and light theme that we think looks
+pretty good, and you can override certain properties to suit your needs.
+
+To ov, pass arguments to the `theming` prop on the 
+`Pluto.Provider` component.
+
+```tsx
+import { Pluto } from "@synnaxlabs/pluto";
+
+const App = () => (
+    // Set the primary color to a nice lavender
+    <Pluto.Provider theming={{ theme: { colors: { primary: "#b57edc" } }}}>
+      <Pluto.Button>Click me</Pluto.Button>
+    </Pluto.Provider>
+);
+```
+
+## Theme Specification
+
+Here is the structure of the `theming.theme` prop:
+
+```typescript 
+// Colors can be hexadecimal strings, RGB arrays, or RGBA arrays
+type Color = string | [number, number, number] | [number, number, number, number];
+
+type TypographySpec = {
+    size: number;
+    weight: number;
+    lineHeight: number;
+    textTransform: string;
+}
+
+type Scale = {
+    m2: Color;
+    m1: Color;
+    z: Color;
+    p1: Color;
+    p2: Color;
+}
+
+interface Theme {
+    colors: {
+        border: Color;
+        primary: Color | Scale;
+        secondary: Color | Scale;
+        error: Color | Scale;
+        white: Color;
+        black: Color;
+        text: Color;
+        textContrast: Color;
+        textOnPrimary: Color;
+    },
+    sizes: {
+        base: number,
+        border: {
+            radius: number;
+            width: number;
+        }
+    },
+    typography: {
+        family: string;
+        h1: TypographySpec;
+        h2: TypographySpec;
+        h3: TypographySpec;
+        h4: TypographySpec;
+        h5: TypographySpec;
+    }
+}

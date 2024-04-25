@@ -14,7 +14,7 @@ const connParams: SynnaxProps = {
 };
 
 const provideProps: Pluto.ProviderProps = {
-  theming: { applyCSSVars: false, defaultTheme: "synnaxLight" },
+  theming: { applyCSSVars: false, theme: { colors: { primary: "#be9223" } } },
   workerURL: "/public/worker.js",
   connParams,
 };
@@ -70,12 +70,13 @@ export const RealTimePlot = factory({
 
 export const HistoricalPlot = factory({
   axes: AXES,
-  lines: LINES.map((line) => ({
-    ...line,
-    variant: "static",
-    timeRange: new TimeRange({
-      start: TimeStamp.now().sub(TimeSpan.minutes(30)),
-      end: TimeStamp.now(),
-    }),
-  })),
+  lines: [],
+  // lines: LINES.map((line) => ({
+  //   ...line,
+  //   variant: "static",
+  //   timeRange: new TimeRange({
+  //     start: TimeStamp.now().sub(TimeSpan.seconds(30)),
+  //     end: TimeStamp.now(),
+  //   }),
+  // })),
 });
