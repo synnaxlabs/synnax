@@ -75,7 +75,7 @@ export const themeZ = z
       white: color.Color.z,
       black: color.Color.z,
       text: color.Color.z,
-      textContrast: color.Color.z,
+      textInverted: color.Color.z,
       textOnPrimary: color.Color.z.optional().default(color.ZERO),
       logo: z.string(),
     }),
@@ -190,7 +190,7 @@ const SYNNAX_BASE: ThemeSpec = {
     white: "#FFFFFF",
     black: "#000000",
     text: lightGrayScale.l9,
-    textContrast: lightGrayScale.l0,
+    textInverted: lightGrayScale.l0,
   },
   sizes: {
     base: baseSize,
@@ -276,7 +276,7 @@ export const SYNNAX_DARK: ThemeSpec = {
     logo: "var(--pluto-text-color)",
     border: DARK_GRAY_SCALE.l3,
     text: DARK_GRAY_SCALE.l9,
-    textContrast: DARK_GRAY_SCALE.l0,
+    textInverted: DARK_GRAY_SCALE.l0,
   },
 };
 

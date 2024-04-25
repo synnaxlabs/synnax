@@ -42,7 +42,7 @@ const start = TimeStamp.now();
 
 // Set a rough rate of 20 Hz. This won't be exact because we're sleeping for a fixed 
 // amount of time, but it's close enough for demonstration purposes.
-const roughRate = Rate.hz(40);
+const roughRate = Rate.hz(250);
 
 // Make the writer commit every 500 samples. This will make the data available for 
 // historical reads every 500 samples.
@@ -50,7 +50,7 @@ const commitInterval = 500;
 
 const writer = await client.openWriter({
     start, 
-    channels: [timeChannel.key, dataChannel1.key, dataChannel2.key]
+    channels: [timeChannel.key, dataChannel1.key, dataChannel2.key],
 });
 
 try {

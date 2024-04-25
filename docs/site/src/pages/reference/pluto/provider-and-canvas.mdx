@@ -42,37 +42,35 @@ const App = () => {
     )
 }
 
-const Main = () => {
-    return (
-        <Pluto.Provider
-            // Worker url so components can communicate with the worker thread.
-            workerUrl={WorkerUrl}
-            // Connection parameters to your Synnax cluster so that 
-            // components can  fetch data when needed.
-            connParams={{
-                host: "demo.synnaxlabs.com",
-                port: 9090,
-                username: "synnax",
-                password: "seldon",
-                secure: true,
-            }}
-        >
-            <App />
-        </Pluto.Provider>
-    )
-}
+const Main = () => (
+    <Pluto.Provider
+        // Worker url so components can communicate with the worker thread.
+        workerUrl={WorkerUrl}
+        // Connection parameters to your Synnax cluster so that 
+        // components can fetch data when needed.
+        connParams={{
+            host: "demo.synnaxlabs.com",
+            port: 9090,
+            username: "synnax",
+            password: "seldon",
+            secure: true,
+        }}
+    >
+        <App />
+    </Pluto.Provider>
+)
 ```
 
 ## The Canvas
 
-If you're using visualization components like a line plots, you'll need to set up a 
-rendering canvas for them to access. This comes in the form of the `Pluto.Canvas`
+If you're using visualization components such as line plots, you'll need to set up a 
+rendering canvas for them to display on. This comes in the form of the `Pluto.Canvas`
 component.
 
 To increase performance, pluto re-uses the canvas element across all visualizations. You
 should only use one `Pluto.Canvas` component in your application, and we recommend placing
-it as a fixed element that stretches across your entire application. Here's our previous
-example edited to include the rendering canvas:
+it as a fixed element that stretches across the display. Here's our previous example 
+edited to include the rendering canvas:
 
 ```tsx
 import { Pluto, Canvas } from "@synnaxlabs/pluto";

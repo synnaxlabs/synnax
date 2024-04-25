@@ -19,7 +19,7 @@ default theme (easier), and creating entirely custom themes (more flexible).
 We've put together a default dark and light theme that we think looks
 pretty good, and you can override certain properties to suit your needs.
 
-To ov, pass arguments to the `theming` prop on the 
+To customize the default themes, pass arguments to the `theming` prop of the
 `Pluto.Provider` component.
 
 ```tsx
@@ -41,46 +41,85 @@ Here is the structure of the `theming.theme` prop:
 // Colors can be hexadecimal strings, RGB arrays, or RGBA arrays
 type Color = string | [number, number, number] | [number, number, number, number];
 
+// Specification for a particular typography element e.g. h1, h2, etc.
 type TypographySpec = {
-    size: number;
-    weight: number;
-    lineHeight: number;
-    textTransform: string;
+    // Size in rem
+    size?: number;
+    // Font weight
+    weight?: number;
+    // Line height in rem
+    lineHeight?: number;
+    // Optional text transforms to apply
+    textTransform?: string;
 }
 
+// A color scale where m2 has the lowest contrast with the background
+// and p2 has the highest contrast.
 type Scale = {
+    // Lowest contrast
     m2: Color;
+    // Low contrast
     m1: Color;
+    // Base
     z: Color;
+    // High contrast
     p1: Color;
+    // Highest contrast
     p2: Color;
 }
 
 interface Theme {
-    colors: {
-        border: Color;
-        primary: Color | Scale;
-        secondary: Color | Scale;
-        error: Color | Scale;
-        white: Color;
-        black: Color;
-        text: Color;
-        textContrast: Color;
-        textOnPrimary: Color;
+    // Sets the color palette.
+    colors?: {
+        // Border color to use on tabs, buttons, etc.
+        border?: Color;
+        // Primary accent color. If one color is provided, 
+        // the scale will get generated automatically.
+        primary?: Color | Scale;
+        // Secondary accent color. If one color is provided,
+        // the scale will get generated automatically.
+        secondary?: Color | Scale;
+        // Error color. If one color is provided, the scale
+        // will get generated automatically.
+        error?: Color | Scale;
+        // White color, regardless of theme
+        white?: Color;
+        // Black color, regardless of theme
+        black?: Color;
+        // Text color
+        text?: Color;
+        // Inverted text color to use on dark elements.
+        textInverted?: Color;
+        // Text color to use on top of primary elements. If not provided,
+        // it will be automatically chosen from the highest contrast of text and
+        // textInverted.
+        textOnPrimary?: Color;
     },
+    // Sets sizing parameters
     sizes: {
-        base: number,
+        // Defines the rem base size. Defaults to 6px. Increase this value to 
+        // increase the size of all components.
+        base?: number,
         border: {
-            radius: number;
-            width: number;
+            // Border radius in px for (almost) all components
+            radius?: number;
+            // Border width in px for (almost) all components
+            width?: number;
         }
     },
+    // Sets typography parameters
     typography: {
-        family: string;
+        // The font family to use.
+        family?: string;
+        // H1 typography
         h1: TypographySpec;
+        // H2 typography
         h2: TypographySpec;
+        // H3 typography
         h3: TypographySpec;
+        // H4 typography
         h4: TypographySpec;
+        // H5 typography
         h5: TypographySpec;
     }
 }

@@ -345,9 +345,12 @@ const {
         * {
             scroll-margin: 20rem;
         }
+
         body {
             height: fit-content !important;
+            margin: 0;
         }
+
         main {
             position: relative;
             min-height: calc(100vh - 30rem);
@@ -373,13 +376,10 @@ const {
                 white-space: normal !important;
             }
         }
-    </style>
-    <style is:global>
         .styled-scrollbar {
             &::-webkit-scrollbar {
                 width: 1rem;
             }
-
             &::-webkit-scrollbar-thumb {
                 background-color: var(--pluto-border-color);
                 border-radius: 2px;
@@ -394,10 +394,6 @@ const {
         a:hover:not(.pluto-btn) {
             text-decoration: underline;
         }
-
-        /* header:is(h1, h2, p) {
-            margin: 0 !important;
-        } */
 
         li {
             margin: 0.5rem;
