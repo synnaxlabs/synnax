@@ -104,7 +104,7 @@ export const themeZ = z
     if (theme.colors.textOnPrimary == null || theme.colors.textOnPrimary.isZero)
       theme.colors.textOnPrimary = theme.colors.primary.z.pickByContrast(
         theme.colors.text,
-        theme.colors.textContrast,
+        theme.colors.textInverted,
       );
     return theme;
   });
