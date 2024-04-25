@@ -100,7 +100,7 @@ const {
             --pluto-h4-size: 3rem;
             --pluto-h4-weight: 500;
             --pluto-h4-line-height: 150%;
-            --pluto-h5-size: 2.3333rem;
+            --pluto-h5-size: 2.666rem;
             --pluto-h5-weight: 450;
             --pluto-h5-line-height: 150%;
             --pluto-h5-text-transform: none;
@@ -110,8 +110,9 @@ const {
             --pluto-small-size: 2.333rem;
             --pluto-small-weight: 350;
             --pluto-small-line-height: 150%;
-            --pluto-height-large: 5rem !important;
+            --pluto-height-large: 5.5rem !important;
             --pluto-height-medium: 5rem !important;
+            --pluto-text-on-primary: white;
             @media (prefers-color-scheme: dark) {
                 --pluto-theme-name: Synnax Dark;
                 --pluto-theme-key: synnax-dark;
@@ -344,6 +345,7 @@ const {
 
         * {
             scroll-margin: 20rem;
+            box-sizing: border-box;
         }
 
         body {
@@ -369,7 +371,7 @@ const {
         }
         nav {
             position: sticky;
-            top: 18rem;
+            top: 22rem;
             height: 100%;
             & p,
             small {

@@ -1,11 +1,17 @@
 ---
 layout: "@/layouts/MainLayout.astro"
 title: "Provider and Canvas"
-description: "The Provider and Canvas are the central components of the Pluto library"
+description: "Configure the Pluto Provider and Canvas components"
 ---
 import { Divider } from "@synnaxlabs/pluto";
 import Code from "@/components/code/Code.astro";
 export const components = { pre: Code };
+
+Pluto requires a bit of scaffolding to get up and running. In this guide we'll walk
+you through setting up a web worker to handle data fetching and rendering and wrapping
+your application in the `Pluto.Provider` and `Pluto.Canvas` components.
+
+<Divider.Divider direction="x" />
 
 ## The Web Worker Script
 
@@ -19,6 +25,8 @@ import { pluto } from "@synnaxlabs/pluto/ether";
 
 pluto.render();
 ```
+
+<Divider.Divider direction="x" />
 
 ## The Provider 
 
@@ -60,6 +68,8 @@ const Main = () => (
     </Pluto.Provider>
 )
 ```
+
+<Divider.Divider direction="x" />
 
 ## The Canvas
 
