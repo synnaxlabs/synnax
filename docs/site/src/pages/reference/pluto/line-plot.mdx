@@ -75,19 +75,8 @@ const MyDynamicLinePLot = () => (
 
 You can also using the `Channel.LinePlot` component to display historical data. To do this,
 set the `variant` prop of the line to `"static"`, and provide a `timeRange` prop that
-specifies the time range of the data to display.
-
-### Example
-
-Here's an example that displays data from a channel over a 30-minute period
-
-<ComponentFrame>
-    <HistoricalPlot client:only="react" />
-</ComponentFrame>
-
-### Code
-
-Here's the code for that example.
+specifies the time range of the data to display. Here's updated code for the previous
+example that displays data from a specific time range.
 
 ```tsx
 const MyHistoricalLinePlot = () => (
