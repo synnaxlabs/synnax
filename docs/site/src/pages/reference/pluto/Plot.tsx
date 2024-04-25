@@ -5,6 +5,8 @@ import { type SynnaxProps } from "@synnaxlabs/client";
 import { Canvas, Channel, Pluto } from "@synnaxlabs/pluto";
 import { TimeRange, TimeSpan, TimeStamp, xy } from "@synnaxlabs/x";
 
+import WorkerURL from "./worker?worker&url";
+
 const connParams: SynnaxProps = {
   host: "demo.synnaxlabs.com",
   port: 9090,
@@ -48,7 +50,7 @@ const LINES: Channel.BaseLineProps[] = [
 ];
 
 export const factory = (props: Channel.LinePlotProps) => (): ReactElement => (
-  <Pluto.Provider {...provideProps}>
+  <Pluto.Provider workerURL={WorkerURL} {...provideProps}>
     <Canvas.Canvas style={{ width: "100%", height: 500 }}>
       <Channel.LinePlot
         style={{ width: "calc(100% - 3rem)", height: 500 }}
