@@ -70,7 +70,6 @@ export const Canvas = Aether.wrap<CanvasProps>(
 
     const handleResize = useCallback(
       (region: box.Box) => {
-        console.log("Resizing canvas");
         if (canvases.current.bootstrapped)
           setState(() => ({
             bootstrapped: true,

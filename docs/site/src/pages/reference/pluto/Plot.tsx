@@ -71,13 +71,12 @@ export const RealTimePlot = factory({
 
 export const HistoricalPlot = factory({
   axes: AXES,
-  lines: [],
-  // lines: LINES.map((line) => ({
-  //   ...line,
-  //   variant: "static",
-  //   timeRange: new TimeRange({
-  //     start: TimeStamp.now().sub(TimeSpan.seconds(30)),
-  //     end: TimeStamp.now(),
-  //   }),
-  // })),
+  lines: LINES.map((line) => ({
+    ...line,
+    variant: "static",
+    timeRange: new TimeRange({
+      start: TimeStamp.now().sub(TimeSpan.seconds(30)),
+      end: TimeStamp.now(),
+    }),
+  })),
 });

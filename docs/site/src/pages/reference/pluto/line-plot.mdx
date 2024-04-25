@@ -14,13 +14,22 @@ import ComponentFrame from "@/components/pluto/ComponentFrame.astro";
 
 ## Real-Time Plot
 
+To display live data from a channel or set of channels, use the `Channel.LinePlot`
+component and provide it with a line whose `variant` is set to `"dynamic"`. This will 
+continuously update the plot with new data as it arrives.
+
 ### Example
+
+Here's a simple example that pulls the most recent 30 seconds of data from a channel
+and displays it in a line plot.
 
 <ComponentFrame>
     <RealTimePlot client:only="react" />
 </ComponentFrame>
 
 ### Code
+
+Here's the code for that example.
 
 ```tsx
 import { Channel, TimeSpan } from "@synnaxlabs/pluto"
@@ -64,13 +73,21 @@ const MyDynamicLinePLot = () => (
 
 ## Historical Plot
 
+You can also using the `Channel.LinePlot` component to display historical data. To do this,
+set the `variant` prop of the line to `"static"`, and provide a `timeRange` prop that
+specifies the time range of the data to display.
+
 ### Example
 
-{/* <ComponentFrame>
+Here's an example that displays data from a channel over a 30-minute period
+
+<ComponentFrame>
     <HistoricalPlot client:only="react" />
-</ComponentFrame> */}
+</ComponentFrame>
 
 ### Code
+
+Here's the code for that example.
 
 ```tsx
 const MyHistoricalLinePlot = () => (
