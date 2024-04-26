@@ -61,8 +61,9 @@ func (db *DB) DeleteChannel(ch ChannelKey) error {
 	// may take a longer time.
 	// Rename the file to have a random suffix in case the channel is repeatedly created
 	// and deleted.
-	var newName = channelDirName(ch) + "-DELETE-" + strconv.Itoa(rand.Int())
-	err = db.fs.Rename(channelDirName(ch), newName)
+	oldName := channelDirName(ch)
+	newName := oldName + "-DELETE-" + strconv.Itoa(rand.Int())
+	err = db.fs.Rename(oldName, newName)
 	if err != nil {
 		db.mu.Unlock()
 		return nil
@@ -80,8 +81,6 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 	)
 
 	defer func() {
-		db.mu.Unlock()
-
 		for _, name := range directoriesToRemove {
 			if _err := db.fs.Remove(name); _err != nil {
 				err = errors.CombineErrors(err, _err)
@@ -103,14 +102,17 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 
 		err = db.deleteChannel(ch)
 		if err != nil {
+			db.mu.Unlock()
 			return
 		}
 
 		// Rename the files first, so we can avoid hogging the mutex while deleting the directory
 		// may take a longer time.
-		var newName = channelDirName(ch) + "-DELETE-" + strconv.Itoa(rand.Int())
-		err = db.fs.Rename(channelDirName(ch), newName)
+		oldName := channelDirName(ch)
+		newName := oldName + "-DELETE-" + strconv.Itoa(rand.Int())
+		err = db.fs.Rename(oldName, newName)
 		if err != nil {
+			db.mu.Unlock()
 			return
 		}
 
@@ -121,19 +123,24 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 	for _, ch := range indexChannels {
 		err = db.deleteChannel(ch)
 		if err != nil {
+			db.mu.Unlock()
 			return
 		}
 
-		var newName = channelDirName(ch) + "-DELETE-" + strconv.Itoa(rand.Int())
-		err = db.fs.Rename(channelDirName(ch), newName)
+		oldName := channelDirName(ch)
+		newName := oldName + "-DELETE-" + strconv.Itoa(rand.Int())
+		err = db.fs.Rename(oldName, newName)
 		if err != nil {
+			db.mu.Unlock()
 			return
 		}
 
 		directoriesToRemove = append(directoriesToRemove, newName)
 	}
 
-	return nil
+	db.mu.Unlock()
+
+	return
 }
 
 func (db *DB) deleteChannel(ch ChannelKey) error {
