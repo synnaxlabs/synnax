@@ -1,0 +1,41 @@
+---
+layout: "@/layouts/MainLayout.astro"
+title: "Pluto Example App"
+description: "Run an example visualization UI built with Pluto"
+---
+import { Divider } from "@synnaxlabs/pluto"
+import { RealTimePlot, HistoricalPlot } from "@/components/pluto/Plot"
+import Code from "@/components/code/Code.astro";
+import Table from "@/components/Table.astro";
+export const components = { pre: Code, table: Table };
+import ComponentFrame from "@/components/pluto/ComponentFrame.astro";
+
+We've put together a simple typescript app built with [Vite](https://vitejs.dev/) and
+Pluto. It's available in the [`pluto/examples`](https://github.com/synnaxlabs/synnax/tree/main/pluto/examples) directory of the [Synnax](https://github.com/synnaxlabs/synnax)
+repository. In this guide, we'll show you how to clone the repo and run the app locally.
+
+## Clone the Synnax Repository
+
+First, clone the Synnax repository to your local machine:
+
+```bash
+git clone https://github.com/synnaxlabs/synnax 
+```
+
+## Install dependencies
+
+Then, move into the `pluto/examples` directory and install the dependencies:
+
+```bash
+cd synnax/pluto/examples && npm install
+```
+
+## Run the app
+
+Finally, run the app:
+
+```bash
+npm run dev
+```
+
+Then, navigate to `http://localhost:5173` in your browser.

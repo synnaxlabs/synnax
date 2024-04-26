@@ -24,5 +24,10 @@ export const plutoNav: PageNavNode = {
       key: "/reference/pluto/line-plot",
       href: "/reference/pluto/line-plot",
     },
+    {
+      name: "Example App",
+      key: "/reference/pluto/example-app",
+      href: "/reference/pluto/example-app",
+    },
   ],
 };

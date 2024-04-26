@@ -5,7 +5,7 @@ import { type SynnaxProps } from "@synnaxlabs/client";
 import { Canvas, Channel, Pluto } from "@synnaxlabs/pluto";
 import { TimeRange, TimeSpan, TimeStamp, xy } from "@synnaxlabs/x";
 
-import WorkerURL from "./worker?worker&url";
+import WorkerURL from "@/components/pluto/worker?worker&url";
 
 const connParams: SynnaxProps = {
   host: "demo.synnaxlabs.com",

@@ -2,8 +2,7 @@ import ReactDOM from "react-dom/client";
 
 import { Pluto, Canvas } from "@synnaxlabs/pluto";
 
-import { Channel } from "@synnaxlabs/pluto";
-import { TimeSpan } from "@synnaxlabs/x";
+import { Channel, TimeSpan } from "@synnaxlabs/pluto";
 
 import WorkerURL from "./worker?worker&url";
 
