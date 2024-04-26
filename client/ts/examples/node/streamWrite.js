@@ -8,11 +8,10 @@ import { Rate, Series, Synnax, TimeStamp, framer } from "@synnaxlabs/client";
 // Connect to a locally running, insecure Synnax cluster. If your connection parameters
 // are different, enter them here.
 const client = new Synnax({
-    host: "demo.synnaxlabs.com",
+    host: "localhost",
     port: 9090,
     username: "synnax",
     password: "seldon",
-    secure: true
 });
 
 // Create an index channel that will be used to store our timestamps.
@@ -42,7 +41,7 @@ const start = TimeStamp.now();
 
 // Set a rough rate of 20 Hz. This won't be exact because we're sleeping for a fixed 
 // amount of time, but it's close enough for demonstration purposes.
-const roughRate = Rate.hz(250);
+const roughRate = Rate.hz(25);
 
 // Make the writer commit every 500 samples. This will make the data available for 
 // historical reads every 500 samples.
@@ -69,15 +68,13 @@ try {
 
         if (i % 60 == 0) 
             console.log(`Writing sample ${i} at ${timestamp.toISOString()}`)
-
-        // if (i % commitInterval == 0) {
-        //     // Commit the writer. This method will return false if the commit fails i.e.
-        //     // we've mad an invalid write or someone has already written to this region.
-        //     if (!await writer.commit()) {
-        //         console.error("Failed to commit data");
-        //         break;
-        //     };
-        // }
+        
+        // Commit the writer. This method will return false if the commit fails i.e.
+        // we've mad an invalid write or someone has already written to this region.
+        if (i % commitInterval == 0 && !await writer.commit()) {
+            console.error("Failed to commit data");
+            break;
+        }
     }
 } finally {
     await writer.close();

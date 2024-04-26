@@ -53,8 +53,10 @@ export interface UseProviderProps {
 
 export type UseProviderReturn = ContextValue;
 
-const isDarkMode = (): boolean =>
-  window.matchMedia("(prefers-color-scheme: dark)").matches;
+const prefersDark = (): MediaQueryList =>
+  window.matchMedia("(prefers-color-scheme: dark)");
+
+const isDarkMode = (): boolean => prefersDark().matches;
 
 export const useProvider = ({
   theme,
@@ -88,6 +90,12 @@ export const useProvider = ({
   }, [toggleTheme, selected, themes]);
 
   const parsedTheme = useMemo(() => parsedThemes[selected], [parsedThemes, selected]);
+
+  useEffect(() => {
+    const listener = (): void => setSelected(isDarkMode() ? darkTheme : lightTheme);
+    prefersDark().addEventListener("change", listener);
+    return () => prefersDark().removeEventListener("change", listener);
+  }, []);
 
   return {
     theme: parsedTheme,
