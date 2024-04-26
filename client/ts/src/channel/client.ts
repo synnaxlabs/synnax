@@ -14,9 +14,9 @@ import {
   Rate,
   type TypedArray,
   type CrudeDensity,
-  type Series,
   type TimeRange,
   type CrudeTimeStamp,
+  type MultiSeries,
 } from "@synnaxlabs/x/telem";
 import { toArray } from "@synnaxlabs/x/toArray";
 
@@ -151,7 +151,7 @@ export class Channel {
    * @param end - The ending timestamp of the range to read from.
    * @returns A typed array containing the retrieved
    */
-  async read(tr: TimeRange): Promise<Series | undefined> {
+  async read(tr: TimeRange): Promise<MultiSeries> {
     return await this.framer.read(tr, this.key);
   }
 
@@ -162,7 +162,7 @@ export class Channel {
    * @param data - THe telemetry to write to the channel.
    */
   async write(start: CrudeTimeStamp, data: TypedArray): Promise<void> {
-    return await this.framer.write(this.key, start, data);
+    return await this.framer.write(start, this.key, data);
   }
 }
 
@@ -280,7 +280,7 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
    *
    * @returns The retrieved channel.
    * @throws {NotFoundError} if the channel does not exist in the cluster.
-   * @throws {MultipleResultsError} is only thrown if the channel is retrieved by name,
+   * @throws {MultipleFoundError} is only thrown if the channel is retrieved by name,
    * and multiple channels with the same name exist in the cluster.
    *
    * @example

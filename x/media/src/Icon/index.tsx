@@ -40,12 +40,12 @@ import {
   FaStream,
   FaWindows,
 } from "react-icons/fa";
-import { FiMenu } from "react-icons/fi";
 import { GrPan } from "react-icons/gr";
 import { HiDownload, HiLightningBolt, HiOutlinePlus } from "react-icons/hi";
 import { HiSquare3Stack3D } from "react-icons/hi2";
 import { IoMdRefresh } from "react-icons/io";
 import { IoBookSharp, IoCopySharp, IoTime } from "react-icons/io5";
+import { GiHamburgerMenu } from "react-icons/gi";
 import {
   MdEdit,
   MdOutlineDeviceHub,
@@ -192,12 +192,12 @@ export const Icon: IconType = {
   },
   Box: wrapIcon(AiOutlineBorder),
   Python: wrapIcon(SiPython),
-  Typescript: wrapIcon(SiTypescript),
+  TypeScript: wrapIcon(SiTypescript),
   NPM: wrapIcon(SiNpm),
   PNPM: wrapIcon(SiPnpm),
   Yarn: wrapIcon(SiYarn),
   QuestionMark: wrapIcon(MdQuestionMark),
-  Menu: wrapIcon(FiMenu),
+  Menu: wrapIcon(GiHamburgerMenu),
   Logo: {
     Github: wrapIcon(AiFillGithub),
     LinkedIn: wrapIcon(AiFillLinkedin),
@@ -305,7 +305,7 @@ export interface IconType {
   OS: Record<runtime.OS, IconFC>;
   Box: IconFC;
   Python: IconFC;
-  Typescript: IconFC;
+  TypeScript: IconFC;
   NPM: IconFC;
   PNPM: IconFC;
   Yarn: IconFC;

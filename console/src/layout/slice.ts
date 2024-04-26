@@ -96,14 +96,23 @@ const ZERO_MOSAIC_STATE: MosaicState = {
   },
 };
 
-const MIGRATIONS: migrate.Migrations = {};
+const MIGRATIONS: migrate.Migrations = {
+  "0.0.0": (state: SliceState): SliceState => ({
+    ...state,
+    themes: {
+      synnaxDark: Theming.SYNNAX_THEMES.synnaxDark,
+      synnaxLight: Theming.SYNNAX_THEMES.synnaxLight,
+    },
+    version: "0.1.0",
+  }),
+};
 
 export const migrateSlice = migrate.migrator<SliceState, SliceState>(MIGRATIONS);
 
 export const ZERO_SLICE_STATE: SliceState = {
-  version: "0.0.0",
+  version: "0.1.0",
   activeTheme: "synnaxDark",
-  themes: Theming.themes,
+  themes: Theming.SYNNAX_THEMES,
   alreadyCheckedGetStarted: false,
   layouts: {
     main: MAIN_LAYOUT,

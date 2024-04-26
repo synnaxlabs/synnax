@@ -109,7 +109,7 @@ const MainUnderContext = (): ReactElement => {
   );
 };
 
-const Main = (): ReactElement | null => {
+const Main = (): ReactElement => {
   return (
     <Provider store={store}>
       <ErrorOverlay>

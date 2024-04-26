@@ -28,7 +28,7 @@ const newChannel = async (): Promise<channel.Channel> => {
 describe("Iterator", () => {
   test("happy path", async () => {
     const ch = await newChannel();
-    const writer = await client.telem.openWriter({
+    const writer = await client.openWriter({
       start: TimeStamp.SECOND,
       channels: ch.key,
     });
@@ -42,7 +42,7 @@ describe("Iterator", () => {
       await writer.close();
     }
 
-    const iter = await client.telem.openIterator(
+    const iter = await client.openIterator(
       new TimeRange(TimeSpan.ZERO, TimeSpan.seconds(4)),
       [ch.key],
     );

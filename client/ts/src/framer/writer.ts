@@ -159,7 +159,12 @@ export class Writer {
 
   async write(channel: KeysOrNames, data: CrudeSeries[]): Promise<boolean>;
 
-  async write(frame: CrudeFrame): Promise<boolean>;
+  async write(frame: CrudeFrame | Record<KeyOrName, CrudeSeries>): Promise<boolean>;
+
+  async write(
+    channelsOrData: Params | Record<KeyOrName, CrudeSeries> | CrudeFrame,
+    series?: CrudeSeries | CrudeSeries[],
+  ): Promise<boolean>;
 
   /**
    * Writes the given frame to the database.

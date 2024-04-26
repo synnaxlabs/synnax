@@ -70,16 +70,29 @@ func (i *Iterator) SetBounds(bounds telem.TimeRange) {
 
 // SeekFirst seeks to the first domain in the iterator's bounds. If no such domain exists,
 // SeekFirst returns false.
-func (i *Iterator) SeekFirst(ctx context.Context) bool { return i.SeekGE(ctx, i.Bounds.Start) }
+func (i *Iterator) SeekFirst(ctx context.Context) bool {
+	if i.closed {
+		return false
+	}
+	return i.SeekGE(ctx, i.Bounds.Start)
+}
 
 // SeekLast seeks to the last domain in the iterator's bounds. If no such domain exists,
 // SeekLast returns false.
-func (i *Iterator) SeekLast(ctx context.Context) bool { return i.SeekLE(ctx, i.Bounds.End-1) }
+func (i *Iterator) SeekLast(ctx context.Context) bool {
+	if i.closed {
+		return false
+	}
+	return i.SeekLE(ctx, i.Bounds.End-1)
+}
 
 // SeekLE seeks to the domain whose TimeRange contain the provided timestamp. If no such domain
 // exists, SeekLE seeks to the closest domain whose ending timestamp is less than the provided
 // timestamp. If no such domain exists, SeekLE returns false.
 func (i *Iterator) SeekLE(ctx context.Context, stamp telem.TimeStamp) bool {
+	if i.closed {
+		return false
+	}
 	i.valid = true
 	i.position = i.idx.searchLE(ctx, stamp)
 	return i.reload()
@@ -89,6 +102,9 @@ func (i *Iterator) SeekLE(ctx context.Context, stamp telem.TimeStamp) bool {
 // exists, SeekGE seeks to the closest domain whose starting timestamp is greater than the
 // provided timestamp. If no such domain exists, SeekGE returns false.
 func (i *Iterator) SeekGE(ctx context.Context, stamp telem.TimeStamp) bool {
+	if i.closed {
+		return false
+	}
 	i.valid = true
 	i.position = i.idx.searchGE(ctx, stamp)
 	return i.reload()

@@ -56,8 +56,8 @@
     "devtools": "npx turbo devtools --filter console"
   },
   "devDependencies": {
-    "eslint": "^8.48.0",
-    "eslint-plugin-prettier": "^5.0.0",
+    "eslint": "^8.57.0",
+    "eslint-plugin-prettier": "^5.1.3",
     "eslint_d": "^12.2.1",
     "prettier": "3.2.5",
     "turbo": "^1.13.2"

@@ -12,9 +12,25 @@
 html {
     overscroll-behavior: none;
     overflow: hidden;
+    background: var(--pluto-gray-l0);
+    margin: 0;
+    height: 100%;
+    width: 100%;
+}
+
+body {
+    margin: 0;
+    height: 100%;
+    width: 100%;
+}
+
+#root {
+    height: 100%;
+    width: 100%;
 }
 
 * {
     user-select: none !important;
     -webkit-user-select: none !important;
+    box-sizing: border-box;
 }

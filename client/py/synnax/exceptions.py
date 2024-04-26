@@ -90,7 +90,7 @@ class NotFoundError(QueryError):
     pass
 
 
-class MultipleResultsError(QueryError):
+class MultipleFoundError(QueryError):
     """
     Raised when a query that should return a single result returns multiple.
     """

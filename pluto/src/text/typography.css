@@ -58,8 +58,7 @@ h4,
     font-weight: var(--pluto-h4-weight);
 }
 
-h5,
-th {
+h5 {
     font-size: var(--pluto-h5-size);
     line-height: var(--pluto-h5-line-height);
     font-weight: var(--pluto-h5-weight);
@@ -77,7 +76,8 @@ p,
 label,
 code,
 li,
-td {
+td,
+th {
     font-size: var(--pluto-p-size);
     line-height: var(--pluto-p-line-height);
     font-weight: var(--pluto-p-weight);

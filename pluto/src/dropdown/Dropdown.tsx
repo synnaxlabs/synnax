@@ -115,7 +115,7 @@ const ZERO_STATE: State = {
 export const Dialog = ({
   visible,
   children,
-  location,
+  location: p,
   keepMounted = true,
   className,
   variant = "connected",
@@ -139,9 +139,10 @@ export const Dialog = ({
     const { adjustedDialog, location } = f({
       target: targetRef.current,
       dialog: dialogRef.current,
+      initial: p,
     });
     setState({ dialogLoc: location, dialogBox: adjustedDialog });
-  }, [variant]);
+  }, [p, variant]);
 
   useLayoutEffect(() => {
     calculatePosition();
@@ -198,7 +199,7 @@ export const Dialog = ({
 };
 Dialog.displayName = "Dropdown";
 
-interface CalcDialogProps {
+interface CalcDialogProps extends Pick<position.DialogProps, "initial"> {
   target: HTMLElement;
   dialog: HTMLElement;
 }
@@ -213,12 +214,14 @@ const FLOATING_TRANSLATE_AMOUNT: number = 6;
 const calcFloatingDialog = ({
   target: target_,
   dialog: dialog_,
+  initial,
 }: CalcDialogProps): position.DialogReturn => {
   let { adjustedDialog, location } = position.dialog({
     container: box.construct(0, 0, window.innerWidth, window.innerHeight),
     target: box.construct(target_),
     dialog: box.construct(dialog_),
     ...FLOATING_PROPS,
+    initial: initial,
   });
   adjustedDialog = box.translate(
     adjustedDialog,
@@ -239,6 +242,7 @@ const CONNECTED_TRANSLATE_AMOUNT: number = 1;
 const calcConnectedDialog = ({
   target,
   dialog,
+  initial,
 }: CalcDialogProps): position.DialogReturn => {
   const targetBox = box.construct(target);
   const props: position.DialogProps = {
@@ -246,6 +250,7 @@ const calcConnectedDialog = ({
     dialog: box.resize(box.construct(dialog), "x", box.width(targetBox)),
     container: box.construct(0, 0, window.innerWidth, window.innerHeight),
     ...CONNECTED_PROPS,
+    initial: initial ?? CONNECTED_PROPS.initial,
   };
 
   let { adjustedDialog, location } = position.dialog(props);

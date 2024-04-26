@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "synnax"
-version = "0.17.3"
+version = "0.17.16"
 description = "Synnax Client Library"
 keywords = ["Synnax", "Synnax Python Client"]
 authors = ["emiliano bonilla <emilbon99@gmail.com>"]

@@ -9,10 +9,10 @@
 
 import { type StreamClient } from "@synnaxlabs/freighter";
 import {
-  type Series,
-  type TimeRange,
   type CrudeTimeStamp,
   type CrudeSeries,
+  type CrudeTimeRange,
+  type MultiSeries,
 } from "@synnaxlabs/x/telem";
 
 import { type KeyOrName, type Params } from "@/channel/payload";
@@ -38,7 +38,7 @@ export class Client {
    * @param keys - A list of channel keys to iterate over.
    * @returns a new {@link TypedIterator}.
    */
-  async openIterator(tr: TimeRange, channels: Params): Promise<Iterator> {
+  async openIterator(tr: CrudeTimeRange, channels: Params): Promise<Iterator> {
     return await Iterator._open(tr, channels, this.retriever, this.stream);
   }
 
@@ -86,45 +86,77 @@ export class Client {
     return await Streamer._open(this.retriever, this.stream, config);
   }
 
+  async write(
+    start: CrudeTimeStamp,
+    channel: KeyOrName,
+    data: CrudeSeries,
+  ): Promise<void>;
+
+  async write(
+    start: CrudeTimeStamp,
+    channels: KeysOrNames,
+    data: CrudeSeries[],
+  ): Promise<void>;
+
+  async write(
+    start: CrudeTimeStamp,
+    data: Record<KeyOrName, CrudeSeries>,
+  ): Promise<void>;
+
   /**
    * Writes telemetry to the given channel starting at the given timestamp.
    *
-   * @param channel - The key of the channel to write to.
+   * @param channels - The key of the channel to write to.
    * @param start - The starting timestamp of the first sample in data.
    * @param data  - The telemetry to write. This telemetry must have the same
    * data type as the channel.
    * @throws if the channel does not exist.
    */
   async write(
-    channel: KeyOrName,
     start: CrudeTimeStamp,
-    data: CrudeSeries,
+    channels: Params | Record<KeyOrName, CrudeSeries>,
+    data?: CrudeSeries | CrudeSeries[],
   ): Promise<void> {
+    if (data == null) {
+      const data_ = channels as Record<KeyOrName, CrudeSeries>;
+      const w = await this.openWriter({
+        start,
+        channels: Object.keys(data_),
+        mode: WriterMode.PersistOnly,
+      });
+      try {
+        await w.write(data_);
+        await w.commit();
+      } finally {
+        await w.close();
+      }
+      return;
+    }
     const w = await this.openWriter({
       start,
-      channels: channel,
+      channels: channels as Params,
       mode: WriterMode.PersistOnly,
     });
     try {
-      await w.write(channel, data);
+      await w.write(channels as Params, data);
       await w.commit();
     } finally {
       await w.close();
     }
   }
 
-  async read(tr: TimeRange, channel: KeyOrName): Promise<Series>;
+  async read(tr: CrudeTimeRange, channel: KeyOrName): Promise<MultiSeries>;
 
-  async read(tr: TimeRange, channels: Params): Promise<Frame>;
+  async read(tr: CrudeTimeRange, channels: Params): Promise<Frame>;
 
-  async read(tr: TimeRange, channels: Params): Promise<Series | Frame> {
+  async read(tr: CrudeTimeRange, channels: Params): Promise<Series | Frame> {
     const { single } = analyzeChannelParams(channels);
     const fr = await this.readFrame(tr, channels);
-    if (single) return fr.series[0];
+    if (single) return fr.get(channels as KeyOrName);
     return fr;
   }
 
-  private async readFrame(tr: TimeRange, params: Params): Promise<Frame> {
+  private async readFrame(tr: CrudeTimeRange, params: Params): Promise<Frame> {
     const i = await this.openIterator(tr, params);
     const frame = new Frame();
     try {

@@ -23,7 +23,7 @@ pnpm dev:pluto
 If you make a change to an upstream dependency, you will need to rebuild
 it in order for the changes to reflect in the development server. For more
 information on this process, see
-the [Typescript Build Guide](../docs/tech/typescript/build.md).
+the [TypeScript Build Guide](../docs/tech/typescript/build.md).
 
 ### Important Note
 

@@ -840,6 +840,20 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
     return undefined;
   }
 
+  get byteLength(): Size {
+    return new Size(this.series.reduce((a, b) => a + b.byteLength.valueOf(), 0));
+  }
+
+  get data(): TypedArray {
+    const buf = new this.dataType.Array(this.length);
+    let offset = 0;
+    for (const ser of this.series) {
+      buf.set(ser.data as ArrayLike<any>, offset);
+      offset += ser.length;
+    }
+    return new this.dataType.Array(buf);
+  }
+
   [Symbol.iterator](): Iterator<T> {
     if (this.series.length === 0)
       return {

@@ -15,7 +15,6 @@
     & button {
         border-radius: 0;
         width: 100%;
-        border-left: 0.3rem solid transparent;
 
         & .pluto-caret path {
             fill: var(--pluto-gray-l6) !important;

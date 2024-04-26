@@ -28,7 +28,7 @@
     background: var(--pluto-primary-z);
     border: var(--pluto-border);
     border-color: var(--pluto-primary-z) !important;
-    color: var(--pluto-white);
+    color: var(--pluto-text-on-primary);
 
     &:hover:not(.pluto--disabled) {
         background: var(--pluto-primary-p1);

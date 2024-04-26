@@ -60,7 +60,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [ macos-latest, ubuntu-latest, windows-latest ]
+        platform: [ macos-12, ubuntu-latest, windows-latest ]
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -97,6 +97,8 @@ jobs:
         shell: bash
         run: |
           if [ "${{ matrix.platform }}" = "macos-latest" ]; then
+            echo "OS=macos" >> $GITHUB_ENV
+          elif [ "${{ matrix.platform }}" = "macos-12" ]; then
             echo "OS=macos" >> $GITHUB_ENV
           elif [ "${{ matrix.platform }}" = "ubuntu-latest" ]; then
             echo "OS=linux" >> $GITHUB_ENV
