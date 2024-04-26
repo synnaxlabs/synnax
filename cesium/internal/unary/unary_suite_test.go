@@ -26,10 +26,9 @@ var (
 	cleanUp     func() error
 )
 
-var _ = BeforeSuite(func() { fileSystems, cleanUp = testutil.FileSystems() })
-var _ = AfterSuite(func() { Expect(cleanUp()).To(Succeed()) })
-
 func TestUnary(t *testing.T) {
 	RegisterFailHandler(Fail)
+	fileSystems, cleanUp = testutil.FileSystems()
 	RunSpecs(t, "Unary Suite")
+	Expect(cleanUp()).To(Succeed())
 }
