@@ -53,10 +53,12 @@ export interface UseProviderProps {
 
 export type UseProviderReturn = ContextValue;
 
-const prefersDark = (): MediaQueryList =>
-  window.matchMedia("(prefers-color-scheme: dark)");
+const prefersDark = (): MediaQueryList | null => {
+  if (typeof window?.matchMedia === "undefined") return null;
+  return window.matchMedia("(prefers-color-scheme: dark)");
+};
 
-const isDarkMode = (): boolean => prefersDark().matches;
+const isDarkMode = (): boolean => prefersDark()?.matches ?? true;
 
 export const useProvider = ({
   theme,
@@ -93,8 +95,8 @@ export const useProvider = ({
 
   useEffect(() => {
     const listener = (): void => setSelected(isDarkMode() ? darkTheme : lightTheme);
-    prefersDark().addEventListener("change", listener);
-    return () => prefersDark().removeEventListener("change", listener);
+    prefersDark()?.addEventListener("change", listener);
+    return () => prefersDark()?.removeEventListener("change", listener);
   }, []);
 
   return {
