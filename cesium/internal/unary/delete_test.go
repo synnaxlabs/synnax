@@ -21,7 +21,7 @@ import (
 
 var _ = Describe("Delete", Ordered, func() {
 	for fsName, fs := range fileSystems {
-		fsName, fs := fsName, fs()
+		fs := fs()
 		Context("FS:"+fsName, func() {
 			var (
 				db      *unary.DB

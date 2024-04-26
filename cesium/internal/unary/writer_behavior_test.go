@@ -21,7 +21,7 @@ import (
 
 var _ = Describe("Writer Behavior", func() {
 	for fsName, fs := range fileSystems {
-		fsName, fs := fsName, fs()
+		fs := fs()
 		Context("FS: "+fsName, func() {
 			Describe("Index", func() {
 				var db *unary.DB

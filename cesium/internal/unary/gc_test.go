@@ -11,7 +11,7 @@ import (
 
 var _ = Describe("Garbage Collection", Ordered, func() {
 	for fsName, fs := range fileSystems {
-		fsName, fs := fsName, fs()
+		fs := fs()
 		Context("FS: "+fsName, func() {
 			var (
 				rateDB    *unary.DB
