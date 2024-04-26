@@ -10,10 +10,7 @@
 import { type Partial } from "@/deep/partial";
 import { isObject } from "@/identity";
 
-export const merge = <T>(
-  base: T,
-  ...objects: Array<Partial<T>>
-): T => {
+export const merge = <T>(base: T, ...objects: Array<Partial<T>>): T => {
   if (objects.length === 0) return base;
   const source = objects.shift();
 

@@ -16,7 +16,8 @@ const CONTEXT_KEY = "pluto-theming-context";
 
 const providerStateZ = z.object({
   theme: themeZ,
-});
+  // For some reason the generate type is too deep, so we need to cast it to ZodTypeAny
+}) as z.ZodTypeAny;
 
 export class Provider extends aether.Composite<typeof providerStateZ> {
   static readonly TYPE: string = "theming.Provider";

@@ -3,12 +3,15 @@ layout: "@/layouts/MainLayout.astro"
 title: "Write Data"
 description: "Use the TypeScript client to write to a Synnax cluster"
 ---
+import { Divider } from "@synnaxlabs/pluto";
 import Code from "@/components/code/Code.astro";
 export const components = { pre: Code };
 
 The Synnax typescript client supports multiple methods for writing data to a cluster. We
 can write directly to a channel, or we can write to multiple channels in a streaming
 fashion using a writer.
+
+<Divider.Divider direction="x" />
 
 ## Writing to a Channel
 
@@ -61,6 +64,8 @@ Synnax will raise a `ValidationError` if the index does not contain a correspond
 timestamp for every sample in the data array. After all, it wouldn't make sense to have
 a temperature reading without an associated timestamp.
 
+<Divider.Divider direction="x" />
+
 ## Using a Writer
 
 While the above methods are great for writing static, existing data, it's common to want 
@@ -68,10 +73,8 @@ to write data in a streaming fashion for use in control sequences and live dashb
 The `Writer` class is designed to handle this use case (and is actually used under the hood
 by the above methods).
 
-Writers are a bit more complicated to operate, so we recommend reading the [concepts](/concepts/write-domains#transactions) page to learn more about
-how they work.
-
-### Opening a Writer
+Writers are a bit more complicated to operate, so we recommend reading the 
+[concepts](/concepts/write-domains#transactions) page to learn more about how they work.
 
 We'll create the following index-indexed pair to use with our writer.
 

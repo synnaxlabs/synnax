@@ -27,7 +27,7 @@ export const linePlotStateZ = z.object({
   viewport: box.box,
   hold: z.boolean().optional().default(false),
   grid: z.record(gridPositionSpecZ),
-  clearOverscan: xy.crudeZ,
+  clearOverScan: xy.crudeZ.optional().default(xy.ZERO),
 });
 
 interface InternalState {
@@ -139,7 +139,7 @@ export class LinePlot extends aether.Composite<
       canvases,
     });
 
-    const os = xy.construct(this.state.clearOverscan);
+    const os = xy.construct(this.state.clearOverScan);
     const removeCanvasScissor = renderCtx.scissor(
       this.state.container,
       os,
@@ -169,7 +169,7 @@ export class LinePlot extends aether.Composite<
     instrumentation.L.debug("rendered", { key: this.key });
     const eraseRegion = box.copy(this.state.container);
     return async ({ canvases }) => {
-      renderCtx.erase(eraseRegion, this.state.clearOverscan, ...canvases);
+      renderCtx.erase(eraseRegion, this.state.clearOverScan, ...canvases);
     };
   }
 

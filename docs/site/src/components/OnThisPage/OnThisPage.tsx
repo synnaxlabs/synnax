@@ -14,6 +14,7 @@ import { Header } from "@synnaxlabs/pluto/header";
 import { Menu } from "@synnaxlabs/pluto/menu";
 import { type MarkdownHeading } from "astro";
 import { unescape } from "html-escaper";
+
 import { OSSelectButton } from "@/components/platform/PlatformTabs";
 
 interface ItemOffset {
@@ -109,7 +110,7 @@ export const OnThisPage = ({
 
   return (
     <Align.Space el="nav" className="on-this-page" size={2}>
-      <Header.Header id={onThisPageID} className="heading" level="h5">
+      <Header.Header id={onThisPageID} className="heading" level="h4">
         <Header.Title>On this page</Header.Title>
       </Header.Header>
       <OSSelectButton />

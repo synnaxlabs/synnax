@@ -29,7 +29,7 @@ export interface ChannelClient {
    * @returns the channel with the given key.
    * @throws QueryError if the channel does not exist.
    */
-  retrieveChannel: (key: channel.Key) => Promise<channel.Payload>;
+  retrieveChannel: (key: channel.KeyOrName) => Promise<channel.Payload>;
 }
 
 /** A client that can be used to read telemetry from the Synnax cluster. */
@@ -83,7 +83,7 @@ export class Proxy implements Client {
   }
 
   /** Implements ChannelClient. */
-  async retrieveChannel(key: channel.Key): Promise<channel.Payload> {
+  async retrieveChannel(key: channel.KeyOrName): Promise<channel.Payload> {
     return await this.client.retrieveChannel(key);
   }
 
@@ -149,8 +149,8 @@ export class Core implements Client {
   }
 
   /** Implements ChannelClient. */
-  async retrieveChannel(key: channel.Key): Promise<channel.Payload> {
-    const res = await this.channelRetriever.retrieve([key]);
+  async retrieveChannel(key: channel.KeyOrName): Promise<channel.Payload> {
+    const res = await this.channelRetriever.retrieve([key] as channel.Params);
     if (res.length === 0) throw new QueryError(`channel ${key} not found`);
     return res[0];
   }

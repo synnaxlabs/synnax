@@ -55,6 +55,7 @@ export const toCSSVars = (theme: Theme): Record<string, number | string | undefi
     "black-rgb": theme.colors.black.rgbString,
     "text-color": theme.colors.text.hex,
     "text-color-rgb": theme.colors.text.rgbString,
+    "text-on-primary": theme.colors.textOnPrimary.hex,
     "border-color": theme.colors.border.hex,
     "base-size": unitProperty(theme.sizes.base, "px"),
     "border-radius": unitProperty(theme.sizes.border.radius, "px"),

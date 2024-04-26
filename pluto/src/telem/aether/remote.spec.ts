@@ -43,7 +43,7 @@ describe("remote", () => {
         [this.channel.key]: new client.ReadResponse(this.channel, []),
       };
 
-      async retrieveChannel(key: channel.Key): Promise<channel.Channel> {
+      async retrieveChannel(key: channel.KeyOrName): Promise<channel.Channel> {
         return this.channel;
       }
 
@@ -199,7 +199,7 @@ describe("remote", () => {
         [this.channel.index]: new client.ReadResponse(this.indexChannel, []),
       };
 
-      async retrieveChannel(key: channel.Key): Promise<channel.Channel> {
+      async retrieveChannel(key: channel.KeyOrName): Promise<channel.Channel> {
         this.retrieveChannelMock(key);
         if (key === this.channel.key) {
           return this.channel;
@@ -339,7 +339,7 @@ describe("remote", () => {
         [this.channel.key]: new client.ReadResponse(this.channel, []),
       };
 
-      async retrieveChannel(key: channel.Key): Promise<channel.Channel> {
+      async retrieveChannel(key: channel.KeyOrName): Promise<channel.Channel> {
         if (key === this.channel.key) {
           return this.channel;
         }
