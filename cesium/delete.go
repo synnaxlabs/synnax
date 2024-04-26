@@ -51,7 +51,7 @@ func channelDirName(ch ChannelKey) string {
 // Does nothing if channel does not exist.
 func (db *DB) DeleteChannel(ch ChannelKey) error {
 	db.mu.Lock()
-	err := db.deleteChannel(ch)
+	err := db.removeChannel(ch)
 	if err != nil {
 		db.mu.Unlock()
 		return err
@@ -80,13 +80,18 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 		directoriesToRemove = make([]string, 0)
 	)
 
+	// This 'defer' statement does a best-effort removal of all renamed directories
+	// to ensure that all DBs deleted from db.unaryDBs and db.virtualDBs are also deleted
+	// on FS.
 	defer func() {
+		db.mu.Unlock()
+		c := errutil.NewCatch(errutil.WithAggregation())
 		for _, name := range directoriesToRemove {
-			if _err := db.fs.Remove(name); _err != nil {
-				err = errors.CombineErrors(err, _err)
-				return
-			}
+			c.Exec(func() error {
+				return db.fs.Remove(name)
+			})
 		}
+		err = errors.CombineErrors(err, c.Error())
 	}()
 
 	// Do a pass first to remove all non-index channels
@@ -100,9 +105,8 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 			continue
 		}
 
-		err = db.deleteChannel(ch)
+		err = db.removeChannel(ch)
 		if err != nil {
-			db.mu.Unlock()
 			return
 		}
 
@@ -112,7 +116,6 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 		newName := oldName + "-DELETE-" + strconv.Itoa(rand.Int())
 		err = db.fs.Rename(oldName, newName)
 		if err != nil {
-			db.mu.Unlock()
 			return
 		}
 
@@ -121,9 +124,8 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 
 	// Do another pass to remove all index channels
 	for _, ch := range indexChannels {
-		err = db.deleteChannel(ch)
+		err = db.removeChannel(ch)
 		if err != nil {
-			db.mu.Unlock()
 			return
 		}
 
@@ -131,19 +133,18 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 		newName := oldName + "-DELETE-" + strconv.Itoa(rand.Int())
 		err = db.fs.Rename(oldName, newName)
 		if err != nil {
-			db.mu.Unlock()
 			return
 		}
 
 		directoriesToRemove = append(directoriesToRemove, newName)
 	}
 
-	db.mu.Unlock()
-
 	return
 }
 
-func (db *DB) deleteChannel(ch ChannelKey) error {
+// removeChannel removes ch from db.unaryDBs or db.virtualDBs. If the key does not exist
+// or if there is an open entity on the specified database.
+func (db *DB) removeChannel(ch ChannelKey) error {
 	udb, uok := db.unaryDBs[ch]
 	if uok {
 		if udb.Channel.IsIndex {
