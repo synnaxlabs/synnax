@@ -191,7 +191,10 @@ export const ToggleControlForm = ({ path }: { path: string }): ReactElement => {
   return (
     <FormWrapper direction="x" grow align="stretch">
       <Input.Item label="Input Channel" grow>
-        <Channel.SelectSingle value={source.channel} onChange={handleSourceChange} />
+        <Channel.SelectSingle
+          value={source.channel as number}
+          onChange={handleSourceChange}
+        />
       </Input.Item>
       <Input.Item label="Output Channel" grow>
         <Channel.SelectSingle value={sink.channel} onChange={handleSinkChange} />
@@ -401,7 +404,7 @@ const ValueTelemForm = ({ path }: { path: string }): ReactElement => {
     onChange({ ...value, telem: t });
   };
 
-  const c = Channel.useName(source.channel);
+  const c = Channel.useName(source.channel as number);
   useEffect(() => {
     onChange({ ...value, tooltip: [c] });
   }, [c]);
@@ -409,7 +412,10 @@ const ValueTelemForm = ({ path }: { path: string }): ReactElement => {
   return (
     <FormWrapper direction="x" align="stretch">
       <Input.Item label="Input Channel" grow>
-        <Channel.SelectSingle value={source.channel} onChange={handleSourceChange} />
+        <Channel.SelectSingle
+          value={source.channel as number}
+          onChange={handleSourceChange}
+        />
       </Input.Item>
       <Input.Item label="Precision" align="start">
         <Input.Numeric

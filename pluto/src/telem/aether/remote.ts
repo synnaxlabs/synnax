@@ -16,6 +16,7 @@ import {
   TimeStamp,
   DataType,
   type AsyncDestructor,
+  primitiveIsZero,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -31,7 +32,7 @@ import {
 import { type client } from "@/telem/client";
 
 export const streamChannelValuePropsZ = z.object({
-  channel: z.number(),
+  channel: z.number().or(z.string()),
 });
 
 export type StreamChannelValueProps = z.infer<typeof streamChannelValuePropsZ>;
@@ -45,6 +46,7 @@ export class StreamChannelValue
   private readonly client: client.Client;
   // Disconnects the current streaming handler.
   private removeStreamHandler: AsyncDestructor | null = null;
+  private channelKey: channel.Key = 0;
 
   static readonly TYPE = "stream-channel-value";
 
@@ -58,7 +60,7 @@ export class StreamChannelValue
     this.client = client;
   }
 
-  /** @returns the leadng series buffer for testing purposes. */
+  /** @returns the leading series buffer for testing purposes. */
   get testingOnlyLeadingBuffer(): Series | null {
     return this.leadingBuffer;
   }
@@ -82,7 +84,11 @@ export class StreamChannelValue
 
   async value(): Promise<number> {
     // No valid channel has been set.
-    if (this.props.channel === 0) return 0;
+    if (primitiveIsZero(this.props.channel)) return 0;
+    if (this.channelKey === 0)
+      this.channelKey = (
+        await fetchChannelProperties(this.client, this.props.channel, false)
+      ).key;
     if (!this.valid) await this.read();
     // No data has been received and no recent samples were fetched on initialization.
     if (this.leadingBuffer == null || this.leadingBuffer.length === 0) return 0;
@@ -96,9 +102,8 @@ export class StreamChannelValue
 
   private async updateStreamHandler(): Promise<void> {
     await this.removeStreamHandler?.();
-    const { channel } = this.props;
     const handler: client.StreamHandler = (data) => {
-      const res = data[channel];
+      const res = data[this.channelKey];
       const newData = res.data;
       if (newData.length !== 0) {
         const first = newData[newData.length - 1];
@@ -109,23 +114,23 @@ export class StreamChannelValue
       // Just because we didn't get a new buffer doesn't mean one wasn't allocated.
       this.notify();
     };
-    this.removeStreamHandler = await this.client.stream(handler, [channel]);
+    this.removeStreamHandler = await this.client.stream(handler, [this.channelKey]);
   }
 }
 
 const fetchChannelProperties = async (
   client: client.ChannelClient,
-  channel: channel.Key,
+  channel: channel.KeyOrName,
   fetchFromIndex: boolean,
 ): Promise<{ key: channel.Key; dataType: DataType }> => {
   const c = await client.retrieveChannel(channel);
-  if (!fetchFromIndex || c.isIndex) return { key: channel, dataType: c.dataType };
+  if (!fetchFromIndex || c.isIndex) return { key: c.key, dataType: c.dataType };
   return { key: c.index, dataType: DataType.TIMESTAMP };
 };
 
 const channelDataSourcePropsZ = z.object({
   timeRange: TimeRange.z,
-  channel: z.number(),
+  channel: z.number().or(z.string()),
   useIndexOfChannel: z.boolean().optional().default(false),
 });
 
@@ -178,7 +183,7 @@ export class ChannelData
 }
 
 const streamChannelDataPropsZ = z.object({
-  channel: z.number(),
+  channel: z.number().or(z.string()),
   useIndexOfChannel: z.boolean().optional().default(false),
   timeSpan: TimeSpan.z,
   keepFor: TimeSpan.z.optional(),
