@@ -115,7 +115,7 @@ const ZERO_STATE: State = {
 export const Dialog = ({
   visible,
   children,
-  location,
+  location: p,
   keepMounted = true,
   className,
   variant = "connected",
@@ -139,9 +139,10 @@ export const Dialog = ({
     const { adjustedDialog, location } = f({
       target: targetRef.current,
       dialog: dialogRef.current,
+      initial: p,
     });
     setState({ dialogLoc: location, dialogBox: adjustedDialog });
-  }, [variant]);
+  }, [p, variant]);
 
   useLayoutEffect(() => {
     calculatePosition();
@@ -198,7 +199,7 @@ export const Dialog = ({
 };
 Dialog.displayName = "Dropdown";
 
-interface CalcDialogProps {
+interface CalcDialogProps extends Pick<position.DialogProps, "initial"> {
   target: HTMLElement;
   dialog: HTMLElement;
 }
@@ -238,6 +239,7 @@ const CONNECTED_INITIAL: Partial<location.XY> = { x: "center" };
 const calcConnectedDialog = ({
   target,
   dialog,
+  initial,
 }: CalcDialogProps): position.DialogReturn => {
   const targetBox = box.construct(target);
   const props: position.DialogProps = {
@@ -246,7 +248,7 @@ const calcConnectedDialog = ({
     container: box.construct(0, 0, window.innerWidth, window.innerHeight),
     alignments: CONNECTED_ALIGNMENTS,
     disable: CONNECTED_DISABLE_LOCATIONS,
-    initial: CONNECTED_INITIAL,
+    initial: initial ?? CONNECTED_INITIAL,
   };
 
   let { adjustedDialog, location } = position.dialog(props);

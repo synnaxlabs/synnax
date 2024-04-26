@@ -37,21 +37,21 @@
     "react-redux": "^9.1.0"
   },
   "devDependencies": {
-    "@reduxjs/toolkit": "^2.2.0",
+    "@reduxjs/toolkit": "^2.2.3",
     "@synnaxlabs/tsconfig": "workspace:*",
     "@synnaxlabs/vite-plugin": "workspace:*",
-    "@tauri-apps/api": "^1.5.3",
-    "@types/react": "^18.2.48",
-    "@vitest/coverage-v8": "^1.2.2",
+    "@tauri-apps/api": "^1.5.4",
+    "@types/react": "^18.2.79",
+    "@vitest/coverage-v8": "1.2.2",
     "eslint-config-synnaxlabs": "workspace:*",
     "proxy-memoize": "1.2.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-redux": "^9.1.0",
-    "typescript": "^5.3.3",
-    "vite": "^5.1.2",
-    "vite-plugin-lib": "^2.0.6",
-    "vitest": "^1.2.1"
+    "react-redux": "^9.1.1",
+    "typescript": "^5.4.5",
+    "vite": "5.1.2",
+    "vite-plugin-lib": "^2.0.9",
+    "vitest": "1.2.2"
   },
   "files": [
     "dist"

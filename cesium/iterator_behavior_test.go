@@ -18,24 +18,32 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("Iterator Behavior", Ordered, func() {
-	var db *cesium.DB
-	BeforeAll(func() { db = openMemDB() })
-	AfterAll(func() { Expect(db.Close()).To(Succeed()) })
+var _ = Describe("Iterator Behavior", func() {
+	for fsName, fs := range fileSystems {
+		fs := fs()
+		Context("FS: "+fsName, Ordered, func() {
+			var db *cesium.DB
+			BeforeAll(func() { db = openDBOnFS(fs) })
+			AfterAll(func() {
+				Expect(db.Close()).To(Succeed())
+				Expect(fs.Remove(rootPath)).To(Succeed())
+			})
 
-	Describe("Close", func() {
-		It("Should not allow operations on a closed iterator", func() {
-			Expect(db.CreateChannel(ctx, cesium.Channel{Key: 1, DataType: telem.Int64T, Rate: 1 * telem.Hz})).To(Succeed())
-			var (
-				i = MustSucceed(db.OpenIterator(cesium.IteratorConfig{Bounds: telem.TimeRangeMax, Channels: []core.ChannelKey{1}}))
-				e = core.EntityClosed("cesium.iterator")
-			)
-			Expect(i.Close()).To(Succeed())
-			Expect(i.Valid()).To(BeFalse())
-			Expect(i.SeekFirst()).To(BeFalse())
-			Expect(i.Valid()).To(BeFalse())
-			Expect(i.Error()).To(MatchError(e))
-			Expect(i.Close()).To(Succeed())
+			Describe("Close", func() {
+				It("Should not allow operations on a closed iterator", func() {
+					Expect(db.CreateChannel(ctx, cesium.Channel{Key: 1, DataType: telem.Int64T, Rate: 1 * telem.Hz})).To(Succeed())
+					var (
+						i = MustSucceed(db.OpenIterator(cesium.IteratorConfig{Bounds: telem.TimeRangeMax, Channels: []core.ChannelKey{1}}))
+						e = core.EntityClosed("cesium.iterator")
+					)
+					Expect(i.Close()).To(Succeed())
+					Expect(i.Valid()).To(BeFalse())
+					Expect(i.SeekFirst()).To(BeFalse())
+					Expect(i.Valid()).To(BeFalse())
+					Expect(i.Error()).To(MatchError(e))
+					Expect(i.Close()).To(Succeed())
+				})
+			})
 		})
-	})
+	}
 })

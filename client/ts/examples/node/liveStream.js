@@ -24,7 +24,7 @@ const read_from = [
     "stream_write_example_data_2"
 ]
 
-const streamer = await client.telem.openStreamer(read_from);
+const streamer = await client.openStreamer(read_from);
 
 // It's very important that we close the streamer when we're done with it to release 
 // network connections and other resources, so we wrap the streaming loop in a try-finally

@@ -11,7 +11,8 @@ package domain_test
 
 import (
 	"context"
-	"github.com/synnaxlabs/x/io/fs"
+	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/testutil"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -19,11 +20,15 @@ import (
 )
 
 var (
-	ctx = context.Background()
-	mfs = fs.NewMem()
+	ctx         = context.Background()
+	rootPath    = "domain-testdata"
+	fileSystems map[string]func() xfs.FS
+	cleanUp     func() error
 )
 
 func TestDomain(t *testing.T) {
 	RegisterFailHandler(Fail)
+	fileSystems, cleanUp = testutil.FileSystems()
 	RunSpecs(t, "Domain Suite")
+	Expect(cleanUp()).To(Succeed())
 }

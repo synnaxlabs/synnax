@@ -110,7 +110,7 @@ execution state for several machines.
 
 ### 4.1.0 - Instrumentation Must Support Clients
 
-Many features exist above the server-side waterline. Our Python and Typescript
+Many features exist above the server-side waterline. Our Python and TypeScript
 libraries, Synnax CLI, and User Interfaces play a role in delivering a quality user
 experience. When designing a distributed instrumentation system, we must keep in mind
 how we tie together the execution state of both the server and client.

@@ -1,0 +1,93 @@
+---
+layout: "@/layouts/MainLayout.astro"
+title: "Read Data"
+description: "Use the TypeScript Client to read from a Synnax Cluster"
+---
+import { Divider } from "@synnaxlabs/pluto"
+import Code from "@/components/code/Code.astro";
+export const components = { pre: Code };
+
+The TypeScript client supports several different methods for reading data from a cluster. 
+We can read directly from a channel, read from multiple channels at once, or use iterators 
+to efficiently process large amounts of data.
+
+<Divider.Divider direction="x" />
+
+## Reading from a Channel
+
+The simplest way to read data from Synnax is to use the `read` method on a `Channel` object.
+
+```typescript
+const channel = await client.channels.retrieve("temperature");
+const start = new Date('2023-02-12T12:30:00Z');
+const end = new Date('2022-02-12T14:30:00Z');
+
+const series = await channel.read(start, end);
+```
+
+The returned data is a `MultiSeries`, which maintains a very similar interface to a 
+JavaScript typed array (e.g. `Float32Array`, `Int32Array`, etc.). We can convert
+the returned data to a JavaScript array easily.
+
+```typescript
+const data = Array.from(series);
+```
+
+For more information on `MultiSeries` and their underlying `Series` object, see 
+[Series](/reference/typescript-client/series-and-frames#series).
+
+<Divider.Divider direction="x" />
+
+## Reading from Multiple Channels
+
+We can also read from multiple channels at once by calling the `read` method on
+the client. This method takes a list of channel names/keys and a time range.
+
+```typescript
+import { TimeStamp } from "@synnaxlabs/pluto";
+
+const start = TimeStamp.now();
+const end = start.add(TimeStamp.seconds(10));
+const frame = await client.read({ start, end }, ["temperature", "humidity"]);
+```
+
+The returned data is a `Frame` object, which contains a `MultiSeries` for each channel.
+To access the data for a specific channel, we can use the `get` method.
+
+```typescript
+const temperature = frame.get("temperature");
+const humidity = frame.get("humidity");
+```
+
+For more information on the `Frame` class, see [Frames](/reference/typescript-client/series-and-frames#frames).
+
+<Divider.Divider direction="x" />
+
+## Using Iterators
+
+While the above methods will cover most use cases, there are situations where it's 
+necessary to query large volumes of data. Iterators provide a way to efficiently
+process data in chunks.
+
+```typescript
+const start = TimeStamp.now();
+const end = start.add(TimeStamp.seconds(10));
+
+const iterator = await client.openIterator(
+    { start, end }, 
+    ["temperature", "humidity"]
+);
+try {
+    for await (const frame of iterator) {
+        const temperature = frame.get("temperature");
+        const humidity = frame.get("humidity");
+        // Process the data
+    }
+} finally {
+    iterator.close();
+}
+```
+
+It's very important to `close` the iterator when you're done with it to free up network 
+resources. We highly recommend wrapping the iterator in a `try...finally` block to ensure 
+that it's closed properly in the event of an error.

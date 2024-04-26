@@ -1,4 +1,4 @@
-# Typescript X - Common Utilities for the Synnax Codebase
+# TypeScript X - Common Utilities for the Synnax Codebase
 
 This directory contains the source for the `@synnaxlabs/x` package, which contains 
 common utilities dependend on by other packages in the Synnax codebase.
