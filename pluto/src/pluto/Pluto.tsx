@@ -28,10 +28,8 @@ import { Worker } from "@/worker";
 
 import "@synnaxlabs/media/dist/style.css";
 
-export interface ProviderProps
-  extends PropsWithChildren,
-    Partial<Theming.ProviderProps>,
-    Synnax.ProviderProps {
+export interface ProviderProps extends PropsWithChildren, Synnax.ProviderProps {
+  theming?: Theming.ProviderProps;
   workerEnabled?: boolean;
   workerURL?: URL | string;
   alamos?: Alamos.ProviderProps;
@@ -46,42 +44,34 @@ export const Provider = ({
   connParams,
   workerEnabled = true,
   workerURL,
-  theme,
-  toggleTheme,
-  setTheme,
+  theming,
   tooltip,
   triggers,
   alamos,
   haul,
   channelAlias,
-}: ProviderProps): ReactElement => {
-  return (
-    <Triggers.Provider {...triggers}>
-      <Tooltip.Config {...tooltip}>
-        <Haul.Provider {...haul}>
-          <Worker.Provider url={workerURL ?? DefaultWorkerURL} enabled={workerEnabled}>
-            <Aether.Provider workerKey="vis">
-              <Alamos.Provider {...alamos}>
-                <Status.Aggregator>
-                  <Synnax.Provider connParams={connParams}>
-                    <Channel.AliasProvider {...channelAlias}>
-                      <Telem.Provider>
-                        <Theming.Provider
-                          theme={theme}
-                          toggleTheme={toggleTheme}
-                          setTheme={setTheme}
-                        >
-                          <Control.StateProvider>{children}</Control.StateProvider>
-                        </Theming.Provider>
-                      </Telem.Provider>
-                    </Channel.AliasProvider>
-                  </Synnax.Provider>
-                </Status.Aggregator>
-              </Alamos.Provider>
-            </Aether.Provider>
-          </Worker.Provider>
-        </Haul.Provider>
-      </Tooltip.Config>
-    </Triggers.Provider>
-  );
-};
+}: ProviderProps): ReactElement => (
+  <Triggers.Provider {...triggers}>
+    <Tooltip.Config {...tooltip}>
+      <Haul.Provider {...haul}>
+        <Worker.Provider url={workerURL ?? DefaultWorkerURL} enabled={workerEnabled}>
+          <Aether.Provider workerKey="vis">
+            <Alamos.Provider {...alamos}>
+              <Status.Aggregator>
+                <Synnax.Provider connParams={connParams}>
+                  <Channel.AliasProvider {...channelAlias}>
+                    <Telem.Provider>
+                      <Theming.Provider {...theming}>
+                        <Control.StateProvider>{children}</Control.StateProvider>
+                      </Theming.Provider>
+                    </Telem.Provider>
+                  </Channel.AliasProvider>
+                </Synnax.Provider>
+              </Status.Aggregator>
+            </Alamos.Provider>
+          </Aether.Provider>
+        </Worker.Provider>
+      </Haul.Provider>
+    </Tooltip.Config>
+  </Triggers.Provider>
+);

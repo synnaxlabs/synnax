@@ -9,16 +9,26 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-canvas--gl {
-    z-index: -2;
-}
+.pluto-canvas-container {
+    position: relative;
 
-.pluto-canvas--lower2d {
-    z-index: -3;
-}
+    .pluto-canvas {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+    }
 
-.pluto-canvas--upper2d {
-    /* pass through all user events */
-    pointer-events: none;
-    z-index: 3;
+    .pluto-canvas--gl {
+        z-index: -2;
+    }
+
+    .pluto-canvas--lower2d {
+        z-index: -3;
+    }
+
+    .pluto-canvas--upper2d {
+        /* pass through all user events */
+        pointer-events: none;
+        z-index: 3;
+    }
 }

@@ -9,51 +9,33 @@
  * included in the file licenses/APL.txt.
  */
 
-* {
-    box-sizing: border-box;
-}
-
-button:is(:focus,:focus-within,:active,:hover) {
+button:is(:focus, :focus-within, :active, :hover) {
     z-index: 3;
 }
 
-.pluto-input:is(:focus-within,:active,:hover) {
+.pluto-input:is(:focus-within, :active, :hover) {
     & .pluto-input__internal {
         z-index: 3;
     }
 }
 
-
-
-html {
+:root {
     --pluto-border: var(--pluto-border-width) solid var(--pluto-border-color);
     --pluto-border-l4: var(--pluto-border-width) solid var(--pluto-gray-l4);
     --pluto-height-large: 5rem;
     --pluto-height-medium: 4.5rem;
     --pluto-height-small: 4rem;
-    --pluto-shadow-menu: 0px 1px 1px rgba(0,0,0,.02),0px 4px 8px -4px rgba(0,0,0,.04),0px 16px 24px -8px rgba(0,0,0,.06);
+    --pluto-shadow-menu: 0px 1px 1px rgba(0, 0, 0, 0.02),
+        0px 4px 8px -4px rgba(0, 0, 0, 0.04), 0px 16px 24px -8px rgba(0, 0, 0, 0.06);
     @media (prefers-color-scheme: dark) {
-        --pluto-shadow-menu: 0px 1px 1px rgba(0,0,0,.02),0px 4px 8px -4px rgba(0,0,0,.04),0px 16px 24px -8px rgba(0,0,0,.06);
+        --pluto-shadow-menu: 0px 1px 1px rgba(0, 0, 0, 0.02),
+            0px 4px 8px -4px rgba(0, 0, 0, 0.04), 0px 16px 24px -8px rgba(0, 0, 0, 0.06);
     }
+}
 
-    background: var(--pluto-gray-l0);
-    margin: 0;
-    height: 100%;
-    width: 100%;
+html {
     font-size: var(--pluto-base-size);
 }
-
-body {
-    margin: 0;
-    height: 100%;
-    width: 100%;
-}
-
-#root {
-    height: 100%;
-    width: 100%;
-}
-
 
 .pluto--sharp {
     border-radius: 0 !important;

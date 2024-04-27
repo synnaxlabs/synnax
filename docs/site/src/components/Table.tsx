@@ -7,9 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement } from "react";
+import { type ReactElement } from "react";
 
-import { convertRenderV, bounds, direction, Key } from "@synnaxlabs/x";
+import {
+  convertRenderV,
+  bounds,
+  type direction,
+  type Key,
+  type Keyed,
+} from "@synnaxlabs/x";
 
 export interface TableColumn<K extends Key, E extends Keyed<K>> {
   key: keyof E;
@@ -153,7 +159,7 @@ const TableCell = <K extends Key, E extends Keyed<K>>({
   const leftColors = left.map(({ color }) => color);
 
   if (leftColors.length > 0) {
-    const background = buildGradient(leftColors, Direction.X, false);
+    const background = buildGradient(leftColors, "x", false);
     elements.push(
       <div
         style={{
