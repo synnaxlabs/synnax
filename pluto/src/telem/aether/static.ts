@@ -49,6 +49,7 @@ export type FixedArrayProps = z.input<typeof fixedSeriesPropsZ>;
 
 class FixedSeries extends AbstractSource<typeof fixedSeriesPropsZ> {
   data: Series[];
+  schema = fixedSeriesPropsZ;
 
   static readonly TYPE = "static-series";
 

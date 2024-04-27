@@ -27,10 +27,12 @@ import {
   type Params,
   type Payload,
   analyzeParams,
+  payloadZ,
 } from "@/ranger/payload";
 import { Range } from "@/ranger/range";
 import { type Retriever } from "@/ranger/retriever";
 import { type Writer } from "@/ranger/writer";
+import { signals } from "@/signals";
 
 export class Client implements AsyncTermSearcher<string, Key, Range> {
   private readonly frameClient: framer.Client;
@@ -125,5 +127,19 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
         this.labelClient,
       );
     });
+  }
+
+  async openTracker(): Promise<signals.Observable<string, Range>> {
+    return await signals.openObservable<string, Range>(
+      this.frameClient,
+      "sy_range_set",
+      "sy_range_delete",
+      (variant, data) => {
+        if (variant === "delete")
+          return data.toStrings().map((k) => ({ variant, key: k, value: undefined }));
+        const sugared = this.sugar(data.parseJSON(payloadZ));
+        return sugared.map((r) => ({ variant, key: r.key, value: r }));
+      },
+    );
   }
 }

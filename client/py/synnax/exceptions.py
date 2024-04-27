@@ -136,8 +136,8 @@ def _decode(encoded: freighter.ExceptionPayload) -> Exception | None:
     if encoded.type.startswith(QueryError.TYPE):
         if encoded.type.startswith(NotFoundError.TYPE):
             return NotFoundError(encoded.data)
-        if encoded.type.startswith(MultipleResultsError.TYPE):
-            return MultipleResultsError(encoded.data)
+        if encoded.type.startswith(MultipleFoundError.TYPE):
+            return MultipleFoundError(encoded.data)
         return QueryError(encoded.data)
 
     if encoded.type.startswith(RouteError.TYPE):

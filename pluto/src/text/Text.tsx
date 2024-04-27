@@ -21,9 +21,6 @@ import { type text } from "@/text/core";
 
 import "@/text/Text.css";
 
-/* Shade sets the shade color of the text */
-export type Shade = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
-
 export interface CoreProps<L extends text.Level = text.Level> {
   /* The level of text to display i.e. p, h1, h2 */
   level: L;
@@ -33,9 +30,9 @@ export interface CoreProps<L extends text.Level = text.Level> {
   color?: Color.Crude;
   /* NoWrap prevents the text from wrapping */
   noWrap?: boolean;
-  shade?: Shade;
+  shade?: text.Shade;
   /* Weight sets the weight of the text */
-  weight?: number;
+  weight?: text.Weight;
 }
 
 export type TextProps<L extends text.Level = text.Level> = Omit<

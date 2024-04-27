@@ -351,4 +351,51 @@ describe("Box", () => {
       expect(box.equals(b, b2)).toBe(true);
     });
   });
+  describe("edgePoints", () => {
+    interface Spec {
+      box: box.Box;
+      loc: location.Location;
+      expected: [xy.XY, xy.XY];
+    }
+
+    const SPECS: Spec[] = [
+      {
+        box: box.construct(0, 0, 10, 10),
+        loc: "top",
+        expected: [
+          { x: 0, y: 0 },
+          { x: 10, y: 0 },
+        ],
+      },
+      {
+        box: box.construct(0, 0, 10, 10),
+        loc: "bottom",
+        expected: [
+          { x: 0, y: 10 },
+          { x: 10, y: 10 },
+        ],
+      },
+      {
+        box: box.construct(0, 0, 10, 10),
+        loc: "left",
+        expected: [
+          { x: 0, y: 0 },
+          { x: 0, y: 10 },
+        ],
+      },
+      {
+        box: box.construct(0, 0, 10, 10),
+        loc: "right",
+        expected: [
+          { x: 10, y: 0 },
+          { x: 10, y: 10 },
+        ],
+      },
+    ];
+    SPECS.forEach(({ box: b, loc, expected }) => {
+      test(`edgePoints-${loc}`, () => {
+        expect(box.edgePoints(b, loc)).toEqual(expected);
+      });
+    });
+  });
 });

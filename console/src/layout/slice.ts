@@ -105,12 +105,20 @@ const MIGRATIONS: migrate.Migrations = {
     },
     version: "0.1.0",
   }),
+  "0.1.0": (state: SliceState): SliceState => ({
+    ...state,
+    themes: {
+      synnaxDark: Theming.SYNNAX_THEMES.synnaxDark,
+      synnaxLight: Theming.SYNNAX_THEMES.synnaxLight,
+    },
+    version: "0.2.0",
+  }),
 };
 
 export const migrateSlice = migrate.migrator<SliceState, SliceState>(MIGRATIONS);
 
 export const ZERO_SLICE_STATE: SliceState = {
-  version: "0.1.0",
+  version: "0.2.0",
   activeTheme: "synnaxDark",
   themes: Theming.SYNNAX_THEMES,
   alreadyCheckedGetStarted: false,

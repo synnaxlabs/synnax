@@ -130,6 +130,8 @@ export class LinePlot extends aether.Composite<
 
     const plot = this.calculatePlot();
 
+    console.log("DOG", box.dims(plot), box.topLeft(plot));
+
     instrumentation.L.debug("rendering", {
       key: this.key,
       viewport: this.state.viewport,

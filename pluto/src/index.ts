@@ -54,6 +54,7 @@ export { Telem } from "@/telem";
 export { Eraser } from "@/vis/eraser";
 export { LinePlot } from "@/vis/lineplot";
 export { Ranger } from "@/ranger";
+export { Range } from "@/vis/lineplot/range";
 export { Progress } from "@/progress";
 export { Steps } from "@/steps";
 export { Device } from "@/hardware/device";

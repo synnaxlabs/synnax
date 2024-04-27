@@ -66,7 +66,7 @@ describe("Hardware", () => {
           config: { a: "dog" },
           type: "ni",
         });
-        const w = await client.telem.openWriter(["sy_task_state"]);
+        const w = await client.openWriter(["sy_task_state"]);
         interface StateDetails {
           dog: string;
         }

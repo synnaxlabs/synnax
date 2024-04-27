@@ -25,6 +25,7 @@ import { LinePlot as Core } from "@/vis/lineplot";
 import { Tooltip } from "@/vis/lineplot/tooltip";
 import { Measure } from "@/vis/measure";
 import { Rule } from "@/vis/rule";
+import { Range } from "@/vis/lineplot/range";
 
 import "@/channel/LinePlot.css";
 
@@ -252,6 +253,7 @@ const XAxis = ({
           }
         />
       ))}
+      {/* <Range.Provider /> */}
     </Core.XAxis>
   );
 };

@@ -392,6 +392,11 @@ describe("TimeRange", () => {
       expect(tr.overlapsWith(one, TimeSpan.milliseconds(2))).toBeTruthy();
       expect(one.overlapsWith(tr, TimeSpan.milliseconds(3))).toBeFalsy();
     });
+    it("should return two for two ZERO time ranges", () => {
+      const tr = new TimeRange(TimeStamp.ZERO, TimeStamp.ZERO);
+      const one = new TimeRange(TimeStamp.ZERO, TimeStamp.ZERO);
+      expect(tr.overlapsWith(one)).toBeTruthy();
+    });
   });
 
   describe("boundBy", () => {

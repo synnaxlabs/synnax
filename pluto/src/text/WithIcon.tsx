@@ -103,7 +103,7 @@ export const formatChildren = <L extends text.Level>(
   children: ReactNode = [],
   color?: string,
   shade?: number,
-  weight?: number,
+  weight?: text.Weight,
 ): ReactElement | ReactElement[] => {
   const arr = toArray(children);
   const o: ReactElement[] = [];

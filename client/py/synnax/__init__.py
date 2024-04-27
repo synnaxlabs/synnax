@@ -15,7 +15,7 @@ from synnax.exceptions import (
     ContiguityError,
     Field,
     QueryError,
-    MultipleResultsError,
+    MultipleFoundError,
     NotFoundError,
     RouteError,
     UnexpectedError,

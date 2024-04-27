@@ -15,13 +15,14 @@ import {
   coreAxisStateZ,
   CoreAxis,
 } from "@/vis/lineplot/aether/axis";
-import { type YAxis } from "@/vis/lineplot/aether/YAxis";
+import { YAxis } from "@/vis/lineplot/aether/YAxis";
+import { range } from "@/vis/lineplot/range/aether";
 
 export const xAxisStateZ = coreAxisStateZ;
 
 export interface XAxisRenderProps extends AxisRenderProps {}
 
-export class XAxis extends CoreAxis<typeof coreAxisStateZ, YAxis> {
+export class XAxis extends CoreAxis<typeof coreAxisStateZ, YAxis | range.Annotation> {
   static readonly TYPE = "XAxis";
   schema = coreAxisStateZ;
 
@@ -34,6 +35,7 @@ export class XAxis extends CoreAxis<typeof coreAxisStateZ, YAxis> {
     );
     this.renderAxis(props, dataToDecimal.reverse());
     await this.renderYAxes(props, dataToDecimal);
+    await this.renderRangeAnnotations(props, dataToDecimal);
     // Throw the error here to that the user still has a visible axis.
     if (err != null) throw err;
   }
@@ -62,7 +64,7 @@ export class XAxis extends CoreAxis<typeof coreAxisStateZ, YAxis> {
     );
     if (error != null) throw error;
     const p = { ...props, xDataToDecimalScale };
-    const prom = this.children.map(async (el) => await el.findByXValue(p, target));
+    const prom = this.yAxes.map(async (el) => await el.findByXValue(p, target));
     return (await Promise.all(prom)).flat();
   }
 
@@ -71,10 +73,37 @@ export class XAxis extends CoreAxis<typeof coreAxisStateZ, YAxis> {
     xDataToDecimalScale: scale.Scale,
   ): Promise<void> {
     const p = { ...props, xDataToDecimalScale };
-    await Promise.all(this.children.map(async (el) => await el.render(p)));
+    await Promise.all(this.yAxes.map(async (el) => await el.render(p)));
+  }
+
+  get yAxes(): readonly YAxis[] {
+    return this.childrenOfType<YAxis>(YAxis.TYPE);
+  }
+
+  get rangeAnnotations(): readonly range.Annotation[] {
+    return this.childrenOfType<range.Annotation>(
+      range.Annotation.TYPE,
+      range.Provider.TYPE,
+    );
+  }
+
+  private async renderRangeAnnotations(
+    props: XAxisRenderProps,
+    xDataToDecimalScale: scale.Scale,
+  ): Promise<void> {
+    const p = { ...props, xDataToDecimalScale };
+    await Promise.all(
+      this.rangeAnnotations.map(
+        async (el) =>
+          await el.render({
+            dataToDecimalScale: xDataToDecimalScale,
+            region: props.plot,
+          }),
+      ),
+    );
   }
 
   private async dataBounds(): Promise<bounds.Bounds[]> {
-    return await Promise.all(this.children.map(async (el) => await el.xBounds()));
+    return await Promise.all(this.yAxes.map(async (el) => await el.xBounds()));
   }
 }

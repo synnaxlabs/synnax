@@ -332,8 +332,8 @@ const newDirectionBuffer = (aspect: number): Float32Array =>
   // prettier-ignore
   new Float32Array([
     0, 0, // center
-    0, aspect,  // top
-    0, -aspect,  // bottom
+    0, aspect * 2,  // top
+    0, -aspect * 2,  // bottom
     1, 0, // right
     -1, 0, // left
   ]);

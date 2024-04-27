@@ -15,7 +15,7 @@ import {
   type MultiSeries,
 } from "@synnaxlabs/x/telem";
 
-import { type KeyOrName, type Params } from "@/channel/payload";
+import { KeysOrNames, type KeyOrName, type Params } from "@/channel/payload";
 import { type Retriever, analyzeChannelParams } from "@/channel/retriever";
 import { Frame } from "@/framer/frame";
 import { Iterator } from "@/framer/iterator";
@@ -149,7 +149,7 @@ export class Client {
 
   async read(tr: CrudeTimeRange, channels: Params): Promise<Frame>;
 
-  async read(tr: CrudeTimeRange, channels: Params): Promise<Series | Frame> {
+  async read(tr: CrudeTimeRange, channels: Params): Promise<MultiSeries | Frame> {
     const { single } = analyzeChannelParams(channels);
     const fr = await this.readFrame(tr, channels);
     if (single) return fr.get(channels as KeyOrName);
