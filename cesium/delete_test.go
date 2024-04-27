@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"strconv"
 )
 
 var _ = Describe("Delete", func() {
@@ -272,18 +273,33 @@ var _ = Describe("Delete", func() {
 					)
 
 					It("Should delete an index unary channel", func() {
+						By("Creating a channel")
 						Expect(db.CreateChannel(
 							ctx,
 							cesium.Channel{Key: key, IsIndex: true, DataType: telem.TimeStampT},
 						)).To(Succeed())
 						Expect(db.WriteArray(ctx, key, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13))).To(Succeed())
 						Expect(fs.Exists(pathInDBFromKey(key))).To(BeTrue())
+
+						By("Deleting the channel")
 						Expect(db.DeleteChannel(key)).To(Succeed())
-						Expect(fs.Exists(pathInDBFromKey(key))).To(BeFalse())
+
+						By("Eventually, the deletion should be completed")
+						Eventually(MustSucceed(fs.Exists(pathInDBFromKey(key)))).Should(BeFalse())
+						for _, f := range MustSucceed(fs.List(rootPath)) {
+							Eventually(f.Name()).ShouldNot(HavePrefix(strconv.Itoa(int(key)) + "-DELETE-"))
+						}
 						_, err := db.RetrieveChannel(ctx, key)
 						Expect(err).To(MatchError(core.ChannelNotFound))
+
+						By("We can also create a channel of the same key")
+						Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, IsIndex: true, DataType: telem.TimeStampT})).To(Succeed())
+						ch := MustSucceed(db.RetrieveChannel(ctx, key))
+						Expect(ch.Key).To(Equal(key))
+						Expect(fs.Exists(pathInDBFromKey(key))).To(BeTrue())
 					})
 					It("Should delete a unary channel", func() {
+						key = nextKey()
 						Expect(db.CreateChannel(
 							ctx,
 							cesium.Channel{Key: key, Rate: 1 * telem.Hz, DataType: telem.Int64T},
@@ -291,17 +307,34 @@ var _ = Describe("Delete", func() {
 						Expect(db.WriteArray(ctx, key, 10*telem.SecondTS, telem.NewSeriesV[int64](10, 11, 12, 13))).To(Succeed())
 						Expect(fs.Exists(pathInDBFromKey(key))).To(BeTrue())
 						Expect(db.DeleteChannel(key)).To(Succeed())
-						Expect(fs.Exists(pathInDBFromKey(key))).To(BeFalse())
+						Eventually(MustSucceed(fs.Exists(pathInDBFromKey(key)))).Should(BeFalse())
+						for _, f := range MustSucceed(fs.List(rootPath)) {
+							Eventually(f.Name()).ShouldNot(HavePrefix(strconv.Itoa(int(key)) + "-DELETE-"))
+						}
 						_, err := db.RetrieveChannel(ctx, key)
 						Expect(err).To(MatchError(core.ChannelNotFound))
+
+						Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, Rate: 1 * telem.Hz, DataType: telem.Int64T})).To(Succeed())
+						ch := MustSucceed(db.RetrieveChannel(ctx, key))
+						Expect(ch.Key).To(Equal(key))
+						Expect(fs.Exists(pathInDBFromKey(key))).To(BeTrue())
 					})
 					It("Should delete a virtual channel", func() {
+						key = nextKey()
 						Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, Virtual: true, DataType: telem.Int64T})).To(Succeed())
 						Expect(fs.Exists(pathInDBFromKey(key))).To(BeTrue())
 						Expect(db.DeleteChannel(key)).To(Succeed())
-						Expect(fs.Exists(pathInDBFromKey(key))).To(BeFalse())
+						Eventually(MustSucceed(fs.Exists(pathInDBFromKey(key)))).Should(BeFalse())
+						for _, f := range MustSucceed(fs.List(rootPath)) {
+							Eventually(f.Name()).ShouldNot(HavePrefix(strconv.Itoa(int(key)) + "-DELETE-"))
+						}
 						_, err := db.RetrieveChannel(ctx, key)
 						Expect(err).To(MatchError(core.ChannelNotFound))
+
+						Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, Rate: 1 * telem.Hz, DataType: telem.Int64T})).To(Succeed())
+						ch := MustSucceed(db.RetrieveChannel(ctx, key))
+						Expect(ch.Key).To(Equal(key))
+						Expect(fs.Exists(pathInDBFromKey(key))).To(BeTrue())
 					})
 				})
 			})
@@ -324,22 +357,33 @@ var _ = Describe("Delete", func() {
 						{Key: index3, IsIndex: true, Index: index3, DataType: telem.TimeStampT},
 					}
 				)
-				BeforeEach(func() { Expect(db.CreateChannel(ctx, channels...)).To(Succeed()) })
+				BeforeEach(func() {
+					Expect(db.CreateChannel(ctx, channels...)).To(Succeed())
+				})
 				AfterEach(func() {
-					Expect(db.DeleteChannels(lo.Map(channels, func(c cesium.Channel, _ int) core.ChannelKey { return c.Key })...)).To(Succeed())
+					Expect(db.DeleteChannels(lo.Map(channels, func(c cesium.Channel, _ int) core.ChannelKey { return c.Key }))).To(Succeed())
+					for _, c := range channels {
+						Expect(fs.Exists(pathInDBFromKey(c.Key))).To(BeFalse())
+						for _, f := range MustSucceed(fs.List(rootPath)) {
+							Eventually(f.Name()).ShouldNot(HavePrefix(strconv.Itoa(int(c.Key)) + "-DELETE-"))
+						}
+					}
 				})
 				Describe("Happy paths", func() {
 					It("Should be idempotent", func() {
-						Expect(db.DeleteChannels(index1, data1)).To(Succeed())
-						Expect(db.DeleteChannels(index1, data1)).To(Succeed())
-						Expect(db.DeleteChannels(index1, data1)).To(Succeed())
+						Expect(db.DeleteChannels([]cesium.ChannelKey{index1, data1})).To(Succeed())
+						Expect(db.DeleteChannels([]cesium.ChannelKey{index1, data1})).To(Succeed())
+						Expect(db.DeleteChannels([]cesium.ChannelKey{index1, data1})).To(Succeed())
 					})
 					DescribeTable("Deleting permutations of channels", func(chs ...core.ChannelKey) {
-						Expect(db.DeleteChannels(chs...)).To(Succeed())
+						Expect(db.DeleteChannels(chs)).To(Succeed())
 						for _, c := range chs {
 							_, err := db.RetrieveChannel(ctx, c)
 							Expect(err).To(MatchError(core.ChannelNotFound))
-							Expect(fs.Exists(pathInDBFromKey(c))).To(BeFalse())
+							Eventually(MustSucceed(fs.Exists(pathInDBFromKey(c)))).Should(BeFalse())
+							for _, f := range MustSucceed(fs.List(rootPath)) {
+								Eventually(f.Name()).ShouldNot(HavePrefix(strconv.Itoa(int(c)) + "-DELETE-"))
+							}
 						}
 					},
 						Entry("1 index 1 data", index1, data1),
@@ -357,7 +401,7 @@ var _ = Describe("Delete", func() {
 					It("Should delete all channels before encountering an error", func() {
 						w1 := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Start: 10 * telem.SecondTS, Channels: []core.ChannelKey{data2, data3}}))
 						w2 := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Start: 10 * telem.SecondTS, Channels: []core.ChannelKey{data2}}))
-						Expect(db.DeleteChannels(rate, data1, data2)).To(MatchError(ContainSubstring("2 unclosed writer")))
+						Expect(db.DeleteChannels([]cesium.ChannelKey{rate, data1, data2})).To(MatchError(ContainSubstring("2 unclosed writer")))
 						Expect(w1.Close()).To(Succeed())
 						Expect(fs.Exists(pathInDBFromKey(rate))).To(BeFalse())
 						Expect(fs.Exists(pathInDBFromKey(data1))).To(BeFalse())
@@ -368,13 +412,23 @@ var _ = Describe("Delete", func() {
 						Expect(err).To(MatchError(core.ChannelNotFound))
 						_, err = db.RetrieveChannel(ctx, data2)
 						Expect(err).To(BeNil())
-						Expect(db.DeleteChannels(rate, data1, data3)).To(Succeed())
+						Expect(db.DeleteChannels([]cesium.ChannelKey{rate, data1, data3})).To(Succeed())
 						Expect(w2.Close()).To(Succeed())
+
+						Expect(db.CreateChannel(ctx, cesium.Channel{Key: rate, Rate: 1 * telem.Hz, DataType: telem.Int64T})).To(Succeed())
+						ch := MustSucceed(db.RetrieveChannel(ctx, rate))
+						Expect(ch.Key).To(Equal(rate))
+						Expect(fs.Exists(pathInDBFromKey(rate))).To(BeTrue())
+
+						Expect(db.CreateChannel(ctx, cesium.Channel{Key: data1, Index: index2, DataType: telem.Int64T})).To(Succeed())
+						ch = MustSucceed(db.RetrieveChannel(ctx, data1))
+						Expect(ch.Key).To(Equal(data1))
+						Expect(fs.Exists(pathInDBFromKey(data1))).To(BeTrue())
 					})
 					It("Should delete all channels, but not index channels, before encountering an error", func() {
 						i1 := MustSucceed(db.OpenIterator(cesium.IteratorConfig{Bounds: telem.TimeRangeMax, Channels: []core.ChannelKey{rate, data3}}))
 						i2 := MustSucceed(db.OpenIterator(cesium.IteratorConfig{Bounds: telem.TimeRangeMax, Channels: []core.ChannelKey{data3}}))
-						Expect(db.DeleteChannels(index1, index2, data1, data2, data3)).To(MatchError(ContainSubstring("2 unclosed writer")))
+						Expect(db.DeleteChannels([]cesium.ChannelKey{index1, index2, data1, data2, data3})).To(MatchError(ContainSubstring("2 unclosed writer")))
 						Expect(i1.Close()).To(Succeed())
 						Expect(i2.Close()).To(Succeed())
 						Expect(fs.Exists(pathInDBFromKey(data2))).To(BeFalse())
