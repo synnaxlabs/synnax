@@ -5,7 +5,7 @@ import (
 	"os"
 )
 
-var FileSystems = func() (fileSystemFactory map[string]func() xfs.FS, cleanUp func() error) {
+var FileSystems = func() (fileSystemFactory map[string]func() xfs.FS, cleanUp func() error, err error) {
 	var (
 		defaultFS xfs.FS
 		dirName   string
@@ -15,7 +15,7 @@ var FileSystems = func() (fileSystemFactory map[string]func() xfs.FS, cleanUp fu
 	fileSystemFactory["memFS"] = func() xfs.FS { return xfs.NewMem() }
 
 	defaultFS = xfs.Default
-	dirName, err := os.MkdirTemp("", "test-*")
+	dirName, err = os.MkdirTemp("", "test-*")
 	if err != nil {
 		return
 	}

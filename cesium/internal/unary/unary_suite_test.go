@@ -19,9 +19,9 @@ import (
 )
 
 var (
-	ctx                  = context.Background()
-	rootPath             = "unary-testdata"
-	fileSystems, cleanUp = testutil.FileSystems()
+	ctx                       = context.Background()
+	rootPath                  = "unary-testdata"
+	fileSystems, cleanUp, err = testutil.FileSystems()
 )
 
 func TestUnary(t *testing.T) {
@@ -29,6 +29,6 @@ func TestUnary(t *testing.T) {
 	RunSpecs(t, "Unary Suite")
 }
 
-var _ = BeforeSuite(func() { Expect(fileSystems).To(HaveLen(2)) })
+var _ = BeforeSuite(func() { Expect(err).ToNot(HaveOccurred()) })
 
 var _ = AfterSuite(func() { Expect(cleanUp()).To(Succeed()) })

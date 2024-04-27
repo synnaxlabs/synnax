@@ -19,9 +19,9 @@ import (
 )
 
 var (
-	ctx                  = context.Background()
-	rootPath             = "index-testdata"
-	fileSystems, cleanUp = testutil.FileSystems()
+	ctx                       = context.Background()
+	rootPath                  = "index-testdata"
+	fileSystems, cleanUp, err = testutil.FileSystems()
 )
 
 func TestIndex(t *testing.T) {
@@ -29,6 +29,6 @@ func TestIndex(t *testing.T) {
 	RunSpecs(t, "Index Suite")
 }
 
-var _ = BeforeSuite(func() { Expect(fileSystems).To(HaveLen(2)) })
+var _ = BeforeSuite(func() { Expect(err).ToNot(HaveOccurred()) })
 
 var _ = AfterSuite(func() { Expect(cleanUp()).To(Succeed()) })
