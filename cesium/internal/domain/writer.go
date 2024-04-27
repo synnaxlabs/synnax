@@ -173,12 +173,20 @@ func (w *Writer) Commit(ctx context.Context, end telem.TimeStamp) error {
 	return w.commit(ctx, end, true)
 }
 
+func (w *Writer) CommitWithoutPersist(ctx context.Context, end telem.TimeStamp) error {
+	return w.commit(ctx, end, false)
+}
+
 func (w *Writer) commit(ctx context.Context, end telem.TimeStamp, persist bool) error {
 	ctx, span := w.T.Prod(ctx, "commit")
 	if w.closed {
 		return span.EndWith(WriterClosedError)
 	}
 	if w.presetEnd {
+		// Cannot commit a timerange after the specified end of the writer
+		if end.After(w.End) {
+			return span.EndWith(errors.New("[cesium] - commit timestamp cannot be greater than preset end timestamp"))
+		}
 		end = w.End
 	}
 	if err := w.validateCommitRange(end); err != nil {

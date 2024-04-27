@@ -25,17 +25,20 @@ import (
 )
 
 type WriterConfig struct {
-	Start     telem.TimeStamp
-	End       telem.TimeStamp
-	Subject   control.Subject
-	Authority control.Authority
-	Persist   *bool
+	Start                telem.TimeStamp
+	End                  telem.TimeStamp
+	Subject              control.Subject
+	Authority            control.Authority
+	Persist              *bool
+	AutoCommit           *bool
+	AutoPersistThreshold int64
 }
 
 var (
 	_                   config.Config[WriterConfig] = WriterConfig{}
 	DefaultWriterConfig                             = WriterConfig{
-		Persist: config.True(),
+		Persist:    config.True(),
+		AutoCommit: config.False(),
 	}
 	WriterClosedError = core.EntityClosed("unary.writer")
 )
@@ -50,6 +53,8 @@ func (c WriterConfig) Override(other WriterConfig) WriterConfig {
 	c.Subject = override.If(c.Subject, other.Subject, other.Subject.Key != "")
 	c.Authority = override.Numeric(c.Authority, other.Authority)
 	c.Persist = override.Nil(c.Persist, other.Persist)
+	c.AutoCommit = override.Nil(c.AutoCommit, other.AutoCommit)
+	c.AutoPersistThreshold = override.If(c.AutoPersistThreshold, other.AutoPersistThreshold, other.AutoPersistThreshold != int64(0))
 	return c
 }
 
@@ -72,9 +77,10 @@ type Writer struct {
 	// hwm is a hot-path optimization when writing to an index channel. We can avoid
 	// unnecessary index lookups by keeping track of the highest timestamp written.
 	// Only valid when Channel.IsIndex is true.
-	hwm    telem.TimeStamp
-	pos    int
-	closed bool
+	hwm                telem.TimeStamp
+	pos                int
+	unpersistedSamples int64
+	closed             bool
 }
 
 func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (w *Writer, transfer controller.Transfer, err error) {
@@ -121,10 +127,10 @@ func Write(
 		return err
 	}
 	defer func() {
-		_, err_ := w.Close()
+		_, err_ := w.Close(ctx)
 		err = errors.CombineErrors(err, err_)
 	}()
-	if _, err = w.Write(series); err != nil {
+	if _, err = w.Write(ctx, series); err != nil {
 		return err
 	}
 	_, err = w.Commit(ctx)
@@ -136,7 +142,7 @@ func (w *Writer) len(dw *domain.Writer) int64 {
 }
 
 // Write validates and writes the given array.
-func (w *Writer) Write(series telem.Series) (a telem.Alignment, err error) {
+func (w *Writer) Write(ctx context.Context, series telem.Series) (a telem.Alignment, err error) {
 	if w.closed {
 		return 0, WriterClosedError
 	}
@@ -152,8 +158,20 @@ func (w *Writer) Write(series telem.Series) (a telem.Alignment, err error) {
 	if w.Channel.IsIndex {
 		w.updateHwm(series)
 	}
+
+	var n int
+
 	if *w.Persist {
-		_, err = dw.Write(series.Data)
+		n, err = dw.Write(series.Data)
+	}
+	if *w.AutoCommit {
+		w.unpersistedSamples += w.Channel.DataType.Density().SampleCount(telem.Size(n))
+		if w.unpersistedSamples > w.WriterConfig.AutoPersistThreshold {
+			w.unpersistedSamples = 0
+			_, err = w.commit(ctx, true)
+		} else {
+			_, err = w.commit(ctx, false)
+		}
 	}
 	return
 }
@@ -176,21 +194,26 @@ func (w *Writer) Commit(ctx context.Context) (telem.TimeStamp, error) {
 	if w.closed {
 		return telem.TimeStampMax, WriterClosedError
 	}
+
+	return w.commit(ctx, true)
+}
+
+func (w *Writer) commit(ctx context.Context, persistToIndex bool) (telem.TimeStamp, error) {
 	if w.Channel.IsIndex {
-		return w.commitWithEnd(ctx, w.hwm+1)
+		return w.commitWithEnd(ctx, w.hwm+1, persistToIndex)
 	}
-	return w.commitWithEnd(ctx, telem.TimeStamp(0))
+	return w.commitWithEnd(ctx, telem.TimeStamp(0), persistToIndex)
 }
 
 func (w *Writer) CommitWithEnd(ctx context.Context, end telem.TimeStamp) (err error) {
 	if w.closed {
-		return core.EntityClosed(("unary.writer"))
+		return core.EntityClosed("unary.writer")
 	}
-	_, err = w.commitWithEnd(ctx, end)
+	_, err = w.commitWithEnd(ctx, end, true)
 	return err
 }
 
-func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.TimeStamp, error) {
+func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp, persistToIndex bool) (telem.TimeStamp, error) {
 	dw, ok := w.control.Authorize()
 	if !ok {
 		return 0, controller.Unauthorized(w.control.Subject.String(), w.Channel.Key)
@@ -208,15 +231,24 @@ func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.
 		// Add 1 to the end timestamp because the end timestamp is exclusive.
 		end = approx.Lower + 1
 	}
-	err := dw.Commit(ctx, end)
-	return end, err
+
+	f := lo.Ternary(persistToIndex, dw.Commit, dw.CommitWithoutPersist)
+	return end, f(ctx, end)
 }
 
-func (w *Writer) Close() (controller.Transfer, error) {
+func (w *Writer) Close(ctx context.Context) (controller.Transfer, error) {
 	if w.closed {
 		return controller.Transfer{}, nil
 	}
 
+	if *w.AutoCommit && w.AutoPersistThreshold != 0 {
+		// If we have Auto-Commit, we should do a final commit to make sure that ALL
+		// data is persisted to the index.
+		_, err := w.commit(ctx, true)
+		if err != nil {
+			return controller.Transfer{}, err
+		}
+	}
 	w.closed = true
 	dw, t := w.control.Release()
 	w.decrementCounter()

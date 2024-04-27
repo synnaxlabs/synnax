@@ -87,6 +87,17 @@ var _ = Describe("WriterBehavior", func() {
 						Expect(w.Close()).To(Succeed())
 					})
 				})
+				Context("Writing past preset end", func() {
+					It("Should fail to commit", func() {
+						w := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{
+							Start: 10 * telem.SecondTS,
+							End:   20 * telem.SecondTS,
+						}))
+						MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
+						Expect(w.Commit(ctx, 30*telem.SecondTS)).To(MatchError(ContainSubstring("commit timestamp cannot be greater than preset end")))
+						Expect(w.Close()).To(Succeed())
+					})
+				})
 				Context("Commit before start", func() {
 					It("Should fail to commit", func() {
 						w := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{

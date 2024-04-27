@@ -148,11 +148,11 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 			return
 		}
 		for _, idx := range domainWriters {
-			_, err_ := idx.Close()
+			_, err_ := idx.Close(ctx)
 			err = errors.CombineErrors(err_, err)
 		}
 		for _, idx := range rateWriters {
-			_, err_ := idx.Close()
+			_, err_ := idx.Close(ctx)
 			err = errors.CombineErrors(err_, err)
 		}
 	}()

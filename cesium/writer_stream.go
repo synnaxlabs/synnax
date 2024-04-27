@@ -158,7 +158,7 @@ func (w *streamWriter) process(ctx context.Context, req WriterRequest) {
 		end, w.err = w.commit(ctx)
 		w.sendRes(req, w.err == nil, nil, end)
 	} else {
-		if w.err = w.write(req); w.err != nil {
+		if w.err = w.write(ctx, req); w.err != nil {
 			w.seqNum++
 			w.sendRes(req, false, nil, 0)
 		}
@@ -233,9 +233,9 @@ func (w *streamWriter) sendRes(req WriterRequest, ack bool, err error, end telem
 	}
 }
 
-func (w *streamWriter) write(req WriterRequest) (err error) {
+func (w *streamWriter) write(ctx context.Context, req WriterRequest) (err error) {
 	for _, idx := range w.internal {
-		req.Frame, err = idx.Write(req.Frame)
+		req.Frame, err = idx.Write(ctx, req.Frame)
 		if err != nil {
 			if errors.Is(err, control.Unauthorized) && !*w.ErrOnUnauthorized {
 				return nil
@@ -277,7 +277,7 @@ func (w *streamWriter) close(ctx context.Context) error {
 	u := ControlUpdate{Transfers: make([]controller.Transfer, 0, len(w.internal)+1)}
 	for _, idx := range w.internal {
 		c.Exec(func() error {
-			u_, err := idx.Close()
+			u_, err := idx.Close(ctx)
 			if err != nil {
 				return err
 			}
@@ -341,7 +341,7 @@ type idxWriter struct {
 	sampleCount int64
 }
 
-func (w *idxWriter) Write(fr Frame) (Frame, error) {
+func (w *idxWriter) Write(ctx context.Context, fr Frame) (Frame, error) {
 	var (
 		l int64 = -1
 		c       = 0
@@ -406,7 +406,7 @@ func (w *idxWriter) Write(fr Frame) (Frame, error) {
 			}
 		}
 
-		alignment, err := chW.Write(series)
+		alignment, err := chW.Write(ctx, series)
 		if err != nil {
 			return fr, err
 		}
@@ -434,14 +434,14 @@ func (w *idxWriter) Commit(ctx context.Context) (telem.TimeStamp, error) {
 	return end.Lower, c.Error()
 }
 
-func (w *idxWriter) Close() (ControlUpdate, error) {
+func (w *idxWriter) Close(ctx context.Context) (ControlUpdate, error) {
 	c := errutil.NewCatch(errutil.WithAggregation())
 	update := ControlUpdate{
 		Transfers: make([]controller.Transfer, 0, len(w.internal)),
 	}
 	for _, chW := range w.internal {
 		c.Exec(func() error {
-			transfer, err := chW.Close()
+			transfer, err := chW.Close(ctx)
 			if err != nil || !transfer.Occurred() {
 				return err
 			}

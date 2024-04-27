@@ -169,6 +169,8 @@ func (i *Domain) Stamp(
 	return Between(lowerTs, upperTs), nil
 }
 
+// search returns an approximation for the number of samples before a given timestamp. If the
+// timestamp exists in the underlying index, the approximation will be exact.
 func (i *Domain) search(ts telem.TimeStamp, r *domain.Reader) (DistanceApproximation, error) {
 	var (
 		start int64 = 0
