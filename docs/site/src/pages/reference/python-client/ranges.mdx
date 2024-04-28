@@ -6,11 +6,10 @@ description: "Use ranges to categorize your data."
 import { Divider } from "@synnaxlabs/pluto"
 import Code from "@/components/code/Code.astro";
 export const components = { pre: Code };
-
 import Note from "@/components/Note.astro";
 
-Ranges identify specific periods of time with a name. We can use the Python client to 
-read from, write to, and attach metadata to these ranges.
+Ranges identify specific periods of time with a name. We can use the Python
+client to read from, write to, and attach metadata to these ranges.
 
 <Divider.Divider direction="x" />
 
@@ -39,8 +38,8 @@ Synnax will automatically generate a unique identifier for the range.
 
 ### Only Create a Range if it Doesn't Exist
 
-If we only want to create a range if one with the same name doesn't already exist,
-we can pass in the `retrieve_if_name_exists` parameter:
+If we only want to create a range if one with the same name doesn't already
+exist, we can pass in the `retrieve_if_name_exists` parameter:
 
 ```python
 my_range = client.ranges.create(
@@ -53,8 +52,8 @@ my_range = client.ranges.create(
 )
 ```
 
-In the event the range already exists, Synnax will return the existing range instead of 
-creating a new one.
+In the event the range already exists, Synnax will return the existing range
+instead of creating a new one.
 
 <Divider.Divider direction="x" />
 
@@ -74,9 +73,10 @@ my_range = client.ranges.retrieve("My Range")
 my_range = client.ranges.retrieve(my_range.key)
 ```
 
-Synnax will raise a `NotFoundError` if the range does not exist, and a `MultipleFoundError`
-if multiple ranges with the given name exist. If you'd like to accept multiple or no
-results, provide a list to the `retrieve` method as shown below.
+Synnax will raise a `NotFoundError` if the range does not exist, and a
+`MultipleFoundError` if multiple ranges with the given name exist. If you'd like
+to accept multiple or no results, provide a list to the `retrieve` method as
+shown below.
 
 ### Retrieving Multiple Ranges
 
@@ -92,8 +92,8 @@ my_ranges = client.ranges.retrieve([my_range.key, my_other_range.key])
 my_ranges = client.ranges.retrieve(["My Range", my_other_range.key])
 ```
 
-In these examples, Synnax will not raise an error if a range cannot be found. Instead,
-the missing range will be omitted from the returned list.
+In these examples, Synnax will not raise an error if a range cannot be found.
+Instead, the missing range will be omitted from the returned list.
 
 <Divider.Divider direction="x" />
 
@@ -101,7 +101,8 @@ the missing range will be omitted from the returned list.
 
 ### Accessing Channels
 
-We can access the channels on a range as if they were class properties or dictionary keys.
+We can access the channels on a range as if they were class properties or
+dictionary keys.
 
 ```python
 my_range = client.ranges.retrieve("My Range")
@@ -114,8 +115,8 @@ my_pressure_channel = my_range["pressure_2"]
 
 ### Accessing Multiple Channels
 
-We can also access multiple channels on the range by passing a regular expression to
-our property accessor.
+We can also access multiple channels on the range by passing a regular
+expression to our property accessor.
 
 ```python
 my_range = client.ranges.retrieve("My Range")
@@ -124,10 +125,10 @@ my_range = client.ranges.retrieve("My Range")
 my_pressure_channels = my_range["^pressure"]
 ```
 
-If we try to access channel-specific methods on the returned object, such as a `name` or 
-`data`, Synnax will raise `MultipleFoundError`. Instead, we should iterate over the 
-returned list. Here's a simple example where we plot the data from all of our
-pressure channels:
+If we try to access channel-specific methods on the returned object, such as a
+`name` or `data`, Synnax will raise `MultipleFoundError`. Instead, we should
+iterate over the returned list. Here's a simple example where we plot the data
+from all of our pressure channels:
 
 ```python
 import matplotlib.pyplot as plt
@@ -136,16 +137,18 @@ for ch in my_range["^pressure"]:
     plt.plot(my_range.timestamps, ch, label=ch.name)
 ```
 
-This iteration pattern is valid even if we only have one channel that matches our 
-regular expression.
+This iteration pattern is valid even if we only have one channel that matches
+our regular expression.
 
 ### Aliasing Channels
 
-Channels must maintain their original names, but situations arise where we'd like to give
-a channel a more descriptive name in the context of a particular range. Ranges allow us to do just that.
+Channels must maintain their original names, but situations arise where we'd
+like to give a channel a more descriptive name in the context of a particular
+range. Ranges allow us to do just that.
 
-Imagine we have a channel named `daq_analog_input_1` that we'd like to refer to as 
-`tank_pressure` for a tank burst test. We can do this by aliasing the channel:
+Imagine we have a channel named `daq_analog_input_1` that we'd like to refer to
+as `tank_pressure` for a tank burst test. We can do this by aliasing the
+channel:
 
 ```python
 burst_test = client.ranges.retrieve("Oct 10 Burst Test")
@@ -165,8 +168,9 @@ burst_test.tank_pressure
 Subsequent calls to `set_alias` will overwrite the previous alias. 
 
 <Note class="warn">
-Aliases are only valid within the context of a particular range. If you try to access an 
-aliased channel outside of the range, Synnax will not be able to find it.
+Aliases are only valid within the context of a particular range. If you try to
+access an aliased channel outside of the range, Synnax will not be able to find
+it.
 </Note>
 
 <Divider.Divider direction="x" />
@@ -175,9 +179,9 @@ aliased channel outside of the range, Synnax will not be able to find it.
 
 ### Setting Metadata
 
-It's common to have non-data information we'd like to attach to a particular range,
-such as test configuration parameters, numeric results, part numbers, etc. We can attach
-this metadata to a range using the `meta_data` property.
+It's common to have non-data information we'd like to attach to a particular
+range, such as test configuration parameters, numeric results, part numbers,
+etc. We can attach this metadata to a range using the `meta_data` property.
 
 ```python
 burst_test = client.ranges.retrieve("Oct 10 Burst Test")
@@ -197,8 +201,8 @@ burst_test.meta_data.set({
 ```
 
 <Note variant="info">
-All metadata values are stored as strings. It's up to you to correctly
-cast the values to the appropriate type. We're working on a way to automatically cast
+All metadata values are stored as strings. It's up to you to correctly cast the
+values to the appropriate type. We're working on a way to automatically cast
 values based on a schema.
 </Note>
 
@@ -237,7 +241,8 @@ burst_test.meta_data.delete(["part_number", "test_configuration"])
 
 ## Deleting Ranges
 
-Deleting a range is as simple as passing in its name or key to the `delete` method.
+Deleting a range is as simple as passing in its name or key to the `delete`
+method.
 
 ```python
 client.ranges.delete("My Range")
@@ -248,11 +253,10 @@ client.ranges.delete(my_range.key)
 Deleting a range by name will delete <i>all</i> ranges with that name. Be careful!
 </Note>
 
-We can delete multiple ranges by passing a list of names or keys to the `delete` method.
+We can delete multiple ranges by passing a list of names or keys to the `delete`
+method.
 
 ```python
 client.ranges.delete(["My Range", "My Other Range"])
 client.ranges.delete([my_range.key, my_other_range.key])
 ```
-
-
