@@ -69,7 +69,7 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
     this.internal.ranges.forEach((r) => {
       const startPos = regionScale.pos(Number(r.timeRange.start.valueOf()));
       const endPos = regionScale.pos(Number(r.timeRange.end.valueOf()));
-      const c = new color.Color(r.color);
+      const c = new color.Color(r.color as string);
       let hovered = false;
       if (cursor != null)
         hovered = bounds.contains({ lower: startPos, upper: endPos }, cursor);
