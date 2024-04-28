@@ -15,7 +15,7 @@ import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
 import { status } from "@/status/aether";
 import { type FindResult } from "@/vis/line/aether/line";
-import { calculatePlotBox, gridPositionSpecZ } from "@/vis/lineplot/aether/grid";
+import { calculatePlotBox, gridEntrySpecZ } from "@/vis/lineplot/aether/grid";
 import { XAxis } from "@/vis/lineplot/aether/XAxis";
 import { YAxis } from "@/vis/lineplot/aether/YAxis";
 import { tooltip } from "@/vis/lineplot/tooltip/aether";
@@ -26,7 +26,7 @@ export const linePlotStateZ = z.object({
   container: box.box,
   viewport: box.box,
   hold: z.boolean().optional().default(false),
-  grid: z.record(gridPositionSpecZ),
+  grid: z.record(gridEntrySpecZ),
   clearOverScan: xy.crudeZ.optional().default(xy.ZERO),
 });
 
@@ -129,8 +129,6 @@ export class LinePlot extends aether.Composite<
     }
 
     const plot = this.calculatePlot();
-
-    console.log("DOG", box.dims(plot), box.topLeft(plot));
 
     instrumentation.L.debug("rendering", {
       key: this.key,

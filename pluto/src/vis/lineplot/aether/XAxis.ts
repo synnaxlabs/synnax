@@ -22,7 +22,7 @@ export const xAxisStateZ = coreAxisStateZ;
 
 export interface XAxisRenderProps extends AxisRenderProps {}
 
-export class XAxis extends CoreAxis<typeof coreAxisStateZ, YAxis | range.Annotation> {
+export class XAxis extends CoreAxis<typeof coreAxisStateZ, YAxis | range.Provider> {
   static readonly TYPE = "XAxis";
   schema = coreAxisStateZ;
 
@@ -80,11 +80,8 @@ export class XAxis extends CoreAxis<typeof coreAxisStateZ, YAxis | range.Annotat
     return this.childrenOfType<YAxis>(YAxis.TYPE);
   }
 
-  get rangeAnnotations(): readonly range.Annotation[] {
-    return this.childrenOfType<range.Annotation>(
-      range.Annotation.TYPE,
-      range.Provider.TYPE,
-    );
+  get rangeAnnotations(): readonly range.Provider[] {
+    return this.childrenOfType<range.Provider>(range.Provider.TYPE);
   }
 
   private async renderRangeAnnotations(
@@ -98,6 +95,7 @@ export class XAxis extends CoreAxis<typeof coreAxisStateZ, YAxis | range.Annotat
           await el.render({
             dataToDecimalScale: xDataToDecimalScale,
             region: props.plot,
+            viewport: props.viewport,
           }),
       ),
     );

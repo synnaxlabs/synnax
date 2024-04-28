@@ -28,6 +28,7 @@ export class Range {
   name: string;
   readonly kv: KV;
   readonly timeRange: TimeRange;
+  readonly color: string | undefined;
   readonly channels: ChannelRetriever;
   private readonly aliaser: Aliaser;
   private readonly frameClient: framer.Client;
@@ -37,6 +38,7 @@ export class Range {
     name: string,
     timeRange: TimeRange = TimeRange.ZERO,
     key: string,
+    color: string | undefined,
     _frameClient: framer.Client,
     _kv: KV,
     _aliaser: Aliaser,
@@ -47,6 +49,7 @@ export class Range {
     this.name = name;
     this.timeRange = timeRange;
     this.frameClient = _frameClient;
+    this.color = color;
     this.kv = _kv;
     this.aliaser = _aliaser;
     this.channels = _channels;

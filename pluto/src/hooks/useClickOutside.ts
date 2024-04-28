@@ -35,10 +35,13 @@ export const useClickOutside = ({
   const handleClickOutside = useCallback(
     (e: MouseEvent): void => {
       const el = ref.current;
+      const windowBox = box.construct(window.document.documentElement);
+      const pos = xy.construct(e);
       if (
         el == null ||
         el.contains(e.target as Node) ||
-        box.contains(el, xy.construct(e)) ||
+        box.contains(el, pos) ||
+        !box.contains(windowBox, pos) ||
         (excludeRef.current != null &&
           excludeRef.current.some((r) => r.current?.contains(e.target as Node)))
       )
@@ -49,7 +52,7 @@ export const useClickOutside = ({
   );
   useEffect(() => {
     document.addEventListener("mousedown", handleClickOutside);
-    window.addEventListener("blur", onClickOutside);
+    // window.addEventListener("blur", onClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [handleClickOutside]);
 };

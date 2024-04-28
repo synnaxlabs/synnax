@@ -22,6 +22,7 @@ export const payloadZ = z.object({
   key: keyZ,
   name: z.string().min(1),
   timeRange: TimeRange.z,
+  color: z.string().optional(),
 });
 export type Payload = z.infer<typeof payloadZ>;
 
@@ -30,7 +31,7 @@ export const newPayloadZ = payloadZ.extend({
 });
 export type NewPayload = z.infer<typeof newPayloadZ>;
 
-export type ParamAnalsysisResult =
+export type ParamAnalysisResult =
   | {
       single: true;
       variant: "keys";
@@ -56,7 +57,7 @@ export type ParamAnalsysisResult =
       actual: Names;
     };
 
-export const analyzeParams = (params: Params): ParamAnalsysisResult => {
+export const analyzeParams = (params: Params): ParamAnalysisResult => {
   const normal = toArray(params) as Keys | Names;
   if (normal.length === 0) {
     throw new Error("Range params must not be empty");
@@ -67,5 +68,5 @@ export const analyzeParams = (params: Params): ParamAnalsysisResult => {
     variant: isKey ? "keys" : "names",
     normalized: normal,
     actual: params,
-  } as const as ParamAnalsysisResult;
+  } as const as ParamAnalysisResult;
 };

@@ -34,8 +34,8 @@ import { type Viewport } from "@/viewport";
 import { Canvas } from "@/vis/canvas";
 import { lineplot } from "@/vis/lineplot/aether";
 import {
-  type GridPositionSpec,
-  filterGridPositions,
+  type GridEntrySpec,
+  filterGridEntries,
   type GridSpec,
 } from "@/vis/lineplot/aether/grid";
 
@@ -44,8 +44,8 @@ import "@/vis/lineplot/LinePlot.css";
 type HTMLDivProps = DetailedHTMLProps<HTMLAttributes<HTMLDivElement>, HTMLDivElement>;
 
 export interface LinePlotContextValue {
-  setAxis: (meta: GridPositionSpec) => void;
-  removeAxis: (key: string) => void;
+  setGridEntry: (meta: GridEntrySpec) => void;
+  removeGridEntry: (key: string) => void;
   setLine: (meta: LineSpec) => void;
   removeLine: (key: string) => void;
   lines: LineSpec[];
@@ -68,22 +68,19 @@ export const useViewport = (handle: Viewport.UseHandler): void => {
   useEffect(() => addViewportHandler(handle), [addViewportHandler, handle]);
 };
 
-export const useGridPosition = (
-  meta: GridPositionSpec,
-  component: string,
-): CSSProperties => {
-  const { setAxis, removeAxis } = useContext(component);
+export const useGridEntry = (meta: GridEntrySpec, component: string): CSSProperties => {
+  const { setGridEntry, removeGridEntry } = useContext(component);
   const { key } = meta;
   useEffectCompare(
     () => {
       location.outer.parse(meta.loc);
-      setAxis(meta);
+      setGridEntry(meta);
     },
     ([a], [b]) => deep.equal(a, b),
     [meta],
   );
   useEffect(() => {
-    return () => removeAxis(key);
+    return () => removeGridEntry(key);
   }, []);
   const dir = direction.swap(location.direction(meta.loc));
   const gridArea =
@@ -174,8 +171,8 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
 
     const ref = Canvas.useRegion(handleResize);
 
-    const setAxis: LinePlotContextValue["setAxis"] = useCallback(
-      (meta: GridPositionSpec) =>
+    const setGridEntry: LinePlotContextValue["setGridEntry"] = useCallback(
+      (meta: GridEntrySpec) =>
         setState((prev) => ({
           ...prev,
           grid: { ...prev.grid, [meta.key]: meta },
@@ -183,7 +180,7 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
       [setState],
     );
 
-    const removeAxis = useCallback(
+    const removeGridEntry = useCallback(
       (key: string) =>
         setState((prev) => {
           const { [key]: _, ...grid } = prev.grid;
@@ -209,8 +206,8 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
     const contextValue = useMemo<LinePlotContextValue>(
       () => ({
         lines,
-        setAxis,
-        removeAxis,
+        setGridEntry,
+        removeGridEntry,
         setLine,
         removeLine,
         setViewport,
@@ -218,8 +215,8 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
       }),
       [
         lines,
-        setAxis,
-        removeAxis,
+        setGridEntry,
+        removeGridEntry,
         setLine,
         removeLine,
         setViewport,
@@ -244,18 +241,18 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
 
 const buildPlotGrid = (grid: GridSpec): CSSProperties => {
   const builder = CSS.newGridBuilder();
-  filterGridPositions("top", grid).forEach(({ key, size }) =>
+  filterGridEntries("top", grid).forEach(({ key, size }) =>
     builder.addRow(`axis-start-${key}`, `axis-end-${key}`, size),
   );
   builder.addRow("plot-start", "plot-end", "minmax(0, 1fr)");
-  filterGridPositions("bottom", grid).forEach(({ key, size }) =>
+  filterGridEntries("bottom", grid).forEach(({ key, size }) =>
     builder.addRow(`axis-start-${key}`, `axis-end-${key}`, size),
   );
-  filterGridPositions("left", grid).forEach(({ key, size }) =>
+  filterGridEntries("left", grid).forEach(({ key, size }) =>
     builder.addColumn(`axis-start-${key}`, `axis-end-${key}`, size),
   );
   builder.addColumn("plot-start", "plot-end", "minmax(0, 1fr)");
-  filterGridPositions("right", grid).forEach(({ key, size }) =>
+  filterGridEntries("right", grid).forEach(({ key, size }) =>
     builder.addColumn(`axis-start-${key}`, `axis-end-${key}`, size),
   );
   return builder.build();

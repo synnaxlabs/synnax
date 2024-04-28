@@ -1,37 +1,34 @@
+import dataclasses
 import time
 import synnax as sy
 from synnax.control.controller import Controller
+import numpy as np
+from scipy.signal import find_peaks
 
-# TPC Control Bound
 BOUND = 5  # PSI
 TPC_UPPER_BOUND = 50  # PSI
 TPC_LOWER_BOUND = TPC_UPPER_BOUND - BOUND
-
 L_STAND_PRESS_TARGET = 65
 SCUBA_PRESS_TARGET = 275  # PSI
-
-PRESS_1_STEP = 10  # PSI
+PRESS_1_STEP = 20  # PSI
 PRESS_2_STEP = 50  # PSI
-
 PRESS_STEP_DELAY = (1 * sy.TimeSpan.SECOND).seconds  # Seconds
+
+
+@dataclasses.dataclass
+class TPCParameters:
+    l_stand_press_target: int
+    scuba_press_target: int
+    press_1_step: int
+    press_2_step: int
+    press_step_delay: float
+    tpc_upper_bound: int
+    tpc_lower_bound: int
+
 
 client = sy.Synnax(
     host="localhost", port=9090, username="synnax", password="seldon", secure=False
 )
-
-
-def run_tpc(auto: Controller):
-    pressure = auto[FUEL_TANK_PT]
-    one_open = auto[TPC_CMD_ACK]
-
-    if pressure > TPC_UPPER_BOUND:
-        if one_open:
-            auto[TPC_CMD] = False
-    elif pressure < TPC_LOWER_BOUND:
-        auto[TPC_CMD] = True
-
-    return pressure < 15
-
 
 TPC_CMD = "tpc_vlv_cmd"
 TPC_CMD_ACK = "tpc_vlv_ack"
@@ -41,7 +38,18 @@ VENT_CMD = "vent_cmd"
 PRESS_TANK_PT = "press_tank_pt"
 FUEL_TANK_PT = "fuel_tank_pt"
 
-try:
+
+def execute_auto(params: TPCParameters):
+    def run_tpc(auto: Controller):
+        pressure = auto[FUEL_TANK_PT]
+        one_open = auto[TPC_CMD_ACK]
+        if pressure > params.tpc_upper_bound:
+            if one_open:
+                auto[TPC_CMD] = False
+        elif pressure < params.tpc_lower_bound:
+            auto[TPC_CMD] = True
+        return pressure < 15
+
     with client.control.acquire(
         "Autosequence",
         write=[TPC_CMD, MPV_CMD, PRESS_ISO_CMD, VENT_CMD],
@@ -69,18 +77,18 @@ try:
 
             dual_press_start = sy.TimeStamp.now()
 
-            curr_target = PRESS_1_STEP
+            curr_target = params.press_1_step
             while True:
                 print(f"Pressing L-Stand to {curr_target} PSI")
                 auto[PRESS_ISO_CMD] = True
                 auto.wait_until(lambda c: c[FUEL_TANK_PT] > curr_target)
                 auto[PRESS_ISO_CMD] = False
-                curr_target += PRESS_1_STEP
-                curr_target = min(curr_target, L_STAND_PRESS_TARGET)
-                if auto[FUEL_TANK_PT] > L_STAND_PRESS_TARGET:
+                curr_target += params.press_1_step
+                curr_target = min(curr_target, params.l_stand_press_target)
+                if auto[FUEL_TANK_PT] > params.l_stand_press_target:
                     break
                 print("Taking a nap")
-                time.sleep(PRESS_STEP_DELAY)
+                time.sleep(params.press_step_delay)
 
             dual_press_end = sy.TimeStamp.now()
             client.ranges.create(
@@ -93,18 +101,18 @@ try:
             press_tank_start = sy.TimeStamp.now()
 
             print("Pressurized. Waiting for five seconds")
-            time.sleep(PRESS_STEP_DELAY)
+            time.sleep(params.press_step_delay)
             # ISO off TESCOM and press scuba with ISO
             auto[TPC_CMD] = False
 
-            curr_target = L_STAND_PRESS_TARGET + PRESS_2_STEP
+            curr_target = params.l_stand_press_target + params.press_2_step
             while True:
                 auto[PRESS_ISO_CMD] = True
                 auto.wait_until(lambda c: c[PRESS_TANK_PT] > curr_target)
                 auto[PRESS_ISO_CMD] = False
-                curr_target += PRESS_2_STEP
-                curr_target = min(curr_target, SCUBA_PRESS_TARGET)
-                if auto[PRESS_TANK_PT] > SCUBA_PRESS_TARGET:
+                curr_target += params.press_2_step
+                curr_target = min(curr_target, params.scuba_press_target)
+                if auto[PRESS_TANK_PT] > params.scuba_press_target:
                     break
                 print("Taking a nap")
                 time.sleep(PRESS_STEP_DELAY)
@@ -142,6 +150,9 @@ try:
                     MPV_CMD: 0,
                 }
             )
+
+            return rng
+
         except KeyboardInterrupt:
             print("Test interrupted. Safeing System")
             auto.set({
@@ -150,5 +161,34 @@ try:
                 VENT_CMD: 0,
                 MPV_CMD: 1,
             })
-finally:
-    time.sleep(100)
+
+
+def perform_analysis(params: TPCParameters, rng: sy.Range) -> TPCParameters:
+    print("Performing analysis on the test results. Starting with a 5 second sleep")
+    time.sleep(5)
+    fuel_pt = rng[FUEL_TANK_PT].to_numpy()
+    print(fuel_pt)
+    peaks, _ = find_peaks(fuel_pt, height=params.tpc_upper_bound)
+    print(f"Found {len(peaks)} peaks")
+    # get the average amount the peaks are off by
+    avg_diff = np.mean(fuel_pt[peaks] - params.tpc_upper_bound)
+    print(f"Average difference: {avg_diff}")
+    # subtract the average difference from the target
+    params.tpc_upper_bound -= avg_diff
+    return params
+
+
+if __name__ == "__main__":
+    initial_params = TPCParameters(
+        L_STAND_PRESS_TARGET,
+        SCUBA_PRESS_TARGET,
+        PRESS_1_STEP,
+        PRESS_2_STEP,
+        PRESS_STEP_DELAY,
+        TPC_UPPER_BOUND,
+        TPC_LOWER_BOUND,
+    )
+    print("HERLLO")
+    res = execute_auto(initial_params)
+    next_params = perform_analysis(initial_params, res)
+    execute_auto(next_params)

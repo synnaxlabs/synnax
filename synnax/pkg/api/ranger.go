@@ -12,6 +12,8 @@ package api
 import (
 	"context"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 	"go/types"
 
 	"github.com/google/uuid"
@@ -221,7 +223,7 @@ func (s *RangeService) AliasResolve(ctx context.Context, req RangeAliasResolveRe
 	aliases := make(map[string]channel.Key, len(req.Aliases))
 	for _, alias := range req.Aliases {
 		ch, err := r.ResolveAlias(ctx, alias)
-		if err != nil {
+		if err != nil && !errors.Is(err, query.NotFound) {
 			return res, err
 		}
 		if ch != 0 {

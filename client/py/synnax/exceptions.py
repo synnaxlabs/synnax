@@ -127,7 +127,6 @@ def _decode(encoded: freighter.ExceptionPayload) -> Exception | None:
     if encoded.type.startswith(ValidationError.TYPE):
         if encoded.type.startswith(FieldError.TYPE):
             values = encoded.data.split(":")
-            print(values)
             if len(values) != 2:
                 return UnexpectedError(encoded.data)
             return FieldError(values[0], values[1])

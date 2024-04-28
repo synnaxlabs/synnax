@@ -71,8 +71,8 @@ export const Text = forwardRef(CoreText) as <L extends text.Level = text.Level>(
   props: TextProps<L>,
 ) => ReactElement;
 
-const evalColor = (color?: Color.Crude, shade?: number): string | undefined => {
-  if (color != null) return Color.cssString(color);
-  if (shade != null) return Color.cssString(`var(--pluto-gray-l${shade})`);
+export const evalColor = (color?: Color.Crude, shade?: number): string | undefined => {
+  if (color != null) return Color.cssString(color) as string;
+  if (shade != null) return `var(--pluto-gray-l${shade})`;
   return undefined;
 };

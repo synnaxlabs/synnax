@@ -23,9 +23,11 @@ describe("Ranger", () => {
       const range = await client.ranges.create({
         name: "My New One Second Range",
         timeRange,
+        color: "#E774D0",
       });
       expect(range.key).not.toHaveLength(0);
       expect(timeRange).toEqual(range.timeRange);
+      expect(range.color).toEqual("#E774D0");
     });
     it("should create multiple ranges", async () => {
       const ranges: NewPayload[] = [

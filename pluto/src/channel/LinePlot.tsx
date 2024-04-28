@@ -253,7 +253,7 @@ const XAxis = ({
           }
         />
       ))}
-      {/* <Range.Provider /> */}
+      <Range.Provider />
     </Core.XAxis>
   );
 };

@@ -141,13 +141,18 @@ export class Draw2D {
     ctx.lineWidth = width ?? this.theme.sizes.border.width;
     radius ??= this.theme.sizes.border.radius;
     if (location == null || location === true) {
-      if (radius > 0)
+      if (radius > 0) {
         ctx.roundRect(
           ...xy.couple(box.topLeft(region)),
           ...xy.couple(box.dims(region)),
           radius,
         );
-      else ctx.rect(...xy.couple(box.topLeft(region)), ...xy.couple(box.dims(region)));
+
+        ctx.stroke();
+      } else {
+        ctx.rect(...xy.couple(box.topLeft(region)), ...xy.couple(box.dims(region)));
+        ctx.stroke();
+      }
     } else
       toArray(location).forEach((loc) => {
         const [start, end] = box.edgePoints(region, loc);
@@ -188,6 +193,7 @@ export class Draw2D {
         region,
         color: borderColor,
         radius: borderRadius,
+        width: borderWidth,
         location: bordered,
       });
   }

@@ -22,7 +22,7 @@ export interface DialogProps {
   disable?: Array<location.Location | Partial<location.XY>>;
 }
 
-const parseLocationOptions = (
+export const parseLocationOptions = (
   initial?: location.Outer | Partial<location.XY> | location.XY,
 ): Partial<location.XY> => {
   if (initial == null) return { x: undefined, y: undefined };

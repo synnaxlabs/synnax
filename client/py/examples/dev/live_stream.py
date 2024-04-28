@@ -49,5 +49,6 @@ with client.open_streamer(read_from) as s:
             client.ranges.create(
                 name="Data Exceeds Threshold",
                 time_range=tr,
+                color="#BA55D3",
             )
             over_threshold = False

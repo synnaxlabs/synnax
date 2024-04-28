@@ -30,7 +30,7 @@ import {
   parseAutoBounds,
   withinSizeThreshold,
 } from "@/vis/lineplot/aether/axis";
-import { useGridPosition } from "@/vis/lineplot/LinePlot";
+import { useGridEntry } from "@/vis/lineplot/LinePlot";
 
 import "@/vis/lineplot/Axis.css";
 
@@ -109,7 +109,7 @@ export const axisFactory = (dir: direction.Direction): FC<AxisProps> => {
           onAutoBoundsChange?.(state.bounds);
       }, [state.autoBounds, state.bounds]);
 
-      const gridStyle = useGridPosition(
+      const gridStyle = useGridEntry(
         {
           loc: location,
           key: `${aetherType}-${aetherKey}`,
