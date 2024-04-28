@@ -149,7 +149,6 @@ func (w *Writer) Write(ctx context.Context, series telem.Series) (a telem.Alignm
 	if err := w.Channel.ValidateSeries(series); err != nil {
 		return 0, err
 	}
-	// ok signifies whether w is allowed to write.
 	dw, ok := w.control.Authorize()
 	if !ok {
 		return 0, controller.Unauthorized(w.control.Subject.Name, w.Channel.Key)
@@ -220,7 +219,7 @@ func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp, persist
 	}
 	if end.IsZero() {
 		// we're using w.len - 1 here because we want the timestamp of the last
-		// written frame.
+		// written sample.
 		approx, err := w.idx.Stamp(ctx, w.Start, w.len(dw.Writer)-1, true)
 		if err != nil {
 			return 0, err
