@@ -1,36 +1,46 @@
 ---
 layout: "@/layouts/MainLayout.astro"
-title: "Line Plot Visualization"
-description: "This page describes how to use the line plot visualization in the Synnax console."
+title: "Line Plot"
+description: "Learn how to use the Line Plot in the Synnax Console."
 ---
 import { Image } from "@/components/Media";
 import { Icon } from "@synnaxlabs/media";
 import { Text } from "@synnaxlabs/pluto";
+import { Divider } from "@synnaxlabs/pluto"
 
-The line plot visualization is the main visualization tool in Synnax. In this
-visualization, you can graph data. An example visualization is shown below:
+The Line Plot is the main visualization tool in the Synnax Console. The Line
+Plot can be used to plot real-time data or historical data. It can plot one or
+several channels along the y-axes, and the x-axis can be time or another
+channel. An example Line Plot is shown below:
 
 <Image client:only="react" id="console/line-plot"  />
 
+{/* Replace with a better cropped image of a line plot. */}
+
 <Text.Text level="p">
 Make sure to click the visualize <Icon.Visualize/> button in the bottom right corner to pop up the
-visualization properties.
+visualization toolbar.
 </Text.Text>
 
-## Data Tab
+{/* Insert a video of clicking open the visualization toolbar with a line plot
+open. */}
+
+## Visualization Properties
+
+### Data Tab
 The data tab has several properties underneath it:
-- Y1 lets you select which channels to plot along the left-hand axis
-- Y2 lets you select which channels to plot along the right-hand axis
+- Y1 lets you select which channels to plot along the left-hand axis.
+- Y2 lets you select which channels to plot along the right-hand axis.
 - Ranges lets you select which time ranges to plot. Data will only be plotted
   that took place over these time ranges. If you select multiple ranges, the
   x-axis will scale to accomodate both.
-    - _Rolling_ time ranges allow you to view the most recent time increment of
+    - Rolling time ranges allow you to view the most recent time increment of
       data. These are intented for cases where the user wants live data to come
       into the line plot.
 - X1 lets you select the x-axis to be scaled by a channel instead of time. Note
   that the only data shown will be the data from the selected time range.
 
-## Lines Tab
+### Lines Tab
 The line tab has several properties underneath it:
 - Label allows you to change what text appears for the channels in the graph
   legend.
@@ -39,7 +49,7 @@ The line tab has several properties underneath it:
   downsampling is n, it plots every nth data point.
 - Color changes the color of the line on the graph.
 
-## Axes Tab
+### Axes Tab
 <Text.Text level="p">
 <ul>
   <li>Lower bound and upper bound decides the limits for the axes. The <Icon.Auto/> button enables auto-bounding on the graphs.</li>
@@ -50,14 +60,14 @@ The line tab has several properties underneath it:
 </ul>
 </Text.Text>
 
-## Properties Tab
+### Properties Tab
 The properties tab has several properties underneath it:
 - Title allows you to change the title of the plot. This will change it in the
   workspace tab and on the top of the graph.
 - The title switch determines whether the title is viewed in the chart.
 - The legend switch determines whether the legend is viewed in the chart.
 
-## Navigating the plot
+## Navigating the Line Plot
 <Text.Text level="p">
   <ul>
     <li>Zoom on the plot by clicking the <Icon.Zoom/> icon in the bottom left or by pressing <Icon.Keyboard.Alt/> (Windows) / <Icon.Keyboard.Command/> (Mac)
@@ -72,3 +82,5 @@ The properties tab has several properties underneath it:
     <li>Pause live plotting by pressing <Icon.Pause/> or pressing the H key.</li>
   </ul>
 </Text.Text>
+
+## Other Tips

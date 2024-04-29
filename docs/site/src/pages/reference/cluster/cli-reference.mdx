@@ -22,7 +22,7 @@ necessary.
 #### Starting a single-node cluster
 
 We can use the `i` and `m` flags to start a single node in insecure mode with an 
-in-memory data store.
+in-memory data store:
 
 ```cmd
 synnax start -l localhost:9090 -im
@@ -32,7 +32,7 @@ synnax start -l localhost:9090 -im
 
 We can use the `p` flag to join a node to an existing cluster. If the node has no 
 existing cluster data, it will attempt to join the cluster by repeatedly contacting
-each peer in the list until successful.
+each peer in the list until successful:
 
 ```cmd
 synnax start -l localhost:9090 -p localhost:9091,localhost:9092
@@ -216,7 +216,7 @@ By default, Synnax will look for a configuration file at `~/.synnax.yaml`. You
 can specify a different configuration file using the `--config` flag or the
 `SYNNAX_CONFIG` environment variable.
 
-Here are example configuration files in various formats.
+Here are example configuration files in various formats:
 
 <Tabs
 client:load
@@ -299,6 +299,8 @@ password = "seldon"
 The `version` command prints the installed version of the Synnax database.
 
 ### Examples
+
+If you run this command:
 
 ```cmd
 synnax version

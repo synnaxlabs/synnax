@@ -63,7 +63,7 @@ We can fetch a range using the `client.ranges.retrieve` method.
 
 ### Retrieving a Single Range
 
-We can retrieve a range by its name or key.
+We can retrieve a range by its name or key:
 
 ```python
 # By name
@@ -81,7 +81,7 @@ shown below.
 ### Retrieving Multiple Ranges
 
 We can retrieve multiple ranges by passing a list of names or keys to the
-`retrieve` method.
+`retrieve` method:
 
 ```python
 # By name
@@ -102,7 +102,7 @@ Instead, the missing range will be omitted from the returned list.
 ### Accessing Channels
 
 We can access the channels on a range as if they were class properties or
-dictionary keys.
+dictionary keys:
 
 ```python
 my_range = client.ranges.retrieve("My Range")
@@ -116,7 +116,7 @@ my_pressure_channel = my_range["pressure_2"]
 ### Accessing Multiple Channels
 
 We can also access multiple channels on the range by passing a regular
-expression to our property accessor.
+expression to our property accessor:
 
 ```python
 my_range = client.ranges.retrieve("My Range")
@@ -181,7 +181,7 @@ it.
 
 It's common to have non-data information we'd like to attach to a particular
 range, such as test configuration parameters, numeric results, part numbers,
-etc. We can attach this metadata to a range using the `meta_data` property.
+etc. We can attach this metadata to a range using the `meta_data` property:
 
 ```python
 burst_test = client.ranges.retrieve("Oct 10 Burst Test")
@@ -208,7 +208,7 @@ values based on a schema.
 
 ### Getting Metadata
 
-Getting metadata is as easy as setting it. 
+Getting metadata is as easy as setting it:
 
 ```python
 burst_test = client.ranges.retrieve("Oct 10 Burst Test")
@@ -222,7 +222,7 @@ part_number = burst_test.meta_data["part_number"]
  
 ### Deleting Metadata
 
-We can delete metadata using the `delete` method.
+We can delete metadata using the `delete` method:
 
 ```python
 burst_test = client.ranges.retrieve("Oct 10 Burst Test")
@@ -242,7 +242,7 @@ burst_test.meta_data.delete(["part_number", "test_configuration"])
 ## Deleting Ranges
 
 Deleting a range is as simple as passing in its name or key to the `delete`
-method.
+method:
 
 ```python
 client.ranges.delete("My Range")
@@ -254,7 +254,7 @@ Deleting a range by name will delete <i>all</i> ranges with that name. Be carefu
 </Note>
 
 We can delete multiple ranges by passing a list of names or keys to the `delete`
-method.
+method:
 
 ```python
 client.ranges.delete(["My Range", "My Other Range"])

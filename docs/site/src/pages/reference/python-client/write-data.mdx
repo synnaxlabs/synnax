@@ -4,8 +4,8 @@ title: "Write Data"
 description: "Use the Python client to write to a Synnax cluster."
 ---
 import { Divider } from "@synnaxlabs/pluto"
-import Code from "@/components/code/Code.astro";
-export const components = { pre: Code };
+import Code from "@/components/code/Code.astro"
+export const components = { pre: Code }
 
 Synnax supports multiple methods for writing data to a cluster. We can write
 directly to a channel, fetch a range and set its data, or leverage writers for
@@ -121,7 +121,7 @@ to to write data in a streaming fashion for use in control sequences and live
 data processing. The `Writer` class is designed for this use case (and is
 actually used under the hood by the other methods).
 
-Writers are a bit more complicated to operate, so we recommend reading the
+Writers can be complicated to operate, so we recommend reading the
 [concepts](../concepts/write-domains#transactions) page to learn more about how
 they work.
 

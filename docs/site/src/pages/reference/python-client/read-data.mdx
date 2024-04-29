@@ -16,7 +16,7 @@ or leverage server side iterators for processing large queries.
 ## Reading from a Channel
 
 The simplest way to read data from Synnax is to use the `read` method on the `Channel`
-class.
+class:
 
 ```python
 from datetime import datetime
@@ -56,7 +56,7 @@ entire time range queried.
 ## Reading from Multiple Channels
 
 We can also read from multiple channels at once by calling the `read` method on
-the `client`.  This method takes a list of channel names/keys and a time range.
+the `client`.  This method takes a list of channel names/keys and a time range:
 
 ```python
 frame = client.read(start, end, ["my_precise_tc", "time"])
@@ -121,7 +121,7 @@ situations where it's necessary to process large volumes of data. Sometimes
 these reads may be too large to fit in memory.
 
 Synnax supports server side iterators that allow us to process large queries in
-consistently sized chunks.
+consistently sized chunks:
 
 ```python
 with client.open_iterator(start, end, "my_precise_tc", chunk_size=100) as it:

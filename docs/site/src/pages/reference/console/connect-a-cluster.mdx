@@ -1,7 +1,7 @@
 ---
 layout: "@/layouts/MainLayout.astro"
 title: "Connect a Cluster"
-description: "Learn how to connect a cluster using the Synnax console."
+description: "Learn how to connect a cluster using the Synnax Console."
 ---
 import Code from "@/components/code/Code.astro";
 export const components = { pre: Code };
@@ -25,14 +25,15 @@ This page assumes you've already:
 
 ## Adding a New Cluster
 
-Adding a new cluster is as simple as clicking the **Add Cluster** button in the top
-right corner of the cluster toolbar and entering your connection parameters, as shown
-below.
+Adding a new cluster is as simple as clicking the **Add Cluster** button in the
+top right corner of the cluster toolbar and entering your connection parameters,
+as shown below.
 
 <Video client:only="react" id="console/connect-a-cluster" />
 
-This will add a new cluster to the list and set it as active. The console continuously
-monitors the connection to the cluster and displays it in the bottom right corner of the UI.
+This will add a new cluster to the list and set it as active. The console
+continuously monitors the connection to the cluster and displays it in the
+bottom right corner of the UI.
 
 ### Parameters
 
@@ -77,16 +78,29 @@ monitors the connection to the cluster and displays it in the bottom right corne
 />
 
 <Note variant="warning">
- The console will not connect to remote clusters (i.e. host is not 'localhost')
+The console will not connect to remote clusters (i.e. host is not 'localhost')
 started with the `--insecure` flag.
 </Note>
+
+{/* Sometimes, loading the screen makes the `--insecure` flag be split into two
+lines through the middle. This needs to be changed. */}
+
+### Demo Cluster
+Synnax has a demo cluster that can be connected to which always plots some data.
+To connect, enter the following parameters:
+
+- __Host__: demo.synnaxlabs.com
+- __Port__: 9090
+- __Username__: synnax
+- __Password__: seldon
+- __Secure__: True
 
 <Divider.Divider direction="x" />
 
 ## Switching Clusters
 
-If you have multiple clusters, you can switch between them by double clicking on the
-cluster you'd like to to connect in the toolbar.
+If you have multiple clusters, you can switch between them by double clicking on
+the cluster you'd like to to connect in the toolbar:
 
 <Video client:only="react" id="console/switch-clusters" />
 
@@ -94,5 +108,5 @@ cluster you'd like to to connect in the toolbar.
 
 ## Next Steps
 
-You can find a basic overview of the console UI on the [UI
-overview](ui-overview) page.
+You can find a basic overview of the console UI on the [UI overview](ui-overview)
+page.

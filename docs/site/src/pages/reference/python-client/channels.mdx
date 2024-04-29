@@ -23,7 +23,7 @@ We can create channels using the `channels.create` method on the client.
 ### Creating a Data Channel and its Index 
 
 Creating a data channel first requires us to create an index channel to store
-its timestamps.
+its timestamps:
 
 ```python
 # Create a time channel to store the timestamps of our data channel
@@ -93,7 +93,7 @@ client.channels.create([
 
 There are situations where we want to ensure that a channel with a particular
 name exists, but don't want it duplicated if it has already been created. To 
-accomplish this, we can use the `retrieve_if_name_exists` flag.
+accomplish this, we can use the `retrieve_if_name_exists` flag:
 
 ```python
 # Create a channel if it doesn't exist
@@ -105,7 +105,7 @@ my_channel = client.channels.create(
 )
 ```
 
-This also works when creating multiple channels.
+This also works when creating multiple channels:
 
 ```python
 # Create multiple channels if they don't exist
@@ -124,7 +124,7 @@ We can retrieve channels using the `channels.retrieve` method.
 ### Retrieving a Single Channel
 
 To retrieve a single channel, pass the channel's name or key to the `retrieve`
-method.
+method:
 
 ```python
 # By name
@@ -146,7 +146,7 @@ possible.
 ### Retrieving Multiple Channels
 
 To retrieve multiple channels, pass a list of names or a list of keys to the
-`retrieve` method.
+`retrieve` method:
 
 ```python
 # By name
@@ -165,7 +165,7 @@ the list of results.
 
 If you've queried a [range](ranges), you can access channels as properties. If
 the channel name is not a valid Python identifier, you can use the dictionary
-accessor (`[]`) instead.
+accessor (`[]`) instead:
 
 ```python
 # Retrieve the range - see the highlighted link above for how these work
@@ -205,7 +205,7 @@ Deleting a channel will also delete all of the data stored in that channel. This
 is a permanent operation that cannot be undone. Be careful!
 </Note>
 
-To delete a channel, we can use the `channels.delete` method.
+To delete a channel, we can use the `channels.delete` method:
 
 ```python
 # Delete a single channel

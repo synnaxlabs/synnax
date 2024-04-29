@@ -24,7 +24,7 @@ We can create channels using the `channels.create` method on the client.
 ### Creating a Data Channel and its Index
 
 Creating a data channel first requires us to create an index channel to store its
-timestamps.
+timestamps:
 
 ```typescript
 import { DataType } from "@synnaxlabs/client";
@@ -108,7 +108,7 @@ the client.
 ### Retrieving a Single Channel
 
 To retrieve a single channel, we can pass the channel's name or key to the `retrieve`
-method.
+method:
 
 ```typescript
 // By name
@@ -125,7 +125,7 @@ provide a list to the `retrieve` method as shown in the next section.
 ### Retrieving Multiple Channels
 
 We can also retrieve multiple channels by passing a list of names or keys to the
-`retrieve` method.
+`retrieve` method:
 
 ```typescript
 // By name
@@ -149,7 +149,7 @@ it will simply omit that channel from the list of results.
 
 ## Deleting Channels
 
-To delete a channel, we can use the `channels.delete` method on the client.
+To delete a channel, we can use the `channels.delete` method on the client:
 
 <Note variant="warning">
 Deleting a channel will also delete all of the data stored in that channel. This

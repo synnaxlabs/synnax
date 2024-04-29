@@ -27,7 +27,7 @@ streamer = client.open_streamer(["channel1", "channel2"])
 
 ## Reading Frames
 
-Then, to read the next incoming frame, call the `read` method on the streamer.
+To read the next incoming frame, call the `read` method on the streamer:
 
 ```python
 frame = streamer.read()
@@ -54,7 +54,7 @@ for frame in streamer:
 ## Closing the Streamer
 
 After you're done streaming, it's essential that you call the `close` method on
-the streamer to release the network connection and other related resources.
+the streamer to release the network connection and other related resources:
 
 ```python
 streamer.close()
@@ -63,7 +63,7 @@ streamer.close()
 ### Using a Context Manager
 
 We recommend using the streamer as a context manager where possible, as this
-makes it easy to ensure that the streamer is closed correctly.
+makes it easy to ensure that the streamer is closed correctly:
 
 ```python
 with client.open_streamer(["channel1", "channel2"]) as streamer:
@@ -75,7 +75,7 @@ with client.open_streamer(["channel1", "channel2"]) as streamer:
 
 If you're interested in using `asyncio` to stream data, you can use the
 `open_async_streamer` method on the client. This streamer implements an
-identical interface to a synchronous streamer, but all methods are asynchronous.
+identical interface to a synchronous streamer, but all methods are asynchronous:
 
 ```python
 async with await client.open_async_streamer(["channel1", "channel2"]) as streamer:
