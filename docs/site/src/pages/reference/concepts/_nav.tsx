@@ -33,7 +33,7 @@ export const conceptsNav: PageNavNode = {
     {
       key: "/reference/concepts/write",
       href: "/reference/concepts/write",
-      name: "Write Domains",
+      name: "Writes",
     },
     {
       key: "/reference/concepts/read-ranges",
