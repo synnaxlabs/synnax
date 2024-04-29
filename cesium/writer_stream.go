@@ -214,7 +214,7 @@ func (w *streamWriter) setAuthority(ctx context.Context, cfg WriterConfig) {
 }
 
 func (w *streamWriter) setMode(cfg WriterConfig) {
-	persist := cfg.Mode < WriterStreamOnly
+	persist := cfg.Mode.Persist()
 	for _, idx := range w.internal {
 		for _, chW := range idx.internal {
 			chW.SetPersist(persist)
@@ -252,7 +252,7 @@ func (w *streamWriter) write(ctx context.Context, req WriterRequest) (err error)
 			return err
 		}
 	}
-	if w.Mode != WriterPersistOnly {
+	if w.Mode.Stream() {
 		w.relay.Inlet() <- req.Frame
 	}
 	return nil
