@@ -31,8 +31,8 @@ export const conceptsNav: PageNavNode = {
       name: "Channels",
     },
     {
-      key: "/reference/concepts/write-domains",
-      href: "/reference/concepts/write-domains",
+      key: "/reference/concepts/write",
+      href: "/reference/concepts/write",
       name: "Write Domains",
     },
     {
