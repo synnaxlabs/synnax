@@ -12,12 +12,18 @@
 //
 
 #include <include/gtest/gtest.h>
+#include "glog/logging.h"
+
 #include "client/cpp/synnax/synnax.h"
 #include "driver/driver/ni/ni_reader.h"
 #include <stdio.h>
+#include "nlohmann/json.hpp"
+#include "driver/driver/testutil/testutil.h"
 
-/// @brief it should read data from a daq and correctly construct a synnax frame from the dataI
 
+ using json = nlohmann::json;
+
+/*
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Functional Tests                                                                                             //
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -208,7 +214,7 @@ TEST(NiReaderTests, TestsReadFromMultipleTasks){
 
     TaskHandle taskHandle2;
     DAQmxCreateTask("",&taskHandle2);
-    auto reader2 = ni::niDaqReader(taskHandle2);
+    auto reader2 = ni::niDaqReader(taskHandle2);/
     std::vector<ni::channel_config> channel_configs2;
     channel_configs2.push_back(ni::channel_config({"PXI1Slot2_2/port0/line0", 65531,  ni::ANALOG_VOLTAGE_IN , -10.0, 10.0}));
     channel_configs2.push_back(ni::channel_config({"PXI1Slot2_2/port0/line1", 65532,  ni::ANALOG_VOLTAGE_IN , -10.0, 10.0}));
@@ -226,3 +232,68 @@ TEST(NiReaderTests, TestsReadFromMultipleTasks){
 }
 
 // TODO: Create Function stubs to link with ni_writer.cpp and ni_reader.cpp to be able to test all the diff error sequences
+
+*/
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Functional Tests                                                                                             //
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+TEST(NiReaderTests, test_read_one_digital_channel){
+    LOG(INFO) << "test_read_one_digital_channel: "; //<< std::endl;
+    //TODO: need to open server for state writer?
+
+    // Create NI readerconfig
+    auto config = json{
+            {"acq_rate", 100}, // dont actually need these here
+            {"stream_rate", 20}, // same as above
+            {"device_name", "PXI1Slot2_2"}
+    };
+    add_index_channel_JSON(config, "idx", 1);
+    add_DI_channel_JSON(config, "d1", 65531, 0, 0);
+
+
+    // Synnax infrustructure
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+
+    auto task = synnax::Task(
+        "my_task",
+        "NI_digitalRead",
+        to_string(config)
+    );
+
+    auto mockCtx = std::make_shared<task::MockContext>(client);
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+    // Now construct NI reader
+    TaskHandle taskHandle;  
+    DAQmxCreateTask("",&taskHandle);
+
+    auto reader = ni::niDaqReader(  taskHandle, 
+                                    mockCtx, 
+                                    task, 
+                                    true);
+    reader.start();
+    auto [frame, err] = reader.read();
+
+
+     //iterate through each series and print the data
+    for(int i = 0; i < frame.series->size(); i++){
+        std::cout << "\n\n Series " << i << ": \n";
+        // check series type before casting
+        if (frame.series->at(i).data_type == synnax::UINT8){
+            auto s =  frame.series->at(i).uint8();
+            for (int j = 0; j < s.size(); j++){
+                std::cout << (uint32_t)s[j] << ", ";
+            }
+        }
+        else if(frame.series->at(i).data_type == synnax::TIMESTAMP){
+            auto s =  frame.series->at(i).uint64();
+            for (int j = 0; j < s.size(); j++){
+                std::cout << s[j] << ", ";
+            }
+        }
+    }
+    std::cout << std::endl;
+    reader.stop();
+}

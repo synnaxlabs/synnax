@@ -23,7 +23,7 @@
 #include "driver/driver/modules/module.h"
 #include "driver/driver/pipeline/acq.h"
 #include "driver/driver/ni/ni_reader.h" // to get channel config info
-#include "driver/driver/pipeline/acqReader.h"
+#include "driver/driver/pipeline/daq_reader.h"
 #include "driver/driver/pipeline/ctrl.h"
 
 #pragma once
@@ -32,7 +32,7 @@ class NiAnalogReaderTask : public module::Module {
 public:
     NiAnalogReaderTask(){};
     void init(const std::shared_ptr<synnax::Synnax> client,
-                          std::unique_ptr<daq::AcqReader> daq_reader,
+                          std::unique_ptr<daq::daqReader> daq_reader,
                           synnax::WriterConfig writer_config);
 
     freighter::Error startAcquisition();
@@ -45,7 +45,7 @@ class NiDigitalReaderTask : public module::Module {
 public:
     NiDigitalReaderTask(){};
     void init(const std::shared_ptr<synnax::Synnax> client,
-              std::unique_ptr<daq::AcqReader> daq_reader,
+              std::unique_ptr<daq::daqReader> daq_reader,
               synnax::WriterConfig writer_config);
 
     freighter::Error startAcquisition();

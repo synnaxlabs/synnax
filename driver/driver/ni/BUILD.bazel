@@ -23,7 +23,7 @@ cc_library(
     name = "ni",
     srcs = [
         "ni_reader.cpp",
-        "ni_scanner.cpp"
+        #"ni_scanner.cpp" TODO: uncomment this
     ],
     hdrs = [
         "daqmx.h",
@@ -31,7 +31,7 @@ cc_library(
         "nisyscfg.h",
         "nisyscfg_errors.h",
         "nisyscfg_wide.h",
-        "ni_scanner.h",
+        #"ni_scanner.h", TODO: uncomment this
     ],
     copts = ["/std:c++20"],
     linkopts = ["user32.lib"],
@@ -45,9 +45,10 @@ cc_library(
         "syscfg_hds",
         "//driver/driver/breaker",
         "//driver/driver/errors",
-        "//driver/driver/pipeline:acqReader",
+        "//driver/driver/pipeline:daqReader",
         "//client/cpp/synnax",
         "//driver/driver/config",
+        "//driver/driver/task",
 #        "//driver/driver/modules:module",
         "@nlohmann_json//:json",
     ],
@@ -68,7 +69,7 @@ cc_library(
         "//driver/driver/breaker",
         "//driver/driver/modules:module",
         "//driver/driver/pipeline:pipeline",
-        "//driver/driver/pipeline:acqReader",
+        "//driver/driver/pipeline:daqReader",
         "@nlohmann_json//:json",
         "//client/cpp/synnax",
     ],
@@ -84,6 +85,7 @@ cc_test(
         "daqmx_hds",
         "ni",
         "syscfg_hds",
+        "//driver/driver/testutil",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -128,6 +130,6 @@ cc_test(
         "syscfg_hds",
         "//driver/driver/testutil",
     ],
-    copts = ["/std:c++17"],
+    copts = ["/std:c++20"],
 )
 

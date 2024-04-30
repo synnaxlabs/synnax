@@ -19,7 +19,7 @@
 
 /* NiAnalogReaderTask */
 void NiAnalogReaderTask::init(const std::shared_ptr <Synnax> client,
-                                          std::unique_ptr <daq::AcqReader> daq_reader,
+                                          std::unique_ptr <daq::daqReader> daq_reader,
                                           synnax::WriterConfig writer_config) {
     printf("Initializing Analog Reader Task\n");
     this->acq_pipeline = Acq(writer_config, client, std::move(daq_reader));
@@ -41,7 +41,7 @@ freighter::Error NiAnalogReaderTask::stopAcquisition(){
 
 /* NiDigitalReaderTask */
 void NiDigitalReaderTask::init(const std::shared_ptr <Synnax> client,
-                              std::unique_ptr <daq::AcqReader> daq_reader,
+                              std::unique_ptr <daq::daqReader> daq_reader,
                               synnax::WriterConfig writer_config) {
     printf("Initializing Analog Reader Task\n");
     this->acq_pipeline = Acq(writer_config, client, std::move(daq_reader));

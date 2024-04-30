@@ -19,586 +19,632 @@
 #include <stdio.h>
 #include <cassert>
 #include <driver/driver/config/config.h>
+#include "glog/logging.h"
 
 using json = nlohmann::json;
-using namespace ni; // TODO; remove
+// using namespace ni; // TODO; remove
 
 ///////////////////////////////////////////////////////////////////////////////////
-// NI Error Handling
+//                                    niDaqReader                                //
 ///////////////////////////////////////////////////////////////////////////////////
-int ni::checkNIError(int32 error, json &errInfo){
-    if(error < 0){
+
+ni::niDaqReader::niDaqReader(
+    TaskHandle taskHandle,
+    const std::shared_ptr<task::Context> &ctx,
+    const synnax::Task task,
+    bool isDigital): taskHandle(taskHandle), ctx(ctx), isDigital(isDigital)
+{
+    // Create parser
+    auto config_parser = config::Parser(task.config);
+    this->reader_config.task_name = task.name;
+    this->reader_config.task_key = task.key;
+
+    // Parse configuration and make sure it is valid
+    if (isDigital){ parse_digital_reader_config(config_parser);}
+    else{   parse_analog_reader_config(config_parser);}
+    if (!config_parser.ok()){
+        // Log error
+        LOG(ERROR) << "[NI Reader] failed to parse configuration for " << this->reader_config.task_name;
+        this->ctx->setState({.task = task.key,
+                             .variant = "error",
+                             .details = config_parser.error_json()});
+        this->ok_state = false;
+        return;
+    }
+    LOG(INFO) << "[NI Reader] successfully parsed configuration for " << this->reader_config.task_name;
+
+    // Create breaker
+    auto breaker_config = breaker::Config{
+        .name = task.name,
+        .base_interval = 1 * SECOND,
+        .max_retries = 20,
+        .scale = 1.2,
+    };
+    this->breaker = breaker::Breaker(breaker_config);
+
+    // TODO: make sure you have all the channel info you could possible need
+    // Now configure the actual NI hardware
+    if(this->init()){
+        LOG(ERROR) << "[NI Reader] Failed while configuring NI hardware for task " << this->reader_config.task_name;
+        this->ok_state = false;
+    }
+}
+
+void ni::niDaqReader::parse_analog_reader_config(config::Parser & parser)
+{
+    // Get Acquisition Rate and Stream Rates
+    this->reader_config.acq_rate = parser.required<uint64_t>("acq_rate");
+    this->reader_config.stream_rate = parser.required<uint64_t>("stream_rate");
+
+    // device name
+    this->reader_config.device_name = parser.required<std::string>("device_name");
+    //std::cout << "Device name: " << this->reader_config.device_name << std::endl;
+    //std::cout << "lul Device name: " << this->reader_config.device_name << std::endl;
+
+    // now parse the channels
+    parser.iter("channels",
+                [&](config::Parser &channel_builder)
+                {
+                    ChannelConfig config;
+                    config.channel_type = channel_builder.required<std::string>("channel_type");
+
+                    // analog channel names are formatted: <device_name>/ai<port>
+                    config.name =   (config.channel_type == "index")  ? (channel_builder.required<std::string>("name")) 
+                            : (this->reader_config.device_name +"/ai" + std::to_string(channel_builder.required<std::uint64_t>("port")));
+
+                    config.channel_key = channel_builder.required<uint32_t>("channel_key");
+                    
+                    config.min_val = channel_builder.required<float>("min_val");
+
+                    config.max_val = channel_builder.required<float>("max_val");
+
+                    this->reader_config.channels.push_back(config);
+                });
+}
+
+
+void ni::niDaqReader::parse_digital_reader_config(config::Parser & parser)
+{
+    // Get Acquisition Rate and Stream Rates
+    this->reader_config.acq_rate = parser.required<uint64_t>("acq_rate");
+    this->reader_config.stream_rate = parser.required<uint64_t>("stream_rate"); 
+
+    // device name
+    this->reader_config.device_name = parser.required<std::string>("device_name");
+    assert(parser.ok());
+
+    // now parse the channels
+    parser.iter("channels",
+                [&](config::Parser &channel_builder){
+                    ChannelConfig config;
+                    config.channel_type = channel_builder.required<std::string>("channel_type");
+
+                    // digital channel names are formatted: <device_name>/port<port_number>/line<line_number>
+                    config.name = (config.channel_type == "index") ? (channel_builder.required<std::string>("name"))
+                                                                    : (this->reader_config.device_name 
+                                                                        + "/port" 
+                                                                        + std::to_string(channel_builder.required<std::uint64_t>("port"))
+                                                                        + "/line"  
+                                                                        + std::to_string(channel_builder.required<std::uint64_t>("line")));
+
+                    config.channel_key = channel_builder.required<uint32_t>("channel_key");
+
+                    // TODO: there could be more than 2 state logic
+                    config.min_val = 0;
+                    config.max_val = 1;
+
+                    this->reader_config.channels.push_back(config);
+                });
+    assert(parser.ok());
+}
+
+
+int ni::niDaqReader::init()
+{
+    int err = 0;
+    auto channels = this->reader_config.channels;
+    
+    // iterate through channels
+    for(auto &channel : channels){
+        if(channel.channel_type == "analogVoltageInput"){
+            err = this->checkNIError( DAQmxCreateAIVoltageChan(taskHandle, channel.name.c_str(), "", DAQmx_Val_Cfg_Default, channel.min_val, channel.max_val, DAQmx_Val_Volts, NULL ));
+        } else if(channel.channel_type == "digitalInput"){
+            err = this->checkNIError( DAQmxCreateDIChan(taskHandle, channel.name.c_str(), "", DAQmx_Val_ChanPerLine));
+        }
+        this->numChannels++; // includes index channels TODO: how is this different form jsut channels.size()? 
+        if (err < 0){
+            LOG(ERROR) << "[NI Reader] failed while configuring channel " << channel.name;
+            return -1;
+        }
+    }
+
+    // Configure timing 
+    // TODO: make sure there isnt different cases to handle between analog and digital
+    if(this->checkNIError(DAQmxCfgSampClkTiming(  taskHandle,
+                                            "",
+                                            this->reader_config.acq_rate,
+                                            DAQmx_Val_Rising,
+                                            DAQmx_Val_ContSamps,
+                                            this->reader_config.acq_rate))){
+        LOG(ERROR) << "[NI Reader] failed while configuring timing for task " << this->reader_config.task_name;
+        return -1;
+    }
+
+    // Configure buffer size and read resources
+    this->numSamplesPerChannel = std::floor(this->reader_config.acq_rate / this->reader_config.stream_rate);
+    this->bufferSize = this->numChannels * this->numSamplesPerChannel;
+    if(this->isDigital){
+        this->digitalData = new uInt8[bufferSize];
+    }
+    else{
+        this->data = new double[bufferSize];
+    }
+
+    LOG(INFO) << "[NI Reader] successfully configured NI hardware for task " << this->reader_config.task_name;
+    return 0;
+}
+
+
+freighter::Error ni::niDaqReader::start()
+{
+    // TODO: don't let multiple starts happen (or handle it at least)
+    freighter::Error err = freighter::NIL;
+    if (this->checkNIError(DAQmxStartTask(taskHandle))){
+        LOG(ERROR) << "[NI Reader] failed while starting task " << this->reader_config.task_name;
+        err = freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
+    } else{
+        LOG(INFO) << "[NI Reader] successfully started task " << this->reader_config.task_name;
+    }
+    return err;
+}
+
+
+freighter::Error ni::niDaqReader::stop()
+{ // TODO: don't let multiple stops happen (or handle it at least)
+    freighter::Error err = freighter::NIL;
+
+    if (this->checkNIError(DAQmxStopTask(taskHandle))){
+        LOG(ERROR) << "[NI Reader] failed while stopping task " << this->reader_config.task_name;
+        err = freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
+    }
+    else {
+        if (this->checkNIError(DAQmxClearTask(taskHandle))){
+            LOG(ERROR) << "[NI Reader] failed while clearing task " << this->reader_config.task_name;
+            err = freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
+        }
+    }
+
+    if(this->isDigital){
+        delete[] digitalData; 
+    }
+    else{
+        delete[] data;
+    }
+
+    if(err == freighter::NIL){
+        LOG(INFO) << "[NI Reader] successfully stopped and cleared task " << this->reader_config.task_name;
+    }
+    
+    return err;
+}
+
+std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readAnalog()
+{
+    signed long samplesRead = 0;
+    float64 flush[1000]; // to flush buffer before performing a read
+    signed long flushRead = 0;    
+    synnax::Frame f = synnax::Frame(numChannels);
+
+    // initial read to flush buffer
+    if(this->checkNIError(DAQmxReadAnalogF64(this->taskHandle,
+                                                -1, // reads all available samples in buffer
+                                                10.0,
+                                                DAQmx_Val_GroupByChannel,
+                                                flush,
+                                                1000,
+                                                &flushRead,
+                                                NULL))){
+        LOG(ERROR) << "[NI Reader] failed while flushing buffer for task " << this->reader_config.task_name;
+        return std::make_pair(std::move(f), freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR, "error reading analog data"));
+    }
+    
+    // actual read of analog lines
+    std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
+    if (this->checkNIError(DAQmxReadAnalogF64(this->taskHandle,
+                                                this->numSamplesPerChannel,
+                                                -1,
+                                                DAQmx_Val_GroupByChannel,
+                                                this->data,
+                                                this->bufferSize,
+                                                &samplesRead,
+                                                NULL))) { 
+        LOG(ERROR) << "[NI Reader] failed while reading analog data for task " << this->reader_config.task_name;
+        return std::make_pair(std::move(f), freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR, "Error reading analog data"));
+    }
+    std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
+
+    // we interpolate the timestamps between the initial and final timestamp to ensure non-overlapping timestamps between read iterations
+    uint64_t diff = final_timestamp - initial_timestamp;
+    uint64_t incr = diff / this->numSamplesPerChannel;
+
+    // Construct and populate index channel
+    std::vector<std::uint64_t> time_index(this->numSamplesPerChannel);
+    for (uint64_t i = 0; i < samplesRead; ++i){
+        time_index[i] = initial_timestamp + (std::uint64_t)(incr * i);
+    }
+
+    // Construct and populate synnax frame
+    std::vector<float> data_vec(samplesRead);
+    uint64_t data_index = 0; // TODO: put a comment explaining the function of data_index
+    for (int i = 0; i < numChannels; i++){
+        if (this->reader_config.channels[i].channel_type == "index"){
+            f.add(this->reader_config.channels[i].channel_key, synnax::Series(time_index, synnax::TIMESTAMP));
+        }
+        else{
+            for (int j = 0; j < samplesRead; j++){
+                data_vec[j] = data[data_index * samplesRead + j];
+            }
+            f.add(this->reader_config.channels[i].channel_key, synnax::Series(data_vec));
+            data_index++;
+        }
+    }
+    
+    // return synnax frame
+    return std::make_pair(std::move(f), freighter::NIL);
+}
+
+
+
+std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readDigital()
+{
+    signed long samplesRead;
+    char errBuff[2048] = {'\0'};
+    uInt8 flushBuffer[10000]; // to flush buffer before performing a read
+    uInt8 dataBuffer[10000];
+    signed long flushRead;
+    synnax::Frame f = synnax::Frame(numChannels);
+    int32 numBytesPerSamp ; //TODO do i need this?
+    int err = 0;
+
+    // initial read to flush buffer
+    if(this->checkNIError(DAQmxReadDigitalLines(this->taskHandle, // TODO: come back to and make sure this call to flush will be fine at any scale (elham)
+                                                    -1,               // reads all available samples in the buffer
+                                                    -1,
+                                                    DAQmx_Val_GroupByChannel,
+                                                    flushBuffer,
+                                                    1000,
+                                                    &samplesRead,
+                                                    &numBytesPerSamp,
+                                                    NULL))){
+        LOG(ERROR) << "[NI Reader] failed while flushing buffer for task " << this->reader_config.task_name;
+        return std::make_pair(std::move(f), freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR, "error reading digital data"));
+    }
+
+    // actual read to of digital lines
+    std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
+    if(this->checkNIError(DAQmxReadDigitalLines(this->taskHandle,           // task handle
+                                                    this->numSamplesPerChannel, // numSampsPerChan
+                                                    -1,                         // timeout
+                                                    DAQmx_Val_GroupByChannel,   // dataLayout
+                                                    dataBuffer,                 // readArray
+                                                    10000,                      // arraySizeInSamps
+                                                    &samplesRead,               // sampsPerChanRead
+                                                    NULL,                       // numBytesPerSamp
+                                                    NULL))){
+        LOG(ERROR) << "[NI Reader] failed while reading digital data for task " << this->reader_config.task_name;
+        return std::make_pair(std::move(f), freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR, "error reading digital data"));
+    }    
+    std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
+   
+
+    // we interpolate the timestamps between the initial and final timestamp to ensure non-overlapping timestamps between read iterations
+    uint64_t diff = final_timestamp - initial_timestamp;
+    uint64_t incr = diff / this->numSamplesPerChannel;
+
+    // Construct and populate index channel
+    std::vector<std::uint64_t> time_index(numSamplesPerChannel);
+    for (int i = 0; i < samplesRead; ++i)
+    { 
+        time_index[i] = initial_timestamp + (std::uint64_t)(incr * i);
+    }
+
+    // Construct and populate synnax frame
+    std::vector<uint8_t> data_vec(samplesRead);
+    uint64_t data_index = 0; // TODO: put a comment explaining the function of data_index
+    for (int i = 0; i < numChannels; i++){
+        if (this->reader_config.channels[i].channel_type == "index"){
+            f.add(this->reader_config.channels[i].channel_key, synnax::Series(time_index, synnax::TIMESTAMP));
+        }
+        else{
+            for (int j = 0; j < samplesRead; j++){
+                data_vec[j] = dataBuffer[data_index * samplesRead + j];
+            }
+            f.add(this->reader_config.channels[i].channel_key, synnax::Series(data_vec));
+            data_index++;
+        }
+    }
+
+    // return synnax frame
+    return std::make_pair(std::move(f), freighter::NIL);
+}
+
+std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::read()
+{
+
+    if(this->isDigital){
+        return readDigital();
+    }
+    else{
+        return readAnalog();
+    }
+}
+
+
+int ni::niDaqReader::checkNIError(int32 error) 
+{
+    if (error < 0)
+    {
         char errBuff[2048] = {'\0'};
-        DAQmxGetExtendedErrorInfo(errBuff,2048);
-        errInfo["error"] = errBuff;
+        DAQmxGetExtendedErrorInfo(errBuff, 2048);
+        this->err_info["error type"] = "Vendor Error";
+        this->err_info["error details"] = errBuff;
+        this->ok_state = false;
+        this->ctx->setState({.task = this->reader_config.task_key,
+                             .variant = "error",
+                             .details = err_info});
+
+        LOG(ERROR) << "[NI Reader] Vendor Error: " << this->err_info["error details"];
+
         return -1;
     }
     return 0;
 }
 
-///////////////////////////////////////////////////////////////////////////////////
-// niDaqReader
-///////////////////////////////////////////////////////////////////////////////////
-
-niDaqReader::niDaqReader(TaskHandle taskHandle) : taskHandle(taskHandle) {}
-
-std::pair<json,int> ni::niDaqReader::init(json config, uint64_t acquisition_rate, uint64_t stream_rate) {
-    std::cout << "Init Reader" << std::endl;
-    std::vector<channel_config> channel_configs;
-    auto channels = config["channels"];
-    auto deviceName = config["hardware"].get<std::string>();
-    for (auto &channel : channels) {
-        auto type = channel["type"].get<std::string>();
-        channel_config config;
-        std::string portName =  (type == "analogVoltageInput") ? "ai"
-                             :  (type == "digitalInput") ? "port"
-                             : "";
-        config.name = (type == "analogVoltageInput") ? deviceName + "/" + portName + channel["port"].dump().c_str()
-                    : (type == "digitalInput") ? deviceName + "/" + portName + channel["port"].dump().c_str() + "/line" + channel["line"].dump().c_str()
-                    : (type == "index") ? channel["name"].get<std::string>()
-                    : "INVALID CHANNEL";
-//        printf("Channel Name: %s\n", config.name.c_str());
-        std::cout << "Channel Name: " << config.name << std::endl;
-        config.channel_key = channel["channel"].get<uint32_t>();
-        config.min_val = -10.0;//channel["min_val"].get<float>(); // TODO: come back to when added to json
-        config.max_val = 10.0;//channel["max_val"].get<float>(); // TODO: come backt o when added to json
-        config.channelType = (type == "analogVoltageInput") ? ANALOG_VOLTAGE_IN
-                            : (type == "thermocoupleInput") ? THERMOCOUPLE_IN
-                            : (type == "analogCurrentInput") ? ANALOG_CURRENT_IN
-                            : (type == "digitalInput") ? DIGITAL_IN
-                            : (type == "index") ? INDEX_CHANNEL
-                            : INVALID_CHANNEL;
-        channel_configs.push_back(config);
-    }
-    // todo need to add an index channel
-    auto [err_info, err] =  init(channel_configs, acquisition_rate, stream_rate);
-    if(err < 0){
-        return {err_info, -1};
-    }
-    return {err_info, 0};
-}
-
-//int ni::niDaqReader::init(std::string config, uint64_t acquisition_rate, uint64_t stream_rate) {
-//    config::Parser parser(config);
-//    parser.iter("channels", [&](config::Parser &channel_builder) {
-//        channel_config config;
-//        config.name = channel_builder.required<std::string>("hardware") + "/" + channel_builder.required<std::string>("port") + "/line" + channel_builder.required<std::string>("line");
-//        config.channel_key = channel_builder.required<uint32_t>("channel_key");
-//        config.min_val = channel_builder.required<float>("min_val");
-//        config.max_val = channel_builder.required<float>("max_val");
-//        config.channelType = channel_builder.required<ChannelType>("channelType");
-//        channels.push_back(config);
-//    });
-//}
-// TODO: I want to make a producer consumer model here instead? This works for now but come back to
-
-std::pair<json,int> ni::niDaqReader::init(std::vector<channel_config> channels, uint64_t acquisition_rate, uint64_t stream_rate) {
-    printf("Init Reader\n");
-    char errBuff[2048] = {'\0'};
-    this->stream_rate = stream_rate;
-    this->channels = channels;
-    this->acq_rate = acquisition_rate;
-    int err = 0;
-    for(auto &channel : channels){ // iterate through channels, check name and determine what tasks need to be created
-        switch(channel.channelType){
-            case ANALOG_VOLTAGE_IN:
-                printf("Creating AI Voltage Channel\n");
-                err = ni::checkNIError(DAQmxCreateAIVoltageChan(taskHandle,
-                                         channel.name.c_str(),
-                                         "",
-                                         DAQmx_Val_Cfg_Default,
-                                         channel.min_val,
-                                         channel.max_val,
-                                         DAQmx_Val_Volts, NULL),
-                             errInfo);
-                taskType = ANALOG_READER;
-                break;
-            case THERMOCOUPLE_IN:               //TODO: Implement
-                // DAQmxCreateAIThrmcplChan(taskHandle, channel.name.c_str(), "", channel.min_val, channel.max_val, DAQmx_Val_DegC, DAQmx_Val_BuiltIn, 10.0, DAQmx_Val_Poly, 0.0, 0.0, 0.0, NULL);
-                taskType = ANALOG_READER;
-                break;
-            case ANALOG_CURRENT_IN:             //TODO: Implement
-                // DAQmxCreateAICurrentChan(taskHandle, channel.name.c_str(), "", DAQmx_Val_Cfg_Default, channel.min_val, channel.max_val, DAQmx_Val_Amps, NULL);
-                taskType = ANALOG_READER;
-                break;
-            case DIGITAL_IN:
-                err = ni::checkNIError(DAQmxCreateDIChan(taskHandle,
-                                  channel.name.c_str(),
-                                  "",
-                                  DAQmx_Val_ChanPerLine),
-                            this->errInfo);
-                taskType = DIGITAL_READER;
-                break;
-        }
-        this->numChannels++; // change to handle index channels
-        if(err < 0){
-            return {this->errInfo, -1};
-        }
-    }
-
-    if( taskType == ANALOG_READER){ // only configure timing if we are reading analog data
-         err = ni::checkNIError(DAQmxCfgSampClkTiming(taskHandle,
-                                        "",
-                                        acquisition_rate,
-                                        DAQmx_Val_Rising,
-                                        DAQmx_Val_ContSamps,
-                                        acquisition_rate),
-                     this->errInfo);
-    }else if (taskType == DIGITAL_READER){
-//        DAQmxSetSampTimingType(taskHandle, DAQmx_Val_SampClk);
-        err = ni::checkNIError(DAQmxCfgSampClkTiming(taskHandle,
-                                        "",
-                                        acquisition_rate,
-                                        DAQmx_Val_Rising,
-                                        DAQmx_Val_ContSamps,
-                                        acquisition_rate),
-                         this->errInfo);
-    }
-
-    if(err < 0){
-        return {this->errInfo, -1};
-    }
-
-    this->numSamplesPerChannel =  std::floor(acquisition_rate/stream_rate);
-    this->bufferSize = this->numChannels*this->numSamplesPerChannel;
-    this->data = new double[bufferSize];
-    this->digitalData = new uInt8[bufferSize]; // TODO don't let multiple news happen
-    return {this->errInfo, 0};
+bool ni::niDaqReader::ok() //TODO: make this inline?
+{
+    return this->ok_state;
 }
 
 
 
-
-freighter::Error ni::niDaqReader::start(){
-   auto err = ni::checkNIError(DAQmxStartTask(taskHandle),
-                               this->errInfo);
-   if(err < 0){
-       printf("Error starting task\n"); // print error info
-       printf("Error: %s\n", errInfo.dump().c_str());
-       return freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
-   }
-   return freighter::NIL;
-}
-
-freighter::Error ni::niDaqReader::stop(){ //TODO: don't let multiple closes happen
-    auto err = freighter::NIL;
-    auto err1 = ni::checkNIError(DAQmxStopTask(taskHandle),
-                                this->errInfo);
-    if(err1 < 0){
-        err = freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
-    }
-    auto err2 = ni::checkNIError(DAQmxClearTask(taskHandle),
-                                 this->errInfo);
-    if(err2 < 0){
-        err = freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
-    }
-    delete[] data; // free the data buffer TODO: change this to a smart pointer
-    delete[] digitalData; // free the digital data buffer TODO: change this to a smart pointer
-    return err;
-}
-
-std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readAnalog(){
-    signed long samplesRead = 0;
-    char errBuff[2048] = {'\0'};
-    float64 flush[1000];                     // to flush buffer before performing a read
-    signed long flushRead;
-    synnax::Frame f = synnax::Frame(numChannels);
-    int err = 0;
-    // initial read to flush buffer
-    err = ni::checkNIError(DAQmxReadAnalogF64(this->taskHandle,
-                                   -1,                          // reads all available samples in buffer
-                                   10.0,
-                                   DAQmx_Val_GroupByChannel,
-                                   flush,
-                                   1000,
-                                   &samplesRead,
-                                   NULL),
-                           this->errInfo);
-    if (err < 0) {
-        return std::make_pair(std::move(f), freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR, "error reading analog data"));
-    }
-
-    std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
-    // actual read of analog lines
-    err = ni::checkNIError(DAQmxReadAnalogF64(this->taskHandle,
-                                  this->numSamplesPerChannel,
-                                  -1,
-                                  DAQmx_Val_GroupByChannel,
-                                  this->data,
-                                  this->bufferSize,
-                                  &samplesRead,
-                                  NULL),
-                           errInfo);
-    std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
-   if (err < 0) {
-        return std::make_pair(std::move(f), freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR, "Error reading analog data"));
-    }
-    // we interpolate the timestamps between the initial and final timestamp to ensure non-overlapping timestamps between read iterations
-    uint64_t diff = final_timestamp - initial_timestamp;
-    uint64_t incr = diff/this->numSamplesPerChannel;
-    // Construct and populate index channel
-    std::vector<std::uint64_t> time_index(this->numSamplesPerChannel);
-    for (uint64_t i = 0; i < samplesRead; ++i) {
-        time_index[i] = initial_timestamp + (std::uint64_t)(incr*i);
-    }
-    // Construct and populate synnax frame
-    std::vector<float> data_vec(samplesRead);
-    uint64_t data_index = 0;
-    for(int i = 0; i <  numChannels; i++){
-        if(channels[i].channelType == INDEX_CHANNEL ){
-            f.add(channels[i].channel_key, synnax::Series(time_index, synnax::TIMESTAMP));
-        }
-        else{
-            for(int j = 0; j < samplesRead; j++){
-                data_vec[j] = data[data_index*samplesRead + j];
-            }
-            f.add(channels[i].channel_key, synnax::Series(data_vec));
-            data_index++;
-        }
-    }
-    // return synnax frame
-    freighter::Error error = freighter::NIL; // TODO: implement error handling
-    return std::make_pair(std::move(f), error);
-}
-
-std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readDigital(){
-    signed long samplesRead;
-    char errBuff[2048]={'\0'};
-    uInt8 flushBuffer[10000];                     // to flush buffer before performing a read
-    uInt8 dataBuffer[10000];
-    signed long flushRead;
-    synnax::Frame f = synnax::Frame(numChannels);
-    int32 * numBytesPerSamp;
-    int err = 0;
-    //initial read to flush buffer
-    std::cout << "Flushing buffer" << std::endl;
-    err = ni::checkNIError(DAQmxReadDigitalLines(this->taskHandle, //TODO: come back to and make sure this call to flush will be fine at any scale (elham)
-                                     -1, // reads all available samples in the buffer
-                                     -1,
-                                     DAQmx_Val_GroupByChannel,
-                                     flushBuffer,
-                                     1000,
-                                     &samplesRead,
-                                     numBytesPerSamp,
-                                     NULL),
-                           this->errInfo);
-    if (err < 0) {
-        return std::make_pair(std::move(f), freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR, "Error reading digital data"));
-    }
-    std::cout << "performing actual read" << std::endl;
-    std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
-    // actual read to of digital lines
-    err = ni::checkNIError(DAQmxReadDigitalLines(this->taskHandle,                                      //task handle
-                                     this->numSamplesPerChannel,                            //numSampsPerChan
-                                     -1,                                                    //timeout
-                                     DAQmx_Val_GroupByChannel,                              //dataLayout
-                                     dataBuffer,                                            //readArray
-                                     10000,          //arraySizeInSamps
-                                     &samplesRead,                                          //sampsPerChanRead
-                                     NULL,                                       //numBytesPerSamp
-                                     NULL),
-                           this->errInfo);                                                 //reserved
-    std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
-    if (err < 0) {
-        return std::make_pair(std::move(f), freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR, "error reading analog data"));
-    }
-    std::cout << "Read complete " << std::endl;
-    std::cout << "Samples Read: " << samplesRead << std::endl;
-    // we interpolate the timestamps between the initial and final timestamp to ensure non-overlapping timestamps between read iterations
-    uint64_t diff = final_timestamp - initial_timestamp;
-    std::cout << "Diff: " << diff << std::endl;
-    uint64_t incr = diff/this->numSamplesPerChannel;
-    // Construct and populate index channel
-    std::vector<std::uint64_t> time_index(numSamplesPerChannel);
-    for (int i = 0; i < samplesRead; ++i) { // populate time index channeL
-        time_index[i] = initial_timestamp + (std::uint64_t )(incr*i);
-    }
-    // Construct and populate synnax frame
-    std::vector<uint8_t> data_vec(samplesRead);
-    uint64_t data_index = 0;
-    for(int i = 0; i <  numChannels; i++){
-        if(channels[i].channelType == INDEX_CHANNEL ){
-            f.add(channels[i].channel_key, synnax::Series(time_index, synnax::TIMESTAMP));
-        }
-        else{
-            for(int j = 0; j < samplesRead; j++){
-                data_vec[j] = dataBuffer[data_index*samplesRead + j];
-            }
-            f.add(channels[i].channel_key, synnax::Series(data_vec));
-            data_index++;
-        }
-    }
-    // return synnax frame
-    freighter::Error error = freighter::NIL;
-    return std::make_pair(std::move(f), error);
-}
-
-std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::read(){
-    if(taskType == ANALOG_READER){
-        return readAnalog();
-    }
-    else if(taskType == DIGITAL_READER){
-        return readDigital();
-    }
-    else{
-        return std::make_pair(synnax::Frame(0), freighter::NIL);
-    }
-}
-
-
-json ni::niDaqReader::getErrorInfo() {
-    if(errInfo.empty()){
-        return NULL;
-    } else {
-        this->stop();
-        return errInfo;
-    }
-}
 
 ///////////////////////////////////////////////////////////////////////////////////
-// niDaqWriter
+//                                    niDaqWriter                                //
 ///////////////////////////////////////////////////////////////////////////////////
 
+ni::niDaqWriter::niDaqWriter(
+    TaskHandle taskHandle,
+    const std::shared_ptr<task::Context> &ctx,
+    const synnax::Task task)
+    : taskHandle(taskHandle),
+      ctx(ctx)
+{
+    // Create parser
+    auto config_parser = config::Parser(task.config);
+    this->writer_config.task_name = task.name;
 
-niDaqWriter::niDaqWriter(TaskHandle taskHandle) : taskHandle(taskHandle) {}
-
-std::pair<json,int> niDaqWriter::init(json config, synnax::ChannelKey ack_index_key) {
-    std::vector<channel_config> channel_configs;
-    auto channels = config["channels"];
-    auto deviceName = config["hardware"].get<std::string>();
-    for (auto &channel : channels) {
-        channel_config config;
-
-        std::string name = channel["name"].get<std::string>();
-
-        auto type = channel["type"].get<std::string>();
-        std::string portName =  (type == "digitalOutput") ? "port" : "";
-
-        config.name = deviceName + "/" + portName + channel["port"].dump().c_str() + "/line" + channel["line"].dump().c_str();
-        config.channel_key = channel["cmd_key"].get<uint32_t>();
-
-        config.channelType = (type == "digitalOutput") ? DIGITAL_OUT
-                            : (type == "index") ? INDEX_CHANNEL
-                            : (type == "ackIndex") ? INDEX_CHANNEL
-                            : INVALID_CHANNEL;
-
-        channel_configs.push_back(config);
-
-        cmd_channel_keys.push_back(channel["cmd_key"].get<uint32_t>());
-        ack_channel_keys.push_back(channel["ack_key"].get<uint32_t>());
+    // Parse configuration and make sure it is valid
+    parse_digital_writer_config(config_parser);
+    if (!config_parser.ok()){
+        // Log error
+        LOG(ERROR) << "[NI Writer] failed to parse configuration for " << this->writer_config.task_name;
+        this->ctx->setState({.task = task.key,
+                             .variant = "error",
+                             .details = config_parser.error_json()});
+        this->ok_state = false;
+        return;
     }
-    // set ack index channel keys
-    this->ack_index_key = ack_index_key;
-    assert(ack_index_key != 0);
-    assert(cmd_channel_keys.size() == ack_channel_keys.size());
-    assert(cmd_channel_keys.size() != 0);
-    assert(ack_channel_keys.size() != 0);
-    auto [error_info, err] = init(channel_configs);
-    if(err < 0){
-        return {error_info, -1};
+    LOG(INFO) << "[NI Writer] successfully parsed configuration for " << this->writer_config.task_name;
+
+    
+    // TODO: get device proprties for things like authentication
+
+    // Create breaker
+    auto breaker_config = breaker::Config{
+        .name = task.name,
+        .base_interval = 1 * SECOND,
+        .max_retries = 20,
+        .scale = 1.2,
+    };
+    this->breaker = breaker::Breaker(breaker_config);
+
+    // TODO: make sure you have all the channel info you could possible need
+    // Now configure the actual NI hardware
+    if(this->init()){
+        LOG(ERROR) << "[NI Writer] Failed while configuring NI hardware for task " << this->writer_config.task_name;
+        this->ok_state = false;
     }
-    return {error_info, 0};
+    return;
 }
 
-std::pair<json,int> ni::niDaqWriter::init(std::vector <channel_config> channels){
+
+void ni::niDaqWriter::parse_digital_writer_config(config::Parser &parser){
+
+    // device name
+    this->writer_config.device_name = parser.required<std::string>("device_name");
+    // now parse the channels
+    parser.iter("channels",
+                [&](config::Parser &channel_builder)
+                {
+                    ChannelConfig config;
+                    config.channel_type = channel_builder.required<std::string>("channel_type");
+
+                    // digital channel names are formatted: <device_name>/port<port_number>/line<line_number>
+                    config.name = (config.channel_type == "index" || config.channel_type == "ack_index") ? (channel_builder.required<std::string>("name"))
+                                                                    : (this->writer_config.device_name + "/port" + std::to_string(channel_builder.required<std::uint64_t>("port")) + "/line" + std::to_string(channel_builder.required<std::uint64_t>("line")));
+
+                    config.channel_key = channel_builder.required<uint32_t>("channel_key");
+                    this->writer_config.cmd_channel_keys.push_back(config.channel_key);
+                    this->writer_config.ack_channel_keys.push_back(channel_builder.required<uint32_t>("ack_key"));
+
+
+                    // TODO: there could be more than 2 state  
+                    config.min_val = 0;
+                    config.max_val = 1;
+
+                    this->writer_config.channels.push_back(config);
+
+                    if(config.channel_type == "ack_index"){
+                        this->writer_config.ack_index_key = config.channel_key;
+                    }
+                });
+
+    assert(this->writer_config.ack_index_key != 0);
+    assert(this->writer_config.ack_channel_keys.size() > 0);
+    assert(this->writer_config.cmd_channel_keys.size() > 0);
+    assert(this->writer_config.cmd_channel_keys.size() == this->writer_config.ack_channel_keys.size());
+}
+
+
+
+int ni::niDaqWriter::init(){
     int err = 0;
-    this->channels = channels;
-    for(auto &channel : channels){ // iterate through channels, check name and determine what tasks need to be created
-        switch(channel.channelType){
-            case DIGITAL_OUT:
-                err = ni::checkNIError(DAQmxCreateDOChan(taskHandle,
-                                                   channel.name.c_str(),
-                                                   "",
-                                                   DAQmx_Val_ChanPerLine),
-                                 errInfo);
-                taskType = DIGITAL_WRITER;
-                break;
+    auto channels = this->writer_config.channels;
+    
+    // iterate through channels
+    for(auto &channel : channels){
+        if(channel.channel_type == "digitalOutput"){
+            err = this->checkNIError(DAQmxCreateDOChan(taskHandle, channel.name.c_str(), "", DAQmx_Val_ChanPerLine));
         }
-        this->numChannels++; // change to handle index channels
-        if(err < 0){
-            return {this->errInfo, -1};
+        this->numChannels++; // includes index channels TODO: how is this different form jsut channels.size()? 
+        if (err < 0){
+            LOG(ERROR) << "[NI Writer] failed while configuring channel " << channel.name;
+            return -1;
         }
     }
+
+    // Configure timing 
+    // TODO: make sure there isnt different cases to handle between analog and digital
+
+    // Configure buffer size and read resources
     this->bufferSize = this->numChannels;
     this->writeBuffer = new uint8_t[this->bufferSize];
-    for(int i = 0; i < this->bufferSize; i++){
+
+    for (int i = 0; i < this->bufferSize; i++){
         writeBuffer[i] = 0;
     }
-    return {this->errInfo, 0};
+
+    LOG(INFO) << "[NI Writer] successfully configured NI hardware for task " << this->writer_config.task_name;
+    return 0;
 }
 
 freighter::Error ni::niDaqWriter::start(){
-    auto err = ni::checkNIError(DAQmxStartTask(taskHandle),
-                                this->errInfo);
-    if(err < 0){
-        return freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
-    }
-    return freighter::NIL;
-}
-
-freighter::Error ni::niDaqWriter::stop(){
-    auto err = freighter::NIL;
-
-    auto err1 = ni::checkNIError(DAQmxStopTask(taskHandle),
-                                 this->errInfo);
-    if(err1 < 0){
+    // TODO: don't let multiple starts happen (or handle it at least)
+    freighter::Error err = freighter::NIL;
+    if (this->checkNIError(DAQmxStartTask(this->taskHandle))){
+        LOG(ERROR) << "[NI Writer] failed while starting task " << this->writer_config.task_name;
         err = freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
+    } else{
+        LOG(INFO) << "[NI Writer] successfully started task " << this->writer_config.task_name;
     }
-    auto err2 = ni::checkNIError(DAQmxClearTask(taskHandle),
-                                 this->errInfo);
-    if(err2 < 0){
-        err = freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
-    }
-    DAQmxClearTask(taskHandle);
-    delete[] writeBuffer;
     return err;
 }
 
-std::pair <synnax::Frame, freighter::Error> ni::niDaqWriter::write(synnax::Frame frame){ // TODO: should this function get a Frame or a bit vector of setpoints instead?
-    if(taskType == DIGITAL_WRITER){
-        return writeDigital(std::move(frame));
-    }else{
-        return {synnax::Frame(0), freighter::NIL};
+freighter::Error ni::niDaqWriter::stop(){ 
+    // TODO: don't let multiple closes happen (or handle it at least)
+
+    freighter::Error err = freighter::NIL;
+
+    if (this->checkNIError(DAQmxStopTask(taskHandle))){
+        LOG(ERROR) << "[NI Writer] failed while stopping task " << this->writer_config.task_name;
+        err = freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
     }
+    else {
+        if (this->checkNIError(DAQmxClearTask(taskHandle))){
+            LOG(ERROR) << "[NI Writer] failed while clearing task " << this->writer_config.task_name;
+            err = freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
+        }
+    }
+
+    delete[] writeBuffer;
+
+    if(err == freighter::NIL){
+        LOG(INFO) << "[NI Writer] successfully stopped and cleared task " << this->writer_config.task_name;
+    }
+    
+    return err;
 }
 
-std::pair <synnax::Frame, freighter::Error> ni::niDaqWriter::writeDigital(synnax::Frame frame){
+// Here to modify as we add more writing options
+std::pair<synnax::Frame, freighter::Error> ni::niDaqWriter::write(synnax::Frame frame){ 
+    // TODO: should this function get a Frame or a bit vector of setpoints instead?
+    return writeDigital(std::move(frame));
+}
+
+std::pair<synnax::Frame, freighter::Error> ni::niDaqWriter::writeDigital(synnax::Frame frame){
     std::cout << "Writing to daq" << std::endl;
     char errBuff[2048] = {'\0'};
     signed long samplesWritten = 0;
     formatData(std::move(frame));
-    int err = 0;
-    err = ni::checkNIError(DAQmxWriteDigitalLines(this->taskHandle,
-                                        1, // number of samples per channel
-                                        1, // auto start
-                                        10.0, // timeout
-                                        DAQmx_Val_GroupByChannel, //data layout
-                                        writeBuffer, // data
-                                        &samplesWritten, // samples written
-                                        NULL),
-                           this->errInfo); // reserved
-    if(err < 0){
+
+    // Write digital data
+    if(this->checkNIError(DAQmxWriteDigitalLines(this->taskHandle,
+                                                    1,                        // number of samples per channel
+                                                    1,                        // auto start
+                                                    10.0,                     // timeout
+                                                    DAQmx_Val_GroupByChannel, // data layout
+                                                    writeBuffer,              // data
+                                                    &samplesWritten,          // samples written
+                                                    NULL))){
+        LOG(ERROR) << "[NI Writer] failed while writing digital data for task " << this->writer_config.task_name;
         return std::make_pair(synnax::Frame(0), freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR, "Error reading digital data"));
     }
-    // Construct acknowledgement frame
-    auto ack_frame = synnax::Frame(ack_queue.size() + 1);
+
+
+    // Construct acknowledgement frame (can only do this after a successful write to keep consistent over failed writes)
+    auto ack_frame = synnax::Frame(this->ack_queue.size() + 1);
     ack_frame.add(ack_index_key, synnax::Series(std::vector<uint64_t>{synnax::TimeStamp::now().value}, synnax::TIMESTAMP));
-    std::cout << "Ack Index Key: " << ack_index_key << std::endl;
-    while(!ack_queue.empty()){
-        std::cout << "Ack Queue Size: " << ack_queue.size() << std::endl;
-        auto ack_key = ack_queue.front();
-        std::cout << "Ack Key: " << ack_key << std::endl;
+    while (!this->ack_queue.empty())
+    {
+        auto ack_key = this->ack_queue.front();
         ack_frame.add(ack_key, synnax::Series(std::vector<uint8_t>{1}));
-        ack_queue.pop();
+        this->ack_queue.pop();
     }
+
+    // return acknowledgements frame to write to the ack channel
     return {std::move(ack_frame), freighter::NIL};
 }
 
-freighter::Error ni::niDaqWriter::formatData(synnax::Frame frame){
+freighter::Error ni::niDaqWriter::formatData(synnax::Frame frame)
+{
     uint32_t frame_index = 0;
     uint32_t cmd_channel_index = 0;
-    for (auto key : *(frame.channels)){ // the order the keys are in is the order the data is written
-        auto it = std::find(cmd_channel_keys.begin(), cmd_channel_keys.end(), key);
-        if (it != cmd_channel_keys.end()){
-            std::cout << "channel key is " << key << std::endl;
-            std::cout << "frame index is" << frame_index << std::endl;
-            cmd_channel_index = std::distance(cmd_channel_keys.begin(), it) ;
+    for (auto key : *(frame.channels))
+    { // the order the keys are in is the order the data is written
+        auto it = std::find(this->writer_config.cmd_channel_keys.begin(),this->writer_config.cmd_channel_keys.end(), key);
+        if (it != this->writer_config.cmd_channel_keys.end())
+        {
+            cmd_channel_index = std::distance(this->writer_config.cmd_channel_keys.begin(), it);
             auto series = frame.series->at(frame_index).uint8(); // used to be auto &series
             writeBuffer[cmd_channel_index] = series[0];
-//                    std::cout << "series is " << (uint32_t)series[0] << std::endl;
-            ack_queue.push(ack_channel_keys[cmd_channel_index]);
+            this->ack_queue.push(this->writer_config.ack_channel_keys[cmd_channel_index]);
         }
         frame_index++;
     }
     return freighter::NIL;
 }
 
-json ni::niDaqWriter::getErrorInfo() {
-    if(errInfo.empty()){
-        return NULL;
-    } else {
-        this->stop();
-        return errInfo;
+int ni::niDaqWriter::checkNIError(int32 error) //TODO: make this inline?
+{
+    if (error < 0)
+    {
+        char errBuff[2048] = {'\0'};
+        DAQmxGetExtendedErrorInfo(errBuff, 2048);
+        this->err_info["error type"] = "Vendor Error";
+        this->err_info["error details"] = errBuff;
+        this->ok_state = false;
+        this->ctx->setState({.task = this->writer_config.task_key,
+                             .variant = "error",
+                             .details = err_info});
+        return -1;
     }
+    return 0;
+}
+
+bool ni::niDaqWriter::ok() //TODO: make this inline?
+{
+    return this->ok_state;
 }
 
 // TODO create a helper function that takes in a frame and formats into the data to pass into writedigital
 // TODO: create a helper function to parse digital data configuration of wehtehr its a port to r line
-
-
-//typedef freighter::Error (*DAQmxCreateChannel) (TaskHandle taskHandle, ChannelConfig config);
-//
-//freighter::Error create_ai_voltage_channel(TaskHandle taskHandle, json config) {
-//    auto physical_channel = config["physical_channel"].get<std::string>();
-//    auto max_val = config["max_val"].get<float>();
-//    auto min_val = config["min_val"].get<float>();
-//    DAQmxCreateAIVoltageChan(
-//            taskHandle,
-//            physical_channel.c_str(),
-//            NULL,
-//            DAQmx_Val_Cfg_Default,
-//            min_val,
-//            max_val,
-//            DAQmx_Val_Volts,
-//            NULL
-//    );
-//}
-//
-//static std::map<std::string, DAQmxCreateChannel> create_channel_map = {
-//        {"ai_voltage", create_ai_voltage_channel}
-//};
-//
-//freighter::Error Reader::configure(synnax::Module config) {
-//    // Step 1 is parsing the configuration
-//    json j = json::parse(config.config);
-//
-//    // Grab the sample rate key
-//    auto sample_rate_val = j.find("sample_rate");
-//    if (sample_rate_val == j.end()) return freighter::NIL;
-//    if (!sample_rate_val->is_number_float()) return freighter::NIL;
-//    auto sample_rate = synnax::Rate(sample_rate_val->get<std::float_t>());
-//
-//    // Grab the transfer rate key
-//    auto transfer_rate_val = j.find("transfer_rate");
-//    if (transfer_rate_val == j.end()) return freighter::NIL;
-//    if (!transfer_rate_val->is_number_float()) return freighter::NIL;
-//    auto transfer_rate = synnax::Rate(transfer_rate_val->get<std::float_t>());
-//
-//    // Grab the channels key
-//    auto channels_val = j.find("channels");
-//    if (channels_val == j.end()) return freighter::NIL;
-//    if (!channels_val->is_array()) return freighter::NIL;
-//    auto channels = channels_val->get<std::vector<json>>();
-//    for (auto &channel: channels) {
-//        if (!channel.is_object()) return freighter::NIL;
-//        auto type_val = channel.find("type");
-//        if (type_val == channel.end()) return freighter::NIL;
-//        if (!type_val->is_string()) return freighter::NIL;
-//        auto type = type_val->get<std::string>();
-//    }
-//}
-
-//    int32 daqmx_err = DAQmxCreateTask(config.name.c_str(), &task);
-//    uInt64 samples_per_chan = uInt64(config.sample_rate.value / config.transfer_rate.value);
-//
-//    for (auto &channel: config.channels) {
-//        auto create_channel = create_channel_map[channel.type];
-//        auto err = create_channel(task, channel);
-//    }
-//
-//    daqmx_err = DAQmxCfgSampClkTiming(
-//            task,
-//            NULL,
-//            config.sample_rate.value,
-//            DAQmx_Val_Rising,
-//            DAQmx_Val_ContSamps,
-//            samples_per_chan
-//    );
-//
-//    daqmx_err = DAQmxStartTask(task);
-//}
-//
-
-//}
-
-//

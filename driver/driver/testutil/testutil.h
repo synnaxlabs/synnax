@@ -60,4 +60,4 @@ json add_DI_channel_JSON(json &config,
 
 /// @brief adds a analog input channel to a json object passed by ref
 /// returns just the JSON of the channel constructed
-json void add_AI_channel_JSON(); // TODO: Implement and refactor tests to use (elham)
+json add_AI_channel_JSON(); // TODO: Implement and refactor tests to use (elham)
