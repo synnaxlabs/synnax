@@ -115,7 +115,7 @@ const ZERO_STATE: State = {
 export const Dialog = ({
   visible,
   children,
-  location: p,
+  location: propsLocation,
   keepMounted = true,
   className,
   variant = "connected",
@@ -139,10 +139,10 @@ export const Dialog = ({
     const { adjustedDialog, location } = f({
       target: targetRef.current,
       dialog: dialogRef.current,
-      initial: p,
+      initial: propsLocation,
     });
     setState({ dialogLoc: location, dialogBox: adjustedDialog });
-  }, [p, variant]);
+  }, [propsLocation, variant]);
 
   useLayoutEffect(() => {
     calculatePosition();

@@ -38,7 +38,7 @@ import {
   type RetrieveOptions,
 } from "@/channel/retriever";
 import { type Writer } from "@/channel/writer";
-import { MultipleResultsError, ValidationError } from "@/errors";
+import { MultipleFoundError, ValidationError } from "@/errors";
 import { type framer } from "@/framer";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 

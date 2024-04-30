@@ -76,7 +76,6 @@ export interface MultipleProps<K extends Key = Key, E extends Keyed<K> = Keyed<K
 export const Multiple = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   onChange,
   value,
-  location,
   className,
   data,
   columns = [],

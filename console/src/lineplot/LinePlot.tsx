@@ -9,7 +9,7 @@
 
 import { type ReactElement, useCallback, useMemo, useEffect } from "react";
 
-import { type channel } from "@synnaxlabs/client";
+import { framer, type channel } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
   useAsyncEffect,
@@ -51,10 +51,14 @@ import {
   setAxis,
   type AxisState,
   type LineState,
+  setControlState,
 } from "@/lineplot/slice";
 import { Range } from "@/range";
 import { Vis } from "@/vis";
 import { Workspace } from "@/workspace";
+import { Icon } from "@synnaxlabs/media";
+import { dialog } from "@tauri-apps/api";
+import { writeFile } from "@tauri-apps/api/fs";
 
 interface SyncPayload {
   key?: string;
@@ -80,9 +84,22 @@ const syncer: Syncer<
   });
 };
 
+const frameToCSV = (columns: string[], frame: framer.Frame): string => {
+  if (frame.series.length === 0) return "";
+  const count = frame.series[0].length;
+  const headers = columns.join(",");
+  let rows: string[] = [headers];
+  for (let i = 1; i < count; i++) {
+    const row = frame.at(i);
+    rows.push(Object.values(row).join(","));
+  }
+  return rows.join("\n");
+};
+
 const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
   const windowKey = useSelectWindowKey() as string;
   const { name } = Layout.useSelectRequired(layoutKey);
+  const placer = Layout.usePlacer();
   const vis = useSelect(layoutKey);
   const ranges = selectRanges(layoutKey);
   const client = Synnax.use();
@@ -280,6 +297,55 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
           enableTooltip={enableTooltip}
           enableMeasure={clickMode === "measure"}
           onDoubleClick={handleDoubleClick}
+          onHold={(hold) => dispatch(setControlState({ state: { hold } }))}
+          annotationProvider={{
+            menu: ({ key, timeRange, name }) => {
+              const handleSelect = (itemKey: string) => {
+                switch (itemKey) {
+                  case "download":
+                    void (async () => {
+                      const channels = unique(
+                        lines
+                          .flatMap((l) => [l.channels.y, l.channels.x])
+                          .filter((v) => v != null && v != 0),
+                      ) as channel.KeysOrNames;
+                      const labels = lines.map((l) => l.label);
+                      const frame = await client.read(timeRange, channels);
+                      const csv = frameToCSV(labels, frame);
+                      const savePath = await dialog.save({
+                        defaultPath: `${name}.csv`,
+                      });
+                      if (savePath == null) return;
+                      await writeFile({ path: savePath, contents: csv });
+                    })();
+                    break;
+                  case "meta-data":
+                    console.log("Meta Data", key);
+                    placer({
+                      ...Range.metaDataWindowLayout,
+                      name: `${name} Meta Data`,
+                      key: key,
+                    });
+                  default:
+                    break;
+                }
+              };
+
+              return (
+                <Menu.Menu level="small" key={key} onChange={handleSelect}>
+                  <Menu.Item itemKey="download" startIcon={<Icon.Download />}>
+                    Download as CSV
+                  </Menu.Item>
+                  <Menu.Item itemKey="line-plot" startIcon={<Icon.Visualize />}>
+                    Open in New Plot
+                  </Menu.Item>
+                  <Menu.Item itemKey="meta-data" startIcon={<Icon.Annotate />}>
+                    View Meta Data
+                  </Menu.Item>
+                </Menu.Menu>
+              );
+            },
+          }}
         />
       </div>
     </Menu.ContextMenu>

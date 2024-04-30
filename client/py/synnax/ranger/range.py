@@ -255,7 +255,7 @@ class Range(RangePayload):
 
     def __splice_cached(
         self,
-        channels: list[ChannelPayload],
+        channels: list[ChannelPayload]
     ) -> list[_InternalScopedChannel]:
         results = list()
         for pld in channels:

@@ -51,6 +51,7 @@ const layoutRenderers: Record<string, Layout.Renderer> = {
   [PID.LAYOUT_TYPE]: PID.PID,
   [opc.connectWindowLayout.type]: opc.Configure,
   [opc.readTaskLayout.type]: opc.ReadTask,
+  [Range.metaDataWindowLayout.key]: Range.MetaData,
 };
 
 const PREVENT_DEFAULT_TRIGGERS: Triggers.Trigger[] = [

@@ -5,16 +5,6 @@ from synnax.control.controller import Controller
 import numpy as np
 from scipy.signal import find_peaks
 
-BOUND = 5  # PSI
-TPC_UPPER_BOUND = 50  # PSI
-TPC_LOWER_BOUND = TPC_UPPER_BOUND - BOUND
-L_STAND_PRESS_TARGET = 65
-SCUBA_PRESS_TARGET = 275  # PSI
-PRESS_1_STEP = 20  # PSI
-PRESS_2_STEP = 50  # PSI
-PRESS_STEP_DELAY = (1 * sy.TimeSpan.SECOND).seconds  # Seconds
-
-
 @dataclasses.dataclass
 class TPCParameters:
     l_stand_press_target: int
@@ -25,10 +15,7 @@ class TPCParameters:
     tpc_upper_bound: int
     tpc_lower_bound: int
 
-
-client = sy.Synnax(
-    host="localhost", port=9090, username="synnax", password="seldon", secure=False
-)
+client = sy.Synnax()
 
 TPC_CMD = "tpc_vlv_cmd"
 TPC_CMD_ACK = "tpc_vlv_ack"
@@ -37,7 +24,6 @@ PRESS_ISO_CMD = "press_iso_cmd"
 VENT_CMD = "vent_cmd"
 PRESS_TANK_PT = "press_tank_pt"
 FUEL_TANK_PT = "fuel_tank_pt"
-
 
 def execute_auto(params: TPCParameters):
     def run_tpc(auto: Controller):
@@ -115,7 +101,7 @@ def execute_auto(params: TPCParameters):
                 if auto[PRESS_TANK_PT] > params.scuba_press_target:
                     break
                 print("Taking a nap")
-                time.sleep(PRESS_STEP_DELAY)
+                time.sleep(params.press_step_delay)
 
             print("Pressurized. Waiting for five seconds")
             time.sleep(2)
@@ -140,6 +126,15 @@ def execute_auto(params: TPCParameters):
                 time_range=sy.TimeRange(start, sy.TimeStamp.now()),
                 color="#bada55",
             )
+            rng.meta_data.set({
+                "l_stand_press_target": f"{params.l_stand_press_target} PSI",
+                "scuba_press_target": f"{params.scuba_press_target} PSI",
+                "press_1_step": f"{params.press_1_step} PSI",
+                "press_2_step": f"{params.press_2_step} PSI",
+                "press_step_delay": f"{params.press_step_delay} seconds",
+                "tpc_upper_bound": f"{params.tpc_upper_bound} PSI",
+                "tpc_lower_bound": f"{params.tpc_lower_bound} PSI",
+            })
 
             auto.set(
                 {
@@ -167,28 +162,33 @@ def perform_analysis(params: TPCParameters, rng: sy.Range) -> TPCParameters:
     print("Performing analysis on the test results. Starting with a 5 second sleep")
     time.sleep(5)
     fuel_pt = rng[FUEL_TANK_PT].to_numpy()
-    print(fuel_pt)
     peaks, _ = find_peaks(fuel_pt, height=params.tpc_upper_bound)
-    print(f"Found {len(peaks)} peaks")
-    # get the average amount the peaks are off by
     avg_diff = np.mean(fuel_pt[peaks] - params.tpc_upper_bound)
-    print(f"Average difference: {avg_diff}")
-    # subtract the average difference from the target
-    params.tpc_upper_bound -= avg_diff
-    return params
+    rng.meta_data.set("overshoot_avg",  f"{avg_diff} PSI")
+    tpc_upper_bound = params.tpc_upper_bound - avg_diff
+    return TPCParameters(
+        l_stand_press_target=params.l_stand_press_target,
+        scuba_press_target=params.scuba_press_target,
+        press_1_step=params.press_1_step,
+        press_2_step=params.press_2_step,
+        press_step_delay=params.press_step_delay,
+        tpc_upper_bound=tpc_upper_bound,
+        tpc_lower_bound=params.tpc_lower_bound
+    )
 
 
 if __name__ == "__main__":
     initial_params = TPCParameters(
-        L_STAND_PRESS_TARGET,
-        SCUBA_PRESS_TARGET,
-        PRESS_1_STEP,
-        PRESS_2_STEP,
-        PRESS_STEP_DELAY,
-        TPC_UPPER_BOUND,
-        TPC_LOWER_BOUND,
+        l_stand_press_target=65,
+        scuba_press_target=275,
+        press_1_step=20,
+        press_2_step=50,
+        press_step_delay=1,
+        tpc_upper_bound=50,
+        tpc_lower_bound=45
     )
-    print("HERLLO")
     res = execute_auto(initial_params)
     next_params = perform_analysis(initial_params, res)
-    execute_auto(next_params)
+    res = execute_auto(next_params)
+    next_params.tpc_upper_bound = initial_params.tpc_upper_bound
+    perform_analysis(next_params, res)

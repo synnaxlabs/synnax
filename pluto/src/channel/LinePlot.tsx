@@ -97,6 +97,7 @@ export interface LinePlotProps extends Core.LinePlotProps {
   initialViewport?: Viewport.UseProps["initial"];
   onViewportChange?: Viewport.UseProps["onChange"];
   viewportTriggers?: Viewport.UseProps["triggers"];
+  annotationProvider?: Range.ProviderProps;
 }
 
 const canDrop = Haul.canDropOfType(HAUL_TYPE);
@@ -127,6 +128,7 @@ export const LinePlot = ({
   initialViewport = box.DECIMAL,
   onViewportChange,
   viewportTriggers,
+  annotationProvider,
   ...props
 }: LinePlotProps): ReactElement => {
   const xAxes = axes.filter(({ location: l }) => loc.isY(l));
@@ -156,6 +158,7 @@ export const LinePlot = ({
             rules={axisRules}
             onAxisChannelDrop={onAxisChannelDrop}
             onAxisChange={onAxisChange}
+            annotationProvider={annotationProvider}
           />
         );
       })}
@@ -184,6 +187,7 @@ interface XAxisProps
   axis: AxisProps;
   yAxes: AxisProps[];
   index: number;
+  annotationProvider?: Range.ProviderProps;
 }
 
 const XAxis = ({
@@ -195,6 +199,7 @@ const XAxis = ({
   onAxisChannelDrop,
   onAxisChange,
   axis: { location, key, showGrid, ...axis },
+  annotationProvider,
 }: XAxisProps): ReactElement => {
   const dropProps = Haul.useDrop({
     type: "Channel.LinePlot.XAxis",
@@ -253,7 +258,7 @@ const XAxis = ({
           }
         />
       ))}
-      <Range.Provider />
+      <Range.Provider {...annotationProvider} />
     </Core.XAxis>
   );
 };

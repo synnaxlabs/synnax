@@ -51,6 +51,7 @@ export interface LinePlotContextValue {
   lines: LineSpec[];
   setViewport: (viewport: Viewport.UseEvent) => void;
   addViewportHandler: (handler: Viewport.UseHandler) => Destructor;
+  setHold: (hold: boolean) => void;
 }
 
 const Context = createContext<LinePlotContextValue | null>(null);
@@ -103,6 +104,7 @@ export interface LinePlotProps
     Pick<z.input<typeof lineplot.linePlotStateZ>, "clearOverScan" | "hold">,
     HTMLDivProps {
   resizeDebounce?: number;
+  onHold?: (hold: boolean) => void;
 }
 
 export const LinePlot = Aether.wrap<LinePlotProps>(
@@ -203,6 +205,14 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
 
     const cssGrid = useMemo(() => buildPlotGrid(grid), [grid]);
 
+    const setHold = useCallback(
+      (hold: boolean) => {
+        setState((prev) => ({ ...prev, hold }));
+        props.onHold?.(hold);
+      },
+      [setState, props.onHold],
+    );
+
     const contextValue = useMemo<LinePlotContextValue>(
       () => ({
         lines,
@@ -212,6 +222,7 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
         removeLine,
         setViewport,
         addViewportHandler,
+        setHold,
       }),
       [
         lines,
@@ -221,6 +232,7 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
         removeLine,
         setViewport,
         addViewportHandler,
+        setHold,
       ],
     );
 

@@ -55,7 +55,7 @@ export interface UseReturn {
   ref: React.MutableRefObject<HTMLDivElement | null>;
 }
 
-const TRUNC_PRECISION = 4;
+const TRUNC_PRECISION = 6;
 
 type StringLiteral<T> = T extends string ? (string extends T ? never : T) : never;
 
@@ -254,7 +254,7 @@ export const use = ({
   );
 
   const verticalTrigger = Triggers.useHeldRef({ triggers: [["Control"]] });
-  const horizontalTrigger = Triggers.useHeldRef({ triggers: [["Shift"]] });
+  const horizontalTrigger = Triggers.useHeldRef({ triggers: [["Alt"]] });
 
   useEffect(() => {
     const handler = (e: WheelEvent): void => {

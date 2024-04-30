@@ -3,16 +3,21 @@ import { Align } from "@/align";
 import { useGridEntry, useContext } from "@/vis/lineplot/LinePlot";
 import { range } from "@/vis/lineplot/range/aether";
 import { box, xy } from "@synnaxlabs/x";
-import { ReactElement, useCallback } from "react";
-import { z } from "zod";
+import { ReactElement, useCallback, useRef } from "react";
+import { Menu } from "@/menu";
+import { RenderProp } from "@/util/renderProp";
+import { SelectedState } from "@/vis/lineplot/range/aether/provider";
+import { useSyncedRef } from "@/hooks";
 
-interface ProviderProps {}
+export interface ProviderProps {
+  menu?: RenderProp<range.SelectedState>;
+}
 
 export const Provider = Aether.wrap<ProviderProps>(
   "Annotation.Provider",
-  ({ aetherKey, ...props }): ReactElement => {
-    const { setViewport } = useContext("Range.Provider");
-    const [, { hovered }, setState] = Aether.use({
+  ({ aetherKey, menu, ...props }): ReactElement => {
+    const { setViewport, setHold } = useContext("Range.Provider");
+    const [, { hovered, count }, setState] = Aether.use({
       aetherKey,
       type: range.Provider.TYPE,
       schema: range.providerStateZ,
@@ -20,17 +25,21 @@ export const Provider = Aether.wrap<ProviderProps>(
         ...props,
         cursor: null,
         hovered: null,
+        count: 0,
       },
     });
     const gridStyle = useGridEntry(
       {
         key: aetherKey,
         loc: "top",
-        size: 32,
+        size: count > 0 ? 32 : 0,
         order: "last",
       },
       "Annotation.Provider",
     );
+
+    const menuProps = Menu.useContextMenu();
+    const visibleRef = useSyncedRef(menuProps.visible);
 
     const handleMouseEnter: React.MouseEventHandler<HTMLDivElement> = useCallback(
       (e) => {
@@ -44,7 +53,7 @@ export const Provider = Aether.wrap<ProviderProps>(
           "mouseleave",
           () => {
             target.removeEventListener("mousemove", handleMouseMove);
-            setState((state) => ({ ...state, cursor: null }));
+            if (!visibleRef.current) setState((state) => ({ ...state, cursor: null }));
           },
           { once: true },
         );
@@ -53,26 +62,36 @@ export const Provider = Aether.wrap<ProviderProps>(
     );
 
     return (
-      <Align.Space
+      <Menu.ContextMenu
         style={{
           ...gridStyle,
           cursor: hovered != null ? "pointer" : "default",
         }}
-        onClick={() => {
-          if (hovered != null) {
-            setViewport({
-              box: box.construct(
-                { x: hovered.viewport.lower, y: 0 },
-                { x: hovered.viewport.upper, y: 1 },
-              ),
-              mode: "zoom",
-              cursor: xy.ZERO,
-              stage: "start",
-            });
-          }
+        {...menuProps}
+        menu={() => {
+          if (menu == null || hovered == null) return null;
+          return menu(hovered);
         }}
-        onMouseEnter={handleMouseEnter}
-      />
+      >
+        <Align.Space
+          style={{ width: "100%", height: "100%" }}
+          onClick={() => {
+            if (hovered != null) {
+              setViewport({
+                box: box.construct(
+                  { x: hovered.viewport.lower, y: 0 },
+                  { x: hovered.viewport.upper, y: 1 },
+                ),
+                mode: "zoom",
+                cursor: xy.ZERO,
+                stage: "start",
+              });
+              setHold(true);
+            }
+          }}
+          onMouseEnter={handleMouseEnter}
+        />
+      </Menu.ContextMenu>
     );
   },
 );

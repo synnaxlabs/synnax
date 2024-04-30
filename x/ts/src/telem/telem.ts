@@ -987,6 +987,14 @@ export class TimeRange implements Stringer {
     return overlapDuration.greaterThanOrEqual(delta);
   }
 
+  roughlyEquals(other: TimeRange, delta: TimeSpan): boolean {
+    let startDist = this.start.sub(other.start).valueOf();
+    let endDist = this.end.sub(other.end).valueOf();
+    if (startDist < 0) startDist = -startDist;
+    if (endDist < 0) endDist = -endDist;
+    return startDist <= delta.valueOf() && endDist <= delta.valueOf();
+  }
+
   contains(other: TimeRange): boolean;
 
   contains(ts: CrudeTimeStamp): boolean;

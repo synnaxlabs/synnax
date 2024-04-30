@@ -21,6 +21,7 @@ import { type List } from "@/list";
 import { Select } from "@/select";
 import { Status } from "@/status";
 import { Synnax } from "@/synnax";
+import { useMemoDeepEqualProps } from "@/memo";
 
 const channelColumns: Array<List.ColumnSpec<channel.Key, channel.Payload>> = [
   {
@@ -67,6 +68,7 @@ export interface SelectMultipleProps
     "columns" | "searcher"
   > {
   columns?: string[];
+  searchOptions?: channel.RetrieveOptions;
 }
 
 const DEFAULT_FILTER = ["name", "alias"];
@@ -86,15 +88,21 @@ export const SelectMultiple = ({
   onChange,
   className,
   value,
+  searchOptions,
   ...props
 }: SelectMultipleProps): ReactElement => {
   const client = Synnax.use();
   const aliases = useAliases();
   const columns = useColumns(filter);
   const activeRange = useActiveRange();
+  const memoSearchOptions = useMemoDeepEqualProps(searchOptions);
   const searcher = useMemo(
-    () => client?.channels.newSearcherWithOptions({ rangeKey: activeRange }),
-    [client, activeRange],
+    () =>
+      client?.channels.newSearcherWithOptions({
+        rangeKey: activeRange,
+        ...memoSearchOptions,
+      }),
+    [client, activeRange, memoSearchOptions],
   );
   const emptyContent =
     client != null ? undefined : (
@@ -175,6 +183,7 @@ export const SelectMultiple = ({
 export interface SelectSingleProps
   extends Omit<Select.SingleProps<channel.Key, channel.Payload>, "columns"> {
   columns?: string[];
+  searchOptions?: channel.RetrieveOptions;
 }
 
 export const SelectSingle = ({
@@ -183,16 +192,21 @@ export const SelectSingle = ({
   value,
   className,
   data,
+  searchOptions,
   ...props
 }: SelectSingleProps): ReactElement => {
   const client = Synnax.use();
   const aliases = useAliases();
   const columns = useColumns(filter);
   const activeRange = useActiveRange();
+  const memoSearchOptions = useMemoDeepEqualProps(searchOptions);
   const searcher = useMemo(() => {
     if (data != null && data.length > 0) return undefined;
-    return client?.channels.newSearcherWithOptions({ rangeKey: activeRange });
-  }, [client, activeRange, data?.length]);
+    return client?.channels.newSearcherWithOptions({
+      rangeKey: activeRange,
+      ...memoSearchOptions,
+    });
+  }, [client, activeRange, data?.length, memoSearchOptions]);
 
   const emptyContent =
     client != null ? undefined : (

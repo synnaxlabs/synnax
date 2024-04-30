@@ -117,7 +117,7 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
       position: this.state.position,
       direction: "y",
       level: "small",
-      spacing: 1,
+      spacing: 0.5,
       offset: { x: 12, y: 12 },
       root: {
         x: relativePosition.x > 0.8 ? "right" : "left",

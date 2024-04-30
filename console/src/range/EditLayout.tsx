@@ -148,7 +148,12 @@ const EditLayoutForm = ({
 
   return (
     <Align.Space className={CSS.B("range-edit-layout")} grow>
-      <Align.Space className="console-form" justify="center" grow>
+      <Align.Space
+        className="console-form"
+        justify="center"
+        style={{ padding: "1rem 3rem" }}
+        grow
+      >
         <Form.Form {...methods}>
           <Form.Field<string> path="name">
             {(p) => (

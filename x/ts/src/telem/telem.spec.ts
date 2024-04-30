@@ -415,6 +415,18 @@ describe("TimeRange", () => {
       expect(bounded.equals(expected)).toBeTruthy();
     });
   });
+
+  describe("roughlyEquals", () => {
+    it("should return true if the two time ranges are within the provided threshold", () => {
+      const tr = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(4));
+      const one = new TimeRange(
+        TimeSpan.seconds(1),
+        TimeSpan.seconds(4).add(TimeSpan.milliseconds(500)),
+      );
+      expect(tr.roughlyEquals(one, TimeSpan.seconds(1))).toBeTruthy();
+      expect(tr.roughlyEquals(one, TimeSpan.seconds(0))).toBeFalsy();
+    });
+  });
 });
 
 describe("DataType", () => {

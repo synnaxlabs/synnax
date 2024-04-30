@@ -118,12 +118,10 @@ export default class Synnax extends framer.Client {
       props.name,
     );
     this.ontology = new ontology.Client(transport.unary, this);
-    const rangeRetriever = new ranger.Retriever(transport.unary);
     const rangeWriter = new ranger.Writer(this.transport.unary);
     this.labels = new label.Client(this.transport.unary, this);
     this.ranges = new ranger.Client(
       this,
-      rangeRetriever,
       rangeWriter,
       this.transport.unary,
       chRetriever,

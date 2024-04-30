@@ -9,7 +9,7 @@
 
 import { toArray, type Primitive } from "@synnaxlabs/x";
 
-import { MultipleResultsError, NotFoundError } from "@/errors";
+import { MultipleFoundError, NotFoundError } from "@/errors";
 
 export type SingleParamAnalysisResult<
   T extends Primitive,
@@ -97,7 +97,7 @@ export const checkForMultipleOrNoResults = <T, R>(
   if (results.length === 0)
     throw new NotFoundError(`${name} not found matching ${JSON.stringify(params)}`);
   if (results.length > 1)
-    throw new MultipleResultsError(
+    throw new MultipleFoundError(
       `Expected one ${name} matching ${JSON.stringify(params)}, but found ${results.length}`,
     );
 };

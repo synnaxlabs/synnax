@@ -156,7 +156,11 @@ export class LinePlot extends aether.Composite<
       await this.renderTooltips(plot, canvases);
       await this.renderMeasures(plot, canvases);
       renderCtx.gl.flush();
+      renderCtx.gl.finish();
     } catch (e) {
+      const err = e as Error;
+      // TODO: Remove this temp fix after we resolve actual error.
+      if (err.message.toLowerCase().includes("bigint")) return;
       this.internal.aggregate({
         key: `${this.type}-${this.key}`,
         variant: "error",

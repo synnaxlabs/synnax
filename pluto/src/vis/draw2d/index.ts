@@ -7,13 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box, direction, xy, type dimensions, location, toArray } from "@synnaxlabs/x";
+import {
+  box,
+  direction,
+  xy,
+  type dimensions,
+  location,
+  toArray,
+  Destructor,
+} from "@synnaxlabs/x";
 
 import { color } from "@/color/core";
 import { type text } from "@/text/core";
 import { dimensions as textDimensions } from "@/text/dimensions";
 import { type theming } from "@/theming/aether";
 import { fontString } from "@/theming/core/fontString";
+import { SugaredOffscreenCanvasRenderingContext2D } from "@/vis/draw2d/canvas";
 
 export interface Draw2DLineProps {
   stroke: color.Color;
@@ -51,6 +60,7 @@ export interface DrawTextProps {
   level: text.Level;
   weight?: text.Weight;
   shade?: text.Shade;
+  maxWidth?: number;
 }
 
 export interface DrawTextInCenterProps
@@ -84,10 +94,10 @@ export interface Draw2DTextContainerProps
 type ColorSpec = color.Crude | ((t: theming.Theme) => color.Color);
 
 export class Draw2D {
-  readonly canvas: OffscreenCanvasRenderingContext2D;
+  readonly canvas: SugaredOffscreenCanvasRenderingContext2D;
   readonly theme: theming.Theme;
 
-  constructor(canvas: OffscreenCanvasRenderingContext2D, theme: theming.Theme) {
+  constructor(canvas: SugaredOffscreenCanvasRenderingContext2D, theme: theming.Theme) {
     this.canvas = canvas;
     this.theme = theme;
   }
@@ -259,11 +269,15 @@ export class Draw2D {
     return this.text({ text, position: box.topLeft(pos), level });
   }
 
-  text({ text, position, level = "p", weight, shade }: DrawTextProps): void {
+  text({ text, position, level = "p", weight, shade, maxWidth }: DrawTextProps): void {
     this.canvas.font = fontString(this.theme, level, weight);
     if (shade == null) this.canvas.fillStyle = this.theme.colors.text.hex;
     else this.canvas.fillStyle = this.theme.colors.gray[`l${shade}`].hex;
     this.canvas.textBaseline = "top";
+    let removeScissor: Destructor | undefined;
+    if (maxWidth != null)
+      removeScissor = this.canvas.scissor(box.construct(position, maxWidth, 1000));
     this.canvas.fillText(text, position.x, position.y);
+    removeScissor?.();
   }
 }

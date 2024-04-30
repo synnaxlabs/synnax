@@ -66,6 +66,21 @@ func (r Range) Get(ctx context.Context, key []byte) ([]byte, error) {
 	return res.Value, err
 }
 
+func (r Range) ListMetaData() (map[string]string, error) {
+	var res []keyValue
+	if err := gorp.NewRetrieve[[]byte, keyValue]().
+		WherePrefix(r.Key[:]).
+		Entries(&res).
+		Exec(context.Background(), r.tx); err != nil {
+		return nil, err
+	}
+	meta := make(map[string]string, len(res))
+	for _, kv := range res {
+		meta[string(kv.Key)] = string(kv.Value)
+	}
+	return meta, nil
+}
+
 func (r Range) Set(ctx context.Context, key, value []byte) error {
 	return gorp.NewCreate[[]byte, keyValue]().
 		Entry(&keyValue{Range: r.Key, Key: key, Value: value}).
