@@ -419,7 +419,7 @@ TEST(NiWriterTests, test_write_one_digital_channel){
 
 
 TEST(NiWriterTests, test_write_multiple_digital_channel){
-    LOG(INFO) << "test_read_one_digital_channel: "; //<< std::endl;
+    LOG(INFO) << "test_write_multiple_digital_channel: "; //<< std::endl;
 
     // Create NI readerconfig
     auto config = json{
@@ -460,8 +460,13 @@ TEST(NiWriterTests, test_write_multiple_digital_channel){
     cmd_frame.add(  1, 
                 synnax::Series(std::vector<uint64_t>{(synnax::TimeStamp::now()).value}, 
                 synnax::TIMESTAMP));
-    cmd_frame.add(  65531, 
-                synnax::Series(cmd_vec));
+
+
+    for(int i = 0; i < cmd_vec.size(); i++){
+        cmd_frame.add(  65531 + i*2,
+                        synnax::Series(cmd_vec[i]));
+    }
+    
 
     writer.start();
 
@@ -502,9 +507,10 @@ TEST(NiWriterTests, test_write_multiple_digital_channel){
     cmd_frame.add(  1, 
                 synnax::Series(std::vector<uint64_t>{(synnax::TimeStamp::now()).value}, 
                 synnax::TIMESTAMP));
-    cmd_frame.add(  65531, 
-                synnax::Series(cmd_vec));
-
+     for(int i = 0; i < cmd_vec.size(); i++){
+        cmd_frame.add(  65531 + i*2,
+                        synnax::Series(cmd_vec[i]));
+    }
     initial_timestamp = (synnax::TimeStamp::now()).value;
 
     auto [frame2, err2] = writer.write(std::move(cmd_frame));
