@@ -31,16 +31,18 @@ using json = nlohmann::json;
 ni::niDaqReader::niDaqReader(
     TaskHandle taskHandle,
     const std::shared_ptr<task::Context> &ctx,
-    const synnax::Task task,
-    bool isDigital): taskHandle(taskHandle), ctx(ctx), isDigital(isDigital)
+    const synnax::Task task): taskHandle(taskHandle), ctx(ctx)
 {
     // Create parser
     auto config_parser = config::Parser(task.config);
     this->reader_config.task_name = task.name;
     this->reader_config.task_key = task.key;
 
+    this->reader_config.reader_type = config_parser.required<std::string>("reader_type");
+    this->reader_config.isDigital = (this->reader_config.reader_type == "digitalReader");
+
     // Parse configuration and make sure it is valid
-    if (isDigital){ this->parse_digital_reader_config(config_parser);}
+    if (this->reader_config.isDigital){ this->parse_digital_reader_config(config_parser);}
     else{   this->parse_analog_reader_config(config_parser);}
     if (!config_parser.ok()){
         // Log error
@@ -180,7 +182,7 @@ int ni::niDaqReader::init()
     // Configure buffer size and read resources
     this->numSamplesPerChannel = std::floor(this->reader_config.acq_rate / this->reader_config.stream_rate);
     this->bufferSize = this->numChannels * this->numSamplesPerChannel;
-    if(this->isDigital){
+    if(this->reader_config.isDigital){
         this->digitalData = new uInt8[bufferSize];
     }
     else{
@@ -221,7 +223,7 @@ freighter::Error ni::niDaqReader::stop()
         }
     }
 
-    if(this->isDigital){
+    if(this->reader_config.isDigital){
         delete[] digitalData; 
     }
     else{
@@ -378,7 +380,7 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readDigital()
 std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::read()
 {
 
-    if(this->isDigital){
+    if(this->reader_config.isDigital){
         return readDigital();
     }
     else{

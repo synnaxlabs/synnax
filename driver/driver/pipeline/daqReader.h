@@ -3,7 +3,10 @@
 //
 
 #pragma once
+
 #include "client/cpp/synnax/synnax.h"
+#include "driver/driver/pipeline/acquisition.h"
+#include "driver/driver/pipeline/control.h"
 #include <atomic>
 #include <memory>
 #include <thread>
@@ -12,23 +15,18 @@
 using json = nlohmann::json;
 namespace daq
 {
-    class AcqReader //TODD: change to daqReader
+    class daqReader : public pipeline::Source  //TODD: change to daqReader
     {
     public:
-        std::vector<std::vector<long>> data;
         virtual std::pair<synnax::Frame, freighter::Error> read() = 0;
         virtual freighter::Error start() = 0;
         virtual freighter::Error stop() = 0;
-        virtual json getErrorInfo() = 0;
     };
 
-    class daqWriter{
+    class daqWriter: public pipeline::Sink{
     public:
         virtual std::pair<synnax::Frame, freighter::Error> write(synnax::Frame frame) = 0;
         virtual freighter::Error start() = 0;
         virtual freighter::Error stop() = 0;
-        virtual json getErrorInfo() = 0;
-        // other members
-        // a structure to store errors?
     };
 }

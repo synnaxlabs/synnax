@@ -8,6 +8,6 @@ cc_library(
         "@nlohmann_json//:json",
         "//client/cpp/synnax",
     ],
-    copts = ["/std:c++17"],
+    copts = ["/std:c++20"],
 
 )

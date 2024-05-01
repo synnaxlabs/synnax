@@ -17,50 +17,55 @@
 #include <stdio.h>
 
 
+
+
+
+
+ni::NiReaderTask::NiReaderTask(const std::shared_ptr<task::Context> &ctx, synnax::Task task, synnax::WriterConfig writer_config){
+    // create daq reader for source
+    TaskHandle taskHandle;  // TODO: make this a unique ptr?
+    DAQmxCreateTask("",&taskHandle);
+
+    auto source = std::make_unique<daq::daqReader>(taskHandle, ctx, task);
+
+    
+    auto breaker_config = breaker::Config{
+        .name = task.name,
+        .base_interval = 1 * SECOND,
+        .max_retries = 20,
+        .scale = 1.2,
+
+    daq_read_pipe = pipeline::Acquisition(ctx,writer_config, std::move(source), breaker_config);
+} 
+
+
+ni::NiReaderTask::exec(task::Command &cmd){
+    if (cmd == task::Command::START){
+        daq_read_pipe.start();
+    } else if (cmd == task::Command::STOP){
+        daq_read_pipe.stop();
+    } else {
+        LOG(ERROR) << "unknown command type: " << cmd.type;
+    }
+}
+
+ni::NiDigitalWriterTask::NiDigitalWriterTask(){
+    // create a daq writer sink to take in commands
+
+    // 
+
+    // create a 
+
+}
+
+
+//////////////////////////////////////////////// OLD CODE
+
+
+
+
 /* NiAnalogReaderTask */
-void NiAnalogReaderTask::init(const std::shared_ptr <Synnax> client,
-                                          std::unique_ptr <daq::daqReader> daq_reader,
-                                          synnax::WriterConfig writer_config) {
-    printf("Initializing Analog Reader Task\n");
-    this->acq_pipeline = Acq(writer_config, client, std::move(daq_reader));
-    printf("Initialized Analog Reader Task\n");
-}
-
-
-freighter::Error NiAnalogReaderTask::startAcquisition(){
-    printf("Starting Acq Pipeline\n");
-    this->acq_pipeline.start();
-    return freighter::TYPE_NIL;
-}
-
-freighter::Error NiAnalogReaderTask::stopAcquisition(){
-    printf("Stopping Acq Pipeline\n");
-    this->acq_pipeline.stop();
-    return freighter::TYPE_NIL;
-}
-
 /* NiDigitalReaderTask */
-void NiDigitalReaderTask::init(const std::shared_ptr <Synnax> client,
-                              std::unique_ptr <daq::daqReader> daq_reader,
-                              synnax::WriterConfig writer_config) {
-    printf("Initializing Analog Reader Task\n");
-    this->acq_pipeline = Acq(writer_config, client, std::move(daq_reader));
-    printf("Initialized Analog Reader Task\n");
-}
-
-
-freighter::Error NiDigitalReaderTask::startAcquisition(){
-    printf("Starting Acq Pipeline\n");
-    this->acq_pipeline.start();
-    return freighter::TYPE_NIL;
-}
-
-freighter::Error NiDigitalReaderTask::stopAcquisition(){
-    printf("Stopping Acq Pipeline\n");
-    this->acq_pipeline.stop();
-    return freighter::TYPE_NIL;
-}
-
 
 /* NiDigitalWriterTask */
 void NiDigitalWriterTask::init(const std::shared_ptr <Synnax> client,

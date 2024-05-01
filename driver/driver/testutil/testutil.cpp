@@ -76,22 +76,46 @@ json add_DI_channel_JSON(json &config,
     return  channel;
 }
 
-/////////////////////////////////////////////////////////
+json add_AI_channel_JSON(json &config,
+                         std::string name,
+                         int key,
+                         int port,
+                         std::float_t min_val,
+                         std::float_t max_val){
+    // first construct the json object for the channel
+    json channel;
+    channel["name"] = name;
+    channel["channel_type"] = "analogVoltageInput";
+    channel["port"] = port;
+    channel["channel_key"] = key;
+    channel["min_val"] = min_val;
+    channel["max_val"] = max_val;
+
+    // now add json to the channels vector
+    // check if the channels array exists
+    if(config.find("channels") == config.end()){
+        config["channels"] = json::array();
+    }
+    config["channels"].push_back(channel);
+    return  channel;
+                            
+                         }
 
 
+                         
 json add_DO_channel_JSON(json &config,
                          std::string name,
-                         int cmd_key,
-                         int ack_key,
+                         int drive_cmd_key,
+                         int drive_state_key,
                          int port,
                          int line){
 
     // first construct the json object for the channel
     json channel;
     channel["name"] = name;
-    channel["cmd_key"] = cmd_key;
-    channel["ack_key"] = ack_key;
-    channel["type"] = "digitalOutput";
+    channel["channel_key"] = drive_cmd_key;
+    channel["drive_state_key"] = drive_state_key;
+    channel["channel_type"] = "digitalOutput";
     channel["port"] = port;
     channel["line"] = line;
 
@@ -104,19 +128,15 @@ json add_DO_channel_JSON(json &config,
     return  channel;
 }
 
-
-
-json add_ackIndex_channel_JSON(json &config,
+json add_drive_state_index_channel_JSON(json &config,
                                std::string name,
                                int key){
     json channel;
     channel["name"] = name;
-    channel["cmd_key"] = 0;
-    channel["ack_key"] = 0;
-    channel["channel_type"] = "ackIndex";
+    channel["channel_key"] = key;
+    channel["channel_type"] = "driveStateIndex";
     channel["port"] = 0;
     channel["line"] = 0;
-    channel["channel"] = key;
 
     // now add json to the channels vector
     // check if the channels array exists
@@ -126,4 +146,11 @@ json add_ackIndex_channel_JSON(json &config,
     config["channels"].push_back(channel);
     return  channel;
 }
+
+
+
+
+
+
+
 

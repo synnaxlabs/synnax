@@ -36,8 +36,8 @@ extern std::mt19937 random_generator(std::string suite_name);
 /// returns just the JSON of the channel constructed
 json add_DO_channel_JSON(json &config,
                          std::string name,
-                         int cmd_key,
-                         int ack_key,
+                         int drive_cmd_key,
+                         int drive_state_key,
                          int port,
                          int line);
 
@@ -45,7 +45,7 @@ json add_index_channel_JSON(json &config,
                             std::string name,
                             int key);
 
-json add_ackIndex_channel_JSON(json &config,
+json add_drive_state_index_channel_JSON(json &config,
                                std::string name,
                                int key);
 
@@ -60,4 +60,9 @@ json add_DI_channel_JSON(json &config,
 
 /// @brief adds a analog input channel to a json object passed by ref
 /// returns just the JSON of the channel constructed
-json add_AI_channel_JSON(); // TODO: Implement and refactor tests to use (elham)
+json add_AI_channel_JSON(json &config,
+                         std::string name,
+                         int key,
+                         int port,
+                         std::float_t min_val,
+                         std::float_t max_val); 

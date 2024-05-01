@@ -28,82 +28,84 @@
 
 #pragma once
 
-class NiAnalogReaderTask : public module::Module {
-public:
-    NiAnalogReaderTask(){};
-    void init(const std::shared_ptr<synnax::Synnax> client,
-                          std::unique_ptr<daq::daqReader> daq_reader,
-                          synnax::WriterConfig writer_config);
 
-    freighter::Error startAcquisition();
-    freighter::Error stopAcquisition();
-private:
-    Acq acq_pipeline;
-};
+namespace ni{
 
-class NiDigitalReaderTask : public module::Module {
-public:
-    NiDigitalReaderTask(){};
-    void init(const std::shared_ptr<synnax::Synnax> client,
-              std::unique_ptr<daq::daqReader> daq_reader,
-              synnax::WriterConfig writer_config);
-
-    freighter::Error startAcquisition();
-    freighter::Error stopAcquisition();
-private:
-    Acq acq_pipeline;
-};
-
-// TODO: createDigitalWriterTask
-class NiDigitalWriterTask : public module::Module {
-public:
-    NiDigitalWriterTask(){};
-    void init(const std::shared_ptr<synnax::Synnax> client,
-              std::unique_ptr<daq::daqWriter> daq_writer,
-              synnax::WriterConfig writer_config,
-              synnax::StreamerConfig streamer_config);
-
-    freighter::Error startAcquisition();
-    freighter::Error stopAcquisition();
-private:
-    pipeline::Ctrl ctrl_pipeline;
-};
+    class NiReaderTask final : public task::Task {
+    public:
+        explicit NiReaderTask(const std::shared_ptr<task::Context> &ctx, synnax::Task task, synnax::WriterConfig writer_config); 
+        void exec(task::Command &cmd) override;
+        void stop() override{};
+    private:
+        pipeline::Acquisition daq_read_pipe; // source is a daqreader 
+    }
 
 
+    class NiWriterTask final : public task::Task {
+    public:
+        explicit NiWriterTask(const std::shared_ptr<task::Context> &ctx, synnax::Task task); 
+        void exec(task::Command &cmd) override;
+        void stop() override{};
+    private:
+        pipeline::Acquisition cmd_read_pipe; // source reads from synnax (TODO: make this source)
+        pipeline::Control daq_write_pipe;
+    }
 
 
-class niTaskFactory : public module::Factory {
-public:
-    niTaskFactory() {};
-    std::unique_ptr<module::Module> createModule(TaskHandle taskhandle,
-                                                 const std::shared_ptr<synnax::Synnax> &client,
-                                                 const json &config,
-                                                 bool &valid_config,
-                                                 json &config_err);
+    //////////////////////////////////////////////// OLD CODE
 
-    std::unique_ptr <NiAnalogReaderTask> createAnalogReaderTask(TaskHandle taskhandle,
-                                                                std::shared_ptr<synnax::Synnax> client,
-                                                                bool &valid_config,
-                                                                const json &config,
-                                                                json &config_err);
 
-    std::unique_ptr <NiDigitalReaderTask> createDigitalReaderTask(TaskHandle taskhandle,
-                                                                std::shared_ptr<synnax::Synnax> client,
-                                                                bool &valid_config,
-                                                                const json &config,
-                                                                json &config_err);
-
-    std::unique_ptr <NiDigitalWriterTask> createDigitalWriterTask(TaskHandle taskhandle,
-                                                                std::shared_ptr<synnax::Synnax> client,
-                                                                bool &valid_config,
-                                                                const json &config,
-                                                                json &config_err);
-
-    bool validChannelConfig(const json &config, json &config_err);
-
-    // TODO: createDigitalReaderTask
     // TODO: createDigitalWriterTask
-    
-};
+    class NiDigitalWriterTask : public module::Module {
+    public:
+        explicit NiDigitalWriterTask();
+        void init(const std::shared_ptr<synnax::Synnax> client,
+                std::unique_ptr<daq::daqWriter> daq_writer,
+                synnax::WriterConfig writer_config,
+                synnax::StreamerConfig streamer_config);
+
+        freighter::Error startAcquisition();
+        freighter::Error stopAcquisition();
+    private:
+        pipeline::Ctrl ctrl_pipeline;
+    };
 
 
+
+
+    class niTaskFactory : public module::Factory {
+    public:
+        niTaskFactory() {};
+        std::unique_ptr<module::Module> createModule(TaskHandle taskhandle,
+                                                    const std::shared_ptr<synnax::Synnax> &client,
+                                                    const json &config,
+                                                    bool &valid_config,
+                                                    json &config_err);
+
+        std::unique_ptr <NiAnalogReaderTask> createAnalogReaderTask(TaskHandle taskhandle,
+                                                                    std::shared_ptr<synnax::Synnax> client,
+                                                                    bool &valid_config,
+                                                                    const json &config,
+                                                                    json &config_err);
+
+        std::unique_ptr <NiDigitalReaderTask> createDigitalReaderTask(TaskHandle taskhandle,
+                                                                    std::shared_ptr<synnax::Synnax> client,
+                                                                    bool &valid_config,
+                                                                    const json &config,
+                                                                    json &config_err);
+
+        std::unique_ptr <NiDigitalWriterTask> createDigitalWriterTask(TaskHandle taskhandle,
+                                                                    std::shared_ptr<synnax::Synnax> client,
+                                                                    bool &valid_config,
+                                                                    const json &config,
+                                                                    json &config_err);
+
+        bool validChannelConfig(const json &config, json &config_err);
+
+        // TODO: createDigitalReaderTask
+        // TODO: createDigitalWriterTask
+        
+    };
+
+
+}

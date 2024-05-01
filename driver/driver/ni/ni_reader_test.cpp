@@ -34,7 +34,8 @@ TEST(NiReaderTests, test_read_one_digital_channel){
     auto config = json{
             {"acq_rate", 100}, // dont actually need these here
             {"stream_rate", 20}, // same as above
-            {"device_name", "PXI1Slot2_2"}
+            {"device_name", "PXI1Slot2_2"},
+            {"reader_type", "digitalReader"}
     };
     add_index_channel_JSON(config, "idx", 1);
     add_DI_channel_JSON(config, "d1", 65531, 0, 0);
@@ -58,8 +59,7 @@ TEST(NiReaderTests, test_read_one_digital_channel){
 
     auto reader = ni::niDaqReader(  taskHandle, 
                                     mockCtx, 
-                                    task, 
-                                    true);
+                                    task);
 
     reader.start();
     std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
@@ -98,7 +98,8 @@ TEST(NiReaderTests, test_read_multiple_digital_channel){
     auto config = json{
             {"acq_rate", 1000}, // dont actually need these here
             {"stream_rate", 20}, // same as above
-            {"device_name", "PXI1Slot2_2"}
+            {"device_name", "PXI1Slot2_2"},
+            {"reader_type", "digitalReader"}
     };
     add_index_channel_JSON(config, "idx", 1);
     add_DI_channel_JSON(config, "d1", 65531, 0, 0);
@@ -130,8 +131,7 @@ TEST(NiReaderTests, test_read_multiple_digital_channel){
 
     auto reader = ni::niDaqReader(  taskHandle, 
                                     mockCtx, 
-                                    task, 
-                                    true);
+                                    task);
     reader.start();
     std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
     auto [frame, err] = reader.read();
@@ -169,7 +169,8 @@ TEST(NiReaderTests, test_read_one_analog_channel){
     auto config = json{
             {"acq_rate", 100}, // dont actually need these here
             {"stream_rate", 20}, // same as above
-            {"device_name", "Dev1"}
+            {"device_name", "Dev1"},
+            {"reader_type", "analogReader"}    
     };
     add_index_channel_JSON(config, "idx", 1);
     add_AI_channel_JSON(config, "a1", 65531, 0, -10.0, 10.0);
@@ -195,8 +196,7 @@ TEST(NiReaderTests, test_read_one_analog_channel){
 
     auto reader = ni::niDaqReader(  taskHandle, 
                                     mockCtx, 
-                                    task, 
-                                    false); // analog reader
+                                    task); // analog reader
 
     reader.start();
     std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
@@ -238,7 +238,8 @@ TEST(NiReaderTests, test_read_multiple_analog_channels){
     auto config = json{
             {"acq_rate", 2000}, // dont actually need these here
             {"stream_rate", 20}, // same as above
-            {"device_name", "Dev1"}
+            {"device_name", "Dev1"},
+            {"reader_type", "analogReader"}    
     };
     add_index_channel_JSON(config, "idx", 1);
     add_AI_channel_JSON(config, "a0", 65531, 0, -10.0, 10.0);
@@ -248,7 +249,7 @@ TEST(NiReaderTests, test_read_multiple_analog_channels){
     add_AI_channel_JSON(config, "a4", 65536, 4, -10.0, 10.0);
 
     //print json as a string
-    std::cout << config.dump(4) << std::endl;
+    //std::cout << config.dump(4) << std::endl;
 
     // Synnax infrustructure
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
@@ -268,8 +269,7 @@ TEST(NiReaderTests, test_read_multiple_analog_channels){
 
     auto reader = ni::niDaqReader(  taskHandle, 
                                     mockCtx, 
-                                    task, 
-                                    false); // analog reader
+                                    task); // analog reader
 
     reader.start();
     std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;

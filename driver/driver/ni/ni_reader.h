@@ -24,11 +24,9 @@
 
 // #include "driver/driver/modules/module.h"
 
-namespace ni
-{
+namespace ni{
 
-    typedef struct ChannelConfig
-    {
+    typedef struct ChannelConfig{
         /// @brief synnax properties
         std::uint32_t name_space;
         std::string node_id; // TODO: not actually parsed in from task config rn
@@ -41,18 +39,18 @@ namespace ni
         float max_val;
     } ChannelConfig;
 
-    typedef struct ReaderConfig
-    {
+    typedef struct ReaderConfig{
         std::vector<ChannelConfig> channels;
         std::uint64_t acq_rate = 0;
         std::uint64_t stream_rate = 0;
         std::string device_name;
         std::string task_name; 
+        std::string reader_type;
         synnax::ChannelKey task_key;
+        bool isDigital = false;
     } ReaderConfig;
 
-    typedef struct WriterConfig
-    {
+    typedef struct WriterConfig{
         std::vector<ChannelConfig> channels;
         std::string device_name;
         std::string task_name; 
@@ -69,14 +67,12 @@ namespace ni
     //                                    niDaqReader                                //
     ///////////////////////////////////////////////////////////////////////////////////
 
-    class niDaqReader : public daq::daqReader
-    { // public keyword required to store pointer to niDaqreader in a pointer to acqReader
+    class niDaqReader : public daq::daqReader{ // public keyword required to store pointer to niDaqreader in a pointer to acqReader
     public:
         // TODO: why do we not pass the task in by reference?
         explicit niDaqReader(TaskHandle taskHandle,
                              const std::shared_ptr<task::Context> &ctx,
-                             const synnax::Task task,
-                             bool isDigital);
+                             const synnax::Task task);
 
         int init();
         std::pair<synnax::Frame, freighter::Error> read();
@@ -100,7 +96,6 @@ namespace ni
         int numSamplesPerChannel = 0;
         json err_info;
 
-        bool isDigital = false;
 
         // Server related resources
         ReaderConfig reader_config;
@@ -119,8 +114,7 @@ namespace ni
     //                                    niDaqWriter                                //
     ///////////////////////////////////////////////////////////////////////////////////
 
-    class niDaqWriter : public daq::daqWriter
-    {
+    class niDaqWriter : public daq::daqWriter{
     public:
         explicit niDaqWriter(TaskHandle taskHandle,
                              const std::shared_ptr<task::Context> &ctx,

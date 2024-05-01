@@ -284,10 +284,12 @@ TEST(testConfig, testInterpretStringAsNumber) {
     struct MyConfig {
         std::float_t dog;
     };
-    const json j = {
-        {"dog", "1.232"}
-    };
+    // const json j = {
+    //     {"dog", "1.232"}
+    // };
 
+    json j;
+    j["dog"] = 1.232;
     MyConfig v;
     config::Parser parser(j);
     v.dog = parser.required<std::float_t>("dog");
