@@ -49,6 +49,10 @@ ni::niDaqReader::niDaqReader(
                              .variant = "error",
                              .details = config_parser.error_json()});
         this->ok_state = false;
+
+        //print error json
+        std::cout << config_parser.error_json() << std::endl;
+
         return;
     }
     LOG(INFO) << "[NI Reader] successfully parsed configuration for " << this->reader_config.task_name;
@@ -80,7 +84,6 @@ void ni::niDaqReader::parse_analog_reader_config(config::Parser & parser)
     this->reader_config.device_name = parser.required<std::string>("device_name");
     //std::cout << "Device name: " << this->reader_config.device_name << std::endl;
     //std::cout << "lul Device name: " << this->reader_config.device_name << std::endl;
-
     // now parse the channels
     parser.iter("channels",
                 [&](config::Parser &channel_builder)
@@ -93,13 +96,17 @@ void ni::niDaqReader::parse_analog_reader_config(config::Parser & parser)
                             : (this->reader_config.device_name +"/ai" + std::to_string(channel_builder.required<std::uint64_t>("port")));
 
                     config.channel_key = channel_builder.required<uint32_t>("channel_key");
-                    
-                    config.min_val = channel_builder.required<float>("min_val");
 
-                    config.max_val = channel_builder.required<float>("max_val");
+                    if(config.channel_type != "index"){
+                        config.min_val = channel_builder.required<float_t>("min_val");  
+                        config.max_val = channel_builder.required<std::float_t>("max_val");
+                    }
+            
 
                     this->reader_config.channels.push_back(config);
                 });
+    // assert(parser.ok());
+
 }
 
 
