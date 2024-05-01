@@ -7,6 +7,7 @@ description: "Learn about workspaces in the Synnax Console."
 import { Icon } from "@synnaxlabs/media";
 import { Text } from "@synnaxlabs/pluto";
 import { Divider } from "@synnaxlabs/pluto";
+import { Video } from "@/components/Media";
 
 Workspaces in Synnax are collections of visualizations that can be used to load
 certain views. For instance, you could be monitoring an entire plane on the
@@ -21,13 +22,13 @@ To create a new workspace, you can go into the top-left and click on the
 __Workspace__ <Icon.Workspace/> icon. This allows you to add a new workspace.
 </Text.Text>
 
-{/* Insert a video of creating a new workspace. */}
+<Video client:only="react" id="console/workspace-create-workspace" />
 
 <Divider.Divider direction="x" />
 
 ## Loading a Workspace
 
 Loading workspaces can be done by finding them in the Resources file tree on the
-left hand side.
+left hand side or clicking the workspace tab on the top.
 
-{/* Insert a video of loading a workspace. */}
+<Video client:only="react" id="console/workspace-load-workspace" />

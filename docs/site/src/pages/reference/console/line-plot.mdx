@@ -7,6 +7,7 @@ import { Image } from "@/components/Media";
 import { Icon } from "@synnaxlabs/media";
 import { Text } from "@synnaxlabs/pluto";
 import { Divider } from "@synnaxlabs/pluto"
+import { Video } from "@/components/Media";
 
 The Line Plot is the main visualization tool in the Synnax Console. The Line
 Plot can be used to plot real-time data or historical data. It can plot one or
@@ -20,8 +21,7 @@ Make sure to click the visualize <Icon.Visualize/> button in the bottom-right
 corner to pop up the visualization toolbar.
 </Text.Text>
 
-{/* Insert a video of clicking open the visualization toolbar with a line plot
-open. */}
+<Video client:only="react" id="console/ui-overview-open-visualization-toolbar" />
 
 ## Visualization Toolbar
 
@@ -37,8 +37,7 @@ The data tab has several properties underneath it:
 - X1 lets you select the x-axis to be scaled by a channel instead of time. Note
   that the only data shown will be the data from range selected in Ranges.
 
-{/* Insert a video of selecting the data from the Synnax demo server on the left
-and right hand axis, along with choosing a moving range. */}
+<Video client:only="react" id="console/line-plot-data-tab" />
 
 ### Lines Tab
 The line tab has several properties underneath it:
@@ -50,8 +49,7 @@ The line tab has several properties underneath it:
   downsampling is n, it plots every nth data point.
 - Color changes the color of the line on the graph.
 
-{/* Insert a video of going to the lines tab and changing the label, line width,
-and color. */}
+<Video client:only="react" id="console/line-plot-lines-tab" />
 
 ### Axes Tab
 <Text.Text level="p">
@@ -66,8 +64,7 @@ and color. */}
 </ul>
 </Text.Text>
 
-{/* Insert a video of changing the y axis bounds and the y axis label on the
-Synnax demo. */}
+<Video client:only="react" id="console/line-plot-axes-tab" />
 
 ### Properties Tab
 The properties tab has several properties underneath it:
@@ -77,8 +74,7 @@ The properties tab has several properties underneath it:
 - The legend switch determines whether the legend is viewed in the chart. Note
   that the legend can be moved around to any location on the plot.
 
-{/* Insert a video of changing the title, turning the title on and off, and
-moving the legend around in the plot. */}
+<Video client:only="react" id="console/line-plot-properties-tab" />
 
 <Divider.Divider direction="x"/>
 
@@ -92,7 +88,7 @@ pressing `alt` (Windows) / `command` (Mac) and left click. This will adjust the
 axes of the graph to the box made.
 </Text.Text>
 
-{/* Insert a video of using the zoom feature. */}
+<Video client:only="react" id="console/line-plot-zoom" />
 
 ### Pan
 
@@ -101,7 +97,7 @@ Pan the plot by clicking <Icon.Pan/> in the bottom left or by pressing `shift`
 and left click.
 </Text.Text>
 
-{/* Insert a video of panning the line plot. */}
+<Video client:only="react" id="console/line-plot-pan" />
 
 ### Select Data
 <Text.Text level="p">
@@ -111,7 +107,7 @@ graph. After selecting data you can right click and copy the time range to be
 used in Python, TypeScript, or ISO formats.
 </Text.Text>
 
-{/* Insert a video of selecting data and then getting the ISO timerange. */}
+<Video client:only="react" id="console/line-plot-select" />
 
 ### Reset Zoom
 <Text.Text level="p">
@@ -128,4 +124,4 @@ the x and y axes. To change the first point, press the `1` key and click on the
 graph. To change the second point, press the `2` key and click on the graph.
 </Text.Text>
 
-{/* Insert a video of using the slope feature in the line plot. */}
+<Video client:only="react" id="console/line-plot-slope" />
