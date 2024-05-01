@@ -40,8 +40,8 @@ ni::niDaqReader::niDaqReader(
     this->reader_config.task_key = task.key;
 
     // Parse configuration and make sure it is valid
-    if (isDigital){ parse_digital_reader_config(config_parser);}
-    else{   parse_analog_reader_config(config_parser);}
+    if (isDigital){ this->parse_digital_reader_config(config_parser);}
+    else{   this->parse_analog_reader_config(config_parser);}
     if (!config_parser.ok()){
         // Log error
         LOG(ERROR) << "[NI Reader] failed to parse configuration for " << this->reader_config.task_name;
@@ -431,7 +431,7 @@ ni::niDaqWriter::niDaqWriter(
     this->writer_config.task_name = task.name;
 
     // Parse configuration and make sure it is valid
-    parse_digital_writer_config(config_parser);
+    this->parse_digital_writer_config(config_parser);
     if (!config_parser.ok()){
         // Log error
         LOG(ERROR) << "[NI Writer] failed to parse configuration for " << this->writer_config.task_name;
@@ -474,16 +474,21 @@ void ni::niDaqWriter::parse_digital_writer_config(config::Parser &parser){
                 [&](config::Parser &channel_builder)
                 {
                     ChannelConfig config;
+
                     config.channel_type = channel_builder.required<std::string>("channel_type");
 
                     // digital channel names are formatted: <device_name>/port<port_number>/line<line_number>
-                    config.name = (config.channel_type == "index" || config.channel_type == "ack_index") ? (channel_builder.required<std::string>("name"))
+                    config.name = (config.channel_type == "index" || config.channel_type == "driveStateIndex") ? (channel_builder.required<std::string>("name"))
                                                                     : (this->writer_config.device_name + "/port" + std::to_string(channel_builder.required<std::uint64_t>("port")) + "/line" + std::to_string(channel_builder.required<std::uint64_t>("line")));
 
-                    config.channel_key = channel_builder.required<uint32_t>("channel_key");
-                    this->writer_config.cmd_channel_keys.push_back(config.channel_key);
-                    this->writer_config.ack_channel_keys.push_back(channel_builder.required<uint32_t>("ack_key"));
 
+                    config.channel_key = channel_builder.required<uint32_t>("channel_key");
+
+                    if((config.channel_type != "index") && (config.channel_type != "driveStateIndex")){
+                        this->writer_config.drive_state_channel_keys.push_back(channel_builder.required<uint32_t>("drive_state_key"));
+                        this->writer_config.drive_cmd_channel_keys.push_back(config.channel_key); 
+                    }
+         
 
                     // TODO: there could be more than 2 state  
                     config.min_val = 0;
@@ -491,15 +496,15 @@ void ni::niDaqWriter::parse_digital_writer_config(config::Parser &parser){
 
                     this->writer_config.channels.push_back(config);
 
-                    if(config.channel_type == "ack_index"){
-                        this->writer_config.ack_index_key = config.channel_key;
+                    if(config.channel_type == "driveStateIndex"){
+                        this->writer_config.drive_state_index_key = config.channel_key;
                     }
                 });
 
-    assert(this->writer_config.ack_index_key != 0);
-    assert(this->writer_config.ack_channel_keys.size() > 0);
-    assert(this->writer_config.cmd_channel_keys.size() > 0);
-    assert(this->writer_config.cmd_channel_keys.size() == this->writer_config.ack_channel_keys.size());
+    assert(this->writer_config.drive_state_index_key != 0);
+    assert(this->writer_config.drive_state_channel_keys.size() > 0);
+    assert(this->writer_config.drive_cmd_channel_keys.size() > 0);
+    assert(this->writer_config.drive_cmd_channel_keys.size() == this->writer_config.drive_state_channel_keys.size());
 }
 
 
@@ -579,7 +584,6 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqWriter::write(synnax::Frame 
 }
 
 std::pair<synnax::Frame, freighter::Error> ni::niDaqWriter::writeDigital(synnax::Frame frame){
-    std::cout << "Writing to daq" << std::endl;
     char errBuff[2048] = {'\0'};
     signed long samplesWritten = 0;
     formatData(std::move(frame));
@@ -599,13 +603,14 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqWriter::writeDigital(synnax:
 
 
     // Construct acknowledgement frame (can only do this after a successful write to keep consistent over failed writes)
-    auto ack_frame = synnax::Frame(this->ack_queue.size() + 1);
-    ack_frame.add(ack_index_key, synnax::Series(std::vector<uint64_t>{synnax::TimeStamp::now().value}, synnax::TIMESTAMP));
-    while (!this->ack_queue.empty())
+    auto ack_frame = synnax::Frame(this->drive_state_queue.size() + 1);
+    ack_frame.add(this->writer_config.drive_state_index_key, synnax::Series(std::vector<uint64_t>{synnax::TimeStamp::now().value}, synnax::TIMESTAMP));
+    while (!this->drive_state_queue.empty())
     {
-        auto ack_key = this->ack_queue.front();
-        ack_frame.add(ack_key, synnax::Series(std::vector<uint8_t>{1}));
-        this->ack_queue.pop();
+        auto ack_key = this->drive_state_queue.front();
+        ack_frame.add(ack_key, synnax::Series(std::vector<uint8_t>{this->drive_queue.front()}));
+        this->drive_state_queue.pop();
+        this->drive_queue.pop();
     }
 
     // return acknowledgements frame to write to the ack channel
@@ -618,13 +623,14 @@ freighter::Error ni::niDaqWriter::formatData(synnax::Frame frame)
     uint32_t cmd_channel_index = 0;
     for (auto key : *(frame.channels))
     { // the order the keys are in is the order the data is written
-        auto it = std::find(this->writer_config.cmd_channel_keys.begin(),this->writer_config.cmd_channel_keys.end(), key);
-        if (it != this->writer_config.cmd_channel_keys.end())
+        auto it = std::find(this->writer_config.drive_cmd_channel_keys.begin(),this->writer_config.drive_cmd_channel_keys.end(), key);
+        if (it != this->writer_config.drive_cmd_channel_keys.end())
         {
-            cmd_channel_index = std::distance(this->writer_config.cmd_channel_keys.begin(), it);
+            cmd_channel_index = std::distance(this->writer_config.drive_cmd_channel_keys.begin(), it);
             auto series = frame.series->at(frame_index).uint8(); // used to be auto &series
             writeBuffer[cmd_channel_index] = series[0];
-            this->ack_queue.push(this->writer_config.ack_channel_keys[cmd_channel_index]);
+            this->drive_state_queue.push(this->writer_config.drive_state_channel_keys[cmd_channel_index]);
+            this->drive_queue.push(series[0]);
         }
         frame_index++;
     }
@@ -643,6 +649,7 @@ int ni::niDaqWriter::checkNIError(int32 error) //TODO: make this inline?
         this->ctx->setState({.task = this->writer_config.task_key,
                              .variant = "error",
                              .details = err_info});
+        LOG(ERROR) << "[NI Reader] Vendor Error: " << this->err_info["error details"];
         return -1;
     }
     return 0;

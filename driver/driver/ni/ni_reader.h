@@ -59,10 +59,10 @@ namespace ni
         synnax::ChannelKey task_key;
 
 
-        std::vector<synnax::ChannelKey> ack_channel_keys;
-        std::vector<synnax::ChannelKey> cmd_channel_keys;
+        std::vector<synnax::ChannelKey> drive_state_channel_keys;
+        std::vector<synnax::ChannelKey> drive_cmd_channel_keys;
 
-        synnax::ChannelKey ack_index_key;
+        synnax::ChannelKey drive_state_index_key;
     } WriterConfig;
 
     ///////////////////////////////////////////////////////////////////////////////////
@@ -79,9 +79,7 @@ namespace ni
                              bool isDigital);
 
         int init();
-
         std::pair<synnax::Frame, freighter::Error> read();
-
         freighter::Error stop();
         freighter::Error start();
         bool ok();
@@ -129,11 +127,7 @@ namespace ni
                              const synnax::Task task);
 
         int init();
-
         std::pair<synnax::Frame, freighter::Error> write(synnax::Frame frame);
-
-        std::pair<synnax::Frame, freighter::Error> writeDigital(synnax::Frame frame);
-
         freighter::Error stop();
         freighter::Error start();
         bool ok();
@@ -141,25 +135,26 @@ namespace ni
 
     private:
         // private helper functions
+        std::pair<synnax::Frame, freighter::Error> writeDigital(synnax::Frame frame);
         freighter::Error formatData(synnax::Frame frame);
         void parse_digital_writer_config(config::Parser &parser);
         int checkNIError(int32 error);
 
+        // NI related resources
+        uint8_t *writeBuffer;  
+        int bufferSize = 0;   
+        int numSamplesPerChannel = 0;
         std::int64_t numChannels = 0;
         TaskHandle taskHandle = 0;
-        //        freighter::Error writeAnalog(synnax::Frame frame);  // Implement later
-        uint8_t *writeBuffer; /// @brief pointer to heap allocated dataBuffer to provide to DAQmx read functions
-        int bufferSize = 0;   // size of the data buffer
-        int numSamplesPerChannel = 0;
-        std::queue<synnax::ChannelKey> ack_queue; // queue of ack channels to write to
-        synnax::ChannelKey ack_index_key;
+
         json err_info;
+
+        // Server related resources
         bool ok_state = true;
         std::shared_ptr<task::Context> ctx;
+        std::queue<synnax::ChannelKey> drive_state_queue; // queue of ack channels to write to
+        std::queue<uint8_t> drive_queue;
         WriterConfig writer_config; 
         breaker::Breaker breaker;
-
     };
-    // Global Function for DAQmx Error Handling
-    int checkNIError(int32 error);
 }
