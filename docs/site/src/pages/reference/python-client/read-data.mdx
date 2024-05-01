@@ -7,11 +7,11 @@ import { Divider } from "@synnaxlabs/pluto"
 import Code from "@/components/code/Code.astro";
 export const components = { pre: Code };
 
-The Python client supports several different ways of reading data from a
-cluster. We can read directly from a channel, fetch a range and access its data,
-or leverage server side iterators for processing large queries.
-
 <Divider.Divider direction="x" />
+
+The Python client supports several different ways of reading data from a cluster. We can 
+read directly from a channel, fetch a named range and access its data, or leverage server
+side iterators for processing large queries.
 
 ## Reading from a Channel
 
@@ -50,6 +50,8 @@ print(tr)
 
 This method is important, as it's not always the case that data exists for the
 entire time range queried.
+
+<Divider.Divider direction="x" />
 
 <Divider.Divider direction="x" />
 

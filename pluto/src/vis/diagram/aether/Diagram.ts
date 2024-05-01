@@ -22,7 +22,7 @@ export const diagramStateZ = z.object({
   position: xy.xy,
   zoom: z.number(),
   region: box.box,
-  clearOverscan: xy.crudeZ.optional().default(10),
+  clearOverScan: xy.crudeZ.optional().default(10),
 });
 
 interface ElementProps {
@@ -88,7 +88,7 @@ export class Diagram extends aether.Composite<
 
     const eraseRegion = box.copy(this.state.region);
     return async () => {
-      this.internal.renderCtx.erase(eraseRegion, this.state.clearOverscan, ...CANVASES);
+      this.internal.renderCtx.erase(eraseRegion, this.state.clearOverScan, ...CANVASES);
     };
   }
 

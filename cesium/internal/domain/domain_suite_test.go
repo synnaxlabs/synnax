@@ -11,15 +11,24 @@ package domain_test
 
 import (
 	"context"
+	"github.com/synnaxlabs/x/testutil"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
-var ctx = context.Background()
+var (
+	ctx                       = context.Background()
+	rootPath                  = "domain-testdata"
+	fileSystems, cleanUp, err = testutil.FileSystems()
+)
 
 func TestDomain(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Domain Suite")
 }
+
+var _ = BeforeSuite(func() { Expect(err).ToNot(HaveOccurred()) })
+
+var _ = AfterSuite(func() { Expect(cleanUp()).To(Succeed()) })

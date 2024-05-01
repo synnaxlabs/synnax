@@ -23,7 +23,6 @@ import (
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
-	"math"
 )
 
 // WriterCommand is an enumeration of commands that can be sent to a Writer.
@@ -300,6 +299,13 @@ func (w *streamWriter) close(ctx context.Context) error {
 	if len(u.Transfers) > 0 {
 		w.updateDBControl(ctx, u)
 	}
+
+	if digestWriter, ok := w.virtual.internal[w.virtual.digestKey]; ok {
+		// When digest writer closes, we do not (and cannot) send an update.
+		if _, err := digestWriter.Close(); err != nil {
+			return err
+		}
+	}
 	return errors.CombineErrors(w.err, c.Error())
 }
 
@@ -467,7 +473,8 @@ func (w *idxWriter) resolveCommitEnd(ctx context.Context) (index.TimeStampApprox
 }
 
 type virtualWriter struct {
-	internal map[ChannelKey]*virtual.Writer
+	internal  map[ChannelKey]*virtual.Writer
+	digestKey core.ChannelKey
 }
 
 func (w virtualWriter) write(fr Frame) (Frame, error) {
@@ -493,7 +500,9 @@ func (w virtualWriter) Close() (ControlUpdate, error) {
 		Transfers: make([]controller.Transfer, 0, len(w.internal)),
 	}
 	for _, chW := range w.internal {
-		if chW.Channel.Key == math.MaxUint32 {
+		// We do not want to clean up digest channel since we want to use it to
+		// send updates for closures.
+		if chW.Channel.Key == w.digestKey {
 			continue
 		}
 		c.Exec(func() error {
