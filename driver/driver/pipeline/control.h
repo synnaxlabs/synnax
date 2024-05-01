@@ -34,9 +34,6 @@ public:
         synnax::WriterConfig writer_config,
         std::unique_ptr<Sink> sink,
         breaker::Breaker breaker,
-        synnax::Rate state_rate
-    );
-private:
     std::shared_ptr<task::Context> ctx;
 
     /// @brief writer thread.

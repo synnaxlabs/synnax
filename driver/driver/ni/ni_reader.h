@@ -11,8 +11,8 @@
 
 #include <string>
 #include <vector>
+#include <map>
 #include <queue>
-
 #include "daqmx.h"
 
 
@@ -52,6 +52,7 @@ namespace ni{
 
     typedef struct WriterConfig{
         std::vector<ChannelConfig> channels;
+        std::uint64_t state_rate = 0;
         std::string device_name;
         std::string task_name; 
         synnax::ChannelKey task_key;
@@ -61,6 +62,8 @@ namespace ni{
         std::vector<synnax::ChannelKey> drive_cmd_channel_keys;
 
         synnax::ChannelKey drive_state_index_key;
+        std::queue<synnax::ChannelKey> modified_state_keys;
+        std::queue<synnax::uint8_t> modified_state_vals;
     } WriterConfig;
 
     ///////////////////////////////////////////////////////////////////////////////////
@@ -116,16 +119,19 @@ namespace ni{
 
     class niDaqStateWriter : public::daq::daqStateWriter{
         public: 
-            explicit niDaqStateWriter();
+            explicit niDaqStateWriter(synnax::Rate state_rate, drive_state_index_key);
             std::pair<synnax::Frame, freighter::Error> read();
-            freighter::Error write(synnax::Frame frame);
             freighter::Error start();
             freighter::Error stop();
+            synnax:Frame getState();
+            void updateState(std::queue<synnax::ChannelKey> &modified_state_keys, std::queue<synnax::uint8_t> &modified_state_vals);
         private:
-            std::queue<synnax::Frame> state_queue;
-            bool ok_state = true;
             std::mutex state_mutex;
-            std::condition_variable cv;
+            std::condition_variable waitingReader;
+            synnax::Rate state_rate;
+            std::chrono::duration<double> state_period;
+            std::map<synnax::ChannelKey, uint8_t> state_map;
+            synnax::ChannelKey drive_state_index_key;
     };
 
     class niDaqWriter : public daq::daqWriter{
@@ -135,7 +141,7 @@ namespace ni{
                              const synnax::Task task);
 
         int init();
-        freighter::Error write(synnax::Frame frame);
+        freighter::Error write();
         freighter::Error stop();
         freighter::Error start();
         bool ok();
@@ -160,8 +166,6 @@ namespace ni{
         // Server related resources
         bool ok_state = true;
         std::shared_ptr<task::Context> ctx;
-        std::queue<synnax::ChannelKey> drive_state_queue; // queue of ack channels to write to
-        std::queue<uint8_t> drive_queue;
         WriterConfig writer_config; 
         breaker::Breaker breaker;
     };

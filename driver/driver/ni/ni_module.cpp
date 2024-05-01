@@ -17,10 +17,6 @@
 #include <stdio.h>
 
 
-
-
-
-
 ni::NiReaderTask::NiReaderTask(const std::shared_ptr<task::Context> &ctx, synnax::Task task, synnax::WriterConfig writer_config){
     // create daq reader for source
     TaskHandle taskHandle;  // TODO: make this a unique ptr?
@@ -50,7 +46,14 @@ ni::NiReaderTask::exec(task::Command &cmd){
 }
 
 ni::NiDigitalWriterTask::NiDigitalWriterTask(){
-    // create a daq writer sink to take in commands
+    // create a daq writer to provide to cmd read pipe as sink
+    auto sink = std::make_unique<daq::daqWriter>(taskHandle, ctx, task);
+
+    cmd_read_pipe = pipeline::Control(  ctx,
+                                        cmd_streamer_config,
+                                        writer_config,
+                                        sink,
+                                        breaker,)
 
     // 
 

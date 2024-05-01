@@ -438,6 +438,7 @@ ni::niDaqWriter::niDaqWriter(
 
     
     // TODO: get device proprties for things like authentication
+    writer_state_source = niDaqStateWriter(this->writer_config.state_rate, this->writer_config.drive_state_index_key);
 
     // Create breaker
     auto breaker_config = breaker::Config{
@@ -462,6 +463,7 @@ void ni::niDaqWriter::parse_digital_writer_config(config::Parser &parser){
 
     // device name
     this->writer_config.device_name = parser.required<std::string>("device_name");
+    this->reader_config.state_rate = parser.required<uint64_t>("stream_rate"); // for state writing
     // now parse the channels
     parser.iter("channels",
                 [&](config::Parser &channel_builder)
@@ -478,8 +480,11 @@ void ni::niDaqWriter::parse_digital_writer_config(config::Parser &parser){
                     config.channel_key = channel_builder.required<uint32_t>("channel_key");
 
                     if((config.channel_type != "index") && (config.channel_type != "driveStateIndex")){
-                        this->writer_config.drive_state_channel_keys.push_back(channel_builder.required<uint32_t>("drive_state_key"));
+                        uint32_t drive_state_key = channel_builder.required<uint32_t>("drive_state_key");
+                        this->writer_config.drive_state_channel_keys.push_back(drive_state_key);
                         this->writer_config.drive_cmd_channel_keys.push_back(config.channel_key); 
+                        // update state map
+                        this->writer_config.state_map[drive_state_key] = 0; // default is logic low is being driven out
                     }
          
 
@@ -488,6 +493,8 @@ void ni::niDaqWriter::parse_digital_writer_config(config::Parser &parser){
                     config.max_val = 1;
 
                     this->writer_config.channels.push_back(config);
+
+                    
 
                     if(config.channel_type == "driveStateIndex"){
                         this->writer_config.drive_state_index_key = config.channel_key;
@@ -573,7 +580,7 @@ freighter::Error ni::niDaqWriter::stop(){
 // Here to modify as we add more writing options
 freighter::Error ni::niDaqWriter::write(synnax::Frame frame){ 
     // TODO: should this function get a Frame or a bit vector of setpoints instead?
-    return writeDigital(std::move(frame));
+    return writeDigital(freighter::NIL);
 }
 
 freighter::Error ni::niDaqWriter::writeDigital(synnax::Frame frame){
@@ -595,40 +602,37 @@ freighter::Error ni::niDaqWriter::writeDigital(synnax::Frame frame){
     }
 
 
-    // Construct acknowledgement frame (can only do this after a successful write to keep consistent over failed writes)
-    auto ack_frame = synnax::Frame(this->drive_state_queue.size() + 1);
-    ack_frame.add(this->writer_config.drive_state_index_key, synnax::Series(std::vector<uint64_t>{synnax::TimeStamp::now().value}, synnax::TIMESTAMP));
-    while (!this->drive_state_queue.empty())
-    {
-        auto ack_key = this->drive_state_queue.front();
-        ack_frame.add(ack_key, synnax::Series(std::vector<uint8_t>{this->drive_queue.front()}));
-        this->drive_state_queue.pop();
-        this->drive_queue.pop();
-    }
-
+    // Construct drive state frame (can only do this after a successful write to keep consistent over failed writes)
+    
     // return acknowledgements frame to write to the ack channel
-    this->writer_state_source.write(std::move(ack_frame));
+    this->writer_state_source.updateState(this->writer_config.modified_state_keys, this->writer_config.modified_state_values);
+
     return freighter::NIL;
 }
+
 
 freighter::Error ni::niDaqWriter::formatData(synnax::Frame frame){
     uint32_t frame_index = 0;
     uint32_t cmd_channel_index = 0;
-    for (auto key : *(frame.channels))
-    { // the order the keys are in is the order the data is written
+
+    for (auto key : *(frame.channels)){ // the order the keys were pushed into the vector is the order the data is written
+        // first see if the key is in the drive_cmd_channel_keys
         auto it = std::find(this->writer_config.drive_cmd_channel_keys.begin(),this->writer_config.drive_cmd_channel_keys.end(), key);
         if (it != this->writer_config.drive_cmd_channel_keys.end())
         {
-            cmd_channel_index = std::distance(this->writer_config.drive_cmd_channel_keys.begin(), it);
-            auto series = frame.series->at(frame_index).uint8(); // used to be auto &series
+            // if so, now find which index it is in the vector (i.e. which channel it is in the writeBuffer)
+            cmd_channel_index = std::distance(this->writer_config.drive_cmd_channel_keys.begin(), it); // this corressponds to where in the order its NI channel was created
+            // now we grab the level we'd like to write and put it into that location in the write_buffer
+            auto series = frame.series->at(frame_index).uint8(); 
             writeBuffer[cmd_channel_index] = series[0];
-            this->drive_state_queue.push(this->writer_config.drive_state_channel_keys[cmd_channel_index]);
-            this->drive_queue.push(series[0]);
+            this->writer_config.modified_state_keys.push(this->writer_config.drive_state_channel_keys[cmd_channel_index]);
+            this->writer_config.modified_state_values.push(series[0]);
         }
         frame_index++;
     }
     return freighter::NIL;
 }
+
 
 int ni::niDaqWriter::checkNIError(int32 error){
     if (error < 0)
@@ -655,25 +659,20 @@ bool ni::niDaqWriter::ok(){
 //                                    niDaqStateWriter                           //
 ///////////////////////////////////////////////////////////////////////////////////
 
-ni::niDaqStateWriter::niDaqStateWriter(){}
+ni::niDaqStateWriter::niDaqStateWriter(synnax::Rate state_rate) 
+:state_rate(state_rate){
+    // start the periodic thread
+    this->state_period = std::chrono::duration<double>(1.0 / state_rate.value);
+}
 
 
 std::pair<synnax::Frame, freighter::Error> ni::niDaqStateWriter::read(){
     std::unique_lock<std::mutex> lock(this->state_mutex);
-    while(state_queue.empty()){
-        cv.wait(lock);
-    }
-    auto temp = std::move(state_queue.front());
-    state_queue.pop();
-    return std::make_pair(std::move(temp), freighter::NIL);
+    waitingReader.wait_for(lock, state_period);// TODO: double check this time is relative and not absolute
+    return std::make_pair(std::move(this->getState()), freighter::NIL);
 }
 
-freighter::Error ni::niDaqStateWriter::write(synnax::Frame frame){
-    std::unique_lock<std::mutex> lock(this->state_mutex);
-    state_queue.push(std::move(frame));
-    cv.notify_one();
-    return freighter::NIL;
-}
+
 
 freighter::Error ni::niDaqStateWriter::start(){
     return freighter::NIL;
@@ -683,6 +682,32 @@ freighter::Error ni::niDaqStateWriter::stop(){
     return freighter::NIL;
 }
 
+synnax:Frame ni::niDaqStateWriter::getState(){
+    auto drive_state_frame = synnax::Frame(this->state_map.size() + 1);
+    drive_state_frame.add(this->drive_state_index_key, synnax::Series(std::vector<uint64_t>{synnax::TimeStamp::now().value}, synnax::TIMESTAMP));
+
+    // Iterate through map and add each state to frame
+    for (auto &state : this->state_map)
+    {
+        drive_state_frame.add(state.first, synnax::Series(std::vector<uint8_t>{state.second}));
+    }
+
+    return std::move(drive_state_frame);
+}
+
+
+void ni::niDaqWriter::updateState(std::queue<synnax::ChannelKey> &modified_state_keys, std::queue<synnax::uint8_t> &modified_state_vals){
+    std::unique_lock<std::mutex> lock(this->state_mutex);
+    // update state map
+    for (int i = 0; i < this->writer_config.modified_state_keys.size(); i++){
+        this->writer_config.state_map[this->writer_config.modified_state_keys[i]] = this->writer_config.modified_state_values[i];
+    }
+    this->writer_config.modified_state_keys.clear();
+    this->writer_config.modified_state_values.clear();
+
+    waitingReader.notify_one();
+    return freighter::NIL;
+}
 
 // TODO create a helper function that takes in a frame and formats into the data to pass into writedigital
 // TODO: create a helper function to parse digital data configuration of wehtehr its a port to r line
