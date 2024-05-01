@@ -25,7 +25,16 @@ namespace daq
 
     class daqWriter: public pipeline::Sink{
     public:
-        virtual std::pair<synnax::Frame, freighter::Error> write(synnax::Frame frame) = 0;
+        virtual freighter::Error write(synnax::Frame frame) = 0;
+        virtual freighter::Error start() = 0;
+        virtual freighter::Error stop() = 0;
+    };
+
+
+    class daqStateWriter : public pipeline::Source{
+    public:
+        virtual std::pair<synnax::Frame, freighter::Error> read() = 0;
+        virtual freighter::Error write(synnax::Frame frame) = 0;
         virtual freighter::Error start() = 0;
         virtual freighter::Error stop() = 0;
     };

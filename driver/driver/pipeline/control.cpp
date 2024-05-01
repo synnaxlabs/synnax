@@ -62,7 +62,7 @@ void Control::runCommands(std::latch& latch) {
         if (cmd_err) break;
         auto [state_frame, daq_err] = sink->write(std::move(cmd_frame));
         state_mutex.lock();
-        curr_state = std::move(state_frame);
+        //curr_state = std::move(state_frame);
         state_writer.write(curr_state);
         state_mutex.unlock();
     }

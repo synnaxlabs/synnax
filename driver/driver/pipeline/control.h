@@ -19,7 +19,7 @@
 namespace pipeline {
 class Sink {
 public:
-    virtual std::pair<synnax::Frame, freighter::Error> write(synnax::Frame frame) = 0;
+    virtual freighter::Error write(synnax::Frame frame) = 0;
 };
 
 class Control {

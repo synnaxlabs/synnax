@@ -348,8 +348,8 @@ TEST(NiWriterTests, test_write_one_digital_channel){
 
     std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
 
-    auto [frame, err] = writer.write(std::move(cmd_frame));
-
+    auto werr = writer.write(std::move(cmd_frame));
+    auto [frame, err] = writer.writer_state_source.read();
     std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
     
     
@@ -387,7 +387,9 @@ TEST(NiWriterTests, test_write_one_digital_channel){
 
     initial_timestamp = (synnax::TimeStamp::now()).value;
 
-    auto [frame2, err2] = writer.write(std::move(cmd_frame));
+    auto werr2 = writer.write(std::move(cmd_frame));
+
+    auto [frame2, err2] = writer.writer_state_source.read();
 
     final_timestamp = (synnax::TimeStamp::now()).value;   
 
@@ -471,8 +473,9 @@ TEST(NiWriterTests, test_write_multiple_digital_channel){
     writer.start();
 
     std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
-
-    auto [frame, err] = writer.write(std::move(cmd_frame));
+    
+    auto werr = writer.write(std::move(cmd_frame));
+    auto [frame, err] = writer.writer_state_source.read();
 
     std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
     
@@ -513,7 +516,8 @@ TEST(NiWriterTests, test_write_multiple_digital_channel){
     }
     initial_timestamp = (synnax::TimeStamp::now()).value;
 
-    auto [frame2, err2] = writer.write(std::move(cmd_frame));
+    auto werr2 = writer.write(std::move(cmd_frame));
+    auto [frame2, err2] = writer.writer_state_source.read();
 
     final_timestamp = (synnax::TimeStamp::now()).value;   
 

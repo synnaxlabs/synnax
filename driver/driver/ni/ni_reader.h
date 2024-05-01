@@ -114,6 +114,20 @@ namespace ni{
     //                                    niDaqWriter                                //
     ///////////////////////////////////////////////////////////////////////////////////
 
+    class niDaqStateWriter : public::daq::daqStateWriter{
+        public: 
+            explicit niDaqStateWriter();
+            std::pair<synnax::Frame, freighter::Error> read();
+            freighter::Error write(synnax::Frame frame);
+            freighter::Error start();
+            freighter::Error stop();
+        private:
+            std::queue<synnax::Frame> state_queue;
+            bool ok_state = true;
+            std::mutex state_mutex;
+            std::condition_variable cv;
+    };
+
     class niDaqWriter : public daq::daqWriter{
     public:
         explicit niDaqWriter(TaskHandle taskHandle,
@@ -121,15 +135,15 @@ namespace ni{
                              const synnax::Task task);
 
         int init();
-        std::pair<synnax::Frame, freighter::Error> write(synnax::Frame frame);
+        freighter::Error write(synnax::Frame frame);
         freighter::Error stop();
         freighter::Error start();
         bool ok();
 
-
+        ni::niDaqStateWriter writer_state_source;
     private:
         // private helper functions
-        std::pair<synnax::Frame, freighter::Error> writeDigital(synnax::Frame frame);
+        freighter::Error writeDigital(synnax::Frame frame);
         freighter::Error formatData(synnax::Frame frame);
         void parse_digital_writer_config(config::Parser &parser);
         int checkNIError(int32 error);
@@ -151,4 +165,7 @@ namespace ni{
         WriterConfig writer_config; 
         breaker::Breaker breaker;
     };
+
+
+
 }

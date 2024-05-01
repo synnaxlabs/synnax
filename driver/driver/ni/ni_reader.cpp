@@ -76,8 +76,7 @@ ni::niDaqReader::niDaqReader(
     }
 }
 
-void ni::niDaqReader::parse_analog_reader_config(config::Parser & parser)
-{
+void ni::niDaqReader::parse_analog_reader_config(config::Parser & parser){
     // Get Acquisition Rate and Stream Rates
     this->reader_config.acq_rate = parser.required<uint64_t>("acq_rate");
     this->reader_config.stream_rate = parser.required<uint64_t>("stream_rate");
@@ -112,8 +111,7 @@ void ni::niDaqReader::parse_analog_reader_config(config::Parser & parser)
 }
 
 
-void ni::niDaqReader::parse_digital_reader_config(config::Parser & parser)
-{
+void ni::niDaqReader::parse_digital_reader_config(config::Parser & parser){
     // Get Acquisition Rate and Stream Rates
     this->reader_config.acq_rate = parser.required<uint64_t>("acq_rate");
     this->reader_config.stream_rate = parser.required<uint64_t>("stream_rate"); 
@@ -148,8 +146,7 @@ void ni::niDaqReader::parse_digital_reader_config(config::Parser & parser)
 }
 
 
-int ni::niDaqReader::init()
-{
+int ni::niDaqReader::init(){
     int err = 0;
     auto channels = this->reader_config.channels;
     
@@ -194,8 +191,7 @@ int ni::niDaqReader::init()
 }
 
 
-freighter::Error ni::niDaqReader::start()
-{
+freighter::Error ni::niDaqReader::start(){
     // TODO: don't let multiple starts happen (or handle it at least)
     freighter::Error err = freighter::NIL;
     if (this->checkNIError(DAQmxStartTask(taskHandle))){
@@ -208,8 +204,7 @@ freighter::Error ni::niDaqReader::start()
 }
 
 
-freighter::Error ni::niDaqReader::stop()
-{ // TODO: don't let multiple stops happen (or handle it at least)
+freighter::Error ni::niDaqReader::stop(){ // TODO: don't let multiple stops happen (or handle it at least)
     freighter::Error err = freighter::NIL;
 
     if (this->checkNIError(DAQmxStopTask(taskHandle))){
@@ -237,8 +232,7 @@ freighter::Error ni::niDaqReader::stop()
     return err;
 }
 
-std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readAnalog()
-{
+std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readAnalog(){
     signed long samplesRead = 0;
     float64 flush[1000]; // to flush buffer before performing a read
     signed long flushRead = 0;    
@@ -304,8 +298,7 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readAnalog()
 
 
 
-std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readDigital()
-{
+std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readDigital(){
     signed long samplesRead;
     char errBuff[2048] = {'\0'};
     uInt8 flushBuffer[10000]; // to flush buffer before performing a read
@@ -389,8 +382,7 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::read()
 }
 
 
-int ni::niDaqReader::checkNIError(int32 error) 
-{
+int ni::niDaqReader::checkNIError(int32 error) {
     if (error < 0)
     {
         char errBuff[2048] = {'\0'};
@@ -409,8 +401,7 @@ int ni::niDaqReader::checkNIError(int32 error)
     return 0;
 }
 
-bool ni::niDaqReader::ok() //TODO: make this inline?
-{
+bool ni::niDaqReader::ok() {
     return this->ok_state;
 }
 
@@ -580,12 +571,12 @@ freighter::Error ni::niDaqWriter::stop(){
 }
 
 // Here to modify as we add more writing options
-std::pair<synnax::Frame, freighter::Error> ni::niDaqWriter::write(synnax::Frame frame){ 
+freighter::Error ni::niDaqWriter::write(synnax::Frame frame){ 
     // TODO: should this function get a Frame or a bit vector of setpoints instead?
     return writeDigital(std::move(frame));
 }
 
-std::pair<synnax::Frame, freighter::Error> ni::niDaqWriter::writeDigital(synnax::Frame frame){
+freighter::Error ni::niDaqWriter::writeDigital(synnax::Frame frame){
     char errBuff[2048] = {'\0'};
     signed long samplesWritten = 0;
     formatData(std::move(frame));
@@ -600,7 +591,7 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqWriter::writeDigital(synnax:
                                                     &samplesWritten,          // samples written
                                                     NULL))){
         LOG(ERROR) << "[NI Writer] failed while writing digital data for task " << this->writer_config.task_name;
-        return std::make_pair(synnax::Frame(0), freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR, "Error reading digital data"));
+        return freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR, "Error reading digital data");
     }
 
 
@@ -616,11 +607,11 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqWriter::writeDigital(synnax:
     }
 
     // return acknowledgements frame to write to the ack channel
-    return {std::move(ack_frame), freighter::NIL};
+    this->writer_state_source.write(std::move(ack_frame));
+    return freighter::NIL;
 }
 
-freighter::Error ni::niDaqWriter::formatData(synnax::Frame frame)
-{
+freighter::Error ni::niDaqWriter::formatData(synnax::Frame frame){
     uint32_t frame_index = 0;
     uint32_t cmd_channel_index = 0;
     for (auto key : *(frame.channels))
@@ -639,8 +630,7 @@ freighter::Error ni::niDaqWriter::formatData(synnax::Frame frame)
     return freighter::NIL;
 }
 
-int ni::niDaqWriter::checkNIError(int32 error) //TODO: make this inline?
-{
+int ni::niDaqWriter::checkNIError(int32 error){
     if (error < 0)
     {
         char errBuff[2048] = {'\0'};
@@ -657,10 +647,42 @@ int ni::niDaqWriter::checkNIError(int32 error) //TODO: make this inline?
     return 0;
 }
 
-bool ni::niDaqWriter::ok() //TODO: make this inline?
-{
+bool ni::niDaqWriter::ok(){
     return this->ok_state;
 }
+
+///////////////////////////////////////////////////////////////////////////////////
+//                                    niDaqStateWriter                           //
+///////////////////////////////////////////////////////////////////////////////////
+
+ni::niDaqStateWriter::niDaqStateWriter(){}
+
+
+std::pair<synnax::Frame, freighter::Error> ni::niDaqStateWriter::read(){
+    std::unique_lock<std::mutex> lock(this->state_mutex);
+    while(state_queue.empty()){
+        cv.wait(lock);
+    }
+    auto temp = std::move(state_queue.front());
+    state_queue.pop();
+    return std::make_pair(std::move(temp), freighter::NIL);
+}
+
+freighter::Error ni::niDaqStateWriter::write(synnax::Frame frame){
+    std::unique_lock<std::mutex> lock(this->state_mutex);
+    state_queue.push(std::move(frame));
+    cv.notify_one();
+    return freighter::NIL;
+}
+
+freighter::Error ni::niDaqStateWriter::start(){
+    return freighter::NIL;
+}
+
+freighter::Error ni::niDaqStateWriter::stop(){
+    return freighter::NIL;
+}
+
 
 // TODO create a helper function that takes in a frame and formats into the data to pass into writedigital
 // TODO: create a helper function to parse digital data configuration of wehtehr its a port to r line
