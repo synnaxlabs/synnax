@@ -62,7 +62,7 @@ TEST(ReaderTests, test_read_one_digital_channel){
                                     mockCtx, 
                                     task);
 
-    reader.start();
+    // reader.start();
     std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
     auto [frame, err] = reader.read();
     std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
@@ -87,7 +87,7 @@ TEST(ReaderTests, test_read_one_digital_channel){
         }
     }
     std::cout << std::endl;
-    reader.stop();
+    // reader.stop();
 }
 
 
@@ -133,33 +133,35 @@ TEST(ReaderTests, test_read_multiple_digital_channel){
     auto reader = ni::daqReader(  taskHandle, 
                                     mockCtx, 
                                     task);
-    reader.start();
-    std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
-    auto [frame, err] = reader.read();
-    std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
+    // reader.start();
+    for(int i = 0; i < 50; i++ ) { // test for 50 read cycles
+        std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
+        auto [frame, err] = reader.read();
+        std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
 
 
-     //iterate through each series and print the data
-    for(int i = 0; i < frame.series->size(); i++){
-        std::cout << "\n\n Series " << i << ": \n";
-        // check series type before casting
-        if (frame.series->at(i).data_type == synnax::UINT8){
-            auto s =  frame.series->at(i).uint8();
-            for (int j = 0; j < s.size(); j++){
-                std::cout << (uint32_t)s[j] << ", ";
-                ASSERT_TRUE((s[j] == 1) || (s[j] == 0));   
+        //iterate through each series and print the data
+        for(int i = 0; i < frame.series->size(); i++){
+            std::cout << "\n\n Series " << i << ": \n";
+            // check series type before casting
+            if (frame.series->at(i).data_type == synnax::UINT8){
+                auto s =  frame.series->at(i).uint8();
+                for (int j = 0; j < s.size(); j++){
+                    std::cout << (uint32_t)s[j] << ", ";
+                    ASSERT_TRUE((s[j] == 1) || (s[j] == 0));   
+                }
+            }
+            else if(frame.series->at(i).data_type == synnax::TIMESTAMP){
+                auto s =  frame.series->at(i).uint64();
+                for (int j = 0; j < s.size(); j++){
+                    std::cout << s[j] << ", ";
+                    ASSERT_TRUE((s[j] >= initial_timestamp) && (s[j] <= final_timestamp));
+                }
             }
         }
-        else if(frame.series->at(i).data_type == synnax::TIMESTAMP){
-            auto s =  frame.series->at(i).uint64();
-            for (int j = 0; j < s.size(); j++){
-                std::cout << s[j] << ", ";
-                ASSERT_TRUE((s[j] >= initial_timestamp) && (s[j] <= final_timestamp));
-            }
-        }
+        std::cout << std::endl;
     }
-    std::cout << std::endl;
-    reader.stop();
+    // reader.stop();
 }
 
 
@@ -177,7 +179,7 @@ TEST(ReaderTests, test_read_one_analog_channel){
     add_AI_channel_JSON(config, "a1", 65531, 0, -10.0, 10.0);
 
     //print json as a string
-    std::cout << config.dump(4) << std::endl;
+    // std::cout << config.dump(4) << std::endl;
 
     // Synnax infrustructure
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
@@ -199,7 +201,7 @@ TEST(ReaderTests, test_read_one_analog_channel){
                                     mockCtx, 
                                     task); // analog reader
 
-    reader.start();
+    // reader.start();
     std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
     auto [frame, err] = reader.read();
     std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
@@ -227,7 +229,7 @@ TEST(ReaderTests, test_read_one_analog_channel){
         }
     }
     std::cout << std::endl;
-    reader.stop();
+    // reader.stop();
 }
 
 
@@ -272,35 +274,37 @@ TEST(ReaderTests, test_read_multiple_analog_channels){
                                     mockCtx, 
                                     task); // analog reader
 
-    reader.start();
-    std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
-    auto [frame, err] = reader.read();
-    std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
+    // reader.start();
 
-     //iterate through each series and print the data
-    uint32_t ai_count = 0;
-    for(int i = 0; i < frame.series->size(); i++){
-        std::cout << "\n\n Series " << i << ": \n";
-        // check series type before casting
-        if (frame.series->at(i).data_type == synnax::FLOAT32){
-            auto s =  frame.series->at(i).float32();
-            for (int j = 0; j < s.size(); j++){
-                std::cout << s[j] << ", ";
-                // ASSERT_TRUE((s[j] == 1) || (s[j] == 0));
-                ASSERT_NEAR(s[j], ai_count, 1);
+    for(int i = 0; i < 50; i++ ) { // test for 50 read cycles
+        std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
+        auto [frame, err] = reader.read();
+        std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
+
+        //iterate through each series and print the data
+        for(int i = 0; i < frame.series->size(); i++){
+            std::cout << "\n\n Series " << i << ": \n";
+            // check series type before casting
+            if (frame.series->at(i).data_type == synnax::FLOAT32){
+                auto s =  frame.series->at(i).float32();
+                for (int j = 0; j < s.size(); j++){
+                    std::cout << s[j] << ", ";
+                    ASSERT_NEAR(s[j], 0, 10); // can be any value of a sign wave from -10 to 10
+                }
             }
-            ai_count++;
-        }
-        else if(frame.series->at(i).data_type == synnax::TIMESTAMP){
-            auto s =  frame.series->at(i).uint64();
-            for (int j = 0; j < s.size(); j++){
-                std::cout << s[j] << ", ";
-                ASSERT_TRUE((s[j] >= initial_timestamp) && (s[j] <= final_timestamp));
+            else if(frame.series->at(i).data_type == synnax::TIMESTAMP){
+                auto s =  frame.series->at(i).uint64();
+                for (int j = 0; j < s.size(); j++){
+                    std::cout << s[j] << ", ";
+                    ASSERT_TRUE((s[j] >= initial_timestamp) && (s[j] <= final_timestamp));
+                }
             }
         }
+        std::cout << std::endl;
     }
-    std::cout << std::endl;
-    reader.stop();
+    
+    
+    // reader.stop();
 }
 
 TEST(WriterTests, test_write_one_digital_channel){
@@ -346,7 +350,7 @@ TEST(WriterTests, test_write_one_digital_channel){
     cmd_frame.add(  65531, 
                 synnax::Series(cmd_vec));
 
-    writer.start();
+    // writer.start();
 
     std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
 
@@ -396,7 +400,7 @@ TEST(WriterTests, test_write_one_digital_channel){
     final_timestamp = (synnax::TimeStamp::now()).value;   
 
     cmd_count = 0;
-    for(int i = 0; i < frame.series->size(); i++){
+    for(int i = 0; i < frame2.series->size(); i++){
         std::cout << "\n\n Series " << i << ": \n";
         // check series type before casting
         if (frame2.series->at(i).data_type == synnax::UINT8){
@@ -418,7 +422,7 @@ TEST(WriterTests, test_write_one_digital_channel){
     std::cout << std::endl;
 
 
-    writer.stop();
+    // writer.stop();
 }
 
 
@@ -479,7 +483,7 @@ TEST(NiWriterTests, test_write_multiple_digital_channel){
     }
     
 
-    writer.start();
+    // writer.start();
 
     std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
     
@@ -551,7 +555,7 @@ TEST(NiWriterTests, test_write_multiple_digital_channel){
         }
     }
     std::cout << std::endl;
-    writer.stop();
+    // writer.stop();
 }
 
 

@@ -83,6 +83,8 @@ namespace ni{
         freighter::Error stop();
         freighter::Error start();
         bool ok();
+        // destructor
+        ~daqReader();
 
     private:
         // private helper functions
@@ -152,6 +154,8 @@ namespace ni{
         freighter::Error stop();
         freighter::Error start();
         bool ok();
+        ~daqWriter();
+
 
         std::unique_ptr<ni::daqStateWriter> writer_state_source;
     private:

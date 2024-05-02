@@ -74,6 +74,8 @@ ni::daqReader::daqReader(
         LOG(ERROR) << "[NI Reader] Failed while configuring NI hardware for task " << this->reader_config.task_name;
         this->ok_state = false;
     }
+
+    this->start(); // errors are handled in start
 }
 
 void ni::daqReader::parseAnalogReaderConfig(config::Parser & parser){
@@ -404,6 +406,9 @@ bool ni::daqReader::ok() {
 }
 
 
+ni::daqReader::~daqReader(){
+    this->stop();
+}
 
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -652,6 +657,10 @@ int ni::daqWriter::checkNIError(int32 error){
 
 bool ni::daqWriter::ok(){
     return this->ok_state;
+}
+
+ni::daqWriter::~daqWriter(){
+    this->stop();
 }
 
 ///////////////////////////////////////////////////////////////////////////////////

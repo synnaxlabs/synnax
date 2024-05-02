@@ -11,7 +11,7 @@
 // Created by Synnax on 2/4/2024.
 //
 
-/// stdd
+/// std
 #include <stdio.h>
 #include <thread>
 
@@ -19,12 +19,111 @@
 #include <include/gtest/gtest.h>
 
 /// Internal
-#include "synnax/synnax.h"
+#include "client/cpp/synnax/synnax.h"
+#include "driver/driver/ni/ni_reader.h"
 #include "Acquisition.h"
-#include "driver/testutil/testutil.h"
+#include "driver/driver/testutil/testutil.h"
+#include "nlohmann/json.hpp"
+#include "driver/driver/breaker/breaker.h"
+
+using json = nlohmann::json;
 
 /// @brief it should use niReader and perform a acuisition workflow which
 /// includes init, start, stop, and read functions and commits a frame to synnax
+TEST(AcquisitionPipelineTests, test_acquisition_NI_analog_reader){
+        LOG(INFO) << "Test Acq Analog Read:" << std::endl;
+
+
+        // create synnax client
+        auto client_config = synnax::Config{
+                "localhost",
+                9090,
+                "synnax",
+                "seldon"};
+        auto client = std::make_shared<synnax::Synnax>(client_config);
+        // create all the necessary channels in the synnax client
+        auto [time, tErr] = client->channels.create( // index channel for analog input channels
+                "time",
+                synnax::TIMESTAMP,
+                0,
+                true
+        );
+        ASSERT_FALSE(tErr) << tErr.message();
+
+        auto [data, dErr] = client->channels.create( // analog input channel
+                "acq_data",
+                synnax::FLOAT32,
+                time.key,
+                false
+        );
+        ASSERT_FALSE(dErr) << dErr.message();
+
+        // create reader config json
+        auto config = json{
+            {"acq_rate", 2000}, // dont actually need these here
+            {"stream_rate", 20}, // same as above
+            {"device_name", "Dev1"},
+            {"reader_type", "analogReader"}
+        };
+        add_index_channel_JSON(config, "time", time.key);
+        add_AI_channel_JSON(config, "acq_data", data.key, 0, -10.0, 10.0);
+
+        // create synnax task
+        auto task = synnax::Task(
+                "my_task",
+                "NI_analogReader",
+                to_string(config)
+        );
+
+        auto mockCtx = std::make_shared<task::MockContext>(client);
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+        // now create a daqReader
+        TaskHandle taskHandle;
+        DAQmxCreateTask("",&taskHandle);
+
+        auto reader = std::make_unique<ni::daqReader>(taskHandle, mockCtx, task);
+
+        // now create test writer config
+        // auto now = synnax::TimeStamp::now();
+        // auto writerConfig = synnax::WriterConfig{
+        //         std::vector<synnax::ChannelKey>{time.key, data.key},
+        //         now,
+        //         std::vector<synnax::Authority>{synnax::ABSOLUTTE, synnax::ABSOLUTTE},
+        //         synnax::ControlSubject{"test_writer"},
+        // };
+
+        auto writerConfig = synnax::WriterConfig{
+                .channels = std::vector<synnax::ChannelKey>{time.key, data.key},
+                .start = TimeStamp::now(),
+                .mode = synnax::WriterStreamOnly};
+
+        // create breaker config     
+        auto breaker_config = breaker::Config{
+                .name = task.name,
+                .base_interval = 1 * SECOND,
+                .max_retries = 20,
+                .scale = 1.2,
+        };
+
+
+        // instantiate the acquisition pipe
+        auto acquisition_pipe = pipeline::Acquisition(mockCtx, writerConfig, std::move(reader), breaker_config); 
+        
+        acquisition_pipe.start();
+        std::this_thread::sleep_for(std::chrono::seconds(30));
+        acquisition_pipe.stop();
+}
+
+
+
+
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////// OLD
+
+
+/*
 
 TEST(AcqTests, testAcqNiAnalogReader){
     //TODO add asserts (elham)
@@ -140,3 +239,5 @@ TEST(AcqTests, testAcqNiDigitalReader){
     std::this_thread::sleep_for(std::chrono::seconds(200));
     acq.stop();
 }
+
+*/
