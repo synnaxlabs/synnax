@@ -40,7 +40,7 @@ interface ReferenceTreeProps {
 
 const Reference = ({ currentPage }: ReferenceTreeProps): ReactElement => {
   let parts = currentPage.split("/").filter((part) => part !== "");
-  if (parts.length === 1) parts = componentsPages.map((p) => p.key);
+  if (parts.length <= 1) parts = componentsPages.map((p) => p.key);
   if (currentPage === "/guides/") currentPage = "/reference/";
   const treeProps = Tree.use({
     nodes: componentsPages,
@@ -60,7 +60,7 @@ const Reference = ({ currentPage }: ReferenceTreeProps): ReactElement => {
 
 const Guides = ({ currentPage }: TOCProps): ReactElement => {
   let parts = currentPage.split("/").filter((part) => part !== "");
-  if (parts.length === 1) parts = guidesPages.map((p) => p.key);
+  if (parts.length <= 1) parts = guidesPages.map((p) => p.key);
   if (currentPage === "/reference/") currentPage = "/guides/";
   const treeProps = Tree.use({
     nodes: guidesPages,

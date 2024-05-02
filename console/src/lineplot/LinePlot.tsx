@@ -104,7 +104,7 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
     const toFetch = lines.filter((line) => line.label == null);
     if (toFetch.length === 0) return;
     const fetched = await client.channels.retrieve(
-      unique(toFetch.map((line) => line.channels.y)),
+      unique(toFetch.map((line) => line.channels.y)) as channel.KeysOrNames,
     );
     const update = toFetch.map((l) => ({
       key: l.key,
@@ -265,7 +265,7 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
           axes={axes}
           lines={propsLines}
           rules={vis.rules}
-          clearOverscan={{ x: 5, y: 5 }}
+          clearOverScan={{ x: 5, y: 5 }}
           onTitleChange={handleTitleChange}
           titleLevel={vis.title.level}
           showTitle={vis.title.visible}

@@ -1,7 +1,9 @@
-import { Tabs as Core } from "@/components/Tabs";
+import { useEffect, useState } from "react";
+
 import { Icon } from "@synnaxlabs/media";
 import { Select, Text } from "@synnaxlabs/pluto";
-import { useEffect, useState } from "react";
+
+import { Tabs as Core } from "@/components/Tabs";
 
 const TABS = [
   { key: "docker", name: "Docker", tabKey: "docker", icon: <Icon.OS.Docker /> },
@@ -76,7 +78,7 @@ export const OSSelectButton = () => {
       {({ selected: s, toggle }) => (
         <Select.BaseButton
           iconSpacing="small"
-          size="small"
+          size="medium"
           onClick={toggle}
           variant="outlined"
           startIcon={s?.icon}

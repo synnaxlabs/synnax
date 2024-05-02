@@ -184,7 +184,7 @@ func (w *Writer) Commit(ctx context.Context) (telem.TimeStamp, error) {
 
 func (w *Writer) CommitWithEnd(ctx context.Context, end telem.TimeStamp) (err error) {
 	if w.closed {
-		return core.EntityClosed(("unary.writer"))
+		return core.EntityClosed("unary.writer")
 	}
 	_, err = w.commitWithEnd(ctx, end)
 	return err

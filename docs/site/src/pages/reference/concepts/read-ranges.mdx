@@ -28,28 +28,64 @@ channel and return the requested data.
 
 ### Range Inclusivity
 
-It's important to note that ranges are start **inclusive** and end **exclusive**.
+It's important to note that ranges are start **inclusive** and end **exclusive**. For
+example, if our desired range is from `1677433720970863400` to `1677433721870863400`, we
+would retrieve the following subset from the shown domain:
 
-Let's assume the full data is shown in this table:
-
-| time                | my-precise-tc | strain-gauge-01 | pressure-transducer-05 |
-| ------------------- | ------------- | --------------- | ---------------------- |
-| 1677433720770863800 | 19.17         | 344.78          | 16.22                  |
-| 1677433720970863400 | 19.18         | 346.78          | 17.22                  |
-| 1677433721270868900 | 19.19         | 348.78          | 18.22                  |
-| 1677433721470863800 | 19.21         | 350.78          | 19.22                  |
-| 1677433721870863400 | 19.22         | 352.78          | 20.22                  |
-| 1677433721970868900 | 19.23         | 354.78          | 21.22                  |
-
-If our desired range is from 1677433720970863400 to 1677433721870863400, we
-would get the following subset of data:
-
-| time                | my-precise-tc | strain-gauge-01 | pressure-transducer-05 |
-| ------------------- | ------------- | --------------- | ---------------------- |
-| 1677433720770863800 | 19.17         | 344.78          | 16.22                  |
-| 1677433720970863400 | 19.18         | 346.78          | 17.22                  |
-| 1677433721270868900 | 19.19         | 348.78          | 18.22                  |
-| 1677433721470863800 | 19.21         | 350.78          | 19.22                  |
+<Table
+  client:only="react"
+  columns={[
+    { key: "time" },
+    { key: "my-precise-tc" },
+    { key: "strain-gauge-01" },
+    { key: "pressure-transducer-05" }
+  ]}
+  highlights={[
+    {
+      key: "one",
+      columns: [
+        "time",
+        "my-precise-tc",
+        "strain-gauge-01",
+        "pressure-transducer-05"
+      ],
+      color: "var(--pluto-primary-z)",
+      rows: { lower: 1, upper: 4 }
+    }
+  ]}
+  data={[
+    {
+      time: 1677433720770863800,
+      "my-precise-tc": 19.2,
+      "strain-gauge-01": 350.78,
+      "pressure-transducer-05": 19.22
+    },
+    {
+      time: 1677433720970863400,
+      "my-precise-tc": 19.2,
+      "strain-gauge-01": 350.78,
+      "pressure-transducer-05": 19.22
+    },
+    {
+      time: 1677433721270868900,
+      "my-precise-tc": 19.2,
+      "strain-gauge-01": 350.78,
+      "pressure-transducer-05": 19.22
+    },
+    {
+      time: 1677433721470863800,
+      "my-precise-tc": 19.2,
+      "strain-gauge-01": 350.78,
+      "pressure-transducer-05": 19.22
+    },
+    {
+      time: 1677433721870863400,
+      "my-precise-tc": 19.2,
+      "strain-gauge-01": 350.78,
+      "pressure-transducer-05": 19.22
+    }
+  ]}
+/>
 
 <Divider.Divider direction="x" />
 
