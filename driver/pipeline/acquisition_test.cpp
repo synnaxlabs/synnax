@@ -84,14 +84,122 @@ TEST(AcquisitionPipelineTests, test_acquisition_NI_analog_reader){
 
         auto reader = std::make_unique<ni::daqReader>(taskHandle, mockCtx, task);
 
-        // now create test writer config
-        // auto now = synnax::TimeStamp::now();
-        // auto writerConfig = synnax::WriterConfig{
-        //         std::vector<synnax::ChannelKey>{time.key, data.key},
-        //         now,
-        //         std::vector<synnax::Authority>{synnax::ABSOLUTTE, synnax::ABSOLUTTE},
-        //         synnax::ControlSubject{"test_writer"},
-        // };
+        auto writerConfig = synnax::WriterConfig{
+                .channels = std::vector<synnax::ChannelKey>{time.key, data.key},
+                .start = TimeStamp::now(),
+                .mode = synnax::WriterStreamOnly};
+
+        // create breaker config     
+        auto breaker_config = breaker::Config{
+                .name = task.name,
+                .base_interval = 1 * SECOND,
+                .max_retries = 20,
+                .scale = 1.2,
+        };
+
+
+        // instantiate the acquisition pipe
+        auto acquisition_pipe = pipeline::Acquisition(mockCtx, writerConfig, std::move(reader), breaker_config); 
+
+        // create a streamer to read the frames that the pipe writes to the server
+        auto streamer_config = synnax::StreamerConfig{
+                .channels = std::vector<synnax::ChannelKey>{time.key, data.key},
+                .start = TimeStamp::now(),
+        };
+
+        auto [streamer, sErr] = mockCtx->client->telem.openStreamer(streamer_config);
+
+
+        
+        acquisition_pipe.start();
+
+        for(int i = 0; i < 100; i++){
+                auto [frame, err] = streamer.read();
+                std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
+
+                uint32_t ai_count = 0;
+                for(int i = 0; i < frame.series->size(); i++){
+                        std::cout << "\n\n Series " << i << ": \n";
+                        // check series type before casting
+                        if (frame.series->at(i).data_type == synnax::FLOAT32){
+                                auto s =  frame.series->at(i).float32();
+                                for (int j = 0; j < s.size(); j++){
+                                        std::cout << s[j] << ", ";
+                                        ASSERT_NEAR(s[j], 0, 10); // can be any value of a sign wave from -10 to 10
+                                }
+                                ai_count++;
+                        }
+                        else if(frame.series->at(i).data_type == synnax::TIMESTAMP){
+                                auto s =  frame.series->at(i).uint64();
+                                for (int j = 0; j < s.size(); j++){
+                                        std::cout << s[j] << ", ";
+                                        ASSERT_TRUE((s[j] <= final_timestamp));
+                                }
+                        }
+                }
+                std::cout << std::endl;
+        }
+        std::this_thread::sleep_for(std::chrono::seconds(10));
+        acquisition_pipe.stop();
+}
+
+
+
+/// @brief it should use niReader and perform a acuisition workflow which
+/// includes init, start, stop, and read functions and commits a frame to synnax
+TEST(AcquisitionPipelineTests, test_acquisition_NI_digital_reader){
+        LOG(INFO) << "Test Acq Digital Read:" << std::endl;
+
+
+        // create synnax client
+        auto client_config = synnax::Config{
+                "localhost",
+                9090,
+                "synnax",
+                "seldon"};
+        auto client = std::make_shared<synnax::Synnax>(client_config);
+        // create all the necessary channels in the synnax client
+        auto [time, tErr] = client->channels.create( // index channel for analog input channels
+                "time",
+                synnax::TIMESTAMP,
+                0,
+                true
+        );
+        ASSERT_FALSE(tErr) << tErr.message();
+
+        auto [data, dErr] = client->channels.create( // analog input channel
+                "acq_data",
+                synnax::UINT8,
+                time.key,
+                false
+        );
+        ASSERT_FALSE(dErr) << dErr.message();
+
+        // create reader config json
+        auto config = json{
+            {"acq_rate", 2000}, // dont actually need these here
+            {"stream_rate", 20}, // same as above
+            {"device_name", "PXI1Slot2_2"},
+            {"reader_type", "digitalReader"}
+        };
+        add_index_channel_JSON(config, "time", time.key);
+        add_DI_channel_JSON(config, "acq_data", data.key, 0, 0);
+
+        // create synnax task
+        auto task = synnax::Task(
+                "my_task",
+                "NI_digitalReader",
+                to_string(config)
+        );
+
+        auto mockCtx = std::make_shared<task::MockContext>(client);
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+        // now create a daqReader
+        TaskHandle taskHandle;
+        DAQmxCreateTask("",&taskHandle);
+
+        auto reader = std::make_unique<ni::daqReader>(taskHandle, mockCtx, task);
 
         auto writerConfig = synnax::WriterConfig{
                 .channels = std::vector<synnax::ChannelKey>{time.key, data.key},
@@ -109,135 +217,46 @@ TEST(AcquisitionPipelineTests, test_acquisition_NI_analog_reader){
 
         // instantiate the acquisition pipe
         auto acquisition_pipe = pipeline::Acquisition(mockCtx, writerConfig, std::move(reader), breaker_config); 
+
+        // create a streamer to read the frames that the pipe writes to the server
+        auto streamer_config = synnax::StreamerConfig{
+                .channels = std::vector<synnax::ChannelKey>{time.key, data.key},
+                .start = TimeStamp::now(),
+        };
+
+        auto [streamer, sErr] = mockCtx->client->telem.openStreamer(streamer_config);
+
+
         
         acquisition_pipe.start();
-        std::this_thread::sleep_for(std::chrono::seconds(30));
+
+        for(int i = 0; i < 100; i++){
+                auto [frame, err] = streamer.read();
+                std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
+
+                uint32_t ai_count = 0;
+                for(int i = 0; i < frame.series->size(); i++){
+                        std::cout << "\n\n Series " << i << ": \n";
+                        // check series type before casting
+                        if (frame.series->at(i).data_type == synnax::UINT8){
+                                auto s =  frame.series->at(i).uint8();
+                                for (int j = 0; j < s.size(); j++){
+                                        std::cout << (uint32_t)s[j] << ", ";
+                                        ASSERT_TRUE((s[j] == 1) || (s[j] == 0));   
+                                }
+                                ai_count++;
+                        }
+                        else if(frame.series->at(i).data_type == synnax::TIMESTAMP){
+                                auto s =  frame.series->at(i).uint64();
+                                for (int j = 0; j < s.size(); j++){
+                                        std::cout << s[j] << ", ";
+                                        ASSERT_TRUE((s[j] <= final_timestamp));
+                                }
+                        }
+                }
+                std::cout << std::endl;
+        }
+        std::this_thread::sleep_for(std::chrono::seconds(10));
         acquisition_pipe.stop();
 }
 
-
-
-
-
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////////// OLD
-
-
-/*
-
-TEST(AcqTests, testAcqNiAnalogReader){
-    //TODO add asserts (elham)
-    std::cout << "Test Acq Analog Read:" << std::endl;
-    // create task
-    TaskHandle taskHandle;
-    DAQmxCreateTask("",&taskHandle);
-    auto client_config = synnax::Config{
-            "localhost",
-            9090,
-            "synnax",
-            "seldon"};
-
-    auto client = std::make_shared<synnax::Synnax>(client_config);
-    auto [time, tErr] = client->channels.create(
-            "time",
-            synnax::TIMESTAMP,
-            0,
-            true
-    );
-
-    ASSERT_FALSE(tErr) << tErr.message();
-
-    auto [data, dErr] = client->channels.create(
-            "data",
-            synnax::FLOAT32,
-            time.key,
-            false
-    );
-    ASSERT_FALSE(dErr) << dErr.message();
-
-    std::vector<ni::channel_config> channel_configs;
-    channel_configs.push_back(ni::channel_config({"", time.key, ni::INDEX_CHANNEL , 0, 0}));
-    channel_configs.push_back(ni::channel_config({"Dev1/ai0", data.key, ni::ANALOG_VOLTAGE_IN , -10.0, 10.0}));
-    //print keys
-    std::cout << "Time Key: " << time.key << std::endl;
-    std::cout << "Data Key: " << data.key << std::endl;
-    // make and init daqReade unique ptrr
-    auto reader = std::make_unique<ni::niDaqReader>(taskHandle);
-    reader->init(channel_configs, 1000, 500);
-
-    // create a test writer
-    auto now = synnax::TimeStamp::now();
-    auto writerConfig = synnax::WriterConfig{
-            std::vector<synnax::ChannelKey>{time.key, data.key},
-            now,
-            std::vector<synnax::Authority>{synnax::ABSOLUTTE, synnax::ABSOLUTTE},
-            synnax::ControlSubject{"test_writer"},
-    };
-
-    // instantiate the acq
-    auto acq = Acquisition::Acquisition(writerConfig, client, std::move(reader));
-    acq.start();
-    std::this_thread::sleep_for(std::chrono::seconds(200));
-    acq.stop();
-
-}
-
-TEST(AcqTests, testAcqNiDigitalReader){
-    std::cout << "Test Acq Digital Reads: " << std::endl;
-
-    //create synnax client config
-    auto client_config = synnax::Config{
-            "localhost",
-            9090,
-            "synnax",
-            "seldon"};
-    auto client = std::make_shared<synnax::Synnax>(client_config);
-
-    // create all the necessary channels in the synnax client
-    auto [idx, tErr1] = client->channels.create( // index channel for digital input channels
-            "idx",
-            synnax::TIMESTAMP,
-            0,
-            true
-    );
-    ASSERT_FALSE(tErr1) << tErr1.message();
-    auto [d1, dErr] = client->channels.create( // digital input channel
-            "d1",
-            synnax::UINT8,
-            idx.key,
-            false
-    );
-    ASSERT_FALSE(dErr) << dErr.message();
-
-    //create config json
-    auto config = json{
-            {"acq_rate", 100}, // dont actually need these here
-            {"stream_rate", 20}, // same as above
-            {"hardware", "PXI1Slot2_2"}
-    };
-    add_index_channel_JSON(config, "idx", idx.key);
-    add_DI_channel_JSON(config, "d1", d1.key, 0, 0);
-
-    //create daqReader
-    TaskHandle taskHandle;
-    DAQmxCreateTask("",&taskHandle);
-    auto reader = std::make_unique<ni::niDaqReader>(taskHandle);
-    reader->init(config, config["acq_rate"], config["stream_rate"]);
-
-    // create a test writer
-    auto now = synnax::TimeStamp::now();
-    auto writerConfig = synnax::WriterConfig{
-            std::vector<synnax::ChannelKey>{idx.key, d1.key},
-            now,
-            std::vector<synnax::Authority>{synnax::ABSOLUTTE, synnax::ABSOLUTTE},
-            synnax::ControlSubject{"test_writer"},
-    };
-
-    // instantiate the acq
-    auto acq = Acquisition::Acquisition(writerConfig, client, std::move(reader));
-    acq.start();
-    std::this_thread::sleep_for(std::chrono::seconds(200));
-    acq.stop();
-}
-
-*/

@@ -56,27 +56,6 @@ void Acquisition::run() {
                 continue;
             break;
         }
-        ////
-        uint32_t ai_count = 0;
-        for(int i = 0; i < frame.series->size(); i++){
-            std::cout << "\n\n Series " << i << ": \n";
-            // check series type before casting
-            if (frame.series->at(i).data_type == synnax::FLOAT32){
-                auto s =  frame.series->at(i).float32();
-                for (int j = 0; j < s.size(); j++){
-                    std::cout << s[j] << ", ";
-                }
-                ai_count++;
-            }
-            else if(frame.series->at(i).data_type == synnax::TIMESTAMP){
-                auto s =  frame.series->at(i).uint64();
-                for (int j = 0; j < s.size(); j++){
-                    std::cout << s[j] << ", ";
-                }
-            }
-        }
-        std::cout << std::endl;
-        ////
         if (!writer.write(frame)) break;
         breaker.reset();
         auto [end, ok] = writer.commit(); // TODO: REMOVE!!!
