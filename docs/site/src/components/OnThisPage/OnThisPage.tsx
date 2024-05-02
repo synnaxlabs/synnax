@@ -16,8 +16,6 @@ import { type MarkdownHeading } from "astro";
 import { unescape } from "html-escaper";
 import { OSSelectButton } from "@/components/platform/PlatformTabs";
 
-import { OSSelectButton } from "@/components/platform/PlatformTabs";
-
 interface ItemOffset {
   id: string;
   topOffset: number;
