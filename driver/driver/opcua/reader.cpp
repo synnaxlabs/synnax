@@ -10,9 +10,9 @@
 #include <set>
 #include "include/open62541/client_highlevel.h"
 #include "glog/logging.h"
-#include "driver/driver/opcua/reader.h"
-#include "driver/driver/opcua/util.h"
-#include "driver/driver/config/config.h"
+#include "driver/opcua/reader.h"
+#include "driver/opcua/util.h"
+#include "driver/config/config.h"
 #include "include/open62541/client_config_default.h"
 #include "include/open62541/client_subscriptions.h"
 #include "include/open62541/types.h"

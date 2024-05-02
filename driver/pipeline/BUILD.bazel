@@ -29,7 +29,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "@com_github_google_glog//:glog",
-        "//client/cpp/synnax",
+        "//client/cpp:synnax",
         "pipeline",
         "@nlohmann_json//:json",
     ],
@@ -41,8 +41,8 @@ cc_test(
     srcs = ["acquisition_test.cpp"],
     deps = [
         ":pipeline",
-        "//driver/driver/ni",
-        "//driver/driver/testutil",
+        "//driver/ni",
+        "//driver/testutil",
         "@com_github_google_glog//:glog",
         "@com_google_googletest//:gtest_main",
     ],

@@ -19,12 +19,12 @@
 #include <include/gtest/gtest.h>
 
 /// Internal
-#include "client/cpp/synnax/synnax.h"
-#include "driver/driver/ni/ni_reader.h"
+#include "client/cpp/synnax.h"
+#include "driver/ni/ni_reader.h"
 #include "Acquisition.h"
-#include "driver/driver/testutil/testutil.h"
+#include "driver/testutil/testutil.h"
 #include "nlohmann/json.hpp"
-#include "driver/driver/breaker/breaker.h"
+#include "driver/breaker/breaker.h"
 
 using json = nlohmann::json;
 

@@ -43,13 +43,13 @@ cc_library(
     deps = [
         "daqmx_hds",
         "syscfg_hds",
-        "//driver/driver/breaker",
-        "//driver/driver/errors",
-        "//driver/driver/pipeline:daqReader",
-        "//client/cpp/synnax",
-        "//driver/driver/config",
-        "//driver/driver/task",
-#        "//driver/driver/modules:module",
+        "//driver/breaker",
+        "//driver/errors",
+        "//driver/pipeline:daqReader",
+        "//client/cpp:synnax",
+        "//driver/config",
+        "//driver/task",
+#        "//driver/modules:module",
         "@nlohmann_json//:json",
     ],
 )
@@ -66,12 +66,12 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "ni",
-        "//driver/driver/breaker",
-        "//driver/driver/modules:module",
-        "//driver/driver/pipeline:pipeline",
-        "//driver/driver/pipeline:daqReader",
+        "//driver/breaker",
+        "//driver/modules:module",
+        "//driver/pipeline:pipeline",
+        "//driver/pipeline:daqReader",
         "@nlohmann_json//:json",
-        "//client/cpp/synnax",
+        "//client/cpp:synnax",
     ],
 )
 
@@ -85,7 +85,7 @@ cc_test(
         "daqmx_hds",
         "ni",
         "syscfg_hds",
-        "//driver/driver/testutil",
+        "//driver/testutil",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -100,7 +100,7 @@ cc_test(
         "daqmx_hds",
         "ni",
         "syscfg_hds",
-        "//driver/driver/testutil",
+        "//driver/testutil",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -128,7 +128,7 @@ cc_test(
         "@com_google_googletest//:gtest_main",
         "daqmx_hds",
         "syscfg_hds",
-        "//driver/driver/testutil",
+        "//driver/testutil",
     ],
     copts = ["/std:c++20"],
 )

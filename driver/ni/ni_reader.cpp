@@ -11,14 +11,14 @@
 // Created by Emiliano Bonilla on 1/3/24.
 //
 
-#include "driver/driver/ni/ni_reader.h"
+#include "driver/ni/ni_reader.h"
 #include "nlohmann/json.hpp"
-#include "client/cpp/synnax/telem/telem.h"
+#include "client/cpp/telem/telem.h"
 #include <utility>
 #include <chrono>
 #include <stdio.h>
 #include <cassert>
-#include <driver/driver/config/config.h>
+#include <driver/config/config.h>
 #include "glog/logging.h"
 
 using json = nlohmann::json;

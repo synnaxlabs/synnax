@@ -16,14 +16,14 @@
 #include "daqmx.h"
 
 
-#include "client/cpp/synnax/synnax.h"
-#include "driver/driver/task/task.h"
-#include "driver/driver/pipeline/daqReader.h"
-#include "driver/driver/pipeline/acquisition.h"
-#include "driver/driver/errors/errors.h" 
-#include "driver/driver/breaker/breaker.h"
+#include "client/cpp/synnax.h"
+#include "driver/task/task.h"
+#include "driver/pipeline/daqReader.h"
+#include "driver/pipeline/acquisition.h"
+#include "driver/errors/errors.h" 
+#include "driver/breaker/breaker.h"
 
-// #include "driver/driver/modules/module.h"
+// #include "driver/modules/module.h"
 
 namespace ni{
 

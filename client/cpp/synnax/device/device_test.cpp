@@ -11,7 +11,7 @@
 #include <include/gtest/gtest.h>
 
 // Internal
-#include "client/cpp/synnax/synnax.h"
+#include "client/cpp/synnax.h"
 #include "client/cpp/synnax/testutil/testutil.h"
 
 /// @brief it should correctly create a rack in the cluster.

@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include "client/cpp/synnax/synnax.h"
+#include "client/cpp/synnax.h"
 #include <memory>
 #include <utility>
 #include "nlohmann/json.hpp"

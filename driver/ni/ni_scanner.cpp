@@ -11,7 +11,7 @@
 // Created by Synnax on 3/24/2024.
 //
 
-#include "driver/driver/ni/ni_scanner.h"
+#include "driver/ni/ni_scanner.h"
 #include "nisyscfg.h"
 #include "nlohmann/json.hpp"
 

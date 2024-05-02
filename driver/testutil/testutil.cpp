@@ -146,11 +146,3 @@ json add_drive_state_index_channel_JSON(json &config,
     config["channels"].push_back(channel);
     return  channel;
 }
-
-
-
-
-
-
-
-

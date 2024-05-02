@@ -24,7 +24,7 @@
 
 
 /// internal
-#include "client/cpp/synnax/telem/telem.h"
+#include "client/cpp/telem/telem.h"
 
 using namespace synnax;
 

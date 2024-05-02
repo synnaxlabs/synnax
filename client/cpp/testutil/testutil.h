@@ -14,7 +14,7 @@
 #include <string>
 #include "nlohmann/json.hpp"
 //// internal
-#include "client/cpp/synnax/synnax.h"
+#include "client/cpp/synnax.h"
 
 using json = nlohmann::json;
 

@@ -17,11 +17,11 @@
 #include <include/gtest/gtest.h>
 
 /// Internal
-#include "client/cpp/synnax/synnax.h"
+#include "client/cpp/synnax.h"
 //#include "synnax/testutil/testutil.h"
-#include "driver/driver/pipeline/acq.h"
-#include "driver/driver/ni/ni_module.h"
-#include "driver/driver/testutil/testutil.h"
+#include "driver/pipeline/acq.h"
+#include "driver/ni/ni_module.h"
+#include "driver/testutil/testutil.h"
 
 
 TEST(NiTasksTests, testAnalogReaderTask_1_index){

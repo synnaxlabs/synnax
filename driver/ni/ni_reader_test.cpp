@@ -14,11 +14,11 @@
 #include <include/gtest/gtest.h>
 #include "glog/logging.h"
 
-#include "client/cpp/synnax/synnax.h"
-#include "driver/driver/ni/ni_reader.h"
+#include "client/cpp/synnax.h"
+#include "driver/ni/ni_reader.h"
 #include <stdio.h>
 #include "nlohmann/json.hpp"
-#include "driver/driver/testutil/testutil.h"
+#include "driver/testutil/testutil.h"
 #include <map>
 
 

@@ -11,9 +11,9 @@
 
 #include <memory>
 #include <thread>
-#include "client/cpp/synnax/synnax.h"
-#include "driver/driver/task/task.h"
-#include "driver/driver/breaker/breaker.h"
+#include "client/cpp/synnax.h"
+#include "driver/task/task.h"
+#include "driver/breaker/breaker.h"
 
 namespace pipeline {
 class Sink {

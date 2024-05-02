@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 #include <thread>
-#include "driver/driver/pipeline/acquisition.h"
+#include "driver/pipeline/acquisition.h"
 #include "nlohmann/json.hpp"
-#include "driver/driver/errors/errors.h"
+#include "driver/errors/errors.h"
 
 using json = nlohmann::json;
 
