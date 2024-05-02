@@ -68,13 +68,13 @@ namespace ni{
     } WriterConfig;
 
     ///////////////////////////////////////////////////////////////////////////////////
-    //                                    niDaqReader                                //
+    //                                    daqReader                                  //
     ///////////////////////////////////////////////////////////////////////////////////
 
-    class niDaqReader : public daq::daqReader{ // public keyword required to store pointer to niDaqreader in a pointer to acqReader
+    class daqReader : public daq::daqReader{ // public keyword required to store pointer to niDaqreader in a pointer to acqReader
     public:
         // TODO: why do we not pass the task in by reference?
-        explicit niDaqReader(TaskHandle taskHandle,
+        explicit daqReader(TaskHandle taskHandle,
                              const std::shared_ptr<task::Context> &ctx,
                              const synnax::Task task);
 
@@ -115,13 +115,13 @@ namespace ni{
 
 
     ///////////////////////////////////////////////////////////////////////////////////
-    //                                    niDaqStateWriter                           //
+    //                                    daqStateWriter                           //
     ///////////////////////////////////////////////////////////////////////////////////
 
-    class niDaqStateWriter : public pipeline::Source{
+    class daqStateWriter : public pipeline::Source{
         public: 
-            explicit niDaqStateWriter() = default;
-            explicit niDaqStateWriter( std::uint64_t state_rate, synnax::ChannelKey &drive_state_index_key, std::vector<synnax::ChannelKey> &drive_state_channel_keys);
+            explicit daqStateWriter() = default;
+            explicit daqStateWriter( std::uint64_t state_rate, synnax::ChannelKey &drive_state_index_key, std::vector<synnax::ChannelKey> &drive_state_channel_keys);
             std::pair<synnax::Frame, freighter::Error> read();
             freighter::Error start();
             freighter::Error stop();
@@ -141,9 +141,9 @@ namespace ni{
     //                                    niDaqWriter                                //
     ///////////////////////////////////////////////////////////////////////////////////
 
-    class niDaqWriter : public daq::daqWriter{
+    class daqWriter : public daq::daqWriter{
     public:
-        explicit niDaqWriter(TaskHandle taskHandle,
+        explicit daqWriter(TaskHandle taskHandle,
                              const std::shared_ptr<task::Context> &ctx,
                              const synnax::Task task);
 
@@ -153,7 +153,7 @@ namespace ni{
         freighter::Error start();
         bool ok();
 
-        std::unique_ptr<ni::niDaqStateWriter> writer_state_source;
+        std::unique_ptr<ni::daqStateWriter> writer_state_source;
     private:
         // private helper functions
         freighter::Error writeDigital(synnax::Frame frame);

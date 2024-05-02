@@ -25,10 +25,10 @@ using json = nlohmann::json;
 // using namespace ni; // TODO; remove
 
 ///////////////////////////////////////////////////////////////////////////////////
-//                                    niDaqReader                                //
+//                                    daqReader                                  //
 ///////////////////////////////////////////////////////////////////////////////////
 
-ni::niDaqReader::niDaqReader(
+ni::daqReader::daqReader(
     TaskHandle taskHandle,
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task task): taskHandle(taskHandle), ctx(ctx)
@@ -76,15 +76,13 @@ ni::niDaqReader::niDaqReader(
     }
 }
 
-void ni::niDaqReader::parseAnalogReaderConfig(config::Parser & parser){
+void ni::daqReader::parseAnalogReaderConfig(config::Parser & parser){
     // Get Acquisition Rate and Stream Rates
     this->reader_config.acq_rate = parser.required<uint64_t>("acq_rate");
     this->reader_config.stream_rate = parser.required<uint64_t>("stream_rate");
 
     // device name
     this->reader_config.device_name = parser.required<std::string>("device_name");
-    //std::cout << "Device name: " << this->reader_config.device_name << std::endl;
-    //std::cout << "lul Device name: " << this->reader_config.device_name << std::endl;
     // now parse the channels
     parser.iter("channels",
                 [&](config::Parser &channel_builder)
@@ -111,7 +109,7 @@ void ni::niDaqReader::parseAnalogReaderConfig(config::Parser & parser){
 }
 
 
-void ni::niDaqReader::parseDigitalReaderConfig(config::Parser & parser){
+void ni::daqReader::parseDigitalReaderConfig(config::Parser & parser){
     // Get Acquisition Rate and Stream Rates
     this->reader_config.acq_rate = parser.required<uint64_t>("acq_rate");
     this->reader_config.stream_rate = parser.required<uint64_t>("stream_rate"); 
@@ -146,7 +144,7 @@ void ni::niDaqReader::parseDigitalReaderConfig(config::Parser & parser){
 }
 
 
-int ni::niDaqReader::init(){
+int ni::daqReader::init(){
     int err = 0;
     auto channels = this->reader_config.channels;
     
@@ -191,7 +189,7 @@ int ni::niDaqReader::init(){
 }
 
 
-freighter::Error ni::niDaqReader::start(){
+freighter::Error ni::daqReader::start(){
     // TODO: don't let multiple starts happen (or handle it at least)
     freighter::Error err = freighter::NIL;
     if (this->checkNIError(DAQmxStartTask(taskHandle))){
@@ -204,7 +202,7 @@ freighter::Error ni::niDaqReader::start(){
 }
 
 
-freighter::Error ni::niDaqReader::stop(){ // TODO: don't let multiple stops happen (or handle it at least)
+freighter::Error ni::daqReader::stop(){ // TODO: don't let multiple stops happen (or handle it at least)
     freighter::Error err = freighter::NIL;
 
     if (this->checkNIError(DAQmxStopTask(taskHandle))){
@@ -232,7 +230,7 @@ freighter::Error ni::niDaqReader::stop(){ // TODO: don't let multiple stops happ
     return err;
 }
 
-std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readAnalog(){
+std::pair<synnax::Frame, freighter::Error> ni::daqReader::readAnalog(){
     signed long samplesRead = 0;
     float64 flush[1000]; // to flush buffer before performing a read
     signed long flushRead = 0;    
@@ -298,7 +296,7 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readAnalog(){
 
 
 
-std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readDigital(){
+std::pair<synnax::Frame, freighter::Error> ni::daqReader::readDigital(){
     signed long samplesRead;
     char errBuff[2048] = {'\0'};
     uInt8 flushBuffer[10000]; // to flush buffer before performing a read
@@ -370,7 +368,7 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::readDigital(){
     return std::make_pair(std::move(f), freighter::NIL);
 }
 
-std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::read()
+std::pair<synnax::Frame, freighter::Error> ni::daqReader::read()
 {
 
     if(this->reader_config.isDigital){
@@ -382,7 +380,7 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqReader::read()
 }
 
 
-int ni::niDaqReader::checkNIError(int32 error) {
+int ni::daqReader::checkNIError(int32 error) {
     if (error < 0)
     {
         char errBuff[2048] = {'\0'};
@@ -401,7 +399,7 @@ int ni::niDaqReader::checkNIError(int32 error) {
     return 0;
 }
 
-bool ni::niDaqReader::ok() {
+bool ni::daqReader::ok() {
     return this->ok_state;
 }
 
@@ -409,10 +407,10 @@ bool ni::niDaqReader::ok() {
 
 
 ///////////////////////////////////////////////////////////////////////////////////
-//                                    niDaqWriter                                //
+//                                    daqWriter                                //
 ///////////////////////////////////////////////////////////////////////////////////
 
-ni::niDaqWriter::niDaqWriter(
+ni::daqWriter::daqWriter(
     TaskHandle taskHandle,
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task task)
@@ -438,7 +436,7 @@ ni::niDaqWriter::niDaqWriter(
 
     
     // TODO: get device proprties for things like authentication
-    this->writer_state_source = std::make_unique<ni::niDaqStateWriter>( this->writer_config.state_rate, 
+    this->writer_state_source = std::make_unique<ni::daqStateWriter>( this->writer_config.state_rate, 
                                                                         this->writer_config.drive_state_index_key,
                                                                         this->writer_config.drive_state_channel_keys);
 
@@ -461,7 +459,7 @@ ni::niDaqWriter::niDaqWriter(
 }
 
 
-void ni::niDaqWriter::parseDigitalWriterConfig(config::Parser &parser){
+void ni::daqWriter::parseDigitalWriterConfig(config::Parser &parser){
 
     // device name
     this->writer_config.device_name = parser.required<std::string>("device_name");
@@ -510,7 +508,7 @@ void ni::niDaqWriter::parseDigitalWriterConfig(config::Parser &parser){
 
 
 
-int ni::niDaqWriter::init(){
+int ni::daqWriter::init(){
     int err = 0;
     auto channels = this->writer_config.channels;
     
@@ -541,7 +539,7 @@ int ni::niDaqWriter::init(){
     return 0;
 }
 
-freighter::Error ni::niDaqWriter::start(){
+freighter::Error ni::daqWriter::start(){
     // TODO: don't let multiple starts happen (or handle it at least)
     freighter::Error err = freighter::NIL;
     if (this->checkNIError(DAQmxStartTask(this->taskHandle))){
@@ -553,7 +551,7 @@ freighter::Error ni::niDaqWriter::start(){
     return err;
 }
 
-freighter::Error ni::niDaqWriter::stop(){ 
+freighter::Error ni::daqWriter::stop(){ 
     // TODO: don't let multiple closes happen (or handle it at least)
 
     freighter::Error err = freighter::NIL;
@@ -579,12 +577,12 @@ freighter::Error ni::niDaqWriter::stop(){
 }
 
 // Here to modify as we add more writing options
-freighter::Error ni::niDaqWriter::write(synnax::Frame frame){ 
+freighter::Error ni::daqWriter::write(synnax::Frame frame){ 
     // TODO: should this function get a Frame or a bit vector of setpoints instead?
     return writeDigital(std::move(frame));
 }
 
-freighter::Error ni::niDaqWriter::writeDigital(synnax::Frame frame){
+freighter::Error ni::daqWriter::writeDigital(synnax::Frame frame){
     char errBuff[2048] = {'\0'};
     signed long samplesWritten = 0;
     formatData(std::move(frame));
@@ -612,7 +610,7 @@ freighter::Error ni::niDaqWriter::writeDigital(synnax::Frame frame){
 }
 
 
-freighter::Error ni::niDaqWriter::formatData(synnax::Frame frame){
+freighter::Error ni::daqWriter::formatData(synnax::Frame frame){
     uint32_t frame_index = 0;
     uint32_t cmd_channel_index = 0;
 
@@ -635,7 +633,7 @@ freighter::Error ni::niDaqWriter::formatData(synnax::Frame frame){
 }
 
 
-int ni::niDaqWriter::checkNIError(int32 error){
+int ni::daqWriter::checkNIError(int32 error){
     if (error < 0)
     {
         char errBuff[2048] = {'\0'};
@@ -652,15 +650,15 @@ int ni::niDaqWriter::checkNIError(int32 error){
     return 0;
 }
 
-bool ni::niDaqWriter::ok(){
+bool ni::daqWriter::ok(){
     return this->ok_state;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////
-//                                    niDaqStateWriter                           //
+//                                    daqStateWriter                           //
 ///////////////////////////////////////////////////////////////////////////////////
 
-ni::niDaqStateWriter::niDaqStateWriter( std::uint64_t state_rate, synnax::ChannelKey &drive_state_index_key, std::vector<synnax::ChannelKey> &drive_state_channel_keys) 
+ni::daqStateWriter::daqStateWriter( std::uint64_t state_rate, synnax::ChannelKey &drive_state_index_key, std::vector<synnax::ChannelKey> &drive_state_channel_keys) 
 :state_rate(state_rate){
     // start the periodic thread
     this->state_period = std::chrono::duration<double>(1.0 / this->state_rate);
@@ -673,7 +671,7 @@ ni::niDaqStateWriter::niDaqStateWriter( std::uint64_t state_rate, synnax::Channe
 }
 
 
-std::pair<synnax::Frame, freighter::Error> ni::niDaqStateWriter::read(){
+std::pair<synnax::Frame, freighter::Error> ni::daqStateWriter::read(){
     std::unique_lock<std::mutex> lock(this->state_mutex);
     waitingReader.wait_for(lock, state_period);// TODO: double check this time is relative and not absolute
     return std::make_pair(std::move(this->getDriveState()), freighter::NIL);
@@ -681,15 +679,15 @@ std::pair<synnax::Frame, freighter::Error> ni::niDaqStateWriter::read(){
 
 
 
-freighter::Error ni::niDaqStateWriter::start(){
+freighter::Error ni::daqStateWriter::start(){
     return freighter::NIL;
 }
 
-freighter::Error ni::niDaqStateWriter::stop(){
+freighter::Error ni::daqStateWriter::stop(){
     return freighter::NIL;
 }
 
-synnax::Frame ni::niDaqStateWriter::getDriveState(){
+synnax::Frame ni::daqStateWriter::getDriveState(){
     auto drive_state_frame = synnax::Frame(this->state_map.size() + 1);
     drive_state_frame.add(this->drive_state_index_key, synnax::Series(std::vector<uint64_t>{synnax::TimeStamp::now().value}, synnax::TIMESTAMP));
 
@@ -703,7 +701,7 @@ synnax::Frame ni::niDaqStateWriter::getDriveState(){
 }
 
 
-void ni::niDaqStateWriter::updateState(std::queue<synnax::ChannelKey> &modified_state_keys, std::queue<std::uint8_t> &modified_state_values){
+void ni::daqStateWriter::updateState(std::queue<synnax::ChannelKey> &modified_state_keys, std::queue<std::uint8_t> &modified_state_values){
     std::unique_lock<std::mutex> lock(this->state_mutex);
     // update state map
      while(!modified_state_keys.empty()){

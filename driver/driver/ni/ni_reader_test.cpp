@@ -28,7 +28,7 @@
 //                                          Functional Tests                                                    //
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-TEST(NiReaderTests, test_read_one_digital_channel){
+TEST(ReaderTests, test_read_one_digital_channel){
     LOG(INFO) << "test_read_one_digital_channel: "; //<< std::endl;
 
     // Create NI readerconfig
@@ -58,7 +58,7 @@ TEST(NiReaderTests, test_read_one_digital_channel){
     TaskHandle taskHandle;  
     DAQmxCreateTask("",&taskHandle);
 
-    auto reader = ni::niDaqReader(  taskHandle, 
+    auto reader = ni::daqReader(  taskHandle, 
                                     mockCtx, 
                                     task);
 
@@ -92,7 +92,7 @@ TEST(NiReaderTests, test_read_one_digital_channel){
 
 
 
-TEST(NiReaderTests, test_read_multiple_digital_channel){
+TEST(ReaderTests, test_read_multiple_digital_channel){
     LOG(INFO) << "test_read_multiple_digital_channel: "; //<< std::endl;
 
     // Create NI readerconfig
@@ -130,7 +130,7 @@ TEST(NiReaderTests, test_read_multiple_digital_channel){
     TaskHandle taskHandle;  
     DAQmxCreateTask("",&taskHandle);
 
-    auto reader = ni::niDaqReader(  taskHandle, 
+    auto reader = ni::daqReader(  taskHandle, 
                                     mockCtx, 
                                     task);
     reader.start();
@@ -163,7 +163,7 @@ TEST(NiReaderTests, test_read_multiple_digital_channel){
 }
 
 
-TEST(NiReaderTests, test_read_one_analog_channel){
+TEST(ReaderTests, test_read_one_analog_channel){
     LOG(INFO) << "test_read_one_analog_channel: "; //<< std::endl;
 
     // Create NI readerconfig
@@ -195,7 +195,7 @@ TEST(NiReaderTests, test_read_one_analog_channel){
     TaskHandle taskHandle;  
     DAQmxCreateTask("",&taskHandle);
 
-    auto reader = ni::niDaqReader(  taskHandle, 
+    auto reader = ni::daqReader(  taskHandle, 
                                     mockCtx, 
                                     task); // analog reader
 
@@ -232,7 +232,7 @@ TEST(NiReaderTests, test_read_one_analog_channel){
 
 
 
-TEST(NiReaderTests, test_read_multiple_analog_channels){
+TEST(ReaderTests, test_read_multiple_analog_channels){
     LOG(INFO) << "test_read_multiple_analog_channels: "; //<< std::endl;
 
     // Create NI readerconfig
@@ -268,7 +268,7 @@ TEST(NiReaderTests, test_read_multiple_analog_channels){
     TaskHandle taskHandle;  
     DAQmxCreateTask("",&taskHandle);
 
-    auto reader = ni::niDaqReader(  taskHandle, 
+    auto reader = ni::daqReader(  taskHandle, 
                                     mockCtx, 
                                     task); // analog reader
 
@@ -303,7 +303,7 @@ TEST(NiReaderTests, test_read_multiple_analog_channels){
     reader.stop();
 }
 
-TEST(NiWriterTests, test_write_one_digital_channel){
+TEST(WriterTests, test_write_one_digital_channel){
     LOG(INFO) << "test_read_one_digital_channel: "; //<< std::endl;
 
     // Create NI readerconfig
@@ -333,7 +333,7 @@ TEST(NiWriterTests, test_write_one_digital_channel){
     // Now construct NI writer
     TaskHandle taskHandle;  
     DAQmxCreateTask("",&taskHandle);
-    auto writer = ni::niDaqWriter(  taskHandle, 
+    auto writer = ni::daqWriter(  taskHandle, 
                                     mockCtx, 
                                     task);
 
@@ -455,7 +455,7 @@ TEST(NiWriterTests, test_write_multiple_digital_channel){
     // Now construct NI writer
     TaskHandle taskHandle;  
     DAQmxCreateTask("",&taskHandle);
-    auto writer = ni::niDaqWriter(  taskHandle, 
+    auto writer = ni::daqWriter(  taskHandle, 
                                     mockCtx, 
                                     task);
 
