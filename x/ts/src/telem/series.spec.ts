@@ -30,6 +30,26 @@ describe("Series", () => {
       });
     });
 
+    describe("length", () => {
+      it("should return the correct length for a fixed density series", () => {
+        const a = new Series({
+          data: new Float32Array([1, 2, 3]),
+          dataType: DataType.FLOAT32,
+        });
+        expect(a.length).toEqual(3);
+      });
+      it("should return the correct length for a variable density series", () => {
+        const a = new Series({
+          data: [{ value: 1 }, { value: 2, red: "blue" }, { value: 3, dog: "14" }],
+        });
+        expect(a.dataType.equals(DataType.JSON)).toBeTruthy();
+        expect(a.length).toEqual(3);
+        const buf = a.data.buffer;
+        const c = new Series({ data: buf, dataType: DataType.JSON });
+        expect(c.length).toEqual(3);
+      });
+    });
+
     test("from another series", () => {
       const a = new Series({
         data: new Float32Array([1, 2, 3]),
@@ -572,6 +592,30 @@ describe("Series", () => {
       });
     });
   });
+
+  describe("alignmentBounds", () => {
+    it("should correctly return the alignment bounds of a multi-series", () => {
+      const a = new Series({
+        data: new Float32Array([1, 2, 3]),
+        timeRange: new TimeRange(1, 2),
+        alignment: 1,
+      });
+      expect(a.alignmentBounds).toEqual({ lower: 1, upper: 4 });
+    });
+  });
+
+  describe("digest", () => {
+    it("should return a digest of information about the series", () => {
+      const digest = new Series({
+        data: new Float32Array([1, 2, 3]),
+        timeRange: new TimeRange(1, 3),
+      }).digest;
+      expect(digest.alignment).toEqual({ lower: 0, upper: 3 });
+      expect(digest.dataType).toEqual("float32");
+      expect(digest.length).toEqual(3);
+      expect(digest.timeRange).toEqual(new TimeRange(1, 3).toString());
+    });
+  });
 });
 
 describe("MultiSeries", () => {
@@ -649,6 +693,21 @@ describe("MultiSeries", () => {
       const multi = new MultiSeries([]);
       const arr = Array.from(multi);
       expect(arr).toEqual([]);
+    });
+  });
+
+  describe("timeRange", () => {
+    it("should correctly return the time range of a multi-series", () => {
+      const a = new Series({
+        data: new Float32Array([1, 2, 3]),
+        timeRange: new TimeRange(1, 2),
+      });
+      const b = new Series({
+        data: new Float32Array([4, 5, 6]),
+        timeRange: new TimeRange(3, 4),
+      });
+      const multi = new MultiSeries([a, b]);
+      expect(multi.timeRange).toEqual(new TimeRange(1, 4));
     });
   });
 });
