@@ -3,7 +3,11 @@ on:
   push:
 jobs:
   build:
-    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.platform }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -18,11 +22,9 @@ jobs:
           disk-cache: ${{ github.workflow }}
           repository-cache: true
 
-      - name: Install CMake
-        run: choco install cmake --installargs '"ADD_CMAKE_TO_PATH=System"'
-
-      - name: Verify CMake installation
-        run: cmake --version
+      - uses: GuillaumeFalourd/setup-windows10-sdk-action@v2
+        with:
+          sdk-version: 22000
 
       - name: Build Open62541
         shell: bash
@@ -33,8 +35,4 @@ jobs:
         working-directory: driver/vendor/open62541/open62541
 
       - name: Build Driver
-        run: bazel build //driver/driver:driver_main
-
-
-
-
+        run: bazel build --enable_platform_specific_config //driver:driver_main

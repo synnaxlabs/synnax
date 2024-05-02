@@ -17,7 +17,7 @@ import { Controls } from "@/components";
 import { NAV_DRAWERS, NavMenu } from "@/components/nav/Nav";
 import { CSS } from "@/css";
 import { Docs } from "@/docs";
-import { OPCUA } from "@/hardware/opcua";
+import { opc } from "@/hardware/opc";
 import { Layout } from "@/layout";
 import { NAV_SIZES } from "@/layouts/LayoutMain/constants";
 import { LinePlot } from "@/lineplot";
@@ -31,6 +31,7 @@ import { Vis } from "@/vis";
 import { Workspace } from "@/workspace";
 
 import "@/layouts/LayoutMain/Nav.css";
+import { Persist } from "@/persist";
 
 const DEFAULT_TRIGGER: TriggerConfig = {
   defaultMode: "command",
@@ -46,7 +47,8 @@ const COMMANDS = [
   ...Workspace.COMMANDS,
   ...Cluster.COMMANDS,
   ...Range.COMMANDS,
-  ...OPCUA.COMMANDS,
+  ...opc.COMMANDS,
+  ...Persist.COMMANDS,
 ];
 
 const NavTopPalette = (): ReactElement => {

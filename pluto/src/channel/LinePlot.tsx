@@ -10,13 +10,8 @@
 import { type ReactElement, useCallback, useRef } from "react";
 
 import { type channel } from "@synnaxlabs/client";
-import {
-  box,
-  location as loc,
-  type TimeRange,
-  type TimeSpan,
-  type location,
-} from "@synnaxlabs/x";
+import { box, location as loc } from "@synnaxlabs/x/spatial";
+import { type TimeRange, type TimeSpan } from "@synnaxlabs/x/telem";
 
 import { HAUL_TYPE } from "@/channel/types";
 import { type Color } from "@/color";
@@ -213,7 +208,7 @@ const XAxis = ({
     <Core.XAxis
       {...axis}
       {...dropProps}
-      location={location as location.Y}
+      location={location as loc.Y}
       showGrid={showGrid ?? index === 0}
       className={CSS(
         CSS.dropRegion(Haul.canDropOfType(HAUL_TYPE)(Haul.useDraggingState())),

@@ -15,7 +15,7 @@ import { Nav, componentRenderProp, Status, Form } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 import { Button } from "@synnaxlabs/pluto/button";
 import { Input } from "@synnaxlabs/pluto/input";
-import { case } from "@synnaxlabs/x";
+import { caseconv } from "@synnaxlabs/x";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
 
@@ -62,7 +62,10 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
 
   const handleSubmit = (): void => {
     void (async () => {
-      if (!methods.validate()) return;
+      if (!methods.validate()) {
+        console.log("Invalid form");
+        return;
+      }
       const data = methods.value();
       setConnState(null);
       setLoading("submit");
@@ -95,7 +98,10 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
 
   const handleTestConnection = (): void => {
     void (async (): Promise<void> => {
-      if (!methods.validate()) return;
+      if (!methods.validate()) {
+        console.log("Invalid form");
+        return;
+      }
       setConnState(null);
       setLoading("test");
       const state = await testConnection(methods.value() as SynnaxProps);

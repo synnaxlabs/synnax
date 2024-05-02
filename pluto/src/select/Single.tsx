@@ -74,7 +74,7 @@ export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   onChange,
   value,
   entryRenderKey = "key",
-  columns = [],
+  columns,
   data,
   emptyContent,
   inputProps,
@@ -93,15 +93,20 @@ export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   // This hook runs to make sure we have the selected entry populated when the value
   // changes externally.
   useAsyncEffect(async () => {
-    if (selected?.key === value) return;
     if (selectValueIsZero(value)) return setSelected(null);
+    if (selected?.key === value) return;
     let nextSelected: E | null = null;
-    if (searchMode) {
-      const [e] = await searcher.retrieve([value]);
-      nextSelected = e ?? null;
-    } else if (data != null) nextSelected = data.find((e) => e.key === value) ?? null;
+    if (searchMode)
+      // Wrap this in a try-except clause just in case the searcher throws an error.
+      try {
+        [nextSelected] = await searcher.retrieve([value]);
+      } finally {
+        // It might be undefined, so coalesce it to null.
+        nextSelected ??= null;
+      }
+    else if (data != null) nextSelected = data.find((e) => e.key === value) ?? null;
     setSelected(nextSelected);
-  }, [searcher, value]);
+  }, [searcher, value, data]);
 
   const handleChange = useCallback<UseSelectSingleProps<K, E>["onChange"]>(
     (v: K, e: UseSelectOnChangeExtra<K, E>): void => {
@@ -122,7 +127,7 @@ export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
       close={close}
       open={open}
       data={data}
-      emtpyContent={emptyContent}
+      emptyContent={emptyContent}
       allowMultiple={false}
       visible={visible}
       value={value}

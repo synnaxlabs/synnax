@@ -41,7 +41,7 @@ export const Toolbar: Layout.NavDrawerItem = {
   key: "range",
   icon: <Icon.Range />,
   content: <Content />,
-  tooltip: "Workspace",
+  tooltip: "Ranges",
   initialSize: 300,
   minSize: 225,
   maxSize: 400,

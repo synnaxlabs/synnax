@@ -383,7 +383,15 @@ describe("TimeRange", () => {
       expect(tr.overlapsWith(one)).toBeFalsy();
       expect(one.overlapsWith(tr)).toBeFalsy();
     });
-    it("should return");
+    it("should return true only if the overlap is within a threshold", () => {
+      const tr = new TimeRange(TimeStamp.milliseconds(0), TimeStamp.milliseconds(1000));
+      const one = new TimeRange(
+        TimeStamp.milliseconds(998),
+        TimeStamp.milliseconds(2000),
+      );
+      expect(tr.overlapsWith(one, TimeSpan.milliseconds(2))).toBeTruthy();
+      expect(one.overlapsWith(tr, TimeSpan.milliseconds(3))).toBeFalsy();
+    });
   });
 
   describe("boundBy", () => {
@@ -417,6 +425,70 @@ describe("DataType", () => {
     });
     it("should return false if the data type does not have a variable length", () => {
       expect(DataType.STRING.isVariable).toBe(true);
+    });
+  });
+
+  describe("canSafelyCastTo", () => {
+    const TESTS: [DataType, DataType, boolean][] = [
+      [DataType.INT32, DataType.INT32, true],
+      [DataType.INT32, DataType.INT64, true],
+      [DataType.INT32, DataType.FLOAT32, false],
+      [DataType.INT32, DataType.FLOAT64, true],
+      [DataType.INT32, DataType.STRING, false],
+      [DataType.INT32, DataType.BOOLEAN, false],
+      [DataType.INT32, DataType.INT8, false],
+      [DataType.INT64, DataType.INT32, false],
+      [DataType.INT64, DataType.INT64, true],
+      [DataType.INT64, DataType.FLOAT32, false],
+      [DataType.INT64, DataType.FLOAT64, false],
+      [DataType.INT64, DataType.STRING, false],
+      [DataType.FLOAT64, DataType.FLOAT32, false],
+      [DataType.FLOAT64, DataType.FLOAT64, true],
+      [DataType.FLOAT64, DataType.STRING, false],
+      [DataType.FLOAT64, DataType.BOOLEAN, false],
+      [DataType.FLOAT32, DataType.FLOAT64, true],
+      [DataType.FLOAT32, DataType.FLOAT32, true],
+      [DataType.FLOAT32, DataType.STRING, false],
+      [DataType.FLOAT32, DataType.BOOLEAN, false],
+      [DataType.STRING, DataType.STRING, true],
+      [DataType.STRING, DataType.INT32, false],
+      [DataType.STRING, DataType.INT64, false],
+      [DataType.STRING, DataType.FLOAT32, false],
+      [DataType.STRING, DataType.FLOAT64, false],
+      [DataType.STRING, DataType.BOOLEAN, false],
+      [DataType.STRING, DataType.INT8, false],
+      [DataType.BOOLEAN, DataType.BOOLEAN, true],
+      [DataType.BOOLEAN, DataType.INT32, false],
+      [DataType.BOOLEAN, DataType.INT64, false],
+      [DataType.INT8, DataType.FLOAT32, true],
+    ];
+    TESTS.forEach(([from, to, expected]) =>
+      it(`should return ${expected} when casting from ${from.toString()} to ${to.toString()}`, () => {
+        expect(from.canSafelyCastTo(to)).toBe(expected);
+      }),
+    );
+  });
+  describe("canCastTo", () => {
+    it("should return true for any two numeric data types", () => {
+      const numericTypes = [
+        DataType.INT32,
+        DataType.INT64,
+        DataType.FLOAT32,
+        DataType.FLOAT64,
+      ];
+      for (const from of numericTypes) {
+        for (const to of numericTypes) {
+          expect(from.canCastTo(to)).toBe(true);
+        }
+      }
+    });
+    it("should return true for non-numeric data types ONLY if they are equal", () => {
+      const nonNumericTypes = [DataType.STRING, DataType.BOOLEAN];
+      for (const from of nonNumericTypes) {
+        for (const to of nonNumericTypes) {
+          expect(from.canCastTo(to)).toBe(from === to);
+        }
+      }
     });
   });
 });

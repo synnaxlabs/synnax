@@ -10,7 +10,8 @@
 import { type ComponentPropsWithoutRef, type ReactElement } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import { TimeSpan, toArray } from "@synnaxlabs/x";
+import { TimeSpan } from "@synnaxlabs/x/telem";
+import { toArray } from "@synnaxlabs/x/toArray";
 
 import { type Align } from "@/align";
 import { color } from "@/button/color";

@@ -109,6 +109,7 @@ export const Multiple = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
       return;
     let nextSelected: E[] = [];
     if (searchMode) {
+      // Wrap this in a try-except clause just in case the searcher throws an error.
       try {
         nextSelected = await searcher.retrieve(nextValue);
       } finally {
@@ -137,7 +138,7 @@ export const Multiple = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
       close={close}
       open={open}
       data={data}
-      emtpyContent={emptyContent}
+      emptyContent={emptyContent}
       visible={visible}
       value={value}
       onChange={handleChange}
@@ -288,7 +289,9 @@ export const MultipleTag = <K extends Key, E extends Keyed<K>>({
   let v: RenderableValue = entryKey;
   if (entry != null)
     v =
-      typeof entryRenderKey === "function" ? entryRenderKey(entry) : (entry[entryRenderKey] as RenderableValue);
+      typeof entryRenderKey === "function"
+        ? entryRenderKey(entry)
+        : (entry[entryRenderKey] as RenderableValue);
   return (
     <Tag.Tag
       size="small"

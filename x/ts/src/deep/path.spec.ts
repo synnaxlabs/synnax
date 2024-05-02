@@ -10,6 +10,8 @@
 import { describe, it, expect } from "vitest";
 
 import { deep } from "@/deep";
+import { z } from "zod";
+import { UnknownRecord } from "@/record";
 
 interface TestRecord {
   a: number;
@@ -52,6 +54,24 @@ describe("path", () => {
       };
       expect(deep.get(a, "")).toStrictEqual(a);
     });
+    describe("custom getter function", () => {
+      const v =  {
+        a: {
+          value: () => ({
+            c: 0
+          })
+        }
+      }
+      it("should use the custom getter function", () => {
+        expect(deep.get(v, "a.value().c", false, {
+          getter: (obj, key) => {
+            if (key === "value()") 
+              return (obj as { value: () => { c: number } }).value();
+            return (obj as UnknownRecord)[key];
+          }
+        })).toEqual(0);
+      });
+    });
   });
   describe("set", () => {
     it("should set a key", () => {
@@ -91,4 +111,19 @@ describe("path", () => {
       expect(a).toEqual(b);
     });
   });
+
+  describe("transformPath", () => {
+    it("should transform a path", () => {
+      expect(deep.transformPath("a.b.c", (part) => part.toUpperCase())).toEqual("A.B.C");
+    });
+    it("should inject additional parts into the path", () => {
+      expect(deep.transformPath("a.b.c", (p) => [p, "d"])).toEqual("a.d.b.d.c.d");
+    });
+    it("should remove parts from the path", () => {
+      expect(deep.transformPath("a.b.c", (p, i) => i === 1 ? undefined : p)).toEqual("a.c");
+    });
+  })
+
 });
+
+

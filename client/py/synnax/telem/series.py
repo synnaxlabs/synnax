@@ -9,22 +9,22 @@
 
 from __future__ import annotations
 
-from pydantic import PrivateAttr
-import uuid
 import json
+import uuid
 from datetime import datetime
 
 import numpy as np
 import pandas as pd
 from freighter import Payload
+from pydantic import PrivateAttr
 
 from synnax.telem.telem import (
     CrudeDataType,
     DataType,
     Size,
     TimeRange,
-    TimeStamp,
     TimeSpan,
+    TimeStamp,
 )
 from synnax.util.interop import overload_comparison_operators
 

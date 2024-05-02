@@ -32,7 +32,14 @@ func (s Series) Size() Size { return Size(len(s.Data)) }
 
 func (s Series) Split() [][]byte {
 	if s.DataType.IsVariable() {
-		return bytes.Split(s.Data, []byte("\n"))
+		split := bytes.Split(s.Data, []byte("\n"))
+		if len(split) == 0 {
+			return nil
+		}
+		if len(split[len(split)-1]) == 0 {
+			split = split[:len(split)-1]
+		}
+		return split
 	}
 	o := make([][]byte, s.Len())
 	for i := int64(0); i < s.Len(); i++ {

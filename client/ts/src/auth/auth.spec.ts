@@ -8,12 +8,20 @@
 // included in the file licenses/APL.txt.
 
 import { URL } from "@synnaxlabs/x/url";
-import { describe, expect, test } from "vitest";
+import { describe, expect, it, test } from "vitest";
 
 import { auth } from "@/auth";
-import { AuthError } from "@/errors";
+import { AuthError, InvalidTokenError } from "@/errors";
 import { HOST, PORT } from "@/setupspecs";
 import { Transport } from "@/transport";
+import { Context } from "@synnaxlabs/freighter";
+
+const DUMMY_CTX: Context = {
+  target: "test",
+  role: "client",
+  protocol: "http",
+  params: {},
+};
 
 describe("auth", () => {
   test("valid credentials", async () => {
@@ -22,8 +30,9 @@ describe("auth", () => {
       username: "synnax",
       password: "seldon",
     });
-    await client.authenticating;
-    expect(client.authenticated).toBeTruthy();
+    const mw = client.middleware();
+    const res = await mw(DUMMY_CTX, async () => [DUMMY_CTX, null]);
+    expect(res).toEqual([DUMMY_CTX, null]);
   });
 
   test("invalid credentials", async () => {
@@ -32,15 +41,46 @@ describe("auth", () => {
       username: "synnax",
       password: "wrong",
     });
-    try {
-      await client.authenticating;
-      expect(client.authenticated).toBeFalsy();
-    } catch (e) {
-      expect(client.authenticated).toBeFalsy();
-      expect(e).toBeInstanceOf(AuthError);
-      if (e instanceof AuthError) {
-        expect(e.message).toEqual("invalid credentials: auth error");
-      }
-    }
+    const mw = client.middleware();
+    const [, err] = await mw(DUMMY_CTX, async () => [DUMMY_CTX, null]);
+    expect(err).toBeInstanceOf(AuthError);
+  });
+
+  describe("invalid token retry", async () => {
+    it("should re-authenticate and retry the request", async () => {
+      const transport = new Transport(new URL({ host: HOST, port: PORT }));
+      const client = new auth.Client(transport.unary, {
+        username: "synnax",
+        password: "seldon",
+      });
+      const mw = client.middleware();
+      let isFirst = true;
+      let tkOne: string | undefined;
+      let tkTwo: string | undefined;
+      const [, err] = await mw(DUMMY_CTX, async (ctx) => {
+        if (isFirst) {
+          isFirst = false;
+          tkOne = client.token;
+          return [DUMMY_CTX, new InvalidTokenError()];
+        }
+        tkTwo = client.token;
+        return [DUMMY_CTX, null];
+      });
+      expect(err).toBeNull();
+      expect(tkOne).toBeDefined();
+      expect(tkTwo).toBeDefined();
+    });
+    it("should fail after MAX_RETRIES", async () => {
+      const transport = new Transport(new URL({ host: HOST, port: PORT }));
+      const client = new auth.Client(transport.unary, {
+        username: "synnax",
+        password: "seldon",
+      });
+      const mw = client.middleware();
+      const [, err] = await mw(DUMMY_CTX, async () => 
+          [DUMMY_CTX, new InvalidTokenError()]
+      );
+      expect(err).toBeInstanceOf(InvalidTokenError);
+    });
   });
 });

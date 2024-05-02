@@ -18,6 +18,7 @@ import {
   type Series,
   type direction,
   type SeriesDigest,
+  TimeSpan,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -47,6 +48,8 @@ const safelyGetDataValue = (series: number, index: number, data: Series[]): numb
 
 export type State = z.input<typeof stateZ>;
 export type ParsedState = z.output<typeof stateZ>;
+
+const DEFAULT_OVERLAP_THRESHOLD = TimeSpan.milliseconds(2);
 
 export interface FindResult {
   // The line key that the point belongs to.
@@ -291,7 +294,12 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     const [[, xData], [, yData]] = await Promise.all([xTelem.value(), yTelem.value()]);
     xData.forEach((x) => x.updateGLBuffer(prog.ctx.gl));
     yData.forEach((y) => y.updateGLBuffer(prog.ctx.gl));
-    const ops = buildDrawOperations(xData, yData, downsample);
+    const ops = buildDrawOperations(
+      xData,
+      yData,
+      downsample,
+      DEFAULT_OVERLAP_THRESHOLD,
+    );
     this.internal.instrumentation.L.debug("render", () => ({
       key: this.key,
       downsample,
@@ -362,13 +370,14 @@ export const buildDrawOperations = (
   x: Series[],
   y: Series[],
   downsample: number,
+  overlapThreshold: TimeSpan,
 ): DrawOperation[] => {
   if (x.length === 0 || y.length === 0) return [];
 
   const ops: DrawOperation[] = [];
 
   x.forEach((xSeries) => {
-    const compatibleYSeries = findSeriesThatOverlapWith(xSeries, y);
+    const compatibleYSeries = findSeriesThatOverlapWith(xSeries, y, overlapThreshold);
     compatibleYSeries.forEach((ySeries) => {
       let xOffset = 0;
       let yOffset = 0;
@@ -400,18 +409,23 @@ export const buildDrawOperations = (
   return ops;
 };
 
-const findSeriesThatOverlapWith = (x: Series, y: Series[]): Series[] =>
+const findSeriesThatOverlapWith = (
+  x: Series,
+  y: Series[],
+  overlapThreshold: TimeSpan,
+): Series[] =>
   y.filter((ys) => {
     // This is just a runtime check that both series' have time ranges defined.
     const haveTimeRanges = x._timeRange != null && ys._timeRange != null;
-    if (!haveTimeRanges) {
+    if (!haveTimeRanges)
       throw new UnexpectedError(
         `Encountered series without time range in buildDrawOperations. X series present: ${x._timeRange != null}, Y series present: ${ys._timeRange != null}`,
       );
-    }
     // If the time ranges of the x and y series overlap, we meet the first condition
-    // for drawing them together.
-    const timeRangesOverlap = x.timeRange.overlapsWith(ys.timeRange);
+    // for drawing them together. Dynamic buffering can sometimes lead to very slight,
+    // unintended overlaps, so we only consider them overlapping if they overlap by a
+    // certain threshold.
+    const timeRangesOverlap = x.timeRange.overlapsWith(ys.timeRange, overlapThreshold);
     // If the 'indexes' of the x and y series overlap, we meet the second condition
     // for drawing them together.
     const alignmentsOverlap = bounds.overlapsWith(

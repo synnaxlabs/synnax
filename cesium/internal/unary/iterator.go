@@ -24,15 +24,19 @@ type Iterator struct {
 	alamos.Instrumentation
 	IteratorConfig
 	Channel  core.Channel
+	onClose  func()
 	internal *domain.Iterator
 	view     telem.TimeRange
 	frame    core.Frame
 	idx      index.Index
 	bounds   telem.TimeRange
 	err      error
+	closed   bool
 }
 
 const AutoSpan telem.TimeSpan = -1
+
+var IteratorClosedError = core.EntityClosed("unary.iterator")
 
 func (i *Iterator) SetBounds(tr telem.TimeRange) {
 	i.bounds = tr
@@ -46,29 +50,64 @@ func (i *Iterator) Value() core.Frame { return i.frame }
 func (i *Iterator) View() telem.TimeRange { return i.view }
 
 func (i *Iterator) SeekFirst(ctx context.Context) bool {
+	if i.closed {
+		i.err = IteratorClosedError
+		return false
+	}
 	ok := i.internal.SeekFirst(ctx)
-	//i.seekReset(i.internal.TimeRange().BoundBy(i.bounds).Start)
-	i.seekReset(i.internal.TimeRange().Start)
+	i.seekReset(i.internal.TimeRange().BoundBy(i.bounds).Start)
 	return ok
 }
 
 func (i *Iterator) SeekLast(ctx context.Context) bool {
+	if i.closed {
+		i.err = IteratorClosedError
+		return false
+	}
 	ok := i.internal.SeekLast(ctx)
-	i.seekReset(i.internal.TimeRange().End)
+	i.seekReset(i.internal.TimeRange().BoundBy(i.bounds).End)
 	return ok
 }
 
 func (i *Iterator) SeekLE(ctx context.Context, ts telem.TimeStamp) bool {
-	i.seekReset(ts)
+	if i.closed {
+		i.err = IteratorClosedError
+		return false
+	}
+
+	if i.bounds.OverlapsWith(ts.SpanRange(0)) {
+		i.seekReset(ts)
+	} else {
+		i.seekReset(i.bounds.End)
+	}
+
 	return i.internal.SeekLE(ctx, ts)
 }
 
 func (i *Iterator) SeekGE(ctx context.Context, ts telem.TimeStamp) bool {
-	i.seekReset(ts)
+	if i.closed {
+		i.err = IteratorClosedError
+		return false
+	}
+
+	if i.bounds.OverlapsWith(ts.SpanRange(0)) {
+		i.seekReset(ts)
+	} else {
+		i.seekReset(i.bounds.Start)
+	}
+
 	return i.internal.SeekGE(ctx, ts)
 }
 
+// Next moves the iterator forward by span. More specifically, if the current view is
+// [start, end), after Next(span) is called, the view becomes [end, end + span).
+// After the view changes, the internal iterator moves forward and accumulates data until
+// the entire view is contained in the iterator's frame.
 func (i *Iterator) Next(ctx context.Context, span telem.TimeSpan) (ok bool) {
+	if i.closed {
+		i.err = IteratorClosedError
+		return false
+	}
 	ctx, span_ := i.T.Bench(ctx, "Next")
 	defer func() {
 		ok = i.Valid()
@@ -126,6 +165,7 @@ func (i *Iterator) autoNext(ctx context.Context) bool {
 			return false
 		}
 		startOffset := i.Channel.DataType.Density().Size(startApprox.Upper)
+
 		series, n, err := i.read(
 			ctx,
 			startOffset,
@@ -148,7 +188,15 @@ func (i *Iterator) autoNext(ctx context.Context) bool {
 	return i.partiallySatisfied()
 }
 
+// Prev moves the iterator backward by span. More specifically, if the current view is
+// [start, end), after Next(span) is called, the view becomes [start - span, start).
+// After the view changes, the internal iterator moves backward and accumulates data until
+// the entire view is contained in the iterator's frame.
 func (i *Iterator) Prev(ctx context.Context, span telem.TimeSpan) (ok bool) {
+	if i.closed {
+		i.err = IteratorClosedError
+		return false
+	}
 	ctx, span_ := i.T.Bench(ctx, "Prev")
 	defer func() {
 		ok = i.Valid()
@@ -160,7 +208,7 @@ func (i *Iterator) Prev(ctx context.Context, span telem.TimeSpan) (ok bool) {
 		return
 	}
 
-	i.reset(i.view.Start.SpanRange(span).BoundBy(i.bounds))
+	i.reset(i.view.Start.SpanRange(-1 * span).BoundBy(i.bounds))
 
 	if i.view.IsZero() {
 		return
@@ -187,10 +235,17 @@ func (i *Iterator) Error() error { return i.err }
 
 func (i *Iterator) Valid() bool { return i.partiallySatisfied() && i.err == nil }
 
-func (i *Iterator) Close() error {
+func (i *Iterator) Close() (err error) {
+	if i.closed {
+		return nil
+	}
+	i.onClose()
+	i.closed = true
 	return i.internal.Close()
 }
 
+// accumulate reads the underlying data contained in the view from OS and
+// appends them to the frame.
 func (i *Iterator) accumulate(ctx context.Context) bool {
 	if !i.internal.TimeRange().OverlapsWith(i.view) {
 		return false

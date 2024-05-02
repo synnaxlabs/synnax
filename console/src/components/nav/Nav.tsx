@@ -9,11 +9,13 @@ import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";
 import { Range } from "@/range";
 import { Vis } from "@/vis";
+import { Task } from "@/hardware/tasks";
 
 export const NAV_DRAWERS: Layout.NavDrawerItem[] = [
   Ontology.Toolbar,
   Range.Toolbar,
   Vis.Toolbar,
+  Task.Toolbar,
 ];
 
 export const NavMenu = ({

@@ -63,4 +63,10 @@ func configureStartFlags() {
 		false,
 		"Automatically generate self-signed certificates.",
 	)
+
+	startCmd.Flags().Bool(
+		"no-driver",
+		false,
+		"Disable the embedded synnax driver",
+	)
 }

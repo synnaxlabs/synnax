@@ -18,29 +18,31 @@ import { componentRenderProp } from "@/util/renderProp";
 
 export interface SelectListProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>>
   extends CoreList.SelectorProps<K, E>,
-    Pick<CoreList.ColumnHeaderProps<K, E>, "columns">,
+    Pick<Partial<CoreList.ColumnHeaderProps<K, E>>, "columns">,
     Omit<Dropdown.DialogProps, "onChange" | "children">,
     PropsWithChildren<{}> {
   data?: E[];
-  emtpyContent?: ReactElement;
+  emptyContent?: ReactElement;
   hideColumnHeader?: boolean;
 }
 
+const DEFAULT_COLUMNS: CoreList.ColumnSpec[] = [];
+
 export const Core = <K extends Key, E extends Keyed<K>>({
   data,
-  emtpyContent,
+  emptyContent,
   value,
   onChange,
   allowMultiple,
   allowNone,
   hideColumnHeader = false,
   children,
-  columns,
+  columns = DEFAULT_COLUMNS,
   visible,
   replaceOnSingle,
   ...props
 }: SelectListProps<K, E>): ReactElement => (
-  <CoreList.List data={data} emptyContent={emtpyContent}>
+  <CoreList.List data={data} emptyContent={emptyContent}>
     <CoreList.Selector
       value={value}
       onChange={onChange}

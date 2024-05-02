@@ -120,6 +120,7 @@
       "caseconv",
       "clsx",
       "downsample",
+      "Enableable",
       "glsl",
       "immer",
       "lineplot",

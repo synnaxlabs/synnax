@@ -68,9 +68,10 @@ func (c Config) Validate() error {
 
 type Service struct {
 	Config
-	group           group.Group
-	localKeyCounter *kv.AtomicInt64Counter
-	shutdownSignals io.Closer
+	EmbeddedRackName string
+	group            group.Group
+	localKeyCounter  *kv.AtomicInt64Counter
+	shutdownSignals  io.Closer
 }
 
 const groupName = "Racks"
@@ -96,12 +97,12 @@ func OpenService(ctx context.Context, configs ...Config) (s *Service, err error)
 	s = &Service{Config: cfg, group: g, localKeyCounter: c}
 	cfg.Ontology.RegisterService(s)
 
-	driverRack := fmt.Sprintf("sy_node_%s_rack", cfg.HostProvider.HostKey())
-	var existingRack Rack
-	if err := s.NewRetrieve().WhereNames(driverRack).Entry(&existingRack).Exec(ctx, cfg.DB); err != nil {
+	s.EmbeddedRackName = fmt.Sprintf("sy_node_%s_rack", cfg.HostProvider.HostKey())
+	var existingEmbeddedRack Rack
+	if err := s.NewRetrieve().WhereNames(s.EmbeddedRackName).Entry(&existingEmbeddedRack).Exec(ctx, cfg.DB); err != nil {
 		if errors.Is(err, query.NotFound) {
 			w := s.NewWriter(nil)
-			if err := w.Create(ctx, &Rack{Name: driverRack}); err != nil {
+			if err := w.Create(ctx, &Rack{Name: s.EmbeddedRackName}); err != nil {
 				return nil, err
 			}
 		} else {

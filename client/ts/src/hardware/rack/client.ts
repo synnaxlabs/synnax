@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
+import { type UnknownRecord } from "@synnaxlabs/x";
 import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import { toArray } from "@synnaxlabs/x/toArray";
 import { z } from "zod";
@@ -174,13 +175,14 @@ export class Rack {
     return await this.tasks.retrieveByName(name, this.key);
   }
 
-  async createTask(task: task.NewTask): Promise<task.Task> {
+  async createTask<C extends UnknownRecord, T extends string = string>(
+    task: task.NewTask<C, T>,
+  ): Promise<task.Task<C, T>> {
     task.key = (
       (BigInt(this.key) << 32n) +
       (BigInt(task.key ?? 0) & 0xffffffffn)
     ).toString();
-    const res = await this.tasks.create([task]);
-    return res[0];
+    return (await this.tasks.create([task]))[0] as task.Task<C, T>;
   }
 
   async deleteTask(task: bigint): Promise<void> {

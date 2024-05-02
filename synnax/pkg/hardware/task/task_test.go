@@ -61,7 +61,7 @@ var _ = Describe("Task", Ordered, func() {
 		Expect(otg.Close()).To(Succeed())
 		Expect(db.Close()).To(Succeed())
 	})
-	Describe("Key", func() {
+	Describe("Task", func() {
 		FIt("Should construct and deconstruct a key from its components", func() {
 			rk := rack.NewKey(core.NodeKey(1), 1)
 			logrus.Info(rk)

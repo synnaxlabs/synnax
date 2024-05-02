@@ -137,12 +137,13 @@ func (svc *HardwareService) CreateTask(ctx context.Context, req HardwareCreateTa
 }
 
 type HardwareRetrieveTaskRequest struct {
-	Rack   rack.Key
-	Keys   []task.Key `json:"keys" msgpack:"keys"`
-	Names  []string   `json:"names" msgpack:"names"`
-	Search string     `json:"search" msgpack:"search"`
-	Limit  int        `json:"limit" msgpack:"limit"`
-	Offset int        `json:"offset" msgpack:"offset"`
+	Rack         rack.Key
+	Keys         []task.Key `json:"keys" msgpack:"keys"`
+	Names        []string   `json:"names" msgpack:"names"`
+	IncludeState bool       `json:"include_state" msgpack:"include_state"`
+	Search       string     `json:"search" msgpack:"search"`
+	Limit        int        `json:"limit" msgpack:"limit"`
+	Offset       int        `json:"offset" msgpack:"offset"`
 }
 
 type HardwareRetrieveTaskResponse struct {
@@ -173,10 +174,22 @@ func (svc *HardwareService) RetrieveTask(ctx context.Context, req HardwareRetrie
 	if hasOffset {
 		q = q.Offset(req.Offset)
 	}
-	if req.Rack.IsValid() {
+	if req.Rack.IsValid() && len(req.Names) == 0 {
 		q = q.WhereRack(req.Rack)
 	}
-	return res, q.Entries(&res.Tasks).Exec(ctx, nil)
+	err := q.Entries(&res.Tasks).Exec(ctx, nil)
+	if err != nil {
+		return res, err
+	}
+	if req.IncludeState {
+		for i := range res.Tasks {
+			s, ok := svc.internal.State.GetTask(ctx, res.Tasks[i].Key)
+			if ok {
+				res.Tasks[i].State = &s
+			}
+		}
+	}
+	return res, err
 }
 
 type HardwareDeleteTaskRequest struct {

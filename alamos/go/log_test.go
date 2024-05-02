@@ -20,7 +20,7 @@ import (
 var _ = Describe("Log", func() {
 	Describe("NewLogger", func() {
 		It("Should correctly attach a new logger to the Instrumentation", func() {
-			logger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{Zap: zap.NewNop()}))
+			logger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{ZapConfig: zap.NewDevelopmentConfig()}))
 			i := alamos.New("test", alamos.WithLogger(logger))
 			Expect(i.L).ToNot(BeNil())
 		})

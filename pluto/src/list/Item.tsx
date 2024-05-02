@@ -40,6 +40,7 @@ export const ItemFrame = <K extends Key, E extends Keyed<K>>({
     id={entry.key.toString()}
     direction="x"
     onClick={() => onSelect?.(entry.key)}
+    tabIndex={0}
     className={CSS(
       className,
       CONTEXT_TARGET,

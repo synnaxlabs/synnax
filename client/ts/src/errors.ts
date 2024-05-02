@@ -48,6 +48,13 @@ export class AuthError extends Error {
 }
 
 /**
+ * InvalidTokenError is raised when an authentication token is invalid.
+ */
+export class InvalidTokenError extends AuthError {
+  static readonly TYPE = AuthError.TYPE + ".invalid-token";
+}
+
+/**
  * UnexpectedError is raised when an unexpected error occurs.
  */
 export class UnexpectedError extends Error {
@@ -111,6 +118,8 @@ const decode = (payload: ErrorPayload): Error | null => {
   }
 
   if (payload.type.startsWith(AuthError.TYPE)) {
+    if (payload.type.startsWith(InvalidTokenError.TYPE))
+      return new InvalidTokenError(payload.data);
     return new AuthError(payload.data);
   }
 

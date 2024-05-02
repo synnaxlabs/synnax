@@ -27,6 +27,7 @@ func New(router *fhttp.Router) (t api.Transport) {
 	// CHANNEL
 	t.ChannelCreate = fhttp.UnaryServer[api.ChannelCreateRequest, api.ChannelCreateResponse](router, false, "/api/v1/channel/create")
 	t.ChannelRetrieve = fhttp.UnaryServer[api.ChannelRetrieveRequest, api.ChannelRetrieveResponse](router, false, "/api/v1/channel/retrieve")
+	t.ChannelDelete = fhttp.UnaryServer[api.ChannelDeleteRequest, types.Nil](router, false, "/api/v1/channel/delete")
 	t.ConnectivityCheck = fhttp.UnaryServer[types.Nil, api.ConnectivityCheckResponse](router, false, "/api/v1/connectivity/check")
 
 	// FRAME

@@ -31,7 +31,6 @@ import { testConnection } from "@/cluster/testConnection";
 
 // The name of the sidecar binary.
 const BINARY_NAME = "bin/sy";
-export const LOCAL_KEY = "local";
 
 export const useLocalServer = (): void => {
   const win = useSelectWindowKey();
@@ -73,9 +72,9 @@ export const useLocalServer = (): void => {
         // Test the connection to the local server.
         testConnection(LOCAL_PROPS)
           .then(() => {
-            d(set(LOCAL));
             d(setLocalState({ pid: serverProcess.pid, status: "running" }));
-            d(setActive(LOCAL_KEY));
+            // Set the cluster as active to trigger the connection.
+            d(setActive(LOCAL_CLUSTER_KEY));
           })
           .catch(console.error);
       } else if (isInfo && msg === "shutdown successful") {

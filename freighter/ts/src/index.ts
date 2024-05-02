@@ -19,7 +19,7 @@ export {
 } from "@/errors";
 export type { ErrorPayload, TypedError } from "@/errors";
 export { HTTPClient } from "@/http";
-export type { Context as MetaData, Middleware, Next } from "@/middleware";
+export type { Context, Middleware, Next } from "@/middleware";
 export type { Stream, StreamClient } from "@/stream";
 export type { UnaryClient } from "@/unary";
 export { sendRequired } from "@/unary";

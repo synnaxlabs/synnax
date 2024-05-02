@@ -71,6 +71,7 @@ export type RootStore = Store<RootState, RootAction>;
 
 const DEFAULT_WINDOW_PROPS: Omit<Drift.WindowProps, "key"> = {
   fileDropEnabled: false,
+  visible: false,
 };
 
 export const migrateState = (prev: RootState): RootState => ({

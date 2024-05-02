@@ -21,21 +21,21 @@
     "fix": "eslint \"src/**/*.ts*\" --fix"
   },
   "dependencies": {
-    "async-mutex": "^0.4.0",
+    "async-mutex": "^0.5.0",
     "js-convert-case": "^4.2.0",
-    "nanoid": "^5.0.2",
-    "typescript": "^5.3.3",
+    "nanoid": "^5.0.7",
+    "typescript": "^5.4.5",
     "zod": "3.22.4"
   },
   "devDependencies": {
     "@synnaxlabs/tsconfig": "workspace:*",
     "@synnaxlabs/vite-plugin": "workspace:*",
-    "@types/node": "^20.8.7",
-    "@vitest/coverage-v8": "^1.2.2",
-    "eslint": "^8.55.0",
+    "@types/node": "^20.12.7",
+    "@vitest/coverage-v8": "^1.5.0",
+    "eslint": "^9.0.0",
     "eslint-config-synnaxlabs": "workspace:*",
-    "vite": "^5.1.2",
-    "vitest": "^1.2.2"
+    "vite": "5.2.8",
+    "vitest": "^1.5.0"
   },
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -175,6 +175,16 @@
       "import": "./dist/identity.js",
       "require": "./dist/identity.cjs",
       "types": "./dist/src/identity.d.ts"
+    },
+    "./caseconv": {
+      "import": "./dist/caseconv.js",
+      "require": "./dist/caseconv.cjs",
+      "types": "./dist/src/caseconv/index.d.ts"
+    },
+    "./zodutil": {
+      "import": "./dist/zodutil.js",
+      "require": "./dist/zodutil.cjs",
+      "types": "./dist/src/zodutil/index.d.ts"
     }
   }
 }

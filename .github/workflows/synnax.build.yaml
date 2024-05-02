@@ -1,8 +1,6 @@
 name: "Synnax Build"
 on:
   push:
-    branches:
-      - main
   workflow_dispatch:
 jobs:
   docker:
@@ -82,7 +80,7 @@ jobs:
 
   create-release:
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    # if: github.ref == 'refs/heads/main'
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -111,18 +109,85 @@ jobs:
         id: create-release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: synnax-v${{ steps.version.outputs.VERSION }}
-          name: Synnax v${{ steps.version.outputs.VERSION }}
+          tag_name: synnax-driver-v${{ steps.version.outputs.VERSION }}
+          name: Synnax Driver v${{ steps.version.outputs.VERSION }}
           draft: false
           prerelease: false
 
-  build:
-    needs: create-release
-    if: github.ref == 'refs/heads/main'
-    strategy:
-      matrix:
-        platform: [ macos-latest, ubuntu-latest, windows-latest ]
+  # build:
+  #   needs: create-release
+  #   if: github.ref == 'refs/heads/main'
+  #   strategy:
+  #     matrix:
+  #       platform: [ macos-latest, ubuntu-latest, windows-latest ]
 
+  #   runs-on: ${{ matrix.platform }}
+  #   steps:
+  #     - name: Checkout Repository
+  #       uses: actions/checkout@v3
+
+  #     - name: Determine OS
+  #       id: os
+  #       shell: bash
+  #       run: |
+  #         if [ "${{ matrix.platform }}" = "macos-latest" ]; then
+  #           echo "OS=macos" >> $GITHUB_OUTPUT
+  #         elif [ "${{ matrix.platform }}" = "ubuntu-latest" ]; then
+  #           echo "OS=linux" >> $GITHUB_OUTPUT
+  #         elif [ "${{ matrix.platform }}" = "windows-latest" ]; then
+  #           echo "OS=windows" >> $GITHUB_OUTPUT
+  #         fi
+
+  #     - name: Diff Changes
+  #       uses: dorny/paths-filter@v2
+  #       id: filter
+  #       with:
+  #         filters: |
+  #           changed:
+  #             - 'synnax/**'
+  #             - 'cesium/**'
+  #             - 'x/**'
+  #             - 'console/**'
+  #             - 'freighter/go/**'
+  #             - '.github/workflows/synnax.build.yaml'
+
+  #     - name: Set up Go
+  #       if: steps.filter.outputs.changed == 'true'
+  #       uses: actions/setup-go@v4
+  #       with:
+  #         go-version: 1.22
+
+  #     - name: Download Dependencies
+  #       if: steps.filter.outputs.changed == 'true'
+  #       working-directory: ./synnax
+  #       run: |
+  #         go mod download
+
+  #     - name: Get Version
+  #       if: steps.filter.outputs.changed == 'true'
+  #       id: version
+  #       working-directory: ./synnax
+  #       shell: bash
+  #       run: |
+  #         echo "VERSION=$(cat pkg/version/VERSION)" >> $GITHUB_OUTPUT
+
+  #     - name: Build
+  #       if: steps.filter.outputs.changed == 'true'
+  #       working-directory: ./synnax
+  #       run: |
+  #         go build -o synnax-v${{ steps.version.outputs.VERSION }}-${{ steps.os.outputs.OS }}
+
+  #     - name: Upload Release Asset
+  #       if: steps.filter.outputs.changed == 'true'
+  #       env:
+  #         GITHUB_TOKEN: ${{ github.token }}
+  #       run: gh release upload synnax-v${{ steps.version.outputs.VERSION }} ./synnax/synnax-v${{ steps.version.outputs.VERSION }}-${{ steps.os.outputs.OS }}
+
+  build-driver:
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.platform }}
     steps:
       - name: Checkout Repository
@@ -140,33 +205,71 @@ jobs:
             echo "OS=windows" >> $GITHUB_OUTPUT
           fi
 
-      - name: Diff Changes
-        uses: dorny/paths-filter@v2
-        id: filter
+      - name: Update Submodules
+        run: git submodule update --init --recursive
+
+      - name: Setup Bazel
+        uses: bazel-contrib/setup-bazel@0.8.1
         with:
-          filters: |
-            changed:
-              - 'synnax/**'
-              - 'cesium/**'
-              - 'x/**'
-              - 'console/**'
-              - 'freighter/go/**'
-              - '.github/workflows/synnax.build.yaml'
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}
+          repository-cache: true
+
+      - uses: GuillaumeFalourd/setup-windows10-sdk-action@v2
+        with:
+          sdk-version: 22000
+
+      - name: Build Open62541
+        shell: bash
+        run: |
+          mkdir build && cd build
+          cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DUA_NAMESPACE_ZERO=FULL -DCMAKE_INSTALL_PREFIX=../out ..
+          cmake --build . --config RelWithDebInfo --target install
+        working-directory: driver/vendor/open62541/open62541
+
+      - name: Build Driver
+        run: bazel build --enable_platform_specific_config //driver:driver_main
+
+      - name: Determine Executable Name
+        id: executable
+        shell: bash
+        run: |
+          if [ "${{ matrix.platform }}" = "macos-latest" ]; then
+            echo "EXECUTABLE=" >> $GITHUB_OUTPUT
+          elif [ "${{ matrix.platform }}" = "ubuntu-latest" ]; then
+            echo "EXECUTABLE=" >> $GITHUB_OUTPUT
+          elif [ "${{ matrix.platform }}" = "windows-latest" ]; then
+            echo "EXECUTABLE=.exe" >> $GITHUB_OUTPUT
+          fi
+
+      - name: List Files
+        run: ls bazel-bin
+
+      - name: List Driver
+        run: ls bazel-bin/driver
+
+      - name: Move Driver
+        run: mv bazel-bin/driver/driver_main${{ steps.executable.outputs.EXECUTABLE }} synnax/pkg/hardware/embedded/assets/driver${{ steps.executable.outputs.EXECUTABLE }}
 
       - name: Set up Go
+        uses: actions/setup-go@v5
         if: steps.filter.outputs.changed == 'true'
-        uses: actions/setup-go@v4
         with:
-          go-version: 1.22
+          go-version-file: "go.work"
+          cache-dependency-path: |
+            "alamos/go/go.sum"
+            "aspen/go.sum"
+            "cesium/go.sum"
+            "freighter/go/go.sum"
+            "synnax/go.sum"
+            "x/go/go.sum"
 
       - name: Download Dependencies
-        if: steps.filter.outputs.changed == 'true'
         working-directory: ./synnax
         run: |
           go mod download
 
       - name: Get Version
-        if: steps.filter.outputs.changed == 'true'
         id: version
         working-directory: ./synnax
         shell: bash
@@ -174,13 +277,13 @@ jobs:
           echo "VERSION=$(cat pkg/version/VERSION)" >> $GITHUB_OUTPUT
 
       - name: Build
-        if: steps.filter.outputs.changed == 'true'
         working-directory: ./synnax
         run: |
-          go build -o synnax-v${{ steps.version.outputs.VERSION }}-${{ steps.os.outputs.OS }}
+          go build -tags driver -o synnax-driver-v${{ steps.version.outputs.VERSION }}-${{ steps.os.outputs.OS }}
 
       - name: Upload Release Asset
-        if: steps.filter.outputs.changed == 'true'
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: gh release upload synnax-v${{ steps.version.outputs.VERSION }} ./synnax/synnax-v${{ steps.version.outputs.VERSION }}-${{ steps.os.outputs.OS }}
+        run: gh release upload synnax-driver-v${{ steps.version.outputs.VERSION }} ./synnax/synnax-driver-v${{ steps.version.outputs.VERSION }}-${{ steps.os.outputs.OS }}
+
+

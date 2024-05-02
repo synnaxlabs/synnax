@@ -13,7 +13,6 @@ from typing import overload
 from numpy import ndarray
 from pydantic import PrivateAttr
 
-from synnax.channel.create import ChannelCreator
 from synnax.channel.payload import (
     ChannelKey,
     ChannelKeys,
@@ -24,6 +23,7 @@ from synnax.channel.payload import (
     normalize_channel_params,
 )
 from synnax.channel.retrieve import ChannelRetriever
+from synnax.channel.writer import ChannelWriter
 from synnax.exceptions import NotFoundError, MultipleResultsError, ValidationError
 from synnax.framer.client import Client
 from synnax.telem import (
@@ -163,17 +163,21 @@ class ChannelClient:
 
     _frame_client: Client
     _retriever: ChannelRetriever
-    _creator: ChannelCreator
+    _creator: ChannelWriter
 
     def __init__(
         self,
         frame_client: Client,
         retriever: ChannelRetriever,
-        creator: ChannelCreator,
+        creator: ChannelWriter,
     ):
         self._frame_client = frame_client
         self._retriever = retriever
         self._creator = creator
+
+    def delete(self, channels: ChannelParams) -> None:
+        """Deletes on or more channels from the cluster"""
+        self._creator.delete(channels)
 
     @overload
     def create(

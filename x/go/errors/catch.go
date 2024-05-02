@@ -23,6 +23,11 @@ func NewCatcher(opts ...CatcherOpt) *Catcher {
 	return &Catcher{opts: newCatchOpts(opts)}
 }
 
+func Exec1[T any](c *Catcher, ca func() (T, error)) (res T) {
+	c.Exec(func() (err error) { res, err = ca(); return })
+	return
+}
+
 // Exec runs a CatchAction and catches any errors that it may return.
 func (c *Catcher) Exec(ca func() error) {
 	if !c.opts.aggregate && len(c.errors) > 0 {

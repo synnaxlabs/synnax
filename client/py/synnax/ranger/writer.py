@@ -10,7 +10,7 @@
 from alamos import NOOP, Instrumentation, trace
 from freighter import Payload, UnaryClient
 
-from synnax.ranger.payload import RangePayload, RangeKey
+from synnax.ranger.payload import RangeKey, RangePayload
 
 
 class _CreateRequest(Payload):

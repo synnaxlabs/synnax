@@ -140,7 +140,7 @@ func (s *Service) NewStreamer(ctx context.Context, cfg StreamerConfig) (Streamer
 		controlStateKey:    s.controlStateKey,
 		sendControlDigests: lo.Contains(cfg.Keys, s.controlStateKey),
 	}
-	//anyLeased := lo.SomeBy(cfg.Keys, func(k channel.Key) bool { return !k.Free() && k != s.controlStateKey })
+	//anyLeased := lo.SomeBy(cfg.Keys, func(k channel.Task) bool { return !k.Free() && k != s.controlStateKey })
 	//now := telem.Now()
 	//if anyLeased && !cfg.Start.IsZero() && cfg.Start.Before(now) {
 	//	iter, err := s.NewStreamIterator(ctx, IteratorConfig{

@@ -22,13 +22,8 @@ describe("connectivity", () => {
       username: "synnax",
       password: "seldon",
     });
-    await client.authenticating;
-    expect(client.authenticated).toBeTruthy();
-
     transport.use(client.middleware());
-
     const connectivity = new Checker(transport.unary);
-
     await connectivity.check();
     expect(connectivity.state.status).toEqual("connected");
   });

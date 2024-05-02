@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { location, direction, type spatial } from "@synnaxlabs/x";
+import { location, direction, type spatial } from "@synnaxlabs/x/spatial";
 
 import { type BEM, newBEM } from "@/css/bem";
 import { CSSGridBuilder } from "@/css/grid";

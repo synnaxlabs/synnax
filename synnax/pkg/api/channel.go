@@ -16,10 +16,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/ranger"
-	roacherrors "github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	"go/types"
 )
 
 // Channel is an API-friendly version of the channel.Channel type. It is simplified for
@@ -127,7 +128,7 @@ func (s *ChannelService) Retrieve(
 	var resRng ranger.Range
 	if req.RangeKey != uuid.Nil {
 		err := s.ranger.NewRetrieve().WhereKeys(req.RangeKey).Entry(&resRng).Exec(ctx, nil)
-		isNotFound := roacherrors.Is(err, query.NotFound)
+		isNotFound := errors.Is(err, query.NotFound)
 		if err != nil && !isNotFound {
 			return ChannelRetrieveResponse{}, err
 		}
@@ -235,4 +236,26 @@ func translateChannelsBackward(channels []Channel) ([]channel.Channel, error) {
 		translated[i] = tCH
 	}
 	return translated, nil
+}
+
+type ChannelDeleteRequest struct {
+	Keys  channel.Keys `json:"keys" msgpack:"keys" validate:"required"`
+	Names []string     `json:"names" msgpack:"names" validate:"required"`
+}
+
+func (s *ChannelService) Delete(
+	ctx context.Context,
+	req ChannelDeleteRequest,
+) (types.Nil, error) {
+	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
+		c := errors.NewCatcher(errors.WithAggregation())
+		w := s.internal.NewWriter(tx)
+		if len(req.Keys) > 0 {
+			c.Exec(func() error { return w.DeleteMany(ctx, req.Keys) })
+		}
+		if len(req.Names) > 0 {
+			c.Exec(func() error { return w.DeleteManyByNames(ctx, req.Names) })
+		}
+		return c.Error()
+	})
 }

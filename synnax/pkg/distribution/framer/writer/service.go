@@ -127,7 +127,7 @@ func (c Config) toStorage() ts.WriterConfig {
 func (c Config) Validate() error {
 	v := validate.New("distribution.framer.writer")
 	validate.NotEmptySlice(v, "keys", c.Keys)
-	validate.NotEmptyString(v, "ControlSubject.Key", c.ControlSubject.Key)
+	validate.NotEmptyString(v, "ControlSubject.Task", c.ControlSubject.Key)
 	v.Ternaryf(
 		"authorities",
 		len(c.Authorities) != 1 && len(c.Authorities) != len(c.Keys),

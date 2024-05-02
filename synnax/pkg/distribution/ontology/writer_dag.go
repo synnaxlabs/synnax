@@ -60,6 +60,18 @@ func (d dagWriter) DeleteResource(ctx context.Context, tk ID) error {
 	return gorp.NewDelete[ID, Resource]().WhereKeys(tk).Exec(ctx, d.tx)
 }
 
+func (d dagWriter) DeleteManyResources(ctx context.Context, ids []ID) error {
+	for _, id := range ids {
+		if err := d.deleteIncomingRelationships(ctx, id); err != nil {
+			return err
+		}
+		if err := d.deleteOutgoingRelationships(ctx, id); err != nil {
+			return err
+		}
+	}
+	return gorp.NewDelete[ID, Resource]().WhereKeys(ids...).Exec(ctx, d.tx)
+}
+
 // DefineRelationship implements the Writer interface.
 func (d dagWriter) DefineRelationship(ctx context.Context, from ID, t RelationshipType, to ID) error {
 	rel := Relationship{From: from, To: to, Type: t}

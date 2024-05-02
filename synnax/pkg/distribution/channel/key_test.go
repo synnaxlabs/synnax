@@ -21,8 +21,8 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-var _ = Describe("Key Tests", func() {
-	Describe("Key", func() {
+var _ = Describe("Task Tests", func() {
+	Describe("Task", func() {
 		Describe("Construction", func() {
 			It("Should return the correct leaseholder for the key", func() {
 				k := channel.NewKey(core.NodeKey(1), 1)

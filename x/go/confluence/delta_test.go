@@ -112,7 +112,7 @@ var _ = Describe("Delta", func() {
 	})
 	Describe("DynamicDeltaMultiplier", func() {
 		It("Should allow the caller to add and remove outlets dynamically", func() {
-			delta := NewDynamicDeltaMultiplier[int]()
+			delta := NewDynamicDeltaMultiplier[int](0)
 			delta.InFrom(inputOne)
 			ctx, cancel := signal.Isolated()
 			defer cancel()

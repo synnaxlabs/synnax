@@ -9,9 +9,9 @@
 
 import threading
 import time
-from janus import Queue
 
 import pytest
+from janus import Queue
 
 import synnax as sy
 

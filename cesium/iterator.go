@@ -11,6 +11,7 @@ package cesium
 
 import (
 	"context"
+	"github.com/synnaxlabs/cesium/internal/core"
 
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/confluence"
@@ -21,6 +22,8 @@ import (
 
 const AutoSpan = unary.AutoSpan
 
+var IteratorClosedError = core.EntityClosed("cesium.iterator")
+
 type Iterator struct {
 	inlet    confluence.Inlet[IteratorRequest]
 	outlet   confluence.Outlet[IteratorResponse]
@@ -28,6 +31,7 @@ type Iterator struct {
 	shutdown context.CancelFunc
 	wg       signal.WaitGroup
 	logger   *zap.Logger
+	closed   bool
 }
 
 func wrapStreamIterator(wrap *streamIterator) *Iterator {
@@ -95,6 +99,10 @@ func (i *Iterator) Value() Frame { return i.frame }
 
 // Close implements Iterator.
 func (i *Iterator) Close() error {
+	if i.closed {
+		return nil
+	}
+	i.closed = true
 	i.inlet.Close()
 	err := i.wg.Wait()
 	i.shutdown()
@@ -107,6 +115,9 @@ func (i *Iterator) exec(req IteratorRequest) bool {
 }
 
 func (i *Iterator) execErr(req IteratorRequest) (bool, error) {
+	if i.closed {
+		return false, IteratorClosedError
+	}
 	i.frame = Frame{}
 	i.inlet.Inlet() <- req
 	for res := range i.outlet.Outlet() {

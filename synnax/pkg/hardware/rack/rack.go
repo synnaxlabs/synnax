@@ -50,7 +50,7 @@ func (r Rack) SetOptions() []interface{} { return []interface{}{r.Key.Node()} }
 // Validate implements config.Config.
 func (r Rack) Validate() error {
 	v := validate.New("rack")
-	validate.NonZero(v, "Key", r.Key)
+	validate.NonZero(v, "Task", r.Key)
 	validate.NotEmptyString(v, "Name", r.Name)
 	return v.Error()
 }
