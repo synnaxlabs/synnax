@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include "nlohmann/json.hpp"
 #include "driver/driver/testutil/testutil.h"
+#include <map>
 
 
  using json = nlohmann::json;
@@ -307,7 +308,8 @@ TEST(NiWriterTests, test_write_one_digital_channel){
 
     // Create NI readerconfig
     auto config = json{
-            {"device_name", "Dev1"}
+            {"device_name", "Dev1"},
+            {"stream_rate", 1}
     };
     add_index_channel_JSON(config, "do1_idx", 1);
     add_DO_channel_JSON(config, "do1_command", 65531, 65532, 0, 0);
@@ -349,7 +351,7 @@ TEST(NiWriterTests, test_write_one_digital_channel){
     std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
 
     auto werr = writer.write(std::move(cmd_frame));
-    auto [frame, err] = writer.writer_state_source.read();
+    auto [frame, err] = writer.writer_state_source->read();
     std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
     
     
@@ -389,7 +391,7 @@ TEST(NiWriterTests, test_write_one_digital_channel){
 
     auto werr2 = writer.write(std::move(cmd_frame));
 
-    auto [frame2, err2] = writer.writer_state_source.read();
+    auto [frame2, err2] = writer.writer_state_source->read();
 
     final_timestamp = (synnax::TimeStamp::now()).value;   
 
@@ -425,7 +427,8 @@ TEST(NiWriterTests, test_write_multiple_digital_channel){
 
     // Create NI readerconfig
     auto config = json{
-            {"device_name", "Dev1"}
+            {"device_name", "Dev1"},
+            {"stream_rate", 1}
     };
 
     add_index_channel_JSON(config, "do_idx", 1);
@@ -457,6 +460,12 @@ TEST(NiWriterTests, test_write_multiple_digital_channel){
                                     task);
 
     // construct synnax frame to write 
+    // auto map = std::map<uint32_t, std::vector<uint8_t>>{
+    //     {65531, {1,0,1,1}},
+    //     {65533, {0,1,0,0}},
+    //     {65535, {1,1,0,1}},
+    //     {65537, {0,0,1,0}}
+    // };
     auto cmd_vec = std::vector<uint8_t>{1,0,1,1};
     auto cmd_frame = synnax::Frame(2);
     cmd_frame.add(  1, 
@@ -475,7 +484,7 @@ TEST(NiWriterTests, test_write_multiple_digital_channel){
     std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
     
     auto werr = writer.write(std::move(cmd_frame));
-    auto [frame, err] = writer.writer_state_source.read();
+    auto [frame, err] = writer.writer_state_source->read();
 
     std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
     
@@ -517,7 +526,7 @@ TEST(NiWriterTests, test_write_multiple_digital_channel){
     initial_timestamp = (synnax::TimeStamp::now()).value;
 
     auto werr2 = writer.write(std::move(cmd_frame));
-    auto [frame2, err2] = writer.writer_state_source.read();
+    auto [frame2, err2] = writer.writer_state_source->read();
 
     final_timestamp = (synnax::TimeStamp::now()).value;   
 

@@ -19,6 +19,7 @@
 #include "client/cpp/synnax/synnax.h"
 #include "driver/driver/task/task.h"
 #include "driver/driver/pipeline/daqReader.h"
+#include "driver/driver/pipeline/acquisition.h"
 #include "driver/driver/errors/errors.h" 
 #include "driver/driver/breaker/breaker.h"
 
@@ -63,7 +64,7 @@ namespace ni{
 
         synnax::ChannelKey drive_state_index_key;
         std::queue<synnax::ChannelKey> modified_state_keys;
-        std::queue<synnax::uint8_t> modified_state_vals;
+        std::queue<std::uint8_t> modified_state_values;
     } WriterConfig;
 
     ///////////////////////////////////////////////////////////////////////////////////
@@ -85,8 +86,8 @@ namespace ni{
 
     private:
         // private helper functions
-        void parse_digital_reader_config(config::Parser & parser);
-        void parse_analog_reader_config(config::Parser & parser);
+        void parseDigitalReaderConfig(config::Parser & parser);
+        void parseAnalogReaderConfig(config::Parser & parser);
         int checkNIError(int32 error);
 
         // NI related resources
@@ -114,25 +115,31 @@ namespace ni{
 
 
     ///////////////////////////////////////////////////////////////////////////////////
-    //                                    niDaqWriter                                //
+    //                                    niDaqStateWriter                           //
     ///////////////////////////////////////////////////////////////////////////////////
 
-    class niDaqStateWriter : public::daq::daqStateWriter{
+    class niDaqStateWriter : public pipeline::Source{
         public: 
-            explicit niDaqStateWriter(synnax::Rate state_rate, drive_state_index_key);
+            explicit niDaqStateWriter() = default;
+            explicit niDaqStateWriter( std::uint64_t state_rate, synnax::ChannelKey &drive_state_index_key, std::vector<synnax::ChannelKey> &drive_state_channel_keys);
             std::pair<synnax::Frame, freighter::Error> read();
             freighter::Error start();
             freighter::Error stop();
-            synnax:Frame getState();
-            void updateState(std::queue<synnax::ChannelKey> &modified_state_keys, std::queue<synnax::uint8_t> &modified_state_vals);
+            synnax::Frame getDriveState();
+            void updateState(std::queue<synnax::ChannelKey> &modified_state_keys, std::queue<std::uint8_t> &modified_state_values);
         private:
             std::mutex state_mutex;
             std::condition_variable waitingReader;
-            synnax::Rate state_rate;
+            std::uint64_t state_rate;
             std::chrono::duration<double> state_period;
             std::map<synnax::ChannelKey, uint8_t> state_map;
             synnax::ChannelKey drive_state_index_key;
     };
+
+
+    ///////////////////////////////////////////////////////////////////////////////////
+    //                                    niDaqWriter                                //
+    ///////////////////////////////////////////////////////////////////////////////////
 
     class niDaqWriter : public daq::daqWriter{
     public:
@@ -141,17 +148,17 @@ namespace ni{
                              const synnax::Task task);
 
         int init();
-        freighter::Error write();
+        freighter::Error write(synnax::Frame frame);
         freighter::Error stop();
         freighter::Error start();
         bool ok();
 
-        ni::niDaqStateWriter writer_state_source;
+        std::unique_ptr<ni::niDaqStateWriter> writer_state_source;
     private:
         // private helper functions
         freighter::Error writeDigital(synnax::Frame frame);
         freighter::Error formatData(synnax::Frame frame);
-        void parse_digital_writer_config(config::Parser &parser);
+        void parseDigitalWriterConfig(config::Parser &parser);
         int checkNIError(int32 error);
 
         // NI related resources
