@@ -157,7 +157,7 @@ namespace ni{
         ~daqWriter();
 
 
-        std::unique_ptr<ni::daqStateWriter> writer_state_source;
+        std::shared_ptr<ni::daqStateWriter> writer_state_source;
     private:
         // private helper functions
         freighter::Error writeDigital(synnax::Frame frame);

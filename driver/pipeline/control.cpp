@@ -20,12 +20,10 @@ using namespace pipeline;
 Control::Control(
     std::shared_ptr<task::Context> ctx,
     synnax::StreamerConfig streamer_config,
-    synnax::WriterConfig writer_config,
     std::unique_ptr<pipeline::Sink> sink,
     const breaker::Config &breaker_config
 ): ctx(std::move(ctx)),
    streamer_config(std::move(streamer_config)),
-   writer_config(std::move(writer_config)),
    sink(std::move(sink)),
    cmd_breaker(breaker::Breaker(breaker_config)) {
 }

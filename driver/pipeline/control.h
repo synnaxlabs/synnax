@@ -30,7 +30,6 @@ public:
     Control(
         std::shared_ptr<task::Context> ctx,
         synnax::StreamerConfig streamer_config,
-        synnax::WriterConfig writer_config,
         std::unique_ptr<Sink> sink,
         const breaker::Config &breaker_config
     );

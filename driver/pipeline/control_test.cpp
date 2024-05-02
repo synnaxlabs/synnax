@@ -11,13 +11,170 @@
 // Created by Synnax on 3/6/2024.
 //
 
+/// std
 #include <stdio.h>
 #include <thread>
+
+/// GTest
 #include <include/gtest/gtest.h>
-#include "synnax/synnax.h"
+
+/// Internal
+#include "client/cpp/synnax.h"
+#include "driver/ni/ni_reader.h"
+#include "Acquisition.h"
+#include "control.h"
 #include "driver/testutil/testutil.h"
-#include "ctrl.h"
-#include <thread>
+#include "nlohmann/json.hpp"
+#include "driver/breaker/breaker.h"
+
+
+TEST(ControlPipelineTests, test_control_NI_digital_writer){
+    LOG(INFO) << "Test Control Pipeline with NI Digital Write: " << std::endl;
+     // create synnax client
+    auto client_config = synnax::Config{
+                "localhost",
+                9090,
+                "synnax",
+                "seldon"};
+    auto client = std::make_shared<synnax::Synnax>(client_config);
+
+    
+    // create all the necessary channels in the synnax client
+    auto [ack_idx, tErr1] = client->channels.create( // index channel for acks
+            "do_state_idx",
+            synnax::TIMESTAMP,
+            0,
+            true
+    );
+    ASSERT_FALSE(tErr1) << tErr1.message();
+    auto [cmd_idx, tErr2] = client->channels.create( // index channel for cmd
+        "do_cmd_idx",
+        synnax::TIMESTAMP,
+        0,
+        true
+    );
+    ASSERT_FALSE(tErr2) << tErr2.message();
+    auto [ack, aErr] = client->channels.create( // ack channel
+            "do_state",
+            synnax::UINT8,
+            ack_idx.key,
+            false
+    );
+    ASSERT_FALSE(aErr) << aErr.message();
+    auto [cmd, cErr] = client->channels.create( // cmd channel
+            "do_cmd",
+            synnax::UINT8,
+            cmd_idx.key,
+            false
+    );
+    ASSERT_FALSE(cErr) << cErr.message();
+
+    // create reader config json
+    auto config = json{
+            {"device_name", "Dev1"},
+            {"stream_rate", 1}
+    };
+
+    add_index_channel_JSON(config, "do1_idx", cmd_idx.key);
+    add_DO_channel_JSON(config, "do_cmd", cmd.key, ack.key, 0, 0);
+    add_drive_state_index_channel_JSON(config, "do_state_idx", ack_idx.key);
+
+    // create a writer to write to cmd channel (for test use only)
+    auto cmdWriterConfig = synnax::WriterConfig{
+                .channels = std::vector<synnax::ChannelKey>{cmd_idx.key, cmd.key},
+                .start = TimeStamp::now(),
+                .mode = synnax::WriterStreamOnly};
+
+    auto [cmdWriter, wErr] = client->telem.openWriter(cndWriterConfig);
+    ASSERT_FALSE(wErr) << wErr.message();
+
+    // create a streamer to stream do_state channel (for in test use only)
+    auto doStateStreamerConfig = synnax::StreamerConfig{
+        .channels = std::vector<synnax::ChannelKey>{ack_idx.key, ack.key},
+        .start = TimeStamp::now(),
+    };
+    auto [doStateStreamer, sErr] = client->telem.openStreamer(doStateStreamerConfig);
+    ASSERT_FALSE(sErr) << sErr.message();
+
+    // create breaker config
+    auto breaker_config = breaker::Config{
+                .name = task.name,
+                .base_interval = 1 * SECOND,
+                .max_retries = 20,
+                .scale = 1.2,
+    };
+
+    // create streamer config to pass into the control pipeline to poll for commands
+    auto cmdStreamerConfig = synnax::StreamerConfig{
+        .channels = std::vector<synnax::ChannelKey>{cmd_idx.key, cmd.key},
+        .start = TimeStamp::now(),
+    };
+
+    // instantiate and initialize the daq writer
+    TaskHandle taskHandle;
+    DAQmxCreateTask("",&taskHandle);
+    auto daq_writer = std::make_unique<ni::niDaqWriter>(taskHandle); 
+
+    // instantiate and initialize the Control pipeline
+    auto ctrl = pipeline::Control(mockCtx, cmdStreamerConfig, std::move(daq_writer), breaker_config);
+
+
+
+    // create a writer to write to STATE channel (for test use only)
+    auto ackWriterConfig = synnax::WriterConfig{
+                .channels = std::vector<synnax::ChannelKey>{ack_idx.key, ack.key},
+                .start = TimeStamp::now(),
+                .mode = synnax::WriterStreamOnly};
+
+    // instantiate and initialize the Acquisition pipeline to actually write to the server
+    auto acq = pipeline::Acquisition(mockCtx, ackWriterConfig, daq_writer->writer_state_source, breaker_config);
+
+    // create a state streamer to read frames that the acq pipe writes to the server
+    auto streamer_config = synnax::StreamerConfig{
+                .channels = std::vector<synnax::ChannelKey>{ack_idx.key, ack.key},
+                .start = TimeStamp::now(),
+        };
+
+    auto [streamer, sErr] = mockCtx->client->telem.openStreamer(streamer_config);
+
+    // start the control pipeline
+    ctrl.start();
+    acq.start();
+
+    // write to the cmd channel
+    auto frame = synnax::Frame(2);
+    frame.add(cmd_idx.key, synnax::Series(std::vector<uint64_t>{time}, synnax::TIMESTAMP));
+    frame.add(cmd.key, synnax::Series(std::vector<uint8_t>{1}));
+    ASSERT_TRUE(cmdWriter.write(std::move(frame)));
+    auto [end, ok] = cmdWriter.commit();
+    // read from the ack channel
+    auto [frame, err] = streamer.read();
+    // check that the frame is correct
+    auto s = frame.series->at(1).uint8();
+    ASSERT_TRUE(s[0] == 1);
+
+    // now write a 0 to the cmd channel
+    auto frame = synnax::Frame(2);
+    frame.add(cmd_idx.key, synnax::Series(std::vector<uint64_t>{time}, synnax::TIMESTAMP));
+    frame.add(cmd.key, synnax::Series(std::vector<uint8_t>{0}));
+    ASSERT_TRUE(cmdWriter.write(std::move(frame)));
+    auto [end, ok] = cmdWriter.commit();
+    // read from the ack channel
+    auto [frame, err] = streamer.read();
+    // check that the frame is correct
+    auto s = frame.series->at(1).uint8();
+    ASSERT_TRUE(s[0] == 1);
+
+
+
+    acq.stop();
+    ctrl.stop();
+}
+
+
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /// @brief it should use niReader and perform a control workflow
 /// which includes init, start, stop, and write functions and also commits ack frames to server

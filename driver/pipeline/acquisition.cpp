@@ -19,7 +19,7 @@ using namespace pipeline;
 Acquisition::Acquisition(
     std::shared_ptr<task::Context> ctx,
     WriterConfig writer_config,
-    std::unique_ptr<Source> source,
+    std::shared_ptr<Source> source,
     const breaker::Config &breaker_config
 ): ctx(std::move(ctx)),
    writer_config(std::move(writer_config)),

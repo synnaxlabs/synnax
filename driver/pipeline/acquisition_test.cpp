@@ -31,8 +31,7 @@ using json = nlohmann::json;
 /// @brief it should use niReader and perform a acuisition workflow which
 /// includes init, start, stop, and read functions and commits a frame to synnax
 TEST(AcquisitionPipelineTests, test_acquisition_NI_analog_reader){
-        LOG(INFO) << "Test Acq Analog Read:" << std::endl;
-
+        LOG(INFO) << "Test Acquisition Pipeline with NI Analog Read:" << std::endl;
 
         // create synnax client
         auto client_config = synnax::Config{
@@ -41,6 +40,7 @@ TEST(AcquisitionPipelineTests, test_acquisition_NI_analog_reader){
                 "synnax",
                 "seldon"};
         auto client = std::make_shared<synnax::Synnax>(client_config);
+        
         // create all the necessary channels in the synnax client
         auto [time, tErr] = client->channels.create( // index channel for analog input channels
                 "time",
@@ -49,7 +49,6 @@ TEST(AcquisitionPipelineTests, test_acquisition_NI_analog_reader){
                 true
         );
         ASSERT_FALSE(tErr) << tErr.message();
-
         auto [data, dErr] = client->channels.create( // analog input channel
                 "acq_data",
                 synnax::FLOAT32,
