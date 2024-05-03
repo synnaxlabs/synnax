@@ -287,3 +287,10 @@ const splitArrangement = (
 };
 
 const shallowCopyNode = (node: Node): Node => deep.copy(node);
+
+export const mapNodes = <O>(root: Node, fn: (node: Node) => O, acc: O[] = []): O[] => {
+  acc.push(fn(root));
+  if (root.first != null) mapNodes(root.first, fn, acc);
+  if (root.last != null) mapNodes(root.last, fn, acc);
+  return acc;
+};

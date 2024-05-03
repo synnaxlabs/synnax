@@ -233,6 +233,7 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
         ref={ref}
         {...props}
       >
+        <p>{aetherKey}</p>
         <Context.Provider value={contextValue}>
           <Aether.Composite path={path}>{children}</Aether.Composite>
         </Context.Provider>

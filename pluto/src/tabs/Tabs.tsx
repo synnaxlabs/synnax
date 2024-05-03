@@ -13,6 +13,7 @@ import React, {
   type ReactNode,
   useContext,
   useCallback,
+  isValidElement,
 } from "react";
 
 import { direction } from "@synnaxlabs/x";
@@ -88,7 +89,7 @@ export interface TabsContextValue {
   closable?: boolean;
   selected?: string;
   onSelect?: (key: string) => void;
-  content?: TabRenderProp;
+  content?: TabRenderProp | ReactElement;
   onClose?: (key: string) => void;
   onDragStart?: (e: React.DragEvent<HTMLDivElement>, tab: TabSpec) => void;
   onDragEnd?: (e: React.DragEvent<HTMLDivElement>, tab: TabSpec) => void;
@@ -103,7 +104,7 @@ export interface TabsProps
       "children" | "onSelect" | "size" | "onDragStart" | "onDragEnd" | "content"
     >,
     TabsContextValue {
-  children?: TabRenderProp;
+  children?: TabRenderProp | ReactElement;
   size?: ComponentSize;
 }
 
@@ -112,6 +113,7 @@ export const TabsContext = createContext<TabsContextValue>({ tabs: [] });
 export const useTabsContext = (): TabsContextValue => useContext(TabsContext);
 
 export const Tabs = ({
+  id,
   content,
   children,
   onSelect,
@@ -132,6 +134,7 @@ export const Tabs = ({
   ...props
 }: TabsProps): ReactElement => (
   <Align.Space
+    id={id}
     empty
     className={CSS(CSS.B("tabs"), className)}
     onDragOver={onDragOver}
@@ -174,8 +177,10 @@ export const Content = (): ReactElement | null => {
   let content: ReactNode = null;
   const selectedTab = tabs.find((tab) => tab.tabKey === selected);
   if (selected == null || selectedTab == null) return emptyContent ?? null;
-  if (renderProp != null) content = renderProp(selectedTab);
-  else if (selectedTab.content != null) content = selectedTab.content;
+  if (renderProp != null) {
+    if (isValidElement(renderProp)) return renderProp;
+    else content = (renderProp as TabRenderProp)(selectedTab);
+  } else if (selectedTab.content != null) content = selectedTab.content;
   return (
     <div
       className={CSS.B("tabs-content")}

@@ -7,26 +7,79 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useState, memo, useCallback, type ReactElement } from "react";
+import {
+  useState,
+  memo,
+  useCallback,
+  type ReactElement,
+  useEffect,
+  useRef,
+  type MutableRefObject,
+} from "react";
 
 import { type box, type location } from "@synnaxlabs/x";
+import * as portals from "react-reverse-portal";
 
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
 import { type CanDrop } from "@/haul/Haul";
+import { mapNodes } from "@/mosaic/tree";
 import { type Node } from "@/mosaic/types";
 import { Resize } from "@/resize";
 import { Tabs } from "@/tabs";
+import { Transport } from "@/transport";
 
 import "@/mosaic/Mosaic.css";
 
 /** Props for the {@link Mosaic} component */
 export interface MosaicProps
-  extends Omit<Tabs.TabsProps, "onDrop" | "tabs" | "onResize" | "onCreate"> {
+  extends Omit<
+    Tabs.TabsProps,
+    "onDrop" | "tabs" | "onResize" | "onCreate" | "children"
+  > {
   root: Node;
   onDrop: (key: number, tabKey: string, loc: location.Location) => void;
   onResize: (key: number, size: number) => void;
   onCreate?: (key: number, loc: location.Location, tabKeys?: string[]) => void;
+  children: Tabs.TabRenderProp;
+}
+
+export const Mosaic = memo(({ children, ...props }: MosaicProps): ReactElement => {
+  const ref = useRef<Map<string, Transport.HtmlPortalNode>>(new Map());
+  return (
+    <>
+      {mapNodes(props.root, (node) => {
+        if (node.selected == null) return null;
+        let pNode: Transport.HtmlPortalNode = ref.current.get(node.selected);
+        if (pNode == null) {
+          console.log("CREATING PORTAL NODE");
+          pNode = Transport.createHtmlPortalNode({
+            attributes: {
+              style: "width: 100%; height: 100%; position: relative;",
+            },
+          });
+          ref.current.set(node.selected, pNode);
+        }
+        const tab = node.tabs?.find((t) => t.tabKey === node.selected);
+        if (tab == null) return null;
+        return (
+          <Transport.InPortal key={tab.tabKey} node={pNode}>
+            <div
+              style={{ width: "100%", height: "100%" }}
+              onClick={() => props.onSelect?.(tab.tabKey)}
+            >
+              {children?.(tab)}
+            </div>
+          </Transport.InPortal>
+        );
+      })}
+      <MosaicInternal portalNodes={ref} {...props} />
+    </>
+  );
+});
+
+interface MosaicInternalProps extends Omit<MosaicProps, "children"> {
+  portalNodes: MutableRefObject<Map<string, Transport.HtmlPortalNode>>;
 }
 
 /***
@@ -44,7 +97,7 @@ export interface MosaicProps
  * @param props.onResize - The callback executed when a pane is resized. This prop is
  *  provided by the Mosaic.use hook.
  */
-export const Mosaic = memo((props: MosaicProps): ReactElement | null => {
+const MosaicInternal = memo((props: MosaicInternalProps): ReactElement | null => {
   const { onResize, ...tabsProps } = props;
   const {
     root: { tabs, direction, first, last, key, size },
@@ -74,8 +127,18 @@ export const Mosaic = memo((props: MosaicProps): ReactElement | null => {
         className={CSS.BE("mosaic", "resize")}
         {...resizeProps}
       >
-        <Mosaic key={first.key} {...childProps} root={first} onResize={onResize} />
-        <Mosaic key={last.key} {...childProps} root={last} onResize={onResize} />
+        <MosaicInternal
+          key={first.key}
+          {...childProps}
+          root={first}
+          onResize={onResize}
+        />
+        <MosaicInternal
+          key={last.key}
+          {...childProps}
+          root={last}
+          onResize={onResize}
+        />
       </Resize.Multiple>
     );
   else {
@@ -86,8 +149,9 @@ export const Mosaic = memo((props: MosaicProps): ReactElement | null => {
   return key === 1 ? <Haul.Provider>{content}</Haul.Provider> : content;
 });
 Mosaic.displayName = "Mosaic";
+MosaicInternal.displayName = "Mosaic";
 
-interface TabLeafProps extends Omit<MosaicProps, "onResize"> {}
+interface TabLeafProps extends Omit<MosaicInternalProps, "onResize"> {}
 
 /**
  * This type should be used when the user wants to drop a tab in the mosaic.
@@ -110,7 +174,13 @@ const validDrop = (tabs: Tabs.Tab[], dragging: Haul.Item[]): boolean => {
 };
 
 const TabLeaf = memo(
-  ({ root: node, onDrop, onCreate, ...props }: TabLeafProps): ReactElement => {
+  ({
+    root: node,
+    onDrop,
+    onCreate,
+    portalNodes,
+    ...props
+  }: TabLeafProps): ReactElement => {
     const { key, tabs } = node as Omit<Node, "tabs"> & { tabs: Tabs.Tab[] };
 
     const [dragMask, setDragMask] = useState<location.Location | null>(null);
@@ -139,6 +209,7 @@ const TabLeaf = memo(
 
     const handleDragOver = useCallback(
       ({ event }: Haul.OnDragOverProps): void => {
+        console.log("dragging over");
         const location: location.Location =
           tabs.length === 0 ? "center" : insertLocation(getDragLocationPercents(event));
         setDragMask(location);
@@ -153,11 +224,15 @@ const TabLeaf = memo(
       onDragOver: handleDragOver,
     });
 
+    const dragging = canDrop(Haul.useDraggingState());
+
     const handleDragLeave = useCallback((): void => setDragMask(null), []);
 
     const handleDragStart = useCallback(
-      (_: unknown, { tabKey }: Tabs.Tab): void =>
-        startDrag([{ key: tabKey, type: HAUL_DROP_TYPE }]),
+      (_: unknown, { tabKey }: Tabs.Tab): void => {
+        console.log("dragging", tabKey);
+        startDrag([{ key: tabKey, type: HAUL_DROP_TYPE }]);
+      },
       [startDrag],
     );
 
@@ -166,6 +241,7 @@ const TabLeaf = memo(
     return (
       <div className={CSS.BE("mosaic", "leaf")}>
         <Tabs.Tabs
+          id={`tab-${key}`}
           tabs={tabs}
           onDragLeave={handleDragLeave}
           selected={node.selected}
@@ -173,7 +249,31 @@ const TabLeaf = memo(
           onCreate={handleTabCreate}
           {...props}
           {...haulProps}
-        />
+        >
+          <div
+            style={{
+              position: "relative",
+              width: "100%",
+              height: "100%",
+              overflow: "hidden",
+            }}
+          >
+            <Transport.OutPortal node={portalNodes.current.get(node.selected)} />
+            {dragging && (
+              <div
+                style={{
+                  zIndex: 1000,
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  height: "100%",
+                }}
+              />
+            )}
+          </div>
+        </Tabs.Tabs>
+
         {dragMask != null && (
           <div className={CSS.BE("mosaic", "mask")} style={maskStyle[dragMask]} />
         )}

@@ -31,4 +31,9 @@
 .pluto-mosaic__leaf .pluto-tabs {
     height: 100%;
     width: 100%;
+
+    & > div:last-child {
+        width: 100%;
+        height: 100%;
+    }
 }
