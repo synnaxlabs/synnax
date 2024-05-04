@@ -18,7 +18,6 @@ import {
   Synnax,
   useDebouncedCallback,
 } from "@synnaxlabs/pluto";
-import { type Tabs } from "@synnaxlabs/pluto/tabs";
 import { type location } from "@synnaxlabs/x";
 import { useDispatch, useStore } from "react-redux";
 
@@ -141,9 +140,7 @@ export const Mosaic = memo((): ReactElement => {
       onRename={handleRename}
       onCreate={handleCreate}
     >
-      {({ tabKey, ...props }: Tabs.Tab) => {
-        return <Content key={tabKey} layoutKey={tabKey} />;
-      }}
+      {({ tabKey }) => <Content key={tabKey} layoutKey={tabKey} />}
     </Core.Mosaic>
   );
 });

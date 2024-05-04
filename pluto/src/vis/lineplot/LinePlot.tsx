@@ -19,6 +19,7 @@ import {
   useEffect,
   useMemo,
   useRef,
+  useState,
 } from "react";
 
 import { location, type Destructor, deep, direction, box } from "@synnaxlabs/x";
@@ -27,14 +28,14 @@ import { type z } from "zod";
 import { Aether } from "@/aether";
 import { type Color } from "@/color";
 import { CSS } from "@/css";
-import { useEffectCompare, useCombinedStateAndRef } from "@/hooks";
+import { useEffectCompare } from "@/hooks";
 import { useMemoDeepEqualProps } from "@/memo";
 import { type Viewport } from "@/viewport";
 import { Canvas } from "@/vis/canvas";
 import { lineplot } from "@/vis/lineplot/aether";
 import {
   type GridPositionSpec,
-  filterGridPositions,
+  gridLoc,
   type GridSpec,
 } from "@/vis/lineplot/aether/grid";
 
@@ -118,9 +119,9 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
     hold,
     ...props
   }): ReactElement => {
-    const [lines, setLines, linesRef] = useCombinedStateAndRef<LineState>([]);
+    const [lines, setLines] = useState<LineState>([]);
 
-    const aetherMemoProps = useMemoDeepEqualProps({ clearOverScan, hold });
+    const memoProps = useMemoDeepEqualProps({ clearOverScan, hold });
 
     const [{ path }, { grid }, setState] = Aether.use({
       aetherKey,
@@ -130,14 +131,11 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
         container: box.ZERO,
         viewport: box.DECIMAL,
         grid: {},
-        ...aetherMemoProps,
+        ...memoProps,
       },
     });
 
-    useEffect(
-      () => setState((prev) => ({ ...prev, ...aetherMemoProps })),
-      [aetherMemoProps],
-    );
+    useEffect(() => setState((prev) => ({ ...prev, ...memoProps })), [memoProps]);
 
     const viewportHandlers = useRef<Map<Viewport.UseHandler, null>>(new Map());
 
@@ -233,7 +231,6 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
         ref={ref}
         {...props}
       >
-        <p>{aetherKey}</p>
         <Context.Provider value={contextValue}>
           <Aether.Composite path={path}>{children}</Aether.Composite>
         </Context.Provider>
@@ -243,20 +240,20 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
 );
 
 const buildPlotGrid = (grid: GridSpec): CSSProperties => {
-  const builder = CSS.newGridBuilder();
-  filterGridPositions("top", grid).forEach(({ key, size }) =>
-    builder.addRow(`axis-start-${key}`, `axis-end-${key}`, size),
+  const b = CSS.newGridBuilder();
+  gridLoc("top", grid).forEach(({ key, size }) =>
+    b.row(`axis-start-${key}`, `axis-end-${key}`, size),
   );
-  builder.addRow("plot-start", "plot-end", "minmax(0, 1fr)");
-  filterGridPositions("bottom", grid).forEach(({ key, size }) =>
-    builder.addRow(`axis-start-${key}`, `axis-end-${key}`, size),
+  b.row("plot-start", "plot-end", "minmax(0, 1fr)");
+  gridLoc("bottom", grid).forEach(({ key, size }) =>
+    b.row(`axis-start-${key}`, `axis-end-${key}`, size),
   );
-  filterGridPositions("left", grid).forEach(({ key, size }) =>
-    builder.addColumn(`axis-start-${key}`, `axis-end-${key}`, size),
+  gridLoc("left", grid).forEach(({ key, size }) =>
+    b.col(`axis-start-${key}`, `axis-end-${key}`, size),
   );
-  builder.addColumn("plot-start", "plot-end", "minmax(0, 1fr)");
-  filterGridPositions("right", grid).forEach(({ key, size }) =>
-    builder.addColumn(`axis-start-${key}`, `axis-end-${key}`, size),
+  b.col("plot-start", "plot-end", "minmax(0, 1fr)");
+  gridLoc("right", grid).forEach(({ key, size }) =>
+    b.col(`axis-start-${key}`, `axis-end-${key}`, size),
   );
-  return builder.build();
+  return b.build();
 };

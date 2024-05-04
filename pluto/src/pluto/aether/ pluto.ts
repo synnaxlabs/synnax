@@ -33,8 +33,6 @@ export const render = (): void => {
   const w = new RoutedWorker((data, transfer) => postMessage(data, transfer));
   onmessage = w.handle.bind(w);
 
-  console.log("Rendering Pluto Aether");
-
   const REGISTRY: aether.ComponentRegistry = {
     ...lineplot.REGISTRY,
     ...canvas.REGISTRY,

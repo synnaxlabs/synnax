@@ -13,7 +13,6 @@ import React, {
   type ReactNode,
   useContext,
   useCallback,
-  isValidElement,
 } from "react";
 
 import { direction } from "@synnaxlabs/x";
@@ -25,6 +24,8 @@ import { state } from "@/state";
 import { type TabSpec, Selector } from "@/tabs/Selector";
 import { type ComponentSize } from "@/util/component";
 import { type RenderProp } from "@/util/renderProp";
+
+import "@/tabs/Tabs.css";
 
 export interface Tab extends TabSpec {
   content?: ReactNode;
@@ -89,7 +90,7 @@ export interface TabsContextValue {
   closable?: boolean;
   selected?: string;
   onSelect?: (key: string) => void;
-  content?: TabRenderProp | ReactElement;
+  content?: TabRenderProp | ReactNode;
   onClose?: (key: string) => void;
   onDragStart?: (e: React.DragEvent<HTMLDivElement>, tab: TabSpec) => void;
   onDragEnd?: (e: React.DragEvent<HTMLDivElement>, tab: TabSpec) => void;
@@ -104,7 +105,7 @@ export interface TabsProps
       "children" | "onSelect" | "size" | "onDragStart" | "onDragEnd" | "content"
     >,
     TabsContextValue {
-  children?: TabRenderProp | ReactElement;
+  children?: TabRenderProp | ReactNode;
   size?: ComponentSize;
 }
 
@@ -166,7 +167,7 @@ export const Tabs = ({
 
 export const Provider = TabsContext.Provider;
 
-export const Content = (): ReactElement | null => {
+export const Content = (): ReactNode | null => {
   const {
     tabs,
     selected,
@@ -178,20 +179,11 @@ export const Content = (): ReactElement | null => {
   const selectedTab = tabs.find((tab) => tab.tabKey === selected);
   if (selected == null || selectedTab == null) return emptyContent ?? null;
   if (renderProp != null) {
-    if (isValidElement(renderProp)) return renderProp;
-    else content = (renderProp as TabRenderProp)(selectedTab);
+    if (typeof renderProp === "function") content = renderProp(selectedTab);
+    else content = renderProp;
   } else if (selectedTab.content != null) content = selectedTab.content;
   return (
-    <div
-      className={CSS.B("tabs-content")}
-      onClick={() => onSelect?.(selected)}
-      style={{
-        width: "100%",
-        height: "100%",
-        position: "relative",
-        overflow: "hidden",
-      }}
-    >
+    <div className={CSS.B("tabs-content")} onClick={() => onSelect?.(selected)}>
       {content}
     </div>
   );

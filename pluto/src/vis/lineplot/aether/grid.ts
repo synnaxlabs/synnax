@@ -22,10 +22,7 @@ export const gridSpecZ = z.record(gridPositionSpecZ);
 export type GridPositionSpec = z.input<typeof gridPositionSpecZ>;
 export type GridSpec = z.input<typeof gridSpecZ>;
 
-export const filterGridPositions = (
-  loc: location.Outer,
-  grid: GridSpec,
-): GridPositionSpec[] =>
+export const gridLoc = (loc: location.Outer, grid: GridSpec): GridPositionSpec[] =>
   Object.values(grid)
     .filter(({ loc: l }) => l === loc)
     .sort((a, b) => compare.order(a.order, b.order));
@@ -38,9 +35,9 @@ export const calculateGridPosition = (
   const axis = grid[key];
   if (axis == null) return xy.ZERO;
   const loc = location.construct(axis.loc);
-  const axes = filterGridPositions(loc as location.Outer, grid);
+  const axes = gridLoc(loc as location.Outer, grid);
   const filterLoc = location.construct(direction.swap(location.direction(loc)));
-  const otherAxes = filterGridPositions(filterLoc as location.Outer, grid);
+  const otherAxes = gridLoc(filterLoc as location.Outer, grid);
   const index = axes.findIndex(({ key: k }) => k === key);
   const offset = axes.slice(0, index).reduce((acc, { size }) => acc + size, 0);
   const otherOffset = otherAxes.reduce((acc, { size }) => acc + size, 0);
@@ -57,10 +54,10 @@ export const calculateGridPosition = (
 };
 
 export const calculatePlotBox = (grid: GridSpec, container: box.Box): box.Box => {
-  const left = filterGridPositions("left", grid);
-  const right = filterGridPositions("right", grid);
-  const top = filterGridPositions("top", grid);
-  const bottom = filterGridPositions("bottom", grid);
+  const left = gridLoc("left", grid);
+  const right = gridLoc("right", grid);
+  const top = gridLoc("top", grid);
+  const bottom = gridLoc("bottom", grid);
   const leftWidth = left.reduce((acc, { size }) => acc + size, 0);
   const rightWidth = right.reduce((acc, { size }) => acc + size, 0);
   const topWidth = top.reduce((acc, { size }) => acc + size, 0);
