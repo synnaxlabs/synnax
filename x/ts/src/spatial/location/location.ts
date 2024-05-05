@@ -26,7 +26,7 @@ import {
   type Direction,
   crudeLocation,
   type CrudeLocation,
-  centerlocation,
+  centerLocation,
   type CenterLocation,
 } from "@/spatial/base";
 
@@ -85,8 +85,8 @@ export const direction = (cl: Crude): Direction => {
 };
 
 export const xy = z.object({
-  x: xLocation.or(centerlocation),
-  y: yLocation.or(centerlocation),
+  x: xLocation.or(centerLocation),
+  y: yLocation.or(centerLocation),
 });
 export const corner = z.object({ x: xLocation, y: yLocation });
 

@@ -272,11 +272,11 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     result.value.x = safelyGetDataValue(series, index, xData);
     const [, yData] = await yTelem.value();
     const ySeries = yData.find((ys) =>
-      bounds.contains(ys.alignmentBounds, xSeries.alignment + index),
+      bounds.contains(ys.alignmentBounds, xSeries.alignment + BigInt(index)),
     );
     if (ySeries == null) return result;
 
-    const alignmentDiff = ySeries.alignment - xSeries.alignment;
+    const alignmentDiff = Number(ySeries.alignment - xSeries.alignment);
     result.value.y = Number(ySeries.at(index - alignmentDiff));
 
     result.position = {
@@ -381,9 +381,9 @@ export const buildDrawOperations = (
       let xOffset = 0;
       let yOffset = 0;
       // This means that the x series starts before the y series.
-      if (x.alignment < y.alignment) xOffset = y.alignment - x.alignment;
+      if (x.alignment < y.alignment) xOffset = Number(y.alignment - x.alignment);
       // This means that the y series starts before the x series.
-      else if (y.alignment < x.alignment) yOffset = x.alignment - y.alignment;
+      else if (y.alignment < x.alignment) yOffset = Number(x.alignment - y.alignment);
       const count = Math.min(x.length - xOffset, y.length - yOffset);
       if (count === 0) return;
       ops.push({ x, y, xOffset, yOffset, count, downsample });

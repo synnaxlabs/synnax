@@ -120,7 +120,7 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
   }): ReactElement => {
     const [lines, setLines] = useState<LineState>([]);
 
-    const aetherMemoProps = useMemoDeepEqualProps({ clearOverScan, hold });
+    const memoProps = useMemoDeepEqualProps({ clearOverScan, hold });
 
     const [{ path }, { grid }, setState] = Aether.use({
       aetherKey,
@@ -130,14 +130,11 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
         container: box.ZERO,
         viewport: box.DECIMAL,
         grid: {},
-        ...aetherMemoProps,
+        ...memoProps,
       },
     });
 
-    useEffect(
-      () => setState((prev) => ({ ...prev, ...aetherMemoProps })),
-      [aetherMemoProps],
-    );
+    useEffect(() => setState((prev) => ({ ...prev, ...memoProps })), [memoProps]);
 
     const viewportHandlers = useRef<Map<Viewport.UseHandler, null>>(new Map());
 

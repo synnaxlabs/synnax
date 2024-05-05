@@ -55,7 +55,7 @@ const basicRemoteReadFunc =
         () =>
           new Series({
             data: new Float32Array([1, 2, 3]),
-            alignment: 0,
+            alignment: 0n,
             timeRange: tr,
           }),
       ),

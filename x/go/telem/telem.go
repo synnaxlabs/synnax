@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/clamp"
+	"math"
 	"strconv"
 	"time"
 )
@@ -318,4 +319,26 @@ const (
 	TimeSpanDensity          = Bit64
 )
 
-type Alignment uint32
+type Alignment uint64
+
+func NewAlignment(group, position uint32) Alignment {
+	return Alignment(group)<<32 | Alignment(position)
+}
+
+func LeadingAlignment(position uint32) Alignment {
+	return NewAlignment(math.MaxUint32, position)
+}
+
+func (a Alignment) Group() uint32 { return uint32(a >> 32) }
+
+func (a Alignment) Position() uint32 { return uint32(a) }
+
+func (a *Alignment) UnmarshalJSON(b []byte) error {
+	n, err := binary.UnmarshalStringUint64(b)
+	*a = Alignment(n)
+	return err
+}
+
+func (a *Alignment) MarshalJSON() ([]byte, error) {
+	return []byte("\"" + strconv.FormatUint(uint64(*a), 10) + "\""), nil
+}

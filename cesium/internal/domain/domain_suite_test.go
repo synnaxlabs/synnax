@@ -11,7 +11,6 @@ package domain_test
 
 import (
 	"context"
-	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/testutil"
 	"testing"
 
@@ -20,15 +19,16 @@ import (
 )
 
 var (
-	ctx         = context.Background()
-	rootPath    = "domain-testdata"
-	fileSystems map[string]func() xfs.FS
-	cleanUp     func() error
+	ctx                       = context.Background()
+	rootPath                  = "domain-testdata"
+	fileSystems, cleanUp, err = testutil.FileSystems()
 )
 
 func TestDomain(t *testing.T) {
 	RegisterFailHandler(Fail)
-	fileSystems, cleanUp = testutil.FileSystems()
 	RunSpecs(t, "Domain Suite")
-	Expect(cleanUp()).To(Succeed())
 }
+
+var _ = BeforeSuite(func() { Expect(err).ToNot(HaveOccurred()) })
+
+var _ = AfterSuite(func() { Expect(cleanUp()).To(Succeed()) })

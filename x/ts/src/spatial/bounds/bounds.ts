@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Bounds, bounds, type CrudeBounds } from "@/spatial/base";
+import {type Bounds, bounds, type CrudeBounds} from "@/spatial/base";
 
-export { type Bounds, bounds };
+export {type Bounds, bounds};
 
-export type Crude = CrudeBounds;
+export type Crude<T extends number | bigint = number> = CrudeBounds<T>;
 
 export interface Construct {
   /**
@@ -21,8 +21,8 @@ export interface Construct {
    * with a 'lower' and 'upper' property or an array of length 2. If the bounds are
    * invalid i.e., the lower bound is greater than the upper bound, the bounds are
    * swapped.
-   */
-  (bounds: Crude): Bounds;
+   */<T extends number | bigint = number>(bounds: Crude<T>): Bounds<T>;
+
   /**
    * Constructs a bounds object from the given lower and upper bounds.
    * @param lower - The lower bound of the new bounds object.
@@ -32,19 +32,22 @@ export interface Construct {
    * bound is set to 0.
    *
    * If the lower bound is greater than the upper bound, the bounds are swapped.
-   */
-  (lower: number, upper?: number): Bounds;
-  (lower: number | Crude, upper?: number): Bounds;
+   */<T extends number | bigint = number>(lower: number, upper?: number): Bounds<T>;
+
+  <T extends number | bigint = number>(lower: number | Crude, upper?: number): Bounds<T>;
 }
 
-export const construct: Construct = (lower: number | Crude, upper?: number): Bounds => {
-  const b = { lower: 0, upper: 0 };
-  if (typeof lower === "number") {
+export const construct = <T extends bigint | number>(
+  lower: T | Crude<T>,
+  upper?: T,
+): Bounds<T> => {
+  const b: Bounds<T> = {} as const as Bounds<T>;
+  if (typeof lower === "number" || typeof lower === "bigint") {
     if (upper != null) {
       b.lower = lower;
       b.upper = upper;
     } else {
-      b.lower = 0;
+      b.lower = (typeof lower === "bigint" ? 0n : 0) as T;
       b.upper = lower;
     }
   } else if (Array.isArray(lower)) {
@@ -55,13 +58,13 @@ export const construct: Construct = (lower: number | Crude, upper?: number): Bou
 };
 
 /** A lower and upper bound of 0. */
-export const ZERO: Bounds = Object.freeze({ lower: 0, upper: 0 });
+export const ZERO: Bounds = Object.freeze({lower: 0, upper: 0});
 /** A lower bound of -Infinity and an upper bound of Infinity. */
-export const INFINITE: Bounds = Object.freeze({ lower: -Infinity, upper: Infinity });
+export const INFINITE: Bounds = Object.freeze({lower: -Infinity, upper: Infinity});
 /** A lower bound of 0 and an upper bound of 1. */
-export const DECIMAL: Bounds = Object.freeze({ lower: 0, upper: 1 });
+export const DECIMAL: Bounds = Object.freeze({lower: 0, upper: 1});
 /** Clip space bounds i.e. a lower bound of -1 and an upper bound of 1. */
-export const CLIP = Object.freeze({ lower: -1, upper: 1 });
+export const CLIP = Object.freeze({lower: -1, upper: 1});
 
 /**
  * Checks whether the given bounds are equal.
@@ -70,22 +73,21 @@ export const CLIP = Object.freeze({ lower: -1, upper: 1 });
  * @param _b - The second bounds to compare.
  * @returns True if the bounds are equal, false otherwise.
  */
-export const equals = (_a?: Crude, _b?: Crude): boolean => {
+export const equals = <T extends bigint | number = number>(_a?: Crude<T>, _b?: Crude<T>): boolean => {
   if (_a == null && _b == null) return true;
   if (_a == null || _b == null) return false;
   const a = construct(_a);
   const b = construct(_b);
   return a?.lower === b?.lower && a?.upper === b?.upper;
 };
-
 /**
  * Makes the given bounds valid by swapping the lower and upper bounds if the lower bound
  * is greater than the upper bound.
  * @param a  - The bounds to make valid.
  * @returns The valid bounds.
  */
-export const makeValid = (a: Bounds): Bounds => {
-  if (a.lower > a.upper) return { lower: a.upper, upper: a.lower };
+export const makeValid = <T extends number | bigint = number>(a: Bounds<T>): Bounds<T> => {
+  if (a.lower > a.upper) return {lower: a.upper, upper: a.lower};
   return a;
 };
 
@@ -98,10 +100,11 @@ export const makeValid = (a: Bounds): Bounds => {
  * @param target - The target value to clamp.
  * @returns The clamped target value.
  */
-export const clamp = (bounds: Crude, target: number): number => {
-  const _bounds = construct(bounds);
+export const clamp = <T extends number | bigint>(bounds: Crude<T>, target: T): T => {
+  const _bounds = construct<T>(bounds);
   if (target < _bounds.lower) return _bounds.lower;
-  if (target >= _bounds.upper) return _bounds.upper - 1;
+  if (target >= _bounds.upper)
+    return (_bounds.upper - ((typeof _bounds.upper === "number" ? 1 : 1n) as T)) as T;
   return target;
 };
 
@@ -112,9 +115,12 @@ export const clamp = (bounds: Crude, target: number): number => {
  * @param target - The target value to check. Can either be a number or a bounds object.
  * @returns True if the target is within the bounds, false otherwise.
  */
-export const contains = (bounds: Crude, target: number | CrudeBounds): boolean => {
+export const contains = <T extends bigint | number>(
+  bounds: Crude<T>,
+  target: T | CrudeBounds<T>,
+): boolean => {
   const _bounds = construct(bounds);
-  if (typeof target === "number")
+  if (typeof target === "number" || typeof target === "bigint")
     return target >= _bounds.lower && target < _bounds.upper;
   const _target = construct(target);
   return _target.lower >= _bounds.lower && _target.upper <= _bounds.upper;
@@ -127,28 +133,32 @@ export const contains = (bounds: Crude, target: number | CrudeBounds): boolean =
  * @param b - The second bounds to check.
  * @returns True if the bounds overlap, false otherwise.
  */
-export const overlapsWith = (a: Crude, b: Crude): boolean => {
-  const _a = construct(a);
-  const _b = construct(b);
+export const overlapsWith = <T extends bigint | number>(
+  a: Crude<T>,
+  b: Crude<T>,
+): boolean => {
+  const _a = construct<T>(a);
+  const _b = construct<T>(b);
   if (_a.lower === _b.lower) return true;
   if (_b.upper === _a.lower || _b.lower === _a.upper) return false;
   return (
-    contains(_a, _b.upper) ||
-    contains(_a, _b.lower) ||
-    contains(_b, _a.upper) ||
-    contains(_b, _a.lower)
+    contains<T>(_a, _b.upper) ||
+    contains<T>(_a, _b.lower) ||
+    contains<T>(_b, _a.upper) ||
+    contains<T>(_b, _a.lower)
   );
 };
 
 /** @returns the span of the given bounds i.e. upper - lower. */
-export const span = (a: Crude): number => {
-  const _a = construct(a);
-  return _a.upper - _a.lower;
+export const span = <T extends number | bigint>(a: Crude<T>): T => {
+  const _a = construct<T>(a);
+  return (_a.upper - _a.lower) as T;
 };
 
 /** @returns true if both the lower and upper bounds are 0, false otherwise. */
-export const isZero = (a: Crude): boolean => {
+export const isZero = <T extends number | bigint>(a: Crude<T>): boolean => {
   const _a = construct(a);
+  if (typeof _a.lower === "bigint") return _a.lower === 0n && _a.upper === 0n;
   return _a.lower === 0 && _a.upper === 0;
 };
 
@@ -191,22 +201,28 @@ export const min = (bounds: Crude[]): Bounds => ({
  * @returns an array of integers from the lower bound to the upper bound of the given
  * bounds.
  */
-export const linspace = (bounds: Crude): number[] => {
+export const linspace = <T extends bigint | number = number>(
+  bounds: Crude<T>,
+): T[] => {
   const _bounds = construct(bounds);
-  return Array.from({ length: span(bounds) }, (_, i) => i + _bounds.lower);
+  const isBigInt = typeof _bounds.lower === "bigint";
+  return Array.from({ length: Number(span(bounds)) }, (_, i) => {
+    if (isBigInt) return ((_bounds.lower as bigint) + BigInt(i)) as T;
+    return (_bounds.lower as number) + i;
+  }) as T[];
 };
 
-export const findInsertPosition = (
-  bounds: Crude[],
-  target: number,
+export const findInsertPosition = <T extends bigint | number>(
+  bounds: Array<Crude<T>>,
+  target: T,
 ): { index: number; position: number } => {
-  const _bounds = bounds.map(construct);
+  const _bounds = bounds.map((b) => construct<T>(b));
   const index = _bounds.findIndex(
-    (b, i) => contains(b, target) || target < _bounds[i].lower,
+    (b, i) => contains<T>(b, target) || target < _bounds[i].lower,
   );
-  if (index === -1) return { index: bounds.length, position: 0 };
+  if (index === -1) return {index: bounds.length, position: 0};
   const b = _bounds[index];
-  if (contains(b, target)) return { index, position: target - b.lower };
+  if (contains(b, target)) return { index, position: Number(target - b.lower) };
   return { index, position: 0 };
 };
 
@@ -250,24 +266,20 @@ const ZERO_PLAN: InsertionPlan = {
  * new bound is entirely contained within an existing bound. See the {@link InsertionPlan}
  * type for more details.
  */
-export const buildInsertionPlan = (
-  bounds: Crude[],
-  value: Crude,
+export const buildInsertionPlan = <T extends number | bigint>(
+  bounds: Array<Crude<T>>,
+  value: Crude<T>,
 ): InsertionPlan | null => {
-  const _bounds = bounds.map(construct);
+  const _bounds = bounds.map((b) => construct<T>(b));
   const _target = construct(value);
   // No bounds to insert into, so just insert the new bound at the beginning of the array.
   if (_bounds.length === 0) return ZERO_PLAN;
-  const lower = findInsertPosition(bounds, _target.lower);
-  const upper = findInsertPosition(bounds, _target.upper);
+  const lower = findInsertPosition<T>(_bounds, _target.lower);
+  const upper = findInsertPosition<T>(_bounds, _target.upper);
   // Greater than all bounds,
   if (lower.index === bounds.length) return { ...ZERO_PLAN, insertInto: bounds.length };
   // Less than all bounds,
-  if (upper.index === 0)
-    return {
-      ...ZERO_PLAN,
-      removeAfter: upper.position,
-    };
+  if (upper.index === 0) return { ...ZERO_PLAN, removeAfter: upper.position };
   if (lower.index === upper.index) {
     // The case where the bound is entirely contained within an existing bound.
     if (lower.position !== 0 && upper.position !== 0) return null;
@@ -280,7 +292,7 @@ export const buildInsertionPlan = (
   }
   let deleteInBetween = upper.index - lower.index;
   let insertInto = lower.index;
-  let removeBefore = span(_bounds[lower.index]) - lower.position;
+  let removeBefore = math.sub(Number(span(_bounds[lower.index])), lower.position);
   // If we're overlapping with the previous bound, we need to slice out one less
   // and insert one further up.
   if (lower.position !== 0) {
@@ -296,12 +308,16 @@ export const buildInsertionPlan = (
   };
 };
 
-export const insert = (bounds: Crude[], value: Crude): Crude[] => {
+export const insert = <T extends number | bigint = number>(
+  bounds: Array<Crude<T>>,
+  value: Crude<T>,
+): Array<Bounds<T>> => {
   const plan = buildInsertionPlan(bounds, value);
-  if (plan == null) return bounds;
+  const out = bounds.map((b) => construct(b));
+  if (plan == null) return out;
   const _target = construct(value);
-  _target.lower += plan.removeBefore;
-  _target.upper -= plan.removeAfter;
-  bounds.splice(plan.insertInto, plan.deleteInBetween, _target);
-  return bounds.map(construct);
+  _target.lower = math.add(_target.lower, plan.removeBefore);
+  _target.upper = math.sub(_target.upper, plan.removeAfter);
+  out.splice(plan.insertInto, plan.deleteInBetween, _target);
+  return out;
 };
