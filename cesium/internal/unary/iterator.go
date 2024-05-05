@@ -165,22 +165,18 @@ func (i *Iterator) autoNext(ctx context.Context) bool {
 			return false
 		}
 		startOffset := i.Channel.DataType.Density().Size(startApprox.Upper)
-
-		series, n, err := i.read(
+		series, _, err := i.read(
 			ctx,
 			startOffset,
 			i.Channel.DataType.Density().Size(nRemaining),
 		)
-		nRead := i.Channel.DataType.Density().SampleCount(telem.Size(n))
 		nRemaining -= series.Len()
 		if err != nil && !errors.Is(err, io.EOF) {
 			i.err = err
 			return false
 		}
-
 		i.insert(series)
-
-		if nRead >= nRemaining || !i.internal.Next() {
+		if nRemaining <= 0 || !i.internal.Next() {
 			break
 		}
 	}
@@ -279,7 +275,9 @@ func (i *Iterator) read(ctx context.Context, offset telem.Offset, size telem.Siz
 	series.DataType = i.Channel.DataType
 	series.TimeRange = i.internal.TimeRange().BoundBy(i.view)
 	series.Data = make([]byte, size)
-	series.Alignment = telem.Alignment(i.Channel.DataType.Density().SampleCount(offset))
+	inDomainAlignment := uint32(i.Channel.DataType.Density().SampleCount(offset))
+	// set the first 32 bits to the domain index, and the last 32 bits to the alignment
+	series.Alignment = telem.Alignment(i.internal.Position())<<32 | telem.Alignment(inDomainAlignment)
 	r, err := i.internal.NewReader(ctx)
 	if err != nil {
 		return

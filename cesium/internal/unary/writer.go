@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
+	"math"
 )
 
 type WriterConfig struct {
@@ -148,7 +149,7 @@ func (w *Writer) Write(series telem.Series) (a telem.Alignment, err error) {
 	if !ok {
 		return 0, controller.Unauthorized(w.control.Subject.Name, w.Channel.Key)
 	}
-	a = telem.Alignment(w.len(dw.Writer))
+	a = telem.NewAlignment(math.MaxUint32, uint32(w.len(dw.Writer)))
 	if w.Channel.IsIndex {
 		w.updateHwm(series)
 	}

@@ -317,7 +317,20 @@ var _ = Describe("Iterator Behavior", func() {
 							Expect(iter.Next(ctx, unary.AutoSpan)).To(BeFalse())
 							Expect(iter.Close()).To(Succeed())
 						})
-
+						Specify("Multi Domain - Regression 1", func() {
+							var i telem.TimeStamp
+							for i = 1; i < 6; i++ {
+								Expect(unary.Write(ctx, indexDB, telem.SecondTS*i, telem.NewSecondsTSV(i))).To(Succeed())
+								Expect(unary.Write(ctx, db, telem.SecondTS*i, telem.NewSeriesV[int64](int64(i)))).To(Succeed())
+							}
+							iter := db.OpenIterator(unary.IteratorConfig{
+								Bounds:        telem.TimeRangeMax,
+								AutoChunkSize: 5,
+							})
+							Expect(iter.SeekFirst(ctx)).To(BeTrue())
+							Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
+							Expect(iter.Len()).To(Equal(int64(5)))
+						})
 					})
 				})
 			})
