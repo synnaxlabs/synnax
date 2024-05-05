@@ -45,7 +45,7 @@ var _ = Describe("File Controller", func() {
 					Expect(db.FS.Exists("2.domain"))
 
 					By("Closing the first writer")
-					Expect(w1.Close()).To(Succeed())
+					Expect(w1.Close(ctx)).To(Succeed())
 
 					By("Acquiring a third writer, 1.domain should be acquired")
 					w3, err := db.NewWriter(ctx, domain.WriterConfig{
@@ -60,8 +60,8 @@ var _ = Describe("File Controller", func() {
 					Expect(err).To(BeNil())
 					Expect(s.Size()).To(Equal(int64(8)))
 
-					Expect(w2.Close()).To(Succeed())
-					Expect(w3.Close()).To(Succeed())
+					Expect(w2.Close(ctx)).To(Succeed())
+					Expect(w3.Close(ctx)).To(Succeed())
 				})
 
 				It("Should obey the file size limit", func() {
@@ -76,7 +76,7 @@ var _ = Describe("File Controller", func() {
 					n, err := w1.Write([]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10})
 					Expect(n).To(Equal(10))
 					Expect(err).To(BeNil())
-					Expect(w1.Close()).To(Succeed())
+					Expect(w1.Close(ctx)).To(Succeed())
 					By("Acquiring a second writer, this would create a new file 2.domain since 1.domain is full")
 					w2, err := db.NewWriter(ctx, domain.WriterConfig{
 						Start: 30 * telem.SecondTS,
@@ -85,7 +85,7 @@ var _ = Describe("File Controller", func() {
 					Expect(err).To(BeNil())
 					Expect(db.FS.Exists("2.domain"))
 
-					Expect(w2.Close()).To(Succeed())
+					Expect(w2.Close(ctx)).To(Succeed())
 				})
 
 				It("Should obey the file descriptor limit", func() {
@@ -114,14 +114,14 @@ var _ = Describe("File Controller", func() {
 						})
 						Expect(err).To(BeNil())
 						released <- struct{}{}
-						Expect(w3.Close()).To(Succeed())
+						Expect(w3.Close(ctx)).To(Succeed())
 					}()
 					By("Expecting it to block")
 					Expect(len(released)).To(Equal(0))
-					Expect(w1.Close()).To(Succeed())
+					Expect(w1.Close(ctx)).To(Succeed())
 					By("Expecting it to acquire")
 					<-released
-					Expect(w2.Close()).To(Succeed())
+					Expect(w2.Close(ctx)).To(Succeed())
 				})
 			})
 		})

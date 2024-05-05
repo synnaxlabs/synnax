@@ -242,6 +242,13 @@ func (w *streamWriter) write(ctx context.Context, req WriterRequest) (err error)
 			}
 			return err
 		}
+
+		if w.Mode.AutoCommit() {
+			_, err = idx.Commit(ctx, true)
+			if err != nil {
+				return
+			}
+		}
 	}
 	if w.virtual.internal != nil {
 		req.Frame, err = w.virtual.write(req.Frame)
@@ -261,7 +268,7 @@ func (w *streamWriter) write(ctx context.Context, req WriterRequest) (err error)
 func (w *streamWriter) commit(ctx context.Context) (telem.TimeStamp, error) {
 	maxTS := telem.TimeStampMin
 	for _, idx := range w.internal {
-		ts, err := idx.Commit(ctx)
+		ts, err := idx.Commit(ctx, false)
 		if err != nil {
 			return maxTS, err
 		}
@@ -311,7 +318,7 @@ func (w *streamWriter) close(ctx context.Context) error {
 
 type unaryWriterState struct {
 	unary.Writer
-	count int64
+	timesWritten int64
 }
 
 // idxWriter is a writer to a set of channels that all share the same index.
@@ -323,9 +330,9 @@ type idxWriter struct {
 	// channel. This is typically true, which allows us to avoid
 	// unnecessary lookups.
 	writingToIdx bool
-	// writeNum tracks the number of calls to Write that have been made.
-	writeNum int64
-	idx      struct {
+	// numWrites tracks the number of calls to Write that have been made.
+	numWrites int64
+	idx       struct {
 		// Index is the index used to resolve timestamps for domains in the DB.
 		index.Index
 		// Key is the channel key of the index. This field is not applicable when
@@ -336,65 +343,66 @@ type idxWriter struct {
 		highWaterMark telem.TimeStamp
 	}
 	// sampleCount is the total number of samples written to the index as if it were
-	// a single logical channel. I.E. N channels with M samples will result in a sample
+	// a single logical channel. i.e. N channels with M samples will result in a sample
 	// count of M.
 	sampleCount int64
 }
 
 func (w *idxWriter) Write(ctx context.Context, fr Frame) (Frame, error) {
 	var (
-		l int64 = -1
-		c       = 0
+		lengthOfFrame     int64 = -1
+		channelsWrittenTo       = 0
 	)
-	w.writeNum++
+	w.numWrites++
 	for i, k := range fr.Keys {
-		s, ok := w.internal[k]
+		uWriter, ok := w.internal[k]
 		if !ok {
 			continue
 		}
 
-		if l == -1 {
-			l = fr.Series[i].Len()
+		if lengthOfFrame == -1 {
+			lengthOfFrame = fr.Series[i].Len()
 		}
 
-		if s.count == w.writeNum {
+		if uWriter.timesWritten == w.numWrites {
+			// This if-clause is satisfied if the channel has already been written to.
 			return fr, errors.Wrapf(
 				validate.Error,
-				"frame must have one and only one series per channel, duplicate channel %s",
+				"frame must have exactly one series per channel, duplicate channel %s",
 				k,
 			)
 		}
 
-		s.count++
-		c++
+		uWriter.timesWritten++
+		channelsWrittenTo++
 
-		if fr.Series[i].Len() != l {
+		if fr.Series[i].Len() != lengthOfFrame {
 			return fr, errors.Wrapf(
 				validate.Error,
 				"frame must have the same length for all series, expected %d, got %d",
-				l,
+				lengthOfFrame,
 				fr.Series[i].Len(),
 			)
 		}
 	}
 
-	if c == 0 {
+	if channelsWrittenTo == 0 {
 		return fr, nil
 	}
 
-	if c != len(w.internal) {
+	if channelsWrittenTo != len(w.internal) {
 		return fr, errors.Wrapf(
 			validate.Error,
-			"frame must have one and only one series per channel, expected %d, got %d",
+			"frame must have exactly one series per channel, expected %d, got %d",
 			len(w.internal),
-			c,
+			channelsWrittenTo,
 		)
 
 	}
 
 	for i, series := range fr.Series {
 		key := fr.Keys[i]
-		chW, ok := w.internal[key]
+		uWriter, ok := w.internal[key]
 
 		if !ok {
 			continue
@@ -406,7 +414,7 @@ func (w *idxWriter) Write(ctx context.Context, fr Frame) (Frame, error) {
 			}
 		}
 
-		alignment, err := chW.Write(ctx, series)
+		alignment, err := uWriter.Write(ctx, series)
 		if err != nil {
 			return fr, err
 		}
@@ -420,7 +428,7 @@ func (w *idxWriter) Write(ctx context.Context, fr Frame) (Frame, error) {
 	return fr, nil
 }
 
-func (w *idxWriter) Commit(ctx context.Context) (telem.TimeStamp, error) {
+func (w *idxWriter) Commit(ctx context.Context, autoPersist bool) (telem.TimeStamp, error) {
 	end, err := w.resolveCommitEnd(ctx)
 	if err != nil {
 		return end.Lower, err
@@ -429,7 +437,7 @@ func (w *idxWriter) Commit(ctx context.Context) (telem.TimeStamp, error) {
 	end.Lower++
 	c := errutil.NewCatch(errutil.WithAggregation())
 	for _, chW := range w.internal {
-		c.Exec(func() error { return chW.CommitWithEnd(ctx, end.Lower) })
+		c.Exec(func() error { return chW.CommitWithEnd(ctx, end.Lower, autoPersist) })
 	}
 	return end.Lower, c.Error()
 }
@@ -465,6 +473,9 @@ func (w *idxWriter) updateHighWater(col telem.Series) error {
 	return nil
 }
 
+// resolveCommitEnd returns the end timestamp for a commit.
+// For an index channel, this returns the high watermark.
+// For a non-index channel, this returns a stamp to the approximation of the end
 func (w *idxWriter) resolveCommitEnd(ctx context.Context) (index.TimeStampApproximation, error) {
 	if w.writingToIdx {
 		return index.Exactly(w.idx.highWaterMark), nil

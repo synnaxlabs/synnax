@@ -22,28 +22,30 @@ import (
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 )
 
 type WriterConfig struct {
-	Start                telem.TimeStamp
-	End                  telem.TimeStamp
-	Subject              control.Subject
-	Authority            control.Authority
-	Persist              *bool
-	AutoCommit           *bool
-	AutoPersistThreshold int64
+	Start           telem.TimeStamp
+	End             telem.TimeStamp
+	Subject         control.Subject
+	Authority       control.Authority
+	Persist         *bool
+	AutoPersistTime telem.TimeSpan
 }
 
 var (
 	_                   config.Config[WriterConfig] = WriterConfig{}
 	DefaultWriterConfig                             = WriterConfig{
-		Persist:    config.True(),
-		AutoCommit: config.False(),
+		Persist: config.True(),
 	}
 	WriterClosedError = core.EntityClosed("unary.writer")
 )
 
 func (c WriterConfig) Validate() error {
+	v := validate.New("unary.WriterConfig")
+	validate.NotEmptyString(v, "Subject.Key", c.Subject.Key)
+	v.Ternary(c.End.Before(c.Start), "end timestamp must be after or equal to start timestamp")
 	return nil
 }
 
@@ -53,13 +55,12 @@ func (c WriterConfig) Override(other WriterConfig) WriterConfig {
 	c.Subject = override.If(c.Subject, other.Subject, other.Subject.Key != "")
 	c.Authority = override.Numeric(c.Authority, other.Authority)
 	c.Persist = override.Nil(c.Persist, other.Persist)
-	c.AutoCommit = override.Nil(c.AutoCommit, other.AutoCommit)
-	c.AutoPersistThreshold = override.If(c.AutoPersistThreshold, other.AutoPersistThreshold, other.AutoPersistThreshold != int64(0))
+	c.AutoPersistTime = override.Zero(c.AutoPersistTime, other.AutoPersistTime)
 	return c
 }
 
 func (c WriterConfig) domain() domain.WriterConfig {
-	return domain.WriterConfig{Start: c.Start, End: c.End}
+	return domain.WriterConfig{Start: c.Start, End: c.End, AutoPersistTime: c.AutoPersistTime}
 }
 
 func (c WriterConfig) controlTimeRange() telem.TimeRange {
@@ -158,19 +159,8 @@ func (w *Writer) Write(ctx context.Context, series telem.Series) (a telem.Alignm
 		w.updateHwm(series)
 	}
 
-	var n int
-
 	if *w.Persist {
-		n, err = dw.Write(series.Data)
-	}
-	if *w.AutoCommit {
-		w.unpersistedSamples += w.Channel.DataType.Density().SampleCount(telem.Size(n))
-		if w.unpersistedSamples > w.WriterConfig.AutoPersistThreshold {
-			w.unpersistedSamples = 0
-			_, err = w.commit(ctx, true)
-		} else {
-			_, err = w.commit(ctx, false)
-		}
+		_, err = dw.Write(series.Data)
 	}
 	return
 }
@@ -193,33 +183,28 @@ func (w *Writer) Commit(ctx context.Context) (telem.TimeStamp, error) {
 	if w.closed {
 		return telem.TimeStampMax, WriterClosedError
 	}
-
-	return w.commit(ctx, true)
-}
-
-func (w *Writer) commit(ctx context.Context, persistToIndex bool) (telem.TimeStamp, error) {
 	if w.Channel.IsIndex {
-		return w.commitWithEnd(ctx, w.hwm+1, persistToIndex)
+		return w.commitWithEnd(ctx, w.hwm+1, false)
 	}
-	return w.commitWithEnd(ctx, telem.TimeStamp(0), persistToIndex)
+	return w.commitWithEnd(ctx, telem.TimeStamp(0), false)
 }
 
-func (w *Writer) CommitWithEnd(ctx context.Context, end telem.TimeStamp) (err error) {
+func (w *Writer) CommitWithEnd(ctx context.Context, end telem.TimeStamp, autoPersist bool) (err error) {
 	if w.closed {
 		return core.EntityClosed("unary.writer")
 	}
-	_, err = w.commitWithEnd(ctx, end, true)
+	_, err = w.commitWithEnd(ctx, end, autoPersist)
 	return err
 }
 
-func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp, persistToIndex bool) (telem.TimeStamp, error) {
+func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp, autoPersist bool) (telem.TimeStamp, error) {
 	dw, ok := w.control.Authorize()
 	if !ok {
 		return 0, controller.Unauthorized(w.control.Subject.String(), w.Channel.Key)
 	}
 	if end.IsZero() {
 		// we're using w.len - 1 here because we want the timestamp of the last
-		// written sample.
+		// written frame.
 		approx, err := w.idx.Stamp(ctx, w.Start, w.len(dw.Writer)-1, true)
 		if err != nil {
 			return 0, err
@@ -231,8 +216,11 @@ func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp, persist
 		end = approx.Lower + 1
 	}
 
-	f := lo.Ternary(persistToIndex, dw.Commit, dw.CommitWithoutPersist)
-	return end, f(ctx, end)
+	if autoPersist {
+		return end, dw.CommitAndAutoPersist(ctx, end)
+	}
+
+	return end, dw.Commit(ctx, end)
 }
 
 func (w *Writer) Close(ctx context.Context) (controller.Transfer, error) {
@@ -240,19 +228,11 @@ func (w *Writer) Close(ctx context.Context) (controller.Transfer, error) {
 		return controller.Transfer{}, nil
 	}
 
-	if *w.AutoCommit && w.AutoPersistThreshold != 0 {
-		// If we have Auto-Commit, we should do a final commit to make sure that ALL
-		// data is persisted to the index.
-		_, err := w.commit(ctx, true)
-		if err != nil {
-			return controller.Transfer{}, err
-		}
-	}
 	w.closed = true
 	dw, t := w.control.Release()
 	w.decrementCounter()
 	if t.IsRelease() {
-		return t, dw.Close()
+		return t, dw.Close(ctx)
 	}
 
 	return t, nil

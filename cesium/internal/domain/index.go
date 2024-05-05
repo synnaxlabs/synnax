@@ -25,6 +25,7 @@ type index struct {
 		tombstones map[uint16][]pointer
 	}
 	observe.Observer[indexUpdate]
+	persistHead int
 }
 
 type indexUpdate struct {
@@ -36,9 +37,12 @@ var _ observe.Observable[indexUpdate] = (*index)(nil)
 // insert adds a new pointer to the index.
 func (idx *index) insert(ctx context.Context, p pointer, persist bool) error {
 	_, span := idx.T.Bench(ctx, "insert")
+	idx.mu.Lock()
+
 	defer span.End()
-	idx.mu.RLock()
+
 	insertAt := 0
+
 	if p.fileKey == 0 {
 		panic("fileKey must be set")
 	}
@@ -49,14 +53,33 @@ func (idx *index) insert(ctx context.Context, p pointer, persist bool) error {
 		} else if !idx.beforeFirst(p.End) {
 			i, overlap := idx.unprotectedSearch(p.TimeRange)
 			if overlap {
-				idx.mu.RUnlock()
-				return span.EndWith(ErrDomainOverlap)
+				idx.mu.Unlock()
+				return span.Error(ErrDomainOverlap)
 			}
 			insertAt = i + 1
 		}
 	}
-	idx.mu.RUnlock()
-	idx.insertAt(ctx, insertAt, p, persist)
+
+	if insertAt == 0 {
+		idx.mu.pointers = append([]pointer{p}, idx.mu.pointers...)
+	} else if insertAt == len(idx.mu.pointers) {
+		idx.mu.pointers = append(idx.mu.pointers, p)
+	} else {
+		idx.mu.pointers = append(idx.mu.pointers[:insertAt], append([]pointer{p}, idx.mu.pointers[insertAt:]...)...)
+	}
+
+	idx.persistHead = min(idx.persistHead, insertAt)
+
+	if persist {
+		update := indexUpdate{afterIndex: idx.persistHead}
+		idx.persistHead = len(idx.mu.pointers) - 1
+		idx.mu.Unlock()
+		idx.Observer.Notify(ctx, update)
+
+		return nil
+	}
+
+	idx.mu.Unlock()
 	return nil
 }
 
@@ -78,20 +101,50 @@ func (idx *index) overlap(tr telem.TimeRange) bool {
 	return overlap
 }
 
-func (idx *index) update(ctx context.Context, p pointer, persist bool) (err error) {
+func (idx *index) update(ctx context.Context, p pointer, persist bool) error {
 	_, span := idx.T.Bench(ctx, "update")
-	idx.mu.RLock()
+	idx.mu.Lock()
+
+	defer span.End()
+
 	if len(idx.mu.pointers) == 0 {
-		idx.mu.RUnlock()
-		return span.EndWith(RangeNotFound)
+		idx.mu.Unlock()
+		return span.Error(RangeNotFound)
 	}
 	lastI := len(idx.mu.pointers) - 1
 	updateAt := lastI
 	if p.Start != idx.mu.pointers[lastI].Start {
 		updateAt, _ = idx.unprotectedSearch(p.Start.SpanRange(0))
 	}
-	idx.mu.RUnlock()
-	return span.EndWith(idx.updateAt(ctx, updateAt, p, persist))
+
+	ptrs := idx.mu.pointers
+	oldP := ptrs[updateAt]
+	if oldP.Start != p.Start {
+		idx.mu.Unlock()
+		return span.Error(RangeNotFound)
+	}
+	overlapsWithNext := updateAt != len(ptrs)-1 && ptrs[updateAt+1].OverlapsWith(p.TimeRange)
+	overlapsWithPrev := updateAt != 0 && ptrs[updateAt-1].OverlapsWith(p.TimeRange)
+	if overlapsWithPrev || overlapsWithNext {
+		idx.mu.Unlock()
+		return span.Error(ErrDomainOverlap)
+	} else {
+		idx.mu.pointers[updateAt] = p
+	}
+
+	idx.persistHead = min(idx.persistHead, updateAt)
+
+	if persist {
+		update := indexUpdate{afterIndex: idx.persistHead}
+		idx.persistHead = len(idx.mu.pointers) - 1
+		idx.mu.Unlock()
+		idx.Observer.Notify(ctx, update)
+
+		return nil
+	}
+
+	idx.mu.Unlock()
+	return nil
 }
 
 func (idx *index) afterLast(ts telem.TimeStamp) bool {
@@ -102,61 +155,9 @@ func (idx *index) beforeFirst(ts telem.TimeStamp) bool {
 	return ts.Before(idx.mu.pointers[0].Start)
 }
 
-func (idx *index) insertAt(ctx context.Context, i int, p pointer, persist bool) {
-	f := func() {
-		if i == 0 {
-			idx.mu.pointers = append([]pointer{p}, idx.mu.pointers...)
-		} else if i == len(idx.mu.pointers) {
-			idx.mu.pointers = append(idx.mu.pointers, p)
-		} else {
-			idx.mu.pointers = append(idx.mu.pointers[:i], append([]pointer{p}, idx.mu.pointers[i:]...)...)
-		}
-	}
-
-	if persist {
-		idx.modifyAfter(ctx, i, f)
-	} else {
-		idx.mu.Lock()
-		f()
-		idx.mu.Unlock()
-	}
-}
-
-func (idx *index) updateAt(ctx context.Context, i int, p pointer, persist bool) (err error) {
-	ptrs := idx.mu.pointers
-	f := func() {
-		oldP := ptrs[i]
-		if oldP.Start != p.Start {
-			err = RangeNotFound
-			return
-		}
-		overlapsWithNext := i != len(ptrs)-1 && ptrs[i+1].OverlapsWith(p.TimeRange)
-		overlapsWithPrev := i != 0 && ptrs[i-1].OverlapsWith(p.TimeRange)
-		if overlapsWithPrev || overlapsWithNext {
-			err = ErrDomainOverlap
-		} else {
-			idx.mu.pointers[i] = p
-		}
-	}
-	if persist {
-		idx.modifyAfter(ctx, i, f)
-	} else {
-		idx.mu.Lock()
-		f()
-		idx.mu.Unlock()
-	}
-
-	return
-}
-
-func (idx *index) modifyAfter(ctx context.Context, i int, f func()) {
-	update := indexUpdate{afterIndex: i}
-	defer func() {
-		idx.mu.Unlock()
-		idx.Observer.Notify(ctx, update)
-	}()
-	idx.mu.Lock()
-	f()
+func (idx *index) persist(ctx context.Context) {
+	update := indexUpdate{afterIndex: idx.persistHead}
+	idx.Observer.Notify(ctx, update)
 }
 
 func (idx *index) searchLE(ctx context.Context, ts telem.TimeStamp) (i int) {

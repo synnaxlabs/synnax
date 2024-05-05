@@ -89,10 +89,10 @@ type WriterConfig struct {
 	// [OPTIONAL] - Defaults to EnablePersist() and EnableStream().
 	Mode WriterMode
 
-	// AutoPersistThreshold sets the number of samples written before the commits via
-	// auto-commits are persisted to the index.
-	// [OPTIONAL] - Defaults to 0.
-	AutoPersistThreshold int64
+	// AutoPersistThreshold sets the maximum time between two commits that are not
+	// persisted to the index on sys.
+	// [OPTIONAL] - If not set, then every commit write call will auto-commit and auto-persist.
+	AutoPersistTime telem.TimeSpan
 }
 
 var (
@@ -120,7 +120,7 @@ func (w WriterConfig) Validate() error {
 		len(w.Authorities) != len(w.Channels) && len(w.Authorities) != 1,
 		"authority count must be 1 or equal to channel count",
 	)
-	v.Ternary(!w.Mode.AutoCommit() && w.AutoPersistThreshold != 0, "cannot set AutoPersistThreshold without enabling AutoCommit")
+	v.Ternary(!w.Mode.AutoCommit() && w.AutoPersistTime != 0, "cannot set AutoPersistTime without enabling AutoCommit")
 	return v.Error()
 }
 
@@ -133,7 +133,7 @@ func (w WriterConfig) Override(other WriterConfig) WriterConfig {
 	w.ControlSubject.Key = override.String(w.ControlSubject.Key, other.ControlSubject.Key)
 	w.ErrOnUnauthorized = override.Nil(w.ErrOnUnauthorized, other.ErrOnUnauthorized)
 	w.Mode = override.Numeric(w.Mode, other.Mode)
-	w.AutoPersistThreshold = override.If(w.AutoPersistThreshold, other.AutoPersistThreshold, other.AutoPersistThreshold != 0)
+	w.AutoPersistTime = override.Zero(w.AutoPersistTime, other.AutoPersistTime)
 	return w
 }
 
@@ -212,12 +212,11 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 		} else {
 			var w *unary.Writer
 			w, transfer, err = u.OpenWriter(ctx, unary.WriterConfig{
-				Subject:              cfg.ControlSubject,
-				Start:                cfg.Start,
-				Authority:            auth,
-				Persist:              config.Bool(cfg.Mode.Persist()),
-				AutoCommit:           config.Bool(cfg.Mode.AutoCommit()),
-				AutoPersistThreshold: cfg.AutoPersistThreshold,
+				Subject:         cfg.ControlSubject,
+				Start:           cfg.Start,
+				Authority:       auth,
+				Persist:         config.Bool(cfg.Mode.Persist()),
+				AutoPersistTime: cfg.AutoPersistTime,
 			})
 			if err != nil {
 				return nil, err

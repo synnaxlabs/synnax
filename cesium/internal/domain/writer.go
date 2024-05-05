@@ -33,10 +33,10 @@ type WriterConfig struct {
 	// [OPTIONAL]
 	End telem.TimeStamp
 
-	// AutoPersistThreshold is the maximum number of unpersisted samples that can be
-	// stored in the index before it must be flushed to the disk.
-	// To persist every time a telemetry domain is written, set the value of AutoPersistThreshold to 1.
-	AutoPersistThreshold telem.Size
+	// AutoPersistTime is the frequency at which the changes to index are persisted to the
+	// disk. Auto-Persist will only be used if the overarching writer is on Auto-Commit mode.
+	// [OPTIONAL]
+	AutoPersistTime telem.TimeSpan
 }
 
 var WriterClosedError = core.EntityClosed("domain.writer")
@@ -64,7 +64,7 @@ func Write(ctx context.Context, db *DB, tr telem.TimeRange, data []byte) error {
 	if err = w.Commit(ctx /* ignored */, 0); err != nil {
 		return err
 	}
-	return w.Close()
+	return w.Close(ctx)
 }
 
 // Writer is used to write a telemetry domain to the DB. A Writer is opened using DB.NewWriter
@@ -85,13 +85,13 @@ func Write(ctx context.Context, db *DB, tr telem.TimeRange, data []byte) error {
 type Writer struct {
 	alamos.Instrumentation
 	WriterConfig
-	prevCommit         telem.TimeStamp
-	idx                *index
-	fileKey            uint16
-	internal           xio.TrackedWriteCloser
-	presetEnd          bool
-	unpersistedSamples telem.Size
-	closed             bool
+	prevCommit  telem.TimeStamp
+	idx         *index
+	fileKey     uint16
+	internal    xio.TrackedWriteCloser
+	presetEnd   bool
+	lastPersist telem.TimeStamp
+	closed      bool
 }
 
 // NewWriter opens a new Writer using the given configuration.
@@ -110,6 +110,7 @@ func (db *DB) NewWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) 
 		internal:        internal,
 		idx:             db.idx,
 		presetEnd:       !cfg.End.IsZero(),
+		lastPersist:     telem.Now(),
 	}
 
 	// If we don't have a preset end, we defer to using the start of the next domain
@@ -138,29 +139,6 @@ func (w *Writer) Write(p []byte) (n int, err error) {
 	return w.internal.Write(p)
 }
 
-// WriteAndAutoCommit writes the telemetry p to OS, and upon reaching a certain threshold
-// of unpersisted samples are reached, the index is persisted (flushed to disk).
-func (w *Writer) WriteAndAutoCommit(ctx context.Context, p []byte, end telem.TimeStamp, sampleCount telem.Size) (n int, err error) {
-	if w.closed {
-		return 0, WriterClosedError
-	}
-
-	n, err = w.internal.Write(p)
-	if err != nil {
-		return
-	}
-
-	w.unpersistedSamples += sampleCount
-	if w.unpersistedSamples >= w.AutoPersistThreshold {
-		err = w.commit(ctx, end, true)
-		w.unpersistedSamples = 0
-		return
-	}
-
-	err = w.commit(ctx, end, false)
-	return
-}
-
 // Commit commits the domain to the DB, making it available for reading by other processes.
 // If the WriterConfig.End parameter was set, Commit will ignore the provided timestamp
 // and use the WriterConfig.End parameter instead. If the WriterConfig.End parameter was
@@ -170,27 +148,31 @@ func (w *Writer) WriteAndAutoCommit(ctx context.Context, p []byte, end telem.Tim
 // and the provided timestamp overlaps with any other domains within the DB, Commit will
 // return an error.
 func (w *Writer) Commit(ctx context.Context, end telem.TimeStamp) error {
+	w.lastPersist = telem.Now()
 	return w.commit(ctx, end, true)
 }
 
-func (w *Writer) CommitWithoutPersist(ctx context.Context, end telem.TimeStamp) error {
+func (w *Writer) CommitAndAutoPersist(ctx context.Context, end telem.TimeStamp) error {
+	if w.lastPersist.Span(telem.Now()) >= w.WriterConfig.AutoPersistTime {
+		w.lastPersist = telem.Now()
+		return w.commit(ctx, end, true)
+	}
 	return w.commit(ctx, end, false)
 }
 
 func (w *Writer) commit(ctx context.Context, end telem.TimeStamp, persist bool) error {
 	ctx, span := w.T.Prod(ctx, "commit")
 	if w.closed {
-		return span.EndWith(WriterClosedError)
+		return span.Error(WriterClosedError)
 	}
 	if w.presetEnd {
-		// Cannot commit a timerange after the specified end of the writer
 		if end.After(w.End) {
-			return span.EndWith(errors.New("[cesium] - commit timestamp cannot be greater than preset end timestamp"))
+			return span.Error(errors.New("[cesium] - commit timestamp cannot be greater than preset end timestamp"))
 		}
 		end = w.End
 	}
 	if err := w.validateCommitRange(end); err != nil {
-		return span.EndWith(err)
+		return span.Error(err)
 	}
 	length := w.internal.Len()
 	if length == 0 {
@@ -203,18 +185,27 @@ func (w *Writer) commit(ctx context.Context, end telem.TimeStamp, persist bool) 
 		fileKey:   w.fileKey,
 	}
 	f := lo.Ternary(w.prevCommit.IsZero(), w.idx.insert, w.idx.update)
+	err := f(ctx, ptr, persist)
+	if err != nil {
+		return span.Error(err)
+	}
+
 	w.prevCommit = end
-	return span.EndWith(f(ctx, ptr, persist))
+	return nil
 }
 
 // Close closes the writer, releasing any resources it may have been holding. Any
-// uncommitted data will be discarded. Close is not idempotent, and is also not
+// uncommitted data will be discarded. Close is idempotent, and is also not
 // safe to call concurrently with any other writer methods.
-func (w *Writer) Close() error {
+func (w *Writer) Close(ctx context.Context) error {
 	if w.closed {
 		return nil
 	}
 	w.closed = true
+	// Persist any committed, but unpersisted data.
+	if w.AutoPersistTime != 0 {
+		w.idx.persist(ctx)
+	}
 	return w.internal.Close()
 }
 
