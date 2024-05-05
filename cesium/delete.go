@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 	"golang.org/x/sync/semaphore"
+	"math/rand"
 	"strconv"
 	"sync"
 	"time"
@@ -50,67 +51,100 @@ func channelDirName(ch ChannelKey) string {
 // Does nothing if channel does not exist.
 func (db *DB) DeleteChannel(ch ChannelKey) error {
 	db.mu.Lock()
-	err := db.deleteChannel(ch)
+	err := db.removeChannel(ch)
 	if err != nil {
 		db.mu.Unlock()
 		return err
 	}
 
-	db.mu.Unlock()
+	// Rename the file first, so we can avoid hogging the mutex while deleting the directory
+	// may take a longer time.
+	// Rename the file to have a random suffix in case the channel is repeatedly created
+	// and deleted.
+	oldName := channelDirName(ch)
+	newName := oldName + "-DELETE-" + strconv.Itoa(rand.Int())
+	err = db.fs.Rename(oldName, newName)
+	if err != nil {
+		db.mu.Unlock()
+		return nil
+	}
 
-	return db.fs.Remove(channelDirName(ch))
+	db.mu.Unlock()
+	return db.fs.Remove(newName)
 }
 
-func (db *DB) DeleteChannels(chs ...ChannelKey) (err error) {
+func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 	db.mu.Lock()
 	var (
 		indexChannels       = make([]ChannelKey, 0)
 		directoriesToRemove = make([]string, 0)
 	)
 
+	// This 'defer' statement does a best-effort removal of all renamed directories
+	// to ensure that all DBs deleted from db.unaryDBs and db.virtualDBs are also deleted
+	// on FS.
 	defer func() {
-		// Pool all directories to remove
+		db.mu.Unlock()
+		c := errutil.NewCatch(errutil.WithAggregation())
 		for _, name := range directoriesToRemove {
-			if _err := db.fs.Remove(name); _err != nil {
-				err = errors.CombineErrors(err, _err)
-				return
-			}
+			c.Exec(func() error {
+				return db.fs.Remove(name)
+			})
 		}
+		err = errors.CombineErrors(err, c.Error())
 	}()
 
-	// Do a pass first to remove all rate-based channels
+	// Do a pass first to remove all non-index channels
 	for _, ch := range chs {
-		if udb, uok := db.unaryDBs[ch]; uok && udb.Channel.IsIndex {
-			indexChannels = append(indexChannels, ch)
+		udb, uok := db.unaryDBs[ch]
+
+		if !uok || udb.Channel.IsIndex {
+			if udb.Channel.IsIndex {
+				indexChannels = append(indexChannels, ch)
+			}
 			continue
 		}
 
-		err = db.deleteChannel(ch)
+		err = db.removeChannel(ch)
 		if err != nil {
-			db.mu.Unlock()
 			return
 		}
 
-		directoriesToRemove = append(directoriesToRemove, channelDirName(ch))
+		// Rename the files first, so we can avoid hogging the mutex while deleting the directory
+		// may take a longer time.
+		oldName := channelDirName(ch)
+		newName := oldName + "-DELETE-" + strconv.Itoa(rand.Int())
+		err = db.fs.Rename(oldName, newName)
+		if err != nil {
+			return
+		}
+
+		directoriesToRemove = append(directoriesToRemove, newName)
 	}
 
 	// Do another pass to remove all index channels
 	for _, ch := range indexChannels {
-		err = db.deleteChannel(ch)
+		err = db.removeChannel(ch)
 		if err != nil {
-			db.mu.Unlock()
 			return
 		}
 
-		directoriesToRemove = append(directoriesToRemove, channelDirName(ch))
+		oldName := channelDirName(ch)
+		newName := oldName + "-DELETE-" + strconv.Itoa(rand.Int())
+		err = db.fs.Rename(oldName, newName)
+		if err != nil {
+			return
+		}
+
+		directoriesToRemove = append(directoriesToRemove, newName)
 	}
 
-	db.mu.Unlock()
-
-	return nil
+	return
 }
 
-func (db *DB) deleteChannel(ch ChannelKey) error {
+// removeChannel removes ch from db.unaryDBs or db.virtualDBs. If the key does not exist
+// or if there is an open entity on the specified database.
+func (db *DB) removeChannel(ch ChannelKey) error {
 	udb, uok := db.unaryDBs[ch]
 	if uok {
 		if udb.Channel.IsIndex {
@@ -164,7 +198,7 @@ func (db *DB) DeleteTimeRange(ctx context.Context, ch ChannelKey, tr telem.TimeR
 			// We must determine whether there is an indexed db that has data in the timerange tr.
 			hasOverlap, err := otherDB.HasDataFor(ctx, tr)
 			if err != nil || hasOverlap {
-				return errors.Newf("[cesium] - could not delete index channel %s with other channels depending on it", ch)
+				return errors.Newf("[cesium] - could not delete index channel %d with other channels depending on it", ch)
 			}
 		}
 	}

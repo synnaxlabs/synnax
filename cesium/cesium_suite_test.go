@@ -22,10 +22,9 @@ import (
 )
 
 var (
-	ctx         = context.Background()
-	rootPath    = "cesium-testdata"
-	fileSystems map[string]func() xfs.FS
-	cleanUp     func() error
+	ctx                       = context.Background()
+	rootPath                  = "cesium-testdata"
+	fileSystems, cleanUp, err = testutil.FileSystems()
 )
 
 func openDBOnFS(fs xfs.FS) *cesium.DB {
@@ -41,14 +40,9 @@ func channelKeyToPath(key cesium.ChannelKey) string {
 
 func TestCesium(t *testing.T) {
 	RegisterFailHandler(Fail)
-	fileSystems, cleanUp = testutil.FileSystems()
 	RunSpecs(t, "Cesium Suite")
-	Expect(cleanUp()).To(Succeed())
 }
 
-//var _ = BeforeSuite(func() {
-//	fileSystems, cleanUp = testutil.FileSystems()
-//	Expect(len(fileSystems)).To(Equal(2))
-//})
-//
-//var _ = AfterSuite(func() { Expect(cleanUp()).To(Succeed()) })
+var _ = BeforeSuite(func() { Expect(err).ToNot(HaveOccurred()) })
+
+var _ = AfterSuite(func() { Expect(cleanUp()).To(Succeed()) })
