@@ -10,34 +10,14 @@
 package unary_test
 
 import (
-	"encoding/binary"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/control"
-	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
-
-func extractPointer(f fs.File) (p struct {
-	telem.TimeRange
-	fileKey uint16
-	offset  uint32
-	length  uint32
-}) {
-	var b = make([]byte, 26)
-	_, err := f.ReadAt(b, 0)
-	Expect(err).ToNot(HaveOccurred())
-	p.TimeRange.Start = telem.TimeStamp(binary.LittleEndian.Uint64(b[0:8]))
-	p.TimeRange.End = telem.TimeStamp(binary.LittleEndian.Uint64(b[8:16]))
-	p.fileKey = binary.LittleEndian.Uint16(b[16:18])
-	p.offset = binary.LittleEndian.Uint32(b[18:22])
-	p.length = binary.LittleEndian.Uint32(b[22:26])
-
-	return
-}
 
 var _ = Describe("Writer Behavior", func() {
 	for fsName, fs := range fileSystems {
