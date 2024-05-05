@@ -203,7 +203,7 @@ func (w *Writer) Close(ctx context.Context) error {
 	}
 	w.closed = true
 	// Persist any committed, but unpersisted data.
-	if w.AutoPersistTime != 0 {
+	if !w.AutoPersistTime.IsZero() {
 		w.idx.persist(ctx)
 	}
 	return w.internal.Close()
