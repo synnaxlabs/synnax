@@ -35,10 +35,10 @@ export const newF = <T extends Primitive>(
         (a as string).toString().localeCompare((b as string).toString());
       break;
     case "number":
-      f = (a: T, b: T) => (a as number) - (b as number);
+      f = (a: T, b: T) => Number(a) - Number(b);
       break;
     case "bigint":
-      f = (a: T, b: T) => ((a as bigint) - (b as bigint) > BigInt(0) ? 1 : -1);
+      f = (a: T, b: T) => (BigInt(a as number) - BigInt(b as number) > 0n ? 1 : -1);
       break;
     case "boolean":
       f = (a: T, b: T) => Number(a) - Number(b);

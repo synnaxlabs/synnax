@@ -41,7 +41,7 @@ export interface SeriesDigest {
   key: string;
   dataType: string;
   sampleOffset: NumericTelemValue;
-  alignment: bounds.Bounds;
+  alignment: bounds.Bounds<bigint>;
   timeRange?: string;
   length: number;
   capacity: number;
@@ -52,7 +52,7 @@ interface BaseSeriesProps {
   timeRange?: TimeRange;
   sampleOffset?: NumericTelemValue;
   glBufferUsage?: GLBufferUsage;
-  alignment?: number;
+  alignment?: bigint;
   key?: string;
 }
 
@@ -116,7 +116,7 @@ export class Series<T extends TelemValue = TelemValue> {
   /** The underlying data. */
   private readonly _data: ArrayBufferLike;
   readonly _timeRange?: TimeRange;
-  readonly alignment: number = 0;
+  readonly alignment: bigint = 0n;
   /** A cached minimum value. */
   private _cachedMin?: NumericTelemValue;
   /** A cached maximum value. */
@@ -134,7 +134,7 @@ export class Series<T extends TelemValue = TelemValue> {
       timeRange,
       sampleOffset = 0,
       glBufferUsage = "static",
-      alignment = 0,
+      alignment = 0n,
       key = nanoid(),
     } = props;
     const { data } = props;
@@ -629,8 +629,8 @@ export class Series<T extends TelemValue = TelemValue> {
     };
   }
 
-  get alignmentBounds(): bounds.Bounds {
-    return bounds.construct(this.alignment, this.alignment + this.length);
+  get alignmentBounds(): bounds.Bounds<bigint> {
+    return bounds.construct(this.alignment, this.alignment + BigInt(this.length));
   }
 
   private maybeGarbageCollectGLBuffer(gl: GLBufferController): void {
@@ -667,11 +667,11 @@ export class Series<T extends TelemValue = TelemValue> {
       timeRange: this._timeRange,
       sampleOffset: this.sampleOffset,
       glBufferUsage: this.gl.bufferUsage,
-      alignment: this.alignment + start,
+      alignment: this.alignment + BigInt(start),
     });
   }
 
-  reAlign(alignment: number): Series {
+  reAlign(alignment: bigint): Series {
     return new Series({
       data: this.buffer,
       dataType: this.dataType,

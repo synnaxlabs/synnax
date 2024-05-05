@@ -18,9 +18,9 @@ data_ch = client.channels.create(
 )
 
 start = sy.TimeStamp.now()
-count = int(1e5)
+count = int(1)
 
-for i in range(7):
+for i in range(5):
     print(start)
     stamps = np.linspace(start, start + 30 * sy.TimeSpan.MINUTE, count, dtype=np.int64)
     data = np.sin(np.linspace(0, 2 * np.pi, count))
@@ -32,7 +32,7 @@ for i in range(7):
         start=start,
         data=data,
     )
-    start = start + sy.TimeSpan.HOUR * 10
+    start = start + sy.TimeSpan.HOUR * 1
 
 tr = sy.TimeRange.MAX
 

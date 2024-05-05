@@ -155,6 +155,7 @@ export class LinePlot extends aether.Composite<
       await this.renderAxes(plot, canvases);
       await this.renderTooltips(plot, canvases);
       await this.renderMeasures(plot, canvases);
+      renderCtx.gl.finish();
       renderCtx.gl.flush();
     } catch (e) {
       this.internal.aggregate({

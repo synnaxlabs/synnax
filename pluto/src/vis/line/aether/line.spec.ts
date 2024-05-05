@@ -22,7 +22,7 @@ describe("line", () => {
   describe("buildDrawOperations", () => {
     interface SpecEntry {
       timeRange: CrudeTimeRange;
-      alignmentBounds: bounds.Bounds;
+      alignmentBounds: bounds.Bounds<bigint>;
     }
 
     interface SpecExpected {
@@ -44,7 +44,9 @@ describe("line", () => {
       entries.map(
         ({ alignmentBounds, timeRange }) =>
           new Series({
-            data: new Float32Array(alignmentBounds.upper - alignmentBounds.lower),
+            data: new Float32Array(
+              Number(alignmentBounds.upper - alignmentBounds.lower),
+            ),
             dataType: DataType.FLOAT32,
             timeRange: new TimeRange(timeRange.start, timeRange.end),
             alignment: alignmentBounds.lower,
@@ -56,21 +58,21 @@ describe("line", () => {
       x: [
         {
           timeRange: { start: 0, end: 100 },
-          alignmentBounds: { lower: 0, upper: 100 },
+          alignmentBounds: { lower: 0n, upper: 100n },
         },
         {
           timeRange: { start: 100, end: 200 },
-          alignmentBounds: { lower: 100, upper: 200 },
+          alignmentBounds: { lower: 100n, upper: 200n },
         },
       ],
       y: [
         {
           timeRange: { start: 0, end: 100 },
-          alignmentBounds: { lower: 0, upper: 100 },
+          alignmentBounds: { lower: 0n, upper: 100n },
         },
         {
           timeRange: { start: 100, end: 200 },
-          alignmentBounds: { lower: 100, upper: 200 },
+          alignmentBounds: { lower: 100n, upper: 200n },
         },
       ],
       expected: [
@@ -96,17 +98,17 @@ describe("line", () => {
       x: [
         {
           timeRange: { start: 0, end: 100 },
-          alignmentBounds: { lower: 0, upper: 100 },
+          alignmentBounds: { lower: 0n, upper: 100n },
         },
       ],
       y: [
         {
           timeRange: { start: 0, end: 50 },
-          alignmentBounds: { lower: 0, upper: 50 },
+          alignmentBounds: { lower: 0n, upper: 50n },
         },
         {
           timeRange: { start: 50, end: 100 },
-          alignmentBounds: { lower: 50, upper: 100 },
+          alignmentBounds: { lower: 50n, upper: 100n },
         },
       ],
       expected: [
@@ -132,13 +134,13 @@ describe("line", () => {
       x: [
         {
           timeRange: { start: 0, end: 100 },
-          alignmentBounds: { lower: 0, upper: 100 },
+          alignmentBounds: { lower: 0n, upper: 100n },
         },
       ],
       y: [
         {
           timeRange: { start: 50, end: 150 },
-          alignmentBounds: { lower: 50, upper: 150 },
+          alignmentBounds: { lower: 50n, upper: 150n },
         },
       ],
       expected: [
@@ -157,13 +159,13 @@ describe("line", () => {
       x: [
         {
           timeRange: { start: 50, end: 100 },
-          alignmentBounds: { lower: 50, upper: 100 },
+          alignmentBounds: { lower: 50n, upper: 100n },
         },
       ],
       y: [
         {
           timeRange: { start: 0, end: 200 },
-          alignmentBounds: { lower: 0, upper: 200 },
+          alignmentBounds: { lower: 0n, upper: 200n },
         },
       ],
       expected: [
@@ -182,13 +184,13 @@ describe("line", () => {
       x: [
         {
           timeRange: { start: 0, end: 200 },
-          alignmentBounds: { lower: 0, upper: 200 },
+          alignmentBounds: { lower: 0n, upper: 200n },
         },
       ],
       y: [
         {
           timeRange: { start: 50, end: 100 },
-          alignmentBounds: { lower: 50, upper: 100 },
+          alignmentBounds: { lower: 50n, upper: 100n },
         },
       ],
       expected: [
@@ -207,25 +209,25 @@ describe("line", () => {
       x: [
         {
           timeRange: { start: 0, end: 100 },
-          alignmentBounds: { lower: 0, upper: 100 },
+          alignmentBounds: { lower: 0n, upper: 100n },
         },
         {
           timeRange: { start: 100, end: 150 },
-          alignmentBounds: { lower: 100, upper: 150 },
+          alignmentBounds: { lower: 100n, upper: 150n },
         },
       ],
       y: [
         {
           timeRange: { start: 25, end: 75 },
-          alignmentBounds: { lower: 25, upper: 75 },
+          alignmentBounds: { lower: 25n, upper: 75n },
         },
         {
           timeRange: { start: 75, end: 125 },
-          alignmentBounds: { lower: 75, upper: 125 },
+          alignmentBounds: { lower: 75n, upper: 125n },
         },
         {
           timeRange: { start: 125, end: 175 },
-          alignmentBounds: { lower: 125, upper: 175 },
+          alignmentBounds: { lower: 125n, upper: 175n },
         },
       ],
       expected: [
@@ -265,13 +267,13 @@ describe("line", () => {
       x: [
         {
           timeRange: { start: 0, end: 100 },
-          alignmentBounds: { lower: 0, upper: 100 },
+          alignmentBounds: { lower: 0n, upper: 100n },
         },
       ],
       y: [
         {
           timeRange: { start: 100, end: 150 },
-          alignmentBounds: { lower: 50, upper: 150 },
+          alignmentBounds: { lower: 50n, upper: 150n },
         },
       ],
       expected: [],

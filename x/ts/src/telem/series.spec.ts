@@ -560,7 +560,6 @@ describe("Series", () => {
     describe("bigint", () => {
       it("should correctly interpret the series as a bigint", () => {
         const s = new Series([BigInt(1), BigInt(2), BigInt(3)]);
-        console.log(s.dataType);
         const s2 = s.as("bigint");
         expect(s2.at(0)).toEqual(BigInt(1));
       });
