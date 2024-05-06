@@ -487,7 +487,7 @@ var _ = Describe("Delete", func() {
 						})).To(Succeed())
 
 						// Data after deletion: 10, 11, __, __, __, 15, 16, 17, 18
-						frame, err := db.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 19 * telem.SecondTS}, basic1)
+						frame, err := db.Read(telem.TimeRange{Start: 10 * telem.SecondTS, End: 19 * telem.SecondTS}, basic1)
 						Expect(err).To(BeNil())
 						Expect(frame.Series).To(HaveLen(2))
 
@@ -547,7 +547,7 @@ var _ = Describe("Delete", func() {
 						// 10 11 12 13 14 15 16 17 18 19
 						//  0  1                 7  8  9
 
-						frame, err := db.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 20 * telem.SecondTS}, basic2)
+						frame, err := db.Read(telem.TimeRange{Start: 10 * telem.SecondTS, End: 20 * telem.SecondTS}, basic2)
 						Expect(err).To(BeNil())
 						Expect(frame.Series).To(HaveLen(2))
 						Expect(frame.Series[0].TimeRange.End).To(Equal(12 * telem.SecondTS))
@@ -604,7 +604,7 @@ var _ = Describe("Delete", func() {
 						// After deletion:
 						// 10 11                17 18 19
 
-						frame, err := db.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 20 * telem.SecondTS}, basic3index)
+						frame, err := db.Read(telem.TimeRange{Start: 10 * telem.SecondTS, End: 20 * telem.SecondTS}, basic3index)
 						Expect(err).To(BeNil())
 						Expect(frame.Series).To(HaveLen(2))
 
@@ -699,7 +699,7 @@ var _ = Describe("Delete", func() {
 							End:   75 * telem.SecondTS,
 						})).To(Succeed())
 
-						frame, err := db.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 100 * telem.SecondTS}, basic5)
+						frame, err := db.Read(telem.TimeRange{Start: 10 * telem.SecondTS, End: 100 * telem.SecondTS}, basic5)
 						Expect(err).To(BeNil())
 						Expect(frame.Series).To(HaveLen(6))
 
@@ -753,7 +753,7 @@ var _ = Describe("Delete", func() {
 							End:   50 * telem.SecondTS,
 						})).To(Succeed())
 
-						frame, err := db.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 100 * telem.SecondTS}, basic6)
+						frame, err := db.Read(telem.TimeRange{Start: 10 * telem.SecondTS, End: 100 * telem.SecondTS}, basic6)
 						Expect(err).To(BeNil())
 						Expect(frame.Series).To(HaveLen(6))
 

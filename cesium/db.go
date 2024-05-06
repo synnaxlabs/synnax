@@ -67,7 +67,7 @@ func (db *DB) WriteArray(ctx context.Context, key core.ChannelKey, start telem.T
 }
 
 // Read implements DB.
-func (db *DB) Read(_ context.Context, tr telem.TimeRange, keys ...core.ChannelKey) (frame Frame, err error) {
+func (db *DB) Read(tr telem.TimeRange, keys ...core.ChannelKey) (frame Frame, err error) {
 	iter, err := db.OpenIterator(IteratorConfig{Channels: keys, Bounds: tr})
 	if err != nil {
 		return

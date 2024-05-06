@@ -130,7 +130,7 @@ var _ = Describe("Control", func() {
 
 					By("Reading the data")
 					f := MustSucceed(db.Read(
-						ctx,
+
 						start.SpanRange(10*telem.Second),
 						ch1,
 					))
