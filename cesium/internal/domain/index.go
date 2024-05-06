@@ -156,8 +156,10 @@ func (idx *index) beforeFirst(ts telem.TimeStamp) bool {
 }
 
 func (idx *index) persist(ctx context.Context) {
+	idx.mu.RLock()
 	update := indexUpdate{afterIndex: idx.persistHead}
 	idx.Observer.Notify(ctx, update)
+	idx.mu.RUnlock()
 }
 
 func (idx *index) searchLE(ctx context.Context, ts telem.TimeStamp) (i int) {
