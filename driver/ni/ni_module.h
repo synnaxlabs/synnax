@@ -30,25 +30,48 @@
 
 
 namespace ni{
-
+    
+    ///////////////////////////////////////////////////////////////////////////////////
+    //                                    NiReaderTask                               //
+    ///////////////////////////////////////////////////////////////////////////////////
     class NiReaderTask final : public task::Task {
     public:
-        explicit NiReaderTask(const std::shared_ptr<task::Context> &ctx, synnax::Task task, synnax::WriterConfig writer_config); 
+        explicit NiReaderTask(  const std::shared_ptr<task::Context> &ctx, 
+                                synnax::Task task); 
+
+        static std::unique_ptr<task::Task> configure(
+            const std::shared_ptr<task::Context> &ctx,
+            const synnax::Task &task
+        );
+                                
         void exec(task::Command &cmd) override;
+
         void stop() override{};
     private:
         pipeline::Acquisition daq_read_pipe; // source is a daqreader 
+        Taskhandle taskhandle;
     }
 
-
+    ///////////////////////////////////////////////////////////////////////////////////
+    //                                    NiWriterTask                               //
+    ///////////////////////////////////////////////////////////////////////////////////
     class NiWriterTask final : public task::Task {
     public:
-        explicit NiWriterTask(const std::shared_ptr<task::Context> &ctx, synnax::Task task); 
+        explicit NiWriterTask(  const std::shared_ptr<task::Context> &ctx, 
+                                synnax::Task task); 
+
+        
+        static std::unique_ptr<task::Task> configure(
+            const std::shared_ptr<task::Context> &ctx,
+            const synnax::Task &task
+        );
+
         void exec(task::Command &cmd) override;
         void stop() override{};
     private:
         pipeline::Acquisition cmd_read_pipe; // source reads from synnax (TODO: make this source)
         pipeline::Control daq_write_pipe;
+        Taskhandle taskhandle;
     }
 
 

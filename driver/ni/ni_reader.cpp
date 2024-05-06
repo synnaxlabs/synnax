@@ -410,6 +410,13 @@ ni::daqReader::~daqReader(){
     this->stop();
 }
 
+std::vector<synnax::ChannelKey> ni::daqReader::getChannelKeys(){
+    std::vector<synnax::ChannelKey> keys;
+    for(auto &channel : this->reader_config.channels){
+        keys.push_back(channel.channel_key);
+    }
+    return keys;
+}
 
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    daqWriter                                //
@@ -662,6 +669,22 @@ bool ni::daqWriter::ok(){
 ni::daqWriter::~daqWriter(){
     LOG(INFO) << "Destroying daqWriter";
     this->stop();
+}
+
+std::vector<synnax::ChannelKey> ni::daqWriter::getCmdChannelKeys(){
+    std::vector<synnax::ChannelKey> keys;
+    for(auto &channel : this->writer_config.channels){ 
+        if(channel.channel_type != "index" && channel.channel_type != "driveStateIndex") {
+            keys.push_back(channel.channel_key);    // could either be the key to a cmd channel or a key to an cmd index channel
+        }
+    }
+    return keys;
+}
+
+std::vector<synnax::ChannelKey> ni::daqWriter::getStateChannelKeys(){
+    std::vector<synnax::ChannelKey> keys = this->writer_config.drive_state_channel_keys;
+    keys.push_back(this->writer_config.drive_state_index_key);
+    return keys;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////

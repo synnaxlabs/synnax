@@ -16,24 +16,49 @@
 #include <cassert>
 #include <stdio.h>
 
+///////////////////////////////////////////////////////////////////////////////////
+//                                    NiReaderTask                               //
+///////////////////////////////////////////////////////////////////////////////////
 
-ni::NiReaderTask::NiReaderTask(const std::shared_ptr<task::Context> &ctx, synnax::Task task, synnax::WriterConfig writer_config){
-    // create daq reader for source
-    TaskHandle taskHandle;  // TODO: make this a unique ptr?
-    DAQmxCreateTask("",&taskHandle);
-
-    auto source = std::make_unique<daq::daqReader>(taskHandle, ctx, task);
-
-    
+ni::NiReaderTask::NiReaderTask( const std::shared_ptr<task::Context> &ctx, 
+                                synnax::Task task){
+    // create a breaker config TODO: use the task to generate the other parameters?
     auto breaker_config = breaker::Config{
         .name = task.name,
         .base_interval = 1 * SECOND,
         .max_retries = 20,
         .scale = 1.2,
+    }
 
-    daq_read_pipe = pipeline::Acquisition(ctx,writer_config, std::move(source), breaker_config);
+    // create a daq reader to provide to cmd read pipe as sink
+    DAQmxCreateTask("", &this->taskHandle);
+    auto daq_reader = std::make_unique<ni::daqReader>(this->taskHandle, ctx, task);
+    if(!daq_reader.ok()){
+        LOG(ERROR) << "[NI Reader] failed to construct reader for" << task.name;
+        return;
+    } 
+
+    // construct writer config
+    std::vector<synnax::ChannelKey> channel_keys = daq_reader->getChannelKeys();
+
+    auto writer_config = synnax::WriterConfig{
+        .channels = channel_keys,
+        .start = synnax::TimeStamp::now(),
+        .mode = synnax::WriterStreamOnly // TODO: is this the correct mode?
+    }
+
+    // construct acquisition pipe
+    this->daq_read_pipe = pipeline::Acquisition(    ctx, 
+                                                    writer_config, 
+                                                    std::move(daq_reader), 
+                                                    breaker_config);
 } 
 
+
+std::unique_ptr<task::Task> ni::NiReaderTask::configure(    const std::shared_ptr<task::Context> ctx,
+                                                            const synnax::Task &task){
+    return std::make_unique<ni::NiReaderTask>(ctx, task);
+}
 
 ni::NiReaderTask::exec(task::Command &cmd){
     if (cmd == task::Command::START){
@@ -45,21 +70,99 @@ ni::NiReaderTask::exec(task::Command &cmd){
     }
 }
 
-ni::NiDigitalWriterTask::NiDigitalWriterTask(){
-    // create a daq writer to provide to cmd read pipe as sink
-    auto sink = std::make_unique<daq::daqWriter>(taskHandle, ctx, task);
 
-    cmd_read_pipe = pipeline::Control(  ctx,
-                                        cmd_streamer_config,
-                                        writer_config,
-                                        sink,
-                                        breaker,)
+///////////////////////////////////////////////////////////////////////////////////
+//                                    NiWriterTask                               //
+///////////////////////////////////////////////////////////////////////////////////
 
-    // 
+ni::NiWriterTask::NiWriterTask( const std::shared_ptr<task::Context> &ctx, 
+                                synnax::Task task){
 
-    // create a 
+    // create a breaker config TODO: use the task to generate the other parameters?
+    auto breaker_config = breaker::Config{
+        .name = task.name,
+        .base_interval = 1 * SECOND,
+        .max_retries = 20,
+        .scale = 1.2,
+    }
 
+    // create a daq reader to provide to cmd read pipe as sink
+    DAQmxCreateTask("", &this->taskHandle);
+    auto daq_writer = std::make_unique<ni::daqWriter>(this->taskHandle, ctx, task);
+    if(!daq_writer.ok()){
+        LOG(ERROR) << "[NI Writer] failed to construct reader for" << task.name;
+        return;
+    } 
+
+    // construct writer config
+    std::vector<synnax::ChannelKey> cmd_keys = daq_reader->getCmdChannelKeys();
+    std::vector<synnax::ChannelKey> state_keys = daq_reader->getStateChannelKeys();
+
+    // create a writer config to write state channels
+    auto writer_config = synnax::WriterConfig{
+        .channels = state_keys,
+        .start = synnax::TimeStamp::now(),
+        .mode = synnax::WriterStreamOnly // TODO: is this the correct mode?
+    }
+
+    // create a streamer config to stream incoming cmds
+    auto streamer_config = synnax::StreamerConfig{
+        .channels = cmd_keys,
+        .start = synnax::TimeStamp::now(),
+    }
+
+    // construct acquisition pipe
+    this->state_write_pipe = pipeline::Acquisition(     ctx, 
+                                                        writer_config, 
+                                                        daq_writer->writer_state_source, 
+                                                        breaker_config);
+
+    // construct control pipe
+    this->cmd_read_pipe = pipeline::Control(    ctx, 
+                                                streamer_config, 
+                                                std::move(daq_writer), 
+                                                breaker_config);
+} 
+
+
+
+
+std::unique_ptr<task::Task> ni::NiWriterTask::configure(    const std::shared_ptr<task::Context> ctx,
+                                                            const synnax::Task &task){
+    return std::make_unique<ni::NiWriterTask>(ctx, task);
 }
+
+ni::NiWriterTask::exec(task::Command &cmd){
+    if (cmd == cmd_read_pipe::Command::START){
+        daq_read_pipe.start();
+        state_write_pipe.start();
+
+    } else if (cmd == task::Command::STOP){
+        state_write_pipe.stop();
+        cmd_read_pipe.stop();
+    } else {
+        LOG(ERROR) << "unknown command type: " << cmd.type;
+    }
+}
+
+// ni::NiDigitalWriterTask::NiDigitalWriterTask(){
+//     // create a daq writer to provide to cmd read pipe as sink
+//     auto daq_writer = std::make_unique<daq::daqWriter>(taskHandle, ctx, task);
+
+//     if(!daqReader.ok()){
+//         LOG(ERROR) << "[NI Reader] failed to construct reader for" << task.name;
+//         return;
+//     } 
+
+//     this->cmd_read_pipe = pipeline::Control(    ctx,
+//                                                 cmd_streamer_config,
+//                                                 writer_config,
+//                                                 daq_writer,
+//                                                 breaker)
+
+
+
+// }
 
 
 //////////////////////////////////////////////// OLD CODE

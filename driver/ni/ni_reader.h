@@ -82,8 +82,8 @@ namespace ni{
         std::pair<synnax::Frame, freighter::Error> read();
         freighter::Error stop();
         freighter::Error start();
+        std::vector<synnax::ChannelKey> getChannelKeys();
         bool ok();
-        // destructor
         ~daqReader();
 
     private:
@@ -153,6 +153,8 @@ namespace ni{
         freighter::Error write(synnax::Frame frame);
         freighter::Error stop();
         freighter::Error start();
+        std::vector<synnax::ChannelKey> getCmdChannelKeys();
+        std::vector<synnax::ChannelKey> getStateChannelKeys();
         bool ok();
         ~daqWriter();
 
