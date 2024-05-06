@@ -84,11 +84,9 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 	// on FS.
 	defer func() {
 		db.mu.Unlock()
-		c := errutil.NewCatch(errutil.WithAggregation())
+		c := errors.NewCatcher(errors.WithAggregation())
 		for _, name := range directoriesToRemove {
-			c.Exec(func() error {
-				return db.fs.Remove(name)
-			})
+			c.Exec(func() error { return db.fs.Remove(name) })
 		}
 		err = errors.CombineErrors(err, c.Error())
 	}()

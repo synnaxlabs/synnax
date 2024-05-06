@@ -12,14 +12,21 @@
 .console-palette {
     width: 100%;
     max-width: 1200px;
+}
 
-    .console-palette__list {
-        & .pluto-status-text {
-            height: 150px;
-        }
+.console-palette__list {
+    background: var(--pluto-gray-l1);
+
+    & .pluto-status-text {
+        height: 150px;
     }
+}
 
-    
+.console-palette__content {
+    width: 95vw;
+    border-radius: 1rem;
+    min-height: 400px;
+    max-width: 1200px;
 }
 
 .console-notifications {
@@ -44,7 +51,6 @@
         }
     }
 }
-
 
 .console-palette__item {
     border-radius: 0;

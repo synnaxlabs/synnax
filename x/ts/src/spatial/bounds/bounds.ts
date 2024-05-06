@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {type Bounds, bounds, type CrudeBounds} from "@/spatial/base";
+import { math } from "@/math";
+import { type Bounds, bounds, type CrudeBounds } from "@/spatial/base";
 
-export {type Bounds, bounds};
+export { type Bounds, bounds };
 
 export type Crude<T extends number | bigint = number> = CrudeBounds<T>;
 
@@ -21,7 +22,7 @@ export interface Construct {
    * with a 'lower' and 'upper' property or an array of length 2. If the bounds are
    * invalid i.e., the lower bound is greater than the upper bound, the bounds are
    * swapped.
-   */<T extends number | bigint = number>(bounds: Crude<T>): Bounds<T>;
+   */ <T extends number | bigint = number>(bounds: Crude<T>): Bounds<T>;
 
   /**
    * Constructs a bounds object from the given lower and upper bounds.
@@ -32,9 +33,12 @@ export interface Construct {
    * bound is set to 0.
    *
    * If the lower bound is greater than the upper bound, the bounds are swapped.
-   */<T extends number | bigint = number>(lower: number, upper?: number): Bounds<T>;
+   */ <T extends number | bigint = number>(lower: number, upper?: number): Bounds<T>;
 
-  <T extends number | bigint = number>(lower: number | Crude, upper?: number): Bounds<T>;
+  <T extends number | bigint = number>(
+    lower: number | Crude,
+    upper?: number,
+  ): Bounds<T>;
 }
 
 export const construct = <T extends bigint | number>(
@@ -58,13 +62,13 @@ export const construct = <T extends bigint | number>(
 };
 
 /** A lower and upper bound of 0. */
-export const ZERO: Bounds = Object.freeze({lower: 0, upper: 0});
+export const ZERO: Bounds = Object.freeze({ lower: 0, upper: 0 });
 /** A lower bound of -Infinity and an upper bound of Infinity. */
-export const INFINITE: Bounds = Object.freeze({lower: -Infinity, upper: Infinity});
+export const INFINITE: Bounds = Object.freeze({ lower: -Infinity, upper: Infinity });
 /** A lower bound of 0 and an upper bound of 1. */
-export const DECIMAL: Bounds = Object.freeze({lower: 0, upper: 1});
+export const DECIMAL: Bounds = Object.freeze({ lower: 0, upper: 1 });
 /** Clip space bounds i.e. a lower bound of -1 and an upper bound of 1. */
-export const CLIP = Object.freeze({lower: -1, upper: 1});
+export const CLIP = Object.freeze({ lower: -1, upper: 1 });
 
 /**
  * Checks whether the given bounds are equal.
@@ -73,7 +77,10 @@ export const CLIP = Object.freeze({lower: -1, upper: 1});
  * @param _b - The second bounds to compare.
  * @returns True if the bounds are equal, false otherwise.
  */
-export const equals = <T extends bigint | number = number>(_a?: Crude<T>, _b?: Crude<T>): boolean => {
+export const equals = <T extends bigint | number = number>(
+  _a?: Crude<T>,
+  _b?: Crude<T>,
+): boolean => {
   if (_a == null && _b == null) return true;
   if (_a == null || _b == null) return false;
   const a = construct(_a);
@@ -86,8 +93,10 @@ export const equals = <T extends bigint | number = number>(_a?: Crude<T>, _b?: C
  * @param a  - The bounds to make valid.
  * @returns The valid bounds.
  */
-export const makeValid = <T extends number | bigint = number>(a: Bounds<T>): Bounds<T> => {
-  if (a.lower > a.upper) return {lower: a.upper, upper: a.lower};
+export const makeValid = <T extends number | bigint = number>(
+  a: Bounds<T>,
+): Bounds<T> => {
+  if (a.lower > a.upper) return { lower: a.upper, upper: a.lower };
   return a;
 };
 
@@ -201,9 +210,7 @@ export const min = (bounds: Crude[]): Bounds => ({
  * @returns an array of integers from the lower bound to the upper bound of the given
  * bounds.
  */
-export const linspace = <T extends bigint | number = number>(
-  bounds: Crude<T>,
-): T[] => {
+export const linspace = <T extends bigint | number = number>(bounds: Crude<T>): T[] => {
   const _bounds = construct(bounds);
   const isBigInt = typeof _bounds.lower === "bigint";
   return Array.from({ length: Number(span(bounds)) }, (_, i) => {
@@ -220,7 +227,7 @@ export const findInsertPosition = <T extends bigint | number>(
   const index = _bounds.findIndex(
     (b, i) => contains<T>(b, target) || target < _bounds[i].lower,
   );
-  if (index === -1) return {index: bounds.length, position: 0};
+  if (index === -1) return { index: bounds.length, position: 0 };
   const b = _bounds[index];
   if (contains(b, target)) return { index, position: Number(target - b.lower) };
   return { index, position: 0 };
