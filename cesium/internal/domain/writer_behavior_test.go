@@ -11,6 +11,7 @@ package domain_test
 
 import (
 	"github.com/synnaxlabs/cesium/internal/core"
+	"os"
 	"sync"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -58,6 +59,32 @@ var _ = Describe("WriterBehavior", func() {
 						})
 						Expect(err).To(HaveOccurredAs(domain.ErrDomainOverlap))
 					})
+				})
+			})
+			Describe("CheckFileSizeAndMaybeSwitchFile", func() {
+				It("Should start writing to a new file when one file is full", func() {
+					db2 := MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub(rootPath)), FileSizeCap: 10 * telem.ByteSize}))
+
+					w := MustSucceed(db2.NewWriter(ctx, domain.WriterConfig{Start: 1 * telem.SecondTS}))
+					Expect(w.Write([]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11})).To(Equal(11))
+					l := MustSucceed(db2.FS.List(""))
+					l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
+						return item.Name() != "counter.domain" && item.Name() != "index.domain"
+					})
+					Expect(l).To(HaveLen(1))
+					Expect(l[0].Size()).To(Equal(int64(11)))
+
+					Expect(w.CheckFileSizeAndMaybeSwitchFile(ctx)).To(Succeed())
+					Expect(w.Write([]byte{21, 22, 23}))
+					l = MustSucceed(db2.FS.List(""))
+					l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
+						return item.Name() != "counter.domain" && item.Name() != "index.domain"
+					})
+					Expect(l).To(HaveLen(2))
+					Expect(lo.Map(l, func(info os.FileInfo, _ int) (sz int64) { return info.Size() })).To(ConsistOf(int64(11), int64(3)))
+
+					Expect(w.Close()).To(Succeed())
+					Expect(db2.Close()).To(Succeed())
 				})
 			})
 			Describe("End Validation", func() {

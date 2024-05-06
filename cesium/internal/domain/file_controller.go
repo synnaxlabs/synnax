@@ -74,10 +74,10 @@ func (fc *fileController) acquireWriter(ctx context.Context) (uint16, xio.Tracke
 	for fileKey, w := range fc.writers.open {
 		s, err := fc.FS.Stat(fileKeyName(fileKey))
 		if err != nil {
-			return 0, nil, err
+			return 0, nil, span.Error(err)
 		}
 
-		if s.Size() <= int64(fc.FileSize) && w.tryAcquire() {
+		if s.Size() <= int64(fc.FileSizeCap) && w.tryAcquire() {
 			fc.writers.RUnlock()
 			return w.fileKey, &w, nil
 		}
@@ -130,7 +130,11 @@ func (fc *fileController) newWriter(ctx context.Context) (*controlledWriter, err
 	fc.writers.Lock()
 	fc.writers.open[nextKey] = w
 	fc.writers.Unlock()
-	return &w, err
+	if err != nil {
+		return &w, span.Error(err)
+	}
+
+	return &w, nil
 }
 
 func (fc *fileController) acquireReader(ctx context.Context, key uint16) (xio.ReaderAtCloser, error) {

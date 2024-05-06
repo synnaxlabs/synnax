@@ -29,7 +29,7 @@ var _ = Describe("File Controller", func() {
 			Describe("Writers", func() {
 				It("Should allow one writing to a file at all times", func() {
 					By("Initializing a file controller")
-					db = MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub(rootPath)), FileSize: 1 * telem.Megabyte}))
+					db = MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub(rootPath)), FileSizeCap: 1 * telem.Megabyte}))
 					By("Acquiring one writer on the file 1.domain")
 					w1 := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{
 						Start: 10 * telem.SecondTS,
@@ -66,7 +66,7 @@ var _ = Describe("File Controller", func() {
 
 				It("Should obey the file size limit", func() {
 					By("Initializing a file controller")
-					db = MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub(rootPath)), FileSize: 10 * telem.ByteSize}))
+					db = MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub(rootPath)), FileSizeCap: 10 * telem.ByteSize}))
 					By("Acquiring one writer on the file 1.domain")
 					w1 := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{
 						Start: 10 * telem.SecondTS,

@@ -196,7 +196,7 @@ func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.
 		return 0, controller.Unauthorized(w.control.Subject.String(), w.Channel.Key)
 	}
 	if end.IsZero() {
-		// we're using w.len - 1 here because we want the timestamp of the last
+		// We're using w.len - 1 here because we want the timestamp of the last
 		// written frame.
 		approx, err := w.idx.Stamp(ctx, w.Start, w.len(dw.Writer)-1, true)
 		if err != nil {
@@ -209,6 +209,12 @@ func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.
 		end = approx.Lower + 1
 	}
 	err := dw.Commit(ctx, end)
+
+	if err != nil {
+		return end, err
+	}
+
+	err = dw.CheckFileSizeAndMaybeSwitchFile(ctx)
 	return end, err
 }
 

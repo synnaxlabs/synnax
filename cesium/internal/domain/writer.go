@@ -83,6 +83,7 @@ type Writer struct {
 	prevCommit telem.TimeStamp
 	idx        *index
 	fileKey    uint16
+	fc         *fileController
 	internal   xio.TrackedWriteCloser
 	presetEnd  bool
 	closed     bool
@@ -101,6 +102,7 @@ func (db *DB) NewWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) 
 		WriterConfig:    cfg,
 		Instrumentation: db.Instrumentation.Child("writer"),
 		fileKey:         key,
+		fc:              db.files,
 		internal:        internal,
 		idx:             db.idx,
 		presetEnd:       !cfg.End.IsZero(),
@@ -163,7 +165,37 @@ func (w *Writer) Commit(ctx context.Context, end telem.TimeStamp) error {
 	}
 	f := lo.Ternary(w.prevCommit.IsZero(), w.idx.insert, w.idx.update)
 	w.prevCommit = end
+
 	return span.EndWith(f(ctx, ptr))
+}
+
+func (w *Writer) CheckFileSizeAndMaybeSwitchFile(ctx context.Context) (err error) {
+	s, err := w.fc.FS.Stat(fileKeyName(w.fileKey))
+	if err != nil {
+		return
+	}
+
+	if telem.Size(s.Size()) >= w.fc.Config.FileSizeCap {
+		err = w.internal.Close()
+		if err != nil {
+			return
+		}
+
+		var (
+			newFileKey        uint16
+			newInternalWriter xio.TrackedWriteCloser
+		)
+
+		newFileKey, newInternalWriter, err = w.fc.acquireWriter(ctx)
+		if err != nil {
+			return err
+		}
+
+		w.fileKey = newFileKey
+		w.internal = newInternalWriter
+	}
+
+	return
 }
 
 // Close closes the writer, releasing any resources it may have been holding. Any

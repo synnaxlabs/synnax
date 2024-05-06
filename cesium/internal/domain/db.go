@@ -64,10 +64,10 @@ type Config struct {
 	// exclusive access, and it should be empty when the DB is first opened.
 	// [REQUIRED]
 	FS xfs.FS
-	// FileSize is the maximum size of a data file in bytes. When a data file reaches this
+	// FileSizeCap is the maximum size of a data file in bytes. When a data file reaches this
 	// size, a new file will be created.
 	// [OPTIONAL] Default: 1GB
-	FileSize telem.Size
+	FileSizeCap telem.Size
 	// MaxDescriptors is the maximum number of file descriptors that the DB will use. A
 	// higher value will allow more concurrent reads and writes. It's important to note
 	// that the exact performance impact of changing this value is still relatively unknown.
@@ -79,7 +79,7 @@ var (
 	_ config.Config[Config] = Config{}
 	// DefaultConfig is the default configuration for a DB.
 	DefaultConfig = Config{
-		FileSize:       1 * telem.Gigabyte,
+		FileSizeCap:    1 * telem.Gigabyte,
 		MaxDescriptors: 100,
 	}
 )
@@ -87,7 +87,7 @@ var (
 // Validate implements config.GateConfig.
 func (c Config) Validate() error {
 	v := validate.New("domain")
-	validate.Positive(v, "fileSize", c.FileSize)
+	validate.Positive(v, "fileSize", c.FileSizeCap)
 	validate.Positive(v, "maxDescriptors", c.MaxDescriptors)
 	validate.NotNil(v, "fs", c.FS)
 	return v.Error()
@@ -96,7 +96,7 @@ func (c Config) Validate() error {
 // Override implements config.GateConfig.
 func (c Config) Override(other Config) Config {
 	c.MaxDescriptors = override.Numeric(c.MaxDescriptors, other.MaxDescriptors)
-	c.FileSize = override.Numeric(c.FileSize, other.FileSize)
+	c.FileSizeCap = override.Numeric(c.FileSizeCap, other.FileSizeCap)
 	c.FS = override.Nil(c.FS, other.FS)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	return c
