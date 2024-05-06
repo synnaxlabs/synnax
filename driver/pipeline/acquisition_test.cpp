@@ -81,7 +81,7 @@ TEST(AcquisitionPipelineTests, test_acquisition_NI_analog_reader){
         TaskHandle taskHandle;
         DAQmxCreateTask("",&taskHandle);
 
-        auto reader = std::make_unique<ni::daqReader>(taskHandle, mockCtx, task);
+        auto reader = std::make_shared<ni::daqReader>(taskHandle, mockCtx, task);
 
         auto writerConfig = synnax::WriterConfig{
                 .channels = std::vector<synnax::ChannelKey>{time.key, data.key},
@@ -98,7 +98,7 @@ TEST(AcquisitionPipelineTests, test_acquisition_NI_analog_reader){
 
 
         // instantiate the acquisition pipe
-        auto acquisition_pipe = pipeline::Acquisition(mockCtx, writerConfig, std::move(reader), breaker_config); 
+        auto acquisition_pipe = pipeline::Acquisition(mockCtx, writerConfig, reader, breaker_config); 
 
         // create a streamer to read the frames that the pipe writes to the server
         auto streamer_config = synnax::StreamerConfig{
@@ -198,7 +198,7 @@ TEST(AcquisitionPipelineTests, test_acquisition_NI_digital_reader){
         TaskHandle taskHandle;
         DAQmxCreateTask("",&taskHandle);
 
-        auto reader = std::make_unique<ni::daqReader>(taskHandle, mockCtx, task);
+        auto reader = std::make_shared<ni::daqReader>(taskHandle, mockCtx, task);
 
         auto writerConfig = synnax::WriterConfig{
                 .channels = std::vector<synnax::ChannelKey>{time.key, data.key},
@@ -215,7 +215,7 @@ TEST(AcquisitionPipelineTests, test_acquisition_NI_digital_reader){
 
 
         // instantiate the acquisition pipe
-        auto acquisition_pipe = pipeline::Acquisition(mockCtx, writerConfig, std::move(reader), breaker_config); 
+        auto acquisition_pipe = pipeline::Acquisition(mockCtx, writerConfig, reader, breaker_config); 
 
         // create a streamer to read the frames that the pipe writes to the server
         auto streamer_config = synnax::StreamerConfig{

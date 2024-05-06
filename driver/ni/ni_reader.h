@@ -181,6 +181,4 @@ namespace ni{
         breaker::Breaker breaker;
     };
 
-
-
 }

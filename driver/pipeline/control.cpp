@@ -35,26 +35,30 @@ void Control::start() {
 }
 
 void Control::stop() {
-    cmd_running = false;
-    cmd_thread.join();
+    LOG(INFO) << "Stopping control pipeline";
+    if(!cmd_running) return;
+    this->cmd_running = false;
+    // close streamer
+    this->streamer->closeSend();
+    cmd_thread.join(); // cant join cus blocked by streamer.read()
 }
 
 void Control::run() {
-    auto [streamer, so_err] = ctx->client->telem.openStreamer(streamer_config);
+    auto [test, so_err] = ctx->client->telem.openStreamer(streamer_config);
+    this->streamer = std::make_unique<synnax::Streamer>(std::move(test));
     if (so_err) {
         if (    so_err.matches(freighter::UNREACHABLE) 
             &&  cmd_breaker.wait(so_err.message())) {
             return run();
         }
     }
-
     while (cmd_running) {
-        auto [cmd_frame, cmd_err] = streamer.read();
+        auto [cmd_frame, cmd_err] = this->streamer->read();
         if (cmd_err) break;
         auto daq_err = sink->write(std::move(cmd_frame));    
     }
 
-    const auto err = streamer.close();
+    const auto err = this->streamer->close(); // close or closeSend
     if (err.matches(freighter::UNREACHABLE) && cmd_breaker.wait()){        
         return run();
     }

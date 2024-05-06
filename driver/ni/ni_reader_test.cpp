@@ -62,7 +62,6 @@ TEST(ReaderTests, test_read_one_digital_channel){
                                     mockCtx, 
                                     task);
 
-    // reader.start();
     std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
     auto [frame, err] = reader.read();
     std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
@@ -87,7 +86,6 @@ TEST(ReaderTests, test_read_one_digital_channel){
         }
     }
     std::cout << std::endl;
-    // reader.stop();
 }
 
 
@@ -133,7 +131,6 @@ TEST(ReaderTests, test_read_multiple_digital_channel){
     auto reader = ni::daqReader(  taskHandle, 
                                     mockCtx, 
                                     task);
-    // reader.start();
     for(int i = 0; i < 50; i++ ) { // test for 50 read cycles
         std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
         auto [frame, err] = reader.read();
@@ -161,7 +158,6 @@ TEST(ReaderTests, test_read_multiple_digital_channel){
         }
         std::cout << std::endl;
     }
-    // reader.stop();
 }
 
 
@@ -201,7 +197,6 @@ TEST(ReaderTests, test_read_one_analog_channel){
                                     mockCtx, 
                                     task); // analog reader
 
-    // reader.start();
     std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
     auto [frame, err] = reader.read();
     std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
@@ -229,7 +224,6 @@ TEST(ReaderTests, test_read_one_analog_channel){
         }
     }
     std::cout << std::endl;
-    // reader.stop();
 }
 
 
@@ -274,7 +268,6 @@ TEST(ReaderTests, test_read_multiple_analog_channels){
                                     mockCtx, 
                                     task); // analog reader
 
-    // reader.start();
 
     for(int i = 0; i < 50; i++ ) { // test for 50 read cycles
         std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
@@ -304,7 +297,6 @@ TEST(ReaderTests, test_read_multiple_analog_channels){
     }
     
     
-    // reader.stop();
 }
 
 TEST(WriterTests, test_write_one_digital_channel){
@@ -350,7 +342,6 @@ TEST(WriterTests, test_write_one_digital_channel){
     cmd_frame.add(  65531, 
                 synnax::Series(cmd_vec));
 
-    // writer.start();
 
     std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
 
@@ -422,7 +413,6 @@ TEST(WriterTests, test_write_one_digital_channel){
     std::cout << std::endl;
 
 
-    // writer.stop();
 }
 
 
@@ -483,7 +473,6 @@ TEST(NiWriterTests, test_write_multiple_digital_channel){
     }
     
 
-    // writer.start();
 
     std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
     
@@ -555,7 +544,6 @@ TEST(NiWriterTests, test_write_multiple_digital_channel){
         }
     }
     std::cout << std::endl;
-    // writer.stop();
 }
 
 

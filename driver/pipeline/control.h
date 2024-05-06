@@ -18,6 +18,7 @@
 namespace pipeline {
 class Sink {
 public:
+    virtual ~Sink() = default;
     virtual freighter::Error write(synnax::Frame frame) = 0;
 };
 
@@ -33,6 +34,13 @@ public:
         std::unique_ptr<Sink> sink,
         const breaker::Config &breaker_config
     );
+
+
+    ~Control() {
+        LOG(INFO) << "Control pipeline destroyed";
+    }
+
+
 private:
     std::shared_ptr<task::Context> ctx;
 

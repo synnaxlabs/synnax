@@ -21,10 +21,14 @@ Acquisition::Acquisition(
     WriterConfig writer_config,
     std::shared_ptr<Source> source,
     const breaker::Config &breaker_config
-): ctx(std::move(ctx)),
-   writer_config(std::move(writer_config)),
-   source(std::move(source)),
-   breaker(breaker::Breaker(breaker_config)) {
+) {    
+    assert(ctx != nullptr);
+    assert(source != nullptr);
+    
+    this->ctx = std::move(ctx);
+    this->writer_config = writer_config;
+    this->breaker = breaker::Breaker(breaker_config);
+    this->source = std::move(source);
 }
 
 
@@ -34,6 +38,7 @@ void Acquisition::start() {
 }
 
 void Acquisition::stop() {
+    LOG(INFO) << "Stopping Acquisition pipeline";
     if (!running) return;
     running = false;
     thread.join();

@@ -29,7 +29,7 @@
 
 
 TEST(ControlPipelineTests, test_control_NI_digital_writer){
-    LOG(INFO) << "Test Control Pipeline with NI Digital Write: " << std::endl;
+    LOG(INFO) << "Test Control Pipeline with an NI Digital Writer: " << std::endl;
      // create synnax client
     auto client_config = synnax::Config{
                 "localhost",
@@ -79,13 +79,23 @@ TEST(ControlPipelineTests, test_control_NI_digital_writer){
     add_DO_channel_JSON(config, "do_cmd", cmd.key, ack.key, 0, 0);
     add_drive_state_index_channel_JSON(config, "do_state_idx", ack_idx.key);
 
+    // create synnax task
+    auto task = synnax::Task(
+            "my_task",
+            "NI_digital_writer",
+            to_string(config)
+    );
+
+    auto mockCtx = std::make_shared<task::MockContext>(client);
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
     // create a writer to write to cmd channel (for test use only)
     auto cmdWriterConfig = synnax::WriterConfig{
                 .channels = std::vector<synnax::ChannelKey>{cmd_idx.key, cmd.key},
                 .start = TimeStamp::now(),
                 .mode = synnax::WriterStreamOnly};
 
-    auto [cmdWriter, wErr] = client->telem.openWriter(cndWriterConfig);
+    auto [cmdWriter, wErr] = client->telem.openWriter(cmdWriterConfig);
     ASSERT_FALSE(wErr) << wErr.message();
 
     // create a streamer to stream do_state channel (for in test use only)
@@ -113,12 +123,8 @@ TEST(ControlPipelineTests, test_control_NI_digital_writer){
     // instantiate and initialize the daq writer
     TaskHandle taskHandle;
     DAQmxCreateTask("",&taskHandle);
-    auto daq_writer = std::make_unique<ni::niDaqWriter>(taskHandle); 
-
-    // instantiate and initialize the Control pipeline
-    auto ctrl = pipeline::Control(mockCtx, cmdStreamerConfig, std::move(daq_writer), breaker_config);
-
-
+    auto daq_writer = std::make_unique<ni::daqWriter>(taskHandle, mockCtx, task); 
+;
 
     // create a writer to write to STATE channel (for test use only)
     auto ackWriterConfig = synnax::WriterConfig{
@@ -127,194 +133,380 @@ TEST(ControlPipelineTests, test_control_NI_digital_writer){
                 .mode = synnax::WriterStreamOnly};
 
     // instantiate and initialize the Acquisition pipeline to actually write to the server
+    assert(daq_writer->writer_state_source != nullptr);
     auto acq = pipeline::Acquisition(mockCtx, ackWriterConfig, daq_writer->writer_state_source, breaker_config);
-
-    // create a state streamer to read frames that the acq pipe writes to the server
+    
+    // create and open a state streamer to read frames that the acq pipe writes to the server
     auto streamer_config = synnax::StreamerConfig{
                 .channels = std::vector<synnax::ChannelKey>{ack_idx.key, ack.key},
                 .start = TimeStamp::now(),
         };
+    auto [streamer, sErr2] = mockCtx->client->telem.openStreamer(streamer_config);
+    ASSERT_FALSE(sErr2) << sErr2.message();
 
-    auto [streamer, sErr] = mockCtx->client->telem.openStreamer(streamer_config);
+    // instantiate and initialize the Control pipeline
+    auto ctrl = pipeline::Control(mockCtx, cmdStreamerConfig, std::move(daq_writer), breaker_config);
+
 
     // start the control pipeline
+    LOG(INFO) << "Opening Pipeline: " << std::endl;
     ctrl.start();
     acq.start();
 
-    // write to the cmd channel
-    auto frame = synnax::Frame(2);
-    frame.add(cmd_idx.key, synnax::Series(std::vector<uint64_t>{time}, synnax::TIMESTAMP));
-    frame.add(cmd.key, synnax::Series(std::vector<uint8_t>{1}));
-    ASSERT_TRUE(cmdWriter.write(std::move(frame)));
-    auto [end, ok] = cmdWriter.commit();
-    // read from the ack channel
-    auto [frame, err] = streamer.read();
-    // check that the frame is correct
-    auto s = frame.series->at(1).uint8();
-    ASSERT_TRUE(s[0] == 1);
+    //sleep
+    std::this_thread::sleep_for(std::chrono::seconds(1));
 
-    // now write a 0 to the cmd channel
-    auto frame = synnax::Frame(2);
-    frame.add(cmd_idx.key, synnax::Series(std::vector<uint64_t>{time}, synnax::TIMESTAMP));
-    frame.add(cmd.key, synnax::Series(std::vector<uint8_t>{0}));
-    ASSERT_TRUE(cmdWriter.write(std::move(frame)));
-    auto [end, ok] = cmdWriter.commit();
-    // read from the ack channel
-    auto [frame, err] = streamer.read();
-    // check that the frame is correct
-    auto s = frame.series->at(1).uint8();
-    ASSERT_TRUE(s[0] == 1);
+    //////////////////////////////////////////// write a 1 to the cmd channel ////////////////////////////////////////////
+    LOG(INFO) << "Commanding a logic high: " << std::endl;
+    // construct frame
+    auto cmd_frame = synnax::Frame(2);
+    cmd_frame.add(cmd_idx.key, synnax::Series(std::vector<uint64_t>{synnax::TimeStamp::now().value}, synnax::TIMESTAMP));
+    cmd_frame.add(cmd.key, synnax::Series(std::vector<uint8_t>{1}));
+    ASSERT_TRUE(cmdWriter.write(std::move(cmd_frame))); // TODO: remove -> isnt necessary
+
+    // do initial read before state update, should be 0
+        auto [state_frame, err3] = streamer.read();
+        ASSERT_FALSE(err3) << err3.message();
+        auto s = state_frame.series->at(1).uint8();
+        LOG(INFO) << "State: " << (int)s[0] << std::endl;
+        ASSERT_TRUE(s[0] == 0);
+
+    // keep reading state channel and printing state
+    for (int i = 0; i < 5; i++){
+        auto [state_frame, err3] = streamer.read();
+        ASSERT_FALSE(err3) << err3.message();
+        auto s = state_frame.series->at(1).uint8();
+        LOG(INFO) << "State: " << (int)s[0] << std::endl;
+        ASSERT_TRUE(s[0] == 1);
+    }
+    
+    //////////////////////////////////////////// write a 0 to the cmd channel ////////////////////////////////////////////
+    // construct frame
+    LOG(INFO) << "Commanding a logic low:  " << std::endl;
+    auto cmd_frame2 = synnax::Frame(2);
+    cmd_frame2.add(cmd_idx.key, synnax::Series(std::vector<uint64_t>{synnax::TimeStamp::now().value}, synnax::TIMESTAMP));
+    cmd_frame2.add(cmd.key, synnax::Series(std::vector<uint8_t>{0}));
+    ASSERT_TRUE(cmdWriter.write(std::move(cmd_frame2)));
 
 
+    // keep reading state channel and printing state
+    for (int i = 0; i < 5; i++){
+        auto [state_frame, err3] = streamer.read();
+        ASSERT_FALSE(err3) << err3.message();
+        auto s = state_frame.series->at(1).uint8();
+        LOG(INFO) << "State: " << (int)s[0] << std::endl;
+        ASSERT_TRUE(s[0] == 0);
+    }
 
+    // daq_writer->stop();
     acq.stop();
     ctrl.stop();
+    LOG(INFO) << "Control Pipeline stopped" << std::endl;
+    
 }
 
 
 
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-/// @brief it should use niReader and perform a control workflow
-/// which includes init, start, stop, and write functions and also commits ack frames to server
-TEST(CtrlTests, testCtrlNi){
-
-    std::cout << "Test Ctrl: " << std::endl;
-
-    /// set up test infrustructure
-    // create synnax client config
+TEST(ControlPipelineTests, test_control_NI_digital_writer_multiple_channels){
+    LOG(INFO) << "Test Control Pipeline with an NI Digital Writer: " << std::endl;
+     // create synnax client
     auto client_config = synnax::Config{
-            "localhost",
-            9090,
-            "synnax",
-            "seldon"};
+                "localhost",
+                9090,
+                "synnax",
+                "seldon"};
     auto client = std::make_shared<synnax::Synnax>(client_config);
 
+    
     // create all the necessary channels in the synnax client
+    // index channels
     auto [ack_idx, tErr1] = client->channels.create( // index channel for acks
-            "ack_idx",
+            "do_state_idx",
             synnax::TIMESTAMP,
             0,
             true
     );
     ASSERT_FALSE(tErr1) << tErr1.message();
     auto [cmd_idx, tErr2] = client->channels.create( // index channel for cmd
-        "cmd_idx",
+        "do_cmd_idx",
         synnax::TIMESTAMP,
         0,
         true
     );
     ASSERT_FALSE(tErr2) << tErr2.message();
+
+    // cmd and ack channel pairs 
+    // do1
     auto [ack, aErr] = client->channels.create( // ack channel
-            "ack",
+            "do1_state",
             synnax::UINT8,
             ack_idx.key,
             false
     );
     ASSERT_FALSE(aErr) << aErr.message();
     auto [cmd, cErr] = client->channels.create( // cmd channel
-            "cmd",
+            "do1_cmd",
             synnax::UINT8,
             cmd_idx.key,
             false
     );
     ASSERT_FALSE(cErr) << cErr.message();
 
-    // create config json
+    // do2
+    auto [ack2, aErr2] = client->channels.create( // ack channel
+            "do2_state",
+            synnax::UINT8,
+            ack_idx.key,
+            false
+    );
+    ASSERT_FALSE(aErr2) << aErr2.message();
+    auto [cmd2, cErr2] = client->channels.create( // cmd channel
+            "do2_cmd",
+            synnax::UINT8,
+            cmd_idx.key,
+            false
+    );
+    ASSERT_FALSE(cErr2) << cErr2.message();
+
+     // do3
+    auto [ack3, aErr3] = client->channels.create( // ack channel
+            "do3_state",
+            synnax::UINT8,
+            ack_idx.key,
+            false
+    );
+    ASSERT_FALSE(aErr3) << aErr3.message();
+    auto [cmd3, cErr3] = client->channels.create( // cmd channel
+            "do3_cmd",
+            synnax::UINT8,
+            cmd_idx.key,
+            false
+    );
+    ASSERT_FALSE(cErr3) << cErr3.message();
+
+    // do4
+    auto [ack4, aErr4] = client->channels.create( // ack channel
+            "do4_state",
+            synnax::UINT8,
+            ack_idx.key,
+            false
+    );
+    ASSERT_FALSE(aErr4) << aErr4.message();
+    auto [cmd4, cErr4] = client->channels.create( // cmd channel
+            "do4_cmd",
+            synnax::UINT8,
+            cmd_idx.key,
+            false
+    );
+    ASSERT_FALSE(cErr4) << cErr4.message();
+
+    // create reader config json
     auto config = json{
-            {"acq_rate", 300}, // dont actually need these here
-            {"stream_rate", 30}, // same as above
-            {"hardware", "Dev1"}
+            {"device_name", "Dev1"},
+            {"stream_rate", 1}
     };
-    add_index_channel_JSON(config, "ack_idx", ack_idx.key);
-    add_DO_channel_JSON(config, "cmd", cmd.key, ack.key, 0, 0);
+
+    add_index_channel_JSON(config, "do1_idx", cmd_idx.key);
+    add_DO_channel_JSON(config, "do1_cmd", cmd.key, ack.key, 0, 0);
+    add_DO_channel_JSON(config, "do2_cmd", cmd2.key, ack2.key, 0, 1);
+    add_DO_channel_JSON(config, "do3_cmd", cmd3.key, ack3.key, 0, 2);
+    add_DO_channel_JSON(config, "do4_cmd", cmd4.key, ack4.key, 0, 3);
+
+    add_drive_state_index_channel_JSON(config, "do_state_idx", ack_idx.key);
+
+    // create synnax task
+    auto task = synnax::Task(
+            "my_task",
+            "NI_digital_writer",
+            to_string(config)
+    );
+
+    auto mockCtx = std::make_shared<task::MockContext>(client);
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
     // create a writer to write to cmd channel (for test use only)
-    auto now = synnax::TimeStamp::now();
     auto cmdWriterConfig = synnax::WriterConfig{
-        std::vector<synnax::ChannelKey>{cmd_idx.key, cmd.key},
-        now,
-        std::vector<synnax::Authority>{synnax::ABSOLUTTE, synnax::ABSOLUTTE},
-        synnax::Subject{"test_cmd_writer"},
-    };
-    auto [cmdWriter,wErr] = client->telem.openWriter(cmdWriterConfig);
+                .channels = std::vector<synnax::ChannelKey>{cmd_idx.key, cmd.key, cmd2.key, cmd3.key, cmd4.key},
+                .start = TimeStamp::now(),
+                .mode = synnax::WriterStreamOnly};
+
+    auto [cmdWriter, wErr] = client->telem.openWriter(cmdWriterConfig);
     ASSERT_FALSE(wErr) << wErr.message();
 
-    // create a streamer to stream ack channel (for in test use only)
-    auto ackStreamerConfig = synnax::StreamerConfig{
-        std::vector<synnax::ChannelKey>{ack_idx.key, ack.key},
-        synnax::TimeStamp::now(),
+    // create a streamer to stream do_state channel (for in test use only)
+    auto doStateStreamerConfig = synnax::StreamerConfig{
+        .channels = std::vector<synnax::ChannelKey>{ack_idx.key, ack.key, ack2.key, ack3.key, ack4.key},
+        .start = TimeStamp::now(),
     };
-    auto [ackStreamer, sErr] = client->telem.openStreamer(ackStreamerConfig);
-    ASSERT_FALSE(sErr) << wErr.message();
+    auto [doStateStreamer, sErr] = client->telem.openStreamer(doStateStreamerConfig);
+    ASSERT_FALSE(sErr) << sErr.message();
 
-    // create writer config
-    now = synnax::TimeStamp::now();
-    auto writerConfig = synnax::WriterConfig{
-        std::vector<synnax::ChannelKey>{ack_idx.key, ack.key},
-        now,
-        std::vector<synnax::Authority>{synnax::ABSOLUTTE, synnax::ABSOLUTTE},
-        synnax::Subject{"test_ctrl_loop"},
+    // create breaker config
+    auto breaker_config = breaker::Config{
+                .name = task.name,
+                .base_interval = 1 * SECOND,
+                .max_retries = 20,
+                .scale = 1.2,
     };
 
-    std::cout << " Test ack key: " << ack.key << std::endl;
-    std::cout << " Test ack_idx key: " << ack_idx.key << std::endl;
-    std::cout << " Test cmd key: " << cmd.key << std::endl;
-    std::cout << " Test cmd_idx key: " << cmd_idx.key << std::endl;
-    // create streamer config for the daq writer
-    now = synnax::TimeStamp::now();
-    auto streamerConfig = synnax::StreamerConfig{
-        std::vector<synnax::ChannelKey>{cmd_idx.key, cmd.key},
-        now,
+    // create streamer config to pass into the control pipeline to poll for commands
+    auto cmdStreamerConfig = synnax::StreamerConfig{
+        .channels = std::vector<synnax::ChannelKey>{cmd_idx.key, cmd.key, cmd2.key, cmd3.key, cmd4.key},
+        .start = TimeStamp::now(),
     };
 
     // instantiate and initialize the daq writer
     TaskHandle taskHandle;
     DAQmxCreateTask("",&taskHandle);
-    auto daq_writer = std::make_unique<ni::niDaqWriter>(taskHandle);
-    daq_writer->init(config, ack_idx.key);
+    auto daq_writer = std::make_unique<ni::daqWriter>(taskHandle, mockCtx, task); 
 
-    // instantiate and initialize the Ctrl pipeline
-    auto ctrl = pipeline::Ctrl(streamerConfig, writerConfig, client, std::move(daq_writer));
 
-    /// start the pipeline
-    std::cout << std::endl;
+    // create a writer to write to STATE channel (for test use only)
+    auto ackWriterConfig = synnax::WriterConfig{
+                .channels = std::vector<synnax::ChannelKey>{ack_idx.key, ack.key, ack2.key, ack3.key, ack4.key},
+                .start = TimeStamp::now(),
+                .mode = synnax::WriterStreamOnly};
 
-    std::cout << "Starting the pipeline" << std::endl;
+    // instantiate and initialize the Acquisition pipeline to actually write to the server
+    assert(daq_writer->writer_state_source != nullptr);
+    auto acq = pipeline::Acquisition(mockCtx, ackWriterConfig, daq_writer->writer_state_source, breaker_config);
+    
+    // create and open a state streamer to read frames that the acq pipe writes to the server
+    auto streamer_config = synnax::StreamerConfig{
+                .channels = std::vector<synnax::ChannelKey>{ack_idx.key, ack.key, ack2.key, ack3.key, ack4.key},
+                .start = TimeStamp::now(),
+        };
+    auto [streamer, sErr2] = mockCtx->client->telem.openStreamer(streamer_config);
+    ASSERT_FALSE(sErr2) << sErr2.message();
+
+    // instantiate and initialize the Control pipeline
+    auto ctrl = pipeline::Control(mockCtx, cmdStreamerConfig, std::move(daq_writer), breaker_config);
+
+
+    // start the control pipeline
+    LOG(INFO) << "Opening Pipeline: " << std::endl;
     ctrl.start();
-    std::this_thread::sleep_for(std::chrono::seconds(2));
+    acq.start();
 
-    /// now write to the command channel, should expect an acknowledgement to be written to the ack channel
-    // construct cmd frame to set channel high
-    auto time = (synnax::TimeStamp::now()).value;
-    std::cout << "Time: " << time << std::endl;
-    auto frame = synnax::Frame(2);
-    frame.add(cmd_idx.key, synnax::Series(std::vector<uint64_t>{time}, synnax::TIMESTAMP));
-    frame.add(cmd.key, synnax::Series(std::vector<uint8_t>{1}));
+    //sleep
+    std::this_thread::sleep_for(std::chrono::seconds(1));
 
-    // write frame to cmd channel
-    ASSERT_TRUE(cmdWriter.write(std::move(frame)));
-    auto [end, ok] = cmdWriter.commit();
-    std::this_thread::sleep_for(std::chrono::seconds(1)); // sleep (TODO: remove this later)
+    // TODO: CODE DEDUP
+
+    //////////////////////////////////////////// write a 1010 to the cmd channel ////////////////////////////////////////////
+    {
+        LOG(INFO) << "Sending 1 0 1 0: " << std::endl;
+        auto cmd_vec = std::vector<uint8_t>{1,0,1,0 };
+        // construct frame
+        auto cmd_frame = synnax::Frame(2);
+        cmd_frame.add(cmd_idx.key, synnax::Series(std::vector<uint64_t>{synnax::TimeStamp::now().value}, synnax::TIMESTAMP));
+
+        cmd_frame.add(cmd.key, synnax::Series(std::vector<uint8_t>{1}));
+        cmd_frame.add(cmd2.key, synnax::Series(std::vector<uint8_t>{0}));
+        cmd_frame.add(cmd3.key, synnax::Series(std::vector<uint8_t>{1}));
+        cmd_frame.add(cmd4.key, synnax::Series(std::vector<uint8_t>{0}));
+
+        ASSERT_TRUE(cmdWriter.write(std::move(cmd_frame))); // TODO: remove -> isnt necessary
+
+        // do initial read before state update, should be 0
+            auto [state_frame, err3] = streamer.read();
+            ASSERT_FALSE(err3) << err3.message();
+            auto s = state_frame.series->at(1).uint8();
+            LOG(INFO) << "State: " << (int)s[0] << std::endl;
+            ASSERT_TRUE(s[0] == 0);
+
+        // keep reading state channel and printing state
+        for (int i = 0; i < 2; i++){
+            auto [state_frame, err3] = streamer.read();
+            ASSERT_FALSE(err3) << err3.message();
+            // auto s = state_frame.series->at(1).uint8();
+            // LOG(INFO) << "State: " << (int)s[0] << std::endl;
+            // ASSERT_TRUE(s[0] == 1);
 
 
+            int cmd_count = 0;
+            for(int i = 0; i < state_frame.series->size(); i++){
+                std::cout << "\n\n Series " << i << ": \n";
+                // check series type before casting
+                if (state_frame.series->at(i).data_type == synnax::UINT8){
+                    auto s =  state_frame.series->at(i).uint8();
+                    for (int j = 0; j < s.size(); j++){
+                        std::cout << (uint32_t)s[j] << ", ";
+                        ASSERT_EQ(s[j], cmd_vec[cmd_count]);
+                    }
+                    cmd_count++;
+                }
+                else if(state_frame.series->at(i).data_type == synnax::TIMESTAMP){
+                    auto s =  state_frame.series->at(i).uint64();
+                    for (int j = 0; j < s.size(); j++){
+                        std::cout << s[j] << ", ";
+                    }
+                }
+            }
+            std::cout << std::endl;
+        }
+    }
+    //////////////////////////////////////////// write a 1010 to the cmd channel ////////////////////////////////////////////
+    {
+        LOG(INFO) << "Sending 0 1 0 1: " << std::endl;
+        auto cmd_vec = std::vector<uint8_t>{0,1,0,1};
+        // construct frame
+        auto cmd_frame = synnax::Frame(2);
+        cmd_frame.add(cmd_idx.key, synnax::Series(std::vector<uint64_t>{synnax::TimeStamp::now().value}, synnax::TIMESTAMP));
 
-    // read from ack channel
-    auto [ack_frame, recErr] = ackStreamer.read();
-    ASSERT_FALSE(recErr) << recErr.message();
-    std::cout << "TEST: Ack frame size: " << ack_frame.size() << std::endl;
-    //ASSERT_EQ(ack_frame.series->at(1).uint8()[0], 1);
-    ASSERT_TRUE(ack_frame.series->at(1).uint8()[0] == 1); // assert ack frame is correct
+        cmd_frame.add(cmd.key, synnax::Series(std::vector<uint8_t>{0}));
+        cmd_frame.add(cmd2.key, synnax::Series(std::vector<uint8_t>{1}));
+        cmd_frame.add(cmd3.key, synnax::Series(std::vector<uint8_t>{0}));
+        cmd_frame.add(cmd4.key, synnax::Series(std::vector<uint8_t>{1}));
 
-    // stop the pipeline
-    std::cout << "TEST: Ack frame size: " << ack_frame.size() << std::endl;
+        ASSERT_TRUE(cmdWriter.write(std::move(cmd_frame))); // TODO: remove -> isnt necessary
+
+        // do initial read before state update, should be 0
+            auto [state_frame, err3] = streamer.read();
+            ASSERT_FALSE(err3) << err3.message();
+            auto s = state_frame.series->at(1).uint8();
+            LOG(INFO) << "State: " << (int)s[0] << std::endl;
+            ASSERT_TRUE(s[0] == 0);
+
+        // keep reading state channel and printing state
+        for (int i = 0; i < 2; i++){
+            auto [state_frame, err3] = streamer.read();
+            ASSERT_FALSE(err3) << err3.message();
+            // auto s = state_frame.series->at(1).uint8();
+            // LOG(INFO) << "State: " << (int)s[0] << std::endl;
+            // ASSERT_TRUE(s[0] == 1);
+
+
+            int cmd_count = 0;
+            for(int i = 0; i < state_frame.series->size(); i++){
+                std::cout << "\n\n Series " << i << ": \n";
+                // check series type before casting
+                if (state_frame.series->at(i).data_type == synnax::UINT8){
+                    auto s =  state_frame.series->at(i).uint8();
+                    for (int j = 0; j < s.size(); j++){
+                        std::cout << (uint32_t)s[j] << ", ";
+                        ASSERT_EQ(s[j], cmd_vec[cmd_count]);
+                    }
+                    cmd_count++;
+                }
+                else if(state_frame.series->at(i).data_type == synnax::TIMESTAMP){
+                    auto s =  state_frame.series->at(i).uint64();
+                    for (int j = 0; j < s.size(); j++){
+                        std::cout << s[j] << ", ";
+                    }
+                }
+            }
+            std::cout << std::endl;
+        }
+    }
+    
+    LOG(INFO) << "Closing Pipeline: " << std::endl;
+    acq.stop();
+    LOG(INFO) << "Acquisition Pipeline stopped" << std::endl;
     ctrl.stop();
-    std::cout << "Pipeline stopped" << std::endl;
-
-    // close the writer and streamer
-    auto wcErr = cmdWriter.close();
-    ASSERT_FALSE(wcErr) << wcErr.message();
-    auto wsErr = ackStreamer.closeSend();
-    ASSERT_FALSE(wsErr) << wsErr.message();
+    LOG(INFO) << "Control Pipeline stopped" << std::endl;
 }
+
+
+

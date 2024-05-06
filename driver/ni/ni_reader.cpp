@@ -460,7 +460,7 @@ ni::daqWriter::daqWriter(
         LOG(ERROR) << "[NI Writer] Failed while configuring NI hardware for task " << this->writer_config.task_name;
         this->ok_state = false;
     }
-    return;
+    this->start();
 }
 
 
@@ -610,7 +610,7 @@ freighter::Error ni::daqWriter::writeDigital(synnax::Frame frame){
     
     // return acknowledgements frame to write to the ack channel
     this->writer_state_source->updateState(this->writer_config.modified_state_keys, this->writer_config.modified_state_values);
-
+    
     return freighter::NIL;
 }
 
@@ -660,6 +660,7 @@ bool ni::daqWriter::ok(){
 }
 
 ni::daqWriter::~daqWriter(){
+    LOG(INFO) << "Destroying daqWriter";
     this->stop();
 }
 
@@ -711,6 +712,7 @@ synnax::Frame ni::daqStateWriter::getDriveState(){
 
 
 void ni::daqStateWriter::updateState(std::queue<synnax::ChannelKey> &modified_state_keys, std::queue<std::uint8_t> &modified_state_values){
+    // LOG(INFO) << "Updating state";
     std::unique_lock<std::mutex> lock(this->state_mutex);
     // update state map
      while(!modified_state_keys.empty()){

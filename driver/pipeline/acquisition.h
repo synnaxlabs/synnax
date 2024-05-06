@@ -37,7 +37,7 @@ public:
     Acquisition(
         std::shared_ptr<task::Context> ctx,
         WriterConfig writer_config,
-        std::unique_ptr<Source> source,
+        std::shared_ptr<Source> source,
         const breaker::Config &breaker_config
     );
 private:
@@ -52,7 +52,7 @@ private:
     WriterConfig writer_config;
 
     /// @brief daq interface
-    std::unique_ptr<Source> source;
+    std::shared_ptr<Source> source;
 
     /// @brief breaker
     breaker::Breaker breaker;
