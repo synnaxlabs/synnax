@@ -1,132 +1,80 @@
 ---
 layout: "@/layouts/MainLayout.astro"
 title: "Channels"
-description: "Learn how channels represent sensor, actuator, and messaging data in Synnax."
+description: "Learn how channels represent data in Synnax."
 ---
+import { Divider } from "@synnaxlabs/pluto"
 
-This page walks you through what channels are, their important properties, and how to use
-them when structuring your cluster.
+This page walks you through what channels are, their important properties, and
+how to use them when structuring your cluster.
 
-If you’re looking for a practical guide on creating or retrieving channels via the CLI,
-UI, or client libraries, look here.
+If you’re looking for a practical guide on creating or retrieving channels,
+visit the respective pages for the [Python](../python-client/channels) and
+[TypeScript](../typescript-client/channels) clients.
+
+<Divider.Divider direction="x" />
 
 ## What is a Channel?
 
-A channel is a logical collection of samples emitted by or representing the values of a
-single source. Practically, a channel holds sensor data such as speedometer, pressure
-transducer, or memory usage readings. It can also hold post-processed results such as
-the noise-filtered signal of another channel. The only restrictions are that samples in
-a channel must be time-ordered and share the same data type.
+A channel is a logical collection of samples emitted by or representing the
+values of a single source. Practically, a channel holds sensor data such as
+speedometer, pressure transducer, or memory usage readings. It can also hold
+post-processed results such as the noise-filtered signal of another channel. The
+only restrictions are that samples in a channel must be time-ordered and share
+the same data type.
+
+<Divider.Divider direction="x" />
 
 ## A Brief Primer on Domains
 
-Channel data is stored in regions of continuously written samples called domains. A domain
-is marked by a time range, where the starting point is the timestamp of the first sample
-in the domain, and the ending point is the timestamp of the last sample.
+Channel data is stored in regions of continuously written samples called
+domains. A domain is marked by a time range, where the starting point is the
+timestamp of the first sample in the domain, and the ending point is the
+timestamp of the last sample.
 
-Domains are used to identify and separate periods of continuous recording, and typically
-correlate to different tests or experiments run over the course of several hours, weeks,
-or years. It’s common for channels to have thousands or even millions of domains.
+Domains are used to identify and separate periods of continuous recording, and
+typically correlate to different tests or experiments run over the course of
+several hours, weeks, or years. It’s common for channels to have thousands or
+even millions of domains.
 
-Domains are covered in detail [here](write-domains), although this introduction 
+Domains are covered in detail [here](write), although this introduction
 should be enough for the subsequent sections.
+
+{/* TODO: Remove this information on domains. */}
+
+<Divider.Divider direction="x" />
 
 ## Channel Types
 
-Synnax works with two broad categories of data: regular and variable. Regular
-data is emitted by a source at consistently spaced intervals, such as 200Hz. Because
-each domain in a channel stores its starting timestamp, we can easily calculate the timestamp
-of the nth sample by virtue of the data’s rate. This means that the cluster can perform
-fast lookups and avoid writing potentially billions of unneeded timestamps.
+Synnax is a time-series database. Every respective channel must have a time
+channel that it is indexed to. These index channels allow for data lookup at a
+particular time. There are two main types of channels:
 
-Variable data arrives at fluctuating rates and is more challenging to work with.
-To handle the inconsistent gaps between samples, the cluster stores the timestamp
-associated with each sample, and then builds indexes around these timestamps in order to
-perform efficient lookups.
-
-To effectively work with these two categories of data, Synnax employs three types of channels:
-
-1. Fixed Rate - Stores data arriving at a consistent rate specified when creating the channel.
-2. Variable Rate Indexed - Stores data arriving at a variable rate. The samples in
+1. Indexed Channels - Stores data arriving at a variable rate. The samples in
    these channels are ‘indexed’ by a specified index channel.
-3. Variable Rate Index - Stores the timestamps for samples in one or more indexed channels.
-   The samples in these channels must be time-ordered, nanosecond integers. Timestamps in
-   index channels are used to look up the samples in the channels ‘indexed’ by them.
+2. Index Channels - Stores the timestamps for samples in one or more indexed
+   channels. The samples in these channels must be time-ordered, nanosecond
+   integers. Timestamps in index channels are used to look up the samples in the
+   channels ‘indexed’ by them.
 
-### Fixed Rate
+An index channel (or just “index”) is a special type of channel optimized for
+fast lookups on timestamps. The values in an indexed channel must be
+time-ordered, `int64` nanosecond UTC timestamps. Synnax provides utilities for
+converting between timestamp formats and timezones.
 
-The simplest channel has a fixed rate, which assumes that its samples are spaced apart
-at regular intervals (such as 10Hz or 25KHz). It’s best to use these types of channels
-when data is arriving at a rate where the deviation in sample regularity is small enough
-to be insignificant to your needs.
+Indexed channels are ‘indexed’ by the values in an index channel, which means
+that each sample in the indexed channel has a correlated timestamp in its index.
+Multiple indexed channels can have the same channel as their index. By
+efficiently finding the location of the timestamp, Synnax can also quickly
+retrieve the associated samples.
 
-Fluctuations in the sampling rate of modern data acquisition devices are well within the
-microsecond range. If you’re measuring the water level of a tank at 10Hz across several
-hours, those microsecond deviations are probably insignificant to your analysis. In these
-cases, it’s best to store samples in a fixed rate, 10Hz channel.
+Index channels play a similar role to primary keys in relational databases. The
+primary key (in Synnax’s case, a timestamp) can be used to fetch related values
+in one or more columns quickly.
 
-#### Gaps in Data
+{/* Have Emiliano rewrite this above section.*/}
 
-It’s unreasonable to assume that all the samples in a fixed rate channel will be regularly
-spaced. In many cases, periods of continuous, regular recording are separated by long
-periods of inactivity. This is where domains come into play. Two consecutive domains in
-a fixed rate channel can be separated by several months. As long as the values recorded
-within each domain are regularly spaced, the channel’s data is valid.
-
-In theory, a fixed rate channel could consider every sample as its own, independent domain
-where the start and end timestamps are the same. This is horribly inefficient, and, in
-this case, you should use a variable rate, indexed channel instead. Fixed-rate channels
-are only beneficial when periods of regular sampling contain at least two orders of
-magnitude more samples than the number of domains in the channel. Practically, this
-means that periods of regularity should contain at least several hundred samples if
-not well into the thousands or millions.
-
-#### Preserving Original Timestamp Data
-
-In some cases, a sample rate is regular enough to warrant the benefits of a fixed rate
-channel, but you’d still like to preserve the actual timestamps for scenarios where it
-may be required. In this case, simply create another channel with the same sample rate
-to hold the timestamps. You can then query the precise timestamps along with the channel’s
-data as needed.
-
-#### Avoiding Tolerance Stack Up
-
-One of the main concerns our users have when working with fixed rate channels is
-tolerance stack up. If a fixed-rate, 25Hz channel actually receives writes at a rate of
-25.001Hz, after 2,000 samples, the calculated timestamp of the channel is 2 seconds 
-earlier than its actual time of recording.
-
-If you’re concerned about this, we recommend regularly separating long-lived writes into
-multiple domains. Each domain will mark the accurate start timestamp of its first sample,
-accounting for any issues with tolerance stack-up.
-
-### Variable Rate - Index and Indexed Channels
-
-If your data is sampled at a variable rate, you’ll need to use an index-indexed channel
-pair. An index channel (or just “index”) is a special type of channel optimized for fast
-lookups on timestamps. The values in an indexed channel must be time-ordered, `int64`
-nanosecond UTC timestamps. Synnax provides utilities for converting between timestamp
-formats and timezones.
-
-Indexed channels are ‘indexed’ by the values in an index channel, which means that each
-sample in the indexed channel has a correlated timestamp in its index. Multiple indexed
-channels can have the same channel as their index. By efficiently finding the location
-of the timestamp, Synnax can also quickly retrieve the associated samples.
-
-Index channels play a similar role to primary keys in relational databases. The primary
-key (in Synnax’s case, a timestamp) can be used to fetch related values in one or more
-columns quickly.
-
-#### Index Channels are Expensive
-
-Efficiently doing point and range lookups on hundreds of millions or billions of samples
-requires maintaining expensive data structures and executing many disk operations. When
-possible, try to share the same index channel between many indexed channels. In a data
-acquisition scenario, this typically means generating timestamps for each DAQ and using
-them as the index for all other channels/sensors plugged into the device.
-
-If you find that your use case requires many different channels that all sample at
-different rates, Synnax might not be the right solution for you.
+<Divider.Divider direction="x" />
 
 ## Channel Fields
 
@@ -136,14 +84,16 @@ A channel’s key is auto-assigned by the cluster and is guaranteed to be unique
 
 ### Name
 
-A human-readable name for the channel. Synnax does not prevent duplicate names, but
-we highly reccomend that you keep them unique.
+A human-readable name for the channel. Synnax does not prevent duplicate names,
+but we highly reccomend that you keep them unique.
+
+{/* Is the above still true? */}
 
 ### Data Type
 
-The data type of the samples stored in the channel. A channel’s data type must have
-a fixed **density** i.e. the number of bytes per sample is constant. Synnax has a number
-of built in data types:
+The data type of the samples stored in the channel. A channel’s data type must
+have a fixed **density** i.e. the number of bytes per sample is constant. Synnax
+has a number of built in data types:
 
 | Data Type   | Description                   | Density |
 | ----------- | ----------------------------- | ------- |
@@ -160,25 +110,18 @@ of built in data types:
 | `float32`   | 32-bit floating point         | 4 bytes |
 | `float64`   | 64-bit floating point         | 8 bytes |
 
-We’re also planning on adding support for custom data types such as fixed-size JSON
-objects and arrays. If this is something that interests you, let us know.
+We’re also planning on adding support for custom data types such as fixed-size
+JSON objects and arrays. If this is something that interests you, let us know.
 
 ### Is Index
 
-If this value is true, the channel is considered an index channel. Index channels must
-have a data type of `timestamp`, meaning that they must contain ordered `int64` nanosecond
-UTC timestamps.
+If this value is true, the channel is considered an index channel. Index
+channels must have a data type of `timestamp`, meaning that they must contain
+ordered `int64` nanosecond UTC timestamps.
 
 ### Index
 
-If the channel has a variable rate, this should be set to the key of the channel’s index.
-If this parameter is provided, the channel is considered an indexed channel. This field
-will be ignored for index channels, as they cannot be indexed.
-
-### Rate
-
-If the channel is not an index and an index has not been specified, the channel is
-considered fixed rate. In this case, this field sets the sample rate at which values will
-be written to domains in the channel. On the other hand, if the channel is an index or is
-indexed, this parameter can be set to a rough approximation of the sample rate, which the
-database will use for query optimization.
+If the channel is not an index channel, this should be set to the key of the
+index channel. If this parameter is provided, the channel is considered an
+indexed channel. This field will be ignored for index channels, as they cannot
+be indexed.
