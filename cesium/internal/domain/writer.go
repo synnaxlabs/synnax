@@ -162,6 +162,7 @@ func (w *Writer) CommitAndAutoPersist(ctx context.Context, end telem.TimeStamp) 
 
 func (w *Writer) commit(ctx context.Context, end telem.TimeStamp, persist bool) error {
 	ctx, span := w.T.Prod(ctx, "commit")
+	defer span.End()
 	if w.closed {
 		return span.Error(WriterClosedError)
 	}
@@ -195,17 +196,18 @@ func (w *Writer) commit(ctx context.Context, end telem.TimeStamp, persist bool) 
 }
 
 // Close closes the writer, releasing any resources it may have been holding. Any
-// uncommitted data will be discarded. Close is idempotent, and is also not
-// safe to call concurrently with any other writer methods.
+// uncommitted data will be discarded. Any committed, but unpersisted data will be persisted.
+// Close is idempotent, and is also not safe to call concurrently with any other writer methods.
 func (w *Writer) Close(ctx context.Context) error {
 	if w.closed {
 		return nil
 	}
-	w.closed = true
-	// Persist any committed, but unpersisted data.
+
 	if !w.AutoPersistTime.IsZero() {
 		w.idx.persist(ctx)
 	}
+
+	w.closed = true
 	return w.internal.Close()
 }
 

@@ -33,19 +33,19 @@ import (
 type WriterMode uint8
 
 // Persist returns true if the current mode should persist data.
-func (w WriterMode) Persist() bool { return (w & (1 << 0)) != 0 }
+func (w WriterMode) Persist() bool { return (w & WriterPersist) != 0 }
 
 // EnablePersist adds the persist bit to the mode.
 func EnablePersist() func(*WriterMode) { return func(w *WriterMode) { *w |= WriterPersist } }
 
 // Stream returns true if the current mode should stream data.
-func (w WriterMode) Stream() bool { return (w & (1 << 1)) != 0 }
+func (w WriterMode) Stream() bool { return (w & WriterStream) != 0 }
 
 // EnableStream adds the stream bit to the mode.
 func EnableStream() func(*WriterMode) { return func(w *WriterMode) { *w |= WriterStream } }
 
 // AutoCommit returns true if the current mode should auto commit data.
-func (w WriterMode) AutoCommit() bool { return (w & (1 << 2)) != 0 }
+func (w WriterMode) AutoCommit() bool { return (w & WriterAutoCommit) != 0 }
 
 // EnableAutoCommit adds the persist bit to the mode.
 func EnableAutoCommit() func(*WriterMode) { return func(w *WriterMode) { *w |= WriterAutoCommit } }
@@ -58,9 +58,9 @@ func NewWriterMode(opts ...func(*WriterMode)) (w WriterMode) {
 }
 
 const (
-	WriterPersist    = 0b00000001
-	WriterStream     = 0b00000010
-	WriterAutoCommit = 0b00000100
+	WriterPersist    = 1 << 0
+	WriterStream     = 1 << 1
+	WriterAutoCommit = 1 << 2
 )
 
 // WriterConfig sets the configuration used to open a new writer on the DB.
