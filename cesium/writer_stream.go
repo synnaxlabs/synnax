@@ -368,7 +368,7 @@ func (w *idxWriter) Write(ctx context.Context, fr Frame) (Frame, error) {
 			// This if-clause is satisfied if the channel has already been written to.
 			return fr, errors.Wrapf(
 				validate.Error,
-				"frame must have exactly one series per channel, duplicate channel %s",
+				"frame must have exactly one series per channel, duplicate channel %d",
 				k,
 			)
 		}
@@ -464,7 +464,7 @@ func (w *idxWriter) updateHighWater(col telem.Series) error {
 	if col.DataType != telem.TimeStampT && col.DataType != telem.Int64T {
 		return errors.Wrapf(
 			validate.Error,
-			"invalid data type for channel %s, expected %s, got %s",
+			"invalid data type for channel %d, expected %s, got %s",
 			w.idx.key, telem.TimeStampT,
 			col.DataType,
 		)
