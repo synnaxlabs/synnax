@@ -203,18 +203,18 @@ var _ = Describe("WriterBehavior", func() {
 			Describe("CommitAndAutoPersist", func() {
 				It("Should persist to disk every subsequent call after the set time interval", func() {
 					By("Opening a writer")
-					w := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS, AutoPersistTime: 50 * telem.Millisecond}))
+					w := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS, AutoPersistInterval: 50 * telem.Millisecond}))
 
 					modTime := MustSucceed(db.FS.Stat("index.domain")).ModTime()
 
 					By("Writing some data and committing it right after")
 					_, err := w.Write([]byte{6, 7, 8, 9, 10})
 					Expect(err).ToNot(HaveOccurred())
-					Expect(w.CommitAndAutoPersist(ctx, 20*telem.SecondTS+1)).To(Succeed())
+					Expect(w.Commit(ctx, 20*telem.SecondTS+1)).To(Succeed())
 
 					_, err = w.Write([]byte{11, 12, 13, 14, 15})
 					Expect(err).ToNot(HaveOccurred())
-					Expect(w.CommitAndAutoPersist(ctx, 25*telem.SecondTS+1)).To(Succeed())
+					Expect(w.Commit(ctx, 25*telem.SecondTS+1)).To(Succeed())
 
 					By("Asserting that the previous commits have not been persisted")
 					s := MustSucceed(db.FS.Stat("index.domain"))
@@ -224,7 +224,7 @@ var _ = Describe("WriterBehavior", func() {
 					time.Sleep(time.Duration(50 * telem.Millisecond))
 					_, err = w.Write([]byte{16, 17, 18, 19, 20})
 					Expect(err).ToNot(HaveOccurred())
-					Expect(w.CommitAndAutoPersist(ctx, 30*telem.SecondTS+1)).To(Succeed())
+					Expect(w.Commit(ctx, 30*telem.SecondTS+1)).To(Succeed())
 
 					By("Asserting that the commits will be persisted the next time we use the method after the set time interval")
 					Eventually(func() time.Time {
@@ -244,7 +244,7 @@ var _ = Describe("WriterBehavior", func() {
 					By("Writing some data and commit with auto persist it")
 					_, err := w.Write([]byte{1, 2, 3, 4, 5})
 					Expect(err).ToNot(HaveOccurred())
-					Expect(w.CommitAndAutoPersist(ctx, 15*telem.SecondTS+1)).To(Succeed())
+					Expect(w.Commit(ctx, 15*telem.SecondTS+1)).To(Succeed())
 
 					By("Asserting that the previous commit has been persisted")
 					f := MustSucceed(db.FS.Open("index.domain", os.O_RDONLY))
@@ -255,7 +255,7 @@ var _ = Describe("WriterBehavior", func() {
 
 					By("Writing some data and committing it with auto persist right after")
 					_, err = w.Write([]byte{6, 7, 8, 9, 10})
-					Expect(w.CommitAndAutoPersist(ctx, 20*telem.SecondTS+1)).To(Succeed())
+					Expect(w.Commit(ctx, 20*telem.SecondTS+1)).To(Succeed())
 
 					By("Asserting that the previous commit has been persisted")
 					f = MustSucceed(db.FS.Open("index.domain", os.O_RDONLY))
@@ -266,7 +266,7 @@ var _ = Describe("WriterBehavior", func() {
 
 					By("Writing some data and committing it with auto persist right after")
 					_, err = w.Write([]byte{11, 12, 13, 14, 15})
-					Expect(w.CommitAndAutoPersist(ctx, 25*telem.SecondTS+1)).To(Succeed())
+					Expect(w.Commit(ctx, 25*telem.SecondTS+1)).To(Succeed())
 
 					By("Asserting that the previous commits have not been persisted")
 					f = MustSucceed(db.FS.Open("index.domain", os.O_RDONLY))
@@ -278,17 +278,17 @@ var _ = Describe("WriterBehavior", func() {
 
 				It("Should persist any unpersisted, but committed (stranded) data on close", func() {
 					By("Opening a writer")
-					w := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS, AutoPersistTime: 10 * telem.Second}))
+					w := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS, AutoPersistInterval: 10 * telem.Second}))
 
 					By("Writing some data and commit with auto persist it")
 					_, err := w.Write([]byte{1, 2, 3, 4, 5})
 					Expect(err).ToNot(HaveOccurred())
-					Expect(w.CommitAndAutoPersist(ctx, 15*telem.SecondTS+1)).To(Succeed())
+					Expect(w.Commit(ctx, 15*telem.SecondTS+1)).To(Succeed())
 
 					By("Writing some data and commit with auto persist it")
 					_, err = w.Write([]byte{6, 7, 8, 9, 10})
 					Expect(err).ToNot(HaveOccurred())
-					Expect(w.CommitAndAutoPersist(ctx, 20*telem.SecondTS+1)).To(Succeed())
+					Expect(w.Commit(ctx, 20*telem.SecondTS+1)).To(Succeed())
 
 					By("Closing the writer")
 					Expect(w.Close(ctx)).To(Succeed())

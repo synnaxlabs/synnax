@@ -81,7 +81,7 @@ var _ = Describe("Streamer Behavior", func() {
 					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 						Channels: []cesium.ChannelKey{basic2},
 						Start:    10 * telem.SecondTS,
-						Mode:     cesium.NewWriterMode(cesium.EnablePersist()),
+						Mode:     cesium.WriterPersistOnly,
 					}))
 					r := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
 						Channels: []cesium.ChannelKey{basic2},

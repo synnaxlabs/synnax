@@ -33,10 +33,10 @@ type WriterConfig struct {
 	// [OPTIONAL]
 	End telem.TimeStamp
 
-	// AutoPersistTime is the frequency at which the changes to index are persisted to the
-	// disk. Auto-Persist will only be used if the overarching writer is on Auto-Commit mode.
+	// AutoPersistInterval is the frequency at which the changes to index are persisted to the
+	// disk. If AutoPersistInterval <=0, then the writer persists changes to disk after every commit.
 	// [OPTIONAL]
-	AutoPersistTime telem.TimeSpan
+	AutoPersistInterval telem.TimeSpan
 }
 
 var WriterClosedError = core.EntityClosed("domain.writer")
@@ -147,17 +147,19 @@ func (w *Writer) Write(p []byte) (n int, err error) {
 // commit, Commit will return an error. If the domain formed by the WriterConfig.Start
 // and the provided timestamp overlaps with any other domains within the DB, Commit will
 // return an error.
+// If WriterCommit.AutoPersistInterval is greater than 0, then the changes committed would only
+// be persisted to disk after the set interval.
 func (w *Writer) Commit(ctx context.Context, end telem.TimeStamp) error {
-	w.lastPersist = telem.Now()
-	return w.commit(ctx, end, true)
-}
+	var (
+		now     = telem.Now()
+		persist = w.AutoPersistInterval <= 0 || w.lastPersist.Span(now) >= w.WriterConfig.AutoPersistInterval
+	)
 
-func (w *Writer) CommitAndAutoPersist(ctx context.Context, end telem.TimeStamp) error {
-	if w.lastPersist.Span(telem.Now()) >= w.WriterConfig.AutoPersistTime {
-		w.lastPersist = telem.Now()
-		return w.commit(ctx, end, true)
+	if w.AutoPersistInterval > 0 && persist {
+		w.lastPersist = now
 	}
-	return w.commit(ctx, end, false)
+
+	return w.commit(ctx, end, persist)
 }
 
 func (w *Writer) commit(ctx context.Context, end telem.TimeStamp, persist bool) error {
@@ -203,7 +205,7 @@ func (w *Writer) Close(ctx context.Context) error {
 		return nil
 	}
 
-	if !w.AutoPersistTime.IsZero() {
+	if w.AutoPersistInterval > 0 {
 		w.idx.persist(ctx)
 	}
 

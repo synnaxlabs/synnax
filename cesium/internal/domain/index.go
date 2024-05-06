@@ -109,6 +109,7 @@ func (idx *index) update(ctx context.Context, p pointer, persist bool) error {
 
 	if len(idx.mu.pointers) == 0 {
 		idx.mu.Unlock()
+		idx.L.DPanic(RangeNotFound.Error())
 		return span.Error(RangeNotFound)
 	}
 	lastI := len(idx.mu.pointers) - 1
@@ -121,6 +122,7 @@ func (idx *index) update(ctx context.Context, p pointer, persist bool) error {
 	oldP := ptrs[updateAt]
 	if oldP.Start != p.Start {
 		idx.mu.Unlock()
+		idx.L.DPanic(RangeNotFound.Error())
 		return span.Error(RangeNotFound)
 	}
 	overlapsWithNext := updateAt != len(ptrs)-1 && ptrs[updateAt+1].OverlapsWith(p.TimeRange)

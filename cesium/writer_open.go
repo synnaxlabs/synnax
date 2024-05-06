@@ -27,40 +27,18 @@ import (
 
 // WriterMode sets the operating mode of the writer, optionally enabling or disabling
 // persistence and streaming.
-// WriterMode is an uint8, its right-most bit represents the value of Persist(),
-// second-to-right-most bit represents the value of Stream(), and the third-to-right-most
-// bit represents the value of AutoCommit().
 type WriterMode uint8
 
 // Persist returns true if the current mode should persist data.
-func (w WriterMode) Persist() bool { return (w & WriterPersist) != 0 }
-
-// EnablePersist adds the persist bit to the mode.
-func EnablePersist() func(*WriterMode) { return func(w *WriterMode) { *w |= WriterPersist } }
+func (w WriterMode) Persist() bool { return w != WriterStreamOnly }
 
 // Stream returns true if the current mode should stream data.
-func (w WriterMode) Stream() bool { return (w & WriterStream) != 0 }
-
-// EnableStream adds the stream bit to the mode.
-func EnableStream() func(*WriterMode) { return func(w *WriterMode) { *w |= WriterStream } }
-
-// AutoCommit returns true if the current mode should auto commit data.
-func (w WriterMode) AutoCommit() bool { return (w & WriterAutoCommit) != 0 }
-
-// EnableAutoCommit adds the persist bit to the mode.
-func EnableAutoCommit() func(*WriterMode) { return func(w *WriterMode) { *w |= WriterAutoCommit } }
-
-func NewWriterMode(opts ...func(*WriterMode)) (w WriterMode) {
-	for _, o := range opts {
-		o(&w)
-	}
-	return
-}
+func (w WriterMode) Stream() bool { return w != WriterPersistOnly }
 
 const (
-	WriterPersist    = 1 << 0
-	WriterStream     = 1 << 1
-	WriterAutoCommit = 1 << 2
+	WriterPersistStream = iota + 1
+	WriterPersistOnly
+	WriterStreamOnly
 )
 
 // WriterConfig sets the configuration used to open a new writer on the DB.
@@ -84,16 +62,26 @@ type WriterConfig struct {
 	// that require control handoff, this value should be set to false.
 	ErrOnUnauthorized *bool
 	// Mode sets the persistence and streaming mode of the writer. The default
-	// mode is called with EnablePersist() and EnableStream().
-	// See the WriterMode documentation for more.
-	// [OPTIONAL] - Defaults to EnablePersist() and EnableStream().
+	// mode is WriterModePersistStream. See the WriterMode documentation for more.
+	// [OPTIONAL] - Defaults to WriterModePersistStream.
 	Mode WriterMode
 
-	// AutoPersistThreshold sets the maximum time between two commits that are not
-	// persisted to the index on sys.
-	// [OPTIONAL] - If not set, then every commit write call will auto-commit and auto-persist.
-	AutoPersistTime telem.TimeSpan
+	// AutoCommitInterval determines whether the writer will automatically commit after each write.
+	// If AutoCommitInterval is set to AutoCommitAlwaysPersist, then the writer will automatically commit,
+	// and will immediately persist after every manual commit.
+	// If AutoCommitInterval is set to 0, then AutoCommit is OFF. The writer will never automatically
+	// commit and will immediately persist after every manual commit.
+	// If AutoCommitInterval is set to a positive number, then the writer will commit after each write,
+	// and only persist commits to disk after every set interval.
+	//
+	// Note that the unintuitive value for 0 AutoCommitInterval is -1 because the default
+	// behaviour must have value 0.
+	// [OPTIONAL] - Defaults to NoAutoCommit.
+	AutoCommitInterval telem.TimeSpan
 }
+
+const AutoCommitAlwaysPersist telem.TimeSpan = -1
+const NoAutoCommit telem.TimeSpan = 0
 
 var (
 	_ config.Config[WriterConfig] = WriterConfig{}
@@ -104,9 +92,10 @@ func DefaultWriterConfig() WriterConfig {
 		ControlSubject: control.Subject{
 			Key: uuid.New().String(),
 		},
-		Authorities:       []control.Authority{control.Absolute},
-		ErrOnUnauthorized: config.False(),
-		Mode:              NewWriterMode(EnablePersist(), EnableStream()),
+		Authorities:        []control.Authority{control.Absolute},
+		ErrOnUnauthorized:  config.False(),
+		Mode:               WriterPersistStream,
+		AutoCommitInterval: NoAutoCommit,
 	}
 }
 
@@ -120,7 +109,7 @@ func (w WriterConfig) Validate() error {
 		len(w.Authorities) != len(w.Channels) && len(w.Authorities) != 1,
 		"authority count must be 1 or equal to channel count",
 	)
-	v.Ternary(!w.Mode.AutoCommit() && w.AutoPersistTime != 0, "cannot set AutoPersistTime without enabling AutoCommit")
+	v.Ternary(w.AutoCommitInterval < -1, "AutoCommitInterval cannot be a negative number, except for the constant AutoCommitAlwaysPersist")
 	return v.Error()
 }
 
@@ -133,7 +122,7 @@ func (w WriterConfig) Override(other WriterConfig) WriterConfig {
 	w.ControlSubject.Key = override.String(w.ControlSubject.Key, other.ControlSubject.Key)
 	w.ErrOnUnauthorized = override.Nil(w.ErrOnUnauthorized, other.ErrOnUnauthorized)
 	w.Mode = override.Numeric(w.Mode, other.Mode)
-	w.AutoPersistTime = override.Zero(w.AutoPersistTime, other.AutoPersistTime)
+	w.AutoCommitInterval = override.Zero(w.AutoCommitInterval, other.AutoCommitInterval)
 	return w
 }
 
@@ -216,7 +205,7 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 				Start:           cfg.Start,
 				Authority:       auth,
 				Persist:         config.Bool(cfg.Mode.Persist()),
-				AutoPersistTime: cfg.AutoPersistTime,
+				AutoPersistTime: override.If(0, cfg.AutoCommitInterval, cfg.AutoCommitInterval > 0),
 			})
 			if err != nil {
 				return nil, err
@@ -242,7 +231,7 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 					domainWriters[u.Channel.Index] = idxW
 				}
 
-				idxW.internal[key] = &unaryWriterState{Writer: *w}
+				idxW.internal[key] = w
 			} else {
 				// Hot path optimization: in the common case we only write to a rate based
 				// index or an indexed channel, not both. In either case we can avoid a
@@ -257,7 +246,7 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 					rateWriters[u.Channel.Rate] = idxW
 				}
 
-				idxW.internal[key] = &unaryWriterState{Writer: *w}
+				idxW.internal[key] = w
 			}
 			if transfer.Occurred() {
 				controlUpdate.Transfers = append(controlUpdate.Transfers, transfer)
@@ -296,7 +285,7 @@ func (db *DB) openDomainIdxWriter(
 		return nil, core.ChannelNotFound
 	}
 	idx := &index.Domain{DB: u.Domain, Instrumentation: db.Instrumentation}
-	w := &idxWriter{internal: make(map[ChannelKey]*unaryWriterState)}
+	w := &idxWriter{internal: make(map[ChannelKey]*unary.Writer)}
 	w.idx.key = idxKey
 	w.idx.Index = idx
 	w.idx.highWaterMark = cfg.Start
@@ -310,7 +299,7 @@ func (db *DB) openRateIdxWriter(
 	cfg WriterConfig,
 ) *idxWriter {
 	idx := index.Rate{Rate: rate}
-	w := &idxWriter{internal: make(map[ChannelKey]*unaryWriterState)}
+	w := &idxWriter{internal: make(map[ChannelKey]*unary.Writer)}
 	w.idx.Index = idx
 	w.start = cfg.Start
 	return w

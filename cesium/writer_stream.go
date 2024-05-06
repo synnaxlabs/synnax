@@ -37,9 +37,6 @@ const (
 	WriterError
 	// WriterSetAuthority represents a call to Writer.SetAuthority.
 	WriterSetAuthority
-	// WriterSetMode sets the operating WriterMode for the Writer. See the WriterMode
-	// documentation for more.
-	WriterSetMode
 )
 
 // WriterRequest is a request containing an arrow.Record to write to the DB.
@@ -48,7 +45,7 @@ type WriterRequest struct {
 	Command WriterCommand
 	// Frame is the arrow record to write to the DB.
 	Frame Frame
-	// Config is used for updating the parameters in WriterSetAuthority and WriterSetMode.
+	// Config is used for updating the parameters in WriterSetAuthority.
 	Config WriterConfig
 }
 
@@ -106,6 +103,8 @@ type streamWriter struct {
 	updateDBControl func(ctx context.Context, u ControlUpdate)
 }
 
+func (w *streamWriter) AutoCommitEnabled() bool { return w.AutoCommitInterval != NoAutoCommit }
+
 // Flow implements the confluence.Flow interface.
 func (w *streamWriter) Flow(ctx signal.Context, opts ...confluence.Option) {
 	o := confluence.NewOptions(opts)
@@ -138,12 +137,6 @@ func (w *streamWriter) process(ctx context.Context, req WriterRequest) {
 	if req.Command == WriterSetAuthority {
 		w.seqNum++
 		w.setAuthority(ctx, req.Config)
-		w.sendRes(req, true, nil, 0)
-		return
-	}
-	if req.Command == WriterSetMode {
-		w.seqNum++
-		w.setMode(req.Config)
 		w.sendRes(req, true, nil, 0)
 		return
 	}
@@ -213,16 +206,6 @@ func (w *streamWriter) setAuthority(ctx context.Context, cfg WriterConfig) {
 	}
 }
 
-func (w *streamWriter) setMode(cfg WriterConfig) {
-	persist := cfg.Mode.Persist()
-	for _, idx := range w.internal {
-		for _, chW := range idx.internal {
-			chW.SetPersist(persist)
-		}
-	}
-	w.Mode = cfg.Mode
-}
-
 func (w *streamWriter) sendRes(req WriterRequest, ack bool, err error, end telem.TimeStamp) {
 	w.Out.Inlet() <- WriterResponse{
 		Command: req.Command,
@@ -235,7 +218,7 @@ func (w *streamWriter) sendRes(req WriterRequest, ack bool, err error, end telem
 
 func (w *streamWriter) write(ctx context.Context, req WriterRequest) (err error) {
 	for _, idx := range w.internal {
-		req.Frame, err = idx.Write(ctx, req.Frame)
+		req.Frame, err = idx.Write(req.Frame)
 		if err != nil {
 			if errors.Is(err, control.Unauthorized) && !*w.ErrOnUnauthorized {
 				return nil
@@ -243,8 +226,8 @@ func (w *streamWriter) write(ctx context.Context, req WriterRequest) (err error)
 			return err
 		}
 
-		if w.Mode.AutoCommit() {
-			_, err = idx.Commit(ctx, true)
+		if w.AutoCommitEnabled() {
+			_, err = idx.Commit(ctx)
 			if err != nil {
 				return
 			}
@@ -268,7 +251,7 @@ func (w *streamWriter) write(ctx context.Context, req WriterRequest) (err error)
 func (w *streamWriter) commit(ctx context.Context) (telem.TimeStamp, error) {
 	maxTS := telem.TimeStampMin
 	for _, idx := range w.internal {
-		ts, err := idx.Commit(ctx, false)
+		ts, err := idx.Commit(ctx)
 		if err != nil {
 			return maxTS, err
 		}
@@ -316,23 +299,18 @@ func (w *streamWriter) close(ctx context.Context) error {
 	return errors.CombineErrors(w.err, c.Error())
 }
 
-type unaryWriterState struct {
-	unary.Writer
-	timesWritten int64
-}
-
 // idxWriter is a writer to a set of channels that all share the same index.
 type idxWriter struct {
 	start telem.TimeStamp
 	// internal contains writers for each channel
-	internal map[ChannelKey]*unaryWriterState
+	internal map[ChannelKey]*unary.Writer
 	// writingToIdx is true when the Write is writing to the index
 	// channel. This is typically true, which allows us to avoid
 	// unnecessary lookups.
 	writingToIdx bool
-	// numWrites tracks the number of calls to Write that have been made.
-	numWrites int64
-	idx       struct {
+	// numWriteCalls tracks the number of calls to Write that have been made.
+	numWriteCalls int
+	idx           struct {
 		// Index is the index used to resolve timestamps for domains in the DB.
 		index.Index
 		// Key is the channel key of the index. This field is not applicable when
@@ -348,12 +326,12 @@ type idxWriter struct {
 	sampleCount int64
 }
 
-func (w *idxWriter) Write(ctx context.Context, fr Frame) (Frame, error) {
+func (w *idxWriter) Write(fr Frame) (Frame, error) {
 	var (
-		lengthOfFrame     int64 = -1
-		channelsWrittenTo       = 0
+		lengthOfFrame        int64 = -1
+		numChannelsWrittenTo       = 0
 	)
-	w.numWrites++
+	w.numWriteCalls++
 	for i, k := range fr.Keys {
 		uWriter, ok := w.internal[k]
 		if !ok {
@@ -364,8 +342,7 @@ func (w *idxWriter) Write(ctx context.Context, fr Frame) (Frame, error) {
 			lengthOfFrame = fr.Series[i].Len()
 		}
 
-		if uWriter.timesWritten == w.numWrites {
-			// This if-clause is satisfied if the channel has already been written to.
+		if uWriter.TimesWritten == w.numWriteCalls {
 			return fr, errors.Wrapf(
 				validate.Error,
 				"frame must have exactly one series per channel, duplicate channel %d",
@@ -373,8 +350,8 @@ func (w *idxWriter) Write(ctx context.Context, fr Frame) (Frame, error) {
 			)
 		}
 
-		uWriter.timesWritten++
-		channelsWrittenTo++
+		uWriter.TimesWritten++
+		numChannelsWrittenTo++
 
 		if fr.Series[i].Len() != lengthOfFrame {
 			return fr, errors.Wrapf(
@@ -386,16 +363,16 @@ func (w *idxWriter) Write(ctx context.Context, fr Frame) (Frame, error) {
 		}
 	}
 
-	if channelsWrittenTo == 0 {
+	if numChannelsWrittenTo == 0 {
 		return fr, nil
 	}
 
-	if channelsWrittenTo != len(w.internal) {
+	if numChannelsWrittenTo != len(w.internal) {
 		return fr, errors.Wrapf(
 			validate.Error,
 			"frame must have exactly one series per channel, expected %d, got %d",
 			len(w.internal),
-			channelsWrittenTo,
+			numChannelsWrittenTo,
 		)
 
 	}
@@ -414,7 +391,7 @@ func (w *idxWriter) Write(ctx context.Context, fr Frame) (Frame, error) {
 			}
 		}
 
-		alignment, err := uWriter.Write(ctx, series)
+		alignment, err := uWriter.Write(series)
 		if err != nil {
 			return fr, err
 		}
@@ -428,7 +405,7 @@ func (w *idxWriter) Write(ctx context.Context, fr Frame) (Frame, error) {
 	return fr, nil
 }
 
-func (w *idxWriter) Commit(ctx context.Context, autoPersist bool) (telem.TimeStamp, error) {
+func (w *idxWriter) Commit(ctx context.Context) (telem.TimeStamp, error) {
 	end, err := w.resolveCommitEnd(ctx)
 	if err != nil {
 		return end.Lower, err
@@ -437,7 +414,7 @@ func (w *idxWriter) Commit(ctx context.Context, autoPersist bool) (telem.TimeSta
 	end.Lower++
 	c := errutil.NewCatch(errutil.WithAggregation())
 	for _, chW := range w.internal {
-		c.Exec(func() error { return chW.CommitWithEnd(ctx, end.Lower, autoPersist) })
+		c.Exec(func() error { return chW.CommitWithEnd(ctx, end.Lower) })
 	}
 	return end.Lower, c.Error()
 }

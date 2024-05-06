@@ -60,7 +60,7 @@ func (c WriterConfig) Override(other WriterConfig) WriterConfig {
 }
 
 func (c WriterConfig) domain() domain.WriterConfig {
-	return domain.WriterConfig{Start: c.Start, End: c.End, AutoPersistTime: c.AutoPersistTime}
+	return domain.WriterConfig{Start: c.Start, End: c.End, AutoPersistInterval: c.AutoPersistTime}
 }
 
 func (c WriterConfig) controlTimeRange() telem.TimeRange {
@@ -71,17 +71,18 @@ func (c WriterConfig) controlTimeRange() telem.TimeRange {
 
 type Writer struct {
 	WriterConfig
-	Channel          core.Channel
+	Channel core.Channel
+	// TimesWritten is how many times this Unary writer has been used to write.
+	TimesWritten     int
 	decrementCounter func()
 	control          *controller.Gate[controlledWriter]
 	idx              index.Index
 	// hwm is a hot-path optimization when writing to an index channel. We can avoid
 	// unnecessary index lookups by keeping track of the highest timestamp written.
 	// Only valid when Channel.IsIndex is true.
-	hwm                telem.TimeStamp
-	pos                int
-	unpersistedSamples int64
-	closed             bool
+	hwm    telem.TimeStamp
+	pos    int
+	closed bool
 }
 
 func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (w *Writer, transfer controller.Transfer, err error) {
@@ -131,7 +132,7 @@ func Write(
 		_, err_ := w.Close(ctx)
 		err = errors.CombineErrors(err, err_)
 	}()
-	if _, err = w.Write(ctx, series); err != nil {
+	if _, err = w.Write(series); err != nil {
 		return err
 	}
 	_, err = w.Commit(ctx)
@@ -143,7 +144,7 @@ func (w *Writer) len(dw *domain.Writer) int64 {
 }
 
 // Write validates and writes the given array.
-func (w *Writer) Write(ctx context.Context, series telem.Series) (a telem.Alignment, err error) {
+func (w *Writer) Write(series telem.Series) (a telem.Alignment, err error) {
 	if w.closed {
 		return 0, WriterClosedError
 	}
@@ -165,8 +166,6 @@ func (w *Writer) Write(ctx context.Context, series telem.Series) (a telem.Alignm
 	return
 }
 
-func (w *Writer) SetPersist(persist bool) { w.Persist = config.Bool(persist) }
-
 func (w *Writer) SetAuthority(a control.Authority) controller.Transfer {
 	return w.control.SetAuthority(a)
 }
@@ -184,26 +183,26 @@ func (w *Writer) Commit(ctx context.Context) (telem.TimeStamp, error) {
 		return telem.TimeStampMax, WriterClosedError
 	}
 	if w.Channel.IsIndex {
-		return w.commitWithEnd(ctx, w.hwm+1, false)
+		return w.commitWithEnd(ctx, w.hwm+1)
 	}
-	return w.commitWithEnd(ctx, telem.TimeStamp(0), false)
+	return w.commitWithEnd(ctx, telem.TimeStamp(0))
 }
 
-func (w *Writer) CommitWithEnd(ctx context.Context, end telem.TimeStamp, autoPersist bool) (err error) {
+func (w *Writer) CommitWithEnd(ctx context.Context, end telem.TimeStamp) (err error) {
 	if w.closed {
 		return core.EntityClosed("unary.writer")
 	}
-	_, err = w.commitWithEnd(ctx, end, autoPersist)
+	_, err = w.commitWithEnd(ctx, end)
 	return err
 }
 
-func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp, autoPersist bool) (telem.TimeStamp, error) {
+func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.TimeStamp, error) {
 	dw, ok := w.control.Authorize()
 	if !ok {
 		return 0, controller.Unauthorized(w.control.Subject.String(), w.Channel.Key)
 	}
 	if end.IsZero() {
-		// we're using w.len - 1 here because we want the timestamp of the last
+		// We're using w.len - 1 here because we want the timestamp of the last
 		// written frame.
 		approx, err := w.idx.Stamp(ctx, w.Start, w.len(dw.Writer)-1, true)
 		if err != nil {
@@ -214,10 +213,6 @@ func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp, autoPer
 		}
 		// Add 1 to the end timestamp because the end timestamp is exclusive.
 		end = approx.Lower + 1
-	}
-
-	if autoPersist {
-		return end, dw.CommitAndAutoPersist(ctx, end)
 	}
 
 	return end, dw.Commit(ctx, end)

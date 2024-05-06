@@ -151,9 +151,10 @@ var _ = Describe("Writer Behavior", func() {
 						})
 						It("Should automatically commit the writer for all channels", func() {
 							w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
-								Channels: []cesium.ChannelKey{index1, basic1, index2, basic2, basic3},
-								Start:    10 * telem.SecondTS,
-								Mode:     cesium.NewWriterMode(cesium.EnableStream(), cesium.EnablePersist(), cesium.EnableAutoCommit()),
+								Channels:           []cesium.ChannelKey{index1, basic1, index2, basic2, basic3},
+								Start:              10 * telem.SecondTS,
+								Mode:               cesium.WriterPersistStream,
+								AutoCommitInterval: cesium.AutoCommitAlwaysPersist,
 							}))
 
 							By("Writing telemetry")
@@ -230,9 +231,10 @@ var _ = Describe("Writer Behavior", func() {
 
 						It("Should block subsequent writes if a previous write encounters a commit error", func() {
 							w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
-								Channels: []cesium.ChannelKey{index1, basic1, index2, basic2, basic3},
-								Start:    10 * telem.SecondTS,
-								Mode:     cesium.NewWriterMode(cesium.EnableStream(), cesium.EnablePersist(), cesium.EnableAutoCommit()),
+								Channels:           []cesium.ChannelKey{index1, basic1, index2, basic2, basic3},
+								Start:              10 * telem.SecondTS,
+								Mode:               cesium.WriterPersistStream,
+								AutoCommitInterval: cesium.AutoCommitAlwaysPersist,
 							}))
 
 							By("Writing telemetry")
@@ -252,9 +254,10 @@ var _ = Describe("Writer Behavior", func() {
 
 							By("Writing telemetry that would collide with previous domains")
 							w = MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
-								Channels: []cesium.ChannelKey{index1, basic1, index2, basic2, basic3},
-								Start:    9 * telem.SecondTS,
-								Mode:     cesium.NewWriterMode(cesium.EnableStream(), cesium.EnablePersist(), cesium.EnableAutoCommit()),
+								Channels:           []cesium.ChannelKey{index1, basic1, index2, basic2, basic3},
+								Start:              9 * telem.SecondTS,
+								Mode:               cesium.WriterPersistStream,
+								AutoCommitInterval: cesium.AutoCommitAlwaysPersist,
 							}))
 							ok = w.Write(cesium.NewFrame(
 								[]cesium.ChannelKey{index1, basic1, index2, basic2, basic3},
@@ -293,12 +296,13 @@ var _ = Describe("Writer Behavior", func() {
 						})
 
 						Describe("Auto-Persist", func() {
-							It("Should auto persist on every commit when the time is not set", func() {
+							It("Should auto persist on every commit when the time is set to 0", func() {
 								By("Opening a writer")
 								w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
-									Channels: []cesium.ChannelKey{index1, basic1},
-									Start:    10 * telem.SecondTS,
-									Mode:     cesium.NewWriterMode(cesium.EnableStream(), cesium.EnablePersist(), cesium.EnableAutoCommit()),
+									Channels:           []cesium.ChannelKey{index1, basic1},
+									Start:              10 * telem.SecondTS,
+									Mode:               cesium.WriterPersistStream,
+									AutoCommitInterval: cesium.AutoCommitAlwaysPersist,
 								}))
 
 								By("Writing telemetry")
@@ -338,10 +342,10 @@ var _ = Describe("Writer Behavior", func() {
 							It("Should auto persist once the time interval is reached", func() {
 								By("Opening a writer")
 								w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
-									Channels:        []cesium.ChannelKey{index1, basic1},
-									Start:           10 * telem.SecondTS,
-									Mode:            cesium.NewWriterMode(cesium.EnableStream(), cesium.EnablePersist(), cesium.EnableAutoCommit()),
-									AutoPersistTime: 500 * telem.Millisecond,
+									Channels:           []cesium.ChannelKey{index1, basic1},
+									Start:              10 * telem.SecondTS,
+									Mode:               cesium.WriterPersistStream,
+									AutoCommitInterval: 500 * telem.Millisecond,
 								}))
 
 								By("Writing telemetry")
@@ -444,7 +448,7 @@ var _ = Describe("Writer Behavior", func() {
 					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 						Channels: []cesium.ChannelKey{basic1, basic1Index},
 						Start:    10 * telem.SecondTS,
-						Mode:     cesium.NewWriterMode(cesium.EnableStream()),
+						Mode:     cesium.WriterStreamOnly,
 					}))
 
 					By("Writing data to the channel")
