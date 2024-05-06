@@ -44,7 +44,8 @@ func (idx *index) insert(ctx context.Context, p pointer, persist bool) error {
 	insertAt := 0
 
 	if p.fileKey == 0 {
-		panic("fileKey must be set")
+		idx.mu.Unlock()
+		idx.L.DPanic("fileKey must be set")
 	}
 	if len(idx.mu.pointers) != 0 {
 		// Hot path optimization for appending to the end of the index.
@@ -108,6 +109,7 @@ func (idx *index) update(ctx context.Context, p pointer, persist bool) error {
 	defer span.End()
 
 	if len(idx.mu.pointers) == 0 {
+		// This should be inconceivable since update would not be called with no pointers.
 		idx.mu.Unlock()
 		idx.L.DPanic(RangeNotFound.Error())
 		return span.Error(RangeNotFound)
@@ -121,6 +123,10 @@ func (idx *index) update(ctx context.Context, p pointer, persist bool) error {
 	ptrs := idx.mu.pointers
 	oldP := ptrs[updateAt]
 	if oldP.Start != p.Start {
+		// This should never happen since update would only be called via commit, and
+		// commit should find the same pointer the writer has been writing to, which
+		// must have the same Start timestamp. Unhandled race conditions might cause the
+		// database to reach this inconceivable state.
 		idx.mu.Unlock()
 		idx.L.DPanic(RangeNotFound.Error())
 		return span.Error(RangeNotFound)
