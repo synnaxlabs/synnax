@@ -478,6 +478,19 @@ var _ = Describe("Writer Behavior", func() {
 						})
 					Expect(err).To(MatchError(core.ChannelNotFound))
 				})
+				Specify("Encounters channel that does not exist after already successfully creating some writers", func() {
+					key1 := GenerateCesiumChannelKey()
+					key2 := GenerateCesiumChannelKey()
+
+					Expect(db.CreateChannel(
+						ctx,
+						cesium.Channel{Key: key1, DataType: telem.Int64T, Rate: 1 * telem.Hz},
+						cesium.Channel{Key: key2, DataType: telem.Int64T, Rate: 1 * telem.Hz},
+					)).To(Succeed())
+
+					_, err := db.OpenWriter(ctx, cesium.WriterConfig{Channels: []cesium.ChannelKey{88888}, Start: 10 * telem.SecondTS})
+					Expect(err).To(MatchError(core.ChannelNotFound))
+				})
 			})
 			Describe("Frame Errors", Ordered, func() {
 				var (
