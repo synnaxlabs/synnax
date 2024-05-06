@@ -1,28 +1,27 @@
 ---
 layout: "@/layouts/MainLayout.astro"
 title: "Write Data"
-description: "Use the Python client to write to a Synnax cluster"
+description: "Use the Python client to write to a Synnax cluster."
 ---
 import { Divider } from "@synnaxlabs/pluto"
-import Code from "@/components/code/Code.astro";
-export const components = { pre: Code };
+import Code from "@/components/code/Code.astro"
+export const components = { pre: Code }
 
-import Note from "@/components/Note.astro";
+Synnax supports multiple methods for writing data to a cluster. We can write
+directly to a channel, fetch a range and set its data, or leverage writers for
+writing large volumes of data.
 
-Synnax supports multiple methods for writing data to a cluster. We can write directly
-to a channel, fetch a range and set its data, or leverage writers for writing large
-volumes of data.
-
-Writes in Synnax are more complicated than reads, and, as such, we recommend checking out
-our [concepts](/docs/concepts/write-domains) page to learn more about the best practices
-for writing data to Synnax.
+Writes in Synnax are more complicated than reads, and, as such, we recommend
+checking out our [concepts](../concepts/write) page to learn more about
+the best practices for writing data to Synnax.
 
 <Divider.Divider direction="x" />
 
 ## Writing to a Channel
 
-Writing to a channel requires us to write timestamps to it's index channel before we 
-write the data. We'll create the following channels to use as examples:
+Writing to a channel requires us to write timestamps to it's index channel
+before we write the data. We'll create the following channels to use as
+examples:
 
 ```python
 import synnax as sy
@@ -42,7 +41,8 @@ my_precise_tc = client.channels.create(
 )
 ```
 
-We'll make sure to write timestamps to the index before we write to the data channel.
+We'll make sure to write timestamps to the index before we write to the data
+channel:
 
 ```python
 from datetime import datetime
@@ -65,13 +65,14 @@ timestamps.write(start, timestamps)
 my_precise_tc.write(start, temperatures)
 ```
 
-Notice how we align the two arrays using the common `start` timestamp. This tells Synnax
-that the first sample in the `temperatures` array is associated with the first timestamp
-in the `timestamps` array.
+Notice how we align the two arrays using the common `start` timestamp. This
+tells Synnax that the first sample in the `temperatures` array is associated
+with the first timestamp in the `timestamps` array.
 
-Synnax will raise a `ValidationError` if the index channel does not contain a corresponding 
-timestamp for every sample in the data channel. After all, it wouldn't make sense to have
-a temperature reading without an associated timestamp.
+Synnax will raise a `ValidationError` if the index channel does not contain a
+corresponding timestamp for every sample in the data channel. After all, it
+wouldn't make sense to have a temperature reading without an associated
+timestamp.
 
 <Divider.Divider direction="x" />
 
@@ -113,13 +114,14 @@ burst_test.write({
 
 ## Using a Writer
 
-While the above methods are great for writing static, existing data, it's common to
-to write data in a streaming fashion for use in control sequences and live data processing.
-The `Writer` class is designed for this use case (and is actually used under the
-hood by the other methods).
+While the above methods are great for writing static, existing data, it's common
+to to write data in a streaming fashion for use in control sequences and live
+data processing. The `Writer` class is designed for this use case (and is
+actually used under the hood by the other methods).
 
-Writers are a bit more complicated to operate, so we recommend reading the [concepts](/concepts/write-domains#transactions) page to learn more about
-how they work.
+Writers can be complicated to operate, so we recommend reading the
+[concepts](../concepts/write#transactions) page to learn more about how
+they work.
 
 We'll use the following set of channels for this example:
 
@@ -141,9 +143,9 @@ my_precise_tc = client.channels.create(
 )
 ```
 
- To open the writer,
-we use the `open_writer` method on the client and provide a starting timestamp for the 
-first sample and a list of channels we'd like to write to.
+To open the writer, we use the `open_writer` method on the client and provide a
+starting timestamp for the first sample and a list of channels we'd like to
+write to:
 
 ```python
 import time
@@ -162,12 +164,15 @@ with client.open_writer(
 ```
 
 This example will write 100 samples to the `my_precise_tc` channel, each spaced
-roughly 0.1 seconds apart, and will commit all writes when finished. 
+roughly 0.1 seconds apart, and will commit all writes when finished.
 
-It's typical to write and commit millions of samples over the course of hours or days,
-intermittently calling commit to ensure that the data is persisted to the cluster.
+It's typical to write and commit millions of samples over the course of hours or
+days, intermittently calling commit to ensure that the data is persisted to the
+cluster.
 
-We recommend using writers within a context manager. This ensures that a writer is
-properly closed after use, ensuring that resources have been freed and sockets are closed.
+We recommend using writers within a context manager. This ensures that a writer
+is properly closed after use, ensuring that resources have been freed and
+sockets are closed.
 
-If you can't use a context manager, ensure you call `writer.close()` when you're done using it.
+If you can't use a context manager, ensure you call `writer.close()` when you're
+done using it.

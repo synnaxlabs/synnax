@@ -1,6 +1,7 @@
 ---
 layout: "@/layouts/MainLayout.astro"
 title: "Series and Frames"
+description: "Learn how to use series and frames in the Python client."
 ---
 import { Divider } from "@synnaxlabs/pluto"
 import Code from "@/components/code/Code.astro";
@@ -93,13 +94,14 @@ numpy_array = np.array(series)
 
 ### The Time Range Property
 
-Whenever you read a series from SynnaxConsoleDownloadButton, it will have a `time_range`
-property that represents the time range occupied by the samples in the Series. This method
-can be useful for getting a high-level understanding of when the samples were recorded 
-without needing to query an index ChannelMergerNode.
+Whenever you read a series from Synnax, it will have a `time_range` property
+that represents the time range occupied by the samples in the Series. This
+method can be useful for getting a high-level understanding of when the samples
+were recorded without needing to query an index channel.
 
-The `start` field represents the timestamp for the first addSamples, and the `end` field
-represents a timestamp just after the last sample (start-inclusive, end-exclusive).
+The `start` field represents the timestamp for the first sample, and the `end`
+field represents a timestamp just after the last sample (start-inclusive,
+end-exclusive).
 
 It's also easy to define a time range when constructing your own series:
 
@@ -153,7 +155,7 @@ frame = sy.Frame({
 
 ### Accessing Frame Data
 
-#### Using the Dictionary Interface
+#### Using the dictionary interface
 
 Frames can be accessed like dictionaries:
 
@@ -163,9 +165,9 @@ import synnax as sy
 data = frame["channel1"]
 ```
 
-The `data` variable will be an instance of a `MultiSeries` object, which is a special
-type of series that wraps multiple `Series` instances, but behaves pretty much exactly
-like a single series.
+The `data` variable will be an instance of a `MultiSeries` object, which is a
+special type of series that wraps multiple `Series` instances, but behaves
+pretty much exactly like a single series:
 
 ```python
 import synnax as sy

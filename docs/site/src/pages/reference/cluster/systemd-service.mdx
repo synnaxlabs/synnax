@@ -1,7 +1,7 @@
 ---
 title: "Systemd Service"
 layout: "@/layouts/MainLayout.astro"
-description: "Manage a synnax using a systemd service"
+description: "Manage Synnax using a systemd service."
 ---
 import Code from "@/components/code/Code.astro";
 export const components = { pre: Code };
@@ -27,3 +27,6 @@ ExecStart = /home/synnax/synnax --listen="localhost:9090"
 [Install]
 WantedBy = multi-user.target
 ```
+
+{/*This page could have a little bit more added to it. Why do we want to use a
+systemd service, important things in the service file, etc.*/}
