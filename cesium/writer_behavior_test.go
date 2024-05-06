@@ -68,9 +68,9 @@ var _ = Describe("Writer Behavior", func() {
 						Expect(end).To(Equal(13*telem.SecondTS + 1))
 
 						By("Reading the data back")
-						frame := MustSucceed(db.Read(telem.TimeRangeMax, basic1))
+						frame := MustSucceed(db.Read(ctx, telem.TimeRangeMax, basic1))
 						Expect(frame.Series[0].TimeRange).To(Equal((10 * telem.SecondTS).Range(13*telem.SecondTS + 1)))
-						tsFrame := MustSucceed(db.Read(telem.TimeRangeMax, basic1Index))
+						tsFrame := MustSucceed(db.Read(ctx, telem.TimeRangeMax, basic1Index))
 						Expect(tsFrame.Series[0].TimeRange).To(Equal((10 * telem.SecondTS).Range(13*telem.SecondTS + 1)))
 					})
 				})
@@ -172,7 +172,7 @@ var _ = Describe("Writer Behavior", func() {
 
 							By("Reading the telemetry to assert they are committed")
 							Eventually(func(g Gomega) {
-								f := MustSucceed(db.Read(telem.TimeRangeMax, index1, basic1, index2, basic2, basic3))
+								f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, index1, basic1, index2, basic2, basic3))
 								g.Expect(f.Get(index1)).To(HaveLen(1))
 								g.Expect(f.Get(index1)[0].TimeRange).To(Equal((10 * telem.SecondTS).Range(14*telem.SecondTS + 1)))
 								g.Expect(f.Get(index1)[0].Len()).To(Equal(int64(4)))
@@ -216,7 +216,7 @@ var _ = Describe("Writer Behavior", func() {
 
 							By("Reading the telemetry to assert they are committed")
 							Eventually(func(g Gomega) {
-								f := MustSucceed(db.Read(telem.TimeRangeMax, index1, basic1, index2, basic2, basic3))
+								f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, index1, basic1, index2, basic2, basic3))
 								g.Expect(f.Get(index1)[0].Data).To(Equal(telem.NewSecondsTSV(10, 12, 13, 14, 20, 22, 23, 24).Data))
 								g.Expect(f.Get(basic1)[0].Data).To(Equal(telem.NewSeriesV[int64](100, 102, 103, 104, 200, 202, 203, 204).Data))
 								g.Expect(f.Get(index2)[0].Data).To(Equal(telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 20, 21, 22, 23, 24, 25).Data))
@@ -275,7 +275,7 @@ var _ = Describe("Writer Behavior", func() {
 							}).Should(BeFalse())
 
 							By("Checking that the first commit did not succeed")
-							f := MustSucceed(db.Read(telem.TimeRangeMax, index1, basic1, index2, basic2, basic3))
+							f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, index1, basic1, index2, basic2, basic3))
 
 							Expect(f.Get(index1)[0].Data).To(Equal(telem.NewSecondsTSV(10, 12, 13, 14).Data))
 							Expect(f.Get(basic1)[0].Data).To(Equal(telem.NewSeriesV[int64](100, 102, 103, 104).Data))
@@ -462,9 +462,9 @@ var _ = Describe("Writer Behavior", func() {
 					Expect(end).To(Equal(13*telem.SecondTS + 1))
 
 					By("Reading the data back")
-					frame := MustSucceed(db.Read(telem.TimeRangeMax, basic1))
+					frame := MustSucceed(db.Read(ctx, telem.TimeRangeMax, basic1))
 					Expect(frame.Series).To(HaveLen(0))
-					tsFrame := MustSucceed(db.Read(telem.TimeRangeMax, basic1Index))
+					tsFrame := MustSucceed(db.Read(ctx, telem.TimeRangeMax, basic1Index))
 					Expect(tsFrame.Series).To(HaveLen(0))
 				})
 			})

@@ -42,7 +42,7 @@ var _ = Describe("Accuracy", func() {
 							tr telem.TimeRange,
 							expected []int64,
 						) {
-							frame := MustSucceed(db.Read(tr, key))
+							frame := MustSucceed(db.Read(ctx, tr, key))
 							actual := make([]int64, 0, len(expected))
 							for _, series := range frame.Series {
 								actual = append(actual, telem.Unmarshal[int64](series)...)
@@ -103,7 +103,7 @@ var _ = Describe("Accuracy", func() {
 							expected []int64,
 						) {
 							var (
-								frame  = MustSucceed(db.Read(tr, key))
+								frame  = MustSucceed(db.Read(ctx, tr, key))
 								actual = make([]int64, 0, len(expected))
 							)
 							for _, series := range frame.Series {
@@ -181,7 +181,7 @@ var _ = Describe("Accuracy", func() {
 								expected2 []int64,
 							) {
 								var (
-									frame   = MustSucceed(db.Read(tr, key1, key2))
+									frame   = MustSucceed(db.Read(ctx, tr, key1, key2))
 									actual1 = make([]int64, 0, len(expected1))
 									actual2 = make([]int64, 0, len(expected2))
 								)
@@ -256,7 +256,7 @@ var _ = Describe("Accuracy", func() {
 								expected2 []int64,
 							) {
 								var (
-									frame   = MustSucceed(db.Read(tr, key1, key2))
+									frame   = MustSucceed(db.Read(ctx, tr, key1, key2))
 									actual1 = make([]int64, 0, len(expected1))
 									actual2 = make([]int64, 0, len(expected2))
 								)
