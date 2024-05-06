@@ -40,13 +40,14 @@ export const ComponentSizeLevels: Record<ComponentSize, Level> = {
   small: "small",
   medium: "p",
   large: "h5",
+  huge: "h2",
 };
 
 export const LevelComponentSizes: Record<Level, ComponentSize> = {
-  h1: "large",
-  h2: "large",
-  h3: "medium",
-  h4: "medium",
+  h1: "huge",
+  h2: "huge",
+  h3: "huge",
+  h4: "large",
   h5: "small",
   p: "medium",
   small: "small",

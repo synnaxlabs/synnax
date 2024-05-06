@@ -249,20 +249,20 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
 );
 
 const buildPlotGrid = (grid: GridSpec): CSSProperties => {
-  const builder = CSS.newGridBuilder();
+  const b = CSS.newGridBuilder();
   filterGridEntries("top", grid).forEach(({ key, size }) =>
-    builder.addRow(`axis-start-${key}`, `axis-end-${key}`, size),
+    b.row(`axis-start-${key}`, `axis-end-${key}`, size),
   );
-  builder.addRow("plot-start", "plot-end", "minmax(0, 1fr)");
+  b.row("plot-start", "plot-end", "minmax(0, 1fr)");
   filterGridEntries("bottom", grid).forEach(({ key, size }) =>
-    builder.addRow(`axis-start-${key}`, `axis-end-${key}`, size),
+    b.row(`axis-start-${key}`, `axis-end-${key}`, size),
   );
   filterGridEntries("left", grid).forEach(({ key, size }) =>
-    builder.addColumn(`axis-start-${key}`, `axis-end-${key}`, size),
+    b.col(`axis-start-${key}`, `axis-end-${key}`, size),
   );
-  builder.addColumn("plot-start", "plot-end", "minmax(0, 1fr)");
+  b.col("plot-start", "plot-end", "minmax(0, 1fr)");
   filterGridEntries("right", grid).forEach(({ key, size }) =>
-    builder.addColumn(`axis-start-${key}`, `axis-end-${key}`, size),
+    b.col(`axis-start-${key}`, `axis-end-${key}`, size),
   );
-  return builder.build();
+  return b.build();
 };

@@ -55,7 +55,7 @@ export const WithIcon = <
   weight,
   ...props
 }: WithIconProps<E, L>): ReactElement => {
-  const color = evalColor(crudeColor);
+  const color = evalColor(crudeColor, shade);
   const startIcons = Children.toArray(startIcon);
   const endIcons = Children.toArray(endIcon);
   const formatted = formatChildren(level, children, color, shade, weight);
