@@ -267,7 +267,7 @@ namespace ni{
     ///////////////////////////////////////////////////////////////////////////////////
 
     class Factory final : public task::Factory{
-        public:
+    public:
         // member functions
         std::pair<std::unique_ptr<task::Task>, bool> configureTask( const std::shared_ptr<task::Context> &ctx,
                                                                     const synnax::Task &task) override;

@@ -195,10 +195,10 @@ freighter::Error ni::daqReader::start(){
     // TODO: don't let multiple starts happen (or handle it at least)
     freighter::Error err = freighter::NIL;
     if (this->checkNIError(DAQmxStartTask(taskHandle))){
-        LOG(ERROR) << "[NI Reader] failed while starting task " << this->reader_config.task_name;
+        LOG(ERROR) << "[NI Reader] failed while starting reader for task " << this->reader_config.task_name;
         err = freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
     } else{
-        LOG(INFO) << "[NI Reader] successfully started task " << this->reader_config.task_name;
+        LOG(INFO) << "[NI Reader] successfully started reader for task " << this->reader_config.task_name;
     }
     return err;
 }
@@ -208,12 +208,12 @@ freighter::Error ni::daqReader::stop(){ // TODO: don't let multiple stops happen
     freighter::Error err = freighter::NIL;
 
     if (this->checkNIError(DAQmxStopTask(taskHandle))){
-        LOG(ERROR) << "[NI Reader] failed while stopping task " << this->reader_config.task_name;
+        LOG(ERROR) << "[NI Reader] failed while stopping reader for task " << this->reader_config.task_name;
         err = freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
     }
     else {
         if (this->checkNIError(DAQmxClearTask(taskHandle))){
-            LOG(ERROR) << "[NI Reader] failed while clearing task " << this->reader_config.task_name;
+            LOG(ERROR) << "[NI Reader] failed while clearing reader for task " << this->reader_config.task_name;
             err = freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
         }
     }
@@ -226,7 +226,7 @@ freighter::Error ni::daqReader::stop(){ // TODO: don't let multiple stops happen
     }
 
     if(err == freighter::NIL){
-        LOG(INFO) << "[NI Reader] successfully stopped and cleared task " << this->reader_config.task_name;
+        LOG(INFO) << "[NI Reader] successfully stopped and cleared reader for task " << this->reader_config.task_name;
     }
     
     return err;
@@ -429,6 +429,8 @@ ni::daqWriter::daqWriter(
     : taskHandle(taskHandle),
       ctx(ctx)
 {
+    // TODO: add a writer_type to config? 
+    
     // Create parser
     auto config_parser = config::Parser(task.config);
     this->writer_config.task_name = task.name;
@@ -555,10 +557,10 @@ freighter::Error ni::daqWriter::start(){
     // TODO: don't let multiple starts happen (or handle it at least)
     freighter::Error err = freighter::NIL;
     if (this->checkNIError(DAQmxStartTask(this->taskHandle))){
-        LOG(ERROR) << "[NI Writer] failed while starting task " << this->writer_config.task_name;
+        LOG(ERROR) << "[NI Writer] failed while starting writer for task " << this->writer_config.task_name;
         err = freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
     } else{
-        LOG(INFO) << "[NI Writer] successfully started task " << this->writer_config.task_name;
+        LOG(INFO) << "[NI Writer] successfully started writer for task " << this->writer_config.task_name;
     }
     return err;
 }
@@ -569,12 +571,12 @@ freighter::Error ni::daqWriter::stop(){
     freighter::Error err = freighter::NIL;
 
     if (this->checkNIError(DAQmxStopTask(taskHandle))){
-        LOG(ERROR) << "[NI Writer] failed while stopping task " << this->writer_config.task_name;
+        LOG(ERROR) << "[NI Writer] failed while stopping writer for task " << this->writer_config.task_name;
         err = freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
     }
     else {
         if (this->checkNIError(DAQmxClearTask(taskHandle))){
-            LOG(ERROR) << "[NI Writer] failed while clearing task " << this->writer_config.task_name;
+            LOG(ERROR) << "[NI Writer] failed while clearing writer for task " << this->writer_config.task_name;
             err = freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
         }
     }
@@ -582,7 +584,7 @@ freighter::Error ni::daqWriter::stop(){
     delete[] writeBuffer;
 
     if(err == freighter::NIL){
-        LOG(INFO) << "[NI Writer] successfully stopped and cleared task " << this->writer_config.task_name;
+        LOG(INFO) << "[NI Writer] successfully stopped and cleared writer for task " << this->writer_config.task_name;
     }
     
     return err;

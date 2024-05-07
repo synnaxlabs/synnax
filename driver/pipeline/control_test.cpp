@@ -165,11 +165,11 @@ TEST(ControlPipelineTests, test_control_NI_digital_writer){
     ASSERT_TRUE(cmdWriter.write(std::move(cmd_frame))); // TODO: remove -> isnt necessary
 
     // do initial read before state update, should be 0
-        auto [state_frame, err3] = streamer.read();
-        ASSERT_FALSE(err3) << err3.message();
-        auto s = state_frame.series->at(1).uint8();
-        LOG(INFO) << "State: " << (int)s[0] << std::endl;
-        ASSERT_TRUE(s[0] == 0);
+    auto [state_frame, err3] = streamer.read();
+    ASSERT_FALSE(err3) << err3.message();
+    auto s = state_frame.series->at(1).uint8();
+    LOG(INFO) << "State: " << (int)s[0] << std::endl;
+    ASSERT_TRUE(s[0] == 0);
 
     // keep reading state channel and printing state
     for (int i = 0; i < 5; i++){

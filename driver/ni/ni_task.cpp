@@ -36,7 +36,7 @@ ni::ReaderTask::ReaderTask(     const std::shared_ptr<task::Context> &ctx,
     DAQmxCreateTask("", &this->taskHandle);
     auto daq_reader = std::make_unique<ni::daqReader>(this->taskHandle, ctx, task);
     if(!daq_reader->ok()){
-        LOG(ERROR) << "[NI Reader] failed to construct reader for" << task.name;
+        LOG(ERROR) << "[NI Reader] failed to construct reader for " << task.name;
         return;
     } 
 
@@ -73,6 +73,7 @@ void ni::ReaderTask::exec(task::Command &cmd){
                 {"running", true}
             }
         });        
+        LOG(INFO) << "[NI Task] successfully started task " << this->task.name;
 
     } else if (cmd.type == "stop"){
         daq_read_pipe.stop();
@@ -84,6 +85,7 @@ void ni::ReaderTask::exec(task::Command &cmd){
                 {"running", false}
             }
         });
+        LOG(INFO) << "[NI Task] successfully stopped task " << this->task.name;
 
     } else {
         LOG(ERROR) << "unknown command type: " << cmd.type;
@@ -165,6 +167,7 @@ void ni::WriterTask::exec(task::Command &cmd){
                 {"running", true}
             }
         });
+        LOG(INFO) << "[NI Task] successfully started task " << this->task.name;
 
     } else if (cmd.type == "stop"){
         this->state_write_pipe.stop();
@@ -177,6 +180,7 @@ void ni::WriterTask::exec(task::Command &cmd){
                 {"running", false}
             }
         });
+        LOG(INFO) << "[NI Task] successfully stopped task " << this->task.name;
     } else {
         LOG(ERROR) << "unknown command type: " << cmd.type;
     }

@@ -138,7 +138,7 @@ TEST(AcquisitionPipelineTests, test_acquisition_NI_analog_reader){
                 }
                 std::cout << std::endl;
         }
-        std::this_thread::sleep_for(std::chrono::seconds(10));
+        // std::this_thread::sleep_for(std::chrono::seconds(10));
         acquisition_pipe.stop();
 }
 
@@ -255,7 +255,7 @@ TEST(AcquisitionPipelineTests, test_acquisition_NI_digital_reader){
                 }
                 std::cout << std::endl;
         }
-        std::this_thread::sleep_for(std::chrono::seconds(10));
+        // std::this_thread::sleep_for(std::chrono::seconds(10));
         acquisition_pipe.stop();
 }
 

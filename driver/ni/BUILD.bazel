@@ -138,3 +138,17 @@ cc_test(
     copts = ["/std:c++20"],
 )
 
+cc_test(
+    name = "ni_task_test",
+    srcs = [
+        "ni_task_test.cpp",
+    ],
+    deps = [
+        "ni",
+        "@com_google_googletest//:gtest_main",
+        "daqmx_hds",
+        "syscfg_hds",
+        "//driver/testutil",
+    ],
+    copts = ["/std:c++20"],
+)
