@@ -15,7 +15,7 @@
 #include "glog/logging.h"
 
 #include "client/cpp/synnax.h"
-#include "driver/ni/ni_reader.h"
+#include "driver/ni/ni.h"
 #include <stdio.h>
 #include "nlohmann/json.hpp"
 #include "driver/testutil/testutil.h"

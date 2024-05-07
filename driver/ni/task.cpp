@@ -11,7 +11,7 @@
 // Created by Synnax on 2/18/2024.
 //
 
-#include "ni_reader.h"
+#include "ni.h"
 #include <cassert>
 #include <stdio.h>
 

@@ -11,7 +11,7 @@
 // Created by Emiliano Bonilla on 1/3/24.
 //
 
-#include "driver/ni/ni_reader.h"
+#include "driver/ni/ni.h"
 #include "nlohmann/json.hpp"
 #include "client/cpp/telem/telem.h"
 #include <utility>

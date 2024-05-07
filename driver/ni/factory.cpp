@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include "glog/logging.h"
-#include "driver/ni/ni_reader.h"
+#include "driver/ni/ni.h"
 
 
 std::pair<std::unique_ptr<task::Task>, bool> ni::Factory::configureTask(

@@ -22,13 +22,13 @@ cc_library(
 cc_library(
     name = "ni",
     srcs = [
-        "ni_reader.cpp",
-        "ni_task.cpp",
+        "reader.cpp",
+        "task.cpp",
         "factory.cpp",
-        "ni_scanner.cpp" 
+        "scanner.cpp" 
     ],
     hdrs = [
-        "ni_reader.h",
+        "ni.h",
         "daqmx.h",
         "nisyscfg.h",
         "nisyscfg_errors.h",
@@ -59,31 +59,11 @@ cc_library(
     ],
 )
 
-# cc_library(
-#     name = "ni_module",
-#     srcs = ["ni_module.cpp"],
-#     hdrs = ["ni_module.h"],
-#     copts = ["/std:c++20"],
-#     target_compatible_with = select({
-#         "@platforms//os:windows": [],
-#         "//conditions:default": ["@platforms//:incompatible"],
-#     }),
-#     visibility = ["//visibility:public"],
-#     deps = [
-#         "ni",
-#         "//driver/breaker",
-#         "//driver/modules:module",
-#         "//driver/pipeline:pipeline",
-#         "//driver/pipeline:daqReader",
-#         "@nlohmann_json//:json",
-#         "//client/cpp:synnax",
-#     ],
-# )
 
 cc_test(
-    name = "ni_reader_test",
+    name = "reader_test",
     srcs = [
-        "ni_reader_test.cpp",
+        "reader_test.cpp",
     ],
     copts = ["/std:c++20"],
     deps = [
@@ -96,9 +76,9 @@ cc_test(
 )
 
 cc_test(
-    name = "ni_writer_test",
+    name = "writer_test",
     srcs = [
-        "ni_writer_test.cpp",
+        "writer_test.cpp",
     ],
     copts = ["/std:c++20"],
     deps = [
@@ -110,23 +90,11 @@ cc_test(
     ],
 )
 
-cc_test(
-    name = "ni_module_test",
-    srcs = [
-        "ni_module_test.cpp",
-    ],
-    copts = ["/std:c++20"],
-    deps = [
-        "ni_module",
-        "//driver/testutil",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
 
 cc_test(
-    name = "ni_scanner_test",
+    name = "scanner_test",
     srcs = [
-        "ni_scanner_test.cpp",
+        "scanner_test.cpp",
     ],
     deps = [
         "ni",
@@ -139,9 +107,9 @@ cc_test(
 )
 
 cc_test(
-    name = "ni_task_test",
+    name = "task_test",
     srcs = [
-        "ni_task_test.cpp",
+        "task_test.cpp",
     ],
     deps = [
         "ni",

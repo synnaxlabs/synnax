@@ -19,7 +19,7 @@
 
 /// Internal
 #include "client/cpp/synnax.h"
-#include "driver/ni/ni_reader.h"
+#include "driver/ni/ni.h"
 #include "driver/testutil/testutil.h"
 #include "nlohmann/json.hpp"
 
