@@ -16,7 +16,7 @@ std::pair<std::unique_ptr<task::Task>, bool> ni::Factory::configureTask(
     const synnax::Task &task
 ) {
     if(task.type == "niScanner")
-        return {nu.llptr, false}; // TODO
+        return {nullptr, false}; // TODO
     else if (task.type == "niReader")
         return {ni::ReaderTask::configure(ctx, task), true};
     else if (task.type == "niWriter")
@@ -68,7 +68,7 @@ ni::Factory::configureInitialTasks(
             LOG(ERROR) << "[ni] Failed to configure scanner task: " << err;
             return tasks;
         }
-        tasks.emplace_back({sy_task, std::move(task)});
+        tasks.emplace_back(std::pair<synnax::Task, std::unique_ptr<task::Task> > ({sy_task, std::move(task)}));
     }
     return tasks;
 }

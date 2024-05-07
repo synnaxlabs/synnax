@@ -54,13 +54,13 @@ void ni::Scanner::scan(json properties) {
     // first find hardware
     auto err = NISysCfgFindHardware(this->session, NISysCfgFilterModeAll, this->filter, NULL, &this->resourcesHandle);
     if(err != NISysCfg_OK){
-        return ""; // TODO: handle error more meaningfully
+        return; // TODO: handle error more meaningfully
     }
 
     // Now iterate through found devices and get requested properties
     devices["devices"] = json::array();  
 
-    while(NIsysCfgNextResource(this->session, this->resourcesHandle, &resource) == NISysCfg_OK){
+    while(NISysCfgNextResource(this->session, this->resourcesHandle, &resource) == NISysCfg_OK){
         json device;
         for(auto &property: property_arr){
             char propertyValue[1024] = "";

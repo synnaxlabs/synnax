@@ -24,7 +24,8 @@ cc_library(
     srcs = [
         "ni_reader.cpp",
         "ni_task.cpp",
-        #"ni_scanner.cpp" TODO: uncomment this
+        "factory.cpp",
+        "ni_scanner.cpp" 
     ],
     hdrs = [
         "ni_reader.h",
