@@ -14,7 +14,6 @@ import { Header } from "@synnaxlabs/pluto/header";
 import { Menu } from "@synnaxlabs/pluto/menu";
 import { type MarkdownHeading } from "astro";
 import { unescape } from "html-escaper";
-
 import { OSSelectButton } from "@/components/platform/PlatformTabs";
 
 interface ItemOffset {

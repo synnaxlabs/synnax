@@ -1,4 +1,4 @@
-import { type PageNavNode } from "@/components/PageNav";
+import { PageNavNode } from "@/components/PageNav/PageNav";
 
 export const plutoNav: PageNavNode = {
   key: "pluto",
