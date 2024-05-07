@@ -24,9 +24,8 @@ public:
 
 class Control {
 public:
-    void start();
 
-    void stop();
+    Control() = default;
 
     Control(
         std::shared_ptr<task::Context> ctx,
@@ -34,6 +33,9 @@ public:
         std::unique_ptr<Sink> sink,
         const breaker::Config &breaker_config
     );
+
+    void start();
+    void stop();
 
 
     ~Control() {

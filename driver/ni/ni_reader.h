@@ -17,6 +17,7 @@
 #include <memory>
 
 #include "daqmx.h"
+#include "nisyscfg.h"
 #include "client/cpp/synnax.h"
 #include "driver/task/task.h"
 #include "driver/pipeline/daqReader.h"
@@ -25,6 +26,7 @@
 #include "driver/breaker/breaker.h"
 #include "driver/pipeline/control.h"
 #include "nlohmann/json.hpp" // for json parsing
+#include "driver/task/task.h"
 
 
 // #include "driver/modules/module.h"
@@ -208,10 +210,10 @@ namespace ni{
             NISysCfgSessionHandle session;
             NISysCfgFilterHandle filter;
             NISysCfgEnumResourceHandle resourcesHandle;
-    }
+    };
 
     ///////////////////////////////////////////////////////////////////////////////////
-    //                                    scannerTask                                //
+    //                                    ScannerTask                                //
     ///////////////////////////////////////////////////////////////////////////////////
 
 
@@ -221,21 +223,21 @@ namespace ni{
 
     class ReaderTask final : public task::Task {
     public:
-        explicit ReaderTask(  const std::shared_ptr<task::Context> &ctx, 
+        explicit ReaderTask(    const std::shared_ptr<task::Context> &ctx, 
                                 synnax::Task task); 
-
-        static std::unique_ptr<task::Task> configure(
-            const std::shared_ptr<task::Context> &ctx,
-            const synnax::Task &task
-        );
                                 
         void exec(task::Command &cmd) override;
 
         void stop() override{};
+
+        static std::unique_ptr<task::Task> configure(   const std::shared_ptr<task::Context> &ctx,
+                                                        const synnax::Task &task);
     private:
         pipeline::Acquisition daq_read_pipe; // source is a daqreader 
-        Taskhandle taskhandle;
-    }
+        TaskHandle taskHandle;
+        synnax::Task task;
+        std::shared_ptr<task::Context> ctx;
+    };
 
     ///////////////////////////////////////////////////////////////////////////////////
     //                                    WriterTask                                 //
@@ -246,19 +248,18 @@ namespace ni{
         explicit WriterTask(  const std::shared_ptr<task::Context> &ctx, 
                                 synnax::Task task); 
 
-        
-        static std::unique_ptr<task::Task> configure(
-            const std::shared_ptr<task::Context> &ctx,
-            const synnax::Task &task
-        );
-
         void exec(task::Command &cmd) override;
         void stop() override{};
+
+        static std::unique_ptr<task::Task> configure(   const std::shared_ptr<task::Context> &ctx,
+                                                        const synnax::Task &task);
     private:
-        pipeline::Acquisition cmd_read_pipe;
-        pipeline::Control state_write_pipe;
-        Taskhandle taskhandle;
-    }
+        pipeline::Control cmd_write_pipe;
+        pipeline::Acquisition state_write_pipe;
+        TaskHandle taskHandle;
+        synnax::Task task;
+        std::shared_ptr<task::Context> ctx;
+    };
 
 
     ///////////////////////////////////////////////////////////////////////////////////
@@ -268,23 +269,112 @@ namespace ni{
     class Factory final : public task::Factory{
         public:
         // member functions
-        configureInitialTasks( 
-            const std::shared_ptr<Context> &ctx,
-            const synnax::Rack &rack
-        ) override;
+    
 
-        virtual std::pair<std::unique_ptr<task::Task>, bool> configureTask(
-            const std::shared_ptr<task::Context> &ctx,
-            const synnax::Task &task
-        ) override;
+        std::pair<std::unique_ptr<task::Task>, bool> configureTask( const std::shared_ptr<task::Context> &ctx,
+                                                                    const synnax::Task &task) override;
+
+        std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task> > >
+        configureInitialTasks(      const std::shared_ptr<task::Context> &ctx,
+                                    const synnax::Rack &rack) override;
 
         ~Factory() = default;
 
         // member variables
-        std::vector<std::pair<synnax::Task, std::unique_ptr<task> > > 
-    }
+        std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task> > > tasks;
+    };
 
     // TODO: move relevant interfaces here:
 
 
 }
+
+
+
+
+// namespace ni{
+    
+//     ///////////////////////////////////////////////////////////////////////////////////
+//     //                                    NiReaderTask                               //
+//     ///////////////////////////////////////////////////////////////////////////////////
+//     class NiReaderTask final : public task::Task {
+//     public:
+//         explicit NiReaderTask(  const std::shared_ptr<task::Context> &ctx, 
+//                                 synnax::Task task); 
+
+//         static std::unique_ptr<task::Task> configure(
+//             const std::shared_ptr<task::Context> &ctx,
+//             const synnax::Task &task
+//         );
+                                
+//         void exec(task::Command &cmd) override;
+
+//         void stop() override{};
+//     private:
+//         pipeline::Acquisition daq_read_pipe; // source is a daqreader 
+//         Taskhandle taskhandle;
+//     }
+
+//     ///////////////////////////////////////////////////////////////////////////////////
+//     //                                    NiWriterTask                               //
+//     ///////////////////////////////////////////////////////////////////////////////////
+//     class NiWriterTask final : public task::Task {
+//     public:
+//         explicit NiWriterTask(  const std::shared_ptr<task::Context> &ctx, 
+//                                 synnax::Task task); 
+
+        
+//         static std::unique_ptr<task::Task> configure(
+//             const std::shared_ptr<task::Context> &ctx,
+//             const synnax::Task &task
+//         );
+
+//         void exec(task::Command &cmd) override;
+//         void stop() override{};
+//     private:
+//         pipeline::Acquisition cmd_read_pipe; // source reads from synnax (TODO: make this source)
+//         pipeline::Control state_write_pipe;
+//         Taskhandle taskhandle;
+//     }
+
+
+//     //////////////////////////////////////////////// OLD CODE
+
+
+
+//     class niTaskFactory : public module::Factory {
+//     public:
+//         niTaskFactory() {};
+//         std::unique_ptr<module::Module> createModule(TaskHandle taskhandle,
+//                                                     const std::shared_ptr<synnax::Synnax> &client,
+//                                                     const json &config,
+//                                                     bool &valid_config,
+//                                                     json &config_err);
+
+//         std::unique_ptr <NiAnalogReaderTask> createAnalogReaderTask(TaskHandle taskhandle,
+//                                                                     std::shared_ptr<synnax::Synnax> client,
+//                                                                     bool &valid_config,
+//                                                                     const json &config,
+//                                                                     json &config_err);
+
+//         std::unique_ptr <NiDigitalReaderTask> createDigitalReaderTask(TaskHandle taskhandle,
+//                                                                     std::shared_ptr<synnax::Synnax> client,
+//                                                                     bool &valid_config,
+//                                                                     const json &config,
+//                                                                     json &config_err);
+
+//         std::unique_ptr <NiDigitalWriterTask> createDigitalWriterTask(TaskHandle taskhandle,
+//                                                                     std::shared_ptr<synnax::Synnax> client,
+//                                                                     bool &valid_config,
+//                                                                     const json &config,
+//                                                                     json &config_err);
+
+//         bool validChannelConfig(const json &config, json &config_err);
+
+//         // TODO: createDigitalReaderTask
+//         // TODO: createDigitalWriterTask
+        
+//     };
+
+
+// }

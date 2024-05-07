@@ -95,7 +95,5 @@ private:
     ReaderConfig cfg;
     breaker::Breaker breaker;
     pipeline::Acquisition pipe;
-
-
 };
 }
