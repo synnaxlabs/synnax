@@ -139,18 +139,18 @@ ni::WriterTask::WriterTask(     const std::shared_ptr<task::Context> &ctx,
                                                         breaker_config);
 
     // construct control pipe
-    this->cmd_write_pipe = pipeline::Control(    ctx, 
+    this->cmd_write_pipe = std::move(pipeline::Control(   ctx, 
                                                 streamer_config, 
                                                 std::move(daq_writer), 
-                                                breaker_config);
+                                                breaker_config));
 } 
 
 
 
 
-std::unique_ptr<task::Task> ni::WriterTask::configure(    const std::shared_ptr<task::Context> ctx,
+std::unique_ptr<task::Task> ni::WriterTask::configure(    const std::shared_ptr<task::Context>&ctx,
                                                             const synnax::Task &task){
-    return std::make_unique<ni::NiWriterTask>(ctx, task);
+    return std::make_unique<ni::WriterTask>(ctx, task);
 }
 
 void ni::WriterTask::exec(task::Command &cmd){
@@ -177,7 +177,6 @@ void ni::WriterTask::exec(task::Command &cmd){
                 {"running", false}
             }
         });
-
     } else {
         LOG(ERROR) << "unknown command type: " << cmd.type;
     }

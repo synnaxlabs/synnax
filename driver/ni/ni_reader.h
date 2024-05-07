@@ -245,7 +245,7 @@ namespace ni{
 
     class WriterTask final : public task::Task {
     public:
-        explicit WriterTask(  const std::shared_ptr<task::Context> &ctx, 
+        explicit WriterTask(    const std::shared_ptr<task::Context> &ctx, 
                                 synnax::Task task); 
 
         void exec(task::Command &cmd) override;

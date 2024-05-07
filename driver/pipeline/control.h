@@ -38,11 +38,6 @@ public:
     void stop();
 
 
-    ~Control() {
-        LOG(INFO) << "Control pipeline destroyed";
-    }
-
-
 private:
     std::shared_ptr<task::Context> ctx;
 
