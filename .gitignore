@@ -80,3 +80,7 @@ synnax-data/**
 
 **/bin/**
 !**/bin/.gitkeep
+
+# |||| PROFILING ||||
+**/mem.out
+**/profile**.png
