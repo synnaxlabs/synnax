@@ -214,7 +214,6 @@ func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.
 		return end, err
 	}
 
-	err = dw.CheckFileSizeAndMaybeSwitchFile(ctx)
 	return end, err
 }
 

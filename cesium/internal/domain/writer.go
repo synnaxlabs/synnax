@@ -141,61 +141,66 @@ func (w *Writer) Write(p []byte) (n int, err error) {
 // previous commit. If the provided timestamp is not strictly greater than the previous
 // commit, Commit will return an error. If the domain formed by the WriterConfig.Start
 // and the provided timestamp overlaps with any other domains within the DB, Commit will
-// return an error.
+// return an ErrDomainOverlap.
 func (w *Writer) Commit(ctx context.Context, end telem.TimeStamp) error {
 	ctx, span := w.T.Prod(ctx, "commit")
+	defer span.End()
+
 	if w.closed {
-		return span.EndWith(WriterClosedError)
+		return span.Error(WriterClosedError)
 	}
-	if w.presetEnd {
-		end = w.End
-	}
-	if err := w.validateCommitRange(end); err != nil {
-		return span.EndWith(err)
+
+	switchingFile, commitEnd, err := w.resolveCommitEnd(end)
+
+	if err = w.validateCommitRange(commitEnd, switchingFile); err != nil {
+		return span.Error(err)
 	}
 	length := w.internal.Len()
 	if length == 0 {
 		return nil
 	}
 	ptr := pointer{
-		TimeRange: telem.TimeRange{Start: w.Start, End: end},
+		TimeRange: telem.TimeRange{Start: w.Start, End: commitEnd},
 		offset:    uint32(w.internal.Offset()),
 		length:    uint32(length),
 		fileKey:   w.fileKey,
 	}
 	f := lo.Ternary(w.prevCommit.IsZero(), w.idx.insert, w.idx.update)
-	w.prevCommit = end
 
-	return span.EndWith(f(ctx, ptr))
-}
-
-func (w *Writer) CheckFileSizeAndMaybeSwitchFile(ctx context.Context) (err error) {
-	s, err := w.fc.FS.Stat(fileKeyName(w.fileKey))
-	if err != nil {
-		return
-	}
-
-	if telem.Size(s.Size()) >= w.fc.Config.FileSizeCap {
+	if switchingFile {
 		err = w.internal.Close()
 		if err != nil {
-			return
+			return span.Error(err)
 		}
 
-		var (
-			newFileKey        uint16
-			newInternalWriter xio.TrackedWriteCloser
-		)
-
-		newFileKey, newInternalWriter, err = w.fc.acquireWriter(ctx)
+		newFileKey, newInternalWriter, err := w.fc.acquireWriter(ctx)
 		if err != nil {
-			return err
+			return span.Error(err)
 		}
 
 		w.fileKey = newFileKey
 		w.internal = newInternalWriter
+		w.Start = commitEnd
+		w.prevCommit = 0
+	} else {
+		w.prevCommit = commitEnd
 	}
 
-	return
+	return span.Error(f(ctx, ptr))
+}
+
+// resolveCommitEnd returns whether a file change is needed, the resolved commit end, and any errors.
+func (w *Writer) resolveCommitEnd(end telem.TimeStamp) (bool, telem.TimeStamp, error) {
+	s, err := w.fc.FS.Stat(fileKeyName(w.fileKey))
+	if err != nil {
+		return false, end, err
+	}
+
+	if telem.Size(s.Size()) >= w.fc.Config.FileSizeCap {
+		return true, end, nil
+	}
+
+	return false, lo.Ternary(w.presetEnd, w.End, end), nil
 }
 
 // Close closes the writer, releasing any resources it may have been holding. Any
@@ -209,9 +214,11 @@ func (w *Writer) Close() error {
 	return w.internal.Close()
 }
 
-func (w *Writer) validateCommitRange(end telem.TimeStamp) error {
-	if !w.prevCommit.IsZero() && end.Before(w.prevCommit) {
-		return errors.Wrap(validate.Error, "commit timestamp must be strictly greater than the previous commit")
+func (w *Writer) validateCommitRange(end telem.TimeStamp, switchingFile bool) error {
+	// If the writer is going to switch files, we can allow the end of this commit to be
+	// before the previous commit.
+	if !w.prevCommit.IsZero() && !switchingFile && end.Before(w.prevCommit) {
+		return errors.Wrap(validate.Error, "commit timestamp must not be less than the previous commit")
 	}
 	if !w.Start.Before(end) {
 		return errors.Wrap(validate.Error, "commit timestamp must be strictly greater than the starting timestamp")
