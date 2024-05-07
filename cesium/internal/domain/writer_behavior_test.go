@@ -132,13 +132,13 @@ var _ = Describe("WriterBehavior", func() {
 						By("Writing some telemetry")
 						w := MustSucceed(db2.NewWriter(ctx, domain.WriterConfig{Start: 1 * telem.SecondTS, End: 100 * telem.SecondTS}))
 						Expect(w.Write([]byte{1, 2, 3, 4, 5})).To(Equal(5))
+						Expect(w.Commit(ctx, 5*telem.SecondTS+1)).To(Succeed())
 						l := MustSucceed(db2.FS.List(""))
 						l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
 							return item.Name() != "counter.domain" && item.Name() != "index.domain"
 						})
 						Expect(l).To(HaveLen(1))
 						Expect(l[0].Size()).To(Equal(int64(5)))
-						Expect(w.Commit(ctx, 5*telem.SecondTS+1)).To(Succeed())
 
 						By("Asserting that it should not switch file when the file is not oversize")
 						Expect(w.Write([]byte{6, 7, 8, 9, 10, 11})).To(Equal(6))

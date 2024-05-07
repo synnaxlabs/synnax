@@ -14,16 +14,18 @@ import (
 	"github.com/synnaxlabs/x/binary"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/telem"
 )
 
 type Option func(*options)
 
 type options struct {
 	alamos.Instrumentation
-	dirname string
-	fs      xfs.FS
-	metaECD binary.EncoderDecoder
-	gcCfg   *GCConfig
+	dirname     string
+	fs          xfs.FS
+	metaECD     binary.EncoderDecoder
+	gcCfg       *GCConfig
+	fileSizeCap telem.Size
 }
 
 func (o *options) Report() alamos.Report {
@@ -45,6 +47,7 @@ func mergeDefaultOptions(o *options) {
 	o.metaECD = override.Nil[binary.EncoderDecoder](&binary.JSONEncoderDecoder{}, o.metaECD)
 	o.fs = override.Nil[xfs.FS](xfs.Default, o.fs)
 	o.gcCfg = override.Nil[*GCConfig](&DefaultGCConfig, o.gcCfg)
+	o.fileSizeCap = override.Numeric(100*telem.Gigabyte, o.fileSizeCap)
 }
 
 func WithFS(fs xfs.FS) Option {
@@ -68,5 +71,11 @@ func MemBacked() Option {
 func WithInstrumentation(i alamos.Instrumentation) Option {
 	return func(o *options) {
 		o.Instrumentation = i
+	}
+}
+
+func WithFileSizeCap(cap telem.Size) Option {
+	return func(o *options) {
+		o.fileSizeCap = cap
 	}
 }

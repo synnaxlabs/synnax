@@ -72,9 +72,9 @@ type Writer struct {
 	// hwm is a hot-path optimization when writing to an index channel. We can avoid
 	// unnecessary index lookups by keeping track of the highest timestamp written.
 	// Only valid when Channel.IsIndex is true.
-	hwm    telem.TimeStamp
-	pos    int
-	closed bool
+	hwm                  telem.TimeStamp
+	lastCommitFileSwitch bool
+	closed               bool
 }
 
 func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (w *Writer, transfer controller.Transfer, err error) {
@@ -195,7 +195,18 @@ func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.
 	if !ok {
 		return 0, controller.Unauthorized(w.control.Subject.String(), w.Channel.Key)
 	}
+
 	if end.IsZero() {
+		if w.lastCommitFileSwitch {
+			// Correct the start position.
+			approx, err := w.idx.Stamp(ctx, dw.Start, 1, true)
+			if err != nil {
+				return 0, err
+			}
+			w.Start = approx.Lower
+			dw.Start = approx.Lower
+			w.lastCommitFileSwitch = false
+		}
 		// We're using w.len - 1 here because we want the timestamp of the last
 		// written frame.
 		approx, err := w.idx.Stamp(ctx, w.Start, w.len(dw.Writer)-1, true)
@@ -209,10 +220,7 @@ func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.
 		end = approx.Lower + 1
 	}
 	err := dw.Commit(ctx, end)
-
-	if err != nil {
-		return end, err
-	}
+	w.lastCommitFileSwitch = w.Start != dw.Start
 
 	return end, err
 }

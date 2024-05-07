@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
 	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/testutil"
 	"path"
 	"strconv"
@@ -31,6 +32,7 @@ func openDBOnFS(fs xfs.FS) *cesium.DB {
 	return testutil.MustSucceed(cesium.Open(
 		rootPath,
 		cesium.WithFS(fs),
+		cesium.WithFileSizeCap(50*telem.ByteSize),
 	))
 }
 

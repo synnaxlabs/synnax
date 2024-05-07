@@ -75,7 +75,7 @@ func (db *DB) openVirtualOrUnary(ch Channel) error {
 		if isOpen {
 			return nil
 		}
-		v, err := virtual.Open(virtual.Config{Channel: ch, Instrumentation: db.Instrumentation})
+		v, err := virtual.Open(virtual.Config{Channel: ch, Instrumentation: db.options.Instrumentation})
 		if err != nil {
 			return err
 		}
@@ -85,7 +85,7 @@ func (db *DB) openVirtualOrUnary(ch Channel) error {
 		if isOpen {
 			return nil
 		}
-		u, err := unary.Open(unary.Config{FS: fs, Channel: ch, Instrumentation: db.Instrumentation})
+		u, err := unary.Open(unary.Config{FS: fs, Channel: ch, Instrumentation: db.options.Instrumentation, FileSizeCap: db.options.fileSizeCap})
 		if err != nil {
 			return err
 		}
