@@ -16,7 +16,7 @@ std::pair<std::unique_ptr<task::Task>, bool> opc::Factory::configureTask(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task
 ) {
-    if (task.type == "opcScanner")
+    if (task.type == "opcScanner") // TODO: not sure if we want this and also the configure initial tasks
         return {std::make_unique<Scanner>(ctx, task), true};
     if (task.type == "opcReader")
         return {Reader::configure(ctx, task), true};

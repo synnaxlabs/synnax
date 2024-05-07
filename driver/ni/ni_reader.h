@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+ // Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -13,15 +13,19 @@
 #include <vector>
 #include <map>
 #include <queue>
+#include <utility>
+#include <memory>
+
 #include "daqmx.h"
-
-
 #include "client/cpp/synnax.h"
 #include "driver/task/task.h"
 #include "driver/pipeline/daqReader.h"
 #include "driver/pipeline/acquisition.h"
 #include "driver/errors/errors.h" 
 #include "driver/breaker/breaker.h"
+#include "driver/pipeline/control.h"
+#include "nlohmann/json.hpp" // for json parsing
+
 
 // #include "driver/modules/module.h"
 
@@ -40,6 +44,12 @@ namespace ni{
         float max_val;
     } ChannelConfig;
 
+
+
+    ///////////////////////////////////////////////////////////////////////////////////
+    //                                    daqReader                                  //
+    ///////////////////////////////////////////////////////////////////////////////////
+
     typedef struct ReaderConfig{
         std::vector<ChannelConfig> channels;
         std::uint64_t acq_rate = 0;
@@ -51,25 +61,6 @@ namespace ni{
         bool isDigital = false;
     } ReaderConfig;
 
-    typedef struct WriterConfig{
-        std::vector<ChannelConfig> channels;
-        std::uint64_t state_rate = 0;
-        std::string device_name;
-        std::string task_name; 
-        synnax::ChannelKey task_key;
-
-
-        std::vector<synnax::ChannelKey> drive_state_channel_keys;
-        std::vector<synnax::ChannelKey> drive_cmd_channel_keys;
-
-        synnax::ChannelKey drive_state_index_key;
-        std::queue<synnax::ChannelKey> modified_state_keys;
-        std::queue<std::uint8_t> modified_state_values;
-    } WriterConfig;
-
-    ///////////////////////////////////////////////////////////////////////////////////
-    //                                    daqReader                                  //
-    ///////////////////////////////////////////////////////////////////////////////////
 
     class daqReader : public daq::daqReader{ // public keyword required to store pointer to niDaqreader in a pointer to acqReader
     public:
@@ -117,7 +108,7 @@ namespace ni{
 
 
     ///////////////////////////////////////////////////////////////////////////////////
-    //                                    daqStateWriter                           //
+    //                                    daqStateWriter                             //
     ///////////////////////////////////////////////////////////////////////////////////
 
     class daqStateWriter : public pipeline::Source{
@@ -140,8 +131,24 @@ namespace ni{
 
 
     ///////////////////////////////////////////////////////////////////////////////////
-    //                                    niDaqWriter                                //
+    //                                    daqWriter                                  //
     ///////////////////////////////////////////////////////////////////////////////////
+
+    typedef struct WriterConfig{
+        std::vector<ChannelConfig> channels;
+        std::uint64_t state_rate = 0;
+        std::string device_name;
+        std::string task_name; 
+        synnax::ChannelKey task_key;
+
+
+        std::vector<synnax::ChannelKey> drive_state_channel_keys;
+        std::vector<synnax::ChannelKey> drive_cmd_channel_keys;
+
+        synnax::ChannelKey drive_state_index_key;
+        std::queue<synnax::ChannelKey> modified_state_keys;
+        std::queue<std::uint8_t> modified_state_values;
+    } WriterConfig;
 
     class daqWriter : public daq::daqWriter{
     public:
@@ -182,5 +189,102 @@ namespace ni{
         WriterConfig writer_config; 
         breaker::Breaker breaker;
     };
+
+    ///////////////////////////////////////////////////////////////////////////////////
+    //                                    Scanner                                    //
+    ///////////////////////////////////////////////////////////////////////////////////
+
+    class Scanner {
+        public: 
+            explicit Scanner();
+            ~Scanner();
+            void scan(json properties);
+            void testConnection();
+            bool ok();
+        private:
+            json devices;
+            json deviceProperties;
+            bool ok_state = true;
+            NISysCfgSessionHandle session;
+            NISysCfgFilterHandle filter;
+            NISysCfgEnumResourceHandle resourcesHandle;
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////////
+    //                                    scannerTask                                //
+    ///////////////////////////////////////////////////////////////////////////////////
+
+
+    ///////////////////////////////////////////////////////////////////////////////////
+    //                                    ReaderTask                                 //
+    ///////////////////////////////////////////////////////////////////////////////////
+
+    class ReaderTask final : public task::Task {
+    public:
+        explicit ReaderTask(  const std::shared_ptr<task::Context> &ctx, 
+                                synnax::Task task); 
+
+        static std::unique_ptr<task::Task> configure(
+            const std::shared_ptr<task::Context> &ctx,
+            const synnax::Task &task
+        );
+                                
+        void exec(task::Command &cmd) override;
+
+        void stop() override{};
+    private:
+        pipeline::Acquisition daq_read_pipe; // source is a daqreader 
+        Taskhandle taskhandle;
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////////
+    //                                    WriterTask                                 //
+    ///////////////////////////////////////////////////////////////////////////////////
+
+    class WriterTask final : public task::Task {
+    public:
+        explicit WriterTask(  const std::shared_ptr<task::Context> &ctx, 
+                                synnax::Task task); 
+
+        
+        static std::unique_ptr<task::Task> configure(
+            const std::shared_ptr<task::Context> &ctx,
+            const synnax::Task &task
+        );
+
+        void exec(task::Command &cmd) override;
+        void stop() override{};
+    private:
+        pipeline::Acquisition cmd_read_pipe;
+        pipeline::Control state_write_pipe;
+        Taskhandle taskhandle;
+    }
+
+
+    ///////////////////////////////////////////////////////////////////////////////////
+    //                                    Factory                                    //
+    ///////////////////////////////////////////////////////////////////////////////////
+
+    class Factory final : public task::Factory{
+        public:
+        // member functions
+        configureInitialTasks( 
+            const std::shared_ptr<Context> &ctx,
+            const synnax::Rack &rack
+        ) override;
+
+        virtual std::pair<std::unique_ptr<task::Task>, bool> configureTask(
+            const std::shared_ptr<task::Context> &ctx,
+            const synnax::Task &task
+        ) override;
+
+        ~Factory() = default;
+
+        // member variables
+        std::vector<std::pair<synnax::Task, std::unique_ptr<task> > > 
+    }
+
+    // TODO: move relevant interfaces here:
+
 
 }
