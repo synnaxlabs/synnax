@@ -45,8 +45,8 @@ func extractPointer(f xfs.File) (p struct {
 }
 
 var _ = Describe("WriterBehavior", func() {
-	for fsName, fs := range fileSystems {
-		fs := fs()
+	for fsName, fsMaker := range fileSystems {
+		fs := fsMaker()
 		Context("FS: "+fsName, func() {
 			var db *domain.DB
 			BeforeEach(func() {
@@ -204,7 +204,7 @@ var _ = Describe("WriterBehavior", func() {
 			Describe("AutoPersist", func() {
 				It("Should persist to disk every subsequent call after the set time interval", func() {
 					By("Opening a writer")
-					w := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS, EnableAutoCommit: config.True(), AutoPersistInterval: 50 * telem.Millisecond}))
+					w := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS, EnableAutoCommit: config.True(), AutoIndexPersistInterval: 50 * telem.Millisecond}))
 
 					modTime := MustSucceed(db.FS.Stat("index.domain")).ModTime()
 
@@ -240,7 +240,7 @@ var _ = Describe("WriterBehavior", func() {
 
 				It("Should persist to disk every time when the interval is set to always persist", func() {
 					By("Opening a writer")
-					w := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS, EnableAutoCommit: config.True(), AutoPersistInterval: domain.AlwaysPersist}))
+					w := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS, EnableAutoCommit: config.True(), AutoIndexPersistInterval: domain.AlwaysPersist}))
 
 					By("Writing some data and committing it")
 					_, err := w.Write([]byte{1, 2, 3, 4, 5})
@@ -279,7 +279,7 @@ var _ = Describe("WriterBehavior", func() {
 
 				It("Should persist any unpersisted, but committed (stranded) data on close", func() {
 					By("Opening a writer")
-					w := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS, EnableAutoCommit: config.True(), AutoPersistInterval: 10 * telem.Second}))
+					w := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS, EnableAutoCommit: config.True(), AutoIndexPersistInterval: 10 * telem.Second}))
 
 					By("Writing some data and committing it")
 					_, err := w.Write([]byte{1, 2, 3, 4, 5})
@@ -304,7 +304,7 @@ var _ = Describe("WriterBehavior", func() {
 
 				It("Should always persist if auto commit is not enabled, no matter the interval", func() {
 					By("Opening a writer")
-					w := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS, AutoPersistInterval: 1 * telem.Hour}))
+					w := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS, AutoIndexPersistInterval: 1 * telem.Hour}))
 
 					By("Writing some data and committing it")
 					_, err := w.Write([]byte{1, 2, 3, 4, 5})

@@ -18,8 +18,8 @@ import (
 )
 
 var _ = Describe("File Controller", func() {
-	for fsName, fs := range fileSystems {
-		fs := fs()
+	for fsName, fsMaker := range fileSystems {
+		fs := fsMaker()
 		Context("FS: "+fsName, Ordered, func() {
 			var db *domain.DB
 			AfterEach(func() {

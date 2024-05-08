@@ -18,8 +18,8 @@ import (
 )
 
 var _ = Describe("Delete", Ordered, func() {
-	for fsName, fs := range fileSystems {
-		fs := fs()
+	for fsName, fsMaker := range fileSystems {
+		fs := fsMaker()
 		Context("FS: "+fsName, func() {
 			var db *domain.DB
 			BeforeEach(func() {

@@ -19,8 +19,8 @@ import (
 )
 
 var _ = Describe("Iterator Behavior", func() {
-	for fsName, fs := range fileSystems {
-		fs := fs()
+	for fsName, fsMaker := range fileSystems {
+		fs := fsMaker()
 		Context("FS: "+fsName, func() {
 			Describe("Channel Indexed", func() {
 				var (

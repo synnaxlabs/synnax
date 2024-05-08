@@ -10,8 +10,8 @@ import (
 )
 
 var _ = Describe("Garbage collection", Ordered, func() {
-	for fsName, fs := range fileSystems {
-		fs := fs()
+	for fsName, fsMaker := range fileSystems {
+		fs := fsMaker()
 		Context("FS: "+fsName, Ordered, func() {
 			var (
 				db     *cesium.DB
