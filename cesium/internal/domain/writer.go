@@ -37,20 +37,20 @@ type WriterConfig struct {
 
 	// EnableAutoCommit determines whether the writer will automatically commit after each write.
 	// If EnableAutoCommit is true, then the writer will commit after each write, and will
-	// persist that commit to index after the specified AutoPersistInterval.
+	// persist that commit to index after the specified AutoIndexPersistInterval.
 	// [OPTIONAL] - Defaults to false.
 	EnableAutoCommit *bool
 
-	// AutoPersistInterval is the frequency at which the changes to index are persisted to the
-	// disk. If AutoPersistInterval <=0, then the writer persists changes to disk after every commit.
-	// Setting an AutoPersistInterval is invalid if EnableAutoCommit is off.
+	// AutoIndexPersistInterval is the frequency at which the changes to index are persisted to the
+	// disk. If AutoIndexPersistInterval <=0, then the writer persists changes to disk after every commit.
+	// Setting an AutoIndexPersistInterval is invalid if EnableAutoCommit is off.
 	// [OPTIONAL] Defaults to 1s
-	AutoPersistInterval telem.TimeSpan
+	AutoIndexPersistInterval telem.TimeSpan
 }
 
 var (
 	WriterClosedError   = core.EntityClosed("domain.writer")
-	DefaultWriterConfig = WriterConfig{EnableAutoCommit: config.False(), AutoPersistInterval: 1 * telem.Second}
+	DefaultWriterConfig = WriterConfig{EnableAutoCommit: config.False(), AutoIndexPersistInterval: 1 * telem.Second}
 )
 
 const AlwaysPersist telem.TimeSpan = -1
@@ -74,7 +74,7 @@ func (w WriterConfig) Override(other WriterConfig) WriterConfig {
 	w.Start = override.Zero(w.Start, other.Start)
 	w.End = override.Zero(w.End, other.End)
 	w.EnableAutoCommit = override.Nil(w.EnableAutoCommit, other.EnableAutoCommit)
-	w.AutoPersistInterval = override.Zero(w.AutoPersistInterval, other.AutoPersistInterval)
+	w.AutoIndexPersistInterval = override.Zero(w.AutoIndexPersistInterval, other.AutoIndexPersistInterval)
 	return w
 }
 
@@ -113,13 +113,24 @@ func Write(ctx context.Context, db *DB, tr telem.TimeRange, data []byte) error {
 type Writer struct {
 	alamos.Instrumentation
 	WriterConfig
-	prevCommit  telem.TimeStamp
-	idx         *index
-	fileKey     uint16
-	internal    xio.TrackedWriteCloser
-	presetEnd   bool
-	lastPersist telem.TimeStamp
-	closed      bool
+	// prevCommit is the timestamp for the previous Commit call made to the database.
+	prevCommit telem.TimeStamp
+	// idx is the underlying index for the database that stores locations of domains in FS.
+	idx *index
+	// fileKey represents the key of the file written to by the writer. One can convert it
+	// to a filename via the fileKeyToName function.
+	fileKey uint16
+	// internal is a TrackedWriteCloser used to write telemetry to FS.
+	internal xio.TrackedWriteCloser
+	// presetEnd denotes whether the writer has a preset end as part of its WriterConfig.
+	// If it does, then commits to the writer will use that end as the end of the domain.
+	presetEnd bool
+	// lastIndexPersist stores the timestamp of the last time changes to index were flushed
+	// to disk.
+	lastIndexPersist telem.TimeStamp
+	// closed denotes whether the writer is closed. A closed writer returns an error when
+	// attempts to Write or Commit with it are made.
+	closed bool
 }
 
 // NewWriter opens a new Writer using the given configuration.
@@ -133,13 +144,13 @@ func (db *DB) NewWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) 
 		return nil, ErrDomainOverlap
 	}
 	w := &Writer{
-		WriterConfig:    cfg,
-		Instrumentation: db.Instrumentation.Child("writer"),
-		fileKey:         key,
-		internal:        internal,
-		idx:             db.idx,
-		presetEnd:       !cfg.End.IsZero(),
-		lastPersist:     telem.Now(),
+		WriterConfig:     cfg,
+		Instrumentation:  db.Instrumentation.Child("writer"),
+		fileKey:          key,
+		internal:         internal,
+		idx:              db.idx,
+		presetEnd:        !cfg.End.IsZero(),
+		lastIndexPersist: telem.Now(),
 	}
 
 	// If we don't have a preset end, we defer to using the start of the next domain
@@ -176,17 +187,17 @@ func (w *Writer) Write(p []byte) (n int, err error) {
 // commit, Commit will return an error. If the domain formed by the WriterConfig.Start
 // and the provided timestamp overlaps with any other domains within the DB, Commit will
 // return an error.
-// If WriterCommit.AutoPersistInterval is greater than 0, then the changes committed would only
+// If WriterCommit.AutoIndexPersistInterval is greater than 0, then the changes committed would only
 // be persisted to disk after the set interval.
 func (w *Writer) Commit(ctx context.Context, end telem.TimeStamp) error {
 	var (
 		now = telem.Now()
 		// the only time we do not persist is when EnableAutoCommit and the interval is not met yet.
-		persist = !(*w.EnableAutoCommit && w.lastPersist.Span(now) < w.AutoPersistInterval)
+		persist = !(*w.EnableAutoCommit && w.lastIndexPersist.Span(now) < w.AutoIndexPersistInterval)
 	)
 
-	if *w.EnableAutoCommit && w.AutoPersistInterval > 0 && persist {
-		w.lastPersist = now
+	if *w.EnableAutoCommit && w.AutoIndexPersistInterval > 0 && persist {
+		w.lastIndexPersist = now
 	}
 
 	return w.commit(ctx, end, persist)
@@ -235,8 +246,16 @@ func (w *Writer) Close(ctx context.Context) error {
 		return nil
 	}
 
-	if *w.EnableAutoCommit && w.AutoPersistInterval > 0 {
-		w.idx.persist(ctx)
+	if *w.EnableAutoCommit && w.AutoIndexPersistInterval > 0 {
+		w.idx.mu.RLock()
+		encoded := w.idx.indexPersist.encode(w.idx.persistHead, w.idx.mu.pointers)
+		persistAtIndex := w.idx.persistHead
+		w.idx.persistHead = len(w.idx.mu.pointers)
+		w.idx.mu.RUnlock()
+		err := w.idx.writePersist(ctx, encoded, persistAtIndex)
+		if err != nil {
+			return err
+		}
 	}
 
 	w.closed = true

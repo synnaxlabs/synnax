@@ -107,7 +107,7 @@ func (w WriterConfig) Validate() error {
 		"authority count must be 1 or equal to channel count",
 	)
 	v.Ternary(w.AutoPersistInterval != 1*telem.Second && !*w.EnableAutoCommit, "AutoPersist interval cannot be set without EnableAutoCommit")
-	v.Ternary(w.AutoPersistInterval < 0 && w.AutoPersistInterval != -1, "AutoPersistInterval cannot be a negative number except for AlwaysAutoPersist")
+	v.Ternary(w.AutoPersistInterval < 0 && w.AutoPersistInterval != -1, "AutoIndexPersistInterval cannot be a negative number except for AlwaysAutoPersist")
 	return v.Error()
 }
 
@@ -205,8 +205,8 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 				Authority: auth,
 				Persist:   config.Bool(cfg.Mode.Persist()),
 
-				EnableAutoCommit: cfg.EnableAutoCommit,
-				AutoPersistTime:  cfg.AutoPersistInterval,
+				EnableAutoCommit:         cfg.EnableAutoCommit,
+				AutoIndexPersistInterval: cfg.AutoPersistInterval,
 			})
 			if err != nil {
 				return nil, err
@@ -232,7 +232,7 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 					domainWriters[u.Channel.Index] = idxW
 				}
 
-				idxW.internal[key] = w
+				idxW.internal[key] = &unaryWriterState{Writer: *w}
 			} else {
 				// Hot path optimization: in the common case we only write to a rate based
 				// index or an indexed channel, not both. In either case we can avoid a
@@ -247,7 +247,7 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 					rateWriters[u.Channel.Rate] = idxW
 				}
 
-				idxW.internal[key] = w
+				idxW.internal[key] = &unaryWriterState{Writer: *w}
 			}
 			if transfer.Occurred() {
 				controlUpdate.Transfers = append(controlUpdate.Transfers, transfer)
@@ -286,7 +286,7 @@ func (db *DB) openDomainIdxWriter(
 		return nil, core.ChannelNotFound
 	}
 	idx := &index.Domain{DB: u.Domain, Instrumentation: db.Instrumentation}
-	w := &idxWriter{internal: make(map[ChannelKey]*unary.Writer)}
+	w := &idxWriter{internal: make(map[ChannelKey]*unaryWriterState)}
 	w.idx.key = idxKey
 	w.idx.Index = idx
 	w.idx.highWaterMark = cfg.Start
@@ -300,7 +300,7 @@ func (db *DB) openRateIdxWriter(
 	cfg WriterConfig,
 ) *idxWriter {
 	idx := index.Rate{Rate: rate}
-	w := &idxWriter{internal: make(map[ChannelKey]*unary.Writer)}
+	w := &idxWriter{internal: make(map[ChannelKey]*unaryWriterState)}
 	w.idx.Index = idx
 	w.start = cfg.Start
 	return w

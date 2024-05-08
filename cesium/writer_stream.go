@@ -126,7 +126,7 @@ func (w *streamWriter) Flow(ctx signal.Context, opts ...confluence.Option) {
 }
 
 func (w *streamWriter) process(ctx context.Context, req WriterRequest) {
-	if req.Command < WriterWrite || req.Command > WriterSetAuthority {
+	if req.Command < WriterWrite || req.Command > WriterSetMode {
 		panic("[cesium.streamWriter] - invalid command")
 	}
 	if req.Command == WriterError {
@@ -316,16 +316,21 @@ func (w *streamWriter) close(ctx context.Context) error {
 	return errors.CombineErrors(w.err, c.Error())
 }
 
+type unaryWriterState struct {
+	timesWritten int
+	unary.Writer
+}
+
 // idxWriter is a writer to a set of channels that all share the same index.
 type idxWriter struct {
 	start telem.TimeStamp
 	// internal contains writers for each channel
-	internal map[ChannelKey]*unary.Writer
+	internal map[ChannelKey]*unaryWriterState
 	// writingToIdx is true when the Write is writing to the index
 	// channel. This is typically true, which allows us to avoid
 	// unnecessary lookups.
 	writingToIdx bool
-	// numWriteCalls tracks the number of calls to Write that have been made.
+	// numWriteCalls tracks the number of write calls made to the idxWriter.
 	numWriteCalls int
 	idx           struct {
 		// Index is the index used to resolve timestamps for domains in the DB.
@@ -344,54 +349,9 @@ type idxWriter struct {
 }
 
 func (w *idxWriter) Write(fr Frame) (Frame, error) {
-	var (
-		lengthOfFrame        int64 = -1
-		numChannelsWrittenTo       = 0
-	)
-	w.numWriteCalls++
-	for i, k := range fr.Keys {
-		uWriter, ok := w.internal[k]
-		if !ok {
-			continue
-		}
-
-		if lengthOfFrame == -1 {
-			lengthOfFrame = fr.Series[i].Len()
-		}
-
-		if uWriter.TimesWritten == w.numWriteCalls {
-			return fr, errors.Wrapf(
-				validate.Error,
-				"frame must have exactly one series per channel, duplicate channel %d",
-				k,
-			)
-		}
-
-		uWriter.TimesWritten++
-		numChannelsWrittenTo++
-
-		if fr.Series[i].Len() != lengthOfFrame {
-			return fr, errors.Wrapf(
-				validate.Error,
-				"frame must have the same length for all series, expected %d, got %d",
-				lengthOfFrame,
-				fr.Series[i].Len(),
-			)
-		}
-	}
-
-	if numChannelsWrittenTo == 0 {
-		return fr, nil
-	}
-
-	if numChannelsWrittenTo != len(w.internal) {
-		return fr, errors.Wrapf(
-			validate.Error,
-			"frame must have exactly one series per channel, expected %d, got %d",
-			len(w.internal),
-			numChannelsWrittenTo,
-		)
-
+	err := w.validateWrite(fr)
+	if err != nil {
+		return fr, err
 	}
 
 	for i, series := range fr.Series {
@@ -452,6 +412,59 @@ func (w *idxWriter) Close(ctx context.Context) (ControlUpdate, error) {
 		})
 	}
 	return update, c.Error()
+}
+
+func (w *idxWriter) validateWrite(fr Frame) error {
+	var (
+		lengthOfFrame        int64 = -1
+		numChannelsWrittenTo       = 0
+	)
+	w.numWriteCalls++
+	for i, k := range fr.Keys {
+		uWriter, ok := w.internal[k]
+		if !ok {
+			continue
+		}
+
+		if lengthOfFrame == -1 {
+			lengthOfFrame = fr.Series[i].Len()
+		}
+
+		if uWriter.timesWritten == w.numWriteCalls {
+			return errors.Wrapf(
+				validate.Error,
+				"frame must have exactly one series per channel, duplicate channel %d",
+				k,
+			)
+		}
+
+		uWriter.timesWritten++
+		numChannelsWrittenTo++
+
+		if fr.Series[i].Len() != lengthOfFrame {
+			return errors.Wrapf(
+				validate.Error,
+				"frame must have the same length for all series, expected %d, got %d",
+				lengthOfFrame,
+				fr.Series[i].Len(),
+			)
+		}
+	}
+
+	if numChannelsWrittenTo == 0 {
+		return nil
+	}
+
+	if numChannelsWrittenTo != len(w.internal) {
+		return errors.Wrapf(
+			validate.Error,
+			"frame must have exactly one series per channel, expected %d, got %d",
+			len(w.internal),
+			numChannelsWrittenTo,
+		)
+	}
+
+	return nil
 }
 
 func (w *idxWriter) updateHighWater(col telem.Series) error {
