@@ -37,6 +37,9 @@ const (
 	WriterError
 	// WriterSetAuthority represents a call to Writer.SetAuthority.
 	WriterSetAuthority
+	// WriterSetMode sets the operating WriterMode for the Writer. See the WriterMode
+	// documentation for more.
+	WriterSetMode
 )
 
 // WriterRequest is a request containing an arrow.Record to write to the DB.
@@ -45,7 +48,7 @@ type WriterRequest struct {
 	Command WriterCommand
 	// Frame is the arrow record to write to the DB.
 	Frame Frame
-	// Config is used for updating the parameters in WriterSetAuthority.
+	// Config is used for updating the parameters in WriterSetAuthority and WriterSetMode.
 	Config WriterConfig
 }
 
@@ -103,8 +106,6 @@ type streamWriter struct {
 	updateDBControl func(ctx context.Context, u ControlUpdate)
 }
 
-func (w *streamWriter) AutoCommitEnabled() bool { return w.AutoCommitInterval != NoAutoCommit }
-
 // Flow implements the confluence.Flow interface.
 func (w *streamWriter) Flow(ctx signal.Context, opts ...confluence.Option) {
 	o := confluence.NewOptions(opts)
@@ -137,6 +138,12 @@ func (w *streamWriter) process(ctx context.Context, req WriterRequest) {
 	if req.Command == WriterSetAuthority {
 		w.seqNum++
 		w.setAuthority(ctx, req.Config)
+		w.sendRes(req, true, nil, 0)
+		return
+	}
+	if req.Command == WriterSetMode {
+		w.seqNum++
+		w.setMode(req.Config)
 		w.sendRes(req, true, nil, 0)
 		return
 	}
@@ -206,6 +213,16 @@ func (w *streamWriter) setAuthority(ctx context.Context, cfg WriterConfig) {
 	}
 }
 
+func (w *streamWriter) setMode(cfg WriterConfig) {
+	persist := cfg.Mode < WriterStreamOnly
+	for _, idx := range w.internal {
+		for _, chW := range idx.internal {
+			chW.SetPersist(persist)
+		}
+	}
+	w.Mode = cfg.Mode
+}
+
 func (w *streamWriter) sendRes(req WriterRequest, ack bool, err error, end telem.TimeStamp) {
 	w.Out.Inlet() <- WriterResponse{
 		Command: req.Command,
@@ -226,7 +243,7 @@ func (w *streamWriter) write(ctx context.Context, req WriterRequest) (err error)
 			return err
 		}
 
-		if w.AutoCommitEnabled() {
+		if *w.EnableAutoCommit {
 			_, err = idx.Commit(ctx)
 			if err != nil {
 				return

@@ -26,18 +26,21 @@ import (
 )
 
 type WriterConfig struct {
-	Start           telem.TimeStamp
-	End             telem.TimeStamp
-	Subject         control.Subject
-	Authority       control.Authority
-	Persist         *bool
-	AutoPersistTime telem.TimeSpan
+	Start            telem.TimeStamp
+	End              telem.TimeStamp
+	Subject          control.Subject
+	Authority        control.Authority
+	Persist          *bool
+	EnableAutoCommit *bool
+	AutoPersistTime  telem.TimeSpan
 }
 
 var (
 	_                   config.Config[WriterConfig] = WriterConfig{}
 	DefaultWriterConfig                             = WriterConfig{
-		Persist: config.True(),
+		Persist:          config.True(),
+		EnableAutoCommit: config.False(),
+		AutoPersistTime:  1 * telem.Second,
 	}
 	WriterClosedError = core.EntityClosed("unary.writer")
 )
@@ -55,12 +58,13 @@ func (c WriterConfig) Override(other WriterConfig) WriterConfig {
 	c.Subject = override.If(c.Subject, other.Subject, other.Subject.Key != "")
 	c.Authority = override.Numeric(c.Authority, other.Authority)
 	c.Persist = override.Nil(c.Persist, other.Persist)
+	c.EnableAutoCommit = override.Nil(c.EnableAutoCommit, other.EnableAutoCommit)
 	c.AutoPersistTime = override.Zero(c.AutoPersistTime, other.AutoPersistTime)
 	return c
 }
 
 func (c WriterConfig) domain() domain.WriterConfig {
-	return domain.WriterConfig{Start: c.Start, End: c.End, AutoPersistInterval: c.AutoPersistTime}
+	return domain.WriterConfig{Start: c.Start, End: c.End, EnableAutoCommit: c.EnableAutoCommit, AutoPersistInterval: c.AutoPersistTime}
 }
 
 func (c WriterConfig) controlTimeRange() telem.TimeRange {
@@ -165,6 +169,8 @@ func (w *Writer) Write(series telem.Series) (a telem.Alignment, err error) {
 	}
 	return
 }
+
+func (w *Writer) SetPersist(persist bool) { w.Persist = config.Bool(persist) }
 
 func (w *Writer) SetAuthority(a control.Authority) controller.Transfer {
 	return w.control.SetAuthority(a)

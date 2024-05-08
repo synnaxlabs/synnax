@@ -65,23 +65,19 @@ type WriterConfig struct {
 	// mode is WriterModePersistStream. See the WriterMode documentation for more.
 	// [OPTIONAL] - Defaults to WriterModePersistStream.
 	Mode WriterMode
-
-	// AutoCommitInterval determines whether the writer will automatically commit after each write.
-	// If AutoCommitInterval is set to AutoCommitAlwaysPersist, then the writer will automatically commit,
-	// and will immediately persist after every manual commit.
-	// If AutoCommitInterval is set to 0, then AutoCommit is OFF. The writer will never automatically
-	// commit and will immediately persist after every manual commit.
-	// If AutoCommitInterval is set to a positive number, then the writer will commit after each write,
-	// and only persist commits to disk after every set interval.
-	//
-	// Note that the unintuitive value for 0 AutoCommitInterval is -1 because the default
-	// behaviour must have value 0.
-	// [OPTIONAL] - Defaults to NoAutoCommit.
-	AutoCommitInterval telem.TimeSpan
+	// EnableAutoCommit determines whether the writer will automatically commit after each write.
+	// If EnableAutoCommit is true, then the writer will commit after each write, and will
+	// persist that commit to index after the specified AutoPersistInterval.
+	// [OPTIONAL] - Defaults to false.
+	EnableAutoCommit *bool
+	// AutoPersistInterval is the interval at which commits to the index will be persisted.
+	// To persist every commit to guarantee minimal loss of data, set AutoPersistInterval
+	// to AlwaysAutoPersist.
+	// [OPTIONAL] - Defaults to 1s.
+	AutoPersistInterval telem.TimeSpan
 }
 
-const AutoCommitAlwaysPersist telem.TimeSpan = -1
-const NoAutoCommit telem.TimeSpan = 0
+const AlwaysAutoPersist telem.TimeSpan = -1
 
 var (
 	_ config.Config[WriterConfig] = WriterConfig{}
@@ -92,10 +88,11 @@ func DefaultWriterConfig() WriterConfig {
 		ControlSubject: control.Subject{
 			Key: uuid.New().String(),
 		},
-		Authorities:        []control.Authority{control.Absolute},
-		ErrOnUnauthorized:  config.False(),
-		Mode:               WriterPersistStream,
-		AutoCommitInterval: NoAutoCommit,
+		Authorities:         []control.Authority{control.Absolute},
+		ErrOnUnauthorized:   config.False(),
+		Mode:                WriterPersistStream,
+		EnableAutoCommit:    config.Bool(false),
+		AutoPersistInterval: 1 * telem.Second,
 	}
 }
 
@@ -109,7 +106,8 @@ func (w WriterConfig) Validate() error {
 		len(w.Authorities) != len(w.Channels) && len(w.Authorities) != 1,
 		"authority count must be 1 or equal to channel count",
 	)
-	v.Ternary(w.AutoCommitInterval < -1, "AutoCommitInterval cannot be a negative number, except for the constant AutoCommitAlwaysPersist")
+	v.Ternary(w.AutoPersistInterval != 1*telem.Second && !*w.EnableAutoCommit, "AutoPersist interval cannot be set without EnableAutoCommit")
+	v.Ternary(w.AutoPersistInterval < 0 && w.AutoPersistInterval != -1, "AutoPersistInterval cannot be a negative number except for AlwaysAutoPersist")
 	return v.Error()
 }
 
@@ -122,7 +120,8 @@ func (w WriterConfig) Override(other WriterConfig) WriterConfig {
 	w.ControlSubject.Key = override.String(w.ControlSubject.Key, other.ControlSubject.Key)
 	w.ErrOnUnauthorized = override.Nil(w.ErrOnUnauthorized, other.ErrOnUnauthorized)
 	w.Mode = override.Numeric(w.Mode, other.Mode)
-	w.AutoCommitInterval = override.Zero(w.AutoCommitInterval, other.AutoCommitInterval)
+	w.EnableAutoCommit = override.Nil(w.EnableAutoCommit, other.EnableAutoCommit)
+	w.AutoPersistInterval = override.Zero(w.AutoPersistInterval, other.AutoPersistInterval)
 	return w
 }
 
@@ -201,11 +200,13 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 		} else {
 			var w *unary.Writer
 			w, transfer, err = u.OpenWriter(ctx, unary.WriterConfig{
-				Subject:         cfg.ControlSubject,
-				Start:           cfg.Start,
-				Authority:       auth,
-				Persist:         config.Bool(cfg.Mode.Persist()),
-				AutoPersistTime: override.If(0, cfg.AutoCommitInterval, cfg.AutoCommitInterval > 0),
+				Subject:   cfg.ControlSubject,
+				Start:     cfg.Start,
+				Authority: auth,
+				Persist:   config.Bool(cfg.Mode.Persist()),
+
+				EnableAutoCommit: cfg.EnableAutoCommit,
+				AutoPersistTime:  cfg.AutoPersistInterval,
 			})
 			if err != nil {
 				return nil, err

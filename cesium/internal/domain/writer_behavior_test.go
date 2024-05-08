@@ -16,6 +16,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/domain"
+	"github.com/synnaxlabs/x/config"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -200,10 +201,10 @@ var _ = Describe("WriterBehavior", func() {
 					})
 				})
 			})
-			Describe("CommitAndAutoPersist", func() {
+			Describe("AutoPersist", func() {
 				It("Should persist to disk every subsequent call after the set time interval", func() {
 					By("Opening a writer")
-					w := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS, AutoPersistInterval: 50 * telem.Millisecond}))
+					w := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS, EnableAutoCommit: config.True(), AutoPersistInterval: 50 * telem.Millisecond}))
 
 					modTime := MustSucceed(db.FS.Stat("index.domain")).ModTime()
 
@@ -237,11 +238,11 @@ var _ = Describe("WriterBehavior", func() {
 					Expect(p.length).To(Equal(uint32(15)))
 				})
 
-				It("Should persist to disk every time when the interval is not set", func() {
+				It("Should persist to disk every time when the interval is set to always persist", func() {
 					By("Opening a writer")
-					w := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS}))
+					w := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS, EnableAutoCommit: config.True(), AutoPersistInterval: domain.AlwaysPersist}))
 
-					By("Writing some data and commit with auto persist it")
+					By("Writing some data and committing it")
 					_, err := w.Write([]byte{1, 2, 3, 4, 5})
 					Expect(err).ToNot(HaveOccurred())
 					Expect(w.Commit(ctx, 15*telem.SecondTS+1)).To(Succeed())
@@ -278,14 +279,14 @@ var _ = Describe("WriterBehavior", func() {
 
 				It("Should persist any unpersisted, but committed (stranded) data on close", func() {
 					By("Opening a writer")
-					w := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS, AutoPersistInterval: 10 * telem.Second}))
+					w := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS, EnableAutoCommit: config.True(), AutoPersistInterval: 10 * telem.Second}))
 
-					By("Writing some data and commit with auto persist it")
+					By("Writing some data and committing it")
 					_, err := w.Write([]byte{1, 2, 3, 4, 5})
 					Expect(err).ToNot(HaveOccurred())
 					Expect(w.Commit(ctx, 15*telem.SecondTS+1)).To(Succeed())
 
-					By("Writing some data and commit with auto persist it")
+					By("Writing some data and committing it")
 					_, err = w.Write([]byte{6, 7, 8, 9, 10})
 					Expect(err).ToNot(HaveOccurred())
 					Expect(w.Commit(ctx, 20*telem.SecondTS+1)).To(Succeed())
@@ -299,6 +300,31 @@ var _ = Describe("WriterBehavior", func() {
 					Expect(f.Close()).To(Succeed())
 					Expect(p.End).To(Equal(20*telem.SecondTS + 1))
 					Expect(p.length).To(Equal(uint32(10)))
+				})
+
+				It("Should always persist if auto commit is not enabled, no matter the interval", func() {
+					By("Opening a writer")
+					w := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS, AutoPersistInterval: 1 * telem.Hour}))
+
+					By("Writing some data and committing it")
+					_, err := w.Write([]byte{1, 2, 3, 4, 5})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(w.Commit(ctx, 15*telem.SecondTS+1)).To(Succeed())
+
+					By("Writing some data and committing it")
+					_, err = w.Write([]byte{6, 7, 8, 9, 10})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(w.Commit(ctx, 20*telem.SecondTS+1)).To(Succeed())
+
+					By("Asserting that the commit has been persisted")
+					f := MustSucceed(db.FS.Open("index.domain", os.O_RDONLY))
+					p := extractPointer(f)
+					Expect(f.Close()).To(Succeed())
+					Expect(p.End).To(Equal(20*telem.SecondTS + 1))
+					Expect(p.length).To(Equal(uint32(10)))
+
+					By("Closing the writer")
+					Expect(w.Close(ctx)).To(Succeed())
 				})
 			})
 			Describe("Close", func() {

@@ -15,7 +15,9 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -33,13 +35,25 @@ type WriterConfig struct {
 	// [OPTIONAL]
 	End telem.TimeStamp
 
+	// EnableAutoCommit determines whether the writer will automatically commit after each write.
+	// If EnableAutoCommit is true, then the writer will commit after each write, and will
+	// persist that commit to index after the specified AutoPersistInterval.
+	// [OPTIONAL] - Defaults to false.
+	EnableAutoCommit *bool
+
 	// AutoPersistInterval is the frequency at which the changes to index are persisted to the
 	// disk. If AutoPersistInterval <=0, then the writer persists changes to disk after every commit.
-	// [OPTIONAL]
+	// Setting an AutoPersistInterval is invalid if EnableAutoCommit is off.
+	// [OPTIONAL] Defaults to 1s
 	AutoPersistInterval telem.TimeSpan
 }
 
-var WriterClosedError = core.EntityClosed("domain.writer")
+var (
+	WriterClosedError   = core.EntityClosed("domain.writer")
+	DefaultWriterConfig = WriterConfig{EnableAutoCommit: config.False(), AutoPersistInterval: 1 * telem.Second}
+)
+
+const AlwaysPersist telem.TimeSpan = -1
 
 // Domain returns the Domain occupied by the theoretical domain formed by the configuration.
 // If End is not set, assumes the Domain has a zero span starting at Start.
@@ -48,6 +62,20 @@ func (w WriterConfig) Domain() telem.TimeRange {
 		return w.Start.SpanRange(0)
 	}
 	return telem.TimeRange{Start: w.Start, End: w.End}
+}
+
+func (w WriterConfig) Validate() error {
+	v := validate.New("domain.WriterConfig")
+	v.Ternary(w.End.Before(w.Start), "end timestamp must be after or equal to start timestamp")
+	return nil
+}
+
+func (w WriterConfig) Override(other WriterConfig) WriterConfig {
+	w.Start = override.Zero(w.Start, other.Start)
+	w.End = override.Zero(w.End, other.End)
+	w.EnableAutoCommit = override.Nil(w.EnableAutoCommit, other.EnableAutoCommit)
+	w.AutoPersistInterval = override.Zero(w.AutoPersistInterval, other.AutoPersistInterval)
+	return w
 }
 
 // Write writes the given data to the DB new telemetry domain occupying the provided time
@@ -96,6 +124,7 @@ type Writer struct {
 
 // NewWriter opens a new Writer using the given configuration.
 func (db *DB) NewWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) {
+	cfg, err := config.New(DefaultWriterConfig, cfg)
 	key, internal, err := db.files.acquireWriter(ctx)
 	if err != nil {
 		return nil, err
@@ -151,11 +180,12 @@ func (w *Writer) Write(p []byte) (n int, err error) {
 // be persisted to disk after the set interval.
 func (w *Writer) Commit(ctx context.Context, end telem.TimeStamp) error {
 	var (
-		now     = telem.Now()
-		persist = w.AutoPersistInterval <= 0 || w.lastPersist.Span(now) >= w.WriterConfig.AutoPersistInterval
+		now = telem.Now()
+		// the only time we do not persist is when EnableAutoCommit and the interval is not met yet.
+		persist = !(*w.EnableAutoCommit && w.lastPersist.Span(now) < w.AutoPersistInterval)
 	)
 
-	if w.AutoPersistInterval > 0 && persist {
+	if *w.EnableAutoCommit && w.AutoPersistInterval > 0 && persist {
 		w.lastPersist = now
 	}
 
@@ -205,7 +235,7 @@ func (w *Writer) Close(ctx context.Context) error {
 		return nil
 	}
 
-	if w.AutoPersistInterval > 0 {
+	if *w.EnableAutoCommit && w.AutoPersistInterval > 0 {
 		w.idx.persist(ctx)
 	}
 
