@@ -5,32 +5,32 @@ load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 # /////////////////////////////////////// GLOG ////////////////////////////////////////
 # /////////////////////////////////////////////////////////////////////////////////////
 
-#http_archive(
-#    name = "com_github_gflags_gflags",
-#    sha256 = "34af2f15cf7367513b352bdcd2493ab14ce43692d2dcd9dfc499492966c64dcf",
-#    strip_prefix = "gflags-2.2.2",
-#    urls = ["https://github.com/gflags/gflags/archive/v2.2.2.tar.gz"],
-#)
-
-git_repository(
-    name = "com_github_gflags_gflags",
-    remote = "https://github.com/gflags/gflags.git",
-    tag = "v2.2.2"
+http_archive(
+   name = "com_github_gflags_gflags",
+   sha256 = "34af2f15cf7367513b352bdcd2493ab14ce43692d2dcd9dfc499492966c64dcf",
+   strip_prefix = "gflags-2.2.2",
+   urls = ["https://github.com/gflags/gflags/archive/v2.2.2.tar.gz"],
 )
 
-git_repository(
-    name = "com_github_google_glog",
-    remote = "git@github.com:google/glog.git",
-    tag = "v0.6.0"
+# git_repository(
+#     name = "com_github_gflags_gflags",
+#     remote = "https://github.com/gflags/gflags.git",
+#     tag = "v2.2.2"
+# )
+
+# git_repository(
+#     name = "com_github_google_glog",
+#     remote = "git@github.com:google/glog.git",
+#     tag = "v0.6.0"
+# )
+
+
+http_archive(
+   name = "com_github_google_glog",
+   sha256 = "122fb6b712808ef43fbf80f75c52a21c9760683dae470154f02bddfc61135022",
+   strip_prefix = "glog-0.6.0",
+   urls = ["https://github.com/google/glog/archive/v0.6.0.zip"],
 )
-
-
-#http_archive(
-#    name = "com_github_google_glog",
-#    sha256 = "122fb6b712808ef43fbf80f75c52a21c9760683dae470154f02bddfc61135022",
-#    strip_prefix = "glog-0.6.0",
-#    urls = ["https://github.com/google/glog/archive/v0.6.0.zip"],
-#)
 
 # /////////////////////////////////////////////////////////////////////////////////////
 # /////////////////////////////////////// GTEST ////////////////////////////////////////
