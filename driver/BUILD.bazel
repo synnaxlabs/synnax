@@ -63,7 +63,7 @@ cc_binary(
         "//driver/meminfo",
         "//driver/opc",
         "//driver/task",
-        "@com_github_gflags_gflags//:gflags",
         "@com_github_google_glog//:glog",
+        "@com_github_gflags_gflags//:gflags",
     ],
 )

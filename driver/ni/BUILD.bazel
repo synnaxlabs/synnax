@@ -54,7 +54,6 @@ cc_library(
         "//client/cpp:synnax",
         "//driver/config",
         "//driver/task",
-#        "//driver/modules:module",
         "@nlohmann_json//:json",
     ],
 )
