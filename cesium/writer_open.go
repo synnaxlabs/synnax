@@ -67,7 +67,7 @@ type WriterConfig struct {
 	Mode WriterMode
 	// EnableAutoCommit determines whether the writer will automatically commit after each write.
 	// If EnableAutoCommit is true, then the writer will commit after each write, and will
-	// persist that commit to index after the specified AutoPersistInterval.
+	// flush that commit to index on FS after the specified AutoPersistInterval.
 	// [OPTIONAL] - Defaults to false.
 	EnableAutoCommit *bool
 	// AutoPersistInterval is the interval at which commits to the index will be persisted.

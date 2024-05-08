@@ -37,7 +37,7 @@ type WriterConfig struct {
 
 	// EnableAutoCommit determines whether the writer will automatically commit after each write.
 	// If EnableAutoCommit is true, then the writer will commit after each write, and will
-	// persist that commit to index after the specified AutoIndexPersistInterval.
+	// flush that commit to index on FS after the specified AutoIndexPersistInterval.
 	// [OPTIONAL] - Defaults to false.
 	EnableAutoCommit *bool
 
@@ -248,11 +248,8 @@ func (w *Writer) Close(ctx context.Context) error {
 
 	if *w.EnableAutoCommit && w.AutoIndexPersistInterval > 0 {
 		w.idx.mu.RLock()
-		encoded := w.idx.indexPersist.encode(w.idx.persistHead, w.idx.mu.pointers)
-		persistAtIndex := w.idx.persistHead
-		w.idx.persistHead = len(w.idx.mu.pointers)
+		err := w.idx.persist(ctx, w.idx.persistHead)
 		w.idx.mu.RUnlock()
-		err := w.idx.writePersist(ctx, encoded, persistAtIndex)
 		if err != nil {
 			return err
 		}
