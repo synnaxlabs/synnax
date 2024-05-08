@@ -89,7 +89,7 @@ class Client:
         :param mode: sets the persistence and streaming mode of the writer. The default
         mode is WriterModePersistStream. See the WriterMode documentation for more.
         :param enable_auto_commit: determines whether the writer will automatically
-        commit. If EnableAutoCommit is true, then the writer will commit after each
+        commit. If enable_auto_commit is true, then the writer will commit after each
         write, and will flush that commit to index after the specified
         auto_index_persist_interval.
         :param auto_index_persist_interval: interval at which commits to the index will
