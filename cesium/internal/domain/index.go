@@ -28,12 +28,6 @@ type index struct {
 	persistHead  int
 }
 
-type indexUpdate struct {
-	// startIndex denotes the index of the first different pointer.
-	// i.e. persist starts overwriting at offset startIndex * pointerByteSize.
-	startIndex int
-}
-
 // insert adds a new pointer to the index.
 func (idx *index) insert(ctx context.Context, p pointer, persist bool) error {
 	_, span := idx.T.Bench(ctx, "insert")
