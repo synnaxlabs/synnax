@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, Rate, TimeRange, TimeStamp } from "@synnaxlabs/x";
+import {DataType, Rate, TimeRange, TimeSpan, TimeStamp} from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
 import { type channel } from "@/channel";
-import { WriterMode } from "@/framer/writer";
+import {AlwaysIndexPersistOnAutoCommit, Writer, WriterMode} from "@/framer/writer";
 import { newClient } from "@/setupspecs";
 import { randomSeries } from "@/util/telem";
 
@@ -66,6 +66,53 @@ describe("Writer", () => {
       ]);
       expect(v).toEqual(123);
     });
+    test("write with auto commit on", async () => {
+      const ch = await newChannel();
+      const writer = await client.openWriter({ start: 0, channels: ch.key, enableAutoCommit: true });
+      try {
+        await writer.write(ch.key, randomSeries(10, ch.dataType));
+      } finally {
+        await writer.close();
+      }
+      expect(true).toBeTruthy();
+
+      const f = await client.read(new TimeRange(0, TimeStamp.seconds(10)), ch.key)
+      expect(f.length).toEqual(10)
+    })
+    test("write with auto commit and alwaysPersist", async () => {
+      const ch = await newChannel();
+      const writer = await client.openWriter({ start: 0, channels: ch.key,
+        enableAutoCommit: true, autoIndexPersistInterval: AlwaysIndexPersistOnAutoCommit});
+      try {
+        await writer.write(ch.key, randomSeries(10, ch.dataType));
+      } finally {
+        await writer.close();
+      }
+      expect(true).toBeTruthy();
+    })
+    test("write with auto commit and a set interval", async () => {
+      const ch = await newChannel();
+      const writer = await client.openWriter({ start: 0, channels: ch.key,
+        enableAutoCommit: true, autoIndexPersistInterval: TimeSpan.milliseconds(100)});
+      try {
+        await writer.write(ch.key, randomSeries(10, ch.dataType));
+      } finally {
+        await writer.close();
+      }
+      expect(true).toBeTruthy();
+    })
+    test("creating writer with negative persist interval", async () => {
+      const ch = await newChannel();
+      await expect(client.openWriter({ start: 0, channels: ch.key,
+        enableAutoCommit: true, autoIndexPersistInterval: TimeSpan.milliseconds(-2)}),)
+        .rejects.toThrow("cannot be a negative number")
+    })
+    test("creating writer with persist interval set but not autocommit", async () => {
+      const ch = await newChannel();
+      await expect(client.openWriter({ start: 0, channels: ch.key,
+        autoIndexPersistInterval: TimeSpan.milliseconds(300)}),)
+        .rejects.toThrow("cannot be set without EnableAutoCommit")
+    })
   });
   describe("Client", () => {
     test("Client - basic write", async () => {

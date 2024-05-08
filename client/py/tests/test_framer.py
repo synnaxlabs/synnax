@@ -119,7 +119,6 @@ class TestWriter:
         assert f.__len__() == 20
 
     def test_write_auto_commit_set_persist(self, channel: sy.Channel, client: sy.Synnax):
-
         """Should open an auto-committing-and-persisting writer to write data."""
         with client.open_writer(0,
                                 channel.key,
@@ -131,6 +130,17 @@ class TestWriter:
 
         f = client.read(TimeRange(0, TimeStamp(1 * TimeSpan.SECOND)), channel.key)
         assert f.__len__() == 20
+
+    def test_writer_creation_with_bad_params(self, channel: sy.Channel, client: sy.Synnax):
+        """Should fail if given a negative persist interval"""
+        with pytest.raises(sy.QueryError, match='cannot be a negative number'):
+            client.open_writer(0, channel.key, enable_auto_commit=True,
+                               auto_index_persist_interval=-5 * TimeSpan.MILLISECOND)
+
+        with pytest.raises(sy.QueryError,
+                           match='cannot be set without EnableAutoCommit'):
+            client.open_writer(0, channel.key,
+                               auto_index_persist_interval=10 * TimeSpan.DAY)
 
     @pytest.mark.asyncio
     async def test_write_persist_only_mode(
