@@ -30,15 +30,17 @@ type index struct {
 
 // insert adds a new pointer to the index.
 func (idx *index) insert(ctx context.Context, p pointer, persist bool) error {
-	_, span := idx.T.Bench(ctx, "insert")
+	_, span := idx.T.Bench(ctx, "domain/index.insert")
 	idx.mu.Lock()
 
-	defer span.End()
+	defer func() {
+		idx.mu.Unlock()
+		span.End()
+	}()
 
 	insertAt := 0
 
 	if p.fileKey == 0 {
-		idx.mu.Unlock()
 		idx.L.DPanic("fileKey must be set")
 		return span.Error(errors.New("inserted pointer cannot have key 0"))
 	}
@@ -49,7 +51,6 @@ func (idx *index) insert(ctx context.Context, p pointer, persist bool) error {
 		} else if !idx.beforeFirst(p.End) {
 			i, overlap := idx.unprotectedSearch(p.TimeRange)
 			if overlap {
-				idx.mu.Unlock()
 				return span.Error(ErrDomainOverlap)
 			}
 			insertAt = i + 1
@@ -67,19 +68,14 @@ func (idx *index) insert(ctx context.Context, p pointer, persist bool) error {
 	idx.persistHead = min(idx.persistHead, insertAt)
 
 	if persist {
-		encoded := idx.indexPersist.encode(idx.persistHead, idx.mu.pointers)
-		persistAtIndex := idx.persistHead
-		idx.persistHead = len(idx.mu.pointers)
-		idx.mu.Unlock()
-		return idx.writePersist(ctx, encoded, persistAtIndex)
+		return span.Error(idx.persist(ctx, idx.persistHead))
 	}
 
-	idx.mu.Unlock()
 	return nil
 }
 
 func (idx *index) insertTombstone(ctx context.Context, p pointer) {
-	_, span := idx.T.Bench(ctx, "insert tombstone")
+	_, span := idx.T.Bench(ctx, "domain/index.insert_tombstone")
 	idx.mu.Lock()
 	defer func() {
 		idx.mu.Unlock()
@@ -97,14 +93,16 @@ func (idx *index) overlap(tr telem.TimeRange) bool {
 }
 
 func (idx *index) update(ctx context.Context, p pointer, persist bool) error {
-	_, span := idx.T.Bench(ctx, "update")
+	_, span := idx.T.Bench(ctx, "domain/index.update")
 	idx.mu.Lock()
 
-	defer span.End()
+	defer func() {
+		idx.mu.Unlock()
+		span.End()
+	}()
 
 	if len(idx.mu.pointers) == 0 {
 		// This should be inconceivable since update would not be called with no pointers.
-		idx.mu.Unlock()
 		idx.L.DPanic(RangeNotFound.Error())
 		return span.Error(RangeNotFound)
 	}
@@ -121,14 +119,12 @@ func (idx *index) update(ctx context.Context, p pointer, persist bool) error {
 		// commit should find the same pointer the writer has been writing to, which
 		// must have the same Start timestamp. Unhandled race conditions might cause the
 		// database to reach this inconceivable state.
-		idx.mu.Unlock()
 		idx.L.DPanic(RangeNotFound.Error())
 		return span.Error(RangeNotFound)
 	}
 	overlapsWithNext := updateAt != len(ptrs)-1 && ptrs[updateAt+1].OverlapsWith(p.TimeRange)
 	overlapsWithPrev := updateAt != 0 && ptrs[updateAt-1].OverlapsWith(p.TimeRange)
 	if overlapsWithPrev || overlapsWithNext {
-		idx.mu.Unlock()
 		return span.Error(ErrDomainOverlap)
 	} else {
 		idx.mu.pointers[updateAt] = p
@@ -137,23 +133,7 @@ func (idx *index) update(ctx context.Context, p pointer, persist bool) error {
 	idx.persistHead = min(idx.persistHead, updateAt)
 
 	if persist {
-		encoded := idx.indexPersist.encode(idx.persistHead, idx.mu.pointers)
-		persistAtIndex := idx.persistHead
-		idx.persistHead = len(idx.mu.pointers)
-		idx.mu.Unlock()
-		return idx.writePersist(ctx, encoded, persistAtIndex)
-	}
-
-	idx.mu.Unlock()
-	return nil
-}
-
-func (idx *index) writePersist(ctx context.Context, encoded []byte, atIndex int) error {
-	ctx, span := idx.T.Bench(ctx, "index.writePersist")
-	defer span.End()
-	if len(encoded) != 0 {
-		_, err := idx.indexPersist.WriteAt(encoded, int64(atIndex*pointerByteSize))
-		return span.Error(err)
+		return span.Error(idx.persist(ctx, idx.persistHead))
 	}
 
 	return nil
@@ -168,7 +148,7 @@ func (idx *index) beforeFirst(ts telem.TimeStamp) bool {
 }
 
 func (idx *index) searchLE(ctx context.Context, ts telem.TimeStamp) (i int) {
-	_, span := idx.T.Bench(ctx, "searchLE")
+	_, span := idx.T.Bench(ctx, "domain/index.searchLE")
 	idx.read(func() {
 		i, _ = idx.unprotectedSearch(ts.SpanRange(0))
 	})
@@ -177,7 +157,7 @@ func (idx *index) searchLE(ctx context.Context, ts telem.TimeStamp) (i int) {
 }
 
 func (idx *index) searchGE(ctx context.Context, ts telem.TimeStamp) (i int) {
-	_, span := idx.T.Bench(ctx, "searchGE")
+	_, span := idx.T.Bench(ctx, "domain/index.searchGE")
 	idx.read(func() {
 		var exact bool
 		i, exact = idx.unprotectedSearch(ts.SpanRange(0))
@@ -194,7 +174,7 @@ func (idx *index) searchGE(ctx context.Context, ts telem.TimeStamp) (i int) {
 }
 
 func (idx *index) getGE(ctx context.Context, ts telem.TimeStamp) (ptr pointer, ok bool) {
-	_, span := idx.T.Bench(ctx, "searchGE")
+	_, span := idx.T.Bench(ctx, "domain/index.getGE")
 	idx.mu.RLock()
 	defer func() {
 		span.End()
@@ -252,6 +232,19 @@ func (idx *index) read(f func()) {
 	idx.mu.RLock()
 	f()
 	idx.mu.RUnlock()
+}
+
+func (idx *index) persist(ctx context.Context, persistAtIndex int) error {
+	ctx, span := idx.T.Bench(ctx, "domain/index.persist")
+	defer span.End()
+	encoded := idx.indexPersist.encode(idx.persistHead, idx.mu.pointers)
+	idx.persistHead = len(idx.mu.pointers)
+	if len(encoded) != 0 {
+		_, err := idx.indexPersist.WriteAt(encoded, int64(persistAtIndex*pointerByteSize))
+		return span.Error(err)
+	}
+
+	return nil
 }
 
 func (idx *index) close() error {
