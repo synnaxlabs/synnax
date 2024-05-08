@@ -108,7 +108,8 @@ class TestWriter:
         """Should open an auto-committing writer to write data to Synnax."""
         with client.open_writer(0, channel.key, enable_auto_commit=True,
                                 auto_index_persist_interval=
-                                client.ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT) as w:
+                                sy.Writer.ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT
+                                ) as w:
             data = np.random.rand(10).astype(np.float64)
             w.write(pd.DataFrame({channel.key: data}))
             w.write(pd.DataFrame({channel.key: data}))

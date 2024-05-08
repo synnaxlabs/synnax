@@ -104,6 +104,9 @@ class Writer:
     error, close will raise the accumulated error.
     """
 
+    # constant
+    ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT: TimeSpan = -1
+
     __ENDPOINT = "/frame/write"
     __stream: Stream[_Request, _Response]
     __adapter: WriteFrameAdapter

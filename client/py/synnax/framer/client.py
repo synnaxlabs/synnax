@@ -39,9 +39,6 @@ class Client:
     directly, but rather used through the synnax.Synnax class.
     """
 
-    # Constant
-    ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT: TimeSpan = -1
-
     __client: StreamClient
     __async_client: AsyncStreamClient
     __channels: ChannelRetriever
