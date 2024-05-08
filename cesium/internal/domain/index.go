@@ -11,8 +11,8 @@ package domain
 
 import (
 	"context"
+	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/telem"
 	"sync"
 )
@@ -24,15 +24,15 @@ type index struct {
 		pointers   []pointer
 		tombstones map[uint16][]pointer
 	}
-	observe.Observer[indexUpdate]
-	persistHead int
+	indexPersist *indexPersist
+	persistHead  int
 }
 
 type indexUpdate struct {
-	afterIndex int
+	// startIndex denotes the index of the first different pointer.
+	// i.e. persist starts overwriting at offset startIndex * pointerByteSize.
+	startIndex int
 }
-
-var _ observe.Observable[indexUpdate] = (*index)(nil)
 
 // insert adds a new pointer to the index.
 func (idx *index) insert(ctx context.Context, p pointer, persist bool) error {
@@ -46,6 +46,7 @@ func (idx *index) insert(ctx context.Context, p pointer, persist bool) error {
 	if p.fileKey == 0 {
 		idx.mu.Unlock()
 		idx.L.DPanic("fileKey must be set")
+		return span.Error(errors.New("inserted pointer cannot have key 0"))
 	}
 	if len(idx.mu.pointers) != 0 {
 		// Hot path optimization for appending to the end of the index.
@@ -72,12 +73,11 @@ func (idx *index) insert(ctx context.Context, p pointer, persist bool) error {
 	idx.persistHead = min(idx.persistHead, insertAt)
 
 	if persist {
-		update := indexUpdate{afterIndex: idx.persistHead}
-		idx.persistHead = len(idx.mu.pointers) - 1
+		encoded := idx.indexPersist.encode(idx.persistHead, idx.mu.pointers)
+		persistAtIndex := idx.persistHead
+		idx.persistHead = len(idx.mu.pointers)
 		idx.mu.Unlock()
-		idx.Observer.Notify(ctx, update)
-
-		return nil
+		return idx.writePersist(ctx, encoded, persistAtIndex)
 	}
 
 	idx.mu.Unlock()
@@ -143,15 +143,25 @@ func (idx *index) update(ctx context.Context, p pointer, persist bool) error {
 	idx.persistHead = min(idx.persistHead, updateAt)
 
 	if persist {
-		update := indexUpdate{afterIndex: idx.persistHead}
-		idx.persistHead = len(idx.mu.pointers) - 1
+		encoded := idx.indexPersist.encode(idx.persistHead, idx.mu.pointers)
+		persistAtIndex := idx.persistHead
+		idx.persistHead = len(idx.mu.pointers)
 		idx.mu.Unlock()
-		idx.Observer.Notify(ctx, update)
-
-		return nil
+		return idx.writePersist(ctx, encoded, persistAtIndex)
 	}
 
 	idx.mu.Unlock()
+	return nil
+}
+
+func (idx *index) writePersist(ctx context.Context, encoded []byte, atIndex int) error {
+	ctx, span := idx.T.Bench(ctx, "index.writePersist")
+	defer span.End()
+	if len(encoded) != 0 {
+		_, err := idx.indexPersist.WriteAt(encoded, int64(atIndex*pointerByteSize))
+		return span.Error(err)
+	}
+
 	return nil
 }
 
@@ -161,13 +171,6 @@ func (idx *index) afterLast(ts telem.TimeStamp) bool {
 
 func (idx *index) beforeFirst(ts telem.TimeStamp) bool {
 	return ts.Before(idx.mu.pointers[0].Start)
-}
-
-func (idx *index) persist(ctx context.Context) {
-	idx.mu.RLock()
-	update := indexUpdate{afterIndex: idx.persistHead}
-	idx.Observer.Notify(ctx, update)
-	idx.mu.RUnlock()
 }
 
 func (idx *index) searchLE(ctx context.Context, ts telem.TimeStamp) (i int) {
