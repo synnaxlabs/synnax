@@ -300,11 +300,11 @@ var _ = Describe("Writer Behavior", func() {
 							It("Should auto persist on every commit when set to always auto persist", func() {
 								By("Opening a writer")
 								w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
-									Channels:            []cesium.ChannelKey{index1, basic1},
-									Start:               10 * telem.SecondTS,
-									Mode:                cesium.WriterPersistStream,
-									AutoPersistInterval: cesium.AlwaysAutoPersist,
-									EnableAutoCommit:    config.True(),
+									Channels:                 []cesium.ChannelKey{index1, basic1},
+									Start:                    10 * telem.SecondTS,
+									Mode:                     cesium.WriterPersistStream,
+									AutoIndexPersistInterval: cesium.AlwaysIndexPersistOnAutoCommit,
+									EnableAutoCommit:         config.True(),
 								}))
 
 								By("Writing telemetry")
@@ -436,11 +436,11 @@ var _ = Describe("Writer Behavior", func() {
 							It("Should auto persist once the time interval is reached", func() {
 								By("Opening a writer")
 								w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
-									Channels:            []cesium.ChannelKey{index1, basic1},
-									Start:               10 * telem.SecondTS,
-									Mode:                cesium.WriterPersistStream,
-									EnableAutoCommit:    config.True(),
-									AutoPersistInterval: 200 * telem.Millisecond,
+									Channels:                 []cesium.ChannelKey{index1, basic1},
+									Start:                    10 * telem.SecondTS,
+									Mode:                     cesium.WriterPersistStream,
+									EnableAutoCommit:         config.True(),
+									AutoIndexPersistInterval: 200 * telem.Millisecond,
 								}))
 
 								By("Writing telemetry")

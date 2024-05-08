@@ -53,7 +53,7 @@ var (
 	DefaultWriterConfig = WriterConfig{EnableAutoCommit: config.False(), AutoIndexPersistInterval: 1 * telem.Second}
 )
 
-const AlwaysPersist telem.TimeSpan = -1
+const AlwaysIndexPersistOnAutoCommit telem.TimeSpan = -1
 
 // Domain returns the Domain occupied by the theoretical domain formed by the configuration.
 // If End is not set, assumes the Domain has a zero span starting at Start.

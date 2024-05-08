@@ -67,17 +67,17 @@ type WriterConfig struct {
 	Mode WriterMode
 	// EnableAutoCommit determines whether the writer will automatically commit after each write.
 	// If EnableAutoCommit is true, then the writer will commit after each write, and will
-	// flush that commit to index on FS after the specified AutoPersistInterval.
+	// flush that commit to index on FS after the specified AutoIndexPersistInterval.
 	// [OPTIONAL] - Defaults to false.
 	EnableAutoCommit *bool
-	// AutoPersistInterval is the interval at which commits to the index will be persisted.
-	// To persist every commit to guarantee minimal loss of data, set AutoPersistInterval
-	// to AlwaysAutoPersist.
+	// AutoIndexPersistInterval is the interval at which commits to the index will be persisted.
+	// To persist every commit to guarantee minimal loss of data, set AutoIndexPersistInterval
+	// to AlwaysIndexPersistOnAutoCommit.
 	// [OPTIONAL] - Defaults to 1s.
-	AutoPersistInterval telem.TimeSpan
+	AutoIndexPersistInterval telem.TimeSpan
 }
 
-const AlwaysAutoPersist telem.TimeSpan = -1
+const AlwaysIndexPersistOnAutoCommit telem.TimeSpan = -1
 
 var (
 	_ config.Config[WriterConfig] = WriterConfig{}
@@ -88,48 +88,48 @@ func DefaultWriterConfig() WriterConfig {
 		ControlSubject: control.Subject{
 			Key: uuid.New().String(),
 		},
-		Authorities:         []control.Authority{control.Absolute},
-		ErrOnUnauthorized:   config.False(),
-		Mode:                WriterPersistStream,
-		EnableAutoCommit:    config.Bool(false),
-		AutoPersistInterval: 1 * telem.Second,
+		Authorities:              []control.Authority{control.Absolute},
+		ErrOnUnauthorized:        config.False(),
+		Mode:                     WriterPersistStream,
+		EnableAutoCommit:         config.Bool(false),
+		AutoIndexPersistInterval: 1 * telem.Second,
 	}
 }
 
 // Validate implements config.GateConfig.
-func (w WriterConfig) Validate() error {
+func (c WriterConfig) Validate() error {
 	v := validate.New("cesium.WriterConfig")
-	validate.NotEmptySlice(v, "Channels", w.Channels)
-	validate.NotNil(v, "ErrOnUnauthorized", w.ErrOnUnauthorized)
-	validate.NotEmptyString(v, "ControlSubject.Key", w.ControlSubject.Key)
+	validate.NotEmptySlice(v, "Channels", c.Channels)
+	validate.NotNil(v, "ErrOnUnauthorized", c.ErrOnUnauthorized)
+	validate.NotEmptyString(v, "ControlSubject.Key", c.ControlSubject.Key)
 	v.Ternary(
-		len(w.Authorities) != len(w.Channels) && len(w.Authorities) != 1,
+		len(c.Authorities) != len(c.Channels) && len(c.Authorities) != 1,
 		"authority count must be 1 or equal to channel count",
 	)
-	v.Ternary(w.AutoPersistInterval != 1*telem.Second && !*w.EnableAutoCommit, "AutoPersist interval cannot be set without EnableAutoCommit")
-	v.Ternary(w.AutoPersistInterval < 0 && w.AutoPersistInterval != -1, "AutoIndexPersistInterval cannot be a negative number except for AlwaysAutoPersist")
+	v.Ternary(c.AutoIndexPersistInterval != 1*telem.Second && !*c.EnableAutoCommit, "AutoPersist interval cannot be set without EnableAutoCommit")
+	v.Ternary(c.AutoIndexPersistInterval < 0 && c.AutoIndexPersistInterval != -1, "AutoIndexPersistInterval cannot be a negative number except for AlwaysIndexPersistOnAutoCommit")
 	return v.Error()
 }
 
 // Override implements config.GateConfig.
-func (w WriterConfig) Override(other WriterConfig) WriterConfig {
-	w.Start = override.Zero(w.Start, other.Start)
-	w.Channels = override.Slice(w.Channels, other.Channels)
-	w.Authorities = override.Slice(w.Authorities, other.Authorities)
-	w.ControlSubject.Name = override.String(w.ControlSubject.Name, other.ControlSubject.Name)
-	w.ControlSubject.Key = override.String(w.ControlSubject.Key, other.ControlSubject.Key)
-	w.ErrOnUnauthorized = override.Nil(w.ErrOnUnauthorized, other.ErrOnUnauthorized)
-	w.Mode = override.Numeric(w.Mode, other.Mode)
-	w.EnableAutoCommit = override.Nil(w.EnableAutoCommit, other.EnableAutoCommit)
-	w.AutoPersistInterval = override.Zero(w.AutoPersistInterval, other.AutoPersistInterval)
-	return w
+func (c WriterConfig) Override(other WriterConfig) WriterConfig {
+	c.Start = override.Zero(c.Start, other.Start)
+	c.Channels = override.Slice(c.Channels, other.Channels)
+	c.Authorities = override.Slice(c.Authorities, other.Authorities)
+	c.ControlSubject.Name = override.String(c.ControlSubject.Name, other.ControlSubject.Name)
+	c.ControlSubject.Key = override.String(c.ControlSubject.Key, other.ControlSubject.Key)
+	c.ErrOnUnauthorized = override.Nil(c.ErrOnUnauthorized, other.ErrOnUnauthorized)
+	c.Mode = override.Numeric(c.Mode, other.Mode)
+	c.EnableAutoCommit = override.Nil(c.EnableAutoCommit, other.EnableAutoCommit)
+	c.AutoIndexPersistInterval = override.Zero(c.AutoIndexPersistInterval, other.AutoIndexPersistInterval)
+	return c
 }
 
-func (w WriterConfig) authority(i int) control.Authority {
-	if len(w.Authorities) == 1 {
-		return w.Authorities[0]
+func (c WriterConfig) authority(i int) control.Authority {
+	if len(c.Authorities) == 1 {
+		return c.Authorities[0]
 	}
-	return w.Authorities[i]
+	return c.Authorities[i]
 }
 
 // NewStreamWriter implements DB.
@@ -206,7 +206,7 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 				Persist:   config.Bool(cfg.Mode.Persist()),
 
 				EnableAutoCommit:         cfg.EnableAutoCommit,
-				AutoIndexPersistInterval: cfg.AutoPersistInterval,
+				AutoIndexPersistInterval: cfg.AutoIndexPersistInterval,
 			})
 			if err != nil {
 				return nil, err
