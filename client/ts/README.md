@@ -15,7 +15,7 @@ npm install @synnaxlabs/client
 Synnax's TypeScript client unit tests are written in [Vitest](https://vitest.dev/). To test the framework, run
 
 ```bash
-npm test
+pnpm test
 ```
 
 Before running tests, make sure you build upstream dependencies, as specified in [this document](../../docs/tech/typescript/build.md):

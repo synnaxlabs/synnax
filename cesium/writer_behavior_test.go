@@ -25,8 +25,8 @@ import (
 )
 
 var _ = Describe("Writer Behavior", func() {
-	for fsName, fsMaker := range fileSystems {
-		fs := fsMaker()
+	for fsName, makeFS := range fileSystems {
+		fs := makeFS()
 		Context("FS: "+fsName, Ordered, func() {
 			var db *cesium.DB
 			BeforeAll(func() { db = openDBOnFS(fs) })
@@ -38,8 +38,8 @@ var _ = Describe("Writer Behavior", func() {
 				Context("Indexed", func() {
 					Specify("Basic Write", func() {
 						var (
-							basic1      = GenerateCesiumChannelKey()
-							basic1Index = GenerateCesiumChannelKey()
+							basic1      = GenerateChannelKey()
+							basic1Index = GenerateChannelKey()
 						)
 						By("Creating a channel")
 						Expect(db.CreateChannel(
@@ -78,10 +78,10 @@ var _ = Describe("Writer Behavior", func() {
 				Context("Multiple Indexes", func() {
 					Specify("Basic Writer", func() {
 						var (
-							basic1    = GenerateCesiumChannelKey()
-							basicIdx1 = GenerateCesiumChannelKey()
-							basic2    = GenerateCesiumChannelKey()
-							basicIdx2 = GenerateCesiumChannelKey()
+							basic1    = GenerateChannelKey()
+							basicIdx1 = GenerateChannelKey()
+							basic2    = GenerateChannelKey()
+							basicIdx2 = GenerateChannelKey()
 						)
 						By("Creating a channel")
 						Expect(db.CreateChannel(
@@ -134,11 +134,11 @@ var _ = Describe("Writer Behavior", func() {
 							basic3 cesium.ChannelKey
 						)
 						BeforeEach(func() {
-							index1 = GenerateCesiumChannelKey()
-							basic1 = GenerateCesiumChannelKey()
-							index2 = GenerateCesiumChannelKey()
-							basic2 = GenerateCesiumChannelKey()
-							basic3 = GenerateCesiumChannelKey()
+							index1 = GenerateChannelKey()
+							basic1 = GenerateChannelKey()
+							index2 = GenerateChannelKey()
+							basic2 = GenerateChannelKey()
+							basic3 = GenerateChannelKey()
 
 							By("Creating channels")
 							Expect(db.CreateChannel(
@@ -558,8 +558,8 @@ var _ = Describe("Writer Behavior", func() {
 			Describe("Stream Only Mode", func() {
 				It("Should not persist data", func() {
 					var (
-						basic1      = GenerateCesiumChannelKey()
-						basic1Index = GenerateCesiumChannelKey()
+						basic1      = GenerateChannelKey()
+						basic1Index = GenerateChannelKey()
 					)
 					By("Creating a channel")
 					Expect(db.CreateChannel(
@@ -620,8 +620,8 @@ var _ = Describe("Writer Behavior", func() {
 					Expect(err).To(MatchError(core.ChannelNotFound))
 				})
 				Specify("Encounters channel that does not exist after already successfully creating some writers", func() {
-					key1 := GenerateCesiumChannelKey()
-					key2 := GenerateCesiumChannelKey()
+					key1 := GenerateChannelKey()
+					key2 := GenerateChannelKey()
 
 					Expect(db.CreateChannel(
 						ctx,
@@ -632,40 +632,11 @@ var _ = Describe("Writer Behavior", func() {
 					_, err := db.OpenWriter(ctx, cesium.WriterConfig{Channels: []cesium.ChannelKey{key1, 88888}, Start: 10 * telem.SecondTS})
 					Expect(err).To(MatchError(core.ChannelNotFound))
 				})
-				Specify("Writer with AutoCommit off but set AutoIndexPersistInterval", func() {
-					key1 := GenerateCesiumChannelKey()
-					key2 := GenerateCesiumChannelKey()
-
-					Expect(db.CreateChannel(
-						ctx,
-						cesium.Channel{Key: key1, DataType: telem.Int64T, Rate: 1 * telem.Hz},
-						cesium.Channel{Key: key2, DataType: telem.Int64T, Rate: 1 * telem.Hz},
-					)).To(Succeed())
-
-					_, err := db.OpenWriter(ctx, cesium.WriterConfig{Channels: []cesium.ChannelKey{key1, key2},
-						Start:                    10 * telem.SecondTS,
-						AutoIndexPersistInterval: 5 * telem.Millisecond,
-					})
-					Expect(err).To(MatchError(ContainSubstring("cannot be set without EnableAutoCommit")))
-				})
-
-				Specify("Writer with negative AutoIndexPersistInterval", func() {
-					key1 := GenerateCesiumChannelKey()
-
-					Expect(db.CreateChannel(ctx, cesium.Channel{Key: key1, DataType: telem.Int64T, Rate: 1 * telem.Hz}))
-
-					_, err := db.OpenWriter(ctx, cesium.WriterConfig{Channels: []cesium.ChannelKey{key1},
-						Start:                    10 * telem.SecondTS,
-						EnableAutoCommit:         config.True(),
-						AutoIndexPersistInterval: -25 * telem.Millisecond,
-					})
-					Expect(err).To(MatchError(ContainSubstring("cannot be a negative number")))
-				})
 			})
 			Describe("Frame Errors", Ordered, func() {
 				var (
-					frameErr1 = GenerateCesiumChannelKey()
-					frameErr2 = GenerateCesiumChannelKey()
+					frameErr1 = GenerateChannelKey()
+					frameErr2 = GenerateChannelKey()
 				)
 				BeforeAll(func() {
 					Expect(db.CreateChannel(
@@ -741,10 +712,10 @@ var _ = Describe("Writer Behavior", func() {
 			Describe("Index Errors", func() {
 				Context("Discontinuous Index", func() {
 					var (
-						disc1      = GenerateCesiumChannelKey()
-						disc1Index = GenerateCesiumChannelKey()
-						disc2      = GenerateCesiumChannelKey()
-						disc2Index = GenerateCesiumChannelKey()
+						disc1      = GenerateChannelKey()
+						disc1Index = GenerateChannelKey()
+						disc2      = GenerateChannelKey()
+						disc2Index = GenerateChannelKey()
 					)
 					Specify("Last sample is not the index", func() {
 						Expect(db.CreateChannel(
@@ -817,7 +788,7 @@ var _ = Describe("Writer Behavior", func() {
 			})
 			Describe("Data t Errors", func() {
 				Specify("Invalid Data t for series", func() {
-					var dtErr = GenerateCesiumChannelKey()
+					var dtErr = GenerateChannelKey()
 					Expect(db.CreateChannel(
 						ctx,
 						cesium.Channel{
@@ -854,7 +825,7 @@ var _ = Describe("Writer Behavior", func() {
 
 			Describe("Virtual Channels", func() {
 				It("Should write to virtual channel", func() {
-					var virtual1 = GenerateCesiumChannelKey()
+					var virtual1 = GenerateChannelKey()
 					By("Creating a channel")
 					Expect(db.CreateChannel(
 						ctx,
@@ -876,7 +847,7 @@ var _ = Describe("Writer Behavior", func() {
 
 			Describe("Close", func() {
 				It("Should not allow operations on a closed iterator", func() {
-					key := GenerateCesiumChannelKey()
+					key := GenerateChannelKey()
 					Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, DataType: telem.Int64T, Rate: 1 * telem.Hz})).To(Succeed())
 					var (
 						w = MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Channels: []core.ChannelKey{key}, Start: 10 * telem.SecondTS}))
@@ -893,7 +864,7 @@ var _ = Describe("Writer Behavior", func() {
 
 			Describe("Close", func() {
 				It("Should close properly with a control setup", func() {
-					k1, k2, k3, k4 := GenerateCesiumChannelKey(), GenerateCesiumChannelKey(), GenerateCesiumChannelKey(), GenerateCesiumChannelKey()
+					k1, k2, k3, k4 := GenerateChannelKey(), GenerateChannelKey(), GenerateChannelKey(), GenerateChannelKey()
 					Expect(db.ConfigureControlUpdateChannel(ctx, k1)).To(Succeed())
 					Expect(db.CreateChannel(ctx, cesium.Channel{Key: k2, DataType: telem.Int64T, Rate: 1 * telem.Hz})).To(Succeed())
 					Expect(db.CreateChannel(ctx, cesium.Channel{Key: k3, DataType: telem.Int64T, Rate: 1 * telem.Hz})).To(Succeed())
@@ -903,7 +874,7 @@ var _ = Describe("Writer Behavior", func() {
 					Expect(w.Close()).To(Succeed())
 				})
 				It("Should not allow operations on a closed writer", func() {
-					k := GenerateCesiumChannelKey()
+					k := GenerateChannelKey()
 					Expect(db.CreateChannel(ctx, cesium.Channel{Key: k, DataType: telem.Int64T, Rate: 1 * telem.Hz})).To(Succeed())
 					var (
 						w = MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Channels: []core.ChannelKey{k}, Start: 10 * telem.SecondTS}))

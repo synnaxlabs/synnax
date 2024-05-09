@@ -20,8 +20,8 @@ import (
 )
 
 var _ = Describe("Delete", Ordered, func() {
-	for fsName, fsMaker := range fileSystems {
-		fs := fsMaker()
+	for fsName, makeFS := range fileSystems {
+		fs := makeFS()
 		Context("FS:"+fsName, func() {
 			var (
 				db      *unary.DB

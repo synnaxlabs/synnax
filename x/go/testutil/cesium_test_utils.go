@@ -7,6 +7,6 @@ import (
 
 var k = atomic.Int64Counter{}
 
-func GenerateCesiumChannelKey() cesium.ChannelKey {
+func GenerateChannelKey() cesium.ChannelKey {
 	return cesium.ChannelKey(k.Add(1))
 }

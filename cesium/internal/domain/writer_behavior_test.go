@@ -45,8 +45,8 @@ func extractPointer(f xfs.File) (p struct {
 }
 
 var _ = Describe("WriterBehavior", func() {
-	for fsName, fsMaker := range fileSystems {
-		fs := fsMaker()
+	for fsName, makeFS := range fileSystems {
+		fs := makeFS()
 		Context("FS: "+fsName, func() {
 			var db *domain.DB
 			BeforeEach(func() {

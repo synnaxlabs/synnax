@@ -23,8 +23,8 @@ import (
 )
 
 var _ = Describe("Delete", func() {
-	for fsName, fsMaker := range fileSystems {
-		fs := fsMaker()
+	for fsName, makeFS := range fileSystems {
+		fs := makeFS()
 		Context("FS: "+fsName, Ordered, func() {
 			var db *cesium.DB
 			BeforeAll(func() { db = openDBOnFS(fs) })
@@ -34,8 +34,8 @@ var _ = Describe("Delete", func() {
 			})
 			Describe("Delete Channel", func() {
 				var (
-					uChannelKey = GenerateCesiumChannelKey()
-					vChannelKey = GenerateCesiumChannelKey()
+					uChannelKey = GenerateChannelKey()
+					vChannelKey = GenerateChannelKey()
 					uChannel    = cesium.Channel{Key: uChannelKey, IsIndex: false, Rate: 1 * telem.Hz, DataType: telem.Int64T}
 					vChannel    = cesium.Channel{Key: vChannelKey, Virtual: true, IsIndex: false, DataType: telem.Int64T}
 				)
@@ -183,9 +183,9 @@ var _ = Describe("Delete", func() {
 						})
 						Specify("Deleting an index channel that other channels rely on should error", func() {
 							var (
-								dependent = GenerateCesiumChannelKey()
-								dependee1 = GenerateCesiumChannelKey()
-								dependee2 = GenerateCesiumChannelKey()
+								dependent = GenerateChannelKey()
+								dependee1 = GenerateChannelKey()
+								dependee2 = GenerateChannelKey()
 							)
 							Expect(db.CreateChannel(
 								ctx,
@@ -210,7 +210,7 @@ var _ = Describe("Delete", func() {
 							Expect(err).To(MatchError(core.ChannelNotFound))
 						})
 						Specify("Deleting control digest channel should error", func() {
-							var controlKey = GenerateCesiumChannelKey()
+							var controlKey = GenerateChannelKey()
 							Expect(db.ConfigureControlUpdateChannel(ctx, controlKey)).To(Succeed())
 							Expect(db.DeleteChannel(controlKey)).To(MatchError(ContainSubstring("1 unclosed writers")))
 						})
@@ -220,8 +220,8 @@ var _ = Describe("Delete", func() {
 					It("Should not allow such deletion when another channel is indexed by it on the same time range", func() {
 						By("Creating an indexed channel and a channel indexed by it")
 						var (
-							indexChannelKey = GenerateCesiumChannelKey()
-							dataChannelKey  = GenerateCesiumChannelKey()
+							indexChannelKey = GenerateChannelKey()
+							dataChannelKey  = GenerateChannelKey()
 						)
 						Expect(db.CreateChannel(
 							ctx,
@@ -261,7 +261,7 @@ var _ = Describe("Delete", func() {
 				})
 				Describe("Happy paths", func() {
 					var key cesium.ChannelKey
-					BeforeEach(func() { key = GenerateCesiumChannelKey() })
+					BeforeEach(func() { key = GenerateChannelKey() })
 
 					It("Should delete an index unary channel", func() {
 						By("Creating a channel")
@@ -335,13 +335,13 @@ var _ = Describe("Delete", func() {
 
 			Describe("Delete Channels", Ordered, func() {
 				var (
-					index1   = GenerateCesiumChannelKey()
-					data1    = GenerateCesiumChannelKey()
-					index2   = GenerateCesiumChannelKey()
-					data2    = GenerateCesiumChannelKey()
-					data3    = GenerateCesiumChannelKey()
-					rate     = GenerateCesiumChannelKey()
-					index3   = GenerateCesiumChannelKey()
+					index1   = GenerateChannelKey()
+					data1    = GenerateChannelKey()
+					index2   = GenerateChannelKey()
+					data2    = GenerateChannelKey()
+					data3    = GenerateChannelKey()
+					rate     = GenerateChannelKey()
+					index3   = GenerateChannelKey()
 					channels = []cesium.Channel{{Key: index1, IsIndex: true, DataType: telem.TimeStampT, Index: index1},
 						{Key: data1, DataType: telem.Int64T, Index: index1},
 						{Key: index2, IsIndex: true, DataType: telem.TimeStampT, Index: index2},
@@ -440,14 +440,14 @@ var _ = Describe("Delete", func() {
 
 			Describe("Delete chunks", Ordered, func() {
 				var (
-					basic1      = GenerateCesiumChannelKey()
-					basic2      = GenerateCesiumChannelKey()
-					basic2index = GenerateCesiumChannelKey()
-					basic3index = GenerateCesiumChannelKey()
-					basic4index = GenerateCesiumChannelKey()
-					basic4      = GenerateCesiumChannelKey()
-					basic5      = GenerateCesiumChannelKey()
-					basic6      = GenerateCesiumChannelKey()
+					basic1      = GenerateChannelKey()
+					basic2      = GenerateChannelKey()
+					basic2index = GenerateChannelKey()
+					basic3index = GenerateChannelKey()
+					basic4index = GenerateChannelKey()
+					basic4      = GenerateChannelKey()
+					basic5      = GenerateChannelKey()
+					basic6      = GenerateChannelKey()
 				)
 				Describe("Error paths", func() {
 					It("Should return an error for deleting a non-existent channel", func() {

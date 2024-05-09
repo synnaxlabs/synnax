@@ -20,7 +20,7 @@ var _ = Describe("Test Util Test", func() {
 				i := i
 				go func() {
 					defer wg.Done()
-					keys[i] = GenerateCesiumChannelKey()
+					keys[i] = GenerateChannelKey()
 				}()
 			}
 

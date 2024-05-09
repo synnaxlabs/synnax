@@ -64,6 +64,10 @@ class _Response(Payload):
     end: TimeStamp | None
 
 
+# constant
+ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT: TimeSpan = TimeSpan(-1)
+
+
 class Writer:
     """CoreWriter is used to write a range of telemetry to a set of channels in time
     order. It should not be instantiated directly, and should instead be created using
@@ -103,9 +107,6 @@ class Writer:
     should typically be called in a 'finally' block. If the writer has accumulated an
     error, close will raise the accumulated error.
     """
-
-    # constant
-    ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT: TimeSpan = -1
 
     __ENDPOINT = "/frame/write"
     __stream: Stream[_Request, _Response]

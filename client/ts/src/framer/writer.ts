@@ -49,7 +49,7 @@ export enum WriterMode {
   StreamOnly = 3,
 }
 
-export const AlwaysIndexPersistOnAutoCommit : TimeSpan = new TimeSpan(-1)
+export const ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT : TimeSpan = new TimeSpan(-1)
 
 const netConfigZ = z.object({
   start: TimeStamp.z.optional(),

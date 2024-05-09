@@ -19,8 +19,8 @@ import (
 )
 
 var _ = Describe("Domain", func() {
-	for fsName, fsMaker := range fileSystems {
-		fs := fsMaker()
+	for fsName, makeFS := range fileSystems {
+		fs := makeFS()
 		Describe("FS:"+fsName, func() {
 			var (
 				db  *domain.DB

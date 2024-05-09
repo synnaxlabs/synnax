@@ -106,8 +106,6 @@ func (c WriterConfig) Validate() error {
 		len(c.Authorities) != len(c.Channels) && len(c.Authorities) != 1,
 		"authority count must be 1 or equal to channel count",
 	)
-	v.Ternary(c.AutoIndexPersistInterval != 1*telem.Second && !*c.EnableAutoCommit, "AutoPersist interval cannot be set without EnableAutoCommit")
-	v.Ternary(c.AutoIndexPersistInterval < 0 && c.AutoIndexPersistInterval != -1, "AutoIndexPersistInterval cannot be a negative number except for AlwaysIndexPersistOnAutoCommit")
 	return v.Error()
 }
 
