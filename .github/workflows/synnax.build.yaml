@@ -247,12 +247,6 @@ jobs:
             echo "EXECUTABLE=.exe" >> $GITHUB_OUTPUT
           fi
 
-      - name: List Files
-        run: ls bazel-bin
-
-      - name: List Driver
-        run: ls bazel-bin/driver
-
       - name: Move Driver
         run: mv bazel-bin/driver/driver_main${{ steps.executable.outputs.EXECUTABLE }} synnax/pkg/hardware/embedded/assets/driver${{ steps.executable.outputs.EXECUTABLE }}
 
