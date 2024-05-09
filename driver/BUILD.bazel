@@ -57,7 +57,8 @@ cc_binary(
         ],
         "//conditions:default": [],
     }),
-    deps = [
+    deps = select({ 
+        "@platforms//os:windows":[
         "//driver",
         "//driver/breaker",
         "//driver/meminfo",
@@ -66,5 +67,15 @@ cc_binary(
         "//driver/task",
         "@com_github_google_glog//:glog",
         "@com_github_gflags_gflags//:gflags",
-    ],
+        ], 
+        "//conditions:default": [
+        "//driver",
+        "//driver/breaker",
+        "//driver/meminfo",
+        "//driver/opc",
+        "//driver/task",
+        "@com_github_google_glog//:glog",
+        "@com_github_gflags_gflags//:gflags",
+        ],
+    }),
 )

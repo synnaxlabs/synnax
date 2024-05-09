@@ -65,7 +65,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "daqmx",
-        "syscfg_hds",
+        # "syscfg_hds",
         "//driver/breaker",
         "//driver/errors",
         "//driver/pipeline:daqReader",
