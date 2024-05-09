@@ -401,9 +401,9 @@ func (w *idxWriter) Close(ctx context.Context) (ControlUpdate, error) {
 	update := ControlUpdate{
 		Transfers: make([]controller.Transfer, 0, len(w.internal)),
 	}
-	for _, chW := range w.internal {
+	for _, unaryWriter := range w.internal {
 		c.Exec(func() error {
-			transfer, err := chW.Close(ctx)
+			transfer, err := unaryWriter.Close(ctx)
 			if err != nil || !transfer.Occurred() {
 				return err
 			}

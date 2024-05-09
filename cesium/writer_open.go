@@ -200,11 +200,10 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 		} else {
 			var w *unary.Writer
 			w, transfer, err = u.OpenWriter(ctx, unary.WriterConfig{
-				Subject:   cfg.ControlSubject,
-				Start:     cfg.Start,
-				Authority: auth,
-				Persist:   config.Bool(cfg.Mode.Persist()),
-
+				Subject:                  cfg.ControlSubject,
+				Start:                    cfg.Start,
+				Authority:                auth,
+				Persist:                  config.Bool(cfg.Mode.Persist()),
 				EnableAutoCommit:         cfg.EnableAutoCommit,
 				AutoIndexPersistInterval: cfg.AutoIndexPersistInterval,
 			})

@@ -629,8 +629,37 @@ var _ = Describe("Writer Behavior", func() {
 						cesium.Channel{Key: key2, DataType: telem.Int64T, Rate: 1 * telem.Hz},
 					)).To(Succeed())
 
-					_, err := db.OpenWriter(ctx, cesium.WriterConfig{Channels: []cesium.ChannelKey{88888}, Start: 10 * telem.SecondTS})
+					_, err := db.OpenWriter(ctx, cesium.WriterConfig{Channels: []cesium.ChannelKey{key1, 88888}, Start: 10 * telem.SecondTS})
 					Expect(err).To(MatchError(core.ChannelNotFound))
+				})
+				Specify("Writer with AutoCommit off but set AutoIndexPersistInterval", func() {
+					key1 := GenerateCesiumChannelKey()
+					key2 := GenerateCesiumChannelKey()
+
+					Expect(db.CreateChannel(
+						ctx,
+						cesium.Channel{Key: key1, DataType: telem.Int64T, Rate: 1 * telem.Hz},
+						cesium.Channel{Key: key2, DataType: telem.Int64T, Rate: 1 * telem.Hz},
+					)).To(Succeed())
+
+					_, err := db.OpenWriter(ctx, cesium.WriterConfig{Channels: []cesium.ChannelKey{key1, key2},
+						Start:                    10 * telem.SecondTS,
+						AutoIndexPersistInterval: 5 * telem.Millisecond,
+					})
+					Expect(err).To(MatchError(ContainSubstring("cannot be set without EnableAutoCommit")))
+				})
+
+				Specify("Writer with negative AutoIndexPersistInterval", func() {
+					key1 := GenerateCesiumChannelKey()
+
+					Expect(db.CreateChannel(ctx, cesium.Channel{Key: key1, DataType: telem.Int64T, Rate: 1 * telem.Hz}))
+
+					_, err := db.OpenWriter(ctx, cesium.WriterConfig{Channels: []cesium.ChannelKey{key1},
+						Start:                    10 * telem.SecondTS,
+						EnableAutoCommit:         config.True(),
+						AutoIndexPersistInterval: -25 * telem.Millisecond,
+					})
+					Expect(err).To(MatchError(ContainSubstring("cannot be a negative number")))
 				})
 			})
 			Describe("Frame Errors", Ordered, func() {
