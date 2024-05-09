@@ -102,7 +102,7 @@ Then, we'll write to the range using the `write` method:
 temperatures = [55, 55.1, 55.7, 57.2, 58.1, 58.9, 59.1, 59.2, 59.3]
 pressures = [100, 100.1, 100.7, 102.2, 103.1, 103.9, 104.1, 104.2, 104.3]
 
-# This call to write will assume that the timestamp of the first sample is 
+# This call to write will assume that the timestamp of the first sample is
 # the start of the range.
 burst_test.write({
     "my_precise_tc": temperatures,
@@ -115,7 +115,7 @@ burst_test.write({
 ## Using a Writer
 
 While the above methods are great for writing static, existing data, it's common
-to to write data in a streaming fashion for use in control sequences and live
+to write data in a streaming fashion for use in control sequences and live
 data processing. The `Writer` class is designed for this use case (and is
 actually used under the hood by the other methods).
 
@@ -176,3 +176,12 @@ sockets are closed.
 
 If you can't use a context manager, ensure you call `writer.close()` when you're
 done using it.
+
+### Writer Auto-Commit
+
+Alternatively, you could initiate a writer in Auto-Commit mode by calling
+`client.open_writer` with the additional configuration argument
+`enable_auto_commit=True`. In Auto-Commit mode, a writer would
+effectuate a commit after every write, thus persisting the data to the cluster.
+
+Ensure that you call `writer.close()` in Auto-Commit mode as well.
