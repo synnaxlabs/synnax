@@ -1,82 +1,56 @@
 package cesium_test
 
 import (
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/x/control"
+	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/testutil"
 	"testing"
 )
 
-// BenchmarkCesiumWrite runs a benchmark test with 500 channels (10 index, 490 data).
-// Each index channel indexes 49 float32 data channels.
-// Data is stored on MemFS.
-func BenchmarkCesiumWriteMemFS(b *testing.B) {
-	const samplesPerChannel = 1e6
-	var (
-		db       *cesium.DB
-		frame    cesium.Frame
-		channels []cesium.Channel
-		keys     []cesium.ChannelKey
-	)
-	fileSystems, cleanUp, err = testutil.FileSystems()
-	if err != nil {
-		b.Fatalf("Error during setup: %s", err)
-	}
-
-	fs, ok := fileSystems["memFS"]
-	if !ok {
-		b.Fatal("Cannot find osFS in file systems")
-	}
-
-	db, err = cesium.Open("benchmark_test", cesium.WithFS(fs()))
-	if !ok {
-		b.Fatalf("Error during DB creation: %s", err)
-	}
-
-	frame, channels, keys = testutil.GenerateFrameAndChannels(10, 490, samplesPerChannel)
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		err = db.CreateChannel(ctx, channels...)
-		if err != nil {
-			b.Fatalf("Error during channel creation: %s", err)
-		}
-
-		b.StartTimer()
-		err = db.Write(ctx, 0, frame)
-		if err != nil {
-			b.StopTimer()
-			b.Fatalf("Error during write: %s", err)
-		}
-
-		b.StopTimer()
-		//Rollback
-		err = db.DeleteChannels(keys)
-		if err != nil {
-			b.Fatalf("Error during deleting db: %s", err)
-		}
-
-	}
-
-	err = db.Close()
-	if err != nil {
-		b.Fatalf("Error during db close: %s", err)
-	}
-
-	err = cleanUp()
-	if err != nil {
-		b.Fatalf("Error during cleanup: %s", err)
-	}
+type CesiumBenchmarkConfig struct {
+	domainsPerChannel int
+	samplesPerDomain  int
+	numIndexChannels  int
+	numDataChannels   int
+	numRateChannels   int
+	numGoRoutines     int
+	usingMemFS        bool
 }
 
-// BenchmarkCesiumWrite runs a benchmark test with 500 channels (10 index, 490 data).
-// Each index channel indexes 49 float32 data channels.
-// Data is stored on osFS.
-func BenchmarkCesiumWriteOsFS(b *testing.B) {
-	const samplesPerChannel = 1e5
+type CesiumWriteBenchmarkConfig struct {
+	CesiumBenchmarkConfig
+	numWriters int
+}
+
+var cfg CesiumWriteBenchmarkConfig
+
+func BenchmarkCesium(b *testing.B) {
+	cfg = CesiumWriteBenchmarkConfig{
+		CesiumBenchmarkConfig: CesiumBenchmarkConfig{
+			domainsPerChannel: 100,
+			samplesPerDomain:  1000,
+			numIndexChannels:  10,
+			numDataChannels:   400,
+			numRateChannels:   90,
+			numGoRoutines:     0,
+			usingMemFS:        false,
+		},
+		numWriters: 1,
+	}
+
+	b.Run("write", benchmarkCesiumWrite)
+}
+
+func benchmarkCesiumWrite(b *testing.B) {
 	var (
 		db       *cesium.DB
-		frame    cesium.Frame
+		frames   []cesium.Frame
 		channels []cesium.Channel
+		fs       xfs.FS
+		w        *cesium.Writer
 		keys     []cesium.ChannelKey
 	)
 	fileSystems, cleanUp, err = testutil.FileSystems()
@@ -84,44 +58,71 @@ func BenchmarkCesiumWriteOsFS(b *testing.B) {
 		b.Fatalf("Error during setup: %s", err)
 	}
 
-	fs, ok := fileSystems["osFS"]
+	fsMaker, ok := fileSystems[lo.Ternary(cfg.usingMemFS, "memFS", "osFS")]
+	fs = fsMaker()
 	if !ok {
 		b.Fatal("Cannot find osFS in file systems")
 	}
 
-	db, err = cesium.Open("benchmark_test", cesium.WithFS(fs()))
-	if !ok {
-		b.Fatalf("Error during DB creation: %s", err)
-	}
-
-	frame, channels, keys = testutil.GenerateFrameAndChannels(10, 490, samplesPerChannel)
+	frames, channels, keys = testutil.GenerateFrameAndChannels(cfg.numIndexChannels, cfg.numDataChannels, cfg.numRateChannels, cfg.domainsPerChannel, cfg.samplesPerDomain)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
+		db, err = cesium.Open("benchmark_test", cesium.WithFS(fs))
+		if err != nil {
+			b.Fatalf("Error during DB creation: %s", err)
+		}
+
 		err = db.CreateChannel(ctx, channels...)
 		if err != nil {
 			b.Fatalf("Error during channel creation: %s", err)
 		}
 
+		//// we have cfg.numWriters writers and cfg.domainsPerChannel frames.
+		//// each writer will write cfg.domainsPerChannel / cfg.numWriters frames.
+		//// One writer will write everything remaining.
+		//framesPerWriter := cfg.domainsPerChannel / cfg.numWriters
+
 		b.StartTimer()
-		err = db.Write(ctx, 0, frame)
-		if err != nil {
-			b.StopTimer()
-			b.Fatalf("Error during write: %s", err)
+		for j := 0; j < cfg.numWriters; j++ {
+			//var framesToWrite []cesium.Frame
+			//if j == cfg.numWriters-1 {
+			//	framesToWrite = frames[j*framesPerWriter:]
+			//} else {
+			//	framesToWrite = frames[j*framesPerWriter : (j+1)*framesPerWriter]
+			//}
+
+			w = testutil.MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+				ControlSubject: control.Subject{Key: "bench writer"},
+				Start:          1 * telem.SecondTS,
+				Channels:       keys,
+			}))
+
+			for _, frame := range frames {
+				ok = w.Write(frame)
+				if !ok {
+					b.Log(w.Error())
+					break
+				}
+			}
+			_, ok = w.Commit()
+			if !ok {
+				b.Log("Commit failed")
+				b.Log(w.Error())
+			}
 		}
 
 		b.StopTimer()
-		//Rollback
-		err = db.DeleteChannels(keys)
+
+		err = db.Close()
 		if err != nil {
-			b.Fatalf("Error during deleting db: %s", err)
+			b.Fatalf("Error during db close: %s", err)
 		}
 
-	}
-
-	err = db.Close()
-	if err != nil {
-		b.Fatalf("Error during db close: %s", err)
+		err = fs.Remove("benchmark_test")
+		if err != nil {
+			b.Fatalf("Error during removing directory: %s", err)
+		}
 	}
 
 	err = cleanUp()

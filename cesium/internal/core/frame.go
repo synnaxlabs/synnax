@@ -87,6 +87,7 @@ func (f Frame) Even() bool {
 	return true
 }
 
+// Len returns the length of the first series in the frame.
 func (f Frame) Len() int64 {
 	f.assertEven("Len")
 	if len(f.Series) == 0 {
