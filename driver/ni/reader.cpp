@@ -153,9 +153,9 @@ int ni::daqReader::init(){
     // iterate through channels
     for(auto &channel : channels){
         if(channel.channel_type == "analogVoltageInput"){
-            err = this->checkNIError( DAQmxCreateAIVoltageChan(taskHandle, channel.name.c_str(), "", DAQmx_Val_Cfg_Default, channel.min_val, channel.max_val, DAQmx_Val_Volts, NULL ));
+            err = this->checkNIError( ni::NiDAQmxInterface::CreateAIVoltageChan(taskHandle, channel.name.c_str(), "", DAQmx_Val_Cfg_Default, channel.min_val, channel.max_val, DAQmx_Val_Volts, NULL ));
         } else if(channel.channel_type == "digitalInput"){
-            err = this->checkNIError( DAQmxCreateDIChan(taskHandle, channel.name.c_str(), "", DAQmx_Val_ChanPerLine));
+            err = this->checkNIError( ni::NiDAQmxInterface::CreateDIChan(taskHandle, channel.name.c_str(), "", DAQmx_Val_ChanPerLine));
         }
         this->numChannels++; // includes index channels TODO: how is this different form jsut channels.size()? 
         if (err < 0){
@@ -166,7 +166,7 @@ int ni::daqReader::init(){
 
     // Configure timing 
     // TODO: make sure there isnt different cases to handle between analog and digital
-    if(this->checkNIError(DAQmxCfgSampClkTiming(  taskHandle,
+    if(this->checkNIError(ni::NiDAQmxInterface::CfgSampClkTiming(  taskHandle,
                                             "",
                                             this->reader_config.acq_rate,
                                             DAQmx_Val_Rising,
@@ -194,7 +194,7 @@ int ni::daqReader::init(){
 freighter::Error ni::daqReader::start(){
     // TODO: don't let multiple starts happen (or handle it at least)
     freighter::Error err = freighter::NIL;
-    if (this->checkNIError(DAQmxStartTask(taskHandle))){
+    if (this->checkNIError(ni::NiDAQmxInterface::StartTask(taskHandle))){
         LOG(ERROR) << "[NI Reader] failed while starting reader for task " << this->reader_config.task_name;
         err = freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
     } else{
@@ -207,12 +207,12 @@ freighter::Error ni::daqReader::start(){
 freighter::Error ni::daqReader::stop(){ // TODO: don't let multiple stops happen (or handle it at least)
     freighter::Error err = freighter::NIL;
 
-    if (this->checkNIError(DAQmxStopTask(taskHandle))){
+    if (this->checkNIError(ni::NiDAQmxInterface::StopTask(taskHandle))){
         LOG(ERROR) << "[NI Reader] failed while stopping reader for task " << this->reader_config.task_name;
         err = freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
     }
     else {
-        if (this->checkNIError(DAQmxClearTask(taskHandle))){
+        if (this->checkNIError(ni::NiDAQmxInterface::ClearTask(taskHandle))){
             LOG(ERROR) << "[NI Reader] failed while clearing reader for task " << this->reader_config.task_name;
             err = freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
         }
@@ -253,7 +253,7 @@ std::pair<synnax::Frame, freighter::Error> ni::daqReader::readAnalog(){
     
     // actual read of analog lines
     std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
-    if (this->checkNIError(DAQmxReadAnalogF64(this->taskHandle,
+    if (this->checkNIError(ni::NiDAQmxInterface::ReadAnalogF64(this->taskHandle,
                                                 this->numSamplesPerChannel,
                                                 -1,
                                                 DAQmx_Val_GroupByChannel,
@@ -309,7 +309,7 @@ std::pair<synnax::Frame, freighter::Error> ni::daqReader::readDigital(){
     int err = 0;
 
     // initial read to flush buffer
-    if(this->checkNIError(DAQmxReadDigitalLines(this->taskHandle, // TODO: come back to and make sure this call to flush will be fine at any scale (elham)
+    if(this->checkNIError(ni::NiDAQmxInterface::ReadDigitalLines(this->taskHandle, // TODO: come back to and make sure this call to flush will be fine at any scale (elham)
                                                     -1,               // reads all available samples in the buffer
                                                     -1,
                                                     DAQmx_Val_GroupByChannel,
@@ -324,7 +324,7 @@ std::pair<synnax::Frame, freighter::Error> ni::daqReader::readDigital(){
 
     // actual read to of digital lines
     std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
-    if(this->checkNIError(DAQmxReadDigitalLines(this->taskHandle,           // task handle
+    if(this->checkNIError(ni::NiDAQmxInterface::ReadDigitalLines(this->taskHandle,           // task handle
                                                     this->numSamplesPerChannel, // numSampsPerChan
                                                     -1,                         // timeout
                                                     DAQmx_Val_GroupByChannel,   // dataLayout
@@ -386,7 +386,7 @@ int ni::daqReader::checkNIError(int32 error) {
     if (error < 0)
     {
         char errBuff[2048] = {'\0'};
-        DAQmxGetExtendedErrorInfo(errBuff, 2048);
+        ni::NiDAQmxInterface::GetExtendedErrorInfo(errBuff, 2048);
         this->err_info["error type"] = "Vendor Error";
         this->err_info["error details"] = errBuff;
         this->ok_state = false;
@@ -529,7 +529,7 @@ int ni::daqWriter::init(){
     // iterate through channels
     for(auto &channel : channels){
         if(channel.channel_type == "digitalOutput"){
-            err = this->checkNIError(DAQmxCreateDOChan(taskHandle, channel.name.c_str(), "", DAQmx_Val_ChanPerLine));
+            err = this->checkNIError(ni::NiDAQmxInterface::CreateDOChan(taskHandle, channel.name.c_str(), "", DAQmx_Val_ChanPerLine));
         }
         this->numChannels++; // includes index channels TODO: how is this different form jsut channels.size()? 
         if (err < 0){
@@ -570,12 +570,12 @@ freighter::Error ni::daqWriter::stop(){
 
     freighter::Error err = freighter::NIL;
 
-    if (this->checkNIError(DAQmxStopTask(taskHandle))){
+    if (this->checkNIError(ni::NiDAQmxInterface::StopTask(taskHandle))){
         LOG(ERROR) << "[NI Writer] failed while stopping writer for task " << this->writer_config.task_name;
         err = freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
     }
     else {
-        if (this->checkNIError(DAQmxClearTask(taskHandle))){
+        if (this->checkNIError(ni::NiDAQmxInterface::ClearTask(taskHandle))){
             LOG(ERROR) << "[NI Writer] failed while clearing writer for task " << this->writer_config.task_name;
             err = freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
         }
@@ -602,7 +602,7 @@ freighter::Error ni::daqWriter::writeDigital(synnax::Frame frame){
     formatData(std::move(frame));
 
     // Write digital data
-    if(this->checkNIError(DAQmxWriteDigitalLines(this->taskHandle,
+    if(this->checkNIError(ni::NiDAQmxInterface::WriteDigitalLines(this->taskHandle,
                                                     1,                        // number of samples per channel
                                                     1,                        // auto start
                                                     10.0,                     // timeout
@@ -651,7 +651,7 @@ int ni::daqWriter::checkNIError(int32 error){
     if (error < 0)
     {
         char errBuff[2048] = {'\0'};
-        DAQmxGetExtendedErrorInfo(errBuff, 2048);
+        ni::NiDAQmxInterface::GetExtendedErrorInfo(errBuff, 2048);
         this->err_info["error type"] = "Vendor Error";
         this->err_info["error details"] = errBuff;
         this->ok_state = false;

@@ -22,6 +22,12 @@ jobs:
           disk-cache: ${{ github.workflow }}
           repository-cache: true
 
+      - name: Handle Path On Windows
+        shell: bash
+        if: ${{ matrix.platform == 'windows-latest' }}
+        run: |
+            bazel --output_user_root=C:/tmp "$@"
+
       - uses: GuillaumeFalourd/setup-windows10-sdk-action@v2
         with:
           sdk-version: 22000
@@ -35,4 +41,4 @@ jobs:
         working-directory: driver/vendor/open62541/open62541
 
       - name: Build Driver
-        run: bazel build --enable_platform_specific_config //driver:driver_main
+        run: bazel build --enable_platform_specific_config //driver:driver_main --define ni_mock=true

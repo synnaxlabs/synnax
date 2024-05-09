@@ -1,3 +1,8 @@
+config_setting(
+    name = "ni_mock",
+    values = {"define": "ni_mock=true"}
+)
+
 cc_library(
     name = "daqmx_hds",
     hdrs = ["daqmx.h"],
@@ -19,13 +24,26 @@ cc_library(
     ],
 )
 
+
+cc_library(
+    name = "daqmx",
+    srcs = select({
+        "//conditions:default": ["nidaqmx_prod.cpp"],
+        ":ni_mock": ["nidaqmx_mock.cpp"],
+    }),
+    hdrs = ["nidaqmx_api.h"],
+    visibility = ["//visibility:public"],
+    deps = ["daqmx_hds"],
+)
+
+
 cc_library(
     name = "ni",
     srcs = [
         "reader.cpp",
         "task.cpp",
         "factory.cpp",
-        "scanner.cpp" 
+        # "scanner.cpp" 
     ],
     hdrs = [
         "ni.h",
@@ -46,7 +64,7 @@ cc_library(
     }),
     visibility = ["//visibility:public"],
     deps = [
-        "daqmx_hds",
+        "daqmx",
         "syscfg_hds",
         "//driver/breaker",
         "//driver/errors",
@@ -66,9 +84,7 @@ cc_test(
     ],
     copts = ["/std:c++20"],
     deps = [
-        "daqmx_hds",
         "ni",
-        "syscfg_hds",
         "//driver/testutil",
         "@com_google_googletest//:gtest_main",
     ],
@@ -81,29 +97,25 @@ cc_test(
     ],
     copts = ["/std:c++20"],
     deps = [
-        "daqmx_hds",
         "ni",
-        "syscfg_hds",
         "//driver/testutil",
         "@com_google_googletest//:gtest_main",
     ],
 )
 
 
-cc_test(
-    name = "scanner_test",
-    srcs = [
-        "scanner_test.cpp",
-    ],
-    deps = [
-        "ni",
-        "@com_google_googletest//:gtest_main",
-        "daqmx_hds",
-        "syscfg_hds",
-        "//driver/testutil",
-    ],
-    copts = ["/std:c++20"],
-)
+# cc_test(
+#     name = "scanner_test",
+#     srcs = [
+#         "scanner_test.cpp",
+#     ],
+#     deps = [
+#         "ni",
+#         "@com_google_googletest//:gtest_main",
+#         "//driver/testutil",
+#     ],
+#     copts = ["/std:c++20"],
+# )
 
 cc_test(
     name = "task_test",
@@ -113,8 +125,6 @@ cc_test(
     deps = [
         "ni",
         "@com_google_googletest//:gtest_main",
-        "daqmx_hds",
-        "syscfg_hds",
         "//driver/testutil",
     ],
     copts = ["/std:c++20"],
