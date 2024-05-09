@@ -32,7 +32,7 @@ scale.
 
 # Development Status
 
-Synnax is currently in beta and is under active development. The APIs are mostly stable
+Synnax is currently in beta and is under active development. The APIs are stable
 and are unlikely to change significantly.
 
 Versions prior to 1.x.x follow modified Semantic Versioning. Versions with the same 

@@ -235,18 +235,6 @@ Then, prepare npm by running
 corepack prepare pnpm@latest --activate
 ```
 
-To install pnpm, run
-
-```zsh
-corepack enable
-```
-
-Then, prepare npm by running
-
-```zsh
-corepack prepare pnpm@latest --activate
-```
-
 ## 6.1 - Install Dependencies
 
 In the root directory of the repository, run
