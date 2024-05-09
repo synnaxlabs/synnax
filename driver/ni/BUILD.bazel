@@ -3,26 +3,26 @@ config_setting(
     values = {"define": "ni_mock=true"}
 )
 
-cc_library(
-    name = "daqmx_hds",
-    hdrs = ["daqmx.h"],
-    visibility = ["//visibility:public"],
-    deps = ["@nidaqmx"],
-)
+# cc_library(
+#     name = "daqmx_hds",
+#     hdrs = ["daqmx.h"],
+#     visibility = ["//visibility:public"],
+#     deps = ["@nidaqmx"],
+# )
 
-cc_library(
-    name = "syscfg_hds",
-    hdrs = [
-        "nisyscfg.h",
-        "nisyscfg_errors.h",
-        "nisyscfg_wide.h",
-    ],
-    visibility = ["//visibility:public"],
-    deps = [
-        "@nidaqmx",
-        "@nisyscfg",
-    ],
-)
+# cc_library(
+#     name = "syscfg_hds",
+#     hdrs = [
+#         "nisyscfg.h",
+#         "nisyscfg_errors.h",
+#         "nisyscfg_wide.h",
+#     ],
+#     visibility = ["//visibility:public"],
+#     deps = [
+#         "@nidaqmx",
+#         "@nisyscfg",
+#     ],
+# )
 
 
 cc_library(
@@ -31,9 +31,16 @@ cc_library(
         "//conditions:default": ["nidaqmx_prod.cpp"],
         ":ni_mock": ["nidaqmx_mock.cpp"],
     }),
-    hdrs = ["nidaqmx_api.h"],
+    hdrs = [
+        "nidaqmx_api.h",
+        "daqmx.h"
+    ],
+
     visibility = ["//visibility:public"],
-    deps = ["daqmx_hds"],
+    deps =  select({
+        "//conditions:default": ["@nidaqmx"],
+        ":ni_mock": [],
+    }),
 )
 
 
