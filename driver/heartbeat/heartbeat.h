@@ -9,11 +9,6 @@
 
 #pragma once
 
-#include <condition_variable>
-#include <thread>
-#include <atomic>
-#include <mutex>
-
 #include "freighter/cpp/freighter.h"
 #include "client/cpp/synnax.h"
 #include "driver/breaker/breaker.h"
@@ -51,9 +46,6 @@ private:
 
     // Threading
     std::atomic<bool> running;
-    std::mutex running_mtx;
-    std::condition_variable running_cv;
-
     std::thread run_thread;
     freighter::Error run_err;
 
