@@ -235,6 +235,10 @@ jobs:
         if: ${{ matrix.platform == 'macos-latest' }}
         run: bazel build --enable_platform_specific_config //driver:driver_main --define ni_mock=true
 
+      - name: Build Driver on ubuntu
+        if: ${{ matrix.platform == 'ubuntu-latest' }}
+        run: bazel build --enable_platform_specific_config //driver:driver_main --define ni_mock=true
+
       - name: Determine Executable Name
         id: executable
         shell: bash
