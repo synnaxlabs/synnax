@@ -46,6 +46,9 @@ private:
 
     // Threading
     std::atomic<bool> running;
+    std::mutex running_mtx;
+    std::condition_variable running_cv;
+
     std::thread run_thread;
     freighter::Error run_err;
 
