@@ -22,7 +22,7 @@ cc_test(
     ],
     copts = select({
         "@platforms//os:windows": ["/std:c++20"],
-        "//conditions:default": [],q
+        "//conditions:default": [],
     }),
     visibility = ["//visibility:public"],
     deps = [
