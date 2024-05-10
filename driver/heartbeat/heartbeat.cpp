@@ -31,7 +31,7 @@ freighter::Error heartbeat::Heartbeat::start(std::atomic<bool> &done) {
     {
         std::unique_lock<std::mutex> lock(running_mtx);
         running = true;
-        running_cv.notify_one();  // only one thread could make more work with this 
+        this->running_cv.notify_one();  // only one thread could make more work with this 
     }
 
     run_thread = std::thread(&Heartbeat::run, this, std::ref(done));
@@ -54,7 +54,7 @@ freighter::Error heartbeat::Heartbeat::stop() {
         // this waits until running is true but doesn't the if statement above guarantee 
         //that we never wait (i.e. itll be true by the time we get here)?
         // no because someone else could have set it back to true in the mean time?
-        running_cv.wait(lock, [=] {return running.load();}); 
+        this->running_cv.wait(lock, [=] {return running.load();}); 
         LOG(INFO) << "[heartbeat] shutting down";
         running = false;
     }

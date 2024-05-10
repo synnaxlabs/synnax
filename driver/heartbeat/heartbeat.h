@@ -9,6 +9,11 @@
 
 #pragma once
 
+#include <condition_variable>
+#include <thread>
+#include <atomic>
+#include <mutex>
+
 #include "freighter/cpp/freighter.h"
 #include "client/cpp/synnax.h"
 #include "driver/breaker/breaker.h"

@@ -36,12 +36,12 @@ jobs:
 
       - name: Build Driver on Windows
         if: ${{ matrix.platform == 'windows-latest' }}
-        run: bazel --output_user_root=C:/tmp build --enable_platform_specific_config //driver:driver_main --define ni_mock=true
+        run: bazel -s -output_user_root=C:/tmp build --enable_platform_specific_config //driver:driver_main --define ni_mock=true
 
       - name: Build Driver on mac
         if: ${{ matrix.platform == 'macos-latest' }}
-        run: bazel build --enable_platform_specific_config //driver:driver_main --define ni_mock=true
+        run: bazel build -s --enable_platform_specific_config //driver:driver_main --define ni_mock=true
 
       - name: Build Driver on ubuntu
         if: ${{ matrix.platform == 'ubuntu-latest' }}
-        run: bazel build --enable_platform_specific_config //driver:driver_main --define ni_mock=true
+        run: bazel build -s --enable_platform_specific_config //driver:driver_main --define ni_mock=true
