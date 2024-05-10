@@ -31,8 +31,8 @@ To start a new transaction, a user must specify two properties:
 1. The channels they wish to write to.
 2. The timestamp marking the start of the new domain.
 
-In addition, the writer is configured with Auto-Commit (see Commit Phase) off
-by default, a user may specify it to be on in this phase.
+In addition, the user may specify whether the writer is configured with
+[auto-commit](write#commit-phase). Auto-commit is off by default.
 
 Using this information, the database validates the following:
 
@@ -91,9 +91,9 @@ phase completes, the transaction is moved back into the write phase. At this
 point, we can either write more frames to the cluster and commit again, or we
 can close the writer.
 
-Alternatively, if you configured your writer to Auto-Commit mode, a Commit Phase
-automatically follows every Write phase, rendering the data immediately available as
-it is written. Each commit extends the data from the previous commit.
+Alternatively, if the writer is configured with auto-commit on, the commit phase
+automatically follws the write phase. This renders the data immediately
+available as it is written.
 
 ### Close Phase
 
