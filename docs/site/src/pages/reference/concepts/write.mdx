@@ -92,8 +92,9 @@ point, we can either write more frames to the cluster and commit again, or we
 can close the writer.
 
 Alternatively, if the writer is configured with auto-commit on, the commit phase
-automatically follws the write phase. This renders the data immediately
-available as it is written.
+automatically follows the write phase. This renders the data immediately
+available as it is written. However, this may have a minor impact on
+performance.
 
 ### Close Phase
 
