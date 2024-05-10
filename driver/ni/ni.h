@@ -199,23 +199,45 @@ namespace ni{
 
     class Scanner {
         public: 
-            explicit Scanner();
+            explicit Scanner() = default;
+            explicit Scanner(   const std::shared_ptr<task::Context> &ctx,
+                                const synnax::Task &task);
             ~Scanner();
-            void scan(json properties);
+            void scan();
             void testConnection();
             bool ok();
+            json getDevices();
         private:
+            NISysCfgResourceProperty getPropertyId(std::string property);
             json devices;
             json deviceProperties;
+            json requestedProperties;
             bool ok_state = true;
             NISysCfgSessionHandle session;
             NISysCfgFilterHandle filter;
             NISysCfgEnumResourceHandle resourcesHandle;
+            synnax::Task task;
+            std::shared_ptr<task::Context> ctx; 
     };
 
     ///////////////////////////////////////////////////////////////////////////////////
     //                                    ScannerTask                                //
     ///////////////////////////////////////////////////////////////////////////////////
+    class ScannerTask final : public task::Task {
+    public:
+        explicit ScannerTask(   const std::shared_ptr<task::Context> &ctx, 
+                                synnax::Task task); 
+
+        void exec(task::Command &cmd) override;
+        void stop() override{};
+        static std::unique_ptr<task::Task> configure(   const std::shared_ptr<task::Context> &ctx,
+                                                        const synnax::Task &task);
+    private:
+        ni::Scanner scanner;
+        synnax::Task task;
+        std::shared_ptr<task::Context> ctx;
+    
+    };
 
 
     ///////////////////////////////////////////////////////////////////////////////////

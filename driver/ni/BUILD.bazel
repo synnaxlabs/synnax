@@ -43,6 +43,25 @@ cc_library(
     }),
 )
 
+cc_library(
+    name = "nisyscfg",
+    srcs = select({
+        "//conditions:default": ["nisyscfg_prod.cpp"],
+        ":ni_mock": ["nisyscfg_mock.cpp"],
+    }),
+    hdrs = [
+        "nisyscfg_api.h",
+        "nisyscfg.h",
+        "nisyscfg_errors.h",
+        # "nisyscfg_wide.h", // double check why we would need this api
+    ],
+    visibility = ["//visibility:public"],
+    deps =  select({
+        "//conditions:default": ["@nisyscfg"],
+        ":ni_mock": [],
+    }),
+)
+
 
 cc_library(
     name = "ni",
@@ -50,14 +69,10 @@ cc_library(
         "reader.cpp",
         "task.cpp",
         "factory.cpp",
-        # "scanner.cpp" 
+        "scanner.cpp" 
     ],
     hdrs = [
         "ni.h",
-        "daqmx.h",
-        "nisyscfg.h",
-        "nisyscfg_errors.h",
-        "nisyscfg_wide.h",
         "//driver/task",
         "//driver/pipeline",
         "//client/cpp:synnax",
@@ -72,7 +87,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "daqmx",
-        # "syscfg_hds",
+        "nisyscfg",
         "//driver/breaker",
         "//driver/errors",
         "//driver/pipeline:daqReader",
@@ -111,18 +126,18 @@ cc_test(
 )
 
 
-# cc_test(
-#     name = "scanner_test",
-#     srcs = [
-#         "scanner_test.cpp",
-#     ],
-#     deps = [
-#         "ni",
-#         "@com_google_googletest//:gtest_main",
-#         "//driver/testutil",
-#     ],
-#     copts = ["/std:c++20"],
-# )
+cc_test(
+    name = "scanner_test",
+    srcs = [
+        "scanner_test.cpp",
+    ],
+    deps = [
+        "ni",
+        "@com_google_googletest//:gtest_main",
+        "//driver/testutil",
+    ],
+    copts = ["/std:c++20"],
+)
 
 cc_test(
     name = "task_test",

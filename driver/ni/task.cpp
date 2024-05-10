@@ -16,6 +16,51 @@
 #include <stdio.h>
 
 ///////////////////////////////////////////////////////////////////////////////////
+//                                    ScannerTask                                //
+///////////////////////////////////////////////////////////////////////////////////
+ni::ScannerTask::ScannerTask(   const std::shared_ptr<task::Context> &ctx, 
+                                synnax::Task task) :
+                                scanner(ctx, task){
+    this->task = task;
+    this->ctx = ctx;
+}
+
+std::unique_ptr<task::Task> ni::ScannerTask::configure(      const std::shared_ptr<task::Context> &ctx,
+                                                            const synnax::Task &task){
+    return std::make_unique<ni::ScannerTask>(ctx, task);
+}
+
+void ni::ScannerTask::exec(task::Command &cmd){
+    if (cmd.type == "scan"){
+        scanner.scan();
+        if(!scanner.ok()){
+            ctx->setState({
+                .task = task.key,
+                .variant = "error",
+                .details = {
+                    {"message", "failed to scan"}
+                }
+            });
+            LOG(ERROR) << "[NI Task] failed to scan for task " << this->task.name;
+        } else {
+            json devices = scanner.getDevices();
+            ctx->setState({
+                .task = task.key,
+                .variant = "success",
+                .details = {
+                    {"devices", devices.dump(4)}
+                }
+            });
+            LOG(INFO) << "[NI Task] successfully scanned for task " << this->task.name;
+            //print devices here for now
+            std::cout << devices.dump(4) << std::endl;
+        }  
+    } else {
+        LOG(ERROR) << "unknown command type: " << cmd.type;
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////////
 //                                    ReaderTask                                 //
 ///////////////////////////////////////////////////////////////////////////////////
 

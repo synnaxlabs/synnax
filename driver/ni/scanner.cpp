@@ -12,16 +12,19 @@
 //
 
 #include "driver/ni/ni.h"
-#include "nisyscfg.h"
+#include "nisyscfg_api.h"
 #include "nlohmann/json.hpp"
+#include <string>
 
 
-
-ni::Scanner::Scanner() {
-
+ni::Scanner::Scanner(   const std::shared_ptr<task::Context> &ctx,
+                        const synnax::Task &task) {
+    this->ctx = ctx;
+    this->task = task;
+    this->requestedProperties = json::parse(task.config);
     //initialize syscfg session for the scanner (TODO: Error Handling for status)
     NISysCfgStatus status = NISysCfg_OK;
-    status = NISysCfgInitializeSession( //TODO: look into this
+    status = ni::NiSysCfgInterface::InitializeSession( //TODO: look into this
             "localhost",            // target (ip, mac or dns name)
             NULL,                   // username (NULL for local system)
             NULL,                   // password (NULL for local system)
@@ -34,41 +37,46 @@ ni::Scanner::Scanner() {
     
 
     this->filter = NULL;
-    NISysCfgCreateFilter(this->session, &this->filter);
-    NISysCfgSetFilterProperty(this->filter, NISysCfgFilterPropertyIsDevice, NISysCfgBoolTrue);
+    ni::NiSysCfgInterface::CreateFilter(this->session, &this->filter);
+    ni::NiSysCfgInterface::SetFilterProperty(this->filter, NISysCfgFilterPropertyIsDevice, NISysCfgBoolTrue);
+    LOG(INFO) << "[NI Scanner] successfully configured scanner for task " << this->task.name;
 }
 
 ni::Scanner::~Scanner() {
     // TODO: Error Handling
-    NISysCfgCloseHandle(this->filter);
-    NISysCfgCloseHandle(this->resourcesHandle);
-    NISysCfgCloseHandle(this->session);
+    ni::NiSysCfgInterface::CloseHandle(this->filter);
+    ni::NiSysCfgInterface::CloseHandle(this->resourcesHandle);
+    ni::NiSysCfgInterface::CloseHandle(this->session);
+    LOG(INFO) << "[NI Scanner] successfully closed scanner for task " << this->task.name;
 }
 
-void ni::Scanner::scan(json properties) {
+void ni::Scanner::scan() {
 
     NISysCfgResourceHandle resource = NULL;
     // TODO: use parser to verify there is a properties key
-    auto property_arr = properties["properties"];
+    auto property_arr =  this->requestedProperties["properties"];
 
     // first find hardware
-    auto err = NISysCfgFindHardware(this->session, NISysCfgFilterModeAll, this->filter, NULL, &this->resourcesHandle);
+    auto err = ni::NiSysCfgInterface::FindHardware(this->session, NISysCfgFilterModeAll, this->filter, NULL, &this->resourcesHandle);
     if(err != NISysCfg_OK){
+        this->ok_state = false;
         return; // TODO: handle error more meaningfully
     }
 
     // Now iterate through found devices and get requested properties
     devices["devices"] = json::array();  
 
-    while(NISysCfgNextResource(this->session, this->resourcesHandle, &resource) == NISysCfg_OK){
+    while(ni::NiSysCfgInterface::NextResource(this->session, this->resourcesHandle, &resource) == NISysCfg_OK){
         json device;
-        for(auto &property: property_arr){
+        for(auto &property_str: property_arr){
             char propertyValue[1024] = "";
-            NISysCfgGetResourceProperty(resource, property, propertyValue);
-            device[property] = propertyValue;
+            auto property = getPropertyId(property_str);
+            ni::NiSysCfgInterface::GetResourceProperty(resource, property, propertyValue);
+            device[property_str] = propertyValue;
         }
         devices["devices"].push_back(device);
     }
+    LOG(INFO) << "[NI Scanner] successfully scanned devices from task " << this->task.name;
 }
 
 void ni::Scanner::testConnection() {
@@ -80,6 +88,19 @@ bool ni::Scanner::ok() {
     return ok_state;
 }
 
+json ni::Scanner::getDevices() {
+    return devices;
+}
+
+NISysCfgResourceProperty  ni::Scanner::getPropertyId(std::string property){
+    if(property == "SerialNumber"){
+        return NISysCfgResourcePropertySerialNumber; // char *
+    } else if(property == "DeviceName"){
+        return NISysCfgResourcePropertyProductName; // char *
+    } else {
+        return NISysCfgResourcePropertyProductName; // default to product name
+    }
+}
 
 // ni::NiScanner::NiScanner() {}
 

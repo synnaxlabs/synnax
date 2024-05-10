@@ -16,7 +16,7 @@ std::pair<std::unique_ptr<task::Task>, bool> ni::Factory::configureTask(
     const synnax::Task &task
 ) {
     if(task.type == "niScanner")
-        return {nullptr, false}; // TODO
+        return {ni::ScannerTask::configure(ctx, task), true}; 
     else if (task.type == "niReader")
         return {ni::ReaderTask::configure(ctx, task), true};
     else if (task.type == "niWriter")
