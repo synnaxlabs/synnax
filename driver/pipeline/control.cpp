@@ -8,8 +8,6 @@
 // included in the file licenses/APL.txt.
 
 
-#pragma once
-
 #include "driver/pipeline/control.h"
 
 #include <utility>
