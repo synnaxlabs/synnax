@@ -71,6 +71,9 @@ TEST(NiTaskTests, test_NI_analog_reader_task){
             to_string(config)   // task config
     );
 
+    // print config
+        std::cout << "Analog Reader Task Config: " << to_string(config) << std::endl;
+
     auto mockCtx = std::make_shared<task::MockContext>(client);
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
@@ -174,6 +177,9 @@ TEST(NiTaskTests, test_NI_digital_reader_task){
             "niReader",
             to_string(config)
     );
+
+    // print config
+    std::cout << "Digital Reader Task Config: " << config.dump(4) << std::endl;
 
     auto mockCtx = std::make_shared<task::MockContext>(client);
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -294,6 +300,9 @@ TEST(NiTaskTests, test_NI_digital_writer_task){
             to_string(config)
     );
 
+        // print config
+        std::cout << "D9igital Writer Task Config: " << config.dump(4) << std::endl;
+
     auto mockCtx = std::make_shared<task::MockContext>(client);
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
@@ -372,6 +381,10 @@ TEST(NiTaskTests, test_NI_scanner_task){
         "niScanner",
         to_string(config)
     );
+
+     // print config
+     std::cout << "Scanner Task Config: " << config.dump(4) << std::endl;
+    
     auto mockCtx = std::make_shared<task::MockContext>(client);
 
 
@@ -391,3 +404,112 @@ TEST(NiTaskTests, test_NI_scanner_task){
     // perform a scan
     scanner_task->exec(scan_cmd);
 }
+
+
+/* Configs
+
+
+/////////////////////////////////////////////////////////////////////////////////////// ANALOG READER
+
+I20240511 20:22:43.922561 21804 reader_test.cpp:165] test_read_one_analog_channel:
+{
+    "acq_rate": 100,
+    "channels": [
+        {
+            "ack_key": 0,
+            "channel_key": 1,
+            "channel_type": "index",
+            "cmd_key": 0,
+            "line": 0,
+            "name": "idx",
+            "port": 0
+        },
+        {
+            "channel_key": 65531,
+            "channel_type": "analogVoltageInput",
+            "max_val": 10.0,
+            "min_val": -10.0,
+            "name": "a1",
+            "port": 0,
+            "terminal_config": "Default"
+        }
+    ],
+    "device_name": "Dev1",
+    "reader_type": "analogReader",
+    "stream_rate": 20
+}
+
+
+/////////////////////////////////////////////////////////////////////////////////////// DIGITAL READER
+
+Digital Reader Task Config: {
+    "acq_rate": 2000,
+    "channels": [
+        {
+            "ack_key": 0,
+            "channel_key": 1048605,
+            "channel_type": "index",
+            "cmd_key": 0,
+            "line": 0,
+            "name": "time",
+            "port": 0
+        },
+        {
+            "channel_key": 1048606,
+            "channel_type": "digitalInput",
+            "line": 0,
+            "name": "acq_data",
+            "port": 0
+        }
+    ],
+    "device_name": "PXI1Slot2_2",
+    "reader_type": "digitalReader",
+    "stream_rate": 20
+}
+
+
+
+////////////////////////////////////////////////////////////////////////////////////// DIGITAL WRITER
+Digital Writer Task Config: {
+    "channels": [
+        {
+            "ack_key": 0,
+            "channel_key": 1048608,
+            "channel_type": "index",
+            "cmd_key": 0,
+            "line": 0,
+            "name": "do1_idx",
+            "port": 0
+        },
+        {
+            "channel_key": 1048610,
+            "channel_type": "digitalOutput",
+            "drive_state_key": 1048609,
+            "line": 0,
+            "name": "do_cmd",
+            "port": 0
+        },
+        {
+            "channel_key": 1048607,
+            "channel_type": "driveStateIndex",
+            "line": 0,
+            "name": "do_state_idx",
+            "port": 0
+        }
+    ],
+    "device_name": "Dev1",
+    "stream_rate": 1
+}
+
+
+////////////////////////////////////////////////////////////////////////////////////// SCANNER
+
+{
+    "properties": [
+        "SerialNumber",
+        "DeviceName"
+    ]
+}
+
+
+*/
