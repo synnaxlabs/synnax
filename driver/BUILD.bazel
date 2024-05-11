@@ -73,6 +73,7 @@ cc_binary(
             "//driver",
             "//driver/breaker",
             "//driver/meminfo",
+            "//driver/ni",
             "//driver/opc",
             "//driver/task",
             "@com_github_google_glog//:glog",
