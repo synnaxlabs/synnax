@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/x/control"
+	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"sync"
@@ -158,9 +159,25 @@ func (db *DB) TryClose() error {
 	defer db.mu.RUnlock()
 	if db.mu.openIteratorWriters > 0 {
 		return errors.Newf("[cesium] - cannot close channel because there are currently %d unclosed writers/iterators accessing it", db.mu.openIteratorWriters)
-	} else {
-		return db.Close()
 	}
+
+	return db.Close()
+}
+
+func (db *DB) TryRekey() error {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+	if db.mu.openIteratorWriters > 0 {
+		return errors.Newf("[cesium] - cannot rekey channel because there are currently %d unclosed writers/iterators accessing it", db.mu.openIteratorWriters)
+	}
+
+	return nil
+}
+
+// ReconfigureFS reconfigures the unaryDB's file system to the received file system.
+func (db *DB) ReconfigureFS(fs xfs.FS) error {
+	db.Config.FS = fs
+	return db.Domain.ReconfigureFS(fs)
 }
 
 func (db *DB) Close() error { return db.Domain.Close() }

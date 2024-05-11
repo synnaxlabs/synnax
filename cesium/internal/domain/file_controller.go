@@ -54,9 +54,13 @@ func openFileController(cfg Config) (*fileController, error) {
 	if err != nil {
 		return nil, err
 	}
+	counter, err := xio.NewInt32Counter(counterF)
+	if err != nil {
+		return nil, err
+	}
 	fc := &fileController{
 		Config:      cfg,
-		counter:     xio.NewInt32Counter(counterF),
+		counter:     counter,
 		counterFile: counterF,
 	}
 	fc.writers.open = make(map[uint16]controlledWriter, cfg.MaxDescriptors)
@@ -279,6 +283,8 @@ func (fc *fileController) removeReadersWriters(ctx context.Context, key uint16) 
 
 func (fc *fileController) close() error {
 	fc.writers.Lock()
+	fc.readers.Lock()
+	defer fc.readers.Unlock()
 	defer fc.writers.Unlock()
 	c := errutil.NewCatch(errutil.WithAggregation())
 	for _, w := range fc.writers.open {

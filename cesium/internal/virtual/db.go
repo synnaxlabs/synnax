@@ -70,7 +70,18 @@ func (db *DB) TryClose() error {
 	if db.mu.openWriters > 0 {
 		return errors.Newf(fmt.Sprintf("[cesium] - cannot close channel because there are currently %d unclosed writers accessing it", db.mu.openWriters))
 	}
+
 	return db.Close()
+}
+
+func (db *DB) TryRekey() error {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+	if db.mu.openWriters > 0 {
+		return errors.Newf("[cesium] - cannot rekey channel because there are currently %d unclosed writers/iterators accessing it", db.mu.openWriters)
+	}
+
+	return nil
 }
 
 func (db *DB) Close() error { return nil }

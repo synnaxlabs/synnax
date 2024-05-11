@@ -111,3 +111,67 @@ func (db *DB) validateNewChannel(ch Channel) error {
 	}
 	return v.Error()
 }
+
+// RenameChannel changes the key of channel oldKey into newKey. This operation is
+// idempotent and does not return an error if the channel does not exist.
+// RenameChannel returns an error if there are open iterators/writers on the given channel.
+func (db *DB) RenameChannel(oldKey ChannelKey, newKey core.ChannelKey) error {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	udb, uok := db.unaryDBs[oldKey]
+	if uok {
+		if err := udb.TryRekey(); err != nil {
+			return err
+		}
+
+		err := db.fs.Rename(keyToDirName(oldKey), keyToDirName(newKey))
+		if err != nil {
+			return err
+		}
+
+		udb.Config.Channel.Key = newKey
+		newFS, err := db.fs.Sub(keyToDirName(newKey))
+		if err != nil {
+			return err
+		}
+
+		err = udb.ReconfigureFS(newFS)
+		if err != nil {
+			return err
+		}
+
+		delete(db.unaryDBs, oldKey)
+		db.unaryDBs[newKey] = udb
+
+		if udb.Channel.IsIndex {
+			for otherDBKey := range db.unaryDBs {
+				otherDB := db.unaryDBs[otherDBKey]
+				if otherDB.Channel.Index == oldKey {
+					otherDB.Channel.Index = newKey
+					db.unaryDBs[otherDBKey] = otherDB
+				}
+			}
+		}
+
+		return nil
+	}
+	vdb, vok := db.virtualDBs[oldKey]
+	if vok {
+		if err := vdb.TryRekey(); err != nil {
+			return err
+		}
+
+		err := db.fs.Rename(keyToDirName(oldKey), keyToDirName(newKey))
+		if err != nil {
+			return err
+		}
+
+		vdb.Config.Channel.Key = newKey
+		delete(db.virtualDBs, oldKey)
+		db.virtualDBs[newKey] = vdb
+
+		return nil
+	}
+
+	return nil
+}

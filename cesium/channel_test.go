@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -73,6 +74,162 @@ var _ = Describe("Channel", func() {
 						cesium.Channel{Key: 61, Index: 60, DataType: telem.Float32T},
 					),
 				)
+			})
+
+			Describe("Rekey", func() {
+				var (
+					unaryKey   cesium.ChannelKey = 70
+					virtualKey cesium.ChannelKey = 71
+					indexKey   cesium.ChannelKey = 72
+					dataKey    cesium.ChannelKey = 73
+					data2Key   cesium.ChannelKey = 74
+					errorKey1  cesium.ChannelKey = 75
+					errorKey2  cesium.ChannelKey = 76
+					errorKey3  cesium.ChannelKey = 77
+
+					channels = []cesium.Channel{
+						{Key: unaryKey, DataType: telem.Int64T, Rate: 1 * telem.Hz},
+						{Key: virtualKey, Virtual: true, DataType: telem.Int64T},
+						{Key: indexKey, DataType: telem.TimeStampT, IsIndex: true},
+						{Key: dataKey, DataType: telem.Int64T, Index: indexKey},
+						{Key: data2Key, DataType: telem.Int64T, Index: indexKey},
+						{Key: errorKey1, DataType: telem.Int64T, Rate: 1 * telem.Hz},
+						{Key: errorKey2, Virtual: true, DataType: telem.Int64T},
+					}
+				)
+				BeforeAll(func() {
+					Expect(db.CreateChannel(ctx, channels...)).To(Succeed())
+				})
+				It("Should rekey a unary channel into another", func() {
+					By("Writing some data into the channel")
+					Expect(db.WriteArray(ctx, unaryKey, 0, telem.NewSeriesV[int64](2, 3, 5, 7, 11))).To(Succeed())
+					Expect(db.WriteArray(ctx, unaryKey, 5*telem.SecondTS, telem.NewSeriesV[int64](13, 17, 19, 23, 29))).To(Succeed())
+
+					By("Renaming the channel")
+					Expect(db.RenameChannel(unaryKey, unaryKey*10)).To(Succeed())
+
+					By("Asserting the old channel no longer exists")
+					_, err := db.RetrieveChannel(ctx, unaryKey)
+					Expect(err).To(MatchError(core.ChannelNotFound))
+					Expect(MustSucceed(fs.Exists(pathInDBFromKey(unaryKey)))).To(BeFalse())
+
+					By("Asserting the channel can be found at the new key")
+					ch := MustSucceed(db.RetrieveChannel(ctx, unaryKey*10))
+					Expect(ch.Key).To(Equal(unaryKey * 10))
+
+					By("Asserting that reads and writes on the channel still work")
+					Expect(db.WriteArray(ctx, unaryKey*10, 10*telem.SecondTS, telem.NewSeriesV[int64](31, 37, 41, 43, 47))).To(Succeed())
+					f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, unaryKey*10))
+					Expect(f.Series[0].Data).To(Equal(telem.NewSeriesV[int64](2, 3, 5, 7, 11).Data))
+					Expect(f.Series[1].Data).To(Equal(telem.NewSeriesV[int64](13, 17, 19, 23, 29).Data))
+					Expect(f.Series[2].Data).To(Equal(telem.NewSeriesV[int64](31, 37, 41, 43, 47).Data))
+				})
+
+				It("Should rekey a virtual channel into another", func() {
+					By("Renaming the channel")
+					Expect(db.RenameChannel(virtualKey, virtualKey*10)).To(Succeed())
+
+					By("Asserting the old channel no longer exists")
+					_, err := db.RetrieveChannel(ctx, virtualKey)
+					Expect(err).To(MatchError(core.ChannelNotFound))
+					Expect(MustSucceed(fs.Exists(pathInDBFromKey(virtualKey)))).To(BeFalse())
+
+					By("Asserting the channel and data can be found at the new key")
+					ch := MustSucceed(db.RetrieveChannel(ctx, virtualKey*10))
+					Expect(ch.Key).To(Equal(virtualKey * 10))
+				})
+
+				It("Should rekey an index channel", func() {
+					By("Writing some data into the channel")
+					Expect(db.Write(ctx, 2*telem.SecondTS, cesium.NewFrame(
+						[]core.ChannelKey{indexKey, dataKey, data2Key},
+						[]telem.Series{telem.NewSecondsTSV(2, 3, 5, 7, 11), telem.NewSeriesV[int64](2, 3, 5, 7, 11), telem.NewSeriesV[int64](20, 30, 50, 70, 110)},
+					))).To(Succeed())
+
+					By("Renaming the channel")
+					Expect(db.RenameChannel(indexKey, indexKey*10)).To(Succeed())
+
+					By("Asserting the old channel no longer exists")
+					_, err := db.RetrieveChannel(ctx, indexKey)
+					Expect(err).To(MatchError(core.ChannelNotFound))
+					Expect(MustSucceed(fs.Exists(pathInDBFromKey(indexKey)))).To(BeFalse())
+
+					By("Asserting the channel can be found at the new key")
+					ch := MustSucceed(db.RetrieveChannel(ctx, indexKey*10))
+					Expect(ch.Key).To(Equal(indexKey * 10))
+
+					By("Asserting that reads and writes on the channel still work")
+					Expect(db.Write(ctx, 13*telem.SecondTS, cesium.NewFrame(
+						[]core.ChannelKey{indexKey * 10, dataKey, data2Key},
+						[]telem.Series{telem.NewSecondsTSV(13, 17, 19, 23, 29), telem.NewSeriesV[int64](13, 17, 19, 23, 29), telem.NewSeriesV[int64](130, 170, 190, 230, 290)},
+					))).To(Succeed())
+					f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, indexKey*10, dataKey, data2Key))
+					Expect(f.Series[0].Data).To(Equal(telem.NewSecondsTSV(2, 3, 5, 7, 11).Data))
+					Expect(f.Series[1].Data).To(Equal(telem.NewSecondsTSV(13, 17, 19, 23, 29).Data))
+
+					Expect(f.Series[2].Data).To(Equal(telem.NewSeriesV[int64](2, 3, 5, 7, 11).Data))
+					Expect(f.Series[3].Data).To(Equal(telem.NewSeriesV[int64](13, 17, 19, 23, 29).Data))
+
+					Expect(f.Series[4].Data).To(Equal(telem.NewSeriesV[int64](20, 30, 50, 70, 110).Data))
+					Expect(f.Series[5].Data).To(Equal(telem.NewSeriesV[int64](130, 170, 190, 230, 290).Data))
+				})
+
+				Describe("Rekey of channel with a writer", func() {
+					Specify("Unary", func() {
+						By("Opening a writer")
+						w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Start: 0, Channels: []cesium.ChannelKey{errorKey1}, ControlSubject: control.Subject{Key: "rekey writer"}}))
+
+						By("Trying to rekey")
+						Expect(db.RenameChannel(errorKey1, errorKey1*10)).To(MatchError(ContainSubstring("1 unclosed writers/iterators")))
+
+						By("Closing writer")
+						Expect(w.Close()).To(Succeed())
+
+						By("Asserting that rekey is successful now")
+						Expect(db.RenameChannel(errorKey1, errorKey1*10)).To(Succeed())
+
+						By("Asserting the old channel no longer exists")
+						_, err := db.RetrieveChannel(ctx, errorKey1)
+						Expect(err).To(MatchError(core.ChannelNotFound))
+						Expect(MustSucceed(fs.Exists(pathInDBFromKey(errorKey1)))).To(BeFalse())
+
+						By("Asserting the channel can be found at the new key")
+						ch := MustSucceed(db.RetrieveChannel(ctx, errorKey1*10))
+						Expect(ch.Key).To(Equal(errorKey1 * 10))
+
+						By("Asserting that reads and writes on the channel still work")
+						Expect(db.WriteArray(ctx, errorKey1*10, 10*telem.SecondTS, telem.NewSeriesV[int64](31, 37, 41, 43, 47))).To(Succeed())
+						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, errorKey1*10))
+						Expect(f.Series[0].Data).To(Equal(telem.NewSeriesV[int64](31, 37, 41, 43, 47).Data))
+					})
+					Specify("Virtual", func() {
+						By("Opening a writer")
+						w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Start: 0, Channels: []cesium.ChannelKey{errorKey2}, ControlSubject: control.Subject{Key: "rekey writer"}}))
+
+						By("Trying to rekey")
+						Expect(db.RenameChannel(errorKey2, errorKey2*10)).To(MatchError(ContainSubstring("1 unclosed writers")))
+
+						By("Closing writer")
+						Expect(w.Close()).To(Succeed())
+
+						By("Asserting that rekey is successful now")
+						Expect(db.RenameChannel(errorKey2, errorKey2*10)).To(Succeed())
+
+						By("Asserting the old channel no longer exists")
+						_, err := db.RetrieveChannel(ctx, errorKey2)
+						Expect(err).To(MatchError(core.ChannelNotFound))
+						Expect(MustSucceed(fs.Exists(pathInDBFromKey(errorKey2)))).To(BeFalse())
+
+						By("Asserting the channel can be found at the new key")
+						ch := MustSucceed(db.RetrieveChannel(ctx, errorKey2*10))
+						Expect(ch.Key).To(Equal(errorKey2 * 10))
+					})
+				})
+
+				It("Should do nothing for a channel that does not exist", func() {
+					By("Trying to rekey")
+					Expect(db.RenameChannel(errorKey3, errorKey3*10)).To(Succeed())
+				})
 			})
 		})
 	}

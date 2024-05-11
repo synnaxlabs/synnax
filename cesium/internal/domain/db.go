@@ -160,6 +160,23 @@ func (db *DB) Close() error {
 	return w.Error()
 }
 
+// ReconfigureFS sets the domain DB's file system to the received file system, and
+// creates a new controller for it.
+func (db *DB) ReconfigureFS(fs xfs.FS) (err error) {
+	db.Config.FS = fs
+	err = db.files.close()
+	if err != nil {
+		return
+	}
+
+	db.files, err = openFileController(db.Config)
+	if err != nil {
+		return
+	}
+
+	return
+}
+
 func (db *DB) newReader(ctx context.Context, ptr pointer) (*Reader, error) {
 	internal, err := db.files.acquireReader(ctx, ptr.fileKey)
 	if err != nil {

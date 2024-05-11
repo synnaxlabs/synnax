@@ -151,7 +151,11 @@ func (m *memFS) Open(name string, flag int) (File, error) {
 				return nil, errors.Newf("File <%s> already exists when opening with O_EXCL", name)
 			}
 
-			return m.FS.Open(name)
+			if flag&os.O_RDWR != 0 || flag&os.O_WRONLY != 0 {
+				return m.FS.OpenReadWrite(name)
+			} else {
+				return m.FS.Open(name)
+			}
 
 		} else {
 			// file does not exist
