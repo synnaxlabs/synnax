@@ -75,3 +75,7 @@ int32 ni::NiDAQmxInterface::CreateTableScale  (const char name[], const float64 
 int32 ni::NiDAQmxInterface::CalculateReversePolyCoeff (const float64 forwardCoeffs[], uInt32 numForwardCoeffsIn, float64 minValX, float64 maxValX, int32 numPointsToCompute, int32 reversePolyOrder, float64 reverseCoeffs[]){
     return DAQmxCalculateReversePolyCoeff(forwardCoeffs, numForwardCoeffsIn, minValX, maxValX, numPointsToCompute, reversePolyOrder, reverseCoeffs);
 }
+
+int32 ni::NiDAQmxInterface::CreateTask(const char sessionName[], TaskHandle* task){
+    return DAQmxCreateTask(sessionName, task);
+}

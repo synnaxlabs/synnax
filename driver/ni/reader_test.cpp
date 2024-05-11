@@ -56,7 +56,7 @@ TEST(ReaderTests, test_read_one_digital_channel){
     std::this_thread::sleep_for(std::chrono::milliseconds(300));
     // Now construct NI reader
     TaskHandle taskHandle;  
-    DAQmxCreateTask("",&taskHandle);
+    ni::NiDAQmxInterface::CreateTask("",&taskHandle);
 
     auto reader = ni::daqReader(  taskHandle, 
                                     mockCtx, 
@@ -126,7 +126,7 @@ TEST(ReaderTests, test_read_multiple_digital_channel){
     std::this_thread::sleep_for(std::chrono::milliseconds(300));
     // Now construct NI reader
     TaskHandle taskHandle;  
-    DAQmxCreateTask("",&taskHandle);
+    ni::NiDAQmxInterface::CreateTask("",&taskHandle);
 
     auto reader = ni::daqReader(  taskHandle, 
                                     mockCtx, 
@@ -191,7 +191,7 @@ TEST(ReaderTests, test_read_one_analog_channel){
     std::this_thread::sleep_for(std::chrono::milliseconds(300));
     // Now construct NI reader
     TaskHandle taskHandle;  
-    DAQmxCreateTask("",&taskHandle);
+    ni::NiDAQmxInterface::CreateTask("",&taskHandle);
 
     auto reader = ni::daqReader(  taskHandle, 
                                     mockCtx, 
@@ -262,7 +262,7 @@ TEST(ReaderTests, test_read_multiple_analog_channels){
     std::this_thread::sleep_for(std::chrono::milliseconds(300));
     // Now construct NI reader
     TaskHandle taskHandle;  
-    DAQmxCreateTask("",&taskHandle);
+    ni::NiDAQmxInterface::CreateTask("",&taskHandle);
 
     auto reader = ni::daqReader(  taskHandle, 
                                     mockCtx, 
@@ -328,7 +328,7 @@ TEST(WriterTests, test_write_one_digital_channel){
 
     // Now construct NI writer
     TaskHandle taskHandle;  
-    DAQmxCreateTask("",&taskHandle);
+    ni::NiDAQmxInterface::CreateTask("",&taskHandle);
     auto writer = ni::daqWriter(  taskHandle, 
                                     mockCtx, 
                                     task);
@@ -448,7 +448,7 @@ TEST(NiWriterTests, test_write_multiple_digital_channel){
 
     // Now construct NI writer
     TaskHandle taskHandle;  
-    DAQmxCreateTask("",&taskHandle);
+    ni::NiDAQmxInterface::CreateTask("",&taskHandle);
     auto writer = ni::daqWriter(  taskHandle, 
                                     mockCtx, 
                                     task);

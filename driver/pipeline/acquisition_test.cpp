@@ -79,7 +79,7 @@ TEST(AcquisitionPipelineTests, test_acquisition_NI_analog_reader){
 
         // now create a daqReader
         TaskHandle taskHandle;
-        DAQmxCreateTask("",&taskHandle);
+        ni::NiDAQmxInterface::CreateTask("",&taskHandle);
 
         auto reader = std::make_shared<ni::daqReader>(taskHandle, mockCtx, task);
 
@@ -196,7 +196,7 @@ TEST(AcquisitionPipelineTests, test_acquisition_NI_digital_reader){
 
         // now create a daqReader
         TaskHandle taskHandle;
-        DAQmxCreateTask("",&taskHandle);
+        ni::NiDAQmxInterface::CreateTask("",&taskHandle);
 
         auto reader = std::make_shared<ni::daqReader>(taskHandle, mockCtx, task);
 

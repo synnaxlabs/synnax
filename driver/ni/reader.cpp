@@ -799,7 +799,7 @@ freighter::Error ni::daqWriter::start()
 {
     // TODO: don't let multiple starts happen (or handle it at least)
     freighter::Error err = freighter::NIL;
-    if (this->checkNIError(DAQmxStartTask(this->taskHandle)))
+    if (this->checkNIError(ni::NiDAQmxInterface::StartTask(this->taskHandle)))
     {
         LOG(ERROR) << "[NI Writer] failed while starting writer for task " << this->writer_config.task_name;
         err = freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);

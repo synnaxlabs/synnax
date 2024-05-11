@@ -83,7 +83,7 @@ ni::ReaderTask::ReaderTask(const std::shared_ptr <task::Context> &ctx,
     };
 
     // create a daq reader to provide to cmd read pipe as sink
-    DAQmxCreateTask("", &this->taskHandle);
+    ni::NiDAQmxInterface::CreateTask("", &this->taskHandle);
     auto daq_reader = std::make_unique<ni::daqReader>(this->taskHandle, ctx, task);
     if (!daq_reader->ok()) {
         LOG(ERROR) << "[NI Reader] failed to construct reader for " << task.name;
@@ -160,7 +160,7 @@ ni::WriterTask::WriterTask(const std::shared_ptr <task::Context> &ctx,
     };
 
     // create a daq reader to provide to cmd read pipe as sink
-    DAQmxCreateTask("", &this->taskHandle);
+    ni::NiDAQmxInterface::CreateTask("", &this->taskHandle);
     auto daq_writer = std::make_unique<ni::daqWriter>(this->taskHandle, ctx, task);
     if (!daq_writer->ok()) {
         LOG(ERROR) << "[NI Writer] failed to construct reader for" << task.name;

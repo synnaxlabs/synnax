@@ -122,7 +122,7 @@ TEST(ControlPipelineTests, test_control_NI_digital_writer){
 
     // instantiate and initialize the daq writer
     TaskHandle taskHandle;
-    DAQmxCreateTask("",&taskHandle);
+    ni::NiDAQmxInterface::CreateTask("",&taskHandle);
     auto daq_writer = std::make_unique<ni::daqWriter>(taskHandle, mockCtx, task); 
 ;
 
@@ -358,7 +358,7 @@ TEST(ControlPipelineTests, test_control_NI_digital_writer_multiple_channels){
 
     // instantiate and initialize the daq writer
     TaskHandle taskHandle;
-    DAQmxCreateTask("",&taskHandle);
+    ni::NiDAQmxInterface::CreateTask("",&taskHandle);
     auto daq_writer = std::make_unique<ni::daqWriter>(taskHandle, mockCtx, task); 
 
 
