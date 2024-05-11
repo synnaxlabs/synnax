@@ -78,8 +78,13 @@ cc_library(
         "//client/cpp:synnax",
 
     ],
-    copts = ["/std:c++20"],
+    copts = select({
+        "@platforms//os:windows": ["/std:c++20"],
+        "//conditions:default": [],
+    }),
     linkopts = ["user32.lib"],
+
+    // TODO: fix
     target_compatible_with = select({
         "@platforms//os:windows": [],
         "//conditions:default": [],
