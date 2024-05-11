@@ -172,7 +172,7 @@ TEST(ReaderTests, test_read_one_analog_channel){
             {"reader_type", "analogReader"}    
     };
     add_index_channel_JSON(config, "idx", 1);
-    add_AI_channel_JSON(config, "a1", 65531, 0, -10.0, 10.0);
+    add_AI_channel_JSON(config, "a1", 65531, 0, -10.0, 10.0, "Default");
 
     //print json as a string
     // std::cout << config.dump(4) << std::endl;
@@ -239,11 +239,11 @@ TEST(ReaderTests, test_read_multiple_analog_channels){
             {"reader_type", "analogReader"}    
     };
     add_index_channel_JSON(config, "idx", 1);
-    add_AI_channel_JSON(config, "a0", 65531, 0, -10.0, 10.0);
-    add_AI_channel_JSON(config, "a1", 65532, 1, -10.0, 10.0);
-    add_AI_channel_JSON(config, "a2", 65534, 2, -10.0, 10.0);
-    add_AI_channel_JSON(config, "a3", 65535, 3, -10.0, 10.0);
-    add_AI_channel_JSON(config, "a4", 65536, 4, -10.0, 10.0);
+    add_AI_channel_JSON(config, "a0", 65531, 0, -10.0, 10.0, "Default");
+    add_AI_channel_JSON(config, "a1", 65532, 1, -10.0, 10.0, "Default");
+    add_AI_channel_JSON(config, "a2", 65534, 2, -10.0, 10.0, "Default");
+    add_AI_channel_JSON(config, "a3", 65535, 3, -10.0, 10.0, "Default");
+    add_AI_channel_JSON(config, "a4", 65536, 4, -10.0, 10.0, "Default");
 
     //print json as a string
     //std::cout << config.dump(4) << std::endl;

@@ -124,8 +124,10 @@ namespace ni{
         /// @brief NI properties
         std::string name;
         std::string channel_type;
+        int terminal_config;
         float min_val;
         float max_val;
+
         bool custom_scale;
         Scale* scale; // TODO: make pointer
         std::string scale_type;
@@ -133,7 +135,7 @@ namespace ni{
 
         // Default constructor
         ChannelConfig() 
-            : name_space(0), channel_key(0), min_val(0.0f), max_val(0.0f),
+            : name_space(0), channel_key(0), terminal_config(-1),  min_val(0.0f), max_val(0.0f),
                 custom_scale(false), scale(nullptr), scale_type(""), scale_name("") {}
 
         // Destructor

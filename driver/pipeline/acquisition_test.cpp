@@ -65,7 +65,7 @@ TEST(AcquisitionPipelineTests, test_acquisition_NI_analog_reader){
             {"reader_type", "analogReader"}
         };
         add_index_channel_JSON(config, "time", time.key);
-        add_AI_channel_JSON(config, "acq_data", data.key, 0, -10.0, 10.0);
+        add_AI_channel_JSON(config, "acq_data", data.key, 0, -10.0, 10.0, "Default");
 
         // create synnax task
         auto task = synnax::Task(

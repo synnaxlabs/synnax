@@ -65,4 +65,5 @@ json add_AI_channel_JSON(json &config,
                          int key,
                          int port,
                          std::float_t min_val,
-                         std::float_t max_val); 
+                         std::float_t max_val,
+                         std::string terminal_config); 

@@ -93,6 +93,7 @@ void ni::daqReader::parseAnalogReaderConfig(config::Parser &parser)
 
     // device name
     this->reader_config.device_name = parser.required<std::string>("device_name");
+
     // now parse the channels
     parser.iter("channels",
                 [&](config::Parser &channel_builder)
@@ -110,7 +111,16 @@ void ni::daqReader::parseAnalogReaderConfig(config::Parser &parser)
                     {
                         config.min_val = channel_builder.required<float_t>("min_val");
                         config.max_val = channel_builder.required<std::float_t>("max_val");
+                        auto terminal_config = channel_builder.required<std::string>("terminal_config");
+
+                        config.terminal_config =     (terminal_config == "PseudoDiff") ? DAQmx_Val_PseudoDiff 
+                                                :    (terminal_config == "Diff") ? DAQmx_Val_Diff
+                                                :    (terminal_config == "NRSE") ? DAQmx_Val_NRSE
+                                                :    (terminal_config == "RSE") ? DAQmx_Val_RSE
+                                                :    DAQmx_Val_Cfg_Default;
                     }
+
+
 
                     // check for custom scale
                     this->parseCustomScale(channel_builder, config);
@@ -315,7 +325,7 @@ int ni::daqReader::init()
 int ni::daqReader::createAIChannel(ni::ChannelConfig &channel)
 {
     if(!channel.custom_scale){
-        return this->checkNIError(ni::NiDAQmxInterface::CreateAIVoltageChan(taskHandle, channel.name.c_str(), "", DAQmx_Val_Cfg_Default, channel.min_val, channel.max_val, DAQmx_Val_Volts, NULL));
+        return this->checkNIError(ni::NiDAQmxInterface::CreateAIVoltageChan(taskHandle, channel.name.c_str(), "", channel.terminal_config, channel.min_val, channel.max_val, DAQmx_Val_Volts, NULL));
     } else{
         // name scale
          channel.scale_name = channel.name + "_scale";
@@ -387,7 +397,7 @@ int ni::daqReader::createAIChannel(ni::ChannelConfig &channel)
             // ));
         }
         // create channel
-        return this->checkNIError(ni::NiDAQmxInterface::CreateAIVoltageChan(taskHandle, channel.name.c_str(), "", DAQmx_Val_Cfg_Default, channel.min_val, channel.max_val, DAQmx_Val_Volts, channel.scale_name.c_str()));
+        return this->checkNIError(ni::NiDAQmxInterface::CreateAIVoltageChan(taskHandle, channel.name.c_str(), "", channel.terminal_config, channel.min_val, channel.max_val, DAQmx_Val_Volts, channel.scale_name.c_str()));
     }
     return -1;
 }

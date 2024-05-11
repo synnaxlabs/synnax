@@ -81,7 +81,8 @@ json add_AI_channel_JSON(json &config,
                          int key,
                          int port,
                          std::float_t min_val,
-                         std::float_t max_val){
+                         std::float_t max_val, 
+                         std::string terminal_config){
     // first construct the json object for the channel
     json channel;
     channel["name"] = name;
@@ -90,6 +91,7 @@ json add_AI_channel_JSON(json &config,
     channel["channel_key"] = key;
     channel["min_val"] = min_val;
     channel["max_val"] = max_val;
+    channel["terminal_config"] = terminal_config;
 
     // now add json to the channels vector
     // check if the channels array exists
