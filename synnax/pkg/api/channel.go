@@ -100,6 +100,7 @@ type ChannelRetrieveRequest struct {
 	Offset       int              `json:"offset" msgpack:"offset"`
 	DataTypes    []telem.DataType `json:"data_types" msgpack:"data_types"`
 	NotDataTypes []telem.DataType `json:"not_data_types" msgpack:"not_data_types"`
+	Virtual      *bool            `json:"virtual" msgpack:"virtual"`
 }
 
 // ChannelRetrieveResponse is the response for a ChannelRetrieveRequest.
@@ -176,6 +177,10 @@ func (s *ChannelService) Retrieve(
 
 	if req.Offset > 0 {
 		q = q.Offset(req.Offset)
+	}
+
+	if req.Virtual != nil {
+		q = q.WhereVirtual(*req.Virtual)
 	}
 
 	err := q.Exec(ctx, nil)

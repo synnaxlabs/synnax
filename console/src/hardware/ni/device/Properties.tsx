@@ -9,17 +9,14 @@
 
 import { type ReactElement } from "react";
 
-import { Divider, Form } from "@synnaxlabs/pluto";
+import { Form } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 import { Text } from "@synnaxlabs/pluto/text";
 
 import { CSS } from "@/css";
-import { type Vendor } from "@/hardware/ni/new/types";
 
-import { SelectModel } from "@/hardware/configure/ni/SelectModel";
-import { SelectVendor } from "@/hardware/device/new/SelectVendor";
-
-import "@/hardware/device/new/properties/PropertiesForm.css";
+import { SelectModel } from "@/hardware/ni/device/enrich/SelectModel";
+import "@/hardware/ni/device/Properties.css";
 
 const MIN_IDENTIFIER_LENGTH = 3;
 const MAX_IDENTIFIER_LENGTH = 5;
@@ -36,10 +33,16 @@ export const extrapolateIdentifier = (identifier: string): string => {
 };
 
 export const PropertiesForm = (): ReactElement => {
-  Form.useFieldListener<string>("properties.name", (state, { set, get }) => {
-    const id = get({ path: "properties.identifier" });
-    if (!id.touched)
-      set({ path: "properties.identifier", value: extrapolateIdentifier(state.value) });
+  Form.useFieldListener<string>({
+    path: "properties.name",
+    callback: (state, { set, get }) => {
+      const id = get({ path: "properties.identifier" });
+      if (!id.touched)
+        set({
+          path: "properties.identifier",
+          value: extrapolateIdentifier(state.value),
+        });
+    },
   });
 
   return (
@@ -72,9 +75,9 @@ export const PropertiesForm = (): ReactElement => {
         </Text.Text>
       </Align.Space>
       <Align.Space grow direction="y" align="stretch" className={CSS.B("form")}>
-        <Form.Field<Vendor> path="properties.vendor" label="Vendor">
+        {/* <Form.Field<Vendor> path="properties.vendor" label="Vendor">
           {(p) => <SelectVendor {...p} />}
-        </Form.Field>
+        </Form.Field> */}
         <Form.Field<string> path="properties.key" label="Serial Number" />
         <Form.Field<string> path="properties.model" label="Model">
           {(props) => <SelectModel {...props} />}

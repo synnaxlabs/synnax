@@ -13,11 +13,14 @@ import { Icon } from "@synnaxlabs/media";
 import { Align, Status, Text } from "@synnaxlabs/pluto";
 import { Button } from "@synnaxlabs/pluto/button";
 import { List } from "@synnaxlabs/pluto/list";
-import { toArray } from "@synnaxlabs/x";
+import { TimeSpan, toArray } from "@synnaxlabs/x";
 
 import { CSS } from "@/css";
 
-interface NotificationsProps extends Status.UseNotificationsReturn {
+import "@/notifications/Notifications.css";
+import { notificationAdapter } from "@/hardware/device/useListenForChanges";
+
+interface NotificationsProps {
   adapters?: NotificationAdapter[];
 }
 
@@ -29,24 +32,30 @@ export type NotificationAdapter = (
   status: Status.Notification,
 ) => null | SugaredNotification;
 
-export const Notifications = ({
-  statuses,
-  silence,
-  adapters,
-}: NotificationsProps): ReactElement => (
-  <List.List<string, Status.Notification> data={statuses}>
-    <List.Core<string, Status.Notification> className={CSS(CSS.B("notifications"))}>
-      {({ entry }) => (
-        <Notification
-          key={entry.key}
-          status={entry}
-          adapters={adapters}
-          silence={silence}
-        />
-      )}
-    </List.Core>
-  </List.List>
-);
+export const Notifications = ({ adapters }: NotificationsProps): ReactElement => {
+  adapters = [notificationAdapter];
+  const { statuses, silence } = Status.useNotifications({
+    expiration: TimeSpan.seconds(5000),
+  });
+
+  return (
+    <List.List<string, Status.Notification> data={statuses}>
+      <List.Core<string, Status.Notification>
+        className={CSS(CSS.B("notifications"))}
+        size="medium"
+      >
+        {({ entry }) => (
+          <Notification
+            key={entry.key}
+            status={entry}
+            adapters={adapters}
+            silence={silence}
+          />
+        )}
+      </List.Core>
+    </List.List>
+  );
+};
 
 interface NotificationProps {
   status: Status.Notification;
@@ -71,31 +80,38 @@ const Notification = ({
   return (
     <Align.Space
       className={CSS(CSS.B("notification"))}
-      direction="x"
+      direction="y"
       key={time.toString()}
-      align="center"
+      empty
     >
-      <Align.Space direction="x" align="center" size="small">
-        <Status.Circle
-          style={{ height: "2.5rem", width: "2.5rem" }}
-          variant={variant}
-        />
-        <Text.DateTime
-          className={CSS(CSS.BE("notification", "time"))}
-          level="small"
-          format="time"
-          style={{ minWidth: "10rem" }}
+      <Align.Space direction="x" justify="spaceBetween" grow style={{ width: "100%" }}>
+        <Align.Space direction="x" align="center" size="small">
+          <Status.Circle
+            style={{ height: "2.25rem", width: "2.5rem" }}
+            variant={variant}
+          />
+          <Text.Text level="small" shade={7}>
+            {`x${count}`}
+          </Text.Text>
+          <Text.DateTime
+            className={CSS(CSS.BE("notification", "time"))}
+            level="small"
+            format="time"
+          >
+            {time}
+          </Text.DateTime>
+        </Align.Space>
+        <Button.Icon
+          className={CSS(CSS.BE("notification", "silence"))}
+          variant="text"
+          size="small"
+          onClick={() => silence(key)}
         >
-          {time}
-        </Text.DateTime>
+          <Icon.Close />
+        </Button.Icon>
       </Align.Space>
-      <Text.Text
-        level="p"
-        style={{ display: count > 1 ? "inline-block" : "none", minWidth: "4rem" }}
-      >
-        {`x${count}`}
-      </Text.Text>
-      <Align.Space direction="y" align="start" grow size="small">
+
+      <Align.Space direction="y" align="start" size="small">
         <Text.Text
           className={CSS(CSS.BE("notification", "message"))}
           level="p"
@@ -126,9 +142,6 @@ const Notification = ({
           )}
         </Align.Space>
       )}
-      <Button.Icon variant="text" size="small" onClick={() => silence(key)}>
-        <Icon.Close />
-      </Button.Icon>
     </Align.Space>
   );
 };

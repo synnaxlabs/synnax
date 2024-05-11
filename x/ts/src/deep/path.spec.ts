@@ -55,21 +55,23 @@ describe("path", () => {
       expect(deep.get(a, "")).toStrictEqual(a);
     });
     describe("custom getter function", () => {
-      const v =  {
+      const v = {
         a: {
           value: () => ({
-            c: 0
-          })
-        }
-      }
+            c: 0,
+          }),
+        },
+      };
       it("should use the custom getter function", () => {
-        expect(deep.get(v, "a.value().c", false, {
-          getter: (obj, key) => {
-            if (key === "value()") 
-              return (obj as { value: () => { c: number } }).value();
-            return (obj as UnknownRecord)[key];
-          }
-        })).toEqual(0);
+        expect(
+          deep.get(v, "a.value().c", false, {
+            getter: (obj, key) => {
+              if (key === "value()")
+                return (obj as { value: () => { c: number } }).value();
+              return (obj as UnknownRecord)[key];
+            },
+          }),
+        ).toEqual(0);
       });
     });
   });
@@ -114,16 +116,32 @@ describe("path", () => {
 
   describe("transformPath", () => {
     it("should transform a path", () => {
-      expect(deep.transformPath("a.b.c", (part) => part.toUpperCase())).toEqual("A.B.C");
+      expect(deep.transformPath("a.b.c", (part) => part.toUpperCase())).toEqual(
+        "A.B.C",
+      );
     });
     it("should inject additional parts into the path", () => {
       expect(deep.transformPath("a.b.c", (p) => [p, "d"])).toEqual("a.d.b.d.c.d");
     });
     it("should remove parts from the path", () => {
-      expect(deep.transformPath("a.b.c", (p, i) => i === 1 ? undefined : p)).toEqual("a.c");
+      expect(deep.transformPath("a.b.c", (p, i) => (i === 1 ? undefined : p))).toEqual(
+        "a.c",
+      );
     });
-  })
+  });
 
+  describe("matches", () => {
+    it("should return true if two paths are equal", () => {
+      expect(deep.pathsMatch("a.b.c", "a.b.c")).toEqual(true);
+    });
+    it("should return true if the pattern is a prefix of the path", () => {
+      expect(deep.pathsMatch("a.b.c", "a.b")).toEqual(true);
+    });
+    it("should return true if the pattern has a wildcard", () => {
+      expect(deep.pathsMatch("a.b.c", "a.*.c")).toEqual(true);
+    });
+    it("should return true for an empty pattern", () => {
+      expect(deep.pathsMatch("a.b.c", "")).toEqual(true);
+    });
+  });
 });
-
-

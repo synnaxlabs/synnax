@@ -29,29 +29,6 @@
     max-width: 1200px;
 }
 
-.console-notifications {
-    .console-notification {
-        padding: 1rem;
-        &:not(:last-child) {
-            border-bottom: var(--pluto-border);
-        }
-        border-color: var(--pluto-gray-l3);
-
-        & .console-notification__message {
-            font-weight: 450;
-        }
-
-        & .console-notification__time {
-            color: var(--pluto-gray-l7);
-            font-weight: 450;
-        }
-
-        & .console-notification__description {
-            color: var(--pluto-gray-l8);
-        }
-    }
-}
-
 .console-palette__item {
     border-radius: 0;
     width: 100%;

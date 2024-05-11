@@ -13,6 +13,7 @@ export { Aether } from "@/aether";
 export { Align } from "@/align";
 export { Button } from "@/button";
 export { Color } from "@/color";
+export { Note } from "@/note";
 export * from "@/css";
 export { Divider } from "@/divider";
 export { Dropdown } from "@/dropdown";

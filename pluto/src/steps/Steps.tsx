@@ -46,7 +46,11 @@ export const Steps = ({
           >
             {i + 1}. {step.title}
           </Button.Button>
-          {i !== steps.length - 1 && <Icon.Arrow.Right style={{ fontSize: "15px" }} />}
+          {i !== steps.length - 1 && (
+            <Icon.Arrow.Right
+              style={{ fontSize: "15px", color: "var(--pluto-gray-l8)" }}
+            />
+          )}
         </Fragment>
       ))}
     </Align.Space>

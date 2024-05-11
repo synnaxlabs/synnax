@@ -13,9 +13,9 @@ import { type device } from "@synnaxlabs/client";
 import { Button, Status, Synnax, useAsyncEffect } from "@synnaxlabs/pluto";
 import { type change } from "@synnaxlabs/x";
 
-import { create } from "@/hardware/ni/new/Configure";
+import { create } from "@/hardware/ni/device/Configure";
 import { Layout } from "@/layout";
-import { type NotificationAdapter } from "@/palette/Notifications";
+import { type NotificationAdapter } from "@/notifications/Notifications";
 
 export const useListenForChanges = (): void => {
   const client = Synnax.use();

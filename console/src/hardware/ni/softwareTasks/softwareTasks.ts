@@ -9,20 +9,17 @@
 
 import { type hardware } from "@synnaxlabs/client";
 
-import {
-  DigitalWriteTaskConfig,
-  type AnalogReadTaskConfig,
-} from "@/hardware/ni/types";
+import { DigitalWriteTaskConfig, type AnalogReadTaskConfig } from "@/hardware/ni/types";
 
 import {
   type EnrichedProperties,
-  type PhysicalGroupPlan,
+  type GroupConfig,
   type PhysicalPlan,
-} from "../types";
+} from "../device/types";
 
 const buildAnalogReadTask = (
   properties: EnrichedProperties,
-  group: PhysicalGroupPlan,
+  group: GroupConfig,
 ): hardware.Task => {
   const config: AnalogReadTaskConfig = {
     sampleRate: 100,

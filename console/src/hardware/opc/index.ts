@@ -1,1 +1,1 @@
-export * as opc from "@/hardware/opc/external";
+export * as OPC from "@/hardware/opc/external";

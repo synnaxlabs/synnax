@@ -1,14 +1,13 @@
-import { useEffect, type ReactElement, useState } from "react";
+import { type ReactElement, useState } from "react";
 
-import { type channel } from "@synnaxlabs/client";
 import { Align, Button, Form, Synnax, Text } from "@synnaxlabs/pluto";
 import { useMutation } from "@tanstack/react-query";
 
-import { type PhysicalPlan } from "@/hardware/ni/new/types";
+import { GroupConfig, type PhysicalPlan } from "@/hardware/ni/device/types";
 
 //   const ok = methods.validate("softwarePlan");
 //   if (!ok) return;
-//   const groups = methods.get<PhysicalPlan>({ path: "physicalPlan" }).value.groups;
+//   const groups = methods.get<PhysicalPlan>({ path: "channels" }).value.groups;
 //   if (client == null) return;
 
 //   const rack = await client.hardware.racks.retrieve(device.rack);
@@ -68,8 +67,9 @@ export const Confirm = (): ReactElement => {
   const { mutate, isPending } = useMutation({
     mutationKey: [client?.key],
     mutationFn: async () => {
+      console.log(client);
       if (client == null) return;
-      const groups = formCtx.get<PhysicalPlan>({ path: "physicalPlan" }).value.groups;
+      const groups = formCtx.get<GroupConfig[]>({ path: "groups" }).value;
       for (const group of groups) {
         const rawIdx = group.channels.find((c) => c.isIndex);
         setStep(`Creating index for ${group.name}`);

@@ -30,7 +30,7 @@ import {
   type NIChannel,
   type NITask,
 } from "@/hardware/ni/types";
-import { type PhysicalGroupPlan } from "@/hardware/ni/new/types";
+import { type GroupConfig } from "@/hardware/ni/device/types";
 
 import "@/hardware/device/new/softwareTasks/SoftwareTasksForm.css";
 
@@ -269,7 +269,7 @@ const ChannelForm = ({ taskIndex, index }: ChannelFormProps): ReactElement => {
   // We should only need to do this on first render, since the groups are static.
   const channelOptions = useMemo(
     () =>
-      get<PhysicalGroupPlan[]>({ path: `physicalPlan.groups`, optional: false })
+      get<GroupConfig[]>({ path: `groups`, optional: false })
         .value.map((g) => g.channels)
         .flat(),
     [],

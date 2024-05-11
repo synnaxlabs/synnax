@@ -184,7 +184,7 @@ export const Dialog = ({
       {(keepMounted || visible) && children[1]}
     </Align.Space>
   );
-  if (variant === "connected") child = createPortal(child, document.body);
+  if (variant === "floating") child = createPortal(child, document.body);
   else if (variant === "modal") {
     child = createPortal(
       <Align.Space

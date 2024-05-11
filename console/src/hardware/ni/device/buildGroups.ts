@@ -10,18 +10,17 @@
 import { nanoid } from "nanoid/non-secure";
 
 import {
-  type PhysicalPlan,
-  type PhysicalChannelPlan,
-  type PhysicalGroupPlan,
+  type ChannelConfig,
+  type GroupConfig,
   type EnrichedProperties,
-} from "@/hardware/ni/new/types";
+} from "@/hardware/ni/device/types";
 
 const buildAnalogInputGroups = (
   info: EnrichedProperties,
   identifier: string,
-): PhysicalGroupPlan[] => {
+): GroupConfig[] => {
   const prefix = `${identifier.toLowerCase()}_ai_`;
-  const dataChannels: PhysicalChannelPlan[] = Array.from(
+  const dataChannels: ChannelConfig[] = Array.from(
     { length: info.analogInput.portCount },
     (_, i) => ({
       key: nanoid(),
@@ -29,18 +28,18 @@ const buildAnalogInputGroups = (
       dataType: "float32",
       name: `${prefix}${i + 1}`,
       isIndex: false,
-      line: 0,
+      line: -1,
       port: i + 1,
     }),
   );
 
-  const idXChannel: PhysicalChannelPlan = {
+  const idXChannel: ChannelConfig = {
     key: nanoid(),
     role: "analogIndex",
     dataType: "timestamp",
     name: `${prefix}idx`,
     isIndex: true,
-    line: 0,
+    line: -1,
     port: 0,
   };
 
@@ -59,14 +58,14 @@ const buildAnalogInputGroups = (
 const buildAnalogOutputGroups = (
   info: EnrichedProperties,
   identifier: string,
-): PhysicalGroupPlan[] => {
+): GroupConfig[] => {
   const identifierLower = identifier.toLowerCase();
-  const commandGroups: PhysicalGroupPlan[] = Array.from(
+  const commandGroups: GroupConfig[] = Array.from(
     { length: info.analogOutput.portCount },
     (_, i) => {
       const port = i + 1;
       const prefix = `${identifierLower}_ao_`;
-      const cmdGroup: PhysicalGroupPlan = {
+      const cmdGroup: GroupConfig = {
         name: `Analog Output ${port}`,
         key: nanoid(),
         role: "analogOutputCommand",
@@ -79,7 +78,7 @@ const buildAnalogOutputGroups = (
             dataType: "float32",
             name: `${prefix}cmd_${port}`,
             isIndex: false,
-            line: 0,
+            line: -1,
             port,
           },
           {
@@ -88,8 +87,8 @@ const buildAnalogOutputGroups = (
             role: "index",
             name: `${prefix}cmd_${port}_time`,
             isIndex: true,
-            line: 0,
-            port,
+            line: -1,
+            port: -1,
           },
         ],
       };
@@ -97,17 +96,17 @@ const buildAnalogOutputGroups = (
     },
   );
 
-  const ackGroupTime: PhysicalChannelPlan = {
+  const ackGroupTime: ChannelConfig = {
     key: nanoid(),
     dataType: "timestamp",
     role: "index",
     name: `${identifierLower}_ao_ack_time`,
     isIndex: true,
-    line: 0,
-    port: 0,
+    line: -1,
+    port: -1,
   };
 
-  const ackGroupData: PhysicalChannelPlan[] = Array.from(
+  const ackGroupData: ChannelConfig[] = Array.from(
     { length: info.analogOutput.portCount },
     (_, i) => ({
       key: nanoid(),
@@ -115,12 +114,12 @@ const buildAnalogOutputGroups = (
       dataType: "float32",
       name: `${identifierLower}_ao_ack_${i + 1}`,
       isIndex: false,
-      line: 0,
+      line: -1,
       port: i + 1,
     }),
   );
 
-  const ackGroup: PhysicalGroupPlan = {
+  const ackGroup: GroupConfig = {
     name: `Analog Output Ack`,
     key: nanoid(),
     channelPrefix: `${identifierLower}_ao_ack_`,
@@ -135,9 +134,9 @@ const buildAnalogOutputGroups = (
 const buildDigitalInputOutputGroups = (
   info: EnrichedProperties,
   identifier: string,
-): PhysicalGroupPlan[] => {
-  const commandGroups: PhysicalGroupPlan[] = [];
-  const ackGroup: PhysicalGroupPlan = {
+): GroupConfig[] => {
+  const commandGroups: GroupConfig[] = [];
+  const ackGroup: GroupConfig = {
     name: "Digital Inputs",
     role: "digitalInput",
     key: nanoid(),
@@ -150,8 +149,8 @@ const buildDigitalInputOutputGroups = (
         name: `${identifier.toLowerCase()}_di_time`,
         isIndex: true,
         role: "index",
-        line: 0,
-        port: 0,
+        line: -1,
+        port: -1,
       },
     ],
   };
@@ -204,9 +203,9 @@ const buildDigitalInputOutputGroups = (
 const buildDigitalInputGroups = (
   info: EnrichedProperties,
   identifier: string,
-): PhysicalGroupPlan[] => {
+): GroupConfig[] => {
   const prefix = `${identifier.toLowerCase()}_di_`;
-  const timeChannel: PhysicalChannelPlan = {
+  const timeChannel: ChannelConfig = {
     key: nanoid(),
     dataType: "timestamp",
     name: `${prefix}time`,
@@ -215,7 +214,7 @@ const buildDigitalInputGroups = (
     line: 0,
     port: 0,
   };
-  const dataChannels: PhysicalChannelPlan[] = [];
+  const dataChannels: ChannelConfig[] = [];
   info.digitalInput.lineCounts.forEach((lineCount, i) => {
     const port = i + 1;
     for (let j = 0; j < lineCount; j++) {
@@ -246,9 +245,9 @@ const buildDigitalInputGroups = (
 const buildDigitalOutputGroups = (
   info: EnrichedProperties,
   identifier: string,
-): PhysicalGroupPlan[] => {
-  const commandGroups: PhysicalGroupPlan[] = [];
-  const ackGroup: PhysicalGroupPlan = {
+): GroupConfig[] => {
+  const commandGroups: GroupConfig[] = [];
+  const ackGroup: GroupConfig = {
     name: "Digital Output Acknowledgements",
     key: nanoid(),
     channelPrefix: `${identifier.toLowerCase()}_do_ack`,
@@ -293,8 +292,8 @@ const buildDigitalOutputGroups = (
             name: `${prefix}cmd_time_${port}_${line}`,
             role: "index",
             isIndex: true,
-            line: -1,
-            port: -1,
+            line: 0,
+            port: 0,
           },
         ],
       });
@@ -315,20 +314,17 @@ const buildDigitalOutputGroups = (
 export const buildPhysicalDevicePlan = (
   input: EnrichedProperties,
   identifier: string,
-): PhysicalPlan => {
-  const plan: PhysicalPlan = {
-    ...input,
-    groups: [],
-  };
+): GroupConfig[] => {
+  const groups: GroupConfig[] = [];
   if (input.analogInput.portCount > 0)
-    plan.groups.push(...buildAnalogInputGroups(input, identifier));
+    groups.push(...buildAnalogInputGroups(input, identifier));
   if (input.analogOutput.portCount > 0)
-    plan.groups.push(...buildAnalogOutputGroups(input, identifier));
+    groups.push(...buildAnalogOutputGroups(input, identifier));
   if (input.digitalInput.portCount > 0)
-    plan.groups.push(...buildDigitalInputGroups(input, identifier));
+    groups.push(...buildDigitalInputGroups(input, identifier));
   if (input.digitalOutput.portCount > 0)
-    plan.groups.push(...buildDigitalOutputGroups(input, identifier));
+    groups.push(...buildDigitalOutputGroups(input, identifier));
   if (input.digitalInputOutput.portCount > 0)
-    plan.groups.push(...buildDigitalInputOutputGroups(input, identifier));
-  return plan;
+    groups.push(...buildDigitalInputOutputGroups(input, identifier));
+  return groups;
 };

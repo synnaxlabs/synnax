@@ -17,7 +17,7 @@ import { Controls } from "@/components";
 import { NAV_DRAWERS, NavMenu } from "@/components/nav/Nav";
 import { CSS } from "@/css";
 import { Docs } from "@/docs";
-import { opc } from "@/hardware/opc";
+import { OPC } from "@/hardware/opc";
 import { Layout } from "@/layout";
 import { NAV_SIZES } from "@/layouts/LayoutMain/constants";
 import { LinePlot } from "@/lineplot";
@@ -29,9 +29,11 @@ import { SERVICES } from "@/services";
 import { Version } from "@/version";
 import { Vis } from "@/vis";
 import { Workspace } from "@/workspace";
+import { Persist } from "@/persist";
+import { Notifications } from "@/notifications";
 
 import "@/layouts/LayoutMain/Nav.css";
-import { Persist } from "@/persist";
+import { NI } from "@/hardware/ni";
 
 const DEFAULT_TRIGGER: TriggerConfig = {
   defaultMode: "command",
@@ -47,8 +49,9 @@ const COMMANDS = [
   ...Workspace.COMMANDS,
   ...Cluster.COMMANDS,
   ...Range.COMMANDS,
-  ...opc.COMMANDS,
+  ...OPC.COMMANDS,
   ...Persist.COMMANDS,
+  ...NI.COMMANDS,
 ];
 
 const NavTopPalette = (): ReactElement => {
@@ -171,6 +174,7 @@ export const NavBottom = (): ReactElement => {
   return (
     <Nav.Bar className={CSS.B("main-nav")} location="bottom" size={NAV_SIZES.bottom}>
       <Nav.Bar.Start>
+        <Notifications.Notifications />
         <Vis.NavControls />
       </Nav.Bar.Start>
       <Nav.Bar.End className="console-main-nav-bottom__end" empty>

@@ -10,40 +10,33 @@
 import { type ReactElement, useState } from "react";
 
 import { type device } from "@synnaxlabs/client";
-import { Button, Form, Nav, Synnax } from "@synnaxlabs/pluto";
+import { Button, Form, Nav, Synnax, Steps } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 import { useQuery } from "@tanstack/react-query";
 
 import { CSS } from "@/css";
-import { Confirm } from "@/hardware/ni/new/Confirm";
-import { buildPhysicalDevicePlan } from "@/hardware/ni/new/physicalPlan/physicalPlan";
-import { PhysicalPlanForm } from "@/hardware/ni/new/physicalPlan/PhysicalPlanForm";
-import {
-  extrapolateIdentifier,
-  PropertiesForm,
-} from "@/hardware/ni/new/properties/PropertiesForm";
-import { buildSoftwareTasks } from "@/hardware/ni/new/softwareTasks/softwareTasks";
-import { Steps } from "@/hardware/ni/new/Steps";
+import { Confirm } from "@/hardware/ni/device/Confirm";
+import { buildPhysicalDevicePlan } from "@/hardware/ni/device/buildGroups";
+import { CreateChannels } from "@/hardware/ni/device/CreateChannels";
+import { extrapolateIdentifier, PropertiesForm } from "@/hardware/ni/device/Properties";
 import {
   configurationZ,
+  GroupConfig,
   type Configuration,
   type EnrichedProperties,
-  type SoftwarePlan,
-  type PhysicalPlan,
-} from "@/hardware/ni/new/types";
-import { type NITask } from "@/hardware/ni/types";
+} from "@/hardware/ni/device/types";
 import { type Layout } from "@/layout";
 
-import { enrich } from "@/hardware/configure/ni/enrich";
+import { enrich } from "@/hardware/ni/device/enrich/enrich";
 
-import "@/hardware/device/new/Configure.css";
+import "@/hardware/ni/device/Configure.css";
 
 const makeDefaultValues = (device: device.Device): Configuration => {
   return {
     properties: {
       key: device.key,
       name: device.name,
-      vendor: device.make,
+      vendor: device.make as "ni",
       model: device.model,
       identifier: extrapolateIdentifier(device.name),
       location: "Dev1",
@@ -53,23 +46,40 @@ const makeDefaultValues = (device: device.Device): Configuration => {
       digitalOutput: { portCount: 0, lineCounts: [] },
       digitalInputOutput: { portCount: 0, lineCounts: [] },
     },
-    physicalPlan: {
-      groups: [],
-    },
-    softwarePlan: {
-      tasks: [],
-    },
+    groups: [],
   };
 };
+
+const STEPS: Steps.Step[] = [
+  {
+    key: "properties",
+    title: "Define Properties",
+  },
+  {
+    key: "createChannels",
+    title: "Create Channels",
+  },
+  {
+    key: "confirm",
+    title: "Confirm",
+  },
+  {
+    key: "nextSteps",
+    title: "Next Steps",
+  },
+];
 
 export const Configure = ({ layoutKey }: Layout.RendererProps): ReactElement => {
   const client = Synnax.use();
   const { data, isPending } = useQuery({
-    queryKey: [layoutKey, { client }],
+    queryKey: [layoutKey, client?.key],
     queryFn: async ({ queryKey }) => {
       const [key] = queryKey;
       if (client == null) return;
-      return await client.hardware.devices.retrieve(key as string);
+      console.log(key);
+      return await client.hardware.devices.retrieve(
+        "130127d9-02aa-47e4-b370-0d590add1bc1" as string,
+      );
     },
   });
   if (isPending || data == null) return <div>Loading...</div>;
@@ -81,8 +91,6 @@ interface ConfigureInternalProps {
 }
 
 const ConfigureInternal = ({ device }: ConfigureInternalProps): ReactElement => {
-  const client = Synnax.use();
-
   const [step, setStep] = useState("properties");
 
   const methods = Form.use<typeof configurationZ>({
@@ -95,45 +103,30 @@ const ConfigureInternal = ({ device }: ConfigureInternalProps): ReactElement => 
       if (step === "properties") {
         const ok = methods.validate("properties");
         if (!ok) return;
-        const existingPlan = methods.get<PhysicalPlan>({ path: "physicalPlan" }).value;
-        if (existingPlan.groups.length === 0) {
+        const existingGroups = methods.get<GroupConfig[]>({ path: "groups" }).value;
+        if (existingGroups.length === 0) {
           const enriched = enrich(
             methods.get<EnrichedProperties>({ path: "properties" }).value,
           );
-          const plan = buildPhysicalDevicePlan(
+          const groups = buildPhysicalDevicePlan(
             enriched,
             methods.get<string>({ path: "properties.identifier" }).value,
           );
-          methods.set({ path: "physicalPlan.groups", value: plan.groups });
+          methods.set({ path: "groups", value: groups });
         }
-        setStep("physicalPlan");
-      } else if (step === "physicalPlan") {
-        // const ok = methods.validate("physicalPlan");
-        // if (!ok) return;
-        const existingPlan = methods.get<SoftwarePlan>({ path: "softwarePlan" }).value;
-        if (existingPlan.tasks.length === 0) {
-          const { value: properties } = methods.get<EnrichedProperties>({
-            path: "properties",
-          });
-          const physicalPlan = methods.get<PhysicalPlan>({
-            path: "physicalPlan",
-          }).value;
-          const tasks = buildSoftwareTasks(properties, physicalPlan);
-          methods.set({ path: "softwarePlan.tasks", value: tasks });
-        }
+        setStep("createChannels");
+      } else if (step === "createChannels") {
+        const ok = methods.validate("groups");
+        if (!ok) return;
         setStep("confirm");
       }
     })();
   };
 
   let content: ReactElement;
-  if (step === "properties") {
-    content = <PropertiesForm value={step} onChange={setStep} />;
-  } else if (step === "physicalPlan") {
-    content = <PhysicalPlanForm />;
-  } else if (step === "confirm") {
-    content = <Confirm />;
-  }
+  if (step === "properties") content = <PropertiesForm />;
+  else if (step === "createChannels") content = <CreateChannels />;
+  else if (step === "confirm") content = <Confirm />;
 
   return (
     <Align.Space className={CSS.B("configure")} align="stretch" empty>
@@ -141,7 +134,7 @@ const ConfigureInternal = ({ device }: ConfigureInternalProps): ReactElement => 
         <Align.Space className={CSS.B("content")}>{content}</Align.Space>
         <Nav.Bar size={48} location="bottom">
           <Nav.Bar.Start>
-            <Steps value={step} onChange={setStep} />
+            <Steps.Steps steps={STEPS} value={step} onChange={setStep} />
           </Nav.Bar.Start>
           <Nav.Bar.End>
             <Button.Button variant="outlined">Cancel</Button.Button>
@@ -153,8 +146,8 @@ const ConfigureInternal = ({ device }: ConfigureInternalProps): ReactElement => 
   );
 };
 
-export type LayoutType = "hardwareConfigureNew";
-export const LAYOUT_TYPE = "hardwareConfigureNew";
+export type LayoutType = "hardwareConfigureNIDevice";
+export const LAYOUT_TYPE = "hardwareConfigureNIDevice";
 
 export const create =
   (device: string, initial: Omit<Partial<Layout.LayoutState>, "type">) =>

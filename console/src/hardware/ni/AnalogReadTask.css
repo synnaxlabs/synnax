@@ -1,26 +1,20 @@
 .console-ni-analog-read-task {
-    padding: 1rem;
-    border-radius: 1rem;
-    & > :first-child {
+    .console-content {
         padding: 5rem;
-        border: var(--pluto-border);
-        border-bottom: none;
-    }
-    & > :not(:first-child) {
-        border: var(--pluto-border);
-        max-height: 60%;
 
-        & > :first-child {
-            border-right: var(--pluto-border);
-            flex-basis: 300px;
-            flex-grow: 0;
-        }
+        .console-channel-form-container {
+            height: 0px;
+            .console-channels {
+                overflow: auto;
+                border-right: var(--pluto-border);
+                max-width: 500px;
+                width: 100%;
+            }
 
-        & > :not(:first-child) {
-            flex-basis: 500px;
-
-            & .form {
-                padding: 5rem;
+            .console-channel-form {
+                .console-channel-form-content {
+                    padding: 5rem 5rem;
+                }
             }
         }
     }

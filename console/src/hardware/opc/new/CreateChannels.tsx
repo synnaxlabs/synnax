@@ -19,14 +19,11 @@ import { Text } from "@synnaxlabs/pluto/text";
 import { nanoid } from "nanoid/non-secure";
 
 import { CSS } from "@/css";
-import {
-  type PhysicalChannelPlan,
-  type PhysicalGroupPlan,
-} from "@/hardware/ni/new/types";
+import { type ChannelConfig, type GroupConfig } from "@/hardware/ni/device/types";
 import { SelectNode } from "@/hardware/opc/SelectNode";
 import { type DeviceProperties } from "@/hardware/opc/types";
 
-import "@/hardware/ni/new/physicalPlan/PhysicalPlanForm.css";
+import "@/hardware/ni/device/CreateChannels.css";
 
 interface MostRecentSelectedState {
   key: string;
@@ -153,7 +150,7 @@ const GroupList = ({
   onSelectGroup,
   clearSelection,
 }: GroupListProps): ReactElement => {
-  const { push, value } = Form.useFieldArray<PhysicalGroupPlan>({ path: "groups" });
+  const { push, value } = Form.useFieldArray<GroupConfig>({ path: "groups" });
   return (
     <Align.Space className={CSS.B("groups")} grow empty>
       <Header.Header level="h3">
@@ -178,8 +175,8 @@ const GroupList = ({
           ]}
         </Header.Actions>
       </Header.Header>
-      <List.List<string, PhysicalGroupPlan> data={value}>
-        <List.Selector<string, PhysicalGroupPlan>
+      <List.List<string, GroupConfig> data={value}>
+        <List.Selector<string, GroupConfig>
           allowMultiple={false}
           // eslint-disable-next-line @typescript-eslint/non-nullable-type-assertion-style
           value={selectedGroup as string}
@@ -188,7 +185,7 @@ const GroupList = ({
             clickedIndex != null && onSelectGroup(key, clickedIndex)
           }
         >
-          <List.Core<string, PhysicalGroupPlan> grow>
+          <List.Core<string, GroupConfig> grow>
             {(props) => <GroupListItem clearSelection={clearSelection} {...props} />}
           </List.Core>
         </List.Selector>
@@ -197,7 +194,7 @@ const GroupList = ({
   );
 };
 
-export interface GroupListItemProps extends List.ItemProps<string, PhysicalGroupPlan> {
+export interface GroupListItemProps extends List.ItemProps<string, GroupConfig> {
   clearSelection: () => void;
 }
 const GroupListItem = ({
@@ -222,11 +219,11 @@ const GroupListItem = ({
     onDrop: ({ items }) => {
       props.onSelect?.(props.entry.key);
       const path = `groups.${index}.channels`;
-      const v = ctx.get<PhysicalChannelPlan[]>({ path });
+      const v = ctx.get<ChannelConfig[]>({ path });
       ctx.set({
         path,
         value: v.value
-          .concat(items.map((i) => ({ ...(i.data as PhysicalChannelPlan) })))
+          .concat(items.map((i) => ({ ...(i.data as ChannelConfig) })))
           .sort((a, b) => a.port - b.port),
       });
       setDraggingOver(false);
@@ -268,7 +265,7 @@ interface ChannelListProps {
   onSelectChannels: List.UseSelectProps["onChange"];
 }
 
-const CHANNEL_LIST_COLUMNS: Array<List.ColumnSpec<string, PhysicalChannelPlan>> = [
+const CHANNEL_LIST_COLUMNS: Array<List.ColumnSpec<string, ChannelConfig>> = [
   {
     key: "name",
     name: "Name",
@@ -304,7 +301,7 @@ const ChannelList = ({
   selectedGroupIndex,
   onSelectChannels,
 }: ChannelListProps): ReactElement => {
-  const channels = Form.useFieldArray<PhysicalChannelPlan[]>({
+  const channels = Form.useFieldArray<ChannelConfig[]>({
     path: `groups.${selectedGroupIndex}.channels`,
   });
 
@@ -313,18 +310,18 @@ const ChannelList = ({
       <Header.Header level="h3">
         <Header.Title weight={500}>Channels</Header.Title>
       </Header.Header>
-      <List.List<string, PhysicalChannelPlan> data={channels.value}>
-        <List.Selector<string, PhysicalChannelPlan>
+      <List.List<string, ChannelConfig> data={channels.value}>
+        <List.Selector<string, ChannelConfig>
           value={selectedChannels}
           allowNone={false}
           onChange={onSelectChannels}
           replaceOnSingle
         >
-          <List.Column.Header<string, PhysicalChannelPlan>
+          <List.Column.Header<string, ChannelConfig>
             columns={CHANNEL_LIST_COLUMNS}
             hide
           >
-            <List.Core<string, PhysicalChannelPlan> grow>
+            <List.Core<string, ChannelConfig> grow>
               {(props) => (
                 <ChannelListItem {...props} groupIndex={selectedGroupIndex} />
               )}
@@ -340,7 +337,7 @@ export const ChannelListItem = memo(
   ({
     groupIndex,
     ...props
-  }: List.ItemProps<string, PhysicalChannelPlan> & {
+  }: List.ItemProps<string, ChannelConfig> & {
     groupIndex: number;
   }): ReactElement => {
     const { startDrag, onDragEnd } = Haul.useDrag({
@@ -358,6 +355,7 @@ export const ChannelListItem = memo(
     Form.useFieldListener(
       `groups.${groupIndex}.channels.${props.index}.port`,
       (state) => {
+        console.log(state);
         setValidPort(state.status.variant !== "error");
       },
     );
@@ -374,7 +372,7 @@ export const ChannelListItem = memo(
       ];
       if (selected.includes(props.entry.key)) {
         const channels = methods
-          .get<PhysicalChannelPlan[]>({ path: groupChannels })
+          .get<ChannelConfig[]>({ path: groupChannels })
           .value.filter((c) => selected.includes(c.key));
         haulItems = channels.map((c) => ({
           key: c.key,
@@ -384,7 +382,7 @@ export const ChannelListItem = memo(
       }
       startDrag(haulItems, ({ dropped }) => {
         const keys = dropped.map((d) => d.key);
-        const channels = methods.get<PhysicalChannelPlan[]>({
+        const channels = methods.get<ChannelConfig[]>({
           path: groupChannels,
         }).value;
         methods.set({
@@ -394,7 +392,7 @@ export const ChannelListItem = memo(
       });
     }, [startDrag, props.entry.key, groupIndex, getSelected, methods.get, methods.set]);
 
-    const childValues = Form.useChildFieldValues<PhysicalChannelPlan>({
+    const childValues = Form.useChildFieldValues<ChannelConfig>({
       path: prefix,
       optional: true,
     });

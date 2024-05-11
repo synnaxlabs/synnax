@@ -64,7 +64,7 @@ export type EnrichedProperties = z.infer<typeof enrichedPropertiesDigestZ>;
 
 // PHYSICAL PLAN
 
-const physicalChannelPlanZ = z.object({
+const channelConfigZ = z.object({
   key: z.string(),
   synnaxChannel: z.number().optional(),
   port: z.number(),
@@ -75,56 +75,52 @@ const physicalChannelPlanZ = z.object({
   role: z.string(),
 });
 
-export type PhysicalChannelPlan = z.infer<typeof physicalChannelPlanZ>;
+export type ChannelConfig = z.infer<typeof channelConfigZ>;
 
-const physicalGroupPlanZ = z.object({
+const groupConfigZ = z.object({
   key: z.string(),
   name: z.string(),
   channelPrefix: z.string(),
   channelSuffix: z.string(),
-  channels: z.array(physicalChannelPlanZ),
+  channels: z.array(channelConfigZ),
   role: z.string(),
 });
 
-export type PhysicalGroupPlan = z.infer<typeof physicalGroupPlanZ>;
+export type GroupConfig = z.infer<typeof groupConfigZ>;
 
-const physicalDevicePlan = z
-  .object({ groups: z.array(physicalGroupPlanZ) })
-  .superRefine((mod, ctx) => {
-    const portLineRoleCombos = new Map<string, number>();
+const groupsZ = z.array(groupConfigZ).superRefine((groups, ctx) => {
+  const portLineRoleCombos = new Map<string, number>();
 
-    mod.groups.forEach((group) => {
-      group.channels.forEach((channel) => {
-        const key = `${channel.role}/${channel.port}/${channel.line}`;
-        portLineRoleCombos.set(key, (portLineRoleCombos.get(key) ?? 0) + 1);
-      });
-    });
-
-    mod.groups.forEach((group, i) => {
-      group.channels.forEach((channel, j) => {
-        const key = `${channel.role}/${channel.port}/${channel.line}`;
-        if ((portLineRoleCombos.get(key) ?? 0) > 1) {
-          const [, port, line] = key.split("/").map(Number);
-
-          if (line === 0) {
-            ctx.addIssue({
-              code: z.ZodIssueCode.custom,
-              path: ["groups", i, "channels", j, "port"],
-              message: `Port ${channel.port} has already been used`,
-            });
-          } else {
-            ctx.addIssue({
-              code: z.ZodIssueCode.custom,
-              path: ["groups", i, "channels", j, "line"],
-              message: `Line ${channel.line} has already been used on port ${port}`,
-            });
-          }
-        }
-      });
+  groups.forEach((group) => {
+    group.channels.forEach((channel) => {
+      const key = `${channel.role}/${channel.port}/${channel.line}`;
+      portLineRoleCombos.set(key, (portLineRoleCombos.get(key) ?? 0) + 1);
     });
   });
 
-export type PhysicalPlan = z.infer<typeof physicalDevicePlan>;
+  groups.forEach((group, i) => {
+    group.channels.forEach((channel, j) => {
+      const key = `${channel.role}/${channel.port}/${channel.line}`;
+      if ((portLineRoleCombos.get(key) ?? 0) > 1) {
+        const [, port, line] = key.split("/").map(Number);
+
+        if (line >= 0) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: [i, "channels", j, "line"],
+            message: `Line ${channel.line} has already been used on port ${port}`,
+          });
+        } else if (port >= 0) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: [i, "channels", j, "port"],
+            message: `Port ${channel.port} has already been used`,
+          });
+        }
+      }
+    });
+  });
+});
 
 export const softwarePlanZ = z.object({
   tasks: z.array(task.taskZ),
@@ -134,8 +130,7 @@ export type SoftwarePlan = z.infer<typeof softwarePlanZ>;
 
 export const configurationZ = z.object({
   properties: enrichedPropertiesDigestZ,
-  physicalPlan: physicalDevicePlan,
-  softwarePlan: softwarePlanZ,
+  groups: groupsZ,
 });
 
 export type Configuration = z.infer<typeof configurationZ>;

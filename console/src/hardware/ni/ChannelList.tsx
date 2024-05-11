@@ -1,7 +1,7 @@
 import { type ReactElement } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import { Align, Channel, Form, Header, Status } from "@synnaxlabs/pluto";
+import { Align, Channel, Form, Header, Menu, Status } from "@synnaxlabs/pluto";
 import { Button } from "@synnaxlabs/pluto/button";
 import { List } from "@synnaxlabs/pluto/list";
 import { Text } from "@synnaxlabs/pluto/text";
@@ -50,25 +50,28 @@ export const ChannelList = ({
               key: "add",
               onClick: handleAdd,
               children: <Icon.Add />,
+              size: "large",
             },
           ]}
         </Header.Actions>
       </Header.Header>
-      <List.List<string, NIChannel> data={value}>
-        <List.Selector<string, NIChannel>
-          value={selected}
-          allowNone={false}
-          allowMultiple={true}
-          onChange={(keys, { clickedIndex }) =>
-            clickedIndex != null && onSelect(keys, clickedIndex)
-          }
-          replaceOnSingle
-        >
-          <List.Core<string, NIChannel> grow>
-            {(props) => <ChannelListItem {...props} path={path} />}
-          </List.Core>
-        </List.Selector>
-      </List.List>
+      <Menu.ContextMenu>
+        <List.List<string, NIChannel> data={value}>
+          <List.Selector<string, NIChannel>
+            value={selected}
+            allowNone={false}
+            allowMultiple={true}
+            onChange={(keys, { clickedIndex }) =>
+              clickedIndex != null && onSelect(keys, clickedIndex)
+            }
+            replaceOnSingle
+          >
+            <List.Core<string, NIChannel> grow>
+              {(props) => <ChannelListItem {...props} path={path} />}
+            </List.Core>
+          </List.Selector>
+        </List.List>
+      </Menu.ContextMenu>
     </Align.Space>
   );
 };

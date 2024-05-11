@@ -41,6 +41,7 @@
         --pluto-pack-br: 6px;
     }
 
+
     &:not(.pluto--modal) {
         background: var(--pluto-gray-l1);
         max-height: 360px;

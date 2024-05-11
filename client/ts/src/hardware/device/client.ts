@@ -35,6 +35,7 @@ export const deviceZ = z.object({
   make: z.string(),
   model: z.string(),
   location: z.string(),
+  configured: z.boolean().optional(),
   properties: z.record(z.unknown()).or(
     z.string().transform((c) => {
       if (c === "") return {};

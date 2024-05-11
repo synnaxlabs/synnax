@@ -56,12 +56,12 @@ export const readTaskConfigZ = z
     sampleRate: z.number().min(0).max(1000),
     streamRate: z.number().min(0).max(200),
     channels: z.array(readTaskChannelConfigZ),
-  }).refine((cfg) => cfg.sampleRate >= cfg.streamRate, {
+  })
+  .refine((cfg) => cfg.sampleRate >= cfg.streamRate, {
     message: "Sample rate must be greater than or equal to stream rate",
     path: ["sampleRate"],
   })
   .superRefine((cfg, ctx) => {
-    console.log("DOG");
     const channels = new Map<number, number>();
     cfg.channels.forEach(({ channel }) =>
       channels.set(channel, (channels.get(channel) ?? 0) + 1),
@@ -77,8 +77,8 @@ export const readTaskConfigZ = z
   })
   .superRefine((cfg, ctx) => {
     const nodeIds = new Map<string, number>();
-    cfg.channels.forEach(({ nodeId }) => 
-      nodeIds.set(nodeId, (nodeIds.get(nodeId) ?? 0) + 1)
+    cfg.channels.forEach(({ nodeId }) =>
+      nodeIds.set(nodeId, (nodeIds.get(nodeId) ?? 0) + 1),
     );
     cfg.channels.forEach(({ nodeId }, i) => {
       if (nodeId.length === 0 || (nodeIds.get(nodeId) ?? 0) < 2) return;

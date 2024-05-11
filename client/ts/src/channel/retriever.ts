@@ -35,13 +35,14 @@ const reqZ = z.object({
   offset: z.number().optional(),
   dataTypes: DataType.z.array().optional(),
   notDataTypes: DataType.z.array().optional(),
+  virtual: z.boolean().optional(),
 });
 
 type Request = z.input<typeof reqZ>;
 
 export type RetrieveOptions = Pick<
   Request,
-  "rangeKey" | "limit" | "offset" | "dataTypes" | "notDataTypes"
+  "rangeKey" | "limit" | "offset" | "dataTypes" | "notDataTypes" | "virtual"
 >;
 
 export type PageOptions = Omit<RetrieveOptions, "offset" | "limit">;
