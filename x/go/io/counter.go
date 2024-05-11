@@ -11,6 +11,7 @@ package io
 
 import (
 	"encoding/binary"
+	"io"
 	"sync"
 )
 
@@ -24,12 +25,21 @@ type Int32Counter struct {
 
 // NewInt32Counter opens a new, atomic counter backed by the given file. The counter
 // must have exclusive write access to the file.
-func NewInt32Counter(f ReaderAtWriterAtCloser) *Int32Counter {
+func NewInt32Counter(f ReaderAtWriterAtCloser) (*Int32Counter, error) {
 	i := &Int32Counter{
 		f:   f,
 		buf: make([]byte, 4),
 	}
-	return i
+	val, err := i.load()
+	if err != nil {
+		if err == io.EOF {
+			return i, nil
+		}
+		return i, err
+	}
+
+	i.wrapped = val
+	return i, err
 }
 
 // Add increments the counter by the provided delta.
