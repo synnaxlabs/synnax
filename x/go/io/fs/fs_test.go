@@ -27,10 +27,10 @@ var _ = Describe("FS", func() {
 		},
 	}
 
-	for _, fsBuilder := range fileSystems {
-		var myMemFS fs.FS
+	for _, makeFS := range fileSystems {
+		var fs fs.FS
 		BeforeEach(func() {
-			myMemFS = fsBuilder()
+			fs = makeFS()
 		})
 		AfterEach(func() {
 			Expect(os.RemoveAll("./testData")).To(Succeed())
@@ -38,54 +38,66 @@ var _ = Describe("FS", func() {
 		Describe("Open", func() {
 			Describe("Create test CREATE flag", func() {
 				It("Should create a file in MemFS", func() {
-					file, _ := myMemFS.Open("test_file2.txt", os.O_CREATE)
+					file, _ := fs.Open("test_file2.txt", os.O_CREATE)
 					fileStats, _ := file.Stat()
 					Expect(fileStats.Name()).To(Equal("test_file2.txt"))
 				})
-
 			})
 			Describe("Create test without create flag", func() {
 				It("Should not create a file in MemFS", func() {
-					_, err := myMemFS.Open("test_file2.txt", os.O_RDONLY)
+					_, err := fs.Open("test_file2.txt", os.O_RDONLY)
 					Expect(err).ToNot(BeNil())
 				})
 			})
 			Describe("Create test with exclusive", func() {
 				It("Should create a file in MemFS", func() {
-					_, err := myMemFS.Open("test_file2.txt", os.O_CREATE|os.O_EXCL)
+					_, err := fs.Open("test_file2.txt", os.O_CREATE|os.O_EXCL)
 					Expect(err).ToNot(HaveOccurred())
 				})
 			})
 			Describe("Read file test", func() {
 				It("Should read a file in MemFS", func() {
-					_, err := myMemFS.Open("test_file.txt", os.O_CREATE)
+					_, err := fs.Open("test_file.txt", os.O_CREATE)
 					Expect(err).ToNot(HaveOccurred())
-					file, err := myMemFS.Open("test_file.txt", os.O_RDONLY)
+					file, err := fs.Open("test_file.txt", os.O_RDONLY)
 					Expect(err).ToNot(HaveOccurred())
 					info, _ := file.Stat()
 					Expect(info.Name()).To(Equal("test_file.txt"))
+				})
+
+				It("Should read a file even when passed in with create", func() {
+					f, err := fs.Open("test_test_file.txt", os.O_CREATE|os.O_RDWR)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(MustSucceed(f.Write([]byte{1, 2, 3, 4}))).To(Equal(4))
+					Expect(f.Close()).To(Succeed())
+					f, err = fs.Open("test_test_file.txt", os.O_CREATE|os.O_RDWR)
+					Expect(MustSucceed(f.Stat()).Size()).To(Equal(int64(4)))
+					var buf = make([]byte, 4)
+					Expect(MustSucceed(f.Read(buf))).To(Equal(4))
+					Expect(buf).To(Equal([]byte{1, 2, 3, 4}))
+					Expect(f.Close()).To(Succeed())
 				})
 			})
 
 			Describe("Read nonexistent file test", func() {
 				It("Should break when no such file exists", func() {
-					_, err := myMemFS.Open("test_file.txt", os.O_RDONLY)
+					_, err := fs.Open("test_file.txt", os.O_RDONLY)
 					Expect(err).ToNot(BeNil())
 				})
 			})
 
 			Describe("Reader/Writer test", func() {
 				It("Should write & read the contents of file in MemFS", func() {
-					_, err := myMemFS.Open("test_file.txt", os.O_CREATE)
+					_, err := fs.Open("test_file.txt", os.O_CREATE)
 					Expect(err).ToNot(HaveOccurred())
 
-					file, err := myMemFS.Open("test_file.txt", os.O_RDWR)
+					file, err := fs.Open("test_file.txt", os.O_RDWR)
 					Expect(err).ToNot(HaveOccurred())
 					n, err := file.Write([]byte("tacocat"))
 					Expect(err).ToNot(HaveOccurred())
 					Expect(n).To(Equal(7))
 
-					file, err = myMemFS.Open("test_file.txt", os.O_RDONLY)
+					file, err = fs.Open("test_file.txt", os.O_RDONLY)
 					r := make([]byte, 7)
 					n, err = file.Read(r)
 					Expect(err).ToNot(HaveOccurred())
@@ -96,22 +108,22 @@ var _ = Describe("FS", func() {
 
 			Describe("Reader/Writer without permission", func() {
 				It("Should read but not write to file in MemFS", func() {
-					_, err := myMemFS.Open("test_file.txt", os.O_CREATE)
+					_, err := fs.Open("test_file.txt", os.O_CREATE)
 					Expect(err).ToNot(HaveOccurred())
 
-					file, err := myMemFS.Open("test_file.txt", os.O_RDONLY)
+					file, err := fs.Open("test_file.txt", os.O_RDONLY)
 					Expect(err).ToNot(HaveOccurred())
 					n, err := file.Write([]byte("tacocat"))
 					Expect(err).ToNot(BeNil())
 					Expect(n).To(Equal(0))
 
-					file, err = myMemFS.Open("test_file.txt", os.O_WRONLY)
+					file, err = fs.Open("test_file.txt", os.O_WRONLY)
 					Expect(err).ToNot(HaveOccurred())
 					n, err = file.Write([]byte("tacocat"))
 					Expect(err).ToNot(HaveOccurred())
 					Expect(n).To(Equal(7))
 
-					file, err = myMemFS.Open("test_file.txt", os.O_RDONLY)
+					file, err = fs.Open("test_file.txt", os.O_RDONLY)
 					r := make([]byte, 7)
 					n, err = file.Read(r)
 					Expect(err).ToNot(HaveOccurred())
@@ -122,18 +134,18 @@ var _ = Describe("FS", func() {
 
 			Describe("ReaderAt/WriterAt test", func() {
 				It("Should write & read the contents of file in MemFS", func() {
-					_, err := myMemFS.Open("test_file.txt", os.O_CREATE)
+					_, err := fs.Open("test_file.txt", os.O_CREATE)
 					Expect(err).ToNot(HaveOccurred())
 
 					// WRITE
-					file, err := myMemFS.Open("test_file.txt", os.O_RDWR)
+					file, err := fs.Open("test_file.txt", os.O_RDWR)
 					Expect(err).ToNot(HaveOccurred())
 					n, err := file.WriteAt([]byte("tacocat"), 3)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(n).To(Equal(7))
 
 					// READ
-					file, err = myMemFS.Open("test_file.txt", os.O_RDONLY)
+					file, err = fs.Open("test_file.txt", os.O_RDONLY)
 					r := make([]byte, 10)
 					n, err = file.Read(r)
 					Expect(err).ToNot(HaveOccurred())
@@ -141,14 +153,14 @@ var _ = Describe("FS", func() {
 					Expect(r).To(Equal([]byte{0, 0, 0, 't', 'a', 'c', 'o', 'c', 'a', 't'}))
 
 					// WRITE
-					file, err = myMemFS.Open("test_file.txt", os.O_RDWR)
+					file, err = fs.Open("test_file.txt", os.O_RDWR)
 					Expect(err).ToNot(HaveOccurred())
 					n, err = file.WriteAt([]byte("ocataco"), 1)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(n).To(Equal(7))
 
 					// READ
-					file, err = myMemFS.Open("test_file.txt", os.O_RDONLY)
+					file, err = fs.Open("test_file.txt", os.O_RDONLY)
 					r = make([]byte, 10)
 					n, err = file.Read(r)
 					Expect(err).ToNot(HaveOccurred())
@@ -160,31 +172,31 @@ var _ = Describe("FS", func() {
 
 		Describe("Sub", func() {
 			It("Should make subdirectories", func() {
-				_, err := myMemFS.Sub("sub1")
+				_, err := fs.Sub("sub1")
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(myMemFS.Exists("sub1")).To(BeTrue())
-				Expect(myMemFS.Exists("sub2")).To(BeFalse())
+				Expect(fs.Exists("sub1")).To(BeTrue())
+				Expect(fs.Exists("sub2")).To(BeFalse())
 
-				_, err = myMemFS.Sub("sub2")
+				_, err = fs.Sub("sub2")
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(myMemFS.Exists("sub1")).To(BeTrue())
-				Expect(myMemFS.Exists("sub2")).To(BeTrue())
+				Expect(fs.Exists("sub1")).To(BeTrue())
+				Expect(fs.Exists("sub2")).To(BeTrue())
 			})
 
 			It("Should give FS of subdirectories", func() {
-				sub_FS, err := myMemFS.Sub("sub1")
+				sub_FS, err := fs.Sub("sub1")
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(myMemFS.Exists("sub1")).To(BeTrue())
-				Expect(myMemFS.Exists("sub2")).To(BeFalse())
+				Expect(fs.Exists("sub1")).To(BeTrue())
+				Expect(fs.Exists("sub2")).To(BeFalse())
 
-				_, err = myMemFS.Sub("sub2")
+				_, err = fs.Sub("sub2")
 				Expect(err).ToNot(HaveOccurred())
 
-				Expect(myMemFS.Exists("sub1")).To(BeTrue())
-				Expect(myMemFS.Exists("sub2")).To(BeTrue())
+				Expect(fs.Exists("sub1")).To(BeTrue())
+				Expect(fs.Exists("sub2")).To(BeTrue())
 
 				_, err = sub_FS.Open("yum.txt", os.O_CREATE)
 				Expect(err).ToNot(HaveOccurred())
@@ -192,8 +204,8 @@ var _ = Describe("FS", func() {
 			})
 
 			It("Should correctly interpret relative paths", func() {
-				MustSucceed(myMemFS.Sub("./sub1"))
-				l, err := myMemFS.List("")
+				MustSucceed(fs.Sub("./sub1"))
+				l, err := fs.List("")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(l).To(HaveLen(1))
 				Expect(l[0].Name()).To(Equal("sub1"))
@@ -202,27 +214,27 @@ var _ = Describe("FS", func() {
 
 		var _ = Describe("Exists", func() {
 			It("Should return false if a file does not exist and true if it does", func() {
-				e, err := myMemFS.Exists("yum.txt")
+				e, err := fs.Exists("yum.txt")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(e).To(BeFalse())
 
-				_, err = myMemFS.Open("yum.txt", os.O_CREATE)
+				_, err = fs.Open("yum.txt", os.O_CREATE)
 				Expect(err).ToNot(HaveOccurred())
 
-				e, err = myMemFS.Exists("yum.txt")
+				e, err = fs.Exists("yum.txt")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(e).To(BeTrue())
 			})
 
 			It("Should return false if a directory does not exist and true if it does", func() {
-				e, err := myMemFS.Exists("yum")
+				e, err := fs.Exists("yum")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(e).To(BeFalse())
 
-				_, err = myMemFS.Sub("yum")
+				_, err = fs.Sub("yum")
 				Expect(err).ToNot(HaveOccurred())
 
-				e, err = myMemFS.Exists("yum")
+				e, err = fs.Exists("yum")
 				Expect(err).ToNot(HaveOccurred())
 				Expect(e).To(BeTrue())
 			})
@@ -230,19 +242,19 @@ var _ = Describe("FS", func() {
 
 		Describe("List", func() {
 			It("Should provide a list of all the files and directories", func() {
-				_, err := myMemFS.Sub("sub1")
+				_, err := fs.Sub("sub1")
 				Expect(err).ToNot(HaveOccurred())
 
-				_, err = myMemFS.Sub("sub2")
+				_, err = fs.Sub("sub2")
 				Expect(err).ToNot(HaveOccurred())
 
-				_, err = myMemFS.Open("file1.json", os.O_CREATE)
+				_, err = fs.Open("file1.json", os.O_CREATE)
 				Expect(err).ToNot(HaveOccurred())
 
-				_, err = myMemFS.Open("file2.json", os.O_CREATE)
+				_, err = fs.Open("file2.json", os.O_CREATE)
 				Expect(err).ToNot(HaveOccurred())
 
-				l, err := myMemFS.List("")
+				l, err := fs.List("")
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(l[0].Name()).To(Equal("file1.json"))
@@ -259,7 +271,7 @@ var _ = Describe("FS", func() {
 			})
 
 			It("Should correctly list files in sub-filesystems", func() {
-				subFS, err := myMemFS.Sub("sub1")
+				subFS, err := fs.Sub("sub1")
 				Expect(err).ToNot(HaveOccurred())
 				subFS2, err := subFS.Sub("sub2")
 				Expect(err).ToNot(HaveOccurred())
@@ -273,21 +285,21 @@ var _ = Describe("FS", func() {
 
 		Describe("Rename", func() {
 			It("Should rename a file for Mem FS", func() {
-				_, err := myMemFS.Open("a.json", os.O_CREATE)
+				_, err := fs.Open("a.json", os.O_CREATE)
 				Expect(err).To(BeNil())
-				err = myMemFS.Rename("a.json", "b.json")
+				err = fs.Rename("a.json", "b.json")
 				Expect(err).To(BeNil())
-				Expect(myMemFS.Exists("a.json")).To(BeFalse())
-				Expect(myMemFS.Exists("b.json")).To(BeTrue())
+				Expect(fs.Exists("a.json")).To(BeFalse())
+				Expect(fs.Exists("b.json")).To(BeTrue())
 			})
 
 			It("Should rename a directory for Mem FS", func() {
-				_, err := myMemFS.Sub("a")
+				_, err := fs.Sub("a")
 				Expect(err).To(BeNil())
-				err = myMemFS.Rename("a", "b")
+				err = fs.Rename("a", "b")
 				Expect(err).To(BeNil())
-				Expect(myMemFS.Exists("a")).To(BeFalse())
-				Expect(myMemFS.Exists("b")).To(BeTrue())
+				Expect(fs.Exists("a")).To(BeFalse())
+				Expect(fs.Exists("b")).To(BeTrue())
 			})
 		})
 	}

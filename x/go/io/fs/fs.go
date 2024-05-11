@@ -10,6 +10,7 @@
 package fs
 
 import (
+	"github.com/cockroachdb/errors"
 	"github.com/cockroachdb/pebble/vfs"
 	"io"
 	"os"
@@ -140,19 +141,21 @@ type memFS struct {
 func (m *memFS) Open(name string, flag int) (File, error) {
 	if flag&os.O_CREATE != 0 {
 		// create
-		if flag&os.O_EXCL == 0 {
-			return m.FS.Create(name)
-		} else {
-			if e, err := m.Exists(name); err != nil || e {
-				if err != nil {
-					return nil, err
-				} else {
-					return nil, nil
-				}
-			} else {
-				return m.FS.Create(name)
+		if e, err := m.Exists(name); err != nil || e {
+			// error or file exists
+			if err != nil {
+				return nil, err
 			}
 
+			if flag&os.O_EXCL != 0 {
+				return nil, errors.Newf("File <%s> already exists when opening with O_EXCL", name)
+			}
+
+			return m.FS.Open(name)
+
+		} else {
+			// file does not exist
+			return m.FS.Create(name)
 		}
 	} else if flag&os.O_RDWR != 0 || flag&os.O_WRONLY != 0 {
 		// not readonly
