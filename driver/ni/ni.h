@@ -28,6 +28,7 @@
 #include "driver/pipeline/control.h"
 #include "nlohmann/json.hpp" // for json parsing
 #include "driver/task/task.h"
+#include "driver/config/config.h"
 
 
 // #include "driver/modules/module.h"
@@ -209,6 +210,7 @@ namespace ni{
             json getDevices();
         private:
             NISysCfgResourceProperty getPropertyId(std::string property);
+            void parseConfig(config::Parser &parser);
             json devices;
             json deviceProperties;
             json requestedProperties;
@@ -218,6 +220,8 @@ namespace ni{
             NISysCfgEnumResourceHandle resourcesHandle;
             synnax::Task task;
             std::shared_ptr<task::Context> ctx; 
+            static const std::vector<std::string> required_properties;
+            static const std::vector<std::string> optional_properties;
     };
 
     ///////////////////////////////////////////////////////////////////////////////////
@@ -396,6 +400,4 @@ namespace ni{
 //         // TODO: createDigitalWriterTask
         
 //     };
-
-
 // }
