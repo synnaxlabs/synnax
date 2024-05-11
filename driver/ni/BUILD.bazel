@@ -82,7 +82,12 @@ cc_library(
         "@platforms//os:windows": ["/std:c++20"],
         "//conditions:default": [],
     }),
-    linkopts = ["user32.lib"],
+    
+    linkopts =   select({
+        "@platforms//os:windows": ["user32.lib"],
+        "//conditions:default": [],
+    }),
+
     target_compatible_with = select({
         "@platforms//os:windows": [],
         "//conditions:default": [],
