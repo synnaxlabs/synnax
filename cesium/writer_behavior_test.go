@@ -78,7 +78,7 @@ var _ = Describe("Writer Behavior", func() {
 							basic2    cesium.ChannelKey = 5
 							basicIdx2 cesium.ChannelKey = 6
 						)
-						By("Creating a channel")
+						By("Creating the channels")
 						Expect(db.CreateChannel(
 							ctx,
 							cesium.Channel{Key: basicIdx1, IsIndex: true, DataType: telem.TimeStampT},
@@ -116,7 +116,125 @@ var _ = Describe("Writer Behavior", func() {
 						Expect(end).To(Equal(14*telem.SecondTS + 1))
 						Expect(w.Close()).To(Succeed())
 					})
+				})
 
+				Context("Rate channels", func() {
+					It("Should write to many rate channels at once", func() {
+						var (
+							rate1 cesium.ChannelKey = 7
+							rate2 cesium.ChannelKey = 8
+							rate3 cesium.ChannelKey = 9
+						)
+						By("Creating the channels")
+						Expect(db.CreateChannel(
+							ctx,
+							cesium.Channel{Key: rate1, Rate: 1 * telem.Hz, DataType: telem.Int64T},
+							cesium.Channel{Key: rate2, Rate: 2 * telem.Hz, DataType: telem.Int64T},
+							cesium.Channel{Key: rate3, Rate: 2 * telem.Hz, DataType: telem.Int64T},
+						)).To(Succeed())
+
+						w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+							Channels: []cesium.ChannelKey{rate1, rate2, rate3},
+							Start:    10 * telem.SecondTS,
+						}))
+
+						By("Writing data")
+						ok := w.Write(cesium.NewFrame(
+							[]cesium.ChannelKey{rate1, rate2, rate3},
+							[]telem.Series{
+								telem.NewSeriesV[int64](100),
+								telem.NewSeriesV[int64](100, 105),
+								telem.NewSeriesV[int64](100, 105),
+							},
+						))
+						Expect(ok).To(BeTrue())
+						t, ok := w.Commit()
+						Expect(ok).To(BeTrue())
+						Expect(w.Error()).To(BeNil())
+						Expect(t).To(Equal(10500*telem.MillisecondTS + 1))
+
+						ok = w.Write(cesium.NewFrame(
+							[]cesium.ChannelKey{rate1, rate2, rate3},
+							[]telem.Series{
+								telem.NewSeriesV[int64](110, 120, 130, 140),
+								telem.NewSeriesV[int64](110, 115, 120, 125, 130, 135, 140, 145),
+								telem.NewSeriesV[int64](110, 115, 120, 125, 130, 135, 140, 145),
+							},
+						))
+						Expect(ok).To(BeTrue())
+						t, ok = w.Commit()
+						Expect(t).To(Equal(14*telem.SecondTS + 500*telem.MillisecondTS + 1))
+						Expect(ok).To(BeTrue())
+
+						Expect(w.Close()).To(Succeed())
+
+						By("Checking that the data is correct")
+						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, rate1, rate2, rate3))
+						Expect(f.Series[0].Data).To(Equal(telem.NewSeriesV[int64](100, 110, 120, 130, 140).Data))
+						Expect(f.Series[1].Data).To(Equal(telem.NewSeriesV[int64](100, 105, 110, 115, 120, 125, 130, 135, 140, 145).Data))
+						Expect(f.Series[2].Data).To(Equal(telem.NewSeriesV[int64](100, 105, 110, 115, 120, 125, 130, 135, 140, 145).Data))
+					})
+				})
+
+				Context("Rate, Index, and Data", func() {
+					It("Should write properly", func() {
+						var (
+							rate1  cesium.ChannelKey = 61
+							rate2  cesium.ChannelKey = 62
+							index1 cesium.ChannelKey = 63
+							data1  cesium.ChannelKey = 64
+						)
+						By("Creating a channel")
+						Expect(db.CreateChannel(
+							ctx,
+							cesium.Channel{Key: rate1, Rate: 2 * telem.Hz, DataType: telem.Int64T},
+							cesium.Channel{Key: rate2, Rate: 2 * telem.Hz, DataType: telem.Int64T},
+							cesium.Channel{Key: index1, DataType: telem.TimeStampT, IsIndex: true},
+							cesium.Channel{Key: data1, DataType: telem.Int64T, Index: index1},
+						)).To(Succeed())
+						w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+							Channels: []cesium.ChannelKey{index1, data1, rate1, rate2},
+							Start:    10 * telem.SecondTS,
+						}))
+
+						By("Writing data")
+						ok := w.Write(cesium.NewFrame(
+							[]cesium.ChannelKey{index1, data1, rate1, rate2},
+							[]telem.Series{
+								telem.NewSecondsTSV(10, 11, 13),
+								telem.NewSeriesV[int64](10, 11, 13),
+								telem.NewSeriesV[int64](100, 105, 110, 115, 120, 125, 130, 135),
+								telem.NewSeriesV[int64](100, 105, 110, 115, 120, 125, 130, 135),
+							},
+						))
+						Expect(ok).To(BeTrue())
+						end, ok := w.Commit()
+						Expect(end).To(Equal(13*telem.SecondTS + 500*telem.MillisecondTS + 1))
+						Expect(ok).To(BeTrue())
+
+						ok = w.Write(cesium.NewFrame(
+							[]cesium.ChannelKey{index1, data1, rate1, rate2},
+							[]telem.Series{
+								telem.NewSecondsTSV(17),
+								telem.NewSeriesV[int64](17),
+								telem.NewSeriesV[int64](140, 145),
+								telem.NewSeriesV[int64](140, 145),
+							},
+						))
+						Expect(ok).To(BeTrue())
+						end, ok = w.Commit()
+						Expect(end).To(Equal(17*telem.SecondTS + 1))
+						Expect(ok).To(BeTrue())
+
+						Expect(w.Close()).To(Succeed())
+
+						By("Checking that the data is correct")
+						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, index1, data1, rate1, rate2))
+						Expect(f.Series[0].Data).To(Equal(telem.NewSecondsTSV(10, 11, 13, 17).Data))
+						Expect(f.Series[1].Data).To(Equal(telem.NewSeriesV[int64](10, 11, 13, 17).Data))
+						Expect(f.Series[2].Data).To(Equal(telem.NewSeriesV[int64](100, 105, 110, 115, 120, 125, 130, 135, 140, 145).Data))
+						Expect(f.Series[3].Data).To(Equal(telem.NewSeriesV[int64](100, 105, 110, 115, 120, 125, 130, 135, 140, 145).Data))
+					})
 				})
 			})
 			Describe("Stream Only Mode", func() {

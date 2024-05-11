@@ -1,7 +1,7 @@
 ---
 layout: "@/layouts/MainLayout.astro"
 title: "Pluto Components"
-description: "Use Pluto components to build custom user interfaces"
+description: "Use Pluto components to build custom user interfaces."
 ---
 import { Divider } from "@synnaxlabs/pluto";
 import Note from "@/components/Note.astro";
@@ -67,14 +67,14 @@ import { Button } from "@synnaxlabs/pluto";
 ### Strict Mode Incompatibility
 
 Pluto uses several mechanisms to manage communication between the main thread and the
-Web Worker. These mechanisms are not yet compatible with React's strict mode. If you
-do use strict mode, you may encounter errors or unexpected behavior.
+Web Worker. These mechanisms are not yet compatible with React's Strict Mode. If you
+do use Strict Mode, you may encounter errors or unexpected behavior.
 
 ### Components as Modules
 
 When you import the `Button` above, you're not actually importing the `Button` component 
 itself. Instead, you're importing a module that exports the `Button`, along
-with other useful utilities. You'll see this Syntax with almost every component in Pluto:
+with other useful utilities. You'll see this syntax with almost every component in Pluto:
 
 ```typescript
 import { Button } from "@synnaxlabs/pluto/button";

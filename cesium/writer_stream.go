@@ -342,8 +342,9 @@ type idxWriter struct {
 
 func (w *idxWriter) Write(fr Frame) (Frame, error) {
 	var (
-		l int64 = -1
-		c       = 0
+		l                      int64 = -1
+		c                            = 0
+		incrementedSampleCount bool
 	)
 	w.writeNum++
 	for i, k := range fr.Keys {
@@ -417,8 +418,9 @@ func (w *idxWriter) Write(fr Frame) (Frame, error) {
 		if err != nil {
 			return fr, err
 		}
-		if i == 0 {
-			w.sampleCount = int64(alignment.Position()) + series.Len()
+		if !incrementedSampleCount {
+			w.sampleCount = int64(alignment) + series.Len()
+			incrementedSampleCount = true
 		}
 		series.Alignment = alignment
 		fr.Series[i] = series
