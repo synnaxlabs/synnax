@@ -26,6 +26,8 @@ ni::ScannerTask::ScannerTask(
         scanner(ctx, task) {
     this->task = task;
     this->ctx = ctx;
+    this->running = true;
+    thread = std::thread(&ni::ScannerTask::run, this);
 }
 
 std::unique_ptr <task::Task> ni::ScannerTask::configure(
@@ -56,10 +58,23 @@ void ni::ScannerTask::exec(task::Command &cmd) {
                           });
             LOG(INFO) << "[NI Task] successfully scanned for task " << this->task.name;
             //print devices here for now
-            std::cout << devices.dump(4) << std::endl;
+            // std::cout << devices.dump(4) << std::endl;
         }
-    } else {
+    } else if (cmd.type == "stop"){
+        running = false; // TODO: implement stop()
+        thread.join();
+    }else {
         LOG(ERROR) << "unknown command type: " << cmd.type;
+    }
+}
+
+void ni::ScannerTask::run(){
+    auto scan_cmd = task::Command{task.key, "scan", {}};
+
+    // perform a scan
+    while(this->running){
+        std::this_thread::sleep_for(std::chrono::seconds(5));
+        this->exec(scan_cmd);
     }
 }
 

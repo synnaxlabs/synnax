@@ -15,6 +15,9 @@
 #include <queue>
 #include <utility>
 #include <memory>
+#include <atomic>
+#include <thread>
+#include <set>
 
 #include "nidaqmx_api.h"
 #include "daqmx.h"
@@ -318,6 +321,7 @@ namespace ni{
             std::shared_ptr<task::Context> ctx; 
             static const std::vector<std::string> required_properties;
             static const std::vector<std::string> optional_properties;
+            std::set<std::string> device_serials;
     };
 
     ///////////////////////////////////////////////////////////////////////////////////
@@ -332,11 +336,13 @@ namespace ni{
         void stop() override{};
         static std::unique_ptr<task::Task> configure(   const std::shared_ptr<task::Context> &ctx,
                                                         const synnax::Task &task);
+        void run();
     private:
+        bool running = false;
         ni::Scanner scanner;
         synnax::Task task;
-        std::shared_ptr<task::Context> ctx;
-    
+        std::shared_ptr<task::Context> ctx;    
+        std::thread thread;
     };
 
 

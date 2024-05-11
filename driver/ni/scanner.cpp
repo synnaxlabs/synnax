@@ -160,10 +160,55 @@ void ni::Scanner::scan() {
             auto property = getPropertyId(property_str);
             ni::NiSysCfgInterface::GetResourceProperty(resource, property, propertyValue);
             device[property_str] = propertyValue;
+            NISysCfgGetResourceIndexedProperty(resource, NISysCfgIndexedPropertyExpertUserAlias, 0, propertyValue);
+            device["Location"] = propertyValue;
+            NISysCfgGetResourceIndexedProperty(resource, NISysCfgIndexedPropertyExpertResourceName, 0, propertyValue);
+            device["ResourceName"] = propertyValue;
+            if(device["SerialNumber"].get<std::string>() == "") {
+                auto s = device["ResourceName"].get<std::string>();
+                auto rsrc_name = s.substr(1,s.size() - 2);
+                device["key"] = rsrc_name;
+            } else{
+                device["key"] = device["SerialNumber"];
+            }
+                // std::cout << "key: " << device["key"] << std::endl;
         }
         devices["devices"].push_back(device);
     }
     LOG(INFO) << "[ni.scanner] successfully scanned devices from task " << this->task.name;
+
+    // no iterate through the set and retrieve device and print out name
+    for(auto &serial: device_serials){
+        auto [device, err] = this->ctx->client->hardware.retrieveDevice(serial);
+        if(err){
+            LOG(ERROR) << "[ni.scanner] failed to retrieve device with serial number " << serial;
+        } else{
+            LOG(INFO) << "[ni.scanner] retrieved device with serial number " << serial << " and name " << device.name;
+        }
+    }
+
+    // scanned devices, now create them if they arent in the set.
+    for (auto &device: devices["devices"]) {
+        if(device_serials.find(device["SerialNumber"]) == device_serials.end() ){
+            // add serial to set
+            device_serials.insert(device["key"]);
+            //create device
+            auto new_device = synnax::Device({
+                device["key"].get<std::string>(),
+                device["DeviceName"].get<std::string>(),
+                synnax::taskKeyRack(this->task.key),
+                device["Location"].get<std::string>(),
+                device["SerialNumber"].get<std::string>(),
+                "National Instruments",
+                device["DeviceName"].get<std::string>(),
+                device.dump()
+            });
+            this->ctx->client->hardware.createDevice(new_device);
+        }
+    }
+    
+    // no iterate through the set and retrieve device and print out name
+    
 }
 
 void ni::Scanner::testConnection() {
