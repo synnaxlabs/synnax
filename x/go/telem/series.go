@@ -20,8 +20,11 @@ type Series struct {
 	// DataType is the data type of the series.
 	DataType DataType `json:"data_type" msgpack:"data_type"`
 	// Data is the underlying binary buffer.
-	Data      []byte    `json:"data" msgpack:"data"`
-	Alignment Alignment `json:"alignment" msgpack:"alignment"`
+	Data []byte `json:"data" msgpack:"data"`
+	// Alignment can be used to define the alignment of the series relative to other
+	// series in a logical group. This is typically used for defining the position of
+	// the series within a channel's data, but can be used for arbitrary purposes.
+	Alignment AlignmentPair `json:"alignment" msgpack:"alignment"`
 }
 
 // Len returns the number of samples currently in the Series.
@@ -30,6 +33,9 @@ func (s Series) Len() int64 { return s.DataType.Density().SampleCount(s.Size()) 
 // Size returns the number of bytes in the Series.
 func (s Series) Size() Size { return Size(len(s.Data)) }
 
+// Split separates the series into individual samples, where each byte slice is the
+// encoded value of a sample. Warning: this can add a lot of heap pressure if the
+// series is large.
 func (s Series) Split() [][]byte {
 	if s.DataType.IsVariable() {
 		return bytes.Split(s.Data, []byte("\n"))

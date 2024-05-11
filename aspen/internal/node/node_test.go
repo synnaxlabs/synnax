@@ -27,18 +27,18 @@ var _ = Describe("Node", func() {
 		})
 	})
 
-	Describe("Group", func() {
+	Describe("ArrayIndex", func() {
 
 		Describe("Filter", func() {
 
 			It("Should filter nodes correctly", func() {
 				g := node.Group{
 					1: node.Node{
-						Key:    1,
+						Key:   1,
 						State: node.StateHealthy,
 					},
 					2: node.Node{
-						Key:    2,
+						Key:   2,
 						State: node.StateSuspect,
 					},
 				}
@@ -54,12 +54,12 @@ var _ = Describe("Node", func() {
 			It("Should return the addresses of the nodes in the cluster", func() {
 				g := node.Group{
 					1: node.Node{
-						Key:      1,
+						Key:     1,
 						State:   node.StateHealthy,
 						Address: "localhost:0",
 					},
 					2: node.Node{
-						Key:      2,
+						Key:     2,
 						State:   node.StateSuspect,
 						Address: "localhost:1",
 					},
@@ -76,7 +76,7 @@ var _ = Describe("Node", func() {
 			It("Should return the digests of the nodes", func() {
 				g := node.Group{
 					1: node.Node{
-						Key:    1,
+						Key:   1,
 						State: node.StateHealthy,
 						Heartbeat: version.Heartbeat{
 							Version:    1,
@@ -84,7 +84,7 @@ var _ = Describe("Node", func() {
 						},
 					},
 					2: node.Node{
-						Key:      2,
+						Key:     2,
 						State:   node.StateSuspect,
 						Address: "localhost:1",
 						Heartbeat: version.Heartbeat{
@@ -106,7 +106,7 @@ var _ = Describe("Node", func() {
 		It("Should copy a group of nodes", func() {
 			g := node.Group{
 				1: node.Node{
-					Key:    1,
+					Key:   1,
 					State: node.StateHealthy,
 					Heartbeat: version.Heartbeat{
 						Version:    1,
@@ -114,7 +114,7 @@ var _ = Describe("Node", func() {
 					},
 				},
 				2: node.Node{
-					Key:      2,
+					Key:     2,
 					State:   node.StateSuspect,
 					Address: "localhost:1",
 					Heartbeat: version.Heartbeat{

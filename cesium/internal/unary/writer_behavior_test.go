@@ -138,7 +138,7 @@ var _ = Describe("Writer Behavior", func() {
 						Expect(MustSucceed(w2.Write(telem.NewSecondsTSV(6, 7, 8, 9, 10, 11)))).To(Equal(telem.LeadingAlignment(6)))
 						a, err := w1.Write(telem.NewSecondsTSV(12, 13, 14, 15, 16, 17))
 						Expect(err).To(MatchError(control.Unauthorized))
-						Expect(a).To(Equal(telem.Alignment(0)))
+						Expect(a).To(Equal(telem.AlignmentPair(0)))
 						_, err = w1.Commit(ctx)
 						Expect(err).To(MatchError(control.Unauthorized))
 						t = MustSucceed(w2.Close())

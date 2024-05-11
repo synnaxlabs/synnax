@@ -46,7 +46,7 @@ func (c Config) Validate() error {
 	v := validate.New("ranger")
 	validate.NotNil(v, "DB", c.DB)
 	validate.NotNil(v, "Ontology", c.Ontology)
-	validate.NotNil(v, "Group", c.Group)
+	validate.NotNil(v, "ArrayIndex", c.Group)
 	return v.Error()
 }
 

@@ -84,7 +84,11 @@ var _ = Describe("Relay", func() {
 				Expect(f.Keys).To(HaveLen(3))
 				for i, k := range f.Keys {
 					wi := lo.IndexOf(s.keys, k)
-					Expect(f.Series[i]).To(Equal(writeF.Series[wi]))
+					s := f.Series[i]
+					ws := writeF.Series[wi]
+					Expect(s.Data).To(Equal(ws.Data))
+					Expect(s.DataType).To(Equal(ws.DataType))
+					Expect(s.Alignment).To(BeNumerically(">", telem.AlignmentPair(0)))
 				}
 				streamerReq.Close()
 				confluence.Drain(readerRes)
