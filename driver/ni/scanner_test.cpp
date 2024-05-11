@@ -194,3 +194,31 @@ TEST(NiScannerTests, error_properties_empty){
         std::cout << "Scanner failed to retreive devices" << std::endl;
     }
 }
+
+
+TEST(NiScannerTests, empty_config){
+    LOG(INFO) << "test_ni_scanner: "; //<< std::endl;
+    // create properties json
+    nlohmann::json config;
+
+
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    auto task = synnax::Task(
+        "my_task",
+        "niScanner",
+        to_string(config)
+    );
+    auto mockCtx = std::make_shared<task::MockContext>(client);
+
+    //create a scanner
+    ni::Scanner scanner = ni::Scanner(mockCtx, task);
+    scanner.scan();
+    if(scanner.ok()){
+        nlohmann::json devices = scanner.getDevices();
+        // print size of devices
+        std::cout << "Number of devices: " << devices["devices"].size() << std::endl;
+        std::cout << devices.dump(4) << std::endl;
+    } else {
+        std::cout << "Scanner failed to retreive devices" << std::endl;
+    }
+}

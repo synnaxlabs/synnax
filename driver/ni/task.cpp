@@ -42,9 +42,7 @@ void ni::ScannerTask::exec(task::Command &cmd) {
             ctx->setState({
                                   .task = task.key,
                                   .variant = "error",
-                                  .details = {
-                                          {"message", "failed to scan"}
-                                  }
+                                  .details = {"message", "failed to scan"}
                           });
             LOG(ERROR) << "[NI Task] failed to scan for task " << this->task.name;
         } else {

@@ -9,7 +9,7 @@
 
 #include "glog/logging.h"
 #include "driver/ni/ni.h"
-
+#include "nlohmann/json.hpp"
 
 std::pair<std::unique_ptr<task::Task>, bool> ni::Factory::configureTask(
     const std::shared_ptr<task::Context> &ctx,
@@ -32,6 +32,7 @@ ni::Factory::configureInitialTasks(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Rack &rack
 ){
+    std::cout << "Configuring initial tasks" << std::endl;
     // generate task list
     std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task> > > tasks;
 
@@ -50,13 +51,19 @@ ni::Factory::configureInitialTasks(
             hasScanner = true;
         }
     }
-    
+
+    nlohmann::json default_scanner_config;
+    default_scanner_config["properties"] = nlohmann::json::array();
+    default_scanner_config["properties"].push_back("SerialNumber");
+    default_scanner_config["properties"].push_back("DeviceName");
+
     if(!hasScanner){
+        std::cout << "Creating niScanner task" << std::endl;
         auto sy_task = synnax::Task(
             rack.key,
             "ni Scanner",
             "niScanner",
-            ""
+            default_scanner_config.dump()
         );
         auto err = rack.tasks.create(sy_task);
         LOG(INFO) << "[ni] created scanner task with key: " << sy_task.key;

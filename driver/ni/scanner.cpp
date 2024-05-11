@@ -17,13 +17,12 @@
 #include <string>
 #include <algorithm>
 
-const std::vector<std::string> ni::Scanner::required_properties = {"DeviceName"};
-const std::vector<std::string> ni::Scanner::optional_properties = {"SerialNumber"};
+const std::vector <std::string> ni::Scanner::required_properties = {"DeviceName"};
+const std::vector <std::string> ni::Scanner::optional_properties = {"SerialNumber"};
 
 
-ni::Scanner::Scanner(const std::shared_ptr<task::Context> &ctx,
-                     const synnax::Task &task)
-{
+ni::Scanner::Scanner(const std::shared_ptr <task::Context> &ctx,
+                     const synnax::Task &task) {
 
     this->ctx = ctx;
     this->task = task;
@@ -32,121 +31,121 @@ ni::Scanner::Scanner(const std::shared_ptr<task::Context> &ctx,
     auto config_parser = config::Parser(task.config);
     this->parseConfig(config_parser);
 
-    if(!this->ok()){
-        LOG(ERROR) << "[NI Scanner] failed to parse configuration for task " << this->task.name;
+    if (!this->ok()) {
+        LOG(ERROR) << "[ni.scanner] failed to parse configuration for task " << this->task.name;
         this->ctx->setState({.task = task.key,
-                            .variant = "error",
-                            .details = config_parser.error_json()});
+                                    .variant = "error",
+                                    .details = config_parser.error_json()});
         return;
     }
-    LOG(INFO) << "[NI Scanner] successfully parsed configuration for task " << this->task.name;
+    LOG(INFO) << "[ni.scanner] successfully parsed configuration for task " << this->task.name;
 
     // initialize syscfg session for the scanner (TODO: Error Handling for status)
     NISysCfgStatus status = NISysCfg_OK;
     status = ni::NiSysCfgInterface::InitializeSession( // TODO: look into this
-        "localhost",                                   // target (ip, mac or dns name)
-        NULL,                                          // username (NULL for local system)
-        NULL,                                          // password (NULL for local system)
-        NISysCfgLocaleDefault,                         // language
-        NISysCfgBoolTrue,                              // force pproperties to be queried everytime rather than cached
-        10000,                                         // timeout (ms)
-        NULL,                                          // expert handle
-        &this->session                                 // session handle
+            "localhost",                                   // target (ip, mac or dns name)
+            NULL,                                          // username (NULL for local system)
+            NULL,                                          // password (NULL for local system)
+            NISysCfgLocaleDefault,                         // language
+            NISysCfgBoolTrue,                              // force pproperties to be queried everytime rather than cached
+            10000,                                         // timeout (ms)
+            NULL,                                          // expert handle
+            &this->session                                 // session handle
     );
 
     this->filter = NULL;
     ni::NiSysCfgInterface::CreateFilter(this->session, &this->filter);
     ni::NiSysCfgInterface::SetFilterProperty(this->filter, NISysCfgFilterPropertyIsDevice, NISysCfgBoolTrue);
-    LOG(INFO) << "[NI Scanner] successfully configured scanner for task " << this->task.name;
+    LOG(INFO) << "[ni.scanner] successfully configured scanner for task " << this->task.name;
 }
 
 
-void ni::Scanner::parseConfig(config::Parser &parser){
+void ni::Scanner::parseConfig(config::Parser &parser) {
     // this->requestedProperties = parser.required<json::array_t>("properties");
     json config = json::parse(this->task.config);
-    if(!config.contains("properties")){
+    if (!config.contains("properties")) {
         // print contains output
         json err;
         err["errors"] = "Missing properties key";
         this->ok_state = false;
-        LOG(ERROR) << "[NI Scanner] failed to find properties key in configuration for task " << this->task.name;
+        LOG(ERROR) << "[ni.scanner] failed to find properties key in configuration for task " << this->task.name;
         this->ctx->setState({.task = this->task.key,
-                            .variant = "error",
-                            .details = err});
+                                    .variant = "error",
+                                    .details = err});
         return;
     }
     this->requestedProperties = config["properties"];
 
-    if (!this->requestedProperties.is_array() || this->requestedProperties.empty())
-    {
+    if (!this->requestedProperties.is_array() || this->requestedProperties.empty()) {
         json err;
         err["errors"] = "Invalid properties list";
         this->ok_state = false;
-        LOG(ERROR) << "[NI Scanner] properties list is empty or not an array " << this->task.name;
+        LOG(ERROR) << "[ni.scanner] properties list is empty or not an array " << this->task.name;
         this->ctx->setState({.task = task.key,
-                            .variant = "error",
-                            .details = err});
+                                    .variant = "error",
+                                    .details = err});
         return;
-    } 
+    }
     // properties array not empty, check if all required properties are present
-    for(auto property : required_properties){
+    for (auto property: required_properties) {
         // as long as there is one required property, this also makes sure any other elt in the array is also a string;
-        auto it =  std::find(this->requestedProperties.begin(), this->requestedProperties.end(), property);
-        if(it == this->requestedProperties.end()){
+        auto it = std::find(this->requestedProperties.begin(), this->requestedProperties.end(), property);
+        if (it == this->requestedProperties.end()) {
             json err;
             err["errors"] = "Missing required property: " + property;
             this->ok_state = false;
-            LOG(ERROR) << "[NI Scanner] failed to find required property \"" << property << "\"  in configuration for task " << this->task.name;
+            LOG(ERROR) << "[ni.scanner] failed to find required property \"" << property
+                       << "\"  in configuration for task " << this->task.name;
             this->ctx->setState({.task = task.key,
-                            .variant = "error",
-                            .details = err});
+                                        .variant = "error",
+                                        .details = err});
             return;
         }
     }
     // now check that every property in the list is either requried or
-    std::vector<std::string> all_properties =  ni::Scanner::required_properties;
-    all_properties.insert(all_properties.end(), ni::Scanner::optional_properties.begin(), ni::Scanner::optional_properties.end());
-    for(auto &property : this->requestedProperties){
+    std::vector <std::string> all_properties = ni::Scanner::required_properties;
+    all_properties.insert(all_properties.end(), ni::Scanner::optional_properties.begin(),
+                          ni::Scanner::optional_properties.end());
+    for (auto &property: this->requestedProperties) {
         bool found = false;
         // just iterate through properties and continue if match
-        for(auto &prop : all_properties){
-            if(!found && (property.get<std::string>() == prop)){
+        for (auto &prop: all_properties) {
+            if (!found && (property.get<std::string>() == prop)) {
                 found = true;
             }
         }
-        if(!found){
+        if (!found) {
             json err;
             err["errors"] = "Invalid property: " + property.get<std::string>();
             this->ok_state = false;
-            LOG(ERROR) << "[NI Scanner] failed to find invalid property \"" << property.get<std::string>() << "\" in configuration for task " << this->task.name;
+            LOG(ERROR) << "[ni.scanner] failed to find invalid property \"" << property.get<std::string>()
+                       << "\" in configuration for task " << this->task.name;
             this->ctx->setState({.task = task.key,
-                            .variant = "error",
-                            .details = err});
+                                        .variant = "error",
+                                        .details = err});
         }
     }
 }
 
 
-ni::Scanner::~Scanner()
-{
+ni::Scanner::~Scanner() {
     // TODO: Error Handling
     ni::NiSysCfgInterface::CloseHandle(this->filter);
     ni::NiSysCfgInterface::CloseHandle(this->resourcesHandle);
     ni::NiSysCfgInterface::CloseHandle(this->session);
-    LOG(INFO) << "[NI Scanner] successfully closed scanner for task " << this->task.name;
+    LOG(INFO) << "[ni.scanner] successfully closed scanner for task " << this->task.name;
 }
 
-void ni::Scanner::scan()
-{
-    LOG(INFO) << "[NI Scanner] scanning devices for task " << this->task.name;
+void ni::Scanner::scan() {
+    LOG(INFO) << "[ni.scanner] scanning devices for task " << this->task.name;
     NISysCfgResourceHandle resource = NULL;
     // TODO: use parser to verify there is a properties key
     auto property_arr = this->requestedProperties;
 
     // first find hardware
-    auto err = ni::NiSysCfgInterface::FindHardware(this->session, NISysCfgFilterModeAll, this->filter, NULL, &this->resourcesHandle);
-    if (err != NISysCfg_OK)
-    {
+    auto err = ni::NiSysCfgInterface::FindHardware(this->session, NISysCfgFilterModeAll, this->filter, NULL,
+                                                   &this->resourcesHandle);
+    if (err != NISysCfg_OK) {
         this->ok_state = false;
         return; // TODO: handle error more meaningfully
     }
@@ -154,11 +153,9 @@ void ni::Scanner::scan()
     // Now iterate through found devices and get requested properties
     devices["devices"] = json::array();
 
-    while (ni::NiSysCfgInterface::NextResource(this->session, this->resourcesHandle, &resource) == NISysCfg_OK)
-    {
+    while (ni::NiSysCfgInterface::NextResource(this->session, this->resourcesHandle, &resource) == NISysCfg_OK) {
         json device;
-        for (auto &property_str : property_arr)
-        {
+        for (auto &property_str: property_arr) {
             char propertyValue[1024] = "";
             auto property = getPropertyId(property_str);
             ni::NiSysCfgInterface::GetResourceProperty(resource, property, propertyValue);
@@ -166,37 +163,28 @@ void ni::Scanner::scan()
         }
         devices["devices"].push_back(device);
     }
-    LOG(INFO) << "[NI Scanner] successfully scanned devices from task " << this->task.name;
+    LOG(INFO) << "[ni.scanner] successfully scanned devices from task " << this->task.name;
 }
 
-void ni::Scanner::testConnection()
-{
+void ni::Scanner::testConnection() {
     // TODO: Implement this
     return;
 }
 
-bool ni::Scanner::ok()
-{
+bool ni::Scanner::ok() {
     return ok_state;
 }
 
-json ni::Scanner::getDevices()
-{
+json ni::Scanner::getDevices() {
     return devices;
 }
 
-NISysCfgResourceProperty ni::Scanner::getPropertyId(std::string property)
-{
-    if (property == "SerialNumber")
-    {
+NISysCfgResourceProperty ni::Scanner::getPropertyId(std::string property) {
+    if (property == "SerialNumber") {
         return NISysCfgResourcePropertySerialNumber; // char *
-    }
-    else if (property == "DeviceName")
-    {
+    } else if (property == "DeviceName") {
         return NISysCfgResourcePropertyProductName; // char *
-    }
-    else
-    {
+    } else {
         return NISysCfgResourcePropertyProductName; // default to product name
     }
 }
