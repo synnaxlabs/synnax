@@ -240,9 +240,17 @@ export class Client implements AsyncTermSearcher<string, TaskKey, TaskPayload> {
     this.frameClient = frameClient;
   }
 
-  async create(task: NewTask): Promise<Task>;
+  async create<
+    C extends UnknownRecord = UnknownRecord,
+    D extends {} = UnknownRecord,
+    T extends string = string,
+  >(task: NewTask<C, T>): Promise<Task<C, D, T>>;
 
-  async create(tasks: NewTask[]): Promise<Task[]>;
+  async create<
+    C extends UnknownRecord = UnknownRecord,
+    D extends {} = UnknownRecord,
+    T extends string = string,
+  >(tasks: NewTask<C, T>[]): Promise<Task<C, D, T>[]>;
 
   async create<
     C extends UnknownRecord = UnknownRecord,

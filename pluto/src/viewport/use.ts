@@ -55,7 +55,7 @@ export interface UseReturn {
   ref: React.MutableRefObject<HTMLDivElement | null>;
 }
 
-const TRUNC_PRECISION = 4;
+const TRUNC_PRECISION = 6;
 
 type StringLiteral<T> = T extends string ? (string extends T ? never : T) : never;
 
@@ -253,9 +253,8 @@ export const use = ({
     [threshold_],
   );
 
-  const t = Triggers.useHeldRef({
-    triggers: [["Control"]],
-  });
+  const verticalTrigger = Triggers.useHeldRef({ triggers: [["Control"]] });
+  const horizontalTrigger = Triggers.useHeldRef({ triggers: [["Alt"]] });
 
   useEffect(() => {
     const handler = (e: WheelEvent): void => {
@@ -268,11 +267,14 @@ export const use = ({
       if (!box.contains(canvasBox, rawCursor) || e.target !== canvasRef.current) return;
       const s2 = constructScale(stateRef.current, box.construct(canvasRef.current));
       const cursor = s2.pos(xy.construct(e));
-      const s = scale.XY.magnify({ x: t.current.held ? 1 : sf, y: sf });
+      const s = scale.XY.magnify({
+        x: verticalTrigger.current.held ? 1 : sf,
+        y: horizontalTrigger.current.held ? 1 : sf,
+      });
       let next = s.box(stateRef.current);
       next = box.translate(next, {
-        x: t.current.held ? 0 : cursor.x * (1 - sf),
-        y: cursor.y * (1 - sf),
+        x: verticalTrigger.current.held ? 0 : cursor.x * (1 - sf),
+        y: horizontalTrigger.current.held ? 0 : cursor.y * (1 - sf),
       });
       setStateRef(next);
       onChange?.({

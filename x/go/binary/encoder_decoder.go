@@ -180,3 +180,19 @@ func UnmarshalStringInt64(b []byte) (n int64, err error) {
 	n, err = strconv.ParseInt(str, 10, 64)
 	return n, err
 }
+
+func UnmarshalStringUint64(b []byte) (n uint64, err error) {
+	if err = json.Unmarshal(b, &n); err == nil {
+		return n, nil
+	}
+
+	// Unmarshal as a string.
+	var str string
+	if err := json.Unmarshal(b, &str); err != nil {
+		return n, err
+	}
+
+	// Parse the string.
+	n, err = strconv.ParseUint(str, 10, 64)
+	return n, err
+}

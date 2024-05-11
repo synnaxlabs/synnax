@@ -11,7 +11,7 @@ import { location, direction, type spatial } from "@synnaxlabs/x/spatial";
 
 import { type BEM, newBEM } from "@/css/bem";
 import { CSSGridBuilder } from "@/css/grid";
-import { applyCSSVars } from "@/css/vars";
+import { applyCSSVars, removeCSSVars } from "@/css/vars";
 import { type ComponentSize } from "@/util/component";
 
 export interface CSSType extends BEM {
@@ -30,7 +30,8 @@ export interface CSSType extends BEM {
   editable: (editable: boolean) => string | false;
   noWrap: (noWrap: boolean) => string | false;
   applyVars: typeof applyCSSVars;
-  newGridBuilder: () => CSSGridBuilder;
+  removeVars: typeof removeCSSVars;
+  newGridBuilder: (prefix?: string) => CSSGridBuilder;
   inheritDims: (inherit?: boolean) => string | false;
   dropRegion: (active: boolean) => false | string;
   triggerExclude: (value: boolean) => string | false;
@@ -57,7 +58,8 @@ const newCSS = (prefix: string): CSSType => {
   CSS.noSelect = CSS.M("no-select");
   CSS.noWrap = (noWrap) => noWrap && CSS.M("no-wrap");
   CSS.applyVars = applyCSSVars;
-  CSS.newGridBuilder = () => new CSSGridBuilder();
+  CSS.removeVars = removeCSSVars;
+  CSS.newGridBuilder = (prefix?: string) => new CSSGridBuilder(prefix);
   CSS.dropRegion = (active) => active && CSS.B("haul-drop-region");
   CSS.px = (value: number) => `${value}px`;
   CSS.inheritDims = (inherit = true) => inherit && CSS.M("inherit-dims");

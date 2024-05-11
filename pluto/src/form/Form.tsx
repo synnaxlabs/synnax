@@ -110,7 +110,7 @@ export interface UseFieldListenerProps<
   I extends Input.Value,
   Z extends z.ZodTypeAny = z.ZodTypeAny,
 > {
-  ctx: ContextValue<Z>;
+  ctx?: ContextValue<Z>;
   path: string;
   callback: (state: FieldState<I>, extra: ContextValue) => void;
 }
@@ -431,8 +431,11 @@ export const use = <Z extends z.ZodTypeAny>({
     [],
   ) as GetFunc;
 
-  const validateInternal = useCallback(
-    (result: z.SafeParseReturnType<z.input<Z>, z.output<Z>>): boolean => {
+  const processValidationResult = useCallback(
+    (
+      result: z.SafeParseReturnType<z.input<Z>, z.output<Z>>,
+      path: string = "",
+    ): boolean => {
       const { status, listeners, touched } = ref.current;
       if (result.success) {
         const keys = Array.from(status.keys());
@@ -444,10 +447,13 @@ export const use = <Z extends z.ZodTypeAny>({
         });
         return true;
       }
-      let success = result.error.issues.every((i) => isWarning(i));
+      let success = true;
       const issueKeys = new Set(result.error.issues.map((i) => i.path.join(".")));
       result.error.issues.forEach((issue) => {
         const issuePath = issue.path.join(".");
+        if (!deep.pathsMatch(issuePath, path)) return;
+        const variant = getVariant(issue);
+        if (variant !== "warning") success = false;
         status.set(issuePath, {
           key: issuePath,
           variant: getVariant(issue),
@@ -479,19 +485,25 @@ export const use = <Z extends z.ZodTypeAny>({
     [],
   );
 
-  const validate = useCallback((path?: string): boolean => {
-    if (schemaRef.current == null) return true;
-    const { state } = ref.current;
-    const result = schemaRef.current.safeParse(state);
-    return validateInternal(result);
-  }, []);
+  const validate = useCallback(
+    (path?: string): boolean => {
+      if (schemaRef.current == null) return true;
+      const { state } = ref.current;
+      const result = schemaRef.current.safeParse(state);
+      return processValidationResult(result, path);
+    },
+    [processValidationResult],
+  );
 
-  const validateAsync = useCallback(async (path?: string): Promise<boolean> => {
-    if (schemaRef.current == null) return true;
-    const { state } = ref.current;
-    const result = await schemaRef.current.safeParseAsync(state);
-    return validateInternal(result);
-  }, []);
+  const validateAsync = useCallback(
+    async (path?: string): Promise<boolean> => {
+      if (schemaRef.current == null) return true;
+      const { state } = ref.current;
+      const result = await schemaRef.current.safeParseAsync(state);
+      return processValidationResult(result, path);
+    },
+    [processValidationResult],
+  );
 
   const set: SetFunc = useCallback(({ path, value }): void => {
     const { state, touched, listeners, parentListeners } = ref.current;
@@ -500,9 +512,9 @@ export const use = <Z extends z.ZodTypeAny>({
     else deep.set(state, path, value);
     validateAsync();
     listeners.get(path)?.forEach((l) => l(get({ path })));
-    parentListeners.forEach((lis, listPath) => {
-      if (path.startsWith(listPath)) {
-        const v = get({ path: listPath });
+    parentListeners.forEach((lis, lisPath) => {
+      if (deep.pathsMatch(path, lisPath)) {
+        const v = get({ path: lisPath });
         lis.forEach((l) => l(v));
       }
     });

@@ -238,7 +238,6 @@ export const Dropdown = (): ReactElement => {
       {...dropProps}
       variant="floating"
       bordered={false}
-      location={{ x: "left", y: "top" }}
       className={CSS.B("cluster-dropdown")}
     >
       <Button.Button

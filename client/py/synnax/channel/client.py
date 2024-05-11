@@ -24,7 +24,7 @@ from synnax.channel.payload import (
 )
 from synnax.channel.retrieve import ChannelRetriever
 from synnax.channel.writer import ChannelWriter
-from synnax.exceptions import NotFoundError, MultipleResultsError, ValidationError
+from synnax.exceptions import NotFoundError, MultipleFoundError, ValidationError
 from synnax.framer.client import Client
 from synnax.telem import (
     CrudeDataType,
@@ -331,7 +331,7 @@ class ChannelClient:
 def _multiple_results_error(
     channel: ChannelParams,
     results: list[ChannelPayload],
-) -> MultipleResultsError:
+) -> MultipleFoundError:
     msg = f"""
 
 {len(results)} channels matching '{channel}' found. If you'd like to retrieve all
@@ -348,4 +348,4 @@ The channels found were:
     if len(results) > 5:
         msg += f"and {len(results) - 5} more."
 
-    return MultipleResultsError(msg)
+    return MultipleFoundError(msg)

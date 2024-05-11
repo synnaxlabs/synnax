@@ -12,7 +12,6 @@ import React, {
   type ReactElement,
   type ReactNode,
   useContext,
-  useState,
   useCallback,
 } from "react";
 
@@ -20,9 +19,13 @@ import { direction } from "@synnaxlabs/x";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
+import { useSyncedRef } from "@/hooks";
+import { state } from "@/state";
 import { type TabSpec, Selector } from "@/tabs/Selector";
 import { type ComponentSize } from "@/util/component";
 import { type RenderProp } from "@/util/renderProp";
+
+import "@/tabs/Tabs.css";
 
 export interface Tab extends TabSpec {
   content?: ReactNode;
@@ -34,6 +37,7 @@ export interface UseStaticTabsProps {
   tabs: Tab[];
   content?: TabRenderProp;
   onSelect?: (key: string) => void;
+  selected?: string;
 }
 
 export const resetSelection = (selected = "", tabs: Tab[] = []): string | undefined => {
@@ -54,21 +58,27 @@ export const rename = (key: string, title: string, tabs: Tab[]): Tab[] => {
 export const useStatic = ({
   tabs,
   content,
+  selected,
   onSelect,
 }: UseStaticTabsProps): TabsContextValue => {
-  const [selected, setSelected] = useState(tabs[0]?.tabKey ?? "");
+  const [value, onChange] = state.usePurePassthrough({
+    initial: selected ?? tabs[0]?.tabKey ?? "",
+    value: selected,
+    onChange: onSelect,
+  });
+  const valueRef = useSyncedRef(selected ?? value);
 
   const handleSelect = useCallback(
     (key: string): void => {
-      setSelected(key);
-      onSelect?.(key);
+      onChange(key);
+      if (valueRef.current == null) onSelect?.(key);
     },
-    [setSelected, onSelect],
+    [value, onSelect],
   );
 
   return {
     tabs,
-    selected,
+    selected: value,
     content,
     onSelect: handleSelect,
   };
@@ -80,7 +90,7 @@ export interface TabsContextValue {
   closable?: boolean;
   selected?: string;
   onSelect?: (key: string) => void;
-  content?: TabRenderProp;
+  content?: TabRenderProp | ReactNode;
   onClose?: (key: string) => void;
   onDragStart?: (e: React.DragEvent<HTMLDivElement>, tab: TabSpec) => void;
   onDragEnd?: (e: React.DragEvent<HTMLDivElement>, tab: TabSpec) => void;
@@ -95,7 +105,7 @@ export interface TabsProps
       "children" | "onSelect" | "size" | "onDragStart" | "onDragEnd" | "content"
     >,
     TabsContextValue {
-  children?: TabRenderProp;
+  children?: TabRenderProp | ReactNode;
   size?: ComponentSize;
 }
 
@@ -104,6 +114,7 @@ export const TabsContext = createContext<TabsContextValue>({ tabs: [] });
 export const useTabsContext = (): TabsContextValue => useContext(TabsContext);
 
 export const Tabs = ({
+  id,
   content,
   children,
   onSelect,
@@ -124,6 +135,7 @@ export const Tabs = ({
   ...props
 }: TabsProps): ReactElement => (
   <Align.Space
+    id={id}
     empty
     className={CSS(CSS.B("tabs"), className)}
     onDragOver={onDragOver}
@@ -155,7 +167,7 @@ export const Tabs = ({
 
 export const Provider = TabsContext.Provider;
 
-export const Content = (): ReactElement | null => {
+export const Content = (): ReactNode | null => {
   const {
     tabs,
     selected,
@@ -166,19 +178,12 @@ export const Content = (): ReactElement | null => {
   let content: ReactNode = null;
   const selectedTab = tabs.find((tab) => tab.tabKey === selected);
   if (selected == null || selectedTab == null) return emptyContent ?? null;
-  if (renderProp != null) content = renderProp(selectedTab);
-  else if (selectedTab.content != null) content = selectedTab.content;
+  if (renderProp != null) {
+    if (typeof renderProp === "function") content = renderProp(selectedTab);
+    else content = renderProp;
+  } else if (selectedTab.content != null) content = selectedTab.content;
   return (
-    <div
-      className={CSS.B("tabs-content")}
-      onClick={() => onSelect?.(selected)}
-      style={{
-        width: "100%",
-        height: "100%",
-        position: "relative",
-        overflow: "hidden",
-      }}
-    >
+    <div className={CSS.B("tabs-content")} onClick={() => onSelect?.(selected)}>
       {content}
     </div>
   );

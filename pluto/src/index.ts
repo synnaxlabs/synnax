@@ -13,6 +13,7 @@ export { Aether } from "@/aether";
 export { Align } from "@/align";
 export { Button } from "@/button";
 export { Color } from "@/color";
+export { Note } from "@/note";
 export * from "@/css";
 export { Divider } from "@/divider";
 export { Dropdown } from "@/dropdown";
@@ -54,6 +55,7 @@ export { Telem } from "@/telem";
 export { Eraser } from "@/vis/eraser";
 export { LinePlot } from "@/vis/lineplot";
 export { Ranger } from "@/ranger";
+export { Range } from "@/vis/lineplot/range";
 export { Progress } from "@/progress";
 export { Steps } from "@/steps";
 export { Device } from "@/hardware/device";
@@ -61,3 +63,27 @@ export * from "@/hooks";
 export * from "@/util/renderProp";
 export { Form } from "@/form";
 export * from "@/memo";
+export {
+  DataType,
+  Density,
+  Rate,
+  Series,
+  MultiSeries,
+  TimeRange,
+  TimeSpan,
+  TimeStamp,
+} from "@synnaxlabs/x";
+
+export type {
+  TypedArray,
+  CrudeDataType,
+  CrudeDensity,
+  CrudeRate,
+  CrudeSize,
+  CrudeTimeSpan,
+  CrudeTimeStamp,
+  TelemValue,
+  NumericTelemValue,
+  TimeStampStringFormat,
+  TZInfo,
+} from "@synnaxlabs/x";

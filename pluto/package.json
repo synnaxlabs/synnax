@@ -30,7 +30,8 @@
     "react": "^18.2.0",
     "react-color": "^2.19.3",
     "react-dom": "^18.2.0",
-    "reactflow": "^11.11.1",
+    "react-reverse-portal": "^2.1.2",
+    "reactflow": "^11.11.2",
     "zod": "3.22.4"
   },
   "devDependencies": {

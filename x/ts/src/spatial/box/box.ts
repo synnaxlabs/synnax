@@ -327,6 +327,22 @@ export const yBounds = (b: Crude): bounds.Bounds => {
 
 export const reRoot = (b: Box, corner: location.CornerXY): Box => copy(b, corner);
 
+export const edgePoints = (b: Crude, loc: location.Location): [xy.XY, xy.XY] => {
+  const b_ = construct(b);
+  const x = location.X_LOCATIONS.includes(loc as location.X)
+    ? "x"
+    : location.Y_LOCATIONS.includes(loc as location.Y)
+      ? "y"
+      : null;
+  if (x === null) throw new Error(`Invalid location: ${location}`);
+  const f = loc === "top" || loc === "left" ? Math.min : Math.max;
+  const one = { ...b_.one };
+  const two = { ...b_.two };
+  one[x] = f(b_.one[x], b_.two[x]);
+  two[x] = f(b_.one[x], b_.two[x]);
+  return [one, two];
+};
+
 /**
  * Reposition a box so that it is centered within a given bound.
  *

@@ -33,6 +33,8 @@ type Device struct {
 	Make string `json:"make" msgpack:"make"`
 	// Model is the model of the device.
 	Model string `json:"model" msgpack:"model"`
+	// Configured sets whether the device has been configured yet.
+	Configured bool `json:"configured" msgpack:"configured"`
 	// Properties
 	Properties string `json:"properties" msgpack:"properties"`
 }

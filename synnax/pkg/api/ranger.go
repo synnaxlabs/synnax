@@ -12,6 +12,9 @@ package api
 import (
 	"context"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/telem"
 	"go/types"
 
 	"github.com/google/uuid"
@@ -50,9 +53,10 @@ func (s *RangeService) Create(ctx context.Context, req RangeCreateRequest) (res 
 }
 
 type RangeRetrieveRequest struct {
-	Keys  []uuid.UUID `json:"keys" msgpack:"keys"`
-	Names []string    `json:"names" msgpack:"names"`
-	Term  string      `json:"term" msgpack:"term"`
+	Keys         []uuid.UUID     `json:"keys" msgpack:"keys"`
+	Names        []string        `json:"names" msgpack:"names"`
+	Term         string          `json:"term" msgpack:"term"`
+	OverlapsWith telem.TimeRange `json:"overlaps_with" msgpack:"overlaps_with"`
 }
 
 type RangeRetrieveResponse struct {
@@ -61,12 +65,16 @@ type RangeRetrieveResponse struct {
 
 func (s *RangeService) Retrieve(ctx context.Context, req RangeRetrieveRequest) (res RangeRetrieveResponse, _ error) {
 	var (
-		resRanges []ranger.Range
-		q         = s.internal.NewRetrieve().Entries(&resRanges)
-		hasNames  = len(req.Names) > 0
-		hasKeys   = len(req.Keys) > 0
-		hasSearch = req.Term != ""
+		resRanges       []ranger.Range
+		q               = s.internal.NewRetrieve().Entries(&resRanges)
+		hasNames        = len(req.Names) > 0
+		hasKeys         = len(req.Keys) > 0
+		hasSearch       = req.Term != ""
+		hasOverlapsWith = !req.OverlapsWith.IsZero()
 	)
+	if hasOverlapsWith {
+		q = q.WhereOverlapsWith(req.OverlapsWith)
+	}
 	if hasNames {
 		q = q.WhereNames(req.Names...)
 	}
@@ -115,22 +123,28 @@ type RangeKVGetResponse struct {
 	Pairs map[string]string `json:"pairs" msgpack:"pairs"`
 }
 
-func (s *RangeService) KVGet(ctx context.Context, req RangeKVGetRequest) (res RangeKVGetResponse, _ error) {
+func (s *RangeService) KVGet(ctx context.Context, req RangeKVGetRequest) (res RangeKVGetResponse, err error) {
 	var r ranger.Range
-	if err := s.internal.NewRetrieve().Entry(&r).
+	err = s.internal.NewRetrieve().Entry(&r).
 		WhereKeys(req.Range).
-		Exec(ctx, nil); err != nil {
-		return res, err
+		Exec(ctx, nil)
+	if err != nil {
+		return
 	}
-	pairs := make(map[string]string, len(req.Keys))
+	if len(req.Keys) == 0 {
+		res.Pairs, err = r.ListMetaData()
+		return
+	}
+	res.Pairs = make(map[string]string, len(req.Keys))
+	var value []byte
 	for _, key := range req.Keys {
-		value, err := r.Get(ctx, []byte(key))
+		value, err = r.Get(ctx, []byte(key))
 		if err != nil {
-			return res, err
+			return
 		}
-		pairs[key] = string(value)
+		res.Pairs[key] = string(value)
 	}
-	return RangeKVGetResponse{Pairs: pairs}, nil
+	return
 }
 
 type RangeKVSetRequest struct {
@@ -221,7 +235,7 @@ func (s *RangeService) AliasResolve(ctx context.Context, req RangeAliasResolveRe
 	aliases := make(map[string]channel.Key, len(req.Aliases))
 	for _, alias := range req.Aliases {
 		ch, err := r.ResolveAlias(ctx, alias)
-		if err != nil {
+		if err != nil && !errors.Is(err, query.NotFound) {
 			return res, err
 		}
 		if ch != 0 {

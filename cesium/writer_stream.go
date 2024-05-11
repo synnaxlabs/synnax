@@ -298,6 +298,13 @@ func (w *streamWriter) close(ctx context.Context) error {
 	if len(u.Transfers) > 0 {
 		w.updateDBControl(ctx, u)
 	}
+
+	if digestWriter, ok := w.virtual.internal[w.virtual.digestKey]; ok {
+		// When digest writer closes, we do not (and cannot) send an update.
+		if _, err := digestWriter.Close(); err != nil {
+			return err
+		}
+	}
 	return errors.CombineErrors(w.err, c.Error())
 }
 
@@ -335,8 +342,9 @@ type idxWriter struct {
 
 func (w *idxWriter) Write(fr Frame) (Frame, error) {
 	var (
-		l int64 = -1
-		c       = 0
+		l                      int64 = -1
+		c                            = 0
+		incrementedSampleCount bool
 	)
 	w.writeNum++
 	for i, k := range fr.Keys {
@@ -410,8 +418,9 @@ func (w *idxWriter) Write(fr Frame) (Frame, error) {
 		if err != nil {
 			return fr, err
 		}
-		if i == 0 {
+		if !incrementedSampleCount {
 			w.sampleCount = int64(alignment) + series.Len()
+			incrementedSampleCount = true
 		}
 		series.Alignment = alignment
 		fr.Series[i] = series
@@ -473,7 +482,8 @@ func (w *idxWriter) resolveCommitEnd(ctx context.Context) (index.TimeStampApprox
 }
 
 type virtualWriter struct {
-	internal map[ChannelKey]*virtual.Writer
+	internal  map[ChannelKey]*virtual.Writer
+	digestKey core.ChannelKey
 }
 
 func (w virtualWriter) write(fr Frame) (Frame, error) {
@@ -499,9 +509,11 @@ func (w virtualWriter) Close() (ControlUpdate, error) {
 		Transfers: make([]controller.Transfer, 0, len(w.internal)),
 	}
 	for _, chW := range w.internal {
-		//if chW.Channel.Key == math.MaxUint32 {
-		//	continue
-		//}
+		// We do not want to clean up digest channel since we want to use it to
+		// send updates for closures.
+		if chW.Channel.Key == w.digestKey {
+			continue
+		}
 		c.Exec(func() error {
 			transfer, err := chW.Close()
 			if err != nil || !transfer.Occurred() {

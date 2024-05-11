@@ -18,7 +18,7 @@ import { useDispatch } from "react-redux";
 import { Cluster } from "@/cluster";
 import { Docs } from "@/docs";
 import { ErrorOverlay } from "@/error/Overlay";
-import { opc } from "@/hardware/opc";
+import { OPC } from "@/hardware/opc";
 import { Layout } from "@/layout";
 import { LayoutMain } from "@/layouts/LayoutMain";
 import { Mosaic } from "@/layouts/mosaic";
@@ -35,7 +35,9 @@ import { Workspace } from "@/workspace";
 
 import "@/index.css";
 import "@synnaxlabs/media/dist/style.css";
-import "@synnaxlabs/pluto/dist/style.css";
+import { NIDevice } from "@/hardware/ni/device";
+import { NI } from "@/hardware/ni";
+// import "@synnaxlabs/pluto/dist/style.css";
 
 const layoutRenderers: Record<string, Layout.Renderer> = {
   main: LayoutMain,
@@ -49,8 +51,11 @@ const layoutRenderers: Record<string, Layout.Renderer> = {
   createWorkspace: Workspace.Create,
   [LinePlot.LAYOUT_TYPE]: LinePlot.LinePlot,
   [PID.LAYOUT_TYPE]: PID.PID,
-  [opc.connectWindowLayout.type]: opc.Configure,
-  [opc.readTaskLayout.type]: opc.ReadTask,
+  [OPC.connectWindowLayout.type]: OPC.Configure,
+  [OPC.readTaskLayout.type]: OPC.ReadTask,
+  [Range.metaDataWindowLayout.key]: Range.MetaData,
+  [NIDevice.LAYOUT_TYPE]: NIDevice.Configure,
+  [NI.analogReadTaskLayout.type]: NI.AnalogReadTask,
 };
 
 const PREVENT_DEFAULT_TRIGGERS: Triggers.Trigger[] = [
@@ -109,7 +114,7 @@ const MainUnderContext = (): ReactElement => {
   );
 };
 
-const Main = (): ReactElement | null => {
+const Main = (): ReactElement => {
   return (
     <Provider store={store}>
       <ErrorOverlay>

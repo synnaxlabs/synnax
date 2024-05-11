@@ -23,8 +23,6 @@ import { useTabsContext } from "@/tabs/Tabs";
 import { Text } from "@/text";
 import { type ComponentSize } from "@/util/component";
 
-import "@/tabs/Selector.css";
-
 export interface TabSpec {
   tabKey: string;
   name: string;
@@ -83,13 +81,14 @@ export const Selector = ({
           />
         ))}
       </Align.Space>
-      <Align.Space className={CSS.BE(CLS, "actions")}>
-        {onCreate != null && (
+
+      {onCreate != null && (
+        <Align.Space className={CSS.BE(CLS, "actions")}>
           <Button.Icon size={size} sharp onClick={onCreate}>
             <Icon.Add />
           </Button.Icon>
-        )}
-      </Align.Space>
+        </Align.Space>
+      )}
     </Align.Space>
   );
 };

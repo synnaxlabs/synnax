@@ -55,3 +55,4 @@ export { hardware } from "@/hardware";
 export { rack } from "@/hardware/rack";
 export { task } from "@/hardware/task";
 export { device } from "@/hardware/device";
+export { signals } from "@/signals";

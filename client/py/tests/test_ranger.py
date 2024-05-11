@@ -35,9 +35,11 @@ class TestRangeClient:
         rng = client.ranges.create(
             name="test",
             time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+            color="#FF0000",
         )
         assert rng.name == "test"
         assert rng.key != ""
+        assert rng.color == "#FF0000"
 
     def test_create_multiple(self, two_ranges: list[sy.Range]):
         """Should create multiple valid ranges"""

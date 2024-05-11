@@ -175,14 +175,16 @@ export class Rack {
     return await this.tasks.retrieveByName(name, this.key);
   }
 
-  async createTask<C extends UnknownRecord, T extends string = string>(
-    task: task.NewTask<C, T>,
-  ): Promise<task.Task<C, T>> {
+  async createTask<
+    C extends UnknownRecord,
+    D extends {} = UnknownRecord,
+    T extends string = string,
+  >(task: task.NewTask<C, T>): Promise<task.Task<C, D, T>> {
     task.key = (
       (BigInt(this.key) << 32n) +
       (BigInt(task.key ?? 0) & 0xffffffffn)
     ).toString();
-    return (await this.tasks.create([task]))[0] as task.Task<C, T>;
+    return await this.tasks.create<C, D, T>(task);
   }
 
   async deleteTask(task: bigint): Promise<void> {

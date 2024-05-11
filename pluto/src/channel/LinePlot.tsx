@@ -25,6 +25,7 @@ import { LinePlot as Core } from "@/vis/lineplot";
 import { Tooltip } from "@/vis/lineplot/tooltip";
 import { Measure } from "@/vis/measure";
 import { Rule } from "@/vis/rule";
+import { Range } from "@/vis/lineplot/range";
 
 import "@/channel/LinePlot.css";
 
@@ -41,8 +42,8 @@ export interface BaseLineProps {
     y: string;
   };
   channels: {
-    y: number;
-    x?: number;
+    y: channel.KeyOrName;
+    x?: channel.KeyOrName;
   };
   color: Color.Crude;
   strokeWidth?: number;
@@ -96,10 +97,19 @@ export interface LinePlotProps extends Core.LinePlotProps {
   initialViewport?: Viewport.UseProps["initial"];
   onViewportChange?: Viewport.UseProps["onChange"];
   viewportTriggers?: Viewport.UseProps["triggers"];
+  annotationProvider?: Range.ProviderProps;
 }
 
 const canDrop = Haul.canDropOfType(HAUL_TYPE);
 
+/**
+ * A line plot component that automatically pulls data from specified channels and
+ * displays it. Can be used to render both real-time and historical data.
+ *
+ * @param props - The props for the line plot
+ * @param
+ * @returns
+ */
 export const LinePlot = ({
   lines,
   axes,
@@ -118,6 +128,7 @@ export const LinePlot = ({
   initialViewport = box.DECIMAL,
   onViewportChange,
   viewportTriggers,
+  annotationProvider,
   ...props
 }: LinePlotProps): ReactElement => {
   const xAxes = axes.filter(({ location: l }) => loc.isY(l));
@@ -147,6 +158,7 @@ export const LinePlot = ({
             rules={axisRules}
             onAxisChannelDrop={onAxisChannelDrop}
             onAxisChange={onAxisChange}
+            annotationProvider={annotationProvider}
           />
         );
       })}
@@ -175,6 +187,7 @@ interface XAxisProps
   axis: AxisProps;
   yAxes: AxisProps[];
   index: number;
+  annotationProvider?: Range.ProviderProps;
 }
 
 const XAxis = ({
@@ -186,6 +199,7 @@ const XAxis = ({
   onAxisChannelDrop,
   onAxisChange,
   axis: { location, key, showGrid, ...axis },
+  annotationProvider,
 }: XAxisProps): ReactElement => {
   const dropProps = Haul.useDrop({
     type: "Channel.LinePlot.XAxis",
@@ -244,6 +258,7 @@ const XAxis = ({
           }
         />
       ))}
+      <Range.Provider {...annotationProvider} />
     </Core.XAxis>
   );
 };

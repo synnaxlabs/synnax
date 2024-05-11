@@ -11,11 +11,10 @@ import {
   type FC,
   type ReactElement,
   useCallback,
-  useEffect,
   useMemo,
-  useRef,
   useState,
   type MouseEventHandler,
+  useLayoutEffect,
 } from "react";
 
 import { ontology } from "@synnaxlabs/client";
@@ -32,7 +31,6 @@ import {
   CSS as PCSS,
   Tooltip,
   Mosaic,
-  Divider,
   Synnax,
   Text,
 } from "@synnaxlabs/pluto";
@@ -45,12 +43,12 @@ import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { type Ontology } from "@/ontology";
 import { type Service } from "@/ontology/service";
-import { Notifications } from "@/palette/Notifications";
 import { TooltipContent } from "@/palette/Tooltip";
 import { type Mode, type TriggerConfig } from "@/palette/types";
 import { type RootStore } from "@/store";
 
 import "@/palette/Palette.css";
+import { Align } from "@synnaxlabs/pluto";
 
 type OntologySearcher = AsyncTermSearcher<string, string, ontology.Resource>;
 
@@ -67,190 +65,22 @@ type Key = string;
 export const Palette = ({
   commands,
   services,
-  triggers,
+  triggers: triggerConfig,
   commandSymbol,
 }: PaletteProps): ReactElement => {
   const dropdown = Dropdown.use();
-  const client = Synnax.use();
-  const store = useStore() as RootStore;
-  const placeLayout = Layout.usePlacer();
-  const removeLayout = Layout.useRemover();
 
-  const [mode, setMode] = useState<Mode>("resource");
-
-  const notifications = Status.useNotifications({ expiration: TimeSpan.seconds(5) });
-
-  const handleSelect = useCallback(
-    (key: Key, { entries }: List.UseSelectOnChangeExtra<Key, Entry>) => {
-      dropdown.close();
-      if (mode === "command") {
-        const entry = entries[0];
-        (entry as Command).onSelect({
-          store,
-          placeLayout,
-        });
-      } else {
-        if (client == null) return;
-        const id = new ontology.ID(key);
-        const t = services[id.type];
-        t?.onSelect({
-          services,
-          store,
-          placeLayout,
-          removeLayout,
-          client,
-          selection: entries as ontology.Resource[],
-        });
-      }
-    },
-    [mode, commands, dropdown.close, client, services],
-  );
-
-  const showDropdown = dropdown.visible || notifications.statuses.length > 0;
-  const showDivider = notifications.statuses.length > 0 && dropdown.visible;
-
-  return (
-    <List.List>
-      <List.Selector value={null} onChange={handleSelect} allowMultiple={false}>
-        <List.Hover disabled={!dropdown.visible} initialHover={0}>
-          <Tooltip.Dialog location="bottom" hide={showDropdown}>
-            <TooltipContent triggers={triggers} />
-            <Dropdown.Dialog
-              {...dropdown}
-              visible={showDropdown}
-              className={CSS.B("palette")}
-              location="bottom"
-            >
-              <PaletteInput
-                mode={mode}
-                setMode={setMode}
-                searcher={client?.ontology}
-                commandSymbol={commandSymbol}
-                triggerConfig={triggers}
-                commands={commands}
-                visible={dropdown.visible}
-                open={dropdown.open}
-              />
-              <>
-                {dropdown.visible && (
-                  <PaletteList mode={mode} resourceTypes={services} />
-                )}
-                {showDivider && <Divider.Divider direction="x" />}
-                <Notifications {...notifications} />
-              </>
-            </Dropdown.Dialog>
-          </Tooltip.Dialog>
-        </List.Hover>
-      </List.Selector>
-    </List.List>
-  );
-};
-export interface PaletteInputProps
-  extends Pick<Dropdown.UseReturn, "visible" | "open"> {
-  mode: Mode;
-  visible: boolean;
-  setMode: (mode: Mode) => void;
-  searcher?: OntologySearcher;
-  commandSymbol: string;
-  triggerConfig: TriggerConfig;
-  commands: Command[];
-}
-
-const canDrop: Haul.CanDrop = ({ items }) =>
-  items.length === 1 && items[0].type === Mosaic.HAUL_DROP_TYPE;
-
-const TYPE_TO_SEARCH = (
-  <Status.Text.Centered level="h4" variant="disabled" hideIcon>
-    Type to search
-  </Status.Text.Centered>
-);
-
-export const PaletteInput = ({
-  mode,
-  setMode,
-  visible,
-  open,
-  searcher,
-  commandSymbol,
-  triggerConfig,
-  commands,
-}: PaletteInputProps): ReactElement => {
   const [value, setValue] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const { setSourceData, setTransform, deleteTransform, setEmptyContent } =
-    List.useDataUtilContext<Key, Entry>();
-
-  const handleBlur = useCallback(() => setValue(""), []);
-
-  const updateMode = useCallback(
-    (nextMode: Mode) => {
-      setMode(nextMode);
-      if (nextMode === "command") setSourceData(commands);
-      else {
-        setSourceData([]);
-        setEmptyContent(TYPE_TO_SEARCH);
-      }
-    },
-    [setMode, setSourceData, commands, setEmptyContent],
-  );
-
-  useEffect(() => {
-    if (visible) return;
-    inputRef.current?.blur();
-    updateMode("resource");
-  }, [visible, setMode]);
-
-  const handleSearch = useDebouncedCallback(
-    (term: string) => {
-      if (term.length === 0 || searcher == null) return setEmptyContent(TYPE_TO_SEARCH);
-      searcher
-        .search(term)
-        .then((d) => {
-          if (d.length === 0)
-            setEmptyContent(
-              <Status.Text.Centered level="h4" variant="disabled" hideIcon>
-                No resources found
-              </Status.Text.Centered>,
-            );
-          setSourceData(d);
-        })
-        .catch((e) => {
-          setEmptyContent(
-            <Status.Text.Centered level="h4" variant="error">
-              {e.message}
-            </Status.Text.Centered>,
-          );
-        });
-    },
-    250,
-    [searcher, setSourceData],
-  );
-
-  const debouncedSetTransform = useDebouncedCallback(setTransform, 250, []);
-
-  const handleFilter = useCallback(
-    (term: string) => {
-      if (term.length === 0) deleteTransform("filter");
-      else debouncedSetTransform("filter", createFilterTransform({ term }));
-    },
-    [debouncedSetTransform, deleteTransform],
-  );
+  const mode = value.startsWith(commandSymbol) ? "command" : "resource";
 
   const handleTrigger = useCallback(
     ({ triggers, stage }: Triggers.UseEvent) => {
-      if (stage !== "start" || visible) return;
+      if (stage !== "start" || dropdown.visible) return;
       const mode = Triggers.determineMode(triggerConfig, triggers);
-      if (mode === "command") {
-        handleChange(commandSymbol);
-        updateMode("command");
-      } else {
-        handleChange("");
-        updateMode("resource");
-      }
-      inputRef.current?.focus();
+      setValue(mode === "command" ? commandSymbol : "");
+      dropdown.open();
     },
-    [visible, triggerConfig.command, commandSymbol, updateMode],
+    [dropdown.visible, dropdown.open, triggerConfig.command, commandSymbol],
   );
 
   const triggers = useMemo(
@@ -259,17 +89,6 @@ export const PaletteInput = ({
   );
 
   Triggers.use({ triggers, callback: handleTrigger });
-
-  const handleChange = useCallback(
-    (value: string) => {
-      const nextMode = value.startsWith(commandSymbol) ? "command" : "resource";
-      if (mode !== nextMode) updateMode(nextMode);
-      if (nextMode === "command") handleFilter(value.slice(1));
-      else handleSearch(value);
-      setValue(value);
-    },
-    [mode, setMode, commandSymbol, handleFilter, handleSearch],
-  );
 
   const placer = Layout.usePlacer();
   const d = useDispatch();
@@ -297,32 +116,66 @@ export const PaletteInput = ({
   const dragging = Haul.useDraggingState();
 
   return (
-    <Input.Text
-      className={CSS(CSS.BE("palette", "input"), PCSS.dropRegion(canDrop(dragging)))}
-      ref={inputRef}
-      placeholder={
-        <Text.WithIcon level="p" startIcon={<Icon.Search key="hello" />}>
-          Search Synnax
-        </Text.WithIcon>
-      }
-      onDragOver={onDragOver}
-      onDrop={onDrop}
-      centerPlaceholder
-      onBlur={handleBlur}
-      onFocus={open}
-      onChange={handleChange}
-      value={value}
-      autoComplete="off"
-    />
+    <List.List>
+      <Tooltip.Dialog location="bottom" hide={dropdown.visible}>
+        <TooltipContent triggers={triggerConfig} />
+        <Dropdown.Dialog
+          {...dropdown}
+          keepMounted={false}
+          visible={dropdown.visible}
+          className={CSS.B("palette")}
+          location="bottom"
+          variant="modal"
+        >
+          <Button.Button
+            onClick={dropdown.open}
+            className={CSS(
+              CSS.BE("palette", "btn"),
+              PCSS.dropRegion(canDrop(dragging)),
+            )}
+            variant="outlined"
+            align="center"
+            size="medium"
+            justify="center"
+            startIcon={<Icon.Search />}
+            shade={7}
+            onDragOver={onDragOver}
+            onDrop={onDrop}
+          >
+            Quick Search & Command
+          </Button.Button>
+          <PalletteDialogContent
+            mode={mode}
+            value={value}
+            onChange={setValue}
+            commands={commands}
+            services={services}
+            commandSymbol={commandSymbol}
+            resourceTypes={services}
+            close={dropdown.close}
+          />
+        </Dropdown.Dialog>
+      </Tooltip.Dialog>
+    </List.List>
   );
 };
+const canDrop: Haul.CanDrop = ({ items }) =>
+  items.length === 1 && items[0].type === Mosaic.HAUL_DROP_TYPE;
 
-export interface PalleteListProps {
+const TYPE_TO_SEARCH = (
+  <Align.Space align="center" className={CSS.BE("palette", "empty")} grow>
+    <Status.Text level="h4" variant="disabled" hideIcon>
+      Type to search
+    </Status.Text>
+  </Align.Space>
+);
+
+export interface PaletteListProps {
   mode: Mode;
   resourceTypes: Record<string, Service>;
 }
 
-const PaletteList = ({ mode, resourceTypes }: PalleteListProps): ReactElement => {
+const PaletteList = ({ mode, resourceTypes }: PaletteListProps): ReactElement => {
   const item = useMemo(() => {
     const Item = (
       mode === "command" ? CommandListItem : createResourceListItem(resourceTypes)
@@ -330,9 +183,144 @@ const PaletteList = ({ mode, resourceTypes }: PalleteListProps): ReactElement =>
     return componentRenderProp(Item);
   }, [mode, resourceTypes]);
   return (
-    <List.Core.Virtual className={CSS.BE("palette", "list")} itemHeight={27}>
+    <List.Core.Virtual
+      className={CSS.BE("palette", "list")}
+      itemHeight={27}
+      style={{ flexGrow: 1 }}
+    >
       {item}
     </List.Core.Virtual>
+  );
+};
+
+export interface PaletteDialogProps extends Input.Control<string> {
+  mode: Mode;
+  services: Ontology.Services;
+  commandSymbol: string;
+  resourceTypes: Record<string, Service>;
+  commands: Command[];
+  close: () => void;
+}
+
+const PalletteDialogContent = ({
+  value,
+  onChange,
+  mode,
+  commands,
+  services,
+  commandSymbol,
+  close,
+}: PaletteDialogProps): ReactElement => {
+  const { setSourceData, setTransform, deleteTransform, setEmptyContent } =
+    List.useDataUtilContext<Key, Entry>();
+
+  const client = Synnax.use();
+  const store = useStore() as RootStore;
+  const placeLayout = Layout.usePlacer();
+  const removeLayout = Layout.useRemover();
+
+  useLayoutEffect(() => {
+    if (mode === "command") {
+      setSourceData(commands);
+    } else {
+      setSourceData([]);
+      setEmptyContent(TYPE_TO_SEARCH);
+    }
+  }, [mode]);
+
+  const handleSelect = useCallback(
+    (key: Key, { entries }: List.UseSelectOnChangeExtra<Key, Entry>) => {
+      close();
+      if (mode === "command") {
+        const entry = entries[0];
+        (entry as Command).onSelect({
+          store,
+          placeLayout,
+        });
+      } else {
+        if (client == null) return;
+        const id = new ontology.ID(key);
+        const t = services[id.type];
+        t?.onSelect({
+          services,
+          store,
+          placeLayout,
+          removeLayout,
+          client,
+          selection: entries as ontology.Resource[],
+        });
+      }
+    },
+    [mode, commands, close, client, services],
+  );
+
+  const handleSearch = useDebouncedCallback(
+    (term: string) => {
+      if (term.length === 0 || client?.ontology == null)
+        return setEmptyContent(TYPE_TO_SEARCH);
+      client.ontology
+        .search(term)
+        .then((d) => {
+          if (d.length === 0)
+            setEmptyContent(
+              <Status.Text.Centered level="h4" variant="disabled" hideIcon>
+                No resources found
+              </Status.Text.Centered>,
+            );
+          setSourceData(d);
+        })
+        .catch((e) => {
+          setEmptyContent(
+            <Status.Text.Centered level="h4" variant="error">
+              {e.message}
+            </Status.Text.Centered>,
+          );
+        });
+    },
+    250,
+    [client?.ontology, setSourceData],
+  );
+
+  const debouncedSetTransform = useDebouncedCallback(setTransform, 250, []);
+
+  const handleFilter = useCallback(
+    (term: string) => {
+      if (term.length === 0) deleteTransform("filter");
+      else debouncedSetTransform("filter", createFilterTransform({ term }));
+    },
+    [debouncedSetTransform, deleteTransform],
+  );
+  const handleChange = useCallback(
+    (value: string) => {
+      const mode = value.startsWith(commandSymbol) ? "command" : "resource";
+      if (mode === "command") handleFilter(value.slice(1));
+      else handleSearch(value);
+      onChange(value);
+    },
+    [commandSymbol, handleFilter, handleSearch, onChange],
+  );
+
+  return (
+    <List.Selector value={null} onChange={handleSelect} allowMultiple={false}>
+      <List.Hover initialHover={0}>
+        <Align.Pack className={CSS.BE("palette", "content")} direction="y">
+          <Input.Text
+            className={CSS(CSS.BE("palette", "input"))}
+            placeholder={
+              <Text.WithIcon level="h3" startIcon={<Icon.Search key="hello" />}>
+                Search Synnax
+              </Text.WithIcon>
+            }
+            size="huge"
+            autoFocus
+            onChange={handleChange}
+            value={value}
+            autoComplete="off"
+          />
+          <PaletteList mode={mode} resourceTypes={services} />
+        </Align.Pack>
+      </List.Hover>
+    </List.Selector>
   );
 };
 

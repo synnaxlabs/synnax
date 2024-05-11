@@ -25,12 +25,12 @@ import { canvas } from "@/vis/canvas/aether";
 
 import "@/vis/canvas/Canvas.css";
 
-type HTMLCanvasProps = DetailedHTMLProps<
-  CanvasHTMLAttributes<HTMLCanvasElement>,
-  HTMLCanvasElement
+type HTMLDivProps = DetailedHTMLProps<
+  CanvasHTMLAttributes<HTMLDivElement>,
+  HTMLDivElement
 >;
 
-export interface CanvasProps extends Omit<HTMLCanvasProps, "ref"> {
+export interface CanvasProps extends Omit<HTMLDivProps, "ref"> {
   resizeDebounce?: number;
 }
 
@@ -55,8 +55,8 @@ export const Canvas = Aether.wrap<CanvasProps>(
   ({
     children,
     resizeDebounce: debounce = 100,
-    className,
     aetherKey,
+    className,
     ...props
   }): ReactElement => {
     const [{ path }, { bootstrapped, dpr }, setState] = Aether.use({
@@ -131,38 +131,33 @@ export const Canvas = Aether.wrap<CanvasProps>(
     );
 
     return (
-      <>
+      <div className={CSS(CSS.B("canvas-container"), className)} {...props}>
         <canvas
           ref={refCallback}
-          className={CSS(CSS.BM("canvas", "lower2d"), className)}
-          {...props}
+          className={CSS(CSS.B("canvas"), CSS.BM("canvas", "lower2d"))}
         />
         <canvas
           ref={refCallback}
-          className={CSS(CSS.BM("canvas", "gl"), className)}
-          {...props}
+          className={CSS(CSS.B("canvas"), CSS.BM("canvas", "gl"))}
         />
         <canvas
           ref={refCallback}
-          className={CSS(CSS.BM("canvas", "upper2d"), className)}
-          {...props}
+          className={CSS(CSS.B("canvas"), CSS.BM("canvas", "upper2d"))}
         />
         <Aether.Composite path={path}>{bootstrapped && children}</Aether.Composite>
-      </>
+      </div>
     );
   },
 );
 
-export const useRegion = (f: UseResizeHandler): React.RefCallback<HTMLElement> =>
+export const useRegion = (handler: UseResizeHandler): React.RefCallback<HTMLElement> =>
   useResize(
     useCallback(
       (b, el) => {
         const canvas = document.querySelector(".pluto-canvas--lower2d");
         if (canvas == null) return;
-        const b2 = box.construct(canvas);
-        b = scale.XY.translate(xy.scale(box.topLeft(b2), -1)).box(b);
-        f(b, el);
+        handler(scale.XY.translate(xy.scale(box.topLeft(canvas), -1)).box(b), el);
       },
-      [f],
+      [handler],
     ),
   );

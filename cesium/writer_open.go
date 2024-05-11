@@ -242,7 +242,7 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 		WriterConfig:    cfg,
 		internal:        make([]*idxWriter, 0, len(domainWriters)+len(rateWriters)),
 		relay:           db.relay.inlet,
-		virtual:         &virtualWriter{internal: virtualWriters},
+		virtual:         &virtualWriter{internal: virtualWriters, digestKey: db.digests.key},
 		updateDBControl: db.updateControlDigests,
 	}
 	for _, idx := range domainWriters {

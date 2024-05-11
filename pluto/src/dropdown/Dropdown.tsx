@@ -24,7 +24,6 @@ import {
   xy,
   position,
   location,
-  type spatial,
   invert,
 } from "@synnaxlabs/x";
 import { createPortal } from "react-dom";
@@ -89,7 +88,7 @@ export interface DialogProps
   location?: loc.Y | loc.XY;
   children: [ReactNode, ReactNode];
   keepMounted?: boolean;
-  variant?: "connected" | "floating";
+  variant?: "connected" | "floating" | "modal";
 }
 
 interface State {
@@ -107,7 +106,7 @@ const ZERO_STATE: State = {
  * the {@link use} hook (more behavioral details explained there).
  *
  * @param props - The props for the dropdown component. Unlisted props are passed to the
- * parent elment.
+ * parent element.
  * @param props.visible - Whether the dropdown is visible or not. This is a controlled
  * @param props.children - Two children are expected: the dropdown trigger (often a button
  * or input) and the dropdown content.
@@ -115,7 +114,7 @@ const ZERO_STATE: State = {
 export const Dialog = ({
   visible,
   children,
-  location,
+  location: propsLocation,
   keepMounted = true,
   className,
   variant = "connected",
@@ -139,9 +138,10 @@ export const Dialog = ({
     const { adjustedDialog, location } = f({
       target: targetRef.current,
       dialog: dialogRef.current,
+      initial: propsLocation,
     });
     setState({ dialogLoc: location, dialogBox: adjustedDialog });
-  }, [variant]);
+  }, [propsLocation, variant]);
 
   useLayoutEffect(() => {
     calculatePosition();
@@ -153,8 +153,11 @@ export const Dialog = ({
   const resizeDialogRef = useResize(calculatePosition, { enabled: visible });
   const combinedDialogRef = useCombinedRefs(dialogRef, resizeDialogRef);
 
-  const dialogStyle: CSSProperties = { ...xy.css(box.topLeft(dialogBox)) };
-  if (variant === "connected") dialogStyle.width = box.width(dialogBox);
+  let dialogStyle: CSSProperties = {};
+  if (variant !== "modal") {
+    dialogStyle = { ...xy.css(box.topLeft(dialogBox)) };
+    if (variant === "connected") dialogStyle.width = box.width(dialogBox);
+  }
 
   const C = variant === "connected" ? Align.Pack : Align.Space;
 
@@ -182,6 +185,19 @@ export const Dialog = ({
     </Align.Space>
   );
   if (variant === "floating") child = createPortal(child, document.body);
+  else if (variant === "modal") {
+    child = createPortal(
+      <Align.Space
+        className={CSS(CSS.BE("dropdown", "bg"), CSS.visible(visible))}
+        role="dialog"
+        empty
+        align="center"
+      >
+        {child}
+      </Align.Space>,
+      document.body,
+    );
+  }
 
   return (
     <C
@@ -198,7 +214,7 @@ export const Dialog = ({
 };
 Dialog.displayName = "Dropdown";
 
-interface CalcDialogProps {
+interface CalcDialogProps extends Pick<position.DialogProps, "initial"> {
   target: HTMLElement;
   dialog: HTMLElement;
 }
@@ -213,12 +229,14 @@ const FLOATING_TRANSLATE_AMOUNT: number = 6;
 const calcFloatingDialog = ({
   target: target_,
   dialog: dialog_,
+  initial,
 }: CalcDialogProps): position.DialogReturn => {
   let { adjustedDialog, location } = position.dialog({
     container: box.construct(0, 0, window.innerWidth, window.innerHeight),
     target: box.construct(target_),
     dialog: box.construct(dialog_),
     ...FLOATING_PROPS,
+    initial: initial,
   });
   adjustedDialog = box.translate(
     adjustedDialog,
@@ -239,6 +257,7 @@ const CONNECTED_TRANSLATE_AMOUNT: number = 1;
 const calcConnectedDialog = ({
   target,
   dialog,
+  initial,
 }: CalcDialogProps): position.DialogReturn => {
   const targetBox = box.construct(target);
   const props: position.DialogProps = {
@@ -246,6 +265,7 @@ const calcConnectedDialog = ({
     dialog: box.resize(box.construct(dialog), "x", box.width(targetBox)),
     container: box.construct(0, 0, window.innerWidth, window.innerHeight),
     ...CONNECTED_PROPS,
+    initial: initial ?? CONNECTED_PROPS.initial,
   };
 
   let { adjustedDialog, location } = position.dialog(props);

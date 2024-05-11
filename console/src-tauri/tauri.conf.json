@@ -8,7 +8,7 @@
   },
   "package": {
     "productName": "Synnax",
-    "version": "0.21.1"
+    "version": "0.21.5"
   },
   "tauri": {
     "allowlist": {
@@ -81,7 +81,7 @@
         "minWidth": 625,
         "minHeight": 375,
         "visible": false,
-        "acceptFirstMouse": true
+        "acceptFirstMouse": false
       }
     ]
   }

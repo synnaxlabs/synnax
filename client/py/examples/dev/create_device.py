@@ -9,8 +9,13 @@ rack = client.hardware.create_rack([sy.Rack(name="gse")])
 client.hardware.create_device(
     [
         sy.Device(
-            key=str(uuid.uuid4()), rack=rack[0].key, name="Device 1",
-            model="PXI-6255", location="dev1", identifier="dev1"
+            key="130127d9-02aa-47e4-b370-0d590add1bc1",
+            rack=rack[0].key,
+            name="Device 1",
+            make="ni",
+            model="PXI-6255",
+            location="dev1",
+            identifier="dev1"
         )
     ]
 )

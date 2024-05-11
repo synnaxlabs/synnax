@@ -968,6 +968,8 @@ export class TimeRange implements Stringer {
     other = other.makeValid();
     const rng = this.makeValid();
 
+    if (this.equals(other)) return true;
+
     // If the ranges touch at their boundaries, they do not overlap.
     if (other.end.equals(rng.start) || rng.end.equals(other.start)) return false;
 
@@ -983,6 +985,14 @@ export class TimeRange implements Stringer {
 
     // Compare the overlap duration with delta
     return overlapDuration.greaterThanOrEqual(delta);
+  }
+
+  roughlyEquals(other: TimeRange, delta: TimeSpan): boolean {
+    let startDist = this.start.sub(other.start).valueOf();
+    let endDist = this.end.sub(other.end).valueOf();
+    if (startDist < 0) startDist = -startDist;
+    if (endDist < 0) endDist = -endDist;
+    return startDist <= delta.valueOf() && endDist <= delta.valueOf();
   }
 
   contains(other: TimeRange): boolean;

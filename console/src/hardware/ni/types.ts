@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { current } from "@reduxjs/toolkit";
 import { type task } from "@synnaxlabs/client";
 import { xy } from "@synnaxlabs/x";
 import { clientXY } from "node_modules/@synnaxlabs/x/dist/src/spatial/base";
@@ -35,27 +36,538 @@ export const DEFAULT_SCALES: Record<LinearScaleType, LinearScale> = {
   none: DEFAULT_LINEAR_SCALE,
 };
 
+const terminalConfigZ = z.enum(["Cfg_Default", "RSE", "NRSE", "PseudoDiff"]);
+
+export type TerminalConfig = z.infer<typeof terminalConfigZ>;
+
+const excitSourceZ = z.enum(["Internal", "External", "None"]);
+
+export type ExcitationSource = z.infer<typeof excitSourceZ>;
+
+const baseChanZ = z.object({
+  key: z.string(),
+  channel: z.number(),
+});
+
+const minMaxValZ = z
+  .object({
+    minVal: z.number(),
+    maxVal: z.number(),
+  })
+  .refine(({ minVal, maxVal }) => minVal < maxVal, {
+    message: "Min value must be less than max value",
+  });
+
+export const sensitivityUnitsZ = z.enum(["mVoltsPerG", "VoltsPerG"]);
+
+export type AccelSensitivityUnits = z.infer<typeof sensitivityUnitsZ>;
+
+// 1 - https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaiaccelchan.html
+const aiAccelChanZ = z.union([
+  baseChanZ,
+  minMaxValZ,
+  z.object({
+    type: z.literal("ai_accel"),
+    terminalConfig: terminalConfigZ,
+    sensitivity: z.number(),
+    sensitivityUnits: z.enum(["mVoltsPerG", "VoltsPerG"]),
+    currentExcitSource: excitSourceZ,
+    currentExcitVal: z.number(),
+  }),
+]);
+
+// 2 - https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaiaccel4wiredcvoltagechan.html
+const aiAccel4WireDCVoltageChanZ = baseChanZ.extend({
+  type: z.literal("ai_accel_4_wire_dc_voltage"),
+  terminalConfig: terminalConfigZ,
+  minVal: z.number(),
+  maxVal: z.number(),
+  units: z.enum(["g", "m/s^2", "in/s^2"]),
+  sensitivity: z.number(),
+  sensitivityUnits: z.enum(["mV/g", "V/g"]),
+  voltageExcitSource: excitSourceZ,
+  voltageExcitVal: z.number(),
+  useExcitForScaling: z.boolean(),
+});
+
+// 3 - https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaiaccelchargechan.html
+const aiAccelChargeChanZ = baseChanZ.extend({
+  type: z.literal("ai_accel_charge"),
+  terminalConfig: terminalConfigZ,
+  minVal: z.number(),
+  maxVal: z.number(),
+  units: z.enum(["g", "m/s^2", "in/s^2"]),
+  sensitivity: z.number(),
+  sensitivityUnits: z.enum(["mV/g", "V/g"]),
+  currentExcitSource: excitSourceZ,
+  currentExcitVal: z.number(),
+});
+
+// 4 - https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaibridgechan.html
+const aiBridgeChanZ = z.object({
+  key: z.string(),
+  type: z.literal("ai_bridge"),
+  terminalConfig: terminalConfigZ,
+  minVal: z.number(),
+  maxVal: z.number(),
+  bridgeConfig: z.enum(["full", "half", "quarter"]),
+  voltageExcitSource: excitSourceZ,
+  voltageExcitVal: z.number(),
+  nominalBridgeResistance: z.number(),
+});
+
+// 5 - https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaichargechan.html
+const aiChargeChan = z.object({
+  key: z.string(),
+  type: z.literal("ai_charge"),
+  terminalConfig: terminalConfigZ,
+  minVal: z.number(),
+  maxVal: z.number(),
+  units: z.enum(["C, uC"]),
+});
+
+// 6 - https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaicurrentchan.html
+const aiCurrentChanZ = z.object({
+  key: z.string(),
+  type: z.literal("ai_current"),
+  terminalConfig: terminalConfigZ,
+  minVal: z.number(),
+  maxVal: z.number(),
+  units: z.enum(["A", "mA"]),
+  shuntResistorLoc: z.enum(["default", "internal", "external"]),
+  extShuntResistorVal: z.number(),
+});
+
+// 7 - https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaicurrentrmschan.html
+const aiCurrentRMSChanZ = z.object({
+  key: z.string(),
+  type: z.literal("ai_current_rms"),
+  terminalConfig: terminalConfigZ,
+  minVal: z.number(),
+  maxVal: z.number(),
+  units: z.enum(["A", "mA"]),
+  shuntResistorLoc: z.enum(["default", "internal", "external"]),
+  extShuntResistorVal: z.number(),
+});
+
+// 8 - https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaiforcebridgepolynomialchan.html
+const aiForceBridgePolynomialChanZ = z.object({
+  key: z.string(),
+  type: z.literal("ai_force_bridge_polynomial"),
+  terminalConfig: terminalConfigZ,
+  minVal: z.number(),
+  maxVal: z.number(),
+  units: z.enum(["N", "lbf", "kgf"]),
+  bridgeConfig: z.enum(["full", "half", "quarter"]),
+  voltageExcitSource: excitSourceZ,
+  voltageExcitVal: z.number(),
+  nominalBridgeResistance: z.number(),
+  forwardCoeffs: z.array(z.number()),
+  reverseCoeffs: z.array(z.number()),
+  electricalUnits: z.enum(["mV/V", "V/V"]),
+  physicalUnits: z.enum(["N", "lbf", "kgf"]),
+});
+
+// 9 - https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaiforcebridgetablechan.html
+const aiForceBridgeTableChanZ = z.object({
+  key: z.string(),
+  type: z.literal("ai_force_bridge_table"),
+  minVal: z.number(),
+  maxVal: z.number(),
+  units: z.enum(["N", "lbf", "kgf"]),
+  bridgeConfig: z.enum(["full", "half", "quarter"]),
+  voltageExcitSource: excitSourceZ,
+  voltageExcitVal: z.number(),
+  nominalBridgeResistance: z.number(),
+  electricalUnits: z.enum(["mV/V", "V/V"]),
+  electricalVals: z.array(z.number()),
+  physicalUnits: z.enum(["N", "lbf", "kgf"]),
+  physicalVals: z.array(z.number()),
+});
+
+// 10 - https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaiforcebridgetwopointlinchan.html
+const aiForceBridgeTwoPointLinChan = z.object({
+  key: z.string(),
+  type: z.literal("ai_force_bridge_two_point_lin"),
+  terminalConfig: terminalConfigZ,
+  minVal: z.number(),
+  maxVal: z.number(),
+  units: z.enum(["N", "lbf", "kgf"]),
+  bridgeConfig: z.enum(["full", "half", "quarter"]),
+  voltageExcitSource: excitSourceZ,
+  voltageExcitVal: z.number(),
+  nominalBridgeResistance: z.number(),
+  electricalUnits: z.enum(["mV/V", "V/V"]),
+  physicalUnits: z.enum(["N", "lbf", "kgf"]),
+  firstElectricalVal: z.number(),
+  firstPhysicalVal: z.number(),
+});
+
+// 11 - https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaiforceiepechan.html
+const aiForceEPEChanZ = z.object({
+  key: z.string(),
+  type: z.literal("ai_force_epe"),
+  terminalConfig: terminalConfigZ,
+  minVal: z.number(),
+  maxVal: z.number(),
+  units: z.enum(["N", "lbf", "kgf"]),
+  sensitivity: z.number(),
+  sensitivityUnits: z.enum(["mV/N", "mV/lb"]),
+  currExcitSource: excitSourceZ,
+  currentExcitVal: z.number(),
+});
+
+// 12 - https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaifreqvoltagechan.html
+const aiFreqVoltageChanZ = z.object({
+  key: z.string(),
+  type: z.literal("ai_freq_voltage"),
+  minVal: z.number(),
+  maxVal: z.number(),
+  units: z.enum(["Hz"]),
+  thresholdLevel: z.number(),
+  hysteresis: z.number(),
+});
+
+// 13 - https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaimicrophonechan.html
+const aiMicrophoneChanZ = z.object({
+  key: z.string(),
+  type: z.literal("ai_microphone"),
+  terminalConfig: terminalConfigZ,
+  micSensitivity: z.number(),
+  maxSndPressLevel: z.number(),
+  currentExcitSource: excitSourceZ,
+  currentExcitVal: z.number(),
+});
+
+// 14 - https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaipressurebridgepolynomialchan.html
+const aiPressureBridgePolynomialChanZ = z.object({
+  key: z.string(),
+  type: z.literal("ai_pressure_bridge_polynomial"),
+  minVal: z.number(),
+  maxVal: z.number(),
+  units: z.enum(["psi", "Pa", "bar"]),
+  bridgeConfig: z.enum(["full", "half", "quarter"]),
+  voltageExcitSource: excitSourceZ,
+  voltageExcitVal: z.number(),
+  nominalBridgeResistance: z.number(),
+  forwardCoeffs: z.array(z.number()),
+  reverseCoeffs: z.array(z.number()),
+  electricalUnits: z.enum(["mV/V", "V/V"]),
+  physicalUnits: z.enum(["psi", "Pa", "bar"]),
+});
+
+// 15 - https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaipressurebridgetablechan.html
+const aiPressureBridgeTableChanZ = z.object({
+  key: z.string(),
+  type: z.literal("ai_pressure_bridge_table"),
+  minVal: z.number(),
+  maxVal: z.number(),
+  units: z.enum(["psi", "Pa", "bar"]),
+  bridgeConfig: z.enum(["full", "half", "quarter"]),
+  voltageExcitSource: excitSourceZ,
+  voltageExcitVal: z.number(),
+  nominalBridgeResistance: z.number(),
+  electricalUnits: z.enum(["mV/V", "V/V"]),
+  electricalVals: z.array(z.number()),
+  physicalUnits: z.enum(["psi", "Pa", "bar"]),
+  physicalVals: z.array(z.number()),
+});
+
+// 16 - https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaipressurebridgetwopointlinchan.html
+const aiPressureBridgeTwoPointLinChanZ = z.object({
+  key: z.string(),
+  type: z.literal("ai_pressure_bridge_two_point_lin"),
+  terminalConfig: terminalConfigZ,
+  minVal: z.number(),
+  maxVal: z.number(),
+  units: z.enum(["psi", "Pa", "bar"]),
+  bridgeConfig: z.enum(["full", "half", "quarter"]),
+  voltageExcitSource: excitSourceZ,
+  voltageExcitVal: z.number(),
+  nominalBridgeResistance: z.number(),
+  electricalUnits: z.enum(["mV/V", "V/V"]),
+  physicalUnits: z.enum(["psi", "Pa", "bar"]),
+  firstElectricalVal: z.number(),
+  firstPhysicalVal: z.number(),
+  secondElectricalVal: z.number(),
+  secondPhysicalVal: z.number(),
+});
+
+// 17 - https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateairesistancechan.html
+const aiResistanceChanZ = z.object({
+  key: z.string(),
+  type: z.literal("ai_resistance"),
+  terminalConfig: terminalConfigZ,
+  minVal: z.number(),
+  maxVal: z.number(),
+  units: z.enum(["Ohm"]),
+  resistanceConfig: z.enum(["2-wire", "3-wire", "4-wire"]),
+  currentExcitSource: excitSourceZ,
+  currentExcitVal: z.number(),
+});
+
+// 18 -  https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateairosettestraingagechan.html
+const aiRosetteStrainGageChanZ = z.object({
+  key: z.string(),
+  type: z.literal("ai_rosette_strain_gage"),
+  terminalConfig: terminalConfigZ,
+  minVal: z.number(),
+  maxVal: z.number(),
+  rosetteType: z.enum(["rectangular", "delta", "tee"]),
+  gageOrientation: z.number(),
+  units: z.enum(["strain"]),
+  gageConfig: z.enum(["120", "45", "60"]),
+  voltageExcitSource: excitSourceZ,
+  voltageExcitVal: z.number(),
+  nominalGageResistance: z.number(),
+});
+
+// 19 -  https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateairtdchan.html
+const aiRTDChanZ = z.object({
+  key: z.string(),
+  type: z.literal("ai_rtd"),
+  minVal: z.number(),
+  maxVal: z.number(),
+  units: z.enum(["C", "F", "K", "R"]),
+  rtdType: z.enum([
+    "pt3750",
+    "pt3851",
+    "pt3911",
+    "pt3916",
+    "pt3920",
+    "pt3928",
+    "pt3850",
+  ]),
+  resistanceConfig: z.enum(["2-wire", "3-wire", "4-wire"]),
+  currentExcitSource: excitSourceZ,
+  currentExcitVal: z.number(),
+});
+
+// 20 - https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaistraingagechan.html
+const aiStrainGageChan = z.object({
+  key: z.string(),
+  type: z.literal("ai_strain_gage"),
+  terminalConfig: terminalConfigZ,
+  minVal: z.number(),
+  maxVal: z.number(),
+  units: z.enum(["strain"]),
+  strainConfig: z.enum([
+    "full-bridge-I",
+    "full-bridge-II",
+    "full-bridge-III",
+    "half-bridge-I",
+    "half-bridge-II",
+    "quarter-bridge-I",
+    "quarter-bridge-II",
+  ]),
+  voltageExcitSource: excitSourceZ,
+  voltageExcitVal: z.number(),
+  gageFactor: z.number(),
+  initialBridgeVoltage: z.number(),
+  nominalGageResistance: z.number(),
+  poissonRatio: z.number(),
+  leadWireResistance: z.number(),
+});
+
+// 21 - https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaitempbuiltinsensorchan.html
+const aiTempBuiltInChanZ = z.object({
+  key: z.string(),
+  type: z.literal("ai_temp_built_in"),
+  units: z.enum(["C", "F", "K", "R"]),
+});
+
+// 22 - https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaithrmcplchan.html
+const aiThermocoupleChanZ = z.object({
+  key: z.string(),
+  type: z.literal("ai_thermocouple"),
+  minVal: z.number(),
+  maxVal: z.number(),
+  units: z.enum(["C", "F", "K", "R"]),
+  thermocoupleType: z.enum(["J", "K", "N", "R", "S", "T", "B", "E"]),
+  cjsSource: z.enum(["builtin", "const"]),
+  cjcVal: z.number(),
+  cjcPort: z.number(),
+});
+
+// 23 - https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaithrmstrchaniex.html
+const aiThermistorChanIex = z.object({
+  key: z.string(),
+  type: z.literal("ai_thermistor_iex"),
+  minVal: z.number(),
+  maxVal: z.number(),
+  units: z.enum(["C", "F", "K", "R"]),
+  resistanceConfig: z.enum(["2-wire", "3-wire", "4-wire"]),
+  currentExcitSource: excitSourceZ,
+  currentExcitVal: z.number(),
+  a: z.number(),
+  b: z.number(),
+  c: z.number(),
+});
+
+// 24 - https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaitorquebridgepolynomialchan.html
+const aiThermistorChanVex = z.object({
+  key: z.string(),
+  type: z.literal("ai_thermistor_vex"),
+  minVal: z.number(),
+  maxVal: z.number(),
+  units: z.enum(["C", "F", "K", "R"]),
+  resistanceConfig: z.enum(["2-wire", "3-wire", "4-wire"]),
+  voltageExcitSource: excitSourceZ,
+  voltageExcitVal: z.number(),
+  a: z.number(),
+  b: z.number(),
+  c: z.number(),
+  r1: z.number(),
+});
+
+// 25 - https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaitorquebridgepolynomialchan.html
+const aiTorqueBridgePolynomialChanZ = z.object({
+  key: z.string(),
+  type: z.literal("ai_torque_bridge_polynomial"),
+  minVal: z.number(),
+  maxVal: z.number(),
+  units: z.enum(["N-m", "lbf-in", "kgf-cm"]),
+  bridgeConfig: z.enum(["full", "half", "quarter"]),
+  voltageExcitSource: excitSourceZ,
+  voltageExcitVal: z.number(),
+  nominalBridgeResistance: z.number(),
+  forwardCoeffs: z.array(z.number()),
+  reverseCoeffs: z.array(z.number()),
+  electricalUnits: z.enum(["mV/V", "V/V"]),
+  physicalUnits: z.enum(["N-m", "lbf-in", "kgf-cm"]),
+});
+
+// 25 - https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaitorquebridgetablechan.html
+const aiTorqueBridgeTableChanZ = z.object({
+  key: z.string(),
+  type: z.literal("ai_torque_bridge_table"),
+  minVal: z.number(),
+  maxVal: z.number(),
+  units: z.enum(["N-m", "lbf-in", "kgf-cm"]),
+  bridgeConfig: z.enum(["full", "half", "quarter"]),
+  voltageExcitSource: excitSourceZ,
+  voltageExcitVal: z.number(),
+  nominalBridgeResistance: z.number(),
+  electricalUnits: z.enum(["mV/V", "V/V"]),
+  electricalVals: z.array(z.number()),
+  physicalUnits: z.enum(["N-m", "lbf-in", "kgf-cm"]),
+  physicalVals: z.array(z.number()),
+});
+
+// 27 - https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaitorquebridgetwopointlinchan.html
+const aiTorqueBridgeTwoPointLinChanZ = z.object({
+  key: z.string(),
+  type: z.literal("ai_torque_bridge_two_point_lin"),
+  minVal: z.number(),
+  maxVal: z.number(),
+  units: z.enum(["N-m", "lbf-in", "kgf-cm"]),
+  bridgeConfig: z.enum(["full", "half", "quarter"]),
+  voltageExcitSource: excitSourceZ,
+  voltageExcitVal: z.number(),
+  nominalBridgeResistance: z.number(),
+  electricalUnits: z.enum(["mV/V", "V/V"]),
+  physicalUnits: z.enum(["N-m", "lbf-in", "kgf-cm"]),
+  firstElectricalVal: z.number(),
+  firstPhysicalVal: z.number(),
+  secondElectricalVal: z.number(),
+  secondPhysicalVal: z.number(),
+});
+
+// 28 - https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaivelocityiepechan.html
+const aiVelocityEPEChanZ = z.object({
+  key: z.string(),
+  type: z.literal("ai_velocity_epe"),
+  terminalConfig: terminalConfigZ,
+  minVal: z.number(),
+  maxVal: z.number(),
+  units: z.enum(["m/s", "in/s"]),
+  sensitivity: z.number(),
+  sensitivityUnits: z.enum(["mV/m/s", "V/m/s"]),
+  currentExcitSource: excitSourceZ,
+  currentExcitVal: z.number(),
+});
+
 const analogInputScaleZ = linearScaleZ;
 
-const analogInputVoltageChannelZ = z.object({
+// 29 - https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaivoltagechan.html
+const aiVoltageChanZ = z.object({
   key: z.string(),
-  type: z.literal("analogVoltageInput"),
+  type: z.literal("ai_voltage"),
   enabled: z.boolean(),
   port: z.number(),
   channel: z.number(),
   scale: analogInputScaleZ,
 });
 
-export const analogReadChannelZ = analogInputVoltageChannelZ;
+// 30 - https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaivoltagermschan.html
+const aiVoltageRMSChanZ = z.object({
+  key: z.string(),
+  type: z.literal("ai_voltage_rms"),
+  terminalConfig: terminalConfigZ,
+  minVal: z.number(),
+  maxVal: z.number(),
+  units: z.enum(["V", "mV"]),
+});
 
-export type AnalogInputVoltageChannel = z.infer<typeof analogInputVoltageChannelZ>;
+// 31 - https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaivoltagechanwithexcit.html
+const aiVoltageChanWithExcitZ = z.object({
+  key: z.string(),
+  type: z.literal("ai_voltage_with_excit"),
+  terminalConfig: terminalConfigZ,
+  minVal: z.number(),
+  maxVal: z.number(),
+  units: z.enum(["V", "mV"]),
+  bridgeConfig: z.enum(["full", "half", "quarter", "none"]),
+  voltageExcitSource: excitSourceZ,
+  voltageExcitVal: z.number(),
+  useExcitForScaling: z.boolean(),
+});
+
+export const aiChan = z.union([
+  aiAccelChanZ,
+  aiAccel4WireDCVoltageChanZ,
+  aiAccelChargeChanZ,
+  aiBridgeChanZ,
+  aiChargeChan,
+  aiCurrentChanZ,
+  aiCurrentRMSChanZ,
+  aiForceBridgePolynomialChanZ,
+  aiForceBridgeTableChanZ,
+  aiForceBridgeTwoPointLinChan,
+  aiForceEPEChanZ,
+  aiFreqVoltageChanZ,
+  aiMicrophoneChanZ,
+  aiPressureBridgePolynomialChanZ,
+  aiPressureBridgeTableChanZ,
+  aiPressureBridgeTwoPointLinChanZ,
+  aiResistanceChanZ,
+  aiRosetteStrainGageChanZ,
+  aiRTDChanZ,
+  aiStrainGageChan,
+  aiTempBuiltInChanZ,
+  aiThermocoupleChanZ,
+  aiThermistorChanIex,
+  aiThermistorChanVex,
+  aiTorqueBridgePolynomialChanZ,
+  aiTorqueBridgeTableChanZ,
+  aiTorqueBridgeTwoPointLinChanZ,
+  aiVelocityEPEChanZ,
+  aiVoltageChanZ,
+  aiVoltageRMSChanZ,
+  aiVoltageChanWithExcitZ,
+]);
+
+export type AIChan = z.infer<typeof aiChan>;
+export type AIChanType = AIChan["type"];
+
+export type AnalogInputVoltageChannel = z.infer<typeof aiVoltageChanZ>;
 
 export const analogReadTaskConfigZ = z
   .object({
     device: z.string().min(1),
     sampleRate: z.number().min(0).max(50000),
     streamRate: z.number().min(0).max(50000),
-    channels: z.array(analogReadChannelZ),
+    channels: z.array(aiChan),
   })
   .refine(
     (c) =>
@@ -94,6 +606,10 @@ export const analogReadTaskConfigZ = z
   });
 
 export type AnalogReadTaskConfig = z.infer<typeof analogReadTaskConfigZ>;
+export const analogReadTaskStateZ = z.object({
+  running: z.boolean(),
+});
+export type AnalogReadTaskState = task.State<z.infer<typeof analogReadTaskStateZ>>;
 
 export const ZERO_ANALOG_READ_TASK_CONFIG: AnalogReadTaskConfig = {
   device: "Dev1",

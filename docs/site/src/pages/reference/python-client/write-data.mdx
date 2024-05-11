@@ -1,0 +1,178 @@
+---
+layout: "@/layouts/MainLayout.astro"
+title: "Write Data"
+description: "Use the Python client to write to a Synnax cluster."
+---
+import { Divider } from "@synnaxlabs/pluto"
+import Code from "@/components/code/Code.astro"
+export const components = { pre: Code }
+
+Synnax supports multiple methods for writing data to a cluster. We can write
+directly to a channel, fetch a range and set its data, or leverage writers for
+writing large volumes of data.
+
+Writes in Synnax are more complicated than reads, and, as such, we recommend
+checking out our [concepts](../concepts/write) page to learn more about
+the best practices for writing data to Synnax.
+
+<Divider.Divider direction="x" />
+
+## Writing to a Channel
+
+Writing to a channel requires us to write timestamps to it's index channel
+before we write the data. We'll create the following channels to use as
+examples:
+
+```python
+import synnax as sy
+
+# Create the index
+timestamps = client.indexes.create(
+    name="timestamps",
+    data_type=sy.DataType.TIMESTAMP,
+    is_index=True
+)
+
+# Create the temperature channel
+my_precise_tc = client.channels.create(
+    name="my_precise_tc",
+    data_type=np.float32,
+    index=timestamps
+)
+```
+
+We'll make sure to write timestamps to the index before we write to the data
+channel:
+
+```python
+from datetime import datetime
+
+# Our temperature data.
+temperatures = [55, 55.1, 55.7, 57.2, 58.1]
+start = sy.TimeStamp.now()
+timestamps = [
+    first,
+    first + 1 * sy.TimeSpan.HOUR,
+    first + 2 * sy.TimeSpan.HOUR,
+    first + 3 * sy.TimeSpan.HOUR,
+    first + 4 * sy.TimeSpan.HOUR,
+]
+
+# Write the timestamps to the index
+timestamps.write(start, timestamps)
+
+# Write the data to the channel
+my_precise_tc.write(start, temperatures)
+```
+
+Notice how we align the two arrays using the common `start` timestamp. This
+tells Synnax that the first sample in the `temperatures` array is associated
+with the first timestamp in the `timestamps` array.
+
+Synnax will raise a `ValidationError` if the index channel does not contain a
+corresponding timestamp for every sample in the data channel. After all, it
+wouldn't make sense to have a temperature reading without an associated
+timestamp.
+
+<Divider.Divider direction="x" />
+
+## Writing to a Range
+
+Writing to a range takes away the burden of needing to correctly align the data
+from different channels.
+
+We'll create the following range as an example:
+
+```python
+import synnax as sy
+
+# Create the range
+burst_test = client.ranges.create(
+    name="burst_test",
+    time_range=sy.TimeRange(
+        start=sy.TimeStamp.now(),
+        end=sy.TimeStamp.now() + 1 * sy.TimeSpan.HOUR
+    )
+)
+```
+
+Then, we'll write to the range using the `write` method:
+
+```python
+temperatures = [55, 55.1, 55.7, 57.2, 58.1, 58.9, 59.1, 59.2, 59.3]
+pressures = [100, 100.1, 100.7, 102.2, 103.1, 103.9, 104.1, 104.2, 104.3]
+
+# This call to write will assume that the timestamp of the first sample is 
+# the start of the range.
+burst_test.write({
+    "my_precise_tc": temperatures,
+    "my_precise_pt": pressures,
+})
+```
+
+<Divider.Divider direction="x" />
+
+## Using a Writer
+
+While the above methods are great for writing static, existing data, it's common
+to to write data in a streaming fashion for use in control sequences and live
+data processing. The `Writer` class is designed for this use case (and is
+actually used under the hood by the other methods).
+
+Writers can be complicated to operate, so we recommend reading the
+[concepts](../concepts/write#transactions) page to learn more about how
+they work.
+
+We'll use the following set of channels for this example:
+
+```python
+import synnax as sy
+
+# Create the index
+timestamps = client.indexes.create(
+    name="timestamps",
+    data_type=sy.DataType.TIMESTAMP,
+    is_index=True
+)
+
+# Create the temperature channel
+my_precise_tc = client.channels.create(
+    name="my_precise_tc",
+    data_type=np.float32,
+    index=timestamps
+)
+```
+
+To open the writer, we use the `open_writer` method on the client and provide a
+starting timestamp for the first sample and a list of channels we'd like to
+write to:
+
+```python
+import time
+
+with client.open_writer(
+    start=sy.TimeStamp.now(),
+    channels=["timestamps", "my_precise_tc"],
+) as writer:
+    for i in range(100):
+        writer.write({
+            "timestamps": sy.TimeStamp.now(),
+            "my_precise_tc": i,
+        })
+        time.sleep(0.1)
+    writer.commit()
+```
+
+This example will write 100 samples to the `my_precise_tc` channel, each spaced
+roughly 0.1 seconds apart, and will commit all writes when finished.
+
+It's typical to write and commit millions of samples over the course of hours or
+days, intermittently calling commit to ensure that the data is persisted to the
+cluster.
+
+We recommend using writers within a context manager. This ensures that a writer
+is properly closed after use, ensuring that resources have been freed and
+sockets are closed.
+
+If you can't use a context manager, ensure you call `writer.close()` when you're
+done using it.

@@ -54,6 +54,11 @@ func (r Retrieve) WhereNodeKey(nodeKey core.NodeKey) Retrieve {
 	return r
 }
 
+func (r Retrieve) WhereVirtual(virtual bool) Retrieve {
+	r.gorp.Where(func(ch *Channel) bool { return ch.Virtual == virtual })
+	return r
+}
+
 // WhereDataTypes filters for channels whose DataType attribute matches the provided
 // data types.
 func (r Retrieve) WhereDataTypes(dataTypes ...telem.DataType) Retrieve {

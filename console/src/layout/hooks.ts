@@ -153,22 +153,20 @@ export const useThemeProvider = (): Theming.ProviderProps => {
 };
 
 export const useErrorThemeProvider = (): Theming.ProviderProps => {
-  const [theme, setTheme] = useState<Theming.ThemeSpec | null>(
-    Theming.themes.synnaxLight,
-  );
+  const [theme, setTheme] = useState<Theming.ThemeSpec | null>(Theming.SYNNAX_LIGHT);
   useAsyncEffect(async () => {
     const theme = matchThemeChange({ payload: await appWindow.theme() });
-    setTheme(Theming.themes[theme]);
+    setTheme(Theming.SYNNAX_THEMES[theme]);
   }, []);
   return {
     theme: Theming.themeZ.parse(theme),
     setTheme: (key: string) =>
-      setTheme(Theming.themes[key as keyof typeof Theming.themes]),
+      setTheme(Theming.SYNNAX_THEMES[key as keyof typeof Theming.SYNNAX_THEMES]),
     toggleTheme: () =>
       setTheme((t) =>
-        t === Theming.themes.synnaxLight
-          ? Theming.themes.synnaxDark
-          : Theming.themes.synnaxLight,
+        t?.key === Theming.SYNNAX_LIGHT.key
+          ? Theming.SYNNAX_DARK
+          : Theming.SYNNAX_LIGHT,
       ),
   };
 };
@@ -177,7 +175,8 @@ const matchThemeChange = ({
   payload: theme,
 }: {
   payload: TauriTheme | null;
-}): keyof typeof Theming.themes => (theme === "dark" ? "synnaxDark" : "synnaxLight");
+}): keyof typeof Theming.SYNNAX_THEMES =>
+  theme === "dark" ? "synnaxDark" : "synnaxLight";
 
 const synchronizeWithOS = async (dispatch: Dispatch<UnknownAction>): AsyncDestructor =>
   await appWindow.onThemeChanged((e) => dispatch(setActiveTheme(matchThemeChange(e))));

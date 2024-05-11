@@ -56,7 +56,12 @@ export type Get = (<V = unknown, T = UnknownRecord>(
   allowNull: true,
   options?: GetOptions,
 ) => V | null) &
-  (<V = unknown, T = UnknownRecord>(obj: T, path: string, allowNull?: boolean, options?: GetOptions) => V);
+  (<V = unknown, T = UnknownRecord>(
+    obj: T,
+    path: string,
+    allowNull?: boolean,
+    options?: GetOptions,
+  ) => V);
 
 export type TypedGet<V = unknown, T = UnknownRecord> = ((
   obj: T,
@@ -67,17 +72,23 @@ export type TypedGet<V = unknown, T = UnknownRecord> = ((
 
 export const transformPath = (
   path: string,
-  replacer: (part: string, index: number, parts: string[]) => string | string[] | undefined,
+  replacer: (
+    part: string,
+    index: number,
+    parts: string[],
+  ) => string | string[] | undefined,
 ): string => {
   const parts = path.split(".");
-  const result = parts.map((part, index) => {
-    const r = replacer(part, index, parts);
-    if (r == null) return null;
-    if (typeof r === "string") return r;
-    return r.join(".");
-  }).filter((part) => part != null) as string[];
+  const result = parts
+    .map((part, index) => {
+      const r = replacer(part, index, parts);
+      if (r == null) return null;
+      if (typeof r === "string") return r;
+      return r.join(".");
+    })
+    .filter((part) => part != null) as string[];
   return result.join(".");
-}
+};
 
 export const get = (<V = unknown, T = UnknownRecord>(
   obj: T,
@@ -127,4 +138,18 @@ export const has = <V = unknown, T = UnknownRecord>(obj: T, path: string): boole
   } catch {
     return false;
   }
+};
+
+export const pathsMatch = (path: string, pattern: string): boolean => {
+  if (pattern.length === 0) return true;
+  const parts = path.split(".");
+  const patterns = pattern.split(".");
+  if (patterns.length > parts.length) return false;
+  for (let i = 0; i < patterns.length; i++) {
+    const part = parts[i];
+    const pattern = patterns[i];
+    if (pattern === "*") continue;
+    if (part !== pattern) return false;
+  }
+  return true;
 };

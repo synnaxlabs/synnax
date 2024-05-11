@@ -14,6 +14,7 @@ import {
   TimeRange,
   TimeSpan,
   TimeStamp,
+  type CrudeTimeRange,
 } from "@synnaxlabs/x/telem";
 import { z } from "zod";
 
@@ -92,7 +93,7 @@ export class Iterator {
    * @param keys - The keys of the channels to iterate over.
    */
   static async _open(
-    tr: TimeRange,
+    tr: CrudeTimeRange,
     channels: Params,
     retriever: Retriever,
     client: StreamClient,
@@ -100,7 +101,11 @@ export class Iterator {
     const adapter = await ReadFrameAdapter.open(retriever, channels);
     const stream = await client.stream(Iterator.ENDPOINT, reqZ, resZ);
     const iter = new Iterator(stream, adapter);
-    await iter.execute({ command: Command.Open, keys: adapter.keys, bounds: tr });
+    await iter.execute({
+      command: Command.Open,
+      keys: adapter.keys,
+      bounds: new TimeRange(tr),
+    });
     return iter;
   }
 

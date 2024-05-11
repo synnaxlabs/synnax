@@ -110,18 +110,20 @@ const VirtualCore = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   );
 };
 
-export const Core = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>(
-  props: Omit<Align.SpaceProps, "children"> & {
-    children: ItemRenderProp<K, E>;
-  },
-): ReactElement => {
+export const Core = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
+  itemHeight: _,
+  ...props
+}: Omit<Align.SpaceProps, "children"> & {
+  children: ItemRenderProp<K, E>;
+  itemHeight?: number;
+}): ReactElement => {
   const { transformedData: data, emptyContent } = useDataContext<K, E>();
   const { hover } = useHoverContext();
   const { selected } = useSelectionContext();
   const { onSelect } = useSelectionUtils();
 
   return (
-    <Align.Space className={CSS.BE("list", "container")} {...props} empty>
+    <Align.Space className={CSS.BE("list", "container")} size={0} {...props}>
       {data.length === 0 ? (
         emptyContent
       ) : (

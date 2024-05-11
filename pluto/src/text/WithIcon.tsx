@@ -12,11 +12,10 @@ import { Children, cloneElement, type ReactNode, type ReactElement } from "react
 import { toArray } from "@synnaxlabs/x";
 
 import { Align } from "@/align";
-import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Divider } from "@/divider";
 import { type text } from "@/text/core";
-import { type CoreProps, Text } from "@/text/Text";
+import { type CoreProps, Text, evalColor } from "@/text/Text";
 import { isValidElement } from "@/util/children";
 
 import "@/text/WithIcon.css";
@@ -56,9 +55,9 @@ export const WithIcon = <
   weight,
   ...props
 }: WithIconProps<E, L>): ReactElement => {
-  const color = Color.cssString(crudeColor);
-  const startIcons = startIcon != null && formatIcons(startIcon, color);
-  const endIcons = endIcon != null && formatIcons(endIcon, color);
+  const color = evalColor(crudeColor, shade);
+  const startIcons = Children.toArray(startIcon);
+  const endIcons = Children.toArray(endIcon);
   const formatted = formatChildren(level, children, color, shade, weight);
   return (
     // @ts-expect-error - level type errors
@@ -73,6 +72,7 @@ export const WithIcon = <
       size="small"
       align="center"
       {...props}
+      style={{ ...props.style, color }}
     >
       {startIcons}
       {divided && startIcon != null && <Divider.Divider direction="y" />}
@@ -83,27 +83,27 @@ export const WithIcon = <
   );
 };
 
-const formatIcons = (
-  icon: false | IconElement | IconElement[],
-  color?: string,
-): ReactElement[] => {
-  if (icon === false) return [];
-  return (Children.toArray(icon) as IconElement[]).map((icon, i) =>
-    cloneElement(icon, {
-      key: i,
-      ...icon.props,
-      color,
-      style: { ...icon.props.style },
-    }),
-  );
-};
+// const formatIcons = (
+//   icon: false | IconElement | IconElement[],
+//   color?: string,
+// ): ReactElement[] => {
+//   if (icon === false) return [];
+//   return (Children.toArray(icon) as IconElement[]).map((icon, i) =>
+//     cloneElement(icon, {
+//       key: i,
+//       ...icon.props,
+//       color,
+//       style: { ...icon.props.style },
+//     }),
+//   );
+// }
 
 export const formatChildren = <L extends text.Level>(
   level: L,
   children: ReactNode = [],
   color?: string,
   shade?: number,
-  weight?: number,
+  weight?: text.Weight,
 ): ReactElement | ReactElement[] => {
   const arr = toArray(children);
   const o: ReactElement[] = [];

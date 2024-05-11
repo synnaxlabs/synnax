@@ -141,15 +141,13 @@ export class Static {
       this.data.map((s) => s.data.alignmentBounds),
       series.alignmentBounds,
     );
-    if (insertionPlan === null) {
-      L.debug("Found no viable insertion plan", {
+    if (insertionPlan === null)
+      return L.debug("Found no viable insertion plan", {
         inserting: series.digest,
         cacheContents: this.data.map((s) => s.data.digest),
       });
-      return;
-    }
     const { removeBefore, removeAfter, insertInto, deleteInBetween } = insertionPlan;
-    series = series.slice(removeBefore, series.data.length - removeAfter);
+    series = series.slice(removeBefore, series.data.length - Number(removeAfter));
     // This means we executed a redundant read.
     if (series.length === 0) return;
     this.data.splice(insertInto, deleteInBetween, {

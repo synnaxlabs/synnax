@@ -9,7 +9,16 @@
 
 import { useState, type ReactElement, useCallback } from "react";
 
-import { Channel, Form, Select, Device, Header } from "@synnaxlabs/pluto";
+import {
+  Channel,
+  Form,
+  Select,
+  Device,
+  Header,
+  Synnax,
+  Nav,
+  Button,
+} from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 import { Input } from "@synnaxlabs/pluto/input";
 import { Text } from "@synnaxlabs/pluto/text";
@@ -17,112 +26,234 @@ import { Text } from "@synnaxlabs/pluto/text";
 import { CSS } from "@/css";
 import { ChannelList } from "@/hardware/ni/ChannelList";
 import {
+  AnalogReadTaskConfig,
   analogReadTaskConfigZ,
+  AnalogReadTaskState,
   DEFAULT_SCALES,
-  ZERO_ANALOG_READ_TASK_CONFIG,
   type LinearScale,
   type LinearScaleType,
 } from "@/hardware/ni/types";
 
-import "@/hardware/configure/ni/AnalogReadTask.css";
+import "@/hardware/ni/AnalogReadTask.css";
+import { Layout } from "@/layout";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { task } from "@synnaxlabs/client";
+import { z } from "zod";
+import { Icon } from "@synnaxlabs/media";
 
-export interface AnalogReadTaskProps {
-  taskKey: string;
+export const analogReadTaskLayout: Layout.LayoutState = {
+  name: "Configure NI Analog Read Task",
+  key: "niAnalogReadTask",
+  type: "niAnalogReadTask",
+  windowKey: "niAnalogReadTask",
+  location: "window",
+  window: {
+    resizable: false,
+    size: { width: 1200, height: 900 },
+    navTop: true,
+  },
+};
+
+export const AnalogReadTask: Layout.Renderer = ({ layoutKey }) => {
+  const client = Synnax.use();
+  const fetchTask = useQuery<AnalogReadTaskInternalProps>({
+    queryKey: [layoutKey, client?.key],
+    queryFn: async () => {
+      if (client == null || layoutKey == analogReadTaskLayout.key)
+        return {
+          initialValues: {
+            key: "niAnalogReadTask",
+            type: "niAnalogReadTask",
+            name: "NI Analog Read Task",
+            config: {
+              device: "",
+              sampleRate: 0,
+              streamRate: 0,
+              channels: [],
+            },
+          },
+        };
+      const t = await client.hardware.tasks.retrieve<
+        AnalogReadTaskConfig,
+        AnalogReadTaskState
+      >(layoutKey, { includeState: true });
+      return { initialValues: t, task: t };
+    },
+  });
+  if (fetchTask.isLoading) return <></>;
+  if (fetchTask.isError) return <></>;
+  return <AnalogReadTaskInternal {...fetchTask.data} />;
+};
+
+export interface AnalogReadTaskInternalProps {
+  task?: task.Task<AnalogReadTaskConfig, AnalogReadTaskState>;
+  initialValues: task.TaskPayload<AnalogReadTaskConfig, AnalogReadTaskState>;
 }
 
-export const AnalogReadTask = ({
-  taskKey,
-}: AnalogReadTaskProps): ReactElement | null => {
-  // const client = Synnax.use();
-  // const { data } = useQuery({
-  //   queryKey: [taskKey, client?.key],
-  //   queryFn: async () => await client?.hardware.tasks.retrieve(taskKey),
-  // });
-
-  // if (data == null) return null;
-
+const AnalogReadTaskInternal = ({
+  task: pTask,
+  initialValues,
+}: AnalogReadTaskInternalProps): ReactElement | null => {
+  const client = Synnax.use();
   const methods = Form.use({
-    values: analogReadTaskConfigZ.parse(ZERO_ANALOG_READ_TASK_CONFIG),
-    schema: analogReadTaskConfigZ,
+    values: initialValues,
+    schema: z.object({
+      name: z.string(),
+      config: analogReadTaskConfigZ,
+    }),
   });
+
+  const [task, setTask] = useState(pTask);
+  const [taskState, setTaskState] = useState<AnalogReadTaskState | null>(null);
 
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
   const [selectedChannelIndex, setSelectedChannelIndex] = useState<number | null>(null);
 
+  const configure = useMutation({
+    mutationKey: [client?.key, "configure"],
+    mutationFn: async () => {
+      if (!(await methods.validateAsync()) || client == null) return;
+      const rack = await client.hardware.racks.retrieve("sy_node_1_rack");
+      const { name, config } = methods.value();
+      setTask(
+        await rack.createTask<AnalogReadTaskConfig>({
+          key: task?.key,
+          name,
+          type: "niAnalogReader",
+          config,
+        }),
+      );
+    },
+  });
+
+  const start = useMutation({
+    mutationKey: [client?.key, "start"],
+    mutationFn: async () => {
+      if (client == null) return;
+      await task?.executeCommand(
+        taskState?.details?.running === true ? "stop" : "start",
+      );
+    },
+  });
+
   return (
     <Align.Space className={CSS.B("ni-analog-read-task")} direction="y" grow empty>
-      <Form.Form {...methods}>
-        <Align.Space direction="x">
-          <Form.Field<string> path="device" label="Device">
-            {(p) => <Device.SelectSingle {...p} />}
-          </Form.Field>
-          <Form.Field<number> label="Sample Rate" path="sampleRate">
-            {(p) => <Input.Numeric {...p} />}
-          </Form.Field>
-          <Form.Field<number> label="Stream Rate" path="streamRate">
-            {(p) => <Input.Numeric {...p} />}
-          </Form.Field>
-        </Align.Space>
-        <Align.Space direction="x" empty>
-          <ChannelList
-            path="channels"
-            selected={selectedChannels}
-            onSelect={useCallback(
-              (v, i) => {
-                setSelectedChannels(v);
-                setSelectedChannelIndex(i);
-              },
-              [setSelectedChannels, setSelectedChannelIndex],
-            )}
-          />
-          {selectedChannelIndex != null && (
-            <ChannelForm path={`channels.${selectedChannelIndex}`} />
-          )}
-        </Align.Space>
-      </Form.Form>
+      <Align.Space className={CSS.B("content")} grow>
+        <Form.Form {...methods}>
+          <Align.Space direction="x">
+            <Form.Field<string> path="name">
+              {(p) => <Input.Text variant="natural" level="h1" {...p} />}
+            </Form.Field>
+          </Align.Space>
+          <Align.Space direction="x">
+            <Form.Field<string> path="config.device" label="Device" grow>
+              {(p) => (
+                <Device.SelectSingle
+                  allowNone={false}
+                  grow
+                  {...p}
+                  searchOptions={{ makes: ["ni"] }}
+                />
+              )}
+            </Form.Field>
+            <Form.Field<number> label="Sample Rate" path="config.sampleRate">
+              {(p) => <Input.Numeric {...p} />}
+            </Form.Field>
+            <Form.Field<number> label="Stream Rate" path="config.streamRate">
+              {(p) => <Input.Numeric {...p} />}
+            </Form.Field>
+          </Align.Space>
+          <Align.Space
+            direction="x"
+            className={CSS.B("channel-form-container")}
+            bordered
+            rounded
+            grow
+            empty
+          >
+            <ChannelList
+              path="config.channels"
+              selected={selectedChannels}
+              onSelect={useCallback(
+                (v, i) => {
+                  setSelectedChannels(v);
+                  setSelectedChannelIndex(i);
+                },
+                [setSelectedChannels, setSelectedChannelIndex],
+              )}
+            />
+            <Align.Space className={CSS.B("channel-form")} direction="y" grow>
+              <Header.Header level="h3">
+                <Header.Title weight={500}>Channel Details</Header.Title>
+              </Header.Header>
+              <Align.Space className={CSS.B("details")}>
+                {selectedChannelIndex != null && (
+                  <ChannelForm selectedChannelIndex={selectedChannelIndex} />
+                )}
+              </Align.Space>
+            </Align.Space>
+          </Align.Space>
+        </Form.Form>
+      </Align.Space>
+      <Nav.Bar location="bottom" size={48}>
+        <Nav.Bar.End style={{ paddingRight: "2rem" }}>
+          <Button.ToggleIcon
+            loading={start.isPending}
+            disabled={start.isPending || taskState == null}
+            onChange={start.mutate}
+          >
+            {taskState?.details?.running === true ? <Icon.Pause /> : <Icon.Play />}
+          </Button.ToggleIcon>
+          <Button.Button
+            loading={configure.isPending}
+            disabled={configure.isPending}
+            onClick={configure.mutate}
+          >
+            Configure
+          </Button.Button>
+        </Nav.Bar.End>
+      </Nav.Bar>
     </Align.Space>
   );
 };
 
 interface ChannelFormProps {
-  path: string;
+  selectedChannelIndex: number;
 }
 
-const ChannelForm = ({ path }: ChannelFormProps): ReactElement => {
+const ChannelForm = ({ selectedChannelIndex }: ChannelFormProps): ReactElement => {
+  const prefix = `config.channels.${selectedChannelIndex}`;
   return (
-    <Align.Space className={CSS.B("details")}>
-      <Header.Header level="h3">
-        <Header.Title weight={500}>Channel Properties</Header.Title>
-      </Header.Header>
-      <Align.Space direction="y" className="form">
-        <Form.Field<number> label="Port" path={`${path}.port`}>
+    <>
+      <Align.Space direction="y" className={CSS.B("channel-form-content")}>
+        <Form.Field<number> label="Port" path={`${prefix}.port`}>
           {(p) => <Input.Numeric {...p} />}
         </Form.Field>
         <Form.Field<number>
           label="Line"
-          path={`${path}.line`}
+          path={`${prefix}.line`}
           hideIfNull
           visible={(fs) => fs.value !== 0}
         >
           {(p) => <Input.Numeric {...p} />}
         </Form.Field>
-        <Form.Field<number> label="Channel" path={`${path}.channel`}>
+        <Form.Field<number> label="Channel" path={`${prefix}.channel`}>
           {(p) => <Channel.SelectSingle {...p} />}
         </Form.Field>
         <Form.Field<LinearScaleType>
           label="Scale Type"
-          path={`${path}.scale.type`}
+          path={`${prefix}.scale.type`}
           onChange={(v, { set, get }) => {
-            const { value: prev } = get<LinearScale>({ path: `${path}.scale` });
+            const { value: prev } = get<LinearScale>({ path: `${prefix}.scale` });
             if (prev.type === v) return;
-            set({ path: `${path}.scale`, value: DEFAULT_SCALES[v] });
+            set({ path: `${prefix}.scale`, value: DEFAULT_SCALES[v] });
           }}
         >
           {(p) => <SelectScale {...p} />}
         </Form.Field>
-        <ScaleForm path={`${path}.scale`} />
+        <ScaleForm path={`${prefix}.scale`} />
       </Align.Space>
-    </Align.Space>
+    </>
   );
 };
 

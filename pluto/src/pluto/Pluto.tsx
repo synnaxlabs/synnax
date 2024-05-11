@@ -39,9 +39,8 @@ const CanDisableTelem = canDisable<Telem.ProviderProps>(Telem.Provider);
 const CanDisableAether = canDisable<Aether.ProviderProps>(Aether.Provider);
 
 export interface ProviderProps
-  extends PropsWithChildren,
-    Partial<Theming.ProviderProps>,
-    Synnax.ProviderProps {
+  extends PropsWithChildren, Synnax.ProviderProps {
+  theming?: Theming.ProviderProps,
   workerEnabled?: boolean;
   workerURL?: URL | string;
   alamos?: Alamos.ProviderProps;
@@ -57,9 +56,7 @@ export const Provider = ({
   connParams,
   workerEnabled = true,
   workerURL,
-  theme,
-  toggleTheme,
-  setTheme,
+  theming,
   tooltip,
   triggers,
   alamos,
@@ -78,11 +75,7 @@ export const Provider = ({
                   <Synnax.Provider connParams={connParams}>
                     <Channel.AliasProvider {...channelAlias}>
                       <CanDisableTelem {...telem}>
-                        <Theming.Provider
-                          theme={theme}
-                          toggleTheme={toggleTheme}
-                          setTheme={setTheme}
-                        >
+                        <Theming.Provider {...theming}>
                           <Control.StateProvider>{children}</Control.StateProvider>
                         </Theming.Provider>
                       </CanDisableTelem>

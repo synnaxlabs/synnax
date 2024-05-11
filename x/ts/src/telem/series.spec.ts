@@ -696,6 +696,16 @@ describe("MultiSeries", () => {
     });
   });
 
+  describe("data", () => {
+    it("should combine the data of the series into a single typed array", () => {
+      const a = new Series(new Float32Array([1, 2, 3]));
+      const b = new Series(new Float32Array([4, 5, 6]));
+      const multi = new MultiSeries([a, b]);
+      const data = multi.data;
+      expect(data).toEqual(new Float32Array([1, 2, 3, 4, 5, 6]));
+    });
+  });
+
   describe("timeRange", () => {
     it("should correctly return the time range of a multi-series", () => {
       const a = new Series({

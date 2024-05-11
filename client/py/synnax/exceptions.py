@@ -90,7 +90,7 @@ class NotFoundError(QueryError):
     pass
 
 
-class MultipleResultsError(QueryError):
+class MultipleFoundError(QueryError):
     """
     Raised when a query that should return a single result returns multiple.
     """
@@ -127,7 +127,6 @@ def _decode(encoded: freighter.ExceptionPayload) -> Exception | None:
     if encoded.type.startswith(ValidationError.TYPE):
         if encoded.type.startswith(FieldError.TYPE):
             values = encoded.data.split(":")
-            print(values)
             if len(values) != 2:
                 return UnexpectedError(encoded.data)
             return FieldError(values[0], values[1])
@@ -136,8 +135,8 @@ def _decode(encoded: freighter.ExceptionPayload) -> Exception | None:
     if encoded.type.startswith(QueryError.TYPE):
         if encoded.type.startswith(NotFoundError.TYPE):
             return NotFoundError(encoded.data)
-        if encoded.type.startswith(MultipleResultsError.TYPE):
-            return MultipleResultsError(encoded.data)
+        if encoded.type.startswith(MultipleFoundError.TYPE):
+            return MultipleFoundError(encoded.data)
         return QueryError(encoded.data)
 
     if encoded.type.startswith(RouteError.TYPE):

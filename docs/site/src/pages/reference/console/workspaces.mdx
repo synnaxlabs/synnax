@@ -1,0 +1,34 @@
+---
+layout: "@/layouts/MainLayout.astro"
+title: "Workspaces"
+heading: "Workspaces"
+description: "Learn about workspaces in the Synnax Console."
+---
+import { Icon } from "@synnaxlabs/media";
+import { Text } from "@synnaxlabs/pluto";
+import { Divider } from "@synnaxlabs/pluto";
+import { Video } from "@/components/Media";
+
+Workspaces in Synnax are collections of visualizations that can be used to load
+certain views. For instance, you could be monitoring an entire plane on the
+Synnax cluster, but have one workspace specifically for the fuel system and
+another workspace for aerodynamic sensors.
+
+<Divider.Divider direction="x" />
+
+## Creating a New Workspace
+<Text.Text level="p">
+To create a new workspace, you can go into the top-left and click on the
+__Workspace__ <Icon.Workspace/> icon. This allows you to add a new workspace.
+</Text.Text>
+
+<Video client:only="react" id="console/workspace-create-workspace" />
+
+<Divider.Divider direction="x" />
+
+## Loading a Workspace
+
+Loading workspaces can be done by finding them in the Resources file tree on the
+left hand side or clicking the workspace tab on the top.
+
+<Video client:only="react" id="console/workspace-load-workspace" />

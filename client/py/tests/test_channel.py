@@ -117,7 +117,7 @@ class TestChannelClient:
     ):
         """Should raise QueryError when retrieving a single channel with
         multiple matches"""
-        with pytest.raises(sy.MultipleResultsError):
+        with pytest.raises(sy.MultipleFoundError):
             client.channels.retrieve("test.*")
 
     def test_retrieve_by_regex(self, client: sy.Synnax):

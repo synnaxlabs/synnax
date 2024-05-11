@@ -18,6 +18,7 @@ import { NavBottom, NavLeft, NavRight, NavTop } from "@/layouts/LayoutMain/Nav";
 import { Mosaic } from "@/layouts/mosaic";
 
 import "@/layouts/LayoutMain/LayoutMain.css";
+import { Device } from "@/hardware/device";
 
 /**
  * The center of it all. This is the main layout for the Synnax Console. Try to keep this
@@ -28,6 +29,8 @@ export const LayoutMain = (): ReactElement => {
   useEffect(() => {
     d(Layout.maybeCreateGetStartedTab());
   }, []);
+
+  Device.useListenForChanges();
 
   return (
     <>

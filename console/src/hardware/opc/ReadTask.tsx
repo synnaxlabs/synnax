@@ -55,8 +55,6 @@ import { type Layout } from "@/layout";
 import { z } from "zod";
 
 import "@/hardware/opc/ReadTask.css";
-import { Triggers } from "@synnaxlabs/pluto";
-import { TaskPayload } from "@synnaxlabs/client/dist/hardware/task/client";
 
 export const readTaskLayout: Layout.LayoutState = {
   name: "Configure OPC UA Read Task",
@@ -92,9 +90,7 @@ export const ReadTask: Layout.Renderer = ({ layoutKey }) => {
         };
       const t = await client.hardware.tasks.retrieve<ReadTaskConfig, ReadTaskState>(
         layoutKey,
-        {
-          includeState: true,
-        },
+        { includeState: true },
       );
       return { initialValues: t, task: t };
     },
@@ -158,12 +154,11 @@ const ReadTaskInternal = ({
     values: initialValues,
   });
 
-  Form.useFieldListener<string>({
+  Form.useFieldListener<string, typeof schema>({
     ctx: methods,
     path: "config.device",
     callback: useCallback(
       (fs) => {
-        console.log("HELLO");
         if (!fs.touched || fs.status.variant !== "success" || client == null) return;
         client.hardware.devices
           .retrieve<DeviceProperties>(fs.value)
@@ -184,9 +179,7 @@ const ReadTaskInternal = ({
   useAsyncEffect(async () => {
     if (client == null || task == null) return;
     stateObserverRef.current = await task.openStateObserver<ReadTaskStateDetails>();
-    console.log("BB");
     stateObserverRef.current.onChange((s) => {
-      console.log("BB");
       setTaskState(s);
     });
     return async () => await stateObserverRef.current?.close().catch(console.error);
@@ -216,8 +209,7 @@ const ReadTaskInternal = ({
     mutationKey: [client?.key, "start"],
     mutationFn: async () => {
       if (task == null) return;
-      console.log(taskState?.details.running);
-      await task.executeCommand(taskState?.details.running ? "stop" : "start");
+      await task.executeCommand(taskState?.details?.running == true ? "stop" : "start");
     },
   });
 
@@ -226,8 +218,8 @@ const ReadTaskInternal = ({
       <Align.Space className={CSS.B("content")} direction="y" grow>
         <Form.Form {...methods}>
           <Align.Space direction="x">
-            <Form.Field<string> path="name">
-              {(p) => <Input.Text variant="natural" level="h1" {...p} label="Name" />}
+            <Form.Field<string> path="name" label="Name">
+              {(p) => <Input.Text variant="natural" level="h1" {...p} />}
             </Form.Field>
           </Align.Space>
           <Align.Space direction="x">

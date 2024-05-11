@@ -392,6 +392,11 @@ describe("TimeRange", () => {
       expect(tr.overlapsWith(one, TimeSpan.milliseconds(2))).toBeTruthy();
       expect(one.overlapsWith(tr, TimeSpan.milliseconds(3))).toBeFalsy();
     });
+    it("should return two for two ZERO time ranges", () => {
+      const tr = new TimeRange(TimeStamp.ZERO, TimeStamp.ZERO);
+      const one = new TimeRange(TimeStamp.ZERO, TimeStamp.ZERO);
+      expect(tr.overlapsWith(one)).toBeTruthy();
+    });
   });
 
   describe("boundBy", () => {
@@ -408,6 +413,18 @@ describe("TimeRange", () => {
       const bounded = tr.boundBy(bound);
       const expected = new TimeRange(TimeSpan.seconds(3), TimeSpan.seconds(2));
       expect(bounded.equals(expected)).toBeTruthy();
+    });
+  });
+
+  describe("roughlyEquals", () => {
+    it("should return true if the two time ranges are within the provided threshold", () => {
+      const tr = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(4));
+      const one = new TimeRange(
+        TimeSpan.seconds(1),
+        TimeSpan.seconds(4).add(TimeSpan.milliseconds(500)),
+      );
+      expect(tr.roughlyEquals(one, TimeSpan.seconds(1))).toBeTruthy();
+      expect(tr.roughlyEquals(one, TimeSpan.seconds(0))).toBeFalsy();
     });
   });
 });

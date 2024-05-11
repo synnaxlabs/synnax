@@ -1,10 +1,10 @@
 import { Ontology } from "@/ontology";
 import { Icon } from "@synnaxlabs/media";
-import { opc } from "@/hardware/opc";
+import { OPC } from "@/hardware/opc";
 
 const handleSelect: Ontology.HandleSelect = ({ selection, placeLayout }) => {
   placeLayout({
-    ...opc.readTaskLayout,
+    ...OPC.readTaskLayout,
     key: selection[0].id.key,
   });
 };

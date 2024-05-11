@@ -272,11 +272,11 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     result.value.x = safelyGetDataValue(series, index, xData);
     const [, yData] = await yTelem.value();
     const ySeries = yData.find((ys) =>
-      bounds.contains(ys.alignmentBounds, xSeries.alignment + index),
+      bounds.contains(ys.alignmentBounds, xSeries.alignment + BigInt(index)),
     );
     if (ySeries == null) return result;
 
-    const alignmentDiff = ySeries.alignment - xSeries.alignment;
+    const alignmentDiff = Number(ySeries.alignment - xSeries.alignment);
     result.value.y = Number(ySeries.at(index - alignmentDiff));
 
     result.position = {
@@ -321,7 +321,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
 const THICKNESS_DIVISOR = 5000;
 
 const newTranslationBuffer = (aspect: number, strokeWidth: number): Float32Array => {
-  return replicateBuffer(newDirectionBuffer(aspect), Math.ceil(strokeWidth) - 1).map(
+  return replicateBuffer(newDirectionBuffer(aspect), strokeWidth).map(
     (v, i) => Math.floor(i / DIRECTION_COUNT) * (1 / (THICKNESS_DIVISOR * aspect)) * v,
   );
 };
@@ -367,45 +367,28 @@ interface DrawOperationDigest extends Omit<DrawOperation, "x" | "y"> {
 }
 
 export const buildDrawOperations = (
-  x: Series[],
-  y: Series[],
+  xSeries: Series[],
+  ySeries: Series[],
   downsample: number,
   overlapThreshold: TimeSpan,
 ): DrawOperation[] => {
-  if (x.length === 0 || y.length === 0) return [];
-
+  if (xSeries.length === 0 || ySeries.length === 0) return [];
   const ops: DrawOperation[] = [];
 
-  x.forEach((xSeries) => {
-    const compatibleYSeries = findSeriesThatOverlapWith(xSeries, y, overlapThreshold);
-    compatibleYSeries.forEach((ySeries) => {
+  xSeries.forEach((x) => {
+    const compatibleYSeries = findSeriesThatOverlapWith(x, ySeries, overlapThreshold);
+    compatibleYSeries.forEach((y) => {
       let xOffset = 0;
       let yOffset = 0;
-
       // This means that the x series starts before the y series.
-      if (xSeries.alignment < ySeries.alignment)
-        xOffset = ySeries.alignment - xSeries.alignment;
+      if (x.alignment < y.alignment) xOffset = Number(y.alignment - x.alignment);
       // This means that the y series starts before the x series.
-      else if (ySeries.alignment < xSeries.alignment)
-        yOffset = xSeries.alignment - ySeries.alignment;
-
-      const amountOfOverlap = Math.min(
-        xSeries.length - xOffset,
-        ySeries.length - yOffset,
-      );
-
-      if (amountOfOverlap > 0)
-        ops.push({
-          x: xSeries,
-          y: ySeries,
-          xOffset,
-          yOffset,
-          count: amountOfOverlap,
-          downsample,
-        });
+      else if (y.alignment < x.alignment) yOffset = Number(x.alignment - y.alignment);
+      const count = Math.min(x.length - xOffset, y.length - yOffset);
+      if (count === 0) return;
+      ops.push({ x, y, xOffset, yOffset, count, downsample });
     });
   });
-
   return ops;
 };
 

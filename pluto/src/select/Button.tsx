@@ -150,6 +150,7 @@ export const DropdownButton = <K extends Key = Key, E extends Keyed<K> = Keyed<K
   onChange,
   disabled,
   hideColumnHeader = true,
+  ...props
 }: DropdownButtonProps<K, E>): ReactElement => {
   const { close, visible, toggle } = Dropdown.use();
   const [selected, setSelected] = useState<E | null>(
@@ -175,6 +176,7 @@ export const DropdownButton = <K extends Key = Key, E extends Keyed<K> = Keyed<K
 
   return (
     <Core<K, E>
+      {...props}
       close={close}
       data={data}
       visible={visible}

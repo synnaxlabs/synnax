@@ -16,6 +16,7 @@
 
     & .pluto-input__internal {
         position: relative;
+        height: 100%;
         background: var(--pluto-gray-l1);
         flex-grow: 1;
     }
@@ -60,6 +61,12 @@
         font-size: var(--pluto-h5-size);
         font-weight: var(--pluto-h5-weight);
         line-height: var(--pluto-h5-line-height);
+    }
+
+    &.pluto--huge input {
+        font-size: var(--pluto-h2-size);
+        font-weight: var(--pluto-h2-weight);
+        line-height: var(--pluto-h2-line-height);
     }
 
     &:not(:focus-within) .pluto--centered {

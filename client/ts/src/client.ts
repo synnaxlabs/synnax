@@ -60,10 +60,9 @@ export type ParsedSynnaxProps = z.output<typeof synnaxPropsZ>;
  * @property ontology - Client for querying the cluster's ontology.
  */
 // eslint-disable-next-line import/no-default-export
-export default class Synnax {
+export default class Synnax extends framer.Client {
   readonly createdAt: TimeStamp;
   readonly props: ParsedSynnaxProps;
-  readonly telem: framer.Client;
   readonly ranges: ranger.Client;
   readonly channels: channel.Client;
   readonly auth: auth.Client | undefined;
@@ -90,52 +89,48 @@ export default class Synnax {
    * A Synnax client must be closed when it is no longer needed. This will stop
    * the client from polling the cluster for connectivity information.
    */
-  constructor(props: SynnaxProps) {
-    this.createdAt = TimeStamp.now();
-    this.props = synnaxPropsZ.parse(props);
-    const { host, port, username, password, connectivityPollFrequency, secure } =
-      this.props;
-    this.transport = new Transport(new URL({ host, port: Number(port) }), secure);
-    this.transport.use(errorsMiddleware);
+  constructor(props_: SynnaxProps) {
+    const props = synnaxPropsZ.parse(props_);
+    const { host, port, username, password, connectivityPollFrequency, secure } = props;
+    const transport = new Transport(new URL({ host, port: Number(port) }), secure);
+    transport.use(errorsMiddleware);
+    let auth_: auth.Client | undefined;
     if (username != null && password != null) {
-      this.auth = new auth.Client(this.transport.unary, {
+      const auth_ = new auth.Client(transport.unary, {
         username,
         password,
       });
-      this.transport.use(this.auth.middleware());
+      transport.use(auth_.middleware());
     }
     const chRetriever = new channel.CacheRetriever(
-      new channel.ClusterRetriever(this.transport.unary),
+      new channel.ClusterRetriever(transport.unary),
     );
-    const chCreator = new channel.Writer(this.transport.unary);
-    this.telem = new framer.Client(this.transport.stream, chRetriever);
-    this.channels = new channel.Client(
-      this.telem,
-      chRetriever,
-      this.transport.unary,
-      chCreator,
-    );
+    const chCreator = new channel.Writer(transport.unary);
+    super(transport.stream, chRetriever);
+    this.createdAt = TimeStamp.now();
+    this.props = props;
+    this.auth = auth_;
+    this.transport = transport;
+    this.channels = new channel.Client(this, chRetriever, transport.unary, chCreator);
     this.connectivity = new connection.Checker(
-      this.transport.unary,
+      transport.unary,
       connectivityPollFrequency,
       props.name,
     );
-    this.ontology = new ontology.Client(this.transport.unary, this.telem);
-    const rangeRetriever = new ranger.Retriever(this.transport.unary);
+    this.ontology = new ontology.Client(transport.unary, this);
     const rangeWriter = new ranger.Writer(this.transport.unary);
-    this.labels = new label.Client(this.transport.unary, this.telem);
+    this.labels = new label.Client(this.transport.unary, this);
     this.ranges = new ranger.Client(
-      this.telem,
-      rangeRetriever,
+      this,
       rangeWriter,
       this.transport.unary,
       chRetriever,
       this.labels,
     );
     this.workspaces = new workspace.Client(this.transport.unary);
-    const devices = new device.Client(this.transport.unary, this.telem);
-    const tasks = new task.Client(this.transport.unary, this.telem);
-    const racks = new rack.Client(this.transport.unary, this.telem, tasks);
+    const devices = new device.Client(this.transport.unary, this);
+    const tasks = new task.Client(this.transport.unary, this);
+    const racks = new rack.Client(this.transport.unary, this, tasks);
     this.hardware = new hardware.Client(tasks, racks, devices);
   }
 

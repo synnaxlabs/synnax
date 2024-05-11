@@ -82,7 +82,7 @@ export class NotFoundError extends QueryError {
   static readonly TYPE = QueryError.TYPE + ".not_found";
 }
 
-export class MultipleResultsError extends QueryError {
+export class MultipleFoundError extends QueryError {
   static readonly TYPE = QueryError.TYPE + ".multiple_results";
 }
 
@@ -130,8 +130,8 @@ const decode = (payload: ErrorPayload): Error | null => {
   if (payload.type.startsWith(QueryError.TYPE)) {
     if (payload.type.startsWith(NotFoundError.TYPE))
       return new NotFoundError(payload.data);
-    if (payload.type.startsWith(MultipleResultsError.TYPE))
-      return new MultipleResultsError(payload.data);
+    if (payload.type.startsWith(MultipleFoundError.TYPE))
+      return new MultipleFoundError(payload.data);
     return new QueryError(payload.data);
   }
 

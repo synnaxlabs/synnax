@@ -66,6 +66,10 @@ export class KV {
     return Array.isArray(keys) ? res.pairs : res.pairs[keys];
   }
 
+  async list(): Promise<Record<string, string>> {
+    return this.get([]);
+  }
+
   async set(key: string, value: string): Promise<void>;
 
   async set(kv: Record<string, string>): Promise<void>;
