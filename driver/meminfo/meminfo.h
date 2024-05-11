@@ -100,13 +100,13 @@ class Factory final : public task::Factory {
         std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task> > > tasks;
         auto [existing, err] = rack.tasks.list();
         if (err) {
-            LOG(ERROR) << "[Meminfo] Failed to list existing tasks: " << err;
+            LOG(ERROR) << "[meminfo] Failed to list existing tasks: " << err;
             return {};
         }
         bool hasMeminfo = false;
         for (const auto &t: existing) {
             if (t.type == "meminfo") {
-                LOG(INFO) << "[Meminfo] found existing meminfo task with key: " << t.key
+                LOG(INFO) << "[meminfo] found existing meminfo task with key: " << t.key
                         << "skipping creation." << std::endl;
                 hasMeminfo = true;
             }
@@ -120,9 +120,9 @@ class Factory final : public task::Factory {
                 ""
             );
             auto err = rack.tasks.create(sy_task);
-            LOG(INFO) << "[Meminfo] created meminfo task with key: " << sy_task.key;
+            LOG(INFO) << "[meminfo] created meminfo task with key: " << sy_task.key;
             if (err) {
-                LOG(ERROR) << "[Meminfo] Failed to create meminfo task: " << err;
+                LOG(ERROR) << "[meminfo] Failed to create meminfo task: " << err;
                 return {};
             }
             auto [task, ok] = configureTask(ctx, sy_task);

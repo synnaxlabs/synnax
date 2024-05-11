@@ -35,6 +35,85 @@
 
 namespace ni{
 
+    // TODO: make const
+    // std::map<std::string, uint32_t> NI_UNITS_MAP = {
+    //     {"Volts", DAQmx_Val_Volts},
+    //     {"Amps", DAQmx_Val_Amps},
+    //     {"DegF", DAQmx_Val_DegF},
+    //     {"DegC", DAQmx_Val_DegC},
+    //     {"DegR", DAQmx_Val_DegR},
+    //     {"Kelvins", DAQmx_Val_Kelvins},
+    //     {"Strain", DAQmx_Val_Strain},
+    //     {"Ohms", DAQmx_Val_Ohms},
+    //     {"Hz", DAQmx_Val_Hz},
+    //     {"Seconds", DAQmx_Val_Seconds},
+    //     {"Meters", DAQmx_Val_Meters},
+    //     {"Inches", DAQmx_Val_Inches},
+    //     {"Degrees", DAQmx_Val_Degrees},
+    //     {"Radians", DAQmx_Val_Radians},
+    //     {"g", DAQmx_Val_g},
+    //     {"MetersPerSecondSquared", DAQmx_Val_MetersPerSecondSquared},
+    //     {"Newtons", DAQmx_Val_Newtons},
+    //     {"Pounds", DAQmx_Val_Pounds},
+    //     {"KilogramForce", DAQmx_Val_KilogramForce},
+    //     {"PoundsPerSquareInch", DAQmx_Val_PoundsPerSquareInch},
+    //     {"Bar", DAQmx_Val_Bar},
+    //     {"Pascals", DAQmx_Val_Pascals},
+    //     {"VoltsPerVolt", DAQmx_Val_VoltsPerVolt},
+    //     {"mVoltsPerVolt", DAQmx_Val_mVoltsPerVolt},
+    //     {"NewtonMeters", DAQmx_Val_NewtonMeters},
+    //     {"InchOunces", DAQmx_Val_InchOunces},
+    //     {"InchPounds", DAQmx_Val_InchPounds},
+    //     {"FootPounds", DAQmx_Val_FootPounds},
+    //     {"Strain", DAQmx_Val_Strain},
+    //     {"FromTEDS", DAQmx_Val_FromTEDS}
+    // };
+
+    typedef struct LinearScale{
+        float64 slope;
+        float64 offset;
+        std::string prescaled_units;
+        std::string scaled_units;
+    } LinearScale;
+
+    typedef struct MapScale{
+        float64 prescaled_min;
+        float64 prescaled_max;
+        float64 scaled_min;
+        float64 scaled_max;
+        std::string prescaled_units;
+        std::string scaled_units;
+    } MapScale;
+
+    typedef struct PolynomialScale{
+        float* forward_coeffs;
+        float* reverse_coeffs; 
+        uint32_t num_coeffs;
+        float64 min_x;
+        float64 max_x;
+        int32 num_points;
+        int32 poly_order;
+        std::string prescaled_units;
+        std::string scaled_units;
+    } PolynomialScale;
+
+    typedef struct tableScale{
+        float* prescaled;
+        float* scaled;
+        uint32_t num_points;
+        std::string prescaled_units;
+        std::string scaled_units;
+    } TableScale;
+
+    typedef union Scale{
+        LinearScale linear;
+        MapScale map;
+        PolynomialScale polynomial;
+        TableScale table;
+        // Destructor
+        ~Scale() {} 
+    } Scale;
+
     typedef struct ChannelConfig{
         /// @brief synnax properties
         std::uint32_t name_space;
@@ -46,9 +125,19 @@ namespace ni{
         std::string channel_type;
         float min_val;
         float max_val;
+        bool custom_scale;
+        Scale* scale; // TODO: make pointer
+        std::string scale_type;
+        std::string scale_name;
+
+        // Default constructor
+        ChannelConfig() 
+            : name_space(0), channel_key(0), min_val(0.0f), max_val(0.0f),
+                custom_scale(false), scale(nullptr), scale_type(""), scale_name("") {}
+
+        // Destructor
+        ~ChannelConfig() {}
     } ChannelConfig;
-
-
 
     ///////////////////////////////////////////////////////////////////////////////////
     //                                    daqReader                                  //
@@ -86,6 +175,10 @@ namespace ni{
         void parseDigitalReaderConfig(config::Parser & parser);
         void parseAnalogReaderConfig(config::Parser & parser);
         int checkNIError(int32 error);
+        void parseCustomScale(config::Parser & parser, ChannelConfig & config);
+        uint32_t parseFloats(std::vector<float64> vec, float* arr);
+        int createAIChannel(ChannelConfig &channel);
+        void deleteScales();
 
         // NI related resources
         TaskHandle taskHandle = 0;

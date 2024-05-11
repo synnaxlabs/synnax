@@ -18,43 +18,48 @@
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    ScannerTask                                //
 ///////////////////////////////////////////////////////////////////////////////////
-ni::ScannerTask::ScannerTask(   const std::shared_ptr<task::Context> &ctx, 
-                                synnax::Task task) :
-                                scanner(ctx, task){
+
+ni::ScannerTask::ScannerTask(
+        const std::shared_ptr <task::Context> &ctx,
+        synnax::Task task
+) :
+        scanner(ctx, task) {
     this->task = task;
     this->ctx = ctx;
 }
 
-std::unique_ptr<task::Task> ni::ScannerTask::configure(      const std::shared_ptr<task::Context> &ctx,
-                                                            const synnax::Task &task){
+std::unique_ptr <task::Task> ni::ScannerTask::configure(
+        const std::shared_ptr <task::Context> &ctx,
+        const synnax::Task &task
+) {
     return std::make_unique<ni::ScannerTask>(ctx, task);
 }
 
-void ni::ScannerTask::exec(task::Command &cmd){
-    if (cmd.type == "scan"){
+void ni::ScannerTask::exec(task::Command &cmd) {
+    if (cmd.type == "scan") {
         scanner.scan();
-        if(!scanner.ok()){
+        if (!scanner.ok()) {
             ctx->setState({
-                .task = task.key,
-                .variant = "error",
-                .details = {
-                    {"message", "failed to scan"}
-                }
-            });
+                                  .task = task.key,
+                                  .variant = "error",
+                                  .details = {
+                                          {"message", "failed to scan"}
+                                  }
+                          });
             LOG(ERROR) << "[NI Task] failed to scan for task " << this->task.name;
         } else {
             json devices = scanner.getDevices();
             ctx->setState({
-                .task = task.key,
-                .variant = "success",
-                .details = {
-                    {"devices", devices.dump(4)}
-                }
-            });
+                                  .task = task.key,
+                                  .variant = "success",
+                                  .details = {
+                                          {"devices", devices.dump(4)}
+                                  }
+                          });
             LOG(INFO) << "[NI Task] successfully scanned for task " << this->task.name;
             //print devices here for now
             std::cout << devices.dump(4) << std::endl;
-        }  
+        }
     } else {
         LOG(ERROR) << "unknown command type: " << cmd.type;
     }
@@ -64,72 +69,72 @@ void ni::ScannerTask::exec(task::Command &cmd){
 //                                    ReaderTask                                 //
 ///////////////////////////////////////////////////////////////////////////////////
 
-ni::ReaderTask::ReaderTask(     const std::shared_ptr<task::Context> &ctx, 
-                                synnax::Task task){
+ni::ReaderTask::ReaderTask(const std::shared_ptr <task::Context> &ctx,
+                           synnax::Task task) {
     this->task = task;
     this->ctx = ctx;
 
     // create a breaker config TODO: use the task to generate the other parameters?
     auto breaker_config = breaker::Config{
-        .name = task.name,
-        .base_interval = 1 * SECOND,
-        .max_retries = 20,
-        .scale = 1.2,
+            .name = task.name,
+            .base_interval = 1 * SECOND,
+            .max_retries = 20,
+            .scale = 1.2,
     };
 
     // create a daq reader to provide to cmd read pipe as sink
     DAQmxCreateTask("", &this->taskHandle);
     auto daq_reader = std::make_unique<ni::daqReader>(this->taskHandle, ctx, task);
-    if(!daq_reader->ok()){
+    if (!daq_reader->ok()) {
         LOG(ERROR) << "[NI Reader] failed to construct reader for " << task.name;
         return;
-    } 
+    }
 
     // construct writer config
-    std::vector<synnax::ChannelKey> channel_keys = daq_reader->getChannelKeys();
+    std::vector <synnax::ChannelKey> channel_keys = daq_reader->getChannelKeys();
 
     auto writer_config = synnax::WriterConfig{
-        .channels = channel_keys,
-        .start = synnax::TimeStamp::now(),
-        .mode = synnax::WriterStreamOnly // TODO: is this the correct mode?
+            .channels = channel_keys,
+            .start = synnax::TimeStamp::now(),
+            .mode = synnax::WriterStreamOnly // TODO: is this the correct mode?
     };
 
     // construct acquisition pipe
-    this->daq_read_pipe = pipeline::Acquisition(    ctx, 
-                                                    writer_config, 
-                                                    std::move(daq_reader), 
-                                                    breaker_config);
-} 
+    this->daq_read_pipe = pipeline::Acquisition(ctx,
+                                                writer_config,
+                                                std::move(daq_reader),
+                                                breaker_config);
+}
 
 
-std::unique_ptr<task::Task> ni::ReaderTask::configure(      const std::shared_ptr<task::Context> &ctx,
-                                                            const synnax::Task &task){
+std::unique_ptr <task::Task> ni::ReaderTask::configure(const std::shared_ptr <task::Context> &ctx,
+                                                       const synnax::Task &task) {
     return std::make_unique<ni::ReaderTask>(ctx, task);
 }
 
-void ni::ReaderTask::exec(task::Command &cmd){
-    if (cmd.type == "start"){
+void ni::ReaderTask::exec(task::Command &cmd) {
+    if (cmd.type == "start") {
         daq_read_pipe.start();
 
         ctx->setState({
-            .task = task.key,
-            .variant = "success",
-            .details = {
-                {"running", true}
-            }
-        });        
+                              .task = task.key,
+                              .variant = "success",
+                              .details = {
+                                      {"running", true}
+                              }
+                      });
         LOG(INFO) << "[NI Task] successfully started task " << this->task.name;
 
-    } else if (cmd.type == "stop"){
+    } else if (cmd.type == "stop") {
         daq_read_pipe.stop();
 
         ctx->setState({
-            .task = task.key,
-            .variant = "success",
-            .details = {
-                {"running", false}
-            }
-        });
+                              .task = task.key,
+                              .variant = "success",
+                              .details = {
+                                      {"running", false}
+                              }
+                      });
         LOG(INFO) << "[NI Task] successfully stopped task " << this->task.name;
 
     } else {
@@ -142,89 +147,87 @@ void ni::ReaderTask::exec(task::Command &cmd){
 //                                    WriterTask                                 //
 ///////////////////////////////////////////////////////////////////////////////////
 
-ni::WriterTask::WriterTask(     const std::shared_ptr<task::Context> &ctx, 
-                                synnax::Task task){
+ni::WriterTask::WriterTask(const std::shared_ptr <task::Context> &ctx,
+                           synnax::Task task) {
     this->task = task;
     this->ctx = ctx;
     // create a breaker config TODO: use the task to generate the other parameters?
     auto breaker_config = breaker::Config{
-        .name = task.name,
-        .base_interval = 1 * SECOND,
-        .max_retries = 20,
-        .scale = 1.2,
+            .name = task.name,
+            .base_interval = 1 * SECOND,
+            .max_retries = 20,
+            .scale = 1.2,
     };
 
     // create a daq reader to provide to cmd read pipe as sink
     DAQmxCreateTask("", &this->taskHandle);
     auto daq_writer = std::make_unique<ni::daqWriter>(this->taskHandle, ctx, task);
-    if(!daq_writer->ok()){
+    if (!daq_writer->ok()) {
         LOG(ERROR) << "[NI Writer] failed to construct reader for" << task.name;
         return;
-    } 
+    }
 
     // construct writer config
-    std::vector<synnax::ChannelKey> cmd_keys = daq_writer->getCmdChannelKeys();
-    std::vector<synnax::ChannelKey> state_keys = daq_writer->getStateChannelKeys();
+    std::vector <synnax::ChannelKey> cmd_keys = daq_writer->getCmdChannelKeys();
+    std::vector <synnax::ChannelKey> state_keys = daq_writer->getStateChannelKeys();
 
     // create a writer config to write state channels
     auto writer_config = synnax::WriterConfig{
-        .channels = state_keys,
-        .start = synnax::TimeStamp::now(),
-        .mode = synnax::WriterStreamOnly // TODO: is this the correct mode?
+            .channels = state_keys,
+            .start = synnax::TimeStamp::now(),
+            .mode = synnax::WriterStreamOnly // TODO: is this the correct mode?
     };
 
     // create a streamer config to stream incoming cmds
     auto streamer_config = synnax::StreamerConfig{
-        .channels = cmd_keys,
-        .start = synnax::TimeStamp::now(),
+            .channels = cmd_keys,
+            .start = synnax::TimeStamp::now(),
     };
 
     // construct acquisition pipe
-    this->state_write_pipe = pipeline::Acquisition(     ctx, 
-                                                        writer_config, 
-                                                        daq_writer->writer_state_source, 
-                                                        breaker_config);
+    this->state_write_pipe = pipeline::Acquisition(ctx,
+                                                   writer_config,
+                                                   daq_writer->writer_state_source,
+                                                   breaker_config);
 
     // construct control pipe
-    this->cmd_write_pipe = std::move(pipeline::Control(   ctx, 
-                                                streamer_config, 
-                                                std::move(daq_writer), 
-                                                breaker_config));
-} 
+    this->cmd_write_pipe = std::move(pipeline::Control(ctx,
+                                                       streamer_config,
+                                                       std::move(daq_writer),
+                                                       breaker_config));
+}
 
 
-
-
-std::unique_ptr<task::Task> ni::WriterTask::configure(    const std::shared_ptr<task::Context>&ctx,
-                                                            const synnax::Task &task){
+std::unique_ptr <task::Task> ni::WriterTask::configure(const std::shared_ptr <task::Context> &ctx,
+                                                       const synnax::Task &task) {
     return std::make_unique<ni::WriterTask>(ctx, task);
 }
 
-void ni::WriterTask::exec(task::Command &cmd){
-    if (cmd.type == "start"){
+void ni::WriterTask::exec(task::Command &cmd) {
+    if (cmd.type == "start") {
         this->cmd_write_pipe.start();
         this->state_write_pipe.start();
 
         ctx->setState({
-            .task = task.key,
-            .variant = "success",
-            .details = {
-                {"running", true}
-            }
-        });
+                              .task = task.key,
+                              .variant = "success",
+                              .details = {
+                                      {"running", true}
+                              }
+                      });
         LOG(INFO) << "[NI Task] successfully started task " << this->task.name;
 
-    } else if (cmd.type == "stop"){
+    } else if (cmd.type == "stop") {
         this->state_write_pipe.stop();
         this->cmd_write_pipe.stop();
 
         ctx->setState({
-            .task = task.key,
-            .variant = "success",
-            .details = {
-                {"running", false}
-            }
-        });
+                              .task = task.key,
+                              .variant = "success",
+                              .details = {
+                                      {"running", false}
+                              }
+                      });
         LOG(INFO) << "[NI Task] successfully stopped task " << this->task.name;
     } else {
         LOG(ERROR) << "unknown command type: " << cmd.type;

@@ -26,6 +26,15 @@ public:
     static int32 WriteDigitalLines(TaskHandle task, int32 numSampsPerChan, bool32 autoStart, float64 timeout, int32 dataLayout, const uInt8 writeArray[], int32* sampsPerChanWritten, bool32* reserved);
     // int32 GetExtendedErrorInfo(char errorString[], uInt32 bufferSize);
     static int32 GetExtendedErrorInfo(char errorString[], uInt32 bufferSize);    
+
+    static int32 CreateLinScale (const char name[], float64 slope, float64 yIntercept, int32 preScaledUnits, const char scaledUnits[]);
+    static int32 CreateMapScale (const char name[], float64 prescaledMin, float64 prescaledMax, float64 scaledMin, float64 scaledMax, int32 preScaledUnits, const char scaledUnits[]);
+    static int32 CreatePolynomialScale (const char name[], const float64 forwardCoeffs[], uInt32 numForwardCoeffsIn, const float64 reverseCoeffs[], uInt32 numReverseCoeffsIn, int32 preScaledUnits, const char scaledUnits[]);
+    static int32 CreateTableScale  (const char name[], const float64 prescaledVals[], uInt32 numPrescaledValsIn, const float64 scaledVals[], uInt32 numScaledValsIn, int32 preScaledUnits, const char scaledUnits[]);
+    static int32 CalculateReversePolyCoeff (const float64 forwardCoeffs[], uInt32 numForwardCoeffsIn, float64 minValX, float64 maxValX, int32 numPointsToCompute, int32 reversePolyOrder, float64 reverseCoeffs[]);
+
+
+
 };
 }
 

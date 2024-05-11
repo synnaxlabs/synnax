@@ -15,9 +15,10 @@ std::pair<std::unique_ptr<task::Task>, bool> ni::Factory::configureTask(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task
 ) {
-    if(task.type == "niScanner")
-        return {ni::ScannerTask::configure(ctx, task), true}; 
-    else if (task.type == "niReader")
+    if(task.type == "niScanner") {
+        std::cout << "Configuring niScanner task" << std::endl;
+        return {ni::ScannerTask::configure(ctx, task), true};
+    } else if (task.type == "niReader")
         return {ni::ReaderTask::configure(ctx, task), true};
     else if (task.type == "niWriter")
         return {ni::WriterTask::configure(ctx, task), true};

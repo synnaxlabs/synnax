@@ -160,6 +160,11 @@ public:
         return freighter::Error{synnax::VALIDATION_ERROR, error_json().dump()};
     }
 
+        /// @returns the parser's errors as a JSON object of the form {"errors": [ACCUMULATED_ERRORS]}.
+    [[nodiscard]] json get_json() const {
+        return config;
+    }
+
 private:
     /// @brief the JSON configuration being parsed.
     json config;
