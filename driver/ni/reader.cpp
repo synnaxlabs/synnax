@@ -457,13 +457,13 @@ void ni::daqReader::deleteScales(){
 
 std::pair<synnax::Frame, freighter::Error> ni::daqReader::readAnalog()
 {
-    signed long samplesRead = 0;
+    int32 samplesRead = 0;
     float64 flush[1000]; // to flush buffer before performing a read
-    signed long flushRead = 0;
+    int32 flushRead = 0;
     synnax::Frame f = synnax::Frame(numChannels);
 
     // initial read to flush buffer
-    if (this->checkNIError(DAQmxReadAnalogF64(this->taskHandle,
+    if (this->checkNIError(ni::NiDAQmxInterface::ReadAnalogF64(this->taskHandle,
                                               -1, // reads all available samples in buffer
                                               10.0,
                                               DAQmx_Val_GroupByChannel,
@@ -529,11 +529,11 @@ std::pair<synnax::Frame, freighter::Error> ni::daqReader::readAnalog()
 
 std::pair<synnax::Frame, freighter::Error> ni::daqReader::readDigital()
 {
-    signed long samplesRead;
+    int32 samplesRead;
     char errBuff[2048] = {'\0'};
     uInt8 flushBuffer[10000]; // to flush buffer before performing a read
     uInt8 dataBuffer[10000];
-    signed long flushRead;
+    int32 flushRead;
     synnax::Frame f = synnax::Frame(numChannels);
     int32 numBytesPerSamp; // TODO do i need this?
     int err = 0;
@@ -851,7 +851,7 @@ freighter::Error ni::daqWriter::write(synnax::Frame frame)
 freighter::Error ni::daqWriter::writeDigital(synnax::Frame frame)
 {
     char errBuff[2048] = {'\0'};
-    signed long samplesWritten = 0;
+    int32 samplesWritten = 0;
     formatData(std::move(frame));
 
     // Write digital data
