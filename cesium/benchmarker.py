@@ -44,7 +44,6 @@ def test(var_of_interest, var_values):
         output = run(parse_command(param),
                      capture_output=True).stdout
 
-        print(output)
         output = bytes.decode(output).split("\n")
         output = [int(time) / 1e9 for time in output]
         test_results.append([])
