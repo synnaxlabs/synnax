@@ -19,6 +19,7 @@ import {
   useMemo,
   useCallback,
   useEffect,
+  FC,
 } from "react";
 
 import { shallowCopy, type Destructor, toArray } from "@synnaxlabs/x";
@@ -273,6 +274,20 @@ export const Field = <
     </Input.Item>
   );
 };
+
+const buildField =
+  <I extends Input.Value, O extends Input.Value, P extends {}>(
+    Component: FC<P & Input.Control<I, O>>,
+  ): FC<FieldProps<I, O> & { inputProps?: P }> =>
+  ({ inputProps, ...props }) => (
+    <Field<I, O> {...props}>
+      {(cp) => <Component {...cp} {...(inputProps as P)} />}
+    </Field>
+  );
+
+export const NumericField = buildField(Input.Numeric);
+export const TextField = buildField(Input.Text);
+export const SwitchField = buildField(Input.Switch);
 
 type Listener<V = unknown> = (state: FieldState<V>) => void;
 
