@@ -598,9 +598,9 @@ describe("Series", () => {
       const a = new Series({
         data: new Float32Array([1, 2, 3]),
         timeRange: new TimeRange(1, 2),
-        alignment: 1,
+        alignment: 1n,
       });
-      expect(a.alignmentBounds).toEqual({ lower: 1, upper: 4 });
+      expect(a.alignmentBounds).toEqual({ lower: 1n, upper: 4n });
     });
   });
 

@@ -27,16 +27,9 @@ export const ChannelList = ({
   const handleAdd = (): void => {
     const availablePort = Math.max(0, ...value.map((v) => v.port)) + 1;
     push({
-      key: nanoid(),
-      type: "analogVoltageInput",
-      enabled: true,
-      scale: {
-        type: "none",
-        one: xy.ZERO,
-        two: xy.ZERO,
-      },
+      ...ZERO_AI_CHANNELS["ai_voltage"],
       port: availablePort,
-      channel: 0,
+      key: nanoid(),
     });
   };
 

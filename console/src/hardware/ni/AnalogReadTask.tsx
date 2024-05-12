@@ -26,6 +26,7 @@ import { Text } from "@synnaxlabs/pluto/text";
 import { CSS } from "@/css";
 import { ChannelList } from "@/hardware/ni/ChannelList";
 import {
+  AIChanType,
   AnalogReadTaskConfig,
   analogReadTaskConfigZ,
   AnalogReadTaskState,
@@ -40,6 +41,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { task } from "@synnaxlabs/client";
 import { z } from "zod";
 import { Icon } from "@synnaxlabs/media";
+import { ANALOG_INPUT_FORMS, SelectChannelTypeField } from "./ChannelForms";
 
 export const analogReadTaskLayout: Layout.LayoutState = {
   name: "Configure NI Analog Read Task",
@@ -152,7 +154,7 @@ const AnalogReadTaskInternal = ({
                   allowNone={false}
                   grow
                   {...p}
-                  searchOptions={{ makes: ["ni"] }}
+                  searchOptions={{ makes: ["NI"] }}
                 />
               )}
             </Form.Field>
@@ -223,35 +225,16 @@ interface ChannelFormProps {
 
 const ChannelForm = ({ selectedChannelIndex }: ChannelFormProps): ReactElement => {
   const prefix = `config.channels.${selectedChannelIndex}`;
+  const type = Form.useField<AIChanType>({ path: `${prefix}.type` });
+  const TypeForm = ANALOG_INPUT_FORMS[type.value];
   return (
     <>
       <Align.Space direction="y" className={CSS.B("channel-form-content")}>
-        <Form.Field<number> label="Port" path={`${prefix}.port`}>
-          {(p) => <Input.Numeric {...p} />}
-        </Form.Field>
-        <Form.Field<number>
-          label="Line"
-          path={`${prefix}.line`}
-          hideIfNull
-          visible={(fs) => fs.value !== 0}
-        >
-          {(p) => <Input.Numeric {...p} />}
-        </Form.Field>
-        <Form.Field<number> label="Channel" path={`${prefix}.channel`}>
-          {(p) => <Channel.SelectSingle {...p} />}
-        </Form.Field>
-        <Form.Field<LinearScaleType>
-          label="Scale Type"
-          path={`${prefix}.scale.type`}
-          onChange={(v, { set, get }) => {
-            const { value: prev } = get<LinearScale>({ path: `${prefix}.scale` });
-            if (prev.type === v) return;
-            set({ path: `${prefix}.scale`, value: DEFAULT_SCALES[v] });
-          }}
-        >
-          {(p) => <SelectScale {...p} />}
-        </Form.Field>
-        <ScaleForm path={`${prefix}.scale`} />
+        <SelectChannelTypeField 
+          prefix={prefix} 
+          allowNone={false} 
+        />
+        {/* <TypeForm prefix={prefix} /> */}
       </Align.Space>
     </>
   );

@@ -11,6 +11,7 @@ import {
   TorqueUnits,
 } from "@/hardware/ni/types";
 import { FC, ReactElement } from "react";
+import { Optional } from "@synnaxlabs/x";
 
 interface FormProps {
   prefix: string;
@@ -44,13 +45,45 @@ interface BuiltFieldProps<K extends string> extends FormProps {
   omit?: NamedKey<K>[];
 }
 
-const buildNamedKeySelect =
+interface BuildFieldProps<K extends string, P extends {}> {
+  label: string,
+  fieldKey: string,
+  inputProps: P,
+}
+
+type NamedKeyBtnSelectProps = Omit<Select.ButtonProps<string, NamedKey<string>>, "value" | "onChange">;
+
+const buildNamedKeyBtnSelect =
+  <K extends string>({
+    label: label_,
+    fieldKey: fieldKey_,
+    inputProps: { data },
+  }: BuildFieldProps<K, NamedKeyBtnSelectProps>): FC<BuiltFieldProps<K> & Omit<Select.ButtonProps<K, NamedKey<K>>, "data">> =>
+  ({ prefix, fieldKey = fieldKey_, label = label_, omit, ...props }): ReactElement => {
+    if (omit != null) data = data.filter((d) => !omit.includes(d));
+    return (
+      <Form.Field<K> path={`${prefix}.${fieldKey}`} label={label}>
+        {(p) => (
+          <Select.Button<K, NamedKey<K>>
+            {...p}
+            data={data}
+            entryRenderKey="name"
+            {...props}
+          />
+        )}
+      </Form.Field>
+    );
+  };
+
+
+
+const buildNamedKeySearchSelect =
   <K extends string>(
     label_: string,
     fieldKey_: string,
     data: NamedKey<K>[],
-  ): FC<BuiltFieldProps<K>> =>
-  ({ prefix, fieldKey = fieldKey_, label = label_, omit }): ReactElement => {
+  ): FC<BuiltFieldProps<K> & Omit<Select.SingleProps<K, NamedKey<K>>, "data">> =>
+  ({ prefix, fieldKey = fieldKey_, label = label_, omit, ...props }): ReactElement => {
     if (omit != null) data = data.filter((d) => !omit.includes(d));
     return (
       <Form.Field<K> path={`${prefix}.${fieldKey}`} label={label}>
@@ -60,6 +93,7 @@ const buildNamedKeySelect =
             columns={NAMED_KEY_COLS}
             data={data}
             entryRenderKey="name"
+            {...props}
           />
         )}
       </Form.Field>
@@ -88,10 +122,11 @@ const buildNamedKeySelectMultiple =
     );
   };
 
-const TerminalConfigField = buildNamedKeySelect(
-  "Terminal Configuration",
-  "terminalConfig",
-  [
+const TerminalConfigField = buildNamedKeyBtnSelect({
+  label: "Terminal Configuration",
+  fieldKey: "terminalConfig",
+  inputProps: {
+  data: [
     {
       key: "RSE",
       name: "Referenced Single Ended",
@@ -113,9 +148,10 @@ const TerminalConfigField = buildNamedKeySelect(
       name: "Default",
     },
   ],
-);
+}
+});
 
-const AccelSensitivityUnitsField = buildNamedKeySelect<AccelSensitivityUnits>(
+const AccelSensitivityUnitsField = buildNamedKeyBtnSelect<AccelSensitivityUnits>(
   "Sensitivity Units",
   "sensitivityUnits",
   [
@@ -130,7 +166,7 @@ const AccelSensitivityUnitsField = buildNamedKeySelect<AccelSensitivityUnits>(
   ],
 );
 
-const ExcitSourceField = buildNamedKeySelect<ExcitationSource>(
+const ExcitSourceField = buildNamedKeyBtnSelect<ExcitationSource>(
   "Excitation Source",
   "excitSource",
   [
@@ -145,7 +181,7 @@ const ExcitSourceField = buildNamedKeySelect<ExcitationSource>(
   ],
 );
 
-const AccelerationUnitsField = buildNamedKeySelect<AccelerationUnits>(
+const AccelerationUnitsField = buildNamedKeyBtnSelect<AccelerationUnits>(
   "Acceleration Units",
   "accelUnits",
   [
@@ -164,7 +200,7 @@ const AccelerationUnitsField = buildNamedKeySelect<AccelerationUnits>(
   ],
 );
 
-const BridgeConfigField = buildNamedKeySelect("Bridge Configuration", "bridgeConfig", [
+const BridgeConfigField = buildNamedKeyBtnSelect("Bridge Configuration", "bridgeConfig", [
   {
     key: "FullBridge",
     name: "Full Bridge",
@@ -179,7 +215,7 @@ const BridgeConfigField = buildNamedKeySelect("Bridge Configuration", "bridgeCon
   },
 ]);
 
-const ShuntResistorLocField = buildNamedKeySelect(
+const ShuntResistorLocField = buildNamedKeyBtnSelect(
   "Shunt Resistor Location",
   "shuntLoc",
   [
@@ -198,7 +234,7 @@ const ShuntResistorLocField = buildNamedKeySelect(
   ],
 );
 
-const ResistanceConfigField = buildNamedKeySelect(
+const ResistanceConfigField = buildNamedKeyBtnSelect(
   "Resistance Configuration",
   "resConfig",
   [
@@ -217,7 +253,7 @@ const ResistanceConfigField = buildNamedKeySelect(
   ],
 );
 
-const StrainConfig = buildNamedKeySelect("Strain Configuration", "strainConfig", [
+const StrainConfig = buildNamedKeyBtnSelect("Strain Configuration", "strainConfig", [
   {
     key: "FullBridgeI",
     name: "Full Bridge I",
@@ -267,14 +303,14 @@ const MinMaxValueFields = ({ prefix }: FormProps): ReactElement => (
   </Align.Space>
 );
 
-const AmpsOnlyUnitsField = buildNamedKeySelect("Current Units", "units", [
+const AmpsOnlyUnitsField = buildNamedKeyBtnSelect("Current Units", "units", [
   {
     key: "Amps",
     name: "Amps",
   },
 ]);
 
-const ForceUnitsField = buildNamedKeySelect<ForceUnits>("Force Units", "units", [
+const ForceUnitsField = buildNamedKeyBtnSelect<ForceUnits>("Force Units", "units", [
   {
     key: "Newtons",
     name: "Newtons",
@@ -289,7 +325,7 @@ const ForceUnitsField = buildNamedKeySelect<ForceUnits>("Force Units", "units", 
   },
 ]);
 
-const ElectricalUnitsField = buildNamedKeySelect<ElectricalUnits>(
+const ElectricalUnitsField = buildNamedKeyBtnSelect<ElectricalUnits>(
   "Electrical Units",
   "units",
   [
@@ -304,7 +340,7 @@ const ElectricalUnitsField = buildNamedKeySelect<ElectricalUnits>(
   ],
 );
 
-const PressureUnitsField = buildNamedKeySelect("Pressure Units", "units", [
+const PressureUnitsField = buildNamedKeyBtnSelect("Pressure Units", "units", [
   {
     key: "Pascals",
     name: "Pascals",
@@ -315,7 +351,7 @@ const PressureUnitsField = buildNamedKeySelect("Pressure Units", "units", [
   },
 ]);
 
-const TemperatureUnitsField = buildNamedKeySelect("Temperature Units", "units", [
+const TemperatureUnitsField = buildNamedKeyBtnSelect("Temperature Units", "units", [
   {
     key: "DegG",
     name: "Celsius",
@@ -334,7 +370,7 @@ const TemperatureUnitsField = buildNamedKeySelect("Temperature Units", "units", 
   },
 ]);
 
-const TorqueUnitsField = buildNamedKeySelect<TorqueUnits>("Torque Units", "units", [
+const TorqueUnitsField = buildNamedKeyBtnSelect<TorqueUnits>("Torque Units", "units", [
   {
     key: "NewtonMeters",
     name: "Newton Meters",
@@ -349,10 +385,124 @@ const TorqueUnitsField = buildNamedKeySelect<TorqueUnits>("Torque Units", "units
   },
 ]);
 
-const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
+const PortField = buildNumericField("Port", "port");
+
+export const SelectChannelTypeField = buildNamedKeySearchSelect<AIChanType>(
+  "Channel Type",
+  "type",
+  [
+    {
+      key: "ai_accel",
+      name: "AI Acceleration",
+    },
+    {
+      key: "ai_accel_4_wire_dc_voltage",
+      name: "AI Acceleration 4-Wire DC Voltage",
+    },
+    {
+      key: "ai_accel_charge",
+      name: "AI Acceleration Charge",
+    },
+    {
+      key: "ai_bridge",
+      name: "AI Bridge",
+    },
+    {
+      key: "ai_charge",
+      name: "AI Charge",
+    },
+    {
+      key: "ai_current",
+      name: "AI Current",
+    },
+    {
+      key: "ai_current_rms",
+      name: "AI Current RMS",
+    },
+    {
+      key: "ai_force_bridge_polynomial",
+      name: "AI Force Bridge Polynomial",
+    },
+    {
+      key: "ai_force_bridge_table",
+      name: "AI Force Bridge Table",
+    },
+    {
+      key: "ai_force_bridge_two_point_lin",
+      name: "AI Force Bridge Two Point Linear",
+    },
+    {
+      key: "ai_force_epe",
+      name: "AI Force EPE",
+    },
+    {
+      key: "ai_freq_voltage",
+      name: "AI Frequency Voltage",
+    },
+    {
+      key: "ai_microphone",
+      name: "AI Microphone",
+    },
+    {
+      key: "ai_pressure_bridge_polynomial",
+      name: "AI Pressure Bridge Polynomial",
+    },
+    {
+      key: "ai_pressure_bridge_table",
+      name: "AI Pressure Bridge Table",
+    },
+    {
+      key: "ai_pressure_bridge_two_point_lin",
+      name: "AI Pressure Bridge Two Point Linear",
+    },
+    {
+      key: "ai_resistance",
+      name: "AI Resistance",
+    },
+    {
+      key: "ai_rosette_strain_gage",
+      name: "AI Rosette Strain Gage",
+    },
+    {
+      key: "ai_rtd",
+      name: "AI RTD",
+    },
+    {
+      key: "ai_strain_gauge",
+      name: "AI Strain Gauge",
+    },
+    {
+      key: "ai_temp_builtin",
+      name: "AI Temperature Built-In",
+    },
+    {
+      key: "ai_thermocouple",
+      name: "AI Thermocouple",
+    },
+    {
+      key: "ai_thermistor_iex",
+      name: "AI Thermistor IEX",
+    },
+    {
+      key: "ai_thermistor_vex",
+      name: "AI Thermistor VEX",
+    },
+    {
+      key: "ai_voltage",
+      name: "AI Voltage",
+    },
+    {
+      key: "ai_voltage_rms",
+      name: "AI Voltage RMS",
+    },
+  ]
+);
+
+export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
   ai_accel: ({ prefix }) => (
     <>
       <ChannelField prefix={prefix} />
+      <PortField prefix={prefix} />
       <TerminalConfigField prefix={prefix} />
       <MinMaxValueFields prefix={prefix} />
       <SensitivityField prefix={prefix} />
@@ -392,13 +542,13 @@ const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
   ),
   ai_accel_charge: ({ prefix }) => (
     <>
-      <BaseAIAccelForm prefix={prefix} />
       <AccelerationUnitsField prefix={prefix} />
     </>
   ),
   ai_bridge: ({ prefix }) => (
     <>
       <ChannelField prefix={prefix} />
+      <PortField prefix={prefix} />
       <MinMaxValueFields prefix={prefix} />
       <BridgeConfigField prefix={prefix} />
       <ExcitSourceField
@@ -417,7 +567,7 @@ const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     </>
   ),
   ai_charge: ({ prefix }) => {
-    const Units = buildNamedKeySelect("Charge Units", "units", [
+    const Units = buildNamedKeyBtnSelect("Charge Units", "units", [
       {
         key: "Coulombs",
         name: "Coulombs",
@@ -430,6 +580,7 @@ const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     return (
       <>
         <ChannelField prefix={prefix} />
+        <PortField prefix={prefix} />
         <TerminalConfigField prefix={prefix} />
         <MinMaxValueFields prefix={prefix} />
         <Units prefix={prefix} />
@@ -440,6 +591,7 @@ const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     return (
       <>
         <ChannelField prefix={prefix} />
+        <PortField prefix={prefix} />
         <TerminalConfigField prefix={prefix} />
         <MinMaxValueFields prefix={prefix} />
         <AmpsOnlyUnitsField prefix={prefix} />
@@ -455,6 +607,7 @@ const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     return (
       <>
         <ChannelField prefix={prefix} />
+        <PortField prefix={prefix} />
         <TerminalConfigField prefix={prefix} />
         <MinMaxValueFields prefix={prefix} />
         <AmpsOnlyUnitsField prefix={prefix} />
@@ -471,6 +624,7 @@ const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     return (
       <>
         <ChannelField prefix={prefix} />
+        <PortField prefix={prefix} />
         <MinMaxValueFields prefix={prefix} />
         <ForceUnitsField prefix={prefix} />
         <BridgeConfigField prefix={prefix} />
@@ -502,6 +656,7 @@ const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     return (
       <>
         <ChannelField prefix={prefix} />
+        <PortField prefix={prefix} />
         <MinMaxValueFields prefix={prefix} />
         <ForceUnitsField prefix={prefix} />
         <BridgeConfigField prefix={prefix} />
@@ -533,6 +688,7 @@ const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     return (
       <>
         <ChannelField prefix={prefix} />
+        <PortField prefix={prefix} />
         <MinMaxValueFields prefix={prefix} />
         <ForceUnitsField prefix={prefix} />
         <BridgeConfigField prefix={prefix} />
@@ -575,7 +731,7 @@ const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     );
   },
   ai_force_epe: ({ prefix }) => {
-    const SensitivityUnits = buildNamedKeySelect(
+    const SensitivityUnits = buildNamedKeyBtnSelect(
       "Sensitivity Units",
       "sensitivityUnits",
       [
@@ -592,6 +748,7 @@ const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     return (
       <>
         <ChannelField prefix={prefix} />
+        <PortField prefix={prefix} />
         <TerminalConfigField prefix={prefix} />
         <MinMaxValueFields prefix={prefix} />
         <ForceUnitsField prefix={prefix} omit={["KilogramForce"]} />
@@ -610,7 +767,7 @@ const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     );
   },
   ai_freq_voltage: ({ prefix }) => {
-    const UnitsField = buildNamedKeySelect("Frequency Units", "units", [
+    const UnitsField = buildNamedKeyBtnSelect("Frequency Units", "units", [
       {
         key: "Hz",
         name: "Hertz",
@@ -619,6 +776,7 @@ const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     return (
       <>
         <ChannelField prefix={prefix} />
+        <PortField prefix={prefix} />
         <MinMaxValueFields prefix={prefix} />
         <UnitsField prefix={prefix} />
         <Form.NumericField path={`${prefix}.thresholdLevel`} label="Threshold Level" />
@@ -627,7 +785,7 @@ const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     );
   },
   ai_microphone: ({ prefix }) => {
-    const UnitsField = buildNamedKeySelect("Sound Pressure Units", "units", [
+    const UnitsField = buildNamedKeyBtnSelect("Sound Pressure Units", "units", [
       {
         key: "Pascals",
         name: "Pascals",
@@ -636,6 +794,7 @@ const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     return (
       <>
         <ChannelField prefix={prefix} />
+        <PortField prefix={prefix} />
         <TerminalConfigField prefix={prefix} />
         <UnitsField prefix={prefix} />
         <Form.NumericField
@@ -662,6 +821,7 @@ const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     return (
       <>
         <ChannelField prefix={prefix} />
+        <PortField prefix={prefix} />
         <MinMaxValueFields prefix={prefix} />
         <PressureUnitsField prefix={prefix} />
         <BridgeConfigField prefix={prefix} />
@@ -693,6 +853,7 @@ const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     return (
       <>
         <ChannelField prefix={prefix} />
+        <PortField prefix={prefix} />
         <MinMaxValueFields prefix={prefix} />
         <PressureUnitsField prefix={prefix} />
         <BridgeConfigField prefix={prefix} />
@@ -724,6 +885,7 @@ const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     return (
       <>
         <ChannelField prefix={prefix} />
+        <PortField prefix={prefix} />
         <MinMaxValueFields prefix={prefix} />
         <PressureUnitsField prefix={prefix} />
         <BridgeConfigField prefix={prefix} />
@@ -766,7 +928,7 @@ const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     );
   },
   ai_resistance_chan: ({ prefix }) => {
-    const UnitsField = buildNamedKeySelect("Resistance Units", "units", [
+    const UnitsField = buildNamedKeyBtnSelect("Resistance Units", "units", [
       {
         key: "Ohms",
         name: "Ohms",
@@ -776,6 +938,7 @@ const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     return (
       <>
         <ChannelField prefix={prefix} />
+        <PortField prefix={prefix} />
         <TerminalConfigField prefix={prefix} />
         <MinMaxValueFields prefix={prefix} />
         <UnitsField prefix={prefix} />
@@ -793,7 +956,7 @@ const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     );
   },
   ai_rosette_strain_gauge: ({ prefix }) => {
-    const TypeField = buildNamedKeySelect("Rosette Type", "rosetteType", [
+    const TypeField = buildNamedKeyBtnSelect("Rosette Type", "rosetteType", [
       {
         key: "RectangularRosette",
         name: "Rectangular",
@@ -849,6 +1012,7 @@ const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     return (
       <>
         <ChannelField prefix={prefix} />
+        <PortField prefix={prefix} />
         <MinMaxValueFields prefix={prefix} />
         <BridgeConfigField prefix={prefix} />
         <ExcitSourceField
@@ -896,7 +1060,7 @@ const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     );
   },
   ai_rtd: ({ prefix }) => {
-    const RTDTypeField = buildNamedKeySelect("RTD Type", "rtdType", [
+    const RTDTypeField = buildNamedKeyBtnSelect("RTD Type", "rtdType", [
       {
         key: "Pt3750",
         name: "Pt3750",
@@ -926,6 +1090,7 @@ const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     return (
       <>
         <ChannelField prefix={prefix} />
+        <PortField prefix={prefix} />
         <MinMaxValueFields prefix={prefix} />
         <TemperatureUnitsField prefix={prefix} />
         <RTDTypeField prefix={prefix} />
@@ -943,7 +1108,7 @@ const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     );
   },
   ai_strain_gauge: ({ prefix }) => {
-    const StrainUnitsField = buildNamedKeySelect("Strain Units", "units", [
+    const StrainUnitsField = buildNamedKeyBtnSelect("Strain Units", "units", [
       {
         key: "Strain",
         name: "Strain",
@@ -952,6 +1117,7 @@ const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     return (
       <>
         <ChannelField prefix={prefix} />
+        <PortField prefix={prefix} />
         <MinMaxValueFields prefix={prefix} />
         <StrainUnitsField prefix={prefix} />
         <StrainConfig prefix={prefix} />
@@ -985,12 +1151,13 @@ const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     return (
       <>
         <ChannelField prefix={prefix} />
+        <PortField prefix={prefix} />
         <TemperatureUnitsField prefix={prefix} />
       </>
     );
   },
   ai_thermocouple: ({ prefix }) => {
-    const ThermocoupleTypeField = buildNamedKeySelect(
+    const ThermocoupleTypeField = buildNamedKeyBtnSelect(
       "Thermocouple Type",
       "thermocoupleType",
       [
@@ -1028,7 +1195,7 @@ const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
         },
       ],
     );
-    const CJCSourceField = buildNamedKeySelect("CJC Source", "cjcSource", [
+    const CJCSourceField = buildNamedKeyBtnSelect("CJC Source", "cjcSource", [
       {
         key: "BuiltIn",
         name: "Built In",
@@ -1045,6 +1212,7 @@ const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     return (
       <>
         <ChannelField prefix={prefix} />
+        <PortField prefix={prefix} />
         <MinMaxValueFields prefix={prefix} />
         <TemperatureUnitsField prefix={prefix} />
         <ThermocoupleTypeField prefix={prefix} />
@@ -1057,6 +1225,7 @@ const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     return (
       <>
         <ChannelField prefix={prefix} />
+        <PortField prefix={prefix} />
         <MinMaxValueFields prefix={prefix} />
         <TemperatureUnitsField prefix={prefix} />
         <ResistanceConfigField prefix={prefix} />
@@ -1079,6 +1248,7 @@ const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     return (
       <>
         <ChannelField prefix={prefix} />
+        <PortField prefix={prefix} />
         <MinMaxValueFields prefix={prefix} />
         <TemperatureUnitsField prefix={prefix} />
         <ResistanceConfigField prefix={prefix} />
@@ -1115,6 +1285,7 @@ const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     return (
       <>
         <ChannelField prefix={prefix} />
+        <PortField prefix={prefix} />
         <MinMaxValueFields prefix={prefix} />
         <TorqueUnitsField prefix={prefix} />
         <BridgeConfigField prefix={prefix} />
@@ -1146,6 +1317,7 @@ const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     return (
       <>
         <ChannelField prefix={prefix} />
+        <PortField prefix={prefix} />
         <MinMaxValueFields prefix={prefix} />
         <TorqueUnitsField prefix={prefix} />
         <BridgeConfigField prefix={prefix} />
@@ -1177,6 +1349,7 @@ const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     return (
       <>
         <ChannelField prefix={prefix} />
+        <PortField prefix={prefix} />
         <MinMaxValueFields prefix={prefix} />
         <TorqueUnitsField prefix={prefix} />
         <BridgeConfigField prefix={prefix} />
@@ -1218,8 +1391,8 @@ const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
       </>
     );
   },
-  ai_voltage: ({ prefix }) => {
-    const VelocityUnits = buildNamedKeySelect("Velocity Units", "units", [
+  ai_velocity_epe: ({ prefix }) => {
+    const VelocityUnits = buildNamedKeyBtnSelect("Velocity Units", "units", [
       {
         key: "MetersPerSecond",
         name: "m/s",
@@ -1229,7 +1402,7 @@ const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
         name: "in/s",
       },
     ]);
-    const SensitivityUnits = buildNamedKeySelect(
+    const SensitivityUnits = buildNamedKeyBtnSelect(
       "Sensitivity Units",
       "sensitivityUnits",
       [
@@ -1246,6 +1419,7 @@ const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     return (
       <>
         <ChannelField prefix={prefix} />
+        <PortField prefix={prefix} />
         <TerminalConfigField prefix={prefix} />
         <MinMaxValueFields prefix={prefix} />
         <ElectricalUnitsField prefix={prefix} />
@@ -1264,8 +1438,8 @@ const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
       </>
     );
   },
-  ai_voltage_rms: ({ prefix }) => {
-    const VoltageUnits = buildNamedKeySelect("Units", "units", [
+  ai_voltage: ({ prefix }) => {
+    const VoltageUnits = buildNamedKeyBtnSelect("Units", "units", [
       {
         key: "Volts",
         name: "Volts",
@@ -1274,6 +1448,24 @@ const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     return (
       <>
         <ChannelField prefix={prefix} />
+        <PortField prefix={prefix} />
+        <TerminalConfigField prefix={prefix} />
+        <MinMaxValueFields prefix={prefix} />
+        <VoltageUnits prefix={prefix} />
+      </>
+    );
+  },
+  ai_voltage_rms: ({ prefix }) => {
+    const VoltageUnits = buildNamedKeyBtnSelect("Units", "units", [
+      {
+        key: "Volts",
+        name: "Volts",
+      },
+    ]);
+    return (
+      <>
+        <ChannelField prefix={prefix} />
+        <PortField prefix={prefix} />
         <TerminalConfigField prefix={prefix} />
         <MinMaxValueFields prefix={prefix} />
         <VoltageUnits prefix={prefix} />
@@ -1281,7 +1473,7 @@ const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     );
   },
   ai_voltage_with_excit: ({ prefix }) => {
-    const VoltageUnits = buildNamedKeySelect("Units", "units", [
+    const VoltageUnits = buildNamedKeyBtnSelect("Units", "units", [
       {
         key: "Volts",
         name: "Volts",
@@ -1290,6 +1482,7 @@ const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
     return (
       <>
         <ChannelField prefix={prefix} />
+        <PortField prefix={prefix} />
         <MinMaxValueFields prefix={prefix} />
         <VoltageUnits prefix={prefix} />
         <BridgeConfigField prefix={prefix} />

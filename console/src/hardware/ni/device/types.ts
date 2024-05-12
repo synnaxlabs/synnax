@@ -12,7 +12,7 @@ import { z } from "zod";
 
 // VENDOR
 
-const VENDORS = ["ni", "other"] as const;
+const VENDORS = ["NI", "other"] as const;
 
 export const vendorZ = z.enum(VENDORS);
 

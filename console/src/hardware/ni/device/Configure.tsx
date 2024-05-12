@@ -36,7 +36,7 @@ const makeDefaultValues = (device: device.Device): Configuration => {
     properties: {
       key: device.key,
       name: device.name,
-      vendor: device.make as "ni",
+      vendor: device.make as "NI",
       model: device.model,
       identifier: extrapolateIdentifier(device.name),
       location: "Dev1",
@@ -76,12 +76,12 @@ export const Configure = ({ layoutKey }: Layout.RendererProps): ReactElement => 
     queryFn: async ({ queryKey }) => {
       const [key] = queryKey;
       if (client == null) return;
-      console.log(key);
       return await client.hardware.devices.retrieve(
-        "130127d9-02aa-47e4-b370-0d590add1bc1" as string,
+        layoutKey
       );
     },
   });
+  console.log(data)
   if (isPending || data == null) return <div>Loading...</div>;
   return <ConfigureInternal device={data} />;
 };
