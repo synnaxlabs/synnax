@@ -22,9 +22,9 @@ import (
 )
 
 var (
-	ctx                       = context.Background()
-	rootPath                  = "cesium-testdata"
-	fileSystems, cleanUp, err = testutil.FileSystems()
+	ctx                                 = context.Background()
+	rootPath                            = "cesium-testdata"
+	fileSystems, cleanUp, fileSystemErr = testutil.FileSystems()
 )
 
 func openDBOnFS(fs xfs.FS) *cesium.DB {
@@ -43,6 +43,6 @@ func TestCesium(t *testing.T) {
 	RunSpecs(t, "Cesium Suite")
 }
 
-var _ = BeforeSuite(func() { Expect(err).ToNot(HaveOccurred()) })
+var _ = BeforeSuite(func() { Expect(fileSystemErr).ToNot(HaveOccurred()) })
 
 var _ = AfterSuite(func() { Expect(cleanUp()).To(Succeed()) })
