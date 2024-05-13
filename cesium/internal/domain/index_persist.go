@@ -10,11 +10,9 @@
 package domain
 
 import (
-	"context"
 	"encoding/binary"
 	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
-	"go.uber.org/zap"
 	"os"
 )
 
@@ -25,30 +23,12 @@ type indexPersist struct {
 	idx *index
 }
 
-const indexFile = "index"
+const indexFile = "index" + extension
 
-func openIndexPersist(idx *index, cfg Config) (*indexPersist, error) {
-	f, err := cfg.FS.Open(fileName(indexFile), os.O_CREATE|os.O_RDWR)
+func openIndexPersist(idx *index, fs fs.FS) (*indexPersist, error) {
+	f, err := fs.Open(indexFile, os.O_CREATE|os.O_RDWR)
 	ip := &indexPersist{File: f, idx: idx}
-	idx.OnChange(ip.onChange)
 	return ip, err
-}
-
-func (f indexPersist) onChange(ctx context.Context, update indexUpdate) {
-	ctx, span := f.T.Bench(ctx, "onChange")
-	var encoded []byte
-	f.idx.mu.RLock()
-	encoded = f.encode(update.afterIndex, f.idx.mu.pointers)
-	f.idx.mu.RUnlock()
-	var err error
-	if len(encoded) != 0 {
-		_, err = f.WriteAt(encoded, int64(update.afterIndex*pointerByteSize))
-	}
-
-	_ = span.EndWith(err)
-	if err != nil {
-		f.L.Error("failed to write index update", zap.Error(err))
-	}
 }
 
 func (f *indexPersist) load() ([]pointer, error) {
