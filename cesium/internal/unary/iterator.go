@@ -332,6 +332,9 @@ func (i *Iterator) approximateEnd(ctx context.Context) (endApprox index.Distance
 	return
 }
 
+// satisfied returns whether an iterator collected all telemetry in its view.
+// An iterator is said to be satisfied when its frame's start and end timerange is
+// congruent to its view.
 func (i *Iterator) satisfied() bool {
 	if !i.partiallySatisfied() {
 		return false

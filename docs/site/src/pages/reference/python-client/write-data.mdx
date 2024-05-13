@@ -102,7 +102,7 @@ Then, we'll write to the range using the `write` method:
 temperatures = [55, 55.1, 55.7, 57.2, 58.1, 58.9, 59.1, 59.2, 59.3]
 pressures = [100, 100.1, 100.7, 102.2, 103.1, 103.9, 104.1, 104.2, 104.3]
 
-# This call to write will assume that the timestamp of the first sample is 
+# This call to write will assume that the timestamp of the first sample is
 # the start of the range.
 burst_test.write({
     "my_precise_tc": temperatures,
@@ -115,9 +115,9 @@ burst_test.write({
 ## Using a Writer
 
 While the above methods are great for writing static, existing data, it's common
-to to write data in a streaming fashion for use in control sequences and live
-data processing. The `Writer` class is designed for this use case (and is
-actually used under the hood by the other methods).
+to write data in a streaming fashion for use in control sequences and live data
+processing. The `Writer` class is designed for this use case (and is actually
+used under the hood by the other methods).
 
 Writers can be complicated to operate, so we recommend reading the
 [concepts](../concepts/write#transactions) page to learn more about how
@@ -174,5 +174,13 @@ We recommend using writers within a context manager. This ensures that a writer
 is properly closed after use, ensuring that resources have been freed and
 sockets are closed.
 
-If you can't use a context manager, ensure you call `writer.close()` when you're
-done using it.
+If you can't use a context manager, make sure you call `writer.close()` when
+you're done using it.
+
+### Writer Auto-Commit
+
+Alternatively, you could initiate a writer with auto-commit enabled by calling
+`client.open_writer` with the additional configuration argument
+`enable_auto_commit=True`. When auto-commit is enabled, a writer will commit
+after each write, automatically saving the data to the database. The writer must
+still be closed by calling `writer.close()`.

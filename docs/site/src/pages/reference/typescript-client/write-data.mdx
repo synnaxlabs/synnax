@@ -131,8 +131,14 @@ It's typical to write and commit millions of samples over the course of hours or
 days, intermittently calling commit to ensure that the data is safely stored in
 the cluster.
 
+Alternatively, you could initiate with auto-commit enabled by passing in the
+configuration argument `enableAutoCommit: true`. When auto-commit is enabled, a
+writer will effectuate a commit after every write, automatically saving the data
+to the database.
+
 It's very important to free the writer resources when finished by calling the
 `close` method. If `close` is not called at the end of the writer, other writers
 may not be able to write to the same channels. We typically recommend placing
 the writer operations inside a try-finally block to ensure that the writer is
 always closed.
+
