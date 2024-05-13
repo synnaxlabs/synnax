@@ -349,10 +349,13 @@ type idxWriter struct {
 }
 
 func (w *idxWriter) Write(fr Frame) (Frame, error) {
+	w.numWriteCalls++
 	err := w.validateWrite(fr)
 	if err != nil {
 		return fr, err
 	}
+
+	var incrementedSampleCount bool
 
 	for i, series := range fr.Series {
 		key := fr.Keys[i]
@@ -363,7 +366,7 @@ func (w *idxWriter) Write(fr Frame) (Frame, error) {
 		}
 
 		if w.writingToIdx && w.idx.key == key {
-			if err := w.updateHighWater(series); err != nil {
+			if err = w.updateHighWater(series); err != nil {
 				return fr, err
 			}
 		}
@@ -372,8 +375,9 @@ func (w *idxWriter) Write(fr Frame) (Frame, error) {
 		if err != nil {
 			return fr, err
 		}
-		if i == 0 {
+		if !incrementedSampleCount {
 			w.sampleCount = int64(alignment) + series.Len()
+			incrementedSampleCount = true
 		}
 		series.Alignment = alignment
 		fr.Series[i] = series
@@ -419,7 +423,6 @@ func (w *idxWriter) validateWrite(fr Frame) error {
 		lengthOfFrame        int64 = -1
 		numChannelsWrittenTo       = 0
 	)
-	w.numWriteCalls++
 	for i, k := range fr.Keys {
 		uWriter, ok := w.internal[k]
 		if !ok {
