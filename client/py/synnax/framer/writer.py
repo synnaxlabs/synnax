@@ -47,6 +47,8 @@ class _Config(Payload):
     start: TimeStamp | None = None
     keys: ChannelKeys
     mode: WriterMode
+    enable_auto_commit: bool
+    auto_index_persist_interval: TimeSpan
 
 
 class _Request(Payload):
@@ -60,6 +62,9 @@ class _Response(Payload):
     ack: bool
     error: str | None
     end: TimeStamp | None
+
+
+ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT: TimeSpan = TimeSpan(-1)
 
 
 class Writer:
@@ -121,6 +126,8 @@ class Writer:
         suppress_warnings: bool = False,
         strict: bool = False,
         mode: WriterMode = WriterMode.PERSIST_STREAM,
+        enable_auto_commit: bool = False,
+        auto_index_persist_interval: TimeSpan = 1 * TimeSpan.SECOND,
     ) -> None:
         self.start = start
         self.__adapter = adapter
@@ -128,12 +135,14 @@ class Writer:
         self.__strict = strict
         self.__mode = mode
         self.__stream = client.stream(self.__ENDPOINT, _Request, _Response)
-        self.__open(name, authorities)
+        self.__open(name, authorities, enable_auto_commit, auto_index_persist_interval)
 
     def __open(
         self,
         name: str,
         authorities: list[Authority],
+        enable_auto_commit: bool,
+        auto_index_persist_interval: TimeSpan,
     ) -> None:
         config = _Config(
             control_subject=Subject(name=name, key=str(uuid4())),
@@ -141,6 +150,8 @@ class Writer:
             start=TimeStamp(self.start),
             authorities=normalize(authorities),
             mode=self.__mode,
+            enable_auto_commit=enable_auto_commit,
+            auto_index_persist_interval=auto_index_persist_interval,
         )
         self.__stream.send(_Request(command=_Command.OPEN, config=config))
         _, exc = self.__stream.receive()
@@ -160,7 +171,7 @@ class Writer:
     ) -> bool:
         """Writes the given frame to the database. The provided frame must:
 
-        :param frame: The frame to write to the database. The frame must:
+        :param channels_or_data: The data to write to the database. The frame must:
 
             1. Have exactly one array for each key in the list of keys provided to the
             writer's open method.
