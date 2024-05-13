@@ -12,7 +12,7 @@ client.hardware.create_device(
             key="130127d9-02aa-47e4-b370-0d590add1bc1",
             rack=rack[0].key,
             name="Device 1",
-            make="ni",
+            make="N",
             model="PXI-6255",
             location="dev1",
             identifier="dev1"

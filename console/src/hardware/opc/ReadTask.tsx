@@ -157,7 +157,7 @@ const ReadTaskInternal = ({
   Form.useFieldListener<string, typeof schema>({
     ctx: methods,
     path: "config.device",
-    callback: useCallback(
+    onChange: useCallback(
       (fs) => {
         if (!fs.touched || fs.status.variant !== "success" || client == null) return;
         client.hardware.devices

@@ -352,13 +352,13 @@ export const ChannelListItem = memo(
     const [validPort, setValidPort] = useState<boolean>(
       methods.get({ path: prefix, optional: true })?.status.variant !== "error",
     );
-    Form.useFieldListener(
-      `groups.${groupIndex}.channels.${props.index}.port`,
-      (state) => {
+    Form.useFieldListener({
+      path: `groups.${groupIndex}.channels.${props.index}.port`,
+      onChange: (state) => {
         console.log(state);
         setValidPort(state.status.variant !== "error");
       },
-    );
+    });
 
     const { getSelected } = List.useSelectionUtils();
     const handleDragStart = useCallback(() => {

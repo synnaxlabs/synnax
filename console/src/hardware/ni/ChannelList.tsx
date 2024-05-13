@@ -5,11 +5,16 @@ import { Align, Channel, Form, Header, Menu, Status } from "@synnaxlabs/pluto";
 import { Button } from "@synnaxlabs/pluto/button";
 import { List } from "@synnaxlabs/pluto/list";
 import { Text } from "@synnaxlabs/pluto/text";
-import { xy } from "@synnaxlabs/x";
+import { deep, xy } from "@synnaxlabs/x";
 import { nanoid } from "nanoid";
 
 import { CSS } from "@/css";
-import { CHANNEL_TYPE_DISPLAY, type NIChannel } from "@/hardware/ni/types";
+import {
+  AI_CHANNEL_TYPE_NAMES,
+  CHANNEL_TYPE_DISPLAY,
+  ZERO_AI_CHANNELS,
+  type NIChannel,
+} from "@/hardware/ni/types";
 
 export interface ChannelListProps {
   path: string;
@@ -27,7 +32,7 @@ export const ChannelList = ({
   const handleAdd = (): void => {
     const availablePort = Math.max(0, ...value.map((v) => v.port)) + 1;
     push({
-      ...ZERO_AI_CHANNELS["ai_voltage"],
+      ...deep.copy(ZERO_AI_CHANNELS["ai_accel"]),
       port: availablePort,
       key: nanoid(),
     });
@@ -82,8 +87,16 @@ export const ChannelListItem = ({
     path: `${path}.${props.index}`,
     optional: true,
   });
+  const channelName = Channel.useName(childValues.channel, "No Synnax Channel");
+  const channelValid =
+    Form.useField<number>({
+      path: `${path}.${props.index}.channel`,
+    }).status.variant === "success";
+  const portValid =
+    Form.useField<number>({
+      path: `${path}.${props.index}.port`,
+    }).status.variant === "success";
   if (childValues == null) return <></>;
-  const channelName = Channel.useName(entry.channel);
   return (
     <List.ItemFrame
       {...props}
@@ -93,40 +106,56 @@ export const ChannelListItem = ({
     >
       <Align.Space direction="y" size="small">
         <Align.Space direction="x">
-          <Text.Text level="p" weight={500} shade={6} style={{ width: "3rem" }}>
+          <Text.Text
+            level="p"
+            weight={500}
+            shade={6}
+            style={{ width: "3rem" }}
+            color={portValid ? undefined : "var(--pluto-error-z)"}
+          >
             {childValues.port} {hasLine && `/${entry.line}`}
           </Text.Text>
-          <Text.Text level="p" weight={500} shade={9}>
+          <Text.Text
+            level="p"
+            weight={500}
+            shade={9}
+            color={(() => {
+              if (channelName === "No Synnax Channel") return "var(--pluto-warning-z)";
+              else if (channelValid) return undefined;
+              return "var(--pluto-error-z)";
+            })()}
+          >
             {channelName}
           </Text.Text>
         </Align.Space>
         <Text.Text level="p" shade={6}>
-          {CHANNEL_TYPE_DISPLAY[entry.type]}
+          {AI_CHANNEL_TYPE_NAMES[childValues.type]}
         </Text.Text>
       </Align.Space>
       <Button.Toggle
         checkedVariant="outlined"
         uncheckedVariant="outlined"
-        value={entry.enabled}
+        value={childValues.enabled}
         size="small"
         onClick={(e) => e.stopPropagation()}
         onChange={(v) => {
+          console.log("setting enabled", v);
           ctx.set({ path: `${path}.${props.index}.enabled`, value: v });
         }}
         tooltip={
           <Text.Text level="small" style={{ maxWidth: 300 }}>
             Data acquisition for this channel is{" "}
-            {entry.enabled ? "enabled" : "disabled"}. Click to
-            {entry.enabled ? " disable" : " enable"} it.
+            {childValues.enabled ? "enabled" : "disabled"}. Click to
+            {childValues.enabled ? " disable" : " enable"} it.
           </Text.Text>
         }
       >
         <Status.Text
-          variant={entry.enabled ? "success" : "disabled"}
+          variant={childValues.enabled ? "success" : "disabled"}
           level="small"
           align="center"
         >
-          {entry.enabled ? "Enabled" : "Disabled"}
+          {childValues.enabled ? "Enabled" : "Disabled"}
         </Status.Text>
       </Button.Toggle>
     </List.ItemFrame>

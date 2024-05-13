@@ -257,7 +257,8 @@ describe("Form", () => {
       const input = c.getByDisplayValue("42");
       fireEvent.change(input, { target: { value: 1 } });
       fireEvent.blur(input);
-      expect(c.getByText("You must be at least 5 years old.")).toBeTruthy();
+      // we're executing an async parse so we need to wait for the error to show up
+      expect(c.findByText("You must be at least 5 years old.")).toBeTruthy();
     });
     describe("Nested Field", () => {
       it("should return a text field with the correct value", () => {
@@ -286,6 +287,72 @@ describe("Form", () => {
         const c = render(<Form.Field path="array.0.name" />, { wrapper });
         expect(c.getByText("*")).toBeTruthy();
       });
+    });
+  });
+  describe("NumericField", () => {
+    it("should return a numeric field with the correct value", () => {
+      const c = render(<Form.NumericField path="age" />, { wrapper });
+      expect(c.getByDisplayValue("42")).toBeTruthy();
+    });
+    it("should set the value of the field when the input changes", () => {
+      const c = render(<Form.NumericField path="age" />, { wrapper });
+      const input = c.getByDisplayValue("42");
+      fireEvent.change(input, { target: { value: 43 } });
+      expect(c.getByDisplayValue("43")).toBeTruthy();
+    });
+    it("should render help text if validation on the field fails", () => {
+      const c = render(<Form.NumericField path="age" />, { wrapper });
+      const input = c.getByDisplayValue("42");
+      fireEvent.change(input, { target: { value: 1 } });
+      fireEvent.blur(input);
+      // we're executing an async parse so we need to wait for the error to show up
+      expect(c.findByText("You must be at least 5 years old.")).toBeTruthy();
+    });
+  });
+  describe("useFieldListener", () => {
+    it("should call a listener when a field changes", () => {
+      const listener = vi.fn();
+      const res = renderHook(
+        () => {
+          Form.useFieldListener({
+            path: "name",
+            onChange: listener,
+          });
+          return Form.useField<string>({ path: "name" });
+        },
+        { wrapper },
+      );
+      act(() => res.result.current.onChange("Jane Doe"));
+      expect(listener).toHaveBeenCalled();
+      act(() => res.result.current.onChange("John Doe"));
+      expect(listener).toHaveBeenCalled();
+    });
+  });
+  describe("useChildFieldValues", () => {
+    it("should call a listener when a child field changes", () => {
+      const res = renderHook(
+        () => ({
+          cv: Form.useChildFieldValues<{ ssn: string }>({ path: "nested" }),
+          f: Form.useField<string>({ path: "nested.ssn" }),
+        }),
+        { wrapper },
+      );
+      res.result.current.f.onChange("123-45-6786");
+      expect(res.result.current.cv.ssn).toBe("123-45-6786");
+    });
+    it("should keep calling the listener even if the entire field is replaced", async () => {
+      const res = renderHook(
+        () => ({
+          cv: Form.useChildFieldValues<{ ssn: string; ein: string }>({
+            path: "nested",
+          }),
+          f: Form.useField<{ ssn: string; ein: string }>({ path: "nested" }),
+        }),
+        { wrapper },
+      );
+      res.result.current.f.onChange({ ssn: "123-45-6786", ein: "" });
+      await new Promise((r) => setTimeout(r, 30));
+      expect(res.result.current.cv.ssn).toBe("123-45-6786");
     });
   });
 });

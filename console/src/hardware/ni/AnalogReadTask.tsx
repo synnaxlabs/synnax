@@ -69,8 +69,8 @@ export const AnalogReadTask: Layout.Renderer = ({ layoutKey }) => {
             name: "NI Analog Read Task",
             config: {
               device: "",
-              sampleRate: 0,
-              streamRate: 0,
+              sampleRate: 50,
+              streamRate: 25,
               channels: [],
             },
           },
@@ -224,17 +224,22 @@ interface ChannelFormProps {
 }
 
 const ChannelForm = ({ selectedChannelIndex }: ChannelFormProps): ReactElement => {
+  if (selectedChannelIndex == -1) return <></>;
   const prefix = `config.channels.${selectedChannelIndex}`;
-  const type = Form.useField<AIChanType>({ path: `${prefix}.type` });
+  const ctx = Form.useContext();
+  const type = ctx.get<AIChanType>({ path: `${prefix}.type` });
   const TypeForm = ANALOG_INPUT_FORMS[type.value];
+  const [counter, setCounter] = useState(0);
+  Form.useFieldListener<AIChanType>({
+    path: `${prefix}.type`,
+    onChange: (v) => setCounter((c) => c + 1),
+  });
+
   return (
     <>
-      <Align.Space direction="y" className={CSS.B("channel-form-content")}>
-        <SelectChannelTypeField 
-          prefix={prefix} 
-          allowNone={false} 
-        />
-        {/* <TypeForm prefix={prefix} /> */}
+      <Align.Space direction="y" className={CSS.B("channel-form-content")} empty>
+        <SelectChannelTypeField path={prefix} inputProps={{ allowNone: false }} />
+        <TypeForm prefix={prefix} />
       </Align.Space>
     </>
   );
@@ -282,7 +287,7 @@ const ScaleForm = ({ path }: ScaleFormProps): ReactElement | null => {
   });
   if (typeField.value === "none") return null;
   return (
-    <Align.Space direction="y" grow>
+    <Align.Space direction="y" grow empty>
       <Align.Space direction="x">
         <Form.Field<number> label="Raw Min" path={`${path}.one.x`} grow>
           {(p) => <Input.Numeric {...p} />}

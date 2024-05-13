@@ -26,6 +26,7 @@ export interface ItemProps extends Align.SpaceProps {
   helpText?: string;
   padHelpText?: boolean;
   helpTextVariant?: status.Variant;
+  showHelpText?: boolean;
 }
 
 const maybeDefaultAlignment = (
@@ -48,9 +49,11 @@ export const Item = ({
   size = "small",
   padHelpText = false,
   helpTextVariant,
+  showHelpText = true,
   ...props
 }: ItemProps): ReactElement => {
   let inputAndHelp: ReactElement;
+  if (showHelpText === false && showLabel === false) return <>{children}</>;
   if (direction === "x")
     inputAndHelp = (
       <Align.Space direction="y" size="small">

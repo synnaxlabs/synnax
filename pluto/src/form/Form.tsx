@@ -22,7 +22,7 @@ import {
   FC,
 } from "react";
 
-import { shallowCopy, type Destructor, toArray } from "@synnaxlabs/x";
+import { shallowCopy, type Destructor, toArray, Key, Keyed } from "@synnaxlabs/x";
 import { caseconv } from "@synnaxlabs/x/caseconv";
 import { deep } from "@synnaxlabs/x/deep";
 import { z } from "zod";
@@ -33,12 +33,13 @@ import { type status } from "@/status/aether";
 import { componentRenderProp, type RenderProp } from "@/util/renderProp";
 import { CSS } from "@/css";
 import { zodutil } from "@synnaxlabs/x/zodutil";
+import { Select } from "@/select";
 
 /** Props for the @see useField hook */
 export interface UseFieldProps<I, O = I> {
   path: string;
   optional?: false;
-  onChange?: (value: O, extra: ContextValue) => void;
+  onChange?: (value: O, extra: ContextValue & { path: string }) => void;
   defaultValue?: O;
 }
 
@@ -92,7 +93,7 @@ export const useField = (<I extends Input.Value, O extends Input.Value = I>({
 
   const handleChange = useCallback(
     (value: O) => {
-      onChange?.(value, ctx);
+      onChange?.(value, { ...ctx, path });
       set({ path, value });
     },
     [path, set, onChange],
@@ -113,20 +114,20 @@ export interface UseFieldListenerProps<
 > {
   ctx?: ContextValue<Z>;
   path: string;
-  callback: (state: FieldState<I>, extra: ContextValue) => void;
+  onChange: (state: FieldState<I>, extra: ContextValue) => void;
 }
 
 export const useFieldListener = <I extends Input.Value, Z extends z.ZodTypeAny>({
   path,
   ctx: override,
-  callback,
+  onChange,
 }: UseFieldListenerProps<I, Z>): void => {
   const ctx = useContext(override);
   useLayoutEffect(
     () =>
       ctx.bind<I>({
         path,
-        listener: (fs) => callback(fs, ctx),
+        listener: (fs) => onChange(fs, ctx),
         listenToChildren: false,
       }),
     [path, ctx],
@@ -275,21 +276,86 @@ export const Field = <
   );
 };
 
-const buildField =
+export interface FieldBuilderProps<
+  I extends Input.Value,
+  O extends Input.Value,
+  P extends {},
+> {
+  fieldKey?: string;
+  fieldProps?: Partial<FieldProps<I, O>>;
+  inputProps?: Partial<P>;
+}
+
+export interface BuiltFieldProps<
+  I extends Input.Value,
+  O extends Input.Value,
+  P extends {},
+> extends FieldProps<I, O> {
+  inputProps?: Partial<P>;
+  fieldKey?: string;
+}
+
+export const fieldBuilder =
   <I extends Input.Value, O extends Input.Value, P extends {}>(
     Component: FC<P & Input.Control<I, O>>,
-  ): FC<FieldProps<I, O> & { inputProps?: P }> =>
-  ({ inputProps, ...props }) => (
-    <Field<I, O> {...props}>
-      {(cp) => <Component {...cp} {...(inputProps as P)} />}
+  ) =>
+  ({
+    fieldKey: baseFieldKey,
+    fieldProps,
+    inputProps: baseInputProps,
+  }: FieldBuilderProps<I, O, P>): FC<BuiltFieldProps<I, O, P>> =>
+  ({
+    inputProps,
+    path,
+    fieldKey = baseFieldKey,
+    ...props
+  }: BuiltFieldProps<I, O, P>) => (
+    <Field<I, O>
+      {...fieldProps}
+      {...props}
+      path={fieldKey ? `${path}.${fieldKey}` : path}
+    >
+      {(cp) => <Component {...cp} {...baseInputProps} {...(inputProps as P)} />}
     </Field>
   );
 
-export const NumericField = buildField(Input.Numeric);
-export const TextField = buildField(Input.Text);
-export const SwitchField = buildField(Input.Switch);
+export const buildNumericField = fieldBuilder(Input.Numeric);
+export const NumericField = buildNumericField({});
+export const buildTextField = fieldBuilder(Input.Text);
+export const TextField = buildTextField({});
+export const buildSwitchField = fieldBuilder(Input.Switch);
+export const SwitchField = buildSwitchField({});
+export const buildSelectSingleField = fieldBuilder(Select.Single) as <
+  K extends Key,
+  E extends Keyed<K>,
+>({
+  fieldProps,
+  inputProps,
+}: FieldBuilderProps<K, K, Select.SingleProps<K, E>>) => FC<
+  BuiltFieldProps<K, K, Select.SingleProps<K, E>>
+>;
 
-type Listener<V = unknown> = (state: FieldState<V>) => void;
+export const buildSelectMultiField = fieldBuilder(Select.Multiple) as <
+  K extends Key,
+  E extends Keyed<K>,
+>({
+  fieldProps,
+  inputProps,
+}: FieldBuilderProps<K, K, Select.MultipleProps<K, E>>) => FC<
+  BuiltFieldProps<K, K, Select.MultipleProps<K, E>>
+>;
+
+export const buildButtonSelectField = fieldBuilder(Select.DropdownButton) as <
+  K extends Key,
+  E extends Keyed<K>,
+>({
+  fieldProps,
+  inputProps,
+}: FieldBuilderProps<K, K, Select.DropdownButtonProps<K, E>>) => FC<
+  BuiltFieldProps<K, K, Select.DropdownButtonProps<K, E>>
+>;
+
+export type Listener<V = unknown> = (state: FieldState<V>) => void;
 
 export interface FieldState<V = unknown> {
   value: V;
@@ -526,7 +592,11 @@ export const use = <Z extends z.ZodTypeAny>({
     touched.add(path);
     if (path.length === 0) ref.current.state = value as z.output<Z>;
     else deep.set(state, path, value);
-    validateAsync();
+    try {
+      validate();
+    } catch {
+      validateAsync();
+    }
     listeners.get(path)?.forEach((l) => l(get({ path })));
     parentListeners.forEach((lis, lisPath) => {
       if (deep.pathsMatch(path, lisPath)) {

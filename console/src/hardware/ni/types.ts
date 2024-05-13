@@ -51,11 +51,10 @@ const baseAIChanZ = z.object({
   enabled: z.boolean(),
 });
 
-const minMaxValZ = z
-  .object({
-    minVal: z.number(),
-    maxVal: z.number(),
-  })
+const minMaxValZ = z.object({
+  minVal: z.number(),
+  maxVal: z.number(),
+});
 
 export const sensitivityUnitsZ = z.enum(["mVoltsPerG", "VoltsPerG"]);
 
@@ -69,21 +68,25 @@ export const accelerationUnitsZ = z.enum([
 
 export type AccelerationUnits = z.infer<typeof accelerationUnitsZ>;
 
-const baseAiAccelChanZ = 
-  baseAIChanZ.merge(minMaxValZ).extend({
-    terminalConfig: terminalConfigZ,
-    sensitivity: z.number(),
-    sensitivityUnits: sensitivityUnitsZ,
-  })
+const baseAiAccelChanZ = baseAIChanZ.merge(minMaxValZ).extend({
+  terminalConfig: terminalConfigZ,
+  sensitivity: z.number(),
+  sensitivityUnits: sensitivityUnitsZ,
+});
 
+export const forceUnitsZ = z.enum(["Newtons", "Pounds", "KilogramForce"]);
+export type ForceUnits = z.infer<typeof forceUnitsZ>;
+
+export const electricalUnitsZ = z.enum(["mVoltsPerVolt", "VoltsPerVolt"]);
+export type ElectricalUnits = z.infer<typeof electricalUnitsZ>;
 
 // 1 - https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaiaccelchan.html
-export const aiAccelChanZ = 
-  baseAiAccelChanZ.extend({
-    type: z.literal("ai_accel"),
-    currentExcitSource: excitSourceZ,
-    currentExcitVal: z.number(),
-  });
+export const aiAccelChanZ = baseAiAccelChanZ.extend({
+  type: z.literal("ai_accel"),
+  units: accelerationUnitsZ,
+  currentExcitSource: excitSourceZ,
+  currentExcitVal: z.number(),
+});
 
 export type AIAccelChan = z.infer<typeof aiAccelChanZ>;
 
@@ -92,6 +95,7 @@ export const ZERO_AI_ACCEL_CHAN: AIAccelChan = {
   type: "ai_accel",
   channel: 0,
   port: 0,
+  units: "g",
   enabled: false,
   minVal: 0,
   maxVal: 0,
@@ -103,14 +107,13 @@ export const ZERO_AI_ACCEL_CHAN: AIAccelChan = {
 };
 
 // 2 - https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaiaccel4wiredcvoltagechan.html
-const aiAccel4WireDCVoltageChanZ = 
-  baseAiAccelChanZ.extend({
-    type: z.literal("ai_accel_4_wire_dc_voltage"),
-    units: accelerationUnitsZ,
-    voltageExcitSource: excitSourceZ,
-    voltageExcitVal: z.number(),
-    useExcitForScaling: z.boolean(),
-  });
+const aiAccel4WireDCVoltageChanZ = baseAiAccelChanZ.extend({
+  type: z.literal("ai_accel_4_wire_dc_voltage"),
+  units: accelerationUnitsZ,
+  voltageExcitSource: excitSourceZ,
+  voltageExcitVal: z.number(),
+  useExcitForScaling: z.boolean(),
+});
 
 export type AIAccel4WireDCVoltageChan = z.infer<typeof aiAccel4WireDCVoltageChanZ>;
 
@@ -133,9 +136,9 @@ export const ZERO_AI_ACCEL_4WIRE_DC_VOLTAGE_CHAN: AIAccel4WireDCVoltageChan = {
 
 // 3 - https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaiaccelchargechan.html
 const aiAccelChargeChanZ = baseAiAccelChanZ.extend({
-    type: z.literal("ai_accel_charge"),
-    units: accelerationUnitsZ,
-  });
+  type: z.literal("ai_accel_charge"),
+  units: accelerationUnitsZ,
+});
 
 export type AIAccelChargeChan = z.infer<typeof aiAccelChargeChanZ>;
 
@@ -158,14 +161,15 @@ export type BridgeConfig = z.infer<typeof bridgeConfigZ>;
 
 // 4 - https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaibridgechan.html
 const aiBridgeChanZ = baseAIChanZ.extend({
-    type: z.literal("ai_bridge"),
-    terminalConfig: terminalConfigZ,
-    minVal: z.number(),
-    maxVal: z.number(),
-    bridgeConfig: bridgeConfigZ,
-    voltageExcitSource: excitSourceZ,
-    voltageExcitVal: z.number(),
-    nominalBridgeResistance: z.number(),
+  type: z.literal("ai_bridge"),
+  terminalConfig: terminalConfigZ,
+  units: electricalUnitsZ,
+  minVal: z.number(),
+  maxVal: z.number(),
+  bridgeConfig: bridgeConfigZ,
+  voltageExcitSource: excitSourceZ,
+  voltageExcitVal: z.number(),
+  nominalBridgeResistance: z.number(),
 });
 
 export type AIBridgeChan = z.infer<typeof aiBridgeChanZ>;
@@ -173,6 +177,7 @@ export type AIBridgeChan = z.infer<typeof aiBridgeChanZ>;
 export const ZERO_AI_BRIDGE_CHAN: AIBridgeChan = {
   key: "",
   type: "ai_bridge",
+  units: "mVoltsPerVolt",
   channel: 0,
   port: 0,
   enabled: false,
@@ -208,14 +213,20 @@ export const ZERO_AI_CHARGE_CHAN: AIChargeChan = {
   units: "C",
 };
 
+const currentUnitsZ = z.enum(["Amps"]);
+
+const shuntResistorLocZ = z.enum(["Default", "Internal", "External"]);
+
+export type ShuntResistorLoc = z.infer<typeof shuntResistorLocZ>;
+
 // 6 - https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaicurrentchan.html
 const aiCurrentChanZ = baseAIChanZ.extend({
   type: z.literal("ai_current"),
   terminalConfig: terminalConfigZ,
   minVal: z.number(),
   maxVal: z.number(),
-  units: z.enum(["A", "mA"]),
-  shuntResistorLoc: z.enum(["default", "internal", "external"]),
+  units: currentUnitsZ,
+  shuntResistorLoc: shuntResistorLocZ,
   extShuntResistorVal: z.number(),
 });
 
@@ -230,21 +241,21 @@ export const ZERO_AI_CURRENT_CHAN: AICurrentChan = {
   minVal: 0,
   maxVal: 0,
   terminalConfig: "Cfg_Default",
-  units: "A",
-  shuntResistorLoc: "default",
+  units: "Amps",
+  shuntResistorLoc: "Default",
   extShuntResistorVal: 0,
 };
 
 // 7 - https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaicurrentrmschan.html
 const aiCurrentRMSChanZ = baseAIChanZ.extend({
-    type: z.literal("ai_current_rms"),
-    terminalConfig: terminalConfigZ,
-    minVal: z.number(),
-    maxVal: z.number(),
-    units: z.enum(["A", "mA"]),
-    shuntResistorLoc: z.enum(["default", "internal", "external"]),
-    extShuntResistorVal: z.number(),
-  });
+  type: z.literal("ai_current_rms"),
+  terminalConfig: terminalConfigZ,
+  minVal: z.number(),
+  maxVal: z.number(),
+  units: currentUnitsZ,
+  shuntResistorLoc: shuntResistorLocZ,
+  extShuntResistorVal: z.number(),
+});
 
 export type AICurrentRMSChan = z.infer<typeof aiCurrentRMSChanZ>;
 
@@ -257,16 +268,10 @@ export const ZERO_AI_CURRENT_RMS_CHAN: AICurrentRMSChan = {
   minVal: 0,
   maxVal: 0,
   terminalConfig: "Cfg_Default",
-  units: "A",
-  shuntResistorLoc: "default",
+  units: "Amps",
+  shuntResistorLoc: "Default",
   extShuntResistorVal: 0,
 };
-
-export const forceUnitsZ = z.enum(["Newtons", "Pounds", "KilogramForce"]);
-export type ForceUnits = z.infer<typeof forceUnitsZ>;
-
-export const electricalUnitsZ = z.enum(["mVoltsPerVolt", "VoltsPerVolt"]);
-export type ElectricalUnits = z.infer<typeof electricalUnitsZ>;
 
 // 8 - https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaiforcebridgepolynomialchan.html
 const aiForceBridgePolynomialChanZ = baseAIChanZ.extend({
@@ -351,7 +356,7 @@ const aiForceBridgeTwoPointLinChan = baseAIChanZ.extend({
   minVal: z.number(),
   maxVal: z.number(),
   units: forceUnitsZ,
-  bridgeConfig: z.enum(["full", "half", "quarter"]),
+  bridgeConfig: bridgeConfigZ,
   voltageExcitSource: excitSourceZ,
   voltageExcitVal: z.number(),
   nominalBridgeResistance: z.number(),
@@ -375,7 +380,7 @@ export const ZERO_AI_FORCE_BRIDGE_TWO_POINT_LIN_CHAN: AIForceBridgeTwoPointLinCh
   maxVal: 0,
   terminalConfig: "Cfg_Default",
   units: "Newtons",
-  bridgeConfig: "full",
+  bridgeConfig: "FullBridge",
   voltageExcitSource: "None",
   voltageExcitVal: 0,
   nominalBridgeResistance: 0,
@@ -396,7 +401,7 @@ const aiForceEPEChanZ = baseAIChanZ.extend({
   units: forceUnitsZ,
   sensitivity: z.number(),
   sensitivityUnits: electricalUnitsZ,
-  currExcitSource: excitSourceZ,
+  currentExcitSource: excitSourceZ,
   currentExcitVal: z.number(),
 });
 
@@ -414,13 +419,12 @@ export const ZERO_AI_FORCE_EPE_CHAN: AIForceEPEChan = {
   units: "Newtons",
   sensitivity: 0,
   sensitivityUnits: "mVoltsPerVolt",
-  currExcitSource: "None",
+  currentExcitSource: "None",
   currentExcitVal: 0,
 };
 
-
 // 12 - https://www.ni.com/docs/en-US/bundle/ni-daqmx-c-api-ref/page/daqmxcfunc/daqmxcreateaifreqvoltagechan.html
-const aiFreqVoltageChanZ = baseAIChanZ.extend({ 
+const aiFreqVoltageChanZ = baseAIChanZ.extend({
   type: z.literal("ai_freq_voltage"),
   minVal: z.number(),
   maxVal: z.number(),
@@ -452,6 +456,7 @@ const aiMicrophoneChanZ = baseAIChanZ.extend({
   maxSndPressLevel: z.number(),
   currentExcitSource: excitSourceZ,
   currentExcitVal: z.number(),
+  units: z.enum(["Pascals"]),
 });
 
 export type AIMicrophoneChan = z.infer<typeof aiMicrophoneChanZ>;
@@ -467,6 +472,7 @@ export const ZERO_AI_MICROPHONE_CHAN: AIMicrophoneChan = {
   maxSndPressLevel: 0,
   currentExcitSource: "None",
   currentExcitVal: 0,
+  units: "Pascal",
 };
 
 export const pressureUnitsZ = z.enum(["psi", "Pa", "bar"]);
@@ -488,7 +494,9 @@ const aiPressureBridgePolynomialChanZ = baseAIChanZ.extend({
   physicalUnits: pressureUnitsZ,
 });
 
-export type AIPressureBridgePolynomialChan = z.infer<typeof aiPressureBridgePolynomialChanZ>;
+export type AIPressureBridgePolynomialChan = z.infer<
+  typeof aiPressureBridgePolynomialChanZ
+>;
 
 export const ZERO_AI_PRESSURE_BRIDGE_POLYNOMIAL_CHAN: AIPressureBridgePolynomialChan = {
   key: "",
@@ -565,29 +573,32 @@ const aiPressureBridgeTwoPointLinChanZ = baseAIChanZ.extend({
   secondPhysicalVal: z.number(),
 });
 
-export type AIPressureBridgeTwoPointLinChan = z.infer<typeof aiPressureBridgeTwoPointLinChanZ>;
+export type AIPressureBridgeTwoPointLinChan = z.infer<
+  typeof aiPressureBridgeTwoPointLinChanZ
+>;
 
-export const ZERO_AI_PRESSURE_BRIDGE_TWO_POINT_LIN_CHAN: AIPressureBridgeTwoPointLinChan = {
-  key: "",
-  type: "ai_pressure_bridge_two_point_lin",
-  channel: 0,
-  port: 0,
-  enabled: false,
-  minVal: 0,
-  maxVal: 0,
-  terminalConfig: "Cfg_Default",
-  units: "psi",
-  bridgeConfig: "FullBridge",
-  voltageExcitSource: "None",
-  voltageExcitVal: 0,
-  nominalBridgeResistance: 0,
-  electricalUnits: "mVoltsPerVolt",
-  physicalUnits: "psi",
-  firstElectricalVal: 0,
-  firstPhysicalVal: 0,
-  secondElectricalVal: 0,
-  secondPhysicalVal: 0,
-};
+export const ZERO_AI_PRESSURE_BRIDGE_TWO_POINT_LIN_CHAN: AIPressureBridgeTwoPointLinChan =
+  {
+    key: "",
+    type: "ai_pressure_bridge_two_point_lin",
+    channel: 0,
+    port: 0,
+    enabled: false,
+    minVal: 0,
+    maxVal: 0,
+    terminalConfig: "Cfg_Default",
+    units: "psi",
+    bridgeConfig: "FullBridge",
+    voltageExcitSource: "None",
+    voltageExcitVal: 0,
+    nominalBridgeResistance: 0,
+    electricalUnits: "mVoltsPerVolt",
+    physicalUnits: "psi",
+    firstElectricalVal: 0,
+    firstPhysicalVal: 0,
+    secondElectricalVal: 0,
+    secondPhysicalVal: 0,
+  };
 
 export const resistanceConfigZ = z.enum(["2Wire", "3Wire", "4Wire"]);
 export type ResistanceConfig = z.infer<typeof resistanceConfigZ>;
@@ -627,7 +638,7 @@ const aiRosetteStrainGageChanZ = baseAIChanZ.extend({
   terminalConfig: terminalConfigZ,
   minVal: z.number(),
   maxVal: z.number(),
-  rosetteType: z.enum(["rectangular", "delta", "tee"]),
+  rosetteType: z.enum(["RectangularRosette", "DeltaRosette", "TeeRosette"]),
   gageOrientation: z.number(),
   rosetteMeasTypes: z.array(
     z.enum([
@@ -641,11 +652,22 @@ const aiRosetteStrainGageChanZ = baseAIChanZ.extend({
       "MaxShearStrainAngle",
     ]),
   ),
+  strainConfig: z.enum([
+    "FullBridgeI",
+    "FullBridgeII",
+    "FullBridgeIII",
+    "HalfBridgeI",
+    "HalfBridgeII",
+    "QuarterBridgeI",
+    "QuarterBridgeII",
+  ]),
   units: z.enum(["strain"]),
-  gageConfig: z.enum(["120", "45", "60"]),
   voltageExcitSource: excitSourceZ,
   voltageExcitVal: z.number(),
   nominalGageResistance: z.number(),
+  poissonRatio: z.number(),
+  leadWireResistance: z.number(),
+  gageFactor: z.number(),
 });
 
 export type AIRosetteStrainGageChan = z.infer<typeof aiRosetteStrainGageChanZ>;
@@ -659,14 +681,17 @@ export const ZERO_AI_ROSETTE_STRAIN_GAGE_CHAN: AIRosetteStrainGageChan = {
   minVal: 0,
   maxVal: 0,
   terminalConfig: "Cfg_Default",
-  rosetteType: "rectangular",
+  rosetteType: "RectangularRosette",
+  strainConfig: "FullBridgeI",
   gageOrientation: 0,
   rosetteMeasTypes: [],
   units: "strain",
-  gageConfig: "120",
   voltageExcitSource: "None",
   voltageExcitVal: 0,
   nominalGageResistance: 0,
+  poissonRatio: 0,
+  leadWireResistance: 0,
+  gageFactor: 0,
 };
 
 export const temperatureUnitsZ = z.enum(["DegC", "DegF", "Kelvins", "DegR"]);
@@ -679,13 +704,13 @@ const aiRTDChanZ = baseAIChanZ.extend({
   maxVal: z.number(),
   units: temperatureUnitsZ,
   rtdType: z.enum([
-    "pt3750",
-    "pt3851",
-    "pt3911",
-    "pt3916",
-    "pt3920",
-    "pt3928",
-    "pt3850",
+    "Pt3750",
+    "Pt3851",
+    "Pt3911",
+    "Pt3916",
+    "Pt3920",
+    "Pt3928",
+    "Pt3850",
   ]),
   resistanceConfig: resistanceConfigZ,
   currentExcitSource: excitSourceZ,
@@ -703,7 +728,7 @@ export const ZERO_AI_RTD_CHAN: AIRTDChan = {
   minVal: 0,
   maxVal: 0,
   units: "DegC",
-  rtdType: "pt3750",
+  rtdType: "Pt3750",
   resistanceConfig: "2Wire",
   currentExcitSource: "None",
   currentExcitVal: 0,
@@ -781,7 +806,7 @@ const aiThermocoupleChanZ = baseAIChanZ.extend({
   maxVal: z.number(),
   units: temperatureUnitsZ,
   thermocoupleType: z.enum(["J", "K", "N", "R", "S", "T", "B", "E"]),
-  cjsSource: z.enum(["BuiltIn", "ConstVal"]),
+  cjcSource: z.enum(["BuiltIn", "ConstVal"]),
   cjcVal: z.number(),
   cjcPort: z.number(),
 });
@@ -798,7 +823,7 @@ export const ZERO_AI_THERMOCOUPLE_CHAN: AIThermocoupleChan = {
   maxVal: 0,
   units: "DegC",
   thermocoupleType: "J",
-  cjsSource: "BuiltIn",
+  cjcSource: "BuiltIn",
   cjcVal: 0,
   cjcPort: 0,
 };
@@ -893,7 +918,9 @@ const aiTorqueBridgePolynomialChanZ = baseAIChanZ.extend({
   physicalUnits: torqueUnitsZ,
 });
 
-export type AITorqueBridgePolynomialChan = z.infer<typeof aiTorqueBridgePolynomialChanZ>;
+export type AITorqueBridgePolynomialChan = z.infer<
+  typeof aiTorqueBridgePolynomialChanZ
+>;
 
 export const ZERO_AI_TORQUE_BRIDGE_POLYNOMIAL_CHAN: AITorqueBridgePolynomialChan = {
   key: "",
@@ -971,7 +998,9 @@ const aiTorqueBridgeTwoPointLinChanZ = baseAIChanZ.extend({
   secondPhysicalVal: z.number(),
 });
 
-export type AITorqueBridgeTwoPointLinChan = z.infer<typeof aiTorqueBridgeTwoPointLinChanZ>;
+export type AITorqueBridgeTwoPointLinChan = z.infer<
+  typeof aiTorqueBridgeTwoPointLinChanZ
+>;
 
 export const ZERO_AI_TORQUE_BRIDGE_TWO_POINT_LIN_CHAN: AITorqueBridgeTwoPointLinChan = {
   key: "",
@@ -1035,6 +1064,7 @@ const analogInputScaleZ = linearScaleZ;
 const aiVoltageChanZ = baseAIChanZ.extend({
   key: z.string(),
   type: z.literal("ai_voltage"),
+  terminalConfig: terminalConfigZ,
   port: z.number(),
   channel: z.number(),
   enabled: z.boolean(),
@@ -1048,6 +1078,7 @@ export type AIVoltageChan = z.infer<typeof aiVoltageChanZ>;
 export const ZERO_AI_VOLTAGE_CHAN: AIVoltageChan = {
   key: "",
   type: "ai_voltage",
+  terminalConfig: "Cfg_Default",
   channel: 0,
   port: 0,
   enabled: false,
@@ -1148,6 +1179,40 @@ export const aiChan = z.union([
 export type AIChan = z.infer<typeof aiChan>;
 export type AIChanType = AIChan["type"];
 
+export const AI_CHANNEL_SCHEMAS: Record<AIChanType, z.ZodType<AIChan>> = {
+  ai_accel: aiAccelChanZ,
+  ai_accel_4_wire_dc_voltage: aiAccel4WireDCVoltageChanZ,
+  ai_accel_charge: aiAccelChargeChanZ,
+  ai_bridge: aiBridgeChanZ,
+  ai_charge: aiChargeChan,
+  ai_current: aiCurrentChanZ,
+  ai_current_rms: aiCurrentRMSChanZ,
+  ai_force_bridge_polynomial: aiForceBridgePolynomialChanZ,
+  ai_force_bridge_table: aiForceBridgeTableChanZ,
+  ai_force_bridge_two_point_lin: aiForceBridgeTwoPointLinChan,
+  ai_force_epe: aiForceEPEChanZ,
+  ai_freq_voltage: aiFreqVoltageChanZ,
+  ai_microphone: aiMicrophoneChanZ,
+  ai_pressure_bridge_polynomial: aiPressureBridgePolynomialChanZ,
+  ai_pressure_bridge_table: aiPressureBridgeTableChanZ,
+  ai_pressure_bridge_two_point_lin: aiPressureBridgeTwoPointLinChanZ,
+  ai_resistance: aiResistanceChanZ,
+  ai_rosette_strain_gage: aiRosetteStrainGageChanZ,
+  ai_rtd: aiRTDChanZ,
+  ai_strain_gauge: aiStrainGageChan,
+  ai_temp_builtin: aiTempBuiltInChanZ,
+  ai_thermocouple: aiThermocoupleChanZ,
+  ai_thermistor_iex: aiThermistorChanIex,
+  ai_thermistor_vex: aiThermistorChanVex,
+  ai_torque_bridge_polynomial: aiTorqueBridgePolynomialChanZ,
+  ai_torque_bridge_table: aiTorqueBridgeTableChanZ,
+  ai_torque_bridge_two_point_lin: aiTorqueBridgeTwoPointLinChanZ,
+  ai_velocity_epe: aiVelocityEPEChanZ,
+  ai_voltage: aiVoltageChanZ,
+  ai_voltage_rms: aiVoltageRMSChanZ,
+  ai_voltage_with_excit: aiVoltageChanWithExcitZ,
+};
+
 export const ZERO_AI_CHANNELS: Record<AIChanType, AIChan> = {
   ai_accel: ZERO_AI_ACCEL_CHAN,
   ai_accel_4_wire_dc_voltage: ZERO_AI_ACCEL_4WIRE_DC_VOLTAGE_CHAN,
@@ -1182,6 +1247,40 @@ export const ZERO_AI_CHANNELS: Record<AIChanType, AIChan> = {
   ai_voltage_with_excit: ZERO_AI_VOLTAGE_CHAN_WITH_EXCIT,
 };
 
+export const AI_CHANNEL_TYPE_NAMES: Record<AIChanType, string> = {
+  ai_accel: "Accelerometer",
+  ai_accel_4_wire_dc_voltage: "4-Wire DC Voltage",
+  ai_accel_charge: "Accelerometer Charge",
+  ai_bridge: "Bridge",
+  ai_charge: "Charge",
+  ai_current: "Current",
+  ai_current_rms: "Current RMS",
+  ai_force_bridge_polynomial: "Force Bridge Polynomial",
+  ai_force_bridge_table: "Force Bridge Table",
+  ai_force_bridge_two_point_lin: "Force Bridge Two Point Lin",
+  ai_force_epe: "Force EPE",
+  ai_freq_voltage: "Frequency Voltage",
+  ai_microphone: "Microphone",
+  ai_pressure_bridge_polynomial: "Pressure Bridge Polynomial",
+  ai_pressure_bridge_table: "Pressure Bridge Table",
+  ai_pressure_bridge_two_point_lin: "Pressure Bridge Two Point Lin",
+  ai_resistance: "Resistance",
+  ai_rosette_strain_gage: "Rosette Strain Gage",
+  ai_rtd: "RTD",
+  ai_strain_gauge: "Strain Gauge",
+  ai_temp_builtin: "Temperature Built-In",
+  ai_thermocouple: "Thermocouple",
+  ai_thermistor_iex: "Thermistor IEX",
+  ai_thermistor_vex: "Thermistor VEX",
+  ai_torque_bridge_polynomial: "Torque Bridge Polynomial",
+  ai_torque_bridge_table: "Torque Bridge Table",
+  ai_torque_bridge_two_point_lin: "Torque Bridge Two Point Lin",
+  ai_velocity_epe: "Velocity EPE",
+  ai_voltage: "Voltage",
+  ai_voltage_rms: "Voltage RMS",
+  ai_voltage_with_excit: "Voltage With Excit",
+};
+
 export type AnalogInputVoltageChannel = z.infer<typeof aiVoltageChanZ>;
 
 export const analogReadTaskConfigZ = z
@@ -1214,15 +1313,17 @@ export const analogReadTaskConfigZ = z
   })
   .superRefine((cfg, ctx) => {
     const channels = new Map<number, number>();
-    cfg.channels.forEach(({ channel }) =>
-      channels.set(channel, (channels.get(channel) ?? 0) + 1),
-    );
-    cfg.channels.forEach((channel, i) => {
-      if ((channels.get(channel.channel) ?? 0) < 2) return;
+    cfg.channels.forEach(({ channel }) => {
+      if (channel === 0) return;
+      channels.set(channel, (channels.get(channel) ?? 0) + 1);
+    });
+    cfg.channels.forEach((cfg, i) => {
+      if (cfg.channel === 0) return;
+      if ((channels.get(cfg.channel) ?? 0) < 2) return;
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["channels", i, "channel"],
-        message: `Channel has already been used on port ${channel.port}`,
+        message: `Channel has already been used on port ${cfg.port}`,
       });
     });
   });

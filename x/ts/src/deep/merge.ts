@@ -9,6 +9,7 @@
 
 import { type Partial } from "@/deep/partial";
 import { isObject } from "@/identity";
+import { z } from "zod";
 
 export const merge = <T>(base: T, ...objects: Array<Partial<T>>): T => {
   if (objects.length === 0) return base;
@@ -33,4 +34,40 @@ export const merge = <T>(base: T, ...objects: Array<Partial<T>>): T => {
   }
 
   return merge(base, ...objects);
+};
+
+export const overrideValidItems = <A, B>(
+  base: A,
+  override: B,
+  schema: z.ZodType<A, any, any>,
+): A => {
+  const mergeValidFields = (
+    baseObj: any,
+    overrideObj: any,
+    currentSchema: any,
+  ): any => {
+    // Iterate over each property in the override object
+    for (const key in overrideObj) {
+      const overrideValue = overrideObj[key];
+      // Check if the current key exists in the schema and if schema for this key is defined
+      if (currentSchema?.shape[key]) {
+        const result = currentSchema.shape[key].safeParse(overrideValue);
+        // Check if parsing succeeded
+        if (result.success) baseObj[key] = result.data;
+      } else if (
+        typeof overrideValue === "object" &&
+        !Array.isArray(overrideValue) &&
+        overrideValue !== null
+      ) {
+        // If it's a nested object, recurse into it only if a valid schema exists
+        if (currentSchema && currentSchema.shape && currentSchema.shape[key]) {
+          if (!baseObj[key]) baseObj[key] = {};
+          mergeValidFields(baseObj[key], overrideValue, currentSchema.shape[key]);
+        }
+      }
+    }
+    return baseObj;
+  };
+
+  return mergeValidFields({ ...base }, override, schema);
 };

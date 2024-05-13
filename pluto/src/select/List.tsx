@@ -24,6 +24,7 @@ export interface SelectListProps<K extends Key = Key, E extends Keyed<K> = Keyed
   data?: E[];
   emptyContent?: ReactElement;
   hideColumnHeader?: boolean;
+  omit?: K[];
 }
 
 const DEFAULT_COLUMNS: CoreList.ColumnSpec[] = [];
@@ -40,9 +41,10 @@ export const Core = <K extends Key, E extends Keyed<K>>({
   columns = DEFAULT_COLUMNS,
   visible,
   replaceOnSingle,
+  omit,
   ...props
 }: SelectListProps<K, E>): ReactElement => (
-  <CoreList.List data={data} emptyContent={emptyContent}>
+  <CoreList.List data={data} emptyContent={emptyContent} omit={omit}>
     <CoreList.Selector
       value={value}
       onChange={onChange}

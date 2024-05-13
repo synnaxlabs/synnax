@@ -116,6 +116,7 @@ export interface DropdownButtonProps<K extends Key, E extends Keyed<K>>
   allowNone?: boolean;
   hideColumnHeader?: boolean;
   disabled?: boolean;
+  omit?: K[];
 }
 
 export const BaseButton = ({
@@ -130,7 +131,7 @@ export const BaseButton = ({
     className={CSS.B("select-button")}
     onClick={toggle}
     variant="outlined"
-    endIcon={<Icon.Caret.Up className={CSS.BE("select-button", "indicator")} />}
+    endIcon={<Icon.Caret.Left className={CSS.BE("select-button", "indicator")} />}
     {...props}
   >
     {children ?? selected?.[renderKey]}

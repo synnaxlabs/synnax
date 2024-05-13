@@ -203,7 +203,14 @@ export const Dialog = ({
     <C
       {...props}
       ref={combinedParentRef}
-      className={CSS(className, CSS.B("dropdown"), CSS.visible(visible))}
+      className={CSS(
+        className,
+        CSS.B("dropdown"),
+        CSS.visible(visible),
+        CSS.M(variant),
+        CSS.loc(dialogLoc.x),
+        CSS.loc(dialogLoc.y),
+      )}
       direction="y"
       reverse={dialogLoc.y === "top"}
     >

@@ -51,6 +51,7 @@ export interface SingleProps<K extends Key, E extends Keyed<K>>
   inputProps?: Omit<Input.TextProps, "onChange">;
   searcher?: AsyncTermSearcher<string, K, E>;
   hideColumnHeader?: boolean;
+  omit?: Array<K>;
 }
 
 /**
@@ -84,6 +85,7 @@ export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   variant,
   hideColumnHeader = false,
   disabled,
+  omit,
   ...props
 }: SingleProps<K, E>): ReactElement => {
   const { visible, open, close } = Dropdown.use();
@@ -127,6 +129,7 @@ export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
       close={close}
       open={open}
       data={data}
+      omit={omit}
       emptyContent={emptyContent}
       allowMultiple={false}
       visible={visible}

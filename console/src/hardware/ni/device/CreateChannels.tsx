@@ -406,7 +406,7 @@ export const ChannelListItem = memo(
     );
     Form.useFieldListener({
       path: `groups.${groupIndex}.channels.${props.index}.port`,
-      callback: (state) => setValidPort(state.status.variant !== "error"),
+      onChange: (state) => setValidPort(state.status.variant !== "error"),
     });
 
     const { getSelected } = List.useSelectionUtils();
