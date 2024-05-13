@@ -536,7 +536,7 @@ var _ = Describe("Writer Behavior", func() {
 
 								f := MustSucceed(fs.Open(channelKeyToPath(index1)+"/index.domain", os.O_RDONLY))
 								buf := make([]byte, 26)
-								_, err = f.Read(buf)
+								_, err := f.Read(buf)
 								Expect(err).ToNot(HaveOccurred())
 								Expect(f.Close()).To(Succeed())
 								Expect(binary.LittleEndian.Uint64(buf[8:16])).To(Equal(uint64(33*telem.SecondTS + 1)))
@@ -643,13 +643,13 @@ var _ = Describe("Writer Behavior", func() {
 									},
 								))
 								Expect(ok).To(BeTrue())
-								Expect(err).ToNot(HaveOccurred())
+								Expect(w.Error()).ToNot(HaveOccurred())
 
 								By("Asserting that the telemetry has been persisted")
 								Eventually(func(g Gomega) {
 									f := MustSucceed(fs.Open(channelKeyToPath(index1)+"/index.domain", os.O_RDONLY))
 									buf := make([]byte, 26)
-									_, err = f.Read(buf)
+									_, err := f.Read(buf)
 									g.Expect(err).ToNot(HaveOccurred())
 									g.Expect(f.Close()).To(Succeed())
 									g.Expect(binary.LittleEndian.Uint64(buf[0:8])).To(Equal(uint64(10 * telem.SecondTS)))

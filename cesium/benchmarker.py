@@ -51,6 +51,10 @@ def bench(var_of_interest, var_values, default_params):
                      capture_output=True).stdout
 
         output = bytes.decode(output).split("\n")
+        if len(output) != 3:
+            print(f"encountered error while running test:")
+            print("\n".join(output))
+            return
         output = [int(time) / 1e9 for time in output]
         test_results.append([])
 
