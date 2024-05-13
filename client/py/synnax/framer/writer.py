@@ -64,7 +64,6 @@ class _Response(Payload):
     end: TimeStamp | None
 
 
-# constant
 ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT: TimeSpan = TimeSpan(-1)
 
 

@@ -14,7 +14,8 @@ import {
   TimeStamp,
   type CrudeTimeStamp,
   toArray,
-  type CrudeSeries, TimeSpan,
+  type CrudeSeries,
+  TimeSpan,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -49,7 +50,7 @@ export enum WriterMode {
   StreamOnly = 3,
 }
 
-export const ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT : TimeSpan = new TimeSpan(-1)
+export const ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT : TimeSpan = new TimeSpan(-1);
 
 const netConfigZ = z.object({
   start: TimeStamp.z.optional(),
@@ -176,8 +177,8 @@ export class Writer {
         controlSubject: subject,
         authorities: toArray(authorities),
         mode,
-        enableAutoCommit: enableAutoCommit,
-        autoIndexPersistInterval: autoIndexPersistInterval,
+        enableAutoCommit,
+        autoIndexPersistInterval,
       },
     });
     return writer;

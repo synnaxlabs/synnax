@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, Rate, TimeRange, TimeSpan, TimeStamp} from "@synnaxlabs/x";
+import { DataType, Rate, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
 import { type channel } from "@/channel";
-import { ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT, WriterMode} from "@/framer/writer";
+import { ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT, WriterMode } from "@/framer/writer";
 import { newClient } from "@/setupspecs";
 import { randomSeries } from "@/util/telem";
 
