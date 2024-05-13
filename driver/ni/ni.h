@@ -148,7 +148,6 @@ namespace ni{
     ///////////////////////////////////////////////////////////////////////////////////
     //                                    daqReader                                  //
     ///////////////////////////////////////////////////////////////////////////////////
-
     typedef struct ReaderConfig{
         std::vector<ChannelConfig> channels;
         std::uint64_t acq_rate = 0;
@@ -307,9 +306,11 @@ namespace ni{
             void testConnection();
             bool ok();
             json getDevices();
+            void createDevices();
         private:
-            NISysCfgResourceProperty getPropertyId(std::string property);
-            void parseConfig(config::Parser &parser);
+            json getDeviceProperties(NISysCfgResourceHandle resource);
+
+
             json devices;
             json deviceProperties;
             json requestedProperties;
@@ -319,9 +320,6 @@ namespace ni{
             NISysCfgEnumResourceHandle resourcesHandle;
             synnax::Task task;
             std::shared_ptr<task::Context> ctx; 
-            static const std::vector<std::string> required_properties;
-            static const std::vector<std::string> optional_properties;
-            std::set<std::string> device_serials;
     };
 
     ///////////////////////////////////////////////////////////////////////////////////
@@ -333,12 +331,13 @@ namespace ni{
                                 synnax::Task task); 
 
         void exec(task::Command &cmd) override;
-        void stop() override{};
         static std::unique_ptr<task::Task> configure(   const std::shared_ptr<task::Context> &ctx,
                                                         const synnax::Task &task);
         void run();
+        void start();
+        void stop();
     private:
-        bool running = false;
+        std::atomic<bool> running = false;
         ni::Scanner scanner;
         synnax::Task task;
         std::shared_ptr<task::Context> ctx;    

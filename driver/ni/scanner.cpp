@@ -17,30 +17,10 @@
 #include <string>
 #include <algorithm>
 
-const std::vector<std::string> ni::Scanner::required_properties = {"DeviceName"};
-const std::vector<std::string> ni::Scanner::optional_properties = {"SerialNumber"};
 
 ni::Scanner::Scanner(const std::shared_ptr<task::Context> &ctx,
-                     const synnax::Task &task)
+                     const synnax::Task &task) : ctx(ctx), task(task)
 {
-
-    this->ctx = ctx;
-    this->task = task;
-
-    // create parser
-    auto config_parser = config::Parser(task.config);
-    this->parseConfig(config_parser);
-
-    if (!this->ok())
-    {
-        LOG(ERROR) << "[ni.scanner] failed to parse configuration for task " << this->task.name;
-        this->ctx->setState({.task = task.key,
-                             .variant = "error",
-                             .details = config_parser.error_json()});
-        return;
-    }
-    LOG(INFO) << "[ni.scanner] successfully parsed configuration for task " << this->task.name;
-
     // initialize syscfg session for the scanner (TODO: Error Handling for status)
     NISysCfgStatus status = NISysCfg_OK;
     status = ni::NiSysCfgInterface::InitializeSession( // TODO: look into this
@@ -54,86 +34,13 @@ ni::Scanner::Scanner(const std::shared_ptr<task::Context> &ctx,
         &this->session                                 // session handle
     );
 
+
+    // create a filter to only identify NI devices rather than chassis and devices which are connected (which includes simulated devices)
     this->filter = NULL;
     ni::NiSysCfgInterface::CreateFilter(this->session, &this->filter);
     ni::NiSysCfgInterface::SetFilterProperty(this->filter, NISysCfgFilterPropertyIsDevice, NISysCfgBoolTrue);
+    NISysCfgSetFilterProperty(filter, NISysCfgFilterPropertyIsPresent, NISysCfgIsPresentTypePresent);
     LOG(INFO) << "[ni.scanner] successfully configured scanner for task " << this->task.name;
-}
-
-void ni::Scanner::parseConfig(config::Parser &parser)
-{
-    // this->requestedProperties = parser.required<json::array_t>("properties");
-    json config = json::parse(this->task.config);
-    if (!config.contains("properties"))
-    {
-        // print contains output
-        json err;
-        err["errors"] = "Missing properties key";
-        this->ok_state = false;
-        LOG(ERROR) << "[ni.scanner] failed to find properties key in configuration for task " << this->task.name;
-        this->ctx->setState({.task = this->task.key,
-                             .variant = "error",
-                             .details = err});
-        return;
-    }
-    this->requestedProperties = config["properties"];
-
-    if (!this->requestedProperties.is_array() || this->requestedProperties.empty())
-    {
-        json err;
-        err["errors"] = "Invalid properties list";
-        this->ok_state = false;
-        LOG(ERROR) << "[ni.scanner] properties list is empty or not an array " << this->task.name;
-        this->ctx->setState({.task = task.key,
-                             .variant = "error",
-                             .details = err});
-        return;
-    }
-    // properties array not empty, check if all required properties are present
-    for (auto property : required_properties)
-    {
-        // as long as there is one required property, this also makes sure any other elt in the array is also a string;
-        auto it = std::find(this->requestedProperties.begin(), this->requestedProperties.end(), property);
-        if (it == this->requestedProperties.end())
-        {
-            json err;
-            err["errors"] = "Missing required property: " + property;
-            this->ok_state = false;
-            LOG(ERROR) << "[ni.scanner] failed to find required property \"" << property
-                       << "\"  in configuration for task " << this->task.name;
-            this->ctx->setState({.task = task.key,
-                                 .variant = "error",
-                                 .details = err});
-            return;
-        }
-    }
-    // now check that every property in the list is either requried or
-    std::vector<std::string> all_properties = ni::Scanner::required_properties;
-    all_properties.insert(all_properties.end(), ni::Scanner::optional_properties.begin(),
-                          ni::Scanner::optional_properties.end());
-    for (auto &property : this->requestedProperties)
-    {
-        bool found = false;
-        // just iterate through properties and continue if match
-        for (auto &prop : all_properties)
-        {
-            if (!found && (property.get<std::string>() == prop))
-            {
-                found = true;
-            }
-        }
-        if (!found)
-        {
-            json err;
-            err["errors"] = "Invalid property: " + property.get<std::string>();
-            this->ok_state = false;
-            LOG(ERROR) << "[ni.scanner] failed to find invalid property \"" << property.get<std::string>()
-                       << "\" in configuration for task " << this->task.name;
-            this->ctx->setState({.task = task.key,
-                                 .variant = "error",
-                                 .details = err});
-        }
-    }
 }
 
 ni::Scanner::~Scanner()
@@ -149,8 +56,6 @@ void ni::Scanner::scan()
 {
     LOG(INFO) << "[ni.scanner] scanning devices for task " << this->task.name;
     NISysCfgResourceHandle resource = NULL;
-    // TODO: use parser to verify there is a properties key
-    auto property_arr = this->requestedProperties;
 
     // first find hardware
     auto err = ni::NiSysCfgInterface::FindHardware(this->session, NISysCfgFilterModeAll, this->filter, NULL,
@@ -165,159 +70,134 @@ void ni::Scanner::scan()
     devices["devices"] = json::array();
 
     while (ni::NiSysCfgInterface::NextResource(this->session, this->resourcesHandle, &resource) == NISysCfg_OK)
-    {
-        json device;
-        for (auto &property_str : property_arr)
-        {
-            char propertyValue[1024] = "";
-            auto property = getPropertyId(property_str);
-            ni::NiSysCfgInterface::GetResourceProperty(resource, property, propertyValue);
-            device[property_str] = propertyValue;
-            NISysCfgGetResourceIndexedProperty(resource, NISysCfgIndexedPropertyExpertUserAlias, 0, propertyValue);
-            device["Location"] = propertyValue;
-            NISysCfgGetResourceIndexedProperty(resource, NISysCfgIndexedPropertyExpertResourceName, 0, propertyValue);
-            device["ResourceName"] = propertyValue;
-            if (device["SerialNumber"].get<std::string>() == "")
-            {
-                auto s = device["ResourceName"].get<std::string>();
-                auto rsrc_name = s.substr(1, s.size() - 2);
-                device["key"] = rsrc_name;
-            }
-            else
-            {
-                device["key"] = device["SerialNumber"];
-            }
-            // std::cout << "key: " << device["key"] << std::endl;
-        }
+    {   
+        auto device = getDeviceProperties(resource);
         devices["devices"].push_back(device);
     }
     LOG(INFO) << "[ni.scanner] successfully scanned devices from task " << this->task.name;
+}
 
-    // no iterate through the set and retrieve device and print out name
-    for (auto &serial : device_serials)
-    {
-        auto [device, err] = this->ctx->client->hardware.retrieveDevice(serial);
-        if (err)
-        {
-            LOG(ERROR) << "[ni.scanner] failed to retrieve device with serial number " << serial;
-        }
-        else
-        {
-            LOG(INFO) << "[ni.scanner] retrieved device with serial number " << serial << " and name " << device.name;
-        }
+
+json ni::Scanner::getDeviceProperties(NISysCfgResourceHandle resource){
+    json device;
+
+    char propertyValue[1024] = "";
+    
+    ni::NiSysCfgInterface::GetResourceProperty(resource, NISysCfgResourcePropertySerialNumber, propertyValue);
+    device["serial_number"] = propertyValue;
+
+    ni::NiSysCfgInterface::GetResourceProperty(resource, NISysCfgResourcePropertyProductName, propertyValue);
+    std::string model = propertyValue;
+    model = model.substr(3, model.size());
+    device["model"] = model;
+
+    ni::NiSysCfgInterface::GetResourceIndexedProperty(resource, NISysCfgIndexedPropertyExpertUserAlias, 0, propertyValue);
+    device["location"] = propertyValue;
+
+    ni::NiSysCfgInterface::GetResourceIndexedProperty(resource, NISysCfgIndexedPropertyExpertResourceName, 0, propertyValue);
+    std::string rsrc_name = propertyValue;
+    rsrc_name = rsrc_name.substr(1, rsrc_name.size() - 2);
+    device["resource_name"] = rsrc_name;
+
+    //get temp
+    double temp;
+    ni::NiSysCfgInterface::GetResourceProperty(resource, NISysCfgResourcePropertyCurrentTemp, &temp);
+    device["temperature"] = temp;
+
+    // check if its simulated
+    NISysCfgBool isSimulated;
+    ni::NiSysCfgInterface::GetResourceProperty(resource, NISysCfgResourcePropertyIsSimulated, &isSimulated);
+    if(isSimulated){
+        device["is_simulated"] = true;
+        device["key"] = device["resource_name"];
+    } else {
+        device["is_simulated"] = false;
+        device["key"] = device["serial_number"];
     }
 
-    // scanned devices, now create them if they arent in the set.
-    for (auto &device : devices["devices"])
-    {
-        if (device_serials.find(device["SerialNumber"]) == device_serials.end())
-        {
-            // add serial to set
-            device_serials.insert(device["key"]);
-            // create device
-            auto new_device = synnax::Device({device["key"].get<std::string>(),
-                                              device["DeviceName"].get<std::string>(),
-                                              synnax::taskKeyRack(this->task.key),
-                                              device["Location"].get<std::string>(),
-                                              device["SerialNumber"].get<std::string>(),
-                                              "NI",
-                                              device["DeviceName"].get<std::string>().substr(3),
-                                              device.dump()});
-            this->ctx->client->hardware.createDevice(new_device);
+    return device;
+}
+
+void ni::Scanner::createDevices(){
+    for(auto &device : devices["devices"]){
+
+        // first  try to rereive the device and if found, do not create a new device, simply continue
+        auto [retrieved_device, err] = this->ctx->client->hardware.retrieveDevice(device["key"]);
+        if(err == freighter::NIL){
+            LOG(INFO) << "[ni.scanner] device " << device["model"] << " and key "  << device["key"] << "at location: " << device["location"] << " found for task " << this->task.name;
+            continue;
         }
+        auto new_device = synnax::Device(
+            device["key"].get<std::string>(),
+            device["resource_name"].get<std::string>(),
+            synnax::taskKeyRack(this->task.key),                    // rack key
+            device["location"].get<std::string>(),                  
+            device["serial_number"].get<std::string>(),             
+            "NI",                                                   // make                               
+            device["model"].get<std::string>(),
+            device.dump()                                           // device properties
+        );
+        
+        if(this->ctx->client->hardware.createDevice(new_device) != freighter::NIL){
+            LOG(ERROR) << "[ni.scanner] failed to create device " << device["model"] << " with key " << device["key"] << " for task " << this->task.name;
+        }        
+        LOG(INFO) << "[ni.scanner] successfully created device " << device["model"] <<  " with key " << device["key"] << " for task " << this->task.name;
     }
+
+    
+    // auto new_device = synnax::Device()
+
+
+    // // no iterate through the set and retrieve device and print out name
+    // for (auto &serial : device_serials)
+    // {
+    //     auto [device, err] = this->ctx->client->hardware.retrieveDevice(serial);
+    //     if (err)
+    //     {
+    //         LOG(ERROR) << "[ni.scanner] failed to retrieve device with serial number " << serial;
+    //     }
+    //     else
+    //     {
+    //         LOG(INFO) << "[ni.scanner] retrieved device with serial number " << serial << " and name " << device.name;
+    //     }
+    // }
+
+    // // scanned devices, now create them if they arent in the set.
+    // for (auto &device : devices["devices"])
+    // {
+    //     if (device_serials.find(device["SerialNumber"]) == device_serials.end())
+    //     {
+    //         // add serial to set
+    //         device_serials.insert(device["key"]);
+    //         // create device
+    //         auto new_device = synnax::Device({device["key"].get<std::string>(),
+    //                                           device["DeviceName"].get<std::string>(),
+    //                                           synnax::taskKeyRack(this->task.key),
+    //                                           device["Location"].get<std::string>(),
+    //                                           device["SerialNumber"].get<std::string>(),
+    //                                           "NI",
+    //                                           device["DeviceName"].get<std::string>().substr(3),
+    //                                           device.dump()});
+    //         this->ctx->client->hardware.createDevice(new_device);
+    //     }
+    // }
 
     // no iterate through the set and retrieve device and print out name
 }
 
-void ni::Scanner::testConnection()
-{
+
+
+
+void ni::Scanner::testConnection(){
     // TODO: Implement this
     return;
 }
 
-bool ni::Scanner::ok()
-{
-    return ok_state;
+bool ni::Scanner::ok(){
+    return ok_state; // TODO: remove? only internal state
 }
 
-json ni::Scanner::getDevices()
-{
+json ni::Scanner::getDevices(){
     return devices;
 }
 
-NISysCfgResourceProperty ni::Scanner::getPropertyId(std::string property)
-{
-    if (property == "SerialNumber")
-    {
-        return NISysCfgResourcePropertySerialNumber; // char *
-    }
-    else if (property == "DeviceName")
-    {
-        return NISysCfgResourcePropertyProductName; // char *
-    }
-    else
-    {
-        return NISysCfgResourcePropertyProductName; // default to product name
-    }
-}
-
-// ni::NiScanner::NiScanner() {}
-
-// ni::NiScanner::~NiScanner() {}
-
-// json ni::NiScanner::getDevices() {
-//     json j;
-//     char productName[1024] = "";
-//     char serialNumber[1024] = "";
-//     char isSimulated[1024] = "";
-//     char isDevice[1024] = "";
-//     char isChassis[1024] = "";
-
-//     NISysCfgStatus status = NISysCfg_OK;
-//     NISysCfgEnumResourceHandle resourcesHandle = NULL;
-//     NISysCfgResourceHandle resource = NULL;
-//     NISysCfgFilterHandle filter = NULL;
-//     NISysCfgSessionHandle session = NULL;
-
-//     // initialized cfg session
-//     status = NISysCfgInitializeSession( //TODO: look into this
-//             "localhost",            // target (ip, mac or dns name)
-//             NULL,                   // username (NULL for local system)
-//             NULL,                   // password (NULL for local system)
-//             NISysCfgLocaleDefault,  // language
-//             NISysCfgBoolTrue,       //force pproperties to be queried everytime rather than cached
-//             10000,                  // timeout (ms)
-//             NULL,                   // expert handle
-//             &session                //session handle
-//     );
-
-//     // create a filter to find only valid NI devices
-//     NISysCfgCreateFilter(session, &filter);
-//     NISysCfgSetFilterProperty(filter, NISysCfgFilterPropertyIsDevice, NISysCfgBoolTrue);
-
-//     // Attempt to find hardware
-//     auto err =  NISysCfgFindHardware(session, NISysCfgFilterModeAll, filter, NULL, &resourcesHandle);
-//     if(err != NISysCfg_OK){
-//         return ""; // TODO: handle error more meaningfully
-//     }
-//     j["devices"] = json::array();
-//     // Iterate through all hardware found and grab the relevant information
-//     while(NISysCfgNextResource(session, resourcesHandle, &resource)  ==  NISysCfg_OK) { // instead  do while (!= NISysCfgWarningNoMoreItems) ?
-//         json device;
-//         NISysCfgGetResourceProperty(resource, NISysCfgResourcePropertyProductName, productName);
-//         NISysCfgGetResourceProperty(resource, NISysCfgResourcePropertySerialNumber, serialNumber);
-//         NISysCfgGetResourceProperty(resource, NISysCfgResourcePropertyProductName, productName);
-//         NISysCfgGetResourceProperty(resource, NISysCfgResourcePropertyIsSimulated, isSimulated);
-//         NISysCfgGetResourceProperty(resource, NISysCfgResourcePropertyIsChassis, isChassis);
-//         device["productName"] = productName;
-//         device["serialNumber"] = serialNumber;
-//         device["isSimulated"] = (isSimulated) ? 1 : 0;
-//         device["isChassis"] = (isChassis) ? 1 : 0;
-//         j["devices"].push_back(device);
-//     }
-//     NISysCfgCloseHandle(filter);
-//     NISysCfgCloseHandle(resourcesHandle);
-//     NISysCfgCloseHandle(session);
-//     return j;
-// }

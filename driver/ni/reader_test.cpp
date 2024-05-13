@@ -33,7 +33,7 @@ TEST(ReaderTests, test_read_one_digital_channel){
 
     // Create NI readerconfig
     auto config = json{
-            {"acq_rate", 100}, // dont actually need these here
+            {"sample_rate", 100}, // dont actually need these here
             {"stream_rate", 20}, // same as above
             {"device_name", "PXI1Slot2_2"},
             {"reader_type", "digitalReader"}
@@ -95,7 +95,7 @@ TEST(ReaderTests, test_read_multiple_digital_channel){
 
     // Create NI readerconfig
     auto config = json{
-            {"acq_rate", 1000}, // dont actually need these here
+            {"sample_rate", 1000}, // dont actually need these here
             {"stream_rate", 20}, // same as above
             {"device_name", "PXI1Slot2_2"},
             {"reader_type", "digitalReader"}
@@ -166,7 +166,7 @@ TEST(ReaderTests, test_read_one_analog_channel){
 
     // Create NI readerconfig
     auto config = json{
-            {"acq_rate", 100}, // dont actually need these here
+            {"sample_rate", 100}, // dont actually need these here
             {"stream_rate", 20}, // same as above
             {"device_name", "Dev1"},
             {"reader_type", "analogReader"}    
@@ -233,7 +233,7 @@ TEST(ReaderTests, test_read_multiple_analog_channels){
 
     // Create NI readerconfig
     auto config = json{
-            {"acq_rate", 2000}, // dont actually need these here
+            {"sample_rate", 2000}, // dont actually need these here
             {"stream_rate", 20}, // same as above
             {"device_name", "Dev1"},
             {"reader_type", "analogReader"}    

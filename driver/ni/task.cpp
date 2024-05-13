@@ -22,11 +22,8 @@
 ni::ScannerTask::ScannerTask(
         const std::shared_ptr <task::Context> &ctx,
         synnax::Task task
-) :
-        scanner(ctx, task) {
-    this->task = task;
-    this->ctx = ctx;
-    this->running = true;
+) : scanner(ctx, task), ctx(ctx), task(task), running(true){
+    //begin scanning on construction
     thread = std::thread(&ni::ScannerTask::run, this);
 }
 
@@ -37,9 +34,21 @@ std::unique_ptr <task::Task> ni::ScannerTask::configure(
     return std::make_unique<ni::ScannerTask>(ctx, task);
 }
 
+void ni::ScannerTask::start() {
+    this->running = true;
+    this->thread = std::thread(&ni::ScannerTask::run, this);
+}
+
+void ni::ScannerTask::stop() {
+    this->running = false;
+    this->thread.join();
+}
+
+
 void ni::ScannerTask::exec(task::Command &cmd) {
     if (cmd.type == "scan") {
         scanner.scan();
+        scanner.createDevices();
         if (!scanner.ok()) {
             ctx->setState({
                                   .task = task.key,
@@ -48,7 +57,7 @@ void ni::ScannerTask::exec(task::Command &cmd) {
                           });
             LOG(ERROR) << "[NI Task] failed to scan for task " << this->task.name;
         } else {
-            json devices = scanner.getDevices();
+            auto devices = scanner.getDevices(); // TODO remove and dont send in details
             ctx->setState({
                                   .task = task.key,
                                   .variant = "success",
@@ -57,12 +66,9 @@ void ni::ScannerTask::exec(task::Command &cmd) {
                                   }
                           });
             LOG(INFO) << "[NI Task] successfully scanned for task " << this->task.name;
-            //print devices here for now
-            // std::cout << devices.dump(4) << std::endl;
         }
     } else if (cmd.type == "stop"){
-        running = false; // TODO: implement stop()
-        thread.join();
+        this->stop();
     }else {
         LOG(ERROR) << "unknown command type: " << cmd.type;
     }
@@ -72,10 +78,16 @@ void ni::ScannerTask::run(){
     auto scan_cmd = task::Command{task.key, "scan", {}};
 
     // perform a scan
-    while(this->running){
+    while(true){
         std::this_thread::sleep_for(std::chrono::seconds(5));
-        this->exec(scan_cmd);
+        if(this->running){
+            this->exec(scan_cmd);
+        } else{
+            break;
+        }
+        std::cout << "Scanner Task is running: " << this->running << std::endl;
     }
+    LOG(INFO) << "[NI Task] shutting down " << this->task.name;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////

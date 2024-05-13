@@ -74,3 +74,13 @@ NISYSCFGCFUNC ni::NiSysCfgInterface::GetResourceProperty(
 ){
     return NISysCfg_OK;
 }
+
+
+NISYSCFGCFUNC ni::NiSysCfgInterface::GetResourceIndexedProperty(
+        NISysCfgResourceHandle                 resourceHandle,
+        NISysCfgIndexedProperty                propertyID,
+        unsigned int                           index,
+        void *                                 value
+){
+    return NISysCfg_OK;
+}

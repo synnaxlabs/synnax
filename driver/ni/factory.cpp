@@ -52,18 +52,13 @@ ni::Factory::configureInitialTasks(
         }
     }
 
-    nlohmann::json default_scanner_config;
-    default_scanner_config["properties"] = nlohmann::json::array();
-    default_scanner_config["properties"].push_back("SerialNumber");
-    default_scanner_config["properties"].push_back("DeviceName");
-
     if(!hasScanner){
         std::cout << "Creating niScanner task" << std::endl;
         auto sy_task = synnax::Task(
             rack.key,
             "ni Scanner",
             "niScanner",
-            default_scanner_config.dump()
+            ""
         );
         auto err = rack.tasks.create(sy_task);
         LOG(INFO) << "[ni] created scanner task with key: " << sy_task.key;

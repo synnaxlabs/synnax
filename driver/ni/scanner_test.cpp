@@ -17,16 +17,12 @@
 TEST(NiScannerTests, test_valid_scan){
     LOG(INFO) << "test_ni_scanner: "; //<< std::endl;
     // create properties json
-    nlohmann::json config;
-    config["properties"] = nlohmann::json::array();
-    config["properties"].push_back("SerialNumber");
-    config["properties"].push_back("DeviceName");
-
+    
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto task = synnax::Task(
         "my_task",
         "niScanner",
-        to_string(config)
+        ""
     );
     auto mockCtx = std::make_shared<task::MockContext>(client);
 
@@ -41,30 +37,8 @@ TEST(NiScannerTests, test_valid_scan){
     } else {
         std::cout << "Scanner failed to retreive devices" << std::endl;
     }
-}
 
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-//                                          Error Handling                                                      //
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-TEST(NiScannerTests, error_missing_properties_list){
-    LOG(INFO) << "test_ni_scanner: "; //<< std::endl;
-    // create properties json
-    nlohmann::json config;
-    config["dog"] = "bark";
-
-
-    auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    auto task = synnax::Task(
-        "my_task",
-        "niScanner",
-        to_string(config)
-    );
-    auto mockCtx = std::make_shared<task::MockContext>(client);
-
-    //create a scanner
-    ni::Scanner scanner = ni::Scanner(mockCtx, task);
+    // scan a second time
     scanner.scan();
     if(scanner.ok()){
         nlohmann::json devices = scanner.getDevices();
@@ -76,149 +50,3 @@ TEST(NiScannerTests, error_missing_properties_list){
     }
 }
 
-
-TEST(NiScannerTests, error_missing_required_properties){
-    LOG(INFO) << "test_ni_scanner: "; //<< std::endl;
-    // create properties json
-    nlohmann::json config;
-    config["properties"] = nlohmann::json::array();
-    config["properties"].push_back("SerialNumber");
-
-
-    auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    auto task = synnax::Task(
-        "my_task",
-        "niScanner",
-        to_string(config)
-    );
-    auto mockCtx = std::make_shared<task::MockContext>(client);
-
-    //create a scanner
-    ni::Scanner scanner = ni::Scanner(mockCtx, task);
-    scanner.scan();
-    if(scanner.ok()){
-        nlohmann::json devices = scanner.getDevices();
-        // print size of devices
-        std::cout << "Number of devices: " << devices["devices"].size() << std::endl;
-        std::cout << devices.dump(4) << std::endl;
-    } else {
-        std::cout << "Scanner failed to retreive devices" << std::endl;
-    }
-}
-
-TEST(NiScannerTests, error_fake_property){
-    LOG(INFO) << "test_ni_scanner: "; //<< std::endl;
-    // create properties json
-    nlohmann::json config;
-    config["properties"] = nlohmann::json::array();
-    config["properties"].push_back("SerialNumber");
-    config["properties"].push_back("dog");
-    config["properties"].push_back("DeviceName");
-
-
-
-    auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    auto task = synnax::Task(
-        "my_task",
-        "niScanner",
-        to_string(config)
-    );
-    auto mockCtx = std::make_shared<task::MockContext>(client);
-
-    //create a scanner
-    ni::Scanner scanner = ni::Scanner(mockCtx, task);
-    scanner.scan();
-    if(scanner.ok()){
-        nlohmann::json devices = scanner.getDevices();
-        // print size of devices
-        std::cout << "Number of devices: " << devices["devices"].size() << std::endl;
-        std::cout << devices.dump(4) << std::endl;
-    } else {
-        std::cout << "Scanner failed to retreive devices" << std::endl;
-    }
-}
-
-TEST(NiScannerTests, error_properties_not_list){
-    LOG(INFO) << "test_ni_scanner: "; //<< std::endl;
-    // create properties json
-    nlohmann::json config;
-    config["properties"] = "DeviceName";
-
-
-    auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    auto task = synnax::Task(
-        "my_task",
-        "niScanner",
-        to_string(config)
-    );
-    auto mockCtx = std::make_shared<task::MockContext>(client);
-
-    //create a scanner
-    ni::Scanner scanner = ni::Scanner(mockCtx, task);
-    scanner.scan();
-    if(scanner.ok()){
-        nlohmann::json devices = scanner.getDevices();
-        // print size of devices
-        std::cout << "Number of devices: " << devices["devices"].size() << std::endl;
-        std::cout << devices.dump(4) << std::endl;
-    } else {
-        std::cout << "Scanner failed to retreive devices" << std::endl;
-    }
-}
-
-
-TEST(NiScannerTests, error_properties_empty){
-    LOG(INFO) << "test_ni_scanner: "; //<< std::endl;
-    // create properties json
-    nlohmann::json config;
-    config["properties"] = json::array();
-
-
-    auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    auto task = synnax::Task(
-        "my_task",
-        "niScanner",
-        to_string(config)
-    );
-    auto mockCtx = std::make_shared<task::MockContext>(client);
-
-    //create a scanner
-    ni::Scanner scanner = ni::Scanner(mockCtx, task);
-    scanner.scan();
-    if(scanner.ok()){
-        nlohmann::json devices = scanner.getDevices();
-        // print size of devices
-        std::cout << "Number of devices: " << devices["devices"].size() << std::endl;
-        std::cout << devices.dump(4) << std::endl;
-    } else {
-        std::cout << "Scanner failed to retreive devices" << std::endl;
-    }
-}
-
-
-TEST(NiScannerTests, empty_config){
-    LOG(INFO) << "test_ni_scanner: "; //<< std::endl;
-    // create properties json
-    nlohmann::json config;
-
-
-    auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    auto task = synnax::Task(
-        "my_task",
-        "niScanner",
-        to_string(config)
-    );
-    auto mockCtx = std::make_shared<task::MockContext>(client);
-
-    //create a scanner
-    ni::Scanner scanner = ni::Scanner(mockCtx, task);
-    scanner.scan();
-    if(scanner.ok()){
-        nlohmann::json devices = scanner.getDevices();
-        // print size of devices
-        std::cout << "Number of devices: " << devices["devices"].size() << std::endl;
-        std::cout << devices.dump(4) << std::endl;
-    } else {
-        std::cout << "Scanner failed to retreive devices" << std::endl;
-    }
-}

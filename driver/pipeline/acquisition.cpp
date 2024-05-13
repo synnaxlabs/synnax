@@ -33,12 +33,13 @@ Acquisition::Acquisition(
 
 
 void Acquisition::start() {
+    LOG(INFO) << "[Acquisition] Starting acquisition";
     thread = std::thread(&Acquisition::run, this);
     running = true;
 }
 
 void Acquisition::stop() {
-    LOG(INFO) << "Stopping Acquisition pipeline";
+    LOG(INFO) << "[Acquisition] Stopping acquisition";
     if (!running) return;
     running = false;
     thread.join();

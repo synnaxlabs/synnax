@@ -62,5 +62,12 @@ public:
             void *                                 value
     );
 
+    static NISYSCFGCFUNC GetResourceIndexedProperty(
+        NISysCfgResourceHandle                 resourceHandle,
+        NISysCfgIndexedProperty                propertyID,
+        unsigned int                           index,
+        void *                                 value
+    );
+    
 };
 }

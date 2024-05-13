@@ -90,21 +90,22 @@ void ni::daqReader::parseAnalogReaderConfig(config::Parser &parser)
     // Get Acquisition Rate and Stream Rates
     this->reader_config.acq_rate = parser.required<uint64_t>("sample_rate");
     this->reader_config.stream_rate = parser.required<uint64_t>("stream_rate");
+    this->reader_config.device_name = parser.required<std::string>("device_name");
 
     // device name
-    auto dev_key = parser.required<std::string>("device");
-    auto [dev, err] = ctx->client->hardware->retrieveDevice(this->reader_config.device_name);
-    if (err != freighter::NIL)
-    {
-        // Log error
-        LOG(ERROR) << "[NI Reader] failed to retrieve device " << this->reader_config.device_name;
-        this->ctx->setState({.task = this->reader_config.task_key,
-                             .variant = "error",
-                             .details = err.details});
-        this->ok_state = false;
-        return;
-    }
-    this->reader_config.device_name = dev.location;
+    // auto dev_key = parser.required<std::string>("device");
+    // auto [dev, err] = ctx->client->hardware->retrieveDevice(this->reader_config.device_name);
+    // if (err != freighter::NIL)
+    // {
+    //     // Log error
+    //     LOG(ERROR) << "[NI Reader] failed to retrieve device " << this->reader_config.device_name;
+    //     this->ctx->setState({.task = this->reader_config.task_key,
+    //                          .variant = "error",
+    //                          .details = err.details});
+    //     this->ok_state = false;
+    //     return;
+    // }
+    // this->reader_config.device_name = dev.location;
 
     // now parse the channels
     parser.iter("channels",
@@ -253,9 +254,10 @@ void ni::daqReader::parseDigitalReaderConfig(config::Parser &parser)
     // Get Acquisition Rate and Stream Rates
     this->reader_config.acq_rate = parser.required<uint64_t>("sample_rate");
     this->reader_config.stream_rate = parser.required<uint64_t>("stream_rate");
+    this->reader_config.device_name = parser.required<std::string>("device_name");
 
     // device name
-    this->reader_config.device_name = parser.required<std::string>("device");
+    // this->reader_config.device_name = parser.required<std::string>("device");
     assert(parser.ok());
 
     // now parse the channels
