@@ -1814,7 +1814,7 @@ packages:
   '@esbuild/darwin-x64@0.18.20':
     resolution: {integrity: sha512-pc5gxlMDxzm513qPGbCbDukOdsGtKhfxD1zJKXjCCcU7ju50O7MeAZ8c4krSJcOIJGFR+qx21yMMVYwiQvyTyQ==}
     engines: {node: '>=12'}
-    cpu: [x64]
+    cpu: [arm64]
     os: [darwin]
 
   '@esbuild/darwin-x64@0.19.12':
@@ -13117,7 +13117,6 @@ snapshots:
       nanoid: 3.3.7
       proxy-memoize: 1.2.0
       react: 18.2.0
-      react-color: 2.19.3(react@18.2.0)
       react-dom: 18.2.0(react@18.2.0)
       react-hook-form: 7.51.3(react@18.2.0)
       reactflow: 11.11.2(@types/react@18.2.79)(immer@10.0.3)(react-dom@18.2.0(react@18.2.0))(react@18.2.0)
