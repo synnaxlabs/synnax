@@ -64,8 +64,6 @@ void Acquisition::run() {
         }
         if (!writer.write(frame)) break;
         breaker.reset();
-        auto [end, ok] = writer.commit(); // TODO: REMOVE!!!
-        breaker.reset();
     }
     const auto err = writer.close();
     if (err.matches(freighter::UNREACHABLE) && breaker.wait(err.message())) run();

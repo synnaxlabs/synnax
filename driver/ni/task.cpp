@@ -65,7 +65,7 @@ void ni::ScannerTask::exec(task::Command &cmd) {
                                           {"devices", devices.dump(4)}
                                   }
                           });
-            LOG(INFO) << "[NI Task] successfully scanned for task " << this->task.name;
+            // LOG(INFO) << "[NI Task] successfully scanned for task " << this->task.name;
         }
     } else if (cmd.type == "stop"){
         this->stop();
@@ -85,7 +85,6 @@ void ni::ScannerTask::run(){
         } else{
             break;
         }
-        std::cout << "Scanner Task is running: " << this->running << std::endl;
     }
     LOG(INFO) << "[NI Task] shutting down " << this->task.name;
 }
@@ -120,8 +119,7 @@ ni::ReaderTask::ReaderTask(const std::shared_ptr <task::Context> &ctx,
 
     auto writer_config = synnax::WriterConfig{
             .channels = channel_keys,
-            .start = synnax::TimeStamp::now(),
-            .mode = synnax::WriterStreamOnly // TODO: is this the correct mode?
+            .start = synnax::TimeStamp::now()
     };
 
     // construct acquisition pipe

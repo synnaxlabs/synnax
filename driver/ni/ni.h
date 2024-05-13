@@ -123,6 +123,7 @@ namespace ni{
         std::uint32_t name_space;
         std::string node_id; // TODO: not actually parsed in from task config rn
         uint32_t channel_key;
+        // uint32_t* index_key;
 
         /// @brief NI properties
         std::string name;
@@ -149,6 +150,7 @@ namespace ni{
     //                                    daqReader                                  //
     ///////////////////////////////////////////////////////////////////////////////////
     typedef struct ReaderConfig{
+        std::string device_key;
         std::vector<ChannelConfig> channels;
         std::uint64_t acq_rate = 0;
         std::uint64_t stream_rate = 0;
@@ -156,6 +158,7 @@ namespace ni{
         std::string task_name; 
         std::string reader_type;
         synnax::ChannelKey task_key;
+        std::set<uint32_t> index_keys;
         bool isDigital = false;
     } ReaderConfig;
 
@@ -184,6 +187,7 @@ namespace ni{
         uint32_t parseFloats(std::vector<float64> vec, float* arr);
         int createAIChannel(ChannelConfig &channel);
         void deleteScales();
+        void getIndexKeys();
 
         // NI related resources
         TaskHandle taskHandle = 0;

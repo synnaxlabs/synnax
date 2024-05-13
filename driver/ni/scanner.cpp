@@ -54,7 +54,7 @@ ni::Scanner::~Scanner()
 
 void ni::Scanner::scan()
 {
-    LOG(INFO) << "[ni.scanner] scanning devices for task " << this->task.name;
+    // LOG(INFO) << "[ni.scanner] scanning devices for task " << this->task.name;
     NISysCfgResourceHandle resource = NULL;
 
     // first find hardware
@@ -74,7 +74,7 @@ void ni::Scanner::scan()
         auto device = getDeviceProperties(resource);
         devices["devices"].push_back(device);
     }
-    LOG(INFO) << "[ni.scanner] successfully scanned devices from task " << this->task.name;
+    // LOG(INFO) << "[ni.scanner] successfully scanned devices from task " << this->task.name;
 }
 
 
@@ -124,24 +124,24 @@ void ni::Scanner::createDevices(){
         // first  try to rereive the device and if found, do not create a new device, simply continue
         auto [retrieved_device, err] = this->ctx->client->hardware.retrieveDevice(device["key"]);
         if(err == freighter::NIL){
-            LOG(INFO) << "[ni.scanner] device " << device["model"] << " and key "  << device["key"] << "at location: " << device["location"] << " found for task " << this->task.name;
+            // LOG(INFO) << "[ni.scanner] device " << device["model"] << " and key "  << device["key"] << "at location: " << device["location"] << " found for task " << this->task.name;
             continue;
         }
         auto new_device = synnax::Device(
-            device["key"].get<std::string>(),
-            device["resource_name"].get<std::string>(),
+            device["key"].get<std::string>(),                       // key
+            device["model"].get<std::string>(),                     // name
             synnax::taskKeyRack(this->task.key),                    // rack key
-            device["location"].get<std::string>(),                  
-            device["serial_number"].get<std::string>(),             
+            device["location"].get<std::string>(),                  // location
+            device["serial_number"].get<std::string>(),             // serial number
             "NI",                                                   // make                               
-            device["model"].get<std::string>(),
+            device["model"].get<std::string>(),                     // model
             device.dump()                                           // device properties
         );
         
         if(this->ctx->client->hardware.createDevice(new_device) != freighter::NIL){
-            LOG(ERROR) << "[ni.scanner] failed to create device " << device["model"] << " with key " << device["key"] << " for task " << this->task.name;
+            // LOG(ERROR) << "[ni.scanner] failed to create device " << device["model"] << " with key " << device["key"] << " for task " << this->task.name;
         }        
-        LOG(INFO) << "[ni.scanner] successfully created device " << device["model"] <<  " with key " << device["key"] << " for task " << this->task.name;
+        // LOG(INFO) << "[ni.scanner] successfully created device " << device["model"] <<  " with key " << device["key"] << " for task " << this->task.name;
     }
 
     

@@ -37,20 +37,17 @@ ni::daqReader::daqReader(
     this->reader_config.task_name = task.name;
     this->reader_config.task_key = task.key;
 
-    this->reader_config.reader_type = config_parser.required<std::string>("reader_type");
-    this->reader_config.isDigital = (this->reader_config.reader_type == "digitalReader");
+    // this->reader_config.reader_type = config_parser.required<std::string>("reader_type");
+    this->reader_config.isDigital = (task.type == "ni_digital_reader");
 
     // Parse configuration and make sure it is valid
-    if (this->reader_config.isDigital)
-    {
+    if (this->reader_config.isDigital){
         this->parseDigitalReaderConfig(config_parser);
     }
-    else
-    {
+    else{
         this->parseAnalogReaderConfig(config_parser);
     }
-    if (!config_parser.ok())
-    {
+    if (!config_parser.ok()){
         // Log error
         LOG(ERROR) << "[NI Reader] failed to parse configuration for " << this->reader_config.task_name;
         this->ctx->setState({.task = task.key,
@@ -64,6 +61,12 @@ ni::daqReader::daqReader(
         return;
     }
     LOG(INFO) << "[NI Reader] successfully parsed configuration for " << this->reader_config.task_name;
+
+    if(!this->reader_config.isDigital){
+        getIndexKeys(); // get index keys for the task
+    }
+
+    LOG(INFO) << "[NI Reader] index keys retrieved " << this->reader_config.task_name;
 
     // Create breaker
     auto breaker_config = breaker::Config{
@@ -85,40 +88,87 @@ ni::daqReader::daqReader(
     this->start(); // errors are handled in start
 }
 
+void ni::daqReader::getIndexKeys()
+{
+    std::set<std::uint32_t> index_keys;
+    //iterate through channels in reader config
+    for (auto &channel : this->reader_config.channels){
+        auto [channel_info, err] = this->ctx->client->channels.retrieve(channel.channel_key);
+        // TODO handle error with breaker
+        if (err != freighter::NIL){
+            // Log error
+            LOG(ERROR) << "[NI Reader] failed to retrieve channel " << channel.channel_key;
+            this->ok_state = false;
+            return;
+        } else{
+            // add key to set
+            index_keys.insert(channel_info.index);
+        }
+    }
+
+
+    // now iterate through the set and add all the index channels as configs
+    for (auto it = index_keys.begin(); it != index_keys.end(); ++it){
+        auto index_key = *it;
+        LOG(INFO) << "constructing index channel configs";
+        auto [channel_info, err] = this->ctx->client->channels.retrieve(index_key);
+        if (err != freighter::NIL){
+            LOG(ERROR) << "[NI Reader] failed to retrieve channel " << index_key;
+            this->ok_state = false;
+            return;
+        } else{
+            ni::ChannelConfig index_channel;
+            index_channel.channel_key = channel_info.key;
+            index_channel.channel_type = "index";
+            index_channel.name = channel_info.name;
+            this->reader_config.channels.push_back(index_channel);
+            LOG(INFO) << "[NI Reader] index channel " << index_channel.channel_key << " and name: " << index_channel.name <<" added to task " << this->reader_config.task_name;
+        }
+    }
+
+
+    //    ni::ChannelConfig index_channel;
+    //         index_channel.channel_key = channel_info.index;
+    //         index_channel.channel_type = "index";
+    //         index_channel.name = channel_info.name;
+    //         this->reader_config.channels.push_back(index_channel);
+}
+
+
 void ni::daqReader::parseAnalogReaderConfig(config::Parser &parser)
 {
     // Get Acquisition Rate and Stream Rates
     this->reader_config.acq_rate = parser.required<uint64_t>("sample_rate");
     this->reader_config.stream_rate = parser.required<uint64_t>("stream_rate");
-    this->reader_config.device_name = parser.required<std::string>("device_name");
+    this->reader_config.device_key = parser.required<std::string>("device");
 
-    // device name
-    // auto dev_key = parser.required<std::string>("device");
-    // auto [dev, err] = ctx->client->hardware->retrieveDevice(this->reader_config.device_name);
-    // if (err != freighter::NIL)
-    // {
-    //     // Log error
-    //     LOG(ERROR) << "[NI Reader] failed to retrieve device " << this->reader_config.device_name;
-    //     this->ctx->setState({.task = this->reader_config.task_key,
-    //                          .variant = "error",
-    //                          .details = err.details});
-    //     this->ok_state = false;
-    //     return;
-    // }
-    // this->reader_config.device_name = dev.location;
+    LOG(INFO) << "sample rate: " << this->reader_config.acq_rate << " stream rate: " << this->reader_config.stream_rate << " device key: " << this->reader_config.device_key;
+
+    // this->reader_config.device_name = parser.required<std::string>("device_name");
+
+    auto [dev, err] = this->ctx->client->hardware.retrieveDevice(this->reader_config.device_key);
+    if (err != freighter::NIL)
+    {
+        // Log error
+        LOG(ERROR) << "[NI Reader] failed to retrieve device " << this->reader_config.device_name;
+        this->ok_state = false;
+        return;
+    }
+    this->reader_config.device_name = dev.location;
 
     // now parse the channels
+    assert(parser.ok());
     parser.iter("channels",
                 [&](config::Parser &channel_builder)
                 {
                     ni::ChannelConfig config;
-                    config.channel_type = channel_builder.required<std::string>("channel_type");
+                    // config.channel_type = channel_builder.required<std::string>("channel_type");
 
                     // analog channel names are formatted: <device_name>/ai<port>
                     config.name = (config.channel_type == "index") ? (channel_builder.required<std::string>("name"))
                                                                    : (this->reader_config.device_name + "/ai" + std::to_string(channel_builder.required<std::uint64_t>("port")));
 
-                    config.channel_key = channel_builder.required<uint32_t>("channel_key");
+                    config.channel_key = channel_builder.required<uint32_t>("channel");
 
                     if (config.channel_type != "index")
                     {
@@ -132,9 +182,6 @@ void ni::daqReader::parseAnalogReaderConfig(config::Parser &parser)
                                                 :    (terminal_config == "RSE") ? DAQmx_Val_RSE
                                                 :    DAQmx_Val_Cfg_Default;
                     }
-
-
-
                     // check for custom scale
                     this->parseCustomScale(channel_builder, config);
                     this->reader_config.channels.push_back(config);
@@ -291,13 +338,15 @@ int ni::daqReader::init()
     // iterate through channels
     for (auto &channel : channels)
     {
-        if (channel.channel_type == "analogVoltageInput")
-        {
+        if (channel.channel_type != "index" && !this->reader_config.isDigital){
             err = createAIChannel(channel);
+            LOG(INFO) << "Creating Analog Channel: " << channel.name;
         }
-        else if (channel.channel_type == "digitalInput")
-        {
+        else if (channel.channel_type != "index" && this->reader_config.isDigital){
             err = this->checkNIError(ni::NiDAQmxInterface::CreateDIChan(taskHandle, channel.name.c_str(), "", DAQmx_Val_ChanPerLine));
+        } else{
+            // index channel
+            LOG(INFO) << "Index Channel: " << channel.name;
         }
         this->numChannels++; // includes index channels TODO: how is this different form jsut channels.size()?
         if (err < 0)
@@ -306,6 +355,8 @@ int ni::daqReader::init()
             return -1;
         }
     }
+
+    //TODO: assert that at least 1 channel has been configured here:
 
     // Configure timing
     // TODO: make sure there isnt different cases to handle between analog and digital
@@ -321,6 +372,7 @@ int ni::daqReader::init()
     }
 
     // Configure buffer size and read resources
+    assert(this->reader_config.acq_rate >= this->reader_config.stream_rate); // TODO: handle this case
     this->numSamplesPerChannel = std::floor(this->reader_config.acq_rate / this->reader_config.stream_rate);
     this->bufferSize = this->numChannels * this->numSamplesPerChannel;
     if (this->reader_config.isDigital)
@@ -481,6 +533,7 @@ void ni::daqReader::deleteScales(){
 
 std::pair<synnax::Frame, freighter::Error> ni::daqReader::readAnalog()
 {
+    // LOG(INFO) << "[NI Reader] reading analog data for task " << this->reader_config.task_name;
     int32 samplesRead = 0;
     float64 flush[1000]; // to flush buffer before performing a read
     int32 flushRead = 0;
@@ -534,6 +587,7 @@ std::pair<synnax::Frame, freighter::Error> ni::daqReader::readAnalog()
     {
         if (this->reader_config.channels[i].channel_type == "index")
         {
+            // LOG(INFO) << "Index channel found: " << this->reader_config.channels[i].channel_key << " name: " << this->reader_config.channels[i].name;
             f.add(this->reader_config.channels[i].channel_key, synnax::Series(time_index, synnax::TIMESTAMP));
         }
         else
@@ -546,7 +600,7 @@ std::pair<synnax::Frame, freighter::Error> ni::daqReader::readAnalog()
             data_index++;
         }
     }
-
+    
     // return synnax frame
     return std::make_pair(std::move(f), freighter::NIL);
 }
