@@ -5,7 +5,6 @@ import matplotlib.pyplot as plt
 param_names = ["domains_per_channel", "samples_per_domain", "num_index_channels",
                "num_data_channels", "num_rate_channels", "using_mem_FS", "num_writers",
                "num_goroutines", "stream_only", "commit_interval"]
-default_params = [100, 100, 10, 1000, 0, "false", 1, 8, "false", -1]
 machine_specs = "MBP 2023 M2 | 10 Cores | 16GB RAM | 512GB SSD"
 
 
@@ -29,7 +28,7 @@ def plot(var_of_interest, other_params, var_values, test_results):
     plt.show()
 
 
-def bench(var_of_interest, var_values):
+def bench(var_of_interest, var_values, default_params):
     """
     test plots the performance of Cesium in writes, reads, and streams with default
     parameters except for the specified variable of interest, whose value on each iteration
@@ -72,4 +71,7 @@ def bench(var_of_interest, var_values):
 
 
 # example: testing the effect of different number of commit_intervals
-bench("commit_interval", [0, 10, 20, 25, 50, 100])
+bench("num_data_channels",
+      [1000, 3000, 5000, 7000, 9000, 11000, 13000, 15000, 17000, 19000],
+      [100, 100, 10, 1000, 0, "false", 1, 8, "false", -1]
+      )

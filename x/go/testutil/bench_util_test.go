@@ -18,8 +18,8 @@ import (
 )
 
 var _ = Describe("Bench Util Test", func() {
-	DescribeTable("GenerateFrameAndChannels", func(numIndex, numData, numRate, domainsPerChannel, samplesPerDomain int) {
-		frames, chs, keys := testutil.GenerateFrameAndChannels(numIndex, numData, numRate, domainsPerChannel, samplesPerDomain)
+	DescribeTable("GenerateFrameAndChannels", func(numIndex, numData, numRate, samplesPerDomain int) {
+		data, chs, keys := testutil.GenerateDataAndChannels(numIndex, numData, numRate, samplesPerDomain)
 
 		Expect(chs).To(HaveLen(numIndex + numData + numRate))
 		for i := 0; i < numIndex; i++ {
@@ -35,30 +35,12 @@ var _ = Describe("Bench Util Test", func() {
 			Expect(keys[i]).To(Equal(cesium.ChannelKey(i + 1)))
 		}
 
-		Expect(frames).To(HaveLen(domainsPerChannel))
-
-		// Asserting that the index channels are strictly increasing.
-		for i := 0; i < domainsPerChannel; i++ {
-			fr := frames[i]
-			for ch := 0; ch < numIndex; ch++ {
-				chFrame := fr.FilterKeys([]cesium.ChannelKey{cesium.ChannelKey(ch + 1)})
-				Expect(chFrame.Series).To(HaveLen(1))
-				tsSlice := telem.Unmarshal[telem.TimeStamp](chFrame.Series[0])
-
-				for j := 0; j < samplesPerDomain; j++ {
-					Expect(tsSlice[j]).To(BeNumerically("~", telem.TimeStamp(i*samplesPerDomain+j+1)*telem.SecondTS, 200*telem.MillisecondTS))
-				}
-			}
-			for ch := numIndex; ch < numIndex+numData+numRate; ch++ {
-				chFrame := fr.FilterKeys([]cesium.ChannelKey{cesium.ChannelKey(ch + 1)})
-				Expect(chFrame.Series).To(HaveLen(1))
-				Expect(chFrame.Series[0].Len()).To(Equal(int64(samplesPerDomain)))
-			}
-		}
+		// Assert that the data channel has the right length
+		Expect(data.Len()).To(Equal(int64(samplesPerDomain)))
 	},
-		Entry("normal", 1, 2, 1, 5, 2),
-		Entry("many indices", 3, 5, 0, 10, 3),
-		Entry("more indices than data", 10, 5, 3, 23, 15),
-		Entry("big", 10, 2342, 123, 10, 400),
+		Entry("normal", 1, 2, 1, 2),
+		Entry("many indices", 3, 5, 0, 3),
+		Entry("more indices than data", 10, 5, 3, 15),
+		Entry("big", 10, 2342, 123, 400),
 	)
 })

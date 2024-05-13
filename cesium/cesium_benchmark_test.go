@@ -54,37 +54,41 @@ var (
 
 func BenchmarkCesium(b *testing.B) {
 	var (
-		cfg WriteBenchmarkConfig
 		fs  xfs.FS
 		err error
 	)
 
-	cfg = WriteBenchmarkConfig{
-		BenchmarkConfig: BenchmarkConfig{
-			domainsPerChannel: *domainsPerChannel,
-			samplesPerDomain:  *samplesPerDomain,
-			numIndexChannels:  *numIndexChannels,
-			numDataChannels:   *numDataChannels,
-			numRateChannels:   *numRateChannels,
-			numGoRoutines:     *numGoRoutines,
-			usingMemFS:        *usingMemFS,
-		},
-		numWriters:     *numWriters,
-		commitInterval: *commitInterval,
+	benchCfg := BenchmarkConfig{
+		domainsPerChannel: *domainsPerChannel,
+		samplesPerDomain:  *samplesPerDomain,
+		numIndexChannels:  *numIndexChannels,
+		numDataChannels:   *numDataChannels,
+		numRateChannels:   *numRateChannels,
+		numGoRoutines:     *numGoRoutines,
+		usingMemFS:        *usingMemFS,
+	}
+	writeCfg := WriteBenchmarkConfig{
+		BenchmarkConfig: benchCfg,
+		numWriters:      *numWriters,
+		commitInterval:  *commitInterval,
+	}
+	streamCfg := StreamBenchmarkConfig{
+		WriteBenchmarkConfig: writeCfg,
+		streamOnly:           *streamOnly,
 	}
 
-	fsMaker, ok := fileSystems[lo.Ternary(cfg.usingMemFS, "memFS", "osFS")]
+	fsMaker, ok := fileSystems[lo.Ternary(benchCfg.usingMemFS, "memFS", "osFS")]
 	fs = fsMaker()
 	if !ok {
 		b.Error("Cannot find osFS in file systems")
 	}
 
-	frames, channels, keys := testutil.GenerateFrameAndChannels(cfg.numIndexChannels, cfg.numDataChannels, cfg.numRateChannels, cfg.domainsPerChannel, cfg.samplesPerDomain)
+	dataSeries, channels, keys := testutil.GenerateDataAndChannels(benchCfg.numIndexChannels, benchCfg.numDataChannels, benchCfg.numRateChannels, benchCfg.samplesPerDomain)
 
-	b.Run("write", func(b *testing.B) { bench_write(b, cfg, frames, channels, keys, fs) })
-	b.Run("read", func(b *testing.B) { bench_read(b, frames, channels, keys, fs) })
+	b.Run("write", func(b *testing.B) { bench_write(b, writeCfg, dataSeries, channels, keys, fs) })
+	b.Run("read", func(b *testing.B) { bench_read(b, benchCfg, dataSeries, channels, keys, fs) })
 	b.Run("stream", func(b *testing.B) {
-		bench_stream(b, StreamBenchmarkConfig{WriteBenchmarkConfig: cfg, streamOnly: *streamOnly}, frames, channels, keys, fs)
+		bench_stream(b, streamCfg, dataSeries, channels, keys, fs)
 	})
 
 	err = cleanUp()
@@ -93,17 +97,16 @@ func BenchmarkCesium(b *testing.B) {
 	}
 }
 
-func bench_write(b *testing.B, cfg WriteBenchmarkConfig, frames []cesium.Frame, channels []cesium.Channel, keys []cesium.ChannelKey, fs xfs.FS) {
+func bench_write(b *testing.B, cfg WriteBenchmarkConfig, dataSeries telem.Series, channels []cesium.Channel, keys []cesium.ChannelKey, fs xfs.FS) {
 	for i := 0; i < b.N; i++ {
+		b.StopTimer()
 		var (
-			err                       error
-			db                        *cesium.DB
 			wg                        = sync.WaitGroup{}
 			numIndexChannelsPerWriter = cfg.numIndexChannels / cfg.numWriters
 			sem                       = semaphore.NewWeighted(cfg.numGoRoutines)
 		)
 
-		db, err = cesium.Open("benchmark_write_test", cesium.WithFS(fs))
+		db, err := cesium.Open("benchmark_write_test", cesium.WithFS(fs))
 		if err != nil {
 			b.Errorf("Error during DB creation: %s", err)
 		}
@@ -146,17 +149,22 @@ func bench_write(b *testing.B, cfg WriteBenchmarkConfig, frames []cesium.Frame, 
 				b.Errorf("Semaphore error %s", err)
 			}
 
+			if err != nil {
+				b.Errorf("pprof error %s", err)
+			}
 			go func(writerChannels []cesium.ChannelKey, j int) {
 				defer func() {
 					wg.Done()
 					sem.Release(1)
 				}()
 				var (
-					w           *cesium.Writer
-					commitCount = 0
+					commitCount                 = 0
+					hwm         telem.TimeStamp = 0
+					indexData                   = make([]telem.TimeStamp, cfg.samplesPerDomain)
+					frame       cesium.Frame
 				)
 
-				w, err = db.OpenWriter(ctx, cesium.WriterConfig{
+				w, err := db.OpenWriter(ctx, cesium.WriterConfig{
 					ControlSubject: control.Subject{Key: fmt.Sprintf("bench_writer %d", j)},
 					Start:          1 * telem.SecondTS,
 					Channels:       writerChannels,
@@ -167,8 +175,37 @@ func bench_write(b *testing.B, cfg WriteBenchmarkConfig, frames []cesium.Frame, 
 					return
 				}
 
-				for _, frame := range frames {
-					ok := w.Write(frame.FilterKeys(writerChannels))
+				// Prepare the frame for writing to channels
+				for _, ch := range writerChannels {
+					if ch > cesium.ChannelKey(cfg.numIndexChannels) {
+						frame = frame.Append(ch, dataSeries)
+					}
+				}
+
+				for k := 0; k < cfg.domainsPerChannel; k++ {
+					// Generate the index data for this frame.
+					for l := 0; l < cfg.samplesPerDomain; l++ {
+						if l == 0 && k == 0 {
+							indexData[l] = 0
+							continue
+						}
+						indexData[l] = hwm + telem.TimeStamp(l)*telem.SecondTS
+					}
+					hwm += telem.TimeStamp(cfg.samplesPerDomain-1) * telem.SecondTS
+
+					// Add the index data into frame / modify the index data in the frame
+					if k == 0 {
+						for l := 0; l < cfg.numIndexChannels; l++ {
+							frame = frame.Append(writerChannels[l], telem.NewSeries[telem.TimeStamp](indexData))
+						}
+					} else {
+						indexDataSeries := telem.NewSeries[telem.TimeStamp](indexData)
+						for l := len(frame.Keys) - 1; l >= len(frame.Keys)-cfg.numIndexChannels; l-- {
+							frame.Series[l] = indexDataSeries
+						}
+					}
+
+					ok := w.Write(frame)
 					if !ok {
 						b.Error(w.Error())
 						return
@@ -213,13 +250,18 @@ func bench_write(b *testing.B, cfg WriteBenchmarkConfig, frames []cesium.Frame, 
 		if err != nil {
 			b.Errorf("Error during removing directory: %s", err)
 		}
+
+		b.StartTimer()
 	}
 }
 
-func bench_read(b *testing.B, frames []cesium.Frame, channels []cesium.Channel, keys []cesium.ChannelKey, fs xfs.FS) {
+func bench_read(b *testing.B, cfg BenchmarkConfig, dataSeries telem.Series, channels []cesium.Channel, keys []cesium.ChannelKey, fs xfs.FS) {
 	var (
-		db  *cesium.DB
-		err error
+		db        *cesium.DB
+		err       error
+		frame     cesium.Frame
+		indexData                 = make([]telem.TimeStamp, cfg.samplesPerDomain)
+		hwm       telem.TimeStamp = 0
 	)
 
 	db, err = cesium.Open("benchmark_read_test", cesium.WithFS(fs))
@@ -228,11 +270,51 @@ func bench_read(b *testing.B, frames []cesium.Frame, channels []cesium.Channel, 
 		b.Errorf("Error during channel creation: %s", err)
 	}
 
-	w, err := db.OpenWriter(ctx, cesium.WriterConfig{Start: 1 * telem.SecondTS, Channels: keys, ControlSubject: control.Subject{Key: "bench_reader"}})
-	for _, frame := range frames {
+	w, err := db.OpenWriter(ctx, cesium.WriterConfig{
+		ControlSubject: control.Subject{Key: fmt.Sprintf("bench_reader")},
+		Start:          1 * telem.SecondTS,
+		Channels:       keys,
+	})
+
+	if err != nil {
+		b.Errorf("Writer open error %s", err)
+		return
+	}
+
+	// Prepare the frame for writing to channels
+	for _, ch := range keys {
+		if ch > cesium.ChannelKey(cfg.numIndexChannels) {
+			frame = frame.Append(ch, dataSeries)
+		}
+	}
+
+	for k := 0; k < cfg.domainsPerChannel; k++ {
+		// Generate the index data for this frame.
+		for l := 0; l < cfg.samplesPerDomain; l++ {
+			if l == 0 && k == 0 {
+				indexData[l] = 0
+				continue
+			}
+			indexData[l] = hwm + telem.TimeStamp(l)*telem.SecondTS
+		}
+		hwm += telem.TimeStamp(cfg.samplesPerDomain-1) * telem.SecondTS
+
+		// Add the index data into frame / modify the index data in the frame
+		if k == 0 {
+			for l := 0; l < cfg.numIndexChannels; l++ {
+				frame = frame.Append(keys[l], telem.NewSeries[telem.TimeStamp](indexData))
+			}
+		} else {
+			indexDataSeries := telem.NewSeries[telem.TimeStamp](indexData)
+			for l := len(frame.Keys) - 1; l >= len(frame.Keys)-cfg.numIndexChannels; l-- {
+				frame.Series[l] = indexDataSeries
+			}
+		}
+
 		ok := w.Write(frame)
 		if !ok {
 			b.Error(w.Error())
+			return
 		}
 	}
 
@@ -266,17 +348,16 @@ func bench_read(b *testing.B, frames []cesium.Frame, channels []cesium.Channel, 
 	}
 }
 
-func bench_stream(b *testing.B, cfg StreamBenchmarkConfig, frames []cesium.Frame, channels []cesium.Channel, keys []cesium.ChannelKey, fs xfs.FS) {
+func bench_stream(b *testing.B, cfg StreamBenchmarkConfig, dataSeries telem.Series, channels []cesium.Channel, keys []cesium.ChannelKey, fs xfs.FS) {
 	for i := 0; i < b.N; i++ {
+		b.StopTimer()
 		var (
-			err                       error
-			db                        *cesium.DB
 			wg                        = sync.WaitGroup{}
 			numIndexChannelsPerWriter = cfg.numIndexChannels / cfg.numWriters
 			sem                       = semaphore.NewWeighted(cfg.numGoRoutines)
 		)
 
-		db, err = cesium.Open("benchmark_stream_test", cesium.WithFS(fs))
+		db, err := cesium.Open("benchmark_stream_test", cesium.WithFS(fs))
 		if err != nil {
 			b.Errorf("Error during DB creation: %s", err)
 		}
@@ -319,21 +400,27 @@ func bench_stream(b *testing.B, cfg StreamBenchmarkConfig, frames []cesium.Frame
 				b.Errorf("Semaphore error %s", err)
 			}
 
+			if err != nil {
+				b.Errorf("pprof error %s", err)
+			}
 			go func(writerChannels []cesium.ChannelKey, j int) {
 				defer func() {
 					wg.Done()
 					sem.Release(1)
 				}()
 				var (
-					w *cesium.Writer
-					s cesium.Streamer
+					commitCount                 = 0
+					hwm         telem.TimeStamp = 0
+					indexData                   = make([]telem.TimeStamp, cfg.samplesPerDomain)
+					frame       cesium.Frame
+					w           *cesium.Writer
+					s           cesium.Streamer
 				)
 
-				w, err = db.OpenWriter(ctx, cesium.WriterConfig{
+				w, err := db.OpenWriter(ctx, cesium.WriterConfig{
 					ControlSubject: control.Subject{Key: fmt.Sprintf("bench_writer %d", j)},
 					Start:          1 * telem.SecondTS,
 					Channels:       writerChannels,
-					Mode:           lo.Ternary[cesium.WriterMode](cfg.streamOnly, cesium.WriterStreamOnly, cesium.WriterPersistStream),
 				})
 
 				if err != nil {
@@ -342,17 +429,70 @@ func bench_stream(b *testing.B, cfg StreamBenchmarkConfig, frames []cesium.Frame
 				}
 
 				s, err = db.NewStreamer(ctx, cesium.StreamerConfig{Channels: writerChannels})
+				if err != nil {
+					b.Errorf("Steramer open error")
+				}
+
 				iStream, oStream := confluence.Attach(s, 1)
 				sCtx, cancel := signal.WithCancel(ctx)
 				s.Flow(sCtx)
 
-				for _, frame := range frames {
-					ok := w.Write(frame.FilterKeys(writerChannels))
+				// Prepare the frame for writing to channels
+				for _, ch := range writerChannels {
+					if ch > cesium.ChannelKey(cfg.numIndexChannels) {
+						frame = frame.Append(ch, dataSeries)
+					}
+				}
+
+				for k := 0; k < cfg.domainsPerChannel; k++ {
+					// Generate the index data for this frame.
+					for l := 0; l < cfg.samplesPerDomain; l++ {
+						if l == 0 && k == 0 {
+							indexData[l] = 0
+							continue
+						}
+						indexData[l] = hwm + telem.TimeStamp(l)*telem.SecondTS
+					}
+					hwm += telem.TimeStamp(cfg.samplesPerDomain-1) * telem.SecondTS
+
+					// Add the index data into frame / modify the index data in the frame
+					if k == 0 {
+						for l := 0; l < cfg.numIndexChannels; l++ {
+							frame = frame.Append(writerChannels[l], telem.NewSeries[telem.TimeStamp](indexData))
+						}
+					} else {
+						indexDataSeries := telem.NewSeries[telem.TimeStamp](indexData)
+						for l := len(frame.Keys) - 1; l >= len(frame.Keys)-cfg.numIndexChannels; l-- {
+							frame.Series[l] = indexDataSeries
+						}
+					}
+
+					ok := w.Write(frame)
 					if !ok {
 						b.Error(w.Error())
 						return
 					}
+
+					if cfg.commitInterval != -1 {
+						commitCount += 1
+						if commitCount >= cfg.commitInterval {
+							_, ok = w.Commit()
+							if !ok {
+								b.Error(w.Error())
+								return
+							}
+							commitCount = 0
+						}
+					}
+
 					<-oStream.Outlet()
+				}
+
+				_, ok := w.Commit()
+				if !ok {
+					b.Error("Commit failed")
+					b.Error(w.Error())
+					return
 				}
 
 				err = w.Close()
@@ -361,7 +501,6 @@ func bench_stream(b *testing.B, cfg StreamBenchmarkConfig, frames []cesium.Frame
 				}
 
 				iStream.Close()
-
 				cancel()
 			}(writerChannels, j)
 		}
@@ -378,5 +517,7 @@ func bench_stream(b *testing.B, cfg StreamBenchmarkConfig, frames []cesium.Frame
 		if err != nil {
 			b.Errorf("Error during removing directory: %s", err)
 		}
+
+		b.StartTimer()
 	}
 }
