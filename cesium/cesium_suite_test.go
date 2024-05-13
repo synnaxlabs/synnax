@@ -34,7 +34,7 @@ func openDBOnFS(fs xfs.FS) *cesium.DB {
 	))
 }
 
-func pathInDBFromKey(key cesium.ChannelKey) string {
+func channelKeyToPath(key cesium.ChannelKey) string {
 	return path.Join(rootPath, strconv.Itoa(int(key)))
 }
 
