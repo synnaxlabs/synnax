@@ -5,24 +5,31 @@ import matplotlib.pyplot as plt
 param_names = ["domains_per_channel", "samples_per_domain", "num_index_channels",
                "num_data_channels", "num_rate_channels", "using_mem_FS", "num_writers",
                "num_goroutines", "stream_only", "commit_interval"]
-default_params = [100, 1000, 10, 1000, 0, "false", 1, 8, "false", -1]
+default_params = [100, 100, 10, 1000, 0, "false", 1, 8, "false", -1]
+machine_specs = "MBP 2023 M2 | 10 Cores | 16GB RAM | 512GB SSD"
 
 
 def parse_command(params):
     return ["./benchmarker.sh", *[str(arg) for arg in params]]
 
 
-def plot(var_of_interest, var_values, test_results):
-    fig, axs = plt.subplots(nrows=1, ncols=3)
+def plot(var_of_interest, other_params, var_values, test_results):
+    fig, axs = plt.subplots(nrows=1, ncols=3, figsize=(15, 7))
     for i, op in enumerate(("write", "read", "stream")):
         axs[i].plot(var_values, [r[i] for r in test_results])
         axs[i].set_title(op)
-        axs[i].xlabel(var_of_interest)
-    fig.tight_layout()
+        axs[i].set_xlabel(var_of_interest)
+        axs[i].set_ylabel("throughput")
+
+    plt.figtext(0.5, 0.01, machine_specs + "\n" + other_params,
+                fontsize=8, ha='center', wrap=True,
+                bbox={"facecolor": "orange", "alpha": 0.5, "pad": 5})
+    plt.tight_layout(pad=2)
+    plt.subplots_adjust(bottom=0.11)
     plt.show()
 
 
-def test(var_of_interest, var_values):
+def bench(var_of_interest, var_values):
     """
     test plots the performance of Cesium in writes, reads, and streams with default
     parameters except for the specified variable of interest, whose value on each iteration
@@ -55,8 +62,14 @@ def test(var_of_interest, var_values):
 
             print(f"{op} throughput: {throughput:,}")
 
-    plot(var_of_interest, var_values, test_results)
+    other_params = ""
+    for i in range(len(param_names)):
+        if i == var_index:
+            continue
+        other_params += param_names[i] + " = " + str(default_params[i]) + ";"
+
+    plot(var_of_interest, other_params, var_values, test_results)
 
 
-# example: testing the effect of different number of writers
-test("num_writers", [1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+# example: testing the effect of different number of commit_intervals
+bench("commit_interval", [0, 10, 20, 25, 50, 100])
