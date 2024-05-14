@@ -39,7 +39,7 @@ ni::Scanner::Scanner(const std::shared_ptr<task::Context> &ctx,
     this->filter = NULL;
     ni::NiSysCfgInterface::CreateFilter(this->session, &this->filter);
     ni::NiSysCfgInterface::SetFilterProperty(this->filter, NISysCfgFilterPropertyIsDevice, NISysCfgBoolTrue);
-    NISysCfgSetFilterProperty(filter, NISysCfgFilterPropertyIsPresent, NISysCfgIsPresentTypePresent);
+    ni::NiSysCfgInterface::SetFilterProperty(filter, NISysCfgFilterPropertyIsPresent, NISysCfgIsPresentTypePresent);
     LOG(INFO) << "[ni.scanner] successfully configured scanner for task " << this->task.name;
 }
 
