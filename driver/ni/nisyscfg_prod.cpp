@@ -83,11 +83,3 @@ NISYSCFGCFUNC ni::NiSysCfgInterface::GetResourceIndexedProperty(
 ){
     return NISysCfgGetResourceIndexedProperty(resourceHandle, propertyID, index, value);
 }
-
-NISYSCFGCDECL ni::NiSysCfgInterface::NISysCfgSetFilterProperty(
-        NISysCfgFilterHandle                   filterHandle,
-        NISysCfgFilterProperty                 propertyID,
-        ...
-){
-    return NISysCfgSetFilterProperty(filterHandle, propertyID);
-}
