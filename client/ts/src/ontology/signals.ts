@@ -110,10 +110,7 @@ export class ChangeTracker {
         value: resource,
       }));
     } catch (e) {
-      if (e instanceof QueryError) {
-        console.warn(e);
-        return [];
-      }
+      if (e instanceof QueryError) return [];
       throw e;
     }
   }

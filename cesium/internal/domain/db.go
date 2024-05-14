@@ -15,7 +15,6 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
-	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -108,11 +107,12 @@ func Open(configs ...Config) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	idx := &index{Observer: observe.New[indexUpdate]()}
-	idxPst, err := openIndexPersist(idx, cfg)
+	idx := &index{}
+	idxPst, err := openIndexPersist(idx, cfg.FS)
 	if err != nil {
 		return nil, err
 	}
+	idx.indexPersist = idxPst
 	idx.mu.pointers, err = idxPst.load()
 	if err != nil {
 		return nil, err

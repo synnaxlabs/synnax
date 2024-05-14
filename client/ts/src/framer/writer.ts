@@ -45,12 +45,16 @@ export enum WriterMode {
   StreamOnly = 3,
 }
 
+export const ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT : TimeSpan = new TimeSpan(-1);
+
 const netConfigZ = z.object({
   start: TimeStamp.z.optional(),
   controlSubject: controlSubjectZ.optional(),
   keys: z.number().array().optional(),
   authorities: Authority.z.array().optional(),
   mode: z.nativeEnum(WriterMode).optional(),
+  enableAutoCommit: z.boolean().optional(),
+  autoIndexPersistInterval: TimeSpan.z.optional(),
 });
 
 const reqZ = z.object({
@@ -70,11 +74,27 @@ const resZ = z.object({
 type Response = z.infer<typeof resZ>;
 
 export interface WriterConfig {
+  // channels denote the channels to write to.
   channels: Params;
+  // start sets the starting timestamp for the first sample in the writer.
   start?: CrudeTimeStamp;
+  // controlSubject sets the control subject of the writer.
   controlSubject?: ControlSubject;
+  // authorities set the control authority to set for each channel on the writer.
+  // Defaults to absolute authority. If not working with concurrent control,
+  // it's best to leave this as the default.
   authorities?: Authority | Authority[];
+  // mode sets the persistence and streaming mode of the writer. The default
+  // mode is WriterModePersistStream.
   mode?: WriterMode;
+  //  enableAutoCommit determines whether the writer will automatically commit.
+  //  If enableAutoCommit is true, then the writer will commit after each write, and
+  //  will flush that commit to index after the specified autoIndexPersistInterval.
+  enableAutoCommit?: boolean
+  // autoIndexPersistInterval sets the interval at which commits to the index will be
+  // persisted. To persist every commit to guarantee minimal loss of data, set
+  // auto_index_persist_interval to AlwaysAutoIndexPersist.
+  autoIndexPersistInterval?: TimeSpan
 }
 
 /**
@@ -137,6 +157,8 @@ export class Writer {
       authorities = Authority.Absolute,
       controlSubject: subject,
       mode = WriterMode.PersistStream,
+      enableAutoCommit = false,
+      autoIndexPersistInterval = TimeSpan.SECOND
     }: WriterConfig,
   ): Promise<Writer> {
     const adapter = await WriteFrameAdapter.open(retriever, channels);
@@ -150,6 +172,8 @@ export class Writer {
         controlSubject: subject,
         authorities: toArray(authorities),
         mode,
+        enableAutoCommit,
+        autoIndexPersistInterval,
       },
     });
     return writer;

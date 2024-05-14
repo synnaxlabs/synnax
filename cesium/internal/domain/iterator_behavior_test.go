@@ -19,8 +19,8 @@ import (
 )
 
 var _ = Describe("Iterator Behavior", func() {
-	for fsName, fs := range fileSystems {
-		fs := fs()
+	for fsName, makeFS := range fileSystems {
+		fs := makeFS()
 		Context("FS: "+fsName, Ordered, func() {
 			var db *domain.DB
 			BeforeEach(func() {

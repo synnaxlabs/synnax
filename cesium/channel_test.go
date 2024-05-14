@@ -21,8 +21,8 @@ import (
 )
 
 var _ = Describe("Channel", Ordered, func() {
-	for fsName, fs := range fileSystems {
-		fs := fs()
+	for fsName, makeFS := range fileSystems {
+		fs := makeFS()
 		Context("FS: "+fsName, Ordered, func() {
 			var db *cesium.DB
 			BeforeAll(func() { db = openDBOnFS(fs) })
@@ -72,4 +72,5 @@ var _ = Describe("Channel", Ordered, func() {
 				)
 			})
 		})
-	})
+	}
+})
