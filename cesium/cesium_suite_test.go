@@ -22,14 +22,13 @@ import (
 )
 
 var (
-	ctx                       = context.Background()
-	rootPath                  = "cesium-testdata"
-	fileSystems, cleanUp, err = testutil.FileSystems()
+	ctx         = context.Background()
+	fileSystems = testutil.FileSystems()
 )
 
 func openDBOnFS(fs xfs.FS) *cesium.DB {
 	return testutil.MustSucceed(cesium.Open(
-		rootPath,
+		"",
 		cesium.WithFS(fs),
 	))
 }

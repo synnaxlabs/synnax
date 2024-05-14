@@ -13,9 +13,9 @@ import (
 	"context"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
@@ -66,7 +66,7 @@ func (w WriterConfig) Domain() telem.TimeRange {
 
 func (w WriterConfig) Validate() error {
 	v := validate.New("domain.WriterConfig")
-	v.Ternary(w.End.Before(w.Start), "end timestamp must be after or equal to start timestamp")
+	v.Ternary("end", w.End.Before(w.Start), "end timestamp must be after or equal to start timestamp")
 	return nil
 }
 

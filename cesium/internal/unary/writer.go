@@ -22,8 +22,8 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
-	"math"
 	"github.com/synnaxlabs/x/validate"
+	"math"
 )
 
 type WriterConfig struct {
@@ -69,7 +69,7 @@ var (
 func (c WriterConfig) Validate() error {
 	v := validate.New("unary.WriterConfig")
 	validate.NotEmptyString(v, "Subject.Key", c.Subject.Key)
-	v.Ternary(c.End.Before(c.Start), "end timestamp must be after or equal to start timestamp")
+	v.Ternary("end", c.End.Before(c.Start), "end timestamp must be after or equal to start timestamp")
 	return nil
 }
 

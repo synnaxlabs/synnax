@@ -26,13 +26,13 @@ import (
 
 var _ = Describe("Writer Behavior", func() {
 	for fsName, makeFS := range fileSystems {
-		fs := makeFS()
+		fs, cleanup := makeFS()
 		Context("FS: "+fsName, Ordered, func() {
 			var db *cesium.DB
 			BeforeAll(func() { db = openDBOnFS(fs) })
 			AfterAll(func() {
 				Expect(db.Close()).To(Succeed())
-				Expect(fs.Remove(rootPath)).To(Succeed())
+				cleanup()
 			})
 			Describe("Happy Path", func() {
 				Context("Indexed", func() {
@@ -154,8 +154,8 @@ var _ = Describe("Writer Behavior", func() {
 						))
 						Expect(ok).To(BeTrue())
 						t, ok := w.Commit()
-						Expect(ok).To(BeTrue())
 						Expect(w.Error()).To(BeNil())
+						Expect(ok).To(BeTrue())
 						Expect(t).To(Equal(10500*telem.MillisecondTS + 1))
 
 						ok = w.Write(cesium.NewFrame(
@@ -536,7 +536,7 @@ var _ = Describe("Writer Behavior", func() {
 
 								f := MustSucceed(fs.Open(channelKeyToPath(index1)+"/index.domain", os.O_RDONLY))
 								buf := make([]byte, 26)
-								_, err = f.Read(buf)
+								_, err := f.Read(buf)
 								Expect(err).ToNot(HaveOccurred())
 								Expect(f.Close()).To(Succeed())
 								Expect(binary.LittleEndian.Uint64(buf[8:16])).To(Equal(uint64(33*telem.SecondTS + 1)))
@@ -643,13 +643,12 @@ var _ = Describe("Writer Behavior", func() {
 									},
 								))
 								Expect(ok).To(BeTrue())
-								Expect(err).ToNot(HaveOccurred())
 
 								By("Asserting that the telemetry has been persisted")
 								Eventually(func(g Gomega) {
 									f := MustSucceed(fs.Open(channelKeyToPath(index1)+"/index.domain", os.O_RDONLY))
 									buf := make([]byte, 26)
-									_, err = f.Read(buf)
+									_, err := f.Read(buf)
 									g.Expect(err).ToNot(HaveOccurred())
 									g.Expect(f.Close()).To(Succeed())
 									g.Expect(binary.LittleEndian.Uint64(buf[0:8])).To(Equal(uint64(10 * telem.SecondTS)))

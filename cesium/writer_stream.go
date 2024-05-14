@@ -375,7 +375,7 @@ func (w *idxWriter) Write(fr Frame) (Frame, error) {
 			return fr, err
 		}
 		if !incrementedSampleCount {
-			w.sampleCount = int64(alignment) + series.Len()
+			w.sampleCount += series.Len()
 			incrementedSampleCount = true
 		}
 		series.Alignment = alignment
@@ -400,7 +400,7 @@ func (w *idxWriter) Commit(ctx context.Context) (telem.TimeStamp, error) {
 }
 
 func (w *idxWriter) Close(ctx context.Context) (ControlUpdate, error) {
-	c := errors.NewCatch(errors.WithAggregation())
+	c := errors.NewCatcher(errors.WithAggregation())
 	update := ControlUpdate{
 		Transfers: make([]controller.Transfer, 0, len(w.internal)),
 	}
