@@ -232,7 +232,6 @@ ni::WriterTask::WriterTask(const std::shared_ptr <task::Context> &ctx,
     auto writer_config = synnax::WriterConfig{
             .channels = state_keys,
             .start = synnax::TimeStamp::now(),
-            .mode = synnax::WriterStreamOnly // TODO: is this the correct mode?
     };
 
     // create a streamer config to stream incoming cmds
@@ -252,6 +251,14 @@ ni::WriterTask::WriterTask(const std::shared_ptr <task::Context> &ctx,
                                                        streamer_config,
                                                        std::move(daq_writer),
                                                        breaker_config));
+
+    ctx->setState({
+        .task = task.key,
+        .variant = "success",
+        .details = {
+                {"running", false}
+        }
+    });
 }
 
 

@@ -20,7 +20,7 @@ std::pair<std::unique_ptr<task::Task>, bool> ni::Factory::configureTask(
         return {ni::ScannerTask::configure(ctx, task), true};
     } else if (task.type == "niAnalogReader" || task.type == "niDigitalReader")
         return {ni::ReaderTask::configure(ctx, task), true};
-    else if (task.type == "niWriter")
+    else if (task.type == "niDigitalWriter")
         return {ni::WriterTask::configure(ctx, task), true};
     return {nullptr, false};
 }

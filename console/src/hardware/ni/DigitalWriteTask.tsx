@@ -234,7 +234,7 @@ const DigitalWriteTaskInternal = ({
           <Button.Icon
             loading={start.isPending}
             disabled={start.isPending || taskState == null}
-            onChange={() => start.mutate()}
+            onClick={() => start.mutate()}
             variant="outlined"
           >
             {taskState?.details?.running === true ? <Icon.Pause /> : <Icon.Play />}
@@ -272,7 +272,7 @@ const ChannelForm = ({ selectedChannelIndex }: ChannelFormProps): ReactElement =
     <>
       <Align.Space direction="y" className={CSS.B("channel-form-content")} empty>
         <ChannelField fieldKey="cmdChannel" label="Command Channel" path={prefix} />
-        <ChannelField fieldKey="cmdChannel" label="Command Channel" path={prefix} />
+        <ChannelField fieldKey="stateChannel" label="State Channel" path={prefix} />
         <Align.Space direction="x" grow>
           <Form.NumericField path={`${prefix}.port`} label="Port" grow />
           <Form.NumericField path={`${prefix}.line`} label="Line" grow />

@@ -25,7 +25,6 @@
 //                             Helper Functions                                  //
 ///////////////////////////////////////////////////////////////////////////////////
 void ni::DaqDigitalWriter::getIndexKeys(){
-
     assert(this->writer_config.drive_state_channel_keys.size() > 0);
     auto state_channel = this->writer_config.drive_state_channel_keys[0];
     auto [state_channel_info, err] = this->ctx->client->channels.retrieve(state_channel);
@@ -100,9 +99,10 @@ ni::DaqDigitalWriter::DaqDigitalWriter(
 
 
 void ni::DaqDigitalWriter::parseConfig(config::Parser &parser){
-    this->writer_config.state_rate = parser.required<uint64_t>("stream_rate"); // for state writing
-    this->writer_config.device_key = parser.required<uint32_t>("device"); // device key
+    this->writer_config.state_rate = parser.required<uint64_t>("state_rate"); // for state writing
+    this->writer_config.device_key = parser.required<std::string>("device"); // device key
 
+    assert(parser.ok());
     auto [dev, err ] = this->ctx->client->hardware.retrieveDevice(this->writer_config.device_key);
 
     if(err != freighter::NIL){
@@ -114,8 +114,6 @@ void ni::DaqDigitalWriter::parseConfig(config::Parser &parser){
 
     // task key 
     // device name
-    this->writer_config.device_name = parser.required<std::string>("device_name");
-    // now parse the channels
     parser.iter("channels",
                 [&](config::Parser &channel_builder)
                 {
@@ -137,7 +135,6 @@ void ni::DaqDigitalWriter::parseConfig(config::Parser &parser){
                     this->writer_config.channels.push_back(config);
                 });
 
-    assert(this->writer_config.drive_state_index_key != 0);
     assert(this->writer_config.drive_state_channel_keys.size() > 0);
     assert(this->writer_config.drive_cmd_channel_keys.size() > 0);
     assert(this->writer_config.drive_cmd_channel_keys.size() == this->writer_config.drive_state_channel_keys.size());
@@ -177,6 +174,7 @@ freighter::Error ni::DaqDigitalWriter::start(){
         LOG(INFO) << "[NI Reader] attempt to start an already running NI task for task " << this->writer_config.task_name;
         return freighter::NIL; // TODO: change return value?
     }
+    this->running = true;
     freighter::Error err = freighter::NIL;
     if (this->checkNIError(ni::NiDAQmxInterface::StartTask(this->taskHandle))){
         LOG(ERROR) << "[NI Writer] failed while starting writer for task " << this->writer_config.task_name;
@@ -195,6 +193,7 @@ freighter::Error ni::DaqDigitalWriter::stop(){
         return freighter::NIL; // TODO: change return value?
     }
 
+    this->running = false;
     freighter::Error err = freighter::NIL;
 
     if (this->checkNIError(ni::NiDAQmxInterface::StopTask(taskHandle))){
