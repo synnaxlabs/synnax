@@ -65,7 +65,7 @@ var _ = Describe("WriterBehavior", func() {
 					Expect(w.Write([]byte{15, 16, 17, 18, 19})).To(Equal(5))
 					Expect(w.Commit(ctx, 19*telem.SecondTS+1)).To(Succeed())
 					Expect(w.Write([]byte{100, 101, 102, 103, 104})).To(Equal(5))
-					Expect(w.Commit(ctx, 104*telem.SecondTS+1)).To(Succeed())
+					Expect(w.Commit(ctx, 104*telem.SecondTS+1)).To(MatchError(ContainSubstring("cannot be greater than preset end timestamp")))
 				})
 			})
 			Describe("Start Validation", func() {
