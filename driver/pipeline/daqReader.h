@@ -24,7 +24,7 @@ namespace daq
         virtual bool ok() = 0;
     };
 
-    class daqWriter: public pipeline::Sink{
+    class DaqWriter: public pipeline::Sink{
     public:
         virtual freighter::Error write(synnax::Frame frame) = 0;
         virtual freighter::Error start() = 0;

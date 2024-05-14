@@ -157,8 +157,10 @@ std::unique_ptr <task::Task> ni::ReaderTask::configure(const std::shared_ptr <ta
 
 void ni::ReaderTask::exec(task::Command &cmd) {
     if (cmd.type == "start") {
+        LOG(INFO) << "[NI Task] starting reader task " << this->task.name;
         this->start();
     } else if (cmd.type == "stop") {
+        LOG(INFO) << "[NI Task] stopping reader task " << this->task.name;
        this->stop();
     } else {
         LOG(ERROR) << "unknown command type: " << cmd.type;

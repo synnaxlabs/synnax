@@ -141,8 +141,6 @@ void ni::DaqAnalogReader::parseConfig(config::Parser &parser){
     this->reader_config.stream_rate = parser.required<uint64_t>("stream_rate");
     this->reader_config.device_key = parser.required<std::string>("device");
 
-    LOG(INFO) << "sample rate: " << this->reader_config.acq_rate << " stream rate: " << this->reader_config.stream_rate << " device key: " << this->reader_config.device_key;
-
 
     auto [dev, err] = this->ctx->client->hardware.retrieveDevice(this->reader_config.device_key);
 
@@ -159,26 +157,22 @@ void ni::DaqAnalogReader::parseConfig(config::Parser &parser){
                 [&](config::Parser &channel_builder)
                 {
                     ni::ChannelConfig config;
-                    // config.channel_type = channel_builder.required<std::string>("channel_type");
 
                     // analog channel names are formatted: <device_name>/ai<port>
-                    config.name = (config.channel_type == "index") ? (channel_builder.required<std::string>("name"))
-                                                                   : (this->reader_config.device_name + "/ai" + std::to_string(channel_builder.required<std::uint64_t>("port")));
+                    config.name = (this->reader_config.device_name + "/ai" + std::to_string(channel_builder.required<std::uint64_t>("port")));
 
                     config.channel_key = channel_builder.required<uint32_t>("channel");
 
-                    if (config.channel_type != "index")
-                    {
-                        config.min_val = channel_builder.required<float_t>("min_val");
-                        config.max_val = channel_builder.required<std::float_t>("max_val");
-                        auto terminal_config = channel_builder.required<std::string>("terminal_config");
+                    config.min_val = channel_builder.required<float_t>("min_val");
+                    config.max_val = channel_builder.required<std::float_t>("max_val");
+                    auto terminal_config = channel_builder.required<std::string>("terminal_config");
 
-                        config.terminal_config =     (terminal_config == "PseudoDiff") ? DAQmx_Val_PseudoDiff 
-                                                :    (terminal_config == "Diff") ? DAQmx_Val_Diff
-                                                :    (terminal_config == "NRSE") ? DAQmx_Val_NRSE
-                                                :    (terminal_config == "RSE") ? DAQmx_Val_RSE
-                                                :    DAQmx_Val_Cfg_Default;
-                    }
+                    config.terminal_config =     (terminal_config == "PseudoDiff") ? DAQmx_Val_PseudoDiff 
+                                            :    (terminal_config == "Diff") ? DAQmx_Val_Diff
+                                            :    (terminal_config == "NRSE") ? DAQmx_Val_NRSE
+                                            :    (terminal_config == "RSE") ? DAQmx_Val_RSE
+                                            :    DAQmx_Val_Cfg_Default;
+                
                     // check for custom scale
                     this->parseCustomScale(channel_builder, config);
                     this->reader_config.channels.push_back(config);
@@ -407,34 +401,35 @@ void ni::DaqAnalogReader::deleteScales(){
 
 std::pair<synnax::Frame, freighter::Error> ni::DaqAnalogReader::read(){
     int32 samplesRead = 0;
-    float64 flush[1000]; // to flush buffer before performing a read
+    float64 flush[100000]; // to flush buffer before performing a read
     int32 flushRead = 0;
     synnax::Frame f = synnax::Frame(numChannels);
 
     // initial read to flush buffer
-    if (this->checkNIError(ni::NiDAQmxInterface::ReadAnalogF64(this->taskHandle,
-                                              -1, // reads all available samples in buffer
-                                              10.0,
-                                              DAQmx_Val_GroupByChannel,
-                                              flush,
-                                              1000,
-                                              &flushRead,
-                                              NULL))){
+    if (this->checkNIError(ni::NiDAQmxInterface::ReadAnalogF64(
+                                            this->taskHandle,
+                                            -1, // reads all available samples in buffer
+                                            10.0,
+                                            DAQmx_Val_GroupByChannel,
+                                            flush,
+                                            100000,
+                                            &flushRead,
+                                            NULL))){
         LOG(ERROR) << "[NI Reader] failed while flushing buffer for task " << this->reader_config.task_name;
         return std::make_pair(std::move(f), freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR, "error reading analog data"));
     }
 
     // actual read of analog lines
     std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
-    if (this->checkNIError(ni::NiDAQmxInterface::ReadAnalogF64(this->taskHandle,
-                                                               this->numSamplesPerChannel,
-                                                               -1,
-                                                               DAQmx_Val_GroupByChannel,
-                                                               this->data,
-                                                               this->bufferSize,
-                                                               &samplesRead,
-                                                               NULL)))
-    {
+    if (this->checkNIError(ni::NiDAQmxInterface::ReadAnalogF64(
+                                                            this->taskHandle,
+                                                            this->numSamplesPerChannel,
+                                                            -1,
+                                                            DAQmx_Val_GroupByChannel,
+                                                            this->data,
+                                                            this->bufferSize,
+                                                            &samplesRead,
+                                                            NULL))){
         LOG(ERROR) << "[NI Reader] failed while reading analog data for task " << this->reader_config.task_name;
         return std::make_pair(std::move(f), freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR, "Error reading analog data"));
     }

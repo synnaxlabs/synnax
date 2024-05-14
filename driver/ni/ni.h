@@ -252,7 +252,7 @@ namespace ni{
 
 
     ///////////////////////////////////////////////////////////////////////////////////
-    //                                    daqStateWriter                             //
+    //                                    DaqStateWriter                             //
     ///////////////////////////////////////////////////////////////////////////////////
     class daqStateWriter : public pipeline::Source{
         public: 
@@ -274,12 +274,13 @@ namespace ni{
 
 
     ///////////////////////////////////////////////////////////////////////////////////
-    //                                    daqWriter                                  //
+    //                                    DaqDigitalWriter                           //
     ///////////////////////////////////////////////////////////////////////////////////
     typedef struct WriterConfig{
         std::vector<ChannelConfig> channels;
         std::uint64_t state_rate = 0;
         std::string device_name;
+        std::string device_key;
         std::string task_name; 
         synnax::ChannelKey task_key;
 
@@ -292,9 +293,9 @@ namespace ni{
         std::queue<std::uint8_t> modified_state_values;
     } WriterConfig;
 
-    class daqWriter : public daq::daqWriter{
+    class DaqDigitalWriter : public daq::DaqWriter{
     public:
-        explicit daqWriter(TaskHandle taskHandle,
+        explicit DaqDigitalWriter(TaskHandle taskHandle,
                              const std::shared_ptr<task::Context> &ctx,
                              const synnax::Task task);
 
@@ -305,15 +306,15 @@ namespace ni{
         std::vector<synnax::ChannelKey> getCmdChannelKeys();
         std::vector<synnax::ChannelKey> getStateChannelKeys();
         bool ok();
-        ~daqWriter();
+        ~DaqDigitalWriter();
 
 
         std::shared_ptr<ni::daqStateWriter> writer_state_source;
     private:
         // private helper functions
-        freighter::Error writeDigital(synnax::Frame frame);
+        freighter::Error write(synnax::Frame frame);
         freighter::Error formatData(synnax::Frame frame);
-        void parseDigitalWriterConfig(config::Parser &parser);
+        void parseConfig(config::Parser &parser);
         int checkNIError(int32 error);
 
         // NI related resources
@@ -322,6 +323,7 @@ namespace ni{
         int numSamplesPerChannel = 0;
         std::int64_t numChannels = 0;
         TaskHandle taskHandle = 0;
+        bool running = false;
 
         json err_info;
 

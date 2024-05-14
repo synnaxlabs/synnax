@@ -20,19 +20,62 @@
 #include <cassert>
 #include "glog/logging.h"
 
+
+///////////////////////////////////////////////////////////////////////////////////
+//                             Helper Functions                                  //
+///////////////////////////////////////////////////////////////////////////////////
+void ni::DaqAnalogReader::getIndexKeys(){
+    std::set<std::uint32_t> index_keys;
+    //iterate through channels in reader config
+    for (auto &channel : this->writer_config.channels){
+        auto [channel_info, err] = this->ctx->client->channels.retrieve(channel.channel_key);
+        // TODO handle error with breaker
+        if (err != freighter::NIL){
+            // Log error
+            LOG(ERROR) << "[NI Writer] failed to retrieve channel " << channel.channel_key;
+            this->ok_state = false;
+            return;
+        } else{
+            // add key to set
+            index_keys.insert(channel_info.index);
+        }
+    }
+
+
+    // now iterate through the set and add all the index channels as configs
+    for (auto it = index_keys.begin(); it != index_keys.end(); ++it){
+        auto index_key = *it;
+        LOG(INFO) << "constructing index channel configs";
+        auto [channel_info, err] = this->ctx->client->channels.retrieve(index_key);
+        if (err != freighter::NIL){
+            LOG(ERROR) << "[NI Writer] failed to retrieve channel " << index_key;
+            this->ok_state = false;
+            return;
+        } else{
+            ni::ChannelConfig index_channel;
+            index_channel.channel_key = channel_info.key;
+            index_channel.channel_type = "index";
+            index_channel.name = channel_info.name;
+            this->reader_config.channels.push_back(index_channel);
+            LOG(INFO) << "[NI Writer] index channel " << index_channel.channel_key << " and name: " << index_channel.name <<" added to task " << this->reader_config.task_name;
+        }
+    }
+
+}
+
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    daqWriter                                //
 ///////////////////////////////////////////////////////////////////////////////////
 
-ni::daqWriter::daqWriter(
+
+
+ni::DaqDigitalWriter::DaqDigitalWriter(
     TaskHandle taskHandle,
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task task)
     : taskHandle(taskHandle),
-      ctx(ctx)
-{
-    // TODO: add a writer_type to config?
-
+      ctx(ctx){
+    
     // Create parser
     auto config_parser = config::Parser(task.config);
     this->writer_config.task_name = task.name;
@@ -75,44 +118,45 @@ ni::daqWriter::daqWriter(
     this->start();
 }
 
-void ni::daqWriter::parseDigitalWriterConfig(config::Parser &parser)
-{
 
+
+
+void ni::DaqDigitalWriter::parseConfig(config::Parser &parser){
+    this->writer_config.state_rate = parser.required<uint64_t>("stream_rate"); // for state writing
+    this->writer_config.device_key = parser.required<uint32_t>("device"); // device key
+
+    auto [dev, err ] = this->ctx->client->hardware.retrieveDevice(this->writer_config.device_key);
+
+    if(err != freighter::NIL){
+        LOG(ERROR) << "[NI Writer] failed to retrieve device with key " << this->writer_config.device_key;
+        this->ok_state = false;
+        return;
+    }
+    this->reader_config.device_name = dev.location;
+
+    // task key 
     // device name
     this->writer_config.device_name = parser.required<std::string>("device_name");
-    this->writer_config.state_rate = parser.required<uint64_t>("stream_rate"); // for state writing
     // now parse the channels
     parser.iter("channels",
                 [&](config::Parser &channel_builder)
                 {
                     ni::ChannelConfig config;
 
-                    config.channel_type = channel_builder.required<std::string>("channel_type");
-
                     // digital channel names are formatted: <device_name>/port<port_number>/line<line_number>
-                    config.name = (config.channel_type == "index" || config.channel_type == "driveStateIndex") ? (channel_builder.required<std::string>("name"))
-                                                                                                               : (this->writer_config.device_name + "/port" + std::to_string(channel_builder.required<std::uint64_t>("port")) + "/line" + std::to_string(channel_builder.required<std::uint64_t>("line")));
+                    config.name = (this->writer_config.device_name + "/port" + std::to_string(channel_builder.required<std::uint64_t>("port")) + "/line" + std::to_string(channel_builder.required<std::uint64_t>("line")));
 
-                    config.channel_key = channel_builder.required<uint32_t>("channel_key");
-
-                    if ((config.channel_type != "index") && (config.channel_type != "driveStateIndex"))
-                    {
-                        uint32_t drive_state_key = channel_builder.required<uint32_t>("drive_state_key");
-                        this->writer_config.drive_state_channel_keys.push_back(drive_state_key);
-                        this->writer_config.drive_cmd_channel_keys.push_back(config.channel_key);
-                        // update state map
-                    }
-
+                    config.channel_key = channel_builder.required<uint32_t>("cmd_channel");
+              
+                    uint32_t drive_state_key = channel_builder.required<uint32_t>("state_channel");
+                    this->writer_config.drive_state_channel_keys.push_back(drive_state_key);
+                    this->writer_config.drive_cmd_channel_keys.push_back(config.channel_key);
+                
                     // TODO: there could be more than 2 state
                     config.min_val = 0;
                     config.max_val = 1;
 
                     this->writer_config.channels.push_back(config);
-
-                    if (config.channel_type == "driveStateIndex")
-                    {
-                        this->writer_config.drive_state_index_key = config.channel_key;
-                    }
                 });
 
     assert(this->writer_config.drive_state_index_key != 0);
@@ -121,35 +165,28 @@ void ni::daqWriter::parseDigitalWriterConfig(config::Parser &parser)
     assert(this->writer_config.drive_cmd_channel_keys.size() == this->writer_config.drive_state_channel_keys.size());
 }
 
-int ni::daqWriter::init()
-{
+
+int ni::DaqDigitalWriter::init(){
     int err = 0;
     auto channels = this->writer_config.channels;
 
     // iterate through channels
-    for (auto &channel : channels)
-    {
-        if (channel.channel_type == "digitalOutput")
-        {
+    for (auto &channel : channels){
+        if (channel.channel_type != "index"){
             err = this->checkNIError(ni::NiDAQmxInterface::CreateDOChan(taskHandle, channel.name.c_str(), "", DAQmx_Val_ChanPerLine));
         }
         this->numChannels++; // includes index channels TODO: how is this different form jsut channels.size()?
-        if (err < 0)
-        {
+        if (err < 0){
             LOG(ERROR) << "[NI Writer] failed while configuring channel " << channel.name;
             return -1;
         }
     }
 
-    // Configure timing
-    // TODO: make sure there isnt different cases to handle between analog and digital
-
     // Configure buffer size and read resources
     this->bufferSize = this->numChannels;
     this->writeBuffer = new uint8_t[this->bufferSize];
 
-    for (int i = 0; i < this->bufferSize; i++)
-    {
+    for (int i = 0; i < this->bufferSize; i++){
         writeBuffer[i] = 0;
     }
 
@@ -157,37 +194,37 @@ int ni::daqWriter::init()
     return 0;
 }
 
-freighter::Error ni::daqWriter::start()
-{
-    // TODO: don't let multiple starts happen (or handle it at least)
+freighter::Error ni::DaqDigitalWriter::start(){
+    if(this->running){
+        LOG(INFO) << "[NI Reader] attempt to start an already running NI task for task " << this->reader_config.task_name;
+        return freighter::NIL; // TODO: change return value?
+    }
     freighter::Error err = freighter::NIL;
-    if (this->checkNIError(ni::NiDAQmxInterface::StartTask(this->taskHandle)))
-    {
+    if (this->checkNIError(ni::NiDAQmxInterface::StartTask(this->taskHandle))){
         LOG(ERROR) << "[NI Writer] failed while starting writer for task " << this->writer_config.task_name;
         err = freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
     }
-    else
-    {
+    else{
         LOG(INFO) << "[NI Writer] successfully started writer for task " << this->writer_config.task_name;
     }
     return err;
 }
 
-freighter::Error ni::daqWriter::stop()
-{
-    // TODO: don't let multiple closes happen (or handle it at least)
+
+freighter::Error ni::daqWriter::stop(){
+   if(!this->running){
+        LOG(INFO) << "[NI Reader] attempt to stop an already stopped NI task for task " << this->reader_config.task_name;
+        return freighter::NIL; // TODO: change return value?
+    }
 
     freighter::Error err = freighter::NIL;
 
-    if (this->checkNIError(ni::NiDAQmxInterface::StopTask(taskHandle)))
-    {
+    if (this->checkNIError(ni::NiDAQmxInterface::StopTask(taskHandle))){
         LOG(ERROR) << "[NI Writer] failed while stopping writer for task " << this->writer_config.task_name;
         err = freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
     }
-    else
-    {
-        if (this->checkNIError(ni::NiDAQmxInterface::ClearTask(taskHandle)))
-        {
+    else{
+        if (this->checkNIError(ni::NiDAQmxInterface::ClearTask(taskHandle))){
             LOG(ERROR) << "[NI Writer] failed while clearing writer for task " << this->writer_config.task_name;
             err = freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
         }
@@ -195,23 +232,14 @@ freighter::Error ni::daqWriter::stop()
 
     delete[] writeBuffer;
 
-    if (err == freighter::NIL)
-    {
+    if (err == freighter::NIL){
         LOG(INFO) << "[NI Writer] successfully stopped and cleared writer for task " << this->writer_config.task_name;
     }
 
     return err;
 }
 
-// Here to modify as we add more writing options
-freighter::Error ni::daqWriter::write(synnax::Frame frame)
-{
-    // TODO: should this function get a Frame or a bit vector of setpoints instead?
-    return writeDigital(std::move(frame));
-}
-
-freighter::Error ni::daqWriter::writeDigital(synnax::Frame frame)
-{
+freighter::Error ni::DaqDigitalWriter::write(synnax::Frame frame){
     char errBuff[2048] = {'\0'};
     int32 samplesWritten = 0;
     formatData(std::move(frame));
@@ -238,17 +266,15 @@ freighter::Error ni::daqWriter::writeDigital(synnax::Frame frame)
     return freighter::NIL;
 }
 
-freighter::Error ni::daqWriter::formatData(synnax::Frame frame)
-{
+
+freighter::Error ni::DaqDigitalWriter::formatData(synnax::Frame frame){
     uint32_t frame_index = 0;
     uint32_t cmd_channel_index = 0;
 
-    for (auto key : *(frame.channels))
-    { // the order the keys were pushed into the vector is the order the data is written
+    for (auto key : *(frame.channels)){ // the order the keys were pushed into the vector is the order the data is written
         // first see if the key is in the drive_cmd_channel_keys
         auto it = std::find(this->writer_config.drive_cmd_channel_keys.begin(), this->writer_config.drive_cmd_channel_keys.end(), key);
-        if (it != this->writer_config.drive_cmd_channel_keys.end())
-        {
+        if (it != this->writer_config.drive_cmd_channel_keys.end()){
             // if so, now find which index it is in the vector (i.e. which channel it is in the writeBuffer)
             cmd_channel_index = std::distance(this->writer_config.drive_cmd_channel_keys.begin(), it); // this corressponds to where in the order its NI channel was created
             // now we grab the level we'd like to write and put it into that location in the write_buffer
@@ -261,6 +287,9 @@ freighter::Error ni::daqWriter::formatData(synnax::Frame frame)
     }
     return freighter::NIL;
 }
+
+////////////////////////////////////////////////////////////////////////////////
+
 
 int ni::daqWriter::checkNIError(int32 error)
 {
