@@ -69,5 +69,11 @@ public:
         void *                                 value
     );
     
+
+    static NISYSCFGCDECL NISysCfgSetFilterProperty(
+        NISysCfgFilterHandle                   filterHandle,
+        NISysCfgFilterProperty                 propertyID,
+        ...
+    );  
 };
 }
