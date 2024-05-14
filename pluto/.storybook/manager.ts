@@ -11,7 +11,6 @@ import { addons } from "@storybook/addons";
 import { themes, create } from "@storybook/theming";
 import "./index.css";
 
-
 const baseSize = 6;
 
 const setLightness = (color, lightness: number) => [
@@ -41,7 +40,7 @@ const LIGHT_SCALE = [
   "#050505",
 ];
 
-const lightGrayScale= Object.fromEntries(
+const lightGrayScale = Object.fromEntries(
   LIGHT_SCALE.map((color, index) => [`l${index}`, color]),
 );
 
@@ -91,7 +90,7 @@ const synnaxBase = {
     white: "#FFFFFF",
     black: "#000000",
     text: lightGrayScale.l9,
-    textContrast: lightGrayScale.l0,
+    textInverted: lightGrayScale.l0,
   },
   sizes: {
     base: baseSize,
@@ -178,7 +177,7 @@ export const synnaxDark = {
     logo: "var(--pluto-text-color)",
     border: darkGrayScale.l3,
     text: darkGrayScale.l9,
-    textContrast: darkGrayScale.l0,
+    textInverted: darkGrayScale.l0,
   },
 };
 

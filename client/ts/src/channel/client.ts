@@ -13,14 +13,13 @@ import {
   Rate,
   type TypedArray,
   type CrudeDensity,
-  type Series,
   type TimeRange,
   type AsyncTermSearcher,
   toArray,
   type CrudeTimeStamp,
+  type MultiSeries,
 } from "@synnaxlabs/x";
 
-import { type Creator } from "@/channel/creator";
 import {
   type Key,
   type KeyOrName,
@@ -36,7 +35,8 @@ import {
   DebouncedBatchRetriever,
   type Retriever,
 } from "@/channel/retriever";
-import { MultipleResultsError, NoResultsError, ValidationError } from "@/errors";
+import { type Writer } from "@/channel/writer";
+import { MultipleFoundError, NotFoundError, ValidationError } from "@/errors";
 import { type framer } from "@/framer";
 
 interface CreateOptions {
@@ -148,7 +148,7 @@ export class Channel {
    * @param end - The ending timestamp of the range to read from.
    * @returns A typed array containing the retrieved
    */
-  async read(tr: TimeRange): Promise<Series | undefined> {
+  async read(tr: TimeRange): Promise<MultiSeries> {
     return await this.framer.read(tr, this.key);
   }
 
@@ -159,7 +159,7 @@ export class Channel {
    * @param data - THe telemetry to write to the channel.
    */
   async write(start: CrudeTimeStamp, data: TypedArray): Promise<void> {
-    return await this.framer.write(this.key, start, data);
+    return await this.framer.write(start, this.key, data);
   }
 }
 
@@ -170,20 +170,20 @@ export class Channel {
  */
 export class Client implements AsyncTermSearcher<string, Key, Channel> {
   private readonly frameClient: framer.Client;
-  readonly retriever: Retriever;
-  private readonly creator: Creator;
   private readonly client: UnaryClient;
+  readonly retriever: Retriever;
+  readonly writer: Writer;
 
   constructor(
     frameClient: framer.Client,
     retriever: Retriever,
     client: UnaryClient,
-    creator: Creator,
+    writer: Writer,
   ) {
     this.frameClient = frameClient;
     this.retriever = retriever;
     this.client = client;
-    this.creator = creator;
+    this.writer = writer;
   }
 
   /**
@@ -261,7 +261,7 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
       toCreate = toCreate.filter((c) => !existingNames.has(c.name));
       created = this.sugar(res);
     }
-    created = created.concat(this.sugar(await this.creator.create(toCreate)));
+    created = created.concat(this.sugar(await this.writer.create(toCreate)));
     return single ? created[0] : created;
   }
 
@@ -277,7 +277,7 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
    *
    * @returns The retrieved channel.
    * @throws {NotFoundError} if the channel does not exist in the cluster.
-   * @throws {MultipleResultsError} is only thrown if the channel is retrieved by name,
+   * @throws {MultipleFoundError} is only thrown if the channel is retrieved by name,
    * and multiple channels with the same name exist in the cluster.
    *
    * @example
@@ -316,10 +316,16 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
     const res = this.sugar(await this.retriever.retrieve(channels, rangeKey));
     if (!single) return res;
     if (res.length === 0)
-      throw new NoResultsError(`channel matching ${actual} not found`);
+      throw new NotFoundError(`channel matching ${actual} not found`);
     if (res.length > 1)
-      throw new MultipleResultsError(`multiple channels matching ${actual} found`);
+      throw new MultipleFoundError(`multiple channels matching ${actual} found`);
     return res[0];
+  }
+
+  async delete(channels: Params): Promise<void> {
+    const { normalized, variant } = analyzeParams(channels);
+    if (variant === "keys") return await this.writer.delete({ keys: normalized });
+    return await this.writer.delete({ names: normalized });
   }
 
   async search(term: string, rangeKey?: string): Promise<Channel[]> {

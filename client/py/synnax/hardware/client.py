@@ -7,9 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from synnax.hardware.writer import Writer
+from synnax.hardware.payload import Device, Rack, Task
 from synnax.hardware.retrieve import Retriever
-from synnax.hardware.payload import Rack, Task, Device
+from synnax.hardware.writer import Writer
 
 
 class Client:

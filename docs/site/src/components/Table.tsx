@@ -7,21 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement } from "react";
+import { type ReactElement } from "react";
 
 import {
   convertRenderV,
-  KeyedRenderableRecord,
   bounds,
-  direction,
-  Key,
+  type direction,
+  type Key,
+  type Keyed,
 } from "@synnaxlabs/x";
 
 export interface TableColumn<K extends Key, E extends Keyed<K>> {
   key: keyof E;
   name?: string;
   width?: number;
-  type?: "code";
+  type?: "code" | "html";
 }
 
 export interface TableHighlight<K extends Key, E extends Keyed<K>> {
@@ -144,12 +144,13 @@ const TableCell = <K extends Key, E extends Keyed<K>>({
           top: -upperColors.length,
           left: -1,
         }}
-      />
+      />,
     );
   }
 
   const left = highlights.filter(({ rows, columns, key }) => {
-    const rowValid = rows != null ? bounds.contains(bounds.construct(rows), index) : true;
+    const rowValid =
+      rows != null ? bounds.contains(bounds.construct(rows), index) : true;
     const colValid = columns != null ? columns[0] === column.key : true;
     const isEnd = endings.some(({ key: pKey }) => key === pKey);
     return rowValid && colValid && !isEnd;
@@ -158,7 +159,7 @@ const TableCell = <K extends Key, E extends Keyed<K>>({
   const leftColors = left.map(({ color }) => color);
 
   if (leftColors.length > 0) {
-    const background = buildGradient(leftColors, Direction.X, false);
+    const background = buildGradient(leftColors, "x", false);
     elements.push(
       <div
         style={{
@@ -169,7 +170,7 @@ const TableCell = <K extends Key, E extends Keyed<K>>({
           top: -1,
           left: -leftColors.length,
         }}
-      />
+      />,
     );
   }
 
@@ -195,14 +196,16 @@ const TableCell = <K extends Key, E extends Keyed<K>>({
           top: -1,
           right: -rightColors.length,
         }}
-      />
+      />,
     );
   }
 
   let content: ReactElement | string | number | undefined = convertRenderV(
-    data[column.key]
+    data[column.key],
   );
   if (column.type === "code") content = <code>{content}</code>;
+  if (column.type === "html")
+    content = <div dangerouslySetInnerHTML={{ __html: content as string }} />;
 
   return (
     <td>
@@ -215,7 +218,7 @@ const TableCell = <K extends Key, E extends Keyed<K>>({
 const buildGradient = (
   colors: string[],
   direction: direction.Direction,
-  reverse: boolean
+  reverse: boolean,
 ): string => {
   const count = colors.length;
   const gradient = colors.map((color, i) => {

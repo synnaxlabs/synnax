@@ -4,7 +4,8 @@ on:
     branches:
       - main
   workflow_dispatch:
-
+permissions:
+  contents: write
 env:
   TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
   TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
@@ -61,7 +62,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [ macos-latest, ubuntu-latest, windows-latest ]
+        platform: [ macos-12, ubuntu-latest, windows-latest ]
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -98,6 +99,8 @@ jobs:
         shell: bash
         run: |
           if [ "${{ matrix.platform }}" = "macos-latest" ]; then
+            echo "OS=macos" >> $GITHUB_ENV
+          elif [ "${{ matrix.platform }}" = "macos-12" ]; then
             echo "OS=macos" >> $GITHUB_ENV
           elif [ "${{ matrix.platform }}" = "ubuntu-latest" ]; then
             echo "OS=linux" >> $GITHUB_ENV

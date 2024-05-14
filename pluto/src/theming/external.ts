@@ -10,5 +10,5 @@
 export * from "@/theming/css";
 export * from "@/theming/font";
 export * from "@/theming/index";
-export * from "@/theming/context";
+export * from "@/theming/Provider";
 export * from "@/theming/core/theme";

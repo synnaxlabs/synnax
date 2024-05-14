@@ -8,7 +8,7 @@
   },
   "package": {
     "productName": "Synnax",
-    "version": "0.21.1"
+    "version": "0.21.7"
   },
   "tauri": {
     "allowlist": {

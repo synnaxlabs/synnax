@@ -7,9 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from freighter import Payload, UnaryClient
-from synnax.hardware.payload import Rack, Task, Device
 from alamos import NOOP, Instrumentation, trace
+from freighter import Payload, UnaryClient
+
+from synnax.hardware.payload import Device, Rack, Task
 
 
 class _RetrieveTaskRequest(Payload):

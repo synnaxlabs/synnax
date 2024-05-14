@@ -63,8 +63,8 @@ export const ContextMenuContent = ({
           <Core.Item itemKey="python" startIcon={<Icon.Python />}>
             Copy time range as Python
           </Core.Item>
-          <Core.Item itemKey="typescript" startIcon={<Icon.Typescript />}>
-            Copy time range as Typescript
+          <Core.Item itemKey="typescript" startIcon={<Icon.TypeScript />}>
+            Copy time range as TypeScript
           </Core.Item>
         </>
       )}

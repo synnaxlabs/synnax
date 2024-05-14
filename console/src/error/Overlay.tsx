@@ -32,10 +32,9 @@ import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
 import { NAV_SIZES } from "@/layouts/LayoutMain";
+import { CLEAR_STATE, REVERT_STATE } from "@/persist/state";
 
 import "@/error/Overlay.css";
-
-import { CLEAR_STATE, REVERT_STATE } from "@/persist/state";
 
 export interface ErrorOverlayProps extends PropsWithChildren<{}> {}
 
@@ -54,9 +53,7 @@ const FallbackRender: ErrorBoundaryProps["fallbackRender"] = ({
     // grab the prefers-color-scheme media query
     try {
       const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-      const theme = mediaQuery.matches
-        ? Theming.themes.synnaxDark
-        : Theming.themes.synnaxLight;
+      const theme = mediaQuery.matches ? Theming.SYNNAX_DARK : Theming.SYNNAX_LIGHT;
       PCSS.applyVars(
         document.documentElement,
         Theming.toCSSVars(Theming.themeZ.parse(theme)),

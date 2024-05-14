@@ -23,12 +23,8 @@ import (
 
 const extension = ".domain"
 
-func fileName(name string) string {
-	return name + extension
-}
-
-func fileKeyName(key uint16) string {
-	return fileName(strconv.Itoa(int(key)))
+func fileKeyToName(key uint16) string {
+	return strconv.Itoa(int(key)) + extension
 }
 
 type fileController struct {
@@ -47,10 +43,10 @@ type fileController struct {
 	counterFile io.Closer
 }
 
-const counterFile = "counter"
+const counterFile = "counter" + extension
 
 func openFileController(cfg Config) (*fileController, error) {
-	counterF, err := cfg.FS.Open(fileName(counterFile), os.O_CREATE|os.O_RDWR)
+	counterF, err := cfg.FS.Open(counterFile, os.O_CREATE|os.O_RDWR)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +68,7 @@ func (fc *fileController) acquireWriter(ctx context.Context) (uint16, xio.Tracke
 
 	fc.writers.RLock()
 	for fileKey, w := range fc.writers.open {
-		s, err := fc.FS.Stat(fileKeyName(fileKey))
+		s, err := fc.FS.Stat(fileKeyToName(fileKey))
 		if err != nil {
 			return 0, nil, err
 		}
@@ -86,6 +82,9 @@ func (fc *fileController) acquireWriter(ctx context.Context) (uint16, xio.Tracke
 
 	if !fc.atDescriptorLimit() {
 		w, err := fc.newWriter(ctx)
+		if err != nil {
+			return 0, nil, err
+		}
 		return w.fileKey, w, span.Error(err)
 	}
 
@@ -110,7 +109,7 @@ func (fc *fileController) newWriter(ctx context.Context) (*controlledWriter, err
 	}
 	nextKey := uint16(nextKey_)
 	file, err := fc.FS.Open(
-		fileKeyName(nextKey),
+		fileKeyToName(nextKey),
 		os.O_APPEND|os.O_CREATE|os.O_WRONLY,
 	)
 	if err != nil {
@@ -174,7 +173,7 @@ func (fc *fileController) newReader(ctx context.Context, key uint16) (*controlle
 	ctx, span := fc.T.Bench(ctx, "newReader")
 	defer span.End()
 	file, err := fc.FS.Open(
-		fileKeyName(key),
+		fileKeyToName(key),
 		os.O_RDONLY,
 	)
 	if err != nil {

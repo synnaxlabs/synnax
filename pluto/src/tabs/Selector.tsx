@@ -83,13 +83,14 @@ export const Selector = ({
           />
         ))}
       </Align.Space>
-      <Align.Space className={CSS.BE(CLS, "actions")}>
-        {onCreate != null && (
+
+      {onCreate != null && (
+        <Align.Space className={CSS.BE(CLS, "actions")}>
           <Button.Icon size={size} sharp onClick={onCreate}>
             <Icon.Add />
           </Button.Icon>
-        )}
-      </Align.Space>
+        </Align.Space>
+      )}
     </Align.Space>
   );
 };

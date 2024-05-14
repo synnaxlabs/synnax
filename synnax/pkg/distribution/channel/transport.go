@@ -9,19 +9,30 @@
 
 package channel
 
-import "github.com/synnaxlabs/freighter"
+import (
+	"github.com/synnaxlabs/freighter"
+	"go/types"
+)
 
 type (
 	CreateTransportClient = freighter.UnaryClient[CreateMessage, CreateMessage]
 	CreateTransportServer = freighter.UnaryServer[CreateMessage, CreateMessage]
+	DeleteTransportClient = freighter.UnaryClient[DeleteRequest, types.Nil]
+	DeleteTransportServer = freighter.UnaryServer[DeleteRequest, types.Nil]
 )
 
 type Transport interface {
 	CreateClient() CreateTransportClient
 	CreateServer() CreateTransportServer
+	DeleteClient() DeleteTransportClient
+	DeleteServer() DeleteTransportServer
 }
 
 type CreateMessage struct {
 	Channels             []Channel
 	RetrieveIfNameExists bool
+}
+
+type DeleteRequest struct {
+	Keys []Key
 }

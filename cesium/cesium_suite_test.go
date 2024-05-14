@@ -14,20 +14,35 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
-	. "github.com/synnaxlabs/x/testutil"
+	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/testutil"
+	"path"
+	"strconv"
 	"testing"
 )
 
-var ctx = context.Background()
+var (
+	ctx                       = context.Background()
+	rootPath                  = "cesium-testdata"
+	fileSystems, cleanUp, err = testutil.FileSystems()
+)
 
-func openMemDB() *cesium.DB {
-	return MustSucceed(cesium.Open(
-		"./testdata",
-		cesium.MemBacked(),
+func openDBOnFS(fs xfs.FS) *cesium.DB {
+	return testutil.MustSucceed(cesium.Open(
+		rootPath,
+		cesium.WithFS(fs),
 	))
+}
+
+func channelKeyToPath(key cesium.ChannelKey) string {
+	return path.Join(rootPath, strconv.Itoa(int(key)))
 }
 
 func TestCesium(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Cesium Suite")
 }
+
+var _ = BeforeSuite(func() { Expect(err).ToNot(HaveOccurred()) })
+
+var _ = AfterSuite(func() { Expect(cleanUp()).To(Succeed()) })
