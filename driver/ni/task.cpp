@@ -127,11 +127,6 @@ ni::ReaderTask::ReaderTask(const std::shared_ptr <task::Context> &ctx,
                                                 writer_config,
                                                 std::move(daq_reader),
                                                 breaker_config);
-}
-
-
-std::unique_ptr <task::Task> ni::ReaderTask::configure(const std::shared_ptr <task::Context> &ctx,
-                                                       const synnax::Task &task) {
     ctx->setState({
             .task = task.key,
             .variant = "success",
@@ -139,6 +134,11 @@ std::unique_ptr <task::Task> ni::ReaderTask::configure(const std::shared_ptr <ta
                     {"running", false}
             }
     });
+}
+
+
+std::unique_ptr <task::Task> ni::ReaderTask::configure(const std::shared_ptr <task::Context> &ctx,
+                                                       const synnax::Task &task) {
     return std::make_unique<ni::ReaderTask>(ctx, task);
 }
 
