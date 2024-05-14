@@ -1329,10 +1329,11 @@ export const analogReadTaskConfigZ = z
   });
 
 export type AnalogReadTaskConfig = z.infer<typeof analogReadTaskConfigZ>;
-export const analogReadTaskStateZ = z.object({
+export const analogReadTaskStateDetailsZ = z.object({
   running: z.boolean(),
 });
-export type AnalogReadTaskState = task.State<z.infer<typeof analogReadTaskStateZ>>;
+export type AnalogReadTaskStateDetails = z.infer<typeof analogReadTaskStateDetailsZ>;
+export type AnalogReadTaskState = task.State<z.infer<typeof analogReadTaskStateDetailsZ>>;
 
 export const ZERO_ANALOG_READ_TASK_CONFIG: AnalogReadTaskConfig = {
   device: "Dev1",

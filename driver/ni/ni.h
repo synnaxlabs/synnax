@@ -360,11 +360,13 @@ namespace ni{
                                 
         void exec(task::Command &cmd) override;
 
-        void stop() override{};
+        void stop() override;
+        void start();
 
         static std::unique_ptr<task::Task> configure(   const std::shared_ptr<task::Context> &ctx,
                                                         const synnax::Task &task);
     private:
+        bool running = false;
         pipeline::Acquisition daq_read_pipe; // source is a daqreader 
         TaskHandle taskHandle;
         synnax::Task task;
@@ -386,6 +388,7 @@ namespace ni{
         static std::unique_ptr<task::Task> configure(   const std::shared_ptr<task::Context> &ctx,
                                                         const synnax::Task &task);
     private:
+        bool running = false;
         pipeline::Control cmd_write_pipe;
         pipeline::Acquisition state_write_pipe;
         TaskHandle taskHandle;

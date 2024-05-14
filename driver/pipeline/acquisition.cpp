@@ -35,13 +35,13 @@ Acquisition::Acquisition(
 void Acquisition::start() {
     LOG(INFO) << "[Acquisition] Starting acquisition";
     thread = std::thread(&Acquisition::run, this);
-    running = true;
+    this->running = true;
 }
 
 void Acquisition::stop() {
     LOG(INFO) << "[Acquisition] Stopping acquisition";
     if (!running) return;
-    running = false;
+    this->running = false;
     thread.join();
 }
 
@@ -52,7 +52,7 @@ void Acquisition::run() {
             run();
         return;
     }
-    while (running) {
+    while (this->running) {
         auto [frame, source_err] = source->read();
         if (source_err) {
             if (
@@ -67,5 +67,4 @@ void Acquisition::run() {
     }
     const auto err = writer.close();
     if (err.matches(freighter::UNREACHABLE) && breaker.wait(err.message())) run();
-    running = false;
 }

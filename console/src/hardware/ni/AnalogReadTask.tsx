@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useState, type ReactElement, useCallback } from "react";
+import { useState, type ReactElement, useCallback, useRef } from "react";
 
 import {
   Channel,
@@ -18,6 +18,7 @@ import {
   Synnax,
   Nav,
   Button,
+  useAsyncEffect,
 } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 import { Input } from "@synnaxlabs/pluto/input";
@@ -30,6 +31,7 @@ import {
   AnalogReadTaskConfig,
   analogReadTaskConfigZ,
   AnalogReadTaskState,
+  AnalogReadTaskStateDetails,
   DEFAULT_SCALES,
   type LinearScale,
   type LinearScaleType,
@@ -106,10 +108,24 @@ const AnalogReadTaskInternal = ({
   });
 
   const [task, setTask] = useState(pTask);
-  const [taskState, setTaskState] = useState<AnalogReadTaskState | null>(null);
+  const [taskState, setTaskState] = useState<AnalogReadTaskState | null>(initialValues?.state ?? null);
 
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
   const [selectedChannelIndex, setSelectedChannelIndex] = useState<number | null>(null);
+
+  const stateObserverRef = useRef<task.StateObservable<AnalogReadTaskState> | null>(
+    null,
+  );
+
+  useAsyncEffect(async () => {
+    if (client == null || task == null) return;
+    stateObserverRef.current = await task.openStateObserver<AnalogReadTaskStateDetails>();
+    stateObserverRef.current.onChange((s) => {
+      setTaskState(s);
+    });
+    return async () => await stateObserverRef.current?.close().catch(console.error);
+  }, [client?.key, task?.key, setTaskState]);
+
 
   const configure = useMutation({
     mutationKey: [client?.key, "configure"],
@@ -198,6 +214,9 @@ const AnalogReadTaskInternal = ({
         </Form.Form>
       </Align.Space>
       <Nav.Bar location="bottom" size={48}>
+        <Nav.Bar.Start style={{ paddingLeft: "2rem" }}>
+          <Text.Text level="p">{JSON.stringify(taskState)}</Text.Text>
+          </Nav.Bar.Start>
         <Nav.Bar.End style={{ paddingRight: "2rem" }}>
           <Button.ToggleIcon
             loading={start.isPending}

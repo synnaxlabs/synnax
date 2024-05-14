@@ -58,13 +58,13 @@ void ni::ScannerTask::exec(task::Command &cmd) {
             LOG(ERROR) << "[NI Task] failed to scan for task " << this->task.name;
         } else {
             auto devices = scanner.getDevices(); // TODO remove and dont send in details
-            ctx->setState({
-                                  .task = task.key,
-                                  .variant = "success",
-                                  .details = {
-                                          {"devices", devices.dump(4)}
-                                  }
-                          });
+            // ctx->setState({
+            //                       .task = task.key,
+            //                       .variant = "success",
+            //                       .details = {
+            //                               {"devices", devices.dump(4)}
+            //                       }
+            //               });
             // LOG(INFO) << "[NI Task] successfully scanned for task " << this->task.name;
         }
     } else if (cmd.type == "stop"){
@@ -132,39 +132,58 @@ ni::ReaderTask::ReaderTask(const std::shared_ptr <task::Context> &ctx,
 
 std::unique_ptr <task::Task> ni::ReaderTask::configure(const std::shared_ptr <task::Context> &ctx,
                                                        const synnax::Task &task) {
+    ctx->setState({
+            .task = task.key,
+            .variant = "success",
+            .details = {
+                    {"running", false}
+            }
+    });
     return std::make_unique<ni::ReaderTask>(ctx, task);
 }
 
 void ni::ReaderTask::exec(task::Command &cmd) {
     if (cmd.type == "start") {
-        daq_read_pipe.start();
-
-        ctx->setState({
-                              .task = task.key,
-                              .variant = "success",
-                              .details = {
-                                      {"running", true}
-                              }
-                      });
-        LOG(INFO) << "[NI Task] successfully started task " << this->task.name;
-
+        this->start();
     } else if (cmd.type == "stop") {
-        daq_read_pipe.stop();
-
-        ctx->setState({
-                              .task = task.key,
-                              .variant = "success",
-                              .details = {
-                                      {"running", false}
-                              }
-                      });
-        LOG(INFO) << "[NI Task] successfully stopped task " << this->task.name;
-
+       this->stop();
     } else {
         LOG(ERROR) << "unknown command type: " << cmd.type;
     }
 }
 
+
+void ni::ReaderTask::stop(){
+     if(!this->running){
+            return;
+    }
+    daq_read_pipe.stop();
+    ctx->setState({
+                            .task = task.key,
+                            .variant = "success",
+                            .details = {
+                                    {"running", false}
+                            }
+                    });
+    LOG(INFO) << "[NI Task] successfully stopped task " << this->task.name;
+    this->running = false;
+}
+
+void ni::ReaderTask::start(){
+    if(this->running){
+        return;
+    }
+    daq_read_pipe.start();
+    ctx->setState({
+                            .task = task.key,
+                            .variant = "success",
+                            .details = {
+                                    {"running", true}
+                            }
+                    });
+    LOG(INFO) << "[NI Task] successfully started task " << this->task.name;
+    running = true;
+}
 
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    WriterTask                                 //
@@ -228,6 +247,9 @@ std::unique_ptr <task::Task> ni::WriterTask::configure(const std::shared_ptr <ta
 
 void ni::WriterTask::exec(task::Command &cmd) {
     if (cmd.type == "start") {
+        if(this->running){
+            return;
+        }
         this->cmd_write_pipe.start();
         this->state_write_pipe.start();
 
@@ -239,8 +261,11 @@ void ni::WriterTask::exec(task::Command &cmd) {
                               }
                       });
         LOG(INFO) << "[NI Task] successfully started task " << this->task.name;
-
+        this->running = true;
     } else if (cmd.type == "stop") {
+        if(!this->running){
+            return;
+        }
         this->state_write_pipe.stop();
         this->cmd_write_pipe.stop();
 
@@ -252,6 +277,7 @@ void ni::WriterTask::exec(task::Command &cmd) {
                               }
                       });
         LOG(INFO) << "[NI Task] successfully stopped task " << this->task.name;
+        this->running = false;
     } else {
         LOG(ERROR) << "unknown command type: " << cmd.type;
     }

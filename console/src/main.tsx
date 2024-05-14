@@ -102,7 +102,7 @@ const MainUnderContext = (): ReactElement => {
         triggers={triggersProps}
         haul={{ useState: useHaulState }}
         alamos={{
-          level: "info",
+          level: "debug",
           include: [],
         }}
       >
