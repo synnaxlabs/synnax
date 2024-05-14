@@ -24,43 +24,18 @@
 ///////////////////////////////////////////////////////////////////////////////////
 //                             Helper Functions                                  //
 ///////////////////////////////////////////////////////////////////////////////////
-void ni::DaqAnalogReader::getIndexKeys(){
-    std::set<std::uint32_t> index_keys;
-    //iterate through channels in reader config
-    for (auto &channel : this->writer_config.channels){
-        auto [channel_info, err] = this->ctx->client->channels.retrieve(channel.channel_key);
-        // TODO handle error with breaker
-        if (err != freighter::NIL){
-            // Log error
-            LOG(ERROR) << "[NI Writer] failed to retrieve channel " << channel.channel_key;
-            this->ok_state = false;
-            return;
-        } else{
-            // add key to set
-            index_keys.insert(channel_info.index);
-        }
+void ni::DaqDigitalWriter::getIndexKeys(){
+
+    assert(this->writer_config.drive_state_channel_keys.size() > 0);
+    auto state_channel = this->writer_config.drive_state_channel_keys[0];
+    auto [state_channel_info, err] = this->ctx->client->channels.retrieve(state_channel);
+    if (err != freighter::NIL){
+        LOG(ERROR) << "[NI Writer] failed to retrieve channel " << state_channel;
+        this->ok_state = false;
+        return;
+    } else{
+        this->writer_config.drive_state_index_key = state_channel_info.index;
     }
-
-
-    // now iterate through the set and add all the index channels as configs
-    for (auto it = index_keys.begin(); it != index_keys.end(); ++it){
-        auto index_key = *it;
-        LOG(INFO) << "constructing index channel configs";
-        auto [channel_info, err] = this->ctx->client->channels.retrieve(index_key);
-        if (err != freighter::NIL){
-            LOG(ERROR) << "[NI Writer] failed to retrieve channel " << index_key;
-            this->ok_state = false;
-            return;
-        } else{
-            ni::ChannelConfig index_channel;
-            index_channel.channel_key = channel_info.key;
-            index_channel.channel_type = "index";
-            index_channel.name = channel_info.name;
-            this->reader_config.channels.push_back(index_channel);
-            LOG(INFO) << "[NI Writer] index channel " << index_channel.channel_key << " and name: " << index_channel.name <<" added to task " << this->reader_config.task_name;
-        }
-    }
-
 }
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -81,7 +56,7 @@ ni::DaqDigitalWriter::DaqDigitalWriter(
     this->writer_config.task_name = task.name;
 
     // Parse configuration and make sure it is valid
-    this->parseDigitalWriterConfig(config_parser);
+    this->parseConfig(config_parser);
     if (!config_parser.ok())
     {
         // Log error
@@ -94,11 +69,6 @@ ni::DaqDigitalWriter::DaqDigitalWriter(
     }
     LOG(INFO) << "[NI Writer] successfully parsed configuration for " << this->writer_config.task_name;
 
-    // TODO: get device proprties for things like authentication
-    this->writer_state_source = std::make_unique<ni::daqStateWriter>(this->writer_config.state_rate,
-                                                                     this->writer_config.drive_state_index_key,
-                                                                     this->writer_config.drive_state_channel_keys);
-
     // Create breaker
     auto breaker_config = breaker::Config{
         .name = task.name,
@@ -110,11 +80,19 @@ ni::DaqDigitalWriter::DaqDigitalWriter(
 
     // TODO: make sure you have all the channel info you could possible need
     // Now configure the actual NI hardware
-    if (this->init())
-    {
+    if (this->init()){
         LOG(ERROR) << "[NI Writer] Failed while configuring NI hardware for task " << this->writer_config.task_name;
         this->ok_state = false;
     }
+
+        // Get index keys
+    this->getIndexKeys();
+
+    // TODO: get device proprties for things like authentication
+    this->writer_state_source = std::make_unique<ni::daqStateWriter>(this->writer_config.state_rate,
+                                                                     this->writer_config.drive_state_index_key,
+                                                                     this->writer_config.drive_state_channel_keys);
+
     this->start();
 }
 
@@ -132,7 +110,7 @@ void ni::DaqDigitalWriter::parseConfig(config::Parser &parser){
         this->ok_state = false;
         return;
     }
-    this->reader_config.device_name = dev.location;
+    this->writer_config.device_name = dev.location;
 
     // task key 
     // device name
@@ -147,10 +125,10 @@ void ni::DaqDigitalWriter::parseConfig(config::Parser &parser){
                     config.name = (this->writer_config.device_name + "/port" + std::to_string(channel_builder.required<std::uint64_t>("port")) + "/line" + std::to_string(channel_builder.required<std::uint64_t>("line")));
 
                     config.channel_key = channel_builder.required<uint32_t>("cmd_channel");
+                    this->writer_config.drive_cmd_channel_keys.push_back(config.channel_key);
               
                     uint32_t drive_state_key = channel_builder.required<uint32_t>("state_channel");
                     this->writer_config.drive_state_channel_keys.push_back(drive_state_key);
-                    this->writer_config.drive_cmd_channel_keys.push_back(config.channel_key);
                 
                     // TODO: there could be more than 2 state
                     config.min_val = 0;
@@ -196,7 +174,7 @@ int ni::DaqDigitalWriter::init(){
 
 freighter::Error ni::DaqDigitalWriter::start(){
     if(this->running){
-        LOG(INFO) << "[NI Reader] attempt to start an already running NI task for task " << this->reader_config.task_name;
+        LOG(INFO) << "[NI Reader] attempt to start an already running NI task for task " << this->writer_config.task_name;
         return freighter::NIL; // TODO: change return value?
     }
     freighter::Error err = freighter::NIL;
@@ -211,9 +189,9 @@ freighter::Error ni::DaqDigitalWriter::start(){
 }
 
 
-freighter::Error ni::daqWriter::stop(){
+freighter::Error ni::DaqDigitalWriter::stop(){
    if(!this->running){
-        LOG(INFO) << "[NI Reader] attempt to stop an already stopped NI task for task " << this->reader_config.task_name;
+        LOG(INFO) << "[NI Reader] attempt to stop an already stopped NI task for task " << this->writer_config.task_name;
         return freighter::NIL; // TODO: change return value?
     }
 
@@ -288,13 +266,9 @@ freighter::Error ni::DaqDigitalWriter::formatData(synnax::Frame frame){
     return freighter::NIL;
 }
 
-////////////////////////////////////////////////////////////////////////////////
 
-
-int ni::daqWriter::checkNIError(int32 error)
-{
-    if (error < 0)
-    {
+int ni::DaqDigitalWriter::checkNIError(int32 error){
+    if (error < 0){
         char errBuff[2048] = {'\0'};
         ni::NiDAQmxInterface::GetExtendedErrorInfo(errBuff, 2048);
         this->err_info["error type"] = "Vendor Error";
@@ -309,32 +283,28 @@ int ni::daqWriter::checkNIError(int32 error)
     return 0;
 }
 
-bool ni::daqWriter::ok()
-{
+
+bool ni::DaqDigitalWriter::ok(){
     return this->ok_state;
 }
 
-ni::daqWriter::~daqWriter()
-{
+ni::DaqDigitalWriter::~DaqDigitalWriter(){
     LOG(INFO) << "Destroying daqWriter";
     this->stop();
 }
 
-std::vector<synnax::ChannelKey> ni::daqWriter::getCmdChannelKeys()
-{
+
+std::vector<synnax::ChannelKey> ni::DaqDigitalWriter::getCmdChannelKeys(){
     std::vector<synnax::ChannelKey> keys;
-    for (auto &channel : this->writer_config.channels)
-    {
-        if (channel.channel_type != "index" && channel.channel_type != "driveStateIndex")
-        {
+    for (auto &channel : this->writer_config.channels){
+        if (channel.channel_type != "index"){
             keys.push_back(channel.channel_key); // could either be the key to a cmd channel or a key to an cmd index channel
         }
     }
     return keys;
 }
 
-std::vector<synnax::ChannelKey> ni::daqWriter::getStateChannelKeys()
-{
+std::vector<synnax::ChannelKey> ni::DaqDigitalWriter::getStateChannelKeys(){
     std::vector<synnax::ChannelKey> keys = this->writer_config.drive_state_channel_keys;
     keys.push_back(this->writer_config.drive_state_index_key);
     return keys;
@@ -345,57 +315,48 @@ std::vector<synnax::ChannelKey> ni::daqWriter::getStateChannelKeys()
 ///////////////////////////////////////////////////////////////////////////////////
 
 ni::daqStateWriter::daqStateWriter(std::uint64_t state_rate, synnax::ChannelKey &drive_state_index_key, std::vector<synnax::ChannelKey> &drive_state_channel_keys)
-    : state_rate(state_rate)
-{
+    : state_rate(state_rate){
     // start the periodic thread
     this->state_period = std::chrono::duration<double>(1.0 / this->state_rate);
     this->drive_state_index_key = drive_state_index_key;
 
     // initialize all states to 0 (logic low)
-    for (auto &key : drive_state_channel_keys)
-    {
+    for (auto &key : drive_state_channel_keys){
         this->state_map[key] = 0;
     }
 }
 
-std::pair<synnax::Frame, freighter::Error> ni::daqStateWriter::read()
-{
+std::pair<synnax::Frame, freighter::Error> ni::daqStateWriter::read(){
     std::unique_lock<std::mutex> lock(this->state_mutex);
     waitingReader.wait_for(lock, state_period); // TODO: double check this time is relative and not absolute
     return std::make_pair(std::move(this->getDriveState()), freighter::NIL);
 }
 
-freighter::Error ni::daqStateWriter::start()
-{
+freighter::Error ni::daqStateWriter::start(){
     return freighter::NIL;
 }
 
-freighter::Error ni::daqStateWriter::stop()
-{
+freighter::Error ni::daqStateWriter::stop(){
     return freighter::NIL;
 }
 
-synnax::Frame ni::daqStateWriter::getDriveState()
-{
+synnax::Frame ni::daqStateWriter::getDriveState(){
     auto drive_state_frame = synnax::Frame(this->state_map.size() + 1);
     drive_state_frame.add(this->drive_state_index_key, synnax::Series(std::vector<uint64_t>{synnax::TimeStamp::now().value}, synnax::TIMESTAMP));
 
     // Iterate through map and add each state to frame
-    for (auto &state : this->state_map)
-    {
+    for (auto &state : this->state_map){
         drive_state_frame.add(state.first, synnax::Series(std::vector<uint8_t>{state.second}));
     }
 
     return std::move(drive_state_frame);
 }
 
-void ni::daqStateWriter::updateState(std::queue<synnax::ChannelKey> &modified_state_keys, std::queue<std::uint8_t> &modified_state_values)
-{
+void ni::daqStateWriter::updateState(std::queue<synnax::ChannelKey> &modified_state_keys, std::queue<std::uint8_t> &modified_state_values){
     // LOG(INFO) << "Updating state";
     std::unique_lock<std::mutex> lock(this->state_mutex);
     // update state map
-    while (!modified_state_keys.empty())
-    {
+    while (!modified_state_keys.empty()){
         this->state_map[modified_state_keys.front()] = modified_state_values.front();
         modified_state_keys.pop();
         modified_state_values.pop();

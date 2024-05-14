@@ -109,7 +109,7 @@ ni::DaqAnalogReader::DaqAnalogReader(
     }
     LOG(INFO) << "[NI Reader] successfully parsed configuration for " << this->reader_config.task_name;
 
-    getIndexKeys(); // get index keys for the task
+    this->getIndexKeys(); // get index keys for the task
     
 
     LOG(INFO) << "[NI Reader] index keys retrieved " << this->reader_config.task_name;

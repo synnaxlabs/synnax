@@ -305,6 +305,7 @@ namespace ni{
         freighter::Error start();
         std::vector<synnax::ChannelKey> getCmdChannelKeys();
         std::vector<synnax::ChannelKey> getStateChannelKeys();
+        void getIndexKeys();
         bool ok();
         ~DaqDigitalWriter();
 
@@ -312,7 +313,6 @@ namespace ni{
         std::shared_ptr<ni::daqStateWriter> writer_state_source;
     private:
         // private helper functions
-        freighter::Error write(synnax::Frame frame);
         freighter::Error formatData(synnax::Frame frame);
         void parseConfig(config::Parser &parser);
         int checkNIError(int32 error);
