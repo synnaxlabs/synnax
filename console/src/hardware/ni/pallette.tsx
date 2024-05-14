@@ -10,6 +10,7 @@
 import { Icon } from "@synnaxlabs/media";
 import { Command } from "@/palette/Palette";
 import { analogReadTaskLayout } from "@/hardware/ni/AnalogReadTask";
+import { digitalWriteTaskLayout } from "@/hardware/ni/DigitalWriteTask";
 
 export const createAnalogReadTaskCommand: Command = {
   key: "ni-create-analog-read-task",
@@ -18,4 +19,11 @@ export const createAnalogReadTaskCommand: Command = {
   onSelect: ({ placeLayout }) => placeLayout(analogReadTaskLayout),
 };
 
-export const COMMANDS = [createAnalogReadTaskCommand];
+export const createDigitalWriteTaskCommand: Command = {
+  key: "ni-create-digital-write-task",
+  name: "NI - Create a New Digital Write Task",
+  icon: <Icon.PID />,
+  onSelect: ({ placeLayout }) => placeLayout(digitalWriteTaskLayout),
+};
+
+export const COMMANDS = [createAnalogReadTaskCommand, createDigitalWriteTaskCommand];
