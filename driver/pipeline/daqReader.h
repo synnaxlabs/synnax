@@ -15,12 +15,13 @@
 using json = nlohmann::json;
 namespace daq
 {
-    class daqReader : public pipeline::Source  //TODD: change to daqReader
+    class DaqReader : public pipeline::Source  //TODD: change to daqReader
     {
     public:
         virtual std::pair<synnax::Frame, freighter::Error> read() = 0;
         virtual freighter::Error start() = 0;
         virtual freighter::Error stop() = 0;
+        virtual bool ok() = 0;
     };
 
     class daqWriter: public pipeline::Sink{
@@ -28,6 +29,7 @@ namespace daq
         virtual freighter::Error write(synnax::Frame frame) = 0;
         virtual freighter::Error start() = 0;
         virtual freighter::Error stop() = 0;
+        // virtual bool ok() = 0;
     };
 
 
