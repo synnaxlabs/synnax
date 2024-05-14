@@ -233,7 +233,7 @@ const AnalogReadTaskInternal = ({
           <Button.Icon
             loading={start.isPending}
             disabled={start.isPending || taskState == null}
-            onChange={() => start.mutate()}
+            onClick={() => start.mutate()}
             variant="outlined"
           >
             {taskState?.details?.running === true ? <Icon.Pause /> : <Icon.Play />}
