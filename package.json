@@ -79,7 +79,7 @@
       "@vitejs/plugin-react": "^4.2.0",
       "vitest": "1.2.2",
       "@vitest/coverage-v8": "1.2.2",
-      "typescript": "^5.3.3",
+      "typescript": "^5.4.5",
       "proxy-memoize": "1.2.0",
       "@tanstack/react-virtual": "3.0.0-beta.54",
       "zod": "3.22.4",
