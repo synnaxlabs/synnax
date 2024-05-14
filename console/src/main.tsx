@@ -56,6 +56,7 @@ const layoutRenderers: Record<string, Layout.Renderer> = {
   [Range.metaDataWindowLayout.key]: Range.MetaData,
   [NIDevice.LAYOUT_TYPE]: NIDevice.Configure,
   [NI.analogReadTaskLayout.type]: NI.AnalogReadTask,
+  [NI.digitalWriteTaskLayout.type]: NI.DigitalWriteTask,
 };
 
 const PREVENT_DEFAULT_TRIGGERS: Triggers.Trigger[] = [

@@ -17,19 +17,20 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("File Controller", func() {
-	for fsName, fs := range fileSystems {
-		fs := fs()
+var _ = Describe("File Controller", Ordered, func() {
+	for fsName, makeFS := range fileSystems {
+		fs, cleanUp := makeFS()
 		Context("FS: "+fsName, Ordered, func() {
 			var db *domain.DB
 			AfterEach(func() {
 				Expect(db.Close()).To(Succeed())
-				Expect(fs.Remove(rootPath)).To(Succeed())
+				Expect(fs.Remove("testdata")).To(Succeed())
 			})
+			AfterAll(func() { Expect(cleanUp()).To(Succeed()) })
 			Describe("Writers", func() {
 				It("Should allow one writing to a file at all times", func() {
 					By("Initializing a file controller")
-					db = MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub(rootPath)), FileSize: 1 * telem.Megabyte}))
+					db = MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub("testdata")), FileSize: 1 * telem.Megabyte}))
 					By("Acquiring one writer on the file 1.domain")
 					w1 := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{
 						Start: 10 * telem.SecondTS,
@@ -45,7 +46,7 @@ var _ = Describe("File Controller", func() {
 					Expect(db.FS.Exists("2.domain"))
 
 					By("Closing the first writer")
-					Expect(w1.Close()).To(Succeed())
+					Expect(w1.Close(ctx)).To(Succeed())
 
 					By("Acquiring a third writer, 1.domain should be acquired")
 					w3, err := db.NewWriter(ctx, domain.WriterConfig{
@@ -60,13 +61,13 @@ var _ = Describe("File Controller", func() {
 					Expect(err).To(BeNil())
 					Expect(s.Size()).To(Equal(int64(8)))
 
-					Expect(w2.Close()).To(Succeed())
-					Expect(w3.Close()).To(Succeed())
+					Expect(w2.Close(ctx)).To(Succeed())
+					Expect(w3.Close(ctx)).To(Succeed())
 				})
 
 				It("Should obey the file size limit", func() {
 					By("Initializing a file controller")
-					db = MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub(rootPath)), FileSize: 10 * telem.ByteSize}))
+					db = MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub("testdata")), FileSize: 10 * telem.ByteSize}))
 					By("Acquiring one writer on the file 1.domain")
 					w1 := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{
 						Start: 10 * telem.SecondTS,
@@ -76,7 +77,7 @@ var _ = Describe("File Controller", func() {
 					n, err := w1.Write([]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10})
 					Expect(n).To(Equal(10))
 					Expect(err).To(BeNil())
-					Expect(w1.Close()).To(Succeed())
+					Expect(w1.Close(ctx)).To(Succeed())
 					By("Acquiring a second writer, this would create a new file 2.domain since 1.domain is full")
 					w2, err := db.NewWriter(ctx, domain.WriterConfig{
 						Start: 30 * telem.SecondTS,
@@ -85,12 +86,12 @@ var _ = Describe("File Controller", func() {
 					Expect(err).To(BeNil())
 					Expect(db.FS.Exists("2.domain"))
 
-					Expect(w2.Close()).To(Succeed())
+					Expect(w2.Close(ctx)).To(Succeed())
 				})
 
 				It("Should obey the file descriptor limit", func() {
 					By("Initializing a file controller")
-					db = MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub(rootPath)), MaxDescriptors: 2}))
+					db = MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub("testdata")), MaxDescriptors: 2}))
 					By("Acquiring one writer on the file 1.domain")
 					w1 := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{
 						Start: 10 * telem.SecondTS,
@@ -114,14 +115,14 @@ var _ = Describe("File Controller", func() {
 						})
 						Expect(err).To(BeNil())
 						released <- struct{}{}
-						Expect(w3.Close()).To(Succeed())
+						Expect(w3.Close(ctx)).To(Succeed())
 					}()
 					By("Expecting it to block")
 					Expect(len(released)).To(Equal(0))
-					Expect(w1.Close()).To(Succeed())
+					Expect(w1.Close(ctx)).To(Succeed())
 					By("Expecting it to acquire")
 					<-released
-					Expect(w2.Close()).To(Succeed())
+					Expect(w2.Close(ctx)).To(Succeed())
 				})
 			})
 		})

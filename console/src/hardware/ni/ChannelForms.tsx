@@ -23,7 +23,7 @@ interface FormProps {
   label?: string;
 }
 
-const ChannelField = Form.fieldBuilder(Channel.SelectSingle)({
+export const ChannelField = Form.fieldBuilder(Channel.SelectSingle)({
   fieldKey: "channel",
   inputProps: {
     label: "Synnax Channel",

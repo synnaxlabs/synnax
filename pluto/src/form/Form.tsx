@@ -117,7 +117,10 @@ export interface UseFieldListenerProps<
   onChange: (state: FieldState<I>, extra: ContextValue) => void;
 }
 
-export const useFieldListener = <I extends Input.Value, Z extends z.ZodTypeAny>({
+export const useFieldListener = <
+  I extends Input.Value,
+  Z extends z.ZodTypeAny = z.ZodTypeAny,
+>({
   path,
   ctx: override,
   onChange,

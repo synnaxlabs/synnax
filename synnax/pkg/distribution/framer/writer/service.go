@@ -65,6 +65,16 @@ type Config struct {
 	// WriterModePersistStream. See the ts.WriterMode documentation for more.
 	// [OPTIONAL]
 	Mode ts.WriterMode `json:"mode" msgpack:"mode"`
+	// EnableAutoCommit determines whether the writer will automatically commit after each write.
+	// If EnableAutoCommit is true, then the writer will commit after each write, and will
+	// flush that commit to index on FS after the specified AutoIndexPersistInterval.
+	// [OPTIONAL] - Defaults to false.
+	EnableAutoCommit *bool `json:"enable_auto_commit" msgpack:"enable_auto_commit"`
+	// AutoIndexPersistInterval is the interval at which commits to the index will be persisted.
+	// To persist every commit to guarantee minimal loss of data, set AutoIndexPersistInterval
+	// to AlwaysAutoPersist.
+	// [OPTIONAL] - Defaults to 1s.
+	AutoIndexPersistInterval telem.TimeSpan `json:"auto_index_persist_interval" msgpack:"auto_index_persist_interval"`
 }
 
 func (c Config) setKeyAuthorities(authorities []keyAuthority) Config {
@@ -97,8 +107,10 @@ func DefaultConfig() Config {
 		ControlSubject: control.Subject{
 			Key: uuid.New().String(),
 		},
-		Authorities: []control.Authority{control.Absolute},
-		Mode:        ts.WriterPersistStream,
+		Authorities:              []control.Authority{control.Absolute},
+		Mode:                     ts.WriterPersistStream,
+		EnableAutoCommit:         config.False(),
+		AutoIndexPersistInterval: 1 * telem.Second,
 	}
 }
 
@@ -115,11 +127,13 @@ func (c Config) keyAuthorities() []keyAuthority {
 
 func (c Config) toStorage() ts.WriterConfig {
 	return ts.WriterConfig{
-		ControlSubject: c.ControlSubject,
-		Channels:       c.Keys.Storage(),
-		Start:          c.Start,
-		Authorities:    c.Authorities,
-		Mode:           c.Mode,
+		ControlSubject:           c.ControlSubject,
+		Channels:                 c.Keys.Storage(),
+		Start:                    c.Start,
+		Authorities:              c.Authorities,
+		Mode:                     c.Mode,
+		EnableAutoCommit:         c.EnableAutoCommit,
+		AutoIndexPersistInterval: c.AutoIndexPersistInterval,
 	}
 }
 
@@ -144,6 +158,8 @@ func (c Config) Override(other Config) Config {
 	c.Start = override.Zero(c.Start, other.Start)
 	c.Authorities = override.Slice(c.Authorities, other.Authorities)
 	c.Mode = override.Numeric(c.Mode, other.Mode)
+	c.EnableAutoCommit = override.Nil(c.EnableAutoCommit, other.EnableAutoCommit)
+	c.AutoIndexPersistInterval = override.Numeric(c.AutoIndexPersistInterval, other.AutoIndexPersistInterval)
 	return c
 }
 

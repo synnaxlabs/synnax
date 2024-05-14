@@ -19,21 +19,22 @@ import (
 )
 
 var _ = Describe("Iterator Behavior", func() {
-	for fsName, fs := range fileSystems {
-		fs := fs()
+	for fsName, makeFS := range fileSystems {
+		fs, cleanUp := makeFS()
 		Context("FS: "+fsName, Ordered, func() {
 			var db *cesium.DB
 			BeforeAll(func() { db = openDBOnFS(fs) })
 			AfterAll(func() {
 				Expect(db.Close()).To(Succeed())
-				Expect(fs.Remove(rootPath)).To(Succeed())
+				Expect(cleanUp()).To(Succeed())
 			})
 
 			Describe("Close", func() {
 				It("Should not allow operations on a closed iterator", func() {
-					Expect(db.CreateChannel(ctx, cesium.Channel{Key: 1, DataType: telem.Int64T, Rate: 1 * telem.Hz})).To(Succeed())
+					key := GenerateChannelKey()
+					Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, DataType: telem.Int64T, Rate: 1 * telem.Hz})).To(Succeed())
 					var (
-						i = MustSucceed(db.OpenIterator(cesium.IteratorConfig{Bounds: telem.TimeRangeMax, Channels: []core.ChannelKey{1}}))
+						i = MustSucceed(db.OpenIterator(cesium.IteratorConfig{Bounds: telem.TimeRangeMax, Channels: []core.ChannelKey{key}}))
 						e = core.EntityClosed("cesium.iterator")
 					)
 					Expect(i.Close()).To(Succeed())

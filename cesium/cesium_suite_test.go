@@ -16,33 +16,27 @@ import (
 	"github.com/synnaxlabs/cesium"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/testutil"
-	"path"
 	"strconv"
 	"testing"
 )
 
 var (
-	ctx                       = context.Background()
-	rootPath                  = "cesium-testdata"
-	fileSystems, cleanUp, err = testutil.FileSystems()
+	ctx         = context.Background()
+	fileSystems = testutil.FileSystems
 )
 
 func openDBOnFS(fs xfs.FS) *cesium.DB {
 	return testutil.MustSucceed(cesium.Open(
-		rootPath,
+		"",
 		cesium.WithFS(fs),
 	))
 }
 
-func pathInDBFromKey(key cesium.ChannelKey) string {
-	return path.Join(rootPath, strconv.Itoa(int(key)))
+func channelKeyToPath(key cesium.ChannelKey) string {
+	return strconv.Itoa(int(key))
 }
 
 func TestCesium(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Cesium Suite")
 }
-
-var _ = BeforeSuite(func() { Expect(err).ToNot(HaveOccurred()) })
-
-var _ = AfterSuite(func() { Expect(cleanUp()).To(Succeed()) })

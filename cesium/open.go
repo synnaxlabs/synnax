@@ -15,8 +15,8 @@ import (
 	"github.com/synnaxlabs/cesium/internal/meta"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/cesium/internal/virtual"
-	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/signal"
 	"strconv"
 )
 

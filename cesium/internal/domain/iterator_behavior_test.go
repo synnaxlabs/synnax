@@ -18,18 +18,19 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("Iterator Behavior", func() {
-	for fsName, fs := range fileSystems {
-		fs := fs()
+var _ = Describe("Iterator Behavior", Ordered, func() {
+	for fsName, makeFS := range fileSystems {
+		fs, cleanUp := makeFS()
 		Context("FS: "+fsName, Ordered, func() {
 			var db *domain.DB
 			BeforeEach(func() {
-				db = MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub(rootPath))}))
+				db = MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub("testdata"))}))
 			})
 			AfterEach(func() {
 				Expect(db.Close()).To(Succeed())
-				Expect(fs.Remove(rootPath)).To(Succeed())
+				Expect(fs.Remove("testdata")).To(Succeed())
 			})
+			AfterAll(func() { Expect(cleanUp()).To(Succeed()) })
 			Describe("Valid", func() {
 				It("Should return false on an iterator with zero span bounds", func() {
 					r := db.NewIterator(domain.IteratorConfig{

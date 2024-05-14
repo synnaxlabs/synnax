@@ -20,8 +20,8 @@ import (
 )
 
 var _ = Describe("Delete", Ordered, func() {
-	for fsName, fs := range fileSystems {
-		fsName, fs := fsName, fs()
+	for fsName, makeFS := range fileSystems {
+		fs, cleanUp := makeFS()
 		Context("FS:"+fsName, func() {
 			var (
 				db      *unary.DB
@@ -30,9 +30,9 @@ var _ = Describe("Delete", Ordered, func() {
 				index   cesium.ChannelKey = 11
 				data    cesium.ChannelKey = 12
 				rate    cesium.ChannelKey = 13
-				pth1                      = rootPath + "/delete_test/index"
-				pth2                      = rootPath + "/delete_test/data"
-				pth3                      = rootPath + "/delete_test/rate"
+				pth1                      = "/delete_test/index"
+				pth2                      = "/delete_test/data"
+				pth3                      = "/delete_test/rate"
 			)
 			BeforeEach(func() {
 				By("Creating channels")
@@ -67,7 +67,7 @@ var _ = Describe("Delete", Ordered, func() {
 				Expect(db.Close()).To(Succeed())
 				Expect(indexDB.Close()).To(Succeed())
 				Expect(rateDB.Close()).To(Succeed())
-				Expect(fs.Remove(rootPath)).To(Succeed())
+				Expect(cleanUp()).To(Succeed())
 			})
 			Describe("Simple Rate-based channel", func() {
 				It("Should delete chunks of a channel", func() {

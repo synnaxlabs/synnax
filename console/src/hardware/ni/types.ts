@@ -8,9 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { current } from "@reduxjs/toolkit";
-import { type task } from "@synnaxlabs/client";
+import { task } from "@synnaxlabs/client";
 import { xy } from "@synnaxlabs/x";
-import { clientXY } from "node_modules/@synnaxlabs/x/dist/src/spatial/base";
 import { z } from "zod";
 
 const linearScaleTypeZ = z.enum(["linear", "none"]);
@@ -1333,7 +1332,16 @@ export const analogReadTaskStateDetailsZ = z.object({
   running: z.boolean(),
 });
 export type AnalogReadTaskStateDetails = z.infer<typeof analogReadTaskStateDetailsZ>;
-export type AnalogReadTaskState = task.State<z.infer<typeof analogReadTaskStateDetailsZ>>;
+export type AnalogReadTaskState = task.State<
+  z.infer<typeof analogReadTaskStateDetailsZ>
+>;
+
+export const digitalWriteTaskStateDetailsZ = z.object({
+  running: z.boolean(),
+});
+export type DigitalWriteTaskStateDetails = z.infer<
+  typeof digitalWriteTaskStateDetailsZ
+>;
 
 export const ZERO_ANALOG_READ_TASK_CONFIG: AnalogReadTaskConfig = {
   device: "Dev1",
@@ -1344,16 +1352,28 @@ export const ZERO_ANALOG_READ_TASK_CONFIG: AnalogReadTaskConfig = {
 
 export type AnalogReadTask = task.Task<"ni.analogRead", AnalogReadTaskConfig>;
 
-const digitalOutputChannelZ = z.object({
+const doChanZ = z.object({
   key: z.string(),
   type: z.literal("digitalOutput"),
   enabled: z.boolean(),
+  cmdChannel: z.number(),
+  stateChannel: z.number(),
   port: z.number(),
   line: z.number(),
-  channel: z.number(),
 });
 
-export type DigitalOutputChannel = z.infer<typeof digitalOutputChannelZ>;
+export const ZERO_DO_CHAN: DOChan = {
+  key: "",
+  type: "digitalOutput",
+  enabled: false,
+  cmdChannel: 0,
+  stateChannel: 0,
+  port: 0,
+  line: 0,
+};
+
+export type DOChan = z.infer<typeof doChanZ>;
+export type DOChanType = DOChan["type"];
 
 const digitalInputChannelZ = z.object({
   key: z.string(),
@@ -1364,13 +1384,10 @@ const digitalInputChannelZ = z.object({
   channel: z.number(),
 });
 
-export type DigitalInputChannel = z.infer<typeof digitalInputChannelZ>;
-
-const digitalWriteChannelZ = z.union([digitalOutputChannelZ, digitalInputChannelZ]);
-
 export const digitalWriteTaskConfigZ = z.object({
   device: z.string().min(1),
-  channels: z.array(digitalWriteChannelZ),
+  channels: z.array(doChanZ),
+  stateRate: z.number().min(0).max(50000),
 });
 
 export type DigitalWriteTaskConfig = z.infer<typeof digitalWriteTaskConfigZ>;
@@ -1390,10 +1407,7 @@ export type DigitalReadTask = task.Task<"ni.analogWrite", DigitalReadTaskConfig>
 
 export type NITask = AnalogReadTask | DigitalWriteTask | DigitalReadTask;
 
-export type NIChannel =
-  | DigitalInputChannel
-  | AnalogInputVoltageChannel
-  | DigitalOutputChannel;
+export type NIChannel = DigitalInputChannel | AIChan | DOChan;
 
 export const CHANNEL_TYPE_DISPLAY: Record<NIChannel["type"], string> = {
   analogVoltageInput: "Analog Voltage Input",

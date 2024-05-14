@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/control"
@@ -28,11 +29,13 @@ type FrameWriterConfig struct {
 	// Authorities is the authority to use when writing to the channels. We set this
 	// as an int and not control.Authorities because msgpack has a tough time decoding
 	// lists of uint8.
-	Authorities    []uint32        `json:"authorities" msgpack:"authorities"`
-	ControlSubject control.Subject `json:"control_subject" msgpack:"control_subject"`
-	Start          telem.TimeStamp `json:"start" msgpack:"start"`
-	Keys           channel.Keys    `json:"keys" msgpack:"keys"`
-	Mode           writer.Mode     `json:"mode" msgpack:"mode"`
+	Authorities              []uint32        `json:"authorities" msgpack:"authorities"`
+	ControlSubject           control.Subject `json:"control_subject" msgpack:"control_subject"`
+	Start                    telem.TimeStamp `json:"start" msgpack:"start"`
+	Keys                     channel.Keys    `json:"keys" msgpack:"keys"`
+	Mode                     writer.Mode     `json:"mode" msgpack:"mode"`
+	EnableAutoCommit         bool            `json:"enable_auto_commit" msgpack:"enable_auto_commit"`
+	AutoIndexPersistInterval telem.TimeSpan  `json:"auto_index_persist_interval" msgpack:"auto_index_persist_interval"`
 }
 
 // FrameWriterRequest represents a request to write CreateNet data for a set of channels.
@@ -141,11 +144,13 @@ func (s *FrameService) openWriter(ctx context.Context, srv FrameWriterStream) (f
 	}
 
 	w, err := s.Internal.NewStreamWriter(ctx, writer.Config{
-		ControlSubject: req.Config.ControlSubject,
-		Start:          req.Config.Start,
-		Keys:           req.Config.Keys,
-		Authorities:    authorities,
-		Mode:           req.Config.Mode,
+		ControlSubject:           req.Config.ControlSubject,
+		Start:                    req.Config.Start,
+		Keys:                     req.Config.Keys,
+		Authorities:              authorities,
+		Mode:                     req.Config.Mode,
+		EnableAutoCommit:         config.Bool(req.Config.EnableAutoCommit),
+		AutoIndexPersistInterval: req.Config.AutoIndexPersistInterval,
 	})
 	if err != nil {
 		return nil, err
