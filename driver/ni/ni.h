@@ -146,9 +146,9 @@ namespace ni{
         ~ChannelConfig() {}
     } ChannelConfig;
 
-    ///////////////////////////////////////////////////////////////////////////////////
-    //                                    daqReader                                  //
-    ///////////////////////////////////////////////////////////////////////////////////
+
+
+
     typedef struct ReaderConfig{
         std::string device_key;
         std::vector<ChannelConfig> channels;
@@ -156,45 +156,46 @@ namespace ni{
         std::uint64_t stream_rate = 0;
         std::string device_name;
         std::string task_name; 
-        std::string reader_type;
         synnax::ChannelKey task_key;
         std::set<uint32_t> index_keys;
-        bool isDigital = false;
     } ReaderConfig;
 
+    /////////////////////////////////////////////////////////////////////////////////////////////
+    //                                                                                         //
+    //                                     DAQ INTERFACES                                      //
+    //                                                                                         //
+    /////////////////////////////////////////////////////////////////////////////////////////////
 
-    class daqReader : public daq::daqReader{ // public keyword required to store pointer to niDaqreader in a pointer to acqReader
+    ///////////////////////////////////////////////////////////////////////////////////
+    //                                    daqAnalogReader                            //
+    ///////////////////////////////////////////////////////////////////////////////////
+    class DaqAnalogReader : public daq::DaqReader{ // public keyword required to store pointer to niDaqreader in a pointer to acqReader
     public:
         // TODO: why do we not pass the task in by reference?
-        explicit daqReader(TaskHandle taskHandle,
+        explicit DaqAnalogReader(TaskHandle taskHandle,
                              const std::shared_ptr<task::Context> &ctx,
                              const synnax::Task task);
 
         int init();
-        std::pair<synnax::Frame, freighter::Error> read();
-        freighter::Error stop();
         freighter::Error start();
-        std::vector<synnax::ChannelKey> getChannelKeys();
+        freighter::Error stop();
+        std::pair<synnax::Frame, freighter::Error> read();
         bool ok();
-        ~daqReader();
-
+        ~DaqAnalogReader();
+        void getIndexKeys(); // TODO make a helper not a member function
+        std::vector<synnax::ChannelKey> getChannelKeys();
     private:
         // private helper functions
-        void parseDigitalReaderConfig(config::Parser & parser);
-        void parseAnalogReaderConfig(config::Parser & parser);
-        int checkNIError(int32 error);
+        void parseConfig(config::Parser & parser);
+        int checkNIError(int32 error);  
         void parseCustomScale(config::Parser & parser, ChannelConfig & config);
-        uint32_t parseFloats(std::vector<float64> vec, float* arr);
-        int createAIChannel(ChannelConfig &channel);
         void deleteScales();
-        void getIndexKeys();
+        int createChannel(ni::ChannelConfig &channel);
 
         // NI related resources
+        bool running = false;
         TaskHandle taskHandle = 0;
-
         double *data;       // pointer to heap allocated dataBuffer to provide to DAQmx read functions
-        uInt8 *digitalData; // pointer to heap allocated dataBuffer to provide to DAQmx read functions
-        int bufferSize = 0; 
         uint64_t numChannels = 0;
         int numSamplesPerChannel = 0;
         json err_info;
@@ -205,10 +206,46 @@ namespace ni{
         std::shared_ptr<task::Context> ctx;
         breaker::Breaker breaker;
         bool ok_state = true;
+        int bufferSize = 0; // TODO: make this a member variable
+    };
 
 
-        std::pair<synnax::Frame, freighter::Error> readAnalog();
-        std::pair<synnax::Frame, freighter::Error> readDigital();
+     ///////////////////////////////////////////////////////////////////////////////////
+    //                                    DaqDigitalReader                            //
+    ///////////////////////////////////////////////////////////////////////////////////
+    class DaqDigitalReader : public daq::DaqReader{ // public keyword required to store pointer to niDaqreader in a pointer to acqReader
+    public:
+        // TODO: why do we not pass the task in by reference?
+        explicit DaqDigitalReader(TaskHandle taskHandle,
+                             const std::shared_ptr<task::Context> &ctx,
+                             const synnax::Task task);
+
+
+        int init();
+        std::pair<synnax::Frame, freighter::Error> read();
+        freighter::Error stop();
+        freighter::Error start();
+        bool ok();
+        ~DaqDigitalReader();
+        std::vector<synnax::ChannelKey> getChannelKeys();
+    private:
+        // private helper functions
+        void parseConfig(config::Parser & parser);
+        int checkNIError(int32 error);
+        // NI related resources
+        bool running = false;
+        TaskHandle taskHandle = 0;
+        double *data;       // pointer to heap allocated dataBuffer to provide to DAQmx read functions
+        int bufferSize = 0; 
+        uint64_t numChannels = 0;
+        int numSamplesPerChannel = 0;
+        json err_info;
+
+        // Server related resources
+        ReaderConfig reader_config;
+        std::shared_ptr<task::Context> ctx;
+        breaker::Breaker breaker;
+        bool ok_state = true;
     };
 
 
@@ -216,7 +253,6 @@ namespace ni{
     ///////////////////////////////////////////////////////////////////////////////////
     //                                    daqStateWriter                             //
     ///////////////////////////////////////////////////////////////////////////////////
-
     class daqStateWriter : public pipeline::Source{
         public: 
             explicit daqStateWriter() = default;
@@ -239,7 +275,6 @@ namespace ni{
     ///////////////////////////////////////////////////////////////////////////////////
     //                                    daqWriter                                  //
     ///////////////////////////////////////////////////////////////////////////////////
-
     typedef struct WriterConfig{
         std::vector<ChannelConfig> channels;
         std::uint64_t state_rate = 0;
@@ -299,7 +334,6 @@ namespace ni{
     ///////////////////////////////////////////////////////////////////////////////////
     //                                    Scanner                                    //
     ///////////////////////////////////////////////////////////////////////////////////
-
     class Scanner {
         public: 
             explicit Scanner() = default;
@@ -325,6 +359,12 @@ namespace ni{
             synnax::Task task;
             std::shared_ptr<task::Context> ctx; 
     };
+    
+    /////////////////////////////////////////////////////////////////////////////////////////////
+    //                                                                                         //
+    //                                    TASK INTERFACES                                      //
+    //                                                                                         //
+    /////////////////////////////////////////////////////////////////////////////////////////////
 
     ///////////////////////////////////////////////////////////////////////////////////
     //                                    ScannerTask                                //
@@ -352,7 +392,6 @@ namespace ni{
     ///////////////////////////////////////////////////////////////////////////////////
     //                                    ReaderTask                                 //
     ///////////////////////////////////////////////////////////////////////////////////
-
     class ReaderTask final : public task::Task {
     public:
         explicit ReaderTask(    const std::shared_ptr<task::Context> &ctx, 
@@ -376,7 +415,6 @@ namespace ni{
     ///////////////////////////////////////////////////////////////////////////////////
     //                                    WriterTask                                 //
     ///////////////////////////////////////////////////////////////////////////////////
-
     class WriterTask final : public task::Task {
     public:
         explicit WriterTask(    const std::shared_ptr<task::Context> &ctx, 
@@ -400,7 +438,6 @@ namespace ni{
     ///////////////////////////////////////////////////////////////////////////////////
     //                                    Factory                                    //
     ///////////////////////////////////////////////////////////////////////////////////
-
     class Factory final : public task::Factory{
     public:
         // member functions
@@ -416,96 +453,7 @@ namespace ni{
         // member variables
         std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task> > > tasks;
     };
-
-    // TODO: move relevant interfaces here:
-
-
 }
 
 
 
-
-// namespace ni{
-    
-//     ///////////////////////////////////////////////////////////////////////////////////
-//     //                                    NiReaderTask                               //
-//     ///////////////////////////////////////////////////////////////////////////////////
-//     class NiReaderTask final : public task::Task {
-//     public:
-//         explicit NiReaderTask(  const std::shared_ptr<task::Context> &ctx, 
-//                                 synnax::Task task); 
-
-//         static std::unique_ptr<task::Task> configure(
-//             const std::shared_ptr<task::Context> &ctx,
-//             const synnax::Task &task
-//         );
-                                
-//         void exec(task::Command &cmd) override;
-
-//         void stop() override{};
-//     private:
-//         pipeline::Acquisition daq_read_pipe; // source is a daqreader 
-//         Taskhandle taskhandle;
-//     }
-
-//     ///////////////////////////////////////////////////////////////////////////////////
-//     //                                    NiWriterTask                               //
-//     ///////////////////////////////////////////////////////////////////////////////////
-//     class NiWriterTask final : public task::Task {
-//     public:
-//         explicit NiWriterTask(  const std::shared_ptr<task::Context> &ctx, 
-//                                 synnax::Task task); 
-
-        
-//         static std::unique_ptr<task::Task> configure(
-//             const std::shared_ptr<task::Context> &ctx,
-//             const synnax::Task &task
-//         );
-
-//         void exec(task::Command &cmd) override;
-//         void stop() override{};
-//     private:
-//         pipeline::Acquisition cmd_read_pipe; // source reads from synnax (TODO: make this source)
-//         pipeline::Control state_write_pipe;
-//         Taskhandle taskhandle;
-//     }
-
-
-//     //////////////////////////////////////////////// OLD CODE
-
-
-
-//     class niTaskFactory : public module::Factory {
-//     public:
-//         niTaskFactory() {};
-//         std::unique_ptr<module::Module> createModule(TaskHandle taskhandle,
-//                                                     const std::shared_ptr<synnax::Synnax> &client,
-//                                                     const json &config,
-//                                                     bool &valid_config,
-//                                                     json &config_err);
-
-//         std::unique_ptr <NiAnalogReaderTask> createAnalogReaderTask(TaskHandle taskhandle,
-//                                                                     std::shared_ptr<synnax::Synnax> client,
-//                                                                     bool &valid_config,
-//                                                                     const json &config,
-//                                                                     json &config_err);
-
-//         std::unique_ptr <NiDigitalReaderTask> createDigitalReaderTask(TaskHandle taskhandle,
-//                                                                     std::shared_ptr<synnax::Synnax> client,
-//                                                                     bool &valid_config,
-//                                                                     const json &config,
-//                                                                     json &config_err);
-
-//         std::unique_ptr <NiDigitalWriterTask> createDigitalWriterTask(TaskHandle taskhandle,
-//                                                                     std::shared_ptr<synnax::Synnax> client,
-//                                                                     bool &valid_config,
-//                                                                     const json &config,
-//                                                                     json &config_err);
-
-//         bool validChannelConfig(const json &config, json &config_err);
-
-//         // TODO: createDigitalReaderTask
-//         // TODO: createDigitalWriterTask
-        
-//     };
-// }

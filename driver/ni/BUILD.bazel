@@ -67,6 +67,7 @@ cc_library(
     name = "ni",
     srcs = [
         "reader.cpp",
+        "writer.cpp",
         "task.cpp",
         "factory.cpp",
         "scanner.cpp" 
