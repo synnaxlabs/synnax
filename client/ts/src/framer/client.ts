@@ -13,6 +13,7 @@ import {
   type CrudeSeries,
   type CrudeTimeRange,
   type MultiSeries,
+  TimeSpan,
 } from "@synnaxlabs/x";
 
 import { type KeysOrNames, type KeyOrName, type Params } from "@/channel/payload";
@@ -133,10 +134,11 @@ export class Client {
       start,
       channels: channels as Params,
       mode: WriterMode.PersistOnly,
+      enableAutoCommit: true,
+      autoIndexPersistInterval: TimeSpan.MAX,
     });
     try {
       await w.write(channels as Params, data);
-      await w.commit();
     } finally {
       await w.close();
     }
