@@ -19,15 +19,18 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("Writer Behavior", func() {
+var _ = Describe("Writer Behavior", Ordered, func() {
 	for fsName, makeFS := range fileSystems {
-		fs := makeFS()
+		fs, cleanUp := makeFS()
 		Context("FS: "+fsName, func() {
+			AfterAll(func() {
+				Expect(cleanUp()).To(Succeed())
+			})
 			Describe("Index", func() {
 				var db *unary.DB
 				BeforeEach(func() {
 					db = MustSucceed(unary.Open(unary.Config{
-						FS: MustSucceed(fs.Sub(rootPath + "/writer_test/happy")),
+						FS: MustSucceed(fs.Sub("/writer_test/happy")),
 						Channel: core.Channel{
 							Key:      2,
 							DataType: telem.TimeStampT,
@@ -37,7 +40,6 @@ var _ = Describe("Writer Behavior", func() {
 				})
 				AfterEach(func() {
 					Expect(db.Close()).To(Succeed())
-					Expect(fs.Remove(rootPath)).To(Succeed())
 				})
 				Specify("Happy Path", func() {
 					w, t := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
@@ -52,7 +54,17 @@ var _ = Describe("Writer Behavior", func() {
 					Expect(t.Occurred()).To(BeTrue())
 					Expect(db.LeadingControlState()).To(BeNil())
 				})
+				Describe("Open", func() {
+					It("Should not allow opening a writer if the specified end timestamp is before the start", func() {
+						_, _, err := db.OpenWriter(ctx, unary.WriterConfig{Start: 10, End: 3, Subject: control.Subject{Key: "foo"}})
+						Expect(err).To(MatchError(ContainSubstring("end timestamp must be after")))
+					})
 
+					It("Should not allow opening a writer without a subject key", func() {
+						_, _, err := db.OpenWriter(ctx, unary.WriterConfig{Start: 3, End: 10})
+						Expect(err).To(MatchError(ContainSubstring("Subject.Key:field must be set")))
+					})
+				})
 			})
 			Describe("Channel Indexed", func() {
 				var (
@@ -60,8 +72,8 @@ var _ = Describe("Writer Behavior", func() {
 					indexDB   *unary.DB
 					index     uint32 = 1
 					data      uint32 = 2
-					indexPath        = rootPath + "/writer_test/index"
-					dataPath         = rootPath + "/writer_test/data"
+					indexPath        = "/writer_test/index"
+					dataPath         = "/writer_test/data"
 				)
 				BeforeEach(func() {
 					indexDB = MustSucceed(unary.Open(unary.Config{
@@ -85,7 +97,8 @@ var _ = Describe("Writer Behavior", func() {
 				AfterEach(func() {
 					Expect(db.Close()).To(Succeed())
 					Expect(indexDB.Close()).To(Succeed())
-					Expect(fs.Remove(rootPath)).To(Succeed())
+					Expect(fs.Remove(dataPath)).To(Succeed())
+					Expect(fs.Remove(indexPath)).To(Succeed())
 				})
 				Specify("Happy Path", func() {
 					Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20))).To(Succeed())
@@ -109,7 +122,7 @@ var _ = Describe("Writer Behavior", func() {
 					var db *unary.DB
 					BeforeEach(func() {
 						db = MustSucceed(unary.Open(unary.Config{
-							FS: MustSucceed(fs.Sub(rootPath + "/writer_test/control")),
+							FS: MustSucceed(fs.Sub("/writer_test/control")),
 							Channel: core.Channel{
 								Key:      2,
 								DataType: telem.TimeStampT,
@@ -119,7 +132,6 @@ var _ = Describe("Writer Behavior", func() {
 					})
 					AfterEach(func() {
 						Expect(db.Close()).To(Succeed())
-						Expect(fs.Remove(rootPath)).To(Succeed())
 					})
 					Specify("Control Handoff", func() {
 						w1, t := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
@@ -155,7 +167,7 @@ var _ = Describe("Writer Behavior", func() {
 				var db *unary.DB
 				BeforeEach(func() {
 					db = MustSucceed(unary.Open(unary.Config{
-						FS: MustSucceed(fs.Sub(rootPath + "/close_test")),
+						FS: MustSucceed(fs.Sub("/close_test")),
 						Channel: core.Channel{
 							Key:      100,
 							DataType: telem.TimeStampT,
@@ -165,7 +177,6 @@ var _ = Describe("Writer Behavior", func() {
 
 				AfterEach(func() {
 					Expect(db.Close()).To(Succeed())
-					Expect(fs.Remove(rootPath)).To(Succeed())
 				})
 
 				It("Should not allow operations on a closed writer", func() {

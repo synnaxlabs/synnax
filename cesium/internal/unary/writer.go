@@ -69,8 +69,8 @@ var (
 func (c WriterConfig) Validate() error {
 	v := validate.New("unary.WriterConfig")
 	validate.NotEmptyString(v, "Subject.Key", c.Subject.Key)
-	v.Ternary("end", c.End.Before(c.Start), "end timestamp must be after or equal to start timestamp")
-	return nil
+	v.Ternary("end", !c.End.IsZero() && c.End.Before(c.Start), "end timestamp must be after or equal to start timestamp")
+	return v.Error()
 }
 
 func (c WriterConfig) Override(other WriterConfig) WriterConfig {

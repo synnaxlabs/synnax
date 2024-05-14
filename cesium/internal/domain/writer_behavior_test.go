@@ -44,18 +44,19 @@ func extractPointer(f xfs.File) (p struct {
 	return
 }
 
-var _ = Describe("WriterBehavior", func() {
+var _ = Describe("WriterBehavior", Ordered, func() {
 	for fsName, makeFS := range fileSystems {
-		fs := makeFS()
+		fs, cleanUp := makeFS()
 		Context("FS: "+fsName, func() {
 			var db *domain.DB
 			BeforeEach(func() {
-				db = MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub(rootPath))}))
+				db = MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub("testdata"))}))
 			})
 			AfterEach(func() {
 				Expect(db.Close()).To(Succeed())
-				Expect(fs.Remove(rootPath)).To(Succeed())
+				Expect(fs.Remove("testdata")).To(Succeed())
 			})
+			AfterAll(func() { Expect(cleanUp()).To(Succeed()) })
 			Describe("Start Validation", func() {
 				Context("No domain overlap", func() {
 					It("Should successfully open the writer", func() {

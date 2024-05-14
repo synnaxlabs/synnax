@@ -11,7 +11,7 @@ import (
 
 var _ = Describe("Garbage Collection", Ordered, func() {
 	for fsName, makeFS := range fileSystems {
-		fs := makeFS()
+		fs, cleanUp := makeFS()
 		Context("FS: "+fsName, func() {
 			var (
 				rateDB    *unary.DB
@@ -20,9 +20,9 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 				rateKey   core.ChannelKey = 1
 				dataKey   core.ChannelKey = 2
 				indexKey  core.ChannelKey = 3
-				pth_rate                  = rootPath + "/garbage_test/rate"
-				pth_index                 = rootPath + "/garbage_test/index"
-				pth_data                  = rootPath + "/garbage_test/data"
+				pth_rate                  = "/garbage_test/rate"
+				pth_index                 = "/garbage_test/index"
+				pth_data                  = "/garbage_test/data"
 			)
 			BeforeEach(func() {
 				rateDB = MustSucceed(unary.Open(unary.Config{
@@ -57,7 +57,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 				Expect(indexDB.Close()).To(Succeed())
 				Expect(dataDB.Close()).To(Succeed())
 				Expect(rateDB.Close()).To(Succeed())
-				Expect(fs.Remove(rootPath)).To(Succeed())
+				Expect(cleanUp()).To(Succeed())
 			})
 			Describe("Rate DB Garbage Collection", func() {
 				It("Should Garbage Collect when called", func() {

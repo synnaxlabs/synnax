@@ -11,7 +11,7 @@ import (
 
 var _ = Describe("Garbage collection", Ordered, func() {
 	for fsName, makeFS := range fileSystems {
-		fs := makeFS()
+		fs, cleanUp := makeFS()
 		Context("FS: "+fsName, Ordered, func() {
 			var (
 				db     *cesium.DB
@@ -21,7 +21,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 			)
 
 			BeforeAll(func() {
-				db = MustSucceed(cesium.Open(rootPath,
+				db = MustSucceed(cesium.Open("",
 					cesium.WithGC(&cesium.GCConfig{
 						ReadChunkSize: uint32(100 * telem.Megabyte),
 						MaxGoroutine:  10,
@@ -31,7 +31,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 			})
 			AfterAll(func() {
 				Expect(db.Close()).To(Succeed())
-				Expect(fs.Remove(rootPath)).To(Succeed())
+				Expect(cleanUp()).To(Succeed())
 			})
 
 			Context("Periodic garbage collection", func() {

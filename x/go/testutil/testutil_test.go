@@ -33,13 +33,11 @@ var _ = Describe("Test Util Test", func() {
 
 	Describe("File Systems", func() {
 		It("Should generate factories for os-based FS and memory-based FS", func() {
-			fs, cleanUp, err := FileSystems()
-			Expect(err).ToNot(HaveOccurred())
+			fs := FileSystems
 			_, ok := fs["memFS"]
 			Expect(ok).To(BeTrue())
 			_, ok = fs["osFS"]
 			Expect(ok).To(BeTrue())
-			Expect(cleanUp()).To(Succeed())
 		})
 	})
 })

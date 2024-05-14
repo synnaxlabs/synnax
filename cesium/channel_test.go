@@ -22,11 +22,14 @@ import (
 
 var _ = Describe("Channel", Ordered, func() {
 	for fsName, makeFS := range fileSystems {
-		fs := makeFS()
+		fs, cleanUp := makeFS()
 		Context("FS: "+fsName, Ordered, func() {
 			var db *cesium.DB
 			BeforeAll(func() { db = openDBOnFS(fs) })
-			AfterAll(func() { Expect(db.Close()).To(Succeed()) })
+			AfterAll(func() {
+				Expect(db.Close()).To(Succeed())
+				Expect(cleanUp()).To(Succeed())
+			})
 			Describe("Create", func() {
 				Describe("Happy Path", func() {
 					It("Should assign an auto-incremented key if a key is not present", func() {

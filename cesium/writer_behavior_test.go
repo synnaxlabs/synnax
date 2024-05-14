@@ -32,7 +32,7 @@ var _ = Describe("Writer Behavior", func() {
 			BeforeAll(func() { db = openDBOnFS(fs) })
 			AfterAll(func() {
 				Expect(db.Close()).To(Succeed())
-				cleanup()
+				Expect(cleanup()).To(Succeed())
 			})
 			Describe("Happy Path", func() {
 				Context("Indexed", func() {

@@ -19,16 +19,11 @@ import (
 )
 
 var (
-	ctx                       = context.Background()
-	rootPath                  = "index-testdata"
-	fileSystems, cleanUp, err = testutil.FileSystems()
+	ctx         = context.Background()
+	fileSystems = testutil.FileSystems
 )
 
 func TestIndex(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Index Suite")
 }
-
-var _ = BeforeSuite(func() { Expect(err).ToNot(HaveOccurred()) })
-
-var _ = AfterSuite(func() { Expect(cleanUp()).To(Succeed()) })

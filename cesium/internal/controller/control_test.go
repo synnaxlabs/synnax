@@ -65,7 +65,7 @@ var _ = Describe("Control", func() {
 				TimeRange: telem.TimeRangeZero,
 				Subject:   control.Subject{Key: "a"},
 			}, createEntityAndNoError)
-			Expect(err).To(MatchError(ContainSubstring("TimeRange must be non-zero")))
+			Expect(err).To(MatchError(ContainSubstring("must be non-zero")))
 		})
 		It("Should return an error when the configuration is invalid", func() {
 			c := controller.New[testEntity](control.Exclusive)
@@ -73,7 +73,7 @@ var _ = Describe("Control", func() {
 				TimeRange: telem.TimeRangeMax,
 				Subject:   control.Subject{Key: ""},
 			}, createEntityAndNoError)
-			Expect(err).To(MatchError(ContainSubstring("subject.key must be set")))
+			Expect(err).To(MatchError(ContainSubstring("subject.key:field must be set")))
 		})
 		It("Should return an error when opening a gate of same name", func() {
 			c := controller.New[testEntity](control.Exclusive)
