@@ -22,25 +22,53 @@ import (
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 )
 
 type WriterConfig struct {
-	Start     telem.TimeStamp
-	End       telem.TimeStamp
-	Subject   control.Subject
+	// Start marks the starting bound of the writer.
+	// [REQUIRED]
+	Start telem.TimeStamp
+	// End is an optional parameter that marks the ending bound of the domain. Defining this
+	// parameter will allow the writer to write data to the domain without needing to
+	// validate each call to Commit. If this parameter is not defined, Commit must
+	// be called with a strictly increasing timestamp.
+	// [OPTIONAL]
+	End telem.TimeStamp
+	// Subject is the control subject held by the writer.
+	// [REQUIRED]
+	Subject control.Subject
+	// Authority is the control authority held by the writer: higher authority entities have
+	// priority access to the region.
+	// [OPTIONAL]
 	Authority control.Authority
-	Persist   *bool
+	// Persist denotes whether the writer writes its data to FS. If Persist is off, no data
+	// is written.
+	// [OPTIONAL] - Defaults to true
+	Persist *bool
+	// EnableAutoCommit denotes whether each write is committed.
+	// [OPTIONAL] - Defaults to False
+	EnableAutoCommit *bool
+	// AutoIndexPersistInterval is the frequency at which the changes to index are persisted to the
+	// disk.
+	// [OPTIONAL] - Defaults to 1s.
+	AutoIndexPersistInterval telem.TimeSpan
 }
 
 var (
 	_                   config.Config[WriterConfig] = WriterConfig{}
 	DefaultWriterConfig                             = WriterConfig{
-		Persist: config.True(),
+		Persist:                  config.True(),
+		EnableAutoCommit:         config.False(),
+		AutoIndexPersistInterval: 1 * telem.Second,
 	}
 	WriterClosedError = core.EntityClosed("unary.writer")
 )
 
 func (c WriterConfig) Validate() error {
+	v := validate.New("unary.WriterConfig")
+	validate.NotEmptyString(v, "Subject.Key", c.Subject.Key)
+	v.Ternary(c.End.Before(c.Start), "end timestamp must be after or equal to start timestamp")
 	return nil
 }
 
@@ -50,11 +78,13 @@ func (c WriterConfig) Override(other WriterConfig) WriterConfig {
 	c.Subject = override.If(c.Subject, other.Subject, other.Subject.Key != "")
 	c.Authority = override.Numeric(c.Authority, other.Authority)
 	c.Persist = override.Nil(c.Persist, other.Persist)
+	c.EnableAutoCommit = override.Nil(c.EnableAutoCommit, other.EnableAutoCommit)
+	c.AutoIndexPersistInterval = override.Zero(c.AutoIndexPersistInterval, other.AutoIndexPersistInterval)
 	return c
 }
 
 func (c WriterConfig) domain() domain.WriterConfig {
-	return domain.WriterConfig{Start: c.Start, End: c.End}
+	return domain.WriterConfig{Start: c.Start, End: c.End, EnableAutoCommit: c.EnableAutoCommit, AutoIndexPersistInterval: c.AutoIndexPersistInterval}
 }
 
 func (c WriterConfig) controlTimeRange() telem.TimeRange {
@@ -65,16 +95,27 @@ func (c WriterConfig) controlTimeRange() telem.TimeRange {
 
 type Writer struct {
 	WriterConfig
-	Channel          core.Channel
+	// Channel stores information about the channel this writer is writing to, including
+	// but not limited to density and index.
+	Channel core.Channel
+	// decrementCounter decrements the number of open writers and iterators on the unaryDB
+	// upon which the Writer is opened. This is used to determine whether the unaryDB can
+	// be closed safely.
 	decrementCounter func()
-	control          *controller.Gate[controlledWriter]
-	idx              index.Index
+	// control stores the gate held by the writer in the controller of the unaryDB.
+	control *controller.Gate[controlledWriter]
+	// idx stores the index of the unaryDB (rate or domain).
+	idx index.Index
 	// hwm is a hot-path optimization when writing to an index channel. We can avoid
 	// unnecessary index lookups by keeping track of the highest timestamp written.
 	// Only valid when Channel.IsIndex is true.
-	hwm                  telem.TimeStamp
+	hwm telem.TimeStamp
+	// lastCommitFileSwitch describes whether the last commit involved a file switch.
+	// If it did, then it is necessary to resolve the timestamp for that commit this time.
 	lastCommitFileSwitch bool
-	closed               bool
+	// closed stores whether the writer is closed. Operations like Write and Commit do not
+	// succeed on closed writers.
+	closed bool
 }
 
 func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (w *Writer, transfer controller.Transfer, err error) {
@@ -121,7 +162,7 @@ func Write(
 		return err
 	}
 	defer func() {
-		_, err_ := w.Close()
+		_, err_ := w.Close(ctx)
 		err = errors.CombineErrors(err, err_)
 	}()
 	if _, err = w.Write(series); err != nil {
@@ -152,6 +193,7 @@ func (w *Writer) Write(series telem.Series) (a telem.Alignment, err error) {
 	if w.Channel.IsIndex {
 		w.updateHwm(series)
 	}
+
 	if *w.Persist {
 		_, err = dw.Write(series.Data)
 	}
@@ -225,7 +267,7 @@ func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.
 	return end, err
 }
 
-func (w *Writer) Close() (controller.Transfer, error) {
+func (w *Writer) Close(ctx context.Context) (controller.Transfer, error) {
 	if w.closed {
 		return controller.Transfer{}, nil
 	}
@@ -234,7 +276,7 @@ func (w *Writer) Close() (controller.Transfer, error) {
 	dw, t := w.control.Release()
 	w.decrementCounter()
 	if t.IsRelease() {
-		return t, dw.Close()
+		return t, dw.Close(ctx)
 	}
 
 	return t, nil

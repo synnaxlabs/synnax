@@ -22,8 +22,8 @@ import (
 )
 
 var _ = Describe("Writer Behavior", func() {
-	for fsName, fs := range fileSystems {
-		fsName, fs := fsName, fs()
+	for fsName, makeFS := range fileSystems {
+		fs := makeFS()
 		Context("FS: "+fsName, func() {
 			Describe("Index", func() {
 				var db *unary.DB
@@ -50,7 +50,7 @@ var _ = Describe("Writer Behavior", func() {
 					Expect(MustSucceed(w.Write(telem.NewSecondsTSV(0, 1, 2, 3, 4, 5)))).To(Equal(telem.Alignment(0)))
 					Expect(MustSucceed(w.Write(telem.NewSecondsTSV(6, 7, 8, 9, 10, 11)))).To(Equal(telem.Alignment(6)))
 					Expect(MustSucceed(w.Commit(ctx))).To(Equal(11*telem.SecondTS + 1))
-					t = MustSucceed(w.Close())
+					t = MustSucceed(w.Close(ctx))
 					Expect(t.Occurred()).To(BeTrue())
 					Expect(db.LeadingControlState()).To(BeNil())
 				})
@@ -102,7 +102,7 @@ var _ = Describe("Writer Behavior", func() {
 					Expect(t.Occurred()).To(BeTrue())
 					Expect(MustSucceed(w.Write(telem.NewSeries([]int64{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10})))).To(Equal(telem.Alignment(0)))
 					Expect(MustSucceed(w.Commit(ctx))).To(Equal(20*telem.SecondTS + 1))
-					t = MustSucceed(w.Close())
+					t = MustSucceed(w.Close(ctx))
 					Expect(t.Occurred()).To(BeTrue())
 					By("Releasing control of the DB")
 					Expect(db.LeadingControlState()).To(BeNil())
@@ -176,9 +176,9 @@ var _ = Describe("Writer Behavior", func() {
 
 						Expect(w1.Commit(ctx)).To(Equal(53*telem.SecondTS + 1))
 
-						_, err := w1.Close()
+						_, err := w1.Close(ctx)
 						Expect(err).To(BeNil())
-						_, err = w2.Close()
+						_, err = w2.Close(ctx)
 						Expect(err).To(BeNil())
 
 						By("Asserting that the data is correct")
@@ -263,9 +263,9 @@ var _ = Describe("Writer Behavior", func() {
 						Expect(w1.Commit(ctx)).To(Equal(53*telem.SecondTS + 1))
 						Expect(w2.Commit(ctx)).To(Equal(53*telem.SecondTS + 1))
 
-						_, err := w1.Close()
+						_, err := w1.Close(ctx)
 						Expect(err).To(BeNil())
-						_, err = w2.Close()
+						_, err = w2.Close(ctx)
 						Expect(err).To(BeNil())
 
 						By("Asserting that the data is correct")
@@ -321,11 +321,11 @@ var _ = Describe("Writer Behavior", func() {
 						Expect(a).To(Equal(telem.Alignment(0)))
 						_, err = w1.Commit(ctx)
 						Expect(err).To(MatchError(control.Unauthorized))
-						t = MustSucceed(w2.Close())
+						t = MustSucceed(w2.Close(ctx))
 						Expect(t.Occurred()).To(BeTrue())
 						Expect(MustSucceed(w1.Write(telem.NewSecondsTSV(12, 13, 14, 15, 16, 17)))).To(Equal(telem.Alignment(12)))
 						Expect(MustSucceed(w1.Commit(ctx))).To(Equal(17*telem.SecondTS + 1))
-						t = MustSucceed(w1.Close())
+						t = MustSucceed(w1.Close(ctx))
 						Expect(t.Occurred()).To(BeTrue())
 					})
 				})
@@ -357,13 +357,13 @@ var _ = Describe("Writer Behavior", func() {
 						e = core.EntityClosed("unary.writer")
 					)
 					Expect(t.Occurred()).To(BeTrue())
-					_, err := w.Close()
+					_, err := w.Close(ctx)
 					Expect(err).ToNot(HaveOccurred())
 					_, err = w.Commit(ctx)
 					Expect(err).To(MatchError(e))
 					_, err = w.Write(telem.Series{Data: []byte{1, 2, 3}})
 					Expect(err).To(MatchError(e))
-					_, err = w.Close()
+					_, err = w.Close(ctx)
 					Expect(err).To(BeNil())
 				})
 			})
