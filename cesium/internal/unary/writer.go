@@ -65,6 +65,8 @@ var (
 	WriterClosedError = core.EntityClosed("unary.writer")
 )
 
+const AlwaysIndexPersistOnAutoCommit telem.TimeSpan = -1
+
 func (c WriterConfig) Validate() error {
 	v := validate.New("unary.WriterConfig")
 	validate.NotEmptyString(v, "Subject.Key", c.Subject.Key)
@@ -239,19 +241,9 @@ func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.
 	}
 
 	if end.IsZero() {
-		if w.lastCommitFileSwitch {
-			// Correct the start position.
-			approx, err := w.idx.Stamp(ctx, dw.Start, 1, true)
-			if err != nil {
-				return 0, err
-			}
-			w.Start = approx.Lower
-			dw.Start = approx.Lower
-			w.lastCommitFileSwitch = false
-		}
 		// We're using w.len - 1 here because we want the timestamp of the last
 		// written frame.
-		approx, err := w.idx.Stamp(ctx, w.Start, w.len(dw.Writer)-1, true)
+		approx, err := w.idx.Stamp(ctx, w.Start, w.len(dw.Writer)-1, false)
 		if err != nil {
 			return 0, err
 		}
@@ -261,8 +253,8 @@ func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.
 		// Add 1 to the end timestamp because the end timestamp is exclusive.
 		end = approx.Lower + 1
 	}
+
 	err := dw.Commit(ctx, end)
-	w.lastCommitFileSwitch = w.Start != dw.Start
 
 	return end, err
 }
