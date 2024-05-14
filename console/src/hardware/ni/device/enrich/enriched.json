@@ -1477,7 +1477,33 @@
         "category": "multifunction-io",
         "model": "USB-6000",
         "key": "124893",
-        "pinouts": []
+        "pinouts": [],
+        "estimatedPinout": {
+            "confidence": 98,
+            "analogInput": {
+                "portCount": 8
+            },
+            "analogOutput": {
+                "portCount": 0
+            },
+            "thermocouple": {
+                "portCount": 0
+            },
+            "digitalInput": {
+                "portCount": 0,
+                "lineCounts": []
+            },
+            "digitalOutput": {
+                "portCount": 0,
+                "lineCounts": []
+            },
+            "digitalInputOutput": {
+                "portCount": 1,
+                "lineCounts": [
+                    4
+                ]
+            }
+        }
     },
     "USB-6351": {
         "productSpecs": "https://www.ni.com/docs/en-US/bundle/pcie-usb-6351-specs/page/specs.html",
