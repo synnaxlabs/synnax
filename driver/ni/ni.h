@@ -32,6 +32,7 @@
 #include "nlohmann/json.hpp" // for json parsing
 #include "driver/task/task.h"
 #include "driver/config/config.h"
+#include "driver/ni/error.h"
 #include <condition_variable>
 
 

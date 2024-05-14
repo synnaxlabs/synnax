@@ -405,8 +405,7 @@ void ni::DaqAnalogReader::deleteScales(){
 
 
 
-std::pair<synnax::Frame, freighter::Error> ni::DaqAnalogReader::read()
-{
+std::pair<synnax::Frame, freighter::Error> ni::DaqAnalogReader::read(){
     int32 samplesRead = 0;
     float64 flush[1000]; // to flush buffer before performing a read
     int32 flushRead = 0;
@@ -420,8 +419,7 @@ std::pair<synnax::Frame, freighter::Error> ni::DaqAnalogReader::read()
                                               flush,
                                               1000,
                                               &flushRead,
-                                              NULL)))
-    {
+                                              NULL))){
         LOG(ERROR) << "[NI Reader] failed while flushing buffer for task " << this->reader_config.task_name;
         return std::make_pair(std::move(f), freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR, "error reading analog data"));
     }
@@ -448,25 +446,20 @@ std::pair<synnax::Frame, freighter::Error> ni::DaqAnalogReader::read()
 
     // Construct and populate index channel
     std::vector<std::uint64_t> time_index(this->numSamplesPerChannel);
-    for (uint64_t i = 0; i < samplesRead; ++i)
-    {
+    for (uint64_t i = 0; i < samplesRead; ++i){
         time_index[i] = initial_timestamp + (std::uint64_t)(incr * i);
     }
 
     // Construct and populate synnax frame
     std::vector<float> data_vec(samplesRead);
     uint64_t data_index = 0; // TODO: put a comment explaining the function of data_index
-    for (int i = 0; i < numChannels; i++)
-    {
-        if (this->reader_config.channels[i].channel_type == "index")
-        {
+    for (int i = 0; i < numChannels; i++){
+        if (this->reader_config.channels[i].channel_type == "index"){
             // LOG(INFO) << "Index channel found: " << this->reader_config.channels[i].channel_key << " name: " << this->reader_config.channels[i].name;
             f.add(this->reader_config.channels[i].channel_key, synnax::Series(time_index, synnax::TIMESTAMP));
         }
-        else
-        {
-            for (int j = 0; j < samplesRead; j++)
-            {
+        else{
+            for (int j = 0; j < samplesRead; j++){
                 data_vec[j] = data[data_index * samplesRead + j];
             }
             f.add(this->reader_config.channels[i].channel_key, synnax::Series(data_vec));
@@ -479,8 +472,7 @@ std::pair<synnax::Frame, freighter::Error> ni::DaqAnalogReader::read()
 }
 
 
-int ni::DaqAnalogReader::createChannel(ni::ChannelConfig &channel)
-{
+int ni::DaqAnalogReader::createChannel(ni::ChannelConfig &channel){
     if(!channel.custom_scale){
         return this->checkNIError(ni::NiDAQmxInterface::CreateAIVoltageChan(taskHandle, channel.name.c_str(), "", channel.terminal_config, channel.min_val, channel.max_val, DAQmx_Val_Volts, NULL));
     } else{
@@ -679,8 +671,7 @@ void ni::DaqDigitalReader::parseConfig(config::Parser &parser)
 
 
 
-int ni::DaqDigitalReader::init()
-{
+int ni::DaqDigitalReader::init(){
     int err = 0;
     auto channels = this->reader_config.channels;
 
@@ -768,8 +759,7 @@ freighter::Error ni::DaqDigitalReader::stop(){
 }
 
 
-std::pair<synnax::Frame, freighter::Error> ni::DaqDigitalReader::read()
-{
+std::pair<synnax::Frame, freighter::Error> ni::DaqDigitalReader::read(){
     int32 samplesRead;
     char errBuff[2048] = {'\0'};
     uInt8 flushBuffer[10000]; // to flush buffer before performing a read
@@ -871,8 +861,7 @@ int ni::DaqDigitalReader::checkNIError(int32 error){
 
 
 
-std::vector<synnax::ChannelKey> ni::DaqAnalogReader::getChannelKeys()
-{
+std::vector<synnax::ChannelKey> ni::DaqAnalogReader::getChannelKeys(){
     std::vector<synnax::ChannelKey> keys;
     for (auto &channel : this->reader_config.channels){
         keys.push_back(channel.channel_key);
@@ -880,11 +869,9 @@ std::vector<synnax::ChannelKey> ni::DaqAnalogReader::getChannelKeys()
     return keys;
 }
 
-std::vector<synnax::ChannelKey> ni::DaqDigitalReader::getChannelKeys()
-{
+std::vector<synnax::ChannelKey> ni::DaqDigitalReader::getChannelKeys(){
     std::vector<synnax::ChannelKey> keys;
-    for (auto &channel : this->reader_config.channels)
-    {
+    for (auto &channel : this->reader_config.channels){
         keys.push_back(channel.channel_key);
     }
     return keys;
