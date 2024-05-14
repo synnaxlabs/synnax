@@ -11,12 +11,12 @@ package cesium
 
 import (
 	"github.com/cockroachdb/errors"
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/meta"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/signal"
+	"go.uber.org/zap"
 	"strconv"
 )
 
@@ -42,12 +42,14 @@ func Open(dirname string, opts ...Option) (*DB, error) {
 		shutdown:   signal.NewShutdown(sCtx, cancel),
 	}
 	for _, i := range info {
-		key := core.ChannelKey(lo.Must(strconv.Atoi(i.Name())))
-		if err != nil {
-			return nil, err
-		}
 		if i.IsDir() {
-			if err = _db.openVirtualOrUnary(Channel{Key: key}); err != nil {
+			key, err := strconv.Atoi(i.Name())
+			if err != nil {
+				_db.options.L.Error("failed parsing existing folder to channel key", zap.Error(err))
+				continue
+			}
+
+			if err = _db.openVirtualOrUnary(Channel{Key: ChannelKey(key)}); err != nil {
 				return nil, err
 			}
 		}

@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
+	"os"
 )
 
 var _ = Describe("Channel", func() {
@@ -73,6 +74,31 @@ var _ = Describe("Channel", func() {
 						cesium.Channel{Key: 61, Index: 60, DataType: telem.Float32T},
 					),
 				)
+			})
+			Describe("Opening db on existing folder", func() {
+				It("Should not panic when opening a db in a directory with already existing files", func() {
+					s := MustSucceed(fs.Sub("sub"))
+					f := MustSucceed(s.Open("dir1", os.O_CREATE))
+					Expect(f.Close()).To(Succeed())
+
+					db, err := cesium.Open("", cesium.WithFS(s))
+					Expect(err).ToNot(HaveOccurred())
+					Expect(db.Close()).To(Succeed())
+				})
+
+				It("Should turn parsable numeric folders into channels", func() {
+					s := MustSucceed(fs.Sub("sub"))
+					_, err := s.Sub("1")
+					Expect(err).ToNot(HaveOccurred())
+
+					db, err := cesium.Open("", cesium.WithFS(s))
+					Expect(err).ToNot(HaveOccurred())
+					ch, err := db.RetrieveChannel(ctx, cesium.ChannelKey(1))
+					Expect(err).ToNot(HaveOccurred())
+					Expect(ch.Key).To(Equal(cesium.ChannelKey(1)))
+					Expect(db.Close()).To(Succeed())
+				})
+
 			})
 		})
 	}
