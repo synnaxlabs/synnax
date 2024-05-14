@@ -43,6 +43,7 @@ const MODELS: Model[] = [
   "PCIe-6346",
   "USB-6289",
   "NI-9381",
+  "USB-6000",
   "USB-6281",
   "USB-6255",
   "PXIe-6365",
