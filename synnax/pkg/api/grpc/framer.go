@@ -84,6 +84,8 @@ func (t frameWriterRequestTranslator) Forward(
 			Start:       int64(msg.Config.Start),
 			Mode:        int32(msg.Config.Mode),
 			Authorities: msg.Config.Authorities,
+			EnableAutoCommit: msg.Config.EnableAutoCommit,
+			AutoIndexPersitInterval: int64(msg.Config.AutoIndexPersitInterval),
 		},
 		Frame: translateFrameForward(msg.Frame),
 	}, nil
@@ -103,6 +105,8 @@ func (t frameWriterRequestTranslator) Backward(
 			Start:       telem.TimeStamp(msg.Config.Start),
 			Mode:        writer.Mode(msg.Config.Mode),
 			Authorities: msg.Config.Authorities,
+			EnableAutoCommit: msg.Config.EnableAutoCommit,
+			AutoIndexPersitInterval: telem.TimeSpan(msg.Config.AutoIndexPersitInterval),
 		}
 	}
 	r.Frame = translateFrameBackward(msg.Frame)
