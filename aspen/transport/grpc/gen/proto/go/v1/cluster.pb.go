@@ -402,7 +402,7 @@ var file_v1_cluster_proto_goTypes = []interface{}{
 	nil,                   // 5: aspen.v1.ClusterGossip.DigestsEntry
 	nil,                   // 6: aspen.v1.ClusterGossip.NodesEntry
 }
-var file_v1_cluster_proto_depIdxs = []int32{
+var file_v1_cluster_proto_deschematicxs = []int32{
 	1, // 0: aspen.v1.Node.heartbeat:type_name -> aspen.v1.Heartbeat
 	1, // 1: aspen.v1.NodeDigest.heartbeat:type_name -> aspen.v1.Heartbeat
 	5, // 2: aspen.v1.ClusterGossip.digests:type_name -> aspen.v1.ClusterGossip.DigestsEntry
@@ -498,11 +498,11 @@ func file_v1_cluster_proto_init() {
 			NumServices:   2,
 		},
 		GoTypes:           file_v1_cluster_proto_goTypes,
-		DependencyIndexes: file_v1_cluster_proto_depIdxs,
+		DependencyIndexes: file_v1_cluster_proto_deschematicxs,
 		MessageInfos:      file_v1_cluster_proto_msgTypes,
 	}.Build()
 	File_v1_cluster_proto = out.File
 	file_v1_cluster_proto_rawDesc = nil
 	file_v1_cluster_proto_goTypes = nil
-	file_v1_cluster_proto_depIdxs = nil
+	file_v1_cluster_proto_deschematicxs = nil
 }

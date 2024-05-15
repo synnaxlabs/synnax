@@ -15,7 +15,7 @@ import { Align, Status, Text } from "@synnaxlabs/pluto";
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
-import { PID } from "@/pid";
+import { Schematic } from "@/schematic";
 // import { Table } from "@/table";
 import { create } from "@/vis/create";
 
@@ -40,7 +40,7 @@ const SelectVis = ({ layoutKey }: ToolbarProps): ReactElement => (
 );
 
 const TOOLBARS: Record<LayoutType | "vis", FC<ToolbarProps>> = {
-  pid: PID.Toolbar,
+  schematic: Schematic.Toolbar,
   lineplot: LinePlot.Toolbar,
   vis: SelectVis,
 };

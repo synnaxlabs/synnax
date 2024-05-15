@@ -680,7 +680,7 @@ var file_synnax_pkg_distribution_transport_grpc_framer_v1_ts_proto_goTypes = []i
 	(*errors.PBPayload)(nil),  // 9: errors.PBPayload
 	(*telem.PBSeries)(nil),    // 10: telem.PBSeries
 }
-var file_synnax_pkg_distribution_transport_grpc_framer_v1_ts_proto_depIdxs = []int32{
+var file_synnax_pkg_distribution_transport_grpc_framer_v1_ts_proto_deschematicxs = []int32{
 	8,  // 0: ts.v1.IteratorRequest.bounds:type_name -> telem.PBTimeRange
 	4,  // 1: ts.v1.IteratorResponse.frame:type_name -> ts.v1.Frame
 	9,  // 2: ts.v1.IteratorResponse.error:type_name -> errors.PBPayload
@@ -817,11 +817,11 @@ func file_synnax_pkg_distribution_transport_grpc_framer_v1_ts_proto_init() {
 			NumServices:   3,
 		},
 		GoTypes:           file_synnax_pkg_distribution_transport_grpc_framer_v1_ts_proto_goTypes,
-		DependencyIndexes: file_synnax_pkg_distribution_transport_grpc_framer_v1_ts_proto_depIdxs,
+		DependencyIndexes: file_synnax_pkg_distribution_transport_grpc_framer_v1_ts_proto_deschematicxs,
 		MessageInfos:      file_synnax_pkg_distribution_transport_grpc_framer_v1_ts_proto_msgTypes,
 	}.Build()
 	File_synnax_pkg_distribution_transport_grpc_framer_v1_ts_proto = out.File
 	file_synnax_pkg_distribution_transport_grpc_framer_v1_ts_proto_rawDesc = nil
 	file_synnax_pkg_distribution_transport_grpc_framer_v1_ts_proto_goTypes = nil
-	file_synnax_pkg_distribution_transport_grpc_framer_v1_ts_proto_depIdxs = nil
+	file_synnax_pkg_distribution_transport_grpc_framer_v1_ts_proto_deschematicxs = nil
 }

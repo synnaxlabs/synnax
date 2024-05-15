@@ -47,7 +47,7 @@ export { Measure } from "@/vis/measure";
 export { Diagram } from "@/vis/diagram";
 export { Rule } from "@/vis/rule";
 export { Value } from "@/vis/value";
-export { PID } from "@/vis/pid";
+export { Schematic } from "@/vis/schematic";
 export { Pluto } from "@/pluto";
 export { Control } from "@/telem/control";
 export { telem } from "@/telem/aether";

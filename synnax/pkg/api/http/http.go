@@ -69,13 +69,13 @@ func New(router *fhttp.Router) (t api.Transport) {
 	t.WorkspaceRename = fhttp.UnaryServer[api.WorkspaceRenameRequest, types.Nil](router, false, "/api/v1/workspace/rename")
 	t.WorkspaceSetLayout = fhttp.UnaryServer[api.WorkspaceSetLayoutRequest, types.Nil](router, false, "/api/v1/workspace/set-layout")
 
-	// PID
-	t.PIDCreate = fhttp.UnaryServer[api.PIDCreateRequest, api.PIDCreateResponse](router, false, "/api/v1/workspace/pid/create")
-	t.PIDRetrieve = fhttp.UnaryServer[api.PIDRetrieveRequest, api.PIDRetrieveResponse](router, false, "/api/v1/workspace/pid/retrieve")
-	t.PIDDelete = fhttp.UnaryServer[api.PIDDeleteRequest, types.Nil](router, false, "/api/v1/workspace/pid/delete")
-	t.PIDRename = fhttp.UnaryServer[api.PIDRenameRequest, types.Nil](router, false, "/api/v1/workspace/pid/rename")
-	t.PIDSetData = fhttp.UnaryServer[api.PIDSetDataRequest, types.Nil](router, false, "/api/v1/workspace/pid/set-data")
-	t.PIDCopy = fhttp.UnaryServer[api.PIDCopyRequest, api.PIDCopyResponse](router, false, "/api/v1/workspace/pid/copy")
+	// Schematic
+	t.SchematicCreate = fhttp.UnaryServer[api.SchematicCreateRequest, api.SchematicCreateResponse](router, false, "/api/v1/workspace/schematic/create")
+	t.SchematicRetrieve = fhttp.UnaryServer[api.SchematicRetrieveRequest, api.SchematicRetrieveResponse](router, false, "/api/v1/workspace/schematic/retrieve")
+	t.SchematicDelete = fhttp.UnaryServer[api.SchematicDeleteRequest, types.Nil](router, false, "/api/v1/workspace/schematic/delete")
+	t.SchematicRename = fhttp.UnaryServer[api.SchematicRenameRequest, types.Nil](router, false, "/api/v1/workspace/schematic/rename")
+	t.SchematicSetData = fhttp.UnaryServer[api.SchematicSetDataRequest, types.Nil](router, false, "/api/v1/workspace/schematic/set-data")
+	t.SchematicCopy = fhttp.UnaryServer[api.SchematicCopyRequest, api.SchematicCopyResponse](router, false, "/api/v1/workspace/schematic/copy")
 
 	// LINE PLOT
 	t.LinePlotCreate = fhttp.UnaryServer[api.LinePlotCreateRequest, api.LinePlotCreateResponse](router, false, "/api/v1/workspace/lineplot/create")

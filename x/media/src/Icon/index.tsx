@@ -208,7 +208,7 @@ export const Icon: IconType = {
   Expand: wrapIcon(AiOutlineExpand),
   Cluster: wrapIcon(HiSquare3Stack3D),
   Loading: wrapIcon(AiOutlineLoading, { className: "media--spin" }),
-  PID: wrapIcon(FaStream),
+  Schematic: wrapIcon(FaStream),
   Caret: {
     Right: wrapIcon(AiFillCaretRight),
     Left: wrapIcon(AiFillCaretLeft),
@@ -320,7 +320,7 @@ export interface IconType {
   Expand: IconFC;
   Visualize: IconFC;
   Cluster: IconFC;
-  PID: IconFC;
+  Schematic: IconFC;
   Settings: IconFC;
   Table: IconFC;
   Caret: {

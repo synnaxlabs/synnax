@@ -23,7 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/version"
 	"github.com/synnaxlabs/synnax/pkg/workspace"
 	"github.com/synnaxlabs/synnax/pkg/workspace/lineplot"
-	"github.com/synnaxlabs/synnax/pkg/workspace/pid"
+	"github.com/synnaxlabs/synnax/pkg/workspace/schematic"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/security"
@@ -166,7 +166,7 @@ func start(cmd *cobra.Command) {
 		if err != nil {
 			return err
 		}
-		pidSvc, err := pid.NewService(pid.Config{DB: gorpDB, Ontology: dist.Ontology})
+		schematicSvc, err := schematic.NewService(schematic.Config{DB: gorpDB, Ontology: dist.Ontology})
 		if err != nil {
 			return err
 		}
@@ -205,7 +205,7 @@ func start(cmd *cobra.Command) {
 			Instrumentation: ins.Child("api"),
 			Authenticator:   authenticator,
 			Enforcer:        access.AllowAll{},
-			PID:             pidSvc,
+			Schematic:       schematicSvc,
 			LinePlot:        linePlotSvc,
 			Insecure:        config.Bool(insecure),
 			Channel:         dist.Channel,

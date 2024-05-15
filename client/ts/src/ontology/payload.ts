@@ -28,7 +28,7 @@ const resourceTypeZ = z.union([
   z.literal("range-alias"),
   z.literal("user"),
   z.literal("workspace"),
-  z.literal("pid"),
+  z.literal("schematic"),
   z.literal("lineplot"),
   z.literal("rack"),
   z.literal("device"),

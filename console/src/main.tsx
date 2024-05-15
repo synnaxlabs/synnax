@@ -24,7 +24,7 @@ import { LayoutMain } from "@/layouts/LayoutMain";
 import { Mosaic } from "@/layouts/mosaic";
 import { LinePlot } from "@/lineplot";
 import { Ontology } from "@/ontology";
-import { PID } from "@/pid";
+import { Schematic } from "@/schematic";
 import { Range } from "@/range";
 import { SERVICES } from "@/services";
 import { store } from "@/store";
@@ -50,7 +50,7 @@ const layoutRenderers: Record<string, Layout.Renderer> = {
   mosaic: Mosaic.Window,
   createWorkspace: Workspace.Create,
   [LinePlot.LAYOUT_TYPE]: LinePlot.LinePlot,
-  [PID.LAYOUT_TYPE]: PID.PID,
+  [Schematic.LAYOUT_TYPE]: Schematic.Schematic,
   [OPC.Device.connectWindowLayout.type]: OPC.Device.Configure,
   [OPC.Task.readTaskLayout.type]: OPC.Task.ReadTask,
   [Range.metaDataWindowLayout.key]: Range.MetaData,

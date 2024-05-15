@@ -25,7 +25,7 @@ export type LocalStatus = "starting" | "running" | "stopping" | "stopped";
 
 /** Represents the state of the locally running Synnax cluster */
 export interface LocalState {
-  pid: number;
+  schematic: number;
   command: LocalCommand;
   status: LocalStatus;
 }

@@ -33,7 +33,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/user"
 	"github.com/synnaxlabs/synnax/pkg/workspace"
 	"github.com/synnaxlabs/synnax/pkg/workspace/lineplot"
-	"github.com/synnaxlabs/synnax/pkg/workspace/pid"
+	"github.com/synnaxlabs/synnax/pkg/workspace/schematic"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
@@ -52,7 +52,7 @@ type Config struct {
 	Storage       *storage.Storage
 	User          *user.Service
 	Workspace     *workspace.Service
-	PID           *pid.Service
+	Schematic     *schematic.Service
 	LinePlot      *lineplot.Service
 	Token         *token.Service
 	Label         *label.Service
@@ -83,7 +83,7 @@ func (c Config) Validate() error {
 	validate.NotNil(v, "enforcer", c.Enforcer)
 	validate.NotNil(v, "cluster", c.Cluster)
 	validate.NotNil(v, "group", c.Group)
-	validate.NotNil(v, "pid", c.PID)
+	validate.NotNil(v, "schematic", c.Schematic)
 	validate.NotNil(v, "lineplot", c.LinePlot)
 	validate.NotNil(v, "hardware", c.Hardware)
 	validate.NotNil(v, "insecure", c.Insecure)
@@ -108,7 +108,7 @@ func (c Config) Override(other Config) Config {
 	c.Insecure = override.Nil(c.Insecure, other.Insecure)
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Insecure = override.Nil(c.Insecure, other.Insecure)
-	c.PID = override.Nil(c.PID, other.PID)
+	c.Schematic = override.Nil(c.Schematic, other.Schematic)
 	c.LinePlot = override.Nil(c.LinePlot, other.LinePlot)
 	c.Label = override.Nil(c.Label, other.Label)
 	c.Hardware = override.Nil(c.Hardware, other.Hardware)
@@ -161,13 +161,13 @@ type Transport struct {
 	WorkspaceDelete    freighter.UnaryServer[WorkspaceDeleteRequest, types.Nil]
 	WorkspaceRename    freighter.UnaryServer[WorkspaceRenameRequest, types.Nil]
 	WorkspaceSetLayout freighter.UnaryServer[WorkspaceSetLayoutRequest, types.Nil]
-	// PID
-	PIDCreate   freighter.UnaryServer[PIDCreateRequest, PIDCreateResponse]
-	PIDRetrieve freighter.UnaryServer[PIDRetrieveRequest, PIDRetrieveResponse]
-	PIDDelete   freighter.UnaryServer[PIDDeleteRequest, types.Nil]
-	PIDRename   freighter.UnaryServer[PIDRenameRequest, types.Nil]
-	PIDSetData  freighter.UnaryServer[PIDSetDataRequest, types.Nil]
-	PIDCopy     freighter.UnaryServer[PIDCopyRequest, PIDCopyResponse]
+	// Schematic
+	SchematicCreate   freighter.UnaryServer[SchematicCreateRequest, SchematicCreateResponse]
+	SchematicRetrieve freighter.UnaryServer[SchematicRetrieveRequest, SchematicRetrieveResponse]
+	SchematicDelete   freighter.UnaryServer[SchematicDeleteRequest, types.Nil]
+	SchematicRename   freighter.UnaryServer[SchematicRenameRequest, types.Nil]
+	SchematicSetData  freighter.UnaryServer[SchematicSetDataRequest, types.Nil]
+	SchematicCopy     freighter.UnaryServer[SchematicCopyRequest, SchematicCopyResponse]
 	// LINE PLOT
 	LinePlotCreate   freighter.UnaryServer[LinePlotCreateRequest, LinePlotCreateResponse]
 	LinePlotRetrieve freighter.UnaryServer[LinePlotRetrieveRequest, LinePlotRetrieveResponse]
@@ -204,7 +204,7 @@ type API struct {
 	Ontology     *OntologyService
 	Range        *RangeService
 	Workspace    *WorkspaceService
-	PID          *PIDService
+	Schematic    *SchematicService
 	LinePlot     *LinePlotService
 	Label        *LabelService
 	Hardware     *HardwareService
@@ -285,13 +285,13 @@ func (a *API) BindTo(t Transport) {
 		t.WorkspaceRename,
 		t.WorkspaceSetLayout,
 
-		// PID
-		t.PIDCreate,
-		t.PIDRetrieve,
-		t.PIDDelete,
-		t.PIDRename,
-		t.PIDSetData,
-		t.PIDCopy,
+		// Schematic
+		t.SchematicCreate,
+		t.SchematicRetrieve,
+		t.SchematicDelete,
+		t.SchematicRename,
+		t.SchematicSetData,
+		t.SchematicCopy,
 
 		// LINE PLOT
 		t.LinePlotCreate,
@@ -370,13 +370,13 @@ func (a *API) BindTo(t Transport) {
 	t.WorkspaceRename.BindHandler(a.Workspace.Rename)
 	t.WorkspaceSetLayout.BindHandler(a.Workspace.SetLayout)
 
-	// PID
-	t.PIDCreate.BindHandler(a.PID.Create)
-	t.PIDRetrieve.BindHandler(a.PID.Retrieve)
-	t.PIDDelete.BindHandler(a.PID.Delete)
-	t.PIDRename.BindHandler(a.PID.Rename)
-	t.PIDSetData.BindHandler(a.PID.SetData)
-	t.PIDCopy.BindHandler(a.PID.Copy)
+	// Schematic
+	t.SchematicCreate.BindHandler(a.Schematic.Create)
+	t.SchematicRetrieve.BindHandler(a.Schematic.Retrieve)
+	t.SchematicDelete.BindHandler(a.Schematic.Delete)
+	t.SchematicRename.BindHandler(a.Schematic.Rename)
+	t.SchematicSetData.BindHandler(a.Schematic.SetData)
+	t.SchematicCopy.BindHandler(a.Schematic.Copy)
 
 	// LINE PLOT
 	t.LinePlotCreate.BindHandler(a.LinePlot.Create)
@@ -419,7 +419,7 @@ func New(configs ...Config) (API, error) {
 	api.Ontology = NewOntologyService(api.provider)
 	api.Range = NewRangeService(api.provider)
 	api.Workspace = NewWorkspaceService(api.provider)
-	api.PID = NewPIDService(api.provider)
+	api.Schematic = NewSchematicService(api.provider)
 	api.LinePlot = NewLinePlotService(api.provider)
 	api.Label = NewLabelService(api.provider)
 	api.Hardware = NewHardwareService(api.provider)

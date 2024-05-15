@@ -110,7 +110,7 @@ var file_x_go_errors_errors_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_x_go_errors_errors_proto_goTypes = []interface{}{
 	(*PBPayload)(nil), // 0: errors.PBPayload
 }
-var file_x_go_errors_errors_proto_depIdxs = []int32{
+var file_x_go_errors_errors_proto_deschematicxs = []int32{
 	0, // [0:0] is the sub-list for method output_type
 	0, // [0:0] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
@@ -148,11 +148,11 @@ func file_x_go_errors_errors_proto_init() {
 			NumServices:   0,
 		},
 		GoTypes:           file_x_go_errors_errors_proto_goTypes,
-		DependencyIndexes: file_x_go_errors_errors_proto_depIdxs,
+		DependencyIndexes: file_x_go_errors_errors_proto_deschematicxs,
 		MessageInfos:      file_x_go_errors_errors_proto_msgTypes,
 	}.Build()
 	File_x_go_errors_errors_proto = out.File
 	file_x_go_errors_errors_proto_rawDesc = nil
 	file_x_go_errors_errors_proto_goTypes = nil
-	file_x_go_errors_errors_proto_depIdxs = nil
+	file_x_go_errors_errors_proto_deschematicxs = nil
 }

@@ -68,7 +68,7 @@ export const ZERO_STATE: SliceState = {
     [LOCAL_CLUSTER_KEY]: LOCAL,
   },
   localState: {
-    pid: 0,
+    schematic: 0,
     command: "stop",
     status: "stopped",
   },

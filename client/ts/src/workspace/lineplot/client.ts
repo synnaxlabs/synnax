@@ -23,8 +23,8 @@ export class Client {
     this.retriever = new Retriever(client);
   }
 
-  async create(workspace: string, pid: NewLinePlot): Promise<LinePlot> {
-    return await this.writer.create(workspace, pid);
+  async create(workspace: string, schematic: NewLinePlot): Promise<LinePlot> {
+    return await this.writer.create(workspace, schematic);
   }
 
   async rename(key: Key, name: string): Promise<void> {

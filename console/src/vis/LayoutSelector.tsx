@@ -16,7 +16,7 @@ import { Align } from "@synnaxlabs/pluto/align";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
-import { PID } from "@/pid";
+import { Schematic } from "@/schematic";
 
 import "@/vis/LayoutSelector.css";
 
@@ -52,10 +52,10 @@ export const LayoutSelector = ({
           </Button.Button>
           <Button.Button
             variant="outlined"
-            onClick={() => place(PID.create({ key: layoutKey }))}
-            startIcon={<Icon.PID />}
+            onClick={() => place(Schematic.create({ key: layoutKey }))}
+            startIcon={<Icon.Schematic />}
           >
-            PID
+            Schematic
           </Button.Button>
           <Button.Button
             variant="outlined"

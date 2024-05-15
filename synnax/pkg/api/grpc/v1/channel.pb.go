@@ -497,7 +497,7 @@ var file_synnax_pkg_api_grpc_v1_channel_proto_goTypes = []interface{}{
 	(*ChannelCreateResponse)(nil),   // 5: api.v1.ChannelCreateResponse
 	(*emptypb.Empty)(nil),           // 6: google.protobuf.Empty
 }
-var file_synnax_pkg_api_grpc_v1_channel_proto_depIdxs = []int32{
+var file_synnax_pkg_api_grpc_v1_channel_proto_deschematicxs = []int32{
 	1, // 0: api.v1.ChannelRetrieveResponse.channels:type_name -> api.v1.Channel
 	1, // 1: api.v1.ChannelCreateRequest.channels:type_name -> api.v1.Channel
 	1, // 2: api.v1.ChannelCreateResponse.channels:type_name -> api.v1.Channel
@@ -604,11 +604,11 @@ func file_synnax_pkg_api_grpc_v1_channel_proto_init() {
 			NumServices:   3,
 		},
 		GoTypes:           file_synnax_pkg_api_grpc_v1_channel_proto_goTypes,
-		DependencyIndexes: file_synnax_pkg_api_grpc_v1_channel_proto_depIdxs,
+		DependencyIndexes: file_synnax_pkg_api_grpc_v1_channel_proto_deschematicxs,
 		MessageInfos:      file_synnax_pkg_api_grpc_v1_channel_proto_msgTypes,
 	}.Build()
 	File_synnax_pkg_api_grpc_v1_channel_proto = out.File
 	file_synnax_pkg_api_grpc_v1_channel_proto_rawDesc = nil
 	file_synnax_pkg_api_grpc_v1_channel_proto_goTypes = nil
-	file_synnax_pkg_api_grpc_v1_channel_proto_depIdxs = nil
+	file_synnax_pkg_api_grpc_v1_channel_proto_deschematicxs = nil
 }

@@ -70,11 +70,11 @@ export class Writer {
   }
 
   async create(workspace: string, plot: NewLinePlot): Promise<LinePlot> {
-    const pid_ = { ...plot, data: JSON.stringify(plot.data) };
+    const schematic_ = { ...plot, data: JSON.stringify(plot.data) };
     const res = await sendRequired<typeof createReqZ, typeof createResZ>(
       this.client,
       CREATE_ENDPOINT,
-      { workspace, linePlots: [pid_] },
+      { workspace, linePlots: [schematic_] },
       createReqZ,
       createResZ,
     );
@@ -93,21 +93,21 @@ export class Writer {
     );
   }
 
-  async rename(pid: Key, name: string): Promise<void> {
+  async rename(schematic: Key, name: string): Promise<void> {
     await sendRequired<typeof renameReqZ, typeof renameResZ>(
       this.client,
       RENAME_ENDPOINT,
-      { key: pid, name },
+      { key: schematic, name },
       renameReqZ,
       renameResZ,
     );
   }
 
-  async setData(pid: Key, data: UnknownRecord): Promise<void> {
+  async setData(schematic: Key, data: UnknownRecord): Promise<void> {
     await sendRequired<typeof setDataReqZ, typeof setDataResZ>(
       this.client,
       SET_DATA_ENDPOINT,
-      { key: pid, data: JSON.stringify(data) },
+      { key: schematic, data: JSON.stringify(data) },
       setDataReqZ,
       setDataResZ,
     );
