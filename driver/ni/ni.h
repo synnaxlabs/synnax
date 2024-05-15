@@ -424,7 +424,8 @@ namespace ni{
                                 synnax::Task task); 
 
         void exec(task::Command &cmd) override;
-        void stop() override{};
+        void stop();
+        void start();
 
         static std::unique_ptr<task::Task> configure(   const std::shared_ptr<task::Context> &ctx,
                                                         const synnax::Task &task);
