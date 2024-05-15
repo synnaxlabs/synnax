@@ -33,6 +33,10 @@ import (
 // In this case, only data before tr.End from that pointer will be deleted, the
 // endOffset passed to domain will be calculated via db.index().Distance().
 func (db *DB) Delete(ctx context.Context, tr telem.TimeRange) error {
+	if tr.Start.After(tr.End) {
+		return errors.Newf("[cesium] delete start <%d> after delete end <%d>", tr.Start, tr.End)
+	}
+
 	var (
 		startOffset int64 = 0
 		endOffset   int64 = 0
@@ -51,13 +55,14 @@ func (db *DB) Delete(ctx context.Context, tr telem.TimeRange) error {
 
 	_, ok := g.Authorize()
 	if !ok {
-		g.Release()
 		return controller.Unauthorized(g.Subject.Name, db.Channel.Key)
 	}
+	defer g.Release()
 
 	i := db.Domain.NewIterator(domain.IteratorConfig{Bounds: telem.TimeRangeMax})
 	if ok = i.SeekGE(ctx, tr.Start); !ok {
-		return errors.CombineErrors(errors.Newf("[cesium] no domains after deletion start <%d>", tr.Start), i.Close())
+		// No domains after start: delete nothing.
+		return i.Close()
 	}
 
 	if i.TimeRange().Start.AfterEq(tr.Start) {
@@ -77,7 +82,8 @@ func (db *DB) Delete(ctx context.Context, tr telem.TimeRange) error {
 	startPosition := i.Position()
 
 	if ok = i.SeekLE(ctx, tr.End); !ok {
-		return errors.CombineErrors(i.Close(), errors.Newf("[cesium] no domains before deletion end <%d>", tr.End))
+		// No domains before end: delete nothing.
+		return i.Close()
 	}
 
 	if i.TimeRange().End.BeforeEq(tr.End) {
