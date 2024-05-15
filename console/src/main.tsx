@@ -35,28 +35,21 @@ import { Workspace } from "@/workspace";
 
 import "@/index.css";
 import "@synnaxlabs/media/dist/style.css";
-import { NIDevice } from "@/hardware/ni/device";
 import { NI } from "@/hardware/ni";
 // import "@synnaxlabs/pluto/dist/style.css";
 
 const layoutRenderers: Record<string, Layout.Renderer> = {
   main: LayoutMain,
-  connectCluster: Cluster.Connect,
-  visualization: Vis.LayoutSelector,
-  defineRange: Range.EditLayout,
-  getStarted: Layout.GetStarted,
   docs: Docs.Docs,
-  vis: Vis.LayoutSelector,
-  mosaic: Mosaic.Window,
-  createWorkspace: Workspace.Create,
-  [LinePlot.LAYOUT_TYPE]: LinePlot.LinePlot,
-  [Schematic.LAYOUT_TYPE]: Schematic.Schematic,
-  [OPC.Device.connectWindowLayout.type]: OPC.Device.Configure,
-  [OPC.Task.readTaskLayout.type]: OPC.Task.ReadTask,
-  [Range.metaDataWindowLayout.key]: Range.MetaData,
-  [NIDevice.LAYOUT_TYPE]: NIDevice.Configure,
-  [NI.Task.configureAnalogReadLayout.type]: NI.Task.ConfigureAnalogRead,
-  [NI.Task.digitalWriteTaskLayout.type]: NI.Task.ConfigureDigitalWriteTask,
+  ...Layout.LAYOUTS,
+  ...Vis.LAYOUTS,
+  ...Workspace.LAYOUTS,
+  ...Schematic.LAYOUTS,
+  ...LinePlot.LAYOUTS,
+  ...OPC.LAYOUTS,
+  ...Range.LAYOUTS,
+  ...Cluster.LAYOUTS,
+  ...NI.LAYOUTS,
 };
 
 const PREVENT_DEFAULT_TRIGGERS: Triggers.Trigger[] = [

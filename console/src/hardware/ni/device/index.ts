@@ -1,1 +1,1 @@
-export * as NIDevice from "@/hardware/ni/device/external";
+export * as Device from "@/hardware/ni/device/external";

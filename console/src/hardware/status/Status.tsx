@@ -34,7 +34,7 @@ export type LayoutType = "hardwareStatus";
 export const LAYOUT_TYPE: LayoutType = "hardwareStatus";
 
 export const create =
-  (initial: Omit<Partial<Layout.LayoutState>, "type">): Layout.Creator =>
+  (initial: Omit<Partial<Layout.State>, "type">): Layout.Creator =>
   () => {
     const { name = "Hardware Status", location = "mosaic", ...rest } = initial;
     return {

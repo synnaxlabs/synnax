@@ -54,7 +54,7 @@ import { List } from "@synnaxlabs/pluto/list";
 import { deep } from "@synnaxlabs/x";
 import { nanoid } from "nanoid";
 
-export const configureAnalogReadLayout: Layout.LayoutState = {
+export const configureAnalogReadLayout: Layout.State = {
   name: "Configure NI Analog Read Task",
   key: "niAnalogReadTask",
   type: "niAnalogReadTask",

@@ -16,11 +16,8 @@ import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Schematic } from "@/schematic";
-// import { Table } from "@/table";
-import { create } from "@/vis/create";
-
-import { LayoutSelector } from "./LayoutSelector";
-import { type LayoutType } from "./types";
+import { createLayoutSelector, LayoutSelector } from "@/vis/LayoutSelector";
+import { type LayoutType } from "@/vis/types";
 
 export const VisToolbarTitle = (): ReactElement => (
   <ToolbarTitle icon={<Icon.Visualize />}>Visualization</ToolbarTitle>
@@ -55,7 +52,7 @@ const NoVis = (): ReactElement => {
         <Status.Text level="p" variant="disabled" hideIcon>
           No visualization selected. Select a visualization or
         </Status.Text>
-        <Text.Link level="p" onClick={() => placer(create({}))}>
+        <Text.Link level="p" onClick={() => placer(createLayoutSelector({}))}>
           create a new one.
         </Text.Link>
       </Align.Center>

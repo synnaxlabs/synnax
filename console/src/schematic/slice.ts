@@ -8,7 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { type PayloadAction, createSlice } from "@reduxjs/toolkit";
-import { type Control, type Viewport, type Diagram, type Schematic } from "@synnaxlabs/pluto";
+import {
+  type Control,
+  type Viewport,
+  type Diagram,
+  type Schematic,
+} from "@synnaxlabs/pluto";
 import { Color } from "@synnaxlabs/pluto/color";
 import { type Theming } from "@synnaxlabs/pluto/theming";
 import { box, scale, xy, deep, migrate } from "@synnaxlabs/x";
@@ -334,10 +339,14 @@ export const { actions, reducer } = createSlice({
       if (mode === "replace") schematic.nodes = nodes;
       else {
         const keys = nodes.map((node) => node.key);
-        schematic.nodes = [...schematic.nodes.filter((node) => !keys.includes(node.key)), ...nodes];
+        schematic.nodes = [
+          ...schematic.nodes.filter((node) => !keys.includes(node.key)),
+          ...nodes,
+        ];
       }
       const anySelected =
-        nodes.some((node) => node.selected) || schematic.edges.some((edge) => edge.selected);
+        nodes.some((node) => node.selected) ||
+        schematic.edges.some((edge) => edge.selected);
       if (anySelected) {
         if (state.toolbar.activeTab !== "properties")
           clearOtherSelections(state, layoutKey);
@@ -370,7 +379,8 @@ export const { actions, reducer } = createSlice({
       });
       schematic.edges = edges;
       const anySelected =
-        edges.some((edge) => edge.selected) || schematic.nodes.some((node) => node.selected);
+        edges.some((edge) => edge.selected) ||
+        schematic.nodes.some((node) => node.selected);
       if (anySelected) {
         if (state.toolbar.activeTab !== "properties")
           clearOtherSelections(state, layoutKey);
@@ -410,7 +420,8 @@ export const { actions, reducer } = createSlice({
     toggleControl: (state, { payload }: PayloadAction<ToggleControlPayload>) => {
       let { layoutKey, status } = payload;
       const schematic = state.schematics[layoutKey];
-      if (status == null) status = schematic.control === "released" ? "acquired" : "released";
+      if (status == null)
+        status = schematic.control === "released" ? "acquired" : "released";
       if (status === "released") schematic.controlAcquireTrigger -= 1;
       else schematic.controlAcquireTrigger += 1;
     },
@@ -509,9 +520,7 @@ export type LayoutType = "schematic";
 export const LAYOUT_TYPE = "schematic";
 
 export const create =
-  (
-    initial: Partial<State> & Omit<Partial<Layout.LayoutState>, "type">,
-  ): Layout.Creator =>
+  (initial: Partial<State> & Omit<Partial<Layout.State>, "type">): Layout.Creator =>
   ({ dispatch }) => {
     const { name = "Schematic", location = "mosaic", window, tab, ...rest } = initial;
     const key = initial.key ?? uuidV4();

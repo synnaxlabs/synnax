@@ -53,11 +53,11 @@ const configureZ = z.object({
   groups: groupZ.array(),
 });
 
-export const connectWindowLayout: Layout.LayoutState = {
-  key: "connectOPCServer",
-  windowKey: "connectOPCServer",
-  type: "connectOPCServer",
-  name: "Connect OPC UA Server",
+export const configureWindowLayout: Layout.State = {
+  key: "configureOPCServer",
+  windowKey: "configureOPCServer",
+  type: "configureOPCServer",
+  name: "Configure OPC UA Server",
   location: "window",
   window: {
     resizable: false,

@@ -7,5 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { CONFIGURE_LAYOUT_TYPE, Configure } from "@/hardware/ni/device/Configure";
+import { Layout } from "@/layout";
+
 export * from "@/hardware/ni/device/Configure";
 export * from "@/hardware/device/useListenForChanges";
+
+export const LAYOUTS: Record<string, Layout.Renderer> = {
+  [CONFIGURE_LAYOUT_TYPE]: Configure,
+};

@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ReactElement, useEffect, useState } from "react";
 import "@/range/MetaData.css";
 
-export const metaDataWindowLayout: Layout.LayoutState = {
+export const metaDataWindowLayout: Layout.State = {
   key: "metaData",
   windowKey: "metaData",
   type: "metaData",

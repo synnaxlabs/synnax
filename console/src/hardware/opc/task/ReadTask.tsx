@@ -53,7 +53,7 @@ import { z } from "zod";
 
 import "@/hardware/opc/task/ReadTask.css";
 
-export const readTaskLayout: Layout.LayoutState = {
+export const readTaskLayout: Layout.State = {
   name: "Configure OPC UA Read Task",
   key: "readopcTask",
   type: "readopcTask",

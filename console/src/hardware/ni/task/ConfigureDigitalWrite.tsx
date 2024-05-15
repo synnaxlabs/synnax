@@ -11,7 +11,6 @@ import { useState, type ReactElement, useCallback, useRef } from "react";
 
 import {
   Form,
-  Select,
   Header,
   Synnax,
   Nav,
@@ -52,7 +51,7 @@ import { ChannelField } from "@/hardware/ni/task/ChannelForms";
 import { deep } from "@synnaxlabs/x";
 import { nanoid } from "nanoid";
 
-export const digitalWriteTaskLayout: Layout.LayoutState = {
+export const configureDigitalWriteLayout: Layout.State = {
   name: "Configure NI Digital Write Task",
   key: DIGITAL_WRITE_TYPE,
   type: DIGITAL_WRITE_TYPE,
@@ -65,12 +64,12 @@ export const digitalWriteTaskLayout: Layout.LayoutState = {
   },
 };
 
-export const ConfigureDigitalWriteTask: Layout.Renderer = ({ layoutKey }) => {
+export const ConfigureDigitalWrite: Layout.Renderer = ({ layoutKey }) => {
   const client = Synnax.use();
-  const fetchTask = useQuery<DigitalWriteTaskInternalProps>({
+  const fetchTask = useQuery<InternalProps>({
     queryKey: [layoutKey, client?.key],
     queryFn: async () => {
-      if (client == null || layoutKey == digitalWriteTaskLayout.key)
+      if (client == null || layoutKey == configureDigitalWriteLayout.key)
         return { initialValues: deep.copy(ZERO_DIGITAL_WRITE_PAYLOAD) };
       const t = await client.hardware.tasks.retrieve<
         DigitalWriteConfig,
@@ -82,20 +81,15 @@ export const ConfigureDigitalWriteTask: Layout.Renderer = ({ layoutKey }) => {
   });
   if (fetchTask.isLoading) return <></>;
   if (fetchTask.isError) return <></>;
-  return (
-    <DigitalWriteTaskInternal {...(fetchTask.data as DigitalWriteTaskInternalProps)} />
-  );
+  return <Internal {...(fetchTask.data as InternalProps)} />;
 };
 
-export interface DigitalWriteTaskInternalProps {
+export interface InternalProps {
   task?: DigitalWriteTask;
   initialValues: DigitalWritePayload;
 }
 
-const DigitalWriteTaskInternal = ({
-  task: pTask,
-  initialValues,
-}: DigitalWriteTaskInternalProps): ReactElement | null => {
+const Internal = ({ task: pTask, initialValues }: InternalProps): ReactElement => {
   const client = Synnax.use();
   const methods = Form.use({
     values: initialValues,

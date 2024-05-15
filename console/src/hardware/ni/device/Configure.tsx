@@ -76,12 +76,10 @@ export const Configure = ({ layoutKey }: Layout.RendererProps): ReactElement => 
     queryFn: async ({ queryKey }) => {
       const [key] = queryKey;
       if (client == null) return;
-      return await client.hardware.devices.retrieve(
-        layoutKey
-      );
+      return await client.hardware.devices.retrieve(layoutKey);
     },
   });
-  console.log(data)
+  console.log(data);
   if (isPending || data == null) return <div>Loading...</div>;
   return <ConfigureInternal device={data} />;
 };
@@ -147,15 +145,15 @@ const ConfigureInternal = ({ device }: ConfigureInternalProps): ReactElement => 
 };
 
 export type LayoutType = "hardwareConfigureNIDevice";
-export const LAYOUT_TYPE = "hardwareConfigureNIDevice";
+export const CONFIGURE_LAYOUT_TYPE = "hardwareConfigureNIDevice";
 
-export const create =
-  (device: string, initial: Omit<Partial<Layout.LayoutState>, "type">) =>
-  (): Layout.LayoutState => {
+export const createConfigureLayout =
+  (device: string, initial: Omit<Partial<Layout.State>, "type">) =>
+  (): Layout.State => {
     const { name = "Configure Hardware", location = "window", ...rest } = initial;
     return {
       key: initial.key ?? device,
-      type: LAYOUT_TYPE,
+      type: CONFIGURE_LAYOUT_TYPE,
       windowKey: initial.key ?? device,
       name,
       window: {
