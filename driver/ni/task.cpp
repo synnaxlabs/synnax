@@ -132,7 +132,8 @@ ni::ReaderTask::ReaderTask(const std::shared_ptr <task::Context> &ctx,
 
     auto writer_config = synnax::WriterConfig{
             .channels = channel_keys,
-            .start = synnax::TimeStamp::now()
+            .start = synnax::TimeStamp::now(),
+            .enable_auto_commit = true
     };
 
     // construct acquisition pipe
@@ -232,6 +233,7 @@ ni::WriterTask::WriterTask(const std::shared_ptr <task::Context> &ctx,
     auto writer_config = synnax::WriterConfig{
             .channels = state_keys,
             .start = synnax::TimeStamp::now(),
+            .enable_auto_commit = true,
     };
 
     // create a streamer config to stream incoming cmds

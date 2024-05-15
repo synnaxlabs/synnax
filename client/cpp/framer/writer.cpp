@@ -49,6 +49,8 @@ void WriterConfig::toProto(api::v1::FrameWriterConfig *f) const {
     for (auto &auth: authorities) f->add_authorities(auth);
     for (auto &ch: channels) f->add_keys(ch);
     f->set_mode(mode);
+    f->set_enable_auto_commit(enable_auto_commit);
+    f->set_auto_index_persist_interval(auto_index_persist_interval.value);
 }
 
 bool Writer::write(const Frame &fr) {
@@ -60,31 +62,6 @@ bool Writer::write(const Frame &fr) {
     if (const auto err = stream->send(req); err) err_accumulated = true;
     return !err_accumulated;
 }
-
-bool Writer::setMode(WriterMode mode) {
-    assertOpen();
-    if (err_accumulated) return false;
-
-    api::v1::FrameWriterRequest req;
-    req.set_command(SET_MODE);
-    const WriterConfig config = {.mode = mode};
-    config.toProto(req.mutable_config());
-
-    if (const auto err = stream->send(req); err) {
-        err_accumulated = true;
-        return false;
-    }
-
-    while (true) {
-        auto [res, recExc] = stream->receive();
-        if (recExc) {
-            err_accumulated = true;
-            return false;
-        }
-        if (res.command() == SET_MODE) return res.ack();
-    }
-}
-
 
 std::pair<synnax::TimeStamp, bool> Writer::commit() {
     assertOpen();

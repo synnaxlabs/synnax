@@ -191,6 +191,16 @@ public:
     ///     - WriterStreamOnly: stream data only.
     WriterMode mode;
 
+    /// @brief sets whether auto commit is enabled for the writer. If true, samples will
+    /// be made immediately available for reads. If false, samples will be made available
+    /// for reads only after a call to Writer::commit().
+    bool enable_auto_commit;
+
+    /// @brief sets the interval at which commits will be flushed to disk and durable 
+    /// when auto commit is enabled. Setting this value to zero will make all writes 
+    /// durable immediately. Lower values will decrease write throughput. Defaults to 
+    /// 1s when auto commit is enabled.
+    synnax::TimeSpan auto_index_persist_interval;
 private:
     /// @brief binds the configuration fields to it's protobuf representation.
     void toProto(api::v1::FrameWriterConfig *f) const;

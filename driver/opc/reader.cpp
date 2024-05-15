@@ -258,7 +258,8 @@ std::unique_ptr<task::Task> Reader::configure(
     auto writer_cfg = synnax::WriterConfig{
         .channels = channelKeys,
         .start = TimeStamp::now(),
-        .mode = synnax::WriterPersistStream
+        .mode = synnax::WriterPersistStream,
+        .enable_auto_commit = true,
     };
 
     auto pipe = pipeline::Acquisition(
