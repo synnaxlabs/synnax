@@ -57,6 +57,7 @@ const parseIDs = (ids: ID | ID[] | string | string[]): IDPayload[] =>
 
 /** The core client class for executing queries against a Synnax cluster ontology */
 export class Client implements AsyncTermSearcher<string, string, Resource> {
+  readonly type: string = "ontology";
   groups: group.Client;
   private readonly client: UnaryClient;
   private readonly writer: Writer;
@@ -130,6 +131,7 @@ export class Client implements AsyncTermSearcher<string, string, Resource> {
     options: RetrieveOptions,
   ): AsyncTermSearcher<string, string, Resource> {
     return {
+      type: this.type,
       search: (term: string) => this.search(term, options),
       retrieve: (ids: string[]) => this.retrieve(ids, options),
       page: (offset: number, limit: number) => this.page(offset, limit, options),

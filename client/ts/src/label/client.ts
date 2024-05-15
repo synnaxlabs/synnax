@@ -21,6 +21,7 @@ const LABEL_SET_NAME = "sy_label_set";
 const LABEL_DELETE_NAME = "sy_label_delete";
 
 export class Client implements AsyncTermSearcher<string, Key, Label> {
+  readonly type: string = "label";
   private readonly retriever: Retriever;
   private readonly writer: Writer;
   private readonly frameClient: framer.Client;

@@ -18,6 +18,7 @@ import { Retriever } from "@/workspace/retriever";
 import { type NewWorkspace, Writer } from "@/workspace/writer";
 
 export class Client implements AsyncTermSearcher<string, Key, Workspace> {
+  readonly type = "workspace";
   readonly schematic: schematic.Client;
   readonly linePlot: linePlot.Client;
   private readonly retriever: Retriever;

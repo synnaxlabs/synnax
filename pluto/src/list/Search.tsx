@@ -19,6 +19,7 @@ import { useInfiniteUtilContext } from "@/list/Infinite";
 import { state } from "@/state";
 import { Status } from "@/status";
 import { type RenderProp, componentRenderProp } from "@/util/renderProp";
+import { Icon } from "@synnaxlabs/media";
 
 export interface UseSearchProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>>
   extends Input.OptionalControl<string> {
@@ -46,7 +47,13 @@ const NO_RESULTS = (
 
 const NO_TERM = (
   <Status.Text.Centered level="h4" variant="disabled" hideIcon style={STYLE}>
-    Type to search...
+    Type to search
+  </Status.Text.Centered>
+);
+
+const LOADING = (
+  <Status.Text.Centered level="h2" variant="disabled" hideIcon style={STYLE}>
+    <Icon.Loading />
   </Status.Text.Centered>
 );
 
@@ -80,10 +87,10 @@ export const useSearch = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
         setHasMore(true);
       }
       promiseOut.current = true;
-      searcher
-        .page(offset.current, pageSize)
-        .then((r) => {
-          promiseOut.current = false;
+      setEmptyContent(LOADING);
+      const fn = async () => {
+        try {
+          const r = await searcher.page(offset.current, pageSize);
           if (r.length < pageSize) {
             hasMore.current = false;
             setHasMore(false);
@@ -91,11 +98,14 @@ export const useSearch = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
           offset.current += pageSize;
           if (reset) setSourceData(r);
           else setSourceData((d) => [...d, ...r]);
-        })
-        .catch((e) => {
+        } catch (e) {
           promiseOut.current = false;
           console.error(e);
-        });
+        } finally {
+          promiseOut.current = false;
+        }
+      };
+      void fn();
     },
     [searcher, setSourceData, pageSize],
   );

@@ -223,6 +223,7 @@ const deleteReqZ = z.object({ keys: taskKeyZ.array() });
 const deleteResZ = z.object({});
 
 export class Client implements AsyncTermSearcher<string, TaskKey, Payload> {
+  readonly type: string = "task";
   private readonly client: UnaryClient;
   private readonly frameClient: framer.Client;
 

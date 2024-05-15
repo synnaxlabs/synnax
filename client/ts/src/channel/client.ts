@@ -172,6 +172,7 @@ export class Channel {
  * through the `channels` property of an {@link Synnax} client.
  */
 export class Client implements AsyncTermSearcher<string, Key, Channel> {
+  readonly type = "channel";
   private readonly frameClient: framer.Client;
   private readonly client: UnaryClient;
   readonly retriever: Retriever;
@@ -338,6 +339,7 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
     options: RetrieveOptions,
   ): AsyncTermSearcher<string, Key, Channel> {
     return {
+      type: this.type,
       search: async (term: string) => await this.search(term, options),
       retrieve: async (keys: Key[]) => await this.retrieve(keys, options),
       page: async (offset: number, limit: number) =>
