@@ -19,26 +19,19 @@ import { useDataUtilContext } from "@/list/Data";
 import { state } from "@/state";
 import { type RenderProp } from "@/util/renderProp";
 
-export interface FilterProps extends OptionalControl<string> {
-  children?: RenderProp<Input.Control<string>>;
+export interface UseFilterProps extends OptionalControl<string> {
   debounce?: number;
 }
 
-/**
- * Implements in-browser filtration for a list.
- *
- * @param props - The props for the List.Search component.
- * @param props.children - A custom input render prop for the search functionality. This
- * must implement the InputControl<string> interface.
- * @param opts - Custom options for the search functionality. See the {@link fuse.IFuseOptions}
- * interface for more details.
- */
-export const Filter = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
-  children = (props) => <Input.Text {...props} />,
+export interface FilterProps extends UseFilterProps {
+  children?: RenderProp<Input.Control<string>>;
+}
+
+export const useFilter = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   debounce = 250,
-  onChange,
   value,
-}: FilterProps): ReactElement | null => {
+  onChange,
+}: UseFilterProps): Input.Control<string> => {
   const [internalValue, setInternalValue] = state.usePurePassthrough<string>({
     onChange,
     value,
@@ -57,8 +50,22 @@ export const Filter = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
     [setInternalValue],
   );
 
-  return children({ value: internalValue, onChange: handleChange });
+  return { value: internalValue, onChange: handleChange };
 };
+
+/**
+ * Implements in-browser filtration for a list.
+ *
+ * @param props - The props for the List.Search component.
+ * @param props.children - A custom input render prop for the search functionality. This
+ * must implement the InputControl<string> interface.
+ * @param opts - Custom options for the search functionality. See the {@link fuse.IFuseOptions}
+ * interface for more details.
+ */
+export const Filter = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
+  children = (props) => <Input.Text {...props} />,
+  ...props
+}: FilterProps): ReactElement | null => children(useFilter<K, E>(props));
 
 export interface Searcher<K extends Key = Key, E extends Keyed<K> = Keyed<K>> {
   search: (term: string) => E[];

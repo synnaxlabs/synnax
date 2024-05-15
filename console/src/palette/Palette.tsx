@@ -36,7 +36,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { Dropdown } from "@synnaxlabs/pluto/dropdown";
 import { List } from "@synnaxlabs/pluto/list";
-import { TimeSpan, type AsyncTermSearcher } from "@synnaxlabs/x";
+import { type AsyncTermSearcher } from "@synnaxlabs/x";
 import { useDispatch, useStore } from "react-redux";
 
 import { CSS } from "@/css";
