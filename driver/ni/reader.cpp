@@ -208,8 +208,10 @@ void ni::DaqAnalogReader::parseCustomScale(config::Parser & parser, ni::ChannelC
             config.scale->map = {prescaled_min, prescaled_max, scaled_min, scaled_max, prescaled_units, scaled_units};
 
         } else if(config.scale_type == "PolyScale"){
+
             float* forward_coeffs_arr;
             float* reverse_coeffs_arr;
+            
             // get forward coeffs (prescale -> scale)
             std::vector<double> forward_coeffs_vec = {}; // scale_parser.required<std::vector<double>>("forward_coeffs"); FIXME
             if(parser.ok()){
@@ -480,64 +482,62 @@ int ni::DaqAnalogReader::createChannel(ni::ChannelConfig &channel){
                     channel.scale_name.c_str(), 
                     channel.scale->linear.slope, 
                     channel.scale->linear.offset, 
-                    DAQmx_Val_Volts, // FIXME: // ni::NI_UNITS_MAP[channel.scale->linear.prescaled_units], 
+                    ni::UNITS_MAP.at(channel.scale->linear.prescaled_units), 
                     channel.scale->linear.scaled_units.c_str()
             ));
 
         } else if(channel.scale_type == "MapScale"){
 
-            // this->checkNIError(ni::NiDAQmxInterface::CreateMapScale(
-            //     channel.scale_name.c_str(), 
-            //     channel.scale->map.prescaled_min, 
-            //     channel.scale->map.prescaled_max, 
-            //     channel.scale->map.scaled_min, 
-            //     channel.scale->map.scaled_max, 
-            //     ni::UNITS_MAP[channel.scale->map.prescaled_units], 
-            //     ni::UNITS_MAP[channel.scale->map.scaled_units]
-            // ));
+            this->checkNIError(ni::NiDAQmxInterface::CreateMapScale(
+                channel.scale_name.c_str(), 
+                channel.scale->map.prescaled_min, 
+                channel.scale->map.prescaled_max, 
+                channel.scale->map.scaled_min, 
+                channel.scale->map.scaled_max, 
+                ni::UNITS_MAP.at(channel.scale->map.prescaled_units), 
+                channel.scale->map.scaled_units.c_str()
+            ));
 
         } else if(channel.scale_type == "PolyScale"){
 
-            // // create forward and reverse coeffs inputs
-            // float forward_coeffs_in[1000];
-            // float reverse_coeffs_in[1000];
-            // for(int i = 0; i < channel.scale->polynomial.num_coeffs; i++){
-            //     forward_coeffs_in[i] = channel.scale->polynomial.forward_coeffs[i];
-            //     reverse_coeffs_in[i] = channel.scale->polynomial.reverse_coeffs[i];
-            // }
+            // create forward and reverse coeffs inputs
+            float64 forward_coeffs_in[1000];
+            float64 reverse_coeffs_in[1000];
+            for(int i = 0; i < channel.scale->polynomial.num_coeffs; i++){
+                forward_coeffs_in[i] = channel.scale->polynomial.forward_coeffs[i];
+                reverse_coeffs_in[i] = channel.scale->polynomial.reverse_coeffs[i];
+            }
 
-            // this->checkNIError(ni::NiDAQmxInterface::CreatePolynomialScale(
-            //     channel.scale_name.c_str(), 
-            //     forward_coeffs_in, 
-            //     reverse_coeffs_in, 
-            //     channel.scale->polynomial.num_coeffs, 
-            //     channel.scale->polynomial.min_x, 
-            //     channel.scale->polynomial.max_x, 
-            //     channel.scale->polynomial.num_points, 
-            //     channel.scale->polynomial.poly_order, 
-            //     ni::UNITS_MAP[channel.scale->polynomial.prescaled_units], 
-            //     ni::UNITS_MAP[channel.scale->polynomial.scaled_units]
+            this->checkNIError(ni::NiDAQmxInterface::CreatePolynomialScale(
+                channel.scale_name.c_str(), 
+                forward_coeffs_in, 
+                channel.scale->polynomial.num_coeffs, 
+                reverse_coeffs_in, 
+                channel.scale->polynomial.num_coeffs,
+                ni::UNITS_MAP.at(channel.scale->polynomial.prescaled_units), 
+                channel.scale->polynomial.scaled_units.c_str()
             
-            // ));
+            ));
 
         } else if(channel.scale_type == "TableScale"){
             // create prescaled and scaled inputs
-            // float prescaled[1000];
-            // float scaled[1000];
-            // for(int i = 0; i < channel.scale->table.num_points; i++){
-            //     prescaled[i] = channel.scale->table.prescaled[i];
-            //     scaled[i] = channel.scale->table.scaled[i];
-            // }
+            float64 prescaled[1000];
+            float64 scaled[1000];
+            for(int i = 0; i < channel.scale->table.num_points; i++){
+                prescaled[i] = channel.scale->table.prescaled[i];
+                scaled[i] = channel.scale->table.scaled[i];
+            }
 
 
-            // this->checkNIError(ni::NiDAQmxInterface::CreateTableScale(
-            //     channel.scale_name.c_str(), 
-            //     prescaled, 
-            //     scaled, 
-            //     channel.scale->table.num_points, 
-            //     ni::UNITS_MAP[channel.scale->table.prescaled_units], 
-            //     ni::UNITS_MAP[channel.scale->table.scaled_units]
-            // ));
+            this->checkNIError(ni::NiDAQmxInterface::CreateTableScale(
+                channel.scale_name.c_str(), 
+                prescaled, 
+                channel.scale->table.num_points, 
+                scaled,
+                channel.scale->table.num_points, 
+                ni::UNITS_MAP.at(channel.scale->table.prescaled_units), 
+                channel.scale->table.scaled_units.c_str()
+            ));
         }
         // create channel
         return this->checkNIError(ni::NiDAQmxInterface::CreateAIVoltageChan(this->task_handle, channel.name.c_str(), "", channel.terminal_config, channel.min_val, channel.max_val, DAQmx_Val_Volts, channel.scale_name.c_str()));

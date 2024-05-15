@@ -39,9 +39,7 @@
 // #include "driver/modules/module.h"
 
 namespace ni{
-
-    extern const std::map<std::string, uint32_t> NI_UNITS_MAP;
-
+    extern const std::map<std::string, int32_t> UNITS_MAP;
     typedef struct LinearScale{
         float64 slope;
         float64 offset;

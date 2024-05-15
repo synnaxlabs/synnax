@@ -13,7 +13,7 @@
 #pragma once
 
 
-const std::map<std::string, uint32_t> ni::NI_UNITS_MAP = {
+const std::map<std::string, int32_t> ni::UNITS_MAP = {
     {"Volts", DAQmx_Val_Volts},
     {"Amps", DAQmx_Val_Amps},
     {"DegF", DAQmx_Val_DegF},
