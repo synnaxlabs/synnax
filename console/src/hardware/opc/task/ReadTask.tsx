@@ -44,17 +44,14 @@ import { SelectNodeRemote } from "@/hardware/opc/SelectNode";
 import {
   type ReadTaskChannelConfig,
   readTaskConfigZ,
-  type DeviceProperties,
   type ReadTaskState,
   type ReadTaskStateDetails,
   type ReadTaskConfig,
-  type NodeId,
-  parseNodeId,
 } from "@/hardware/opc/types";
 import { type Layout } from "@/layout";
 import { z } from "zod";
 
-import "@/hardware/opc/ReadTask.css";
+import "@/hardware/opc/task/ReadTask.css";
 
 export const readTaskLayout: Layout.LayoutState = {
   name: "Configure OPC UA Read Task",

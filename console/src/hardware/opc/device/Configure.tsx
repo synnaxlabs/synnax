@@ -18,11 +18,11 @@ import { v4 as uuidv4 } from "uuid";
 import { set, z } from "zod";
 
 import { CSS } from "@/css";
-import { CreateChannels } from "@/hardware/opc/new/CreateChannels";
-import { type DeviceProperties, connectionConfigZ } from "@/hardware/opc/types";
+import { CreateChannels } from "@/hardware/opc/device/CreateChannels";
+import { type DeviceProperties, connectionConfigZ } from "@/hardware/opc/device/types";
 import { type Layout } from "@/layout";
 
-import "@/hardware/opc/new/Configure.css";
+import "@/hardware/opc/device/Configure.css";
 
 export const channelZ = z
   .object({

@@ -1,3 +1,3 @@
 export * from "@/hardware/opc/palette";
-export * from "@/hardware/opc/new/Configure";
-export * from "@/hardware/opc/ReadTask";
+export * from "@/hardware/opc/device";
+export * from "@/hardware/opc/task";

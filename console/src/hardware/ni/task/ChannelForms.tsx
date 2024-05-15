@@ -7,13 +7,11 @@ import {
   AccelSensitivityUnits,
   AccelerationUnits,
   ElectricalUnits,
-  ExcitationSource,
   ForceUnits,
   ShuntResistorLoc,
-  TerminalConfig,
   TorqueUnits,
   ZERO_AI_CHANNELS,
-} from "@/hardware/ni/types";
+} from "@/hardware/ni/task/types";
 import { FC, ReactElement } from "react";
 import { Optional, deep } from "@synnaxlabs/x";
 

@@ -51,12 +51,12 @@ const layoutRenderers: Record<string, Layout.Renderer> = {
   createWorkspace: Workspace.Create,
   [LinePlot.LAYOUT_TYPE]: LinePlot.LinePlot,
   [PID.LAYOUT_TYPE]: PID.PID,
-  [OPC.connectWindowLayout.type]: OPC.Configure,
-  [OPC.readTaskLayout.type]: OPC.ReadTask,
+  [OPC.Device.connectWindowLayout.type]: OPC.Device.Configure,
+  [OPC.Task.readTaskLayout.type]: OPC.Task.ReadTask,
   [Range.metaDataWindowLayout.key]: Range.MetaData,
   [NIDevice.LAYOUT_TYPE]: NIDevice.Configure,
-  [NI.analogReadTaskLayout.type]: NI.AnalogReadTask,
-  [NI.digitalWriteTaskLayout.type]: NI.DigitalWriteTask,
+  [NI.Task.configureAnalogReadLayout.type]: NI.Task.ConfigureAnalogRead,
+  [NI.Task.digitalWriteTaskLayout.type]: NI.Task.ConfigureDigitalWriteTask,
 };
 
 const PREVENT_DEFAULT_TRIGGERS: Triggers.Trigger[] = [

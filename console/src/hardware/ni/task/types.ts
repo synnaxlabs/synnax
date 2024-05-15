@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { current } from "@reduxjs/toolkit";
 import { task } from "@synnaxlabs/client";
 import { xy } from "@synnaxlabs/x";
 import { z } from "zod";
@@ -471,7 +470,7 @@ export const ZERO_AI_MICROPHONE_CHAN: AIMicrophoneChan = {
   maxSndPressLevel: 0,
   currentExcitSource: "None",
   currentExcitVal: 0,
-  units: "Pascal",
+  units: "Pascals",
 };
 
 export const pressureUnitsZ = z.enum(["psi", "Pa", "bar"]);
@@ -1282,6 +1281,41 @@ export const AI_CHANNEL_TYPE_NAMES: Record<AIChanType, string> = {
 
 export type AnalogInputVoltageChannel = z.infer<typeof aiVoltageChanZ>;
 
+const doChanZ = z.object({
+  key: z.string(),
+  type: z.literal("digital_output"),
+  enabled: z.boolean(),
+  cmdChannel: z.number(),
+  stateChannel: z.number(),
+  port: z.number(),
+  line: z.number(),
+});
+
+export const ZERO_DO_CHAN: DOChan = {
+  key: "",
+  type: "digital_output",
+  enabled: false,
+  cmdChannel: 0,
+  stateChannel: 0,
+  port: 0,
+  line: 0,
+};
+
+export type DOChan = z.infer<typeof doChanZ>;
+export type DOChanType = DOChan["type"];
+
+const diChanZ = z.object({
+  key: z.string(),
+  type: z.literal("digital_input"),
+  enabled: z.boolean(),
+  port: z.number(),
+  line: z.number(),
+  channel: z.number(),
+});
+
+type DIChan = z.infer<typeof diChanZ>;
+type DIChanType = DIChan["type"];
+
 export const analogReadTaskConfigZ = z
   .object({
     device: z.string().min(1),
@@ -1331,86 +1365,100 @@ export type AnalogReadTaskConfig = z.infer<typeof analogReadTaskConfigZ>;
 export const analogReadTaskStateDetailsZ = z.object({
   running: z.boolean(),
 });
-export type AnalogReadTaskStateDetails = z.infer<typeof analogReadTaskStateDetailsZ>;
+export type AnalogReadStateDetails = z.infer<typeof analogReadTaskStateDetailsZ>;
 export type AnalogReadTaskState = task.State<
   z.infer<typeof analogReadTaskStateDetailsZ>
 >;
 
-export const digitalWriteTaskStateDetailsZ = z.object({
-  running: z.boolean(),
-});
-export type DigitalWriteTaskStateDetails = z.infer<
-  typeof digitalWriteTaskStateDetailsZ
->;
+export type AnalogReadType = "ni_analog_read";
+export const ANALOG_READ_TYPE: AnalogReadType = "ni_analog_read";
 
-export const ZERO_ANALOG_READ_TASK_CONFIG: AnalogReadTaskConfig = {
+export const ZERO_ANALOG_READ_CONFIG: AnalogReadTaskConfig = {
   device: "Dev1",
   sampleRate: 10,
   streamRate: 5,
   channels: [],
 };
-
-export type AnalogReadTask = task.Task<"ni.analogRead", AnalogReadTaskConfig>;
-
-const doChanZ = z.object({
-  key: z.string(),
-  type: z.literal("digitalOutput"),
-  enabled: z.boolean(),
-  cmdChannel: z.number(),
-  stateChannel: z.number(),
-  port: z.number(),
-  line: z.number(),
-});
-
-export const ZERO_DO_CHAN: DOChan = {
+export type AnalogRead = task.Task<
+  AnalogReadTaskConfig,
+  AnalogReadStateDetails,
+  AnalogReadType
+>;
+export type AnalogReadPayload = task.Payload<
+  AnalogReadTaskConfig,
+  AnalogReadStateDetails,
+  AnalogReadType
+>;
+export const ZERO_ANALOG_READ_PAYLOAD: AnalogReadPayload = {
   key: "",
-  type: "digitalOutput",
-  enabled: false,
-  cmdChannel: 0,
-  stateChannel: 0,
-  port: 0,
-  line: 0,
+  name: "NI Analog Read Task",
+  config: ZERO_ANALOG_READ_CONFIG,
+  type: ANALOG_READ_TYPE,
 };
 
-export type DOChan = z.infer<typeof doChanZ>;
-export type DOChanType = DOChan["type"];
-
-const digitalInputChannelZ = z.object({
-  key: z.string(),
-  type: z.literal("digitalInput"),
-  enabled: z.boolean(),
-  port: z.number(),
-  line: z.number(),
-  channel: z.number(),
-});
-
-export const digitalWriteTaskConfigZ = z.object({
+export type DigitalWriteConfig = z.infer<typeof digitalWriteConfigZ>;
+export type DigitalWriteType = "ni_digital_write";
+export const DIGITAL_WRITE_TYPE: DigitalWriteType = "ni_digital_write";
+export const digitalWriteConfigZ = z.object({
   device: z.string().min(1),
   channels: z.array(doChanZ),
   stateRate: z.number().min(0).max(50000),
 });
 
-export type DigitalWriteTaskConfig = z.infer<typeof digitalWriteTaskConfigZ>;
+export const digitalWriteStateDetailsZ = z.object({
+  running: z.boolean(),
+});
+export type DigitalWriteStateDetails = z.infer<typeof digitalWriteStateDetailsZ>;
+export type DigitalWriteTask = task.Task<
+  DigitalWriteConfig,
+  DigitalWriteStateDetails,
+  DigitalWriteType
+>;
+export type DigitalWritePayload = task.Payload<
+  DigitalWriteConfig,
+  DigitalWriteStateDetails,
+  DigitalWriteType
+>;
+export const ZERO_DIGITAL_WRITE_CONFIG: DigitalWriteConfig = {
+  device: "Dev1",
+  stateRate: 10,
+  channels: [],
+};
+export const ZERO_DIGITAL_WRITE_PAYLOAD: DigitalWritePayload = {
+  key: "",
+  name: "NI Digital Write Task",
+  config: ZERO_DIGITAL_WRITE_CONFIG,
+  type: DIGITAL_WRITE_TYPE,
+};
 
-export type DigitalWriteTask = task.Task<"ni.digitalWrite", DigitalWriteTaskConfig>;
-
-const digitalReadChannelZ = digitalInputChannelZ;
-
-export const digitalReadTaskConfigZ = z.object({
+const digitalReadChannelZ = diChanZ;
+export const digitalReadConfigZ = z.object({
   device: z.string().min(1),
   channels: z.array(digitalReadChannelZ),
 });
-
-export type DigitalReadTaskConfig = z.infer<typeof digitalReadTaskConfigZ>;
-
-export type DigitalReadTask = task.Task<"ni.analogWrite", DigitalReadTaskConfig>;
-
-export type NITask = AnalogReadTask | DigitalWriteTask | DigitalReadTask;
-
-export type NIChannel = DigitalInputChannel | AIChan | DOChan;
-
-export const CHANNEL_TYPE_DISPLAY: Record<NIChannel["type"], string> = {
-  analogVoltageInput: "Analog Voltage Input",
-  digitalInput: "Digital Input",
-  digitalOutput: "Digital Output",
+export type DigitalReadConfig = z.infer<typeof digitalReadConfigZ>;
+export type DigitalReadType = "ni_digital_read";
+export const DIGITAL_READ_TYPE: DigitalReadType = "ni_digital_read";
+export const digitalReadStateDetailsZ = z.object({
+  running: z.boolean(),
+});
+export type DigitalReadStateDetails = z.infer<typeof digitalReadStateDetailsZ>;
+export type DigitalRead = task.Task<DigitalReadConfig, DigitalReadType>;
+export type DigitalReadPayload = task.Payload<
+  DigitalReadConfig,
+  DigitalReadStateDetails,
+  DigitalReadType
+>;
+export const ZERO_DIGITAL_READ_CONFIG: DigitalReadConfig = {
+  device: "Dev1",
+  channels: [],
 };
+export const ZERO_DIGITAL_READ_PAYLOAD: DigitalReadPayload = {
+  key: "",
+  name: "NI Digital Read Task",
+  config: ZERO_DIGITAL_READ_CONFIG,
+  type: DIGITAL_READ_TYPE,
+};
+
+export type Task = AnalogRead | DigitalWriteTask | DigitalRead;
+export type Chan = DIChan | AIChan | DOChan;

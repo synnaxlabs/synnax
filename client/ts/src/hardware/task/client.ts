@@ -82,7 +82,7 @@ export type NewTask<
   config: C;
 };
 
-export type TaskPayload<
+export type Payload<
   C extends UnknownRecord = UnknownRecord,
   D extends {} = UnknownRecord,
   T extends string = string,
@@ -135,7 +135,7 @@ export class Task<
     this.frameClient = frameClient;
   }
 
-  get payload(): TaskPayload<C, D> {
+  get payload(): Payload<C, D> {
     return {
       key: this.key,
       name: this.name,
@@ -231,7 +231,7 @@ const deleteReqZ = z.object({
 
 const deleteResZ = z.object({});
 
-export class Client implements AsyncTermSearcher<string, TaskKey, TaskPayload> {
+export class Client implements AsyncTermSearcher<string, TaskKey, Payload> {
   private readonly client: UnaryClient;
   private readonly frameClient: framer.Client;
 
@@ -281,7 +281,7 @@ export class Client implements AsyncTermSearcher<string, TaskKey, TaskPayload> {
     );
   }
 
-  async search(term: string): Promise<TaskPayload[]> {
+  async search(term: string): Promise<Payload[]> {
     const res = await sendRequired<typeof retrieveReqZ, typeof retrieveResZ>(
       this.client,
       RETRIEVE_ENDPOINT,
@@ -292,7 +292,7 @@ export class Client implements AsyncTermSearcher<string, TaskKey, TaskPayload> {
     return res.tasks;
   }
 
-  async page(offset: number, limit: number): Promise<TaskPayload[]> {
+  async page(offset: number, limit: number): Promise<Payload[]> {
     const res = await sendRequired<typeof retrieveReqZ, typeof retrieveResZ>(
       this.client,
       RETRIEVE_ENDPOINT,
@@ -363,7 +363,7 @@ export class Client implements AsyncTermSearcher<string, TaskKey, TaskPayload> {
     return this.sugar(res.tasks)[0];
   }
 
-  private sugar(payloads: TaskPayload[]): Task[] {
+  private sugar(payloads: Payload[]): Task[] {
     return payloads.map(
       ({ key, name, type, config, state }) =>
         new Task(key, name, type, config, this.frameClient, state),

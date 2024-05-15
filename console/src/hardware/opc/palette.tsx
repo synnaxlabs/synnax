@@ -9,8 +9,8 @@
 
 import { Icon } from "@synnaxlabs/media";
 
-import { connectWindowLayout } from "@/hardware/opc/new/Configure";
-import { readTaskLayout } from "@/hardware/opc/ReadTask";
+import { connectWindowLayout } from "@/hardware/opc/device/Configure";
+import { readTaskLayout } from "@/hardware/opc/task/ReadTask";
 import { type Command } from "@/palette/Palette";
 
 export const connectServerCommand: Command = {

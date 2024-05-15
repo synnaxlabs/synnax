@@ -45,6 +45,7 @@ var _schema = &ontology.Schema{
 	Fields: map[string]schema.Field{
 		"key":  {Type: schema.Uint32},
 		"name": {Type: schema.String},
+		"type": {Type: schema.String},
 	},
 }
 
@@ -52,6 +53,7 @@ func newResource(t Task) schema.Resource {
 	e := schema.NewResource(_schema, OntologyID(t.Key), t.Name)
 	schema.Set(e, "key", uint32(t.Key))
 	schema.Set(e, "name", t.Name)
+	schema.Set(e, "type", t.Type)
 	return e
 }
 

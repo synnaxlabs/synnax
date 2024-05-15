@@ -24,6 +24,7 @@ export type NodeProps = object & {
 
 export interface State extends migrate.Migratable {
   editable: boolean;
+  fitViewOnResize: boolean;
   snapshot: boolean;
   remoteCreated: boolean;
   viewport: Diagram.Viewport;
@@ -140,6 +141,11 @@ export interface RemovePayload {
 export interface SetEditablePayload {
   layoutKey: string;
   editable: boolean;
+}
+
+export interface SetFitViewOnResizePayload {
+  layoutKey: string;
+  fitViewOnResize: boolean;
 }
 
 export interface SetControlStatusPayload {
@@ -393,6 +399,14 @@ export const { actions, reducer } = createSlice({
       if (pid.snapshot) return;
       pid.editable = editable;
     },
+    setFitViewOnResize: (
+      state,
+      { payload }: PayloadAction<SetFitViewOnResizePayload>,
+    ) => {
+      const { layoutKey, fitViewOnResize } = payload;
+      const pid = state.pids[layoutKey];
+      pid.fitViewOnResize = fitViewOnResize;
+    },
     toggleControl: (state, { payload }: PayloadAction<ToggleControlPayload>) => {
       let { layoutKey, status } = payload;
       const pid = state.pids[layoutKey];
@@ -475,6 +489,7 @@ export const {
   setNodes,
   remove,
   clearSelection,
+  setFitViewOnResize,
   create: internalCreate,
   setElementProps,
   setActiveToolbarTab,

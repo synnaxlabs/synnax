@@ -9,14 +9,14 @@
 
 import { Icon } from "@synnaxlabs/media";
 import { Command } from "@/palette/Palette";
-import { analogReadTaskLayout } from "@/hardware/ni/AnalogReadTask";
-import { digitalWriteTaskLayout } from "@/hardware/ni/DigitalWriteTask";
+import { configureAnalogReadLayout } from "@/hardware/ni/task/ConfigureAnalogRead";
+import { digitalWriteTaskLayout } from "@/hardware/ni/task/ConfigureDigitalWrite";
 
 export const createAnalogReadTaskCommand: Command = {
   key: "ni-create-analog-read-task",
   name: "NI - Create a New Analog Read Task",
   icon: <Icon.Logo.NI />,
-  onSelect: ({ placeLayout }) => placeLayout(analogReadTaskLayout),
+  onSelect: ({ placeLayout }) => placeLayout(configureAnalogReadLayout),
 };
 
 export const createDigitalWriteTaskCommand: Command = {

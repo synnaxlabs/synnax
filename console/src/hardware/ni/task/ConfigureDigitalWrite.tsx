@@ -17,8 +17,10 @@ import {
   Nav,
   Button,
   useAsyncEffect,
-  Status,
   Device,
+  List,
+  Channel,
+  Status,
 } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 import { Input } from "@synnaxlabs/pluto/input";
@@ -26,39 +28,33 @@ import { Text } from "@synnaxlabs/pluto/text";
 
 import { CSS } from "@/css";
 import {
-  AIChan,
-  AIChanType,
-  AnalogReadTaskConfig,
-  analogReadTaskConfigZ,
-  AnalogReadTaskState,
-  AnalogReadTaskStateDetails,
-  type LinearScaleType,
-} from "@/hardware/ni/types";
+  DigitalWriteConfig,
+  digitalWriteConfigZ,
+  DigitalWriteStateDetails,
+  DOChan,
+  Chan,
+  ZERO_DO_CHAN,
+  ZERO_DIGITAL_WRITE_PAYLOAD,
+  DigitalWriteTask,
+  DigitalWritePayload,
+  DigitalWriteType,
+} from "@/hardware/ni/task/types";
 
-import "@/hardware/ni/AnalogReadTask.css";
+import "@/hardware/ni/task/ConfigureAnalogRead.css";
 import { Layout } from "@/layout";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { task } from "@synnaxlabs/client";
 import { z } from "zod";
 import { Icon } from "@synnaxlabs/media";
-import { ANALOG_INPUT_FORMS, SelectChannelTypeField } from "./ChannelForms";
-import { Channel } from "@synnaxlabs/pluto";
-import { List } from "@synnaxlabs/pluto/list";
-import { deep, xy } from "@synnaxlabs/x";
+import { ANALOG_INPUT_FORMS, ChannelField } from "./ChannelForms";
+import { deep } from "@synnaxlabs/x";
 import { nanoid } from "nanoid";
 
-import {
-  AI_CHANNEL_TYPE_NAMES,
-  CHANNEL_TYPE_DISPLAY,
-  ZERO_AI_CHANNELS,
-  type NIChannel,
-} from "@/hardware/ni/types";
-
-export const analogReadTaskLayout: Layout.LayoutState = {
-  name: "Configure NI Analog Read Task",
-  key: "niAnalogReadTask",
-  type: "niAnalogReadTask",
-  windowKey: "niAnalogReadTask",
+export const digitalWriteTaskLayout: Layout.LayoutState = {
+  name: "Configure NI Digital Write Task",
+  key: "ni_digital_write",
+  type: "ni_digital_write",
+  windowKey: "ni_digital_write",
   location: "window",
   window: {
     resizable: false,
@@ -67,28 +63,17 @@ export const analogReadTaskLayout: Layout.LayoutState = {
   },
 };
 
-export const AnalogReadTask: Layout.Renderer = ({ layoutKey }) => {
+export const ConfigureDigitalWriteTask: Layout.Renderer = ({ layoutKey }) => {
   const client = Synnax.use();
-  const fetchTask = useQuery<AnalogReadTaskInternalProps>({
+  const fetchTask = useQuery<DigitalWriteTaskInternalProps>({
     queryKey: [layoutKey, client?.key],
     queryFn: async () => {
-      if (client == null || layoutKey == analogReadTaskLayout.key)
-        return {
-          initialValues: {
-            key: "niAnalogReadTask",
-            type: "niAnalogReadTask",
-            name: "NI Analog Read Task",
-            config: {
-              device: "",
-              sampleRate: 50,
-              streamRate: 25,
-              channels: [],
-            },
-          },
-        };
+      if (client == null || layoutKey == digitalWriteTaskLayout.key)
+        return { initialValues: deep.copy(ZERO_DIGITAL_WRITE_PAYLOAD) };
       const t = await client.hardware.tasks.retrieve<
-        AnalogReadTaskConfig,
-        AnalogReadTaskStateDetails
+        DigitalWriteConfig,
+        DigitalWriteStateDetails,
+        DigitalWriteType
       >(layoutKey, { includeState: true });
       return { initialValues: t, task: t };
     },
@@ -96,25 +81,25 @@ export const AnalogReadTask: Layout.Renderer = ({ layoutKey }) => {
   if (fetchTask.isLoading) return <></>;
   if (fetchTask.isError) return <></>;
   return (
-    <AnalogReadTaskInternal {...(fetchTask.data as AnalogReadTaskInternalProps)} />
+    <DigitalWriteTaskInternal {...(fetchTask.data as DigitalWriteTaskInternalProps)} />
   );
 };
 
-export interface AnalogReadTaskInternalProps {
-  task?: task.Task<AnalogReadTaskConfig, AnalogReadTaskStateDetails>;
-  initialValues: task.TaskPayload<AnalogReadTaskConfig, AnalogReadTaskStateDetails>;
+export interface DigitalWriteTaskInternalProps {
+  task?: DigitalWriteTask;
+  initialValues: DigitalWritePayload;
 }
 
-const AnalogReadTaskInternal = ({
+const DigitalWriteTaskInternal = ({
   task: pTask,
   initialValues,
-}: AnalogReadTaskInternalProps): ReactElement | null => {
+}: DigitalWriteTaskInternalProps): ReactElement | null => {
   const client = Synnax.use();
   const methods = Form.use({
     values: initialValues,
     schema: z.object({
       name: z.string(),
-      config: analogReadTaskConfigZ,
+      config: digitalWriteConfigZ,
     }),
   });
 
@@ -127,7 +112,7 @@ const AnalogReadTaskInternal = ({
   const [selectedChannelIndex, setSelectedChannelIndex] = useState<number | null>(null);
 
   const stateObserverRef =
-    useRef<task.StateObservable<AnalogReadTaskStateDetails> | null>(null);
+    useRef<task.StateObservable<DigitalWriteStateDetails> | null>(null);
 
   useAsyncEffect(async () => {
     if (client == null || task == null) return;
@@ -146,10 +131,10 @@ const AnalogReadTaskInternal = ({
       const rack = await client.hardware.racks.retrieve("sy_node_1_rack");
       const { name, config } = methods.value();
       setTask(
-        await rack.createTask<AnalogReadTaskConfig>({
+        await rack.createTask<DigitalWriteConfig>({
           key: task?.key,
           name,
-          type: "niAnalogReader",
+          type: "niDigitalWriter",
           config,
         }),
       );
@@ -186,10 +171,7 @@ const AnalogReadTaskInternal = ({
                 />
               )}
             </Form.Field>
-            <Form.Field<number> label="Sample Rate" path="config.sampleRate">
-              {(p) => <Input.Numeric {...p} />}
-            </Form.Field>
-            <Form.Field<number> label="Stream Rate" path="config.streamRate">
+            <Form.Field<number> label="State Update Rate" path="config.stateRate">
               {(p) => <Input.Numeric {...p} />}
             </Form.Field>
           </Align.Space>
@@ -258,22 +240,15 @@ interface ChannelFormProps {
 const ChannelForm = ({ selectedChannelIndex }: ChannelFormProps): ReactElement => {
   if (selectedChannelIndex == -1) return <></>;
   const prefix = `config.channels.${selectedChannelIndex}`;
-  const ctx = Form.useContext();
-  const type = ctx.get<AIChanType>({ path: `${prefix}.type` });
-  const TypeForm = ANALOG_INPUT_FORMS[type.value];
-  const [counter, setCounter] = useState(0);
-  Form.useFieldListener<AIChanType>({
-    path: `${prefix}.type`,
-    onChange: (v) => setCounter((c) => c + 1),
-  });
-
   return (
-    <>
-      <Align.Space direction="y" className={CSS.B("channel-form-content")} empty>
-        <SelectChannelTypeField path={prefix} inputProps={{ allowNone: false }} />
-        <TypeForm prefix={prefix} />
+    <Align.Space direction="y" className={CSS.B("channel-form-content")} empty>
+      <ChannelField fieldKey="cmdChannel" label="Command Channel" path={prefix} />
+      <ChannelField fieldKey="stateChannel" label="State Channel" path={prefix} />
+      <Align.Space direction="x" grow>
+        <Form.NumericField path={`${prefix}.port`} label="Port" grow />
+        <Form.NumericField path={`${prefix}.line`} label="Line" grow />
       </Align.Space>
-    </>
+    </Align.Space>
   );
 };
 
@@ -284,12 +259,13 @@ interface ChannelListProps {
 }
 
 const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactElement => {
-  const { value, push } = Form.useFieldArray<NIChannel>({ path });
+  const { value, push } = Form.useFieldArray<DOChan>({ path });
   const handleAdd = (): void => {
-    const availablePort = Math.max(0, ...value.map((v) => v.port)) + 1;
+    const availableLine = Math.max(0, ...value.map((v) => v.line)) + 1;
     push({
-      ...deep.copy(ZERO_AI_CHANNELS["ai_accel"]),
-      port: availablePort,
+      ...deep.copy(ZERO_DO_CHAN),
+      port: 0,
+      line: availableLine,
       key: nanoid(),
     });
   };
@@ -308,8 +284,8 @@ const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactEleme
           ]}
         </Header.Actions>
       </Header.Header>
-      <List.List<string, NIChannel> data={value}>
-        <List.Selector<string, NIChannel>
+      <List.List<string, Chan> data={value}>
+        <List.Selector<string, Chan>
           value={selected}
           allowNone={false}
           allowMultiple={true}
@@ -318,7 +294,7 @@ const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactEleme
           }
           replaceOnSingle
         >
-          <List.Core<string, NIChannel> grow>
+          <List.Core<string, Chan> grow>
             {(props) => <ChannelListItem {...props} path={path} />}
           </List.Core>
         </List.Selector>
@@ -330,26 +306,41 @@ const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactEleme
 const ChannelListItem = ({
   path,
   ...props
-}: List.ItemProps<string, NIChannel> & {
+}: List.ItemProps<string, Chan> & {
   path: string;
 }): ReactElement => {
   const { entry } = props;
   const hasLine = "line" in entry;
   const ctx = Form.useContext();
-  const childValues = Form.useChildFieldValues<AIChan>({
+  const childValues = Form.useChildFieldValues<DOChan>({
     path: `${path}.${props.index}`,
     optional: true,
   });
-  const channelName = Channel.useName(childValues?.channel ?? 0, "No Synnax Channel");
-  const channelValid =
+  const cmdChannelName = Channel.useName(
+    childValues?.cmdChannel ?? 0,
+    "No Command Channel",
+  );
+  const stateChannelName = Channel.useName(
+    childValues?.stateChannel ?? 0,
+    "No State Channel",
+  );
+
+  const cmdChannelValid =
     Form.useField<number>({
-      path: `${path}.${props.index}.channel`,
+      path: `${path}.${props.index}.cmdChannel`,
     }).status.variant === "success";
+
+  const stateChannelValid =
+    Form.useField<number>({
+      path: `${path}.${props.index}.stateChannel`,
+    }).status.variant === "success";
+
   const portValid =
     Form.useField<number>({
       path: `${path}.${props.index}.port`,
     }).status.variant === "success";
   if (childValues == null) return <></>;
+
   return (
     <List.ItemFrame
       {...props}
@@ -357,33 +348,45 @@ const ChannelListItem = ({
       justify="spaceBetween"
       align="center"
     >
-      <Align.Space direction="y" size="small">
-        <Align.Space direction="x">
-          <Text.Text
-            level="p"
-            weight={500}
-            shade={6}
-            style={{ width: "3rem" }}
-            color={portValid ? undefined : "var(--pluto-error-z)"}
-          >
-            {childValues.port} {hasLine && `/${entry.line}`}
-          </Text.Text>
+      <Align.Space direction="x" size="small">
+        <Text.Text
+          level="p"
+          weight={500}
+          shade={6}
+          style={{ width: "4rem" }}
+          color={portValid ? undefined : "var(--pluto-error-z)"}
+        >
+          {childValues.port}
+          {hasLine && `/${entry.line}`}
+        </Text.Text>
+        <Align.Space direction="y">
           <Text.Text
             level="p"
             weight={500}
             shade={9}
             color={(() => {
-              if (channelName === "No Synnax Channel") return "var(--pluto-warning-z)";
-              else if (channelValid) return undefined;
+              if (cmdChannelName === "No Synnax Channel")
+                return "var(--pluto-warning-z)";
+              else if (cmdChannelValid) return undefined;
               return "var(--pluto-error-z)";
             })()}
           >
-            {channelName}
+            {cmdChannelName}
+          </Text.Text>
+          <Text.Text
+            level="small"
+            weight={500}
+            shade={6}
+            color={(() => {
+              if (stateChannelName === "No Synnax Channel")
+                return "var(--pluto-warning-z)";
+              else if (stateChannelValid) return undefined;
+              return "var(--pluto-error-z)";
+            })()}
+          >
+            {stateChannelName}
           </Text.Text>
         </Align.Space>
-        <Text.Text level="p" shade={6}>
-          {AI_CHANNEL_TYPE_NAMES[childValues.type]}
-        </Text.Text>
       </Align.Space>
       <Button.Toggle
         checkedVariant="outlined"

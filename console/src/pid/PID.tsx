@@ -55,6 +55,7 @@ import {
   type State,
   internalCreate,
   setRemoteCreated,
+  setFitViewOnResize,
 } from "@/pid/slice";
 import { Workspace } from "@/workspace";
 
@@ -173,6 +174,13 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
       dispatch(setEditable({ layoutKey, editable: cbk }));
     },
     [layoutKey],
+  );
+
+  const handleSetFitViewOnResize = useCallback(
+    (v: boolean) => {
+      dispatch(setFitViewOnResize({ layoutKey, fitViewOnResize: v }));
+    },
+    [layoutKey, dispatch],
   );
 
   const handleControlStatusChange = useCallback(
@@ -300,6 +308,8 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
           editable={pid.editable}
           triggers={triggers}
           onDoubleClick={handleDoubleClick}
+          fitViewOnResize={pid.fitViewOnResize}
+          setFitViewOnResize={handleSetFitViewOnResize}
           {...dropProps}
         >
           <Diagram.NodeRenderer>{elRenderer}</Diagram.NodeRenderer>
