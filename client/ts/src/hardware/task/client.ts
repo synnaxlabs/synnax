@@ -217,18 +217,9 @@ const RETRIEVE_ENDPOINT = "/hardware/task/retrieve";
 const CREATE_ENDPOINT = "/hardware/task/create";
 const DELETE_ENDPOINT = "/hardware/task/delete";
 
-const createReqZ = z.object({
-  tasks: newTaskZ.array(),
-});
-
-const createResZ = z.object({
-  tasks: taskZ.array(),
-});
-
-const deleteReqZ = z.object({
-  keys: taskKeyZ.array(),
-});
-
+const createReqZ = z.object({ tasks: newTaskZ.array() });
+const createResZ = z.object({ tasks: taskZ.array() });
+const deleteReqZ = z.object({ keys: taskKeyZ.array() });
 const deleteResZ = z.object({});
 
 export class Client implements AsyncTermSearcher<string, TaskKey, Payload> {
@@ -282,25 +273,11 @@ export class Client implements AsyncTermSearcher<string, TaskKey, Payload> {
   }
 
   async search(term: string): Promise<Payload[]> {
-    const res = await sendRequired<typeof retrieveReqZ, typeof retrieveResZ>(
-      this.client,
-      RETRIEVE_ENDPOINT,
-      { keys: [term] },
-      retrieveReqZ,
-      retrieveResZ,
-    );
-    return res.tasks;
+    return await this.execRetrieve({ keys: [term] });
   }
 
   async page(offset: number, limit: number): Promise<Payload[]> {
-    const res = await sendRequired<typeof retrieveReqZ, typeof retrieveResZ>(
-      this.client,
-      RETRIEVE_ENDPOINT,
-      { offset, limit },
-      retrieveReqZ,
-      retrieveResZ,
-    );
-    return res.tasks;
+    return this.execRetrieve({ offset, limit });
   }
 
   async retrieve<
@@ -331,36 +308,32 @@ export class Client implements AsyncTermSearcher<string, TaskKey, Payload> {
   ): Promise<Task<C, D, T> | Task<C, D, T>[]> {
     const { single, normalized, variant } = analyzeParams(
       rack,
-      {
-        number: "rack",
-        string: "keys",
-      },
+      { number: "rack", string: "keys" },
       { convertNumericStrings: false },
     );
     let req: RetrieveRequest = { ...options };
     if (variant === "rack") req.rack = rack as number;
     else req.keys = normalized as string[];
-    const res = await sendRequired<typeof retrieveReqZ, typeof retrieveResZ>(
+    const tasks = await this.execRetrieve(req);
+    const sugared = this.sugar(tasks) as Array<Task<C, D, T>>;
+    return single && variant !== "rack" ? sugared[0] : sugared;
+  }
+
+  async retrieveByName(name: string, rack?: number): Promise<Task> {
+    const tasks = await this.execRetrieve({ names: [name], rack });
+    checkForMultipleOrNoResults("Task", name, tasks, true);
+    return this.sugar(tasks)[0];
+  }
+
+  private async execRetrieve(req: RetrieveRequest): Promise<Payload[]> {
+    const res = await sendRequired(
       this.client,
       RETRIEVE_ENDPOINT,
       req,
       retrieveReqZ,
       retrieveResZ,
     );
-    const sugared = this.sugar(res.tasks) as Array<Task<C, D, T>>;
-    return single && variant !== "rack" ? sugared[0] : sugared;
-  }
-
-  async retrieveByName(name: string, rack?: number): Promise<Task> {
-    const res = await sendRequired<typeof retrieveReqZ, typeof retrieveResZ>(
-      this.client,
-      RETRIEVE_ENDPOINT,
-      { names: [name], rack },
-      retrieveReqZ,
-      retrieveResZ,
-    );
-    checkForMultipleOrNoResults("Task", name, res.tasks, true);
-    return this.sugar(res.tasks)[0];
+    return res.tasks;
   }
 
   private sugar(payloads: Payload[]): Task[] {

@@ -337,7 +337,12 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
   newSearcherWithOptions(
     options: RetrieveOptions,
   ): AsyncTermSearcher<string, Key, Channel> {
-    return new SearcherWithOptions(this, options);
+    return {
+      search: async (term: string) => await this.search(term, options),
+      retrieve: async (keys: Key[]) => await this.retrieve(keys, options),
+      page: async (offset: number, limit: number) =>
+        await this.page(offset, limit, options),
+    };
   }
 
   async page(
@@ -357,27 +362,5 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
   private sugar(payloads: Payload[]): Channel[] {
     const { frameClient } = this;
     return payloads.map((p) => new Channel({ ...p, frameClient }));
-  }
-}
-
-class SearcherWithOptions implements AsyncTermSearcher<string, Key, Channel> {
-  private readonly client: Client;
-  private readonly options: RetrieveOptions;
-
-  constructor(client: Client, options: RetrieveOptions) {
-    this.client = client;
-    this.options = options;
-  }
-
-  async search(term: string, options?: RetrieveOptions): Promise<Channel[]> {
-    return await this.client.search(term, { ...this.options, ...options });
-  }
-
-  async page(offset: number, limit: number, options?: PageOptions): Promise<Channel[]> {
-    return await this.client.page(offset, limit, { ...this.options, ...options });
-  }
-
-  async retrieve(channels: Key[], options?: RetrieveOptions): Promise<Channel[]> {
-    return await this.client.retrieve(channels, { ...this.options, ...options });
   }
 }

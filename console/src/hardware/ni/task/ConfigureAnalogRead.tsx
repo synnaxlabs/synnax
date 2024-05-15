@@ -35,11 +35,11 @@ import {
   AnalogReadTaskState,
   AnalogReadStateDetails as AnalogReadStateDetails,
   ZERO_ANALOG_READ_PAYLOAD,
-  type LinearScaleType,
   AnalogReadType,
   AI_CHANNEL_TYPE_NAMES,
   ZERO_AI_CHANNELS,
   type Chan,
+  ANALOG_READ_TYPE,
 } from "@/hardware/ni/task/types";
 
 import "@/hardware/ni/task/ConfigureAnalogRead.css";
@@ -129,14 +129,17 @@ const Internal = ({ initialTask, initialValues }: InternalProps): ReactElement =
       if (!(await methods.validateAsync()) || client == null) return;
       const rack = await client.hardware.racks.retrieve("sy_node_1_rack");
       const { name, config } = methods.value();
-      setTask(
-        await rack.createTask<AnalogReadConfig>({
-          key: task?.key,
-          name,
-          type: "niAnalogReader",
-          config,
-        }),
-      );
+      const t = await rack.createTask<
+        AnalogReadConfig,
+        AnalogReadStateDetails,
+        AnalogReadType
+      >({
+        key: task?.key,
+        name,
+        type: ANALOG_READ_TYPE,
+        config,
+      });
+      setTask(t);
     },
   });
 

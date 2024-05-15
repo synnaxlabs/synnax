@@ -38,6 +38,8 @@ import {
   DigitalWriteTask,
   DigitalWritePayload,
   DigitalWriteType,
+  AnalogReadStateDetails,
+  DIGITAL_WRITE_TYPE,
 } from "@/hardware/ni/task/types";
 
 import "@/hardware/ni/task/ConfigureAnalogRead.css";
@@ -46,15 +48,15 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { task } from "@synnaxlabs/client";
 import { z } from "zod";
 import { Icon } from "@synnaxlabs/media";
-import { ANALOG_INPUT_FORMS, ChannelField } from "./ChannelForms";
+import { ChannelField } from "@/hardware/ni/task/ChannelForms";
 import { deep } from "@synnaxlabs/x";
 import { nanoid } from "nanoid";
 
 export const digitalWriteTaskLayout: Layout.LayoutState = {
   name: "Configure NI Digital Write Task",
-  key: "ni_digital_write",
-  type: "ni_digital_write",
-  windowKey: "ni_digital_write",
+  key: DIGITAL_WRITE_TYPE,
+  type: DIGITAL_WRITE_TYPE,
+  windowKey: DIGITAL_WRITE_TYPE,
   location: "window",
   window: {
     resizable: false,
@@ -104,20 +106,16 @@ const DigitalWriteTaskInternal = ({
   });
 
   const [task, setTask] = useState(pTask);
-  const [taskState, setTaskState] = useState<AnalogReadTaskState | null>(
+  const [taskState, setTaskState] = useState<task.State<AnalogReadStateDetails> | null>(
     initialValues?.state ?? null,
   );
-
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
   const [selectedChannelIndex, setSelectedChannelIndex] = useState<number | null>(null);
-
   const stateObserverRef =
     useRef<task.StateObservable<DigitalWriteStateDetails> | null>(null);
-
   useAsyncEffect(async () => {
     if (client == null || task == null) return;
-    stateObserverRef.current =
-      await task.openStateObserver<AnalogReadTaskStateDetails>();
+    stateObserverRef.current = await task.openStateObserver<AnalogReadStateDetails>();
     stateObserverRef.current.onChange((s) => {
       setTaskState(s);
     });
@@ -130,14 +128,17 @@ const DigitalWriteTaskInternal = ({
       if (!(await methods.validateAsync()) || client == null) return;
       const rack = await client.hardware.racks.retrieve("sy_node_1_rack");
       const { name, config } = methods.value();
-      setTask(
-        await rack.createTask<DigitalWriteConfig>({
-          key: task?.key,
-          name,
-          type: "niDigitalWriter",
-          config,
-        }),
-      );
+      const t = await rack.createTask<
+        DigitalWriteConfig,
+        DigitalWriteStateDetails,
+        DigitalWriteType
+      >({
+        key: task?.key,
+        name,
+        type: DIGITAL_WRITE_TYPE,
+        config,
+      });
+      setTask(t);
     },
   });
 
@@ -288,7 +289,7 @@ const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactEleme
         <List.Selector<string, Chan>
           value={selected}
           allowNone={false}
-          allowMultiple={true}
+          allowMultiple
           onChange={(keys, { clickedIndex }) =>
             clickedIndex != null && onSelect(keys, clickedIndex)
           }

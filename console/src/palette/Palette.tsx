@@ -357,7 +357,11 @@ const CommandAction = ({
     <Align.Pack direction="x" className={CSS.BE("palette", "action")}>
       <Text.Keyboard
         level="small"
-        style={{ display: "flex", alignItems: "center", padding: "0 1.5rem" }}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          padding: "0 1.5rem",
+        }}
         shade={7}
       >
         {Triggers.toSymbols(keyboardShortcut)}
@@ -379,8 +383,9 @@ const createCommandListItem = (
     return (
       <List.ItemFrame
         highlightHovered
-        style={{ padding: "1.5rem" }}
+        style={{ padding: "0 1.5rem", height: "7rem" }}
         justify="spaceBetween"
+        align="center"
         {...props}
       >
         <Text.WithIcon startIcon={icon} level="p" weight={400} shade={9} size="medium">
@@ -403,9 +408,9 @@ export const createResourceListItem = (
 ): FC<OntologyListItemProps> => {
   const ResourceListItem = (props: OntologyListItemProps): ReactElement | null => {
     const {
-      entry: { name, key, id },
-      onSelect,
+      entry: { name, id },
     } = props;
+    console.log(props);
     if (id == null) return null;
     const resourceType = resourceTypes[id.type];
     return (
