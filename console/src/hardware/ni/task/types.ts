@@ -1313,8 +1313,8 @@ const diChanZ = z.object({
   channel: z.number(),
 });
 
-type DIChan = z.infer<typeof diChanZ>;
-type DIChanType = DIChan["type"];
+export type DIChan = z.infer<typeof diChanZ>;
+export type DIChanType = DIChan["type"];
 
 export const analogReadTaskConfigZ = z
   .object({
@@ -1434,6 +1434,8 @@ export const ZERO_DIGITAL_WRITE_PAYLOAD: DigitalWritePayload = {
 const digitalReadChannelZ = diChanZ;
 export const digitalReadConfigZ = z.object({
   device: z.string().min(1),
+  sampleRate: z.number().min(0).max(50000),
+  streamRate: z.number().min(0).max(50000),
   channels: z.array(digitalReadChannelZ),
 });
 export type DigitalReadConfig = z.infer<typeof digitalReadConfigZ>;
@@ -1443,7 +1445,11 @@ export const digitalReadStateDetailsZ = z.object({
   running: z.boolean(),
 });
 export type DigitalReadStateDetails = z.infer<typeof digitalReadStateDetailsZ>;
-export type DigitalRead = task.Task<DigitalReadConfig, DigitalReadType>;
+export type DigitalRead = task.Task<
+  DigitalReadConfig,
+  DigitalReadStateDetails,
+  DigitalReadType
+>;
 export type DigitalReadPayload = task.Payload<
   DigitalReadConfig,
   DigitalReadStateDetails,
@@ -1452,6 +1458,8 @@ export type DigitalReadPayload = task.Payload<
 export const ZERO_DIGITAL_READ_CONFIG: DigitalReadConfig = {
   device: "Dev1",
   channels: [],
+  sampleRate: 50,
+  streamRate: 25,
 };
 export const ZERO_DIGITAL_READ_PAYLOAD: DigitalReadPayload = {
   key: "",
