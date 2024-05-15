@@ -24,8 +24,6 @@ import {
   Triggers,
   componentRenderProp,
   Button,
-  useDebouncedCallback,
-  createFilterTransform,
   Status,
   Haul,
   CSS as PCSS,
@@ -71,7 +69,6 @@ export const Palette = ({
   const dropdown = Dropdown.use();
 
   const [value, setValue] = useState("");
-  const mode = value.startsWith(commandSymbol) ? "command" : "resource";
 
   const handleTrigger = useCallback(
     ({ triggers, stage }: Triggers.UseEvent) => {
@@ -145,7 +142,6 @@ export const Palette = ({
             Quick Search & Command
           </Button.Button>
           <PalletteDialogContent
-            mode={mode}
             value={value}
             onChange={setValue}
             commands={commands}
@@ -201,7 +197,6 @@ const PaletteList = ({
 };
 
 export interface PaletteDialogProps extends Input.Control<string> {
-  mode: Mode;
   services: Ontology.Services;
   commandSymbol: string;
   resourceTypes: Record<string, Service>;
@@ -212,7 +207,6 @@ export interface PaletteDialogProps extends Input.Control<string> {
 const PalletteDialogContent = ({
   value,
   onChange,
-  mode,
   commands,
   services,
   commandSymbol,
@@ -221,19 +215,14 @@ const PalletteDialogContent = ({
   const { setSourceData, setTransform, deleteTransform, setEmptyContent } =
     List.useDataUtilContext<Key, Entry>();
 
+  const mode = value.startsWith(commandSymbol) ? "command" : "resource";
+
   const client = Synnax.use();
   const store = useStore() as RootStore;
   const placeLayout = Layout.usePlacer();
   const removeLayout = Layout.useRemover();
 
-  useLayoutEffect(() => {
-    if (mode === "command") {
-      setSourceData(commands);
-    } else {
-      setSourceData([]);
-      setEmptyContent(TYPE_TO_SEARCH);
-    }
-  }, [mode]);
+  useLayoutEffect(() => setSourceData(mode === "command" ? commands : []), [mode]);
 
   const cmdSelectCtx = useMemo<CommandSelectionContext>(
     () => ({ store, placeLayout }),
@@ -266,51 +255,31 @@ const PalletteDialogContent = ({
     [mode, commands, close, client, services],
   );
 
-  const handleSearch = useDebouncedCallback(
-    (term: string) => {
-      if (term.length === 0 || client?.ontology == null)
-        return setEmptyContent(TYPE_TO_SEARCH);
-      client.ontology
-        .search(term)
-        .then((d) => {
-          if (d.length === 0)
-            setEmptyContent(
-              <Status.Text.Centered level="h4" variant="disabled" hideIcon>
-                No resources found
-              </Status.Text.Centered>,
-            );
-          setSourceData(d);
-        })
-        .catch((e) => {
-          setEmptyContent(
-            <Status.Text.Centered level="h4" variant="error">
-              {e.message}
-            </Status.Text.Centered>,
-          );
-        });
-    },
-    250,
-    [client?.ontology, setSourceData],
-  );
+  const { value: searchValue, onChange: onSearchChange } = List.useSearch<
+    string,
+    ontology.Resource
+  >({
+    value,
+    onChange,
+    searcher: client?.ontology,
+  });
 
-  const debouncedSetTransform = useDebouncedCallback(setTransform, 250, []);
+  const { value: filterValue, onChange: onFilterChange } = List.useFilter({
+    value,
+    onChange,
+    transformBefore: (term) => term.slice(1),
+  });
 
-  const handleFilter = useCallback(
-    (term: string) => {
-      if (term.length === 0) deleteTransform("filter");
-      else debouncedSetTransform("filter", createFilterTransform({ term }));
-    },
-    [debouncedSetTransform, deleteTransform],
-  );
   const handleChange = useCallback(
     (value: string) => {
       const mode = value.startsWith(commandSymbol) ? "command" : "resource";
-      if (mode === "command") handleFilter(value.slice(1));
-      else handleSearch(value);
-      onChange(value);
+      if (mode === "command") onFilterChange(value);
+      else onSearchChange(value);
     },
-    [commandSymbol, handleFilter, handleSearch, onChange],
+    [commandSymbol, searchValue, onFilterChange, onChange],
   );
+
+  const actualValue = mode === "command" ? filterValue : searchValue;
 
   return (
     <List.Selector value={null} onChange={handleSelect} allowMultiple={false}>
@@ -326,7 +295,7 @@ const PalletteDialogContent = ({
             size="huge"
             autoFocus
             onChange={handleChange}
-            value={value}
+            value={actualValue}
             autoComplete="off"
           />
           <PaletteList
@@ -410,7 +379,6 @@ export const createResourceListItem = (
     const {
       entry: { name, id },
     } = props;
-    console.log(props);
     if (id == null) return null;
     const resourceType = resourceTypes[id.type];
     return (

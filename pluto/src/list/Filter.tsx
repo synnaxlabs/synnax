@@ -21,6 +21,7 @@ import { type RenderProp } from "@/util/renderProp";
 
 export interface UseFilterProps extends OptionalControl<string> {
   debounce?: number;
+  transformBefore?: (term: string) => string;
 }
 
 export interface FilterProps extends UseFilterProps {
@@ -31,6 +32,7 @@ export const useFilter = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   debounce = 250,
   value,
   onChange,
+  transformBefore,
 }: UseFilterProps): Input.Control<string> => {
   const [internalValue, setInternalValue] = state.usePurePassthrough<string>({
     onChange,
@@ -45,9 +47,12 @@ export const useFilter = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
     (term: string) => {
       setInternalValue(term);
       if (term.length === 0) deleteTransform("filter");
-      else debounced("filter", createFilterTransform({ term }));
+      else {
+        if (transformBefore != null) term = transformBefore(term);
+        debounced("filter", createFilterTransform({ term }));
+      }
     },
-    [setInternalValue],
+    [setInternalValue, transformBefore],
   );
 
   return { value: internalValue, onChange: handleChange };

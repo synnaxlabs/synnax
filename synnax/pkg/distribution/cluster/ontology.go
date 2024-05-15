@@ -139,11 +139,15 @@ func (s *NodeOntologyService) Schema() *schema.Schema { return _nodeSchema }
 
 // RetrieveResource implements ontology.Service.
 func (s *NodeOntologyService) RetrieveResource(_ context.Context, key string, _ gorp.Tx) (ontology.Resource, error) {
-	id, err := strconv.Atoi(key)
+	_nKey, err := strconv.Atoi(key)
 	if err != nil {
 		return schema.Resource{}, err
 	}
-	n, err := s.Cluster.Node(core.NodeKey(id))
+	nKey := core.NodeKey(_nKey)
+	if nKey.IsFree() {
+		return newNodeResource(core.Node{Key: nKey}), nil
+	}
+	n, err := s.Cluster.Node(nKey)
 	return newNodeResource(n), err
 }
 

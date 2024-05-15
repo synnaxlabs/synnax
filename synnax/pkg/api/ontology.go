@@ -57,10 +57,10 @@ func (o *OntologyService) Retrieve(
 		res.Resources, err = o.Ontology.Search(ctx, search.Request{Term: req.Term})
 		return
 	}
-	q := o.Ontology.NewRetrieve().
-		WhereIDs(req.IDs...).
-		IncludeSchema(req.IncludeSchema).
-		ExcludeFieldData(req.ExcludeFieldData)
+	q := o.Ontology.NewRetrieve()
+	if len(req.IDs) > 0 {
+		q = q.WhereIDs(req.IDs...)
+	}
 	if req.Children {
 		q = q.TraverseTo(ontology.Children)
 	}
@@ -73,6 +73,7 @@ func (o *OntologyService) Retrieve(
 	if req.Offset > 0 {
 		q = q.Offset(req.Offset)
 	}
+	q = q.IncludeSchema(req.IncludeSchema).ExcludeFieldData(req.ExcludeFieldData)
 	return res, q.Entries(&res.Resources).Exec(ctx, nil)
 }
 

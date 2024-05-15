@@ -195,7 +195,7 @@ func setExcludeFieldData(q query.Parameters, b bool) {
 func getExcludeFieldData(q query.Parameters) bool {
 	v, ok := q.Get(includeFieldDataOptKey)
 	if !ok {
-		return true
+		return false
 	}
 	return v.(bool)
 }
