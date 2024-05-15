@@ -4,6 +4,8 @@ build:
   excludes:
     - "client/ts/examples/node_modules"
     - "client/ts/examples/node/node_modules"
+    - "pluto/examples/node_modules"
+    - "console/node_modules"
     - "node_modules"
     - "bazel-bin"
     - "bazel-out"
