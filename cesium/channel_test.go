@@ -86,19 +86,38 @@ var _ = Describe("Channel", func() {
 					Expect(db.Close()).To(Succeed())
 				})
 
-				It("Should turn parsable numeric folders into channels", func() {
+				It("Should error when numeric folders do not have meta.json file", func() {
 					s := MustSucceed(fs.Sub("sub"))
 					_, err := s.Sub("1")
 					Expect(err).ToNot(HaveOccurred())
 
-					db, err := cesium.Open("", cesium.WithFS(s))
-					Expect(err).ToNot(HaveOccurred())
-					ch, err := db.RetrieveChannel(ctx, cesium.ChannelKey(1))
-					Expect(err).ToNot(HaveOccurred())
-					Expect(ch.Key).To(Equal(cesium.ChannelKey(1)))
-					Expect(db.Close()).To(Succeed())
+					_, err = cesium.Open("", cesium.WithFS(s))
+					Expect(err).To(HaveOccurredAs(validate.Error))
 				})
 
+				It("Should not error when db gets created with proper numeric folders", func() {
+					s := MustSucceed(fs.Sub("sub1"))
+					db := MustSucceed(cesium.Open("", cesium.WithFS(s)))
+					key := GenerateChannelKey()
+
+					Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, Rate: 1 * telem.Hz, DataType: telem.Int64T})).To(Succeed())
+					Expect(db.Close()).To(Succeed())
+
+					db = MustSucceed(cesium.Open("", cesium.WithFS(s)))
+					ch, err := db.RetrieveChannel(ctx, key)
+					Expect(err).ToNot(HaveOccurred())
+
+					Expect(ch.Key).To(Equal(key))
+					Expect(ch.Rate).To(Equal(1 * telem.Hz))
+
+					Expect(db.Write(ctx, 1*telem.SecondTS, cesium.NewFrame(
+						[]cesium.ChannelKey{key},
+						[]telem.Series{telem.NewSeriesV[int64](1, 2, 3, 4, 5)},
+					))).To(Succeed())
+
+					f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, key))
+					Expect(f.Series[0].Data).To(Equal(telem.NewSeriesV[int64](1, 2, 3, 4, 5).Data))
+				})
 			})
 		})
 	}

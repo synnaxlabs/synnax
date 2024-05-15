@@ -14,6 +14,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/binary"
 	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"os"
 )
@@ -29,16 +30,19 @@ func ReadOrCreate(fs xfs.FS, ch core.Channel, ecd binary.EncoderDecoder) (core.C
 	if err != nil {
 		return ch, err
 	}
-	if !exists {
-		if ch.Key == 0 {
-			return ch, errors.Wrap(
-				validate.Error,
-				"[meta] - a channel is required when creating a new database",
-			)
-		}
-		return ch, Create(fs, ecd, ch)
+	if exists {
+		return Read(fs, ecd)
 	}
-	return Read(fs, ecd)
+
+	if ch.DataType == telem.UnknownT {
+		return ch, errors.Wrapf(
+			validate.Error,
+			"[meta] - cannot resolve properties for channel <%d> while creating db",
+			ch.Key,
+		)
+	}
+
+	return ch, Create(fs, ecd, ch)
 }
 
 // Read reads the metadata file for a database whose data is kept in fs and is encoded
