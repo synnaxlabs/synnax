@@ -37,7 +37,7 @@
     box-shadow: var(--pluto-shadow-menu);
     overflow: hidden;
 
-    & .pluto-pack.pluto--rounded {
+    & > .pluto-pack.pluto--rounded {
         --pluto-pack-br: 6px;
     }
 

@@ -539,6 +539,61 @@ importers:
         specifier: ^1.5.0
         version: 1.5.0(@types/node@20.12.7)
 
+  landing:
+    dependencies:
+      '@astrojs/check':
+        specifier: ^0.4.1
+        version: 0.4.1(prettier@3.2.5)(typescript@5.4.5)
+      '@astrojs/react':
+        specifier: ^3.3.0
+        version: 3.3.0(@types/react-dom@18.2.25)(@types/react@18.2.79)(react-dom@18.2.0)(react@18.2.0)(vite@5.2.8)
+      '@astrojs/vercel':
+        specifier: ^7.5.3
+        version: 7.5.3(astro@4.6.3)(react@18.2.0)
+      '@hookform/resolvers':
+        specifier: ^3.3.4
+        version: 3.3.4(react-hook-form@7.51.3)
+      '@synnaxlabs/media':
+        specifier: ^0.0.7
+        version: 0.0.7
+      '@synnaxlabs/pluto':
+        specifier: ^0.17.0
+        version: 0.17.0(@opentelemetry/api-logs@0.50.0)(@types/react@18.2.79)
+      '@synnaxlabs/x':
+        specifier: ^0.10.0
+        version: 0.10.0
+      '@typeform/embed':
+        specifier: ^4.10.0
+        version: 4.10.0
+      '@vercel/analytics':
+        specifier: ^1.2.2
+        version: 1.2.2(react@18.2.0)
+      astro:
+        specifier: ^4.6.3
+        version: 4.6.3(typescript@5.4.5)
+      astro-seo:
+        specifier: ^0.8.3
+        version: 0.8.3(prettier@3.2.5)(typescript@5.4.5)
+      react:
+        specifier: ^18.2.0
+        version: 18.2.0
+      react-dom:
+        specifier: ^18.2.0
+        version: 18.2.0(react@18.2.0)
+      react-hook-form:
+        specifier: ^7.51.3
+        version: 7.51.3(react@18.2.0)
+      typescript:
+        specifier: ^5.4.5
+        version: 5.4.5
+    devDependencies:
+      '@synnaxlabs/tsconfig':
+        specifier: ^0.0.1
+        version: 0.0.1
+      '@types/react':
+        specifier: ^18.2.79
+        version: 18.2.79
+
   pluto:
     dependencies:
       '@fontsource-variable/inter':
@@ -948,6 +1003,23 @@ packages:
     dependencies:
       astro: 4.6.3(typescript@5.4.5)
       lite-youtube-embed: 0.3.2
+    dev: false
+
+  /@astrojs/check@0.4.1(prettier@3.2.5)(typescript@5.4.5):
+    resolution: {integrity: sha512-XEsuU4TlWkgcsvdeessq5mXLXV1fejtxIioCPv/FfhTzb1bDYe2BtLiSBK+rFTyD9Hl686YOas9AGNMJcpoRsw==}
+    hasBin: true
+    peerDependencies:
+      typescript: ^5.0.0
+    dependencies:
+      '@astrojs/language-server': 2.8.4(prettier@3.2.5)(typescript@5.4.5)
+      chokidar: 3.6.0
+      fast-glob: 3.3.2
+      kleur: 4.1.5
+      typescript: 5.4.5
+      yargs: 17.7.2
+    transitivePeerDependencies:
+      - prettier
+      - prettier-plugin-astro
     dev: false
 
   /@astrojs/check@0.5.10(prettier@3.2.5)(typescript@5.4.5):
@@ -2101,6 +2173,54 @@ packages:
     resolution: {integrity: sha512-9b8mPpKrfeGRuhFH5iO1iwCLeIIsV6+H1sRfxbkoGXIyQE2BTsPd9zqSqQJ+pv5sJ/hT5M1zvOFL02MnEezFug==}
     dev: true
 
+  /@msgpackr-extract/msgpackr-extract-darwin-arm64@3.0.2:
+    resolution: {integrity: sha512-9bfjwDxIDWmmOKusUcqdS4Rw+SETlp9Dy39Xui9BEGEk19dDwH0jhipwFzEff/pFg95NKymc6TOTbRKcWeRqyQ==}
+    cpu: [arm64]
+    os: [darwin]
+    requiresBuild: true
+    dev: false
+    optional: true
+
+  /@msgpackr-extract/msgpackr-extract-darwin-x64@3.0.2:
+    resolution: {integrity: sha512-lwriRAHm1Yg4iDf23Oxm9n/t5Zpw1lVnxYU3HnJPTi2lJRkKTrps1KVgvL6m7WvmhYVt/FIsssWay+k45QHeuw==}
+    cpu: [x64]
+    os: [darwin]
+    requiresBuild: true
+    dev: false
+    optional: true
+
+  /@msgpackr-extract/msgpackr-extract-linux-arm64@3.0.2:
+    resolution: {integrity: sha512-FU20Bo66/f7He9Fp9sP2zaJ1Q8L9uLPZQDub/WlUip78JlPeMbVL8546HbZfcW9LNciEXc8d+tThSJjSC+tmsg==}
+    cpu: [arm64]
+    os: [linux]
+    requiresBuild: true
+    dev: false
+    optional: true
+
+  /@msgpackr-extract/msgpackr-extract-linux-arm@3.0.2:
+    resolution: {integrity: sha512-MOI9Dlfrpi2Cuc7i5dXdxPbFIgbDBGgKR5F2yWEa6FVEtSWncfVNKW5AKjImAQ6CZlBK9tympdsZJ2xThBiWWA==}
+    cpu: [arm]
+    os: [linux]
+    requiresBuild: true
+    dev: false
+    optional: true
+
+  /@msgpackr-extract/msgpackr-extract-linux-x64@3.0.2:
+    resolution: {integrity: sha512-gsWNDCklNy7Ajk0vBBf9jEx04RUxuDQfBse918Ww+Qb9HCPoGzS+XJTLe96iN3BVK7grnLiYghP/M4L8VsaHeA==}
+    cpu: [x64]
+    os: [linux]
+    requiresBuild: true
+    dev: false
+    optional: true
+
+  /@msgpackr-extract/msgpackr-extract-win32-x64@3.0.2:
+    resolution: {integrity: sha512-O+6Gs8UeDbyFpbSh2CPEz/UOrrdWPTBYNblZK5CxxLisYt4kGX3Sc+czffFonyjiGSq3jWLwJS/CCJc7tBr4sQ==}
+    cpu: [x64]
+    os: [win32]
+    requiresBuild: true
+    dev: false
+    optional: true
+
   /@nodelib/fs.scandir@2.1.5:
     resolution: {integrity: sha512-vq24Bq3ym5HEQm2NKCr3yXDwjc7vTsEThRDnkp2DK9p1uqLR+DHurm/NOTo0KG7HYHU7eppKZj3MyqYuMBf62g==}
     engines: {node: '>= 8'}
@@ -2563,6 +2683,22 @@ packages:
       - supports-color
     dev: false
 
+  /@opentelemetry/instrumentation-document-load@0.33.2(@opentelemetry/api@1.8.0):
+    resolution: {integrity: sha512-9RaEdaGBB5MS327dpBinfNcNuHcHZvqqLXsf4C+j92UZeIgKE2tuYuvbcSruDeECW6PdYknX7wtnJNAFXyRSMg==}
+    engines: {node: '>=14'}
+    peerDependencies:
+      '@opentelemetry/api': ^1.3.0
+    dependencies:
+      '@opentelemetry/api': 1.8.0
+      '@opentelemetry/core': 1.23.0(@opentelemetry/api@1.8.0)
+      '@opentelemetry/instrumentation': 0.44.0(@opentelemetry/api@1.8.0)
+      '@opentelemetry/sdk-trace-base': 1.23.0(@opentelemetry/api@1.8.0)
+      '@opentelemetry/sdk-trace-web': 1.23.0(@opentelemetry/api@1.8.0)
+      '@opentelemetry/semantic-conventions': 1.23.0
+    transitivePeerDependencies:
+      - supports-color
+    dev: false
+
   /@opentelemetry/instrumentation-document-load@0.37.0(@opentelemetry/api@1.8.0):
     resolution: {integrity: sha512-tmxx8k2gjUwbAEhnvxACEeYTHRwkrcvU3ABkmoH5NKtd5aWSiY6Pni2hCtccLqj0Hk4/jwv51+lLiA6moji6ZQ==}
     engines: {node: '>=14'}
@@ -2960,6 +3096,22 @@ packages:
     dependencies:
       '@opentelemetry/api': 1.7.0
       '@opentelemetry/instrumentation': 0.46.0(@opentelemetry/api@1.7.0)
+    transitivePeerDependencies:
+      - supports-color
+    dev: false
+
+  /@opentelemetry/instrumentation@0.44.0(@opentelemetry/api@1.8.0):
+    resolution: {integrity: sha512-B6OxJTRRCceAhhnPDBshyQO7K07/ltX3quOLu0icEvPK9QZ7r9P1y0RQX8O5DxB4vTv4URRkxkg+aFU/plNtQw==}
+    engines: {node: '>=14'}
+    peerDependencies:
+      '@opentelemetry/api': ^1.3.0
+    dependencies:
+      '@opentelemetry/api': 1.8.0
+      '@types/shimmer': 1.0.5
+      import-in-the-middle: 1.4.2
+      require-in-the-middle: 7.3.0
+      semver: 7.6.0
+      shimmer: 1.2.1
     transitivePeerDependencies:
       - supports-color
     dev: false
@@ -3571,6 +3723,22 @@ packages:
       - immer
     dev: false
 
+  /@reactflow/background@11.3.12(@types/react@18.2.79)(react-dom@18.2.0)(react@18.2.0):
+    resolution: {integrity: sha512-jBuWVb43JQy5h4WOS7G0PU8voGTEJNA+qDmx8/jyBtrjbasTesLNfQvboTGjnQYYiJco6mw5vrtQItAJDNoIqw==}
+    peerDependencies:
+      react: '>=17'
+      react-dom: '>=17'
+    dependencies:
+      '@reactflow/core': 11.11.2(@types/react@18.2.79)(react-dom@18.2.0)(react@18.2.0)
+      classcat: 5.0.5
+      react: 18.2.0
+      react-dom: 18.2.0(react@18.2.0)
+      zustand: 4.5.2(@types/react@18.2.79)(react@18.2.0)
+    transitivePeerDependencies:
+      - '@types/react'
+      - immer
+    dev: false
+
   /@reactflow/controls@11.2.12(@types/react@18.2.78)(react-dom@18.2.0)(react@18.2.0):
     resolution: {integrity: sha512-L9F3+avFRShoprdT+5oOijm5gVsz2rqWCXBzOAgD923L1XFGIspdiHLLf8IlPGsT+mfl0GxbptZhaEeEzl1e3g==}
     peerDependencies:
@@ -3582,6 +3750,22 @@ packages:
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
       zustand: 4.5.2(@types/react@18.2.78)(react@18.2.0)
+    transitivePeerDependencies:
+      - '@types/react'
+      - immer
+    dev: false
+
+  /@reactflow/controls@11.2.12(@types/react@18.2.79)(react-dom@18.2.0)(react@18.2.0):
+    resolution: {integrity: sha512-L9F3+avFRShoprdT+5oOijm5gVsz2rqWCXBzOAgD923L1XFGIspdiHLLf8IlPGsT+mfl0GxbptZhaEeEzl1e3g==}
+    peerDependencies:
+      react: '>=17'
+      react-dom: '>=17'
+    dependencies:
+      '@reactflow/core': 11.11.2(@types/react@18.2.79)(react-dom@18.2.0)(react@18.2.0)
+      classcat: 5.0.5
+      react: 18.2.0
+      react-dom: 18.2.0(react@18.2.0)
+      zustand: 4.5.2(@types/react@18.2.79)(react@18.2.0)
     transitivePeerDependencies:
       - '@types/react'
       - immer
@@ -3609,6 +3793,28 @@ packages:
       - immer
     dev: false
 
+  /@reactflow/core@11.11.2(@types/react@18.2.79)(react-dom@18.2.0)(react@18.2.0):
+    resolution: {integrity: sha512-+GfgyskweL1PsgRSguUwfrT2eDotlFgaKfDLm7x0brdzzPJY2qbCzVetaxedaiJmIli3817iYbILvE9qLKwbRA==}
+    peerDependencies:
+      react: '>=17'
+      react-dom: '>=17'
+    dependencies:
+      '@types/d3': 7.4.3
+      '@types/d3-drag': 3.0.7
+      '@types/d3-selection': 3.0.10
+      '@types/d3-zoom': 3.0.8
+      classcat: 5.0.5
+      d3-drag: 3.0.0
+      d3-selection: 3.0.0
+      d3-zoom: 3.0.0
+      react: 18.2.0
+      react-dom: 18.2.0(react@18.2.0)
+      zustand: 4.5.2(@types/react@18.2.79)(react@18.2.0)
+    transitivePeerDependencies:
+      - '@types/react'
+      - immer
+    dev: false
+
   /@reactflow/minimap@11.7.12(@types/react@18.2.78)(react-dom@18.2.0)(react@18.2.0):
     resolution: {integrity: sha512-SRDU77c2PCF54PV/MQfkz7VOW46q7V1LZNOQlXAp7dkNyAOI6R+tb9qBUtUJOvILB+TCN6pRfD9fQ+2T99bW3Q==}
     peerDependencies:
@@ -3624,6 +3830,26 @@ packages:
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
       zustand: 4.5.2(@types/react@18.2.78)(react@18.2.0)
+    transitivePeerDependencies:
+      - '@types/react'
+      - immer
+    dev: false
+
+  /@reactflow/minimap@11.7.12(@types/react@18.2.79)(react-dom@18.2.0)(react@18.2.0):
+    resolution: {integrity: sha512-SRDU77c2PCF54PV/MQfkz7VOW46q7V1LZNOQlXAp7dkNyAOI6R+tb9qBUtUJOvILB+TCN6pRfD9fQ+2T99bW3Q==}
+    peerDependencies:
+      react: '>=17'
+      react-dom: '>=17'
+    dependencies:
+      '@reactflow/core': 11.11.2(@types/react@18.2.79)(react-dom@18.2.0)(react@18.2.0)
+      '@types/d3-selection': 3.0.10
+      '@types/d3-zoom': 3.0.8
+      classcat: 5.0.5
+      d3-selection: 3.0.0
+      d3-zoom: 3.0.0
+      react: 18.2.0
+      react-dom: 18.2.0(react@18.2.0)
+      zustand: 4.5.2(@types/react@18.2.79)(react@18.2.0)
     transitivePeerDependencies:
       - '@types/react'
       - immer
@@ -3647,6 +3873,24 @@ packages:
       - immer
     dev: false
 
+  /@reactflow/node-resizer@2.2.12(@types/react@18.2.79)(react-dom@18.2.0)(react@18.2.0):
+    resolution: {integrity: sha512-6LHJGuI1zHyRrZHw5gGlVLIWnvVxid9WIqw8FMFSg+oF2DuS3pAPwSoZwypy7W22/gDNl9eD1Dcl/OtFtDFQ+w==}
+    peerDependencies:
+      react: '>=17'
+      react-dom: '>=17'
+    dependencies:
+      '@reactflow/core': 11.11.2(@types/react@18.2.79)(react-dom@18.2.0)(react@18.2.0)
+      classcat: 5.0.5
+      d3-drag: 3.0.0
+      d3-selection: 3.0.0
+      react: 18.2.0
+      react-dom: 18.2.0(react@18.2.0)
+      zustand: 4.5.2(@types/react@18.2.79)(react@18.2.0)
+    transitivePeerDependencies:
+      - '@types/react'
+      - immer
+    dev: false
+
   /@reactflow/node-toolbar@1.3.12(@types/react@18.2.78)(react-dom@18.2.0)(react@18.2.0):
     resolution: {integrity: sha512-4kJRvNna/E3y2MZW9/80wTKwkhw4pLJiz3D5eQrD13XcmojSb1rArO9CiwyrI+rMvs5gn6NlCFB4iN1F+Q+lxQ==}
     peerDependencies:
@@ -3658,6 +3902,22 @@ packages:
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
       zustand: 4.5.2(@types/react@18.2.78)(react@18.2.0)
+    transitivePeerDependencies:
+      - '@types/react'
+      - immer
+    dev: false
+
+  /@reactflow/node-toolbar@1.3.12(@types/react@18.2.79)(react-dom@18.2.0)(react@18.2.0):
+    resolution: {integrity: sha512-4kJRvNna/E3y2MZW9/80wTKwkhw4pLJiz3D5eQrD13XcmojSb1rArO9CiwyrI+rMvs5gn6NlCFB4iN1F+Q+lxQ==}
+    peerDependencies:
+      react: '>=17'
+      react-dom: '>=17'
+    dependencies:
+      '@reactflow/core': 11.11.2(@types/react@18.2.79)(react-dom@18.2.0)(react@18.2.0)
+      classcat: 5.0.5
+      react: 18.2.0
+      react-dom: 18.2.0(react@18.2.0)
+      zustand: 4.5.2(@types/react@18.2.79)(react@18.2.0)
     transitivePeerDependencies:
       - '@types/react'
       - immer
@@ -3876,6 +4136,137 @@ packages:
     resolution: {integrity: sha512-+Fj43pSMwJs4KRrH/938Uf+uAELIgVBmQzg/q1YG10djyfA3TnrU8N8XzqCh/okZdszqBQTZf96idMfE5lnwTA==}
     dev: true
 
+  /@synnaxlabs/alamos@0.1.0(@opentelemetry/api-logs@0.50.0):
+    resolution: {integrity: sha512-O4KDUDF6zRWSUN90NPMMpEQNowRbwnoK65h9bFakI3QsOcWKagJsiTkZgYIL5uaXrrUhw7pjI/NCv+15Cw7HZw==}
+    engines: {node: '>=18'}
+    dependencies:
+      '@opentelemetry/api': 1.8.0
+      '@opentelemetry/context-zone': 1.23.0(@opentelemetry/api@1.8.0)
+      '@opentelemetry/instrumentation-document-load': 0.33.2(@opentelemetry/api@1.8.0)
+      '@opentelemetry/sdk-trace-web': 1.23.0(@opentelemetry/api@1.8.0)
+      '@synnaxlabs/x': 0.8.0
+      '@uptrace/node': 1.19.0(@opentelemetry/api-logs@0.50.0)
+      '@uptrace/web': 1.19.0
+    transitivePeerDependencies:
+      - '@opentelemetry/api-logs'
+      - encoding
+      - supports-color
+    dev: false
+
+  /@synnaxlabs/client@0.15.0(@opentelemetry/api-logs@0.50.0):
+    resolution: {integrity: sha512-GaAtoOk01D+3x1/aIgTqyKW+J/6Kuifb/40LGDlPO5yYgkj9t1OiRmGKptRLoFdJZb/uo78T88UOXflCenEm0g==}
+    dependencies:
+      '@synnaxlabs/freighter': 0.7.0(@opentelemetry/api-logs@0.50.0)
+      '@synnaxlabs/x': 0.10.0
+      zod: 3.22.4
+    transitivePeerDependencies:
+      - '@opentelemetry/api-logs'
+      - bufferutil
+      - encoding
+      - supports-color
+      - utf-8-validate
+    dev: false
+
+  /@synnaxlabs/freighter@0.7.0(@opentelemetry/api-logs@0.50.0):
+    resolution: {integrity: sha512-O8EqoxkUJcwlYZ9rW5ciLIlSP7ThB5is+iLHBlFEb/0YeiyUbC5kgEwD9Gnh8858fwdQDxctOcDPHnQYGbvEow==}
+    engines: {node: '>=18'}
+    dependencies:
+      '@synnaxlabs/alamos': 0.1.0(@opentelemetry/api-logs@0.50.0)
+      '@synnaxlabs/x': 0.10.0
+      js-convert-case: 4.2.0
+      msgpackr: 1.10.2
+      node-fetch: 2.6.11
+      ws: 8.16.0
+      zod: 3.22.4
+    transitivePeerDependencies:
+      - '@opentelemetry/api-logs'
+      - bufferutil
+      - encoding
+      - supports-color
+      - utf-8-validate
+    dev: false
+
+  /@synnaxlabs/media@0.0.7:
+    resolution: {integrity: sha512-NzI+apacO6txwVfJmAu8SAgplDKDQgydZNsZyRWbacgE19UHdrR7v+Sfs6yQgny2YCSQx2se3Q1hT0WjBkN6VQ==}
+    dependencies:
+      '@synnaxlabs/x': 0.8.0
+      '@types/react': 18.2.79
+      clsx: 2.1.1
+      react: 18.2.0
+      react-dom: 18.2.0(react@18.2.0)
+      react-icons: 4.12.0(react@18.2.0)
+    dev: false
+
+  /@synnaxlabs/media@0.1.0:
+    resolution: {integrity: sha512-lU0Na7yfXVRssfYugjcFAm0mat9P+dS05Bzk4T7/aUIWqkdGuCQzNWtdbXWU0tanOhBCDVduJcvvoBcwmL18jQ==}
+    dependencies:
+      '@synnaxlabs/x': 0.10.0
+      '@types/react': 18.2.79
+      clsx: 2.1.1
+      react: 18.2.0
+      react-dom: 18.2.0(react@18.2.0)
+      react-icons: 4.12.0(react@18.2.0)
+    dev: false
+
+  /@synnaxlabs/pluto@0.17.0(@opentelemetry/api-logs@0.50.0)(@types/react@18.2.79):
+    resolution: {integrity: sha512-eSy65rks3rfW/utt22X6E5AwLJOTim3J5q0Ah2c9X79zZ9ak8B6te9vrmOf9CA2V0/OE+TnsKPdj7YcCT2iRyw==}
+    dependencies:
+      '@fontsource-variable/inter': 5.0.17
+      '@hookform/resolvers': 3.3.4(react-hook-form@7.51.3)
+      '@synnaxlabs/alamos': 0.1.0(@opentelemetry/api-logs@0.50.0)
+      '@synnaxlabs/client': 0.15.0(@opentelemetry/api-logs@0.50.0)
+      '@synnaxlabs/media': 0.1.0
+      '@synnaxlabs/x': 0.10.0
+      '@tanstack/react-virtual': 3.0.0-beta.54(react@18.2.0)
+      async-mutex: 0.4.1
+      clsx: 2.1.1
+      d3-scale: 4.0.2
+      fuse.js: 7.0.0
+      mathjs: 12.4.1
+      nanoid: 3.3.7
+      proxy-memoize: 1.2.0
+      react: 18.2.0
+      react-color: 2.19.3(react@18.2.0)
+      react-dom: 18.2.0(react@18.2.0)
+      react-hook-form: 7.51.3(react@18.2.0)
+      reactflow: 11.11.2(@types/react@18.2.79)(react-dom@18.2.0)(react@18.2.0)
+      zod: 3.22.4
+    transitivePeerDependencies:
+      - '@opentelemetry/api-logs'
+      - '@types/react'
+      - bufferutil
+      - encoding
+      - immer
+      - supports-color
+      - utf-8-validate
+    dev: false
+
+  /@synnaxlabs/tsconfig@0.0.1:
+    resolution: {integrity: sha512-9+IWCVv+bo8nn69Rpfl/XdgTHWpBMlhPVyaEVLD4oWjmnuCvw+QwMIJZ4sWJuukNi/JwrS+8cB74AqXbhM8RPg==}
+    dependencies:
+      typescript: 5.4.5
+    dev: true
+
+  /@synnaxlabs/x@0.10.0:
+    resolution: {integrity: sha512-6q2A+ntB9OY2SXeA2o1Vq+CBa0b2CiznUy4nlyCLuBMEHv7e8fN2woYwEE1Vd/wGfg2WXMnZeoDJGpAxnq9fkg==}
+    dependencies:
+      async-mutex: 0.4.1
+      js-convert-case: 4.2.0
+      msgpackr: 1.10.2
+      nanoid: 3.3.7
+      zod: 3.22.4
+    dev: false
+
+  /@synnaxlabs/x@0.8.0:
+    resolution: {integrity: sha512-RipxP6gi7QWF3CeQ9zXms/TOf2xqUsYt8gHJHvdtXu6BbAHG+rUgT7DIHBaQk/rBPblvneMcXOiGCHrarpdUig==}
+    dependencies:
+      async-mutex: 0.4.1
+      js-convert-case: 4.2.0
+      msgpackr: 1.10.2
+      nanoid: 3.3.7
+      zod: 3.22.4
+    dev: false
+
   /@tanstack/query-core@5.32.0:
     resolution: {integrity: sha512-Z3flEgCat55DRXU5UMwYU1U+DgFZKA3iufyOKs+II7iRAo0uXkeU7PH5e6sOH1CGEag0IpKmZxlUFpCg6roSKw==}
     dev: false
@@ -4049,6 +4440,11 @@ packages:
     dependencies:
       '@testing-library/dom': 10.0.0
     dev: true
+
+  /@typeform/embed@4.10.0:
+    resolution: {integrity: sha512-x5FqkQXJ8cIP2p6WT57u+HyfCZnyjxBZarDqXIS1IGQfqRBGmBegehUoagx6EMq/m+aIqQony27VzkpUO+YEYA==}
+    engines: {node: '>=10'}
+    dev: false
 
   /@types/accepts@1.3.7:
     resolution: {integrity: sha512-Pay9fq2lM2wXPWbteBsRAGiWH2hig4ZE2asK+mm7kUzlxRTfL961rj89I6zV/E3PcIkDqyuBEcMxFT7rccugeQ==}
@@ -5598,6 +5994,12 @@ packages:
       - supports-color
       - terser
       - typescript
+    dev: false
+
+  /async-mutex@0.4.1:
+    resolution: {integrity: sha512-WfoBo4E/TbCX1G95XTjbWTE3X2XLG0m1Xbv2cwOtuPdyH9CZvnaA5nCt1ucjaKEgW2A5IF71hxrRhr83Je5xjA==}
+    dependencies:
+      tslib: 2.6.2
     dev: false
 
   /async-mutex@0.5.0:
@@ -8043,6 +8445,15 @@ packages:
       parent-module: 1.0.1
       resolve-from: 4.0.0
 
+  /import-in-the-middle@1.4.2:
+    resolution: {integrity: sha512-9WOz1Yh/cvO/p69sxRmhyQwrIGGSp7EIdcb+fFNVi7CzQGQB8U1/1XrKVSbEd/GNOAeM0peJtmi7+qphe7NvAw==}
+    dependencies:
+      acorn: 8.11.3
+      acorn-import-assertions: 1.9.0(acorn@8.11.3)
+      cjs-module-lexer: 1.2.3
+      module-details-from-path: 1.0.3
+    dev: false
+
   /import-in-the-middle@1.7.1:
     resolution: {integrity: sha512-1LrZPDtW+atAxH42S6288qyDFNQ2YCty+2mxEPRtfazH6Z5QwkaBSTS2ods7hnVJioF6rkRfNoA6A/MstpFXLg==}
     dependencies:
@@ -9521,6 +9932,28 @@ packages:
     resolution: {integrity: sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA==}
     dev: false
 
+  /msgpackr-extract@3.0.2:
+    resolution: {integrity: sha512-SdzXp4kD/Qf8agZ9+iTu6eql0m3kWm1A2y1hkpTeVNENutaB0BwHlSvAIaMxwntmRUAUjon2V4L8Z/njd0Ct8A==}
+    hasBin: true
+    requiresBuild: true
+    dependencies:
+      node-gyp-build-optional-packages: 5.0.7
+    optionalDependencies:
+      '@msgpackr-extract/msgpackr-extract-darwin-arm64': 3.0.2
+      '@msgpackr-extract/msgpackr-extract-darwin-x64': 3.0.2
+      '@msgpackr-extract/msgpackr-extract-linux-arm': 3.0.2
+      '@msgpackr-extract/msgpackr-extract-linux-arm64': 3.0.2
+      '@msgpackr-extract/msgpackr-extract-linux-x64': 3.0.2
+      '@msgpackr-extract/msgpackr-extract-win32-x64': 3.0.2
+    dev: false
+    optional: true
+
+  /msgpackr@1.10.2:
+    resolution: {integrity: sha512-L60rsPynBvNE+8BWipKKZ9jHcSGbtyJYIwjRq0VrIvQ08cRjntGXJYW/tmciZ2IHWIY8WEW32Qa2xbh5+SKBZA==}
+    optionalDependencies:
+      msgpackr-extract: 3.0.2
+    dev: false
+
   /muggle-string@0.3.1:
     resolution: {integrity: sha512-ckmWDJjphvd/FvZawgygcUeQCxzvohjFO5RxTjj4eq8kw359gFF3E1brjfI+viLMxss5JrHTDRHZvu2/tuy0Qg==}
     dev: true
@@ -9588,6 +10021,12 @@ packages:
     dependencies:
       whatwg-url: 5.0.0
     dev: false
+
+  /node-gyp-build-optional-packages@5.0.7:
+    resolution: {integrity: sha512-YlCCc6Wffkx0kHkmam79GKvDQ6x+QZkMjFGrIMxgFNILFvGSbCp2fCBC55pGTT9gVaz8Na5CLmxt/urtzRv36w==}
+    hasBin: true
+    dev: false
+    optional: true
 
   /node-gyp-build@4.8.0:
     resolution: {integrity: sha512-u6fs2AEUljNho3EYTJNBfImO5QTo/J/1Etd+NVdCj7qWKUSN/bSLkZwhDv7I+w/MSC6qJ4cknepkAYykDdK8og==}
@@ -10358,6 +10797,25 @@ packages:
       '@reactflow/minimap': 11.7.12(@types/react@18.2.78)(react-dom@18.2.0)(react@18.2.0)
       '@reactflow/node-resizer': 2.2.12(@types/react@18.2.78)(react-dom@18.2.0)(react@18.2.0)
       '@reactflow/node-toolbar': 1.3.12(@types/react@18.2.78)(react-dom@18.2.0)(react@18.2.0)
+      react: 18.2.0
+      react-dom: 18.2.0(react@18.2.0)
+    transitivePeerDependencies:
+      - '@types/react'
+      - immer
+    dev: false
+
+  /reactflow@11.11.2(@types/react@18.2.79)(react-dom@18.2.0)(react@18.2.0):
+    resolution: {integrity: sha512-o1fT3stSdhzW+SedCGNSmEvZvULZygZIMLyW67NcWNZrgwx1wuJfzLg5fuQ0Nzf389wItumZX/zP3zdaPX7lEw==}
+    peerDependencies:
+      react: '>=17'
+      react-dom: '>=17'
+    dependencies:
+      '@reactflow/background': 11.3.12(@types/react@18.2.79)(react-dom@18.2.0)(react@18.2.0)
+      '@reactflow/controls': 11.2.12(@types/react@18.2.79)(react-dom@18.2.0)(react@18.2.0)
+      '@reactflow/core': 11.11.2(@types/react@18.2.79)(react-dom@18.2.0)(react@18.2.0)
+      '@reactflow/minimap': 11.7.12(@types/react@18.2.79)(react-dom@18.2.0)(react@18.2.0)
+      '@reactflow/node-resizer': 2.2.12(@types/react@18.2.79)(react-dom@18.2.0)(react@18.2.0)
+      '@reactflow/node-toolbar': 1.3.12(@types/react@18.2.79)(react-dom@18.2.0)(react@18.2.0)
       react: 18.2.0
       react-dom: 18.2.0(react@18.2.0)
     transitivePeerDependencies:
@@ -12710,6 +13168,26 @@ packages:
         optional: true
     dependencies:
       '@types/react': 18.2.78
+      react: 18.2.0
+      use-sync-external-store: 1.2.0(react@18.2.0)
+    dev: false
+
+  /zustand@4.5.2(@types/react@18.2.79)(react@18.2.0):
+    resolution: {integrity: sha512-2cN1tPkDVkwCy5ickKrI7vijSjPksFRfqS6237NzT0vqSsztTNnQdHw9mmN7uBdk3gceVXU0a+21jFzFzAc9+g==}
+    engines: {node: '>=12.7.0'}
+    peerDependencies:
+      '@types/react': '>=16.8'
+      immer: '>=9.0.6'
+      react: '>=16.8'
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+      immer:
+        optional: true
+      react:
+        optional: true
+    dependencies:
+      '@types/react': 18.2.79
       react: 18.2.0
       use-sync-external-store: 1.2.0(react@18.2.0)
     dev: false

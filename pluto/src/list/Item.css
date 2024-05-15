@@ -19,11 +19,18 @@
 
     &:is(:hover, .pluto--hovered) {
         background: var(--pluto-gray-l3);
+        border-top-color: var(--pluto-gray-l3);
+
+        &.pluto--highlight-hover {
+            box-shadow: inset 2px 0 0 var(--pluto-primary-z);
+            &.pluto--right-aligned {
+                box-shadow: inset -2px 0 0 var(--pluto-primary-z);
+            }
+        }
     }
 
     &.pluto--selected {
         background: var(--pluto-gray-l2);
-
         box-shadow: inset 2px 0 0 var(--pluto-primary-z);
         &.pluto--right-aligned {
             box-shadow: inset -2px 0 0 var(--pluto-primary-z);

@@ -172,24 +172,31 @@ const TYPE_TO_SEARCH = (
 
 export interface PaletteListProps {
   mode: Mode;
-  resourceTypes: Record<string, Service>;
+  resourceTypes: Ontology.Services;
+  commandSelectionContext: CommandSelectionContext;
 }
 
-const PaletteList = ({ mode, resourceTypes }: PaletteListProps): ReactElement => {
+const PaletteList = ({
+  mode,
+  resourceTypes,
+  commandSelectionContext,
+}: PaletteListProps): ReactElement => {
   const item = useMemo(() => {
     const Item = (
-      mode === "command" ? CommandListItem : createResourceListItem(resourceTypes)
+      mode === "command"
+        ? createCommandListItem(commandSelectionContext)
+        : createResourceListItem(resourceTypes)
     ) as FC<List.ItemProps<string, ontology.Resource | Command>>;
     return componentRenderProp(Item);
-  }, [mode, resourceTypes]);
+  }, [commandSelectionContext, mode, resourceTypes]);
   return (
-    <List.Core.Virtual
+    <List.Core
       className={CSS.BE("palette", "list")}
       itemHeight={27}
       style={{ flexGrow: 1 }}
     >
       {item}
-    </List.Core.Virtual>
+    </List.Core>
   );
 };
 
@@ -227,6 +234,11 @@ const PalletteDialogContent = ({
       setEmptyContent(TYPE_TO_SEARCH);
     }
   }, [mode]);
+
+  const cmdSelectCtx = useMemo<CommandSelectionContext>(
+    () => ({ store, placeLayout }),
+    [store, placeLayout],
+  );
 
   const handleSelect = useCallback(
     (key: Key, { entries }: List.UseSelectOnChangeExtra<Key, Entry>) => {
@@ -308,7 +320,7 @@ const PalletteDialogContent = ({
             className={CSS(CSS.BE("palette", "input"))}
             placeholder={
               <Text.WithIcon level="h3" startIcon={<Icon.Search key="hello" />}>
-                Search Synnax
+                Type to search or {">"} to view commands
               </Text.WithIcon>
             }
             size="huge"
@@ -317,77 +329,97 @@ const PalletteDialogContent = ({
             value={value}
             autoComplete="off"
           />
-          <PaletteList mode={mode} resourceTypes={services} />
+          <PaletteList
+            mode={mode}
+            resourceTypes={services}
+            commandSelectionContext={cmdSelectCtx}
+          />
         </Align.Pack>
       </List.Hover>
     </List.Selector>
   );
 };
 
-export const CommandListItem = ({
-  entry: { icon, name, key },
-  hovered,
-  onSelect,
-  translate,
-  ...props
-}: List.ItemProps<string, Command>): ReactElement => {
-  const handleSelect: MouseEventHandler = (e): void => {
-    e.stopPropagation();
-    onSelect?.(key);
-  };
+const CommandAction = ({
+  ctx,
+  name,
+  trigger: keyboardShortcut,
+  onClick,
+}: CommandActionProps & { ctx: CommandSelectionContext }): ReactElement => {
+  const handleClick = useCallback<MouseEventHandler>(
+    (e) => {
+      e.preventDefault();
+      onClick(ctx);
+    },
+    [ctx],
+  );
   return (
-    <Button.Button
-      startIcon={icon}
-      onClick={handleSelect}
-      variant="text"
-      className={CSS(
-        CSS.BE("palette", "item"),
-        hovered && CSS.BEM("palette", "item", "hovered"),
-        CSS.BEM("palette", "item", "command"),
-      )}
-      sharp
-      style={{
-        position: "absolute",
-        transform: `translateY(${translate}px)`,
-      }}
-      {...props}
-    >
-      {name}
-    </Button.Button>
+    <Align.Pack direction="x" className={CSS.BE("palette", "action")}>
+      <Text.Keyboard
+        level="small"
+        style={{ display: "flex", alignItems: "center", padding: "0 1.5rem" }}
+        shade={7}
+      >
+        {Triggers.toSymbols(keyboardShortcut)}
+      </Text.Keyboard>
+      <Button.Button variant="outlined" size="small" shade={7}>
+        {name}
+      </Button.Button>
+    </Align.Pack>
   );
 };
 
-export const createResourceListItem = (
-  resourceTypes: Record<string, Ontology.Service>,
-): FC<List.ItemProps<string, ontology.Resource>> => {
-  const ResourceListItem = ({
-    entry: { name, key, id },
-    hovered,
-    onSelect,
-    translate,
-    ...props
-  }: List.ItemProps<string, ontology.Resource>): ReactElement | null => {
-    if (id == null) return null;
-    const handleSelect = (): void => onSelect?.(key);
-    const resourceType = resourceTypes[id.type];
+const createCommandListItem = (
+  ctx: CommandSelectionContext,
+): FC<List.ItemProps<string, Command>> => {
+  const CommandListItem = (props: List.ItemProps<string, Command>): ReactElement => {
+    const {
+      entry: { icon, name, actions },
+    } = props;
     return (
-      <Button.Button
-        startIcon={resourceType?.icon}
-        onClick={handleSelect}
-        variant="text"
-        className={CSS(
-          CSS.BE("palette", "item"),
-          hovered && CSS.BEM("palette", "item", "hovered"),
-          CSS.BEM("palette", "item", "resource"),
-        )}
-        style={{
-          position: "absolute",
-          transform: `translateY(${translate}px)`,
-        }}
+      <List.ItemFrame
+        highlightHovered
+        style={{ padding: "1.5rem" }}
+        justify="spaceBetween"
         {...props}
       >
-        {name}
-      </Button.Button>
+        <Text.WithIcon startIcon={icon} level="p" weight={400} shade={9} size="medium">
+          {name}
+        </Text.WithIcon>
+        <Align.Space direction="x" className={CSS.BE("palette", "actions")}>
+          {actions != null &&
+            actions.map((action, i) => <CommandAction key={i} {...action} ctx={ctx} />)}
+        </Align.Space>
+      </List.ItemFrame>
+    );
+  };
+  return CommandListItem;
+};
+
+type OntologyListItemProps = List.ItemProps<string, ontology.Resource>;
+
+export const createResourceListItem = (
+  resourceTypes: Ontology.Services,
+): FC<OntologyListItemProps> => {
+  const ResourceListItem = (props: OntologyListItemProps): ReactElement | null => {
+    const {
+      entry: { name, key, id },
+      onSelect,
+    } = props;
+    if (id == null) return null;
+    const resourceType = resourceTypes[id.type];
+    return (
+      <List.ItemFrame style={{ padding: "1.5rem" }} highlightHovered {...props}>
+        <Text.WithIcon
+          startIcon={resourceType?.icon}
+          level="p"
+          weight={450}
+          shade={9}
+          size="medium"
+        >
+          {name}
+        </Text.WithIcon>
+      </List.ItemFrame>
     );
   };
   ResourceListItem.displayName = "ResourceListItem";
@@ -404,9 +436,16 @@ export interface CommandSelectionContext {
   placeLayout: Layout.Placer;
 }
 
+interface CommandActionProps {
+  name: string;
+  trigger: Triggers.Trigger;
+  onClick: (ctx: CommandSelectionContext) => void;
+}
+
 export interface Command {
   key: string;
   name: string;
   icon?: ReactElement;
   onSelect: (ctx: CommandSelectionContext) => void;
+  actions?: CommandActionProps[];
 }

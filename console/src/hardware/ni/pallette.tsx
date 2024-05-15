@@ -15,14 +15,14 @@ import { digitalWriteTaskLayout } from "@/hardware/ni/DigitalWriteTask";
 export const createAnalogReadTaskCommand: Command = {
   key: "ni-create-analog-read-task",
   name: "NI - Create a New Analog Read Task",
-  icon: <Icon.PID />,
+  icon: <Icon.Logo.NI />,
   onSelect: ({ placeLayout }) => placeLayout(analogReadTaskLayout),
 };
 
 export const createDigitalWriteTaskCommand: Command = {
   key: "ni-create-digital-write-task",
   name: "NI - Create a New Digital Write Task",
-  icon: <Icon.PID />,
+  icon: <Icon.Logo.NI />,
   onSelect: ({ placeLayout }) => placeLayout(digitalWriteTaskLayout),
 };
 

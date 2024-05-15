@@ -375,7 +375,7 @@ func (w *idxWriter) Write(fr Frame) (Frame, error) {
 			return fr, err
 		}
 		if !incrementedSampleCount {
-			w.sampleCount += series.Len()
+			w.sampleCount = int64(alignment.SampleIndex()) + series.Len()
 			incrementedSampleCount = true
 		}
 		series.Alignment = alignment

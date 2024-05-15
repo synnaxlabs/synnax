@@ -14,8 +14,26 @@
     max-width: 1200px;
 }
 
+.console-palette__content {
+    width: 100%;
+    max-width: 1200px;
+    max-height: 500px;
+
+    .pluto-list__item {
+        .console-palette__actions {
+            opacity: 0;
+        }
+        &:is(:hover, .pluto--hovered) {
+            .console-palette__actions {
+                opacity: 1;
+            }
+        }
+    }
+}
+
 .console-palette__list {
     background: var(--pluto-gray-l1);
+    overflow-y: auto;
 
     & .pluto-status-text {
         height: 150px;
@@ -24,13 +42,11 @@
 
 .console-palette__content {
     width: 95vw;
-    border-radius: 1rem;
     min-height: 400px;
     max-width: 1200px;
 }
 
 .console-palette__item {
-    border-radius: 0;
     width: 100%;
 }
 

@@ -11,12 +11,12 @@ const handleSelect: Ontology.HandleSelect = ({ selection, placeLayout }) => {
 
 export const ONTOLOGY_SERVICE: Ontology.Service = {
   type: "task",
-  hasChildren: true,
+  hasChildren: false,
   icon: <Icon.Task />,
-  canDrop: () => true,
+  canDrop: () => false,
   onSelect: handleSelect,
   TreeContextMenu: undefined,
   haulItems: () => [],
-  allowRename: () => true,
+  allowRename: () => false,
   onRename: undefined,
 };

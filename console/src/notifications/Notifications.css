@@ -5,12 +5,17 @@
 
     .console-notification {
         padding: 0.75rem;
-        background: var(--pluto-gray-l3-50);
-        -webkit-backdrop-filter: blur(3rem);
-        min-width: 200px;
+        background: var(--pluto-gray-l3-60);
+        backdrop-filter: blur(5rem);
+        -webkit-backdrop-filter: blur(5rem);
+        width: 275px;
         box-shadow: var(--pluto-shadow-menu);
         border: var(--pluto-border-l4);
         border-radius: 1rem;
+
+        .console-notification__content {
+            padding: 1rem;
+        }
 
         & .console-notification__message {
             font-weight: 450;
@@ -19,6 +24,10 @@
         & .console-notification__time {
             color: var(--pluto-gray-l7);
             font-weight: 450;
+        }
+
+        & .console-notification__actions {
+            padding: 0.75rem;
         }
 
         & .console-notification__description {

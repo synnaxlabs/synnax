@@ -22,7 +22,7 @@ import (
 
 type controlEntity struct {
 	ck    core.ChannelKey
-	align telem.Alignment
+	align telem.AlignmentPair
 }
 
 func (e *controlEntity) ChannelKey() core.ChannelKey { return e.ck }

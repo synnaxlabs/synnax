@@ -20,7 +20,8 @@ import { PID } from "@/pid";
 import { ONTOLOGY_SERVICE as RANGE_ONTOLOGY_SERVICE } from "@/range/ontology";
 import { User } from "@/user";
 import { Workspace } from "@/workspace";
-import { Task } from "@/hardware/tasks";
+import { Task } from "@/hardware/task";
+import { Device } from "@/hardware/device";
 
 export const EMPTY_ONTOLOGY_SERVICE: Service = {
   type: "rack",
@@ -50,4 +51,5 @@ export const SERVICES: Record<ontology.ResourceType, Service> = {
   label: EMPTY_ONTOLOGY_SERVICE,
   rack: EMPTY_ONTOLOGY_SERVICE,
   task: Task.ONTOLOGY_SERVICE,
+  device: Device.ONTOLOGY_SERVICE,
 };

@@ -319,26 +319,51 @@ const (
 	TimeSpanDensity          = Bit64
 )
 
-type Alignment uint64
+// AlignmentPair is essentially two array index values that can be used to represent
+// the location of a sample within a group of arrays. For example, if you have two arrays
+// that have 50 elements each, and you want the 15th element of the second array, you would
+// use NewAlignmentPair(1, 15).
+//
+// You may think a better design is to just use a single number that overflows the arrays
+// before it i.e. the value of our previous example would be 50 + 14 = 64. However, this
+// requires us to know the size of all arrays, which is not always possible.
+//
+// While not as meaningful as a single number, AlignmentPair is a uint64 that guarantees
+// that a larger value is, in fact, 'positionally' after a smaller value. This is useful
+// for ordering samples correctly.
+type AlignmentPair uint64
 
-func NewAlignment(group, position uint32) Alignment {
-	return Alignment(group)<<32 | Alignment(position)
+var (
+	_ json.Unmarshaler = (*AlignmentPair)(nil)
+	_ json.Marshaler   = (*AlignmentPair)(nil)
+)
+
+// NewAlignmentPair takes the given array index and sample index within that array and
+// returns a new AlignmentPair (see AlignmentPair for more information).
+func NewAlignmentPair(arrayIndex, sampleIndex uint32) AlignmentPair {
+	return AlignmentPair(arrayIndex)<<32 | AlignmentPair(sampleIndex)
 }
 
-func LeadingAlignment(position uint32) Alignment {
-	return NewAlignment(math.MaxUint32, position)
+// LeadingAlignment returns an AlignmentPair whose array index is the maximum possible value
+// and whose sample index is the provided value.
+func LeadingAlignment(sampleIndex uint32) AlignmentPair {
+	return NewAlignmentPair(math.MaxUint32, sampleIndex)
 }
 
-func (a Alignment) Group() uint32 { return uint32(a >> 32) }
+// ArrayIndex returns the array index of the AlignmentPair. See AlignmentPair for more information.
+func (a AlignmentPair) ArrayIndex() uint32 { return uint32(a >> 32) }
 
-func (a Alignment) Position() uint32 { return uint32(a) }
+// SampleIndex returns the sample index of the AlignmentPair. See AlignmentPair for more information.
+func (a AlignmentPair) SampleIndex() uint32 { return uint32(a) }
 
-func (a *Alignment) UnmarshalJSON(b []byte) error {
+// UnmarshalJSON implements json.Unmarshaler.
+func (a *AlignmentPair) UnmarshalJSON(b []byte) error {
 	n, err := binary.UnmarshalStringUint64(b)
-	*a = Alignment(n)
+	*a = AlignmentPair(n)
 	return err
 }
 
-func (a *Alignment) MarshalJSON() ([]byte, error) {
+// MarshalJSON implements json.Marshaler.
+func (a *AlignmentPair) MarshalJSON() ([]byte, error) {
 	return []byte("\"" + strconv.FormatUint(uint64(*a), 10) + "\""), nil
 }
