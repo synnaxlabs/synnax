@@ -126,7 +126,7 @@ export class Controller
     const { client, addStatus } = this.internal;
     if (client == null)
       return addStatus({
-        message: `Cannot acquire control on ${this.state.name} because no cluster has been connected`,
+        message: `Cannot acquire control on ${this.state.name} because no cluster has been connected.`,
         variant: "warning",
       });
 
@@ -135,7 +135,7 @@ export class Controller
       const needsControlOf = this.state.needsControlOf;
       if (needsControlOf.length === 0)
         return addStatus({
-          message: `Cannot acquire control on ${this.state.name} - no channels to control!`,
+          message: `Cannot acquire control on ${this.state.name} because there are no channels to control.`,
           variant: "warning",
         });
 

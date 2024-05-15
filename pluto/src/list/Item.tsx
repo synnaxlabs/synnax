@@ -20,9 +20,10 @@ import "@/list/Item.css";
 
 export interface ItemFrameProps<K extends Key, E extends Keyed<K>>
   extends Omit<ItemProps<K, E>, "columns">,
-    Omit<Align.SpaceProps, "key" | "style" | "onSelect" | "translate"> {
+    Omit<Align.SpaceProps, "key" | "onSelect" | "translate"> {
   draggingOver?: boolean;
   rightAligned?: boolean;
+  highlightHovered?: boolean;
 }
 
 export const ItemFrame = <K extends Key, E extends Keyed<K>>({
@@ -33,7 +34,9 @@ export const ItemFrame = <K extends Key, E extends Keyed<K>>({
   className,
   draggingOver = false,
   rightAligned = false,
+  highlightHovered = false,
   translate,
+  style,
   ...props
 }: ItemFrameProps<K, E>): ReactElement => (
   <Align.Space
@@ -47,12 +50,14 @@ export const ItemFrame = <K extends Key, E extends Keyed<K>>({
       selected && CONTEXT_SELECTED,
       hovered && CSS.M("hovered"),
       rightAligned && CSS.M("right-aligned"),
+      highlightHovered && CSS.M("highlight-hover"),
       CSS.BE("list", "item"),
       CSS.selected(selected),
     )}
     style={{
       position: translate != null ? "absolute" : "relative",
       transform: `translateY(${translate}px)`,
+      ...style,
     }}
     {...props}
   />

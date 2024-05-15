@@ -9,22 +9,23 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-connect-cluster .console-input__port {
-    width: 20rem;
-}
-
-.console-connect-cluster .console-input__host {
-     width: 20rem;
-}
-
-.console-connect-cluster .console-input__password {
-    width: 100%;
-}
-
-.console-connect-cluster .console-footer__start {
-    padding: 0 2rem;
-}
-
-.console-connect-cluster .console-footer__end {
+.console-connect-cluster {
+    .console-form {
+        padding: 0 4rem;
+    }
+    .console-input__port {
+        width: 20rem;
+    }
+    .console-input__host {
+        width: 20rem;
+    }
+    .console-input__password {
+        width: 100%;
+    }
+    .console-footer__start {
+        padding: 0 2rem;
+    }
+    .console-footer__end {
         padding: 1rem;
+    }
 }

@@ -110,8 +110,12 @@ const Notification = ({
           <Icon.Close />
         </Button.Icon>
       </Align.Space>
-
-      <Align.Space direction="y" align="start" size="small">
+      <Align.Space
+        direction="y"
+        align="start"
+        className={CSS(CSS.BE("notification", "content"))}
+        size="small"
+      >
         <Text.Text
           className={CSS(CSS.BE("notification", "message"))}
           level="p"
@@ -125,7 +129,8 @@ const Notification = ({
             level="small"
             style={{ flexGrow: 1 }}
           >
-            {description}
+            This is the description of my action and this is the even more multi-line
+            than the message.
           </Text.Text>
         )}
       </Align.Space>
@@ -133,6 +138,7 @@ const Notification = ({
         <Align.Space
           direction="x"
           align="center"
+          justify="end"
           className={CSS(CSS.BE("notification", "actions"))}
         >
           {toArray<ReactElement | Button.ButtonProps>(adapted.actions).map(

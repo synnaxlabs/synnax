@@ -1,1 +1,1 @@
-export * as Device from "@/hardware/device/useListenForChanges";
+export * as Device from "@/hardware/device/external";
