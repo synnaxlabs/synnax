@@ -12,9 +12,9 @@ package unary_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/unary"
+	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -27,12 +27,12 @@ var _ = Describe("Delete", Ordered, func() {
 				db      *unary.DB
 				indexDB *unary.DB
 				rateDB  *unary.DB
-				index   cesium.ChannelKey = 11
-				data    cesium.ChannelKey = 12
-				rate    cesium.ChannelKey = 13
-				pth1                      = rootPath + "/delete_test/index"
-				pth2                      = rootPath + "/delete_test/data"
-				pth3                      = rootPath + "/delete_test/rate"
+				index   = GenerateChannelKey()
+				data    = GenerateChannelKey()
+				rate    = GenerateChannelKey()
+				pth1    = rootPath + "/delete_test/index"
+				pth2    = rootPath + "/delete_test/data"
+				pth3    = rootPath + "/delete_test/rate"
 			)
 			BeforeEach(func() {
 				By("Creating channels")
@@ -69,129 +69,606 @@ var _ = Describe("Delete", Ordered, func() {
 				Expect(rateDB.Close()).To(Succeed())
 				Expect(fs.Remove(rootPath)).To(Succeed())
 			})
-			Describe("Simple Rate-based channel", func() {
-				It("Should delete chunks of a channel", func() {
-					By("Writing data to the channel")
-					Expect(unary.Write(ctx, rateDB, 10*telem.SecondTS, telem.NewSeriesV[int64](10, 11, 12, 13, 14, 15, 16, 17, 18))).To(Succeed())
+			Describe("Single-domain deletion", func() {
+				Context("Rate-based channels", func() {
+					BeforeEach(func() {
+						Expect(unary.Write(ctx, rateDB, 10*telem.SecondTS, telem.NewSeriesV[int64](10, 11, 12, 13, 14, 15, 16, 17, 18))).To(Succeed())
+					})
+					It("Should delete chunks of a channel with both exact timestamps", func() {
+						Expect(rateDB.Delete(ctx, telem.TimeRange{
+							Start: 12 * telem.SecondTS,
+							End:   15 * telem.SecondTS,
+						})).To(Succeed())
 
-					// Data before deletion: 10, 11, 12, 13, 14, 15, 16, 17, 18
+						// Data after deletion: 10, 11, __, __, __, 15, 16, 17, 18
+						frame := MustSucceed(rateDB.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 19 * telem.SecondTS}))
+						Expect(frame.Series).To(HaveLen(2))
 
-					By("Deleting channel data")
-					Expect(rateDB.Delete(ctx, telem.TimeRange{
-						Start: 12 * telem.SecondTS,
-						End:   15 * telem.SecondTS,
-					})).To(Succeed())
+						Expect(frame.Series[0].TimeRange.End).To(Equal(12 * telem.SecondTS))
+						series0Data := telem.UnmarshalSlice[int](frame.Series[0].Data, telem.Int64T)
+						Expect(series0Data).To(ConsistOf(10, 11))
 
-					// Data after deletion: 10, 11, __, __, __, 15, 16, 17, 18
-					iter := rateDB.OpenIterator(unary.IterRange((10 * telem.SecondTS).SpanRange(10 * telem.Second)))
-					Expect(iter.SeekFirst(ctx)).To(BeTrue())
+						Expect(frame.Series[1].TimeRange.Start).To(Equal(15 * telem.SecondTS))
+						series1Data := telem.UnmarshalSlice[int](frame.Series[1].Data, telem.Int64T)
+						Expect(series1Data).To(ConsistOf(15, 16, 17, 18))
+					})
+					It("Should delete a chunk even when the timerange is not exact", func() {
+						Expect(rateDB.Delete(ctx, telem.TimeRange{
+							Start: 13*telem.SecondTS + 500*telem.MillisecondTS,
+							End:   16*telem.SecondTS + 500*telem.MillisecondTS,
+						})).To(Succeed())
 
-					frame, err := rateDB.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 19 * telem.SecondTS})
-					Expect(err).ToNot(HaveOccurred())
-					Expect(frame.Series).To(HaveLen(2))
+						frame := MustSucceed(rateDB.Read(ctx, telem.TimeRangeMax))
+						Expect(frame.Series).To(HaveLen(2))
 
-					Expect(frame.Series[0].TimeRange.End).To(Equal(12 * telem.SecondTS))
-					series0Data := telem.UnmarshalSlice[int](frame.Series[0].Data, telem.Int64T)
-					Expect(series0Data).To(ContainElement(10))
-					Expect(series0Data).To(ContainElement(11))
-					Expect(series0Data).ToNot(ContainElement(12))
+						Expect(frame.Series[0].TimeRange.End).To(Equal(13*telem.SecondTS + 500*telem.MillisecondTS))
+						series0Data := telem.UnmarshalSlice[int](frame.Series[0].Data, telem.Int64T)
+						Expect(series0Data).To(ConsistOf(10, 11, 12, 13))
 
-					Expect(frame.Series[1].TimeRange.Start).To(Equal(15 * telem.SecondTS))
-					series1Data := telem.UnmarshalSlice[int](frame.Series[1].Data, telem.Int64T)
-					Expect(series1Data).ToNot(ContainElement(14))
-					Expect(series1Data).To(ContainElement(15))
-					Expect(series1Data).To(ContainElement(16))
-					Expect(series1Data).To(ContainElement(17))
-					Expect(series1Data).To(ContainElement(18))
+						Expect(frame.Series[1].TimeRange.Start).To(Equal(16*telem.SecondTS + 500*telem.MillisecondTS))
+						series1Data := telem.UnmarshalSlice[int](frame.Series[1].Data, telem.Int64T)
+						Expect(series1Data).To(ConsistOf(17, 18))
+					})
+					It("Should delete a chunk when the end of the delete is the end of the pointer", func() {
+						Expect(rateDB.Delete(ctx, telem.TimeRange{
+							Start: 13*telem.SecondTS + 500*telem.MillisecondTS,
+							End:   18*telem.SecondTS + 1,
+						})).To(Succeed())
+
+						frame := MustSucceed(rateDB.Read(ctx, telem.TimeRangeMax))
+						Expect(frame.Series).To(HaveLen(1))
+
+						Expect(frame.Series[0].TimeRange.End).To(Equal(13*telem.SecondTS + 500*telem.MillisecondTS))
+						series0Data := telem.UnmarshalSlice[int](frame.Series[0].Data, telem.Int64T)
+						Expect(series0Data).To(ConsistOf(10, 11, 12, 13))
+					})
+					It("Should delete a chunk when the start of the delete is the start of the pointer", func() {
+						Expect(rateDB.Delete(ctx, telem.TimeRange{
+							Start: 10 * telem.SecondTS,
+							End:   16*telem.SecondTS + 500*telem.MillisecondTS,
+						})).To(Succeed())
+
+						frame := MustSucceed(rateDB.Read(ctx, telem.TimeRangeMax))
+						Expect(frame.Series).To(HaveLen(1))
+
+						Expect(frame.Series[0].TimeRange.Start).To(Equal(16*telem.SecondTS + 500*telem.MillisecondTS))
+						series0Data := telem.UnmarshalSlice[int](frame.Series[0].Data, telem.Int64T)
+						Expect(series0Data).To(ConsistOf(17, 18))
+					})
+					It("Should delete a chunk when the start is out of the pointer", func() {
+						Expect(rateDB.Delete(ctx, telem.TimeRange{
+							Start: 8 * telem.SecondTS,
+							End:   17*telem.SecondTS + 500*telem.MillisecondTS,
+						})).To(Succeed())
+
+						frame := MustSucceed(rateDB.Read(ctx, telem.TimeRangeMax))
+						Expect(frame.Series).To(HaveLen(1))
+
+						Expect(frame.Series[0].TimeRange.Start).To(Equal(17*telem.SecondTS + 500*telem.MillisecondTS))
+						series0Data := telem.UnmarshalSlice[int](frame.Series[0].Data, telem.Int64T)
+						Expect(series0Data).To(ConsistOf(18))
+					})
+					It("Should delete a chunk when the end is out of the pointer", func() {
+						Expect(rateDB.Delete(ctx, telem.TimeRange{
+							Start: 13*telem.SecondTS + 500*telem.MillisecondTS,
+							End:   20 * telem.SecondTS,
+						})).To(Succeed())
+
+						frame := MustSucceed(rateDB.Read(ctx, telem.TimeRangeMax))
+						Expect(frame.Series).To(HaveLen(1))
+
+						Expect(frame.Series[0].TimeRange.End).To(Equal(13*telem.SecondTS + 500*telem.MillisecondTS))
+						series0Data := telem.UnmarshalSlice[int](frame.Series[0].Data, telem.Int64T)
+						Expect(series0Data).To(ConsistOf(10, 11, 12, 13))
+					})
+					It("Should delete a whole domain when both timestamps are out of the pointer", func() {
+						Expect(rateDB.Delete(ctx, telem.TimeRange{
+							Start: 8 * telem.SecondTS,
+							End:   20 * telem.SecondTS,
+						})).To(Succeed())
+
+						iter := rateDB.OpenIterator(unary.IterRange((10 * telem.SecondTS).SpanRange(10 * telem.Second)))
+						Expect(iter.SeekFirst(ctx)).To(BeFalse())
+						Expect(iter.Close()).To(Succeed())
+					})
 				})
-				It("Should delete a whole domain", func() {
-					By("Writing data to the channel")
-					Expect(unary.Write(ctx, rateDB, 10*telem.SecondTS, telem.NewSeriesV[int64](10, 11, 12, 13, 14, 15, 16, 17, 18))).To(Succeed())
 
-					By("Deleting channel data")
-					Expect(rateDB.Delete(ctx, telem.TimeRange{
-						Start: 10 * telem.SecondTS,
-						End:   19 * telem.SecondTS,
-					})).To(Succeed())
+				Context("Index channels", func() {
+					It("Should delete chunks of a channel with both exact timestamps", func() {
+						Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18, 19))).To(Succeed())
+						Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewSeriesV[int64](0, 1, 2, 3, 4, 5, 6, 7, 8, 9))).To(Succeed())
 
-					iter := rateDB.OpenIterator(unary.IterRange((10 * telem.SecondTS).SpanRange(10 * telem.Second)))
-					Expect(iter.SeekFirst(ctx)).To(BeFalse())
+						By("Deleting channel data")
+						Expect(db.Delete(ctx, telem.TimeRange{
+							Start: 12 * telem.SecondTS,
+							End:   17 * telem.SecondTS,
+						})).To(Succeed())
+
+						frame, err := db.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 20 * telem.SecondTS})
+						Expect(err).ToNot(HaveOccurred())
+
+						Expect(frame.Series).To(HaveLen(2))
+						Expect(frame.Series[0].TimeRange.End).To(Equal(12 * telem.SecondTS))
+						series0Data := telem.UnmarshalSlice[int](frame.Series[0].Data, telem.Int64T)
+						Expect(series0Data).To(ConsistOf(0, 1))
+
+						Expect(frame.Series[1].TimeRange.Start).To(Equal(17 * telem.SecondTS))
+						series1Data := telem.UnmarshalSlice[int](frame.Series[1].Data, telem.Int64T)
+						Expect(series1Data).To(ConsistOf(7, 8, 9))
+					})
+					It("Should delete chunks of a channel without exact timestamps", func() {
+						Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18, 19))).To(Succeed())
+						Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewSeriesV[int64](0, 1, 2, 3, 4, 5, 6, 7, 8, 9))).To(Succeed())
+
+						By("Deleting channel data")
+						Expect(db.Delete(ctx, telem.TimeRange{
+							Start: 12*telem.SecondTS + 300*telem.MillisecondTS,
+							End:   17*telem.SecondTS + 1,
+						})).To(Succeed())
+
+						frame, err := db.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 20 * telem.SecondTS})
+						Expect(err).ToNot(HaveOccurred())
+						Expect(frame.Series).To(HaveLen(2))
+
+						Expect(frame.Series[0].TimeRange.End).To(Equal(12*telem.SecondTS + 300*telem.MillisecondTS))
+						series0Data := telem.UnmarshalSlice[int](frame.Series[0].Data, telem.Int64T)
+						Expect(series0Data).To(ConsistOf(0, 1, 2))
+
+						Expect(frame.Series[1].TimeRange.Start).To(Equal(17*telem.SecondTS + 1))
+						series1Data := telem.UnmarshalSlice[int](frame.Series[1].Data, telem.Int64T)
+						Expect(series1Data).To(ConsistOf(8, 9))
+					})
+					It("Should delete chunks of a channel if the start is out of the pointer", func() {
+						Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18, 19))).To(Succeed())
+						Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewSeriesV[int64](0, 1, 2, 3, 4, 5, 6, 7, 8, 9))).To(Succeed())
+
+						By("Deleting channel data")
+						Expect(db.Delete(ctx, telem.TimeRange{
+							Start: 9 * telem.SecondTS,
+							End:   17*telem.SecondTS + 1,
+						})).To(Succeed())
+
+						frame, err := db.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 20 * telem.SecondTS})
+						Expect(err).ToNot(HaveOccurred())
+						Expect(frame.Series).To(HaveLen(1))
+
+						Expect(frame.Series[0].TimeRange.Start).To(Equal(17*telem.SecondTS + 1))
+						series1Data := telem.UnmarshalSlice[int](frame.Series[0].Data, telem.Int64T)
+						Expect(series1Data).To(ConsistOf(8, 9))
+					})
+					It("Should delete chunks of a channel if the end is out of the pointer", func() {
+						Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18, 19))).To(Succeed())
+						Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewSeriesV[int64](0, 1, 2, 3, 4, 5, 6, 7, 8, 9))).To(Succeed())
+
+						By("Deleting channel data")
+						Expect(db.Delete(ctx, telem.TimeRange{
+							Start: 13 * telem.SecondTS,
+							End:   20 * telem.SecondTS,
+						})).To(Succeed())
+
+						frame, err := db.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 20 * telem.SecondTS})
+						Expect(err).ToNot(HaveOccurred())
+						Expect(frame.Series).To(HaveLen(1))
+
+						Expect(frame.Series[0].TimeRange.End).To(Equal(13 * telem.SecondTS))
+						series0Data := telem.UnmarshalSlice[int](frame.Series[0].Data, telem.Int64T)
+						Expect(series0Data).To(ConsistOf(0, 1, 2))
+					})
+					It("Should delete the whole channel", func() {
+						Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18, 19))).To(Succeed())
+						Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewSeriesV[int64](0, 1, 2, 3, 4, 5, 6, 7, 8, 9))).To(Succeed())
+
+						By("Deleting channel data")
+						Expect(db.Delete(ctx, telem.TimeRange{
+							Start: 10 * telem.SecondTS,
+							End:   19*telem.SecondTS + 1,
+						})).To(Succeed())
+
+						i := db.OpenIterator(unary.IterRange(telem.TimeRangeMax))
+						Expect(i.SeekFirst(ctx)).To(BeFalse())
+						Expect(i.Close()).To(Succeed())
+					})
+				})
+
+				Context("Indexed channels", func() {
+					It("Should delete chunks of a channel with both exact timestamps", func() {
+						Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18, 19))).To(Succeed())
+
+						By("Deleting channel data")
+						Expect(indexDB.Delete(ctx, telem.TimeRange{
+							Start: 12 * telem.SecondTS,
+							End:   17 * telem.SecondTS,
+						})).To(Succeed())
+
+						frame, err := indexDB.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 20 * telem.SecondTS})
+						Expect(err).ToNot(HaveOccurred())
+
+						Expect(frame.Series).To(HaveLen(2))
+						Expect(frame.Series[0].TimeRange.End).To(Equal(12 * telem.SecondTS))
+						series0Data := telem.UnmarshalSlice[telem.TimeStamp](frame.Series[0].Data, telem.TimeStampT)
+						Expect(series0Data).To(ConsistOf(10*telem.SecondTS, 11*telem.SecondTS))
+
+						Expect(frame.Series[1].TimeRange.Start).To(Equal(17 * telem.SecondTS))
+						series1Data := telem.UnmarshalSlice[telem.TimeStamp](frame.Series[1].Data, telem.TimeStampT)
+						Expect(series1Data).To(ConsistOf(17*telem.SecondTS, 18*telem.SecondTS, 19*telem.SecondTS))
+					})
+					It("Should delete chunks of a channel without exact timestamps", func() {
+						Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18, 19))).To(Succeed())
+
+						By("Deleting channel data")
+						Expect(indexDB.Delete(ctx, telem.TimeRange{
+							Start: 12*telem.SecondTS + 300*telem.MillisecondTS,
+							End:   17*telem.SecondTS + 1,
+						})).To(Succeed())
+
+						frame, err := indexDB.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 20 * telem.SecondTS})
+						Expect(err).ToNot(HaveOccurred())
+
+						Expect(frame.Series).To(HaveLen(2))
+						Expect(frame.Series[0].TimeRange.End).To(Equal(12*telem.SecondTS + 300*telem.MillisecondTS))
+						series0Data := telem.UnmarshalSlice[telem.TimeStamp](frame.Series[0].Data, telem.TimeStampT)
+						Expect(series0Data).To(ConsistOf(10*telem.SecondTS, 11*telem.SecondTS, 12*telem.SecondTS))
+
+						Expect(frame.Series[1].TimeRange.Start).To(Equal(17*telem.SecondTS + 1))
+						series1Data := telem.UnmarshalSlice[telem.TimeStamp](frame.Series[1].Data, telem.TimeStampT)
+						Expect(series1Data).To(ConsistOf(18*telem.SecondTS, 19*telem.SecondTS))
+					})
+					It("Should delete chunks of a channel if the start is out of the pointer", func() {
+						Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18, 19))).To(Succeed())
+
+						By("Deleting channel data")
+						Expect(indexDB.Delete(ctx, telem.TimeRange{
+							Start: 9 * telem.SecondTS,
+							End:   17*telem.SecondTS + 1,
+						})).To(Succeed())
+
+						frame, err := indexDB.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 20 * telem.SecondTS})
+						Expect(err).ToNot(HaveOccurred())
+
+						Expect(frame.Series).To(HaveLen(1))
+
+						Expect(frame.Series[0].TimeRange.Start).To(Equal(17*telem.SecondTS + 1))
+						series1Data := telem.UnmarshalSlice[telem.TimeStamp](frame.Series[0].Data, telem.TimeStampT)
+						Expect(series1Data).To(ConsistOf(18*telem.SecondTS, 19*telem.SecondTS))
+					})
+					It("Should delete chunks of a channel if the end is out of the pointer", func() {
+						Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18, 19))).To(Succeed())
+
+						By("Deleting channel data")
+						Expect(indexDB.Delete(ctx, telem.TimeRange{
+							Start: 12*telem.SecondTS + 300*telem.MillisecondTS,
+							End:   33 * telem.SecondTS,
+						})).To(Succeed())
+
+						frame, err := indexDB.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 20 * telem.SecondTS})
+						Expect(err).ToNot(HaveOccurred())
+
+						Expect(frame.Series).To(HaveLen(1))
+						Expect(frame.Series[0].TimeRange.End).To(Equal(12*telem.SecondTS + 300*telem.MillisecondTS))
+						series0Data := telem.UnmarshalSlice[telem.TimeStamp](frame.Series[0].Data, telem.TimeStampT)
+						Expect(series0Data).To(ConsistOf(10*telem.SecondTS, 11*telem.SecondTS, 12*telem.SecondTS))
+					})
+					It("Should delete the whole channel", func() {
+						Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18, 19))).To(Succeed())
+
+						By("Deleting channel data")
+						Expect(indexDB.Delete(ctx, telem.TimeRange{
+							Start: 10 * telem.SecondTS,
+							End:   19*telem.SecondTS + 1,
+						})).To(Succeed())
+
+						i := indexDB.OpenIterator(unary.IterRange(telem.TimeRangeMax))
+						Expect(i.SeekFirst(ctx)).To(BeFalse())
+						Expect(i.Close()).To(Succeed())
+					})
 				})
 			})
 
-			Describe("Simple Index-based channel", func() {
-				It("Should delete chunks of a channel", func() {
-					By("Writing data to the channel")
-					Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18, 19))).To(Succeed())
-					Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewSeriesV[int64](0, 1, 2, 3, 4, 5, 6, 7, 8, 9))).To(Succeed())
+			Describe("Cross-domain deletion", func() {
+				Context("Rate-based channels", func() {
+					BeforeEach(func() {
+						By("Writing data to the channel")
+						Expect(unary.Write(ctx, rateDB, 10*telem.SecondTS, telem.NewSeriesV[int64](10, 11, 12, 13)))
+						Expect(unary.Write(ctx, rateDB, 20*telem.SecondTS, telem.NewSeriesV[int64](20, 21, 22, 23, 24)))
+						Expect(unary.Write(ctx, rateDB, 30*telem.SecondTS, telem.NewSeriesV[int64](30, 31, 32, 33, 34, 35, 36, 37)))
+					})
+					It("Should delete across two such domains", func() {
+						By("Deleting channel data")
+						Expect(rateDB.Delete(ctx, telem.TimeRange{
+							Start: 12 * telem.SecondTS,
+							End:   32 * telem.SecondTS,
+						})).To(Succeed())
 
-					// Before deletion:
-					// 10 11 12 13 14 15 16 17 18 19
-					//  0  1  2  3  4  5  6  7  8  9
+						frame, err := rateDB.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 100 * telem.SecondTS})
+						Expect(err).ToNot(HaveOccurred())
+						Expect(frame.Series).To(HaveLen(2))
 
-					By("Deleting channel data")
-					Expect(db.Delete(ctx, telem.TimeRange{
-						Start: 12 * telem.SecondTS,
-						End:   17 * telem.SecondTS,
-					})).To(Succeed())
+						Expect(frame.Series[0].TimeRange.End).To(Equal(12 * telem.SecondTS))
+						series0Data := telem.UnmarshalSlice[int](frame.Series[0].Data, telem.Int64T)
+						Expect(series0Data).To(ContainElement(10))
+						Expect(series0Data).To(ContainElement(11))
+						Expect(series0Data).ToNot(ContainElement(12))
 
-					// After deletion:
-					// 10 11 12 13 14 15 16 17 18 19
-					//  0  1                 7  8  9
+						Expect(frame.Series[1].TimeRange.Start).To(Equal(32 * telem.SecondTS))
+						series1Data := telem.UnmarshalSlice[int](frame.Series[1].Data, telem.Int64T)
+						Expect(series1Data).ToNot(ContainElement(31))
+						Expect(series1Data).To(ContainElement(32))
+					})
+					It("Should delete full domains", func() {
+						Expect(rateDB.Delete(ctx, telem.TimeRange{
+							Start: 10 * telem.SecondTS,
+							End:   30 * telem.SecondTS,
+						})).To(Succeed())
 
-					frame, err := db.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 20 * telem.SecondTS})
-					Expect(err).ToNot(HaveOccurred())
-					Expect(frame.Series).To(HaveLen(2))
-					Expect(frame.Series[0].TimeRange.End).To(Equal(12 * telem.SecondTS))
+						frame, err := rateDB.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 100 * telem.SecondTS})
+						Expect(err).ToNot(HaveOccurred())
+						Expect(frame.Series).To(HaveLen(1))
 
-					series0Data := telem.UnmarshalSlice[int](frame.Series[0].Data, telem.Int64T)
-					Expect(series0Data).To(ContainElement(0))
-					Expect(series0Data).To(ContainElement(1))
-					Expect(series0Data).ToNot(ContainElement(2))
+						Expect(frame.Series[0].TimeRange.Start).To(Equal(30 * telem.SecondTS))
+						series0Data := telem.UnmarshalSlice[int](frame.Series[0].Data, telem.Int64T)
+						Expect(series0Data).To(ContainElement(30))
+						Expect(series0Data).To(ContainElement(31))
+						Expect(series0Data).ToNot(ContainElement(29))
+					})
+					It("Should delete entire db", func() {
+						Expect(rateDB.Delete(ctx, telem.TimeRange{
+							Start: 10 * telem.SecondTS,
+							End:   38 * telem.SecondTS,
+						})).To(Succeed())
 
-					Expect(frame.Series[1].TimeRange.Start).To(Equal(17 * telem.SecondTS))
-					series1Data := telem.UnmarshalSlice[int](frame.Series[1].Data, telem.Int64T)
-
-					Expect(series1Data).ToNot(ContainElement(6))
-					Expect(series1Data).To(ContainElement(7))
-					Expect(series1Data).To(ContainElement(8))
-					Expect(series1Data).To(ContainElement(9))
+						frame, err := rateDB.Read(ctx, telem.TimeRangeMax)
+						Expect(err).ToNot(HaveOccurred())
+						Expect(frame.Series).To(HaveLen(0))
+					})
 				})
-			})
+				Context("Indexed channels", func() {
+					BeforeEach(func() {
+						By("Writing data to the channel")
+						Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesV[telem.TimeStamp](10*telem.SecondTS, 13*telem.SecondTS, 13*telem.SecondTS+500*telem.MillisecondTS, 18*telem.SecondTS, 19*telem.SecondTS))).To(Succeed())
+						Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewSeriesV[int64](10, 13, 131, 18, 19))).To(Succeed())
 
-			Describe("Deleting simple index channel", func() {
-				It("Should Delete chunks off the index channel", func() {
-					By("Writing data to the channel")
-					// Before deletion:
-					// 10 11 12 13 14 15 16 17 18 19
-					//  0  1  2  3  4  5  6  7  8  9
-					Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18, 19))).To(Succeed())
+						Expect(unary.Write(ctx, indexDB, 20*telem.SecondTS, telem.NewSeriesV[telem.TimeStamp](20*telem.SecondTS, 23500*telem.MillisecondTS, 23600*telem.MillisecondTS, 23800*telem.MillisecondTS, 25100*telem.MillisecondTS, 27800*telem.MillisecondTS))).To(Succeed())
+						Expect(unary.Write(ctx, db, 20*telem.SecondTS, telem.NewSeriesV[int64](200, 235, 236, 238, 251, 278))).To(Succeed())
+					})
+					It("Should delete across two such domains", func() {
+						By("Deleting channel data")
+						Expect(db.Delete(ctx, telem.TimeRange{
+							Start: 13*telem.SecondTS + 400*telem.MillisecondTS,
+							End:   24 * telem.SecondTS,
+						})).To(Succeed())
 
-					By("Deleting channel data")
-					Expect(indexDB.Delete(ctx, telem.TimeRange{
-						Start: 12 * telem.SecondTS,
-						End:   17 * telem.SecondTS,
-					})).To(Succeed())
+						frame, err := db.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 100 * telem.SecondTS})
+						Expect(err).ToNot(HaveOccurred())
+						Expect(frame.Series).To(HaveLen(2))
 
-					// After deletion:
-					// 10 11                17 18 19
+						Expect(frame.Series[0].TimeRange.End).To(Equal(13*telem.SecondTS + 400*telem.MillisecondTS))
+						series0Data := telem.UnmarshalSlice[int](frame.Series[0].Data, telem.Int64T)
+						Expect(series0Data).To(ConsistOf(10, 13))
 
-					frame, err := indexDB.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 20 * telem.SecondTS})
-					Expect(err).ToNot(HaveOccurred())
-					Expect(frame.Series).To(HaveLen(2))
+						Expect(frame.Series[1].TimeRange.Start).To(Equal(24 * telem.SecondTS))
+						series1Data := telem.UnmarshalSlice[int](frame.Series[1].Data, telem.Int64T)
+						Expect(series1Data).To(ConsistOf(251, 278))
+					})
+					It("Should delete full domains", func() {
+						Expect(db.Delete(ctx, telem.TimeRange{
+							Start: 10 * telem.SecondTS,
+							End:   20 * telem.SecondTS,
+						})).To(Succeed())
 
-					series0Data := telem.UnmarshalSlice[telem.TimeStamp](frame.Series[0].Data, telem.TimeStampT)
-					Expect(series0Data).To(ContainElement(10 * telem.SecondTS))
-					Expect(series0Data).To(ContainElement(11 * telem.SecondTS))
-					Expect(series0Data).ToNot(ContainElement(12 * telem.SecondTS))
+						frame, err := db.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 100 * telem.SecondTS})
+						Expect(err).ToNot(HaveOccurred())
+						Expect(frame.Series).To(HaveLen(1))
 
-					Expect(frame.Series[1].TimeRange.Start).To(Equal(17 * telem.SecondTS))
-					series1Data := telem.UnmarshalSlice[telem.TimeStamp](frame.Series[1].Data, telem.TimeStampT)
+						Expect(frame.Series[0].TimeRange.Start).To(Equal(20 * telem.SecondTS))
+						series0Data := telem.UnmarshalSlice[int](frame.Series[0].Data, telem.Int64T)
+						Expect(series0Data).To(ConsistOf(200, 235, 236, 238, 251, 278))
+					})
+					It("Should delete entire db", func() {
+						Expect(db.Delete(ctx, telem.TimeRangeMax)).To(Succeed())
 
-					Expect(series1Data).ToNot(ContainElement(16 * telem.SecondTS))
-					Expect(series1Data).To(ContainElement(17 * telem.SecondTS))
-					Expect(series1Data).To(ContainElement(18 * telem.SecondTS))
-					Expect(series1Data).To(ContainElement(19 * telem.SecondTS))
+						frame, err := rateDB.Read(ctx, telem.TimeRangeMax)
+						Expect(err).ToNot(HaveOccurred())
+						Expect(frame.Series).To(HaveLen(0))
+					})
+				})
+				Context("Index channels", func() {
+
+				})
+				Context("Overshooting timerange", func() {
+					BeforeEach(func() {
+						By("Writing data to the channel")
+						Expect(unary.Write(ctx, rateDB, 10*telem.SecondTS, telem.NewSeriesV[int64](10, 11, 12, 13)))
+						Expect(unary.Write(ctx, rateDB, 20*telem.SecondTS, telem.NewSeriesV[int64](20, 21, 22, 23, 24)))
+						Expect(unary.Write(ctx, rateDB, 30*telem.SecondTS, telem.NewSeriesV[int64](30, 31, 32, 33, 34, 35, 36, 37)))
+					})
+					It("Should delete even when the start timestamp is not in bounds of a pointer", func() {
+						By("Deleting channel data")
+						Expect(rateDB.Delete(ctx, telem.TimeRange{
+							Start: 18 * telem.SecondTS,
+							End:   32 * telem.SecondTS,
+						})).To(Succeed())
+
+						frame, err := rateDB.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 100 * telem.SecondTS})
+						Expect(err).ToNot(HaveOccurred())
+						Expect(frame.Series).To(HaveLen(2))
+
+						Expect(frame.Series[0].TimeRange.End).To(BeNumerically(">", 13*telem.SecondTS))
+						Expect(frame.Series[0].TimeRange.End).To(BeNumerically("<", 14*telem.SecondTS))
+						series0Data := telem.UnmarshalSlice[int](frame.Series[0].Data, telem.Int64T)
+						Expect(series0Data).To(ContainElement(10))
+						Expect(series0Data).To(ContainElement(11))
+						Expect(series0Data).To(ContainElement(12))
+						Expect(series0Data).To(ContainElement(13))
+
+						Expect(frame.Series[1].TimeRange.Start).To(Equal(32 * telem.SecondTS))
+						series1Data := telem.UnmarshalSlice[int](frame.Series[1].Data, telem.Int64T)
+						Expect(series1Data).ToNot(ContainElement(31))
+						Expect(series1Data).To(ContainElement(32))
+					})
+					It("Should delete even when the start timestamp is not in bounds of the db", func() {
+						By("Deleting channel data")
+						Expect(rateDB.Delete(ctx, telem.TimeRange{
+							Start: 8 * telem.SecondTS,
+							End:   32 * telem.SecondTS,
+						})).To(Succeed())
+
+						frame, err := rateDB.Read(ctx, telem.TimeRange{Start: 3 * telem.SecondTS, End: 100 * telem.SecondTS})
+						Expect(err).ToNot(HaveOccurred())
+						Expect(frame.Series).To(HaveLen(1))
+
+						Expect(frame.Series[0].TimeRange.Start).To(Equal(32 * telem.SecondTS))
+						series1Data := telem.UnmarshalSlice[int](frame.Series[0].Data, telem.Int64T)
+						Expect(series1Data).ToNot(ContainElement(31))
+						Expect(series1Data).To(ContainElement(32))
+					})
+					It("Should delete even when the end timestamp is not in bounds of a pointer", func() {
+						By("Deleting channel data")
+						Expect(rateDB.Delete(ctx, telem.TimeRange{
+							Start: 23 * telem.SecondTS,
+							End:   26 * telem.SecondTS,
+						})).To(Succeed())
+
+						frame, err := rateDB.Read(ctx, telem.TimeRange{Start: 20 * telem.SecondTS, End: 100 * telem.SecondTS})
+						Expect(err).ToNot(HaveOccurred())
+						Expect(frame.Series).To(HaveLen(2))
+
+						Expect(frame.Series[0].TimeRange.End).To(Equal(23 * telem.SecondTS))
+						series0Data := telem.UnmarshalSlice[int](frame.Series[0].Data, telem.Int64T)
+						Expect(series0Data).To(ContainElement(20))
+						Expect(series0Data).To(ContainElement(21))
+						Expect(series0Data).To(ContainElement(22))
+						Expect(series0Data).ToNot(ContainElement(23))
+
+						Expect(frame.Series[1].TimeRange.Start).To(Equal(30 * telem.SecondTS))
+						series1Data := telem.UnmarshalSlice[int](frame.Series[1].Data, telem.Int64T)
+						Expect(series1Data).To(ContainElement(30))
+						Expect(series1Data).To(ContainElement(31))
+					})
+					It("Should delete even when the end timestamp is not in bounds of a pointer", func() {
+						By("Deleting channel data")
+						Expect(rateDB.Delete(ctx, telem.TimeRange{
+							Start: 12 * telem.SecondTS,
+							End:   10123 * telem.SecondTS,
+						})).To(Succeed())
+
+						frame, err := rateDB.Read(ctx, telem.TimeRange{Start: 3 * telem.SecondTS, End: 100 * telem.SecondTS})
+						Expect(err).ToNot(HaveOccurred())
+						Expect(frame.Series).To(HaveLen(1))
+
+						Expect(frame.Series[0].TimeRange.End).To(Equal(12 * telem.SecondTS))
+						series1Data := telem.UnmarshalSlice[int](frame.Series[0].Data, telem.Int64T)
+						Expect(series1Data).ToNot(ContainElement(12))
+						Expect(series1Data).To(ContainElement(11))
+					})
+					It("Should delete even when both timestamps are not in bounds of a pointer", func() {
+						By("Deleting channel data")
+						Expect(rateDB.Delete(ctx, telem.TimeRange{
+							Start: 16 * telem.SecondTS,
+							End:   29 * telem.SecondTS,
+						})).To(Succeed())
+
+						frame, err := rateDB.Read(ctx, telem.TimeRange{Start: 2 * telem.SecondTS, End: 100 * telem.SecondTS})
+						Expect(err).ToNot(HaveOccurred())
+						Expect(frame.Series).To(HaveLen(2))
+
+						series0Data := telem.UnmarshalSlice[int](frame.Series[0].Data, telem.Int64T)
+						Expect(series0Data).To(ConsistOf(10, 11, 12, 13))
+
+						Expect(frame.Series[1].TimeRange.Start).To(Equal(30 * telem.SecondTS))
+						series1Data := telem.UnmarshalSlice[int](frame.Series[1].Data, telem.Int64T)
+						Expect(series1Data).To(ConsistOf(30, 31, 32, 33, 34, 35, 36, 37))
+					})
+				})
+
+				Context("Delete Nothing", func() {
+					BeforeEach(func() {
+						By("Writing data to the channel")
+						Expect(unary.Write(ctx, rateDB, 10*telem.SecondTS, telem.NewSeriesV[int64](10, 11, 12, 13)))
+						Expect(unary.Write(ctx, rateDB, 20*telem.SecondTS, telem.NewSeriesV[int64](20, 21, 22, 23, 24)))
+						Expect(unary.Write(ctx, rateDB, 30*telem.SecondTS, telem.NewSeriesV[int64](30, 31, 32, 33, 34, 35, 36, 37)))
+					})
+
+					It("Should only delete one sample when Start = End - 1", func() {
+						Expect(rateDB.Delete(ctx, telem.TimeRange{
+							Start: 20 * telem.SecondTS,
+							End:   21 * telem.SecondTS,
+						})).To(Succeed())
+
+						frame, err := rateDB.Read(ctx, telem.TimeRange{Start: 20 * telem.SecondTS, End: 100 * telem.SecondTS})
+						Expect(err).ToNot(HaveOccurred())
+
+						series0Data := telem.UnmarshalSlice[int](frame.Series[0].Data, telem.Int64T)
+						Expect(frame.Series[0].TimeRange.Start).To(Equal(21 * telem.SecondTS))
+						Expect(series0Data).ToNot(ContainElement(20))
+						Expect(series0Data).To(ContainElement(21))
+					})
+
+					It("Should delete no element when Start = End", func() {
+						Expect(rateDB.Delete(ctx, telem.TimeRange{
+							Start: 20 * telem.SecondTS,
+							End:   20 * telem.SecondTS,
+						})).To(Succeed())
+
+						frame, err := rateDB.Read(ctx, telem.TimeRange{Start: 20 * telem.SecondTS, End: 100 * telem.SecondTS})
+						Expect(err).ToNot(HaveOccurred())
+
+						series0Data := telem.UnmarshalSlice[int](frame.Series[0].Data, telem.Int64T)
+						Expect(frame.Series[0].TimeRange.Start).To(Equal(20 * telem.SecondTS))
+						Expect(series0Data).To(ContainElement(20))
+					})
+
+					It("Should delete no element when given a range where both start and end are out of any pointer", func() {
+						Expect(rateDB.Delete(ctx, telem.TimeRange{
+							Start: 14 * telem.SecondTS,
+							End:   20 * telem.SecondTS,
+						})).To(Succeed())
+
+						frame, err := rateDB.Read(ctx, telem.TimeRange{Start: 20 * telem.SecondTS, End: 100 * telem.SecondTS})
+						Expect(err).ToNot(HaveOccurred())
+
+						series0Data := telem.UnmarshalSlice[int](frame.Series[0].Data, telem.Int64T)
+						Expect(frame.Series[0].TimeRange.Start).To(Equal(20 * telem.SecondTS))
+						Expect(series0Data).To(ContainElement(20))
+
+						Expect(rateDB.Delete(ctx, telem.TimeRange{
+							Start: 14 * telem.SecondTS,
+							End:   19 * telem.SecondTS,
+						})).To(Succeed())
+
+						frame, err = rateDB.Read(ctx, telem.TimeRange{Start: 20 * telem.SecondTS, End: 100 * telem.SecondTS})
+						Expect(err).ToNot(HaveOccurred())
+
+						series0Data = telem.UnmarshalSlice[int](frame.Series[0].Data, telem.Int64T)
+						Expect(frame.Series[0].TimeRange.Start).To(Equal(20 * telem.SecondTS))
+						Expect(series0Data).To(ContainElement(20))
+					})
+
+					It("Should delete no element when given a range that contains no samples", func() {
+						Expect(rateDB.Delete(ctx, telem.TimeRange{
+							Start: 10 * telem.SecondTS,
+							End:   20 * telem.SecondTS,
+						})).To(Succeed())
+
+						w, _ := MustSucceed2(rateDB.OpenWriter(ctx, unary.WriterConfig{Start: 10 * telem.SecondTS, End: 18 * telem.SecondTS, Subject: control.Subject{Key: "test_writer"}}))
+						_, err := w.Write(telem.NewSeriesV[int64](10, 11, 12))
+						Expect(err).ToNot(HaveOccurred())
+						_, err = w.Commit(ctx)
+						Expect(err).ToNot(HaveOccurred())
+						_, err = w.Close(ctx)
+						Expect(err).ToNot(HaveOccurred())
+
+						Expect(rateDB.Delete(ctx, telem.TimeRange{
+							Start: 14 * telem.SecondTS,
+							End:   20 * telem.SecondTS,
+						})).To(Succeed())
+
+						frame, err := rateDB.Read(ctx, telem.TimeRange{Start: 20 * telem.SecondTS, End: 100 * telem.SecondTS})
+						Expect(err).ToNot(HaveOccurred())
+
+						series0Data := telem.UnmarshalSlice[int](frame.Series[0].Data, telem.Int64T)
+						Expect(frame.Series[0].TimeRange.Start).To(Equal(20 * telem.SecondTS))
+						Expect(series0Data).To(ContainElement(20))
+					})
 				})
 			})
 
@@ -296,296 +773,6 @@ var _ = Describe("Delete", Ordered, func() {
 				})
 			})
 
-			Describe("Discontinuous Rate Domains", func() {
-				BeforeEach(func() {
-					By("Writing data to the channel")
-					Expect(unary.Write(ctx, rateDB, 10*telem.SecondTS, telem.NewSeriesV[int64](10, 11, 12, 13)))
-					Expect(unary.Write(ctx, rateDB, 20*telem.SecondTS, telem.NewSeriesV[int64](20, 21, 22, 23, 24)))
-					Expect(unary.Write(ctx, rateDB, 30*telem.SecondTS, telem.NewSeriesV[int64](30, 31, 32, 33, 34, 35, 36, 37)))
-				})
-				It("Should delete across two such domains", func() {
-					By("Deleting channel data")
-					Expect(rateDB.Delete(ctx, telem.TimeRange{
-						Start: 12 * telem.SecondTS,
-						End:   32 * telem.SecondTS,
-					})).To(Succeed())
-
-					frame, err := rateDB.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 100 * telem.SecondTS})
-					Expect(err).ToNot(HaveOccurred())
-					Expect(frame.Series).To(HaveLen(2))
-
-					Expect(frame.Series[0].TimeRange.End).To(Equal(12 * telem.SecondTS))
-					series0Data := telem.UnmarshalSlice[int](frame.Series[0].Data, telem.Int64T)
-					Expect(series0Data).To(ContainElement(10))
-					Expect(series0Data).To(ContainElement(11))
-					Expect(series0Data).ToNot(ContainElement(12))
-
-					Expect(frame.Series[1].TimeRange.Start).To(Equal(32 * telem.SecondTS))
-					series1Data := telem.UnmarshalSlice[int](frame.Series[1].Data, telem.Int64T)
-					Expect(series1Data).ToNot(ContainElement(31))
-					Expect(series1Data).To(ContainElement(32))
-				})
-				It("Should delete full domains", func() {
-					Expect(rateDB.Delete(ctx, telem.TimeRange{
-						Start: 10 * telem.SecondTS,
-						End:   30 * telem.SecondTS,
-					})).To(Succeed())
-
-					frame, err := rateDB.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 100 * telem.SecondTS})
-					Expect(err).ToNot(HaveOccurred())
-					Expect(frame.Series).To(HaveLen(1))
-
-					Expect(frame.Series[0].TimeRange.Start).To(Equal(30 * telem.SecondTS))
-					series0Data := telem.UnmarshalSlice[int](frame.Series[0].Data, telem.Int64T)
-					Expect(series0Data).To(ContainElement(30))
-					Expect(series0Data).To(ContainElement(31))
-					Expect(series0Data).ToNot(ContainElement(29))
-				})
-				It("Should delete entire db", func() {
-					Expect(rateDB.Delete(ctx, telem.TimeRange{
-						Start: 10 * telem.SecondTS,
-						End:   38 * telem.SecondTS,
-					})).To(Succeed())
-
-					frame, err := rateDB.Read(ctx, telem.TimeRangeMax)
-					Expect(err).ToNot(HaveOccurred())
-					Expect(frame.Series).To(HaveLen(0))
-				})
-			})
-
-			Describe("Overshooting timerange", func() {
-				BeforeEach(func() {
-					By("Writing data to the channel")
-					Expect(unary.Write(ctx, rateDB, 10*telem.SecondTS, telem.NewSeriesV[int64](10, 11, 12, 13)))
-					Expect(unary.Write(ctx, rateDB, 20*telem.SecondTS, telem.NewSeriesV[int64](20, 21, 22, 23, 24)))
-					Expect(unary.Write(ctx, rateDB, 30*telem.SecondTS, telem.NewSeriesV[int64](30, 31, 32, 33, 34, 35, 36, 37)))
-				})
-				It("Should delete even when the start timestamp is not in bounds of a pointer", func() {
-					By("Deleting channel data")
-					Expect(rateDB.Delete(ctx, telem.TimeRange{
-						Start: 18 * telem.SecondTS,
-						End:   32 * telem.SecondTS,
-					})).To(Succeed())
-
-					frame, err := rateDB.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 100 * telem.SecondTS})
-					Expect(err).ToNot(HaveOccurred())
-					Expect(frame.Series).To(HaveLen(2))
-
-					Expect(frame.Series[0].TimeRange.End).To(BeNumerically(">", 13*telem.SecondTS))
-					Expect(frame.Series[0].TimeRange.End).To(BeNumerically("<", 14*telem.SecondTS))
-					series0Data := telem.UnmarshalSlice[int](frame.Series[0].Data, telem.Int64T)
-					Expect(series0Data).To(ContainElement(10))
-					Expect(series0Data).To(ContainElement(11))
-					Expect(series0Data).To(ContainElement(12))
-					Expect(series0Data).To(ContainElement(13))
-
-					Expect(frame.Series[1].TimeRange.Start).To(Equal(32 * telem.SecondTS))
-					series1Data := telem.UnmarshalSlice[int](frame.Series[1].Data, telem.Int64T)
-					Expect(series1Data).ToNot(ContainElement(31))
-					Expect(series1Data).To(ContainElement(32))
-				})
-				It("Should delete even when the start timestamp is not in bounds of the db", func() {
-					By("Deleting channel data")
-					Expect(rateDB.Delete(ctx, telem.TimeRange{
-						Start: 8 * telem.SecondTS,
-						End:   32 * telem.SecondTS,
-					})).To(Succeed())
-
-					frame, err := rateDB.Read(ctx, telem.TimeRange{Start: 3 * telem.SecondTS, End: 100 * telem.SecondTS})
-					Expect(err).ToNot(HaveOccurred())
-					Expect(frame.Series).To(HaveLen(1))
-
-					Expect(frame.Series[0].TimeRange.Start).To(Equal(32 * telem.SecondTS))
-					series1Data := telem.UnmarshalSlice[int](frame.Series[0].Data, telem.Int64T)
-					Expect(series1Data).ToNot(ContainElement(31))
-					Expect(series1Data).To(ContainElement(32))
-				})
-				It("Should delete even when the end timestamp is not in bounds of a pointer", func() {
-					By("Deleting channel data")
-					Expect(rateDB.Delete(ctx, telem.TimeRange{
-						Start: 23 * telem.SecondTS,
-						End:   26 * telem.SecondTS,
-					})).To(Succeed())
-
-					frame, err := rateDB.Read(ctx, telem.TimeRange{Start: 20 * telem.SecondTS, End: 100 * telem.SecondTS})
-					Expect(err).ToNot(HaveOccurred())
-					Expect(frame.Series).To(HaveLen(2))
-
-					Expect(frame.Series[0].TimeRange.End).To(Equal(23 * telem.SecondTS))
-					series0Data := telem.UnmarshalSlice[int](frame.Series[0].Data, telem.Int64T)
-					Expect(series0Data).To(ContainElement(20))
-					Expect(series0Data).To(ContainElement(21))
-					Expect(series0Data).To(ContainElement(22))
-					Expect(series0Data).ToNot(ContainElement(23))
-
-					Expect(frame.Series[1].TimeRange.Start).To(Equal(30 * telem.SecondTS))
-					series1Data := telem.UnmarshalSlice[int](frame.Series[1].Data, telem.Int64T)
-					Expect(series1Data).To(ContainElement(30))
-					Expect(series1Data).To(ContainElement(31))
-				})
-				It("Should delete even when the end timestamp is not in bounds of a pointer", func() {
-					By("Deleting channel data")
-					Expect(rateDB.Delete(ctx, telem.TimeRange{
-						Start: 12 * telem.SecondTS,
-						End:   10123 * telem.SecondTS,
-					})).To(Succeed())
-
-					frame, err := rateDB.Read(ctx, telem.TimeRange{Start: 3 * telem.SecondTS, End: 100 * telem.SecondTS})
-					Expect(err).ToNot(HaveOccurred())
-					Expect(frame.Series).To(HaveLen(1))
-
-					Expect(frame.Series[0].TimeRange.End).To(Equal(12 * telem.SecondTS))
-					series1Data := telem.UnmarshalSlice[int](frame.Series[0].Data, telem.Int64T)
-					Expect(series1Data).ToNot(ContainElement(12))
-					Expect(series1Data).To(ContainElement(11))
-				})
-				It("Should delete even when both timestamps are not in bounds of a pointer", func() {
-					By("Deleting channel data")
-					Expect(rateDB.Delete(ctx, telem.TimeRange{
-						Start: 16 * telem.SecondTS,
-						End:   29 * telem.SecondTS,
-					})).To(Succeed())
-
-					frame, err := rateDB.Read(ctx, telem.TimeRange{Start: 2 * telem.SecondTS, End: 100 * telem.SecondTS})
-					Expect(err).ToNot(HaveOccurred())
-					Expect(frame.Series).To(HaveLen(2))
-
-					series0Data := telem.UnmarshalSlice[int](frame.Series[0].Data, telem.Int64T)
-					Expect(series0Data).To(ContainElement(10))
-					Expect(series0Data).To(ContainElement(11))
-					Expect(series0Data).To(ContainElement(12))
-					Expect(series0Data).To(ContainElement(13))
-
-					Expect(frame.Series[1].TimeRange.Start).To(Equal(30 * telem.SecondTS))
-					series1Data := telem.UnmarshalSlice[int](frame.Series[1].Data, telem.Int64T)
-					Expect(series1Data).To(ContainElement(30))
-					Expect(series1Data).To(ContainElement(31))
-				})
-			})
-
-			Describe("Delete Nothing", func() {
-				BeforeEach(func() {
-					By("Writing data to the channel")
-					Expect(unary.Write(ctx, rateDB, 10*telem.SecondTS, telem.NewSeriesV[int64](10, 11, 12, 13)))
-					Expect(unary.Write(ctx, rateDB, 20*telem.SecondTS, telem.NewSeriesV[int64](20, 21, 22, 23, 24)))
-					Expect(unary.Write(ctx, rateDB, 30*telem.SecondTS, telem.NewSeriesV[int64](30, 31, 32, 33, 34, 35, 36, 37)))
-				})
-
-				It("Should only delete one sample when Start = End - 1", func() {
-					Expect(rateDB.Delete(ctx, telem.TimeRange{
-						Start: 20 * telem.SecondTS,
-						End:   21 * telem.SecondTS,
-					})).To(Succeed())
-
-					frame, err := rateDB.Read(ctx, telem.TimeRange{Start: 20 * telem.SecondTS, End: 100 * telem.SecondTS})
-					Expect(err).ToNot(HaveOccurred())
-
-					series0Data := telem.UnmarshalSlice[int](frame.Series[0].Data, telem.Int64T)
-					Expect(frame.Series[0].TimeRange.Start).To(Equal(21 * telem.SecondTS))
-					Expect(series0Data).ToNot(ContainElement(20))
-					Expect(series0Data).To(ContainElement(21))
-				})
-
-				It("Should delete no element when Start = End", func() {
-					Expect(rateDB.Delete(ctx, telem.TimeRange{
-						Start: 20 * telem.SecondTS,
-						End:   20 * telem.SecondTS,
-					})).To(Succeed())
-
-					frame, err := rateDB.Read(ctx, telem.TimeRange{Start: 20 * telem.SecondTS, End: 100 * telem.SecondTS})
-					Expect(err).ToNot(HaveOccurred())
-
-					series0Data := telem.UnmarshalSlice[int](frame.Series[0].Data, telem.Int64T)
-					Expect(frame.Series[0].TimeRange.Start).To(Equal(20 * telem.SecondTS))
-					Expect(series0Data).To(ContainElement(20))
-				})
-
-				It("Should delete no element when given a range where both start and end are out of any pointer", func() {
-					Expect(rateDB.Delete(ctx, telem.TimeRange{
-						Start: 14 * telem.SecondTS,
-						End:   20 * telem.SecondTS,
-					})).To(Succeed())
-
-					frame, err := rateDB.Read(ctx, telem.TimeRange{Start: 20 * telem.SecondTS, End: 100 * telem.SecondTS})
-					Expect(err).ToNot(HaveOccurred())
-
-					series0Data := telem.UnmarshalSlice[int](frame.Series[0].Data, telem.Int64T)
-					Expect(frame.Series[0].TimeRange.Start).To(Equal(20 * telem.SecondTS))
-					Expect(series0Data).To(ContainElement(20))
-
-					Expect(rateDB.Delete(ctx, telem.TimeRange{
-						Start: 14 * telem.SecondTS,
-						End:   19 * telem.SecondTS,
-					})).To(Succeed())
-
-					frame, err = rateDB.Read(ctx, telem.TimeRange{Start: 20 * telem.SecondTS, End: 100 * telem.SecondTS})
-					Expect(err).ToNot(HaveOccurred())
-
-					series0Data = telem.UnmarshalSlice[int](frame.Series[0].Data, telem.Int64T)
-					Expect(frame.Series[0].TimeRange.Start).To(Equal(20 * telem.SecondTS))
-					Expect(series0Data).To(ContainElement(20))
-				})
-			})
-
-			Describe("Discontinuous Indexed Domains", func() {
-				BeforeEach(func() {
-					By("Writing data to the channel")
-					Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesV[telem.TimeStamp](10*telem.SecondTS, 13*telem.SecondTS, 13*telem.SecondTS+500*telem.MillisecondTS, 18*telem.SecondTS, 19*telem.SecondTS))).To(Succeed())
-					Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewSeriesV[int64](10, 13, 131, 18, 19))).To(Succeed())
-
-					Expect(unary.Write(ctx, indexDB, 20*telem.SecondTS, telem.NewSeriesV[telem.TimeStamp](20*telem.SecondTS, 23500*telem.MillisecondTS, 23600*telem.MillisecondTS, 23800*telem.MillisecondTS, 25100*telem.MillisecondTS, 27800*telem.MillisecondTS))).To(Succeed())
-					Expect(unary.Write(ctx, db, 20*telem.SecondTS, telem.NewSeriesV[int64](200, 235, 236, 238, 251, 278))).To(Succeed())
-				})
-				It("Should delete across two such domains", func() {
-					By("Deleting channel data")
-					Expect(db.Delete(ctx, telem.TimeRange{
-						Start: 13*telem.SecondTS + 400*telem.MillisecondTS,
-						End:   24 * telem.SecondTS,
-					})).To(Succeed())
-
-					frame, err := db.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 100 * telem.SecondTS})
-					Expect(err).ToNot(HaveOccurred())
-					Expect(frame.Series).To(HaveLen(2))
-
-					Expect(frame.Series[0].TimeRange.End).To(Equal(13*telem.SecondTS + 400*telem.MillisecondTS))
-					series0Data := telem.UnmarshalSlice[int](frame.Series[0].Data, telem.Int64T)
-					Expect(series0Data).To(ContainElement(10))
-					Expect(series0Data).To(ContainElement(13))
-					Expect(series0Data).ToNot(ContainElement(131))
-
-					Expect(frame.Series[1].TimeRange.Start).To(Equal(24 * telem.SecondTS))
-					series1Data := telem.UnmarshalSlice[int](frame.Series[1].Data, telem.Int64T)
-					Expect(series1Data).ToNot(ContainElement(238))
-					Expect(series1Data).To(ContainElement(251))
-					Expect(series1Data).To(ContainElement(278))
-				})
-				It("Should delete full domains", func() {
-					Expect(db.Delete(ctx, telem.TimeRange{
-						Start: 10 * telem.SecondTS,
-						End:   20 * telem.SecondTS,
-					})).To(Succeed())
-
-					frame, err := db.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 100 * telem.SecondTS})
-					Expect(err).ToNot(HaveOccurred())
-					Expect(frame.Series).To(HaveLen(1))
-
-					Expect(frame.Series[0].TimeRange.Start).To(Equal(20 * telem.SecondTS))
-					series0Data := telem.UnmarshalSlice[int](frame.Series[0].Data, telem.Int64T)
-					Expect(series0Data).To(ContainElement(200))
-					Expect(series0Data).To(ContainElement(235))
-					Expect(series0Data).ToNot(ContainElement(19))
-				})
-				It("Should delete entire db", func() {
-					Expect(db.Delete(ctx, telem.TimeRange{
-						Start: 0 * telem.SecondTS,
-						End:   100 * telem.SecondTS,
-					})).To(Succeed())
-
-					frame, err := rateDB.Read(ctx, telem.TimeRangeMax)
-					Expect(err).ToNot(HaveOccurred())
-					Expect(frame.Series).To(HaveLen(0))
-				})
-			})
 		})
 	}
 })

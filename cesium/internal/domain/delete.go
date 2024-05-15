@@ -2,7 +2,7 @@ package domain
 
 import (
 	"context"
-	"errors"
+	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/x/telem"
 	"io"
 	"os"
@@ -10,113 +10,37 @@ import (
 )
 
 // Delete adds all pointers ranging from
-// [db.get(startPosition).offset + startOffset, db.get(endPosition).offset + endOffset)
+// [db.get(startPosition).offset + startOffset, db.get(endPosition).offset + length - endOffset)
 // into tombstone.
 // Note that the deletion timerange includes the sample at startOffset, and ends at
-// the sample right before endOffset
+// the sample immediately before endOffset. Therefore, endOffset=0 denotes the sample past
+// the pointer at endPosition.
 //
-// The following invariants are placed on the variables:
+// The following requirements are placed on the variables:
 // 0 <= startPosition <= endPosition < len(db.mu.idx.pointers), and must both be valid
 // positions in the index.
-//
-// If an endOffset overshoots the length of that pointer, then it is "clipped" to the end
-// i.e. any offset >= length will delete the whole pointer
-//
-// Similarly, if a startOffset undershoots, then it is "clipped" to the start.
-//
-// If endOffset = 0, the entirety of endPosition pointer is excluded.
-// If endOffset = len(db.get(endPosition)), the entirety of endPosition pointer is included.
-// If startOffset = 0, the entirety of startPosition pointer is included.
-// If startOffset = len(db.get(endPosition)), the operation is invalid.
-//
-// ** Special case: if endOffset = -1, then it is equal to the length of the end pointer.
 func (db *DB) Delete(ctx context.Context, startPosition int, endPosition int, startOffset int64, endOffset int64, tr telem.TimeRange) error {
-	start, ok := db.idx.get(startPosition)
-	if !ok {
-		return errors.New("[cesium] Deletion starting at invalid position")
-	}
-	end, ok := db.idx.get(endPosition)
-	if !ok {
-		return errors.New("[cesium] Deletion ending at invalid position")
+	db.idx.mu.Lock()
+	defer db.idx.mu.Unlock()
+
+	if err := validateDelete(startPosition, endPosition, &startOffset, &endOffset, db.idx); err != nil {
+		return err
 	}
 
-	if startPosition > endPosition {
-		if startPosition == endPosition+1 && startOffset == 0 && (uint32(endOffset) == end.length || endOffset == -1) {
-			// Deleting nothing.
-			return nil
-		}
+	var (
+		start       = db.idx.mu.pointers[startPosition]
+		end         = db.idx.mu.pointers[endPosition]
+		newPointers = make([]pointer, 0)
+	)
 
-		return errors.New("[cesium] Deletion starting position cannot be greater than ending position")
-	}
-
-	if endOffset == -1 {
-		endOffset = int64(end.length)
-	}
-
-	if startOffset >= int64(start.length) {
-		return errors.New("[cesium] Deletion start offset cannot be greater than or equal to the length of that pointer")
-	}
-
-	if startOffset < 0 {
-		return errors.New("[cesium] Deletion start offset cannot be less than 0")
-	}
-
-	if endOffset > int64(end.length) {
-		return errors.New("[cesium] Deletion end offset cannot be greater than the length of that pointer")
-	}
-
-	if startPosition != endPosition {
-		// Remove end of start pointer
-		db.idx.insertTombstone(ctx, pointer{
-			TimeRange: telem.TimeRange{
-				Start: tr.Start,
-				End:   start.End,
-			},
-			fileKey: start.fileKey,
-			offset:  start.offset + uint32(startOffset),
-			length:  start.length - uint32(startOffset), // length of {tr.Start, start.End}
-		})
-
-		for _, p := range db.idx.mu.pointers[startPosition+1 : endPosition] {
-			db.idx.insertTombstone(ctx, p)
-		}
-
-		// Remove start of end pointer.
-		if endOffset != 0 {
-			db.idx.insertTombstone(ctx, pointer{
-				TimeRange: telem.TimeRange{
-					Start: end.Start,
-					End:   tr.End,
-				},
-				fileKey: end.fileKey,
-				offset:  end.offset,
-				length:  uint32(endOffset), // length of {end.Start, tr.End}
-			})
-		}
-	} else {
-		if startOffset > endOffset {
-			return errors.New("[cesium] Deletion start offset cannot be greater than end offset in same pointer")
-		}
-
-		if startOffset == endOffset {
-			return nil
-		}
-
-		db.idx.insertTombstone(ctx, pointer{
-			TimeRange: telem.TimeRange{
-				Start: tr.Start,
-				End:   tr.End,
-			},
-			fileKey: start.fileKey,
-			offset:  start.offset + uint32(startOffset),
-			length:  uint32(endOffset - startOffset),
-		})
+	if startPosition == endPosition-1 && startOffset == int64(end.length) && endOffset == int64(end.length) ||
+		startPosition == endPosition && startOffset+endOffset == int64(start.length) {
+		// delete nothing
+		return nil
 	}
 
 	// Remove old pointers.
-	db.idx.mu.pointers = append(db.idx.mu.pointers[:startPosition+1], db.idx.mu.pointers[endPosition+1:]...)
-
-	newPointers := make([]pointer, 0)
+	db.idx.mu.pointers = append(db.idx.mu.pointers[:startPosition], db.idx.mu.pointers[endPosition+1:]...)
 
 	if startOffset != 0 {
 		newPointers = append(newPointers, pointer{
@@ -130,30 +54,27 @@ func (db *DB) Delete(ctx context.Context, startPosition int, endPosition int, st
 		})
 	}
 
-	if uint32(endOffset) != end.length {
+	if endOffset != 0 {
 		newPointers = append(newPointers, pointer{
 			TimeRange: telem.TimeRange{
 				Start: tr.End,
 				End:   end.End,
 			},
 			fileKey: end.fileKey,
-			offset:  end.offset + uint32(endOffset),
-			length:  end.length - uint32(endOffset), // length from tr.End to end.End
+			offset:  end.offset + end.length - uint32(endOffset),
+			length:  uint32(endOffset), // length from tr.End to end.End
 		})
 	}
 
-	temp := make([]pointer, len(db.idx.mu.pointers)+len(newPointers)-1)
-	copy(temp, db.idx.mu.pointers[:startPosition])
-
 	if len(newPointers) != 0 {
+		temp := make([]pointer, len(db.idx.mu.pointers)+len(newPointers))
+		copy(temp, db.idx.mu.pointers[:startPosition])
 		copy(temp[startPosition:startPosition+len(newPointers)], newPointers)
+		copy(temp[startPosition+len(newPointers):], db.idx.mu.pointers[startPosition:])
+		db.idx.mu.pointers = temp
 	}
 
-	copy(temp[startPosition+len(newPointers):], db.idx.mu.pointers[startPosition+1:])
-
-	db.idx.mu.pointers = temp
-
-	return nil
+	return db.idx.persist(ctx, startPosition)
 }
 
 func (db *DB) CollectTombstones(ctx context.Context, maxSizeRead uint32) error {
@@ -222,6 +143,45 @@ func (db *DB) CollectTombstones(ctx context.Context, maxSizeRead uint32) error {
 		if err != nil {
 			return err
 		}
+	}
+
+	return nil
+}
+
+func validateDelete(startPosition int, endPosition int, startOffset *int64, endOffset *int64, idx *index) error {
+	if startPosition < 0 || startPosition >= len(idx.mu.pointers) {
+		return errors.Newf("[cesium] deletion starting at invalid domain position <%d>", startPosition)
+	}
+
+	if endPosition < 0 || endPosition >= len(idx.mu.pointers) {
+		return errors.Newf("[cesium] deletion ending at invalid domain position <%d>", endPosition)
+	}
+
+	if *startOffset < 0 {
+		*startOffset = 0
+	}
+
+	if *endOffset < 0 {
+		*endOffset = 0
+	}
+
+	if *startOffset > int64(idx.mu.pointers[startPosition].length) {
+		*startOffset = int64(idx.mu.pointers[startPosition].length)
+	}
+
+	if *endOffset > int64(idx.mu.pointers[endPosition].length) {
+		*endOffset = int64(idx.mu.pointers[endPosition].length)
+	}
+
+	// If the startPosition is greater than end position and there are samples in between.
+	if startPosition > endPosition && !(startPosition == endPosition+1 &&
+		*startOffset == 0 &&
+		*endOffset == 0) {
+		return errors.Newf("[cesium] deletion start domain <%d> is greater than deletion end domain <%d>", startPosition, endPosition)
+	}
+
+	if startPosition == endPosition && *startOffset+*endOffset > int64(idx.mu.pointers[startPosition].length) {
+		return errors.Newf("[cesium] deletion start offset <%d> is greater than end offset <%d>", *startOffset, *endOffset)
 	}
 
 	return nil
