@@ -49,7 +49,8 @@ cc_library(
         "writer.cpp",
         "task.cpp",
         "factory.cpp",
-        "scanner.cpp" 
+        "scanner.cpp",
+        "ni.cpp", 
     ],
     hdrs = [
         "ni.h",
