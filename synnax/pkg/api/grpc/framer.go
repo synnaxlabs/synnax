@@ -80,12 +80,12 @@ func (t frameWriterRequestTranslator) Forward(
 	return &gapi.FrameWriterRequest{
 		Command: int32(msg.Command),
 		Config: &gapi.FrameWriterConfig{
-			Keys:        translateChannelKeysForward(msg.Config.Keys),
-			Start:       int64(msg.Config.Start),
-			Mode:        int32(msg.Config.Mode),
-			Authorities: msg.Config.Authorities,
-			EnableAutoCommit: msg.Config.EnableAutoCommit,
-			AutoIndexPersitInterval: int64(msg.Config.AutoIndexPersitInterval),
+			Keys:                     translateChannelKeysForward(msg.Config.Keys),
+			Start:                    int64(msg.Config.Start),
+			Mode:                     int32(msg.Config.Mode),
+			Authorities:              msg.Config.Authorities,
+			EnableAutoCommit:         msg.Config.EnableAutoCommit,
+			AutoIndexPersistInterval: int64(msg.Config.AutoIndexPersistInterval),
 		},
 		Frame: translateFrameForward(msg.Frame),
 	}, nil
@@ -101,12 +101,12 @@ func (t frameWriterRequestTranslator) Backward(
 	r.Command = writer.Command(msg.Command)
 	if msg.Config != nil {
 		r.Config = api.FrameWriterConfig{
-			Keys:        translateChannelKeysBackward(msg.Config.Keys),
-			Start:       telem.TimeStamp(msg.Config.Start),
-			Mode:        writer.Mode(msg.Config.Mode),
-			Authorities: msg.Config.Authorities,
-			EnableAutoCommit: msg.Config.EnableAutoCommit,
-			AutoIndexPersitInterval: telem.TimeSpan(msg.Config.AutoIndexPersitInterval),
+			Keys:                     translateChannelKeysBackward(msg.Config.Keys),
+			Start:                    telem.TimeStamp(msg.Config.Start),
+			Mode:                     writer.Mode(msg.Config.Mode),
+			Authorities:              msg.Config.Authorities,
+			EnableAutoCommit:         msg.Config.EnableAutoCommit,
+			AutoIndexPersistInterval: telem.TimeSpan(msg.Config.AutoIndexPersistInterval),
 		}
 	}
 	r.Frame = translateFrameBackward(msg.Frame)
