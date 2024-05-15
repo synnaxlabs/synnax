@@ -855,7 +855,6 @@ int ni::DaqDigitalReader::checkNIError(int32 error){
 }
 
 
-
 std::vector<synnax::ChannelKey> ni::DaqAnalogReader::getChannelKeys(){
     std::vector<synnax::ChannelKey> keys;
     for (auto &channel : this->reader_config.channels){

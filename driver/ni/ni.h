@@ -383,12 +383,14 @@ namespace ni{
         void run();
         void start();
         void stop();
+        bool ok();
     private:
         std::atomic<bool> running = false;
         ni::Scanner scanner;
         synnax::Task task;
         std::shared_ptr<task::Context> ctx;    
         std::thread thread;
+        bool ok_state = true;
     };
 
 
@@ -404,6 +406,7 @@ namespace ni{
 
         void stop() override;
         void start();
+        bool ok();
 
         static std::unique_ptr<task::Task> configure(   const std::shared_ptr<task::Context> &ctx,
                                                         const synnax::Task &task);
@@ -413,6 +416,7 @@ namespace ni{
         TaskHandle taskHandle;
         synnax::Task task;
         std::shared_ptr<task::Context> ctx;
+        bool ok_state = true;
     };
 
     ///////////////////////////////////////////////////////////////////////////////////
@@ -429,6 +433,7 @@ namespace ni{
 
         static std::unique_ptr<task::Task> configure(   const std::shared_ptr<task::Context> &ctx,
                                                         const synnax::Task &task);
+        bool ok();
     private:
         bool running = false;
         pipeline::Control cmd_write_pipe;
@@ -436,6 +441,7 @@ namespace ni{
         TaskHandle taskHandle;
         synnax::Task task;
         std::shared_ptr<task::Context> ctx;
+        bool ok_state = true;
     };
 
 

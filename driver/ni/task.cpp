@@ -89,6 +89,10 @@ void ni::ScannerTask::run(){
     LOG(INFO) << "[NI Task] shutting down " << this->task.name;
 }
 
+
+bool ni::ScannerTask::ok() {
+    return this->ok_state;
+}
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    ReaderTask                                 //
 ///////////////////////////////////////////////////////////////////////////////////
@@ -125,6 +129,7 @@ ni::ReaderTask::ReaderTask(const std::shared_ptr <task::Context> &ctx,
 
     if (!daq_reader->ok()) {
         LOG(ERROR) << "[NI Reader] failed to construct reader for " << task.name;
+        this->ok_state = false;
         return;
     }
 
@@ -170,7 +175,7 @@ void ni::ReaderTask::exec(task::Command &cmd) {
 
 
 void ni::ReaderTask::stop(){
-     if(!this->running){
+     if(!this->running || !this->ok()){
             return;
     }
     daq_read_pipe.stop();
@@ -186,7 +191,7 @@ void ni::ReaderTask::stop(){
 }
 
 void ni::ReaderTask::start(){
-    if(this->running){
+    if(this->running || !this->ok()){
         return;
     }
     daq_read_pipe.start();
@@ -199,6 +204,11 @@ void ni::ReaderTask::start(){
                     });
     LOG(INFO) << "[NI Task] successfully started task " << this->task.name;
     running = true;
+}
+
+
+bool ni::ReaderTask::ok() {
+    return this->ok_state;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -222,6 +232,7 @@ ni::WriterTask::WriterTask(const std::shared_ptr <task::Context> &ctx,
     auto daq_writer = std::make_unique<ni::DaqDigitalWriter>(this->taskHandle, ctx, task);
     if (!daq_writer->ok()) {
         LOG(ERROR) << "[NI Writer] failed to construct reader for" << task.name;
+        this->ok_state = false;
         return;
     }
 
@@ -272,11 +283,9 @@ std::unique_ptr <task::Task> ni::WriterTask::configure(const std::shared_ptr <ta
 void ni::WriterTask::exec(task::Command &cmd) {
     if (cmd.type == "start") {
         this->start();
-        LOG(INFO) << "[NI Task] started reader task " << this->task.name;
 
     } else if (cmd.type == "stop") {
         this->stop();
-        LOG(INFO) << "[NI Task] stopped reader task " << this->task.name;
     } else {
         LOG(ERROR) << "unknown command type: " << cmd.type;
     }
@@ -284,7 +293,7 @@ void ni::WriterTask::exec(task::Command &cmd) {
 
 
 void ni::WriterTask::stop(){
-    if(!this->running){
+    if(!this->running || !this->ok()){
             return;
     }
     this->state_write_pipe.stop();
@@ -303,7 +312,7 @@ void ni::WriterTask::stop(){
 
 
 void ni::WriterTask::start(){
-    if(this->running){
+    if(this->running || !this->ok()){
         return;
     }
     this->cmd_write_pipe.start();
@@ -320,3 +329,8 @@ void ni::WriterTask::start(){
     this->running = true;
 }
 
+
+
+bool ni::WriterTask::ok() {
+    return this->ok_state;
+}
