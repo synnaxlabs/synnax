@@ -38,7 +38,7 @@ const NoCluster = (): ReactElement => {
   const dispatch = useDispatch();
 
   // As a note, we need to stop propagation on these events so that we don't
-  // trigger the 'onSelect' handler of the tab we're in. This means we appropartiately
+  // trigger the 'onSelect' handler of the tab we're in. This means we appropriately
   // select the new layout when we create it.
   const handleCluster: Button.ButtonProps["onClick"] = (e) => {
     e.stopPropagation();
@@ -79,6 +79,7 @@ const NoCluster = (): ReactElement => {
       <Text.Link target="_blank" level="h4" onClick={handleDocs}>
         Read the Documentation
       </Text.Link>
+      <Button.Button onClick={() => setCount(count + 1)}>Count: {count}</Button.Button>
     </Align.Center>
   );
 };

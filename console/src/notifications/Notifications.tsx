@@ -35,7 +35,7 @@ export type NotificationAdapter = (
 export const Notifications = ({ adapters }: NotificationsProps): ReactElement => {
   adapters = [notificationAdapter];
   const { statuses, silence } = Status.useNotifications({
-    expiration: TimeSpan.seconds(5000),
+    expiration: TimeSpan.seconds(5),
   });
 
   return (
@@ -103,7 +103,7 @@ const Notification = ({
         </Align.Space>
         <Button.Icon
           className={CSS(CSS.BE("notification", "silence"))}
-          variant="text"
+          variant="outlined"
           size="small"
           onClick={() => silence(key)}
         >

@@ -277,7 +277,7 @@ func (i *Iterator) read(ctx context.Context, offset telem.Offset, size telem.Siz
 	series.Data = make([]byte, size)
 	inDomainAlignment := uint32(i.Channel.DataType.Density().SampleCount(offset))
 	// set the first 32 bits to the domain index, and the last 32 bits to the alignment
-	series.Alignment = telem.Alignment(i.internal.Position())<<32 | telem.Alignment(inDomainAlignment)
+	series.Alignment = telem.AlignmentPair(i.internal.Position())<<32 | telem.AlignmentPair(inDomainAlignment)
 	r, err := i.internal.NewReader(ctx)
 	if err != nil {
 		return

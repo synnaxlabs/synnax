@@ -175,7 +175,7 @@ func (w *Writer) len(dw *domain.Writer) int64 {
 }
 
 // Write validates and writes the given array.
-func (w *Writer) Write(series telem.Series) (a telem.Alignment, err error) {
+func (w *Writer) Write(series telem.Series) (a telem.AlignmentPair, err error) {
 	if w.closed {
 		return 0, WriterClosedError
 	}
@@ -186,7 +186,7 @@ func (w *Writer) Write(series telem.Series) (a telem.Alignment, err error) {
 	if !ok {
 		return 0, controller.Unauthorized(w.control.Subject.Name, w.Channel.Key)
 	}
-	a = telem.NewAlignment(math.MaxUint32, uint32(w.len(dw.Writer)))
+	a = telem.NewAlignmentPair(math.MaxUint32, uint32(w.len(dw.Writer)))
 	if w.Channel.IsIndex {
 		w.updateHwm(series)
 	}
