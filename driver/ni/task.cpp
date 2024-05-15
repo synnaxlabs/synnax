@@ -98,9 +98,7 @@ bool ni::ScannerTask::ok() {
 ///////////////////////////////////////////////////////////////////////////////////
 
 ni::ReaderTask::ReaderTask(const std::shared_ptr <task::Context> &ctx,
-                           synnax::Task task) {
-    this->task = task;
-    this->ctx = ctx;
+                           synnax::Task task) :task(task), ctx(ctx){
 
     // create a breaker config TODO: use the task to generate the other parameters?
     auto breaker_config = breaker::Config{
@@ -111,18 +109,18 @@ ni::ReaderTask::ReaderTask(const std::shared_ptr <task::Context> &ctx,
     };
 
     // create a daq reader to provide to cmd read pipe as sink
-    ni::NiDAQmxInterface::CreateTask("", &this->taskHandle);
+    ni::NiDAQmxInterface::CreateTask("", &this->task_handle);
 
 
     // determine whether digitalDaqReader or analogDaqReader is needed
     std::unique_ptr<daq::DaqReader> daq_reader;
     std::vector <synnax::ChannelKey> channel_keys;
     if(task.type == "ni_digital_reader"){
-        auto digital_reader = std::make_unique<ni::DaqDigitalReader>(this->taskHandle, ctx, task);
+        auto digital_reader = std::make_unique<ni::DaqDigitalReader>(this->task_handle, ctx, task);
         channel_keys = digital_reader->getChannelKeys();
         daq_reader = std::move(digital_reader);
     } else{
-        auto analog_reader = std::make_unique<ni::DaqAnalogReader>(this->taskHandle, ctx, task);
+        auto analog_reader = std::make_unique<ni::DaqAnalogReader>(this->task_handle, ctx, task);
         channel_keys = analog_reader->getChannelKeys();
         daq_reader = std::move(analog_reader);
     }
@@ -228,8 +226,8 @@ ni::WriterTask::WriterTask(const std::shared_ptr <task::Context> &ctx,
     };
 
     // create a daq reader to provide to cmd read pipe as sink
-    ni::NiDAQmxInterface::CreateTask("", &this->taskHandle);
-    auto daq_writer = std::make_unique<ni::DaqDigitalWriter>(this->taskHandle, ctx, task);
+    ni::NiDAQmxInterface::CreateTask("", &this->task_handle);
+    auto daq_writer = std::make_unique<ni::DaqDigitalWriter>(this->task_handle, ctx, task);
     if (!daq_writer->ok()) {
         LOG(ERROR) << "[NI Writer] failed to construct reader for" << task.name;
         this->ok_state = false;

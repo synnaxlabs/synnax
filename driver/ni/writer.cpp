@@ -38,16 +38,16 @@ void ni::DaqDigitalWriter::getIndexKeys(){
 }
 
 ///////////////////////////////////////////////////////////////////////////////////
-//                                    daqWriter                                //
+//                                    daqWriter                                  //
 ///////////////////////////////////////////////////////////////////////////////////
 
 
 
 ni::DaqDigitalWriter::DaqDigitalWriter(
-    TaskHandle taskHandle,
+    TaskHandle task_handle,
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task task)
-    : taskHandle(taskHandle),
+    : task_handle(task_handle),
       ctx(ctx){
     
     // Create parser
@@ -56,8 +56,7 @@ ni::DaqDigitalWriter::DaqDigitalWriter(
 
     // Parse configuration and make sure it is valid
     this->parseConfig(config_parser);
-    if (!config_parser.ok())
-    {
+    if (!config_parser.ok()){
         // Log error
         LOG(ERROR) << "[NI Writer] failed to parse configuration for " << this->writer_config.task_name;
         this->ctx->setState({.task = task.key,
@@ -115,8 +114,7 @@ void ni::DaqDigitalWriter::parseConfig(config::Parser &parser){
     // task key 
     // device name
     parser.iter("channels",
-                [&](config::Parser &channel_builder)
-                {
+                [&](config::Parser &channel_builder){
                     ni::ChannelConfig config;
 
                     // digital channel names are formatted: <device_name>/port<port_number>/line<line_number>
@@ -148,7 +146,7 @@ int ni::DaqDigitalWriter::init(){
     // iterate through channels
     for (auto &channel : channels){
         if (channel.channel_type != "index"){
-            err = this->checkNIError(ni::NiDAQmxInterface::CreateDOChan(taskHandle, channel.name.c_str(), "", DAQmx_Val_ChanPerLine));
+            err = this->checkNIError(ni::NiDAQmxInterface::CreateDOChan(task_handle, channel.name.c_str(), "", DAQmx_Val_ChanPerLine));
         }
         this->numChannels++; // includes index channels TODO: how is this different form jsut channels.size()?
         if (err < 0){
@@ -176,7 +174,7 @@ freighter::Error ni::DaqDigitalWriter::start(){
     }
     this->running = true;
     freighter::Error err = freighter::NIL;
-    if (this->checkNIError(ni::NiDAQmxInterface::StartTask(this->taskHandle))){
+    if (this->checkNIError(ni::NiDAQmxInterface::StartTask(this->task_handle))){
         LOG(ERROR) << "[NI Writer] failed while starting writer for task " << this->writer_config.task_name;
         err = freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
     }
@@ -196,12 +194,12 @@ freighter::Error ni::DaqDigitalWriter::stop(){
     this->running = false;
     freighter::Error err = freighter::NIL;
 
-    if (this->checkNIError(ni::NiDAQmxInterface::StopTask(taskHandle))){
+    if (this->checkNIError(ni::NiDAQmxInterface::StopTask(task_handle))){
         LOG(ERROR) << "[NI Writer] failed while stopping writer for task " << this->writer_config.task_name;
         err = freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
     }
     else{
-        if (this->checkNIError(ni::NiDAQmxInterface::ClearTask(taskHandle))){
+        if (this->checkNIError(ni::NiDAQmxInterface::ClearTask(task_handle))){
             LOG(ERROR) << "[NI Writer] failed while clearing writer for task " << this->writer_config.task_name;
             err = freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
         }
@@ -222,22 +220,17 @@ freighter::Error ni::DaqDigitalWriter::write(synnax::Frame frame){
     formatData(std::move(frame));
 
     // Write digital data
-    if (this->checkNIError(ni::NiDAQmxInterface::WriteDigitalLines(this->taskHandle,
+    if (this->checkNIError(ni::NiDAQmxInterface::WriteDigitalLines(this->task_handle,
                                                                    1,                        // number of samples per channel
                                                                    1,                        // auto start
                                                                    10.0,                     // timeout
                                                                    DAQmx_Val_GroupByChannel, // data layout
                                                                    writeBuffer,              // data
                                                                    &samplesWritten,          // samples written
-                                                                   NULL)))
-    {
+                                                                   NULL))){
         LOG(ERROR) << "[NI Writer] failed while writing digital data for task " << this->writer_config.task_name;
         return freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR, "Error reading digital data");
     }
-
-    // Construct drive state frame (can only do this after a successful write to keep consistent over failed writes)
-
-    // return acknowledgements frame to write to the ack channel
     this->writer_state_source->updateState(this->writer_config.modified_state_keys, this->writer_config.modified_state_values);
 
     return freighter::NIL;
@@ -310,7 +303,7 @@ std::vector<synnax::ChannelKey> ni::DaqDigitalWriter::getStateChannelKeys(){
 }
 
 ///////////////////////////////////////////////////////////////////////////////////
-//                                    daqStateWriter                           //
+//                                    daqStateWriter                             //
 ///////////////////////////////////////////////////////////////////////////////////
 
 ni::daqStateWriter::daqStateWriter(std::uint64_t state_rate, synnax::ChannelKey &drive_state_index_key, std::vector<synnax::ChannelKey> &drive_state_channel_keys)
@@ -327,7 +320,7 @@ ni::daqStateWriter::daqStateWriter(std::uint64_t state_rate, synnax::ChannelKey 
 
 std::pair<synnax::Frame, freighter::Error> ni::daqStateWriter::read(){
     std::unique_lock<std::mutex> lock(this->state_mutex);
-    waitingReader.wait_for(lock, state_period); // TODO: double check this time is relative and not absolute
+    waiting_reader.wait_for(lock, state_period); 
     return std::make_pair(std::move(this->getDriveState()), freighter::NIL);
 }
 
@@ -352,7 +345,6 @@ synnax::Frame ni::daqStateWriter::getDriveState(){
 }
 
 void ni::daqStateWriter::updateState(std::queue<synnax::ChannelKey> &modified_state_keys, std::queue<std::uint8_t> &modified_state_values){
-    // LOG(INFO) << "Updating state";
     std::unique_lock<std::mutex> lock(this->state_mutex);
     // update state map
     while (!modified_state_keys.empty()){
@@ -361,8 +353,5 @@ void ni::daqStateWriter::updateState(std::queue<synnax::ChannelKey> &modified_st
         modified_state_values.pop();
     }
 
-    waitingReader.notify_one();
+    waiting_reader.notify_one();
 }
-
-// TODO create a helper function that takes in a frame and formats into the data to pass into writedigital
-// TODO: create a helper function to parse digital data configuration of wehtehr its a port to r line

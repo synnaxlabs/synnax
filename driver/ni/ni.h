@@ -29,7 +29,7 @@
 #include "driver/errors/errors.h" 
 #include "driver/breaker/breaker.h"
 #include "driver/pipeline/control.h"
-#include "nlohmann/json.hpp" // for json parsing
+#include "nlohmann/json.hpp" 
 #include "driver/task/task.h"
 #include "driver/config/config.h"
 #include "driver/ni/error.h"
@@ -120,13 +120,8 @@ namespace ni{
     } Scale;
 
     typedef struct ChannelConfig{
-        /// @brief synnax properties
-        std::uint32_t name_space;
-        std::string node_id; // TODO: not actually parsed in from task config rn
         uint32_t channel_key;
-        // uint32_t* index_key;
 
-        /// @brief NI properties
         std::string name;
         std::string channel_type;
         int terminal_config;
@@ -134,21 +129,18 @@ namespace ni{
         float max_val;
 
         bool custom_scale;
-        Scale* scale; // TODO: make pointer
+        Scale* scale; 
         std::string scale_type;
         std::string scale_name;
 
         // Default constructor
         ChannelConfig() 
-            : name_space(0), channel_key(0), terminal_config(-1),  min_val(0.0f), max_val(0.0f),
+            : channel_key(0), terminal_config(-1),  min_val(0.0f), max_val(0.0f),
                 custom_scale(false), scale(nullptr), scale_type(""), scale_name("") {}
 
         // Destructor
         ~ChannelConfig() {}
     } ChannelConfig;
-
-
-
 
     typedef struct ReaderConfig{
         std::string device_key;
@@ -170,10 +162,9 @@ namespace ni{
     ///////////////////////////////////////////////////////////////////////////////////
     //                                    daqAnalogReader                            //
     ///////////////////////////////////////////////////////////////////////////////////
-    class DaqAnalogReader : public daq::DaqReader{ // public keyword required to store pointer to niDaqreader in a pointer to acqReader
+    class DaqAnalogReader : public daq::DaqReader{ 
     public:
-        // TODO: why do we not pass the task in by reference?
-        explicit DaqAnalogReader(TaskHandle taskHandle,
+        explicit DaqAnalogReader(TaskHandle task_handle,
                              const std::shared_ptr<task::Context> &ctx,
                              const synnax::Task task);
 
@@ -183,7 +174,7 @@ namespace ni{
         std::pair<synnax::Frame, freighter::Error> read();
         bool ok();
         ~DaqAnalogReader();
-        void getIndexKeys(); // TODO make a helper not a member function
+        void getIndexKeys(); 
         std::vector<synnax::ChannelKey> getChannelKeys();
     private:
         // private helper functions
@@ -195,7 +186,7 @@ namespace ni{
 
         // NI related resources
         bool running = false;
-        TaskHandle taskHandle = 0;
+        TaskHandle task_handle = 0;
         double *data;       // pointer to heap allocated dataBuffer to provide to DAQmx read functions
         uint64_t numChannels = 0;
         int numSamplesPerChannel = 0;
@@ -207,17 +198,16 @@ namespace ni{
         std::shared_ptr<task::Context> ctx;
         breaker::Breaker breaker;
         bool ok_state = true;
-        int bufferSize = 0; // TODO: make this a member variable
+        int bufferSize = 0; 
     };
 
 
      ///////////////////////////////////////////////////////////////////////////////////
     //                                    DaqDigitalReader                            //
     ///////////////////////////////////////////////////////////////////////////////////
-    class DaqDigitalReader : public daq::DaqReader{ // public keyword required to store pointer to niDaqreader in a pointer to acqReader
+    class DaqDigitalReader : public daq::DaqReader{ 
     public:
-        // TODO: why do we not pass the task in by reference?
-        explicit DaqDigitalReader(TaskHandle taskHandle,
+        explicit DaqDigitalReader(TaskHandle task_handle,
                              const std::shared_ptr<task::Context> &ctx,
                              const synnax::Task task);
 
@@ -230,19 +220,16 @@ namespace ni{
         ~DaqDigitalReader();
         std::vector<synnax::ChannelKey> getChannelKeys();
     private:
-        // private helper functions
         void parseConfig(config::Parser & parser);
         int checkNIError(int32 error);
-        // NI related resources
         bool running = false;
-        TaskHandle taskHandle = 0;
+        TaskHandle task_handle = 0;
         double *data;       // pointer to heap allocated dataBuffer to provide to DAQmx read functions
         int bufferSize = 0; 
         uint64_t numChannels = 0;
         int numSamplesPerChannel = 0;
         json err_info;
 
-        // Server related resources
         ReaderConfig reader_config;
         std::shared_ptr<task::Context> ctx;
         breaker::Breaker breaker;
@@ -265,7 +252,7 @@ namespace ni{
             void updateState(std::queue<synnax::ChannelKey> &modified_state_keys, std::queue<std::uint8_t> &modified_state_values);
         private:
             std::mutex state_mutex;
-            std::condition_variable waitingReader;
+            std::condition_variable waiting_reader;
             std::uint64_t state_rate;
             std::chrono::duration<double> state_period;
             std::map<synnax::ChannelKey, uint8_t> state_map;
@@ -295,7 +282,7 @@ namespace ni{
 
     class DaqDigitalWriter : public daq::DaqWriter{
     public:
-        explicit DaqDigitalWriter(TaskHandle taskHandle,
+        explicit DaqDigitalWriter(TaskHandle task_handle,
                              const std::shared_ptr<task::Context> &ctx,
                              const synnax::Task task);
 
@@ -312,22 +299,19 @@ namespace ni{
 
         std::shared_ptr<ni::daqStateWriter> writer_state_source;
     private:
-        // private helper functions
         freighter::Error formatData(synnax::Frame frame);
         void parseConfig(config::Parser &parser);
         int checkNIError(int32 error);
 
-        // NI related resources
         uint8_t *writeBuffer;  
         int bufferSize = 0;   
         int numSamplesPerChannel = 0;
         std::int64_t numChannels = 0;
-        TaskHandle taskHandle = 0;
+        TaskHandle task_handle = 0;
         bool running = false;
 
         json err_info;
 
-        // Server related resources
         bool ok_state = true;
         std::shared_ptr<task::Context> ctx;
         WriterConfig writer_config; 
@@ -344,7 +328,6 @@ namespace ni{
                                 const synnax::Task &task);
             ~Scanner();
             void scan();
-            void testConnection();
             bool ok();
             json getDevices();
             void createDevices();
@@ -353,12 +336,10 @@ namespace ni{
 
 
             json devices;
-            json deviceProperties;
-            json requestedProperties;
             bool ok_state = true;
             NISysCfgSessionHandle session;
             NISysCfgFilterHandle filter;
-            NISysCfgEnumResourceHandle resourcesHandle;
+            NISysCfgEnumResourceHandle resources_handle;
             synnax::Task task;
             std::shared_ptr<task::Context> ctx; 
     };
@@ -413,7 +394,7 @@ namespace ni{
     private:
         bool running = false;
         pipeline::Acquisition daq_read_pipe; // source is a daqreader 
-        TaskHandle taskHandle;
+        TaskHandle task_handle;
         synnax::Task task;
         std::shared_ptr<task::Context> ctx;
         bool ok_state = true;
@@ -438,7 +419,7 @@ namespace ni{
         bool running = false;
         pipeline::Control cmd_write_pipe;
         pipeline::Acquisition state_write_pipe;
-        TaskHandle taskHandle;
+        TaskHandle task_handle;
         synnax::Task task;
         std::shared_ptr<task::Context> ctx;
         bool ok_state = true;
@@ -450,7 +431,6 @@ namespace ni{
     ///////////////////////////////////////////////////////////////////////////////////
     class Factory final : public task::Factory{
     public:
-        // member functions
         std::pair<std::unique_ptr<task::Task>, bool> configureTask( const std::shared_ptr<task::Context> &ctx,
                                                                     const synnax::Task &task) override;
 
@@ -460,7 +440,6 @@ namespace ni{
 
         ~Factory() = default;
 
-        // member variables
         std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task> > > tasks;
     };
 }
