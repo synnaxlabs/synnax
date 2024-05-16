@@ -25,12 +25,15 @@ import (
 // Config is the configuration for opening a DB.
 type Config struct {
 	alamos.Instrumentation
-	// FS is where the database stores its files. This FS is assumed to be a directory
-	// where DB has exclusive read and write access.
+	// FS is the filesystem that the DB will use to store its data. DB will write to the
+	// root of the filesystem, so this should probably be a subdirectory. DB should have
+	// exclusive access, and it should be empty when the DB is first opened.
+	// [REQUIRED]
 	FS xfs.FS
 	// Channel is the Channel for the database. This only needs to be set when
 	// creating a new database. If the database already exists, the Channel information
 	// will be read from the databases meta file.
+	// [OPTIONAL]
 	Channel core.Channel
 	// FileSize is the maximum file before which no more writes can be made to a file.
 	// [OPTIONAL] Default: 1GB
