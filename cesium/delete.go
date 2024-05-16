@@ -24,9 +24,6 @@ import (
 )
 
 type GCConfig struct {
-	// ReadChunkSize is the maximum number of bytes to be read into memory while garbage collecting
-	ReadChunkSize uint32
-
 	// MaxGoroutine is the maximum number of GoRoutines that can be launched for each try of garbage collection
 	MaxGoroutine int64
 
@@ -35,7 +32,6 @@ type GCConfig struct {
 }
 
 var DefaultGCConfig = GCConfig{
-	ReadChunkSize: uint32(20 * telem.Megabyte),
 	MaxGoroutine:  10,
 	GcTryInterval: 30 * time.Second,
 }
@@ -206,7 +202,7 @@ func (db *DB) DeleteTimeRange(ctx context.Context, ch ChannelKey, tr telem.TimeR
 	return udb.Delete(ctx, tr)
 }
 
-func (db *DB) garbageCollect(ctx context.Context, readChunkSize uint32, maxGoRoutine int64) error {
+func (db *DB) garbageCollect(ctx context.Context, maxGoRoutine int64) error {
 	_, span := db.T.Debug(ctx, "garbage_collect")
 	defer span.End()
 	db.mu.RLock()
@@ -241,7 +237,7 @@ func (db *DB) garbageCollect(ctx context.Context, readChunkSize uint32, maxGoRou
 
 func (db *DB) startGC(sCtx signal.Context, opts *options) {
 	signal.GoTick(sCtx, opts.gcCfg.GcTryInterval, func(ctx context.Context, time time.Time) error {
-		err := db.garbageCollect(ctx, opts.gcCfg.ReadChunkSize, opts.gcCfg.MaxGoroutine)
+		err := db.garbageCollect(ctx, opts.gcCfg.MaxGoroutine)
 		if err != nil {
 			db.L.Error("garbage collection accumulated in failure", zap.Error(err))
 		}

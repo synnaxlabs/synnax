@@ -12,6 +12,7 @@ package unary_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/control"
@@ -184,10 +185,10 @@ var _ = Describe("Delete", Ordered, func() {
 						Expect(frame.Series).To(HaveLen(2))
 						Expect(frame.Series[0].TimeRange.End).To(Equal(10*telem.SecondTS + 1))
 						series0Data := telem.UnmarshalSlice[int64](frame.Series[0].Data, telem.Int64T)
-						Expect(series0Data).To(ConsistOf(10))
+						Expect(series0Data).To(ConsistOf(int64(10)))
 
 						Expect(frame.Series[1].TimeRange.Start).To(Equal(14*telem.SecondTS + 1))
-						series1Data := telem.UnmarshalSlice[int64](frame.Series[1].Data, telem.Int64T)
+						series1Data := telem.UnmarshalSlice[int](frame.Series[1].Data, telem.Int64T)
 						Expect(series1Data).To(ConsistOf(15, 16, 17, 18))
 					})
 				})
@@ -901,6 +902,32 @@ var _ = Describe("Delete", Ordered, func() {
 			Context("Error paths", func() {
 				It("Should error when the end timestamp is earlier than start timestamp", func() {
 					Expect(rateDB.Delete(ctx, telem.TimeRange{Start: 30 * telem.SecondTS, End: 20 * telem.SecondTS})).To(MatchError(ContainSubstring("after delete end")))
+				})
+			})
+
+			Describe("HasDataFor", func() {
+				var (
+					indexDB, dataDB *unary.DB
+				)
+				BeforeEach(func() {
+					indexDB =
+				})
+
+				It("Should return true when there is data for the given range", func() {
+					Expect(db.CreateChannel(ctx,
+						cesium.Channel{Key: indexKey, IsIndex: true, DataType: telem.TimeStampT},
+						cesium.Channel{Key: dataKey, Index: indexKey, DataType: telem.Int64T},
+					)).To(Succeed())
+
+					Expect(db.Write(ctx, 10*telem.SecondTS, cesium.NewFrame(
+						[]cesium.ChannelKey{indexKey},
+						[]telem.Series{telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16)},
+					))).To(Succeed())
+
+					Expect()
+				})
+				It("Should return true when there is a writer starting before the given timerange", func() {
+
 				})
 			})
 		})

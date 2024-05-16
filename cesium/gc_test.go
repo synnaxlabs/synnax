@@ -4,7 +4,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
-	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -15,15 +14,14 @@ var _ = Describe("Garbage collection", Ordered, func() {
 		Context("FS: "+fsName, Ordered, func() {
 			var (
 				db     *cesium.DB
-				basic1 core.ChannelKey = 1
-				basic2 core.ChannelKey = 2
-				index1 core.ChannelKey = 11
+				basic1 = GenerateChannelKey()
+				basic2 = GenerateChannelKey()
+				index1 = GenerateChannelKey()
 			)
 
 			BeforeAll(func() {
 				db = MustSucceed(cesium.Open(rootPath,
 					cesium.WithGC(&cesium.GCConfig{
-						ReadChunkSize: uint32(100 * telem.Megabyte),
 						MaxGoroutine:  10,
 						GcTryInterval: 10 * telem.Millisecond.Duration(),
 					}),

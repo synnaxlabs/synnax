@@ -449,9 +449,9 @@ var _ = Describe("Delete", func() {
 					basic5      = GenerateChannelKey()
 					basic6      = GenerateChannelKey()
 				)
-				Describe("Error paths", func() {
-					It("Should return an error for deleting a non-existent channel", func() {
-						Expect(db.DeleteTimeRange(ctx, 99, telem.TimeRangeMax)).To(MatchError(core.ChannelNotFound))
+				Describe("Edge paths", func() {
+					It("Should do nothing when deleting a non-existent channel", func() {
+						Expect(db.DeleteTimeRange(ctx, 99, telem.TimeRangeMax)).To(Succeed())
 					})
 				})
 				Describe("Simple Rate-based channel", func() {
