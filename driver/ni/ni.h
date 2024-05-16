@@ -24,7 +24,6 @@
 #include "nisyscfg.h"
 #include "client/cpp/synnax.h"
 #include "driver/task/task.h"
-#include "driver/pipeline/daqReader.h"
 #include "driver/pipeline/acquisition.h"
 #include "driver/errors/errors.h" 
 #include "driver/breaker/breaker.h"
@@ -57,8 +56,8 @@ namespace ni{
     } MapScale;
 
     typedef struct PolynomialScale{
-        float* forward_coeffs;
-        float* reverse_coeffs; 
+        float64* forward_coeffs;
+        float64* reverse_coeffs; 
         uint32_t num_coeffs;
         float64 min_x;
         float64 max_x;
@@ -69,8 +68,8 @@ namespace ni{
     } PolynomialScale;
 
     typedef struct tableScale{
-        float* prescaled;
-        float* scaled;
+        float64* prescaled;
+        float64* scaled;
         uint32_t num_points;
         std::string prescaled_units;
         std::string scaled_units;
@@ -128,7 +127,7 @@ namespace ni{
     ///////////////////////////////////////////////////////////////////////////////////
     //                                    daqAnalogReader                            //
     ///////////////////////////////////////////////////////////////////////////////////
-    class DaqAnalogReader : public daq::DaqReader{ 
+    class DaqAnalogReader : public pipeline::Source{ 
     public:
         explicit DaqAnalogReader(TaskHandle task_handle,
                              const std::shared_ptr<task::Context> &ctx,
@@ -171,7 +170,7 @@ namespace ni{
      ///////////////////////////////////////////////////////////////////////////////////
     //                                    DaqDigitalReader                            //
     ///////////////////////////////////////////////////////////////////////////////////
-    class DaqDigitalReader : public daq::DaqReader{ 
+    class DaqDigitalReader : public pipeline::Source{ 
     public:
         explicit DaqDigitalReader(TaskHandle task_handle,
                              const std::shared_ptr<task::Context> &ctx,
@@ -246,7 +245,7 @@ namespace ni{
         std::queue<std::uint8_t> modified_state_values;
     } WriterConfig;
 
-    class DaqDigitalWriter : public daq::DaqWriter{
+    class DaqDigitalWriter : public pipeline::Sink{
     public:
         explicit DaqDigitalWriter(TaskHandle task_handle,
                              const std::shared_ptr<task::Context> &ctx,
@@ -412,3 +411,31 @@ namespace ni{
 
 
 
+
+/*
+
+using json = nlohmann::json;
+namespace daq
+{
+    class DaqReader : public pipeline::Source  //TODD: change to daqReader
+    {
+    public:
+        virtual std::pair<synnax::Frame, freighter::Error> read() = 0;
+        virtual freighter::Error start() = 0;
+        virtual freighter::Error stop() = 0;
+        virtual bool ok() = 0;
+    };
+
+    class DaqWriter: public pipeline::Sink{
+    public:
+        virtual freighter::Error write(synnax::Frame frame) = 0;
+        virtual freighter::Error start() = 0;
+        virtual freighter::Error stop() = 0;
+        // virtual bool ok() = 0;
+    };
+
+
+}
+
+
+*/

@@ -113,7 +113,7 @@ ni::ReaderTask::ReaderTask(const std::shared_ptr <task::Context> &ctx,
 
 
     // determine whether digitalDaqReader or analogDaqReader is needed
-    std::unique_ptr<daq::DaqReader> daq_reader;
+    std::unique_ptr<pipeline::Source> daq_reader;
     std::vector <synnax::ChannelKey> channel_keys;
     if(task.type == "ni_digital_reader"){
         auto digital_reader = std::make_unique<ni::DaqDigitalReader>(this->task_handle, ctx, task);
@@ -125,11 +125,14 @@ ni::ReaderTask::ReaderTask(const std::shared_ptr <task::Context> &ctx,
         daq_reader = std::move(analog_reader);
     }
 
-    if (!daq_reader->ok()) {
-        LOG(ERROR) << "[NI Reader] failed to construct reader for " << task.name;
-        this->ok_state = false;
-        return;
-    }
+
+    // TODO: bring this check again
+    
+    // if (!daq_reader->ok()) {
+    //     LOG(ERROR) << "[NI Reader] failed to construct reader for " << task.name;
+    //     this->ok_state = false;
+    //     return;
+    // }
 
     // construct writer config
 

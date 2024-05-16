@@ -355,3 +355,4 @@ void ni::daqStateWriter::updateState(std::queue<synnax::ChannelKey> &modified_st
 
     waiting_reader.notify_one();
 }
+

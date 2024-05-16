@@ -80,7 +80,7 @@ cc_library(
         "nisyscfg",
         "//driver/breaker",
         "//driver/errors",
-        "//driver/pipeline:daqReader",
+        "//driver/pipeline",
         "//client/cpp:synnax",
         "//driver/config",
         "//driver/task",

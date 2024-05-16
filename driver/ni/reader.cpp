@@ -70,7 +70,7 @@ void ni::DaqAnalogReader::getIndexKeys(){
 // TODO: fix this to avoid code duplication:
 
 
-uint32_t parseFloats(std::vector<float64> vec, float* arr){
+uint32_t parseFloats(std::vector<float64> vec, double* arr){
     for(int i = 0; i < vec.size(); i++){
         arr[i] = vec[i];
     }
@@ -208,29 +208,26 @@ void ni::DaqAnalogReader::parseCustomScale(config::Parser & parser, ni::ChannelC
             config.scale->map = {prescaled_min, prescaled_max, scaled_min, scaled_max, prescaled_units, scaled_units};
 
         } else if(config.scale_type == "PolyScale"){
-
-            float* forward_coeffs_arr;
-            float* reverse_coeffs_arr;
-            
             // get forward coeffs (prescale -> scale)
-            std::vector<double> forward_coeffs_vec = {}; // scale_parser.required<std::vector<double>>("forward_coeffs"); FIXME
-            if(parser.ok()){
-                uint32_t num_coeffs = parseFloats(forward_coeffs_vec, forward_coeffs_arr);
+            json j = scale_parser.get_json();
+            if(!j.contains("forward_coeffs")){
+                return;
+            }
+            std::vector<double> forward_coeffs_vec = j["forward_coeffs"]; 
+            if(scale_parser.ok()){
                 auto min_x = scale_parser.required<double>("min_x");
                 auto max_x = scale_parser.required<double>("max_x");
                 auto num_points = scale_parser.required<int32>("num_points");
                 auto poly_order = scale_parser.required<int32>("poly_order");
 
-                // make arrays i can actually pass into the function TODO: fix this
-                float reverse_coeffs_in[1000];
-                float forward_coeffs_in[1000];
+                float64* forward_coeffs = new double[num_points];
+                float64* reverse_coeffs = new double[num_points]; // TODO: reverse coeffs can be less than forward_coeffs depending on the order of the function (only equal if order is)      
+                uint32_t num_coeffs = parseFloats(forward_coeffs_vec, forward_coeffs);
 
-                for(int i = 0; i < num_coeffs; i++){
-                    forward_coeffs_in[i] = forward_coeffs_arr[i];
-                }
+
                 // get reverse coeffs (scale -> prescale)
-                // ni::NiDAQmxInterface::CalculateReversePolyCoeff(forward_coeffs_in, num_coeffs, min_x, max_x, num_points, -1, reverse_coeffs_in); // FIXME: 
-                config.scale->polynomial = {forward_coeffs_arr, reverse_coeffs_arr, num_coeffs, min_x, max_x, num_points, poly_order, prescaled_units, scaled_units};
+                ni::NiDAQmxInterface::CalculateReversePolyCoeff(forward_coeffs, num_coeffs, min_x, max_x, num_points, -1,  reverse_coeffs); // FIXME: reversePoly order should be user inputted?
+                config.scale->polynomial = {forward_coeffs, reverse_coeffs, num_coeffs, min_x, max_x, num_points, poly_order, prescaled_units, scaled_units};
             }
    
         } else if(config.scale_type == "TableScale"){
@@ -238,8 +235,8 @@ void ni::DaqAnalogReader::parseCustomScale(config::Parser & parser, ni::ChannelC
             std::vector<double> scaled_vec =  {}; //scale_parser.required<std::vector<double>>("scaled"); //FIXME
             if(scale_parser.ok()){
                 uint32_t num_points = prescaled_vec.size();
-                float* prescaled_arr;
-                float* scaled_arr;
+                float64* prescaled_arr;
+                float64* scaled_arr;
                 uint32_t num_prescaled = parseFloats(prescaled_vec, prescaled_arr);
                 uint32_t num_scaled = parseFloats(scaled_vec, scaled_arr);
                 if(num_prescaled != num_scaled){
@@ -265,6 +262,7 @@ void ni::DaqAnalogReader::parseCustomScale(config::Parser & parser, ni::ChannelC
             std::cout << scale_parser.error_json() << std::endl; // TODO: remove
             return;
         }
+        
         if(!scale_parser.ok()){ // error in parsing scale need to handle error here !!!
             // Log error
             LOG(ERROR) << "[NI Reader] failed to parse custom scale configuration for " << this->reader_config.task_name;
@@ -527,8 +525,6 @@ int ni::DaqAnalogReader::createChannel(ni::ChannelConfig &channel){
                 prescaled[i] = channel.scale->table.prescaled[i];
                 scaled[i] = channel.scale->table.scaled[i];
             }
-
-
             this->checkNIError(ni::NiDAQmxInterface::CreateTableScale(
                 channel.scale_name.c_str(), 
                 prescaled, 
