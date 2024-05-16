@@ -40,6 +40,7 @@ func (db *DB) Delete(ctx context.Context, tr telem.TimeRange) error {
 	var (
 		startOffset int64 = 0
 		endOffset   int64 = 0
+		density           = db.Channel.DataType.Density()
 	)
 
 	g, _, err := db.Controller.OpenAbsoluteGateIfUncontrolled(tr, control.Subject{Key: "delete_writer"}, func() (controlledWriter, error) {
@@ -105,7 +106,7 @@ func (db *DB) Delete(ctx context.Context, tr telem.TimeRange) error {
 
 	endPosition := i.Position()
 
-	err = db.Domain.Delete(ctx, startPosition, endPosition, startOffset*int64(db.Channel.DataType.Density()), endOffset*int64(db.Channel.DataType.Density()), tr, db.Channel.DataType.Density())
+	err = db.Domain.Delete(ctx, startPosition, endPosition, int64(density.Size(startOffset)), int64(density.Size(endOffset)), tr)
 
 	if err != nil {
 		return errors.CombineErrors(err, i.Close())

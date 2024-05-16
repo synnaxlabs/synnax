@@ -12,7 +12,6 @@ package unary_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/control"
@@ -906,28 +905,86 @@ var _ = Describe("Delete", Ordered, func() {
 			})
 
 			Describe("HasDataFor", func() {
-				var (
-					indexDB, dataDB *unary.DB
-				)
 				BeforeEach(func() {
-					indexDB =
+					indexDB = MustSucceed(unary.Open(unary.Config{
+						FS: MustSucceed(fs.Sub(pth1)),
+						Channel: core.Channel{
+							Key:      index,
+							DataType: telem.TimeStampT,
+							IsIndex:  true,
+							Index:    index,
+						},
+					}))
+					db = MustSucceed(unary.Open(unary.Config{
+						FS: MustSucceed(fs.Sub(pth2)),
+						Channel: core.Channel{
+							Key:      data,
+							DataType: telem.Int64T,
+							Index:    index,
+						},
+					}))
+
+					db.SetIndex(indexDB.Index())
 				})
 
-				It("Should return true when there is data for the given range", func() {
-					Expect(db.CreateChannel(ctx,
-						cesium.Channel{Key: indexKey, IsIndex: true, DataType: telem.TimeStampT},
-						cesium.Channel{Key: dataKey, Index: indexKey, DataType: telem.Int64T},
-					)).To(Succeed())
+				It("Should return whether there is data for the given range", func() {
+					Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16))).To(Succeed())
+					Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewSeriesV[int64](0, 1, 2, 3, 4, 5, 6))).To(Succeed())
+					hasData, err := db.HasDataFor(ctx, (12 * telem.SecondTS).Range(23*telem.SecondTS))
+					Expect(hasData).To(BeTrue())
+					Expect(err).ToNot(HaveOccurred())
 
-					Expect(db.Write(ctx, 10*telem.SecondTS, cesium.NewFrame(
-						[]cesium.ChannelKey{indexKey},
-						[]telem.Series{telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16)},
-					))).To(Succeed())
+					hasData, err = db.HasDataFor(ctx, (16*telem.SecondTS + 1).Range(25*telem.SecondTS))
+					Expect(hasData).To(BeFalse())
+					Expect(err).ToNot(HaveOccurred())
 
-					Expect()
+					hasData, err = db.HasDataFor(ctx, (5 * telem.SecondTS).Range(10*telem.SecondTS))
+					Expect(hasData).To(BeFalse())
+					Expect(err).ToNot(HaveOccurred())
 				})
 				It("Should return true when there is a writer starting before the given timerange", func() {
+					w, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
+						Start:   5 * telem.SecondTS,
+						Subject: control.Subject{Key: "foo_writer"},
+					}))
 
+					hasData, err := db.HasDataFor(ctx, (12 * telem.SecondTS).Range(23*telem.SecondTS))
+					Expect(hasData).To(BeTrue())
+					Expect(err).ToNot(HaveOccurred())
+
+					MustSucceed(w.Close(ctx))
+
+					hasData, err = db.HasDataFor(ctx, (12 * telem.SecondTS).Range(23*telem.SecondTS))
+					Expect(hasData).To(BeFalse())
+					Expect(err).ToNot(HaveOccurred())
+				})
+				It("Should return true when there is a writer starting in the middle of the given timerange", func() {
+					w, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
+						Start:   15 * telem.SecondTS,
+						Subject: control.Subject{Key: "foo_writer"},
+					}))
+
+					hasData, err := db.HasDataFor(ctx, (12 * telem.SecondTS).Range(23*telem.SecondTS))
+					Expect(hasData).To(BeTrue())
+					Expect(err).ToNot(HaveOccurred())
+
+					MustSucceed(w.Close(ctx))
+
+					hasData, err = db.HasDataFor(ctx, (12 * telem.SecondTS).Range(23*telem.SecondTS))
+					Expect(hasData).To(BeFalse())
+					Expect(err).ToNot(HaveOccurred())
+				})
+				It("Should return false when there is a writer starting after the given timerange", func() {
+					w, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
+						Start:   25 * telem.SecondTS,
+						Subject: control.Subject{Key: "foo_writer"},
+					}))
+
+					hasData, err := db.HasDataFor(ctx, (12 * telem.SecondTS).Range(23*telem.SecondTS))
+					Expect(hasData).To(BeFalse())
+					Expect(err).ToNot(HaveOccurred())
+
+					MustSucceed(w.Close(ctx))
 				})
 			})
 		})

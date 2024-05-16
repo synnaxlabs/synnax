@@ -117,14 +117,18 @@ func (db *DB) OpenIterator(cfg IteratorConfig) *Iterator {
 // overlaps with the given timerange. Note that this function will return false if there
 // is an open writer that could write into the requested timerange
 func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) {
-	g, _, err := db.Controller.OpenAbsoluteGateIfUncontrolled(tr, control.Subject{Key: "has_data_for_writer"}, func() (controlledWriter, error) {
-		return controlledWriter{
-			Writer:     nil,
-			channelKey: db.Channel.Key,
-		}, nil
-	})
+	g, _, err := db.Controller.OpenAbsoluteGateIfUncontrolled(tr, control.Subject{Key: "has_data_for"},
+		func() (controlledWriter, error) {
+			return controlledWriter{
+				Writer:     nil,
+				channelKey: db.Channel.Key,
+			}, nil
+		})
 
 	if err != nil {
+		if errors.Is(err, errors.Newf("[controller] - region already being controlled")) {
+			return true, nil
+		}
 		return true, err
 	}
 

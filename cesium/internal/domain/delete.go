@@ -17,7 +17,7 @@ import (
 // The following requirements are placed on the variables:
 // 0 <= startPosition <= endPosition < len(db.mu.idx.pointers), and must both be valid
 // positions in the index.
-func (db *DB) Delete(ctx context.Context, startPosition int, endPosition int, startOffset int64, endOffset int64, tr telem.TimeRange, density telem.Density) error {
+func (db *DB) Delete(ctx context.Context, startPosition int, endPosition int, startOffset int64, endOffset int64, tr telem.TimeRange) error {
 	db.idx.mu.Lock()
 	defer db.idx.mu.Unlock()
 
@@ -54,9 +54,8 @@ func (db *DB) Delete(ctx context.Context, startPosition int, endPosition int, st
 			offset:  start.offset,
 			length:  uint32(startOffset), // length from start.Start to tr.Start
 		})
-
-		db.idx.mu.tombstones[start.fileKey] += start.length - uint32(startOffset) - uint32(density.Size(1))
 	}
+	db.idx.mu.tombstones[start.fileKey] += start.length - uint32(startOffset)
 
 	if endOffset != 0 {
 		newPointers = append(newPointers, pointer{
@@ -68,13 +67,13 @@ func (db *DB) Delete(ctx context.Context, startPosition int, endPosition int, st
 			offset:  end.offset + end.length - uint32(endOffset),
 			length:  uint32(endOffset), // length from tr.End to end.End
 		})
-
-		db.idx.mu.tombstones[end.fileKey] += end.length - uint32(endOffset)
 	}
+	db.idx.mu.tombstones[end.fileKey] += end.length - uint32(endOffset)
 
-	if startPosition == endPosition {
-		// Subtract intersection from tombstone size.
-		db.idx.mu.tombstones[end.fileKey] -= 2 * (end.length - uint32(density.Size(1)) - uint32(endOffset) - uint32(startOffset))
+	if startPosition == endPosition && startOffset != 0 && endOffset != 0 {
+		// If start and end are in the same domain, then we only keep their intersection
+		// as the tombstone. Calculated via the PIE.
+		db.idx.mu.tombstones[end.fileKey] -= end.length
 	}
 
 	if len(newPointers) != 0 {
@@ -94,8 +93,10 @@ func (db *DB) CollectTombstones(ctx context.Context) error {
 	ctx, span := db.T.Bench(ctx, "GCTombstone")
 	db.idx.mu.Lock()
 
-	defer span.End()
-	defer db.idx.mu.Unlock()
+	defer func() {
+		span.End()
+		db.idx.mu.Unlock()
+	}()
 
 	for fileKey, tombstoneSize := range db.idx.mu.tombstones {
 		if tombstoneSize >= uint32(db.GCThreshold*float32(db.FileSize)) {

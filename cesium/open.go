@@ -53,8 +53,7 @@ func Open(dirname string, opts ...Option) (*DB, error) {
 		}
 	}
 
-	// starts garbage collection
-	//_db.startGC(sCtx, o)
+	_db.startGC(sCtx, o)
 
 	return _db, nil
 }
@@ -85,7 +84,7 @@ func (db *DB) openVirtualOrUnary(ch Channel) error {
 		if isOpen {
 			return nil
 		}
-		u, err := unary.Open(unary.Config{FS: fs, Channel: ch, Instrumentation: db.Instrumentation})
+		u, err := unary.Open(unary.Config{FS: fs, Channel: ch, Instrumentation: db.Instrumentation, GCThreshold: db.options.gcCfg.GCThreshold})
 		if err != nil {
 			return err
 		}

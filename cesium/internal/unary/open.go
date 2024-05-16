@@ -39,14 +39,14 @@ type Config struct {
 	// Must be in (0, 1].
 	// Note: Setting this value to 0 will have NO EFFECT as it is the default value.
 	// instead, set it to a very small number greater than 0.
-	// [OPTIONAL] Default: 0.5
+	// [OPTIONAL] Default: 0.2
 	GCThreshold float32
 }
 
 var (
 	_ config.Config[Config] = Config{}
 	// DefaultConfig is the default configuration for a DB.
-	DefaultConfig = Config{FileSize: 1 * telem.Gigabyte, GCThreshold: 0.5}
+	DefaultConfig = Config{FileSize: 1 * telem.Gigabyte, GCThreshold: 0.2}
 )
 
 // Validate implements config.GateConfig.

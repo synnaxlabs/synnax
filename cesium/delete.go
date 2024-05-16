@@ -27,13 +27,21 @@ type GCConfig struct {
 	// MaxGoroutine is the maximum number of GoRoutines that can be launched for each try of garbage collection
 	MaxGoroutine int64
 
-	// GcTryInterval is the interval of time between two tries of garbage collection are started
-	GcTryInterval time.Duration
+	// GCTryInterval is the interval of time between two tries of garbage collection are started
+	GCTryInterval time.Duration
+
+	// GCThreshold is the minimum tombstone proportion of the Filesize to trigger a GC.
+	// Must be in (0, 1].
+	// Note: Setting this value to 0 will have NO EFFECT as it is the default value.
+	// instead, set it to a very small number greater than 0.
+	// [OPTIONAL] Default: 0.2
+	GCThreshold float32
 }
 
 var DefaultGCConfig = GCConfig{
 	MaxGoroutine:  10,
-	GcTryInterval: 30 * time.Second,
+	GCTryInterval: 30 * time.Second,
+	GCThreshold:   0.2,
 }
 
 func channelDirName(ch ChannelKey) string {
@@ -224,22 +232,21 @@ func (db *DB) garbageCollect(ctx context.Context, maxGoRoutine int64) error {
 				wg.Done()
 			}()
 			c.Exec(func() error {
-				err := udb.GarbageCollect(ctx)
-				return err
+				return udb.GarbageCollect(ctx)
 			})
 		}()
 	}
 
-	db.mu.RUnlock()
 	wg.Wait()
+	db.mu.RUnlock()
 	return c.Error()
 }
 
 func (db *DB) startGC(sCtx signal.Context, opts *options) {
-	signal.GoTick(sCtx, opts.gcCfg.GcTryInterval, func(ctx context.Context, time time.Time) error {
+	signal.GoTick(sCtx, opts.gcCfg.GCTryInterval, func(ctx context.Context, time time.Time) error {
 		err := db.garbageCollect(ctx, opts.gcCfg.MaxGoroutine)
 		if err != nil {
-			db.L.Error("garbage collection accumulated in failure", zap.Error(err))
+			db.L.Error("garbage collection error", zap.Error(err))
 		}
 		return nil
 	})
