@@ -171,6 +171,25 @@ var _ = Describe("Delete", Ordered, func() {
 						Expect(iter.SeekFirst(ctx)).To(BeFalse())
 						Expect(iter.Close()).To(Succeed())
 					})
+					It("Should not delete the first element of the domain when the start index is start + 1", func() {
+						By("Deleting channel data")
+						Expect(rateDB.Delete(ctx, telem.TimeRange{
+							Start: 10*telem.SecondTS + 1,
+							End:   14*telem.SecondTS + 1,
+						})).To(Succeed())
+
+						frame, err := rateDB.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 20 * telem.SecondTS})
+						Expect(err).ToNot(HaveOccurred())
+
+						Expect(frame.Series).To(HaveLen(2))
+						Expect(frame.Series[0].TimeRange.End).To(Equal(10*telem.SecondTS + 1))
+						series0Data := telem.UnmarshalSlice[int64](frame.Series[0].Data, telem.Int64T)
+						Expect(series0Data).To(ConsistOf(10))
+
+						Expect(frame.Series[1].TimeRange.Start).To(Equal(14*telem.SecondTS + 1))
+						series1Data := telem.UnmarshalSlice[int64](frame.Series[1].Data, telem.Int64T)
+						Expect(series1Data).To(ConsistOf(15, 16, 17, 18))
+					})
 				})
 
 				Context("Index channels", func() {

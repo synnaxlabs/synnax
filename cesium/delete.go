@@ -228,7 +228,7 @@ func (db *DB) garbageCollect(ctx context.Context, readChunkSize uint32, maxGoRou
 				wg.Done()
 			}()
 			c.Exec(func() error {
-				err := udb.GarbageCollect(ctx, readChunkSize)
+				err := udb.GarbageCollect(ctx)
 				return err
 			})
 		}()

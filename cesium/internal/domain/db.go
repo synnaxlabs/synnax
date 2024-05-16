@@ -63,10 +63,15 @@ type Config struct {
 	// exclusive access, and it should be empty when the DB is first opened.
 	// [REQUIRED]
 	FS xfs.FS
-	// FileSize is the maximum size of a data file in bytes. When a data file reaches this
-	// size, a new file will be created.
+	// FileSize is the maximum file before which no more writes can be made to a file.
 	// [OPTIONAL] Default: 1GB
 	FileSize telem.Size
+	// GCThreshold is the minimum tombstone proportion of the Filesize to trigger a GC.
+	// Must be in (0, 1].
+	// Note: Setting this value to 0 will have NO EFFECT as it is the default value.
+	// instead, set it to a very small number greater than 0.
+	// [OPTIONAL] Default: 0.5
+	GCThreshold float32
 	// MaxDescriptors is the maximum number of file descriptors that the DB will use. A
 	// higher value will allow more concurrent reads and writes. It's important to note
 	// that the exact performance impact of changing this value is still relatively unknown.
@@ -79,6 +84,7 @@ var (
 	// DefaultConfig is the default configuration for a DB.
 	DefaultConfig = Config{
 		FileSize:       1 * telem.Gigabyte,
+		GCThreshold:    0.5,
 		MaxDescriptors: 100,
 	}
 )
@@ -89,6 +95,8 @@ func (c Config) Validate() error {
 	validate.Positive(v, "fileSize", c.FileSize)
 	validate.Positive(v, "maxDescriptors", c.MaxDescriptors)
 	validate.NotNil(v, "fs", c.FS)
+	validate.GreaterThanEq(v, "gcThreshold", c.GCThreshold, 0)
+	validate.LessThanEq(v, "gcThreshold", c.GCThreshold, 1)
 	return v.Error()
 }
 
@@ -98,6 +106,7 @@ func (c Config) Override(other Config) Config {
 	c.FileSize = override.Numeric(c.FileSize, other.FileSize)
 	c.FS = override.Nil(c.FS, other.FS)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
+	c.GCThreshold = override.Numeric(c.GCThreshold, other.GCThreshold)
 	return c
 }
 
@@ -118,7 +127,7 @@ func Open(configs ...Config) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	idx.mu.tombstones = make(map[uint16][]pointer)
+	idx.mu.tombstones = make(map[uint16]uint32)
 	controller, err := openFileController(cfg)
 	if err != nil {
 		return nil, err

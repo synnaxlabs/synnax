@@ -47,6 +47,10 @@ var _ = Describe("Rate", func() {
 			(3500*telem.MillisecondTS).Range(6500*telem.MillisecondTS),
 			index.Between[int64](2, 4),
 		),
+		Entry("Timerange - inexact start exact end",
+			(3999*telem.MillisecondTS).Range(6000*telem.MillisecondTS),
+			index.Between[int64](2, 3),
+		),
 	)
 	Describe("Stamp", func() {
 		DescribeTable("Distance", func(ts telem.TimeStamp, dist int, expected index.TimeStampApproximation) {

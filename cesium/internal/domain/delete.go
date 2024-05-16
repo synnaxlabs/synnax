@@ -4,9 +4,7 @@ import (
 	"context"
 	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/x/telem"
-	"io"
 	"os"
-	"strconv"
 )
 
 // Delete adds all pointers ranging from
@@ -19,7 +17,7 @@ import (
 // The following requirements are placed on the variables:
 // 0 <= startPosition <= endPosition < len(db.mu.idx.pointers), and must both be valid
 // positions in the index.
-func (db *DB) Delete(ctx context.Context, startPosition int, endPosition int, startOffset int64, endOffset int64, tr telem.TimeRange) error {
+func (db *DB) Delete(ctx context.Context, startPosition int, endPosition int, startOffset int64, endOffset int64, tr telem.TimeRange, density telem.Density) error {
 	db.idx.mu.Lock()
 	defer db.idx.mu.Unlock()
 
@@ -40,6 +38,10 @@ func (db *DB) Delete(ctx context.Context, startPosition int, endPosition int, st
 	}
 
 	// Remove old pointers.
+	for i := startPosition + 1; i < endPosition; i++ {
+		ptr := db.idx.mu.pointers[i]
+		db.idx.mu.tombstones[ptr.fileKey] += ptr.length
+	}
 	db.idx.mu.pointers = append(db.idx.mu.pointers[:startPosition], db.idx.mu.pointers[endPosition+1:]...)
 
 	if startOffset != 0 {
@@ -52,6 +54,8 @@ func (db *DB) Delete(ctx context.Context, startPosition int, endPosition int, st
 			offset:  start.offset,
 			length:  uint32(startOffset), // length from start.Start to tr.Start
 		})
+
+		db.idx.mu.tombstones[start.fileKey] += start.length - uint32(startOffset) - uint32(density.Size(1))
 	}
 
 	if endOffset != 0 {
@@ -64,6 +68,13 @@ func (db *DB) Delete(ctx context.Context, startPosition int, endPosition int, st
 			offset:  end.offset + end.length - uint32(endOffset),
 			length:  uint32(endOffset), // length from tr.End to end.End
 		})
+
+		db.idx.mu.tombstones[end.fileKey] += end.length - uint32(endOffset)
+	}
+
+	if startPosition == endPosition {
+		// Subtract intersection from tombstone size.
+		db.idx.mu.tombstones[end.fileKey] -= 2 * (end.length - uint32(density.Size(1)) - uint32(endOffset) - uint32(startOffset))
 	}
 
 	if len(newPointers) != 0 {
@@ -77,71 +88,73 @@ func (db *DB) Delete(ctx context.Context, startPosition int, endPosition int, st
 	return db.idx.persist(ctx, startPosition)
 }
 
-func (db *DB) CollectTombstones(ctx context.Context, maxSizeRead uint32) error {
+// CollectTombstones must only collect files that are oversize since no new writers may
+// be acquired on them. However, deletes may still happen on them.
+func (db *DB) CollectTombstones(ctx context.Context) error {
+	ctx, span := db.T.Bench(ctx, "GCTombstone")
 	db.idx.mu.Lock()
+
+	defer span.End()
 	defer db.idx.mu.Unlock()
 
-	for fileKey, tombstones := range db.idx.mu.tombstones {
-		var (
-			// priorTombstoneLength tracks the number of lengths of all tombstone
-			// pointers before the current pointer during the course of rewriting
-			// pointers.
-			priorTombstoneLength uint32 = 0
-			pointerPtr                  = 0
-			tombstonePtr                = 0
-		)
+	for fileKey, tombstoneSize := range db.idx.mu.tombstones {
+		if tombstoneSize >= uint32(db.GCThreshold*float32(db.FileSize)) {
+			var (
+				fileName         = fileKeyToName(fileKey)
+				copyName         = fileName + "_gc"
+				newOffset uint32 = 0
+			)
 
-		r, err := db.files.acquireReader(ctx, fileKey)
-		if err != nil {
-			return err
-		}
-		f, err := db.FS.Open(strconv.Itoa(int(fileKey))+"_temp.domain", os.O_CREATE|os.O_RDWR)
-		if err != nil {
-			return err
-		}
-
-		for pointerPtr < len(db.idx.mu.pointers) {
-			currentPointer := &db.idx.mu.pointers[pointerPtr]
-			if currentPointer.fileKey != fileKey {
-				pointerPtr++
-				continue
+			// Rename the old file.
+			if err := db.FS.Rename(fileName, copyName); err != nil {
+				return span.Error(err)
 			}
 
-			for tombstonePtr < len(tombstones) && currentPointer.offset > tombstones[tombstonePtr].offset {
-				priorTombstoneLength += db.idx.mu.tombstones[fileKey][tombstonePtr].length
-				tombstonePtr++
+			r, err := db.FS.Open(copyName, os.O_RDONLY)
+			if err != nil {
+				return span.Error(err)
 			}
 
-			n := 0
+			// Open a new file.
+			f, err := db.FS.Open(fileName, os.O_CREATE|os.O_WRONLY)
+			if err != nil {
+				return span.Error(err)
+			}
 
-			for n < int(currentPointer.length) {
-				buf := make([]byte, minInt(maxSizeRead, currentPointer.length))
-				_n, err := r.ReadAt(buf, int64(currentPointer.offset)+int64(n))
-				if err != nil && err != io.EOF {
-					return err
+			// Find all pointers stored in the old file, and write them to the new file.
+			for i, ptr := range db.idx.mu.pointers {
+				if ptr.fileKey == fileKey {
+					buf := make([]byte, ptr.length)
+					_, err = r.ReadAt(buf, int64(ptr.offset))
+					if err != nil {
+						return span.Error(err)
+					}
+
+					_, err = f.WriteAt(buf, int64(newOffset))
+					if err != nil {
+						return span.Error(err)
+					}
+
+					db.idx.mu.pointers[i].offset = newOffset
+					newOffset += ptr.length
 				}
-				_, err = f.WriteAt(buf, int64(currentPointer.offset)+int64(n)-int64(priorTombstoneLength))
-				if err != nil {
-					return err
-				}
-				n += _n
 			}
-			currentPointer.offset -= priorTombstoneLength
-			pointerPtr += 1
-		}
 
-		err = db.files.removeReadersWriters(ctx, fileKey)
-		if err != nil {
-			return err
-		}
+			// Delete the old file
+			if err = r.Close(); err != nil {
+				return span.Error(err)
+			}
 
-		err = db.FS.Remove(strconv.Itoa(int(fileKey)) + ".domain")
-		if err != nil {
-			return err
-		}
-		err = db.FS.Rename(strconv.Itoa(int(fileKey))+"_temp.domain", strconv.Itoa(int(fileKey))+".domain")
-		if err != nil {
-			return err
+			if err = f.Close(); err != nil {
+				return span.Error(err)
+			}
+
+			if err = db.FS.Remove(copyName); err != nil {
+				return span.Error(err)
+			}
+
+			// Remove entry from tombstones.
+			delete(db.idx.mu.tombstones, fileKey)
 		}
 	}
 
@@ -185,12 +198,4 @@ func validateDelete(startPosition int, endPosition int, startOffset *int64, endO
 	}
 
 	return nil
-}
-
-func minInt(a uint32, b uint32) int {
-	if a > b {
-		return int(b)
-	} else {
-		return int(a)
-	}
 }

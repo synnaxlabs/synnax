@@ -21,7 +21,7 @@ type Rate struct {
 var _ Index = Rate{}
 
 // Distance implements Index.
-func (r Rate) Distance(_ context.Context, tr telem.TimeRange, continuous bool) (DistanceApproximation, error) {
+func (r Rate) Distance(_ context.Context, tr telem.TimeRange, _ bool) (DistanceApproximation, error) {
 	return Between(
 		int64(r.Rate.ClosestGE(tr.Start).Span(r.Rate.ClosestLE(tr.End))/r.Rate.Period()),
 		int64(r.Rate.ClosestLE(tr.Start).Span(r.Rate.ClosestGE(tr.End))/r.Rate.Period()),

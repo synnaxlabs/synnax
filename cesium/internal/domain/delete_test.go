@@ -44,7 +44,7 @@ var _ = Describe("Delete", Ordered, func() {
 					secondTr telem.TimeRange,
 					secondData []byte,
 				) {
-					Expect(db.Delete(ctx, startPosition, endPosition, int64(startOffset), int64(endOffset), tr)).To(Succeed())
+					Expect(db.Delete(ctx, startPosition, endPosition, int64(startOffset), int64(endOffset), tr, 1)).To(Succeed())
 					iter := db.NewIterator(domain.IteratorConfig{Bounds: telem.TimeRangeMax})
 					Expect(iter.SeekFirst(ctx)).To(BeTrue())
 					Expect(iter.TimeRange()).To(Equal(firstTr))
@@ -68,7 +68,7 @@ var _ = Describe("Delete", Ordered, func() {
 					Entry("end at end of pointer", (13*telem.SecondTS).Range(20*telem.SecondTS), 0, 1, 3, 10, (10*telem.SecondTS).Range(13*telem.SecondTS), []byte{10, 11, 12}, (20*telem.SecondTS).Range(30*telem.SecondTS), []byte{20, 21, 22, 23, 24, 25, 26, 27, 28}))
 
 				It("Should delete with the end being end of db", func() {
-					Expect(db.Delete(ctx, 0, 2, 2, 0, (12 * telem.SecondTS).Range(40*telem.SecondTS))).To(Succeed())
+					Expect(db.Delete(ctx, 0, 2, 2, 0, (12 * telem.SecondTS).Range(40*telem.SecondTS), 1)).To(Succeed())
 					iter := db.NewIterator(domain.IteratorConfig{Bounds: telem.TimeRangeMax})
 					Expect(iter.SeekFirst(ctx)).To(BeTrue())
 					Expect(iter.TimeRange()).To(Equal((10 * telem.SecondTS).Range(12 * telem.SecondTS)))
@@ -83,7 +83,7 @@ var _ = Describe("Delete", Ordered, func() {
 				})
 
 				It("Should delete nothing", func() {
-					Expect(db.Delete(ctx, 1, 1, 4, 6, (24 * telem.SecondTS).Range(24*telem.SecondTS))).To(Succeed())
+					Expect(db.Delete(ctx, 1, 1, 4, 6, (24 * telem.SecondTS).Range(24*telem.SecondTS), 1)).To(Succeed())
 					iter := db.NewIterator(domain.IteratorConfig{Bounds: telem.TimeRangeMax})
 					Expect(iter.SeekFirst(ctx)).To(BeTrue())
 					Expect(iter.TimeRange()).To(Equal((10 * telem.SecondTS).Range(20 * telem.SecondTS)))
@@ -102,18 +102,18 @@ var _ = Describe("Delete", Ordered, func() {
 				})
 
 				It("Should delete the entire db", func() {
-					Expect(db.Delete(ctx, 0, 2, 0, 0, (10 * telem.SecondTS).Range(40*telem.SecondTS))).To(Succeed())
+					Expect(db.Delete(ctx, 0, 2, 0, 0, (10 * telem.SecondTS).Range(40*telem.SecondTS), 1)).To(Succeed())
 					iter := db.NewIterator(domain.IteratorConfig{Bounds: telem.TimeRangeMax})
 					Expect(iter.SeekFirst(ctx)).To(BeFalse())
 					Expect(iter.Close()).To(Succeed())
 				})
 
 				It("Should delete multiple pointers", func() {
-					Expect(db.Delete(ctx, 0, 0, 2, 7, (12 * telem.SecondTS).Range(13*telem.SecondTS))).To(Succeed())
+					Expect(db.Delete(ctx, 0, 0, 2, 7, (12 * telem.SecondTS).Range(13*telem.SecondTS), 1)).To(Succeed())
 					// at this point, pointer 0 splits into two: 10, 11 / 13, 14, 15, 16, ..., 19
-					Expect(db.Delete(ctx, 0, 1, 1, 5, (11 * telem.SecondTS).Range(15*telem.SecondTS))).To(Succeed())
+					Expect(db.Delete(ctx, 0, 1, 1, 5, (11 * telem.SecondTS).Range(15*telem.SecondTS), 1)).To(Succeed())
 					// 10 / 15, 16, ..., 19
-					Expect(db.Delete(ctx, 1, 1, 2, 1, (17 * telem.SecondTS).Range(19*telem.SecondTS))).To(Succeed())
+					Expect(db.Delete(ctx, 1, 1, 2, 1, (17 * telem.SecondTS).Range(19*telem.SecondTS), 1)).To(Succeed())
 					// 10 / 15, 16 / 19
 					iter := db.NewIterator(domain.IteratorConfig{Bounds: telem.TimeRangeMax})
 					Expect(iter.SeekFirst(ctx)).To(BeTrue())
@@ -152,13 +152,13 @@ var _ = Describe("Delete", Ordered, func() {
 				})
 
 				It("Should delete multiple pointers that add up to the whole db", func() {
-					Expect(db.Delete(ctx, 0, 1, 2, 7, (12 * telem.SecondTS).Range(23*telem.SecondTS))).To(Succeed())
-					Expect(db.Delete(ctx, 1, 1, 3, 2, (26 * telem.SecondTS).Range(28*telem.SecondTS))).To(Succeed())
-					Expect(db.Delete(ctx, 3, 3, 0, 5, (30 * telem.SecondTS).Range(35*telem.SecondTS))).To(Succeed())
-					Expect(db.Delete(ctx, 2, 2, 0, 0, (28 * telem.SecondTS).Range(30*telem.SecondTS))).To(Succeed())
-					Expect(db.Delete(ctx, 1, 1, 0, 0, (23 * telem.SecondTS).Range(30*telem.SecondTS))).To(Succeed())
-					Expect(db.Delete(ctx, 1, 1, 0, 0, (35 * telem.SecondTS).Range(40*telem.SecondTS))).To(Succeed())
-					Expect(db.Delete(ctx, 0, 0, 0, 0, (10 * telem.SecondTS).Range(12*telem.SecondTS))).To(Succeed())
+					Expect(db.Delete(ctx, 0, 1, 2, 7, (12 * telem.SecondTS).Range(23*telem.SecondTS), 1)).To(Succeed())
+					Expect(db.Delete(ctx, 1, 1, 3, 2, (26 * telem.SecondTS).Range(28*telem.SecondTS), 1)).To(Succeed())
+					Expect(db.Delete(ctx, 3, 3, 0, 5, (30 * telem.SecondTS).Range(35*telem.SecondTS), 1)).To(Succeed())
+					Expect(db.Delete(ctx, 2, 2, 0, 0, (28 * telem.SecondTS).Range(30*telem.SecondTS), 1)).To(Succeed())
+					Expect(db.Delete(ctx, 1, 1, 0, 0, (23 * telem.SecondTS).Range(30*telem.SecondTS), 1)).To(Succeed())
+					Expect(db.Delete(ctx, 1, 1, 0, 0, (35 * telem.SecondTS).Range(40*telem.SecondTS), 1)).To(Succeed())
+					Expect(db.Delete(ctx, 0, 0, 0, 0, (10 * telem.SecondTS).Range(12*telem.SecondTS), 1)).To(Succeed())
 					iter := db.NewIterator(domain.IteratorConfig{Bounds: telem.TimeRangeMax})
 
 					Expect(iter.SeekFirst(ctx)).To(BeFalse())
@@ -167,30 +167,30 @@ var _ = Describe("Delete", Ordered, func() {
 			})
 			Context("Edge cases", func() {
 				It("Should return errors when the start pointer is invalid", func() {
-					err := db.Delete(ctx, -1, 1, 2, 7, telem.TimeRange{Start: 22 * telem.SecondTS, End: 30 * telem.SecondTS})
+					err := db.Delete(ctx, -1, 1, 2, 7, telem.TimeRange{Start: 22 * telem.SecondTS, End: 30 * telem.SecondTS}, 1)
 					Expect(err).To(HaveOccurred())
 					Expect(err.Error()).To(ContainSubstring("starting at invalid domain position <-1>"))
 				})
 
 				It("Should return errors when the end pointer is invalid", func() {
-					err := db.Delete(ctx, 1, 3, 2, 7, telem.TimeRange{Start: 22 * telem.SecondTS, End: 30 * telem.SecondTS})
+					err := db.Delete(ctx, 1, 3, 2, 7, telem.TimeRange{Start: 22 * telem.SecondTS, End: 30 * telem.SecondTS}, 1)
 					Expect(err).To(HaveOccurred())
 					Expect(err.Error()).To(ContainSubstring("ending at invalid domain position <3> for length 3"))
 				})
 
 				It("Should return errors when the start pointer is greater than the end pointer", func() {
-					err := db.Delete(ctx, 2, 1, 2, 7, telem.TimeRange{Start: 22 * telem.SecondTS, End: 30 * telem.SecondTS})
+					err := db.Delete(ctx, 2, 1, 2, 7, telem.TimeRange{Start: 22 * telem.SecondTS, End: 30 * telem.SecondTS}, 1)
 					Expect(err).To(HaveOccurred())
 					Expect(err.Error()).To(ContainSubstring("deletion start domain <2> is greater than deletion end domain <1>"))
 				})
 
 				It("Should not return an error when the start pointer is 1 greater than the end pointer and the offsets are 0 and full, respectively", func() {
-					err := db.Delete(ctx, 2, 1, 0, 0, telem.TimeRange{Start: 40 * telem.SecondTS, End: 39 * telem.SecondTS})
+					err := db.Delete(ctx, 2, 1, 0, 0, telem.TimeRange{Start: 40 * telem.SecondTS, End: 39 * telem.SecondTS}, 1)
 					Expect(err).ToNot(HaveOccurred())
 				})
 
 				It("Should clip the offset to the end if the start offset is beyond the length", func() {
-					err := db.Delete(ctx, 0, 1, 15, 7, telem.TimeRange{Start: 20 * telem.SecondTS, End: 23 * telem.SecondTS})
+					err := db.Delete(ctx, 0, 1, 15, 7, telem.TimeRange{Start: 20 * telem.SecondTS, End: 23 * telem.SecondTS}, 1)
 					Expect(err).ToNot(HaveOccurred())
 
 					i := db.NewIterator(domain.IteratorConfig{Bounds: telem.TimeRangeMax})
@@ -214,7 +214,7 @@ var _ = Describe("Delete", Ordered, func() {
 				})
 
 				It("Should clip the offset to the start if the end offset is beyond the length", func() {
-					err := db.Delete(ctx, 0, 1, 2, 15, telem.TimeRange{Start: 12 * telem.SecondTS, End: 20 * telem.SecondTS})
+					err := db.Delete(ctx, 0, 1, 2, 15, telem.TimeRange{Start: 12 * telem.SecondTS, End: 20 * telem.SecondTS}, 1)
 					Expect(err).ToNot(HaveOccurred())
 
 					i := db.NewIterator(domain.IteratorConfig{Bounds: telem.TimeRangeMax})
@@ -238,7 +238,7 @@ var _ = Describe("Delete", Ordered, func() {
 				})
 
 				It("Should return errors when the startOffset is after the endOffset for same pointer deletion", func() {
-					err := db.Delete(ctx, 0, 0, 6, 5, telem.TimeRange{Start: 22 * telem.SecondTS, End: 30 * telem.SecondTS})
+					err := db.Delete(ctx, 0, 0, 6, 5, telem.TimeRange{Start: 22 * telem.SecondTS, End: 30 * telem.SecondTS}, 1)
 					Expect(err).To(HaveOccurred())
 					Expect(err.Error()).To(ContainSubstring("deletion start offset <6> is after end offset <5>"))
 				})

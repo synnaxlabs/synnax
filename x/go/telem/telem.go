@@ -278,12 +278,16 @@ func (dr Rate) SizeSpan(size Size, Density Density) TimeSpan {
 	return dr.Span(int(size) / int(Density))
 }
 
-// ClosestGE returns the closest larger timestamp that is an even multiple of the rate's period.
+// ClosestGE returns the closest larger timestamp that is a whole number multiple of the rate's period.
 func (dr Rate) ClosestGE(ts TimeStamp) TimeStamp {
-	return ts.Add(TimeSpan(ts) % dr.Period())
+	if TimeSpan(ts)%dr.Period() == 0 {
+		return ts
+	}
+
+	return ts.Add(dr.Period() - TimeSpan(ts)%dr.Period())
 }
 
-// ClosestLE returns the closest smaller timestamp that is an even multiple of the rate's period.
+// ClosestLE returns the closest smaller timestamp that is a whole number multiple of the rate's period.
 func (dr Rate) ClosestLE(ts TimeStamp) TimeStamp {
 	return ts.Sub(TimeSpan(ts) % dr.Period())
 }

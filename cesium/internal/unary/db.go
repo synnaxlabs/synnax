@@ -87,7 +87,7 @@ func (i IteratorConfig) Override(other IteratorConfig) IteratorConfig {
 	return i
 }
 
-func (i IteratorConfig) ranger() domain.IteratorConfig {
+func (i IteratorConfig) domainIteratorConfig() domain.IteratorConfig {
 	return domain.IteratorConfig{Bounds: i.Bounds}
 }
 
@@ -97,7 +97,7 @@ func (db *DB) LeadingControlState() *controller.State {
 
 func (db *DB) OpenIterator(cfg IteratorConfig) *Iterator {
 	cfg = DefaultIteratorConfig.Override(cfg)
-	iter := db.Domain.NewIterator(cfg.ranger())
+	iter := db.Domain.NewIterator(cfg.domainIteratorConfig())
 	i := &Iterator{
 		idx:            db.index(),
 		Channel:        db.Channel,

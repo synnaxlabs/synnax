@@ -22,7 +22,7 @@ type index struct {
 	mu struct {
 		sync.RWMutex
 		pointers   []pointer
-		tombstones map[uint16][]pointer
+		tombstones map[uint16]uint32
 	}
 	indexPersist *indexPersist
 	persistHead  int
@@ -72,17 +72,6 @@ func (idx *index) insert(ctx context.Context, p pointer, persist bool) error {
 	}
 
 	return nil
-}
-
-func (idx *index) insertTombstone(ctx context.Context, p pointer) {
-	_, span := idx.T.Bench(ctx, "domain/index.insert_tombstone")
-	idx.mu.Lock()
-	defer func() {
-		idx.mu.Unlock()
-		span.End()
-	}()
-
-	idx.mu.tombstones[p.fileKey] = append(idx.mu.tombstones[p.fileKey], p)
 }
 
 func (idx *index) overlap(tr telem.TimeRange) bool {

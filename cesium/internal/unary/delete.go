@@ -105,7 +105,7 @@ func (db *DB) Delete(ctx context.Context, tr telem.TimeRange) error {
 
 	endPosition := i.Position()
 
-	err = db.Domain.Delete(ctx, startPosition, endPosition, startOffset*int64(db.Channel.DataType.Density()), endOffset*int64(db.Channel.DataType.Density()), tr)
+	err = db.Domain.Delete(ctx, startPosition, endPosition, startOffset*int64(db.Channel.DataType.Density()), endOffset*int64(db.Channel.DataType.Density()), tr, db.Channel.DataType.Density())
 
 	if err != nil {
 		return errors.CombineErrors(err, i.Close())
@@ -115,12 +115,27 @@ func (db *DB) Delete(ctx context.Context, tr telem.TimeRange) error {
 	return i.Close()
 }
 
-func (db *DB) GarbageCollect(ctx context.Context, maxSizeRead uint32) error {
+func (db *DB) GarbageCollect(ctx context.Context) error {
+	// Check that there are no open iterators / writers on this channel.
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 	if db.mu.openIteratorWriters > 0 {
 		return nil
 	}
-	err := db.Domain.CollectTombstones(ctx, maxSizeRead)
-	return err
+
+	// Check that there are no delete writers on this channel
+	g, _, err := db.Controller.OpenAbsoluteGateIfUncontrolled(telem.TimeRangeMax, control.Subject{Key: "gc_writer"}, func() (controlledWriter, error) {
+		return controlledWriter{
+			Writer:     nil,
+			channelKey: db.Channel.Key,
+		}, nil
+	})
+
+	defer g.Release()
+
+	if err != nil {
+		return err
+	}
+
+	return db.Domain.CollectTombstones(ctx)
 }
