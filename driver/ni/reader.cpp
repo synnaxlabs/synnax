@@ -63,7 +63,45 @@ void ni::DaqAnalogReader::getIndexKeys(){
             LOG(INFO) << "[NI Reader] index channel " << index_channel.channel_key << " and name: " << index_channel.name <<" added to task " << this->reader_config.task_name;
         }
     }
+}
 
+
+void ni::DaqDigitalReader::getIndexKeys(){
+    std::set<std::uint32_t> index_keys;
+    //iterate through channels in reader config
+    for (auto &channel : this->reader_config.channels){
+        auto [channel_info, err] = this->ctx->client->channels.retrieve(channel.channel_key);
+        // TODO handle error with breaker
+        if (err != freighter::NIL){
+            // Log error
+            LOG(ERROR) << "[NI Reader] failed to retrieve channel " << channel.channel_key;
+            this->ok_state = false;
+            return;
+        } else{
+            // add key to set
+            index_keys.insert(channel_info.index);
+        }
+    }
+
+
+    // now iterate through the set and add all the index channels as configs
+    for (auto it = index_keys.begin(); it != index_keys.end(); ++it){
+        auto index_key = *it;
+        LOG(INFO) << "constructing index channel configs";
+        auto [channel_info, err] = this->ctx->client->channels.retrieve(index_key);
+        if (err != freighter::NIL){
+            LOG(ERROR) << "[NI Reader] failed to retrieve channel " << index_key;
+            this->ok_state = false;
+            return;
+        } else{
+            ni::ChannelConfig index_channel;
+            index_channel.channel_key = channel_info.key;
+            index_channel.channel_type = "index";
+            index_channel.name = channel_info.name;
+            this->reader_config.channels.push_back(index_channel);
+            LOG(INFO) << "[NI Reader] index channel " << index_channel.channel_key << " and name: " << index_channel.name <<" added to task " << this->reader_config.task_name;
+        }
+    }
 }
 
 
@@ -284,8 +322,7 @@ void ni::DaqAnalogReader::parseCustomScale(config::Parser & parser, ni::ChannelC
 
 
 
-int ni::DaqAnalogReader::init()
-{
+int ni::DaqAnalogReader::init(){
     int err = 0;
     auto channels = this->reader_config.channels;
 
@@ -372,8 +409,6 @@ freighter::Error ni::DaqAnalogReader::stop(){
 
     this->deleteScales();
     delete[] this->data;
-
-
     if (err == freighter::NIL){
         LOG(INFO) << "[NI Reader] successfully stopped and cleared reader for task " << this->reader_config.task_name;
     }
@@ -601,7 +636,7 @@ ni::DaqDigitalReader::DaqDigitalReader(
     LOG(INFO) << "[NI Reader] successfully parsed configuration for " << this->reader_config.task_name;
 
     //TODO: 
-    // getIndexKeys(); // get index keys for the task     
+    this->getIndexKeys(); // get index keys for the task     
 
     LOG(INFO) << "[NI Reader] index keys retrieved " << this->reader_config.task_name;
 
@@ -628,24 +663,31 @@ ni::DaqDigitalReader::DaqDigitalReader(
 void ni::DaqDigitalReader::parseConfig(config::Parser &parser){
     // Get Acquisition Rate and Stream Rates
     this->reader_config.acq_rate = parser.required<uint64_t>("sample_rate");
+    assert(parser.ok());
     this->reader_config.stream_rate = parser.required<uint64_t>("stream_rate");
-    this->reader_config.device_name = parser.required<std::string>("device_name");
+    assert(parser.ok());
+    this->reader_config.device_key = parser.required<std::string>("device");
 
-    // device name
-    // this->reader_config.device_name = parser.required<std::string>("device");
+
+    auto [dev, err] = this->ctx->client->hardware.retrieveDevice(this->reader_config.device_key);
+
+    if (err != freighter::NIL) {
+        LOG(ERROR) << "[NI Reader] failed to retrieve device " << this->reader_config.device_name;
+        this->ok_state = false;
+        return;
+    }
+    this->reader_config.device_name = dev.location;
     assert(parser.ok());
 
     // now parse the channels
     parser.iter("channels",
                 [&](config::Parser &channel_builder){
                     ni::ChannelConfig config;
-                    config.channel_type = channel_builder.required<std::string>("channel_type");
 
                     // digital channel names are formatted: <device_name>/port<port_number>/line<line_number>
-                    config.name = (config.channel_type == "index") ? (channel_builder.required<std::string>("name"))
-                                                                   : (this->reader_config.device_name + "/port" + std::to_string(channel_builder.required<std::uint64_t>("port")) + "/line" + std::to_string(channel_builder.required<std::uint64_t>("line")));
+                    config.name = (this->reader_config.device_name + "/port" + std::to_string(channel_builder.required<std::uint64_t>("port")) + "/line" + std::to_string(channel_builder.required<std::uint64_t>("line")));
 
-                    config.channel_key = channel_builder.required<uint32_t>("channel_key");
+                    config.channel_key = channel_builder.required<uint32_t>("channel");
 
                     // TODO: there could be more than 2 state logic
                     config.min_val = 0;
@@ -666,7 +708,9 @@ int ni::DaqDigitalReader::init(){
     for (auto &channel : channels){
         if (channel.channel_type != "index" ){
             err = this->checkNIError(ni::NiDAQmxInterface::CreateDIChan(task_handle, channel.name.c_str(), "", DAQmx_Val_ChanPerLine));
+            LOG(INFO) << "Channel name: " << channel.name;
         } 
+        LOG(INFO) << "Index channel added to task: " << channel.name;
         this->numChannels++; 
         if (err < 0){
             LOG(ERROR) << "[NI Reader] failed while configuring channel " << channel.name;
@@ -679,16 +723,18 @@ int ni::DaqDigitalReader::init(){
 
     // Configure timing
     // TODO: make sure there isnt different cases to handle between analog and digital
-    if (this->checkNIError(ni::NiDAQmxInterface::CfgSampClkTiming(this->task_handle,
-                                                                  "",
-                                                                  this->reader_config.acq_rate,
-                                                                  DAQmx_Val_Rising,
-                                                                  DAQmx_Val_ContSamps,
-                                                                  this->reader_config.acq_rate))){
-        LOG(ERROR) << "[NI Reader] failed while configuring timing for task " << this->reader_config.task_name;
-        this->ok_state = false;
-        return -1;
-    }
+    // if (this->checkNIError(ni::NiDAQmxInterface::CfgSampClkTiming(this->task_handle,
+    //                                                               "",
+    //                                                               this->reader_config.acq_rate,
+    //                                                               DAQmx_Val_Rising,
+    //                                                               DAQmx_Val_ContSamps,
+    //                                                               this->reader_config.acq_rate))){
+    //     LOG(ERROR) << "[NI Reader] failed while configuring timing for task " << this->reader_config.task_name;
+    //     this->ok_state = false;
+    //     return -1;
+    // }
+    
+    LOG(INFO) << "[NI Reader] successfully configured timing NI hardware for task " << this->reader_config.task_name;
 
     // Configure buffer size and read resources
     assert(this->reader_config.acq_rate >= this->reader_config.stream_rate); // TODO: handle this case
@@ -709,6 +755,7 @@ freighter::Error ni::DaqDigitalReader::start(){
     }
 
     freighter::Error err = freighter::NIL;
+    this->running = true;
     if (this->checkNIError(ni::NiDAQmxInterface::StartTask(this->task_handle))){
         LOG(ERROR) << "[NI Reader] failed while starting reader for task " << this->reader_config.task_name;
         err = freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
@@ -727,6 +774,7 @@ freighter::Error ni::DaqDigitalReader::stop(){
     }
 
     freighter::Error err = freighter::NIL;
+    this->running = false;
     if (this->checkNIError(ni::NiDAQmxInterface::StopTask(this->task_handle))){
         LOG(ERROR) << "[NI Reader] failed while stopping reader for task " << this->reader_config.task_name;
         err = freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
@@ -796,7 +844,8 @@ std::pair<synnax::Frame, freighter::Error> ni::DaqDigitalReader::read(){
     for (int i = 0; i < samplesRead; ++i){
         time_index[i] = initial_timestamp + (std::uint64_t)(incr * i);
     }
-
+    
+    std::this_thread::sleep_for(std::chrono::seconds(1));
     // Construct and populate synnax frame
     std::vector<uint8_t> data_vec(samplesRead);
     uint64_t data_index = 0; // TODO: put a comment explaining the function of data_index

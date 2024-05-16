@@ -119,7 +119,7 @@ void ni::Scanner::createDevices(){
         // first  try to rereive the device and if found, do not create a new device, simply continue
         auto [retrieved_device, err] = this->ctx->client->hardware.retrieveDevice(device["key"]);
         if(err == freighter::NIL){
-            LOG(INFO) << "[ni.scanner] device " << device["model"] << " and key "  << device["key"] << "at location: " << device["location"] << " found for task " << this->task.name;
+            // LOG(INFO) << "[ni.scanner] device " << device["model"] << " and key "  << device["key"] << "at location: " << device["location"] << " found for task " << this->task.name;
             continue;
         }
         auto new_device = synnax::Device(
@@ -134,9 +134,9 @@ void ni::Scanner::createDevices(){
         );
         
         if(this->ctx->client->hardware.createDevice(new_device) != freighter::NIL){
-            LOG(ERROR) << "[ni.scanner] failed to create device " << device["model"] << " with key " << device["key"] << " for task " << this->task.name;
+            // LOG(ERROR) << "[ni.scanner] failed to create device " << device["model"] << " with key " << device["key"] << " for task " << this->task.name;
         }        
-        LOG(INFO) << "[ni.scanner] successfully created device " << device["model"] <<  " with key " << device["key"] << " for task " << this->task.name;
+        // LOG(INFO) << "[ni.scanner] successfully created device " << device["model"] <<  " with key " << device["key"] << " for task " << this->task.name;
     }
 }
 

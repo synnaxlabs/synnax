@@ -1312,6 +1312,14 @@ const diChanZ = z.object({
   line: z.number(),
   channel: z.number(),
 });
+export const ZERO_DI_CHAN: DIChan = {
+  key: "",
+  type: "digital_input",
+  enabled: true,
+  port: 0,
+  line: 0,
+  channel: 0,
+};
 
 export type DIChan = z.infer<typeof diChanZ>;
 export type DIChanType = DIChan["type"];

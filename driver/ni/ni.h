@@ -181,6 +181,7 @@ namespace ni{
         std::pair<synnax::Frame, freighter::Error> read();
         freighter::Error stop();
         freighter::Error start();
+        void getIndexKeys(); 
         bool ok();
         ~DaqDigitalReader();
         std::vector<synnax::ChannelKey> getChannelKeys();

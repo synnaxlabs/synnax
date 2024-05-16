@@ -111,11 +111,14 @@ ni::ReaderTask::ReaderTask(const std::shared_ptr <task::Context> &ctx,
     // create a daq reader to provide to cmd read pipe as sink
     ni::NiDAQmxInterface::CreateTask("", &this->task_handle);
 
+    // log task config
+    LOG(INFO) << "[NI Task] task config: " << task.config;
+
 
     // determine whether digitalDaqReader or analogDaqReader is needed
     std::unique_ptr<pipeline::Source> daq_reader;
     std::vector <synnax::ChannelKey> channel_keys;
-    if(task.type == "ni_digital_reader"){
+    if(task.type == "ni_digital_read"){
         auto digital_reader = std::make_unique<ni::DaqDigitalReader>(this->task_handle, ctx, task);
         channel_keys = digital_reader->getChannelKeys();
         daq_reader = std::move(digital_reader);

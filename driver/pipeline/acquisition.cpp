@@ -62,7 +62,11 @@ void Acquisition::run() {
                 continue;
             break;
         }
-        if (!writer.write(frame)) break;
+
+        if (!writer.write(frame)) {
+            LOG(ERROR) << "[Acquisition] Failed to write frame";
+            break;
+        }
         breaker.reset();
     }
     const auto err = writer.close();

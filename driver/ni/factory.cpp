@@ -16,11 +16,11 @@ std::pair<std::unique_ptr<task::Task>, bool> ni::Factory::configureTask(
     const synnax::Task &task
 ) {
     
-    if(task.type == "niScanner") 
+    if(task.type == "niScanner") // TODO change to ni_scan_task
         return {ni::ScannerTask::configure(ctx, task), true};
-     else if (task.type == "niAnalogReader" || task.type == "niDigitalReader")
+     else if (task.type == "ni_analog_read" || task.type == "ni_digital_read")
         return {ni::ReaderTask::configure(ctx, task), true};
-    else if (task.type == "niDigitalWriter")
+    else if (task.type == "ni_digital_write")
         return {ni::WriterTask::configure(ctx, task), true};
     else
         LOG(ERROR) << "[ni] Unknown task type: " << task.type << std::endl;
