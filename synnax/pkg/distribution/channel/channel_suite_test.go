@@ -11,6 +11,8 @@ package channel_test
 
 import (
 	"context"
+	"testing"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/aspen"
@@ -22,7 +24,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/config"
 	. "github.com/synnaxlabs/x/testutil"
-	"testing"
 )
 
 var (
@@ -45,16 +46,20 @@ func provisionServices() (*mock.CoreBuilder, map[core.NodeKey]channel.Service) {
 		core2 = builder.New()
 	)
 	services[1] = MustSucceed(channel.New(ctx, channel.ServiceConfig{
-		HostResolver: core1.Cluster,
-		ClusterDB:    core1.Storage.Gorpify(),
-		TSChannel:    core1.Storage.TS,
-		Transport:    net.New(core1.Config.AdvertiseAddress),
+		HostResolver:           core1.Cluster,
+		ClusterDB:              core1.Storage.Gorpify(),
+		TSChannel:              core1.Storage.TS,
+		Transport:              net.New(core1.Config.AdvertiseAddress),
+		ValidateChannelCount:   func(count int64) error { return nil },
+		ChannelsNeedValidation: func() (int, error) { return 50, nil },
 	}))
 	services[2] = MustSucceed(channel.New(ctx, channel.ServiceConfig{
-		HostResolver: core2.Cluster,
-		ClusterDB:    core2.Storage.Gorpify(),
-		TSChannel:    core2.Storage.TS,
-		Transport:    net.New(core2.Config.AdvertiseAddress),
+		HostResolver:           core2.Cluster,
+		ClusterDB:              core2.Storage.Gorpify(),
+		TSChannel:              core2.Storage.TS,
+		Transport:              net.New(core2.Config.AdvertiseAddress),
+		ValidateChannelCount:   func(count int64) error { return nil },
+		ChannelsNeedValidation: func() (int, error) { return 50, nil },
 	}))
 	Eventually(func(g Gomega) {
 		g.Expect(core1.Cluster.Nodes()).To(HaveLen(2))
