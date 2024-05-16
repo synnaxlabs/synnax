@@ -109,7 +109,10 @@ export const resourceSchemaZ = z
     };
   });
 
-export type Resource = z.infer<typeof resourceSchemaZ>;
+export type Resource<T extends {} = {}> = Omit<
+  z.output<typeof resourceSchemaZ>,
+  "data"
+> & { data?: T | null };
 
 export const relationshipSchemaZ = z.object({
   from: ID.z,

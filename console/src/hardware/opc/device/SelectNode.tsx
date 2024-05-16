@@ -3,12 +3,8 @@ import { useMemo, type ReactElement } from "react";
 import { Form, type List, Select, Synnax } from "@synnaxlabs/pluto";
 import { useQuery } from "@tanstack/react-query";
 
-import {
-  type DeviceNodeProperties,
-  parseNodeId,
-  type DeviceProperties,
-  type NodeId,
-} from "@/hardware/opc/types";
+import { parseNodeId, type NodeId } from "@/hardware/opc/task/types";
+import { NodeProperties, Properties } from "@/hardware/opc/device/types";
 
 interface NodeEntry extends NodeId {
   name: string;
@@ -37,7 +33,7 @@ const SELECT_NODE_COLUMNS: Array<List.ColumnSpec<string, NodeEntry>> = [
 
 interface SelectNodeProps
   extends Omit<Select.SingleProps<string, NodeEntry>, "columns" | "data"> {
-  data: DeviceNodeProperties[];
+  data: NodeProperties[];
 }
 
 export const SelectNode = ({ data, ...props }: SelectNodeProps): ReactElement => {
@@ -76,7 +72,7 @@ export const SelectNodeRemote = ({
     queryKey: [client?.key, device],
     queryFn: async () => {
       if (client == null) return;
-      const d = await client.hardware.devices.retrieve<DeviceProperties>([device]);
+      const d = await client.hardware.devices.retrieve<Properties>([device]);
       if (d.length === 0) return [];
       return d[0].properties.channels;
     },

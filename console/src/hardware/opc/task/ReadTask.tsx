@@ -23,12 +23,11 @@ import {
   Align,
   Button,
   Channel,
-  Device,
+  Device as PDevice,
   Form,
   Header,
   Input,
   List,
-  Select,
   Status,
   Synnax,
   Text,
@@ -40,24 +39,31 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { nanoid } from "nanoid";
 
 import { CSS } from "@/css";
-import { SelectNodeRemote } from "@/hardware/opc/SelectNode";
 import {
-  type ReadTaskChannelConfig,
-  readTaskConfigZ,
-  type ReadTaskState,
-  type ReadTaskStateDetails,
-  type ReadTaskConfig,
-} from "@/hardware/opc/types";
+  type ReadChannelConfig,
+  readConfigZ,
+  type ReadState,
+  type ReadStateDetails,
+  type ReadConfig,
+  READ_TYPE,
+  Read,
+  ReadPayload,
+  ReadType,
+  ZERO_READ_PAYLOAD,
+} from "@/hardware/opc/task/types";
 import { type Layout } from "@/layout";
 import { z } from "zod";
 
 import "@/hardware/opc/task/ReadTask.css";
+import { Device } from "@/hardware/opc/device";
+import { SelectNodeRemote } from "@/hardware/opc/device/SelectNode";
+import { deep } from "@synnaxlabs/x";
 
-export const readTaskLayout: Layout.State = {
+export const configureReadLayout: Layout.State = {
   name: "Configure OPC UA Read Task",
-  key: "readopcTask",
-  type: "readopcTask",
-  windowKey: "readopcTask",
+  key: READ_TYPE,
+  type: READ_TYPE,
+  windowKey: READ_TYPE,
   location: "window",
   window: {
     resizable: false,
@@ -68,56 +74,42 @@ export const readTaskLayout: Layout.State = {
 
 export const ReadTask: Layout.Renderer = ({ layoutKey }) => {
   const client = Synnax.use();
-  const fetchTask = useQuery<ReadTaskInternalProps>({
+  const fetchTask = useQuery<InternalProps>({
     queryKey: [client?.key, "task", layoutKey],
     queryFn: async () => {
-      if (client == null || layoutKey == readTaskLayout.key)
-        return {
-          initialValues: {
-            key: "readopcTask",
-            type: "opcReader",
-            name: "OPC Read Task",
-            config: {
-              device: "",
-              sampleRate: 50,
-              streamRate: 25,
-              channels: [],
-            },
-          },
-        };
-      const t = await client.hardware.tasks.retrieve<ReadTaskConfig, ReadTaskState>(
-        layoutKey,
-        { includeState: true },
-      );
+      if (client == null || layoutKey == configureReadLayout.key)
+        return { initialValues: deep.copy(ZERO_READ_PAYLOAD) };
+      const t = await client.hardware.tasks.retrieve<
+        ReadConfig,
+        ReadStateDetails,
+        ReadType
+      >(layoutKey, { includeState: true });
       return { initialValues: t, task: t };
     },
   });
   if (fetchTask.isLoading) return <></>;
   if (fetchTask.isError) return <></>;
-  return <ReadTaskInternal {...fetchTask.data} />;
+  return <Internal {...(fetchTask.data as InternalProps)} />;
 };
 
-interface ReadTaskInternalProps {
-  task?: task.Task<ReadTaskConfig, ReadTaskState>;
-  initialValues: task.TaskPayload<ReadTaskConfig, ReadTaskState>;
+interface InternalProps {
+  task?: Read;
+  initialValues: ReadPayload;
 }
 
-const ReadTaskInternal = ({
-  initialValues,
-  task: pTask,
-}: ReadTaskInternalProps): ReactElement => {
+const Internal = ({ initialValues, task: pTask }: InternalProps): ReactElement => {
   const client = Synnax.use();
   const [task, setTask] = useState(pTask);
-  const [taskState, setTaskState] = useState<ReadTaskState | null>(
+  const [taskState, setTaskState] = useState<ReadState | null>(
     initialValues.state ?? null,
   );
-  const [device, setDevice] = useState<device.Device<DeviceProperties> | null>(null);
+  const [device, setDevice] = useState<device.Device<Device.Properties> | null>(null);
 
   const schema = useMemo(
     () =>
       z.object({
         name: z.string(),
-        config: readTaskConfigZ.superRefine(async (cfg, ctx) => {
+        config: readConfigZ.superRefine(async (cfg, ctx) => {
           if (client == null || device == null) return;
           for (let i = 0; i < cfg.channels.length; i++) {
             const { channel, nodeId } = cfg.channels[i];
@@ -158,7 +150,7 @@ const ReadTaskInternal = ({
       (fs) => {
         if (!fs.touched || fs.status.variant !== "success" || client == null) return;
         client.hardware.devices
-          .retrieve<DeviceProperties>(fs.value)
+          .retrieve<Device.Properties>(fs.value)
           .then((d) => setDevice(d))
           .catch(console.error);
       },
@@ -169,36 +161,29 @@ const ReadTaskInternal = ({
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
   const [selectedChannelIndex, setSelectedChannelIndex] = useState<number | null>(null);
 
-  const stateObserverRef = useRef<task.StateObservable<ReadTaskStateDetails> | null>(
-    null,
-  );
+  const stateObserverRef = useRef<task.StateObservable<ReadStateDetails> | null>(null);
 
   useAsyncEffect(async () => {
     if (client == null || task == null) return;
-    stateObserverRef.current = await task.openStateObserver<ReadTaskStateDetails>();
+    stateObserverRef.current = await task.openStateObserver<ReadStateDetails>();
     stateObserverRef.current.onChange((s) => {
       setTaskState(s);
     });
     return async () => await stateObserverRef.current?.close().catch(console.error);
   }, [client?.key, task?.key, setTaskState]);
 
-  useEffect(() => {
-    console.log(taskState);
-  }, [taskState]);
-
   const configure = useMutation({
     mutationKey: [client?.key],
     mutationFn: async () => {
       if (!(await methods.validateAsync()) || client == null) return;
       const rack = await client.hardware.racks.retrieve("sy_node_1_rack");
-      setTask(
-        await rack.createTask<ReadTaskConfig>({
-          key: task?.key,
-          name: methods.value().name,
-          type: "opcReader",
-          config: methods.value().config,
-        }),
-      );
+      const t = await rack.createTask<ReadConfig, ReadStateDetails, ReadType>({
+        key: task?.key,
+        name: methods.value().name,
+        type: READ_TYPE,
+        config: methods.value().config,
+      });
+      setTask(t);
     },
   });
 
@@ -222,7 +207,7 @@ const ReadTaskInternal = ({
           <Align.Space direction="x">
             <Form.Field<string> path="config.device" label="Device" grow>
               {(p) => (
-                <Device.SelectSingle
+                <PDevice.SelectSingle
                   {...p}
                   allowNone={false}
                   searchOptions={{ makes: ["opc"] }}
@@ -303,7 +288,7 @@ export const ChannelList = ({
   selected,
   onSelect,
 }: ChannelListProps): ReactElement => {
-  const { value, push, remove } = Form.useFieldArray<ReadTaskChannelConfig>({ path });
+  const { value, push, remove } = Form.useFieldArray<ReadChannelConfig>({ path });
 
   const menuProps = Menu.useContextMenu();
 
@@ -354,8 +339,8 @@ export const ChannelList = ({
         }}
         {...menuProps}
       >
-        <List.List<string, ReadTaskChannelConfig> data={value}>
-          <List.Selector<string, ReadTaskChannelConfig>
+        <List.List<string, ReadChannelConfig> data={value}>
+          <List.Selector<string, ReadChannelConfig>
             value={selected}
             allowNone={false}
             allowMultiple={true}
@@ -364,7 +349,7 @@ export const ChannelList = ({
             }
             replaceOnSingle
           >
-            <List.Core<string, ReadTaskChannelConfig> grow>
+            <List.Core<string, ReadChannelConfig> grow>
               {(props) => (
                 <ChannelListItem
                   {...props}
@@ -389,13 +374,13 @@ export const ChannelList = ({
 export const ChannelListItem = ({
   path,
   ...props
-}: List.ItemProps<string, ReadTaskChannelConfig> & {
+}: List.ItemProps<string, ReadChannelConfig> & {
   path: string;
   remove?: () => void;
 }): ReactElement => {
   const { entry } = props;
   const ctx = Form.useContext();
-  const childValues = Form.useChildFieldValues<ReadTaskChannelConfig>({
+  const childValues = Form.useChildFieldValues<ReadChannelConfig>({
     path: `${path}.${props.index}`,
     optional: true,
   });

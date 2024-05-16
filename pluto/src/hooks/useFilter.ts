@@ -36,6 +36,7 @@ export const fuseFilter =
       ...opts,
     });
     return {
+      type: "fuse",
       page: (page: number, perPage: number) =>
         data.slice(page * perPage, (page + 1) * perPage),
       search: (term: string) => fuse.search(term).map(({ item }) => item),

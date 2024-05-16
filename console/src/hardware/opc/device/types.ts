@@ -9,19 +9,19 @@ export const connectionConfigZ = z.object({
 
 export type ConnectionConfig = z.infer<typeof connectionConfigZ>;
 
-export const deviceNodeProperties = z.object({
+export const nodeProperties = z.object({
   dataType: z.string(),
   name: z.string(),
   nodeId: z.string(),
 });
 
-export type DeviceNodeProperties = z.infer<typeof deviceNodeProperties>;
+export type NodeProperties = z.infer<typeof nodeProperties>;
 
-export const devicePropertiesZ = z.object({
+export const propertiesZ = z.object({
   connection: connectionConfigZ,
-  channels: deviceNodeProperties.array(),
+  channels: nodeProperties.array(),
 });
 
-export type DeviceProperties = z.infer<typeof devicePropertiesZ>;
+export type Properties = z.infer<typeof propertiesZ>;
 
-export type Device = device.Device<DeviceProperties>;
+export type Device = device.Device<Properties>;

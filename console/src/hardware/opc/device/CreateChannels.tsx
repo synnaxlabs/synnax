@@ -20,10 +20,10 @@ import { nanoid } from "nanoid/non-secure";
 
 import { CSS } from "@/css";
 import { type ChannelConfig, type GroupConfig } from "@/hardware/ni/device/types";
-import { SelectNode } from "@/hardware/opc/SelectNode";
-import { type DeviceProperties } from "@/hardware/opc/types";
+import { SelectNode } from "@/hardware/opc/device/SelectNode";
 
 import "@/hardware/ni/device/CreateChannels.css";
+import { Properties } from "@/hardware/opc/device/types";
 
 interface MostRecentSelectedState {
   key: string;
@@ -37,7 +37,7 @@ interface SelectedGroupState {
 }
 
 export interface CreateChannelsProps {
-  deviceProperties: DeviceProperties;
+  deviceProperties: Properties;
 }
 
 export const CreateChannels = ({
@@ -413,7 +413,7 @@ ChannelListItem.displayName = "ChannelListItem";
 
 export interface DetailsProps {
   selected: MostRecentSelectedState;
-  deviceProperties: DeviceProperties;
+  deviceProperties: Properties;
   groupIndex?: number;
 }
 
@@ -437,7 +437,7 @@ const Details = ({
 interface ChannelFormProps {
   groupIndex: number;
   index: number;
-  deviceProperties: DeviceProperties;
+  deviceProperties: Properties;
 }
 
 const ChannelForm = ({

@@ -91,6 +91,7 @@ export const useSearch = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
       const fn = async () => {
         try {
           const r = await searcher.page(offset.current, pageSize);
+          if (r.length === 0) setEmptyContent(NO_RESULTS);
           if (r.length < pageSize) {
             hasMore.current = false;
             setHasMore(false);

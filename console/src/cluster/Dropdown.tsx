@@ -135,7 +135,7 @@ export const List = (): ReactElement => {
 
 const ListItem = (props: CoreList.ItemProps<string, Cluster>): ReactElement => {
   const dispatch = useDispatch();
-  const { status, schematic } = useSelectLocalState();
+  const { status, pid } = useSelectLocalState();
   const isLocal = props.entry.key === LOCAL_CLUSTER_KEY;
   let icon: ReactElement | null = null;
   let loading = false;
@@ -191,7 +191,7 @@ const ListItem = (props: CoreList.ItemProps<string, Cluster>): ReactElement => {
             </Button.Icon>
           )}
           <Text.Text level="p" shade={6}>
-            Schematic {isLocal ? schematic : "N/A"}
+            PID {isLocal ? pid : "N/A"}
           </Text.Text>
         </Align.Space>
       )}

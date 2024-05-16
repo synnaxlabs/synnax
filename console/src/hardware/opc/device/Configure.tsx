@@ -19,7 +19,7 @@ import { set, z } from "zod";
 
 import { CSS } from "@/css";
 import { CreateChannels } from "@/hardware/opc/device/CreateChannels";
-import { type DeviceProperties, connectionConfigZ } from "@/hardware/opc/device/types";
+import { type Properties, connectionConfigZ } from "@/hardware/opc/device/types";
 import { type Layout } from "@/layout";
 
 import "@/hardware/opc/device/Configure.css";
@@ -84,9 +84,7 @@ const STEPS: Steps.Step[] = [
 export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
   const client = Synnax.use();
   const [step, setStep] = useState("connect");
-  const [deviceProperties, setDeviceProperties] = useState<DeviceProperties | null>(
-    null,
-  );
+  const [deviceProperties, setDeviceProperties] = useState<Properties | null>(null);
   const [rackKey, setRackKey] = useState<rack.RackKey | null>(null);
   const [progress, setProgress] = useState<string | undefined>(undefined);
 
@@ -125,12 +123,11 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
       if (step === "connect") {
         await testConnection.mutateAsync();
         const task = await rack.retrieveTaskByName("opc Scanner");
-        const { details: deviceProperties } =
-          await task.executeCommandSync<DeviceProperties>(
-            "scan",
-            { connection: methods.get({ path: "connection" }).value },
-            TimeSpan.seconds(1),
-          );
+        const { details: deviceProperties } = await task.executeCommandSync<Properties>(
+          "scan",
+          { connection: methods.get({ path: "connection" }).value },
+          TimeSpan.seconds(1),
+        );
         methods.set({
           path: "groups",
           value: [

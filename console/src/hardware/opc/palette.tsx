@@ -10,7 +10,7 @@
 import { Icon } from "@synnaxlabs/media";
 
 import { configureWindowLayout } from "@/hardware/opc/device/Configure";
-import { readTaskLayout } from "@/hardware/opc/task/ReadTask";
+import { configureReadLayout } from "@/hardware/opc/task/ReadTask";
 import { type Command } from "@/palette/Palette";
 
 export const connectServerCommand: Command = {
@@ -24,7 +24,7 @@ export const createReadTaskCommand: Command = {
   key: "opc-create-read-task",
   name: "OPC UA - Create a New Read Task",
   icon: <Icon.Logo.OPC />,
-  onSelect: ({ placeLayout }) => placeLayout(readTaskLayout),
+  onSelect: ({ placeLayout }) => placeLayout(configureReadLayout),
 };
 
 export const COMMANDS = [connectServerCommand, createReadTaskCommand];

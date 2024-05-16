@@ -84,7 +84,7 @@ export const ConfigureDigitalWrite: Layout.Renderer = ({ layoutKey }) => {
   return <Internal {...(fetchTask.data as InternalProps)} />;
 };
 
-export interface InternalProps {
+interface InternalProps {
   task?: DigitalWriteTask;
   initialValues: DigitalWritePayload;
 }

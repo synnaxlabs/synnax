@@ -82,7 +82,7 @@ export const ConfigureDigitalRead: Layout.Renderer = ({ layoutKey }) => {
   return <Internal {...(fetchTask.data as InternalProps)} />;
 };
 
-export interface InternalProps {
+interface InternalProps {
   task?: DigitalRead;
   initialValues: DigitalReadPayload;
 }

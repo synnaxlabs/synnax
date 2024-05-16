@@ -36,18 +36,18 @@ export const useLocalServer = (): void => {
   const win = useSelectWindowKey();
 
   const d = useDispatch();
-  const { schematic, command } = useSelectLocalState();
+  const { pid, command } = useSelectLocalState();
   const status = Status.useAggregator();
-  const schematicRef = useSyncedRef(schematic);
+  const pidRef = useSyncedRef(pid);
 
   const startLocalServer = async (): Promise<void> => {
     if (win !== Drift.MAIN_WINDOW) return;
-    // The only case where we'll run into a stranded Schematic is if the user closes the
+    // The only case where we'll run into a stranded Pid is if the user closes the
     // application or hard reloads the page. This means that we only need to kill
-    // stranded schematics on application load, so we don't pass the Schematic in as a dependency.
-    if (schematic !== 0) {
-      console.log("Killing stranded local server", schematic);
-      await new Child(schematic).kill();
+    // stranded pids on application load, so we don't pass the Pid in as a dependency.
+    if (pid !== 0) {
+      console.log("Killing stranded local server", pid);
+      await new Child(pid).kill();
     }
 
     const dataPath = (await path.homeDir()) + "/.synnax/console/synnax-data";
@@ -67,19 +67,19 @@ export const useLocalServer = (): void => {
       const isInfo = level === "info";
       // This means the server has booted up.
       if (isInfo && msg === "starting server") {
-        // Set the Schematic in local state so we can kill it later fi we need to.
+        // Set the Pid in local state so we can kill it later fi we need to.
 
         // Test the connection to the local server.
         testConnection(LOCAL_PROPS)
           .then(() => {
-            d(setLocalState({ schematic: serverProcess.schematic, status: "running" }));
+            d(setLocalState({ pid: serverProcess.pid, status: "running" }));
             // Set the cluster as active to trigger the connection.
             d(setActive(LOCAL_CLUSTER_KEY));
           })
           .catch(console.error);
       } else if (isInfo && msg === "shutdown successful") {
-        // If the server has shut down, we'll set the Schematic to 0.
-        d(setLocalState({ schematic: 0, status: "stopped" }));
+        // If the server has shut down, we'll set the Pid to 0.
+        d(setLocalState({ pid: 0, status: "stopped" }));
       }
 
       // If the server fails to boot up, we'll get a fatal error.
@@ -93,20 +93,20 @@ export const useLocalServer = (): void => {
     };
 
     const handleClose = (): void => {
-      d(setLocalState({ schematic: 0, status: "stopped" }));
+      d(setLocalState({ pid: 0, status: "stopped" }));
     };
 
     command.stderr.on("data", handleLog);
     command.on("close", handleClose);
     const serverProcess = await command.spawn();
 
-    d(setLocalState({ schematic: serverProcess.schematic, status: "starting" }));
+    d(setLocalState({ pid: serverProcess.pid, status: "starting" }));
   };
 
   const stopLocalServer = useCallback(async (): Promise<void> => {
-    if (schematicRef.current === 0) return;
-    d(setLocalState({ schematic, status: "stopping" }));
-    const serverProcess = new Child(schematicRef.current);
+    if (pidRef.current === 0) return;
+    d(setLocalState({ pid, status: "stopping" }));
+    const serverProcess = new Child(pidRef.current);
     await serverProcess.write("stop\n");
     d(setActive(null));
   }, []);

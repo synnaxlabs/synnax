@@ -1370,8 +1370,8 @@ export type AnalogReadTaskState = task.State<
   z.infer<typeof analogReadTaskStateDetailsZ>
 >;
 
-export type AnalogReadType = "ni_analog_read";
-export const ANALOG_READ_TYPE: AnalogReadType = "ni_analog_read";
+export const ANALOG_READ_TYPE = "ni_analog_read";
+export type AnalogReadType = typeof ANALOG_READ_TYPE;
 
 export const ZERO_ANALOG_READ_CONFIG: AnalogReadTaskConfig = {
   device: "Dev1",
@@ -1397,8 +1397,8 @@ export const ZERO_ANALOG_READ_PAYLOAD: AnalogReadPayload = {
 };
 
 export type DigitalWriteConfig = z.infer<typeof digitalWriteConfigZ>;
-export type DigitalWriteType = "ni_digital_write";
-export const DIGITAL_WRITE_TYPE: DigitalWriteType = "ni_digital_write";
+export const DIGITAL_WRITE_TYPE = "ni_digital_write";
+export type DigitalWriteType = typeof DIGITAL_WRITE_TYPE;
 export const digitalWriteConfigZ = z.object({
   device: z.string().min(1),
   channels: z.array(doChanZ),
@@ -1439,8 +1439,8 @@ export const digitalReadConfigZ = z.object({
   channels: z.array(digitalReadChannelZ),
 });
 export type DigitalReadConfig = z.infer<typeof digitalReadConfigZ>;
-export type DigitalReadType = "ni_digital_read";
-export const DIGITAL_READ_TYPE: DigitalReadType = "ni_digital_read";
+export const DIGITAL_READ_TYPE = "ni_digital_read";
+export type DigitalReadType = typeof DIGITAL_READ_TYPE;
 export const digitalReadStateDetailsZ = z.object({
   running: z.boolean(),
 });

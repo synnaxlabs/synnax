@@ -10,29 +10,29 @@
 import { type task } from "@synnaxlabs/client";
 import { z } from "zod";
 
-export type ReadTaskChannelConfig = z.infer<typeof readTaskChannelConfigZ>;
+export const READ_TYPE = "opc_read";
+export type ReadType = typeof READ_TYPE;
 
-export const readTaskStateDetails = z.object({
-  running: z.boolean(),
-});
+export type ReadChannelConfig = z.infer<typeof readChanZ>;
 
-export type ReadTaskStateDetails = z.infer<typeof readTaskStateDetails>;
+export const readStateDetails = z.object({ running: z.boolean() });
 
-export type ReadTaskState = task.State<ReadTaskStateDetails>;
+export type ReadStateDetails = z.infer<typeof readStateDetails>;
+export type ReadState = task.State<ReadStateDetails>;
 
-export const readTaskChannelConfigZ = z.object({
+export const readChanZ = z.object({
   key: z.string(),
   channel: z.number().min(1, "Channel must be specified"),
   nodeId: z.string().min(1, "Node ID must be specified"),
   enabled: z.boolean(),
 });
 
-export const readTaskConfigZ = z
+export const readConfigZ = z
   .object({
     device: z.string().min(1, "Device must be specified"),
-    sampleRate: z.number().min(0).max(1000),
+    sampleRate: z.number().min(0).max(5000),
     streamRate: z.number().min(0).max(200),
-    channels: z.array(readTaskChannelConfigZ),
+    channels: z.array(readChanZ),
   })
   .refine((cfg) => cfg.sampleRate >= cfg.streamRate, {
     message: "Sample rate must be greater than or equal to stream rate",
@@ -70,7 +70,20 @@ export const readTaskConfigZ = z
     });
   });
 
-export type ReadTaskConfig = z.infer<typeof readTaskConfigZ>;
+export type ReadConfig = z.infer<typeof readConfigZ>;
+export type Read = task.Task<ReadConfig, ReadStateDetails, ReadType>;
+export type ReadPayload = task.Payload<ReadConfig, ReadStateDetails, ReadType>;
+export const ZERO_READ_PAYLOAD: ReadPayload = {
+  key: READ_TYPE,
+  type: READ_TYPE,
+  name: "OPC Read Task",
+  config: {
+    device: "",
+    sampleRate: 50,
+    streamRate: 25,
+    channels: [],
+  },
+};
 
 type NodeIdType = "Numeric" | "String" | "GUID" | "ByteString";
 
@@ -113,11 +126,7 @@ export const parseNodeId = (nodeIdStr: string): NodeId | null => {
       return null;
   }
 
-  return {
-    namespaceIndex,
-    identifierType,
-    identifier,
-  };
+  return { namespaceIndex, identifierType, identifier };
 };
 
 export const nodeIdToString = (nodeId: NodeId): string => {
