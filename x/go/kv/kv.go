@@ -11,8 +11,8 @@
 // for get/set/delete operations as well as basic read-iteration. This package should
 // be used as a boundary for separating an application from a specific storage implementation.
 //
-// It also provides additional utilites that leverage these interfaces to extend a key-value
-// store's functilonality.
+// It also provides additional utilities that leverage these interfaces to extend a key-value
+// store's functionality.
 package kv
 
 import (

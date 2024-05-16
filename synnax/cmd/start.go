@@ -79,10 +79,11 @@ var (
 func start(cmd *cobra.Command) {
 	v := version.Get()
 	var (
-		ins      = configureInstrumentation(v)
-		insecure = viper.GetBool("insecure")
-		verbose  = viper.GetBool("verbose")
-		autoCert = viper.GetBool("auto-cert")
+		ins        = configureInstrumentation(v)
+		insecure   = viper.GetBool("insecure")
+		verbose    = viper.GetBool("verbose")
+		autoCert   = viper.GetBool("auto-cert")
+		productKey = viper.GetString("product-key")
 	)
 	defer cleanupInstrumentation(cmd.Context(), ins)
 
@@ -134,6 +135,7 @@ func start(cmd *cobra.Command) {
 			ins,
 			storageCfg,
 			grpcTransports,
+			productKey,
 		)
 		dist, err := distribution.Open(ctx, distConfig)
 		if err != nil {
@@ -148,6 +150,9 @@ func start(cmd *cobra.Command) {
 			Ontology: dist.Ontology,
 			Group:    dist.Group,
 		})
+		if err != nil {
+			return err
+		}
 		tokenSvc := &token.Service{KeyProvider: secProvider, Expiration: 24 * time.Hour}
 		authenticator := &auth.KV{DB: gorpDB}
 		rangeSvc, err := ranger.OpenService(ctx, ranger.Config{
@@ -290,6 +295,7 @@ func buildDistributionConfig(
 	ins alamos.Instrumentation,
 	storage storage.Config,
 	transports *[]fgrpc.BindableTransport,
+	productKey string,
 ) (distribution.Config, error) {
 	peers, err := parsePeerAddresses()
 	return distribution.Config{
@@ -299,6 +305,7 @@ func buildDistributionConfig(
 		Pool:             pool,
 		Storage:          storage,
 		Transports:       transports,
+		Verifier:         productKey,
 	}, err
 }
 

@@ -11,6 +11,8 @@ package api
 
 import (
 	"context"
+	"go/types"
+
 	roacherrors "github.com/cockroachdb/errors"
 	"github.com/google/uuid"
 	"github.com/samber/lo"
@@ -22,7 +24,6 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
-	"go/types"
 )
 
 // Channel is an API-friendly version of the channel.Channel type. It is simplified for
@@ -37,6 +38,7 @@ type Channel struct {
 	IsIndex     bool                 `json:"is_index" msgpack:"is_index"`
 	Index       channel.Key          `json:"index" msgpack:"index"`
 	Alias       string               `json:"alias" msgpack:"alias"`
+	Internal    bool                 `json:"internal" msgpack:"alias"`
 }
 
 // ChannelService is the central API for all things Channel related.
@@ -203,6 +205,7 @@ func translateChannelsForward(channels []channel.Channel) []Channel {
 			IsIndex:     ch.IsIndex,
 			Index:       ch.Index(),
 			Density:     ch.DataType.Density(),
+			Internal:    ch.Internal,
 		}
 	}
 	return translated
@@ -218,6 +221,7 @@ func translateChannelsBackward(channels []Channel) ([]channel.Channel, error) {
 			DataType:    ch.DataType,
 			IsIndex:     ch.IsIndex,
 			LocalIndex:  ch.Index.LocalKey(),
+			Internal:    ch.Internal,
 		}
 		if ch.IsIndex {
 			tCH.LocalIndex = tCH.LocalKey

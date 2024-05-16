@@ -11,6 +11,8 @@ package channel
 
 import (
 	"encoding/binary"
+	"strconv"
+
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -18,7 +20,6 @@ import (
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/unsafe"
-	"strconv"
 )
 
 // Key represents a unique identifier for a Channel. This value is guaranteed to be
@@ -187,6 +188,9 @@ type Channel struct {
 	// Concurrency sets the policy for concurrent writes to the same region of the
 	// channel's data. Only virtual channels can have a policy of control.Shared.
 	Concurrency control.Concurrency `json:"concurrency" msgpack:"concurrency"`
+	// Internal determines if a channel is a channel created by Synnax or
+	// created by the user.
+	Internal bool `json:"internal" msgpack:"internal"`
 }
 
 // Key returns the key for the Channel.

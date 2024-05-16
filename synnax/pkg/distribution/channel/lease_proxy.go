@@ -11,6 +11,7 @@ package channel
 
 import (
 	"context"
+
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -23,15 +24,19 @@ import (
 
 type leaseProxy struct {
 	ServiceConfig
-	createRouter  proxy.BatchFactory[Channel]
-	deleteRouter  proxy.BatchFactory[Key]
-	leasedCounter *kv.AtomicInt64Counter
-	freeCounter   *kv.AtomicInt64Counter
-	group         group.Group
+	createRouter     proxy.BatchFactory[Channel]
+	deleteRouter     proxy.BatchFactory[Key]
+	leasedCounter    *kv.AtomicInt64Counter
+	freeCounter      *kv.AtomicInt64Counter
+	externalCounter  *kv.AtomicInt64Counter
+	deletedChannels  *ChannelGroup
+	internalChannels *ChannelGroup
+	group            group.Group
 }
 
 const leasedCounterSuffix = ".distribution.channel.leasedCounter"
 const freeCounterSuffix = ".distribution.channel.counter.free"
+const externalCounterSuffix = ".distribution.channel.externalCounter"
 
 func newLeaseProxy(cfg ServiceConfig, g group.Group) (*leaseProxy, error) {
 	leasedCounterKey := []byte(cfg.HostResolver.HostKey().String() + leasedCounterSuffix)
@@ -39,13 +44,20 @@ func newLeaseProxy(cfg ServiceConfig, g group.Group) (*leaseProxy, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	externalCounterKey := []byte(cfg.HostResolver.HostKey().String() + externalCounterSuffix)
+	extCtr, err := kv.OpenCounter(context.TODO(), cfg.ClusterDB, externalCounterKey)
+	if err != nil {
+		return nil, err
+	}
 	p := &leaseProxy{
-		ServiceConfig: cfg,
-		createRouter:  proxy.BatchFactory[Channel]{Host: cfg.HostResolver.HostKey()},
-		deleteRouter:  proxy.BatchFactory[Key]{Host: cfg.HostResolver.HostKey()},
-		leasedCounter: c,
-		group:         g,
+		ServiceConfig:    cfg,
+		createRouter:     proxy.BatchFactory[Channel]{Host: cfg.HostResolver.HostKey()},
+		deleteRouter:     proxy.BatchFactory[Key]{Host: cfg.HostResolver.HostKey()},
+		leasedCounter:    c,
+		group:            g,
+		externalCounter:  extCtr,
+		deletedChannels:  &ChannelGroup{},
+		internalChannels: &ChannelGroup{},
 	}
 	if cfg.HostResolver.HostKey() == core.Bootstrapper {
 		//freeCounterKey := []byte(cfg.HostResolver.HostKey().String() + freeCounterSuffix)
@@ -189,6 +201,7 @@ func (lp *leaseProxy) createGateway(
 	if err != nil {
 		return err
 	}
+
 	storageChannels := toStorage(toCreate)
 	if err := lp.TSChannel.CreateChannel(ctx, storageChannels...); err != nil {
 		return err
@@ -196,6 +209,26 @@ func (lp *leaseProxy) createGateway(
 	if err := gorp.NewCreate[Key, Channel]().Entries(&toCreate).Exec(ctx, tx); err != nil {
 		return err
 	}
+
+	numExternalToCreate := len(toCreate)
+	var internalCreatedKeys Keys
+	for _, ch := range toCreate {
+		if ch.Internal {
+			numExternalToCreate--
+			internalCreatedKeys = append(internalCreatedKeys, ch.Key())
+		}
+	}
+	totalExternalChannels := int64(numExternalToCreate) + lp.externalCounter.Value()
+	err = lp.ValidateChannelCount(totalExternalChannels)
+	if err != nil {
+		return err
+	}
+	_, err = lp.externalCounter.Add(int64(numExternalToCreate))
+	if err != nil {
+		return err
+	}
+	lp.internalChannels.InsertKeys(internalCreatedKeys)
+
 	return lp.maybeSetResources(ctx, tx, toCreate)
 }
 
@@ -281,9 +314,27 @@ func (lp *leaseProxy) deleteFreeVirtual(ctx context.Context, tx gorp.Tx, channel
 }
 
 func (lp *leaseProxy) deleteGateway(ctx context.Context, tx gorp.Tx, keys Keys) error {
+
+	numToDelete := len(keys)
+	var deletedChannels []Channel
+	err := gorp.NewRetrieve[Key, Channel]().WhereKeys(keys...).Entries(&deletedChannels).Exec(ctx, tx)
+	if err != nil {
+		return err
+	}
+	for _, ch := range deletedChannels {
+		if ch.Internal {
+			numToDelete--
+		}
+	}
+	lp.externalCounter.Add(-int64(numToDelete))
+
 	if err := gorp.NewDelete[Key, Channel]().WhereKeys(keys...).Exec(ctx, tx); err != nil {
 		return err
 	}
+
+	lp.deletedChannels.InsertKeys(keys)
+	lp.internalChannels.RemoveKeys(keys)
+
 	c := errutil.NewCatch(errutil.WithAggregation())
 	for _, key := range keys {
 		c.Exec(func() error { return lp.TSChannel.DeleteChannel(key.StorageKey()) })

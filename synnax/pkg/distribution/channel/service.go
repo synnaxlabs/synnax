@@ -11,6 +11,7 @@ package channel
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
@@ -54,12 +55,14 @@ type service struct {
 var _ Service = (*service)(nil)
 
 type ServiceConfig struct {
-	HostResolver core.HostResolver
-	ClusterDB    *gorp.DB
-	TSChannel    *ts.DB
-	Transport    Transport
-	Ontology     *ontology.Ontology
-	Group        *group.Service
+	HostResolver           core.HostResolver
+	ClusterDB              *gorp.DB
+	TSChannel              *ts.DB
+	Transport              Transport
+	Ontology               *ontology.Ontology
+	Group                  *group.Service
+	ValidateChannelCount   func(count int64) error
+	ChannelsNeedValidation func() (int, error)
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -70,6 +73,8 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "ClusterDB", c.ClusterDB)
 	validate.NotNil(v, "TSChannel", c.TSChannel)
 	validate.NotNil(v, "Transport", c.Transport)
+	validate.NotNil(v, "ValidateChannelCount", c.ValidateChannelCount)
+	validate.NotNil(v, "ChannelsNeedValidation", c.ChannelsNeedValidation)
 	return v.Error()
 }
 
@@ -80,6 +85,8 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Transport = override.Nil(c.Transport, other.Transport)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
+	c.ValidateChannelCount = override.Nil(c.ValidateChannelCount, other.ValidateChannelCount)
+	c.ChannelsNeedValidation = override.Nil(c.ChannelsNeedValidation, other.ChannelsNeedValidation)
 	return c
 }
 
@@ -120,4 +127,28 @@ func (s *service) NewWriter(tx gorp.Tx) Writer {
 	return writer{proxy: s.proxy, tx: s.DB.OverrideTx(tx)}
 }
 
-func (s *service) NewRetrieve() Retrieve { return newRetrieve(s.DB, s.otg) }
+func (s *service) NewRetrieve() Retrieve {
+	return newRetrieve(s.DB, s.otg, func(channels []Channel) ([]Channel, error) {
+		maxAllowed, err := s.proxy.ChannelsNeedValidation()
+
+		if err != nil {
+			var fErr error
+			keys := KeysFromChannels(channels)
+
+			var returnedChannels []Channel
+			var err error
+			for i, key := range keys {
+				deletedCount := s.proxy.deletedChannels.GetChannelsBeforeKey(key)
+				internalCount := s.proxy.internalChannels.GetChannelsBeforeKey(key)
+				keyNumber := key.LocalKey() - deletedCount - internalCount
+				if keyNumber < uint16(maxAllowed) {
+					returnedChannels = append(returnedChannels, channels[i])
+				} else {
+					fErr = err
+				}
+			}
+			return returnedChannels, fErr
+		}
+		return channels, nil
+	})
+}

@@ -11,6 +11,9 @@ package channel
 
 import (
 	"context"
+	"regexp"
+	"strings"
+
 	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
@@ -18,22 +21,26 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
-	"regexp"
-	"strings"
 )
 
 // Retrieve is used to retrieve information about Channel(s) in delta's distribution
 // layer.
 type Retrieve struct {
-	tx         gorp.Tx
-	gorp       gorp.Retrieve[Key, Channel]
-	otg        *ontology.Ontology
-	keys       Keys
-	searchTerm string
+	tx                        gorp.Tx
+	gorp                      gorp.Retrieve[Key, Channel]
+	otg                       *ontology.Ontology
+	keys                      Keys
+	searchTerm                string
+	validateRetrievedChannels func(channels []Channel) ([]Channel, error)
 }
 
-func newRetrieve(tx gorp.Tx, otg *ontology.Ontology) Retrieve {
-	return Retrieve{gorp: gorp.NewRetrieve[Key, Channel](), tx: tx, otg: otg}
+func newRetrieve(tx gorp.Tx, otg *ontology.Ontology, validateRetrievedChannels func([]Channel) ([]Channel, error)) Retrieve {
+	return Retrieve{
+		gorp:                      gorp.NewRetrieve[Key, Channel](),
+		tx:                        tx,
+		otg:                       otg,
+		validateRetrievedChannels: validateRetrievedChannels,
+	}
 }
 
 func (r Retrieve) Search(term string) Retrieve { r.searchTerm = term; return r }
@@ -87,7 +94,7 @@ func (r Retrieve) Offset(offset int) Retrieve {
 }
 
 // Exec executes the query, binding
-func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
+func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) (err error) {
 	if r.searchTerm != "" {
 		ids, err := r.otg.SearchIDs(ctx, search.Request{
 			Type: ontologyType,
@@ -102,7 +109,12 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 		}
 		r = r.WhereKeys(keys...)
 	}
-	return r.maybeEnrichError(r.gorp.Exec(ctx, gorp.OverrideTx(r.tx, tx)))
+	err = r.maybeEnrichError(r.gorp.Exec(ctx, gorp.OverrideTx(r.tx, tx)))
+
+	entries := gorp.GetEntries[Key, Channel](r.gorp.Params).All()
+	channels, vErr := r.validateRetrievedChannels(entries)
+	gorp.SetEntries[Key, Channel](r.gorp.Params, &channels)
+	return errors.CombineErrors(err, vErr)
 }
 
 // Exists checks if the query has results matching its parameters. If used in conjunction

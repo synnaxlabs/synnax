@@ -63,4 +63,10 @@ func configureStartFlags() {
 		false,
 		"Automatically generate self-signed certificates.",
 	)
+
+	startCmd.Flags().String(
+		"product-key",
+		"",
+		"Product license key in form \"######-########-##########\".",
+	)
 }
