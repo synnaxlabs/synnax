@@ -237,7 +237,7 @@ var file_synnax_pkg_api_grpc_v1_auth_proto_goTypes = []interface{}{
 	(*LoginResponse)(nil), // 1: api.v1.LoginResponse
 	(*User)(nil),          // 2: api.v1.User
 }
-var file_synnax_pkg_api_grpc_v1_auth_proto_depIdxs = []int32{
+var file_synnax_pkg_api_grpc_v1_auth_proto_deschematicxs = []int32{
 	2, // 0: api.v1.LoginResponse.user:type_name -> api.v1.User
 	0, // 1: api.v1.AuthLoginService.Exec:input_type -> api.v1.LoginRequest
 	1, // 2: api.v1.AuthLoginService.Exec:output_type -> api.v1.LoginResponse
@@ -302,11 +302,11 @@ func file_synnax_pkg_api_grpc_v1_auth_proto_init() {
 			NumServices:   1,
 		},
 		GoTypes:           file_synnax_pkg_api_grpc_v1_auth_proto_goTypes,
-		DependencyIndexes: file_synnax_pkg_api_grpc_v1_auth_proto_depIdxs,
+		DependencyIndexes: file_synnax_pkg_api_grpc_v1_auth_proto_deschematicxs,
 		MessageInfos:      file_synnax_pkg_api_grpc_v1_auth_proto_msgTypes,
 	}.Build()
 	File_synnax_pkg_api_grpc_v1_auth_proto = out.File
 	file_synnax_pkg_api_grpc_v1_auth_proto_rawDesc = nil
 	file_synnax_pkg_api_grpc_v1_auth_proto_goTypes = nil
-	file_synnax_pkg_api_grpc_v1_auth_proto_depIdxs = nil
+	file_synnax_pkg_api_grpc_v1_auth_proto_deschematicxs = nil
 }

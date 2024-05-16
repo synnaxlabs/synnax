@@ -27,7 +27,7 @@ import type { Theme as TauriTheme } from "@tauri-apps/api/window";
 import { useDispatch, useStore } from "react-redux";
 
 import { useSyncerDispatch } from "@/hooks/dispatchers";
-import { type LayoutState } from "@/layout/layout";
+import { type State } from "@/layout/layout";
 import { select, useSelectNavDrawer, useSelectTheme } from "@/layout/selectors";
 import {
   type NavdrawerLocation,
@@ -47,10 +47,10 @@ export interface CreatorProps {
 }
 
 /** A function that creates a layout given a set of utilities. */
-export type Creator = (props: CreatorProps) => Omit<LayoutState, "windowKey">;
+export type Creator = (props: CreatorProps) => Omit<State, "windowKey">;
 
 /** A function that places a layout using the given properties or creation func. */
-export type Placer = (layout: Omit<LayoutState, "windowKey"> | Creator) => {
+export type Placer = (layout: Omit<State, "windowKey"> | Creator) => {
   windowKey: string;
   key: string;
 };

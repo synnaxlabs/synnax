@@ -13,7 +13,7 @@ import { type device } from "@synnaxlabs/client";
 import { Button, Status, Synnax, useAsyncEffect } from "@synnaxlabs/pluto";
 import { type change } from "@synnaxlabs/x";
 
-import { create } from "@/hardware/ni/device/Configure";
+import { createConfigureLayout } from "@/hardware/ni/device/Configure";
 import { Layout } from "@/layout";
 import { type NotificationAdapter } from "@/notifications/Notifications";
 
@@ -64,7 +64,7 @@ const ConfigureButton = ({ deviceKey }: ConfigureButtonProps): ReactElement => {
     <Button.Button
       variant="outlined"
       size="small"
-      onClick={() => place(create(deviceKey, {}))}
+      onClick={() => place(createConfigureLayout(deviceKey, {}))}
     >
       Configure
     </Button.Button>

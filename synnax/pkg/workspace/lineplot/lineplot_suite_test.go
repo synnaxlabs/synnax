@@ -15,7 +15,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/synnax/pkg/user"
 	"github.com/synnaxlabs/synnax/pkg/workspace"
-	"github.com/synnaxlabs/synnax/pkg/workspace/pid"
+	"github.com/synnaxlabs/synnax/pkg/workspace/schematic"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -26,7 +26,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func TestPid(t *testing.T) {
+func TestSchematic(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "LinePlot Suite")
 }
@@ -37,7 +37,7 @@ var (
 	otg     *ontology.Ontology
 	ws      workspace.Workspace
 	userSvc *user.Service
-	svc     *pid.Service
+	svc     *schematic.Service
 	tx      gorp.Tx
 )
 
@@ -68,7 +68,7 @@ var _ = BeforeSuite(func() {
 	Expect(userSvc.NewWriter(nil).Create(ctx, &author)).To(Succeed())
 	ws.Author = author.Key
 	Expect(workspaceSvc.NewWriter(nil).Create(ctx, &ws)).To(Succeed())
-	svc = MustSucceed(pid.NewService(pid.Config{
+	svc = MustSucceed(schematic.NewService(schematic.Config{
 		DB:       db,
 		Ontology: otg,
 	}))

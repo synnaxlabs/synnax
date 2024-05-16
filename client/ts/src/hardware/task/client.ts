@@ -82,7 +82,7 @@ export type NewTask<
   config: C;
 };
 
-export type TaskPayload<
+export type Payload<
   C extends UnknownRecord = UnknownRecord,
   D extends {} = UnknownRecord,
   T extends string = string,
@@ -135,7 +135,7 @@ export class Task<
     this.frameClient = frameClient;
   }
 
-  get payload(): TaskPayload<C, D> {
+  get payload(): Payload<C, D> {
     return {
       key: this.key,
       name: this.name,
@@ -217,21 +217,13 @@ const RETRIEVE_ENDPOINT = "/hardware/task/retrieve";
 const CREATE_ENDPOINT = "/hardware/task/create";
 const DELETE_ENDPOINT = "/hardware/task/delete";
 
-const createReqZ = z.object({
-  tasks: newTaskZ.array(),
-});
-
-const createResZ = z.object({
-  tasks: taskZ.array(),
-});
-
-const deleteReqZ = z.object({
-  keys: taskKeyZ.array(),
-});
-
+const createReqZ = z.object({ tasks: newTaskZ.array() });
+const createResZ = z.object({ tasks: taskZ.array() });
+const deleteReqZ = z.object({ keys: taskKeyZ.array() });
 const deleteResZ = z.object({});
 
-export class Client implements AsyncTermSearcher<string, TaskKey, TaskPayload> {
+export class Client implements AsyncTermSearcher<string, TaskKey, Payload> {
+  readonly type: string = "task";
   private readonly client: UnaryClient;
   private readonly frameClient: framer.Client;
 
@@ -281,26 +273,12 @@ export class Client implements AsyncTermSearcher<string, TaskKey, TaskPayload> {
     );
   }
 
-  async search(term: string): Promise<TaskPayload[]> {
-    const res = await sendRequired<typeof retrieveReqZ, typeof retrieveResZ>(
-      this.client,
-      RETRIEVE_ENDPOINT,
-      { keys: [term] },
-      retrieveReqZ,
-      retrieveResZ,
-    );
-    return res.tasks;
+  async search(term: string): Promise<Payload[]> {
+    return await this.execRetrieve({ keys: [term] });
   }
 
-  async page(offset: number, limit: number): Promise<TaskPayload[]> {
-    const res = await sendRequired<typeof retrieveReqZ, typeof retrieveResZ>(
-      this.client,
-      RETRIEVE_ENDPOINT,
-      { offset, limit },
-      retrieveReqZ,
-      retrieveResZ,
-    );
-    return res.tasks;
+  async page(offset: number, limit: number): Promise<Payload[]> {
+    return this.execRetrieve({ offset, limit });
   }
 
   async retrieve<
@@ -331,39 +309,35 @@ export class Client implements AsyncTermSearcher<string, TaskKey, TaskPayload> {
   ): Promise<Task<C, D, T> | Task<C, D, T>[]> {
     const { single, normalized, variant } = analyzeParams(
       rack,
-      {
-        number: "rack",
-        string: "keys",
-      },
+      { number: "rack", string: "keys" },
       { convertNumericStrings: false },
     );
     let req: RetrieveRequest = { ...options };
     if (variant === "rack") req.rack = rack as number;
     else req.keys = normalized as string[];
-    const res = await sendRequired<typeof retrieveReqZ, typeof retrieveResZ>(
+    const tasks = await this.execRetrieve(req);
+    const sugared = this.sugar(tasks) as Array<Task<C, D, T>>;
+    return single && variant !== "rack" ? sugared[0] : sugared;
+  }
+
+  async retrieveByName(name: string, rack?: number): Promise<Task> {
+    const tasks = await this.execRetrieve({ names: [name], rack });
+    checkForMultipleOrNoResults("Task", name, tasks, true);
+    return this.sugar(tasks)[0];
+  }
+
+  private async execRetrieve(req: RetrieveRequest): Promise<Payload[]> {
+    const res = await sendRequired(
       this.client,
       RETRIEVE_ENDPOINT,
       req,
       retrieveReqZ,
       retrieveResZ,
     );
-    const sugared = this.sugar(res.tasks) as Array<Task<C, D, T>>;
-    return single && variant !== "rack" ? sugared[0] : sugared;
+    return res.tasks;
   }
 
-  async retrieveByName(name: string, rack?: number): Promise<Task> {
-    const res = await sendRequired<typeof retrieveReqZ, typeof retrieveResZ>(
-      this.client,
-      RETRIEVE_ENDPOINT,
-      { names: [name], rack },
-      retrieveReqZ,
-      retrieveResZ,
-    );
-    checkForMultipleOrNoResults("Task", name, res.tasks, true);
-    return this.sugar(res.tasks)[0];
-  }
-
-  private sugar(payloads: TaskPayload[]): Task[] {
+  private sugar(payloads: Payload[]): Task[] {
     return payloads.map(
       ({ key, name, type, config, state }) =>
         new Task(key, name, type, config, this.frameClient, state),

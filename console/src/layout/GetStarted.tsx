@@ -47,7 +47,7 @@ const NoCluster = (): ReactElement => {
 
   const handleVisualize: Button.ButtonProps["onClick"] = (e) => {
     e.stopPropagation();
-    placer(Vis.create({}));
+    placer(Vis.createLayoutSelector({}));
     dispatch(setNavdrawerVisible({ windowKey, key: Vis.Toolbar.key, value: true }));
   };
 

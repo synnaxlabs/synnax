@@ -80,5 +80,6 @@
         "xstddef": "cpp",
         "xtr1common": "cpp",
         "array": "cpp"
-    }
+    },
+    "vitest.disableWorkspaceWarning": true
 }

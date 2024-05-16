@@ -16,7 +16,7 @@ import {
   Menu,
   Channel,
   telem,
-  type PID as PlutoPID,
+  type Schematic as PlutoSchematic,
 } from "@synnaxlabs/pluto";
 import { Tree } from "@synnaxlabs/pluto/tree";
 
@@ -25,7 +25,7 @@ import { Group } from "@/group";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { type Ontology } from "@/ontology";
-import { PID } from "@/pid";
+import { Schematic } from "@/schematic";
 import { Range } from "@/range";
 
 const canDrop = (): boolean => false;
@@ -81,7 +81,7 @@ const haulItems = ({ name, id }: ontology.Resource): Haul.Item[] => {
     },
     outlet: "stringifier",
   });
-  const pidSymbolProps: PlutoPID.ValueProps = {
+  const schematicSymbolProps: PlutoSchematic.ValueProps = {
     label: {
       label: name,
       level: "p",
@@ -94,9 +94,9 @@ const haulItems = ({ name, id }: ontology.Resource): Haul.Item[] => {
       key: Number(id.key),
     },
     {
-      type: PID.HAUL_TYPE,
+      type: Schematic.HAUL_TYPE,
       key: "value",
-      data: pidSymbolProps,
+      data: schematicSymbolProps,
     },
   ];
 };

@@ -86,7 +86,7 @@ export const themeZ = z
         radius: z.number(),
         width: z.number(),
       }),
-      pid: z.object({
+      schematic: z.object({
         elementStrokeWidth: z.number(),
       }),
     }),
@@ -210,7 +210,7 @@ const SYNNAX_BASE: ThemeSpec = {
       radius: 2,
       width: 1,
     },
-    pid: {
+    schematic: {
       elementStrokeWidth: 2,
     },
   },

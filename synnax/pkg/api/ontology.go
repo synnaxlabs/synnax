@@ -37,8 +37,8 @@ type OntologyRetrieveRequest struct {
 	IDs              []ontology.ID `json:"ids" msgpack:"ids" validate:"required"`
 	Children         bool          `json:"children" msgpack:"children"`
 	Parents          bool          `json:"parents" msgpack:"parents"`
-	IncludeSchema    bool          `json:"include_schema" msgpack:"include_schema" default:"true"`
-	IncludeFieldData bool          `json:"include_field_data" msgpack:"include_field_data" default:"true"`
+	IncludeSchema    bool          `json:"include_schema" msgpack:"include_schema"`
+	ExcludeFieldData bool          `json:"exclude_field_data" msgpack:"exclude_field_data"`
 	Term             string        `json:"term" msgpack:"term"`
 	Limit            int           `json:"limit" msgpack:"limit"`
 	Offset           int           `json:"offset" msgpack:"offset"`
@@ -54,28 +54,26 @@ func (o *OntologyService) Retrieve(
 ) (res OntologyRetrieveResponse, err error) {
 	res.Resources = []ontology.Resource{}
 	if req.Term != "" {
-		var _err error
-		res.Resources, _err = o.Ontology.Search(ctx, search.Request{
-			Term: req.Term,
-		})
-		return res, _err
+		res.Resources, err = o.Ontology.Search(ctx, search.Request{Term: req.Term})
+		return
 	}
-	q := o.Ontology.NewRetrieve().
-		WhereIDs(req.IDs...).
-		IncludeSchema(req.IncludeSchema).
-		IncludeFieldData(req.IncludeFieldData)
-
+	q := o.Ontology.NewRetrieve()
+	if len(req.IDs) > 0 {
+		q = q.WhereIDs(req.IDs...)
+	}
 	if req.Children {
 		q = q.TraverseTo(ontology.Children)
-	} else if req.Parents {
+	}
+	if req.Parents {
 		q = q.TraverseTo(ontology.Parents)
-	} else if req.Limit > 0 {
+	}
+	if req.Limit > 0 {
 		q = q.Limit(req.Limit)
-	} else if req.Offset > 0 {
+	}
+	if req.Offset > 0 {
 		q = q.Offset(req.Offset)
 	}
-	q = q.IncludeSchema(req.IncludeSchema).IncludeFieldData(req.IncludeFieldData)
-
+	q = q.IncludeSchema(req.IncludeSchema).ExcludeFieldData(req.ExcludeFieldData)
 	return res, q.Entries(&res.Resources).Exec(ctx, nil)
 }
 

@@ -64,6 +64,7 @@ const deleteReqZ = z.object({
 const deleteResZ = z.object({});
 
 export class Client implements AsyncTermSearcher<string, RackKey, Rack> {
+  readonly type: string = "rack";
   private readonly client: UnaryClient;
   private readonly frameClient: framer.Client;
   private readonly tasks: task.Client;

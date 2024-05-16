@@ -68,7 +68,7 @@ export const toCSSVars = (theme: Theme): Record<string, number | string | undefi
     "base-size": unitProperty(theme.sizes.base, "px"),
     "border-radius": unitProperty(theme.sizes.border.radius, "px"),
     "border-width": unitProperty(theme.sizes.border.width, "px"),
-    "pid-element-stroke-width": unitProperty(theme.sizes.pid.elementStrokeWidth, "px"),
+    "schematic-element-stroke-width": unitProperty(theme.sizes.schematic.elementStrokeWidth, "px"),
     "font-family": theme.typography.family,
     "h1-size": unitProperty(theme.typography.h1.size, "rem"),
     "h1-weight": theme.typography.h1.weight,

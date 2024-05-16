@@ -42,9 +42,9 @@ export const useLocalServer = (): void => {
 
   const startLocalServer = async (): Promise<void> => {
     if (win !== Drift.MAIN_WINDOW) return;
-    // The only case where we'll run into a stranded PID is if the user closes the
+    // The only case where we'll run into a stranded Pid is if the user closes the
     // application or hard reloads the page. This means that we only need to kill
-    // stranded pids on application load, so we don't pass the PID in as a dependency.
+    // stranded pids on application load, so we don't pass the Pid in as a dependency.
     if (pid !== 0) {
       console.log("Killing stranded local server", pid);
       await new Child(pid).kill();
@@ -67,7 +67,7 @@ export const useLocalServer = (): void => {
       const isInfo = level === "info";
       // This means the server has booted up.
       if (isInfo && msg === "starting server") {
-        // Set the PID in local state so we can kill it later fi we need to.
+        // Set the Pid in local state so we can kill it later fi we need to.
 
         // Test the connection to the local server.
         testConnection(LOCAL_PROPS)
@@ -78,7 +78,7 @@ export const useLocalServer = (): void => {
           })
           .catch(console.error);
       } else if (isInfo && msg === "shutdown successful") {
-        // If the server has shut down, we'll set the PID to 0.
+        // If the server has shut down, we'll set the Pid to 0.
         d(setLocalState({ pid: 0, status: "stopped" }));
       }
 

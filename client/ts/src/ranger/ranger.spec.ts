@@ -122,7 +122,7 @@ describe("Ranger", () => {
       await expect(async () => await rng.kv.get("foo")).rejects.toThrow(QueryError);
     });
 
-    it.only("should set and get multiple keys", async () => {
+    it("should set and get multiple keys", async () => {
       const rng = await client.ranges.create({
         name: "My New One Second Range",
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),

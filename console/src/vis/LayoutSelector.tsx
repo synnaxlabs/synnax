@@ -16,13 +16,38 @@ import { Align } from "@synnaxlabs/pluto/align";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
-import { PID } from "@/pid";
+import { Schematic } from "@/schematic";
+import { v4 as uuidv4 } from "uuid";
+
+import { type State } from "@/layout/layout";
 
 import "@/vis/LayoutSelector.css";
 
 export interface LayoutSelectorProps extends Align.SpaceProps {
   layoutKey?: string;
 }
+
+export const LAYOUT_SELECTOR_TYPE = "visLayoutSelector";
+
+export const createLayoutSelector = (
+  props: Omit<Partial<State>, "type">,
+): Omit<State, "windowKey"> => {
+  const {
+    location = "mosaic",
+    name = "Visualization",
+    key = uuidv4(),
+    window,
+    tab,
+  } = props;
+  return {
+    type: LAYOUT_SELECTOR_TYPE,
+    location,
+    name,
+    key,
+    window,
+    tab,
+  };
+};
 
 export const LayoutSelector = ({
   layoutKey,
@@ -52,10 +77,10 @@ export const LayoutSelector = ({
           </Button.Button>
           <Button.Button
             variant="outlined"
-            onClick={() => place(PID.create({ key: layoutKey }))}
-            startIcon={<Icon.PID />}
+            onClick={() => place(Schematic.create({ key: layoutKey }))}
+            startIcon={<Icon.Schematic />}
           >
-            PID
+            Schematic
           </Button.Button>
           <Button.Button
             variant="outlined"

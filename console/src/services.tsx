@@ -16,7 +16,7 @@ import { Group } from "@/group";
 import { LinePlot } from "@/lineplot";
 import { Builtin } from "@/ontology/builtin";
 import { type Service } from "@/ontology/service";
-import { PID } from "@/pid";
+import { Schematic } from "@/schematic";
 import { ONTOLOGY_SERVICE as RANGE_ONTOLOGY_SERVICE } from "@/range/ontology";
 import { User } from "@/user";
 import { Workspace } from "@/workspace";
@@ -37,7 +37,7 @@ export const EMPTY_ONTOLOGY_SERVICE: Service = {
 };
 
 export const SERVICES: Record<ontology.ResourceType, Service> = {
-  pid: PID.ONTOLOGY_SERVICE,
+  schematic: Schematic.ONTOLOGY_SERVICE,
   channel: CHANNEL_ONTOLOGY_SERVICE,
   cluster: Cluster.ONTOLOGY_SERVICE,
   user: User.ONTOLOGY_SERVICE,

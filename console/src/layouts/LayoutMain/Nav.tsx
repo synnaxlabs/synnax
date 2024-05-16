@@ -23,7 +23,7 @@ import { NAV_SIZES } from "@/layouts/LayoutMain/constants";
 import { LinePlot } from "@/lineplot";
 import { Palette } from "@/palette/Palette";
 import { type TriggerConfig } from "@/palette/types";
-import { PID } from "@/pid";
+import { Schematic } from "@/schematic";
 import { Range } from "@/range";
 import { SERVICES } from "@/services";
 import { Version } from "@/version";
@@ -44,7 +44,7 @@ const DEFAULT_TRIGGER: TriggerConfig = {
 const COMMANDS = [
   ...LinePlot.COMMANDS,
   ...Layout.COMMANDS,
-  ...PID.COMMANDS,
+  ...Schematic.COMMANDS,
   ...Docs.COMMANDS,
   ...Workspace.COMMANDS,
   ...Cluster.COMMANDS,

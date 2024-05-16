@@ -24,7 +24,7 @@ import { LayoutMain } from "@/layouts/LayoutMain";
 import { Mosaic } from "@/layouts/mosaic";
 import { LinePlot } from "@/lineplot";
 import { Ontology } from "@/ontology";
-import { PID } from "@/pid";
+import { Schematic } from "@/schematic";
 import { Range } from "@/range";
 import { SERVICES } from "@/services";
 import { store } from "@/store";
@@ -35,28 +35,21 @@ import { Workspace } from "@/workspace";
 
 import "@/index.css";
 import "@synnaxlabs/media/dist/style.css";
-import { NIDevice } from "@/hardware/ni/device";
 import { NI } from "@/hardware/ni";
 // import "@synnaxlabs/pluto/dist/style.css";
 
 const layoutRenderers: Record<string, Layout.Renderer> = {
   main: LayoutMain,
-  connectCluster: Cluster.Connect,
-  visualization: Vis.LayoutSelector,
-  defineRange: Range.EditLayout,
-  getStarted: Layout.GetStarted,
   docs: Docs.Docs,
-  vis: Vis.LayoutSelector,
-  mosaic: Mosaic.Window,
-  createWorkspace: Workspace.Create,
-  [LinePlot.LAYOUT_TYPE]: LinePlot.LinePlot,
-  [PID.LAYOUT_TYPE]: PID.PID,
-  [OPC.connectWindowLayout.type]: OPC.Configure,
-  [OPC.readTaskLayout.type]: OPC.ReadTask,
-  [Range.metaDataWindowLayout.key]: Range.MetaData,
-  [NIDevice.LAYOUT_TYPE]: NIDevice.Configure,
-  [NI.analogReadTaskLayout.type]: NI.AnalogReadTask,
-  [NI.digitalWriteTaskLayout.type]: NI.DigitalWriteTask,
+  ...Layout.LAYOUTS,
+  ...Vis.LAYOUTS,
+  ...Workspace.LAYOUTS,
+  ...Schematic.LAYOUTS,
+  ...LinePlot.LAYOUTS,
+  ...OPC.LAYOUTS,
+  ...Range.LAYOUTS,
+  ...Cluster.LAYOUTS,
+  ...NI.LAYOUTS,
 };
 
 const PREVENT_DEFAULT_TRIGGERS: Triggers.Trigger[] = [

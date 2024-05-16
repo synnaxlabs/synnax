@@ -53,6 +53,7 @@ const retrieveResZ = z.object({
 });
 
 export class Client implements AsyncTermSearcher<string, Key, Range> {
+  readonly type: string = "range";
   private readonly frameClient: framer.Client;
   private readonly writer: Writer;
   private readonly unaryClient: UnaryClient;

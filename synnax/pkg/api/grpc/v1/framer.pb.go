@@ -751,7 +751,7 @@ var file_synnax_pkg_api_grpc_v1_framer_proto_goTypes = []interface{}{
 	(*errors.PBPayload)(nil),       // 10: errors.PBPayload
 	(*control.ControlSubject)(nil), // 11: control.ControlSubject
 }
-var file_synnax_pkg_api_grpc_v1_framer_proto_depIdxs = []int32{
+var file_synnax_pkg_api_grpc_v1_framer_proto_deschematicxs = []int32{
 	8,  // 0: api.v1.Frame.series:type_name -> telem.PBSeries
 	9,  // 1: api.v1.FrameIteratorRequest.range:type_name -> telem.PBTimeRange
 	0,  // 2: api.v1.FrameIteratorResponse.frame:type_name -> api.v1.Frame
@@ -889,11 +889,11 @@ func file_synnax_pkg_api_grpc_v1_framer_proto_init() {
 			NumServices:   3,
 		},
 		GoTypes:           file_synnax_pkg_api_grpc_v1_framer_proto_goTypes,
-		DependencyIndexes: file_synnax_pkg_api_grpc_v1_framer_proto_depIdxs,
+		DependencyIndexes: file_synnax_pkg_api_grpc_v1_framer_proto_deschematicxs,
 		MessageInfos:      file_synnax_pkg_api_grpc_v1_framer_proto_msgTypes,
 	}.Build()
 	File_synnax_pkg_api_grpc_v1_framer_proto = out.File
 	file_synnax_pkg_api_grpc_v1_framer_proto_rawDesc = nil
 	file_synnax_pkg_api_grpc_v1_framer_proto_goTypes = nil
-	file_synnax_pkg_api_grpc_v1_framer_proto_depIdxs = nil
+	file_synnax_pkg_api_grpc_v1_framer_proto_deschematicxs = nil
 }

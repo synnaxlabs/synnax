@@ -19,14 +19,21 @@ import { useInfiniteUtilContext } from "@/list/Infinite";
 import { state } from "@/state";
 import { Status } from "@/status";
 import { type RenderProp, componentRenderProp } from "@/util/renderProp";
+import { Icon } from "@synnaxlabs/media";
 
-export interface SearchProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>>
+export interface UseSearchProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>>
   extends Input.OptionalControl<string> {
   searcher?: AsyncTermSearcher<string, K, E>;
   debounce?: number;
-  children?: RenderProp<Input.Control<string>>;
   pageSize?: number;
 }
+
+export interface SearchProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>>
+  extends UseSearchProps<K, E> {
+  children?: RenderProp<Input.Control<string>>;
+}
+
+export interface UseSearchReturn extends Input.Control<string> {}
 
 const STYLE = {
   height: 150,
@@ -40,18 +47,23 @@ const NO_RESULTS = (
 
 const NO_TERM = (
   <Status.Text.Centered level="h4" variant="disabled" hideIcon style={STYLE}>
-    Type to search...
+    Type to search
   </Status.Text.Centered>
 );
 
-export const Search = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
+const LOADING = (
+  <Status.Text.Centered level="h2" variant="disabled" hideIcon style={STYLE}>
+    <Icon.Loading />
+  </Status.Text.Centered>
+);
+
+export const useSearch = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   debounce = 250,
-  children = componentRenderProp(Input.Text),
   searcher,
   value,
   onChange,
   pageSize = 10,
-}: SearchProps<K, E>): ReactElement | null => {
+}: UseSearchProps<K, E>): UseSearchReturn => {
   const [internalValue, setInternalValue] = state.usePurePassthrough({
     value,
     onChange,
@@ -75,10 +87,11 @@ export const Search = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
         setHasMore(true);
       }
       promiseOut.current = true;
-      searcher
-        .page(offset.current, pageSize)
-        .then((r) => {
-          promiseOut.current = false;
+      setEmptyContent(LOADING);
+      const fn = async () => {
+        try {
+          const r = await searcher.page(offset.current, pageSize);
+          if (r.length === 0) setEmptyContent(NO_RESULTS);
           if (r.length < pageSize) {
             hasMore.current = false;
             setHasMore(false);
@@ -86,11 +99,14 @@ export const Search = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
           offset.current += pageSize;
           if (reset) setSourceData(r);
           else setSourceData((d) => [...d, ...r]);
-        })
-        .catch((e) => {
+        } catch (e) {
           promiseOut.current = false;
           console.error(e);
-        });
+        } finally {
+          promiseOut.current = false;
+        }
+      };
+      void fn();
     },
     [searcher, setSourceData, pageSize],
   );
@@ -133,5 +149,10 @@ export const Search = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
     [setInternalValue, debounced],
   );
 
-  return children({ value: internalValue, onChange: handleChange });
+  return { value: internalValue, onChange: handleChange };
 };
+
+export const Search = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
+  children = componentRenderProp(Input.Text),
+  ...props
+}: SearchProps<K, E>): ReactElement | null => children(useSearch(props));

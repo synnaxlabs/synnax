@@ -28,7 +28,7 @@ import { type Layout } from "@/layout";
 
 import "@/cluster/Connect.css";
 
-export const connectWindowLayout: Layout.LayoutState = {
+export const connectWindowLayout: Layout.State = {
   key: "connectCluster",
   windowKey: "connectCluster",
   type: "connectCluster",

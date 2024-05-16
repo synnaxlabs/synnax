@@ -86,6 +86,7 @@ type PageOptions = Pick<RetrieveOptions, "makes">;
 const retrieveResZ = z.object({ devices: nullableArrayZ(deviceZ) });
 
 export class Client implements AsyncTermSearcher<string, DeviceKey, Device> {
+  readonly type = "device";
   private readonly client: UnaryClient;
   private readonly frameClient: framer.Client;
 
@@ -183,6 +184,7 @@ export class Client implements AsyncTermSearcher<string, DeviceKey, Device> {
     options: RetrieveOptions,
   ): AsyncTermSearcher<string, DeviceKey, Device> {
     return {
+      type: this.type,
       search: async (term: string) => await this.search(term, options),
       retrieve: async (keys: string[]) => await this.retrieve(keys, options),
       page: async (offset: number, limit: number) =>
