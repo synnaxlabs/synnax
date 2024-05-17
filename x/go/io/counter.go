@@ -11,6 +11,7 @@ package io
 
 import (
 	"encoding/binary"
+	"github.com/cockroachdb/errors"
 	"io"
 	"sync"
 )
@@ -32,7 +33,7 @@ func NewInt32Counter(f ReaderAtWriterAtCloser) (*Int32Counter, error) {
 	}
 	val, err := i.load()
 	if err != nil {
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			return i, nil
 		}
 		return i, err

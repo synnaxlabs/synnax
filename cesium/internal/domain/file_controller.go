@@ -284,8 +284,10 @@ func (fc *fileController) removeReadersWriters(ctx context.Context, key uint16) 
 func (fc *fileController) close() error {
 	fc.writers.Lock()
 	fc.readers.Lock()
-	defer fc.readers.Unlock()
-	defer fc.writers.Unlock()
+	defer func() {
+		fc.readers.Unlock()
+		fc.writers.Unlock()
+	}()
 	c := errutil.NewCatch(errutil.WithAggregation())
 	for _, w := range fc.writers.open {
 		c.Exec(w.TrackedWriteCloser.Close)
