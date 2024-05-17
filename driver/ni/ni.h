@@ -191,7 +191,6 @@ namespace ni{
     private:
         void parseConfig(config::Parser & parser);
         int checkNIError(int32 error);
-        bool running = false;
         TaskHandle task_handle = 0;
         double *data;       // pointer to heap allocated dataBuffer to provide to DAQmx read functions
         int bufferSize = 0; 
@@ -277,7 +276,6 @@ namespace ni{
         int numSamplesPerChannel = 0;
         std::int64_t numChannels = 0;
         TaskHandle task_handle = 0;
-        bool running = false;
 
         json err_info;
 

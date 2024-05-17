@@ -381,13 +381,7 @@ int ni::DaqAnalogReader::init(){
 
 
 freighter::Error ni::DaqAnalogReader::start(){
-    if(this->running){
-        LOG(INFO) << "[NI Reader] attempt to start an already running NI task for task " << this->reader_config.task_name;
-        return freighter::NIL; // TODO: change return value?
-    }
-
     freighter::Error err = freighter::NIL;
-    this->running = true;
     if (this->checkNIError(ni::NiDAQmxInterface::StartTask(this->task_handle))){
         LOG(ERROR) << "[NI Reader] failed while starting reader for task " << this->reader_config.task_name;
         err = freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
@@ -400,13 +394,7 @@ freighter::Error ni::DaqAnalogReader::start(){
 
 
 freighter::Error ni::DaqAnalogReader::stop(){ 
-    if(!this->running){
-        LOG(INFO) << "[NI Reader] attempt to stop an already stopped NI task for task " << this->reader_config.task_name;
-        return freighter::NIL; // TODO: change return value?
-    }
-
     freighter::Error err = freighter::NIL;
-    this->running = false;
     if (this->checkNIError(ni::NiDAQmxInterface::StopTask(this->task_handle))){
         LOG(ERROR) << "[NI Reader] failed while stopping reader for task " << this->reader_config.task_name;
         err = freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
@@ -790,13 +778,7 @@ int ni::DaqDigitalReader::configureTiming(){
 }
 
 freighter::Error ni::DaqDigitalReader::start(){
-    if(this->running){
-        LOG(INFO) << "[NI Reader] attempt to start an already running NI task for task " << this->reader_config.task_name;
-        return freighter::NIL; // TODO: change return value?
-    }
-
     freighter::Error err = freighter::NIL;
-    this->running = true;
     if (this->checkNIError(ni::NiDAQmxInterface::StartTask(this->task_handle))){
         LOG(ERROR) << "[NI Reader] failed while starting reader for task " << this->reader_config.task_name;
         err = freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
@@ -809,13 +791,7 @@ freighter::Error ni::DaqDigitalReader::start(){
 
 
 freighter::Error ni::DaqDigitalReader::stop(){ 
-    if(!this->running){
-        LOG(INFO) << "[NI Reader] attempt to stop an already stopped NI task for task " << this->reader_config.task_name;
-        return freighter::NIL; // TODO: change return value?
-    }
-
     freighter::Error err = freighter::NIL;
-    this->running = false;
     if (this->checkNIError(ni::NiDAQmxInterface::StopTask(this->task_handle))){
         LOG(ERROR) << "[NI Reader] failed while stopping reader for task " << this->reader_config.task_name;
         err = freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);

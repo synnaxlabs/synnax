@@ -40,9 +40,6 @@ void ni::DaqDigitalWriter::getIndexKeys(){
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    daqWriter                                  //
 ///////////////////////////////////////////////////////////////////////////////////
-
-
-
 ni::DaqDigitalWriter::DaqDigitalWriter(
     TaskHandle task_handle,
     const std::shared_ptr<task::Context> &ctx,
@@ -168,11 +165,6 @@ int ni::DaqDigitalWriter::init(){
 }
 
 freighter::Error ni::DaqDigitalWriter::start(){
-    if(this->running){
-        LOG(INFO) << "[NI Reader] attempt to start an already running NI task for task " << this->writer_config.task_name;
-        return freighter::NIL; // TODO: change return value?
-    }
-    this->running = true;
     freighter::Error err = freighter::NIL;
     if (this->checkNIError(ni::NiDAQmxInterface::StartTask(this->task_handle))){
         LOG(ERROR) << "[NI Writer] failed while starting writer for task " << this->writer_config.task_name;
@@ -186,12 +178,6 @@ freighter::Error ni::DaqDigitalWriter::start(){
 
 
 freighter::Error ni::DaqDigitalWriter::stop(){
-   if(!this->running){
-        LOG(INFO) << "[NI Reader] attempt to stop an already stopped NI task for task " << this->writer_config.task_name;
-        return freighter::NIL; // TODO: change return value?
-    }
-
-    this->running = false;
     freighter::Error err = freighter::NIL;
 
     if (this->checkNIError(ni::NiDAQmxInterface::StopTask(task_handle))){
