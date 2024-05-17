@@ -115,15 +115,15 @@ ni::ReaderTask::ReaderTask(const std::shared_ptr <task::Context> &ctx,
     LOG(INFO) << "[NI Task] task config: " << task.config;
 
 
-    // determine whether digitalDaqReader or analogDaqReader is needed
+    // determine whether DigitalReadSource or AnalogReadSource is needed
     std::unique_ptr<pipeline::Source> daq_reader;
     std::vector <synnax::ChannelKey> channel_keys;
     if(task.type == "ni_digital_read"){
-        auto digital_reader = std::make_unique<ni::DaqDigitalReader>(this->task_handle, ctx, task);
+        auto digital_reader = std::make_unique<ni::DigitalReadSource>(this->task_handle, ctx, task);
         channel_keys = digital_reader->getChannelKeys();
         daq_reader = std::move(digital_reader);
     } else{
-        auto analog_reader = std::make_unique<ni::DaqAnalogReader>(this->task_handle, ctx, task);
+        auto analog_reader = std::make_unique<ni::AnalogReadSource>(this->task_handle, ctx, task);
         channel_keys = analog_reader->getChannelKeys();
         daq_reader = std::move(analog_reader);
     }
@@ -234,7 +234,7 @@ ni::WriterTask::WriterTask(const std::shared_ptr <task::Context> &ctx,
 
     // create a daq reader to provide to cmd read pipe as sink
     ni::NiDAQmxInterface::CreateTask("", &this->task_handle);
-    auto daq_writer = std::make_unique<ni::DaqDigitalWriter>(this->task_handle, ctx, task);
+    auto daq_writer = std::make_unique<ni::DigitalWriteSink>(this->task_handle, ctx, task);
     if (!daq_writer->ok()) {
         LOG(ERROR) << "[NI Writer] failed to construct reader for" << task.name;
         this->ok_state = false;

@@ -127,11 +127,11 @@ namespace ni{
     /////////////////////////////////////////////////////////////////////////////////////////////
 
     ///////////////////////////////////////////////////////////////////////////////////
-    //                                    daqAnalogReader                            //
+    //                                    AnalogReadSource                           //
     ///////////////////////////////////////////////////////////////////////////////////
-    class DaqAnalogReader : public pipeline::Source{ 
+    class AnalogReadSource : public pipeline::Source{ 
     public:
-        explicit DaqAnalogReader(TaskHandle task_handle,
+        explicit AnalogReadSource(TaskHandle task_handle,
                              const std::shared_ptr<task::Context> &ctx,
                              const synnax::Task task);
 
@@ -140,7 +140,7 @@ namespace ni{
         freighter::Error stop();
         std::pair<synnax::Frame, freighter::Error> read();
         bool ok();
-        ~DaqAnalogReader();
+        ~AnalogReadSource();
         void getIndexKeys(); 
         std::vector<synnax::ChannelKey> getChannelKeys();
     private:
@@ -170,11 +170,11 @@ namespace ni{
 
 
      ///////////////////////////////////////////////////////////////////////////////////
-    //                                    DaqDigitalReader                            //
+    //                                    DigitalReadSource                           //
     ///////////////////////////////////////////////////////////////////////////////////
-    class DaqDigitalReader : public pipeline::Source{ 
+    class DigitalReadSource : public pipeline::Source{ 
     public:
-        explicit DaqDigitalReader(TaskHandle task_handle,
+        explicit DigitalReadSource(TaskHandle task_handle,
                              const std::shared_ptr<task::Context> &ctx,
                              const synnax::Task task);
 
@@ -185,7 +185,7 @@ namespace ni{
         freighter::Error start();
         void getIndexKeys(); 
         bool ok();
-        ~DaqDigitalReader();
+        ~DigitalReadSource();
         std::vector<synnax::ChannelKey> getChannelKeys();
         int configureTiming();
     private:
@@ -207,12 +207,12 @@ namespace ni{
 
 
     ///////////////////////////////////////////////////////////////////////////////////
-    //                                    DaqStateWriter                             //
+    //                                    StateSource                                //
     ///////////////////////////////////////////////////////////////////////////////////
-    class daqStateWriter : public pipeline::Source{
+    class StateSource : public pipeline::Source{
         public: 
-            explicit daqStateWriter() = default;
-            explicit daqStateWriter( std::uint64_t state_rate, synnax::ChannelKey &drive_state_index_key, std::vector<synnax::ChannelKey> &drive_state_channel_keys);
+            explicit StateSource() = default;
+            explicit StateSource( std::uint64_t state_rate, synnax::ChannelKey &drive_state_index_key, std::vector<synnax::ChannelKey> &drive_state_channel_keys);
             std::pair<synnax::Frame, freighter::Error> read();
             freighter::Error start();
             freighter::Error stop();
@@ -229,7 +229,7 @@ namespace ni{
 
 
     ///////////////////////////////////////////////////////////////////////////////////
-    //                                    DaqDigitalWriter                           //
+    //                                    DigitalWriteSink                           //
     ///////////////////////////////////////////////////////////////////////////////////
     typedef struct WriterConfig{
         std::vector<ChannelConfig> channels;
@@ -248,9 +248,9 @@ namespace ni{
         std::queue<std::uint8_t> modified_state_values;
     } WriterConfig;
 
-    class DaqDigitalWriter : public pipeline::Sink{
+    class DigitalWriteSink : public pipeline::Sink{
     public:
-        explicit DaqDigitalWriter(TaskHandle task_handle,
+        explicit DigitalWriteSink(TaskHandle task_handle,
                              const std::shared_ptr<task::Context> &ctx,
                              const synnax::Task task);
 
@@ -262,10 +262,10 @@ namespace ni{
         std::vector<synnax::ChannelKey> getStateChannelKeys();
         void getIndexKeys();
         bool ok();
-        ~DaqDigitalWriter();
+        ~DigitalWriteSink();
 
 
-        std::shared_ptr<ni::daqStateWriter> writer_state_source;
+        std::shared_ptr<ni::StateSource> writer_state_source;
     private:
         freighter::Error formatData(synnax::Frame frame);
         void parseConfig(config::Parser &parser);
