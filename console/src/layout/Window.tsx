@@ -13,7 +13,7 @@ import { setWindowDecorations } from "@synnaxlabs/drift";
 import { useSelectWindowAttribute, useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Logo } from "@synnaxlabs/media";
 import { Nav, OS, Align, Menu as PMenu, Text } from "@synnaxlabs/pluto";
-import { appWindow } from "@tauri-apps/api/window";
+// import { appWindow } from "@tauri-apps/api/window";
 import { useDispatch } from "react-redux";
 
 import { Controls, Menu } from "@/components";
@@ -30,7 +30,7 @@ export interface NavTopProps {
 export const NavTop = ({ title }: NavTopProps): ReactElement => {
   const os = OS.use();
   return (
-    <Nav.Bar data-tauri-drag-region location="top" size={"6rem"}>
+    <Nav.Bar className="console-main-nav-top" location="top" size={"6rem"}>
       <Nav.Bar.Start className="console-main-nav-top__start">
         <Controls
           className="console-controls--macos"
@@ -42,7 +42,6 @@ export const NavTop = ({ title }: NavTopProps): ReactElement => {
       <Nav.Bar.AbsoluteCenter>
         <Text.Text
           className="console-main-nav-top__title"
-          data-tauri-drag-region
           level="p"
           shade={7}
           weight={450}
@@ -70,8 +69,8 @@ export const DefaultContextMenu = (): ReactElement => (
 );
 
 export const Window = (): ReactElement | null => {
-  const { label } = appWindow;
-  const win = useSelectWindowKey(label);
+  const win = useSelectWindowKey();
+  console.log(win);
   const layout = useSelect(win ?? "");
   const os = OS.use();
   const dispatch = useDispatch();
@@ -81,7 +80,7 @@ export const Window = (): ReactElement | null => {
     }
   }, [os]);
   const menuProps = PMenu.useContextMenu();
-  const maximized = useSelectWindowAttribute(label, "maximized") ?? false;
+  const maximized = useSelectWindowAttribute(win, "maximized") ?? false;
   if (layout == null) return null;
   const content = <Content layoutKey={layout.key} />;
   return (

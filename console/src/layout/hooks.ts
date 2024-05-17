@@ -22,7 +22,7 @@ import {
   useMemoCompare,
 } from "@synnaxlabs/pluto";
 import { compare } from "@synnaxlabs/x";
-import { appWindow } from "@tauri-apps/api/window";
+// import { appWindow } from "@tauri-apps/api/window";
 import type { Theme as TauriTheme } from "@tauri-apps/api/window";
 import { useDispatch, useStore } from "react-redux";
 
@@ -139,10 +139,10 @@ export const useThemeProvider = (): Theming.ProviderProps => {
   const dispatch = useDispatch();
 
   useAsyncEffect(async () => {
-    if (appWindow.label !== Drift.MAIN_WINDOW) return;
-    await setInitialTheme(dispatch);
-    const cleanup = await synchronizeWithOS(dispatch);
-    return cleanup;
+    // if (appWindow.label !== Drift.MAIN_WINDOW) return;
+    // await setInitialTheme(dispatch);
+    // const cleanup = await synchronizeWithOS(dispatch);
+    // return cleanup;
   }, []);
 
   return {
@@ -155,8 +155,8 @@ export const useThemeProvider = (): Theming.ProviderProps => {
 export const useErrorThemeProvider = (): Theming.ProviderProps => {
   const [theme, setTheme] = useState<Theming.ThemeSpec | null>(Theming.SYNNAX_LIGHT);
   useAsyncEffect(async () => {
-    const theme = matchThemeChange({ payload: await appWindow.theme() });
-    setTheme(Theming.SYNNAX_THEMES[theme]);
+    // const theme = matchThemeChange({ payload: await appWindow.theme() });
+    // setTheme(Theming.SYNNAX_THEMES[theme]);
   }, []);
   return {
     theme: Theming.themeZ.parse(theme),
@@ -178,11 +178,11 @@ const matchThemeChange = ({
 }): keyof typeof Theming.SYNNAX_THEMES =>
   theme === "dark" ? "synnaxDark" : "synnaxLight";
 
-const synchronizeWithOS = async (dispatch: Dispatch<UnknownAction>): AsyncDestructor =>
-  await appWindow.onThemeChanged((e) => dispatch(setActiveTheme(matchThemeChange(e))));
+// const synchronizeWithOS = async (dispatch: Dispatch<UnknownAction>): AsyncDestructor =>
+//   await appWindow.onThemeChanged((e) => dispatch(setActiveTheme(matchThemeChange(e))));
 
-const setInitialTheme = async (dispatch: Dispatch<UnknownAction>): Promise<void> =>
-  dispatch(setActiveTheme(matchThemeChange({ payload: await appWindow.theme() })));
+// const setInitialTheme = async (dispatch: Dispatch<UnknownAction>): Promise<void> =>
+//   dispatch(setActiveTheme(matchThemeChange({ payload: await appWindow.theme() })));
 
 export interface NavMenuItem {
   key: string;

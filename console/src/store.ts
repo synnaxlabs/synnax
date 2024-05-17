@@ -10,17 +10,16 @@
 import type { Reducer, Store } from "@reduxjs/toolkit";
 import { combineReducers, Tuple } from "@reduxjs/toolkit";
 import { Drift } from "@synnaxlabs/drift";
-import { TauriRuntime } from "@synnaxlabs/drift/tauri";
+import { ElectronRuntime } from "@synnaxlabs/drift/electron";
 import { type deep } from "@synnaxlabs/x";
-import { appWindow } from "@tauri-apps/api/window";
 
 import { Cluster } from "@/cluster";
 import { Docs } from "@/docs";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { Persist } from "@/persist";
-import { Schematic } from "@/schematic";
 import { Range } from "@/range";
+import { Schematic } from "@/schematic";
 import { Version } from "@/version";
 import { Workspace } from "@/workspace";
 
@@ -92,7 +91,7 @@ const newStore = async (): Promise<RootStore> => {
     exclude: PERSIST_EXCLUDE,
   });
   return await Drift.configureStore<RootState, RootAction>({
-    runtime: new TauriRuntime(appWindow),
+    runtime: new ElectronRuntime(),
     preloadedState,
     middleware: (def) =>
       new Tuple(
@@ -105,6 +104,7 @@ const newStore = async (): Promise<RootStore> => {
     reducer,
     enablePrerender: true,
     defaultWindowProps: DEFAULT_WINDOW_PROPS,
+    debug: true,
   });
 };
 

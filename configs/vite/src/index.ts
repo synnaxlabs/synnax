@@ -56,7 +56,7 @@ export const tsConfigPaths = ({ name }: Options): Plugin => {
             formats: ["es", "cjs"],
             fileName: (format) => {
               if (format === "es") return `${name}.js`;
-              else return `${name}.${format}`
+              else return `${name}.${format}`;
             },
             entry: path.resolve(config.root ?? ".", "src/index.ts"),
             ...config.build?.lib,

@@ -101,12 +101,13 @@ export interface Manager {
   setPosition: (xy: xy.XY) => Promise<void>;
   setSize: (dims: dimensions.Dimensions) => Promise<void>;
   setMinSize: (dims: dimensions.Dimensions) => Promise<void>;
-  setMaxSize: (dimss: dimensions.Dimensions) => Promise<void>;
+  setMaxSize: (dims: dimensions.Dimensions) => Promise<void>;
   setResizable: (value: boolean) => Promise<void>;
   setSkipTaskbar: (value: boolean) => Promise<void>;
   setAlwaysOnTop: (value: boolean) => Promise<void>;
   setDecorations: (value: boolean) => Promise<void>;
   setTitle: (title: string) => Promise<void>;
+  configure(): Promise<void>;
 }
 
 /**

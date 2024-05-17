@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import path from "path"
+import path from "path";
 import { lib } from "@synnaxlabs/vite-plugin";
 import { defineConfig } from "vite";
 
@@ -18,7 +18,8 @@ export default defineConfig({
       entry: {
         index: path.resolve(".", "src/index.ts"),
         react: path.resolve(".", "src/react/index.ts"),
-        tauri: path.resolve(".", "src/tauri/index.ts")
+        tauri: path.resolve(".", "src/tauri/index.ts"),
+        electron: path.resolve(".", "src/electron/index.ts"),
       },
     },
     rollupOptions: {
@@ -29,6 +30,7 @@ export default defineConfig({
         "@reduxjs/toolkit",
         "proxy-memoize",
         "@tauri-apps/api",
+        "electron",
       ],
       output: {
         globals: {

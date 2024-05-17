@@ -11,6 +11,17 @@
 
 .console-main-nav-top {
     max-width: 100vw;
+    -webkit-app-region: drag;
+
+    /** This funky selector prevents drag from being applied on the children of the various
+    nav sections (start, center, end), but not the sections themselves. */
+    & > * *:not(.pluto-text) {
+        -webkit-app-region: no-drag;
+    }
+}
+
+.pluto-navbar__content {
+    z-index: 2;
 }
 
 .console-main-nav {

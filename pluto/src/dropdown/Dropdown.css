@@ -41,9 +41,9 @@
         --pluto-pack-br: 6px;
     }
 
-
     &:not(.pluto--modal) {
-        background: var(--pluto-gray-l1);
+        background: var(--pluto-gray-l3-30);
+        backdrop-filter: blur(4rem);
         max-height: 360px;
     }
 
@@ -53,7 +53,7 @@
 
     &.pluto--hidden {
         opacity: 0;
-        z-index: -1;4
+        z-index: -1;
         pointer-events: none;
     }
 
