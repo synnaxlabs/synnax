@@ -125,3 +125,16 @@ example of how to do this:
 
 When using your own certificates, you'll need to specify the `--certs-dir`
 option and provide the necessary certificates and keys in that directory. 
+
+## Product License keys
+
+If you have a bought Synnax for use outside of demo mode, you need to enter a
+product license key upon startup of a node so you aren't limited to 50 channels.
+This cn be done by using the `--product-key` flag on startup, setting
+[environment variables](cli-reference#environment-variable-equivalents), or
+entering the key into a [configuration file](cli-reference#configuration-files).
+Here is an example of starting a node with a product license key:
+
+```sh
+synnax start --listen=localhost:9090 --product-key="000000-00000000-0000000000"
+```
