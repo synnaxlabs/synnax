@@ -34,7 +34,7 @@ func Open(dirname string, opts ...Option) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	_db := &DB{
+	db := &DB{
 		options:    o,
 		unaryDBs:   make(map[core.ChannelKey]unary.DB, len(info)),
 		virtualDBs: make(map[core.ChannelKey]virtual.DB, len(info)),
@@ -45,20 +45,20 @@ func Open(dirname string, opts ...Option) (*DB, error) {
 		if i.IsDir() {
 			key, err := strconv.Atoi(i.Name())
 			if err != nil {
-				_db.options.L.Error("failed parsing existing folder to channel key", zap.Error(err))
+				db.options.L.Error("failed parsing existing folder to channel key", zap.Error(err))
 				continue
 			}
 
-			if err = _db.openVirtualOrUnary(Channel{Key: ChannelKey(key)}); err != nil {
+			if err = db.openVirtualOrUnary(Channel{Key: ChannelKey(key)}); err != nil {
 				return nil, err
 			}
 		}
 	}
 
 	// starts garbage collection
-	//_db.startGC(sCtx, o)
+	//db.startGC(sCtx, o)
 
-	return _db, nil
+	return db, nil
 }
 
 func (db *DB) openVirtualOrUnary(ch Channel) error {
