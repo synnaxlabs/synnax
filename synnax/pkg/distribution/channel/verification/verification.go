@@ -10,6 +10,7 @@
 package verification
 
 import (
+	"encoding/base64"
 	"errors"
 	"strconv"
 	"strings"
@@ -24,8 +25,6 @@ const yearCipher = 89
 const monthCipher = 43
 const dayCipher = 77
 
-var errInvalidKey = errors.New("invalid product license key")
-
 // checkKeyFormat checks that inputKey is in the valid format of
 // ######-#####-########## (6#-5#-10#). If it is not in a correct format, it
 // returns an error.
@@ -37,7 +36,10 @@ func checkKeyFormat(inputKey string) error {
 	firstPartLength := 6
 	secondPartLength := 8
 	thirdPartLength := 10
-	errKeyFormat := errors.New("incorrect product license key format")
+
+	encoded := "cHJvZHVjdCBsaWNlbnNlIGtleSBpcyBpbiBhbiBpbnZhbGlkIGZvcm1hdA=="
+	errKeyFormatMsg, _ := base64.StdEncoding.DecodeString(encoded)
+	errKeyFormat := errors.New(string(errKeyFormatMsg))
 
 	// right length and number of dashes
 	if len(inputKey) != inputKeyLength {
@@ -98,19 +100,19 @@ func validateKey(key string) error {
 	day, _ := strconv.Atoi(parts[0][4:6])
 	year, err = crypto.Cipher(year, yearCipher, 2)
 	if err != nil {
-		return errInvalidKey
+		return errInvalidKey()
 	}
 	year += 2000
 	month, err = crypto.Cipher(month, monthCipher, 2)
 	if err != nil {
-		return errInvalidKey
+		return errInvalidKey()
 	}
 	day, err = crypto.Cipher(day, dayCipher, 2)
 	if err != nil {
-		return errInvalidKey
+		return errInvalidKey()
 	}
 	if !date.DateExists(year, month, day) {
-		return errInvalidKey
+		return errInvalidKey()
 	}
 
 	return keyCheckAlgorithm(key)
@@ -156,13 +158,19 @@ func keyCheckAlgorithm(key string) error {
 	sum := digits[5] + digits[6] + digits[7] + digits[8]
 
 	if digits[1] != 4 {
-		return errInvalidKey
+		return errInvalidKey()
 	} else if firstFive%9 != 0 {
-		return errInvalidKey
+		return errInvalidKey()
 	} else if sum%7 != 0 {
-		return errInvalidKey
+		return errInvalidKey()
 	} else if digits[9] > 6 || digits[9] < 3 {
-		return errInvalidKey
+		return errInvalidKey()
 	}
 	return nil
+}
+
+func errInvalidKey() error {
+	encoded := "aW52YWxpZCBwcm9kdWN0IGxpY2Vuc2Uga2V5"
+	errInvalidKeyMsg, _ := base64.StdEncoding.DecodeString(encoded)
+	return errors.New(string(errInvalidKeyMsg))
 }

@@ -10,9 +10,10 @@
 package verification
 
 import (
+	"encoding/base64"
 	"errors"
-	"fmt"
 	"io"
+	"strconv"
 	"time"
 
 	"github.com/synnaxlabs/alamos"
@@ -104,23 +105,20 @@ func (s *Service) ValidateChannelCount(ctx context.Context, inUse int64) error {
 
 	if err != nil {
 		if inUse > maxFreeChannels {
-			errMessage := fmt.Sprintf("using more than %v channels without a product license key", maxFreeChannels)
-			return errors.New(errMessage)
+			return errFreeLimit(maxFreeChannels)
 		}
 		return nil
 	}
 
 	if getExpirationDate(key).Before(time.Now()) {
 		if inUse > maxFreeChannels {
-			errMessage := fmt.Sprintf("using an expired product license key, use is limited to %v channels", maxFreeChannels)
-			return errors.New(errMessage)
+			return errExpireKey(maxFreeChannels)
 		}
 		return nil
 	}
 
-	if inUse > getNumberOfChannels(key) {
-		errMessage := fmt.Sprintf("using more than %v channels allowed", getNumberOfChannels(key))
-		return errors.New(errMessage)
+	if channelsAllowed := getNumberOfChannels(key); inUse > channelsAllowed {
+		return errOverChannelLimit(int(channelsAllowed))
 	}
 
 	return nil
@@ -130,13 +128,11 @@ func (s *Service) ValidateChannelCount(ctx context.Context, inUse int64) error {
 func (s *Service) IsExpired(ctx context.Context) error {
 	key, err := s.retrieve(ctx)
 	if err != nil {
-		errMessage := fmt.Sprintf("using more than %v channels without a product license key", maxFreeChannels)
-		return errors.New(errMessage)
+		return errFreeLimit(maxFreeChannels)
 
 	}
 	if getExpirationDate(key).Before(time.Now()) {
-		errMessage := fmt.Sprintf("using an expired product license key, use is limited to the first %v channels", maxFreeChannels)
-		return errors.New(errMessage)
+		return errExpireKey(maxFreeChannels)
 	}
 	return nil
 }
@@ -145,8 +141,8 @@ func (s *Service) GetMaxFreeChannels() int {
 	return maxFreeChannels
 }
 
-// create sets a product license key key in s.DB. Returns an error if the key is
-// invalid - you can only set a valid key in the database
+// create sets  key in s.DB. Returns an error if the key is invalid - you can
+// only set a valid key in the database
 func (s *Service) create(ctx context.Context, key string) error {
 	err := validateKey(key)
 	if err != nil {
@@ -155,7 +151,7 @@ func (s *Service) create(ctx context.Context, key string) error {
 	return s.DB.Set(ctx, []byte("productKey"), []byte(key))
 }
 
-// retrieve grabs the product license key in s.DB.
+// retrieve grabs the key in s.DB.
 func (s *Service) retrieve(ctx context.Context) (string, error) {
 	key, err := s.DB.Get(ctx, []byte("productKey"))
 	return string(key), err
@@ -187,4 +183,33 @@ func (s *Service) updateKeyValidation(ctx context.Context) error {
 			}
 		}
 	}
+}
+
+func errExpireKey(channelsAllowed int) error {
+	encoded1 := "dXNpbmcgYW4gZXhwaXJlZCBwcm9kdWN0IGxpY2Vuc2Uga2V5LCB1c2UgaXMgbGltaXRlZCB0byB0aGUgZmlyc3Qg"
+	decoded1, _ := base64.StdEncoding.DecodeString(encoded1)
+	encoded2 := "IGNoYW5uZWxz"
+	decoded2, _ := base64.StdEncoding.DecodeString(encoded2)
+
+	msg := string(decoded1) + strconv.Itoa(channelsAllowed) + string(decoded2)
+	return errors.New(msg)
+}
+
+func errOverChannelLimit(chanLimit int) error {
+	encoded1 := "dXNpbmcgbW9yZSB0aGFuIA=="
+	decoded1, _ := base64.StdEncoding.DecodeString(encoded1)
+	encoded2 := "IGNoYW5uZWxzIGFsbG93ZWQ="
+	decoded2, _ := base64.StdEncoding.DecodeString(encoded2)
+
+	msg := string(decoded1) + strconv.Itoa(chanLimit) + string(decoded2)
+	return errors.New(msg)
+}
+
+func errFreeLimit(channelsAllowed int) error {
+	encoded1 := "dXNpbmcgbW9yZSB0aGFuIA=="
+	decoded1, _ := base64.StdEncoding.DecodeString(encoded1)
+	encoded2 := "IGNoYW5uZWxzIHdpdGhvdXQgYSBwcm9kdWN0IGxpY2Vuc2Uga2V5"
+	decoded2, _ := base64.StdEncoding.DecodeString(encoded2)
+	msg := string(decoded1) + strconv.Itoa(channelsAllowed) + string(decoded2)
+	return errors.New(msg)
 }
