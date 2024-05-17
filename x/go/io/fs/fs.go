@@ -10,6 +10,7 @@
 package fs
 
 import (
+	"github.com/cockroachdb/errors"
 	"github.com/cockroachdb/pebble/vfs"
 	"io"
 	"os"
@@ -137,26 +138,62 @@ type memFS struct {
 	perm os.FileMode
 }
 
+type memFile struct {
+	File
+	writeCursor int64
+}
+
 func (m *memFS) Open(name string, flag int) (File, error) {
 	if flag&os.O_CREATE != 0 {
 		// create
-		if flag&os.O_EXCL == 0 {
-			return m.FS.Create(name)
-		} else {
-			if e, err := m.Exists(name); err != nil || e {
-				if err != nil {
-					return nil, err
-				} else {
-					return nil, nil
-				}
-			} else {
-				return m.FS.Create(name)
+		if e, err := m.Exists(name); err != nil || e {
+			// error or file exists
+			if err != nil {
+				return nil, err
 			}
 
+			if flag&os.O_EXCL != 0 {
+				return nil, errors.Newf("File <%s> already exists when opening with O_EXCL", name)
+			}
+
+			if flag&os.O_RDWR != 0 || flag&os.O_WRONLY != 0 {
+				f, err := m.FS.OpenReadWrite(name)
+				if err != nil {
+					return f, err
+				}
+
+				if flag&os.O_APPEND != 0 {
+					i, err := m.FS.Stat(name)
+					if err != nil {
+						return f, err
+					}
+					return memFile{writeCursor: i.Size(), File: f}, nil
+				}
+
+				return memFile{File: f}, nil
+			} else {
+				return m.FS.Open(name)
+			}
+
+		} else {
+			// file does not exist
+			return m.FS.Create(name)
 		}
 	} else if flag&os.O_RDWR != 0 || flag&os.O_WRONLY != 0 {
-		// not readonly
-		return m.FS.OpenReadWrite(name)
+		f, err := m.FS.OpenReadWrite(name)
+		if err != nil {
+			return f, err
+		}
+
+		if flag&os.O_APPEND != 0 {
+			i, err := m.FS.Stat(name)
+			if err != nil {
+				return f, err
+			}
+			return memFile{writeCursor: i.Size(), File: f}, nil
+		}
+
+		return memFile{File: f}, nil
 	} else {
 		// readonly
 		return m.FS.Open(name)
@@ -210,4 +247,10 @@ func (m *memFS) Rename(name string, newName string) error {
 
 func (m *memFS) Stat(name string) (os.FileInfo, error) {
 	return m.FS.Stat(name)
+}
+
+func (m memFile) Write(p []byte) (n int, err error) {
+	n, err = m.WriteAt(p, m.writeCursor)
+	m.writeCursor += int64(n)
+	return
 }
