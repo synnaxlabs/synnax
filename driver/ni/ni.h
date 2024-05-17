@@ -97,14 +97,6 @@ namespace ni{
         Scale* scale; 
         std::string scale_type;
         std::string scale_name;
-
-        // Default constructor
-        ChannelConfig() 
-            : channel_key(0), terminal_config(-1),  min_val(0.0f), max_val(0.0f),
-                custom_scale(false), scale(nullptr), scale_type(""), scale_name("") {}
-
-        // Destructor
-        ~ChannelConfig() {}
     } ChannelConfig;
 
     typedef struct ReaderConfig{

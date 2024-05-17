@@ -270,7 +270,7 @@ void ni::AnalogReadSource::parseCustomScale(config::Parser & parser, ni::Channel
    
         } else if(config.scale_type == "TableScale"){
             json j = scale_parser.get_json();
-            if(!j.contains("prescaled") || !j.contains("scaled")){sample_rate
+            if(!j.contains("prescaled") || !j.contains("scaled")){
                 return;
             }
             std::vector<double> prescaled_vec = j["prescaled"];
