@@ -2,14 +2,16 @@
   "name": "@synnaxlabs/console",
   "private": true,
   "version": "0.21.7",
-  "main": "main.js",
+  "main": "./dist-electron/main.js",
+  "author": "Synnax Labs",
+  "description": "Synnax Console",
   "scripts": {
-    "dev": "concurrently --kill-others \"pnpm dev-vite\" \"pnpm dev-electron\"",
+    "dev": "vite",
+    "build": "vite build && electron-builder",
     "kill": "bash ~/Desktop/synnaxlabs/synnax/console/scripts/kill-dev.zsh",
     "dev-electron": "electron .",
-    "build": "tauri build",
     "dev-vite": "vite --force",
-    "build-vite": "vite build",
+    "build-vite": "vite build && vite build --config vite.main.config.ts && vite build --config vite.preload.config.ts",
     "preview": "vite preview",
     "lint": "eslint \"src/**/*.ts*\"",
     "fix": "eslint \"src/**/*.ts*\" --fix",
@@ -43,6 +45,7 @@
     "@types/uuid": "^9.0.8",
     "@vitejs/plugin-react": "^4.2.1",
     "electron": "^30.0.6",
+    "electron-builder": "^24.13.3",
     "eslint": "^8.57.0",
     "eslint-config-synnaxlabs": "workspace:*",
     "eslint-plugin-prettier": "^5.1.3",
@@ -50,6 +53,7 @@
     "stylelint-config-synnaxlabs": "workspace:*",
     "typescript": "^5.4.5",
     "vite": "5.1.2",
+    "vite-plugin-electron": "^0.28.7",
     "vite-tsconfig-paths": "4.3.1"
   }
 }
