@@ -173,7 +173,7 @@ ni::AnalogReadSource::AnalogReadSource(
 
 void ni::AnalogReadSource::parseConfig(config::Parser &parser){
     // Get Acquisition Rate and Stream Rates
-    this->reader_config.acq_rate = parser.required<uint64_t>("sample_rate");
+    this->reader_config.sample_rate = parser.required<uint64_t>("sample_rate");
     this->reader_config.stream_rate = parser.required<uint64_t>("stream_rate");
     this->reader_config.device_key = parser.required<std::string>("device");
     this->reader_config.timing_source = "none"; // parser.required<std::string>("timing_source"); TODO: uncomment this when ui provides timing source
@@ -254,7 +254,7 @@ void ni::AnalogReadSource::parseCustomScale(config::Parser & parser, ni::Channel
             if(scale_parser.ok()){
                 auto min_x = scale_parser.required<double>("min_x");
                 auto max_x = scale_parser.required<double>("max_x");
-                uint32_t num_forward_coeffs = scale_parser.required<int32_t>("num_coeffs");
+                uint32_t num_forward_coeffs = scale_parser.required<uint32_t>("num_coeffs");
                 auto poly_order = scale_parser.required<int32>("poly_order");
                 int32_t num_points = scale_parser.required<uint32_t>("num_points");
 
@@ -270,7 +270,7 @@ void ni::AnalogReadSource::parseCustomScale(config::Parser & parser, ni::Channel
    
         } else if(config.scale_type == "TableScale"){
             json j = scale_parser.get_json();
-            if(!j.contains("prescaled") || !j.contains("scaled")){
+            if(!j.contains("prescaled") || !j.contains("scaled")){sample_rate
                 return;
             }
             std::vector<double> prescaled_vec = j["prescaled"];
@@ -339,17 +339,17 @@ int ni::AnalogReadSource::init(){
     // TODO: make sure there isnt different cases to handle between analog and digital
     // if (this->checkNIError(ni::NiDAQmxInterface::CfgSampClkTiming(this->task_handle,
     //                                                               "",
-    //                                                               this->reader_config.acq_rate,
+    //                                                               this->reader_config.sample_rate,
     //                                                               DAQmx_Val_Rising,
     //                                                               DAQmx_Val_ContSamps,
-    //                                                               this->reader_config.acq_rate))){
+    //                                                               this->reader_config.sample_rate))){
     //     LOG(ERROR) << "[NI Reader] failed while configuring timing for task " << this->reader_config.task_name;
     //     this->ok_state = false;
     //     return -1;
     // }
 
     // Configure buffer size and read resources
-    if(this->reader_config.acq_rate < this->reader_config.stream_rate){
+    if(this->reader_config.sample_rate < this->reader_config.stream_rate){
         this->err_info["error type"] = "Configuration Error";
         this->err_info["error details"] = "Stream rate is greater than sample rate";
         
@@ -378,10 +378,10 @@ int ni::AnalogReadSource::configureTiming(){
         LOG(INFO) << "[NI Reader] configuring timing for task " << this->reader_config.task_name;
         if (this->checkNIError(ni::NiDAQmxInterface::CfgSampClkTiming(this->task_handle,
                                                                   "",
-                                                                  this->reader_config.acq_rate,
+                                                                  this->reader_config.sample_rate,
                                                                   DAQmx_Val_Rising,
                                                                   DAQmx_Val_ContSamps,
-                                                                  this->reader_config.acq_rate))){
+                                                                  this->reader_config.sample_rate))){
         LOG(ERROR) << "[NI Reader] failed while configuring timing for task " << this->reader_config.task_name;
         this->ok_state = false;
         return -1;
@@ -390,16 +390,16 @@ int ni::AnalogReadSource::configureTiming(){
         LOG(INFO) << "[NI Reader] configuring special timing for task " << this->reader_config.task_name;
         if (this->checkNIError(ni::NiDAQmxInterface::CfgSampClkTiming(this->task_handle,
                                                                     this->reader_config.timing_source.c_str(),
-                                                                    this->reader_config.acq_rate,
+                                                                    this->reader_config.sample_rate,
                                                                     DAQmx_Val_Rising,
                                                                     DAQmx_Val_ContSamps,
-                                                                    this->reader_config.acq_rate))){
+                                                                    this->reader_config.sample_rate))){
             LOG(ERROR) << "[NI Reader] failed while configuring timing for task " << this->reader_config.task_name;
             this->ok_state = false;
             return -1;
         }
     }
-    this->numSamplesPerChannel = std::floor(this->reader_config.acq_rate / this->reader_config.stream_rate);
+    this->numSamplesPerChannel = std::floor(this->reader_config.sample_rate / this->reader_config.stream_rate);
     this->bufferSize = this->numChannels * this->numSamplesPerChannel;
     this->data = new double[bufferSize];
     return 0;
@@ -691,7 +691,7 @@ ni::DigitalReadSource::DigitalReadSource(
 
 void ni::DigitalReadSource::parseConfig(config::Parser &parser){
     // Get Acquisition Rate and Stream Rates
-    this->reader_config.acq_rate = parser.required<uint64_t>("sample_rate");
+    this->reader_config.sample_rate = parser.required<uint64_t>("sample_rate");
     this->reader_config.stream_rate = parser.required<uint64_t>("stream_rate");
     this->reader_config.device_key = parser.required<std::string>("device");
     this->reader_config.timing_source = "none"; // parser.required<std::string>("timing_source"); TODO: uncomment this when ui provides timing source
@@ -747,7 +747,7 @@ int ni::DigitalReadSource::init(){
     }
 
     // Configure buffer size and read resources
-     if(this->reader_config.acq_rate < this->reader_config.stream_rate){
+     if(this->reader_config.sample_rate < this->reader_config.stream_rate){
         this->err_info["error type"] = "Configuration Error";
         this->err_info["error details"] = "Stream rate is greater than sample rate";
         
@@ -771,22 +771,22 @@ int ni::DigitalReadSource::init(){
 int ni::DigitalReadSource::configureTiming(){
 
     if(this->reader_config.timing_source == "none"){ // if timing is not enabled, implement timing in software
-        this->reader_config.period = (uint32_t)((1.0 / this->reader_config.acq_rate) * 1000000); // convert to microseconds
+        this->reader_config.period = (uint32_t)((1.0 / this->reader_config.sample_rate) * 1000000); // convert to microseconds
 
         this->numSamplesPerChannel = 1;
     } else{
         if (this->checkNIError(ni::NiDAQmxInterface::CfgSampClkTiming(this->task_handle,
                                                                     this->reader_config.timing_source.c_str(),
-                                                                    this->reader_config.acq_rate,
+                                                                    this->reader_config.sample_rate,
                                                                     DAQmx_Val_Rising,
                                                                     DAQmx_Val_ContSamps,
-                                                                    this->reader_config.acq_rate))){
+                                                                    this->reader_config.sample_rate))){
             LOG(ERROR) << "[NI Reader] failed while configuring timing for task " << this->reader_config.task_name;
             this->ok_state = false;
             return -1;
         }
 
-        this->numSamplesPerChannel = std::floor(this->reader_config.acq_rate / this->reader_config.stream_rate);
+        this->numSamplesPerChannel = std::floor(this->reader_config.sample_rate / this->reader_config.stream_rate);
     }
     this->bufferSize = this->numChannels * this->numSamplesPerChannel;
     this->data = new double[bufferSize];

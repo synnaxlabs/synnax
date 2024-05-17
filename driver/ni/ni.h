@@ -110,7 +110,7 @@ namespace ni{
     typedef struct ReaderConfig{
         std::string device_key;
         std::vector<ChannelConfig> channels;
-        std::uint64_t acq_rate = 0;
+        std::uint64_t sample_rate = 0;
         std::uint64_t stream_rate = 0;
         std::string device_name;
         std::string task_name; 
