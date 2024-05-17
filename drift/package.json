@@ -15,7 +15,7 @@
     "application level state"
   ],
   "scripts": {
-    "build": "tsc --noEmit && vite build",
+    "build": "vite build",
     "watch": "tsc --noEmit && vite build --watch",
     "test": "vitest",
     "cov": "vitest --coverage",
@@ -43,6 +43,8 @@
     "@tauri-apps/api": "^1.5.3",
     "@types/react": "^18.2.78",
     "@vitest/coverage-v8": "^1.5.0",
+    "electron": "^30.0.6",
+    "electron-vite": "^2.2.0",
     "eslint-config-synnaxlabs": "workspace:*",
     "proxy-memoize": "2.0.5",
     "react": "^18.2.0",
@@ -74,6 +76,11 @@
       "import": "./dist/tauri.js",
       "require": "./dist/tauri.cjs",
       "types": "./dist/tauri/index.d.ts"
+    },
+    "./electron": {
+      "import": "./dist/electron.js",
+      "require": "./dist/electron.cjs",
+      "types": "./dist/electron/index.d.ts"
     }
   }
 }

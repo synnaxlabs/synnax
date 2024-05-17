@@ -51,6 +51,8 @@ export class TauriRuntime<S extends StoreState, A extends Action = UnknownAction
     this.unsubscribe = {};
   }
 
+  async configure(): Promise<void> {}
+
   label(): string {
     return this.win.label;
   }

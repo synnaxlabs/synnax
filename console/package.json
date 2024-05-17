@@ -1,5 +1,5 @@
 {
-  "name": "@synnaxlabs/console",
+  "name": "@synnaxlabs/console-electron",
   "private": true,
   "version": "0.21.7",
   "type": "module",

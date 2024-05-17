@@ -65,6 +65,7 @@ const configureStoreInternal = async <
   defaultWindowProps,
   ...opts
 }: ConfigureStoreOptions<S, A, M, E>): Promise<EnhancedStore<S, A | Action>> => {
+  await runtime.configure();
   // eslint-disable-next-line prefer-const
   let store: EnhancedStore<S, A | Action> | undefined;
   // eslint-disable-next-line prefer-const
