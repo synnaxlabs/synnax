@@ -39,22 +39,27 @@ void Acquisition::start() {
 }
 
 void Acquisition::stop() {
-    LOG(INFO) << "[Acquisition] Stopping acquisition";
     if (!running) return;
     this->running = false;
     thread.join();
+    LOG(INFO) << "[Acquisition] Acquisition stopped";
 }
 
 void Acquisition::run() {
+    this->writer_config.start = synnax::TimeStamp::now();
     auto [writer, wo_err] = ctx->client->telem.openWriter(writer_config);
+
     if (wo_err) {
+        LOG(ERROR) << "[Acquisition] Failed to open writer: " << wo_err.message();
         if (wo_err.matches(freighter::UNREACHABLE) && breaker.wait(wo_err.message()))
             run();
         return;
     }
     while (this->running) {
         auto [frame, source_err] = source->read();
+        // LOG(INFO) << "[Acquisition] Source read";
         if (source_err) {
+            LOG(ERROR) << "[Acquisition] Failed to read source";
             if (
                 source_err.matches(driver::TYPE_TEMPORARY_HARDWARE_ERROR) &&
                 breaker.wait(source_err.message())
@@ -70,5 +75,7 @@ void Acquisition::run() {
         breaker.reset();
     }
     const auto err = writer.close();
+    LOG(INFO) << "[Acquisition] Writer closed";
     if (err.matches(freighter::UNREACHABLE) && breaker.wait(err.message())) run();
+    LOG(INFO) << "[Acquisition] Acquisition thread terminated";
 }

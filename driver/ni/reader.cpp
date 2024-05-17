@@ -418,8 +418,6 @@ freighter::Error ni::DaqAnalogReader::stop(){
         }
     }
 
-    this->deleteScales();
-    delete[] this->data;
     if (err == freighter::NIL){
         LOG(INFO) << "[NI Reader] successfully stopped and cleared reader for task " << this->reader_config.task_name;
     }
@@ -594,6 +592,8 @@ bool ni::DaqAnalogReader::ok(){
 
 ni::DaqAnalogReader::~DaqAnalogReader(){
     this->stop();
+    this->deleteScales();
+    delete[] this->data;
 }
 
 int ni::DaqAnalogReader::checkNIError(int32 error){
@@ -784,7 +784,7 @@ int ni::DaqDigitalReader::configureTiming(){
 
         this->numSamplesPerChannel = std::floor(this->reader_config.acq_rate / this->reader_config.stream_rate);
         this->bufferSize = this->numChannels * this->numSamplesPerChannel;
-        this->data = new double[bufferSize];
+        // this->data = new double[bufferSize];
     }
     return 0;
 }
@@ -826,7 +826,7 @@ freighter::Error ni::DaqDigitalReader::stop(){
             err = freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
         }
     }
-    delete[] this->data;
+
 
     if (err == freighter::NIL){
         LOG(INFO) << "[NI Reader] successfully stopped and cleared reader for task " << this->reader_config.task_name;
@@ -917,6 +917,7 @@ bool ni::DaqDigitalReader::ok(){
 
 ni::DaqDigitalReader::~DaqDigitalReader(){
     this->stop();
+    delete[] this->data;
 }
 
 

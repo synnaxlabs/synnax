@@ -205,8 +205,6 @@ freighter::Error ni::DaqDigitalWriter::stop(){
         }
     }
 
-    delete[] writeBuffer;
-
     if (err == freighter::NIL){
         LOG(INFO) << "[NI Writer] successfully stopped and cleared writer for task " << this->writer_config.task_name;
     }
@@ -283,6 +281,7 @@ bool ni::DaqDigitalWriter::ok(){
 ni::DaqDigitalWriter::~DaqDigitalWriter(){
     LOG(INFO) << "Destroying daqWriter";
     this->stop();
+    delete[] writeBuffer;
 }
 
 

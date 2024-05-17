@@ -42,7 +42,8 @@ void Control::stop() {
 }
 
 void Control::run() {
-    auto [test, so_err] = ctx->client->telem.openStreamer(streamer_config);
+    this->streamer_config.start = synnax::TimeStamp::now();
+    auto [test, so_err] = ctx->client->telem.openStreamer(this->streamer_config);
     this->streamer = std::make_unique<synnax::Streamer>(std::move(test));
     if (so_err) {
         if (    so_err.matches(freighter::UNREACHABLE) 

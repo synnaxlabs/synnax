@@ -162,6 +162,7 @@ ni::ReaderTask::ReaderTask(const std::shared_ptr <task::Context> &ctx,
 
 std::unique_ptr <task::Task> ni::ReaderTask::configure(const std::shared_ptr <task::Context> &ctx,
                                                        const synnax::Task &task) {
+    LOG(INFO) << "[NI Task] configuring task " << task.name;    
     return std::make_unique<ni::ReaderTask>(ctx, task);
 }
 
@@ -179,8 +180,9 @@ void ni::ReaderTask::exec(task::Command &cmd) {
 
 
 void ni::ReaderTask::stop(){
-     if(!this->running || !this->ok()){
-            return;
+     if(!this->running.exchange(false) || !this->ok()){
+        LOG(INFO) << "[NI Task] did not stop " << this->task.name << " running: " << this->running << " ok: " << this->ok();
+        return;
     }
     daq_read_pipe.stop();
     ctx->setState({
@@ -191,11 +193,11 @@ void ni::ReaderTask::stop(){
                             }
                     });
     LOG(INFO) << "[NI Task] successfully stopped task " << this->task.name;
-    this->running = false;
 }
 
 void ni::ReaderTask::start(){
-    if(this->running || !this->ok()){
+    if(this->running.exchange(true)|| !this->ok()){
+            LOG(INFO) << "[NI Task] did not start " << this->task.name << " as it is not running or in error state";
         return;
     }
     daq_read_pipe.start();
@@ -207,7 +209,6 @@ void ni::ReaderTask::start(){
                             }
                     });
     LOG(INFO) << "[NI Task] successfully started task " << this->task.name;
-    running = true;
 }
 
 
@@ -287,7 +288,6 @@ std::unique_ptr <task::Task> ni::WriterTask::configure(const std::shared_ptr <ta
 void ni::WriterTask::exec(task::Command &cmd) {
     if (cmd.type == "start") {
         this->start();
-
     } else if (cmd.type == "stop") {
         this->stop();
     } else {
@@ -297,7 +297,7 @@ void ni::WriterTask::exec(task::Command &cmd) {
 
 
 void ni::WriterTask::stop(){
-    if(!this->running || !this->ok()){
+    if(!this->running.exchange(false) || !this->ok()){
             return;
     }
     this->state_write_pipe.stop();
@@ -311,12 +311,11 @@ void ni::WriterTask::stop(){
                             }
                     });
     LOG(INFO) << "[NI Task] successfully stopped task " << this->task.name;
-    this->running = false;
 }
 
 
 void ni::WriterTask::start(){
-    if(this->running || !this->ok()){
+    if(this->running.exchange(true) || !this->ok()){
         return;
     }
     this->cmd_write_pipe.start();
@@ -330,7 +329,6 @@ void ni::WriterTask::start(){
                         }
                     });
     LOG(INFO) << "[NI Task] successfully started task " << this->task.name;
-    this->running = true;
 }
 
 

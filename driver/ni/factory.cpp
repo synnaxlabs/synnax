@@ -15,7 +15,7 @@ std::pair<std::unique_ptr<task::Task>, bool> ni::Factory::configureTask(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task
 ) {
-    
+    LOG(INFO) << "[NI Factory ] Configuring task: " << task.key << std::endl;
     if(task.type == "niScanner") // TODO change to ni_scan_task
         return {ni::ScannerTask::configure(ctx, task), true};
      else if (task.type == "ni_analog_read" || task.type == "ni_digital_read")
