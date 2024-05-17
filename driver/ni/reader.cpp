@@ -178,6 +178,7 @@ void ni::AnalogReadSource::parseConfig(config::Parser &parser){
     this->reader_config.acq_rate = parser.required<uint64_t>("sample_rate");
     this->reader_config.stream_rate = parser.required<uint64_t>("stream_rate");
     this->reader_config.device_key = parser.required<std::string>("device");
+    this->reader_config.timing_source = "none"; // parser.required<std::string>("timing_source"); TODO: uncomment this when ui provides timing source
 
 
     auto [dev, err] = this->ctx->client->hardware.retrieveDevice(this->reader_config.device_key);
@@ -342,16 +343,16 @@ int ni::AnalogReadSource::init(){
 
     // Configure timing
     // TODO: make sure there isnt different cases to handle between analog and digital
-    if (this->checkNIError(ni::NiDAQmxInterface::CfgSampClkTiming(this->task_handle,
-                                                                  "",
-                                                                  this->reader_config.acq_rate,
-                                                                  DAQmx_Val_Rising,
-                                                                  DAQmx_Val_ContSamps,
-                                                                  this->reader_config.acq_rate))){
-        LOG(ERROR) << "[NI Reader] failed while configuring timing for task " << this->reader_config.task_name;
-        this->ok_state = false;
-        return -1;
-    }
+    // if (this->checkNIError(ni::NiDAQmxInterface::CfgSampClkTiming(this->task_handle,
+    //                                                               "",
+    //                                                               this->reader_config.acq_rate,
+    //                                                               DAQmx_Val_Rising,
+    //                                                               DAQmx_Val_ContSamps,
+    //                                                               this->reader_config.acq_rate))){
+    //     LOG(ERROR) << "[NI Reader] failed while configuring timing for task " << this->reader_config.task_name;
+    //     this->ok_state = false;
+    //     return -1;
+    // }
 
     // Configure buffer size and read resources
     if(this->reader_config.acq_rate < this->reader_config.stream_rate){
@@ -367,13 +368,48 @@ int ni::AnalogReadSource::init(){
     }
 
     
-    this->numSamplesPerChannel = std::floor(this->reader_config.acq_rate / this->reader_config.stream_rate);
-    this->bufferSize = this->numChannels * this->numSamplesPerChannel;
+    if (this->configureTiming()){
+        LOG(ERROR) << "[NI Reader] Failed while configuring timing for NI hardware for task " << this->reader_config.task_name;
+        this->ok_state = false;
+    }
     
-    this->data = new double[bufferSize];
 
     LOG(INFO) << "[NI Reader] successfully configured NI hardware for task " << this->reader_config.task_name;
     return 0;
+}
+
+
+int ni::AnalogReadSource::configureTiming(){
+    if(this->reader_config.timing_source == "none"){
+        LOG(INFO) << "[NI Reader] configuring timing for task " << this->reader_config.task_name;
+        if (this->checkNIError(ni::NiDAQmxInterface::CfgSampClkTiming(this->task_handle,
+                                                                  "",
+                                                                  this->reader_config.acq_rate,
+                                                                  DAQmx_Val_Rising,
+                                                                  DAQmx_Val_ContSamps,
+                                                                  this->reader_config.acq_rate))){
+        LOG(ERROR) << "[NI Reader] failed while configuring timing for task " << this->reader_config.task_name;
+        this->ok_state = false;
+        return -1;
+    }
+    } else{
+        LOG(INFO) << "[NI Reader] configuring special timing for task " << this->reader_config.task_name;
+        if (this->checkNIError(ni::NiDAQmxInterface::CfgSampClkTiming(this->task_handle,
+                                                                    this->reader_config.timing_source.c_str(),
+                                                                    this->reader_config.acq_rate,
+                                                                    DAQmx_Val_Rising,
+                                                                    DAQmx_Val_ContSamps,
+                                                                    this->reader_config.acq_rate))){
+            LOG(ERROR) << "[NI Reader] failed while configuring timing for task " << this->reader_config.task_name;
+            this->ok_state = false;
+            return -1;
+        }
+    }
+    this->numSamplesPerChannel = std::floor(this->reader_config.acq_rate / this->reader_config.stream_rate);
+    this->bufferSize = this->numChannels * this->numSamplesPerChannel;
+    this->data = new double[bufferSize];
+    return 0;
+    // }r
 }
 
 
@@ -698,9 +734,6 @@ void ni::DigitalReadSource::parseConfig(config::Parser &parser){
     assert(parser.ok());
 }
 
-
-
-
 int ni::DigitalReadSource::init(){
     int err = 0;
     auto channels = this->reader_config.channels;
@@ -732,33 +765,22 @@ int ni::DigitalReadSource::init(){
         return -1;
     }
 
-
-
     if (this->configureTiming()){
         LOG(ERROR) << "[NI Reader] Failed while configuring timing for NI hardware for task " << this->reader_config.task_name;
         this->ok_state = false;
     }
     
-    LOG(INFO) << "[NI Reader] successfully configured timing NI hardware for task " << this->reader_config.task_name;
-
     LOG(INFO) << "[NI Reader] successfully configured NI hardware for task " << this->reader_config.task_name;
     return 0;
 }
 
 int ni::DigitalReadSource::configureTiming(){
 
-        //TODO: assert that at least 1 channel has been configured here:
-
     if(this->reader_config.timing_source == "none"){ // if timing is not enabled, implement timing in software
         this->reader_config.period = (uint32_t)((1.0 / this->reader_config.acq_rate) * 1000000); // convert to microseconds
 
-        this->numSamplesPerChannel = 1;//std::floor(this->reader_config.acq_rate / this->reader_config.stream_rate);
-        this->bufferSize = this->numChannels * this->numSamplesPerChannel;
-    
-        this->data = new double[bufferSize];
-
+        this->numSamplesPerChannel = 1;
     } else{
-        // Configure timing
         if (this->checkNIError(ni::NiDAQmxInterface::CfgSampClkTiming(this->task_handle,
                                                                     this->reader_config.timing_source.c_str(),
                                                                     this->reader_config.acq_rate,
@@ -771,9 +793,9 @@ int ni::DigitalReadSource::configureTiming(){
         }
 
         this->numSamplesPerChannel = std::floor(this->reader_config.acq_rate / this->reader_config.stream_rate);
-        this->bufferSize = this->numChannels * this->numSamplesPerChannel;
-        // this->data = new double[bufferSize];
     }
+    this->bufferSize = this->numChannels * this->numSamplesPerChannel;
+    this->data = new double[bufferSize];
     return 0;
 }
 

@@ -150,6 +150,7 @@ namespace ni{
         void parseCustomScale(config::Parser & parser, ChannelConfig & config);
         void deleteScales();
         int createChannel(ni::ChannelConfig &channel);
+        int configureTiming();
 
         // NI related resources
         bool running = false;
