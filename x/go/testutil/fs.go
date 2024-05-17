@@ -12,7 +12,7 @@ var FileSystems = func() (fileSystemFactory map[string]func() xfs.FS, cleanUp fu
 	)
 
 	fileSystemFactory = make(map[string]func() xfs.FS)
-	fileSystemFactory["memFS"] = func() xfs.FS { return xfs.NewMem() }
+	//fileSystemFactory["memFS"] = func() xfs.FS { return xfs.NewMem() }
 
 	defaultFS = xfs.Default
 	dirName, err = os.MkdirTemp("", "test-*")

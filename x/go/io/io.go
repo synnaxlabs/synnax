@@ -39,7 +39,7 @@ type TrackedWriteCloser interface {
 type OffsetWriter interface {
 	// Reset resets the offset of the writer to the current offset.
 	Reset()
-	// Offset returns the offset of the write cursor.cursor.cursor.
+	// Offset returns the offset of the write cursor.
 	Offset() int64
 	// Len returns the number of bytes written by the writer.
 	Len() int64

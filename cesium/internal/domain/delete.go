@@ -70,7 +70,7 @@ func (db *DB) Delete(ctx context.Context, startPosition int, endPosition int, st
 	}
 	db.idx.mu.tombstones[end.fileKey] += end.length - uint32(endOffset)
 
-	if startPosition == endPosition && startOffset != 0 && endOffset != 0 {
+	if startPosition == endPosition {
 		// If start and end are in the same domain, then we only keep their intersection
 		// as the tombstone. Calculated via the PIE.
 		db.idx.mu.tombstones[end.fileKey] -= end.length
@@ -150,7 +150,7 @@ func (db *DB) CollectTombstones(ctx context.Context) error {
 				return span.Error(err)
 			}
 
-			if err = db.FS.Remove(copyName); err != nil {
+			if err = db.files.RemoveFileAndMigrateDescriptors(fileKey, fileName, copyName); err != nil {
 				return span.Error(err)
 			}
 

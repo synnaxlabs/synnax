@@ -132,11 +132,11 @@ func (db *DB) GarbageCollect(ctx context.Context) error {
 		}, nil
 	})
 
-	defer g.Release()
-
 	if err != nil {
 		return err
 	}
+
+	defer g.Release()
 
 	return db.Domain.CollectTombstones(ctx)
 }

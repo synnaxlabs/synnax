@@ -228,7 +228,11 @@ func (fc *fileController) atDescriptorLimit() bool {
 		fc.readers.RUnlock()
 		fc.writers.RUnlock()
 	}()
-	return len(fc.readers.open)+len(fc.writers.open) >= fc.MaxDescriptors
+	readerCount := 0
+	for _, r := range fc.readers.open {
+		readerCount += len(r)
+	}
+	return readerCount+len(fc.writers.open) >= fc.MaxDescriptors
 }
 
 func (fc *fileController) removeReadersWriters(ctx context.Context, key uint16) error {
@@ -271,6 +275,70 @@ func (fc *fileController) removeReadersWriters(ctx context.Context, key uint16) 
 	fc.writers.Unlock()
 
 	return c.Error()
+}
+
+// RemoveFileAndMigrateDescriptors closes and removes all readers on a file, changes the
+// underlying writer on the file to newFile, and removes oldFile from FS.
+func (fc *fileController) RemoveFileAndMigrateDescriptors(key uint16, newFile string, oldFile string) error {
+	// close and remove all readers
+	fc.readers.Lock()
+	fc.writers.Lock()
+	defer fc.readers.Unlock()
+	defer fc.writers.Unlock()
+
+	// Close all readers.
+	c := errutil.NewCatch(errutil.WithAggregation())
+	for _, r := range fc.readers.open[key] {
+		if r.tryAcquire() {
+			c.Exec(r.ReaderAtCloser.Close)
+			c.Exec(r.Close)
+		} else {
+			return errors.Newf("cannot acquire reader on garbage collected file <%s>", oldFile)
+		}
+	}
+	if c.HasError() {
+		return c.Error()
+	}
+	delete(fc.readers.open, key)
+
+	// Migrate the writer
+	f, err := fc.FS.Open(newFile, os.O_RDWR|os.O_APPEND)
+	if err != nil {
+		return err
+	}
+
+	base, err := xio.NewTrackedWriteCloser(f)
+
+	if err != nil {
+		return err
+	}
+
+	w, ok := fc.writers.open[key]
+	if ok {
+		if w.tryAcquire() {
+			err = w.TrackedWriteCloser.Close()
+			if err != nil {
+				return err
+			}
+			w.TrackedWriteCloser = base
+			fc.writers.open[key] = w
+
+			err = w.Close()
+			if err != nil {
+				return err
+			}
+		} else {
+			return errors.Newf("cannot acquire writer on garbage collected file <%s>", oldFile)
+		}
+	} else {
+		fc.writers.open[key] = controlledWriter{
+			TrackedWriteCloser: base,
+			controllerEntry:    newPoolEntry(key, fc.writers.release),
+		}
+	}
+
+	// Delete underlying file.
+	return fc.FS.Remove(oldFile)
 }
 
 func (fc *fileController) close() error {
