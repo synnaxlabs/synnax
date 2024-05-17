@@ -26,7 +26,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { CSS as PCSS } from "@synnaxlabs/pluto/css";
 import { Theming } from "@synnaxlabs/pluto/theming";
-import { appWindow } from "@tauri-apps/api/window";
+// import { appWindow } from "@tauri-apps/api/window";
 import { ErrorBoundary, type ErrorBoundaryProps } from "react-error-boundary";
 import { useDispatch } from "react-redux";
 
@@ -81,13 +81,13 @@ const FallbackRender: ErrorBoundaryProps["fallbackRender"] = ({
             className="console-controls--macos"
             visibleIfOS="MacOS"
             onClose={() => {
-              void appWindow.close();
+              // void appWindow.close();
             }}
             onMinimize={() => {
-              void appWindow.minimize();
+              // void appWindow.minimize();
             }}
             onMaximize={() => {
-              void appWindow.maximize();
+              // void appWindow.maximize();
             }}
           />
           {os === "Windows" && (

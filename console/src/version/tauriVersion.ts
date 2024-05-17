@@ -8,13 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { useAsyncEffect } from "@synnaxlabs/pluto";
-import { getVersion } from "@tauri-apps/api/app";
+// import { getVersion } from "@tauri-apps/api/app";
 import { useDispatch } from "react-redux";
 
 import { set } from "@/version/slice";
 
 /** @returns the tauri application version as exposed by the tauri apps API. */
-export const tauriVersion = async (): Promise<string> => await getVersion();
+export const tauriVersion = async (): Promise<string> => await "0";
 
 export const useLoadTauri = (): void => {
   const d = useDispatch();

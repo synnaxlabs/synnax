@@ -57,8 +57,8 @@ import { Range } from "@/range";
 import { Vis } from "@/vis";
 import { Workspace } from "@/workspace";
 import { Icon } from "@synnaxlabs/media";
-import { dialog } from "@tauri-apps/api";
-import { writeFile } from "@tauri-apps/api/fs";
+// import { dialog } from "@tauri-apps/api";
+// import { writeFile } from "@tauri-apps/api/fs";
 
 interface SyncPayload {
   key?: string;

@@ -227,7 +227,6 @@ const slice = createSlice({
     },
     createWindow: (s: SliceState, { payload }: PayloadAction<CreateWindowPayload>) => {
       const { key, label, prerenderLabel } = payload;
-      console.log(key, label, prerenderLabel);
       if (label == null || prerenderLabel == null)
         throw new Error("[drift] - bug - missing label and prerender label");
 
