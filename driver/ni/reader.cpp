@@ -105,14 +105,12 @@ void ni::DigitalReadSource::getIndexKeys(){
 }
 
 
-// TODO: fix this to avoid code duplication:
 
 
-uint32_t parseFloats(std::vector<float64> vec, double* arr){
+void  ParseFloats(std::vector<float64> vec, double* arr){
     for(int i = 0; i < vec.size(); i++){
         arr[i] = vec[i];
     }
-    return vec.size();
 }
 
 
@@ -256,36 +254,37 @@ void ni::AnalogReadSource::parseCustomScale(config::Parser & parser, ni::Channel
             if(scale_parser.ok()){
                 auto min_x = scale_parser.required<double>("min_x");
                 auto max_x = scale_parser.required<double>("max_x");
-                auto num_points = scale_parser.required<int32>("num_points");
+                uint32_t num_forward_coeffs = scale_parser.required<int32_t>("num_coeffs");
                 auto poly_order = scale_parser.required<int32>("poly_order");
+                int32_t num_points = scale_parser.required<uint32_t>("num_points");
 
-                float64* forward_coeffs = new double[num_points];
-                float64* reverse_coeffs = new double[num_points]; // TODO: reverse coeffs can be less than forward_coeffs depending on the order of the function (only equal if order is)      
-                uint32_t num_coeffs = parseFloats(forward_coeffs_vec, forward_coeffs);
+                float64* forward_coeffs = new double[num_forward_coeffs];
+                float64* reverse_coeffs = new double[num_forward_coeffs]; // TODO: reverse coeffs can be less than forward_coeffs depending on the order of the function (only equal if order is)      
+                ParseFloats(forward_coeffs_vec, forward_coeffs);
 
 
                 // get reverse coeffs (scale -> prescale)
-                ni::NiDAQmxInterface::CalculateReversePolyCoeff(forward_coeffs, num_coeffs, min_x, max_x, num_points, -1,  reverse_coeffs); // FIXME: reversePoly order should be user inputted?
-                config.scale->polynomial = {forward_coeffs, reverse_coeffs, num_coeffs, min_x, max_x, num_points, poly_order, prescaled_units, scaled_units};
+                ni::NiDAQmxInterface::CalculateReversePolyCoeff(forward_coeffs, num_forward_coeffs, min_x, max_x, num_points, -1,  reverse_coeffs); // FIXME: reversePoly order should be user inputted?
+                config.scale->polynomial = {forward_coeffs, reverse_coeffs, num_forward_coeffs, min_x, max_x, num_points, poly_order, prescaled_units, scaled_units};
             }
    
         } else if(config.scale_type == "TableScale"){
-            std::vector<double> prescaled_vec = {}; //  scale_parser.required<std::vector<double>>("prescaled"); //FIXME
-            std::vector<double> scaled_vec =  {}; //scale_parser.required<std::vector<double>>("scaled"); //FIXME
+            json j = scale_parser.get_json();
+            if(!j.contains("prescaled") || !j.contains("scaled")){
+                return;
+            }
+            std::vector<double> prescaled_vec = j["prescaled"];
+            std::vector<double> scaled_vec = j["scaled"];
+            uint32_t num_points = scale_parser.required<uint32_t>("num_points");
             if(scale_parser.ok()){
                 uint32_t num_points = prescaled_vec.size();
-                float64* prescaled_arr;
-                float64* scaled_arr;
-                uint32_t num_prescaled = parseFloats(prescaled_vec, prescaled_arr);
-                uint32_t num_scaled = parseFloats(scaled_vec, scaled_arr);
-                if(num_prescaled != num_scaled){
-                    // error in parsing scale need to handle error here !!!
-                    return;
-                }
+                float64* prescaled_arr = new double[num_points];
+                float64* scaled_arr = new double[num_points];
+                ParseFloats(prescaled_vec, prescaled_arr);
+                ParseFloats(scaled_vec, scaled_arr);
                 config.scale->table = {prescaled_arr, scaled_arr, num_points, prescaled_units, scaled_units};
             }
         } else{ //invalid scale type return error
-            // Log error
             json err;
             err["errors"] = nlohmann::json::array();
             err["errors"].push_back({
@@ -297,20 +296,15 @@ void ni::AnalogReadSource::parseCustomScale(config::Parser & parser, ni::Channel
                                 .variant = "error",
                                 .details = err});
             this->ok_state = false;
-            // print error json
-            std::cout << scale_parser.error_json() << std::endl; // TODO: remove
             return;
         }
         
-        if(!scale_parser.ok()){ // error in parsing scale need to handle error here !!!
-            // Log error
+        if(!scale_parser.ok()){ 
             LOG(ERROR) << "[NI Reader] failed to parse custom scale configuration for " << this->reader_config.task_name;
             this->ctx->setState({.task = this->reader_config.task_key,
                                 .variant = "error",
                                 .details = scale_parser.error_json()});
             this->ok_state = false;
-            // print error json
-            std::cout << scale_parser.error_json() << std::endl; // TODO: remove
             return;
         } 
 
