@@ -159,18 +159,18 @@ func (m *memFS) Open(name string, flag int) (File, error) {
 			if flag&os.O_RDWR != 0 || flag&os.O_WRONLY != 0 {
 				f, err := m.FS.OpenReadWrite(name)
 				if err != nil {
-					return f, err
+					return nil, err
 				}
 
 				if flag&os.O_APPEND != 0 {
 					i, err := m.FS.Stat(name)
 					if err != nil {
-						return f, err
+						return nil, err
 					}
-					return memFile{writeCursor: i.Size(), File: f}, nil
+					return &memFile{writeCursor: i.Size(), File: f}, nil
 				}
 
-				return memFile{File: f}, nil
+				return &memFile{File: f}, nil
 			} else {
 				return m.FS.Open(name)
 			}
@@ -190,10 +190,10 @@ func (m *memFS) Open(name string, flag int) (File, error) {
 			if err != nil {
 				return f, err
 			}
-			return memFile{writeCursor: i.Size(), File: f}, nil
+			return &memFile{writeCursor: i.Size(), File: f}, nil
 		}
 
-		return memFile{File: f}, nil
+		return &memFile{File: f}, nil
 	} else {
 		// readonly
 		return m.FS.Open(name)
@@ -249,7 +249,7 @@ func (m *memFS) Stat(name string) (os.FileInfo, error) {
 	return m.FS.Stat(name)
 }
 
-func (m memFile) Write(p []byte) (n int, err error) {
+func (m *memFile) Write(p []byte) (n int, err error) {
 	n, err = m.WriteAt(p, m.writeCursor)
 	m.writeCursor += int64(n)
 	return
