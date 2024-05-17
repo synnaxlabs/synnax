@@ -7,6 +7,8 @@ import (
 	"os"
 )
 
+const tombstoneByteSize = 6
+
 // Delete adds all pointers ranging from
 // [db.get(startPosition).offset + startOffset, db.get(endPosition).offset + length - endOffset)
 // into tombstone.
@@ -159,7 +161,7 @@ func (db *DB) CollectTombstones(ctx context.Context) error {
 		}
 	}
 
-	return nil
+	return db.idx.persist(ctx, len(db.idx.mu.pointers))
 }
 
 func validateDelete(startPosition int, endPosition int, startOffset *int64, endOffset *int64, idx *index) error {

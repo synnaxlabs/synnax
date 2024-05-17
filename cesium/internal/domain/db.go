@@ -123,7 +123,7 @@ func Open(configs ...Config) (*DB, error) {
 		return nil, err
 	}
 	idx.indexPersist = idxPst
-	idx.mu.pointers, err = idxPst.load()
+	idx.mu.pointers, idx.mu.tombstones, err = idxPst.load()
 	if err != nil {
 		return nil, err
 	}
