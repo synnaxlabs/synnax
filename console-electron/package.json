@@ -4,9 +4,9 @@
   "version": "0.21.7",
   "main": "main.js",
   "scripts": {
-    "dev": "vite --force",
+    "dev": "concurrently --kill-others \"pnpm dev-vite\" \"pnpm dev-electron\"",
     "kill": "bash ~/Desktop/synnaxlabs/synnax/console/scripts/kill-dev.zsh",
-    "start": "electron .",
+    "dev-electron": "electron .",
     "build": "tauri build",
     "dev-vite": "vite --force",
     "build-vite": "vite build",

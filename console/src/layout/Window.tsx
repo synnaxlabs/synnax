@@ -30,7 +30,7 @@ export interface NavTopProps {
 export const NavTop = ({ title }: NavTopProps): ReactElement => {
   const os = OS.use();
   return (
-    <Nav.Bar data-tauri-drag-region location="top" size={"6rem"}>
+    <Nav.Bar location="top" size={"6rem"}>
       <Nav.Bar.Start className="console-main-nav-top__start">
         <Controls
           className="console-controls--macos"
@@ -42,7 +42,6 @@ export const NavTop = ({ title }: NavTopProps): ReactElement => {
       <Nav.Bar.AbsoluteCenter>
         <Text.Text
           className="console-main-nav-top__title"
-          data-tauri-drag-region
           level="p"
           shade={7}
           weight={450}

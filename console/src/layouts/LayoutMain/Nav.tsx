@@ -79,35 +79,21 @@ export const NavTop = (): ReactElement => {
 
   return (
     <Nav.Bar
-      data-tauri-drag-region
       location="top"
       size={NAV_SIZES.top}
       className={CSS(CSS.B("main-nav"), CSS.B("main-nav-top"))}
     >
-      <Nav.Bar.Start className="console-main-nav-top__start" data-tauri-drag-region>
+      <Nav.Bar.Start className="console-main-nav-top__start">
         <Controls className="console-controls--macos" visibleIfOS="MacOS" />
         {os === "Windows" && (
-          <Logo
-            className="console-main-nav-top__logo"
-            variant="icon"
-            data-tauri-drag-region
-          />
+          <Logo className="console-main-nav-top__logo" variant="icon" />
         )}
         <Workspace.Selector />
       </Nav.Bar.Start>
-      <Nav.Bar.Content
-        grow
-        justify="center"
-        className="console-main-nav-top__center"
-        data-tauri-drag-region
-      >
+      <Nav.Bar.Content grow justify="center" className="console-main-nav-top__center">
         <NavTopPalette />
       </Nav.Bar.Content>
-      <Nav.Bar.End
-        className="console-main-nav-top__end"
-        justify="end"
-        data-tauri-drag-region
-      >
+      <Nav.Bar.End className="console-main-nav-top__end" justify="end">
         <Button.Icon
           size="medium"
           onClick={handleDocs}

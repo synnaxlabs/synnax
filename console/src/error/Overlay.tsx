@@ -75,13 +75,8 @@ const FallbackRender: ErrorBoundaryProps["fallbackRender"] = ({
 
   return (
     <Align.Space direction="y" className={CSS.B("error-overlay")}>
-      <Nav.Bar
-        data-tauri-drag-region
-        location="top"
-        size={NAV_SIZES.top}
-        className="console-main-nav-top"
-      >
-        <Nav.Bar.Start className="console-main-nav-top__start" data-tauri-drag-region>
+      <Nav.Bar location="top" size={NAV_SIZES.top} className="console-main-nav-top">
+        <Nav.Bar.Start className="console-main-nav-top__start">
           <OS.Controls
             className="console-controls--macos"
             visibleIfOS="MacOS"
@@ -96,18 +91,10 @@ const FallbackRender: ErrorBoundaryProps["fallbackRender"] = ({
             }}
           />
           {os === "Windows" && (
-            <Logo
-              className="console-main-nav-top__logo"
-              variant="icon"
-              data-tauri-drag-region
-            />
+            <Logo className="console-main-nav-top__logo" variant="icon" />
           )}
         </Nav.Bar.Start>
-        <Nav.Bar.End
-          className="console-main-nav-top__end"
-          justify="end"
-          data-tauri-drag-region
-        >
+        <Nav.Bar.End className="console-main-nav-top__end" justify="end">
           <OS.Controls
             className="console-controls--windows"
             visibleIfOS="Windows"

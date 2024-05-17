@@ -42,7 +42,8 @@
     }
 
     &:not(.pluto--modal) {
-        background: var(--pluto-gray-l1);
+        background: var(--pluto-gray-l3-30);
+        backdrop-filter: blur(4rem);
         max-height: 360px;
     }
 
