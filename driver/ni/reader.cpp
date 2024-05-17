@@ -354,7 +354,18 @@ int ni::DaqAnalogReader::init(){
     }
 
     // Configure buffer size and read resources
-    assert(this->reader_config.acq_rate >= this->reader_config.stream_rate); // TODO: handle this case
+    if(this->reader_config.acq_rate < this->reader_config.stream_rate){
+        this->err_info["error type"] = "Configuration Error";
+        this->err_info["error details"] = "Stream rate is greater than sample rate";
+        
+        this->ctx->setState({.task = this->reader_config.task_key,
+                             .variant = "error",
+                             .details = err_info});
+        LOG(ERROR) << "[NI Reader] stream rate is greater than sample rate " << this->reader_config.task_name;
+        this->ok_state = false;
+        return -1;
+    }
+
     
     this->numSamplesPerChannel = std::floor(this->reader_config.acq_rate / this->reader_config.stream_rate);
     this->bufferSize = this->numChannels * this->numSamplesPerChannel;
@@ -663,10 +674,11 @@ ni::DaqDigitalReader::DaqDigitalReader(
 void ni::DaqDigitalReader::parseConfig(config::Parser &parser){
     // Get Acquisition Rate and Stream Rates
     this->reader_config.acq_rate = parser.required<uint64_t>("sample_rate");
-    assert(parser.ok());
     this->reader_config.stream_rate = parser.required<uint64_t>("stream_rate");
-    assert(parser.ok());
     this->reader_config.device_key = parser.required<std::string>("device");
+    this->reader_config.timing_source = "none"; // parser.required<std::string>("timing_source"); TODO: uncomment this when ui provides timing source
+
+    // TODO: add a parser ok check here
 
 
     auto [dev, err] = this->ctx->client->hardware.retrieveDevice(this->reader_config.device_key);
@@ -719,32 +731,61 @@ int ni::DaqDigitalReader::init(){
         }
     }
 
-    //TODO: assert that at least 1 channel has been configured here:
+    // Configure buffer size and read resources
+     if(this->reader_config.acq_rate < this->reader_config.stream_rate){
+        this->err_info["error type"] = "Configuration Error";
+        this->err_info["error details"] = "Stream rate is greater than sample rate";
+        
+        this->ctx->setState({.task = this->reader_config.task_key,
+                             .variant = "error",
+                             .details = err_info});
+        LOG(ERROR) << "[NI Reader] stream rate is greater than sample rate " << this->reader_config.task_name;
+        this->ok_state = false;
+        return -1;
+    }
 
-    // Configure timing
-    // TODO: make sure there isnt different cases to handle between analog and digital
-    // if (this->checkNIError(ni::NiDAQmxInterface::CfgSampClkTiming(this->task_handle,
-    //                                                               "",
-    //                                                               this->reader_config.acq_rate,
-    //                                                               DAQmx_Val_Rising,
-    //                                                               DAQmx_Val_ContSamps,
-    //                                                               this->reader_config.acq_rate))){
-    //     LOG(ERROR) << "[NI Reader] failed while configuring timing for task " << this->reader_config.task_name;
-    //     this->ok_state = false;
-    //     return -1;
-    // }
+
+
+    if (this->configureTiming()){
+        LOG(ERROR) << "[NI Reader] Failed while configuring timing for NI hardware for task " << this->reader_config.task_name;
+        this->ok_state = false;
+    }
     
     LOG(INFO) << "[NI Reader] successfully configured timing NI hardware for task " << this->reader_config.task_name;
 
-    // Configure buffer size and read resources
-    assert(this->reader_config.acq_rate >= this->reader_config.stream_rate); // TODO: handle this case
-    
-    this->numSamplesPerChannel = std::floor(this->reader_config.acq_rate / this->reader_config.stream_rate);
-    this->bufferSize = this->numChannels * this->numSamplesPerChannel;
-    
-    this->data = new double[bufferSize];
-
     LOG(INFO) << "[NI Reader] successfully configured NI hardware for task " << this->reader_config.task_name;
+    return 0;
+}
+
+int ni::DaqDigitalReader::configureTiming(){
+
+        //TODO: assert that at least 1 channel has been configured here:
+
+    if(this->reader_config.timing_source == "none"){ // if timing is not enabled, implement timing in software
+        this->reader_config.period = (uint32_t)((1.0 / this->reader_config.acq_rate) * 1000000); // convert to microseconds
+
+        this->numSamplesPerChannel = 1;//std::floor(this->reader_config.acq_rate / this->reader_config.stream_rate);
+        this->bufferSize = this->numChannels * this->numSamplesPerChannel;
+    
+        this->data = new double[bufferSize];
+
+    } else{
+        // Configure timing
+        if (this->checkNIError(ni::NiDAQmxInterface::CfgSampClkTiming(this->task_handle,
+                                                                    this->reader_config.timing_source.c_str(),
+                                                                    this->reader_config.acq_rate,
+                                                                    DAQmx_Val_Rising,
+                                                                    DAQmx_Val_ContSamps,
+                                                                    this->reader_config.acq_rate))){
+            LOG(ERROR) << "[NI Reader] failed while configuring timing for task " << this->reader_config.task_name;
+            this->ok_state = false;
+            return -1;
+        }
+
+        this->numSamplesPerChannel = std::floor(this->reader_config.acq_rate / this->reader_config.stream_rate);
+        this->bufferSize = this->numChannels * this->numSamplesPerChannel;
+        this->data = new double[bufferSize];
+    }
     return 0;
 }
 
@@ -819,6 +860,11 @@ std::pair<synnax::Frame, freighter::Error> ni::DaqDigitalReader::read(){
         return std::make_pair(std::move(f), freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR, "error reading digital data"));
     }
 
+    // sleep if period is not 0
+    if(this->reader_config.period != 0){
+        std::this_thread::sleep_for(std::chrono::microseconds(this->reader_config.period));
+    }
+
     // actual read to of digital lines
     std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
     if (this->checkNIError(ni::NiDAQmxInterface::ReadDigitalLines(this->task_handle,           // task handle
@@ -845,7 +891,6 @@ std::pair<synnax::Frame, freighter::Error> ni::DaqDigitalReader::read(){
         time_index[i] = initial_timestamp + (std::uint64_t)(incr * i);
     }
     
-    std::this_thread::sleep_for(std::chrono::seconds(1));
     // Construct and populate synnax frame
     std::vector<uint8_t> data_vec(samplesRead);
     uint64_t data_index = 0; // TODO: put a comment explaining the function of data_index

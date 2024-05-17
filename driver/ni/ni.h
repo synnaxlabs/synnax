@@ -114,6 +114,8 @@ namespace ni{
         std::uint64_t stream_rate = 0;
         std::string device_name;
         std::string task_name; 
+        std::string timing_source; // for sample clock
+        std::uint64_t period = 0;
         synnax::ChannelKey task_key;
         std::set<uint32_t> index_keys;
     } ReaderConfig;
@@ -185,6 +187,7 @@ namespace ni{
         bool ok();
         ~DaqDigitalReader();
         std::vector<synnax::ChannelKey> getChannelKeys();
+        int configureTiming();
     private:
         void parseConfig(config::Parser & parser);
         int checkNIError(int32 error);
