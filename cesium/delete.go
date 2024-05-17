@@ -181,15 +181,18 @@ func (db *DB) removeChannel(ch ChannelKey) error {
 }
 
 // DeleteTimeRange deletes a timerange of data in the database in a given channel
-// This method return an error if there are other channels depending on the timerange
-// that we are trying to delete.
+// This method return an error if the channel to be deleted is an index channel and
+// there are other channels depending on it in the timerange.
 // DeleteTimeRange is idempotent.
 func (db *DB) DeleteTimeRange(ctx context.Context, ch ChannelKey, tr telem.TimeRange) error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 	udb, uok := db.unaryDBs[ch]
 	if !uok {
-		return nil
+		if _, vok := db.virtualDBs[ch]; vok {
+			return errors.Newf("[cesium] - cannot delete timerange from virtual channel %d", ch)
+		}
+		return errors.Wrapf(ChannelNotFound, "[cesium] - timerange deletion channel %d not found", ch)
 	}
 
 	// Cannot delete an index channel that other channels rely on.
@@ -202,7 +205,7 @@ func (db *DB) DeleteTimeRange(ctx context.Context, ch ChannelKey, tr telem.TimeR
 			// We must determine whether there is an indexed db that has data in the timerange tr.
 			hasOverlap, err := otherDB.HasDataFor(ctx, tr)
 			if err != nil || hasOverlap {
-				return errors.Newf("[cesium] - could not delete index channel %d with other channels depending on it", ch)
+				return errors.Newf("[cesium] - cannot delete index channel %d with channel %d depending on it from timerange %s", ch, otherDBKey, tr)
 			}
 		}
 	}

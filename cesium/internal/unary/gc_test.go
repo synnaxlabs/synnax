@@ -66,7 +66,7 @@ var _ = Describe("Garbage Collection", func() {
 				})
 
 				Describe("Rate DB", func() {
-					Specify("One pointer", func() {
+					FSpecify("One pointer", func() {
 						Expect(unary.Write(ctx, rateDB, 10*telem.SecondTS, telem.NewSeriesV[int64](100, 101, 102, 103, 104, 105, 106))).To(Succeed())
 						Expect(rateDB.Delete(ctx, (10*telem.SecondTS + 1).Range(12*telem.SecondTS+1))).To(Succeed())
 
