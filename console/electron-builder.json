@@ -5,6 +5,12 @@
     "directories": {
       "output": "release/${version}"
     },
+    "protocols": {
+        "name": "Synnax",
+        "schemes": [
+            "synnax"
+        ]
+    },
     "files": [
       "dist-electron",
       "dist"

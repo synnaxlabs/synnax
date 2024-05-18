@@ -12,6 +12,7 @@ import { lib } from "@synnaxlabs/vite-plugin";
 import { defineConfig } from "vite";
 
 export default defineConfig({
+  base: "/drift/",
   plugins: [lib({ name: "drift" })],
   build: {
     lib: {

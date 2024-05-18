@@ -1,8 +1,8 @@
-const { app, shell, BrowserWindow, ipcMain } = require("electron");
-const { dirname, join } = require("path");
-const { MAIN_WINDOW, configureStore } = require("@synnaxlabs/drift");
-const { ElectronRuntime, listenOnMain } = require("@synnaxlabs/drift/electron");
-const { fileURLToPath } = require("url");
+import { app, shell, BrowserWindow, ipcMain, dialog } from "electron";
+import { dirname, join } from "path";
+import { MAIN_WINDOW } from "@synnaxlabs/drift";
+import { listenOnMain } from "@synnaxlabs/drift/electron";
+import { fileURLToPath } from "url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -11,27 +11,20 @@ export const MAIN_DIST = join(process.env.APP_ROOT, "dist-electron");
 export const RENDERER_DIST = join(process.env.APP_ROOT, "dist");
 export const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL;
 
-const loadRender = (win: BrowserWindow) => {
-  if (process.env.VITE_DEV_SERVER_URL) {
-    win.loadURL(process.env.VITE_DEV_SERVER_URL);
-  } else {
-    win.loadFile(join(RENDERER_DIST, "index.html"));
-  }
+const loadRender = (win) => {
+  if (process.env.VITE_DEV_SERVER_URL) win.loadURL(process.env.VITE_DEV_SERVER_URL);
+  else win.loadFile(join(RENDERER_DIST, "index.html"));
 };
 
-// The built directory structure
-//
-// ├─┬ dist-electron
-// │ ├─┬ main
-// │ │ └── index.js    > Electron-Main
-// │ └─┬ preload
-// │   └── index.mjs   > Preload-Scripts
-// ├─┬ dist
-// │ └── index.html    > Electron-Renderer
-//
+if (process.defaultApp) {
+  if (process.argv.length >= 2) {
+    app.setAsDefaultProtocolClient("synnax", process.execPath, [process.argv[1]]);
+  } else {
+    app.setAsDefaultProtocolClient("synnax");
+  }
+}
 
 function createWindow() {
-  // Create the browser window.
   const preload = join(MAIN_DIST, "preload.js");
   const mainWindow = new BrowserWindow({
     width: 900,
@@ -40,9 +33,8 @@ function createWindow() {
     show: false,
     frame: false,
     autoHideMenuBar: true,
-    ...(process.platform === "linux" ? { icon } : {}),
     webPreferences: {
-      preload: preload,
+      preload,
       sandbox: false,
     },
   });
@@ -55,7 +47,7 @@ function createWindow() {
         ...props,
         frame: false,
         webPreferences: {
-          preload: join(MAIN_DIST, "preload.js"),
+          preload: preload,
           sandbox: false,
         },
       });
@@ -81,6 +73,13 @@ function createWindow() {
   // Load the remote URL for development or the local html file for production.
   // mainWindow.loadURL("http://localhost:5173");
 }
+
+// app.on("open-url", (event, url) => {
+//   dialog.showMessageBox({
+//     message: `You arrived from: ${url}`,
+//     buttons: ["OK"],
+//   });
+// });
 
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.

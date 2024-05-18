@@ -4,6 +4,7 @@
   "version": "0.21.7",
   "main": "./dist-electron/main.js",
   "author": "Synnax Labs",
+  "type": "module",
   "description": "Synnax Console",
   "scripts": {
     "dev": "vite",
