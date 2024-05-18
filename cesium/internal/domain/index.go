@@ -237,7 +237,7 @@ func (idx *index) read(f func()) {
 func (idx *index) persist(ctx context.Context, persistAtIndex int) error {
 	ctx, span := idx.T.Bench(ctx, "domain/index.persist")
 	defer span.End()
-	encoded := idx.indexPersist.encode(idx.persistHead, idx.mu.pointers)
+	encoded := idx.indexPersist.encode(persistAtIndex, idx.mu.pointers)
 	idx.persistHead = len(idx.mu.pointers)
 	if len(encoded) != 0 {
 		_, err := idx.indexPersist.WriteAt(encoded, int64(persistAtIndex*pointerByteSize))

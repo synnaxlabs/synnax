@@ -10,6 +10,7 @@
 package cesium
 
 import (
+	"fmt"
 	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/meta"
@@ -52,8 +53,9 @@ func Open(dirname string, opts ...Option) (*DB, error) {
 			if err = db.openVirtualOrUnary(Channel{Key: ChannelKey(key)}); err != nil {
 				return nil, err
 			}
+		} else {
+			db.options.L.Warn(fmt.Sprintf("Found unknown file %s in database root directory", i.Name()))
 		}
-		// add warning level for foreign file
 	}
 
 	// starts garbage collection
@@ -61,9 +63,6 @@ func Open(dirname string, opts ...Option) (*DB, error) {
 
 	return db, nil
 }
-
-// TODO
-// add a test case to make sure opening index after data doesnt cause problemsb
 
 func (db *DB) openVirtualOrUnary(ch Channel) error {
 	db.mu.Lock()

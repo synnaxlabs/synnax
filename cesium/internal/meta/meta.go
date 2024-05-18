@@ -31,21 +31,20 @@ func ReadOrCreate(fs xfs.FS, ch core.Channel, ecd binary.EncoderDecoder) (core.C
 		return ch, err
 	}
 	if exists {
-		return Read(fs, ecd)
+		ch, err = Read(fs, ecd)
+		if err != nil {
+			return ch, err
+		}
+		return ch, validateMeta(ch)
 	}
 
-	if ch.DataType == telem.UnknownT {
-		return ch, errors.Wrapf(
-			validate.Error,
-			"[meta] - cannot resolve properties for channel <%d> while creating db",
-			ch.Key,
-		)
+	err = validateMeta(ch)
+	if err != nil {
+		return ch, err
 	}
 
 	return ch, Create(fs, ecd, ch)
 }
-
-// pull line 37 logic into a new function validate
 
 // Read reads the metadata file for a database whose data is kept in fs and is encoded
 // by the provided encoder.
@@ -55,8 +54,8 @@ func Read(fs xfs.FS, ecd binary.EncoderDecoder) (core.Channel, error) {
 	if err != nil {
 		return ch, err
 	}
-	if err := ecd.DecodeStream(nil, metaF, &ch); err != nil {
-		return ch, err
+	if err = ecd.DecodeStream(nil, metaF, &ch); err != nil {
+		return ch, errors.Wrap(err, "error decoding meta file")
 	}
 	return ch, metaF.Close()
 }
@@ -77,4 +76,25 @@ func Create(fs xfs.FS, ecd binary.EncoderDecoder, ch core.Channel) error {
 		return err
 	}
 	return metaF.Close()
+}
+
+// validateMeta checks that the meta file read from or about to be written to a meta file
+// is well-defined.
+func validateMeta(ch core.Channel) error {
+	v := validate.New("cesium")
+	validate.Positive(v, "key", ch.Key)
+	validate.NotEmptyString(v, "dataType", ch.DataType)
+	if ch.Virtual {
+		v.Ternaryf(ch.Index != 0, "virtual channel cannot be indexed")
+		v.Ternaryf(ch.Rate != 0, "virtual channel cannot have a rate")
+	} else {
+		v.Ternary(ch.DataType == telem.StringT, "persisted channels cannot have string data types")
+		if ch.IsIndex {
+			v.Ternary(ch.DataType != telem.TimeStampT, "index channel must be of type timestamp")
+			v.Ternaryf(ch.Index != 0 && ch.Index != ch.Key, "index channel cannot be indexed by another channel")
+		} else if ch.Index == 0 {
+			validate.Positive(v, "rate", ch.Rate)
+		}
+	}
+	return v.Error()
 }
