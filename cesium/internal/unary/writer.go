@@ -243,7 +243,7 @@ func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.
 	if end.IsZero() {
 		// We're using w.len - 1 here because we want the timestamp of the last
 		// written frame.
-		approx, err := w.idx.Stamp(ctx, w.Start, w.len(dw.Writer)-1, false)
+		approx, err := w.idx.Stamp(ctx, w.Start, w.len(dw.Writer)-1, true)
 		if err != nil {
 			return 0, err
 		}
@@ -254,9 +254,7 @@ func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.
 		end = approx.Lower + 1
 	}
 
-	err := dw.Commit(ctx, end)
-
-	return end, err
+	return end, dw.Commit(ctx, end)
 }
 
 func (w *Writer) Close(ctx context.Context) (controller.Transfer, error) {

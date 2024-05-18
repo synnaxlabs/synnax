@@ -112,9 +112,15 @@ func (i *Domain) Stamp(
 
 	iter := i.DB.NewIterator(domain.IterRange(ref.SpanRange(telem.TimeSpanMax)))
 
-	if !iter.SeekFirst(ctx) ||
-		!iter.TimeRange().ContainsStamp(ref) ||
-		(offset >= iter.Len()/8 && continuous) {
+	if !iter.SeekFirst(ctx) {
+		err = ErrDiscontinuous
+		return
+	}
+
+	effectiveDomainBounds, effectiveDomainLen := resolveEffectiveDomain(iter)
+
+	if !effectiveDomainBounds.ContainsStamp(ref) ||
+		(continuous && offset >= effectiveDomainLen/8) {
 		err = ErrDiscontinuous
 		return
 	}
@@ -122,6 +128,11 @@ func (i *Domain) Stamp(
 	if offset == 0 {
 		approx = Exactly(ref)
 		return
+	}
+
+	if !iter.SeekFirst(ctx) {
+		// No reason this SeekFirst should fail since it was called before.
+		panic("iterator seekFirst failed in stamp")
 	}
 
 	r, err := iter.NewReader(ctx)
@@ -133,11 +144,27 @@ func (i *Domain) Stamp(
 		return
 	}
 
+	// endOffset is the upper-bound distance of the desired sample from the start of the
+	// domain.
 	endOffset := startApprox.Upper + offset
+
+	// If the upper and lower bounds are exact of the startOffset are exact, then if the
+	// lower is out of the file, the stamp is discontinuous.
+	// If they are not exact, and the lower bound is the last sample, then the upper
+	// bound must be discontinuous as well.
+	if continuous {
+		if (startApprox.Exact() && startApprox.Lower+offset >= effectiveDomainLen/8) ||
+			(!startApprox.Exact() && startApprox.Lower+offset >= effectiveDomainLen/8-1) {
+			err = ErrDiscontinuous
+			return
+		}
+	}
+
 	gap := iter.Len() / 8
 	if endOffset >= iter.Len()/8 {
 		for {
 			if !iter.Next() {
+				// exhausted
 				if continuous {
 					err = ErrDiscontinuous
 					return
@@ -155,18 +182,58 @@ func (i *Domain) Stamp(
 				break
 			}
 		}
-
 	}
 
-	lowerTs, err := readStamp(r, (endOffset-(startApprox.Upper-startApprox.Lower))*8, make([]byte, 8))
-	if err != nil {
-		return
-	}
 	upperTs, err := readStamp(r, (endOffset)*8, make([]byte, 8))
 	if err != nil {
 		return
 	}
-	return Between(lowerTs, upperTs), nil
+
+	if endOffset-(startApprox.Upper-startApprox.Lower) >= 0 {
+		// normal case
+		lowerTs, err := readStamp(r, (endOffset-(startApprox.Upper-startApprox.Lower))*8, make([]byte, 8))
+
+		return Between(lowerTs, upperTs), err
+	}
+
+	// Edge case: end timestamps are split between two different files, so we must go
+	// back to read the lower bound.
+	if !iter.Prev() {
+		err = ErrDiscontinuous
+		return
+	}
+	r, err = iter.NewReader(ctx)
+	if err != nil {
+		return
+	}
+
+	lowerTs, err := readStamp(r, iter.Len()+(endOffset-(startApprox.Upper-startApprox.Lower))*8, make([]byte, 8))
+	return Between(lowerTs, upperTs), err
+}
+
+// resolveEffectiveDomain returns the TimeRange and length of the underlying domain(s).
+// The effective domain can be many continuous domains as long as they're immediately
+// continuous, i.e. the end of one domain is the start of the other.
+func resolveEffectiveDomain(i *domain.Iterator) (telem.TimeRange, int64) {
+	var (
+		effectiveDomainBounds = i.TimeRange()
+		effectiveDomainLen    = i.Len()
+	)
+	for {
+		currentDomainEnd := i.TimeRange().End
+		if !i.Next() {
+			break
+		}
+		nextDomainStart := i.TimeRange().Start
+
+		if currentDomainEnd != nextDomainStart {
+			break
+		}
+		effectiveDomainBounds.End = i.TimeRange().End
+		effectiveDomainLen += i.Len()
+	}
+
+	return effectiveDomainBounds, effectiveDomainLen
 }
 
 // search returns an approximation for the number of samples before a given timestamp. If the

@@ -124,8 +124,8 @@ type Writer struct {
 	fc *fileController
 	// fileSize is the writer's file's size
 	fileSize telem.Size
-	// lenWritten is the number of bytes written by all internal writers of the domain writer.
-	lenWritten int64
+	// len is the number of bytes written by all internal writers of the domain writer.
+	len int64
 	// internal is a TrackedWriteCloser used to write telemetry to FS.
 	internal xio.TrackedWriteCloser
 	// presetEnd denotes whether the writer has a preset end as part of its WriterConfig.
@@ -175,7 +175,7 @@ func (db *DB) NewWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) 
 }
 
 // Len returns the number of bytes written to the domain.
-func (w *Writer) Len() int64 { return w.lenWritten }
+func (w *Writer) Len() int64 { return w.len }
 
 // Writer writes binary telemetry to the domain. Write is not safe to call concurrently
 // with any other Writer methods. The contents of p are safe to modify after Write
@@ -186,7 +186,7 @@ func (w *Writer) Write(p []byte) (int, error) {
 	}
 	n, err := w.internal.Write(p)
 	w.fileSize += telem.Size(n)
-	w.lenWritten += int64(n)
+	w.len += int64(n)
 	return n, err
 }
 

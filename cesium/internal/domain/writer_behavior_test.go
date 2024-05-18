@@ -145,6 +145,46 @@ var _ = Describe("WriterBehavior", func() {
 						Expect(w.Close(ctx)).To(Succeed())
 						Expect(db2.Close()).To(Succeed())
 					})
+
+					It("Should work when the file size exceeds the limit by just 1", func() {
+						var db2 = MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub(rootPath)), FileSizeCap: 4 * telem.ByteSize}))
+
+						By("Writing some telemetry")
+						w := MustSucceed(db2.NewWriter(ctx, domain.WriterConfig{Start: 1 * telem.SecondTS}))
+						Expect(w.Write([]byte{1, 2, 3, 4, 5})).To(Equal(5))
+						l := MustSucceed(db2.FS.List(""))
+						l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
+							return item.Name() != "counter.domain" && item.Name() != "index.domain"
+						})
+						Expect(l).To(HaveLen(1))
+						Expect(l[0].Size()).To(Equal(int64(5)))
+						Expect(w.Commit(ctx, 5*telem.SecondTS+1)).To(Succeed())
+
+						By("Asserting that it should switch files when the file is oversize")
+						Expect(w.Write([]byte{21, 22, 23})).To(Equal(3))
+						Expect(w.Commit(ctx, 23*telem.SecondTS+1)).To(Succeed())
+						l = MustSucceed(db2.FS.List(""))
+						l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
+							return item.Name() != "counter.domain" && item.Name() != "index.domain"
+						})
+						Expect(l).To(HaveLen(2))
+						Expect(lo.Map(l, func(info os.FileInfo, _ int) (sz int64) { return info.Size() })).To(ConsistOf(int64(5), int64(3)))
+
+						By("Asserting the data is stored as expected")
+						i := db2.NewIterator(domain.IterRange(telem.TimeRangeMax))
+						Expect(i.SeekFirst(ctx)).To(BeTrue())
+						Expect(i.TimeRange()).To(Equal((1 * telem.SecondTS).Range(5*telem.SecondTS + 1)))
+						Expect(i.Len()).To(Equal(int64(5)))
+
+						Expect(i.Next()).To(BeTrue())
+						Expect(i.TimeRange()).To(Equal((5*telem.SecondTS + 1).Range(23*telem.SecondTS + 1)))
+						Expect(i.Len()).To(Equal(int64(3)))
+
+						By("Closing resources")
+						Expect(i.Close()).To(Succeed())
+						Expect(w.Close(ctx)).To(Succeed())
+						Expect(db2.Close()).To(Succeed())
+					})
 				})
 
 				Context("With preset end", func() {
