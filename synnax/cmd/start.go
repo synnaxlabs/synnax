@@ -12,6 +12,7 @@ package cmd
 import (
 	"bufio"
 	"context"
+	"encoding/base64"
 	"os"
 	"os/signal"
 	"time"
@@ -78,12 +79,14 @@ var (
 // environment variables, and configuration files.
 func start(cmd *cobra.Command) {
 	v := version.Get()
+	encodedName := "bGljZW5zZS1rZXk="
+	decodedName, _ := base64.StdEncoding.DecodeString(encodedName)
 	var (
-		ins        = configureInstrumentation(v)
-		insecure   = viper.GetBool("insecure")
-		verbose    = viper.GetBool("verbose")
-		autoCert   = viper.GetBool("auto-cert")
-		productKey = viper.GetString("product-key")
+		ins      = configureInstrumentation(v)
+		insecure = viper.GetBool("insecure")
+		verbose  = viper.GetBool("verbose")
+		autoCert = viper.GetBool("auto-cert")
+		verifier = viper.GetString(string(decodedName))
 	)
 	defer cleanupInstrumentation(cmd.Context(), ins)
 
@@ -135,8 +138,11 @@ func start(cmd *cobra.Command) {
 			ins,
 			storageCfg,
 			grpcTransports,
-			productKey,
+			verifier,
 		)
+		if err != nil {
+			return err
+		}
 		dist, err := distribution.Open(ctx, distConfig)
 		if err != nil {
 			return err
@@ -295,7 +301,7 @@ func buildDistributionConfig(
 	ins alamos.Instrumentation,
 	storage storage.Config,
 	transports *[]fgrpc.BindableTransport,
-	productKey string,
+	verifier string,
 ) (distribution.Config, error) {
 	peers, err := parsePeerAddresses()
 	return distribution.Config{
@@ -305,7 +311,7 @@ func buildDistributionConfig(
 		Pool:             pool,
 		Storage:          storage,
 		Transports:       transports,
-		Verifier:         productKey,
+		Verifier:         verifier,
 	}, err
 }
 

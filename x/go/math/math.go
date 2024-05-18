@@ -11,20 +11,20 @@
 
 package math
 
-// IntPow returns the integer n to the m power. IntPow requires m to be a
+// IntPow returns x^n for two integers x and n. IntPow requires n to be a
 // nonnegative integer.
-func IntPow(n, m int) int {
-	if m == 0 {
-		return 1
-	}
+func IntPow(x, n int) int {
+	return exp_by_squaring(1, x, n)
+}
 
-	if m == 1 {
-		return n
+// exp_by_squaring returns y*x^n for integers y, x, and n. This requires n to be
+// a nonnegative integer.
+func exp_by_squaring(y, x, n int) int {
+	if n == 0 {
+		return y
 	}
-
-	result := n
-	for i := 2; i <= m; i++ {
-		result *= n
+	if n%2 == 0 {
+		return exp_by_squaring(y, x*x, n/2)
 	}
-	return result
+	return exp_by_squaring(x*y, x*x, (n-1)/2)
 }

@@ -38,7 +38,7 @@ type Channel struct {
 	IsIndex     bool                 `json:"is_index" msgpack:"is_index"`
 	Index       channel.Key          `json:"index" msgpack:"index"`
 	Alias       string               `json:"alias" msgpack:"alias"`
-	Internal    bool                 `json:"internal" msgpack:"alias"`
+	Internal    bool                 `json:"internal" msgpack:"internal"`
 }
 
 // ChannelService is the central API for all things Channel related.

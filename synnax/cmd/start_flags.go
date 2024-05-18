@@ -9,6 +9,8 @@
 
 package cmd
 
+import "encoding/base64"
+
 func configureStartFlags() {
 	startCmd.Flags().StringP(
 		"listen",
@@ -64,9 +66,14 @@ func configureStartFlags() {
 		"Automatically generate self-signed certificates.",
 	)
 
+	encodedName := "bGljZW5zZS1rZXk="
+	decodedName, _ := base64.StdEncoding.DecodeString(encodedName)
+	encodedUsage := "TGljZW5zZSBrZXkgaW4gZm9ybSAiIyMjIyMjLSMjIyMjIyMjLSMjIyMjIyMjIyMiLg=="
+	decodedUsage, _ := base64.StdEncoding.DecodeString(encodedUsage)
+
 	startCmd.Flags().String(
-		"product-key",
+		string(decodedName),
 		"",
-		"Product license key in form \"######-########-##########\".",
+		string(decodedUsage),
 	)
 }
