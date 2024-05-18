@@ -33,6 +33,7 @@
 #include "driver/config/config.h"
 #include "driver/ni/error.h"
 #include <condition_variable>
+#include "spsc_queue.h"
 
 
 // #include "driver/modules/module.h"
@@ -143,14 +144,25 @@ namespace ni{
         void deleteScales();
         int createChannel(ni::ChannelConfig &channel);
         int configureTiming();
+        void acquireData();
 
         // NI related resources
-        bool running = false;
+
+        typedef struct DataPacket{
+            double* data; // actual data
+            uint64_t t0;  // initial timestamp
+            uint64_t tf;  // final timestamp
+        } DataPacket;
+
+        std::atomic<bool> running = false;
+        std::thread sample_thread;
+
         TaskHandle task_handle = 0;
         double *data;       // pointer to heap allocated dataBuffer to provide to DAQmx read functions
         uint64_t numChannels = 0;
         int numSamplesPerChannel = 0;
         json err_info;
+        SPSCQueue<DataPacket> data_queue;
 
 
         // Server related resources

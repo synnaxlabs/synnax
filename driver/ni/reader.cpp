@@ -417,6 +417,8 @@ freighter::Error ni::AnalogReadSource::start(){
         err = freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
     }
     else{
+        this->running = true;
+        this->sample_thread = std::thread(&AnalogReadSource::acquireData, this);
         LOG(INFO) << "[NI Reader] successfully started reader for task " << this->reader_config.task_name;
     }
     return err;
@@ -424,7 +426,13 @@ freighter::Error ni::AnalogReadSource::start(){
 
 
 freighter::Error ni::AnalogReadSource::stop(){ 
+   
     freighter::Error err = freighter::NIL;
+
+    this->running = false;
+    this->sample_thread.join();
+
+
     if (this->checkNIError(ni::NiDAQmxInterface::StopTask(this->task_handle))){
         LOG(ERROR) << "[NI Reader] failed while stopping reader for task " << this->reader_config.task_name;
         err = freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
@@ -458,56 +466,63 @@ void ni::AnalogReadSource::deleteScales(){
     }
 }
 
+void ni::AnalogReadSource::acquireData(){
+    int32 samplesRead = 0;
+    // actual read of analog lines
+    while(this->running){
+        DataPacket data_packet;
+        data_packet.data = new double[this->bufferSize];
+        data_packet.t0 = (uint64_t) ((synnax::TimeStamp::now()).value);
+        if (this->checkNIError(ni::NiDAQmxInterface::ReadAnalogF64(
+                                                                this->task_handle,
+                                                                this->numSamplesPerChannel,
+                                                                -1,
+                                                                DAQmx_Val_GroupByChannel,
+                                                                data_packet.data,
+                                                                this->bufferSize,
+                                                                &samplesRead,
+                                                                NULL))){
+            LOG(ERROR) << "[NI Reader] failed while reading analog data for task " << this->reader_config.task_name;
+            // return; // TODO: handle differently?
+        }
+        data_packet.tf = (uint64_t)((synnax::TimeStamp::now()).value);
+        data_queue.enqueue(data_packet);
+    }
+}
+
 
 
 std::pair<synnax::Frame, freighter::Error> ni::AnalogReadSource::read(){
-    int32 samplesRead = 0;
-    float64 flush[100000]; // to flush buffer before performing a read
-    int32 flushRead = 0;
+    std::this_thread::sleep_for(std::chrono::microseconds((uint32_t)((1.0 / this->reader_config.sample_rate) * 1000000)));
     synnax::Frame f = synnax::Frame(numChannels);
-
-    // initial read to flush buffer
-    if (this->checkNIError(ni::NiDAQmxInterface::ReadAnalogF64(
-                                            this->task_handle,
-                                            -1, // reads all available samples in buffer
-                                            10.0,
-                                            DAQmx_Val_GroupByChannel,
-                                            flush,
-                                            100000,
-                                            &flushRead,
-                                            NULL))){
-        LOG(ERROR) << "[NI Reader] failed while flushing buffer for task " << this->reader_config.task_name;
-        return std::make_pair(std::move(f), freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR, "error reading analog data"));
+    std::optional<DataPacket> d = data_queue.dequeue();
+    if (!d.has_value()){ // TODO: better handle this error
+        //sleep
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+        d = data_queue.dequeue();
+    }
+    if(!d.has_value()){
+        LOG(ERROR) << "[NI Reader] failed to read data from queue for task " << this->reader_config.task_name;
+        return std::make_pair(synnax::Frame(numChannels), freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR));
+    }
+    DataPacket data_packet = d.value();
+    // deep copy of data_packet data array
+    for(int i = 0; i < this->bufferSize; i++){
+        data_packet.data[i] = d.value().data[i];
     }
 
-    // actual read of analog lines
-    std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
-    if (this->checkNIError(ni::NiDAQmxInterface::ReadAnalogF64(
-                                                            this->task_handle,
-                                                            this->numSamplesPerChannel,
-                                                            -1,
-                                                            DAQmx_Val_GroupByChannel,
-                                                            this->data,
-                                                            this->bufferSize,
-                                                            &samplesRead,
-                                                            NULL))){
-        LOG(ERROR) << "[NI Reader] failed while reading analog data for task " << this->reader_config.task_name;
-        return std::make_pair(std::move(f), freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR, "Error reading analog data"));
-    }
-    std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
 
     // we interpolate the timestamps between the initial and final timestamp to ensure non-overlapping timestamps between read iterations
-    uint64_t diff = final_timestamp - initial_timestamp;
+    uint64_t diff = data_packet.tf - data_packet.t0;
     uint64_t incr = diff / this->numSamplesPerChannel;
 
     // Construct and populate index channel
     std::vector<std::uint64_t> time_index(this->numSamplesPerChannel);
-    for (uint64_t i = 0; i < samplesRead; ++i){
-        time_index[i] = initial_timestamp + (std::uint64_t)(incr * i);
+    for (uint64_t i = 0; i < this->numSamplesPerChannel; ++i){
+        time_index[i] = data_packet.t0 + (std::uint64_t)(incr * i);
     }
 
     // Construct and populate synnax frame
-    std::vector<float> data_vec(samplesRead);
     uint64_t data_index = 0; // TODO: put a comment explaining the function of data_index
     for (int i = 0; i < numChannels; i++){
         if (this->reader_config.channels[i].channel_type == "index"){
@@ -515,15 +530,17 @@ std::pair<synnax::Frame, freighter::Error> ni::AnalogReadSource::read(){
             f.add(this->reader_config.channels[i].channel_key, synnax::Series(time_index, synnax::TIMESTAMP));
         }
         else{
-            for (int j = 0; j < samplesRead; j++){
-                data_vec[j] = data[data_index * samplesRead + j];
+            std::vector<float> data_vec(this->numSamplesPerChannel);
+            for (int j = 0; j < this->numSamplesPerChannel; j++){
+                data_vec[j] = data_packet.data[data_index * this->numSamplesPerChannel + j];
             }
-            f.add(this->reader_config.channels[i].channel_key, synnax::Series(data_vec));
+            f.add(this->reader_config.channels[i].channel_key, synnax::Series(data_vec, synnax::FLOAT32));
             data_index++;
         }
     }
     
     // return synnax frame
+    if(d.has_value()) delete[] data_packet.data;
     return std::make_pair(std::move(f), freighter::NIL);
 }
 
