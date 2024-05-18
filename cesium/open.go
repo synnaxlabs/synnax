@@ -53,6 +53,7 @@ func Open(dirname string, opts ...Option) (*DB, error) {
 				return nil, err
 			}
 		}
+		// add warning level for foreign file
 	}
 
 	// starts garbage collection
@@ -60,6 +61,9 @@ func Open(dirname string, opts ...Option) (*DB, error) {
 
 	return db, nil
 }
+
+// TODO
+// add a test case to make sure opening index after data doesnt cause problemsb
 
 func (db *DB) openVirtualOrUnary(ch Channel) error {
 	db.mu.Lock()

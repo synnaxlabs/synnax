@@ -45,6 +45,8 @@ func ReadOrCreate(fs xfs.FS, ch core.Channel, ecd binary.EncoderDecoder) (core.C
 	return ch, Create(fs, ecd, ch)
 }
 
+// pull line 37 logic into a new function validate
+
 // Read reads the metadata file for a database whose data is kept in fs and is encoded
 // by the provided encoder.
 func Read(fs xfs.FS, ecd binary.EncoderDecoder) (core.Channel, error) {
