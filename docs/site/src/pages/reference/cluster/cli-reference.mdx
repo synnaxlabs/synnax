@@ -130,10 +130,10 @@ synnax start -l localhost:9090 -p localhost:9091,localhost:9092
             description: "Password for the database root user.",
         },
         {
-            option: "--product-key",
+            option: "--license-key",
             default: "\"\"",
-            description: `Product license key to use Synnax outside of demo
-                mode. The key should be entered with quotation marks as in
+            description: `License key to use Synnax outside of demo mode. The
+                should be entered with quotation marks as in 
                 <code>"000000-00000000-0000000000"</code>.`,
         },
     ]}
@@ -211,8 +211,8 @@ Command line flags will take precedence over environment variables.
             env: "SYNNAX_PASSWORD",
         },
         {
-            option: "--product-key",
-            env: "SYNNAX_PRODUCT_KEY",
+            option: "--license-key",
+            env: "SYNNAX_LICENSE_KEY",
         },
     ]}
 />
@@ -262,7 +262,7 @@ tabs={[
     "node-key": "node.key",
     "username": "synnax",
     "password": "seldon",
-    "product-key": "000000-00000000-0000000000",
+    "license-key": "000000-00000000-0000000000",
 }
 ```
 </slot>
@@ -283,7 +283,7 @@ node-cert: node.crt
 node-key: node.key
 username: synnax
 password: seldon
-product-key: 000000-00000000-0000000000
+license-key: 000000-00000000-0000000000
 ```
 </slot>
 <slot slot="toml">
@@ -301,7 +301,7 @@ node-cert = "node.crt"
 node-key = "node.key"
 username = "synnax"
 password = "seldon"
-product-key = "000000-00000000-0000000000"
+license-key = "000000-00000000-0000000000"
 ```
 </slot>
 </Tabs>
