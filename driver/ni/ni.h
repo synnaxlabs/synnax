@@ -152,6 +152,7 @@ namespace ni{
             double* data; // actual data
             uint64_t t0;  // initial timestamp
             uint64_t tf;  // final timestamp
+            int32 samplesReadPerChannel;
         } DataPacket;
 
         std::atomic<bool> running = false;
@@ -160,6 +161,7 @@ namespace ni{
         TaskHandle task_handle = 0;
         double *data;       // pointer to heap allocated dataBuffer to provide to DAQmx read functions
         uint64_t numChannels = 0;
+        uint64_t numAIChannels = 0;
         int numSamplesPerChannel = 0;
         json err_info;
         SPSCQueue<DataPacket> data_queue;

@@ -31,6 +31,12 @@ public:
         fr.add(key, Series(getUsage(), synnax::UINT32));
         return {std::move(fr), freighter::NIL};
     }
+    freighter::Error start() override {
+        return freighter::NIL;
+    }
+    freighter::Error stop() override {
+        return freighter::NIL;
+    }
 };
 
 class MemInfo final : public task::Task {

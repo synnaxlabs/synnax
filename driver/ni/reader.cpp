@@ -166,7 +166,7 @@ ni::AnalogReadSource::AnalogReadSource(
         this->ok_state = false;
     }
 
-    this->start(); // errors are handled in start
+    // this->start(); // errors are handled in start
 }
 
 
@@ -324,6 +324,7 @@ int ni::AnalogReadSource::init(){
     for (auto &channel : channels){
         if (channel.channel_type != "index" ){
             err = createChannel(channel);
+            this->numAIChannels++;
         } 
         this->numChannels++; 
         if (err < 0){
@@ -400,7 +401,8 @@ int ni::AnalogReadSource::configureTiming(){
         }
     }
     this->numSamplesPerChannel = std::floor(this->reader_config.sample_rate / this->reader_config.stream_rate);
-    this->bufferSize = this->numChannels * this->numSamplesPerChannel;
+    LOG(INFO) << "[NI Reader] numSamplesPerChannel: " << this->numSamplesPerChannel;
+    this->bufferSize = this->numAIChannels * this->numSamplesPerChannel;
     this->data = new double[bufferSize];
     return 0;
     // }r
@@ -411,6 +413,10 @@ int ni::AnalogReadSource::configureTiming(){
 
 
 freighter::Error ni::AnalogReadSource::start(){
+    LOG(INFO) << "[NI Reader] starting reader for task " << this->reader_config.task_name;
+     if(this->running){
+        return freighter::NIL;
+     }
     freighter::Error err = freighter::NIL;
     if (this->checkNIError(ni::NiDAQmxInterface::StartTask(this->task_handle))){
         LOG(ERROR) << "[NI Reader] failed while starting reader for task " << this->reader_config.task_name;
@@ -426,27 +432,31 @@ freighter::Error ni::AnalogReadSource::start(){
 
 
 freighter::Error ni::AnalogReadSource::stop(){ 
+    LOG(INFO) << "[NI Reader] stopping reader for task " << this->reader_config.task_name;
+    if(!this->running){
+        return freighter::NIL;
+    }
    
     freighter::Error err = freighter::NIL;
 
     this->running = false;
     this->sample_thread.join();
-
-
     if (this->checkNIError(ni::NiDAQmxInterface::StopTask(this->task_handle))){
         LOG(ERROR) << "[NI Reader] failed while stopping reader for task " << this->reader_config.task_name;
         err = freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
     }
-    else{
-        if (this->checkNIError(ni::NiDAQmxInterface::ClearTask(this->task_handle))){
-            LOG(ERROR) << "[NI Reader] failed while clearing reader for task " << this->reader_config.task_name;
-            err = freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
-        }
-    }
+    // else{
+    //     if (this->checkNIError(ni::NiDAQmxInterface::ClearTask(this->task_handle))){
+    //         LOG(ERROR) << "[NI Reader] failed while clearing reader for task " << this->reader_config.task_name;
+    //         err = freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
+    //     }
+    // }
 
     if (err == freighter::NIL){
         LOG(INFO) << "[NI Reader] successfully stopped and cleared reader for task " << this->reader_config.task_name;
     }
+
+    data_queue.reset();
 
     return err;
 }
@@ -467,8 +477,6 @@ void ni::AnalogReadSource::deleteScales(){
 }
 
 void ni::AnalogReadSource::acquireData(){
-    int32 samplesRead = 0;
-    // actual read of analog lines
     while(this->running){
         DataPacket data_packet;
         data_packet.data = new double[this->bufferSize];
@@ -480,7 +488,7 @@ void ni::AnalogReadSource::acquireData(){
                                                                 DAQmx_Val_GroupByChannel,
                                                                 data_packet.data,
                                                                 this->bufferSize,
-                                                                &samplesRead,
+                                                                &data_packet.samplesReadPerChannel,
                                                                 NULL))){
             LOG(ERROR) << "[NI Reader] failed while reading analog data for task " << this->reader_config.task_name;
             // return; // TODO: handle differently?
@@ -490,49 +498,44 @@ void ni::AnalogReadSource::acquireData(){
     }
 }
 
-
-
 std::pair<synnax::Frame, freighter::Error> ni::AnalogReadSource::read(){
-    std::this_thread::sleep_for(std::chrono::microseconds((uint32_t)((1.0 / this->reader_config.sample_rate) * 1000000)));
     synnax::Frame f = synnax::Frame(numChannels);
+
+    // actual read of analog lines
+    std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
+    std::this_thread::sleep_for(std::chrono::nanoseconds((uint64_t)((1.0 / this->reader_config.stream_rate )* 1000000000)));
+    std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
+    
+
+   
     std::optional<DataPacket> d = data_queue.dequeue();
-    if (!d.has_value()){ // TODO: better handle this error
-        //sleep
-        std::this_thread::sleep_for(std::chrono::seconds(1));
-        d = data_queue.dequeue();
-    }
-    if(!d.has_value()){
-        LOG(ERROR) << "[NI Reader] failed to read data from queue for task " << this->reader_config.task_name;
-        return std::make_pair(synnax::Frame(numChannels), freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR));
-    }
-    DataPacket data_packet = d.value();
-    // deep copy of data_packet data array
-    for(int i = 0; i < this->bufferSize; i++){
-        data_packet.data[i] = d.value().data[i];
+    if(d.has_value()){
+        for(int i = 0; i < this->bufferSize; i++){
+            this->data[i] = d.value().data[i];
+        }
+        delete[] d.value().data;
     }
 
 
     // we interpolate the timestamps between the initial and final timestamp to ensure non-overlapping timestamps between read iterations
-    uint64_t diff = data_packet.tf - data_packet.t0;
-    uint64_t incr = diff / this->numSamplesPerChannel;
-
+    uint64_t diff = d.value().tf- d.value().t0;
+    uint64_t incr = (diff / this->numSamplesPerChannel);
     // Construct and populate index channel
     std::vector<std::uint64_t> time_index(this->numSamplesPerChannel);
-    for (uint64_t i = 0; i < this->numSamplesPerChannel; ++i){
-        time_index[i] = data_packet.t0 + (std::uint64_t)(incr * i);
+    for (uint64_t i = 0; i < d.value().samplesReadPerChannel; ++i){
+        time_index[i] = d.value().t0 + (std::uint64_t)(incr * i);
     }
 
     // Construct and populate synnax frame
     uint64_t data_index = 0; // TODO: put a comment explaining the function of data_index
     for (int i = 0; i < numChannels; i++){
         if (this->reader_config.channels[i].channel_type == "index"){
-            // LOG(INFO) << "Index channel found: " << this->reader_config.channels[i].channel_key << " name: " << this->reader_config.channels[i].name;
             f.add(this->reader_config.channels[i].channel_key, synnax::Series(time_index, synnax::TIMESTAMP));
         }
         else{
-            std::vector<float> data_vec(this->numSamplesPerChannel);
-            for (int j = 0; j < this->numSamplesPerChannel; j++){
-                data_vec[j] = data_packet.data[data_index * this->numSamplesPerChannel + j];
+            std::vector<float> data_vec(d.value().samplesReadPerChannel);
+            for (int j = 0; j < d.value().samplesReadPerChannel; j++){
+                data_vec[j] = data[data_index * d.value().samplesReadPerChannel + j];
             }
             f.add(this->reader_config.channels[i].channel_key, synnax::Series(data_vec, synnax::FLOAT32));
             data_index++;
@@ -540,7 +543,6 @@ std::pair<synnax::Frame, freighter::Error> ni::AnalogReadSource::read(){
     }
     
     // return synnax frame
-    if(d.has_value()) delete[] data_packet.data;
     return std::make_pair(std::move(f), freighter::NIL);
 }
 
@@ -626,7 +628,9 @@ bool ni::AnalogReadSource::ok(){
 
 
 ni::AnalogReadSource::~AnalogReadSource(){
-    this->stop();
+    if (this->checkNIError(ni::NiDAQmxInterface::ClearTask(this->task_handle))){
+        LOG(ERROR) << "[NI Reader] failed while clearing reader for task " << this->reader_config.task_name;
+    }
     this->deleteScales();
     delete[] this->data;
 }
@@ -835,11 +839,11 @@ freighter::Error ni::DigitalReadSource::stop(){
             err = freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
         }
     }
-
-
     if (err == freighter::NIL){
         LOG(INFO) << "[NI Reader] successfully stopped and cleared reader for task " << this->reader_config.task_name;
     }
+
+
 
     return err;
 }

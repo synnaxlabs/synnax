@@ -34,13 +34,16 @@ Acquisition::Acquisition(
 
 void Acquisition::start() {
     LOG(INFO) << "[Acquisition] Starting acquisition";
-    thread = std::thread(&Acquisition::run, this);
     this->running = true;
+    thread = std::thread(&Acquisition::run, this);
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+    source->start();
 }
 
 void Acquisition::stop() {
     if (!running) return;
     this->running = false;
+    source->stop();
     thread.join();
     LOG(INFO) << "[Acquisition] Acquisition stopped";
 }
@@ -48,6 +51,7 @@ void Acquisition::stop() {
 void Acquisition::run() {
     this->writer_config.start = synnax::TimeStamp::now();
     auto [writer, wo_err] = ctx->client->telem.openWriter(writer_config);
+    std::this_thread::sleep_for(std::chrono::seconds(3));
 
     if (wo_err) {
         LOG(ERROR) << "[Acquisition] Failed to open writer: " << wo_err.message();
@@ -67,8 +71,7 @@ void Acquisition::run() {
                 continue;
             break;
         }
-
-        if (!writer.write(frame)) {
+        if (!writer.write(std::move(frame))) {
             LOG(ERROR) << "[Acquisition] Failed to write frame";
             break;
         }
