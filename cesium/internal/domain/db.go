@@ -127,7 +127,9 @@ func Open(configs ...Config) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	idx.mu.tombstones = make(map[uint16]uint32)
+	if len(idx.mu.tombstones) == 0 {
+		idx.mu.tombstones = make(map[uint16]uint32)
+	}
 	controller, err := openFileController(cfg)
 	if err != nil {
 		return nil, err

@@ -180,6 +180,14 @@ func (m *memFS) Open(name string, flag int) (File, error) {
 			return m.FS.Create(name)
 		}
 	} else if flag&os.O_RDWR != 0 || flag&os.O_WRONLY != 0 {
+		e, err := m.Exists(name)
+		if err != nil {
+			return nil, err
+		}
+		if !e {
+			return nil, os.ErrNotExist
+		}
+
 		f, err := m.FS.OpenReadWrite(name)
 		if err != nil {
 			return f, err

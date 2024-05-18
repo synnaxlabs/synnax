@@ -54,7 +54,17 @@ var _ = Describe("FS", func() {
 				Describe("Create test without create flag", func() {
 					It("Should not create a file", func() {
 						_, err := fs.Open("test_file.txt", os.O_RDONLY)
-						Expect(err).ToNot(BeNil())
+						Expect(err).To(MatchError(os.ErrNotExist))
+					})
+					It("Should not create a file under write mode", func() {
+						_, err := fs.Open("test_file.txt", os.O_WRONLY)
+						Expect(err).To(MatchError(os.ErrNotExist))
+						Expect(MustSucceed(fs.Exists("test_file.txt"))).To(BeFalse())
+					})
+					It("Should not create a file under read write mode", func() {
+						_, err := fs.Open("test_file.txt", os.O_RDWR)
+						Expect(err).To(MatchError(os.ErrNotExist))
+						Expect(MustSucceed(fs.Exists("test_file.txt"))).To(BeFalse())
 					})
 				})
 				Describe("Create test with exclusive", func() {

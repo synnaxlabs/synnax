@@ -114,10 +114,11 @@ var byteOrder = binary.LittleEndian
 type pointerEncoder struct{}
 
 func (f *pointerEncoder) encode(start int, pointers []pointer) []byte {
-	b := make([]byte, (len(pointers)-start)*pointerByteSize)
+	b := make([]byte, (len(pointers)-start)*pointerByteSize+1)
+	byteOrder.PutUint32(b[:4], uint32(len(pointers)))
 	for i := start; i < len(pointers); i++ {
 		ptr := pointers[i]
-		base := (i - start) * pointerByteSize
+		base := (i-start)*pointerByteSize + 4
 		byteOrder.PutUint64(b[base:base+8], uint64(ptr.Start))
 		byteOrder.PutUint64(b[base+8:base+16], uint64(ptr.End))
 		byteOrder.PutUint16(b[base+16:base+18], ptr.fileKey)
@@ -128,8 +129,11 @@ func (f *pointerEncoder) encode(start int, pointers []pointer) []byte {
 }
 
 func (f *pointerEncoder) decode(b []byte) []pointer {
-	pointers := make([]pointer, len(b)/pointerByteSize)
-	for i := 0; i < len(pointers); i++ {
+	var (
+		pointers   = make([]pointer, (len(b)-4)/pointerByteSize)
+		pointerLen = int(byteOrder.Uint32(b[:4]))
+	)
+	for i := 0; i < pointerLen; i++ {
 		base := i * pointerByteSize
 		pointers[i] = pointer{
 			TimeRange: telem.TimeRange{
@@ -152,17 +156,21 @@ func (f *tombstoneEncoder) encode(tombstones map[uint16]uint32) []byte {
 		counter = 0
 	)
 	for fileKey, tombstoneSize := range tombstones {
-		base := counter * pointerByteSize
+		base := counter*tombstoneByteSize + 4
 		byteOrder.PutUint16(b[base:base+2], fileKey)
 		byteOrder.PutUint32(b[base+2:base+6], tombstoneSize)
+		counter += 1
 	}
 	return b
 }
 
 func (f *tombstoneEncoder) decode(b []byte) map[uint16]uint32 {
-	tombstones := make(map[uint16]uint32)
-	for i := 0; i < len(b); i += tombstoneByteSize {
-		base := i * tombstoneByteSize
+	var (
+		tombstones   = make(map[uint16]uint32)
+		tombstoneLen = int(byteOrder.Uint32(b[:4]))
+	)
+	for i := 0; i < tombstoneLen; i++ {
+		base := i*tombstoneByteSize + 4
 		tombstones[byteOrder.Uint16(b[base:base+2])] = byteOrder.Uint32(b[base+2 : base+6])
 	}
 	return tombstones
