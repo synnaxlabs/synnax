@@ -46,7 +46,7 @@ func Open(dirname string, opts ...Option) (*DB, error) {
 		if i.IsDir() {
 			key, err := strconv.Atoi(i.Name())
 			if err != nil {
-				db.options.L.Error("failed parsing existing folder to channel key", zap.Error(err))
+				db.options.L.Error(fmt.Sprintf("failed parsing existing folder <%s> to channel key", i.Name()), zap.Error(err))
 				continue
 			}
 

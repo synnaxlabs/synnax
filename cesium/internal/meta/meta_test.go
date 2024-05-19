@@ -1,4 +1,13 @@
-package cesium_test
+// Copyright 2023 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package meta_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
@@ -17,7 +26,7 @@ var _ = Describe("Meta", func() {
 	for fsName, makeFS := range fileSystems {
 		fs := makeFS()
 		Context("FS: "+fsName, Ordered, func() {
-			It("Should error if the meta.json file is corrupted", func() {
+			Specify("Corrupted meta.json", func() {
 				s := MustSucceed(fs.Sub("sub1"))
 				db := MustSucceed(cesium.Open("", cesium.WithFS(s)))
 				key := GenerateChannelKey()
@@ -69,7 +78,7 @@ var _ = Describe("Meta", func() {
 				},
 					Entry("datatype not set", cesium.Channel{Key: key, Rate: 1 * telem.Hz}, "dataType"),
 					Entry("virtual with rate", cesium.Channel{Key: key, Virtual: true, Rate: 1 * telem.Hz, DataType: telem.Int64T}, "virtual channel cannot have a rate"),
-					Entry("virtual indexed", cesium.Channel{Key: key, Virtual: true, Index: key - 1, DataType: telem.Int64T}, "virtual channel cannot be indexed"),
+					Entry("virtual indexed", cesium.Channel{Key: key, Virtual: true, Index: key + 100, DataType: telem.Int64T}, "virtual channel cannot be indexed"),
 					Entry("index not type timestamp", cesium.Channel{Key: key, IsIndex: true, DataType: telem.Float32T}, "index channel must be of type timestamp"),
 				)
 			})

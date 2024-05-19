@@ -78,7 +78,8 @@ var _ = Describe("Channel", func() {
 			Describe("Opening db on existing folder", func() {
 				It("Should not panic when opening a db in a directory with already existing files", func() {
 					s := MustSucceed(fs.Sub("sub"))
-					f := MustSucceed(s.Open("dir1", os.O_CREATE))
+					MustSucceed(s.Sub("1234notnumeric"))
+					f := MustSucceed(s.Open("123.txt", os.O_CREATE))
 					Expect(f.Close()).To(Succeed())
 
 					db, err := cesium.Open("", cesium.WithFS(s))
