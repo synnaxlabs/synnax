@@ -21,7 +21,6 @@ import { ErrorOverlay } from "@/error/Overlay";
 import { OPC } from "@/hardware/opc";
 import { Layout } from "@/layout";
 import { LayoutMain } from "@/layouts/LayoutMain";
-import { Mosaic } from "@/layouts/mosaic";
 import { LinePlot } from "@/lineplot";
 import { Ontology } from "@/ontology";
 import { Schematic } from "@/schematic";
@@ -30,12 +29,13 @@ import { SERVICES } from "@/services";
 import { store } from "@/store";
 import { Version } from "@/version";
 import { Vis } from "@/vis";
-import WorkerURL from "@/worker?worker&url";
 import { Workspace } from "@/workspace";
+import { NI } from "@/hardware/ni";
+
+import WorkerURL from "@/worker?worker&url";
 
 import "@/index.css";
 import "@synnaxlabs/media/dist/style.css";
-import { NI } from "@/hardware/ni";
 import "@synnaxlabs/pluto/dist/style.css";
 
 const layoutRenderers: Record<string, Layout.Renderer> = {
@@ -66,7 +66,7 @@ const client = new QueryClient();
 
 const MainUnderContext = (): ReactElement => {
   const theme = Layout.useThemeProvider();
-  Version.useLoadTauri();
+  Version.useLoadElectron();
   const cluster = Cluster.useSelect();
 
   const useHaulState: state.PureUse<Haul.DraggingState> = () => {

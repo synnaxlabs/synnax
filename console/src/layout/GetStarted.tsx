@@ -79,7 +79,6 @@ const NoCluster = (): ReactElement => {
       <Text.Link target="_blank" level="h4" onClick={handleDocs}>
         Read the Documentation
       </Text.Link>
-      <Button.Button onClick={() => setCount(count + 1)}>Count: {count}</Button.Button>
     </Align.Center>
   );
 };

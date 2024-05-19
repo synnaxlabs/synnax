@@ -32,7 +32,6 @@
 }
 
 .console-palette__list {
-    background: var(--pluto-gray-l1);
     overflow-y: auto;
 
     & .pluto-status-text {
