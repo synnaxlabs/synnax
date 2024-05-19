@@ -22,7 +22,7 @@
       "icon": "icons/icon-macos.png"
     },
     "win": {
-      "icon": "build/icon.ico",
+      "icon": "icons/Square284x284Logo.png",
       "target": [
         {
           "target": "nsis",
