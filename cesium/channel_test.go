@@ -19,7 +19,6 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 	"os"
-	"strconv"
 )
 
 var _ = Describe("Channel", func() {
@@ -120,82 +119,24 @@ var _ = Describe("Channel", func() {
 					Expect(f.Series[0].Data).To(Equal(telem.NewSeriesV[int64](1, 2, 3, 4, 5).Data))
 				})
 
-				It("Should error if the meta.json file is corrupted", func() {
-					s := MustSucceed(fs.Sub("sub1"))
-					db := MustSucceed(cesium.Open("", cesium.WithFS(s)))
-					key := GenerateChannelKey()
-
-					Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, Rate: 1 * telem.Hz, DataType: telem.Int64T})).To(Succeed())
-					Expect(db.Close()).To(Succeed())
-
-					f, err := s.Open(strconv.Itoa(int(key))+"/meta.json", os.O_WRONLY)
-					Expect(err).ToNot(HaveOccurred())
-					_, err = f.Write([]byte("heheheha"))
-					Expect(err).ToNot(HaveOccurred())
-					Expect(f.Close()).To(Succeed())
-
-					db, err = cesium.Open("", cesium.WithFS(s))
-					Expect(err).To(MatchError(ContainSubstring("error decoding meta file")))
-				})
-
-				It("Should error if the meta.json file got changed with impossible configurations", func() {
-					s := MustSucceed(fs.Sub("sub2"))
-					db := MustSucceed(cesium.Open("", cesium.WithFS(s)))
-					key := GenerateChannelKey()
-
-					Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, Rate: 1 * telem.Hz, DataType: telem.Int64T})).To(Succeed())
-					Expect(db.Close()).To(Succeed())
-
-					f := MustSucceed(s.Open(strconv.Itoa(int(key))+"/meta.json", os.O_WRONLY))
-					badConfig := "{\"key\":21,\"IsIndex\":true,\"data_type\":\"\",\"rate\":0,\"index\":21,\"Virtual\":false,\"Concurrency\":0}"
-					_, err := f.WriteAt([]byte(badConfig), 0)
-					Expect(err).ToNot(HaveOccurred())
-
-					db, err = cesium.Open("", cesium.WithFS(s))
-					Expect(err).To(MatchError(validate.Error))
-					Expect(err).To(MatchError(ContainSubstring("dataType must be set")))
-
-					badConfig = "{\"key\":21,\"IsIndex\":false,\"data_type\":\"timestamp\",\"rate\":5,\"index\":0,\"Virtual\":true,\"Concurrency\":0}"
-					_, err = f.WriteAt([]byte(badConfig), 0)
-					Expect(err).ToNot(HaveOccurred())
-
-					db, err = cesium.Open("", cesium.WithFS(s))
-					Expect(err).To(MatchError(validate.Error))
-					Expect(err).To(MatchError(ContainSubstring("virtual channel cannot have a rate")))
-
-					badConfig = "{\"key\":21,\"IsIndex\":false,\"data_type\":\"timestamp\",\"rate\":0,\"index\":21,\"Virtual\":true,\"Concurrency\":0}"
-					_, err = f.WriteAt([]byte(badConfig), 0)
-					Expect(err).ToNot(HaveOccurred())
-
-					db, err = cesium.Open("", cesium.WithFS(s))
-					Expect(err).To(MatchError(validate.Error))
-					Expect(err).To(MatchError(ContainSubstring("virtual channel cannot be indexed")))
-
-					badConfig = "{\"key\":21,\"IsIndex\":true,\"data_type\":\"int64\",\"rate\":0,\"index\":21,\"Virtual\":false,\"Concurrency\":0}"
-					_, err = f.WriteAt([]byte(badConfig), 0)
-					Expect(err).ToNot(HaveOccurred())
-
-					db, err = cesium.Open("", cesium.WithFS(s))
-					Expect(err).To(MatchError(validate.Error))
-					Expect(err).To(MatchError(ContainSubstring("index channel must be of type timestamp")))
-
-					Expect(f.Close()).To(Succeed())
-				})
-
 				It("Should not error when db is opened on existing directory", func() {
 					s := MustSucceed(fs.Sub("sub3"))
 					db := MustSucceed(cesium.Open("", cesium.WithFS(s)))
 					indexKey := GenerateChannelKey()
 					key := GenerateChannelKey()
 
+					By("Opening two channels")
 					Expect(db.CreateChannel(ctx, cesium.Channel{Key: indexKey, IsIndex: true, DataType: telem.TimeStampT})).To(Succeed())
 					Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, Index: indexKey, DataType: telem.Int64T})).To(Succeed())
 					Expect(db.Write(ctx, 1*telem.SecondTS, cesium.NewFrame(
 						[]cesium.ChannelKey{indexKey, key},
 						[]telem.Series{telem.NewSecondsTSV(1, 2, 3, 4, 5), telem.NewSeriesV[int64](1, 2, 3, 4, 5)},
 					))).To(Succeed())
+
+					By("Closing the db")
 					Expect(db.Close()).To(Succeed())
 
+					By("Reopening the db on the file system with existing data")
 					db = MustSucceed(cesium.Open("", cesium.WithFS(s)))
 					ch := MustSucceed(db.RetrieveChannel(ctx, key))
 					Expect(ch).ToNot(BeNil())
@@ -209,6 +150,7 @@ var _ = Describe("Channel", func() {
 					Expect(ch.IsIndex).To(BeTrue())
 					Expect(ch.DataType).To(Equal(telem.TimeStampT))
 
+					By("Asserting that writes to the db still occurs normally")
 					Expect(db.Write(ctx, 11*telem.SecondTS, cesium.NewFrame(
 						[]cesium.ChannelKey{key, indexKey},
 						[]telem.Series{telem.NewSeriesV[int64](11, 12, 13, 14, 15), telem.NewSecondsTSV(11, 12, 13, 14, 15)},

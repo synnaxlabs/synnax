@@ -38,11 +38,6 @@ func ReadOrCreate(fs xfs.FS, ch core.Channel, ecd binary.EncoderDecoder) (core.C
 		return ch, validateMeta(ch)
 	}
 
-	err = validateMeta(ch)
-	if err != nil {
-		return ch, err
-	}
-
 	return ch, Create(fs, ecd, ch)
 }
 
@@ -64,6 +59,11 @@ func Read(fs xfs.FS, ecd binary.EncoderDecoder) (core.Channel, error) {
 // encoded by the provided encoder. The provided channel should have all fields
 // required by the DB correctly set.
 func Create(fs xfs.FS, ecd binary.EncoderDecoder, ch core.Channel) error {
+	err := validateMeta(ch)
+	if err != nil {
+		return err
+	}
+
 	metaF, err := fs.Open(metaFile, os.O_CREATE|os.O_WRONLY)
 	if err != nil {
 		return err
@@ -72,7 +72,7 @@ func Create(fs xfs.FS, ecd binary.EncoderDecoder, ch core.Channel) error {
 	if err != nil {
 		return err
 	}
-	if _, err := metaF.Write(b); err != nil {
+	if _, err = metaF.Write(b); err != nil {
 		return err
 	}
 	return metaF.Close()
