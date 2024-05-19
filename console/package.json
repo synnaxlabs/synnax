@@ -1,7 +1,7 @@
 {
   "name": "@synnaxlabs/console",
   "private": true,
-  "version": "0.21.7",
+  "version": "0.22.0",
   "main": "./dist-electron/main.js",
   "author": "Synnax Labs",
   "description": "Synnax Console",

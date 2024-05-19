@@ -1,8 +1,9 @@
-const { app, shell, BrowserWindow, ipcMain } = require("electron");
+const { app, shell, BrowserWindow, ipcMain, dialog } = require("electron");
 const { dirname, join } = require("path");
-const { MAIN_WINDOW, configureStore } = require("@synnaxlabs/drift");
-const { ElectronRuntime, listenOnMain } = require("@synnaxlabs/drift/electron");
+const { MAIN_WINDOW } = require("@synnaxlabs/drift");
+const { listenOnMain } = require("@synnaxlabs/drift/electron");
 const { fileURLToPath } = require("url");
+const fs = require("fs");
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -11,27 +12,20 @@ export const MAIN_DIST = join(process.env.APP_ROOT, "dist-electron");
 export const RENDERER_DIST = join(process.env.APP_ROOT, "dist");
 export const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL;
 
-const loadRender = (win: BrowserWindow) => {
-  if (process.env.VITE_DEV_SERVER_URL) {
-    win.loadURL(process.env.VITE_DEV_SERVER_URL);
-  } else {
-    win.loadFile(join(RENDERER_DIST, "index.html"));
-  }
+const loadRender = (win) => {
+  if (process.env.VITE_DEV_SERVER_URL) win.loadURL(process.env.VITE_DEV_SERVER_URL);
+  else win.loadFile(join(RENDERER_DIST, "index.html"));
 };
 
-// The built directory structure
-//
-// ├─┬ dist-electron
-// │ ├─┬ main
-// │ │ └── index.js    > Electron-Main
-// │ └─┬ preload
-// │   └── index.mjs   > Preload-Scripts
-// ├─┬ dist
-// │ └── index.html    > Electron-Renderer
-//
+if (process.defaultApp) {
+  if (process.argv.length >= 2) {
+    app.setAsDefaultProtocolClient("synnax", process.execPath, [process.argv[1]]);
+  } else {
+    app.setAsDefaultProtocolClient("synnax");
+  }
+}
 
 function createWindow() {
-  // Create the browser window.
   const preload = join(MAIN_DIST, "preload.js");
   const mainWindow = new BrowserWindow({
     width: 900,
@@ -39,10 +33,11 @@ function createWindow() {
     title: MAIN_WINDOW,
     show: false,
     frame: false,
+    minWidth: 625,
+    minHeight: 375,
     autoHideMenuBar: true,
-    ...(process.platform === "linux" ? { icon } : {}),
     webPreferences: {
-      preload: preload,
+      preload,
       sandbox: false,
     },
   });
@@ -50,55 +45,29 @@ function createWindow() {
   listenOnMain({
     mainWindow,
     createWindow: (props) => {
-      const { size, minSize, maxSize, position, visible, ...rest } = props;
       const win = new BrowserWindow({
         ...props,
         frame: false,
-        webPreferences: {
-          preload: join(MAIN_DIST, "preload.js"),
-          sandbox: false,
-        },
+        webPreferences: { preload, sandbox: false },
       });
       loadRender(win);
       return win;
     },
   });
 
-  mainWindow.on("ready-to-show", () => {
-    mainWindow.show();
-  });
+  mainWindow.on("ready-to-show", () => mainWindow.show());
 
-  mainWindow.on("closed", () => {
-    app.quit();
-  });
+  mainWindow.on("closed", () => app.quit());
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url);
     return { action: "deny" };
   });
-
-  // HMR for renderer base on electron-vite cli.
-  // Load the remote URL for development or the local html file for production.
-  // mainWindow.loadURL("http://localhost:5173");
 }
 
-// This method will be called when Electron has finished
-// initialization and is ready to create browser windows.
-// Some APIs can only be used after this event occurs.
+app.setName("Synnax");
+
 app.whenReady().then(() => {
-  // Set app user model id for windows
-  //   electronApp.setAppUserModelId('com.electron')
-
-  // Default open or close DevTools by F12 in development
-  // and ignore CommandOrControl + R in production.
-  // see https://github.com/alex8088/electron-toolkit/tree/master/packages/utils
-  //   app.on('browser-window-created', (_, window) => {
-  //     optimizer.watchWindowShortcuts(window)
-  //   })
-
-  // IPC test
-  ipcMain.on("ping", () => console.log("pong"));
-
   createWindow();
 
   app.on("activate", function () {
@@ -106,15 +75,50 @@ app.whenReady().then(() => {
     // dock icon is clicked and there are no other windows open.
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
-});
-// Quit when all windows are closed, except on macOS. There, it's common
-// for applications and their menu bar to stay active until the user quits
-// explicitly with Cmd + Q.
-app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") {
-    app.quit();
-  }
-});
 
-// In this file you can include the rest of your app"s specific main process
-// code. You can also put them in separate files and require them here.
+  ipcMain.handle("getVersion", async () => {
+    return app.getVersion();
+  });
+
+  const kvFilePath = join(app.getPath("userData"), "data.json");
+  let data: Record<string, any> | null = null;
+
+  const readKVData = async (): Promise<Record<string, any>> => {
+    if (data !== null) return data;
+    if (!fs.existsSync(kvFilePath)) data = {};
+    else {
+      try {
+        const contents = await fs.promises.readdir(app.getPath("userData"));
+        data = JSON.parse(contents);
+      } catch (e) {
+        console.error(e);
+        data = {};
+      }
+    }
+    return data;
+  };
+  const writeKVData = async (d: Record<string, any>) => {
+    await fs.promises.writeFile(kvFilePath, JSON.stringify(d, null, 2));
+  };
+
+  ipcMain.handle("kvGet", async (_, key) => {
+    const d = await readKVData();
+    return d[key] ?? null;
+  });
+  ipcMain.handle("kvSet", async (_, key, value) => {
+    const d = await readKVData();
+    d[key] = value;
+    await writeKVData(d);
+  });
+  ipcMain.handle("kvDelete", async (_, key) => {
+    const d = await readKVData();
+    delete d[key];
+    await writeKVData(d);
+  });
+  app.on("before-quit", async () => {
+    if (data !== null) await writeKVData(data);
+  });
+});
+app.on("window-all-closed", () => {
+  if (process.platform !== "darwin") app.quit();
+});

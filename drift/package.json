@@ -60,27 +60,27 @@
   ],
   "main": "./dist/drift.cjs.js",
   "module": "./dist/drift.es.js",
-  "types": "./dist/index.d.ts",
+  "types": "./dist/src/index.d.ts",
   "exports": {
     ".": {
       "import": "./dist/index.js",
       "require": "./dist/index.cjs",
-      "types": "./dist/index.d.ts"
+      "types": "./dist/src/index.d.ts"
     },
     "./react": {
       "import": "./dist/react.js",
       "require": "./dist/react.cjs",
-      "types": "./dist/react/index.d.ts"
+      "types": "./dist/src/react/index.d.ts"
     },
     "./tauri": {
       "import": "./dist/tauri.js",
       "require": "./dist/tauri.cjs",
-      "types": "./dist/tauri/index.d.ts"
+      "types": "./dist/src/tauri/index.d.ts"
     },
     "./electron": {
       "import": "./dist/electron.js",
       "require": "./dist/electron.cjs",
-      "types": "./dist/electron/index.d.ts"
+      "types": "./dist/src/electron/index.d.ts"
     }
   }
 }

@@ -67,7 +67,6 @@ export const Confirm = (): ReactElement => {
   const { mutate, isPending } = useMutation({
     mutationKey: [client?.key],
     mutationFn: async () => {
-      console.log(client);
       if (client == null) return;
       const groups = formCtx.get<GroupConfig[]>({ path: "groups" }).value;
       for (const group of groups) {

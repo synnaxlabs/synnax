@@ -9,10 +9,10 @@ rack = client.hardware.create_rack([sy.Rack(name="gse")])
 client.hardware.create_device(
     [
         sy.Device(
-            key="130127d9-02aa-47e4-b370-0d590add1bc1",
+            key="130227d9-02aa-47e4-b370-0d590add1bc1",
             rack=rack[0].key,
-            name="Device 1",
-            make="N",
+            name="Device 2",
+            make="NI",
             model="PXI-6255",
             location="dev1",
             identifier="dev1"

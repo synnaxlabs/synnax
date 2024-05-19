@@ -33,6 +33,10 @@ export class MockRuntime<S extends StoreState, A extends Action = UnknownAction>
     this._label = initialProps.key;
   }
 
+  async configure(): Promise<void> {
+    return;
+  }
+
   isMain(): boolean {
     return this._isMain;
   }

@@ -10,4 +10,4 @@
 export * from "@/version/Badge";
 export * from "@/version/selectors";
 export * from "@/version/slice";
-export * from "@/version/tauriVersion";
+export * from "@/version/electronVersion";

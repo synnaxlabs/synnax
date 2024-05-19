@@ -11,6 +11,7 @@ import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 import tsconfigPaths from "vite-tsconfig-paths";
 import electron from "vite-plugin-electron/simple";
+import path from "path";
 
 const isDev = process.env.TAURI_DEBUG === "true";
 
@@ -22,10 +23,10 @@ export default defineConfig({
     strictPort: true,
   },
   resolve: {
-    // alias: {
-    //   "@synnaxlabs/pluto/dist": path.resolve(__dirname, "../pluto/dist"),
-    //   "@synnaxlabs/pluto": path.resolve(__dirname, "../pluto/src"),
-    // },
+    alias: {
+      "@synnaxlabs/pluto/dist": path.resolve(__dirname, "../pluto/dist"),
+      "@synnaxlabs/pluto": path.resolve(__dirname, "../pluto/src"),
+    },
   },
   envPrefix: ["VITE_", "TAURI_"],
   plugins: [

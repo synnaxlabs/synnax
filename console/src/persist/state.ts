@@ -15,10 +15,10 @@ import {
   type Action,
 } from "@reduxjs/toolkit";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
+import { getWindowLabel } from "@synnaxlabs/drift/electron";
 import { debounce, deep, type UnknownRecord } from "@synnaxlabs/x";
-// import { appWindow } from "@tauri-apps/api/window";
 
-import { TauriKV } from "@/persist/kv";
+import { ElectronKV } from "@/persist/kv";
 import { type Version } from "@/version";
 
 const PERSISTED_STATE_KEY = "console-persisted-state";
@@ -52,54 +52,55 @@ export const open = async <S extends RequiredState>({
   exclude = [],
   migrator,
 }: Config<S>): Promise<[S | undefined, Middleware<UnknownRecord, S>]> => {
-  return [undefined, noOpMiddleware];
-  // const db = new TauriKV();
-  // let version: number = (await db.get<StateVersionValue>(DB_VERSION_KEY))?.version ?? 0;
-  // let state = (await db.get<S>(persistedStateKey(version))) ?? undefined;
-  // if (state != null && migrator != null) {
-  //   state = migrator(state);
-  //   await db.set(PERSISTED_STATE_KEY, state).catch(console.error);
-  // }
+  const label = await getWindowLabel();
+  if (label !== MAIN_WINDOW) [undefined, noOpMiddleware];
+  const db = new ElectronKV();
+  let version: number = (await db.get<StateVersionValue>(DB_VERSION_KEY))?.version ?? 0;
+  let state = (await db.get<S>(persistedStateKey(version))) ?? undefined;
+  if (state != null && migrator != null) {
+    state = migrator(state);
+    await db.set(PERSISTED_STATE_KEY, state).catch(console.error);
+  }
 
-  // const revert = async (): Promise<void> => {
-  //   if (appWindow.label !== MAIN_WINDOW) return;
-  //   version--;
-  //   await db.set(DB_VERSION_KEY, { version });
-  //   window.location.reload();
-  // };
+  const revert = async (): Promise<void> => {
+    if (label !== MAIN_WINDOW) return;
+    version--;
+    await db.set(DB_VERSION_KEY, { version });
+    window.location.reload();
+  };
 
-  // const clear = async (): Promise<void> => {
-  //   if (appWindow.label !== MAIN_WINDOW) return;
-  //   for (let i = version; i >= version - KEEP_HISTORY - 1; i--)
-  //     await db.delete(persistedStateKey(i));
-  //   version = 0;
-  //   await db.set(DB_VERSION_KEY, { version });
-  //   window.location.reload();
-  // };
+  const clear = async (): Promise<void> => {
+    if (label !== MAIN_WINDOW) return;
+    for (let i = version; i >= version - KEEP_HISTORY - 1; i--)
+      await db.delete(persistedStateKey(i));
+    version = 0;
+    await db.set(DB_VERSION_KEY, { version });
+    window.location.reload();
+  };
 
-  // const persist = debounce((store: MiddlewareAPI<Dispatch<UnknownAction>, S>) => {
-  //   if (appWindow.label !== MAIN_WINDOW) return;
-  //   version++;
-  //   // We need to make a deep copy here to make immer happy
-  //   // when we do deep deletes.
-  //   const deepCopy = deep.copy(store.getState());
-  //   const filtered = deep.deleteD<S>(deepCopy, ...exclude);
-  //   db.set(persistedStateKey(version), filtered).catch(console.error);
-  //   db.set(DB_VERSION_KEY, { version }).catch(console.error);
-  //   db.delete(persistedStateKey(version - KEEP_HISTORY)).catch(console.error);
-  // }, 500);
+  const persist = debounce((store: MiddlewareAPI<Dispatch<UnknownAction>, S>) => {
+    if (label !== MAIN_WINDOW) return;
+    version++;
+    // We need to make a deep copy here to make immer happy
+    // when we do deep deletes.
+    const deepCopy = deep.copy(store.getState());
+    const filtered = deep.deleteD<S>(deepCopy, ...exclude);
+    db.set(persistedStateKey(version), filtered).catch(console.error);
+    db.set(DB_VERSION_KEY, { version }).catch(console.error);
+    db.delete(persistedStateKey(version - KEEP_HISTORY)).catch(console.error);
+  }, 500);
 
-  // return [
-  //   state,
-  //   (store) => (next) => (action) => {
-  //     const result = next(action);
-  //     const type = (action as Action | undefined)?.type;
-  //     if (type === REVERT_STATE.type) revert().catch(console.error);
-  //     else if (type === CLEAR_STATE.type) clear().catch(console.error);
-  //     else persist(store);
-  //     return result;
-  //   },
-  // ];
+  return [
+    state,
+    (store) => (next) => (action) => {
+      const result = next(action);
+      const type = (action as Action | undefined)?.type;
+      if (type === REVERT_STATE.type) revert().catch(console.error);
+      else if (type === CLEAR_STATE.type) clear().catch(console.error);
+      else persist(store);
+      return result;
+    },
+  ];
 };
 
 const noOpMiddleware: Middleware<UnknownRecord, any> = () => (next) => (action) =>

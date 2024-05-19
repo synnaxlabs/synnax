@@ -1,9 +1,16 @@
  {
+    "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
     "appId": "YourAppID",
     "asar": true,
     "productName": "Synnax",
     "directories": {
       "output": "release/${version}"
+    },
+    "protocols": {
+        "name": "Synnax",
+        "schemes": [
+            "synnax"
+        ]
     },
     "files": [
       "dist-electron",
@@ -11,12 +18,11 @@
     ],
     "mac": {
       "artifactName": "${productName}_${version}.${ext}",
-      "target": [
-        "dmg",
-        "zip"
-      ]
+      "target": ["dmg"],
+      "icon": "icons/icon-macos.png"
     },
     "win": {
+      "icon": "build/icon.ico",
       "target": [
         {
           "target": "nsis",

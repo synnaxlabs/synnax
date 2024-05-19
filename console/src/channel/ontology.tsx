@@ -124,7 +124,6 @@ const handleDeleteAlias = async ({
   selection: { resources },
   client,
   store,
-  state: { setNodes, nodes },
 }: Ontology.TreeContextMenuProps): Promise<void> => {
   const activeRange = Range.select(store.getState());
   if (activeRange == null) return;

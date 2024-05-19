@@ -158,14 +158,6 @@ export const Palette = ({
 const canDrop: Haul.CanDrop = ({ items }) =>
   items.length === 1 && items[0].type === Mosaic.HAUL_DROP_TYPE;
 
-const TYPE_TO_SEARCH = (
-  <Align.Space align="center" className={CSS.BE("palette", "empty")} grow>
-    <Status.Text level="h4" variant="disabled" hideIcon>
-      Type to search
-    </Status.Text>
-  </Align.Space>
-);
-
 export interface PaletteListProps {
   mode: Mode;
   resourceTypes: Ontology.Services;
@@ -234,10 +226,7 @@ const PalletteDialogContent = ({
       close();
       if (mode === "command") {
         const entry = entries[0];
-        (entry as Command).onSelect({
-          store,
-          placeLayout,
-        });
+        (entry as Command).onSelect({ store, placeLayout });
       } else {
         if (client == null) return;
         const id = new ontology.ID(key);
@@ -314,33 +303,24 @@ const CommandAction = ({
   name,
   trigger: keyboardShortcut,
   onClick,
-}: CommandActionProps & { ctx: CommandSelectionContext }): ReactElement => {
-  const handleClick = useCallback<MouseEventHandler>(
-    (e) => {
-      e.preventDefault();
-      onClick(ctx);
-    },
-    [ctx],
-  );
-  return (
-    <Align.Pack direction="x" className={CSS.BE("palette", "action")}>
-      <Text.Keyboard
-        level="small"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          padding: "0 1.5rem",
-        }}
-        shade={7}
-      >
-        {Triggers.toSymbols(keyboardShortcut)}
-      </Text.Keyboard>
-      <Button.Button variant="outlined" size="small" shade={7}>
-        {name}
-      </Button.Button>
-    </Align.Pack>
-  );
-};
+}: CommandActionProps & { ctx: CommandSelectionContext }): ReactElement => (
+  <Align.Pack direction="x" className={CSS.BE("palette", "action")}>
+    <Text.Keyboard
+      level="small"
+      style={{
+        display: "flex",
+        alignItems: "center",
+        padding: "0 1.5rem",
+      }}
+      shade={7}
+    >
+      {Triggers.toSymbols(keyboardShortcut)}
+    </Text.Keyboard>
+    <Button.Button variant="outlined" size="small" shade={7}>
+      {name}
+    </Button.Button>
+  </Align.Pack>
+);
 
 const createCommandListItem = (
   ctx: CommandSelectionContext,

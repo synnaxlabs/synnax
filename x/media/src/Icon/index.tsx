@@ -89,7 +89,14 @@ import {
 } from "react-icons/md";
 import { PiSelectionPlusBold, PiMagnifyingGlassBold } from "react-icons/pi";
 import { RiSettings3Fill as RiSettingsFill, RiSoundModuleFill } from "react-icons/ri";
-import { SiNpm, SiPnpm, SiPython, SiTypescript, SiYarn } from "react-icons/si";
+import {
+  SiGooglenearby,
+  SiNpm,
+  SiPnpm,
+  SiPython,
+  SiTypescript,
+  SiYarn,
+} from "react-icons/si";
 import {
   TbArrowRight,
   TbArrowDown,
@@ -296,6 +303,7 @@ export const Icon: IconType = {
   Hardware: wrapIcon(MdHardware),
   Save: wrapIcon(MdSaveAlt),
   Task: wrapIcon(TbSubtask),
+  Device: wrapIcon(SiGooglenearby),
 };
 
 export interface IconType {
@@ -400,6 +408,7 @@ export interface IconType {
     Bottom: IconFC;
   };
   Hardware: IconFC;
+  Device: IconFC;
   Task: IconFC;
   Save: IconFC;
   Connect: IconFC;

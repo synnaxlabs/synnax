@@ -104,7 +104,6 @@ const newStore = async (): Promise<RootStore> => {
     reducer,
     enablePrerender: true,
     defaultWindowProps: DEFAULT_WINDOW_PROPS,
-    debug: true,
   });
 };
 
