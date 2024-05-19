@@ -53,18 +53,26 @@ const configureZ = z.object({
   groups: groupZ.array(),
 });
 
-export const configureWindowLayout: Layout.State = {
-  key: "configureOPCServer",
-  windowKey: "configureOPCServer",
-  type: "configureOPCServer",
-  name: "Configure OPC UA Server",
-  location: "window",
-  window: {
-    resizable: false,
-    size: { height: 900, width: 1200 },
-    navTop: true,
-  },
-};
+export const CONFIGURE_LAYOUT_TYPE = "configureOPCServer";
+
+export const createConfigureLayout =
+  (device?: string, initial: Omit<Partial<Layout.State>, "type"> = {}) =>
+  (): Layout.State => {
+    const { name = "Configure OPC UA Server", location = "window", ...rest } = initial;
+    return {
+      key: device ?? initial.key ?? CONFIGURE_LAYOUT_TYPE,
+      type: CONFIGURE_LAYOUT_TYPE,
+      windowKey: device ?? initial.key ?? CONFIGURE_LAYOUT_TYPE,
+      name,
+      window: {
+        navTop: true,
+        resizable: false,
+        size: { height: 900, width: 1200 },
+      },
+      location,
+      ...rest,
+    };
+  };
 
 const STEPS: Steps.Step[] = [
   {

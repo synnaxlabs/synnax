@@ -145,7 +145,7 @@ const lightGrayScale: GrayScale = Object.fromEntries(
 ) as GrayScale;
 
 const SYNNAX_BASE: ThemeSpec = {
-  key: "synnax-base",
+  key: "synnaxBase",
   name: "Synnax Base",
   colors: {
     primary: {
@@ -254,11 +254,11 @@ const SYNNAX_BASE: ThemeSpec = {
   },
 };
 
-export const SYNNAX_LIGHT: ThemeSpec = {
+export const SYNNAX_LIGHT: ThemeSpec = Object.freeze({
   ...SYNNAX_BASE,
-  key: "synnax-light",
+  key: "synnaxLight",
   name: "Synnax Light",
-};
+});
 
 const DARK_SCALE = [
   "#020202",
@@ -278,9 +278,9 @@ const DARK_GRAY_SCALE: GrayScale = Object.fromEntries(
   DARK_SCALE.map((color, index) => [`l${index}`, color]),
 ) as GrayScale;
 
-export const SYNNAX_DARK: ThemeSpec = {
+export const SYNNAX_DARK: ThemeSpec = Object.freeze({
   ...SYNNAX_BASE,
-  key: "synnax-dark",
+  key: "synnaxDark",
   name: "Synnax Dark",
   colors: {
     ...SYNNAX_BASE.colors,
@@ -290,6 +290,6 @@ export const SYNNAX_DARK: ThemeSpec = {
     text: DARK_GRAY_SCALE.l9,
     textInverted: DARK_GRAY_SCALE.l0,
   },
-};
+});
 
 export const SYNNAX_THEMES = { synnaxDark: SYNNAX_DARK, synnaxLight: SYNNAX_LIGHT };

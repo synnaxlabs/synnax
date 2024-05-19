@@ -70,7 +70,6 @@ export const DefaultContextMenu = (): ReactElement => (
 
 export const Window = (): ReactElement | null => {
   const win = useSelectWindowKey();
-  console.log(win);
   const layout = useSelect(win ?? "");
   const os = OS.use();
   const dispatch = useDispatch();

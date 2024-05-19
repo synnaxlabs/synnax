@@ -41,7 +41,7 @@ describe("deepMerge", () => {
         d: 4,
       },
     };
-    expect(deep.merge(a, b)).toEqual(c);
+    expect(deep.override(a, b)).toEqual(c);
   });
   it("Should set a value even when its parent is undefined", () => {
     const a: TestRecord = {
@@ -59,7 +59,7 @@ describe("deepMerge", () => {
         d: 4,
       },
     };
-    expect(deep.merge(a, b)).toEqual(c);
+    expect(deep.override(a, b)).toEqual(c);
   });
 
   describe("overrideValidItems", () => {

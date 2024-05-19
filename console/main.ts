@@ -86,7 +86,15 @@ app.whenReady().then(() => {
   const readKVData = async (): Promise<Record<string, any>> => {
     if (data !== null) return data;
     if (!fs.existsSync(kvFilePath)) data = {};
-    else data = JSON.parse(await fs.promises.readFile(kvFilePath, "utf-8"));
+    else {
+      try {
+        const contents = await fs.promises.readdir(app.getPath("userData"));
+        data = JSON.parse(contents);
+      } catch (e) {
+        console.error(e);
+        data = {};
+      }
+    }
     return data;
   };
   const writeKVData = async (d: Record<string, any>) => {
@@ -106,6 +114,9 @@ app.whenReady().then(() => {
     const d = await readKVData();
     delete d[key];
     await writeKVData(d);
+  });
+  app.on("before-quit", async () => {
+    if (data !== null) await writeKVData(data);
   });
 });
 app.on("window-all-closed", () => {

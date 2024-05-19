@@ -88,7 +88,7 @@ const MainUnderContext = (): ReactElement => {
   return (
     <QueryClientProvider client={client}>
       <Pluto.Provider
-        {...theme}
+        theming={theme}
         channelAlias={{ activeRange: activeRange?.key }}
         workerEnabled
         connParams={cluster?.props}

@@ -56,7 +56,6 @@ export const open = async <S extends RequiredState>({
   if (label !== MAIN_WINDOW) [undefined, noOpMiddleware];
   const db = new ElectronKV();
   let version: number = (await db.get<StateVersionValue>(DB_VERSION_KEY))?.version ?? 0;
-  console.log(version);
   let state = (await db.get<S>(persistedStateKey(version))) ?? undefined;
   if (state != null && migrator != null) {
     state = migrator(state);
@@ -90,8 +89,6 @@ export const open = async <S extends RequiredState>({
     db.set(DB_VERSION_KEY, { version }).catch(console.error);
     db.delete(persistedStateKey(version - KEEP_HISTORY)).catch(console.error);
   }, 500);
-
-  console.log(state);
 
   return [
     state,

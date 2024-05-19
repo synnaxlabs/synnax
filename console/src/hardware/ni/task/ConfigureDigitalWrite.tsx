@@ -390,7 +390,6 @@ const ChannelListItem = ({
         size="small"
         onClick={(e) => e.stopPropagation()}
         onChange={(v) => {
-          console.log("setting enabled", v);
           ctx.set({ path: `${path}.${props.index}.enabled`, value: v });
         }}
         tooltip={

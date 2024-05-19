@@ -79,7 +79,6 @@ export const Configure = ({ layoutKey }: Layout.RendererProps): ReactElement => 
       return await client.hardware.devices.retrieve(layoutKey);
     },
   });
-  console.log(data);
   if (isPending || data == null) return <div>Loading...</div>;
   return <ConfigureInternal device={data} />;
 };
@@ -144,8 +143,8 @@ const ConfigureInternal = ({ device }: ConfigureInternalProps): ReactElement => 
   );
 };
 
-export type LayoutType = "hardwareConfigureNIDevice";
-export const CONFIGURE_LAYOUT_TYPE = "hardwareConfigureNIDevice";
+export const CONFIGURE_LAYOUT_TYPE = "configure_NI";
+export type LayoutType = typeof CONFIGURE_LAYOUT_TYPE;
 
 export const createConfigureLayout =
   (device: string, initial: Omit<Partial<Layout.State>, "type">) =>

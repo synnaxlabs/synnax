@@ -48,7 +48,6 @@ export const SelectNode = ({ data, ...props }: SelectNodeProps): ReactElement =>
         .filter((n) => n != null) as NodeEntry[],
     [data],
   );
-  console.log(transformedData);
   return (
     <Select.Single<string, NodeEntry>
       columns={SELECT_NODE_COLUMNS}
