@@ -31,8 +31,9 @@ type fileController struct {
 	Config
 	writers struct {
 		sync.RWMutex
-		release chan struct{}
-		open    map[uint16]controlledWriter
+		release  chan struct{}
+		open     map[uint16]controlledWriter
+		unopened map[uint16]struct{}
 	}
 	readers struct {
 		sync.RWMutex
@@ -50,16 +51,45 @@ func openFileController(cfg Config) (*fileController, error) {
 	if err != nil {
 		return nil, err
 	}
+	counter, err := xio.NewInt32Counter(counterF)
+	if err != nil {
+		return nil, err
+	}
 	fc := &fileController{
 		Config:      cfg,
-		counter:     xio.NewInt32Counter(counterF),
+		counter:     counter,
 		counterFile: counterF,
 	}
 	fc.writers.open = make(map[uint16]controlledWriter, cfg.MaxDescriptors)
 	fc.writers.release = make(chan struct{}, cfg.MaxDescriptors)
 	fc.readers.open = make(map[uint16][]controlledReader)
 	fc.readers.release = make(chan struct{}, cfg.MaxDescriptors)
-	return fc, nil
+
+	fc.writers.unopened, err = fc.scanUnopenedFiles()
+	return fc, err
+}
+
+func (fc *fileController) scanUnopenedFiles() (map[uint16]struct{}, error) {
+	unopened := make(map[uint16]struct{})
+	for i := 1; i <= int(fc.counter.Value()); i++ {
+		e, err := fc.Config.FS.Exists(fileKeyToName(uint16(i)))
+		if err != nil {
+			return unopened, err
+		}
+		if !e {
+			continue
+		}
+
+		s, err := fc.Config.FS.Stat(fileKeyToName(uint16(i)))
+		if err != nil {
+			return unopened, err
+		}
+		if s.Size() < int64(fc.FileSize) {
+			unopened[uint16(i)] = struct{}{}
+		}
+	}
+
+	return unopened, nil
 }
 
 func (fc *fileController) acquireWriter(ctx context.Context) (uint16, xio.TrackedWriteCloser, error) {
@@ -73,7 +103,7 @@ func (fc *fileController) acquireWriter(ctx context.Context) (uint16, xio.Tracke
 			return 0, nil, err
 		}
 
-		if s.Size() <= int64(fc.FileSize) && w.tryAcquire() {
+		if s.Size() < int64(fc.FileSize) && w.tryAcquire() {
 			fc.writers.RUnlock()
 			return w.fileKey, &w, nil
 		}
@@ -100,9 +130,33 @@ func (fc *fileController) acquireWriter(ctx context.Context) (uint16, xio.Tracke
 	return fc.acquireWriter(ctx)
 }
 
+// newWriter creates a new writing file handle from the file controller: it first
+// attempts to create a file handle for files from the directory that are not at
+// capacity. If there is none, it creates a new file and increments the counter.
 func (fc *fileController) newWriter(ctx context.Context) (*controlledWriter, error) {
 	ctx, span := fc.T.Bench(ctx, "newWriter")
 	defer span.End()
+
+	fc.writers.Lock()
+	defer fc.writers.Unlock()
+	for key, _ := range fc.writers.unopened {
+		file, err := fc.FS.Open(fileKeyToName(key), os.O_WRONLY|os.O_APPEND)
+		if err != nil {
+			return nil, span.Error(err)
+		}
+		base, err := xio.NewTrackedWriteCloser(file)
+		if err != nil {
+			return nil, span.Error(err)
+		}
+		w := controlledWriter{
+			TrackedWriteCloser: base,
+			controllerEntry:    newPoolEntry(key, fc.writers.release),
+		}
+		fc.writers.open[key] = w
+		delete(fc.writers.unopened, key)
+		return &w, nil
+	}
+
 	nextKey_, err := fc.counter.Add(1)
 	if err != nil {
 		return nil, span.Error(err)
@@ -110,7 +164,7 @@ func (fc *fileController) newWriter(ctx context.Context) (*controlledWriter, err
 	nextKey := uint16(nextKey_)
 	file, err := fc.FS.Open(
 		fileKeyToName(nextKey),
-		os.O_APPEND|os.O_CREATE|os.O_WRONLY,
+		os.O_CREATE|os.O_EXCL|os.O_WRONLY,
 	)
 	if err != nil {
 		return nil, span.Error(err)
@@ -123,10 +177,8 @@ func (fc *fileController) newWriter(ctx context.Context) (*controlledWriter, err
 		TrackedWriteCloser: base,
 		controllerEntry:    newPoolEntry(nextKey, fc.writers.release),
 	}
-	fc.writers.Lock()
 	fc.writers.open[nextKey] = w
-	fc.writers.Unlock()
-	return &w, err
+	return &w, nil
 }
 
 func (fc *fileController) acquireReader(ctx context.Context, key uint16) (xio.ReaderAtCloser, error) {
