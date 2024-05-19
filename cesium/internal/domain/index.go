@@ -238,7 +238,7 @@ func (idx *index) persist(ctx context.Context, persistAtIndex int) error {
 
 	encoded = idx.indexPersist.t.encode(idx.mu.tombstones)
 	if len(encoded) != 0 {
-		_, err := idx.indexPersist.t.Write(encoded)
+		_, err := idx.indexPersist.t.WriteAt(encoded, 0)
 		return span.Error(err)
 	}
 

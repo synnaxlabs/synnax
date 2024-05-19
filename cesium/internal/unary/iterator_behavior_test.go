@@ -350,15 +350,22 @@ var _ = Describe("Iterator Behavior", func() {
 					})
 				})
 			})
-			Describe("Close", func() {
-				var db = MustSucceed(unary.Open(unary.Config{
-					FS: MustSucceed(fs.Sub(rootPath)),
-					Channel: core.Channel{
-						Key:      2,
-						DataType: telem.TimeStampT,
-						IsIndex:  true,
-					},
-				}))
+			Describe("Close", Ordered, func() {
+				var db *unary.DB
+				BeforeAll(func() {
+					db = MustSucceed(unary.Open(unary.Config{
+						FS: MustSucceed(fs.Sub(rootPath)),
+						Channel: core.Channel{
+							Key:      2,
+							DataType: telem.TimeStampT,
+							IsIndex:  true,
+						},
+					}))
+				})
+				AfterAll(func() {
+					Expect(db.Close()).To(Succeed())
+					Expect(fs.Remove(rootPath)).To(Succeed())
+				})
 				It("Should not allow operations on a closed iterator", func() {
 					var (
 						i = db.OpenIterator(unary.IteratorConfig{Bounds: telem.TimeRangeMax})
@@ -370,8 +377,7 @@ var _ = Describe("Iterator Behavior", func() {
 					Expect(i.Valid()).To(BeFalse())
 					Expect(i.Close()).To(Succeed())
 				})
-				Expect(db.Close()).To(Succeed())
-				Expect(fs.Remove(rootPath)).To(Succeed())
+
 			})
 		})
 	}

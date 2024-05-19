@@ -288,7 +288,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 				})
 			})
 			Context("Tombstone persist", func() {
-				It("Should preserve the tombstones after database closure", func() {
+				FIt("Should preserve the tombstones after database closure", func() {
 					db = MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub(rootPath)), FileSize: 5 * telem.ByteSize, GCThreshold: 0.4}))
 					Expect(domain.Write(ctx, db, (10 * telem.SecondTS).Range(19*telem.SecondTS+1), []byte{10, 11, 12, 13})).To(Succeed())             // file 1
 					Expect(domain.Write(ctx, db, (20 * telem.SecondTS).Range(25*telem.SecondTS+1), []byte{20, 21, 22, 23, 24, 25})).To(Succeed())     // file 1
