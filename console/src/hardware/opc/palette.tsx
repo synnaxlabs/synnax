@@ -9,7 +9,7 @@
 
 import { Icon } from "@synnaxlabs/media";
 
-import { configureWindowLayout } from "@/hardware/opc/device/Configure";
+import { createConfigureLayout } from "@/hardware/opc/device/Configure";
 import { configureReadLayout } from "@/hardware/opc/task/ReadTask";
 import { type Command } from "@/palette/Palette";
 
@@ -17,7 +17,7 @@ export const connectServerCommand: Command = {
   key: "opc-connect-server",
   name: "OPC UA - Connect a New Server",
   icon: <Icon.Logo.OPC />,
-  onSelect: ({ placeLayout }) => placeLayout(configureWindowLayout),
+  onSelect: ({ placeLayout }) => placeLayout(createConfigureLayout()),
 };
 
 export const createReadTaskCommand: Command = {

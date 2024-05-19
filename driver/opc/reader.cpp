@@ -102,6 +102,13 @@ public:
         readRequest.nodesToReadSize = readValueIds.size();
     }
 
+    freighter::Error start() override {
+        return freighter::NIL;
+    }
+
+    freighter::Error stop() override {
+        return freighter::NIL;
+    }
 
     std::pair<Frame, freighter::Error> read() override {
         auto fr = Frame(cfg.channels.size() + indexes.size());

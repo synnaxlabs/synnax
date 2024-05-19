@@ -20,6 +20,8 @@ class Source {
 public:
     virtual ~Source() = default;
     virtual std::pair<Frame, freighter::Error> read() = 0;
+    virtual freighter::Error start() = 0;
+    virtual freighter::Error stop() = 0;
 };
 
 /// @brief A pipeline that reads from a source and writes it's data to Synnax. The pipeline is intentionally designed

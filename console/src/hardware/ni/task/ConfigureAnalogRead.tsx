@@ -117,9 +117,7 @@ const Internal = ({ initialTask, initialValues }: InternalProps): ReactElement =
   useAsyncEffect(async () => {
     if (client == null || task == null) return;
     stateObserverRef.current = await task.openStateObserver<AnalogReadStateDetails>();
-    stateObserverRef.current.onChange((s) => {
-      setTaskState(s);
-    });
+    stateObserverRef.current.onChange((s) => setTaskState(s));
     return async () => await stateObserverRef.current?.close().catch(console.error);
   }, [client?.key, task?.key, setTaskState]);
 

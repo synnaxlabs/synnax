@@ -320,7 +320,6 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
                     })();
                     break;
                   case "meta-data":
-                    console.log("Meta Data", key);
                     placer({
                       ...Range.metaDataWindowLayout,
                       name: `${name} Meta Data`,

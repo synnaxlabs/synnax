@@ -21,7 +21,6 @@ import { ErrorOverlay } from "@/error/Overlay";
 import { OPC } from "@/hardware/opc";
 import { Layout } from "@/layout";
 import { LayoutMain } from "@/layouts/LayoutMain";
-import { Mosaic } from "@/layouts/mosaic";
 import { LinePlot } from "@/lineplot";
 import { Ontology } from "@/ontology";
 import { Schematic } from "@/schematic";
@@ -30,12 +29,17 @@ import { SERVICES } from "@/services";
 import { store } from "@/store";
 import { Version } from "@/version";
 import { Vis } from "@/vis";
-import WorkerURL from "@/worker?worker&url";
 import { Workspace } from "@/workspace";
+import { NI } from "@/hardware/ni";
+
+import WorkerURL from "@/worker?worker&url";
 
 import "@/index.css";
 import "@synnaxlabs/media/dist/style.css";
+<<<<<<< HEAD
 import { NI } from "@/hardware/ni";
+=======
+>>>>>>> 66c293d80252286faaa52029fb7babd50dadb56d
 import "@synnaxlabs/pluto/dist/style.css";
 
 const layoutRenderers: Record<string, Layout.Renderer> = {
@@ -66,7 +70,7 @@ const client = new QueryClient();
 
 const MainUnderContext = (): ReactElement => {
   const theme = Layout.useThemeProvider();
-  Version.useLoadTauri();
+  Version.useLoadElectron();
   const cluster = Cluster.useSelect();
 
   const useHaulState: state.PureUse<Haul.DraggingState> = () => {
@@ -88,7 +92,7 @@ const MainUnderContext = (): ReactElement => {
   return (
     <QueryClientProvider client={client}>
       <Pluto.Provider
-        {...theme}
+        theming={theme}
         channelAlias={{ activeRange: activeRange?.key }}
         workerEnabled
         connParams={cluster?.props}

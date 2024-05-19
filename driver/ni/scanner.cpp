@@ -23,7 +23,7 @@ ni::Scanner::Scanner(const std::shared_ptr<task::Context> &ctx,
 {
     // initialize syscfg session for the scanner (TODO: Error Handling for status)
     NISysCfgStatus status = NISysCfg_OK;
-    status = ni::NiSysCfgInterface::InitializeSession( // TODO: look into this
+    status = ni::NiSysCfgInterface::InitializeSession( 
         "localhost",                                   // target (ip, mac or dns name)
         NULL,                                          // username (NULL for local system)
         NULL,                                          // password (NULL for local system)
@@ -47,21 +47,19 @@ ni::Scanner::~Scanner()
 {
     // TODO: Error Handling
     ni::NiSysCfgInterface::CloseHandle(this->filter);
-    ni::NiSysCfgInterface::CloseHandle(this->resourcesHandle);
+    ni::NiSysCfgInterface::CloseHandle(this->resources_handle);
     ni::NiSysCfgInterface::CloseHandle(this->session);
     LOG(INFO) << "[ni.scanner] successfully closed scanner for task " << this->task.name;
 }
 
 void ni::Scanner::scan()
 {
-    // LOG(INFO) << "[ni.scanner] scanning devices for task " << this->task.name;
     NISysCfgResourceHandle resource = NULL;
 
     // first find hardware
     auto err = ni::NiSysCfgInterface::FindHardware(this->session, NISysCfgFilterModeAll, this->filter, NULL,
-                                                   &this->resourcesHandle);
-    if (err != NISysCfg_OK)
-    {
+                                                   &this->resources_handle);
+    if (err != NISysCfg_OK){
         this->ok_state = false;
         return; // TODO: handle error more meaningfully
     }
@@ -69,12 +67,10 @@ void ni::Scanner::scan()
     // Now iterate through found devices and get requested properties
     devices["devices"] = json::array();
 
-    while (ni::NiSysCfgInterface::NextResource(this->session, this->resourcesHandle, &resource) == NISysCfg_OK)
-    {   
+    while (ni::NiSysCfgInterface::NextResource(this->session, this->resources_handle, &resource) == NISysCfg_OK){   
         auto device = getDeviceProperties(resource);
         devices["devices"].push_back(device);
     }
-    // LOG(INFO) << "[ni.scanner] successfully scanned devices from task " << this->task.name;
 }
 
 
@@ -120,7 +116,6 @@ json ni::Scanner::getDeviceProperties(NISysCfgResourceHandle resource){
 
 void ni::Scanner::createDevices(){
     for(auto &device : devices["devices"]){
-
         // first  try to rereive the device and if found, do not create a new device, simply continue
         auto [retrieved_device, err] = this->ctx->client->hardware.retrieveDevice(device["key"]);
         if(err == freighter::NIL){
@@ -143,58 +138,11 @@ void ni::Scanner::createDevices(){
         }        
         // LOG(INFO) << "[ni.scanner] successfully created device " << device["model"] <<  " with key " << device["key"] << " for task " << this->task.name;
     }
-
-    
-    // auto new_device = synnax::Device()
-
-
-    // // no iterate through the set and retrieve device and print out name
-    // for (auto &serial : device_serials)
-    // {
-    //     auto [device, err] = this->ctx->client->hardware.retrieveDevice(serial);
-    //     if (err)
-    //     {
-    //         LOG(ERROR) << "[ni.scanner] failed to retrieve device with serial number " << serial;
-    //     }
-    //     else
-    //     {
-    //         LOG(INFO) << "[ni.scanner] retrieved device with serial number " << serial << " and name " << device.name;
-    //     }
-    // }
-
-    // // scanned devices, now create them if they arent in the set.
-    // for (auto &device : devices["devices"])
-    // {
-    //     if (device_serials.find(device["SerialNumber"]) == device_serials.end())
-    //     {
-    //         // add serial to set
-    //         device_serials.insert(device["key"]);
-    //         // create device
-    //         auto new_device = synnax::Device({device["key"].get<std::string>(),
-    //                                           device["DeviceName"].get<std::string>(),
-    //                                           synnax::taskKeyRack(this->task.key),
-    //                                           device["Location"].get<std::string>(),
-    //                                           device["SerialNumber"].get<std::string>(),
-    //                                           "NI",
-    //                                           device["DeviceName"].get<std::string>().substr(3),
-    //                                           device.dump()});
-    //         this->ctx->client->hardware.createDevice(new_device);
-    //     }
-    // }
-
-    // no iterate through the set and retrieve device and print out name
 }
 
-
-
-
-void ni::Scanner::testConnection(){
-    // TODO: Implement this
-    return;
-}
 
 bool ni::Scanner::ok(){
-    return ok_state; // TODO: remove? only internal state
+    return ok_state; 
 }
 
 json ni::Scanner::getDevices(){

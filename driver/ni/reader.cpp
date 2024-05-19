@@ -27,7 +27,7 @@ using json = nlohmann::json;
 ///////////////////////////////////////////////////////////////////////////////////
 //                             Helper Functions                                  //
 ///////////////////////////////////////////////////////////////////////////////////
-void ni::DaqAnalogReader::getIndexKeys(){
+void ni::AnalogReadSource::getIndexKeys(){
     std::set<std::uint32_t> index_keys;
     //iterate through channels in reader config
     for (auto &channel : this->reader_config.channels){
@@ -63,32 +63,68 @@ void ni::DaqAnalogReader::getIndexKeys(){
             LOG(INFO) << "[NI Reader] index channel " << index_channel.channel_key << " and name: " << index_channel.name <<" added to task " << this->reader_config.task_name;
         }
     }
-
 }
 
 
-// TODO: fix this to avoid code duplication:
+void ni::DigitalReadSource::getIndexKeys(){
+    std::set<std::uint32_t> index_keys;
+    //iterate through channels in reader config
+    for (auto &channel : this->reader_config.channels){
+        auto [channel_info, err] = this->ctx->client->channels.retrieve(channel.channel_key);
+        // TODO handle error with breaker
+        if (err != freighter::NIL){
+            // Log error
+            LOG(ERROR) << "[NI Reader] failed to retrieve channel " << channel.channel_key;
+            this->ok_state = false;
+            return;
+        } else{
+            // add key to set
+            index_keys.insert(channel_info.index);
+        }
+    }
 
 
-uint32_t parseFloats(std::vector<float64> vec, float* arr){
+    // now iterate through the set and add all the index channels as configs
+    for (auto it = index_keys.begin(); it != index_keys.end(); ++it){
+        auto index_key = *it;
+        LOG(INFO) << "constructing index channel configs";
+        auto [channel_info, err] = this->ctx->client->channels.retrieve(index_key);
+        if (err != freighter::NIL){
+            LOG(ERROR) << "[NI Reader] failed to retrieve channel " << index_key;
+            this->ok_state = false;
+            return;
+        } else{
+            ni::ChannelConfig index_channel;
+            index_channel.channel_key = channel_info.key;
+            index_channel.channel_type = "index";
+            index_channel.name = channel_info.name;
+            this->reader_config.channels.push_back(index_channel);
+            LOG(INFO) << "[NI Reader] index channel " << index_channel.channel_key << " and name: " << index_channel.name <<" added to task " << this->reader_config.task_name;
+        }
+    }
+}
+
+
+
+
+void  ParseFloats(std::vector<float64> vec, double* arr){
     for(int i = 0; i < vec.size(); i++){
         arr[i] = vec[i];
     }
-    return vec.size();
 }
 
 
 
 
 ///////////////////////////////////////////////////////////////////////////////////
-//                                   daqAnalogReader                             //
+//                                   AnalogReadSource                            //
 ///////////////////////////////////////////////////////////////////////////////////
 
 // TODO: Code dedup
-ni::DaqAnalogReader::DaqAnalogReader(
-    TaskHandle taskHandle,
+ni::AnalogReadSource::AnalogReadSource(
+    TaskHandle task_handle,
     const std::shared_ptr<task::Context> &ctx,
-    const synnax::Task task) : taskHandle(taskHandle), ctx(ctx){
+    const synnax::Task task) : task_handle(task_handle), ctx(ctx){
     // Create parser
     auto config_parser = config::Parser(task.config);
     this->reader_config.task_name = task.name;
@@ -130,16 +166,17 @@ ni::DaqAnalogReader::DaqAnalogReader(
         this->ok_state = false;
     }
 
-    this->start(); // errors are handled in start
+    // this->start(); // errors are handled in start
 }
 
 
 
-void ni::DaqAnalogReader::parseConfig(config::Parser &parser){
+void ni::AnalogReadSource::parseConfig(config::Parser &parser){
     // Get Acquisition Rate and Stream Rates
-    this->reader_config.acq_rate = parser.required<uint64_t>("sample_rate");
+    this->reader_config.sample_rate = parser.required<uint64_t>("sample_rate");
     this->reader_config.stream_rate = parser.required<uint64_t>("stream_rate");
     this->reader_config.device_key = parser.required<std::string>("device");
+    this->reader_config.timing_source = "none"; // parser.required<std::string>("timing_source"); TODO: uncomment this when ui provides timing source
 
 
     auto [dev, err] = this->ctx->client->hardware.retrieveDevice(this->reader_config.device_key);
@@ -154,8 +191,7 @@ void ni::DaqAnalogReader::parseConfig(config::Parser &parser){
     // now parse the channels
     assert(parser.ok());
     parser.iter("channels",
-                [&](config::Parser &channel_builder)
-                {
+                [&](config::Parser &channel_builder){
                     ni::ChannelConfig config;
 
                     // analog channel names are formatted: <device_name>/ai<port>
@@ -181,7 +217,7 @@ void ni::DaqAnalogReader::parseConfig(config::Parser &parser){
 
 
 
-void ni::DaqAnalogReader::parseCustomScale(config::Parser & parser, ni::ChannelConfig & config){
+void ni::AnalogReadSource::parseCustomScale(config::Parser & parser, ni::ChannelConfig & config){
     json j = parser.get_json();
     if(j.contains("scale")){
         config.custom_scale = true;
@@ -209,46 +245,46 @@ void ni::DaqAnalogReader::parseCustomScale(config::Parser & parser, ni::ChannelC
             config.scale->map = {prescaled_min, prescaled_max, scaled_min, scaled_max, prescaled_units, scaled_units};
 
         } else if(config.scale_type == "PolyScale"){
-            float* forward_coeffs_arr;
-            float* reverse_coeffs_arr;
             // get forward coeffs (prescale -> scale)
-            std::vector<double> forward_coeffs_vec = {}; // scale_parser.required<std::vector<double>>("forward_coeffs"); FIXME
-            if(parser.ok()){
-                uint32_t num_coeffs = parseFloats(forward_coeffs_vec, forward_coeffs_arr);
+            json j = scale_parser.get_json();
+            if(!j.contains("forward_coeffs")){
+                return;
+            }
+            std::vector<double> forward_coeffs_vec = j["forward_coeffs"]; 
+            if(scale_parser.ok()){
                 auto min_x = scale_parser.required<double>("min_x");
                 auto max_x = scale_parser.required<double>("max_x");
-                auto num_points = scale_parser.required<int32>("num_points");
+                uint32_t num_forward_coeffs = scale_parser.required<uint32_t>("num_coeffs");
                 auto poly_order = scale_parser.required<int32>("poly_order");
+                int32_t num_points = scale_parser.required<uint32_t>("num_points");
 
-                // make arrays i can actually pass into the function TODO: fix this
-                float reverse_coeffs_in[1000];
-                float forward_coeffs_in[1000];
+                float64* forward_coeffs = new double[num_forward_coeffs];
+                float64* reverse_coeffs = new double[num_forward_coeffs]; // TODO: reverse coeffs can be less than forward_coeffs depending on the order of the function (only equal if order is)      
+                ParseFloats(forward_coeffs_vec, forward_coeffs);
 
-                for(int i = 0; i < num_coeffs; i++){
-                    forward_coeffs_in[i] = forward_coeffs_arr[i];
-                }
+
                 // get reverse coeffs (scale -> prescale)
-                // ni::NiDAQmxInterface::CalculateReversePolyCoeff(forward_coeffs_in, num_coeffs, min_x, max_x, num_points, -1, reverse_coeffs_in); // FIXME: 
-                config.scale->polynomial = {forward_coeffs_arr, reverse_coeffs_arr, num_coeffs, min_x, max_x, num_points, poly_order, prescaled_units, scaled_units};
+                ni::NiDAQmxInterface::CalculateReversePolyCoeff(forward_coeffs, num_forward_coeffs, min_x, max_x, num_points, -1,  reverse_coeffs); // FIXME: reversePoly order should be user inputted?
+                config.scale->polynomial = {forward_coeffs, reverse_coeffs, num_forward_coeffs, min_x, max_x, num_points, poly_order, prescaled_units, scaled_units};
             }
    
         } else if(config.scale_type == "TableScale"){
-            std::vector<double> prescaled_vec = {}; //  scale_parser.required<std::vector<double>>("prescaled"); //FIXME
-            std::vector<double> scaled_vec =  {}; //scale_parser.required<std::vector<double>>("scaled"); //FIXME
+            json j = scale_parser.get_json();
+            if(!j.contains("prescaled") || !j.contains("scaled")){
+                return;
+            }
+            std::vector<double> prescaled_vec = j["prescaled"];
+            std::vector<double> scaled_vec = j["scaled"];
+            uint32_t num_points = scale_parser.required<uint32_t>("num_points");
             if(scale_parser.ok()){
                 uint32_t num_points = prescaled_vec.size();
-                float* prescaled_arr;
-                float* scaled_arr;
-                uint32_t num_prescaled = parseFloats(prescaled_vec, prescaled_arr);
-                uint32_t num_scaled = parseFloats(scaled_vec, scaled_arr);
-                if(num_prescaled != num_scaled){
-                    // error in parsing scale need to handle error here !!!
-                    return;
-                }
+                float64* prescaled_arr = new double[num_points];
+                float64* scaled_arr = new double[num_points];
+                ParseFloats(prescaled_vec, prescaled_arr);
+                ParseFloats(scaled_vec, scaled_arr);
                 config.scale->table = {prescaled_arr, scaled_arr, num_points, prescaled_units, scaled_units};
             }
         } else{ //invalid scale type return error
-            // Log error
             json err;
             err["errors"] = nlohmann::json::array();
             err["errors"].push_back({
@@ -260,19 +296,15 @@ void ni::DaqAnalogReader::parseCustomScale(config::Parser & parser, ni::ChannelC
                                 .variant = "error",
                                 .details = err});
             this->ok_state = false;
-            // print error json
-            std::cout << scale_parser.error_json() << std::endl; // TODO: remove
             return;
         }
-        if(!scale_parser.ok()){ // error in parsing scale need to handle error here !!!
-            // Log error
+        
+        if(!scale_parser.ok()){ 
             LOG(ERROR) << "[NI Reader] failed to parse custom scale configuration for " << this->reader_config.task_name;
             this->ctx->setState({.task = this->reader_config.task_key,
                                 .variant = "error",
                                 .details = scale_parser.error_json()});
             this->ok_state = false;
-            // print error json
-            std::cout << scale_parser.error_json() << std::endl; // TODO: remove
             return;
         } 
 
@@ -285,14 +317,14 @@ void ni::DaqAnalogReader::parseCustomScale(config::Parser & parser, ni::ChannelC
 
 
 
-int ni::DaqAnalogReader::init()
-{
+int ni::AnalogReadSource::init(){
     int err = 0;
     auto channels = this->reader_config.channels;
 
     for (auto &channel : channels){
         if (channel.channel_type != "index" ){
             err = createChannel(channel);
+            this->numAIChannels++;
         } 
         this->numChannels++; 
         if (err < 0){
@@ -306,84 +338,131 @@ int ni::DaqAnalogReader::init()
 
     // Configure timing
     // TODO: make sure there isnt different cases to handle between analog and digital
-    if (this->checkNIError(ni::NiDAQmxInterface::CfgSampClkTiming(taskHandle,
-                                                                  "",
-                                                                  this->reader_config.acq_rate,
-                                                                  DAQmx_Val_Rising,
-                                                                  DAQmx_Val_ContSamps,
-                                                                  this->reader_config.acq_rate))){
-        LOG(ERROR) << "[NI Reader] failed while configuring timing for task " << this->reader_config.task_name;
+    // if (this->checkNIError(ni::NiDAQmxInterface::CfgSampClkTiming(this->task_handle,
+    //                                                               "",
+    //                                                               this->reader_config.sample_rate,
+    //                                                               DAQmx_Val_Rising,
+    //                                                               DAQmx_Val_ContSamps,
+    //                                                               this->reader_config.sample_rate))){
+    //     LOG(ERROR) << "[NI Reader] failed while configuring timing for task " << this->reader_config.task_name;
+    //     this->ok_state = false;
+    //     return -1;
+    // }
+
+    // Configure buffer size and read resources
+    if(this->reader_config.sample_rate < this->reader_config.stream_rate){
+        this->err_info["error type"] = "Configuration Error";
+        this->err_info["error details"] = "Stream rate is greater than sample rate";
+        
+        this->ctx->setState({.task = this->reader_config.task_key,
+                             .variant = "error",
+                             .details = err_info});
+        LOG(ERROR) << "[NI Reader] stream rate is greater than sample rate " << this->reader_config.task_name;
         this->ok_state = false;
         return -1;
     }
 
-    // Configure buffer size and read resources
-    assert(this->reader_config.acq_rate >= this->reader_config.stream_rate); // TODO: handle this case
     
-    this->numSamplesPerChannel = std::floor(this->reader_config.acq_rate / this->reader_config.stream_rate);
-    this->bufferSize = this->numChannels * this->numSamplesPerChannel;
+    if (this->configureTiming()){
+        LOG(ERROR) << "[NI Reader] Failed while configuring timing for NI hardware for task " << this->reader_config.task_name;
+        this->ok_state = false;
+    }
     
-    this->data = new double[bufferSize];
 
     LOG(INFO) << "[NI Reader] successfully configured NI hardware for task " << this->reader_config.task_name;
     return 0;
 }
 
 
-
-
-
-freighter::Error ni::DaqAnalogReader::start(){
-    if(this->running){
-        LOG(INFO) << "[NI Reader] attempt to start an already running NI task for task " << this->reader_config.task_name;
-        return freighter::NIL; // TODO: change return value?
+int ni::AnalogReadSource::configureTiming(){
+    if(this->reader_config.timing_source == "none"){
+        LOG(INFO) << "[NI Reader] configuring timing for task " << this->reader_config.task_name;
+        if (this->checkNIError(ni::NiDAQmxInterface::CfgSampClkTiming(this->task_handle,
+                                                                  "",
+                                                                  this->reader_config.sample_rate,
+                                                                  DAQmx_Val_Rising,
+                                                                  DAQmx_Val_ContSamps,
+                                                                  this->reader_config.sample_rate))){
+        LOG(ERROR) << "[NI Reader] failed while configuring timing for task " << this->reader_config.task_name;
+        this->ok_state = false;
+        return -1;
     }
+    } else{
+        LOG(INFO) << "[NI Reader] configuring special timing for task " << this->reader_config.task_name;
+        if (this->checkNIError(ni::NiDAQmxInterface::CfgSampClkTiming(this->task_handle,
+                                                                    this->reader_config.timing_source.c_str(),
+                                                                    this->reader_config.sample_rate,
+                                                                    DAQmx_Val_Rising,
+                                                                    DAQmx_Val_ContSamps,
+                                                                    this->reader_config.sample_rate))){
+            LOG(ERROR) << "[NI Reader] failed while configuring timing for task " << this->reader_config.task_name;
+            this->ok_state = false;
+            return -1;
+        }
+    }
+    this->numSamplesPerChannel = std::floor(this->reader_config.sample_rate / this->reader_config.stream_rate);
+    LOG(INFO) << "[NI Reader] numSamplesPerChannel: " << this->numSamplesPerChannel;
+    this->bufferSize = this->numAIChannels * this->numSamplesPerChannel;
+    this->data = new double[bufferSize];
+    return 0;
+    // }r
+}
 
+
+
+
+
+freighter::Error ni::AnalogReadSource::start(){
+    LOG(INFO) << "[NI Reader] starting reader for task " << this->reader_config.task_name;
+     if(this->running){
+        return freighter::NIL;
+     }
     freighter::Error err = freighter::NIL;
-    this->running = true;
-    if (this->checkNIError(ni::NiDAQmxInterface::StartTask(taskHandle))){
+    if (this->checkNIError(ni::NiDAQmxInterface::StartTask(this->task_handle))){
         LOG(ERROR) << "[NI Reader] failed while starting reader for task " << this->reader_config.task_name;
         err = freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
     }
     else{
+        this->running = true;
+        this->sample_thread = std::thread(&AnalogReadSource::acquireData, this);
         LOG(INFO) << "[NI Reader] successfully started reader for task " << this->reader_config.task_name;
     }
     return err;
 }
 
 
-freighter::Error ni::DaqAnalogReader::stop(){ 
+freighter::Error ni::AnalogReadSource::stop(){ 
+    LOG(INFO) << "[NI Reader] stopping reader for task " << this->reader_config.task_name;
     if(!this->running){
-        LOG(INFO) << "[NI Reader] attempt to stop an already stopped NI task for task " << this->reader_config.task_name;
-        return freighter::NIL; // TODO: change return value?
+        return freighter::NIL;
     }
-
+   
     freighter::Error err = freighter::NIL;
+
     this->running = false;
-    if (this->checkNIError(ni::NiDAQmxInterface::StopTask(taskHandle))){
+    this->sample_thread.join();
+    if (this->checkNIError(ni::NiDAQmxInterface::StopTask(this->task_handle))){
         LOG(ERROR) << "[NI Reader] failed while stopping reader for task " << this->reader_config.task_name;
         err = freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
     }
-    else{
-        if (this->checkNIError(ni::NiDAQmxInterface::ClearTask(taskHandle))){
-            LOG(ERROR) << "[NI Reader] failed while clearing reader for task " << this->reader_config.task_name;
-            err = freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
-        }
-    }
-
-    this->deleteScales();
-    delete[] this->data;
-
+    // else{
+    //     if (this->checkNIError(ni::NiDAQmxInterface::ClearTask(this->task_handle))){
+    //         LOG(ERROR) << "[NI Reader] failed while clearing reader for task " << this->reader_config.task_name;
+    //         err = freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
+    //     }
+    // }
 
     if (err == freighter::NIL){
         LOG(INFO) << "[NI Reader] successfully stopped and cleared reader for task " << this->reader_config.task_name;
     }
 
+    data_queue.reset();
+
     return err;
 }
 
 
-void ni::DaqAnalogReader::deleteScales(){
+void ni::AnalogReadSource::deleteScales(){
     for(auto &channel : this->reader_config.channels){
         if(channel.custom_scale){
             if(channel.scale_type == "polyScale"){
@@ -397,67 +476,68 @@ void ni::DaqAnalogReader::deleteScales(){
     }
 }
 
-
-
-std::pair<synnax::Frame, freighter::Error> ni::DaqAnalogReader::read(){
-    int32 samplesRead = 0;
-    float64 flush[100000]; // to flush buffer before performing a read
-    int32 flushRead = 0;
-    synnax::Frame f = synnax::Frame(numChannels);
-
-    // initial read to flush buffer
-    if (this->checkNIError(ni::NiDAQmxInterface::ReadAnalogF64(
-                                            this->taskHandle,
-                                            -1, // reads all available samples in buffer
-                                            10.0,
-                                            DAQmx_Val_GroupByChannel,
-                                            flush,
-                                            100000,
-                                            &flushRead,
-                                            NULL))){
-        LOG(ERROR) << "[NI Reader] failed while flushing buffer for task " << this->reader_config.task_name;
-        return std::make_pair(std::move(f), freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR, "error reading analog data"));
+void ni::AnalogReadSource::acquireData(){
+    while(this->running){
+        DataPacket data_packet;
+        data_packet.data = new double[this->bufferSize];
+        data_packet.t0 = (uint64_t) ((synnax::TimeStamp::now()).value);
+        if (this->checkNIError(ni::NiDAQmxInterface::ReadAnalogF64(
+                                                                this->task_handle,
+                                                                this->numSamplesPerChannel,
+                                                                -1,
+                                                                DAQmx_Val_GroupByChannel,
+                                                                data_packet.data,
+                                                                this->bufferSize,
+                                                                &data_packet.samplesReadPerChannel,
+                                                                NULL))){
+            LOG(ERROR) << "[NI Reader] failed while reading analog data for task " << this->reader_config.task_name;
+            // return; // TODO: handle differently?
+        }
+        data_packet.tf = (uint64_t)((synnax::TimeStamp::now()).value);
+        data_queue.enqueue(data_packet);
     }
+}
+
+std::pair<synnax::Frame, freighter::Error> ni::AnalogReadSource::read(){
+    synnax::Frame f = synnax::Frame(numChannels);
 
     // actual read of analog lines
     std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
-    if (this->checkNIError(ni::NiDAQmxInterface::ReadAnalogF64(
-                                                            this->taskHandle,
-                                                            this->numSamplesPerChannel,
-                                                            -1,
-                                                            DAQmx_Val_GroupByChannel,
-                                                            this->data,
-                                                            this->bufferSize,
-                                                            &samplesRead,
-                                                            NULL))){
-        LOG(ERROR) << "[NI Reader] failed while reading analog data for task " << this->reader_config.task_name;
-        return std::make_pair(std::move(f), freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR, "Error reading analog data"));
-    }
+    std::this_thread::sleep_for(std::chrono::nanoseconds((uint64_t)((1.0 / this->reader_config.stream_rate )* 1000000000)));
     std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
+    
+
+   
+    std::optional<DataPacket> d = data_queue.dequeue();
+    if(d.has_value()){
+        for(int i = 0; i < this->bufferSize; i++){
+            this->data[i] = d.value().data[i];
+        }
+        delete[] d.value().data;
+    }
+
 
     // we interpolate the timestamps between the initial and final timestamp to ensure non-overlapping timestamps between read iterations
-    uint64_t diff = final_timestamp - initial_timestamp;
-    uint64_t incr = diff / this->numSamplesPerChannel;
-
+    uint64_t diff = d.value().tf- d.value().t0;
+    uint64_t incr = (diff / this->numSamplesPerChannel);
     // Construct and populate index channel
     std::vector<std::uint64_t> time_index(this->numSamplesPerChannel);
-    for (uint64_t i = 0; i < samplesRead; ++i){
-        time_index[i] = initial_timestamp + (std::uint64_t)(incr * i);
+    for (uint64_t i = 0; i < d.value().samplesReadPerChannel; ++i){
+        time_index[i] = d.value().t0 + (std::uint64_t)(incr * i);
     }
 
     // Construct and populate synnax frame
-    std::vector<float> data_vec(samplesRead);
     uint64_t data_index = 0; // TODO: put a comment explaining the function of data_index
     for (int i = 0; i < numChannels; i++){
         if (this->reader_config.channels[i].channel_type == "index"){
-            // LOG(INFO) << "Index channel found: " << this->reader_config.channels[i].channel_key << " name: " << this->reader_config.channels[i].name;
             f.add(this->reader_config.channels[i].channel_key, synnax::Series(time_index, synnax::TIMESTAMP));
         }
         else{
-            for (int j = 0; j < samplesRead; j++){
-                data_vec[j] = data[data_index * samplesRead + j];
+            std::vector<float> data_vec(d.value().samplesReadPerChannel);
+            for (int j = 0; j < d.value().samplesReadPerChannel; j++){
+                data_vec[j] = data[data_index * d.value().samplesReadPerChannel + j];
             }
-            f.add(this->reader_config.channels[i].channel_key, synnax::Series(data_vec));
+            f.add(this->reader_config.channels[i].channel_key, synnax::Series(data_vec, synnax::FLOAT32));
             data_index++;
         }
     }
@@ -467,9 +547,9 @@ std::pair<synnax::Frame, freighter::Error> ni::DaqAnalogReader::read(){
 }
 
 
-int ni::DaqAnalogReader::createChannel(ni::ChannelConfig &channel){
+int ni::AnalogReadSource::createChannel(ni::ChannelConfig &channel){
     if(!channel.custom_scale){
-        return this->checkNIError(ni::NiDAQmxInterface::CreateAIVoltageChan(taskHandle, channel.name.c_str(), "", channel.terminal_config, channel.min_val, channel.max_val, DAQmx_Val_Volts, NULL));
+        return this->checkNIError(ni::NiDAQmxInterface::CreateAIVoltageChan(this->task_handle, channel.name.c_str(), "", channel.terminal_config, channel.min_val, channel.max_val, DAQmx_Val_Volts, NULL));
     } else{
         // name scale
          channel.scale_name = channel.name + "_scale";
@@ -481,81 +561,81 @@ int ni::DaqAnalogReader::createChannel(ni::ChannelConfig &channel){
                     channel.scale_name.c_str(), 
                     channel.scale->linear.slope, 
                     channel.scale->linear.offset, 
-                    DAQmx_Val_Volts, // FIXME: // ni::NI_UNITS_MAP[channel.scale->linear.prescaled_units], 
+                    ni::UNITS_MAP.at(channel.scale->linear.prescaled_units), 
                     channel.scale->linear.scaled_units.c_str()
             ));
 
         } else if(channel.scale_type == "MapScale"){
 
-            // this->checkNIError(ni::NiDAQmxInterface::CreateMapScale(
-            //     channel.scale_name.c_str(), 
-            //     channel.scale->map.prescaled_min, 
-            //     channel.scale->map.prescaled_max, 
-            //     channel.scale->map.scaled_min, 
-            //     channel.scale->map.scaled_max, 
-            //     ni::UNITS_MAP[channel.scale->map.prescaled_units], 
-            //     ni::UNITS_MAP[channel.scale->map.scaled_units]
-            // ));
+            this->checkNIError(ni::NiDAQmxInterface::CreateMapScale(
+                channel.scale_name.c_str(), 
+                channel.scale->map.prescaled_min, 
+                channel.scale->map.prescaled_max, 
+                channel.scale->map.scaled_min, 
+                channel.scale->map.scaled_max, 
+                ni::UNITS_MAP.at(channel.scale->map.prescaled_units), 
+                channel.scale->map.scaled_units.c_str()
+            ));
 
         } else if(channel.scale_type == "PolyScale"){
 
-            // // create forward and reverse coeffs inputs
-            // float forward_coeffs_in[1000];
-            // float reverse_coeffs_in[1000];
-            // for(int i = 0; i < channel.scale->polynomial.num_coeffs; i++){
-            //     forward_coeffs_in[i] = channel.scale->polynomial.forward_coeffs[i];
-            //     reverse_coeffs_in[i] = channel.scale->polynomial.reverse_coeffs[i];
-            // }
+            // create forward and reverse coeffs inputs
+            float64 forward_coeffs_in[1000];
+            float64 reverse_coeffs_in[1000];
+            for(int i = 0; i < channel.scale->polynomial.num_coeffs; i++){
+                forward_coeffs_in[i] = channel.scale->polynomial.forward_coeffs[i];
+                reverse_coeffs_in[i] = channel.scale->polynomial.reverse_coeffs[i];
+            }
 
-            // this->checkNIError(ni::NiDAQmxInterface::CreatePolynomialScale(
-            //     channel.scale_name.c_str(), 
-            //     forward_coeffs_in, 
-            //     reverse_coeffs_in, 
-            //     channel.scale->polynomial.num_coeffs, 
-            //     channel.scale->polynomial.min_x, 
-            //     channel.scale->polynomial.max_x, 
-            //     channel.scale->polynomial.num_points, 
-            //     channel.scale->polynomial.poly_order, 
-            //     ni::UNITS_MAP[channel.scale->polynomial.prescaled_units], 
-            //     ni::UNITS_MAP[channel.scale->polynomial.scaled_units]
+            this->checkNIError(ni::NiDAQmxInterface::CreatePolynomialScale(
+                channel.scale_name.c_str(), 
+                forward_coeffs_in, 
+                channel.scale->polynomial.num_coeffs, 
+                reverse_coeffs_in, 
+                channel.scale->polynomial.num_coeffs,
+                ni::UNITS_MAP.at(channel.scale->polynomial.prescaled_units), 
+                channel.scale->polynomial.scaled_units.c_str()
             
-            // ));
+            ));
 
         } else if(channel.scale_type == "TableScale"){
             // create prescaled and scaled inputs
-            // float prescaled[1000];
-            // float scaled[1000];
-            // for(int i = 0; i < channel.scale->table.num_points; i++){
-            //     prescaled[i] = channel.scale->table.prescaled[i];
-            //     scaled[i] = channel.scale->table.scaled[i];
-            // }
-
-
-            // this->checkNIError(ni::NiDAQmxInterface::CreateTableScale(
-            //     channel.scale_name.c_str(), 
-            //     prescaled, 
-            //     scaled, 
-            //     channel.scale->table.num_points, 
-            //     ni::UNITS_MAP[channel.scale->table.prescaled_units], 
-            //     ni::UNITS_MAP[channel.scale->table.scaled_units]
-            // ));
+            float64 prescaled[1000];
+            float64 scaled[1000];
+            for(int i = 0; i < channel.scale->table.num_points; i++){
+                prescaled[i] = channel.scale->table.prescaled[i];
+                scaled[i] = channel.scale->table.scaled[i];
+            }
+            this->checkNIError(ni::NiDAQmxInterface::CreateTableScale(
+                channel.scale_name.c_str(), 
+                prescaled, 
+                channel.scale->table.num_points, 
+                scaled,
+                channel.scale->table.num_points, 
+                ni::UNITS_MAP.at(channel.scale->table.prescaled_units), 
+                channel.scale->table.scaled_units.c_str()
+            ));
         }
         // create channel
-        return this->checkNIError(ni::NiDAQmxInterface::CreateAIVoltageChan(taskHandle, channel.name.c_str(), "", channel.terminal_config, channel.min_val, channel.max_val, DAQmx_Val_Volts, channel.scale_name.c_str()));
+        return this->checkNIError(ni::NiDAQmxInterface::CreateAIVoltageChan(this->task_handle, channel.name.c_str(), "", channel.terminal_config, channel.min_val, channel.max_val, DAQmx_Val_Volts, channel.scale_name.c_str()));
     }
     return -1;
 }
 
-bool ni::DaqAnalogReader::ok(){ 
+bool ni::AnalogReadSource::ok(){ 
     return this->ok_state;
 }
 
 
-ni::DaqAnalogReader::~DaqAnalogReader(){
-    this->stop();
+ni::AnalogReadSource::~AnalogReadSource(){
+    if (this->checkNIError(ni::NiDAQmxInterface::ClearTask(this->task_handle))){
+        LOG(ERROR) << "[NI Reader] failed while clearing reader for task " << this->reader_config.task_name;
+    }
+    this->deleteScales();
+    delete[] this->data;
 }
 
-int ni::DaqAnalogReader::checkNIError(int32 error){
+int ni::AnalogReadSource::checkNIError(int32 error){
     if (error < 0){
         char errBuff[2048] = {'\0'};
 
@@ -577,14 +657,14 @@ int ni::DaqAnalogReader::checkNIError(int32 error){
 }
 
 ///////////////////////////////////////////////////////////////////////////////////
-//                             DaqDigitalReader                                  //
+//                             DigitalReadSource                                 //
 ///////////////////////////////////////////////////////////////////////////////////
 
 // TODO: Code dedup
-ni::DaqDigitalReader::DaqDigitalReader(
-    TaskHandle taskHandle,
+ni::DigitalReadSource::DigitalReadSource(
+    TaskHandle task_handle,
     const std::shared_ptr<task::Context> &ctx,
-    const synnax::Task task) : taskHandle(taskHandle), ctx(ctx){
+    const synnax::Task task) : task_handle(task_handle), ctx(ctx){
     // Create parser
     auto config_parser = config::Parser(task.config);
     this->reader_config.task_name = task.name;
@@ -606,7 +686,7 @@ ni::DaqDigitalReader::DaqDigitalReader(
     LOG(INFO) << "[NI Reader] successfully parsed configuration for " << this->reader_config.task_name;
 
     //TODO: 
-    // getIndexKeys(); // get index keys for the task     
+    this->getIndexKeys(); // get index keys for the task     
 
     LOG(INFO) << "[NI Reader] index keys retrieved " << this->reader_config.task_name;
 
@@ -630,29 +710,35 @@ ni::DaqDigitalReader::DaqDigitalReader(
 }
 
 
-void ni::DaqDigitalReader::parseConfig(config::Parser &parser)
-{
+void ni::DigitalReadSource::parseConfig(config::Parser &parser){
     // Get Acquisition Rate and Stream Rates
-    this->reader_config.acq_rate = parser.required<uint64_t>("sample_rate");
+    this->reader_config.sample_rate = parser.required<uint64_t>("sample_rate");
     this->reader_config.stream_rate = parser.required<uint64_t>("stream_rate");
-    this->reader_config.device_name = parser.required<std::string>("device_name");
+    this->reader_config.device_key = parser.required<std::string>("device");
+    this->reader_config.timing_source = "none"; // parser.required<std::string>("timing_source"); TODO: uncomment this when ui provides timing source
 
-    // device name
-    // this->reader_config.device_name = parser.required<std::string>("device");
+    // TODO: add a parser ok check here
+
+
+    auto [dev, err] = this->ctx->client->hardware.retrieveDevice(this->reader_config.device_key);
+
+    if (err != freighter::NIL) {
+        LOG(ERROR) << "[NI Reader] failed to retrieve device " << this->reader_config.device_name;
+        this->ok_state = false;
+        return;
+    }
+    this->reader_config.device_name = dev.location;
     assert(parser.ok());
 
     // now parse the channels
     parser.iter("channels",
-                [&](config::Parser &channel_builder)
-                {
+                [&](config::Parser &channel_builder){
                     ni::ChannelConfig config;
-                    config.channel_type = channel_builder.required<std::string>("channel_type");
 
                     // digital channel names are formatted: <device_name>/port<port_number>/line<line_number>
-                    config.name = (config.channel_type == "index") ? (channel_builder.required<std::string>("name"))
-                                                                   : (this->reader_config.device_name + "/port" + std::to_string(channel_builder.required<std::uint64_t>("port")) + "/line" + std::to_string(channel_builder.required<std::uint64_t>("line")));
+                    config.name = (this->reader_config.device_name + "/port" + std::to_string(channel_builder.required<std::uint64_t>("port")) + "/line" + std::to_string(channel_builder.required<std::uint64_t>("line")));
 
-                    config.channel_key = channel_builder.required<uint32_t>("channel_key");
+                    config.channel_key = channel_builder.required<uint32_t>("channel");
 
                     // TODO: there could be more than 2 state logic
                     config.min_val = 0;
@@ -663,17 +749,16 @@ void ni::DaqDigitalReader::parseConfig(config::Parser &parser)
     assert(parser.ok());
 }
 
-
-
-
-int ni::DaqDigitalReader::init(){
+int ni::DigitalReadSource::init(){
     int err = 0;
     auto channels = this->reader_config.channels;
 
     for (auto &channel : channels){
         if (channel.channel_type != "index" ){
-            err = this->checkNIError(ni::NiDAQmxInterface::CreateDIChan(taskHandle, channel.name.c_str(), "", DAQmx_Val_ChanPerLine));
+            err = this->checkNIError(ni::NiDAQmxInterface::CreateDIChan(task_handle, channel.name.c_str(), "", DAQmx_Val_ChanPerLine));
+            LOG(INFO) << "Channel name: " << channel.name;
         } 
+        LOG(INFO) << "Index channel added to task: " << channel.name;
         this->numChannels++; 
         if (err < 0){
             LOG(ERROR) << "[NI Reader] failed while configuring channel " << channel.name;
@@ -682,41 +767,56 @@ int ni::DaqDigitalReader::init(){
         }
     }
 
-    //TODO: assert that at least 1 channel has been configured here:
-
-    // Configure timing
-    // TODO: make sure there isnt different cases to handle between analog and digital
-    if (this->checkNIError(ni::NiDAQmxInterface::CfgSampClkTiming(taskHandle,
-                                                                  "",
-                                                                  this->reader_config.acq_rate,
-                                                                  DAQmx_Val_Rising,
-                                                                  DAQmx_Val_ContSamps,
-                                                                  this->reader_config.acq_rate))){
-        LOG(ERROR) << "[NI Reader] failed while configuring timing for task " << this->reader_config.task_name;
+    // Configure buffer size and read resources
+     if(this->reader_config.sample_rate < this->reader_config.stream_rate){
+        this->err_info["error type"] = "Configuration Error";
+        this->err_info["error details"] = "Stream rate is greater than sample rate";
+        
+        this->ctx->setState({.task = this->reader_config.task_key,
+                             .variant = "error",
+                             .details = err_info});
+        LOG(ERROR) << "[NI Reader] stream rate is greater than sample rate " << this->reader_config.task_name;
         this->ok_state = false;
         return -1;
     }
 
-    // Configure buffer size and read resources
-    assert(this->reader_config.acq_rate >= this->reader_config.stream_rate); // TODO: handle this case
+    if (this->configureTiming()){
+        LOG(ERROR) << "[NI Reader] Failed while configuring timing for NI hardware for task " << this->reader_config.task_name;
+        this->ok_state = false;
+    }
     
-    this->numSamplesPerChannel = std::floor(this->reader_config.acq_rate / this->reader_config.stream_rate);
-    this->bufferSize = this->numChannels * this->numSamplesPerChannel;
-    
-    this->data = new double[bufferSize];
-
     LOG(INFO) << "[NI Reader] successfully configured NI hardware for task " << this->reader_config.task_name;
     return 0;
 }
 
-freighter::Error ni::DaqDigitalReader::start(){
-    if(this->running){
-        LOG(INFO) << "[NI Reader] attempt to start an already running NI task for task " << this->reader_config.task_name;
-        return freighter::NIL; // TODO: change return value?
-    }
+int ni::DigitalReadSource::configureTiming(){
 
+    if(this->reader_config.timing_source == "none"){ // if timing is not enabled, implement timing in software
+        this->reader_config.period = (uint32_t)((1.0 / this->reader_config.sample_rate) * 1000000); // convert to microseconds
+
+        this->numSamplesPerChannel = 1;
+    } else{
+        if (this->checkNIError(ni::NiDAQmxInterface::CfgSampClkTiming(this->task_handle,
+                                                                    this->reader_config.timing_source.c_str(),
+                                                                    this->reader_config.sample_rate,
+                                                                    DAQmx_Val_Rising,
+                                                                    DAQmx_Val_ContSamps,
+                                                                    this->reader_config.sample_rate))){
+            LOG(ERROR) << "[NI Reader] failed while configuring timing for task " << this->reader_config.task_name;
+            this->ok_state = false;
+            return -1;
+        }
+
+        this->numSamplesPerChannel = std::floor(this->reader_config.sample_rate / this->reader_config.stream_rate);
+    }
+    this->bufferSize = this->numChannels * this->numSamplesPerChannel;
+    this->data = new double[bufferSize];
+    return 0;
+}
+
+freighter::Error ni::DigitalReadSource::start(){
     freighter::Error err = freighter::NIL;
-    if (this->checkNIError(ni::NiDAQmxInterface::StartTask(taskHandle))){
+    if (this->checkNIError(ni::NiDAQmxInterface::StartTask(this->task_handle))){
         LOG(ERROR) << "[NI Reader] failed while starting reader for task " << this->reader_config.task_name;
         err = freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
     }
@@ -727,34 +827,29 @@ freighter::Error ni::DaqDigitalReader::start(){
 }
 
 
-freighter::Error ni::DaqDigitalReader::stop(){ 
-    if(!this->running){
-        LOG(INFO) << "[NI Reader] attempt to stop an already stopped NI task for task " << this->reader_config.task_name;
-        return freighter::NIL; // TODO: change return value?
-    }
-
+freighter::Error ni::DigitalReadSource::stop(){ 
     freighter::Error err = freighter::NIL;
-    if (this->checkNIError(ni::NiDAQmxInterface::StopTask(taskHandle))){
+    if (this->checkNIError(ni::NiDAQmxInterface::StopTask(this->task_handle))){
         LOG(ERROR) << "[NI Reader] failed while stopping reader for task " << this->reader_config.task_name;
         err = freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
     }
     else{
-        if (this->checkNIError(ni::NiDAQmxInterface::ClearTask(taskHandle))){
+        if (this->checkNIError(ni::NiDAQmxInterface::ClearTask(this->task_handle))){
             LOG(ERROR) << "[NI Reader] failed while clearing reader for task " << this->reader_config.task_name;
             err = freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
         }
     }
-    delete[] this->data;
-
     if (err == freighter::NIL){
         LOG(INFO) << "[NI Reader] successfully stopped and cleared reader for task " << this->reader_config.task_name;
     }
+
+
 
     return err;
 }
 
 
-std::pair<synnax::Frame, freighter::Error> ni::DaqDigitalReader::read(){
+std::pair<synnax::Frame, freighter::Error> ni::DigitalReadSource::read(){
     int32 samplesRead;
     char errBuff[2048] = {'\0'};
     uInt8 flushBuffer[10000]; // to flush buffer before performing a read
@@ -765,7 +860,7 @@ std::pair<synnax::Frame, freighter::Error> ni::DaqDigitalReader::read(){
     int err = 0;
 
     // initial read to flush buffer
-    if (this->checkNIError(ni::NiDAQmxInterface::ReadDigitalLines(this->taskHandle, // TODO: come back to and make sure this call to flush will be fine at any scale (elham)
+    if (this->checkNIError(ni::NiDAQmxInterface::ReadDigitalLines(this->task_handle, // TODO: come back to and make sure this call to flush will be fine at any scale (elham)
                                                                   -1,               // reads all available samples in the buffer
                                                                   -1,
                                                                   DAQmx_Val_GroupByChannel,
@@ -778,9 +873,14 @@ std::pair<synnax::Frame, freighter::Error> ni::DaqDigitalReader::read(){
         return std::make_pair(std::move(f), freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR, "error reading digital data"));
     }
 
+    // sleep if period is not 0
+    if(this->reader_config.period != 0){
+        std::this_thread::sleep_for(std::chrono::microseconds(this->reader_config.period));
+    }
+
     // actual read to of digital lines
     std::uint64_t initial_timestamp = (synnax::TimeStamp::now()).value;
-    if (this->checkNIError(ni::NiDAQmxInterface::ReadDigitalLines(this->taskHandle,           // task handle
+    if (this->checkNIError(ni::NiDAQmxInterface::ReadDigitalLines(this->task_handle,           // task handle
                                                                   this->numSamplesPerChannel, // numSampsPerChan
                                                                   -1,                         // timeout
                                                                   DAQmx_Val_GroupByChannel,   // dataLayout
@@ -803,7 +903,7 @@ std::pair<synnax::Frame, freighter::Error> ni::DaqDigitalReader::read(){
     for (int i = 0; i < samplesRead; ++i){
         time_index[i] = initial_timestamp + (std::uint64_t)(incr * i);
     }
-
+    
     // Construct and populate synnax frame
     std::vector<uint8_t> data_vec(samplesRead);
     uint64_t data_index = 0; // TODO: put a comment explaining the function of data_index
@@ -824,16 +924,17 @@ std::pair<synnax::Frame, freighter::Error> ni::DaqDigitalReader::read(){
     return std::make_pair(std::move(f), freighter::NIL);
 }
 
-bool ni::DaqDigitalReader::ok(){ 
+bool ni::DigitalReadSource::ok(){ 
     return this->ok_state;
 }
 
-ni::DaqDigitalReader::~DaqDigitalReader(){
+ni::DigitalReadSource::~DigitalReadSource(){
     this->stop();
+    delete[] this->data;
 }
 
 
-int ni::DaqDigitalReader::checkNIError(int32 error){
+int ni::DigitalReadSource::checkNIError(int32 error){
     if (error < 0){
         char errBuff[2048] = {'\0'};
 
@@ -855,8 +956,7 @@ int ni::DaqDigitalReader::checkNIError(int32 error){
 }
 
 
-
-std::vector<synnax::ChannelKey> ni::DaqAnalogReader::getChannelKeys(){
+std::vector<synnax::ChannelKey> ni::AnalogReadSource::getChannelKeys(){
     std::vector<synnax::ChannelKey> keys;
     for (auto &channel : this->reader_config.channels){
         keys.push_back(channel.channel_key);
@@ -864,7 +964,7 @@ std::vector<synnax::ChannelKey> ni::DaqAnalogReader::getChannelKeys(){
     return keys;
 }
 
-std::vector<synnax::ChannelKey> ni::DaqDigitalReader::getChannelKeys(){
+std::vector<synnax::ChannelKey> ni::DigitalReadSource::getChannelKeys(){
     std::vector<synnax::ChannelKey> keys;
     for (auto &channel : this->reader_config.channels){
         keys.push_back(channel.channel_key);

@@ -52,7 +52,6 @@ export const Selector = (): ReactElement => {
         } else if (client == null) return;
         const ws = await client.workspaces.retrieve(v);
         d(add({ workspaces: [ws] }));
-        console.log(ws.layout);
         d(
           Layout.setWorkspace({
             slice: ws.layout as unknown as Layout.SliceState,

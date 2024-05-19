@@ -49,11 +49,10 @@ export interface CreatorProps {
 /** A function that creates a layout given a set of utilities. */
 export type Creator = (props: CreatorProps) => Omit<State, "windowKey">;
 
+export type PlacerProps = Omit<State, "windowKey"> | Creator;
+
 /** A function that places a layout using the given properties or creation func. */
-export type Placer = (layout: Omit<State, "windowKey"> | Creator) => {
-  windowKey: string;
-  key: string;
-};
+export type Placer = (layout: PlacerProps) => { windowKey: string; key: string };
 
 /** A function that removes a layout. */
 export type Remover = (...keys: string[]) => void;

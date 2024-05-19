@@ -22,6 +22,7 @@ import {
   DigitalReadStateDetails,
   DigitalReadType,
   ZERO_DIGITAL_READ_PAYLOAD,
+  ZERO_DI_CHAN,
   ZERO_DO_CHAN,
   digitalReadConfigZ,
 } from "@/hardware/ni/task/types";
@@ -235,7 +236,7 @@ const ChannelForm = ({ selectedChannelIndex }: ChannelFormProps): ReactElement =
   const prefix = `config.channels.${selectedChannelIndex}`;
   return (
     <Align.Space direction="y" className={CSS.B("channel-form-content")} empty>
-      <ChannelField fieldKey="cmdChannel" label="Synnax Channel" path={prefix} />
+      <ChannelField fieldKey="channel" label="Synnax Channel" path={prefix} />
       <Align.Space direction="x" grow>
         <Form.NumericField path={`${prefix}.port`} label="Port" grow />
         <Form.NumericField path={`${prefix}.line`} label="Line" grow />
@@ -251,11 +252,11 @@ interface ChannelListProps {
 }
 
 const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactElement => {
-  const { value, push } = Form.useFieldArray<DOChan>({ path });
+  const { value, push } = Form.useFieldArray<DIChan>({ path });
   const handleAdd = (): void => {
     const availableLine = Math.max(0, ...value.map((v) => v.line)) + 1;
     push({
-      ...deep.copy(ZERO_DO_CHAN),
+      ...deep.copy(ZERO_DI_CHAN),
       port: 0,
       line: availableLine,
       key: nanoid(),
@@ -310,14 +311,9 @@ const ChannelListItem = ({
   });
   const channelName = Channel.useName(childValues?.channel ?? 0, "No Channel");
 
-  const cmdChannelValid =
+  const channelValid =
     Form.useField<number>({
-      path: `${path}.${props.index}.cmdChannel`,
-    }).status.variant === "success";
-
-  const stateChannelValid =
-    Form.useField<number>({
-      path: `${path}.${props.index}.stateChannel`,
+      path: `${path}.${props.index}.channel`,
     }).status.variant === "success";
 
   const portValid =
@@ -351,7 +347,7 @@ const ChannelListItem = ({
             shade={9}
             color={(() => {
               if (channelName === "No Channel") return "var(--pluto-warning-z)";
-              else if (cmdChannelValid) return undefined;
+              else if (channelValid) return undefined;
               return "var(--pluto-error-z)";
             })()}
           >
@@ -366,7 +362,6 @@ const ChannelListItem = ({
         size="small"
         onClick={(e) => e.stopPropagation()}
         onChange={(v) => {
-          console.log("setting enabled", v);
           ctx.set({ path: `${path}.${props.index}.enabled`, value: v });
         }}
         tooltip={

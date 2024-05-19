@@ -187,7 +187,11 @@ export class Task<
       (frame) => {
         const s = frame.get(TASK_STATE_CHANNEL);
         if (s.length === 0) return [null, false];
-        return [s.at(-1), true] as unknown as [State<D>, boolean];
+        const parse = stateZ.safeParse(s.at(-1));
+        if (!parse.success) return [null, false];
+        const state = parse.data as State<D>;
+        if (state.key !== this.key) return [null, false];
+        return [state, true];
       },
     );
   }

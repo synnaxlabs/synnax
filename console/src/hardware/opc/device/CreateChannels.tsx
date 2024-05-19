@@ -355,7 +355,6 @@ export const ChannelListItem = memo(
     Form.useFieldListener({
       path: `groups.${groupIndex}.channels.${props.index}.port`,
       onChange: (state) => {
-        console.log(state);
         setValidPort(state.status.variant !== "error");
       },
     });
