@@ -55,10 +55,7 @@ func openFileController(cfg Config) (*fileController, error) {
 	if err != nil {
 		return nil, err
 	}
-	counter, err := xio.NewInt32Counter(counterF)
-	if err != nil {
-		return nil, err
-	}
+
 	fc := &fileController{
 		Config:      cfg,
 		counter:     counter,

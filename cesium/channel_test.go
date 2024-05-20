@@ -112,7 +112,7 @@ var _ = Describe("Channel", func() {
 					By("Asserting the old channel no longer exists")
 					_, err := db.RetrieveChannel(ctx, unaryKey)
 					Expect(err).To(MatchError(core.ChannelNotFound))
-					Expect(MustSucceed(fs.Exists(pathInDBFromKey(unaryKey)))).To(BeFalse())
+					Expect(MustSucceed(fs.Exists(channelKeyToPath(unaryKey)))).To(BeFalse())
 
 					By("Asserting the channel can be found at the new key")
 					ch := MustSucceed(db.RetrieveChannel(ctx, unaryKey*10))
@@ -133,7 +133,7 @@ var _ = Describe("Channel", func() {
 					By("Asserting the old channel no longer exists")
 					_, err := db.RetrieveChannel(ctx, virtualKey)
 					Expect(err).To(MatchError(core.ChannelNotFound))
-					Expect(MustSucceed(fs.Exists(pathInDBFromKey(virtualKey)))).To(BeFalse())
+					Expect(MustSucceed(fs.Exists(channelKeyToPath(virtualKey)))).To(BeFalse())
 
 					By("Asserting the channel and data can be found at the new key")
 					ch := MustSucceed(db.RetrieveChannel(ctx, virtualKey*10))
@@ -153,7 +153,7 @@ var _ = Describe("Channel", func() {
 					By("Asserting the old channel no longer exists")
 					_, err := db.RetrieveChannel(ctx, indexKey)
 					Expect(err).To(MatchError(core.ChannelNotFound))
-					Expect(MustSucceed(fs.Exists(pathInDBFromKey(indexKey)))).To(BeFalse())
+					Expect(MustSucceed(fs.Exists(channelKeyToPath(indexKey)))).To(BeFalse())
 
 					By("Asserting the channel can be found at the new key")
 					ch := MustSucceed(db.RetrieveChannel(ctx, indexKey*10))
@@ -192,7 +192,7 @@ var _ = Describe("Channel", func() {
 						By("Asserting the old channel no longer exists")
 						_, err := db.RetrieveChannel(ctx, errorKey1)
 						Expect(err).To(MatchError(core.ChannelNotFound))
-						Expect(MustSucceed(fs.Exists(pathInDBFromKey(errorKey1)))).To(BeFalse())
+						Expect(MustSucceed(fs.Exists(channelKeyToPath(errorKey1)))).To(BeFalse())
 
 						By("Asserting the channel can be found at the new key")
 						ch := MustSucceed(db.RetrieveChannel(ctx, errorKey1*10))
@@ -219,7 +219,7 @@ var _ = Describe("Channel", func() {
 						By("Asserting the old channel no longer exists")
 						_, err := db.RetrieveChannel(ctx, errorKey2)
 						Expect(err).To(MatchError(core.ChannelNotFound))
-						Expect(MustSucceed(fs.Exists(pathInDBFromKey(errorKey2)))).To(BeFalse())
+						Expect(MustSucceed(fs.Exists(channelKeyToPath(errorKey2)))).To(BeFalse())
 
 						By("Asserting the channel can be found at the new key")
 						ch := MustSucceed(db.RetrieveChannel(ctx, errorKey2*10))
