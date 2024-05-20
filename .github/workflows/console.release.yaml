@@ -207,7 +207,7 @@ jobs:
           gh release upload console-v${{ steps.console-version.outputs.CONSOLE_VERSION }} ./console/src-tauri/target/release/bundle/macos/Synnax.app
           gh release upload console-v${{ steps.console-version.outputs.CONSOLE_VERSION }} ./console/src-tauri/target/release/bundle/macos/Synnax.app.tar.gz
           gh release upload console-v${{ steps.console-version.outputs.CONSOLE_VERSION }} ./console/src-tauri/target/release/bundle/macos/Synnax.app.tar.gz.sig
-          gh release upload console-v${{ steps.console-version.outsputs.CONSOLE_VERSION }} ./console/src-tauri/target/release/bundle/dmg/Synnax_${{ process.env.CONSOLE_VERSION }}_x64.dmg
+          gh release upload console-v${{ steps.console-version.outputs.CONSOLE_VERSION }} ./console/src-tauri/target/release/bundle/dmg/Synnax_${{ steps.console-version.outputs.CONSOLE_VERSION }}_x64.dmg
       
 
   publish-release:
