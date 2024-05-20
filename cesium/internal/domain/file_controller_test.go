@@ -35,14 +35,14 @@ var _ = Describe("File Controller", func() {
 						Start: 10 * telem.SecondTS,
 						End:   20 * telem.SecondTS,
 					}))
-					Expect(db.FS.Exists("1.domain"))
+					Expect(db.FS.Exists("1.domain")).To(BeTrue())
 					By("Acquiring a second writer, this would create a new file 2.domain")
 					w2, err := db.NewWriter(ctx, domain.WriterConfig{
 						Start: 30 * telem.SecondTS,
 						End:   40 * telem.SecondTS,
 					})
-					Expect(err).To(BeNil())
-					Expect(db.FS.Exists("2.domain"))
+					Expect(err).ToNot(HaveOccurred())
+					Expect(db.FS.Exists("2.domain")).To(BeTrue())
 
 					By("Closing the first writer")
 					Expect(w1.Close(ctx)).To(Succeed())
@@ -52,12 +52,12 @@ var _ = Describe("File Controller", func() {
 						Start: 50 * telem.SecondTS,
 						End:   60 * telem.SecondTS,
 					})
-					Expect(err).To(BeNil())
+					Expect(err).ToNot(HaveOccurred())
 					n, err := w3.Write([]byte{0, 0, 0, 0, 0, 0, 0, 0})
-					Expect(err).To(BeNil())
+					Expect(err).ToNot(HaveOccurred())
 					Expect(n).To(Equal(8))
 					s, err := db.FS.Stat("1.domain")
-					Expect(err).To(BeNil())
+					Expect(err).ToNot(HaveOccurred())
 					Expect(s.Size()).To(Equal(int64(8)))
 
 					Expect(w2.Close(ctx)).To(Succeed())
@@ -72,18 +72,105 @@ var _ = Describe("File Controller", func() {
 						Start: 10 * telem.SecondTS,
 						End:   20 * telem.SecondTS,
 					}))
-					Expect(db.FS.Exists("1.domain"))
+					Expect(db.FS.Exists("1.domain")).To(BeTrue())
 					n, err := w1.Write([]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10})
 					Expect(n).To(Equal(10))
-					Expect(err).To(BeNil())
+					Expect(err).ToNot(HaveOccurred())
 					Expect(w1.Close(ctx)).To(Succeed())
 					By("Acquiring a second writer, this would create a new file 2.domain since 1.domain is full")
 					w2, err := db.NewWriter(ctx, domain.WriterConfig{
 						Start: 30 * telem.SecondTS,
 						End:   40 * telem.SecondTS,
 					})
-					Expect(err).To(BeNil())
-					Expect(db.FS.Exists("2.domain"))
+					Expect(err).ToNot(HaveOccurred())
+					Expect(db.FS.Exists("2.domain")).To(BeTrue())
+
+					Expect(w2.Close(ctx)).To(Succeed())
+				})
+
+				It("Should persist obey the file size limit", func() {
+					By("Initializing a file controller")
+					db = MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub(rootPath)), FileSize: 10 * telem.ByteSize}))
+					By("Acquiring one writer on the file 1.domain")
+					w1 := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{
+						Start: 10 * telem.SecondTS,
+						End:   20 * telem.SecondTS,
+					}))
+					Expect(db.FS.Exists("1.domain")).To(BeTrue())
+					n, err := w1.Write([]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10})
+					Expect(n).To(Equal(10))
+					Expect(err).ToNot(HaveOccurred())
+					Expect(w1.Close(ctx)).To(Succeed())
+
+					By("Closing the db")
+					Expect(db.Close()).To(Succeed())
+
+					By("Reopening the db and fc")
+					db = MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub(rootPath)), FileSize: 10 * telem.ByteSize}))
+
+					By("Acquiring a second writer, this would create a new file 2.domain since 1.domain is full")
+					w2, err := db.NewWriter(ctx, domain.WriterConfig{
+						Start: 30 * telem.SecondTS,
+						End:   40 * telem.SecondTS,
+					})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(db.FS.Exists("2.domain")).To(BeTrue())
+
+					Expect(w2.Close(ctx)).To(Succeed())
+				})
+
+				It("Should open a file if it is below threshold", func() {
+					By("Initializing a file controller")
+					db = MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub(rootPath)), FileSize: 10 * telem.ByteSize}))
+					By("Acquiring one writer on the file 1.domain")
+					w1 := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{
+						Start: 10 * telem.SecondTS,
+						End:   20 * telem.SecondTS,
+					}))
+					Expect(db.FS.Exists("1.domain")).To(BeTrue())
+					n, err := w1.Write([]byte{1, 2, 3, 4, 5, 6, 7})
+					Expect(n).To(Equal(7))
+					Expect(err).ToNot(HaveOccurred())
+					Expect(w1.Close(ctx)).To(Succeed())
+
+					By("Acquiring a second writer, this would not create a new file 2.domain since 1.domain not full")
+					w2, err := db.NewWriter(ctx, domain.WriterConfig{
+						Start: 30 * telem.SecondTS,
+						End:   40 * telem.SecondTS,
+					})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(db.FS.Exists("2.domain")).To(BeFalse())
+
+					Expect(w2.Close(ctx)).To(Succeed())
+				})
+
+				It("Should persist and open a file if it is below threshold", func() {
+					By("Initializing a file controller")
+					db = MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub(rootPath)), FileSize: 10 * telem.ByteSize}))
+					By("Acquiring one writer on the file 1.domain")
+					w1 := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{
+						Start: 10 * telem.SecondTS,
+						End:   20 * telem.SecondTS,
+					}))
+					Expect(db.FS.Exists("1.domain")).To(BeTrue())
+					n, err := w1.Write([]byte{1, 2, 3, 4, 5, 6, 7})
+					Expect(n).To(Equal(7))
+					Expect(err).ToNot(HaveOccurred())
+					Expect(w1.Close(ctx)).To(Succeed())
+
+					By("Closing the db")
+					Expect(db.Close()).To(Succeed())
+
+					By("Reopening the db and fc")
+					db = MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub(rootPath)), FileSize: 10 * telem.ByteSize}))
+
+					By("Acquiring a second writer, this would not create a new file 2.domain since 1.domain is not full")
+					w2, err := db.NewWriter(ctx, domain.WriterConfig{
+						Start: 30 * telem.SecondTS,
+						End:   40 * telem.SecondTS,
+					})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(db.FS.Exists("2.domain")).To(BeFalse())
 
 					Expect(w2.Close(ctx)).To(Succeed())
 				})
@@ -96,14 +183,14 @@ var _ = Describe("File Controller", func() {
 						Start: 10 * telem.SecondTS,
 						End:   20 * telem.SecondTS,
 					}))
-					Expect(db.FS.Exists("1.domain"))
+					Expect(db.FS.Exists("1.domain")).To(BeTrue())
 
 					By("Acquiring one writer on the file 2.domain")
 					w2 := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{
 						Start: 20 * telem.SecondTS,
 						End:   30 * telem.SecondTS,
 					}))
-					Expect(db.FS.Exists("2.domain"))
+					Expect(db.FS.Exists("2.domain")).To(BeTrue())
 
 					By("Trying to acquire a third writer")
 					released := make(chan struct{})
@@ -112,7 +199,7 @@ var _ = Describe("File Controller", func() {
 							Start: 30 * telem.SecondTS,
 							End:   40 * telem.SecondTS,
 						})
-						Expect(err).To(BeNil())
+						Expect(err).ToNot(HaveOccurred())
 						released <- struct{}{}
 						Expect(w3.Close(ctx)).To(Succeed())
 					}()
