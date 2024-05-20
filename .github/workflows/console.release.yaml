@@ -115,7 +115,8 @@ jobs:
           echo "SERVER_VERSION=$(cat pkg/version/VERSION)" >> $GITHUB_ENV
       
       - name: Get Console Version
-        run: echo "CONSOLE_VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_ENV
+        id: console-version
+        run: echo "CONSOLE_VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
         working-directory: ./console
 
 
@@ -198,15 +199,16 @@ jobs:
           NODE_OPTIONS: "--max_old_space_size=4096"
         run: pnpm build:console
 
-      - name: Upload Macos Release Asset
+      - name: Upload MacoOS Release Asset
         if: steps.filter.outputs.changed == 'true' && matrix.platform == 'macos-12'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release upload console-v${{ process.env.CONSOLE_VERSION }} ./console/src-tauri/target/release/bundle/macos/Synnax.app
-          gh release upload console-v${{ process.env.CONSOLE_VERSION }} ./console/src-tauri/target/release/bundle/macos/Synnax.app.tar.gz
-          gh release upload console-v${{ process.env.CONSOLE_VERSION }} ./console/src-tauri/target/release/bundle/macos/Synnax.app.tar.gz.sig
-          gh release upload console-v${{ process.env.CONSOLE_VERSION }} ./console/src-tauri/target/release/bundle/dmg/Synnax_${{ process.env.CONSOLE_VERSION }}_x64.dmg
+          gh release upload console-v${{ steps.console-version.outputs.CONSOLE_VERSION }} ./console/src-tauri/target/release/bundle/macos/Synnax.app
+          gh release upload console-v${{ steps.console-version.outputs.CONSOLE_VERSION }} ./console/src-tauri/target/release/bundle/macos/Synnax.app.tar.gz
+          gh release upload console-v${{ steps.console-version.outputs.CONSOLE_VERSION }} ./console/src-tauri/target/release/bundle/macos/Synnax.app.tar.gz.sig
+          gh release upload console-v${{ steps.console-version.outsputs.CONSOLE_VERSION }} ./console/src-tauri/target/release/bundle/dmg/Synnax_${{ process.env.CONSOLE_VERSION }}_x64.dmg
+      
 
   publish-release:
     runs-on: ubuntu-latest
