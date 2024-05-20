@@ -159,7 +159,6 @@ namespace ni{
         std::thread sample_thread;
 
         TaskHandle task_handle = 0;
-        double *data;       // pointer to heap allocated dataBuffer to provide to DAQmx read functions
         uint64_t numChannels = 0;
         uint64_t numAIChannels = 0;
         int numSamplesPerChannel = 0;
