@@ -114,16 +114,17 @@ ni::ReaderTask::ReaderTask(const std::shared_ptr <task::Context> &ctx,
     // log task config
     LOG(INFO) << "[NI Task] task config: " << task.config;
 
-
     // determine whether DigitalReadSource or AnalogReadSource is needed
     std::unique_ptr<pipeline::Source> daq_reader;
     std::vector <synnax::ChannelKey> channel_keys;
     if(task.type == "ni_digital_read"){
         auto digital_reader = std::make_unique<ni::DigitalReadSource>(this->task_handle, ctx, task);
+        digital_reader->init();
         channel_keys = digital_reader->getChannelKeys();
         daq_reader = std::move(digital_reader);
     } else{
         auto analog_reader = std::make_unique<ni::AnalogReadSource>(this->task_handle, ctx, task);
+        analog_reader->init();
         channel_keys = analog_reader->getChannelKeys();
         daq_reader = std::move(analog_reader);
     }
@@ -298,7 +299,7 @@ void ni::WriterTask::exec(task::Command &cmd) {
 
 void ni::WriterTask::stop(){
     if(!this->running.exchange(false) || !this->ok()){
-            return;
+        return; // TODO: handle this error
     }
     this->state_write_pipe.stop();
     this->cmd_write_pipe.stop();

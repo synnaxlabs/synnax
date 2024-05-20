@@ -120,58 +120,80 @@ namespace ni{
     /////////////////////////////////////////////////////////////////////////////////////////////
 
     ///////////////////////////////////////////////////////////////////////////////////
-    //                                    AnalogReadSource                           //
+    //                                    NiSource                                   //
     ///////////////////////////////////////////////////////////////////////////////////
-    class AnalogReadSource : public pipeline::Source{ 
+    class Source : public pipeline::Source{
     public:
-        explicit AnalogReadSource(TaskHandle task_handle,
+        explicit Source(TaskHandle task_handle,
                              const std::shared_ptr<task::Context> &ctx,
                              const synnax::Task task);
 
+        virtual freighter::Error start();
+        virtual freighter::Error stop();
+        virtual bool ok(); 
+        virtual void getIndexKeys();
+        virtual std::pair<synnax::Frame, freighter::Error> read() = 0;
         int init();
-        freighter::Error start();
-        freighter::Error stop();
-        std::pair<synnax::Frame, freighter::Error> read();
-        bool ok();
-        ~AnalogReadSource();
-        void getIndexKeys(); 
-        std::vector<synnax::ChannelKey> getChannelKeys();
-    private:
-        // private helper functions
-        void parseConfig(config::Parser & parser);
+        ~Source();
+    protected:
         int checkNIError(int32 error);  
-        void parseCustomScale(config::Parser & parser, ChannelConfig & config);
-        void deleteScales();
-        int createChannel(ni::ChannelConfig &channel);
-        int configureTiming();
-        void acquireData();
 
-        // NI related resources
+        virtual void parseConfig(config::Parser & parser);
+        virtual void parseChannels(config::Parser & parser) = 0;
+        virtual int configureTiming() = 0; 
+        virtual void acquireData() = 0;
+        virtual int createChannels() = 0;
 
-        typedef struct DataPacket{
-            double* data; // actual data
+
+         typedef struct DataPacket{
+            void* data; // actual data
             uint64_t t0;  // initial timestamp
             uint64_t tf;  // final timestamp
             int32 samplesReadPerChannel;
         } DataPacket;
-
-        std::atomic<bool> running = false;
-        std::thread sample_thread;
-
-        TaskHandle task_handle = 0;
-        uint64_t numChannels = 0;
-        uint64_t numAIChannels = 0;
-        int numSamplesPerChannel = 0;
-        json err_info;
         SPSCQueue<DataPacket> data_queue;
 
 
-        // Server related resources
+        TaskHandle task_handle = 0;
         ReaderConfig reader_config;
+        uint64_t numChannels = 0;
+        int numSamplesPerChannel = 0;
+        int bufferSize = 0; 
+
+        bool ok_state = true;
+        json err_info;
         std::shared_ptr<task::Context> ctx;
         breaker::Breaker breaker;
-        bool ok_state = true;
-        int bufferSize = 0; 
+        std::atomic<bool> running = false;
+        std::thread sample_thread;
+        synnax::Task task;
+    };
+
+    ///////////////////////////////////////////////////////////////////////////////////
+    //                                    AnalogReadSource                           //
+    ///////////////////////////////////////////////////////////////////////////////////
+    class AnalogReadSource : public Source{ 
+    public:
+        explicit AnalogReadSource(TaskHandle task_handle,
+                             const std::shared_ptr<task::Context> &ctx,
+                             const synnax::Task task) : Source(task_handle, ctx, task){}
+
+
+        std::pair<synnax::Frame, freighter::Error> read() override;
+        ~AnalogReadSource();
+        std::vector<synnax::ChannelKey> getChannelKeys();
+    private:
+        // private helper functions
+        void acquireData() override;
+        void parseCustomScale(config::Parser & parser, ChannelConfig & config);
+        void deleteScales();
+        int createChannel(ChannelConfig &channel);
+        int configureTiming() override;
+        int createChannels() override;
+        void parseChannels(config::Parser &parser) override;
+
+        // NI related resources
+        uint64_t numAIChannels = 0;
     };
 
 
