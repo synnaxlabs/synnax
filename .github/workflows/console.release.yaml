@@ -6,7 +6,6 @@ permissions:
   contents: write
 jobs:
   create-release:
-    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     outputs:
       release_id: ${{ steps.create-release.outputs.result }}
