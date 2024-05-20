@@ -46,20 +46,20 @@ func provisionServices() (*mock.CoreBuilder, map[core.NodeKey]channel.Service) {
 		core2 = builder.New()
 	)
 	services[1] = MustSucceed(channel.New(ctx, channel.ServiceConfig{
-		HostResolver:           core1.Cluster,
-		ClusterDB:              core1.Storage.Gorpify(),
-		TSChannel:              core1.Storage.TS,
-		Transport:              net.New(core1.Config.AdvertiseAddress),
-		ValidateChannelCount:   func(count int64) error { return nil },
-		ChannelsNeedValidation: func() (int, error) { return 50, nil },
+		HostResolver:     core1.Cluster,
+		ClusterDB:        core1.Storage.Gorpify(),
+		TSChannel:        core1.Storage.TS,
+		Transport:        net.New(core1.Config.AdvertiseAddress),
+		IntOverflowCheck: func(count int64) error { return nil },
+		GetChannelCount:  func() (int, error) { return 50, nil },
 	}))
 	services[2] = MustSucceed(channel.New(ctx, channel.ServiceConfig{
-		HostResolver:           core2.Cluster,
-		ClusterDB:              core2.Storage.Gorpify(),
-		TSChannel:              core2.Storage.TS,
-		Transport:              net.New(core2.Config.AdvertiseAddress),
-		ValidateChannelCount:   func(count int64) error { return nil },
-		ChannelsNeedValidation: func() (int, error) { return 50, nil },
+		HostResolver:     core2.Cluster,
+		ClusterDB:        core2.Storage.Gorpify(),
+		TSChannel:        core2.Storage.TS,
+		Transport:        net.New(core2.Config.AdvertiseAddress),
+		IntOverflowCheck: func(count int64) error { return nil },
+		GetChannelCount:  func() (int, error) { return 50, nil },
 	}))
 	Eventually(func(g Gomega) {
 		g.Expect(core1.Cluster.Nodes()).To(HaveLen(2))

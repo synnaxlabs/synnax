@@ -58,12 +58,12 @@ func provision(n int) (*mock.CoreBuilder, map[core.NodeKey]serviceContainer) {
 			container serviceContainer
 		)
 		container.channel = MustSucceed(channel.New(ctx, channel.ServiceConfig{
-			HostResolver:           c.Cluster,
-			ClusterDB:              c.Storage.Gorpify(),
-			TSChannel:              c.Storage.TS,
-			Transport:              channelNet.New(c.Config.AdvertiseAddress),
-			ValidateChannelCount:   func(count int64) error { return nil },
-			ChannelsNeedValidation: func() (int, error) { return 50, nil },
+			HostResolver:     c.Cluster,
+			ClusterDB:        c.Storage.Gorpify(),
+			TSChannel:        c.Storage.TS,
+			Transport:        channelNet.New(c.Config.AdvertiseAddress),
+			IntOverflowCheck: func(count int64) error { return nil },
+			GetChannelCount:  func() (int, error) { return 50, nil },
 		}))
 		container.writer = MustSucceed(writer.OpenService(writer.ServiceConfig{
 			Instrumentation: ins,

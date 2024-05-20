@@ -74,14 +74,14 @@ func (b *Builder) New(ctx context.Context) distribution.Distribution {
 	nodeOntologySvc.ListenForChanges(ctx)
 
 	d.Channel = lo.Must(channel.New(ctx, channel.ServiceConfig{
-		HostResolver:           d.Cluster,
-		ClusterDB:              d.Storage.Gorpify(),
-		TSChannel:              d.Storage.TS,
-		Transport:              b.channelNet.New(d.Config.AdvertiseAddress),
-		Ontology:               d.Ontology,
-		Group:                  d.Group,
-		ValidateChannelCount:   func(count int64) error { return nil },
-		ChannelsNeedValidation: func() (int, error) { return 50, nil },
+		HostResolver:     d.Cluster,
+		ClusterDB:        d.Storage.Gorpify(),
+		TSChannel:        d.Storage.TS,
+		Transport:        b.channelNet.New(d.Config.AdvertiseAddress),
+		Ontology:         d.Ontology,
+		Group:            d.Group,
+		IntOverflowCheck: func(count int64) error { return nil },
+		GetChannelCount:  func() (int, error) { return 50, nil },
 	}))
 
 	d.Framer = lo.Must(framer.Open(framer.Config{

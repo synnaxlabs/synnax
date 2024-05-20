@@ -94,7 +94,7 @@ func (r Retrieve) Offset(offset int) Retrieve {
 }
 
 // Exec executes the query, binding
-func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) (err error) {
+func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 	if r.searchTerm != "" {
 		ids, err := r.otg.SearchIDs(ctx, search.Request{
 			Type: ontologyType,
@@ -109,7 +109,7 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) (err error) {
 		}
 		r = r.WhereKeys(keys...)
 	}
-	err = r.maybeEnrichError(r.gorp.Exec(ctx, gorp.OverrideTx(r.tx, tx)))
+	err := r.maybeEnrichError(r.gorp.Exec(ctx, gorp.OverrideTx(r.tx, tx)))
 
 	entries := gorp.GetEntries[Key, Channel](r.gorp.Params).All()
 	channels, vErr := r.validateRetrievedChannels(entries)

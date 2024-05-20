@@ -20,18 +20,19 @@ import (
 	"github.com/synnaxlabs/x/errutil"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/set"
 )
 
 type leaseProxy struct {
 	ServiceConfig
-	createRouter     proxy.BatchFactory[Channel]
-	deleteRouter     proxy.BatchFactory[Key]
-	leasedCounter    *kv.AtomicInt64Counter
-	freeCounter      *kv.AtomicInt64Counter
-	externalCounter  *kv.AtomicInt64Counter
-	deletedChannels  *ChannelGroup
-	internalChannels *ChannelGroup
-	group            group.Group
+	createRouter    proxy.BatchFactory[Channel]
+	deleteRouter    proxy.BatchFactory[Key]
+	leasedCounter   *kv.AtomicInt64Counter
+	freeCounter     *kv.AtomicInt64Counter
+	externalCounter *kv.AtomicInt64Counter
+	deleted         *set.Integer[uint16]
+	internal        *set.Integer[uint16]
+	group           group.Group
 }
 
 const leasedCounterSuffix = ".distribution.channel.leasedCounter"
@@ -50,14 +51,14 @@ func newLeaseProxy(cfg ServiceConfig, g group.Group) (*leaseProxy, error) {
 		return nil, err
 	}
 	p := &leaseProxy{
-		ServiceConfig:    cfg,
-		createRouter:     proxy.BatchFactory[Channel]{Host: cfg.HostResolver.HostKey()},
-		deleteRouter:     proxy.BatchFactory[Key]{Host: cfg.HostResolver.HostKey()},
-		leasedCounter:    c,
-		group:            g,
-		externalCounter:  extCtr,
-		deletedChannels:  &ChannelGroup{},
-		internalChannels: &ChannelGroup{},
+		ServiceConfig:   cfg,
+		createRouter:    proxy.BatchFactory[Channel]{Host: cfg.HostResolver.HostKey()},
+		deleteRouter:    proxy.BatchFactory[Key]{Host: cfg.HostResolver.HostKey()},
+		leasedCounter:   c,
+		group:           g,
+		externalCounter: extCtr,
+		deleted:         set.NewInteger[uint16](),
+		internal:        set.NewInteger[uint16](),
 	}
 	if cfg.HostResolver.HostKey() == core.Bootstrapper {
 		//freeCounterKey := []byte(cfg.HostResolver.HostKey().String() + freeCounterSuffix)
@@ -219,7 +220,7 @@ func (lp *leaseProxy) createGateway(
 		}
 	}
 	totalExternalChannels := int64(numExternalToCreate) + lp.externalCounter.Value()
-	err = lp.ValidateChannelCount(totalExternalChannels)
+	err = lp.IntOverflowCheck(totalExternalChannels)
 	if err != nil {
 		return err
 	}
@@ -227,7 +228,7 @@ func (lp *leaseProxy) createGateway(
 	if err != nil {
 		return err
 	}
-	lp.internalChannels.InsertKeys(internalCreatedKeys)
+	lp.internal.Insert(internalCreatedKeys.Local()...)
 
 	return lp.maybeSetResources(ctx, tx, toCreate)
 }
@@ -332,8 +333,8 @@ func (lp *leaseProxy) deleteGateway(ctx context.Context, tx gorp.Tx, keys Keys) 
 		return err
 	}
 
-	lp.deletedChannels.InsertKeys(keys)
-	lp.internalChannels.RemoveKeys(keys)
+	lp.deleted.Insert(keys.Local()...)
+	lp.internal.Remove(keys.Local()...)
 
 	c := errutil.NewCatch(errutil.WithAggregation())
 	for _, key := range keys {

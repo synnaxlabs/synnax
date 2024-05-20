@@ -103,24 +103,24 @@ func Open(ctx context.Context, cfg Config) (d Distribution, err error) {
 	frameTransport := frametransport.New(cfg.Pool)
 	*cfg.Transports = append(*cfg.Transports, channelTransport, frameTransport)
 
-	ca, err := verification.OpenService(cfg.Verifier, verification.Config{
+	ver, err := verification.OpenService(cfg.Verifier, verification.Config{
 		DB:  d.Storage.KV,
 		Ins: cfg.Instrumentation,
 	})
 	if err != nil {
 		return d, err
 	}
-	defer ca.Close()
+	defer ver.Close()
 
 	d.Channel, err = channel.New(ctx, channel.ServiceConfig{
-		HostResolver:           d.Cluster,
-		ClusterDB:              gorpDB,
-		TSChannel:              d.Storage.TS,
-		Transport:              channelTransport,
-		Ontology:               d.Ontology,
-		Group:                  d.Group,
-		ValidateChannelCount:   func(count int64) error { return ca.ValidateChannelCount(ctx, count) },
-		ChannelsNeedValidation: func() (int, error) { return ca.GetMaxFreeChannels(), ca.IsExpired(ctx) },
+		HostResolver:     d.Cluster,
+		ClusterDB:        gorpDB,
+		TSChannel:        d.Storage.TS,
+		Transport:        channelTransport,
+		Ontology:         d.Ontology,
+		Group:            d.Group,
+		IntOverflowCheck: func(count int64) error { return ver.IsOverflowed(ctx, count) },
+		GetChannelCount:  func() (int, error) { return ver.GetNumBeforeOverflow(), ver.IsExpired(ctx) },
 	})
 	if err != nil {
 		return d, err

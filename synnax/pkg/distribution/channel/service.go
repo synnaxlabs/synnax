@@ -55,14 +55,14 @@ type service struct {
 var _ Service = (*service)(nil)
 
 type ServiceConfig struct {
-	HostResolver           core.HostResolver
-	ClusterDB              *gorp.DB
-	TSChannel              *ts.DB
-	Transport              Transport
-	Ontology               *ontology.Ontology
-	Group                  *group.Service
-	ValidateChannelCount   func(count int64) error
-	ChannelsNeedValidation func() (int, error)
+	HostResolver     core.HostResolver
+	ClusterDB        *gorp.DB
+	TSChannel        *ts.DB
+	Transport        Transport
+	Ontology         *ontology.Ontology
+	Group            *group.Service
+	IntOverflowCheck func(count int64) error
+	GetChannelCount  func() (int, error)
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -73,8 +73,8 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "ClusterDB", c.ClusterDB)
 	validate.NotNil(v, "TSChannel", c.TSChannel)
 	validate.NotNil(v, "Transport", c.Transport)
-	validate.NotNil(v, "ValidateChannelCount", c.ValidateChannelCount)
-	validate.NotNil(v, "ChannelsNeedValidation", c.ChannelsNeedValidation)
+	validate.NotNil(v, "IntOverflowCheck", c.IntOverflowCheck)
+	validate.NotNil(v, "GetChannelCount", c.GetChannelCount)
 	return v.Error()
 }
 
@@ -85,8 +85,8 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Transport = override.Nil(c.Transport, other.Transport)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
-	c.ValidateChannelCount = override.Nil(c.ValidateChannelCount, other.ValidateChannelCount)
-	c.ChannelsNeedValidation = override.Nil(c.ChannelsNeedValidation, other.ChannelsNeedValidation)
+	c.IntOverflowCheck = override.Nil(c.IntOverflowCheck, other.IntOverflowCheck)
+	c.GetChannelCount = override.Nil(c.GetChannelCount, other.GetChannelCount)
 	return c
 }
 
@@ -128,27 +128,26 @@ func (s *service) NewWriter(tx gorp.Tx) Writer {
 }
 
 func (s *service) NewRetrieve() Retrieve {
-	return newRetrieve(s.DB, s.otg, func(channels []Channel) ([]Channel, error) {
-		maxAllowed, err := s.proxy.ChannelsNeedValidation()
+	return newRetrieve(s.DB, s.otg, s.validateChannels)
+}
 
-		if err != nil {
-			var fErr error
-			keys := KeysFromChannels(channels)
-
-			var returnedChannels []Channel
-			var err error
-			for i, key := range keys {
-				deletedCount := s.proxy.deletedChannels.GetChannelsBeforeKey(key)
-				internalCount := s.proxy.internalChannels.GetChannelsBeforeKey(key)
-				keyNumber := key.LocalKey() - deletedCount - internalCount
-				if keyNumber < uint16(maxAllowed) {
-					returnedChannels = append(returnedChannels, channels[i])
-				} else {
-					fErr = err
-				}
-			}
-			return returnedChannels, fErr
-		}
+func (s *service) validateChannels(channels []Channel) ([]Channel, error) {
+	maxAllowed, err := s.proxy.GetChannelCount()
+	if err == nil {
 		return channels, nil
-	})
+	}
+	var vErr error = nil
+	keys := KeysFromChannels(channels)
+	returnedChannels := make([]Channel, 0, len(channels))
+	for i, key := range keys {
+		deletedCount := s.proxy.deleted.NumLessThan(key.LocalKey())
+		internalCount := s.proxy.internal.NumLessThan(key.LocalKey())
+		keyNumber := key.LocalKey() - deletedCount - internalCount
+		if keyNumber < uint16(maxAllowed) {
+			returnedChannels = append(returnedChannels, channels[i])
+		} else {
+			vErr = err
+		}
+	}
+	return returnedChannels, vErr
 }

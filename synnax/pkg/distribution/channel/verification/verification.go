@@ -20,108 +20,98 @@ import (
 	"github.com/synnaxlabs/x/date"
 )
 
-const maxFreeChannels = 50
-const yearCipher = 89
-const monthCipher = 43
-const dayCipher = 77
+var errInvalidInput error
 
-// checkKeyFormat checks that inputKey is in the valid format of
-// ######-#####-########## (6#-5#-10#). If it is not in a correct format, it
-// returns an error.
-func checkKeyFormat(inputKey string) error {
+const (
+	freeCount   = 50
+	yearCipher  = 89
+	monthCipher = 43
+	dayCipher   = 77
+)
 
-	inputKeyLength := 26
+func checkFormat(input string) error {
+
+	inputLength := 26
 	numDashes := 2
-	numPartsOfKey := 3
+	numParts := 3
 	firstPartLength := 6
 	secondPartLength := 8
 	thirdPartLength := 10
 
-	encoded := "cHJvZHVjdCBsaWNlbnNlIGtleSBpcyBpbiBhbiBpbnZhbGlkIGZvcm1hdA=="
-	errKeyFormatMsg, _ := base64.StdEncoding.DecodeString(encoded)
-	errKeyFormat := errors.New(string(errKeyFormatMsg))
+	errFormat := errors.New(decode("cHJvZHVjdCBsaWNlbnNlIGtleSBpcyBpbiBhbiBpbnZhbGlkIGZvcm1hdA=="))
 
-	// right length and number of dashes
-	if len(inputKey) != inputKeyLength {
-		return errKeyFormat
+	if len(input) != inputLength {
+		return errFormat
 	}
-	dashCount := strings.Count(inputKey, "-")
+	dashCount := strings.Count(input, "-")
 	if dashCount != numDashes {
-		return errKeyFormat
+		return errFormat
 	}
 
-	// split key, make sure it is the correct length
-	parts := strings.Split(inputKey, "-")
-	if len(parts) != numPartsOfKey {
-		return errKeyFormat
+	parts := strings.Split(input, "-")
+	if len(parts) != numParts {
+		return errFormat
 	}
 
 	if len(parts[0]) != firstPartLength {
-		return errKeyFormat
+		return errFormat
 	}
 	if len(parts[1]) != secondPartLength {
-		return errKeyFormat
+		return errFormat
 	}
 	if len(parts[2]) != thirdPartLength {
-		return errKeyFormat
+		return errFormat
 	}
 
-	// make sure key is all integers
 	_, err := strconv.Atoi(parts[0])
 	if err != nil {
-		return errKeyFormat
+		return errFormat
 	}
 	_, err = strconv.Atoi(parts[1])
 	if err != nil {
-		return errKeyFormat
+		return errFormat
 	}
 	_, err = strconv.Atoi(parts[2])
 	if err != nil {
-		return errKeyFormat
+		return errFormat
 	}
 
 	return nil
 }
 
-// validateKey takes in key and returns an error if the key is invalid -
-// incorrect format, expiration date does not exist, or does not pass the key
-// check algorithm
-func validateKey(key string) error {
-	err := checkKeyFormat(key)
+func validateInput(input string) error {
+	err := checkFormat(input)
 	if err != nil {
 		return err
 	}
 
-	parts := strings.Split(key, "-")
+	parts := strings.Split(input, "-")
 
-	// Makes sure that the expiration date exists
 	year, _ := strconv.Atoi(parts[0][0:2])
 	month, _ := strconv.Atoi(parts[0][2:4])
 	day, _ := strconv.Atoi(parts[0][4:6])
 	year, err = crypto.Cipher(year, yearCipher, 2)
 	if err != nil {
-		return errInvalidKey()
+		return errInvalidInput
 	}
 	year += 2000
 	month, err = crypto.Cipher(month, monthCipher, 2)
 	if err != nil {
-		return errInvalidKey()
+		return errInvalidInput
 	}
 	day, err = crypto.Cipher(day, dayCipher, 2)
 	if err != nil {
-		return errInvalidKey()
+		return errInvalidInput
 	}
 	if !date.DateExists(year, month, day) {
-		return errInvalidKey()
+		return errInvalidInput
 	}
 
-	return keyCheckAlgorithm(key)
+	return inputCheckFunc(input)
 }
 
-// getExpirationDate returns the expiration date from a valid key This requires
-// the key to be in a valid format with a valid date.
-func getExpirationDate(key string) time.Time {
-	parts := strings.Split(key, "-")
+func whenStale(input string) time.Time {
+	parts := strings.Split(input, "-")
 
 	year, _ := strconv.Atoi(parts[0][0:2])
 	month, _ := strconv.Atoi(parts[0][2:4])
@@ -134,21 +124,16 @@ func getExpirationDate(key string) time.Time {
 	return time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.Local)
 }
 
-// getNumberOfChannels returns the number of channels allowed by key. This
-// assumes that the key is in a valid format with a valid date.
-func getNumberOfChannels(key string) int64 {
+func getNumChan(input string) int64 {
 	channelCipher := 64317284
-	parts := strings.Split(key, "-")
+	parts := strings.Split(input, "-")
 	numChannels, _ := strconv.Atoi(parts[1])
 	numChannels, _ = crypto.Cipher(numChannels, channelCipher, 8)
 	return int64(numChannels)
 }
 
-// keyCheckAlgorithm takes  key and determines if it is valid. It will return an
-// error if the key is not a valid key. This function requires the key to be of
-// a valid format with a valid date.
-func keyCheckAlgorithm(key string) error {
-	code := strings.Split(key, "-")[2]
+func inputCheckFunc(input string) error {
+	code := strings.Split(input, "-")[2]
 
 	var digits [10]int
 	for i := 0; i < 10; i++ {
@@ -158,19 +143,22 @@ func keyCheckAlgorithm(key string) error {
 	sum := digits[5] + digits[6] + digits[7] + digits[8]
 
 	if digits[1] != 4 {
-		return errInvalidKey()
+		return errInvalidInput
 	} else if firstFive%9 != 0 {
-		return errInvalidKey()
+		return errInvalidInput
 	} else if sum%7 != 0 {
-		return errInvalidKey()
+		return errInvalidInput
 	} else if digits[9] > 6 || digits[9] < 3 {
-		return errInvalidKey()
+		return errInvalidInput
 	}
 	return nil
 }
 
-func errInvalidKey() error {
-	encoded := "aW52YWxpZCBwcm9kdWN0IGxpY2Vuc2Uga2V5"
-	errInvalidKeyMsg, _ := base64.StdEncoding.DecodeString(encoded)
-	return errors.New(string(errInvalidKeyMsg))
+func init() {
+	errInvalidInput = errors.New(decode("aW52YWxpZCBwcm9kdWN0IGxpY2Vuc2Uga2V5"))
+}
+
+func decode(str string) string {
+	msg, _ := base64.StdEncoding.DecodeString(str)
+	return string(msg)
 }

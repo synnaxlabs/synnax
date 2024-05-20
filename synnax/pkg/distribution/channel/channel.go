@@ -119,6 +119,10 @@ func (k Keys) UniqueNodeKeys() (keys []core.NodeKey) {
 	return lo.Uniq(keys)
 }
 
+func (k Keys) Local() []uint16 {
+	return lo.Map(k, func(k Key, _ int) uint16 { return k.LocalKey() })
+}
+
 // Strings returns the keys as a slice of strings.
 func (k Keys) Strings() []string {
 	s := make([]string, len(k))
