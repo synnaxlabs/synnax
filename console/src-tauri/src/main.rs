@@ -51,15 +51,18 @@ fn main() {
         })
         .on_window_event(move |win, event| match event {
             tauri::WindowEvent::Focused {..} => {
+                #[cfg(target_os = "macos")]
                 set_transparent_titlebar(win, true);
             },
             tauri::WindowEvent::ThemeChanged {..} => {
+                #[cfg(target_os = "macos")]
                 set_transparent_titlebar(win, true);
             }
             tauri::WindowEvent::Resized(size) => {
                 let monitor = win.current_monitor().unwrap().unwrap();
                 let screen = monitor.size();
                 if size != screen {
+                    #[cfg(target_os = "macos")]
                     set_transparent_titlebar(win, true);
                 } 
             },
@@ -73,6 +76,11 @@ fn main() {
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_store::Builder::default().build())
+        .setup(|app| {
+            #[cfg(desktop)]
+            app.handle().plugin(tauri_plugin_updater::Builder::new().build())?;
+            Ok(())
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
