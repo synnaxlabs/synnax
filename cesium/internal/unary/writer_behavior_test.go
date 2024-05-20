@@ -73,7 +73,7 @@ var _ = Describe("Writer Behavior", func() {
 							DataType: telem.TimeStampT,
 							IsIndex:  true,
 						},
-						FileSizeCap: telem.Size(10*telem.TimeStampT.Density()) * telem.ByteSize,
+						FileSize: telem.Size(10*telem.TimeStampT.Density()) * telem.ByteSize,
 					}))
 					db = MustSucceed(unary.Open(unary.Config{
 						FS: MustSucceed(fs.Sub(dataPath)),
@@ -82,7 +82,7 @@ var _ = Describe("Writer Behavior", func() {
 							DataType: telem.Int64T,
 							Index:    index,
 						},
-						FileSizeCap: telem.Size(5*telem.TimeStampT.Density()) * telem.ByteSize,
+						FileSize: telem.Size(5*telem.TimeStampT.Density()) * telem.ByteSize,
 					}))
 					db.SetIndex(indexDB.Index())
 				})

@@ -273,7 +273,7 @@ func (w *Writer) commit(ctx context.Context, end telem.TimeStamp, persist bool) 
 
 // resolveCommitEnd returns whether a file change is needed, the resolved commit end, and any errors.
 func (w *Writer) resolveCommitEnd(end telem.TimeStamp) (bool, telem.TimeStamp) {
-	if w.fileSize >= w.fc.Config.FileSizeCap {
+	if w.fileSize >= w.fc.Config.FileSize {
 		return true, end
 	}
 

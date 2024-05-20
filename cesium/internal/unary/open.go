@@ -35,16 +35,17 @@ type Config struct {
 	// will be read from the databases meta file.
 	// [OPTIONAL]
 	Channel core.Channel
-	// FileSizeCap is the maximum size of a data file in bytes. When a data file reaches this
-	// size, a new file will be created.
+	// FileSize is the maximum size, in bytes, for a writer to be created on a file.
+	// Note while that a file's size may still exceed this value, it is not likely
+	// to exceed by much with frequent commits.
 	// [OPTIONAL] Default: 1GB
-	FileSizeCap telem.Size
+	FileSize telem.Size
 }
 
 var (
 	_ config.Config[Config] = Config{}
 	// DefaultConfig is the default configuration for a DB.
-	DefaultConfig = Config{FileSizeCap: 1 * telem.Gigabyte}
+	DefaultConfig = Config{FileSize: 1 * telem.Gigabyte}
 )
 
 // Validate implements config.GateConfig.
@@ -61,7 +62,7 @@ func (cfg Config) Override(other Config) Config {
 		cfg.Channel = other.Channel
 	}
 	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
-	cfg.FileSizeCap = override.Numeric(cfg.FileSizeCap, other.FileSizeCap)
+	cfg.FileSize = override.Numeric(cfg.FileSize, other.FileSize)
 	return cfg
 }
 
@@ -73,7 +74,7 @@ func Open(configs ...Config) (*DB, error) {
 	domainDB, err := domain.Open(domain.Config{
 		FS:              cfg.FS,
 		Instrumentation: cfg.Instrumentation,
-		FileSizeCap:     cfg.FileSizeCap,
+		FileSize:        cfg.FileSize,
 	})
 	db := &DB{
 		Config:     cfg,

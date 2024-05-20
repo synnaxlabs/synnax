@@ -35,11 +35,9 @@ func NewInt32Counter(f ReaderAtWriterAtCloser) (*Int32Counter, error) {
 	}
 
 	wrapped, err := c.load()
-
 	if errors.Is(err, io.EOF) {
 		return c, nil
 	}
-
 	if err != nil {
 		return nil, err
 	}

@@ -84,7 +84,7 @@ func (fc *fileController) scanUnopenedFiles() (map[uint16]struct{}, error) {
 		if err != nil {
 			return unopened, err
 		}
-		if s.Size() < int64(fc.FileSizeCap) {
+		if s.Size() < int64(fc.FileSize) {
 			unopened[uint16(i)] = struct{}{}
 		}
 	}
@@ -100,12 +100,12 @@ func (fc *fileController) acquireWriter(ctx context.Context) (uint16, int64, xio
 	for fileKey, w := range fc.writers.open {
 		s, err := fc.FS.Stat(fileKeyToName(fileKey))
 		if err != nil {
-			return 0, 0, nil, span.Error(err)
+			return 0, 0, nil, err
 		}
 
 		size := s.Size()
 
-		if size < int64(fc.FileSizeCap) && w.tryAcquire() {
+		if size < int64(fc.FileSize) && w.tryAcquire() {
 			fc.writers.RUnlock()
 			return w.fileKey, size, &w, nil
 		}
@@ -113,8 +113,11 @@ func (fc *fileController) acquireWriter(ctx context.Context) (uint16, int64, xio
 	fc.writers.RUnlock()
 
 	if !fc.atDescriptorLimit() {
-		w, sz, err := fc.newWriter(ctx)
-		return w.fileKey, sz, w, span.Error(err)
+		w, size, err := fc.newWriter(ctx)
+		if err != nil {
+			return 0, size, nil, err
+		}
+		return w.fileKey, size, w, span.Error(err)
 	}
 
 	ok, err := fc.gcWriters()
@@ -134,10 +137,13 @@ func (fc *fileController) acquireWriter(ctx context.Context) (uint16, int64, xio
 // capacity. If there is none, it creates a new file and increments the counter.
 func (fc *fileController) newWriter(ctx context.Context) (*controlledWriter, int64, error) {
 	ctx, span := fc.T.Bench(ctx, "newWriter")
-	defer span.End()
-
 	fc.writers.Lock()
-	defer fc.writers.Unlock()
+
+	defer func() {
+		fc.writers.Unlock()
+		span.End()
+	}()
+
 	for key := range fc.writers.unopened {
 		file, err := fc.FS.Open(fileKeyToName(key), os.O_WRONLY|os.O_APPEND)
 		if err != nil {
