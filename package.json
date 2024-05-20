@@ -85,7 +85,7 @@
       "zod": "3.22.4",
       "node-fetch": "2.6.11",
       "prettier": "3.2.5",
-      "@tauri-apps/api": "^1.5.3",
+      "@tauri-apps/api": "^2.0.0-beta.11",
       "eslint": "^9.0.0"
     }
   },
