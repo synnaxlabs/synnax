@@ -21,7 +21,7 @@ unsafe impl Send for UnsafeWindowHandle {}
 unsafe impl Sync for UnsafeWindowHandle {}
 
 #[cfg(target_os = "macos")]
-fn position_traffic_lights(win: Window, transparent: bool) {
+fn set_transparent_titlebar(win: &Window, transparent: bool) {
     let ns_window_handle = UnsafeWindowHandle(win.ns_window().expect("Failed to create window handle"));
     use cocoa::appkit::{NSView, NSWindow, NSWindowButton, NSWindowStyleMask, NSWindowTitleVisibility};
     use cocoa::foundation::NSRect;
@@ -54,29 +54,26 @@ fn main() {
     tauri::Builder::default()
         .on_page_load(|window, _| {
             #[cfg(target_os = "macos")]
-            position_traffic_lights(
-                UnsafeWindowHandle(window.window().ns_window().expect("Failed to create window handle")),
-                true,
-            );
+            set_transparent_titlebar(&window.window(), true,);
             return;
         })
         .on_window_event(move |win, event| match event {
             tauri::WindowEvent::Focused {..} => {
-                position_traffic_lights(win, true);
+                set_transparent_titlebar(win, true);
             },
             tauri::WindowEvent::ThemeChanged {..} => {
-                position_traffic_lights(win, true);
+                set_transparent_titlebar(win, true);
             }
             tauri::WindowEvent::Resized(size) => {
                 let monitor = win.current_monitor().unwrap().unwrap();
                 let screen = monitor.size();
                 if size != screen {
-                    position_traffic_lights(win, true);
+                    set_transparent_titlebar(win, true);
                 } 
             },
             tauri::WindowEvent::Moved(position)=> {
                 if position.x != 0 && position.y != 0 {
-                    position_traffic_lights(win, true);
+                    set_transparent_titlebar(win, true);
                 }
            },
             _ => (),
