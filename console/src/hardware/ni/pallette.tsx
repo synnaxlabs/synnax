@@ -12,6 +12,7 @@ import { Command } from "@/palette/Palette";
 import { configureAnalogReadLayout } from "@/hardware/ni/task/ConfigureAnalogRead";
 import { configureDigitalWriteLayout } from "@/hardware/ni/task/ConfigureDigitalWrite";
 import { configureDigitalReadLayout } from "@/hardware/ni/task/ConfigureDigitalRead";
+import { Text } from "@synnaxlabs/pluto";
 
 export const createAnalogReadTaskCommand: Command = {
   key: "ni-create-analog-read-task",

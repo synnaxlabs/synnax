@@ -29,8 +29,9 @@
 
     .pluto-dropdown__dialog {
         top: 25%;
-        background: var(--pluto-gray-l1);
         border-radius: 1rem;
+        background: var(--pluto-gray-l1-95);
+        backdrop-filter: saturate(300%) blur(5rem);
     }
 
     @media (max-height: 800px) {
@@ -50,8 +51,8 @@
     }
 
     &:not(.pluto--modal) {
-        background: var(--pluto-gray-l1-40);
-        backdrop-filter: blur(3rem);
+        background: var(--pluto-gray-l1-95);
+        backdrop-filter: saturate(180%) blur(5rem);
         max-height: 360px;
     }
 

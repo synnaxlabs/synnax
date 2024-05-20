@@ -15,6 +15,7 @@ import {
   useState,
   type MouseEventHandler,
   useLayoutEffect,
+  isValidElement,
 } from "react";
 
 import { ontology } from "@synnaxlabs/client";
@@ -397,7 +398,7 @@ interface CommandActionProps {
 
 export interface Command {
   key: string;
-  name: string;
+  name: ReactElement | string;
   icon?: ReactElement;
   onSelect: (ctx: CommandSelectionContext) => void;
   actions?: CommandActionProps[];

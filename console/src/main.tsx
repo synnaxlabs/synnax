@@ -36,11 +36,11 @@ import WorkerURL from "@/worker?worker&url";
 
 import "@/index.css";
 import "@synnaxlabs/media/dist/style.css";
-import "@synnaxlabs/pluto/dist/style.css";
+// import "@synnaxlabs/pluto/dist/style.css";
 
 const layoutRenderers: Record<string, Layout.Renderer> = {
   main: LayoutMain,
-  docs: Docs.Docs,
+  ...Docs.LAYOUTS,
   ...Layout.LAYOUTS,
   ...Vis.LAYOUTS,
   ...Workspace.LAYOUTS,
@@ -64,27 +64,22 @@ const triggersProps: Triggers.ProviderProps = {
 
 const client = new QueryClient();
 
+const useHaulState: state.PureUse<Haul.DraggingState> = () => {
+  const hauled = Layout.useSelectHauling();
+  const dispatch = useDispatch();
+  const onHauledChange = useCallback(
+    (state: Haul.DraggingState) => dispatch(Layout.setHauled(state)),
+    [dispatch],
+  );
+  return [hauled, onHauledChange];
+};
+
 const MainUnderContext = (): ReactElement => {
   const theme = Layout.useThemeProvider();
   Version.useLoadElectron();
   const cluster = Cluster.useSelect();
-
-  const useHaulState: state.PureUse<Haul.DraggingState> = () => {
-    const hauled = Layout.useSelectHauling();
-    const dispatch = useDispatch();
-    const onHauledChange = useCallback(
-      (state: Haul.DraggingState) => {
-        dispatch(Layout.setHauled(state));
-      },
-      [dispatch],
-    );
-    return [hauled, onHauledChange];
-  };
-
   const activeRange = Range.useSelect();
-
   Cluster.useLocalServer();
-
   return (
     <QueryClientProvider client={client}>
       <Pluto.Provider
@@ -108,19 +103,17 @@ const MainUnderContext = (): ReactElement => {
   );
 };
 
-const Main = (): ReactElement => {
-  return (
-    <Provider store={store}>
-      <ErrorOverlay>
-        <Layout.RendererProvider value={layoutRenderers}>
-          <Ontology.ServicesProvider services={SERVICES}>
-            <MainUnderContext />
-          </Ontology.ServicesProvider>
-        </Layout.RendererProvider>
-      </ErrorOverlay>
-    </Provider>
-  );
-};
+const Main = (): ReactElement => (
+  <Provider store={store}>
+    <ErrorOverlay>
+      <Layout.RendererProvider value={layoutRenderers}>
+        <Ontology.ServicesProvider services={SERVICES}>
+          <MainUnderContext />
+        </Ontology.ServicesProvider>
+      </Layout.RendererProvider>
+    </ErrorOverlay>
+  </Provider>
+);
 
 const rootEl = document.getElementById("root") as unknown as HTMLElement;
 

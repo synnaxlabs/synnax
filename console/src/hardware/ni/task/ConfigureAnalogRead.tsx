@@ -18,6 +18,7 @@ import {
   useAsyncEffect,
   Status,
   Device,
+  Menu,
 } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 import { Input } from "@synnaxlabs/pluto/input";
@@ -51,6 +52,7 @@ import { Channel } from "@synnaxlabs/pluto";
 import { List } from "@synnaxlabs/pluto/list";
 import { deep } from "@synnaxlabs/x";
 import { nanoid } from "nanoid";
+import { remove } from "@/cluster/slice";
 
 export const configureAnalogReadLayout: Layout.State = {
   name: "Configure NI Analog Read Task",
@@ -241,7 +243,8 @@ interface ChannelFormProps {
 const ChannelForm = ({ selectedChannelIndex }: ChannelFormProps): ReactElement => {
   if (selectedChannelIndex == -1) return <></>;
   const prefix = `config.channels.${selectedChannelIndex}`;
-  const type = Form.useField<AIChanType>({ path: `${prefix}.type` }).value;
+  const type = Form.useFieldValue<AIChanType>(`${prefix}.type`, true);
+  if (type == null) return <></>;
   const TypeForm = ANALOG_INPUT_FORMS[type];
 
   return (
@@ -261,15 +264,16 @@ interface ChannelListProps {
 }
 
 const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactElement => {
-  const { value, push } = Form.useFieldArray<Chan>({ path });
+  const { value, push, remove } = Form.useFieldArray<Chan>({ path });
   const handleAdd = (): void => {
     const availablePort = Math.max(0, ...value.map((v) => v.port)) + 1;
     push({
-      ...deep.copy(ZERO_AI_CHANNELS["ai_accel"]),
+      ...deep.copy(ZERO_AI_CHANNELS["ai_voltage"]),
       port: availablePort,
       key: nanoid(),
     });
   };
+  const menuProps = Menu.useContextMenu();
   return (
     <Align.Space className={CSS.B("channels")} grow empty>
       <Header.Header level="h3">
@@ -285,21 +289,43 @@ const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactEleme
           ]}
         </Header.Actions>
       </Header.Header>
-      <List.List<string, Chan> data={value}>
-        <List.Selector<string, Chan>
-          value={selected}
-          allowNone={false}
-          allowMultiple={true}
-          onChange={(keys, { clickedIndex }) =>
-            clickedIndex != null && onSelect(keys, clickedIndex)
-          }
-          replaceOnSingle
-        >
-          <List.Core<string, Chan> grow>
-            {(props) => <ChannelListItem {...props} path={path} />}
-          </List.Core>
-        </List.Selector>
-      </List.List>
+      <Menu.ContextMenu
+        menu={({ keys }: Menu.ContextMenuMenuProps): ReactElement => {
+          const handleSelect = (key: string): void => {
+            switch (key) {
+              case "remove":
+                const indices = keys.map((k) => value.findIndex((v) => v.key === k));
+                remove(indices);
+                onSelect([], -1);
+                break;
+            }
+          };
+          return (
+            <Menu.Menu onChange={handleSelect} level="small">
+              <Menu.Item itemKey="remove" startIcon={<Icon.Close />}>
+                Remove
+              </Menu.Item>
+            </Menu.Menu>
+          );
+        }}
+        {...menuProps}
+      >
+        <List.List<string, Chan> data={value}>
+          <List.Selector<string, Chan>
+            value={selected}
+            allowNone={false}
+            allowMultiple={true}
+            onChange={(keys, { clickedIndex }) =>
+              clickedIndex != null && onSelect(keys, clickedIndex)
+            }
+            replaceOnSingle
+          >
+            <List.Core<string, Chan> grow>
+              {(props) => <ChannelListItem {...props} path={path} />}
+            </List.Core>
+          </List.Selector>
+        </List.List>
+      </Menu.ContextMenu>
     </Align.Space>
   );
 };
@@ -315,16 +341,10 @@ const ChannelListItem = ({
   const ctx = Form.useContext();
   const path = `${basePath}.${props.index}`;
   const childValues = Form.useChildFieldValues<AIChan>({ path, optional: true });
-  const channelName = Channel.useName(childValues?.channel ?? 0, "No Synnax Channel");
-  const channelValid =
-    Form.useField<number>({
-      path: `${path}.channel`,
-    }).status.variant === "success";
-  const portValid =
-    Form.useField({
-      path: `${path}.port`,
-    }).status.variant === "success";
   if (childValues == null) return <></>;
+  const channelName = Channel.useName(childValues?.channel ?? 0, "No Synnax Channel");
+  const channelValid = Form.useFieldValid(`${path}.channel`);
+  const portValid = Form.useFieldValid(`${path}.port`);
   return (
     <List.ItemFrame
       {...props}

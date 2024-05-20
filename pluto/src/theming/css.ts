@@ -10,7 +10,9 @@
 import { CSS, createHexOpacityVariants, unitProperty } from "@/css";
 import { type Theme } from "@/theming/core/theme";
 
-const OPACITIES: readonly number[] = [90, 80, 70, 60, 50, 40, 30, 20, 10];
+const OPACITIES: readonly number[] = [
+  95, 90, 85, 80, 75, 70, 65, 60, 55, 50, 45, 40, 35, 30, 25, 20, 15, 10, 5,
+];
 
 export const toCSSVars = (theme: Theme): Record<string, number | string | undefined> =>
   Object.entries({
@@ -68,7 +70,10 @@ export const toCSSVars = (theme: Theme): Record<string, number | string | undefi
     "base-size": unitProperty(theme.sizes.base, "px"),
     "border-radius": unitProperty(theme.sizes.border.radius, "px"),
     "border-width": unitProperty(theme.sizes.border.width, "px"),
-    "schematic-element-stroke-width": unitProperty(theme.sizes.schematic.elementStrokeWidth, "px"),
+    "schematic-element-stroke-width": unitProperty(
+      theme.sizes.schematic.elementStrokeWidth,
+      "px",
+    ),
     "font-family": theme.typography.family,
     "h1-size": unitProperty(theme.typography.h1.size, "rem"),
     "h1-weight": theme.typography.h1.weight,

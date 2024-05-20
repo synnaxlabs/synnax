@@ -494,11 +494,11 @@ export const UnitsField = Form.buildSelectSingleField<Units, NamedKey<Units>>({
       },
       {
         key: "DegC",
-        name: "DegC",
+        name: "Celsius",
       },
       {
         key: "DegR",
-        name: "DegR",
+        name: "Rankine",
       },
       {
         key: "Kelvins",
@@ -542,23 +542,23 @@ export const UnitsField = Form.buildSelectSingleField<Units, NamedKey<Units>>({
       },
       {
         key: "MetersPerSecondSquared",
-        name: "MetersPerSecondSquared",
+        name: "m/s^2",
       },
       {
         key: "Newtons",
-        name: "Newtons",
+        name: "N",
       },
       {
         key: "Pounds",
-        name: "Pounds",
+        name: "lbs",
       },
       {
         key: "KilogramForce",
-        name: "Kilogram Force",
+        name: "kgf",
       },
       {
         key: "PoundsPerSquareInch",
-        name: "Pounds Per Square Inch",
+        name: "lbs/in^2",
       },
       {
         key: "Bar",
@@ -566,31 +566,31 @@ export const UnitsField = Form.buildSelectSingleField<Units, NamedKey<Units>>({
       },
       {
         key: "Pascals",
-        name: "Pascals",
+        name: "Pa",
       },
       {
         key: "VoltsPerVolt",
-        name: "VoltsPerVolt",
+        name: "V/V",
       },
       {
         key: "mVoltsPerVolt",
-        name: "mVoltsPerVolt",
+        name: "mV/V",
       },
       {
         key: "NewtonMeters",
-        name: "NewtonMeters",
+        name: "N/M",
       },
       {
         key: "InchPounds",
-        name: "Inch Pounds",
+        name: "in-lbs",
       },
       {
         key: "InchOunces",
-        name: "Inch Ounces",
+        name: "in-oz",
       },
       {
         key: "FootPounds",
-        name: "Foot Pounds",
+        name: "ft-lbs",
       },
     ],
   },
@@ -650,13 +650,13 @@ export const SCALE_FORMS: Record<ScaleType, FC<FormProps>> = {
   },
 };
 
-export const SelectCustomScaleTypeField = Form.buildSelectSingleField<
+export const SelectCustomScaleTypeField = Form.buildButtonSelectField<
   ScaleType,
   NamedKey<ScaleType>
 >({
   fieldKey: "type",
   fieldProps: {
-    label: "Scale Type",
+    label: "Custom Scale Type",
     onChange: (value, { get, set, path }) => {
       const prevType = get<ScaleType>({ path }).value;
       if (prevType === value) return;
@@ -698,7 +698,7 @@ export const SelectCustomScaleTypeField = Form.buildSelectSingleField<
 
 export const CustomScaleForm = ({ prefix }: FormProps): ReactElement => {
   const path = `${prefix}.customScale`;
-  const type = Form.useField<ScaleType>({ path: `${path}.type` }).value;
+  const type = Form.useFieldValue<ScaleType>(`${path}.type`);
   const FormComponent = SCALE_FORMS[type];
   return (
     <>
@@ -786,6 +786,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
           label="Use Excitation for Scaling"
         />
       </Align.Space>
+      <CustomScaleForm prefix={prefix} />
     </>
   ),
   ai_accel_charge: ({ prefix }) => (
@@ -808,6 +809,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
           ),
         }}
       />
+      <CustomScaleForm prefix={prefix} />
     </>
   ),
   ai_bridge: ({ prefix }) => (
@@ -835,6 +837,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
           label="Voltage Excitation Value"
         />
       </Align.Space>
+      <CustomScaleForm prefix={prefix} />
     </>
   ),
   ai_charge: ({ prefix }) => {
@@ -861,6 +864,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
         <TerminalConfigField path={prefix} />
         <MinMaxValueFields path={prefix} />
         <Units path={prefix} />
+        <CustomScaleForm prefix={prefix} />
       </>
     );
   },
@@ -871,7 +875,6 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
         <PortField path={prefix} />
         <TerminalConfigField path={prefix} />
         <MinMaxValueFields path={prefix} />
-        <AmpsOnlyUnitsField path={prefix} />
         <Align.Space direction="x" grow>
           <ShuntResistorLocField path={prefix} grow />
           <Form.NumericField
@@ -880,6 +883,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
             grow
           />
         </Align.Space>
+        <CustomScaleForm prefix={prefix} />
       </>
     );
   },
@@ -890,14 +894,15 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
         <PortField path={prefix} />
         <TerminalConfigField path={prefix} />
         <MinMaxValueFields path={prefix} />
-        <AmpsOnlyUnitsField path={prefix} />
-        <Align.Space direction="x">
-          <ShuntResistorLocField path={prefix} />
+        <Align.Space direction="x" grow>
+          <ShuntResistorLocField path={prefix} grow />
           <Form.NumericField
             path={`${prefix}.extShuntResistorVal`}
             label="Shunt Resistance"
+            grow
           />
         </Align.Space>
+        <CustomScaleForm prefix={prefix} />
       </>
     );
   },
@@ -931,6 +936,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
           fieldKey="physicalUnits"
           label="Physical Units"
         />
+        <CustomScaleForm prefix={prefix} />
       </>
     );
   },
@@ -963,6 +969,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
         {/* physicalVals */}
         <ElectricalUnitsField path={prefix} />
         {/* electricalVals */}
+        <CustomScaleForm prefix={prefix} />
       </>
     );
   },
@@ -1025,10 +1032,11 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
             grow
           />
         </Align.Space>
+        <CustomScaleForm prefix={prefix} />
       </>
     );
   },
-  ai_force_epe: ({ prefix }) => {
+  ai_force_iepe: ({ prefix }) => {
     const SensitivityUnits = Form.buildButtonSelectField({
       fieldKey: "sensitivityUnits",
       fieldProps: { label: "Sensitivity Units" },
@@ -1075,6 +1083,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
             grow
           />
         </Align.Space>
+        <CustomScaleForm prefix={prefix} />
       </>
     );
   },
@@ -1107,6 +1116,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
           />
           <Form.NumericField path={`${prefix}.hysteresis`} label="Hysteresis" grow />
         </Align.Space>
+        <CustomScaleForm prefix={prefix} />
       </>
     );
   },
@@ -1156,6 +1166,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
             grow
           />
         </Align.Space>
+        <CustomScaleForm prefix={prefix} />
       </>
     );
   },
@@ -1188,6 +1199,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
           fieldKey="physicalUnits"
           label="Physical Units"
         />
+        <CustomScaleForm prefix={prefix} />
       </>
     );
   },
@@ -1220,6 +1232,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
         {/* physicalVals */}
         <ElectricalUnitsField path={prefix} />
         {/* electricalVals */}
+        <CustomScaleForm prefix={prefix} />
       </>
     );
   },
@@ -1281,6 +1294,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
             grow
           />
         </Align.Space>
+        <CustomScaleForm prefix={prefix} />
       </>
     );
   },
@@ -1314,6 +1328,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
           path={`${prefix}.currentExcitVal`}
           label="Current Excitation Value"
         />
+        <CustomScaleForm prefix={prefix} />
       </>
     );
   },
@@ -1553,6 +1568,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
             grow
           />
         </Align.Space>
+        <CustomScaleForm prefix={prefix} />
       </>
     );
   },
@@ -1704,6 +1720,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
           fieldKey="physicalUnits"
           label="Physical Units"
         />
+        <CustomScaleForm prefix={prefix} />
       </>
     );
   },
@@ -1736,6 +1753,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
         {/* physicalVals */}
         <ElectricalUnitsField path={prefix} />
         {/* electricalVals */}
+        <CustomScaleForm prefix={prefix} />
       </>
     );
   },
@@ -1782,6 +1800,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
           path={`${prefix}.secondElectricalVal`}
           label="Electrical Value Two"
         />
+        <CustomScaleForm prefix={prefix} />
       </>
     );
   },
@@ -1837,6 +1856,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
           path={`${prefix}.currentExcitVal`}
           label="Current Excitation Value"
         />
+        <CustomScaleForm prefix={prefix} />
       </>
     );
   },
@@ -1847,7 +1867,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
         <PortField path={prefix} />
         <TerminalConfigField path={prefix} />
         <MinMaxValueFields path={prefix} />
-        <VoltageUnits path={prefix} />
+        <CustomScaleForm prefix={prefix} />
       </>
     );
   },
@@ -1859,6 +1879,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
         <TerminalConfigField path={prefix} />
         <MinMaxValueFields path={prefix} />
         <VoltageUnits path={prefix} />
+        <CustomScaleForm prefix={prefix} />
       </>
     );
   },
@@ -1883,6 +1904,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
           path={`${prefix}.useExcitForScaling`}
           label="Use Excitation for Scaling"
         />
+        <CustomScaleForm prefix={prefix} />
       </>
     );
   },

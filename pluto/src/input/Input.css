@@ -13,6 +13,7 @@
     color: var(--pluto-text-color);
     margin: 0;
     width: 100%;
+    flex-shrink: 0;
 
     & .pluto-input__internal {
         position: relative;

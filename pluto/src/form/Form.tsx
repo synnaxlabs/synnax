@@ -84,11 +84,7 @@ export const useField = (<I extends Input.Value, O extends Input.Value = I>({
 
   useLayoutEffect(() => {
     setState(get<I>({ path, optional }));
-    return bind({
-      path,
-      listener: setState,
-      listenToChildren: false,
-    });
+    return bind({ path, onChange: setState, listenToChildren: false });
   }, [path, bind, setState]);
 
   const handleChange = useCallback(
@@ -107,6 +103,53 @@ export const useField = (<I extends Input.Value, O extends Input.Value = I>({
 
   return { onChange: handleChange, ...state };
 }) as UseField;
+
+export type UseFieldValue = (<I extends Input.Value, O extends Input.Value = I>(
+  path: string,
+  optional?: false,
+) => O) &
+  (<I extends Input.Value, O extends Input.Value = I>(
+    path: string,
+    optional: true,
+  ) => O | null);
+
+export type UseFieldState = (<I extends Input.Value, O extends Input.Value = I>(
+  path: string,
+  optional?: false,
+) => FieldState<O>) &
+  (<I extends Input.Value, O extends Input.Value = I>(
+    path: string,
+    optional: true,
+  ) => FieldState<O> | null);
+
+export const useFieldState = <I extends Input.Value, O extends Input.Value = I>(
+  path: string,
+  optional: boolean = false,
+): FieldState<O> | null => {
+  const { get, bind } = useContext();
+  const [, setChangeTrigger] = useState(0);
+  useLayoutEffect(() => {
+    setChangeTrigger((prev) => prev + 1);
+    return bind<O>({ path, onChange: () => setChangeTrigger((p) => p + 1) });
+  }, [path, bind]);
+  return get<O>({ path, optional }) ?? null;
+};
+
+export const useFieldValue = (<I extends Input.Value, O extends Input.Value = I>(
+  path: string,
+  optional: boolean = false,
+): O | null => {
+  const { get, bind } = useContext();
+  const [, setChangeTrigger] = useState(0);
+  useLayoutEffect(() => {
+    setChangeTrigger((prev) => prev + 1);
+    return bind<O>({ path, onChange: () => setChangeTrigger((p) => p + 1) });
+  }, [path, bind]);
+  return get<O>({ path, optional })?.value ?? null;
+}) as UseFieldValue;
+
+export const useFieldValid = (path: string): boolean =>
+  useFieldState(path, true)?.status?.variant === "success";
 
 export interface UseFieldListenerProps<
   I extends Input.Value,
@@ -130,7 +173,7 @@ export const useFieldListener = <
     () =>
       ctx.bind<I>({
         path,
-        listener: (fs) => onChange(fs, ctx),
+        onChange: (fs) => onChange(fs, ctx),
         listenToChildren: false,
       }),
     [path, ctx],
@@ -162,7 +205,7 @@ export const useChildFieldValues = (<V extends unknown = unknown>({
     setState(get<V>({ path, optional }));
     return bind<V>({
       path,
-      listener: (fs) => setState({ ...fs, value: shallowCopy(fs.value) }),
+      onChange: (fs) => setState({ ...fs, value: shallowCopy(fs.value) }),
       listenToChildren: true,
     });
   }, [path, bind, get]);
@@ -192,7 +235,7 @@ export const useFieldArray = <V extends unknown = unknown>({
     setState(get<V[]>({ path, optional: false }).value);
     return bind<V[]>({
       path,
-      listener: (fs) => setState(shallowCopy<V[]>(fs.value)),
+      onChange: (fs) => setState(shallowCopy<V[]>(fs.value)),
       listenToChildren: updateOnChildren,
     });
   }, [path, bind, get, setState]);
@@ -393,7 +436,7 @@ type SetFunc = (props: SetProps) => void;
 
 interface BindProps<V = unknown> {
   path: string;
-  listener: Listener<V>;
+  onChange: Listener<V>;
   listenToChildren?: boolean;
 }
 
@@ -482,7 +525,7 @@ export const use = <Z extends z.ZodTypeAny>({
   const bind: BindFunc = useCallback(
     <V extends any = unknown>({
       path,
-      listener: callback,
+      onChange: callback,
       listenToChildren = false,
     }: BindProps<V>): Destructor => {
       const { parentListeners, listeners } = ref.current;

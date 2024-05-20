@@ -37,6 +37,7 @@ export default defineConfig({
         globals: {
           react: "react",
           "react-dom": "ReactDOM",
+          electron: "electron",
         },
       },
     },

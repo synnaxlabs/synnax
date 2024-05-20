@@ -134,14 +134,14 @@ describe("Form", () => {
             schema: basicFormSchema,
           }),
         );
-        const listener = vi.fn();
+        const onChange = vi.fn();
         result.current.bind({
           path: "name",
           listenToChildren: false,
-          listener,
+          onChange,
         });
         result.current.set({ path: "name", value: "Jane Doe" });
-        expect(listener).toHaveBeenCalled();
+        expect(onChange).toHaveBeenCalled();
       });
     });
     describe("validate", () => {
@@ -162,14 +162,14 @@ describe("Form", () => {
             schema: basicFormSchema,
           }),
         );
-        const listener = vi.fn();
+        const onChange = vi.fn();
         result.current.bind({
           path: "age",
           listenToChildren: false,
-          listener,
+          onChange,
         });
         result.current.validate();
-        expect(listener).toHaveBeenCalled();
+        expect(onChange).toHaveBeenCalled();
       });
       it("should return true if all validation errors are just warnings", () => {
         const { result } = renderHook(() =>
