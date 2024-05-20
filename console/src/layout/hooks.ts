@@ -22,12 +22,11 @@ import {
   useMemoCompare,
 } from "@synnaxlabs/pluto";
 import { compare } from "@synnaxlabs/x";
-// import { appWindow } from "@tauri-apps/api/window";
-import type { Theme as TauriTheme } from "@tauri-apps/api/window";
+import { getCurrent } from "@tauri-apps/api/window";
 import { useDispatch, useStore } from "react-redux";
 
 import { useSyncerDispatch } from "@/hooks/dispatchers";
-import { type State } from "@/layout/layout";
+import { type LayoutState } from "@/layout/layout";
 import { select, useSelectNavDrawer, useSelectTheme } from "@/layout/selectors";
 import {
   type NavdrawerLocation,
@@ -47,12 +46,13 @@ export interface CreatorProps {
 }
 
 /** A function that creates a layout given a set of utilities. */
-export type Creator = (props: CreatorProps) => Omit<State, "windowKey">;
-
-export type PlacerProps = Omit<State, "windowKey"> | Creator;
+export type Creator = (props: CreatorProps) => Omit<LayoutState, "windowKey">;
 
 /** A function that places a layout using the given properties or creation func. */
-export type Placer = (layout: PlacerProps) => { windowKey: string; key: string };
+export type Placer = (layout: Omit<LayoutState, "windowKey"> | Creator) => {
+  windowKey: string;
+  key: string;
+};
 
 /** A function that removes a layout. */
 export type Remover = (...keys: string[]) => void;
@@ -117,8 +117,11 @@ export const useRemover = (...baseKeys: string[]): Remover => {
       keys.forEach((keys) => {
         const l = select(s, keys);
         // Even if the layout is not present, close the window for good measure.
-        if (l == null || l.location === "window")
+        if (l == null || l.location === "window") {
+          console.log(keys);
+
           store.dispatch(Drift.closeWindow({ key: keys }));
+        }
       });
       syncDispatch(remove({ keys }));
     },
@@ -138,10 +141,10 @@ export const useThemeProvider = (): Theming.ProviderProps => {
   const dispatch = useDispatch();
 
   useAsyncEffect(async () => {
-    // if (appWindow.label !== Drift.MAIN_WINDOW) return;
-    // await setInitialTheme(dispatch);
-    // const cleanup = await synchronizeWithOS(dispatch);
-    // return cleanup;
+    if (getCurrent().label !== Drift.MAIN_WINDOW) return;
+    await setInitialTheme(dispatch);
+    const cleanup = await synchronizeWithOS(dispatch);
+    return cleanup;
   }, []);
 
   return {
@@ -154,8 +157,8 @@ export const useThemeProvider = (): Theming.ProviderProps => {
 export const useErrorThemeProvider = (): Theming.ProviderProps => {
   const [theme, setTheme] = useState<Theming.ThemeSpec | null>(Theming.SYNNAX_LIGHT);
   useAsyncEffect(async () => {
-    // const theme = matchThemeChange({ payload: await appWindow.theme() });
-    // setTheme(Theming.SYNNAX_THEMES[theme]);
+    const theme = matchThemeChange({ payload: await getCurrent().theme() });
+    setTheme(Theming.SYNNAX_THEMES[theme]);
   }, []);
   return {
     theme: Theming.themeZ.parse(theme),
@@ -173,15 +176,20 @@ export const useErrorThemeProvider = (): Theming.ProviderProps => {
 const matchThemeChange = ({
   payload: theme,
 }: {
-  payload: TauriTheme | null;
+  payload: string | null;
 }): keyof typeof Theming.SYNNAX_THEMES =>
   theme === "dark" ? "synnaxDark" : "synnaxLight";
 
-// const synchronizeWithOS = async (dispatch: Dispatch<UnknownAction>): AsyncDestructor =>
-//   await appWindow.onThemeChanged((e) => dispatch(setActiveTheme(matchThemeChange(e))));
+const synchronizeWithOS = async (
+  dispatch: Dispatch<UnknownAction>,
+): AsyncDestructor => {
+  await getCurrent().onThemeChanged((e) =>
+    dispatch(setActiveTheme(matchThemeChange(e))),
+  );
+};
 
-// const setInitialTheme = async (dispatch: Dispatch<UnknownAction>): Promise<void> =>
-//   dispatch(setActiveTheme(matchThemeChange({ payload: await appWindow.theme() })));
+const setInitialTheme = async (dispatch: Dispatch<UnknownAction>): Promise<void> =>
+  dispatch(setActiveTheme(matchThemeChange({ payload: await getCurrent().theme() })));
 
 export interface NavMenuItem {
   key: string;

@@ -10,7 +10,7 @@
 import type { Reducer, Store } from "@reduxjs/toolkit";
 import { combineReducers, Tuple } from "@reduxjs/toolkit";
 import { Drift } from "@synnaxlabs/drift";
-import { ElectronRuntime } from "@synnaxlabs/drift/electron";
+import { TauriRUntime, TauriRuntime } from "@synnaxlabs/drift/tauri";
 import { type deep } from "@synnaxlabs/x";
 
 import { Cluster } from "@/cluster";
@@ -69,7 +69,6 @@ export type Payload = RootAction["payload"];
 export type RootStore = Store<RootState, RootAction>;
 
 const DEFAULT_WINDOW_PROPS: Omit<Drift.WindowProps, "key"> = {
-  fileDropEnabled: false,
   visible: false,
 };
 
@@ -91,7 +90,7 @@ const newStore = async (): Promise<RootStore> => {
     exclude: PERSIST_EXCLUDE,
   });
   return await Drift.configureStore<RootState, RootAction>({
-    runtime: new ElectronRuntime(),
+    runtime: new TauriRuntime(),
     preloadedState,
     middleware: (def) =>
       new Tuple(

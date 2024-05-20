@@ -1,7 +1,6 @@
 {
   "extends": "@synnaxlabs/tsconfig/base.json",
   "compilerOptions": {
-    "module": "CommonJS",
     "baseUrl": ".",
     "paths": {
       "@/*": [
@@ -15,6 +14,5 @@
       ]
     }
   },
-  "include": [
-    "src/**/*", "../pluto/src/hooks/useAsyncEffect.tsx", "../pluto/src/vis/table/cell"],
+  "include": ["src/**/*"]
 }

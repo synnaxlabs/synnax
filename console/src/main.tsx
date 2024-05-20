@@ -36,7 +36,7 @@ import WorkerURL from "@/worker?worker&url";
 
 import "@/index.css";
 import "@synnaxlabs/media/dist/style.css";
-// import "@synnaxlabs/pluto/dist/style.css";
+import "@synnaxlabs/pluto/dist/style.css";
 
 const layoutRenderers: Record<string, Layout.Renderer> = {
   main: LayoutMain,
@@ -76,7 +76,7 @@ const useHaulState: state.PureUse<Haul.DraggingState> = () => {
 
 const MainUnderContext = (): ReactElement => {
   const theme = Layout.useThemeProvider();
-  Version.useLoadElectron();
+  Version.useLoadTauri();
   const cluster = Cluster.useSelect();
   const activeRange = Range.useSelect();
   Cluster.useLocalServer();

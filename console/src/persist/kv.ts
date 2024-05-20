@@ -7,34 +7,28 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-interface API<V> {
-  get: (key: string) => Promise<string>;
-  set: (any: V) => Promise<void>;
-  delete: () => Promise<void>;
-}
+import { Store } from "tauri-plugin-store-api";
 
-const KV_API_KEY = "kvAPI";
+export const multipleWindowsOpen = new Error("[persist] - windows open");
 
 /**
  * TauriKV an implementation of AsyncKV that communicates with a rust key-value
  * store running on the backend.
  */
-export class ElectronKV {
-  private readonly store: API;
+export class TauriKV {
+  store: Store;
 
   constructor() {
-    if (!(KV_API_KEY in window)) {
-      throw new Error("ElectronKV API not found.");
-    }
-    this.store = (window as { [KV_API_KEY]: API })[KV_API_KEY];
+    this.store = new Store("~/.synnax/console/persisted-state.dat");
   }
 
   async get<V>(key: string): Promise<V | null> {
-    return (await this.store.get(key)) as V | null;
+    return (await this.store.get(key)) as V;
   }
 
   async set<V>(key: string, value: V): Promise<void> {
-    (await this.store.set(key, value)) as V;
+    await this.store.set(key, value);
+    await this.store.save();
   }
 
   async delete(key: string): Promise<void> {

@@ -15,11 +15,13 @@ import {
   type Action,
 } from "@reduxjs/toolkit";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
-import { getWindowLabel } from "@synnaxlabs/drift/electron";
 import { debounce, deep, type UnknownRecord } from "@synnaxlabs/x";
+import { getCurrent } from "@tauri-apps/api/window";
 
-import { ElectronKV } from "@/persist/kv";
+import { TauriKV } from "@/persist/kv";
 import { type Version } from "@/version";
+
+const appWindow = getCurrent();
 
 const PERSISTED_STATE_KEY = "console-persisted-state";
 const DB_VERSION_KEY = "console-version";
@@ -52,9 +54,8 @@ export const open = async <S extends RequiredState>({
   exclude = [],
   migrator,
 }: Config<S>): Promise<[S | undefined, Middleware<UnknownRecord, S>]> => {
-  const label = await getWindowLabel();
-  if (label !== MAIN_WINDOW) [undefined, noOpMiddleware];
-  const db = new ElectronKV();
+  if (appWindow.label !== MAIN_WINDOW) return [undefined, noOpMiddleware];
+  const db = new TauriKV();
   let version: number = (await db.get<StateVersionValue>(DB_VERSION_KEY))?.version ?? 0;
   let state = (await db.get<S>(persistedStateKey(version))) ?? undefined;
   if (state != null && migrator != null) {
@@ -63,14 +64,14 @@ export const open = async <S extends RequiredState>({
   }
 
   const revert = async (): Promise<void> => {
-    if (label !== MAIN_WINDOW) return;
+    if (appWindow.label !== MAIN_WINDOW) return;
     version--;
     await db.set(DB_VERSION_KEY, { version });
     window.location.reload();
   };
 
   const clear = async (): Promise<void> => {
-    if (label !== MAIN_WINDOW) return;
+    if (appWindow.label !== MAIN_WINDOW) return;
     for (let i = version; i >= version - KEEP_HISTORY - 1; i--)
       await db.delete(persistedStateKey(i));
     version = 0;
@@ -79,7 +80,7 @@ export const open = async <S extends RequiredState>({
   };
 
   const persist = debounce((store: MiddlewareAPI<Dispatch<UnknownAction>, S>) => {
-    if (label !== MAIN_WINDOW) return;
+    if (appWindow.label !== MAIN_WINDOW) return;
     version++;
     // We need to make a deep copy here to make immer happy
     // when we do deep deletes.
