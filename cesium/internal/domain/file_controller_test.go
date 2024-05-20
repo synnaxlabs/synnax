@@ -193,21 +193,22 @@ var _ = Describe("File Controller", func() {
 					Expect(db.FS.Exists("2.domain")).To(BeTrue())
 
 					By("Trying to acquire a third writer")
-					released := make(chan struct{})
+					acquired := make(chan struct{})
 					go func() {
 						w3, err := db.NewWriter(ctx, domain.WriterConfig{
 							Start: 30 * telem.SecondTS,
 							End:   40 * telem.SecondTS,
 						})
 						Expect(err).ToNot(HaveOccurred())
-						released <- struct{}{}
+						acquired <- struct{}{}
 						Expect(w3.Close(ctx)).To(Succeed())
 					}()
-					By("Expecting it to block")
-					Expect(len(released)).To(Equal(0))
+					By("Expecting the channel acquisition to fail")
+					Consistently(acquired).WithTimeout(50 * telem.Millisecond.Duration()).ShouldNot(Receive())
+					By("Closing the writer 1")
 					Expect(w1.Close(ctx)).To(Succeed())
-					By("Expecting it to acquire")
-					<-released
+					By("Expecting writer 3 to successfully acquire")
+					Eventually(acquired).Should(Receive())
 					Expect(w2.Close(ctx)).To(Succeed())
 				})
 
