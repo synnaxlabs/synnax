@@ -36,14 +36,11 @@ void Acquisition::start() {
     LOG(INFO) << "[Acquisition] Starting acquisition";
     this->running = true;
     thread = std::thread(&Acquisition::run, this);
-    std::this_thread::sleep_for(std::chrono::seconds(1));
-    source->start();
 }
 
 void Acquisition::stop() {
     if (!running) return;
     this->running = false;
-    source->stop();
     thread.join();
     LOG(INFO) << "[Acquisition] Acquisition stopped";
 }
@@ -51,17 +48,23 @@ void Acquisition::stop() {
 void Acquisition::run() {
     this->writer_config.start = synnax::TimeStamp::now();
     auto [writer, wo_err] = ctx->client->telem.openWriter(writer_config);
-    std::this_thread::sleep_for(std::chrono::seconds(3));
-
     if (wo_err) {
         LOG(ERROR) << "[Acquisition] Failed to open writer: " << wo_err.message();
         if (wo_err.matches(freighter::UNREACHABLE) && breaker.wait(wo_err.message()))
             run();
         return;
     }
+    auto s_err = source->start();
+    if(s_err) {
+        LOG(ERROR) << "[Acquisition] Failed to start source: " << s_err.message();
+        if (s_err.matches(driver::TYPE_TEMPORARY_HARDWARE_ERROR) && breaker.wait(s_err.message()))
+            run();
+        return;
+    }
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
     while (this->running) {
         auto [frame, source_err] = source->read();
-        // LOG(INFO) << "[Acquisition] Source read";
         if (source_err) {
             LOG(ERROR) << "[Acquisition] Failed to read source";
             if (
@@ -79,6 +82,7 @@ void Acquisition::run() {
     }
     const auto err = writer.close();
     LOG(INFO) << "[Acquisition] Writer closed";
+    source->stop();
     if (err.matches(freighter::UNREACHABLE) && breaker.wait(err.message())) run();
     LOG(INFO) << "[Acquisition] Acquisition thread terminated";
 }

@@ -412,27 +412,23 @@ int ni::AnalogReadSource::configureTiming(){
 
 
 freighter::Error ni::AnalogReadSource::start(){
-    LOG(INFO) << "[NI Reader] starting reader for task " << this->reader_config.task_name;
-     if(this->running){
+    if(this->running){
         return freighter::NIL;
-     }
-    freighter::Error err = freighter::NIL;
+    }
+    
     if (this->checkNIError(ni::NiDAQmxInterface::StartTask(this->task_handle))){
         LOG(ERROR) << "[NI Reader] failed while starting reader for task " << this->reader_config.task_name;
-        err = freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
-    }
-    else{
+        return freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
+    }else{
         this->running = true;
         this->sample_thread = std::thread(&AnalogReadSource::acquireData, this);
         LOG(INFO) << "[NI Reader] successfully started reader for task " << this->reader_config.task_name;
     }
-    return err;
+    return freighter::NIL;;
 }
 
 
 freighter::Error ni::AnalogReadSource::stop(){ 
-
-    LOG(INFO) << "[NI Reader] stopping reader for task " << this->reader_config.task_name;
     if(!this->running){
         return freighter::NIL;
     }
@@ -492,52 +488,38 @@ std::pair<synnax::Frame, freighter::Error> ni::AnalogReadSource::read(){
     // sleep per stream rate
     std::this_thread::sleep_for(std::chrono::nanoseconds((uint64_t)((1.0 / this->reader_config.stream_rate )* 1000000000)));
     
-   // take data off of queue
-    double* data;
+    // take data off of queue
     std::optional<DataPacket> d = data_queue.dequeue();
-    if(d.has_value()){
-        data = d.value().data;
-    } else {
-        LOG(ERROR) << "[NI Reader] failed to read data from queue for task " << this->reader_config.task_name;
-        // return a correct freighter error
-    }
-
-
-
-    // we interpolate the timestamps between the initial and final timestamp to ensure non-overlapping timestamps between read iterations
+    if(!d.has_value()) return std::make_pair(std::move(f), freighter::Error(driver::TYPE_TEMPORARY_HARDWARE_ERROR, "no data available to read"));
+    double* data = d.value().data;
+    
+    // interpolate  timestamps between the initial and final timestamp to ensure non-overlapping timestamps between batched reads
     uint64_t incr = ( (d.value().tf- d.value().t0) / this->numSamplesPerChannel );
-
     // Construct and populate index channel
     std::vector<std::uint64_t> time_index(this->numSamplesPerChannel);
-    for (uint64_t i = 0; i < d.value().samplesReadPerChannel; ++i){
+    for (uint64_t i = 0; i < d.value().samplesReadPerChannel; ++i)
         time_index[i] = d.value().t0 + (std::uint64_t)(incr * i);
-    }
+    
 
     // Construct and populate synnax frame
     uint64_t data_index = 0;
     for(int i = 0; i < numChannels; i++){
-        if(this->reader_config.channels[i].channel_type != "index"){
-            std::vector<float> data_vec(d.value().samplesReadPerChannel);
-            // copy data into vector
-            for (int j = 0; j < d.value().samplesReadPerChannel; j++){
-                data_vec[j] = data[data_index * d.value().samplesReadPerChannel + j];
-            }
-            f.add(this->reader_config.channels[i].channel_key, synnax::Series(data_vec, synnax::FLOAT32));
-            data_index++;
-        }
+        if(this->reader_config.channels[i].channel_type == "index") continue;
+        // copy data into vector
+        std::vector<float> data_vec(d.value().samplesReadPerChannel);
+        for (int j = 0; j < d.value().samplesReadPerChannel; j++)
+            data_vec[j] = data[data_index * d.value().samplesReadPerChannel + j];
+        f.add(this->reader_config.channels[i].channel_key, synnax::Series(data_vec, synnax::FLOAT32));
+        data_index++;
     }
 
     for(int i = 0; i < numChannels; i++){
-        // add index series to frame
-        if(this->reader_config.channels[i].channel_type == "index"){
-            f.add(this->reader_config.channels[i].channel_key, synnax::Series(time_index, synnax::TIMESTAMP));
-        }
+        if(this->reader_config.channels[i].channel_type != "index") continue;
+        f.add(this->reader_config.channels[i].channel_key, synnax::Series(time_index, synnax::TIMESTAMP));
     }
     
-    if(d.has_value()){
-        delete[] d.value().data;
-    }
-    // return synnax frame
+    if(d.has_value()) delete[] d.value().data;
+
     return std::make_pair(std::move(f), freighter::NIL);
 }
 
