@@ -233,8 +233,6 @@ func resolveEffectiveDomain(i *domain.Iterator) (effectiveDomainBounds telem.Tim
 		effectiveDomainBounds.End = i.TimeRange().End
 		effectiveDomainLen += i.Len()
 	}
-
-	return
 }
 
 // search returns an approximation for the number of samples before a given timestamp. If the
