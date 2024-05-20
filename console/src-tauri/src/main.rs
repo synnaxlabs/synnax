@@ -42,6 +42,9 @@ fn set_transparent_titlebar(win: &Window, transparent: bool) {
     }
 }
 
+#[cfg(not(target_os = "macos"))]
+fn set_transparent_titlebar(_: &Window, _: bool) {}
+
 fn main() {
     tauri::Builder::default()
         .on_page_load(|window, _| {
