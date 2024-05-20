@@ -4,6 +4,7 @@ const { MAIN_WINDOW } = require("@synnaxlabs/drift");
 const { listenOnMain } = require("@synnaxlabs/drift/electron");
 const { fileURLToPath } = require("url");
 const fs = require("fs");
+const { Mutex } = require("async-mutex");
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -88,17 +89,20 @@ app.whenReady().then(() => {
     if (!fs.existsSync(kvFilePath)) data = {};
     else {
       try {
-        const contents = await fs.promises.readdir(app.getPath("userData"));
+        const contents = await fs.promises.readFile(kvFilePath, "utf-8");
         data = JSON.parse(contents);
       } catch (e) {
         console.error(e);
         data = {};
       }
     }
-    return data;
+    return data as Record<string, any>;
   };
+  const mu = new Mutex();
   const writeKVData = async (d: Record<string, any>) => {
-    await fs.promises.writeFile(kvFilePath, JSON.stringify(d, null, 2));
+    await mu.runExclusive(async () => {
+      await fs.promises.writeFile(kvFilePath, JSON.stringify(d, null, 2));
+    });
   };
 
   ipcMain.handle("kvGet", async (_, key) => {

@@ -1,4 +1,4 @@
-import { Form, Channel, List, Select, Input, Align } from "@synnaxlabs/pluto";
+import { Form, Channel, List, Align } from "@synnaxlabs/pluto";
 import {
   AIChan,
   AIChanType,
@@ -8,14 +8,19 @@ import {
   AccelerationUnits,
   ElectricalUnits,
   ForceUnits,
+  SCALE_SCHEMAS,
+  Scale,
+  ScaleType,
   ShuntResistorLoc,
   TorqueUnits,
+  Units,
   ZERO_AI_CHANNELS,
+  ZERO_SCALES,
 } from "@/hardware/ni/task/types";
 import { FC, ReactElement } from "react";
-import { Optional, deep } from "@synnaxlabs/x";
+import { deep } from "@synnaxlabs/x";
 
-interface FormProps {
+export interface FormProps {
   prefix: string;
   fieldKey?: string;
   label?: string;
@@ -449,10 +454,12 @@ export const SelectChannelTypeField = Form.buildSelectSingleField<
     hideColumnHeader: true,
     entryRenderKey: "name",
     columns: NAMED_KEY_COLS,
-    data: Object.entries(AI_CHANNEL_TYPE_NAMES).map(([key, name]) => ({
-      key,
-      name,
-    })),
+    data: (Object.entries(AI_CHANNEL_TYPE_NAMES) as [AIChanType, string][]).map(
+      ([key, name]) => ({
+        key,
+        name,
+      }),
+    ),
   },
 });
 
@@ -465,6 +472,241 @@ const VoltageUnits = Form.buildButtonSelectField({
     data: [{ key: "Volts", name: "Volts" }],
   },
 });
+
+export const UnitsField = Form.buildSelectSingleField<Units, NamedKey<Units>>({
+  fieldKey: "preScaledUnits",
+  fieldProps: { label: "Pre-Scaled Units" },
+  inputProps: {
+    entryRenderKey: "name",
+    columns: NAMED_KEY_COLS,
+    data: [
+      {
+        key: "Volts",
+        name: "Volts",
+      },
+      {
+        key: "Amps",
+        name: "Amps",
+      },
+      {
+        key: "DegF",
+        name: "DegF",
+      },
+      {
+        key: "DegC",
+        name: "DegC",
+      },
+      {
+        key: "DegR",
+        name: "DegR",
+      },
+      {
+        key: "Kelvins",
+        name: "Kelvins",
+      },
+      {
+        key: "Strain",
+        name: "Strain",
+      },
+      {
+        key: "Ohms",
+        name: "Ohms",
+      },
+      {
+        key: "Hz",
+        name: "Hz",
+      },
+      {
+        key: "Seconds",
+        name: "Seconds",
+      },
+      {
+        key: "Meters",
+        name: "Meters",
+      },
+      {
+        key: "Inches",
+        name: "Inches",
+      },
+      {
+        key: "Degrees",
+        name: "Degrees (°)",
+      },
+      {
+        key: "Radians",
+        name: "Radians",
+      },
+      {
+        key: "g",
+        name: "Gs",
+      },
+      {
+        key: "MetersPerSecondSquared",
+        name: "MetersPerSecondSquared",
+      },
+      {
+        key: "Newtons",
+        name: "Newtons",
+      },
+      {
+        key: "Pounds",
+        name: "Pounds",
+      },
+      {
+        key: "KilogramForce",
+        name: "Kilogram Force",
+      },
+      {
+        key: "PoundsPerSquareInch",
+        name: "Pounds Per Square Inch",
+      },
+      {
+        key: "Bar",
+        name: "Bar",
+      },
+      {
+        key: "Pascals",
+        name: "Pascals",
+      },
+      {
+        key: "VoltsPerVolt",
+        name: "VoltsPerVolt",
+      },
+      {
+        key: "mVoltsPerVolt",
+        name: "mVoltsPerVolt",
+      },
+      {
+        key: "NewtonMeters",
+        name: "NewtonMeters",
+      },
+      {
+        key: "InchPounds",
+        name: "Inch Pounds",
+      },
+      {
+        key: "InchOunces",
+        name: "Inch Ounces",
+      },
+      {
+        key: "FootPounds",
+        name: "Foot Pounds",
+      },
+    ],
+  },
+});
+
+export const SCALE_FORMS: Record<ScaleType, FC<FormProps>> = {
+  linear: ({ prefix }) => {
+    return (
+      <>
+        <UnitsField fieldKey="preScaledUnits" label="Pre-Scaled Units" path={prefix} />
+        <Align.Space direction="x" grow>
+          <Form.NumericField fieldKey="slope" label="Slope" path={prefix} grow />
+          <Form.NumericField
+            fieldKey="yIntercept"
+            label="Y-Intercept"
+            path={prefix}
+            grow
+          />
+        </Align.Space>
+      </>
+    );
+  },
+  map: ({ prefix }) => {
+    return (
+      <>
+        <UnitsField fieldKey="preScaledUnits" path={prefix} />
+        <Align.Space direction="x" grow>
+          <Form.NumericField
+            fieldKey="preScaledMin"
+            label="Pre-Scaled Min"
+            path={prefix}
+            grow
+          />
+          <Form.NumericField
+            fieldKey="preScaledMax"
+            label="Pre-Scaled Max"
+            path={prefix}
+          />
+        </Align.Space>
+        <Align.Space direction="x" grow>
+          <Form.NumericField
+            fieldKey="scaledMin"
+            label="Scaled Min"
+            path={prefix}
+            grow
+          />
+          <Form.NumericField fieldKey="scaledMax" label="Scaled Max" path={prefix} />
+        </Align.Space>
+      </>
+    );
+  },
+  table: ({ prefix }) => {
+    return <></>;
+  },
+  none: ({ prefix }) => {
+    return <></>;
+  },
+};
+
+export const SelectCustomScaleTypeField = Form.buildSelectSingleField<
+  ScaleType,
+  NamedKey<ScaleType>
+>({
+  fieldKey: "type",
+  fieldProps: {
+    label: "Scale Type",
+    onChange: (value, { get, set, path }) => {
+      const prevType = get<ScaleType>({ path }).value;
+      if (prevType === value) return;
+      const next = deep.copy(ZERO_SCALES[value]);
+      const parentPath = path.slice(0, path.lastIndexOf("."));
+      const prevParent = get<Scale>({ path: parentPath }).value;
+      set({
+        path: parentPath,
+        value: {
+          ...deep.overrideValidItems(next, prevParent, SCALE_SCHEMAS[value]),
+          type: next.type,
+        },
+      });
+    },
+  },
+  inputProps: {
+    entryRenderKey: "name",
+    columns: NAMED_KEY_COLS,
+    data: [
+      {
+        key: "linear",
+        name: "Linear",
+      },
+      {
+        key: "map",
+        name: "Map",
+      },
+      {
+        key: "table",
+        name: "Table",
+      },
+      {
+        key: "none",
+        name: "None",
+      },
+    ],
+  },
+});
+
+export const CustomScaleForm = ({ prefix }: FormProps): ReactElement => {
+  const path = `${prefix}.customScale`;
+  const type = Form.useField<ScaleType>({ path: `${path}.type` }).value;
+  const FormComponent = SCALE_FORMS[type];
+  return (
+    <>
+      <SelectCustomScaleTypeField path={path} />
+      <FormComponent prefix={path} />;
+    </>
+  );
+};
 
 export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
   ai_accel: ({ prefix }) => (
@@ -506,6 +748,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
           label="Current Excitation Value"
         />
       </Align.Space>
+      <CustomScaleForm prefix={prefix} />
     </>
   ),
   ai_accel_4_wire_dc_voltage: ({ prefix }) => (
@@ -1542,7 +1785,7 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
       </>
     );
   },
-  ai_velocity_epe: ({ prefix }) => {
+  ai_velocity_iepe: ({ prefix }) => {
     const VelocityUnits = Form.buildButtonSelectField({
       fieldKey: "units",
       fieldProps: { label: "Velocity Units" },

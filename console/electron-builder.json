@@ -19,10 +19,13 @@
     "mac": {
       "artifactName": "${productName}_${version}.${ext}",
       "target": ["dmg"],
-      "icon": "icons/icon-macos.png"
+      "icon": "build/icon-macos.png",
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "hardenedRuntime": true
     },
     "win": {
-      "icon": "icons/Square284x284Logo.png",
+      "icon": "build/Square284x284Logo.png",
       "target": [
         {
           "target": "nsis",

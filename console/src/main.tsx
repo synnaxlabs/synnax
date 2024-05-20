@@ -36,10 +36,6 @@ import WorkerURL from "@/worker?worker&url";
 
 import "@/index.css";
 import "@synnaxlabs/media/dist/style.css";
-<<<<<<< HEAD
-import { NI } from "@/hardware/ni";
-=======
->>>>>>> 66c293d80252286faaa52029fb7babd50dadb56d
 import "@synnaxlabs/pluto/dist/style.css";
 
 const layoutRenderers: Record<string, Layout.Renderer> = {

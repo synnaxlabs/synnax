@@ -11,7 +11,6 @@ import { useState, type ReactElement, useCallback, useRef } from "react";
 
 import {
   Form,
-  Select,
   Header,
   Synnax,
   Nav,
@@ -41,7 +40,6 @@ import {
   type Chan,
   ANALOG_READ_TYPE,
 } from "@/hardware/ni/task/types";
-
 import "@/hardware/ni/task/ConfigureAnalogRead.css";
 import { Layout } from "@/layout";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -243,14 +241,8 @@ interface ChannelFormProps {
 const ChannelForm = ({ selectedChannelIndex }: ChannelFormProps): ReactElement => {
   if (selectedChannelIndex == -1) return <></>;
   const prefix = `config.channels.${selectedChannelIndex}`;
-  const ctx = Form.useContext();
-  const type = ctx.get<AIChanType>({ path: `${prefix}.type` });
-  const TypeForm = ANALOG_INPUT_FORMS[type.value];
-  const [counter, setCounter] = useState(0);
-  Form.useFieldListener<AIChanType>({
-    path: `${prefix}.type`,
-    onChange: (v) => setCounter((c) => c + 1),
-  });
+  const type = Form.useField<AIChanType>({ path: `${prefix}.type` }).value;
+  const TypeForm = ANALOG_INPUT_FORMS[type];
 
   return (
     <>
@@ -313,7 +305,7 @@ const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactEleme
 };
 
 const ChannelListItem = ({
-  path,
+  path: basePath,
   ...props
 }: List.ItemProps<string, Chan> & {
   path: string;
@@ -321,18 +313,16 @@ const ChannelListItem = ({
   const { entry } = props;
   const hasLine = "line" in entry;
   const ctx = Form.useContext();
-  const childValues = Form.useChildFieldValues<AIChan>({
-    path: `${path}.${props.index}`,
-    optional: true,
-  });
+  const path = `${basePath}.${props.index}`;
+  const childValues = Form.useChildFieldValues<AIChan>({ path, optional: true });
   const channelName = Channel.useName(childValues?.channel ?? 0, "No Synnax Channel");
   const channelValid =
     Form.useField<number>({
-      path: `${path}.${props.index}.channel`,
+      path: `${path}.channel`,
     }).status.variant === "success";
   const portValid =
-    Form.useField<number>({
-      path: `${path}.${props.index}.port`,
+    Form.useField({
+      path: `${path}.port`,
     }).status.variant === "success";
   if (childValues == null) return <></>;
   return (
@@ -377,8 +367,7 @@ const ChannelListItem = ({
         size="small"
         onClick={(e) => e.stopPropagation()}
         onChange={(v) => {
-          console.log("setting enabled", v);
-          ctx.set({ path: `${path}.${props.index}.enabled`, value: v });
+          ctx.set({ path: `${path}.enabled`, value: v });
         }}
         tooltip={
           <Text.Text level="small" style={{ maxWidth: 300 }}>
