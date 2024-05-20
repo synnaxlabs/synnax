@@ -5,6 +5,7 @@ const { listenOnMain } = require("@synnaxlabs/drift/electron");
 const { fileURLToPath } = require("url");
 const fs = require("fs");
 const { Mutex } = require("async-mutex");
+const { autoUpdater } = require("electron-updater");
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -65,6 +66,8 @@ function createWindow() {
     return { action: "deny" };
   });
 }
+
+autoUpdater.checkForUpdatesAndNotify();
 
 app.setName("Synnax");
 

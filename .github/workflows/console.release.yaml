@@ -61,6 +61,16 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
+     - name: Set GH_TOKEN environment variable
+        shell: bash
+        run: echo "GH_TOKEN=${{ secrets.GITHUB_TOKEN }}" >> $GITHUB_ENV
+        if: matrix.platform == 'ubuntu-latest' || matrix.platform == 'macos-12'
+
+      - name: Set GH_TOKEN environment variable
+        shell: cmd
+        run: echo GH_TOKEN=${{ secrets.GITHUB_TOKEN }}>> %GITHUB_ENV%
+        if: matrix.platform == 'windows-latest'
+
       - name: Diff Changes
         uses: dorny/paths-filter@v2
         id: filter
