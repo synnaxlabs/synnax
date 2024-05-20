@@ -10,7 +10,7 @@
 package cesium
 
 import (
-	"github.com/samber/lo"
+	"fmt"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/meta"
 	"github.com/synnaxlabs/cesium/internal/unary"

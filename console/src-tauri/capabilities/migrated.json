@@ -86,6 +86,8 @@
     },
     "shell:allow-open",
     "app:allow-app-show",
-    "app:allow-app-hide"
+    "app:allow-app-hide",
+    "updater:allow-check",
+    "updater:allow-download-and-install"
   ]
 }

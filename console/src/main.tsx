@@ -76,10 +76,8 @@ const useHaulState: state.PureUse<Haul.DraggingState> = () => {
 
 const MainUnderContext = (): ReactElement => {
   const theme = Layout.useThemeProvider();
-  Version.useLoadTauri();
   const cluster = Cluster.useSelect();
   const activeRange = Range.useSelect();
-  Cluster.useLocalServer();
   return (
     <QueryClientProvider client={client}>
       <Pluto.Provider

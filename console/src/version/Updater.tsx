@@ -8,8 +8,9 @@ import { NotificationAdapter } from "@/notifications/Notifications";
 export const useCheckForUpdates = () => {
   const addStatus = Status.useAggregator();
   useEffect(() => {
-    setInterval(async () => {
+    const i = setInterval(async () => {
       const update = await check();
+      console.log("No update available");
       if (update?.available !== true) return;
       addStatus({
         key: "update",
@@ -18,6 +19,7 @@ export const useCheckForUpdates = () => {
         description: "update",
       });
     }, TimeSpan.seconds(5).milliseconds);
+    return () => clearInterval(i);
   }, []);
 };
 

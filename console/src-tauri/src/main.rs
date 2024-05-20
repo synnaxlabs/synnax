@@ -68,6 +68,7 @@ fn main() {
             },
             tauri::WindowEvent::Moved(position)=> {
                 if position.x != 0 && position.y != 0 {
+                    #[cfg(target_os = "macos")]
                     set_transparent_titlebar(win, true);
                 }
            },
