@@ -45,15 +45,28 @@ require (
 	github.com/andybalholm/brotli v1.1.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bits-and-blooms/bitset v1.8.0 // indirect
+	github.com/blevesearch/bleve_index_api v1.1.6 // indirect
+	github.com/blevesearch/geo v0.1.20 // indirect
+	github.com/blevesearch/go-faiss v1.0.13 // indirect
 	github.com/blevesearch/go-porterstemmer v1.0.3 // indirect
+	github.com/blevesearch/gtreap v0.1.1 // indirect
 	github.com/blevesearch/mmap-go v1.0.4 // indirect
+	github.com/blevesearch/scorch_segment_api/v2 v2.2.9 // indirect
 	github.com/blevesearch/segment v0.9.1 // indirect
 	github.com/blevesearch/snowballstem v0.9.0 // indirect
+	github.com/blevesearch/upsidedown_store_api v1.0.2 // indirect
+	github.com/blevesearch/vellum v1.0.10 // indirect
 	github.com/blevesearch/zap/v11 v11.0.14 // indirect
 	github.com/blevesearch/zap/v12 v12.0.14 // indirect
 	github.com/blevesearch/zap/v13 v13.0.6 // indirect
 	github.com/blevesearch/zap/v14 v14.0.5 // indirect
 	github.com/blevesearch/zap/v15 v15.0.3 // indirect
+	github.com/blevesearch/zapx/v11 v11.3.10 // indirect
+	github.com/blevesearch/zapx/v12 v12.3.10 // indirect
+	github.com/blevesearch/zapx/v13 v13.3.10 // indirect
+	github.com/blevesearch/zapx/v14 v14.3.10 // indirect
+	github.com/blevesearch/zapx/v15 v15.3.13 // indirect
+	github.com/blevesearch/zapx/v16 v16.0.12 // indirect
 	github.com/cenkalti/backoff/v4 v4.2.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/cockroachdb/logtags v0.0.0-20230118201751-21c54148d20b // indirect
@@ -71,6 +84,7 @@ require (
 	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 // indirect
 	github.com/gofiber/websocket/v2 v2.2.1 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
+	github.com/golang/geo v0.0.0-20210211234256-740aa86cb551 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
@@ -78,6 +92,7 @@ require (
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.19.1 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
+	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/compress v1.17.7 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
@@ -87,6 +102,8 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-runewidth v0.0.15 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
+	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
+	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/mschoch/smat v0.2.0 // indirect
 	github.com/pelletier/go-toml/v2 v2.1.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
