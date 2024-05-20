@@ -116,6 +116,7 @@ jobs:
       
       - name: Get Console Version
         id: console-version
+        shell: bash
         run: echo "CONSOLE_VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
         working-directory: ./console
 
