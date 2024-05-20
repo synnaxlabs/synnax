@@ -20,11 +20,14 @@ const tombstoneByteSize = 6
 // 0 <= startPosition <= endPosition < len(db.mu.idx.pointers), and must both be valid
 // positions in the index.
 func (db *DB) Delete(ctx context.Context, startPosition int, endPosition int, startOffset int64, endOffset int64, tr telem.TimeRange) error {
+	ctx, span := db.T.Bench(ctx, "Delete")
+	defer span.End()
+
 	db.idx.mu.Lock()
-	defer db.idx.mu.Unlock()
 
 	if err := validateDelete(startPosition, endPosition, &startOffset, &endOffset, db.idx); err != nil {
-		return err
+		db.idx.mu.Unlock()
+		return span.Error(err)
 	}
 
 	var (
@@ -36,6 +39,7 @@ func (db *DB) Delete(ctx context.Context, startPosition int, endPosition int, st
 	if startPosition == endPosition-1 && startOffset == int64(end.length) && endOffset == int64(end.length) ||
 		startPosition == endPosition && startOffset+endOffset == int64(start.length) {
 		// delete nothing
+		db.idx.mu.Unlock()
 		return nil
 	}
 
@@ -86,19 +90,22 @@ func (db *DB) Delete(ctx context.Context, startPosition int, endPosition int, st
 		db.idx.mu.pointers = temp
 	}
 
-	return db.idx.persist(ctx, startPosition)
+	persistPointers := db.idx.indexPersist.preparePointersPersist(startPosition)
+	persistTombstones := db.idx.indexPersist.prepareTombstonePersist()
+	db.idx.mu.Unlock()
+	if err := persistPointers(); err != nil {
+		return span.Error(err)
+	}
+	return span.Error(persistTombstones())
 }
 
 // CollectTombstones must only collect files that are oversize since no new writers may
 // be acquired on them. However, deletes may still happen on them.
 func (db *DB) CollectTombstones(ctx context.Context) error {
 	ctx, span := db.T.Bench(ctx, "GCTombstone")
-	db.idx.mu.Lock()
+	defer span.End()
 
-	defer func() {
-		span.End()
-		db.idx.mu.Unlock()
-	}()
+	db.idx.mu.Lock()
 
 	for fileKey, tombstoneSize := range db.idx.mu.tombstones {
 		if tombstoneSize >= uint32(db.GCThreshold*float32(db.FileSize)) {
@@ -110,17 +117,20 @@ func (db *DB) CollectTombstones(ctx context.Context) error {
 
 			// Rename the old file.
 			if err := db.FS.Rename(fileName, copyName); err != nil {
+				db.idx.mu.Unlock()
 				return span.Error(err)
 			}
 
 			r, err := db.FS.Open(copyName, os.O_RDONLY)
 			if err != nil {
+				db.idx.mu.Unlock()
 				return span.Error(err)
 			}
 
 			// Open a new file.
 			f, err := db.FS.Open(fileName, os.O_CREATE|os.O_WRONLY)
 			if err != nil {
+				db.idx.mu.Unlock()
 				return span.Error(err)
 			}
 
@@ -130,11 +140,13 @@ func (db *DB) CollectTombstones(ctx context.Context) error {
 					buf := make([]byte, ptr.length)
 					_, err = r.ReadAt(buf, int64(ptr.offset))
 					if err != nil {
+						db.idx.mu.Unlock()
 						return span.Error(err)
 					}
 
 					_, err = f.WriteAt(buf, int64(newOffset))
 					if err != nil {
+						db.idx.mu.Unlock()
 						return span.Error(err)
 					}
 
@@ -145,14 +157,17 @@ func (db *DB) CollectTombstones(ctx context.Context) error {
 
 			// Delete the old file
 			if err = r.Close(); err != nil {
+				db.idx.mu.Unlock()
 				return span.Error(err)
 			}
 
 			if err = f.Close(); err != nil {
+				db.idx.mu.Unlock()
 				return span.Error(err)
 			}
 
 			if err = db.files.RemoveFileAndMigrateDescriptors(fileKey, fileName, copyName); err != nil {
+				db.idx.mu.Unlock()
 				return span.Error(err)
 			}
 
@@ -161,7 +176,9 @@ func (db *DB) CollectTombstones(ctx context.Context) error {
 		}
 	}
 
-	return db.idx.persist(ctx, len(db.idx.mu.pointers))
+	persistTombstones := db.idx.indexPersist.prepareTombstonePersist()
+	db.idx.mu.Unlock()
+	return persistTombstones()
 }
 
 func validateDelete(startPosition int, endPosition int, startOffset *int64, endOffset *int64, idx *index) error {

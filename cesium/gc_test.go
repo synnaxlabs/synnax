@@ -195,7 +195,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 							GCTryInterval: 10 * telem.Millisecond.Duration(),
 							GCThreshold:   float32(39) / float32(39),
 						}),
-						cesium.WithFS(fs), cesium.WithFileSizeCap(39*telem.ByteSize)))
+						cesium.WithFS(fs), cesium.WithFileSize(39*telem.ByteSize)))
 				})
 				AfterAll(func() {
 					Expect(db.Close()).To(Succeed())

@@ -95,7 +95,7 @@ func LessThan[T types.Numeric](v *Validator, name string, value T, threshold T) 
 
 func LessThanEq[T types.Numeric](v *Validator, name string, value T, threshold T) bool {
 	return v.Ternaryf(
-		value > threshold,
+		value >= threshold,
 		"%s must be less than or equal to %d", name, threshold)
 }
 

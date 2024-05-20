@@ -21,11 +21,11 @@ type Option func(*options)
 
 type options struct {
 	alamos.Instrumentation
-	dirname     string
-	fs          xfs.FS
-	metaECD     binary.EncoderDecoder
-	gcCfg       *GCConfig
-	fileSizeCap telem.Size
+	dirname  string
+	fs       xfs.FS
+	metaECD  binary.EncoderDecoder
+	gcCfg    *GCConfig
+	fileSize telem.Size
 }
 
 func (o *options) Report() alamos.Report {
@@ -47,7 +47,7 @@ func mergeDefaultOptions(o *options) {
 	o.metaECD = override.Nil[binary.EncoderDecoder](&binary.JSONEncoderDecoder{}, o.metaECD)
 	o.fs = override.Nil[xfs.FS](xfs.Default, o.fs)
 	o.gcCfg = override.Nil[*GCConfig](&DefaultGCConfig, o.gcCfg)
-	o.fileSizeCap = override.Numeric(1*telem.Gigabyte, o.fileSizeCap)
+	o.fileSize = override.Numeric(1*telem.Gigabyte, o.fileSize)
 }
 
 func WithFS(fs xfs.FS) Option {
@@ -74,8 +74,13 @@ func WithInstrumentation(i alamos.Instrumentation) Option {
 	}
 }
 
-func WithFileSizeCap(cap telem.Size) Option {
+// WithFileSize sets the FileSize parameter of the database.
+// FileSize is the maximum size, in bytes, for a writer to be created on a file.
+// Note while that a file's size may still exceed this value, it is not likely
+// to exceed by much with frequent commits.
+// [OPTIONAL] Default: 1GB
+func WithFileSize(cap telem.Size) Option {
 	return func(o *options) {
-		o.fileSizeCap = cap
+		o.fileSize = cap
 	}
 }

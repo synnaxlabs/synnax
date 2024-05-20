@@ -87,6 +87,17 @@ func (f Frame) Even() bool {
 	return true
 }
 
+// SquashSameKeyData is meant for testing use only. It is NOT optimized.
+func (f Frame) SquashSameKeyData(key ChannelKey) (data []byte) {
+	for i := 0; i < len(f.Keys); i++ {
+		if f.Keys[i] == key {
+			data = append(data, f.Series[i].Data...)
+		}
+	}
+
+	return
+}
+
 func (f Frame) Len() int64 {
 	f.assertEven("Len")
 	if len(f.Series) == 0 {

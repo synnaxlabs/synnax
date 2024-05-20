@@ -65,6 +65,8 @@ var (
 	WriterClosedError = core.EntityClosed("unary.writer")
 )
 
+const AlwaysIndexPersistOnAutoCommit telem.TimeSpan = -1
+
 func (c WriterConfig) Validate() error {
 	v := validate.New("unary.WriterConfig")
 	validate.NotEmptyString(v, "Subject.Key", c.Subject.Key)
@@ -110,6 +112,9 @@ type Writer struct {
 	// unnecessary index lookups by keeping track of the highest timestamp written.
 	// Only valid when Channel.IsIndex is true.
 	hwm telem.TimeStamp
+	// lastCommitFileSwitch describes whether the last commit involved a file switch.
+	// If it did, then it is necessary to resolve the timestamp for that commit this time.
+	lastCommitFileSwitch bool
 	// closed stores whether the writer is closed. Operations like Write and Commit do not
 	// succeed on closed writers.
 	closed bool
@@ -181,6 +186,7 @@ func (w *Writer) Write(series telem.Series) (a telem.Alignment, err error) {
 	if err := w.Channel.ValidateSeries(series); err != nil {
 		return 0, err
 	}
+	// ok signifies whether w is allowed to write.
 	dw, ok := w.control.Authorize()
 	if !ok {
 		return 0, controller.Unauthorized(w.control.Subject.Name, w.Channel.Key)
@@ -233,6 +239,7 @@ func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.
 	if !ok {
 		return 0, controller.Unauthorized(w.control.Subject.String(), w.Channel.Key)
 	}
+
 	if end.IsZero() {
 		// We're using w.len - 1 here because we want the timestamp of the last
 		// written frame.

@@ -33,9 +33,10 @@ type Config struct {
 	// Channel is the Channel for the database. This only needs to be set when
 	// creating a new database. If the database already exists, the Channel information
 	// will be read from the databases meta file.
-	// [OPTIONAL]
 	Channel core.Channel
-	// FileSize is the maximum file before which no more writes can be made to a file.
+	// FileSize is the maximum size, in bytes, for a writer to be created on a file.
+	// Note while that a file's size may still exceed this value, it is not likely
+	// to exceed by much with frequent commits.
 	// [OPTIONAL] Default: 1GB
 	FileSize telem.Size
 	// GCThreshold is the minimum tombstone proportion of the Filesize to trigger a GC.

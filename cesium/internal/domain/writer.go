@@ -89,7 +89,7 @@ func Write(ctx context.Context, db *DB, tr telem.TimeRange, data []byte) error {
 	if _, err = w.Write(data); err != nil {
 		return err
 	}
-	if err = w.Commit(ctx /* ignored */, 0); err != nil {
+	if err = w.Commit(ctx /* ignored */, tr.End); err != nil {
 		return err
 	}
 	return w.Close(ctx)
@@ -120,6 +120,12 @@ type Writer struct {
 	// fileKey represents the key of the file written to by the writer. One can convert it
 	// to a filename via the fileKeyToName function.
 	fileKey uint16
+	// fc is the file controller for the writer's FS.
+	fc *fileController
+	// fileSize is the writer's file's size
+	fileSize telem.Size
+	// len is the number of bytes written by all internal writers of the domain writer.
+	len int64
 	// internal is a TrackedWriteCloser used to write telemetry to FS.
 	internal xio.TrackedWriteCloser
 	// presetEnd denotes whether the writer has a preset end as part of its WriterConfig.
@@ -136,7 +142,7 @@ type Writer struct {
 // NewWriter opens a new Writer using the given configuration.
 func (db *DB) NewWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) {
 	cfg, err := config.New(DefaultWriterConfig, cfg)
-	key, internal, err := db.files.acquireWriter(ctx)
+	key, size, internal, err := db.files.acquireWriter(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -147,6 +153,8 @@ func (db *DB) NewWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) 
 		WriterConfig:     cfg,
 		Instrumentation:  db.Instrumentation.Child("writer"),
 		fileKey:          key,
+		fc:               db.files,
+		fileSize:         telem.Size(size),
 		internal:         internal,
 		idx:              db.idx,
 		presetEnd:        !cfg.End.IsZero(),
@@ -167,16 +175,19 @@ func (db *DB) NewWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) 
 }
 
 // Len returns the number of bytes written to the domain.
-func (w *Writer) Len() int64 { return w.internal.Len() }
+func (w *Writer) Len() int64 { return w.len }
 
 // Writer writes binary telemetry to the domain. Write is not safe to call concurrently
 // with any other Writer methods. The contents of p are safe to modify after Write
 // returns.
-func (w *Writer) Write(p []byte) (n int, err error) {
+func (w *Writer) Write(p []byte) (int, error) {
 	if w.closed {
 		return 0, WriterClosedError
 	}
-	return w.internal.Write(p)
+	n, err := w.internal.Write(p)
+	w.fileSize += telem.Size(n)
+	w.len += int64(n)
+	return n, err
 }
 
 // Commit commits the domain to the DB, making it available for reading by other processes.
@@ -186,7 +197,7 @@ func (w *Writer) Write(p []byte) (n int, err error) {
 // previous commit. If the provided timestamp is not strictly greater than the previous
 // commit, Commit will return an error. If the domain formed by the WriterConfig.Start
 // and the provided timestamp overlaps with any other domains within the DB, Commit will
-// return an error.
+// return an ErrDomainOverlap.
 // If WriterCommit.AutoIndexPersistInterval is greater than 0, then the changes committed would only
 // be persisted to disk after the set interval.
 func (w *Writer) Commit(ctx context.Context, end telem.TimeStamp) error {
@@ -206,36 +217,67 @@ func (w *Writer) Commit(ctx context.Context, end telem.TimeStamp) error {
 func (w *Writer) commit(ctx context.Context, end telem.TimeStamp, persist bool) error {
 	ctx, span := w.T.Prod(ctx, "commit")
 	defer span.End()
+
 	if w.closed {
 		return span.Error(WriterClosedError)
 	}
-	if w.presetEnd {
-		if end.After(w.End) {
-			return span.Error(errors.New("[cesium] - commit timestamp cannot be greater than preset end timestamp"))
-		}
-		end = w.End
+	if w.presetEnd && end.After(w.End) {
+		return span.Error(errors.New("[cesium] - commit timestamp cannot be greater than preset end timestamp"))
 	}
-	if err := w.validateCommitRange(end); err != nil {
+
+	switchingFile, commitEnd := w.resolveCommitEnd(end)
+
+	if err := w.validateCommitRange(commitEnd, switchingFile); err != nil {
 		return span.Error(err)
 	}
+
 	length := w.internal.Len()
 	if length == 0 {
 		return nil
 	}
 	ptr := pointer{
-		TimeRange: telem.TimeRange{Start: w.Start, End: end},
+		TimeRange: telem.TimeRange{Start: w.Start, End: commitEnd},
 		offset:    uint32(w.internal.Offset()),
 		length:    uint32(length),
 		fileKey:   w.fileKey,
 	}
 	f := lo.Ternary(w.prevCommit.IsZero(), w.idx.insert, w.idx.update)
-	err := f(ctx, ptr, persist)
+
+	err := span.Error(f(ctx, ptr, persist))
 	if err != nil {
 		return span.Error(err)
 	}
 
-	w.prevCommit = end
+	if switchingFile {
+		err = w.internal.Close()
+		if err != nil {
+			return span.Error(err)
+		}
+
+		newFileKey, newFileSize, newInternalWriter, err := w.fc.acquireWriter(ctx)
+		if err != nil {
+			return span.Error(err)
+		}
+
+		w.fileKey = newFileKey
+		w.internal = newInternalWriter
+		w.fileSize = telem.Size(newFileSize)
+		w.Start = commitEnd
+		w.prevCommit = 0
+	} else {
+		w.prevCommit = commitEnd
+	}
+
 	return nil
+}
+
+// resolveCommitEnd returns whether a file change is needed, the resolved commit end, and any errors.
+func (w *Writer) resolveCommitEnd(end telem.TimeStamp) (bool, telem.TimeStamp) {
+	if w.fileSize >= w.fc.Config.FileSize {
+		return true, end
+	}
+
+	return false, lo.Ternary(w.presetEnd, w.End, end)
 }
 
 // Close closes the writer, releasing any resources it may have been holding. Any
@@ -248,20 +290,18 @@ func (w *Writer) Close(ctx context.Context) error {
 
 	if *w.EnableAutoCommit && w.AutoIndexPersistInterval > 0 {
 		w.idx.mu.RLock()
-		err := w.idx.persist(ctx, w.idx.persistHead)
+		persistPointers := w.idx.indexPersist.preparePointersPersist(w.idx.persistHead)
 		w.idx.mu.RUnlock()
-		if err != nil {
-			return err
-		}
+		return persistPointers()
 	}
 
 	w.closed = true
 	return w.internal.Close()
 }
 
-func (w *Writer) validateCommitRange(end telem.TimeStamp) error {
-	if !w.prevCommit.IsZero() && end.Before(w.prevCommit) {
-		return errors.Wrap(validate.Error, "commit timestamp must be strictly greater than the previous commit")
+func (w *Writer) validateCommitRange(end telem.TimeStamp, switchingFile bool) error {
+	if !w.prevCommit.IsZero() && !switchingFile && end.Before(w.prevCommit) {
+		return errors.Wrap(validate.Error, "commit timestamp must not be less than the previous commit")
 	}
 	if !w.Start.Before(end) {
 		return errors.Wrap(validate.Error, "commit timestamp must be strictly greater than the starting timestamp")

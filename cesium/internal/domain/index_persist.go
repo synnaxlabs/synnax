@@ -41,18 +41,52 @@ func openIndexPersist(idx *index, fs fs.FS) (*indexPersist, error) {
 	return ip, nil
 }
 
-func (f *indexPersist) load() ([]pointer, map[uint16]uint32, error) {
-	pointers, err := f.p.load()
+func (ip *indexPersist) load() ([]pointer, map[uint16]uint32, error) {
+	pointers, err := ip.p.load()
 	if err != nil {
 		return nil, nil, err
 	}
 
-	tombstones, err := f.t.load()
+	tombstones, err := ip.t.load()
 	if err != nil {
 		return nil, nil, err
 	}
 
 	return pointers, tombstones, nil
+}
+
+func (ip *indexPersist) preparePointersPersist(start int) func() error {
+	var (
+		firstByte      = make([]byte, 4)
+		pointerEncoded = ip.p.encode(start, ip.idx.mu.pointers)
+	)
+
+	byteOrder.PutUint32(firstByte, uint32(len(ip.idx.mu.pointers)))
+	return func() error {
+		_, err := ip.p.WriteAt(firstByte, 0)
+		if err != nil {
+			return err
+		}
+		_, err = ip.p.WriteAt(pointerEncoded, int64(start*pointerByteSize+4))
+		return err
+	}
+}
+
+func (ip *indexPersist) prepareTombstonePersist() func() error {
+	var (
+		firstByte      = make([]byte, 4)
+		pointerEncoded = ip.t.encode(ip.idx.mu.tombstones)
+	)
+
+	byteOrder.PutUint32(firstByte, uint32(len(ip.idx.mu.tombstones)))
+	return func() error {
+		_, err := ip.t.WriteAt(firstByte, 0)
+		if err != nil {
+			return err
+		}
+		_, err = ip.t.WriteAt(pointerEncoded, int64(4))
+		return err
+	}
 }
 
 type pointerPersist struct {
@@ -113,18 +147,18 @@ var byteOrder = binary.LittleEndian
 
 type pointerEncoder struct{}
 
-func (f *pointerEncoder) encode(start int, pointers []pointer) []byte {
-	b := make([]byte, (len(pointers)-start)*pointerByteSize+4)
-	byteOrder.PutUint32(b[:4], uint32(len(pointers)))
-	for i := start; i < len(pointers); i++ {
-		ptr := pointers[i]
-		base := (i-start)*pointerByteSize + 4
+func (f *pointerEncoder) encode(start int, ptrs []pointer) []byte {
+	b := make([]byte, (len(ptrs)-start)*pointerByteSize)
+	for i := start; i < len(ptrs); i++ {
+		ptr := ptrs[i]
+		base := (i - start) * pointerByteSize
 		byteOrder.PutUint64(b[base:base+8], uint64(ptr.Start))
 		byteOrder.PutUint64(b[base+8:base+16], uint64(ptr.End))
 		byteOrder.PutUint16(b[base+16:base+18], ptr.fileKey)
 		byteOrder.PutUint32(b[base+18:base+22], ptr.offset)
 		byteOrder.PutUint32(b[base+22:base+26], ptr.length)
 	}
+
 	return b
 }
 
@@ -134,11 +168,11 @@ func (f *pointerEncoder) decode(b []byte) []pointer {
 	}
 
 	var (
-		pointers   = make([]pointer, (len(b)-4)/pointerByteSize)
 		pointerLen = int(byteOrder.Uint32(b[:4]))
+		pointers   = make([]pointer, pointerLen)
 	)
 	for i := 0; i < pointerLen; i++ {
-		base := i * pointerByteSize
+		base := i*pointerByteSize + 4
 		pointers[i] = pointer{
 			TimeRange: telem.TimeRange{
 				Start: telem.TimeStamp(byteOrder.Uint64(b[base : base+8])),
@@ -156,12 +190,11 @@ type tombstoneEncoder struct{}
 
 func (f *tombstoneEncoder) encode(tombstones map[uint16]uint32) []byte {
 	var (
-		b       = make([]byte, (len(tombstones))*tombstoneByteSize+4)
+		b       = make([]byte, (len(tombstones))*tombstoneByteSize)
 		counter = 0
 	)
-	byteOrder.PutUint32(b[:4], uint32(len(tombstones)))
 	for fileKey, tombstoneSize := range tombstones {
-		base := counter*tombstoneByteSize + 4
+		base := counter * tombstoneByteSize
 		byteOrder.PutUint16(b[base:base+2], fileKey)
 		byteOrder.PutUint32(b[base+2:base+6], tombstoneSize)
 		counter += 1

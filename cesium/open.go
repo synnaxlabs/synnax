@@ -10,13 +10,14 @@
 package cesium
 
 import (
+	"fmt"
 	"github.com/cockroachdb/errors"
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/meta"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/signal"
+	"go.uber.org/zap"
 	"strconv"
 )
 
@@ -34,7 +35,7 @@ func Open(dirname string, opts ...Option) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	_db := &DB{
+	db := &DB{
 		options:    o,
 		unaryDBs:   make(map[core.ChannelKey]unary.DB, len(info)),
 		virtualDBs: make(map[core.ChannelKey]virtual.DB, len(info)),
@@ -42,20 +43,24 @@ func Open(dirname string, opts ...Option) (*DB, error) {
 		shutdown:   signal.NewShutdown(sCtx, cancel),
 	}
 	for _, i := range info {
-		key := core.ChannelKey(lo.Must(strconv.Atoi(i.Name())))
-		if err != nil {
-			return nil, err
-		}
 		if i.IsDir() {
-			if err = _db.openVirtualOrUnary(Channel{Key: key}); err != nil {
+			key, err := strconv.Atoi(i.Name())
+			if err != nil {
+				db.options.L.Error(fmt.Sprintf("failed parsing existing folder <%s> to channel key", i.Name()), zap.Error(err))
+				continue
+			}
+
+			if err = db.openVirtualOrUnary(Channel{Key: ChannelKey(key)}); err != nil {
 				return nil, err
 			}
+		} else {
+			db.options.L.Warn(fmt.Sprintf("Found unknown file %s in database root directory", i.Name()))
 		}
 	}
 
-	_db.startGC(sCtx, o)
+	db.startGC(sCtx, o)
 
-	return _db, nil
+	return db, nil
 }
 
 func (db *DB) openVirtualOrUnary(ch Channel) error {
@@ -84,7 +89,7 @@ func (db *DB) openVirtualOrUnary(ch Channel) error {
 		if isOpen {
 			return nil
 		}
-		u, err := unary.Open(unary.Config{FS: fs, Channel: ch, Instrumentation: db.options.Instrumentation, FileSize: db.options.fileSizeCap, GCThreshold: db.options.gcCfg.GCThreshold})
+		u, err := unary.Open(unary.Config{FS: fs, Channel: ch, Instrumentation: db.options.Instrumentation, FileSize: db.options.fileSize, GCThreshold: db.options.gcCfg.GCThreshold})
 		if err != nil {
 			return err
 		}
