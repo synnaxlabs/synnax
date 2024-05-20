@@ -762,6 +762,13 @@ var _ = Describe("Writer Behavior", func() {
 							Expect(l[1].Size()).To(Equal(int64(0 * telem.Int64T.Density())))
 						})
 
+						By("Closing an reopening the db")
+						Expect(db2.Close()).To(Succeed())
+
+						db2 = MustSucceed(cesium.Open("size-capped-db",
+							cesium.WithFS(fs),
+							cesium.WithFileSize(64*telem.ByteSize)))
+
 						By("Asserting that upon writing to the channels, the writes go to appropriate files", func() {
 							w = MustSucceed(db2.OpenWriter(ctx, cesium.WriterConfig{
 								Channels:                 []cesium.ChannelKey{index, basic, rate},
