@@ -197,6 +197,7 @@ namespace ni{
     private:
         void parseConfig(config::Parser & parser);
         int checkNIError(int32 error);
+        
         TaskHandle task_handle = 0;
         double *data;       // pointer to heap allocated dataBuffer to provide to DAQmx read functions
         int bufferSize = 0; 

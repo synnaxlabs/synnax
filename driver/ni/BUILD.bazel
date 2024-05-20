@@ -45,8 +45,9 @@ cc_library(
 cc_library(
     name = "ni",
     srcs = [
-        "reader.cpp",
-        "writer.cpp",
+        "analog_read.cpp",
+        "digital_read.cpp",
+        "digital_write.cpp",
         "task.cpp",
         "factory.cpp",
         "scanner.cpp",
