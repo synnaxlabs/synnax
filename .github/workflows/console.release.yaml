@@ -292,7 +292,7 @@ jobs:
                 },
                 "linux-x86_64": {
                   signature: "",
-                  url: linuxURL,
+                  url: "",
                 },
                 "windows-x86_64": {
                   signature: ecd.decode(windowsSig.data),
