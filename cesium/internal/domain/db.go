@@ -140,6 +140,15 @@ func (db *DB) NewIterator(cfg IteratorConfig) *Iterator {
 	return i
 }
 
+func (db *DB) newReader(ctx context.Context, ptr pointer) (*Reader, error) {
+	internal, err := db.files.acquireReader(ctx, ptr.fileKey)
+	if err != nil {
+		return nil, err
+	}
+	reader := io.NewSectionReader(internal, int64(ptr.offset), int64(ptr.length))
+	return &Reader{ptr: ptr, ReaderAt: reader}, nil
+}
+
 func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) {
 	i := db.NewIterator(IteratorConfig{Bounds: telem.TimeRangeMax})
 
@@ -159,13 +168,4 @@ func (db *DB) Close() error {
 	w.Exec(func() error { return db.idx.close() })
 	w.Exec(db.files.close)
 	return w.Error()
-}
-
-func (db *DB) newReader(ctx context.Context, ptr pointer) (*Reader, error) {
-	internal, err := db.files.acquireReader(ctx, ptr.fileKey)
-	if err != nil {
-		return nil, err
-	}
-	reader := io.NewSectionReader(internal, int64(ptr.offset), int64(ptr.length))
-	return &Reader{ptr: ptr, ReaderAt: reader}, nil
 }

@@ -11,18 +11,19 @@ package domain_test
 
 import (
 	"encoding/binary"
+	"github.com/synnaxlabs/cesium/internal/core"
+	"os"
+	"sync"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/x/config"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
-	"os"
-	"sync"
 	"time"
 )
 
@@ -32,7 +33,7 @@ func extractPointer(f xfs.File) (p struct {
 	offset  uint32
 	length  uint32
 }) {
-	var b = make([]byte, 26)
+	b := make([]byte, 26)
 	_, err := f.ReadAt(b, 0)
 	Expect(err).ToNot(HaveOccurred())
 	p.TimeRange.Start = telem.TimeStamp(binary.LittleEndian.Uint64(b[0:8]))
@@ -55,6 +56,17 @@ var _ = Describe("WriterBehavior", func() {
 			AfterEach(func() {
 				Expect(db.Close()).To(Succeed())
 				Expect(fs.Remove(rootPath)).To(Succeed())
+			})
+			Describe("Happiest of paths", func() {
+				It("Should work with a preset end", func() {
+					w := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS, End: 100 * telem.SecondTS}))
+					Expect(w.Write([]byte{10, 11, 12, 13, 14})).To(Equal(5))
+					Expect(w.Commit(ctx, 14*telem.SecondTS+1)).To(Succeed())
+					Expect(w.Write([]byte{15, 16, 17, 18, 19})).To(Equal(5))
+					Expect(w.Commit(ctx, 19*telem.SecondTS+1)).To(Succeed())
+					Expect(w.Write([]byte{100, 101, 102, 103, 104})).To(Equal(5))
+					Expect(w.Commit(ctx, 104*telem.SecondTS+1)).To(MatchError(ContainSubstring("cannot be greater than preset end timestamp")))
+				})
 			})
 			Describe("Start Validation", func() {
 				Context("No domain overlap", func() {
@@ -79,6 +91,151 @@ var _ = Describe("WriterBehavior", func() {
 							Start: 10 * telem.SecondTS,
 						})
 						Expect(err).To(HaveOccurredAs(domain.ErrDomainOverlap))
+					})
+				})
+			})
+			Describe("CheckFileSizeAndMaybeSwitchFile", func() {
+				Context("No preset end", func() {
+					It("Should start writing to a new file when one file is full", func() {
+						db2 := MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub(rootPath)), FileSize: 10 * telem.ByteSize}))
+
+						By("Writing some telemetry")
+						w := MustSucceed(db2.NewWriter(ctx, domain.WriterConfig{Start: 1 * telem.SecondTS}))
+						Expect(w.Write([]byte{1, 2, 3, 4, 5})).To(Equal(5))
+						l := MustSucceed(db2.FS.List(""))
+						l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
+							return item.Name() != "counter.domain" && item.Name() != "index.domain"
+						})
+						Expect(l).To(HaveLen(1))
+						Expect(l[0].Size()).To(Equal(int64(5)))
+						Expect(w.Commit(ctx, 5*telem.SecondTS+1)).To(Succeed())
+
+						By("Asserting that it should not switch file when the file is not oversize")
+						Expect(w.Write([]byte{6, 7, 8, 9, 10, 11})).To(Equal(6))
+						l = MustSucceed(db2.FS.List(""))
+						l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
+							return item.Name() != "counter.domain" && item.Name() != "index.domain"
+						})
+						Expect(l).To(HaveLen(1))
+						Expect(l[0].Size()).To(Equal(int64(11)))
+						Expect(w.Commit(ctx, 11*telem.SecondTS+1)).To(Succeed())
+
+						By("Asserting that it should switch files when the file is oversize")
+						Expect(w.Write([]byte{21, 22, 23})).To(Equal(3))
+						Expect(w.Commit(ctx, 23*telem.SecondTS+1)).To(Succeed())
+						l = MustSucceed(db2.FS.List(""))
+						l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
+							return item.Name() != "counter.domain" && item.Name() != "index.domain"
+						})
+						Expect(l).To(HaveLen(2))
+						Expect(lo.Map(l, func(info os.FileInfo, _ int) (sz int64) { return info.Size() })).To(ConsistOf(int64(11), int64(3)))
+
+						By("Asserting the data is stored as expected")
+						i := db2.NewIterator(domain.IterRange(telem.TimeRangeMax))
+						Expect(i.SeekFirst(ctx)).To(BeTrue())
+						Expect(i.TimeRange()).To(Equal((1 * telem.SecondTS).Range(11*telem.SecondTS + 1)))
+						Expect(i.Len()).To(Equal(int64(11)))
+
+						Expect(i.Next()).To(BeTrue())
+						Expect(i.TimeRange()).To(Equal((11*telem.SecondTS + 1).Range(23*telem.SecondTS + 1)))
+						Expect(i.Len()).To(Equal(int64(3)))
+
+						By("Closing resources")
+						Expect(i.Close()).To(Succeed())
+						Expect(w.Close(ctx)).To(Succeed())
+						Expect(db2.Close()).To(Succeed())
+					})
+
+					It("Should work when the file size exceeds the limit by just 1", func() {
+						db2 := MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub(rootPath)), FileSize: 4 * telem.ByteSize}))
+
+						By("Writing some telemetry")
+						w := MustSucceed(db2.NewWriter(ctx, domain.WriterConfig{Start: 1 * telem.SecondTS}))
+						Expect(w.Write([]byte{1, 2, 3, 4, 5})).To(Equal(5))
+						l := MustSucceed(db2.FS.List(""))
+						l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
+							return item.Name() != "counter.domain" && item.Name() != "index.domain"
+						})
+						Expect(l).To(HaveLen(1))
+						Expect(l[0].Size()).To(Equal(int64(5)))
+						Expect(w.Commit(ctx, 5*telem.SecondTS+1)).To(Succeed())
+
+						By("Asserting that it should switch files when the file is oversize")
+						Expect(w.Write([]byte{21, 22, 23})).To(Equal(3))
+						Expect(w.Commit(ctx, 23*telem.SecondTS+1)).To(Succeed())
+						l = MustSucceed(db2.FS.List(""))
+						l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
+							return item.Name() != "counter.domain" && item.Name() != "index.domain"
+						})
+						Expect(l).To(HaveLen(2))
+						Expect(lo.Map(l, func(info os.FileInfo, _ int) (sz int64) { return info.Size() })).To(ConsistOf(int64(5), int64(3)))
+
+						By("Asserting the data is stored as expected")
+						i := db2.NewIterator(domain.IterRange(telem.TimeRangeMax))
+						Expect(i.SeekFirst(ctx)).To(BeTrue())
+						Expect(i.TimeRange()).To(Equal((1 * telem.SecondTS).Range(5*telem.SecondTS + 1)))
+						Expect(i.Len()).To(Equal(int64(5)))
+
+						Expect(i.Next()).To(BeTrue())
+						Expect(i.TimeRange()).To(Equal((5*telem.SecondTS + 1).Range(23*telem.SecondTS + 1)))
+						Expect(i.Len()).To(Equal(int64(3)))
+
+						By("Closing resources")
+						Expect(i.Close()).To(Succeed())
+						Expect(w.Close(ctx)).To(Succeed())
+						Expect(db2.Close()).To(Succeed())
+					})
+				})
+
+				Context("With preset end", func() {
+					It("Should start writing to a new file when one file is full", func() {
+						db2 := MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub(rootPath)), FileSize: 10 * telem.ByteSize}))
+
+						By("Writing some telemetry")
+						w := MustSucceed(db2.NewWriter(ctx, domain.WriterConfig{Start: 1 * telem.SecondTS, End: 100 * telem.SecondTS}))
+						Expect(w.Write([]byte{1, 2, 3, 4, 5})).To(Equal(5))
+						Expect(w.Commit(ctx, 5*telem.SecondTS+1)).To(Succeed())
+						l := MustSucceed(db2.FS.List(""))
+						l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
+							return item.Name() != "counter.domain" && item.Name() != "index.domain"
+						})
+						Expect(l).To(HaveLen(1))
+						Expect(l[0].Size()).To(Equal(int64(5)))
+
+						By("Asserting that it should not switch file when the file is not oversize")
+						Expect(w.Write([]byte{6, 7, 8, 9, 10, 11})).To(Equal(6))
+						l = MustSucceed(db2.FS.List(""))
+						l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
+							return item.Name() != "counter.domain" && item.Name() != "index.domain"
+						})
+						Expect(l).To(HaveLen(1))
+						Expect(l[0].Size()).To(Equal(int64(11)))
+						Expect(w.Commit(ctx, 11*telem.SecondTS+1)).To(Succeed())
+
+						By("Asserting that it should switch files when the file is oversize")
+						Expect(w.Write([]byte{21, 22, 23})).To(Equal(3))
+						Expect(w.Commit(ctx, 23*telem.SecondTS+1)).To(Succeed())
+						l = MustSucceed(db2.FS.List(""))
+						l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
+							return item.Name() != "counter.domain" && item.Name() != "index.domain"
+						})
+						Expect(l).To(HaveLen(2))
+						Expect(lo.Map(l, func(info os.FileInfo, _ int) (sz int64) { return info.Size() })).To(ConsistOf(int64(11), int64(3)))
+
+						By("Asserting the data is stored as expected")
+						i := db2.NewIterator(domain.IterRange(telem.TimeRangeMax))
+						Expect(i.SeekFirst(ctx)).To(BeTrue())
+						Expect(i.TimeRange()).To(Equal((1 * telem.SecondTS).Range(11*telem.SecondTS + 1)))
+						Expect(i.Len()).To(Equal(int64(11)))
+
+						Expect(i.Next()).To(BeTrue())
+						Expect(i.TimeRange()).To(Equal((11*telem.SecondTS + 1).Range(100 * telem.SecondTS)))
+						Expect(i.Len()).To(Equal(int64(3)))
+
+						By("Closing resources")
+						Expect(i.Close()).To(Succeed())
+						Expect(w.Close(ctx)).To(Succeed())
+						Expect(db2.Close()).To(Succeed())
 					})
 				})
 			})

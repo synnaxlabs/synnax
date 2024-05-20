@@ -210,7 +210,7 @@ var _ = Describe("Delete", func() {
 							Expect(err).To(MatchError(core.ChannelNotFound))
 						})
 						Specify("Deleting control digest channel should error", func() {
-							var controlKey = GenerateChannelKey()
+							controlKey := GenerateChannelKey()
 							Expect(db.ConfigureControlUpdateChannel(ctx, controlKey)).To(Succeed())
 							Expect(db.DeleteChannel(controlKey)).To(MatchError(ContainSubstring("1 unclosed writers")))
 						})

@@ -309,7 +309,7 @@ var _ = Describe("File Controller", func() {
 
 					Expect(MustSucceed(db.FS.Stat("1.domain")).Size()).To(Equal(int64(10)))
 					Expect(MustSucceed(db.FS.Stat("2.domain")).Size()).To(Equal(int64(10)))
-					Expect(MustSucceed(db.FS.Exists("3.domain"))).To(BeFalse())
+					Expect(MustSucceed(db.FS.Stat("3.domain")).Size()).To(Equal(int64(0)))
 
 					By("Acquiring a new writer: this should go to file 3")
 					w5 := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{
@@ -386,6 +386,54 @@ var _ = Describe("File Controller", func() {
 
 						Expect(i.Close()).To(Succeed())
 					})
+				})
+
+				It("Should work with file auto cutoff generated files", func() {
+					subFS := MustSucceed(fs.Sub(rootPath))
+					By("Initializing a file controller")
+					db = MustSucceed(domain.Open(domain.Config{FS: subFS, FileSize: 10 * telem.ByteSize}))
+
+					By("Filling up 1.domain")
+					w1 := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{
+						Start: 1 * telem.SecondTS,
+					}))
+					_, err := w1.Write([]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(w1.Commit(ctx, 10*telem.SecondTS+1)).To(Succeed())
+					Expect(MustSucceed(db.FS.Stat("1.domain")).Size()).To(Equal(int64(10)))
+					Expect(MustSucceed(db.FS.Stat("2.domain")).Size()).To(Equal(int64(0)))
+					Expect(w1.Close(ctx)).To(Succeed())
+
+					By("Reopening the db")
+					Expect(db.Close()).To(Succeed())
+					db = MustSucceed(domain.Open(domain.Config{FS: subFS, FileSize: 10 * telem.ByteSize}))
+
+					By("Acquiring a new writer")
+					w2 := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{
+						Start: 11 * telem.SecondTS,
+					}))
+
+					_, err = w2.Write([]byte{11, 12, 13, 14})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(w2.Commit(ctx, 14*telem.SecondTS+1)).To(Succeed())
+					Expect(MustSucceed(db.FS.Stat("1.domain")).Size()).To(Equal(int64(10)))
+					Expect(MustSucceed(db.FS.Stat("2.domain")).Size()).To(Equal(int64(4)))
+
+					_, err = w2.Write([]byte{15, 16, 17, 18, 19, 20, 21})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(w2.Commit(ctx, 21*telem.SecondTS+1)).To(Succeed())
+					Expect(MustSucceed(db.FS.Stat("1.domain")).Size()).To(Equal(int64(10)))
+					Expect(MustSucceed(db.FS.Stat("2.domain")).Size()).To(Equal(int64(11)))
+					Expect(MustSucceed(db.FS.Stat("3.domain")).Size()).To(Equal(int64(0)))
+
+					_, err = w2.Write([]byte{22, 23, 24, 25})
+					Expect(err).ToNot(HaveOccurred())
+					Expect(w2.Commit(ctx, 25*telem.SecondTS+1)).To(Succeed())
+					Expect(MustSucceed(db.FS.Stat("1.domain")).Size()).To(Equal(int64(10)))
+					Expect(MustSucceed(db.FS.Stat("2.domain")).Size()).To(Equal(int64(11)))
+					Expect(MustSucceed(db.FS.Stat("3.domain")).Size()).To(Equal(int64(4)))
+
+					Expect(w2.Close(ctx)).To(Succeed())
 				})
 			})
 		})
