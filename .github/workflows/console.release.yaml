@@ -224,7 +224,7 @@ jobs:
 
   publish-release:
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && needs.create-release.outputs.release_id != ''
+    if: needs.create-release.outputs.release_id != ''
     needs: [ create-release, build-tauri ]
 
     steps:
