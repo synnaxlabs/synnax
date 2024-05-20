@@ -2,19 +2,12 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 #[cfg(target_os = "macos")]
-#[macro_use]
 extern crate cocoa;
 
 #[cfg(target_os = "macos")]
-#[macro_use]
 extern crate objc;
 
-use objc::{msg_send, sel, sel_impl};
-use rand::{distributions::Alphanumeric, Rng};
-use tauri::{
-    plugin::{Builder, TauriPlugin},
-    Manager, Runtime, Window,
-}; // 0.8
+use tauri::{Window};
 
 struct UnsafeWindowHandle(*mut std::ffi::c_void);
 unsafe impl Send for UnsafeWindowHandle {}
@@ -24,7 +17,6 @@ unsafe impl Sync for UnsafeWindowHandle {}
 fn set_transparent_titlebar(win: &Window, transparent: bool) {
     let ns_window_handle = UnsafeWindowHandle(win.ns_window().expect("Failed to create window handle"));
     use cocoa::appkit::{NSView, NSWindow, NSWindowButton, NSWindowStyleMask, NSWindowTitleVisibility};
-    use cocoa::foundation::NSRect;
     let id = ns_window_handle.0 as cocoa::base::id;
     unsafe {
         let mut style_mask = id.styleMask();

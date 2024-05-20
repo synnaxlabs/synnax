@@ -33,10 +33,6 @@ body {
     border: none !important;
 }
 
-.console-main-nav-top__start {
-    -webkit-app-region: drag;
-}
-
 .console-controls--windows {
     height: 100%;
 }
