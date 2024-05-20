@@ -31,7 +31,7 @@ export const NavTop = ({ title }: NavTopProps): ReactElement => {
   const os = OS.use();
   return (
     <Nav.Bar className="console-main-nav-top" location="top" size={"6rem"}>
-      <Nav.Bar.Start className="console-main-nav-top__start">
+      <Nav.Bar.Start className="console-main-nav-top__start" data-tauri-drag-region>
         <Controls
           className="console-controls--macos"
           visibleIfOS="MacOS"
@@ -39,7 +39,7 @@ export const NavTop = ({ title }: NavTopProps): ReactElement => {
         />
         {os === "Windows" && <Logo className="console-main-nav-top__logo" />}
       </Nav.Bar.Start>
-      <Nav.Bar.AbsoluteCenter>
+      <Nav.Bar.AbsoluteCenter data-tauri-drag-region>
         <Text.Text
           className="console-main-nav-top__title"
           level="p"
@@ -50,7 +50,7 @@ export const NavTop = ({ title }: NavTopProps): ReactElement => {
         </Text.Text>
       </Nav.Bar.AbsoluteCenter>
       {os === "Windows" && (
-        <Nav.Bar.End>
+        <Nav.Bar.End data-tauri-drag-region>
           <Controls
             className="console-controls--windows"
             visibleIfOS="Windows"

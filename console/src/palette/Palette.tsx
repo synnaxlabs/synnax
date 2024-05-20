@@ -139,7 +139,6 @@ export const Palette = ({
             shade={7}
             onDragOver={onDragOver}
             onDrop={onDrop}
-            data-tauri-drag-region
           >
             Quick Search & Command
           </Button.Button>
