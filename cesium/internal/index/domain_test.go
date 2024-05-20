@@ -192,7 +192,6 @@ var _ = Describe("Domain", func() {
 							index.ErrDiscontinuous,
 						),
 					)
-
 				})
 
 				Context("Quasi-continuous (many contiguous domains)", func() {
@@ -336,6 +335,37 @@ var _ = Describe("Domain", func() {
 							index.ErrDiscontinuous,
 						),
 					)
+				})
+				Specify("Quasi-continuous without ending domain", func() {
+					Expect(domain.Write(
+						ctx,
+						db,
+						(1 * telem.SecondTS).Range(19*telem.SecondTS+1),
+						telem.NewSecondsTSV(1, 2, 3, 5, 7, 9, 15, 19).Data,
+					)).To(Succeed())
+
+					Expect(domain.Write(
+						ctx,
+						db,
+						(19*telem.SecondTS + 1).Range(26*telem.SecondTS+1),
+						telem.NewSecondsTSV(20, 21, 22, 23, 25, 26).Data,
+					)).To(Succeed())
+
+					Expect(domain.Write(
+						ctx,
+						db,
+						(26*telem.SecondTS + 1).Range(35*telem.SecondTS+1),
+						telem.NewSecondsTSV(27, 29, 30, 31, 32, 34, 35).Data,
+					)).To(Succeed())
+
+					Expect(MustSucceed(idx.Stamp(ctx, 25*telem.SecondTS, 8, true))).To(Equal(index.Exactly[telem.TimeStamp](35 * telem.SecondTS)))
+					_, err := idx.Stamp(ctx, 25*telem.SecondTS, 9, true)
+					Expect(err).To(MatchError(index.ErrDiscontinuous))
+					approx, err := idx.Stamp(ctx, 24*telem.SecondTS, 8, true)
+					Expect(approx).To(Equal(index.Between[telem.TimeStamp](34*telem.SecondTS, 35*telem.SecondTS)))
+					Expect(err).ToNot(HaveOccurred())
+					_, err = idx.Stamp(ctx, 24*telem.SecondTS, 9, true)
+					Expect(err).To(MatchError(index.ErrDiscontinuous))
 				})
 				Context("Discontinuous", func() {
 					BeforeEach(func() {
