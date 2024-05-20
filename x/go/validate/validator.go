@@ -139,8 +139,23 @@ func GreaterThanEq[T types.Numeric](v *Validator, field string, value T, thresho
 	)
 }
 
+func LessThan[T types.Numeric](v *Validator, field string, value T, threshold T) bool {
+	return v.Ternaryf(field, value >= threshold, "must be less than %d", threshold)
+}
+
+func LessThanEq[T types.Numeric](v *Validator, field string, value T, threshold T) bool {
+	return v.Ternaryf(
+		field,
+		value >= threshold,
+		"must be less than or equal to %d", threshold)
+}
+
 func NonZero[T types.Numeric](v *Validator, field string, value T) bool {
-	return v.Ternaryf(field, value == 0, "must be non-zero")
+	return v.Ternaryf(
+		field,
+		value == 0,
+		"must be non-zero",
+	)
 }
 
 func NonZeroable(v *Validator, field string, value override.Zeroable) bool {

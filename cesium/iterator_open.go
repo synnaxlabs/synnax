@@ -18,7 +18,11 @@ import (
 
 func (db *DB) OpenIterator(cfg IteratorConfig) (*Iterator, error) {
 	internal, err := db.newStreamIterator(cfg)
-	return wrapStreamIterator(internal), err
+	if err != nil {
+		// return early to prevent panic in wrapStreamIterator
+		return nil, err
+	}
+	return wrapStreamIterator(internal), nil
 }
 
 func (db *DB) NewStreamIterator(cfg IteratorConfig) (StreamIterator, error) {

@@ -264,7 +264,7 @@ func (i *Iterator) insert(series telem.Series) {
 	if series.Len() == 0 {
 		return
 	}
-	if len(i.frame.Series) == 0 || i.frame.Series[len(i.frame.Series)-1].TimeRange.End.Before(series.TimeRange.Start) {
+	if len(i.frame.Series) == 0 || i.frame.Series[len(i.frame.Series)-1].TimeRange.End.BeforeEq(series.TimeRange.Start) {
 		i.frame = i.frame.Append(i.Channel.Key, series)
 	} else {
 		i.frame = i.frame.Prepend(i.Channel.Key, series)
