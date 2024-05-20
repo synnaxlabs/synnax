@@ -31,7 +31,7 @@ func (i *Domain) Distance(ctx context.Context, tr telem.TimeRange, continuous bo
 	ctx, span := i.T.Bench(ctx, "distance")
 	defer func() { _ = span.EndWith(err, ErrDiscontinuous) }()
 
-	var iter = i.DB.NewIterator(domain.IteratorConfig{Bounds: tr})
+	iter := i.DB.NewIterator(domain.IteratorConfig{Bounds: tr})
 	defer func() { err = errors.CombineErrors(err, iter.Close()) }()
 
 	if !iter.SeekFirst(ctx) || (!iter.TimeRange().ContainsRange(tr) && continuous) {
@@ -65,9 +65,11 @@ func (i *Domain) Distance(ctx context.Context, tr telem.TimeRange, continuous bo
 		return
 	}
 
-	l := r.Len() / 8
-	startToFirstEnd := Between(l-startApprox.Upper, l-startApprox.Lower)
-	var gap int64 = 0
+	var (
+		l                     = r.Len() / 8
+		gap             int64 = 0
+		startToFirstEnd       = Between(l-startApprox.Upper, l-startApprox.Lower)
+	)
 
 	for {
 		if !iter.Next() {
@@ -214,26 +216,25 @@ func (i *Domain) Stamp(
 // resolveEffectiveDomain returns the TimeRange and length of the underlying domain(s).
 // The effective domain can be many continuous domains as long as they're immediately
 // continuous, i.e. the end of one domain is the start of the other.
-func resolveEffectiveDomain(i *domain.Iterator) (telem.TimeRange, int64) {
-	var (
-		effectiveDomainBounds = i.TimeRange()
-		effectiveDomainLen    = i.Len()
-	)
+func resolveEffectiveDomain(i *domain.Iterator) (effectiveDomainBounds telem.TimeRange, effectiveDomainLen int64) {
+	effectiveDomainBounds = i.TimeRange()
+	effectiveDomainLen = i.Len()
+
 	for {
 		currentDomainEnd := i.TimeRange().End
 		if !i.Next() {
-			break
+			return
 		}
 		nextDomainStart := i.TimeRange().Start
 
 		if currentDomainEnd != nextDomainStart {
-			break
+			return
 		}
 		effectiveDomainBounds.End = i.TimeRange().End
 		effectiveDomainLen += i.Len()
 	}
 
-	return effectiveDomainBounds, effectiveDomainLen
+	return
 }
 
 // search returns an approximation for the number of samples before a given timestamp. If the

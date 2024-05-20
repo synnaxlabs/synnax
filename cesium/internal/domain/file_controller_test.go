@@ -221,7 +221,9 @@ var _ = Describe("File Controller", func() {
 
 					Expect(MustSucceed(db.FS.Stat("1.domain")).Size()).To(Equal(int64(10)))
 					Expect(MustSucceed(db.FS.Stat("2.domain")).Size()).To(Equal(int64(10)))
-					Expect(MustSucceed(db.FS.Exists("3.domain"))).To(BeFalse())
+
+					By("Expecting that a new file is created due to cutoff, but is empty")
+					Expect(MustSucceed(db.FS.Stat("3.domain")).Size()).To(Equal(int64(0)))
 
 					By("Acquiring a new writer: this should go to file 3")
 					w5 := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{

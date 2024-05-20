@@ -1016,7 +1016,7 @@ var _ = Describe("Writer Behavior", func() {
 			})
 			Describe("Data t Errors", func() {
 				Specify("Invalid Data t for series", func() {
-					var dtErr = GenerateChannelKey()
+					dtErr := GenerateChannelKey()
 					Expect(db.CreateChannel(
 						ctx,
 						cesium.Channel{
