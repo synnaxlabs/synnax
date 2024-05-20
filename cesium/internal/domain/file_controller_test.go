@@ -127,7 +127,7 @@ var _ = Describe("File Controller", func() {
 				It("Should persist the counter file across open/close", func() {
 					subFS := MustSucceed(fs.Sub(rootPath))
 					By("Initializing a file controller")
-					db = MustSucceed(domain.Open(domain.Config{FS: subFS, FileSize: 10 * telem.ByteSize}))
+					db = MustSucceed(domain.Open(domain.Config{FS: subFS, FileSizeCap: 10 * telem.ByteSize}))
 
 					By("Filling up 1.domain")
 					w1 := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{
@@ -143,7 +143,7 @@ var _ = Describe("File Controller", func() {
 					Expect(db.Close()).To(Succeed())
 
 					By("Reopening the db on the same FS")
-					db = MustSucceed(domain.Open(domain.Config{FS: subFS, FileSize: 10 * telem.ByteSize}))
+					db = MustSucceed(domain.Open(domain.Config{FS: subFS, FileSizeCap: 10 * telem.ByteSize}))
 
 					By("Acquiring a new writer: this should go to file 2 instead of 1")
 					w2 := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{
@@ -172,7 +172,7 @@ var _ = Describe("File Controller", func() {
 				It("Should open writers on partially full files after reopening the file controller", func() {
 					subFS := MustSucceed(fs.Sub(rootPath))
 					By("Initializing a file controller")
-					db = MustSucceed(domain.Open(domain.Config{FS: subFS, FileSize: 10 * telem.ByteSize}))
+					db = MustSucceed(domain.Open(domain.Config{FS: subFS, FileSizeCap: 10 * telem.ByteSize}))
 
 					By("Filling up 1.domain")
 					w1 := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{
@@ -197,7 +197,7 @@ var _ = Describe("File Controller", func() {
 					Expect(db.Close()).To(Succeed())
 
 					By("Reopening the db on the same FS")
-					db = MustSucceed(domain.Open(domain.Config{FS: subFS, FileSize: 10 * telem.ByteSize}))
+					db = MustSucceed(domain.Open(domain.Config{FS: subFS, FileSizeCap: 10 * telem.ByteSize}))
 
 					By("Acquiring a new writer: this should go to file 2")
 					w3 := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{

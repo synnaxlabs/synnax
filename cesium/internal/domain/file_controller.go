@@ -138,7 +138,7 @@ func (fc *fileController) newWriter(ctx context.Context) (*controlledWriter, int
 
 	fc.writers.Lock()
 	defer fc.writers.Unlock()
-	for key, _ := range fc.writers.unopened {
+	for key := range fc.writers.unopened {
 		file, err := fc.FS.Open(fileKeyToName(key), os.O_WRONLY|os.O_APPEND)
 		if err != nil {
 			return nil, 0, span.Error(err)
