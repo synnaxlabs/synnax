@@ -274,10 +274,8 @@ jobs:
 
             const baseURL = `https://github.com/${owner}/${repo}/releases/download/console-v${packageVersion}/`;
 
-            const darwinURL = baseURL + "Synnax_x64.app.tar.gz";
+            const darwinURL = baseURL + "Synnax.app.tar.gz";
             const darwinSig = await github.request(`GET ${darwinURL}.sig`);
-            const linuxURL = baseURL + `synnax_${packageVersion}_amd64.AppImage.tar.gz`;
-            const linuxSig = await github.request(`GET ${linuxURL}.sig`);
             const windowsURL = baseURL + `Synnax_${packageVersion}_x64_en-US.msi.zip`;
             const windowsSig = await github.request(`GET ${windowsURL}.sig`);
             const pub_date = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
@@ -293,7 +291,7 @@ jobs:
                   url: darwinURL,
                 },
                 "linux-x86_64": {
-                  signature: ecd.decode(linuxSig.data),
+                  signature: "",
                   url: linuxURL,
                 },
                 "windows-x86_64": {

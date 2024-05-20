@@ -10,7 +10,7 @@
 import { useState, type ReactElement, memo, useCallback } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import { Form, Haul, Select, CSS as PCSS } from "@synnaxlabs/pluto";
+import { Form, Haul, Select, CSS as PCSS, Menu } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 import { Header } from "@synnaxlabs/pluto/header";
 import { Input } from "@synnaxlabs/pluto/input";
@@ -304,31 +304,54 @@ const ChannelList = ({
   const channels = Form.useFieldArray<ChannelConfig[]>({
     path: `groups.${selectedGroupIndex}.channels`,
   });
-
+  const menuProps = Menu.useContextMenu();
   return (
     <Align.Space className={CSS.B("channels")} grow empty>
       <Header.Header level="h3">
         <Header.Title weight={500}>Channels</Header.Title>
       </Header.Header>
-      <List.List<string, ChannelConfig> data={channels.value}>
-        <List.Selector<string, ChannelConfig>
-          value={selectedChannels}
-          allowNone={false}
-          onChange={onSelectChannels}
-          replaceOnSingle
-        >
-          <List.Column.Header<string, ChannelConfig>
-            columns={CHANNEL_LIST_COLUMNS}
-            hide
+      <Menu.ContextMenu
+        menu={({ keys }: Menu.ContextMenuMenuProps): ReactElement => {
+          const handleSelect = (key: string) => {
+            switch (key) {
+              case "remove":
+                const indices = keys.map((k) =>
+                  channels.value.findIndex((c) => c.key === k),
+                );
+                channels.remove(indices);
+                break;
+            }
+          };
+          return (
+            <Menu.Menu onChange={handleSelect} level="small">
+              <Menu.Item itemKey="remove" startIcon={<Icon.Close />}>
+                Remove
+              </Menu.Item>
+            </Menu.Menu>
+          );
+        }}
+        {...menuProps}
+      >
+        <List.List<string, ChannelConfig> data={channels.value}>
+          <List.Selector<string, ChannelConfig>
+            value={selectedChannels}
+            allowNone={false}
+            onChange={onSelectChannels}
+            replaceOnSingle
           >
-            <List.Core<string, ChannelConfig> grow>
-              {(props) => (
-                <ChannelListItem {...props} groupIndex={selectedGroupIndex} />
-              )}
-            </List.Core>
-          </List.Column.Header>
-        </List.Selector>
-      </List.List>
+            <List.Column.Header<string, ChannelConfig>
+              columns={CHANNEL_LIST_COLUMNS}
+              hide
+            >
+              <List.Core<string, ChannelConfig> grow>
+                {(props) => (
+                  <ChannelListItem {...props} groupIndex={selectedGroupIndex} />
+                )}
+              </List.Core>
+            </List.Column.Header>
+          </List.Selector>
+        </List.List>
+      </Menu.ContextMenu>
     </Align.Space>
   );
 };
@@ -344,21 +367,10 @@ export const ChannelListItem = memo(
       type: "Device.Channel",
       key: props.entry.key,
     });
-
     const groupChannels = `groups.${groupIndex}.channels`;
     const prefix = `${groupChannels}.${props.index}`;
-
     const methods = Form.useContext();
-    const [validPort, setValidPort] = useState<boolean>(
-      methods.get({ path: prefix, optional: true })?.status.variant !== "error",
-    );
-    Form.useFieldListener({
-      path: `groups.${groupIndex}.channels.${props.index}.port`,
-      onChange: (state) => {
-        setValidPort(state.status.variant !== "error");
-      },
-    });
-
+    const validPort = Form.useFieldValid(`${prefix}.port`);
     const { getSelected } = List.useSelectionUtils();
     const handleDragStart = useCallback(() => {
       const selected = getSelected();
