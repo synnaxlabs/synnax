@@ -126,7 +126,7 @@ func (w *streamWriter) Flow(ctx signal.Context, opts ...confluence.Option) {
 }
 
 func (w *streamWriter) process(ctx context.Context, req WriterRequest) {
-	if req.Command < WriterWrite || req.Command > WriterSetAuthority {
+	if req.Command < WriterWrite || req.Command > WriterSetMode {
 		panic("[cesium.streamWriter] - invalid command")
 	}
 	if req.Command == WriterError {
@@ -158,7 +158,7 @@ func (w *streamWriter) process(ctx context.Context, req WriterRequest) {
 		end, w.err = w.commit(ctx)
 		w.sendRes(req, w.err == nil, nil, end)
 	} else {
-		if w.err = w.write(req); w.err != nil {
+		if w.err = w.write(ctx, req); w.err != nil {
 			w.seqNum++
 			w.sendRes(req, false, nil, 0)
 		}
@@ -233,7 +233,7 @@ func (w *streamWriter) sendRes(req WriterRequest, ack bool, err error, end telem
 	}
 }
 
-func (w *streamWriter) write(req WriterRequest) (err error) {
+func (w *streamWriter) write(ctx context.Context, req WriterRequest) (err error) {
 	for _, idx := range w.internal {
 		req.Frame, err = idx.Write(req.Frame)
 		if err != nil {
@@ -241,6 +241,13 @@ func (w *streamWriter) write(req WriterRequest) (err error) {
 				return nil
 			}
 			return err
+		}
+
+		if *w.EnableAutoCommit {
+			_, err = idx.Commit(ctx)
+			if err != nil {
+				return
+			}
 		}
 	}
 	if w.virtual.internal != nil {
@@ -252,7 +259,7 @@ func (w *streamWriter) write(req WriterRequest) (err error) {
 			return err
 		}
 	}
-	if w.Mode != WriterPersistOnly {
+	if w.Mode.Stream() {
 		w.relay.Inlet() <- req.Frame
 	}
 	return nil
@@ -277,7 +284,7 @@ func (w *streamWriter) close(ctx context.Context) error {
 	u := ControlUpdate{Transfers: make([]controller.Transfer, 0, len(w.internal)+1)}
 	for _, idx := range w.internal {
 		c.Exec(func() error {
-			u_, err := idx.Close()
+			u_, err := idx.Close(ctx)
 			if err != nil {
 				return err
 			}
@@ -310,8 +317,8 @@ func (w *streamWriter) close(ctx context.Context) error {
 }
 
 type unaryWriterState struct {
+	timesWritten int
 	unary.Writer
-	count int64
 }
 
 // idxWriter is a writer to a set of channels that all share the same index.
@@ -323,9 +330,9 @@ type idxWriter struct {
 	// channel. This is typically true, which allows us to avoid
 	// unnecessary lookups.
 	writingToIdx bool
-	// writeNum tracks the number of calls to Write that have been made.
-	writeNum int64
-	idx      struct {
+	// numWriteCalls tracks the number of write calls made to the idxWriter.
+	numWriteCalls int
+	idx           struct {
 		// Index is the index used to resolve timestamps for domains in the DB.
 		index.Index
 		// Key is the channel key of the index. This field is not applicable when
@@ -336,78 +343,35 @@ type idxWriter struct {
 		highWaterMark telem.TimeStamp
 	}
 	// sampleCount is the total number of samples written to the index as if it were
-	// a single logical channel. I.E. N channels with M samples will result in a sample
+	// a single logical channel. i.e. N channels with M samples will result in a sample
 	// count of M.
 	sampleCount int64
 }
 
 func (w *idxWriter) Write(fr Frame) (Frame, error) {
-	var (
-		l                      int64 = -1
-		c                            = 0
-		incrementedSampleCount bool
-	)
-	w.writeNum++
-	for i, k := range fr.Keys {
-		s, ok := w.internal[k]
-		if !ok {
-			continue
-		}
-
-		if l == -1 {
-			l = fr.Series[i].Len()
-		}
-
-		if s.count == w.writeNum {
-			return fr, errors.Wrapf(
-				validate.Error,
-				"frame must have one and only one series per channel, duplicate channel %s",
-				k,
-			)
-		}
-
-		s.count++
-		c++
-
-		if fr.Series[i].Len() != l {
-			return fr, errors.Wrapf(
-				validate.Error,
-				"frame must have the same length for all series, expected %d, got %d",
-				l,
-				fr.Series[i].Len(),
-			)
-		}
+	w.numWriteCalls++
+	err := w.validateWrite(fr)
+	if err != nil {
+		return fr, err
 	}
 
-	if c == 0 {
-		return fr, nil
-	}
-
-	if c != len(w.internal) {
-		return fr, errors.Wrapf(
-			validate.Error,
-			"frame must have one and only one series per channel, expected %d, got %d",
-			len(w.internal),
-			c,
-		)
-
-	}
+	var incrementedSampleCount bool
 
 	for i, series := range fr.Series {
 		key := fr.Keys[i]
-		chW, ok := w.internal[key]
+		uWriter, ok := w.internal[key]
 
 		if !ok {
 			continue
 		}
 
 		if w.writingToIdx && w.idx.key == key {
-			if err := w.updateHighWater(series); err != nil {
+			if err = w.updateHighWater(series); err != nil {
 				return fr, err
 			}
 		}
 
-		alignment, err := chW.Write(series)
+		alignment, err := uWriter.Write(series)
 		if err != nil {
 			return fr, err
 		}
@@ -436,14 +400,14 @@ func (w *idxWriter) Commit(ctx context.Context) (telem.TimeStamp, error) {
 	return end.Lower, c.Error()
 }
 
-func (w *idxWriter) Close() (ControlUpdate, error) {
+func (w *idxWriter) Close(ctx context.Context) (ControlUpdate, error) {
 	c := errutil.NewCatch(errutil.WithAggregation())
 	update := ControlUpdate{
 		Transfers: make([]controller.Transfer, 0, len(w.internal)),
 	}
-	for _, chW := range w.internal {
+	for _, unaryWriter := range w.internal {
 		c.Exec(func() error {
-			transfer, err := chW.Close()
+			transfer, err := unaryWriter.Close(ctx)
 			if err != nil || !transfer.Occurred() {
 				return err
 			}
@@ -454,11 +418,63 @@ func (w *idxWriter) Close() (ControlUpdate, error) {
 	return update, c.Error()
 }
 
+func (w *idxWriter) validateWrite(fr Frame) error {
+	var (
+		lengthOfFrame        int64 = -1
+		numChannelsWrittenTo       = 0
+	)
+	for i, k := range fr.Keys {
+		uWriter, ok := w.internal[k]
+		if !ok {
+			continue
+		}
+
+		if lengthOfFrame == -1 {
+			lengthOfFrame = fr.Series[i].Len()
+		}
+
+		if uWriter.timesWritten == w.numWriteCalls {
+			return errors.Wrapf(
+				validate.Error,
+				"frame must have exactly one series per channel, duplicate channel %d",
+				k,
+			)
+		}
+
+		uWriter.timesWritten++
+		numChannelsWrittenTo++
+
+		if fr.Series[i].Len() != lengthOfFrame {
+			return errors.Wrapf(
+				validate.Error,
+				"frame must have the same length for all series, expected %d, got %d",
+				lengthOfFrame,
+				fr.Series[i].Len(),
+			)
+		}
+	}
+
+	if numChannelsWrittenTo == 0 {
+		return nil
+	}
+
+	if numChannelsWrittenTo != len(w.internal) {
+		return errors.Wrapf(
+			validate.Error,
+			"frame must have exactly one series per channel, expected %d, got %d",
+			len(w.internal),
+			numChannelsWrittenTo,
+		)
+	}
+
+	return nil
+}
+
 func (w *idxWriter) updateHighWater(col telem.Series) error {
 	if col.DataType != telem.TimeStampT && col.DataType != telem.Int64T {
 		return errors.Wrapf(
 			validate.Error,
-			"invalid data type for channel %s, expected %s, got %s",
+			"invalid data type for channel %d, expected %s, got %s",
 			w.idx.key, telem.TimeStampT,
 			col.DataType,
 		)
@@ -467,6 +483,9 @@ func (w *idxWriter) updateHighWater(col telem.Series) error {
 	return nil
 }
 
+// resolveCommitEnd returns the end timestamp for a commit.
+// For an index channel, this returns the high watermark.
+// For a non-index channel, this returns a stamp to the approximation of the end
 func (w *idxWriter) resolveCommitEnd(ctx context.Context) (index.TimeStampApproximation, error) {
 	if w.writingToIdx {
 		return index.Exactly(w.idx.highWaterMark), nil

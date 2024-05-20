@@ -26,21 +26,27 @@ type Int32Counter struct {
 
 // NewInt32Counter opens a new, atomic counter backed by the given file. The counter
 // must have exclusive write access to the file.
+// If the file already exists, then it reads and initializes the wrapped value to the
+// value stored in the file.
 func NewInt32Counter(f ReaderAtWriterAtCloser) (*Int32Counter, error) {
-	i := &Int32Counter{
+	c := &Int32Counter{
 		f:   f,
 		buf: make([]byte, 4),
 	}
-	val, err := i.load()
+
+	wrapped, err := c.load()
+	if errors.Is(err, io.EOF) {
+		return c, nil
+	}
 	if err != nil {
-		if errors.Is(err, io.EOF) {
-			return i, nil
-		}
-		return i, err
+		return nil, err
 	}
 
-	i.wrapped = val
-	return i, err
+	return &Int32Counter{
+		wrapped: wrapped,
+		f:       f,
+		buf:     make([]byte, 4),
+	}, nil
 }
 
 // Add increments the counter by the provided delta.

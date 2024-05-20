@@ -45,9 +45,8 @@ export class Client {
   /**
    * Opens a new writer on the given channels.
    *
-   * @param keys - The keys of the channels to write to. A writer cannot write to
-   * a channel that is not in this list. See the {@link RecordWriter} documentation
-   * for more information.
+   * @param config - The configuration for the created writer, see documentation for
+   * writerConfig for more detail.
    * @returns a new {@link RecordWriter}.
    */
   async openWriter(config: WriterConfig): Promise<Writer> {

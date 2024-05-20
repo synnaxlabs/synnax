@@ -7,40 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package cesium_test
+package meta_test
 
 import (
 	"context"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/cesium"
-	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/testutil"
-	"path"
-	"strconv"
 	"testing"
 )
 
 var (
 	ctx                       = context.Background()
-	rootPath                  = "cesium-testdata"
+	rootPath                  = "meta-testdata"
 	fileSystems, cleanUp, err = testutil.FileSystems()
 )
 
-func openDBOnFS(fs xfs.FS) *cesium.DB {
-	return testutil.MustSucceed(cesium.Open(
-		rootPath,
-		cesium.WithFS(fs),
-	))
-}
-
-func channelKeyToPath(key cesium.ChannelKey) string {
-	return path.Join(rootPath, strconv.Itoa(int(key)))
-}
-
 func TestCesium(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Cesium Suite")
+	RunSpecs(t, "Meta Suite")
 }
 
 var _ = BeforeSuite(func() { Expect(err).ToNot(HaveOccurred()) })

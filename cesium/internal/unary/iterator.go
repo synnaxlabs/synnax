@@ -268,7 +268,7 @@ func (i *Iterator) insert(series telem.Series) {
 	if series.Len() == 0 {
 		return
 	}
-	if len(i.frame.Series) == 0 || i.frame.Series[len(i.frame.Series)-1].TimeRange.End.Before(series.TimeRange.Start) {
+	if len(i.frame.Series) == 0 || i.frame.Series[len(i.frame.Series)-1].TimeRange.End.BeforeEq(series.TimeRange.Start) {
 		i.frame = i.frame.Append(i.Channel.Key, series)
 	} else {
 		i.frame = i.frame.Prepend(i.Channel.Key, series)
@@ -332,6 +332,9 @@ func (i *Iterator) approximateEnd(ctx context.Context) (endApprox index.Distance
 	return
 }
 
+// satisfied returns whether an iterator collected all telemetry in its view.
+// An iterator is said to be satisfied when its frame's start and end timerange is
+// congruent to its view.
 func (i *Iterator) satisfied() bool {
 	if !i.partiallySatisfied() {
 		return false

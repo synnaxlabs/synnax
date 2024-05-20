@@ -19,11 +19,12 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
+	"os"
 )
 
 var _ = Describe("Channel", func() {
-	for fsName, fs := range fileSystems {
-		fs := fs()
+	for fsName, makeFS := range fileSystems {
+		fs := makeFS()
 		Context("FS: "+fsName, Ordered, func() {
 			var db *cesium.DB
 			BeforeAll(func() { db = openDBOnFS(fs) })
@@ -229,6 +230,96 @@ var _ = Describe("Channel", func() {
 				It("Should do nothing for a channel that does not exist", func() {
 					By("Trying to rekey")
 					Expect(db.RenameChannel(errorKey3, errorKey3*10)).To(Succeed())
+				})
+			})
+			Describe("Opening db on existing folder", func() {
+				It("Should not panic when opening a db in a directory with already existing files", func() {
+					s := MustSucceed(fs.Sub("sub"))
+					MustSucceed(s.Sub("1234notnumeric"))
+					f := MustSucceed(s.Open("123.txt", os.O_CREATE))
+					Expect(f.Close()).To(Succeed())
+
+					db, err := cesium.Open("", cesium.WithFS(s))
+					Expect(err).ToNot(HaveOccurred())
+					Expect(db.Close()).To(Succeed())
+				})
+
+				It("Should error when numeric folders do not have meta.json file", func() {
+					s := MustSucceed(fs.Sub("sub"))
+					_, err := s.Sub("1")
+					Expect(err).ToNot(HaveOccurred())
+
+					_, err = cesium.Open("", cesium.WithFS(s))
+					Expect(err).To(HaveOccurredAs(validate.Error))
+				})
+
+				It("Should not error when db gets created with proper numeric folders", func() {
+					s := MustSucceed(fs.Sub("sub0"))
+					db := MustSucceed(cesium.Open("", cesium.WithFS(s)))
+					key := GenerateChannelKey()
+
+					Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, Rate: 1 * telem.Hz, DataType: telem.Int64T})).To(Succeed())
+					Expect(db.Close()).To(Succeed())
+
+					db = MustSucceed(cesium.Open("", cesium.WithFS(s)))
+					ch, err := db.RetrieveChannel(ctx, key)
+					Expect(err).ToNot(HaveOccurred())
+
+					Expect(ch.Key).To(Equal(key))
+					Expect(ch.Rate).To(Equal(1 * telem.Hz))
+
+					Expect(db.Write(ctx, 1*telem.SecondTS, cesium.NewFrame(
+						[]cesium.ChannelKey{key},
+						[]telem.Series{telem.NewSeriesV[int64](1, 2, 3, 4, 5)},
+					))).To(Succeed())
+
+					f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, key))
+					Expect(f.Series[0].Data).To(Equal(telem.NewSeriesV[int64](1, 2, 3, 4, 5).Data))
+				})
+
+				It("Should not error when db is opened on existing directory", func() {
+					s := MustSucceed(fs.Sub("sub3"))
+					db := MustSucceed(cesium.Open("", cesium.WithFS(s)))
+					indexKey := GenerateChannelKey()
+					key := GenerateChannelKey()
+
+					By("Opening two channels")
+					Expect(db.CreateChannel(ctx, cesium.Channel{Key: indexKey, IsIndex: true, DataType: telem.TimeStampT})).To(Succeed())
+					Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, Index: indexKey, DataType: telem.Int64T})).To(Succeed())
+					Expect(db.Write(ctx, 1*telem.SecondTS, cesium.NewFrame(
+						[]cesium.ChannelKey{indexKey, key},
+						[]telem.Series{telem.NewSecondsTSV(1, 2, 3, 4, 5), telem.NewSeriesV[int64](1, 2, 3, 4, 5)},
+					))).To(Succeed())
+
+					By("Closing the db")
+					Expect(db.Close()).To(Succeed())
+
+					By("Reopening the db on the file system with existing data")
+					db = MustSucceed(cesium.Open("", cesium.WithFS(s)))
+					ch := MustSucceed(db.RetrieveChannel(ctx, key))
+					Expect(ch).ToNot(BeNil())
+					Expect(ch.Key).To(Equal(key))
+					Expect(ch.Index).To(Equal(indexKey))
+					Expect(ch.DataType).To(Equal(telem.Int64T))
+
+					ch = MustSucceed(db.RetrieveChannel(ctx, indexKey))
+					Expect(ch).ToNot(BeNil())
+					Expect(ch.Key).To(Equal(indexKey))
+					Expect(ch.IsIndex).To(BeTrue())
+					Expect(ch.DataType).To(Equal(telem.TimeStampT))
+
+					By("Asserting that writes to the db still occurs normally")
+					Expect(db.Write(ctx, 11*telem.SecondTS, cesium.NewFrame(
+						[]cesium.ChannelKey{key, indexKey},
+						[]telem.Series{telem.NewSeriesV[int64](11, 12, 13, 14, 15), telem.NewSecondsTSV(11, 12, 13, 14, 15)},
+					))).To(Succeed())
+
+					f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, key))
+					Expect(f.Series[0].TimeRange).To(Equal((1 * telem.SecondTS).Range(5*telem.SecondTS + 1)))
+					Expect(f.Series[0].Data).To(Equal(telem.NewSeriesV[int64](1, 2, 3, 4, 5).Data))
+
+					Expect(f.Series[1].TimeRange).To(Equal((11 * telem.SecondTS).Range(15*telem.SecondTS + 1)))
+					Expect(f.Series[1].Data).To(Equal(telem.NewSeriesV[int64](11, 12, 13, 14, 15).Data))
 				})
 			})
 		})
