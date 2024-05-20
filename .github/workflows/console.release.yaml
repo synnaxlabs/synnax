@@ -106,13 +106,17 @@ jobs:
             echo "OS=windows" >> $GITHUB_ENV
           fi
 
-      - name: Get Version
+      - name: Get Server Version
         if: steps.filter.outputs.changed == 'true'
         id: version
         working-directory: ./synnax
         shell: bash
         run: |
           echo "SERVER_VERSION=$(cat pkg/version/VERSION)" >> $GITHUB_ENV
+      
+      - name: Get Console Version
+        run: echo "CONSOLE_VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_ENV
+        working-directory: ./console
 
 
       - name: Install Synnax Binary
@@ -194,12 +198,15 @@ jobs:
           NODE_OPTIONS: "--max_old_space_size=4096"
         run: pnpm build:console
 
-      - uses: tauri-apps/tauri-action@v0
-        if: steps.filter.outputs.changed == 'true'
+      - name: Upload Macos Release Asset
+        if: steps.filter.outputs.changed == 'true' && matrix.platform == 'macos-12'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          releaseId: ${{ needs.create-release.outputs.release_id }}
+        run: |
+          gh release upload console-v${{ process.env.CONSOLE_VERSION }} ./console/src-tauri/target/release/bundle/macos/Synnax.app
+          gh release upload console-v${{ process.env.CONSOLE_VERSION }} ./console/src-tauri/target/release/bundle/macos/Synnax.app.tar.gz
+          gh release upload console-v${{ process.env.CONSOLE_VERSION }} ./console/src-tauri/target/release/bundle/macos/Synnax.app.tar.gz.sig
+          gh release upload console-v${{ process.env.CONSOLE_VERSION }} ./console/src-tauri/target/release/bundle/dmg/Synnax_${{ process.env.CONSOLE_VERSION }}_x64.dmg
 
   publish-release:
     runs-on: ubuntu-latest
