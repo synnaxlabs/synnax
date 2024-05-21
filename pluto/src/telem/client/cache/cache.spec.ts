@@ -24,9 +24,9 @@ class MockRetriever implements channel.Retriever {
 
   async retrieve(
     channels: channel.Params,
-    rangeKey?: string,
+    opts?: channel.RetrieveOptions,
   ): Promise<channel.Payload[]> {
-    return await this.func(channels, rangeKey);
+    return await this.func(channels, opts?.rangeKey);
   }
 }
 

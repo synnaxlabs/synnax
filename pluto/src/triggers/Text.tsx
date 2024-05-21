@@ -19,6 +19,9 @@ export type TextProps<L extends Core.Level> = Core.KeyboardProps<L> & {
   trigger: Trigger;
 };
 
+export const toSymbols = (trigger: Trigger): (ReactElement | string)[] =>
+  trigger.map((t) => CUSTOM_TEXT[t] ?? t);
+
 export const Text = <L extends Core.Level>({
   className,
   style,
@@ -32,6 +35,7 @@ export const Text = <L extends Core.Level>({
     MouseLeft: "Left Click",
     MouseRight: "Right Click",
     MouseMiddle: "Middle Click",
+    Enter: <Icon.Keyboard.Return />,
   };
   return (
     <Align.Space className={className} style={style} direction="x">

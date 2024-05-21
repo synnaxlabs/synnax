@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import type { Action, UnknownAction } from "@reduxjs/toolkit";
+import { type dimensions, type xy } from "@synnaxlabs/x";
 
-import { StoreState } from "@/state";
-import { WindowProps } from "@/window";
-import { dimensions, xy } from "@synnaxlabs/x";
+import { type StoreState } from "@/state";
+import { type WindowProps } from "@/window";
 
 /**
  * An event emitted by drift to communicate state changes.
@@ -101,12 +101,13 @@ export interface Manager {
   setPosition: (xy: xy.XY) => Promise<void>;
   setSize: (dims: dimensions.Dimensions) => Promise<void>;
   setMinSize: (dims: dimensions.Dimensions) => Promise<void>;
-  setMaxSize: (dimss: dimensions.Dimensions) => Promise<void>;
+  setMaxSize: (dims: dimensions.Dimensions) => Promise<void>;
   setResizable: (value: boolean) => Promise<void>;
   setSkipTaskbar: (value: boolean) => Promise<void>;
   setAlwaysOnTop: (value: boolean) => Promise<void>;
   setDecorations: (value: boolean) => Promise<void>;
   setTitle: (title: string) => Promise<void>;
+  configure(): Promise<void>;
 }
 
 /**

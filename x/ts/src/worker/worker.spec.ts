@@ -9,7 +9,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-import { createMockWorkers } from "./worker";
+import { createMockWorkers } from "@/worker/worker";
 
 interface MockMessage {
   value: string;

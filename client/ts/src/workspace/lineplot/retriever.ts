@@ -8,14 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { toArray } from "@synnaxlabs/x";
+import { toArray } from "@synnaxlabs/x/toArray";
 import { z } from "zod";
 
-import {
-  type LinePlot,
-  type Params,
-  linePlotZ,
-} from "@/workspace/lineplot/payload";
+import { type LinePlot, type Params, linePlotZ } from "@/workspace/lineplot/payload";
 
 const reqZ = z.object({
   keys: z.string().array(),
@@ -37,12 +33,8 @@ export class Retriever {
 
   async retrieve(params: Params): Promise<LinePlot[]> {
     const normalized = toArray(params);
-    return (await sendRequired(
-      this.client, 
-      this.ENDPOINT, 
-      { keys: normalized }, 
-      reqZ, 
-      resZ
-    )).linePlots;
+    return (
+      await sendRequired(this.client, this.ENDPOINT, { keys: normalized }, reqZ, resZ)
+    ).linePlots;
   }
 }

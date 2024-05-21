@@ -17,19 +17,24 @@ import { Controls } from "@/components";
 import { NAV_DRAWERS, NavMenu } from "@/components/nav/Nav";
 import { CSS } from "@/css";
 import { Docs } from "@/docs";
+import { OPC } from "@/hardware/opc";
 import { Layout } from "@/layout";
 import { NAV_SIZES } from "@/layouts/LayoutMain/constants";
 import { LinePlot } from "@/lineplot";
 import { Palette } from "@/palette/Palette";
 import { type TriggerConfig } from "@/palette/types";
-import { PID } from "@/pid";
+import { Schematic } from "@/schematic";
 import { Range } from "@/range";
 import { SERVICES } from "@/services";
 import { Version } from "@/version";
 import { Vis } from "@/vis";
 import { Workspace } from "@/workspace";
+import { Persist } from "@/persist";
+import { Notifications } from "@/notifications";
 
 import "@/layouts/LayoutMain/Nav.css";
+import { NI } from "@/hardware/ni";
+import { Channel } from "@/channel";
 
 const DEFAULT_TRIGGER: TriggerConfig = {
   defaultMode: "command",
@@ -40,11 +45,15 @@ const DEFAULT_TRIGGER: TriggerConfig = {
 const COMMANDS = [
   ...LinePlot.COMMANDS,
   ...Layout.COMMANDS,
-  ...PID.COMMANDS,
+  ...Schematic.COMMANDS,
   ...Docs.COMMANDS,
   ...Workspace.COMMANDS,
   ...Cluster.COMMANDS,
   ...Range.COMMANDS,
+  ...OPC.COMMANDS,
+  ...Persist.COMMANDS,
+  ...NI.COMMANDS,
+  ...Channel.COMMANDS,
 ];
 
 const NavTopPalette = (): ReactElement => {
@@ -72,7 +81,6 @@ export const NavTop = (): ReactElement => {
 
   return (
     <Nav.Bar
-      data-tauri-drag-region
       location="top"
       size={NAV_SIZES.top}
       className={CSS(CSS.B("main-nav"), CSS.B("main-nav-top"))}
@@ -80,11 +88,7 @@ export const NavTop = (): ReactElement => {
       <Nav.Bar.Start className="console-main-nav-top__start" data-tauri-drag-region>
         <Controls className="console-controls--macos" visibleIfOS="MacOS" />
         {os === "Windows" && (
-          <Logo
-            className="console-main-nav-top__logo"
-            variant="icon"
-            data-tauri-drag-region
-          />
+          <Logo className="console-main-nav-top__logo" variant="icon" />
         )}
         <Workspace.Selector />
       </Nav.Bar.Start>
@@ -167,6 +171,7 @@ export const NavBottom = (): ReactElement => {
   return (
     <Nav.Bar className={CSS.B("main-nav")} location="bottom" size={NAV_SIZES.bottom}>
       <Nav.Bar.Start>
+        <Notifications.Notifications />
         <Vis.NavControls />
       </Nav.Bar.Start>
       <Nav.Bar.End className="console-main-nav-bottom__end" empty>

@@ -19,18 +19,19 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("Iterator Behavior", func() {
+var _ = Describe("Iterator Behavior", Ordered, func() {
 	for fsName, makeFS := range fileSystems {
-		fs := makeFS()
+		fs, cleanUp := makeFS()
 		Context("FS: "+fsName, func() {
+			AfterAll(func() { Expect(cleanUp()).To(Succeed()) })
 			Describe("Channel Indexed", func() {
 				var (
 					db        *unary.DB
 					indexDB   *unary.DB
 					index     uint32 = 1
 					data      uint32 = 2
-					indexPath        = rootPath + "/iterator_test/index"
-					dataPath         = rootPath + "/iterator_test/data"
+					indexPath        = "/iterator_test/index"
+					dataPath         = "/iterator_test/data"
 				)
 				BeforeEach(func() {
 					indexDB = MustSucceed(unary.Open(unary.Config{
@@ -55,7 +56,8 @@ var _ = Describe("Iterator Behavior", func() {
 				AfterEach(func() {
 					Expect(db.Close()).To(Succeed())
 					Expect(indexDB.Close()).To(Succeed())
-					Expect(fs.Remove(rootPath)).To(Succeed())
+					Expect(fs.Remove(dataPath)).To(Succeed())
+					Expect(fs.Remove(indexPath)).To(Succeed())
 				})
 
 				Describe("Happy Path", func() {
@@ -346,13 +348,26 @@ var _ = Describe("Iterator Behavior", func() {
 							Expect(iter.Next(ctx, unary.AutoSpan)).To(BeFalse())
 							Expect(iter.Close()).To(Succeed())
 						})
-
+						Specify("Multi Domain - Regression 1", func() {
+							var i telem.TimeStamp
+							for i = 1; i < 6; i++ {
+								Expect(unary.Write(ctx, indexDB, telem.SecondTS*i, telem.NewSecondsTSV(i))).To(Succeed())
+								Expect(unary.Write(ctx, db, telem.SecondTS*i, telem.NewSeriesV[int64](int64(i)))).To(Succeed())
+							}
+							iter := db.OpenIterator(unary.IteratorConfig{
+								Bounds:        telem.TimeRangeMax,
+								AutoChunkSize: 5,
+							})
+							Expect(iter.SeekFirst(ctx)).To(BeTrue())
+							Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
+							Expect(iter.Len()).To(Equal(int64(5)))
+						})
 					})
 				})
 			})
 			Describe("Close", func() {
 				var db = MustSucceed(unary.Open(unary.Config{
-					FS: MustSucceed(fs.Sub(rootPath)),
+					FS: fs,
 					Channel: core.Channel{
 						Key:      2,
 						DataType: telem.TimeStampT,
@@ -370,8 +385,9 @@ var _ = Describe("Iterator Behavior", func() {
 					Expect(i.Valid()).To(BeFalse())
 					Expect(i.Close()).To(Succeed())
 				})
-				Expect(db.Close()).To(Succeed())
-				Expect(fs.Remove(rootPath)).To(Succeed())
+				AfterEach(func() {
+					Expect(db.Close()).To(Succeed())
+				})
 			})
 		})
 	}

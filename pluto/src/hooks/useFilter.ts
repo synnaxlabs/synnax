@@ -18,10 +18,7 @@ import Fuse, { type IFuseOptions } from "fuse.js";
 import { proxyMemo } from "@/memo";
 
 /** Props for the {@link createFilterTransform} function. */
-export interface CreateFilterTransformProps<
-  K extends Key,
-  E extends Keyed<K>,
-> {
+export interface CreateFilterTransformProps<K extends Key, E extends Keyed<K>> {
   term: string;
   searcher?: TermSearcher<string, K, E> | ((data: E[]) => TermSearcher<string, K, E>);
 }
@@ -32,15 +29,14 @@ const defaultOpts: IFuseOptions<unknown> = {
 
 export const fuseFilter =
   (opts?: IFuseOptions<unknown>) =>
-  <K extends Key, E extends Keyed<K>>(
-    data: E[],
-  ): TermSearcher<string, K, E> => {
+  <K extends Key, E extends Keyed<K>>(data: E[]): TermSearcher<string, K, E> => {
     const fuse = new Fuse(data, {
       keys: Object.keys(data[0]),
       ...defaultOpts,
       ...opts,
     });
     return {
+      type: "fuse",
       page: (page: number, perPage: number) =>
         data.slice(page * perPage, (page + 1) * perPage),
       search: (term: string) => fuse.search(term).map(({ item }) => item),

@@ -37,7 +37,7 @@ const removeTrailingSlash = (path: string): string =>
  */
 export const buildQueryString = (
   request: Record<string, unknown>,
-  prefix: string = ""
+  prefix: string = "",
 ): string => {
   if (request === null) return "";
   return (
@@ -105,7 +105,7 @@ export class URL {
   /** @returns a string representation of the url */
   toString(): string {
     return removeTrailingSlash(
-      `${this.protocol}://${this.host}:${this.port}/${this.path}`
+      `${this.protocol}://${this.host}:${this.port}/${this.path}`,
     );
   }
 

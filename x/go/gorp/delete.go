@@ -11,8 +11,8 @@ package gorp
 
 import (
 	"context"
-	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 )
 
@@ -26,8 +26,8 @@ func NewDelete[K Key, E Entry[K]]() Delete[K, E] {
 
 // Where adds the provided filter to the query. If filtering by the key of the Entry,
 // use the far more efficient WhereKeys method instead.
-func (d Delete[K, E]) Where(filter func(*E) bool) Delete[K, E] {
-	addFilter[K](d.params, filter)
+func (d Delete[K, E]) Where(filter func(*E) bool, opts ...FilterOption) Delete[K, E] {
+	addFilter[K](d.params, filter, opts)
 	return d
 }
 

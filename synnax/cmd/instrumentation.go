@@ -53,15 +53,12 @@ func configureLogger() (*alamos.Logger, error) {
 		cfg.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
 		cfg.EncoderConfig.EncodeTime = zapcore.TimeEncoderOfLayout("15:04:05.000")
 		cfg.Encoding = "console"
+		cfg.EncoderConfig.EncodeCaller = zapcore.ShortCallerEncoder
 	} else {
 		cfg = zap.NewProductionConfig()
 		cfg.Level = zap.NewAtomicLevelAt(zapcore.InfoLevel)
 	}
-	z, err := cfg.Build()
-	if err != nil {
-		return nil, err
-	}
-	return alamos.NewLogger(alamos.LoggerConfig{Zap: z})
+	return alamos.NewLogger(alamos.LoggerConfig{ZapConfig: cfg})
 }
 
 func configureTracer(version string, logger *alamos.Logger) (*alamos.Tracer, error) {

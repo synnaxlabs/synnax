@@ -9,6 +9,7 @@
 
 import numpy as np
 import pytest
+import time
 
 import synnax as sy
 
@@ -35,9 +36,11 @@ class TestRangeClient:
         rng = client.ranges.create(
             name="test",
             time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+            color="#FF0000",
         )
         assert rng.name == "test"
         assert rng.key != ""
+        assert rng.color == "#FF0000"
 
     def test_create_multiple(self, two_ranges: list[sy.Range]):
         """Should create multiple valid ranges"""
@@ -66,6 +69,7 @@ class TestRangeClient:
 
     def test_search(self, two_ranges: list[sy.Range], client: sy.Synnax):
         """Should search for ranges"""
+        time.sleep(0.05)
         rng = client.ranges.search(two_ranges[0].name)
         assert len(rng) > 0
 

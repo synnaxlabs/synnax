@@ -11,13 +11,13 @@ package channel
 
 import (
 	"context"
-	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/telem"
 	"regexp"
 	"strings"
 )
@@ -25,17 +25,16 @@ import (
 // Retrieve is used to retrieve information about Channel(s) in delta's distribution
 // layer.
 type Retrieve struct {
-	tx         gorp.Tx
-	gorp       gorp.Retrieve[Key, Channel]
-	otg        *ontology.Ontology
-	keys       Keys
-	searchTerm string
+	tx                        gorp.Tx
+	gorp                      gorp.Retrieve[Key, Channel]
+	otg                       *ontology.Ontology
+	keys                      Keys
+	searchTerm                string
+	validateRetrievedChannels func(ctx context.Context, channels []Channel) ([]Channel, error)
 }
 
-func newRetrieve(tx gorp.Tx, otg *ontology.Ontology) Retrieve {
-	return Retrieve{gorp: gorp.NewRetrieve[Key, Channel](), tx: tx, otg: otg}
-}
-
+// Search sets the search term for the query. Note that the fuzzy search will be executed
+// before any other filters that are applied.
 func (r Retrieve) Search(term string) Retrieve { r.searchTerm = term; return r }
 
 // Entry binds the Channel that Retrieve will fill results into. This is an identical
@@ -50,6 +49,41 @@ func (r Retrieve) Entries(ch *[]Channel) Retrieve { r.gorp.Entries(ch); return r
 // leaseholder node Key.
 func (r Retrieve) WhereNodeKey(nodeKey core.NodeKey) Retrieve {
 	r.gorp.Where(func(ch *Channel) bool { return ch.Leaseholder == nodeKey })
+	return r
+}
+
+// WhereIsIndex filters the query for channels that are indexes if isIndex is true, or
+// are not indexes if isIndex is false.
+func (r Retrieve) WhereIsIndex(isIndex bool) Retrieve {
+	r.gorp.Where(func(ch *Channel) bool { return ch.IsIndex == isIndex })
+	return r
+}
+
+// WhereVirtual filters the query for channels that are virtual if virtual is true, or are
+// not virtual if virtual is false.
+func (r Retrieve) WhereVirtual(virtual bool) Retrieve {
+	r.gorp.Where(func(ch *Channel) bool { return ch.Virtual == virtual })
+	return r
+}
+
+// WhereInternal filters the query for channels that are internal if internal is true, or
+// are not internal if internal is false.
+func (r Retrieve) WhereInternal(internal bool) Retrieve {
+	r.gorp.Where(func(ch *Channel) bool { return ch.Internal == internal }, gorp.Required())
+	return r
+}
+
+// WhereDataTypes filters for channels whose DataType attribute matches the provided
+// data types.
+func (r Retrieve) WhereDataTypes(dataTypes ...telem.DataType) Retrieve {
+	r.gorp.Where(func(ch *Channel) bool { return lo.Contains(dataTypes, ch.DataType) })
+	return r
+}
+
+// WhereNotDataTypes filters for channels whose DataType attribute does not match the
+// provided data types.
+func (r Retrieve) WhereNotDataTypes(dataTypes ...telem.DataType) Retrieve {
+	r.gorp.Where(func(ch *Channel) bool { return !lo.Contains(dataTypes, ch.DataType) })
 	return r
 }
 
@@ -70,6 +104,10 @@ func (r Retrieve) WhereNames(names ...string) Retrieve {
 // WhereKeys filters for channels with the provided Key. This is an identical interface
 // to gorp.Retrieve.
 func (r Retrieve) WhereKeys(keys ...Key) Retrieve {
+	notFound := lo.IndexOf(keys, 0)
+	if notFound != -1 {
+		keys = lo.Filter(keys, func(k Key, _ int) bool { return k != 0 })
+	}
 	r.keys = append(r.keys, keys...)
 	r.gorp.WhereKeys(keys...)
 	return r
@@ -81,10 +119,7 @@ func (r Retrieve) Limit(limit int) Retrieve { r.gorp.Limit(limit); return r }
 
 // Offset offsets the results returned by the query. This is an identical interface to
 // gorp.Retrieve.
-func (r Retrieve) Offset(offset int) Retrieve {
-	r.gorp.Offset(offset)
-	return r
-}
+func (r Retrieve) Offset(offset int) Retrieve { r.gorp.Offset(offset); return r }
 
 // Exec executes the query, binding
 func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
@@ -102,7 +137,12 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 		}
 		r = r.WhereKeys(keys...)
 	}
-	return r.maybeEnrichError(r.gorp.Exec(ctx, gorp.OverrideTx(r.tx, tx)))
+	err := r.gorp.Exec(ctx, gorp.OverrideTx(r.tx, tx))
+
+	entries := gorp.GetEntries[Key, Channel](r.gorp.Params).All()
+	channels, vErr := r.validateRetrievedChannels(ctx, entries)
+	gorp.SetEntries[Key, Channel](r.gorp.Params, &channels)
+	return errors.CombineErrors(err, vErr)
 }
 
 // Exists checks if the query has results matching its parameters. If used in conjunction
@@ -110,18 +150,6 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 // Otherwise, Exists returns true if the query has ANY results.
 func (r Retrieve) Exists(ctx context.Context, tx gorp.Tx) (bool, error) {
 	return r.gorp.Exists(ctx, gorp.OverrideTx(r.tx, tx))
-}
-
-func (r Retrieve) maybeEnrichError(err error) error {
-	if err == nil {
-		return nil
-	}
-	if errors.Is(err, query.NotFound) && len(r.keys) > 0 {
-		channels := gorp.GetEntries[Key, Channel](r.gorp.Params).All()
-		diff, _ := r.keys.Difference(KeysFromChannels(channels))
-		return errors.Wrapf(query.NotFound, "channels with keys %v not found", diff)
-	}
-	return err
 }
 
 func formatNameMatcher(name string) func(name string) bool {

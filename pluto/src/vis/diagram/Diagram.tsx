@@ -99,6 +99,7 @@ export const use = ({
   const [nodes, onNodesChange] = useState<Node[]>(initialNodes);
   const [edges, onEdgesChange] = useState<Edge[]>(initialEdges);
   const [viewport, onViewportChange] = useState<Viewport>(initialViewport);
+  const [fitViewOnResize, setFitViewOnResize] = useState(false);
 
   return {
     viewport,
@@ -109,6 +110,8 @@ export const use = ({
     onEdgesChange,
     editable,
     onEditableChange,
+    fitViewOnResize,
+    setFitViewOnResize,
   };
 };
 
@@ -124,6 +127,8 @@ export interface UseReturn {
   onEditableChange: (v: boolean) => void;
   onViewportChange: (vp: Viewport) => void;
   viewport: Viewport;
+  fitViewOnResize: boolean;
+  setFitViewOnResize: (v: boolean) => void;
 }
 
 const EDITABLE_PROPS: ReactFlowProps = {
@@ -169,12 +174,16 @@ interface ContextValue {
   editable: boolean;
   onEditableChange: (v: boolean) => void;
   registerNodeRenderer: (renderer: RenderProp<SymbolProps>) => void;
+  fitViewOnResize: boolean;
+  setFitViewOnResize: (v: boolean) => void;
 }
 
 const Context = createContext<ContextValue>({
   editable: true,
   onEditableChange: () => {},
   registerNodeRenderer: () => {},
+  fitViewOnResize: false,
+  setFitViewOnResize: () => {},
 });
 
 export const useContext = (): ContextValue => reactUseContext(Context);
@@ -209,6 +218,8 @@ const Core = Aether.wrap<DiagramProps>(
     viewport,
     triggers: pTriggers,
     onViewportChange,
+    fitViewOnResize,
+    setFitViewOnResize,
     ...props
   }): ReactElement => {
     const [{ path }, , setState] = Aether.use({
@@ -234,9 +245,10 @@ const Core = Aether.wrap<DiagramProps>(
     const resizeRef = Canvas.useRegion(
       useCallback(
         (b) => {
+          if (fitViewOnResize) fitView({ maxZoom: 1 });
           setState((prev) => ({ ...prev, region: b }));
         },
-        [setState],
+        [setState, fitView, fitViewOnResize],
       ),
     );
 
@@ -391,8 +403,19 @@ const Core = Aether.wrap<DiagramProps>(
 
     const combinedRefs = useCombinedRefs(triggerRef, resizeRef);
 
+    const ctxValue = useMemo(
+      () => ({
+        editable,
+        onEditableChange,
+        registerNodeRenderer,
+        fitViewOnResize,
+        setFitViewOnResize,
+      }),
+      [editable, onEditableChange, registerNodeRenderer, fitViewOnResize],
+    );
+
     return (
-      <Context.Provider value={{ editable, onEditableChange, registerNodeRenderer }}>
+      <Context.Provider value={ctxValue}>
         <Aether.Composite path={path}>
           <ReactFlow
             {...triggerProps}
@@ -485,19 +508,25 @@ export const FitViewControl = ({
   ...props
 }: FitViewControlProps): ReactElement => {
   const { fitView } = useReactFlow();
+  const { fitViewOnResize, setFitViewOnResize } = useContext();
   return (
-    <Button.Icon
+    <Button.ToggleIcon
       onClick={(e) => {
         fitView(FIT_VIEW_OPTIONS);
         onClick?.(e);
       }}
+      // @ts-expect-error
+      value={fitViewOnResize}
+      // @ts-expect-error
+      onChange={(v) => setFitViewOnResize(v)}
+      rightClickToggle
       tooltip={<Text.Text level="small">Fit view to contents</Text.Text>}
       tooltipLocation={location.RIGHT_CENTER}
       variant="outlined"
       {...props}
     >
       <Icon.Expand />
-    </Button.Icon>
+    </Button.ToggleIcon>
   );
 };
 

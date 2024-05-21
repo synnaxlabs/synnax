@@ -3,7 +3,9 @@ syntax = "proto3";
 package api.v1;
 
 import "google/protobuf/empty.proto";
-import "telempb/telem.proto";
+import "x/go/telem/telem.proto";
+
+option go_package = "github.com/synnaxlabs/synnax/pkg/api/grpc/v1";
 
 service RangeCreateService {
     rpc Exec(RangeCreateRequest) returns (RangeCreateResponse) {}
@@ -95,7 +97,7 @@ message RangeAliasListResponse {
 
 message Range {
     string key = 1;
-    telempb.TimeRange time_range = 2;
+    telem.PBTimeRange time_range = 2;
     string name = 3;
 }
 

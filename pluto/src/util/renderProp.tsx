@@ -17,9 +17,12 @@ export type RenderProp<P extends Record<string, any>, R = ReactElement | null> =
  * Component prop takes in a component and turns it into a render prop.
  */
 export const componentRenderProp =
-  <P extends Record<string, any>, R = ReactElement | null>(Component: React.ComponentType<P>): RenderProp<P, R> =>
+  <P extends Record<string, any>, R = ReactElement | null>(
+    Component: React.ComponentType<P>,
+  ): RenderProp<P, R> =>
   // eslint-disable-next-line react/display-name
-  (props) => <Component {...props} /> as R;
+  ({ key, ...props }) =>
+    (<Component key={key} {...(props as P)} />) as R;
 
 export const isRenderProp = <P extends Record<string, any>>(
   children: React.ReactNode | RenderProp<P>,

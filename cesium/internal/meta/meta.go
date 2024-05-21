@@ -10,9 +10,9 @@
 package meta
 
 import (
-	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -85,13 +85,13 @@ func validateMeta(ch core.Channel) error {
 	validate.Positive(v, "key", ch.Key)
 	validate.NotEmptyString(v, "dataType", ch.DataType)
 	if ch.Virtual {
-		v.Ternaryf(ch.Index != 0, "virtual channel cannot be indexed")
-		v.Ternaryf(ch.Rate != 0, "virtual channel cannot have a rate")
+		v.Ternaryf("index", ch.Index != 0, "virtual channel cannot be indexed")
+		v.Ternaryf("rate", ch.Rate != 0, "virtual channel cannot have a rate")
 	} else {
-		v.Ternary(ch.DataType == telem.StringT, "persisted channels cannot have string data types")
+		v.Ternary("data_type", ch.DataType == telem.StringT, "persisted channels cannot have string data types")
 		if ch.IsIndex {
-			v.Ternary(ch.DataType != telem.TimeStampT, "index channel must be of type timestamp")
-			v.Ternaryf(ch.Index != 0 && ch.Index != ch.Key, "index channel cannot be indexed by another channel")
+			v.Ternary("data_type", ch.DataType != telem.TimeStampT, "index channel must be of type timestamp")
+			v.Ternaryf("index", ch.Index != 0 && ch.Index != ch.Key, "index channel cannot be indexed by another channel")
 		} else if ch.Index == 0 {
 			validate.Positive(v, "rate", ch.Rate)
 		}

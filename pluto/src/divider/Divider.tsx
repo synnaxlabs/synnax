@@ -9,7 +9,7 @@
 
 import { type HTMLAttributes, type PropsWithChildren, type ReactElement } from "react";
 
-import { type direction } from "@synnaxlabs/x";
+import { type direction } from "@synnaxlabs/x/spatial";
 
 import { CSS } from "@/css";
 

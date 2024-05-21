@@ -36,6 +36,6 @@ export const Toolbar: Layout.NavDrawerItem = {
   content: <ResourcesTree />,
   tooltip: "Resources",
   initialSize: 350,
-  minSize: 250,
+  minSize: 150,
   maxSize: 400,
 };

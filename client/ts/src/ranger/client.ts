@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type UnaryClient } from "@synnaxlabs/freighter";
-import { type AsyncTermSearcher, toArray } from "@synnaxlabs/x";
+import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
+import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
+import { toArray } from "@synnaxlabs/x/toArray";
 
 import { type Retriever as ChannelRetriever } from "@/channel/retriever";
-import { QueryError } from "@/errors";
+import { MultipleFoundError, NotFoundError, QueryError } from "@/errors";
 import { type framer } from "@/framer";
 import { type label } from "@/label";
 import { Active } from "@/ranger/active";
@@ -26,14 +27,34 @@ import {
   type Params,
   type Payload,
   analyzeParams,
+  payloadZ,
+  keyZ,
 } from "@/ranger/payload";
 import { Range } from "@/ranger/range";
-import { type Retriever } from "@/ranger/retriever";
 import { type Writer } from "@/ranger/writer";
+import { signals } from "@/signals";
+import { z } from "zod";
+import { CrudeTimeRange, TimeRange } from "@synnaxlabs/x";
+import { nullableArrayZ } from "@/util/zod";
+
+const retrieveReqZ = z.object({
+  keys: keyZ.array().optional(),
+  names: z.array(z.string()).optional(),
+  term: z.string().optional(),
+  overlapsWith: TimeRange.z.optional(),
+});
+
+export type RetrieveRequest = z.infer<typeof retrieveReqZ>;
+
+const RETRIEVE_ENDPOINT = "/range/retrieve";
+
+const retrieveResZ = z.object({
+  ranges: nullableArrayZ(payloadZ),
+});
 
 export class Client implements AsyncTermSearcher<string, Key, Range> {
+  readonly type: string = "range";
   private readonly frameClient: framer.Client;
-  private readonly retriever: Retriever;
   private readonly writer: Writer;
   private readonly unaryClient: UnaryClient;
   private readonly channels: ChannelRetriever;
@@ -42,14 +63,12 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
 
   constructor(
     frameClient: framer.Client,
-    retriever: Retriever,
     writer: Writer,
     unary: UnaryClient,
     channels: ChannelRetriever,
     labelClient: label.Client,
   ) {
     this.frameClient = frameClient;
-    this.retriever = retriever;
     this.writer = writer;
     this.unaryClient = unary;
     this.channels = channels;
@@ -76,25 +95,42 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
   }
 
   async search(term: string): Promise<Range[]> {
-    return this.sugar(await this.retriever.search(term));
+    return this.sugar(await this.execRetrieve({ term }));
   }
 
   async page(offset: number, limit: number): Promise<Range[]> {
     return [];
   }
 
+  async retrieve(range: CrudeTimeRange): Promise<Range[]>;
+
   async retrieve(range: Key | Name): Promise<Range>;
 
-  async retrieve(params: Keys | Names): Promise<Range[]>;
+  async retrieve(range: Keys | Names): Promise<Range[]>;
 
-  async retrieve(params: Params): Promise<Range | Range[]> {
-    const { single, actual } = analyzeParams(params);
-    const res = this.sugar(await this.retriever.retrieve(params));
-    if (!single) return res;
-    if (res.length === 0) throw new QueryError(`range matching ${actual} not found`);
-    if (res.length > 1)
-      throw new QueryError(`multiple ranges matching ${actual} found`);
-    return res[0];
+  async retrieve(params: Params | CrudeTimeRange): Promise<Range | Range[]> {
+    if (typeof params === "object" && "start" in params)
+      return await this.execRetrieve({ overlapsWith: new TimeRange(params) });
+    const { single, actual, variant, normalized } = analyzeParams(params);
+    const ranges = await this.execRetrieve({ [variant]: normalized });
+    if (!single) return ranges;
+    if (ranges.length === 0)
+      throw new NotFoundError(`range matching ${actual} not found`);
+    if (ranges.length > 1)
+      throw new MultipleFoundError(`multiple ranges matching ${actual} found`);
+    return ranges[0];
+  }
+
+  private async execRetrieve(req: RetrieveRequest): Promise<Range[]> {
+    return this.sugar(
+      await sendRequired<typeof retrieveReqZ, typeof retrieveResZ>(
+        this.unaryClient,
+        RETRIEVE_ENDPOINT,
+        req,
+        retrieveReqZ,
+        retrieveResZ,
+      ).then((res) => res.ranges),
+    );
   }
 
   async setActive(range: Key): Promise<void> {
@@ -117,6 +153,7 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
         payload.name,
         payload.timeRange,
         payload.key,
+        payload.color,
         this.frameClient,
         new KV(payload.key, this.unaryClient),
         new Aliaser(payload.key, this.frameClient, this.unaryClient),
@@ -124,5 +161,19 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
         this.labelClient,
       );
     });
+  }
+
+  async openTracker(): Promise<signals.Observable<string, Range>> {
+    return await signals.openObservable<string, Range>(
+      this.frameClient,
+      "sy_range_set",
+      "sy_range_delete",
+      (variant, data) => {
+        if (variant === "delete")
+          return data.toStrings().map((k) => ({ variant, key: k, value: undefined }));
+        const sugared = this.sugar(data.parseJSON(payloadZ));
+        return sugared.map((r) => ({ variant, key: r.key, value: r }));
+      },
+    );
   }
 }

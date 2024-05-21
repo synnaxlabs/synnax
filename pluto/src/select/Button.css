@@ -14,12 +14,17 @@
     background: var(--pluto-gray-l1) !important;
 
     & .pluto-select-button__indicator {
-        transition: transform 0.3s ease-in-out;
+        transition: transform 0.2s ease-in-out;
         transform-origin: center;
         margin-left: auto;
+        color: var(--pluto-gray-l6);
     }
 }
 
-.pluto--visible .pluto-select-button__indicator {
-    transform: rotate(-180deg);
+.pluto--visible.pluto--top .pluto-select-button__indicator {
+    transform: rotate(90deg);
+}
+
+.pluto--visible.pluto--bottom .pluto-select-button__indicator {
+    transform: rotate(-90deg);
 }

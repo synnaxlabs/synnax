@@ -15,6 +15,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/core"
+	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -24,13 +25,13 @@ import (
 
 var _ = Describe("Delete", func() {
 	for fsName, makeFS := range fileSystems {
-		fs := makeFS()
+		fs, cleanUp := makeFS()
 		Context("FS: "+fsName, Ordered, func() {
 			var db *cesium.DB
 			BeforeAll(func() { db = openDBOnFS(fs) })
 			AfterAll(func() {
 				Expect(db.Close()).To(Succeed())
-				Expect(fs.Remove(rootPath)).To(Succeed())
+				Expect(cleanUp()).To(Succeed())
 			})
 			Describe("Delete Channel", func() {
 				var (
@@ -280,7 +281,7 @@ var _ = Describe("Delete", func() {
 
 						By("Eventually, the deletion should be completed")
 						Eventually(MustSucceed(fs.Exists(channelKeyToPath(key)))).Should(BeFalse())
-						for _, f := range MustSucceed(fs.List(rootPath)) {
+						for _, f := range MustSucceed(fs.List("")) {
 							Eventually(f.Name()).ShouldNot(HavePrefix(channelKeyToPath(key) + "-DELETE-"))
 						}
 						_, err := db.RetrieveChannel(ctx, key)
@@ -302,7 +303,7 @@ var _ = Describe("Delete", func() {
 						Expect(db.DeleteChannel(key)).To(Succeed())
 						Expect(fs.Exists(channelKeyToPath(key))).To(BeFalse())
 						Eventually(MustSucceed(fs.Exists(channelKeyToPath(key)))).Should(BeFalse())
-						for _, f := range MustSucceed(fs.List(rootPath)) {
+						for _, f := range MustSucceed(fs.List("")) {
 							Eventually(f.Name()).ShouldNot(HavePrefix(channelKeyToPath(key) + "-DELETE-"))
 						}
 						_, err := db.RetrieveChannel(ctx, key)
@@ -319,7 +320,7 @@ var _ = Describe("Delete", func() {
 						Expect(db.DeleteChannel(key)).To(Succeed())
 						Expect(fs.Exists(channelKeyToPath(key))).To(BeFalse())
 						Eventually(MustSucceed(fs.Exists(channelKeyToPath(key)))).Should(BeFalse())
-						for _, f := range MustSucceed(fs.List(rootPath)) {
+						for _, f := range MustSucceed(fs.List("")) {
 							Eventually(f.Name()).ShouldNot(HavePrefix(channelKeyToPath(key) + "-DELETE-"))
 						}
 						_, err := db.RetrieveChannel(ctx, key)
@@ -358,7 +359,7 @@ var _ = Describe("Delete", func() {
 					Expect(db.DeleteChannels(lo.Map(channels, func(c cesium.Channel, _ int) core.ChannelKey { return c.Key }))).To(Succeed())
 					for _, c := range channels {
 						Expect(fs.Exists(channelKeyToPath(c.Key))).To(BeFalse())
-						for _, f := range MustSucceed(fs.List(rootPath)) {
+						for _, f := range MustSucceed(fs.List("")) {
 							Eventually(f.Name()).ShouldNot(HavePrefix(strconv.Itoa(int(c.Key)) + "-DELETE-"))
 						}
 					}
@@ -375,7 +376,7 @@ var _ = Describe("Delete", func() {
 							_, err := db.RetrieveChannel(ctx, c)
 							Expect(err).To(MatchError(core.ChannelNotFound))
 							Eventually(MustSucceed(fs.Exists(channelKeyToPath(c)))).Should(BeFalse())
-							for _, f := range MustSucceed(fs.List(rootPath)) {
+							for _, f := range MustSucceed(fs.List("")) {
 								Eventually(f.Name()).ShouldNot(HavePrefix(strconv.Itoa(int(c)) + "-DELETE-"))
 							}
 						}

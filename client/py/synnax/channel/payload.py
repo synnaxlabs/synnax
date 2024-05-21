@@ -36,9 +36,10 @@ class ChannelPayload(Payload):
     leaseholder: int = 0
     is_index: bool = False
     index: ChannelKey = 0
+    internal: bool = False
 
     def __str__(self):
-        return f"Channel({self.key}, {self.name})"
+        return f"Channel with name {self.name} and key {self.key}"
 
     def __hash__(self) -> int:
         return hash(self.key)

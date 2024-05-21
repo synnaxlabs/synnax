@@ -48,7 +48,7 @@ export interface MultipleProps<K extends Key = Key, E extends Keyed<K> = Keyed<K
     Pick<Input.TextProps, "placeholder"> {
   columns?: Array<CoreList.ColumnSpec<K, E>>;
   searcher?: AsyncTermSearcher<string, K, E>;
-  tagKey?: keyof E | ((e: E) => string | number);
+  entryRenderKey?: keyof E | ((e: E) => string | number);
   renderTag?: RenderProp<MultipleTagProps<K, E>>;
   onTagDragStart?: (e: React.DragEvent<HTMLDivElement>, key: K) => void;
   onTagDragEnd?: (e: React.DragEvent<HTMLDivElement>, key: K) => void;
@@ -66,7 +66,7 @@ export interface MultipleProps<K extends Key = Key, E extends Keyed<K> = Keyed<K
  * @param props.columns - The columns to be used to render the select options in the
  * dropdown. See the {@link ListColumn} type for more details on how to configure
  * columns.
- * @param props.tagKey - The option field rendered for each tag when selected in the
+ * @param props.entryRenderKey - The option field rendered for each tag when selected in the
  * input group. Defaults to "key".
  * @param props.location - Whether to render the dropdown above or below the select
  * component. Defaults to "below".
@@ -76,11 +76,10 @@ export interface MultipleProps<K extends Key = Key, E extends Keyed<K> = Keyed<K
 export const Multiple = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   onChange,
   value,
-  location,
   className,
   data,
   columns = [],
-  tagKey = "key",
+  entryRenderKey = "key",
   emptyContent,
   searcher,
   renderTag,
@@ -109,6 +108,7 @@ export const Multiple = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
       return;
     let nextSelected: E[] = [];
     if (searchMode) {
+      // Wrap this in a try-except clause just in case the searcher throws an error.
       try {
         nextSelected = await searcher.retrieve(nextValue);
       } finally {
@@ -137,7 +137,7 @@ export const Multiple = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
       close={close}
       open={open}
       data={data}
-      emtpyContent={emptyContent}
+      emptyContent={emptyContent}
       visible={visible}
       value={value}
       onChange={handleChange}
@@ -157,7 +157,7 @@ export const Multiple = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
             loading={loading}
             selected={selected}
             onFocus={open}
-            tagKey={tagKey}
+            entryRenderKey={entryRenderKey}
             visible={visible}
             renderTag={renderTag}
             placeholder={placeholder}
@@ -176,7 +176,7 @@ interface SelectMultipleInputProps<K extends Key, E extends Keyed<K>>
   loading: boolean;
   selectedKeys: K | K[];
   selected: readonly E[];
-  tagKey: keyof E | ((e: E) => string | number);
+  entryRenderKey: keyof E | ((e: E) => string | number);
   visible: boolean;
   renderTag?: RenderProp<MultipleTagProps<K, E>>;
   onTagDragStart?: (e: React.DragEvent<HTMLDivElement>, key: K) => void;
@@ -191,7 +191,7 @@ const MultipleInput = <K extends Key, E extends Keyed<K>>({
   onChange,
   onFocus,
   visible,
-  tagKey,
+  entryRenderKey,
   renderTag = componentRenderProp(MultipleTag<K, E>),
   placeholder = "Select...",
   onTagDragStart,
@@ -252,7 +252,7 @@ const MultipleInput = <K extends Key, E extends Keyed<K>>({
           return renderTag({
             key: k,
             entryKey: k,
-            tagKey,
+            entryRenderKey,
             loading,
             entry: e,
             onClose: () => onSelect?.(k),
@@ -269,7 +269,7 @@ const MultipleInput = <K extends Key, E extends Keyed<K>>({
 export interface MultipleTagProps<K extends Key, E extends Keyed<K>> {
   key: K;
   entryKey: K;
-  tagKey: keyof E | ((e: E) => string | number);
+  entryRenderKey: keyof E | ((e: E) => string | number);
   entry?: E;
   color?: Color.Crude;
   loading: boolean;
@@ -280,7 +280,7 @@ export interface MultipleTagProps<K extends Key, E extends Keyed<K>> {
 
 export const MultipleTag = <K extends Key, E extends Keyed<K>>({
   entryKey,
-  tagKey,
+  entryRenderKey,
   entry,
   loading,
   ...props
@@ -288,7 +288,9 @@ export const MultipleTag = <K extends Key, E extends Keyed<K>>({
   let v: RenderableValue = entryKey;
   if (entry != null)
     v =
-      typeof tagKey === "function" ? tagKey(entry) : (entry[tagKey] as RenderableValue);
+      typeof entryRenderKey === "function"
+        ? entryRenderKey(entry)
+        : (entry[entryRenderKey] as RenderableValue);
   return (
     <Tag.Tag
       size="small"

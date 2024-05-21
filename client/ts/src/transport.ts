@@ -14,7 +14,8 @@ import {
   type StreamClient,
   type UnaryClient,
 } from "@synnaxlabs/freighter";
-import { binary, type URL } from "@synnaxlabs/x";
+import { binary } from "@synnaxlabs/x/binary";
+import { type URL } from "@synnaxlabs/x/url";
 
 const baseAPIEndpoint = "/api/v1/";
 

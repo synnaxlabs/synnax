@@ -41,11 +41,6 @@
     }
 }
 
-.pluto-btn--filled path:is(:not([fill="none"]), [stroke="#000"]) {
-    stroke: inherit !important;
-    fill: inherit !important;
-}
-
 /* |||| OUTLINED |||| */
 
 .pluto-btn--outlined {
@@ -61,13 +56,6 @@
         background: var(--pluto-gray-l3);
         border-color: var(--pluto-gray-l5) !important;
     }
-}
-
-.pluto-btn--outlined
-    svg:not(.logo)
-    :is(path, circle):is(:not([fill="none"]), [stroke="#000"]) {
-    stroke: inherit !important;
-    fill: inherit !important;
 }
 
 .pluto-btn--filled,
@@ -97,13 +85,6 @@
     &.pluto--disabled {
         color: var(--pluto-gray-l5);
     }
-}
-
-.pluto-btn-icon.pluto-btn--text
-    svg:not(.logo)
-    path:is(:not([fill="none"]), [stroke="#000"]) {
-    stroke: inherit !important;
-    fill: inherit !important;
 }
 
 /* |||| ICON |||| */

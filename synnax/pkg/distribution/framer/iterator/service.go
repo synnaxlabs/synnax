@@ -12,7 +12,6 @@ package iterator
 import (
 	"context"
 
-	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen"
@@ -23,6 +22,7 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
@@ -161,7 +161,7 @@ func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, er
 	plumber.SetSegment[Response, Response](
 		pipe,
 		synchronizerAddr,
-		newSynchronizer(len(cfg.Keys.UniqueNodeKeys())),
+		newSynchronizer(len(cfg.Keys.UniqueLeaseholders())),
 	)
 
 	plumber.MultiRouter[Response]{

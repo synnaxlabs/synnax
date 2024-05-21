@@ -10,7 +10,6 @@
 package cesium_test
 
 import (
-	"github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
@@ -19,6 +18,7 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -27,7 +27,7 @@ import (
 
 var _ = Describe("Control", func() {
 	for fsName, makeFS := range fileSystems {
-		fs := makeFS()
+		fs, cleanUp := makeFS()
 		Context("FS:"+fsName, Ordered, func() {
 			var db *cesium.DB
 			BeforeAll(func() {
@@ -36,7 +36,7 @@ var _ = Describe("Control", func() {
 			})
 			AfterAll(func() {
 				Expect(db.Close()).To(Succeed())
-				Expect(fs.Remove(rootPath)).To(Succeed())
+				Expect(cleanUp()).To(Succeed())
 			})
 			Describe("Single Channel, Two Writer Contention", func() {
 				It("Should work", func() {
@@ -140,7 +140,7 @@ var _ = Describe("Control", func() {
 			})
 			Describe("Creating update channel with key 0", func() {
 				It("Should not allow it", func() {
-					Expect(db.ConfigureControlUpdateChannel(ctx, 0).Error()).To(ContainSubstring("key must be positive"))
+					Expect(db.ConfigureControlUpdateChannel(ctx, 0).Error()).To(ContainSubstring("key:must be positive"))
 				})
 			})
 		})

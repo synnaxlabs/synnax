@@ -11,7 +11,6 @@ package unary
 
 import (
 	"context"
-	"github.com/cockroachdb/errors"
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/controller"
@@ -20,9 +19,11 @@ import (
 	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
+	"math"
 )
 
 type WriterConfig struct {
@@ -70,8 +71,8 @@ const AlwaysIndexPersistOnAutoCommit telem.TimeSpan = -1
 func (c WriterConfig) Validate() error {
 	v := validate.New("unary.WriterConfig")
 	validate.NotEmptyString(v, "Subject.Key", c.Subject.Key)
-	v.Ternary(c.End.Before(c.Start), "end timestamp must be after or equal to start timestamp")
-	return nil
+	v.Ternary("end", !c.End.IsZero() && c.End.Before(c.Start), "end timestamp must be after or equal to start timestamp")
+	return v.Error()
 }
 
 func (c WriterConfig) Override(other WriterConfig) WriterConfig {
@@ -179,7 +180,7 @@ func (w *Writer) len(dw *domain.Writer) int64 {
 }
 
 // Write validates and writes the given array.
-func (w *Writer) Write(series telem.Series) (a telem.Alignment, err error) {
+func (w *Writer) Write(series telem.Series) (a telem.AlignmentPair, err error) {
 	if w.closed {
 		return 0, WriterClosedError
 	}
@@ -191,7 +192,7 @@ func (w *Writer) Write(series telem.Series) (a telem.Alignment, err error) {
 	if !ok {
 		return 0, controller.Unauthorized(w.control.Subject.Name, w.Channel.Key)
 	}
-	a = telem.Alignment(w.len(dw.Writer))
+	a = telem.NewAlignmentPair(math.MaxUint32, uint32(w.len(dw.Writer)))
 	if w.Channel.IsIndex {
 		w.updateHwm(series)
 	}

@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import type { Action, UnknownAction } from "@reduxjs/toolkit";
+import { type dimensions, type xy } from "@synnaxlabs/x";
 
-import { Event, Runtime } from "@/runtime";
-import { StoreState } from "@/state";
-import { WindowProps } from "@/window";
-import { dimensions, xy } from "@synnaxlabs/x";
+import { type Event, type Runtime } from "@/runtime";
+import { type StoreState } from "@/state";
+import { type WindowProps } from "@/window";
 
 export class MockRuntime<S extends StoreState, A extends Action = UnknownAction>
   implements Runtime<S, A>
@@ -31,6 +31,10 @@ export class MockRuntime<S extends StoreState, A extends Action = UnknownAction>
     this._isMain = isMain;
     this.props = { ...initialProps };
     this._label = initialProps.key;
+  }
+
+  async configure(): Promise<void> {
+    return;
   }
 
   isMain(): boolean {

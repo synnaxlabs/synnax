@@ -73,6 +73,7 @@ export class TypedWorker<RQ, RS = RQ> implements SenderHandler<RQ, RS> {
 }
 
 export const createMockWorkers = (): [RoutedWorker, RoutedWorker] => {
+  // eslint-disable-next-line
   let a: RoutedWorker, b: RoutedWorker;
   const aSend = (value: any, transfer?: Transferable[]): void => {
     b.handle({ data: value });

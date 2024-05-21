@@ -14,6 +14,7 @@ import { type ComponentSize, isComponentSize } from "@/util/component";
 export const fontString = (
   theme: ThemeSpec,
   level: text.Level | ComponentSize,
+  weight?: text.Weight,
 ): string => {
   const {
     typography,
@@ -21,5 +22,8 @@ export const fontString = (
   } = theme;
   const size =
     typography[isComponentSize(level) ? text.ComponentSizeLevels[level] : level].size;
-  return ` ${base * size}px ${typography.family}`;
+  const sizePx = base * size;
+  const [family, serif] = typography.family.split(", ");
+  if (weight != null) return ` ${weight} ${sizePx}px ${family}, ${serif}`;
+  return ` ${sizePx}px ${typography.family}`;
 };

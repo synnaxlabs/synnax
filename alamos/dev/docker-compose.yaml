@@ -6,7 +6,7 @@ services:
     environment:
       CLICKHOUSE_DB: uptrace
     healthcheck:
-      test: [ 'CMD', 'wget', '--spider', '-q', 'localhost:8123/ping' ]
+      test: [ 'CMD', 'wget', '--sschematicer', '-q', 'localhost:8123/ping' ]
       interval: 1s
       timeout: 1s
       retries: 30

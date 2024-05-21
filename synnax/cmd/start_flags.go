@@ -9,6 +9,8 @@
 
 package cmd
 
+import "encoding/base64"
+
 func configureStartFlags() {
 	startCmd.Flags().StringP(
 		"listen",
@@ -62,5 +64,22 @@ func configureStartFlags() {
 		"auto-cert",
 		false,
 		"Automatically generate self-signed certificates.",
+	)
+
+	startCmd.Flags().Bool(
+		"no-driver",
+		false,
+		"Disable the embedded synnax driver",
+	)
+
+	encodedName := "bGljZW5zZS1rZXk="
+	decodedName, _ := base64.StdEncoding.DecodeString(encodedName)
+	encodedUsage := "TGljZW5zZSBrZXkgaW4gZm9ybSAiIyMjIyMjLSMjIyMjIyMjLSMjIyMjIyMjIyMiLg=="
+	decodedUsage, _ := base64.StdEncoding.DecodeString(encodedUsage)
+
+	startCmd.Flags().String(
+		string(decodedName),
+		"",
+		string(decodedUsage),
 	)
 }

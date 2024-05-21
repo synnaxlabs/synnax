@@ -11,7 +11,6 @@ package cesium
 
 import (
 	"context"
-	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/index"
@@ -19,7 +18,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
-	"github.com/synnaxlabs/x/errutil"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -280,8 +279,8 @@ func (w *streamWriter) commit(ctx context.Context) (telem.TimeStamp, error) {
 }
 
 func (w *streamWriter) close(ctx context.Context) error {
-	c := errutil.NewCatch(errutil.WithAggregation())
-	u := ControlUpdate{Transfers: make([]controller.Transfer, 0, len(w.internal)+1)}
+	c := errors.NewCatcher(errors.WithAggregation())
+	u := ControlUpdate{Transfers: make([]controller.Transfer, 0, len(w.internal))}
 	for _, idx := range w.internal {
 		c.Exec(func() error {
 			u_, err := idx.Close(ctx)
@@ -376,7 +375,7 @@ func (w *idxWriter) Write(fr Frame) (Frame, error) {
 			return fr, err
 		}
 		if !incrementedSampleCount {
-			w.sampleCount = int64(alignment) + series.Len()
+			w.sampleCount = int64(alignment.SampleIndex()) + series.Len()
 			incrementedSampleCount = true
 		}
 		series.Alignment = alignment
@@ -393,7 +392,7 @@ func (w *idxWriter) Commit(ctx context.Context) (telem.TimeStamp, error) {
 	}
 	// because the range is exclusive, we need to add 1 nanosecond to the end
 	end.Lower++
-	c := errutil.NewCatch(errutil.WithAggregation())
+	c := errors.NewCatcher(errors.WithAggregation())
 	for _, chW := range w.internal {
 		c.Exec(func() error { return chW.CommitWithEnd(ctx, end.Lower) })
 	}
@@ -401,7 +400,7 @@ func (w *idxWriter) Commit(ctx context.Context) (telem.TimeStamp, error) {
 }
 
 func (w *idxWriter) Close(ctx context.Context) (ControlUpdate, error) {
-	c := errutil.NewCatch(errutil.WithAggregation())
+	c := errors.NewCatcher(errors.WithAggregation())
 	update := ControlUpdate{
 		Transfers: make([]controller.Transfer, 0, len(w.internal)),
 	}
@@ -430,7 +429,15 @@ func (w *idxWriter) validateWrite(fr Frame) error {
 		}
 
 		if lengthOfFrame == -1 {
-			lengthOfFrame = fr.Series[i].Len()
+			s := fr.Series[i]
+			if s.DataType.Density() == 0 {
+				return errors.Wrapf(
+					validate.Error,
+					"invalid data type for channel %d, expected %s, got %s",
+					k, telem.TimeStampT, s.DataType,
+				)
+			}
+			lengthOfFrame = s.Len()
 		}
 
 		if uWriter.timesWritten == w.numWriteCalls {
@@ -516,7 +523,7 @@ func (w virtualWriter) write(fr Frame) (Frame, error) {
 }
 
 func (w virtualWriter) Close() (ControlUpdate, error) {
-	c := errutil.NewCatch(errutil.WithAggregation())
+	c := errors.NewCatcher(errors.WithAggregation())
 	update := ControlUpdate{
 		Transfers: make([]controller.Transfer, 0, len(w.internal)),
 	}

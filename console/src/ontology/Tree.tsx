@@ -18,6 +18,7 @@ import {
   useStateRef as useRefAsState,
   useCombinedStateAndRef,
   type state,
+  Status,
 } from "@synnaxlabs/pluto";
 import { Tree as Core } from "@synnaxlabs/pluto/tree";
 import { deep } from "@synnaxlabs/x";
@@ -181,6 +182,7 @@ export const Tree = (): ReactElement => {
   const [nodes, setNodes, nodesRef] = useCombinedStateAndRef<Core.Node[]>([]);
   const [resourcesRef, setResources] = useRefAsState<ontology.Resource[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
+  const addStatus = Status.useAggregator();
 
   const menuProps = Menu.useContextMenu();
 
@@ -299,6 +301,7 @@ export const Tree = (): ReactElement => {
         placeLayout,
         removeLayout,
         name,
+        addStatus,
         state: {
           nodes: nodesSnapshot,
           resources: resourcesRef.current,
@@ -321,6 +324,7 @@ export const Tree = (): ReactElement => {
         services,
         placeLayout,
         removeLayout,
+        addStatus,
         selection: resourcesRef.current.filter(({ id }) => id.toString() === key),
       });
     },
@@ -366,6 +370,7 @@ export const Tree = (): ReactElement => {
         services,
         placeLayout,
         removeLayout,
+        addStatus,
         selection: {
           parent,
           nodes: selectedNodes,

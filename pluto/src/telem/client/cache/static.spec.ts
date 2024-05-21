@@ -25,7 +25,7 @@ describe("StaticReadCache", () => {
           data: new Float32Array([1]),
           dataType: DataType.FLOAT32,
           timeRange: tr,
-          alignment: 0,
+          alignment: 0n,
         }),
       ]);
       const { series, gaps } = c.dirtyRead(
@@ -42,7 +42,7 @@ describe("StaticReadCache", () => {
           data: new Float32Array([1]),
           dataType: DataType.FLOAT32,
           timeRange: tr,
-          alignment: 0,
+          alignment: 0n,
         }),
       ]);
       const { series, gaps } = c.dirtyRead(
@@ -67,7 +67,7 @@ describe("StaticReadCache", () => {
           data: new Float32Array([1, 2]),
           dataType: DataType.FLOAT32,
           timeRange: tr1,
-          alignment: 1,
+          alignment: 1n,
         }),
       ]);
       c.write([
@@ -75,7 +75,7 @@ describe("StaticReadCache", () => {
           data: new Float32Array([4, 5]),
           dataType: DataType.FLOAT32,
           timeRange: tr2,
-          alignment: 4,
+          alignment: 4n,
         }),
       ]);
       const { series, gaps } = c.dirtyRead(
@@ -103,7 +103,7 @@ describe("StaticReadCache", () => {
           data: new Float32Array([2, 3, 4, 5]),
           dataType: DataType.FLOAT32,
           timeRange: tr1,
-          alignment: 2,
+          alignment: 2n,
         }),
       ]);
       c.write([
@@ -111,7 +111,7 @@ describe("StaticReadCache", () => {
           data: new Float32Array([4, 5, 6]),
           dataType: DataType.FLOAT32,
           timeRange: tr2,
-          alignment: 4,
+          alignment: 4n,
         }),
       ]);
       const { series, gaps } = c.dirtyRead(
@@ -136,7 +136,7 @@ describe("StaticReadCache", () => {
           data: new Float32Array([3, 4, 5, 6]),
           dataType: DataType.FLOAT32,
           timeRange: tr1,
-          alignment: 3,
+          alignment: 3n,
         }),
       ]);
       c.write([
@@ -144,7 +144,7 @@ describe("StaticReadCache", () => {
           data: new Float32Array([1, 2, 3]),
           dataType: DataType.FLOAT32,
           timeRange: tr2,
-          alignment: 1,
+          alignment: 1n,
         }),
       ]);
       const { series, gaps } = c.dirtyRead(
@@ -169,7 +169,7 @@ describe("StaticReadCache", () => {
           data: new Float32Array([1, 2, 3, 4]),
           dataType: DataType.FLOAT32,
           timeRange: tr1,
-          alignment: 0,
+          alignment: 0n,
         }),
       ]);
       c.write([
@@ -177,7 +177,7 @@ describe("StaticReadCache", () => {
           data: new Float32Array([5, 6, 7, 8]),
           dataType: DataType.FLOAT32,
           timeRange: tr2,
-          alignment: 0,
+          alignment: 0n,
         }),
       ]);
       const { series, gaps } = c.dirtyRead(
@@ -197,7 +197,7 @@ describe("StaticReadCache", () => {
           data: new Float32Array([1]),
           dataType: DataType.FLOAT32,
           timeRange: tr,
-          alignment: 0,
+          alignment: 0n,
         }),
       ]);
       c.dirtyRead(TimeStamp.seconds(1).spanRange(TimeSpan.seconds(3)));
@@ -221,7 +221,7 @@ describe("StaticReadCache", () => {
           data: new Float32Array([1]),
           dataType: DataType.FLOAT32,
           timeRange: tr,
-          alignment: 0,
+          alignment: 0n,
         }),
       ]);
       c.close();

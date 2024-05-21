@@ -1,0 +1,71 @@
+---
+layout: "@/layouts/MainLayout.astro"
+title: "OPC UA | Read Task"
+heading: "Configure an OPC UA Read Task"
+description: "Learn how to configure a read task to acquire data from an OPC UA server."
+---
+import { Divider } from "@synnaxlabs/pluto";
+import { Video } from "@/components/Media";
+
+Setting up a read task is the primary method for acquiring data from a PLC and storing
+it in the Synnax database. In this guide, we'll walk you through the read task setup process.
+
+<Divider.Divider direction="x" />
+
+## Pre-requisites
+
+Before you can configure a read task, you'll need to have connected to an OPC UA server 
+and created the relevant channels in the Synnax database. If you haven't done this yet,
+check out the [Connect to an OPC UA Server](/reference/device-drivers/opcua/connect-server)
+guide.
+
+<Divider.Divider direction="x" />
+
+## A Short Primer on Tasks
+
+Tasks are the primary method for communicating with devices in Synnax. Tasks can be used
+for both control and data acqusition purposes. In the context of OPC UA, a read task defines
+a background process that reads data from your server at a specified sampling rate.
+
+An OPC UA read task can be started, stopped, and re-configured at any time. We permanently
+store the configuration of the task in the Synnax Database, so it's easy to set up multiple
+tasks for different purposes.
+
+<Divider.Divider direction="x" />
+
+## Configuring a Read Task
+
+To configure a read task, open the Synnax Console and click on the Quick Search & Command Palette at the top. 
+You can also open this palette with `Ctrl+Shift+P` on Windows/Linux or `Cmd+Shift+P` on macOS.
+
+In command mode (enabled when the first character in the input is ">"), type "OPC UA".
+You'll see an option called "Create a New Read Task". Select this option to open the read task
+configuration dialog.
+
+<Video client:only="react" id="device-drivers/opcua/opcua-open-read-task" />
+
+### Step 1 - Select your OPC UA Device and Configure Sampling Rates
+
+The selectin dialog in the top left allows you to choose the OPC UA server you'd like to 
+collect data from. Select your device, and then configure the sampling rate for the task
+in the dialog to the right.
+
+### Step 2 - Add Channels to the Task
+
+Next, you'll need to add channels to the task. These channels define a mapping between the
+OPC UA node you'd like to read from, and the corresponding Synnax channel you'd like to store
+the data in. 
+
+To add a channel, click on the "+" button in the channels section. Then, click on the new
+channel and select the OPC UA node you'd like to read from. Finally, select the Synnax 
+channel you'd like to store the data in. Note that the Synnax channel doesn't need to 
+be the same as the channel you created when configuring the server.
+
+### Step 3 - Configure and Start the Task
+
+Once you'd added all the channels you need, click the "Configure" button. If your task
+is configured correctly, the Synnax database will acknowledge the configured task and 
+enable the "Play" button. Click this button to start the task.
+
+At this point, feel free to close the dialog. Your task will continue to run in the 
+background until you re-open the dialog and stop it.

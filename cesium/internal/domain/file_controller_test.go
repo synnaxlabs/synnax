@@ -17,19 +17,22 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("File Controller", func() {
+const testDataPath = "testdata"
+
+var _ = Describe("File Controller", Ordered, func() {
 	for fsName, makeFS := range fileSystems {
-		fs := makeFS()
+		fs, cleanUp := makeFS()
 		Context("FS: "+fsName, Ordered, func() {
 			var db *domain.DB
 			AfterEach(func() {
 				Expect(db.Close()).To(Succeed())
-				Expect(fs.Remove(rootPath)).To(Succeed())
+				Expect(fs.Remove(testDataPath)).To(Succeed())
 			})
+			AfterAll(func() { Expect(cleanUp()).To(Succeed()) })
 			Describe("Writers", func() {
 				It("Should allow one writing to a file at all times", func() {
 					By("Initializing a file controller")
-					db = MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub(rootPath)), FileSize: 1 * telem.Megabyte}))
+					db = MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub(testDataPath)), FileSize: 1 * telem.Megabyte}))
 					By("Acquiring one writer on the file 1.domain")
 					w1 := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{
 						Start: 10 * telem.SecondTS,
@@ -66,7 +69,7 @@ var _ = Describe("File Controller", func() {
 
 				It("Should obey the file size limit", func() {
 					By("Initializing a file controller")
-					db = MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub(rootPath)), FileSize: 10 * telem.ByteSize}))
+					db = MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub(testDataPath)), FileSize: 10 * telem.ByteSize}))
 					By("Acquiring one writer on the file 1.domain")
 					w1 := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{
 						Start: 10 * telem.SecondTS,
@@ -90,7 +93,7 @@ var _ = Describe("File Controller", func() {
 
 				It("Should persist obey the file size limit", func() {
 					By("Initializing a file controller")
-					db = MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub(rootPath)), FileSize: 10 * telem.ByteSize}))
+					db = MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub(testDataPath)), FileSize: 10 * telem.ByteSize}))
 					By("Acquiring one writer on the file 1.domain")
 					w1 := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{
 						Start: 10 * telem.SecondTS,
@@ -106,7 +109,7 @@ var _ = Describe("File Controller", func() {
 					Expect(db.Close()).To(Succeed())
 
 					By("Reopening the db and fc")
-					db = MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub(rootPath)), FileSize: 10 * telem.ByteSize}))
+					db = MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub(testDataPath)), FileSize: 10 * telem.ByteSize}))
 
 					By("Acquiring a second writer, this would create a new file 2.domain since 1.domain is full")
 					w2, err := db.NewWriter(ctx, domain.WriterConfig{
@@ -121,7 +124,7 @@ var _ = Describe("File Controller", func() {
 
 				It("Should open a file if it is below threshold", func() {
 					By("Initializing a file controller")
-					db = MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub(rootPath)), FileSize: 10 * telem.ByteSize}))
+					db = MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub(testDataPath)), FileSize: 10 * telem.ByteSize}))
 					By("Acquiring one writer on the file 1.domain")
 					w1 := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{
 						Start: 10 * telem.SecondTS,
@@ -146,7 +149,7 @@ var _ = Describe("File Controller", func() {
 
 				It("Should persist and open a file if it is below threshold", func() {
 					By("Initializing a file controller")
-					db = MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub(rootPath)), FileSize: 10 * telem.ByteSize}))
+					db = MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub(testDataPath)), FileSize: 10 * telem.ByteSize}))
 					By("Acquiring one writer on the file 1.domain")
 					w1 := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{
 						Start: 10 * telem.SecondTS,
@@ -162,7 +165,7 @@ var _ = Describe("File Controller", func() {
 					Expect(db.Close()).To(Succeed())
 
 					By("Reopening the db and fc")
-					db = MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub(rootPath)), FileSize: 10 * telem.ByteSize}))
+					db = MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub(testDataPath)), FileSize: 10 * telem.ByteSize}))
 
 					By("Acquiring a second writer, this would not create a new file 2.domain since 1.domain is not full")
 					w2, err := db.NewWriter(ctx, domain.WriterConfig{
@@ -177,7 +180,7 @@ var _ = Describe("File Controller", func() {
 
 				It("Should obey the file descriptor limit", func() {
 					By("Initializing a file controller")
-					db = MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub(rootPath)), MaxDescriptors: 2}))
+					db = MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub(testDataPath)), MaxDescriptors: 2}))
 					By("Acquiring one writer on the file 1.domain")
 					w1 := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{
 						Start: 10 * telem.SecondTS,
@@ -213,7 +216,7 @@ var _ = Describe("File Controller", func() {
 				})
 
 				It("Should persist the counter file across open/close", func() {
-					subFS := MustSucceed(fs.Sub(rootPath))
+					subFS := MustSucceed(fs.Sub(testDataPath))
 					By("Initializing a file controller")
 					db = MustSucceed(domain.Open(domain.Config{FS: subFS, FileSize: 10 * telem.ByteSize}))
 
@@ -258,7 +261,7 @@ var _ = Describe("File Controller", func() {
 				})
 
 				It("Should open writers on partially full files after reopening the file controller", func() {
-					subFS := MustSucceed(fs.Sub(rootPath))
+					subFS := MustSucceed(fs.Sub(testDataPath))
 					By("Initializing a file controller")
 					db = MustSucceed(domain.Open(domain.Config{FS: subFS, FileSize: 10 * telem.ByteSize}))
 
@@ -389,7 +392,7 @@ var _ = Describe("File Controller", func() {
 				})
 
 				It("Should work with file auto cutoff generated files", func() {
-					subFS := MustSucceed(fs.Sub(rootPath))
+					subFS := MustSucceed(fs.Sub(testDataPath))
 					By("Initializing a file controller")
 					db = MustSucceed(domain.Open(domain.Config{FS: subFS, FileSize: 10 * telem.ByteSize}))
 

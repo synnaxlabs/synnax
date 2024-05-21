@@ -9,7 +9,8 @@
 
 import { alamos } from "@synnaxlabs/alamos";
 import { type channel, QueryError, type Synnax } from "@synnaxlabs/client";
-import { type TimeRange, type AsyncDestructor } from "@synnaxlabs/x";
+import { type AsyncDestructor } from "@synnaxlabs/x/destructor";
+import { type TimeRange } from "@synnaxlabs/x/telem";
 import { nanoid } from "nanoid/non-secure";
 
 import { cache } from "@/telem/client/cache";

@@ -12,8 +12,10 @@ package ontology_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
+	"strconv"
 )
 
 var _ = Describe("retrieveResource", func() {
@@ -138,6 +140,35 @@ var _ = Describe("retrieveResource", func() {
 				).To(Succeed())
 				Expect(len(r)).To(Equal(2))
 			})
+		})
+	})
+
+	Describe("Limit + Offset", func() {
+		It("Should page through resources in order", func() {
+			ids := make([]ontology.ID, 10)
+			for i := range ids {
+				Expect(w.DefineResource(ctx, newEmptyID(strconv.Itoa(i)))).To(Succeed())
+			}
+			var r []ontology.Resource
+			Expect(w.NewRetrieve().
+				Offset(0).
+				Limit(5).
+				Entries(&r).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(len(r)).To(Equal(5))
+			var r2 []ontology.Resource
+			Expect(w.NewRetrieve().
+				Offset(5).
+				Limit(5).
+				Entries(&r2).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(len(r2)).To(Equal(5))
+			mapKeys := func(o ontology.Resource, _ int) string {
+				return o.ID.String()
+			}
+			r1Keys := lo.Map(r, mapKeys)
+			r2Keys := lo.Map(r2, mapKeys)
+			Expect(lo.Intersect(r1Keys, r2Keys)).To(BeEmpty())
 		})
 	})
 })

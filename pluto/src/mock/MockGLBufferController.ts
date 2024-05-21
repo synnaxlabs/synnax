@@ -47,7 +47,7 @@ export class MockGLBufferController implements GLBufferController {
       this.buffers[this.targets[target]] = new ArrayBuffer(dataOrSize);
     else this.buffers[this.targets[target]] = dataOrSize;
 
-    this.bufferDataMock(target, dataOrSize as any, usage);
+    this.bufferDataMock(target, dataOrSize, usage);
   }
 
   bindBuffer(target: number, buffer: WebGLBuffer | null): void {

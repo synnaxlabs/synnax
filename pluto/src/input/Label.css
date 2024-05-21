@@ -14,4 +14,8 @@
     font-size: var(--pluto-small-size);
     font-weight: var(--pluto-small-font-weight);
     line-height: var(--pluto-small-line-height);
+
+    & .pluto-required-indicator {
+        color: var(--pluto-error-z);
+    }
 }

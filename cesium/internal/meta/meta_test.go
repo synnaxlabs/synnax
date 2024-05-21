@@ -13,18 +13,21 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
+	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/binary"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/validate"
 	"os"
 	"strconv"
 )
 
-var _ = Describe("Meta", func() {
+var _ = Describe("Meta", Ordered, func() {
 	for fsName, makeFS := range fileSystems {
-		fs := makeFS()
+		fs, cleanup := makeFS()
+		AfterAll(func() {
+			Expect(cleanup()).To(Succeed())
+		})
 		Context("FS: "+fsName, Ordered, func() {
 			Specify("Corrupted meta.json", func() {
 				s := MustSucceed(fs.Sub("sub1"))
@@ -73,7 +76,7 @@ var _ = Describe("Meta", func() {
 					Expect(f.Close()).To(Succeed())
 
 					db, err = cesium.Open("", cesium.WithFS(s))
-					Expect(err).To(MatchError(validate.Error))
+					Expect(err).To(HaveOccurred())
 					Expect(err).To(MatchError(ContainSubstring(badField)))
 				},
 					Entry("datatype not set", cesium.Channel{Key: key, Rate: 1 * telem.Hz}, "dataType"),

@@ -11,17 +11,8 @@ package auth
 
 import (
 	"context"
-	"github.com/synnaxlabs/synnax/pkg/auth/base"
 	"github.com/synnaxlabs/synnax/pkg/auth/password"
 	"github.com/synnaxlabs/x/gorp"
-)
-
-var (
-	// InvalidCredentials is returned when the credentials for a particular entity
-	// are invalid.
-	InvalidCredentials = password.Invalid
-	// Error is the base error for all authentication related errors.
-	Error = base.AuthError
 )
 
 // Authenticator validates the identity of a particular entity (i.e. they are who they

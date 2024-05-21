@@ -29,7 +29,7 @@ func (db *DB) OpenWriter(_ context.Context, cfg WriterConfig) (w *Writer, transf
 	}
 	var g *controller.Gate[*controlEntity]
 	g, transfer, err = db.controller.OpenGateAndMaybeRegister(gateCfg, func() (*controlEntity, error) {
-		a := telem.Alignment(0)
+		a := telem.AlignmentPair(0)
 		return &controlEntity{
 			ck:    db.Channel.Key,
 			align: a,
@@ -59,7 +59,7 @@ type Writer struct {
 	WriterConfig
 }
 
-func (w *Writer) Write(series telem.Series) (telem.Alignment, error) {
+func (w *Writer) Write(series telem.Series) (telem.AlignmentPair, error) {
 	if w.closed {
 		return 0, WriterClosedError
 	}
@@ -72,7 +72,7 @@ func (w *Writer) Write(series telem.Series) (telem.Alignment, error) {
 	}
 	a := e.align
 	if series.DataType.Density() != telem.DensityUnknown {
-		e.align += telem.Alignment(series.Len())
+		e.align += telem.AlignmentPair(series.Len())
 	}
 	return a, nil
 }

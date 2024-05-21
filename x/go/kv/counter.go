@@ -12,8 +12,8 @@ package kv
 import (
 	"context"
 	"encoding/binary"
-	"github.com/cockroachdb/errors"
 	atomicx "github.com/synnaxlabs/x/atomic"
+	"github.com/synnaxlabs/x/errors"
 )
 
 // AtomicInt64Counter implements a simple int64 counter that writes its value to a

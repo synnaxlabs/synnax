@@ -17,3 +17,7 @@
 .pluto-input-help-text--error {
     color: var(--pluto-error-z);
 }
+
+.pluto-input-help-text--warning {
+    color: var(--pluto-warning-z);
+}

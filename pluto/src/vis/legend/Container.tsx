@@ -80,7 +80,7 @@ export const Container = memo(
     });
 
     const positionRef = useRef(position);
-    const disabled = useSyncedRef(!draggable);
+    const disabled = useSyncedRef(draggable === false);
     const ref = useRef<HTMLDivElement | null>(null);
     const [intelligentPos, setIntelligentPos] = useState<CSSPosition>({});
 

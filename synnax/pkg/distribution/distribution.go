@@ -14,6 +14,8 @@ import (
 	"fmt"
 	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel/verification"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -22,7 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	channeltransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/channel"
 	frametransport "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/framer"
-	"github.com/synnaxlabs/x/errutil"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	"io"
 )
@@ -52,7 +54,7 @@ type Distribution struct {
 
 // Close closes the distribution layer.
 func (d Distribution) Close() error {
-	e := errutil.NewCatch(errutil.WithAggregation())
+	e := errors.NewCatcher(errors.WithAggregation())
 	e.Exec(d.Ontology.Close)
 	e.Exec(d.Framer.Close)
 	for _, c := range d.Closers {
@@ -87,11 +89,11 @@ func Open(ctx context.Context, cfg Config) (d Distribution, err error) {
 
 	d.Ontology.RegisterService(d.Group)
 
-	nodeOntologySvc := &core.NodeOntologyService{
+	nodeOntologySvc := &cluster.NodeOntologyService{
 		Ontology: d.Ontology,
 		Cluster:  d.Cluster,
 	}
-	clusterOntologySvc := &core.ClusterOntologyService{Cluster: d.Cluster}
+	clusterOntologySvc := &cluster.OntologyService{Cluster: d.Cluster}
 	d.Ontology.RegisterService(clusterOntologySvc)
 	d.Ontology.RegisterService(nodeOntologySvc)
 
@@ -101,13 +103,23 @@ func Open(ctx context.Context, cfg Config) (d Distribution, err error) {
 	frameTransport := frametransport.New(cfg.Pool)
 	*cfg.Transports = append(*cfg.Transports, channelTransport, frameTransport)
 
+	ver, err := verification.OpenService(cfg.Verifier, verification.Config{
+		DB:  d.Storage.KV,
+		Ins: cfg.Instrumentation,
+	})
+	if err != nil {
+		return d, err
+	}
+	d.Closers = append(d.Closers, ver)
+
 	d.Channel, err = channel.New(ctx, channel.ServiceConfig{
-		HostResolver: d.Cluster,
-		ClusterDB:    gorpDB,
-		TSChannel:    d.Storage.TS,
-		Transport:    channelTransport,
-		Ontology:     d.Ontology,
-		Group:        d.Group,
+		HostResolver:     d.Cluster,
+		ClusterDB:        gorpDB,
+		TSChannel:        d.Storage.TS,
+		Transport:        channelTransport,
+		Ontology:         d.Ontology,
+		Group:            d.Group,
+		IntOverflowCheck: ver.IsOverflowed,
 	})
 	if err != nil {
 		return d, err
@@ -147,6 +159,7 @@ func (d Distribution) configureControlUpdates(ctx context.Context) error {
 		Leaseholder: d.Cluster.HostKey(),
 		Virtual:     true,
 		DataType:    telem.StringT,
+		Internal:    true,
 	}}
 	if err := d.Channel.CreateManyIfNamesDontExist(ctx, &controlCh); err != nil {
 		return err

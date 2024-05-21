@@ -119,6 +119,8 @@ DAQ_STATE = {
     FUEL_TANK_PT: 0,
 }
 
+PREV_STATE = DAQ_STATE.copy()
+
 MPV_LAST_OPEN = None
 scuba_pressure = 0
 l_stand_pressure = 0
@@ -151,13 +153,13 @@ with client.open_streamer(
                     while streamer.received:
                         f = streamer.read()
                         for k in f.channels:
-                            print(k, f[k])
                             DAQ_STATE[k] = f[k][0]
 
-                mpv_open = DAQ_STATE[MPV_CMD] == 1
-                tpc_open = DAQ_STATE[TPC_CMD] == 1
-                press_iso_open = DAQ_STATE[PRESS_ISO_CMD] == 1
-                vent_open = DAQ_STATE[VENT_CMD] == 1
+                mpv_open = PREV_STATE[MPV_CMD] == 1
+                tpc_open = PREV_STATE[TPC_CMD] == 1
+                press_iso_open = PREV_STATE[PRESS_ISO_CMD] == 1
+                vent_open = PREV_STATE[VENT_CMD] == 1
+                PREV_STATE = DAQ_STATE.copy()
 
                 if mpv_open and MPV_LAST_OPEN is None:
                     MPV_LAST_OPEN = sy.TimeStamp.now()

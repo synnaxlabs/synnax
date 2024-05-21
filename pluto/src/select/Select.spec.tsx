@@ -74,7 +74,7 @@ const SelectMultiple = (props: SelectMultipleProps): ReactElement => {
       <Select.Multiple<string, MockRecord>
         columns={mockColumns}
         data={mockOptions}
-        tagKey="name"
+        entryRenderKey="name"
         value={value}
         onChange={handleChange}
         {...props}
@@ -106,7 +106,7 @@ const SelectSingle = ({
       <Select.Single<string, MockRecord>
         columns={mockColumns}
         data={mockOptions}
-        tagKey="name"
+        entryRenderKey="name"
         value={propsValue ?? value}
         onChange={handleChange}
         {...props}

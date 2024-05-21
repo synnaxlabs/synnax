@@ -20,20 +20,21 @@ import (
 
 var _ = Describe("Domain", func() {
 	for fsName, makeFS := range fileSystems {
-		fs := makeFS()
-		Describe("FS:"+fsName, func() {
+		fs, cleanUp := makeFS()
+		Describe("FS:"+fsName, Ordered, func() {
 			var (
 				db  *domain.DB
 				idx index.Index
 			)
 			BeforeEach(func() {
-				db = MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub(rootPath))}))
+				db = MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub("testdata"))}))
 				idx = &index.Domain{DB: db}
 			})
 			AfterEach(func() {
 				Expect(db.Close()).To(Succeed())
-				Expect(fs.Remove(rootPath)).To(Succeed())
+				Expect(fs.Remove("testdata")).To(Succeed())
 			})
+			AfterAll(func() { Expect(cleanUp()).To(Succeed()) })
 			Describe("Distance", func() {
 				Context("Continuous", func() {
 					BeforeEach(func() {
