@@ -134,7 +134,7 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
         const { details: deviceProperties } = await task.executeCommandSync<Properties>(
           "scan",
           { connection: methods.get({ path: "connection" }).value },
-          TimeSpan.seconds(1),
+          TimeSpan.seconds(5),
         );
         methods.set({
           path: "groups",

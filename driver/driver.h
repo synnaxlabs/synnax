@@ -49,5 +49,6 @@ private:
     RackKey key{};
     task::Manager task_manager;
     heartbeat::Heartbeat heartbeat;
+    std::atomic<bool> done = false;
 };
 }

@@ -44,7 +44,8 @@ ni::Scanner::Scanner(const std::shared_ptr<task::Context> &ctx,
 }
 
 ni::Scanner::~Scanner()
-{
+{   
+    LOG(INFO) << "[ni.scanner] SCANNER DESTRUCTOR" << this->task.name;
     // TODO: Error Handling
     ni::NiSysCfgInterface::CloseHandle(this->filter);
     ni::NiSysCfgInterface::CloseHandle(this->resources_handle);

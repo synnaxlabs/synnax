@@ -54,8 +54,10 @@ std::pair<std::pair<std::vector<ChannelKey>, std::set<ChannelKey> >,
     for (auto i = 0; i < channels.size(); i++) {
         const auto ch = channels[i];
         if (std::count(channelKeys.begin(), channelKeys.end(), ch.index) == 0) {
-            channelKeys.push_back(ch.index);
-            indexes.insert(ch.index);
+            if(ch.index != 0) {
+                channelKeys.push_back(ch.index);
+                indexes.insert(ch.index);
+            }
         }
         cfg.channels[i].ch = ch;
     }
@@ -124,11 +126,11 @@ public:
         for (const auto &ch: cfg.channels) {
             if (!ch.enabled) continue;
             enabled_count++;
-            fr.add(ch.channel, Series.allocate(ch.ch.data_type, samples_per_read));
+            fr.add(ch.channel, Series(ch.ch.data_type, samples_per_read));
         }
         for (const auto &idx: indexes)
             fr.add(
-                idx, Series.allocate(synnax::TIMESTAMP, samples_per_read));
+                idx, Series(synnax::TIMESTAMP, samples_per_read));
         for (size_t i = 0; i < samples_per_read; i++) {
             UA_ReadResponse readResponse =
                     UA_Client_Service_read(client.get(), readRequest);
@@ -163,13 +165,12 @@ public:
                                                       readResponse.results[j].
                                                       status))));
                 }
-                set_val_on_series(value, ch.ch.data_type, fr.series->at(j), i);
+                set_val_on_series(value, i, fr.series->at(j));
             }
             UA_ReadResponse_clear(&readResponse);
             const auto now = synnax::TimeStamp::now();
-            for (size_t i = enabled_count; i < enabled_count + indexes.size(); i++) {
-                auto ser = fr.series->at(i);
-                ser.set(i, now.value);
+            for (size_t j = enabled_count; j < enabled_count + indexes.size(); j++) {
+                fr.series->at(j).set(i, now.value);
             }
             timer.wait();
         }

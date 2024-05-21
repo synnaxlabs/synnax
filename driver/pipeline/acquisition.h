@@ -47,7 +47,7 @@ private:
     std::shared_ptr<task::Context> ctx;
 
     /// @brief tracks whether the acquisition thread is running.
-    bool running = false;
+    volatile bool running = false;
     std::thread thread;
 
     /// @brief configuration for the Synnax writer.

@@ -16,11 +16,11 @@ std::pair<std::unique_ptr<task::Task>, bool> ni::Factory::configureTask(
     const synnax::Task &task
 ) {
     LOG(INFO) << "[NI Factory ] Configuring task: " << task.key << std::endl;
-    if(task.type == "niScanner") // TODO change to ni_scan_task
-        return {ni::ScannerTask::configure(ctx, task), true};
-     else if (task.type == "ni_analog_read" || task.type == "ni_digital_read")
+    // if(task.type == "niScanner") // TODO change to ni_scan_task
+    //     return {ni::ScannerTask::configure(ctx, task), true};
+    if (task.type == "ni_analog_read" || task.type == "ni_digital_read")
         return {ni::ReaderTask::configure(ctx, task), true};
-    else if (task.type == "ni_digital_write")
+    if (task.type == "ni_digital_write")
         return {ni::WriterTask::configure(ctx, task), true};
     else
         LOG(ERROR) << "[ni] Unknown task type: " << task.type << std::endl;
@@ -39,41 +39,41 @@ ni::Factory::configureInitialTasks(
     std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task> > > tasks;
 
     // check for existing tasks
-    auto [existing, err] = rack.tasks.list(); 
-    if(err){
-        LOG(ERROR) << "[ni] Failed to list existing tasks: " << err;
-        return tasks;
-    }
+    // auto [existing, err] = rack.tasks.list(); 
+    // if(err){
+    //     LOG(ERROR) << "[ni] Failed to list existing tasks: " << err;
+    //     return tasks;
+    // }
 
-    bool hasScanner = false;
-    for(const auto &t: existing){
-        if(t.type == "niScanner"){
-            LOG(INFO) << "[ni] found existing scanner task with key: " << t.key <<
-                    " skipping creation." << std::endl;
-            hasScanner = true;
-        }
-    }
+    // bool hasScanner = false;
+    // for(const auto &t: existing){
+    //     if(t.type == "niScanner"){
+    //         LOG(INFO) << "[ni] found existing scanner task with key: " << t.key <<
+    //                 " skipping creation." << std::endl;
+    //         hasScanner = true;
+    //     }
+    // }
 
-    if(!hasScanner){
-        std::cout << "Creating niScanner task" << std::endl;
-        auto sy_task = synnax::Task(
-            rack.key,
-            "ni Scanner",
-            "niScanner",
-            ""
-        );
-        auto err = rack.tasks.create(sy_task);
-        LOG(INFO) << "[ni] created scanner task with key: " << sy_task.key;
-        if(err){
-            LOG(ERROR) << "[ni] Failed to create scanner task: " << err;
-            return tasks;
-        }
-        auto [task, ok] = configureTask(ctx, sy_task);
-        if(!ok){
-            LOG(ERROR) << "[ni] Failed to configure scanner task: " << err;
-            return tasks;
-        }
-        tasks.emplace_back(std::pair<synnax::Task, std::unique_ptr<task::Task> > ({sy_task, std::move(task)}));
-    }
+    // if(!hasScanner){
+    //     std::cout << "Creating niScanner task" << std::endl;
+    //     auto sy_task = synnax::Task(
+    //         rack.key,
+    //         "ni Scanner",
+    //         "niScanner",
+    //         ""
+    //     );
+    //     auto err = rack.tasks.create(sy_task);
+    //     LOG(INFO) << "[ni] created scanner task with key: " << sy_task.key;
+    //     if(err){
+    //         LOG(ERROR) << "[ni] Failed to create scanner task: " << err;
+    //         return tasks;
+    //     }
+    //     auto [task, ok] = configureTask(ctx, sy_task);
+    //     if(!ok){
+    //         LOG(ERROR) << "[ni] Failed to configure scanner task: " << err;
+    //         return tasks;
+    //     }
+    //     tasks.emplace_back(std::pair<synnax::Task, std::unique_ptr<task::Task> > ({sy_task, std::move(task)}));
+    // }
     return tasks;
 }

@@ -72,6 +72,9 @@ struct Frame {
 
     void add(ChannelKey col, synnax::Series ser) const;
 
+    // implement the ostream operator
+    friend std::ostream &operator<<(std::ostream &os, const Frame &f);
+
     [[nodiscard]] size_t size() const { return series->size(); }
 };
 

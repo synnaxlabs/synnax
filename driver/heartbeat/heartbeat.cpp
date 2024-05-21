@@ -44,7 +44,6 @@ freighter::Error heartbeat::Heartbeat::startGuarded() {
 freighter::Error heartbeat::Heartbeat::stop() {
     if (!running) return freighter::NIL;
     running.wait(false);
-    LOG(INFO) << "[heartbeat] shutting down";
     running = false;
     run_thread.join();
     LOG(INFO) << "[heartbeat] shut down";
@@ -55,6 +54,7 @@ void heartbeat::Heartbeat::run(std::atomic<bool> &done) {
     const auto err = runGuarded();
     if (err.matches(freighter::UNREACHABLE) && breaker.wait(err)) return run(done);
     done = true;
+    done.notify_all();
     run_err = err;
 }
 
