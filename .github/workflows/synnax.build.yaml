@@ -83,7 +83,7 @@ jobs:
 
   create-release:
     runs-on: ubuntu-latest
-    # if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main'
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -108,7 +108,7 @@ jobs:
         run: echo "VERSION=$(cat pkg/version/VERSION)" >> $GITHUB_OUTPUT
 
       - name: Create Release
-        if: steps.filter.outputs.changed == 'true'
+        if: steps.filter.outputs.changed == 'true' && github.ref == 'refs/heads/main'
         id: create-release
         uses: softprops/action-gh-release@v1
         with:
@@ -117,76 +117,7 @@ jobs:
           draft: false
           prerelease: false
 
-  # build:
-  #   needs: create-release
-  #   if: github.ref == 'refs/heads/main'
-  #   strategy:
-  #     matrix:
-  #       platform: [ macos-latest, ubuntu-latest, windows-latest ]
-
-  #   runs-on: ${{ matrix.platform }}
-  #   steps:
-  #     - name: Checkout Repository
-  #       uses: actions/checkout@v3
-
-  #     - name: Determine OS
-  #       id: os
-  #       shell: bash
-  #       run: |
-  #         if [ "${{ matrix.platform }}" = "macos-latest" ]; then
-  #           echo "OS=macos" >> $GITHUB_OUTPUT
-  #         elif [ "${{ matrix.platform }}" = "ubuntu-latest" ]; then
-  #           echo "OS=linux" >> $GITHUB_OUTPUT
-  #         elif [ "${{ matrix.platform }}" = "windows-latest" ]; then
-  #           echo "OS=windows" >> $GITHUB_OUTPUT
-  #         fi
-
-  #     - name: Diff Changes
-  #       uses: dorny/paths-filter@v2
-  #       id: filter
-  #       with:
-  #         filters: |
-  #           changed:
-  #             - 'synnax/**'
-  #             - 'cesium/**'
-  #             - 'x/**'
-  #             - 'console/**'
-  #             - 'freighter/go/**'
-  #             - '.github/workflows/synnax.build.yaml'
-
-  #     - name: Set up Go
-  #       if: steps.filter.outputs.changed == 'true'
-  #       uses: actions/setup-go@v4
-  #       with:
-  #         go-version: 1.22
-
-  #     - name: Download Dependencies
-  #       if: steps.filter.outputs.changed == 'true'
-  #       working-directory: ./synnax
-  #       run: |
-  #         go mod download
-
-  #     - name: Get Version
-  #       if: steps.filter.outputs.changed == 'true'
-  #       id: version
-  #       working-directory: ./synnax
-  #       shell: bash
-  #       run: |
-  #         echo "VERSION=$(cat pkg/version/VERSION)" >> $GITHUB_OUTPUT
-
-  #     - name: Build
-  #       if: steps.filter.outputs.changed == 'true'
-  #       working-directory: ./synnax
-  #       run: |
-  #         go build -o synnax-v${{ steps.version.outputs.VERSION }}-${{ steps.os.outputs.OS }}
-
-  #     - name: Upload Release Asset
-  #       if: steps.filter.outputs.changed == 'true'
-  #       env:
-  #         GITHUB_TOKEN: ${{ github.token }}
-  #       run: gh release upload synnax-v${{ steps.version.outputs.VERSION }} ./synnax/synnax-v${{ steps.version.outputs.VERSION }}-${{ steps.os.outputs.OS }}
-
-  build-driver:
+  build:
     strategy:
       fail-fast: false
       matrix:
@@ -287,6 +218,7 @@ jobs:
           go build -tags driver -o synnax-driver-v${{ steps.version.outputs.VERSION }}-${{ steps.os.outputs.OS }}
 
       - name: Upload Release Asset
+        if:  github.ref == 'refs/heads/main'
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: gh release upload synnax-driver-v${{ steps.version.outputs.VERSION }} ./synnax/synnax-driver-v${{ steps.version.outputs.VERSION }}-${{ steps.os.outputs.OS }}

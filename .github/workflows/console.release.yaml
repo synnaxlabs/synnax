@@ -8,10 +8,8 @@ permissions:
 env:
   TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
   TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
-
 jobs:
   create-release:
-    # if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     outputs:
       release_id: ${{ steps.create-release.outputs.result }}
@@ -292,8 +290,8 @@ jobs:
                   url: darwinURL,
                 },
                 "linux-x86_64": {
-                  signature: "",
-                  url: "",
+                  signature: darwinSig.data,
+                  url: darwinURL,
                 },
                 "windows-x86_64": {
                   signature: ecd.decode(windowsSig.data),
@@ -312,4 +310,4 @@ jobs:
           default_author: github_actor
           message: "Auto Update JSON File"
           pull: "--commit --no-edit"
-          push: "origin synnax-20-rc --force"
+          push: "origin main --force"

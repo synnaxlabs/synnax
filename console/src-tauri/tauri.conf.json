@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/schema.json",
   "productName": "Synnax",
-  "version": "0.22.5",
+  "version": "0.22.8",
   "build": {
     "beforeBuildCommand": "pnpm build-vite",
     "beforeDevCommand": "pnpm dev-vite",
@@ -45,7 +45,7 @@
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEM4NDVGQTU1RTMxN0M3MjAKUldRZ3h4ZmpWZnBGeUpLeHNMdlE0aGNUcHZrU3M0REpxMGtJdmN2ZGs0OVBUQ0Nrb3Z5SFdacjEK",
       "endpoints": [
-        "https://raw.githubusercontent.com/synnaxlabs/synnax/synnax-20-rc/console/release-spec.json"
+        "https://raw.githubusercontent.com/synnaxlabs/synnax/main/console/release-spec.json"
       ]
     },
     "deep-link": {
