@@ -30,16 +30,7 @@ type Retrieve struct {
 	otg                       *ontology.Ontology
 	keys                      Keys
 	searchTerm                string
-	validateRetrievedChannels func(channels []Channel) ([]Channel, error)
-}
-
-func newRetrieve(tx gorp.Tx, otg *ontology.Ontology, validateRetrievedChannels func([]Channel) ([]Channel, error)) Retrieve {
-	return Retrieve{
-		gorp:                      gorp.NewRetrieve[Key, Channel](),
-		tx:                        tx,
-		otg:                       otg,
-		validateRetrievedChannels: validateRetrievedChannels,
-	}
+	validateRetrievedChannels func(ctx context.Context, channels []Channel) ([]Channel, error)
 }
 
 // Search sets the search term for the query. Note that the fuzzy search will be executed
@@ -138,7 +129,7 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 	err := r.gorp.Exec(ctx, gorp.OverrideTx(r.tx, tx))
 
 	entries := gorp.GetEntries[Key, Channel](r.gorp.Params).All()
-	channels, vErr := r.validateRetrievedChannels(entries)
+	channels, vErr := r.validateRetrievedChannels(ctx, entries)
 	gorp.SetEntries[Key, Channel](r.gorp.Params, &channels)
 	return errors.CombineErrors(err, vErr)
 }

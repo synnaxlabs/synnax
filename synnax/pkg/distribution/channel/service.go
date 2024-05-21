@@ -63,7 +63,6 @@ type ServiceConfig struct {
 	Ontology         *ontology.Ontology
 	Group            *group.Service
 	IntOverflowCheck func(ctx context.Context, count types.Uint20) error
-	GetChannelCount  func() (int, error)
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -75,7 +74,6 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "TSChannel", c.TSChannel)
 	validate.NotNil(v, "Transport", c.Transport)
 	validate.NotNil(v, "IntOverflowCheck", c.IntOverflowCheck)
-	validate.NotNil(v, "GetChannelCount", c.GetChannelCount)
 	return v.Error()
 }
 
@@ -87,7 +85,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
 	c.IntOverflowCheck = override.Nil(c.IntOverflowCheck, other.IntOverflowCheck)
-	c.GetChannelCount = override.Nil(c.GetChannelCount, other.GetChannelCount)
 	return c
 }
 
@@ -129,26 +126,24 @@ func (s *service) NewWriter(tx gorp.Tx) Writer {
 }
 
 func (s *service) NewRetrieve() Retrieve {
-	return newRetrieve(s.DB, s.otg, s.validateChannels)
+	return Retrieve{
+		gorp:                      gorp.NewRetrieve[Key, Channel](),
+		tx:                        s.DB,
+		otg:                       s.otg,
+		validateRetrievedChannels: s.validateChannels,
+	}
 }
 
-func (s *service) validateChannels(channels []Channel) ([]Channel, error) {
-	maxAllowed, err := s.proxy.GetChannelCount()
-	if err == nil {
-		return channels, nil
-	}
-	var vErr error = nil
-	keys := KeysFromChannels(channels)
-	returnedChannels := make([]Channel, 0, len(channels))
-	for i, key := range keys {
+func (s *service) validateChannels(ctx context.Context, channels []Channel) (res []Channel, err error) {
+	res = make([]Channel, 0, len(channels))
+	for i, key := range KeysFromChannels(channels) {
 		deletedCount := s.proxy.deleted.NumLessThan(key.LocalKey())
 		internalCount := s.proxy.internal.NumLessThan(key.LocalKey())
 		keyNumber := key.LocalKey() - deletedCount - internalCount
-		if keyNumber < LocalKey(maxAllowed) {
-			returnedChannels = append(returnedChannels, channels[i])
-		} else {
-			vErr = err
+		if err = s.proxy.IntOverflowCheck(ctx, types.Uint20(keyNumber)); err != nil {
+			return
 		}
+		res = append(res, channels[i])
 	}
-	return returnedChannels, vErr
+	return
 }

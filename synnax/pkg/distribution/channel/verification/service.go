@@ -39,7 +39,10 @@ var (
 		WarningTime:   7 * 24 * time.Hour,
 		CheckInterval: 24 * time.Hour,
 	}
-	errStale, errFree error
+	errStale = errors.New(decode("dXNpbmcgYW4gZXhwaXJlZCBwcm9kdWN0IGxpY2Vuc2Uga2V5LCB1c2UgaXMgbGltaXRlZCB0byB0aGUgZmlyc3Qg") +
+		strconv.Itoa(freeCount) + decode("IGNoYW5uZWxz"))
+	errFree = errors.New(decode("dXNpbmcgbW9yZSB0aGFuIA==") + strconv.Itoa(freeCount) +
+		decode("IGNoYW5uZWxzIHdpdGhvdXQgYSBwcm9kdWN0IGxpY2Vuc2Uga2V5"))
 )
 
 func (c Config) Validate() error {
@@ -81,7 +84,7 @@ func OpenService(toOpen string, cfgs ...Config) (*Service, error) {
 	if err != nil {
 		return service, err
 	}
-	sCtx.Go(service.logValidation)
+	sCtx.Go(service.logTheDog)
 
 	return service, err
 }
@@ -93,7 +96,6 @@ func (s *Service) Close() error {
 
 func (s *Service) IsOverflowed(ctx context.Context, inUse types.Uint20) error {
 	key, err := s.retrieve(ctx)
-
 	if err != nil {
 		if inUse > freeCount {
 			return errFree
@@ -115,22 +117,6 @@ func (s *Service) IsOverflowed(ctx context.Context, inUse types.Uint20) error {
 	return nil
 }
 
-func (s *Service) IsExpired(ctx context.Context) error {
-	retrieved, err := s.retrieve(ctx)
-	if err != nil {
-		return errFree
-
-	}
-	if whenStale(retrieved).Before(time.Now()) {
-		return errStale
-	}
-	return nil
-}
-
-func (s *Service) GetNumBeforeOverflow() int {
-	return freeCount
-}
-
 func (s *Service) create(ctx context.Context, toCreate string) error {
 	err := validateInput(toCreate)
 	if err != nil {
@@ -144,13 +130,12 @@ func (s *Service) retrieve(ctx context.Context) (string, error) {
 	return string(key), err
 }
 
-func (s *Service) logValidation(ctx context.Context) error {
-
+func (s *Service) logTheDog(ctx context.Context) error {
 	key, err := s.retrieve(ctx)
 	if err != nil {
 		return err
 	}
-	whenStale := whenStale(key)
+	staleTime := whenStale(key)
 	ticker := time.NewTicker(s.CheckInterval)
 	defer ticker.Stop()
 
@@ -159,10 +144,10 @@ func (s *Service) logValidation(ctx context.Context) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-ticker.C:
-			if whenStale.Before(time.Now()) {
+			if staleTime.Before(time.Now()) {
 				s.Ins.L.Error(decode("TGljZW5zZSBrZXkgZXhwaXJlZC4gQWNjZXNzIGhhcyBiZWVuIGxpbWl0ZWQu"),
-					zap.String("ZXhwaXJlZEF0", whenStale.String()))
-			} else if timeLeft := time.Until(whenStale); timeLeft <= s.WarningTime {
+					zap.String("ZXhwaXJlZEF0", staleTime.String()))
+			} else if timeLeft := time.Until(staleTime); timeLeft <= s.WarningTime {
 				s.Ins.L.Warn(decode("TGljZW5zZSBrZXkgd2lsbCBleHBpcmUgc29vbi4gQWNjZXNzIHdpbGwgYmUgbGltaXRlZC4="),
 					zap.String(decode("ZXhwaXJlc0lu"), timeLeft.String()))
 			} else {
@@ -177,13 +162,4 @@ func errTooMany(count int) error {
 	msg := decode("dXNpbmcgbW9yZSB0aGFuIA==") + strconv.Itoa(count) +
 		decode("IGNoYW5uZWxzIGFsbG93ZWQ=")
 	return errors.New(msg)
-}
-
-func init() {
-	msg := decode("dXNpbmcgYW4gZXhwaXJlZCBwcm9kdWN0IGxpY2Vuc2Uga2V5LCB1c2UgaXMgbGltaXRlZCB0byB0aGUgZmlyc3Qg") +
-		strconv.Itoa(freeCount) + decode("IGNoYW5uZWxz")
-	errStale = errors.New(msg)
-	msg = decode("dXNpbmcgbW9yZSB0aGFuIA==") + strconv.Itoa(freeCount) +
-		decode("IGNoYW5uZWxzIHdpdGhvdXQgYSBwcm9kdWN0IGxpY2Vuc2Uga2V5")
-	errFree = errors.New(msg)
 }
