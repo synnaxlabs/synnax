@@ -21,8 +21,8 @@ export const componentRenderProp =
     Component: React.ComponentType<P>,
   ): RenderProp<P, R> =>
   // eslint-disable-next-line react/display-name
-  (props) =>
-    (<Component {...props} />) as R;
+  ({ key, ...props }) =>
+    (<Component key={key} {...(props as P)} />) as R;
 
 export const isRenderProp = <P extends Record<string, any>>(
   children: React.ReactNode | RenderProp<P>,

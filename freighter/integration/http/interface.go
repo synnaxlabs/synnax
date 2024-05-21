@@ -38,10 +38,6 @@ func (t TestError) Error() string {
 	return t.Message
 }
 
-func (t TestError) FreighterType() errors.Type {
-	return "integration.error"
-}
-
 func encodeTestError(_ context.Context, err error) (errors.Payload, bool) {
 	var te TestError
 	ok := errors.As(err, &te)

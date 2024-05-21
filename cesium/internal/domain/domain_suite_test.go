@@ -11,7 +11,7 @@ package domain_test
 
 import (
 	"context"
-	"github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/cesium/internal/testutil"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"

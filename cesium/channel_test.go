@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/core"
+	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -93,7 +94,8 @@ var _ = Describe("Channel", Ordered, func() {
 					Expect(err).ToNot(HaveOccurred())
 
 					_, err = cesium.Open("", cesium.WithFS(s))
-					Expect(err).To(HaveOccurredAs(validate.Error))
+					Expect(err).To(HaveOccurred())
+					Expect(err.Error()).To(ContainSubstring("field must be set"))
 				})
 
 				It("Should not error when db gets created with proper numeric folders", func() {

@@ -7,6 +7,9 @@ on:
     paths:
       - ".github/workflows/freighter.test.yaml"
   workflow_dispatch:
+permissions:
+  contents: write
+  packages: write
 jobs:
   test-go:
     runs-on: ubuntu-latest
@@ -206,14 +209,5 @@ jobs:
           repository-cache: true
 
       - name: Run Tests
-        run: bazel test //freighter/cpp/freighter:freighter_test
+        run: bazel test //freighter/cpp:freighter_test
         shell: bash
-#    services:
-#      integration:
-#        image: ghcr.io/synnaxlabs/freighter-go-integration:latest
-#        credentials:
-#          username: ${{ github.actor }}
-#          password: ${{ secrets.GITHUB_TOKEN }}
-#        ports:
-#          - 8080:8080
-

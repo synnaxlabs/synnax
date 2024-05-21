@@ -51,11 +51,11 @@ var _ = Describe("WriterBehavior", Ordered, func() {
 		Context("FS: "+fsName, func() {
 			var db *domain.DB
 			BeforeEach(func() {
-				db = MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub("testdata"))}))
+				db = MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub(testDataPath))}))
 			})
 			AfterEach(func() {
 				Expect(db.Close()).To(Succeed())
-				Expect(fs.Remove("testdata")).To(Succeed())
+				Expect(fs.Remove(testDataPath)).To(Succeed())
 			})
 			AfterAll(func() { Expect(cleanUp()).To(Succeed()) })
 			Describe("Happiest of paths", func() {
@@ -98,7 +98,7 @@ var _ = Describe("WriterBehavior", Ordered, func() {
 			Describe("CheckFileSizeAndMaybeSwitchFile", func() {
 				Context("No preset end", func() {
 					It("Should start writing to a new file when one file is full", func() {
-						db2 := MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub(rootPath)), FileSize: 10 * telem.ByteSize}))
+						db2 := MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub(testDataPath)), FileSize: 10 * telem.ByteSize}))
 
 						By("Writing some telemetry")
 						w := MustSucceed(db2.NewWriter(ctx, domain.WriterConfig{Start: 1 * telem.SecondTS}))
@@ -148,7 +148,7 @@ var _ = Describe("WriterBehavior", Ordered, func() {
 					})
 
 					It("Should work when the file size exceeds the limit by just 1", func() {
-						db2 := MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub(rootPath)), FileSize: 4 * telem.ByteSize}))
+						db2 := MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub(testDataPath)), FileSize: 4 * telem.ByteSize}))
 
 						By("Writing some telemetry")
 						w := MustSucceed(db2.NewWriter(ctx, domain.WriterConfig{Start: 1 * telem.SecondTS}))
@@ -190,7 +190,7 @@ var _ = Describe("WriterBehavior", Ordered, func() {
 
 				Context("With preset end", func() {
 					It("Should start writing to a new file when one file is full", func() {
-						db2 := MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub(rootPath)), FileSize: 10 * telem.ByteSize}))
+						db2 := MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub(testDataPath)), FileSize: 10 * telem.ByteSize}))
 
 						By("Writing some telemetry")
 						w := MustSucceed(db2.NewWriter(ctx, domain.WriterConfig{Start: 1 * telem.SecondTS, End: 100 * telem.SecondTS}))

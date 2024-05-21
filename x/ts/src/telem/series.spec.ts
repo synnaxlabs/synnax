@@ -610,7 +610,7 @@ describe("Series", () => {
         data: new Float32Array([1, 2, 3]),
         timeRange: new TimeRange(1, 3),
       }).digest;
-      expect(digest.alignment).toEqual({ lower: 0, upper: 3 });
+      expect(digest.alignment).toEqual({ lower: 0n, upper: 3n });
       expect(digest.dataType).toEqual("float32");
       expect(digest.length).toEqual(3);
       expect(digest.timeRange).toEqual(new TimeRange(1, 3).toString());

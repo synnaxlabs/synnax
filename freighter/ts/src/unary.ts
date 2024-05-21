@@ -25,7 +25,7 @@ export interface UnaryClient extends Transport {
   send: <RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>(
     target: string,
     req: z.input<RQ> | z.output<RQ>,
-    reqSchema: RQ ,
+    reqSchema: RQ,
     resSchema: RS,
   ) => Promise<[z.output<RS>, null] | [null, Error]>;
 }

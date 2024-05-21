@@ -22,21 +22,21 @@ export type TextProps<L extends Core.Level> = Core.KeyboardProps<L> & {
 export const toSymbols = (trigger: Trigger): (ReactElement | string)[] =>
   trigger.map((t) => CUSTOM_TEXT[t] ?? t);
 
-const CUSTOM_TEXT: Partial<Record<Key, ReactElement | string>> = {
-  Control: <Core.Symbols.Meta />,
-  Alt: <Core.Symbols.Alt />,
-  Shift: <Icon.Keyboard.Shift />,
-  MouseLeft: "Left Click",
-  MouseRight: "Right Click",
-  MouseMiddle: "Middle Click",
-  Enter: <Icon.Keyboard.Return />,
-};
 export const Text = <L extends Core.Level>({
   className,
   style,
   trigger,
   ...props
 }: TextProps<L>): ReactElement => {
+  const CUSTOM_TEXT: Partial<Record<Key, ReactElement | string>> = {
+    Control: <Core.Symbols.Meta />,
+    Alt: <Core.Symbols.Alt />,
+    Shift: <Icon.Keyboard.Shift />,
+    MouseLeft: "Left Click",
+    MouseRight: "Right Click",
+    MouseMiddle: "Middle Click",
+    Enter: <Icon.Keyboard.Return />,
+  };
   return (
     <Align.Space className={className} style={style} direction="x">
       {trigger.map((t) => (

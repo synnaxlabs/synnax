@@ -182,7 +182,7 @@ export class Unreachable extends BaseTypedError implements TypedError {
 
 const freighterErrorEncoder: ErrorEncoder = (error: TypedError) => {
   if (error.type !== FREIGHTER) return null;
-  if (error instanceof EOF) return { type: FREIGHTER_ERROR_TYPE, data: "EOF" };
+  if (error instanceof EOF) return { type: EOF.TYPE, data: "EOF" };
   if (error instanceof StreamClosed)
     return { type: StreamClosed.TYPE, data: "StreamClosed" };
   if (error instanceof Unreachable)
