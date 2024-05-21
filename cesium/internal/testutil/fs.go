@@ -2,6 +2,7 @@ package testutil
 
 import (
 	xfs "github.com/synnaxlabs/x/io/fs"
+	. "github.com/synnaxlabs/x/testutil"
 	"os"
 )
 
