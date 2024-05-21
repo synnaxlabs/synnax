@@ -12,6 +12,9 @@ package state
 import (
 	"context"
 	"encoding/binary"
+	"io"
+	"sync"
+
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
@@ -28,8 +31,6 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
-	"io"
-	"sync"
 )
 
 type Rack struct {
@@ -120,18 +121,21 @@ func OpenTracker(ctx context.Context, configs ...TrackerConfig) (t *Tracker, err
 				DataType:    telem.Uint64T,
 				Leaseholder: cfg.HostProvider.HostKey(),
 				Virtual:     true,
+				Internal:    true,
 			},
 			{
 				Name:        "sy_task_state",
 				DataType:    telem.JSONT,
 				Leaseholder: cfg.HostProvider.HostKey(),
 				Virtual:     true,
+				Internal:    true,
 			},
 			{
 				Name:        "sy_task_cmd",
 				DataType:    telem.JSONT,
 				Leaseholder: cfg.HostProvider.HostKey(),
 				Virtual:     true,
+				Internal:    true,
 			},
 		},
 	); err != nil {
