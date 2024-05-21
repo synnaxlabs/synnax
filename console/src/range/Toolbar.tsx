@@ -43,6 +43,6 @@ export const Toolbar: Layout.NavDrawerItem = {
   content: <Content />,
   tooltip: "Ranges",
   initialSize: 300,
-  minSize: 225,
+  minSize: 175,
   maxSize: 400,
 };
