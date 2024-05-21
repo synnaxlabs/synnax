@@ -11,6 +11,7 @@ package mock
 
 import (
 	"context"
+
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -27,6 +28,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	tmock "github.com/synnaxlabs/synnax/pkg/distribution/transport/mock"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/types"
 )
 
 type Builder struct {
@@ -80,8 +82,7 @@ func (b *Builder) New(ctx context.Context) distribution.Distribution {
 		Transport:        b.channelNet.New(d.Config.AdvertiseAddress),
 		Ontology:         d.Ontology,
 		Group:            d.Group,
-		IntOverflowCheck: func(count int64) error { return nil },
-		GetChannelCount:  func() (int, error) { return 50, nil },
+		IntOverflowCheck: func(ctx context.Context, count types.Uint20) error { return nil },
 	}))
 
 	d.Framer = lo.Must(framer.Open(framer.Config{
