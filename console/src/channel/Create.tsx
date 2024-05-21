@@ -32,7 +32,7 @@ export const createLayout: Layout.State = {
   key: CREATE_LAYOUT_TYPE,
   type: CREATE_LAYOUT_TYPE,
   windowKey: CREATE_LAYOUT_TYPE,
-  name: "Create Channel",
+  name: "Create a Channel",
   location: "window",
   window: {
     resizable: false,
