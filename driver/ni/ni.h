@@ -361,6 +361,7 @@ namespace ni{
         void start();
         void stop();
         bool ok();
+        ~ScannerTask();
     private:
         std::atomic<bool> running = false;
         ni::Scanner scanner;
@@ -436,7 +437,6 @@ namespace ni{
 
         ~Factory() = default;
 
-        std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task> > > tasks;
     };
 }
 

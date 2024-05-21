@@ -62,7 +62,7 @@ freighter::Error task::Manager::startGuarded() {
     auto [task_cmd, task_cmd_err] = ctx->client->channels.retrieve(TASK_CMD_CHANNEL);
     task_cmd_channel = task_cmd;
 
-    // // Retrieve all of the tasks that are already configured and start them.
+    // Retrieve all of the tasks that are already configured and start them.
     LOG(INFO) << "[task.manager] pulling and configuring existing tasks from Synnax";
     auto [tasks, tasks_err] = rack.tasks.list();
     if (tasks_err) return tasks_err;

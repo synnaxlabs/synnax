@@ -28,7 +28,6 @@ driver::Driver::Driver(
 const std::string VERSION = "0.1.0";
 
 freighter::Error driver::Driver::run() {
-    std::atomic done = false;
     auto err = task_manager.start(done);
     if (err) return err;
     err = heartbeat.start(done);

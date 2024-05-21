@@ -36,7 +36,7 @@ static const int64_t UNIX_EPOCH_START_1601 = 11644473600LL; // Seconds from 1601
 static const int64_t HUNDRED_NANOSECOND_INTERVALS_PER_SECOND = 10000000LL; // 100-nanosecond intervals per second
 
 // Function to convert UA_DateTime to Unix timestamp in nanoseconds
-int64_t ua_datetime_to_unix_nano(UA_DateTime dateTime) {
+inline int64_t ua_datetime_to_unix_nano(UA_DateTime dateTime) {
     int64_t unixEpochStartIn100NanoIntervals = UNIX_EPOCH_START_1601 * HUNDRED_NANOSECOND_INTERVALS_PER_SECOND;
     return (dateTime - unixEpochStartIn100NanoIntervals) * 100;
 }
