@@ -120,7 +120,6 @@ func Open(ctx context.Context, cfg Config) (d Distribution, err error) {
 		Ontology:         d.Ontology,
 		Group:            d.Group,
 		IntOverflowCheck: ver.IsOverflowed,
-		GetChannelCount:  func() (int, error) { return ver.GetNumBeforeOverflow(), ver.IsExpired(ctx) },
 	})
 	if err != nil {
 		return d, err

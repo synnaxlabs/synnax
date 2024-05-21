@@ -11,6 +11,8 @@ package api
 
 import (
 	"context"
+	"go/types"
+
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
@@ -20,7 +22,6 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
-	"go/types"
 )
 
 // Channel is an API-friendly version of the channel.Channel type. It is simplified for
@@ -75,6 +76,9 @@ func (s *ChannelService) Create(
 	if err != nil {
 		return res, err
 	}
+	for i := range translated {
+		translated[i].Internal = false
+	}
 	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
 		err := s.internal.NewWriter(tx).CreateMany(ctx, &translated)
 		res.Channels = translateChannelsForward(translated)
@@ -98,11 +102,17 @@ type ChannelRetrieveRequest struct {
 	// Limit limits the number of results returned.
 	Limit int `json:"limit" msgpack:"limit"`
 	// Offset offsets the results returned.
-	Offset       int              `json:"offset" msgpack:"offset"`
-	DataTypes    []telem.DataType `json:"data_types" msgpack:"data_types"`
+	Offset int `json:"offset" msgpack:"offset"`
+	// DataTypes filters for channels whose DataType attribute matches the provided data types.
+	DataTypes []telem.DataType `json:"data_types" msgpack:"data_types"`
+	// NotDataTypes filters for channels whose DataType attribute does not match the provided data types.
 	NotDataTypes []telem.DataType `json:"not_data_types" msgpack:"not_data_types"`
-	Virtual      *bool            `json:"virtual" msgpack:"virtual"`
-	IsIndex      *bool            `json:"is_index" msgpack:"is_index"`
+	// Virtual filters for channels that are virtual if true, or are not virtual if false.
+	Virtual *bool `json:"virtual" msgpack:"virtual"`
+	// IsIndex filters for channels that are indexes if true, or are not indexes if false.
+	IsIndex *bool `json:"is_index" msgpack:"is_index"`
+	// Internal filters for channels that are internal if true, or are not internal if false.
+	Internal *bool `json:"internal" msgpack:"internal"`
 }
 
 // ChannelRetrieveResponse is the response for a ChannelRetrieveRequest.
@@ -178,16 +188,16 @@ func (s *ChannelService) Retrieve(
 	if req.IsIndex != nil {
 		q = q.WhereIsIndex(*req.IsIndex)
 	}
-
+	if req.Internal != nil {
+		q = q.WhereInternal(*req.Internal)
+	}
 	err := q.Exec(ctx, nil)
-
 	if len(aliasChannels) > 0 {
 		aliasKeys := channel.KeysFromChannels(aliasChannels)
 		resChannels = append(aliasChannels, lo.Filter(resChannels, func(ch channel.Channel, i int) bool {
 			return !aliasKeys.Contains(ch.Key())
 		})...)
 	}
-
 	oChannels := translateChannelsForward(resChannels)
 	if resRng.Key != uuid.Nil {
 		for i, ch := range resChannels {

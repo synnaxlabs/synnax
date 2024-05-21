@@ -25,6 +25,7 @@ export interface SelectMultipleAxesInputItemProps
 
 const SEARCH_OPTIONS: channel.RetrieveOptions = {
   notDataTypes: ["string", "json", "uuid"],
+  internal: false,
 };
 
 export const SelectMultipleAxesInputItem = ({

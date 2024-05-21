@@ -34,6 +34,7 @@ import { useClickOutside, useResize, useCombinedRefs, useSyncedRef } from "@/hoo
 import { Triggers } from "@/triggers";
 
 import "@/dropdown/Dropdown.css";
+import { ComponentSize } from "@/util/component";
 
 /** Props for the {@link use} hook. */
 export interface UseProps {
@@ -89,6 +90,7 @@ export interface DialogProps
   children: [ReactNode, ReactNode];
   keepMounted?: boolean;
   variant?: "connected" | "floating" | "modal";
+  maxHeight?: ComponentSize | number;
 }
 
 interface State {
@@ -119,6 +121,7 @@ export const Dialog = ({
   className,
   variant = "connected",
   close,
+  maxHeight,
   // It's common to pass these in, so we'll destructure and ignore them so we don't
   // get an invalid prop on div tag error.
   open: _o,
@@ -158,6 +161,9 @@ export const Dialog = ({
     dialogStyle = { ...xy.css(box.topLeft(dialogBox)) };
     if (variant === "connected") dialogStyle.width = box.width(dialogBox);
   }
+  if (typeof maxHeight === "number") {
+    dialogStyle.maxHeight = maxHeight;
+  }
 
   const C = variant === "connected" ? Align.Pack : Align.Space;
 
@@ -176,6 +182,7 @@ export const Dialog = ({
         CSS.loc(dialogLoc.y),
         CSS.visible(visible),
         CSS.M(variant),
+        typeof maxHeight === "string" && CSS.B(`height-${maxHeight}`),
       )}
       role="dialog"
       empty

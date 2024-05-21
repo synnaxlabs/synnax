@@ -179,6 +179,16 @@ var _ = Describe("Retrieve", Ordered, func() {
 			).To(Succeed())
 			Expect(res).To(Equal([]entry{entries[1], entries[2]}))
 		})
+		It("Should require a filter to match when gorp.Required()", func() {
+			var res []entry
+			Expect(gorp.NewRetrieve[int, entry]().
+				Entries(&res).
+				Where(func(e *entry) bool { return e.ID == entries[1].ID }, gorp.Required()).
+				Where(func(e *entry) bool { return e.ID == entries[2].ID }).
+				Exec(ctx, tx),
+			).To(Succeed())
+			Expect(res).To(Equal([]entry{entries[1]}))
+		})
 		It("Should NOT return a query.NamesNotFound error if no entries are found", func() {
 			var res []entry
 			Expect(gorp.NewRetrieve[int, entry]().

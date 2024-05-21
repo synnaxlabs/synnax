@@ -13,7 +13,6 @@ package task
 
 import (
 	"context"
-	"fmt"
 	"io"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -53,7 +52,6 @@ func (c Config) Override(other Config) Config {
 	c.Rack = override.Nil(c.Rack, other.Rack)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.HostProvider = override.Nil(c.HostProvider, other.HostProvider)
-	c.Channel = override.Nil(c.Channel, other.Channel)
 	return c
 }
 
@@ -87,35 +85,9 @@ func OpenService(ctx context.Context, configs ...Config) (s *Service, err error)
 	}
 	s = &Service{Config: cfg, group: g}
 	cfg.Ontology.RegisterService(s)
-
-	if cfg.Channel != nil {
-		hostKey := cfg.HostProvider.HostKey()
-		channels := &[]channel.Channel{
-			{
-				Name:        fmt.Sprintf("sy_node_%s_task_cmd", hostKey),
-				DataType:    telem.JSONT,
-				Virtual:     true,
-				Leaseholder: hostKey,
-				Internal:    true,
-			},
-			{
-				Name:        fmt.Sprintf("sy_node_%s_task_state", hostKey),
-				DataType:    telem.JSONT,
-				Virtual:     true,
-				Leaseholder: hostKey,
-				Internal:    true,
-			},
-		}
-		err = cfg.Channel.CreateManyIfNamesDontExist(ctx, channels)
-		if err != nil {
-			return
-		}
-	}
-
 	if cfg.Signals == nil {
 		return
 	}
-
 	cdcS, err := signals.PublishFromGorp(ctx, cfg.Signals, signals.GorpPublisherConfigPureNumeric[Key, Task](cfg.DB, telem.Uint64T))
 	if err != nil {
 		return

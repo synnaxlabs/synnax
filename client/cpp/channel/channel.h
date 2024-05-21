@@ -61,8 +61,13 @@ public:
     bool is_index = false;
     /// @brief The leaseholder of the channel.
     std::uint32_t leaseholder = 0;
-    //
+    /// @brief Whether the channel is virtual. Virtual channels are not stored in the
+    /// Synnax database, and are purely used for streaming and communication purposes.
     bool is_virtual = false;
+    /// @brief Whether the channel is an internal channel. Internal channels are created
+    /// by the DB and generally should not be interacted with unless you know what you're
+    /// doing.
+    bool internal = false;
 
     /// @brief constructs an empty, invalid channel.
     Channel() = default;

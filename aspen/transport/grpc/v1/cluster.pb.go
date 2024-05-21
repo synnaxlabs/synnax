@@ -401,7 +401,7 @@ var file_aspen_transport_grpc_v1_cluster_proto_goTypes = []interface{}{
 	nil,                   // 5: aspen.v1.ClusterGossip.DigestsEntry
 	nil,                   // 6: aspen.v1.ClusterGossip.NodesEntry
 }
-var file_aspen_transport_grpc_v1_cluster_proto_deschematicxs = []int32{
+var file_aspen_transport_grpc_v1_cluster_proto_depIdxs = []int32{
 	1, // 0: aspen.v1.Node.heartbeat:type_name -> aspen.v1.Heartbeat
 	1, // 1: aspen.v1.NodeDigest.heartbeat:type_name -> aspen.v1.Heartbeat
 	5, // 2: aspen.v1.ClusterGossip.digests:type_name -> aspen.v1.ClusterGossip.DigestsEntry
@@ -497,11 +497,11 @@ func file_aspen_transport_grpc_v1_cluster_proto_init() {
 			NumServices:   2,
 		},
 		GoTypes:           file_aspen_transport_grpc_v1_cluster_proto_goTypes,
-		DependencyIndexes: file_aspen_transport_grpc_v1_cluster_proto_deschematicxs,
+		DependencyIndexes: file_aspen_transport_grpc_v1_cluster_proto_depIdxs,
 		MessageInfos:      file_aspen_transport_grpc_v1_cluster_proto_msgTypes,
 	}.Build()
 	File_aspen_transport_grpc_v1_cluster_proto = out.File
 	file_aspen_transport_grpc_v1_cluster_proto_rawDesc = nil
 	file_aspen_transport_grpc_v1_cluster_proto_goTypes = nil
-	file_aspen_transport_grpc_v1_cluster_proto_deschematicxs = nil
+	file_aspen_transport_grpc_v1_cluster_proto_depIdxs = nil
 }

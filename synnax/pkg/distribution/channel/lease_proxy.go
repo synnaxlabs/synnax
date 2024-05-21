@@ -30,6 +30,7 @@ type leaseProxy struct {
 	freeCounter     *counter
 	externalCounter *counter
 	group           group.Group
+	internalGroup   group.Group
 	deleted         *set.Integer[LocalKey]
 	internal        *set.Integer[LocalKey]
 }
@@ -38,7 +39,11 @@ const leasedCounterSuffix = ".distribution.channel.leasedCounter"
 const freeCounterSuffix = ".distribution.channel.counter.free"
 const externalCounterSuffix = ".distribution.channel.externalCounter"
 
-func newLeaseProxy(cfg ServiceConfig, g group.Group) (*leaseProxy, error) {
+func newLeaseProxy(
+	cfg ServiceConfig,
+	mainGroup group.Group,
+	internalGroup group.Group,
+) (*leaseProxy, error) {
 	leasedCounterKey := []byte(cfg.HostResolver.HostKey().String() + leasedCounterSuffix)
 	c, err := openCounter(context.TODO(), cfg.ClusterDB, leasedCounterKey)
 	if err != nil {
@@ -54,8 +59,9 @@ func newLeaseProxy(cfg ServiceConfig, g group.Group) (*leaseProxy, error) {
 		createRouter:    proxy.BatchFactory[Channel]{Host: cfg.HostResolver.HostKey()},
 		deleteRouter:    proxy.BatchFactory[Key]{Host: cfg.HostResolver.HostKey()},
 		leasedCounter:   c,
-		group:           g,
+		group:           mainGroup,
 		externalCounter: extCtr,
+		internalGroup:   internalGroup,
 		deleted:         &set.Integer[LocalKey]{},
 		internal:        &set.Integer[LocalKey]{},
 	}
@@ -239,18 +245,32 @@ func (lp *leaseProxy) maybeSetResources(
 	if lp.Ontology == nil || lp.Group == nil {
 		return nil
 	}
-	ids := lo.Map(channels, func(ch Channel, _ int) ontology.ID {
-		return OntologyID(ch.Key())
+	externIds := lo.FilterMap(channels, func(ch Channel, _ int) (ontology.ID, bool) {
+		return OntologyID(ch.Key()), !ch.Internal
+	})
+	internalIds := lo.FilterMap(channels, func(ch Channel, _ int) (ontology.ID, bool) {
+		return OntologyID(ch.Key()), ch.Internal
 	})
 	w := lp.Ontology.NewWriter(txn)
-	if err := w.DefineManyResources(ctx, ids); err != nil {
+	if err := w.DefineManyResources(ctx, externIds); err != nil {
+		return err
+	}
+	if err := w.DefineManyResources(ctx, internalIds); err != nil {
+		return err
+	}
+	if err := w.DefineFromOneToManyRelationships(
+		ctx,
+		group.OntologyID(lp.group.Key),
+		ontology.ParentOf,
+		externIds,
+	); err != nil {
 		return err
 	}
 	return w.DefineFromOneToManyRelationships(
 		ctx,
-		group.OntologyID(lp.group.Key),
+		group.OntologyID(lp.internalGroup.Key),
 		ontology.ParentOf,
-		ids,
+		internalIds,
 	)
 }
 

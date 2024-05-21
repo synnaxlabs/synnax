@@ -100,6 +100,7 @@ export const SelectMultiple = ({
     () =>
       client?.channels.newSearcherWithOptions({
         rangeKey: activeRange,
+        internal: false,
         ...memoSearchOptions,
       }),
     [client, activeRange, memoSearchOptions],
@@ -204,6 +205,7 @@ export const SelectSingle = ({
     if (data != null && data.length > 0) return undefined;
     return client?.channels.newSearcherWithOptions({
       rangeKey: activeRange,
+      internal: false,
       ...memoSearchOptions,
     });
   }, [client, activeRange, data?.length, memoSearchOptions]);

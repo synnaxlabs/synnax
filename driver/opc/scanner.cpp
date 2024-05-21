@@ -41,7 +41,7 @@ void Scanner::exec(task::Command &cmd) {
 static UA_StatusCode nodeIter(UA_NodeId child_id, UA_Boolean is_inverse,
                               UA_NodeId reference_type_id, void *handle);
 
-const int MAX_DEPTH = 2;
+const int MAX_DEPTH = 3;
 
 struct ScanContext {
     std::shared_ptr<UA_Client> client;

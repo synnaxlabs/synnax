@@ -283,7 +283,7 @@ var file_synnax_pkg_distribution_transport_grpc_channel_v1_channel_proto_goTypes
 	(*Channel)(nil),       // 2: channel.v1.Channel
 	(*emptypb.Empty)(nil), // 3: google.protobuf.Empty
 }
-var file_synnax_pkg_distribution_transport_grpc_channel_v1_channel_proto_deschematicxs = []int32{
+var file_synnax_pkg_distribution_transport_grpc_channel_v1_channel_proto_depIdxs = []int32{
 	2, // 0: channel.v1.CreateMessage.channels:type_name -> channel.v1.Channel
 	0, // 1: channel.v1.ChannelCreateService.Exec:input_type -> channel.v1.CreateMessage
 	1, // 2: channel.v1.ChannelDeleteService.Exec:input_type -> channel.v1.DeleteRequest
@@ -350,11 +350,11 @@ func file_synnax_pkg_distribution_transport_grpc_channel_v1_channel_proto_init()
 			NumServices:   2,
 		},
 		GoTypes:           file_synnax_pkg_distribution_transport_grpc_channel_v1_channel_proto_goTypes,
-		DependencyIndexes: file_synnax_pkg_distribution_transport_grpc_channel_v1_channel_proto_deschematicxs,
+		DependencyIndexes: file_synnax_pkg_distribution_transport_grpc_channel_v1_channel_proto_depIdxs,
 		MessageInfos:      file_synnax_pkg_distribution_transport_grpc_channel_v1_channel_proto_msgTypes,
 	}.Build()
 	File_synnax_pkg_distribution_transport_grpc_channel_v1_channel_proto = out.File
 	file_synnax_pkg_distribution_transport_grpc_channel_v1_channel_proto_rawDesc = nil
 	file_synnax_pkg_distribution_transport_grpc_channel_v1_channel_proto_goTypes = nil
-	file_synnax_pkg_distribution_transport_grpc_channel_v1_channel_proto_deschematicxs = nil
+	file_synnax_pkg_distribution_transport_grpc_channel_v1_channel_proto_depIdxs = nil
 }

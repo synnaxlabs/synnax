@@ -35,11 +35,18 @@ const std::string RETRIEVE_RACK_ENDPOINT = "/hardware/rack/retrieve";
 const std::string CREATE_RACK_ENDPOINT = "/hardware/rack/create";
 
 std::pair<Rack, freighter::Error> HardwareClient::retrieveRack(
-    const std::uint32_t key) const {
+    const std::uint32_t key
+) const {
     auto req = api::v1::HardwareRetrieveRackRequest();
     req.add_keys(key);
     auto [res, err] = rack_retrieve_client->send(RETRIEVE_RACK_ENDPOINT, req);
     if (err) return {Rack(), err};
+    if (res.racks_size() == 0)
+        return {
+            Rack(),
+            freighter::Error(synnax::NOT_FOUND,
+                             "Rack matching" + std::to_string(key) + " not found")
+        };
     auto rack = Rack(res.racks(0));
     rack.tasks = TaskClient(rack.key, task_create_client, task_retrieve_client,
                             task_delete_client);
@@ -47,15 +54,23 @@ std::pair<Rack, freighter::Error> HardwareClient::retrieveRack(
 }
 
 std::pair<Rack, freighter::Error> HardwareClient::retrieveRack(
-    const std::string &name) const {
+    const std::string &name
+) const {
     auto req = api::v1::HardwareRetrieveRackRequest();
     req.add_names(name);
     auto [res, err] = rack_retrieve_client->send(RETRIEVE_RACK_ENDPOINT, req);
     if (err) return {Rack(), err};
     if (res.racks_size() == 0)
-        return {Rack(), freighter::Error(synnax::NOT_FOUND, "Rack matching" + name + " not found")};
+        return {
+            Rack(),
+            freighter::Error(synnax::NOT_FOUND, "Rack matching" + name + " not found")
+        };
     if (res.racks_size() > 1)
-        return {Rack(), freighter::Error(synnax::MULTIPLE_RESULTS, "Multiple racks matching" + name + " found")};
+        return {
+            Rack(),
+            freighter::Error(synnax::MULTIPLE_RESULTS,
+                             "Multiple racks matching" + name + " found")
+        };
     auto rack = Rack(res.racks(0));
     rack.tasks = TaskClient(rack.key, task_create_client, task_retrieve_client,
                             task_delete_client);
@@ -68,6 +83,10 @@ freighter::Error HardwareClient::createRack(Rack &rack) const {
     rack.to_proto(req.add_racks());
     auto [res, err] = rack_create_client->send(CREATE_RACK_ENDPOINT, req);
     if (err) return err;
+    if (res.racks_size() == 0)
+        return freighter::Error(
+            synnax::UNEXPECTED_ERROR,
+            "No racks returned from server on create. Please report this error to the Synnax team.");
     rack.key = res.racks().at(0).key();
     rack.tasks = TaskClient(rack.key, task_create_client, task_retrieve_client,
                             task_delete_client);
@@ -131,6 +150,12 @@ std::pair<Task, freighter::Error> TaskClient::retrieve(std::uint64_t key) const 
     req.add_keys(key);
     auto [res, err] = task_retrieve_client->send(RETRIEVE_MODULE_ENDPOINT, req);
     if (err) return {Task(), err};
+    if (res.tasks_size() == 0)
+        return {
+            Task(),
+            freighter::Error(synnax::NOT_FOUND,
+                             "Task matching" + std::to_string(key) + " not found")
+        };
     return {Task(res.tasks(0)), err};
 }
 
@@ -139,6 +164,10 @@ freighter::Error TaskClient::create(Task &task) const {
     task.to_proto(req.add_tasks());
     auto [res, err] = task_create_client->send(CREATE_MODULE_ENDPOINT, req);
     if (err) return err;
+    if (res.tasks_size() == 0)
+        return freighter::Error(
+            synnax::UNEXPECTED_ERROR,
+            "No tasks returned from server on create. Please report this error to the Synnax team.");
     task.key = res.tasks().at(0).key();
     return err;
 }
@@ -165,6 +194,12 @@ std::pair<Device, freighter::Error> HardwareClient::retrieveDevice(
     req.add_keys(key);
     auto [res, err] = device_retrieve_client->send(RETRIEVE_RACK_ENDPOINT, req);
     if (err) return {Device(), err};
+    if (res.devices_size() == 0)
+        return {
+            Device(),
+            freighter::Error(synnax::NOT_FOUND,
+                             "Device matching" + key + " not found")
+        };
     return {Device(res.devices(0)), err};
 }
 
@@ -173,6 +208,10 @@ freighter::Error HardwareClient::createDevice(Device &device) const {
     device.to_proto(req.add_devices());
     auto [res, err] = device_create_client->send(CREATE_RACK_ENDPOINT, req);
     if (err) return err;
+    if (res.devices_size() == 0)
+        return freighter::Error(
+            synnax::UNEXPECTED_ERROR,
+            "No devices returned from server on create. Please report this error to the Synnax team.");
     device.key = res.devices().at(0).key();
     return err;
 }

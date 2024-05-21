@@ -187,23 +187,19 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
       setProgress("Creating channels...");
       const groups = methods.get<Group[]>({ path: "groups" }).value;
       for (const group of groups) {
-        try {
-          const idx = await client.channels.create({
-            name: group.name,
-            isIndex: true,
-            dataType: DataType.TIMESTAMP.toString(),
-          });
-          setProgress(`Creating channels for ${group.name}...`);
-          await client.channels.create(
-            group.channels.map((c) => ({
-              name: c.name,
-              dataType: new DataType(c.dataType).toString(),
-              index: idx.key,
-            })),
-          );
-        } catch (e) {
-          console.error(e);
-        }
+        const idx = await client.channels.create({
+          name: group.name,
+          isIndex: true,
+          dataType: DataType.TIMESTAMP.toString(),
+        });
+        setProgress(`Creating channels for ${group.name}...`);
+        await client.channels.create(
+          group.channels.map((c) => ({
+            name: c.name,
+            dataType: new DataType(c.dataType).toString(),
+            index: idx.key,
+          })),
+        );
       }
     },
   });
@@ -213,15 +209,8 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
     content = <Connect testConnection={testConnection} />;
   } else if (step === "createChannels" && deviceProperties != null) {
     content = <CreateChannels deviceProperties={deviceProperties} />;
-  } else if (step === "confirm" && deviceProperties != null && rackKey != null) {
-    content = (
-      <Confirm
-        confirm={confirm}
-        deviceProperties={deviceProperties}
-        progress={progress}
-        rackKey={rackKey}
-      />
-    );
+  } else if (step === "confirm" && deviceProperties != null) {
+    content = <Confirm confirm={confirm} progress={progress} rackKey={rackKey} />;
   } else {
     content = <div>Unknown step</div>;
   }
@@ -293,6 +282,17 @@ const Connect = ({ testConnection }: ConnectProps): ReactElement => {
           Use the "Test Connection" button in the bottom right corner to verify that the
           connection is successful.
         </Text.Text>
+        <Text.Text level="p">
+          A detailed walkthrough on how to configure your server can be found in our{" "}
+          <Text.Link
+            level="p"
+            href="https://docs.synnaxlabs.com/reference/device-drivers/opc-ua/connect-server"
+            target="_blank"
+            style={{ display: "inline" }}
+          >
+            documentation.
+          </Text.Link>
+        </Text.Text>
       </Align.Space>
       <Align.Space
         direction="y"
@@ -334,7 +334,6 @@ const Connect = ({ testConnection }: ConnectProps): ReactElement => {
           >
             Test Connection
           </Button.Button>
-          {/* {testConnection.} */}
         </Align.Space>
       </Align.Space>
     </Align.Space>
@@ -349,20 +348,24 @@ interface ConfirmProps {
 const Confirm = ({ progress, confirm }: ConfirmProps): ReactElement => (
   <Align.Center>
     <Align.Space
-      style={{ maxWidth: 600, padding: "20rem 20rem", borderRadius: "1rem" }}
+      style={{
+        maxWidth: 600,
+        padding: "20rem 20rem",
+        borderRadius: "1rem",
+        backgroundColor: "var(--pluto-gray-l1)",
+      }}
       bordered
       rounded
       align="center"
       size={10}
     >
       <Text.Text level="h1">Ready to go?</Text.Text>
-      <Text.Text level="h4" weight={500} shade={9}>
+      <Text.Text level="h4" weight={400} shade={9}>
         Once you click "Configure", we'll permanently save your server's configuration
         and create all of the channels you've defined.
       </Text.Text>
       {progress != null && <Text.Text level="p">{progress}</Text.Text>}
       <Button.Button
-        variant="outlined"
         size="large"
         onClick={() => confirm.mutate()}
         loading={confirm.isPending}
