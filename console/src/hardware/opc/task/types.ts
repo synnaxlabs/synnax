@@ -15,7 +15,10 @@ export type ReadType = typeof READ_TYPE;
 
 export type ReadChannelConfig = z.infer<typeof readChanZ>;
 
-export const readStateDetails = z.object({ running: z.boolean() });
+export const readStateDetails = z.object({
+  running: z.boolean().optional().default(false),
+  message: z.string().optional(),
+});
 
 export type ReadStateDetails = z.infer<typeof readStateDetails>;
 export type ReadState = task.State<ReadStateDetails>;

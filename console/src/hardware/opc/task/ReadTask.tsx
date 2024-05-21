@@ -255,14 +255,21 @@ const Internal = ({ initialValues, task: pTask }: InternalProps): ReactElement =
         </Form.Form>
       </Align.Space>
       <Nav.Bar location="bottom" size={48}>
+        <Nav.Bar.Start style={{ paddingLeft: "2rem" }}>
+          {taskState?.variant === "error" && (
+            <Status.Text variant="error" level="small">
+              {taskState?.details?.message}
+            </Status.Text>
+          )}
+        </Nav.Bar.Start>
         <Nav.Bar.End style={{ paddingRight: "2rem" }}>
           <Button.ToggleIcon
             loading={start.isPending}
             disabled={start.isPending || taskState == null}
-            value={taskState?.details.running ?? false}
+            value={taskState?.details?.running ?? false}
             onChange={() => start.mutate()}
           >
-            {taskState?.details.running ? <Icon.Pause /> : <Icon.Play />}
+            {taskState?.details?.running ? <Icon.Pause /> : <Icon.Play />}
           </Button.ToggleIcon>
           <Button.Button
             loading={configure.isPending}
@@ -389,6 +396,11 @@ export const ChannelListItem = ({
   const channelName = Channel.useName(entry.channel, "No Synnax Channel");
   let channelColor = undefined;
   if (channelName === "No Synnax Channel") channelColor = "var(--pluto-warning-z)";
+  const opcNode =
+    childValues.nodeId.length > 0 ? childValues.nodeId : "No Node Selected";
+  let opcNodeColor = undefined;
+  if (opcNode === "No Node Selected") opcNodeColor = "var(--pluto-warning-z)";
+
   return (
     <List.ItemFrame
       {...props}
@@ -403,8 +415,8 @@ export const ChannelListItem = ({
         <Text.Text level="p" weight={500} shade={9} color={channelColor}>
           {channelName}
         </Text.Text>
-        <Text.Text level="small" weight={300} shade={7}>
-          {childValues.nodeId}
+        <Text.Text level="small" weight={350} shade={7} color={opcNodeColor}>
+          {opcNode}
         </Text.Text>
       </Align.Space>
       <Button.Toggle

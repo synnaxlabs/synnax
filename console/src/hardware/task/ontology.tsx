@@ -3,6 +3,7 @@ import { Icon } from "@synnaxlabs/media";
 import { OPC } from "@/hardware/opc";
 import { NI } from "@/hardware/ni";
 import { Layout } from "@/layout";
+import { Menu } from "@synnaxlabs/pluto";
 
 const ZERO_LAYOUT_STATES: Record<string, Layout.State> = {
   [OPC.Task.configureReadLayout.type]: OPC.Task.configureReadLayout,
@@ -32,13 +33,53 @@ const handleSelect: Ontology.HandleSelect = ({
   })();
 };
 
+const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
+  const { store, selection, client, addStatus } = props;
+  const { resources } = selection;
+
+  const _handleSelect = (itemKey: string): void => {
+    switch (itemKey) {
+      case "delete":
+        client.hardware.tasks
+          .delete(resources.map(({ id }) => BigInt(id.key)))
+          .catch((e: Error) => {
+            addStatus({
+              variant: "error",
+              key: "deleteTaskError",
+              message: e.message,
+            });
+          });
+        break;
+      case "edit":
+        handleSelect({
+          selection: resources,
+          placeLayout: props.placeLayout,
+          client,
+          addStatus,
+          store,
+          removeLayout: props.removeLayout,
+          services: props.services,
+        });
+        break;
+    }
+  };
+
+  return (
+    <Menu.Menu level="small" iconSpacing="small" onChange={_handleSelect}>
+      <Menu.Item itemKey="delete" startIcon={<Icon.Delete />}>
+        Delete
+      </Menu.Item>
+    </Menu.Menu>
+  );
+};
+
 export const ONTOLOGY_SERVICE: Ontology.Service = {
   type: "task",
   hasChildren: false,
   icon: <Icon.Task />,
   canDrop: () => false,
   onSelect: handleSelect,
-  TreeContextMenu: undefined,
+  TreeContextMenu,
   haulItems: () => [],
   allowRename: () => false,
   onRename: undefined,
