@@ -99,9 +99,10 @@ func (db *DB) Delete(ctx context.Context, startPosition int, endPosition int, st
 	return span.Error(persistTombstones())
 }
 
-// CollectTombstones must only collect files that are oversize since no new writers may
-// be acquired on them. However, deletes may still happen on them.
-func (db *DB) CollectTombstones(ctx context.Context) error {
+// GarbageCollect rewrites all files that have tombstones in them to remove the garbage
+// data, close all file handles on them, and add them to the unopened files set if they
+// have space for writing after garbage collect.
+func (db *DB) GarbageCollect(ctx context.Context) error {
 	ctx, span := db.T.Bench(ctx, "GCTombstone")
 	defer span.End()
 
@@ -155,7 +156,6 @@ func (db *DB) CollectTombstones(ctx context.Context) error {
 				}
 			}
 
-			// Delete the old file
 			if err = r.Close(); err != nil {
 				db.idx.mu.Unlock()
 				return span.Error(err)

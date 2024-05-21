@@ -138,5 +138,5 @@ func (db *DB) GarbageCollect(ctx context.Context) error {
 
 	defer g.Release()
 
-	return db.Domain.CollectTombstones(ctx)
+	return db.Domain.GarbageCollect(ctx)
 }

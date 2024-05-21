@@ -367,8 +367,8 @@ func (fc *fileController) atDescriptorLimit() bool {
 	return readerCount+len(fc.writers.open) >= fc.MaxDescriptors
 }
 
-// RemoveFileHandles closes and removes all readers on a file, changes the
-// underlying writer on the file to newFile, and removes oldFile from FS.
+// RemoveFileHandles closes and removes all readers on a file, adds the
+// newFile to the unopened writers set, and removes oldFile from FS.
 func (fc *fileController) RemoveFileHandles(key uint16, newFile string, oldFile string) error {
 	// close and remove all readers
 	fc.readers.Lock()

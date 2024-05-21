@@ -36,7 +36,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 
 					By("Garbage collecting and asserting the file got smaller")
 					Expect(MustSucceed(db.FS.Stat("1.domain")).Size()).To(Equal(int64(10)))
-					Expect(db.CollectTombstones(ctx)).To(Succeed())
+					Expect(db.GarbageCollect(ctx)).To(Succeed())
 					Expect(MustSucceed(db.FS.Stat("1.domain")).Size()).To(Equal(int64(6)))
 
 					By("Asserting that we can still write to the file")
@@ -81,7 +81,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 
 					By("Garbage collecting and asserting the file got smaller")
 					Expect(MustSucceed(db.FS.Stat("1.domain")).Size()).To(Equal(int64(21)))
-					Expect(db.CollectTombstones(ctx)).To(Succeed())
+					Expect(db.GarbageCollect(ctx)).To(Succeed())
 					Expect(MustSucceed(db.FS.Stat("1.domain")).Size()).To(Equal(int64(6)))
 
 					By("Asserting that we can still write to the file")
@@ -131,12 +131,12 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 
 					By("Garbage collecting and asserting the file did not get smaller as the threshold is not reached.")
 					Expect(MustSucceed(db.FS.Stat("1.domain")).Size()).To(Equal(int64(21)))
-					Expect(db.CollectTombstones(ctx)).To(Succeed())
+					Expect(db.GarbageCollect(ctx)).To(Succeed())
 					Expect(MustSucceed(db.FS.Stat("1.domain")).Size()).To(Equal(int64(21)))
 
 					By("Deleting more data to reach the threshold")
 					Expect(db.Delete(ctx, 0, 0, 1, 0, telem.TimeRange{Start: 10*telem.SecondTS + 1, End: 12*telem.SecondTS + 1})).To(Succeed())
-					Expect(db.CollectTombstones(ctx)).To(Succeed())
+					Expect(db.GarbageCollect(ctx)).To(Succeed())
 					Expect(MustSucceed(db.FS.Stat("1.domain")).Size()).To(Equal(int64(4)))
 
 					By("Asserting that the data did not change", func() {
@@ -175,7 +175,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 					Expect(MustSucceed(db.FS.Stat("2.domain")).Size()).To(Equal(int64(4)))
 					Expect(MustSucceed(db.FS.Stat("3.domain")).Size()).To(Equal(int64(7)))
 
-					Expect(db.CollectTombstones(ctx)).To(Succeed())
+					Expect(db.GarbageCollect(ctx)).To(Succeed())
 					Expect(MustSucceed(db.FS.Stat("1.domain")).Size()).To(Equal(int64(3)))
 					Expect(MustSucceed(db.FS.Stat("2.domain")).Size()).To(Equal(int64(0)))
 					Expect(MustSucceed(db.FS.Stat("3.domain")).Size()).To(Equal(int64(3)))
@@ -235,7 +235,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 					Expect(MustSucceed(db.FS.Stat("2.domain")).Size()).To(Equal(int64(7)))
 					Expect(MustSucceed(db.FS.Stat("3.domain")).Size()).To(Equal(int64(3)))
 
-					Expect(db.CollectTombstones(ctx)).To(Succeed())
+					Expect(db.GarbageCollect(ctx)).To(Succeed())
 					Expect(MustSucceed(db.FS.Stat("1.domain")).Size()).To(Equal(int64(7)))
 					Expect(MustSucceed(db.FS.Stat("2.domain")).Size()).To(Equal(int64(0)))
 					Expect(MustSucceed(db.FS.Stat("3.domain")).Size()).To(Equal(int64(2)))
@@ -277,7 +277,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 					Expect(MustSucceed(db.FS.Stat("2.domain")).Size()).To(Equal(int64(7)))
 					Expect(MustSucceed(db.FS.Stat("3.domain")).Size()).To(Equal(int64(3)))
 
-					Expect(db.CollectTombstones(ctx)).To(Succeed())
+					Expect(db.GarbageCollect(ctx)).To(Succeed())
 					// file 1 should be collected (3 > 2)
 					Expect(MustSucceed(db.FS.Stat("1.domain")).Size()).To(Equal(int64(7)))
 					// file 2 should be collected (7 > 2)
@@ -327,7 +327,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 					Expect(MustSucceed(db.FS.Stat("2.domain")).Size()).To(Equal(int64(7)))
 					Expect(MustSucceed(db.FS.Stat("3.domain")).Size()).To(Equal(int64(6)))
 
-					Expect(db.CollectTombstones(ctx)).To(Succeed())
+					Expect(db.GarbageCollect(ctx)).To(Succeed())
 					// file 1 should be collected (3 > 2)
 					Expect(MustSucceed(db.FS.Stat("1.domain")).Size()).To(Equal(int64(7)))
 					// file 2 should be collected (7 > 2)

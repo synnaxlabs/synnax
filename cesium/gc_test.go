@@ -294,7 +294,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 					Expect(db.Close()).To(Succeed())
 					Expect(fs.Remove(rootPath)).To(Succeed())
 				})
-				It("Should not allow GC when the channel is being written to", func() {
+				It("Should not allow GC when the channel is being written to or being read from", func() {
 					index = GenerateChannelKey()
 					basic = GenerateChannelKey()
 
@@ -314,8 +314,9 @@ var _ = Describe("Garbage collection", Ordered, func() {
 						},
 					))).To(Succeed())
 
-					By("Opening a writer")
+					By("Opening a writer and an iterator")
 					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Start: 30 * telem.SecondTS, Channels: []cesium.ChannelKey{basic, index}}))
+					i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{Bounds: telem.TimeRangeMax, Channels: []cesium.ChannelKey{basic, index}}))
 
 					By("Deleting data")
 					Expect(db.DeleteTimeRange(ctx, basic, (11 * telem.SecondTS).Range(15*telem.SecondTS))).To(Succeed())
@@ -327,6 +328,14 @@ var _ = Describe("Garbage collection", Ordered, func() {
 
 					By("Closing the writer")
 					Expect(w.Close()).To(Succeed())
+
+					By("Asserting that GC was never run")
+					Consistently(func() int64 {
+						return MustSucceed(fs.Stat(path.Join(channelKeyToPath(basic) + "/1.domain"))).Size()
+					}).Should(Equal(int64(72)))
+
+					By("Closing the iterator")
+					Expect(i.Close()).To(Succeed())
 
 					By("Asserting that GC was run")
 					Eventually(func() int64 {
