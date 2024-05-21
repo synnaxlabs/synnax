@@ -5,6 +5,7 @@ heading: "Connect to an OPC UA Server"
 description: "Learn how to connect to a server using the Synnax OPC UA driver."
 ---
 import { Divider } from "@synnaxlabs/pluto";
+import { Video } from "@/components/Media";
 import Table from "@/components/Table.astro";
 import Note from "@/components/Note.astro";
 
@@ -17,9 +18,10 @@ running on the device.
 
 Before you can connect to an OPC UA server, you'll need to have the following configured:
 
-1. [A Synnax deployment running on your network]](/reference/cluster/quick-start)
-2. [The Synnax Console installed on your machine](/reference/console/get-started)
-3. An OPC UA compliant server running on your device. This server should be reachable from the Synnax database deployment.
+1. A Synnax [deployment](/reference/cluster/quick-start) running on your network.
+2. The [Synnax Console](/reference/console/get-started) installed on your machine.
+3. An OPC UA compliant server running on your device. This server should be reachable 
+from the Synnax database deployment.
 
 <Divider.Divider direction="x" />
 
@@ -32,6 +34,8 @@ open this palette with `Ctrl+Shift+P` on Windows/Linux or `Cmd+Shift+P` on macOS
 In command mode (enabled when the first character in the input is ">"), type "OPC UA".
 You'll see an option called "Connect a New Server". Select this open to open the server 
 configuration dialog.
+
+<Video client:only="react" id="device-drivers/opcua/opcua-open-connect" />
 
 ### Step 1 - Enter your Connection Parameters
 

@@ -47,6 +47,7 @@ const Reference = ({ currentPage }: ReferenceTreeProps): ReactElement => {
     initialExpanded: parts,
     sort: false,
   });
+  console.log(currentPage);
   return (
     <Tree.Tree
       {...treeProps}

@@ -21,6 +21,19 @@ namespace synnax {
 /// @brief Series is a strongly typed array of telemetry samples backed by an underlying binary buffer.
 class Series {
 public:
+    // create a static method called allocate that returns a Series
+    // and takes a DataType and a size_t as arguments
+    // the method should return a Series with the given DataType and size
+    // and a data buffer of the given size
+    static Series allocate(DataType data_type, size_t size) {
+        Series s;
+        s.data_type = data_type;
+        s.size = size;
+        s.data = std::make_unique<std::byte[]>(size);
+        return s;
+    }
+
+
     /// @brief constructs a series from the given vector of numeric data.
     template<typename NumericType>
     explicit Series(const std::vector<NumericType>& d,
@@ -52,6 +65,14 @@ public:
         size = data_type.density();
         data = std::make_unique<std::byte[]>(size);
         memcpy(data.get(), &t, size);
+    }
+
+    template<typename NumericType>
+    void set(size_t index, NumericType value) {
+        if (index >= size / data_type.density()) {
+            throw std::runtime_error("index out of bounds");
+        }
+        memcpy(data.get() + index * data_type.density(), &value, data_type.density());
     }
 
 
