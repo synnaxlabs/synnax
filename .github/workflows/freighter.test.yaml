@@ -7,6 +7,9 @@ on:
     paths:
       - ".github/workflows/freighter.test.yaml"
   workflow_dispatch:
+permissions:
+  contents: write
+  packages: write
 jobs:
   test-go:
     runs-on: ubuntu-latest
