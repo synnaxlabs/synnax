@@ -11,6 +11,7 @@ package channel
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/x/types"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
@@ -150,8 +151,11 @@ func (s *service) validateChannels(ctx context.Context, channels []Channel) (res
 		deletedCount := s.proxy.deleted.NumLessThan(key.LocalKey())
 		internalCount := s.proxy.internal.NumLessThan(key.LocalKey())
 		keyNumber := key.LocalKey() - deletedCount - internalCount
-		if err = s.proxy.IntOverflowCheck(ctx, types.Uint20(keyNumber)); err != nil {
-			return
+
+		if !s.proxy.internal.Contains(key.LocalKey()) {
+			if err = s.proxy.IntOverflowCheck(ctx, types.Uint20(keyNumber)); err != nil {
+				return
+			}
 		}
 		res = append(res, channels[i])
 	}
