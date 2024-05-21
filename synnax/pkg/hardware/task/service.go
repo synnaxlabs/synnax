@@ -14,6 +14,8 @@ package task
 import (
 	"context"
 	"fmt"
+	"io"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -25,7 +27,6 @@ import (
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
-	"io"
 )
 
 // Config is the configuration for creating a Service.
@@ -88,12 +89,14 @@ func OpenService(ctx context.Context, configs ...Config) (s *Service, err error)
 				DataType:    telem.JSONT,
 				Virtual:     true,
 				Leaseholder: hostKey,
+				Internal:    true,
 			},
 			{
 				Name:        fmt.Sprintf("sy_node_%s_task_state", hostKey),
 				DataType:    telem.JSONT,
 				Virtual:     true,
 				Leaseholder: hostKey,
+				Internal:    true,
 			},
 		}
 		err = cfg.Channel.CreateManyIfNamesDontExist(ctx, channels)

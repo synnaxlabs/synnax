@@ -11,6 +11,8 @@ package writer_test
 
 import (
 	"context"
+	"testing"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/alamos"
@@ -22,7 +24,6 @@ import (
 	tmock "github.com/synnaxlabs/synnax/pkg/distribution/transport/mock"
 	"github.com/synnaxlabs/x/confluence"
 	. "github.com/synnaxlabs/x/testutil"
-	"testing"
 )
 
 var (
@@ -57,10 +58,12 @@ func provision(n int) (*mock.CoreBuilder, map[core.NodeKey]serviceContainer) {
 			container serviceContainer
 		)
 		container.channel = MustSucceed(channel.New(ctx, channel.ServiceConfig{
-			HostResolver: c.Cluster,
-			ClusterDB:    c.Storage.Gorpify(),
-			TSChannel:    c.Storage.TS,
-			Transport:    channelNet.New(c.Config.AdvertiseAddress),
+			HostResolver:     c.Cluster,
+			ClusterDB:        c.Storage.Gorpify(),
+			TSChannel:        c.Storage.TS,
+			Transport:        channelNet.New(c.Config.AdvertiseAddress),
+			IntOverflowCheck: func(count int64) error { return nil },
+			GetChannelCount:  func() (int, error) { return 50, nil },
 		}))
 		container.writer = MustSucceed(writer.OpenService(writer.ServiceConfig{
 			Instrumentation: ins,

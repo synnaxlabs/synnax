@@ -12,6 +12,7 @@ package cmd
 import (
 	"bufio"
 	"context"
+	"encoding/base64"
 	"github.com/synnaxlabs/synnax/pkg/hardware/embedded"
 	"os"
 	"os/signal"
@@ -79,11 +80,14 @@ var (
 // environment variables, and configuration files.
 func start(cmd *cobra.Command) {
 	v := version.Get()
+	encodedName := "bGljZW5zZS1rZXk="
+	decodedName, _ := base64.StdEncoding.DecodeString(encodedName)
 	var (
 		ins      = configureInstrumentation(v)
 		insecure = viper.GetBool("insecure")
 		verbose  = viper.GetBool("verbose")
 		autoCert = viper.GetBool("auto-cert")
+		verifier = viper.GetString(string(decodedName))
 	)
 	defer cleanupInstrumentation(cmd.Context(), ins)
 
@@ -135,7 +139,11 @@ func start(cmd *cobra.Command) {
 			ins,
 			storageCfg,
 			grpcTransports,
+			verifier,
 		)
+		if err != nil {
+			return err
+		}
 		dist, err := distribution.Open(ctx, distConfig)
 		if err != nil {
 			return err
@@ -151,6 +159,9 @@ func start(cmd *cobra.Command) {
 			Ontology: dist.Ontology,
 			Group:    dist.Group,
 		})
+		if err != nil {
+			return err
+		}
 		tokenSvc := &token.Service{KeyProvider: secProvider, Expiration: 24 * time.Hour}
 		authenticator := &auth.KV{DB: gorpDB}
 		rangeSvc, err := ranger.OpenService(ctx, ranger.Config{
@@ -314,6 +325,7 @@ func buildDistributionConfig(
 	ins alamos.Instrumentation,
 	storage storage.Config,
 	transports *[]fgrpc.BindableTransport,
+	verifier string,
 ) (distribution.Config, error) {
 	peers, err := parsePeerAddresses()
 	return distribution.Config{
@@ -323,6 +335,7 @@ func buildDistributionConfig(
 		Pool:             pool,
 		Storage:          storage,
 		Transports:       transports,
+		Verifier:         verifier,
 	}, err
 }
 

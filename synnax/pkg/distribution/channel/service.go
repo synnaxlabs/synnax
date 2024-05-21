@@ -11,6 +11,7 @@ package channel
 
 import (
 	"context"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
@@ -54,12 +55,14 @@ type service struct {
 var _ Service = (*service)(nil)
 
 type ServiceConfig struct {
-	HostResolver core.HostResolver
-	ClusterDB    *gorp.DB
-	TSChannel    *ts.DB
-	Transport    Transport
-	Ontology     *ontology.Ontology
-	Group        *group.Service
+	HostResolver     core.HostResolver
+	ClusterDB        *gorp.DB
+	TSChannel        *ts.DB
+	Transport        Transport
+	Ontology         *ontology.Ontology
+	Group            *group.Service
+	IntOverflowCheck func(count int64) error
+	GetChannelCount  func() (int, error)
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -70,6 +73,8 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "ClusterDB", c.ClusterDB)
 	validate.NotNil(v, "TSChannel", c.TSChannel)
 	validate.NotNil(v, "Transport", c.Transport)
+	validate.NotNil(v, "IntOverflowCheck", c.IntOverflowCheck)
+	validate.NotNil(v, "GetChannelCount", c.GetChannelCount)
 	return v.Error()
 }
 
@@ -80,6 +85,8 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Transport = override.Nil(c.Transport, other.Transport)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
+	c.IntOverflowCheck = override.Nil(c.IntOverflowCheck, other.IntOverflowCheck)
+	c.GetChannelCount = override.Nil(c.GetChannelCount, other.GetChannelCount)
 	return c
 }
 
@@ -120,4 +127,27 @@ func (s *service) NewWriter(tx gorp.Tx) Writer {
 	return writer{proxy: s.proxy, tx: s.DB.OverrideTx(tx)}
 }
 
-func (s *service) NewRetrieve() Retrieve { return newRetrieve(s.DB, s.otg) }
+func (s *service) NewRetrieve() Retrieve {
+	return newRetrieve(s.DB, s.otg, s.validateChannels)
+}
+
+func (s *service) validateChannels(channels []Channel) ([]Channel, error) {
+	maxAllowed, err := s.proxy.GetChannelCount()
+	if err == nil {
+		return channels, nil
+	}
+	var vErr error = nil
+	keys := KeysFromChannels(channels)
+	returnedChannels := make([]Channel, 0, len(channels))
+	for i, key := range keys {
+		deletedCount := s.proxy.deleted.NumLessThan(key.LocalKey())
+		internalCount := s.proxy.internal.NumLessThan(key.LocalKey())
+		keyNumber := key.LocalKey() - deletedCount - internalCount
+		if keyNumber < uint16(maxAllowed) {
+			returnedChannels = append(returnedChannels, channels[i])
+		} else {
+			vErr = err
+		}
+	}
+	return returnedChannels, vErr
+}

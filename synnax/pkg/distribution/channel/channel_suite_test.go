@@ -11,6 +11,8 @@ package channel_test
 
 import (
 	"context"
+	"testing"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/aspen"
@@ -24,7 +26,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/config"
 	. "github.com/synnaxlabs/x/testutil"
-	"testing"
 )
 
 var (
@@ -65,18 +66,22 @@ func provisionServices() (*mock.CoreBuilder, map[core.NodeKey]channel.Service) {
 	}))
 	builder.AttachCloser(g2)
 	services[1] = MustSucceed(channel.New(ctx, channel.ServiceConfig{
-		HostResolver: core1.Cluster,
-		ClusterDB:    core1.Storage.Gorpify(),
-		TSChannel:    core1.Storage.TS,
-		Transport:    net.New(core1.Config.AdvertiseAddress),
+		HostResolver:     core1.Cluster,
+		ClusterDB:        core1.Storage.Gorpify(),
+		TSChannel:        core1.Storage.TS,
+		Transport:        net.New(core1.Config.AdvertiseAddress),
+		IntOverflowCheck: func(count int64) error { return nil },
+		GetChannelCount:  func() (int, error) { return 50, nil },
 		Ontology:     otg1,
 		Group:        g1,
 	}))
 	services[2] = MustSucceed(channel.New(ctx, channel.ServiceConfig{
-		HostResolver: core2.Cluster,
-		ClusterDB:    core2.Storage.Gorpify(),
-		TSChannel:    core2.Storage.TS,
-		Transport:    net.New(core2.Config.AdvertiseAddress),
+		HostResolver:     core2.Cluster,
+		ClusterDB:        core2.Storage.Gorpify(),
+		TSChannel:        core2.Storage.TS,
+		Transport:        net.New(core2.Config.AdvertiseAddress),
+		IntOverflowCheck: func(count int64) error { return nil },
+		GetChannelCount:  func() (int, error) { return 50, nil },
 		Ontology:     otg2,
 		Group:        g2,
 	}))
