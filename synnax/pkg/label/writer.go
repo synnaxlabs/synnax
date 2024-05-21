@@ -37,10 +37,7 @@ func (w Writer) Create(
 		return
 	}
 	otgID := OntologyID(l.Key)
-	if err = w.otg.DefineResource(ctx, otgID); err != nil {
-		return
-	}
-	return w.otg.DefineRelationship(ctx, w.group.OntologyID(), ontology.ParentOf, otgID)
+	return w.otg.DefineResource(ctx, otgID)
 }
 
 func (w Writer) CreateMany(

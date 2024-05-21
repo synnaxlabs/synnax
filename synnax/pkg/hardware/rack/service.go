@@ -69,21 +69,14 @@ func (c Config) Validate() error {
 type Service struct {
 	Config
 	EmbeddedRackName string
-	group            group.Group
 	localKeyCounter  *kv.AtomicInt64Counter
 	shutdownSignals  io.Closer
 }
 
-const groupName = "Racks"
 const localKeyCounterSuffix = ".rack.counter"
 
 func OpenService(ctx context.Context, configs ...Config) (s *Service, err error) {
 	cfg, err := config.New(DefaultConfig, configs...)
-	if err != nil {
-		return nil, err
-	}
-
-	g, err := cfg.Group.CreateOrRetrieve(ctx, groupName, ontology.RootID)
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +87,7 @@ func OpenService(ctx context.Context, configs ...Config) (s *Service, err error)
 		return nil, err
 	}
 
-	s = &Service{Config: cfg, group: g, localKeyCounter: c}
+	s = &Service{Config: cfg, localKeyCounter: c}
 	cfg.Ontology.RegisterService(s)
 
 	s.EmbeddedRackName = fmt.Sprintf("sy_node_%s_rack", cfg.HostProvider.HostKey())
@@ -122,9 +115,8 @@ func OpenService(ctx context.Context, configs ...Config) (s *Service, err error)
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		tx:    gorp.OverrideTx(s.DB, tx),
-		otg:   s.Ontology.NewWriter(tx),
-		group: s.group,
+		tx:  gorp.OverrideTx(s.DB, tx),
+		otg: s.Ontology.NewWriter(tx),
 		newKey: func() (Key, error) {
 			n, err := s.localKeyCounter.Add(1)
 			return NewKey(s.HostProvider.HostKey(), uint16(n)), err

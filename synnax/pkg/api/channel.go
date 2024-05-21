@@ -36,6 +36,7 @@ type Channel struct {
 	Index       channel.Key          `json:"index" msgpack:"index"`
 	Alias       string               `json:"alias" msgpack:"alias"`
 	Virtual     bool                 `json:"virtual" msgpack:"virtual"`
+	Internal    bool                 `json:"internal" msgpack:"internal"`
 }
 
 // ChannelService is the central API for all things Channel related.
@@ -101,6 +102,7 @@ type ChannelRetrieveRequest struct {
 	DataTypes    []telem.DataType `json:"data_types" msgpack:"data_types"`
 	NotDataTypes []telem.DataType `json:"not_data_types" msgpack:"not_data_types"`
 	Virtual      *bool            `json:"virtual" msgpack:"virtual"`
+	IsIndex      *bool            `json:"is_index" msgpack:"is_index"`
 }
 
 // ChannelRetrieveResponse is the response for a ChannelRetrieveRequest.
@@ -146,41 +148,35 @@ func (s *ChannelService) Retrieve(
 			}
 		}
 	}
-
 	if hasKeys {
 		q = q.WhereKeys(req.Keys...)
 	}
-
 	if hasNames {
 		q = q.WhereNames(req.Names...)
 	}
-
 	if hasSearch {
 		q = q.Search(req.Search)
 	}
-
 	if req.NodeKey != 0 {
 		q = q.WhereNodeKey(req.NodeKey)
 	}
-
 	if hasDataTypes {
 		q = q.WhereDataTypes(req.DataTypes...)
 	}
-
 	if hasNotDataTypes {
 		q = q.WhereNotDataTypes(req.NotDataTypes...)
 	}
-
 	if req.Limit > 0 {
 		q = q.Limit(req.Limit)
 	}
-
 	if req.Offset > 0 {
 		q = q.Offset(req.Offset)
 	}
-
 	if req.Virtual != nil {
 		q = q.WhereVirtual(*req.Virtual)
+	}
+	if req.IsIndex != nil {
+		q = q.WhereIsIndex(*req.IsIndex)
 	}
 
 	err := q.Exec(ctx, nil)
@@ -218,6 +214,7 @@ func translateChannelsForward(channels []channel.Channel) []Channel {
 			Index:       ch.Index(),
 			Density:     ch.DataType.Density(),
 			Virtual:     ch.Virtual,
+			Internal:    ch.Internal,
 		}
 	}
 	return translated
@@ -234,6 +231,7 @@ func translateChannelsBackward(channels []Channel) ([]channel.Channel, error) {
 			IsIndex:     ch.IsIndex,
 			LocalIndex:  ch.Index.LocalKey(),
 			Virtual:     ch.Virtual,
+			Internal:    ch.Internal,
 		}
 		if ch.IsIndex {
 			tCH.LocalIndex = tCH.LocalKey

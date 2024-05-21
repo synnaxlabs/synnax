@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/telem"
 	"regexp"
@@ -24,15 +25,21 @@ import (
 // Retrieve is used to retrieve information about Channel(s) in delta's distribution
 // layer.
 type Retrieve struct {
-	tx         gorp.Tx
-	gorp       gorp.Retrieve[Key, Channel]
-	otg        *ontology.Ontology
-	keys       Keys
-	searchTerm string
+	tx                        gorp.Tx
+	gorp                      gorp.Retrieve[Key, Channel]
+	otg                       *ontology.Ontology
+	keys                      Keys
+	searchTerm                string
+	validateRetrievedChannels func(channels []Channel) ([]Channel, error)
 }
 
-func newRetrieve(tx gorp.Tx, otg *ontology.Ontology) Retrieve {
-	return Retrieve{gorp: gorp.NewRetrieve[Key, Channel](), tx: tx, otg: otg}
+func newRetrieve(tx gorp.Tx, otg *ontology.Ontology, validateRetrievedChannels func([]Channel) ([]Channel, error)) Retrieve {
+	return Retrieve{
+		gorp:                      gorp.NewRetrieve[Key, Channel](),
+		tx:                        tx,
+		otg:                       otg,
+		validateRetrievedChannels: validateRetrievedChannels,
+	}
 }
 
 // Search sets the search term for the query. Note that the fuzzy search will be executed
@@ -51,6 +58,11 @@ func (r Retrieve) Entries(ch *[]Channel) Retrieve { r.gorp.Entries(ch); return r
 // leaseholder node Key.
 func (r Retrieve) WhereNodeKey(nodeKey core.NodeKey) Retrieve {
 	r.gorp.Where(func(ch *Channel) bool { return ch.Leaseholder == nodeKey })
+	return r
+}
+
+func (r Retrieve) WhereIsIndex(isIndex bool) Retrieve {
+	r.gorp.Where(func(ch *Channel) bool { return ch.IsIndex == isIndex })
 	return r
 }
 
@@ -123,7 +135,12 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 		}
 		r = r.WhereKeys(keys...)
 	}
-	return r.gorp.Exec(ctx, gorp.OverrideTx(r.tx, tx))
+	err := r.gorp.Exec(ctx, gorp.OverrideTx(r.tx, tx))
+
+	entries := gorp.GetEntries[Key, Channel](r.gorp.Params).All()
+	channels, vErr := r.validateRetrievedChannels(entries)
+	gorp.SetEntries[Key, Channel](r.gorp.Params, &channels)
+	return errors.CombineErrors(err, vErr)
 }
 
 // Exists checks if the query has results matching its parameters. If used in conjunction

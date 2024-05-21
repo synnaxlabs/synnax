@@ -10,6 +10,8 @@
 package channel
 
 import (
+	"strconv"
+
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -20,7 +22,6 @@ import (
 	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/unsafe"
 	"github.com/synnaxlabs/x/validate"
-	"strconv"
 )
 
 // Key represents a unique identifier for a Channel. This value is guaranteed to be
@@ -125,6 +126,10 @@ func (k Keys) UniqueLeaseholders() (keys []core.NodeKey) {
 	return lo.Uniq(keys)
 }
 
+func (k Keys) Local() []LocalKey {
+	return lo.Map(k, func(k Key, _ int) LocalKey { return k.LocalKey() })
+}
+
 // Strings returns the keys as a slice of strings.
 func (k Keys) Strings() []string {
 	return lo.Map(k, func(key Key, _ int) string { return key.String() })
@@ -191,6 +196,9 @@ type Channel struct {
 	// Concurrency sets the policy for concurrent writes to the same region of the
 	// channel's data. Only virtual channels can have a policy of control.Shared.
 	Concurrency control.Concurrency `json:"concurrency" msgpack:"concurrency"`
+	// Internal determines if a channel is a channel created by Synnax or
+	// created by the user.
+	Internal bool `json:"internal" msgpack:"internal"`
 }
 
 // Key returns the key for the Channel.

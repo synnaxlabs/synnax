@@ -132,7 +132,7 @@ const handleDeleteAlias = async ({
 };
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
-  const { store, selection, client } = props;
+  const { store, selection, client, addStatus } = props;
   const activeRange = Range.select(store.getState());
   const { nodes, resources } = selection;
 
@@ -142,10 +142,24 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         Tree.startRenaming(nodes[0].key);
         break;
       case "deleteAlias":
-        void handleDeleteAlias(props);
+        handleDeleteAlias(props).catch((e: Error) => {
+          addStatus({
+            variant: "error",
+            key: "deleteAliasError",
+            message: e.message,
+          });
+        });
         break;
       case "delete":
-        void client.channels.delete(resources.map(({ id }) => Number(id.key)));
+        client.channels
+          .delete(resources.map(({ id }) => Number(id.key)))
+          .catch((e: Error) => {
+            addStatus({
+              variant: "error",
+              key: "deleteChannelError",
+              message: e.message,
+            });
+          });
         break;
       case "group":
         void Group.fromSelection(props);

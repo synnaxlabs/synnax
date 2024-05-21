@@ -333,7 +333,7 @@ const createCommandListItem = (
     return (
       <List.ItemFrame
         highlightHovered
-        style={{ padding: "0 1.5rem", height: "7rem" }}
+        style={{ height: "6.5rem" }}
         justify="spaceBetween"
         align="center"
         {...props}

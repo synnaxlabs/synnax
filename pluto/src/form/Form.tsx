@@ -107,26 +107,31 @@ export const useField = (<I extends Input.Value, O extends Input.Value = I>({
 export type UseFieldValue = (<I extends Input.Value, O extends Input.Value = I>(
   path: string,
   optional?: false,
+  ctx?: ContextValue,
 ) => O) &
   (<I extends Input.Value, O extends Input.Value = I>(
     path: string,
     optional: true,
+    ctx?: ContextValue,
   ) => O | null);
 
 export type UseFieldState = (<I extends Input.Value, O extends Input.Value = I>(
   path: string,
   optional?: false,
+  ctx?: ContextValue,
 ) => FieldState<O>) &
   (<I extends Input.Value, O extends Input.Value = I>(
     path: string,
     optional: true,
+    ctx?: ContextValue,
   ) => FieldState<O> | null);
 
 export const useFieldState = <I extends Input.Value, O extends Input.Value = I>(
   path: string,
   optional: boolean = false,
+  ctx?: ContextValue,
 ): FieldState<O> | null => {
-  const { get, bind } = useContext();
+  const { get, bind } = useContext(ctx);
   const [, setChangeTrigger] = useState(0);
   useLayoutEffect(() => {
     setChangeTrigger((prev) => prev + 1);
@@ -138,8 +143,9 @@ export const useFieldState = <I extends Input.Value, O extends Input.Value = I>(
 export const useFieldValue = (<I extends Input.Value, O extends Input.Value = I>(
   path: string,
   optional: boolean = false,
+  ctx?: ContextValue,
 ): O | null => {
-  const { get, bind } = useContext();
+  const { get, bind } = useContext(ctx);
   const [, setChangeTrigger] = useState(0);
   useLayoutEffect(() => {
     setChangeTrigger((prev) => prev + 1);
@@ -269,7 +275,7 @@ export interface FieldProps<
     Omit<Input.ItemProps, "children" | "onChange" | "defaultValue"> {
   children?: RenderProp<Input.Control<I, O>>;
   padHelpText?: boolean;
-  visible?: boolean | ((state: FieldState<I>) => boolean);
+  visible?: boolean | ((state: FieldState<I>, ctx: ContextValue) => boolean);
   hideIfNull?: boolean;
 }
 
@@ -300,10 +306,11 @@ export const Field = <
     onChange,
     defaultValue,
   });
+  const ctx = useContext();
   if (field == null) return null;
   if (path == null) throw new Error("No path provided to Form Field");
   if (label == null) label = caseconv.capitalize(deep.element(path, -1));
-  visible = typeof visible === "function" ? visible(field) : visible;
+  visible = typeof visible === "function" ? visible(field, ctx) : visible;
   if (!visible) return null;
   const helpText = field.touched ? field.status.message : "";
   const { onChange: fieldOnChange, value } = field;

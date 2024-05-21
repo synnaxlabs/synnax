@@ -57,6 +57,16 @@ const LOADING = (
   </Status.Text.Centered>
 );
 
+interface ErrorEmptyContentProps {
+  error: Error;
+}
+
+const ErrorEmptyContent = ({ error }: ErrorEmptyContentProps): ReactElement => (
+  <Status.Text.Centered level="h4" variant="error" style={STYLE}>
+    {error.message}
+  </Status.Text.Centered>
+);
+
 export const useSearch = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   debounce = 250,
   searcher,
@@ -101,7 +111,7 @@ export const useSearch = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
           else setSourceData((d) => [...d, ...r]);
         } catch (e) {
           promiseOut.current = false;
-          console.error(e);
+          setEmptyContent(<ErrorEmptyContent error={e as Error} />);
         } finally {
           promiseOut.current = false;
         }

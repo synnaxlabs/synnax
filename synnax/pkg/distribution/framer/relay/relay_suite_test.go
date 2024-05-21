@@ -11,6 +11,8 @@ package relay_test
 
 import (
 	"context"
+	"testing"
+
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
@@ -19,7 +21,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	tmock "github.com/synnaxlabs/synnax/pkg/distribution/transport/mock"
 	"github.com/synnaxlabs/x/confluence"
-	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -61,10 +62,12 @@ func provision(n int) (*mock.CoreBuilder, map[core.NodeKey]serviceContainer) {
 			container serviceContainer
 		)
 		container.channel = MustSucceed(channel.New(ctx, channel.ServiceConfig{
-			HostResolver: c.Cluster,
-			ClusterDB:    c.Storage.Gorpify(),
-			TSChannel:    c.Storage.TS,
-			Transport:    channelNet.New(c.Config.AdvertiseAddress),
+			HostResolver:     c.Cluster,
+			ClusterDB:        c.Storage.Gorpify(),
+			TSChannel:        c.Storage.TS,
+			Transport:        channelNet.New(c.Config.AdvertiseAddress),
+			IntOverflowCheck: func(count int64) error { return nil },
+			GetChannelCount:  func() (int, error) { return 50, nil },
 		}))
 		freeWrites := confluence.NewStream[relay.Response](25)
 		container.relay = MustSucceed(relay.Open(relay.Config{

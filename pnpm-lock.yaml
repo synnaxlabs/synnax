@@ -251,6 +251,12 @@ importers:
       '@tauri-apps/plugin-deep-link':
         specifier: 2.0.0-beta.4
         version: 2.0.0-beta.4
+      '@tauri-apps/plugin-dialog':
+        specifier: 2.0.0-beta.3
+        version: 2.0.0-beta.3
+      '@tauri-apps/plugin-fs':
+        specifier: 2.0.0-beta.3
+        version: 2.0.0-beta.3
       '@tauri-apps/plugin-process':
         specifier: 2.0.0-beta.3
         version: 2.0.0-beta.3
@@ -4231,6 +4237,18 @@ packages:
 
   /@tauri-apps/plugin-deep-link@2.0.0-beta.4:
     resolution: {integrity: sha512-KYUr8nMJ6khQW4RyF2PLnH4bhuIzllWAlz38tK+tFsF5VqawbXTKqlMgqqBsFl2HVVkUXxWmIWMn0Z2zk5DliA==}
+    dependencies:
+      '@tauri-apps/api': 2.0.0-beta.11
+    dev: false
+
+  /@tauri-apps/plugin-dialog@2.0.0-beta.3:
+    resolution: {integrity: sha512-B3KxLjFxCVB3AIYWN/xY9HM6tO7m4u6aQk1t0ZrBToXThowRU9f62527EO0oj0uNlyKlXx20up68NkpdlER0yg==}
+    dependencies:
+      '@tauri-apps/api': 2.0.0-beta.11
+    dev: false
+
+  /@tauri-apps/plugin-fs@2.0.0-beta.3:
+    resolution: {integrity: sha512-LBgA7S10NwcitHaugIfmCSkewz45vSz1VOpMHhzvE38i1r1KpuTSHlr3MZ0LLq93tH/lvhYZ+3LAml4Sriwthw==}
     dependencies:
       '@tauri-apps/api': 2.0.0-beta.11
     dev: false

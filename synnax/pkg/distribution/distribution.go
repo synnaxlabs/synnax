@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel/verification"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
@@ -102,13 +103,24 @@ func Open(ctx context.Context, cfg Config) (d Distribution, err error) {
 	frameTransport := frametransport.New(cfg.Pool)
 	*cfg.Transports = append(*cfg.Transports, channelTransport, frameTransport)
 
+	ver, err := verification.OpenService(cfg.Verifier, verification.Config{
+		DB:  d.Storage.KV,
+		Ins: cfg.Instrumentation,
+	})
+	if err != nil {
+		return d, err
+	}
+	d.Closers = append(d.Closers, ver)
+
 	d.Channel, err = channel.New(ctx, channel.ServiceConfig{
-		HostResolver: d.Cluster,
-		ClusterDB:    gorpDB,
-		TSChannel:    d.Storage.TS,
-		Transport:    channelTransport,
-		Ontology:     d.Ontology,
-		Group:        d.Group,
+		HostResolver:     d.Cluster,
+		ClusterDB:        gorpDB,
+		TSChannel:        d.Storage.TS,
+		Transport:        channelTransport,
+		Ontology:         d.Ontology,
+		Group:            d.Group,
+		IntOverflowCheck: ver.IsOverflowed,
+		GetChannelCount:  func() (int, error) { return ver.GetNumBeforeOverflow(), ver.IsExpired(ctx) },
 	})
 	if err != nil {
 		return d, err
@@ -148,6 +160,7 @@ func (d Distribution) configureControlUpdates(ctx context.Context) error {
 		Leaseholder: d.Cluster.HostKey(),
 		Virtual:     true,
 		DataType:    telem.StringT,
+		Internal:    true,
 	}}
 	if err := d.Channel.CreateManyIfNamesDontExist(ctx, &controlCh); err != nil {
 		return err

@@ -311,6 +311,7 @@ export const ChannelList = ({
               key: "add",
               onClick: handleAdd,
               children: <Icon.Add />,
+              size: "large",
             },
           ]}
         </Header.Actions>
@@ -385,7 +386,9 @@ export const ChannelListItem = ({
     optional: true,
   });
   if (childValues == null) return <></>;
-  const channelName = Channel.useName(entry.channel);
+  const channelName = Channel.useName(entry.channel, "No Synnax Channel");
+  let channelColor = undefined;
+  if (channelName === "No Synnax Channel") channelColor = "var(--pluto-warning-z)";
   return (
     <List.ItemFrame
       {...props}
@@ -397,11 +400,12 @@ export const ChannelListItem = ({
       }}
     >
       <Align.Space direction="y" size="small">
-        <Align.Space direction="x">
-          <Text.Text level="p" weight={500} shade={9}>
-            {channelName}
-          </Text.Text>
-        </Align.Space>
+        <Text.Text level="p" weight={500} shade={9} color={channelColor}>
+          {channelName}
+        </Text.Text>
+        <Text.Text level="small" weight={300} shade={7}>
+          {childValues.nodeId}
+        </Text.Text>
       </Align.Space>
       <Button.Toggle
         checkedVariant="outlined"

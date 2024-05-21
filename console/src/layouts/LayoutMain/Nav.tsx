@@ -34,6 +34,7 @@ import { Notifications } from "@/notifications";
 
 import "@/layouts/LayoutMain/Nav.css";
 import { NI } from "@/hardware/ni";
+import { Channel } from "@/channel";
 
 const DEFAULT_TRIGGER: TriggerConfig = {
   defaultMode: "command",
@@ -52,6 +53,7 @@ const COMMANDS = [
   ...OPC.COMMANDS,
   ...Persist.COMMANDS,
   ...NI.COMMANDS,
+  ...Channel.COMMANDS,
 ];
 
 const NavTopPalette = (): ReactElement => {

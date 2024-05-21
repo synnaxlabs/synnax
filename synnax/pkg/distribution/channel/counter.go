@@ -32,3 +32,7 @@ func (c *counter) add(delta LocalKey) (LocalKey, error) {
 	next, err := c.wrap.Add(int64(delta))
 	return LocalKey(next), err
 }
+
+func (c *counter) value() LocalKey {
+	return LocalKey(c.wrap.Value())
+}

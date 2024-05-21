@@ -37,6 +37,7 @@ import WorkerURL from "@/worker?worker&url";
 import "@/index.css";
 import "@synnaxlabs/media/dist/style.css";
 import "@synnaxlabs/pluto/dist/style.css";
+import { Channel } from "@/channel";
 
 const layoutRenderers: Record<string, Layout.Renderer> = {
   main: LayoutMain,
@@ -50,6 +51,7 @@ const layoutRenderers: Record<string, Layout.Renderer> = {
   ...Range.LAYOUTS,
   ...Cluster.LAYOUTS,
   ...NI.LAYOUTS,
+  ...Channel.LAYOUTS,
 };
 
 const PREVENT_DEFAULT_TRIGGERS: Triggers.Trigger[] = [
