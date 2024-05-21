@@ -190,7 +190,7 @@ export class Task<
         const parse = stateZ.safeParse(s.at(-1));
         if (!parse.success) return [null, false];
         const state = parse.data as State<D>;
-        if (state.key !== this.key) return [null, false];
+        if (state.task !== this.key) return [null, false];
         return [state, true];
       },
     );
