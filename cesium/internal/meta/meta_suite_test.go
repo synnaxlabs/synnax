@@ -22,7 +22,7 @@ var (
 	fileSystems = testutil.FileSystems
 )
 
-func TestCesium(t *testing.T) {
+func TestMeta(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Meta Suite")
 }

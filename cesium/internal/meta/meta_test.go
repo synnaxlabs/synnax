@@ -24,58 +24,51 @@ import (
 
 var _ = Describe("Meta", Ordered, func() {
 	for fsName, makeFS := range fileSystems {
-		fs, cleanup := makeFS()
-		AfterAll(func() {
-			Expect(cleanup()).To(Succeed())
+		var (
+			fs      xfs.FS
+			cleanUp func() error
+		)
+		BeforeEach(func() {
+			fs, cleanUp = makeFS()
 		})
+		AfterEach(func() { Expect(cleanUp()).To(Succeed()) })
 		Context("FS: "+fsName, Ordered, func() {
 			Specify("Corrupted meta.json", func() {
-				s := MustSucceed(fs.Sub("sub1"))
-				db := MustSucceed(cesium.Open("", cesium.WithFS(s)))
+				db := MustSucceed(cesium.Open("", cesium.WithFS(fs)))
 				key := GenerateChannelKey()
 
 				Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, Rate: 1 * telem.Hz, DataType: telem.Int64T})).To(Succeed())
 				Expect(db.Close()).To(Succeed())
 
-				f, err := s.Open(strconv.Itoa(int(key))+"/meta.json", os.O_WRONLY)
+				f, err := fs.Open(strconv.Itoa(int(key))+"/meta.json", os.O_WRONLY)
 				Expect(err).ToNot(HaveOccurred())
 				_, err = f.Write([]byte("heheheha"))
 				Expect(err).ToNot(HaveOccurred())
 				Expect(f.Close()).To(Succeed())
 
-				db, err = cesium.Open("", cesium.WithFS(s))
+				db, err = cesium.Open("", cesium.WithFS(fs))
 				Expect(err).To(MatchError(ContainSubstring("error decoding meta file")))
 			})
 
 			Describe("Impossible meta configurations", func() {
 				var (
-					s           xfs.FS
-					db          *cesium.DB
 					jsonEncoder = &binary.JSONEncoderDecoder{}
 					key         = GenerateChannelKey()
 				)
-				BeforeEach(func() {
-					s = MustSucceed(fs.Sub("meta-test"))
-					db = MustSucceed(cesium.Open("", cesium.WithFS(s)))
-					key = GenerateChannelKey()
-				})
-
-				AfterEach(func() {
-					Expect(fs.Remove("meta-test")).To(Succeed())
-				})
 
 				DescribeTable("meta configs", func(badCh cesium.Channel, badField string) {
+					db := MustSucceed(cesium.Open("", cesium.WithFS(fs)))
 					Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, Rate: 1 * telem.Hz, DataType: telem.Int64T})).To(Succeed())
 					Expect(db.Close()).To(Succeed())
 
-					f := MustSucceed(s.Open(strconv.Itoa(int(key))+"/meta.json", os.O_WRONLY))
+					f := MustSucceed(fs.Open(strconv.Itoa(int(key))+"/meta.json", os.O_WRONLY))
 					encoded := MustSucceed(jsonEncoder.Encode(ctx, badCh))
 
 					_, err := f.WriteAt(encoded, 0)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(f.Close()).To(Succeed())
 
-					db, err = cesium.Open("", cesium.WithFS(s))
+					db, err = cesium.Open("", cesium.WithFS(fs))
 					Expect(err).To(HaveOccurred())
 					Expect(err).To(MatchError(ContainSubstring(badField)))
 				},
