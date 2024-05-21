@@ -180,37 +180,55 @@ func (db *DB) removeChannel(ch ChannelKey) error {
 	return nil
 }
 
-// DeleteTimeRange deletes a timerange of data in the database in a given channel
+// DeleteTimeRange deletes a timerange of data in the database in the given channels
 // This method return an error if the channel to be deleted is an index channel and
 // there are other channels depending on it in the timerange.
 // DeleteTimeRange is idempotent.
-func (db *DB) DeleteTimeRange(ctx context.Context, ch ChannelKey, tr telem.TimeRange) error {
+func (db *DB) DeleteTimeRange(ctx context.Context, chs []ChannelKey, tr telem.TimeRange) error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
-	udb, uok := db.unaryDBs[ch]
-	if !uok {
-		if _, vok := db.virtualDBs[ch]; vok {
-			return errors.Newf("[cesium] - cannot delete timerange from virtual channel %d", ch)
+	indexChannels := make([]ChannelKey, 0)
+
+	for _, ch := range chs {
+		udb, uok := db.unaryDBs[ch]
+		if !uok {
+			if _, vok := db.virtualDBs[ch]; vok {
+				return errors.Newf("[cesium] - cannot delete timerange from virtual channel %d", ch)
+			}
+			return errors.Wrapf(ChannelNotFound, "[cesium] - timerange deletion channel %d not found", ch)
 		}
-		return errors.Wrapf(ChannelNotFound, "[cesium] - timerange deletion channel %d not found", ch)
+
+		// Cannot delete an index channel that other channels rely on.
+		if udb.Config.Channel.IsIndex {
+			indexChannels = append(indexChannels, ch)
+			continue
+		}
+
+		if err := udb.Delete(ctx, tr); err != nil {
+			return err
+		}
 	}
 
-	// Cannot delete an index channel that other channels rely on.
-	if udb.Config.Channel.IsIndex {
+	for _, ch := range indexChannels {
+		udb := db.unaryDBs[ch]
+		// Cannot delete an index channel that other channels rely on.
 		for otherDBKey := range db.unaryDBs {
 			if otherDBKey == ch || db.unaryDBs[otherDBKey].Channel.Index != udb.Config.Channel.Key {
 				continue
 			}
 			otherDB := db.unaryDBs[otherDBKey]
-			// We must determine whether there is an indexed db that has data in the timerange tr.
 			hasOverlap, err := otherDB.HasDataFor(ctx, tr)
 			if err != nil || hasOverlap {
 				return errors.Newf("[cesium] - cannot delete index channel %d with channel %d depending on it from timerange %s", ch, otherDBKey, tr)
 			}
 		}
+
+		if err := udb.Delete(ctx, tr); err != nil {
+			return err
+		}
 	}
 
-	return udb.Delete(ctx, tr)
+	return nil
 }
 
 func (db *DB) garbageCollect(ctx context.Context, maxGoRoutine int64) error {

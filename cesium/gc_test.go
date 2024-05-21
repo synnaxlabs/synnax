@@ -47,7 +47,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 						telem.NewSeriesV[int64](10, 11, 12, 13, 14, 15, 16, 17, 18))).To(Succeed())
 
 					By("Deleting channel data")
-					Expect(db.DeleteTimeRange(ctx, rate, telem.TimeRange{
+					Expect(db.DeleteTimeRange(ctx, []cesium.ChannelKey{rate}, telem.TimeRange{
 						Start: 12 * telem.SecondTS,
 						End:   15 * telem.SecondTS,
 					})).To(Succeed())
@@ -87,17 +87,17 @@ var _ = Describe("Garbage collection", Ordered, func() {
 					}
 
 					By("Deleting channel data")
-					Expect(db.DeleteTimeRange(ctx, basic, telem.TimeRange{
+					Expect(db.DeleteTimeRange(ctx, []cesium.ChannelKey{basic}, telem.TimeRange{
 						Start: 20 * telem.SecondTS,
 						End:   50 * telem.SecondTS,
 					})).To(Succeed())
 
-					Expect(db.DeleteTimeRange(ctx, basic, telem.TimeRange{
+					Expect(db.DeleteTimeRange(ctx, []cesium.ChannelKey{basic}, telem.TimeRange{
 						Start: 60 * telem.SecondTS,
 						End:   66 * telem.SecondTS,
 					})).To(Succeed())
 
-					Expect(db.DeleteTimeRange(ctx, basic, telem.TimeRange{
+					Expect(db.DeleteTimeRange(ctx, []cesium.ChannelKey{basic}, telem.TimeRange{
 						Start: 63 * telem.SecondTS,
 						End:   78 * telem.SecondTS,
 					}))
@@ -152,7 +152,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 					}
 
 					By("Deleting channel data, this should not trigger GC since we only deleted 240 bytes")
-					Expect(db.DeleteTimeRange(ctx, basic, (20 * telem.SecondTS).Range(50*telem.SecondTS))).To(Succeed())
+					Expect(db.DeleteTimeRange(ctx, []cesium.ChannelKey{basic}, (20 * telem.SecondTS).Range(50*telem.SecondTS))).To(Succeed())
 
 					Consistently(func(g Gomega) uint32 {
 						i, err := fs.Stat(path.Join(channelKeyToPath(basic) + "/1.domain"))
@@ -161,7 +161,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 					}).Should(Equal(uint32(90 * telem.Int64T.Density())))
 
 					By("Deleting more data, which should trigger GC")
-					Expect(db.DeleteTimeRange(ctx, basic, (60 * telem.SecondTS).Range(66*telem.SecondTS))).To(Succeed())
+					Expect(db.DeleteTimeRange(ctx, []cesium.ChannelKey{basic}, (60 * telem.SecondTS).Range(66*telem.SecondTS))).To(Succeed())
 
 					By("Checking the resulting file size")
 					Eventually(func(g Gomega) uint32 {
@@ -171,7 +171,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 					}).Should(Equal(uint32(54 * telem.Int64T.Density())))
 
 					By("Deleting more data, which should not trigger GC")
-					Expect(db.DeleteTimeRange(ctx, basic, (25 * telem.SecondTS).Range(65*telem.SecondTS))).To(Succeed())
+					Expect(db.DeleteTimeRange(ctx, []cesium.ChannelKey{basic}, (25 * telem.SecondTS).Range(65*telem.SecondTS))).To(Succeed())
 					Consistently(func(g Gomega) uint32 {
 						i, err := fs.Stat(path.Join(channelKeyToPath(basic) + "/1.domain"))
 						g.Expect(err).ToNot(HaveOccurred())
@@ -179,12 +179,22 @@ var _ = Describe("Garbage collection", Ordered, func() {
 					}).Should(Equal(uint32(54 * telem.Int64T.Density())))
 
 					By("Deleting more data, which should trigger GC")
-					Expect(db.DeleteTimeRange(ctx, basic, (25 * telem.SecondTS).Range(97*telem.SecondTS))).To(Succeed())
+					Expect(db.DeleteTimeRange(ctx, []cesium.ChannelKey{basic}, (25 * telem.SecondTS).Range(97*telem.SecondTS))).To(Succeed())
 					Eventually(func(g Gomega) uint32 {
 						i, err := fs.Stat(path.Join(channelKeyToPath(basic) + "/1.domain"))
 						g.Expect(err).ToNot(HaveOccurred())
 						return uint32(i.Size())
 					}).Should(Equal(uint32(13 * telem.Int64T.Density())))
+
+					By("Asserting that the data is still correct", func() {
+						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, basic))
+						Expect(f.Series).To(HaveLen(2))
+						Expect(f.Series[0].TimeRange).To(Equal((10 * telem.SecondTS).Range(19*telem.SecondTS + 1)))
+						Expect(f.Series[0].Data).To(Equal(telem.NewSeriesV[int64](100, 110, 120, 130, 140, 150, 160, 170, 180, 190).Data))
+
+						Expect(f.Series[1].TimeRange).To(Equal((97 * telem.SecondTS).Range(99*telem.SecondTS + 1)))
+						Expect(f.Series[1].Data).To(Equal(telem.NewSeriesV[int64](970, 980, 990).Data))
+					})
 				})
 			})
 			Context("Multiple files", func() {
@@ -228,7 +238,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 					}
 
 					By("Deleting channel data")
-					Expect(db.DeleteTimeRange(ctx, basic, (26 * telem.SecondTS).Range(55*telem.SecondTS))).To(Succeed())
+					Expect(db.DeleteTimeRange(ctx, []cesium.ChannelKey{basic}, (26 * telem.SecondTS).Range(55*telem.SecondTS))).To(Succeed())
 					// File 2 should not be garbage collected (4 * 8 < 39).
 					// Files 3, 4 should be garbage collected (10 * 8 > 39).
 					// File 5 should be garbage collected (5 * 8 > 39).
@@ -319,7 +329,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 					i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{Bounds: telem.TimeRangeMax, Channels: []cesium.ChannelKey{basic, index}}))
 
 					By("Deleting data")
-					Expect(db.DeleteTimeRange(ctx, basic, (11 * telem.SecondTS).Range(15*telem.SecondTS))).To(Succeed())
+					Expect(db.DeleteTimeRange(ctx, []cesium.ChannelKey{basic}, (11 * telem.SecondTS).Range(15*telem.SecondTS))).To(Succeed())
 
 					By("Asserting that GC was never run")
 					Consistently(func() int64 {
