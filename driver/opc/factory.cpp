@@ -18,7 +18,7 @@ std::pair<std::unique_ptr<task::Task>, bool> opc::Factory::configureTask(
 ) {
     if (task.type == "opcScanner") // TODO: not sure if we want this and also the configure initial tasks
         return {std::make_unique<Scanner>(ctx, task), true};
-    if (task.type == "opcReader")
+    if (task.type == "opc_read")
         return {Reader::configure(ctx, task), true};
     return {nullptr, false};
 }
