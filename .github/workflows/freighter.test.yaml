@@ -211,12 +211,3 @@ jobs:
       - name: Run Tests
         run: bazel test //freighter/cpp:freighter_test
         shell: bash
-#    services:
-#      integration:
-#        image: ghcr.io/synnaxlabs/freighter-go-integration:latest
-#        credentials:
-#          username: ${{ github.actor }}
-#          password: ${{ secrets.GITHUB_TOKEN }}
-#        ports:
-#          - 8080:8080
-
