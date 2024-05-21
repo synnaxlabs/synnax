@@ -117,6 +117,12 @@ jobs:
           draft: false
           prerelease: false
 
+      - name: Set Release Success
+        id: set-release
+        if: steps.filter.outputs.changed == 'true' && github.ref == 'refs/heads/main'
+        run: echo "release_created=true" >> $GITHUB_OUTPUT
+
+
   build:
     strategy:
       fail-fast: false
@@ -218,7 +224,7 @@ jobs:
           go build -tags driver -o synnax-v${{ steps.version.outputs.VERSION }}-${{ steps.os.outputs.OS }}
 
       - name: Upload Release Asset
-        if:  github.ref == 'refs/heads/main'
+        if: steps.create-release.outputs.release_created == 'true'
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: gh release upload synnax-v${{ steps.version.outputs.VERSION }} ./synnax/synnax-v${{ steps.version.outputs.VERSION }}-${{ steps.os.outputs.OS }}
