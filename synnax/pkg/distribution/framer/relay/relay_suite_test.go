@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	tmock "github.com/synnaxlabs/synnax/pkg/distribution/transport/mock"
 	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/types"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -66,8 +67,7 @@ func provision(n int) (*mock.CoreBuilder, map[core.NodeKey]serviceContainer) {
 			ClusterDB:        c.Storage.Gorpify(),
 			TSChannel:        c.Storage.TS,
 			Transport:        channelNet.New(c.Config.AdvertiseAddress),
-			IntOverflowCheck: func(count int64) error { return nil },
-			GetChannelCount:  func() (int, error) { return 50, nil },
+			IntOverflowCheck: func(ctx context.Context, count types.Uint20) error { return nil },
 		}))
 		freeWrites := confluence.NewStream[relay.Response](25)
 		container.relay = MustSucceed(relay.Open(relay.Config{
