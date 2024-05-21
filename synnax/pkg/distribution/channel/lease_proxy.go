@@ -11,6 +11,7 @@ package channel
 
 import (
 	"context"
+
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -224,10 +225,12 @@ func (lp *leaseProxy) createGateway(
 		}
 	}
 	totalExternalChannels := LocalKey(numExternalToCreate) + lp.externalCounter.value()
-	err = lp.IntOverflowCheck(ctx, types.Uint20(totalExternalChannels))
-	if err != nil {
-		return err
+	if numExternalToCreate != 0 {
+		if err = lp.IntOverflowCheck(ctx, types.Uint20(totalExternalChannels)); err != nil {
+			return err
+		}
 	}
+
 	_, err = lp.externalCounter.add(LocalKey(numExternalToCreate))
 	if err != nil {
 		return err
