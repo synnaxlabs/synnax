@@ -18,16 +18,11 @@ import (
 )
 
 var (
-	ctx                       = context.Background()
-	rootPath                  = "meta-testdata"
-	fileSystems, cleanUp, err = testutil.FileSystems()
+	ctx         = context.Background()
+	fileSystems = testutil.FileSystems
 )
 
 func TestCesium(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Meta Suite")
 }
-
-var _ = BeforeSuite(func() { Expect(err).ToNot(HaveOccurred()) })
-
-var _ = AfterSuite(func() { Expect(cleanUp()).To(Succeed()) })

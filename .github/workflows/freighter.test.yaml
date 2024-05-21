@@ -209,7 +209,7 @@ jobs:
           repository-cache: true
 
       - name: Run Tests
-        run: bazel test //freighter/cpp/freighter:freighter_test
+        run: bazel test //freighter/cpp:freighter_test
         shell: bash
 #    services:
 #      integration:
