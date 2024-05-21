@@ -441,7 +441,7 @@ var _ = Describe("Writer Behavior", func() {
 								By("Asserting that the telemetry has been persisted")
 								f := MustSucceed(fs.Open(channelKeyToPath(index1)+"/index.domain", os.O_RDONLY))
 								buf := make([]byte, 26)
-								_, err := f.Read(buf)
+								_, err := f.ReadAt(buf, 4)
 								Expect(err).ToNot(HaveOccurred())
 								Expect(f.Close()).To(Succeed())
 								Expect(binary.LittleEndian.Uint64(buf[0:8])).To(Equal(uint64(10 * telem.SecondTS)))
@@ -450,7 +450,7 @@ var _ = Describe("Writer Behavior", func() {
 
 								f = MustSucceed(fs.Open(channelKeyToPath(basic1)+"/index.domain", os.O_RDONLY))
 								buf = make([]byte, 26)
-								_, err = f.Read(buf)
+								_, err = f.ReadAt(buf, 4)
 								Expect(err).ToNot(HaveOccurred())
 								Expect(f.Close()).To(Succeed())
 								Expect(binary.LittleEndian.Uint64(buf[0:8])).To(Equal(uint64(10 * telem.SecondTS)))
@@ -507,7 +507,7 @@ var _ = Describe("Writer Behavior", func() {
 								Eventually(func(g Gomega) {
 									f := MustSucceed(fs.Open(channelKeyToPath(index1)+"/index.domain", os.O_RDONLY))
 									buf := make([]byte, 26)
-									_, err := f.Read(buf)
+									_, err := f.ReadAt(buf, 4)
 									g.Expect(err).ToNot(HaveOccurred())
 									g.Expect(f.Close()).To(Succeed())
 									g.Expect(binary.LittleEndian.Uint64(buf[0:8])).To(Equal(uint64(10 * telem.SecondTS)))
@@ -516,7 +516,7 @@ var _ = Describe("Writer Behavior", func() {
 
 									f = MustSucceed(fs.Open(channelKeyToPath(basic1)+"/index.domain", os.O_RDONLY))
 									buf = make([]byte, 26)
-									_, err = f.Read(buf)
+									_, err = f.ReadAt(buf, 4)
 									g.Expect(err).ToNot(HaveOccurred())
 									g.Expect(f.Close()).To(Succeed())
 									g.Expect(binary.LittleEndian.Uint64(buf[0:8])).To(Equal(uint64(10 * telem.SecondTS)))
@@ -559,7 +559,7 @@ var _ = Describe("Writer Behavior", func() {
 								Eventually(func(g Gomega) {
 									f := MustSucceed(fs.Open(channelKeyToPath(index1)+"/index.domain", os.O_RDONLY))
 									buf := make([]byte, 26)
-									_, err = f.Read(buf)
+									_, err = f.ReadAt(buf, 4)
 									g.Expect(err).ToNot(HaveOccurred())
 									g.Expect(f.Close()).To(Succeed())
 									g.Expect(binary.LittleEndian.Uint64(buf[0:8])).To(Equal(uint64(10 * telem.SecondTS)))
@@ -568,7 +568,7 @@ var _ = Describe("Writer Behavior", func() {
 
 									f = MustSucceed(fs.Open(channelKeyToPath(basic1)+"/index.domain", os.O_RDONLY))
 									buf = make([]byte, 26)
-									_, err = f.Read(buf)
+									_, err = f.ReadAt(buf, 4)
 									g.Expect(err).ToNot(HaveOccurred())
 									g.Expect(f.Close()).To(Succeed())
 									g.Expect(binary.LittleEndian.Uint64(buf[0:8])).To(Equal(uint64(10 * telem.SecondTS)))
@@ -652,7 +652,7 @@ var _ = Describe("Writer Behavior", func() {
 							subFS := MustSucceed(fs.Sub("size-capped-db"))
 							l := MustSucceed(subFS.List(strconv.Itoa(int(index))))
 							l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
-								return item.Name() != "index.domain" && item.Name() != "counter.domain" && item.Name() != "meta.json"
+								return item.Name() != "index.domain" && item.Name() != "counter.domain" && item.Name() != "meta.json" && item.Name() != "tombstone.domain"
 							})
 							Expect(l).To(HaveLen(3))
 							Expect(l[0].Size()).To(Equal(int64(6 * telem.Int64T.Density())))
@@ -660,7 +660,7 @@ var _ = Describe("Writer Behavior", func() {
 							Expect(l[2].Size()).To(Equal(int64(3 * telem.Int64T.Density())))
 							l = MustSucceed(subFS.List(strconv.Itoa(int(basic))))
 							l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
-								return item.Name() != "index.domain" && item.Name() != "counter.domain" && item.Name() != "meta.json"
+								return item.Name() != "index.domain" && item.Name() != "counter.domain" && item.Name() != "meta.json" && item.Name() != "tombstone.domain"
 							})
 							Expect(l).To(HaveLen(3))
 							Expect(l[0].Size()).To(Equal(int64(6 * telem.Int64T.Density())))
@@ -668,7 +668,7 @@ var _ = Describe("Writer Behavior", func() {
 							Expect(l[2].Size()).To(Equal(int64(3 * telem.Int64T.Density())))
 							l = MustSucceed(subFS.List(strconv.Itoa(int(rate))))
 							l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
-								return item.Name() != "index.domain" && item.Name() != "counter.domain" && item.Name() != "meta.json"
+								return item.Name() != "index.domain" && item.Name() != "counter.domain" && item.Name() != "meta.json" && item.Name() != "tombstone.domain"
 							})
 							Expect(l).To(HaveLen(2))
 							Expect(l[0].Size()).To(Equal(int64(6 * telem.Int64T.Density())))
@@ -741,21 +741,21 @@ var _ = Describe("Writer Behavior", func() {
 						By("Asserting that the first two channels have 2 files, while the last channel has an oversize file", func() {
 							l := MustSucceed(subFS.List(strconv.Itoa(int(index))))
 							l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
-								return item.Name() != "index.domain" && item.Name() != "counter.domain" && item.Name() != "meta.json"
+								return item.Name() != "index.domain" && item.Name() != "counter.domain" && item.Name() != "meta.json" && item.Name() != "tombstone.domain"
 							})
 							Expect(l).To(HaveLen(2))
 							Expect(l[0].Size()).To(Equal(int64(8 * telem.Int64T.Density())))
 							Expect(l[1].Size()).To(Equal(int64(5 * telem.Int64T.Density())))
 							l = MustSucceed(subFS.List(strconv.Itoa(int(basic))))
 							l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
-								return item.Name() != "index.domain" && item.Name() != "counter.domain" && item.Name() != "meta.json"
+								return item.Name() != "index.domain" && item.Name() != "counter.domain" && item.Name() != "meta.json" && item.Name() != "tombstone.domain"
 							})
 							Expect(l).To(HaveLen(2))
 							Expect(l[0].Size()).To(Equal(int64(8 * telem.Int64T.Density())))
 							Expect(l[1].Size()).To(Equal(int64(5 * telem.Int64T.Density())))
 							l = MustSucceed(subFS.List(strconv.Itoa(int(rate))))
 							l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
-								return item.Name() != "index.domain" && item.Name() != "counter.domain" && item.Name() != "meta.json"
+								return item.Name() != "index.domain" && item.Name() != "counter.domain" && item.Name() != "meta.json" && item.Name() != "tombstone.domain"
 							})
 							Expect(l).To(HaveLen(2))
 							Expect(l[0].Size()).To(Equal(int64(11 * telem.Int64T.Density())))
@@ -878,21 +878,21 @@ var _ = Describe("Writer Behavior", func() {
 							subFS := MustSucceed(fs.Sub("size-capped-db"))
 							l := MustSucceed(subFS.List(strconv.Itoa(int(index))))
 							l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
-								return item.Name() != "index.domain" && item.Name() != "counter.domain" && item.Name() != "meta.json"
+								return item.Name() != "index.domain" && item.Name() != "counter.domain" && item.Name() != "meta.json" && item.Name() != "tombstone.domain"
 							})
 							Expect(l).To(HaveLen(2))
 							Expect(l[0].Size()).To(Equal(int64(13 * telem.Int64T.Density())))
 							Expect(l[1].Size()).To(Equal(int64(3 * telem.Int64T.Density())))
 							l = MustSucceed(subFS.List(strconv.Itoa(int(basic))))
 							l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
-								return item.Name() != "index.domain" && item.Name() != "counter.domain" && item.Name() != "meta.json"
+								return item.Name() != "index.domain" && item.Name() != "counter.domain" && item.Name() != "meta.json" && item.Name() != "tombstone.domain"
 							})
 							Expect(l).To(HaveLen(2))
 							Expect(l[0].Size()).To(Equal(int64(13 * telem.Int64T.Density())))
 							Expect(l[1].Size()).To(Equal(int64(3 * telem.Int64T.Density())))
 							l = MustSucceed(subFS.List(strconv.Itoa(int(rate))))
 							l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
-								return item.Name() != "index.domain" && item.Name() != "counter.domain" && item.Name() != "meta.json"
+								return item.Name() != "index.domain" && item.Name() != "counter.domain" && item.Name() != "meta.json" && item.Name() != "tombstone.domain"
 							})
 							Expect(l).To(HaveLen(2))
 							Expect(l[0].Size()).To(Equal(int64(6 * telem.Int64T.Density())))

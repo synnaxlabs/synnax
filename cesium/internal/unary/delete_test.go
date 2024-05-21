@@ -881,7 +881,7 @@ var _ = Describe("Delete", Ordered, func() {
 					Expect(err).ToNot(HaveOccurred())
 					_, err = w.Commit(ctx)
 					Expect(err).ToNot(HaveOccurred())
-					_, err = w.Close(ctx)
+					_, err = w.Close()
 					Expect(err).ToNot(HaveOccurred())
 
 					Expect(rateDB.Delete(ctx, telem.TimeRange{
@@ -952,7 +952,7 @@ var _ = Describe("Delete", Ordered, func() {
 					Expect(hasData).To(BeTrue())
 					Expect(err).ToNot(HaveOccurred())
 
-					MustSucceed(w.Close(ctx))
+					MustSucceed(w.Close())
 
 					hasData, err = db.HasDataFor(ctx, (12 * telem.SecondTS).Range(23*telem.SecondTS))
 					Expect(hasData).To(BeFalse())
@@ -968,7 +968,7 @@ var _ = Describe("Delete", Ordered, func() {
 					Expect(hasData).To(BeTrue())
 					Expect(err).ToNot(HaveOccurred())
 
-					MustSucceed(w.Close(ctx))
+					MustSucceed(w.Close())
 
 					hasData, err = db.HasDataFor(ctx, (12 * telem.SecondTS).Range(23*telem.SecondTS))
 					Expect(hasData).To(BeFalse())
@@ -984,7 +984,7 @@ var _ = Describe("Delete", Ordered, func() {
 					Expect(hasData).To(BeFalse())
 					Expect(err).ToNot(HaveOccurred())
 
-					MustSucceed(w.Close(ctx))
+					MustSucceed(w.Close())
 				})
 			})
 		})

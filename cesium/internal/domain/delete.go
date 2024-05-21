@@ -166,7 +166,7 @@ func (db *DB) CollectTombstones(ctx context.Context) error {
 				return span.Error(err)
 			}
 
-			if err = db.files.RemoveFileAndMigrateDescriptors(fileKey, fileName, copyName); err != nil {
+			if err = db.files.RemoveFileHandles(fileKey, fileName, copyName); err != nil {
 				db.idx.mu.Unlock()
 				return span.Error(err)
 			}

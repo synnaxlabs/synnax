@@ -92,7 +92,7 @@ func Write(ctx context.Context, db *DB, tr telem.TimeRange, data []byte) error {
 	if err = w.Commit(ctx /* ignored */, tr.End); err != nil {
 		return err
 	}
-	return w.Close(ctx)
+	return w.Close()
 }
 
 // Writer is used to write a telemetry domain to the DB. A Writer is opened using DB.NewWriter
@@ -283,7 +283,7 @@ func (w *Writer) resolveCommitEnd(end telem.TimeStamp) (bool, telem.TimeStamp) {
 // Close closes the writer, releasing any resources it may have been holding. Any
 // uncommitted data will be discarded. Any committed, but unpersisted data will be persisted.
 // Close is idempotent, and is also not safe to call concurrently with any other writer methods.
-func (w *Writer) Close(ctx context.Context) error {
+func (w *Writer) Close() error {
 	if w.closed {
 		return nil
 	}

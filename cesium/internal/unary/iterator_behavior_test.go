@@ -104,14 +104,14 @@ var _ = Describe("Iterator Behavior", func() {
 						Expect(w.Write(telem.NewSeriesV[telem.TimeStamp](10, 11, 12, 13, 14, 15, 16)))
 						_, err := w.Commit(ctx)
 						Expect(err).ToNot(HaveOccurred())
-						_, err = w.Close(ctx)
+						_, err = w.Close()
 						Expect(err).ToNot(HaveOccurred())
 
 						w, _ = MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{Start: 17 * telem.SecondTS, Subject: control.Subject{Key: "test_writer"}}))
 						Expect(w.Write(telem.NewSeriesV[int64](17, 18)))
 						_, err = w.Commit(ctx)
 						Expect(err).ToNot(HaveOccurred())
-						_, err = w.Close(ctx)
+						_, err = w.Close()
 						Expect(err).ToNot(HaveOccurred())
 
 						i := db.OpenIterator(unary.IterRange(telem.TimeRangeMax))

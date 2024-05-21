@@ -112,9 +112,6 @@ type Writer struct {
 	// unnecessary index lookups by keeping track of the highest timestamp written.
 	// Only valid when Channel.IsIndex is true.
 	hwm telem.TimeStamp
-	// lastCommitFileSwitch describes whether the last commit involved a file switch.
-	// If it did, then it is necessary to resolve the timestamp for that commit this time.
-	lastCommitFileSwitch bool
 	// closed stores whether the writer is closed. Operations like Write and Commit do not
 	// succeed on closed writers.
 	closed bool
@@ -164,7 +161,7 @@ func Write(
 		return err
 	}
 	defer func() {
-		_, err_ := w.Close(ctx)
+		_, err_ := w.Close()
 		err = errors.CombineErrors(err, err_)
 	}()
 	if _, err = w.Write(series); err != nil {
@@ -183,7 +180,7 @@ func (w *Writer) Write(series telem.Series) (a telem.Alignment, err error) {
 	if w.closed {
 		return 0, WriterClosedError
 	}
-	if err := w.Channel.ValidateSeries(series); err != nil {
+	if err = w.Channel.ValidateSeries(series); err != nil {
 		return 0, err
 	}
 	// ok signifies whether w is allowed to write.
@@ -257,7 +254,7 @@ func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.
 	return end, dw.Commit(ctx, end)
 }
 
-func (w *Writer) Close(ctx context.Context) (controller.Transfer, error) {
+func (w *Writer) Close() (controller.Transfer, error) {
 	if w.closed {
 		return controller.Transfer{}, nil
 	}
@@ -266,7 +263,7 @@ func (w *Writer) Close(ctx context.Context) (controller.Transfer, error) {
 	dw, t := w.control.Release()
 	w.decrementCounter()
 	if t.IsRelease() {
-		return t, dw.Close(ctx)
+		return t, dw.Close()
 	}
 
 	return t, nil

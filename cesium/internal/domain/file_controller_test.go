@@ -45,7 +45,7 @@ var _ = Describe("File Controller", func() {
 					Expect(db.FS.Exists("2.domain")).To(BeTrue())
 
 					By("Closing the first writer")
-					Expect(w1.Close(ctx)).To(Succeed())
+					Expect(w1.Close()).To(Succeed())
 
 					By("Acquiring a third writer, 1.domain should be acquired")
 					w3, err := db.NewWriter(ctx, domain.WriterConfig{
@@ -60,8 +60,8 @@ var _ = Describe("File Controller", func() {
 					Expect(err).ToNot(HaveOccurred())
 					Expect(s.Size()).To(Equal(int64(8)))
 
-					Expect(w2.Close(ctx)).To(Succeed())
-					Expect(w3.Close(ctx)).To(Succeed())
+					Expect(w2.Close()).To(Succeed())
+					Expect(w3.Close()).To(Succeed())
 				})
 
 				It("Should obey the file size limit", func() {
@@ -76,7 +76,7 @@ var _ = Describe("File Controller", func() {
 					n, err := w1.Write([]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10})
 					Expect(n).To(Equal(10))
 					Expect(err).ToNot(HaveOccurred())
-					Expect(w1.Close(ctx)).To(Succeed())
+					Expect(w1.Close()).To(Succeed())
 					By("Acquiring a second writer, this would create a new file 2.domain since 1.domain is full")
 					w2, err := db.NewWriter(ctx, domain.WriterConfig{
 						Start: 30 * telem.SecondTS,
@@ -85,7 +85,7 @@ var _ = Describe("File Controller", func() {
 					Expect(err).ToNot(HaveOccurred())
 					Expect(db.FS.Exists("2.domain")).To(BeTrue())
 
-					Expect(w2.Close(ctx)).To(Succeed())
+					Expect(w2.Close()).To(Succeed())
 				})
 
 				It("Should persist obey the file size limit", func() {
@@ -100,7 +100,7 @@ var _ = Describe("File Controller", func() {
 					n, err := w1.Write([]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10})
 					Expect(n).To(Equal(10))
 					Expect(err).ToNot(HaveOccurred())
-					Expect(w1.Close(ctx)).To(Succeed())
+					Expect(w1.Close()).To(Succeed())
 
 					By("Closing the db")
 					Expect(db.Close()).To(Succeed())
@@ -116,7 +116,7 @@ var _ = Describe("File Controller", func() {
 					Expect(err).ToNot(HaveOccurred())
 					Expect(db.FS.Exists("2.domain")).To(BeTrue())
 
-					Expect(w2.Close(ctx)).To(Succeed())
+					Expect(w2.Close()).To(Succeed())
 				})
 
 				It("Should open a file if it is below threshold", func() {
@@ -131,7 +131,7 @@ var _ = Describe("File Controller", func() {
 					n, err := w1.Write([]byte{1, 2, 3, 4, 5, 6, 7})
 					Expect(n).To(Equal(7))
 					Expect(err).ToNot(HaveOccurred())
-					Expect(w1.Close(ctx)).To(Succeed())
+					Expect(w1.Close()).To(Succeed())
 
 					By("Acquiring a second writer, this would not create a new file 2.domain since 1.domain not full")
 					w2, err := db.NewWriter(ctx, domain.WriterConfig{
@@ -141,7 +141,7 @@ var _ = Describe("File Controller", func() {
 					Expect(err).ToNot(HaveOccurred())
 					Expect(db.FS.Exists("2.domain")).To(BeFalse())
 
-					Expect(w2.Close(ctx)).To(Succeed())
+					Expect(w2.Close()).To(Succeed())
 				})
 
 				It("Should persist and open a file if it is below threshold", func() {
@@ -156,7 +156,7 @@ var _ = Describe("File Controller", func() {
 					n, err := w1.Write([]byte{1, 2, 3, 4, 5, 6, 7})
 					Expect(n).To(Equal(7))
 					Expect(err).ToNot(HaveOccurred())
-					Expect(w1.Close(ctx)).To(Succeed())
+					Expect(w1.Close()).To(Succeed())
 
 					By("Closing the db")
 					Expect(db.Close()).To(Succeed())
@@ -172,7 +172,7 @@ var _ = Describe("File Controller", func() {
 					Expect(err).ToNot(HaveOccurred())
 					Expect(db.FS.Exists("2.domain")).To(BeFalse())
 
-					Expect(w2.Close(ctx)).To(Succeed())
+					Expect(w2.Close()).To(Succeed())
 				})
 
 				It("Should obey the file descriptor limit", func() {
@@ -201,15 +201,15 @@ var _ = Describe("File Controller", func() {
 						})
 						Expect(err).ToNot(HaveOccurred())
 						acquired <- struct{}{}
-						Expect(w3.Close(ctx)).To(Succeed())
+						Expect(w3.Close()).To(Succeed())
 					}()
 					By("Expecting the channel acquisition to fail")
 					Consistently(acquired).WithTimeout(50 * telem.Millisecond.Duration()).ShouldNot(Receive())
 					By("Closing the writer 1")
-					Expect(w1.Close(ctx)).To(Succeed())
+					Expect(w1.Close()).To(Succeed())
 					By("Expecting writer 3 to successfully acquire")
 					Eventually(acquired).Should(Receive())
-					Expect(w2.Close(ctx)).To(Succeed())
+					Expect(w2.Close()).To(Succeed())
 				})
 
 				It("Should persist the counter file across open/close", func() {
@@ -225,7 +225,7 @@ var _ = Describe("File Controller", func() {
 					Expect(err).ToNot(HaveOccurred())
 					Expect(MustSucceed(db.FS.Stat("1.domain")).Size()).To(Equal(int64(10)))
 					Expect(w1.Commit(ctx, 10*telem.SecondTS+1)).To(Succeed())
-					Expect(w1.Close(ctx)).To(Succeed())
+					Expect(w1.Close()).To(Succeed())
 
 					By("Closing the db")
 					Expect(db.Close()).To(Succeed())
@@ -248,9 +248,9 @@ var _ = Describe("File Controller", func() {
 					_, err = w2.Write([]byte{15, 16, 17})
 					Expect(err).ToNot(HaveOccurred())
 					Expect(w2.Commit(ctx, 17*telem.SecondTS+1)).To(Succeed())
-					Expect(w2.Close(ctx)).To(Succeed())
+					Expect(w2.Close()).To(Succeed())
 
-					Expect(w3.Close(ctx)).To(Succeed())
+					Expect(w3.Close()).To(Succeed())
 
 					Expect(MustSucceed(db.FS.Stat("1.domain")).Size()).To(Equal(int64(10)))
 					Expect(MustSucceed(db.FS.Stat("2.domain")).Size()).To(Equal(int64(3)))
@@ -270,7 +270,7 @@ var _ = Describe("File Controller", func() {
 					Expect(err).ToNot(HaveOccurred())
 					Expect(MustSucceed(db.FS.Stat("1.domain")).Size()).To(Equal(int64(10)))
 					Expect(w1.Commit(ctx, 10*telem.SecondTS+1)).To(Succeed())
-					Expect(w1.Close(ctx)).To(Succeed())
+					Expect(w1.Close()).To(Succeed())
 
 					By("Acquiring a new writer: this should give us 2.domain")
 					w2 := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{
@@ -279,7 +279,7 @@ var _ = Describe("File Controller", func() {
 					_, err = w2.Write([]byte{11, 12, 13})
 					Expect(err).ToNot(HaveOccurred())
 					Expect(w2.Commit(ctx, 13*telem.SecondTS+1)).To(Succeed())
-					Expect(w2.Close(ctx)).To(Succeed())
+					Expect(w2.Close()).To(Succeed())
 
 					By("Closing the db")
 					Expect(db.Close()).To(Succeed())
@@ -295,7 +295,7 @@ var _ = Describe("File Controller", func() {
 					_, err = w3.Write([]byte{15, 16, 17})
 					Expect(err).ToNot(HaveOccurred())
 					Expect(w3.Commit(ctx, 17*telem.SecondTS+1)).To(Succeed())
-					Expect(w3.Close(ctx)).To(Succeed())
+					Expect(w3.Close()).To(Succeed())
 
 					By("Acquiring a new writer: this should still go to file 2")
 					w4 := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{
@@ -305,7 +305,7 @@ var _ = Describe("File Controller", func() {
 					_, err = w4.Write([]byte{20, 21, 22, 23})
 					Expect(err).ToNot(HaveOccurred())
 					Expect(w4.Commit(ctx, 23*telem.SecondTS+1)).To(Succeed())
-					Expect(w4.Close(ctx)).To(Succeed())
+					Expect(w4.Close()).To(Succeed())
 
 					Expect(MustSucceed(db.FS.Stat("1.domain")).Size()).To(Equal(int64(10)))
 					Expect(MustSucceed(db.FS.Stat("2.domain")).Size()).To(Equal(int64(10)))
@@ -329,8 +329,8 @@ var _ = Describe("File Controller", func() {
 					Expect(err).ToNot(HaveOccurred())
 					Expect(w6.Commit(ctx, 45*telem.SecondTS+1)).To(Succeed())
 
-					Expect(w5.Close(ctx)).To(Succeed())
-					Expect(w6.Close(ctx)).To(Succeed())
+					Expect(w5.Close()).To(Succeed())
+					Expect(w6.Close()).To(Succeed())
 
 					Expect(MustSucceed(db.FS.Stat("1.domain")).Size()).To(Equal(int64(10)))
 					Expect(MustSucceed(db.FS.Stat("2.domain")).Size()).To(Equal(int64(10)))
@@ -348,6 +348,7 @@ var _ = Describe("File Controller", func() {
 						_, err = r.ReadAt(buf, 0)
 						Expect(err).ToNot(HaveOccurred())
 						Expect(buf).To(Equal([]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}))
+						Expect(r.Close()).To(Succeed())
 
 						Expect(i.Next()).To(BeTrue())
 						r = MustSucceed(i.NewReader(ctx))
@@ -355,6 +356,7 @@ var _ = Describe("File Controller", func() {
 						_, err = r.ReadAt(buf, 0)
 						Expect(err).ToNot(HaveOccurred())
 						Expect(buf).To(Equal([]byte{11, 12, 13}))
+						Expect(r.Close()).To(Succeed())
 
 						Expect(i.Next()).To(BeTrue())
 						r = MustSucceed(i.NewReader(ctx))
@@ -362,6 +364,7 @@ var _ = Describe("File Controller", func() {
 						_, err = r.ReadAt(buf, 0)
 						Expect(err).ToNot(HaveOccurred())
 						Expect(buf).To(Equal([]byte{15, 16, 17}))
+						Expect(r.Close()).To(Succeed())
 
 						Expect(i.Next()).To(BeTrue())
 						r = MustSucceed(i.NewReader(ctx))
@@ -369,6 +372,7 @@ var _ = Describe("File Controller", func() {
 						_, err = r.ReadAt(buf, 0)
 						Expect(err).ToNot(HaveOccurred())
 						Expect(buf).To(Equal([]byte{20, 21, 22, 23}))
+						Expect(r.Close()).To(Succeed())
 
 						Expect(i.Next()).To(BeTrue())
 						r = MustSucceed(i.NewReader(ctx))
@@ -376,6 +380,7 @@ var _ = Describe("File Controller", func() {
 						_, err = r.ReadAt(buf, 0)
 						Expect(err).ToNot(HaveOccurred())
 						Expect(buf).To(Equal([]byte{30, 31, 32, 33}))
+						Expect(r.Close()).To(Succeed())
 
 						Expect(i.Next()).To(BeTrue())
 						r = MustSucceed(i.NewReader(ctx))
@@ -383,6 +388,7 @@ var _ = Describe("File Controller", func() {
 						_, err = r.ReadAt(buf, 0)
 						Expect(err).ToNot(HaveOccurred())
 						Expect(buf).To(Equal([]byte{40, 41, 42, 43, 44, 45}))
+						Expect(r.Close()).To(Succeed())
 
 						Expect(i.Close()).To(Succeed())
 					})
@@ -402,7 +408,7 @@ var _ = Describe("File Controller", func() {
 					Expect(w1.Commit(ctx, 10*telem.SecondTS+1)).To(Succeed())
 					Expect(MustSucceed(db.FS.Stat("1.domain")).Size()).To(Equal(int64(10)))
 					Expect(MustSucceed(db.FS.Stat("2.domain")).Size()).To(Equal(int64(0)))
-					Expect(w1.Close(ctx)).To(Succeed())
+					Expect(w1.Close()).To(Succeed())
 
 					By("Reopening the db")
 					Expect(db.Close()).To(Succeed())
@@ -433,7 +439,7 @@ var _ = Describe("File Controller", func() {
 					Expect(MustSucceed(db.FS.Stat("2.domain")).Size()).To(Equal(int64(11)))
 					Expect(MustSucceed(db.FS.Stat("3.domain")).Size()).To(Equal(int64(4)))
 
-					Expect(w2.Close(ctx)).To(Succeed())
+					Expect(w2.Close()).To(Succeed())
 				})
 			})
 		})

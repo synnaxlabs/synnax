@@ -97,8 +97,31 @@ func (fc *fileController) acquireWriter(ctx context.Context) (uint16, int64, xio
 	defer span.End()
 
 	fc.writers.RLock()
+	lastFileKey := uint16(0)
 	for fileKey, w := range fc.writers.open {
 		s, err := fc.FS.Stat(fileKeyToName(fileKey))
+		if err != nil {
+			return 0, 0, nil, err
+		}
+
+		size := s.Size()
+
+		if fileKey == uint16(fc.counter.Value()) && size < int64(fc.FileSize) {
+			// Optimization: prioritize writing to existing files that are not full
+			// rather than at the end.
+			lastFileKey = fileKey
+			continue
+		}
+
+		if size < int64(fc.FileSize) && w.tryAcquire() {
+			fc.writers.RUnlock()
+			return w.fileKey, size, &w, nil
+		}
+	}
+
+	if lastFileKey != 0 {
+		w := fc.writers.open[lastFileKey]
+		s, err := fc.FS.Stat(fileKeyToName(lastFileKey))
 		if err != nil {
 			return 0, 0, nil, err
 		}
@@ -110,6 +133,7 @@ func (fc *fileController) acquireWriter(ctx context.Context) (uint16, int64, xio
 			return w.fileKey, size, &w, nil
 		}
 	}
+
 	fc.writers.RUnlock()
 
 	if !fc.atDescriptorLimit() {
@@ -121,6 +145,14 @@ func (fc *fileController) acquireWriter(ctx context.Context) (uint16, int64, xio
 	}
 
 	ok, err := fc.gcWriters()
+	if err != nil {
+		return 0, 0, nil, span.Error(err)
+	}
+	if ok {
+		return fc.acquireWriter(ctx)
+	}
+
+	ok, err = fc.gcReaders()
 	if err != nil {
 		return 0, 0, nil, span.Error(err)
 	}
@@ -144,7 +176,15 @@ func (fc *fileController) newWriter(ctx context.Context) (*controlledWriter, int
 		span.End()
 	}()
 
+	lastFileKey := uint16(0)
 	for key := range fc.writers.unopened {
+		// Optimization: prioritize writing to existing files that are not full
+		// rather than at the end.
+		if key == uint16(fc.counter.Value()) {
+			lastFileKey = key
+			continue
+		}
+
 		file, err := fc.FS.Open(fileKeyToName(key), os.O_WRONLY|os.O_APPEND)
 		if err != nil {
 			return nil, 0, span.Error(err)
@@ -159,6 +199,26 @@ func (fc *fileController) newWriter(ctx context.Context) (*controlledWriter, int
 		}
 		fc.writers.open[key] = w
 		delete(fc.writers.unopened, key)
+
+		s, err := file.Stat()
+		return &w, s.Size(), span.Error(err)
+	}
+
+	if lastFileKey != 0 {
+		file, err := fc.FS.Open(fileKeyToName(lastFileKey), os.O_WRONLY|os.O_APPEND)
+		if err != nil {
+			return nil, 0, span.Error(err)
+		}
+		base, err := xio.NewTrackedWriteCloser(file)
+		if err != nil {
+			return nil, 0, span.Error(err)
+		}
+		w := controlledWriter{
+			TrackedWriteCloser: base,
+			controllerEntry:    newPoolEntry(lastFileKey, fc.writers.release),
+		}
+		fc.writers.open[lastFileKey] = w
+		delete(fc.writers.unopened, lastFileKey)
 
 		s, err := file.Stat()
 		return &w, s.Size(), span.Error(err)
@@ -188,7 +248,7 @@ func (fc *fileController) newWriter(ctx context.Context) (*controlledWriter, int
 	return &w, 0, nil
 }
 
-func (fc *fileController) acquireReader(ctx context.Context, key uint16) (xio.ReaderAtCloser, error) {
+func (fc *fileController) acquireReader(ctx context.Context, key uint16) (*controlledReader, error) {
 	ctx, span := fc.T.Bench(ctx, "acquireReader")
 	defer span.End()
 
@@ -210,9 +270,9 @@ func (fc *fileController) acquireReader(ctx context.Context, key uint16) (xio.Re
 		fc.readers.RUnlock()
 		return fc.acquireReader(ctx, key)
 	}
+	fc.readers.RUnlock()
 
 	if !fc.atDescriptorLimit() {
-		fc.readers.RUnlock()
 		return fc.newReader(ctx, key)
 	}
 
@@ -220,10 +280,18 @@ func (fc *fileController) acquireReader(ctx context.Context, key uint16) (xio.Re
 	if err != nil {
 		return nil, err
 	}
-	fc.readers.RUnlock()
 	if ok {
 		return fc.acquireReader(ctx, key)
 	}
+
+	ok, err = fc.gcWriters()
+	if err != nil {
+		return nil, err
+	}
+	if ok {
+		return fc.acquireReader(ctx, key)
+	}
+
 	<-fc.readers.release
 	return fc.acquireReader(ctx, key)
 }
@@ -265,13 +333,18 @@ func (fc *fileController) gcReaders() (bool, error) {
 	return false, nil
 }
 
-// gcWriters closes all open writers that are not currently being written to
+// gcWriters closes all open writers to oversize files.
 func (fc *fileController) gcWriters() (bool, error) {
 	fc.writers.Lock()
 	defer fc.writers.Unlock()
 	for k, w := range fc.writers.open {
-		if w.tryAcquire() {
-			err := w.Close()
+		s, err := fc.FS.Stat(fileKeyToName(k))
+		if err != nil {
+			return false, err
+		}
+
+		if s.Size() >= int64(fc.FileSize) && w.tryAcquire() {
+			err = w.Close()
 			err = errors.CombineErrors(err, w.TrackedWriteCloser.Close())
 			delete(fc.writers.open, k)
 			return true, err
@@ -294,51 +367,9 @@ func (fc *fileController) atDescriptorLimit() bool {
 	return readerCount+len(fc.writers.open) >= fc.MaxDescriptors
 }
 
-func (fc *fileController) removeReadersWriters(ctx context.Context, key uint16) error {
-	ctx, span := fc.T.Bench(ctx, "removeReadersWriters")
-	defer span.End()
-
-	fc.readers.RLock()
-	_, ok := fc.readers.open[key]
-	if !ok {
-		return nil
-	}
-
-	c := errutil.NewCatch(errutil.WithAggregation())
-	for _, r := range fc.readers.open[key] {
-		if r.tryAcquire() {
-			c.Exec(r.Close)
-		}
-		c.Exec(r.ReaderAtCloser.Close)
-	}
-
-	fc.readers.RUnlock()
-	fc.readers.Lock()
-	delete(fc.readers.open, key)
-	fc.readers.Unlock()
-
-	w, ok := fc.writers.open[key]
-	if !ok {
-		return c.Error()
-	}
-
-	fc.writers.RLock()
-	if w.tryAcquire() {
-		c.Exec(w.Close)
-	}
-	c.Exec(w.TrackedWriteCloser.Close)
-
-	fc.writers.RUnlock()
-	fc.writers.Lock()
-	delete(fc.writers.open, key)
-	fc.writers.Unlock()
-
-	return c.Error()
-}
-
-// RemoveFileAndMigrateDescriptors closes and removes all readers on a file, changes the
+// RemoveFileHandles closes and removes all readers on a file, changes the
 // underlying writer on the file to newFile, and removes oldFile from FS.
-func (fc *fileController) RemoveFileAndMigrateDescriptors(key uint16, newFile string, oldFile string) error {
+func (fc *fileController) RemoveFileHandles(key uint16, newFile string, oldFile string) error {
 	// close and remove all readers
 	fc.readers.Lock()
 	fc.writers.Lock()
@@ -360,40 +391,31 @@ func (fc *fileController) RemoveFileAndMigrateDescriptors(key uint16, newFile st
 	}
 	delete(fc.readers.open, key)
 
-	// Migrate the writer
-	f, err := fc.FS.Open(newFile, os.O_RDWR|os.O_APPEND)
-	if err != nil {
-		return err
-	}
-
-	base, err := xio.NewTrackedWriteCloser(f)
-
-	if err != nil {
-		return err
-	}
-
+	// Add the file key to unopened writers.
 	w, ok := fc.writers.open[key]
 	if ok {
-		if w.tryAcquire() {
-			err = w.TrackedWriteCloser.Close()
-			if err != nil {
-				return err
-			}
-			w.TrackedWriteCloser = base
-			fc.writers.open[key] = w
-
-			err = w.Close()
-			if err != nil {
-				return err
-			}
-		} else {
+		if !w.tryAcquire() {
 			return errors.Newf("cannot acquire writer on garbage collected file <%s>", oldFile)
 		}
-	} else {
-		fc.writers.open[key] = controlledWriter{
-			TrackedWriteCloser: base,
-			controllerEntry:    newPoolEntry(key, fc.writers.release),
+
+		err := w.TrackedWriteCloser.Close()
+		if err != nil {
+			return err
 		}
+		err = w.Close()
+		if err != nil {
+			return err
+		}
+		delete(fc.writers.open, key)
+	}
+
+	s, err := fc.FS.Stat(newFile)
+	if err != nil {
+		return err
+	}
+
+	if s.Size() < int64(fc.FileSize) {
+		fc.writers.unopened[key] = struct{}{}
 	}
 
 	// Delete underlying file.

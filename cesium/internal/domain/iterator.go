@@ -142,6 +142,7 @@ func (i *Iterator) TimeRange() telem.TimeRange { return i.value.TimeRange }
 // NewReader returns a new Reader that can be used to read telemetry from the current
 // domain. The returned Reader is not safe for concurrent use, but it is safe to have
 // multiple Readers open over the same domain.
+// Note that the caller is responsible for closing the reader.
 func (i *Iterator) NewReader(ctx context.Context) (*Reader, error) {
 	if i.closed {
 		return nil, IteratorClosedError

@@ -53,6 +53,7 @@ var _ = Describe("Delete", Ordered, func() {
 					_, err := r.ReadAt(p, 0)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(p[:len(firstData)]).To(Equal(firstData))
+					Expect(r.Close()).To(Succeed())
 
 					Expect(iter.Next()).To(BeTrue())
 					Expect(iter.TimeRange()).To(Equal(secondTr))
@@ -62,6 +63,7 @@ var _ = Describe("Delete", Ordered, func() {
 					Expect(err).ToNot(HaveOccurred())
 					Expect(p[:len(secondData)]).To(Equal(secondData))
 					Expect(iter.Close()).To(Succeed())
+					Expect(r.Close()).To(Succeed())
 				},
 					Entry("across two pointers", (13*telem.SecondTS).Range(23*telem.SecondTS), 0, 1, 3, 7, (10*telem.SecondTS).Range(13*telem.SecondTS), []byte{10, 11, 12}, (23*telem.SecondTS).Range(30*telem.SecondTS), []byte{23, 24, 25, 26, 27, 28}),
 					Entry("start at start of pointer", (10*telem.SecondTS).Range(23*telem.SecondTS), 0, 1, 0, 7, (23*telem.SecondTS).Range(30*telem.SecondTS), []byte{23, 24, 25, 26, 27, 28, 29}, (30*telem.SecondTS).Range(40*telem.SecondTS), []byte{30, 31, 32, 33, 34, 35, 36, 37, 38, 39}),
@@ -77,6 +79,7 @@ var _ = Describe("Delete", Ordered, func() {
 					_, err := r.ReadAt(p, 0)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(p[:2]).To(Equal([]byte{10, 11}))
+					Expect(r.Close()).To(Succeed())
 
 					Expect(iter.Next()).To(BeFalse())
 					Expect(iter.Close()).To(Succeed())
@@ -92,6 +95,7 @@ var _ = Describe("Delete", Ordered, func() {
 					_, err := r.ReadAt(p, 0)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(p[:10]).To(Equal([]byte{10, 11, 12, 13, 14, 15, 16, 17, 18, 19}))
+					Expect(r.Close()).To(Succeed())
 
 					Expect(iter.Next()).To(BeTrue())
 					r = MustSucceed(iter.NewReader(ctx))
@@ -99,6 +103,7 @@ var _ = Describe("Delete", Ordered, func() {
 					Expect(err).ToNot(HaveOccurred())
 					Expect(p[:10]).To(Equal([]byte{20, 21, 22, 23, 24, 25, 26, 27, 28, 29}))
 					Expect(iter.Close()).To(Succeed())
+					Expect(r.Close()).To(Succeed())
 				})
 
 				It("Should delete the entire db", func() {
@@ -123,6 +128,7 @@ var _ = Describe("Delete", Ordered, func() {
 					_, err := r.ReadAt(p, 0)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(p[:1]).To(Equal([]byte{10}))
+					Expect(r.Close()).To(Succeed())
 
 					Expect(iter.Next()).To(BeTrue())
 					Expect(iter.TimeRange()).To(Equal((15 * telem.SecondTS).Range(17 * telem.SecondTS)))
@@ -131,6 +137,7 @@ var _ = Describe("Delete", Ordered, func() {
 					_, err = r.ReadAt(p, 0)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(p[:2]).To(Equal([]byte{15, 16}))
+					Expect(r.Close()).To(Succeed())
 
 					Expect(iter.Next()).To(BeTrue())
 					Expect(iter.TimeRange()).To(Equal((19 * telem.SecondTS).Range(20 * telem.SecondTS)))
@@ -139,6 +146,7 @@ var _ = Describe("Delete", Ordered, func() {
 					_, err = r.ReadAt(p, 0)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(p[:1]).To(Equal([]byte{19}))
+					Expect(r.Close()).To(Succeed())
 
 					Expect(iter.Next()).To(BeTrue())
 					Expect(iter.TimeRange()).To(Equal((20 * telem.SecondTS).Range(30 * telem.SecondTS)))
@@ -147,6 +155,7 @@ var _ = Describe("Delete", Ordered, func() {
 					_, err = r.ReadAt(p, 0)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(p[:10]).To(Equal([]byte{20, 21, 22, 23, 24, 25, 26, 27, 28, 29}))
+					Expect(r.Close()).To(Succeed())
 
 					Expect(iter.Close()).To(Succeed())
 				})
@@ -202,6 +211,7 @@ var _ = Describe("Delete", Ordered, func() {
 					_, err = r.ReadAt(p, 0)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(p).To(Equal([]byte{10, 11, 12, 13, 14, 15, 16, 17, 18, 19}))
+					Expect(r.Close()).To(Succeed())
 
 					Expect(i.Next()).To(BeTrue())
 					Expect(i.TimeRange()).To(Equal((23 * telem.SecondTS).Range(30 * telem.SecondTS)))
@@ -210,6 +220,7 @@ var _ = Describe("Delete", Ordered, func() {
 					_, err = r.ReadAt(p, 0)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(p).To(Equal([]byte{23, 24, 25, 26, 27, 28, 29}))
+					Expect(r.Close()).To(Succeed())
 					Expect(i.Close()).To(Succeed())
 				})
 
@@ -226,6 +237,7 @@ var _ = Describe("Delete", Ordered, func() {
 					_, err = r.ReadAt(p, 0)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(p).To(Equal([]byte{10, 11}))
+					Expect(r.Close()).To(Succeed())
 
 					Expect(i.Next()).To(BeTrue())
 					Expect(i.TimeRange()).To(Equal((20 * telem.SecondTS).Range(30 * telem.SecondTS)))
@@ -234,6 +246,7 @@ var _ = Describe("Delete", Ordered, func() {
 					_, err = r.ReadAt(p, 0)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(p).To(Equal([]byte{20, 21, 22, 23, 24, 25, 26, 27, 28, 29}))
+					Expect(r.Close()).To(Succeed())
 					Expect(i.Close()).To(Succeed())
 				})
 

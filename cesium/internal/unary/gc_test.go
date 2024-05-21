@@ -239,6 +239,7 @@ var _ = Describe("Garbage Collection", func() {
 					Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18)))
 					Expect(unary.Write(ctx, indexDB, 20*telem.SecondTS, telem.NewSecondsTSV(20, 21, 22, 23, 24, 25, 26)))
 					Expect(unary.Write(ctx, indexDB, 30*telem.SecondTS, telem.NewSecondsTSV(30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41)))
+					Expect(unary.Write(ctx, indexDB, 50*telem.SecondTS, telem.NewSecondsTSV(50, 51, 52, 53, 54, 55, 56)))
 
 					Expect(unary.Write(ctx, dataDB, 10*telem.SecondTS, telem.NewSeriesV[int64](10, 11, 12, 13, 14, 15, 16, 17, 18)))
 					Expect(unary.Write(ctx, dataDB, 20*telem.SecondTS, telem.NewSeriesV[int64](20, 21, 22, 23, 24, 25, 26)))
@@ -258,22 +259,24 @@ var _ = Describe("Garbage Collection", func() {
 					Expect(MustSucceed(dataDB.FS.Stat("2.domain")).Size()).To(Equal(int64(8)))
 					Expect(MustSucceed(dataDB.FS.Stat("3.domain")).Size()).To(Equal(int64(64)))
 
-					By("Expecting new writes to go to file 2")
-					Expect(unary.Write(ctx, dataDB, 17*telem.SecondTS, telem.NewSeriesV[int64](17, 18, 20, 21))).To(Succeed())
-					Expect(MustSucceed(dataDB.FS.Stat("2.domain")).Size()).To(Equal(int64(40)))
+					By("Writing more data")
+					Expect(unary.Write(ctx, dataDB, 50*telem.SecondTS, telem.NewSeriesV[int64](50, 51, 52, 53, 54, 55, 56))).To(Succeed())
+					Expect(unary.Write(ctx, dataDB, 17*telem.SecondTS, telem.NewSeriesV[int64](17, 18))).To(Succeed())
 
 					By("Asserting that the data is correct", func() {
 						f := MustSucceed(dataDB.Read(ctx, telem.TimeRangeMax))
-						Expect(f.Series).To(HaveLen(4))
+						Expect(f.Series).To(HaveLen(5))
 
 						Expect(f.Series[0].TimeRange).To(Equal((10 * telem.SecondTS).Range(17 * telem.SecondTS)))
 						Expect(f.Series[0].Data).To(Equal(telem.NewSeriesV[int64](10, 11, 12, 13, 14, 15, 16).Data))
-						Expect(f.Series[1].TimeRange).To(Equal((17 * telem.SecondTS).Range(21*telem.SecondTS + 1)))
-						Expect(f.Series[1].Data).To(Equal(telem.NewSeriesV[int64](17, 18, 20, 21).Data))
+						Expect(f.Series[1].TimeRange).To(Equal((17 * telem.SecondTS).Range(18*telem.SecondTS + 1)))
+						Expect(f.Series[1].Data).To(Equal(telem.NewSeriesV[int64](17, 18).Data))
 						Expect(f.Series[2].TimeRange).To(Equal((26 * telem.SecondTS).Range(26*telem.SecondTS + 1)))
 						Expect(f.Series[2].Data).To(Equal(telem.NewSeriesV[int64](26).Data))
 						Expect(f.Series[3].TimeRange).To(Equal((34 * telem.SecondTS).Range(41*telem.SecondTS + 1)))
 						Expect(f.Series[3].Data).To(Equal(telem.NewSeriesV[int64](34, 35, 36, 37, 38, 39, 40, 41).Data))
+						Expect(f.Series[4].TimeRange).To(Equal((50 * telem.SecondTS).Range(56*telem.SecondTS + 1)))
+						Expect(f.Series[4].Data).To(Equal(telem.NewSeriesV[int64](50, 51, 52, 53, 54, 55, 56).Data))
 					})
 				})
 			})

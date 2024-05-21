@@ -21,11 +21,6 @@ type WriterAtCloser interface {
 	io.Closer
 }
 
-type WriteSeekCloser interface {
-	io.WriteSeeker
-	io.Closer
-}
-
 type ReaderAtWriterAtCloser interface {
 	io.ReaderAt
 	WriterAtCloser
