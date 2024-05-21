@@ -56,9 +56,9 @@ import { remove } from "@/cluster/slice";
 
 export const configureAnalogReadLayout: Layout.State = {
   name: "Configure NI Analog Read Task",
-  key: "niAnalogReadTask",
-  type: "niAnalogReadTask",
-  windowKey: "niAnalogReadTask",
+  key: ANALOG_READ_TYPE,
+  type: ANALOG_READ_TYPE,
+  windowKey: ANALOG_READ_TYPE,
   location: "window",
   window: {
     resizable: false,

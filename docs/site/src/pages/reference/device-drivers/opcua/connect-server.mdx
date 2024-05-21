@@ -1,0 +1,113 @@
+---
+layout: "@/layouts/MainLayout.astro"
+title: "OPC UA | Connect Server"
+heading: "Connect to an OPC UA Server"
+description: "Learn how to connect to a server using the Synnax OPC UA driver."
+---
+import { Divider } from "@synnaxlabs/pluto";
+import Table from "@/components/Table.astro";
+import Note from "@/components/Note.astro";
+
+The first step to acquiring data from your PLC is to connect to to an OPC UA server 
+running on the device. 
+
+<Divider.Divider direction="x" />
+
+## Pre-requisites
+
+Before you can connect to an OPC UA server, you'll need to have the following configured:
+
+1. [A Synnax deployment running on your network]](/reference/cluster/quick-start)
+2. [The Synnax Console installed on your machine](/reference/console/get-started)
+3. An OPC UA compliant server running on your device. This server should be reachable from the Synnax database deployment.
+
+<Divider.Divider direction="x" />
+
+## Connecting to the Server
+
+We'll use the Console's configuration workflow to connect to your server. To kick things off,
+open the Console and click on the Quick Search & Command Palette at the top. You can also
+open this palette with `Ctrl+Shift+P` on Windows/Linux or `Cmd+Shift+P` on macOS.
+
+In command mode (enabled when the first character in the input is ">"), type "OPC UA".
+You'll see an option called "Connect a New Server". Select this open to open the server 
+configuration dialog.
+
+### Step 1 - Enter your Connection Parameters
+
+The dialog will prompt you to enter the connection parameters to your server. Here's
+a reference for each of the fields you'll need to fill:
+
+<Table>
+    <thead>
+        <tr>
+            <th>Field</th>
+            <th>Description</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>Name</td>
+            <td>A human-readbale name for your server. We'll use this to identify and manage the server in the Console.</td>
+        </tr>
+        <tr>
+            <td>Endpoint</td>
+            <td>The endpoint URL for your server. This should be it's reachable address on the network, and typicaly begins with `opc.tcp://`.</td>
+        </tr>
+        <tr>
+            <td>Username</td>
+            <td>The username to use when connecting to the server. This is optional and can be left blank.</td>
+        </tr>
+        <tr>
+            <td>Password</td>
+            <td>The password to use when connecting to the server. This is optional and can be left blank.</td>
+        </tr>
+    </tbody>
+</Table>
+
+### Step 1b - Test the Connection
+
+Before moving on to the next step, make sure to use the "Test Connection" button to 
+verify that the Console can connect to the server. 
+
+### Step 2 - Create Synnax Channels
+
+After you've successfully connected the server, hit "Next" to continue to the next step
+in the workflow. Synnax will automatically scan your server for readable OPC UA nodes and
+create a plan to create the corresponding channels in the Synnax database.
+
+These channels are separated into independent **sampling groups**. Each group has a special
+channel called an 'index' that is used to store the timestamps for the samples recorded
+by each channel in the group. The important rule to remember is that **all channels in a 
+group must be sampled together**. 
+
+For example, if you have a `temperature` and a `pressure` channel in the same group,
+both channels must be sampled at the same rate. This is because the index channel is 
+used to store the timestamps for both channels, and the timestamps must be in sync.
+
+By default, we place all of the channnels into a single sample sampling group. You 
+can create additional groups by using the `+` button in the groups section of the 
+configuration dialog. Then, drag and drop channels between groups to organize them as
+needed.
+
+<Note variant="info">
+When in doubt, separate channels into different groups. Although it incurs a performance
+and storage overhead to store the timestamps for each group, it provides a higher degree
+of flexibility in the future.
+</Note>
+
+You can always come back to this dialog to re-configure the device at a later time.
+
+### Step 3 - Confirm
+
+After you've defined your sampling groups, hit "Next" to move to the configuration dialog.
+Once you're ready to proceed, hit "Configure" and Synnax will create the channels in the
+database. Once that process completes, press "Done" to close the dialog.
+
+<Divider.Divider direction="x" />
+
+## Next Steps
+
+Now that you've connected to your server and created channels, it's time to set up 
+data acqusition tasks. We recommend starting with the [Read Task](/reference/device-drivers/opcua/read-task)
+to read data from your server.

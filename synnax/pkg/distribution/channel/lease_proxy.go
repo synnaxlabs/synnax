@@ -18,8 +18,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/types"
 )
 
 type leaseProxy struct {
@@ -30,8 +30,8 @@ type leaseProxy struct {
 	freeCounter     *counter
 	externalCounter *counter
 	group           group.Group
-	deleted         *set.Integer[uint16]
-	internal        *set.Integer[uint16]
+	deleted         *set.Integer[LocalKey]
+	internal        *set.Integer[LocalKey]
 }
 
 const leasedCounterSuffix = ".distribution.channel.leasedCounter"
@@ -56,8 +56,8 @@ func newLeaseProxy(cfg ServiceConfig, g group.Group) (*leaseProxy, error) {
 		leasedCounter:   c,
 		group:           g,
 		externalCounter: extCtr,
-		deleted:         set.NewInteger[uint16](),
-		internal:        set.NewInteger[uint16](),
+		deleted:         &set.Integer[LocalKey]{},
+		internal:        &set.Integer[LocalKey]{},
 	}
 	if cfg.HostResolver.HostKey() == core.Bootstrapper {
 		freeCounterKey := []byte(cfg.HostResolver.HostKey().String() + freeCounterSuffix)
@@ -217,8 +217,8 @@ func (lp *leaseProxy) createGateway(
 			internalCreatedKeys = append(internalCreatedKeys, ch.Key())
 		}
 	}
-	totalExternalChannels := int64(numExternalToCreate) + lp.externalCounter.Value()
-	err = lp.IntOverflowCheck(totalExternalChannels)
+	totalExternalChannels := LocalKey(numExternalToCreate) + lp.externalCounter.value()
+	err = lp.IntOverflowCheck(ctx, types.Uint20(totalExternalChannels))
 	if err != nil {
 		return err
 	}

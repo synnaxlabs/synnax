@@ -11,6 +11,7 @@ package channel
 
 import (
 	"context"
+	"github.com/synnaxlabs/x/types"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -61,7 +62,7 @@ type ServiceConfig struct {
 	Transport        Transport
 	Ontology         *ontology.Ontology
 	Group            *group.Service
-	IntOverflowCheck func(count int64) error
+	IntOverflowCheck func(ctx context.Context, count types.Uint20) error
 	GetChannelCount  func() (int, error)
 }
 
@@ -143,7 +144,7 @@ func (s *service) validateChannels(channels []Channel) ([]Channel, error) {
 		deletedCount := s.proxy.deleted.NumLessThan(key.LocalKey())
 		internalCount := s.proxy.internal.NumLessThan(key.LocalKey())
 		keyNumber := key.LocalKey() - deletedCount - internalCount
-		if keyNumber < uint16(maxAllowed) {
+		if keyNumber < LocalKey(maxAllowed) {
 			returnedChannels = append(returnedChannels, channels[i])
 		} else {
 			vErr = err

@@ -11,6 +11,7 @@ package verification
 
 import (
 	"errors"
+	"github.com/synnaxlabs/x/types"
 	"io"
 	"strconv"
 	"time"
@@ -90,7 +91,7 @@ func (s *Service) Close() error {
 	return s.shutdown.Close()
 }
 
-func (s *Service) IsOverflowed(ctx context.Context, inUse int64) error {
+func (s *Service) IsOverflowed(ctx context.Context, inUse types.Uint20) error {
 	key, err := s.retrieve(ctx)
 
 	if err != nil {

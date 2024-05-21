@@ -71,14 +71,21 @@ func (c Config) Validate() error {
 type Service struct {
 	Config
 	shutdownSignals io.Closer
+	group           group.Group
 }
+
+const groupName = "Tasks"
 
 func OpenService(ctx context.Context, configs ...Config) (s *Service, err error) {
 	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
 		return
 	}
-	s = &Service{Config: cfg}
+	g, err := cfg.Group.CreateOrRetrieve(ctx, groupName, ontology.RootID)
+	if err != nil {
+		return
+	}
+	s = &Service{Config: cfg, group: g}
 	cfg.Ontology.RegisterService(s)
 
 	if cfg.Channel != nil {
@@ -127,9 +134,10 @@ func (s *Service) Close() error {
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		tx:   gorp.OverrideTx(s.DB, tx),
-		otg:  s.Ontology.NewWriter(tx),
-		rack: s.Rack.NewWriter(tx),
+		tx:    gorp.OverrideTx(s.DB, tx),
+		otg:   s.Ontology.NewWriter(tx),
+		rack:  s.Rack.NewWriter(tx),
+		group: s.group,
 	}
 }
 

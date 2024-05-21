@@ -12,6 +12,7 @@ package verification
 import (
 	"encoding/base64"
 	"errors"
+	"github.com/synnaxlabs/x/types"
 	"strconv"
 	"strings"
 	"time"
@@ -124,12 +125,12 @@ func whenStale(input string) time.Time {
 	return time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.Local)
 }
 
-func getNumChan(input string) int64 {
+func getNumChan(input string) types.Uint20 {
 	channelCipher := 64317284
 	parts := strings.Split(input, "-")
 	numChannels, _ := strconv.Atoi(parts[1])
 	numChannels, _ = crypto.Cipher(numChannels, channelCipher, 8)
-	return int64(numChannels)
+	return types.Uint20(numChannels)
 }
 
 func inputCheckFunc(input string) error {

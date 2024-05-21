@@ -10,7 +10,6 @@
 package channel
 
 import (
-	"encoding/binary"
 	"strconv"
 
 	"github.com/samber/lo"
@@ -23,7 +22,6 @@ import (
 	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/unsafe"
 	"github.com/synnaxlabs/x/validate"
-	"strconv"
 )
 
 // Key represents a unique identifier for a Channel. This value is guaranteed to be
@@ -128,8 +126,8 @@ func (k Keys) UniqueLeaseholders() (keys []core.NodeKey) {
 	return lo.Uniq(keys)
 }
 
-func (k Keys) Local() []uint16 {
-	return lo.Map(k, func(k Key, _ int) uint16 { return k.LocalKey() })
+func (k Keys) Local() []LocalKey {
+	return lo.Map(k, func(k Key, _ int) LocalKey { return k.LocalKey() })
 }
 
 // Strings returns the keys as a slice of strings.
