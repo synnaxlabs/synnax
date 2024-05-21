@@ -36,13 +36,14 @@ const reqZ = z.object({
   dataTypes: DataType.z.array().optional(),
   notDataTypes: DataType.z.array().optional(),
   virtual: z.boolean().optional(),
+  isIndex: z.boolean().optional(),
 });
 
 type Request = z.input<typeof reqZ>;
 
 export type RetrieveOptions = Pick<
   Request,
-  "rangeKey" | "limit" | "offset" | "dataTypes" | "notDataTypes" | "virtual"
+  "rangeKey" | "limit" | "offset" | "dataTypes" | "notDataTypes" | "virtual" | "isIndex"
 >;
 
 export type PageOptions = Omit<RetrieveOptions, "offset" | "limit">;

@@ -101,6 +101,7 @@ type ChannelRetrieveRequest struct {
 	DataTypes    []telem.DataType `json:"data_types" msgpack:"data_types"`
 	NotDataTypes []telem.DataType `json:"not_data_types" msgpack:"not_data_types"`
 	Virtual      *bool            `json:"virtual" msgpack:"virtual"`
+	IsIndex      *bool            `json:"is_index" msgpack:"is_index"`
 }
 
 // ChannelRetrieveResponse is the response for a ChannelRetrieveRequest.
@@ -146,41 +147,35 @@ func (s *ChannelService) Retrieve(
 			}
 		}
 	}
-
 	if hasKeys {
 		q = q.WhereKeys(req.Keys...)
 	}
-
 	if hasNames {
 		q = q.WhereNames(req.Names...)
 	}
-
 	if hasSearch {
 		q = q.Search(req.Search)
 	}
-
 	if req.NodeKey != 0 {
 		q = q.WhereNodeKey(req.NodeKey)
 	}
-
 	if hasDataTypes {
 		q = q.WhereDataTypes(req.DataTypes...)
 	}
-
 	if hasNotDataTypes {
 		q = q.WhereNotDataTypes(req.NotDataTypes...)
 	}
-
 	if req.Limit > 0 {
 		q = q.Limit(req.Limit)
 	}
-
 	if req.Offset > 0 {
 		q = q.Offset(req.Offset)
 	}
-
 	if req.Virtual != nil {
 		q = q.WhereVirtual(*req.Virtual)
+	}
+	if req.IsIndex != nil {
+		q = q.WhereIsIndex(*req.IsIndex)
 	}
 
 	err := q.Exec(ctx, nil)

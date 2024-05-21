@@ -18,21 +18,30 @@ import {
   Channel,
   Synnax,
   Color,
-  Menu,
+  Menu as PMenu,
   usePrevious,
 } from "@synnaxlabs/pluto";
-import { type UnknownRecord, box, location, unique, getEntries } from "@synnaxlabs/x";
+import {
+  type UnknownRecord,
+  box,
+  location,
+  unique,
+  getEntries,
+  scale,
+  TimeRange,
+} from "@synnaxlabs/x";
 import { useDispatch } from "react-redux";
 
 import { useSyncerDispatch, type Syncer } from "@/hooks/dispatchers";
 import { Layout } from "@/layout";
-import { ContextMenuContent } from "@/lineplot/ContextMenu";
 import {
   useSelect,
   selectRanges,
   useSelectControlState,
   useSelectViewportMode,
   select,
+  useSelectAxisBounds,
+  useSelectSelection,
 } from "@/lineplot/selectors";
 import {
   type State,
@@ -57,6 +66,8 @@ import { Range } from "@/range";
 import { Vis } from "@/vis";
 import { Workspace } from "@/workspace";
 import { Icon } from "@synnaxlabs/media";
+import { download } from "@/lineplot/download";
+import { Menu } from "@/components";
 // import { dialog } from "@tauri-apps/api";
 // import { writeFile } from "@tauri-apps/api/fs";
 
@@ -268,10 +279,74 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
     [windowKey, dispatch],
   );
 
-  const props = Menu.useContextMenu();
+  const props = PMenu.useContextMenu();
+
+  interface ContextMenuContentProps {
+    layoutKey: string;
+  }
+
+  const ContextMenuContent = ({ layoutKey }: ContextMenuContentProps): ReactElement => {
+    const { box: selection } = useSelectSelection(layoutKey);
+    const bounds = useSelectAxisBounds(layoutKey, "x1");
+
+    const s = scale.Scale.scale(1).scale(bounds);
+    const timeRange = new TimeRange(
+      s.pos(box.left(selection)),
+      s.pos(box.right(selection)),
+    );
+
+    const handleSelect = (key: string): void => {
+      switch (key) {
+        case "iso":
+          void navigator.clipboard.writeText(
+            `${timeRange.start.fString("ISO")} - ${timeRange.end.fString("ISO")}`,
+          );
+          break;
+        case "python":
+          void navigator.clipboard.writeText(
+            `sy.TimeRange(${timeRange.start.valueOf()}, ${timeRange.end.valueOf()})`,
+          );
+          break;
+        case "typescript":
+          void navigator.clipboard.writeText(
+            `new TimeRange(${timeRange.start.valueOf()}, ${timeRange.end.valueOf()})`,
+          );
+          break;
+        case "download":
+          if (client == null) return;
+          download({ timeRange, lines, client });
+          break;
+      }
+    };
+
+    return (
+      <PMenu.Menu onChange={handleSelect} iconSpacing="medium" level="small">
+        <Menu.Item.HardReload />
+        {!box.areaIsZero(selection) && (
+          <>
+            <PMenu.Item itemKey="iso" startIcon={<Icon.Range />}>
+              Copy time range as ISO
+            </PMenu.Item>
+            <PMenu.Item itemKey="python" startIcon={<Icon.Python />}>
+              Copy time range as Python
+            </PMenu.Item>
+            <PMenu.Item itemKey="typescript" startIcon={<Icon.TypeScript />}>
+              Copy time range as TypeScript
+            </PMenu.Item>
+            <PMenu.Item itemKey="range" startIcon={<Icon.Add />}>
+              Create new range from selection
+            </PMenu.Item>
+            <PMenu.Item itemKey="download" startIcon={<Icon.Download />}>
+              Download data as CSV
+            </PMenu.Item>
+          </>
+        )}
+      </PMenu.Menu>
+    );
+  };
 
   return (
-    <Menu.ContextMenu
+    <PMenu.ContextMenu
       {...props}
       menu={() => <ContextMenuContent layoutKey={layoutKey} />}
     >
@@ -303,21 +378,8 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
               const handleSelect = (itemKey: string) => {
                 switch (itemKey) {
                   case "download":
-                    void (async () => {
-                      const channels = unique(
-                        lines
-                          .flatMap((l) => [l.channels.y, l.channels.x])
-                          .filter((v) => v != null && v != 0),
-                      ) as channel.KeysOrNames;
-                      const labels = lines.map((l) => l.label);
-                      const frame = await client.read(timeRange, channels);
-                      const csv = frameToCSV(labels, frame);
-                      const savePath = await dialog.save({
-                        defaultPath: `${name}.csv`,
-                      });
-                      if (savePath == null) return;
-                      await writeFile({ path: savePath, contents: csv });
-                    })();
+                    if (client == null) return;
+                    download({ client, lines, timeRange, name });
                     break;
                   case "meta-data":
                     placer({
@@ -331,23 +393,23 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
               };
 
               return (
-                <Menu.Menu level="small" key={key} onChange={handleSelect}>
-                  <Menu.Item itemKey="download" startIcon={<Icon.Download />}>
+                <PMenu.Menu level="small" key={key} onChange={handleSelect}>
+                  <PMenu.Item itemKey="download" startIcon={<Icon.Download />}>
                     Download as CSV
-                  </Menu.Item>
-                  <Menu.Item itemKey="line-plot" startIcon={<Icon.Visualize />}>
+                  </PMenu.Item>
+                  <PMenu.Item itemKey="line-plot" startIcon={<Icon.Visualize />}>
                     Open in New Plot
-                  </Menu.Item>
-                  <Menu.Item itemKey="meta-data" startIcon={<Icon.Annotate />}>
+                  </PMenu.Item>
+                  <PMenu.Item itemKey="meta-data" startIcon={<Icon.Annotate />}>
                     View Meta Data
-                  </Menu.Item>
-                </Menu.Menu>
+                  </PMenu.Item>
+                </PMenu.Menu>
               );
             },
           }}
         />
       </div>
-    </Menu.ContextMenu>
+    </PMenu.ContextMenu>
   );
 };
 

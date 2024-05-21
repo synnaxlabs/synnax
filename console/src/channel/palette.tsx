@@ -7,12 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
-
+import { createLayout } from "@/channel/Create";
+import { Command, CommandSelectionContext } from "@/palette/Palette";
 import { Icon } from "@synnaxlabs/media";
-import { Menu as Core } from "@synnaxlabs/pluto";
-import { TimeRange, box, scale } from "@synnaxlabs/x";
 
-import { Menu } from "@/components";
-import { useSelectAxisBounds, useSelectSelection } from "@/lineplot/selectors";
-import { download } from "@/lineplot/download";
+export const createChannelCommand: Command = {
+  icon: <Icon.Channel />,
+  name: "Create Channel",
+  key: "create-channel",
+  onSelect: (ctx: CommandSelectionContext) => {
+    ctx.placeLayout(createLayout);
+  },
+};
+
+export const COMMANDS = [createChannelCommand];

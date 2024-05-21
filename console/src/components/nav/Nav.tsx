@@ -15,7 +15,6 @@ export const NAV_DRAWERS: Layout.NavDrawerItem[] = [
   Ontology.Toolbar,
   Range.Toolbar,
   Vis.Toolbar,
-  Task.Toolbar,
 ];
 
 export const NavMenu = ({

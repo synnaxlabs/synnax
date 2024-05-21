@@ -10,7 +10,7 @@
 import { type FC, type ReactElement } from "react";
 
 import { type ontology, type Synnax } from "@synnaxlabs/client";
-import { type Tree, type Haul } from "@synnaxlabs/pluto";
+import { type Tree, type Haul, Status } from "@synnaxlabs/pluto";
 import { type location } from "@synnaxlabs/x";
 
 import { type Layout } from "@/layout";
@@ -22,6 +22,7 @@ export interface BaseProps {
   placeLayout: Layout.Placer;
   removeLayout: Layout.Remover;
   services: Services;
+  addStatus: (status: Status.CrudeSpec) => void;
 }
 
 export interface HandleSelectProps extends BaseProps {
