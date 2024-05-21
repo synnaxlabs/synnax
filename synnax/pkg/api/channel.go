@@ -11,6 +11,8 @@ package api
 
 import (
 	"context"
+	"go/types"
+
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
@@ -20,7 +22,6 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
-	"go/types"
 )
 
 // Channel is an API-friendly version of the channel.Channel type. It is simplified for
@@ -74,6 +75,9 @@ func (s *ChannelService) Create(
 	translated, err := translateChannelsBackward(req.Channels)
 	if err != nil {
 		return res, err
+	}
+	for _, ch := range translated {
+		ch.Internal = false
 	}
 	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
 		err := s.internal.NewWriter(tx).CreateMany(ctx, &translated)
