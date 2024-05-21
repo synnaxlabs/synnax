@@ -10,6 +10,7 @@
 package verification
 
 import (
+	"context"
 	"errors"
 	"github.com/synnaxlabs/x/types"
 	"io"
@@ -23,7 +24,6 @@ import (
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
-	"golang.org/x/net/context"
 )
 
 type Config struct {

@@ -19,9 +19,10 @@ import {
   Nav,
   Select,
   Synnax,
+  Text,
 } from "@synnaxlabs/pluto";
 import { useMutation } from "@tanstack/react-query";
-import { type ReactElement, useRef, useEffect } from "react";
+import { type ReactElement, useRef, useEffect, useState } from "react";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
 
@@ -73,14 +74,29 @@ export const Create: Layout.Renderer = ({
       rate: Rate.hz(0),
     },
   });
+  const [createMore, setCreateMore] = useState(false);
 
   const { mutate, isPending, isError, error } = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (createMore: boolean) => {
       console.log(methods.validate());
       if (!methods.validate() || client == null) return;
       const d = methods.value();
       d.dataType = d.dataType.toString();
       await client.channels.create(methods.value());
+      if (!createMore) onClose();
+      else
+        methods.set({
+          path: "",
+          value: {
+            key: 0,
+            name: "",
+            index: 0,
+            dataType: "float32",
+            isIndex: false,
+            leaseholder: 0,
+            rate: Rate.hz(0),
+          },
+        });
     },
   });
 
@@ -111,7 +127,7 @@ export const Create: Layout.Renderer = ({
               }}
             />
             <Form.Field<DataType> path="dataType" label="Data Type" grow>
-              {(p) => <Select.DataType {...p} disabled={isIndex} />}
+              {(p) => <Select.DataType {...p} disabled={isIndex} maxHeight="small" />}
             </Form.Field>
           </Align.Space>
           <Form.Field<channel.Key> path="index" label="Index">
@@ -121,6 +137,7 @@ export const Create: Layout.Renderer = ({
                 placeholder="Select Index"
                 searchOptions={{ isIndex: true }}
                 disabled={isIndex}
+                maxHeight="small"
                 {...p}
               />
             )}
@@ -128,12 +145,18 @@ export const Create: Layout.Renderer = ({
         </Form.Form>
       </Align.Space>
       <Nav.Bar location="bottom" size={48}>
-        <Nav.Bar.End style={{ padding: "1rem" }}>
+        <Nav.Bar.End style={{ padding: "1rem" }} align="center" size="large">
+          <Align.Space direction="x" align="center" size="small">
+            <Input.Switch value={createMore} onChange={setCreateMore} />
+            <Text.Text level="p" shade={7}>
+              Create More
+            </Text.Text>
+          </Align.Space>
           <Button.Button
             disabled={isPending}
             loading={isPending}
             onClick={() => {
-              mutate();
+              mutate(createMore);
             }}
           >
             Create Channel

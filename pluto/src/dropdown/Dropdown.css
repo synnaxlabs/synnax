@@ -54,6 +54,13 @@
         background: var(--pluto-gray-l1);
         backdrop-filter: saturate(180%) blur(5rem);
         max-height: 360px;
+        &.pluto-height-small {
+            max-height: 200px;
+        }
+
+        &.pluto-height-large {
+            max-height: 480px;
+        }
     }
 
     &.pluto--floating {
