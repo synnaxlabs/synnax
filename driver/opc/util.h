@@ -41,7 +41,7 @@ inline int64_t ua_datetime_to_unix_nano(UA_DateTime dateTime) {
     return (dateTime - unixEpochStartIn100NanoIntervals) * 100;
 }
 
-inline bool set_val_on_series(UA_Variant *val, size_t i, const synnax::Series &s) {
+inline void set_val_on_series(UA_Variant *val, size_t i, synnax::Series &s) {
     if (val->type == &UA_TYPES[UA_TYPES_FLOAT]) {
         const auto value = *static_cast<UA_Float *>(val->data);
         if (s.data_type == synnax::FLOAT32) s.set(i, value);

@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/validate"
 	"time"
+	"github.com/sirupsen/logrus"
 )
 
 type Config struct {
@@ -103,7 +104,9 @@ func Open(configs ...Config) (*Relay, error) {
 
 func (r *Relay) Close() error {
 	r.demands.Close()
+	logrus.Info("Relay: Waiting for all demands to be processed.")
 	err := r.wg.Wait()
+	logrus.Info("Relay: demands processes")
 	return err
 }
 

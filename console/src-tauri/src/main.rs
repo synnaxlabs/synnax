@@ -9,8 +9,11 @@ extern crate objc;
 
 use tauri::{Window};
 
+#[cfg(target_os = "macos")]
 struct UnsafeWindowHandle(*mut std::ffi::c_void);
+#[cfg(target_os = "macos")]
 unsafe impl Send for UnsafeWindowHandle {}
+#[cfg(target_os = "macos")]
 unsafe impl Sync for UnsafeWindowHandle {}
 
 #[cfg(target_os = "macos")]
@@ -48,30 +51,25 @@ fn set_transparent_titlebar(_: &Window, _: bool) {}
 fn main() {
     tauri::Builder::default()
         .on_page_load(|window, _| {
-            #[cfg(target_os = "macos")]
             set_transparent_titlebar(&window.window(), true,);
             return;
         })
         .on_window_event(move |win, event| match event {
             tauri::WindowEvent::Focused {..} => {
-                #[cfg(target_os = "macos")]
                 set_transparent_titlebar(win, true);
             },
             tauri::WindowEvent::ThemeChanged {..} => {
-                #[cfg(target_os = "macos")]
                 set_transparent_titlebar(win, true);
             }
             tauri::WindowEvent::Resized(size) => {
                 let monitor = win.current_monitor().unwrap().unwrap();
                 let screen = monitor.size();
                 if size != screen {
-                    #[cfg(target_os = "macos")]
                     set_transparent_titlebar(win, true);
                 } 
             },
             tauri::WindowEvent::Moved(position)=> {
                 if position.x != 0 && position.y != 0 {
-                    #[cfg(target_os = "macos")]
                     set_transparent_titlebar(win, true);
                 }
            },

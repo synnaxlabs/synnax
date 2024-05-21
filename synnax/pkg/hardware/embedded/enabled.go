@@ -112,7 +112,7 @@ func (d *Driver) start() error {
 		err = internalSCtx.Wait()
 		isSignal := false
 		if err != nil {
-			isSignal = strings.Contains(err.Error(), "signal")
+			isSignal = strings.Contains(err.Error(), "signal") || strings.Contains(err.Error(), "exit status")
 			if bre.Wait() && !isSignal {
 				return mf(ctx)
 			}

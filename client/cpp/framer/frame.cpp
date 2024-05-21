@@ -56,3 +56,13 @@ void Frame::toProto(api::v1::Frame *f) const {
     f->mutable_series()->Reserve(series->size());
     for (auto &ser: *series) ser.to_proto(f->add_series());
 }
+
+// implement th ostream operator
+std::ostream &synnax::operator<<(std::ostream &os, const Frame &f) {
+    os << "Frame{";
+    for (size_t i = 0; i < f.channels->size(); i++) {
+        os << f.channels->at(i) << ": " << f.series->at(i) << ", " << std::endl;
+    }
+    os << "}";
+    return os;
+}

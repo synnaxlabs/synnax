@@ -58,6 +58,7 @@
   "app": {
     "windows": [
       {
+        "label": "main",
         "fullscreen": false,
         "height": 810,
         "resizable": true,
@@ -65,7 +66,7 @@
         "width": 1080,
         "minWidth": 625,
         "minHeight": 375,
-        "visible": false,
+        "visible": true,
         "acceptFirstMouse": true,
         "titleBarStyle": "Overlay",
         "hiddenTitle": true,
