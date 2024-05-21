@@ -14,6 +14,9 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/meta"
+	"github.com/synnaxlabs/cesium/internal/unary"
+	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
@@ -112,43 +115,78 @@ func (db *DB) validateNewChannel(ch Channel) error {
 	return v.Error()
 }
 
-// RenameChannel changes the key of channel oldKey into newKey. This operation is
+// RekeyChannel changes the key of channel oldKey into newKey. This operation is
 // idempotent and does not return an error if the channel does not exist.
-// RenameChannel returns an error if there are open iterators/writers on the given channel.
-func (db *DB) RenameChannel(oldKey ChannelKey, newKey core.ChannelKey) error {
+// RekeyChannel returns an error if there are open iterators/writers on the given channel.
+func (db *DB) RekeyChannel(oldKey ChannelKey, newKey core.ChannelKey) error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
+
+	_, uok := db.unaryDBs[newKey]
+	_, vok := db.virtualDBs[newKey]
+	if uok || vok {
+		return errors.Newf("cannot rekey to %d since it channel %d already exists", newKey, newKey)
+	}
+
 	udb, uok := db.unaryDBs[oldKey]
 	if uok {
-		if err := udb.TryRekey(); err != nil {
+		if err := udb.TryClose(); err != nil {
+			return err
+		}
+		if err := db.fs.Rename(keyToDirName(oldKey), keyToDirName(newKey)); err != nil {
 			return err
 		}
 
-		err := db.fs.Rename(keyToDirName(oldKey), keyToDirName(newKey))
-		if err != nil {
-			return err
-		}
-
-		udb.Config.Channel.Key = newKey
 		newFS, err := db.fs.Sub(keyToDirName(newKey))
 		if err != nil {
 			return err
 		}
 
-		err = udb.ReconfigureFS(newFS)
+		newConfig := udb.Config
+		newConfig.FS = newFS
+		newConfig.Channel.Key = newKey
+		if newConfig.Channel.IsIndex {
+			newConfig.Channel.Index = newKey
+		}
+
+		if err = meta.Create(newFS, db.metaECD, newConfig.Channel); err != nil {
+			return err
+		}
+
+		_udb, err := unary.Open(newConfig)
 		if err != nil {
 			return err
 		}
 
 		delete(db.unaryDBs, oldKey)
-		db.unaryDBs[newKey] = udb
+		db.unaryDBs[newKey] = *_udb
 
 		if udb.Channel.IsIndex {
 			for otherDBKey := range db.unaryDBs {
 				otherDB := db.unaryDBs[otherDBKey]
-				if otherDB.Channel.Index == oldKey {
-					otherDB.Channel.Index = newKey
-					db.unaryDBs[otherDBKey] = otherDB
+				if otherDB.Channel.Index == oldKey && otherDBKey != newKey {
+					if err = otherDB.TryClose(); err != nil {
+						return err
+					}
+
+					newFS, err = db.fs.Sub(keyToDirName(otherDBKey))
+					if err != nil {
+						return err
+					}
+
+					newConfig = otherDB.Config
+					newConfig.Channel.Index = newKey
+
+					if err = meta.Create(newFS, db.metaECD, newConfig.Channel); err != nil {
+						return err
+					}
+
+					_otherDB, err := unary.Open(newConfig)
+					if err != nil {
+						return err
+					}
+					_otherDB.SetIndex((*_udb).Index())
+					db.unaryDBs[otherDBKey] = *_otherDB
 				}
 			}
 		}
@@ -157,20 +195,32 @@ func (db *DB) RenameChannel(oldKey ChannelKey, newKey core.ChannelKey) error {
 	}
 	vdb, vok := db.virtualDBs[oldKey]
 	if vok {
-		if err := vdb.TryRekey(); err != nil {
+		if err := vdb.TryClose(); err != nil {
+			return err
+		}
+		if err := db.fs.Rename(keyToDirName(oldKey), keyToDirName(newKey)); err != nil {
 			return err
 		}
 
-		err := db.fs.Rename(keyToDirName(oldKey), keyToDirName(newKey))
+		newFS, err := db.fs.Sub(keyToDirName(newKey))
 		if err != nil {
 			return err
 		}
 
-		vdb.Config.Channel.Key = newKey
-		delete(db.virtualDBs, oldKey)
-		db.virtualDBs[newKey] = vdb
+		newConfig := vdb.Config
+		newConfig.Channel.Key = newKey
 
-		return nil
+		if err = meta.Create(newFS, db.metaECD, newConfig.Channel); err != nil {
+			return err
+		}
+
+		_vdb, err := virtual.Open(newConfig)
+		if err != nil {
+			return err
+		}
+
+		delete(db.virtualDBs, oldKey)
+		db.virtualDBs[newKey] = *_vdb
 	}
 
 	return nil
