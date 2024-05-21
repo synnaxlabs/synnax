@@ -97,31 +97,8 @@ func (fc *fileController) acquireWriter(ctx context.Context) (uint16, int64, xio
 	defer span.End()
 
 	fc.writers.RLock()
-	lastFileKey := uint16(0)
 	for fileKey, w := range fc.writers.open {
 		s, err := fc.FS.Stat(fileKeyToName(fileKey))
-		if err != nil {
-			return 0, 0, nil, err
-		}
-
-		size := s.Size()
-
-		if fileKey == uint16(fc.counter.Value()) && size < int64(fc.FileSize) {
-			// Optimization: prioritize writing to existing files that are not full
-			// rather than at the end.
-			lastFileKey = fileKey
-			continue
-		}
-
-		if size < int64(fc.FileSize) && w.tryAcquire() {
-			fc.writers.RUnlock()
-			return w.fileKey, size, &w, nil
-		}
-	}
-
-	if lastFileKey != 0 {
-		w := fc.writers.open[lastFileKey]
-		s, err := fc.FS.Stat(fileKeyToName(lastFileKey))
 		if err != nil {
 			return 0, 0, nil, err
 		}
