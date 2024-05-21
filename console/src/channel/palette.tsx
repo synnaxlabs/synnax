@@ -13,7 +13,7 @@ import { Icon } from "@synnaxlabs/media";
 
 export const createChannelCommand: Command = {
   icon: <Icon.Channel />,
-  name: "Create Channel",
+  name: createLayout.name,
   key: "create-channel",
   onSelect: (ctx: CommandSelectionContext) => {
     ctx.placeLayout(createLayout);

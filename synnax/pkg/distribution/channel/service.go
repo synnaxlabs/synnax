@@ -90,21 +90,31 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 
 var DefaultConfig = ServiceConfig{}
 
-const groupName = "Channels"
+const (
+	groupName         = "Channels"
+	internalGroupName = "Internal"
+)
 
 func New(ctx context.Context, configs ...ServiceConfig) (Service, error) {
 	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
-	var g group.Group
+	var (
+		mainGroup     group.Group
+		internalGroup group.Group
+	)
 	if cfg.Group != nil {
-		g, err = cfg.Group.CreateOrRetrieve(ctx, groupName, ontology.RootID)
+		mainGroup, err = cfg.Group.CreateOrRetrieve(ctx, groupName, ontology.RootID)
+		if err != nil {
+			return nil, err
+		}
+		internalGroup, err = cfg.Group.CreateOrRetrieve(ctx, internalGroupName, mainGroup.OntologyID())
 		if err != nil {
 			return nil, err
 		}
 	}
-	proxy, err := newLeaseProxy(cfg, g)
+	proxy, err := newLeaseProxy(cfg, mainGroup, internalGroup)
 	if err != nil {
 		return nil, err
 	}

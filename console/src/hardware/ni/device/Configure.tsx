@@ -12,7 +12,7 @@ import { type ReactElement, useState } from "react";
 import { type device } from "@synnaxlabs/client";
 import { Button, Form, Nav, Synnax, Steps } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 
 import { CSS } from "@/css";
 import { Confirm } from "@/hardware/ni/device/Confirm";
@@ -62,10 +62,6 @@ const STEPS: Steps.Step[] = [
   {
     key: "confirm",
     title: "Confirm",
-  },
-  {
-    key: "nextSteps",
-    title: "Next Steps",
   },
 ];
 
@@ -120,10 +116,44 @@ const ConfigureInternal = ({ device }: ConfigureInternalProps): ReactElement => 
     })();
   };
 
+  const client = Synnax.use();
+
+  const [progress, setProgress] = useState<string | undefined>("");
+
+  const confirm = useMutation({
+    mutationKey: [client?.key],
+    mutationFn: async () => {
+      if (client == null) return;
+      const groups = methods.get<GroupConfig[]>({ path: "groups" }).value;
+      for (const group of groups) {
+        const rawIdx = group.channels.find((c) => c.isIndex);
+        setProgress(`Creating index for ${group.name}`);
+        if (rawIdx == null) return;
+        const idx = await client.channels.create({
+          name: rawIdx.name,
+          isIndex: true,
+          dataType: rawIdx.dataType,
+        });
+        const rawDataChannels = group.channels.filter(
+          (c) => !c.isIndex && c.synnaxChannel == null,
+        );
+        setProgress(`Creating data channels for ${group.name}`);
+        await client.channels.create(
+          rawDataChannels.map((c) => ({
+            name: c.name,
+            dataType: c.dataType,
+            index: idx.key,
+          })),
+        );
+      }
+    },
+  });
+
   let content: ReactElement;
   if (step === "properties") content = <PropertiesForm />;
   else if (step === "createChannels") content = <CreateChannels />;
-  else if (step === "confirm") content = <Confirm />;
+  else if (step === "confirm")
+    content = <Confirm confirm={confirm} progress={progress} />;
 
   return (
     <Align.Space className={CSS.B("configure")} align="stretch" empty>
@@ -135,7 +165,12 @@ const ConfigureInternal = ({ device }: ConfigureInternalProps): ReactElement => 
           </Nav.Bar.Start>
           <Nav.Bar.End>
             <Button.Button variant="outlined">Cancel</Button.Button>
-            <Button.Button onClick={handleNext}>Next Step</Button.Button>
+            <Button.Button
+              onClick={handleNext}
+              disabled={confirm.isPending || (confirm.isIdle && step === "confirm")}
+            >
+              {confirm.isSuccess ? "Done" : "Next"}
+            </Button.Button>
           </Nav.Bar.End>
         </Nav.Bar>
       </Form.Form>
