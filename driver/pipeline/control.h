@@ -42,7 +42,7 @@ private:
     std::shared_ptr<task::Context> ctx;
 
     /// @brief writer thread.
-    bool cmd_running = false;
+    volatile bool cmd_running = false;
     std::thread cmd_thread;
 
     /// @brief synnax writer

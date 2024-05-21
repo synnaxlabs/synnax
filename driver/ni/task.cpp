@@ -24,7 +24,8 @@ ni::ScannerTask::ScannerTask(
         synnax::Task task
 ) : scanner(ctx, task), ctx(ctx), task(task), running(true){
     //begin scanning on construction
-    thread = std::thread(&ni::ScannerTask::run, this);
+    // LOG(INFO) << "[NI Task] constructing scanner task " << this->task.name;
+    // thread = std::thread(&ni::ScannerTask::run, this);
 }
 
 std::unique_ptr <task::Task> ni::ScannerTask::configure(
@@ -35,13 +36,15 @@ std::unique_ptr <task::Task> ni::ScannerTask::configure(
 }
 
 void ni::ScannerTask::start() {
+    LOG(INFO) << "[NI Task] start function of scanner task " << this->task.name;
     this->running = true;
-    this->thread = std::thread(&ni::ScannerTask::run, this);
+    // this->thread = std::thread(&ni::ScannerTask::run, this);
 }
 
 void ni::ScannerTask::stop() {
     this->running = false;
     this->thread.join();
+    LOG(INFO) << "[NI Task] stopped scanner task " << this->task.name;
 }
 
 
@@ -56,17 +59,17 @@ void ni::ScannerTask::exec(task::Command &cmd) {
                                   .details = {"message", "failed to scan"}
                           });
             LOG(ERROR) << "[NI Task] failed to scan for task " << this->task.name;
-        } else {
-            auto devices = scanner.getDevices(); // TODO remove and dont send in details
-            // ctx->setState({
-            //                       .task = task.key,
-            //                       .variant = "success",
-            //                       .details = {
-            //                               {"devices", devices.dump(4)}
-            //                       }
-            //               });
-            // LOG(INFO) << "[NI Task] successfully scanned for task " << this->task.name;
-        }
+        } //else {
+        //    auto devices = scanner.getDevices(); // TODO remove and dont send in details
+        //     ctx->setState({
+        //                           .task = task.key,
+        //                           .variant = "success",
+        //                           .details = {
+        //                                   {"devices", devices.dump(4)}
+        //                           }
+        //                   });
+        //     LOG(INFO) << "[NI Task] successfully scanned for task " << this->task.name;
+        // }
     } else if (cmd.type == "stop"){
         this->stop();
     }else {
@@ -75,6 +78,7 @@ void ni::ScannerTask::exec(task::Command &cmd) {
 }
 
 void ni::ScannerTask::run(){
+    // LOG(INFO) << "[NI Task] Scanner task running " << this->task.name;
     auto scan_cmd = task::Command{task.key, "scan", {}};
 
     // perform a scan
@@ -86,12 +90,15 @@ void ni::ScannerTask::run(){
             break;
         }
     }
-    LOG(INFO) << "[NI Task] shutting down " << this->task.name;
 }
 
 
 bool ni::ScannerTask::ok() {
     return this->ok_state;
+}
+
+ni::ScannerTask::~ScannerTask(){
+    LOG(INFO) << "[NI Task] destructing scanner task " << this->task.name;
 }
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    ReaderTask                                 //

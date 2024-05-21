@@ -273,7 +273,9 @@ func start(cmd *cobra.Command) {
 			return err
 		}
 		defer func() {
+			ins.L.Warn("embedded driver shutting down")
 			err = errors.CombineErrors(err, d.Stop())
+			ins.L.Warn("embedded driver shutdown complete")
 		}()
 
 		//ins.L.Info("\033[32m Synnax Node Started \033[0m")

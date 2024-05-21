@@ -21,17 +21,8 @@ namespace synnax {
 /// @brief Series is a strongly typed array of telemetry samples backed by an underlying binary buffer.
 class Series {
 public:
-    // create a static method called allocate that returns a Series
-    // and takes a DataType and a size_t as arguments
-    // the method should return a Series with the given DataType and size
-    // and a data buffer of the given size
-    static Series allocate(DataType data_type, size_t size) {
-        Series s;
-        s.data_type = data_type;
-        s.size = size;
-        s.data = std::make_unique<std::byte[]>(size);
-        return s;
-    }
+     Series(DataType data_type, size_t size): data_type(data_type), data(std::make_unique<std::byte[]>(size * data_type.density())), size(size * data_type.density()) {}
+
 
 
     /// @brief constructs a series from the given vector of numeric data.
@@ -169,6 +160,46 @@ public:
         data = std::make_unique<std::byte[]>(s.size);
         memcpy(data.get(), s.data.get(), s.size);
         size = s.size;
+    }
+
+    // implement the ostream operator
+    friend std::ostream& operator<<(std::ostream& os, const Series& s) {
+        os << "Series(" << s.data_type.name() << ", [";
+        if (s.data_type == synnax::STRING || s.data_type == synnax::JSON) {
+            auto strings = s.string();
+            for (size_t i = 0; i < strings.size(); i++) {
+                os << "\"" << strings[i] << "\"";
+                if (i < strings.size() - 1) os << ", ";
+            }
+        } else if (s.data_type == synnax::FLOAT32) {
+            auto floats = s.float32();
+            for (size_t i = 0; i < floats.size(); i++) {
+                os << floats[i];
+                if (i < floats.size() - 1) os << ", ";
+            }
+        } else if (s.data_type == synnax::INT64) {
+            auto ints = s.int64();
+            for (size_t i = 0; i < ints.size(); i++) {
+                os << ints[i];
+                if (i < ints.size() - 1) os << ", ";
+            }
+        } else if (s.data_type == synnax::UINT64 || s.data_type == synnax::TIMESTAMP) {
+            auto ints = s.uint64();
+            for (size_t i = 0; i < ints.size(); i++) {
+                os << ints[i];
+                if (i < ints.size() - 1) os << ", ";
+            }
+        } else if (s.data_type == synnax::UINT8) {
+            auto ints = s.uint8();
+            for (size_t i = 0; i < ints.size(); i++) {
+                os << ints[i];
+                if (i < ints.size() - 1) os << ", ";
+            }
+        } else {
+            os << "unknown data type";
+        }
+        os << "])";
+        return os;
     }
 
     /// @brief Holds the underlying data.

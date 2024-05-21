@@ -12,7 +12,6 @@ package task_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/sirupsen/logrus"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -62,11 +61,9 @@ var _ = Describe("Task", Ordered, func() {
 		Expect(db.Close()).To(Succeed())
 	})
 	Describe("Task", func() {
-		FIt("Should construct and deconstruct a key from its components", func() {
+		It("Should construct and deconstruct a key from its components", func() {
 			rk := rack.NewKey(core.NodeKey(1), 1)
-			logrus.Info(rk)
 			k := task.NewKey(rk, 2)
-			logrus.Info(k)
 			Expect(k.Rack()).To(Equal(rk))
 			Expect(k.LocalKey()).To(Equal(uint32(2)))
 		})
