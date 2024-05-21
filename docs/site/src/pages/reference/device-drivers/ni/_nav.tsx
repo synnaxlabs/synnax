@@ -8,19 +8,20 @@
 // included in the file licenses/APL.txt.
 
 import { type PageNavNode } from "@/components/PageNav/PageNav";
-import { niNav } from "@/pages/reference/device-drivers/ni/_nav";
-import { opcuaNav } from "@/pages/reference/device-drivers/opcua/_nav";
 
-export const deviceDriversNav: PageNavNode = {
-  key: "device-drivers",
-  name: "Device Drivers",
+export const niNav: PageNavNode = {
+  key: "ni",
+  name: "National Instruments",
   children: [
     {
-      key: "/reference/device-drivers/get-started",
-      href: "/reference/device-drivers/get-started",
+      key: "/reference/device-drivers/ni/get-started",
+      href: "/reference/device-drivers/ni/get-started",
       name: "Get Started",
     },
-    opcuaNav,
-    niNav,
+    {
+      key: "/reference/device-drivers/ni/supported-devices",
+      href: "/reference/device-drivers/ni/supported-devices",
+      name: "Supported Devices",
+    },
   ],
 };

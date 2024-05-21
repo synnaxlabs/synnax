@@ -10,7 +10,7 @@
 import { type PageNavNode } from "@/components/PageNav/PageNav";
 
 export const opcuaNav: PageNavNode = {
-  key: "device-drivers/opcua/connect",
+  key: "opcua",
   name: "OPC UA",
   children: [
     {

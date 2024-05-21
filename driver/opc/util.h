@@ -41,6 +41,96 @@ inline int64_t ua_datetime_to_unix_nano(UA_DateTime dateTime) {
     return (dateTime - unixEpochStartIn100NanoIntervals) * 100;
 }
 
+inline bool set_val_on_series(UA_Variant *val, size_t i, const synnax::Series &s) {
+    if (val->type == &UA_TYPES[UA_TYPES_FLOAT]) {
+        const auto value = *static_cast<UA_Float *>(val->data);
+        if (s.data_type == synnax::FLOAT32) s.set(i, value);
+        if (s.data_type == synnax::FLOAT64) s.set(i, static_cast<double>(value));
+        if (s.data_type == synnax::INT32) s.set(i, static_cast<int32_t>(value));
+        if (s.data_type == synnax::INT64) s.set(i, static_cast<int64_t>(value));
+    }
+    if (val->type == &UA_TYPES[UA_TYPES_DOUBLE]) {
+        const auto value = *static_cast<UA_Double *>(val->data);
+        if (s.data_type == synnax::FLOAT32) s.set(i, static_cast<float>(value));
+        if (s.data_type == synnax::FLOAT64) s.set(i, value);
+        if (s.data_type == synnax::INT32) s.set(i, static_cast<int32_t>(value));
+        if (s.data_type == synnax::INT64) s.set(i, static_cast<int64_t>(value));
+    }
+    if (val->type == &UA_TYPES[UA_TYPES_INT32]) {
+        const auto value = *static_cast<UA_Int32 *>(val->data);
+        if (s.data_type == synnax::INT32) s.set(i, value);
+        if (s.data_type == synnax::INT64) s.set(i, static_cast<int64_t>(value));
+        if (s.data_type == synnax::UINT32) s.set(i, static_cast<uint32_t>(value));
+        if (s.data_type == synnax::UINT64) s.set(i, static_cast<uint64_t>(value));
+    }
+    if (val->type == &UA_TYPES[UA_TYPES_INT64]) {
+        const auto value = *static_cast<UA_Int64 *>(val->data);
+        if (s.data_type == synnax::INT32) s.set(i, static_cast<int32_t>(value));
+        if (s.data_type == synnax::INT64) s.set(i, value);
+        if (s.data_type == synnax::UINT32) s.set(i, static_cast<uint32_t>(value));
+        if (s.data_type == synnax::UINT64) s.set(i, static_cast<uint64_t>(value));
+        if (s.data_type == synnax::TIMESTAMP) s.set(i, static_cast<uint64_t>(value));
+    }
+    if (val->type == &UA_TYPES[UA_TYPES_UINT32]) {
+        const auto value = *static_cast<UA_UInt32 *>(val->data);
+        if (s.data_type == synnax::INT32) s.set(i, static_cast<int32_t>(value)); // Potential data loss
+        if (s.data_type == synnax::INT64) s.set(i, static_cast<int64_t>(value));
+        if (s.data_type == synnax::UINT32) s.set(i, value);
+        if (s.data_type == synnax::UINT64) s.set(i, static_cast<uint64_t>(value));
+    }
+    if (val->type == &UA_TYPES[UA_TYPES_UINT64]) {
+        const auto value = *static_cast<UA_UInt64 *>(val->data);
+        if (s.data_type == synnax::UINT64) s.set(i, value);
+        if (s.data_type == synnax::INT32) s.set(i, static_cast<int32_t>(value)); // Potential data loss
+        if (s.data_type == synnax::INT64) s.set(i, static_cast<int64_t>(value));
+        if (s.data_type == synnax::UINT32) s.set(i, static_cast<uint32_t>(value)); // Potential data loss
+        if (s.data_type == synnax::TIMESTAMP) s.set(i, static_cast<uint64_t>(value));
+    }
+    if (val->type == &UA_TYPES[UA_TYPES_BYTE]) {
+        const auto value = *static_cast<UA_Byte *>(val->data);
+        if (s.data_type == synnax::UINT8) s.set(i, value);
+        if (s.data_type == synnax::UINT16) s.set(i, static_cast<uint16_t>(value));
+        if (s.data_type == synnax::UINT32) s.set(i, static_cast<uint32_t>(value));
+        if (s.data_type == synnax::UINT64) s.set(i, static_cast<uint64_t>(value));
+        if (s.data_type == synnax::INT8) s.set(i, static_cast<int8_t>(value));
+        if (s.data_type == synnax::INT16) s.set(i, static_cast<int16_t>(value));
+        if (s.data_type == synnax::INT32) s.set(i, static_cast<int32_t>(value));
+        if (s.data_type == synnax::INT64) s.set(i, static_cast<int64_t>(value));
+        if (s.data_type == synnax::FLOAT32) s.set(i, static_cast<float>(value));
+        if (s.data_type == synnax::FLOAT64) s.set(i, static_cast<double>(value));
+    }
+    if (val->type == &UA_TYPES[UA_TYPES_SBYTE]) {
+        const auto value = *static_cast<UA_SByte *>(val->data);
+        if (s.data_type == synnax::INT8) s.set(i, value);
+        if (s.data_type == synnax::INT16) s.set(i, static_cast<int16_t>(value));
+        if (s.data_type == synnax::INT32) s.set(i, static_cast<int32_t>(value));
+        if (s.data_type == synnax::INT64) s.set(i, static_cast<int64_t>(value));
+        if (s.data_type == synnax::FLOAT32) s.set(i, static_cast<float>(value));
+        if (s.data_type == synnax::FLOAT64) s.set(i, static_cast<double>(value));
+    }
+    if (val->type == &UA_TYPES[UA_TYPES_BOOLEAN]) {
+        const auto value = *static_cast<UA_Boolean *>(val->data);
+        if (s.data_type == synnax::UINT8) s.set(i, static_cast<uint8_t>(value));
+        if (s.data_type == synnax::UINT16) s.set(i, static_cast<uint16_t>(value));
+        if (s.data_type == synnax::UINT32) s.set(i, static_cast<uint32_t>(value));
+        if (s.data_type == synnax::UINT64) s.set(i, static_cast<uint64_t>(value));
+        if (s.data_type == synnax::INT8) s.set(i, static_cast<int8_t>(value));
+        if (s.data_type == synnax::INT16) s.set(i, static_cast<int16_t>(value));
+        if (s.data_type == synnax::INT32) s.set(i, static_cast<int32_t>(value));
+        if (s.data_type == synnax::INT64) s.set(i, static_cast<int64_t>(value));
+        if (s.data_type == synnax::FLOAT32) s.set(i, static_cast<float>(value));
+        if (s.data_type == synnax::FLOAT64) s.set(i, static_cast<double>(value));
+    }
+    if (val->type == &UA_TYPES[UA_TYPES_DATETIME]) {
+        const auto value = *static_cast<UA_DateTime *>(val->data);
+        if (s.data_type == synnax::INT64) s.set(i, ua_datetime_to_unix_nano(value));
+        if (s.data_type == synnax::TIMESTAMP) s.set(i, ua_datetime_to_unix_nano(value));
+        if (s.data_type == synnax::UINT64) s.set(i, static_cast<uint64_t>(ua_datetime_to_unix_nano(value)));
+        if (s.data_type == synnax::FLOAT32) s.set(i, static_cast<float>(value));
+        if (s.data_type == synnax::FLOAT64) s.set(i, static_cast<double>(value));
+    }
+}
+
 inline synnax::Series val_to_series(UA_Variant *val, synnax::DataType dt) {
     if (val->type == &UA_TYPES[UA_TYPES_FLOAT]) {
         const auto value = *static_cast<UA_Float *>(val->data);
