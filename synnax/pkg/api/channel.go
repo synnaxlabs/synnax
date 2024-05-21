@@ -76,8 +76,8 @@ func (s *ChannelService) Create(
 	if err != nil {
 		return res, err
 	}
-	for _, ch := range translated {
-		ch.Internal = false
+	for i := range translated {
+		translated[i].Internal = false
 	}
 	return res, s.WithTx(ctx, func(tx gorp.Tx) error {
 		err := s.internal.NewWriter(tx).CreateMany(ctx, &translated)
