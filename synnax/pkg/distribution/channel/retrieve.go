@@ -52,13 +52,24 @@ func (r Retrieve) WhereNodeKey(nodeKey core.NodeKey) Retrieve {
 	return r
 }
 
+// WhereIsIndex filters the query for channels that are indexes if isIndex is true, or
+// are not indexes if isIndex is false.
 func (r Retrieve) WhereIsIndex(isIndex bool) Retrieve {
 	r.gorp.Where(func(ch *Channel) bool { return ch.IsIndex == isIndex })
 	return r
 }
 
+// WhereVirtual filters the query for channels that are virtual if virtual is true, or are
+// not virtual if virtual is false.
 func (r Retrieve) WhereVirtual(virtual bool) Retrieve {
 	r.gorp.Where(func(ch *Channel) bool { return ch.Virtual == virtual })
+	return r
+}
+
+// WhereInternal filters the query for channels that are internal if internal is true, or
+// are not internal if internal is false.
+func (r Retrieve) WhereInternal(internal bool) Retrieve {
+	r.gorp.Where(func(ch *Channel) bool { return ch.Internal == internal }, gorp.Required())
 	return r
 }
 

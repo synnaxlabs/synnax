@@ -1178,7 +1178,7 @@ var file_synnax_pkg_api_grpc_v1_ranger_proto_goTypes = []interface{}{
 	(*telem.PBTimeRange)(nil),           // 23: telem.PBTimeRange
 	(*emptypb.Empty)(nil),               // 24: google.protobuf.Empty
 }
-var file_synnax_pkg_api_grpc_v1_ranger_proto_deschematicxs = []int32{
+var file_synnax_pkg_api_grpc_v1_ranger_proto_depIdxs = []int32{
 	8,  // 0: api.v1.RangeRetrieveActiveResponse.range:type_name -> api.v1.Range
 	18, // 1: api.v1.RangeAliasSetRequest.aliases:type_name -> api.v1.RangeAliasSetRequest.AliasesEntry
 	19, // 2: api.v1.RangeAliasResolveResponse.aliases:type_name -> api.v1.RangeAliasResolveResponse.AliasesEntry
@@ -1456,11 +1456,11 @@ func file_synnax_pkg_api_grpc_v1_ranger_proto_init() {
 			NumServices:   13,
 		},
 		GoTypes:           file_synnax_pkg_api_grpc_v1_ranger_proto_goTypes,
-		DependencyIndexes: file_synnax_pkg_api_grpc_v1_ranger_proto_deschematicxs,
+		DependencyIndexes: file_synnax_pkg_api_grpc_v1_ranger_proto_depIdxs,
 		MessageInfos:      file_synnax_pkg_api_grpc_v1_ranger_proto_msgTypes,
 	}.Build()
 	File_synnax_pkg_api_grpc_v1_ranger_proto = out.File
 	file_synnax_pkg_api_grpc_v1_ranger_proto_rawDesc = nil
 	file_synnax_pkg_api_grpc_v1_ranger_proto_goTypes = nil
-	file_synnax_pkg_api_grpc_v1_ranger_proto_deschematicxs = nil
+	file_synnax_pkg_api_grpc_v1_ranger_proto_depIdxs = nil
 }

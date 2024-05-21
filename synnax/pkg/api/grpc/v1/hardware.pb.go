@@ -1166,7 +1166,7 @@ var file_synnax_pkg_api_grpc_v1_hardware_proto_goTypes = []interface{}{
 	(*HardwareDeleteDeviceRequest)(nil),    // 17: api.v1.HardwareDeleteDeviceRequest
 	(*emptypb.Empty)(nil),                  // 18: google.protobuf.Empty
 }
-var file_synnax_pkg_api_grpc_v1_hardware_proto_deschematicxs = []int32{
+var file_synnax_pkg_api_grpc_v1_hardware_proto_depIdxs = []int32{
 	0,  // 0: api.v1.HardwareCreateRackRequest.racks:type_name -> api.v1.Rack
 	0,  // 1: api.v1.HardwareCreateRackResponse.racks:type_name -> api.v1.Rack
 	0,  // 2: api.v1.HardwareRetrieveRackResponse.racks:type_name -> api.v1.Rack
@@ -1435,11 +1435,11 @@ func file_synnax_pkg_api_grpc_v1_hardware_proto_init() {
 			NumServices:   9,
 		},
 		GoTypes:           file_synnax_pkg_api_grpc_v1_hardware_proto_goTypes,
-		DependencyIndexes: file_synnax_pkg_api_grpc_v1_hardware_proto_deschematicxs,
+		DependencyIndexes: file_synnax_pkg_api_grpc_v1_hardware_proto_depIdxs,
 		MessageInfos:      file_synnax_pkg_api_grpc_v1_hardware_proto_msgTypes,
 	}.Build()
 	File_synnax_pkg_api_grpc_v1_hardware_proto = out.File
 	file_synnax_pkg_api_grpc_v1_hardware_proto_rawDesc = nil
 	file_synnax_pkg_api_grpc_v1_hardware_proto_goTypes = nil
-	file_synnax_pkg_api_grpc_v1_hardware_proto_deschematicxs = nil
+	file_synnax_pkg_api_grpc_v1_hardware_proto_depIdxs = nil
 }

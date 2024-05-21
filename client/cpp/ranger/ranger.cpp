@@ -43,6 +43,7 @@ std::pair<Range, freighter::Error> RangeClient::retrieveByKey(const std::string 
     req.add_keys(key);
     auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, req);
     if (err) return {Range(), err};
+    if (res.ranges_size() == 0) return {Range(), freighter::Error(synnax::NOT_FOUND, "no ranges found matching " + key)};
     auto rng = Range(res.ranges(0));
     rng.kv = RangeKV(rng.key, kv_get_client, kv_set_client, kv_delete_client);
     return {rng, err};

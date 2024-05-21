@@ -68,6 +68,8 @@ freighter::Error ChannelClient::create(synnax::Channel &channel) const {
     channel.to_proto(req.add_channels());
     auto [res, exc] = create_client->send(CREATE_ENDPOINT, req);
     if (!exc) {
+        if (res.channels_size() == 0)
+            return freighter::Error(synnax::UNEXPECTED_ERROR, "no channels returned from server on create. please report this issue to the synnax team");
         auto first = res.channels(0);
         channel.key = first.key();
         channel.name = first.name();
@@ -76,6 +78,7 @@ freighter::Error ChannelClient::create(synnax::Channel &channel) const {
         channel.is_index = first.is_index();
         channel.leaseholder = first.leaseholder();
         channel.index = first.index();
+        channel.internal = first.internal();
     }
     return exc;
 }
@@ -119,6 +122,8 @@ std::pair<Channel, freighter::Error> ChannelClient::retrieve(ChannelKey key) con
     req.add_keys(key);
     auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, req);
     if (err) return {Channel(), err};
+    if (res.channels_size() == 0)
+        return {Channel(), freighter::Error(synnax::NOT_FOUND, "no channels found matching key " + std::to_string(key))};
     return {Channel(res.channels(0)), err};
 }
 

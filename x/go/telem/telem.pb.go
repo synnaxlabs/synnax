@@ -180,7 +180,7 @@ var file_x_go_telem_telem_proto_goTypes = []interface{}{
 	(*PBTimeRange)(nil), // 0: telem.PBTimeRange
 	(*PBSeries)(nil),    // 1: telem.PBSeries
 }
-var file_x_go_telem_telem_proto_deschematicxs = []int32{
+var file_x_go_telem_telem_proto_depIdxs = []int32{
 	0, // 0: telem.PBSeries.time_range:type_name -> telem.PBTimeRange
 	1, // [1:1] is the sub-list for method output_type
 	1, // [1:1] is the sub-list for method input_type
@@ -231,11 +231,11 @@ func file_x_go_telem_telem_proto_init() {
 			NumServices:   0,
 		},
 		GoTypes:           file_x_go_telem_telem_proto_goTypes,
-		DependencyIndexes: file_x_go_telem_telem_proto_deschematicxs,
+		DependencyIndexes: file_x_go_telem_telem_proto_depIdxs,
 		MessageInfos:      file_x_go_telem_telem_proto_msgTypes,
 	}.Build()
 	File_x_go_telem_telem_proto = out.File
 	file_x_go_telem_telem_proto_rawDesc = nil
 	file_x_go_telem_telem_proto_goTypes = nil
-	file_x_go_telem_telem_proto_deschematicxs = nil
+	file_x_go_telem_telem_proto_depIdxs = nil
 }
