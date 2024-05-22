@@ -171,7 +171,6 @@ export const NavBottom = (): ReactElement => {
   return (
     <Nav.Bar className={CSS.B("main-nav")} location="bottom" size={NAV_SIZES.bottom}>
       <Nav.Bar.Start>
-        <Notifications.Notifications />
         <Vis.NavControls />
       </Nav.Bar.Start>
       <Nav.Bar.End className="console-main-nav-bottom__end" empty>
