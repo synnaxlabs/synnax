@@ -76,6 +76,7 @@ dependencies = [
  "tauri-plugin-deep-link",
  "tauri-plugin-dialog",
  "tauri-plugin-fs",
+ "tauri-plugin-process",
  "tauri-plugin-shell",
  "tauri-plugin-store",
  "tauri-plugin-updater",
@@ -3808,7 +3809,7 @@ dependencies = [
 [[package]]
 name = "tauri-plugin-deep-link"
 version = "2.0.0-beta.5"
-source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v2#f3749e4de8355a4cb1d3fccd25214f92dd783400"
+source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v2#cb0a788d17422450e064539bfe36ea5838764637"
 dependencies = [
  "dunce",
  "log",
@@ -3827,7 +3828,7 @@ dependencies = [
 [[package]]
 name = "tauri-plugin-dialog"
 version = "2.0.0-beta.7"
-source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v2#f3749e4de8355a4cb1d3fccd25214f92dd783400"
+source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v2#cb0a788d17422450e064539bfe36ea5838764637"
 dependencies = [
  "dunce",
  "log",
@@ -3844,7 +3845,7 @@ dependencies = [
 [[package]]
 name = "tauri-plugin-fs"
 version = "2.0.0-beta.7"
-source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v2#f3749e4de8355a4cb1d3fccd25214f92dd783400"
+source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v2#cb0a788d17422450e064539bfe36ea5838764637"
 dependencies = [
  "anyhow",
  "glob",
@@ -3860,9 +3861,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "tauri-plugin-process"
+version = "2.0.0-beta.4"
+source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v2#cb0a788d17422450e064539bfe36ea5838764637"
+dependencies = [
+ "tauri",
+ "tauri-plugin",
+]
+
+[[package]]
 name = "tauri-plugin-shell"
 version = "2.0.0-beta.5"
-source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v2#f3749e4de8355a4cb1d3fccd25214f92dd783400"
+source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v2#cb0a788d17422450e064539bfe36ea5838764637"
 dependencies = [
  "encoding_rs",
  "log",
@@ -3882,7 +3892,7 @@ dependencies = [
 [[package]]
 name = "tauri-plugin-store"
 version = "2.0.0-beta.6"
-source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v2#f3749e4de8355a4cb1d3fccd25214f92dd783400"
+source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v2#cb0a788d17422450e064539bfe36ea5838764637"
 dependencies = [
  "dunce",
  "log",
@@ -3896,7 +3906,7 @@ dependencies = [
 [[package]]
 name = "tauri-plugin-updater"
 version = "2.0.0-beta.5"
-source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v2#f3749e4de8355a4cb1d3fccd25214f92dd783400"
+source = "git+https://github.com/tauri-apps/plugins-workspace?branch=v2#cb0a788d17422450e064539bfe36ea5838764637"
 dependencies = [
  "base64 0.22.1",
  "dirs-next",
