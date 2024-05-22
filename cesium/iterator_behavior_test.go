@@ -15,16 +15,23 @@ import (
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/core"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
+	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Iterator Behavior", func() {
 	for fsName, makeFS := range fileSystems {
-		fs, cleanUp := makeFS()
 		Context("FS: "+fsName, Ordered, func() {
-			var db *cesium.DB
-			BeforeAll(func() { db = openDBOnFS(fs) })
+			var (
+				db      *cesium.DB
+				fs      xfs.FS
+				cleanUp func() error
+			)
+			BeforeAll(func() {
+				fs, cleanUp = makeFS()
+				db = openDBOnFS(fs)
+			})
 			AfterAll(func() {
 				Expect(db.Close()).To(Succeed())
 				Expect(cleanUp()).To(Succeed())

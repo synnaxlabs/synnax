@@ -14,27 +14,29 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
+	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Domain", func() {
 	for fsName, makeFS := range fileSystems {
-		fs, cleanUp := makeFS()
 		Describe("FS:"+fsName, Ordered, func() {
 			var (
-				db  *domain.DB
-				idx index.Index
+				db      *domain.DB
+				idx     index.Index
+				fs      xfs.FS
+				cleanUp func() error
 			)
 			BeforeEach(func() {
-				db = MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub("testdata"))}))
+				fs, cleanUp = makeFS()
+				db = MustSucceed(domain.Open(domain.Config{FS: fs}))
 				idx = &index.Domain{DB: db}
 			})
 			AfterEach(func() {
 				Expect(db.Close()).To(Succeed())
-				Expect(fs.Remove("testdata")).To(Succeed())
+				Expect(cleanUp()).To(Succeed())
 			})
-			AfterAll(func() { Expect(cleanUp()).To(Succeed()) })
 			Describe("Distance", func() {
 				Context("Continuous", func() {
 					BeforeEach(func() {
