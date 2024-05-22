@@ -7,7 +7,7 @@
     box-shadow: var(--pluto-shadow-menu);
     border: var(--pluto-border-l4);
     border-radius: 1rem;
-    z-index: 20;
+    z-index: 10;
     .pluto-notification__content {
         padding: 1rem;
     }
