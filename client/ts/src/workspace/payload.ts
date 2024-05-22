@@ -17,16 +17,24 @@ export type Key = z.infer<typeof keyZ>;
 
 export type Params = Key | Key[];
 
+// --- VERY IMPORTANT ---
+// Synnax's encoders (in the binary package inside x) automatically convert the case
+// of keys in objects to snake_case and back to camelCase when encoding and decoding
+// respectively. This is done to ensure that the keys are consistent across all
+// languages and platforms. Sometimes workspaces have keys that are uuids, which have
+// dashes, and those get messed up. So we just use regular JSON for workspaces.
+const parse = (s: string): UnknownRecord => JSON.parse(s) as UnknownRecord;
+
 export const workspaceZ = z.object({
   name: z.string(),
   key: keyZ,
   layout: unknownRecordZ.or(
-    z.string().transform((s) => binary.JSON_ECD.decodeString(s) as UnknownRecord),
+    z.string().transform((s) => JSON.parse(s) as UnknownRecord),
   ),
 });
 
 export const workspaceRemoteZ = workspaceZ.omit({ layout: true }).extend({
-  layout: z.string().transform((s) => binary.JSON_ECD.decodeString(s) as UnknownRecord),
+  layout: z.string().transform((s) => JSON.parse(s) as UnknownRecord),
 });
 
 export type Workspace = z.infer<typeof workspaceZ>;

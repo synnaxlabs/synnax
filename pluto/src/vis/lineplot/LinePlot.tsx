@@ -116,6 +116,7 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
     clearOverScan,
     children,
     hold,
+    onHold,
     ...props
   }): ReactElement => {
     const [lines, setLines] = useState<LineState>([]);
@@ -205,9 +206,9 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
     const setHold = useCallback(
       (hold: boolean) => {
         setState((prev) => ({ ...prev, hold }));
-        props.onHold?.(hold);
+        onHold?.(hold);
       },
-      [setState, props.onHold],
+      [setState, onHold],
     );
 
     const contextValue = useMemo<LinePlotContextValue>(

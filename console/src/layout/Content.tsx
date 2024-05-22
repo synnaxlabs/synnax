@@ -11,7 +11,7 @@ import { type ReactElement, memo } from "react";
 
 import { useLayoutRenderer } from "@/layout/context";
 import { useRemover } from "@/layout/hooks";
-import { useSelectRequired } from "@/layout/selectors";
+import { useSelect, useSelectRequired } from "@/layout/selectors";
 
 /** LayoutContentProps are the props for the LayoutContent component. */
 export interface ContentProps {
@@ -26,7 +26,11 @@ export interface ContentProps {
  * and a renderer for the layout type must be registered in the LayoutContext.
  */
 export const Content = memo(({ layoutKey }: ContentProps): ReactElement | null => {
-  const p = useSelectRequired(layoutKey);
+  const p = useSelect(layoutKey);
+  if (p == null) {
+    console.error(`layout ${layoutKey} not found`);
+    return null;
+  }
   const handleClose = useRemover(layoutKey);
   const Renderer = useLayoutRenderer(p.type);
   if (Renderer == null) throw new Error(`layout renderer ${p.type} not found`);
