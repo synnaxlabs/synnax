@@ -1,77 +1,158 @@
 import { Layout } from "@/layout";
 import { useSelect } from "@/version/selectors";
-import { Icon } from "@synnaxlabs/media";
+import { Icon, Logo } from "@synnaxlabs/media";
 import { Align, Button, Progress, Status, Text } from "@synnaxlabs/pluto";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { relaunch } from "@tauri-apps/plugin-process";
-import { DownloadEvent, check, type Update } from "@tauri-apps/plugin-updater";
+import { DownloadEvent, check } from "@tauri-apps/plugin-updater";
 import { useState } from "react";
+import { Size } from "@synnaxlabs/x";
+
+export const infoLayout: Layout.State = {
+  type: "versionInfo",
+  key: "versionInfo",
+  windowKey: "versionInfo",
+  name: "Version Info",
+  location: "window",
+  window: {
+    resizable: false,
+    navTop: true,
+    size: { width: 500, height: 325 },
+  },
+};
+
+type State = "checking" | "none" | "available" | "downloading" | "error";
 
 export const Info: Layout.Renderer = ({ layoutKey }) => {
   const version = useSelect();
   const updateQuery = useQuery({
     queryKey: ["version.update"],
-    queryFn: async () => await check(),
+    queryFn: async () => {
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      return await check();
+    },
   });
 
-  const [progressPercent, setProgressPercent] = useState(0);
+  const [updateSize, setUpdateSize] = useState<Size>(Size.bytes(1));
+  const [amountDownloaded, setAmountDownloaded] = useState(Size.bytes(0));
+  const progressPercent = (amountDownloaded.valueOf() / updateSize.valueOf()) * 100;
 
   const updateMutation = useMutation({
     mutationKey: ["version.update"],
     mutationFn: async () => {
-      if (!updateQuery.isFetched || !updateQuery.data?.available) return;
+      if (!updateQuery.isFetched || updateQuery.data?.available !== true) return;
       const update = updateQuery.data;
-      let updateSize: number = 0;
       await update.downloadAndInstall((progress: DownloadEvent) => {
-        if (progress.event === "Started") {
-          updateSize = progress.data.contentLength ?? 0;
-        } else if (progress.event === "Progress") {
-          const percent = (progress.data.chunkLength / updateSize) * 100;
-          setProgressPercent(percent);
-        } else if (progress.event === "Finished") {
-          setProgressPercent(1);
-        }
+        if (progress.event === "Started")
+          setUpdateSize(Size.bytes(progress.data.contentLength ?? 0));
+        else if (progress.event === "Progress")
+          setAmountDownloaded((prev) =>
+            prev.add(Size.bytes(progress.data.chunkLength)),
+          );
       });
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      setAmountDownloaded(updateSize);
+      await new Promise((resolve) => setTimeout(resolve, 750));
       await relaunch();
     },
   });
 
-  return (
-    <Align.Space direction="y">
-      <Text.Text level="h2">Synnax Console {version}</Text.Text>
-      {updateQuery.isPending && (
-        <Text.WithIcon startIcon={<Icon.Loading />} level="h3">
-          Checking for updates
-        </Text.WithIcon>
-      )}
-      {updateQuery.isError && (
-        <Status.Text variant="error">
-          Error checking for update: {updateQuery.error.message}
+  let updateContent: JSX.Element = (
+    <Status.Text level="h4" weight={350} variant="loading" size="medium">
+      Checking for updates
+    </Status.Text>
+  );
+  if (updateMutation.isPending) {
+    if (progressPercent === 100) {
+      updateContent = (
+        <Status.Text level="h4" variant="loading" size="medium">
+          Update downloaded. Restarting
         </Status.Text>
-      )}
-      {updateQuery.isFetched &&
-        (updateQuery.data?.available ? (
-          <>
-            <Status.Text variant="info">Update available</Status.Text>
-            <Button.Button
-              variant="outlined"
-              size="small"
-              disabled={updateMutation.isPending}
-              onClick={() => updateMutation.mutate()}
-            >
-              Update & Restart
-            </Button.Button>
-          </>
-        ) : (
-          <Status.Text variant="success">Up to date</Status.Text>
-        ))}
-      {updateMutation.isPending ||
-        (updateMutation.isSuccess && (
-          <Align.Space direction="y">
-            <Status.Text variant="info">Downloading update</Status.Text>
+      );
+    } else {
+      updateContent = (
+        <Align.Space direction="y" size="medium">
+          <Status.Text variant="loading" level="h4" size="medium">
+            Downloading update
+          </Status.Text>
+          <Align.Space direction="x" size="medium" align="center" justify="center">
             <Progress.Progress value={progressPercent} />
+            <Text.Text level="p" shade={6} noWrap>
+              {Math.ceil(amountDownloaded.megabytes)} /{" "}
+              {Math.ceil(updateSize.megabytes)} MB
+            </Text.Text>
           </Align.Space>
-        ))}
+        </Align.Space>
+      );
+    }
+  } else if (updateQuery.isFetched) {
+    if (updateQuery.data?.available) {
+      const version = "0.22.5";
+      updateContent = (
+        <>
+          <Status.Text level="h4" variant="success">
+            Version {version} available
+          </Status.Text>
+          <Button.Button
+            variant="outlined"
+            disabled={updateMutation.isPending}
+            onClick={() => updateMutation.mutate()}
+          >
+            Update & Restart
+          </Button.Button>
+        </>
+      );
+    } else {
+      updateContent = (
+        <Status.Text level="h4" variant="success">
+          Up to date
+        </Status.Text>
+      );
+    }
+  } else if (updateQuery.isError) {
+    updateContent = (
+      <Status.Text level="h4" variant="error">
+        Error checking for update: {updateQuery.error.message}
+      </Status.Text>
+    );
+  } else if (updateMutation.isError) {
+    updateContent = (
+      <Status.Text level="h4" variant="error">
+        Error updating: {updateMutation.error.message}
+      </Status.Text>
+    );
+  }
+
+  let state: State = "none";
+  if (updateQuery.isPending) state = "checking";
+  else if (updateMutation.isPending) state = "downloading";
+  else if (updateQuery.isFetched && updateQuery.data?.available) state = "available";
+  else if (updateQuery.isError) state = "error";
+
+  return (
+    <Align.Space
+      align="center"
+      direction="y"
+      size="large"
+      style={{ paddingTop: "6rem" }}
+    >
+      <Align.Space direction="y" size="small" justify="center" align="center">
+        <a href="https://synnaxlabs.com" target="_blank" rel="noreferrer">
+          <Logo variant="title" style={{ height: "10rem" }} />
+        </a>
+        <Text.Text level="h3" weight={350}>
+          Console v{version}
+        </Text.Text>
+      </Align.Space>
+      {updateContent}
+      <Text.Text
+        level="small"
+        shade={6}
+        weight={350}
+        style={{ position: "absolute", bottom: "2rem" }}
+      >
+        © 2022-2024 Synnax Labs, Inc. All rights reserved
+      </Text.Text>
     </Align.Space>
   );
 };

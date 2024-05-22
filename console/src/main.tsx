@@ -34,10 +34,11 @@ import { NI } from "@/hardware/ni";
 
 import WorkerURL from "@/worker?worker&url";
 
+import { Channel } from "@/channel";
+
 import "@/index.css";
 import "@synnaxlabs/media/dist/style.css";
 import "@synnaxlabs/pluto/dist/style.css";
-import { Channel } from "@/channel";
 
 const layoutRenderers: Record<string, Layout.Renderer> = {
   main: LayoutMain,
@@ -52,6 +53,7 @@ const layoutRenderers: Record<string, Layout.Renderer> = {
   ...Cluster.LAYOUTS,
   ...NI.LAYOUTS,
   ...Channel.LAYOUTS,
+  ...Version.LAYOUTS,
 };
 
 const PREVENT_DEFAULT_TRIGGERS: Triggers.Trigger[] = [

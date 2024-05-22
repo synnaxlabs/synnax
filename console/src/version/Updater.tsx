@@ -1,55 +1,49 @@
 import { check } from "@tauri-apps/plugin-updater";
-import { relaunch } from "@tauri-apps/plugin-process";
-import { useEffect } from "react";
-import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { Align, Button, Dropdown, Status } from "@synnaxlabs/pluto";
+import { useEffect, useRef, useState } from "react";
+import { TimeSpan } from "@synnaxlabs/x";
+import { Button, Status, useAsyncEffect } from "@synnaxlabs/pluto";
 import { NotificationAdapter } from "@/notifications/Notifications";
+import { Layout } from "@/layout";
+import { infoLayout } from "@/version/Info";
 
-export const useCheckForUpdates = () => {
+export const useCheckForUpdates = (): boolean => {
   const addStatus = Status.useAggregator();
-  useEffect(() => {
-    const i = setInterval(async () => {
-      const update = await check();
-      if (update?.available !== true) return;
-      addStatus({
-        key: "update",
-        variant: "info",
-        message: `Update available`,
-      });
-    }, TimeSpan.seconds(5).milliseconds);
+
+  const [available, setAvailable] = useState(false);
+
+  const checkForUpdates = async () => {
+    const update = await check();
+    if (update?.available !== true || available) return;
+    setAvailable(true);
+    addStatus({
+      key: "versionUpdate",
+      variant: "info",
+      message: `Update available`,
+    });
+  };
+
+  useAsyncEffect(async () => {
+    await checkForUpdates();
+    const i = setInterval(checkForUpdates, TimeSpan.seconds(30).milliseconds);
     return () => clearInterval(i);
   }, []);
+
+  return available;
 };
 
 export const notificationAdapter: NotificationAdapter = (status) => {
-  if (!status.key.startsWith("update")) return null;
+  if (!status.key.startsWith("versionUpdate")) return null;
   return {
     ...status,
-    actions: [
-      {
-        variant: "outlined",
-        children: "Update & Restart",
-        onClick: () => {
-          void (async () => {
-            const update = await check();
-            if (update?.available !== true) return;
-            await update.downloadAndInstall();
-            await relaunch();
-          })();
-        },
-      },
-    ],
+    actions: [<OpenUpdateDialogAction key="update" />],
   };
 };
 
-const Modal = () => {
-  const dropProps = Dropdown.use();
+const OpenUpdateDialogAction = () => {
+  const place = Layout.usePlacer();
   return (
-    <Dropdown.Dialog {...dropProps} variant="modal" keepMounted={false}>
-      <Button.Button variant="outlined" size="small">
-        Update & Restart
-      </Button.Button>
-      <Align.Space direction="x"></Align.Space>
-    </Dropdown.Dialog>
+    <Button.Button variant="outlined" size="small" onClick={() => place(infoLayout)}>
+      Update
+    </Button.Button>
   );
 };
