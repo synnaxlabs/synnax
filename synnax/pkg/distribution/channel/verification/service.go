@@ -44,6 +44,7 @@ var (
 		strconv.Itoa(freeCount) + decode("IGNoYW5uZWxz"))
 	errFree = errors.New(decode("dXNpbmcgbW9yZSB0aGFuIA==") + strconv.Itoa(freeCount) +
 		decode("IGNoYW5uZWxzIHdpdGhvdXQgYSBwcm9kdWN0IGxpY2Vuc2Uga2V5"))
+	useFree = decode("blah") + strconv.Itoa(freeCount) + decode("blah")
 )
 
 func (c Config) Validate() error {
@@ -78,6 +79,13 @@ func OpenService(toOpen string, cfgs ...Config) (*Service, error) {
 
 	var ctx context.Context
 	if toOpen == "" {
+		_, err := service.retrieve(ctx)
+		if err != nil {
+			service.Ins.L.Info(useFree)
+			return service, nil
+		}
+		service.Ins.L.Info(decode("dXNpbmcgdGhlIGxhc3QgbGljZW5zZSBrZXkgc3RvcmVkIGluIHRoZSBkYXRhYmFzZQ=="))
+		sCtx.Go(service.logTheDog)
 		return service, nil
 	}
 
