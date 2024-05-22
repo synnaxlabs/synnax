@@ -110,12 +110,27 @@ jobs:
       - name: Create Release
         if: steps.filter.outputs.changed == 'true' && github.ref == 'refs/heads/main'
         id: create-release
-        uses: softprops/action-gh-release@v1
+        uses: actions/github-script@v6
         with:
-          tag_name: synnax-v${{ steps.version.outputs.VERSION }}
-          name: Synnax v${{ steps.version.outputs.VERSION }}
-          draft: false
-          prerelease: false
+          script: |
+            const { data: releases } = await github.repos.listReleases({
+              owner: context.repo.owner,
+              repo: context.repo.repo
+            })
+            const release = releases.find(r => r.tag_name === 'v${{ steps.version.outputs.VERSION }}')
+            if (release != null) return release.id
+            const { data: { id } } = github.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: 'v${{ steps.version.outputs.VERSION }}',
+              name: 'v${{ steps.version.outputs.VERSION }}',
+              body: 'Release v${{ steps.version.outputs.VERSION }}',
+              draft: false,
+              prerelease: false
+            })
+            return id;
+
+        
 
       - name: Set Release Success
         id: set-release
@@ -224,7 +239,7 @@ jobs:
           go build -tags driver -o synnax-v${{ steps.version.outputs.VERSION }}-${{ steps.os.outputs.OS }}
 
       - name: Upload Release Asset
-        if: steps.create-release.outputs.release_created == 'true'
+        if: github.ref == 'refs/heads/main'
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: gh release upload synnax-v${{ steps.version.outputs.VERSION }} ./synnax/synnax-v${{ steps.version.outputs.VERSION }}-${{ steps.os.outputs.OS }}
