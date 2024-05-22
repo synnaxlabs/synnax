@@ -14,7 +14,6 @@ export const useCheckForUpdates = () => {
         key: "update",
         variant: "info",
         message: `Update available: ${update != null}`,
-        description: "update",
       });
     }, TimeSpan.seconds(5).milliseconds);
     return () => clearInterval(i);
@@ -27,7 +26,8 @@ export const notificationAdapter: NotificationAdapter = (status) => {
     ...status,
     actions: [
       {
-        label: "Update",
+        variant: "outlined",
+        children: "Update & Restart",
         onClick: () => {
           void (async () => {
             const update = await check();
