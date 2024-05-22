@@ -30,15 +30,14 @@ type fileController struct {
 	Config
 	writers struct {
 		sync.RWMutex
-		release  chan struct{}
 		open     map[uint16]controlledWriter
 		unopened map[uint16]struct{}
 	}
 	readers struct {
 		sync.RWMutex
-		release chan struct{}
-		open    map[uint16][]controlledReader
+		open map[uint16][]controlledReader
 	}
+	release     chan struct{}
 	counter     *xio.Int32Counter
 	counterFile io.Closer
 }
@@ -60,9 +59,8 @@ func openFileController(cfg Config) (*fileController, error) {
 		counterFile: counterF,
 	}
 	fc.writers.open = make(map[uint16]controlledWriter, cfg.MaxDescriptors)
-	fc.writers.release = make(chan struct{}, cfg.MaxDescriptors)
 	fc.readers.open = make(map[uint16][]controlledReader)
-	fc.readers.release = make(chan struct{}, cfg.MaxDescriptors)
+	fc.release = make(chan struct{}, cfg.MaxDescriptors)
 
 	fc.writers.unopened, err = fc.scanUnopenedFiles()
 	return fc, err
@@ -127,7 +125,7 @@ func (fc *fileController) acquireWriter(ctx context.Context) (uint16, int64, xio
 		return fc.acquireWriter(ctx)
 	}
 
-	<-fc.writers.release
+	<-fc.release
 	return fc.acquireWriter(ctx)
 }
 
@@ -154,7 +152,7 @@ func (fc *fileController) newWriter(ctx context.Context) (*controlledWriter, int
 		}
 		w := controlledWriter{
 			TrackedWriteCloser: base,
-			controllerEntry:    newPoolEntry(key, fc.writers.release),
+			controllerEntry:    newPoolEntry(key, fc.release),
 		}
 		fc.writers.open[key] = w
 		delete(fc.writers.unopened, key)
@@ -181,7 +179,7 @@ func (fc *fileController) newWriter(ctx context.Context) (*controlledWriter, int
 	}
 	w := controlledWriter{
 		TrackedWriteCloser: base,
-		controllerEntry:    newPoolEntry(nextKey, fc.writers.release),
+		controllerEntry:    newPoolEntry(nextKey, fc.release),
 	}
 	fc.writers.open[nextKey] = w
 	return &w, 0, nil
@@ -205,7 +203,7 @@ func (fc *fileController) acquireReader(ctx context.Context, key uint16) (xio.Re
 			return fc.newReader(ctx, key)
 		}
 
-		<-fc.readers.release
+		<-fc.release
 		fc.readers.RUnlock()
 		return fc.acquireReader(ctx, key)
 	}
@@ -223,7 +221,7 @@ func (fc *fileController) acquireReader(ctx context.Context, key uint16) (xio.Re
 	if ok {
 		return fc.acquireReader(ctx, key)
 	}
-	<-fc.readers.release
+	<-fc.release
 	return fc.acquireReader(ctx, key)
 }
 
@@ -240,7 +238,7 @@ func (fc *fileController) newReader(ctx context.Context, key uint16) (*controlle
 
 	r := controlledReader{
 		ReaderAtCloser:  file,
-		controllerEntry: newPoolEntry(key, fc.readers.release),
+		controllerEntry: newPoolEntry(key, fc.release),
 	}
 	fc.readers.Lock()
 	fc.readers.open[key] = append(fc.readers.open[key], r)
@@ -332,8 +330,12 @@ func (fc *fileController) removeReadersWriters(ctx context.Context, key uint16) 
 }
 
 func (fc *fileController) close() error {
-	fc.writers.Lock()
-	defer fc.writers.Unlock()
+	fc.writers.RLock()
+	fc.readers.RLock()
+	defer func() {
+		fc.readers.RUnlock()
+		fc.writers.RUnlock()
+	}()
 	c := errors.NewCatcher(errors.WithAggregation())
 	for _, w := range fc.writers.open {
 		c.Exec(w.TrackedWriteCloser.Close)
