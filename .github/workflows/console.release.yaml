@@ -305,7 +305,7 @@ jobs:
                   url: darwinURL,
                 },
                 "linux-x86_64": {
-                  signature: darwinSig.data,
+                  signature: "not_supported_and_tauri_requires_an_entry",
                   url: darwinURL,
                 },
                 "windows-x86_64": {
