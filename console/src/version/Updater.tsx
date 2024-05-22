@@ -10,12 +10,10 @@ export const useCheckForUpdates = () => {
   useEffect(() => {
     const i = setInterval(async () => {
       const update = await check();
-      console.log("No update available");
-      if (update?.available !== true) return;
       addStatus({
         key: "update",
         variant: "info",
-        message: `Update available: ${update.version}`,
+        message: `Update available: ${update != null}`,
         description: "update",
       });
     }, TimeSpan.seconds(5).milliseconds);
