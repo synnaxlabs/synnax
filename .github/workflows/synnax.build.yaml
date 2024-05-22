@@ -37,8 +37,8 @@ jobs:
         id: create-release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: synnax-driver-v${{ steps.version.outputs.VERSION }}
-          name: Synnax Driver v${{ steps.version.outputs.VERSION }}
+          tag_name: synnax-v${{ steps.version.outputs.VERSION }}
+          name: Synnax v${{ steps.version.outputs.VERSION }}
           draft: false
           prerelease: false
 
@@ -152,7 +152,7 @@ jobs:
         if:  github.ref == 'refs/heads/main'
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: gh release upload synnax-driver-v${{ steps.version.outputs.VERSION }} ./synnax/synnax-driver-v${{ steps.version.outputs.VERSION }}-${{ steps.os.outputs.OS }}
+        run: gh release upload --clobber synnax-v${{ steps.version.outputs.VERSION }} ./synnax/synnax-driver-v${{ steps.version.outputs.VERSION }}-${{ steps.os.outputs.OS }}
 
   docker:
     needs: build
