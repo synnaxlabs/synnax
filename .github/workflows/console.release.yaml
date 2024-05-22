@@ -193,11 +193,17 @@ jobs:
         run: pnpm i
 
 
-      - name: Build
+      - name: Build Pluto
         if: steps.filter.outputs.changed == 'true'
         env:
           NODE_OPTIONS: "--max_old_space_size=4096"
         run: pnpm build:pluto
+      
+      - name: Build Drift
+        if: steps.filter.outputs.changed == 'true'
+        env:
+          NODE_OPTIONS: "--max_old_space_size=4096"
+        run: pnpm build:drift
 
       - name: Build Console
         if: steps.filter.outputs.changed == 'true'
