@@ -20,7 +20,7 @@ import (
 	"github.com/synnaxlabs/x/observe"
 )
 
-const ontologyType ontology.Type = "Schematic"
+const ontologyType ontology.Type = "schematic"
 
 func OntologyID(k uuid.UUID) ontology.ID {
 	return ontology.ID{Type: ontologyType, Key: k.String()}

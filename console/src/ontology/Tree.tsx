@@ -73,7 +73,9 @@ const loadInitialTree = async (
   setNodes: state.Set<Core.Node[]>,
   setResources: state.Set<ontology.Resource[]>,
 ): Promise<void> => {
-  const fetched = await client.ontology.retrieveChildren(ontology.Root, true, true);
+  const fetched = await client.ontology.retrieveChildren(ontology.Root, {
+    includeSchema: true,
+  });
   setNodes(toTreeNodes(services, fetched));
   setResources((p) => updateResources(p, fetched));
 };
@@ -265,7 +267,9 @@ export const Tree = (): ReactElement => {
         const id = new ontology.ID(clicked);
         try {
           setLoading(clicked);
-          const resources = await client.ontology.retrieveChildren(id, true, true);
+          const resources = await client.ontology.retrieveChildren(id, {
+            includeSchema: true,
+          });
           const converted = toTreeNodes(services, resources);
           const nextTree = Core.setNode({
             tree: nodesRef.current,

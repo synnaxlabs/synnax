@@ -23,12 +23,10 @@ export default defineConfig({
     strictPort: true,
   },
   resolve: {
-    alias: isDev
-      ? {
-          "@synnaxlabs/pluto/dist": path.resolve(__dirname, "../pluto/dist"),
-          "@synnaxlabs/pluto": path.resolve(__dirname, "../pluto/src"),
-        }
-      : {},
+    alias: {
+      "@synnaxlabs/pluto/dist": path.resolve(__dirname, "../pluto/dist"),
+      "@synnaxlabs/pluto": path.resolve(__dirname, "../pluto/src"),
+    },
   },
   envPrefix: ["VITE_", "TAURI_"],
   plugins: [react(), tsconfigPaths()],
