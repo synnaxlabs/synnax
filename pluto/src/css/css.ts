@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { location, direction, type spatial } from "@synnaxlabs/x";
+import { location, direction, type spatial } from "@synnaxlabs/x/spatial";
 
 import { type BEM, newBEM } from "@/css/bem";
 import { CSSGridBuilder } from "@/css/grid";
@@ -31,7 +31,7 @@ export interface CSSType extends BEM {
   noWrap: (noWrap: boolean) => string | false;
   applyVars: typeof applyCSSVars;
   removeVars: typeof removeCSSVars;
-  newGridBuilder: () => CSSGridBuilder;
+  newGridBuilder: (prefix?: string) => CSSGridBuilder;
   inheritDims: (inherit?: boolean) => string | false;
   dropRegion: (active: boolean) => false | string;
   triggerExclude: (value: boolean) => string | false;
@@ -59,7 +59,7 @@ const newCSS = (prefix: string): CSSType => {
   CSS.noWrap = (noWrap) => noWrap && CSS.M("no-wrap");
   CSS.applyVars = applyCSSVars;
   CSS.removeVars = removeCSSVars;
-  CSS.newGridBuilder = () => new CSSGridBuilder();
+  CSS.newGridBuilder = (prefix?: string) => new CSSGridBuilder(prefix);
   CSS.dropRegion = (active) => active && CSS.B("haul-drop-region");
   CSS.px = (value: number) => `${value}px`;
   CSS.inheritDims = (inherit = true) => inherit && CSS.M("inherit-dims");

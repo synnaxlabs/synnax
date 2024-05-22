@@ -46,11 +46,12 @@ export interface SingleProps<K extends Key, E extends Keyed<K>>
     Omit<UseSelectSingleProps<K, E>, "data" | "allowMultiple">,
     Omit<CoreList.ListProps<K, E>, "children">,
     Pick<Input.TextProps, "variant" | "disabled"> {
-  tagKey?: keyof E | ((e: E) => string | number);
+  entryRenderKey?: keyof E | ((e: E) => string | number);
   columns?: Array<CoreList.ColumnSpec<K, E>>;
   inputProps?: Omit<Input.TextProps, "onChange">;
   searcher?: AsyncTermSearcher<string, K, E>;
   hideColumnHeader?: boolean;
+  omit?: Array<K>;
 }
 
 /**
@@ -64,7 +65,7 @@ export interface SingleProps<K extends Key, E extends Keyed<K>>
  * @param props.data - The data to be used to populate the select options.
  * @param props.columns - The columns to be used to render the select options in the
  * dropdown. See the {@link ListColumn} type for more details on available options.
- * @param props.tagKey - The option field rendered when selected. Defaults to "key".
+ * @param props.entryRenderKey - The option field rendered when selected. Defaults to "key".
  * @param props.location - Whether to render the dropdown above or below the select
  * component. Defaults to "below".
  * @param props.onChange - The callback to be invoked when the selected value changes.
@@ -73,8 +74,8 @@ export interface SingleProps<K extends Key, E extends Keyed<K>>
 export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   onChange,
   value,
-  tagKey = "key",
-  columns = [],
+  entryRenderKey = "key",
+  columns,
   data,
   emptyContent,
   inputProps,
@@ -84,6 +85,7 @@ export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   variant,
   hideColumnHeader = false,
   disabled,
+  omit,
   ...props
 }: SingleProps<K, E>): ReactElement => {
   const { visible, open, close } = Dropdown.use();
@@ -93,15 +95,20 @@ export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   // This hook runs to make sure we have the selected entry populated when the value
   // changes externally.
   useAsyncEffect(async () => {
-    if (selected?.key === value) return;
     if (selectValueIsZero(value)) return setSelected(null);
+    if (selected?.key === value) return;
     let nextSelected: E | null = null;
-    if (searchMode) {
-      const [e] = await searcher.retrieve([value]);
-      nextSelected = e ?? null;
-    } else if (data != null) nextSelected = data.find((e) => e.key === value) ?? null;
+    if (searchMode)
+      // Wrap this in a try-except clause just in case the searcher throws an error.
+      try {
+        [nextSelected] = await searcher.retrieve([value]);
+      } finally {
+        // It might be undefined, so coalesce it to null.
+        nextSelected ??= null;
+      }
+    else if (data != null) nextSelected = data.find((e) => e.key === value) ?? null;
     setSelected(nextSelected);
-  }, [searcher, value]);
+  }, [searcher, value, data]);
 
   const handleChange = useCallback<UseSelectSingleProps<K, E>["onChange"]>(
     (v: K, e: UseSelectOnChangeExtra<K, E>): void => {
@@ -122,7 +129,8 @@ export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
       close={close}
       open={open}
       data={data}
-      emtpyContent={emptyContent}
+      omit={omit}
+      emptyContent={emptyContent}
       allowMultiple={false}
       visible={visible}
       value={value}
@@ -139,7 +147,7 @@ export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
             onChange={onChange}
             onFocus={open}
             selected={selected}
-            tagKey={tagKey}
+            entryRenderKey={entryRenderKey}
             visible={visible}
             allowNone={allowNone}
             className={className}
@@ -153,7 +161,7 @@ export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
 
 export interface SelectInputProps<K extends Key, E extends Keyed<K>>
   extends Omit<Input.TextProps, "value" | "onFocus"> {
-  tagKey: keyof E | ((e: E) => string | number);
+  entryRenderKey: keyof E | ((e: E) => string | number);
   selected: E | null;
   visible: boolean;
   debounceSearch?: number;
@@ -162,7 +170,7 @@ export interface SelectInputProps<K extends Key, E extends Keyed<K>>
 }
 
 const SingleInput = <K extends Key, E extends Keyed<K>>({
-  tagKey,
+  entryRenderKey,
   selected,
   visible,
   onChange,
@@ -188,10 +196,13 @@ const SingleInput = <K extends Key, E extends Keyed<K>>({
     if (visible) return;
     if (primitiveIsZero(selected?.key)) return setInternalValue("");
     if (selected == null) return;
-    if (typeof tagKey === "function")
-      return setInternalValue(tagKey(selected).toString());
-    else return setInternalValue((selected?.[tagKey] as string | number).toString());
-  }, [selected, visible, tagKey]);
+    if (typeof entryRenderKey === "function")
+      return setInternalValue(entryRenderKey(selected).toString());
+    else
+      return setInternalValue(
+        (selected?.[entryRenderKey] as string | number).toString(),
+      );
+  }, [selected, visible, entryRenderKey]);
 
   const handleChange = (v: string): void => {
     onChange(v);

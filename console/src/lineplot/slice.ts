@@ -591,9 +591,7 @@ export type LayoutType = "lineplot";
 export const LAYOUT_TYPE = "lineplot";
 
 export const create =
-  (
-    initial: Partial<State> & Omit<Partial<Layout.LayoutState>, "type">,
-  ): Layout.Creator =>
+  (initial: Partial<State> & Omit<Partial<Layout.State>, "type">): Layout.Creator =>
   ({ dispatch }) => {
     const { name = "Line Plot", location = "mosaic", window, tab, ...rest } = initial;
     const key = initial.key ?? nanoid();

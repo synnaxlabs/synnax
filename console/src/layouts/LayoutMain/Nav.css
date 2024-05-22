@@ -13,6 +13,10 @@
     max-width: 100vw;
 }
 
+.pluto-navbar__content {
+    z-index: 2;
+}
+
 .console-main-nav {
     background: var(--pluto-gray-l0);
 }

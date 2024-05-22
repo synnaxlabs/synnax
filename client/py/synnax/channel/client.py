@@ -24,7 +24,7 @@ from synnax.channel.payload import (
 )
 from synnax.channel.retrieve import ChannelRetriever
 from synnax.channel.writer import ChannelWriter
-from synnax.exceptions import MultipleFoundError, NotFoundError, ValidationError
+from synnax.exceptions import NotFoundError, MultipleFoundError, ValidationError
 from synnax.framer.client import Client
 from synnax.telem import (
     CrudeDataType,
@@ -58,6 +58,7 @@ class Channel(ChannelPayload):
         index: ChannelKey = 0,
         leaseholder: int = 0,
         key: ChannelKey = 0,
+        internal: bool = False,
         _frame_client: Client | None = None,
     ) -> None:
         """Initializes a new Channel using the given parameters. It's important to note
@@ -88,6 +89,7 @@ class Channel(ChannelPayload):
             key=key,
             is_index=is_index,
             index=index,
+            internal=internal,
         )
         self.___frame_client = _frame_client
 

@@ -2,7 +2,7 @@
 
 [[package]]
 name = "alamos"
-version = "0.2.36"
+version = "0.3.41"
 description = ""
 optional = false
 python-versions = "^3.11"
@@ -3337,7 +3337,7 @@ tests = ["cython", "littleutils", "pygments", "pytest", "typeguard"]
 
 [[package]]
 name = "synnax-freighter"
-version = "0.5.36"
+version = "0.6.41"
 description = ""
 optional = false
 python-versions = "^3.11"

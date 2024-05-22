@@ -66,11 +66,14 @@ const LOCATION_PREFERENCES: location.Location[] = [
 ];
 
 const LOCATION_TRANSLATIONS: Record<string, (p: xy.XY, container: box.Box) => xy.XY> = {
-  [location.xyToString(location.TOP_RIGHT)]: (p, c) => xy.translateX(p, -box.width(c)),
-  [location.xyToString(location.TOP_LEFT)]: (p, c) => xy.translateX(p, box.width(c)),
+  [location.xyToString(location.TOP_RIGHT)]: (p, c) =>
+    xy.translate(p, "x", -box.width(c)),
+  [location.xyToString(location.TOP_LEFT)]: (p, c) =>
+    xy.translate(p, "x", box.width(c)),
   [location.xyToString(location.BOTTOM_RIGHT)]: (p, c) =>
-    xy.translateX(p, -box.width(c)),
-  [location.xyToString(location.BOTTOM_LEFT)]: (p, c) => xy.translateX(p, box.width(c)),
+    xy.translate(p, "x", -box.width(c)),
+  [location.xyToString(location.BOTTOM_LEFT)]: (p, c) =>
+    xy.translate(p, "x", box.width(c)),
 };
 
 const bestLocation = <C extends location.Location>(
@@ -117,16 +120,6 @@ export const chooseLocation = (
   }
   const chosen = bestLocation(target, window, LOCATION_PREFERENCES);
   return location.constructXY(chosen, chooseRemainingLocation(chosen));
-};
-
-const getRenderRoot = (target: HTMLElement): HTMLElement => {
-  // get the first parent with a transform property or the body
-  const el: HTMLElement | null = target;
-  // while (el != null) {
-  //   if (el.style.transform?.includes("scale")) return el;
-  //   el = el.parentElement;
-  // }
-  return document.body;
 };
 
 const resolveTarget = (target: HTMLElement, id: string): HTMLElement => {
@@ -242,7 +235,7 @@ export const Dialog = ({
 
   const [tip, children_] = children;
 
-  const root = getRenderRoot(document.getElementById(id) ?? document.body);
+  const root = document.body;
 
   return (
     <>

@@ -66,4 +66,4 @@ export const min = (crude: Crude[]): Dimensions => ({
 export const scale = (ca: Crude, factor: number): Dimensions => {
   const a = construct(ca);
   return { width: a.width * factor, height: a.height * factor };
-}
+};

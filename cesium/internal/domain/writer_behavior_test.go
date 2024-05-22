@@ -45,17 +45,21 @@ func extractPointer(f xfs.File) (p struct {
 	return
 }
 
-var _ = Describe("WriterBehavior", func() {
+var _ = Describe("WriterBehavior", Ordered, func() {
 	for fsName, makeFS := range fileSystems {
-		fs := makeFS()
 		Context("FS: "+fsName, func() {
-			var db *domain.DB
+			var (
+				db      *domain.DB
+				fs      xfs.FS
+				cleanUp func() error
+			)
 			BeforeEach(func() {
-				db = MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub(rootPath))}))
+				fs, cleanUp = makeFS()
+				db = MustSucceed(domain.Open(domain.Config{FS: fs}))
 			})
 			AfterEach(func() {
 				Expect(db.Close()).To(Succeed())
-				Expect(fs.Remove(rootPath)).To(Succeed())
+				Expect(cleanUp()).To(Succeed())
 			})
 			Describe("Happiest of paths", func() {
 				It("Should work with a preset end", func() {
@@ -97,7 +101,8 @@ var _ = Describe("WriterBehavior", func() {
 			Describe("CheckFileSizeAndMaybeSwitchFile", func() {
 				Context("No preset end", func() {
 					It("Should start writing to a new file when one file is full", func() {
-						db2 := MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub(rootPath)), FileSize: 10 * telem.ByteSize}))
+						fs2, cleanUp2 := makeFS()
+						db2 := MustSucceed(domain.Open(domain.Config{FS: fs2, FileSize: 10 * telem.ByteSize}))
 
 						By("Writing some telemetry")
 						w := MustSucceed(db2.NewWriter(ctx, domain.WriterConfig{Start: 1 * telem.SecondTS}))
@@ -144,10 +149,12 @@ var _ = Describe("WriterBehavior", func() {
 						Expect(i.Close()).To(Succeed())
 						Expect(w.Close()).To(Succeed())
 						Expect(db2.Close()).To(Succeed())
+						Expect(cleanUp2()).To(Succeed())
 					})
 
 					It("Should work when the file size exceeds the limit by just 1", func() {
-						db2 := MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub(rootPath)), FileSize: 4 * telem.ByteSize}))
+						fs2, cleanUp2 := makeFS()
+						db2 := MustSucceed(domain.Open(domain.Config{FS: fs2, FileSize: 4 * telem.ByteSize}))
 
 						By("Writing some telemetry")
 						w := MustSucceed(db2.NewWriter(ctx, domain.WriterConfig{Start: 1 * telem.SecondTS}))
@@ -184,12 +191,14 @@ var _ = Describe("WriterBehavior", func() {
 						Expect(i.Close()).To(Succeed())
 						Expect(w.Close()).To(Succeed())
 						Expect(db2.Close()).To(Succeed())
+						Expect(cleanUp2()).To(Succeed())
 					})
 				})
 
 				Context("With preset end", func() {
 					It("Should start writing to a new file when one file is full", func() {
-						db2 := MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub(rootPath)), FileSize: 10 * telem.ByteSize}))
+						fs2, cleanUp2 := makeFS()
+						db2 := MustSucceed(domain.Open(domain.Config{FS: fs2, FileSize: 10 * telem.ByteSize}))
 
 						By("Writing some telemetry")
 						w := MustSucceed(db2.NewWriter(ctx, domain.WriterConfig{Start: 1 * telem.SecondTS, End: 100 * telem.SecondTS}))
@@ -236,6 +245,7 @@ var _ = Describe("WriterBehavior", func() {
 						Expect(i.Close()).To(Succeed())
 						Expect(w.Close()).To(Succeed())
 						Expect(db2.Close()).To(Succeed())
+						Expect(cleanUp2()).To(Succeed())
 					})
 				})
 			})

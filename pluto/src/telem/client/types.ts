@@ -1,5 +1,5 @@
 import { TimeRange, type Series, type channel } from "@synnaxlabs/client";
-import { type SeriesDigest } from "@synnaxlabs/x";
+import { type SeriesDigest } from "@synnaxlabs/x/telem";
 
 export class ReadResponse {
   channel: channel.Payload;

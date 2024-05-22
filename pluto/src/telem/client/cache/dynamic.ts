@@ -84,7 +84,7 @@ export class Dynamic {
     };
   }
 
-  private allocate(capacity: number, alignment: number, start: TimeStamp): Series {
+  private allocate(capacity: number, alignment: bigint, start: TimeStamp): Series {
     this.counter++;
     return Series.alloc({
       capacity,
@@ -107,7 +107,9 @@ export class Dynamic {
       this.buffer = this.allocate(cap, series.alignment, TimeStamp.now());
       res.allocated.push(this.buffer);
     } else if (
-      Math.abs(this.buffer.alignment + this.buffer.length - series.alignment) > 1
+      Math.abs(
+        Number(this.buffer.alignment + BigInt(this.buffer.length) - series.alignment),
+      ) > 1
     ) {
       // This case occurs when the alignment of the incoming series does not match
       // the alignment of the current buffer. In this case, we flush the current buffer
@@ -121,13 +123,13 @@ export class Dynamic {
     const converted = convertSeriesFloat32(series, this.buffer.sampleOffset);
     const amountWritten = this.buffer.write(converted);
     // This means that the current buffer is large enough to fit the entire incoming
-    // series. We're done in this case.
+    // series. We're done in this caseconv.
     if (amountWritten === series.length) return res;
     // Push the current buffer to the flushed list.
     const now = TimeStamp.now();
     this.buffer.timeRange.end = now;
     res.flushed.push(this.buffer);
-    this.buffer = this.allocate(cap, series.alignment + amountWritten, now);
+    this.buffer = this.allocate(cap, series.alignment + BigInt(amountWritten), now);
     res.allocated.push(this.buffer);
     const nextRes = this._write(series.slice(amountWritten));
     res.flushed.push(...nextRes.flushed);

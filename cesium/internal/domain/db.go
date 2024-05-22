@@ -11,11 +11,9 @@ package domain
 
 import (
 	"context"
-	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errutil"
-	xio "github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
@@ -176,8 +174,8 @@ func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) 
 
 // Close closes the DB. Close should not be called concurrently with any other DB methods.
 func (db *DB) Close() error {
-	w := errutil.NewCatch(errutil.WithAggregation())
-	w.Exec(func() error { return db.idx.close() })
+	w := errors.NewCatcher(errors.WithAggregation())
+	w.Exec(db.idx.close)
 	w.Exec(db.files.close)
 	return w.Error()
 }

@@ -121,7 +121,7 @@ export type StringSource = Source<string>;
 export const stringSourceSpecZ = sourceSpecZ.extend({ valueType: z.literal("string") });
 export type StringSourceSpec = z.infer<typeof stringSourceSpecZ>;
 
-export class Base<P extends z.ZodTypeAny> extends observe.Observer<void> {
+export class Base<P extends z.ZodTypeAny> extends observe.BaseObserver<void> {
   private props_: z.output<P> | undefined = undefined;
   private readonly uProps_: unknown | undefined = undefined;
   schema: P | undefined = undefined;

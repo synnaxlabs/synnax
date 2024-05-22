@@ -7,6 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Layout } from "@/layout";
+import { CREATE_LAYOUT_TYPE, Create } from "@/workspace/Create";
+
 export * from "@/workspace/palette";
 export * from "@/workspace/ontology";
 export * from "@/workspace/slice";
@@ -15,3 +18,7 @@ export * from "@/workspace/selectors";
 export * from "@/workspace/Create";
 export * from "@/workspace/Recent";
 export * from "@/workspace/syncer";
+
+export const LAYOUTS: Record<string, Layout.Renderer> = {
+  [CREATE_LAYOUT_TYPE]: Create,
+};

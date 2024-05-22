@@ -7,6 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Layout } from "@/layout";
+import { LinePlot } from "@/lineplot/LinePlot";
+import { LAYOUT_TYPE } from "@/lineplot/slice";
+
 export * from "@/lineplot/toolbar";
 export * from "@/lineplot/LinePlot";
 export * from "@/lineplot/middleware";
@@ -16,3 +20,7 @@ export * from "@/lineplot/selectors";
 export * from "@/lineplot/slice";
 export * from "@/lineplot/useTriggerHold";
 export * from "@/lineplot/ontology";
+
+export const LAYOUTS: Record<string, Layout.Renderer> = {
+  [LAYOUT_TYPE]: LinePlot,
+};

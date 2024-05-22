@@ -50,7 +50,7 @@ from datetime import datetime
 # Our temperature data.
 temperatures = [55, 55.1, 55.7, 57.2, 58.1]
 start = sy.TimeStamp.now()
-timestamps = [
+times = [
     first,
     first + 1 * sy.TimeSpan.HOUR,
     first + 2 * sy.TimeSpan.HOUR,
@@ -59,7 +59,7 @@ timestamps = [
 ]
 
 # Write the timestamps to the index
-timestamps.write(start, timestamps)
+timestamps.write(start, times)
 
 # Write the data to the channel
 my_precise_tc.write(start, temperatures)

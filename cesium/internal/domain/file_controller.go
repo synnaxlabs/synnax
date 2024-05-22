@@ -11,8 +11,7 @@ package domain
 
 import (
 	"context"
-	"github.com/cockroachdb/errors"
-	"github.com/synnaxlabs/x/errutil"
+	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 	"io"
 	"os"
@@ -354,7 +353,7 @@ func (fc *fileController) RemoveFileHandles(key uint16, newFile string, oldFile 
 	defer fc.writers.Unlock()
 
 	// Close all readers.
-	c := errutil.NewCatch(errutil.WithAggregation())
+	c := errors.NewCatcher(errors.WithAggregation())
 	for _, r := range fc.readers.open[key] {
 		if r.tryAcquire() {
 			c.Exec(r.ReaderAtCloser.Close)
@@ -402,7 +401,7 @@ func (fc *fileController) RemoveFileHandles(key uint16, newFile string, oldFile 
 func (fc *fileController) close() error {
 	fc.writers.Lock()
 	defer fc.writers.Unlock()
-	c := errutil.NewCatch(errutil.WithAggregation())
+	c := errors.NewCatcher(errors.WithAggregation())
 	for _, w := range fc.writers.open {
 		c.Exec(w.TrackedWriteCloser.Close)
 	}

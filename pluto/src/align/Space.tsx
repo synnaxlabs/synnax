@@ -14,7 +14,7 @@ import {
   forwardRef,
 } from "react";
 
-import { direction } from "@synnaxlabs/x";
+import { direction } from "@synnaxlabs/x/spatial";
 
 import { CSS } from "@/css";
 import { Generic } from "@/generic";

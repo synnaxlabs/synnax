@@ -57,20 +57,25 @@ func (c Config) Validate() error {
 type Service struct {
 	Config
 	shutdownSignals io.Closer
+	group           group.Group
 }
+
+const groupName = "Devices"
 
 func OpenService(ctx context.Context, configs ...Config) (s *Service, err error) {
 	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
 		return
 	}
-	s = &Service{Config: cfg}
+	g, err := cfg.Group.CreateOrRetrieve(ctx, groupName, ontology.RootID)
+	if err != nil {
+		return
+	}
+	s = &Service{Config: cfg, group: g}
 	cfg.Ontology.RegisterService(s)
-
 	if cfg.Signals == nil {
 		return s, nil
 	}
-
 	cdcS, err := signals.PublishFromGorp(ctx, cfg.Signals, signals.GorpPublisherConfigString[Device](cfg.DB))
 	if err != nil {
 		return
@@ -88,8 +93,9 @@ func (s *Service) Close() error {
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		tx:  gorp.OverrideTx(s.DB, tx),
-		otg: s.Ontology.NewWriter(tx),
+		tx:    gorp.OverrideTx(s.DB, tx),
+		otg:   s.Ontology.NewWriter(tx),
+		group: s.group,
 	}
 }
 

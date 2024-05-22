@@ -12,6 +12,32 @@ import { Table } from "@/components/Table"
 This page walks you through deploying a single node cluster for production use,
 which requires a few additional steps compared to development use.
 
+
+<Divider.Divider direction="x" />
+
+## License Keys
+
+If your organization has an enterprise license for Synnax, you'll need to provide
+your license key on startup. The easiest way to do this is using the `--license-key`
+flag when starting the node. Here's an example:
+
+```sh
+synnax start --listen=localhost:9090 --license-key=000000-00000000-0000000000
+```
+
+In production, we recommend using an environment variable or configuration file
+to store your license key. This is more secure than passing the key as a command
+line argument. The following example shows how to set the license key using an
+environment variable:
+
+```sh
+export SYNNNAX_LICENSE_KEY=000000-00000000-0000000000
+synnax start --listen=localhost:9090
+```
+
+To see the full list of command line options, environment variables, and configuration
+file parameters, see [this page](/reference/cluster/cli-reference).
+
 <Divider.Divider direction="x" />
 
 ## Configuring TLS
@@ -125,3 +151,6 @@ example of how to do this:
 
 When using your own certificates, you'll need to specify the `--certs-dir`
 option and provide the necessary certificates and keys in that directory. 
+
+
+

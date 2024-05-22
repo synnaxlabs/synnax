@@ -11,7 +11,7 @@ import { type ReactElement } from "react";
 
 import type { connection } from "@synnaxlabs/client";
 import { Status, Synnax } from "@synnaxlabs/pluto";
-import { Case } from "@synnaxlabs/x";
+import { caseconv } from "@synnaxlabs/x";
 
 import { CSS } from "@/css";
 
@@ -43,7 +43,7 @@ export const ConnectionStatusBadge = ({
     variant={statusVariants[status]}
     justify="center"
   >
-    {Case.capitalize(status)}
+    {caseconv.capitalize(status)}
   </Status.Text>
 );
 

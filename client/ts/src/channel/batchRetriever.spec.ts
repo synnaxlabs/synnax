@@ -1,51 +1,51 @@
+import { DataType, Rate } from "@synnaxlabs/x/telem";
 import { describe, expect, it, vi } from "vitest";
-import { newClient } from "@/setupspecs";
-import { DebouncedBatchRetriever, Retriever, analyzeParams } from "@/channel/retriever";
-import { Params, Payload } from "@/channel/payload";
-import { DataType, Rate } from "@synnaxlabs/x";
 
-
+import { type Params, type Payload } from "@/channel/payload";
+import {
+  DebouncedBatchRetriever,
+  type Retriever,
+  type RetrieveOptions,
+  analyzeChannelParams,
+} from "@/channel/retriever";
 
 class MockRetriever implements Retriever {
-  func: (channels: Params, rangeKey?: string) => Promise<Payload[]>;
+  func: (channels: Params, options?: RetrieveOptions) => Promise<Payload[]>;
 
-  constructor(func: (channels: Params, rangeKey?: string) => Promise<Payload[]>) {
+  constructor(
+    func: (channels: Params, options?: RetrieveOptions) => Promise<Payload[]>,
+  ) {
     this.func = func;
   }
 
-  async search(term: string, rangeKey?: string): Promise<Payload[]> {
+  async search(term: string): Promise<Payload[]> {
     throw new Error("Method not implemented.");
   }
 
-  async page(offset: number, limit: number, rangeKey?: string): Promise<Payload[]> {
+  async page(offset: number, limit: number): Promise<Payload[]> {
     throw new Error("Method not implemented.");
   }
 
-  async retrieve(channels: Params, rangeKey?: string): Promise<Payload[]> {
-    return this.func(channels, rangeKey);
+  async retrieve(channels: Params, options?: RetrieveOptions): Promise<Payload[]> {
+    return await this.func(channels, options);
   }
-
 }
-
 
 describe("channelRetriever", () => {
   it("should batch multiple retrieve requests", async () => {
     const called = vi.fn();
     const base = new MockRetriever(async (batch): Promise<Payload[]> => {
       called(batch);
-      const {normalized} = analyzeParams(batch);
-      return normalized.map(
-        (key) =>
-          ({
-            key: key as number,
-            name: `channel-${key}`,
-            dataType: DataType.FLOAT32,
-            isIndex: false,
-            rate: Rate.hz(1),
-            leaseholder: 1,
-            index:0 
-          }),
-      );
+      const { normalized } = analyzeChannelParams(batch);
+      return normalized.map((key) => ({
+        key: key as number,
+        name: `channel-${key}`,
+        dataType: DataType.FLOAT32,
+        isIndex: false,
+        rate: Rate.hz(1),
+        leaseholder: 1,
+        index: 0,
+      }));
     });
     const retriever = new DebouncedBatchRetriever(base, 10);
     const res = await Promise.all([
@@ -61,20 +61,17 @@ describe("channelRetriever", () => {
     const called = vi.fn();
     const base = new MockRetriever(async (batch): Promise<Payload[]> => {
       called(batch);
-      const {normalized} = analyzeParams(batch);
-      return normalized.map(
-        (key) =>
-          ({
-            key: key as number,
-            name: `channel-${key}`,
-            dataType: DataType.FLOAT32,
-            isIndex: false,
-            rate: Rate.hz(1),
-            leaseholder: 1,
-            index:0 
-          }),
-      );
-    })
+      const { normalized } = analyzeChannelParams(batch);
+      return normalized.map((key) => ({
+        key: key as number,
+        name: `channel-${key}`,
+        dataType: DataType.FLOAT32,
+        isIndex: false,
+        rate: Rate.hz(1),
+        leaseholder: 1,
+        index: 0,
+      }));
+    });
     const retriever = new DebouncedBatchRetriever(base, 10);
     const res = await Promise.all([
       retriever.retrieve([1]),

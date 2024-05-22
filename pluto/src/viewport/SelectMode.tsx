@@ -10,7 +10,7 @@
 import { type ReactElement, type ReactNode } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import { Case } from "@synnaxlabs/x";
+import { caseconv } from "@synnaxlabs/x";
 
 import { Align } from "@/align";
 import { Button } from "@/button";
@@ -33,7 +33,7 @@ interface TooltipProps {
 
 const Tooltip = ({ mode, triggers }: TooltipProps): ReactElement => (
   <Align.Space direction="x" align="center">
-    <Text.Text level="small">{Case.capitalize(mode)}</Text.Text>
+    <Text.Text level="small">{caseconv.capitalize(mode)}</Text.Text>
     <Triggers.Text trigger={triggers[0]} level="small" />
   </Align.Space>
 );

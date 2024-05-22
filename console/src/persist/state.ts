@@ -16,10 +16,12 @@ import {
 } from "@reduxjs/toolkit";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { debounce, deep, type UnknownRecord } from "@synnaxlabs/x";
-import { appWindow } from "@tauri-apps/api/window";
+import { getCurrent } from "@tauri-apps/api/window";
 
 import { TauriKV } from "@/persist/kv";
 import { type Version } from "@/version";
+
+const appWindow = getCurrent();
 
 const PERSISTED_STATE_KEY = "console-persisted-state";
 const DB_VERSION_KEY = "console-version";

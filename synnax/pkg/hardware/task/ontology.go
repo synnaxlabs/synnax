@@ -22,7 +22,7 @@ import (
 	"strconv"
 )
 
-const OntologyType ontology.Type = "module"
+const OntologyType ontology.Type = "task"
 
 func OntologyID(k Key) ontology.ID {
 	return ontology.ID{Type: OntologyType, Key: k.String()}
@@ -45,13 +45,15 @@ var _schema = &ontology.Schema{
 	Fields: map[string]schema.Field{
 		"key":  {Type: schema.Uint32},
 		"name": {Type: schema.String},
+		"type": {Type: schema.String},
 	},
 }
 
-func newResource(r Task) schema.Resource {
-	e := schema.NewResource(_schema, OntologyID(r.Key), r.Name)
-	schema.Set(e, "key", uint32(r.Key))
-	schema.Set(e, "name", r.Name)
+func newResource(t Task) schema.Resource {
+	e := schema.NewResource(_schema, OntologyID(t.Key), t.Name)
+	schema.Set(e, "key", uint32(t.Key))
+	schema.Set(e, "name", t.Name)
+	schema.Set(e, "type", t.Type)
 	return e
 }
 

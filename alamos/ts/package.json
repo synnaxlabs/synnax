@@ -29,7 +29,7 @@
     "dependencies": {
         "@opentelemetry/api": "^1.8.0",
         "@opentelemetry/context-zone": "^1.23.0",
-        "@opentelemetry/instrumentation-document-load": "^0.33.2",
+        "@opentelemetry/instrumentation-document-load": "^0.37.0",
         "@opentelemetry/sdk-trace-web": "^1.23.0",
         "@synnaxlabs/x": "workspace:*",
         "@uptrace/node": "^1.19.0",
@@ -38,11 +38,11 @@
     "devDependencies": {
         "@synnaxlabs/tsconfig": "workspace:*",
         "@synnaxlabs/vite-plugin": "workspace:*",
-        "@vitest/coverage-v8": "1.2.2",
+        "@vitest/coverage-v8": "^1.2.",
         "eslint-config-synnaxlabs": "workspace:*",
         "typescript": "^5.4.5",
-        "vite": "5.1.2",
-        "vitest": "1.2.2"
+        "vite": "5.2.8",
+        "vitest": "^1.5.0"
     },
     "main": "dist/index.js",
     "module": "dist/index.js",

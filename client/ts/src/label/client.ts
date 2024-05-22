@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { type AsyncTermSearcher } from "@synnaxlabs/x";
+import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 
 import { type framer } from "@/framer";
 import { type Key, type Label, labelZ } from "@/label/payload";
@@ -21,6 +21,7 @@ const LABEL_SET_NAME = "sy_label_set";
 const LABEL_DELETE_NAME = "sy_label_delete";
 
 export class Client implements AsyncTermSearcher<string, Key, Label> {
+  readonly type: string = "label";
   private readonly retriever: Retriever;
   private readonly writer: Writer;
   private readonly frameClient: framer.Client;
@@ -80,7 +81,7 @@ export class Client implements AsyncTermSearcher<string, Key, Label> {
   }
 
   async openChangeTracker(): Promise<signals.Observable<string, Label>> {
-    return await signals.Observable.open<string, Label>(
+    return await signals.openObservable<string, Label>(
       this.frameClient,
       LABEL_SET_NAME,
       LABEL_DELETE_NAME,

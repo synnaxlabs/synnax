@@ -14,7 +14,7 @@ import (
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
-	channelv1 "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/gen/go/channel/v1"
+	channelv1 "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/channel/v1"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -56,11 +56,11 @@ func (c createMessageTranslator) Backward(
 	var tr channel.CreateMessage
 	for _, ch := range msg.Channels {
 		tr.Channels = append(tr.Channels, channel.Channel{
-			LocalKey:    uint16(ch.StorageKey),
+			LocalKey:    channel.LocalKey(ch.StorageKey),
 			Name:        ch.Name,
 			Leaseholder: dcore.NodeKey(ch.NodeId),
 			DataType:    telem.DataType(ch.DataType),
-			LocalIndex:  uint16(ch.StorageIndex),
+			LocalIndex:  channel.LocalKey(ch.StorageIndex),
 			IsIndex:     ch.IsIndex,
 			Rate:        telem.Rate(ch.Rate),
 		})

@@ -22,8 +22,7 @@ import {
   useMemoCompare,
 } from "@synnaxlabs/pluto";
 import { compare } from "@synnaxlabs/x";
-import { appWindow } from "@tauri-apps/api/window";
-import type { Theme as TauriTheme } from "@tauri-apps/api/window";
+import { getCurrent } from "@tauri-apps/api/window";
 import { useDispatch, useStore } from "react-redux";
 
 import { useSyncerDispatch } from "@/hooks/dispatchers";
@@ -118,8 +117,11 @@ export const useRemover = (...baseKeys: string[]): Remover => {
       keys.forEach((keys) => {
         const l = select(s, keys);
         // Even if the layout is not present, close the window for good measure.
-        if (l == null || l.location === "window")
+        if (l == null || l.location === "window") {
+          console.log(keys);
+
           store.dispatch(Drift.closeWindow({ key: keys }));
+        }
       });
       syncDispatch(remove({ keys }));
     },
@@ -139,7 +141,7 @@ export const useThemeProvider = (): Theming.ProviderProps => {
   const dispatch = useDispatch();
 
   useAsyncEffect(async () => {
-    if (appWindow.label !== Drift.MAIN_WINDOW) return;
+    if (getCurrent().label !== Drift.MAIN_WINDOW) return;
     await setInitialTheme(dispatch);
     const cleanup = await synchronizeWithOS(dispatch);
     return cleanup;
@@ -155,7 +157,7 @@ export const useThemeProvider = (): Theming.ProviderProps => {
 export const useErrorThemeProvider = (): Theming.ProviderProps => {
   const [theme, setTheme] = useState<Theming.ThemeSpec | null>(Theming.SYNNAX_LIGHT);
   useAsyncEffect(async () => {
-    const theme = matchThemeChange({ payload: await appWindow.theme() });
+    const theme = matchThemeChange({ payload: await getCurrent().theme() });
     setTheme(Theming.SYNNAX_THEMES[theme]);
   }, []);
   return {
@@ -174,15 +176,20 @@ export const useErrorThemeProvider = (): Theming.ProviderProps => {
 const matchThemeChange = ({
   payload: theme,
 }: {
-  payload: TauriTheme | null;
+  payload: string | null;
 }): keyof typeof Theming.SYNNAX_THEMES =>
   theme === "dark" ? "synnaxDark" : "synnaxLight";
 
-const synchronizeWithOS = async (dispatch: Dispatch<UnknownAction>): AsyncDestructor =>
-  await appWindow.onThemeChanged((e) => dispatch(setActiveTheme(matchThemeChange(e))));
+const synchronizeWithOS = async (
+  dispatch: Dispatch<UnknownAction>,
+): AsyncDestructor => {
+  await getCurrent().onThemeChanged((e) =>
+    dispatch(setActiveTheme(matchThemeChange(e))),
+  );
+};
 
 const setInitialTheme = async (dispatch: Dispatch<UnknownAction>): Promise<void> =>
-  dispatch(setActiveTheme(matchThemeChange({ payload: await appWindow.theme() })));
+  dispatch(setActiveTheme(matchThemeChange({ payload: await getCurrent().theme() })));
 
 export interface NavMenuItem {
   key: string;

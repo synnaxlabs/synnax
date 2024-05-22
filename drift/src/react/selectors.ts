@@ -13,8 +13,8 @@ import memoize from "proxy-memoize";
 import { useSelector } from "react-redux";
 
 import { selectWindow, selectWindowAttribute, selectWindowKey } from "@/selectors";
-import { StoreState } from "@/state";
-import { WindowState } from "@/window";
+import { type StoreState } from "@/state";
+import { type WindowState } from "@/window";
 
 /**
  * Selects the window with the given key.
@@ -27,25 +27,25 @@ export const useSelectWindow = (key?: string): WindowState | null =>
   useSelector(
     useCallback(
       memoize((state: StoreState) => selectWindow(state, key)),
-      [key]
-    )
+      [key],
+    ),
   );
 
 export const useSelectWindowKey = (label?: string): string | null =>
   useSelector(
     useCallback(
       memoize((state: StoreState) => selectWindowKey(state, label)),
-      [label]
-    )
+      [label],
+    ),
   );
 
 export const useSelectWindowAttribute = <K extends keyof WindowState>(
   keyOrLabel: string,
-  attr: K
+  attr: K,
 ): WindowState[K] | null =>
   useSelector(
     useCallback(
       memoize((state: StoreState) => selectWindowAttribute(state, keyOrLabel, attr)),
-      [keyOrLabel, attr]
-    )
+      [keyOrLabel, attr],
+    ),
   );

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import type { UnaryClient } from "@synnaxlabs/freighter";
-import { TimeSpan } from "@synnaxlabs/x";
+import { TimeSpan } from "@synnaxlabs/x/telem";
 import { z } from "zod";
 
 const STATUSES = ["disconnected", "connecting", "connected", "failed"] as const;

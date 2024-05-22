@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { type change } from "@synnaxlabs/x";
+import { type change } from "@synnaxlabs/x/change";
 import { z } from "zod";
 
 import { type channel } from "@/channel";
@@ -133,7 +133,7 @@ export class Aliaser {
   }
 
   async openChangeTracker(): Promise<signals.Observable<string, Alias>> {
-    return await signals.Observable.open<string, Alias>(
+    return await signals.openObservable<string, Alias>(
       this.frameClient,
       ALIAS_SET_NAME,
       ALIAS_DELETE_NAME,

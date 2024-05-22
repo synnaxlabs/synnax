@@ -9,7 +9,11 @@
 
 package query
 
-import "github.com/cockroachdb/errors"
+import (
+	"context"
+	"github.com/synnaxlabs/x/errors"
+	"strings"
+)
 
 var (
 	Error = errors.New("[query] - error")
@@ -21,3 +25,45 @@ var (
 	// InvalidParameters is returned when a query has invalid parameters.
 	InvalidParameters = errors.Wrap(Error, "[query] - invalid parameters")
 )
+
+const (
+	typePrefix        = "sy.query"
+	uniqueViolation   = typePrefix + ".unique_violation"
+	notFound          = typePrefix + ".not_found"
+	invalidParameters = typePrefix + ".invalid_parameters"
+)
+
+func encode(_ context.Context, err error) (errors.Payload, bool) {
+	if errors.Is(err, NotFound) {
+		return errors.Payload{Type: notFound, Data: err.Error()}, true
+	}
+	if errors.Is(err, UniqueViolation) {
+		return errors.Payload{Type: uniqueViolation, Data: err.Error()}, true
+	}
+	if errors.Is(err, InvalidParameters) {
+		return errors.Payload{Type: invalidParameters, Data: err.Error()}, true
+	}
+	if errors.Is(err, Error) {
+		return errors.Payload{Type: typePrefix, Data: err.Error()}, true
+	}
+	return errors.Payload{}, false
+}
+
+func decode(_ context.Context, pld errors.Payload) (error, bool) {
+	switch pld.Type {
+	case notFound:
+		return errors.Wrap(NotFound, pld.Data), true
+	case uniqueViolation:
+		return errors.Wrap(UniqueViolation, pld.Data), true
+	case invalidParameters:
+		return errors.Wrap(InvalidParameters, pld.Data), true
+	}
+	if strings.HasPrefix(pld.Type, typePrefix) {
+		return errors.Wrap(Error, pld.Data), true
+	}
+	return nil, false
+}
+
+func init() {
+	errors.Register(encode, decode)
+}

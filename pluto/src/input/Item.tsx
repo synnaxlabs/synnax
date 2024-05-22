@@ -17,12 +17,16 @@ import { HelpText } from "@/input/HelpText";
 import { Label } from "@/input/Label";
 
 import "@/input/Item.css";
+import { status } from "@/status/aether";
 
 export interface ItemProps extends Align.SpaceProps {
   label?: string;
+  required?: boolean;
   showLabel?: boolean;
   helpText?: string;
   padHelpText?: boolean;
+  helpTextVariant?: status.Variant;
+  showHelpText?: boolean;
 }
 
 const maybeDefaultAlignment = (
@@ -40,18 +44,22 @@ export const Item = ({
   direction = "y",
   className,
   children,
+  required,
   align,
   size = "small",
   padHelpText = false,
+  helpTextVariant,
+  showHelpText = true,
   ...props
 }: ItemProps): ReactElement => {
   let inputAndHelp: ReactElement;
+  if (showHelpText === false && showLabel === false) return <>{children}</>;
   if (direction === "x")
     inputAndHelp = (
       <Align.Space direction="y" size="small">
         {children}
         {(padHelpText || (helpText != null && helpText.length > 0)) && (
-          <HelpText>{helpText}</HelpText>
+          <HelpText variant={helpTextVariant}>{helpText}</HelpText>
         )}
       </Align.Space>
     );
@@ -60,7 +68,7 @@ export const Item = ({
       <Align.Space direction="y" size={1 / 3}>
         {children}
         {(padHelpText || (helpText != null && helpText.length > 0)) && (
-          <HelpText>{helpText}</HelpText>
+          <HelpText variant={helpTextVariant}>{helpText}</HelpText>
         )}
       </Align.Space>
     );
@@ -73,7 +81,7 @@ export const Item = ({
       align={maybeDefaultAlignment(align, direction)}
       {...props}
     >
-      {showLabel && <Label>{label}</Label>}
+      {showLabel && <Label required={required}>{label}</Label>}
       {inputAndHelp}
     </Align.Space>
   );

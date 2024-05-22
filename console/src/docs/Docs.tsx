@@ -27,6 +27,18 @@ const HOST = new URL({
   protocol: "https",
 });
 
+export const LAYOUT_TYPE = "docs";
+
+export const createLayout = (overrides?: Layout.State): Layout.State => ({
+  windowKey: LAYOUT_TYPE,
+  key: LAYOUT_TYPE,
+  type: LAYOUT_TYPE,
+  location: "mosaic",
+  name: "Documentation",
+  tab: { editable: false },
+  ...overrides,
+});
+
 /**
  * Renders a layout that loads the documentation site in an iframe. Updates the docs
  * redux store to preserve the location when re-opening the docs.

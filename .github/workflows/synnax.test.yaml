@@ -27,11 +27,19 @@ jobs:
               - 'freighter/go/**'
               - '.github/workflows/synnax.test.yaml'
 
-      - name: Set Up Go
-        uses: actions/setup-go@v3
+      - name: Set up Go
+        uses: actions/setup-go@v5
         if: steps.filter.outputs.changed == 'true'
         with:
-          go-version: 1.22
+          go-version-file: "go.work"
+          cache-dependency-path: |
+            "alamos/go/go.sum"
+            "aspen/go.sum"
+            "cesium/go.sum"
+            "freighter/go/go.sum"
+            "synnax/go.sum"
+            "x/go/go.sum"
+
 
       - name: Test
         if: steps.filter.outputs.changed == 'true'

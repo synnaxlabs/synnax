@@ -32,12 +32,12 @@ const formSchema = z.object({
   labels: z.string().array(),
 });
 
-const CREATE_RANGE_WINDOW_KEY = "defineRange";
+export const EDIT_LAYOUT_TYPE = "editRange";
 
-export const editLayout = (name: string = "Create Range"): Layout.LayoutState => ({
-  key: CREATE_RANGE_WINDOW_KEY,
-  type: CREATE_RANGE_WINDOW_KEY,
-  windowKey: CREATE_RANGE_WINDOW_KEY,
+export const createEditLayout = (name: string = "Create Range"): Layout.State => ({
+  key: EDIT_LAYOUT_TYPE,
+  type: EDIT_LAYOUT_TYPE,
+  windowKey: EDIT_LAYOUT_TYPE,
   name,
   location: "window",
   window: {
@@ -50,12 +50,12 @@ export const editLayout = (name: string = "Create Range"): Layout.LayoutState =>
 
 type DefineRangeFormProps = z.infer<typeof formSchema>;
 
-export const EditLayout = (props: Layout.RendererProps): ReactElement => {
+export const Edit = (props: Layout.RendererProps): ReactElement => {
   const { layoutKey } = props;
   const now = useRef(Number(TimeStamp.now().valueOf())).current;
   const range = useSelect(layoutKey);
   const client = Synnax.use();
-  const isCreate = layoutKey === CREATE_RANGE_WINDOW_KEY;
+  const isCreate = layoutKey === EDIT_LAYOUT_TYPE;
   const isRemoteEdit = !isCreate && (range == null || range.persisted);
   const initialValues = useQuery<DefineRangeFormProps>({
     queryKey: ["range", layoutKey],
@@ -112,7 +112,7 @@ const EditLayoutForm = ({
   const methods = Form.use({ values: initialValues, schema: formSchema });
   const dispatch = useDispatch();
   const client = Synnax.use();
-  const isCreate = layoutKey === CREATE_RANGE_WINDOW_KEY;
+  const isCreate = layoutKey === EDIT_LAYOUT_TYPE;
 
   const { mutate, isPending } = useMutation({
     mutationFn: async (persist: boolean) => {
@@ -148,7 +148,12 @@ const EditLayoutForm = ({
 
   return (
     <Align.Space className={CSS.B("range-edit-layout")} grow>
-      <Align.Space className="console-form" justify="center" grow>
+      <Align.Space
+        className="console-form"
+        justify="center"
+        style={{ padding: "1rem 3rem" }}
+        grow
+      >
         <Form.Form {...methods}>
           <Form.Field<string> path="name">
             {(p) => (

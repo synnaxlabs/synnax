@@ -17,7 +17,9 @@ import (
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/index"
+	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/config"
+	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -28,13 +30,19 @@ import (
 
 var _ = Describe("Writer Behavior", func() {
 	for fsName, makeFS := range fileSystems {
-		fs := makeFS()
 		Context("FS: "+fsName, Ordered, func() {
-			var db *cesium.DB
-			BeforeAll(func() { db = openDBOnFS(fs) })
+			var (
+				db      *cesium.DB
+				fs      xfs.FS
+				cleanUp func() error
+			)
+			BeforeAll(func() {
+				fs, cleanUp = makeFS()
+				db = openDBOnFS(fs)
+			})
 			AfterAll(func() {
 				Expect(db.Close()).To(Succeed())
-				Expect(fs.Remove(rootPath)).To(Succeed())
+				Expect(cleanUp()).To(Succeed())
 			})
 			Describe("Happy Path", func() {
 				Context("Indexed", func() {
@@ -156,8 +164,8 @@ var _ = Describe("Writer Behavior", func() {
 						))
 						Expect(ok).To(BeTrue())
 						t, ok := w.Commit()
-						Expect(ok).To(BeTrue())
 						Expect(w.Error()).To(BeNil())
+						Expect(ok).To(BeTrue())
 						Expect(t).To(Equal(10500*telem.MillisecondTS + 1))
 
 						ok = w.Write(cesium.NewFrame(
@@ -553,13 +561,12 @@ var _ = Describe("Writer Behavior", func() {
 									},
 								))
 								Expect(ok).To(BeTrue())
-								Expect(err).ToNot(HaveOccurred())
 
 								By("Asserting that the telemetry has been persisted")
 								Eventually(func(g Gomega) {
 									f := MustSucceed(fs.Open(channelKeyToPath(index1)+"/index.domain", os.O_RDONLY))
 									buf := make([]byte, 26)
-									_, err = f.ReadAt(buf, 4)
+									_, err := f.ReadAt(buf, 4)
 									g.Expect(err).ToNot(HaveOccurred())
 									g.Expect(f.Close()).To(Succeed())
 									g.Expect(binary.LittleEndian.Uint64(buf[0:8])).To(Equal(uint64(10 * telem.SecondTS)))

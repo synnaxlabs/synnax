@@ -26,7 +26,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { CSS as PCSS } from "@synnaxlabs/pluto/css";
 import { Theming } from "@synnaxlabs/pluto/theming";
-import { appWindow } from "@tauri-apps/api/window";
+// import { appWindow } from "@tauri-apps/api/window";
 import { ErrorBoundary, type ErrorBoundaryProps } from "react-error-boundary";
 import { useDispatch } from "react-redux";
 
@@ -75,39 +75,26 @@ const FallbackRender: ErrorBoundaryProps["fallbackRender"] = ({
 
   return (
     <Align.Space direction="y" className={CSS.B("error-overlay")}>
-      <Nav.Bar
-        data-tauri-drag-region
-        location="top"
-        size={NAV_SIZES.top}
-        className="console-main-nav-top"
-      >
-        <Nav.Bar.Start className="console-main-nav-top__start" data-tauri-drag-region>
+      <Nav.Bar location="top" size={NAV_SIZES.top} className="console-main-nav-top">
+        <Nav.Bar.Start className="console-main-nav-top__start">
           <OS.Controls
             className="console-controls--macos"
             visibleIfOS="MacOS"
             onClose={() => {
-              void appWindow.close();
+              // void appWindow.close();
             }}
             onMinimize={() => {
-              void appWindow.minimize();
+              // void appWindow.minimize();
             }}
             onMaximize={() => {
-              void appWindow.maximize();
+              // void appWindow.maximize();
             }}
           />
           {os === "Windows" && (
-            <Logo
-              className="console-main-nav-top__logo"
-              variant="icon"
-              data-tauri-drag-region
-            />
+            <Logo className="console-main-nav-top__logo" variant="icon" />
           )}
         </Nav.Bar.Start>
-        <Nav.Bar.End
-          className="console-main-nav-top__end"
-          justify="end"
-          data-tauri-drag-region
-        >
+        <Nav.Bar.End className="console-main-nav-top__end" justify="end">
           <OS.Controls
             className="console-controls--windows"
             visibleIfOS="Windows"

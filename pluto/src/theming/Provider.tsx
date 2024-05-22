@@ -43,7 +43,7 @@ const Context = createContext<ContextValue>({
 });
 
 export interface UseProviderProps {
-  theme?: deep.Partial<theming.ThemeSpec>;
+  theme?: deep.Partial<theming.ThemeSpec> & { key: string };
   setTheme?: (key: string) => void;
   toggleTheme?: () => void;
   themes?: Record<string, theming.ThemeSpec>;
@@ -74,8 +74,13 @@ export const useProvider = ({
 
   const parsedThemes = useMemo(() => {
     if (theme != null) {
-      const synnaxLight = theming.themeZ.parse(deep.merge(theming.SYNNAX_LIGHT, theme));
-      const synnaxDark = theming.themeZ.parse(deep.merge(theming.SYNNAX_DARK, theme));
+      const synnaxLight = theming.themeZ.parse(
+        deep.override(deep.copy(theming.SYNNAX_LIGHT), theme),
+      );
+      const synnaxDark = theming.themeZ.parse(
+        deep.override(deep.copy(theming.SYNNAX_DARK), theme),
+      );
+      setSelected(theme.key);
       return { synnaxLight, synnaxDark };
     }
     return Object.entries(themes).reduce<Record<string, theming.Theme>>(

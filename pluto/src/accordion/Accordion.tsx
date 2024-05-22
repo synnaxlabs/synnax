@@ -10,7 +10,7 @@
 import { type ReactElement, type RefObject } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import { box, type direction } from "@synnaxlabs/x";
+import { box, type direction } from "@synnaxlabs/x/spatial";
 
 import { type Button } from "@/button";
 import { CSS } from "@/css";

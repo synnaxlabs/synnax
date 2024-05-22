@@ -14,12 +14,12 @@ import { Align } from "@synnaxlabs/pluto";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { NavControls as LineNavControls } from "@/lineplot/NavControls";
-import { NavControls as PidNavControls } from "@/pid/NavControls";
+import { NavControls as SchematicNavControls } from "@/schematic/NavControls";
 import { type LayoutType } from "@/vis/types";
 
 const REGISTRY: Record<LayoutType, FC> = {
   lineplot: LineNavControls,
-  pid: PidNavControls,
+  schematic: SchematicNavControls,
 };
 
 export const NavControls = (): ReactElement | null => {

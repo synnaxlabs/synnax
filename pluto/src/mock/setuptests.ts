@@ -12,7 +12,7 @@ import { afterAll, beforeAll, vi } from "vitest";
 
 beforeAll(() => {
   vi.stubGlobal("ResizeObserver", ResizeObserver);
-  vi.stubGlobal("OffscreenCanvas", class Offscreen {} as unknown as OffscreenCanvas);
+  vi.stubGlobal("OffscreenCanvas", {} as unknown as OffscreenCanvas);
 });
 
 afterAll(() => {

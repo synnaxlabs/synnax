@@ -80,9 +80,10 @@ export const Drawer = Aether.wrap<DrawerProps>(
       setEnabled(activeItem != null);
     }, [activeItem, setEnabled]);
     if (activeItem == null) return null;
-    const { content, ...rest } = activeItem;
+    const { content, key, ...rest } = activeItem;
     return (
       <Resize.Single
+        key={key}
         className={CSS(CSS.BE("navdrawer", "content"), CSS.dir(dir), className)}
         collapseThreshold={collapseThreshold}
         onCollapse={handleCollapse}

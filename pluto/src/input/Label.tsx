@@ -15,7 +15,9 @@ import "@/input/Label.css";
 
 /** Props for the {@link Label} component. */
 export interface LabelProps
-  extends DetailedHTMLProps<HTMLAttributes<HTMLLabelElement>, HTMLLabelElement> {}
+  extends DetailedHTMLProps<HTMLAttributes<HTMLLabelElement>, HTMLLabelElement> {
+  required?: boolean;
+}
 
 /**
  * A thin, styled wrapper for an input label. We generally recommend using Input.Item
@@ -24,7 +26,18 @@ export interface LabelProps
  *
  * @param props - Props for the label component. Unlisted props are passed to the
  * underlying label element.
+ * @param props.required - Indicate whether the label is associated with a required
+ * input.
  */
-export const Label = ({ className, ...props }: LabelProps): ReactElement => {
-  return <label className={CSS(CSS.B("input-label"), className)} {...props} />;
+export const Label = ({
+  className,
+  required = false,
+  children,
+  ...props
+}: LabelProps): ReactElement => {
+  return (
+    <label className={CSS(CSS.B("input-label"), className)} {...props}>
+      {children} {required && <span className={CSS.B("required-indicator")}>*</span>}
+    </label>
+  );
 };

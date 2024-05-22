@@ -11,10 +11,10 @@ package virtual
 
 import (
 	"fmt"
-	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"sync"
@@ -22,7 +22,7 @@ import (
 
 type controlEntity struct {
 	ck    core.ChannelKey
-	align telem.Alignment
+	align telem.AlignmentPair
 }
 
 func (e *controlEntity) ChannelKey() core.ChannelKey { return e.ck }

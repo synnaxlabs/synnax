@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, useState, createElement } from "react";
+import { type ReactElement, useState, createElement } from "react";
 
 import type { Action, UnknownAction, EnhancedStore } from "@reduxjs/toolkit";
 import { Provider } from "react-redux";
 import type { ProviderProps as BaseProps } from "react-redux";
 
-import { Enhancers } from "@/configureStore";
-import { StoreState } from "@/state";
+import { type Enhancers } from "@/configureStore";
+import { type StoreState } from "@/state";
 
 /**
  * Overrides the default react-redux Provider to allow for a promise based
@@ -23,7 +23,7 @@ import { StoreState } from "@/state";
 export interface ProviderProps<
   S extends StoreState,
   A extends Action = UnknownAction,
-  E extends Enhancers = Enhancers
+  E extends Enhancers = Enhancers,
 > extends Omit<BaseProps<A, S>, "store"> {
   store: Promise<EnhancedStore<S, A, E>> | EnhancedStore<S, A, E>;
   emptyContent?: ReactElement | null;
@@ -40,7 +40,7 @@ export interface ProviderProps<
 export const DriftProvider = <
   S extends StoreState,
   A extends Action<string> = UnknownAction,
-  E extends Enhancers = Enhancers
+  E extends Enhancers = Enhancers,
 >({
   store: storeOrPromise,
   emptyContent = null,

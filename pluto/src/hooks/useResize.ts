@@ -19,7 +19,7 @@ export interface UseResizeOpts {
    */
   triggers?: direction.Direction[];
   /**  Debounce the resize event by this many milliseconds.
-  Useful for preventing expensive renders until rezizing has stopped. */
+  Useful for preventing expensive renders until resizing has stopped. */
   debounce?: number;
   /** If false, the hook wont observe the element. Defaults to true. */
   enabled?: boolean;

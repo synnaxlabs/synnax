@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { vi, Mock } from "vitest";
+import { vi, type Mock } from "vitest";
 
-import { GLBufferController } from "@/telem/gl";
+import { type GLBufferController } from "@/telem/gl";
 
 export class MockGLBufferController implements GLBufferController {
   ARRAY_BUFFER: number = 1;
@@ -42,13 +42,13 @@ export class MockGLBufferController implements GLBufferController {
   bufferData(
     target: number,
     dataOrSize: ArrayBufferLike | number,
-    usage: number
+    usage: number,
   ): void {
     if (typeof dataOrSize === "number")
       this.buffers[this.targets[target]] = new ArrayBuffer(dataOrSize);
     else this.buffers[this.targets[target]] = dataOrSize;
 
-    this.bufferDataMock(target, dataOrSize as any, usage);
+    this.bufferDataMock(target, dataOrSize, usage);
   }
 
   bindBuffer(target: number, buffer: WebGLBuffer | null): void {

@@ -15,8 +15,6 @@ export { Channel } from "@/channel/client";
 export {
   AuthError,
   ContiguityError,
-  GeneralError,
-  ParseError,
   QueryError,
   RouteError,
   UnexpectedError,
@@ -36,7 +34,7 @@ export {
   TimeSpan,
   TimeStamp,
   MultiSeries,
-} from "@synnaxlabs/x";
+} from "@synnaxlabs/x/telem";
 export type {
   TypedArray,
   CrudeDataType,
@@ -49,7 +47,7 @@ export type {
   NumericTelemValue,
   TimeStampStringFormat,
   TZInfo,
-} from "@synnaxlabs/x";
+} from "@synnaxlabs/x/telem";
 export { workspace } from "@/workspace";
 export { ranger } from "@/ranger";
 export { label } from "@/label";
@@ -57,3 +55,4 @@ export { hardware } from "@/hardware";
 export { rack } from "@/hardware/rack";
 export { task } from "@/hardware/task";
 export { device } from "@/hardware/device";
+export { signals } from "@/signals";

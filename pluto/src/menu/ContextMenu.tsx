@@ -160,6 +160,7 @@ const ContextMenuCore = (
     position: xy,
     keys,
     className,
+    cursor: _,
     ...props
   }: ContextMenuProps,
   ref: ForwardedRef<HTMLDivElement>,

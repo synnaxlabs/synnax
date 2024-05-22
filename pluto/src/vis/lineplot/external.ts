@@ -13,3 +13,4 @@ export * from "@/vis/lineplot/LinePlot";
 export * from "@/vis/lineplot/Title";
 export * from "@/vis/lineplot/Viewport";
 export * from "@/vis/lineplot/Axis";
+export * from "@/vis/lineplot/tooltip";

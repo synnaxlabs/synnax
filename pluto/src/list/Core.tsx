@@ -123,7 +123,7 @@ export const Core = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   const { onSelect } = useSelectionUtils();
 
   return (
-    <Align.Space className={CSS.BE("list", "container")} {...props} empty>
+    <Align.Space className={CSS.BE("list", "container")} size={0} {...props}>
       {data.length === 0 ? (
         emptyContent
       ) : (

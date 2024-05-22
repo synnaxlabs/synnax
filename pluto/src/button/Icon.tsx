@@ -17,9 +17,14 @@ import { color } from "@/button/color";
 import { CSS } from "@/css";
 import { Tooltip } from "@/tooltip";
 
+interface ChildProps {
+  color?: string;
+  fill?: string;
+}
+
 /** The props for the {@link Icon} */
 export interface IconProps extends BaseProps {
-  children: ReactElement | string;
+  children: ReactElement<ChildProps> | string;
   loading?: boolean;
 }
 

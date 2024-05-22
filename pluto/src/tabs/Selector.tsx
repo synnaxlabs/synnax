@@ -23,8 +23,6 @@ import { useTabsContext } from "@/tabs/Tabs";
 import { Text } from "@/text";
 import { type ComponentSize } from "@/util/component";
 
-import "@/tabs/Selector.css";
-
 export interface TabSpec {
   tabKey: string;
   name: string;

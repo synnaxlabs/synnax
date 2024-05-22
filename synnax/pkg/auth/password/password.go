@@ -10,8 +10,8 @@
 package password
 
 import (
-	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/synnax/pkg/auth/base"
+	"github.com/synnaxlabs/x/errors"
 )
 
 var (

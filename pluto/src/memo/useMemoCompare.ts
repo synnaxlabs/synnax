@@ -28,7 +28,7 @@ export const compareArrayDeps = <T extends Primitive>(
   [b]: readonly [T[]] | [T[]],
 ): boolean => compare.primitiveArrays(a, b) === 0;
 
-export const useMemoDeepEqualProps = <T extends Record<string, unknown>>(
+export const useMemoDeepEqualProps = <T extends Record<string, unknown> | undefined>(
   props: T,
 ): T => {
   const ref = useRef<T>();

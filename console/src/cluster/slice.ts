@@ -22,7 +22,7 @@ export interface SliceState extends migrate.Migratable {
    * A record of cluster keys to clusters. The active cluster is guaranteed
    * to be present in this record.
    */
-  dogs: Record<string, Cluster>;
+  clusters: Record<string, Cluster>;
   /**
    * Tracks the local cluster state.
    */
@@ -64,7 +64,9 @@ export const LOCAL: Cluster = {
 export const ZERO_STATE: SliceState = {
   version: "0.0.1",
   activeCluster: null,
-  dogs: {},
+  clusters: {
+    [LOCAL_CLUSTER_KEY]: LOCAL,
+  },
   localState: {
     pid: 0,
     command: "stop",
@@ -100,14 +102,14 @@ export const {
   initialState: ZERO_STATE,
   reducers: {
     set: (
-      { activeCluster, dogs: clusters },
+      { activeCluster, clusters: clusters },
       { payload: cluster }: PayloadAction<SetPayload>,
     ) => {
       clusters[cluster.key] = cluster;
       if (activeCluster == null) activeCluster = cluster.key;
     },
     remove: (
-      { dogs: clusters },
+      { clusters: clusters },
       { payload: { keys } }: PayloadAction<RemovePayload>,
     ) => {
       for (const key of keys) {

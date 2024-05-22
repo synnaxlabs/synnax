@@ -1,0 +1,20 @@
+.pluto-note {
+    padding: 3rem;
+    margin: 4rem 0;
+    border: var(--pluto-border);
+    border-radius: 1rem;
+
+    &.pluto--info {
+        background: var(--pluto-primary-z-30);
+        border-color: var(--pluto-primary-z-40);
+    }
+
+    &.pluto--warning {
+        background: #fffbe0;
+        border-color: #f9eba8;
+        @media (prefers-color-scheme: dark) {
+            border-color: #fae78ba6;
+            background: #f6fa0034;
+        }
+    }
+}
