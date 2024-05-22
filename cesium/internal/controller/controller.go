@@ -10,6 +10,8 @@
 package controller
 
 import (
+	"fmt"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/control"
@@ -203,7 +205,7 @@ func (r *region[E]) unprotectedOpen(g *Gate[E]) (t Transfer, err error) {
 	// Check if any gates have the same subject key.
 	for og := range r.gates {
 		if og.Subject.Key == g.Subject.Key {
-			err = errors.Wrapf(validate.Error, "[controller] - gate with subject key %s already exists", g.Subject.Key)
+			err = errors.Wrapf(validate.Error, "control subject %s is already registered in the region", g.Subject.Key)
 			return
 		}
 	}
@@ -221,6 +223,7 @@ func (r *region[E]) unprotectedOpen(g *Gate[E]) (t Transfer, err error) {
 }
 
 type Controller[E Entity] struct {
+	alamos.Instrumentation
 	mu          sync.RWMutex
 	regions     []*region[E]
 	concurrency control.Concurrency
@@ -306,13 +309,14 @@ func (c *Controller[E]) OpenAbsoluteGateIfUncontrolled(tr telem.TimeRange, s con
 		// therefore this method should not create an absolute gate.
 		if r.timeRange.OverlapsWith(tr) {
 			if exists {
-				return nil, t, errors.Newf("[controller] - encountered multiple control regions for time range %s", tr)
+				c.L.DPanic(fmt.Sprintf("encountered multiple control regions for time range %s", tr))
+				return nil, t, errors.Newf("encountered multiple control regions for time range %s", tr)
 			}
 
 			r.Lock()
 			if r.curr != nil {
 				r.Unlock()
-				return nil, t, errors.Newf("[controller] - region already being controlled")
+				return nil, t, errors.Newf("cannot create a gate on the region %s because it is already controlled", r.timeRange)
 			}
 
 			g = &Gate[E]{
@@ -360,6 +364,7 @@ func (c *Controller[E]) OpenGateAndMaybeRegister(cfg GateConfig, callback func()
 		if r.timeRange.OverlapsWith(cfg.TimeRange) {
 			// v1 optimization: one writer can only overlap with one region at any given time.
 			if exists {
+				c.L.DPanic(fmt.Sprintf("encountered multiple control regions for time range %s", tr))
 				return nil, t, errors.Newf("[controller] - encountered multiple control regions for time range %s", cfg.TimeRange)
 			}
 			// If there is an existing region, we open a new gate on that region.

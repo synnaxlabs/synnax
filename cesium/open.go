@@ -15,8 +15,8 @@ import (
 	"github.com/synnaxlabs/cesium/internal/meta"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/cesium/internal/virtual"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 	"strconv"
 )
@@ -106,7 +106,7 @@ func (db *DB) openVirtualOrUnary(ch Channel) error {
 				}
 				idxDB, ok = db.unaryDBs[u.Channel.Index]
 				if !ok {
-					return errors.Wrapf(core.ChannelNotFound, "index %d", u.Channel.Index)
+					return validate.FieldError{Field: "index", Message: fmt.Sprintf("index channel %v does not exist", u.Channel.Index)}
 				}
 			}
 			u.SetIndex((&idxDB).Index())

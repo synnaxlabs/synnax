@@ -1,16 +1,17 @@
 package core
 
 import (
-	"fmt"
 	"github.com/cockroachdb/errors"
-	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/cesium"
 )
 
-var (
-	// ChannelNotFound is returned when a channel or a range of data cannot be found in the DB.
-	ChannelNotFound = errors.Wrap(query.NotFound, "[cesium] - channel not found")
-)
+var ErrChannelNotFound = errors.New("channel not found")
+
+// ChannelNotFound is returned when a channel or a range of data cannot be found in the DB.
+func ChannelNotFound(ch cesium.ChannelKey) error {
+	return errors.Wrapf(ErrChannelNotFound, "channel %d not found", ch)
+}
 
 func EntityClosed(entityName string) error {
-	return fmt.Errorf("[cesium] - %s is already closed", entityName)
+	return errors.Newf("Operation on %s is invalid because it is already closed", entityName)
 }

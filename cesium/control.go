@@ -27,16 +27,19 @@ type ControlUpdate struct {
 
 func (db *DB) ConfigureControlUpdateChannel(ctx context.Context, key ChannelKey) error {
 	ch, err := db.RetrieveChannel(ctx, key)
-	if errors.Is(err, core.ChannelNotFound) {
+	if err != nil {
+		return nil
+	}
+
+	if errors.Is(err, core.ErrChannelNotFound) {
 		ch.Key = key
 		ch.DataType = telem.StringT
 		ch.Virtual = true
-		if err := db.CreateChannel(ctx, ch); err != nil {
+		if err = db.CreateChannel(ctx, ch); err != nil {
 			return err
 		}
-	} else if err != nil {
-		return err
 	}
+
 	db.digests.key = key
 	w, err := db.NewStreamWriter(ctx, WriterConfig{
 		ControlSubject: control.Subject{Name: "cesium_internal_control_digest"},

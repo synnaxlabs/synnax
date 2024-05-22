@@ -178,7 +178,7 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 		u, uOk := db.unaryDBs[key]
 		v, vOk := db.virtualDBs[key]
 		if !vOk && !uOk {
-			return nil, core.ChannelNotFound
+			return nil, core.ChannelNotFound(key)
 		}
 		var (
 			auth     = cfg.authority(i)
@@ -281,7 +281,7 @@ func (db *DB) openDomainIdxWriter(
 	defer db.mu.RUnlock()
 	u, ok := db.unaryDBs[idxKey]
 	if !ok {
-		return nil, core.ChannelNotFound
+		return nil, core.ChannelNotFound(idxKey)
 	}
 	idx := &index.Domain{DB: u.Domain, Instrumentation: db.Instrumentation}
 	w := &idxWriter{internal: make(map[ChannelKey]*unaryWriterState)}

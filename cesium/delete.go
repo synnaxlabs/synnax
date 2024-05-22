@@ -151,7 +151,7 @@ func (db *DB) removeChannel(ch ChannelKey) error {
 				}
 				otherDB := db.unaryDBs[otherDBKey]
 				if otherDB.Channel.Index == udb.Config.Channel.Key {
-					return errors.New("[cesium] - could not delete index channel with other channels depending on it")
+					return errors.Newf("cannot delete channel %d because it indexes data in channel %d", ch, otherDBKey)
 				}
 			}
 		}
@@ -182,7 +182,7 @@ func (db *DB) DeleteTimeRange(ctx context.Context, ch ChannelKey, tr telem.TimeR
 	defer db.mu.Unlock()
 	udb, uok := db.unaryDBs[ch]
 	if !uok {
-		return core.ChannelNotFound
+		return core.ChannelNotFound(ch)
 	}
 
 	// Cannot delete an index channel that other channels rely on.
@@ -195,7 +195,7 @@ func (db *DB) DeleteTimeRange(ctx context.Context, ch ChannelKey, tr telem.TimeR
 			// We must determine whether there is an indexed db that has data in the timerange tr.
 			hasOverlap, err := otherDB.HasDataFor(ctx, tr)
 			if err != nil || hasOverlap {
-				return errors.Newf("[cesium] - could not delete index channel %d with other channels depending on it", ch)
+				return errors.Newf("cannot delete channel %d because it indexes data in channel %d", ch, otherDBKey)
 			}
 		}
 	}
@@ -240,7 +240,7 @@ func (db *DB) startGC(sCtx signal.Context, opts *options) {
 	signal.GoTick(sCtx, opts.gcCfg.GcTryInterval, func(ctx context.Context, time time.Time) error {
 		err := db.garbageCollect(ctx, opts.gcCfg.ReadChunkSize, opts.gcCfg.MaxGoroutine)
 		if err != nil {
-			db.L.Error("garbage collection accumulated in failure", zap.Error(err))
+			db.L.Error("garbage collection failure", zap.Error(err))
 		}
 		return nil
 	})

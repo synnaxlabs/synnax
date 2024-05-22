@@ -28,8 +28,6 @@ type (
 	Frame      = core.Frame
 )
 
-var ChannelNotFound = core.ChannelNotFound
-
 func NewFrame(keys []core.ChannelKey, series []telem.Series) Frame {
 	return core.NewFrame(keys, series)
 }
@@ -90,5 +88,5 @@ func (db *DB) Close() error {
 	for _, u := range db.unaryDBs {
 		c.Exec(u.Close)
 	}
-	return nil
+	return c.Error()
 }

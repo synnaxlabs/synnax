@@ -13,7 +13,6 @@ import (
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/validate"
 )
 
 func (db *DB) OpenIterator(cfg IteratorConfig) (*Iterator, error) {
@@ -38,9 +37,9 @@ func (db *DB) newStreamIterator(cfg IteratorConfig) (*streamIterator, error) {
 		if !ok {
 			_, vOk := db.virtualDBs[key]
 			if vOk {
-				return nil, errors.Wrapf(validate.Error, "cannot open iterator on virtual channel %d", key)
+				return nil, errors.Newf("cannot open iterator on virtual channel %d", key)
 			}
-			return nil, errors.Wrapf(core.ChannelNotFound, "channel %d", key)
+			return nil, core.ChannelNotFound(key)
 		}
 		internal[i] = uDB.OpenIterator(unary.IteratorConfig{Bounds: cfg.Bounds})
 	}

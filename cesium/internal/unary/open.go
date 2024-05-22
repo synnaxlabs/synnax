@@ -79,7 +79,7 @@ func Open(configs ...Config) (*DB, error) {
 	db := &DB{
 		Config:     cfg,
 		Domain:     domainDB,
-		Controller: controller.New[controlledWriter](cfg.Channel.Concurrency),
+		Controller: controller.New[controlledWriter](cfg.Channel.Concurrency, cfg.Instrumentation),
 		mu:         &openEntityCount{},
 	}
 	if cfg.Channel.IsIndex {

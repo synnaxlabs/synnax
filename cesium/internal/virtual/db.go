@@ -55,7 +55,7 @@ func Open(cfg Config) (db *DB, err error) {
 	}
 	return &DB{
 		Config:     cfg,
-		controller: controller.New[*controlEntity](cfg.Channel.Concurrency),
+		controller: controller.New[*controlEntity](cfg.Channel.Concurrency, cfg.Instrumentation),
 		mu:         &openEntityCount{},
 	}, nil
 }

@@ -12,8 +12,8 @@ package cesium
 import (
 	"context"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
@@ -54,7 +54,7 @@ func (db *DB) RetrieveChannel(_ context.Context, key ChannelKey) (Channel, error
 	if vOk {
 		return vCh.Channel, nil
 	}
-	return Channel{}, core.ChannelNotFound
+	return Channel{}, core.ChannelNotFound(key)
 }
 
 func (db *DB) createChannel(ch Channel) (err error) {
@@ -90,7 +90,7 @@ func (db *DB) validateNewChannel(ch Channel) error {
 		_, uOk := db.unaryDBs[ch.Key]
 		_, vOk := db.virtualDBs[ch.Key]
 		if uOk || vOk {
-			return errors.Wrapf(validate.Error, "[cesium] - channel %d already exists", ch.Key)
+			return errors.Wrapf(validate.Error, "cannot create channel %d because it already exists", ch.Key)
 		}
 		return nil
 	})
@@ -100,10 +100,10 @@ func (db *DB) validateNewChannel(ch Channel) error {
 	} else {
 		v.Ternary("index", ch.DataType == telem.StringT, "persisted channels cannot have string data types")
 		if ch.IsIndex {
-			v.Ternary("index", ch.DataType != telem.TimeStampT, "index channel must be of type timestamp")
+			v.Ternary("data type", ch.DataType != telem.TimeStampT, "index channel must be of type timestamp")
 			v.Ternaryf("index", ch.Index != 0 && ch.Index != ch.Key, "index channel cannot be indexed by another channel")
 		} else if ch.Index != 0 {
-			validate.MapContainsf(v, ch.Index, db.unaryDBs, "index %v does not exist", ch.Index)
+			validate.MapContainsf(v, ch.Index, db.unaryDBs, "index channel %v does not exist", ch.Index)
 			v.Funcf(func() bool {
 				return !db.unaryDBs[ch.Index].Channel.IsIndex
 			}, "channel %v is not an index", ch.Index)
