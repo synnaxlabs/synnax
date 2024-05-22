@@ -12,10 +12,11 @@ package verification
 import (
 	"context"
 	"errors"
-	"github.com/synnaxlabs/x/types"
 	"io"
 	"strconv"
 	"time"
+
+	"github.com/synnaxlabs/x/types"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/config"
@@ -85,6 +86,7 @@ func OpenService(toOpen string, cfgs ...Config) (*Service, error) {
 		return service, err
 	}
 	sCtx.Go(service.logTheDog)
+	service.Ins.L.Info(decode("bmV3IGxpY2Vuc2Uga2V5IHJlZ2lzdGVyZWQ="))
 
 	return service, err
 }
