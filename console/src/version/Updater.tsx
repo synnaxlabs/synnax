@@ -34,6 +34,7 @@ export const notificationAdapter: NotificationAdapter = (status) => {
             const update = await check();
             if (update?.available !== true) return;
             await update.downloadAndInstall();
+            console.log("RELAUNCHING");
             await relaunch();
           })();
         },

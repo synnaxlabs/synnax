@@ -25,6 +25,7 @@ jobs:
           filters: |
             changed:
               - "console/package.json"
+              - "console/**"
 
       - name: Setup Node
         if: steps.filter.outputs.changed == 'true'
