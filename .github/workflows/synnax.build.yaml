@@ -113,18 +113,17 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
-            const { data: releases } = await github.repos.listReleases({
+            const { data: releases } = await github.rest.repos.listReleases({
               owner: context.repo.owner,
               repo: context.repo.repo
             })
             const release = releases.find(r => r.tag_name === 'v${{ steps.version.outputs.VERSION }}')
             if (release != null) return release.id
-            const { data: { id } } = github.repos.createRelease({
+            const { data: { id } } = github.rest.repos.createRelease({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              tag_name: 'v${{ steps.version.outputs.VERSION }}',
-              name: 'v${{ steps.version.outputs.VERSION }}',
-              body: 'Release v${{ steps.version.outputs.VERSION }}',
+              tag_name: 'synnax-v${{ steps.version.outputs.VERSION }}',
+              name: 'Synnax v${{ steps.version.outputs.VERSION }}',
               draft: false,
               prerelease: false
             })
