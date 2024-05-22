@@ -15,27 +15,27 @@ import (
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/control"
+	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Iterator Behavior", Ordered, func() {
 	for fsName, makeFS := range fileSystems {
-		fs, cleanUp := makeFS()
 		Context("FS: "+fsName, func() {
-			AfterAll(func() { Expect(cleanUp()).To(Succeed()) })
 			Describe("Channel Indexed", func() {
 				var (
-					db        *unary.DB
-					indexDB   *unary.DB
-					index     uint32 = 1
-					data      uint32 = 2
-					indexPath        = "/iterator_test/index"
-					dataPath         = "/iterator_test/data"
+					db      *unary.DB
+					indexDB *unary.DB
+					index   uint32 = 1
+					data    uint32 = 2
+					fs      xfs.FS
+					cleanUp func() error
 				)
 				BeforeEach(func() {
+					fs, cleanUp = makeFS()
 					indexDB = MustSucceed(unary.Open(unary.Config{
-						FS: MustSucceed(fs.Sub(indexPath)),
+						FS: MustSucceed(fs.Sub("index")),
 						Channel: core.Channel{
 							Key:      index,
 							DataType: telem.TimeStampT,
@@ -44,7 +44,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						},
 					}))
 					db = MustSucceed(unary.Open(unary.Config{
-						FS: MustSucceed(fs.Sub(dataPath)),
+						FS: MustSucceed(fs.Sub("data")),
 						Channel: core.Channel{
 							Key:      data,
 							DataType: telem.Int64T,
@@ -56,8 +56,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 				AfterEach(func() {
 					Expect(db.Close()).To(Succeed())
 					Expect(indexDB.Close()).To(Succeed())
-					Expect(fs.Remove(dataPath)).To(Succeed())
-					Expect(fs.Remove(indexPath)).To(Succeed())
+					Expect(cleanUp()).To(Succeed())
 				})
 
 				Describe("Happy Path", func() {
@@ -366,16 +365,16 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 				})
 			})
 			Describe("Close", func() {
-				var db = MustSucceed(unary.Open(unary.Config{
-					FS: fs,
-					Channel: core.Channel{
-						Key:      2,
-						DataType: telem.TimeStampT,
-						IsIndex:  true,
-					},
-				}))
 				It("Should not allow operations on a closed iterator", func() {
+					fs, cleanUp := makeFS()
 					var (
+						db = MustSucceed(unary.Open(unary.Config{
+							FS: fs,
+							Channel: core.Channel{
+								Key:      2,
+								DataType: telem.TimeStampT,
+								IsIndex:  true,
+							}}))
 						i = db.OpenIterator(unary.IteratorConfig{Bounds: telem.TimeRangeMax})
 						e = core.EntityClosed("unary.iterator")
 					)
@@ -384,9 +383,8 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					Expect(i.Error()).To(MatchError(e))
 					Expect(i.Valid()).To(BeFalse())
 					Expect(i.Close()).To(Succeed())
-				})
-				AfterEach(func() {
-					Expect(db.Close()).To(Succeed())
+
+					Expect(cleanUp()).To(Succeed())
 				})
 			})
 		})

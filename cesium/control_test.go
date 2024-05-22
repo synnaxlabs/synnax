@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
+	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -27,10 +28,14 @@ import (
 
 var _ = Describe("Control", func() {
 	for fsName, makeFS := range fileSystems {
-		fs, cleanUp := makeFS()
 		Context("FS:"+fsName, Ordered, func() {
-			var db *cesium.DB
+			var (
+				db      *cesium.DB
+				fs      xfs.FS
+				cleanUp func() error
+			)
 			BeforeAll(func() {
+				fs, cleanUp = makeFS()
 				db = openDBOnFS(fs)
 				Expect(db.ConfigureControlUpdateChannel(ctx, math.MaxUint32)).To(Succeed())
 			})

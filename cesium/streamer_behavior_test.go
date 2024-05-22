@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
+	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -26,10 +27,16 @@ import (
 
 var _ = Describe("Streamer Behavior", func() {
 	for fsName, makeFS := range fileSystems {
-		fs, cleanUp := makeFS()
 		Context("FS: "+fsName, Ordered, func() {
-			var db *cesium.DB
-			BeforeAll(func() { db = openDBOnFS(fs) })
+			var (
+				db      *cesium.DB
+				fs      xfs.FS
+				cleanUp func() error
+			)
+			BeforeAll(func() {
+				fs, cleanUp = makeFS()
+				db = openDBOnFS(fs)
+			})
 			AfterAll(func() {
 				Expect(db.Close()).To(Succeed())
 				Expect(cleanUp()).To(Succeed())

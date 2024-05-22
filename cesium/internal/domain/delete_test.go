@@ -13,26 +13,30 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/domain"
+	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Delete", Ordered, func() {
 	for fsName, makeFS := range fileSystems {
-		fs, cleanUp := makeFS()
 		Context("FS: "+fsName, func() {
-			var db *domain.DB
+			var (
+				db      *domain.DB
+				fs      xfs.FS
+				cleanUp func() error
+			)
 			BeforeEach(func() {
-				db = MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub("testdata"))}))
+				fs, cleanUp = makeFS()
+				db = MustSucceed(domain.Open(domain.Config{FS: fs}))
 				Expect(domain.Write(ctx, db, (10 * telem.SecondTS).SpanRange(10*telem.Second), []byte{10, 11, 12, 13, 14, 15, 16, 17, 18, 19})).To(Succeed())
 				Expect(domain.Write(ctx, db, (20 * telem.SecondTS).SpanRange(10*telem.Second), []byte{20, 21, 22, 23, 24, 25, 26, 27, 28, 29})).To(Succeed())
 				Expect(domain.Write(ctx, db, (30 * telem.SecondTS).SpanRange(10*telem.Second), []byte{30, 31, 32, 33, 34, 35, 36, 37, 38, 39})).To(Succeed())
 			})
 			AfterEach(func() {
 				Expect(db.Close()).To(Succeed())
-				Expect(fs.Remove("testdata")).To(Succeed())
+				Expect(cleanUp()).To(Succeed())
 			})
-			AfterAll(func() { Expect(cleanUp()).To(Succeed()) })
 			Context("Multiple Pointers", func() {
 				DescribeTable("Deleting time range", func(
 					tr telem.TimeRange,

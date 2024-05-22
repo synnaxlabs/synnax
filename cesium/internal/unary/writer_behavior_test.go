@@ -14,8 +14,10 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/control"
+	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"os"
@@ -23,16 +25,17 @@ import (
 
 var _ = Describe("Writer Behavior", Ordered, func() {
 	for fsName, makeFS := range fileSystems {
-		fs, cleanUp := makeFS()
 		Context("FS: "+fsName, func() {
-			AfterAll(func() {
-				Expect(cleanUp()).To(Succeed())
-			})
 			Describe("Index", func() {
-				var db *unary.DB
+				var (
+					db      *unary.DB
+					fs      xfs.FS
+					cleanUp func() error
+				)
 				BeforeEach(func() {
+					fs, cleanUp = makeFS()
 					db = MustSucceed(unary.Open(unary.Config{
-						FS: MustSucceed(fs.Sub("/writer_test/happy")),
+						FS: fs,
 						Channel: core.Channel{
 							Key:      2,
 							DataType: telem.TimeStampT,
@@ -42,6 +45,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				})
 				AfterEach(func() {
 					Expect(db.Close()).To(Succeed())
+					Expect(cleanUp()).To(Succeed())
 				})
 				Specify("Happy Path", func() {
 					w, t := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
@@ -70,16 +74,17 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 			})
 			Describe("Channel Indexed", func() {
 				var (
-					db        *unary.DB
-					indexDB   *unary.DB
-					index     uint32 = 1
-					data      uint32 = 2
-					indexPath        = "/writer_test/index"
-					dataPath         = "/writer_test/data"
+					db      *unary.DB
+					indexDB *unary.DB
+					index   = testutil.GenerateChannelKey()
+					data    = testutil.GenerateChannelKey()
+					fs      xfs.FS
+					cleanUp func() error
 				)
 				BeforeEach(func() {
+					fs, cleanUp = makeFS()
 					indexDB = MustSucceed(unary.Open(unary.Config{
-						FS: MustSucceed(fs.Sub(indexPath)),
+						FS: MustSucceed(fs.Sub("index")),
 						Channel: core.Channel{
 							Key:      index,
 							DataType: telem.TimeStampT,
@@ -88,7 +93,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						FileSize: telem.Size(10*telem.TimeStampT.Density()) * telem.ByteSize,
 					}))
 					db = MustSucceed(unary.Open(unary.Config{
-						FS: MustSucceed(fs.Sub(dataPath)),
+						FS: MustSucceed(fs.Sub("data")),
 						Channel: core.Channel{
 							Key:      data,
 							DataType: telem.Int64T,
@@ -100,9 +105,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				})
 				AfterEach(func() {
 					Expect(db.Close()).To(Succeed())
-					Expect(indexDB.Close()).To(Succeed())
-					Expect(fs.Remove(dataPath)).To(Succeed())
-					Expect(fs.Remove(indexPath)).To(Succeed())
+					Expect(cleanUp()).To(Succeed())
 				})
 				Specify("Happy Path", func() {
 					Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20))).To(Succeed())
@@ -409,21 +412,25 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				})
 			})
 			Describe("Control", func() {
+				var (
+					db      *unary.DB
+					fs      xfs.FS
+					cleanUp func() error
+				)
+				BeforeEach(func() {
+					fs, cleanUp = makeFS()
+					db = MustSucceed(unary.Open(unary.Config{FS: fs,
+						Channel: core.Channel{
+							Key:      2,
+							DataType: telem.TimeStampT,
+							IsIndex:  true,
+						}}))
+				})
+				AfterEach(func() {
+					Expect(db.Close()).To(Succeed())
+					Expect(cleanUp()).To(Succeed())
+				})
 				Describe("Index", func() {
-					var db *unary.DB
-					BeforeEach(func() {
-						db = MustSucceed(unary.Open(unary.Config{
-							FS: MustSucceed(fs.Sub("/writer_test/control")),
-							Channel: core.Channel{
-								Key:      2,
-								DataType: telem.TimeStampT,
-								IsIndex:  true,
-							},
-						}))
-					})
-					AfterEach(func() {
-						Expect(db.Close()).To(Succeed())
-					})
 					Specify("Control Handoff", func() {
 						w1, t := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
 							Start:     10 * telem.SecondTS,
@@ -455,21 +462,24 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 			})
 
 			Describe("Close", Ordered, func() {
-				var db *unary.DB
+				var (
+					db      *unary.DB
+					fs      xfs.FS
+					cleanUp func() error
+				)
 				BeforeEach(func() {
-					db = MustSucceed(unary.Open(unary.Config{
-						FS: MustSucceed(fs.Sub("/close_test")),
+					fs, cleanUp = makeFS()
+					db = MustSucceed(unary.Open(unary.Config{FS: fs,
 						Channel: core.Channel{
-							Key:      100,
+							Key:      2,
 							DataType: telem.TimeStampT,
-						},
-					}))
+							IsIndex:  true,
+						}}))
 				})
-
 				AfterEach(func() {
 					Expect(db.Close()).To(Succeed())
+					Expect(cleanUp()).To(Succeed())
 				})
-
 				It("Should not allow operations on a closed writer", func() {
 					var (
 						w, t = MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
