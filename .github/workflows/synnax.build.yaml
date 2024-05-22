@@ -146,7 +146,7 @@ jobs:
       - name: Build
         working-directory: ./synnax
         run: |
-          go build -tags driver -o synnax-driver-v${{ steps.version.outputs.VERSION }}-${{ steps.os.outputs.OS }}
+          go build -tags driver -o synnax-v${{ steps.version.outputs.VERSION }}-${{ steps.os.outputs.OS }}
 
       - name: Upload Release Asset
         if:  github.ref == 'refs/heads/main'
