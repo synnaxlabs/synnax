@@ -99,69 +99,11 @@ jobs:
           node-version: 20
           cache: "pnpm"
 
-      - name: Determine OS
-        id: os
-        shell: bash
-        run: |
-          if [ "${{ matrix.platform }}" = "macos-latest" ]; then
-            echo "OS=macos" >> $GITHUB_ENV
-          elif [ "${{ matrix.platform }}" = "macos-12" ]; then
-            echo "OS=macos" >> $GITHUB_ENV
-          elif [ "${{ matrix.platform }}" = "ubuntu-latest" ]; then
-            echo "OS=linux" >> $GITHUB_ENV
-          elif [ "${{ matrix.platform }}" = "windows-latest" ]; then
-            echo "OS=windows" >> $GITHUB_ENV
-          fi
-
-      - name: Get Server Version
-        if: steps.filter.outputs.changed == 'true'
-        id: version
-        working-directory: ./synnax
-        shell: bash
-        run: |
-          echo "SERVER_VERSION=$(cat pkg/version/VERSION)" >> $GITHUB_ENV
-      
       - name: Get Console Version
         id: console-version
         shell: bash
         run: echo "CONSOLE_VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
         working-directory: ./console
-
-
-      - name: Install Synnax Binary
-        if: steps.filter.outputs.changed == 'true'
-        uses: actions/github-script@v6
-        with:
-          script: |
-            const fs = await import("fs");
-            const releases = await github.rest.repos.listReleases({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-            });
-            const release = releases.data.find(({ tag_name }) => tag_name === `synnax-v${process.env.SERVER_VERSION}`);
-            const asset = release.assets.find(({ name }) => name === `synnax-v${process.env.SERVER_VERSION}-${process.env.OS}`);
-            const url = asset.browser_download_url;
-            const response = await github.request(`GET /repos/${context.repo.owner}/${context.repo.repo}/releases/assets/${asset.id}`, {
-              headers: {
-                'Accept': 'application/octet-stream',
-                'X-GitHub-Api-Version': '2022-11-28'
-              }
-            });
-            let name;
-            const path = "./console/src-tauri/bin";
-            if (process.env.OS === "windows") name = `sy-x86_64-pc-windows-msvc.exe`;
-            else if (process.env.OS === "macos") name = `sy-x86_64-apple-darwin`;
-            else name = `sy-x86_64-unknown-linux-gnu`;
-            const buf = Buffer.from(response.data);
-            console.log("Pulled Synnax Binary");
-            console.log({
-                url,
-                name,
-                version: process.env.SERVER_VERSION,
-                path,
-            });
-            fs.writeFileSync(`${path}/${name}`, buf);
-            fs.chmodSync(`${path}/${name}`, 0o755);
 
       - name: Install Rust Stable
         if: steps.filter.outputs.changed == 'true'
