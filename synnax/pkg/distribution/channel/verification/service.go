@@ -44,7 +44,8 @@ var (
 		strconv.Itoa(freeCount) + decode("IGNoYW5uZWxz"))
 	errFree = errors.New(decode("dXNpbmcgbW9yZSB0aGFuIA==") + strconv.Itoa(freeCount) +
 		decode("IGNoYW5uZWxzIHdpdGhvdXQgYSBwcm9kdWN0IGxpY2Vuc2Uga2V5"))
-	useFree = decode("blah") + strconv.Itoa(freeCount) + decode("blah")
+	useFree = decode("dXNpbmcgdGhlIGZyZWUgdmVyc2lvbiBvZiBTeW5uYXgsIG9ubHkg") +
+		strconv.Itoa(freeCount) + decode("IGNoYW5uZWxzIGFyZSBhbGxvd2Vk")
 )
 
 func (c Config) Validate() error {
