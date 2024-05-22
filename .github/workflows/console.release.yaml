@@ -197,7 +197,14 @@ jobs:
         if: steps.filter.outputs.changed == 'true'
         env:
           NODE_OPTIONS: "--max_old_space_size=4096"
-        run: pnpm build:console --force
+        run: pnpm build:pluto
+
+      - name: Build Console
+        if: steps.filter.outputs.changed == 'true'
+        env:
+          NODE_OPTIONS: "--max_old_space_size=4096"
+        working-directory: ./console
+        run: pnpm build --debug
 
       - name: Upload MacoOS Release Asset
         if: steps.filter.outputs.changed == 'true' && matrix.platform == 'macos-12'
