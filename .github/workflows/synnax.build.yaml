@@ -128,15 +128,6 @@ jobs:
               prerelease: false
             })
             return id;
-
-        
-
-      - name: Set Release Success
-        id: set-release
-        if: steps.filter.outputs.changed == 'true' && github.ref == 'refs/heads/main'
-        run: echo "release_created=true" >> $GITHUB_OUTPUT
-
-
   build:
     strategy:
       fail-fast: false
@@ -241,6 +232,6 @@ jobs:
         if: github.ref == 'refs/heads/main'
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: gh release upload synnax-v${{ steps.version.outputs.VERSION }} ./synnax/synnax-v${{ steps.version.outputs.VERSION }}-${{ steps.os.outputs.OS }}
+        run: gh release upload --clobber synnax-v${{ steps.version.outputs.VERSION }} ./synnax/synnax-v${{ steps.version.outputs.VERSION }}-${{ steps.os.outputs.OS }}
 
 
