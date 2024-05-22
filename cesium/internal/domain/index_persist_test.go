@@ -13,21 +13,26 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/domain"
+	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Index Persist", Ordered, func() {
 	for fsName, makeFS := range fileSystems {
-		fs := makeFS()
 		Context("FS: "+fsName, func() {
-			var db *domain.DB
+			var (
+				db      *domain.DB
+				fs      xfs.FS
+				cleanUp func() error
+			)
 			BeforeEach(func() {
-				db = MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub(rootPath)), FileSize: 5 * telem.ByteSize, GCThreshold: 0}))
+				fs, cleanUp = makeFS()
+				db = MustSucceed(domain.Open(domain.Config{FS: fs, FileSize: 5 * telem.ByteSize, GCThreshold: 0}))
 			})
 			AfterEach(func() {
 				Expect(db.Close()).To(Succeed())
-				Expect(fs.Remove(rootPath)).To(Succeed())
+				Expect(cleanUp()).To(Succeed())
 			})
 
 			Describe("Happy path", func() {
@@ -40,7 +45,7 @@ var _ = Describe("Index Persist", Ordered, func() {
 
 					By("Re-opening the database")
 					Expect(db.Close()).To(Succeed())
-					db = MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub(rootPath)), FileSize: 5 * telem.ByteSize, GCThreshold: 0}))
+					db = MustSucceed(domain.Open(domain.Config{FS: fs, FileSize: 5 * telem.ByteSize, GCThreshold: 0}))
 
 					By("Asserting that the data is still there")
 					i := db.NewIterator(domain.IterRange(telem.TimeRangeMax))
@@ -90,7 +95,7 @@ var _ = Describe("Index Persist", Ordered, func() {
 
 					By("Re-opening the database")
 					Expect(db.Close()).To(Succeed())
-					db = MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub(rootPath)), FileSize: 5 * telem.ByteSize, GCThreshold: 0}))
+					db = MustSucceed(domain.Open(domain.Config{FS: fs, FileSize: 5 * telem.ByteSize, GCThreshold: 0}))
 
 					By("Garbage collecting")
 					Expect(db.GarbageCollect(ctx)).To(Succeed())

@@ -770,7 +770,6 @@ var _ = Describe("Delete", func() {
 						Expect(db.DeleteTimeRange(ctx, []cesium.ChannelKey{basic7}, telem.TimeRangeMax)).To(Succeed())
 
 						frame := MustSucceed(db.Read(ctx, telem.TimeRangeMax, basic7))
-						Expect(err).To(BeNil())
 						Expect(frame.Series).To(HaveLen(0))
 					})
 				})

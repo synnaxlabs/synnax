@@ -4,6 +4,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/cesium/internal/testutil"
+	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"math"
@@ -12,18 +14,20 @@ import (
 
 var _ = Describe("Garbage collection", Ordered, func() {
 	for fsName, makeFS := range fileSystems {
-		fs := makeFS()
 		Context("FS: "+fsName, func() {
 			var (
-				db    *cesium.DB
-				rate  = GenerateChannelKey()
-				basic = GenerateChannelKey()
-				index = GenerateChannelKey()
+				db      *cesium.DB
+				rate    = testutil.GenerateChannelKey()
+				basic   = testutil.GenerateChannelKey()
+				index   = testutil.GenerateChannelKey()
+				fs      xfs.FS
+				cleanUp func() error
 			)
 
 			Context("GCThreshold = 0", Ordered, func() {
 				BeforeAll(func() {
-					db = MustSucceed(cesium.Open(rootPath,
+					fs, cleanUp = makeFS()
+					db = MustSucceed(cesium.Open("",
 						cesium.WithGC(&cesium.GCConfig{
 							MaxGoroutine:  10,
 							GCTryInterval: 10 * telem.Millisecond.Duration(),
@@ -33,7 +37,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 				})
 				AfterAll(func() {
 					Expect(db.Close()).To(Succeed())
-					Expect(fs.Remove(rootPath)).To(Succeed())
+					Expect(cleanUp()).To(Succeed())
 				})
 				It("Should recycle properly for a deletion on a rate channel", func() {
 					By("Creating a channel")
@@ -113,7 +117,8 @@ var _ = Describe("Garbage collection", Ordered, func() {
 
 			Context("GCThreshold != 0", Ordered, func() {
 				BeforeAll(func() {
-					db = MustSucceed(cesium.Open(rootPath,
+					fs, cleanUp = makeFS()
+					db = MustSucceed(cesium.Open("",
 						cesium.WithGC(&cesium.GCConfig{
 							MaxGoroutine:  10,
 							GCTryInterval: 10 * telem.Millisecond.Duration(),
@@ -123,7 +128,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 				})
 				AfterAll(func() {
 					Expect(db.Close()).To(Succeed())
-					Expect(fs.Remove(rootPath)).To(Succeed())
+					Expect(cleanUp()).To(Succeed())
 				})
 				It("Should only garbage collect after a certain amount garbage has accumulated", func() {
 					By("Creating a channel")
@@ -199,7 +204,8 @@ var _ = Describe("Garbage collection", Ordered, func() {
 			})
 			Context("Multiple files", func() {
 				BeforeAll(func() {
-					db = MustSucceed(cesium.Open(rootPath,
+					fs, cleanUp = makeFS()
+					db = MustSucceed(cesium.Open("",
 						cesium.WithGC(&cesium.GCConfig{
 							MaxGoroutine:  10,
 							GCTryInterval: 10 * telem.Millisecond.Duration(),
@@ -209,7 +215,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 				})
 				AfterAll(func() {
 					Expect(db.Close()).To(Succeed())
-					Expect(fs.Remove(rootPath)).To(Succeed())
+					Expect(cleanUp()).To(Succeed())
 				})
 				It("Should only garbage collect after a certain amount garbage has accumulated", func() {
 					By("Creating channels")
@@ -292,7 +298,8 @@ var _ = Describe("Garbage collection", Ordered, func() {
 
 			Context("Error paths", func() {
 				BeforeAll(func() {
-					db = MustSucceed(cesium.Open(rootPath,
+					fs, cleanUp = makeFS()
+					db = MustSucceed(cesium.Open("",
 						cesium.WithGC(&cesium.GCConfig{
 							MaxGoroutine:  10,
 							GCTryInterval: 10 * telem.Millisecond.Duration(),
@@ -302,11 +309,11 @@ var _ = Describe("Garbage collection", Ordered, func() {
 				})
 				AfterAll(func() {
 					Expect(db.Close()).To(Succeed())
-					Expect(fs.Remove(rootPath)).To(Succeed())
+					Expect(cleanUp()).To(Succeed())
 				})
 				It("Should not allow GC when the channel is being written to or being read from", func() {
-					index = GenerateChannelKey()
-					basic = GenerateChannelKey()
+					index = testutil.GenerateChannelKey()
+					basic = testutil.GenerateChannelKey()
 
 					By("Creating channels")
 					Expect(db.CreateChannel(

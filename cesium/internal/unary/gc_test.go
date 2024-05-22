@@ -5,6 +5,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/unary"
+	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"math"
@@ -12,23 +13,22 @@ import (
 
 var _ = Describe("Garbage Collection", func() {
 	for fsName, makeFS := range fileSystems {
-		fs := makeFS()
 		Context("FS: "+fsName, func() {
 			var (
-				rateDB    *unary.DB
-				dataDB    *unary.DB
-				indexDB   *unary.DB
-				rateKey   core.ChannelKey = 1
-				dataKey   core.ChannelKey = 2
-				indexKey  core.ChannelKey = 3
-				pth_rate                  = rootPath + "/garbage_test/rate"
-				pth_index                 = rootPath + "/garbage_test/index"
-				pth_data                  = rootPath + "/garbage_test/data"
+				rateDB   *unary.DB
+				dataDB   *unary.DB
+				indexDB  *unary.DB
+				rateKey  core.ChannelKey = 1
+				dataKey  core.ChannelKey = 2
+				indexKey core.ChannelKey = 3
+				fs       xfs.FS
+				cleanUp  func() error
 			)
 			Describe("Garbage collection without threshold", func() {
 				BeforeEach(func() {
+					fs, cleanUp = makeFS()
 					rateDB = MustSucceed(unary.Open(unary.Config{
-						FS: MustSucceed(fs.Sub(pth_rate)),
+						FS: MustSucceed(fs.Sub("rate")),
 						Channel: core.Channel{
 							Key:      rateKey,
 							DataType: telem.Int64T,
@@ -37,7 +37,7 @@ var _ = Describe("Garbage Collection", func() {
 						GCThreshold: math.SmallestNonzeroFloat32,
 					}))
 					indexDB = MustSucceed(unary.Open(unary.Config{
-						FS: MustSucceed(fs.Sub(pth_index)),
+						FS: MustSucceed(fs.Sub("index")),
 						Channel: core.Channel{
 							Key:      indexKey,
 							DataType: telem.TimeStampT,
@@ -48,7 +48,7 @@ var _ = Describe("Garbage Collection", func() {
 					}))
 
 					dataDB = MustSucceed(unary.Open(unary.Config{
-						FS: MustSucceed(fs.Sub(pth_data)),
+						FS: MustSucceed(fs.Sub("data")),
 						Channel: core.Channel{
 							Key:      dataKey,
 							DataType: telem.Int64T,
@@ -62,7 +62,7 @@ var _ = Describe("Garbage Collection", func() {
 					Expect(indexDB.Close()).To(Succeed())
 					Expect(dataDB.Close()).To(Succeed())
 					Expect(rateDB.Close()).To(Succeed())
-					Expect(fs.Remove(rootPath + "/garbage_test")).To(Succeed())
+					Expect(cleanUp()).To(Succeed())
 				})
 
 				Describe("Rate DB", func() {
@@ -112,7 +112,6 @@ var _ = Describe("Garbage Collection", func() {
 
 						By("Asserting that the data is still correct", func() {
 							frame := MustSucceed(rateDB.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 105 * telem.SecondTS}))
-							Expect(err).To(BeNil())
 							Expect(frame.Series).To(HaveLen(7))
 
 							Expect(frame.Series[2].TimeRange.End).To(Equal(33 * telem.SecondTS))
@@ -206,8 +205,9 @@ var _ = Describe("Garbage Collection", func() {
 
 			Describe("GC with threshold and many files", func() {
 				BeforeEach(func() {
+					fs, cleanUp = makeFS()
 					indexDB = MustSucceed(unary.Open(unary.Config{
-						FS: MustSucceed(fs.Sub(pth_index)),
+						FS: MustSucceed(fs.Sub("index")),
 						Channel: core.Channel{
 							Key:      indexKey,
 							DataType: telem.TimeStampT,
@@ -218,7 +218,7 @@ var _ = Describe("Garbage Collection", func() {
 					}))
 
 					dataDB = MustSucceed(unary.Open(unary.Config{
-						FS: MustSucceed(fs.Sub(pth_data)),
+						FS: MustSucceed(fs.Sub("data")),
 						Channel: core.Channel{
 							Key:      dataKey,
 							DataType: telem.Int64T,
@@ -232,7 +232,7 @@ var _ = Describe("Garbage Collection", func() {
 				AfterEach(func() {
 					Expect(indexDB.Close()).To(Succeed())
 					Expect(dataDB.Close()).To(Succeed())
-					Expect(fs.Remove(rootPath + "/garbage_test")).To(Succeed())
+					Expect(cleanUp()).To(Succeed())
 				})
 
 				Specify("Only some files GC", func() {

@@ -15,29 +15,29 @@ import (
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/control"
+	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Delete", Ordered, func() {
 	for fsName, makeFS := range fileSystems {
-		fs := makeFS()
 		Context("FS:"+fsName, func() {
 			var (
 				db      *unary.DB
 				indexDB *unary.DB
 				rateDB  *unary.DB
-				index   = GenerateChannelKey()
-				data    = GenerateChannelKey()
-				rate    = GenerateChannelKey()
-				pth1    = rootPath + "/delete_test/index"
-				pth2    = rootPath + "/delete_test/data"
-				pth3    = rootPath + "/delete_test/rate"
+				index   uint32 = 1
+				data    uint32 = 2
+				rate    uint32 = 3
+				fs      xfs.FS
+				cleanUp func() error
 			)
 			BeforeEach(func() {
 				By("Creating channels")
+				fs, cleanUp = makeFS()
 				indexDB = MustSucceed(unary.Open(unary.Config{
-					FS: MustSucceed(fs.Sub(pth1)),
+					FS: MustSucceed(fs.Sub("index")),
 					Channel: core.Channel{
 						Key:      index,
 						DataType: telem.TimeStampT,
@@ -46,7 +46,7 @@ var _ = Describe("Delete", Ordered, func() {
 					},
 				}))
 				db = MustSucceed(unary.Open(unary.Config{
-					FS: MustSucceed(fs.Sub(pth2)),
+					FS: MustSucceed(fs.Sub("data")),
 					Channel: core.Channel{
 						Key:      data,
 						DataType: telem.Int64T,
@@ -54,7 +54,7 @@ var _ = Describe("Delete", Ordered, func() {
 					},
 				}))
 				rateDB = MustSucceed(unary.Open(unary.Config{
-					FS: MustSucceed(fs.Sub(pth3)),
+					FS: MustSucceed(fs.Sub("rate")),
 					Channel: core.Channel{
 						Key:      rate,
 						DataType: telem.Int64T,
@@ -67,7 +67,7 @@ var _ = Describe("Delete", Ordered, func() {
 				Expect(db.Close()).To(Succeed())
 				Expect(indexDB.Close()).To(Succeed())
 				Expect(rateDB.Close()).To(Succeed())
-				Expect(fs.Remove(rootPath)).To(Succeed())
+				Expect(cleanUp()).To(Succeed())
 			})
 			Describe("Single-domain deletion", func() {
 				Context("Rate-based channels", func() {
@@ -905,28 +905,6 @@ var _ = Describe("Delete", Ordered, func() {
 			})
 
 			Describe("HasDataFor", func() {
-				BeforeEach(func() {
-					indexDB = MustSucceed(unary.Open(unary.Config{
-						FS: MustSucceed(fs.Sub(pth1)),
-						Channel: core.Channel{
-							Key:      index,
-							DataType: telem.TimeStampT,
-							IsIndex:  true,
-							Index:    index,
-						},
-					}))
-					db = MustSucceed(unary.Open(unary.Config{
-						FS: MustSucceed(fs.Sub(pth2)),
-						Channel: core.Channel{
-							Key:      data,
-							DataType: telem.Int64T,
-							Index:    index,
-						},
-					}))
-
-					db.SetIndex(indexDB.Index())
-				})
-
 				It("Should return whether there is data for the given range", func() {
 					Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16))).To(Succeed())
 					Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewSeriesV[int64](0, 1, 2, 3, 4, 5, 6))).To(Succeed())

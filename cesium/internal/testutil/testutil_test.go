@@ -1,10 +1,11 @@
-package testutil
+package testutil_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/cesium/internal/testutil"
 	"sync"
 )
 
@@ -20,7 +21,7 @@ var _ = Describe("Test Util Test", func() {
 				i := i
 				go func() {
 					defer wg.Done()
-					keys[i] = GenerateChannelKey()
+					keys[i] = testutil.GenerateChannelKey()
 				}()
 			}
 
@@ -33,7 +34,7 @@ var _ = Describe("Test Util Test", func() {
 
 	Describe("File Systems", func() {
 		It("Should generate factories for os-based FS and memory-based FS", func() {
-			fs := FileSystems
+			fs := testutil.FileSystems
 			_, ok := fs["memFS"]
 			Expect(ok).To(BeTrue())
 			_, ok = fs["osFS"]
