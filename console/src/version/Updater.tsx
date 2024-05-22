@@ -10,10 +10,11 @@ export const useCheckForUpdates = () => {
   useEffect(() => {
     const i = setInterval(async () => {
       const update = await check();
+      if (update?.available !== true) return;
       addStatus({
         key: "update",
         variant: "info",
-        message: `Update available: ${update != null}`,
+        message: `Update available`,
       });
     }, TimeSpan.seconds(5).milliseconds);
     return () => clearInterval(i);
