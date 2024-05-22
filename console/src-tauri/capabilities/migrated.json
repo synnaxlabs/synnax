@@ -87,6 +87,7 @@
     "shell:allow-open",
     "app:allow-app-show",
     "app:allow-app-hide",
+    "updater:default",
     "updater:allow-check",
     "updater:allow-download-and-install",
     "dialog:allow-save",
