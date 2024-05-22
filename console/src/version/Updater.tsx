@@ -30,6 +30,7 @@ export const notificationAdapter: NotificationAdapter = (status) => {
         children: "Update & Restart",
         onClick: () => {
           void (async () => {
+            console.log("UPDATING");
             const update = await check();
             if (update?.available !== true) return;
             await update.downloadAndInstall();
