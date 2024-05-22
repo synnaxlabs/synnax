@@ -8,7 +8,7 @@
       "url": "https://github.com/synnaxlabs/synnax/releases/download/console-v0.22.9/Synnax.app.tar.gz"
     },
     "linux-x86_64": {
-      "signature": {},
+      "signature": "",
       "url": "https://github.com/synnaxlabs/synnax/releases/download/console-v0.22.9/Synnax.app.tar.gz"
     },
     "windows-x86_64": {
