@@ -53,5 +53,3 @@ const Modal = () => {
     </Dropdown.Dialog>
   );
 };
-
-const ModalContent = () => {};
