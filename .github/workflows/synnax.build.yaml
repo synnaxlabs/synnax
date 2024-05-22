@@ -152,7 +152,7 @@ jobs:
         if:  github.ref == 'refs/heads/main'
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: gh release upload --clobber synnax-v${{ steps.version.outputs.VERSION }} ./synnax/synnax-driver-v${{ steps.version.outputs.VERSION }}-${{ steps.os.outputs.OS }}
+        run: gh release upload --clobber synnax-v${{ steps.version.outputs.VERSION }} ./synnax/synnax-v${{ steps.version.outputs.VERSION }}-${{ steps.os.outputs.OS }}
 
   docker:
     needs: build
