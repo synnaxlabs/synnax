@@ -2,7 +2,7 @@ import { check } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
 import { useEffect } from "react";
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { Status } from "@synnaxlabs/pluto";
+import { Align, Button, Dropdown, Status } from "@synnaxlabs/pluto";
 import { NotificationAdapter } from "@/notifications/Notifications";
 
 export const useCheckForUpdates = () => {
@@ -30,11 +30,9 @@ export const notificationAdapter: NotificationAdapter = (status) => {
         children: "Update & Restart",
         onClick: () => {
           void (async () => {
-            console.log("UPDATING");
             const update = await check();
             if (update?.available !== true) return;
             await update.downloadAndInstall();
-            console.log("RELAUNCHING");
             await relaunch();
           })();
         },
@@ -42,3 +40,17 @@ export const notificationAdapter: NotificationAdapter = (status) => {
     ],
   };
 };
+
+const Modal = () => {
+  const dropProps = Dropdown.use();
+  return (
+    <Dropdown.Dialog {...dropProps} variant="modal" keepMounted={false}>
+      <Button.Button variant="outlined" size="small">
+        Update & Restart
+      </Button.Button>
+      <Align.Space direction="x"></Align.Space>
+    </Dropdown.Dialog>
+  );
+};
+
+const ModalContent = () => {};
