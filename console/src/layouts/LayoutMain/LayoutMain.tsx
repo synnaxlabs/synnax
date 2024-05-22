@@ -35,7 +35,6 @@ export const LayoutMain = (): ReactElement => {
   Version.useLoadTauri();
   Device.useListenForChanges();
   Cluster.useLocalServer();
-  Version.useCheckForUpdates();
 
   return (
     <>

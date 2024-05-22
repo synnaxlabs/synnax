@@ -176,7 +176,7 @@ export const NavBottom = (): ReactElement => {
       </Nav.Bar.Start>
       <Nav.Bar.End className="console-main-nav-bottom__end" empty>
         <Divider.Divider />
-        <Version.Badge level="p" />
+        <Version.Badge />
         <Divider.Divider />
         <Cluster.Dropdown />
         <Divider.Divider />
