@@ -33,7 +33,10 @@ Acquisition::Acquisition(
 
 
 void Acquisition::start() {
-    LOG(INFO) << "[Acquisition] Starting acquisition";
+    if(thread.joinable() && std::this_thread::get_id() != thread.get_id()){ 
+        thread.join();
+    };
+    if(running) return;
     this->running = true;
     thread = std::thread(&Acquisition::run, this);
 }
@@ -41,11 +44,15 @@ void Acquisition::start() {
 void Acquisition::stop() {
     if (!running) return;
     this->running = false;
-    thread.join();
+    if(thread.joinable() && std::this_thread::get_id() != thread.get_id()){ 
+        thread.join();
+    };
+
     LOG(INFO) << "[Acquisition] Acquisition stopped";
 }
 
 void Acquisition::run() {
+    LOG(INFO) << "[Acquisition] Acquisition thread started";
     this->writer_config.start = synnax::TimeStamp::now();
     auto [writer, wo_err] = ctx->client->telem.openWriter(writer_config);
     if (wo_err) {
@@ -65,15 +72,19 @@ void Acquisition::run() {
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
     while (this->running) {
         auto [frame, source_err] = source->read();
-        if (source_err) {
-            LOG(ERROR) << "[Acquisition] Failed to read source";
-            if (
-                source_err.matches(driver::TYPE_TEMPORARY_HARDWARE_ERROR) &&
-                breaker.wait(source_err.message())
-            )
-                continue;
+
+        if(source_err.matches(driver::TYPE_CRITICAL_HARDWARE_ERROR)){
+            LOG(ERROR) << "[Acquisition] Failed to read source: CRITICAL_HARDWARE_ERROR. Closing pipe.";
             break;
         }
+        else if (
+            source_err.matches(driver::TYPE_TEMPORARY_HARDWARE_ERROR) &&
+            breaker.wait(source_err.message())
+        ){
+            LOG(ERROR) << "[Acquisition] Failed to read source: TEMPORARY_HARDWARE_ERROR";
+            continue;
+        }
+                
         if (!writer.write(std::move(frame))) {
             LOG(ERROR) << "[Acquisition] Failed to write frame";
             break;
@@ -82,7 +93,6 @@ void Acquisition::run() {
     }
     const auto err = writer.close();
     LOG(INFO) << "[Acquisition] Writer closed";
-    source->stop();
     if (err.matches(freighter::UNREACHABLE) && breaker.wait(err.message())) run();
     LOG(INFO) << "[Acquisition] Acquisition thread terminated";
 }
