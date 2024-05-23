@@ -41,7 +41,7 @@ void Scanner::exec(task::Command &cmd) {
 static UA_StatusCode nodeIter(UA_NodeId child_id, UA_Boolean is_inverse,
                               UA_NodeId reference_type_id, void *handle);
 
-const int MAX_DEPTH = 2;
+const int MAX_DEPTH = 10;
 
 struct ScanContext {
     std::shared_ptr<UA_Client> client;
@@ -61,7 +61,10 @@ static UA_StatusCode nodeIter(
     UA_NodeId reference_type_id,
     void *handle
 ) {
+
+    // reference is from target back to source node
     if (is_inverse) return UA_STATUSCODE_GOOD;
+    
     auto *ctx = static_cast<ScanContext *>(handle);
     const auto ua_client = ctx->client.get();
 
@@ -89,7 +92,9 @@ static UA_StatusCode nodeIter(
             if (dt != synnax::DATA_TYPE_UNKNOWN && !dt.is_variable())
                 ctx->channels->push_back({dt, name, node_id});
         }
-    }
+    } 
+
+    // TODO need to also handle if its an object (and handle each class of node as well)
 
     if (ctx->depth >= MAX_DEPTH) return UA_STATUSCODE_GOOD;
     ctx->depth++;
@@ -134,7 +139,7 @@ void Scanner::scan(const task::Command &cmd) const {
 
 void Scanner::testConnection(const task::Command &cmd) const {
     config::Parser parser(cmd.args);
-    ScannerTestConnectionCommandArgs args(parser);
+    ScannnerScanCommandArgs args(parser);
     if (!parser.ok())
         return ctx->setState({
             .task = task.key,
