@@ -142,13 +142,27 @@ public:
                 UA_ReadResponse_clear(&readResponse);
                 if (    status == UA_STATUSCODE_BADCONNECTIONREJECTED || 
                         status ==  UA_STATUSCODE_BADSECURECHANNELCLOSED) {
+
+                    this->ctx->setState({
+                        .task = task.key,
+                        .variant = "error",
+                        .details = json{
+                            {"message", "connection rejected"}
+                        }
+                    });
                     
                     LOG(ERROR) << "[opc.reader] connection rejected or secure channel closed.";
                     return std::make_pair(  std::move(fr), 
                                             freighter::Error( driver::TYPE_TEMPORARY_HARDWARE_ERROR, "connection rejected"
                                           ));
                 }
-                // TODO: SET STATE
+                 this->ctx->setState({
+                        .task = task.key,
+                        .variant = "error",
+                        .details = json{
+                            {"message", std::string(UA_StatusCode_name(status))}
+                        }
+                    });
                 LOG(ERROR) << "[opc.reader] failed to read value: " << std::string(UA_StatusCode_name(status));
                 return std::make_pair(  std::move(fr),
                                         freighter::Error( driver::TYPE_CRITICAL_HARDWARE_ERROR, "failed to read value: " + std::string(UA_StatusCode_name(status))
