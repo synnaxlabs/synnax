@@ -27,10 +27,6 @@ type ControlUpdate struct {
 
 func (db *DB) ConfigureControlUpdateChannel(ctx context.Context, key ChannelKey) error {
 	ch, err := db.RetrieveChannel(ctx, key)
-	if err != nil {
-		return nil
-	}
-
 	if errors.Is(err, core.ErrChannelNotFound) {
 		ch.Key = key
 		ch.DataType = telem.StringT
@@ -38,6 +34,8 @@ func (db *DB) ConfigureControlUpdateChannel(ctx context.Context, key ChannelKey)
 		if err = db.CreateChannel(ctx, ch); err != nil {
 			return err
 		}
+	} else if err != nil {
+		return err
 	}
 
 	db.digests.key = key

@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2023 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,8 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package timeout
+package testutil_test
 
-import "github.com/synnaxlabs/x/errors"
+import (
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"testing"
+)
 
-var Timeout = errors.New("timeout")
+func TestTestUtil(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Meta Suite")
+}

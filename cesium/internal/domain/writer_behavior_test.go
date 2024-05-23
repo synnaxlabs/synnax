@@ -45,7 +45,7 @@ func extractPointer(f xfs.File) (p struct {
 	return
 }
 
-var _ = Describe("WriterBehavior", Ordered, func() {
+var _ = Describe("Writer Behavior", Ordered, func() {
 	for fsName, makeFS := range fileSystems {
 		Context("FS: "+fsName, func() {
 			var (
@@ -298,7 +298,7 @@ var _ = Describe("WriterBehavior", Ordered, func() {
 							End:   20 * telem.SecondTS,
 						}))
 						MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
-						Expect(w.Commit(ctx, 30*telem.SecondTS)).To(MatchError(ContainSubstring("commit timestamp cannot be greater than preset end")))
+						Expect(w.Commit(ctx, 30*telem.SecondTS)).To(MatchError(ContainSubstring("commit timestamp %s cannot be greater than preset end timestamp %s", 30*telem.SecondTS, 20*telem.SecondTS)))
 						Expect(w.Close(ctx)).To(Succeed())
 					})
 				})
@@ -516,9 +516,10 @@ var _ = Describe("WriterBehavior", Ordered, func() {
 						e = core.EntityClosed("domain.writer")
 					)
 					Expect(w.Close(ctx)).To(Succeed())
-					Expect(w.Commit(ctx, telem.TimeStampMax)).To(MatchError(e))
-					_, err := w.Write([]byte{1, 2, 3})
-					Expect(err).To(MatchError(e))
+					err := w.Commit(ctx, telem.TimeStampMax)
+					Expect(err).To(HaveOccurredAs(e))
+					_, err = w.Write([]byte{1, 2, 3})
+					Expect(err).To(HaveOccurredAs(e))
 					Expect(w.Close(ctx)).To(Succeed())
 				})
 			})

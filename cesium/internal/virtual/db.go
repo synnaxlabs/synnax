@@ -16,7 +16,6 @@ import (
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
-	"github.com/synnaxlabs/x/validate"
 	"sync"
 )
 
@@ -50,12 +49,13 @@ type Config struct {
 }
 
 func Open(cfg Config) (db *DB, err error) {
-	if !cfg.Channel.Virtual {
-		return nil, errors.Wrap(validate.Error, "channel is not virtual")
+	c, err := controller.New[*controlEntity](controller.Config{Concurrency: cfg.Channel.Concurrency, Instrumentation: cfg.Instrumentation})
+	if err != nil {
+		return nil, err
 	}
 	return &DB{
 		Config:     cfg,
-		controller: controller.New[*controlEntity](cfg.Channel.Concurrency, cfg.Instrumentation),
+		controller: c,
 		mu:         &openEntityCount{},
 	}, nil
 }
@@ -68,7 +68,7 @@ func (db *DB) TryClose() error {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 	if db.mu.openWriters > 0 {
-		return errors.Newf(fmt.Sprintf("[cesium] - cannot close channel because there are currently %d unclosed writers accessing it", db.mu.openWriters))
+		return errors.Newf(fmt.Sprintf("cannot close channel %d because there are currently %d unclosed writers accessing it", db.Channel.Key, db.mu.openWriters))
 	}
 	return db.Close()
 }

@@ -27,7 +27,7 @@ type Writer struct {
 	closed            bool
 }
 
-const unexpectedSteamClosure = "[cesium] - unexpected early closure of response stream"
+const unexpectedSteamClosure = "unexpected early closure of response stream"
 
 var WriterClosedError = core.EntityClosed("cesium.writer")
 

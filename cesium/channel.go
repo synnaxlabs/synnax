@@ -54,7 +54,7 @@ func (db *DB) RetrieveChannel(_ context.Context, key ChannelKey) (Channel, error
 	if vOk {
 		return vCh.Channel, nil
 	}
-	return Channel{}, core.ChannelNotFound(key)
+	return Channel{}, core.NewErrChannelNotFound(key)
 }
 
 func (db *DB) createChannel(ch Channel) (err error) {

@@ -10,8 +10,8 @@
 package fs
 
 import (
-	"github.com/cockroachdb/errors"
 	"github.com/cockroachdb/pebble/vfs"
+	"github.com/synnaxlabs/x/errors"
 	"io"
 	"os"
 	goPath "path"

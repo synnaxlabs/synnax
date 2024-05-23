@@ -986,7 +986,7 @@ var _ = Describe("Writer Behavior", func() {
 							Channels: []cesium.ChannelKey{55000},
 							Start:    10 * telem.SecondTS,
 						})
-					Expect(err).To(MatchError(core.ChannelNotFound))
+					Expect(err).To(MatchError(core.ErrChannelNotFound))
 				})
 				Specify("Encounters channel that does not exist after already successfully creating some writers", func() {
 					key1 := GenerateChannelKey()
@@ -999,7 +999,7 @@ var _ = Describe("Writer Behavior", func() {
 					)).To(Succeed())
 
 					_, err := db.OpenWriter(ctx, cesium.WriterConfig{Channels: []cesium.ChannelKey{key1, 88888}, Start: 10 * telem.SecondTS})
-					Expect(err).To(MatchError(core.ChannelNotFound))
+					Expect(err).To(MatchError(core.ErrChannelNotFound))
 				})
 			})
 			Describe("Frame Errors", Ordered, func() {
@@ -1151,7 +1151,7 @@ var _ = Describe("Writer Behavior", func() {
 						Expect(ok).To(BeTrue())
 						_, ok = w.Commit()
 						Expect(ok).To(BeFalse())
-						Expect(w.Close()).To(MatchError(index.ErrDiscontinuous))
+						Expect(w.Close()).To(MatchError(ContainSubstring("cannot find stamp start")))
 					})
 				})
 			})
@@ -1227,7 +1227,9 @@ var _ = Describe("Writer Behavior", func() {
 					Expect(w.Write(cesium.Frame{Series: []telem.Series{{Data: []byte{1, 2, 3}}}})).To(BeFalse())
 					_, ok := w.Commit()
 					Expect(ok).To(BeFalse())
-					Expect(w.Error()).To(MatchError(e))
+					err := w.Error()
+					Expect(err).To(HaveOccurred())
+					Expect(err.Error()).To(Equal(e.Error()))
 				})
 			})
 
@@ -1254,7 +1256,7 @@ var _ = Describe("Writer Behavior", func() {
 					Expect(w.Write(cesium.Frame{Series: []telem.Series{{Data: []byte{1, 2, 3}}}})).To(BeFalse())
 					_, ok := w.Commit()
 					Expect(ok).To(BeFalse())
-					Expect(w.Error()).To(MatchError(e))
+					Expect(w.Error()).To(HaveOccurredAs(e))
 				})
 			})
 		})

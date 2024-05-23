@@ -11,8 +11,8 @@ package domain
 
 import (
 	"context"
-	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	"sync"
 )
@@ -51,7 +51,7 @@ func (idx *index) insert(ctx context.Context, p pointer, persist bool) error {
 		} else if !idx.beforeFirst(p.End) {
 			i, overlap := idx.unprotectedSearch(p.TimeRange)
 			if overlap {
-				return span.Error(ErrDomainOverlap)
+				return span.Error(NewErrDomainOverlap(p.TimeRange, idx.mu.pointers[i].TimeRange))
 			}
 			insertAt = i + 1
 		}
@@ -74,22 +74,20 @@ func (idx *index) insert(ctx context.Context, p pointer, persist bool) error {
 	return nil
 }
 
-func (idx *index) insertTombstone(ctx context.Context, p pointer) {
-	_, span := idx.T.Bench(ctx, "domain/index.insert_tombstone")
-	idx.mu.Lock()
-	defer func() {
-		idx.mu.Unlock()
-		span.End()
-	}()
-
-	idx.mu.tombstones[p.fileKey] = append(idx.mu.tombstones[p.fileKey], p)
-}
-
 func (idx *index) overlap(tr telem.TimeRange) bool {
 	idx.mu.RLock()
 	defer idx.mu.RUnlock()
 	_, overlap := idx.unprotectedSearch(tr)
 	return overlap
+}
+
+func (idx *index) timeRange() telem.TimeRange {
+	idx.mu.RLock()
+	defer idx.mu.RUnlock()
+	if len(idx.mu.pointers) == 0 {
+		return telem.TimeRangeZero
+	}
+	return idx.mu.pointers[0].Start.Range(idx.mu.pointers[len(idx.mu.pointers)-1].End)
 }
 
 func (idx *index) update(ctx context.Context, p pointer, persist bool) error {
@@ -103,8 +101,8 @@ func (idx *index) update(ctx context.Context, p pointer, persist bool) error {
 
 	if len(idx.mu.pointers) == 0 {
 		// This should be inconceivable since update would not be called with no pointers.
-		idx.L.DPanic(RangeNotFound.Error())
-		return span.Error(RangeNotFound)
+		idx.L.DPanic("cannot update a database with no domains")
+		return span.Error(NewErrRangeNotFound(p.TimeRange))
 	}
 	lastI := len(idx.mu.pointers) - 1
 	updateAt := lastI
@@ -119,13 +117,15 @@ func (idx *index) update(ctx context.Context, p pointer, persist bool) error {
 		// commit should find the same pointer the writer has been writing to, which
 		// must have the same Start timestamp. Unhandled race conditions might cause the
 		// database to reach this inconceivable state.
-		idx.L.DPanic(RangeNotFound.Error())
-		return span.Error(RangeNotFound)
+		idx.L.DPanic("cannot update a pointer with a different start timestamp")
+		return span.Error(NewErrRangeNotFound(p.TimeRange))
 	}
 	overlapsWithNext := updateAt != len(ptrs)-1 && ptrs[updateAt+1].OverlapsWith(p.TimeRange)
 	overlapsWithPrev := updateAt != 0 && ptrs[updateAt-1].OverlapsWith(p.TimeRange)
 	if overlapsWithPrev || overlapsWithNext {
-		return span.Error(ErrDomainOverlap)
+		return span.Error(NewErrDomainOverlap(p.TimeRange, ptrs[updateAt+1].TimeRange))
+	} else if overlapsWithNext {
+		return span.Error(NewErrDomainOverlap(p.TimeRange, ptrs[updateAt-1].TimeRange))
 	} else {
 		idx.mu.pointers[updateAt] = p
 	}

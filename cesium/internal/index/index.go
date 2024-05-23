@@ -15,11 +15,17 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-var (
-	// ErrDiscontinuous is returned if the index has discontinuities across an evaluated
-	// time range.
-	ErrDiscontinuous = errors.New("discontinuous")
-)
+// ErrDiscontinuous is returned if the index has discontinuities across an evaluated
+// time range.
+var ErrDiscontinuous = errors.New("discontinuous")
+
+func NewErrDiscontinuousTR(tr telem.TimeRange) error {
+	return errors.Wrapf(ErrDiscontinuous, "the index has discontinuities across the timerange %s", tr)
+}
+
+func NewErrDiscontinuousStamp(offset int64, domainLen int64) error {
+	return errors.Wrapf(ErrDiscontinuous, "failed to resolve position %d in continuous index of length %d", offset, domainLen)
+}
 
 // Index implements an index over a time series.
 type Index interface {

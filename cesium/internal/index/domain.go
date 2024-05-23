@@ -11,9 +11,9 @@ package index
 
 import (
 	"context"
-	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium/internal/domain"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	"io"
 )
@@ -35,7 +35,7 @@ func (i *Domain) Distance(ctx context.Context, tr telem.TimeRange, continuous bo
 	defer func() { err = errors.CombineErrors(err, iter.Close()) }()
 
 	if !iter.SeekFirst(ctx) || (!iter.TimeRange().ContainsRange(tr) && continuous) {
-		err = ErrDiscontinuous
+		err = NewErrDiscontinuousTR(tr)
 		return
 	}
 
@@ -61,7 +61,7 @@ func (i *Domain) Distance(ctx context.Context, tr telem.TimeRange, continuous bo
 		)
 		return
 	} else if continuous {
-		err = ErrDiscontinuous
+		err = NewErrDiscontinuousTR(tr)
 		return
 	}
 
@@ -74,7 +74,7 @@ func (i *Domain) Distance(ctx context.Context, tr telem.TimeRange, continuous bo
 	for {
 		if !iter.Next() {
 			if continuous {
-				err = ErrDiscontinuous
+				err = NewErrDiscontinuousTR(tr)
 				return
 			}
 			approx = Between(
@@ -115,7 +115,7 @@ func (i *Domain) Stamp(
 	iter := i.DB.NewIterator(domain.IterRange(ref.SpanRange(telem.TimeSpanMax)))
 
 	if !iter.SeekFirst(ctx) {
-		err = ErrDiscontinuous
+		err = errors.Wrapf(domain.ErrRangeNotFound, "cannot find stamp start timestamp %s", ref)
 		return
 	}
 
@@ -123,7 +123,7 @@ func (i *Domain) Stamp(
 
 	if !effectiveDomainBounds.ContainsStamp(ref) ||
 		(continuous && offset >= effectiveDomainLen/8) {
-		err = ErrDiscontinuous
+		err = NewErrDiscontinuousStamp(offset, effectiveDomainLen/8)
 		return
 	}
 
@@ -157,7 +157,7 @@ func (i *Domain) Stamp(
 	if continuous {
 		if (startApprox.Exact() && startApprox.Lower+offset >= effectiveDomainLen/8) ||
 			(!startApprox.Exact() && startApprox.Lower+offset >= effectiveDomainLen/8-1) {
-			err = ErrDiscontinuous
+			err = NewErrDiscontinuousStamp(startApprox.Upper+offset, effectiveDomainLen/8)
 			return
 		}
 	}
@@ -168,7 +168,7 @@ func (i *Domain) Stamp(
 			if !iter.Next() {
 				// exhausted
 				if continuous {
-					err = ErrDiscontinuous
+					err = errors.Wrapf(domain.ErrRangeNotFound, "cannot find stamp end with offset %d", offset)
 					return
 				}
 				approx = Between(iter.TimeRange().End, telem.TimeStampMax)
@@ -201,7 +201,8 @@ func (i *Domain) Stamp(
 	// Edge case: end timestamps are split between two different files, so we must go
 	// back to read the lower bound.
 	if !iter.Prev() {
-		err = ErrDiscontinuous
+		i.L.DPanic("iterator prev failed in stamp")
+		err = errors.Wrapf(domain.ErrRangeNotFound, "cannot find stamp end with offset %d", offset)
 		return
 	}
 	r, err = iter.NewReader(ctx)

@@ -147,7 +147,7 @@ func (db *DB) NewWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) 
 		return nil, err
 	}
 	if db.idx.overlap(cfg.Domain()) {
-		return nil, ErrDomainOverlap
+		return nil, NewErrDomainOverlap(db.idx.timeRange(), cfg.Domain())
 	}
 	w := &Writer{
 		WriterConfig:     cfg,
@@ -222,7 +222,7 @@ func (w *Writer) commit(ctx context.Context, end telem.TimeStamp, persist bool) 
 		return span.Error(WriterClosedError)
 	}
 	if w.presetEnd && end.After(w.End) {
-		return span.Error(errors.New("[cesium] - commit timestamp cannot be greater than preset end timestamp"))
+		return span.Error(errors.Newf("commit timestamp %s cannot be greater than preset end timestamp %s", end, w.End))
 	}
 
 	switchingFile, commitEnd := w.resolveCommitEnd(end)
@@ -303,10 +303,10 @@ func (w *Writer) Close(ctx context.Context) error {
 
 func (w *Writer) validateCommitRange(end telem.TimeStamp, switchingFile bool) error {
 	if !w.prevCommit.IsZero() && !switchingFile && end.Before(w.prevCommit) {
-		return errors.Wrap(validate.Error, "commit timestamp must not be less than the previous commit")
+		return errors.Wrapf(validate.Error, "commit timestamp %s must not be less than the previous commit timestamp %s", end, w.prevCommit)
 	}
 	if !w.Start.Before(end) {
-		return errors.Wrap(validate.Error, "commit timestamp must be strictly greater than the starting timestamp")
+		return errors.Wrapf(validate.Error, "commit timestamp %s must be strictly greater than the starting timestamp %s", end, w.Start)
 	}
 	return nil
 }

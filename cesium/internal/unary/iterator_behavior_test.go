@@ -380,7 +380,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					)
 					Expect(i.Close()).To(Succeed())
 					Expect(i.SeekFirst(ctx)).To(BeFalse())
-					Expect(i.Error()).To(MatchError(e))
+					Expect(i.Error()).To(HaveOccurredAs(e))
 					Expect(i.Valid()).To(BeFalse())
 					Expect(i.Close()).To(Succeed())
 

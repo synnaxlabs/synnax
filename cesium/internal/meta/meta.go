@@ -81,7 +81,7 @@ func Create(fs xfs.FS, ecd binary.EncoderDecoder, ch core.Channel) error {
 // validateMeta checks that the meta file read from or about to be written to a meta file
 // is well-defined.
 func validateMeta(ch core.Channel) error {
-	v := validate.New("cesium")
+	v := validate.New("meta")
 	validate.Positive(v, "key", ch.Key)
 	validate.NotEmptyString(v, "dataType", ch.DataType)
 	if ch.Virtual {

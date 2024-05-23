@@ -25,9 +25,17 @@ import (
 var (
 	// ErrDomainOverlap is returned when a domain overlaps with an existing domain in the DB.
 	ErrDomainOverlap = errors.Wrap(validate.Error, "domain overlaps with an existing domain")
-	// RangeNotFound is returned when a requested domain is not found in the DB.
-	RangeNotFound = errors.Wrap(query.NotFound, "domain not found")
+	// ErrRangeNotFound is returned when a requested domain is not found in the DB.
+	ErrRangeNotFound = errors.Wrap(query.NotFound, "domain not found")
 )
+
+func NewErrDomainOverlap(tr1, tr2 telem.TimeRange) error {
+	return errors.Wrapf(ErrDomainOverlap, "%s overlaps with domain %s", tr1, tr2)
+}
+
+func NewErrRangeNotFound(tr telem.TimeRange) error {
+	return errors.Wrapf(ErrRangeNotFound, "timerange %s cannot be found", tr)
+}
 
 // DB provides a persistent, concurrent store for reading and writing domains of telemetry
 // to and from an underlying file system.

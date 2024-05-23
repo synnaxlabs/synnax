@@ -12,12 +12,12 @@ package unary
 import (
 	"context"
 	"fmt"
-	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"sync"
@@ -51,14 +51,16 @@ type DB struct {
 
 func (db *DB) Index() index.Index {
 	if !db.Channel.IsIndex {
-		panic(fmt.Sprintf("[control.unary] - database %v does not support indexing", db.Channel.Key))
+		// inconceivable state
+		panic(fmt.Sprintf("channel %v is not an index channel", db.Channel.Key))
 	}
 	return db.index()
 }
 
 func (db *DB) index() index.Index {
 	if db._idx == nil {
-		panic("[ranger.unary] - index is not set")
+		// inconceivable state
+		panic(fmt.Sprintf("channel %v index is not set", db.Channel.Key))
 	}
 	return db._idx
 }
@@ -157,7 +159,7 @@ func (db *DB) TryClose() error {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 	if db.mu.openIteratorWriters > 0 {
-		return errors.Newf("[cesium] - cannot close channel because there are currently %d unclosed writers/iterators accessing it", db.mu.openIteratorWriters)
+		return errors.Newf("cannot close channel %d because there are currently %d unclosed writers/iterators accessing it", db.Channel.Key, db.mu.openIteratorWriters)
 	} else {
 		return db.Close()
 	}

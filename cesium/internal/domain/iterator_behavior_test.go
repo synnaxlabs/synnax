@@ -168,7 +168,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					Expect(i.SeekFirst(ctx)).To(BeFalse())
 					Expect(i.Valid()).To(BeFalse())
 					_, err := i.NewReader(ctx)
-					Expect(err).To(MatchError(e))
+					Expect(err).To(HaveOccurredAs(e))
 					Expect(i.Close()).To(Succeed())
 				})
 			})

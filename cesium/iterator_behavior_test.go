@@ -49,7 +49,7 @@ var _ = Describe("Iterator Behavior", func() {
 					Expect(i.Valid()).To(BeFalse())
 					Expect(i.SeekFirst()).To(BeFalse())
 					Expect(i.Valid()).To(BeFalse())
-					Expect(i.Error()).To(MatchError(e))
+					Expect(i.Error()).To(HaveOccurredAs(e))
 					Expect(i.Close()).To(Succeed())
 				})
 			})

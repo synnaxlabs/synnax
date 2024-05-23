@@ -76,10 +76,14 @@ func Open(configs ...Config) (*DB, error) {
 		Instrumentation: cfg.Instrumentation,
 		FileSize:        cfg.FileSize,
 	})
+	c, err := controller.New[controlledWriter](controller.Config{Concurrency: cfg.Channel.Concurrency, Instrumentation: cfg.Instrumentation})
+	if err != nil {
+		return nil, err
+	}
 	db := &DB{
 		Config:     cfg,
 		Domain:     domainDB,
-		Controller: controller.New[controlledWriter](cfg.Channel.Concurrency, cfg.Instrumentation),
+		Controller: c,
 		mu:         &openEntityCount{},
 	}
 	if cfg.Channel.IsIndex {
