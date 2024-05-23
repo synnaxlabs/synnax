@@ -94,7 +94,6 @@ static UA_StatusCode nodeIter(
         }
     } 
 
-    // TODO need to also handle if its an object (and handle each class of node as well)
 
     if (ctx->depth >= MAX_DEPTH) return UA_STATUSCODE_GOOD;
     ctx->depth++;

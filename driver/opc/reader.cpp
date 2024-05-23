@@ -74,12 +74,16 @@ public:
     loop::Timer timer;
     size_t samples_per_read;
     synnax::Frame fr;
+    std::shared_ptr<task::Context> ctx;
+    synnax::Task task;
 
     ReaderSource(
         ReaderConfig cfg,
         const std::shared_ptr<UA_Client> &client,
-        std::set<ChannelKey> indexes
-    ) : cfg(std::move(cfg)), client(client), indexes(std::move(indexes)),
+        std::set<ChannelKey> indexes,
+        std::shared_ptr<task::Context> ctx,
+        synnax::Task task
+    ) : ctx(ctx), task(task), cfg(std::move(cfg)), client(client), indexes(std::move(indexes)),
         timer(cfg.sample_rate), samples_per_read(
             static_cast<size_t>(cfg.sample_rate.value / cfg.stream_rate.value)
         ) {
@@ -121,33 +125,41 @@ public:
     }
 
     std::pair<Frame, freighter::Error> read() override {
+
         auto fr = Frame(cfg.channels.size() + indexes.size());
+
         size_t enabled_count = 0;
+        
         for (const auto &ch: cfg.channels) {
             if (!ch.enabled) continue;
             enabled_count++;
             fr.add(ch.channel, Series(ch.ch.data_type, samples_per_read));
         }
+
         for (const auto &idx: indexes)
-            fr.add(
-                idx, Series(synnax::TIMESTAMP, samples_per_read));
+            fr.add(idx, Series(synnax::TIMESTAMP, samples_per_read));
+
         for (size_t i = 0; i < samples_per_read; i++) {
-            UA_ReadResponse readResponse =
-                    UA_Client_Service_read(client.get(), readRequest);
+            UA_ReadResponse readResponse = UA_Client_Service_read(client.get(), readRequest);
+
             auto status = readResponse.responseHeader.serviceResult;
+
             if (status != UA_STATUSCODE_GOOD) {
+
                 UA_ReadResponse_clear(&readResponse);
-                if (status == UA_STATUSCODE_BADCONNECTIONREJECTED || status ==
-                    UA_STATUSCODE_BADSECURECHANNELCLOSED) {
-                    return std::make_pair(std::move(fr), freighter::Error(
-                                              driver::TYPE_TEMPORARY_HARDWARE_ERROR,
-                                              "connection rejected"
+
+                if (    status == UA_STATUSCODE_BADCONNECTIONREJECTED || 
+                        status ==  UA_STATUSCODE_BADSECURECHANNELCLOSED) {
+                    
+                    LOG(ERROR) << "[opc.reader] connection rejected or secure channel closed.";
+                    return std::make_pair(  std::move(fr), 
+                                            freighter::Error( driver::TYPE_TEMPORARY_HARDWARE_ERROR, "connection rejected"
                                           ));
                 }
-                return std::make_pair(std::move(fr), freighter::Error(
-                                          driver::TYPE_CRITICAL_HARDWARE_ERROR,
-                                          "failed to read value: " + std::string(
-                                              UA_StatusCode_name(status))
+                // TODO: SET STATE
+                LOG(ERROR) << "[opc.reader] failed to read value: " << std::string(UA_StatusCode_name(status));
+                return std::make_pair(  std::move(fr),
+                                        freighter::Error( driver::TYPE_CRITICAL_HARDWARE_ERROR, "failed to read value: " + std::string(UA_StatusCode_name(status))
                                       ));
             }
 
@@ -157,23 +169,34 @@ public:
                 const auto &ch = cfg.channels[j];
                 // Assuming the channels order hasn't changed
                 if (readResponse.results[j].status != UA_STATUSCODE_GOOD) {
+                    std::string error_message = "Failed to read value: " + std::string(UA_StatusCode_name(readResponse.results[j].status));    
+                    LOG(ERROR) << "[opc.reader] failed to read value for result: " << error_message;
                     UA_ReadResponse_clear(&readResponse);
-                    return std::make_pair(std::move(fr), freighter::Error(
+                    this->ctx->setState({
+                        .task = task.key,
+                        .variant = "error",
+                        .details = json{
+                            {"message", error_message}
+                        }
+                    });
+                    return std::make_pair(  std::move(fr), 
+                                            freighter::Error(
                                               driver::TYPE_CRITICAL_HARDWARE_ERROR,
-                                              "Failed to read value: " + std::string(
-                                                  UA_StatusCode_name(
-                                                      readResponse.results[j].
-                                                      status))));
+                                              "Failed to read value: " + error_message));
                 }
                 set_val_on_series(value, i, fr.series->at(j));
             }
+
             UA_ReadResponse_clear(&readResponse);
             const auto now = synnax::TimeStamp::now();
+
             for (size_t j = enabled_count; j < enabled_count + indexes.size(); j++) {
                 fr.series->at(j).set(i, now.value);
             }
+
             timer.wait();
         }
+
         return std::make_pair(std::move(fr), freighter::NIL);
     }
 };
@@ -183,6 +206,7 @@ std::unique_ptr<task::Task> Reader::configure(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task
 ) {
+    LOG(INFO) << "[opc.reader] configuring task " << task.name;
     auto config_parser = config::Parser(task.config);
     auto cfg = ReaderConfig(config_parser);
     if (!config_parser.ok()) {
@@ -280,7 +304,9 @@ std::unique_ptr<task::Task> Reader::configure(
     auto source = std::make_unique<ReaderSource>(
         cfg,
         ua_client,
-        indexes
+        indexes,
+        ctx,
+        task
     );
 
     auto writer_cfg = synnax::WriterConfig{
