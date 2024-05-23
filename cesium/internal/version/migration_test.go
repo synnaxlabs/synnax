@@ -32,13 +32,19 @@ var _ = Describe("Migration Test", func() {
 				jsonEncoder = binary.JSONEncoderDecoder{}
 				index       = testutil.GenerateChannelKey()
 				basic       = testutil.GenerateChannelKey()
+				basicEmpty  = testutil.GenerateChannelKey()
 				rate        = testutil.GenerateChannelKey()
-				//virtual  = testutil.GenerateChannelKey()
-				channels = []cesium.Channel{
+				virtual     = testutil.GenerateChannelKey()
+				channels    = []cesium.Channel{
 					{Key: index, DataType: telem.TimeStampT, IsIndex: true},
 					{Key: basic, DataType: telem.Int64T, Index: index},
+					// It is important to test with an empty channel to assert that
+					// migration works on empty files as well.
+					{Key: basicEmpty, DataType: telem.Int64T, Index: index},
 					{Key: rate, DataType: telem.Int64T, Rate: 1 * telem.Hz},
+					{Key: virtual, DataType: telem.Int64T, Virtual: true},
 				}
+				oldData = make([][]byte, len(channels))
 			)
 			BeforeEach(func() { fs, cleanUp = makeFS() })
 			AfterEach(func() { Expect(cleanUp()).To(Succeed()) })
@@ -79,7 +85,7 @@ var _ = Describe("Migration Test", func() {
 				Expect(db.Close()).To(Succeed())
 
 				By("Changing the meta file to force the channel to load as V1")
-				for _, ch := range channels {
+				for i, ch := range channels {
 					channelFS := MustSucceed(fs.Sub(strconv.Itoa(int(ch.Key))))
 					ch.Version = 1
 					encoded := MustSucceed(jsonEncoder.Encode(ctx, ch))
@@ -87,6 +93,16 @@ var _ = Describe("Migration Test", func() {
 					_, err := w.Write(encoded)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(w.Close()).To(Succeed())
+
+					if !ch.Virtual {
+						r := MustSucceed(channelFS.Open("index.domain", os.O_RDONLY))
+						oldData[i] = make([]byte, MustSucceed(r.Stat()).Size())
+						_, err = r.Read(oldData[i])
+						if len(oldData[i]) != 0 {
+							Expect(err).ToNot(HaveOccurred())
+						}
+						Expect(r.Close()).To(Succeed())
+					}
 				}
 
 				By("Re-opening the database as V1 to trigger a migration")
@@ -94,7 +110,7 @@ var _ = Describe("Migration Test", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Asserting that the version got migrated, the meta file got changed, and the format is correct")
-				for _, ch := range channels {
+				for i, ch := range channels {
 					chInDB := MustSucceed(db.RetrieveChannel(ctx, ch.Key))
 					Expect(chInDB.Version).To(Equal(uint8(2)))
 
@@ -114,12 +130,22 @@ var _ = Describe("Migration Test", func() {
 					Expect(err).ToNot(HaveOccurred())
 					Expect(chInMeta).To(Equal(chInDB))
 
-					Expect(MustSucceed(channelFS.Exists("tombstone.domain"))).To(BeTrue())
-					r = MustSucceed(channelFS.Open("index.domain", os.O_RDONLY))
-					buf = make([]byte, 4)
-					_, err = r.Read(buf)
-					Expect(r.Close()).To(Succeed())
-					Expect(MustSucceed(channelFS.Stat("index.domain")).Size()).To(Equal(int64(telem.ByteOrder.Uint32(buf)*26 + 4)))
+					if !ch.Virtual {
+						Expect(MustSucceed(channelFS.Exists("tombstone.domain"))).To(BeTrue())
+						r = MustSucceed(channelFS.Open("index.domain", os.O_RDONLY))
+						buf = make([]byte, 4)
+						_, err = r.Read(buf)
+						if len(buf) != 0 {
+							Expect(err).ToNot(HaveOccurred())
+						}
+						s = MustSucceed(r.Stat()).Size()
+						Expect(s).To(Equal(int64(telem.ByteOrder.Uint32(buf)*26 + 4)))
+
+						buf = make([]byte, s-4)
+						_, err = r.ReadAt(buf, 4)
+						Expect(r.Close()).To(Succeed())
+						Expect(buf).To(Equal(oldData[i]))
+					}
 				}
 
 				Expect(db.Close()).To(Succeed())

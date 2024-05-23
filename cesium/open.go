@@ -81,6 +81,13 @@ func (db *DB) openVirtualOrUnary(ch Channel) error {
 		if isOpen {
 			return nil
 		}
+		if ch.Version != version.CurrentVersion {
+			ch.Version = version.CurrentVersion
+			err = meta.Create(fs, db.metaECD, ch)
+			if err != nil {
+				return err
+			}
+		}
 		v, err := virtual.Open(virtual.Config{Channel: ch, Instrumentation: db.options.Instrumentation})
 		if err != nil {
 			return err

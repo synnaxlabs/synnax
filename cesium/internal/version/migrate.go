@@ -34,6 +34,9 @@ func Migrate(fs xfs.FS, oldVersion Version, newVersion Version) error {
 	return nil
 }
 
+// migrate12 migrates the file version from V1 to V2. This involves prepending the
+// index.domain file with 4 extra bytes at the start, indicating the number of pointers
+// stored in the file. In addition, a tombstone.domain file is created.
 func migrate12(fs xfs.FS) error {
 	// First create a new file for tombstones
 	f, err := fs.Open("tombstone.domain", os.O_CREATE|os.O_EXCL)
@@ -69,10 +72,13 @@ func migrate12(fs xfs.FS) error {
 	)
 	telem.ByteOrder.PutUint32(sz, uint32(s.Size()/26))
 
-	_, err = r.Read(data)
-	if err != nil {
-		return err
+	if len(data) != 0 {
+		_, err = r.Read(data)
+		if err != nil {
+			return err
+		}
 	}
+
 	_, err = w.Write(append(sz, data...))
 	if err != nil {
 		return err
