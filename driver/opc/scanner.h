@@ -52,6 +52,7 @@ namespace opc {
     private:
         std::shared_ptr<task::Context> ctx;
         const synnax::Task task;
+        int max_depth = 10;
 
         void scan(const task::Command &cmd) const;
 
