@@ -26,13 +26,13 @@ import {
 } from "@synnaxlabs/pluto";
 import { CSS as PCSS } from "@synnaxlabs/pluto/css";
 import { Theming } from "@synnaxlabs/pluto/theming";
-// import { appWindow } from "@tauri-apps/api/window";
 import { ErrorBoundary, type ErrorBoundaryProps } from "react-error-boundary";
 import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
 import { NAV_SIZES } from "@/layouts/LayoutMain";
 import { CLEAR_STATE, REVERT_STATE } from "@/persist/state";
+import { getCurrent } from "@tauri-apps/api/window";
 
 import "@/error/Overlay.css";
 
@@ -99,13 +99,13 @@ const FallbackRender: ErrorBoundaryProps["fallbackRender"] = ({
             className="console-controls--windows"
             visibleIfOS="Windows"
             onClose={() => {
-              void appWindow.close();
+              void getCurrent().close();
             }}
             onMinimize={() => {
-              void appWindow.minimize();
+              void getCurrent().minimize();
             }}
             onMaximize={() => {
-              void appWindow.maximize();
+              void getCurrent().maximize();
             }}
           />
         </Nav.Bar.End>
