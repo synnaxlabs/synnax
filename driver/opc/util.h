@@ -42,6 +42,11 @@ inline int64_t ua_datetime_to_unix_nano(UA_DateTime dateTime) {
 }
 
 inline void set_val_on_series(UA_Variant *val, size_t i, synnax::Series &s) {
+    if (UA_Variant_hasArrayType(val, &UA_TYPES[UA_TYPES_FLOAT])) {
+        UA_Float *data = static_cast<UA_Float *>(val->data);
+        auto length = val->arrayLength;
+        if (s.data_type == synnax::FLOAT32) s.set(data, i, length);
+    }
     if (val->type == &UA_TYPES[UA_TYPES_FLOAT]) {
         const auto value = *static_cast<UA_Float *>(val->data);
         if (s.data_type == synnax::FLOAT32) s.set(i, value);
@@ -231,6 +236,17 @@ inline synnax::DataType variant_data_type(UA_Variant &val) {
     if (val.type == &UA_TYPES[UA_TYPES_STRING]) return synnax::STRING;
     if (val.type == &UA_TYPES[UA_TYPES_DATETIME]) return synnax::TIMESTAMP;
     if (val.type == &UA_TYPES[UA_TYPES_GUID]) return synnax::UINT128;
+    if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_FLOAT])) return synnax::FLOAT32;
+    if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_DOUBLE])) return synnax::FLOAT64;
+    if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_INT16])) return synnax::INT16;
+    if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_INT32])) return synnax::INT32;
+    if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_INT64])) return synnax::INT64;
+    if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_UINT16])) return synnax::UINT16;
+    if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_UINT32])) return synnax::UINT32;
+    if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_UINT64])) return synnax::UINT64;
+    if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_STRING])) return synnax::STRING;
+    if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_DATETIME])) return synnax::TIMESTAMP;
+    if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_GUID])) return synnax::UINT128;
     return synnax::DATA_TYPE_UNKNOWN;
 }
 

@@ -67,6 +67,16 @@ public:
     }
 
 
+    // set an array (not a vector)
+    template<typename NumericType>
+    void set_array(const NumericType* d, size_t index, size_t length) {
+         if (index + length > size / data_type.density()) {
+             throw std::runtime_error("index out of bounds");
+         }
+        memcpy(data.get() + index * data_type.density(), d, length * data_type.density());
+    }
+
+
     /// @brief constructs the series from the given vector of strings. These can also
     /// be JSON encoded strings, in which case the data type should be set to JSON.
     /// @param d the vector of strings to be used as the data.
