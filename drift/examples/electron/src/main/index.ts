@@ -23,7 +23,6 @@ function createWindow(): void {
     mainWindow,
     createWindow: (props) => {
       const { size, minSize, maxSize, position, visible, ...rest } = props
-      console.log(props)
       const win = new BrowserWindow({
         x: position?.x,
         y: position?.y,

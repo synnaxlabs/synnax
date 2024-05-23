@@ -97,8 +97,8 @@ export const middleware =
         if (prevS !== null && nextS !== null) await sync(prevS, nextS, runtime, debug);
         if (shouldEmit_) await runtime.emit({ action });
       } catch (err) {
-        log(debug, "[drift] - middleware", {
-          error: err,
+        log(debug, "[drift] - ERROR", {
+          error: (err as Error).message,
           action,
           emitted,
           emitter,

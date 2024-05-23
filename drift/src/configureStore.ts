@@ -81,7 +81,6 @@ const configureStoreInternal = async <
   store.dispatch(setWindowStage({ stage: "created" }));
   runtime.onCloseRequested(() => store?.dispatch(closeWindow({})));
   if (runtime.isMain()) void runtime.setVisible(true);
-
   return store;
 };
 

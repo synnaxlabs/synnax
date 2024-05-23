@@ -55,7 +55,12 @@ export const DriftProvider = <
   if (store == null) {
     // if the store isn't a promise, then it's already ready
     if (!(storeOrPromise instanceof Promise)) setStore(storeOrPromise);
-    else storeOrPromise.then((s) => setStore(s)).catch((e) => setError(e));
+    else
+      storeOrPromise
+        .then((s) => setStore(s))
+        .catch((e) => {
+          setError(e);
+        });
     return emptyContent;
   }
   // @ts-expect-error

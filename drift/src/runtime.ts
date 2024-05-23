@@ -88,7 +88,7 @@ export interface Manager {
   /**
    * Closes the window with the given key.
    */
-  close: (key: string) => Promise<void>;
+  close: (label: string) => Promise<void>;
   /**
    * Focuses the window with the given key.
    */

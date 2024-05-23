@@ -108,7 +108,7 @@ export const DataProvider = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>
   }, [sourceData]);
 
   const transformRes = useMemo(
-    () => transform({ data, transformed: false }),
+    () => transform({ data: [...data], transformed: false }),
     [data, transform],
   );
   const transformedDataRef = useSyncedRef(transformRes);
