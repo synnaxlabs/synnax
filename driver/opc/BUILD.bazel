@@ -57,6 +57,10 @@ cc_binary(
     deps = [
         "@open62541",
     ],
+    linkopts = select({
+        "@platforms//os:windows": [" ws2_32.lib"],
+        "//conditions:default": [],
+    }),
 )
 
 cc_binary(

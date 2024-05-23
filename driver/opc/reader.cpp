@@ -135,6 +135,7 @@ public:
         for (const auto &idx: indexes)
             fr.add(idx, Series(synnax::TIMESTAMP, samples_per_read));
         for (size_t i = 0; i < samples_per_read; i++) {
+            auto start = std::chrono::high_resolution_clock::now();
             UA_ReadResponse readResponse = UA_Client_Service_read(client.get(), readRequest);
 
             auto status = readResponse.responseHeader.serviceResult;
@@ -150,7 +151,7 @@ public:
                             {"message", "connection rejected"}
                         }
                     });
-                    
+
                     LOG(ERROR) << "[opc.reader] connection rejected or secure channel closed.";
                     return std::make_pair(  std::move(fr), 
                                             freighter::Error( driver::TYPE_TEMPORARY_HARDWARE_ERROR, "connection rejected"
@@ -191,11 +192,17 @@ public:
                 }
                 set_val_on_series(value, i, fr.series->at(j));
             }
+            
             UA_ReadResponse_clear(&readResponse);
+
             const auto now = synnax::TimeStamp::now();
             for (size_t j = enabled_count; j < enabled_count + indexes.size(); j++) {
                 fr.series->at(j).set(i, now.value);
             }
+            auto end = std::chrono::high_resolution_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+            // LOG(WARNING) << "[opc.reader] read took " << duration.count() << "ms";
+
             timer.wait();
         }
         return std::make_pair(std::move(fr), freighter::NIL);

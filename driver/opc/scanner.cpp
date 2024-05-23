@@ -72,6 +72,9 @@ static UA_StatusCode nodeIter(
         &nodeClass
     );
     if (retval != UA_STATUSCODE_GOOD) return retval;
+    LOG(INFO) << "Node class: " << nodeClass;
+    LOG(INFO) << "Node id: " << nodeIdToString(child_id);
+    LOG(INFO) << "Node depth: " << ctx->depth;
 
     if (nodeClass == UA_NODECLASS_VARIABLE && child_id.namespaceIndex != 0) {
         UA_QualifiedName browseName;
@@ -90,7 +93,7 @@ static UA_StatusCode nodeIter(
                 ctx->channels->push_back({dt, name, node_id});
         }
     } 
-    if (ctx->depth >= ctx->max_depth) return UA_STATUSCODE_GOOD;
+    if (ctx->depth >= ctx->max_depth || child_id.namespaceIndex == 0) return UA_STATUSCODE_GOOD;
     ctx->depth++;
     iterateChildren(ctx, child_id);
     ctx->depth--;
@@ -100,7 +103,7 @@ static UA_StatusCode nodeIter(
 void Scanner::scan(const task::Command &cmd) const {
     config::Parser parser(cmd.args);
     ScannnerScanCommandArgs args(parser);
-    int max_depth = parser.optional<int>("max_depth", 10);
+    int max_depth = parser.optional<int>("max_depth", 6);
     if (!parser.ok())
         return ctx->setState({
             .task = task.key,
