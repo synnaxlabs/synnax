@@ -125,20 +125,16 @@ public:
     }
 
     std::pair<Frame, freighter::Error> read() override {
-
         auto fr = Frame(cfg.channels.size() + indexes.size());
-
         size_t enabled_count = 0;
-        
+    
         for (const auto &ch: cfg.channels) {
             if (!ch.enabled) continue;
             enabled_count++;
             fr.add(ch.channel, Series(ch.ch.data_type, samples_per_read));
         }
-
         for (const auto &idx: indexes)
             fr.add(idx, Series(synnax::TIMESTAMP, samples_per_read));
-
         for (size_t i = 0; i < samples_per_read; i++) {
             UA_ReadResponse readResponse = UA_Client_Service_read(client.get(), readRequest);
 
@@ -162,7 +158,6 @@ public:
                                         freighter::Error( driver::TYPE_CRITICAL_HARDWARE_ERROR, "failed to read value: " + std::string(UA_StatusCode_name(status))
                                       ));
             }
-
             // Process the read results
             for (size_t j = 0; j < readResponse.resultsSize; ++j) {
                 UA_Variant *value = &readResponse.results[j].value;
@@ -186,17 +181,14 @@ public:
                 }
                 set_val_on_series(value, i, fr.series->at(j));
             }
-
             UA_ReadResponse_clear(&readResponse);
             const auto now = synnax::TimeStamp::now();
 
             for (size_t j = enabled_count; j < enabled_count + indexes.size(); j++) {
                 fr.series->at(j).set(i, now.value);
             }
-
             timer.wait();
         }
-
         return std::make_pair(std::move(fr), freighter::NIL);
     }
 };
@@ -218,9 +210,7 @@ std::unique_ptr<task::Task> Reader::configure(
         });
         return nullptr;
     }
-
     LOG(INFO) << "[opc.reader] successfully parsed configuration for " << task.name;
-
     auto [device, dev_err] = ctx->client->hardware.retrieveDevice(cfg.device);
     if (dev_err) {
         LOG(ERROR) << "[opc.reader] failed to retrieve device " << cfg.device <<
@@ -234,11 +224,8 @@ std::unique_ptr<task::Task> Reader::configure(
         });
         return nullptr;
     }
-
     auto properties_parser = config::Parser(device.properties);
     auto properties = DeviceProperties(properties_parser);
-
-
     auto breaker_config = breaker::Config{
         .name = task.name,
         .base_interval = 1 * SECOND,
