@@ -82,6 +82,13 @@ var _ = Describe("Index Persist", Ordered, func() {
 					Expect(i.Close()).To(Succeed())
 				})
 
+				It("Should persist an empty index", func() {
+					Expect(db.Close()).To(Succeed())
+					db = MustSucceed(domain.Open(domain.Config{FS: fs}))
+					i := db.NewIterator(domain.IterRange(telem.TimeRangeMax))
+					Expect(i.SeekFirst(ctx)).To(BeFalse())
+				})
+
 				It("Should persist tombstones", func() {
 					By("Writing some data")
 					Expect(domain.Write(ctx, db, (10 * telem.SecondTS).Range(15*telem.SecondTS+1), []byte{10, 11, 12, 13, 14, 15})).To(Succeed())
