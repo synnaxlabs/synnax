@@ -15,12 +15,15 @@ import (
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/core"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
+	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 	"os"
+	"strconv"
 )
 
 var _ = Describe("Channel", Ordered, func() {
@@ -172,6 +175,40 @@ var _ = Describe("Channel", Ordered, func() {
 
 					Expect(f.Series[1].TimeRange).To(Equal((11 * telem.SecondTS).Range(15*telem.SecondTS + 1)))
 					Expect(f.Series[1].Data).To(Equal(telem.NewSeriesV[int64](11, 12, 13, 14, 15).Data))
+				})
+			})
+
+			Describe("Rename", func() {
+				It("Should rename a channel into a different name while channel is being used", func() {
+					key := GenerateChannelKey()
+					Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, Name: "fermat", Rate: 2 * telem.Hz, DataType: telem.Int64T})).To(Succeed())
+					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Start: 0, Channels: []cesium.ChannelKey{key}, EnableAutoCommit: config.True()}))
+					Expect(w.Write(cesium.NewFrame([]cesium.ChannelKey{key}, []telem.Series{telem.NewSeriesV[int64](10, 11, 12, 13)}))).To(BeTrue())
+
+					Expect(db.RenameChannel(ctx, key, "laplace")).To(Succeed())
+					Expect(w.Write(cesium.NewFrame([]cesium.ChannelKey{key}, []telem.Series{telem.NewSeriesV[int64](20, 21, 22)}))).To(BeTrue())
+					Expect(w.Close()).To(Succeed())
+
+					ch := MustSucceed(db.RetrieveChannel(ctx, key))
+					Expect(ch.Name).To(Equal("laplace"))
+					f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, key))
+					Expect(f.Series).To(HaveLen(1))
+					Expect(f.Series[0].Data).To(Equal(telem.NewSeriesV[int64](10, 11, 12, 13, 20, 21, 22).Data))
+
+					var (
+						subFS   = MustSucceed(fs.Sub(strconv.Itoa(int(key))))
+						meta    = MustSucceed(subFS.Open("meta.json", os.O_RDONLY))
+						encoder = &binary.JSONEncoderDecoder{}
+						buf     = make([]byte, MustSucceed(meta.Stat()).Size())
+						newCh   cesium.Channel
+					)
+
+					_, err := meta.Read(buf)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(meta.Close()).To(Succeed())
+
+					Expect(encoder.Decode(ctx, buf, &newCh)).To(Succeed())
+					Expect(newCh.Name).To(Equal("laplace"))
 				})
 			})
 		})
