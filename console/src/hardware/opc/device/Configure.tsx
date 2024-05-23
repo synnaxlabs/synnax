@@ -1,6 +1,12 @@
 import { useState, type ReactElement } from "react";
 
-import { DataType, TimeSpan, type rack, type task } from "@synnaxlabs/client";
+import {
+  DataType,
+  TimeSpan,
+  UnexpectedError,
+  type rack,
+  type task,
+} from "@synnaxlabs/client";
 import {
   Align,
   Button,
@@ -19,38 +25,20 @@ import { set, z } from "zod";
 
 import { CSS } from "@/css";
 import { CreateChannels } from "@/hardware/opc/device/CreateChannels";
-import { type Properties, connectionConfigZ } from "@/hardware/opc/device/types";
+import {
+  type Properties,
+  connectionConfigZ,
+  groupConfigZ,
+  GroupConfig,
+} from "@/hardware/opc/device/types";
 import { type Layout } from "@/layout";
 
 import "@/hardware/opc/device/Configure.css";
 
-export const channelZ = z
-  .object({
-    dataType: z.string(),
-    name: z.string(),
-    nodeId: z.string().optional(),
-    role: z.enum(["data", "index"]),
-  })
-  .superRefine((data) => {
-    // Ensure that the node id is present if the role is data
-    if (data.role === "data" && data.nodeId == null) {
-      return { path: ["nodeId"], message: "Node ID is required for data channels" };
-    }
-    return true;
-  });
-
-const groupZ = z.object({
-  key: z.string(),
-  name: z.string(),
-  channels: channelZ.array(),
-});
-
-type Group = z.infer<typeof groupZ>;
-
 const configureZ = z.object({
   name: z.string().min(1, "Name is required"),
   connection: connectionConfigZ,
-  groups: groupZ.array(),
+  groups: groupConfigZ.array(),
 });
 
 export const CONFIGURE_LAYOUT_TYPE = "configureOPCServer";
@@ -67,7 +55,7 @@ export const createConfigureLayout =
       window: {
         navTop: true,
         resizable: false,
-        size: { height: 900, width: 1200 },
+        size: { height: 1000, width: 1300 },
       },
       location,
       ...rest,
@@ -136,6 +124,7 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
           { connection: methods.get({ path: "connection" }).value },
           TimeSpan.seconds(5),
         );
+        if (deviceProperties == null) return;
         methods.set({
           path: "groups",
           value: [
@@ -145,10 +134,15 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
               channels: [
                 ...deviceProperties.channels.map((c) => ({
                   ...c,
-                  role: "data",
                   key: nanoid(),
+                  isIndex: false,
                 })),
-                { key: nanoid(), name: "Time", dataType: "timestamp", role: "index" },
+                {
+                  key: nanoid(),
+                  name: "Time",
+                  dataType: "timestamp",
+                  isIndex: true,
+                },
               ],
             },
           ],
@@ -183,12 +177,16 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
         rack: rackKey,
         location: methods.get<string>({ path: "connection.endpoint" }).value,
         properties: deviceProperties,
+        configured: true,
       });
       setProgress("Creating channels...");
-      const groups = methods.get<Group[]>({ path: "groups" }).value;
+      const groups = methods.get<GroupConfig[]>({ path: "groups" }).value;
       for (const group of groups) {
+        // find the index channel
+        const idxBase = group.channels.find((c) => c.isIndex);
+        if (idxBase == null) throw new UnexpectedError("No index channel found");
         const idx = await client.channels.create({
-          name: group.name,
+          name: idxBase.name,
           isIndex: true,
           dataType: DataType.TIMESTAMP.toString(),
         });
@@ -210,7 +208,7 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
   } else if (step === "createChannels" && deviceProperties != null) {
     content = <CreateChannels deviceProperties={deviceProperties} />;
   } else if (step === "confirm" && deviceProperties != null) {
-    content = <Confirm confirm={confirm} progress={progress} rackKey={rackKey} />;
+    content = <Confirm confirm={confirm} progress={progress} />;
   } else {
     content = <div>Unknown step</div>;
   }
@@ -321,7 +319,7 @@ const Connect = ({ testConnection }: ConnectProps): ReactElement => {
               <Status.Text variant="error">{testConnection.error.message}</Status.Text>
             )}
             {testConnection.isSuccess && testConnection.data?.variant != null && (
-              <Status.Text variant={testConnection.data?.variant}>
+              <Status.Text variant={testConnection.data?.variant as Status.Variant}>
                 {testConnection.data?.details?.message}
               </Status.Text>
             )}
@@ -369,10 +367,13 @@ const Confirm = ({ progress, confirm }: ConfirmProps): ReactElement => (
         size="large"
         onClick={() => confirm.mutate()}
         loading={confirm.isPending}
-        disabled={confirm.isPending || confirm.isSuccess}
+        disabled={confirm.isPending || confirm.isSuccess || confirm.isError}
       >
         {confirm.isSuccess ? "Success!" : "Configure"}
       </Button.Button>
+      {confirm.isError && (
+        <Status.Text variant="error">{confirm.error.message}</Status.Text>
+      )}
     </Align.Space>
   </Align.Center>
 );

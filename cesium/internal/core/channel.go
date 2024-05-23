@@ -33,9 +33,13 @@ const (
 // A channel can also be used for storing derived data, such as a moving average or signal
 // processing result.
 type Channel struct {
-	// Key is a unique identifier to the channel within the cesium.
+	// Key is a unique identifier to the channel within the cesium data engine.
 	// [REQUIRED]
-	Key     ChannelKey `json:"key" msgpack:"key"`
+	Key ChannelKey `json:"key" msgpack:"key"`
+	// Name is a non-unique, human-readable identifier to the channel within the data
+	// engine. Note that it is never used to index or retrieve a channel.
+	// [OPTIONAL]
+	Name    string `json:"name" msgpack:"name"`
 	IsIndex bool
 	// DataType is the type of data stored in the channel.
 	// [REQUIRED]

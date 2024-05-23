@@ -13,6 +13,7 @@ import (
 	"context"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/meta"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -55,6 +56,41 @@ func (db *DB) RetrieveChannel(_ context.Context, key ChannelKey) (Channel, error
 		return vCh.Channel, nil
 	}
 	return Channel{}, core.NewErrChannelNotFound(key)
+}
+
+// RenameChannel implements DB.
+func (db *DB) RenameChannel(_ context.Context, key ChannelKey, newName string) error {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	udb, uok := db.unaryDBs[key]
+	if uok {
+		if udb.Channel.Name == newName {
+			return nil
+		}
+		udb.Channel.Name = newName
+		err := meta.Create(udb.FS, db.metaECD, udb.Channel)
+		if err != nil {
+			return err
+		}
+		db.unaryDBs[key] = udb
+		return nil
+	}
+	vdb, vok := db.virtualDBs[key]
+	if vok {
+		if vdb.Channel.Name == newName {
+			return nil
+		}
+		vdb.Channel.Name = newName
+		err := meta.Create(vdb.FS, db.metaECD, vdb.Channel)
+		if err != nil {
+			return err
+		}
+		db.virtualDBs[key] = vdb
+		return nil
+	}
+
+	return core.ChannelNotFound
 }
 
 func (db *DB) createChannel(ch Channel) (err error) {

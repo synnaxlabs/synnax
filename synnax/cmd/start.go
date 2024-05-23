@@ -13,24 +13,11 @@ import (
 	"bufio"
 	"context"
 	"encoding/base64"
-	"github.com/synnaxlabs/synnax/pkg/hardware/embedded"
 	"os"
 	"os/signal"
 	"time"
 
-	"github.com/synnaxlabs/synnax/pkg/hardware"
-	"github.com/synnaxlabs/synnax/pkg/label"
-	"github.com/synnaxlabs/synnax/pkg/ranger"
-	"github.com/synnaxlabs/synnax/pkg/version"
-	"github.com/synnaxlabs/synnax/pkg/workspace"
-	"github.com/synnaxlabs/synnax/pkg/workspace/lineplot"
-	"github.com/synnaxlabs/synnax/pkg/workspace/schematic"
-
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/security"
-	"google.golang.org/grpc/credentials"
-	insecureGRPC "google.golang.org/grpc/credentials/insecure"
-
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/synnaxlabs/alamos"
@@ -44,9 +31,18 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/auth/token"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
+	"github.com/synnaxlabs/synnax/pkg/hardware"
+	"github.com/synnaxlabs/synnax/pkg/hardware/embedded"
+	"github.com/synnaxlabs/synnax/pkg/label"
+	"github.com/synnaxlabs/synnax/pkg/ranger"
+	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/server"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/synnax/pkg/user"
+	"github.com/synnaxlabs/synnax/pkg/version"
+	"github.com/synnaxlabs/synnax/pkg/workspace"
+	"github.com/synnaxlabs/synnax/pkg/workspace/lineplot"
+	"github.com/synnaxlabs/synnax/pkg/workspace/schematic"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -54,6 +50,8 @@ import (
 	xsignal "github.com/synnaxlabs/x/signal"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+	insecureGRPC "google.golang.org/grpc/credentials/insecure"
 )
 
 // startCmd represents the start command
@@ -80,8 +78,7 @@ var (
 // environment variables, and configuration files.
 func start(cmd *cobra.Command) {
 	v := version.Get()
-	encodedName := "bGljZW5zZS1rZXk="
-	decodedName, _ := base64.StdEncoding.DecodeString(encodedName)
+	decodedName, _ := base64.StdEncoding.DecodeString("bGljZW5zZS1rZXk=")
 	var (
 		ins      = configureInstrumentation(v)
 		insecure = viper.GetBool("insecure")

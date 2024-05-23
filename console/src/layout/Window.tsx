@@ -22,13 +22,20 @@ import { Content } from "@/layout/Content";
 import { useSelect } from "@/layout/selectors";
 
 import "@/layout/Window.css";
+import { WindowProps } from "@/layout/layout";
 
-export interface NavTopProps {
+export interface NavTopProps extends Pick<WindowProps, "showTitle" | "navTop"> {
   title: string;
 }
 
-export const NavTop = ({ title }: NavTopProps): ReactElement => {
+export const NavTop = ({
+  title,
+  showTitle,
+  navTop,
+}: NavTopProps): ReactElement | null => {
   const os = OS.use();
+  if (!navTop) return null;
+
   return (
     <Nav.Bar
       className="console-main-nav-top"
@@ -44,17 +51,19 @@ export const NavTop = ({ title }: NavTopProps): ReactElement => {
         />
         {os === "Windows" && <Logo className="console-main-nav-top__logo" />}
       </Nav.Bar.Start>
-      <Nav.Bar.AbsoluteCenter data-tauri-drag-region>
-        <Text.Text
-          className="console-main-nav-top__title"
-          level="p"
-          shade={7}
-          weight={450}
-          data-tauri-drag-region
-        >
-          {title}
-        </Text.Text>
-      </Nav.Bar.AbsoluteCenter>
+      {showTitle && (
+        <Nav.Bar.AbsoluteCenter data-tauri-drag-region>
+          <Text.Text
+            className="console-main-nav-top__title"
+            level="p"
+            shade={7}
+            weight={450}
+            data-tauri-drag-region
+          >
+            {title}
+          </Text.Text>
+        </Nav.Bar.AbsoluteCenter>
+      )}
       {os === "Windows" && (
         <Nav.Bar.End data-tauri-drag-region>
           <Controls
@@ -98,7 +107,7 @@ export const Window = (): ReactElement | null => {
           maximized && CSS.BM("main", "maximized"),
         )}
       >
-        {layout?.window?.navTop === true && <NavTop title={layout.name} />}
+        <NavTop title={layout.name} {...layout.window} />
         {content}
       </Align.Space>
     </PMenu.ContextMenu>

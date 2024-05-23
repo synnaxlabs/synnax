@@ -45,7 +45,12 @@ const VirtualCore = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   if (itemHeight <= 0) throw new Error("itemHeight must be greater than 0");
   const { hasMore, onFetchMore } = useInfiniteContext();
   const { hover: hoverValue, setHover } = useHoverContext();
-  const { transformedData: data, emptyContent } = useDataContext<K, E>();
+  const {
+    transformedData: data,
+    emptyContent,
+    transformed,
+    sourceData,
+  } = useDataContext<K, E>();
   const selected = useSelection();
   const { onSelect } = useSelectionUtils();
   const parentRef = useRef<HTMLDivElement>(null);
@@ -94,8 +99,14 @@ const VirtualCore = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
         >
           {items.map(({ index, start }) => {
             const entry = data[index];
+            let sourceIndex = index;
+            if (transformed) {
+              console.log("TRANSFORMED");
+              sourceIndex = sourceData.findIndex((e) => e.key === entry.key);
+            }
             return children({
               key: entry.key,
+              sourceIndex,
               index,
               onSelect,
               entry,
@@ -117,7 +128,12 @@ export const Core = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   children: ItemRenderProp<K, E>;
   itemHeight?: number;
 }): ReactElement => {
-  const { transformedData: data, emptyContent } = useDataContext<K, E>();
+  const {
+    transformedData: data,
+    transformed,
+    emptyContent,
+    sourceData,
+  } = useDataContext<K, E>();
   const { hover } = useHoverContext();
   const { selected } = useSelectionContext();
   const { onSelect } = useSelectionUtils();
@@ -128,16 +144,20 @@ export const Core = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
         emptyContent
       ) : (
         <>
-          {data.map((entry, index) =>
-            props.children({
+          {data.map((entry, index) => {
+            let sourceIndex = index;
+            if (transformed)
+              sourceIndex = sourceData.findIndex((e) => e.key === entry.key);
+            return props.children({
               key: entry.key,
               index,
+              sourceIndex,
               onSelect,
               entry,
               selected: selected.includes(entry.key),
               hovered: index === hover,
-            }),
-          )}
+            });
+          })}
         </>
       )}
     </Align.Space>
