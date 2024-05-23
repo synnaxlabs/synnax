@@ -61,10 +61,7 @@ static UA_StatusCode nodeIter(
     UA_NodeId reference_type_id,
     void *handle
 ) {
-
-    // reference is from target back to source node
     if (is_inverse) return UA_STATUSCODE_GOOD;
-    
     auto *ctx = static_cast<ScanContext *>(handle);
     const auto ua_client = ctx->client.get();
 
@@ -93,8 +90,6 @@ static UA_StatusCode nodeIter(
                 ctx->channels->push_back({dt, name, node_id});
         }
     } 
-
-
     if (ctx->depth >= ctx->max_depth) return UA_STATUSCODE_GOOD;
     ctx->depth++;
     iterateChildren(ctx, child_id);

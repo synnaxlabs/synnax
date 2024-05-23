@@ -127,7 +127,6 @@ public:
     std::pair<Frame, freighter::Error> read() override {
         auto fr = Frame(cfg.channels.size() + indexes.size());
         size_t enabled_count = 0;
-    
         for (const auto &ch: cfg.channels) {
             if (!ch.enabled) continue;
             enabled_count++;
@@ -139,11 +138,8 @@ public:
             UA_ReadResponse readResponse = UA_Client_Service_read(client.get(), readRequest);
 
             auto status = readResponse.responseHeader.serviceResult;
-
             if (status != UA_STATUSCODE_GOOD) {
-
                 UA_ReadResponse_clear(&readResponse);
-
                 if (    status == UA_STATUSCODE_BADCONNECTIONREJECTED || 
                         status ==  UA_STATUSCODE_BADSECURECHANNELCLOSED) {
                     
@@ -183,7 +179,6 @@ public:
             }
             UA_ReadResponse_clear(&readResponse);
             const auto now = synnax::TimeStamp::now();
-
             for (size_t j = enabled_count; j < enabled_count + indexes.size(); j++) {
                 fr.series->at(j).set(i, now.value);
             }
