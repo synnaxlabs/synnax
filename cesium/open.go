@@ -14,6 +14,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/meta"
 	"github.com/synnaxlabs/cesium/internal/unary"
+	"github.com/synnaxlabs/cesium/internal/version"
 	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
@@ -89,6 +90,18 @@ func (db *DB) openVirtualOrUnary(ch Channel) error {
 		_, isOpen := db.unaryDBs[ch.Key]
 		if isOpen {
 			return nil
+		}
+		if ch.Version != version.CurrentVersion {
+			err = version.Migrate(fs, ch.Version, version.CurrentVersion)
+			if err != nil {
+				return err
+			}
+
+			ch.Version = version.CurrentVersion
+			err = meta.Create(fs, db.metaECD, ch)
+			if err != nil {
+				return err
+			}
 		}
 		u, err := unary.Open(unary.Config{FS: fs, Channel: ch, Instrumentation: db.options.Instrumentation, FileSize: db.options.fileSize})
 		if err != nil {

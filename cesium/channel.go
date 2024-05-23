@@ -12,8 +12,9 @@ package cesium
 import (
 	"context"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/version"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
@@ -76,6 +77,7 @@ func (db *DB) createChannel(ch Channel) (err error) {
 	if ch.IsIndex {
 		ch.Index = ch.Key
 	}
+	ch.Version = version.CurrentVersion
 	err = db.openVirtualOrUnary(ch)
 	return
 }
