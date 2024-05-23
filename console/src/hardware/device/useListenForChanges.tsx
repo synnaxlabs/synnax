@@ -29,6 +29,7 @@ export const useListenForChanges = (): void => {
         change.Set<string, device.Device>
       >;
       sets.forEach(({ value: dev }) => {
+        if (dev.configured === true) return;
         addStatus({
           key: `new-device-${dev.key}`,
           variant: "info",
