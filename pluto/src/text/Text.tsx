@@ -27,7 +27,7 @@ export interface CoreProps<L extends text.Level = text.Level> {
   /* The text to display */
   children?: ReactNode;
   /* The color of the text */
-  color?: Color.Crude;
+  color?: Color.Crude | boolean;
   /* NoWrap prevents the text from wrapping */
   noWrap?: boolean;
   shade?: text.Shade;
@@ -71,8 +71,14 @@ export const Text = forwardRef(CoreText) as <L extends text.Level = text.Level>(
   props: TextProps<L>,
 ) => ReactElement;
 
-export const evalColor = (color?: Color.Crude, shade?: number): string | undefined => {
-  if (color != null) return Color.cssString(color) as string;
+export const evalColor = (
+  color?: Color.Crude | boolean,
+  shade?: number,
+): string | undefined => {
+  if (color != null) {
+    if (typeof color === "boolean") return undefined;
+    return Color.cssString(color) as string;
+  }
   if (shade != null) return `var(--pluto-gray-l${shade})`;
   return undefined;
 };

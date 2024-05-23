@@ -295,6 +295,7 @@ export const Field = <
   padHelpText = true,
   visible = true,
   hideIfNull = false,
+  optional,
   defaultValue,
   onChange,
   className,
@@ -302,7 +303,7 @@ export const Field = <
 }: FieldProps<I, O>): ReactElement | null => {
   const field = useField<I, O>({
     path,
-    optional: hideIfNull as true,
+    optional: (optional as true) ?? (hideIfNull as true),
     onChange,
     defaultValue,
   });
@@ -584,6 +585,7 @@ export const use = <Z extends z.ZodTypeAny>({
       let success = true;
       const issueKeys = new Set(result.error.issues.map((i) => i.path.join(".")));
       result.error.issues.forEach((issue) => {
+        console.log("issue", issue);
         const issuePath = issue.path.join(".");
         if (!deep.pathsMatch(issuePath, path)) return;
         const variant = getVariant(issue);
