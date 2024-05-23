@@ -21,10 +21,9 @@ import { nanoid } from "nanoid/non-secure";
 import { CSS } from "@/css";
 import { type ChannelConfig, type GroupConfig } from "@/hardware/opc/device/types";
 import { SelectNode } from "@/hardware/opc/device/SelectNode";
-
-import "@/hardware/ni/device/CreateChannels.css";
 import { Properties } from "@/hardware/opc/device/types";
-import { position } from "@synnaxlabs/x";
+
+import "@/hardware/opc/device/CreateChannels.css";
 
 interface MostRecentSelectedState {
   key: string;
@@ -64,7 +63,7 @@ export const CreateChannels = ({
       keys: string[],
       { clickedIndex, clicked }: List.UseSelectOnChangeExtra<string>,
     ): void => {
-      if (clickedIndex == null || clicked == null) return;
+      if (clickedIndex == null || clicked == null || clickedIndex === -1) return;
       setSelectedChannels(keys);
       setMostRecentSelected({ type: "channel", index: clickedIndex, key: clicked });
     },
@@ -217,7 +216,9 @@ const GroupList = ({
             }
           >
             <List.Core<string, GroupConfig> grow>
-              {(props) => <GroupListItem clearSelection={clearSelection} {...props} />}
+              {({ key, ...props }) => (
+                <GroupListItem key={key} clearSelection={clearSelection} {...props} />
+              )}
             </List.Core>
           </List.Selector>
         </List.List>
@@ -308,18 +309,22 @@ const ChannelList = ({
   const menuProps = Menu.useContextMenu();
   return (
     <Align.Space className={CSS.B("channels")} grow empty>
-      <Header.Header level="h3">
+      <Header.Header level="h3" style={{ borderBottom: "none" }}>
         <Header.Title weight={500}>Channels</Header.Title>
       </Header.Header>
       <Menu.ContextMenu
         menu={({ keys }: Menu.ContextMenuMenuProps): ReactElement => {
           const handleSelect = (key: string) => {
+            const indices = keys.map((k) =>
+              channels.value.findIndex((c) => c.key === k),
+            );
             switch (key) {
               case "remove":
-                const indices = keys.map((k) =>
-                  channels.value.findIndex((c) => c.key === k),
-                );
                 channels.remove(indices);
+                break;
+              case "keep":
+                const idxIndex = channels.value.findIndex((c) => c.isIndex === true);
+                channels.keepOnly([idxIndex, ...indices]);
                 break;
             }
           };
@@ -328,12 +333,25 @@ const ChannelList = ({
               <Menu.Item itemKey="remove" startIcon={<Icon.Close />}>
                 Remove
               </Menu.Item>
+              <Menu.Item itemKey="keep" startIcon={<Icon.Check />}>
+                Keep Only Selected
+              </Menu.Item>
             </Menu.Menu>
           );
         }}
         {...menuProps}
       >
         <List.List<string, ChannelConfig> data={channels.value}>
+          <List.Filter>
+            {(p) => (
+              <Input.Text
+                placeholder="Search Channels"
+                selectOnFocus
+                style={{ border: "none", borderBottom: "var(--pluto-border)" }}
+                {...p}
+              />
+            )}
+          </List.Filter>
           <List.Selector<string, ChannelConfig>
             value={selectedChannels}
             allowNone={false}
@@ -355,6 +373,7 @@ const ChannelList = ({
 export const ChannelListItem = memo(
   ({
     groupIndex,
+    sourceIndex,
     ...props
   }: List.ItemProps<string, ChannelConfig> & {
     groupIndex: number;
@@ -364,7 +383,7 @@ export const ChannelListItem = memo(
       key: props.entry.key,
     });
     const groupChannels = `groups.${groupIndex}.channels`;
-    const prefix = `${groupChannels}.${props.index}`;
+    const prefix = `${groupChannels}.${sourceIndex}`;
     const methods = Form.useContext();
     const { getSelected } = List.useSelectionUtils();
     const handleDragStart = useCallback(() => {

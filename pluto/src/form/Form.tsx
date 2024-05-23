@@ -228,6 +228,7 @@ export interface UseFieldArrayReturn<V extends unknown> {
   value: V[];
   push: (value: V | V[]) => void;
   remove: (index: number | number[]) => void;
+  keepOnly: (indices: number | number[]) => void;
 }
 
 export const useFieldArray = <V extends unknown = unknown>({
@@ -265,7 +266,19 @@ export const useFieldArray = <V extends unknown = unknown>({
     [path, state, get],
   );
 
-  return { value: state, push, remove };
+  const keepOnly = useCallback(
+    (indices: number | number[]) => {
+      const copy = shallowCopy(get<V[]>({ path, optional: false }).value);
+      const indicesArray = new Set(toArray(indices));
+      copy.forEach((_, i) => {
+        if (!indicesArray.has(i)) copy.splice(i, 1);
+      });
+      set({ path, value: copy });
+    },
+    [path, state, get],
+  );
+
+  return { value: state, push, remove, keepOnly };
 };
 
 export interface FieldProps<
