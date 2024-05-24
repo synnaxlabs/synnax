@@ -231,8 +231,6 @@ public:
 
     TimeSpan operator*(const long long &other) const { return TimeSpan(value * other); }
 
-    TimeSpan operator*(const size_t &other) const { return TimeSpan(value * other); }
-
     ////////////////////////////////// DIVISION /////////////////////////////////
 
     TimeSpan operator/(const TimeSpan &other) const {
@@ -479,6 +477,8 @@ public:
     Rate operator/(const long &other) const { return Rate(value / other); }
 
     Rate operator/(const unsigned long &other) const { return Rate(value / other); }
+
+    Rate operator/(const size_t &other) const { return Rate(value / other); }
 };
 
 /// @brief a single hertz. Can be made into many hertz through multiplication

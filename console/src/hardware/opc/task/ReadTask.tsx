@@ -51,7 +51,7 @@ import {
   ZERO_READ_PAYLOAD,
 } from "@/hardware/opc/task/types";
 import { type Layout } from "@/layout";
-import { z } from "zod";
+import { array, z } from "zod";
 import { Device } from "@/hardware/opc/device";
 import { SelectNodeRemote } from "@/hardware/opc/device/SelectNode";
 import { deep } from "@synnaxlabs/x";
@@ -225,19 +225,10 @@ const Internal = ({ initialValues, task: pTask }: InternalProps): ReactElement =
             <Form.Field<number> label="Sample Rate" path="config.sampleRate">
               {(p) => <Input.Numeric {...p} />}
             </Form.Field>
-            <Form.Field<number> label="Stream Rate" path="config.streamRate">
+            <Form.SwitchField label="Array Sampling" path="config.arrayMode" />
+            <Form.Field<number> label={arrayMode ? "Array Size" : "Stream Rate"} path={arrayMode ? "config.arraySize" : "config.streamRate"}>
               {(p) => <Input.Numeric {...p} />}
             </Form.Field>
-            {arrayMode && (
-              <Form.Field<number>
-                label="Array Size"
-                path="config.arraySize"
-                style={{ width: 100 }}
-              >
-                {(p) => <Input.Numeric {...p} />}
-              </Form.Field>
-            )}
-            <Form.SwitchField label="Array Sampling" path="config.arrayMode" />
           </Align.Space>
           <Align.Space
             className={CSS.B("channel-form-container")}
@@ -274,8 +265,8 @@ const Internal = ({ initialValues, task: pTask }: InternalProps): ReactElement =
       </Align.Space>
       <Nav.Bar location="bottom" size={48}>
         <Nav.Bar.Start style={{ paddingLeft: "2rem" }}>
-          {taskState?.variant === "error" && (
-            <Status.Text variant="error" level="small">
+          {taskState?.details?.message != null && taskState.variant != null && (
+            <Status.Text variant={taskState?.variant ?? "error"} level="p">
               {taskState?.details?.message}
             </Status.Text>
           )}

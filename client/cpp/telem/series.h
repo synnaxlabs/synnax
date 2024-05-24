@@ -180,8 +180,14 @@ public:
     // implement the array access operator
     template<typename NumericType>
     NumericType operator[](int index) const {
-        if (index >= length())
-            throw std::runtime_error("index" + std::to_string(index) + " out of bounds for series");
+        return at<NumericType>(index);
+    }
+
+    template<typename NumericType>
+    NumericType at(int index) const {
+        // std::cout << "INDEX YBC: " << index << "ABY" << index >= length() << std::endl;
+        // if (index >= length())
+        //     throw std::runtime_error("index" + std::to_string(index) + " out of bounds for series");
         if (index < 0) index = static_cast<int>(length()) + index;
         NumericType value;
         memcpy(&value, data.get() + index * data_type.density(), data_type.density());

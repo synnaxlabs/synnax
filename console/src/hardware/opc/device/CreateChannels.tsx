@@ -453,7 +453,7 @@ export const ChannelListItem = memo(
         </Align.Space>
         <Align.Space direction="y" empty align="end">
           <Text.Text level="p" shade={7}>
-            {childValues.dataType}
+            {childValues.dataType} {childValues.isArray ? "[]" : ""}
           </Text.Text>
           {isIndex && (
             <Text.Text level="p" shade={7} color="var(--pluto-secondary-z)">

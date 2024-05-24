@@ -142,6 +142,7 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
                   name: "Time",
                   dataType: "timestamp",
                   isIndex: true,
+                  isArray: false,
                 },
               ],
             },

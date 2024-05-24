@@ -51,8 +51,12 @@ void Acquisition::stop() {
 }
 
 synnax::TimeStamp resolve_start(const synnax::Frame &frame) {
-    for (const auto &s: frame.series)
-        if (s.data_type == synnax::TIMESTAMP) return s[-1];
+    for (size_t i = 0; i < frame.size(); i++) {
+        if (frame.series->at(i).data_type == synnax::TIMESTAMP) {
+            std::int64_t ts = frame.series->at(i).at<int64_t>(-1);
+            if (ts != 0) return synnax::TimeStamp(ts);
+        }
+    }
     return synnax::TimeStamp::now();
 }
 
@@ -92,15 +96,18 @@ void Acquisition::run() {
 
         if (!writer_opened) {
             this->writer_config.start = resolve_start(frame);
-            auto [writer, wo_err] = ctx->client->telem.openWriter(writer_config);
+            auto res = ctx->client->telem.openWriter(writer_config);
+            wo_err = res.second;
             if (wo_err) {
                 LOG(ERROR) << "[acquisition] Failed to open writer: " << wo_err.
                         message();
                 if (wo_err.matches(freighter::UNREACHABLE) && breaker.wait(
                         wo_err.message()))
                     run();
+                
                 return;
             }
+            writer = std::move(res.first);
             writer_opened = true;
         }
 
@@ -115,4 +122,5 @@ void Acquisition::run() {
     LOG(INFO) << "[acquisition] Writer closed";
     if (err.matches(freighter::UNREACHABLE) && breaker.wait(err.message())) run();
     LOG(INFO) << "[acquisition] Acquisition thread terminated";
+    source->stop();
 }

@@ -75,17 +75,6 @@ export const readConfigZ = z
         },
       });
     });
-  })
-  // In array mode the stream rate must be compatible with the array size
-  .superRefine((cfg, ctx) => {
-    if (!cfg.arrayMode) return;
-    if (cfg.streamRate > cfg.sampleRate / cfg.arraySize) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["streamRate"],
-        message: `Rate too high for array size. Must less than or equal to ${cfg.sampleRate / cfg.arraySize}`,
-      });
-    }
   });
 
 export type ReadConfig = z.infer<typeof readConfigZ>;
