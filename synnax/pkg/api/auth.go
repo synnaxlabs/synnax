@@ -13,8 +13,6 @@ import (
 	"context"
 	"go/types"
 
-	roacherrors "github.com/cockroachdb/errors"
-	"github.com/synnaxlabs/synnax/pkg/api/errors"
 	"github.com/synnaxlabs/synnax/pkg/auth"
 	"github.com/synnaxlabs/synnax/pkg/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/user"
@@ -23,7 +21,6 @@ import (
 
 // AuthService is the core authentication service for the delta API.
 type AuthService struct {
-	validationProvider
 	dbProvider
 	authProvider
 	userProvider
@@ -31,28 +28,21 @@ type AuthService struct {
 
 func NewAuthServer(p Provider) *AuthService {
 	return &AuthService{
-		validationProvider: p.Validation,
-		dbProvider:         p.db,
-		authProvider:       p.auth,
-		userProvider:       p.user,
+		dbProvider:   p.db,
+		authProvider: p.auth,
+		userProvider: p.user,
 	}
 }
 
 // Login attempts to authenticate a user with the provided credentials. If successful,
 // returns a response containing a valid JWT along with the user's details.
 func (s *AuthService) Login(ctx context.Context, cred auth.InsecureCredentials) (tr TokenResponse, err error) {
-	if err := s.Validate(&cred); err != nil {
-		return tr, err
-	}
-	if err := s.authenticator.Authenticate(ctx, cred); err != nil {
-		if roacherrors.Is(err, auth.InvalidCredentials) {
-			return tr, errors.Auth(roacherrors.New("Invalid authentication credentials"))
-		}
-		return tr, errors.Unexpected(err)
+	if err = s.authenticator.Authenticate(ctx, cred); err != nil {
+		return
 	}
 	u, err := s.user.RetrieveByUsername(ctx, cred.Username)
 	if err != nil {
-		return tr, errors.Unexpected(err)
+		return tr, err
 	}
 	return s.tokenResponse(u)
 }
@@ -65,16 +55,13 @@ type RegistrationRequest struct {
 // Register registers new user with the provided credentials. If successful, returns a
 // response containing a valid JWT along with the user's details.
 func (s *AuthService) Register(ctx context.Context, req RegistrationRequest) (tr TokenResponse, err error) {
-	if err := s.Validate(req); err != nil {
-		return tr, err
-	}
 	return tr, s.WithTx(ctx, func(txn gorp.Tx) error {
 		if err := s.authenticator.NewWriter(txn).Register(ctx, req.InsecureCredentials); err != nil {
-			return errors.Auto(err)
+			return err
 		}
 		u := &user.User{Username: req.Username}
 		if err := s.user.NewWriter(txn).Create(ctx, u); err != nil {
-			return errors.Auto(err)
+			return err
 		}
 		tr, err = s.tokenResponse(*u)
 		return err
@@ -89,12 +76,9 @@ type ChangePasswordRequest struct {
 
 // ChangePassword changes the password for the user with the provided credentials.
 func (s *AuthService) ChangePassword(ctx context.Context, cpr ChangePasswordRequest) (types.Nil, error) {
-	if err := s.Validate(cpr); err != nil {
-		return types.Nil{}, err
-	}
 	return types.Nil{}, s.WithTx(ctx, func(txn gorp.Tx) error {
-		return errors.Auto(s.authenticator.NewWriter(txn).
-			UpdatePassword(ctx, cpr.InsecureCredentials, cpr.NewPassword))
+		return s.authenticator.NewWriter(txn).
+			UpdatePassword(ctx, cpr.InsecureCredentials, cpr.NewPassword)
 	})
 }
 
@@ -106,10 +90,7 @@ type ChangeUsernameRequest struct {
 
 // ChangeUsername changes the username for the user with the provided credentials.
 func (s *AuthService) ChangeUsername(ctx context.Context, cur ChangeUsernameRequest) (types.Nil, error) {
-	if err := s.Validate(&cur); err != nil {
-		return types.Nil{}, err
-	}
-	return types.Nil{}, errors.Auto(s.WithTx(ctx, func(txn gorp.Tx) error {
+	return types.Nil{}, s.WithTx(ctx, func(txn gorp.Tx) error {
 		u, err := s.user.RetrieveByUsername(ctx, cur.InsecureCredentials.Username)
 		if err != nil {
 			return err
@@ -123,7 +104,7 @@ func (s *AuthService) ChangeUsername(ctx context.Context, cur ChangeUsernameRequ
 		}
 		u.Username = cur.NewUsername
 		return s.user.NewWriter(txn).Update(ctx, u)
-	}))
+	})
 }
 
 // TokenResponse is a response containing a valid JWT along with details about the user

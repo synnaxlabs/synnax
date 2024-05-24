@@ -9,12 +9,10 @@
 
 import { type Key, type Keyed } from "@synnaxlabs/x";
 
-export interface ItemProps<
-  K extends Key = Key,
-  E extends Keyed<K> = Keyed<K>,
-> {
+export interface ItemProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>> {
   entry: E;
   index: number;
+  sourceIndex: number;
   selected: boolean;
   hovered: boolean;
   onSelect?: (key: K) => void;

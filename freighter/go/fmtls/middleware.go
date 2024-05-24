@@ -10,9 +10,9 @@
 package fmtls
 
 import (
-	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/x/errors"
 )
 
 // AuthError is returned whenever the client certificate cannot be validated.

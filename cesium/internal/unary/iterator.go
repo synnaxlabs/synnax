@@ -11,11 +11,11 @@ package unary
 
 import (
 	"context"
-	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	"io"
 )
@@ -165,22 +165,18 @@ func (i *Iterator) autoNext(ctx context.Context) bool {
 			return false
 		}
 		startOffset := i.Channel.DataType.Density().Size(startApprox.Upper)
-
-		series, n, err := i.read(
+		series, _, err := i.read(
 			ctx,
 			startOffset,
 			i.Channel.DataType.Density().Size(nRemaining),
 		)
-		nRead := i.Channel.DataType.Density().SampleCount(telem.Size(n))
 		nRemaining -= series.Len()
 		if err != nil && !errors.Is(err, io.EOF) {
 			i.err = err
 			return false
 		}
-
 		i.insert(series)
-
-		if nRead >= nRemaining || !i.internal.Next() {
+		if nRemaining <= 0 || !i.internal.Next() {
 			break
 		}
 	}
@@ -268,7 +264,7 @@ func (i *Iterator) insert(series telem.Series) {
 	if series.Len() == 0 {
 		return
 	}
-	if len(i.frame.Series) == 0 || i.frame.Series[len(i.frame.Series)-1].TimeRange.End.Before(series.TimeRange.Start) {
+	if len(i.frame.Series) == 0 || i.frame.Series[len(i.frame.Series)-1].TimeRange.End.BeforeEq(series.TimeRange.Start) {
 		i.frame = i.frame.Append(i.Channel.Key, series)
 	} else {
 		i.frame = i.frame.Prepend(i.Channel.Key, series)
@@ -279,7 +275,9 @@ func (i *Iterator) read(ctx context.Context, offset telem.Offset, size telem.Siz
 	series.DataType = i.Channel.DataType
 	series.TimeRange = i.internal.TimeRange().BoundBy(i.view)
 	series.Data = make([]byte, size)
-	series.Alignment = telem.Alignment(i.Channel.DataType.Density().SampleCount(offset))
+	inDomainAlignment := uint32(i.Channel.DataType.Density().SampleCount(offset))
+	// set the first 32 bits to the domain index, and the last 32 bits to the alignment
+	series.Alignment = telem.AlignmentPair(i.internal.Position())<<32 | telem.AlignmentPair(inDomainAlignment)
 	r, err := i.internal.NewReader(ctx)
 	if err != nil {
 		return

@@ -13,12 +13,12 @@ import (
 	"context"
 	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/errors"
 	"io"
 	"sync"
 
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/unary"
-	"github.com/synnaxlabs/x/errutil"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -84,7 +84,7 @@ func (db *DB) Read(_ context.Context, tr telem.TimeRange, keys ...core.ChannelKe
 
 // Close implements DB.
 func (db *DB) Close() error {
-	c := errutil.NewCatch(errutil.WithAggregation())
+	c := errors.NewCatcher(errors.WithAggregation())
 	db.closeControlDigests()
 	c.Exec(db.shutdown.Close)
 	for _, u := range db.unaryDBs {

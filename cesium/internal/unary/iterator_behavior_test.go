@@ -14,26 +14,28 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/unary"
+	"github.com/synnaxlabs/x/control"
+	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("Iterator Behavior", func() {
+var _ = Describe("Iterator Behavior", Ordered, func() {
 	for fsName, makeFS := range fileSystems {
-		fs := makeFS()
 		Context("FS: "+fsName, func() {
 			Describe("Channel Indexed", func() {
 				var (
-					db        *unary.DB
-					indexDB   *unary.DB
-					index     uint32 = 1
-					data      uint32 = 2
-					indexPath        = rootPath + "/iterator_test/index"
-					dataPath         = rootPath + "/iterator_test/data"
+					db      *unary.DB
+					indexDB *unary.DB
+					index   uint32 = 1
+					data    uint32 = 2
+					fs      xfs.FS
+					cleanUp func() error
 				)
 				BeforeEach(func() {
+					fs, cleanUp = makeFS()
 					indexDB = MustSucceed(unary.Open(unary.Config{
-						FS: MustSucceed(fs.Sub(indexPath)),
+						FS: MustSucceed(fs.Sub("index")),
 						Channel: core.Channel{
 							Key:      index,
 							DataType: telem.TimeStampT,
@@ -42,7 +44,7 @@ var _ = Describe("Iterator Behavior", func() {
 						},
 					}))
 					db = MustSucceed(unary.Open(unary.Config{
-						FS: MustSucceed(fs.Sub(dataPath)),
+						FS: MustSucceed(fs.Sub("data")),
 						Channel: core.Channel{
 							Key:      data,
 							DataType: telem.Int64T,
@@ -54,7 +56,7 @@ var _ = Describe("Iterator Behavior", func() {
 				AfterEach(func() {
 					Expect(db.Close()).To(Succeed())
 					Expect(indexDB.Close()).To(Succeed())
-					Expect(fs.Remove(rootPath)).To(Succeed())
+					Expect(cleanUp()).To(Succeed())
 				})
 
 				Describe("Happy Path", func() {
@@ -94,6 +96,34 @@ var _ = Describe("Iterator Behavior", func() {
 						Expect(iter.Len()).To(Equal(int64(5)))
 						Expect(iter.Prev(ctx, 1*telem.Second)).To(BeFalse())
 						Expect(iter.Close()).To(Succeed())
+					})
+					Specify("Value", func() {
+						// Test case added to fix the bug where immediately contiguous
+						// domains get flipped in order by read.
+						Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18))).To(Succeed())
+						w, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{Start: 10 * telem.SecondTS, End: 17 * telem.SecondTS, Subject: control.Subject{Key: "test_writer"}}))
+						Expect(w.Write(telem.NewSeriesV[telem.TimeStamp](10, 11, 12, 13, 14, 15, 16)))
+						_, err := w.Commit(ctx)
+						Expect(err).ToNot(HaveOccurred())
+						_, err = w.Close(ctx)
+						Expect(err).ToNot(HaveOccurred())
+
+						w, _ = MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{Start: 17 * telem.SecondTS, Subject: control.Subject{Key: "test_writer"}}))
+						Expect(w.Write(telem.NewSeriesV[int64](17, 18)))
+						_, err = w.Commit(ctx)
+						Expect(err).ToNot(HaveOccurred())
+						_, err = w.Close(ctx)
+						Expect(err).ToNot(HaveOccurred())
+
+						i := db.OpenIterator(unary.IterRange(telem.TimeRangeMax))
+						Expect(i.SeekFirst(ctx)).To(BeTrue())
+						Expect(i.Next(ctx, telem.TimeSpanMax)).To(BeTrue())
+
+						f := i.Value()
+						Expect(f.Series).To(HaveLen(2))
+						Expect(f.Series[0].TimeRange).To(Equal((10 * telem.SecondTS).Range(17 * telem.SecondTS)))
+						Expect(f.Series[1].TimeRange).To(Equal((17 * telem.SecondTS).Range(18*telem.SecondTS + 1)))
+						Expect(i.Close()).To(Succeed())
 					})
 				})
 
@@ -317,21 +347,34 @@ var _ = Describe("Iterator Behavior", func() {
 							Expect(iter.Next(ctx, unary.AutoSpan)).To(BeFalse())
 							Expect(iter.Close()).To(Succeed())
 						})
-
+						Specify("Multi Domain - Regression 1", func() {
+							var i telem.TimeStamp
+							for i = 1; i < 6; i++ {
+								Expect(unary.Write(ctx, indexDB, telem.SecondTS*i, telem.NewSecondsTSV(i))).To(Succeed())
+								Expect(unary.Write(ctx, db, telem.SecondTS*i, telem.NewSeriesV[int64](int64(i)))).To(Succeed())
+							}
+							iter := db.OpenIterator(unary.IteratorConfig{
+								Bounds:        telem.TimeRangeMax,
+								AutoChunkSize: 5,
+							})
+							Expect(iter.SeekFirst(ctx)).To(BeTrue())
+							Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
+							Expect(iter.Len()).To(Equal(int64(5)))
+						})
 					})
 				})
 			})
 			Describe("Close", func() {
-				var db = MustSucceed(unary.Open(unary.Config{
-					FS: MustSucceed(fs.Sub(rootPath)),
-					Channel: core.Channel{
-						Key:      2,
-						DataType: telem.TimeStampT,
-						IsIndex:  true,
-					},
-				}))
 				It("Should not allow operations on a closed iterator", func() {
+					fs, cleanUp := makeFS()
 					var (
+						db = MustSucceed(unary.Open(unary.Config{
+							FS: fs,
+							Channel: core.Channel{
+								Key:      2,
+								DataType: telem.TimeStampT,
+								IsIndex:  true,
+							}}))
 						i = db.OpenIterator(unary.IteratorConfig{Bounds: telem.TimeRangeMax})
 						e = core.EntityClosed("unary.iterator")
 					)
@@ -340,9 +383,9 @@ var _ = Describe("Iterator Behavior", func() {
 					Expect(i.Error()).To(MatchError(e))
 					Expect(i.Valid()).To(BeFalse())
 					Expect(i.Close()).To(Succeed())
+
+					Expect(cleanUp()).To(Succeed())
 				})
-				Expect(db.Close()).To(Succeed())
-				Expect(fs.Remove(rootPath)).To(Succeed())
 			})
 		})
 	}

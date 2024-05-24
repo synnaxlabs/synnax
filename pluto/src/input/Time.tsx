@@ -31,8 +31,7 @@ const DRAG_SCALE = {
   y: Number(TimeSpan.MINUTE.valueOf()),
 };
 
-export interface UseTimeProps
-  extends Pick<TimeProps, "value" | "onChange" | "tzInfo"> {}
+interface UseTimeProps extends Pick<TimeProps, "value" | "onChange" | "tzInfo"> {}
 
 export interface UseTimeReturn {
   inputValue: string;

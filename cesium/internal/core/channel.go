@@ -10,8 +10,8 @@
 package core
 
 import (
-	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )

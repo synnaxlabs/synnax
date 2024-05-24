@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type UnknownRecord, unknownRecordZ } from "@synnaxlabs/x";
+import { binary } from "@synnaxlabs/x/binary";
+import { type UnknownRecord, unknownRecordZ } from "@synnaxlabs/x/record";
 import { z } from "zod";
 
 export const keyZ = z.string().uuid();
@@ -16,10 +17,20 @@ export type Key = z.infer<typeof keyZ>;
 
 export type Params = Key | Key[];
 
+// --- VERY IMPORTANT ---
+// Synnax's encoders (in the binary package inside x) automatically convert the case
+// of keys in objects to snake_case and back to camelCase when encoding and decoding
+// respectively. This is done to ensure that the keys are consistent across all
+// languages and platforms. Sometimes workspaces have keys that are uuids, which have
+// dashes, and those get messed up. So we just use regular JSON for workspaces.
+const parse = (s: string): UnknownRecord => JSON.parse(s) as UnknownRecord;
+
 export const workspaceZ = z.object({
   name: z.string(),
   key: keyZ,
-  layout: unknownRecordZ.or(z.string().transform((s) => JSON.parse(s) as UnknownRecord)),
+  layout: unknownRecordZ.or(
+    z.string().transform((s) => JSON.parse(s) as UnknownRecord),
+  ),
 });
 
 export const workspaceRemoteZ = workspaceZ.omit({ layout: true }).extend({

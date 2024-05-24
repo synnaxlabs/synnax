@@ -11,7 +11,6 @@ package unary
 
 import (
 	"context"
-	"github.com/cockroachdb/errors"
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/controller"
@@ -20,9 +19,11 @@ import (
 	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
+	"math"
 )
 
 type WriterConfig struct {
@@ -65,11 +66,13 @@ var (
 	WriterClosedError = core.EntityClosed("unary.writer")
 )
 
+const AlwaysIndexPersistOnAutoCommit telem.TimeSpan = -1
+
 func (c WriterConfig) Validate() error {
 	v := validate.New("unary.WriterConfig")
 	validate.NotEmptyString(v, "Subject.Key", c.Subject.Key)
-	v.Ternary(c.End.Before(c.Start), "end timestamp must be after or equal to start timestamp")
-	return nil
+	v.Ternary("end", !c.End.IsZero() && c.End.Before(c.Start), "end timestamp must be after or equal to start timestamp")
+	return v.Error()
 }
 
 func (c WriterConfig) Override(other WriterConfig) WriterConfig {
@@ -110,6 +113,9 @@ type Writer struct {
 	// unnecessary index lookups by keeping track of the highest timestamp written.
 	// Only valid when Channel.IsIndex is true.
 	hwm telem.TimeStamp
+	// lastCommitFileSwitch describes whether the last commit involved a file switch.
+	// If it did, then it is necessary to resolve the timestamp for that commit this time.
+	lastCommitFileSwitch bool
 	// closed stores whether the writer is closed. Operations like Write and Commit do not
 	// succeed on closed writers.
 	closed bool
@@ -174,18 +180,19 @@ func (w *Writer) len(dw *domain.Writer) int64 {
 }
 
 // Write validates and writes the given array.
-func (w *Writer) Write(series telem.Series) (a telem.Alignment, err error) {
+func (w *Writer) Write(series telem.Series) (a telem.AlignmentPair, err error) {
 	if w.closed {
 		return 0, WriterClosedError
 	}
 	if err := w.Channel.ValidateSeries(series); err != nil {
 		return 0, err
 	}
+	// ok signifies whether w is allowed to write.
 	dw, ok := w.control.Authorize()
 	if !ok {
 		return 0, controller.Unauthorized(w.control.Subject.Name, w.Channel.Key)
 	}
-	a = telem.Alignment(w.len(dw.Writer))
+	a = telem.NewAlignmentPair(math.MaxUint32, uint32(w.len(dw.Writer)))
 	if w.Channel.IsIndex {
 		w.updateHwm(series)
 	}
@@ -233,6 +240,7 @@ func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.
 	if !ok {
 		return 0, controller.Unauthorized(w.control.Subject.String(), w.Channel.Key)
 	}
+
 	if end.IsZero() {
 		// We're using w.len - 1 here because we want the timestamp of the last
 		// written frame.

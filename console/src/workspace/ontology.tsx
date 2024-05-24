@@ -18,7 +18,7 @@ import { type UnknownRecord, deep } from "@synnaxlabs/x";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";
-import { PID } from "@/pid";
+import { Schematic } from "@/schematic";
 import { selectActiveKey } from "@/workspace/selectors";
 import { add, rename, setActive } from "@/workspace/slice";
 
@@ -45,7 +45,7 @@ const handleDelete = ({
   })();
 };
 
-const handleCreateNewPID = ({
+const handleCreateNewSchematic = ({
   store,
   client,
   services,
@@ -55,20 +55,20 @@ const handleCreateNewPID = ({
 }: Ontology.TreeContextMenuProps): void => {
   const ws = selection.resources[0].id.key;
   void (async () => {
-    const pid = await client.workspaces.pid.create(ws, {
-      name: "New PID",
+    const schematic = await client.workspaces.schematic.create(ws, {
+      name: "New Schematic",
       snapshot: false,
-      data: deep.copy(PID.ZERO_STATE) as unknown as UnknownRecord,
+      data: deep.copy(Schematic.ZERO_STATE) as unknown as UnknownRecord,
     });
     const otg = await client.ontology.retrieve(
-      new ontology.ID({ key: pid.key, type: "pid" }),
+      new ontology.ID({ key: schematic.key, type: "schematic" }),
     );
     placeLayout(
-      PID.create({
-        ...(pid.data as unknown as PID.State),
-        key: pid.key,
-        name: pid.name,
-        snapshot: pid.snapshot,
+      Schematic.create({
+        ...(schematic.data as unknown as Schematic.State),
+        key: schematic.key,
+        name: schematic.name,
+        snapshot: schematic.snapshot,
       }),
     );
     setResources([...resources, otg]);
@@ -95,8 +95,8 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
       case "group":
         void Group.fromSelection(props);
         return;
-      case "pid": {
-        return handleCreateNewPID(props);
+      case "schematic": {
+        return handleCreateNewSchematic(props);
       }
     }
   };
@@ -111,8 +111,8 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
       <Menu.Item itemKey="plot" startIcon={<Icon.Visualize />}>
         New Line Plot
       </Menu.Item>
-      <Menu.Item itemKey="pid" startIcon={<Icon.PID />}>
-        New PID
+      <Menu.Item itemKey="schematic" startIcon={<Icon.Schematic />}>
+        New Schematic
       </Menu.Item>
     </Menu.Menu>
   );

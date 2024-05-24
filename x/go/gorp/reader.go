@@ -13,10 +13,10 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/change"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/query"
@@ -134,9 +134,7 @@ func WrapIterator[E any](wrapped kv.Iterator, decoder binary.Decoder) *Iterator[
 // Value returns the decoded value from the iterator. Iterate.Alive must be true
 // for calls to return a valid value.
 func (k *Iterator[E]) Value(ctx context.Context) (entry *E) {
-	if k.value == nil {
-		k.value = new(E)
-	}
+	k.value = new(E)
 	if err := k.decoder.Decode(ctx, k.Iterator.Value(), k.value); err != nil {
 		k.err = err
 	}

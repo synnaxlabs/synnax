@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { toArray } from "@synnaxlabs/x";
+import { toArray } from "@synnaxlabs/x/toArray";
 import { z } from "zod";
 
 import {
@@ -17,6 +17,7 @@ import {
   keyZ,
   workspaceRemoteZ,
 } from "@/workspace/payload";
+import { nullableArrayZ } from "@/util/zod";
 
 const reqZ = z.object({
   keys: keyZ.array().optional(),
@@ -29,8 +30,10 @@ const reqZ = z.object({
 type Request = z.infer<typeof reqZ>;
 
 const resZ = z.object({
-  workspaces: workspaceRemoteZ.array(),
+  workspaces: nullableArrayZ(workspaceRemoteZ),
 });
+
+type Response = z.infer<typeof resZ>;
 
 export class Retriever {
   private static readonly ENDPOINT = "/workspace/retrieve";
@@ -59,6 +62,13 @@ export class Retriever {
   }
 
   private async execute(request: Request): Promise<Workspace[]> {
-    return (await sendRequired(this.client, Retriever.ENDPOINT, request, reqZ, resZ)).workspaces;
+    const res = await sendRequired(
+      this.client,
+      Retriever.ENDPOINT,
+      request,
+      reqZ,
+      resZ,
+    );
+    return res.workspaces;
   }
 }

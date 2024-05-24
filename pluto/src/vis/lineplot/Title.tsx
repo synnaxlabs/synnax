@@ -13,7 +13,7 @@ import { Align } from "@/align";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
-import { useGridPosition } from "@/vis/lineplot/LinePlot";
+import { useGridEntry } from "@/vis/lineplot/LinePlot";
 
 export type TitleProps<L extends Text.Level = "h2"> = Text.MaybeEditableProps<L>;
 
@@ -23,7 +23,7 @@ export const Title = <L extends Text.Level = "h2">({
 }: TitleProps<L>): ReactElement => {
   const key = useUniqueKey();
   const font = Theming.useTypography(level);
-  const gridStyle = useGridPosition(
+  const gridStyle = useGridEntry(
     {
       key,
       size: (font.lineHeight + 2) * font.baseSize,

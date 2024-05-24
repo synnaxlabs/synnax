@@ -14,12 +14,12 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/change"
+	"github.com/synnaxlabs/x/errors"
 	kvx "github.com/synnaxlabs/x/kv"
 	"go.uber.org/zap"
 )

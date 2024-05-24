@@ -18,19 +18,23 @@ import { useDispatch } from "react-redux";
 import { Cluster } from "@/cluster";
 import { Docs } from "@/docs";
 import { ErrorOverlay } from "@/error/Overlay";
+import { OPC } from "@/hardware/opc";
 import { Layout } from "@/layout";
 import { LayoutMain } from "@/layouts/LayoutMain";
-import { Mosaic } from "@/layouts/mosaic";
 import { LinePlot } from "@/lineplot";
 import { Ontology } from "@/ontology";
-import { PID } from "@/pid";
+import { Schematic } from "@/schematic";
 import { Range } from "@/range";
 import { SERVICES } from "@/services";
 import { store } from "@/store";
 import { Version } from "@/version";
 import { Vis } from "@/vis";
-import WorkerURL from "@/worker?worker&url";
 import { Workspace } from "@/workspace";
+import { NI } from "@/hardware/ni";
+
+import WorkerURL from "@/worker?worker&url";
+
+import { Channel } from "@/channel";
 
 import "@/index.css";
 import "@synnaxlabs/media/dist/style.css";
@@ -38,16 +42,18 @@ import "@synnaxlabs/pluto/dist/style.css";
 
 const layoutRenderers: Record<string, Layout.Renderer> = {
   main: LayoutMain,
-  connectCluster: Cluster.Connect,
-  visualization: Vis.LayoutSelector,
-  defineRange: Range.EditLayout,
-  getStarted: Layout.GetStarted,
-  docs: Docs.Docs,
-  vis: Vis.LayoutSelector,
-  mosaic: Mosaic.Window,
-  createWorkspace: Workspace.Create,
-  [LinePlot.LAYOUT_TYPE]: LinePlot.LinePlot,
-  [PID.LAYOUT_TYPE]: PID.PID,
+  ...Docs.LAYOUTS,
+  ...Layout.LAYOUTS,
+  ...Vis.LAYOUTS,
+  ...Workspace.LAYOUTS,
+  ...Schematic.LAYOUTS,
+  ...LinePlot.LAYOUTS,
+  ...OPC.LAYOUTS,
+  ...Range.LAYOUTS,
+  ...Cluster.LAYOUTS,
+  ...NI.LAYOUTS,
+  ...Channel.LAYOUTS,
+  ...Version.LAYOUTS,
 };
 
 const PREVENT_DEFAULT_TRIGGERS: Triggers.Trigger[] = [
@@ -62,29 +68,24 @@ const triggersProps: Triggers.ProviderProps = {
 
 const client = new QueryClient();
 
+const useHaulState: state.PureUse<Haul.DraggingState> = () => {
+  const hauled = Layout.useSelectHauling();
+  const dispatch = useDispatch();
+  const onHauledChange = useCallback(
+    (state: Haul.DraggingState) => dispatch(Layout.setHauled(state)),
+    [dispatch],
+  );
+  return [hauled, onHauledChange];
+};
+
 const MainUnderContext = (): ReactElement => {
   const theme = Layout.useThemeProvider();
-  Version.useLoadTauri();
   const cluster = Cluster.useSelect();
-
-  const useHaulState: state.PureUse<Haul.DraggingState> = () => {
-    const hauled = Layout.useSelectHauling();
-    const dispatch = useDispatch();
-    const onHauledChange = useCallback(
-      (state: Haul.DraggingState) => {
-        dispatch(Layout.setHauled(state));
-      },
-      [dispatch],
-    );
-    return [hauled, onHauledChange];
-  };
-
   const activeRange = Range.useSelect();
-
   return (
     <QueryClientProvider client={client}>
       <Pluto.Provider
-        {...theme}
+        theming={theme}
         channelAlias={{ activeRange: activeRange?.key }}
         workerEnabled
         connParams={cluster?.props}
@@ -92,8 +93,8 @@ const MainUnderContext = (): ReactElement => {
         triggers={triggersProps}
         haul={{ useState: useHaulState }}
         alamos={{
-          level: "info",
-          include: ["aether.telem"],
+          level: "debug",
+          include: [],
         }}
       >
         <Vis.Canvas>
@@ -104,19 +105,17 @@ const MainUnderContext = (): ReactElement => {
   );
 };
 
-const Main = (): ReactElement => {
-  return (
-    <Provider store={store}>
-      <ErrorOverlay>
-        <Layout.RendererProvider value={layoutRenderers}>
-          <Ontology.ServicesProvider services={SERVICES}>
-            <MainUnderContext />
-          </Ontology.ServicesProvider>
-        </Layout.RendererProvider>
-      </ErrorOverlay>
-    </Provider>
-  );
-};
+const Main = (): ReactElement => (
+  <Provider store={store}>
+    <ErrorOverlay>
+      <Layout.RendererProvider value={layoutRenderers}>
+        <Ontology.ServicesProvider services={SERVICES}>
+          <MainUnderContext />
+        </Ontology.ServicesProvider>
+      </Layout.RendererProvider>
+    </ErrorOverlay>
+  </Provider>
+);
 
 const rootEl = document.getElementById("root") as unknown as HTMLElement;
 

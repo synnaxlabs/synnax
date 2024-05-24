@@ -16,7 +16,7 @@ export default defineConfig({
   plugins: [lib({ name: "pluto" })],
   build: {
     sourcemap: true,
-    minify: true,
+    minify: false,
     lib: {
       entry: {
         index: path.resolve(".", "src/index.ts"),

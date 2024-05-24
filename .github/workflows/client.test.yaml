@@ -65,6 +65,7 @@ jobs:
           SYNNAX_VERBOSE: true
           SYNNAX_INSECURE: true
           SYNNAX_MEM: true
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
 
         credentials:
           username: ${{ github.actor }}
@@ -129,6 +130,7 @@ jobs:
           SYNNAX_VERBOSE: true
           SYNNAX_INSECURE: true
           SYNNAX_MEM: true
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
 
         credentials:
           username: ${{ github.actor }}

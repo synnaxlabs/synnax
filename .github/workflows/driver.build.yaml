@@ -1,0 +1,47 @@
+name: "Driver Build"
+on:
+  push:
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Update Submodules
+        run: git submodule update --init --recursive
+
+      - name: Setup Bazel
+        uses: bazel-contrib/setup-bazel@0.8.1
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}
+          repository-cache: true
+
+      - uses: GuillaumeFalourd/setup-windows10-sdk-action@v2
+        with:
+          sdk-version: 22000
+
+      - name: Build Open62541
+        shell: bash
+        run: |
+          mkdir build && cd build
+          cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DUA_NAMESPACE_ZERO=FULL -DCMAKE_INSTALL_PREFIX=../out ..
+          cmake --build . --config RelWithDebInfo --target install
+        working-directory: driver/vendor/open62541/open62541
+
+      - name: Build Driver on Windows
+        if: ${{ matrix.platform == 'windows-latest' }}
+        run: bazel --output_user_root=C:/tmp build --enable_platform_specific_config //driver:driver_main --define ni_mock=true
+
+      - name: Build Driver on mac
+        if: ${{ matrix.platform == 'macos-latest' }}
+        run: bazel build --enable_platform_specific_config //driver:driver_main --define ni_mock=true
+
+      - name: Build Driver on ubuntu
+        if: ${{ matrix.platform == 'ubuntu-latest' }}
+        run: bazel build --enable_platform_specific_config //driver:driver_main --define ni_mock=true

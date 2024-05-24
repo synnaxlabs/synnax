@@ -11,13 +11,13 @@ import {
   Size,
   Series,
   TimeRange,
-  toArray,
   DataType,
-  unique,
   TimeStamp,
   type TelemValue,
   MultiSeries,
-} from "@synnaxlabs/x";
+} from "@synnaxlabs/x/telem";
+import { toArray } from "@synnaxlabs/x/toArray";
+import { unique } from "@synnaxlabs/x/unique";
 import { z } from "zod";
 
 import {
@@ -142,8 +142,8 @@ export class Frame {
     }
 
     throw new ValidationError(
-      `[Frame] - invalid frame construction parameters. data parameter ust be a frame 
-    payload, a list of lazy arrays, a lazy array, a map, or a record keyed by channel 
+      `[Frame] - invalid frame construction parameters. data parameter ust be a frame
+    payload, a list of lazy arrays, a lazy array, a map, or a record keyed by channel
     name. keys parameter must be a set of channel keys or channel names.`,
     );
   }
@@ -398,7 +398,10 @@ export class Frame {
 
 export const series = z.object({
   timeRange: TimeRange.z.optional(),
-  alignment: z.number().optional(),
+  alignment: z
+    .bigint()
+    .or(z.string().transform((s) => BigInt(s)))
+    .optional(),
   dataType: DataType.z,
   data: z.string().transform(
     (s) =>

@@ -16,8 +16,8 @@ import {
   TimeSpan,
 } from "@synnaxlabs/x";
 
-import { type KeysOrNames, type KeyOrName, type Params } from "@/channel/payload";
-import { type Retriever, analyzeParams } from "@/channel/retriever";
+import { KeysOrNames, type KeyOrName, type Params } from "@/channel/payload";
+import { type Retriever, analyzeChannelParams } from "@/channel/retriever";
 import { Frame } from "@/framer/frame";
 import { Iterator } from "@/framer/iterator";
 import { Streamer, type StreamerConfig } from "@/framer/streamer";
@@ -50,7 +50,9 @@ export class Client {
    * writerConfig for more detail.
    * @returns a new {@link RecordWriter}.
    */
-  async openWriter(config: WriterConfig): Promise<Writer> {
+  async openWriter(config: WriterConfig | Params): Promise<Writer> {
+    if (Array.isArray(config) || typeof config !== "object")
+      config = { channels: config as Params };
     return await Writer._open(this.retriever, this.stream, config);
   }
 
@@ -76,12 +78,12 @@ export class Client {
    * and then will start reading new values.
    *
    */
-  async openStreamer(config: StreamerConfig): Promise<Streamer>;
+  async openStreamer(config: StreamerConfig | Params): Promise<Streamer>;
 
   async openStreamer(config: StreamerConfig | Params): Promise<Streamer> {
-    const isObject = typeof config === "object";
-    if (Array.isArray(config) || !isObject) config = { channels: config as Params };
-    return await Streamer._open(this.retriever, this.stream, config as StreamerConfig);
+    if (Array.isArray(config) || typeof config !== "object")
+      config = { channels: config as Params };
+    return await Streamer._open(this.retriever, this.stream, config);
   }
 
   async write(
@@ -149,7 +151,7 @@ export class Client {
   async read(tr: CrudeTimeRange, channels: Params): Promise<Frame>;
 
   async read(tr: CrudeTimeRange, channels: Params): Promise<MultiSeries | Frame> {
-    const { single } = analyzeParams(channels);
+    const { single } = analyzeChannelParams(channels);
     const fr = await this.readFrame(tr, channels);
     if (single) return fr.get(channels as KeyOrName);
     return fr;

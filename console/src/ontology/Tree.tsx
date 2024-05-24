@@ -18,6 +18,7 @@ import {
   useStateRef as useRefAsState,
   useCombinedStateAndRef,
   type state,
+  Status,
 } from "@synnaxlabs/pluto";
 import { Tree as Core } from "@synnaxlabs/pluto/tree";
 import { deep } from "@synnaxlabs/x";
@@ -72,7 +73,9 @@ const loadInitialTree = async (
   setNodes: state.Set<Core.Node[]>,
   setResources: state.Set<ontology.Resource[]>,
 ): Promise<void> => {
-  const fetched = await client.ontology.retrieveChildren(ontology.Root, true, true);
+  const fetched = await client.ontology.retrieveChildren(ontology.Root, {
+    includeSchema: true,
+  });
   setNodes(toTreeNodes(services, fetched));
   setResources((p) => updateResources(p, fetched));
 };
@@ -181,6 +184,7 @@ export const Tree = (): ReactElement => {
   const [nodes, setNodes, nodesRef] = useCombinedStateAndRef<Core.Node[]>([]);
   const [resourcesRef, setResources] = useRefAsState<ontology.Resource[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
+  const addStatus = Status.useAggregator();
 
   const menuProps = Menu.useContextMenu();
 
@@ -263,7 +267,9 @@ export const Tree = (): ReactElement => {
         const id = new ontology.ID(clicked);
         try {
           setLoading(clicked);
-          const resources = await client.ontology.retrieveChildren(id, true, true);
+          const resources = await client.ontology.retrieveChildren(id, {
+            includeSchema: true,
+          });
           const converted = toTreeNodes(services, resources);
           const nextTree = Core.setNode({
             tree: nodesRef.current,
@@ -299,6 +305,7 @@ export const Tree = (): ReactElement => {
         placeLayout,
         removeLayout,
         name,
+        addStatus,
         state: {
           nodes: nodesSnapshot,
           resources: resourcesRef.current,
@@ -321,6 +328,7 @@ export const Tree = (): ReactElement => {
         services,
         placeLayout,
         removeLayout,
+        addStatus,
         selection: resourcesRef.current.filter(({ id }) => id.toString() === key),
       });
     },
@@ -366,6 +374,7 @@ export const Tree = (): ReactElement => {
         services,
         placeLayout,
         removeLayout,
+        addStatus,
         selection: {
           parent,
           nodes: selectedNodes,

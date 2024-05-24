@@ -43,9 +43,9 @@ export class Active {
   async setActive(range: Key): Promise<void> {
     await sendRequired<typeof setActiveReqZ, typeof setActiveResZ>(
       this.client,
-      SET_ENDPOINT, 
-      { range }, 
-      setActiveReqZ, 
+      SET_ENDPOINT,
+      { range },
+      setActiveReqZ,
       setActiveResZ,
     );
   }
@@ -65,8 +65,8 @@ export class Active {
   async clearActive(range: Key): Promise<void> {
     await sendRequired<typeof clearActiveReqZ, typeof clearActiveResZ>(
       this.client,
-      CLEAR_ENDPOINT, 
-      { range }, 
+      CLEAR_ENDPOINT,
+      { range },
       clearActiveReqZ,
       clearActiveResZ,
     );

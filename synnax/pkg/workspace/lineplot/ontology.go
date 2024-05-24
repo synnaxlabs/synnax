@@ -45,10 +45,10 @@ var _schema = &ontology.Schema{
 	},
 }
 
-func newResource(pid LinePlot) schema.Resource {
-	e := schema.NewResource(_schema, OntologyID(pid.Key), pid.Name)
-	schema.Set(e, "key", pid.Key.String())
-	schema.Set(e, "name", pid.Name)
+func newResource(schematic LinePlot) schema.Resource {
+	e := schema.NewResource(_schema, OntologyID(schematic.Key), schematic.Name)
+	schema.Set(e, "key", schematic.Key.String())
+	schema.Set(e, "name", schematic.Name)
 	return e
 }
 
@@ -62,9 +62,9 @@ func (s *Service) Schema() *schema.Schema { return _schema }
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (ontology.Resource, error) {
 	k := uuid.MustParse(key)
-	var pid LinePlot
-	err := s.NewRetrieve().WhereKeys(k).Entry(&pid).Exec(ctx, tx)
-	return newResource(pid), err
+	var schematic LinePlot
+	err := s.NewRetrieve().WhereKeys(k).Entry(&schematic).Exec(ctx, tx)
+	return newResource(schematic), err
 }
 
 func translateChange(c change) schema.Change {

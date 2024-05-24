@@ -9,7 +9,7 @@
 
 import { z } from "zod";
 
-import { Case } from "@/case";
+import { caseconv } from "@/caseconv";
 import {
   location,
   type Location,
@@ -26,7 +26,7 @@ import {
   type Direction,
   crudeLocation,
   type CrudeLocation,
-  centerlocation,
+  centerLocation,
   type CenterLocation,
 } from "@/spatial/base";
 
@@ -85,8 +85,8 @@ export const direction = (cl: Crude): Direction => {
 };
 
 export const xy = z.object({
-  x: xLocation.or(centerlocation),
-  y: yLocation.or(centerlocation),
+  x: xLocation.or(centerLocation),
+  y: yLocation.or(centerLocation),
 });
 export const corner = z.object({ x: xLocation, y: yLocation });
 
@@ -140,7 +140,7 @@ export const isX = (a: Crude): a is XLocation | CenterLocation =>
 
 export const isY = (a: Crude): a is YLocation => direction(construct(a)) === "y";
 
-export const xyToString = (a: XY): string => `${a.x}${Case.capitalize(a.y)}`;
+export const xyToString = (a: XY): string => `${a.x}${caseconv.capitalize(a.y)}`;
 
 export const constructXY = (x: Crude | XY, y?: Crude): XY => {
   let parsedX: Location;

@@ -18,7 +18,6 @@ import {
   Synnax,
   useDebouncedCallback,
 } from "@synnaxlabs/pluto";
-import { type Tabs } from "@synnaxlabs/pluto/tabs";
 import { type location } from "@synnaxlabs/x";
 import { useDispatch, useStore } from "react-redux";
 
@@ -73,7 +72,12 @@ export const Mosaic = memo((): ReactElement => {
   const handleCreate = useCallback(
     (mosaicKey: number, location: location.Location, tabKeys?: string[]) => {
       if (tabKeys == null) {
-        placer(Vis.create({ tab: { mosaicKey, location }, location: "mosaic" }));
+        placer(
+          Vis.createLayoutSelector({
+            tab: { mosaicKey, location },
+            location: "mosaic",
+          }),
+        );
         return;
       }
       tabKeys.forEach((tabKey) => {
@@ -89,7 +93,13 @@ export const Mosaic = memo((): ReactElement => {
             location,
             placeLayout: placer,
           });
-        } else placer(Vis.create({ tab: { mosaicKey, location }, location: "mosaic" }));
+        } else
+          placer(
+            Vis.createLayoutSelector({
+              tab: { mosaicKey, location },
+              location: "mosaic",
+            }),
+          );
       });
     },
     [placer, store, client],
@@ -141,7 +151,7 @@ export const Mosaic = memo((): ReactElement => {
       onRename={handleRename}
       onCreate={handleCreate}
     >
-      {({ tabKey }: Tabs.Tab) => <Content key={tabKey} layoutKey={tabKey} />}
+      {({ tabKey }) => <Content key={tabKey} layoutKey={tabKey} />}
     </Core.Mosaic>
   );
 });

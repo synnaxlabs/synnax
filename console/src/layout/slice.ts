@@ -14,7 +14,7 @@ import { Haul, Mosaic, Theming } from "@synnaxlabs/pluto";
 import { migrate, type deep, type location } from "@synnaxlabs/x";
 import { nanoid } from "nanoid/non-secure";
 
-import { type LayoutState } from "@/layout/layout";
+import { type State } from "@/layout/layout";
 
 /** The state of the layout slice */
 export interface SliceState extends migrate.Migratable {
@@ -28,7 +28,7 @@ export interface SliceState extends migrate.Migratable {
    * A record of layout keys to layouts. These represent the properties of all layouts
    * currently rendered in the mosaic or in external windows.
    */
-  layouts: Record<string, LayoutState>;
+  layouts: Record<string, State>;
   hauling: Haul.DraggingState;
   mosaics: Record<string, MosaicState>;
   nav: { main: MainNavState } & Record<string, PartialNavState>;
@@ -77,7 +77,7 @@ export interface StoreState {
   [SLICE_NAME]: SliceState;
 }
 
-export const MAIN_LAYOUT: LayoutState = {
+export const MAIN_LAYOUT: State = {
   name: "Main",
   key: "main",
   type: "main",
@@ -105,12 +105,20 @@ const MIGRATIONS: migrate.Migrations = {
     },
     version: "0.1.0",
   }),
+  "0.1.0": (state: SliceState): SliceState => ({
+    ...state,
+    themes: {
+      synnaxDark: Theming.SYNNAX_THEMES.synnaxDark,
+      synnaxLight: Theming.SYNNAX_THEMES.synnaxLight,
+    },
+    version: "0.2.0",
+  }),
 };
 
 export const migrateSlice = migrate.migrator<SliceState, SliceState>(MIGRATIONS);
 
 export const ZERO_SLICE_STATE: SliceState = {
-  version: "0.1.0",
+  version: "0.2.0",
   activeTheme: "synnaxDark",
   themes: Theming.SYNNAX_THEMES,
   alreadyCheckedGetStarted: false,
@@ -126,11 +134,11 @@ export const ZERO_SLICE_STATE: SliceState = {
       drawers: {
         left: {
           activeItem: null,
-          menuItems: ["clusters", "resources"],
+          menuItems: ["resources"],
         },
         right: {
           activeItem: null,
-          menuItems: ["range"],
+          menuItems: ["range", "task"],
         },
         bottom: {
           activeItem: null,
@@ -146,7 +154,7 @@ export const PERSIST_EXCLUDE = ["alreadyCheckedGetStarted"].map(
 ) as Array<deep.Key<StoreState>>;
 
 /** Signature for the placeLayout action. */
-export type PlacePayload = LayoutState;
+export type PlacePayload = State;
 /** Signature for the removeLayout action. */
 export interface RemovePayload {
   keys: string[];
@@ -196,6 +204,8 @@ interface SetNavdrawerVisiblePayload {
   location?: NavdrawerLocation;
   value?: boolean;
 }
+
+export const GET_STARTED_LAYOUT_TYPE = "getStarted";
 
 export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
@@ -393,16 +403,16 @@ export const { actions, reducer } = createSlice({
         state.mosaics[MAIN_WINDOW].root,
         {
           closable: true,
-          tabKey: "getStarted",
+          tabKey: GET_STARTED_LAYOUT_TYPE,
           name: "Get Started",
           editable: false,
         },
       );
       state.layouts.getStarted = {
         name: "Get Started",
-        key: "getStarted",
+        key: GET_STARTED_LAYOUT_TYPE,
         location: "mosaic",
-        type: "getStarted",
+        type: GET_STARTED_LAYOUT_TYPE,
         windowKey: MAIN_WINDOW,
       };
     },
@@ -453,7 +463,7 @@ export type Payload = Action["payload"];
 
 const MOSAIC_WINDOW_TYPE = "mosaic";
 
-export const createMosaicWindow = (): Omit<LayoutState, "windowKey"> => ({
+export const createMosaicWindow = (): Omit<State, "windowKey"> => ({
   key: nanoid(),
   name: "Mosaic",
   type: MOSAIC_WINDOW_TYPE,
@@ -461,5 +471,6 @@ export const createMosaicWindow = (): Omit<LayoutState, "windowKey"> => ({
   window: {
     size: { width: 800, height: 600 },
     navTop: true,
+    visible: true,
   },
 });

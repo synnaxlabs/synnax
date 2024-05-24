@@ -31,10 +31,10 @@ package pledge
 
 import (
 	"context"
-	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/iter"
 	xrand "github.com/synnaxlabs/x/rand"
 	xtime "github.com/synnaxlabs/x/time"
@@ -278,8 +278,8 @@ func (j *juror) verdict(ctx context.Context, req Request) (err error) {
 	j.L.Debug("juror received proposal. making verdict", logID)
 	j.mu.Lock()
 	defer j.mu.Unlock()
-	for _, appID := range j.approvals {
-		if appID == req.Key {
+	for _, apschematic := range j.approvals {
+		if apschematic == req.Key {
 			j.L.Warn("juror rejected proposal. already approved for a different pledge", logID)
 			err = proposalRejected
 			return

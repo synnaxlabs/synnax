@@ -29,7 +29,7 @@ import { useDispatch } from "react-redux";
 import { Menu } from "@/components";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
-import { editLayout } from "@/range/EditLayout";
+import { createEditLayout } from "@/range/EditLayout";
 import type { Range, StaticRange } from "@/range/range";
 import { useSelect, useSelectMultiple } from "@/range/selectors";
 import { add, remove, setActive } from "@/range/slice";
@@ -74,7 +74,7 @@ export const List = (): ReactElement => {
   const selectedRange = useSelect();
 
   const handleAddOrEdit = (key?: string): void => {
-    const layout = editLayout(key == null ? "Create Range" : "Edit Range");
+    const layout = createEditLayout(key == null ? "Create Range" : "Edit Range");
     newLayout({
       ...layout,
       key: key ?? layout.key,

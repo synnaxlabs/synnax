@@ -61,7 +61,7 @@ const TestList = (): ReactElement => {
         <List.Selector value={selected} onChange={setSelected}>
           <List.Column.Header columns={cols}>
             <List.Core.Virtual<string> itemHeight={30}>
-              {(props) => <List.Column.Item {...props} />}
+              {({ key, ...props }) => <List.Column.Item key={key} {...props} />}
             </List.Core.Virtual>
           </List.Column.Header>
         </List.Selector>

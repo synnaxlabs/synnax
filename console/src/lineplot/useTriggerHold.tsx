@@ -25,6 +25,7 @@ export const useTriggerHold = (triggers: Config): void => {
   const flat = Triggers.useFlattenedMemoConfig(triggers);
   Triggers.use({
     triggers: flat,
+    loose: true,
     callback: useCallback(
       (e: Triggers.UseEvent) => {
         const mode = Triggers.determineMode(triggersRef.current, e.triggers);

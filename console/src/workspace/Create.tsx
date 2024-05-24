@@ -21,19 +21,20 @@ import { type SliceState } from "@/layout/slice";
 import { useSelectActiveKey } from "@/workspace/selectors";
 import { add } from "@/workspace/slice";
 
+export const CREATE_LAYOUT_TYPE = "createWorkspace";
+
 export const createWindowLayout = (
   name: string = "Create Workspace",
-): Layout.LayoutState => ({
-  key: "createWorkspace",
-  type: "createWorkspace",
-  windowKey: "createWorkspace",
+): Layout.State => ({
+  key: CREATE_LAYOUT_TYPE,
+  type: CREATE_LAYOUT_TYPE,
+  windowKey: CREATE_LAYOUT_TYPE,
   name,
   location: "window",
   window: {
     resizable: false,
     size: { height: 225, width: 625 },
     navTop: true,
-    transparent: true,
   },
 });
 
@@ -71,7 +72,12 @@ export const Create = ({ onClose }: Layout.RendererProps): ReactElement => {
 
   return (
     <Align.Space style={{ height: "100%" }}>
-      <Align.Space className="console-form" justify="center" grow>
+      <Align.Space
+        className="console-form"
+        style={{ padding: "1rem 3rem" }}
+        justify="center"
+        grow
+      >
         <Form.Form {...methods}>
           <Form.Field<string> path="name">
             {(p) => (

@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, Rate, TimeStamp } from "@synnaxlabs/x";
-import { describe, test, expect, it } from "vitest";
+import { DataType, Rate, TimeStamp } from "@synnaxlabs/x/telem";
+import { describe, expect, test, it } from "vitest";
 
 import { Channel } from "@/channel/client";
-import { QueryError } from "@/errors";
+import { NotFoundError, QueryError } from "@/errors";
 import { newClient } from "@/setupspecs";
 
 const client = newClient();
@@ -185,7 +185,7 @@ describe("Channel", () => {
   });
   test("retrieve by key - not found", async () => {
     await expect(async () => await client.channels.retrieve("1-1000")).rejects.toThrow(
-      QueryError,
+      NotFoundError,
     );
   });
   test("retrieve by name", async () => {

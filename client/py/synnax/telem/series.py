@@ -196,6 +196,9 @@ class Series(Payload):
             yield self.data[curr:end]
             curr = end + 1
 
+    def __str__(self) -> str:
+        return str(list(self))
+
     @property
     def size(self) -> Size:
         """:returns: A Size representing the number of bytes in the Series' data."""

@@ -1,4 +1,5 @@
 import time
+import numpy as np
 
 import synnax as sy
 
@@ -20,6 +21,13 @@ VENT_CMD = "vent_cmd"
 VENT_ACK = "vent_ack"
 PRESS_TANK_PT = "press_tank_pt"
 FUEL_TANK_PT = "fuel_tank_pt"
+PRESS_TANK_PT_2 = "press_tank_pt_2"
+FUEL_TANK_PT_2 = "fuel_tank_pt_2"
+FUEL_TANK_TC_1 = "fuel_tank_tc_1"
+FUEL_TANK_TC_2 = "fuel_tank_tc_2"
+PRESS_TANK_TC_1 = "press_tank_tc_1"
+PRESS_TANK_TC_2 = "press_tank_tc_2"
+SUPPLY_PT = "supply_pt"
 
 daq_time = client.channels.create(
     name=DAQ_TIME,
@@ -106,6 +114,55 @@ client.channels.create(
     retrieve_if_name_exists=True,
 )
 
+client.channels.create(
+    name=PRESS_TANK_PT_2,
+    data_type=sy.DataType.FLOAT32,
+    index=daq_time.key,
+    retrieve_if_name_exists=True,
+)
+
+client.channels.create(
+    name=FUEL_TANK_PT_2,
+    data_type=sy.DataType.FLOAT32,
+    index=daq_time.key,
+    retrieve_if_name_exists=True,
+)
+
+client.channels.create(
+    name=FUEL_TANK_TC_1,
+    data_type=sy.DataType.FLOAT32,
+    index=daq_time.key,
+    retrieve_if_name_exists=True,
+)
+
+client.channels.create(
+    name=FUEL_TANK_TC_2,
+    data_type=sy.DataType.FLOAT32,
+    index=daq_time.key,
+    retrieve_if_name_exists=True,
+)
+
+client.channels.create(
+    name=PRESS_TANK_TC_1,
+    data_type=sy.DataType.FLOAT32,
+    index=daq_time.key,
+    retrieve_if_name_exists=True,
+)
+
+client.channels.create(
+    name=PRESS_TANK_TC_2,
+    data_type=sy.DataType.FLOAT32,
+    index=daq_time.key,
+    retrieve_if_name_exists=True,
+)
+
+client.channels.create(
+    name=SUPPLY_PT,
+    data_type=sy.DataType.FLOAT32,
+    index=daq_time.key,
+    retrieve_if_name_exists=True,
+)
+
 rate = (sy.Rate.HZ * 50).period.seconds
 
 DAQ_STATE = {
@@ -119,9 +176,12 @@ DAQ_STATE = {
     FUEL_TANK_PT: 0,
 }
 
+PREV_STATE = DAQ_STATE.copy()
+
 MPV_LAST_OPEN = None
 scuba_pressure = 0
 l_stand_pressure = 0
+supply_pressure = 4000
 
 with client.open_streamer(
     [
@@ -141,6 +201,13 @@ with client.open_streamer(
             VENT_ACK,
             FUEL_TANK_PT,
             PRESS_TANK_PT,
+            FUEL_TANK_PT_2,
+            PRESS_TANK_PT_2,
+            PRESS_TANK_TC_1,
+            PRESS_TANK_TC_2,
+            FUEL_TANK_TC_1,
+            FUEL_TANK_TC_2,
+            SUPPLY_PT
         ],
     ) as w:
         i = 0
@@ -151,13 +218,13 @@ with client.open_streamer(
                     while streamer.received:
                         f = streamer.read()
                         for k in f.channels:
-                            print(k, f[k])
                             DAQ_STATE[k] = f[k][0]
 
-                mpv_open = DAQ_STATE[MPV_CMD] == 1
-                tpc_open = DAQ_STATE[TPC_CMD] == 1
-                press_iso_open = DAQ_STATE[PRESS_ISO_CMD] == 1
-                vent_open = DAQ_STATE[VENT_CMD] == 1
+                mpv_open = PREV_STATE[MPV_CMD] == 1
+                tpc_open = PREV_STATE[TPC_CMD] == 1
+                press_iso_open = PREV_STATE[PRESS_ISO_CMD] == 1
+                vent_open = PREV_STATE[VENT_CMD] == 1
+                PREV_STATE = DAQ_STATE.copy()
 
                 if mpv_open and MPV_LAST_OPEN is None:
                     MPV_LAST_OPEN = sy.TimeStamp.now()
@@ -168,7 +235,9 @@ with client.open_streamer(
                 scuba_delta = 0
 
                 if press_iso_open:
+                    supply_pressure -= 0.1
                     scuba_delta += 2.5
+
 
                 if (
                     tpc_open
@@ -205,8 +274,15 @@ with client.open_streamer(
                         MPV_ACK: int(mpv_open),
                         PRESS_ISO_ACK: int(press_iso_open),
                         VENT_ACK: int(vent_open),
-                        PRESS_TANK_PT: scuba_pressure,
-                        FUEL_TANK_PT: l_stand_pressure,
+                        PRESS_TANK_PT: scuba_pressure + np.random.normal(0, 0.1),
+                        FUEL_TANK_PT: l_stand_pressure + np.random.normal(0, 0.1),
+                        PRESS_TANK_PT_2: scuba_pressure + np.random.normal(0, 0.1),
+                        FUEL_TANK_PT_2: l_stand_pressure + np.random.normal(0, 0.1),
+                        FUEL_TANK_TC_1: 23 + np.random.normal(0, 0.1),
+                        FUEL_TANK_TC_2: 23 + np.random.normal(0, 0.1),
+                        PRESS_TANK_TC_1: 22 + np.random.normal(0, 0.1),
+                        PRESS_TANK_TC_2: 21 + np.random.normal(0, 0.3),
+                        SUPPLY_PT: supply_pressure + np.random.normal(0, 0.1),
                     }
                 )
 

@@ -36,7 +36,7 @@ describe("DynamicCache", () => {
         dataType: DataType.FLOAT32,
       });
       cache.write([arr]);
-      const { flushed, allocated } = cache.write([arr.reAlign(3)]);
+      const { flushed, allocated } = cache.write([arr.reAlign(3n)]);
       expect(flushed).toHaveLength(0);
       expect(allocated).toHaveLength(0);
       expect(cache.length).toEqual(arr.length * 2);
@@ -79,15 +79,15 @@ describe("DynamicCache", () => {
       expect(res1.allocated[0].timeRange.end.valueOf()).toEqual(
         TimeStamp.MAX.valueOf(),
       );
-      const res2 = cache.write([arr.reAlign(3)]);
+      const res2 = cache.write([arr.reAlign(3n)]);
       expect(res2.allocated).toHaveLength(0);
       expect(res2.flushed).toHaveLength(0);
-      const res3 = cache.write([arr.reAlign(6)]);
+      const res3 = cache.write([arr.reAlign(6n)]);
       expect(res3.allocated).toHaveLength(0);
       expect(res3.flushed).toHaveLength(0);
       const waitSpan = TimeSpan.milliseconds(10);
       await new Promise((resolve) => setTimeout(resolve, waitSpan.milliseconds));
-      const { flushed, allocated } = cache.write([arr.reAlign(9)]);
+      const { flushed, allocated } = cache.write([arr.reAlign(9n)]);
       expect(allocated).toHaveLength(1);
       expect(allocated[0].timeRange.start.sub(TimeStamp.now()).valueOf()).toBeLessThan(
         TimeSpan.milliseconds(3).valueOf(),
@@ -111,7 +111,7 @@ describe("DynamicCache", () => {
       const { flushed, allocated } = cache.write([s1]);
       expect(flushed).toHaveLength(0);
       expect(allocated).toHaveLength(1);
-      const s2 = s1.reAlign(5);
+      const s2 = s1.reAlign(5n);
       const { flushed: f2, allocated: a2 } = cache.write([s2]);
       expect(f2).toHaveLength(1);
       expect(a2).toHaveLength(1);
@@ -122,7 +122,7 @@ describe("DynamicCache", () => {
         data: new Float32Array([1, 2, 3]),
         dataType: DataType.FLOAT32,
       });
-      const s2 = s1.reAlign(5);
+      const s2 = s1.reAlign(5n);
       const { flushed, allocated } = cache.write([s1, s2]);
       expect(flushed).toHaveLength(1);
       expect(allocated[1].timeRange.start.sub(TimeStamp.now()).valueOf()).toBeLessThan(

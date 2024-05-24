@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeSpan, TimeStamp, URL } from "@synnaxlabs/x";
+import { TimeSpan, TimeStamp } from "@synnaxlabs/x/telem";
+import { URL } from "@synnaxlabs/x/url";
 import { z } from "zod";
 
 import { auth } from "@/auth";
@@ -26,8 +27,20 @@ import { Transport } from "@/transport";
 import { workspace } from "@/workspace";
 
 export const synnaxPropsZ = z.object({
-  host: z.string().min(1),
-  port: z.number().or(z.string()),
+  host: z
+    .string({
+      required_error: "Host is required",
+    })
+    .min(1, "Host is required"),
+  port: z
+    .number({
+      required_error: "Port is required",
+    })
+    .or(
+      z.string({
+        required_error: "Port is required",
+      }),
+    ),
   username: z.string().optional(),
   password: z.string().optional(),
   connectivityPollFrequency: TimeSpan.z.default(TimeSpan.seconds(30)),
@@ -105,34 +118,24 @@ export default class Synnax extends framer.Client {
       props.name,
     );
     this.ontology = new ontology.Client(transport.unary, this);
-    const rangeRetriever = new ranger.Retriever(transport.unary);
     const rangeWriter = new ranger.Writer(this.transport.unary);
     this.labels = new label.Client(this.transport.unary, this);
     this.ranges = new ranger.Client(
       this,
-      rangeRetriever,
       rangeWriter,
       this.transport.unary,
       chRetriever,
       this.labels,
     );
     this.workspaces = new workspace.Client(this.transport.unary);
-    const devices = new device.Client(
-      new device.Retriever(this.transport.unary),
-      new device.Writer(this.transport.unary),
-      this,
-    );
-    const taskRetriever = new task.Retriever(this.transport.unary);
-    const taskWriter = new task.Writer(this.transport.unary);
-    const tasks = new task.Client(taskRetriever, taskWriter);
-    const racks = new rack.Client(
-      new rack.Retriever(this.transport.unary),
-      new rack.Writer(this.transport.unary),
-      this,
-      taskWriter,
-      taskRetriever,
-    );
+    const devices = new device.Client(this.transport.unary, this);
+    const tasks = new task.Client(this.transport.unary, this);
+    const racks = new rack.Client(this.transport.unary, this, tasks);
     this.hardware = new hardware.Client(tasks, racks, devices);
+  }
+
+  get key(): string {
+    return this.createdAt.valueOf().toString();
   }
 
   close(): void {

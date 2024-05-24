@@ -18,5 +18,5 @@ import (
 
 func TestServer(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Server Suite")
+	RunSpecs(t, "adaptStream Suite")
 }

@@ -23,11 +23,18 @@ jobs:
               - 'x/go/**'
               - '.github/workflows/x.test.yaml'
 
-      - name: Set up Node
+      - name: Set up Go
+        uses: actions/setup-go@v5
         if: steps.filter.outputs.changed == 'true'
-        uses: actions/setup-go@v3
         with:
-          go-version: 1.22
+          go-version-file: "go.work"
+          cache-dependency-path: |
+            "alamos/go/go.sum"
+            "aspen/go.sum"
+            "cesium/go.sum"
+            "freighter/go/go.sum"
+            "synnax/go.sum"
+            "x/go/go.sum"
 
       - name: Test
         if: steps.filter.outputs.changed == 'true'

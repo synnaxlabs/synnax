@@ -18,7 +18,7 @@ import {
   type RefObject,
 } from "react";
 
-import { box, direction, type xy } from "@synnaxlabs/x";
+import { box, direction, type xy, math } from "@synnaxlabs/x";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
@@ -161,6 +161,15 @@ export const Multiple = forwardRef(
     const dir = direction.construct(direction_);
     const children = Children.toArray(_children);
 
+    /**
+     * You may be wondering, why on earth are we doing this? Well, the answer is that
+     * if you're moving elements within the resize multiple, and the sizes are all the
+     * same, any resize observers will not trigger. The slight offset ensures that if
+     * a re-ordering occurs, the resize observers will trigger and everything will
+     * be in sync.
+     */
+    sizeDistribution = slightlyOffsetEvenDistribution(sizeDistribution);
+
     return (
       <Align.Space
         {...props}
@@ -202,6 +211,18 @@ const calculateInitialSizeDistribution = (
   return initial.map(() => 1 / count);
 };
 
+const DELTA = 0.001;
+
+const slightlyOffsetEvenDistribution = (sizes: number[]): number[] => {
+  if (sizes.every((v) => math.closeTo(v, 1 / sizes.length), DELTA))
+    return sizes.map((v, i) => {
+      if (i % 2 === 0) return v + DELTA;
+      if (i === sizes.length - 1) return v;
+      return v - DELTA;
+    });
+  return sizes;
+};
+
 const handleResize = (
   prev: MultipleState,
   parentSize: number,
@@ -217,7 +238,7 @@ const handleResize = (
     clientPos,
     targetSize,
   );
-  const [sizeDistribution, changed] = resizeWithSibling(
+  let [sizeDistribution, changed] = resizeWithSibling(
     prev.sizeDistribution,
     dragging,
     diffPercentage,

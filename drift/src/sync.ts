@@ -7,18 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Dispatch, PayloadAction } from "@reduxjs/toolkit";
+import { type Dispatch, type PayloadAction } from "@reduxjs/toolkit";
 import { dimensions, unique } from "@synnaxlabs/x";
 
 import { log } from "@/debug";
-import { MainChecker, Manager, Properties } from "@/runtime";
-import { SliceState, setWindowProps, SetWindowPropsPayload } from "@/state";
-import { WindowState, MAIN_WINDOW, INITIAL_WINDOW_STATE, WindowProps } from "@/window";
+import { type MainChecker, type Manager, type Properties } from "@/runtime";
+import { type SliceState, setWindowProps, type SetWindowPropsPayload } from "@/state";
+import {
+  type WindowState,
+  MAIN_WINDOW,
+  INITIAL_WINDOW_STATE,
+  type WindowProps,
+} from "@/window";
 
 type RequiredRuntime = Manager & MainChecker & Properties;
 
 const purgeWinStateToProps = (
-  window: WindowState & { prerenderLabel?: string }
+  window: WindowState & { prerenderLabel?: string },
 ): Omit<WindowProps, "key"> => {
   const {
     centerCount,
@@ -38,7 +43,7 @@ export const syncInitial = async (
   state: SliceState,
   dispatch: Dispatch<PayloadAction<SetWindowPropsPayload>>,
   runtime: RequiredRuntime,
-  debug: boolean
+  debug: boolean,
 ): Promise<void> => {
   const runtimeLabels = runtime.listLabels().filter((label) => label !== MAIN_WINDOW);
   const nonMain = Object.keys(state.windows).filter((label) => label !== MAIN_WINDOW);
@@ -68,7 +73,7 @@ export const sync = async (
   prev: SliceState,
   next: SliceState,
   runtime: RequiredRuntime,
-  debug: boolean
+  debug: boolean,
 ): Promise<void> => {
   log(debug, "sync", prev, next);
   if (runtime.isMain()) await syncMain(prev, next, runtime, debug);
@@ -82,7 +87,7 @@ export const syncCurrent = async (
   prevWin: WindowState,
   nextWin: WindowState,
   runtime: RequiredRuntime,
-  debug: boolean
+  debug: boolean,
 ): Promise<void> => {
   const changes: Array<[string, Promise<void>]> = [];
 
@@ -114,16 +119,10 @@ export const syncCurrent = async (
   if (nextWin.minimized != null && nextWin.minimized !== prevWin.minimized)
     changes.push(["minimized", runtime.setMinimized(nextWin.minimized)]);
 
-  if (
-    nextWin.minSize != null &&
-    !dimensions.equals(nextWin.minSize, prevWin.minSize)
-  )
+  if (nextWin.minSize != null && !dimensions.equals(nextWin.minSize, prevWin.minSize))
     changes.push(["minSize", runtime.setMinSize(nextWin.minSize)]);
 
-  if (
-    nextWin.maxSize != null &&
-    !dimensions.equals(nextWin.maxSize, prevWin.maxSize)
-  )
+  if (nextWin.maxSize != null && !dimensions.equals(nextWin.maxSize, prevWin.maxSize))
     changes.push(["maxSize", runtime.setMaxSize(nextWin.maxSize)]);
 
   if (nextWin.size != null && !dimensions.equals(nextWin.size, prevWin.size))
@@ -155,7 +154,7 @@ export const syncCurrent = async (
     changes.map(async ([name, change]) => {
       log(debug, "sync", "changing", name);
       return await change;
-    })
+    }),
   );
 };
 
@@ -163,7 +162,7 @@ export const syncMain = async (
   prev: SliceState,
   next: SliceState,
   runtime: RequiredRuntime,
-  debug: boolean
+  debug: boolean,
 ): Promise<void> => {
   const removed = Object.keys(prev.windows).filter((label) => !(label in next.windows));
   const added = Object.keys(next.windows).filter((label) => !(label in prev.windows));
@@ -178,7 +177,7 @@ export const syncMain = async (
         await Promise.all(
           Object.keys(next.windows)
             .filter((l) => l !== MAIN_WINDOW)
-            .map(async (l) => await closeRuntimeWindow(runtime, l, debug))
+            .map(async (l) => await closeRuntimeWindow(runtime, l, debug)),
         );
       await closeRuntimeWindow(runtime, label, debug);
     }
@@ -191,7 +190,7 @@ const createRuntimeWindow = async (
   runtime: Manager,
   label: string,
   window: WindowState & { prerenderLabel?: string },
-  debug: boolean
+  debug: boolean,
 ): Promise<void> => {
   log(debug, "createWindow", window);
   return await runtime.create(label, purgeWinStateToProps(window));
@@ -200,7 +199,7 @@ const createRuntimeWindow = async (
 const closeRuntimeWindow = async (
   runtime: Manager,
   label: string,
-  debug: boolean
+  debug: boolean,
 ): Promise<void> => {
   log(debug, "closeWindow", label);
   return await runtime.close(label);

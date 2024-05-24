@@ -11,8 +11,8 @@ package cesium
 
 import (
 	"context"
-	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -85,6 +85,8 @@ func (db *DB) validateNewChannel(ch Channel) error {
 	validate.Positive(v, "key", ch.Key)
 	validate.NotEmptyString(v, "data type", ch.DataType)
 	v.Exec(func() error {
+		db.mu.RLock()
+		defer db.mu.RUnlock()
 		_, uOk := db.unaryDBs[ch.Key]
 		_, vOk := db.virtualDBs[ch.Key]
 		if uOk || vOk {
@@ -93,13 +95,13 @@ func (db *DB) validateNewChannel(ch Channel) error {
 		return nil
 	})
 	if ch.Virtual {
-		v.Ternaryf(ch.Index != 0, "virtual channel cannot be indexed")
-		v.Ternaryf(ch.Rate != 0, "virtual channel cannot have a rate")
+		v.Ternaryf("index", ch.Index != 0, "virtual channel cannot be indexed")
+		v.Ternaryf("index", ch.Rate != 0, "virtual channel cannot have a rate")
 	} else {
-		v.Ternary(ch.DataType == telem.StringT, "persisted channels cannot have string data types")
+		v.Ternary("index", ch.DataType == telem.StringT, "persisted channels cannot have string data types")
 		if ch.IsIndex {
-			v.Ternary(ch.DataType != telem.TimeStampT, "index channel must be of type timestamp")
-			v.Ternaryf(ch.Index != 0 && ch.Index != ch.Key, "index channel cannot be indexed by another channel")
+			v.Ternary("index", ch.DataType != telem.TimeStampT, "index channel must be of type timestamp")
+			v.Ternaryf("index", ch.Index != 0 && ch.Index != ch.Key, "index channel cannot be indexed by another channel")
 		} else if ch.Index != 0 {
 			validate.MapContainsf(v, ch.Index, db.unaryDBs, "index %v does not exist", ch.Index)
 			v.Funcf(func() bool {

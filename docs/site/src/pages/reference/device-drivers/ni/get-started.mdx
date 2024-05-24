@@ -1,0 +1,39 @@
+---
+layout: "@/layouts/MainLayout.astro"
+title: "NI | Get Started"
+heading: "National Instruments Device Driver"
+description: "Learn how to acquire data from and control National Instruments hardware using Synnax."
+---
+
+import { Divider } from "@synnaxlabs/pluto";
+
+The National Instruments (NI) device driver allows Synnax to directly connect to your NI 
+hardware, including CompactDAQ, CompactRIO, and PXI systems. This page will walk you
+throught some of the important pre-requisites necessary to get started with the NI driver.
+
+<Divider.Divider direction="x" />
+
+## Installation
+
+The NI driver comes pre-installed with a Synnax Cluster, and does not require any additional
+installation steps. 
+
+<Divider.Divider direction="x" />
+
+## OS Compatibility
+
+The NI driver is only compatible when running the Synnax Cluster on a Windows machine. 
+The driver will not be able to find your devices when running on Linux, macOS, or 
+within a Docker container (even if that container is running on Windows).
+
+<Divider.Divider direction="x" />
+
+## Automatic Device Detection
+
+The NI driver will automatically detect any connected NI hardware when the Synnax database
+is started. When using the Console, newly connected devices will appear as notifications
+in the bottom left corner of the screen.
+
+{/* Include Video */}
+
+You can also find recently connected devices by using the Resources toolbar.

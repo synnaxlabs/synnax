@@ -44,9 +44,9 @@ export const consoleNav: PageNavNode = {
       name: "Line Plot Visualization",
     },
     {
-      key: "/reference/console/pid",
-      href: "/reference/console/pid",
-      name: "PID Visualization",
+      key: "/reference/console/schematic",
+      href: "/reference/console/schematic",
+      name: "Schematic Visualization",
     },
   ],
 };

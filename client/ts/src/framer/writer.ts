@@ -13,10 +13,10 @@ import { decodeError, errorZ } from "@synnaxlabs/freighter";
 import {
   TimeStamp,
   type CrudeTimeStamp,
-  toArray,
   type CrudeSeries,
   TimeSpan,
-} from "@synnaxlabs/x";
+} from "@synnaxlabs/x/telem";
+import { toArray } from "@synnaxlabs/x/toArray";
 import { z } from "zod";
 
 import {
@@ -50,7 +50,7 @@ export enum WriterMode {
   StreamOnly = 3,
 }
 
-export const ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT : TimeSpan = new TimeSpan(-1);
+export const ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT: TimeSpan = new TimeSpan(-1);
 
 const netConfigZ = z.object({
   start: TimeStamp.z.optional(),
@@ -95,11 +95,11 @@ export interface WriterConfig {
   //  enableAutoCommit determines whether the writer will automatically commit.
   //  If enableAutoCommit is true, then the writer will commit after each write, and
   //  will flush that commit to index after the specified autoIndexPersistInterval.
-  enableAutoCommit?: boolean
+  enableAutoCommit?: boolean;
   // autoIndexPersistInterval sets the interval at which commits to the index will be
   // persisted. To persist every commit to guarantee minimal loss of data, set
   // auto_index_persist_interval to AlwaysAutoIndexPersist.
-  autoIndexPersistInterval?: TimeSpan
+  autoIndexPersistInterval?: TimeSpan;
 }
 
 /**
@@ -163,7 +163,7 @@ export class Writer {
       controlSubject: subject,
       mode = WriterMode.PersistStream,
       enableAutoCommit = false,
-      autoIndexPersistInterval = TimeSpan.SECOND
+      autoIndexPersistInterval = TimeSpan.SECOND,
     }: WriterConfig,
   ): Promise<Writer> {
     const adapter = await WriteFrameAdapter.open(retriever, channels);

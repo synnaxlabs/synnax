@@ -18,6 +18,7 @@ import React, {
   useMemo,
   useRef,
   useId,
+  useEffect,
 } from "react";
 
 import { type Key, type Optional } from "@synnaxlabs/x";
@@ -220,10 +221,7 @@ export const useDrop = ({
     [ref, onDrop, canDrop, drop, target],
   );
 
-  return {
-    onDragOver: handleDragOver,
-    onDrop: handleDrop,
-  };
+  return { onDragOver: handleDragOver, onDrop: handleDrop };
 };
 
 // |||||| DRAG AND DROP ||||||

@@ -25,6 +25,7 @@ button:is(:focus, :focus-within, :active, :hover) {
     --pluto-height-large: 5rem;
     --pluto-height-medium: 4.5rem;
     --pluto-height-small: 4rem;
+    --pluto-height-huge: 8rem;
     --pluto-shadow-menu: 0px 1px 1px rgba(0, 0, 0, 0.02),
         0px 4px 8px -4px rgba(0, 0, 0, 0.04), 0px 16px 24px -8px rgba(0, 0, 0, 0.06);
     @media (prefers-color-scheme: dark) {
@@ -83,6 +84,10 @@ html {
 
 .pluto--y > .pluto--bordered-end {
     border-top: var(--pluto-border);
+}
+
+.pluto--huge {
+    height: var(--pluto-height-huge);
 }
 
 .pluto--large {

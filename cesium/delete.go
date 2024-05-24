@@ -11,9 +11,8 @@ package cesium
 
 import (
 	"context"
-	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/cesium/internal/core"
-	"github.com/synnaxlabs/x/errutil"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
@@ -85,11 +84,9 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 	// on FS.
 	defer func() {
 		db.mu.Unlock()
-		c := errutil.NewCatch(errutil.WithAggregation())
+		c := errors.NewCatcher(errors.WithAggregation())
 		for _, name := range directoriesToRemove {
-			c.Exec(func() error {
-				return db.fs.Remove(name)
-			})
+			c.Exec(func() error { return db.fs.Remove(name) })
 		}
 		err = errors.CombineErrors(err, c.Error())
 	}()
@@ -213,7 +210,7 @@ func (db *DB) garbageCollect(ctx context.Context, readChunkSize uint32, maxGoRou
 	var (
 		sem = semaphore.NewWeighted(maxGoRoutine)
 		wg  = &sync.WaitGroup{}
-		c   = errutil.NewCatch(errutil.WithAggregation())
+		c   = errors.NewCatcher(errors.WithAggregation())
 	)
 
 	for _, udb := range db.unaryDBs {

@@ -19,6 +19,7 @@ import { useVirtualCursorDragWebKit } from "@/hooks/useCursorDrag/useVirtualCurs
 import { type Control } from "@/input/types";
 
 import "@/input/DragButton.css";
+
 export interface DragButtonExtraProps {
   direction?: direction.Crude;
   dragDirection?: direction.Crude;

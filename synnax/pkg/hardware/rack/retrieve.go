@@ -13,6 +13,7 @@ package rack
 
 import (
 	"context"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/search"
@@ -33,6 +34,13 @@ func (r Retrieve) Search(term string) Retrieve {
 
 func (r Retrieve) WhereKeys(keys ...Key) Retrieve {
 	r.gorp = r.gorp.WhereKeys(keys...)
+	return r
+}
+
+func (r Retrieve) WhereNames(names ...string) Retrieve {
+	r.gorp = r.gorp.Where(func(rack *Rack) bool {
+		return lo.Contains(names, rack.Name)
+	})
 	return r
 }
 

@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { scale } from "@synnaxlabs/x";
+import { applyOverScan } from "@/vis/render/util";
+import { Destructor, box, dimensions, scale, xy } from "@synnaxlabs/x";
 
 export class SugaredOffscreenCanvasRenderingContext2D
   implements OffscreenCanvasRenderingContext2D
@@ -39,6 +40,14 @@ export class SugaredOffscreenCanvasRenderingContext2D
     this.wrapped.fontVariantCaps = value;
   }
 
+  get wordSpacing(): string {
+    return this.wrapped.wordSpacing;
+  }
+
+  set wordSpacing(value: string) {
+    this.wrapped.wordSpacing = value;
+  }
+
   get letterSpacing(): string {
     return this.wrapped.letterSpacing;
   }
@@ -53,14 +62,6 @@ export class SugaredOffscreenCanvasRenderingContext2D
 
   set textRendering(value: CanvasTextRendering) {
     this.wrapped.textRendering = value;
-  }
-
-  get wordSpacing(): string {
-    return this.wrapped.wordSpacing;
-  }
-
-  set wordSpacing(value: string) {
-    this.wrapped.wordSpacing = value;
   }
 
   reset(): void {
@@ -613,6 +614,15 @@ export class SugaredOffscreenCanvasRenderingContext2D
 
   scale(x: number, y: number): void {
     this.wrapped.scale(x, y);
+  }
+
+  scissor(region: box.Box, overScan: xy.XY = xy.ZERO): Destructor {
+    const p = new Path2D();
+    region = applyOverScan(region, overScan);
+    p.rect(...xy.couple(box.topLeft(region)), ...dimensions.couple(box.dims(region)));
+    this.save();
+    this.clip(p);
+    return () => this.restore();
   }
 
   setTransform(a: number, b: number, c: number, d: number, e: number, f: number): void;

@@ -11,6 +11,7 @@ package auth
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/auth/password"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // InsecureCredentials is a set of unencrypted credentials. These are used to
@@ -19,6 +20,14 @@ import (
 type InsecureCredentials struct {
 	Username string       `json:"username" validate:"required"`
 	Password password.Raw `json:"password" validate:"required"`
+}
+
+// Validate validates the InsecureCredentials.
+func (i InsecureCredentials) Validate() error {
+	v := validate.New("auth.insecure_credentials")
+	validate.NotEmptyString(v, "username", i.Username)
+	validate.NotEmptyString(v, "password", string(i.Password))
+	return v.Error()
 }
 
 // SecureCredentials is a set of encrypted credentials. These are used for persisting

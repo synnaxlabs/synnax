@@ -9,7 +9,7 @@
 
 import { type ReactElement, useCallback, useMemo, useEffect } from "react";
 
-import { type channel } from "@synnaxlabs/client";
+import { framer, type channel } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
   useAsyncEffect,
@@ -18,21 +18,30 @@ import {
   Channel,
   Synnax,
   Color,
-  Menu,
+  Menu as PMenu,
   usePrevious,
 } from "@synnaxlabs/pluto";
-import { type UnknownRecord, box, location, unique, getEntries } from "@synnaxlabs/x";
+import {
+  type UnknownRecord,
+  box,
+  location,
+  unique,
+  getEntries,
+  scale,
+  TimeRange,
+} from "@synnaxlabs/x";
 import { useDispatch } from "react-redux";
 
 import { useSyncerDispatch, type Syncer } from "@/hooks/dispatchers";
 import { Layout } from "@/layout";
-import { ContextMenuContent } from "@/lineplot/ContextMenu";
 import {
   useSelect,
   selectRanges,
   useSelectControlState,
   useSelectViewportMode,
   select,
+  useSelectAxisBounds,
+  useSelectSelection,
 } from "@/lineplot/selectors";
 import {
   type State,
@@ -51,10 +60,16 @@ import {
   setAxis,
   type AxisState,
   type LineState,
+  setControlState,
 } from "@/lineplot/slice";
 import { Range } from "@/range";
 import { Vis } from "@/vis";
 import { Workspace } from "@/workspace";
+import { Icon } from "@synnaxlabs/media";
+import { download } from "@/lineplot/download";
+import { Menu } from "@/components";
+// import { dialog } from "@tauri-apps/api";
+// import { writeFile } from "@tauri-apps/api/fs";
 
 interface SyncPayload {
   key?: string;
@@ -80,9 +95,22 @@ const syncer: Syncer<
   });
 };
 
+const frameToCSV = (columns: string[], frame: framer.Frame): string => {
+  if (frame.series.length === 0) return "";
+  const count = frame.series[0].length;
+  const headers = columns.join(",");
+  let rows: string[] = [headers];
+  for (let i = 1; i < count; i++) {
+    const row = frame.at(i);
+    rows.push(Object.values(row).join(","));
+  }
+  return rows.join("\n");
+};
+
 const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
   const windowKey = useSelectWindowKey() as string;
   const { name } = Layout.useSelectRequired(layoutKey);
+  const placer = Layout.usePlacer();
   const vis = useSelect(layoutKey);
   const ranges = selectRanges(layoutKey);
   const client = Synnax.use();
@@ -251,10 +279,74 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
     [windowKey, dispatch],
   );
 
-  const props = Menu.useContextMenu();
+  const props = PMenu.useContextMenu();
+
+  interface ContextMenuContentProps {
+    layoutKey: string;
+  }
+
+  const ContextMenuContent = ({ layoutKey }: ContextMenuContentProps): ReactElement => {
+    const { box: selection } = useSelectSelection(layoutKey);
+    const bounds = useSelectAxisBounds(layoutKey, "x1");
+
+    const s = scale.Scale.scale(1).scale(bounds);
+    const timeRange = new TimeRange(
+      s.pos(box.left(selection)),
+      s.pos(box.right(selection)),
+    );
+
+    const handleSelect = (key: string): void => {
+      switch (key) {
+        case "iso":
+          void navigator.clipboard.writeText(
+            `${timeRange.start.fString("ISO")} - ${timeRange.end.fString("ISO")}`,
+          );
+          break;
+        case "python":
+          void navigator.clipboard.writeText(
+            `sy.TimeRange(${timeRange.start.valueOf()}, ${timeRange.end.valueOf()})`,
+          );
+          break;
+        case "typescript":
+          void navigator.clipboard.writeText(
+            `new TimeRange(${timeRange.start.valueOf()}, ${timeRange.end.valueOf()})`,
+          );
+          break;
+        case "download":
+          if (client == null) return;
+          download({ timeRange, lines, client });
+          break;
+      }
+    };
+
+    return (
+      <PMenu.Menu onChange={handleSelect} iconSpacing="medium" level="small">
+        <Menu.Item.HardReload />
+        {!box.areaIsZero(selection) && (
+          <>
+            <PMenu.Item itemKey="iso" startIcon={<Icon.Range />}>
+              Copy time range as ISO
+            </PMenu.Item>
+            <PMenu.Item itemKey="python" startIcon={<Icon.Python />}>
+              Copy time range as Python
+            </PMenu.Item>
+            <PMenu.Item itemKey="typescript" startIcon={<Icon.TypeScript />}>
+              Copy time range as TypeScript
+            </PMenu.Item>
+            <PMenu.Item itemKey="range" startIcon={<Icon.Add />}>
+              Create new range from selection
+            </PMenu.Item>
+            <PMenu.Item itemKey="download" startIcon={<Icon.Download />}>
+              Download data as CSV
+            </PMenu.Item>
+          </>
+        )}
+      </PMenu.Menu>
+    );
+  };
 
   return (
-    <Menu.ContextMenu
+    <PMenu.ContextMenu
       {...props}
       menu={() => <ContextMenuContent layoutKey={layoutKey} />}
     >
@@ -280,9 +372,44 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
           enableTooltip={enableTooltip}
           enableMeasure={clickMode === "measure"}
           onDoubleClick={handleDoubleClick}
+          onHold={(hold) => dispatch(setControlState({ state: { hold } }))}
+          annotationProvider={{
+            menu: ({ key, timeRange, name }) => {
+              const handleSelect = (itemKey: string) => {
+                switch (itemKey) {
+                  case "download":
+                    if (client == null) return;
+                    download({ client, lines, timeRange, name });
+                    break;
+                  case "meta-data":
+                    placer({
+                      ...Range.metaDataWindowLayout,
+                      name: `${name} Meta Data`,
+                      key: key,
+                    });
+                  default:
+                    break;
+                }
+              };
+
+              return (
+                <PMenu.Menu level="small" key={key} onChange={handleSelect}>
+                  <PMenu.Item itemKey="download" startIcon={<Icon.Download />}>
+                    Download as CSV
+                  </PMenu.Item>
+                  <PMenu.Item itemKey="line-plot" startIcon={<Icon.Visualize />}>
+                    Open in New Plot
+                  </PMenu.Item>
+                  <PMenu.Item itemKey="meta-data" startIcon={<Icon.Annotate />}>
+                    View Meta Data
+                  </PMenu.Item>
+                </PMenu.Menu>
+              );
+            },
+          }}
         />
       </div>
-    </Menu.ContextMenu>
+    </PMenu.ContextMenu>
   );
 };
 

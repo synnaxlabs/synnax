@@ -14,21 +14,26 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/domain"
+	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("Iterator Behavior", func() {
+var _ = Describe("Iterator Behavior", Ordered, func() {
 	for fsName, makeFS := range fileSystems {
-		fs := makeFS()
 		Context("FS: "+fsName, Ordered, func() {
-			var db *domain.DB
+			var (
+				db      *domain.DB
+				fs      xfs.FS
+				cleanUp func() error
+			)
 			BeforeEach(func() {
-				db = MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub(rootPath))}))
+				fs, cleanUp = makeFS()
+				db = MustSucceed(domain.Open(domain.Config{FS: fs}))
 			})
 			AfterEach(func() {
 				Expect(db.Close()).To(Succeed())
-				Expect(fs.Remove(rootPath)).To(Succeed())
+				Expect(cleanUp()).To(Succeed())
 			})
 			Describe("Valid", func() {
 				It("Should return false on an iterator with zero span bounds", func() {

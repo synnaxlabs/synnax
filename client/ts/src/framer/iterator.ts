@@ -15,7 +15,7 @@ import {
   TimeSpan,
   TimeStamp,
   type CrudeTimeRange,
-} from "@synnaxlabs/x";
+} from "@synnaxlabs/x/telem";
 import { z } from "zod";
 
 import { type Params } from "@/channel/payload";

@@ -1,18 +1,15 @@
 name: "Console Release"
 on:
   push:
-    branches:
-      - main
+    branches: main
   workflow_dispatch:
 permissions:
   contents: write
 env:
-  TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
-  TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
-
+  TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+  TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
 jobs:
   create-release:
-    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     outputs:
       release_id: ${{ steps.create-release.outputs.result }}
@@ -28,6 +25,8 @@ jobs:
           filters: |
             changed:
               - "console/package.json"
+              - "console/**"
+              - ".github/workflows/console.release.yaml"
 
       - name: Setup Node
         if: steps.filter.outputs.changed == 'true'
@@ -47,6 +46,12 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
+            const  { data: releases } = await github.rest.repos.listReleases({
+              owner: context.repo.owner,
+              repo: context.repo.repo
+            })
+            const release = releases.find(r => r.tag_name === `console-v${process.env.PACKAGE_VERSION}`)
+            if (release != null) return release.id
             const { data: { id } }  = await github.rest.repos.createRelease({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -62,7 +67,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [ macos-12, ubuntu-latest, windows-latest ]
+        platform: [ macos-12, windows-latest ]
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -94,63 +99,11 @@ jobs:
           node-version: 20
           cache: "pnpm"
 
-      - name: Determine OS
-        id: os
+      - name: Get Console Version
+        id: console-version
         shell: bash
-        run: |
-          if [ "${{ matrix.platform }}" = "macos-latest" ]; then
-            echo "OS=macos" >> $GITHUB_ENV
-          elif [ "${{ matrix.platform }}" = "macos-12" ]; then
-            echo "OS=macos" >> $GITHUB_ENV
-          elif [ "${{ matrix.platform }}" = "ubuntu-latest" ]; then
-            echo "OS=linux" >> $GITHUB_ENV
-          elif [ "${{ matrix.platform }}" = "windows-latest" ]; then
-            echo "OS=windows" >> $GITHUB_ENV
-          fi
-
-      - name: Get Version
-        if: steps.filter.outputs.changed == 'true'
-        id: version
-        working-directory: ./synnax
-        shell: bash
-        run: |
-          echo "SERVER_VERSION=$(cat pkg/version/VERSION)" >> $GITHUB_ENV
-
-
-      - name: Install Synnax Binary
-        if: steps.filter.outputs.changed == 'true'
-        uses: actions/github-script@v6
-        with:
-          script: |
-            const fs = await import("fs");
-            const releases = await github.rest.repos.listReleases({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-            });
-            const release = releases.data.find(({ tag_name }) => tag_name === `synnax-v${process.env.SERVER_VERSION}`);
-            const asset = release.assets.find(({ name }) => name === `synnax-v${process.env.SERVER_VERSION}-${process.env.OS}`);
-            const url = asset.browser_download_url;
-            const response = await github.request(`GET /repos/${context.repo.owner}/${context.repo.repo}/releases/assets/${asset.id}`, {
-              headers: {
-                'Accept': 'application/octet-stream',
-                'X-GitHub-Api-Version': '2022-11-28'
-              }
-            });
-            let name;
-            const path = "./console/src-tauri/bin";
-            if (process.env.OS === "windows") name = `sy-x86_64-pc-windows-msvc.exe`;
-            else if (process.env.OS === "macos") name = `sy-x86_64-apple-darwin`;
-            else name = `sy-x86_64-unknown-linux-gnu`;
-            const buf = Buffer.from(response.data);
-            console.log("Pulled Synnax Binary");
-            console.log({
-                url,
-                name,
-                version: process.env.SERVER_VERSION,
-                path,
-            });
-            fs.writeFileSync(`${path}/${name}`, buf);
-            fs.chmodSync(`${path}/${name}`, 0o755);
+        run: echo "CONSOLE_VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+        working-directory: ./console
 
       - name: Install Rust Stable
         if: steps.filter.outputs.changed == 'true'
@@ -189,23 +142,50 @@ jobs:
         if: steps.filter.outputs.changed == 'true'
         run: pnpm i
 
-
-      - name: Build
+      - name: Build Pluto
         if: steps.filter.outputs.changed == 'true'
         env:
           NODE_OPTIONS: "--max_old_space_size=4096"
-        run: pnpm build:console
-
-      - uses: tauri-apps/tauri-action@v0
+        run: pnpm build:pluto
+      
+      - name: Build Drift
         if: steps.filter.outputs.changed == 'true'
         env:
+          NODE_OPTIONS: "--max_old_space_size=4096"
+        run: pnpm build:drift
+
+      - name: Build Console
+        if: steps.filter.outputs.changed == 'true'
+        env:
+          NODE_OPTIONS: "--max_old_space_size=4096"
+        working-directory: ./console
+        run: pnpm build
+
+      - name: Upload MacoOS Release Asset
+        if: steps.filter.outputs.changed == 'true' && matrix.platform == 'macos-12'
+        env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          releaseId: ${{ needs.create-release.outputs.release_id }}
+        run: |
+          gh release upload --clobber console-v${{ steps.console-version.outputs.CONSOLE_VERSION }} ./console/src-tauri/target/release/bundle/macos/Synnax.app.tar.gz
+          gh release upload --clobber console-v${{ steps.console-version.outputs.CONSOLE_VERSION }} ./console/src-tauri/target/release/bundle/macos/Synnax.app.tar.gz.sig
+          gh release upload --clobber console-v${{ steps.console-version.outputs.CONSOLE_VERSION }} ./console/src-tauri/target/release/bundle/dmg/Synnax_${{ steps.console-version.outputs.CONSOLE_VERSION }}_x64.dmg
+      
+
+      - name: Upload Windows Release Asset
+        if: steps.filter.outputs.changed == 'true' && matrix.platform == 'windows-latest'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload --clobber console-v${{ steps.console-version.outputs.CONSOLE_VERSION }} ./console/src-tauri/target/release/bundle/msi/Synnax_${{ steps.console-version.outputs.CONSOLE_VERSION }}_x64_en-US.msi
+          gh release upload --clobber console-v${{ steps.console-version.outputs.CONSOLE_VERSION }} ./console/src-tauri/target/release/bundle/msi/Synnax_${{ steps.console-version.outputs.CONSOLE_VERSION }}_x64_en-US.msi.zip
+          gh release upload --clobber console-v${{ steps.console-version.outputs.CONSOLE_VERSION }} ./console/src-tauri/target/release/bundle/msi/Synnax_${{ steps.console-version.outputs.CONSOLE_VERSION }}_x64_en-US.msi.zip.sig
+          gh release upload --clobber console-v${{ steps.console-version.outputs.CONSOLE_VERSION }} ./console/src-tauri/target/release/bundle/nsis/Synnax_${{ steps.console-version.outputs.CONSOLE_VERSION }}_x64-setup.exe
+          gh release upload --clobber console-v${{ steps.console-version.outputs.CONSOLE_VERSION }} ./console/src-tauri/target/release/bundle/nsis/Synnax_${{ steps.console-version.outputs.CONSOLE_VERSION }}_x64-setup.nsis.zip
+          gh release upload --clobber console-v${{ steps.console-version.outputs.CONSOLE_VERSION }} ./console/src-tauri/target/release/bundle/nsis/Synnax_${{ steps.console-version.outputs.CONSOLE_VERSION }}_x64-setup.nsis.zip.sig
 
   publish-release:
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && needs.create-release.outputs.release_id != ''
+    if: needs.create-release.outputs.release_id != ''
     needs: [ create-release, build-tauri ]
 
     steps:
@@ -255,10 +235,8 @@ jobs:
 
             const baseURL = `https://github.com/${owner}/${repo}/releases/download/console-v${packageVersion}/`;
 
-            const darwinURL = baseURL + "Synnax_x64.app.tar.gz";
+            const darwinURL = baseURL + "Synnax.app.tar.gz";
             const darwinSig = await github.request(`GET ${darwinURL}.sig`);
-            const linuxURL = baseURL + `synnax_${packageVersion}_amd64.AppImage.tar.gz`;
-            const linuxSig = await github.request(`GET ${linuxURL}.sig`);
             const windowsURL = baseURL + `Synnax_${packageVersion}_x64_en-US.msi.zip`;
             const windowsSig = await github.request(`GET ${windowsURL}.sig`);
             const pub_date = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
@@ -274,8 +252,8 @@ jobs:
                   url: darwinURL,
                 },
                 "linux-x86_64": {
-                  signature: ecd.decode(linuxSig.data),
-                  url: linuxURL,
+                  signature: "not_supported_and_tauri_requires_an_entry",
+                  url: darwinURL,
                 },
                 "windows-x86_64": {
                   signature: ecd.decode(windowsSig.data),

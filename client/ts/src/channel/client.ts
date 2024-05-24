@@ -8,17 +8,17 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
+import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import {
   DataType,
   Rate,
   type TypedArray,
   type CrudeDensity,
   type TimeRange,
-  type AsyncTermSearcher,
-  toArray,
   type CrudeTimeStamp,
   type MultiSeries,
-} from "@synnaxlabs/x";
+} from "@synnaxlabs/x/telem";
+import { toArray } from "@synnaxlabs/x/toArray";
 
 import {
   type Key,
@@ -29,15 +29,18 @@ import {
   type NewPayload,
 } from "@/channel/payload";
 import {
-  analyzeParams,
+  analyzeChannelParams,
   CacheRetriever,
   ClusterRetriever,
   DebouncedBatchRetriever,
   type Retriever,
+  type PageOptions,
+  type RetrieveOptions,
 } from "@/channel/retriever";
 import { type Writer } from "@/channel/writer";
-import { MultipleFoundError, NotFoundError, ValidationError } from "@/errors";
+import { MultipleFoundError, ValidationError } from "@/errors";
 import { type framer } from "@/framer";
+import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 interface CreateOptions {
   retrieveIfNameExists?: boolean;
@@ -169,6 +172,7 @@ export class Channel {
  * through the `channels` property of an {@link Synnax} client.
  */
 export class Client implements AsyncTermSearcher<string, Key, Channel> {
+  readonly type = "channel";
   private readonly frameClient: framer.Client;
   private readonly client: UnaryClient;
   readonly retriever: Retriever;
@@ -287,7 +291,7 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
    * const channel = await client.channels.retrieve(1);
    * ```
    */
-  async retrieve(channel: KeyOrName, rangeKey?: string): Promise<Channel>;
+  async retrieve(channel: KeyOrName, options?: RetrieveOptions): Promise<Channel>;
 
   /**
    * Retrieves multiple channels from the database using the provided keys or the
@@ -301,7 +305,7 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
    * @param options.notDataTypes - Limits the query to only channels without the specified
    *
    */
-  async retrieve(channels: Params, rangeKey?: string): Promise<Channel[]>;
+  async retrieve(channels: Params, options?: RetrieveOptions): Promise<Channel[]>;
 
   /**
    * Retrieves a channel from the database using the given parameters.
@@ -310,34 +314,45 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
    * @returns The retrieved channel.
    * @raises {QueryError} If the channel does not exist or if multiple results are returned.
    */
-  async retrieve(channels: Params, rangeKey?: string): Promise<Channel | Channel[]> {
-    const { single, actual, normalized } = analyzeParams(channels);
-    if (normalized.length === 0) return [];
-    const res = this.sugar(await this.retriever.retrieve(channels, rangeKey));
-    if (!single) return res;
-    if (res.length === 0)
-      throw new NotFoundError(`channel matching ${actual} not found`);
-    if (res.length > 1)
-      throw new MultipleFoundError(`multiple channels matching ${actual} found`);
-    return res[0];
+  async retrieve(
+    channels: Params,
+    options?: RetrieveOptions,
+  ): Promise<Channel | Channel[]> {
+    const isSingle = !Array.isArray(channels);
+    const res = this.sugar(await this.retriever.retrieve(channels, options));
+    checkForMultipleOrNoResults("channel", channels, res, isSingle);
+    return isSingle ? res[0] : res;
+  }
+
+  async search(term: string, options?: RetrieveOptions): Promise<Channel[]> {
+    return this.sugar(await this.retriever.search(term, options));
   }
 
   async delete(channels: Params): Promise<void> {
-    const { normalized, variant } = analyzeParams(channels);
-    if (variant === "keys") return await this.writer.delete({ keys: normalized });
-    return await this.writer.delete({ names: normalized });
+    const { normalized, variant } = analyzeChannelParams(channels);
+    if (variant === "keys")
+      return await this.writer.delete({ keys: normalized as Key[] });
+    return await this.writer.delete({ names: normalized as string[] });
   }
 
-  async search(term: string, rangeKey?: string): Promise<Channel[]> {
-    return this.sugar(await this.retriever.search(term, rangeKey));
+  newSearcherWithOptions(
+    options: RetrieveOptions,
+  ): AsyncTermSearcher<string, Key, Channel> {
+    return {
+      type: this.type,
+      search: async (term: string) => await this.search(term, options),
+      retrieve: async (keys: Key[]) => await this.retrieve(keys, options),
+      page: async (offset: number, limit: number) =>
+        await this.page(offset, limit, options),
+    };
   }
 
-  newSearcherUnderRange(rangeKey?: string): AsyncTermSearcher<string, Key, Channel> {
-    return new SearcherUnderRange(this, rangeKey);
-  }
-
-  async page(offset: number, limit: number, rangeKey?: string): Promise<Channel[]> {
-    return this.sugar(await this.retriever.page(offset, limit, rangeKey));
+  async page(
+    offset: number,
+    limit: number,
+    options?: Omit<RetrieveOptions, "limit" | "offset">,
+  ): Promise<Channel[]> {
+    return this.sugar(await this.retriever.page(offset, limit, options));
   }
 
   createDebouncedBatchRetriever(deb: number = 10): Retriever {
@@ -349,27 +364,5 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
   private sugar(payloads: Payload[]): Channel[] {
     const { frameClient } = this;
     return payloads.map((p) => new Channel({ ...p, frameClient }));
-  }
-}
-
-class SearcherUnderRange implements AsyncTermSearcher<string, Key, Channel> {
-  private readonly client: Client;
-  private readonly rangeKey?: string;
-
-  constructor(client: Client, rangeKey?: string) {
-    this.client = client;
-    this.rangeKey = rangeKey;
-  }
-
-  async search(term: string): Promise<Channel[]> {
-    return await this.client.search(term, this.rangeKey);
-  }
-
-  async page(offset: number, limit: number): Promise<Channel[]> {
-    return await this.client.page(offset, limit, this.rangeKey);
-  }
-
-  async retrieve(channels: Key[]): Promise<Channel[]> {
-    return await this.client.retrieve(channels, this.rangeKey);
   }
 }
