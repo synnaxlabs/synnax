@@ -10,7 +10,7 @@
 import { useState, type ReactElement, memo, useCallback } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import { Form, Haul, Select, CSS as PCSS, Menu } from "@synnaxlabs/pluto";
+import { Form, Haul, Select, CSS as PCSS, Menu, Note } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 import { Header } from "@synnaxlabs/pluto/header";
 import { Input } from "@synnaxlabs/pluto/input";
@@ -19,11 +19,11 @@ import { Text } from "@synnaxlabs/pluto/text";
 import { nanoid } from "nanoid/non-secure";
 
 import { CSS } from "@/css";
-import { type ChannelConfig, type GroupConfig } from "@/hardware/ni/device/types";
+import { type ChannelConfig, type GroupConfig } from "@/hardware/opc/device/types";
 import { SelectNode } from "@/hardware/opc/device/SelectNode";
-
-import "@/hardware/ni/device/CreateChannels.css";
 import { Properties } from "@/hardware/opc/device/types";
+
+import "@/hardware/opc/device/CreateChannels.css";
 
 interface MostRecentSelectedState {
   key: string;
@@ -63,7 +63,7 @@ export const CreateChannels = ({
       keys: string[],
       { clickedIndex, clicked }: List.UseSelectOnChangeExtra<string>,
     ): void => {
-      if (clickedIndex == null || clicked == null) return;
+      if (clickedIndex == null || clicked == null || clickedIndex === -1) return;
       setSelectedChannels(keys);
       setMostRecentSelected({ type: "channel", index: clickedIndex, key: clicked });
     },
@@ -110,7 +110,11 @@ export const CreateChannels = ({
         </Align.Space>
       </Align.Space>
       <Align.Space direction="y" bordered className={CSS.B("form")} grow empty>
-        <Align.Space direction="x" empty className={PCSS(PCSS.bordered("bottom"))}>
+        <Align.Space
+          direction="x"
+          empty
+          className={PCSS(PCSS.bordered("bottom"), CSS.B("list"))}
+        >
           <GroupList
             selectedGroup={selectedGroup?.key}
             onSelectGroup={handleGroupSelect}
@@ -150,7 +154,8 @@ const GroupList = ({
   onSelectGroup,
   clearSelection,
 }: GroupListProps): ReactElement => {
-  const { push, value } = Form.useFieldArray<GroupConfig>({ path: "groups" });
+  const { push, value, remove } = Form.useFieldArray<GroupConfig>({ path: "groups" });
+  const menuProps = Menu.useContextMenu();
   return (
     <Align.Space className={CSS.B("groups")} grow empty>
       <Header.Header level="h3">
@@ -158,16 +163,21 @@ const GroupList = ({
         <Header.Actions>
           {[
             {
+              size: "large",
               onClick: () => {
                 const key = nanoid();
                 onSelectGroup(key, value.length);
                 push({
                   key,
                   name: "New Group",
-                  channels: [],
-                  channelPrefix: "",
-                  channelSuffix: "",
-                  role: "unknown",
+                  channels: [
+                    {
+                      key: nanoid(),
+                      name: "Time",
+                      dataType: "timestamp",
+                      isIndex: true,
+                    },
+                  ],
                 });
               },
               children: <Icon.Add />,
@@ -175,21 +185,44 @@ const GroupList = ({
           ]}
         </Header.Actions>
       </Header.Header>
-      <List.List<string, GroupConfig> data={value}>
-        <List.Selector<string, GroupConfig>
-          allowMultiple={false}
-          // eslint-disable-next-line @typescript-eslint/non-nullable-type-assertion-style
-          value={selectedGroup as string}
-          allowNone={false}
-          onChange={(key, { clickedIndex }) =>
-            clickedIndex != null && onSelectGroup(key, clickedIndex)
-          }
-        >
-          <List.Core<string, GroupConfig> grow>
-            {(props) => <GroupListItem clearSelection={clearSelection} {...props} />}
-          </List.Core>
-        </List.Selector>
-      </List.List>
+      <Menu.ContextMenu
+        menu={({ keys }: Menu.ContextMenuMenuProps): ReactElement => {
+          const handleSelect = (key: string) => {
+            switch (key) {
+              case "remove":
+                const indices = keys.map((k) => value.findIndex((g) => g.key === k));
+                remove(indices);
+                break;
+            }
+          };
+          return (
+            <Menu.Menu onChange={handleSelect} level="small">
+              <Menu.Item itemKey="remove" startIcon={<Icon.Close />}>
+                Remove
+              </Menu.Item>
+            </Menu.Menu>
+          );
+        }}
+        {...menuProps}
+      >
+        <List.List<string, GroupConfig> data={value}>
+          <List.Selector<string, GroupConfig>
+            allowMultiple={false}
+            // eslint-disable-next-line @typescript-eslint/non-nullable-type-assertion-style
+            value={selectedGroup as string}
+            allowNone={false}
+            onChange={(key, { clickedIndex }) =>
+              clickedIndex != null && onSelectGroup(key, clickedIndex)
+            }
+          >
+            <List.Core<string, GroupConfig> grow>
+              {({ key, ...props }) => (
+                <GroupListItem key={key} clearSelection={clearSelection} {...props} />
+              )}
+            </List.Core>
+          </List.Selector>
+        </List.List>
+      </Menu.ContextMenu>
     </Align.Space>
   );
 };
@@ -222,15 +255,15 @@ const GroupListItem = ({
       const v = ctx.get<ChannelConfig[]>({ path });
       ctx.set({
         path,
-        value: v.value
-          .concat(items.map((i) => ({ ...(i.data as ChannelConfig) })))
-          .sort((a, b) => a.port - b.port),
+        value: v.value.concat(items.map((i) => ({ ...(i.data as ChannelConfig) }))),
       });
       setDraggingOver(false);
       return items;
     },
     onDragOver: () => setDraggingOver(true),
   });
+
+  const isValid = Form.useFieldValid(`groups.${index}.channels`);
 
   return (
     <List.ItemFrame
@@ -242,7 +275,7 @@ const GroupListItem = ({
       justify="spaceBetween"
     >
       <Align.Space direction="y" size="small">
-        <Text.Text level="p" weight={500}>
+        <Text.Text level="p" weight={500} color={!isValid && "var(--pluto-error-z)"}>
           {name}
         </Text.Text>
         <Align.Space direction="x" size="small">
@@ -265,60 +298,33 @@ interface ChannelListProps {
   onSelectChannels: List.UseSelectProps["onChange"];
 }
 
-const CHANNEL_LIST_COLUMNS: Array<List.ColumnSpec<string, ChannelConfig>> = [
-  {
-    key: "name",
-    name: "Name",
-    visible: true,
-  },
-  {
-    key: "dataType",
-    name: "Data Type",
-    visible: true,
-    shade: 7,
-  },
-  {
-    key: "index",
-    name: "Index",
-    visible: true,
-    width: 20,
-    render: ({ entry: { role } }) => {
-      return role === "index" ? (
-        <Text.Text
-          level="p"
-          color="var(--pluto-secondary-z)"
-          style={{ marginLeft: 10, width: 20 }}
-        >
-          Index
-        </Text.Text>
-      ) : null;
-    },
-  },
-];
-
 const ChannelList = ({
   selectedChannels,
   selectedGroupIndex,
   onSelectChannels,
 }: ChannelListProps): ReactElement => {
-  const channels = Form.useFieldArray<ChannelConfig[]>({
+  const channels = Form.useFieldArray<ChannelConfig>({
     path: `groups.${selectedGroupIndex}.channels`,
   });
   const menuProps = Menu.useContextMenu();
   return (
     <Align.Space className={CSS.B("channels")} grow empty>
-      <Header.Header level="h3">
+      <Header.Header level="h3" style={{ borderBottom: "none" }}>
         <Header.Title weight={500}>Channels</Header.Title>
       </Header.Header>
       <Menu.ContextMenu
         menu={({ keys }: Menu.ContextMenuMenuProps): ReactElement => {
           const handleSelect = (key: string) => {
+            const indices = keys.map((k) =>
+              channels.value.findIndex((c) => c.key === k),
+            );
             switch (key) {
               case "remove":
-                const indices = keys.map((k) =>
-                  channels.value.findIndex((c) => c.key === k),
-                );
                 channels.remove(indices);
+                break;
+              case "keep":
+                const idxIndex = channels.value.findIndex((c) => c.isIndex === true);
+                channels.keepOnly([idxIndex, ...indices]);
                 break;
             }
           };
@@ -327,28 +333,36 @@ const ChannelList = ({
               <Menu.Item itemKey="remove" startIcon={<Icon.Close />}>
                 Remove
               </Menu.Item>
+              <Menu.Item itemKey="keep" startIcon={<Icon.Check />}>
+                Keep Only Selected
+              </Menu.Item>
             </Menu.Menu>
           );
         }}
         {...menuProps}
       >
         <List.List<string, ChannelConfig> data={channels.value}>
+          <List.Filter>
+            {(p) => (
+              <Input.Text
+                placeholder="Search Channels"
+                selectOnFocus
+                style={{ border: "none", borderBottom: "var(--pluto-border)" }}
+                {...p}
+              />
+            )}
+          </List.Filter>
           <List.Selector<string, ChannelConfig>
             value={selectedChannels}
             allowNone={false}
             onChange={onSelectChannels}
             replaceOnSingle
           >
-            <List.Column.Header<string, ChannelConfig>
-              columns={CHANNEL_LIST_COLUMNS}
-              hide
-            >
-              <List.Core<string, ChannelConfig> grow>
-                {(props) => (
-                  <ChannelListItem {...props} groupIndex={selectedGroupIndex} />
-                )}
-              </List.Core>
-            </List.Column.Header>
+            <List.Core<string, ChannelConfig> grow>
+              {({ key, ...props }) => (
+                <ChannelListItem key={key} {...props} groupIndex={selectedGroupIndex} />
+              )}
+            </List.Core>
           </List.Selector>
         </List.List>
       </Menu.ContextMenu>
@@ -359,18 +373,18 @@ const ChannelList = ({
 export const ChannelListItem = memo(
   ({
     groupIndex,
+    sourceIndex,
     ...props
   }: List.ItemProps<string, ChannelConfig> & {
     groupIndex: number;
-  }): ReactElement => {
+  }): ReactElement | null => {
     const { startDrag, onDragEnd } = Haul.useDrag({
       type: "Device.Channel",
       key: props.entry.key,
     });
     const groupChannels = `groups.${groupIndex}.channels`;
-    const prefix = `${groupChannels}.${props.index}`;
+    const prefix = `${groupChannels}.${sourceIndex}`;
     const methods = Form.useContext();
-    const validPort = Form.useFieldValid(`${prefix}.port`);
     const { getSelected } = List.useSelectionUtils();
     const handleDragStart = useCallback(() => {
       const selected = getSelected();
@@ -403,20 +417,48 @@ export const ChannelListItem = memo(
       });
     }, [startDrag, props.entry.key, groupIndex, getSelected, methods.get, methods.set]);
 
+    const isValid = Form.useFieldValid(prefix);
+
     const childValues = Form.useChildFieldValues<ChannelConfig>({
       path: prefix,
       optional: true,
     });
+    const isIndex = childValues?.isIndex ?? false;
+
     if (childValues == null) return null;
     return (
-      <List.Column.Item
+      <List.ItemFrame
         {...props}
         entry={childValues}
         draggable
-        className={!validPort ? CSS.B("bad-port") : ""}
         onDragStart={handleDragStart}
         onDragEnd={onDragEnd}
-      />
+        direction="x"
+        justify="spaceBetween"
+        style={{ padding: "1.25rem 1.5rem" }}
+        align="center"
+      >
+        <Align.Space direction="y" grow size="small">
+          <Text.Text level="p" weight={500} color={!isValid && "var(--pluto-error-z)"}>
+            {childValues.name}
+          </Text.Text>
+          {childValues.nodeId != null && (
+            <Text.Text level="small" shade={7}>
+              {childValues.nodeId}
+            </Text.Text>
+          )}
+        </Align.Space>
+        <Align.Space direction="y" empty align="end">
+          <Text.Text level="p" shade={7}>
+            {childValues.dataType}
+          </Text.Text>
+          {isIndex && (
+            <Text.Text level="p" shade={7} color="var(--pluto-secondary-z)">
+              {isIndex ? "Index" : ""}
+            </Text.Text>
+          )}
+        </Align.Space>
+      </List.ItemFrame>
     );
   },
 );
@@ -458,11 +500,12 @@ const ChannelForm = ({
 }: ChannelFormProps): ReactElement | null => {
   const prefix = `groups.${groupIndex}.channels.${index}`;
   const ctx = Form.useContext();
+  const fieldState = Form.useFieldState(prefix);
+  const isIndex = Form.useFieldValue(`${prefix}.isIndex`);
   if (!ctx.has(prefix)) return null;
-
   return (
-    <>
-      <Form.Field<string> path={`${prefix}.name`} label="Name" showLabel={false}>
+    <Align.Space direction="y" size="small">
+      <Form.Field<string> path={`${prefix}.name`} label="Name">
         {(p) => (
           <Input.Text
             variant="natural"
@@ -473,17 +516,40 @@ const ChannelForm = ({
           />
         )}
       </Form.Field>
-      <Form.Field<string> path={`${prefix}.dataType`} label="Data Type">
-        {(p) => (
-          <Select.DataType {...p} location="top" allowNone={false} hideColumnHeader />
+      <Align.Space direction="x" size="small" grow>
+        <Form.Field<string> path={`${prefix}.dataType`} label="Data Type" grow>
+          {(p) => (
+            <Select.DataType {...p} location="top" allowNone={false} hideColumnHeader />
+          )}
+        </Form.Field>
+        <Form.SwitchField label="Is Index" path={`${prefix}.isIndex`}>
+          {(p) => <Input.Switch {...p} />}
+        </Form.SwitchField>
+      </Align.Space>
+      <Form.Field<string> path={`${prefix}.nodeId`} label="Node ID" optional>
+        {({ onChange, ...props }) => (
+          <SelectNode
+            {...props}
+            data={deviceProperties.channels}
+            onChange={(value) => {
+              onChange(value ?? "");
+            }}
+            allowNone={isIndex}
+          />
         )}
       </Form.Field>
-      <Form.Field<string> path={`${prefix}.nodeId`} label="Node ID" hideIfNull>
-        {(p) => (
-          <SelectNode {...p} data={deviceProperties.channels} allowNone={false} />
-        )}
-      </Form.Field>
-    </>
+      {fieldState?.status.variant === "error" && (
+        <Note.Note
+          variant="error"
+          style={{
+            padding: "2rem",
+            margin: 0,
+          }}
+        >
+          <Text.Text level="p">{fieldState.status.message}</Text.Text>
+        </Note.Note>
+      )}
+    </Align.Space>
   );
 };
 
@@ -493,8 +559,9 @@ interface GroupFormProps {
 
 const GroupForm = ({ index }: GroupFormProps): ReactElement => {
   const prefix = `groups.${index}`;
+  const fs = Form.useFieldState(`groups.${index}.channels`);
   return (
-    <>
+    <Align.Space direction="y" size="small">
       <Form.Field<string> path={`${prefix}.name`} label="Name" showLabel={false}>
         {(p) => (
           <Input.Text
@@ -506,6 +573,17 @@ const GroupForm = ({ index }: GroupFormProps): ReactElement => {
           />
         )}
       </Form.Field>
-    </>
+      {fs?.status.variant === "error" && (
+        <Note.Note
+          variant="error"
+          style={{
+            padding: "2rem",
+            margin: 0,
+          }}
+        >
+          <Text.Text level="p">{fs.status.message}</Text.Text>
+        </Note.Note>
+      )}
+    </Align.Space>
   );
 };
