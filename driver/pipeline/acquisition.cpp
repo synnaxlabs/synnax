@@ -24,14 +24,14 @@ Acquisition::Acquisition(
     std::shared_ptr<Source> source,
     const breaker::Config &breaker_config
 ): ctx(std::move(ctx)), thread(nullptr), writer_config(writer_config), breaker(breaker_config), source(std::move(source)) {
-    assert(ctx != nullptr);
-    assert(source != nullptr);
 }
 
 void Acquisition::start() {
+    LOG(INFO) << "[acquisition] Acquisition started";
     if (this-> running) return;
-    if (thread->joinable() && std::this_thread::get_id() != thread->get_id())
-        thread->join();
+    LOG(INFO) << "[acquisition] Starting acquisition thread";
+    if (this->thread != nullptr && thread->joinable() && std::this_thread::get_id() != thread->get_id())
+        this->thread->join();
     this->running = true;
     thread = std::make_unique<std::thread>(&Acquisition::run, this);
 }
@@ -39,8 +39,8 @@ void Acquisition::start() {
 void Acquisition::stop() {
     if (!running) return;
     this->running = false;
-    if (thread->joinable() && std::this_thread::get_id() != thread->get_id()) {
-        thread->join();
+    if (this->thread != nullptr && thread->joinable() && std::this_thread::get_id() != thread->get_id()) {
+       this->thread->join();
     };
 
     LOG(INFO) << "[acquisition] Acquisition stopped";
