@@ -13,6 +13,9 @@
 #include "glog/logging.h"
 #include "client/cpp/synnax.h"
 #include "freighter/cpp/freighter.h"
+#include <condition_variable>
+#include <mutex>
+
 
 namespace breaker {
 /// @brief struct for configuring a breaker.
@@ -42,10 +45,42 @@ class Breaker {
 public:
     explicit Breaker(const Config &config) : config(config),
                                              interval(config.base_interval),
-                                             retries(0) {
+                                             retries(0),
+                                             shutdown(false),
+                                             breaker_shutdown(std::make_unique<std::condition_variable>()) {
     }
 
     Breaker(): Breaker(Config{"default", TimeSpan(1 * SECOND), 10, 1.1}) {}
+
+    //copy constructor
+    Breaker(const Breaker &other) noexcept: config(other.config),
+                                    interval(other.interval),
+                                    retries(other.retries),
+                                    shutdown(other.shutdown),
+                                    breaker_shutdown(std::make_unique<std::condition_variable>()) {
+    }
+
+
+    //move constructor
+    Breaker(Breaker &&other) noexcept : config(other.config),
+                                        interval(other.interval),
+                                        retries(other.retries),
+                                        shutdown(other.shutdown),
+                                        breaker_shutdown(std::make_unique<std::condition_variable>()) {
+    }
+
+    //copy assignment
+    Breaker& operator=(const Breaker &other) noexcept {
+        if (this == &other) return *this;
+        this->config = other.config;
+        this->interval = other.interval;
+        this->retries = other.retries;
+        this->shutdown = other.shutdown;
+        this->breaker_shutdown = std::make_unique<std::condition_variable>();
+        return *this;
+    }
+
+    
 
     /// @brief triggers the breaker. If the maximum number of retries has been exceeded,
     /// immediately returns false. Otherwise, sleeps the current thread for the current
@@ -70,22 +105,41 @@ public:
                 config.max_retries << " times. " << "Retrying in " << interval / SECOND
                 << " seconds. "
                 "Error: " << message << ".";
-        std::this_thread::sleep_for(interval.nanoseconds());
+        {
+            std::unique_lock<std::mutex> lock(shutdown_mutex);
+            breaker_shutdown->wait_for(lock, interval.nanoseconds());
+            if(shutdown){
+                LOG(INFO) << "Breaker is shutting down. Exiting.";
+                return false;
+            }
+        }
         interval = interval * config.scale;
         return true;
     }
 
+    /// @brief shuts down the breaker, preventing any further retries.
+    void close() {
+        if(shutdown) return;
+        std::lock_guard<std::mutex> lock(shutdown_mutex);
+        shutdown = true;
+        breaker_shutdown->notify_all();
+    }
+    
     /// @brief resets the retry count and the retry interval on the breaker, allowing
     /// it to be re-used. It's typically to call this method after the breaker has been
     /// triggered, but the request has succeeded.
     void reset() {
         retries = 0;
         interval = config.base_interval;
+        shutdown = false;
     }
 
 private:
     Config config;
     TimeSpan interval;
     uint32_t retries;
+    std::unique_ptr<std::condition_variable> breaker_shutdown;
+    std::mutex shutdown_mutex;
+    bool shutdown;
 };
 }

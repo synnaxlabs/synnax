@@ -10,10 +10,34 @@
 #include "gtest/gtest.h"
 #include "driver/breaker/breaker.h"
 
+
+void helper(breaker::Breaker &b){
+    while(b.wait("testBreakRetries breaker"));
+}
+
 // @brief it should correctly wait for an expended number of requests.
 TEST(BreakerTests, testBreaker)
 {
-    auto b = breaker::Breaker(breaker::Config{"my-breaker", synnax::TimeSpan(1), 1, 1});
-    ASSERT_TRUE(b.wait());
-    ASSERT_FALSE(b.wait());
+    auto b = breaker::Breaker(breaker::Config{"my-breaker", 1*SECOND, 1, 1});
+    ASSERT_TRUE(b.wait("testBreaker breaker"));
+    ASSERT_FALSE(b.wait("testBreaker breaker"));
+}
+
+//@brief it should correctly expend max number of requests
+TEST(BreakerTests, testBreakRetries){
+    auto b = breaker::Breaker(breaker::Config{"my-breaker", 1*SECOND, 10, 1.1});
+
+    //create a new thread
+    while(b.wait("testBreakRetries breaker"));
+}
+
+//@brief it should correctly shutdown before expending the max number of requests
+TEST(BreakerTests, testBreakerPrematureShutdown){
+    auto b = breaker::Breaker(breaker::Config{"my-breaker", 1*SECOND, 10, 1});
+    //create a new thread
+    std::thread t(&helper, std::ref(b));
+    //sleep a couple seconds
+    std::this_thread::sleep_for(std::chrono::seconds(4));
+    b.close();
+    t.join();
 }
