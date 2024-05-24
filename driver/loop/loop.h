@@ -38,17 +38,17 @@ public:
         const auto interval_nanos = interval.nanoseconds();
         if (elapsed < interval_nanos) {
             auto remaining = interval_nanos - elapsed;
-            auto sleep_start = std::chrono::steady_clock::now();
-            // std::this_thread::sleep_for(std::chrono::nanoseconds(remaining));
-            sleep(remaining); // sleep for the remaining time
-            auto sleep_end = std::chrono::steady_clock::now();
-            last = now + remaining;
-            // last = std::chrono::high_resolution_clock::now();
+            // auto sleep_start = std::chrono::steady_clock::now();
+            std::this_thread::sleep_for(std::chrono::nanoseconds(remaining));
+            // sleep(remaining); // sleep for the remaining time
+            // auto sleep_end = std::chrono::steady_clock::now();
+            // last = now + remaining;
+            last = std::chrono::high_resolution_clock::now();
             // LOG(INFO) << "last - real time: " << last -m;      \
             LOG(INFO) << "Sleep time: " << sleep_end - sleep_start;
         } else {
             last = now;
-            LOG(WARNING) << "Timer interval exceeded by " << elapsed - interval_nanos;
+            LOG(WARNING) << "Timer interval exceeded by " << (elapsed - interval_nanos)/1e6 << " ms";
         }
     }
 

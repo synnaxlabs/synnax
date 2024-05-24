@@ -86,6 +86,7 @@ func (t frameWriterRequestTranslator) Forward(
 			Authorities:              msg.Config.Authorities,
 			EnableAutoCommit:         msg.Config.EnableAutoCommit,
 			AutoIndexPersistInterval: int64(msg.Config.AutoIndexPersistInterval),
+			ControlSubject: msg.Config.ControlSubject,
 		},
 		Frame: translateFrameForward(msg.Frame),
 	}, nil

@@ -312,35 +312,7 @@ const ChannelList = ({
       <Header.Header level="h3" style={{ borderBottom: "none" }}>
         <Header.Title weight={500}>Channels</Header.Title>
       </Header.Header>
-      <Menu.ContextMenu
-        menu={({ keys }: Menu.ContextMenuMenuProps): ReactElement => {
-          const handleSelect = (key: string) => {
-            const indices = keys.map((k) =>
-              channels.value.findIndex((c) => c.key === k),
-            );
-            switch (key) {
-              case "remove":
-                channels.remove(indices);
-                break;
-              case "keep":
-                const idxIndex = channels.value.findIndex((c) => c.isIndex === true);
-                channels.keepOnly([idxIndex, ...indices]);
-                break;
-            }
-          };
-          return (
-            <Menu.Menu onChange={handleSelect} level="small">
-              <Menu.Item itemKey="remove" startIcon={<Icon.Close />}>
-                Remove
-              </Menu.Item>
-              <Menu.Item itemKey="keep" startIcon={<Icon.Check />}>
-                Keep Only Selected
-              </Menu.Item>
-            </Menu.Menu>
-          );
-        }}
-        {...menuProps}
-      >
+      
         <List.List<string, ChannelConfig> data={channels.value}>
           <List.Filter>
             {(p) => (
@@ -358,14 +330,45 @@ const ChannelList = ({
             onChange={onSelectChannels}
             replaceOnSingle
           >
+            <Menu.ContextMenu
+        menu={({ keys }: Menu.ContextMenuMenuProps): ReactElement => {
+          const handleSelect = (key: string) => {
+            const indices = keys.map((k) =>
+              channels.value.findIndex((c) => c.key === k),
+            );
+            switch (key) {
+              case "remove":
+                channels.remove(indices);
+                break;
+              case "keep":
+                const idxIndex = channels.value.findIndex((c) => c.isIndex === true);
+                console.log(idxIndex, indices, channels.value);
+                channels.keepOnly([idxIndex, ...indices]);
+                break;
+            }
+          };
+          return (
+            <Menu.Menu onChange={handleSelect} level="small">
+              <Menu.Item itemKey="remove" startIcon={<Icon.Close />}>
+                Remove
+              </Menu.Item>
+              <Menu.Item itemKey="keep" startIcon={<Icon.Check />}>
+                Keep Only Selected
+              </Menu.Item>
+            </Menu.Menu>
+          );
+        }}
+        {...menuProps}
+      >
             <List.Core<string, ChannelConfig> grow>
               {({ key, ...props }) => (
                 <ChannelListItem key={key} {...props} groupIndex={selectedGroupIndex} />
               )}
             </List.Core>
+            </Menu.ContextMenu>
           </List.Selector>
         </List.List>
-      </Menu.ContextMenu>
+
     </Align.Space>
   );
 };

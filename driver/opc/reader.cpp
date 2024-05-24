@@ -130,81 +130,80 @@ public:
         for (const auto &ch: cfg.channels) {
             if (!ch.enabled) continue;
             enabled_count++;
-            fr.add(ch.channel, Series(ch.ch.data_type, samples_per_read));
+            fr.add(ch.channel, Series(ch.ch.data_type, 1));
         }
         for (const auto &idx: indexes)
-            fr.add(idx, Series(synnax::TIMESTAMP, samples_per_read));
-        for (size_t i = 0; i < samples_per_read; i++) {
-            auto start = std::chrono::high_resolution_clock::now();
-            UA_ReadResponse readResponse = UA_Client_Service_read(client.get(), readRequest);
+            fr.add(idx, Series(synnax::TIMESTAMP, 1));
+        auto start = std::chrono::high_resolution_clock::now();
+        UA_ReadResponse readResponse = UA_Client_Service_read(client.get(), readRequest);
 
-            auto status = readResponse.responseHeader.serviceResult;
-            if (status != UA_STATUSCODE_GOOD) {
-                UA_ReadResponse_clear(&readResponse);
-                if (    status == UA_STATUSCODE_BADCONNECTIONREJECTED || 
-                        status ==  UA_STATUSCODE_BADSECURECHANNELCLOSED) {
-
-                    this->ctx->setState({
-                        .task = task.key,
-                        .variant = "error",
-                        .details = json{
-                            {"message", "connection rejected"}
-                        }
-                    });
-
-                    LOG(ERROR) << "[opc.reader] connection rejected or secure channel closed.";
-                    return std::make_pair(  std::move(fr), 
-                                            freighter::Error( driver::TYPE_TEMPORARY_HARDWARE_ERROR, "connection rejected"
-                                          ));
-                }
-                 this->ctx->setState({
-                        .task = task.key,
-                        .variant = "error",
-                        .details = json{
-                            {"message", std::string(UA_StatusCode_name(status))}
-                        }
-                    });
-                LOG(ERROR) << "[opc.reader] failed to read value: " << std::string(UA_StatusCode_name(status));
-                return std::make_pair(  std::move(fr),
-                                        freighter::Error( driver::TYPE_CRITICAL_HARDWARE_ERROR, "failed to read value: " + std::string(UA_StatusCode_name(status))
-                                      ));
-            }
-            // Process the read results
-            for (size_t j = 0; j < readResponse.resultsSize; ++j) {
-                UA_Variant *value = &readResponse.results[j].value;
-                const auto &ch = cfg.channels[j];
-                // Assuming the channels order hasn't changed
-                if (readResponse.results[j].status != UA_STATUSCODE_GOOD) {
-                    std::string error_message = "Failed to read value: " + std::string(UA_StatusCode_name(readResponse.results[j].status));    
-                    LOG(ERROR) << "[opc.reader] failed to read value for result: " << error_message;
-                    UA_ReadResponse_clear(&readResponse);
-                    this->ctx->setState({
-                        .task = task.key,
-                        .variant = "error",
-                        .details = json{
-                            {"message", error_message}
-                        }
-                    });
-                    return std::make_pair(  std::move(fr), 
-                                            freighter::Error(
-                                              driver::TYPE_CRITICAL_HARDWARE_ERROR,
-                                              "Failed to read value: " + error_message));
-                }
-                set_val_on_series(value, i, fr.series->at(j));
-            }
-            
+        auto status = readResponse.responseHeader.serviceResult;
+        if (status != UA_STATUSCODE_GOOD) {
             UA_ReadResponse_clear(&readResponse);
+            if (    status == UA_STATUSCODE_BADCONNECTIONREJECTED || 
+                    status ==  UA_STATUSCODE_BADSECURECHANNELCLOSED) {
 
-            const auto now = synnax::TimeStamp::now();
-            for (size_t j = enabled_count; j < enabled_count + indexes.size(); j++) {
-                fr.series->at(j).set(i, now.value);
+                this->ctx->setState({
+                    .task = task.key,
+                    .variant = "error",
+                    .details = json{
+                        {"message", "connection rejected"}
+                    }
+                });
+
+                LOG(ERROR) << "[opc.reader] connection rejected or secure channel closed.";
+                return std::make_pair(  std::move(fr), 
+                                        freighter::Error( driver::TYPE_TEMPORARY_HARDWARE_ERROR, "connection rejected"
+                                        ));
             }
-            auto end = std::chrono::high_resolution_clock::now();
-            auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-            // LOG(WARNING) << "[opc.reader] read took " << duration.count() << "ms";
-
-            timer.wait();
+                this->ctx->setState({
+                    .task = task.key,
+                    .variant = "error",
+                    .details = json{
+                        {"message", std::string(UA_StatusCode_name(status))}
+                    }
+                });
+            LOG(ERROR) << "[opc.reader] failed to read value: " << std::string(UA_StatusCode_name(status));
+            return std::make_pair(  std::move(fr),
+                                    freighter::Error( driver::TYPE_CRITICAL_HARDWARE_ERROR, "failed to read value: " + std::string(UA_StatusCode_name(status))
+                                    ));
         }
+        // Process the read results
+        for (size_t j = 0; j < readResponse.resultsSize; ++j) {
+            UA_Variant *value = &readResponse.results[j].value;
+            const auto &ch = cfg.channels[j];
+            // Assuming the channels order hasn't changed
+            if (readResponse.results[j].status != UA_STATUSCODE_GOOD) {
+                std::string error_message = "Failed to read value: " + std::string(UA_StatusCode_name(readResponse.results[j].status));    
+                LOG(ERROR) << "[opc.reader] failed to read value for result: " << error_message;
+                UA_ReadResponse_clear(&readResponse);
+                this->ctx->setState({
+                    .task = task.key,
+                    .variant = "error",
+                    .details = json{
+                        {"message", error_message}
+                    }
+                });
+                return std::make_pair(  std::move(fr), 
+                                        freighter::Error(
+                                            driver::TYPE_CRITICAL_HARDWARE_ERROR,
+                                            "Failed to read value: " + error_message));
+            }
+            set_val_on_series(value, 0, fr.series->at(j));
+        }
+        
+        UA_ReadResponse_clear(&readResponse);
+
+        const auto now = synnax::TimeStamp::now();
+        for (size_t j = enabled_count; j < enabled_count + indexes.size(); j++) {
+            fr.series->at(j).set(0, now.value);
+        }
+        auto end = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+        // LOG(WARNING) << "[opc.reader] read took " << duration.count() << "ms";
+
+        std::cout << fr << std::endl;
+        timer.wait();
         return std::make_pair(std::move(fr), freighter::NIL);
     }
 };
@@ -315,8 +314,13 @@ std::unique_ptr<task::Task> Reader::configure(
     auto writer_cfg = synnax::WriterConfig{
         .channels = channelKeys,
         .start = TimeStamp::now(),
+        .subject = synnax::ControlSubject{
+            .name = task.name,
+            // convert the task key to a string
+            .key = std::to_string(task.key)
+        },
         .mode = synnax::WriterPersistStream,
-        .enable_auto_commit = true,
+        .enable_auto_commit = true
     };
 
     auto pipe = pipeline::Acquisition(

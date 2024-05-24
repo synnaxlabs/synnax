@@ -42,10 +42,60 @@ inline int64_t ua_datetime_to_unix_nano(UA_DateTime dateTime) {
 }
 
 inline void set_val_on_series(UA_Variant *val, size_t i, synnax::Series &s) {
+    // std::cout << s.data_type.value << std::endl;
     if (UA_Variant_hasArrayType(val, &UA_TYPES[UA_TYPES_FLOAT])) {
         UA_Float *data = static_cast<UA_Float *>(val->data);
-        auto length = val->arrayLength;
-        if (s.data_type == synnax::FLOAT32) s.set(data, i, length);
+        size_t length = val->arrayLength;
+        if (s.data_type == synnax::FLOAT32) return s.set_array(data, i, length);
+    }
+    if (UA_Variant_hasArrayType(val, &UA_TYPES[UA_TYPES_DOUBLE])) {
+        UA_Double *data = static_cast<UA_Double *>(val->data);
+        size_t length = val->arrayLength;
+        if (s.data_type == synnax::FLOAT64) return s.set_array(data, i, length);
+    }
+    if (UA_Variant_hasArrayType(val, &UA_TYPES[UA_TYPES_INT32])) {
+        UA_Int32 *data = static_cast<UA_Int32 *>(val->data);
+        size_t length = val->arrayLength;
+        if (s.data_type == synnax::INT32) return s.set_array(data, i, length);
+    }
+    if (UA_Variant_hasArrayType(val, &UA_TYPES[UA_TYPES_INT64])) {
+        UA_Int64 *data = static_cast<UA_Int64 *>(val->data);
+        size_t length = val->arrayLength;
+        if (s.data_type == synnax::INT64) return s.set_array(data, i, length);
+    }
+    if (UA_Variant_hasArrayType(val, &UA_TYPES[UA_TYPES_UINT32])) {
+        UA_UInt32 *data = static_cast<UA_UInt32 *>(val->data);
+        size_t length = val->arrayLength;
+        if (s.data_type == synnax::UINT32) return s.set_array(data, i, length);
+    }
+    if (UA_Variant_hasArrayType(val, &UA_TYPES[UA_TYPES_UINT64])) {
+        UA_UInt64 *data = static_cast<UA_UInt64 *>(val->data);
+        size_t length = val->arrayLength;
+        if (s.data_type == synnax::UINT64) return s.set_array(data, i, length);
+    }
+    if (UA_Variant_hasArrayType(val, &UA_TYPES[UA_TYPES_BYTE])) {
+        UA_Byte *data = static_cast<UA_Byte *>(val->data);
+        size_t length = val->arrayLength;
+        if (s.data_type == synnax::UINT8) return s.set_array(data, i, length);
+    }
+    if (UA_Variant_hasArrayType(val, &UA_TYPES[UA_TYPES_SBYTE])) {
+        UA_SByte *data = static_cast<UA_SByte *>(val->data);
+        size_t length = val->arrayLength;
+        if (s.data_type == synnax::INT8) return s.set_array(data, i, length);
+    }
+    if (UA_Variant_hasArrayType(val, &UA_TYPES[UA_TYPES_BOOLEAN])) {
+        UA_Boolean *data = static_cast<UA_Boolean *>(val->data);
+        size_t length = val->arrayLength;
+        if (s.data_type == synnax::UINT8) return s.set_array(data, i, length);
+    }
+    if (UA_Variant_hasArrayType(val, &UA_TYPES[UA_TYPES_DATETIME])) {
+
+        UA_DateTime *data = static_cast<UA_DateTime *>(val->data);
+        size_t length = val->arrayLength;
+        for (size_t j = 0; j < length; ++j) {
+            s.set(j, ua_datetime_to_unix_nano(data[j]));
+        }
+        return;
     }
     if (val->type == &UA_TYPES[UA_TYPES_FLOAT]) {
         const auto value = *static_cast<UA_Float *>(val->data);
