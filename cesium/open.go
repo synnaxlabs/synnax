@@ -66,7 +66,7 @@ func Open(dirname string, opts ...Option) (*DB, error) {
 
 func (db *DB) openVirtualOrUnary(ch Channel) error {
 	if db.closed {
-		return dbClosed
+		return ErrDBClosed
 	}
 
 	db.mu.Lock()

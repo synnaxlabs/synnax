@@ -143,7 +143,7 @@ type Writer struct {
 // If err is nil, then the writer must be closed.
 func (db *DB) NewWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) {
 	if db.closed {
-		return nil, dbClosed
+		return nil, errDBClosed
 	}
 
 	cfg, err := config.New(DefaultWriterConfig, cfg)

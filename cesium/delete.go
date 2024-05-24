@@ -44,7 +44,7 @@ func channelDirName(ch ChannelKey) string {
 // Does nothing if channel does not exist.
 func (db *DB) DeleteChannel(ch ChannelKey) error {
 	if db.closed {
-		return dbClosed
+		return ErrDBClosed
 	}
 
 	db.mu.Lock()
@@ -72,7 +72,7 @@ func (db *DB) DeleteChannel(ch ChannelKey) error {
 
 func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 	if db.closed {
-		return dbClosed
+		return ErrDBClosed
 	}
 
 	db.mu.Lock()

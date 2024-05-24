@@ -23,7 +23,7 @@ import (
 // CreateChannel implements DB.
 func (db *DB) CreateChannel(_ context.Context, ch ...Channel) error {
 	if db.closed {
-		return dbClosed
+		return ErrDBClosed
 	}
 
 	for _, c := range ch {
@@ -37,7 +37,7 @@ func (db *DB) CreateChannel(_ context.Context, ch ...Channel) error {
 // RetrieveChannels implements DB.
 func (db *DB) RetrieveChannels(ctx context.Context, keys ...ChannelKey) ([]Channel, error) {
 	if db.closed {
-		return nil, dbClosed
+		return nil, ErrDBClosed
 	}
 
 	chs := make([]Channel, 0, len(keys))
@@ -54,7 +54,7 @@ func (db *DB) RetrieveChannels(ctx context.Context, keys ...ChannelKey) ([]Chann
 // RetrieveChannel implements DB.
 func (db *DB) RetrieveChannel(_ context.Context, key ChannelKey) (Channel, error) {
 	if db.closed {
-		return Channel{}, dbClosed
+		return Channel{}, ErrDBClosed
 	}
 
 	db.mu.RLock()

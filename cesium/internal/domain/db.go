@@ -28,7 +28,7 @@ var (
 	ErrDomainOverlap = errors.Wrap(validate.Error, "domain overlaps with an existing domain")
 	// ErrRangeNotFound is returned when a requested domain is not found in the DB.
 	ErrRangeNotFound = errors.Wrap(query.NotFound, "domain not found")
-	dbClosed      = core.EntityClosed("domain.db")
+	errDBClosed      = core.EntityClosed("domain.db")
 )
 
 func NewErrDomainOverlap(tr1, tr2 telem.TimeRange) error {
@@ -161,7 +161,7 @@ func (db *DB) newReader(ctx context.Context, ptr pointer) (*Reader, error) {
 
 func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) {
 	if db.closed {
-		return false, dbClosed
+		return false, errDBClosed
 	}
 	i := db.NewIterator(IteratorConfig{Bounds: telem.TimeRangeMax})
 
