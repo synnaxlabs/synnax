@@ -527,7 +527,8 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Start:   10 * telem.SecondTS,
 						Subject: control.Subject{Key: "foo"}},
 					)
-					Expect(err).To(MatchError(core.EntityClosed("unary.db")))
+					Expect(err).To(HaveOccurredAs(core.EntityClosed("unary.db")))
+					Expect(err).To(MatchError(ContainSubstring("error in channel [gauss]<%d>", key)))
 				})
 				It("Should not write on a closed database", func() {
 					Expect(db.Close()).To(Succeed())

@@ -11,6 +11,7 @@ package cesium
 
 import (
 	"context"
+	"fmt"
 	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
@@ -28,13 +29,11 @@ type (
 	Frame      = core.Frame
 )
 
-var (
-	ErrDBClosed = core.EntityClosed("cesium.db")
-)
-
 func NewFrame(keys []core.ChannelKey, series []telem.Series) Frame {
 	return core.NewFrame(keys, series)
 }
+
+var ErrDBClosed = core.EntityClosed("cesium.db")
 
 type DB struct {
 	*options
@@ -105,7 +104,14 @@ func (db *DB) Close() error {
 	db.closeControlDigests()
 	c.Exec(db.shutdown.Close)
 	for _, u := range db.unaryDBs {
-		c.Exec(u.Close)
+		err := u.Close()
+		if err != nil {
+			fmt.Println(u.Channel)
+		}
+		c.Exec(func() error {
+			return err
+		})
+		//c.Exec(u.Close)
 	}
 	return c.Error()
 }

@@ -42,6 +42,7 @@ type DB struct {
 	Config
 	controller *controller.Controller[*controlEntity]
 	mu         *openEntityCount
+	wrapError  func(error) error
 	closed     bool
 }
 
@@ -61,6 +62,7 @@ func Open(cfg Config) (db *DB, err error) {
 	return &DB{
 		Config:     cfg,
 		controller: c,
+		wrapError:  core.NewErrorWrapper(cfg.Channel.Key, cfg.Channel.Name),
 		mu:         &openEntityCount{},
 	}, nil
 }
@@ -76,7 +78,7 @@ func (db *DB) TryClose() error {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 	if db.mu.openWriters > 0 {
-		return errors.Newf(fmt.Sprintf("cannot close channel %d because there are currently %d unclosed writers accessing it", db.Channel.Key, db.mu.openWriters))
+		return db.wrapError(errors.Newf(fmt.Sprintf("cannot close channel %d because there are currently %d unclosed writers accessing it", db.Channel.Key, db.mu.openWriters)))
 	}
 	return db.Close()
 }

@@ -21,10 +21,12 @@ import (
 var WriterClosedError = core.EntityClosed("virtual.writer")
 
 func (db *DB) OpenWriter(_ context.Context, cfg WriterConfig) (w *Writer, transfer controller.Transfer, err error) {
+	defer func() { err = db.wrapError(err) }()
+
 	if db.closed {
 		return nil, transfer, dbClosed
 	}
-	w = &Writer{WriterConfig: cfg, Channel: db.Channel, onClose: func() { db.mu.Add(-1) }}
+	w = &Writer{WriterConfig: cfg, Channel: db.Channel, wrapError: db.wrapError, onClose: func() { db.mu.Add(-1) }}
 	gateCfg := controller.GateConfig{
 		TimeRange: cfg.domain(),
 		Authority: cfg.Authority,
@@ -55,19 +57,20 @@ func (cfg WriterConfig) domain() telem.TimeRange {
 }
 
 type Writer struct {
-	Channel core.Channel
-	onClose func()
-	control *controller.Gate[*controlEntity]
-	closed  bool
+	Channel   core.Channel
+	onClose   func()
+	control   *controller.Gate[*controlEntity]
+	wrapError func(error) error
+	closed    bool
 	WriterConfig
 }
 
 func (w *Writer) Write(series telem.Series) (telem.AlignmentPair, error) {
 	if w.closed {
-		return 0, WriterClosedError
+		return 0, w.wrapError(WriterClosedError)
 	}
 	if err := w.Channel.ValidateSeries(series); err != nil {
-		return 0, err
+		return 0, w.wrapError(err)
 	}
 	e, ok := w.control.Authorize()
 	if !ok {

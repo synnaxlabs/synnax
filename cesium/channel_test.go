@@ -92,7 +92,7 @@ var _ = Describe("Channel", Ordered, func() {
 						subDB := openDBOnFS(sub)
 						Expect(subDB.Close()).To(Succeed())
 						err := subDB.CreateChannel(ctx, cesium.Channel{Key: key, Rate: 1 * telem.Hz, DataType: telem.BytesT})
-						Expect(err).To(MatchError(core.EntityClosed("cesium.db")))
+						Expect(err).To(HaveOccurredAs(core.EntityClosed("cesium.db")))
 
 						Expect(fs.Remove("closed-fs")).To(Succeed())
 					})

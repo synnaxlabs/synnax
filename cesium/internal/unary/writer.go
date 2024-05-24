@@ -126,7 +126,7 @@ type Writer struct {
 
 func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (w *Writer, transfer controller.Transfer, err error) {
 	if db.closed {
-		return nil, transfer, ErrDBClosed
+		return nil, transfer, db.wrapError(ErrDBClosed)
 	}
 
 	cfg, err := config.New(DefaultWriterConfig, cfgs...)
@@ -137,7 +137,7 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (w *Writer, 
 		Channel:          db.Channel,
 		idx:              db.index(),
 		decrementCounter: func() { db.mu.Add(-1) },
-		wrapError:        core.NewErrorWrapper(db.Channel.Key, db.Channel.Name),
+		wrapError:        db.wrapError,
 	}
 	gateCfg := controller.GateConfig{
 		TimeRange: cfg.controlTimeRange(),
@@ -174,11 +174,12 @@ func Write(
 		Subject:   control.Subject{Key: uuid.New().String()},
 	})
 	if err != nil {
-		return err
+		return db.wrapError(err)
 	}
 	defer func() {
 		_, err_ := w.Close(ctx)
 		err = errors.CombineErrors(err, err_)
+		err = db.wrapError(err)
 	}()
 	if _, err = w.Write(series); err != nil {
 		return err

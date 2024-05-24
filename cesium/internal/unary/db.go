@@ -47,6 +47,7 @@ type DB struct {
 	Controller *controller.Controller[controlledWriter]
 	_idx       index.Index
 	mu         *openEntityCount
+	wrapError  func(error) error
 	closed     bool
 }
 
@@ -123,15 +124,18 @@ func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) 
 
 	_, ok := g.Authorize()
 	if !ok {
-		g.Release()
 		return true, nil
 	}
+	defer g.Release()
 
-	return db.Domain.HasDataFor(ctx, tr)
+	ok, err = db.Domain.HasDataFor(ctx, tr)
+	return ok, db.wrapError(err)
 }
 
 // Read reads a timerange of data at the unary level.
 func (db *DB) Read(ctx context.Context, tr telem.TimeRange) (frame core.Frame, err error) {
+	defer func() { err = db.wrapError(err) }()
+
 	if db.closed {
 		return frame, ErrDBClosed
 	}
@@ -153,9 +157,9 @@ func (db *DB) TryClose() error {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 	if db.mu.openIteratorWriters > 0 {
-		return errors.Newf("cannot close channel %d because there are currently %d unclosed writers/iterators accessing it", db.Channel.Key, db.mu.openIteratorWriters)
+		return db.wrapError(errors.Newf("cannot close channel %d because there are currently %d unclosed writers/iterators accessing it", db.Channel.Key, db.mu.openIteratorWriters))
 	} else {
-		return db.Close()
+		return db.wrapError(db.Close())
 	}
 }
 
@@ -164,5 +168,5 @@ func (db *DB) Close() error {
 		return nil
 	}
 	db.closed = true
-	return db.Domain.Close()
+	return db.wrapError(db.Domain.Close())
 }

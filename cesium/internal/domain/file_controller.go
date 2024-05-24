@@ -340,7 +340,7 @@ func (fc *fileController) close() error {
 	for _, w := range fc.writers.open {
 		c.Exec(func() error {
 			if !w.tryAcquire() {
-				return errors.Newf("write for file %d is in use and cannot be closed", w.fileKey)
+				return errors.Newf("writer for file %d is in use and cannot be closed", w.fileKey)
 			}
 			return w.Close()
 		})
