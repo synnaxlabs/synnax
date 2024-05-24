@@ -71,13 +71,15 @@ public:
             .scale = 1.2
         };
 
-        pipe = pipeline::Acquisition(
-            ctx,
-            writer_cfg,
-            std::move(source),
-            breaker_config
-        );
-        pipe.start();
+
+        // TODO: change this so that you are not using the acquisition pipeline copy constructor (follow ni pattern w/ configure)
+        // pipe = pipeline::Acquisition(
+        //     ctx,
+        //     writer_cfg,
+        //     std::move(source),
+        //     breaker_config
+        // );
+        // pipe.start();
     }
 
     void exec(task::Command &cmd) override {
