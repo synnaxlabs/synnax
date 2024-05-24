@@ -47,7 +47,6 @@ export const channelConfigZ = nodeProperties
   })
   .superRefine((data, ctx) => {
     if (data.isIndex && data.dataType !== "timestamp") {
-      console.log(data.dataType);
       ctx.addIssue({
         code: "custom",
         path: ["dataType"],

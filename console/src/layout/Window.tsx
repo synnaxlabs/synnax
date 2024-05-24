@@ -31,7 +31,7 @@ export interface NavTopProps extends Pick<WindowProps, "showTitle" | "navTop"> {
 
 export const NavTop = ({
   title,
-  showTitle,
+  showTitle = true,
   navTop,
 }: NavTopProps): ReactElement | null => {
   const os = OS.use();

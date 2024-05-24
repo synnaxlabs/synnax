@@ -100,7 +100,7 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
   const testConnection = useMutation({
     mutationKey: [client?.key],
     mutationFn: async () => {
-      if (!(await methods.validateAsync()) || client == null) return;
+      if (!(await methods.validateAsync("connection")) || client == null) return;
       const rack = await client.hardware.racks.retrieve("sy_node_1_rack");
       const task = await rack.retrieveTaskByName("opc Scanner");
       return await task.executeCommandSync<{ message: string }>(
@@ -132,19 +132,19 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
               key: nanoid(),
               name: "Group 1",
               channels: [
-                ...deviceProperties.channels.map((c) => ({
-                  ...c,
-                  key: nanoid(),
-                  isIndex: false,
-                })),
                 {
                   key: nanoid(),
-                  name: "Time",
+                  name: "group_1_time",
                   dataType: "timestamp",
                   nodeId: "",
                   isIndex: true,
                   isArray: false,
                 },
+                ...deviceProperties.channels.map((c) => ({
+                  ...c,
+                  key: nanoid(),
+                  isIndex: false,
+                })),
               ],
             },
           ],
