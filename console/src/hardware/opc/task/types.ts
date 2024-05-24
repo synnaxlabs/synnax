@@ -33,7 +33,7 @@ export const readChanZ = z.object({
 export const readConfigZ = z
   .object({
     device: z.string().min(1, "Device must be specified"),
-    sampleRate: z.number().min(0).max(5000),
+    sampleRate: z.number().min(0).max(10000),
     streamRate: z.number().min(0).max(200),
     arrayMode: z.boolean(),
     arraySize: z.number().min(1),

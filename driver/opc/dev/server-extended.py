@@ -62,8 +62,8 @@ async def main():
     myarray.set_writable()
     mytimearray.set_writable()
 
-    RATE = 36*20*6
-    ARRAY_SIZE = 40*4
+    RATE = 36*20*12
+    ARRAY_SIZE = 40*8
     mytimearray.write_array_dimensions([ARRAY_SIZE])
     myarray.write_array_dimensions([ARRAY_SIZE])
 

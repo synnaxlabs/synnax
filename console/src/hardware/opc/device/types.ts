@@ -67,7 +67,6 @@ export const groupConfigZ = z
   })
   .superRefine((data, ctx) => {
     const indexes: [ChannelConfig, number][] = [];
-    console.log("ABC");
     data.channels.forEach((channel, i) => {
       if (channel.isIndex) indexes.push([channel, i]);
     });

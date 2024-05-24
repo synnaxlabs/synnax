@@ -141,6 +141,7 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
                   key: nanoid(),
                   name: "Time",
                   dataType: "timestamp",
+                  nodeId: "",
                   isIndex: true,
                   isArray: false,
                 },
@@ -193,11 +194,13 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
         });
         setProgress(`Creating channels for ${group.name}...`);
         await client.channels.create(
-          group.channels.filter((c) => !c.isIndex).map((c) => ({
-            name: c.name,
-            dataType: new DataType(c.dataType).toString(),
-            index: idx.key,
-          })),
+          group.channels
+            .filter((c) => !c.isIndex)
+            .map((c) => ({
+              name: c.name,
+              dataType: new DataType(c.dataType).toString(),
+              index: idx.key,
+            })),
         );
       }
     },
