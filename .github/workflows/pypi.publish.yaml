@@ -38,6 +38,7 @@ jobs:
         with:
           filters: |
             changed:
+              - "alamos/py/**"
               - "freighter/py/**"
               - ".github/workflows/pypi.publish.yaml"
 
@@ -48,6 +49,8 @@ jobs:
         with:
           filters: |
             changed:
+              - "alamos/py/**"
+              - "freighter/py/**"
               - "client/py/**"
               - ".github/workflows/pypi.publish.yaml"
 
