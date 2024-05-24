@@ -41,11 +41,9 @@ public:
             std::this_thread::sleep_for(std::chrono::nanoseconds(remaining));
             last = std::chrono::high_resolution_clock::now();
             return {elapsed, true};
-        } else {
-            last = now;
-            LOG(WARNING) << "Timer interval exceeded by " << (elapsed - interval_nanos)/1e6 << " ms";
-            return {elapsed, false};
         }
+        last = now;
+        return {elapsed, false};
     }
 
  
