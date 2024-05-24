@@ -16,7 +16,7 @@ import { count } from "mathjs";
 describe("DynamicCache", () => {
   describe("write", () => {
     it("Should correctly allocate a buffer", () => {
-      const cache = new Dynamic({ dynamicBufferSize: 100, dataType: DataType.FLOAT32 });
+      const cache = new Dynamic({ targetBufferSize: 100, dataType: DataType.FLOAT32 });
       const arr = new Series({
         data: new Float32Array([1, 2, 3]),
         dataType: DataType.FLOAT32,
@@ -31,7 +31,7 @@ describe("DynamicCache", () => {
       expect(cache.length).toEqual(arr.length);
     });
     it("Should not allocate a new buffer when the current buffer has sufficient space", () => {
-      const cache = new Dynamic({ dynamicBufferSize: 100, dataType: DataType.FLOAT32 });
+      const cache = new Dynamic({ targetBufferSize: 100, dataType: DataType.FLOAT32 });
       const arr = new Series({
         data: new Float32Array([1, 2, 3]),
         dataType: DataType.FLOAT32,
@@ -43,7 +43,7 @@ describe("DynamicCache", () => {
       expect(cache.length).toEqual(arr.length * 2);
     });
     it("should correctly allocate a single new buffer when the current one is full", async () => {
-      const cache = new Dynamic({ dynamicBufferSize: 2, dataType: DataType.FLOAT32 });
+      const cache = new Dynamic({ targetBufferSize: 2, dataType: DataType.FLOAT32 });
       const arr = new Series({
         data: new Float32Array([1, 2, 3]),
         dataType: DataType.FLOAT32,
@@ -55,7 +55,7 @@ describe("DynamicCache", () => {
       expect(cache.length).toEqual(1);
     });
     it("should correctly allocate multiple new buffers when the current one is full", () => {
-      const cache = new Dynamic({ dynamicBufferSize: 1, dataType: DataType.FLOAT32 });
+      const cache = new Dynamic({ targetBufferSize: 1, dataType: DataType.FLOAT32 });
       const arr = new Series({
         data: new Float32Array([1, 2, 3]),
         dataType: DataType.FLOAT32,
@@ -66,7 +66,7 @@ describe("DynamicCache", () => {
       expect(cache.length).toEqual(1);
     });
     it("it should correctly set multiple writes", async () => {
-      const cache = new Dynamic({ dynamicBufferSize: 10, dataType: DataType.FLOAT32 });
+      const cache = new Dynamic({ targetBufferSize: 10, dataType: DataType.FLOAT32 });
       const arr = new Series({
         data: new Float32Array([1, 2, 3]),
         dataType: DataType.FLOAT32,
@@ -104,7 +104,7 @@ describe("DynamicCache", () => {
       expect(flushed[0].data.slice(9)).toEqual(new Float32Array([1]));
     });
     it("should allocate a new buffer if the two series are out of alignment", () => {
-      const cache = new Dynamic({ dynamicBufferSize: 10, dataType: DataType.FLOAT32 });
+      const cache = new Dynamic({ targetBufferSize: 10, dataType: DataType.FLOAT32 });
       const s1 = new Series({
         data: new Float32Array([1, 2, 3]),
         dataType: DataType.FLOAT32,
@@ -118,7 +118,7 @@ describe("DynamicCache", () => {
       expect(a2).toHaveLength(1);
     });
     it("in the same write, it should allocate a new buffer if the two series are out of alignment", () => {
-      const cache = new Dynamic({ dynamicBufferSize: 10, dataType: DataType.FLOAT32 });
+      const cache = new Dynamic({ targetBufferSize: 10, dataType: DataType.FLOAT32 });
       const s1 = new Series({
         data: new Float32Array([1, 2, 3]),
         dataType: DataType.FLOAT32,
@@ -137,33 +137,32 @@ describe("DynamicCache", () => {
       let nowF = () => TimeStamp.seconds(1);
       const now = () => {
         return nowF();
-      }
+      };
       const cache = new Dynamic({
-        dynamicBufferSize: TimeSpan.minutes(5),
+        targetBufferSize: TimeSpan.minutes(5),
         dataType: DataType.FLOAT32,
-        testingNow: now
-      })
+        testingNow: now,
+      });
 
       let d!: DynamicWriteResponse;
       let arr = new Series({
         data: new Float32Array([1, 2, 3]),
         dataType: DataType.FLOAT32,
-      })
+      });
 
       const res1 = cache.write([arr]);
       expect(res1.allocated).toHaveLength(1);
       expect(res1.flushed).toHaveLength(0);
-      nowF = () => TimeStamp.seconds(2)
+      nowF = () => TimeStamp.seconds(2);
       const res2 = cache.write([arr.reAlign(3n)]);
       expect(res2.allocated).toHaveLength(0);
       expect(res2.flushed).toHaveLength(0);
 
-      nowF = () => TimeStamp.seconds(3)
+      nowF = () => TimeStamp.seconds(3);
       const res3 = cache.write([arr.reAlign(6n)]);
       expect(res3.allocated).toHaveLength(0);
       expect(res3.flushed).toHaveLength(0);
-      expect(cache.length).toBe(9)
-
+      expect(cache.length).toBe(9);
     });
   });
 });

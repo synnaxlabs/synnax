@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, Series, TimeStamp, TimeSpan } from "@synnaxlabs/x";
+import { DataType, Series, TimeStamp, TimeSpan, Rate } from "@synnaxlabs/x";
 
 import { convertSeriesFloat32 } from "@/telem/aether/convertSeries";
 
@@ -39,9 +39,9 @@ export interface DynamicProps {
   testingNow?: () => TimeStamp;
 }
 
-// These are the smalleat and largest sizes for a dynamic buffer declared by a timespan.
-const minimumSize = 100;
-const maximumSize = 1000000;
+// These are the smallest and largest sizes for a dynamically calculated buffer size.
+const MIN_SIZE = 100;
+const MAX_SIZE = 1e6;
 
 /**
  * A cache for channel data that maintains a single, rolling Series as a buffer
@@ -53,11 +53,10 @@ export class Dynamic {
   private counter = 0;
   /** Current buffer */
   private buffer: Series | null;
-  private avgRate: number = 0
+  private avgRate: number = 0;
   private timeOfLastWrite: TimeStamp;
   private totalWrites: number = 0;
   private now = () => TimeStamp.now();
-  private minimumDynamicSize = 100;
 
   /**
    * @constructor
@@ -68,11 +67,11 @@ export class Dynamic {
   constructor(props: DynamicProps) {
     this.props = props;
     this.buffer = null;
-    if (props.testingNow != null) this.now = props.testingNow
-    this.timeOfLastWrite = this.now()
+    if (props.testingNow != null) this.now = props.testingNow;
+    this.timeOfLastWrite = this.now();
   }
 
-  /** @returns the number of samples currenly held in the cache. */
+  /** @returns the number of samples currently held in the cache. */
   get length(): number {
     return this.buffer?.length ?? 0;
   }
@@ -115,9 +114,7 @@ export class Dynamic {
   }
 
   private _write(series: Series): DynamicWriteResponse {
-    const cap = (this.props.dynamicBufferSize instanceof TimeSpan) ?
-      this.bufferSizeFromTimeSpan(this.props.dynamicBufferSize) :
-      this.props.dynamicBufferSize;
+    const cap = this.nextBufferSize();
     const res: DynamicWriteResponse = { flushed: [], allocated: [] };
     // This only happens on the first write to the cache
     if (this.buffer == null) {
@@ -157,20 +154,24 @@ export class Dynamic {
     return res;
   }
 
-  private updateAvgRate(series: Series) {
+  private updateAvgRate(series: Series): void {
+    if (typeof this.props.dynamicBufferSize === "number") return;
     // average rate is an average of the rate of the last sample and the average
     // rate currently in the buffer.
     if (this.totalWrites > 0) {
-      let newRate = series.length / (this.now().span(this.timeOfLastWrite).seconds)
-      this.avgRate = (this.avgRate * (this.totalWrites - 1) + newRate) / this.totalWrites
+      let newRate = series.length / this.now().span(this.timeOfLastWrite).seconds;
+      this.avgRate =
+        (this.avgRate * (this.totalWrites - 1) + newRate) / this.totalWrites;
     }
     this.totalWrites++;
     this.timeOfLastWrite = this.now();
   }
 
-  private bufferSizeFromTimeSpan(timespan: TimeSpan) {
-    let size = this.avgRate * timespan.seconds;
-    return Math.max(Math.min(size, maximumSize), minimumSize)
+  private nextBufferSize(): number {
+    const { dynamicBufferSize } = this.props;
+    if (typeof dynamicBufferSize === "number") return dynamicBufferSize;
+    let size = this.avgRate * dynamicBufferSize.seconds;
+    return Math.max(Math.min(size, MAX_SIZE), MIN_SIZE);
   }
 
   /**
