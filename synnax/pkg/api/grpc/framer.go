@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
+	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/telem"
 	"google.golang.org/grpc"
 )
@@ -73,6 +74,22 @@ func translateFrameBackward(f *gapi.Frame) (of api.Frame) {
 	return
 }
 
+func translateControlSubjectForward(cs control.Subject) *control.ControlSubject {
+	return &control.ControlSubject{
+		Key:  cs.Key,
+		Name: cs.Name,
+	}
+}
+
+func translateControlSubjectBackward(cs *control.ControlSubject) (of control.Subject) {
+	if cs == nil {
+		return
+	}
+	of.Key = cs.Key
+	of.Name = cs.Name
+	return
+}
+
 func (t frameWriterRequestTranslator) Forward(
 	ctx context.Context,
 	msg api.FrameWriterRequest,
@@ -86,6 +103,7 @@ func (t frameWriterRequestTranslator) Forward(
 			Authorities:              msg.Config.Authorities,
 			EnableAutoCommit:         msg.Config.EnableAutoCommit,
 			AutoIndexPersistInterval: int64(msg.Config.AutoIndexPersistInterval),
+			ControlSubject:           translateControlSubjectForward(msg.Config.ControlSubject),
 		},
 		Frame: translateFrameForward(msg.Frame),
 	}, nil
@@ -107,6 +125,7 @@ func (t frameWriterRequestTranslator) Backward(
 			Authorities:              msg.Config.Authorities,
 			EnableAutoCommit:         msg.Config.EnableAutoCommit,
 			AutoIndexPersistInterval: telem.TimeSpan(msg.Config.AutoIndexPersistInterval),
+			ControlSubject:           translateControlSubjectBackward(msg.Config.ControlSubject),
 		}
 	}
 	r.Frame = translateFrameBackward(msg.Frame)

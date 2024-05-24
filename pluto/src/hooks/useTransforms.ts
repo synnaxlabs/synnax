@@ -9,7 +9,7 @@
 
 import { useCallback, useState } from "react";
 
-import { type ArrayTransform } from "@synnaxlabs/x";
+import { type ArrayTransform, type ArrayTransformPayload } from "@synnaxlabs/x";
 
 export interface ArrayTransformEntry<E> {
   transform: ArrayTransform<E>;
@@ -50,7 +50,11 @@ export const useTransforms = <E>({
   );
 
   const transform = useCallback(
-    (data: E[]) => transforms.reduce((data, t) => t.transform(data), data),
+    (props: Omit<ArrayTransformPayload<E>, "transformed">) =>
+      transforms.reduce((data, t) => t.transform(data), {
+        ...props,
+        transformed: false,
+      }),
     [transforms],
   );
 

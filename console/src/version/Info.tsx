@@ -87,7 +87,7 @@ export const Info: Layout.Renderer = ({ layoutKey }) => {
     }
   } else if (updateQuery.isFetched) {
     if (updateQuery.data?.available) {
-      const version = "0.22.5";
+      const version = updateQuery.data.version;
       updateContent = (
         <>
           <Status.Text level="h4" variant="success">
@@ -122,12 +122,6 @@ export const Info: Layout.Renderer = ({ layoutKey }) => {
       </Status.Text>
     );
   }
-
-  let state: State = "none";
-  if (updateQuery.isPending) state = "checking";
-  else if (updateMutation.isPending) state = "downloading";
-  else if (updateQuery.isFetched && updateQuery.data?.available) state = "available";
-  else if (updateQuery.isError) state = "error";
 
   return (
     <Align.Space
