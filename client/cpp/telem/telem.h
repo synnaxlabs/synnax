@@ -466,17 +466,7 @@ public:
 
     Rate operator/(const Rate &other) const { return Rate(value / other.value); }
 
-    Rate operator/(const float &other) const { return Rate(value / other); }
-
-    Rate operator/(const int &other) const { return Rate(value / other); }
-
-    Rate operator/(const unsigned int &other) const { return Rate(value / other); }
-
-    Rate operator/(const double &other) const { return Rate(value / other); }
-
-    Rate operator/(const long &other) const { return Rate(value / other); }
-
-    Rate operator/(const unsigned long &other) const { return Rate(value / other); }
+    Rate operator/(const size_t &other) const { return Rate(value / other); }
 };
 
 /// @brief a single hertz. Can be made into many hertz through multiplication
