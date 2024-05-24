@@ -65,18 +65,18 @@ jobs:
               - 'x/typescript/**'
               - '.github/workflows/x.test.yaml'
 
+      - name: Setup pnpm
+        if: steps.filter.outputs.changed == 'true'
+        uses: pnpm/action-setup@v3
+        with:
+          version: 8
+
       - name: Setup Node
         if: steps.filter.outputs.changed == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: pnpm
-
-      - name: Setup pnpm
-        if: steps.filter.outputs.changed == 'true'
-        uses: pnpm/action-setup@v3
-        with:
-          version: 8
 
       - name: Install Dependencies
         if: steps.filter.outputs.changed == 'true'
