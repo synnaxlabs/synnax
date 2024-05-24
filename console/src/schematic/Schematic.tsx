@@ -80,12 +80,12 @@ const syncer: Syncer<
     snapshot: undefined,
   } as unknown as UnknownRecord;
   if (!data.remoteCreated) {
-    store.dispatch(setRemoteCreated({ layoutKey }));
     await client.workspaces.schematic.create(ws, {
       key: layoutKey,
       name: la.name,
       data: setData,
     });
+    store.dispatch(setRemoteCreated({ layoutKey }));
   } else await client.workspaces.schematic.setData(layoutKey, setData);
 };
 
@@ -327,7 +327,9 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
                 variant="outlined"
                 tooltip={
                   <Text.Text level="small">
-                    {schematic.control === "acquired" ? "Release control" : "Acquire control"}
+                    {schematic.control === "acquired"
+                      ? "Release control"
+                      : "Acquire control"}
                   </Text.Text>
                 }
               >
@@ -342,7 +344,10 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
   );
 };
 
-export const Schematic: Layout.Renderer = ({ layoutKey, ...props }): ReactElement | null => {
+export const Schematic: Layout.Renderer = ({
+  layoutKey,
+  ...props
+}): ReactElement | null => {
   const schematic = useSelect(layoutKey);
   const dispatch = useDispatch();
   const client = Synnax.use();

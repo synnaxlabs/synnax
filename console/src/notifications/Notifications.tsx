@@ -13,11 +13,11 @@ import { Status } from "@synnaxlabs/pluto";
 import { Button } from "@synnaxlabs/pluto/button";
 import { List } from "@synnaxlabs/pluto/list";
 import { TimeSpan } from "@synnaxlabs/x";
-
 import { CSS } from "@/css";
+import { notificationAdapter } from "@/hardware/device/useListenForChanges";
+import { notificationAdapter as versionAdapter } from "@/version/Updater";
 
 import "@/notifications/Notifications.css";
-import { notificationAdapter } from "@/hardware/device/useListenForChanges";
 
 interface NotificationsProps {
   adapters?: NotificationAdapter[];
@@ -31,10 +31,10 @@ export type NotificationAdapter = (
   status: Status.NotificationSpec,
 ) => null | SugaredNotification;
 
-const DEFAULT_EXPIRATION = TimeSpan.seconds(5);
+const DEFAULT_EXPIRATION = TimeSpan.seconds(7);
 
 export const Notifications = ({ adapters }: NotificationsProps): ReactElement => {
-  adapters = [notificationAdapter];
+  adapters = [notificationAdapter, versionAdapter];
   const { statuses, silence } = Status.useNotifications({
     expiration: DEFAULT_EXPIRATION,
   });

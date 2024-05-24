@@ -110,19 +110,23 @@ jobs:
       - name: Create Release
         if: steps.filter.outputs.changed == 'true' && github.ref == 'refs/heads/main'
         id: create-release
-        uses: softprops/action-gh-release@v1
+        uses: actions/github-script@v6
         with:
-          tag_name: synnax-v${{ steps.version.outputs.VERSION }}
-          name: Synnax v${{ steps.version.outputs.VERSION }}
-          draft: false
-          prerelease: false
-
-      - name: Set Release Success
-        id: set-release
-        if: steps.filter.outputs.changed == 'true' && github.ref == 'refs/heads/main'
-        run: echo "release_created=true" >> $GITHUB_OUTPUT
-
-
+          script: |
+            const { data: releases } = await github.rest.repos.listReleases({
+              owner: context.repo.owner,
+              repo: context.repo.repo
+            })
+            const release = releases.find(r => r.tag_name === 'synnax-v${{ steps.version.outputs.VERSION }}')
+            if (release != null) return;
+            github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: 'synnax-v${{ steps.version.outputs.VERSION }}',
+              name: 'Synnax v${{ steps.version.outputs.VERSION }}',
+              draft: false,
+              prerelease: false
+            });
   build:
     strategy:
       fail-fast: false
@@ -224,9 +228,9 @@ jobs:
           go build -tags driver -o synnax-v${{ steps.version.outputs.VERSION }}-${{ steps.os.outputs.OS }}
 
       - name: Upload Release Asset
-        if: steps.create-release.outputs.release_created == 'true'
+        if: github.ref == 'refs/heads/main'
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: gh release upload synnax-v${{ steps.version.outputs.VERSION }} ./synnax/synnax-v${{ steps.version.outputs.VERSION }}-${{ steps.os.outputs.OS }}
+        run: gh release upload --clobber synnax-v${{ steps.version.outputs.VERSION }} ./synnax/synnax-v${{ steps.version.outputs.VERSION }}-${{ steps.os.outputs.OS }}
 
 
