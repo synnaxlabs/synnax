@@ -11,6 +11,8 @@
 #include "driver/pipeline/acquisition.h"
 #include "nlohmann/json.hpp"
 #include "driver/errors/errors.h"
+#include <exception>
+#include <stdexcept>
 
 using json = nlohmann::json;
 
@@ -54,7 +56,7 @@ synnax::TimeStamp resolve_start(const synnax::Frame &frame) {
     return synnax::TimeStamp::now();
 }
 
-void Acquisition::run() {
+void Acquisition::runInternal() {
     LOG(INFO) << "[acquisition] Acquisition thread started";
     auto s_err = source->start();
     if (s_err) {
@@ -117,4 +119,16 @@ void Acquisition::run() {
     if (err.matches(freighter::UNREACHABLE) && breaker.wait(err.message())) run();
     LOG(INFO) << "[acquisition] Acquisition thread terminated";
     source->stop();
+}
+
+void Acquisition::run() {
+    try{
+        runInternal();
+    } catch (const std::exception &e) {
+        LOG(ERROR) << "[acquisition] Unhandled sttandard exception: " << e.what();
+        this->stop();
+    } catch (...) {
+        LOG(ERROR) << "[acquisition] Unhandled unknown exception";
+        this->stop();
+    }
 }

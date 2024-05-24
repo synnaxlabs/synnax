@@ -61,7 +61,8 @@ private:
     /// @brief breaker
     breaker::Breaker cmd_breaker;
 
-    void run();
+    void runInternal();
 
+    void run();
 };
 }

@@ -64,6 +64,8 @@ private:
      /// @brief daq interface
     std::shared_ptr<Source> source;
 
+    void runInternal();
+    
     void run();
 };
 }

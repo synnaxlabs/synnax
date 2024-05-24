@@ -12,6 +12,8 @@
 
 #include <utility>
 #include "driver/errors/errors.h"
+#include <exception>
+#include <stdexcept>
 
 using namespace pipeline;
 
@@ -47,7 +49,7 @@ void Control::stop() {
     LOG(INFO) << "[control] Control stopped";
 }
 
-void Control::run() {
+void Control::runInternal() {
     this->streamer_config.start = synnax::TimeStamp::now();
     auto [test, so_err] = ctx->client->telem.openStreamer(this->streamer_config);
     this->streamer = std::make_unique<synnax::Streamer>(std::move(test));
@@ -66,5 +68,17 @@ void Control::run() {
     const auto err = this->streamer->close(); // close or closeSend
     if (err.matches(freighter::UNREACHABLE) && cmd_breaker.wait()){        
         return run();
+    }
+}
+
+void Control::run() {
+    try{
+        runInternal();
+    } catch (const std::exception &e) {
+        LOG(ERROR) << "[Control] Unhandled sttandard exception: " << e.what();
+        stop();
+    } catch (...) {
+        LOG(ERROR) << "[Control] Unhandled unknown exception";
+        stop();
     }
 }
