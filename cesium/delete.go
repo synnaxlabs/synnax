@@ -77,6 +77,10 @@ func (db *DB) DeleteChannel(ch ChannelKey) error {
 }
 
 func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
+	if db.closed {
+		return dbClosed
+	}
+
 	db.mu.Lock()
 	var (
 		indexChannels       = make([]ChannelKey, 0)

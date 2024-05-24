@@ -82,6 +82,32 @@ var _ = Describe("Channel", Ordered, func() {
 						cesium.Channel{Key: 61, Index: 60, DataType: telem.Float32T},
 					),
 				)
+				Describe("DB Closed", func() {
+					It("Should not allow creating a channel", func() {
+						sub := MustSucceed(fs.Sub("closed-fs"))
+						key := cesium.ChannelKey(1)
+						subDB := openDBOnFS(sub)
+						Expect(subDB.Close()).To(Succeed())
+						err := subDB.CreateChannel(ctx, cesium.Channel{Key: key, Rate: 1 * telem.Hz, DataType: telem.BytesT})
+						Expect(err).To(MatchError(core.EntityClosed("cesium.db")))
+
+						Expect(fs.Remove("closed-fs")).To(Succeed())
+					})
+					It("Should not allow retrieving channels", func() {
+						sub := MustSucceed(fs.Sub("closed-fs"))
+						key := cesium.ChannelKey(1)
+						subDB := openDBOnFS(sub)
+						Expect(subDB.CreateChannel(ctx, cesium.Channel{Key: key, Rate: 1 * telem.Hz, DataType: telem.BytesT})).To(Succeed())
+						Expect(subDB.Close()).To(Succeed())
+
+						_, err := subDB.RetrieveChannel(ctx, key)
+						Expect(err).To(HaveOccurredAs(core.EntityClosed("cesium.db")))
+						_, err = subDB.RetrieveChannels(ctx, key)
+						Expect(err).To(HaveOccurredAs(core.EntityClosed("cesium.db")))
+
+						Expect(fs.Remove("closed-fs")).To(Succeed())
+					})
+				})
 			})
 			Describe("Opening db on existing folder", func() {
 				It("Should not panic when opening a db in a directory with already existing files", func() {

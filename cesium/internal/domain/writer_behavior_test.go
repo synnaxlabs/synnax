@@ -537,6 +537,17 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					Expect(err).To(MatchError(e))
 					Expect(w.Close(ctx)).To(Succeed())
 				})
+
+				It("Should not open a writer on a closed database", func() {
+					Expect(db.Close()).To(Succeed())
+					_, err := db.NewWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS})
+					Expect(err).To(HaveOccurredAs(core.EntityClosed("domain.db")))
+				})
+
+				It("Should not write on a closed database", func() {
+					Expect(db.Close()).To(Succeed())
+					Expect(domain.Write(ctx, db, telem.TimeStamp(0).Range(telem.TimeStamp(1)), []byte{1, 2, 3})).To(HaveOccurredAs(core.EntityClosed("domain.db")))
+				})
 			})
 		})
 	}
