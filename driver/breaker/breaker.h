@@ -138,8 +138,8 @@ private:
     Config config;
     TimeSpan interval;
     uint32_t retries;
+    bool shutdown;
     std::unique_ptr<std::condition_variable> breaker_shutdown;
     std::mutex shutdown_mutex;
-    bool shutdown;
 };
 }
