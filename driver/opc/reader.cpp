@@ -130,10 +130,10 @@ public:
         for (const auto &ch: cfg.channels) {
             if (!ch.enabled) continue;
             enabled_count++;
-            fr.add(ch.channel, Series(ch.ch.data_type, 1));
+            fr.add(ch.channel, Series(ch.ch.data_type, 3));
         }
         for (const auto &idx: indexes)
-            fr.add(idx, Series(synnax::TIMESTAMP, 1));
+            fr.add(idx, Series(synnax::TIMESTAMP, 3));
         auto start = std::chrono::high_resolution_clock::now();
         UA_ReadResponse readResponse = UA_Client_Service_read(client.get(), readRequest);
 
@@ -316,7 +316,6 @@ std::unique_ptr<task::Task> Reader::configure(
         .start = TimeStamp::now(),
         .subject = synnax::ControlSubject{
             .name = task.name,
-            // convert the task key to a string
             .key = std::to_string(task.key)
         },
         .mode = synnax::WriterPersistStream,
