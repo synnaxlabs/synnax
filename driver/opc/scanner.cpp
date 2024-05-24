@@ -89,7 +89,6 @@ static UA_StatusCode nodeIter(
                                     browseName.name.length);
             auto node_id = nodeIdToString(child_id);
             auto [dt, is_array] = variant_data_type(value);
-            std::cout << "Node id: " << node_id << " Name: " << name << " Is array: " << is_array << " Data type: " << dt.value << std::endl;
             if (dt != synnax::DATA_TYPE_UNKNOWN && !dt.is_variable())
                 ctx->channels->push_back({
                     dt,
