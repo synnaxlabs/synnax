@@ -9,7 +9,7 @@
 
 import { type ReactElement, useEffect } from "react";
 
-import { setWindowDecorations } from "@synnaxlabs/drift";
+import { closeWindow, setWindowDecorations } from "@synnaxlabs/drift";
 import { useSelectWindowAttribute, useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Logo } from "@synnaxlabs/media";
 import { Nav, OS, Align, Menu as PMenu, Text } from "@synnaxlabs/pluto";
@@ -23,6 +23,7 @@ import { useSelect } from "@/layout/selectors";
 
 import "@/layout/Window.css";
 import { WindowProps } from "@/layout/layout";
+import { getCurrent } from "@tauri-apps/api/window";
 
 export interface NavTopProps extends Pick<WindowProps, "showTitle" | "navTop"> {
   title: string;
@@ -30,7 +31,7 @@ export interface NavTopProps extends Pick<WindowProps, "showTitle" | "navTop"> {
 
 export const NavTop = ({
   title,
-  showTitle,
+  showTitle = true,
   navTop,
 }: NavTopProps): ReactElement | null => {
   const os = OS.use();
@@ -84,7 +85,7 @@ export const DefaultContextMenu = (): ReactElement => (
 );
 
 export const Window = (): ReactElement | null => {
-  const win = useSelectWindowKey();
+  const win = useSelectWindowKey(getCurrent().label);
   const layout = useSelect(win ?? "");
   const os = OS.use();
   const dispatch = useDispatch();
@@ -95,7 +96,9 @@ export const Window = (): ReactElement | null => {
   }, [os]);
   const menuProps = PMenu.useContextMenu();
   const maximized = useSelectWindowAttribute(win, "maximized") ?? false;
-  if (layout == null) return null;
+  if (layout == null) {
+    return <h1>{win ?? getCurrent().label}</h1>;
+  }
   const content = <Content layoutKey={layout.key} />;
   return (
     <PMenu.ContextMenu menu={() => <DefaultContextMenu />} {...menuProps}>

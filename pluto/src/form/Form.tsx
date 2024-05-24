@@ -258,22 +258,18 @@ export const useFieldArray = <V extends unknown = unknown>({
 
   const remove = useCallback(
     (index: number | number[]) => {
-      const copy = shallowCopy(get<V[]>({ path, optional: false }).value);
-      const indices = toArray(index).sort((a, b) => b - a);
-      indices.forEach((i) => copy.splice(i, 1));
-      set({ path, value: copy });
+      const val = get<V[]>({ path, optional: false }).value;
+      const indices = new Set(toArray(index));
+      set({path, value: val.filter((_, i) => !indices.has(i)) });
     },
     [path, state, get],
   );
 
   const keepOnly = useCallback(
-    (indices: number | number[]) => {
-      const copy = shallowCopy(get<V[]>({ path, optional: false }).value);
-      const indicesArray = new Set(toArray(indices));
-      copy.forEach((_, i) => {
-        if (!indicesArray.has(i)) copy.splice(i, 1);
-      });
-      set({ path, value: copy });
+    (index: number | number[]) => {
+      const val = get<V[]>({ path, optional: false }).value;
+      const indices = new Set(toArray(index));
+      set({ path, value: val.filter((_, i) => indices.has(i)) });
     },
     [path, state, get],
   );

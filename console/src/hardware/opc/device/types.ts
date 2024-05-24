@@ -13,6 +13,7 @@ export const nodeProperties = z.object({
   dataType: z.string(),
   name: z.string(),
   nodeId: z.string(),
+  isArray: z.boolean(),
 });
 
 export type NodeProperties = z.infer<typeof nodeProperties>;
@@ -26,12 +27,9 @@ export type Properties = z.infer<typeof propertiesZ>;
 
 export type Device = device.Device<Properties>;
 
-export const channelConfigZ = z
-  .object({
+export const channelConfigZ = nodeProperties
+  .extend({
     key: z.string(),
-    dataType: z.string(),
-    name: z.string(),
-    nodeId: z.string().optional(),
     isIndex: z.boolean().optional(),
   })
   .superRefine((data, ctx) => {
@@ -49,7 +47,6 @@ export const channelConfigZ = z
   })
   .superRefine((data, ctx) => {
     if (data.isIndex && data.dataType !== "timestamp") {
-      console.log(data.dataType);
       ctx.addIssue({
         code: "custom",
         path: ["dataType"],
@@ -69,7 +66,6 @@ export const groupConfigZ = z
   })
   .superRefine((data, ctx) => {
     const indexes: [ChannelConfig, number][] = [];
-    console.log("ABC");
     data.channels.forEach((channel, i) => {
       if (channel.isIndex) indexes.push([channel, i]);
     });

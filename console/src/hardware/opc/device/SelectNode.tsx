@@ -10,6 +10,7 @@ interface NodeEntry extends NodeId {
   name: string;
   key: string;
   dataType: string;
+  isArray: boolean;
 }
 
 const SELECT_NODE_COLUMNS: Array<List.ColumnSpec<string, NodeEntry>> = [
@@ -29,6 +30,10 @@ const SELECT_NODE_COLUMNS: Array<List.ColumnSpec<string, NodeEntry>> = [
     name: "Data Type",
     key: "dataType",
   },
+  {
+    name: "Is Array",
+    key: "isArray",
+  }
 ];
 
 interface SelectNodeProps

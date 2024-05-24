@@ -80,7 +80,7 @@ export const useProvider = ({
       const synnaxDark = theming.themeZ.parse(
         deep.override(deep.copy(theming.SYNNAX_DARK), theme),
       );
-      setSelected(theme.key);
+      if (theme.key != null && theme.key.length > 0) setSelected(theme.key);
       return { synnaxLight, synnaxDark };
     }
     return Object.entries(themes).reduce<Record<string, theming.Theme>>(
@@ -131,7 +131,7 @@ export const Provider = Aether.wrap<ProviderProps>(
       initialState: { theme: ret.theme },
     });
 
-    useEffect(() => setAetherTheme({ theme: ret.theme }), [ret.theme]);
+    // useEffect(() => setAetherTheme({ theme: ret.theme }), [ret.theme]);
 
     useLayoutEffect(() => {
       if (applyCSSVars) CSS.applyVars(document.documentElement, toCSSVars(ret.theme));

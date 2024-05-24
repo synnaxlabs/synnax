@@ -169,13 +169,15 @@ const GroupList = ({
                 onSelectGroup(key, value.length);
                 push({
                   key,
-                  name: "New Group",
+                  name: `Group ${value.length + 1}`,
                   channels: [
                     {
                       key: nanoid(),
-                      name: "Time",
+                      name: `group_1_${value.length + 1}_time`,
                       dataType: "timestamp",
                       isIndex: true,
+                      isArray: false,
+                      nodeId: "",
                     },
                   ],
                 });
@@ -192,14 +194,21 @@ const GroupList = ({
               case "remove":
                 const indices = keys.map((k) => value.findIndex((g) => g.key === k));
                 remove(indices);
+                // find the first group whose key is not in keys
+                const newSelectedGroup = value.findIndex((g) => !keys.includes(g.key));
+                if (newSelectedGroup !== -1) {
+                  onSelectGroup(value[newSelectedGroup].key, newSelectedGroup);
+                }
                 break;
             }
           };
           return (
             <Menu.Menu onChange={handleSelect} level="small">
-              <Menu.Item itemKey="remove" startIcon={<Icon.Close />}>
-                Remove
-              </Menu.Item>
+              {value.length > 1 && (
+                <Menu.Item itemKey="remove" startIcon={<Icon.Close />}>
+                  Remove
+                </Menu.Item>
+              )}
             </Menu.Menu>
           );
         }}
@@ -312,60 +321,63 @@ const ChannelList = ({
       <Header.Header level="h3" style={{ borderBottom: "none" }}>
         <Header.Title weight={500}>Channels</Header.Title>
       </Header.Header>
-      <Menu.ContextMenu
-        menu={({ keys }: Menu.ContextMenuMenuProps): ReactElement => {
-          const handleSelect = (key: string) => {
-            const indices = keys.map((k) =>
-              channels.value.findIndex((c) => c.key === k),
-            );
-            switch (key) {
-              case "remove":
-                channels.remove(indices);
-                break;
-              case "keep":
-                const idxIndex = channels.value.findIndex((c) => c.isIndex === true);
-                channels.keepOnly([idxIndex, ...indices]);
-                break;
-            }
-          };
-          return (
-            <Menu.Menu onChange={handleSelect} level="small">
-              <Menu.Item itemKey="remove" startIcon={<Icon.Close />}>
-                Remove
-              </Menu.Item>
-              <Menu.Item itemKey="keep" startIcon={<Icon.Check />}>
-                Keep Only Selected
-              </Menu.Item>
-            </Menu.Menu>
-          );
-        }}
-        {...menuProps}
-      >
-        <List.List<string, ChannelConfig> data={channels.value}>
-          <List.Filter>
-            {(p) => (
-              <Input.Text
-                placeholder="Search Channels"
-                selectOnFocus
-                style={{ border: "none", borderBottom: "var(--pluto-border)" }}
-                {...p}
-              />
-            )}
-          </List.Filter>
-          <List.Selector<string, ChannelConfig>
-            value={selectedChannels}
-            allowNone={false}
-            onChange={onSelectChannels}
-            replaceOnSingle
+
+      <List.List<string, ChannelConfig> data={channels.value}>
+        <List.Filter>
+          {(p) => (
+            <Input.Text
+              placeholder="Search Channels"
+              selectOnFocus
+              style={{ border: "none", borderBottom: "var(--pluto-border)" }}
+              {...p}
+            />
+          )}
+        </List.Filter>
+        <List.Selector<string, ChannelConfig>
+          value={selectedChannels}
+          allowNone={false}
+          onChange={onSelectChannels}
+          replaceOnSingle
+        >
+          <Menu.ContextMenu
+            menu={({ keys }: Menu.ContextMenuMenuProps): ReactElement => {
+              const handleSelect = (key: string) => {
+                const indices = keys.map((k) =>
+                  channels.value.findIndex((c) => c.key === k),
+                );
+                switch (key) {
+                  case "remove":
+                    channels.remove(indices);
+                    break;
+                  case "keep":
+                    const idxIndex = channels.value.findIndex(
+                      (c) => c.isIndex === true,
+                    );
+                    channels.keepOnly([idxIndex, ...indices]);
+                    break;
+                }
+              };
+              return (
+                <Menu.Menu onChange={handleSelect} level="small">
+                  <Menu.Item itemKey="remove" startIcon={<Icon.Close />}>
+                    Remove
+                  </Menu.Item>
+                  <Menu.Item itemKey="keep" startIcon={<Icon.Check />}>
+                    Keep Only Selected
+                  </Menu.Item>
+                </Menu.Menu>
+              );
+            }}
+            {...menuProps}
           >
             <List.Core<string, ChannelConfig> grow>
               {({ key, ...props }) => (
                 <ChannelListItem key={key} {...props} groupIndex={selectedGroupIndex} />
               )}
             </List.Core>
-          </List.Selector>
-        </List.List>
-      </Menu.ContextMenu>
+          </Menu.ContextMenu>
+        </List.Selector>
+      </List.List>
     </Align.Space>
   );
 };
@@ -451,6 +463,7 @@ export const ChannelListItem = memo(
         <Align.Space direction="y" empty align="end">
           <Text.Text level="p" shade={7}>
             {childValues.dataType}
+            {childValues.isArray ? "[]" : ""}
           </Text.Text>
           {isIndex && (
             <Text.Text level="p" shade={7} color="var(--pluto-secondary-z)">
@@ -475,7 +488,6 @@ const Details = ({
   groupIndex,
   deviceProperties,
 }: DetailsProps): ReactElement | null => {
-  console.log(selected, groupIndex);
   if (groupIndex == null) return null;
   if (selected.type === "group") return <GroupForm index={selected.index} />;
   return (

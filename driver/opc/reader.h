@@ -41,12 +41,12 @@ struct ReaderChannelConfig {
 struct ReaderConfig {
     /// @brief the device representing the OPC UA server to read from.
     std::string device;
-
     /// @brief sets the acquisition rate.
     Rate sample_rate;
-
     /// @brief sets the stream rate.
     Rate stream_rate;
+    /// @brief array_size;
+    size_t array_size;
 
     /// @brief the list of channels to read from the server.
     std::vector<ReaderChannelConfig> channels;

@@ -81,13 +81,13 @@ const FallbackRender: ErrorBoundaryProps["fallbackRender"] = ({
             className="console-controls--macos"
             visibleIfOS="MacOS"
             onClose={() => {
-              // void appWindow.close();
+              void getCurrent().close();
             }}
             onMinimize={() => {
-              // void appWindow.minimize();
+              void getCurrent().minimize();
             }}
             onMaximize={() => {
-              // void appWindow.maximize();
+              void getCurrent().maximize();
             }}
           />
           {os === "Windows" && (
