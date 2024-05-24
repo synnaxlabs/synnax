@@ -80,8 +80,18 @@ jobs:
           cd client/py
           sed -i -E "/^\[tool\.poetry\.dependencies\]$/,/^\[.*\]$/ s/synnax-freighter = .*/synnax-freighter = \"^$FREIGHTER_VERSION\"/" pyproject.toml
           sed -i -E "/^\[tool\.poetry\.dependencies\]$/,/^\[.*\]$/ s/alamos = .*/alamos = \"^$ALAMOS_VERSION\"/" pyproject.toml
+           cd ./client/py
+          CLIENT_VERSION=$(poetry version -s)
+          cd ../../freighter/py
+          FREIGHTER_VERSION=$(poetry version -s)
+          cd ../../alamos/py
+          ALAMOS_VERSION=$(poetry version -s)
+          cd ../../client/py
+          sed -i -E "/^\[tool\.poetry\.dependencies\]$/,/^\[.*\]$/ s/synnax-freighter = .*/synnax-freighter = \"^$FREIGHTER_VERSION\"/" pyproject.toml
+          sed -i -E "/^\[tool\.poetry\.dependencies\]$/,/^\[.*\]$/ s/alamos = .*/alamos = \"^$ALAMOS_VERSION\"/" pyproject.toml
           cd ../../freighter/py
           sed -i -E "/^\[tool\.poetry\.dependencies\]$/,/^\[.*\]$/ s/alamos = .*/alamos = \"^$ALAMOS_VERSION\"/" pyproject.toml
+
           poetry config pypi-token.pypi ${{ secrets.PYPI_TOKEN }}
 
       - name: Conditionally Publish Alamos
