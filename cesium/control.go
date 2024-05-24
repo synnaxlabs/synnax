@@ -26,6 +26,10 @@ type ControlUpdate struct {
 }
 
 func (db *DB) ConfigureControlUpdateChannel(ctx context.Context, key ChannelKey) error {
+	if db.closed {
+		return dbClosed
+	}
+
 	ch, err := db.RetrieveChannel(ctx, key)
 	if errors.Is(err, core.ChannelNotFound) {
 		ch.Key = key

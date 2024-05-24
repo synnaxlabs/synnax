@@ -338,10 +338,22 @@ func (fc *fileController) close() error {
 	}()
 	c := errors.NewCatcher(errors.WithAggregation())
 	for _, w := range fc.writers.open {
+		c.Exec(func() error {
+			if !w.tryAcquire() {
+				return errors.Newf("write for file %d is in use and cannot be closed", w.fileKey)
+			}
+			return w.Close()
+		})
 		c.Exec(w.TrackedWriteCloser.Close)
 	}
 	for _, v := range fc.readers.open {
 		for _, r := range v {
+			c.Exec(func() error {
+				if !r.tryAcquire() {
+					return errors.Newf("reader for file %d is in use and cannot be closed", r.fileKey)
+				}
+				return r.Close()
+			})
 			c.Exec(r.ReaderAtCloser.Close)
 		}
 	}

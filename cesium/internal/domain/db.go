@@ -12,6 +12,7 @@ package domain
 import (
 	"context"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
@@ -27,6 +28,7 @@ var (
 	ErrDomainOverlap = errors.Wrap(validate.Error, "domain overlaps with an existing domain")
 	// RangeNotFound is returned when a requested domain is not found in the DB.
 	RangeNotFound = errors.Wrap(query.NotFound, "domain not found")
+	dbClosed      = core.EntityClosed("domain.db")
 )
 
 // DB provides a persistent, concurrent store for reading and writing domains of telemetry
@@ -50,8 +52,9 @@ var (
 // A DB must be closed after use to avoid leaking any underlying resources/locks.
 type DB struct {
 	Config
-	idx   *index
-	files *fileController
+	idx    *index
+	files  *fileController
+	closed bool
 }
 
 // Config is the configuration for opening a DB.
@@ -149,6 +152,9 @@ func (db *DB) newReader(ctx context.Context, ptr pointer) (*Reader, error) {
 }
 
 func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) {
+	if db.closed {
+		return false, dbClosed
+	}
 	i := db.NewIterator(IteratorConfig{Bounds: telem.TimeRangeMax})
 
 	if i.SeekGE(ctx, tr.Start) && i.TimeRange().OverlapsWith(tr) {
@@ -163,8 +169,12 @@ func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) 
 
 // Close closes the DB. Close should not be called concurrently with any other DB methods.
 func (db *DB) Close() error {
+	if db.closed {
+		return nil
+	}
+	db.closed = true
 	w := errors.NewCatcher(errors.WithAggregation())
-	w.Exec(db.idx.close)
 	w.Exec(db.files.close)
+	w.Exec(db.idx.close)
 	return w.Error()
 }

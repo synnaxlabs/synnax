@@ -28,7 +28,10 @@ type (
 	Frame      = core.Frame
 )
 
-var ChannelNotFound = core.ChannelNotFound
+var (
+	ChannelNotFound = core.ChannelNotFound
+	dbClosed        = core.EntityClosed("cesium.db")
+)
 
 func NewFrame(keys []core.ChannelKey, series []telem.Series) Frame {
 	return core.NewFrame(keys, series)
@@ -45,11 +48,15 @@ type DB struct {
 		inlet  confluence.Inlet[WriterRequest]
 		outlet confluence.Outlet[WriterResponse]
 	}
+	closed   bool
 	shutdown io.Closer
 }
 
 // Write implements DB.
 func (db *DB) Write(ctx context.Context, start telem.TimeStamp, frame Frame) error {
+	if db.closed {
+		return dbClosed
+	}
 	_, span := db.T.Debug(ctx, "write")
 	defer span.End()
 	w, err := db.OpenWriter(ctx, WriterConfig{Start: start, Channels: frame.Keys})
@@ -63,11 +70,17 @@ func (db *DB) Write(ctx context.Context, start telem.TimeStamp, frame Frame) err
 
 // WriteArray implements DB.
 func (db *DB) WriteArray(ctx context.Context, key core.ChannelKey, start telem.TimeStamp, series telem.Series) error {
+	if db.closed {
+		return dbClosed
+	}
 	return db.Write(ctx, start, core.NewFrame([]core.ChannelKey{key}, []telem.Series{series}))
 }
 
 // Read implements DB.
 func (db *DB) Read(_ context.Context, tr telem.TimeRange, keys ...core.ChannelKey) (frame Frame, err error) {
+	if db.closed {
+		return frame, dbClosed
+	}
 	iter, err := db.OpenIterator(IteratorConfig{Channels: keys, Bounds: tr})
 	if err != nil {
 		return
@@ -84,6 +97,11 @@ func (db *DB) Read(_ context.Context, tr telem.TimeRange, keys ...core.ChannelKe
 
 // Close implements DB.
 func (db *DB) Close() error {
+	if db.closed {
+		return nil
+	}
+
+	db.closed = true
 	c := errors.NewCatcher(errors.WithAggregation())
 	db.closeControlDigests()
 	c.Exec(db.shutdown.Close)

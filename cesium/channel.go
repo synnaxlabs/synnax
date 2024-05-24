@@ -12,8 +12,8 @@ package cesium
 import (
 	"context"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
@@ -21,6 +21,10 @@ import (
 
 // CreateChannel implements DB.
 func (db *DB) CreateChannel(_ context.Context, ch ...Channel) error {
+	if db.closed {
+		return dbClosed
+	}
+
 	for _, c := range ch {
 		if err := db.createChannel(c); err != nil {
 			return err
@@ -31,6 +35,10 @@ func (db *DB) CreateChannel(_ context.Context, ch ...Channel) error {
 
 // RetrieveChannels implements DB.
 func (db *DB) RetrieveChannels(ctx context.Context, keys ...ChannelKey) ([]Channel, error) {
+	if db.closed {
+		return nil, dbClosed
+	}
+
 	chs := make([]Channel, 0, len(keys))
 	for _, key := range keys {
 		ch, err := db.RetrieveChannel(ctx, key)
@@ -44,6 +52,10 @@ func (db *DB) RetrieveChannels(ctx context.Context, keys ...ChannelKey) ([]Chann
 
 // RetrieveChannel implements DB.
 func (db *DB) RetrieveChannel(_ context.Context, key ChannelKey) (Channel, error) {
+	if db.closed {
+		return Channel{}, dbClosed
+	}
+
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 	uCh, uOk := db.unaryDBs[key]

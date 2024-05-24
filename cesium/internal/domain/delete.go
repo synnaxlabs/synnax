@@ -31,6 +31,9 @@ import (
 //
 // ** Special case: if endOffset = -1, then it is equal to the length of the end pointer.
 func (db *DB) Delete(ctx context.Context, startPosition int, endPosition int, startOffset int64, endOffset int64, tr telem.TimeRange) error {
+	if db.closed {
+		return dbClosed
+	}
 	start, ok := db.idx.get(startPosition)
 	if !ok {
 		return errors.New("[cesium] Deletion starting at invalid position")
@@ -157,6 +160,9 @@ func (db *DB) Delete(ctx context.Context, startPosition int, endPosition int, st
 }
 
 func (db *DB) CollectTombstones(ctx context.Context, maxSizeRead uint32) error {
+	if db.closed {
+		return dbClosed
+	}
 	db.idx.mu.Lock()
 	defer db.idx.mu.Unlock()
 

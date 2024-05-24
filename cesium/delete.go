@@ -49,6 +49,10 @@ func channelDirName(ch ChannelKey) string {
 // channel, or if the current channel is being written to or read from.
 // Does nothing if channel does not exist.
 func (db *DB) DeleteChannel(ch ChannelKey) error {
+	if db.closed {
+		return dbClosed
+	}
+
 	db.mu.Lock()
 	err := db.removeChannel(ch)
 	if err != nil {

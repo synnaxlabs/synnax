@@ -141,6 +141,10 @@ type Writer struct {
 
 // NewWriter opens a new Writer using the given configuration.
 func (db *DB) NewWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) {
+	if db.closed {
+		return nil, dbClosed
+	}
+
 	cfg, err := config.New(DefaultWriterConfig, cfg)
 	if db.idx.overlap(cfg.Domain()) {
 		return nil, ErrDomainOverlap
