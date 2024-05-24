@@ -88,12 +88,18 @@ static UA_StatusCode nodeIter(
             auto name = std::string((char *) browseName.name.data,
                                     browseName.name.length);
             auto node_id = nodeIdToString(child_id);
-            auto dt = variant_data_type(value);
+            auto [dt, is_array] = variant_data_type(value);
             if (dt != synnax::DATA_TYPE_UNKNOWN && !dt.is_variable())
-                ctx->channels->push_back({dt, name, node_id});
+                ctx->channels->push_back({
+                    .data_type = dt,
+                    .name = name,
+                    .node_id = node_id,
+                    .is_array = is_array
+                });
         }
-    } 
-    if (ctx->depth >= ctx->max_depth || child_id.namespaceIndex == 0) return UA_STATUSCODE_GOOD;
+    }
+    if (ctx->depth >= ctx->max_depth || child_id.namespaceIndex == 0) return
+            UA_STATUSCODE_GOOD;
     ctx->depth++;
     iterateChildren(ctx, child_id);
     ctx->depth--;

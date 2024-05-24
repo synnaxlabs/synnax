@@ -223,6 +223,8 @@ private:
 /// @note The writer is not safe for concurrent use.
 class Writer {
 public:
+    Writer() = default;
+
     /// @brief writes the given frame of telemetry to the Synnax cluster.
     /// @param fr the frame to write. This frame must adhere to a set of constraints:
     ///
@@ -240,15 +242,6 @@ public:
     /// the caller must acknowledge the error by calling error() or close() on the writer.
     bool write(const Frame &fr);
 
-    /// @brief sets whether the writer is configured to persist data, stream it, or both.
-    /// @param mode the mode to set the writer to. Options are:
-    ///     - WriterPersistStream: persist data and stream it.
-    ///    - WriterPersistOnly: persist data only.
-    ///    - WriterStreamOnly: stream data only.
-    ///
-    bool setMode(WriterMode mode);
-
-
     /// @brief commits all pending writes to the Synnax cluster. Commit can be called
     /// multiple times, committing any new writes made since the last commit.
     ///
@@ -264,9 +257,6 @@ public:
     /// MUST be closed after use, or the caller risks leaking resources. Calling any
     /// method on a closed writer will throw a runtime_error.
     freighter::Error close() const;
-
-    Writer() = default;
-
 private:
     /// @brief whether an error has occurred in the write pipeline.
     bool err_accumulated = false;

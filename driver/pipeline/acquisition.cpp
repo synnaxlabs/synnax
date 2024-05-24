@@ -21,10 +21,10 @@ Acquisition::Acquisition(
     WriterConfig writer_config,
     std::shared_ptr<Source> source,
     const breaker::Config &breaker_config
-) {    
+) {
     assert(ctx != nullptr);
     assert(source != nullptr);
-    
+
     this->ctx = std::move(ctx);
     this->writer_config = writer_config;
     this->breaker = breaker::Breaker(breaker_config);
@@ -33,10 +33,9 @@ Acquisition::Acquisition(
 
 
 void Acquisition::start() {
-    if(thread.joinable() && std::this_thread::get_id() != thread.get_id()){ 
+    if (thread.joinable() && std::this_thread::get_id() != thread.get_id())
         thread.join();
-    };
-    if(running) return;
+    if (running) return;
     this->running = true;
     thread = std::thread(&Acquisition::run, this);
 }
@@ -44,55 +43,76 @@ void Acquisition::start() {
 void Acquisition::stop() {
     if (!running) return;
     this->running = false;
-    if(thread.joinable() && std::this_thread::get_id() != thread.get_id()){ 
+    if (thread.joinable() && std::this_thread::get_id() != thread.get_id()) {
         thread.join();
     };
 
-    LOG(INFO) << "[Acquisition] Acquisition stopped";
+    LOG(INFO) << "[acquisition] Acquisition stopped";
+}
+
+synnax::TimeStamp resolve_start(const synnax::Frame &frame) {
+    for (const auto &s: frame.series)
+        if (s.data_type == synnax::TIMESTAMP) return s[-1];
+    return synnax::TimeStamp::now();
 }
 
 void Acquisition::run() {
-    LOG(INFO) << "[Acquisition] Acquisition thread started";
-    this->writer_config.start = synnax::TimeStamp::now();
-    auto [writer, wo_err] = ctx->client->telem.openWriter(writer_config);
-    if (wo_err) {
-        LOG(ERROR) << "[Acquisition] Failed to open writer: " << wo_err.message();
-        if (wo_err.matches(freighter::UNREACHABLE) && breaker.wait(wo_err.message()))
-            run();
-        return;
-    }
+    LOG(INFO) << "[acquisition] Acquisition thread started";
     auto s_err = source->start();
-    if(s_err) {
-        LOG(ERROR) << "[Acquisition] Failed to start source: " << s_err.message();
-        if (s_err.matches(driver::TYPE_TEMPORARY_HARDWARE_ERROR) && breaker.wait(s_err.message()))
+    if (s_err) {
+        LOG(ERROR) << "[acquisition] Failed to start source: " << s_err.message();
+        if (s_err.matches(driver::TYPE_TEMPORARY_HARDWARE_ERROR) && breaker.wait(
+                s_err.message()))
             run();
         return;
     }
+
+    synnax::Writer writer;
+    bool writer_opened = false;
+    freighter::Error wo_err;
 
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
     while (this->running) {
         auto [frame, source_err] = source->read();
 
-        if(source_err.matches(driver::TYPE_CRITICAL_HARDWARE_ERROR)){
-            LOG(ERROR) << "[Acquisition] Failed to read source: CRITICAL_HARDWARE_ERROR. Closing pipe.";
+        if (source_err.matches(driver::TYPE_CRITICAL_HARDWARE_ERROR)) {
+            LOG(ERROR) <<
+                    "[acquisition] Failed to read source: CRITICAL_HARDWARE_ERROR. Closing pipe.";
             break;
         }
-        else if (
+
+        if (
             source_err.matches(driver::TYPE_TEMPORARY_HARDWARE_ERROR) &&
             breaker.wait(source_err.message())
-        ){
-            LOG(ERROR) << "[Acquisition] Failed to read source: TEMPORARY_HARDWARE_ERROR";
+        ) {
+            LOG(ERROR) <<
+                    "[acquisition] Failed to read source: TEMPORARY_HARDWARE_ERROR";
             continue;
         }
-                
+
+        if (!writer_opened) {
+            this->writer_config.start = resolve_start(frame);
+            auto [writer, wo_err] = ctx->client->telem.openWriter(writer_config);
+            if (wo_err) {
+                LOG(ERROR) << "[acquisition] Failed to open writer: " << wo_err.
+                        message();
+                if (wo_err.matches(freighter::UNREACHABLE) && breaker.wait(
+                        wo_err.message()))
+                    run();
+                return;
+            }
+            writer_opened = true;
+        }
+
         if (!writer.write(std::move(frame))) {
-            LOG(ERROR) << "[Acquisition] Failed to write frame";
+            LOG(ERROR) << "[acquisition] Failed to write frame";
             break;
         }
+
         breaker.reset();
     }
     const auto err = writer.close();
-    LOG(INFO) << "[Acquisition] Writer closed";
+    LOG(INFO) << "[acquisition] Writer closed";
     if (err.matches(freighter::UNREACHABLE) && breaker.wait(err.message())) run();
-    LOG(INFO) << "[Acquisition] Acquisition thread terminated";
+    LOG(INFO) << "[acquisition] Acquisition thread terminated";
 }

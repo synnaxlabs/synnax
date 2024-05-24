@@ -221,6 +221,18 @@ public:
 
     TimeSpan operator*(const int &other) const { return TimeSpan(value * other); }
 
+    TimeSpan operator*(const unsigned int &other) const { return TimeSpan(value * other); }
+
+    TimeSpan operator*(const double &other) const { return TimeSpan(value * other); }
+
+    TimeSpan operator*(const long &other) const { return TimeSpan(value * other); }
+
+    TimeSpan operator*(const unsigned long &other) const { return TimeSpan(value * other); }
+
+    TimeSpan operator*(const long long &other) const { return TimeSpan(value * other); }
+
+    TimeSpan operator*(const size_t &other) const { return TimeSpan(value * other); }
+
     ////////////////////////////////// DIVISION /////////////////////////////////
 
     TimeSpan operator/(const TimeSpan &other) const {
@@ -362,6 +374,7 @@ public:
     TimeStamp operator%=(const TimeStamp &other) {
         return TimeStamp(value %= other.value);
     }
+
 };
 
 class TimeRange {
@@ -450,6 +463,22 @@ public:
     Rate operator*(const float &other) const { return Rate(value * other); }
 
     [[nodiscard]] TimeSpan period() const { return TimeSpan(1 / value * 1e9); }
+
+    ////////////////////////////////// DIVISION /////////////////////////////////
+
+    Rate operator/(const Rate &other) const { return Rate(value / other.value); }
+
+    Rate operator/(const float &other) const { return Rate(value / other); }
+
+    Rate operator/(const int &other) const { return Rate(value / other); }
+
+    Rate operator/(const unsigned int &other) const { return Rate(value / other); }
+
+    Rate operator/(const double &other) const { return Rate(value / other); }
+
+    Rate operator/(const long &other) const { return Rate(value / other); }
+
+    Rate operator/(const unsigned long &other) const { return Rate(value / other); }
 };
 
 /// @brief a single hertz. Can be made into many hertz through multiplication

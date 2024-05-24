@@ -8,33 +8,36 @@
 // included in the file licenses/APL.txt.
 
 #include <set>
-#include "include/open62541/client_highlevel.h"
+#include <memory>
+#include <utility>
 #include "glog/logging.h"
 #include "driver/opc/reader.h"
 #include "driver/opc/util.h"
 #include "driver/config/config.h"
 #include "driver/errors/errors.h"
 #include "driver/loop/loop.h"
-#include "include/open62541/client_config_default.h"
-#include "include/open62541/client_subscriptions.h"
-#include "include/open62541/types.h"
-#include "include/open62541/plugin/log_stdout.h"
+#include "driver/vendor/open62541/open62541/out/include/open62541/types.h"
+#include "driver/vendor/open62541/open62541/out/include/open62541/types_generated.h"
+#include "driver/vendor/open62541/open62541/out/include/open62541/statuscodes.h"
+#include "driver/vendor/open62541/open62541/out/include/open62541/client.h"
 #include "driver/pipeline/acquisition.h"
+#include "driver/vendor/open62541/open62541/out/include/open62541/common.h"
 
 
 using namespace opc;
+
 
 ReaderConfig::ReaderConfig(
     config::Parser &parser
 ): device(parser.required<std::string>("device")) {
     sample_rate = Rate(parser.required<std::float_t>("sample_rate"));
     stream_rate = Rate(parser.required<std::float_t>("stream_rate"));
+    array_size = parser.optional<std::std::size_t>("array_size", 1);
     parser.iter("channels", [&](config::Parser &channel_builder) {
         auto ch = ReaderChannelConfig(channel_builder);
         if (ch.enabled) channels.push_back(ch);
     });
 }
-
 
 std::pair<std::pair<std::vector<ChannelKey>, std::set<ChannelKey> >,
     freighter::Error> retrieveAdditionalChannelInfo(
@@ -54,7 +57,7 @@ std::pair<std::pair<std::vector<ChannelKey>, std::set<ChannelKey> >,
     for (auto i = 0; i < channels.size(); i++) {
         const auto ch = channels[i];
         if (std::count(channelKeys.begin(), channelKeys.end(), ch.index) == 0) {
-            if(ch.index != 0) {
+            if (ch.index != 0) {
                 channelKeys.push_back(ch.index);
                 indexes.insert(ch.index);
             }
@@ -69,13 +72,14 @@ public:
     ReaderConfig cfg;
     std::shared_ptr<UA_Client> client;
     std::set<ChannelKey> indexes;
-    UA_ReadRequest readRequest;
-    std::vector<UA_ReadValueId> readValueIds;
-    loop::Timer timer;
-    size_t samples_per_read;
-    synnax::Frame fr;
     std::shared_ptr<task::Context> ctx;
     synnax::Task task;
+
+    UA_ReadRequest req;
+    std::vector<UA_ReadValueId> readValueIds;
+    loop::Timer timer;
+    synnax::Frame fr;
+    std::unique_ptr<int64_t[]> timestamp_buf;
 
     ReaderSource(
         ReaderConfig cfg,
@@ -83,23 +87,19 @@ public:
         std::set<ChannelKey> indexes,
         std::shared_ptr<task::Context> ctx,
         synnax::Task task
-    ) : ctx(ctx), task(task), cfg(std::move(cfg)), client(client), indexes(std::move(indexes)),
-        timer(cfg.sample_rate), samples_per_read(
-            static_cast<size_t>(cfg.sample_rate.value / cfg.stream_rate.value)
-        ) {
-        UA_ReadRequest_init(&readRequest);
+    ) : cfg(std::move(cfg)),
+        client(client),
+        indexes(std::move(indexes)),
+        ctx(std::move(ctx)),
+        task(std::move(task)),
+        timer(cfg.sample_rate / cfg.array_size) {
+        if (cfg.array_size > 1)
+            timestamp_buf = std::make_unique<int64_t[]>(cfg.array_size);
         initializeReadRequest();
     }
 
-    void allocateFrame() {
-    }
-
-
-    ~ReaderSource() {
-        // UA_ReadRequest_clear(&readRequest);
-    }
-
     void initializeReadRequest() {
+        UA_ReadRequest_init(&req);
         // Allocate and prepare readValueIds for enabled channels
         readValueIds.reserve(cfg.channels.size());
         for (const auto &ch: cfg.channels) {
@@ -112,8 +112,8 @@ public:
         }
 
         // Initialize the read request
-        readRequest.nodesToRead = readValueIds.data();
-        readRequest.nodesToReadSize = readValueIds.size();
+        req.nodesToRead = readValueIds.data();
+        req.nodesToReadSize = readValueIds.size();
     }
 
     freighter::Error start() override {
@@ -124,86 +124,108 @@ public:
         return freighter::NIL;
     }
 
+    freighter::Error communicate_res_error(
+        UA_StatusCode status
+    ) const {
+        std::string variant = "error";
+        freighter::Error err;
+        if (
+            status == UA_STATUSCODE_BADCONNECTIONREJECTED ||
+            status == UA_STATUSCODE_BADSECURECHANNELCLOSED
+        ) {
+            err.type = driver::TYPE_TEMPORARY_HARDWARE_ERROR;
+            err.data = "connection rejected";
+        } else {
+            err.type = driver::TYPE_CRITICAL_HARDWARE_ERROR;
+            err.data = "failed to execute read: " + std::string(
+                           UA_StatusCode_name(status));
+        }
+        ctx->setState({
+            .task = task.key,
+            .variant = err.type == driver::TYPE_TEMPORARY_HARDWARE_ERROR
+                           ? "warning"
+                           : "error",
+            .details = json{{"message", err.message()}}
+        });
+        return err;
+    }
+
+    freighter::Error communicate_value_error(
+        const std::string &channel,
+        const UA_StatusCode &status
+    ) const {
+        std::string status_name = UA_StatusCode_name(status);
+        std::string message = "Failed to read value from channel " + channel + ": " +
+                              status_name;
+        LOG(ERROR) << "[opc.reader]" << message;
+        ctx->setState({
+            .task = task.key,
+            .variant = "error",
+            .details = json{{"message", message}}
+        });
+        return {
+            driver::TYPE_CRITICAL_HARDWARE_ERROR,
+            message
+        };
+    }
+
+
     std::pair<Frame, freighter::Error> read() override {
         auto fr = Frame(cfg.channels.size() + indexes.size());
-        size_t enabled_count = 0;
-        for (const auto &ch: cfg.channels) {
-            if (!ch.enabled) continue;
-            enabled_count++;
-            fr.add(ch.channel, Series(ch.ch.data_type, 3));
-        }
+        const auto read_calls_per_cycle = static_cast<std::size_t>(
+                                              cfg.sample_rate.value / (cfg.stream_rate.
+                                                  value)) / cfg.array_size;
+        const auto series_size = cfg.array_size * read_calls_per_cycle;
+
+        std::size_t en_count = 0;
+        for (const auto &ch: cfg.channels)
+            if (ch.enabled) {
+                fr.add(ch.channel, Series(ch.ch.data_type, series_size));
+                en_count++;
+            }
         for (const auto &idx: indexes)
-            fr.add(idx, Series(synnax::TIMESTAMP, 3));
-        auto start = std::chrono::high_resolution_clock::now();
-        UA_ReadResponse readResponse = UA_Client_Service_read(client.get(), readRequest);
+            fr.add(idx, Series(synnax::TIMESTAMP, series_size));
 
-        auto status = readResponse.responseHeader.serviceResult;
-        if (status != UA_STATUSCODE_GOOD) {
-            UA_ReadResponse_clear(&readResponse);
-            if (    status == UA_STATUSCODE_BADCONNECTIONREJECTED || 
-                    status ==  UA_STATUSCODE_BADSECURECHANNELCLOSED) {
+        for (std::size_t i = 0; i < read_calls_per_cycle; i++) {
+            UA_ReadResponse res = UA_Client_Service_read(client.get(), req);
+            auto status = res.responseHeader.serviceResult;
 
-                this->ctx->setState({
-                    .task = task.key,
-                    .variant = "error",
-                    .details = json{
-                        {"message", "connection rejected"}
-                    }
-                });
-
-                LOG(ERROR) << "[opc.reader] connection rejected or secure channel closed.";
-                return std::make_pair(  std::move(fr), 
-                                        freighter::Error( driver::TYPE_TEMPORARY_HARDWARE_ERROR, "connection rejected"
-                                        ));
+            if (status != UA_STATUSCODE_GOOD) {
+                auto err = communicate_res_error(status);
+                UA_ReadResponse_clear(&res);
+                return std::make_pair(std::move(fr), err);
             }
-                this->ctx->setState({
-                    .task = task.key,
-                    .variant = "error",
-                    .details = json{
-                        {"message", std::string(UA_StatusCode_name(status))}
-                    }
-                });
-            LOG(ERROR) << "[opc.reader] failed to read value: " << std::string(UA_StatusCode_name(status));
-            return std::make_pair(  std::move(fr),
-                                    freighter::Error( driver::TYPE_CRITICAL_HARDWARE_ERROR, "failed to read value: " + std::string(UA_StatusCode_name(status))
-                                    ));
-        }
-        // Process the read results
-        for (size_t j = 0; j < readResponse.resultsSize; ++j) {
-            UA_Variant *value = &readResponse.results[j].value;
-            const auto &ch = cfg.channels[j];
-            // Assuming the channels order hasn't changed
-            if (readResponse.results[j].status != UA_STATUSCODE_GOOD) {
-                std::string error_message = "Failed to read value: " + std::string(UA_StatusCode_name(readResponse.results[j].status));    
-                LOG(ERROR) << "[opc.reader] failed to read value for result: " << error_message;
-                UA_ReadResponse_clear(&readResponse);
-                this->ctx->setState({
-                    .task = task.key,
-                    .variant = "error",
-                    .details = json{
-                        {"message", error_message}
-                    }
-                });
-                return std::make_pair(  std::move(fr), 
-                                        freighter::Error(
-                                            driver::TYPE_CRITICAL_HARDWARE_ERROR,
-                                            "Failed to read value: " + error_message));
+
+            for (std::std::size_t j = 0; j < res.resultsSize; ++j) {
+                UA_Variant *value = &res.results[j].value;
+                const auto &ch = cfg.channels[j];
+                auto stat = res.results[j].status;
+                if (stat != UA_STATUSCODE_GOOD) {
+                    auto err = communicate_value_error(ch.ch.name, stat);
+                    UA_ReadResponse_clear(&res);
+                    return std::make_pair(std::move(fr), err);
+                }
+                set_val_on_series(value, i * cfg.array_size, fr.series->at(j));
             }
-            set_val_on_series(value, 0, fr.series->at(j));
+            UA_ReadResponse_clear(&res);
+            if (cfg.array_size == 1) {
+                const auto now = synnax::TimeStamp::now();
+                for (std::size_t j = en_count; j < en_count + indexes.size(); j++)
+                    fr.series->at(j).set(i, now.value);
+            } else {
+                // In this case we don't know the exact spacing between the timestamps,
+                // so we just back it out from the sample rate.
+                const auto now = synnax::TimeStamp::now();
+                const auto spacing = cfg.sample_rate.period();
+                // make an array of timestamps with the same spacing
+                for (std::size_t k = 0; k < cfg.array_size; k++)
+                    timestamp_buf[k] = (now + (spacing * k)).value;
+                for (std::size_t j = en_count; j < en_count + indexes.size(); j++)
+                    fr.series->at(j).set_array(timestamp_buf.get(), i, cfg.array_size);
+            }
+            std::cout << fr << std::endl;
+            timer.wait();
         }
-        
-        UA_ReadResponse_clear(&readResponse);
-
-        const auto now = synnax::TimeStamp::now();
-        for (size_t j = enabled_count; j < enabled_count + indexes.size(); j++) {
-            fr.series->at(j).set(0, now.value);
-        }
-        auto end = std::chrono::high_resolution_clock::now();
-        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-        // LOG(WARNING) << "[opc.reader] read took " << duration.count() << "ms";
-
-        std::cout << fr << std::endl;
-        timer.wait();
         return std::make_pair(std::move(fr), freighter::NIL);
     }
 };

@@ -11,6 +11,7 @@
 
 #include "client/cpp/telem/telem.h"
 #include "x/go/telem/x/go/telem/telem.pb.h"
+#include <memory>
 #include <string>
 #include <vector>
 #include <cstddef>
@@ -21,13 +22,15 @@ namespace synnax {
 /// @brief Series is a strongly typed array of telemetry samples backed by an underlying binary buffer.
 class Series {
 public:
-     Series(DataType data_type, size_t size): data_type(data_type), data(std::make_unique<std::byte[]>(size * data_type.density())), size(size * data_type.density()) {}
-
-
+    Series(DataType data_type, size_t size): data_type(data_type),
+                                             data(std::make_unique<std::byte[]>(
+                                                 size * data_type.density())),
+                                             size(size * data_type.density()) {
+    }
 
     /// @brief constructs a series from the given vector of numeric data.
     template<typename NumericType>
-    explicit Series(const std::vector<NumericType>& d,
+    explicit Series(const std::vector<NumericType> &d,
                     DataType data_type_ = DATA_TYPE_UNKNOWN) : data_type(
         std::move(data_type_)) {
         static_assert(std::is_arithmetic_v<NumericType>,
@@ -47,7 +50,8 @@ public:
 
     /// @brief constructs a series of length 1 from the given number.
     template<typename NumericType>
-    explicit Series(NumericType t, DataType data_type_ = DATA_TYPE_UNKNOWN): data_type(data_type_ ){
+    explicit Series(NumericType t, DataType data_type_ = DATA_TYPE_UNKNOWN): data_type(
+        data_type_) {
         // single sample constructor
         static_assert(std::is_arithmetic_v<NumericType>,
                       "NumericType must be a numeric type");
@@ -69,11 +73,12 @@ public:
 
     // set an array (not a vector)
     template<typename NumericType>
-    void set_array(const NumericType* d, size_t index, size_t length) {
-         if (index + length > size / data_type.density()) {
-             throw std::runtime_error("index out of bounds");
-         }
-        memcpy(data.get() + index * data_type.density(), d, length * data_type.density());
+    void set_array(const NumericType *d, size_t index, size_t length) {
+        if (index + length > size / data_type.density()) {
+            throw std::runtime_error("index out of bounds");
+        }
+        memcpy(data.get() + index * data_type.density(), d,
+               length * data_type.density());
     }
 
 
@@ -82,16 +87,16 @@ public:
     /// @param d the vector of strings to be used as the data.
     /// @param data_type_ the type of data being used.
     explicit Series(
-        const std::vector<std::string>& d,
+        const std::vector<std::string> &d,
         DataType data_type_ = STRING
     ) : data_type(std::move(data_type_)) {
         if (data_type != STRING && data_type != JSON)
             throw std::runtime_error("invalid data type b");
         size_t total_size = 0;
-        for (const auto& s: d) total_size += s.size() + 1;
+        for (const auto &s: d) total_size += s.size() + 1;
         data = std::make_unique<std::byte[]>(total_size);
         size_t offset = 0;
-        for (const auto& s: d) {
+        for (const auto &s: d) {
             memcpy(data.get() + offset, s.data(), s.size());
             offset += s.size();
             data[offset] = static_cast<std::byte>('\n');
@@ -101,7 +106,7 @@ public:
     }
 
     /// @brief constructs the series from its protobuf representation.
-    explicit Series(const telem::PBSeries& s) : data_type(s.data_type()) {
+    explicit Series(const telem::PBSeries &s) : data_type(s.data_type()) {
         size = s.data().size();
         data = std::make_unique<std::byte[]>(size);
         memcpy(data.get(), s.data().data(), size);
@@ -109,7 +114,7 @@ public:
 
     /// @brief encodes the series' fields into the given protobuf message.
     /// @param pb the protobuf message to encode the fields into.
-    void to_proto(telem::PBSeries* pb) const {
+    void to_proto(telem::PBSeries *pb) const {
         pb->set_data_type(data_type.name());
         pb->set_data(data.get(), size);
     }
@@ -166,14 +171,29 @@ public:
         return v;
     }
 
-    Series(const Series& s) : data_type(s.data_type) {
+    Series(const Series &s) : data_type(s.data_type) {
         data = std::make_unique<std::byte[]>(s.size);
         memcpy(data.get(), s.data.get(), s.size);
         size = s.size;
     }
 
+    // implement the array access operator
+    template<typename NumericType>
+    NumericType operator[](int index) const {
+        if (index >= length())
+            throw std::runtime_error("index" + std::to_string(index) + " out of bounds for series");
+        if (index < 0) index = static_cast<int>(length()) + index;
+        NumericType value;
+        memcpy(&value, data.get() + index * data_type.density(), data_type.density());
+        return value;
+    }
+
+    size_t length() const {
+        return size / data_type.density();
+    }
+
     // implement the ostream operator
-    friend std::ostream& operator<<(std::ostream& os, const Series& s) {
+    friend std::ostream &operator<<(std::ostream &os, const Series &s) {
         os << "Series(" << s.data_type.name() << ", [";
         if (s.data_type == synnax::STRING || s.data_type == synnax::JSON) {
             auto strings = s.string();

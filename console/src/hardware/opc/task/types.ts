@@ -35,12 +35,15 @@ export const readConfigZ = z
     device: z.string().min(1, "Device must be specified"),
     sampleRate: z.number().min(0).max(5000),
     streamRate: z.number().min(0).max(200),
+    arrayMode: z.boolean(),
+    arraySize: z.number().min(1),
     channels: z.array(readChanZ),
   })
   .refine((cfg) => cfg.sampleRate >= cfg.streamRate, {
     message: "Sample rate must be greater than or equal to stream rate",
     path: ["sampleRate"],
   })
+  // Error if channel ahs been duplicated
   .superRefine((cfg, ctx) => {
     const channels = new Map<number, number>();
     cfg.channels.forEach(({ channel }) =>
@@ -55,6 +58,7 @@ export const readConfigZ = z
       });
     });
   })
+  // Warning if node ID is duplicated
   .superRefine((cfg, ctx) => {
     const nodeIds = new Map<string, number>();
     cfg.channels.forEach(({ nodeId }) =>
@@ -71,6 +75,17 @@ export const readConfigZ = z
         },
       });
     });
+  })
+  // In array mode the stream rate must be compatible with the array size
+  .superRefine((cfg, ctx) => {
+    if (!cfg.arrayMode) return;
+    if (cfg.streamRate > cfg.sampleRate / cfg.arraySize) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["streamRate"],
+        message: `Rate too high for array size. Must less than or equal to ${cfg.sampleRate / cfg.arraySize}`,
+      });
+    }
   });
 
 export type ReadConfig = z.infer<typeof readConfigZ>;
@@ -84,6 +99,8 @@ export const ZERO_READ_PAYLOAD: ReadPayload = {
     device: "",
     sampleRate: 50,
     streamRate: 25,
+    arrayMode: false,
+    arraySize: 1,
     channels: [],
   },
 };

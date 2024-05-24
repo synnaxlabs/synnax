@@ -13,6 +13,7 @@ export const nodeProperties = z.object({
   dataType: z.string(),
   name: z.string(),
   nodeId: z.string(),
+  isArray: z.boolean(),
 });
 
 export type NodeProperties = z.infer<typeof nodeProperties>;
@@ -26,12 +27,9 @@ export type Properties = z.infer<typeof propertiesZ>;
 
 export type Device = device.Device<Properties>;
 
-export const channelConfigZ = z
-  .object({
+export const channelConfigZ = nodeProperties
+  .extend({
     key: z.string(),
-    dataType: z.string(),
-    name: z.string(),
-    nodeId: z.string().optional(),
     isIndex: z.boolean().optional(),
   })
   .superRefine((data, ctx) => {

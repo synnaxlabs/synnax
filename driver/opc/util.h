@@ -274,29 +274,29 @@ inline synnax::Series val_to_series(UA_Variant *val, synnax::DataType dt) {
     return Series(1);
 }
 
-inline synnax::DataType variant_data_type(UA_Variant &val) {
-    if (val.type == &UA_TYPES[UA_TYPES_FLOAT]) return synnax::FLOAT32;
-    if (val.type == &UA_TYPES[UA_TYPES_DOUBLE]) return synnax::FLOAT64;
-    if (val.type == &UA_TYPES[UA_TYPES_INT16]) return synnax::INT16;
-    if (val.type == &UA_TYPES[UA_TYPES_INT32]) return synnax::INT32;
-    if (val.type == &UA_TYPES[UA_TYPES_INT64]) return synnax::INT64;
-    if (val.type == &UA_TYPES[UA_TYPES_UINT16]) return synnax::UINT16;
-    if (val.type == &UA_TYPES[UA_TYPES_UINT32]) return synnax::UINT32;
-    if (val.type == &UA_TYPES[UA_TYPES_UINT64]) return synnax::UINT64;
-    if (val.type == &UA_TYPES[UA_TYPES_STRING]) return synnax::STRING;
-    if (val.type == &UA_TYPES[UA_TYPES_DATETIME]) return synnax::TIMESTAMP;
-    if (val.type == &UA_TYPES[UA_TYPES_GUID]) return synnax::UINT128;
-    if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_FLOAT])) return synnax::FLOAT32;
-    if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_DOUBLE])) return synnax::FLOAT64;
-    if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_INT16])) return synnax::INT16;
-    if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_INT32])) return synnax::INT32;
-    if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_INT64])) return synnax::INT64;
-    if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_UINT16])) return synnax::UINT16;
-    if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_UINT32])) return synnax::UINT32;
-    if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_UINT64])) return synnax::UINT64;
-    if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_STRING])) return synnax::STRING;
-    if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_DATETIME])) return synnax::TIMESTAMP;
-    if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_GUID])) return synnax::UINT128;
+inline std::pair<synnax::DataType, bool> variant_data_type(UA_Variant &val) {
+    if (val.type == &UA_TYPES[UA_TYPES_FLOAT]) return {synnax::FLOAT32, false};
+    if (val.type == &UA_TYPES[UA_TYPES_DOUBLE]) return {synnax::FLOAT64, false};
+    if (val.type == &UA_TYPES[UA_TYPES_INT16]) return {synnax::INT16, false};
+    if (val.type == &UA_TYPES[UA_TYPES_INT32]) return {synnax::INT32, false};
+    if (val.type == &UA_TYPES[UA_TYPES_INT64]) return {synnax::INT64, false};
+    if (val.type == &UA_TYPES[UA_TYPES_UINT16]) return {synnax::UINT16, false};
+    if (val.type == &UA_TYPES[UA_TYPES_UINT32]) return {synnax::UINT32, false};
+    if (val.type == &UA_TYPES[UA_TYPES_UINT64]) return {synnax::UINT64, false};
+    if (val.type == &UA_TYPES[UA_TYPES_STRING]) return {synnax::STRING, false};
+    if (val.type == &UA_TYPES[UA_TYPES_DATETIME]) return {synnax::TIMESTAMP, false};
+    if (val.type == &UA_TYPES[UA_TYPES_GUID]) return {synnax::UINT128, false};
+    if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_FLOAT])) return {synnax::FLOAT32, true};
+    if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_DOUBLE])) return {synnax::FLOAT64, true};
+    if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_INT16])) return {synnax::INT16, true};
+    if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_INT32])) return {synnax::INT32, true};
+    if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_INT64])) return {synnax::INT64, true};
+    if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_UINT16])) return {synnax::UINT16, true};
+    if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_UINT32])) return {synnax::UINT32, true};
+    if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_UINT64])) return {synnax::UINT64, true};
+    if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_STRING])) return {synnax::STRING, true};
+    if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_DATETIME])) return {synnax::TIMESTAMP, true};
+    if (UA_Variant_hasArrayType(&val, &UA_TYPES[UA_TYPES_GUID])) return {synnax::UINT128, true};
     return synnax::DATA_TYPE_UNKNOWN;
 }
 

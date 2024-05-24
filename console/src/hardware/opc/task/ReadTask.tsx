@@ -37,7 +37,6 @@ import {
 } from "@synnaxlabs/pluto";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { nanoid } from "nanoid";
-
 import { CSS } from "@/css";
 import {
   type ReadChannelConfig,
@@ -53,11 +52,11 @@ import {
 } from "@/hardware/opc/task/types";
 import { type Layout } from "@/layout";
 import { z } from "zod";
-
-import "@/hardware/opc/task/ReadTask.css";
 import { Device } from "@/hardware/opc/device";
 import { SelectNodeRemote } from "@/hardware/opc/device/SelectNode";
 import { deep } from "@synnaxlabs/x";
+
+import "@/hardware/opc/task/ReadTask.css";
 
 export const configureReadLayout: Layout.State = {
   name: "Configure OPC UA Read Task",
@@ -132,6 +131,13 @@ const Internal = ({ initialValues, task: pTask }: InternalProps): ReactElement =
                 params: { variant: "warning" },
               });
             }
+            if (cfg.arrayMode && !node.isArray) {
+              ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ["channels", i, "nodeId"],
+                message: `Cannot sample from a non-array node in array mode`,
+              });
+            }
           }
         }),
       }),
@@ -195,6 +201,8 @@ const Internal = ({ initialValues, task: pTask }: InternalProps): ReactElement =
     },
   });
 
+  const arrayMode = Form.useFieldValue<boolean>("config.arrayMode", false, methods);
+
   return (
     <Align.Space className={CSS.B("opc-read-task")} direction="y" grow empty>
       <Align.Space className={CSS.B("content")} direction="y" grow>
@@ -220,6 +228,16 @@ const Internal = ({ initialValues, task: pTask }: InternalProps): ReactElement =
             <Form.Field<number> label="Stream Rate" path="config.streamRate">
               {(p) => <Input.Numeric {...p} />}
             </Form.Field>
+            {arrayMode && (
+              <Form.Field<number>
+                label="Array Size"
+                path="config.arraySize"
+                style={{ width: 100 }}
+              >
+                {(p) => <Input.Numeric {...p} />}
+              </Form.Field>
+            )}
+            <Form.SwitchField label="Array Sampling" path="config.arrayMode" />
           </Align.Space>
           <Align.Space
             className={CSS.B("channel-form-container")}
