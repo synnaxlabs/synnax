@@ -7,7 +7,7 @@ cc_library(
     ],
     copts = select({
         "@platforms//os:windows": ["/std:c++20"],
-        "//conditions:default": [],
+        "@platforms//os:macos": ["-std=c++20"],
     }),
     visibility = ["//visibility:public"],
     deps = [
@@ -24,6 +24,7 @@ cc_test(
     ],
     copts = select({
         "@platforms//os:windows": ["/std:c++20"],
+        "@platforms//os:macos": ["-std=c++20"],
         "//conditions:default": [],
     }),
     deps = [

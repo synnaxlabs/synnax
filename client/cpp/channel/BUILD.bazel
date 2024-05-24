@@ -6,6 +6,7 @@ cc_library(
     hdrs = ["channel.h"],
     copts = select({
         "@platforms//os:windows": ["/std:c++20"],
+        "@platforms//os:macos": ["-std=c++20"],
         "//conditions:default": [],
     }),
     visibility = ["//visibility:public"],
@@ -23,6 +24,7 @@ cc_test(
     srcs = ["channel_test.cpp"],
     copts = select({
         "@platforms//os:windows": ["/std:c++20"],
+        "@platforms//os:macos": ["-std=c++20"],
         "//conditions:default": [],
     }),
     deps = [

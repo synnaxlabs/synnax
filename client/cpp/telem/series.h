@@ -49,8 +49,7 @@ public:
     template<typename NumericType>
     explicit Series(NumericType t, DataType data_type_ = DATA_TYPE_UNKNOWN): data_type(data_type_ ){
         // single sample constructor
-        static_assert(std::is_arithmetic_v<NumericType>,
-                      "NumericType must be a numeric type");
+        static_assert(std::is_arithmetic_v<NumericType>, "NumericType must be a numeric type");
         if (data_type == DATA_TYPE_UNKNOWN)
             data_type = DataType::from_type<NumericType>();
         size = data_type.density();
