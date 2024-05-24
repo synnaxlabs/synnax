@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/control"
 	xfs "github.com/synnaxlabs/x/io/fs"
@@ -368,10 +369,12 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 				It("Should not allow operations on a closed iterator", func() {
 					fs, cleanUp := makeFS()
 					var (
-						db = MustSucceed(unary.Open(unary.Config{
+						key = testutil.GenerateChannelKey()
+						db  = MustSucceed(unary.Open(unary.Config{
 							FS: fs,
 							Channel: core.Channel{
-								Key:      2,
+								Key:      key,
+								Name:     "ludwig",
 								DataType: telem.TimeStampT,
 								IsIndex:  true,
 							}}))
@@ -381,6 +384,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					Expect(i.Close()).To(Succeed())
 					Expect(i.SeekFirst(ctx)).To(BeFalse())
 					Expect(i.Error()).To(HaveOccurredAs(e))
+					Expect(i.Error()).To(MatchError(ContainSubstring("[ludwig]<%d>", key)))
 					Expect(i.Valid()).To(BeFalse())
 					Expect(i.Close()).To(Succeed())
 

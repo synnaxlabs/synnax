@@ -90,7 +90,7 @@ func (db *DB) RenameChannel(_ context.Context, key ChannelKey, newName string) e
 		return nil
 	}
 
-	return core.ChannelNotFound
+	return core.NewErrChannelNotFound(key)
 }
 
 func (db *DB) createChannel(ch Channel) (err error) {

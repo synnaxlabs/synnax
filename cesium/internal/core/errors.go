@@ -14,3 +14,12 @@ func NewErrChannelNotFound(ch ChannelKey) error {
 func EntityClosed(entityName string) error {
 	return errors.Newf("operation on %s is invalid because it is already closed", entityName)
 }
+
+func NewErrorWrapper(key ChannelKey, name string) func(error) error {
+	return func(err error) error {
+		if err == nil {
+			return nil
+		}
+		return errors.Wrapf(err, "error in channel [%s]<%d>", name, key)
+	}
+}

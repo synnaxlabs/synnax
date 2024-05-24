@@ -63,7 +63,7 @@ var (
 		EnableAutoCommit:         config.False(),
 		AutoIndexPersistInterval: 1 * telem.Second,
 	}
-	WriterClosedError = core.EntityClosed("unary.writer")
+	writerClosedError = core.EntityClosed("unary.writer")
 )
 
 const AlwaysIndexPersistOnAutoCommit telem.TimeSpan = -1
@@ -116,6 +116,9 @@ type Writer struct {
 	// lastCommitFileSwitch describes whether the last commit involved a file switch.
 	// If it did, then it is necessary to resolve the timestamp for that commit this time.
 	lastCommitFileSwitch bool
+	// wrapError is a function that wraps any error originating from this writer to
+	// provide context including the writer's channel key and name.
+	wrapError func(error) error
 	// closed stores whether the writer is closed. Operations like Write and Commit do not
 	// succeed on closed writers.
 	closed bool
@@ -126,7 +129,12 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (w *Writer, 
 	if err != nil {
 		return nil, transfer, err
 	}
-	w = &Writer{WriterConfig: cfg, Channel: db.Channel, idx: db.index(), decrementCounter: func() { db.mu.Add(-1) }}
+	w = &Writer{WriterConfig: cfg,
+		Channel:          db.Channel,
+		idx:              db.index(),
+		decrementCounter: func() { db.mu.Add(-1) },
+		wrapError:        core.NewErrorWrapper(db.Channel.Key, db.Channel.Name),
+	}
 	gateCfg := controller.GateConfig{
 		TimeRange: cfg.controlTimeRange(),
 		Authority: cfg.Authority,
@@ -142,12 +150,12 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (w *Writer, 
 		}, err
 	})
 	if err != nil {
-		return nil, transfer, err
+		return nil, transfer, w.wrapError(err)
 	}
 
 	w.control = g
 	db.mu.Add(1)
-	return w, transfer, err
+	return w, transfer, w.wrapError(err)
 }
 
 func Write(
@@ -181,10 +189,12 @@ func (w *Writer) len(dw *domain.Writer) int64 {
 
 // Write validates and writes the given array.
 func (w *Writer) Write(series telem.Series) (a telem.AlignmentPair, err error) {
+	defer func() { err = w.wrapError(err) }()
+
 	if w.closed {
-		return 0, WriterClosedError
+		return 0, writerClosedError
 	}
-	if err := w.Channel.ValidateSeries(series); err != nil {
+	if err = w.Channel.ValidateSeries(series); err != nil {
 		return 0, err
 	}
 	// ok signifies whether w is allowed to write.
@@ -217,19 +227,26 @@ func (w *Writer) updateHwm(series telem.Series) {
 }
 
 // Commit commits the written series to the database.
-func (w *Writer) Commit(ctx context.Context) (telem.TimeStamp, error) {
+func (w *Writer) Commit(ctx context.Context) (ts telem.TimeStamp, err error) {
+	defer func() { err = w.wrapError(err) }()
+
 	if w.closed {
-		return telem.TimeStampMax, WriterClosedError
+		err = writerClosedError
+		return
 	}
+
 	if w.Channel.IsIndex {
-		return w.commitWithEnd(ctx, w.hwm+1)
+		ts, err = w.commitWithEnd(ctx, w.hwm+1)
+		return
 	}
-	return w.commitWithEnd(ctx, telem.TimeStamp(0))
+	ts, err = w.commitWithEnd(ctx, telem.TimeStamp(0))
+	return
 }
 
 func (w *Writer) CommitWithEnd(ctx context.Context, end telem.TimeStamp) (err error) {
+	defer func() { err = w.wrapError(err) }()
 	if w.closed {
-		return core.EntityClosed("unary.writer")
+		return writerClosedError
 	}
 	_, err = w.commitWithEnd(ctx, end)
 	return err
@@ -267,7 +284,7 @@ func (w *Writer) Close(ctx context.Context) (controller.Transfer, error) {
 	dw, t := w.control.Release()
 	w.decrementCounter()
 	if t.IsRelease() {
-		return t, dw.Close(ctx)
+		return t, w.wrapError(dw.Close(ctx))
 	}
 
 	return t, nil
