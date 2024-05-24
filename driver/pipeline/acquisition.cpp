@@ -21,46 +21,15 @@ Acquisition::Acquisition(
     WriterConfig writer_config,
     std::shared_ptr<Source> source,
     const breaker::Config &breaker_config
-): thread(nullptr), ctx(std::move(ctx)), writer_config(writer_config), breaker(breaker_config), source(std::move(source)) {
+): ctx(std::move(ctx)), thread(nullptr), writer_config(writer_config), breaker(breaker_config), source(std::move(source)) {
     assert(ctx != nullptr);
     assert(source != nullptr);
 }
 
-//copy constructor
-Acquisition::Acquisition(const Acquisition &copy) {
-    this->ctx = copy.ctx;
-    this->writer_config = copy.writer_config;
-    this->source = copy.source;
-    this->breaker = copy.breaker;
-    this->running = copy.running;
-    this->thread = nullptr;
-}
-
-//move constructor
-Acquisition::Acquisition(Acquisition &&move) {
-    this->ctx = std::move(move.ctx);
-    this->writer_config = std::move(move.writer_config);
-    this->source = std::move(move.source);
-    this->breaker = std::move(move.breaker);
-    this->running = move.running;
-    this->thread = std::move(move.thread);
-}
-
-Acquisition& Acquisition::operator=(const Acquisition& other) {
-    if (this == &other) return *this;
-    this->ctx = other.ctx;
-    this->writer_config = other.writer_config;
-    this->source = other.source;
-    this->breaker = other.breaker;
-    this->running = other.running;
-    this->thread = nullptr;
-    return *this;
-}
-
 void Acquisition::start() {
+    if (this-> running) return;
     if (thread->joinable() && std::this_thread::get_id() != thread->get_id())
         thread->join();
-    if (running) return;
     this->running = true;
     thread = std::make_unique<std::thread>(&Acquisition::run, this);
 }

@@ -20,25 +20,31 @@ Control::Control(
     synnax::StreamerConfig streamer_config,
     std::unique_ptr<pipeline::Sink> sink,
     const breaker::Config &breaker_config
-): ctx(std::move(ctx)),
-   streamer_config(std::move(streamer_config)),
-   sink(std::move(sink)),
-   cmd_breaker(breaker::Breaker(breaker_config)) {
+):  ctx(std::move(ctx)),
+    thread(nullptr),
+    streamer_config(std::move(streamer_config)),
+    sink(std::move(sink)),
+    cmd_breaker(breaker::Breaker(breaker_config)) {
 }
 
 
 void Control::start() {
-    cmd_running = true;
-    cmd_thread = std::thread(&Control::run, this);
+    if (this->running) return;
+    if (thread->joinable() && std::this_thread::get_id() != thread->get_id())
+        thread->join();
+    this->running = true;
+    thread = std::make_unique<std::thread>(&Control::run, this);
 }
 
 void Control::stop() {
-    LOG(INFO) << "Stopping control pipeline";
-    if(!cmd_running) return;
-    this->cmd_running = false;
-    // close streamer
+    if(!running) return;
+    this->running = false;
+    if (thread->joinable() && std::this_thread::get_id() != thread->get_id()) {
+        thread->join();
+    };
     this->streamer->closeSend();
-    cmd_thread.join(); // cant join cus blocked by streamer.read()
+
+    LOG(INFO) << "[control] Control stopped";
 }
 
 void Control::run() {
@@ -51,7 +57,7 @@ void Control::run() {
             return run();
         }
     }
-    while (cmd_running) {
+    while (running) {
         auto [cmd_frame, cmd_err] = this->streamer->read();
         if (cmd_err) break;
         auto daq_err = sink->write(std::move(cmd_frame));    

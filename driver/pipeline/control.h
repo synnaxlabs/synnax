@@ -34,16 +34,19 @@ public:
         const breaker::Config &breaker_config
     );
 
+    ~Control() {
+        cmd_breaker.close();
+    }
+    
     void start();
     void stop();
-
 
 private:
     std::shared_ptr<task::Context> ctx;
 
     /// @brief writer thread.
-    volatile bool cmd_running = false;
-    std::thread cmd_thread;
+    volatile bool running = false;
+    std::unique_ptr<std::thread> thread;
 
     /// @brief synnax writer
     std::unique_ptr<synnax::Streamer> streamer;

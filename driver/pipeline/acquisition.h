@@ -47,9 +47,6 @@ public:
         breaker.close();
     }
 
-    Acquisition(const Acquisition &copy);
-    Acquisition(Acquisition &&move);
-    Acquisition& operator=(const Acquisition& copy);
 private:
     /// @brief context for issuing state updates to the task.
     std::shared_ptr<task::Context> ctx;
@@ -61,11 +58,11 @@ private:
     /// @brief configuration for the Synnax writer.
     WriterConfig writer_config;
 
-    /// @brief daq interface
-    std::shared_ptr<Source> source;
-
     /// @brief breaker
     breaker::Breaker breaker;
+
+     /// @brief daq interface
+    std::shared_ptr<Source> source;
 
     void run();
 };
