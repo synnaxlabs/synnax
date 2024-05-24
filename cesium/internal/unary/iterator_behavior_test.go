@@ -365,16 +365,28 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 				})
 			})
 			Describe("Close", func() {
+				var (
+					fs      xfs.FS
+					cleanUp func() error
+					db      *unary.DB
+				)
+				BeforeEach(func() {
+					fs, cleanUp = makeFS()
+					db = MustSucceed(unary.Open(unary.Config{
+						FS: fs,
+						Channel: core.Channel{
+							Key:      2,
+							DataType: telem.TimeStampT,
+							IsIndex:  true,
+						},
+					}))
+				})
+				AfterEach(func() {
+					Expect(db.Close()).To(Succeed())
+					Expect(cleanUp()).To(Succeed())
+				})
 				It("Should not allow operations on a closed iterator", func() {
-					fs, cleanUp := makeFS()
 					var (
-						db = MustSucceed(unary.Open(unary.Config{
-							FS: fs,
-							Channel: core.Channel{
-								Key:      2,
-								DataType: telem.TimeStampT,
-								IsIndex:  true,
-							}}))
 						i = db.OpenIterator(unary.IteratorConfig{Bounds: telem.TimeRangeMax})
 						e = core.EntityClosed("unary.iterator")
 					)
@@ -385,6 +397,13 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					Expect(i.Close()).To(Succeed())
 
 					Expect(cleanUp()).To(Succeed())
+				})
+
+				It("Should not allow an iterator to operate on a closed db", func() {
+					Expect(unary.Write(ctx, db, 0, telem.NewSeriesV[int64](3, 4, 5, 6))).To(Succeed())
+					Expect(db.Close()).To(Succeed())
+					i := db.OpenIterator(unary.IteratorConfig{Bounds: telem.TimeRangeMax})
+					Expect(i.SeekFirst(ctx)).To(BeFalse())
 				})
 			})
 		})

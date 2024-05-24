@@ -171,6 +171,14 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					Expect(err).To(MatchError(e))
 					Expect(i.Close()).To(Succeed())
 				})
+
+				It("Should give an iterator that cannot be used when the db is closed", func() {
+					Expect(domain.Write(ctx, db, (0 * telem.SecondTS).Range(10*telem.SecondTS), []byte{1, 2, 3, 4})).To(Succeed())
+					Expect(db.Close()).To(Succeed())
+					r := db.NewIterator(domain.IterRange(telem.TimeRangeMax))
+					Expect(r.SeekFirst(ctx)).To(BeFalse())
+					Expect(r.Close()).To(Succeed())
+				})
 			})
 		})
 	}

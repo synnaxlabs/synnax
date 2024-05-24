@@ -300,6 +300,10 @@ func (i *Iterator) read(ctx context.Context, offset telem.Offset, size telem.Siz
 	if err != nil && !errors.Is(err, io.EOF) {
 		return
 	}
+	err = r.Close()
+	if err != nil {
+		return
+	}
 	if n < len(series.Data) {
 		series.Data = series.Data[:n]
 	}
