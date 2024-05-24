@@ -35,7 +35,6 @@ export const createWindowLayout = (
     resizable: false,
     size: { height: 225, width: 625 },
     navTop: true,
-    transparent: true,
   },
 });
 
