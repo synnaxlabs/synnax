@@ -16,6 +16,7 @@ import (
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"sync"
 )
 
 var _ = Describe("File Controller", Ordered, func() {
@@ -201,7 +202,11 @@ var _ = Describe("File Controller", Ordered, func() {
 
 					By("Trying to acquire a third writer")
 					acquired := make(chan struct{})
+
+					wg := sync.WaitGroup{}
+					wg.Add(1)
 					go func() {
+						defer wg.Done()
 						w3, err := db.NewWriter(ctx, domain.WriterConfig{
 							Start: 30 * telem.SecondTS,
 							End:   40 * telem.SecondTS,
@@ -210,12 +215,14 @@ var _ = Describe("File Controller", Ordered, func() {
 						acquired <- struct{}{}
 						Expect(w3.Close(ctx)).To(Succeed())
 					}()
+
 					By("Expecting the channel acquisition to fail")
 					Consistently(acquired).WithTimeout(50 * telem.Millisecond.Duration()).ShouldNot(Receive())
 					By("Closing the writer 1")
 					Expect(w1.Close(ctx)).To(Succeed())
 					By("Expecting writer 3 to successfully acquire")
 					Eventually(acquired).Should(Receive())
+					wg.Wait()
 					Expect(w2.Close(ctx)).To(Succeed())
 				})
 
@@ -264,7 +271,6 @@ var _ = Describe("File Controller", Ordered, func() {
 				})
 
 				It("Should open writers on partially full files after reopening the file controller", func() {
-					subFS := fs
 					By("Initializing a file controller")
 					db = MustSucceed(domain.Open(domain.Config{FS: fs, FileSize: 10 * telem.ByteSize}))
 
@@ -291,7 +297,7 @@ var _ = Describe("File Controller", Ordered, func() {
 					Expect(db.Close()).To(Succeed())
 
 					By("Reopening the db on the same FS")
-					db = MustSucceed(domain.Open(domain.Config{FS: subFS, FileSize: 10 * telem.ByteSize}))
+					db = MustSucceed(domain.Open(domain.Config{FS: fs, FileSize: 10 * telem.ByteSize}))
 
 					By("Acquiring a new writer: this should go to file 2")
 					w3 := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{
@@ -354,6 +360,7 @@ var _ = Describe("File Controller", Ordered, func() {
 						_, err = r.ReadAt(buf, 0)
 						Expect(err).ToNot(HaveOccurred())
 						Expect(buf).To(Equal([]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}))
+						Expect(r.Close()).To(Succeed())
 
 						Expect(i.Next()).To(BeTrue())
 						r = MustSucceed(i.NewReader(ctx))
@@ -361,6 +368,7 @@ var _ = Describe("File Controller", Ordered, func() {
 						_, err = r.ReadAt(buf, 0)
 						Expect(err).ToNot(HaveOccurred())
 						Expect(buf).To(Equal([]byte{11, 12, 13}))
+						Expect(r.Close()).To(Succeed())
 
 						Expect(i.Next()).To(BeTrue())
 						r = MustSucceed(i.NewReader(ctx))
@@ -368,6 +376,7 @@ var _ = Describe("File Controller", Ordered, func() {
 						_, err = r.ReadAt(buf, 0)
 						Expect(err).ToNot(HaveOccurred())
 						Expect(buf).To(Equal([]byte{15, 16, 17}))
+						Expect(r.Close()).To(Succeed())
 
 						Expect(i.Next()).To(BeTrue())
 						r = MustSucceed(i.NewReader(ctx))
@@ -375,6 +384,7 @@ var _ = Describe("File Controller", Ordered, func() {
 						_, err = r.ReadAt(buf, 0)
 						Expect(err).ToNot(HaveOccurred())
 						Expect(buf).To(Equal([]byte{20, 21, 22, 23}))
+						Expect(r.Close()).To(Succeed())
 
 						Expect(i.Next()).To(BeTrue())
 						r = MustSucceed(i.NewReader(ctx))
@@ -382,6 +392,7 @@ var _ = Describe("File Controller", Ordered, func() {
 						_, err = r.ReadAt(buf, 0)
 						Expect(err).ToNot(HaveOccurred())
 						Expect(buf).To(Equal([]byte{30, 31, 32, 33}))
+						Expect(r.Close()).To(Succeed())
 
 						Expect(i.Next()).To(BeTrue())
 						r = MustSucceed(i.NewReader(ctx))
@@ -389,6 +400,7 @@ var _ = Describe("File Controller", Ordered, func() {
 						_, err = r.ReadAt(buf, 0)
 						Expect(err).ToNot(HaveOccurred())
 						Expect(buf).To(Equal([]byte{40, 41, 42, 43, 44, 45}))
+						Expect(r.Close()).To(Succeed())
 
 						Expect(i.Close()).To(Succeed())
 					})

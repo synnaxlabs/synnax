@@ -51,6 +51,18 @@ var _ = Describe("Delete", func() {
 					Specify("Deleting a nonexistent channel should be idempotent", func() {
 						Expect(db.DeleteChannel(999)).To(Succeed())
 					})
+					Specify("Deleting a channel with db closed", func() {
+						sub := MustSucceed(fs.Sub("closed-fs"))
+						key := cesium.ChannelKey(1)
+						subDB := openDBOnFS(sub)
+						Expect(subDB.CreateChannel(ctx, cesium.Channel{Key: key, Rate: 1 * telem.Hz, DataType: telem.BytesT})).To(Succeed())
+						Expect(subDB.Close()).To(Succeed())
+
+						err := subDB.DeleteChannel(key)
+						Expect(err).To(HaveOccurredAs(core.EntityClosed("cesium.db")))
+
+						Expect(fs.Remove("closed-fs")).To(Succeed())
+					})
 					Describe("Deleting a channel that is being written to should error", func() {
 						Specify("Virtual Channel", func() {
 							Expect(db.CreateChannel(ctx, vChannel)).To(Succeed())
@@ -351,6 +363,20 @@ var _ = Describe("Delete", func() {
 						Entry("data and unrelated index", data1, data2, index3),
 						Entry("all", data1, data2, data3, index1, index2, index3, rate),
 					)
+				})
+				Describe("Error paths", func() {
+					Specify("Deleting a channel with db closed", func() {
+						sub := MustSucceed(fs.Sub("closed-fs"))
+						key := cesium.ChannelKey(1)
+						subDB := openDBOnFS(sub)
+						Expect(subDB.CreateChannel(ctx, cesium.Channel{Key: key, Rate: 1 * telem.Hz, DataType: telem.BytesT})).To(Succeed())
+						Expect(subDB.Close()).To(Succeed())
+
+						err := subDB.DeleteChannels([]cesium.ChannelKey{key})
+						Expect(err).To(HaveOccurredAs(core.EntityClosed("cesium.db")))
+
+						Expect(fs.Remove("closed-fs")).To(Succeed())
+					})
 				})
 				Describe("Interrupted deletion", func() {
 					It("Should delete all channels before encountering an error", func() {

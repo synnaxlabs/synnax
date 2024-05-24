@@ -70,6 +70,14 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					Expect(w.Commit(ctx, 19*telem.SecondTS+1)).To(Succeed())
 					Expect(w.Write([]byte{100, 101, 102, 103, 104})).To(Equal(5))
 					Expect(w.Commit(ctx, 104*telem.SecondTS+1)).To(MatchError(ContainSubstring("cannot be greater than preset end timestamp")))
+					Expect(w.Close(ctx)).To(Succeed())
+				})
+			})
+			Describe("Closed database", func() {
+				It("Should not allow opening a writer on a closed database", func() {
+					Expect(db.Close()).To(Succeed())
+					_, err := db.NewWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS})
+					Expect(err).To(HaveOccurredAs(core.EntityClosed("domain.db")))
 				})
 			})
 			Describe("Start Validation", func() {
@@ -369,6 +377,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 								defer wg.Done()
 								MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
 								errors[i] = w.Commit(ctx, 15*telem.SecondTS)
+								Expect(w.Close(ctx)).To(Succeed())
 							}(i, w)
 						}
 						wg.Wait()
@@ -418,6 +427,9 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					p := extractPointer(f)
 					Expect(p.End).To(Equal(30*telem.SecondTS + 1))
 					Expect(p.length).To(Equal(uint32(15)))
+
+					Expect(f.Close()).To(Succeed())
+					Expect(w.Close(ctx)).To(Succeed())
 				})
 
 				It("Should persist to disk every time when the interval is set to always persist", func() {
@@ -457,6 +469,8 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					Expect(f.Close()).To(Succeed())
 					Expect(p.End).To(Equal(25*telem.SecondTS + 1))
 					Expect(p.length).To(Equal(uint32(15)))
+
+					Expect(w.Close(ctx)).To(Succeed())
 				})
 
 				It("Should persist any unpersisted, but committed (stranded) data on close", func() {
@@ -482,6 +496,8 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					Expect(f.Close()).To(Succeed())
 					Expect(p.End).To(Equal(20*telem.SecondTS + 1))
 					Expect(p.length).To(Equal(uint32(10)))
+
+					Expect(w.Close(ctx)).To(Succeed())
 				})
 
 				It("Should always persist if auto commit is not enabled, no matter the interval", func() {
@@ -521,6 +537,17 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					_, err = w.Write([]byte{1, 2, 3})
 					Expect(err).To(HaveOccurredAs(e))
 					Expect(w.Close(ctx)).To(Succeed())
+				})
+
+				It("Should not open a writer on a closed database", func() {
+					Expect(db.Close()).To(Succeed())
+					_, err := db.NewWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS})
+					Expect(err).To(HaveOccurredAs(core.EntityClosed("domain.db")))
+				})
+
+				It("Should not write on a closed database", func() {
+					Expect(db.Close()).To(Succeed())
+					Expect(domain.Write(ctx, db, telem.TimeStamp(0).Range(telem.TimeStamp(1)), []byte{1, 2, 3})).To(HaveOccurredAs(core.EntityClosed("domain.db")))
 				})
 			})
 		})

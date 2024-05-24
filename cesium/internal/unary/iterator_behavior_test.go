@@ -12,6 +12,7 @@ package unary_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/cesium/internal/unary"
@@ -366,18 +367,30 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 				})
 			})
 			Describe("Close", func() {
+				var (
+					fs      xfs.FS
+					cleanUp func() error
+					db      *unary.DB
+					key     cesium.ChannelKey
+				)
+				BeforeEach(func() {
+					fs, cleanUp = makeFS()
+					db = MustSucceed(unary.Open(unary.Config{
+						FS: fs,
+						Channel: core.Channel{
+							Key:      key,
+							Name:     "ludwig",
+							DataType: telem.TimeStampT,
+							IsIndex:  true,
+						},
+					}))
+				})
+				AfterEach(func() {
+					Expect(db.Close()).To(Succeed())
+					Expect(cleanUp()).To(Succeed())
+				})
 				It("Should not allow operations on a closed iterator", func() {
-					fs, cleanUp := makeFS()
 					var (
-						key = testutil.GenerateChannelKey()
-						db  = MustSucceed(unary.Open(unary.Config{
-							FS: fs,
-							Channel: core.Channel{
-								Key:      key,
-								Name:     "ludwig",
-								DataType: telem.TimeStampT,
-								IsIndex:  true,
-							}}))
 						i = db.OpenIterator(unary.IteratorConfig{Bounds: telem.TimeRangeMax})
 						e = core.EntityClosed("unary.iterator")
 					)
@@ -389,6 +402,13 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					Expect(i.Close()).To(Succeed())
 
 					Expect(cleanUp()).To(Succeed())
+				})
+
+				It("Should not allow an iterator to operate on a closed db", func() {
+					Expect(unary.Write(ctx, db, 0, telem.NewSeriesV[int64](3, 4, 5, 6))).To(Succeed())
+					Expect(db.Close()).To(Succeed())
+					i := db.OpenIterator(unary.IteratorConfig{Bounds: telem.TimeRangeMax})
+					Expect(i.SeekFirst(ctx)).To(BeFalse())
 				})
 			})
 		})

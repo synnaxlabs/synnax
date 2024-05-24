@@ -521,6 +521,18 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					_, err = w.Close(ctx)
 					Expect(err).ToNot(HaveOccurred())
 				})
+				It("Should not open a writer on a closed database", func() {
+					Expect(db.Close()).To(Succeed())
+					_, _, err := db.OpenWriter(ctx, unary.WriterConfig{
+						Start:   10 * telem.SecondTS,
+						Subject: control.Subject{Key: "foo"}},
+					)
+					Expect(err).To(MatchError(core.EntityClosed("unary.db")))
+				})
+				It("Should not write on a closed database", func() {
+					Expect(db.Close()).To(Succeed())
+					Expect(unary.Write(ctx, db, 0, telem.NewSeriesV[int64](0, 1, 2))).To(HaveOccurredAs(core.EntityClosed("unary.db")))
+				})
 			})
 		})
 	}

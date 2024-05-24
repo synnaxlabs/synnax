@@ -42,7 +42,10 @@ type DB struct {
 	Config
 	controller *controller.Controller[*controlEntity]
 	mu         *openEntityCount
+	closed     bool
 }
+
+var dbClosed = core.EntityClosed("virtual.db")
 
 type Config struct {
 	alamos.Instrumentation
@@ -67,6 +70,9 @@ func (db *DB) LeadingControlState() *controller.State {
 }
 
 func (db *DB) TryClose() error {
+	if db.closed {
+		return nil
+	}
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 	if db.mu.openWriters > 0 {
@@ -75,4 +81,7 @@ func (db *DB) TryClose() error {
 	return db.Close()
 }
 
-func (db *DB) Close() error { return nil }
+func (db *DB) Close() error {
+	db.closed = true
+	return nil
+}

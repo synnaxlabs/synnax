@@ -47,6 +47,7 @@ func (i *Domain) Distance(ctx context.Context, tr telem.TimeRange, continuous bo
 	if err != nil {
 		return
 	}
+	defer func() { err = errors.CombineErrors(err, r.Close()) }()
 
 	startApprox, err = i.search(tr.Start, r)
 	if err != nil {
@@ -84,6 +85,10 @@ func (i *Domain) Distance(ctx context.Context, tr telem.TimeRange, continuous bo
 			return
 		}
 		if iter.TimeRange().ContainsStamp(tr.End) {
+			err = r.Close()
+			if err != nil {
+				return
+			}
 			r, err = iter.NewReader(ctx)
 			if err != nil {
 				return
@@ -141,6 +146,7 @@ func (i *Domain) Stamp(
 	if err != nil {
 		return
 	}
+	defer func() { err = errors.CombineErrors(err, r.Close()) }()
 	startApprox, err := i.search(ref, r)
 	if err != nil {
 		return
@@ -176,6 +182,10 @@ func (i *Domain) Stamp(
 			}
 			gap += iter.Len() / 8
 			if endOffset < gap {
+				err = r.Close()
+				if err != nil {
+					return
+				}
 				r, err = iter.NewReader(ctx)
 				if err != nil {
 					return
@@ -203,6 +213,10 @@ func (i *Domain) Stamp(
 	if !iter.Prev() {
 		i.L.DPanic("iterator prev failed in stamp")
 		err = errors.Wrapf(domain.ErrRangeNotFound, "cannot find stamp end with offset %d", offset)
+		return
+	}
+	err = r.Close()
+	if err != nil {
 		return
 	}
 	r, err = iter.NewReader(ctx)

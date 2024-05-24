@@ -20,6 +20,22 @@ import (
 	"io"
 )
 
+type IteratorConfig struct {
+	Bounds telem.TimeRange
+	// AutoChunkSize sets the maximum size of a chunk that will be returned by the
+	// iterator when using AutoSpan in calls ot Next or Prev.
+	AutoChunkSize int64
+}
+
+func IterRange(tr telem.TimeRange) IteratorConfig {
+	return IteratorConfig{Bounds: domain.IterRange(tr).Bounds, AutoChunkSize: 0}
+}
+
+var (
+	IteratorClosedError   = core.EntityClosed("unary.iterator")
+	DefaultIteratorConfig = IteratorConfig{AutoChunkSize: 5e5}
+)
+
 type Iterator struct {
 	alamos.Instrumentation
 	IteratorConfig
@@ -35,8 +51,6 @@ type Iterator struct {
 }
 
 const AutoSpan telem.TimeSpan = -1
-
-var IteratorClosedError = core.EntityClosed("unary.iterator")
 
 func (i *Iterator) SetBounds(tr telem.TimeRange) {
 	i.bounds = tr
@@ -284,6 +298,10 @@ func (i *Iterator) read(ctx context.Context, offset telem.Offset, size telem.Siz
 	}
 	n, err = r.ReadAt(series.Data, int64(offset))
 	if err != nil && !errors.Is(err, io.EOF) {
+		return
+	}
+	err = r.Close()
+	if err != nil {
 		return
 	}
 	if n < len(series.Data) {

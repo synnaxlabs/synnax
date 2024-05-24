@@ -12,14 +12,15 @@ package domain
 import (
 	"context"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
+	xio "github.com/synnaxlabs/x/io"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
-	"io"
 )
 
 var (
@@ -27,6 +28,7 @@ var (
 	ErrDomainOverlap = errors.Wrap(validate.Error, "domain overlaps with an existing domain")
 	// ErrRangeNotFound is returned when a requested domain is not found in the DB.
 	ErrRangeNotFound = errors.Wrap(query.NotFound, "domain not found")
+	dbClosed      = core.EntityClosed("domain.db")
 )
 
 func NewErrDomainOverlap(tr1, tr2 telem.TimeRange) error {
@@ -58,8 +60,9 @@ func NewErrRangeNotFound(tr telem.TimeRange) error {
 // A DB must be closed after use to avoid leaking any underlying resources/locks.
 type DB struct {
 	Config
-	idx   *index
-	files *fileController
+	idx    *index
+	files  *fileController
+	closed bool
 }
 
 // Config is the configuration for opening a DB.
@@ -152,11 +155,14 @@ func (db *DB) newReader(ctx context.Context, ptr pointer) (*Reader, error) {
 	if err != nil {
 		return nil, err
 	}
-	reader := io.NewSectionReader(internal, int64(ptr.offset), int64(ptr.length))
-	return &Reader{ptr: ptr, ReaderAt: reader}, nil
+	reader := xio.NewSectionReaderAtCloser(internal, int64(ptr.offset), int64(ptr.length))
+	return &Reader{ptr: ptr, ReaderAtCloser: reader}, nil
 }
 
 func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) {
+	if db.closed {
+		return false, dbClosed
+	}
 	i := db.NewIterator(IteratorConfig{Bounds: telem.TimeRangeMax})
 
 	if i.SeekGE(ctx, tr.Start) && i.TimeRange().OverlapsWith(tr) {
@@ -171,8 +177,12 @@ func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) 
 
 // Close closes the DB. Close should not be called concurrently with any other DB methods.
 func (db *DB) Close() error {
+	if db.closed {
+		return nil
+	}
+	db.closed = true
 	w := errors.NewCatcher(errors.WithAggregation())
-	w.Exec(db.idx.close)
 	w.Exec(db.files.close)
+	w.Exec(db.idx.close)
 	return w.Error()
 }

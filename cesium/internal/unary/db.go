@@ -47,7 +47,10 @@ type DB struct {
 	Controller *controller.Controller[controlledWriter]
 	_idx       index.Index
 	mu         *openEntityCount
+	closed     bool
 }
+
+var dbClosed = core.EntityClosed("unary.db")
 
 func (db *DB) Index() index.Index {
 	if !db.Channel.IsIndex {
@@ -66,21 +69,6 @@ func (db *DB) index() index.Index {
 }
 
 func (db *DB) SetIndex(idx index.Index) { db._idx = idx }
-
-type IteratorConfig struct {
-	Bounds telem.TimeRange
-	// AutoChunkSize sets the maximum size of a chunk that will be returned by the
-	// iterator when using AutoSpan in calls ot Next or Prev.
-	AutoChunkSize int64
-}
-
-func IterRange(tr telem.TimeRange) IteratorConfig {
-	return IteratorConfig{Bounds: domain.IterRange(tr).Bounds, AutoChunkSize: 0}
-}
-
-var (
-	DefaultIteratorConfig = IteratorConfig{AutoChunkSize: 5e5}
-)
 
 func (i IteratorConfig) Override(other IteratorConfig) IteratorConfig {
 	i.Bounds.Start = override.Numeric(i.Bounds.Start, other.Bounds.Start)
@@ -119,6 +107,9 @@ func (db *DB) OpenIterator(cfg IteratorConfig) *Iterator {
 // overlaps with the given timerange. Note that this function will return false if there
 // is an open writer that could write into the requested timerange
 func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) {
+	if db.closed {
+		return false, dbClosed
+	}
 	g, _, err := db.Controller.OpenAbsoluteGateIfUncontrolled(tr, control.Subject{Key: "Delete Writer"}, func() (controlledWriter, error) {
 		return controlledWriter{
 			Writer:     nil,
@@ -141,6 +132,9 @@ func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) 
 
 // Read reads a timerange of data at the unary level.
 func (db *DB) Read(ctx context.Context, tr telem.TimeRange) (frame core.Frame, err error) {
+	if db.closed {
+		return frame, dbClosed
+	}
 	iter := db.OpenIterator(IterRange(tr))
 	if err != nil {
 		return
@@ -165,4 +159,10 @@ func (db *DB) TryClose() error {
 	}
 }
 
-func (db *DB) Close() error { return db.Domain.Close() }
+func (db *DB) Close() error {
+	if db.closed {
+		return nil
+	}
+	db.closed = true
+	return db.Domain.Close()
+}

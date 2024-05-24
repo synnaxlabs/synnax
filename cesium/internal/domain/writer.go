@@ -140,14 +140,19 @@ type Writer struct {
 }
 
 // NewWriter opens a new Writer using the given configuration.
+// If err is nil, then the writer must be closed.
 func (db *DB) NewWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) {
+	if db.closed {
+		return nil, dbClosed
+	}
+
 	cfg, err := config.New(DefaultWriterConfig, cfg)
+	if db.idx.overlap(cfg.Domain()) {
+		return nil, NewErrDomainOverlap(db.idx.timeRange(), cfg.Domain())
+	}
 	key, size, internal, err := db.files.acquireWriter(ctx)
 	if err != nil {
 		return nil, err
-	}
-	if db.idx.overlap(cfg.Domain()) {
-		return nil, NewErrDomainOverlap(db.idx.timeRange(), cfg.Domain())
 	}
 	w := &Writer{
 		WriterConfig:     cfg,
