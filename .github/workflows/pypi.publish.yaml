@@ -77,10 +77,7 @@ jobs:
 
       - name: Update packages with correct versions
         run: |
-          cd client/py
-          sed -i -E "/^\[tool\.poetry\.dependencies\]$/,/^\[.*\]$/ s/synnax-freighter = .*/synnax-freighter = \"^$FREIGHTER_VERSION\"/" pyproject.toml
-          sed -i -E "/^\[tool\.poetry\.dependencies\]$/,/^\[.*\]$/ s/alamos = .*/alamos = \"^$ALAMOS_VERSION\"/" pyproject.toml
-           cd ./client/py
+          cd ./client/py
           CLIENT_VERSION=$(poetry version -s)
           cd ../../freighter/py
           FREIGHTER_VERSION=$(poetry version -s)
