@@ -19,7 +19,7 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Diff Changes
-        uses: dorny/paths-filter@v2
+        uses: dorny/paths-filter@v3
         id: filter
         with:
           filters: |
@@ -33,6 +33,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: "pnpm"
 
       - name: Get Version
         if: steps.filter.outputs.changed == 'true'
@@ -75,7 +76,7 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Diff Changes
-        uses: dorny/paths-filter@v2
+        uses: dorny/paths-filter@v3
         id: filter
         with:
           filters: |
@@ -214,6 +215,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: "pnpm"
 
       - name: Get Version
         run: echo "PACKAGE_VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_ENV
