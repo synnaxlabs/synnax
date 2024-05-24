@@ -69,13 +69,14 @@ public:
         const std::shared_ptr<task::Context> &ctx,
         synnax::Task task,
         ReaderConfig cfg,
-        breaker::Breaker breaker,
-        pipeline::Acquisition pipe
+        const breaker::Config &breaker_config,
+        std::shared_ptr<pipeline::Source> source,
+        synnax::WriterConfig writer_config
     ): ctx(ctx),
        task(std::move(task)),
        cfg(std::move(cfg)),
-       breaker(std::move(breaker)),
-       pipe(std::move(pipe)) {
+       breaker(breaker::Breaker(breaker)),
+       pipe(pipeline::Acquisition(ctx, writer_config, source, breaker_config)) {
     }
 
     static std::unique_ptr<task::Task> configure(
