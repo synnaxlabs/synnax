@@ -580,6 +580,6 @@ std::unique_ptr<task::Task> Reader::configure(
 
 void Reader::exec(task::Command &cmd) {
     if (cmd.type == "start") pipe.start();
-    if (cmd.type == "stop") return stop();
-    LOG(ERROR) << "unknown command type: " << cmd.type;
+    else if (cmd.type == "stop") return stop();
+    else LOG(ERROR) << "unknown command type: " << cmd.type;
 }
