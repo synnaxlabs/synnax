@@ -14,11 +14,11 @@
 TEST(LoopTest, testPreciseTimer)
 {
     loop::Timer timer;
-    for(int i = 0; i < 50; i ++){
+    for(int i = 0; i < 1000; i ++){
         auto start = std::chrono::high_resolution_clock::now();
-        timer.exactSleep(std::chrono::nanoseconds(100000));
+        timer.exactSleep(std::chrono::nanoseconds(10000000));
         auto end = std::chrono::high_resolution_clock::now();
         auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
-        LOG(INFO) << "Elapsed time: " << elapsed/10000000 << " ns";
+        LOG(INFO) << "Elapsed time: " << elapsed << " ns";
     }
 }

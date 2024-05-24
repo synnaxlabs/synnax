@@ -53,7 +53,7 @@ public:
             uint64_t delta = elapsed - mean;
             mean += delta / count;
             M2 += delta * (elapsed - mean);
-            estimate = mean + 3 * std::sqrt(M2 / count);
+            estimate = mean + 1* std::sqrt(M2 / count);
             count++;
         }
         while(end > std::chrono::high_resolution_clock::now());
@@ -65,7 +65,8 @@ public:
         const auto interval_nanos = interval.nanoseconds();
         if (elapsed < interval_nanos) {
             auto remaining = interval_nanos - elapsed;
-            std::this_thread::sleep_for(std::chrono::nanoseconds(remaining));
+            // std::this_thread::sleep_for(std::chrono::nanoseconds(remaining));
+            this->exactSleep(std::chrono::nanoseconds(remaining));
             last = std::chrono::high_resolution_clock::now();
             return {elapsed, true};
         } else {
