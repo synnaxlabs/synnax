@@ -42,6 +42,10 @@ export interface DynamicProps {
 // These are the smallest and largest sizes for a dynamically calculated buffer size.
 const MIN_SIZE = 100;
 const MAX_SIZE = 1e6;
+// The default size returned when there have not been enough writes yet and the
+// maximum number of default writes.
+const DEF_SIZE = 1e4;
+const MAX_DEF_WRITES = 100;
 
 /**
  * A cache for channel data that maintains a single, rolling Series as a buffer
@@ -156,21 +160,23 @@ export class Dynamic {
 
   private updateAvgRate(series: Series): void {
     if (typeof this.props.dynamicBufferSize === "number") return;
-    // average rate is an average of the rate of the last sample and the average
+    // average rate is a weighted average of the rate of the last sample and the average
     // rate currently in the buffer.
-    if (this.totalWrites > 0) {
-      const newRate = series.length / this.now().span(this.timeOfLastWrite).seconds;
-      if (this.totalWrites > 0 && isFinite(newRate))
-        this.avgRate =
-          (this.avgRate * (this.totalWrites - 1) + newRate) / this.totalWrites;
+    const newRate = series.length / this.now().span(this.timeOfLastWrite).seconds;
+    if (this.totalWrites > 0 && isFinite(newRate) && newRate > 0) {
+      this.avgRate = (this.avgRate * (this.totalWrites - 1) + newRate) / this.totalWrites;
     }
     this.totalWrites++;
+    console.log("new write")
     this.timeOfLastWrite = this.now();
   }
 
   private nextBufferSize(): number {
     const { dynamicBufferSize } = this.props;
     if (typeof dynamicBufferSize === "number") return dynamicBufferSize;
+    if (this.totalWrites < MAX_DEF_WRITES) {
+      return DEF_SIZE;
+    }
     let size = this.avgRate * dynamicBufferSize.seconds;
     return Math.max(Math.min(size, MAX_SIZE), MIN_SIZE);
   }
