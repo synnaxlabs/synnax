@@ -177,7 +177,7 @@ jobs:
           repository-cache: true
 
       - uses: GuillaumeFalourd/setup-windows10-sdk-action@v2
-        if: ${{ matrix.platform == 'windows-latest' }} && steps.filter.outputs.changed == 'true'
+        if: matrix.platform == 'windows-latest' && steps.filter.outputs.changed == 'true'
         with:
           sdk-version: 22000
 
@@ -191,15 +191,15 @@ jobs:
         working-directory: driver/vendor/open62541/open62541
 
       - name: Build Driver on Windows
-        if: ${{ matrix.platform == 'windows-latest' }} && steps.filter.outputs.changed == 'true'
+        if: matrix.platform == 'windows-latest' && steps.filter.outputs.changed == 'true'
         run: bazel --output_user_root=C:/tmp build --enable_platform_specific_config //driver:driver_main --define ni_mock=true
 
       - name: Build Driver on mac
-        if: ${{ matrix.platform == 'macos-latest' }} && steps.filter.outputs.changed == 'true'
+        if: matrix.platform == 'macos-latest' && steps.filter.outputs.changed == 'true'
         run: bazel build --enable_platform_specific_config //driver:driver_main --define ni_mock=true
 
       - name: Build Driver on ubuntu
-        if: ${{ matrix.platform == 'ubuntu-latest' }} && steps.filter.outputs.changed == 'true'
+        if: matrix.platform == 'ubuntu-latest' && steps.filter.outputs.changed == 'true'
         run: bazel build --enable_platform_specific_config //driver:driver_main --define ni_mock=true
 
       - name: Determine Executable Name
