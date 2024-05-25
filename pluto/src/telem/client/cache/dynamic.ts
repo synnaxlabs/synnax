@@ -167,8 +167,6 @@ export class Dynamic {
       this.avgRate =
         (this.avgRate * (this.totalWrites - 1) + newRate) / this.totalWrites;
     this.totalWrites++;
-    if (this.totalWrites % 50 === 0)
-      console.log(`Dynamic cache avg rate: ${this.avgRate}`, this.nextBufferSize());
     this.timeOfLastWrite = this.now();
   }
 
