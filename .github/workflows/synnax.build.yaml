@@ -182,16 +182,16 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Evaluate Version
-        if: ${{ matrix.platform == 'ubuntu-latest' }} && steps.filter.outputs.changed == 'true'
-        id: version
-        working-directory: ./synnax
-        run: |
-          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            echo "VERSION=$(cat pkg/version/VERSION)" >> $GITHUB_OUTPUT
-          else
-            echo "VERSION=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
-          fi
+      # - name: Evaluate Version
+      #   if: ${{ matrix.platform == 'ubuntu-latest' }} && steps.filter.outputs.changed == 'true'
+      #   id: version
+      #   working-directory: ./synnax
+      #   run: |
+      #     if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+      #       echo "VERSION=$(cat pkg/version/VERSION)" >> $GITHUB_OUTPUT
+      #     else
+      #       echo "VERSION=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
+      #     fi
 
       - name: Build Image
         if: ${{ matrix.platform == 'ubuntu-latest' }} && steps.filter.outputs.changed == 'true'
