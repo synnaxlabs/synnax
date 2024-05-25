@@ -126,7 +126,7 @@ jobs:
         run: mv bazel-bin/driver/driver_main${{ steps.executable.outputs.EXECUTABLE }} synnax/pkg/hardware/embedded/assets/
       
       - name: Rename Driver
-        run: mv synnax/pkg/hardware/embedded/assets/driver_main${{ steps.executable.outputs.EXECUTABLE }} synnax/pkg/hardware/embedded/assets/driver${{ steps.executable.outputs.EXECUTABLE }}
+        run: mv synnax/pkg/hardware/embedded/assets/driver_main${{ steps.executable.outputs.EXECUTABLE }} synnax/pkg/hardware/embedded/assets/driver
 
 
       - name: Upload Driver Artifact
@@ -226,7 +226,7 @@ jobs:
         uses: actions/download-artifact@v2
         with:
           name: driver
-          path: synnax/pkg/hardware/embedded/assets
+          path: ./synnax/pkg/hardware/embedded/assets
 
 
       - name: Build Image
