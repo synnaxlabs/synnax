@@ -14,7 +14,7 @@ import {
   useLayoutEffect,
 } from "react";
 
-import { type Key, type Keyed } from "@synnaxlabs/x";
+import { bounds, type Key, type Keyed } from "@synnaxlabs/x";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
 import { Align } from "@/align";
@@ -34,6 +34,24 @@ export interface VirtualCoreProps<K extends Key = Key, E extends Keyed<K> = Keye
   children: ItemRenderProp<K, E>;
   overscan?: number;
 }
+
+const scrollToRelevantChild = (
+  hover: number,
+  prevHover: number,
+  ref: HTMLDivElement,
+) => {
+  const dirMultiplier = hover > prevHover ? 1 : -1;
+  let scrollTo = hover;
+  const idealHover = hover + dirMultiplier * 2;
+  if (bounds.contains({ lower: 0, upper: ref.children.length }, idealHover))
+    scrollTo = hover + dirMultiplier * 2;
+  else scrollTo = hover;
+  ref.children[scrollTo]?.scrollIntoView({
+    block: "nearest",
+    inline: "nearest",
+    behavior: "smooth",
+  });
+};
 
 const VirtualCore = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   itemHeight,
@@ -122,7 +140,7 @@ const VirtualCore = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
 };
 
 export const Core = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
-  itemHeight: _,
+  itemHeight = 50,
   ...props
 }: Omit<Align.SpaceProps, "children"> & {
   children: ItemRenderProp<K, E>;
@@ -138,8 +156,20 @@ export const Core = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   const { selected } = useSelectionContext();
   const { onSelect } = useSelectionUtils();
 
+  // let's assume the itemHeight is a 'rough item height', but is still useful for
+  // detecting when the user hovers over a particular element. If the current `hover`
+  // value multiplied by the itemHeight is greater than the total height of the list,
+  // then we can assume the user is hovering over or past the last element in the list,
+  // and we should scroll to the bottom of the list.
+  const ref = useRef<HTMLDivElement>(null);
+  const prevHover = usePrevious(hover) ?? 0;
+  useLayoutEffect(() => {
+    if (ref.current == null) return;
+    scrollToRelevantChild(hover, prevHover, ref.current);
+  }, [hover, itemHeight]);
+
   return (
-    <Align.Space className={CSS.BE("list", "container")} size={0} {...props}>
+    <Align.Space className={CSS.BE("list", "container")} ref={ref} size={0} {...props}>
       {data.length === 0 ? (
         emptyContent
       ) : (
