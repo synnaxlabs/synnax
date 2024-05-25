@@ -159,11 +159,10 @@ export class Dynamic {
     // average rate is an average of the rate of the last sample and the average
     // rate currently in the buffer.
     if (this.totalWrites > 0) {
-      let newRate = series.length / this.now().span(this.timeOfLastWrite).seconds;
-      if (newRate > 0 && newRate < Infinity) {
+      const newRate = series.length / this.now().span(this.timeOfLastWrite).seconds;
+      if (this.totalWrites > 0 && isFinite(newRate))
         this.avgRate =
           (this.avgRate * (this.totalWrites - 1) + newRate) / this.totalWrites;
-      }
     }
     this.totalWrites++;
     this.timeOfLastWrite = this.now();
