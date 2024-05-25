@@ -12,7 +12,7 @@ dotenv.config()
 
 import algoliasearch from "algoliasearch"
 const client = algoliasearch(
-  "YWD9T0JXCS",
+  process.env.DOCS_ALGOLIA_APP_ID,
   process.env.DOCS_ALGOLIA_WRITE_API_KEY
 )
 
@@ -68,4 +68,4 @@ const res = await client
   .initIndex("docs_site")
   .saveObjects(JSON.parse(JSON.stringify(data)))
 
-console.log(`Successfully updated ${res.objectIDs.length} pages");
+console.log(`Successfully updated ${res.objectIDs.length} pages`);
