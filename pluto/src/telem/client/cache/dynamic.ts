@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, Series, TimeStamp, TimeSpan, Rate } from "@synnaxlabs/x";
+import { DataType, Series, TimeStamp, TimeSpan, math } from "@synnaxlabs/x";
 
 import { convertSeriesFloat32 } from "@/telem/aether/convertSeries";
 
@@ -174,7 +174,7 @@ export class Dynamic {
     const { dynamicBufferSize } = this.props;
     if (typeof dynamicBufferSize === "number") return dynamicBufferSize;
     if (this.totalWrites < MAX_DEF_WRITES) return DEF_SIZE;
-    const size = this.avgRate * dynamicBufferSize.seconds;
+    const size = math.roundToNearestMagnitude(this.avgRate * dynamicBufferSize.seconds);
     return Math.round(Math.max(Math.min(size, MAX_SIZE), MIN_SIZE));
   }
 
