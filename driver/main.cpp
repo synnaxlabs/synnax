@@ -110,7 +110,6 @@ int main(int argc, char *argv[]) {
     if (err)
         LOG(FATAL) << "[main] failed to start: " << err;
     else
-        breaker.close();
         LOG(INFO) << "[main] shutdown complete";
     return 0;
 }

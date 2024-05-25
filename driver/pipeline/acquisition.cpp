@@ -71,7 +71,6 @@ void Acquisition::runInternal() {
     bool writer_opened = false;
     freighter::Error wo_err;
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
     while (this->running) {
         auto [frame, source_err] = source->read();
 
