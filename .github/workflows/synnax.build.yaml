@@ -122,8 +122,11 @@ jobs:
             echo "EXECUTABLE=.exe" >> $GITHUB_OUTPUT
           fi
 
-      - name: Move Driver
+      - name: rename driver
         run: mv bazel-bin/driver/driver_main${{ steps.executable.outputs.EXECUTABLE }} synnax/pkg/hardware/embedded/assets/driver${{ steps.executable.outputs.EXECUTABLE }}
+        
+      - name: Move Driver
+        run: cp bazel-bin/driver/driver${{ steps.executable.outputs.EXECUTABLE }} synnax/pkg/hardware/embedded/assets/
       
       - name: Upload Driver Artifact
         uses: actions/upload-artifact@v2
@@ -216,18 +219,6 @@ jobs:
             echo "VERSION=$(cat pkg/version/VERSION)" >> $GITHUB_OUTPUT
           else
             echo "VERSION=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
-          fi
-    
-      - name: Determine Executable Name
-        id: executable
-        shell: bash
-        run: |
-          if [ "${{ matrix.platform }}" = "macos-latest" ]; then
-            echo "EXECUTABLE=" >> $GITHUB_OUTPUT
-          elif [ "${{ matrix.platform }}" = "ubuntu-latest" ]; then
-            echo "EXECUTABLE=" >> $GITHUB_OUTPUT
-          elif [ "${{ matrix.platform }}" = "windows-latest" ]; then
-            echo "EXECUTABLE=.exe" >> $GITHUB_OUTPUT
           fi
 
       - name: Download Driver Artifact
