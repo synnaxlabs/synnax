@@ -54,7 +54,7 @@ void Control::runInternal() {
     this->streamer = std::make_unique<synnax::Streamer>(std::move(test));
     if (so_err) {
         if (    so_err.matches(freighter::UNREACHABLE) 
-            &&  cmd_breaker.wait(so_err.message())) {
+            &&  breaker.wait(so_err.message())) {
             return runInternal();
         }
     }
@@ -66,7 +66,7 @@ void Control::runInternal() {
 
     const auto err = this->streamer->close(); // close or closeSend
 
-    if (err.matches(freighter::UNREACHABLE) && cmd_breaker.wait()) return runInternal();
+    if (err.matches(freighter::UNREACHABLE) && breaker.wait()) return runInternal();
     
 }
 
