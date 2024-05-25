@@ -217,12 +217,24 @@ jobs:
           else
             echo "VERSION=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
           fi
+    
+      - name: Determine Executable Name
+        id: executable
+        shell: bash
+        run: |
+          if [ "${{ matrix.platform }}" = "macos-latest" ]; then
+            echo "EXECUTABLE=" >> $GITHUB_OUTPUT
+          elif [ "${{ matrix.platform }}" = "ubuntu-latest" ]; then
+            echo "EXECUTABLE=" >> $GITHUB_OUTPUT
+          elif [ "${{ matrix.platform }}" = "windows-latest" ]; then
+            echo "EXECUTABLE=.exe" >> $GITHUB_OUTPUT
+          fi
 
       - name: Download Driver Artifact
         uses: actions/download-artifact@v2
         with:
           name: driver
-          path: synnax/pkg/hardware/embedded/assets/driver
+          path: synnax/pkg/hardware/embedded/assets/driver${{ steps.executable.outputs.EXECUTABLE }}
 
 
       - name: Build Image
