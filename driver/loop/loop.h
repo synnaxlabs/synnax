@@ -69,10 +69,9 @@ public:
             this->exactSleep(std::chrono::nanoseconds(remaining));
             last = std::chrono::high_resolution_clock::now();
             return {elapsed, true};
-        } else {
-            last = now;
-            return {elapsed, false};
-        }
+        } 
+        last = now;
+        return {elapsed, false};
     }
 
    
