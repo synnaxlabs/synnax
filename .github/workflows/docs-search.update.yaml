@@ -11,8 +11,8 @@ jobs:
     name: "Update Docs Search Index"
     runs-on: ubuntu-latest
     env:
-      DOCS_ALGOLIA_APP_ID: ${{ secrets.ALGOLIA_APP_ID }}
-      DOCS_ALGOLIA_WRITE_API_KEY: ${{ secrets.ALGOLIA_API_KEY }}
+      DOCS_ALGOLIA_APP_ID: ${{ secrets.DOCS_ALGOLIA_APP_ID }}
+      DOCS_ALGOLIA_WRITE_API_KEY: ${{ secrets.DOCS_ALGOLIA_WRITE_API_KEY }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
