@@ -1,23 +1,24 @@
 ---
 layout: "@/layouts/MainLayout.astro"
 title: "OPC UA | Read Task"
-heading: "Configure an OPC UA Read Task"
+heading: "OPC UA Read Task"
 description: "Learn how to configure a read task to acquire data from an OPC UA server."
 ---
 import { Divider } from "@synnaxlabs/pluto";
 import { Video } from "@/components/Media";
+import { StepText } from "@/components/StepText";
+import Note from "@/components/Note.astro";
 
-Setting up a read task is the primary method for acquiring data from a PLC and storing
-it in the Synnax database. In this guide, we'll walk you through the read task setup process.
+Read tasks are the primary method for acquiring data from a PLC and storing it in the
+Synnax database. In this guide, we'll walk you through the process of setting up a read task.
 
 <Divider.Divider direction="x" />
 
-## Pre-requisites
+## Prerequisites
 
-Before you can configure a read task, you'll need to have connected to an OPC UA server 
-and created the relevant channels in the Synnax database. If you haven't done this yet,
-check out the [Connect to an OPC UA Server](/reference/device-drivers/opcua/connect-server)
-guide.
+Before configuring the task, you'll need to have connected to an OPC UA server 
+and created the relevant channels in the Synnax database. Check out [Connect to an OPC UA Server](/reference/device-drivers/opcua/connect-server)
+for information on how to do this.
 
 <Divider.Divider direction="x" />
 
@@ -33,7 +34,51 @@ tasks for different purposes.
 
 <Divider.Divider direction="x" />
 
-## Configuring a Read Task
+## Important Rules for Read Tasks
+
+There are a few important concepts to keep in mind when configuring a read task.
+
+### Sample Rates & Timing
+
+All channels in a read task are sampled at the same rate. If you'd like to sample 
+different channels at different rates, create a separate task to do so. 
+
+Synnax uses software timing to read from your PLC, and typically delivers precision
+on the order of 100 microseconds. Under heavy load, this timing precision may degrade.
+
+For low rate, sub 200Hz tasks where timing is not critical, we recommend letting Synnax
+automatically determine the timestamps for index channels (for more information, see
+[correctly configuring indexes](/reference/device-drivers/opcua/connect-server#correctly-configure-indexes)).
+
+For high-precision tasks, we recommend reading timestamps from the PLC. More info on 
+this [here](http://localhost:4321/reference/device-drivers/opcua/read-task#adding-index-channels)
+
+For high rate, above 500Hz tasks, we also recommend sampling in [array mode], where 
+Synnax will read samples in bulk from the PLC. Array mode is more challengin to configure,
+but can be far more efficient.
+
+### One Running Task Per Channel
+
+Synnax can only accept live data from a channel from one source at a time. If you have
+a task running that reads from a `pressure` channel, you cannot create another task that
+reads from the same channel.
+
+### One Running Task Per Index Channel
+
+[Index channels](/reference/concepts/channels#channel-types) are useed to store the 
+timestamps for your data channels. When you configure a task to read from a data channel,
+Synnax will automatically generate timestamps for the corresponding index channel, 
+regardless of whether you've explicitly added it to the task.
+
+For example, imaging we two channels, `pressure` and `temperature` that share the same
+index channel, `time`. If you configure a task to read from `pressure`, Synnax will
+automatically generate timestamps for the `time` channel. If you then configure a task
+to read from `temperature`, Synnax will not allow you to start the task, as the `time`
+channel is already in use.
+
+<Divider.Divider direction="x" />
+
+## Configuring the Task - Default Sampling
 
 To configure a read task, open the Synnax Console and click on the Quick Search & Command Palette at the top. 
 You can also open this palette with `Ctrl+Shift+P` on Windows/Linux or `Cmd+Shift+P` on macOS.
@@ -44,28 +89,106 @@ configuration dialog.
 
 <Video client:only="react" id="device-drivers/opcua/opcua-open-read-task" />
 
-### Step 1 - Select your OPC UA Device and Configure Sampling Rates
+### <StepText level="h3" step={1}> Select your OPC UA Device</StepText>
 
-The selectin dialog in the top left allows you to choose the OPC UA server you'd like to 
-collect data from. Select your device, and then configure the sampling rate for the task
-in the dialog to the right.
+The first step is to select the OPC UA server you'd like to collect data from. Use the
+dropdown menu in the top left corner to do so.
 
-### Step 2 - Add Channels to the Task
+### <StepText level="h3" step={2}>Add Channels to the Task</StepText>
 
-Next, you'll need to add channels to the task. These channels define a mapping between the
-OPC UA node you'd like to read from, and the corresponding Synnax channel you'd like to store
-the data in. 
+Next, you'll need to add channels to the task. These channels define a mapping between
+the OPC UA node you'd like to read from, and the corresponding Synnax channel you'd like
+to store the data in.
 
 To add a channel, click on the "+" button in the channels section. Then, click on the new
-channel and select the OPC UA node you'd like to read from. Finally, select the Synnax 
-channel you'd like to store the data in. Note that the Synnax channel doesn't need to 
+channel and select the OPC UA node you'd like to read from. Finally, select the Synnax
+channel you'd like to store the data in. Note that the Synnax channel doesn't need to
 be the same as the channel you created when configuring the server.
 
-### Step 3 - Configure and Start the Task
+### <StepText level="h3" step={3}>Adding Index Channels</StepText>
 
-Once you'd added all the channels you need, click the "Configure" button. If your task
-is configured correctly, the Synnax database will acknowledge the configured task and 
-enable the "Play" button. Click this button to start the task.
+If the index channel for your corresponding data channels is not in the task, Synnax
+will automatically generate timestamps forf the data channels. If you'd like to read
+timestamps from the PLC, add the index channel to the task and select the corresponding
+PLC node.
+
+### <StepText level="h3" step={4}>Configure Timing</StepText>
+
+There are two parameters to control the timing of the task: the sample rate and the 
+stream rate. The sample rate defines how often Synnax will poll the OPC UA server for
+new data, while the stream rate defines how often the task will Stream data into the 
+Synnax database.
+
+For example, if you set the sample rate to 10hz and the stream rate to 1hz. Synnax will
+poll the OPC UA server every 100ms, collect 10 samples, and then forward these samples
+to the server. 
+
+For very low rate tasks (sub 50Hz), we recommend setting the stream rate to the same
+value as the sample rate. For higher rate tasks, lowering the stream rate can significantly
+improve performance. It's typically best ot keep the stream rate below 50Hz unless you
+need to quickly process incoming data in real-time.
+
+### <StepText level="h3" step={5}>Configure and Start the Task</StepText>
+
+Once you'd added all the channels you need, click the "Configure" button. If there are
+no errors, the Synnax database will acknowledge the configured task and enable the "Play"
+button in the dialog.
 
 At this point, feel free to close the dialog. Your task will continue to run in the 
-background until you re-open the dialog and stop it.
+background until you re-open the window to stop it.
+
+## Configuring the Task - Array Sampling
+
+Array sampling is a more advanced method of reading data from an OPC UA server, and is
+typically only necessary for very high rate tasks (above 500Hz). Instead of reading single
+samples from the server, Synnax will read many samples in bulk. Array sampling requires
+a little bit of tuning to set up, and here's how you can do it.
+
+<Note variant="info">
+When experimenting with array based sampling, we recommend running a [separate](http://localhost:4321/reference/cluster/quick-start?platform=linux) Synnax 
+database with a memory-backed data store. This will allow you to quickly test 
+different configurations without writing a large amount of experimental data to your 
+production database.
+</Note>
+
+### <StepText level="h3" step={1}>Make sure your PLC is correctly configured</StepText>
+
+Make sure your PLC is correctly configured to read data in arrays. For information on
+how to do this, see [considerations for high data rates](device-drivers/opcua/connect-server#considerations-for-high-data-rates).
+
+### <StepText level="h3" step={2}>Enable Array Sampling</StepText>
+
+To enable array sampling mode for a task, toggle the "Array Sampling" switch in the
+top left corner. This will alter the "Stream Rate" field to display an "Array Size"
+field instead.
+
+**Set the array size to the same length as the arrays you'll be reading from the PLC.** 
+
+### <StepText level="h3" step={3}>Add Channels to the Task</StepText>
+
+In array mode, you'll only be able to add PLC nodes that are array-based. Otherwise,
+the process is the same as for default sampling.
+
+### <StepText level="h3" step={4}>Configure Index Channels</StepText>
+
+For high data rates, we recommend reading timestamps from the PLC instead of having
+Synnax generate them. To do this, add the index channel for any of your data channels
+to the task, and select the corresponding PLC node that contains the timestamps.
+
+### <StepText level="h3" step={5}>Timing</StepText>
+
+Running a task with array sampling enabled can result in both **oversampling** and
+**undersampling**. Oversampling occurs when the PLC doesn't completely replace all
+values in the array before Synnax reads it. Undersampling can occur when the PLC
+is re-writing the array faster than Synnax can read it. 
+
+We recommend setting the sampling rate to the **same** sampling rate as the PLC. For
+extremely high data rates, under and oversampling by a few samples in the array can
+occur under normal operating conditions. This typically isn't a problem. If you're 
+concerned about this, [let us know](https://www.synnaxlabs.com/contact).
+
+### <StepText level="h3" step={6}>Configure and Start the Task</StepText>
+
+Once you've added all the channels you need, click the "Configure" button. If there are
+no errors, the Synnax database will acknowledge the configured task and enable the "Play"
+button in the dialog.
