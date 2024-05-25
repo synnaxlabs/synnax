@@ -9,12 +9,12 @@ import {
 import { Unary } from "@/telem/client/cache/unary";
 import { DynamicProps } from "@/telem/client/cache/dynamic";
 
-export const CACHE_BUFFER_SIZE: TimeSpan = TimeSpan.seconds(45);
+export const CACHE_BUFFER_SIZE: number = 10000;
 
 /** Props for instantiating an @see Cache */
 export interface CacheProps
   extends StaticProps,
-    Partial<Pick<DynamicProps, "dynamicBufferSize">> {
+  Partial<Pick<DynamicProps, "dynamicBufferSize">> {
   /** Used to populate new cache entries with relevant info about the channel */
   channelRetriever: channel.Retriever;
   /**
