@@ -36,7 +36,7 @@ var _ = Describe("Migration Test", func() {
 			AfterEach(func() { Expect(cleanUp()).To(Succeed()) })
 			Specify("V1 to V2", func() {
 				By("Making a copy of a V1 database")
-				sourceFS := MustSucceed(xfs.Default.Sub("../testdata/v1/data"))
+				sourceFS := MustSucceed(xfs.Default.Sub("../testdata/v1/db-data"))
 				destFS := fs
 				Expect(testutil.ReplicateFS(sourceFS, destFS)).To(Succeed())
 
