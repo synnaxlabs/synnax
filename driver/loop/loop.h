@@ -71,7 +71,6 @@ public:
             return {elapsed, true};
         } else {
             last = now;
-            LOG(WARNING) << "Timer interval exceeded by " << (elapsed - interval_nanos)/1e6 << " ms";
             return {elapsed, false};
         }
     }
