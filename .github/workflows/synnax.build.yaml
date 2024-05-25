@@ -129,7 +129,7 @@ jobs:
         run: mv synnax/pkg/hardware/embedded/assets/driver_main${{ steps.executable.outputs.EXECUTABLE }} synnax/pkg/hardware/embedded/assets/driver${{ steps.executable.outputs.EXECUTABLE }}
 
       - name: Tar Driver Files
-        run: tar -czf synnax/pkg/hardware/embedded/assets/driver.tar.gz synnax/pkg/hardware/embedded/assets/driver
+        run: tar -czf synnax/pkg/hardware/embedded/assets/driver.tar.gz synnax/pkg/hardware/embedded/assets/driver${{ steps.executable.outputs.EXECUTABLE }} 
 
       - name: Upload Driver Artifact
         uses: actions/upload-artifact@v2
