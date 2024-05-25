@@ -126,13 +126,12 @@ jobs:
         run: mv bazel-bin/driver/driver_main${{ steps.executable.outputs.EXECUTABLE }} synnax/pkg/hardware/embedded/assets/
       
       - name: Rename Driver
-        run: mv synnax/pkg/hardware/embedded/assets/driver_main${{ steps.executable.outputs.EXECUTABLE }} synnax/pkg/hardware/embedded/assets/driver
+        run: mv synnax/pkg/hardware/embedded/assets/driver_main${{ steps.executable.outputs.EXECUTABLE }} synnax/pkg/hardware/embedded/assets/driver{{ steps.executable.outputs.EXECUTABLE }}
 
       - name: Tar Driver Files
         run: tar -czf synnax/pkg/hardware/embedded/assets/driver.tar.gz synnax/pkg/hardware/embedded/assets/driver
 
       - name: Upload Driver Artifact
-        if: ${{ matrix.platform == 'ubuntu-latest' }}
         uses: actions/upload-artifact@v2
         with:
           name: driver
@@ -230,6 +229,9 @@ jobs:
         with:
           name: driver
           path: ./synnax/pkg/hardware/embedded/assets
+
+      - name: Extract Driver Artifact
+        run: tar -xzf synnax/pkg/hardware/embedded/assets/driver.tar.gz -C synnax/pkg/hardware/embedded/assets
 
 
       - name: Build Image
