@@ -38,7 +38,6 @@ export const createLayout: Layout.State = {
     resizable: false,
     size: { height: 550, width: 700 },
     navTop: true,
-    transparent: true,
   },
 };
 

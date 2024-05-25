@@ -24,18 +24,29 @@ public:
     }
 
     explicit Timer(const synnax::Rate &rate): interval(rate.period()), last(std::chrono::high_resolution_clock::now()) {
+        LOG(INFO) << "Timer interval set to " << rate.period() << " ns";
     }
 
-    void wait() {
+    void sleep(std::chrono::nanoseconds ns){
+        auto end = std::chrono::high_resolution_clock::now() + ns;
+        while(end > std::chrono::high_resolution_clock::now());
+    }
+
+    std::pair<std::chrono::nanoseconds, bool> wait() {
         const auto now = std::chrono::high_resolution_clock::now();
-        const auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(now - last);
+        const auto elapsed = now - last;
         const auto interval_nanos = interval.nanoseconds();
         if (elapsed < interval_nanos) {
-            const auto remaining = interval_nanos - elapsed;
-            std::this_thread::sleep_for(remaining);
-            last = now + remaining;
-        } else last = now;
+            auto remaining = interval_nanos - elapsed;
+            std::this_thread::sleep_for(std::chrono::nanoseconds(remaining));
+            last = std::chrono::high_resolution_clock::now();
+            return {elapsed, true};
+        }
+        last = now;
+        return {elapsed, false};
     }
+
+ 
 private:
     synnax::TimeSpan interval;
     std::chrono::time_point<std::chrono::high_resolution_clock> last;

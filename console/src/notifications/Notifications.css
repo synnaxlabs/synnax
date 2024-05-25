@@ -1,6 +1,5 @@
 .console-notifications {
-    position: fixed;
-    z-index: 5000;
+    position: absolute;
     bottom: 7rem;
     left: 2rem;
 }

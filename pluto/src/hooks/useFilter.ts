@@ -63,10 +63,10 @@ export const createFilterTransform = <K extends Key, E extends Keyed<K>>({
   term,
   searcher = defaultFilter<K, E>,
 }: CreateFilterTransformProps<K, E>): ArrayTransform<E> =>
-  proxyMemo((data) => {
+  proxyMemo(({ data }) => {
     if (typeof searcher === "function") {
-      if (term.length === 0 || data?.length === 0) return data;
-      return searcher(data).search(term);
+      if (term.length === 0 || data?.length === 0) return { data, transformed: false };
+      return { data: searcher(data).search(term), transformed: true };
     }
-    return searcher.search(term);
+    return { data: searcher.search(term), transformed: true };
   });

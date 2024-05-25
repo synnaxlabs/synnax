@@ -41,12 +41,12 @@ void Scanner::exec(task::Command &cmd) {
 static UA_StatusCode nodeIter(UA_NodeId child_id, UA_Boolean is_inverse,
                               UA_NodeId reference_type_id, void *handle);
 
-const int MAX_DEPTH = 2;
 
 struct ScanContext {
     std::shared_ptr<UA_Client> client;
     UA_UInt32 depth;
     std::shared_ptr<std::vector<DeviceNodeProperties> > channels;
+    int max_depth;
 };
 
 // Function to recursively iterate through all children
@@ -72,6 +72,9 @@ static UA_StatusCode nodeIter(
         &nodeClass
     );
     if (retval != UA_STATUSCODE_GOOD) return retval;
+    // LOG(INFO) << "Node class: " << nodeClass;
+    // LOG(INFO) << "Node id: " << nodeIdToString(child_id);
+    // LOG(INFO) << "Node depth: " << ctx->depth;
 
     if (nodeClass == UA_NODECLASS_VARIABLE && child_id.namespaceIndex != 0) {
         UA_QualifiedName browseName;
@@ -85,13 +88,18 @@ static UA_StatusCode nodeIter(
             auto name = std::string((char *) browseName.name.data,
                                     browseName.name.length);
             auto node_id = nodeIdToString(child_id);
-            auto dt = variant_data_type(value);
+            auto [dt, is_array] = variant_data_type(value);
             if (dt != synnax::DATA_TYPE_UNKNOWN && !dt.is_variable())
-                ctx->channels->push_back({dt, name, node_id});
+                ctx->channels->push_back({
+                    dt,
+                    name,
+                    node_id,
+                    is_array
+                });
         }
     }
-
-    if (ctx->depth >= MAX_DEPTH) return UA_STATUSCODE_GOOD;
+    if (ctx->depth >= ctx->max_depth || child_id.namespaceIndex == 0) return
+            UA_STATUSCODE_GOOD;
     ctx->depth++;
     iterateChildren(ctx, child_id);
     ctx->depth--;
@@ -101,6 +109,7 @@ static UA_StatusCode nodeIter(
 void Scanner::scan(const task::Command &cmd) const {
     config::Parser parser(cmd.args);
     ScannnerScanCommandArgs args(parser);
+    int max_depth = parser.optional<int>("max_depth", 6);
     if (!parser.ok())
         return ctx->setState({
             .task = task.key,
@@ -121,7 +130,8 @@ void Scanner::scan(const task::Command &cmd) const {
     auto scan_ctx = new ScanContext{
         ua_client,
         0,
-        std::make_shared<std::vector<DeviceNodeProperties> >()
+        std::make_shared<std::vector<DeviceNodeProperties> >(),
+        max_depth
     };
     iterateChildren(scan_ctx, root_folder_id);
     ctx->setState({
@@ -134,7 +144,7 @@ void Scanner::scan(const task::Command &cmd) const {
 
 void Scanner::testConnection(const task::Command &cmd) const {
     config::Parser parser(cmd.args);
-    ScannerTestConnectionCommandArgs args(parser);
+    ScannnerScanCommandArgs args(parser);
     if (!parser.ok())
         return ctx->setState({
             .task = task.key,
