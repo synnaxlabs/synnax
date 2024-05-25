@@ -163,21 +163,18 @@ export class Dynamic {
     // average rate is a weighted average of the rate of the last sample and the average
     // rate currently in the buffer.
     const newRate = series.length / this.now().span(this.timeOfLastWrite).seconds;
-    if (this.totalWrites > 0 && isFinite(newRate) && newRate > 0) {
-      this.avgRate = (this.avgRate * (this.totalWrites - 1) + newRate) / this.totalWrites;
-    }
+    if (this.totalWrites > 0 && isFinite(newRate) && newRate > 0)
+      this.avgRate =
+        (this.avgRate * (this.totalWrites - 1) + newRate) / this.totalWrites;
     this.totalWrites++;
-    console.log("new write")
     this.timeOfLastWrite = this.now();
   }
 
   private nextBufferSize(): number {
     const { dynamicBufferSize } = this.props;
     if (typeof dynamicBufferSize === "number") return dynamicBufferSize;
-    if (this.totalWrites < MAX_DEF_WRITES) {
-      return DEF_SIZE;
-    }
-    let size = this.avgRate * dynamicBufferSize.seconds;
+    if (this.totalWrites < MAX_DEF_WRITES) return DEF_SIZE;
+    const size = this.avgRate * dynamicBufferSize.seconds;
     return Math.max(Math.min(size, MAX_SIZE), MIN_SIZE);
   }
 
