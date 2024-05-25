@@ -26,7 +26,7 @@ type ControlUpdate struct {
 }
 
 func (db *DB) ConfigureControlUpdateChannel(ctx context.Context, key ChannelKey) error {
-	if db.closed {
+	if db.mu.closed() {
 		return ErrDBClosed
 	}
 

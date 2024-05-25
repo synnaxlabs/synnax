@@ -141,6 +141,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						Expect(iter.Next(ctx, 4*telem.Second)).To(BeTrue())
 						Expect(iter.Len()).To(Equal(int64(2)))
 						Expect(iter.Next(ctx, 1*telem.Second)).To(BeFalse())
+						Expect(iter.Close()).To(Succeed())
 					})
 					Specify("Multi TimeRange", func() {
 						Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15))).To(Succeed())
@@ -159,6 +160,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						Expect(iter.Next(ctx, 10*telem.Second)).To(BeTrue())
 						Expect(iter.View()).To(Equal((23 * telem.SecondTS).SpanRange(10 * telem.Second)))
 						Expect(iter.Len()).To(Equal(int64(3)))
+						Expect(iter.Close()).To(Succeed())
 
 					})
 					Describe("Auto Exhaustion", func() {
@@ -361,6 +363,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							Expect(iter.SeekFirst(ctx)).To(BeTrue())
 							Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
 							Expect(iter.Len()).To(Equal(int64(5)))
+							Expect(iter.Close()).To(Succeed())
 						})
 					})
 				})

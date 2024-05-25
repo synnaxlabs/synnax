@@ -30,15 +30,22 @@ type controlledWriter struct {
 
 func (w controlledWriter) ChannelKey() core.ChannelKey { return w.channelKey }
 
-type openEntityCount struct {
+type dbState struct {
 	sync.RWMutex
 	openIteratorWriters int
+	isClosed            bool
 }
 
-func (c *openEntityCount) Add(delta int) {
+func (c *dbState) add(delta int) {
 	c.Lock()
 	c.openIteratorWriters += delta
 	c.Unlock()
+}
+
+func (c *dbState) closed() bool {
+	c.RLock()
+	defer c.RUnlock()
+	return c.isClosed
 }
 
 type DB struct {
@@ -46,9 +53,8 @@ type DB struct {
 	Domain     *domain.DB
 	Controller *controller.Controller[controlledWriter]
 	_idx       index.Index
-	mu         *openEntityCount
+	mu         *dbState
 	wrapError  func(error) error
-	closed     bool
 }
 
 var ErrDBClosed = core.EntityClosed("unary.db")
@@ -56,7 +62,7 @@ var ErrDBClosed = core.EntityClosed("unary.db")
 func (db *DB) Index() index.Index {
 	if !db.Channel.IsIndex {
 		// inconceivable state
-		panic(fmt.Sprintf("channel %v is not an index channel", db.Channel.Key))
+		panic(fmt.Sprintf("channel [%s]<%v> is not an index channel", db.Channel.Name, db.Channel.Key))
 	}
 	return db.index()
 }
@@ -64,7 +70,7 @@ func (db *DB) Index() index.Index {
 func (db *DB) index() index.Index {
 	if db._idx == nil {
 		// inconceivable state
-		panic(fmt.Sprintf("channel %v index is not set", db.Channel.Key))
+		panic(fmt.Sprintf("channel [%s]<%v> index is not set", db.Channel.Name, db.Channel.Key))
 	}
 	return db._idx
 }
@@ -95,12 +101,12 @@ func (db *DB) OpenIterator(cfg IteratorConfig) *Iterator {
 		internal:       iter,
 		IteratorConfig: cfg,
 		onClose: func() {
-			db.mu.Add(-1)
+			db.mu.add(-1)
 		},
 	}
 	i.SetBounds(cfg.Bounds)
 
-	db.mu.Add(1)
+	db.mu.add(1)
 	return i
 }
 
@@ -108,7 +114,7 @@ func (db *DB) OpenIterator(cfg IteratorConfig) *Iterator {
 // overlaps with the given timerange. Note that this function will return false if there
 // is an open writer that could write into the requested timerange
 func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) {
-	if db.closed {
+	if db.mu.closed() {
 		return false, ErrDBClosed
 	}
 	g, _, err := db.Controller.OpenAbsoluteGateIfUncontrolled(tr, control.Subject{Key: "Delete Writer"}, func() (controlledWriter, error) {
@@ -136,7 +142,7 @@ func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) 
 func (db *DB) Read(ctx context.Context, tr telem.TimeRange) (frame core.Frame, err error) {
 	defer func() { err = db.wrapError(err) }()
 
-	if db.closed {
+	if db.mu.closed() {
 		return frame, ErrDBClosed
 	}
 	iter := db.OpenIterator(IterRange(tr))
@@ -153,20 +159,17 @@ func (db *DB) Read(ctx context.Context, tr telem.TimeRange) (frame core.Frame, e
 	return
 }
 
-func (db *DB) TryClose() error {
+func (db *DB) Close() error {
+	if db.mu.closed() {
+		return nil
+	}
+
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 	if db.mu.openIteratorWriters > 0 {
-		return db.wrapError(errors.Newf("cannot close channel %d because there are currently %d unclosed writers/iterators accessing it", db.Channel.Key, db.mu.openIteratorWriters))
+		return db.wrapError(errors.Newf("cannot close channel because there are %d unclosed writers/iterators accessing it", db.mu.openIteratorWriters))
 	} else {
-		return db.wrapError(db.Close())
+		db.mu.isClosed = true
+		return db.wrapError(db.Domain.Close())
 	}
-}
-
-func (db *DB) Close() error {
-	if db.closed {
-		return nil
-	}
-	db.closed = true
-	return db.wrapError(db.Domain.Close())
 }

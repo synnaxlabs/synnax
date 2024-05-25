@@ -43,7 +43,7 @@ func channelDirName(ch ChannelKey) string {
 // channel, or if the current channel is being written to or read from.
 // Does nothing if channel does not exist.
 func (db *DB) DeleteChannel(ch ChannelKey) error {
-	if db.closed {
+	if db.mu.closed() {
 		return ErrDBClosed
 	}
 
@@ -71,7 +71,7 @@ func (db *DB) DeleteChannel(ch ChannelKey) error {
 }
 
 func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
-	if db.closed {
+	if db.mu.closed() {
 		return ErrDBClosed
 	}
 
@@ -153,12 +153,12 @@ func (db *DB) removeChannel(ch ChannelKey) error {
 				}
 				otherDB := db.unaryDBs[otherDBKey]
 				if otherDB.Channel.Index == udb.Config.Channel.Key {
-					return errors.Newf("cannot delete channel %d because it indexes data in channel %d", ch, otherDBKey)
+					return errors.Newf("cannot delete channel [%s]<%d> because it indexes data in channel [%s]<%d>", udb.Channel.Name, udb.Channel.Key, otherDB.Channel.Name, otherDB.Channel.Key)
 				}
 			}
 		}
 
-		if err := udb.TryClose(); err != nil {
+		if err := udb.Close(); err != nil {
 			return err
 		}
 		delete(db.unaryDBs, ch)
@@ -166,7 +166,7 @@ func (db *DB) removeChannel(ch ChannelKey) error {
 	}
 	vdb, vok := db.virtualDBs[ch]
 	if vok {
-		if err := vdb.TryClose(); err != nil {
+		if err := vdb.Close(); err != nil {
 			return err
 		}
 		delete(db.virtualDBs, ch)

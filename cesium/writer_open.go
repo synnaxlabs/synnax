@@ -133,7 +133,7 @@ func (c WriterConfig) authority(i int) control.Authority {
 
 // NewStreamWriter implements DB.
 func (db *DB) NewStreamWriter(ctx context.Context, cfgs ...WriterConfig) (StreamWriter, error) {
-	if db.closed {
+	if db.mu.closed() {
 		return nil, ErrDBClosed
 	}
 
@@ -142,7 +142,7 @@ func (db *DB) NewStreamWriter(ctx context.Context, cfgs ...WriterConfig) (Stream
 
 // OpenWriter implements DB.
 func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (*Writer, error) {
-	if db.closed {
+	if db.mu.closed() {
 		return nil, ErrDBClosed
 	}
 

@@ -85,7 +85,7 @@ func Open(configs ...Config) (*DB, error) {
 		Domain:     domainDB,
 		Controller: c,
 		wrapError:  core.NewErrorWrapper(cfg.Channel.Key, cfg.Channel.Name),
-		mu:         &openEntityCount{},
+		mu:         &dbState{},
 	}
 	if cfg.Channel.IsIndex {
 		db._idx = &index.Domain{DB: domainDB, Instrumentation: cfg.Instrumentation}

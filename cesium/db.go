@@ -32,12 +32,26 @@ func NewFrame(keys []core.ChannelKey, series []telem.Series) Frame {
 	return core.NewFrame(keys, series)
 }
 
-var ErrDBClosed = core.EntityClosed("cesium.db")
+var (
+	ErrDBClosed        = core.EntityClosed("cesium.db")
+	ErrChannelNotFound = core.ErrChannelNotFound
+)
+
+type dbState struct {
+	sync.RWMutex
+	isClosed bool
+}
+
+func (s *dbState) closed() bool {
+	s.RLock()
+	defer s.RUnlock()
+	return s.isClosed
+}
 
 type DB struct {
 	*options
 	relay      *relay
-	mu         sync.RWMutex
+	mu         *dbState
 	unaryDBs   map[ChannelKey]unary.DB
 	virtualDBs map[ChannelKey]virtual.DB
 	digests    struct {
@@ -45,13 +59,12 @@ type DB struct {
 		inlet  confluence.Inlet[WriterRequest]
 		outlet confluence.Outlet[WriterResponse]
 	}
-	closed   bool
 	shutdown io.Closer
 }
 
-// Write implements DB.
+// Write writes the frame to database at the specified start time.
 func (db *DB) Write(ctx context.Context, start telem.TimeStamp, frame Frame) error {
-	if db.closed {
+	if db.mu.closed() {
 		return ErrDBClosed
 	}
 	_, span := db.T.Debug(ctx, "write")
@@ -65,17 +78,17 @@ func (db *DB) Write(ctx context.Context, start telem.TimeStamp, frame Frame) err
 	return w.Close()
 }
 
-// WriteArray implements DB.
+// WriteArray writes a series into the specified channel at the specified start time.
 func (db *DB) WriteArray(ctx context.Context, key core.ChannelKey, start telem.TimeStamp, series telem.Series) error {
-	if db.closed {
+	if db.mu.closed() {
 		return ErrDBClosed
 	}
 	return db.Write(ctx, start, core.NewFrame([]core.ChannelKey{key}, []telem.Series{series}))
 }
 
-// Read implements DB.
+// Read reads from the database at the specified time range and outputs a frame.
 func (db *DB) Read(_ context.Context, tr telem.TimeRange, keys ...core.ChannelKey) (frame Frame, err error) {
-	if db.closed {
+	if db.mu.closed() {
 		return frame, ErrDBClosed
 	}
 	iter, err := db.OpenIterator(IteratorConfig{Channels: keys, Bounds: tr})
@@ -92,13 +105,18 @@ func (db *DB) Read(_ context.Context, tr telem.TimeRange, keys ...core.ChannelKe
 	return
 }
 
-// Close implements DB.
+// Close closes the database.
+// Close is not safe to call with any other DB methods concurrently.
 func (db *DB) Close() error {
-	if db.closed {
+	db.mu.Lock()
+	if db.mu.isClosed {
+		db.mu.Unlock()
 		return nil
 	}
 
-	db.closed = true
+	db.mu.isClosed = true
+	defer db.mu.Unlock()
+
 	c := errors.NewCatcher(errors.WithAggregation())
 	db.closeControlDigests()
 	c.Exec(db.shutdown.Close)

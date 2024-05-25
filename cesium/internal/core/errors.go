@@ -20,6 +20,6 @@ func NewErrorWrapper(key ChannelKey, name string) func(error) error {
 		if err == nil {
 			return nil
 		}
-		return errors.Wrapf(err, "error in channel [%s]<%d>", name, key)
+		return errors.Wrapf(err, "channel [%s]<%d>", name, key)
 	}
 }

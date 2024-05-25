@@ -125,7 +125,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					By("Releasing control of the DB")
 					Expect(db.LeadingControlState()).To(BeNil())
 				})
-				Specify("Sad path", func() {
+				Specify("Open Writer domain overlap", func() {
 					Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20))).To(Succeed())
 					w, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
 						Start:   10 * telem.SecondTS,
@@ -140,7 +140,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Start:   12 * telem.SecondTS,
 						Subject: control.Subject{Key: "foo"},
 					})
-					Expect(err).To(MatchError(ContainSubstring("error in channel [Maxwell]<%d>", data)))
+					Expect(err).To(MatchError(ContainSubstring("channel [Maxwell]<%d>", data)))
 					Expect(err).To(MatchError(ContainSubstring("overlaps")))
 				})
 				Describe("Auto file switch", func() {
@@ -528,7 +528,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Subject: control.Subject{Key: "foo"}},
 					)
 					Expect(err).To(HaveOccurredAs(core.EntityClosed("unary.db")))
-					Expect(err).To(MatchError(ContainSubstring("error in channel [gauss]<%d>", key)))
+					Expect(err).To(MatchError(ContainSubstring("channel [gauss]<%d>", key)))
 				})
 				It("Should not write on a closed database", func() {
 					Expect(db.Close()).To(Succeed())

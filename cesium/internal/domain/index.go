@@ -122,10 +122,10 @@ func (idx *index) update(ctx context.Context, p pointer, persist bool) error {
 	}
 	overlapsWithNext := updateAt != len(ptrs)-1 && ptrs[updateAt+1].OverlapsWith(p.TimeRange)
 	overlapsWithPrev := updateAt != 0 && ptrs[updateAt-1].OverlapsWith(p.TimeRange)
-	if overlapsWithPrev || overlapsWithNext {
-		return span.Error(NewErrDomainOverlap(p.TimeRange, ptrs[updateAt+1].TimeRange))
-	} else if overlapsWithNext {
+	if overlapsWithPrev {
 		return span.Error(NewErrDomainOverlap(p.TimeRange, ptrs[updateAt-1].TimeRange))
+	} else if overlapsWithNext {
+		return span.Error(NewErrDomainOverlap(p.TimeRange, ptrs[updateAt+1].TimeRange))
 	} else {
 		idx.mu.pointers[updateAt] = p
 	}

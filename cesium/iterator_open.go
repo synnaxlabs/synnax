@@ -16,7 +16,7 @@ import (
 )
 
 func (db *DB) OpenIterator(cfg IteratorConfig) (*Iterator, error) {
-	if db.closed {
+	if db.mu.closed() {
 		return nil, ErrDBClosed
 	}
 
@@ -29,7 +29,7 @@ func (db *DB) OpenIterator(cfg IteratorConfig) (*Iterator, error) {
 }
 
 func (db *DB) NewStreamIterator(cfg IteratorConfig) (StreamIterator, error) {
-	if db.closed {
+	if db.mu.closed() {
 		return nil, ErrDBClosed
 	}
 	return db.newStreamIterator(cfg)
@@ -42,9 +42,9 @@ func (db *DB) newStreamIterator(cfg IteratorConfig) (*streamIterator, error) {
 	for i, key := range cfg.Channels {
 		uDB, ok := db.unaryDBs[key]
 		if !ok {
-			_, vOk := db.virtualDBs[key]
-			if vOk {
-				return nil, errors.Newf("cannot open iterator on virtual channel %d", key)
+			vdb, vok := db.virtualDBs[key]
+			if vok {
+				return nil, errors.Newf("cannot open iterator on virtual channel [%s]<%d>", vdb.Channel.Name, vdb.Channel.Key)
 			}
 			return nil, core.NewErrChannelNotFound(key)
 		}

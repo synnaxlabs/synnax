@@ -39,7 +39,9 @@ type Channel struct {
 	// Name is a non-unique, human-readable identifier to the channel within the data
 	// engine. Note that it is never used to index or retrieve a channel.
 	// [OPTIONAL]
-	Name    string `json:"name" msgpack:"name"`
+	Name string `json:"name" msgpack:"name"`
+	// IsIndex determines whether the channel acts as an index channel. If false, then
+	// either the channel is a rate-based channel or uses another channel as its Index.
 	IsIndex bool
 	// DataType is the type of data stored in the channel.
 	// [REQUIRED]

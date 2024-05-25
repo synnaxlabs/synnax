@@ -205,7 +205,7 @@ func (r *region[E]) unprotectedOpen(g *Gate[E]) (t Transfer, err error) {
 	// Check if any gates have the same subject key.
 	for og := range r.gates {
 		if og.Subject.Key == g.Subject.Key {
-			err = errors.Wrapf(validate.Error, "control subject %s is already registered in the region", g.Subject.Key)
+			err = errors.Wrapf(validate.Error, "control subject %s is already registered in the region", g.Subject)
 			return
 		}
 	}
@@ -235,8 +235,7 @@ var (
 )
 
 func (c Config) Validate() error {
-	v := validate.New("controller config")
-	return v.Error()
+	return nil
 }
 
 // Override implements config.Properties.
@@ -244,6 +243,10 @@ func (c Config) Override(other Config) Config {
 	c.Concurrency = override.Numeric(c.Concurrency, other.Concurrency)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	return other
+}
+
+func multipleControlRegions(tr telem.TimeRange) string {
+	return fmt.Sprintf("encountered multiple control regions for time range %s", tr)
 }
 
 type Controller[E Entity] struct {
@@ -336,14 +339,14 @@ func (c *Controller[E]) OpenAbsoluteGateIfUncontrolled(tr telem.TimeRange, s con
 		// therefore this method should not create an absolute gate.
 		if r.timeRange.OverlapsWith(tr) {
 			if exists {
-				c.L.DPanic(fmt.Sprintf("encountered multiple control regions for time range %s", tr))
-				return nil, t, errors.Newf("encountered multiple control regions for time range %s", tr)
+				c.L.DPanic(multipleControlRegions(tr))
+				return nil, t, errors.New(multipleControlRegions(tr))
 			}
 
 			r.Lock()
 			if r.curr != nil {
 				r.Unlock()
-				return nil, t, errors.Newf("cannot create a gate on the region %s because it is already controlled", r.timeRange)
+				return nil, t, errors.Newf("cannot create a gate on the region %s because it is already controlled by [%s]<%s>", r.timeRange, r.curr.Subject.Name, r.curr.Subject.Key)
 			}
 
 			g = &Gate[E]{
@@ -391,8 +394,8 @@ func (c *Controller[E]) OpenGateAndMaybeRegister(cfg GateConfig, callback func()
 		if r.timeRange.OverlapsWith(cfg.TimeRange) {
 			// v1 optimization: one writer can only overlap with one region at any given time.
 			if exists {
-				c.L.DPanic(fmt.Sprintf("encountered multiple control regions for time range %s", cfg.TimeRange))
-				return nil, t, errors.Newf("encountered multiple control regions for time range %s", cfg.TimeRange)
+				c.L.DPanic(multipleControlRegions(cfg.TimeRange))
+				return nil, t, errors.New(multipleControlRegions(cfg.TimeRange))
 			}
 			// If there is an existing region, we open a new gate on that region.
 			g, t, err = r.open(cfg, c.Concurrency)
@@ -432,7 +435,7 @@ func (c *Controller[E]) register(
 ) error {
 	for _, r := range c.regions {
 		if r.timeRange.OverlapsWith(t) {
-			return errors.Newf("time range %s collides with the time range for another entity", t)
+			return errors.Newf("time range %s collides with the time range for region with timerange %v", t, r.timeRange)
 		}
 	}
 	c.insertNewRegion(t, entity)
@@ -468,5 +471,5 @@ func (c *Controller[E]) remove(r *region[E]) {
 }
 
 func Unauthorized(name string, ch core.ChannelKey) error {
-	return errors.Wrapf(control.Unauthorized, "writer %s does not have control authority over channel %d", name, ch)
+	return errors.Wrapf(control.Unauthorized, "writer %s does not have control authority", name)
 }

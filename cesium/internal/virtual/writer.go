@@ -21,12 +21,10 @@ import (
 var WriterClosedError = core.EntityClosed("virtual.writer")
 
 func (db *DB) OpenWriter(_ context.Context, cfg WriterConfig) (w *Writer, transfer controller.Transfer, err error) {
-	defer func() { err = db.wrapError(err) }()
-
-	if db.closed {
-		return nil, transfer, dbClosed
+	if db.mu.closed() {
+		return nil, transfer, db.wrapError(dbClosed)
 	}
-	w = &Writer{WriterConfig: cfg, Channel: db.Channel, wrapError: db.wrapError, onClose: func() { db.mu.Add(-1) }}
+	w = &Writer{WriterConfig: cfg, Channel: db.Channel, wrapError: db.wrapError, onClose: func() { db.mu.add(-1) }}
 	gateCfg := controller.GateConfig{
 		TimeRange: cfg.domain(),
 		Authority: cfg.Authority,
@@ -41,8 +39,8 @@ func (db *DB) OpenWriter(_ context.Context, cfg WriterConfig) (w *Writer, transf
 		}, nil
 	})
 	w.control = g
-	db.mu.Add(1)
-	return w, transfer, err
+	db.mu.add(1)
+	return w, transfer, db.wrapError(err)
 }
 
 type WriterConfig struct {

@@ -37,6 +37,7 @@ func Open(dirname string, opts ...Option) (*DB, error) {
 	}
 	db := &DB{
 		options:    o,
+		mu:         &dbState{},
 		unaryDBs:   make(map[core.ChannelKey]unary.DB, len(info)),
 		virtualDBs: make(map[core.ChannelKey]virtual.DB, len(info)),
 		relay:      newRelay(sCtx),
@@ -65,7 +66,7 @@ func Open(dirname string, opts ...Option) (*DB, error) {
 }
 
 func (db *DB) openVirtualOrUnary(ch Channel) error {
-	if db.closed {
+	if db.mu.closed() {
 		return ErrDBClosed
 	}
 
@@ -110,7 +111,7 @@ func (db *DB) openVirtualOrUnary(ch Channel) error {
 				}
 				idxDB, ok = db.unaryDBs[u.Channel.Index]
 				if !ok {
-					return validate.FieldError{Field: "index", Message: fmt.Sprintf("index channel %v does not exist", u.Channel.Index)}
+					return validate.FieldError{Field: "index", Message: fmt.Sprintf("index channel <%v> does not exist", u.Channel.Index)}
 				}
 			}
 			u.SetIndex((&idxDB).Index())

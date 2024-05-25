@@ -22,7 +22,7 @@ import (
 
 // CreateChannel implements DB.
 func (db *DB) CreateChannel(_ context.Context, ch ...Channel) error {
-	if db.closed {
+	if db.mu.closed() {
 		return ErrDBClosed
 	}
 
@@ -36,7 +36,7 @@ func (db *DB) CreateChannel(_ context.Context, ch ...Channel) error {
 
 // RetrieveChannels implements DB.
 func (db *DB) RetrieveChannels(ctx context.Context, keys ...ChannelKey) ([]Channel, error) {
-	if db.closed {
+	if db.mu.closed() {
 		return nil, ErrDBClosed
 	}
 
@@ -53,7 +53,7 @@ func (db *DB) RetrieveChannels(ctx context.Context, keys ...ChannelKey) ([]Chann
 
 // RetrieveChannel implements DB.
 func (db *DB) RetrieveChannel(_ context.Context, key ChannelKey) (Channel, error) {
-	if db.closed {
+	if db.mu.closed() {
 		return Channel{}, ErrDBClosed
 	}
 
@@ -72,6 +72,10 @@ func (db *DB) RetrieveChannel(_ context.Context, key ChannelKey) (Channel, error
 
 // RenameChannel implements DB.
 func (db *DB) RenameChannel(_ context.Context, key ChannelKey, newName string) error {
+	if db.mu.closed() {
+		return ErrDBClosed
+	}
+
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
@@ -131,14 +135,14 @@ func (db *DB) createChannel(ch Channel) (err error) {
 func (db *DB) validateNewChannel(ch Channel) error {
 	v := validate.New("cesium")
 	validate.Positive(v, "key", ch.Key)
-	validate.NotEmptyString(v, "data type", ch.DataType)
+	validate.NotEmptyString(v, "data_type", ch.DataType)
 	v.Exec(func() error {
 		db.mu.RLock()
 		defer db.mu.RUnlock()
 		_, uOk := db.unaryDBs[ch.Key]
 		_, vOk := db.virtualDBs[ch.Key]
 		if uOk || vOk {
-			return errors.Wrapf(validate.Error, "cannot create channel %d because it already exists", ch.Key)
+			return errors.Wrapf(validate.Error, "cannot create channel [%s]<%d> because it already exists", ch.Name, ch.Key)
 		}
 		return nil
 	})
@@ -148,13 +152,13 @@ func (db *DB) validateNewChannel(ch Channel) error {
 	} else {
 		v.Ternary("index", ch.DataType == telem.StringT, "persisted channels cannot have string data types")
 		if ch.IsIndex {
-			v.Ternary("data type", ch.DataType != telem.TimeStampT, "index channel must be of type timestamp")
+			v.Ternary("data_type", ch.DataType != telem.TimeStampT, "index channel must be of type timestamp")
 			v.Ternaryf("index", ch.Index != 0 && ch.Index != ch.Key, "index channel cannot be indexed by another channel")
 		} else if ch.Index != 0 {
-			validate.MapContainsf(v, ch.Index, db.unaryDBs, "index channel %v does not exist", ch.Index)
+			validate.MapContainsf(v, ch.Index, db.unaryDBs, "index channel <%d> does not exist", ch.Index)
 			v.Funcf(func() bool {
 				return !db.unaryDBs[ch.Index].Channel.IsIndex
-			}, "channel %v is not an index", ch.Index)
+			}, "channel [%s]<%d> is not an index", db.unaryDBs[ch.Index].Channel.Name, db.unaryDBs[ch.Index].Channel.Key)
 		} else {
 			validate.Positive(v, "rate", ch.Rate)
 		}

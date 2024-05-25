@@ -147,6 +147,9 @@ func (db *DB) NewWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) 
 	}
 
 	cfg, err := config.New(DefaultWriterConfig, cfg)
+	if err != nil {
+		return nil, err
+	}
 	if db.idx.overlap(cfg.Domain()) {
 		return nil, NewErrDomainOverlap(db.idx.timeRange(), cfg.Domain())
 	}

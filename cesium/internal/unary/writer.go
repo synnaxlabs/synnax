@@ -125,7 +125,7 @@ type Writer struct {
 }
 
 func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (w *Writer, transfer controller.Transfer, err error) {
-	if db.closed {
+	if db.mu.closed() {
 		return nil, transfer, db.wrapError(ErrDBClosed)
 	}
 
@@ -136,7 +136,7 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (w *Writer, 
 	w = &Writer{WriterConfig: cfg,
 		Channel:          db.Channel,
 		idx:              db.index(),
-		decrementCounter: func() { db.mu.Add(-1) },
+		decrementCounter: func() { db.mu.add(-1) },
 		wrapError:        db.wrapError,
 	}
 	gateCfg := controller.GateConfig{
@@ -158,7 +158,7 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (w *Writer, 
 	}
 
 	w.control = g
-	db.mu.Add(1)
+	db.mu.add(1)
 	return w, transfer, w.wrapError(err)
 }
 
@@ -194,13 +194,11 @@ func (w *Writer) len(dw *domain.Writer) int64 {
 
 // Write validates and writes the given array.
 func (w *Writer) Write(series telem.Series) (a telem.AlignmentPair, err error) {
-	defer func() { err = w.wrapError(err) }()
-
 	if w.closed {
-		return 0, writerClosedError
+		return 0, w.wrapError(writerClosedError)
 	}
-	if err = w.Channel.ValidateSeries(series); err != nil {
-		return 0, err
+	if err := w.Channel.ValidateSeries(series); err != nil {
+		return 0, w.wrapError(err)
 	}
 	// ok signifies whether w is allowed to write.
 	dw, ok := w.control.Authorize()
@@ -215,7 +213,7 @@ func (w *Writer) Write(series telem.Series) (a telem.AlignmentPair, err error) {
 	if *w.Persist {
 		_, err = dw.Write(series.Data)
 	}
-	return
+	return a, w.wrapError(err)
 }
 
 func (w *Writer) SetPersist(persist bool) { w.Persist = config.Bool(persist) }
@@ -233,10 +231,8 @@ func (w *Writer) updateHwm(series telem.Series) {
 
 // Commit commits the written series to the database.
 func (w *Writer) Commit(ctx context.Context) (ts telem.TimeStamp, err error) {
-	defer func() { err = w.wrapError(err) }()
-
 	if w.closed {
-		err = writerClosedError
+		err = w.wrapError(writerClosedError)
 		return
 	}
 
@@ -245,16 +241,15 @@ func (w *Writer) Commit(ctx context.Context) (ts telem.TimeStamp, err error) {
 		return
 	}
 	ts, err = w.commitWithEnd(ctx, telem.TimeStamp(0))
-	return
+	return ts, w.wrapError(err)
 }
 
 func (w *Writer) CommitWithEnd(ctx context.Context, end telem.TimeStamp) (err error) {
-	defer func() { err = w.wrapError(err) }()
 	if w.closed {
-		return writerClosedError
+		return w.wrapError(writerClosedError)
 	}
 	_, err = w.commitWithEnd(ctx, end)
-	return err
+	return w.wrapError(err)
 }
 
 func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.TimeStamp, error) {
