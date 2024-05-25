@@ -9,7 +9,8 @@
     "build": "astro build",
     "postbuild": "pagefind --source .vercel/output --output-subdir ../../src/pages/pagefind",
     "preview": "astro preview",
-    "astro": "astro"
+    "astro": "astro",
+    "algolia": "node ./src/util/algoliasearch.js"
   },
   "dependencies": {
     "@astrojs/mdx": "^2.3.1",
