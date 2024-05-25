@@ -5,6 +5,7 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/x/telem"
 	"os"
+	"sort"
 )
 
 const tombstoneByteSize = 6
@@ -112,53 +113,47 @@ func (db *DB) GarbageCollect(ctx context.Context) error {
 		if tombstoneSize >= uint32(db.GCThreshold*float32(db.FileSize)) {
 			var (
 				fileName         = fileKeyToName(fileKey)
-				copyName         = fileName + "_gc"
 				newOffset uint32 = 0
+				pointers         = make([]*pointer, 0)
 			)
 
-			// Rename the old file.
-			if err := db.FS.Rename(fileName, copyName); err != nil {
-				db.idx.mu.Unlock()
-				return span.Error(err)
-			}
-
-			r, err := db.FS.Open(copyName, os.O_RDONLY)
+			f, err := db.FS.Open(fileName, os.O_RDWR)
 			if err != nil {
 				db.idx.mu.Unlock()
 				return span.Error(err)
 			}
 
-			// Open a new file.
-			f, err := db.FS.Open(fileName, os.O_CREATE|os.O_WRONLY)
-			if err != nil {
-				db.idx.mu.Unlock()
-				return span.Error(err)
-			}
-
-			// Find all pointers stored in the old file, and write them to the new file.
-			for i, ptr := range db.idx.mu.pointers {
+			// Find all pointers stored in the file, and sort them in order of offset.
+			for _, ptr := range db.idx.mu.pointers {
 				if ptr.fileKey == fileKey {
-					buf := make([]byte, ptr.length)
-					_, err = r.ReadAt(buf, int64(ptr.offset))
-					if err != nil {
-						db.idx.mu.Unlock()
-						return span.Error(err)
-					}
-
-					_, err = f.WriteAt(buf, int64(newOffset))
-					if err != nil {
-						db.idx.mu.Unlock()
-						return span.Error(err)
-					}
-
-					db.idx.mu.pointers[i].offset = newOffset
-					newOffset += ptr.length
+					pointers = append(pointers, &ptr)
 				}
 			}
 
-			if err = r.Close(); err != nil {
+			sort.Slice(pointers, func(i, j int) bool {
+				return pointers[i].offset < pointers[j].offset
+			})
+
+			for _, ptr := range pointers {
+				buf := make([]byte, int(ptr.length))
+				_, err = f.ReadAt(buf, int64(ptr.offset))
+				if err != nil {
+					db.idx.mu.Unlock()
+					return err
+				}
+				n, err := f.WriteAt(buf, int64(newOffset))
+				if err != nil {
+					db.idx.mu.Unlock()
+					return err
+				}
+
+				ptr.offset = newOffset
+				newOffset += uint32(n)
+			}
+
+			if err = f.Truncate(int64(newOffset)); err != nil {
 				db.idx.mu.Unlock()
-				return span.Error(err)
+				return err
 			}
 
 			if err = f.Close(); err != nil {
@@ -166,13 +161,9 @@ func (db *DB) GarbageCollect(ctx context.Context) error {
 				return span.Error(err)
 			}
 
-			if err = db.files.RemoveFileHandles(fileKey, fileName, copyName); err != nil {
-				db.idx.mu.Unlock()
-				return span.Error(err)
-			}
-
 			// Remove entry from tombstones.
 			delete(db.idx.mu.tombstones, fileKey)
+			db.files.rejuvenate(fileKey)
 		}
 	}
 
