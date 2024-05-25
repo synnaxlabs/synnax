@@ -233,14 +233,6 @@ public:
 
     TimeSpan operator*(const unsigned int &other) const { return TimeSpan(value * other); }
 
-    TimeSpan operator*(const double &other) const { return TimeSpan(value * other); }
-
-    TimeSpan operator*(const long &other) const { return TimeSpan(value * other); }
-
-    TimeSpan operator*(const unsigned long &other) const { return TimeSpan(value * other); }
-
-    TimeSpan operator*(const long long &other) const { return TimeSpan(value * other); }
-
     ////////////////////////////////// DIVISION /////////////////////////////////
 
     TimeSpan operator/(const TimeSpan &other) const {
