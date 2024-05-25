@@ -13,9 +13,7 @@ import (
 	"context"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/testutil"
-	"strconv"
 	"testing"
 )
 
@@ -23,10 +21,6 @@ var (
 	ctx         = context.Background()
 	fileSystems = testutil.FileSystems
 )
-
-func channelKeyToPath(key cesium.ChannelKey) string {
-	return strconv.Itoa(int(key))
-}
 
 func TestVersion(t *testing.T) {
 	RegisterFailHandler(Fail)

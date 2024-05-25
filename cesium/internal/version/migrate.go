@@ -19,6 +19,7 @@ import (
 
 var migrations = map[string]func(fs xfs.FS) error{
 	"12": migrate12,
+	"02": migrate12,
 }
 
 func Migrate(fs xfs.FS, oldVersion Version, newVersion Version) error {
