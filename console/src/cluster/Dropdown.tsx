@@ -124,7 +124,7 @@ export const List = (): ReactElement => {
             allowMultiple={false}
           >
             <CoreList.Core<string, Cluster> style={{ height: "100%", width: "100%" }}>
-              {(p) => <ListItem {...p} />}
+              {({ key, ...p }) => <ListItem key={key} {...p} />}
             </CoreList.Core>
           </CoreList.Selector>
         </CoreList.List>
