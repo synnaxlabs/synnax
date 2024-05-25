@@ -26,7 +26,7 @@ Control::Control(
     thread(nullptr),
     streamer_config(std::move(streamer_config)),
     sink(std::move(sink)),
-    cmd_breaker(breaker::Breaker(breaker_config)) {
+    breaker(breaker::Breaker(breaker_config)) {
 }
 
 

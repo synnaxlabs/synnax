@@ -55,7 +55,7 @@ private:
     std::unique_ptr<Sink> sink;
 
     /// @brief breaker
-    breaker::Breaker cmd_breaker;
+    breaker::Breaker breaker;
 
     void runInternal();
 
