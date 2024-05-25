@@ -7,7 +7,7 @@
       ],
       "outputs": [
         "dist/**",
-        "./vercel/**"
+        ".vercel/**"
       ]
     },
     "lint": {},
