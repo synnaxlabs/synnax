@@ -129,7 +129,7 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: driver
-          path: synnax/pkg/hardware/embedded/assets/driver${{ steps.executable.outputs.EXECUTABLE }}
+          path: synnax/pkg/hardware/embedded/assets
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -234,7 +234,7 @@ jobs:
         uses: actions/download-artifact@v2
         with:
           name: driver
-          path: synnax/pkg/hardware/embedded/assets/driver${{ steps.executable.outputs.EXECUTABLE }}
+          path: synnax/pkg/hardware/embedded/assets
 
 
       - name: Build Image
