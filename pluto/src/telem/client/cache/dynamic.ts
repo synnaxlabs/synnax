@@ -160,8 +160,10 @@ export class Dynamic {
     // rate currently in the buffer.
     if (this.totalWrites > 0) {
       let newRate = series.length / this.now().span(this.timeOfLastWrite).seconds;
-      this.avgRate =
-        (this.avgRate * (this.totalWrites - 1) + newRate) / this.totalWrites;
+      if (newRate > 0 && newRate < Infinity) {
+        this.avgRate =
+          (this.avgRate * (this.totalWrites - 1) + newRate) / this.totalWrites;
+      }
     }
     this.totalWrites++;
     this.timeOfLastWrite = this.now();
