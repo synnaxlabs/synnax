@@ -43,7 +43,17 @@ class MemInfo final : public task::Task {
     pipeline::Acquisition pipe;
 
 public:
-    MemInfo(
+    MemInfo( 
+        const std::shared_ptr<task::Context> &ctx,
+        std::shared_ptr<pipeline::Source> source,
+        const synnax::WriterConfig &writer_config,
+        const breaker::Config &breaker_config
+    ): pipe(pipeline::Acquisition(ctx, writer_config, source, breaker_config)) {
+        pipe.start();
+    }
+
+
+    static std::unique_ptr<task::Task> configure(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::Task &task
     ) {
@@ -57,7 +67,7 @@ public:
             );
             auto new_err = ctx->client->channels.create(ch);
         }
-        auto source = std::make_unique<MemInfoSource>(ch.key);
+        auto source = std::make_shared<MemInfoSource>(ch.key);
 
         auto writer_cfg = synnax::WriterConfig{
             .channels = {ch.key},
@@ -70,16 +80,7 @@ public:
             .max_retries = 20,
             .scale = 1.2
         };
-
-
-        // TODO: change this so that you are not using the acquisition pipeline copy constructor (follow ni pattern w/ configure)
-        // pipe = pipeline::Acquisition(
-        //     ctx,
-        //     writer_cfg,
-        //     std::move(source),
-        //     breaker_config
-        // );
-        // pipe.start();
+        return(std::make_unique<MemInfo>(ctx, std::move(source), writer_cfg, breaker_config));
     }
 
     void exec(task::Command &cmd) override {
@@ -96,7 +97,7 @@ class Factory final : public task::Factory {
         const synnax::Task &task
     ) override {
         if (task.type == "meminfo")
-            return {std::make_unique<MemInfo>(ctx, task), true};
+            return {MemInfo::configure(ctx,task), true};
         return {nullptr, false};
     }
 
