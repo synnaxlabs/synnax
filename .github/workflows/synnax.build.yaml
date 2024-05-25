@@ -122,12 +122,13 @@ jobs:
             echo "EXECUTABLE=.exe" >> $GITHUB_OUTPUT
           fi
 
-      - name: rename driver
-        run: mv bazel-bin/driver/driver_main${{ steps.executable.outputs.EXECUTABLE }} synnax/pkg/hardware/embedded/assets/driver${{ steps.executable.outputs.EXECUTABLE }}
-        
       - name: Move Driver
-        run: cp bazel-bin/driver/driver${{ steps.executable.outputs.EXECUTABLE }} synnax/pkg/hardware/embedded/assets/
+        run: mv bazel-bin/driver/driver_main${{ steps.executable.outputs.EXECUTABLE }} synnax/pkg/hardware/embedded/assets/
       
+      - name: Rename Driver
+        run: mv synnax/pkg/hardware/embedded/assets/driver_main${{ steps.executable.outputs.EXECUTABLE }} synnax/pkg/hardware/embedded/assets/driver${{ steps.executable.outputs.EXECUTABLE }}
+
+
       - name: Upload Driver Artifact
         uses: actions/upload-artifact@v2
         with:
