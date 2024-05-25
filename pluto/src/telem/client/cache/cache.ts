@@ -9,7 +9,7 @@ import {
 import { Unary } from "@/telem/client/cache/unary";
 import { DynamicProps } from "@/telem/client/cache/dynamic";
 
-export const CACHE_BUFFER_SIZE = 10000;
+export const CACHE_BUFFER_SIZE: TimeSpan = TimeSpan.seconds(60);
 
 /** Props for instantiating an @see Cache */
 export interface CacheProps
