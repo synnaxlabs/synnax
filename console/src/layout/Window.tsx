@@ -13,7 +13,6 @@ import { closeWindow, setWindowDecorations } from "@synnaxlabs/drift";
 import { useSelectWindowAttribute, useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Logo } from "@synnaxlabs/media";
 import { Nav, OS, Align, Menu as PMenu, Text } from "@synnaxlabs/pluto";
-// import { appWindow } from "@tauri-apps/api/window";
 import { useDispatch } from "react-redux";
 
 import { Controls, Menu } from "@/components";
@@ -31,7 +30,7 @@ export interface NavTopProps extends Pick<WindowProps, "showTitle" | "navTop"> {
 
 export const NavTop = ({
   title,
-  showTitle,
+  showTitle = true,
   navTop,
 }: NavTopProps): ReactElement | null => {
   const os = OS.use();

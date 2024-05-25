@@ -37,6 +37,7 @@ export const ItemFrame = <K extends Key, E extends Keyed<K>>({
   highlightHovered = false,
   translate,
   style,
+  sourceIndex: _,
   ...props
 }: ItemFrameProps<K, E>): ReactElement => (
   <Align.Space

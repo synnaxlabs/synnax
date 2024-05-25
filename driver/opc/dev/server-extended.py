@@ -45,9 +45,10 @@ async def main():
     myobj = await server.nodes.objects.add_object(idx, "MyObject")
 
     # Add different types of variables
-    myval = await myobj.add_variable(idx, "MyVariable", 6.7)
-    myarray = await myobj.add_variable(idx, "MyArray", [1, 2, 3, 4, 5, 6, 7, 8], ua.VariantType.Float)
-    mytimearray = await myobj.add_variable(idx, "MyTimeArray", [
+    myval = await myobj.add_variable(idx, "my_var_1", 6.7)
+    myarray = await myobj.add_variable(idx, "my_array", [1, 2, 3, 4, 5, 6, 7, 8], ua.VariantType.Float)
+    my_int_array = await myobj.add_variable(idx, "my_int_array", [1, 2, 3, 4, 5, 6, 7, 8], ua.VariantType.Int32)
+    mytimearray = await myobj.add_variable(idx, "my_time_array", [
         datetime.datetime.utcnow(),
         datetime.datetime.utcnow() + datetime.timedelta(milliseconds=1),
         datetime.datetime.utcnow() + datetime.timedelta(milliseconds=2),
@@ -62,12 +63,15 @@ async def main():
     myarray.set_writable()
     mytimearray.set_writable()
 
-    RATE = 36*20*6
-    ARRAY_SIZE = 40*4
+    RATE = 36*20*12
+    ARRAY_SIZE = 40*8
     mytimearray.write_array_dimensions([ARRAY_SIZE])
     myarray.write_array_dimensions([ARRAY_SIZE])
 
-    # Update values every second
+    for i in range(100):
+        # add 30 float variables t OPC
+        await myobj.add_variable(idx, f"my_float_{i}", i)
+
     i = 0
     start_ref = datetime.datetime.utcnow()
     async with server:

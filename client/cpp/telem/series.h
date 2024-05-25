@@ -11,7 +11,6 @@
 
 #include "client/cpp/telem/telem.h"
 #include "x/go/telem/x/go/telem/telem.pb.h"
-#include <memory>
 #include <string>
 #include <vector>
 #include <cstddef>
@@ -185,9 +184,8 @@ public:
 
     template<typename NumericType>
     NumericType at(int index) const {
-        // std::cout << "INDEX YBC: " << index << "ABY" << index >= length() << std::endl;
-        // if (index >= length())
-        //     throw std::runtime_error("index" + std::to_string(index) + " out of bounds for series");
+        if (index >= length())
+            throw std::runtime_error("index" + std::to_string(index) + " out of bounds for series");
         if (index < 0) index = static_cast<int>(length()) + index;
         NumericType value;
         memcpy(&value, data.get() + index * data_type.density(), data_type.density());

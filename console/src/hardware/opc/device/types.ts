@@ -47,7 +47,6 @@ export const channelConfigZ = nodeProperties
   })
   .superRefine((data, ctx) => {
     if (data.isIndex && data.dataType !== "timestamp") {
-      console.log(data.dataType);
       ctx.addIssue({
         code: "custom",
         path: ["dataType"],
@@ -67,7 +66,6 @@ export const groupConfigZ = z
   })
   .superRefine((data, ctx) => {
     const indexes: [ChannelConfig, number][] = [];
-    console.log("ABC");
     data.channels.forEach((channel, i) => {
       if (channel.isIndex) indexes.push([channel, i]);
     });

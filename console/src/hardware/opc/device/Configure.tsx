@@ -100,7 +100,7 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
   const testConnection = useMutation({
     mutationKey: [client?.key],
     mutationFn: async () => {
-      if (!(await methods.validateAsync()) || client == null) return;
+      if (!(await methods.validateAsync("connection")) || client == null) return;
       const rack = await client.hardware.racks.retrieve("sy_node_1_rack");
       const task = await rack.retrieveTaskByName("opc Scanner");
       return await task.executeCommandSync<{ message: string }>(
@@ -132,18 +132,19 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
               key: nanoid(),
               name: "Group 1",
               channels: [
+                {
+                  key: nanoid(),
+                  name: "group_1_time",
+                  dataType: "timestamp",
+                  nodeId: "",
+                  isIndex: true,
+                  isArray: false,
+                },
                 ...deviceProperties.channels.map((c) => ({
                   ...c,
                   key: nanoid(),
                   isIndex: false,
                 })),
-                {
-                  key: nanoid(),
-                  name: "Time",
-                  dataType: "timestamp",
-                  isIndex: true,
-                  isArray: false,
-                },
               ],
             },
           ],
@@ -193,11 +194,13 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
         });
         setProgress(`Creating channels for ${group.name}...`);
         await client.channels.create(
-          group.channels.filter((c) => !c.isIndex).map((c) => ({
-            name: c.name,
-            dataType: new DataType(c.dataType).toString(),
-            index: idx.key,
-          })),
+          group.channels
+            .filter((c) => !c.isIndex)
+            .map((c) => ({
+              name: c.name,
+              dataType: new DataType(c.dataType).toString(),
+              index: idx.key,
+            })),
         );
       }
     },
