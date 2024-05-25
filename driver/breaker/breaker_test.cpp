@@ -41,3 +41,19 @@ TEST(BreakerTests, testBreakerPrematureShutdown){
     b.close();
     t.join();
 }
+
+
+
+
+//@brief it should correctly shutdown before expending the max number of requests
+TEST(BreakerTests, testDestructorShuttingDown){
+    // create a unique pointer to a breaker
+    auto b = std::make_unique<breaker::Breaker>(breaker::Config{"my-breaker", 1*SECOND, 10, 1});
+    //create a new thread
+    std::thread t(&helper, std::ref(*b));
+    //sleep a couple seconds
+    std::this_thread::sleep_for(std::chrono::seconds(4));
+    // destroy the object using the unique pointer
+    b.reset();
+
+}

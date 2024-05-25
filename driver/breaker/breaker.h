@@ -80,6 +80,13 @@ public:
         return *this;
     }
 
+    // destuctor
+    ~Breaker() {
+        std::cout << "Destructor called" << std::endl;
+        close();
+        // sleep to allow for the breaker to shutdown.
+        std::this_thread::sleep_for(std::chrono::milliseconds(10)); 
+    }
     
 
     /// @brief triggers the breaker. If the maximum number of retries has been exceeded,

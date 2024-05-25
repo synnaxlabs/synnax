@@ -94,7 +94,6 @@ freighter::Error task::Manager::stop() {
     streamer->closeSend();
     run_thread.join();
     for (auto &[key, task]: tasks) task->stop();
-    breaker.close();
     LOG(INFO) << "[task.manager] shut down";
     return run_err;
 }

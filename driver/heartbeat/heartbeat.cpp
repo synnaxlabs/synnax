@@ -46,7 +46,6 @@ freighter::Error heartbeat::Heartbeat::stop() {
     running.wait(false);
     running = false;
     run_thread.join();
-    breaker.close();
     LOG(INFO) << "[heartbeat] shut down";
     return run_err;
 }
