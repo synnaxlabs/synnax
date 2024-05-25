@@ -115,6 +115,24 @@ export const List = (): ReactElement => {
     })();
   };
 
+  const NoRanges = (): ReactElement => {
+    const handleLinkClick: React.MouseEventHandler<HTMLParagraphElement> = (e) => {
+      e.stopPropagation();
+      handleAddOrEdit();
+    };
+
+    return (
+      <Align.Space empty style={{ height: "100%", position: "relative" }}>
+        <Align.Center direction="y" style={{ height: "100%" }} size="small">
+          <Text.Text level="p">No ranges added.</Text.Text>
+          <Text.Link level="p" onClick={handleLinkClick}>
+            Add a range
+          </Text.Link>
+        </Align.Center>
+      </Align.Space>
+    );
+  };
+
   const ContextMenu = ({
     keys: [key],
   }: PMenu.ContextMenuMenuProps): ReactElement | null => {
@@ -155,9 +173,11 @@ export const List = (): ReactElement => {
                 Delete
               </PMenu.Item>
             ) : (
-              <PMenu.Item startIcon={<Icon.Save />} size="small" itemKey="save">
-                Save to Synnax
-              </PMenu.Item>
+              client !== null && (
+                <PMenu.Item startIcon={<Icon.Save />} size="small" itemKey="save">
+                  Save to Synnax
+                </PMenu.Item>
+              )
             )}
           </>
         )}
@@ -175,22 +195,21 @@ export const List = (): ReactElement => {
 
   return (
     <PMenu.ContextMenu menu={(p) => <ContextMenu {...p} />} {...menuProps}>
-      <div style={{ flexGrow: 1 }}>
-        <Core.List<string, StaticRange>
-          data={ranges.filter((r) => r.variant === "static") as StaticRange[]}
+      <Core.List<string, StaticRange>
+        data={ranges.filter((r) => r.variant === "static") as StaticRange[]}
+        emptyContent={<NoRanges />}
+      >
+        <Core.Selector
+          value={selectedRange?.key ?? null}
+          onChange={handleSelect}
+          allowMultiple={false}
+          allowNone={true}
         >
-          <Core.Selector
-            value={selectedRange?.key ?? null}
-            onChange={handleSelect}
-            allowMultiple={false}
-            allowNone={true}
-          >
-            <Core.Core style={{ height: "100%", overflowX: "hidden" }}>
-              {componentRenderProp(ListItem)}
-            </Core.Core>
-          </Core.Selector>
-        </Core.List>
-      </div>
+          <Core.Core style={{ height: "100%", overflowX: "hidden" }}>
+            {componentRenderProp(ListItem)}
+          </Core.Core>
+        </Core.Selector>
+      </Core.List>
     </PMenu.ContextMenu>
   );
 };
