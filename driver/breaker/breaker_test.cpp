@@ -19,6 +19,7 @@ void helper(breaker::Breaker &b){
 TEST(BreakerTests, testBreaker)
 {
     auto b = breaker::Breaker(breaker::Config{"my-breaker", 1*SECOND, 1, 1});
+    b.start();
     ASSERT_TRUE(b.wait("testBreaker breaker"));
     ASSERT_FALSE(b.wait("testBreaker breaker"));
 }
@@ -26,19 +27,21 @@ TEST(BreakerTests, testBreaker)
 //@brief it should correctly expend max number of requests
 TEST(BreakerTests, testBreakRetries){
     auto b = breaker::Breaker(breaker::Config{"my-breaker", 1*SECOND, 10, 1.1});
-
+    b.start();
     //create a new thread
     while(b.wait("testBreakRetries breaker"));
+    b.stop();
 }
 
 //@brief it should correctly shutdown before expending the max number of requests
 TEST(BreakerTests, testBreakerPrematureShutdown){
     auto b = breaker::Breaker(breaker::Config{"my-breaker", 1*SECOND, 10, 1});
+    b.start();
     //create a new thread
     std::thread t(&helper, std::ref(b));
     //sleep a couple seconds
     std::this_thread::sleep_for(std::chrono::seconds(4));
-    b.close();
+    b.stop();
     t.join();
 }
 
@@ -49,6 +52,7 @@ TEST(BreakerTests, testBreakerPrematureShutdown){
 TEST(BreakerTests, testDestructorShuttingDown){
     // create a unique pointer to a breaker
     auto b = std::make_unique<breaker::Breaker>(breaker::Config{"my-breaker", 1*SECOND, 10, 1});
+    b->start();
     //create a new thread
     std::thread t(&helper, std::ref(*b));
     //sleep a couple seconds
