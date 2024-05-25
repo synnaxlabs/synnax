@@ -10,7 +10,8 @@
 import { DataType, Series, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { Dynamic } from "@/telem/client/cache/dynamic";
+import { Dynamic, DynamicWriteResponse } from "@/telem/client/cache/dynamic";
+import { count } from "mathjs";
 
 describe("DynamicCache", () => {
   describe("write", () => {
@@ -116,7 +117,7 @@ describe("DynamicCache", () => {
       expect(f2).toHaveLength(1);
       expect(a2).toHaveLength(1);
     });
-    it("in the smae write, it should allocate a new buffer if the two series are out of alignment", () => {
+    it("in the same write, it should allocate a new buffer if the two series are out of alignment", () => {
       const cache = new Dynamic({ dynamicBufferSize: 10, dataType: DataType.FLOAT32 });
       const s1 = new Series({
         data: new Float32Array([1, 2, 3]),
@@ -131,6 +132,37 @@ describe("DynamicCache", () => {
       expect(allocated[1].timeRange.end.valueOf()).toEqual(TimeStamp.MAX.valueOf());
       expect(flushed[0]).toBe(allocated[0]);
       expect(allocated).toHaveLength(2);
+    });
+    it("should allocate a buffer properly using a TimeSpan", () => {
+      let nowF = () => TimeStamp.seconds(1);
+      const now = () => {
+        return nowF();
+      };
+      const cache = new Dynamic({
+        dynamicBufferSize: TimeSpan.minutes(5),
+        dataType: DataType.FLOAT32,
+        testingNow: now,
+      });
+
+      let d!: DynamicWriteResponse;
+      let arr = new Series({
+        data: new Float32Array([1, 2, 3]),
+        dataType: DataType.FLOAT32,
+      });
+
+      const res1 = cache.write([arr]);
+      expect(res1.allocated).toHaveLength(1);
+      expect(res1.flushed).toHaveLength(0);
+      nowF = () => TimeStamp.seconds(2);
+      const res2 = cache.write([arr.reAlign(3n)]);
+      expect(res2.allocated).toHaveLength(0);
+      expect(res2.flushed).toHaveLength(0);
+
+      nowF = () => TimeStamp.seconds(3);
+      const res3 = cache.write([arr.reAlign(6n)]);
+      expect(res3.allocated).toHaveLength(0);
+      expect(res3.flushed).toHaveLength(0);
+      expect(cache.length).toBe(9);
     });
   });
 });
