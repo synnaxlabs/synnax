@@ -173,7 +173,7 @@ export const List = (): ReactElement => {
                 Delete
               </PMenu.Item>
             ) : (
-              client !== null && (
+              client != null && (
                 <PMenu.Item startIcon={<Icon.Save />} size="small" itemKey="save">
                   Save to Synnax
                 </PMenu.Item>
