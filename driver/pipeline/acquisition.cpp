@@ -28,7 +28,7 @@ Acquisition::Acquisition(
 
 void Acquisition::start() {
     LOG(INFO) << "[acquisition] Acquisition started";
-    if(!breaker.running()) return;
+    if(breaker.running()) return;
     if (this->thread != nullptr && thread->joinable() && std::this_thread::get_id() != thread->get_id())
         this->thread->join();
     breaker.start();    

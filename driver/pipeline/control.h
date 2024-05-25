@@ -34,9 +34,6 @@ public:
         const breaker::Config &breaker_config
     );
 
-    ~Control() {
-        cmd_breaker.close();
-    }
     
     void start();
     void stop();

@@ -43,9 +43,6 @@ public:
         const breaker::Config &breaker_config
     );
 
-    ~Acquisition() {
-        breaker.close();
-    }
 
 private:
     /// @brief context for issuing state updates to the task.
