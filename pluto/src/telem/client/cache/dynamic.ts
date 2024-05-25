@@ -167,6 +167,8 @@ export class Dynamic {
       this.avgRate =
         (this.avgRate * (this.totalWrites - 1) + newRate) / this.totalWrites;
     this.totalWrites++;
+    if (this.totalWrites % 50 === 0)
+      console.log(`Dynamic cache avg rate: ${this.avgRate}`, this.nextBufferSize());
     this.timeOfLastWrite = this.now();
   }
 
@@ -175,7 +177,7 @@ export class Dynamic {
     if (typeof dynamicBufferSize === "number") return dynamicBufferSize;
     if (this.totalWrites < MAX_DEF_WRITES) return DEF_SIZE;
     const size = this.avgRate * dynamicBufferSize.seconds;
-    return Math.max(Math.min(size, MAX_SIZE), MIN_SIZE);
+    return Math.round(Math.max(Math.min(size, MAX_SIZE), MIN_SIZE));
   }
 
   /**
