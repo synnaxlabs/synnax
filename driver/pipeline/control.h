@@ -42,7 +42,6 @@ private:
     std::shared_ptr<task::Context> ctx;
 
     /// @brief writer thread.
-    volatile bool running = false;
     std::unique_ptr<std::thread> thread;
 
     /// @brief synnax writer
