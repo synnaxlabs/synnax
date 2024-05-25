@@ -9,11 +9,10 @@
 
 import { type ReactElement, useEffect } from "react";
 
-import { closeWindow, setWindowDecorations } from "@synnaxlabs/drift";
+import { setWindowDecorations } from "@synnaxlabs/drift";
 import { useSelectWindowAttribute, useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Logo } from "@synnaxlabs/media";
 import { Nav, OS, Align, Menu as PMenu, Text } from "@synnaxlabs/pluto";
-// import { appWindow } from "@tauri-apps/api/window";
 import { useDispatch } from "react-redux";
 
 import { Controls, Menu } from "@/components";
@@ -96,9 +95,7 @@ export const Window = (): ReactElement | null => {
   }, [os]);
   const menuProps = PMenu.useContextMenu();
   const maximized = useSelectWindowAttribute(win, "maximized") ?? false;
-  if (layout == null) {
-    return <h1>{win ?? getCurrent().label}</h1>;
-  }
+  if (layout == null) return null;
   const content = <Content layoutKey={layout.key} />;
   return (
     <PMenu.ContextMenu menu={() => <DefaultContextMenu />} {...menuProps}>
