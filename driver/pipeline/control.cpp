@@ -32,7 +32,7 @@ Control::Control(
 
 void Control::start() {
     if (this->running) return;
-    if (thread->joinable() && std::this_thread::get_id() != thread->get_id())
+    if (this->thread != nullptr && thread->joinable() && std::this_thread::get_id() != thread->get_id())
         thread->join();
     this->running = true;
     thread = std::make_unique<std::thread>(&Control::run, this);
@@ -41,7 +41,7 @@ void Control::start() {
 void Control::stop() {
     if(!running) return;
     this->running = false;
-    if (thread->joinable() && std::this_thread::get_id() != thread->get_id()) {
+    if (this->thread != nullptr && thread->joinable() && std::this_thread::get_id() != thread->get_id()) {
         thread->join();
     };
     this->streamer->closeSend();
