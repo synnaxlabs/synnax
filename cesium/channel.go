@@ -70,10 +70,7 @@ func (db *DB) RetrieveChannel(_ context.Context, key ChannelKey) (Channel, error
 	return Channel{}, core.NewErrChannelNotFound(key)
 }
 
-// RenameChannel implements DB.
-// There is a race condition here: one could rename a channel while it is being read or
-// streamed from or written to. We choose to not address this since the name is purely
-// decorative in Cesium whereas the key is the unique identifier.
+// RenameChannel renames the channel with the specified key to newName.
 func (db *DB) RenameChannel(_ context.Context, key ChannelKey, newName string) error {
 	if db.closed.Load() {
 		return ErrDBClosed
@@ -84,6 +81,10 @@ func (db *DB) RenameChannel(_ context.Context, key ChannelKey, newName string) e
 
 	udb, uok := db.unaryDBs[key]
 	if uok {
+		// There is a race condition here: one could rename a channel while it is being
+		// read or  streamed from or written to. We choose to not address this since
+		// the name is purely decorative in Cesium and not used to identify channels
+		// whereas the key is the unique identifier. The same goes for the virtual database.
 		if udb.Channel.Name == newName {
 			return nil
 		}
