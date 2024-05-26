@@ -11,6 +11,9 @@
 
 .console-main-nav-top {
     max-width: 100vw;
+    & > * *:not(.pluto-text) {
+        -webkit-app-region: no-drag;
+    }
 }
 
 .pluto-navbar__content {

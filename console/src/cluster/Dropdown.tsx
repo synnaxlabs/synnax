@@ -65,7 +65,7 @@ export const List = (): ReactElement => {
 
       return (
         <PMenu.Menu level="small" onChange={handleSelect}>
-          {key !== LOCAL_KEY && (
+          {key !== null && (
             <PMenu.Item startIcon={<Icon.Delete />} size="small" itemKey="remove">
               Remove
             </PMenu.Item>
@@ -124,7 +124,7 @@ export const List = (): ReactElement => {
             allowMultiple={false}
           >
             <CoreList.Core<string, Cluster> style={{ height: "100%", width: "100%" }}>
-              {(p) => <ListItem {...p} />}
+              {({ key, ...p }) => <ListItem key={key} {...p} />}
             </CoreList.Core>
           </CoreList.Selector>
         </CoreList.List>
