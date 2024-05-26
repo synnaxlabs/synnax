@@ -124,9 +124,9 @@ func (db *DB) GarbageCollect(ctx context.Context) error {
 			}
 
 			// Find all pointers stored in the file, and sort them in order of offset.
-			for _, ptr := range db.idx.mu.pointers {
+			for i, ptr := range db.idx.mu.pointers {
 				if ptr.fileKey == fileKey {
-					pointers = append(pointers, &ptr)
+					pointers = append(pointers, &db.idx.mu.pointers[i])
 				}
 			}
 
@@ -153,7 +153,7 @@ func (db *DB) GarbageCollect(ctx context.Context) error {
 
 			if err = f.Truncate(int64(newOffset)); err != nil {
 				db.idx.mu.Unlock()
-				return err
+				return span.Error(err)
 			}
 
 			if err = f.Close(); err != nil {
@@ -163,7 +163,11 @@ func (db *DB) GarbageCollect(ctx context.Context) error {
 
 			// Remove entry from tombstones.
 			delete(db.idx.mu.tombstones, fileKey)
-			db.files.rejuvenate(fileKey)
+			err = db.files.rejuvenate(fileKey)
+			if err != nil {
+				db.idx.mu.Unlock()
+				return span.Error(err)
+			}
 		}
 	}
 

@@ -89,7 +89,7 @@ var _ = Describe("Index Persist", Ordered, func() {
 					Expect(i.SeekFirst(ctx)).To(BeFalse())
 				})
 
-				FIt("Should persist tombstones", func() {
+				It("Should persist tombstones", func() {
 					By("Writing some data")
 					Expect(domain.Write(ctx, db, (10 * telem.SecondTS).Range(15*telem.SecondTS+1), []byte{10, 11, 12, 13, 14, 15})).To(Succeed())
 					Expect(domain.Write(ctx, db, (20 * telem.SecondTS).Range(23*telem.SecondTS+1), []byte{20, 21, 22, 23})).To(Succeed())
