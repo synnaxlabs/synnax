@@ -71,6 +71,9 @@ func (db *DB) RetrieveChannel(_ context.Context, key ChannelKey) (Channel, error
 }
 
 // RenameChannel implements DB.
+// There is a race condition here: one could rename a channel while it is being read or
+// streamed from or written to. We choose to not address this since the name is purely
+// decorative in Cesium whereas the key is the unique identifier.
 func (db *DB) RenameChannel(_ context.Context, key ChannelKey, newName string) error {
 	if db.closed.Load() {
 		return ErrDBClosed
