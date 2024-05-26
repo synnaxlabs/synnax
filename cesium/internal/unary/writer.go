@@ -125,7 +125,7 @@ type Writer struct {
 }
 
 func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (w *Writer, transfer controller.Transfer, err error) {
-	if db.mu.closed() {
+	if db.closed.Load() {
 		return nil, transfer, db.wrapError(ErrDBClosed)
 	}
 

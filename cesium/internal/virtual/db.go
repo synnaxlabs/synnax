@@ -18,6 +18,7 @@ import (
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	"sync"
+	"sync/atomic"
 )
 
 type controlEntity struct {
@@ -27,29 +28,23 @@ type controlEntity struct {
 
 func (e *controlEntity) ChannelKey() core.ChannelKey { return e.ck }
 
-type dbState struct {
+type openEntityCount struct {
 	sync.RWMutex
 	openWriters int
-	isClosed    bool
 }
 
-func (s *dbState) add(delta int) {
+func (s *openEntityCount) add(delta int) {
 	s.Lock()
 	s.openWriters += delta
 	s.Unlock()
 }
 
-func (s *dbState) closed() bool {
-	s.RLock()
-	defer s.RUnlock()
-	return s.isClosed
-}
-
 type DB struct {
 	Config
 	controller *controller.Controller[*controlEntity]
-	mu         *dbState
+	mu         *openEntityCount
 	wrapError  func(error) error
+	closed     *atomic.Bool
 }
 
 var dbClosed = core.EntityClosed("virtual.db")
@@ -69,7 +64,8 @@ func Open(cfg Config) (db *DB, err error) {
 		Config:     cfg,
 		controller: c,
 		wrapError:  core.NewErrorWrapper(cfg.Channel.Key, cfg.Channel.Name),
-		mu:         &dbState{},
+		mu:         &openEntityCount{},
+		closed:     &atomic.Bool{},
 	}, nil
 }
 
@@ -78,7 +74,7 @@ func (db *DB) LeadingControlState() *controller.State {
 }
 
 func (db *DB) Close() error {
-	if db.mu.closed() {
+	if db.closed.Load() {
 		return nil
 	}
 	db.mu.RLock()
@@ -87,6 +83,6 @@ func (db *DB) Close() error {
 		return db.wrapError(errors.Newf(fmt.Sprintf("cannot close channel because there are %d unclosed writers accessing it", db.mu.openWriters)))
 	}
 
-	db.mu.isClosed = true
+	db.closed.Swap(true)
 	return nil
 }

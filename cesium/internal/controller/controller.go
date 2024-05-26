@@ -346,7 +346,7 @@ func (c *Controller[E]) OpenAbsoluteGateIfUncontrolled(tr telem.TimeRange, s con
 			r.Lock()
 			if r.curr != nil {
 				r.Unlock()
-				return nil, t, errors.Newf("cannot create a gate on the region %s because it is already controlled by [%s]<%s>", r.timeRange, r.curr.Subject.Name, r.curr.Subject.Key)
+				return nil, t, errors.Newf("cannot create a gate on the region %s because it is already controlled by %s", r.timeRange, r.curr.Subject)
 			}
 
 			g = &Gate[E]{

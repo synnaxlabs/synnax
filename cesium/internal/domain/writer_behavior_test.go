@@ -102,7 +102,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						_, err := db.NewWriter(ctx, domain.WriterConfig{
 							Start: 10 * telem.SecondTS,
 						})
-						Expect(err).To(HaveOccurredAs(domain.ErrDomainOverlap))
+						Expect(err).To(HaveOccurredAs(domain.ErrWriteConflict))
 					})
 				})
 			})
@@ -280,7 +280,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							Start: 4 * telem.SecondTS,
 						}))
 						MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
-						Expect(w.Commit(ctx, 15*telem.SecondTS)).To(HaveOccurredAs(domain.ErrDomainOverlap))
+						Expect(w.Commit(ctx, 15*telem.SecondTS)).To(HaveOccurredAs(domain.ErrWriteConflict))
 						Expect(w.Close(ctx)).To(Succeed())
 					})
 					It("Should fail to commit an update to a writer", func() {
@@ -295,7 +295,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						}))
 						MustSucceed(w.Write([]byte{1, 2, 3, 4}))
 						Expect(w.Commit(ctx, 8*telem.SecondTS)).To(Succeed())
-						Expect(w.Commit(ctx, 15*telem.SecondTS)).To(HaveOccurredAs(domain.ErrDomainOverlap))
+						Expect(w.Commit(ctx, 15*telem.SecondTS)).To(HaveOccurredAs(domain.ErrWriteConflict))
 						Expect(w.Close(ctx)).To(Succeed())
 					})
 				})
@@ -387,7 +387,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						})
 						Expect(occurred).To(HaveLen(writerCount - 1))
 						for _, err := range occurred {
-							Expect(err).To(HaveOccurredAs(domain.ErrDomainOverlap))
+							Expect(err).To(HaveOccurredAs(domain.ErrWriteConflict))
 						}
 					})
 				})

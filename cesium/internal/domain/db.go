@@ -21,18 +21,19 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
+	"sync/atomic"
 )
 
 var (
-	// ErrDomainOverlap is returned when a domain overlaps with an existing domain in the DB.
-	ErrDomainOverlap = errors.Wrap(validate.Error, "domain overlaps with an existing domain")
+	// ErrWriteConflict is returned when a domain overlaps with an existing domain in the DB.
+	ErrWriteConflict = errors.Wrap(validate.Error, "write conflicts with existing timerange in database")
 	// ErrRangeNotFound is returned when a requested domain is not found in the DB.
-	ErrRangeNotFound = errors.Wrap(query.NotFound, "domain not found")
+	ErrRangeNotFound = errors.Wrap(query.NotFound, "timerange not found")
 	errDBClosed      = core.EntityClosed("domain.db")
 )
 
-func NewErrDomainOverlap(tr1, tr2 telem.TimeRange) error {
-	return errors.Wrapf(ErrDomainOverlap, "%s overlaps with domain %s", tr1, tr2)
+func NewErrWriteConflict(tr1, tr2 telem.TimeRange) error {
+	return errors.Wrapf(ErrWriteConflict, "write overlaps on timerange %v", tr1.Intersect(tr2))
 }
 
 func NewErrRangeNotFound(tr telem.TimeRange) error {
@@ -62,7 +63,7 @@ type DB struct {
 	Config
 	idx    *index
 	files  *fileController
-	closed bool
+	closed *atomic.Bool
 }
 
 // Config is the configuration for opening a DB.
@@ -135,7 +136,7 @@ func Open(configs ...Config) (*DB, error) {
 		return nil, err
 	}
 
-	return &DB{Config: cfg, idx: idx, files: controller}, nil
+	return &DB{Config: cfg, idx: idx, files: controller, closed: &atomic.Bool{}}, nil
 }
 
 // NewIterator opens a new invalidated Iterator using the given configuration.
@@ -160,7 +161,7 @@ func (db *DB) newReader(ctx context.Context, ptr pointer) (*Reader, error) {
 }
 
 func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) {
-	if db.closed {
+	if db.closed.Load() {
 		return false, errDBClosed
 	}
 	i := db.NewIterator(IteratorConfig{Bounds: telem.TimeRangeMax})
@@ -177,10 +178,10 @@ func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) 
 
 // Close closes the DB. Close should not be called concurrently with any other DB methods.
 func (db *DB) Close() error {
-	if db.closed {
+	if !db.closed.CompareAndSwap(false, true) {
 		return nil
 	}
-	db.closed = true
+
 	w := errors.NewCatcher(errors.WithAggregation())
 	w.Exec(db.files.close)
 	w.Exec(db.idx.close)

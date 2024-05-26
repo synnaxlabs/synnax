@@ -59,7 +59,7 @@ type Streamer = confluence.Segment[StreamerRequest, StreamerResponse]
 // opening the streamer, and cancelling it has no implications after NewStreamer
 // returns.
 func (db *DB) NewStreamer(_ context.Context, cfg StreamerConfig) (Streamer, error) {
-	if db.mu.closed() {
+	if db.closed.Load() {
 		return nil, ErrDBClosed
 	}
 

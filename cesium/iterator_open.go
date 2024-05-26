@@ -16,7 +16,7 @@ import (
 )
 
 func (db *DB) OpenIterator(cfg IteratorConfig) (*Iterator, error) {
-	if db.mu.closed() {
+	if db.closed.Load() {
 		return nil, ErrDBClosed
 	}
 
@@ -29,7 +29,7 @@ func (db *DB) OpenIterator(cfg IteratorConfig) (*Iterator, error) {
 }
 
 func (db *DB) NewStreamIterator(cfg IteratorConfig) (StreamIterator, error) {
-	if db.mu.closed() {
+	if db.closed.Load() {
 		return nil, ErrDBClosed
 	}
 	return db.newStreamIterator(cfg)

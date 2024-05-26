@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"sync"
+	"sync/atomic"
 )
 
 type controlledWriter struct {
@@ -30,22 +31,15 @@ type controlledWriter struct {
 
 func (w controlledWriter) ChannelKey() core.ChannelKey { return w.channelKey }
 
-type dbState struct {
+type openEntityCount struct {
 	sync.RWMutex
 	openIteratorWriters int
-	isClosed            bool
 }
 
-func (c *dbState) add(delta int) {
+func (c *openEntityCount) add(delta int) {
 	c.Lock()
 	c.openIteratorWriters += delta
 	c.Unlock()
-}
-
-func (c *dbState) closed() bool {
-	c.RLock()
-	defer c.RUnlock()
-	return c.isClosed
 }
 
 type DB struct {
@@ -53,8 +47,9 @@ type DB struct {
 	Domain     *domain.DB
 	Controller *controller.Controller[controlledWriter]
 	_idx       index.Index
-	mu         *dbState
+	mu         *openEntityCount
 	wrapError  func(error) error
+	closed     *atomic.Bool
 }
 
 var ErrDBClosed = core.EntityClosed("unary.db")
@@ -114,7 +109,7 @@ func (db *DB) OpenIterator(cfg IteratorConfig) *Iterator {
 // overlaps with the given timerange. Note that this function will return false if there
 // is an open writer that could write into the requested timerange
 func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) {
-	if db.mu.closed() {
+	if db.closed.Load() {
 		return false, ErrDBClosed
 	}
 	g, _, err := db.Controller.OpenAbsoluteGateIfUncontrolled(tr, control.Subject{Key: "Delete Writer"}, func() (controlledWriter, error) {
@@ -142,7 +137,7 @@ func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) 
 func (db *DB) Read(ctx context.Context, tr telem.TimeRange) (frame core.Frame, err error) {
 	defer func() { err = db.wrapError(err) }()
 
-	if db.mu.closed() {
+	if db.closed.Load() {
 		return frame, ErrDBClosed
 	}
 	iter := db.OpenIterator(IterRange(tr))
@@ -160,7 +155,7 @@ func (db *DB) Read(ctx context.Context, tr telem.TimeRange) (frame core.Frame, e
 }
 
 func (db *DB) Close() error {
-	if db.mu.closed() {
+	if db.closed.Load() {
 		return nil
 	}
 
@@ -169,7 +164,7 @@ func (db *DB) Close() error {
 	if db.mu.openIteratorWriters > 0 {
 		return db.wrapError(errors.Newf("cannot close channel because there are %d unclosed writers/iterators accessing it", db.mu.openIteratorWriters))
 	} else {
-		db.mu.isClosed = true
+		db.closed.Swap(true)
 		return db.wrapError(db.Domain.Close())
 	}
 }

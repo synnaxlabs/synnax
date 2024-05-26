@@ -21,7 +21,7 @@ import (
 var WriterClosedError = core.EntityClosed("virtual.writer")
 
 func (db *DB) OpenWriter(_ context.Context, cfg WriterConfig) (w *Writer, transfer controller.Transfer, err error) {
-	if db.mu.closed() {
+	if db.closed.Load() {
 		return nil, transfer, db.wrapError(dbClosed)
 	}
 	w = &Writer{WriterConfig: cfg, Channel: db.Channel, wrapError: db.wrapError, onClose: func() { db.mu.add(-1) }}

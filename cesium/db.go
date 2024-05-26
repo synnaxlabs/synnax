@@ -11,15 +11,15 @@ package cesium
 
 import (
 	"context"
+	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/telem"
 	"io"
 	"sync"
-
-	"github.com/synnaxlabs/cesium/internal/core"
-	"github.com/synnaxlabs/cesium/internal/unary"
-	"github.com/synnaxlabs/x/telem"
+	"sync/atomic"
 )
 
 type (
@@ -37,21 +37,10 @@ var (
 	ErrChannelNotFound = core.ErrChannelNotFound
 )
 
-type dbState struct {
-	sync.RWMutex
-	isClosed bool
-}
-
-func (s *dbState) closed() bool {
-	s.RLock()
-	defer s.RUnlock()
-	return s.isClosed
-}
-
 type DB struct {
 	*options
 	relay      *relay
-	mu         *dbState
+	mu         sync.RWMutex
 	unaryDBs   map[ChannelKey]unary.DB
 	virtualDBs map[ChannelKey]virtual.DB
 	digests    struct {
@@ -59,12 +48,13 @@ type DB struct {
 		inlet  confluence.Inlet[WriterRequest]
 		outlet confluence.Outlet[WriterResponse]
 	}
+	closed   *atomic.Bool
 	shutdown io.Closer
 }
 
 // Write writes the frame to database at the specified start time.
 func (db *DB) Write(ctx context.Context, start telem.TimeStamp, frame Frame) error {
-	if db.mu.closed() {
+	if db.closed.Load() {
 		return ErrDBClosed
 	}
 	_, span := db.T.Debug(ctx, "write")
@@ -80,7 +70,7 @@ func (db *DB) Write(ctx context.Context, start telem.TimeStamp, frame Frame) err
 
 // WriteArray writes a series into the specified channel at the specified start time.
 func (db *DB) WriteArray(ctx context.Context, key core.ChannelKey, start telem.TimeStamp, series telem.Series) error {
-	if db.mu.closed() {
+	if db.closed.Load() {
 		return ErrDBClosed
 	}
 	return db.Write(ctx, start, core.NewFrame([]core.ChannelKey{key}, []telem.Series{series}))
@@ -88,7 +78,7 @@ func (db *DB) WriteArray(ctx context.Context, key core.ChannelKey, start telem.T
 
 // Read reads from the database at the specified time range and outputs a frame.
 func (db *DB) Read(_ context.Context, tr telem.TimeRange, keys ...core.ChannelKey) (frame Frame, err error) {
-	if db.mu.closed() {
+	if db.closed.Load() {
 		return frame, ErrDBClosed
 	}
 	iter, err := db.OpenIterator(IteratorConfig{Channels: keys, Bounds: tr})
@@ -108,14 +98,9 @@ func (db *DB) Read(_ context.Context, tr telem.TimeRange, keys ...core.ChannelKe
 // Close closes the database.
 // Close is not safe to call with any other DB methods concurrently.
 func (db *DB) Close() error {
-	db.mu.Lock()
-	if db.mu.isClosed {
-		db.mu.Unlock()
+	if !db.closed.CompareAndSwap(false, true) {
 		return nil
 	}
-
-	db.mu.isClosed = true
-	defer db.mu.Unlock()
 
 	c := errors.NewCatcher(errors.WithAggregation())
 	db.closeControlDigests()

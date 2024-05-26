@@ -96,7 +96,7 @@ var _ = Describe("Control", func() {
 				TimeRange: telem.TimeRangeMax,
 				Authority: control.Absolute,
 			}, createEntityAndNoError)
-			Expect(err).To(MatchError(ContainSubstring("control subject test is already registered")))
+			Expect(err).To(MatchError(ContainSubstring("control subject <test> is already registered")))
 		})
 	})
 

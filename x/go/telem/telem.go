@@ -178,6 +178,38 @@ func (tr TimeRange) String() string {
 	return tr.Start.String() + " - " + tr.End.String()
 }
 
+func (tr TimeRange) Union(tr2 TimeRange) (ret TimeRange) {
+	if tr.Start.Before(tr2.Start) {
+		ret.Start = tr.Start
+	} else {
+		ret.Start = tr2.Start
+	}
+
+	if tr.End.After(tr2.End) {
+		ret.End = tr.End
+	} else {
+		ret.End = tr2.End
+	}
+
+	return
+}
+
+func (tr TimeRange) Intersect(tr2 TimeRange) (ret TimeRange) {
+	if tr.Start.Before(tr2.Start) {
+		ret.Start = tr2.Start
+	} else {
+		ret.Start = tr.Start
+	}
+
+	if tr.End.After(tr2.End) {
+		ret.End = tr2.End
+	} else {
+		ret.End = tr.End
+	}
+
+	return
+}
+
 var (
 	// TimeRangeMax represents the maximum possible value for a TimeRange.
 	TimeRangeMax = TimeRange{Start: TimeStampMin, End: TimeStampMax}

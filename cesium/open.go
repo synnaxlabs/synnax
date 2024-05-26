@@ -19,6 +19,8 @@ import (
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 	"strconv"
+	"sync"
+	"sync/atomic"
 )
 
 func Open(dirname string, opts ...Option) (*DB, error) {
@@ -37,10 +39,11 @@ func Open(dirname string, opts ...Option) (*DB, error) {
 	}
 	db := &DB{
 		options:    o,
-		mu:         &dbState{},
+		mu:         sync.RWMutex{},
 		unaryDBs:   make(map[core.ChannelKey]unary.DB, len(info)),
 		virtualDBs: make(map[core.ChannelKey]virtual.DB, len(info)),
 		relay:      newRelay(sCtx),
+		closed:     &atomic.Bool{},
 		shutdown:   signal.NewShutdown(sCtx, cancel),
 	}
 	for _, i := range info {
@@ -66,7 +69,7 @@ func Open(dirname string, opts ...Option) (*DB, error) {
 }
 
 func (db *DB) openVirtualOrUnary(ch Channel) error {
-	if db.mu.closed() {
+	if db.closed.Load() {
 		return ErrDBClosed
 	}
 

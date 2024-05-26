@@ -22,7 +22,7 @@ import (
 
 // CreateChannel implements DB.
 func (db *DB) CreateChannel(_ context.Context, ch ...Channel) error {
-	if db.mu.closed() {
+	if db.closed.Load() {
 		return ErrDBClosed
 	}
 
@@ -36,7 +36,7 @@ func (db *DB) CreateChannel(_ context.Context, ch ...Channel) error {
 
 // RetrieveChannels implements DB.
 func (db *DB) RetrieveChannels(ctx context.Context, keys ...ChannelKey) ([]Channel, error) {
-	if db.mu.closed() {
+	if db.closed.Load() {
 		return nil, ErrDBClosed
 	}
 
@@ -53,7 +53,7 @@ func (db *DB) RetrieveChannels(ctx context.Context, keys ...ChannelKey) ([]Chann
 
 // RetrieveChannel implements DB.
 func (db *DB) RetrieveChannel(_ context.Context, key ChannelKey) (Channel, error) {
-	if db.mu.closed() {
+	if db.closed.Load() {
 		return Channel{}, ErrDBClosed
 	}
 
@@ -72,7 +72,7 @@ func (db *DB) RetrieveChannel(_ context.Context, key ChannelKey) (Channel, error
 
 // RenameChannel implements DB.
 func (db *DB) RenameChannel(_ context.Context, key ChannelKey, newName string) error {
-	if db.mu.closed() {
+	if db.closed.Load() {
 		return ErrDBClosed
 	}
 

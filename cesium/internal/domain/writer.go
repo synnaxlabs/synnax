@@ -142,7 +142,7 @@ type Writer struct {
 // NewWriter opens a new Writer using the given configuration.
 // If err is nil, then the writer must be closed.
 func (db *DB) NewWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) {
-	if db.closed {
+	if db.closed.Load() {
 		return nil, errDBClosed
 	}
 
@@ -151,7 +151,7 @@ func (db *DB) NewWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) 
 		return nil, err
 	}
 	if db.idx.overlap(cfg.Domain()) {
-		return nil, NewErrDomainOverlap(db.idx.timeRange(), cfg.Domain())
+		return nil, NewErrWriteConflict(db.idx.timeRange(), cfg.Domain())
 	}
 	key, size, internal, err := db.files.acquireWriter(ctx)
 	if err != nil {
@@ -205,7 +205,7 @@ func (w *Writer) Write(p []byte) (int, error) {
 // previous commit. If the provided timestamp is not strictly greater than the previous
 // commit, Commit will return an error. If the domain formed by the WriterConfig.Start
 // and the provided timestamp overlaps with any other domains within the DB, Commit will
-// return an ErrDomainOverlap.
+// return an ErrWriteConflict.
 // If WriterCommit.AutoIndexPersistInterval is greater than 0, then the changes committed would only
 // be persisted to disk after the set interval.
 func (w *Writer) Commit(ctx context.Context, end telem.TimeStamp) error {

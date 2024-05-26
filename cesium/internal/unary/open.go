@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
+	"sync/atomic"
 )
 
 // Config is the configuration for opening a DB.
@@ -85,7 +86,8 @@ func Open(configs ...Config) (*DB, error) {
 		Domain:     domainDB,
 		Controller: c,
 		wrapError:  core.NewErrorWrapper(cfg.Channel.Key, cfg.Channel.Name),
-		mu:         &dbState{},
+		mu:         &openEntityCount{},
+		closed:     &atomic.Bool{},
 	}
 	if cfg.Channel.IsIndex {
 		db._idx = &index.Domain{DB: domainDB, Instrumentation: cfg.Instrumentation}
