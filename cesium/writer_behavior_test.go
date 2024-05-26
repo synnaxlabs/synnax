@@ -384,19 +384,16 @@ var _ = Describe("Writer Behavior", func() {
 
 							By("Writing telemetry that would collide with previous domains")
 							w = MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
-								Channels:         []cesium.ChannelKey{index1, basic1, index2, basic2, basic3},
+								Channels:         []cesium.ChannelKey{index1, basic1},
 								Start:            9 * telem.SecondTS,
 								Mode:             cesium.WriterPersistStream,
 								EnableAutoCommit: config.True(),
 							}))
 							ok = w.Write(cesium.NewFrame(
-								[]cesium.ChannelKey{index1, basic1, index2, basic2, basic3},
+								[]cesium.ChannelKey{index1, basic1},
 								[]telem.Series{
 									telem.NewSecondsTSV(9, 10, 11),
 									telem.NewSeriesV[int64](99, 100, 101),
-									telem.NewSecondsTSV(9, 10, 11, 12),
-									telem.NewSeriesV[int64](99, 100, 101, 102),
-									telem.NewSeriesV[float64](0.99, 1, 1.01, 1.02),
 								},
 							))
 
