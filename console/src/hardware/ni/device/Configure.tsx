@@ -154,6 +154,7 @@ const ConfigureInternal = ({ device }: ConfigureInternalProps): ReactElement => 
   else if (step === "createChannels") content = <CreateChannels />;
   else if (step === "confirm")
     content = <Confirm confirm={confirm} progress={progress} />;
+  else content = <h1>Unknown step: {step}</h1>;
 
   return (
     <Align.Space className={CSS.B("configure")} align="stretch" empty>

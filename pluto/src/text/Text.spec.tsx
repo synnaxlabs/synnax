@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { render, fireEvent } from "@testing-library/react";
-import { AiFillCloseCircle } from "react-icons/ai";
 import { describe, expect, it, vitest } from "vitest";
 
 import { Text } from "@/text";
@@ -23,7 +22,7 @@ describe("Text", () => {
   describe("WithIcon", () => {
     it("should render text with a starting icon", () => {
       const c = render(
-        <Text.WithIcon startIcon={<AiFillCloseCircle aria-label="close" />} level="h2">
+        <Text.WithIcon startIcon={<svg aria-label="close" />} level="h2">
           Hello
         </Text.WithIcon>,
       );
@@ -31,7 +30,7 @@ describe("Text", () => {
     });
     it("should render text with an ending icon", () => {
       const c = render(
-        <Text.WithIcon endIcon={<AiFillCloseCircle aria-label="close" />} level="h2">
+        <Text.WithIcon endIcon={<svg aria-label="close" />} level="h2">
           Hello
         </Text.WithIcon>,
       );

@@ -175,7 +175,7 @@ const GroupList = ({
   onSelectGroup,
   clearSelection,
 }: GroupListProps): ReactElement => {
-  const { push, value } = Form.useFieldArray<GroupConfig[]>({ path: "groups" });
+  const { push, value } = Form.useFieldArray<GroupConfig>({ path: "groups" });
   return (
     <Align.Space className={CSS.B("groups")} grow empty>
       <Header.Header level="h3">
@@ -353,7 +353,7 @@ const ChannelList = ({
   selectedGroupIndex,
   onSelectChannels,
 }: ChannelListProps): ReactElement => {
-  const channels = Form.useFieldArray<ChannelConfig[]>({
+  const channels = Form.useFieldArray<ChannelConfig>({
     path: `groups.${selectedGroupIndex}.channels`,
   });
 
@@ -391,7 +391,7 @@ export const ChannelListItem = memo(
     ...props
   }: List.ItemProps<string, ChannelConfig> & {
     groupIndex: number;
-  }): ReactElement => {
+  }): ReactElement | null => {
     const { startDrag, onDragEnd } = Haul.useDrag({
       type: "Device.Channel",
       key: props.entry.key,
@@ -481,7 +481,7 @@ const ChannelForm = ({ index, groupIndex }: ChannelFormProps): ReactElement | nu
   const ctx = Form.useContext();
   if (!ctx.has(prefix)) return null;
 
-  const role = ctx.get({ path: `${prefix}.role` }).value;
+  const role = ctx.get<string>({ path: `${prefix}.role` }).value;
 
   return (
     <>

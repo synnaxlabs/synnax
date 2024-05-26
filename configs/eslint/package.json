@@ -7,7 +7,7 @@
     "access": "public"
   },
   "dependencies": {
-    "eslint": "^9.3.0",
+    "eslint": "^9.0.0",
     "typescript": "^5.4.5"
   }
 }

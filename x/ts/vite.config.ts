@@ -8,15 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import path from "path";
-import { lib } from "@synnaxlabs/vite-plugin";
+import { lib, isProd } from "@synnaxlabs/vite-plugin";
 import { defineConfig } from "vite";
 
 export default defineConfig({
   base: "/x/",
   plugins: [lib({ name: "x" })],
   build: {
-    sourcemap: true,
-    minify: true,
+    sourcemap: !isProd(),
+    minify: isProd(),
     lib: {
       entry: {
         index: path.resolve(".", "src/index.ts"),
@@ -48,8 +48,8 @@ export default defineConfig({
         identity: path.resolve(".", "src/identity.ts"),
         caseconv: path.resolve(".", "src/caseconv/index.ts"),
         zodutil: path.resolve(".", "src/zodutil/index.ts"),
-      }
-    }
+      },
+    },
   },
   test: {
     globals: true,

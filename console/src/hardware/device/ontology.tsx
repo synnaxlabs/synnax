@@ -17,7 +17,7 @@ import { OPC } from "@/hardware/opc";
 type DeviceLayoutCreator = (
   device: string,
   initial: Partial<Layout.State>,
-) => Layout.PlacerProps;
+) => Layout.Creator;
 
 const ZERO_LAYOUT_STATES: Record<string, DeviceLayoutCreator> = {
   [NI.Device.CONFIGURE_LAYOUT_TYPE]: NI.Device.createConfigureLayout,

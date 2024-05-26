@@ -8,8 +8,6 @@ export interface RackOverviewProps {
   rackKey: string;
 }
 
-export const RackOverview = (): ReactElement => {};
-
 export interface TaskListProps {
   rackKey: number;
 }
@@ -17,7 +15,7 @@ export interface TaskListProps {
 export const TaskList = ({ rackKey }: TaskListProps): ReactElement => {
   const client = Synnax.use();
 
-  const { data, isPending } = useQuery({
+  const { data } = useQuery({
     queryKey: ["tasks", rackKey],
     queryFn: async () => await client?.hardware.tasks.retrieve(rackKey),
   });

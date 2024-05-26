@@ -10,7 +10,7 @@
 import { type ReactElement, useCallback, useMemo, useRef } from "react";
 
 import { xy, type direction, box } from "@synnaxlabs/x";
-import { GrDrag } from "react-icons/gr";
+import { Icon } from "@synnaxlabs/media";
 
 import { Button } from "@/button";
 import { CSS } from "@/css";
@@ -155,7 +155,7 @@ export const DragButton = ({
       onClick={(e) => e.preventDefault()}
       {...props}
     >
-      <GrDrag />
+      <Icon.Drag />
     </Button.Icon>
   );
 };

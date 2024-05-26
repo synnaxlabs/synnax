@@ -9,18 +9,18 @@
 
 import path from "path";
 import { defineConfig } from "vite";
-import { lib } from "@synnaxlabs/vite-plugin";
+import { lib, isProd } from "@synnaxlabs/vite-plugin";
 
 export default defineConfig({
   plugins: [lib({ name: "alamos" })],
   build: {
-    sourcemap: true,
-    minify: true,
+    sourcemap: !isProd(),
+    minify: isProd(),
     lib: {
       entry: {
         index: path.resolve(".", "src/index.ts"),
         dev: path.resolve(".", "src/dev/index.ts"),
       },
-    }
+    },
   },
 });

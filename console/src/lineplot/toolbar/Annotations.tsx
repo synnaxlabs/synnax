@@ -171,25 +171,26 @@ export const Annotations = ({ layoutKey }: AnnotationsProps): ReactElement => {
           <Header.Title>{`Rule - ${selectedRule.label}`}</Header.Title>
         </Header.Header>
         <Align.Space direction="x" style={{ padding: "2rem" }} wrap>
-          <Input.Item
-            label="Label"
-            onChange={handleLabelChange}
-            value={selectedRule.label}
-            variant="shadow"
-          />
-          <Input.Item
-            label="Units"
-            onChange={handleUnitsChange}
-            value={selectedRule.units}
-            variant="shadow"
-          />
-          <Input.Item<number>
-            label="Position"
-            onChange={handlePositionChange}
-            value={selectedRule.position ?? 0}
-            variant="shadow"
-          >
-            {componentRenderProp(Input.Numeric)}
+          <Input.Item label="Label">
+            <Input.Text
+              variant="shadow"
+              onChange={handleLabelChange}
+              value={selectedRule.label}
+            />
+          </Input.Item>
+          <Input.Item label="Units">
+            <Input.Text
+              variant="shadow"
+              onChange={handleUnitsChange}
+              value={selectedRule.units}
+            />
+          </Input.Item>
+          <Input.Item label="Position">
+            <Input.Numeric
+              variant="shadow"
+              onChange={handlePositionChange}
+              value={selectedRule.position ?? 0}
+            />
           </Input.Item>
           <Input.Item label="Color">
             <Color.Swatch value={selectedRule.color} onChange={handleColorChange} />

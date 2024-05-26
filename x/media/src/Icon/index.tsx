@@ -40,7 +40,7 @@ import {
   FaStream,
   FaWindows,
 } from "react-icons/fa";
-import { GrPan } from "react-icons/gr";
+import { GrDrag, GrPan } from "react-icons/gr";
 import { HiDownload, HiLightningBolt, HiOutlinePlus } from "react-icons/hi";
 import { HiSquare3Stack3D } from "react-icons/hi2";
 import { IoMdRefresh } from "react-icons/io";
@@ -304,6 +304,7 @@ export const Icon: IconType = {
   Save: wrapIcon(MdSaveAlt),
   Task: wrapIcon(TbSubtask),
   Device: wrapIcon(SiGooglenearby),
+  Drag: wrapIcon(GrDrag),
 };
 
 export interface IconType {
@@ -413,4 +414,5 @@ export interface IconType {
   Save: IconFC;
   Connect: IconFC;
   Disconnect: IconFC;
+  Drag: IconFC;
 }

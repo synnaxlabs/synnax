@@ -24,7 +24,7 @@ const handleSelect: Ontology.HandleSelect = ({
     try {
       const t = await client.hardware.tasks.retrieve(task.key);
       const baseLayout = ZERO_LAYOUT_STATES[t.type];
-      return placeLayout({ ...baseLayout, key: selection[0].id.key });
+      placeLayout({ ...baseLayout, key: selection[0].id.key });
     } catch (e) {
       addStatus({ variant: "error", message: (e as Error).message });
     }

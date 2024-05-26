@@ -38,9 +38,8 @@ const canDisable =
 const CanDisableTelem = canDisable<Telem.ProviderProps>(Telem.Provider);
 const CanDisableAether = canDisable<Aether.ProviderProps>(Aether.Provider);
 
-export interface ProviderProps
-  extends PropsWithChildren, Synnax.ProviderProps {
-  theming?: Theming.ProviderProps,
+export interface ProviderProps extends PropsWithChildren, Synnax.ProviderProps {
+  theming?: Theming.ProviderProps;
   workerEnabled?: boolean;
   workerURL?: URL | string;
   alamos?: Alamos.ProviderProps;

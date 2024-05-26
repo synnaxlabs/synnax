@@ -97,3 +97,7 @@ const readConfig = async (configPath: string): Promise<CompilerOptions> => {
     return {};
   }
 };
+
+export const isProd = () => {
+  return process.env.SYNNAX_TS_ENV === "prod";
+};

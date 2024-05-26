@@ -21,6 +21,7 @@ import { nanoid } from "nanoid/non-secure";
 import { v4 as uuidV4 } from "uuid";
 
 import { type Layout } from "@/layout";
+import { FaBullseye } from "react-icons/fa";
 
 export type NodeProps = object & {
   key: Schematic.Variant;
@@ -87,6 +88,7 @@ export const ZERO_STATE: State = {
   editable: true,
   control: "released",
   controlAcquireTrigger: 0,
+  fitViewOnResize: false,
 };
 
 export const ZERO_SLICE_STATE: SliceState = {

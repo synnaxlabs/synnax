@@ -11,7 +11,6 @@ import { type ReactElement, useState } from "react";
 
 import { act, render } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { AiOutlineAim } from "react-icons/ai";
 import { describe, expect, it, vitest } from "vitest";
 
 import { Button } from "@/button";
@@ -27,7 +26,7 @@ describe("Button", () => {
     it("should render a button with the provided icon", () => {
       const c = render(
         <Button.Icon size="small">
-          <AiOutlineAim aria-label="icon" />
+          <svg aria-label="icon" />
         </Button.Icon>,
       );
       expect(c.getByLabelText("icon")).toBeTruthy();

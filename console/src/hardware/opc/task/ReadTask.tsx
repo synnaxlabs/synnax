@@ -226,7 +226,10 @@ const Internal = ({ initialValues, task: pTask }: InternalProps): ReactElement =
               {(p) => <Input.Numeric {...p} />}
             </Form.Field>
             <Form.SwitchField label="Array Sampling" path="config.arrayMode" />
-            <Form.Field<number> label={arrayMode ? "Array Size" : "Stream Rate"} path={arrayMode ? "config.arraySize" : "config.streamRate"}>
+            <Form.Field<number>
+              label={arrayMode ? "Array Size" : "Stream Rate"}
+              path={arrayMode ? "config.arraySize" : "config.streamRate"}
+            >
               {(p) => <Input.Numeric {...p} />}
             </Form.Field>
           </Align.Space>
@@ -266,7 +269,10 @@ const Internal = ({ initialValues, task: pTask }: InternalProps): ReactElement =
       <Nav.Bar location="bottom" size={48}>
         <Nav.Bar.Start style={{ paddingLeft: "2rem" }}>
           {taskState?.details?.message != null && taskState.variant != null && (
-            <Status.Text variant={taskState?.variant ?? "error"} level="p">
+            <Status.Text
+              variant={(taskState?.variant ?? "error") as Status.Variant}
+              level="p"
+            >
               {taskState?.details?.message}
             </Status.Text>
           )}

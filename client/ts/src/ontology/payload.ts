@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { change } from "@synnaxlabs/x";
+import { UnknownRecord, change } from "@synnaxlabs/x";
 import { z } from "zod";
 
 export type ResourceChange = change.Change<ID, Resource>;
@@ -109,7 +109,7 @@ export const resourceSchemaZ = z
     };
   });
 
-export type Resource<T extends {} = {}> = Omit<
+export type Resource<T extends UnknownRecord = UnknownRecord> = Omit<
   z.output<typeof resourceSchemaZ>,
   "data"
 > & { data?: T | null };
