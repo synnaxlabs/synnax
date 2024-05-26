@@ -28,6 +28,7 @@ import {
   type SeriesSourceSpec,
   type NumberSourceSpec,
   type SeriesSource,
+  ValueProps,
 } from "@/telem/aether/telem";
 import { type client } from "@/telem/client";
 
@@ -207,12 +208,15 @@ export class StreamChannelData
     this.client = client;
   }
 
-  async value(): Promise<[bounds.Bounds, Series[]]> {
+  async value(props?: ValueProps): Promise<[bounds.Bounds, Series[]]> {
     const { channel, useIndexOfChannel, timeSpan } = this.props;
     if (channel === 0) return [bounds.ZERO, []];
     const now = TimeStamp.now();
     const ch = await fetchChannelProperties(this.client, channel, useIndexOfChannel);
-    if (!this.valid) await this.read(ch.key);
+    if (!this.valid) {
+      props?.onLoad();
+      await this.read(ch.key);
+    }
     let b = bounds.max(
       this.data
         .filter((d) => d.timeRange.end.after(now.sub(timeSpan)))
