@@ -27,12 +27,20 @@ Acquisition::Acquisition(
 }
 
 void Acquisition::start() {
-    LOG(INFO) << "[acquisition] Acquisition started";
     if(breaker.running()) return;
     if (this->thread != nullptr && thread->joinable() && std::this_thread::get_id() != thread->get_id())
         this->thread->join();
-    breaker.start();    
+    breaker.start(); 
+    auto s_err = source->start();
+    if (s_err) {
+        LOG(ERROR) << "[acquisition] Failed to start source: " << s_err.message();
+        if (s_err.matches(driver::TYPE_TEMPORARY_HARDWARE_ERROR) && breaker.wait(
+                s_err.message()))
+            run();
+        return;
+    }  
     thread = std::make_unique<std::thread>(&Acquisition::run, this);
+    LOG(INFO) << "[acquisition] Acquisition started";
 }
 
 void Acquisition::stop() {
@@ -41,6 +49,7 @@ void Acquisition::stop() {
     if (this->thread != nullptr && thread->joinable() && std::this_thread::get_id() != thread->get_id()) {
        this->thread->join();
     };
+    source->stop();
     LOG(INFO) << "[acquisition] Acquisition stopped";
 }
 
@@ -56,15 +65,6 @@ synnax::TimeStamp resolve_start(const synnax::Frame &frame) {
 
 void Acquisition::runInternal() {
     LOG(INFO) << "[acquisition] Acquisition thread started";
-    auto s_err = source->start();
-    if (s_err) {
-        LOG(ERROR) << "[acquisition] Failed to start source: " << s_err.message();
-        if (s_err.matches(driver::TYPE_TEMPORARY_HARDWARE_ERROR) && breaker.wait(
-                s_err.message()))
-            run();
-        return;
-    }
-
     synnax::Writer writer;
     bool writer_opened = false;
     freighter::Error wo_err;
@@ -103,7 +103,7 @@ void Acquisition::runInternal() {
     }
     const auto err = writer.close();
     if (err.matches(freighter::UNREACHABLE) && breaker.wait(err.message())) run();
-    source->stop();
+    this->stop();
 }
 
 void Acquisition::run() {

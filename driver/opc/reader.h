@@ -85,10 +85,11 @@ public:
     );
 
     void exec(task::Command &cmd) override;
+    
+    void stop();
 
-    void stop() override {
-        pipe.stop();
-    }
+    void start();
+
 
 private:
     std::shared_ptr<task::Context> ctx;

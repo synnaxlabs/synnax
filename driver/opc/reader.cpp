@@ -576,3 +576,9 @@ void Reader::exec(task::Command &cmd) {
     else if (cmd.type == "stop") return stop();
     else LOG(ERROR) << "unknown command type: " << cmd.type;
 }
+
+
+
+void Reader::stop() {
+    pipe.stop();
+}
