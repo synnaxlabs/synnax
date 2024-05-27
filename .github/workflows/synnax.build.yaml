@@ -24,6 +24,7 @@ jobs:
               - 'x/**'
               - 'aspen/**'
               - 'freighter/go/**'
+              - 'driver/**'
               - '.github/workflows/synnax.build.yaml'
 
       - name: Get Version
