@@ -49,8 +49,6 @@ const std::map<std::string, int32_t> ni::UNITS_MAP = {
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    NiSource                                   //
 ///////////////////////////////////////////////////////////////////////////////////
-
-
 void ni::Source::getIndexKeys(){
     std::set<std::uint32_t> index_keys;
     //iterate through channels in reader config
@@ -104,11 +102,7 @@ void ni::Source::parseConfig(config::Parser &parser){
     this->reader_config.device_key = parser.required<std::string>("device");
     this->reader_config.timing_source = "none"; // parser.required<std::string>("timing_source"); TODO: uncomment this when ui provides timing source
 
-    LOG(INFO) << "[NI Source] retrieving device " << this->reader_config.task_name;
-
     auto [dev, err] = this->ctx->client->hardware.retrieveDevice(this->reader_config.device_key);
-
-    LOG(INFO) << "[NI Source] device retrieved " << this->reader_config.task_name;
 
     if (err != freighter::NIL) {
         LOG(ERROR) << "[NI Reader] failed to retrieve device " << this->reader_config.device_name;
@@ -116,11 +110,9 @@ void ni::Source::parseConfig(config::Parser &parser){
         return;
     }
 
-    LOG(INFO) << "[NI Source] saving location " << this->reader_config.task_name;
-
     this->reader_config.device_name = dev.location;
     LOG(INFO) << "[NI Source] location  " << dev.location;
-    this->parseChannels(parser);
+    this->parseChannels(parser); // TODO: digital read doesn't have a parseChannels function
 }
 
 int ni::Source::init(){

@@ -447,34 +447,3 @@ namespace ni{
 
     };
 }
-
-
-
-
-/*
-
-using json = nlohmann::json;
-namespace daq
-{
-    class DaqReader : public pipeline::Source  //TODD: change to daqReader
-    {
-    public:
-        virtual std::pair<synnax::Frame, freighter::Error> read() = 0;
-        virtual freighter::Error start() = 0;
-        virtual freighter::Error stop() = 0;
-        virtual bool ok() = 0;
-    };
-
-    class DaqWriter: public pipeline::Sink{
-    public:
-        virtual freighter::Error write(synnax::Frame frame) = 0;
-        virtual freighter::Error start() = 0;
-        virtual freighter::Error stop() = 0;
-        // virtual bool ok() = 0;
-    };
-
-
-}
-
-
-*/
