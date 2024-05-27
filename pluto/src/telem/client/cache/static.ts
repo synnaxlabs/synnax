@@ -112,11 +112,12 @@ export class Static {
    * @returns metrics about the garbage collection.
    */
   gc(): CacheGCMetrics {
+    const { staleEntryThreshold } = this.props;
     const res = zeroCacheGCMetrics();
     const newData = this.data.filter((s) => {
+      // Keep entries that have a ref count that is greater than 0 or were just read.
       const shouldKeep =
-        s.data.refCount === 0 &&
-        TimeStamp.since(s.addedAt).lessThan(this.props.staleEntryThreshold);
+        s.data.refCount > 0 || TimeStamp.since(s.addedAt).lessThan(staleEntryThreshold);
       if (!shouldKeep) res.purgedBytes = res.purgedBytes.add(s.data.byteCapacity);
       return shouldKeep;
     });

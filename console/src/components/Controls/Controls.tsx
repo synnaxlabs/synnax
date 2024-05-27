@@ -13,6 +13,7 @@ import {
   setWindowMaximized,
   setWindowMinimized,
   setWindowFullscreen,
+  setWindowVisible,
 } from "@synnaxlabs/drift";
 import { useSelectWindow } from "@synnaxlabs/drift/react";
 import { OS } from "@synnaxlabs/pluto";
@@ -46,13 +47,17 @@ export const Controls = (props: ControlsProps): ReactElement | null => {
     dispatch(setWindowFullscreen({}));
   };
 
+  const handleClose = (): void => {
+    remove();
+  };
+
   if (window.fullscreen === true) return null;
 
   return (
     <OS.Controls
       disabled={disabled}
       focused={window.focus}
-      onClose={remove}
+      onClose={handleClose}
       onMinimize={handleMinimize}
       onMaximize={handleMaximize}
       onFullscreen={handleFullscreen}

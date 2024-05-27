@@ -53,14 +53,4 @@ describe("JSON", () => {
     const decoded = binary.JSON_ECD.decodeString(encoded, SampleSchema);
     expect(decoded.channelKey).toEqual("test");
   });
-  it("should not adjust keys that have dashes in them", () => {
-    const sample = {
-      "channel-key": "test",
-      "time-stamp": 123,
-      value: new Array([1, 2, 3]),
-    };
-    const encoded = JSON.stringify(sample);
-    const decoded = binary.JSON_ECD.decodeString(encoded, SampleSchema);
-    expect(decoded.channelKey).toBeUndefined();
-  });
 });

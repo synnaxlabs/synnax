@@ -1,12 +1,14 @@
 [tool.poetry]
-name = "synnax"
+name = "opc"
 version = "0.1.0"
 description = ""
-authors = ["Patrick Dotson <patdotso@umich.edu>"]
+authors = ["Emiliano Bonilla <56323762+emilbon99@users.noreply.github.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.11"
+asyncua = "^1.1.0"
+synnax = "^0.14.45"
 
 
 [build-system]

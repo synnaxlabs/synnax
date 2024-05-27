@@ -63,7 +63,6 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
   const handleSubmit = (): void => {
     void (async () => {
       if (!methods.validate()) {
-        console.log("Invalid form");
         return;
       }
       const data = methods.value();
@@ -99,7 +98,6 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
   const handleTestConnection = (): void => {
     void (async (): Promise<void> => {
       if (!methods.validate()) {
-        console.log("Invalid form");
         return;
       }
       setConnState(null);

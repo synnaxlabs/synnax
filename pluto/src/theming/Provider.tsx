@@ -80,7 +80,7 @@ export const useProvider = ({
       const synnaxDark = theming.themeZ.parse(
         deep.override(deep.copy(theming.SYNNAX_DARK), theme),
       );
-      setSelected(theme.key);
+      if (theme.key != null && theme.key.length > 0) setSelected(theme.key);
       return { synnaxLight, synnaxDark };
     }
     return Object.entries(themes).reduce<Record<string, theming.Theme>>(

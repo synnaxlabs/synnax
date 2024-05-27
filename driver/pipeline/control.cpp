@@ -12,6 +12,8 @@
 
 #include <utility>
 #include "driver/errors/errors.h"
+#include <exception>
+#include <stdexcept>
 
 using namespace pipeline;
 
@@ -20,45 +22,62 @@ Control::Control(
     synnax::StreamerConfig streamer_config,
     std::unique_ptr<pipeline::Sink> sink,
     const breaker::Config &breaker_config
-): ctx(std::move(ctx)),
-   streamer_config(std::move(streamer_config)),
-   sink(std::move(sink)),
-   cmd_breaker(breaker::Breaker(breaker_config)) {
+):  ctx(std::move(ctx)),
+    thread(nullptr),
+    streamer_config(std::move(streamer_config)),
+    sink(std::move(sink)),
+    breaker(breaker::Breaker(breaker_config)) {
 }
 
 
 void Control::start() {
-    cmd_running = true;
-    cmd_thread = std::thread(&Control::run, this);
+    if (breaker.running()) return;
+    if (this->thread != nullptr && thread->joinable() && std::this_thread::get_id() != thread->get_id())
+        thread->join();
+    breaker.start();
+    thread = std::make_unique<std::thread>(&Control::run, this);
 }
 
 void Control::stop() {
-    LOG(INFO) << "Stopping control pipeline";
-    if(!cmd_running) return;
-    this->cmd_running = false;
-    // close streamer
+    if(breaker.running()) return;
+    breaker.stop(); 
+    if (this->thread != nullptr && thread->joinable() && std::this_thread::get_id() != thread->get_id()) {
+        thread->join();
+    };
     this->streamer->closeSend();
-    cmd_thread.join(); // cant join cus blocked by streamer.read()
+    LOG(INFO) << "[control] Control stopped";
 }
 
-void Control::run() {
+void Control::runInternal() {
     this->streamer_config.start = synnax::TimeStamp::now();
     auto [test, so_err] = ctx->client->telem.openStreamer(this->streamer_config);
     this->streamer = std::make_unique<synnax::Streamer>(std::move(test));
     if (so_err) {
         if (    so_err.matches(freighter::UNREACHABLE) 
-            &&  cmd_breaker.wait(so_err.message())) {
-            return run();
+            &&  breaker.wait(so_err.message())) {
+            return runInternal();
         }
     }
-    while (cmd_running) {
+    while (breaker.running()) {
         auto [cmd_frame, cmd_err] = this->streamer->read();
         if (cmd_err) break;
         auto daq_err = sink->write(std::move(cmd_frame));    
     }
 
     const auto err = this->streamer->close(); // close or closeSend
-    if (err.matches(freighter::UNREACHABLE) && cmd_breaker.wait()){        
-        return run();
+
+    if (err.matches(freighter::UNREACHABLE) && breaker.wait()) return runInternal();
+    
+}
+
+void Control::run() {
+    try{
+        runInternal();
+    } catch (const std::exception &e) {
+        LOG(ERROR) << "[Control] Unhandled standard exception: " << e.what();
+        stop();
+    } catch (...) {
+        LOG(ERROR) << "[Control] Unhandled unknown exception";
+        stop();
     }
 }

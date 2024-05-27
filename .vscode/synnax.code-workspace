@@ -222,6 +222,7 @@
     },
     "cSpell.words": [
       "Aliaser",
+      "browseable",
       "caseconv",
       "clsx",
       "downsample",
@@ -240,6 +241,9 @@
       "tauri",
       "Tauri",
       "telem"
+    ],
+    "cSpell.enableFiletypes": [
+      "mdx"
     ],
   },
   "extensions": {

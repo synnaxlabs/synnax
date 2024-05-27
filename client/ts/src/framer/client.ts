@@ -13,7 +13,8 @@ import {
   type CrudeSeries,
   type CrudeTimeRange,
   type MultiSeries,
-} from "@synnaxlabs/x/telem";
+  TimeSpan,
+} from "@synnaxlabs/x";
 
 import { KeysOrNames, type KeyOrName, type Params } from "@/channel/payload";
 import { type Retriever, analyzeChannelParams } from "@/channel/retriever";
@@ -135,10 +136,11 @@ export class Client {
       start,
       channels: channels as Params,
       mode: WriterMode.PersistOnly,
+      enableAutoCommit: true,
+      autoIndexPersistInterval: TimeSpan.MAX,
     });
     try {
       await w.write(channels as Params, data);
-      await w.commit();
     } finally {
       await w.close();
     }

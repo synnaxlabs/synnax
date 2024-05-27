@@ -12,8 +12,8 @@ dotenv.config()
 
 import algoliasearch from "algoliasearch"
 const client = algoliasearch(
-  process.env.ALGOLIA_APP_ID,
-  process.env.ALGOLIA_WRITE_API_KEY
+  process.env.DOCS_ALGOLIA_APP_ID,
+  process.env.DOCS_ALGOLIA_WRITE_API_KEY
 )
 
 // 1. Build a dataset
@@ -32,10 +32,7 @@ const purgeImports = (content) => {
     // find the first 'import' statement in the file
     const firstImport = nc.indexOf("import")
     // find the index of the first newline after the first import statement
-    if (firstImport > firstHeader || firstImport === -1) {
-        console.log("BREAK", firstImport, firstHeader)
-        return nc;
-    }
+    if (firstImport > firstHeader || firstImport === -1) return nc;
     // find the index of the last import statement before the first markdown header
     const lastImport = nc.slice(0, firstHeader).lastIndexOf("import")
     const lastNewline = nc.slice(lastImport + 1).indexOf("\n")
@@ -49,7 +46,6 @@ const data = filenames.filter((f) => f.endsWith("mdx")).map(filename => {
   try {
     const markdownWithMeta = fs.readFileSync("./src/pages/" + filename)
     const { data: frontmatter, content } = matter(markdownWithMeta)
-    console.log(filename)
     return {
       objectID: filename,
       href: "/" + filename.replace(".mdx", "").replace("index", ""),
@@ -62,15 +58,14 @@ const data = filenames.filter((f) => f.endsWith("mdx")).map(filename => {
   }
 })
 
-console.log(data)
-
 const idx = client.initIndex("docs_site")
 
 // delete all objects
 await idx.clearObjects();
 
 // 2. Send the dataset in JSON format
-client
+const res = await client
   .initIndex("docs_site")
   .saveObjects(JSON.parse(JSON.stringify(data)))
-  .then(res => console.log(res)).catch(err => console.log(err))
+
+console.log(`Successfully updated ${res.objectIDs.length} pages`);

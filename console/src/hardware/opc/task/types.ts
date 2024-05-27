@@ -33,14 +33,17 @@ export const readChanZ = z.object({
 export const readConfigZ = z
   .object({
     device: z.string().min(1, "Device must be specified"),
-    sampleRate: z.number().min(0).max(5000),
+    sampleRate: z.number().min(0).max(10000),
     streamRate: z.number().min(0).max(200),
+    arrayMode: z.boolean(),
+    arraySize: z.number().min(1),
     channels: z.array(readChanZ),
   })
   .refine((cfg) => cfg.sampleRate >= cfg.streamRate, {
     message: "Sample rate must be greater than or equal to stream rate",
     path: ["sampleRate"],
   })
+  // Error if channel ahs been duplicated
   .superRefine((cfg, ctx) => {
     const channels = new Map<number, number>();
     cfg.channels.forEach(({ channel }) =>
@@ -55,6 +58,7 @@ export const readConfigZ = z
       });
     });
   })
+  // Warning if node ID is duplicated
   .superRefine((cfg, ctx) => {
     const nodeIds = new Map<string, number>();
     cfg.channels.forEach(({ nodeId }) =>
@@ -84,6 +88,8 @@ export const ZERO_READ_PAYLOAD: ReadPayload = {
     device: "",
     sampleRate: 50,
     streamRate: 25,
+    arrayMode: false,
+    arraySize: 1,
     channels: [],
   },
 };

@@ -100,6 +100,11 @@ export type WindowProps = Omit<DriftWindowProps, "key" | "url"> & {
    * mosaic (as the mosaic shouldn't have a nav bar).
    */
   navTop?: boolean;
+  /**
+   * showTitle is a flag that sets whether the name of the window will be displayed
+   * as a title in the nav bar. Only applies if navTop is true.
+   */
+  showTitle?: boolean;
 };
 
 /**

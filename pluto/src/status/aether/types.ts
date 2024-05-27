@@ -17,6 +17,7 @@ export const VARIANTS = [
   "info",
   "loading",
   "disabled",
+  "secondary",
 ] as const;
 export const variantZ = z.enum(VARIANTS);
 export type Variant = z.infer<typeof variantZ>;

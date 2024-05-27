@@ -82,7 +82,7 @@ struct State {
     /// @brief relevant details about the current state of the task.
     json details = {};
 
-    json toJSON() {
+    json toJSON() const {
         json j;
         j["task"] = task;
         j["key"] = key;
@@ -111,7 +111,7 @@ public:
     }
 
     /// @brief updates the state of the task in the Synnax cluster.
-    virtual void setState(State state) = 0;
+    virtual void setState(const State &state) = 0;
 };
 
 /// @brief a mock context that can be used for testing tasks.
@@ -123,7 +123,7 @@ public:
     }
 
 
-    void setState(State state) override {
+    void setState(const State &state) override {
         state_mutex.lock();
         states.push_back(state);
         state_mutex.unlock();
@@ -138,7 +138,7 @@ public:
     explicit SynnaxContext(std::shared_ptr<Synnax> client): Context(client) {
     }
 
-    void setState(State state) override {
+    void setState(const State &state) override {
         state_mutex.lock();
         if (state_updater == nullptr) {
             auto [task_state_ch, err] = client->channels.retrieve(TASK_STATE_CHANNEL);
@@ -161,6 +161,7 @@ public:
             state_updater = std::make_unique<Writer>(std::move(su));
         }
         auto fr = Frame(1);
+        std::cout << "Writing task state update" << std::endl;
         fr.add(task_state_channel.key,
                Series(std::vector{to_string(state.toJSON())}, JSON));
         LOG(INFO) << "Writing task state update";

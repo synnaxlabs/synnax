@@ -42,23 +42,26 @@ public:
         std::shared_ptr<Source> source,
         const breaker::Config &breaker_config
     );
+
+
 private:
     /// @brief context for issuing state updates to the task.
     std::shared_ptr<task::Context> ctx;
 
     /// @brief tracks whether the acquisition thread is running.
-    volatile bool running = false;
-    std::thread thread;
+    std::unique_ptr<std::thread> thread;
 
     /// @brief configuration for the Synnax writer.
     WriterConfig writer_config;
 
-    /// @brief daq interface
-    std::shared_ptr<Source> source;
-
     /// @brief breaker
     breaker::Breaker breaker;
 
+     /// @brief daq interface
+    std::shared_ptr<Source> source;
+
+    void runInternal();
+    
     void run();
 };
 }

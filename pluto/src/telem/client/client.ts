@@ -41,7 +41,7 @@ export interface ReadClient {
    * @param tr  - The time range to read from.
    * @param keys - The keys of the channels to read from.
    * @returns a record with a read response for each channel in keys, regardless of
-   * whether or not data was found for the given chnannel. NOTE: Responses are not
+   * whether or not data was found for the given channel. NOTE: Responses are not
    * guaranteed to have the same topology i.e each response may contain a different
    * number of Series with different lengths. It's up to the caller to use the
    * 'alignment' field of the Series to normalize the data shape if necessary.

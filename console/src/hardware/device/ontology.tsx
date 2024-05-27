@@ -41,6 +41,25 @@ const handleConfigure = ({
   })();
 };
 
+const handleDelete = ({
+  selection,
+  addStatus,
+  client,
+}: Ontology.TreeContextMenuProps): void => {
+  if (selection.nodes.length === 0) return;
+  void (async () => {
+    try {
+      await client.hardware.devices.delete(selection.resources.map((r) => r.id.key));
+    } catch (e) {
+      addStatus({
+        key: "delete-device",
+        variant: "error",
+        message: `Failed to delete devices: ${(e as Error).message}`,
+      });
+    }
+  })();
+};
+
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const { selection, placeLayout } = props;
   if (selection.nodes.length === 0) return null;
@@ -51,6 +70,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     switch (itemKey) {
       case "configure":
         handleConfigure(props);
+        break;
+      case "delete":
+        handleDelete(props);
         break;
     }
   };

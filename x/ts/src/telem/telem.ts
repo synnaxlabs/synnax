@@ -327,7 +327,7 @@ export class TimeStamp implements Stringer {
    * @returns The number of milliseconds since the unix epoch.
    */
   milliseconds(): number {
-    return Number(this.valueOf() / TimeStamp.MILLISECOND.valueOf());
+    return Number(this.valueOf()) / Number(TimeStamp.MILLISECOND.valueOf());
   }
 
   toString(): string {
@@ -533,31 +533,31 @@ export class TimeSpan implements Stringer {
 
   /** @returns the decimal number of days in the timespan */
   get days(): number {
-    return Number(this.valueOf() / TimeSpan.DAY.valueOf());
+    return Number(this.valueOf()) / Number(TimeSpan.DAY.valueOf());
   }
 
   /** @returns the decimal number of hours in the timespan */
   get hours(): number {
-    return Number(this.valueOf() / TimeSpan.HOUR.valueOf());
+    return Number(this.valueOf()) / Number(TimeSpan.HOUR.valueOf());
   }
 
   /** @returns the decimal number of minutes in the timespan */
   get minutes(): number {
-    return Number(this.valueOf() / TimeSpan.MINUTE.valueOf());
+    return Number(this.valueOf()) / Number(TimeSpan.MINUTE.valueOf());
   }
 
   /** @returns The number of seconds in the TimeSpan. */
   get seconds(): number {
-    return Number(this.valueOf() / TimeSpan.SECOND.valueOf());
+    return Number(this.valueOf()) / Number(TimeSpan.SECOND.valueOf());
   }
 
   /** @returns The number of milliseconds in the TimeSpan. */
   get milliseconds(): number {
-    return Number(this.valueOf() / TimeSpan.MILLISECOND.valueOf());
+    return Number(this.valueOf()) / Number(TimeSpan.MILLISECOND.valueOf());
   }
 
   get microseconds(): number {
-    return Number(this.valueOf() / TimeSpan.MICROSECOND.valueOf());
+    return Number(this.valueOf()) / Number(TimeSpan.MICROSECOND.valueOf());
   }
 
   get nanoseconds(): number {

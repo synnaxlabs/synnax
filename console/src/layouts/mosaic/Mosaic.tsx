@@ -26,7 +26,7 @@ import { useSyncerDispatch } from "@/hooks/dispatchers";
 import { Layout } from "@/layout";
 import { Content } from "@/layout/Content";
 import { usePlacer } from "@/layout/hooks";
-import { useSelectMosaic } from "@/layout/selectors";
+import { useSelectActiveMosaicTabKey, useSelectMosaic } from "@/layout/selectors";
 import {
   moveMosaicTab,
   remove,
@@ -54,6 +54,7 @@ const emptyContent = <EmptyContent />;
 /** LayoutMosaic renders the central layout mosaic of the application. */
 export const Mosaic = memo((): ReactElement => {
   const [windowKey, mosaic] = useSelectMosaic();
+  useSelectActiveMosaicTabKey();
 
   const client = Synnax.use();
   const store = useStore();

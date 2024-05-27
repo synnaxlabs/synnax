@@ -34,10 +34,11 @@ import { NI } from "@/hardware/ni";
 
 import WorkerURL from "@/worker?worker&url";
 
+import { Channel } from "@/channel";
+
 import "@/index.css";
 import "@synnaxlabs/media/dist/style.css";
 import "@synnaxlabs/pluto/dist/style.css";
-import { Channel } from "@/channel";
 
 const layoutRenderers: Record<string, Layout.Renderer> = {
   main: LayoutMain,
@@ -52,6 +53,7 @@ const layoutRenderers: Record<string, Layout.Renderer> = {
   ...Cluster.LAYOUTS,
   ...NI.LAYOUTS,
   ...Channel.LAYOUTS,
+  ...Version.LAYOUTS,
 };
 
 const PREVENT_DEFAULT_TRIGGERS: Triggers.Trigger[] = [
@@ -84,7 +86,11 @@ const MainUnderContext = (): ReactElement => {
     <QueryClientProvider client={client}>
       <Pluto.Provider
         theming={theme}
-        channelAlias={{ activeRange: activeRange?.key }}
+        channelAlias={{
+          // Set the alias active range to undefined if the range is not saved in Synnax,
+          // otherwise it will try to pull aliases from a range that doesn't exist.
+          activeRange: activeRange?.persisted ? activeRange?.key : undefined,
+        }}
         workerEnabled
         connParams={cluster?.props}
         workerURL={WorkerURL}

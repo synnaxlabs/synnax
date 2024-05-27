@@ -138,7 +138,7 @@ class Client:
         data: ndarray | Series,
         to: ChannelKey | ChannelName | ChannelPayload,
         strict: bool = False,
-    ) -> TimeStamp:
+    ):
         """Writes telemetry to the given channel starting at the given timestamp.
 
         :param to: The key of the channel to write to.
@@ -147,11 +147,14 @@ class Client:
         :returns: None.
         """
         with self.open_writer(
-            start=start, channels=to, strict=strict, mode=WriterMode.PERSIST_ONLY
+            start=start, 
+            channels=to, 
+            strict=strict, 
+            mode=WriterMode.PERSIST_ONLY,
+            enable_auto_commit=True,
+            auto_index_persist_interval=TimeSpan.MAX,
         ) as w:
             w.write(to, data)
-            ts, ok = w.commit()
-            return ts
 
     @overload
     def read(

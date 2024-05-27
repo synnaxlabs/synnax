@@ -262,9 +262,12 @@ const sortTransform =
     k: keyof E,
     dir: boolean,
   ): ArrayTransform<E> =>
-  (data: E[]) => {
-    if (data.length === 0) return data;
-    return [...data].sort(compare.newFieldF(k, data[0], !dir));
+  ({ data }) => {
+    if (data.length === 0) return { data, transformed: false };
+    return {
+      data: [...data].sort(compare.newFieldF(k, data[0], !dir)),
+      transformed: true,
+    };
   };
 
 export const Column = {
@@ -276,7 +279,7 @@ export const Column = {
   Header,
   /**
    * The item to use for a column list. This should be used as the child render prop
-   * in a list render implmentation e.g. {@link List.Core.Virtual}.
+   * in a list render implementation e.g. {@link List.Core.Virtual}.
    *
    * @param props - implements the {@link ItemProps} interface. All these props
    * should be provided by the list render implementation.

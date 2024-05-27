@@ -21,6 +21,7 @@ import "@/layouts/LayoutMain/LayoutMain.css";
 import { Device } from "@/hardware/device";
 import { Cluster } from "@/cluster";
 import { Version } from "@/version";
+import { Notifications } from "@/notifications";
 
 /**
  * The center of it all. This is the main layout for the Synnax Console. Try to keep this
@@ -35,10 +36,11 @@ export const LayoutMain = (): ReactElement => {
   Version.useLoadTauri();
   Device.useListenForChanges();
   Cluster.useLocalServer();
-  Version.useCheckForUpdates();
 
   return (
     <>
+      {/* We need to place notifications here so they are in the proper stacking context */}
+      <Notifications.Notifications />
       <NavTop />
       <Align.Space className="console-main-fixed--y" direction="x" empty>
         <NavLeft />

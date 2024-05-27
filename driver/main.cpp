@@ -18,8 +18,13 @@
 #include "driver/driver.h"
 #include "task/task.h"
 #include "driver/opc/opc.h"
+<<<<<<< HEAD
 // #include "driver/meminfo/meminfo.h"
 //#include "driver/ni/ni.h"
+=======
+#include "driver/meminfo/meminfo.h"
+#include "driver/ni/ni.h"
+>>>>>>> cd4fa6305b373df801edfe9bb4c328de61b0a1ba
 
 using json = nlohmann::json;
 
@@ -81,20 +86,17 @@ int main(int argc, char *argv[]) {
     }
 
     std::unique_ptr<task::Factory> opc_factory = std::make_unique<opc::Factory>();
-    // std::unique_ptr<meminfo::Factory> meminfo_factory = std::make_unique<
-    //     meminfo::Factory>();
-//    std::unique_ptr<ni::Factory> ni_factory = std::make_unique<ni::Factory>();
+    std::unique_ptr<meminfo::Factory> meminfo_factory = std::make_unique<meminfo::Factory>();
+    std::unique_ptr<ni::Factory> ni_factory = std::make_unique<ni::Factory>();
+
     // std::vector<std::shared_ptr<task::Factory> > factories = {
     //     std::move(opc_factory), std::move(meminfo_factory), std::move(ni_factory)
     // };
 
-//    std::vector<std::shared_ptr<task::Factory> > factories = {
-//        std::move(opc_factory), std::move(ni_factory)
-//    };
-
-     std::vector<std::shared_ptr<task::Factory> > factories = {
-         std::move(opc_factory)
-     };
+    std::vector<std::shared_ptr<task::Factory> > factories = {
+        std::move(opc_factory), std::move(meminfo_factory)
+    };
+    
 
     std::unique_ptr<task::Factory> factory = std::make_unique<task::MultiFactory>(
         std::move(factories)

@@ -1,6 +1,5 @@
 .pluto-note {
     padding: 3rem;
-    margin: 4rem 0;
     border: var(--pluto-border);
     border-radius: 1rem;
 
@@ -16,5 +15,10 @@
             border-color: #fae78ba6;
             background: #f6fa0034;
         }
+    }
+
+    &.pluto--error {
+        background: var(--pluto-error-z-20);
+        border-color: var(--pluto-error-z-40);
     }
 }

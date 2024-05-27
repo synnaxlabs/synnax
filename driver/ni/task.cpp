@@ -22,7 +22,7 @@
 ni::ScannerTask::ScannerTask(
         const std::shared_ptr <task::Context> &ctx,
         synnax::Task task
-) : scanner(ctx, task), ctx(ctx), task(task), running(true){
+) : running(false), scanner(ctx, task), ctx(ctx), task(task){
     //begin scanning on construction
     // LOG(INFO) << "[NI Task] constructing scanner task " << this->task.name;
     // thread = std::thread(&ni::ScannerTask::run, this);
@@ -103,9 +103,22 @@ ni::ScannerTask::~ScannerTask(){
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    ReaderTask                                 //
 ///////////////////////////////////////////////////////////////////////////////////
+ni::ReaderTask::ReaderTask( const std::shared_ptr<task::Context> &ctx, 
+                            synnax::Task task,
+                            std::shared_ptr<pipeline::Source> source,
+                            synnax::WriterConfig writer_config,
+                            const breaker::Config breaker_config
+) : ctx(ctx),
+    task(task),
+    daq_read_pipe(pipeline::Acquisition(ctx, writer_config, source, breaker_config)){
+}
 
-ni::ReaderTask::ReaderTask(const std::shared_ptr <task::Context> &ctx,
-                           synnax::Task task) :task(task), ctx(ctx){
+
+
+
+std::unique_ptr <task::Task> ni::ReaderTask::configure(const std::shared_ptr <task::Context> &ctx,
+                                                       const synnax::Task &task) {
+    LOG(INFO) << "[NI Task] configuring task " << task.name;    
 
     // create a breaker config TODO: use the task to generate the other parameters?
     auto breaker_config = breaker::Config{
@@ -115,49 +128,37 @@ ni::ReaderTask::ReaderTask(const std::shared_ptr <task::Context> &ctx,
             .scale = 1.2,
     };
 
+    TaskHandle task_handle;
     // create a daq reader to provide to cmd read pipe as sink
-    ni::NiDAQmxInterface::CreateTask("", &this->task_handle);
+    ni::NiDAQmxInterface::CreateTask("", &task_handle);
 
     // log task config
     LOG(INFO) << "[NI Task] task config: " << task.config;
 
-    // determine whether DigitalReadSource or AnalogReadSource is needed
+     // determine whether DigitalReadSource or AnalogReadSource is needed
     std::unique_ptr<pipeline::Source> daq_reader;
     std::vector <synnax::ChannelKey> channel_keys;
     if(task.type == "ni_digital_read"){
-        auto digital_reader = std::make_unique<ni::DigitalReadSource>(this->task_handle, ctx, task);
+        auto digital_reader = std::make_unique<ni::DigitalReadSource>(task_handle, ctx, task);
         digital_reader->init();
         channel_keys = digital_reader->getChannelKeys();
         daq_reader = std::move(digital_reader);
     } else{
-        auto analog_reader = std::make_unique<ni::AnalogReadSource>(this->task_handle, ctx, task);
+        auto analog_reader = std::make_unique<ni::AnalogReadSource>(task_handle, ctx, task);
         analog_reader->init();
         channel_keys = analog_reader->getChannelKeys();
         daq_reader = std::move(analog_reader);
-    }
+    }   
 
-
-    // TODO: bring this check again
-    
-    // if (!daq_reader->ok()) {
-    //     LOG(ERROR) << "[NI Reader] failed to construct reader for " << task.name;
-    //     this->ok_state = false;
-    //     return;
-    // }
+    // TODO: do a check that the daq reader was constructed successfully
 
     // construct writer config
-
     auto writer_config = synnax::WriterConfig{
             .channels = channel_keys,
             .start = synnax::TimeStamp::now(),
             .enable_auto_commit = true
-    };
+    };;
 
-    // construct acquisition pipe
-    this->daq_read_pipe = pipeline::Acquisition(ctx,
-                                                writer_config,
-                                                std::move(daq_reader),
-                                                breaker_config);
     ctx->setState({
             .task = task.key,
             .variant = "success",
@@ -165,13 +166,12 @@ ni::ReaderTask::ReaderTask(const std::shared_ptr <task::Context> &ctx,
                     {"running", false}
             }
     });
-}
-
-
-std::unique_ptr <task::Task> ni::ReaderTask::configure(const std::shared_ptr <task::Context> &ctx,
-                                                       const synnax::Task &task) {
-    LOG(INFO) << "[NI Task] configuring task " << task.name;    
-    return std::make_unique<ni::ReaderTask>(ctx, task);
+    
+    return std::make_unique<ni::ReaderTask>(    ctx, 
+                                                task, 
+                                                std::move(daq_reader), 
+                                                writer_config, 
+                                                breaker_config);
 }
 
 void ni::ReaderTask::exec(task::Command &cmd) {
@@ -227,11 +227,22 @@ bool ni::ReaderTask::ok() {
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    WriterTask                                 //
 ///////////////////////////////////////////////////////////////////////////////////
+ni::WriterTask::WriterTask(    const std::shared_ptr<task::Context> &ctx, 
+                                synnax::Task task,
+                                std::unique_ptr<pipeline::Sink> sink,
+                                std::shared_ptr<pipeline::Source> state_source,
+                                synnax::WriterConfig writer_config,
+                                synnax::StreamerConfig streamer_config,
+                                const breaker::Config breaker_config
+) : ctx(ctx),
+    task(task),
+    cmd_write_pipe(pipeline::Control(ctx, streamer_config, std::move(sink), breaker_config)),
+    state_write_pipe(pipeline::Acquisition(ctx, writer_config, state_source, breaker_config)){
+}
 
-ni::WriterTask::WriterTask(const std::shared_ptr <task::Context> &ctx,
-                           synnax::Task task) {
-    this->task = task;
-    this->ctx = ctx;
+
+std::unique_ptr <task::Task> ni::WriterTask::configure(const std::shared_ptr <task::Context> &ctx,
+                                                       const synnax::Task &task) {
     // create a breaker config TODO: use the task to generate the other parameters?
     auto breaker_config = breaker::Config{
             .name = task.name,
@@ -240,13 +251,13 @@ ni::WriterTask::WriterTask(const std::shared_ptr <task::Context> &ctx,
             .scale = 1.2,
     };
 
+    TaskHandle task_handle;
     // create a daq reader to provide to cmd read pipe as sink
-    ni::NiDAQmxInterface::CreateTask("", &this->task_handle);
-    auto daq_writer = std::make_unique<ni::DigitalWriteSink>(this->task_handle, ctx, task);
+    ni::NiDAQmxInterface::CreateTask("", &task_handle);
+    auto daq_writer = std::make_unique<ni::DigitalWriteSink>(&task_handle, ctx, task);
     if (!daq_writer->ok()) {
         LOG(ERROR) << "[NI Writer] failed to construct reader for" << task.name;
-        this->ok_state = false;
-        return;
+        return nullptr;
     }
 
     // construct writer config
@@ -266,18 +277,6 @@ ni::WriterTask::WriterTask(const std::shared_ptr <task::Context> &ctx,
             .start = synnax::TimeStamp::now(),
     };
 
-    // construct acquisition pipe
-    this->state_write_pipe = pipeline::Acquisition(ctx,
-                                                   writer_config,
-                                                   daq_writer->writer_state_source,
-                                                   breaker_config);
-
-    // construct control pipe
-    this->cmd_write_pipe = std::move(pipeline::Control(ctx,
-                                                       streamer_config,
-                                                       std::move(daq_writer),
-                                                       breaker_config));
-
     ctx->setState({
         .task = task.key,
         .variant = "success",
@@ -285,12 +284,8 @@ ni::WriterTask::WriterTask(const std::shared_ptr <task::Context> &ctx,
                 {"running", false}
         }
     });
-}
 
-
-std::unique_ptr <task::Task> ni::WriterTask::configure(const std::shared_ptr <task::Context> &ctx,
-                                                       const synnax::Task &task) {
-    return std::make_unique<ni::WriterTask>(ctx, task);
+    return std::make_unique<ni::WriterTask>(ctx, task, std::move(daq_writer), daq_writer->writer_state_source, writer_config, streamer_config, breaker_config);
 }
 
 void ni::WriterTask::exec(task::Command &cmd) {

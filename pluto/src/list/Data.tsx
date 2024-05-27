@@ -26,6 +26,7 @@ import { type state } from "@/state";
 export interface DataContextValue<K extends Key = Key, E extends Keyed<K> = Keyed<K>> {
   transformedData: E[];
   sourceData: E[];
+  transformed: boolean;
   emptyContent?: React.ReactElement;
 }
 
@@ -37,11 +38,13 @@ export interface DataUtilContextValue<
   getSourceData: () => E[];
   getTransformedData: () => E[];
   setEmptyContent: state.Set<React.ReactElement | undefined>;
+  getTransformed: () => boolean;
 }
 
 const DataContext = createContext<DataContextValue | null>({
   transformedData: [],
   sourceData: [],
+  transformed: false,
 });
 
 const DataUtilContext = createContext<DataUtilContextValue | null>({
@@ -51,6 +54,7 @@ const DataUtilContext = createContext<DataUtilContextValue | null>({
   deleteTransform: () => undefined,
   setTransform: () => undefined,
   setEmptyContent: () => undefined,
+  getTransformed: () => false,
 });
 
 export const useDataContext = <
@@ -103,8 +107,11 @@ export const DataProvider = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>
     if (sourceData != null) setData(sourceData);
   }, [sourceData]);
 
-  const transformedData = useMemo(() => transform(data), [data, transform]);
-  const transformedDataRef = useSyncedRef(transformedData);
+  const transformRes = useMemo(
+    () => transform({ data, transformed: false }),
+    [data, transform],
+  );
+  const transformedDataRef = useSyncedRef(transformRes);
 
   const [emptyContent, setEmptyContent] = useState<React.ReactElement | undefined>(
     undefined,
@@ -117,7 +124,8 @@ export const DataProvider = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>
     () => ({
       setSourceData: setData,
       getSourceData: () => dataRef.current,
-      getTransformedData: () => transformedDataRef.current,
+      getTransformedData: () => transformedDataRef.current.data,
+      getTransformed: () => transformedDataRef.current.transformed,
       deleteTransform,
       setTransform,
       setEmptyContent,
@@ -127,11 +135,12 @@ export const DataProvider = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>
 
   const ctxValue: DataContextValue<K, E> = useMemo(
     () => ({
-      transformedData,
+      transformed: transformRes.transformed,
+      transformedData: transformRes.data,
       sourceData: data,
       emptyContent,
     }),
-    [transformedData, data, emptyContent],
+    [transformRes, data, emptyContent],
   );
 
   return (

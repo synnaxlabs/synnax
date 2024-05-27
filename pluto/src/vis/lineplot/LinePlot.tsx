@@ -22,7 +22,7 @@ import {
   useState,
 } from "react";
 
-import { location, type Destructor, deep, direction, box } from "@synnaxlabs/x";
+import { location, type Destructor, deep, direction, box, xy } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
@@ -101,7 +101,7 @@ type LineState = LineSpec[];
 
 export interface LinePlotProps
   extends PropsWithChildren,
-    Pick<z.input<typeof lineplot.linePlotStateZ>, "clearOverScan" | "hold">,
+    Partial<Pick<z.input<typeof lineplot.linePlotStateZ>, "clearOverScan" | "hold">>,
     HTMLDivProps {
   resizeDebounce?: number;
   onHold?: (hold: boolean) => void;
@@ -113,9 +113,9 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
     aetherKey,
     style,
     resizeDebounce: debounce = 0,
-    clearOverScan,
+    clearOverScan = xy.ZERO,
     children,
-    hold,
+    hold = false,
     onHold,
     ...props
   }): ReactElement => {

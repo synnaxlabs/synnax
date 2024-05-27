@@ -34,16 +34,15 @@ public:
         const breaker::Config &breaker_config
     );
 
+    
     void start();
     void stop();
-
 
 private:
     std::shared_ptr<task::Context> ctx;
 
     /// @brief writer thread.
-    volatile bool cmd_running = false;
-    std::thread cmd_thread;
+    std::unique_ptr<std::thread> thread;
 
     /// @brief synnax writer
     std::unique_ptr<synnax::Streamer> streamer;
@@ -56,9 +55,10 @@ private:
     std::unique_ptr<Sink> sink;
 
     /// @brief breaker
-    breaker::Breaker cmd_breaker;
+    breaker::Breaker breaker;
+
+    void runInternal();
 
     void run();
-
 };
 }
