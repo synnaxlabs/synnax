@@ -9,41 +9,91 @@
 
 #pragma once
 
-#include "opc.h"
-#include "util.h"
-#include "driver/config/config.h"
+#include <set>
+#include <memory>
+#include <vector>
+#include <utility>
+#include <queue>
+#include <glog/logging.h>
+#include "driver/opc/opc.h"
+#include "driver/opc/util.h"
 #include "driver/task/task.h"
+#include "driver/config/config.h"
 #include "driver/pipeline/acquisition.h"
 #include "driver/pipeline/control.h"
+#include "driver/errors/errors.h"
+
+#include "include/open62541/types.h"
+#include "include/open62541/types_generated.h"
+#include "include/open62541/statuscodes.h"
+#include "include/open62541/client_highlevel.h"
+#include "driver/pipeline/acquisition.h"
+#include "include/open62541/common.h"
 
 namespace opc {
 
 typedef struct {
+    ///@brief the node id.
+    std::string node_id;
+    UA_NodeId node;
+    ///@brief the corresponding channel key to write the variable for the node to.
+    ChannelKey channel;
+    ///@brief the channel fetched from the Synnax server. Does not need to be proivded via json
+    Channel ch;
+    bool enabled;
+
 } WriterChannelConfig;
 
 typedef struct {
-
+    /// @brief the device representing the OPC UA server to write to.
+    std::string device;
+    /// @brief sets the rate at which states/acknowledgements are written to server
+    Rate update_rate;
+    /// @brief the list of channels to write to
+    std::vector<WriterChannelConfig> channels;
 } WriterConfig;
 
 
-class Writer final : public task::Task {
-
-}
 
 
 class WriterSink final : public pipeline::Sink {
 public:
+    WriterSink(
+            std::shared_ptr<task::Context> ctx,
+            const std::shared_ptr<UA_Client> &client,
+            std::set<ChannelKey> indexes,
+            synnax::Task task
+            );
+    freighter::Error start();
+    freighter::Error stop();
+    freighter::Error communicateResError(const UA_StatusCode status);
+    freighter::Error communicateValueError(const std::string &channel, const UA_StatusCode &status);
+    std::vector<synnax::ChannelKey> getCmdChannelKeys();
+    std::vector<synnax::ChannelKey> getStateChannelKeys();
+
+private:
     WriterConfig cfg;
-    std::shared_ptr<opc::Client> client;
-    std::set>ChannelKey> keys;
+    std::shared_ptr<UA_Client> client;
+    std::set<ChannelKey> keys;
     std::shared_ptr<task::Context> ctx;
     synnax::Task task;
 
     UA_WriteRequest request;
-    std::vector<UA_WriteValue
+    std::vector<UA_WriteValue> nodes_to_write;
+
+    std::vector<synnax::ChannelKey> state_channel_keys;
+    std::vector<synnax::ChannelKey> cmd_channel_keys;
+
+    synnax::ChannelKey drive_state_index_key;
+    std::queue<synnax::ChannelKey> cmd_index_keys;
+    std::queue<std::uint8_t> modified_state_valies;
+};
 
 
 
-}
+//class Writer final : public task::Task {
+//
+//};
+
 
 } // namespace opc

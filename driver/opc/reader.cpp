@@ -6,6 +6,7 @@
 // As of the Change Date specified in that file, in accordance with the Business Source
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
+// File added by Elham Islam
 
 #include <set>
 #include <memory>
@@ -76,7 +77,7 @@ public:
     synnax::Task task;
 
     UA_ReadRequest req;
-    std::vector<UA_ReadValueId> readValueIds;
+    std::vector<UA_ReadValueId> readValueIds; //TODO: snakecase
     loop::Timer timer;
     synnax::Frame fr;
     std::unique_ptr<int64_t[]> timestamp_buf;
