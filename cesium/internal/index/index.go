@@ -20,7 +20,7 @@ import (
 var ErrDiscontinuous = errors.New("discontinuous")
 
 func NewErrDiscontinuousTR(tr telem.TimeRange) error {
-	return errors.Wrapf(ErrDiscontinuous, "the index has discontinuities across the timerange %s", tr)
+	return errors.Wrapf(ErrDiscontinuous, "the index has discontinuities across the time range %s", tr)
 }
 
 func NewErrDiscontinuousStamp(offset int64, domainLen int64) error {
@@ -50,4 +50,8 @@ type Index interface {
 	// in the underlying time series, and will calculate the ending timestamp even
 	// across discontinuous ranges.
 	Stamp(ctx context.Context, ref telem.TimeStamp, distance int64, continuous bool) (TimeStampApproximation, error)
+	// Info returns the key and name of the channel of the index. If the database is
+	// domain-indexed, the information of the domain channel is returned. If the database
+	// is rate-based (i.e. self-indexing), the channel itself is returned.
+	Info() string
 }

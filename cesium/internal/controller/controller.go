@@ -287,9 +287,9 @@ var (
 
 // Validate implements config.Properties.
 func (c GateConfig) Validate() error {
-	v := validate.New("gate config")
+	v := validate.New("gate_config")
 	validate.NotEmptyString(v, "subject.key", c.Subject.Key)
-	validate.NonZeroable(v, "TimeRange", c.TimeRange)
+	validate.NonZeroable(v, "time_range", c.TimeRange)
 	return v.Error()
 }
 
@@ -435,7 +435,7 @@ func (c *Controller[E]) register(
 ) error {
 	for _, r := range c.regions {
 		if r.timeRange.OverlapsWith(t) {
-			return errors.Newf("time range %s collides with the time range for region with timerange %v", t, r.timeRange)
+			return errors.Newf("time range %s collides with the time range for region with time range %v", t, r.timeRange)
 		}
 	}
 	c.insertNewRegion(t, entity)

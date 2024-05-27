@@ -90,9 +90,9 @@ func Open(configs ...Config) (*DB, error) {
 		closed:      &atomic.Bool{},
 	}
 	if cfg.Channel.IsIndex {
-		db._idx = &index.Domain{DB: domainDB, Instrumentation: cfg.Instrumentation}
+		db._idx = &index.Domain{DB: domainDB, Instrumentation: cfg.Instrumentation, Channel: cfg.Channel}
 	} else if cfg.Channel.Index == 0 {
-		db._idx = index.Rate{Rate: cfg.Channel.Rate}
+		db._idx = index.Rate{Rate: cfg.Channel.Rate, Channel: cfg.Channel}
 	}
 	return db, err
 }

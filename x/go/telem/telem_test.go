@@ -230,68 +230,130 @@ var _ = Describe("Telem", func() {
 			})
 		})
 
-	})
+		Describe("Intersect", func() {
+			Specify("Overlap, first before second", func() {
+				tr := (0 * telem.SecondTS).Range(5 * telem.SecondTS)
+				tr2 := (3 * telem.SecondTS).Range(8 * telem.SecondTS)
+				union := tr.Intersect(tr2)
+				Expect(union.Start).To(Equal(3 * telem.SecondTS))
+				Expect(union.End).To(Equal(5 * telem.SecondTS))
+			})
+			Specify("Overlap, second before first", func() {
+				tr2 := (0 * telem.SecondTS).Range(5 * telem.SecondTS)
+				tr := (3 * telem.SecondTS).Range(8 * telem.SecondTS)
+				union := tr.Intersect(tr2)
+				Expect(union.Start).To(Equal(3 * telem.SecondTS))
+				Expect(union.End).To(Equal(5 * telem.SecondTS))
+			})
+			Specify("1 Fully contain 2", func() {
+				tr := (0 * telem.SecondTS).Range(10 * telem.SecondTS)
+				tr2 := (3 * telem.SecondTS).Range(8 * telem.SecondTS)
+				union := tr.Intersect(tr2)
+				Expect(union.Start).To(Equal(3 * telem.SecondTS))
+				Expect(union.End).To(Equal(8 * telem.SecondTS))
+			})
+			Specify("2 Fully contain 1", func() {
+				tr := (2 * telem.SecondTS).Range(5 * telem.SecondTS)
+				tr2 := (1 * telem.SecondTS).Range(8 * telem.SecondTS)
+				union := tr.Intersect(tr2)
+				Expect(union.Start).To(Equal(2 * telem.SecondTS))
+				Expect(union.End).To(Equal(5 * telem.SecondTS))
+			})
 
-	Describe("TimeSpan", func() {
-		Describe("Duration", func() {
-			It("Should return the correct time span", func() {
-				ts := telem.Second
-				Expect(ts.Duration()).To(Equal(time.Second))
-			})
 		})
-		Describe("Seconds", func() {
-			It("Should return the correct number of seconds in the span", func() {
-				ts := telem.Millisecond
-				Expect(ts.Seconds()).To(Equal(0.001))
-			})
-		})
-		Describe("IsZero", func() {
-			It("Should return true if the time span is zero", func() {
-				Expect(telem.TimeSpanMax.IsZero()).To(BeFalse())
-				Expect(telem.TimeSpanZero.IsZero()).To(BeTrue())
-			})
-		})
-		Describe("IsMax", func() {
-			It("Should return true if the time span is the maximum", func() {
-				Expect(telem.TimeSpanMax.IsMax()).To(BeTrue())
-				Expect(telem.TimeSpanZero.IsMax()).To(BeFalse())
-			})
-		})
-		Describe("ByteSize", func() {
-			It("Should return the correct byte size", func() {
-				Expect(telem.Second.ByteSize(1, 8)).To(Equal(telem.Size(8)))
-			})
-		})
-	})
 
-	Describe("size", func() {
-		Describe("Report", func() {
-			It("Should return the correct string", func() {
-				s := telem.Size(0)
-				Expect(s.String()).To(Equal("0B"))
+		Describe("Union", func() {
+			Specify("Overlap, first before second", func() {
+				tr := (0 * telem.SecondTS).Range(5 * telem.SecondTS)
+				tr2 := (3 * telem.SecondTS).Range(8 * telem.SecondTS)
+				union := tr.Union(tr2)
+				Expect(union.Start).To(Equal(telem.TimeStamp(0)))
+				Expect(union.End).To(Equal(8 * telem.SecondTS))
+			})
+			Specify("Overlap, second before first", func() {
+				tr2 := (0 * telem.SecondTS).Range(5 * telem.SecondTS)
+				tr := (3 * telem.SecondTS).Range(8 * telem.SecondTS)
+				union := tr.Union(tr2)
+				Expect(union.Start).To(Equal(telem.TimeStamp(0)))
+				Expect(union.End).To(Equal(8 * telem.SecondTS))
+			})
+			Specify("1 Fully contain 2", func() {
+				tr := (0 * telem.SecondTS).Range(10 * telem.SecondTS)
+				tr2 := (3 * telem.SecondTS).Range(8 * telem.SecondTS)
+				union := tr.Union(tr2)
+				Expect(union.Start).To(Equal(0 * telem.SecondTS))
+				Expect(union.End).To(Equal(10 * telem.SecondTS))
+			})
+			Specify("2 Fully contain 1", func() {
+				tr := (2 * telem.SecondTS).Range(5 * telem.SecondTS)
+				tr2 := (1 * telem.SecondTS).Range(8 * telem.SecondTS)
+				union := tr.Union(tr2)
+				Expect(union.Start).To(Equal(1 * telem.SecondTS))
+				Expect(union.End).To(Equal(8 * telem.SecondTS))
 			})
 		})
-	})
 
-	Describe("Rate", func() {
-		Describe("Period", func() {
-			It("Should return the correct period for the data rate", func() {
-				Expect(telem.Rate(1).Period()).To(Equal(telem.Second))
+		Describe("TimeSpan", func() {
+			Describe("Duration", func() {
+				It("Should return the correct time span", func() {
+					ts := telem.Second
+					Expect(ts.Duration()).To(Equal(time.Second))
+				})
+			})
+			Describe("Seconds", func() {
+				It("Should return the correct number of seconds in the span", func() {
+					ts := telem.Millisecond
+					Expect(ts.Seconds()).To(Equal(0.001))
+				})
+			})
+			Describe("IsZero", func() {
+				It("Should return true if the time span is zero", func() {
+					Expect(telem.TimeSpanMax.IsZero()).To(BeFalse())
+					Expect(telem.TimeSpanZero.IsZero()).To(BeTrue())
+				})
+			})
+			Describe("IsMax", func() {
+				It("Should return true if the time span is the maximum", func() {
+					Expect(telem.TimeSpanMax.IsMax()).To(BeTrue())
+					Expect(telem.TimeSpanZero.IsMax()).To(BeFalse())
+				})
+			})
+			Describe("ByteSize", func() {
+				It("Should return the correct byte size", func() {
+					Expect(telem.Second.ByteSize(1, 8)).To(Equal(telem.Size(8)))
+				})
 			})
 		})
-		Describe("Distance", func() {
-			It("Should return the number of samples that fit in the span", func() {
-				Expect(telem.Rate(10).SampleCount(telem.Second)).To(Equal(10))
+
+		Describe("size", func() {
+			Describe("Report", func() {
+				It("Should return the correct string", func() {
+					s := telem.Size(0)
+					Expect(s.String()).To(Equal("0B"))
+				})
 			})
 		})
-		Describe("SpanTo", func() {
-			It("Should return the span of the provided samples", func() {
-				Expect(telem.Rate(10).Span(10)).To(Equal(telem.Second))
+
+		Describe("Rate", func() {
+			Describe("Period", func() {
+				It("Should return the correct period for the data rate", func() {
+					Expect(telem.Rate(1).Period()).To(Equal(telem.Second))
+				})
 			})
-		})
-		Describe("SizeSpan", func() {
-			It("Should return the span of the provided number of bytes", func() {
-				Expect(telem.Rate(10).SizeSpan(16, telem.Bit64)).To(Equal(200 * telem.Millisecond))
+			Describe("Distance", func() {
+				It("Should return the number of samples that fit in the span", func() {
+					Expect(telem.Rate(10).SampleCount(telem.Second)).To(Equal(10))
+				})
+			})
+			Describe("SpanTo", func() {
+				It("Should return the span of the provided samples", func() {
+					Expect(telem.Rate(10).Span(10)).To(Equal(telem.Second))
+				})
+			})
+			Describe("SizeSpan", func() {
+				It("Should return the span of the provided number of bytes", func() {
+					Expect(telem.Rate(10).SizeSpan(16, telem.Bit64)).To(Equal(200 * telem.Millisecond))
+				})
 			})
 		})
 	})

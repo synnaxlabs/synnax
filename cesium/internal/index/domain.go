@@ -11,7 +11,9 @@ package index
 
 import (
 	"context"
+	"fmt"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
@@ -20,7 +22,8 @@ import (
 
 type Domain struct {
 	alamos.Instrumentation
-	DB *domain.DB
+	DB      *domain.DB
+	Channel core.Channel
 }
 
 var _ Index = (*Domain)(nil)
@@ -280,4 +283,8 @@ func (i *Domain) search(ts telem.TimeStamp, r *domain.Reader) (DistanceApproxima
 func readStamp(r io.ReaderAt, offset int64, buf []byte) (telem.TimeStamp, error) {
 	_, err := r.ReadAt(buf, offset)
 	return telem.UnmarshalF[telem.TimeStamp](telem.TimeStampT)(buf), err
+}
+
+func (i *Domain) Info() string {
+	return fmt.Sprintf("domain index: %v", i.Channel)
 }

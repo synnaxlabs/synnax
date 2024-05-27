@@ -266,7 +266,7 @@ func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.
 			return 0, err
 		}
 		if !approx.Exact() {
-			return 0, errors.Wrapf(validate.Error, "writer start %s cannot be resolved in the index", w.Start)
+			return 0, errors.Wrapf(validate.Error, "writer start %s cannot be resolved in the index channel %v", w.Start, w.idx.Info())
 		}
 		// Add 1 to the end timestamp because the end timestamp is exclusive.
 		end = approx.Lower + 1

@@ -80,7 +80,7 @@ var _ = Describe("Channel", Ordered, func() {
 						cesium.Channel{Key: 48, DataType: telem.Float32T},
 					),
 					Entry("ChannelKey has index - provided index key is not an indexed channel",
-						errors.Wrap(validate.Error, "[cesium] - channel []<60> is not an index"),
+						errors.Wrap(validate.Error, "[cesium] - channel <60> is not an index"),
 						cesium.Channel{Key: 60, DataType: telem.Float32T, Rate: 1 * telem.Hz},
 						cesium.Channel{Key: 61, Index: 60, DataType: telem.Float32T},
 					),
