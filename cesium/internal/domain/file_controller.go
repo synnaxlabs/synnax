@@ -325,9 +325,9 @@ func (fc *fileController) gcWriters() (bool, error) {
 	return false, nil
 }
 
-// rejuvenate adds a file key to the unopened writers set if there is no open writer
-// on it. If there is an open writer for it, it is removed.
-// This is called after a file is garbage collected.
+// rejuvenate adds a file key to the unopened writers set. If there is an open writer
+// for it, it is removed.
+// rejuvenate is called after a file is garbage collected.
 func (fc *fileController) rejuvenate(fileKey uint16) error {
 	fc.writers.Lock()
 	defer fc.writers.Unlock()
@@ -343,7 +343,6 @@ func (fc *fileController) rejuvenate(fileKey uint16) error {
 	}
 
 	fc.writers.unopened[fileKey] = struct{}{}
-
 	return nil
 }
 

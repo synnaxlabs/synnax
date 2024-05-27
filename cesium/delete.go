@@ -198,9 +198,9 @@ func (db *DB) DeleteTimeRange(ctx context.Context, chs []ChannelKey, tr telem.Ti
 		udb, uok := db.unaryDBs[ch]
 		if !uok {
 			if _, vok := db.virtualDBs[ch]; vok {
-				return errors.Newf("[cesium] - cannot delete timerange from virtual channel %d", ch)
+				return errors.Newf("cannot delete timerange from virtual channel %v", db.virtualDBs[ch].Channel)
 			}
-			return errors.Wrapf(ErrChannelNotFound, "[cesium] - timerange deletion channel %d not found", ch)
+			return errors.Wrapf(ErrChannelNotFound, "timerange deletion channel key %d not found", ch)
 		}
 
 		// Cannot delete an index channel that other channels rely on.
@@ -224,7 +224,7 @@ func (db *DB) DeleteTimeRange(ctx context.Context, chs []ChannelKey, tr telem.Ti
 			otherDB := db.unaryDBs[otherDBKey]
 			hasOverlap, err := otherDB.HasDataFor(ctx, tr)
 			if err != nil || hasOverlap {
-				return errors.Newf("[cesium] - cannot delete index channel %d with channel %d depending on it from timerange %s", ch, otherDBKey, tr)
+				return errors.Newf("cannot delete index channel %v with channel %v depending on it from timerange %s", db.unaryDBs[ch].Channel, db.unaryDBs[otherDBKey].Channel, tr)
 			}
 		}
 

@@ -163,6 +163,7 @@ func (db *DB) GarbageCollect(ctx context.Context) error {
 
 			// Remove entry from tombstones.
 			delete(db.idx.mu.tombstones, fileKey)
+
 			err = db.files.rejuvenate(fileKey)
 			if err != nil {
 				db.idx.mu.Unlock()
@@ -178,11 +179,11 @@ func (db *DB) GarbageCollect(ctx context.Context) error {
 
 func validateDelete(startPosition int, endPosition int, startOffset *int64, endOffset *int64, idx *index) error {
 	if startPosition < 0 || startPosition >= len(idx.mu.pointers) {
-		return errors.Newf("[cesium] deletion starting at invalid domain position <%d> for length %d", startPosition, len(idx.mu.pointers))
+		return errors.Newf("deletion starting at invalid domain position %d for length %d", startPosition, len(idx.mu.pointers))
 	}
 
 	if endPosition < 0 || endPosition >= len(idx.mu.pointers) {
-		return errors.Newf("[cesium] deletion ending at invalid domain position <%d> for length %d", endPosition, len(idx.mu.pointers))
+		return errors.Newf("deletion ending at invalid domain position %d for length %d", endPosition, len(idx.mu.pointers))
 	}
 
 	if *startOffset < 0 {
@@ -205,11 +206,11 @@ func validateDelete(startPosition int, endPosition int, startOffset *int64, endO
 	if startPosition > endPosition && !(startPosition == endPosition+1 &&
 		*startOffset == 0 &&
 		*endOffset == 0) {
-		return errors.Newf("[cesium] deletion start domain <%d> is greater than deletion end domain <%d>", startPosition, endPosition)
+		return errors.Newf("deletion start domain %d is greater than deletion end domain %d", startPosition, endPosition)
 	}
 
 	if startPosition == endPosition && *startOffset+*endOffset > int64(idx.mu.pointers[startPosition].length) {
-		return errors.Newf("[cesium] deletion start offset <%d> is after end offset <%d>", *startOffset, *endOffset)
+		return errors.Newf("deletion start offset %d is after end offset %d", *startOffset, *endOffset)
 	}
 
 	return nil
