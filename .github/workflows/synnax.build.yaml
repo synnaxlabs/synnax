@@ -53,8 +53,7 @@ jobs:
               draft: false,
               prerelease: false
             });
-
-
+            
   build:
     strategy:
       fail-fast: false
