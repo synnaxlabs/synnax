@@ -40,7 +40,8 @@ var _ = Describe("Control", func() {
 		It("Should return an error if time range is already registered", func() {
 			c := MustSucceed(controller.New[testEntity](controller.Config{Concurrency: control.Exclusive}))
 			Expect(c.Register(telem.TimeRangeMax, testEntity{})).To(Succeed())
-			Expect(c.Register(telem.TimeRangeMax, testEntity{})).ToNot(Succeed())
+			err := c.Register(telem.TimeRangeMax, testEntity{})
+			Expect(err).To(MatchError(controller.ErrRegionOverlap))
 		})
 	})
 
@@ -506,7 +507,7 @@ var _ = Describe("Control", func() {
 			}, control.Subject{Key: "g2"}, createEntityAndNoError)
 			Expect(t.Occurred()).To(BeFalse())
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("already controlled"))
+			Expect(err.Error()).To(ContainSubstring("overlaps with a controlled region"))
 		})
 	})
 })

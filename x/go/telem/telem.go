@@ -50,6 +50,9 @@ func NewTimeStamp(t time.Time) TimeStamp { return TimeStamp(t.UnixNano()) }
 // "2006-01-02T15:04:05.999Z"
 // String implements fmt.Stringer
 func (ts TimeStamp) String() string {
+	if ts == TimeStampMax {
+		return "end of time"
+	}
 	return ts.Time().UTC().Format("2006-01-02T15:04:05.999Z")
 }
 
@@ -280,6 +283,9 @@ func (ts TimeSpan) ByteSize(rate Rate, density Density) Size {
 // String implements fmt.Stringer.
 // String returns a string representation of the TimeSpan
 func (ts TimeSpan) String() string {
+	if ts == TimeSpanMax {
+		return "max time span"
+	}
 	positiveTS := ts
 	if positiveTS == 0 {
 		return "0s"

@@ -32,6 +32,9 @@ var _ = Describe("Telem", func() {
 				ts := 90*telem.DayTS + 20*telem.MinuteTS + 283*telem.MillisecondTS + 900*telem.MicrosecondTS
 				Expect(fmt.Sprintf("%v", ts)).To(Equal("1970-04-01T00:20:00.283Z"))
 			})
+			It("Should do EoT", func() {
+				Expect(fmt.Sprintf("%v", telem.TimeStampMax)).To(Equal("end of time"))
+			})
 		})
 
 		Describe("Name", func() {
@@ -326,6 +329,7 @@ var _ = Describe("Telem", func() {
 					Entry("second", 1*telem.Second, "1s"),
 					Entry("minute", 1*telem.Minute, "1m"),
 					Entry("hour", 1*telem.Hour, "1h"),
+					Entry("max", telem.TimeSpanMax, "max time span"),
 					Entry("combine", 2*telem.Day+80*telem.Minute+1*telem.Millisecond+500*telem.Microsecond+5*telem.Nanosecond, "2d 1h 20m 1ms 500µs 5ns"),
 				)
 			})
