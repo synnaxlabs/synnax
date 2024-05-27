@@ -62,10 +62,22 @@ WriterSink::WriterSink(
 //TODO:
 
 freighter::Error WriterSink::start(){
+    curr_state.variant = "success";
+    curr_state.details = json{
+        {"message", "Task started successfully"},
+        {"running", true}
+    };
+    this->ctx->setState(curr_state);
     return freighter::NIL;
 }
 
 freighter::Error WriterSink::stop(){
+    curr_state.variant = "success";
+    curr_state.details = json{
+        {"message", "Task stopped successfully"},
+        {"running", false}
+    };
+    this->ctx->setState(curr_state);
     return freighter::NIL;
 }
 
