@@ -164,18 +164,18 @@ jobs:
         run: gh release upload --clobber synnax-v${{ steps.version.outputs.VERSION }} ./synnax/synnax-v${{ steps.version.outputs.VERSION }}-${{ steps.os.outputs.OS }}
 
       - name: Download latest earthly
-        if: ${{ matrix.platform == 'ubuntu-latest' }} && steps.filter.outputs.changed == 'true'
+        if: ${{ (matrix.platform == 'ubuntu-latest') && (steps.filter.outputs.changed == 'true') }}
         uses: earthly/actions-setup@v1
 
       - name: Login to Docker Hub
-        if: ${{ matrix.platform == 'ubuntu-latest' }} && steps.filter.outputs.changed == 'true'
+        if: ${{ (matrix.platform == 'ubuntu-latest') && (steps.filter.outputs.changed == 'true') }}
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
       - name: Login to Github Container Registry
-        if: ${{ matrix.platform == 'ubuntu-latest' }} && steps.filter.outputs.changed == 'true'
+        if: ${{ (matrix.platform == 'ubuntu-latest') && (steps.filter.outputs.changed == 'true') }}
         uses: docker/login-action@v2
         with:
           registry: ghcr.io
@@ -183,16 +183,16 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build Image
-        if: ${{ matrix.platform == 'ubuntu-latest' }} && steps.filter.outputs.changed == 'true'
+        if: ${{ (matrix.platform == 'ubuntu-latest') && (steps.filter.outputs.changed == 'true') }}
         run: earthly --push +docker -tag=${{ steps.version.outputs.VERSION }}
         working-directory: ./synnax
 
-      - name: ${{ matrix.platform == 'ubuntu-latest' }} && steps.filter.outputs.changed == 'true'
-        if: ${{ matrix.platform == 'ubuntu-latest' }} && steps.filter.outputs.changed == 'true'
+      - name: ${{ (matrix.platform == 'ubuntu-latest') && (steps.filter.outputs.changed == 'true') }}
+        if: ${{ (matrix.platform == 'ubuntu-latest') && (steps.filter.outputs.changed == 'true') }}
         run: echo test
 
       - name: Push to Github Container Registry
-        if: ${{ matrix.platform == 'ubuntu-latest' }} && steps.filter.outputs.changed == 'true'
+        if: ${{ (matrix.platform == 'ubuntu-latest') && (steps.filter.outputs.changed == 'true') }}
         run: |
           docker push ghcr.io/synnaxlabs/synnax:${{ steps.version.outputs.VERSION }}
           if [ "${{ github.ref }}" = "refs/heads/main" ]; then
@@ -201,7 +201,7 @@ jobs:
           fi
 
       - name: Push to Docker Hub
-        if: ${{ matrix.platform == 'ubuntu-latest' }} && steps.filter.outputs.changed == 'true'
+        if: ${{ (matrix.platform == 'ubuntu-latest') && (steps.filter.outputs.changed == 'true') }}
         run: |
           docker tag ghcr.io/synnaxlabs/synnax:${{ steps.version.outputs.VERSION }} synnaxlabs/synnax:${{ steps.version.outputs.VERSION }}
           docker push synnaxlabs/synnax:${{ steps.version.outputs.VERSION }}
