@@ -159,10 +159,12 @@ func (db *DB) validateNewChannel(ch Channel) error {
 			v.Ternary("data_type", ch.DataType != telem.TimeStampT, "index channel must be of type timestamp")
 			v.Ternaryf("index", ch.Index != 0 && ch.Index != ch.Key, "index channel cannot be indexed by another channel")
 		} else if ch.Index != 0 {
+			db.mu.RLock()
 			validate.MapContainsf(v, ch.Index, db.unaryDBs, "index channel <%d> does not exist", ch.Index)
 			v.Funcf(func() bool {
 				return !db.unaryDBs[ch.Index].Channel.IsIndex
 			}, "channel %v is not an index", db.unaryDBs[ch.Index].Channel)
+			db.mu.RUnlock()
 		} else {
 			validate.Positive(v, "rate", ch.Rate)
 		}

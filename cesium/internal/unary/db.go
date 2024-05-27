@@ -164,7 +164,7 @@ func (db *DB) Close() error {
 	if db.entityCount.openIteratorWriters > 0 {
 		return db.wrapError(errors.Newf("cannot close channel because there are %d unclosed writers/iterators accessing it", db.entityCount.openIteratorWriters))
 	} else {
-		db.closed.Swap(true)
+		db.closed.Store(true)
 		return db.wrapError(db.Domain.Close())
 	}
 }

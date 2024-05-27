@@ -230,32 +230,32 @@ var _ = Describe("Telem", func() {
 			})
 		})
 
-		Describe("Intersect", func() {
+		Describe("Intersection", func() {
 			Specify("Overlap, first before second", func() {
 				tr := (0 * telem.SecondTS).Range(5 * telem.SecondTS)
 				tr2 := (3 * telem.SecondTS).Range(8 * telem.SecondTS)
-				union := tr.Intersect(tr2)
+				union := tr.Intersection(tr2)
 				Expect(union.Start).To(Equal(3 * telem.SecondTS))
 				Expect(union.End).To(Equal(5 * telem.SecondTS))
 			})
 			Specify("Overlap, second before first", func() {
 				tr2 := (0 * telem.SecondTS).Range(5 * telem.SecondTS)
 				tr := (3 * telem.SecondTS).Range(8 * telem.SecondTS)
-				union := tr.Intersect(tr2)
+				union := tr.Intersection(tr2)
 				Expect(union.Start).To(Equal(3 * telem.SecondTS))
 				Expect(union.End).To(Equal(5 * telem.SecondTS))
 			})
 			Specify("1 Fully contain 2", func() {
 				tr := (0 * telem.SecondTS).Range(10 * telem.SecondTS)
 				tr2 := (3 * telem.SecondTS).Range(8 * telem.SecondTS)
-				union := tr.Intersect(tr2)
+				union := tr.Intersection(tr2)
 				Expect(union.Start).To(Equal(3 * telem.SecondTS))
 				Expect(union.End).To(Equal(8 * telem.SecondTS))
 			})
 			Specify("2 Fully contain 1", func() {
 				tr := (2 * telem.SecondTS).Range(5 * telem.SecondTS)
 				tr2 := (1 * telem.SecondTS).Range(8 * telem.SecondTS)
-				union := tr.Intersect(tr2)
+				union := tr.Intersection(tr2)
 				Expect(union.Start).To(Equal(2 * telem.SecondTS))
 				Expect(union.End).To(Equal(5 * telem.SecondTS))
 			})

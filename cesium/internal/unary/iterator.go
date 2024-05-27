@@ -241,7 +241,10 @@ func (i *Iterator) Len() (l int64) {
 	return
 }
 
-func (i *Iterator) Error() error { return core.NewErrorWrapper(i.Channel)(i.err) }
+func (i *Iterator) Error() error {
+	wrap := core.NewErrorWrapper(i.Channel)
+	return wrap(i.err)
+}
 
 func (i *Iterator) Valid() bool { return i.partiallySatisfied() && i.err == nil }
 
@@ -251,7 +254,8 @@ func (i *Iterator) Close() (err error) {
 	}
 	i.onClose()
 	i.closed = true
-	return core.NewErrorWrapper(i.Channel)(i.internal.Close())
+	wrap := core.NewErrorWrapper(i.Channel)
+	return wrap(i.internal.Close())
 }
 
 // accumulate reads the underlying data contained in the view from OS and

@@ -230,17 +230,16 @@ func (w *Writer) updateHwm(series telem.Series) {
 }
 
 // Commit commits the written series to the database.
-func (w *Writer) Commit(ctx context.Context) (ts telem.TimeStamp, err error) {
+func (w *Writer) Commit(ctx context.Context) (telem.TimeStamp, error) {
 	if w.closed {
-		err = w.wrapError(errWriterClosed)
-		return
+		return telem.TimeStampMax, w.wrapError(errWriterClosed)
 	}
 
 	if w.Channel.IsIndex {
-		ts, err = w.commitWithEnd(ctx, w.hwm+1)
-		return
+		ts, err := w.commitWithEnd(ctx, w.hwm+1)
+		return ts, w.wrapError(err)
 	}
-	ts, err = w.commitWithEnd(ctx, telem.TimeStamp(0))
+	ts, err := w.commitWithEnd(ctx, telem.TimeStamp(0))
 	return ts, w.wrapError(err)
 }
 

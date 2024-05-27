@@ -194,7 +194,7 @@ func (tr TimeRange) Union(tr2 TimeRange) (ret TimeRange) {
 	return
 }
 
-func (tr TimeRange) Intersect(tr2 TimeRange) (ret TimeRange) {
+func (tr TimeRange) Intersection(tr2 TimeRange) (ret TimeRange) {
 	if tr.Start.Before(tr2.Start) {
 		ret.Start = tr2.Start
 	} else {
