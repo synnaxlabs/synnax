@@ -201,19 +201,7 @@ jobs:
         if: ${{ (matrix.platform == 'ubuntu-latest') && (steps.filter.outputs.changed == 'true') }}
         run: earthly --push +docker -tag=${{ steps.version.outputs.VERSION }}
         working-directory: ./synnax
-
-      - name: ${{ (matrix.platform == 'ubuntu-latest') && (steps.filter.outputs.changed == 'true') }}
-        if: ${{ (matrix.platform == 'ubuntu-latest') && (steps.filter.outputs.changed == 'true') }}
-        run: echo test
-
-      - name: ${{ matrix.platform == 'ubuntu-latest' }}
-        if: ${{ (matrix.platform == 'ubuntu-latest') }}
-        run: echo test
-
-      - name: ${{ steps.filter.outputs.changed == 'true' }}
-        if: ${{ steps.filter.outputs.changed == 'true' }}
-        run: echo test
-
+ 
       - name: Push to Github Container Registry
         if: ${{ (matrix.platform == 'ubuntu-latest') && (steps.filter.outputs.changed == 'true') }}
         run: |
