@@ -22,7 +22,7 @@ jobs:
               - 'synnax/**'
               - 'cesium/**'
               - 'x/**'
-              - 'aspen/**'
+              - 'console/**'
               - 'freighter/go/**'
               - 'driver/**'
               - '.github/workflows/synnax.build.yaml'
@@ -65,21 +65,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
-      - name: Filter Changes
-        uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          filters: |
-            changed:
-              - 'synnax/**'
-              - 'cesium/**'
-              - 'x/**'
-              - 'aspen/**'
-              - 'freighter/go/**'
-              - '.github/workflows/synnax.build.yaml'
-
       - name: Determine OS
-        if: steps.filter.outputs.changed == 'true'
         id: os
         shell: bash
         run: |
@@ -106,11 +92,9 @@ jobs:
               - '.github/workflows/synnax.build.yaml'
 
       - name: Update Submodules
-        if: steps.filter.outputs.changed == 'true'
         run: git submodule update --init --recursive
 
       - name: Setup Bazel
-        if: steps.filter.outputs.changed == 'true'
         uses: bazel-contrib/setup-bazel@0.8.1
         with:
           bazelisk-cache: true
@@ -118,12 +102,10 @@ jobs:
           repository-cache: true
 
       - uses: GuillaumeFalourd/setup-windows10-sdk-action@v2
-        if: matrix.platform == 'windows-latest' && steps.filter.outputs.changed == 'true'
         with:
           sdk-version: 22000
 
       - name: Build Open62541
-        if: steps.filter.outputs.changed == 'true'
         shell: bash
         run: |
           mkdir build && cd build
@@ -132,20 +114,19 @@ jobs:
         working-directory: driver/vendor/open62541/open62541
 
       - name: Build Driver on Windows
-        if: matrix.platform == 'windows-latest' && steps.filter.outputs.changed == 'true'
+        if: ${{ matrix.platform == 'windows-latest' }}
         run: bazel --output_user_root=C:/tmp build --enable_platform_specific_config //driver:driver_main --define ni_mock=true
 
       - name: Build Driver on mac
-        if: matrix.platform == 'macos-latest' && steps.filter.outputs.changed == 'true'
+        if: ${{ matrix.platform == 'macos-latest' }}
         run: bazel build --enable_platform_specific_config //driver:driver_main --define ni_mock=true
 
       - name: Build Driver on ubuntu
-        if: matrix.platform == 'ubuntu-latest' && steps.filter.outputs.changed == 'true'
+        if: ${{ matrix.platform == 'ubuntu-latest' }}
         run: bazel build --enable_platform_specific_config //driver:driver_main --define ni_mock=true
 
       - name: Determine Executable Name
         id: executable
-        if: steps.filter.outputs.changed == 'true'
         shell: bash
         run: |
           if [ "${{ matrix.platform }}" = "macos-latest" ]; then
@@ -163,7 +144,6 @@ jobs:
         run: mv synnax/pkg/hardware/embedded/assets/driver_main${{ steps.executable.outputs.EXECUTABLE }} synnax/pkg/hardware/embedded/assets/driver${{ steps.executable.outputs.EXECUTABLE }}
 
       - name: Set up Go
-        if: steps.filter.outputs.changed == 'true'
         uses: actions/setup-go@v5
         with:
           go-version-file: "go.work"
@@ -176,13 +156,11 @@ jobs:
             "x/go/go.sum"
 
       - name: Download Dependencies
-        if: steps.filter.outputs.changed == 'true'
         working-directory: ./synnax
         run: |
           go mod download
 
       - name: Get Version
-        if: steps.filter.outputs.changed == 'true'
         id: version
         working-directory: ./synnax
         shell: bash
@@ -190,13 +168,12 @@ jobs:
           echo "VERSION=$(cat pkg/version/VERSION)" >> $GITHUB_OUTPUT
 
       - name: Build
-        if: steps.filter.outputs.changed == 'true' 
         working-directory: ./synnax
         run: |
           go build -tags driver -o synnax-v${{ steps.version.outputs.VERSION }}-${{ steps.os.outputs.OS }}
 
       - name: Upload Release Asset
-        if: steps.filter.outputs.changed == 'true' && github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main'
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: gh release upload --clobber synnax-v${{ steps.version.outputs.VERSION }} ./synnax/synnax-v${{ steps.version.outputs.VERSION }}-${{ steps.os.outputs.OS }}
@@ -204,46 +181,6 @@ jobs:
       - name: Download latest earthly
         if: ${{ (matrix.platform == 'ubuntu-latest') && (steps.filter.outputs.changed == 'true') }}
         uses: earthly/actions-setup@v1
-
-      - name: Login to Docker Hub
-        if: ${{ (matrix.platform == 'ubuntu-latest') && (steps.filter.outputs.changed == 'true') }}
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-
-      - name: Login to Github Container Registry
-        if: ${{ (matrix.platform == 'ubuntu-latest') && (steps.filter.outputs.changed == 'true') }}
-        uses: docker/login-action@v2
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build Image
-        if: ${{ (matrix.platform == 'ubuntu-latest') && (steps.filter.outputs.changed == 'true') }}
-        run: earthly --push +docker -tag=${{ steps.version.outputs.VERSION }}
-        working-directory: ./synnax
- 
-      - name: Push to Github Container Registry
-        if: ${{ (matrix.platform == 'ubuntu-latest') && (steps.filter.outputs.changed == 'true') }}
-        run: |
-          docker push ghcr.io/synnaxlabs/synnax:${{ steps.version.outputs.VERSION }}
-          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            docker tag ghcr.io/synnaxlabs/synnax:${{ steps.version.outputs.VERSION }} ghcr.io/synnaxlabs/synnax:latest
-            docker push ghcr.io/synnaxlabs/synnax:latest
-          fi
-
-      - name: Push to Docker Hub
-        if: ${{ (matrix.platform == 'ubuntu-latest') && (steps.filter.outputs.changed == 'true') }}
-        run: |
-          docker tag ghcr.io/synnaxlabs/synnax:${{ steps.version.outputs.VERSION }} synnaxlabs/synnax:${{ steps.version.outputs.VERSION }}
-          docker push synnaxlabs/synnax:${{ steps.version.outputs.VERSION }}
-          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            docker tag ghcr.io/synnaxlabs/synnax:${{ steps.version.outputs.VERSION }} synnaxlabs/synnax:latest
-            docker push synnaxlabs/synnax:latest
-          fi
-
 
       - name: Login to Docker Hub
         if: ${{ (matrix.platform == 'ubuntu-latest') && (steps.filter.outputs.changed == 'true') }}
