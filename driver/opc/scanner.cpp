@@ -94,12 +94,6 @@ static UA_StatusCode nodeIter(
                     node_id,
                     is_array
                 });
-                ctx->channels->push_back({
-                    dt,
-                    name,
-                    node_id,
-                    is_array
-                });
         }
     }
     if (ctx->depth >= ctx->max_depth || child_id.namespaceIndex == 0) return

@@ -84,20 +84,16 @@ export const DefaultContextMenu = (): ReactElement => (
 );
 
 export const Window = (): ReactElement | null => {
-  const win = useSelectWindowKey(getCurrent().label);
-  const layout = useSelect(win ?? "");
+  const win = useSelectWindowKey(getCurrent().label) ?? "";
+  const layout = useSelect(win);
   const os = OS.use();
   const dispatch = useDispatch();
   useEffect(() => {
-    if (os === "Windows") {
-      dispatch(setWindowDecorations({ value: false }));
-    }
+    if (os === "Windows") dispatch(setWindowDecorations({ value: false }));
   }, [os]);
   const menuProps = PMenu.useContextMenu();
   const maximized = useSelectWindowAttribute(win, "maximized") ?? false;
-  if (layout == null) {
-    return <h1>{win ?? getCurrent().label}</h1>;
-  }
+  if (layout == null) return null;
   const content = <Content layoutKey={layout.key} />;
   return (
     <PMenu.ContextMenu menu={() => <DefaultContextMenu />} {...menuProps}>
