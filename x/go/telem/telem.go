@@ -11,10 +11,12 @@ package telem
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/clamp"
 	"math"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -44,11 +46,11 @@ func Now() TimeStamp { return NewTimeStamp(time.Now()) }
 // NewTimeStamp creates a new TimeStamp from a time.Time.
 func NewTimeStamp(t time.Time) TimeStamp { return TimeStamp(t.UnixNano()) }
 
-// String returns the timestamp in the string format
-// "2006-01-02 15:04:05.999999999"
+// String returns the timestamp in the string format. All digits after are truncated.
+// "2006-01-02T15:04:05.999Z"
 // String implements fmt.Stringer
 func (ts TimeStamp) String() string {
-	return ts.Time().UTC().Format("2006-01-02 15:04:05.999999999")
+	return ts.Time().UTC().Format("2006-01-02T15:04:05.999Z")
 }
 
 // RawString returns the timestamp in nanoseconds.
@@ -276,7 +278,56 @@ func (ts TimeSpan) ByteSize(rate Rate, density Density) Size {
 
 // String returns the timespan in a formated duration.
 // String implements fmt.Stringer.
-func (ts TimeSpan) String() string { return ts.Duration().String() }
+// String returns a string representation of the TimeSpan
+func (ts TimeSpan) String() string {
+	positiveTS := ts
+	if positiveTS == 0 {
+		return "0s"
+	}
+
+	var parts []string
+
+	if positiveTS < 0 {
+		parts = append(parts, "-")
+		positiveTS = -ts
+	}
+
+	if positiveTS >= Day {
+		days := positiveTS / Day
+		parts = append(parts, fmt.Sprintf("%dd", days))
+		positiveTS -= days * Day
+	}
+	if positiveTS >= Hour {
+		hours := positiveTS / Hour
+		parts = append(parts, fmt.Sprintf("%dh", hours))
+		positiveTS -= hours * Hour
+	}
+	if positiveTS >= Minute {
+		minutes := positiveTS / Minute
+		parts = append(parts, fmt.Sprintf("%dm", minutes))
+		positiveTS -= minutes * Minute
+	}
+	if positiveTS >= Second {
+		seconds := positiveTS / Second
+		parts = append(parts, fmt.Sprintf("%ds", seconds))
+		positiveTS -= seconds * Second
+	}
+	if positiveTS >= Millisecond {
+		milliseconds := positiveTS / Millisecond
+		parts = append(parts, fmt.Sprintf("%dms", milliseconds))
+		positiveTS -= milliseconds * Millisecond
+	}
+	if positiveTS >= Microsecond {
+		microseconds := positiveTS / Microsecond
+		parts = append(parts, fmt.Sprintf("%dµs", microseconds))
+		positiveTS -= microseconds * Microsecond
+	}
+	if positiveTS > 0 {
+		parts = append(parts, fmt.Sprintf("%dns", positiveTS))
+	}
+
+	return strings.Join(parts, " ")
+}
 
 // RawString returns the timespan in nanoseconds.
 func (ts TimeSpan) RawString() string { return strconv.Itoa(int(ts)) + "ns" }
@@ -293,6 +344,9 @@ const (
 	Minute        = 60 * Second
 	MinuteTS      = 60 * SecondTS
 	Hour          = 60 * Minute
+	HourTS        = 60 * MinuteTS
+	Day           = 24 * Hour
+	DayTS         = 24 * HourTS
 )
 
 // Size represents the size of an element in bytes.

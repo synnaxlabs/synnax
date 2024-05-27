@@ -33,6 +33,12 @@ describe("TimeStamp", () => {
     expect(ts.equals(TimeStamp.MIN)).toBeTruthy();
   });
 
+  test("toString", () => {
+    const ts = new TimeStamp(TimeSpan.days(90)).add(TimeSpan.minutes(20)).add(TimeSpan.milliseconds(283)).add(TimeSpan.microseconds(900))
+    const tsString = ts.toString()
+    expect(tsString).toEqual("1970-04-01T00:20:00.283Z")
+  })
+
   test("encode", () => {
     const ts = TimeStamp.now();
     new binary.JSONEncoderDecoder().encode(ts);
@@ -427,6 +433,14 @@ describe("TimeRange", () => {
       expect(tr.roughlyEquals(one, TimeSpan.seconds(0))).toBeFalsy();
     });
   });
+
+  test("toString", () => {
+    const ts = new TimeStamp(TimeSpan.days(2)).add(TimeSpan.minutes(20)).add(TimeSpan.milliseconds(283)).add(TimeSpan.microseconds(900))
+    const ts2 = new TimeStamp(TimeSpan.days(4)).add(TimeSpan.minutes(20)).add(TimeSpan.milliseconds(283)).add(TimeSpan.microseconds(900))
+    const tr = ts.range(ts2)
+    const trString = tr.toString()
+    expect(trString).toEqual("1970-01-03T00:20:00.283Z - 1970-01-05T00:20:00.283Z")
+  })
 });
 
 describe("DataType", () => {
