@@ -50,15 +50,11 @@ func migrate12(fs xfs.FS) error {
 	}
 
 	// Then migrate the pointers
-	err = fs.Rename("index.domain", "index_old.domain")
+	r, err := fs.Open("index.domain", os.O_RDONLY)
 	if err != nil {
 		return err
 	}
-	r, err := fs.Open("index_old.domain", os.O_RDONLY)
-	if err != nil {
-		return err
-	}
-	w, err := fs.Open("index.domain", os.O_WRONLY|os.O_CREATE|os.O_EXCL)
+	w, err := fs.Open("index.domain", os.O_WRONLY)
 	if err != nil {
 		return err
 	}
@@ -68,19 +64,24 @@ func migrate12(fs xfs.FS) error {
 		return err
 	}
 	var (
-		sz   = make([]byte, 4)
-		data = make([]byte, s.Size())
+		sz  = make([]byte, 4)
+		buf = make([]byte, 26)
 	)
-	telem.ByteOrder.PutUint32(sz, uint32(s.Size()/26))
 
-	if len(data) != 0 {
-		_, err = r.Read(data)
+	for i := s.Size() - 26; i >= 0; i -= 26 {
+		_, err = r.ReadAt(buf, i)
+		if err != nil {
+			return err
+		}
+
+		_, err = w.WriteAt(buf, i+4)
 		if err != nil {
 			return err
 		}
 	}
 
-	_, err = w.Write(append(sz, data...))
+	telem.ByteOrder.PutUint32(sz, uint32(s.Size()/26))
+	_, err = w.WriteAt(sz, 0)
 	if err != nil {
 		return err
 	}
@@ -94,5 +95,5 @@ func migrate12(fs xfs.FS) error {
 		return err
 	}
 
-	return fs.Remove("index_old.domain")
+	return nil
 }
