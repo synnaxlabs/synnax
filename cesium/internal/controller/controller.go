@@ -10,7 +10,6 @@
 package controller
 
 import (
-	"fmt"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/config"
@@ -231,7 +230,8 @@ type Config struct {
 var (
 	_ config.Config[Config] = Config{}
 	// DefaultConfig is the default configuration for opening a Controller.
-	DefaultConfig = Config{Concurrency: control.Exclusive}
+	DefaultConfig    = Config{Concurrency: control.Exclusive}
+	ErrRegionOverlap = errors.New("region collides with existing region")
 )
 
 func (c Config) Validate() error {
@@ -245,8 +245,8 @@ func (c Config) Override(other Config) Config {
 	return other
 }
 
-func multipleControlRegions(tr telem.TimeRange) string {
-	return fmt.Sprintf("encountered multiple control regions for time range %s", tr)
+func newErrMultipleControlRegions(tr telem.TimeRange) error {
+	return errors.Newf("encountered multiple control regions for time range %s", tr)
 }
 
 type Controller[E Entity] struct {
@@ -339,14 +339,14 @@ func (c *Controller[E]) OpenAbsoluteGateIfUncontrolled(tr telem.TimeRange, s con
 		// therefore this method should not create an absolute gate.
 		if r.timeRange.OverlapsWith(tr) {
 			if exists {
-				c.L.DPanic(multipleControlRegions(tr))
-				return nil, t, errors.New(multipleControlRegions(tr))
+				c.L.DPanic(newErrMultipleControlRegions(tr).Error())
+				return nil, t, newErrMultipleControlRegions(tr)
 			}
 
 			r.Lock()
 			if r.curr != nil {
 				r.Unlock()
-				return nil, t, errors.Newf("cannot create a gate on the region %s because it is already controlled by %s", r.timeRange, r.curr.Subject)
+				return nil, t, errors.Wrapf(ErrRegionOverlap, "timerange %v overlaps with a controlled region with bounds %v controlled by %v", tr, r.timeRange, r.curr.Subject)
 			}
 
 			g = &Gate[E]{
@@ -394,8 +394,8 @@ func (c *Controller[E]) OpenGateAndMaybeRegister(cfg GateConfig, callback func()
 		if r.timeRange.OverlapsWith(cfg.TimeRange) {
 			// v1 optimization: one writer can only overlap with one region at any given time.
 			if exists {
-				c.L.DPanic(multipleControlRegions(cfg.TimeRange))
-				return nil, t, errors.New(multipleControlRegions(cfg.TimeRange))
+				c.L.DPanic(newErrMultipleControlRegions(cfg.TimeRange).Error())
+				return nil, t, newErrMultipleControlRegions(cfg.TimeRange)
 			}
 			// If there is an existing region, we open a new gate on that region.
 			g, t, err = r.open(cfg, c.Concurrency)
@@ -435,7 +435,7 @@ func (c *Controller[E]) register(
 ) error {
 	for _, r := range c.regions {
 		if r.timeRange.OverlapsWith(t) {
-			return errors.Newf("time range %s collides with the time range for region with time range %v", t, r.timeRange)
+			return errors.Wrapf(ErrRegionOverlap, "time range %v overlaps with region which has time range %v on the intersection %v", t, r.timeRange, t.Intersection(r.timeRange))
 		}
 	}
 	c.insertNewRegion(t, entity)

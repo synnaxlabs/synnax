@@ -284,7 +284,7 @@ func (ts TimeSpan) ByteSize(rate Rate, density Density) Size {
 // String returns a string representation of the TimeSpan
 func (ts TimeSpan) String() string {
 	if ts == TimeSpanMax {
-		return "max timespan"
+		return "max time span"
 	}
 	positiveTS := ts
 	if positiveTS == 0 {
