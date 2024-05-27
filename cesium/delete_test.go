@@ -947,17 +947,19 @@ var _ = Describe("Delete", func() {
 			})
 			Describe("Error paths", func() {
 				var (
-					data  cesium.ChannelKey
-					index cesium.ChannelKey
+					data     cesium.ChannelKey
+					index    cesium.ChannelKey
+					channels []cesium.Channel
 				)
 				BeforeEach(func() {
 					data = GenerateChannelKey()
 					index = GenerateChannelKey()
+					channels = []cesium.Channel{
+						{Key: index, IsIndex: true, DataType: telem.TimeStampT},
+						{Key: data, Index: index, DataType: telem.Int64T},
+					}
 
-					Expect(db.CreateChannel(ctx,
-						cesium.Channel{Key: index, IsIndex: true, DataType: telem.TimeStampT},
-						cesium.Channel{Key: data, Index: index, DataType: telem.Int64T},
-					)).To(Succeed())
+					Expect(db.CreateChannel(ctx, channels...)).To(Succeed())
 				})
 				It("Should return ChannelNotFound when a channel does not exist", func() {
 					Expect(db.DeleteTimeRange(ctx, []cesium.ChannelKey{math.MaxUint32 - 10}, telem.TimeRangeMax)).To(MatchError(cesium.ErrChannelNotFound))
@@ -1004,14 +1006,14 @@ var _ = Describe("Delete", func() {
 					Expect(db.WriteArray(ctx, data, 10*telem.SecondTS, telem.NewSeriesV[int64](10, 11, 12, 13))).To(Succeed())
 
 					err := db.DeleteTimeRange(ctx, []cesium.ChannelKey{index}, (8 * telem.SecondTS).Range(11*telem.SecondTS))
-					Expect(err).To(MatchError(ContainSubstring(fmt.Sprintf("cannot delete index channel %d with channel %d depending on it from timerange %v", index, data, (8 * telem.SecondTS).Range(11*telem.SecondTS)))))
+					Expect(err).To(MatchError(ContainSubstring(fmt.Sprintf("cannot delete index channel %v with channel %v depending on it from timerange %v", channels[0], channels[1], (8 * telem.SecondTS).Range(11*telem.SecondTS)))))
 				})
 				It("Should not allow deletion of an index channel when there is a data channel with a writer open before the timerange", func() {
 					Expect(db.WriteArray(ctx, index, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13))).To(Succeed())
 					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Channels: []cesium.ChannelKey{data}, Start: 9 * telem.SecondTS}))
 
 					err := db.DeleteTimeRange(ctx, []cesium.ChannelKey{index}, (8 * telem.SecondTS).Range(10*telem.SecondTS))
-					Expect(err).To(MatchError(ContainSubstring(fmt.Sprintf("cannot delete index channel %d with channel %d depending on it from timerange %v", index, data, (8 * telem.SecondTS).Range(10*telem.SecondTS)))))
+					Expect(err).To(MatchError(ContainSubstring(fmt.Sprintf("cannot delete index channel %v with channel %v depending on it from timerange %v", channels[0], channels[1], (8 * telem.SecondTS).Range(10*telem.SecondTS)))))
 
 					Expect(db.DeleteTimeRange(ctx, []cesium.ChannelKey{index}, (8 * telem.SecondTS).Range(9*telem.SecondTS))).To(Succeed())
 					Expect(w.Close()).To(Succeed())
@@ -1019,10 +1021,12 @@ var _ = Describe("Delete", func() {
 				It("Should not allow deletion when there are multiple channels and one of them fails", func() {
 					data2 := GenerateChannelKey()
 					data3 := GenerateChannelKey()
-					Expect(db.CreateChannel(ctx,
-						cesium.Channel{Key: data2, Index: index, DataType: telem.Int64T},
-						cesium.Channel{Key: data3, Index: index, DataType: telem.Int64T},
-					)).To(Succeed())
+					newChannels := []cesium.Channel{
+						{Key: data2, Index: index, DataType: telem.Int64T},
+						{Key: data3, Index: index, DataType: telem.Int64T},
+					}
+
+					Expect(db.CreateChannel(ctx, newChannels...)).To(Succeed())
 
 					Expect(db.Write(ctx, 10*telem.SecondTS, cesium.NewFrame(
 						[]cesium.ChannelKey{index, data, data2, data3},
@@ -1036,7 +1040,7 @@ var _ = Describe("Delete", func() {
 
 					err := db.DeleteTimeRange(ctx, []cesium.ChannelKey{data, data2, index}, (11 * telem.SecondTS).Range(14*telem.SecondTS))
 					Expect(err).To(HaveOccurred())
-					Expect(err).To(MatchError(ContainSubstring(fmt.Sprintf("cannot delete index channel %d with channel %d depending on it", index, data3))))
+					Expect(err).To(MatchError(ContainSubstring(fmt.Sprintf("cannot delete index channel %v with channel %v depending on it", channels[0], newChannels[1]))))
 				})
 			})
 		})

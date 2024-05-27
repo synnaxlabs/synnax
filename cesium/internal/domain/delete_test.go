@@ -183,19 +183,19 @@ var _ = Describe("Delete", Ordered, func() {
 				It("Should return errors when the start pointer is invalid", func() {
 					err := db.Delete(ctx, -1, 1, 2, 7, telem.TimeRange{Start: 22 * telem.SecondTS, End: 30 * telem.SecondTS})
 					Expect(err).To(HaveOccurred())
-					Expect(err.Error()).To(ContainSubstring("starting at invalid domain position <-1>"))
+					Expect(err.Error()).To(ContainSubstring("starting at invalid domain position -1"))
 				})
 
 				It("Should return errors when the end pointer is invalid", func() {
 					err := db.Delete(ctx, 1, 3, 2, 7, telem.TimeRange{Start: 22 * telem.SecondTS, End: 30 * telem.SecondTS})
 					Expect(err).To(HaveOccurred())
-					Expect(err.Error()).To(ContainSubstring("ending at invalid domain position <3> for length 3"))
+					Expect(err.Error()).To(ContainSubstring("ending at invalid domain position 3 for length 3"))
 				})
 
 				It("Should return errors when the start pointer is greater than the end pointer", func() {
 					err := db.Delete(ctx, 2, 1, 2, 7, telem.TimeRange{Start: 22 * telem.SecondTS, End: 30 * telem.SecondTS})
 					Expect(err).To(HaveOccurred())
-					Expect(err.Error()).To(ContainSubstring("deletion start domain <2> is greater than deletion end domain <1>"))
+					Expect(err.Error()).To(ContainSubstring("deletion start domain 2 is greater than deletion end domain 1"))
 				})
 
 				It("Should not return an error when the start pointer is 1 greater than the end pointer and the offsets are 0 and full, respectively", func() {
@@ -258,7 +258,7 @@ var _ = Describe("Delete", Ordered, func() {
 				It("Should return errors when the startOffset is after the endOffset for same pointer deletion", func() {
 					err := db.Delete(ctx, 0, 0, 6, 5, telem.TimeRange{Start: 22 * telem.SecondTS, End: 30 * telem.SecondTS})
 					Expect(err).To(HaveOccurred())
-					Expect(err.Error()).To(ContainSubstring("deletion start offset <6> is after end offset <5>"))
+					Expect(err.Error()).To(ContainSubstring("deletion start offset 6 is after end offset 5"))
 				})
 
 			})

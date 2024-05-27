@@ -9,7 +9,11 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// Delete deletes a timerange tr from the unary database by adding all the unwanted
+func (db *DB) Delete(ctx context.Context, tr telem.TimeRange) error {
+	return db.wrapError(db.delete(ctx, tr))
+}
+
+// delete deletes a timerange tr from the unary database by adding all the unwanted
 // underlying pointers to tombstone.
 //
 // The start of the timerange is either in the found pointer, or before, i.e.:
@@ -22,6 +26,10 @@ import (
 // In this case, only data after tr.Start from that pointer will be deleted, the
 // startOffset passed to domain will be calculated via db.index().Distance().
 //
+// Case 3 (edge case): |-----data-----|     *
+// This case only happens when the deletion start is after ALL known domains, therefore
+// we delete nothing.
+//
 // The same goes for the end pointer, but in the opposite direction (pointer will be
 // before or contains tr.End):
 //
@@ -32,9 +40,13 @@ import (
 // Case 2 (* denotes tr.End):   |----------data-----*----|
 // In this case, only data before tr.End from that pointer will be deleted, the
 // endOffset passed to domain will be calculated via db.index().Distance().
-func (db *DB) Delete(ctx context.Context, tr telem.TimeRange) error {
+//
+// Case 3 (edge case): |----data-----|   *
+// This case only happens when the deletion end is before (or equal) all known domains,
+// therefore we delete nothing.
+func (db *DB) delete(ctx context.Context, tr telem.TimeRange) error {
 	if tr.Start.After(tr.End) {
-		return errors.Newf("[cesium] delete start <%d> after delete end <%d>", tr.Start, tr.End)
+		return errors.Newf("delete start <%d> cannot be after delete end <%d>", tr.Start, tr.End)
 	}
 
 	var (
@@ -116,6 +128,11 @@ func (db *DB) Delete(ctx context.Context, tr telem.TimeRange) error {
 	return i.Close()
 }
 
+// GarbageCollect creates an absolute control region on the channel and prevents any
+// writes or deletes from occuring – in addition, it holds the unary entityCount mutex
+// for the whole duration – therefore, there cannot be any read operations either.
+// GarbageCollect cleans up all data-storage .domain files in the unaryDB by removing
+// all data no longer in any stored domain.
 func (db *DB) GarbageCollect(ctx context.Context) error {
 	// Check that there are no open iterators / writers on this channel.
 	db.entityCount.RLock()
@@ -133,10 +150,10 @@ func (db *DB) GarbageCollect(ctx context.Context) error {
 	})
 
 	if err != nil {
-		return err
+		return db.wrapError(err)
 	}
 
 	defer g.Release()
 
-	return db.Domain.GarbageCollect(ctx)
+	return db.wrapError(db.Domain.GarbageCollect(ctx))
 }
