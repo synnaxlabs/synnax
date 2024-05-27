@@ -49,6 +49,7 @@ void Acquisition::stop() {
     if (this->thread != nullptr && thread->joinable() && std::this_thread::get_id() != thread->get_id()) {
        this->thread->join();
     };
+    source->stop();
     LOG(INFO) << "[acquisition] Acquisition stopped";
 }
 
