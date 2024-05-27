@@ -12,9 +12,13 @@ package cesium
 import (
 	"context"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
+	"go.uber.org/zap"
+	"golang.org/x/sync/semaphore"
 	"math/rand"
 	"strconv"
+	"sync"
 	"time"
 )
 
@@ -196,7 +200,7 @@ func (db *DB) DeleteTimeRange(ctx context.Context, chs []ChannelKey, tr telem.Ti
 			if _, vok := db.virtualDBs[ch]; vok {
 				return errors.Newf("[cesium] - cannot delete timerange from virtual channel %d", ch)
 			}
-			return errors.Wrapf(ChannelNotFound, "[cesium] - timerange deletion channel %d not found", ch)
+			return errors.Wrapf(ErrChannelNotFound, "[cesium] - timerange deletion channel %d not found", ch)
 		}
 
 		// Cannot delete an index channel that other channels rely on.

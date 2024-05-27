@@ -169,7 +169,7 @@ func (db *DB) newReader(ctx context.Context, ptr pointer) (*Reader, error) {
 	if err != nil {
 		return nil, err
 	}
-	reader := xio.NewSectionReaderCloser(internal, int64(ptr.offset), int64(ptr.length))
+	reader := xio.NewSectionReaderAtCloser(internal, int64(ptr.offset), int64(ptr.length))
 	return &Reader{ptr: ptr, ReaderAtCloser: reader}, nil
 }
 

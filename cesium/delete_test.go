@@ -960,7 +960,7 @@ var _ = Describe("Delete", func() {
 					)).To(Succeed())
 				})
 				It("Should return ChannelNotFound when a channel does not exist", func() {
-					Expect(db.DeleteTimeRange(ctx, []cesium.ChannelKey{math.MaxUint32 - 10}, telem.TimeRangeMax)).To(MatchError(cesium.ChannelNotFound))
+					Expect(db.DeleteTimeRange(ctx, []cesium.ChannelKey{math.MaxUint32 - 10}, telem.TimeRangeMax)).To(MatchError(cesium.ErrChannelNotFound))
 				})
 				It("Should return an error when trying to delete timerange from virtual channel", func() {
 					virtualKey := GenerateChannelKey()

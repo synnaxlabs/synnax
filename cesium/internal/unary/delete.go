@@ -118,9 +118,9 @@ func (db *DB) Delete(ctx context.Context, tr telem.TimeRange) error {
 
 func (db *DB) GarbageCollect(ctx context.Context) error {
 	// Check that there are no open iterators / writers on this channel.
-	db.mu.RLock()
-	defer db.mu.RUnlock()
-	if db.mu.openIteratorWriters > 0 {
+	db.entityCount.RLock()
+	defer db.entityCount.RUnlock()
+	if db.entityCount.openIteratorWriters > 0 {
 		return nil
 	}
 
