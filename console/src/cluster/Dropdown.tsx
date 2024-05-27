@@ -65,7 +65,7 @@ export const List = (): ReactElement => {
 
       return (
         <PMenu.Menu level="small" onChange={handleSelect}>
-          {key !== LOCAL_KEY && (
+          {key !== null && (
             <PMenu.Item startIcon={<Icon.Delete />} size="small" itemKey="remove">
               Remove
             </PMenu.Item>
