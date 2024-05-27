@@ -6,7 +6,7 @@ permissions:
   contents: write
   packages: write
 jobs:
-   create-release:
+  create-release:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     steps:
