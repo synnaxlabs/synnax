@@ -11,10 +11,12 @@ package telem
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/clamp"
 	"math"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -44,8 +46,18 @@ func Now() TimeStamp { return NewTimeStamp(time.Now()) }
 // NewTimeStamp creates a new TimeStamp from a time.Time.
 func NewTimeStamp(t time.Time) TimeStamp { return TimeStamp(t.UnixNano()) }
 
-// String implements fmt.Stringer.
-func (ts TimeStamp) String() string { return strconv.Itoa(int(ts)) + "ns" }
+// String returns the timestamp in the string format. All digits after are truncated.
+// "2006-01-02T15:04:05.999Z"
+// String implements fmt.Stringer
+func (ts TimeStamp) String() string {
+	if ts == TimeStampMax {
+		return "end of time"
+	}
+	return ts.Time().UTC().Format("2006-01-02T15:04:05.999Z")
+}
+
+// RawString returns the timestamp in nanoseconds.
+func (ts TimeStamp) RawString() string { return strconv.Itoa(int(ts)) + "ns" }
 
 // Time returns the time.Time representation of the TimeStamp.
 func (ts TimeStamp) Time() time.Time { return time.Unix(0, int64(ts)) }
@@ -174,8 +186,47 @@ func (tr TimeRange) Valid() bool { return tr.Span() >= 0 }
 
 func (tr TimeRange) Midpoint() TimeStamp { return tr.Start.Add(tr.Span() / 2) }
 
+// RawString displays the timerange with both timestamps in raw string format.
+func (tr TimeRange) RawString() string {
+	return tr.Start.String() + " - " + tr.End.String()
+}
+
+// String displays the timerange with both timestamps as formatted time.
+// String implements fmt.Stringer.
 func (tr TimeRange) String() string {
 	return tr.Start.String() + " - " + tr.End.String()
+}
+
+func (tr TimeRange) Union(rng TimeRange) (ret TimeRange) {
+	if tr.Start.Before(rng.Start) {
+		ret.Start = tr.Start
+	} else {
+		ret.Start = rng.Start
+	}
+
+	if tr.End.After(rng.End) {
+		ret.End = tr.End
+	} else {
+		ret.End = rng.End
+	}
+
+	return
+}
+
+func (tr TimeRange) Intersection(rng TimeRange) (ret TimeRange) {
+	if tr.Start.Before(rng.Start) {
+		ret.Start = rng.Start
+	} else {
+		ret.Start = tr.Start
+	}
+
+	if tr.End.After(rng.End) {
+		ret.End = rng.End
+	} else {
+		ret.End = tr.End
+	}
+
+	return
 }
 
 var (
@@ -228,8 +279,64 @@ func (ts TimeSpan) ByteSize(rate Rate, density Density) Size {
 	return Size(ts / rate.Period() * TimeSpan(density))
 }
 
+// String returns the timespan in a formated duration.
 // String implements fmt.Stringer.
-func (ts TimeSpan) String() string { return strconv.Itoa(int(ts)) + "ns" }
+// String returns a string representation of the TimeSpan
+func (ts TimeSpan) String() string {
+	if ts == TimeSpanMax {
+		return "max time span"
+	}
+	positiveTS := ts
+	if positiveTS == 0 {
+		return "0s"
+	}
+
+	var parts []string
+
+	if positiveTS < 0 {
+		parts = append(parts, "-")
+		positiveTS = -ts
+	}
+
+	if positiveTS >= Day {
+		days := positiveTS / Day
+		parts = append(parts, fmt.Sprintf("%dd", days))
+		positiveTS -= days * Day
+	}
+	if positiveTS >= Hour {
+		hours := positiveTS / Hour
+		parts = append(parts, fmt.Sprintf("%dh", hours))
+		positiveTS -= hours * Hour
+	}
+	if positiveTS >= Minute {
+		minutes := positiveTS / Minute
+		parts = append(parts, fmt.Sprintf("%dm", minutes))
+		positiveTS -= minutes * Minute
+	}
+	if positiveTS >= Second {
+		seconds := positiveTS / Second
+		parts = append(parts, fmt.Sprintf("%ds", seconds))
+		positiveTS -= seconds * Second
+	}
+	if positiveTS >= Millisecond {
+		milliseconds := positiveTS / Millisecond
+		parts = append(parts, fmt.Sprintf("%dms", milliseconds))
+		positiveTS -= milliseconds * Millisecond
+	}
+	if positiveTS >= Microsecond {
+		microseconds := positiveTS / Microsecond
+		parts = append(parts, fmt.Sprintf("%dµs", microseconds))
+		positiveTS -= microseconds * Microsecond
+	}
+	if positiveTS > 0 {
+		parts = append(parts, fmt.Sprintf("%dns", positiveTS))
+	}
+
+	return strings.Join(parts, " ")
+}
+
+// RawString returns the timespan in nanoseconds.
+func (ts TimeSpan) RawString() string { return strconv.Itoa(int(ts)) + "ns" }
 
 const (
 	Nanosecond    = TimeSpan(1)
@@ -243,6 +350,9 @@ const (
 	Minute        = 60 * Second
 	MinuteTS      = 60 * SecondTS
 	Hour          = 60 * Minute
+	HourTS        = 60 * MinuteTS
+	Day           = 24 * Hour
+	DayTS         = 24 * HourTS
 )
 
 // Size represents the size of an element in bytes.
@@ -279,12 +389,16 @@ func (dr Rate) SizeSpan(size Size, Density Density) TimeSpan {
 	return dr.Span(int(size) / int(Density))
 }
 
-// ClosestGE returns the closest larger timestamp that is an even multiple of the rate's period.
+// ClosestGE returns the closest larger timestamp that is a whole number multiple of the rate's period.
 func (dr Rate) ClosestGE(ts TimeStamp) TimeStamp {
-	return ts.Add(TimeSpan(ts) % dr.Period())
+	if TimeSpan(ts)%dr.Period() == 0 {
+		return ts
+	}
+
+	return ts.Add(dr.Period() - TimeSpan(ts)%dr.Period())
 }
 
-// ClosestLE returns the closest smaller timestamp that is an even multiple of the rate's period.
+// ClosestLE returns the closest smaller timestamp that is a whole number multiple of the rate's period.
 func (dr Rate) ClosestLE(ts TimeStamp) TimeStamp {
 	return ts.Sub(TimeSpan(ts) % dr.Period())
 }

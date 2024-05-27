@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
+	"sync/atomic"
 )
 
 // Config is the configuration for opening a DB.
@@ -33,19 +34,24 @@ type Config struct {
 	// Channel is the Channel for the database. This only needs to be set when
 	// creating a new database. If the database already exists, the Channel information
 	// will be read from the databases meta file.
-	// [OPTIONAL]
 	Channel core.Channel
 	// FileSize is the maximum size, in bytes, for a writer to be created on a file.
 	// Note while that a file's size may still exceed this value, it is not likely
 	// to exceed by much with frequent commits.
 	// [OPTIONAL] Default: 1GB
 	FileSize telem.Size
+	// GCThreshold is the minimum tombstone proportion of the Filesize to trigger a GC.
+	// Must be in (0, 1].
+	// Note: Setting this value to 0 will have NO EFFECT as it is the default value.
+	// instead, set it to a very small number greater than 0.
+	// [OPTIONAL] Default: 0.2
+	GCThreshold float32
 }
 
 var (
 	_ config.Config[Config] = Config{}
 	// DefaultConfig is the default configuration for a DB.
-	DefaultConfig = Config{FileSize: 1 * telem.Gigabyte}
+	DefaultConfig = Config{FileSize: 1 * telem.Gigabyte, GCThreshold: 0.2}
 )
 
 // Validate implements config.GateConfig.
@@ -63,6 +69,7 @@ func (cfg Config) Override(other Config) Config {
 	}
 	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
 	cfg.FileSize = override.Numeric(cfg.FileSize, other.FileSize)
+	cfg.GCThreshold = override.Numeric(cfg.GCThreshold, other.GCThreshold)
 	return cfg
 }
 
@@ -76,17 +83,24 @@ func Open(configs ...Config) (*DB, error) {
 		FS:              cfg.FS,
 		Instrumentation: cfg.Instrumentation,
 		FileSize:        cfg.FileSize,
+		GCThreshold:     cfg.GCThreshold,
 	})
+	c, err := controller.New[controlledWriter](controller.Config{Concurrency: cfg.Channel.Concurrency, Instrumentation: cfg.Instrumentation})
+	if err != nil {
+		return nil, err
+	}
 	db := &DB{
-		Config:     cfg,
-		Domain:     domainDB,
-		Controller: controller.New[controlledWriter](cfg.Channel.Concurrency),
-		mu:         &openEntityCount{},
+		Config:      cfg,
+		Domain:      domainDB,
+		Controller:  c,
+		wrapError:   core.NewErrorWrapper(cfg.Channel),
+		entityCount: &entityCount{},
+		closed:      &atomic.Bool{},
 	}
 	if cfg.Channel.IsIndex {
-		db._idx = &index.Domain{DB: domainDB, Instrumentation: cfg.Instrumentation}
+		db._idx = &index.Domain{DB: domainDB, Instrumentation: cfg.Instrumentation, Channel: cfg.Channel}
 	} else if cfg.Channel.Index == 0 {
-		db._idx = index.Rate{Rate: cfg.Channel.Rate}
+		db._idx = index.Rate{Rate: cfg.Channel.Rate, Channel: cfg.Channel}
 	}
 	return db, err
 }

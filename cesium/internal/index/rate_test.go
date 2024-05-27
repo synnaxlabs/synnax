@@ -39,13 +39,13 @@ var _ = Describe("Rate", func() {
 			(1*telem.SecondTS).Range(2500*telem.MillisecondTS),
 			index.Between[int64](1, 2),
 		),
-		Entry("TimeRange - inexact start exact end",
-			(1500*telem.MillisecondTS).Range(5*telem.SecondTS),
-			index.Between[int64](3, 4),
-		),
 		Entry("TimeRange - inexact start inexact end",
 			(3500*telem.MillisecondTS).Range(6500*telem.MillisecondTS),
 			index.Between[int64](2, 4),
+		),
+		Entry("Timerange - inexact start exact end",
+			(3999*telem.MillisecondTS).Range(6000*telem.MillisecondTS),
+			index.Between[int64](2, 3),
 		),
 	)
 	Describe("Stamp", func() {

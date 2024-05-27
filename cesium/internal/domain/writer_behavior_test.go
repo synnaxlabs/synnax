@@ -34,7 +34,7 @@ func extractPointer(f xfs.File) (p struct {
 	length  uint32
 }) {
 	b := make([]byte, 26)
-	_, err := f.ReadAt(b, 0)
+	_, err := f.ReadAt(b, 4)
 	Expect(err).ToNot(HaveOccurred())
 	p.TimeRange.Start = telem.TimeStamp(binary.LittleEndian.Uint64(b[0:8]))
 	p.TimeRange.End = telem.TimeStamp(binary.LittleEndian.Uint64(b[8:16]))
@@ -45,7 +45,7 @@ func extractPointer(f xfs.File) (p struct {
 	return
 }
 
-var _ = Describe("WriterBehavior", Ordered, func() {
+var _ = Describe("Writer Behavior", Ordered, func() {
 	for fsName, makeFS := range fileSystems {
 		Context("FS: "+fsName, func() {
 			var (
@@ -70,6 +70,14 @@ var _ = Describe("WriterBehavior", Ordered, func() {
 					Expect(w.Commit(ctx, 19*telem.SecondTS+1)).To(Succeed())
 					Expect(w.Write([]byte{100, 101, 102, 103, 104})).To(Equal(5))
 					Expect(w.Commit(ctx, 104*telem.SecondTS+1)).To(MatchError(ContainSubstring("cannot be greater than preset end timestamp")))
+					Expect(w.Close()).To(Succeed())
+				})
+			})
+			Describe("Closed database", func() {
+				It("Should not allow opening a writer on a closed database", func() {
+					Expect(db.Close()).To(Succeed())
+					_, err := db.NewWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS})
+					Expect(err).To(HaveOccurredAs(core.EntityClosed("domain.db")))
 				})
 			})
 			Describe("Start Validation", func() {
@@ -78,7 +86,7 @@ var _ = Describe("WriterBehavior", Ordered, func() {
 						w := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{
 							Start: 10 * telem.SecondTS,
 						}))
-						Expect(w.Close(ctx)).To(Succeed())
+						Expect(w.Close()).To(Succeed())
 					})
 				})
 				Context("TimeRange overlap", func() {
@@ -90,11 +98,11 @@ var _ = Describe("WriterBehavior", Ordered, func() {
 							}))
 						Expect(w.Write([]byte{1, 2, 3, 4, 5, 6})).To(Equal(6))
 						Expect(w.Commit(ctx, 15*telem.SecondTS)).To(Succeed())
-						Expect(w.Close(ctx)).To(Succeed())
+						Expect(w.Close()).To(Succeed())
 						_, err := db.NewWriter(ctx, domain.WriterConfig{
 							Start: 10 * telem.SecondTS,
 						})
-						Expect(err).To(HaveOccurredAs(domain.ErrDomainOverlap))
+						Expect(err).To(HaveOccurredAs(domain.ErrWriteConflict))
 					})
 				})
 			})
@@ -109,7 +117,7 @@ var _ = Describe("WriterBehavior", Ordered, func() {
 						Expect(w.Write([]byte{1, 2, 3, 4, 5})).To(Equal(5))
 						l := MustSucceed(db2.FS.List(""))
 						l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
-							return item.Name() != "counter.domain" && item.Name() != "index.domain"
+							return item.Name() != "counter.domain" && item.Name() != "index.domain" && item.Name() != "tombstone.domain"
 						})
 						Expect(l).To(HaveLen(1))
 						Expect(l[0].Size()).To(Equal(int64(5)))
@@ -119,7 +127,7 @@ var _ = Describe("WriterBehavior", Ordered, func() {
 						Expect(w.Write([]byte{6, 7, 8, 9, 10, 11})).To(Equal(6))
 						l = MustSucceed(db2.FS.List(""))
 						l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
-							return item.Name() != "counter.domain" && item.Name() != "index.domain"
+							return item.Name() != "counter.domain" && item.Name() != "index.domain" && item.Name() != "tombstone.domain"
 						})
 						Expect(l).To(HaveLen(1))
 						Expect(l[0].Size()).To(Equal(int64(11)))
@@ -130,7 +138,7 @@ var _ = Describe("WriterBehavior", Ordered, func() {
 						Expect(w.Commit(ctx, 23*telem.SecondTS+1)).To(Succeed())
 						l = MustSucceed(db2.FS.List(""))
 						l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
-							return item.Name() != "counter.domain" && item.Name() != "index.domain"
+							return item.Name() != "counter.domain" && item.Name() != "index.domain" && item.Name() != "tombstone.domain"
 						})
 						Expect(l).To(HaveLen(2))
 						Expect(lo.Map(l, func(info os.FileInfo, _ int) (sz int64) { return info.Size() })).To(ConsistOf(int64(11), int64(3)))
@@ -147,7 +155,7 @@ var _ = Describe("WriterBehavior", Ordered, func() {
 
 						By("Closing resources")
 						Expect(i.Close()).To(Succeed())
-						Expect(w.Close(ctx)).To(Succeed())
+						Expect(w.Close()).To(Succeed())
 						Expect(db2.Close()).To(Succeed())
 						Expect(cleanUp2()).To(Succeed())
 					})
@@ -161,7 +169,7 @@ var _ = Describe("WriterBehavior", Ordered, func() {
 						Expect(w.Write([]byte{1, 2, 3, 4, 5})).To(Equal(5))
 						l := MustSucceed(db2.FS.List(""))
 						l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
-							return item.Name() != "counter.domain" && item.Name() != "index.domain"
+							return item.Name() != "counter.domain" && item.Name() != "index.domain" && item.Name() != "tombstone.domain"
 						})
 						Expect(l).To(HaveLen(1))
 						Expect(l[0].Size()).To(Equal(int64(5)))
@@ -172,7 +180,7 @@ var _ = Describe("WriterBehavior", Ordered, func() {
 						Expect(w.Commit(ctx, 23*telem.SecondTS+1)).To(Succeed())
 						l = MustSucceed(db2.FS.List(""))
 						l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
-							return item.Name() != "counter.domain" && item.Name() != "index.domain"
+							return item.Name() != "counter.domain" && item.Name() != "index.domain" && item.Name() != "tombstone.domain"
 						})
 						Expect(l).To(HaveLen(2))
 						Expect(lo.Map(l, func(info os.FileInfo, _ int) (sz int64) { return info.Size() })).To(ConsistOf(int64(5), int64(3)))
@@ -189,7 +197,7 @@ var _ = Describe("WriterBehavior", Ordered, func() {
 
 						By("Closing resources")
 						Expect(i.Close()).To(Succeed())
-						Expect(w.Close(ctx)).To(Succeed())
+						Expect(w.Close()).To(Succeed())
 						Expect(db2.Close()).To(Succeed())
 						Expect(cleanUp2()).To(Succeed())
 					})
@@ -206,7 +214,7 @@ var _ = Describe("WriterBehavior", Ordered, func() {
 						Expect(w.Commit(ctx, 5*telem.SecondTS+1)).To(Succeed())
 						l := MustSucceed(db2.FS.List(""))
 						l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
-							return item.Name() != "counter.domain" && item.Name() != "index.domain"
+							return item.Name() != "counter.domain" && item.Name() != "index.domain" && item.Name() != "tombstone.domain"
 						})
 						Expect(l).To(HaveLen(1))
 						Expect(l[0].Size()).To(Equal(int64(5)))
@@ -215,7 +223,7 @@ var _ = Describe("WriterBehavior", Ordered, func() {
 						Expect(w.Write([]byte{6, 7, 8, 9, 10, 11})).To(Equal(6))
 						l = MustSucceed(db2.FS.List(""))
 						l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
-							return item.Name() != "counter.domain" && item.Name() != "index.domain"
+							return item.Name() != "counter.domain" && item.Name() != "index.domain" && item.Name() != "tombstone.domain"
 						})
 						Expect(l).To(HaveLen(1))
 						Expect(l[0].Size()).To(Equal(int64(11)))
@@ -226,7 +234,7 @@ var _ = Describe("WriterBehavior", Ordered, func() {
 						Expect(w.Commit(ctx, 23*telem.SecondTS+1)).To(Succeed())
 						l = MustSucceed(db2.FS.List(""))
 						l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
-							return item.Name() != "counter.domain" && item.Name() != "index.domain"
+							return item.Name() != "counter.domain" && item.Name() != "index.domain" && item.Name() != "tombstone.domain"
 						})
 						Expect(l).To(HaveLen(2))
 						Expect(lo.Map(l, func(info os.FileInfo, _ int) (sz int64) { return info.Size() })).To(ConsistOf(int64(11), int64(3)))
@@ -243,7 +251,7 @@ var _ = Describe("WriterBehavior", Ordered, func() {
 
 						By("Closing resources")
 						Expect(i.Close()).To(Succeed())
-						Expect(w.Close(ctx)).To(Succeed())
+						Expect(w.Close()).To(Succeed())
 						Expect(db2.Close()).To(Succeed())
 						Expect(cleanUp2()).To(Succeed())
 					})
@@ -257,7 +265,7 @@ var _ = Describe("WriterBehavior", Ordered, func() {
 						}))
 						MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
 						Expect(w.Commit(ctx, 20*telem.SecondTS)).To(Succeed())
-						Expect(w.Close(ctx)).To(Succeed())
+						Expect(w.Close()).To(Succeed())
 					})
 				})
 				Context("TimeRange overlap", func() {
@@ -267,13 +275,13 @@ var _ = Describe("WriterBehavior", Ordered, func() {
 						}))
 						MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
 						Expect(w.Commit(ctx, 20*telem.SecondTS)).To(Succeed())
-						Expect(w.Close(ctx)).To(Succeed())
+						Expect(w.Close()).To(Succeed())
 						w = MustSucceed(db.NewWriter(ctx, domain.WriterConfig{
 							Start: 4 * telem.SecondTS,
 						}))
 						MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
-						Expect(w.Commit(ctx, 15*telem.SecondTS)).To(HaveOccurredAs(domain.ErrDomainOverlap))
-						Expect(w.Close(ctx)).To(Succeed())
+						Expect(w.Commit(ctx, 15*telem.SecondTS)).To(HaveOccurredAs(domain.ErrWriteConflict))
+						Expect(w.Close()).To(Succeed())
 					})
 					It("Should fail to commit an update to a writer", func() {
 						w := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{
@@ -281,14 +289,14 @@ var _ = Describe("WriterBehavior", Ordered, func() {
 						}))
 						MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
 						Expect(w.Commit(ctx, 20*telem.SecondTS)).To(Succeed())
-						Expect(w.Close(ctx)).To(Succeed())
+						Expect(w.Close()).To(Succeed())
 						w = MustSucceed(db.NewWriter(ctx, domain.WriterConfig{
 							Start: 4 * telem.SecondTS,
 						}))
 						MustSucceed(w.Write([]byte{1, 2, 3, 4}))
 						Expect(w.Commit(ctx, 8*telem.SecondTS)).To(Succeed())
-						Expect(w.Commit(ctx, 15*telem.SecondTS)).To(HaveOccurredAs(domain.ErrDomainOverlap))
-						Expect(w.Close(ctx)).To(Succeed())
+						Expect(w.Commit(ctx, 15*telem.SecondTS)).To(HaveOccurredAs(domain.ErrWriteConflict))
+						Expect(w.Close()).To(Succeed())
 					})
 				})
 				Context("Writing past preset end", func() {
@@ -298,8 +306,8 @@ var _ = Describe("WriterBehavior", Ordered, func() {
 							End:   20 * telem.SecondTS,
 						}))
 						MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
-						Expect(w.Commit(ctx, 30*telem.SecondTS)).To(MatchError(ContainSubstring("commit timestamp cannot be greater than preset end")))
-						Expect(w.Close(ctx)).To(Succeed())
+						Expect(w.Commit(ctx, 30*telem.SecondTS)).To(MatchError(ContainSubstring("commit timestamp %s cannot be greater than preset end timestamp %s", 30*telem.SecondTS, 20*telem.SecondTS)))
+						Expect(w.Close()).To(Succeed())
 					})
 				})
 				Context("Commit before start", func() {
@@ -309,7 +317,7 @@ var _ = Describe("WriterBehavior", Ordered, func() {
 						}))
 						MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
 						Expect(w.Commit(ctx, 5*telem.SecondTS)).To(HaveOccurredAs(validate.Error))
-						Expect(w.Close(ctx)).To(Succeed())
+						Expect(w.Close()).To(Succeed())
 					})
 				})
 				Describe("End of one domain is the start of another", func() {
@@ -319,13 +327,13 @@ var _ = Describe("WriterBehavior", Ordered, func() {
 						}))
 						MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
 						Expect(w.Commit(ctx, 20*telem.SecondTS)).To(Succeed())
-						Expect(w.Close(ctx)).To(Succeed())
+						Expect(w.Close()).To(Succeed())
 						w = MustSucceed(db.NewWriter(ctx, domain.WriterConfig{
 							Start: 20 * telem.SecondTS,
 						}))
 						MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
 						Expect(w.Commit(ctx, 30*telem.SecondTS)).To(Succeed())
-						Expect(w.Close(ctx)).To(Succeed())
+						Expect(w.Close()).To(Succeed())
 					})
 				})
 				Context("Multi Commit", func() {
@@ -337,7 +345,7 @@ var _ = Describe("WriterBehavior", Ordered, func() {
 						Expect(w.Commit(ctx, 20*telem.SecondTS)).To(Succeed())
 						MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
 						Expect(w.Commit(ctx, 30*telem.SecondTS)).To(Succeed())
-						Expect(w.Close(ctx)).To(Succeed())
+						Expect(w.Close()).To(Succeed())
 					})
 					Context("Commit before previous commit", func() {
 						It("Should fail to commit", func() {
@@ -347,7 +355,7 @@ var _ = Describe("WriterBehavior", Ordered, func() {
 							MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
 							Expect(w.Commit(ctx, 15*telem.SecondTS)).To(Succeed())
 							Expect(w.Commit(ctx, 14*telem.SecondTS)).To(HaveOccurredAs(validate.Error))
-							Expect(w.Close(ctx)).To(Succeed())
+							Expect(w.Close()).To(Succeed())
 						})
 					})
 				})
@@ -369,6 +377,7 @@ var _ = Describe("WriterBehavior", Ordered, func() {
 								defer wg.Done()
 								MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
 								errors[i] = w.Commit(ctx, 15*telem.SecondTS)
+								Expect(w.Close()).To(Succeed())
 							}(i, w)
 						}
 						wg.Wait()
@@ -378,7 +387,7 @@ var _ = Describe("WriterBehavior", Ordered, func() {
 						})
 						Expect(occurred).To(HaveLen(writerCount - 1))
 						for _, err := range occurred {
-							Expect(err).To(HaveOccurredAs(domain.ErrDomainOverlap))
+							Expect(err).To(HaveOccurredAs(domain.ErrWriteConflict))
 						}
 					})
 				})
@@ -418,6 +427,9 @@ var _ = Describe("WriterBehavior", Ordered, func() {
 					p := extractPointer(f)
 					Expect(p.End).To(Equal(30*telem.SecondTS + 1))
 					Expect(p.length).To(Equal(uint32(15)))
+
+					Expect(f.Close()).To(Succeed())
+					Expect(w.Close()).To(Succeed())
 				})
 
 				It("Should persist to disk every time when the interval is set to always persist", func() {
@@ -457,6 +469,8 @@ var _ = Describe("WriterBehavior", Ordered, func() {
 					Expect(f.Close()).To(Succeed())
 					Expect(p.End).To(Equal(25*telem.SecondTS + 1))
 					Expect(p.length).To(Equal(uint32(15)))
+
+					Expect(w.Close()).To(Succeed())
 				})
 
 				It("Should persist any unpersisted, but committed (stranded) data on close", func() {
@@ -474,7 +488,7 @@ var _ = Describe("WriterBehavior", Ordered, func() {
 					Expect(w.Commit(ctx, 20*telem.SecondTS+1)).To(Succeed())
 
 					By("Closing the writer")
-					Expect(w.Close(ctx)).To(Succeed())
+					Expect(w.Close()).To(Succeed())
 
 					By("Asserting that the commit has been persisted")
 					f := MustSucceed(db.FS.Open("index.domain", os.O_RDONLY))
@@ -482,6 +496,8 @@ var _ = Describe("WriterBehavior", Ordered, func() {
 					Expect(f.Close()).To(Succeed())
 					Expect(p.End).To(Equal(20*telem.SecondTS + 1))
 					Expect(p.length).To(Equal(uint32(10)))
+
+					Expect(w.Close()).To(Succeed())
 				})
 
 				It("Should always persist if auto commit is not enabled, no matter the interval", func() {
@@ -506,7 +522,7 @@ var _ = Describe("WriterBehavior", Ordered, func() {
 					Expect(p.length).To(Equal(uint32(10)))
 
 					By("Closing the writer")
-					Expect(w.Close(ctx)).To(Succeed())
+					Expect(w.Close()).To(Succeed())
 				})
 			})
 			Describe("Close", func() {
@@ -515,11 +531,23 @@ var _ = Describe("WriterBehavior", Ordered, func() {
 						w = MustSucceed(db.NewWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS}))
 						e = core.EntityClosed("domain.writer")
 					)
-					Expect(w.Close(ctx)).To(Succeed())
-					Expect(w.Commit(ctx, telem.TimeStampMax)).To(MatchError(e))
-					_, err := w.Write([]byte{1, 2, 3})
-					Expect(err).To(MatchError(e))
-					Expect(w.Close(ctx)).To(Succeed())
+					Expect(w.Close()).To(Succeed())
+					err := w.Commit(ctx, telem.TimeStampMax)
+					Expect(err).To(HaveOccurredAs(e))
+					_, err = w.Write([]byte{1, 2, 3})
+					Expect(err).To(HaveOccurredAs(e))
+					Expect(w.Close()).To(Succeed())
+				})
+
+				It("Should not open a writer on a closed database", func() {
+					Expect(db.Close()).To(Succeed())
+					_, err := db.NewWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS})
+					Expect(err).To(HaveOccurredAs(core.EntityClosed("domain.db")))
+				})
+
+				It("Should not write on a closed database", func() {
+					Expect(db.Close()).To(Succeed())
+					Expect(domain.Write(ctx, db, telem.TimeStamp(0).Range(telem.TimeStamp(1)), []byte{1, 2, 3})).To(HaveOccurredAs(core.EntityClosed("domain.db")))
 				})
 			})
 		})

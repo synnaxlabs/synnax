@@ -16,3 +16,9 @@ export const add = <V extends Value>(a: V, b: Value): V => {
 /** @returns true if a is close to b within epsilon. */
 export const closeTo = (a: number, b: number, epsilon = 0.0001): boolean =>
   Math.abs(a - b) < epsilon;
+
+/** @returns the nearest number to num with 1 significant digit. */
+export const roundToNearestMagnitude = (num: number): number => {
+  const magnitude = Math.pow(10, Math.floor(Math.log10(num)));
+  return Math.round(num / magnitude) * magnitude;
+};

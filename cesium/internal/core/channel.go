@@ -10,6 +10,7 @@
 package core
 
 import (
+	"fmt"
 	"github.com/synnaxlabs/cesium/internal/version"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
@@ -34,10 +35,15 @@ const (
 // A channel can also be used for storing derived data, such as a moving average or signal
 // processing result.
 type Channel struct {
-	// Key is a unique identifier to the channel within the cesium.
+	// Key is a unique identifier to the channel within the cesium data engine.
 	// [REQUIRED]
 	Key ChannelKey `json:"key" msgpack:"key"`
-	// IsIndex specifies whether the channel is an index channel.
+	// Name is a non-unique, human-readable identifier to the channel within the data
+	// engine. Note that it is never used to index or retrieve a channel.
+	// [OPTIONAL]
+	Name string `json:"name" msgpack:"name"`
+	// IsIndex determines whether the channel acts as an index channel. If false, then
+	// either the channel is a rate-based channel or uses another channel as its Index.
 	IsIndex bool
 	// DataType is the type of data stored in the channel.
 	// [REQUIRED]
@@ -62,6 +68,13 @@ type Channel struct {
 	Concurrency control.Concurrency `json:"concurrency" msgpack:"concurrency"`
 	// Version specifies the format of files stored in this channel.
 	Version version.Version `json:"version" msgpack:"version"`
+}
+
+func (c Channel) String() string {
+	if c.Name != "" {
+		return fmt.Sprintf("[%s]<%d>", c.Name, c.Key)
+	}
+	return fmt.Sprintf("<%d>", c.Key)
 }
 
 func (c Channel) ValidateSeries(series telem.Series) error {

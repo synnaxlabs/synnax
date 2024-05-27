@@ -58,7 +58,11 @@ type Streamer = confluence.Segment[StreamerRequest, StreamerResponse]
 // receiving frames, call Streamer.Flow. The provided context is only used for
 // opening the streamer, and cancelling it has no implications after NewStreamer
 // returns.
-func (db *DB) NewStreamer(ctx context.Context, cfg StreamerConfig) (Streamer, error) {
+func (db *DB) NewStreamer(_ context.Context, cfg StreamerConfig) (Streamer, error) {
+	if db.closed.Load() {
+		return nil, errDBClosed
+	}
+
 	return &streamer{
 		StreamerConfig: cfg,
 		relay:          db.relay,

@@ -12,6 +12,7 @@ package unary_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/control"
@@ -105,14 +106,14 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						Expect(w.Write(telem.NewSeriesV[telem.TimeStamp](10, 11, 12, 13, 14, 15, 16)))
 						_, err := w.Commit(ctx)
 						Expect(err).ToNot(HaveOccurred())
-						_, err = w.Close(ctx)
+						_, err = w.Close()
 						Expect(err).ToNot(HaveOccurred())
 
 						w, _ = MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{Start: 17 * telem.SecondTS, Subject: control.Subject{Key: "test_writer"}}))
 						Expect(w.Write(telem.NewSeriesV[int64](17, 18)))
 						_, err = w.Commit(ctx)
 						Expect(err).ToNot(HaveOccurred())
-						_, err = w.Close(ctx)
+						_, err = w.Close()
 						Expect(err).ToNot(HaveOccurred())
 
 						i := db.OpenIterator(unary.IterRange(telem.TimeRangeMax))
@@ -140,6 +141,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						Expect(iter.Next(ctx, 4*telem.Second)).To(BeTrue())
 						Expect(iter.Len()).To(Equal(int64(2)))
 						Expect(iter.Next(ctx, 1*telem.Second)).To(BeFalse())
+						Expect(iter.Close()).To(Succeed())
 					})
 					Specify("Multi TimeRange", func() {
 						Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15))).To(Succeed())
@@ -158,6 +160,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						Expect(iter.Next(ctx, 10*telem.Second)).To(BeTrue())
 						Expect(iter.View()).To(Equal((23 * telem.SecondTS).SpanRange(10 * telem.Second)))
 						Expect(iter.Len()).To(Equal(int64(3)))
+						Expect(iter.Close()).To(Succeed())
 
 					})
 					Describe("Auto Exhaustion", func() {
@@ -360,31 +363,55 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							Expect(iter.SeekFirst(ctx)).To(BeTrue())
 							Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
 							Expect(iter.Len()).To(Equal(int64(5)))
+							Expect(iter.Close()).To(Succeed())
 						})
 					})
 				})
 			})
 			Describe("Close", func() {
+				var (
+					fs      xfs.FS
+					cleanUp func() error
+					db      *unary.DB
+					key     cesium.ChannelKey
+				)
+				BeforeEach(func() {
+					fs, cleanUp = makeFS()
+					db = MustSucceed(unary.Open(unary.Config{
+						FS: fs,
+						Channel: core.Channel{
+							Key:      key,
+							Name:     "ludwig",
+							DataType: telem.TimeStampT,
+							IsIndex:  true,
+						},
+					}))
+				})
+				AfterEach(func() {
+					Expect(db.Close()).To(Succeed())
+					Expect(cleanUp()).To(Succeed())
+				})
 				It("Should not allow operations on a closed iterator", func() {
-					fs, cleanUp := makeFS()
 					var (
-						db = MustSucceed(unary.Open(unary.Config{
-							FS: fs,
-							Channel: core.Channel{
-								Key:      2,
-								DataType: telem.TimeStampT,
-								IsIndex:  true,
-							}}))
 						i = db.OpenIterator(unary.IteratorConfig{Bounds: telem.TimeRangeMax})
 						e = core.EntityClosed("unary.iterator")
 					)
 					Expect(i.Close()).To(Succeed())
 					Expect(i.SeekFirst(ctx)).To(BeFalse())
-					Expect(i.Error()).To(MatchError(e))
+					Expect(i.Error()).To(HaveOccurredAs(e))
+					Expect(i.Error()).To(MatchError(ContainSubstring("[ludwig]<%d>", key)))
 					Expect(i.Valid()).To(BeFalse())
 					Expect(i.Close()).To(Succeed())
 
+					Expect(db.Close()).To(Succeed())
 					Expect(cleanUp()).To(Succeed())
+				})
+
+				It("Should not allow an iterator to operate on a closed db", func() {
+					Expect(unary.Write(ctx, db, 0, telem.NewSeriesV[int64](3, 4, 5, 6))).To(Succeed())
+					Expect(db.Close()).To(Succeed())
+					i := db.OpenIterator(unary.IteratorConfig{Bounds: telem.TimeRangeMax})
+					Expect(i.SeekFirst(ctx)).To(BeFalse())
 				})
 			})
 		})

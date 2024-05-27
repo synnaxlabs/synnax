@@ -2,8 +2,7 @@ package unary
 
 import (
 	"context"
-	"errors"
-	errors2 "github.com/cockroachdb/errors"
+	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/x/control"
@@ -13,7 +12,7 @@ import (
 // Delete deletes a timerange tr from the unary database by adding all the unwanted
 // underlying pointers to tombstone.
 //
-// The start of the timerange is either in the found pointer, or after, i.e.:
+// The start of the timerange is either in the found pointer, or before, i.e.:
 //
 // Case 1 (* denotes tr.Start):   *   |---------data---------|
 // In this case, that entire pointer will be deleted, and tr.Start will be set to the
@@ -28,18 +27,23 @@ import (
 //
 // Case 1 (* denotes tr.End):   |---------data---------|    *
 // In this case, that entire pointer will be deleted, and tr.End will be set to the
-// end of that pointer. The endOffset passed to domain will be the pointer's length.
+// end of that pointer. The endOffset passed to domain will 0.
 //
 // Case 2 (* denotes tr.End):   |----------data-----*----|
 // In this case, only data before tr.End from that pointer will be deleted, the
 // endOffset passed to domain will be calculated via db.index().Distance().
 func (db *DB) Delete(ctx context.Context, tr telem.TimeRange) error {
+	if tr.Start.After(tr.End) {
+		return errors.Newf("[cesium] delete start <%d> after delete end <%d>", tr.Start, tr.End)
+	}
+
 	var (
 		startOffset int64 = 0
 		endOffset   int64 = 0
+		density           = db.Channel.DataType.Density()
 	)
 
-	g, _, err := db.Controller.OpenAbsoluteGateIfUncontrolled(tr, control.Subject{Key: "Delete Writer"}, func() (controlledWriter, error) {
+	g, _, err := db.Controller.OpenAbsoluteGateIfUncontrolled(tr, control.Subject{Key: "delete_writer"}, func() (controlledWriter, error) {
 		return controlledWriter{
 			Writer:     nil,
 			channelKey: db.Channel.Key,
@@ -52,16 +56,17 @@ func (db *DB) Delete(ctx context.Context, tr telem.TimeRange) error {
 
 	_, ok := g.Authorize()
 	if !ok {
-		g.Release()
 		return controller.Unauthorized(g.Subject.Name, db.Channel.Key)
 	}
+	defer g.Release()
 
 	i := db.Domain.NewIterator(domain.IteratorConfig{Bounds: telem.TimeRangeMax})
-	if ok := i.SeekGE(ctx, tr.Start); !ok {
-		return errors2.CombineErrors(i.Close(), errors.New("[cesium] Deletion Start TS not found"))
+	if ok = i.SeekGE(ctx, tr.Start); !ok {
+		// No domains after start: delete nothing.
+		return i.Close()
 	}
 
-	if i.TimeRange().Start.After(tr.Start) {
+	if i.TimeRange().Start.AfterEq(tr.Start) {
 		startOffset = 0
 		tr.Start = i.TimeRange().Start
 	} else {
@@ -70,54 +75,68 @@ func (db *DB) Delete(ctx context.Context, tr telem.TimeRange) error {
 			End:   tr.Start,
 		}, false)
 		if err != nil {
-			return err
+			return errors.CombineErrors(err, i.Close())
 		}
 		startOffset = approxDist.Upper
 	}
 
 	startPosition := i.Position()
 
-	if ok := i.SeekLE(ctx, tr.End); !ok {
-		return errors2.CombineErrors(i.Close(), errors.New("[cesium] Deletion End TS not found"))
+	if ok = i.SeekLE(ctx, tr.End); !ok {
+		// No domains before end: delete nothing.
+		return i.Close()
 	}
 
-	if i.TimeRange().End.Before(tr.End) {
+	if i.TimeRange().End.BeforeEq(tr.End) {
 		tr.End = i.TimeRange().End
-		endOffset = -1
+		endOffset = 0
 	} else {
 		approxDist, err := db.index().Distance(ctx, telem.TimeRange{
-			Start: i.TimeRange().Start,
-			End:   tr.End,
+			Start: tr.End,
+			End:   i.TimeRange().End,
 		}, false)
 		if err != nil {
-			return errors2.CombineErrors(i.Close(), err)
+			return errors.CombineErrors(err, i.Close())
 		}
 
-		endOffset = approxDist.Upper
+		// Add one to account for the fact that endOffset starts at the first index OUT
+		// of the domain.
+		endOffset = approxDist.Lower + 1
 	}
 
 	endPosition := i.Position()
 
-	if endOffset == -1 {
-		err = db.Domain.Delete(ctx, startPosition, endPosition, startOffset*int64(db.Channel.DataType.Density()), endOffset, tr)
-	} else {
-		err = db.Domain.Delete(ctx, startPosition, endPosition, startOffset*int64(db.Channel.DataType.Density()), endOffset*int64(db.Channel.DataType.Density()), tr)
-	}
+	err = db.Domain.Delete(ctx, startPosition, endPosition, int64(density.Size(startOffset)), int64(density.Size(endOffset)), tr)
 
 	if err != nil {
-		return errors2.CombineErrors(i.Close(), err)
+		return errors.CombineErrors(err, i.Close())
 	}
 
 	g.Release()
 	return i.Close()
 }
 
-func (db *DB) GarbageCollect(ctx context.Context, maxSizeRead uint32) error {
-	db.mu.RLock()
-	defer db.mu.RUnlock()
-	if db.mu.openIteratorWriters > 0 {
+func (db *DB) GarbageCollect(ctx context.Context) error {
+	// Check that there are no open iterators / writers on this channel.
+	db.entityCount.RLock()
+	defer db.entityCount.RUnlock()
+	if db.entityCount.openIteratorWriters > 0 {
 		return nil
 	}
-	err := db.Domain.CollectTombstones(ctx, maxSizeRead)
-	return err
+
+	// Check that there are no delete writers on this channel
+	g, _, err := db.Controller.OpenAbsoluteGateIfUncontrolled(telem.TimeRangeMax, control.Subject{Key: "gc_writer"}, func() (controlledWriter, error) {
+		return controlledWriter{
+			Writer:     nil,
+			channelKey: db.Channel.Key,
+		}, nil
+	})
+
+	if err != nil {
+		return err
+	}
+
+	defer g.Release()
+
+	return db.Domain.GarbageCollect(ctx)
 }
