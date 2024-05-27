@@ -65,9 +65,10 @@ class WriterSink final : public pipeline::Sink {
 public:
     WriterSink(
             std::shared_ptr<task::Context> ctx,
+            synnax::Task task,
+            WriterConfig cfg,
             const std::shared_ptr<UA_Client> &client,
-            std::set<ChannelKey> indexes,
-            synnax::Task task
+            std::set<ChannelKey> indexes
             );
     freighter::Error start();
     freighter::Error stop();
@@ -76,7 +77,7 @@ public:
     std::vector<synnax::ChannelKey> getCmdChannelKeys();
     std::vector<synnax::ChannelKey> getStateChannelKeys();
     freighter::Error write(synnax::Frame frame);
-
+    void initializeWriteRequest();
 
 private:
     WriterConfig cfg;
@@ -84,6 +85,7 @@ private:
     std::set<ChannelKey> keys;
     std::shared_ptr<task::Context> ctx;
     synnax::Task task;
+    task::State curr_state;
 
     UA_WriteRequest request;
     std::vector<UA_WriteValue> nodes_to_write;

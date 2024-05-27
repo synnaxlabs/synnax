@@ -37,10 +37,25 @@ WriterConfig::WriterConfig(
 ///////////////////////////////////////////////////////////////////////////////////
 WriterSink::WriterSink(
         std::shared_ptr<task::Context> ctx,
+        synnax::Task task,
+        WriterConfig cfg,
         const std::shared_ptr<UA_Client> &client,
-        std::set<ChannelKey> indexes,
-        synnax::Task task
-);
+        std::set<ChannelKey> indexes
+) : cfg(std::move(cfg)),
+    client(client),
+    task(std::move(task)),
+    ctx(std::move(ctx)) {
+
+    initializeWriteRequest(); // TODO: IMPL
+
+    curr_state.task = this->task.key;
+    curr_state.variant = "success";
+    curr_state.details = json{
+        {"message", "Task configured successfully"},
+        {"running", true}
+    };
+    this->ctx->setState(curr_state);
+}
 
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -71,4 +86,8 @@ freighter::Error WriterSink::communicateResError(const UA_StatusCode status){
 }
 freighter::Error WriterSink::communicateValueError(const std::string &channel, const UA_StatusCode &status){
     return freighter::NIL;
+}
+
+void WriterSink::initializeWriteRequest(){
+    return;
 }
