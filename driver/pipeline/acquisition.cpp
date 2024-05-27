@@ -11,6 +11,8 @@
 #include "driver/pipeline/acquisition.h"
 #include "nlohmann/json.hpp"
 #include "driver/errors/errors.h"
+#include <exception>
+#include <stdexcept>
 
 using json = nlohmann::json;
 
@@ -21,32 +23,33 @@ Acquisition::Acquisition(
     WriterConfig writer_config,
     std::shared_ptr<Source> source,
     const breaker::Config &breaker_config
-) {
-    assert(ctx != nullptr);
-    assert(source != nullptr);
-
-    this->ctx = std::move(ctx);
-    this->writer_config = writer_config;
-    this->breaker = breaker::Breaker(breaker_config);
-    this->source = std::move(source);
+): ctx(std::move(ctx)), thread(nullptr), writer_config(writer_config), breaker(breaker_config), source(std::move(source)) {
 }
 
-
 void Acquisition::start() {
-    if (thread.joinable() && std::this_thread::get_id() != thread.get_id())
-        thread.join();
-    if (running) return;
-    this->running = true;
-    thread = std::thread(&Acquisition::run, this);
+    if(breaker.running()) return;
+    if (this->thread != nullptr && thread->joinable() && std::this_thread::get_id() != thread->get_id())
+        this->thread->join();
+    breaker.start(); 
+    auto s_err = source->start();
+    if (s_err) {
+        LOG(ERROR) << "[acquisition] Failed to start source: " << s_err.message();
+        if (s_err.matches(driver::TYPE_TEMPORARY_HARDWARE_ERROR) && breaker.wait(
+                s_err.message()))
+            run();
+        return;
+    }  
+    thread = std::make_unique<std::thread>(&Acquisition::run, this);
+    LOG(INFO) << "[acquisition] Acquisition started";
 }
 
 void Acquisition::stop() {
-    if (!running) return;
-    this->running = false;
-    if (thread.joinable() && std::this_thread::get_id() != thread.get_id()) {
-        thread.join();
+    if (!breaker.running()) return;
+    breaker.stop();
+    if (this->thread != nullptr && thread->joinable() && std::this_thread::get_id() != thread->get_id()) {
+       this->thread->join();
     };
-
+    source->stop();
     LOG(INFO) << "[acquisition] Acquisition stopped";
 }
 
@@ -60,37 +63,21 @@ synnax::TimeStamp resolve_start(const synnax::Frame &frame) {
     return synnax::TimeStamp::now();
 }
 
-void Acquisition::run() {
+void Acquisition::runInternal() {
     LOG(INFO) << "[acquisition] Acquisition thread started";
-    auto s_err = source->start();
-    if (s_err) {
-        LOG(ERROR) << "[acquisition] Failed to start source: " << s_err.message();
-        if (s_err.matches(driver::TYPE_TEMPORARY_HARDWARE_ERROR) && breaker.wait(
-                s_err.message()))
-            run();
-        return;
-    }
-
     synnax::Writer writer;
     bool writer_opened = false;
     freighter::Error wo_err;
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    while (this->running) {
+    while (breaker.running()) {
         auto [frame, source_err] = source->read();
 
         if (source_err.matches(driver::TYPE_CRITICAL_HARDWARE_ERROR)) {
-            LOG(ERROR) <<
-                    "[acquisition] Failed to read source: CRITICAL_HARDWARE_ERROR. Closing pipe.";
+            LOG(ERROR) << "[acquisition] Failed to read source: CRITICAL_HARDWARE_ERROR. Closing pipe.";
             break;
         }
 
-        if (
-            source_err.matches(driver::TYPE_TEMPORARY_HARDWARE_ERROR) &&
-            breaker.wait(source_err.message())
-        ) {
-            LOG(ERROR) <<
-                    "[acquisition] Failed to read source: TEMPORARY_HARDWARE_ERROR";
+        if (source_err.matches(driver::TYPE_TEMPORARY_HARDWARE_ERROR) && breaker.wait(source_err.message())) {
             continue;
         }
 
@@ -99,12 +86,9 @@ void Acquisition::run() {
             auto res = ctx->client->telem.openWriter(writer_config);
             wo_err = res.second;
             if (wo_err) {
-                LOG(ERROR) << "[acquisition] Failed to open writer: " << wo_err.
-                        message();
-                if (wo_err.matches(freighter::UNREACHABLE) && breaker.wait(
-                        wo_err.message()))
-                    run();
-                
+                LOG(ERROR) << "[acquisition] Failed to open writer: " << wo_err.message();
+                if (wo_err.matches(freighter::UNREACHABLE) && breaker.wait(wo_err.message()))
+                    runInternal();
                 return;
             }
             writer = std::move(res.first);
@@ -115,12 +99,21 @@ void Acquisition::run() {
             LOG(ERROR) << "[acquisition] Failed to write frame";
             break;
         }
-
         breaker.reset();
     }
     const auto err = writer.close();
-    LOG(INFO) << "[acquisition] Writer closed";
     if (err.matches(freighter::UNREACHABLE) && breaker.wait(err.message())) run();
-    LOG(INFO) << "[acquisition] Acquisition thread terminated";
-    source->stop();
+    this->stop();
+}
+
+void Acquisition::run() {
+    try{
+        runInternal();
+    } catch (const std::exception &e) {
+        LOG(ERROR) << "[acquisition] Unhandled standard exception: " << e.what();
+        this->stop();
+    } catch (...) {
+        LOG(ERROR) << "[acquisition] Unhandled unknown exception";
+        this->stop();
+    }
 }

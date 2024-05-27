@@ -488,7 +488,6 @@ std::unique_ptr<task::Task> Reader::configure(
         .scale = 1.2,
     };
     auto breaker = breaker::Breaker(breaker_config);
-
     // Fetch additional index channels we also need as part of the configuration.
     auto [res, err] = retrieveAdditionalChannelInfo(ctx, cfg, breaker);
     if (err) {
@@ -543,7 +542,7 @@ std::unique_ptr<task::Task> Reader::configure(
         return nullptr;
     }
 
-    auto source = std::make_unique<ReaderSource>(
+    auto source = std::make_shared<ReaderSource>(
         cfg,
         ua_client,
         indexes,
@@ -562,12 +561,6 @@ std::unique_ptr<task::Task> Reader::configure(
         .enable_auto_commit = true
     };
 
-    auto pipe = pipeline::Acquisition(
-        ctx,
-        writer_cfg,
-        std::move(source),
-        breaker_config
-    );
     ctx->setState({
         .task = task.key,
         .variant = "success",
@@ -575,11 +568,17 @@ std::unique_ptr<task::Task> Reader::configure(
             {"running", false}
         }
     });
-    return std::make_unique<Reader>(ctx, task, cfg, breaker, std::move(pipe));
+    return std::make_unique<Reader>(ctx, task, cfg, breaker_config, std::move(source), writer_cfg);
 }
 
 void Reader::exec(task::Command &cmd) {
     if (cmd.type == "start") pipe.start();
-    if (cmd.type == "stop") return stop();
-    LOG(ERROR) << "unknown command type: " << cmd.type;
+    else if (cmd.type == "stop") return stop();
+    else LOG(ERROR) << "unknown command type: " << cmd.type;
+}
+
+
+
+void Reader::stop() {
+    pipe.stop();
 }
