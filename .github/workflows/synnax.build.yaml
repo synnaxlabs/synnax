@@ -77,6 +77,20 @@ jobs:
             echo "OS=windows" >> $GITHUB_OUTPUT
           fi
 
+      - name: Diff Changes
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            changed:
+              - 'synnax/**'
+              - 'cesium/**'
+              - 'x/**'
+              - 'console/**'
+              - 'freighter/go/**'
+              - 'driver/**'
+              - '.github/workflows/synnax.build.yaml'
+
       - name: Update Submodules
         run: git submodule update --init --recursive
 
@@ -192,7 +206,7 @@ jobs:
         if: ${{ (matrix.platform == 'ubuntu-latest') && (steps.filter.outputs.changed == 'true') }}
         run: echo test
 
-      - name: ${{ (matrix.platform == 'ubuntu-latest') }}
+      - name: ${{ matrix.platform == 'ubuntu-latest' }}
         if: ${{ (matrix.platform == 'ubuntu-latest') }}
         run: echo test
 
