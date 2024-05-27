@@ -55,7 +55,13 @@ export interface UseReturn {
   ref: React.MutableRefObject<HTMLDivElement | null>;
 }
 
+// We truncate the viewport box at this precision to simplify diffing logs, reduce
+// unnecessary re-renders, and prevent floating point errors.
 const TRUNC_PRECISION = 6;
+// The threshold for the cursor to move before we trigger a pan calculation to update
+// the viewport. This prevents unnecessary re-renders, although increasing this value
+// also decreases the smoothness of the pan.
+const CURSOR_TRANSLATION_THRESHOLD = 2; // px
 
 type StringLiteral<T> = T extends string ? (string extends T ? never : T) : never;
 
@@ -130,10 +136,16 @@ export const use = ({
   const [maskBox, setMaskBox] = useState<box.Box>(box.ZERO);
   const [maskMode, setMaskMode] = useState<Mode>(defaultMode);
   const [stateRef, setStateRef] = useStateRef<box.Box>(initial);
+  // We store the START of the previous pan in statRef, which means
+  // that even if the viewport didn't change significantly, our equality
+  // comparison will still trigger a re-render. So we track the previous
+  // pan update in this ref here, that stores the result of the previous
+  // pan update.
+  const prevCursorRef = useRef<xy.XY>(xy.ZERO);
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const threshold = dimensions.construct(threshold_);
 
-  useEffect(() => setStateRef(() => box.truncate(initial, 3)), [initial]);
+  useEffect(() => setStateRef(() => box.truncate(initial, TRUNC_PRECISION)), [initial]);
   useEffect(() => setMaskMode(defaultMode), [defaultMode]);
 
   const [triggerConfig, reducedTriggerConfig, purgedTriggers, reducedPurgedTriggers] =
@@ -179,7 +191,7 @@ export const use = ({
         return setStateRef((prev) => {
           if (mode === "pan") {
             const next = handlePan(box_, prev, canvas);
-            if (next === null) return prev;
+            if (next === null || box.equals(next, prev)) return prev;
             onChange?.({ box: next, mode, stage, cursor });
             return next;
           }
@@ -206,14 +218,11 @@ export const use = ({
       }
 
       setMaskBox((prev) => (!box.areaIsZero(prev) ? box.ZERO : prev));
+      if (xy.distance(cursor, prevCursorRef.current) < CURSOR_TRANSLATION_THRESHOLD)
+        return;
+      prevCursorRef.current = cursor;
       const next = handlePan(box_, stateRef.current, canvas);
-      if (box.equals(next, stateRef.current)) return;
-      onChange?.({
-        box: next,
-        mode,
-        stage,
-        cursor,
-      });
+      onChange?.({ box: next, mode, stage, cursor });
     },
     [
       setMaskBox,
