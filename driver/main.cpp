@@ -84,10 +84,13 @@ int main(int argc, char *argv[]) {
     std::unique_ptr<meminfo::Factory> meminfo_factory = std::make_unique<meminfo::Factory>();
     std::unique_ptr<ni::Factory> ni_factory = std::make_unique<ni::Factory>();
 
-    std::vector<std::shared_ptr<task::Factory> > factories = {
-        std::move(opc_factory), std::move(meminfo_factory), std::move(ni_factory)
-    };
+    // std::vector<std::shared_ptr<task::Factory> > factories = {
+    //     std::move(opc_factory), std::move(meminfo_factory), std::move(ni_factory)
+    // };
 
+    std::vector<std::shared_ptr<task::Factory> > factories = {
+        std::move(opc_factory), std::move(meminfo_factory)
+    };
     
 
     std::unique_ptr<task::Factory> factory = std::make_unique<task::MultiFactory>(
