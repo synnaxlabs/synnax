@@ -200,16 +200,33 @@ describe("StaticReadCache", () => {
           alignment: 0n,
         }),
       ]);
-      c.dirtyRead(TimeStamp.seconds(1).spanRange(TimeSpan.seconds(3)));
+      const read = () =>
+        c.dirtyRead(TimeStamp.seconds(1).spanRange(TimeSpan.seconds(3))).series;
       expect(c.gc().purgedSeries).toEqual(0);
-      expect(
-        c.dirtyRead(TimeStamp.seconds(1).spanRange(TimeSpan.seconds(3))).series,
-      ).toHaveLength(1);
+      expect(read()).toHaveLength(1);
       await new Promise((resolve) => setTimeout(resolve, 8));
       expect(c.gc().purgedSeries).toEqual(1);
-      expect(
-        c.dirtyRead(TimeStamp.seconds(1).spanRange(TimeSpan.seconds(3))).series,
-      ).toHaveLength(0);
+      expect(read()).toHaveLength(0);
+    });
+    it("should not garbage collect series that have a reference count greater than zero", async () => {
+      const c = new Static({ staleEntryThreshold: TimeSpan.milliseconds(5) });
+      const tr = TimeStamp.seconds(1).spanRange(TimeSpan.seconds(3));
+      c.write([
+        new Series({
+          data: new Float32Array([1]),
+          dataType: DataType.FLOAT32,
+          timeRange: tr,
+          alignment: 0n,
+        }),
+      ]);
+      const read = () =>
+        c.dirtyRead(TimeStamp.seconds(1).spanRange(TimeSpan.seconds(3))).series;
+      read().forEach((s) => s.acquire());
+      expect(c.gc().purgedSeries).toEqual(0);
+      expect(read()).toHaveLength(1);
+      c.dirtyRead(TimeStamp.seconds(1).spanRange(TimeSpan.seconds(3)));
+      expect(c.gc().purgedSeries).toEqual(0);
+      expect(read()).toHaveLength(1);
     });
   });
   describe("close", () => {
