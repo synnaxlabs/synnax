@@ -26,26 +26,25 @@ Control::Control(
     thread(nullptr),
     streamer_config(std::move(streamer_config)),
     sink(std::move(sink)),
-    cmd_breaker(breaker::Breaker(breaker_config)) {
+    breaker(breaker::Breaker(breaker_config)) {
 }
 
 
 void Control::start() {
-    if (this->running) return;
+    if (breaker.running()) return;
     if (this->thread != nullptr && thread->joinable() && std::this_thread::get_id() != thread->get_id())
         thread->join();
-    this->running = true;
+    breaker.start();
     thread = std::make_unique<std::thread>(&Control::run, this);
 }
 
 void Control::stop() {
-    if(!running) return;
-    this->running = false;
+    if(breaker.running()) return;
+    breaker.stop(); 
     if (this->thread != nullptr && thread->joinable() && std::this_thread::get_id() != thread->get_id()) {
         thread->join();
     };
     this->streamer->closeSend();
-
     LOG(INFO) << "[control] Control stopped";
 }
 
@@ -55,27 +54,27 @@ void Control::runInternal() {
     this->streamer = std::make_unique<synnax::Streamer>(std::move(test));
     if (so_err) {
         if (    so_err.matches(freighter::UNREACHABLE) 
-            &&  cmd_breaker.wait(so_err.message())) {
-            return run();
+            &&  breaker.wait(so_err.message())) {
+            return runInternal();
         }
     }
-    while (running) {
+    while (breaker.running()) {
         auto [cmd_frame, cmd_err] = this->streamer->read();
         if (cmd_err) break;
         auto daq_err = sink->write(std::move(cmd_frame));    
     }
 
     const auto err = this->streamer->close(); // close or closeSend
-    if (err.matches(freighter::UNREACHABLE) && cmd_breaker.wait()){        
-        return run();
-    }
+
+    if (err.matches(freighter::UNREACHABLE) && breaker.wait()) return runInternal();
+    
 }
 
 void Control::run() {
     try{
         runInternal();
     } catch (const std::exception &e) {
-        LOG(ERROR) << "[Control] Unhandled sttandard exception: " << e.what();
+        LOG(ERROR) << "[Control] Unhandled standard exception: " << e.what();
         stop();
     } catch (...) {
         LOG(ERROR) << "[Control] Unhandled unknown exception";

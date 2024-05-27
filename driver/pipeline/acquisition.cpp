@@ -102,9 +102,7 @@ void Acquisition::runInternal() {
         breaker.reset();
     }
     const auto err = writer.close();
-    LOG(INFO) << "[acquisition] Writer closed";
     if (err.matches(freighter::UNREACHABLE) && breaker.wait(err.message())) run();
-    LOG(INFO) << "[acquisition] Acquisition thread terminated";
     source->stop();
 }
 
@@ -112,7 +110,7 @@ void Acquisition::run() {
     try{
         runInternal();
     } catch (const std::exception &e) {
-        LOG(ERROR) << "[acquisition] Unhandled sttandard exception: " << e.what();
+        LOG(ERROR) << "[acquisition] Unhandled standard exception: " << e.what();
         this->stop();
     } catch (...) {
         LOG(ERROR) << "[acquisition] Unhandled unknown exception";
