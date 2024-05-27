@@ -13,14 +13,22 @@
     height: 100%;
 
     & .console-groups {
-        width: 240px;
-        max-width: 240px;
-        height: 440px;
+        width: 280px;
+        max-width: 280px;
+        height: 525px;
+    }
+
+    .console-list {
+        height: 525px;
     }
 
     & .console-channels {
         border-left: var(--pluto-border);
-        height: 440px;
+        height: 525px;
+        overflow: hidden;
+        .pluto-menu-context__container {
+            overflow: hidden;
+        }
     }
 
     & .console-form-details {

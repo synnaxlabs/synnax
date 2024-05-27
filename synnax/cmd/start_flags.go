@@ -72,10 +72,8 @@ func configureStartFlags() {
 		"Disable the embedded synnax driver",
 	)
 
-	encodedName := "bGljZW5zZS1rZXk="
-	decodedName, _ := base64.StdEncoding.DecodeString(encodedName)
-	encodedUsage := "TGljZW5zZSBrZXkgaW4gZm9ybSAiIyMjIyMjLSMjIyMjIyMjLSMjIyMjIyMjIyMiLg=="
-	decodedUsage, _ := base64.StdEncoding.DecodeString(encodedUsage)
+	decodedName, _ := base64.StdEncoding.DecodeString("bGljZW5zZS1rZXk=")
+	decodedUsage, _ := base64.StdEncoding.DecodeString("TGljZW5zZSBrZXkgaW4gZm9ybSAiIyMjIyMjLSMjIyMjIyMjLSMjIyMjIyMjIyMiLg==")
 
 	startCmd.Flags().String(
 		string(decodedName),

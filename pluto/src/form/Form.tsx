@@ -228,6 +228,7 @@ export interface UseFieldArrayReturn<V extends unknown> {
   value: V[];
   push: (value: V | V[]) => void;
   remove: (index: number | number[]) => void;
+  keepOnly: (indices: number | number[]) => void;
 }
 
 export const useFieldArray = <V extends unknown = unknown>({
@@ -257,15 +258,23 @@ export const useFieldArray = <V extends unknown = unknown>({
 
   const remove = useCallback(
     (index: number | number[]) => {
-      const copy = shallowCopy(get<V[]>({ path, optional: false }).value);
-      const indices = toArray(index).sort((a, b) => b - a);
-      indices.forEach((i) => copy.splice(i, 1));
-      set({ path, value: copy });
+      const val = get<V[]>({ path, optional: false }).value;
+      const indices = new Set(toArray(index));
+      set({path, value: val.filter((_, i) => !indices.has(i)) });
     },
     [path, state, get],
   );
 
-  return { value: state, push, remove };
+  const keepOnly = useCallback(
+    (index: number | number[]) => {
+      const val = get<V[]>({ path, optional: false }).value;
+      const indices = new Set(toArray(index));
+      set({ path, value: val.filter((_, i) => indices.has(i)) });
+    },
+    [path, state, get],
+  );
+
+  return { value: state, push, remove, keepOnly };
 };
 
 export interface FieldProps<
@@ -295,6 +304,7 @@ export const Field = <
   padHelpText = true,
   visible = true,
   hideIfNull = false,
+  optional,
   defaultValue,
   onChange,
   className,
@@ -302,7 +312,7 @@ export const Field = <
 }: FieldProps<I, O>): ReactElement | null => {
   const field = useField<I, O>({
     path,
-    optional: hideIfNull as true,
+    optional: (optional as true) ?? (hideIfNull as true),
     onChange,
     defaultValue,
   });
@@ -584,6 +594,7 @@ export const use = <Z extends z.ZodTypeAny>({
       let success = true;
       const issueKeys = new Set(result.error.issues.map((i) => i.path.join(".")));
       result.error.issues.forEach((issue) => {
+        console.log("issue", issue);
         const issuePath = issue.path.join(".");
         if (!deep.pathsMatch(issuePath, path)) return;
         const variant = getVariant(issue);

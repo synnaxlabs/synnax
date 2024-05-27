@@ -21,13 +21,13 @@ export type TextProps<L extends Core.Level> = Core.KeyboardProps<L> & {
 };
 
 const CUSTOM_TEXT: Partial<Record<Key, (() => ReactElement) | string>> = {
-  Control: () => <Core.Symbols.Meta />,
-  Alt: () => <Core.Symbols.Alt />,
-  Shift: () => <Icon.Keyboard.Shift />,
+  Control: () => <Core.Symbols.Meta key="control" />,
+  Alt: () => <Core.Symbols.Alt key="alt" />,
+  Shift: () => <Icon.Keyboard.Shift key="shift" />,
   MouseLeft: "Left Click",
   MouseRight: "Right Click",
   MouseMiddle: "Middle Click",
-  Enter: () => <Icon.Keyboard.Return />,
+  Enter: () => <Icon.Keyboard.Return key="enter" />,
 };
 
 const getCustomText = (trigger: Key): ReactElement | string => {

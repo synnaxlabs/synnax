@@ -10,7 +10,7 @@
 import type { Reducer, Store } from "@reduxjs/toolkit";
 import { combineReducers, Tuple } from "@reduxjs/toolkit";
 import { Drift } from "@synnaxlabs/drift";
-import { TauriRUntime, TauriRuntime } from "@synnaxlabs/drift/tauri";
+import { TauriRuntime } from "@synnaxlabs/drift/tauri";
 import { type deep } from "@synnaxlabs/x";
 
 import { Cluster } from "@/cluster";
@@ -24,9 +24,9 @@ import { Version } from "@/version";
 import { Workspace } from "@/workspace";
 
 const PERSIST_EXCLUDE: Array<deep.Key<RootState>> = [
-  Drift.SLICE_NAME,
   ...Layout.PERSIST_EXCLUDE,
   Cluster.PERSIST_EXCLUDE,
+  Drift.SLICE_NAME,
 ];
 
 const reducer = combineReducers({
@@ -102,6 +102,7 @@ const newStore = async (): Promise<RootStore> => {
       ),
     reducer,
     enablePrerender: true,
+    debug: false,
     defaultWindowProps: DEFAULT_WINDOW_PROPS,
   });
 };

@@ -45,18 +45,21 @@ struct DeviceNodeProperties {
     synnax::DataType data_type;
     std::string name;
     std::string node_id;
+    bool is_array;
 
     DeviceNodeProperties(
         synnax::DataType data_type,
         std::string name,
-        std::string node_id
-    ): data_type(data_type), name(name), node_id(node_id) {
+        std::string node_id,
+        bool is_array
+    ): data_type(data_type), name(name), node_id(node_id), is_array(is_array) {
     }
 
     explicit DeviceNodeProperties(config::Parser parser): data_type(
             synnax::DataType(parser.required<std::string>("data_type"))),
         name(parser.required<std::string>("name")),
-        node_id(parser.required<std::string>("node_id")) {
+        node_id(parser.required<std::string>("node_id")),
+        is_array(parser.optional<bool>("is_array", false)) {
     }
 
     json toJSON() const {
@@ -64,6 +67,7 @@ struct DeviceNodeProperties {
             {"data_type", data_type.name()},
             {"name", name},
             {"node_id", node_id},
+            {"is_array", is_array}
         };
     }
 };
