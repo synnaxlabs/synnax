@@ -7,19 +7,16 @@ import {
   zeroCacheGCMetrics,
 } from "@/telem/client/cache/static";
 import { Unary } from "@/telem/client/cache/unary";
+import { DynamicProps } from "@/telem/client/cache/dynamic";
 
-export const CACHE_BUFFER_SIZE = 10000;
+export const CACHE_BUFFER_SIZE: TimeSpan = TimeSpan.seconds(60);
 
 /** Props for instantiating an @see Cache */
-export interface CacheProps extends StaticProps {
+export interface CacheProps
+  extends StaticProps,
+  Partial<Pick<DynamicProps, "dynamicBufferSize">> {
   /** Used to populate new cache entries with relevant info about the channel */
   channelRetriever: channel.Retriever;
-  /**
-   * Sets the size of the buffer in the dynamic cache
-   * TODO: At some point this value should be calculated dynamically using heuristics
-   * @default 10000
-   */
-  dynamicBufferSize?: number;
   /**
    * Sets the interval at which the cache will garbage collect, removing data that
    * currently in use by the rest of hte program.
