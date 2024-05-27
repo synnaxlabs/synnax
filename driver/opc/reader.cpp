@@ -577,8 +577,6 @@ void Reader::exec(task::Command &cmd) {
     else LOG(ERROR) << "unknown command type: " << cmd.type;
 }
 
-
-
 void Reader::stop() {
     pipe.stop();
 }
