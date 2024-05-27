@@ -161,6 +161,7 @@ public:
             state_updater = std::make_unique<Writer>(std::move(su));
         }
         auto fr = Frame(1);
+        std::cout << "Writing task state update" << std::endl;
         fr.add(task_state_channel.key,
                Series(std::vector{to_string(state.toJSON())}, JSON));
         LOG(INFO) << "Writing task state update";
