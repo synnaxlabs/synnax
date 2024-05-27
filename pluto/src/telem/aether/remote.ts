@@ -177,7 +177,6 @@ export class ChannelData
     const res = await this.client.read(this.props.timeRange, [key]);
     const newData = res[key].data;
     newData.forEach((d) => d.acquire());
-    console.log(newData.map((d) => d.refCount));
     this.data = newData;
     this.valid = true;
   }
