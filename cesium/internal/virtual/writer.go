@@ -24,7 +24,7 @@ func (db *DB) OpenWriter(_ context.Context, cfg WriterConfig) (w *Writer, transf
 	if db.closed.Load() {
 		return nil, transfer, db.wrapError(dbClosed)
 	}
-	w = &Writer{WriterConfig: cfg, Channel: db.Channel, wrapError: db.wrapError, onClose: func() { db.mu.add(-1) }}
+	w = &Writer{WriterConfig: cfg, Channel: db.Channel, wrapError: db.wrapError, onClose: func() { db.entityCount.add(-1) }}
 	gateCfg := controller.GateConfig{
 		TimeRange: cfg.domain(),
 		Authority: cfg.Authority,
@@ -39,7 +39,7 @@ func (db *DB) OpenWriter(_ context.Context, cfg WriterConfig) (w *Writer, transf
 		}, nil
 	})
 	w.control = g
-	db.mu.add(1)
+	db.entityCount.add(1)
 	return w, transfer, db.wrapError(err)
 }
 

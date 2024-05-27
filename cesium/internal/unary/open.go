@@ -82,12 +82,12 @@ func Open(configs ...Config) (*DB, error) {
 		return nil, err
 	}
 	db := &DB{
-		Config:     cfg,
-		Domain:     domainDB,
-		Controller: c,
-		wrapError:  core.NewErrorWrapper(cfg.Channel),
-		mu:         &openEntityCount{},
-		closed:     &atomic.Bool{},
+		Config:      cfg,
+		Domain:      domainDB,
+		Controller:  c,
+		wrapError:   core.NewErrorWrapper(cfg.Channel),
+		entityCount: &entityCount{},
+		closed:      &atomic.Bool{},
 	}
 	if cfg.Channel.IsIndex {
 		db._idx = &index.Domain{DB: domainDB, Instrumentation: cfg.Instrumentation}

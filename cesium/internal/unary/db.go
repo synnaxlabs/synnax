@@ -31,12 +31,12 @@ type controlledWriter struct {
 
 func (w controlledWriter) ChannelKey() core.ChannelKey { return w.channelKey }
 
-type openEntityCount struct {
+type entityCount struct {
 	sync.RWMutex
 	openIteratorWriters int
 }
 
-func (c *openEntityCount) add(delta int) {
+func (c *entityCount) add(delta int) {
 	c.Lock()
 	c.openIteratorWriters += delta
 	c.Unlock()
@@ -44,12 +44,12 @@ func (c *openEntityCount) add(delta int) {
 
 type DB struct {
 	Config
-	Domain     *domain.DB
-	Controller *controller.Controller[controlledWriter]
-	_idx       index.Index
-	mu         *openEntityCount
-	wrapError  func(error) error
-	closed     *atomic.Bool
+	Domain      *domain.DB
+	Controller  *controller.Controller[controlledWriter]
+	_idx        index.Index
+	entityCount *entityCount
+	wrapError   func(error) error
+	closed      *atomic.Bool
 }
 
 var ErrDBClosed = core.EntityClosed("unary.db")
@@ -96,12 +96,12 @@ func (db *DB) OpenIterator(cfg IteratorConfig) *Iterator {
 		internal:       iter,
 		IteratorConfig: cfg,
 		onClose: func() {
-			db.mu.add(-1)
+			db.entityCount.add(-1)
 		},
 	}
 	i.SetBounds(cfg.Bounds)
 
-	db.mu.add(1)
+	db.entityCount.add(1)
 	return i
 }
 
@@ -159,10 +159,10 @@ func (db *DB) Close() error {
 		return nil
 	}
 
-	db.mu.RLock()
-	defer db.mu.RUnlock()
-	if db.mu.openIteratorWriters > 0 {
-		return db.wrapError(errors.Newf("cannot close channel because there are %d unclosed writers/iterators accessing it", db.mu.openIteratorWriters))
+	db.entityCount.RLock()
+	defer db.entityCount.RUnlock()
+	if db.entityCount.openIteratorWriters > 0 {
+		return db.wrapError(errors.Newf("cannot close channel because there are %d unclosed writers/iterators accessing it", db.entityCount.openIteratorWriters))
 	} else {
 		db.closed.Swap(true)
 		return db.wrapError(db.Domain.Close())

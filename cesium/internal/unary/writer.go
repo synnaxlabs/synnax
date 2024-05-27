@@ -136,7 +136,7 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (w *Writer, 
 	w = &Writer{WriterConfig: cfg,
 		Channel:          db.Channel,
 		idx:              db.index(),
-		decrementCounter: func() { db.mu.add(-1) },
+		decrementCounter: func() { db.entityCount.add(-1) },
 		wrapError:        db.wrapError,
 	}
 	gateCfg := controller.GateConfig{
@@ -158,7 +158,7 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (w *Writer, 
 	}
 
 	w.control = g
-	db.mu.add(1)
+	db.entityCount.add(1)
 	return w, transfer, w.wrapError(err)
 }
 

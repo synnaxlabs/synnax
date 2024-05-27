@@ -28,12 +28,12 @@ type controlEntity struct {
 
 func (e *controlEntity) ChannelKey() core.ChannelKey { return e.ck }
 
-type openEntityCount struct {
+type entityCount struct {
 	sync.RWMutex
 	openWriters int
 }
 
-func (s *openEntityCount) add(delta int) {
+func (s *entityCount) add(delta int) {
 	s.Lock()
 	s.openWriters += delta
 	s.Unlock()
@@ -41,10 +41,10 @@ func (s *openEntityCount) add(delta int) {
 
 type DB struct {
 	Config
-	controller *controller.Controller[*controlEntity]
-	mu         *openEntityCount
-	wrapError  func(error) error
-	closed     *atomic.Bool
+	controller  *controller.Controller[*controlEntity]
+	entityCount *entityCount
+	wrapError   func(error) error
+	closed      *atomic.Bool
 }
 
 var dbClosed = core.EntityClosed("virtual.db")
@@ -61,11 +61,11 @@ func Open(cfg Config) (db *DB, err error) {
 		return nil, err
 	}
 	return &DB{
-		Config:     cfg,
-		controller: c,
-		wrapError:  core.NewErrorWrapper(cfg.Channel),
-		mu:         &openEntityCount{},
-		closed:     &atomic.Bool{},
+		Config:      cfg,
+		controller:  c,
+		wrapError:   core.NewErrorWrapper(cfg.Channel),
+		entityCount: &entityCount{},
+		closed:      &atomic.Bool{},
 	}, nil
 }
 
@@ -77,10 +77,10 @@ func (db *DB) Close() error {
 	if db.closed.Load() {
 		return nil
 	}
-	db.mu.RLock()
-	defer db.mu.RUnlock()
-	if db.mu.openWriters > 0 {
-		return db.wrapError(errors.Newf(fmt.Sprintf("cannot close channel because there are %d unclosed writers accessing it", db.mu.openWriters)))
+	db.entityCount.RLock()
+	defer db.entityCount.RUnlock()
+	if db.entityCount.openWriters > 0 {
+		return db.wrapError(errors.Newf(fmt.Sprintf("cannot close channel because there are %d unclosed writers accessing it", db.entityCount.openWriters)))
 	}
 
 	db.closed.Swap(true)
