@@ -33,12 +33,14 @@ export interface TabSpec {
 
 export interface SelectorProps extends Omit<Align.SpaceProps, "children"> {
   size?: ComponentSize;
+  altColor?: boolean;
 }
 
 const CLS = "tabs-selector";
 
 export const Selector = ({
   className,
+  altColor = false,
   size = "medium",
   direction = "x",
   ...props
@@ -70,6 +72,7 @@ export const Selector = ({
           <SelectorButton
             key={tab.tabKey}
             selected={selected}
+            altColor={altColor}
             onSelect={onSelect}
             onClose={onClose}
             onDragStart={onDragStart}
@@ -95,6 +98,7 @@ export const Selector = ({
 
 const SelectorButton = ({
   selected,
+  altColor = false,
   onSelect,
   onClose,
   tabKey,
@@ -134,6 +138,7 @@ const SelectorButton = ({
         CSS.BE(CLS, "btn"),
         onRename == null && CSS.BEM(CLS, "btn", "uneditable"),
         CSS.selected(selected === tabKey),
+        CSS.altColor(altColor), // TODO: this line
         closable && onClose != null && CSS.BEM(CLS, "btn", "closable"),
       )}
       draggable
@@ -165,6 +170,7 @@ const SelectorButton = ({
 
 export interface SelectorButtonProps extends TabSpec {
   selected?: string;
+  altColor?: boolean;
   onDragStart?: (e: React.DragEvent<HTMLDivElement>, tab: TabSpec) => void;
   onDragEnd?: (e: React.DragEvent<HTMLDivElement>, tab: TabSpec) => void;
   onSelect?: (key: string) => void;

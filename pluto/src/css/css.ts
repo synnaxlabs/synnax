@@ -13,6 +13,7 @@ import { type BEM, newBEM } from "@/css/bem";
 import { CSSGridBuilder } from "@/css/grid";
 import { applyCSSVars, removeCSSVars } from "@/css/vars";
 import { type ComponentSize } from "@/util/component";
+import { act } from '@testing-library/react';
 
 export interface CSSType extends BEM {
   visible: (visible: boolean) => string;
@@ -27,6 +28,7 @@ export interface CSSType extends BEM {
   bordered: (location?: location.Crude | spatial.Alignment | boolean) => string | false;
   noSelect: string;
   selected: (selected: boolean) => string | false;
+  altColor: (secondary: boolean) => string | false;
   editable: (editable: boolean) => string | false;
   noWrap: (noWrap: boolean) => string | false;
   applyVars: typeof applyCSSVars;
@@ -54,6 +56,7 @@ const newCSS = (prefix: string): CSSType => {
     return location != null ? CSS.M("bordered-" + location) : CSS.M("bordered");
   };
   CSS.selected = (selected) => selected && CSS.M("selected");
+  CSS.altColor = (secondary) => secondary && CSS.M("altColor");
   CSS.editable = (editable) => editable && CSS.M("editable");
   CSS.noSelect = CSS.M("no-select");
   CSS.noWrap = (noWrap) => noWrap && CSS.M("no-wrap");
