@@ -195,8 +195,8 @@ jobs:
         if: ${{ (matrix.platform == 'ubuntu-latest') }}
         run: echo test
 
-      - name: ${{ steps.filter.outputs.changed }}
-        if: ${{ steps.filter.outputs.changed }}
+      - name: ${{ steps.filter.outputs.changed == 'true' }}
+        if: ${{ steps.filter.outputs.changed == 'true' }}
         run: echo test
 
       - name: Push to Github Container Registry
