@@ -238,15 +238,6 @@ func (fc *fileController) acquireReader(ctx context.Context, key uint16) (*contr
 				return &r, nil
 			}
 		}
-
-		if !fc.atDescriptorLimit() {
-			fc.readers.RUnlock()
-			return fc.newReader(ctx, key)
-		}
-
-		<-fc.release
-		fc.readers.RUnlock()
-		return fc.acquireReader(ctx, key)
 	}
 	fc.readers.RUnlock()
 
@@ -294,22 +285,22 @@ func (fc *fileController) newReader(ctx context.Context, key uint16) (*controlle
 	return &r, err
 }
 
-func (fc *fileController) gcReaders() (bool, error) {
+func (fc *fileController) gcReaders() (successful bool, err error) {
 	fc.readers.Lock()
 	defer fc.readers.Unlock()
 	for k, v := range fc.readers.open {
 		for i, r := range v {
 			if r.tryAcquire() {
-				err := r.HardClose()
+				err = r.HardClose()
 				if err != nil {
 					return false, err
 				}
 				fc.readers.open[k] = append(v[:i], v[i+1:]...)
-				return true, nil
+				successful = true
 			}
 		}
 	}
-	return false, nil
+	return successful, nil
 }
 
 // gcWriters closes all open writers to oversize files.

@@ -121,7 +121,7 @@ func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) 
 		})
 
 	if err != nil {
-		if errors.Is(err, errors.Newf("[controller] - region already being controlled")) {
+		if errors.Is(err, controller.ErrRegionOverlap) {
 			return true, nil
 		}
 		return true, err
