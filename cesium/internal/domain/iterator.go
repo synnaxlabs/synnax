@@ -25,7 +25,7 @@ type IteratorConfig struct {
 	Bounds telem.TimeRange
 }
 
-var IteratorClosedError = core.EntityClosed("domain.iterator")
+var errIteratorClosed = core.EntityClosed("domain.iterator")
 
 // IterRange generates an IteratorConfig that iterates over the provided time domain.
 func IterRange(tr telem.TimeRange) IteratorConfig { return IteratorConfig{Bounds: tr} }
@@ -144,7 +144,7 @@ func (i *Iterator) TimeRange() telem.TimeRange { return i.value.TimeRange }
 // multiple Readers open over the same domain.
 func (i *Iterator) NewReader(ctx context.Context) (*Reader, error) {
 	if i.closed {
-		return nil, IteratorClosedError
+		return nil, errIteratorClosed
 	}
 	return i.readerFactory(ctx, i.value)
 }

@@ -21,9 +21,8 @@ type Subject struct {
 func (s Subject) String() string {
 	if s.Name != "" {
 		return fmt.Sprintf("[%s]<%s>", s.Name, s.Key)
-	} else {
-		return fmt.Sprintf("<%s>", s.Key)
 	}
+	return fmt.Sprintf("<%s>", s.Key)
 }
 
 type State[R comparable] struct {

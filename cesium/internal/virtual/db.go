@@ -63,7 +63,7 @@ func Open(cfg Config) (db *DB, err error) {
 	return &DB{
 		Config:     cfg,
 		controller: c,
-		wrapError:  core.NewErrorWrapper(cfg.Channel.Key, cfg.Channel.Name),
+		wrapError:  core.NewErrorWrapper(cfg.Channel),
 		mu:         &openEntityCount{},
 		closed:     &atomic.Bool{},
 	}, nil

@@ -15,11 +15,11 @@ func EntityClosed(entityName string) error {
 	return errors.Newf("operation on %s is invalid because it is already closed", entityName)
 }
 
-func NewErrorWrapper(key ChannelKey, name string) func(error) error {
+func NewErrorWrapper(ch Channel) func(error) error {
 	return func(err error) error {
 		if err == nil {
 			return nil
 		}
-		return errors.Wrapf(err, "channel [%s]<%d>", name, key)
+		return errors.Wrapf(err, "channel %v", ch)
 	}
 }

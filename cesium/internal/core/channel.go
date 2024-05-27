@@ -10,6 +10,7 @@
 package core
 
 import (
+	"fmt"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
@@ -57,6 +58,13 @@ type Channel struct {
 	Index       ChannelKey `json:"index" msgpack:"index"`
 	Virtual     bool
 	Concurrency control.Concurrency
+}
+
+func (c Channel) String() string {
+	if c.Name != "" {
+		return fmt.Sprintf("[%s]<%d>", c.Name, c.Key)
+	}
+	return fmt.Sprintf("<%d>", c.Key)
 }
 
 func (c Channel) ValidateSeries(series telem.Series) error {

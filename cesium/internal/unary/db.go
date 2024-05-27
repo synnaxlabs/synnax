@@ -57,7 +57,7 @@ var ErrDBClosed = core.EntityClosed("unary.db")
 func (db *DB) Index() index.Index {
 	if !db.Channel.IsIndex {
 		// inconceivable state
-		panic(fmt.Sprintf("channel [%s]<%v> is not an index channel", db.Channel.Name, db.Channel.Key))
+		panic(fmt.Sprintf("channel %v is not an index channel", db.Channel))
 	}
 	return db.index()
 }
@@ -65,7 +65,7 @@ func (db *DB) Index() index.Index {
 func (db *DB) index() index.Index {
 	if db._idx == nil {
 		// inconceivable state
-		panic(fmt.Sprintf("channel [%s]<%v> index is not set", db.Channel.Name, db.Channel.Key))
+		panic(fmt.Sprintf("channel <%v> index is not set", db.Channel))
 	}
 	return db._idx
 }

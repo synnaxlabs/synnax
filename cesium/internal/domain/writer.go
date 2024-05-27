@@ -49,7 +49,7 @@ type WriterConfig struct {
 }
 
 var (
-	WriterClosedError   = core.EntityClosed("domain.writer")
+	errWriterClosed     = core.EntityClosed("domain.writer")
 	DefaultWriterConfig = WriterConfig{EnableAutoCommit: config.False(), AutoIndexPersistInterval: 1 * telem.Second}
 )
 
@@ -190,7 +190,7 @@ func (w *Writer) Len() int64 { return w.len }
 // returns.
 func (w *Writer) Write(p []byte) (int, error) {
 	if w.closed {
-		return 0, WriterClosedError
+		return 0, errWriterClosed
 	}
 	n, err := w.internal.Write(p)
 	w.fileSize += telem.Size(n)
@@ -227,7 +227,7 @@ func (w *Writer) commit(ctx context.Context, end telem.TimeStamp, persist bool) 
 	defer span.End()
 
 	if w.closed {
-		return span.Error(WriterClosedError)
+		return span.Error(errWriterClosed)
 	}
 	if w.presetEnd && end.After(w.End) {
 		return span.Error(errors.Newf("commit timestamp %s cannot be greater than preset end timestamp %s", end, w.End))

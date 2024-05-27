@@ -153,7 +153,7 @@ func (db *DB) removeChannel(ch ChannelKey) error {
 				}
 				otherDB := db.unaryDBs[otherDBKey]
 				if otherDB.Channel.Index == udb.Config.Channel.Key {
-					return errors.Newf("cannot delete channel [%s]<%d> because it indexes data in channel [%s]<%d>", udb.Channel.Name, udb.Channel.Key, otherDB.Channel.Name, otherDB.Channel.Key)
+					return errors.Newf("cannot delete channel %v because it indexes data in channel %v", udb.Channel, otherDB.Channel)
 				}
 			}
 		}

@@ -29,7 +29,7 @@ type Writer struct {
 
 const unexpectedSteamClosure = "unexpected early closure of response stream"
 
-var writerClosedError = core.EntityClosed("cesium.writer")
+var errWriterClosed = core.EntityClosed("cesium.writer")
 
 func wrapStreamWriter(internal StreamWriter) *Writer {
 	sCtx, _ := signal.Isolated()
@@ -78,7 +78,7 @@ func (w *Writer) Commit() (telem.TimeStamp, bool) {
 
 func (w *Writer) Error() error {
 	if w.closed {
-		return writerClosedError
+		return errWriterClosed
 	}
 	w.requests.Inlet() <- WriterRequest{Command: WriterError}
 	for res := range w.responses.Outlet() {

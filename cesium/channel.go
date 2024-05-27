@@ -146,7 +146,7 @@ func (db *DB) validateNewChannel(ch Channel) error {
 		_, uOk := db.unaryDBs[ch.Key]
 		_, vOk := db.virtualDBs[ch.Key]
 		if uOk || vOk {
-			return errors.Wrapf(validate.Error, "cannot create channel [%s]<%d> because it already exists", ch.Name, ch.Key)
+			return errors.Wrapf(validate.Error, "cannot create channel %v because it already exists", ch)
 		}
 		return nil
 	})
@@ -162,7 +162,7 @@ func (db *DB) validateNewChannel(ch Channel) error {
 			validate.MapContainsf(v, ch.Index, db.unaryDBs, "index channel <%d> does not exist", ch.Index)
 			v.Funcf(func() bool {
 				return !db.unaryDBs[ch.Index].Channel.IsIndex
-			}, "channel [%s]<%d> is not an index", db.unaryDBs[ch.Index].Channel.Name, db.unaryDBs[ch.Index].Channel.Key)
+			}, "channel %v is not an index", db.unaryDBs[ch.Index].Channel)
 		} else {
 			validate.Positive(v, "rate", ch.Rate)
 		}

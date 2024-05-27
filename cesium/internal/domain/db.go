@@ -26,14 +26,14 @@ import (
 
 var (
 	// ErrWriteConflict is returned when a domain overlaps with an existing domain in the DB.
-	ErrWriteConflict = errors.Wrap(validate.Error, "write conflicts with existing timerange in database")
+	ErrWriteConflict = errors.Wrap(validate.Error, "write overlaps with existing data in database")
 	// ErrRangeNotFound is returned when a requested domain is not found in the DB.
 	ErrRangeNotFound = errors.Wrap(query.NotFound, "timerange not found")
 	errDBClosed      = core.EntityClosed("domain.db")
 )
 
 func NewErrWriteConflict(tr1, tr2 telem.TimeRange) error {
-	return errors.Wrapf(ErrWriteConflict, "write overlaps on timerange %v", tr1.Intersect(tr2))
+	return errors.Wrapf(ErrWriteConflict, "write overlaps with existing data occupying timerange %v", tr1.Intersect(tr2))
 }
 
 func NewErrRangeNotFound(tr telem.TimeRange) error {

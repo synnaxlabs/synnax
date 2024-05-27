@@ -44,7 +44,7 @@ func (db *DB) newStreamIterator(cfg IteratorConfig) (*streamIterator, error) {
 		if !ok {
 			vdb, vok := db.virtualDBs[key]
 			if vok {
-				return nil, errors.Newf("cannot open iterator on virtual channel [%s]<%d>", vdb.Channel.Name, vdb.Channel.Key)
+				return nil, errors.Newf("cannot open iterator on virtual channel %v", vdb.Channel)
 			}
 			return nil, core.NewErrChannelNotFound(key)
 		}

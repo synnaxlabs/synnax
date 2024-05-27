@@ -63,7 +63,7 @@ var (
 		EnableAutoCommit:         config.False(),
 		AutoIndexPersistInterval: 1 * telem.Second,
 	}
-	writerClosedError = core.EntityClosed("unary.writer")
+	errWriterClosed = core.EntityClosed("unary.writer")
 )
 
 const AlwaysIndexPersistOnAutoCommit telem.TimeSpan = -1
@@ -195,7 +195,7 @@ func (w *Writer) len(dw *domain.Writer) int64 {
 // Write validates and writes the given array.
 func (w *Writer) Write(series telem.Series) (a telem.AlignmentPair, err error) {
 	if w.closed {
-		return 0, w.wrapError(writerClosedError)
+		return 0, w.wrapError(errWriterClosed)
 	}
 	if err := w.Channel.ValidateSeries(series); err != nil {
 		return 0, w.wrapError(err)
@@ -232,7 +232,7 @@ func (w *Writer) updateHwm(series telem.Series) {
 // Commit commits the written series to the database.
 func (w *Writer) Commit(ctx context.Context) (ts telem.TimeStamp, err error) {
 	if w.closed {
-		err = w.wrapError(writerClosedError)
+		err = w.wrapError(errWriterClosed)
 		return
 	}
 
@@ -246,7 +246,7 @@ func (w *Writer) Commit(ctx context.Context) (ts telem.TimeStamp, err error) {
 
 func (w *Writer) CommitWithEnd(ctx context.Context, end telem.TimeStamp) (err error) {
 	if w.closed {
-		return w.wrapError(writerClosedError)
+		return w.wrapError(errWriterClosed)
 	}
 	_, err = w.commitWithEnd(ctx, end)
 	return w.wrapError(err)

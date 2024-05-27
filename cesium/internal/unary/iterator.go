@@ -32,7 +32,7 @@ func IterRange(tr telem.TimeRange) IteratorConfig {
 }
 
 var (
-	IteratorClosedError   = core.EntityClosed("unary.iterator")
+	errIteratorClosed     = core.EntityClosed("unary.iterator")
 	DefaultIteratorConfig = IteratorConfig{AutoChunkSize: 5e5}
 )
 
@@ -65,7 +65,7 @@ func (i *Iterator) View() telem.TimeRange { return i.view }
 
 func (i *Iterator) SeekFirst(ctx context.Context) bool {
 	if i.closed {
-		i.err = IteratorClosedError
+		i.err = errIteratorClosed
 		return false
 	}
 	ok := i.internal.SeekFirst(ctx)
@@ -75,7 +75,7 @@ func (i *Iterator) SeekFirst(ctx context.Context) bool {
 
 func (i *Iterator) SeekLast(ctx context.Context) bool {
 	if i.closed {
-		i.err = IteratorClosedError
+		i.err = errIteratorClosed
 		return false
 	}
 	ok := i.internal.SeekLast(ctx)
@@ -85,7 +85,7 @@ func (i *Iterator) SeekLast(ctx context.Context) bool {
 
 func (i *Iterator) SeekLE(ctx context.Context, ts telem.TimeStamp) bool {
 	if i.closed {
-		i.err = IteratorClosedError
+		i.err = errIteratorClosed
 		return false
 	}
 
@@ -100,7 +100,7 @@ func (i *Iterator) SeekLE(ctx context.Context, ts telem.TimeStamp) bool {
 
 func (i *Iterator) SeekGE(ctx context.Context, ts telem.TimeStamp) bool {
 	if i.closed {
-		i.err = IteratorClosedError
+		i.err = errIteratorClosed
 		return false
 	}
 
@@ -119,7 +119,7 @@ func (i *Iterator) SeekGE(ctx context.Context, ts telem.TimeStamp) bool {
 // the entire view is contained in the iterator's frame.
 func (i *Iterator) Next(ctx context.Context, span telem.TimeSpan) (ok bool) {
 	if i.closed {
-		i.err = IteratorClosedError
+		i.err = errIteratorClosed
 		return false
 	}
 	ctx, span_ := i.T.Bench(ctx, "Next")
@@ -204,7 +204,7 @@ func (i *Iterator) autoNext(ctx context.Context) bool {
 // the entire view is contained in the iterator's frame.
 func (i *Iterator) Prev(ctx context.Context, span telem.TimeSpan) (ok bool) {
 	if i.closed {
-		i.err = IteratorClosedError
+		i.err = errIteratorClosed
 		return false
 	}
 	ctx, span_ := i.T.Bench(ctx, "Prev")
@@ -241,7 +241,7 @@ func (i *Iterator) Len() (l int64) {
 	return
 }
 
-func (i *Iterator) Error() error { return core.NewErrorWrapper(i.Channel.Key, i.Channel.Name)(i.err) }
+func (i *Iterator) Error() error { return core.NewErrorWrapper(i.Channel)(i.err) }
 
 func (i *Iterator) Valid() bool { return i.partiallySatisfied() && i.err == nil }
 
@@ -251,7 +251,7 @@ func (i *Iterator) Close() (err error) {
 	}
 	i.onClose()
 	i.closed = true
-	return core.NewErrorWrapper(i.Channel.Key, i.Channel.Name)(i.internal.Close())
+	return core.NewErrorWrapper(i.Channel)(i.internal.Close())
 }
 
 // accumulate reads the underlying data contained in the view from OS and
