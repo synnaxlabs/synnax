@@ -312,7 +312,6 @@ func (i *Iterator) read(ctx context.Context, offset telem.Offset, size telem.Siz
 		series.Data = series.Data[:n]
 	}
 
-	err = r.Close()
 	return
 }
 

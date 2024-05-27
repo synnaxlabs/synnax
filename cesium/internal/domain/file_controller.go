@@ -26,6 +26,10 @@ func fileKeyToName(key uint16) string {
 	return strconv.Itoa(int(key)) + extension
 }
 
+func newErrEntityInUse(entity string, fileKey uint16) error {
+	return errors.Newf("%s for file %d is in use and cannot be closed", entity, fileKey)
+}
+
 type fileController struct {
 	Config
 	writers struct {
@@ -296,10 +300,12 @@ func (fc *fileController) gcReaders() (bool, error) {
 	for k, v := range fc.readers.open {
 		for i, r := range v {
 			if r.tryAcquire() {
-				err := r.Close()
-				err = errors.CombineErrors(err, r.ReaderAtCloser.Close())
+				err := r.HardClose()
+				if err != nil {
+					return false, err
+				}
 				fc.readers.open[k] = append(v[:i], v[i+1:]...)
-				return true, err
+				return true, nil
 			}
 		}
 	}
@@ -317,8 +323,10 @@ func (fc *fileController) gcWriters() (bool, error) {
 		}
 
 		if s.Size() >= int64(fc.FileSize) && w.tryAcquire() {
-			err = w.Close()
-			err = errors.CombineErrors(err, w.TrackedWriteCloser.Close())
+			err = w.HardClose()
+			if err != nil {
+				return false, err
+			}
 			delete(fc.writers.open, k)
 			return true, err
 		}
@@ -334,9 +342,13 @@ func (fc *fileController) rejuvenate(fileKey uint16) error {
 	defer fc.writers.Unlock()
 
 	if w, ok := fc.writers.open[fileKey]; ok {
+		if !w.tryAcquire() {
+			return newErrEntityInUse("writer", fileKey)
+		}
 		if err := w.TrackedWriteCloser.Close(); err != nil {
 			return err
 		}
+		delete(fc.writers.open, fileKey)
 	}
 
 	fc.writers.unopened[fileKey] = struct{}{}
@@ -358,61 +370,6 @@ func (fc *fileController) atDescriptorLimit() bool {
 	return readerCount+len(fc.writers.open) >= fc.MaxDescriptors
 }
 
-// RemoveFileHandles closes and removes all readers on a file, adds the
-// newFile to the unopened writers set, and removes oldFile from FS.
-func (fc *fileController) RemoveFileHandles(key uint16, newFile string, oldFile string) error {
-	// close and remove all readers
-	fc.readers.Lock()
-	fc.writers.Lock()
-	defer fc.readers.Unlock()
-	defer fc.writers.Unlock()
-
-	// Close all readers.
-	c := errors.NewCatcher(errors.WithAggregation())
-	for _, r := range fc.readers.open[key] {
-		if r.tryAcquire() {
-			c.Exec(r.ReaderAtCloser.Close)
-			c.Exec(r.Close)
-		} else {
-			return errors.Newf("cannot acquire reader on garbage collected file <%s>", oldFile)
-		}
-	}
-	if c.HasError() {
-		return c.Error()
-	}
-	delete(fc.readers.open, key)
-
-	// Add the file key to unopened writers.
-	w, ok := fc.writers.open[key]
-	if ok {
-		if !w.tryAcquire() {
-			return errors.Newf("cannot acquire writer on garbage collected file <%s>", oldFile)
-		}
-
-		err := w.TrackedWriteCloser.Close()
-		if err != nil {
-			return err
-		}
-		err = w.Close()
-		if err != nil {
-			return err
-		}
-		delete(fc.writers.open, key)
-	}
-
-	s, err := fc.FS.Stat(newFile)
-	if err != nil {
-		return err
-	}
-
-	if s.Size() < int64(fc.FileSize) {
-		fc.writers.unopened[key] = struct{}{}
-	}
-
-	// Delete underlying file.
-	return fc.FS.Remove(oldFile)
-}
-
 func (fc *fileController) close() error {
 	fc.writers.RLock()
 	fc.readers.RLock()
@@ -424,21 +381,19 @@ func (fc *fileController) close() error {
 	for _, w := range fc.writers.open {
 		c.Exec(func() error {
 			if !w.tryAcquire() {
-				return errors.Newf("writer for file %d is in use and cannot be closed", w.fileKey)
+				return newErrEntityInUse("writer", w.fileKey)
 			}
-			return w.Close()
+			return w.HardClose()
 		})
-		c.Exec(w.TrackedWriteCloser.Close)
 	}
 	for _, v := range fc.readers.open {
 		for _, r := range v {
 			c.Exec(func() error {
 				if !r.tryAcquire() {
-					return errors.Newf("reader for file %d is in use and cannot be closed", r.fileKey)
+					return newErrEntityInUse("reader", r.fileKey)
 				}
-				return r.Close()
+				return r.HardClose()
 			})
-			c.Exec(r.ReaderAtCloser.Close)
 		}
 	}
 	c.Exec(fc.counterFile.Close)
@@ -458,7 +413,17 @@ func (c *controlledWriter) tryAcquire() bool {
 	return acquired
 }
 
-func (c *controlledWriter) Close() error { return c.controllerEntry.Close() }
+func (c *controlledWriter) Close() error {
+	return c.controllerEntry.Close()
+}
+
+func (c *controlledWriter) HardClose() error {
+	if err := c.controllerEntry.Close(); err != nil {
+		return err
+	}
+
+	return c.TrackedWriteCloser.Close()
+}
 
 type controlledReader struct {
 	controllerEntry
@@ -469,8 +434,16 @@ func (c *controlledReader) Close() error {
 	return c.controllerEntry.Close()
 }
 
-// flag specifies whether the reader/writer is currently in use
+func (c *controlledReader) HardClose() error {
+	if err := c.controllerEntry.Close(); err != nil {
+		return err
+	}
+
+	return c.ReaderAtCloser.Close()
+}
+
 type controllerEntry struct {
+	// flag is "true" when the controlled entity is currently in use.
 	flag    *atomic.Bool
 	fileKey uint16
 	release chan struct{}

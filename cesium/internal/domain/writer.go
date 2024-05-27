@@ -296,6 +296,11 @@ func (w *Writer) Close() error {
 		return nil
 	}
 
+	w.closed = true
+	if err := w.internal.Close(); err != nil {
+		return err
+	}
+
 	if *w.EnableAutoCommit && w.AutoIndexPersistInterval > 0 {
 		w.idx.mu.RLock()
 		persistPointers := w.idx.indexPersist.preparePointersPersist(w.idx.persistHead)
@@ -303,8 +308,7 @@ func (w *Writer) Close() error {
 		return persistPointers()
 	}
 
-	w.closed = true
-	return w.internal.Close()
+	return nil
 }
 
 func (w *Writer) validateCommitRange(end telem.TimeStamp, switchingFile bool) error {

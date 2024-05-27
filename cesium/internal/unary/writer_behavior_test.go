@@ -134,7 +134,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					}))
 					Expect(MustSucceed(w.Write(telem.NewSeries([]int64{0, 1, 2, 3, 4})))).To(Equal(telem.LeadingAlignment(0)))
 					Expect(MustSucceed(w.Commit(ctx))).To(Equal(14*telem.SecondTS + 1))
-					_, err := w.Close(ctx)
+					_, err := w.Close()
 					Expect(err).ToNot(HaveOccurred())
 
 					w, _, err = db.OpenWriter(ctx, unary.WriterConfig{

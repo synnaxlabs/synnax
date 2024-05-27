@@ -322,7 +322,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 					Expect(domain.Write(ctx, db, (10 * telem.SecondTS).Range(19*telem.SecondTS+1), []byte{10, 11, 12, 13})).To(Succeed())             // file 1
 					Expect(domain.Write(ctx, db, (20 * telem.SecondTS).Range(25*telem.SecondTS+1), []byte{20, 21, 22, 23, 24, 25})).To(Succeed())     // file 1
 					Expect(domain.Write(ctx, db, (30 * telem.SecondTS).Range(36*telem.SecondTS+1), []byte{30, 31, 32, 33, 34, 35, 36})).To(Succeed()) // file 2
-					Expect(domain.Write(ctx, db, (40 * telem.SecondTS).Range(43*telem.SecondTS+1), []byte{40, 41, 43, 44, 45, 46})).To(Succeed())     // file 3
+					Expect(domain.Write(ctx, db, (40 * telem.SecondTS).Range(46*telem.SecondTS+1), []byte{40, 41, 43, 44, 45, 46})).To(Succeed())     // file 3
 					Expect(db.Delete(ctx, 1, 3, 3, 5, telem.TimeRange{Start: 23 * telem.SecondTS, End: 41 * telem.SecondTS})).To(Succeed())
 
 					By("Reopening the DB")
@@ -342,10 +342,11 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 					// file 3 should not be garbage collected (1 < 2)
 					Expect(MustSucceed(db.FS.Stat("3.domain")).Size()).To(Equal(int64(6)))
 
-					By("Asserting that data would fill in the newly freed file")
+					By("Asserting that new data would still be written")
 					Expect(domain.Write(ctx, db, (30 * telem.SecondTS).Range(35*telem.SecondTS+1), []byte{30, 31, 32, 33, 34, 35})).To(Succeed())
-					Expect(MustSucceed(db.FS.Stat("2.domain")).Size()).To(Equal(int64(6)))
-					Expect(MustSucceed(db.FS.Stat("4.domain")).Size()).To(Equal(int64(0)))
+					// It's difficult to test that the new data actually went to a
+					// specific freed file – as they could go to any one of file 1, 2, 4
+					// since they are all below the file size limit.
 
 					By("Asserting that the data did not change", func() {
 						i := db.NewIterator(domain.IterRange(telem.TimeRangeMax))
@@ -367,11 +368,11 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 						Expect(r.Close()).To(Succeed())
 
 						Expect(i.Next()).To(BeTrue())
-						Expect(i.TimeRange()).To(Equal((41 * telem.SecondTS).Range(43*telem.SecondTS + 1)))
+						Expect(i.TimeRange()).To(Equal((41 * telem.SecondTS).Range(46*telem.SecondTS + 1)))
 						r = MustSucceed(i.NewReader(ctx))
-						buf = make([]byte, 2)
+						buf = make([]byte, 5)
 						MustSucceed(r.ReadAt(buf, 0))
-						Expect(buf).To(Equal([]byte{41, 43}))
+						Expect(buf).To(Equal([]byte{41, 43, 44, 45, 46}))
 						Expect(r.Close()).To(Succeed())
 
 						Expect(i.Next()).To(BeFalse())
