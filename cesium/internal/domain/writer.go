@@ -230,7 +230,7 @@ func (w *Writer) commit(ctx context.Context, end telem.TimeStamp, persist bool) 
 		return span.Error(errWriterClosed)
 	}
 	if w.presetEnd && end.After(w.End) {
-		return span.Error(errors.Newf("commit timestamp %s cannot be greater than preset end timestamp %s", end, w.End))
+		return span.Error(errors.Newf("commit timestamp %v cannot be greater than preset end timestamp %v: exceeded by a time span of %v", end, w.End, w.End.Span(end)))
 	}
 
 	switchingFile, commitEnd := w.resolveCommitEnd(end)
@@ -311,10 +311,10 @@ func (w *Writer) Close(ctx context.Context) error {
 
 func (w *Writer) validateCommitRange(end telem.TimeStamp, switchingFile bool) error {
 	if !w.prevCommit.IsZero() && !switchingFile && end.Before(w.prevCommit) {
-		return errors.Wrapf(validate.Error, "commit timestamp %s must not be less than the previous commit timestamp %s", end, w.prevCommit)
+		return errors.Wrapf(validate.Error, "commit timestamp %s must not be less than the previous commit timestamp %s: it is less by a time span of %v", end, w.prevCommit, end.Span(w.prevCommit))
 	}
 	if !w.Start.Before(end) {
-		return errors.Wrapf(validate.Error, "commit timestamp %s must be strictly greater than the starting timestamp %s", end, w.Start)
+		return errors.Wrapf(validate.Error, "commit timestamp %s must be strictly greater than the starting timestamp %s: it is less by a time span of %v", end, w.Start, end.Span(w.Start))
 	}
 	return nil
 }

@@ -44,8 +44,15 @@ func Now() TimeStamp { return NewTimeStamp(time.Now()) }
 // NewTimeStamp creates a new TimeStamp from a time.Time.
 func NewTimeStamp(t time.Time) TimeStamp { return TimeStamp(t.UnixNano()) }
 
-// String implements fmt.Stringer.
-func (ts TimeStamp) String() string { return strconv.Itoa(int(ts)) + "ns" }
+// String returns the timestamp in the string format
+// "2006-01-02 15:04:05.999999999"
+// String implements fmt.Stringer
+func (ts TimeStamp) String() string {
+	return ts.Time().UTC().Format("2006-01-02 15:04:05.999999999")
+}
+
+// RawString returns the timestamp in nanoseconds.
+func (ts TimeStamp) RawString() string { return strconv.Itoa(int(ts)) + "ns" }
 
 // Time returns the time.Time representation of the TimeStamp.
 func (ts TimeStamp) Time() time.Time { return time.Unix(0, int64(ts)) }
@@ -174,35 +181,42 @@ func (tr TimeRange) Valid() bool { return tr.Span() >= 0 }
 
 func (tr TimeRange) Midpoint() TimeStamp { return tr.Start.Add(tr.Span() / 2) }
 
+// RawString displays the timerange with both timestamps in raw string format.
+func (tr TimeRange) RawString() string {
+	return tr.Start.String() + " - " + tr.End.String()
+}
+
+// String displays the timerange with both timestamps as formatted time.
+// String implements fmt.Stringer.
 func (tr TimeRange) String() string {
 	return tr.Start.String() + " - " + tr.End.String()
 }
 
-func (tr TimeRange) Union(tr2 TimeRange) (ret TimeRange) {
-	if tr.Start.Before(tr2.Start) {
+func (tr TimeRange) Union(rng TimeRange) (ret TimeRange) {
+	if tr.Start.Before(rng.Start) {
 		ret.Start = tr.Start
 	} else {
-		ret.Start = tr2.Start
+		ret.Start = rng.Start
 	}
 
-	if tr.End.After(tr2.End) {
+	if tr.End.After(rng.End) {
 		ret.End = tr.End
 	} else {
-		ret.End = tr2.End
+		ret.End = rng.End
 	}
 
 	return
 }
 
-func (tr TimeRange) Intersection(tr2 TimeRange) (ret TimeRange) {
-	if tr.Start.Before(tr2.Start) {
-		ret.Start = tr2.Start
+func (tr TimeRange) Intersection(rng TimeRange) (ret TimeRange) {
+	if tr.Start.Before(rng.Start) {
+		ret.Start = rng.Start
 	} else {
 		ret.Start = tr.Start
 	}
 
-	if tr.End.After(tr2.End) {
-		ret.End = tr2.End
+	if tr.End.After(rng.End) {
+		ret.End = rng.End
 	} else {
 		ret.End = tr.End
 	}
@@ -260,8 +274,12 @@ func (ts TimeSpan) ByteSize(rate Rate, density Density) Size {
 	return Size(ts / rate.Period() * TimeSpan(density))
 }
 
+// String returns the timespan in a formated duration.
 // String implements fmt.Stringer.
-func (ts TimeSpan) String() string { return strconv.Itoa(int(ts)) + "ns" }
+func (ts TimeSpan) String() string { return ts.Duration().String() }
+
+// RawString returns the timespan in nanoseconds.
+func (ts TimeSpan) RawString() string { return strconv.Itoa(int(ts)) + "ns" }
 
 const (
 	Nanosecond    = TimeSpan(1)

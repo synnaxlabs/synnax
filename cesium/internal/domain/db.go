@@ -33,7 +33,8 @@ var (
 )
 
 func NewErrWriteConflict(tr1, tr2 telem.TimeRange) error {
-	return errors.Wrapf(ErrWriteConflict, "write overlaps with existing data occupying time range %v", tr1.Intersection(tr2))
+	intersection := tr1.Intersection(tr2)
+	return errors.Wrapf(ErrWriteConflict, "write overlaps with existing data occupying time range %v for a time span of %v", intersection, intersection.Span())
 }
 
 func NewErrRangeNotFound(tr telem.TimeRange) error {
