@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
+	"sync/atomic"
 )
 
 // Config is the configuration for opening a DB.
@@ -83,16 +84,22 @@ func Open(configs ...Config) (*DB, error) {
 		FileSize:        cfg.FileSize,
 		GCThreshold:     cfg.GCThreshold,
 	})
+	c, err := controller.New[controlledWriter](controller.Config{Concurrency: cfg.Channel.Concurrency, Instrumentation: cfg.Instrumentation})
+	if err != nil {
+		return nil, err
+	}
 	db := &DB{
-		Config:     cfg,
-		Domain:     domainDB,
-		Controller: controller.New[controlledWriter](cfg.Channel.Concurrency),
-		mu:         &openEntityCount{},
+		Config:      cfg,
+		Domain:      domainDB,
+		Controller:  c,
+		wrapError:   core.NewErrorWrapper(cfg.Channel),
+		entityCount: &entityCount{},
+		closed:      &atomic.Bool{},
 	}
 	if cfg.Channel.IsIndex {
-		db._idx = &index.Domain{DB: domainDB, Instrumentation: cfg.Instrumentation}
+		db._idx = &index.Domain{DB: domainDB, Instrumentation: cfg.Instrumentation, Channel: cfg.Channel}
 	} else if cfg.Channel.Index == 0 {
-		db._idx = index.Rate{Rate: cfg.Channel.Rate}
+		db._idx = index.Rate{Rate: cfg.Channel.Rate, Channel: cfg.Channel}
 	}
 	return db, err
 }

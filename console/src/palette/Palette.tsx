@@ -205,15 +205,14 @@ const PalletteDialogContent = ({
   commandSymbol,
   close,
 }: PaletteDialogProps): ReactElement => {
-  const { setSourceData, setTransform, deleteTransform, setEmptyContent } =
-    List.useDataUtilContext<Key, Entry>();
-
-  const mode = value.startsWith(commandSymbol) ? "command" : "resource";
-
+  const { setSourceData } = List.useDataUtilContext<Key, Entry>();
+  const addStatus = Status.useAggregator();
   const client = Synnax.use();
   const store = useStore() as RootStore;
   const placeLayout = Layout.usePlacer();
   const removeLayout = Layout.useRemover();
+
+  const mode = value.startsWith(commandSymbol) ? "command" : "resource";
 
   useLayoutEffect(() => setSourceData(mode === "command" ? commands : []), [mode]);
 
@@ -235,6 +234,7 @@ const PalletteDialogContent = ({
         t?.onSelect({
           services,
           store,
+          addStatus,
           placeLayout,
           removeLayout,
           client,
@@ -242,7 +242,7 @@ const PalletteDialogContent = ({
         });
       }
     },
-    [mode, commands, close, client, services],
+    [mode, commands, close, client, services, addStatus],
   );
 
   const { value: searchValue, onChange: onSearchChange } = List.useSearch<
@@ -300,10 +300,8 @@ const PalletteDialogContent = ({
 };
 
 const CommandAction = ({
-  ctx,
   name,
   trigger: keyboardShortcut,
-  onClick,
 }: CommandActionProps & { ctx: CommandSelectionContext }): ReactElement => (
   <Align.Pack direction="x" className={CSS.BE("palette", "action")}>
     <Text.Keyboard

@@ -260,6 +260,9 @@ importers:
       '@tauri-apps/plugin-process':
         specifier: 2.0.0-beta.3
         version: 2.0.0-beta.3
+      '@tauri-apps/plugin-store':
+        specifier: 2.0.0-beta.3
+        version: 2.0.0-beta.3
       '@tauri-apps/plugin-updater':
         specifier: 2.0.0-beta.3
         version: 2.0.0-beta.3
@@ -284,9 +287,6 @@ importers:
       react-redux:
         specifier: ^9.1.0
         version: 9.1.2(@types/react@18.3.2)(react@18.3.1)(redux@5.0.1)
-      tauri-plugin-store-api:
-        specifier: github:tauri-apps/tauri-plugin-store#v2
-        version: github.com/tauri-apps/tauri-plugin-store/c1727b80e023549b52ccd32a99bd404adf9b18c2
       uuid:
         specifier: ^9.0.1
         version: 9.0.1
@@ -4255,6 +4255,12 @@ packages:
 
   /@tauri-apps/plugin-process@2.0.0-beta.3:
     resolution: {integrity: sha512-N3TkHxoQQb45FP8mbKfcI+e6foR17QlLrrwvPK8SH+LhEP9uo1b5EUvpZM1TIegAmL/3LQIBtJw1loyHVn8Esg==}
+    dependencies:
+      '@tauri-apps/api': 2.0.0-beta.11
+    dev: false
+
+  /@tauri-apps/plugin-store@2.0.0-beta.3:
+    resolution: {integrity: sha512-qTvbG2aGTME3TcBBIBizwhN0f3Iqy5tgeaEtj5gWaisAD0PJfrNAAaUnpXvO4O3PUTS8idZt933z1uAiBhY7FA==}
     dependencies:
       '@tauri-apps/api': 2.0.0-beta.11
     dev: false
@@ -12890,12 +12896,4 @@ packages:
 
   /zwitch@2.0.4:
     resolution: {integrity: sha512-bXE4cR/kVZhKZX/RjPEflHaKVhUVl85noU3v6b8apfQEc1x4A+zBxjZ4lN8LqGd6WZ3dl98pY4o717VFmoPp+A==}
-    dev: false
-
-  github.com/tauri-apps/tauri-plugin-store/c1727b80e023549b52ccd32a99bd404adf9b18c2:
-    resolution: {tarball: https://codeload.github.com/tauri-apps/tauri-plugin-store/tar.gz/c1727b80e023549b52ccd32a99bd404adf9b18c2}
-    name: '@tauri-apps/plugin-store'
-    version: 2.0.0-beta.3
-    dependencies:
-      '@tauri-apps/api': 2.0.0-beta.11
     dev: false

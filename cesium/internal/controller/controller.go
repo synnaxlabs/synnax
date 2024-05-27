@@ -10,6 +10,8 @@
 package controller
 
 import (
+	"fmt"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/control"
@@ -203,7 +205,7 @@ func (r *region[E]) unprotectedOpen(g *Gate[E]) (t Transfer, err error) {
 	// Check if any gates have the same subject key.
 	for og := range r.gates {
 		if og.Subject.Key == g.Subject.Key {
-			err = errors.Wrapf(validate.Error, "[controller] - gate with subject key %s already exists", g.Subject.Key)
+			err = errors.Wrapf(validate.Error, "control subject %s is already registered in the region", g.Subject)
 			return
 		}
 	}
@@ -220,17 +222,48 @@ func (r *region[E]) unprotectedOpen(g *Gate[E]) (t Transfer, err error) {
 	return
 }
 
-type Controller[E Entity] struct {
-	mu          sync.RWMutex
-	regions     []*region[E]
-	concurrency control.Concurrency
+// Config is the configuration for opening a controller.
+type Config struct {
+	alamos.Instrumentation
+	Concurrency control.Concurrency
 }
 
-func New[E Entity](c control.Concurrency) *Controller[E] {
-	return &Controller[E]{
-		regions:     make([]*region[E], 0),
-		concurrency: c,
+var (
+	_ config.Config[Config] = Config{}
+	// DefaultConfig is the default configuration for opening a Controller.
+	DefaultConfig = Config{Concurrency: control.Exclusive}
+)
+
+func (c Config) Validate() error {
+	return nil
+}
+
+// Override implements config.Properties.
+func (c Config) Override(other Config) Config {
+	c.Concurrency = override.Numeric(c.Concurrency, other.Concurrency)
+	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
+	return other
+}
+
+func multipleControlRegions(tr telem.TimeRange) string {
+	return fmt.Sprintf("encountered multiple control regions for time range %s", tr)
+}
+
+type Controller[E Entity] struct {
+	Config
+	mu      sync.RWMutex
+	regions []*region[E]
+}
+
+func New[E Entity](cfg Config) (*Controller[E], error) {
+	cfg, err := config.New(DefaultConfig, cfg)
+	if err != nil {
+		return nil, err
 	}
+	return &Controller[E]{
+		Config:  cfg,
+		regions: make([]*region[E], 0),
+	}, nil
 }
 
 // GateConfig is the configuration for opening a gate.
@@ -254,9 +287,9 @@ var (
 
 // Validate implements config.Properties.
 func (c GateConfig) Validate() error {
-	v := validate.New("gate config")
+	v := validate.New("gate_config")
 	validate.NotEmptyString(v, "subject.key", c.Subject.Key)
-	validate.NonZeroable(v, "TimeRange", c.TimeRange)
+	validate.NonZeroable(v, "time_range", c.TimeRange)
 	return v.Error()
 }
 
@@ -306,20 +339,21 @@ func (c *Controller[E]) OpenAbsoluteGateIfUncontrolled(tr telem.TimeRange, s con
 		// therefore this method should not create an absolute gate.
 		if r.timeRange.OverlapsWith(tr) {
 			if exists {
-				return nil, t, errors.Newf("[controller] - encountered multiple control regions for time range %s", tr)
+				c.L.DPanic(multipleControlRegions(tr))
+				return nil, t, errors.New(multipleControlRegions(tr))
 			}
 
 			r.Lock()
 			if r.curr != nil {
 				r.Unlock()
-				return nil, t, errors.Newf("[controller] - region already being controlled")
+				return nil, t, errors.Newf("cannot create a gate on the region %s because it is already controlled by %s", r.timeRange, r.curr.Subject)
 			}
 
 			g = &Gate[E]{
 				r:           r,
 				GateConfig:  gateCfg,
 				position:    r.counter,
-				concurrency: c.concurrency,
+				concurrency: c.Concurrency,
 			}
 
 			t, err = r.unprotectedOpen(g)
@@ -338,7 +372,7 @@ func (c *Controller[E]) OpenAbsoluteGateIfUncontrolled(tr telem.TimeRange, s con
 			return g, t, err
 		}
 		r := c.insertNewRegion(tr, e)
-		g, t, err = r.open(gateCfg, c.concurrency)
+		g, t, err = r.open(gateCfg, c.Concurrency)
 		r.gates[g] = struct{}{}
 	}
 	return
@@ -360,10 +394,11 @@ func (c *Controller[E]) OpenGateAndMaybeRegister(cfg GateConfig, callback func()
 		if r.timeRange.OverlapsWith(cfg.TimeRange) {
 			// v1 optimization: one writer can only overlap with one region at any given time.
 			if exists {
-				return nil, t, errors.Newf("[controller] - encountered multiple control regions for time range %s", cfg.TimeRange)
+				c.L.DPanic(multipleControlRegions(cfg.TimeRange))
+				return nil, t, errors.New(multipleControlRegions(cfg.TimeRange))
 			}
 			// If there is an existing region, we open a new gate on that region.
-			g, t, err = r.open(cfg, c.concurrency)
+			g, t, err = r.open(cfg, c.Concurrency)
 			if err != nil {
 				return nil, t, err
 			}
@@ -378,7 +413,7 @@ func (c *Controller[E]) OpenGateAndMaybeRegister(cfg GateConfig, callback func()
 			return g, t, err
 		}
 		r := c.insertNewRegion(cfg.TimeRange, e)
-		g, t, err = r.open(cfg, c.concurrency)
+		g, t, err = r.open(cfg, c.Concurrency)
 		r.gates[g] = struct{}{}
 	}
 	return
@@ -400,7 +435,7 @@ func (c *Controller[E]) register(
 ) error {
 	for _, r := range c.regions {
 		if r.timeRange.OverlapsWith(t) {
-			return errors.Newf("entity already registered for time range %s", t)
+			return errors.Newf("time range %s collides with the time range for region with time range %v", t, r.timeRange)
 		}
 	}
 	c.insertNewRegion(t, entity)
@@ -436,5 +471,5 @@ func (c *Controller[E]) remove(r *region[E]) {
 }
 
 func Unauthorized(name string, ch core.ChannelKey) error {
-	return errors.Wrapf(control.Unauthorized, "writer %s does not have control authority over channel %s", name, ch)
+	return errors.Wrapf(control.Unauthorized, "writer %s does not have control authority", name)
 }

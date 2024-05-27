@@ -14,7 +14,6 @@ import (
 	"fmt"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/errors"
-	errors2 "github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/types"
 	"reflect"
@@ -23,11 +22,11 @@ import (
 
 type Validator struct {
 	scope string
-	errors2.Catcher
+	errors.Catcher
 }
 
 func New(scope string) *Validator {
-	return &Validator{scope: scope, Catcher: *errors2.NewCatcher()}
+	return &Validator{scope: scope, Catcher: *errors.NewCatcher()}
 }
 
 // Ternary adds the error with the given message to the validator if the condition

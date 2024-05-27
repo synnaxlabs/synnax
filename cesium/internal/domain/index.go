@@ -11,8 +11,8 @@ package domain
 
 import (
 	"context"
-	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	"sync"
 )
@@ -50,7 +50,7 @@ func (idx *index) insert(ctx context.Context, p pointer, persist bool) error {
 			i, overlap := idx.unprotectedSearch(p.TimeRange)
 			if overlap {
 				idx.mu.Unlock()
-				return span.Error(ErrDomainOverlap)
+				return span.Error(NewErrWriteConflict(p.TimeRange, idx.mu.pointers[i].TimeRange))
 			}
 			insertAt = i + 1
 		}
@@ -83,6 +83,15 @@ func (idx *index) overlap(tr telem.TimeRange) bool {
 	return overlap
 }
 
+func (idx *index) timeRange() telem.TimeRange {
+	idx.mu.RLock()
+	defer idx.mu.RUnlock()
+	if len(idx.mu.pointers) == 0 {
+		return telem.TimeRangeZero
+	}
+	return idx.mu.pointers[0].Start.Range(idx.mu.pointers[len(idx.mu.pointers)-1].End)
+}
+
 func (idx *index) update(ctx context.Context, p pointer, persist bool) error {
 	_, span := idx.T.Bench(ctx, "domain/index.update")
 	idx.mu.Lock()
@@ -90,10 +99,10 @@ func (idx *index) update(ctx context.Context, p pointer, persist bool) error {
 	defer span.End()
 
 	if len(idx.mu.pointers) == 0 {
-		// This is inconceivable since update would not be called with no pointers.
-		idx.L.DPanic(RangeNotFound.Error())
+		// This should be inconceivable since update would not be called with no pointers.
+		idx.L.DPanic("cannot update a database with no domains")
 		idx.mu.Unlock()
-		return span.Error(RangeNotFound)
+		return span.Error(NewErrRangeNotFound(p.TimeRange))
 	}
 	lastI := len(idx.mu.pointers) - 1
 	updateAt := lastI
@@ -108,15 +117,18 @@ func (idx *index) update(ctx context.Context, p pointer, persist bool) error {
 		// commit should find the same pointer the writer has been writing to, which
 		// must have the same Start timestamp. Unhandled race conditions might cause the
 		// database to reach this inconceivable state.
-		idx.L.DPanic(RangeNotFound.Error())
+		idx.L.DPanic("cannot update a pointer with a different start timestamp")
 		idx.mu.Unlock()
-		return span.Error(RangeNotFound)
+		return span.Error(NewErrRangeNotFound(p.TimeRange))
 	}
 	overlapsWithNext := updateAt != len(ptrs)-1 && ptrs[updateAt+1].OverlapsWith(p.TimeRange)
 	overlapsWithPrev := updateAt != 0 && ptrs[updateAt-1].OverlapsWith(p.TimeRange)
-	if overlapsWithPrev || overlapsWithNext {
+	if overlapsWithPrev {
 		idx.mu.Unlock()
-		return span.Error(ErrDomainOverlap)
+		return span.Error(NewErrWriteConflict(p.TimeRange, ptrs[updateAt-1].TimeRange))
+	} else if overlapsWithNext {
+		idx.mu.Unlock()
+		return span.Error(NewErrWriteConflict(p.TimeRange, ptrs[updateAt+1].TimeRange))
 	} else {
 		idx.mu.pointers[updateAt] = p
 	}

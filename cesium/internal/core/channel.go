@@ -10,6 +10,7 @@
 package core
 
 import (
+	"fmt"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
@@ -33,9 +34,15 @@ const (
 // A channel can also be used for storing derived data, such as a moving average or signal
 // processing result.
 type Channel struct {
-	// Key is a unique identifier to the channel within the cesium.
+	// Key is a unique identifier to the channel within the cesium data engine.
 	// [REQUIRED]
-	Key     ChannelKey `json:"key" msgpack:"key"`
+	Key ChannelKey `json:"key" msgpack:"key"`
+	// Name is a non-unique, human-readable identifier to the channel within the data
+	// engine. Note that it is never used to index or retrieve a channel.
+	// [OPTIONAL]
+	Name string `json:"name" msgpack:"name"`
+	// IsIndex determines whether the channel acts as an index channel. If false, then
+	// either the channel is a rate-based channel or uses another channel as its Index.
 	IsIndex bool
 	// DataType is the type of data stored in the channel.
 	// [REQUIRED]
@@ -51,6 +58,13 @@ type Channel struct {
 	Index       ChannelKey `json:"index" msgpack:"index"`
 	Virtual     bool
 	Concurrency control.Concurrency
+}
+
+func (c Channel) String() string {
+	if c.Name != "" {
+		return fmt.Sprintf("[%s]<%d>", c.Name, c.Key)
+	}
+	return fmt.Sprintf("<%d>", c.Key)
 }
 
 func (c Channel) ValidateSeries(series telem.Series) error {

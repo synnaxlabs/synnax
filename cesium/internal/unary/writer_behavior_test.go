@@ -87,6 +87,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						FS: MustSucceed(fs.Sub("index")),
 						Channel: core.Channel{
 							Key:      index,
+							Name:     "Cayley",
 							DataType: telem.TimeStampT,
 							IsIndex:  true,
 						},
@@ -96,6 +97,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						FS: MustSucceed(fs.Sub("data")),
 						Channel: core.Channel{
 							Key:      data,
+							Name:     "Maxwell",
 							DataType: telem.Int64T,
 							Index:    index,
 						},
@@ -123,6 +125,24 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					Expect(t.Occurred()).To(BeTrue())
 					By("Releasing control of the DB")
 					Expect(db.LeadingControlState()).To(BeNil())
+				})
+				Specify("Open Writer domain overlap", func() {
+					Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20))).To(Succeed())
+					w, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
+						Start:   10 * telem.SecondTS,
+						Subject: control.Subject{Key: "foo"},
+					}))
+					Expect(MustSucceed(w.Write(telem.NewSeries([]int64{0, 1, 2, 3, 4})))).To(Equal(telem.LeadingAlignment(0)))
+					Expect(MustSucceed(w.Commit(ctx))).To(Equal(14*telem.SecondTS + 1))
+					_, err := w.Close(ctx)
+					Expect(err).ToNot(HaveOccurred())
+
+					w, _, err = db.OpenWriter(ctx, unary.WriterConfig{
+						Start:   12 * telem.SecondTS,
+						Subject: control.Subject{Key: "foo"},
+					})
+					Expect(err).To(MatchError(ContainSubstring("channel [Maxwell]<%d>", data)))
+					Expect(err).To(MatchError(ContainSubstring("overlaps")))
 				})
 				Describe("Auto file switch", func() {
 					Specify("File cutoff on commit with no preset end", func() {
@@ -467,12 +487,14 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					db      *unary.DB
 					fs      xfs.FS
 					cleanUp func() error
+					key     = testutil.GenerateChannelKey()
 				)
 				BeforeEach(func() {
 					fs, cleanUp = makeFS()
 					db = MustSucceed(unary.Open(unary.Config{FS: fs,
 						Channel: core.Channel{
-							Key:      2,
+							Key:      key,
+							Name:     "gauss",
 							DataType: telem.TimeStampT,
 							IsIndex:  true,
 						}}))
@@ -493,11 +515,25 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					_, err := w.Close()
 					Expect(err).ToNot(HaveOccurred())
 					_, err = w.Commit(ctx)
-					Expect(err).To(MatchError(e))
+					Expect(err).To(HaveOccurredAs(e))
+					Expect(err).To(MatchError(ContainSubstring("channel [gauss]<%d>", key)))
 					_, err = w.Write(telem.Series{Data: []byte{1, 2, 3}})
-					Expect(err).To(MatchError(e))
+					Expect(err).To(HaveOccurredAs(e))
 					_, err = w.Close()
 					Expect(err).ToNot(HaveOccurred())
+				})
+				It("Should not open a writer on a closed database", func() {
+					Expect(db.Close()).To(Succeed())
+					_, _, err := db.OpenWriter(ctx, unary.WriterConfig{
+						Start:   10 * telem.SecondTS,
+						Subject: control.Subject{Key: "foo"}},
+					)
+					Expect(err).To(HaveOccurredAs(core.EntityClosed("unary.db")))
+					Expect(err).To(MatchError(ContainSubstring("channel [gauss]<%d>", key)))
+				})
+				It("Should not write on a closed database", func() {
+					Expect(db.Close()).To(Succeed())
+					Expect(unary.Write(ctx, db, 0, telem.NewSeriesV[int64](0, 1, 2))).To(HaveOccurredAs(core.EntityClosed("unary.db")))
 				})
 			})
 		})

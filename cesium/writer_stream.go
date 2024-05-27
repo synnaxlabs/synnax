@@ -11,6 +11,7 @@ package cesium
 
 import (
 	"context"
+	"fmt"
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/index"
@@ -126,7 +127,7 @@ func (w *streamWriter) Flow(ctx signal.Context, opts ...confluence.Option) {
 
 func (w *streamWriter) process(ctx context.Context, req WriterRequest) {
 	if req.Command < WriterWrite || req.Command > WriterSetMode {
-		panic("[cesium.streamWriter] - invalid command")
+		panic(fmt.Sprintf("invalid command %v", req.Command))
 	}
 	if req.Command == WriterError {
 		w.seqNum++

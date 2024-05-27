@@ -49,7 +49,7 @@ type WriterConfig struct {
 }
 
 var (
-	WriterClosedError   = core.EntityClosed("domain.writer")
+	errWriterClosed     = core.EntityClosed("domain.writer")
 	DefaultWriterConfig = WriterConfig{EnableAutoCommit: config.False(), AutoIndexPersistInterval: 1 * telem.Second}
 )
 
@@ -140,14 +140,22 @@ type Writer struct {
 }
 
 // NewWriter opens a new Writer using the given configuration.
+// If err is nil, then the writer must be closed.
 func (db *DB) NewWriter(ctx context.Context, cfg WriterConfig) (*Writer, error) {
+	if db.closed.Load() {
+		return nil, errDBClosed
+	}
+
 	cfg, err := config.New(DefaultWriterConfig, cfg)
-	key, size, internal, err := db.files.acquireWriter(ctx)
 	if err != nil {
 		return nil, err
 	}
 	if db.idx.overlap(cfg.Domain()) {
-		return nil, ErrDomainOverlap
+		return nil, NewErrWriteConflict(db.idx.timeRange(), cfg.Domain())
+	}
+	key, size, internal, err := db.files.acquireWriter(ctx)
+	if err != nil {
+		return nil, err
 	}
 	w := &Writer{
 		WriterConfig:     cfg,
@@ -182,7 +190,7 @@ func (w *Writer) Len() int64 { return w.len }
 // returns.
 func (w *Writer) Write(p []byte) (int, error) {
 	if w.closed {
-		return 0, WriterClosedError
+		return 0, errWriterClosed
 	}
 	n, err := w.internal.Write(p)
 	w.fileSize += telem.Size(n)
@@ -197,7 +205,7 @@ func (w *Writer) Write(p []byte) (int, error) {
 // previous commit. If the provided timestamp is not strictly greater than the previous
 // commit, Commit will return an error. If the domain formed by the WriterConfig.Start
 // and the provided timestamp overlaps with any other domains within the DB, Commit will
-// return an ErrDomainOverlap.
+// return an ErrWriteConflict.
 // If WriterCommit.AutoIndexPersistInterval is greater than 0, then the changes committed would only
 // be persisted to disk after the set interval.
 func (w *Writer) Commit(ctx context.Context, end telem.TimeStamp) error {
@@ -219,10 +227,10 @@ func (w *Writer) commit(ctx context.Context, end telem.TimeStamp, persist bool) 
 	defer span.End()
 
 	if w.closed {
-		return span.Error(WriterClosedError)
+		return span.Error(errWriterClosed)
 	}
 	if w.presetEnd && end.After(w.End) {
-		return span.Error(errors.New("[cesium] - commit timestamp cannot be greater than preset end timestamp"))
+		return span.Error(errors.Newf("commit timestamp %v cannot be greater than preset end timestamp %v: exceeded by a time span of %v", end, w.End, w.End.Span(end)))
 	}
 
 	switchingFile, commitEnd := w.resolveCommitEnd(end)
@@ -301,10 +309,10 @@ func (w *Writer) Close() error {
 
 func (w *Writer) validateCommitRange(end telem.TimeStamp, switchingFile bool) error {
 	if !w.prevCommit.IsZero() && !switchingFile && end.Before(w.prevCommit) {
-		return errors.Wrap(validate.Error, "commit timestamp must not be less than the previous commit")
+		return errors.Wrapf(validate.Error, "commit timestamp %s must not be less than the previous commit timestamp %s: it is less by a time span of %v", end, w.prevCommit, end.Span(w.prevCommit))
 	}
 	if !w.Start.Before(end) {
-		return errors.Wrap(validate.Error, "commit timestamp must be strictly greater than the starting timestamp")
+		return errors.Wrapf(validate.Error, "commit timestamp %s must be strictly greater than the starting timestamp %s: it is less by a time span of %v", end, w.Start, end.Span(w.Start))
 	}
 	return nil
 }

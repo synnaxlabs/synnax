@@ -12,13 +12,9 @@ package cesium
 import (
 	"context"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
-	"go.uber.org/zap"
-	"golang.org/x/sync/semaphore"
 	"math/rand"
 	"strconv"
-	"sync"
 	"time"
 )
 
@@ -52,6 +48,10 @@ func channelDirName(ch ChannelKey) string {
 // channel, or if the current channel is being written to or read from.
 // DeleteChannel is idempotent.
 func (db *DB) DeleteChannel(ch ChannelKey) error {
+	if db.closed.Load() {
+		return ErrDBClosed
+	}
+
 	db.mu.Lock()
 	err := db.removeChannel(ch)
 	if err != nil {
@@ -76,6 +76,10 @@ func (db *DB) DeleteChannel(ch ChannelKey) error {
 }
 
 func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
+	if db.closed.Load() {
+		return ErrDBClosed
+	}
+
 	db.mu.Lock()
 	var (
 		indexChannels       = make([]ChannelKey, 0)
@@ -154,12 +158,12 @@ func (db *DB) removeChannel(ch ChannelKey) error {
 				}
 				otherDB := db.unaryDBs[otherDBKey]
 				if otherDB.Channel.Index == udb.Config.Channel.Key {
-					return errors.New("[cesium] - could not delete index channel with other channels depending on it")
+					return errors.Newf("cannot delete channel %v because it indexes data in channel %v", udb.Channel, otherDB.Channel)
 				}
 			}
 		}
 
-		if err := udb.TryClose(); err != nil {
+		if err := udb.Close(); err != nil {
 			return err
 		}
 		delete(db.unaryDBs, ch)
@@ -167,7 +171,7 @@ func (db *DB) removeChannel(ch ChannelKey) error {
 	}
 	vdb, vok := db.virtualDBs[ch]
 	if vok {
-		if err := vdb.TryClose(); err != nil {
+		if err := vdb.Close(); err != nil {
 			return err
 		}
 		delete(db.virtualDBs, ch)

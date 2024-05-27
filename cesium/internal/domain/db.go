@@ -12,6 +12,7 @@ package domain
 import (
 	"context"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
@@ -20,14 +21,25 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
+	"sync/atomic"
 )
 
 var (
-	// ErrDomainOverlap is returned when a domain overlaps with an existing domain in the DB.
-	ErrDomainOverlap = errors.Wrap(validate.Error, "domain overlaps with an existing domain")
-	// RangeNotFound is returned when a requested domain is not found in the DB.
-	RangeNotFound = errors.Wrap(query.NotFound, "domain not found")
+	// ErrWriteConflict is returned when a domain overlaps with an existing domain in the DB.
+	ErrWriteConflict = errors.Wrap(validate.Error, "write overlaps with existing data in database")
+	// ErrRangeNotFound is returned when a requested domain is not found in the DB.
+	ErrRangeNotFound = errors.Wrap(query.NotFound, "time range not found")
+	errDBClosed      = core.EntityClosed("domain.db")
 )
+
+func NewErrWriteConflict(tr1, tr2 telem.TimeRange) error {
+	intersection := tr1.Intersection(tr2)
+	return errors.Wrapf(ErrWriteConflict, "write overlaps with existing data occupying time range %v for a time span of %v", intersection, intersection.Span())
+}
+
+func NewErrRangeNotFound(tr telem.TimeRange) error {
+	return errors.Wrapf(ErrRangeNotFound, "time range %s cannot be found", tr)
+}
 
 // DB provides a persistent, concurrent store for reading and writing domains of telemetry
 // to and from an underlying file system.
@@ -50,8 +62,9 @@ var (
 // A DB must be closed after use to avoid leaking any underlying resources/locks.
 type DB struct {
 	Config
-	idx   *index
-	files *fileController
+	idx    *index
+	files  *fileController
+	closed *atomic.Bool
 }
 
 // Config is the configuration for opening a DB.
@@ -136,7 +149,7 @@ func Open(configs ...Config) (*DB, error) {
 		return nil, err
 	}
 
-	return &DB{Config: cfg, idx: idx, files: controller}, nil
+	return &DB{Config: cfg, idx: idx, files: controller, closed: &atomic.Bool{}}, nil
 }
 
 // NewIterator opens a new invalidated Iterator using the given configuration.
@@ -161,6 +174,9 @@ func (db *DB) newReader(ctx context.Context, ptr pointer) (*Reader, error) {
 }
 
 func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) {
+	if db.closed.Load() {
+		return false, errDBClosed
+	}
 	i := db.NewIterator(IteratorConfig{Bounds: telem.TimeRangeMax})
 
 	if i.SeekGE(ctx, tr.Start) && i.TimeRange().OverlapsWith(tr) {
@@ -175,8 +191,12 @@ func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) 
 
 // Close closes the DB. Close should not be called concurrently with any other DB methods.
 func (db *DB) Close() error {
+	if !db.closed.CompareAndSwap(false, true) {
+		return nil
+	}
+
 	w := errors.NewCatcher(errors.WithAggregation())
-	w.Exec(db.idx.close)
 	w.Exec(db.files.close)
+	w.Exec(db.idx.close)
 	return w.Error()
 }

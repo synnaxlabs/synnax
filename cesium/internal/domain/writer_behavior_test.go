@@ -45,7 +45,7 @@ func extractPointer(f xfs.File) (p struct {
 	return
 }
 
-var _ = Describe("WriterBehavior", Ordered, func() {
+var _ = Describe("Writer Behavior", Ordered, func() {
 	for fsName, makeFS := range fileSystems {
 		Context("FS: "+fsName, func() {
 			var (
@@ -70,6 +70,14 @@ var _ = Describe("WriterBehavior", Ordered, func() {
 					Expect(w.Commit(ctx, 19*telem.SecondTS+1)).To(Succeed())
 					Expect(w.Write([]byte{100, 101, 102, 103, 104})).To(Equal(5))
 					Expect(w.Commit(ctx, 104*telem.SecondTS+1)).To(MatchError(ContainSubstring("cannot be greater than preset end timestamp")))
+					Expect(w.Close()).To(Succeed())
+				})
+			})
+			Describe("Closed database", func() {
+				It("Should not allow opening a writer on a closed database", func() {
+					Expect(db.Close()).To(Succeed())
+					_, err := db.NewWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS})
+					Expect(err).To(HaveOccurredAs(core.EntityClosed("domain.db")))
 				})
 			})
 			Describe("Start Validation", func() {
@@ -94,7 +102,7 @@ var _ = Describe("WriterBehavior", Ordered, func() {
 						_, err := db.NewWriter(ctx, domain.WriterConfig{
 							Start: 10 * telem.SecondTS,
 						})
-						Expect(err).To(HaveOccurredAs(domain.ErrDomainOverlap))
+						Expect(err).To(HaveOccurredAs(domain.ErrWriteConflict))
 					})
 				})
 			})
@@ -272,7 +280,7 @@ var _ = Describe("WriterBehavior", Ordered, func() {
 							Start: 4 * telem.SecondTS,
 						}))
 						MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
-						Expect(w.Commit(ctx, 15*telem.SecondTS)).To(HaveOccurredAs(domain.ErrDomainOverlap))
+						Expect(w.Commit(ctx, 15*telem.SecondTS)).To(HaveOccurredAs(domain.ErrWriteConflict))
 						Expect(w.Close()).To(Succeed())
 					})
 					It("Should fail to commit an update to a writer", func() {
@@ -287,7 +295,7 @@ var _ = Describe("WriterBehavior", Ordered, func() {
 						}))
 						MustSucceed(w.Write([]byte{1, 2, 3, 4}))
 						Expect(w.Commit(ctx, 8*telem.SecondTS)).To(Succeed())
-						Expect(w.Commit(ctx, 15*telem.SecondTS)).To(HaveOccurredAs(domain.ErrDomainOverlap))
+						Expect(w.Commit(ctx, 15*telem.SecondTS)).To(HaveOccurredAs(domain.ErrWriteConflict))
 						Expect(w.Close()).To(Succeed())
 					})
 				})
@@ -298,7 +306,7 @@ var _ = Describe("WriterBehavior", Ordered, func() {
 							End:   20 * telem.SecondTS,
 						}))
 						MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
-						Expect(w.Commit(ctx, 30*telem.SecondTS)).To(MatchError(ContainSubstring("commit timestamp cannot be greater than preset end")))
+						Expect(w.Commit(ctx, 30*telem.SecondTS)).To(MatchError(ContainSubstring("commit timestamp %s cannot be greater than preset end timestamp %s", 30*telem.SecondTS, 20*telem.SecondTS)))
 						Expect(w.Close()).To(Succeed())
 					})
 				})
@@ -369,6 +377,7 @@ var _ = Describe("WriterBehavior", Ordered, func() {
 								defer wg.Done()
 								MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
 								errors[i] = w.Commit(ctx, 15*telem.SecondTS)
+								Expect(w.Close()).To(Succeed())
 							}(i, w)
 						}
 						wg.Wait()
@@ -378,7 +387,7 @@ var _ = Describe("WriterBehavior", Ordered, func() {
 						})
 						Expect(occurred).To(HaveLen(writerCount - 1))
 						for _, err := range occurred {
-							Expect(err).To(HaveOccurredAs(domain.ErrDomainOverlap))
+							Expect(err).To(HaveOccurredAs(domain.ErrWriteConflict))
 						}
 					})
 				})
@@ -418,6 +427,9 @@ var _ = Describe("WriterBehavior", Ordered, func() {
 					p := extractPointer(f)
 					Expect(p.End).To(Equal(30*telem.SecondTS + 1))
 					Expect(p.length).To(Equal(uint32(15)))
+
+					Expect(f.Close()).To(Succeed())
+					Expect(w.Close()).To(Succeed())
 				})
 
 				It("Should persist to disk every time when the interval is set to always persist", func() {
@@ -457,6 +469,8 @@ var _ = Describe("WriterBehavior", Ordered, func() {
 					Expect(f.Close()).To(Succeed())
 					Expect(p.End).To(Equal(25*telem.SecondTS + 1))
 					Expect(p.length).To(Equal(uint32(15)))
+
+					Expect(w.Close()).To(Succeed())
 				})
 
 				It("Should persist any unpersisted, but committed (stranded) data on close", func() {
@@ -482,6 +496,8 @@ var _ = Describe("WriterBehavior", Ordered, func() {
 					Expect(f.Close()).To(Succeed())
 					Expect(p.End).To(Equal(20*telem.SecondTS + 1))
 					Expect(p.length).To(Equal(uint32(10)))
+
+					Expect(w.Close()).To(Succeed())
 				})
 
 				It("Should always persist if auto commit is not enabled, no matter the interval", func() {
@@ -516,10 +532,22 @@ var _ = Describe("WriterBehavior", Ordered, func() {
 						e = core.EntityClosed("domain.writer")
 					)
 					Expect(w.Close()).To(Succeed())
-					Expect(w.Commit(ctx, telem.TimeStampMax)).To(MatchError(e))
-					_, err := w.Write([]byte{1, 2, 3})
-					Expect(err).To(MatchError(e))
+					err := w.Commit(ctx, telem.TimeStampMax)
+					Expect(err).To(HaveOccurredAs(e))
+					_, err = w.Write([]byte{1, 2, 3})
+					Expect(err).To(HaveOccurredAs(e))
 					Expect(w.Close()).To(Succeed())
+				})
+
+				It("Should not open a writer on a closed database", func() {
+					Expect(db.Close()).To(Succeed())
+					_, err := db.NewWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS})
+					Expect(err).To(HaveOccurredAs(core.EntityClosed("domain.db")))
+				})
+
+				It("Should not write on a closed database", func() {
+					Expect(db.Close()).To(Succeed())
+					Expect(domain.Write(ctx, db, telem.TimeStamp(0).Range(telem.TimeStamp(1)), []byte{1, 2, 3})).To(HaveOccurredAs(core.EntityClosed("domain.db")))
 				})
 			})
 		})

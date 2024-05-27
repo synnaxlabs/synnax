@@ -44,7 +44,7 @@ var _ = Describe("Delete", Ordered, func() {
 			It("Should not be able to retrieve the channel from the storage DB", func() {
 				Expect(services[1].Delete(ctx, ch.Key())).To(Succeed())
 				channels, err := builder.Cores[1].Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey())
-				Expect(err).To(MatchError(cesium.ChannelNotFound))
+				Expect(err).To(MatchError(cesium.ErrChannelNotFound))
 				Expect(channels).To(BeEmpty())
 			})
 		})
@@ -67,7 +67,7 @@ var _ = Describe("Delete", Ordered, func() {
 			It("Should not be able to retrieve the channel from the storage DB", func() {
 				Expect(services[2].Delete(ctx, ch.Key())).To(Succeed())
 				channels, err := builder.Cores[2].Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey())
-				Expect(err).To(MatchError(cesium.ChannelNotFound))
+				Expect(err).To(MatchError(cesium.ErrChannelNotFound))
 				Expect(channels).To(BeEmpty())
 			})
 		})

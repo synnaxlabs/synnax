@@ -7,7 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useEffect, useState, type DetailedHTMLProps, type ReactElement } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type DetailedHTMLProps,
+  type ReactElement,
+} from "react";
 
 import { Video as Core } from "@synnaxlabs/pluto/video";
 
@@ -22,20 +28,48 @@ export interface VideoProps
 
 const CDN_ROOT = "https://synnax.nyc3.cdn.digitaloceanspaces.com/docs";
 
+const useLiveTheme = (): string => {
+  const [theme, setTheme] = useState(
+    window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light",
+  );
+  useEffect(() => {
+    const listener = (e: MediaQueryListEvent) => {
+      setTheme(e.matches ? "dark" : "light");
+    };
+    const bindListener = () => {
+      window
+        .matchMedia("(prefers-color-scheme: dark)")
+        .addEventListener("change", listener);
+    };
+    bindListener();
+    document.addEventListener("astro:after-swap", bindListener);
+    return () => {
+      window
+        .matchMedia("(prefers-color-scheme: dark)")
+        .removeEventListener("change", listener);
+    };
+  }, []);
+  return theme;
+};
+
 export const Video = ({ id, ...props }: VideoProps): ReactElement => {
-  const theme = window.matchMedia("(prefers-color-scheme: dark)").matches
-    ? "dark"
-    : "light";
+  const theme = useLiveTheme();
   const href = `${CDN_ROOT}/${id}-${theme}.mp4`;
-  return <Core.Video href={href} loop autoPlay muted {...props} />;
+  const ref = useRef<HTMLVideoElement>(null);
+  useEffect(() => {
+    if (ref.current) ref.current.load();
+  }, [href]);
+  return <Core.Video ref={ref} href={href} loop autoPlay muted {...props} />;
 };
 
 export const Image = ({ id, themed = true, ...props }: VideoProps): ReactElement => {
-  const theme = window.matchMedia("(prefers-color-scheme: dark)").matches
-    ? "dark"
-    : "light";
+  const theme = useLiveTheme();
   let url = `${CDN_ROOT}/${id}`;
   if (themed) url += `-${theme}`;
   url += ".png";
+  const ref = useRef<HTMLImageElement>(null);
+  useEffect(() => {
+    if (ref.current) ref.current.src = url;
+  }, []);
   return <img src={url} className="image" {...props} />;
 };

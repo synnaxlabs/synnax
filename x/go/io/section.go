@@ -9,14 +9,17 @@
 
 package io
 
-import "io"
+import (
+	"io"
+)
 
-type SectionReaderCloser struct {
+type SectionReaderAtCloser struct {
 	io.ReaderAt
 	io.Closer
 }
 
-func NewSectionReaderCloser(internal ReaderAtCloser, off int64, n int64) *SectionReaderCloser {
-	section := io.NewSectionReader(internal, off, n)
-	return &SectionReaderCloser{ReaderAt: section, Closer: internal}
+func NewSectionReaderAtCloser(r ReaderAtCloser, off int64, n int64) *SectionReaderAtCloser {
+	sectionReader := io.NewSectionReader(r, off, n)
+
+	return &SectionReaderAtCloser{ReaderAt: sectionReader, Closer: r}
 }

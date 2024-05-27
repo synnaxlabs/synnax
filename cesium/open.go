@@ -15,10 +15,12 @@ import (
 	"github.com/synnaxlabs/cesium/internal/meta"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/cesium/internal/virtual"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 	"strconv"
+	"sync"
+	"sync/atomic"
 )
 
 func Open(dirname string, opts ...Option) (*DB, error) {
@@ -37,9 +39,11 @@ func Open(dirname string, opts ...Option) (*DB, error) {
 	}
 	db := &DB{
 		options:    o,
+		mu:         sync.RWMutex{},
 		unaryDBs:   make(map[core.ChannelKey]unary.DB, len(info)),
 		virtualDBs: make(map[core.ChannelKey]virtual.DB, len(info)),
 		relay:      newRelay(sCtx),
+		closed:     &atomic.Bool{},
 		shutdown:   signal.NewShutdown(sCtx, cancel),
 	}
 	for _, i := range info {
@@ -64,6 +68,10 @@ func Open(dirname string, opts ...Option) (*DB, error) {
 }
 
 func (db *DB) openVirtualOrUnary(ch Channel) error {
+	if db.closed.Load() {
+		return ErrDBClosed
+	}
+
 	db.mu.Lock()
 	defer db.mu.Unlock()
 	fs, err := db.fs.Sub(strconv.Itoa(int(ch.Key)))
@@ -79,7 +87,7 @@ func (db *DB) openVirtualOrUnary(ch Channel) error {
 		if isOpen {
 			return nil
 		}
-		v, err := virtual.Open(virtual.Config{Channel: ch, Instrumentation: db.options.Instrumentation})
+		v, err := virtual.Open(virtual.Config{FS: fs, Channel: ch, Instrumentation: db.options.Instrumentation})
 		if err != nil {
 			return err
 		}
@@ -105,7 +113,7 @@ func (db *DB) openVirtualOrUnary(ch Channel) error {
 				}
 				idxDB, ok = db.unaryDBs[u.Channel.Index]
 				if !ok {
-					return errors.Wrapf(core.ChannelNotFound, "index %d", u.Channel.Index)
+					return validate.FieldError{Field: "index", Message: fmt.Sprintf("index channel <%v> does not exist", u.Channel.Index)}
 				}
 			}
 			u.SetIndex((&idxDB).Index())

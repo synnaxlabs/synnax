@@ -131,7 +131,7 @@ export const Provider = Aether.wrap<ProviderProps>(
       initialState: { theme: ret.theme },
     });
 
-    // useEffect(() => setAetherTheme({ theme: ret.theme }), [ret.theme]);
+    useEffect(() => setAetherTheme({ theme: ret.theme }), [ret.theme]);
 
     useLayoutEffect(() => {
       if (applyCSSVars) CSS.applyVars(document.documentElement, toCSSVars(ret.theme));
