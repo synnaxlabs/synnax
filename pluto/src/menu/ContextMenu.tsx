@@ -17,7 +17,7 @@ import {
   useState,
 } from "react";
 
-import { box, unique, xy } from "@synnaxlabs/x";
+import { box, position, unique, xy } from "@synnaxlabs/x";
 import { createPortal } from "react-dom";
 
 import { CSS } from "@/css";
@@ -29,7 +29,8 @@ import "@/menu/ContextMenu.css";
 interface ContextMenuState {
   visible: boolean;
   keys: string[];
-  xy: xy.XY;
+  position: xy.XY;
+  cursor: xy.XY;
 }
 
 /** Supported event types for triggering a context menu. */
@@ -55,8 +56,9 @@ export interface UseContextMenuReturn extends ContextMenuState {
 
 const INITIAL_STATE: ContextMenuState = {
   visible: false,
+  position: xy.ZERO,
+  cursor: xy.ZERO,
   keys: [],
-  xy: xy.ZERO,
 };
 
 export const CONTEXT_SELECTED = CSS.BM("context", "selected");
@@ -106,21 +108,23 @@ export const useContextMenu = (): UseContextMenuReturn => {
       const selected = findSelected(e.target as HTMLElement);
       keys = keys ?? unique(selected.map((el) => el.id).filter((id) => id.length > 0));
     } else keys = [];
-    setMenuState({ visible: true, keys, xy: p });
+    setMenuState({ visible: true, keys, position: p, cursor: p });
   };
 
   const refCallback = (el: HTMLDivElement): void => {
     menuRef.current = el;
     if (el == null) return;
     setMenuState((prev) => {
-      if (prev.visible) {
-        const [repositioned, changed] = box.positionSoVisible(
-          el,
-          document.documentElement,
-        );
-        if (changed) return { ...prev, xy: box.topLeft(repositioned) };
-      }
-      return prev;
+      if (!prev.visible) return prev;
+      const { adjustedDialog } = position.dialog({
+        container: box.construct(0, 0, window.innerWidth, window.innerHeight),
+        dialog: box.construct(el),
+        target: box.construct(prev.cursor, 0, 0),
+        prefer: [{ y: "bottom" }],
+      });
+      const nextPos = box.topLeft(adjustedDialog);
+      if (xy.equals(prev.position, nextPos)) return prev;
+      return { ...prev, position: nextPos };
     });
   };
 
@@ -153,9 +157,10 @@ const ContextMenuCore = (
     visible,
     open,
     close,
-    xy,
+    position: xy,
     keys,
     className,
+    cursor: _,
     ...props
   }: ContextMenuProps,
   ref: ForwardedRef<HTMLDivElement>,

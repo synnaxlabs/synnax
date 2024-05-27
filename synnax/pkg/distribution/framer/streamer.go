@@ -102,6 +102,8 @@ func (l *streamer) Flow(sCtx signal.Context, opts ...confluence.Option) {
 					return nil
 				}
 				if err := signal.SendUnderContext(ctx, l.Out.Inlet(), StreamerResponse{Frame: res.Frame}); err != nil {
+					l.relay.requests.Close()
+					confluence.Drain(l.relay.responses)
 					return err
 				}
 			case req, ok := <-l.In.Outlet():
@@ -116,6 +118,8 @@ func (l *streamer) Flow(sCtx signal.Context, opts ...confluence.Option) {
 					l.Out.Inlet() <- StreamerResponse{Frame: core.NewFrameFromStorage(u)}
 				}
 				if err := signal.SendUnderContext(ctx, l.relay.requests.Inlet(), relay.Request{Keys: req.Keys}); err != nil {
+					l.relay.requests.Close()
+					confluence.Drain(l.relay.responses)
 					return err
 				}
 			}
@@ -136,27 +140,29 @@ func (s *Service) NewStreamer(ctx context.Context, cfg StreamerConfig) (Streamer
 		controlStateKey:    s.controlStateKey,
 		sendControlDigests: lo.Contains(cfg.Keys, s.controlStateKey),
 	}
-	anyLeased := lo.SomeBy(cfg.Keys, func(k channel.Key) bool { return !k.Free() && k != s.controlStateKey })
-	now := telem.Now()
-	if anyLeased && !cfg.Start.IsZero() && cfg.Start.Before(now) {
-		iter, err := s.NewStreamIterator(ctx, IteratorConfig{
-			Keys: cfg.Keys,
-			// Read from just after now so we make sure we get all data.
-			Bounds: cfg.Start.Range(now.Add(5 * telem.Second)),
-		})
-		if err != nil {
-			return nil, err
-		}
-		iterReq, iterRes := confluence.Attach(iter, 1)
-		l.iter.flow = iter
-		l.iter.requests = iterReq
-		l.iter.responses = iterRes
-	}
+	//anyLeased := lo.SomeBy(cfg.Keys, func(k channel.Task) bool { return !k.Free() && k != s.controlStateKey })
+	//now := telem.Now()
+	//if anyLeased && !cfg.Start.IsZero() && cfg.Start.Before(now) {
+	//	iter, err := s.NewStreamIterator(ctx, IteratorConfig{
+	//		Keys: cfg.Keys,
+	//		// Read from just after now so we make sure we get all data.
+	//		Bounds: cfg.Start.Range(now.Add(5 * telem.Second)),
+	//	})
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//	iterReq, iterRes := confluence.Attach(iter, 30)
+	//	l.iter.flow = iter
+	//	l.iter.requests = iterReq
+	//	l.iter.responses = iterRes
+	//}
 	rel, err := s.Relay.NewStreamer(ctx, relay.StreamerConfig{Keys: cfg.Keys})
 	if err != nil {
 		return nil, err
 	}
-	relayReq, relayRes := confluence.Attach(rel, 1)
+	relayReq, relayRes := confluence.Attach(rel, 30)
+	relayReq.SetInletAddress("relay-reader")
+	relayRes.SetOutletAddress("relay-reader")
 	l.relay.flow = rel
 	l.relay.requests = relayReq
 	l.relay.responses = relayRes

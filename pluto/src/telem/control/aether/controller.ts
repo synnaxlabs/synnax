@@ -126,7 +126,7 @@ export class Controller
     const { client, addStatus } = this.internal;
     if (client == null)
       return addStatus({
-        message: `Cannot acquire control on ${this.state.name} because no cluster has been connected`,
+        message: `Cannot acquire control on ${this.state.name} because no cluster has been connected.`,
         variant: "warning",
       });
 
@@ -135,11 +135,11 @@ export class Controller
       const needsControlOf = this.state.needsControlOf;
       if (needsControlOf.length === 0)
         return addStatus({
-          message: `Cannot acquire control on ${this.state.name} - no channels to control!`,
+          message: `Cannot acquire control on ${this.state.name} because there are no channels to control.`,
           variant: "warning",
         });
 
-      this.writer = await client.telem.newWriter({
+      this.writer = await client.openWriter({
         start: TimeStamp.now(),
         channels: needsControlOf,
         controlSubject: { key: this.key, name: this.state.name },
@@ -284,7 +284,7 @@ export const setChannelValue = (props: SetChannelValueProps): telem.NumberSinkSp
 });
 
 export const acquireChannelControlPropsZ = z.object({
-  authority: z.number().default(Authority.ABSOLUTE.valueOf()),
+  authority: z.number().default(Authority.Absolute.valueOf()),
   channel: z.number(),
 });
 

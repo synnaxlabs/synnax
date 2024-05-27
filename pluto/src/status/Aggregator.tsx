@@ -86,12 +86,12 @@ export interface UseNotificationsProps {
 
 const DEFAULT_EXPIRATION = TimeSpan.seconds(5);
 
-interface Notification extends status.Spec {
+export interface NotificationSpec extends status.Spec {
   count: number;
 }
 
 export interface UseNotificationsReturn {
-  statuses: Notification[];
+  statuses: NotificationSpec[];
   silence: (key: string) => void;
 }
 
@@ -131,8 +131,8 @@ export const useNotifications = (
   };
 };
 
-const reduceDuplicateStatuses = (statuses: status.Spec[]): Notification[] =>
-  statuses.reduce<Notification[]>((acc, status) => {
+const reduceDuplicateStatuses = (statuses: status.Spec[]): NotificationSpec[] =>
+  statuses.reduce<NotificationSpec[]>((acc, status) => {
     const { message, variant } = status;
     const existing = acc.find((s) => s.message === message && s.variant === variant);
     if (existing != null) {

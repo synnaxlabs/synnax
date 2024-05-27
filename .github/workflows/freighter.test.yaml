@@ -7,6 +7,9 @@ on:
     paths:
       - ".github/workflows/freighter.test.yaml"
   workflow_dispatch:
+permissions:
+  contents: write
+  packages: write
 jobs:
   test-go:
     runs-on: ubuntu-latest
@@ -15,7 +18,7 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Diff Changes
-        uses: dorny/paths-filter@v2
+        uses: dorny/paths-filter@v3
         id: filter
         with:
           filters: |
@@ -24,11 +27,18 @@ jobs:
               - "freighter/integration/**"
               - ".github/workflows/freighter.test.yaml"
 
-      - name: Set Up Go
+      - name: Set up Go
+        uses: actions/setup-go@v5
         if: steps.filter.outputs.changed == 'true'
-        uses: actions/setup-go@v3
         with:
-          go-version: 1.22
+          go-version-file: "go.work"
+          cache-dependency-path: |
+            "alamos/go/go.sum"
+            "aspen/go.sum"
+            "cesium/go.sum"
+            "freighter/go/go.sum"
+            "synnax/go.sum"
+            "x/go/go.sum"
 
       - name: Test
         if: steps.filter.outputs.changed == 'true'
@@ -51,7 +61,7 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Diff Changes
-        uses: dorny/paths-filter@v2
+        uses: dorny/paths-filter@v3
         id: filter
         with:
           filters: |
@@ -77,14 +87,14 @@ jobs:
         working-directory: ./freighter/integration
 
   test-python:
-    needs: [build-integration-image]
+    needs: [ build-integration-image ]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
       - name: Diff Changes
-        uses: dorny/paths-filter@v2
+        uses: dorny/paths-filter@v3
         id: filter
         with:
           filters: |
@@ -131,14 +141,14 @@ jobs:
           - 8080:8080
 
   test-typescript:
-    needs: [build-integration-image]
+    needs: [ build-integration-image ]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
       - name: Diff Changes
-        uses: dorny/paths-filter@v2
+        uses: dorny/paths-filter@v3
         id: filter
         with:
           filters: |
@@ -161,7 +171,7 @@ jobs:
 
       - name: Install Dependencies
         if: steps.filter.outputs.changed == 'true'
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
 
       - name: Test
         if: steps.filter.outputs.changed == 'true'
@@ -184,3 +194,20 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
         ports:
           - 8080:8080
+
+  test-cpp:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Setup Bazel
+        uses: bazel-contrib/setup-bazel@0.8.1
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}
+          repository-cache: true
+
+      - name: Run Tests
+        run: bazel test //freighter/cpp:freighter_test
+        shell: bash

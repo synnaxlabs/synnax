@@ -7,21 +7,36 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { conceptsNav } from "./concepts/nav";
-import { consoleNav } from "./console/nav";
-import { deploymentNav } from "./deployment/nav";
-import { guidesNav } from "./guides/nav";
-import { pythonClientNav } from "./python-client/nav";
+import { analystNav } from "@/pages/guides/analyst/nav";
+import { sysAdminNav } from "@/pages/guides/sys-admin/nav";
+import { clusterNav } from "@/pages/reference/cluster/_nav";
+import { conceptsNav } from "@/pages/reference/concepts/_nav";
+import { consoleNav } from "@/pages/reference/console/_nav";
+import { deviceDriversNav } from "@/pages/reference/device-drivers/_nav";
+import { plutoNav } from "@/pages/reference/pluto/_nav";
+import { pythonClientNav } from "@/pages/reference/python-client/_nav";
+import { typescriptClientNav } from "@/pages/reference/typescript-client/_nav";
 
-export const pages = [
+export const componentsPages = [
   {
     name: "Get Started",
-    key: "/",
-    href: "/",
+    key: "/reference/",
+    href: "/reference/",
   },
-  guidesNav,
   conceptsNav,
-  deploymentNav,
+  clusterNav,
   pythonClientNav,
+  typescriptClientNav,
   consoleNav,
+  plutoNav,
+  deviceDriversNav,
+];
+export const guidesPages = [
+  {
+    name: "Get Started",
+    key: "/guides/",
+    href: "/guides/",
+  },
+  analystNav,
+  sysAdminNav,
 ];

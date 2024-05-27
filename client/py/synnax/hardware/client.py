@@ -7,9 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from synnax.hardware.writer import Writer
+from synnax.hardware.payload import Device, Rack, Task
 from synnax.hardware.retrieve import Retriever
-from synnax.hardware.payload import Rack, Task, Device
+from synnax.hardware.writer import Writer
 
 
 class Client:
@@ -38,8 +38,12 @@ class Client:
     def delete_device(self, keys: list[str]):
         self.__writer.delete_device(keys)
 
-    def retrieve_rack(self, keys: list[int] | None = None) -> list[Rack]:
-        return self.__retriever.retrieve_rack(keys)
+    def retrieve_rack(
+        self,
+        keys: list[int] | None = None,
+        names: list[str] | None = None
+    ) -> list[Rack]:
+        return self.__retriever.retrieve_rack(keys=keys, names=names)
 
     def retrieve_task(
         self, rack: int | None = None, keys: list[int] | None = None

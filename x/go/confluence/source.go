@@ -14,13 +14,17 @@ import (
 	"fmt"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/timeout"
+	"time"
 )
 
 // AbstractMultiSource is a basic implementation of a Source that can send values to
 // multiple Outlet(sink). It implements an empty Flow method, as sources are typically
 // driven by external events. The user can define a custom Flow method if they wish to
 // drive the source themselves.
-type AbstractMultiSource[V Value] struct{ Out []Inlet[V] }
+type AbstractMultiSource[V Value] struct {
+	Out []Inlet[V]
+}
 
 // OutTo implements the Source interface.
 func (ams *AbstractMultiSource[V]) OutTo(inlets ...Inlet[V]) { ams.Out = append(ams.Out, inlets...) }
@@ -28,8 +32,27 @@ func (ams *AbstractMultiSource[V]) OutTo(inlets ...Inlet[V]) { ams.Out = append(
 // SendToEach sends the provided value to each Inlet in the Source.
 func (ams *AbstractMultiSource[V]) SendToEach(ctx context.Context, v V) error {
 	for _, inlet := range ams.Out {
-		if err := signal.SendUnderContext(ctx, inlet.Inlet(), v); err != nil {
-			return err
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case inlet.Inlet() <- v:
+		}
+	}
+	return nil
+}
+
+func (ams *AbstractMultiSource[V]) SendToEachWithTimeout(
+	ctx context.Context,
+	v V,
+	t <-chan time.Time,
+) error {
+	for _, inlet := range ams.Out {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-t:
+			return timeout.Timeout
+		case inlet.Inlet() <- v:
 		}
 	}
 	return nil

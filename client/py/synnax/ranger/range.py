@@ -14,18 +14,13 @@ from uuid import UUID
 import numpy as np
 from pydantic import PrivateAttr
 
-from synnax.channel import (
-    ChannelKey,
-    ChannelName,
-    ChannelPayload,
-    ChannelRetriever,
-)
+from synnax.channel import ChannelKey, ChannelName, ChannelPayload, ChannelRetriever
 from synnax.exceptions import QueryError
 from synnax.framer import Client
 from synnax.ranger.alias import Aliaser
 from synnax.ranger.kv import KV
 from synnax.ranger.payload import RangePayload
-from synnax.telem import Series, TimeRange, DataType, Rate, SampleValue
+from synnax.telem import DataType, Rate, SampleValue, Series, TimeRange
 from synnax.util.interop import overload_comparison_operators
 
 
@@ -118,7 +113,6 @@ class ScopedChannel:
 
     def __guard(self):
         if len(self.__internal) > 1:
-            print(self.__internal)
             raise QueryError(
                 f"""Multiple channels found for query '{self.__query}':
             {[str(ch) for ch in self.__internal]}
@@ -215,6 +209,7 @@ class Range(RangePayload):
         name: str,
         time_range: TimeRange,
         key: UUID = UUID(int=0),
+        color: str = "",
         *,
         _frame_client: Client | None = None,
         _channel_retriever: ChannelRetriever | None = None,
@@ -240,7 +235,7 @@ class Range(RangePayload):
             and from the cluster. This is provided by Synnax during calls to
             .ranges.create() and .ranges.retrieve(), and should not be set by the user.
         """
-        super().__init__(name=name, time_range=time_range, key=key)
+        super().__init__(name=name, time_range=time_range, key=key, color=color)
         self.__frame_client = _frame_client
         self.__channel_retriever = _channel_retriever
         self.__kv = _kv
@@ -260,7 +255,7 @@ class Range(RangePayload):
 
     def __splice_cached(
         self,
-        channels: list[ChannelPayload],
+        channels: list[ChannelPayload]
     ) -> list[_InternalScopedChannel]:
         results = list()
         for pld in channels:

@@ -9,7 +9,7 @@
 
 import { type ReactElement, useCallback, useEffect, useRef } from "react";
 
-import { xy } from "@synnaxlabs/x";
+import { box, xy } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
@@ -33,7 +33,13 @@ export const Tooltip = Aether.wrap<TooltipProps>(
     const ref = useRef<HTMLSpanElement>(null);
 
     const handleMove = useCallback(
-      (e: MouseEvent): void => setState({ position: xy.construct(e) }),
+      (e: MouseEvent): void => {
+        // select the .pluto-canvas-container element
+        const canvas = document.querySelector(".pluto-canvas-container");
+        if (canvas == null) return;
+        const topLeft = box.topLeft(canvas);
+        setState({ position: xy.translation(topLeft, xy.construct(e)) });
+      },
       [setState],
     );
 

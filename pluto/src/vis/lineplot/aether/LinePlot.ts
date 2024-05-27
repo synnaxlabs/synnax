@@ -15,7 +15,7 @@ import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
 import { status } from "@/status/aether";
 import { type FindResult } from "@/vis/line/aether/line";
-import { calculatePlotBox, gridPositionSpecZ } from "@/vis/lineplot/aether/grid";
+import { calculatePlotBox, gridEntrySpecZ } from "@/vis/lineplot/aether/grid";
 import { XAxis } from "@/vis/lineplot/aether/XAxis";
 import { YAxis } from "@/vis/lineplot/aether/YAxis";
 import { tooltip } from "@/vis/lineplot/tooltip/aether";
@@ -26,8 +26,8 @@ export const linePlotStateZ = z.object({
   container: box.box,
   viewport: box.box,
   hold: z.boolean().optional().default(false),
-  grid: z.record(gridPositionSpecZ),
-  clearOverscan: xy.crudeZ,
+  grid: z.record(gridEntrySpecZ),
+  clearOverScan: xy.crudeZ.optional().default(xy.ZERO),
 });
 
 interface InternalState {
@@ -121,6 +121,7 @@ export class LinePlot extends aether.Composite<
   private async render(
     canvases: render.CanvasVariant[],
   ): Promise<render.Cleanup | undefined> {
+    const { renderCtx } = this.internal;
     const { instrumentation } = this.internal;
     if (this.deleted) {
       instrumentation.L.debug("deleted, skipping render", { key: this.key });
@@ -138,8 +139,7 @@ export class LinePlot extends aether.Composite<
       canvases,
     });
 
-    const { renderCtx } = this.internal;
-    const os = xy.construct(this.state.clearOverscan);
+    const os = xy.construct(this.state.clearOverScan);
     const removeCanvasScissor = renderCtx.scissor(
       this.state.container,
       os,
@@ -155,8 +155,13 @@ export class LinePlot extends aether.Composite<
       await this.renderAxes(plot, canvases);
       await this.renderTooltips(plot, canvases);
       await this.renderMeasures(plot, canvases);
+      renderCtx.gl.finish();
       renderCtx.gl.flush();
+      renderCtx.gl.finish();
     } catch (e) {
+      const err = e as Error;
+      // TODO: Remove this temp fix after we resolve actual error.
+      if (err.message.toLowerCase().includes("bigint")) return;
       this.internal.aggregate({
         key: `${this.type}-${this.key}`,
         variant: "error",
@@ -169,7 +174,7 @@ export class LinePlot extends aether.Composite<
     instrumentation.L.debug("rendered", { key: this.key });
     const eraseRegion = box.copy(this.state.container);
     return async ({ canvases }) => {
-      renderCtx.erase(eraseRegion, this.state.clearOverscan, ...canvases);
+      renderCtx.erase(eraseRegion, this.state.clearOverScan, ...canvases);
     };
   }
 

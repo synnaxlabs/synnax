@@ -21,7 +21,8 @@ import (
 	mockstorage "github.com/synnaxlabs/synnax/pkg/storage/mock"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errutil"
+	"github.com/synnaxlabs/x/errors"
+	"io"
 )
 
 // CoreBuilder is a utility for provisioning mock distribution cores that
@@ -37,6 +38,7 @@ type CoreBuilder struct {
 	net *aspentransmock.Network
 	// addrFactory generates unique addresses for nodes.
 	addrFactory *address.Factory
+	closers     []io.Closer
 }
 
 // NewCoreBuilder opens a new CoreBuilder that provisions cores using the given
@@ -93,10 +95,19 @@ func (cb *CoreBuilder) New() core.Core {
 	return _core
 }
 
+// AttachCloser attaches a closer to the CoreBuilder. The closer will be called when
+// the CoreBuilder is closed.
+func (cb *CoreBuilder) AttachCloser(closer io.Closer) {
+	cb.closers = append(cb.closers, closer)
+}
+
 // Close shuts down all other nodes in the cluster. It is not safe to call this method
 // while the nodes are still in use.
 func (cb *CoreBuilder) Close() error {
-	c := errutil.NewCatch(errutil.WithAggregation())
+	c := errors.NewCatcher(errors.WithAggregation())
+	for _, closer := range cb.closers {
+		c.Exec(closer.Close)
+	}
 	for _, core_ := range cb.Cores {
 		c.Exec(core_.Close)
 	}

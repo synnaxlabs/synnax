@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/vmihailenco/msgpack/v5"
 	"io"
+	"strconv"
 )
 
 // EncoderDecoder is an interface that encodes and decodes values.
@@ -162,4 +163,36 @@ func (enc *TracingEncoderDecoder) Decode(ctx context.Context, data []byte, value
 func (enc *TracingEncoderDecoder) DecodeStream(ctx context.Context, r io.Reader, value interface{}) error {
 	ctx, span := enc.T.Trace(ctx, "decode_stream", enc.Level)
 	return span.EndWith(enc.EncoderDecoder.DecodeStream(ctx, r, value))
+}
+
+func UnmarshalStringInt64(b []byte) (n int64, err error) {
+	if err = json.Unmarshal(b, &n); err == nil {
+		return n, nil
+	}
+
+	// Unmarshal as a string.
+	var str string
+	if err := json.Unmarshal(b, &str); err != nil {
+		return n, err
+	}
+
+	// Parse the string.
+	n, err = strconv.ParseInt(str, 10, 64)
+	return n, err
+}
+
+func UnmarshalStringUint64(b []byte) (n uint64, err error) {
+	if err = json.Unmarshal(b, &n); err == nil {
+		return n, nil
+	}
+
+	// Unmarshal as a string.
+	var str string
+	if err := json.Unmarshal(b, &str); err != nil {
+		return n, err
+	}
+
+	// Parse the string.
+	n, err = strconv.ParseUint(str, 10, 64)
+	return n, err
 }

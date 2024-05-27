@@ -13,7 +13,8 @@ package task
 
 import (
 	"context"
-	"fmt"
+	"io"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -25,7 +26,6 @@ import (
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
-	"io"
 )
 
 // Config is the configuration for creating a Service.
@@ -52,7 +52,6 @@ func (c Config) Override(other Config) Config {
 	c.Rack = override.Nil(c.Rack, other.Rack)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.HostProvider = override.Nil(c.HostProvider, other.HostProvider)
-	c.Channel = override.Nil(c.Channel, other.Channel)
 	return c
 }
 
@@ -70,43 +69,26 @@ func (c Config) Validate() error {
 type Service struct {
 	Config
 	shutdownSignals io.Closer
+	group           group.Group
 }
+
+const groupName = "Tasks"
 
 func OpenService(ctx context.Context, configs ...Config) (s *Service, err error) {
 	cfg, err := config.New(DefaultConfig, configs...)
 	if err != nil {
 		return
 	}
-	s = &Service{Config: cfg}
-	cfg.Ontology.RegisterService(s)
-
-	if cfg.Channel != nil {
-		hostKey := cfg.HostProvider.HostKey()
-		channels := &[]channel.Channel{
-			{
-				Name:        fmt.Sprintf("sy_node_%s_task_cmd", hostKey),
-				DataType:    telem.JSONT,
-				Virtual:     true,
-				Leaseholder: hostKey,
-			},
-			{
-				Name:        fmt.Sprintf("sy_node_%s_task_state", hostKey),
-				DataType:    telem.JSONT,
-				Virtual:     true,
-				Leaseholder: hostKey,
-			},
-		}
-		err = cfg.Channel.CreateManyIfNamesDontExist(ctx, channels)
-		if err != nil {
-			return
-		}
+	g, err := cfg.Group.CreateOrRetrieve(ctx, groupName, ontology.RootID)
+	if err != nil {
+		return
 	}
-
+	s = &Service{Config: cfg, group: g}
+	cfg.Ontology.RegisterService(s)
 	if cfg.Signals == nil {
 		return
 	}
-
-	cdcS, err := signals.SubscribeToGorp(ctx, cfg.Signals, signals.GorpConfigPureNumeric[Key, Task](cfg.DB, telem.Uint64T))
+	cdcS, err := signals.PublishFromGorp(ctx, cfg.Signals, signals.GorpPublisherConfigPureNumeric[Key, Task](cfg.DB, telem.Uint64T))
 	if err != nil {
 		return
 	}
@@ -124,9 +106,10 @@ func (s *Service) Close() error {
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		tx:   gorp.OverrideTx(s.DB, tx),
-		otg:  s.Ontology.NewWriter(tx),
-		rack: s.Rack.NewWriter(tx),
+		tx:    gorp.OverrideTx(s.DB, tx),
+		otg:   s.Ontology.NewWriter(tx),
+		rack:  s.Rack.NewWriter(tx),
+		group: s.group,
 	}
 }
 

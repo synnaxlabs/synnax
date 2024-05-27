@@ -10,7 +10,7 @@
 package io
 
 import (
-	"github.com/synnaxlabs/x/errutil"
+	"github.com/synnaxlabs/x/errors"
 	"io"
 )
 
@@ -22,12 +22,19 @@ var _ io.Closer = CloserFunc(nil)
 // Close implements io.Closer.
 func (c CloserFunc) Close() error { return c() }
 
+type NopCloserFunc func()
+
+func (c NopCloserFunc) Close() error {
+	c()
+	return nil
+}
+
 type MultiCloser []io.Closer
 
 var _ io.Closer = MultiCloser(nil)
 
 func (c MultiCloser) Close() error {
-	ca := errutil.NewCatch(errutil.WithAggregation())
+	ca := errors.NewCatcher(errors.WithAggregation())
 	for _, closer := range c {
 		ca.Exec(closer.Close)
 	}

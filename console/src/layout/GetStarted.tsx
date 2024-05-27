@@ -7,10 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
+import { useState, type ReactElement } from "react";
 
+import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Icon, Logo } from "@synnaxlabs/media";
-import { Text, Align, Button, Synnax, Eraser } from "@synnaxlabs/pluto";
+import { Align, Synnax, Eraser } from "@synnaxlabs/pluto";
+import { Button } from "@synnaxlabs/pluto/button";
+import { Text } from "@synnaxlabs/pluto/text";
 import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
@@ -29,23 +32,23 @@ export const GetStarted = (): ReactElement => {
 };
 
 const NoCluster = (): ReactElement => {
+  const windowKey = useSelectWindowKey() as string;
+  const [count, setCount] = useState(0);
   const placer = usePlacer();
   const dispatch = useDispatch();
 
   // As a note, we need to stop propagation on these events so that we don't
-  // trigger the 'onSelect' handler of the tab we're in. This means we appropartiately
+  // trigger the 'onSelect' handler of the tab we're in. This means we appropriately
   // select the new layout when we create it.
-
   const handleCluster: Button.ButtonProps["onClick"] = (e) => {
     e.stopPropagation();
     placer(Cluster.connectWindowLayout);
-    dispatch(setNavdrawerVisible({ key: Cluster.Toolbar.key, value: true }));
   };
 
   const handleVisualize: Button.ButtonProps["onClick"] = (e) => {
     e.stopPropagation();
-    placer(Vis.create({}));
-    dispatch(setNavdrawerVisible({ key: Vis.Toolbar.key, value: true }));
+    placer(Vis.createLayoutSelector({}));
+    dispatch(setNavdrawerVisible({ windowKey, key: Vis.Toolbar.key, value: true }));
   };
 
   const handleDocs: Text.LinkProps["onClick"] = (e) => {
@@ -83,7 +86,7 @@ const NoCluster = (): ReactElement => {
 const Overview = (): ReactElement => {
   const p = usePlacer();
   const handleWorkspace: Button.ButtonProps["onClick"] = () => {
-    p(Workspace.createWindowLayout);
+    p(Workspace.createWindowLayout());
   };
 
   return (

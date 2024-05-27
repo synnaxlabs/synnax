@@ -39,16 +39,21 @@ export const Properties = ({ layoutKey }: PropertiesProps): ReactElement => {
 
   return (
     <Align.Space direction="x" style={{ padding: "2rem" }}>
-      <Input.Item<string> label="Title" grow>
-        <Input.Text value={name} onChange={handleTitleRename} />
+      <Input.Item label="Title" grow>
+        <Input.Text
+          value={name}
+          onChange={handleTitleRename}
+          selectOnFocus
+          resetOnBlurIfEmpty
+        />
       </Input.Item>
-      <Input.Item<boolean> label="Show Title">
+      <Input.Item label="Show Title">
         <Input.Switch
           value={plot.title.visible}
           onChange={handleTitleVisibilityChange}
         />
       </Input.Item>
-      <Input.Item<boolean> label="Show Legend">
+      <Input.Item label="Show Legend">
         <Input.Switch
           value={plot.legend.visible}
           onChange={handleLegendVisibilityChange}

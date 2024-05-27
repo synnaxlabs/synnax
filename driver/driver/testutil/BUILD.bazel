@@ -1,7 +1,0 @@
-cc_library(
-    name = "testutil",
-    srcs = ["testutil.cpp"],
-    hdrs = ["testutil.h"],
-    visibility = ["//visibility:public"],
-    deps = ["@synnax//synnax"],
-)

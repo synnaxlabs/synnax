@@ -18,43 +18,42 @@ import { useDispatch } from "react-redux";
 import { Cluster } from "@/cluster";
 import { Docs } from "@/docs";
 import { ErrorOverlay } from "@/error/Overlay";
-import { HardwareConfigure } from "@/hardware/configure";
-import { NewDevice } from "@/hardware/device/new";
-import { HardwareStatus } from "@/hardware/status";
-import { Label } from "@/label";
+import { OPC } from "@/hardware/opc";
 import { Layout } from "@/layout";
 import { LayoutMain } from "@/layouts/LayoutMain";
 import { LinePlot } from "@/lineplot";
 import { Ontology } from "@/ontology";
-import { PID } from "@/pid";
+import { Schematic } from "@/schematic";
 import { Range } from "@/range";
 import { SERVICES } from "@/services";
 import { store } from "@/store";
 import { Version } from "@/version";
 import { Vis } from "@/vis";
-import WorkerURL from "@/worker?worker&url";
 import { Workspace } from "@/workspace";
+import { NI } from "@/hardware/ni";
+
+import WorkerURL from "@/worker?worker&url";
+
+import { Channel } from "@/channel";
 
 import "@/index.css";
 import "@synnaxlabs/media/dist/style.css";
 import "@synnaxlabs/pluto/dist/style.css";
 
-const layoutRenderers = {
+const layoutRenderers: Record<string, Layout.Renderer> = {
   main: LayoutMain,
-  connectCluster: Cluster.Connect,
-  visualization: Vis.LayoutSelector,
-  defineRange: Range.EditLayout,
-  getStarted: Layout.GetStarted,
-  docs: Docs.Docs,
-  vis: Vis.LayoutSelector,
-  mosaic: Layout.Mosaic,
-  createWorkspace: Workspace.Create,
-  [Label.manageWindowLayout.type]: Label.Manage,
-  [LinePlot.LAYOUT_TYPE]: LinePlot.LinePlot,
-  [PID.LAYOUT_TYPE]: PID.PID,
-  [HardwareStatus.LAYOUT_TYPE]: HardwareStatus.Status,
-  [HardwareConfigure.LAYOUT_TYPE]: HardwareConfigure.Configure,
-  [NewDevice.LAYOUT_TYPE]: NewDevice.Configure,
+  ...Docs.LAYOUTS,
+  ...Layout.LAYOUTS,
+  ...Vis.LAYOUTS,
+  ...Workspace.LAYOUTS,
+  ...Schematic.LAYOUTS,
+  ...LinePlot.LAYOUTS,
+  ...OPC.LAYOUTS,
+  ...Range.LAYOUTS,
+  ...Cluster.LAYOUTS,
+  ...NI.LAYOUTS,
+  ...Channel.LAYOUTS,
+  ...Version.LAYOUTS,
 };
 
 const PREVENT_DEFAULT_TRIGGERS: Triggers.Trigger[] = [
@@ -69,30 +68,29 @@ const triggersProps: Triggers.ProviderProps = {
 
 const client = new QueryClient();
 
+const useHaulState: state.PureUse<Haul.DraggingState> = () => {
+  const hauled = Layout.useSelectHauling();
+  const dispatch = useDispatch();
+  const onHauledChange = useCallback(
+    (state: Haul.DraggingState) => dispatch(Layout.setHauled(state)),
+    [dispatch],
+  );
+  return [hauled, onHauledChange];
+};
+
 const MainUnderContext = (): ReactElement => {
   const theme = Layout.useThemeProvider();
-  Version.useLoadTauri();
   const cluster = Cluster.useSelect();
-
-  const useHaulState: state.PureUse<Haul.DraggingState> = () => {
-    const hauled = Layout.useSelectHauling();
-    const dispatch = useDispatch();
-    const onHauledChange = useCallback(
-      (state: Haul.DraggingState) => {
-        dispatch(Layout.setHauled(state));
-      },
-      [dispatch],
-    );
-    return [hauled, onHauledChange];
-  };
-
   const activeRange = Range.useSelect();
-
   return (
     <QueryClientProvider client={client}>
       <Pluto.Provider
-        {...theme}
-        channelAlias={{ activeRange: activeRange?.key }}
+        theming={theme}
+        channelAlias={{
+          // Set the alias active range to undefined if the range is not saved in Synnax,
+          // otherwise it will try to pull aliases from a range that doesn't exist.
+          activeRange: activeRange?.persisted ? activeRange?.key : undefined,
+        }}
         workerEnabled
         connParams={cluster?.props}
         workerURL={WorkerURL}
@@ -111,19 +109,17 @@ const MainUnderContext = (): ReactElement => {
   );
 };
 
-const Main = (): ReactElement | null => {
-  return (
+const Main = (): ReactElement => (
+  <Provider store={store}>
     <ErrorOverlay>
-      <Provider store={store}>
-        <Layout.RendererProvider value={layoutRenderers}>
-          <Ontology.ServicesProvider services={SERVICES}>
-            <MainUnderContext />
-          </Ontology.ServicesProvider>
-        </Layout.RendererProvider>
-      </Provider>
+      <Layout.RendererProvider value={layoutRenderers}>
+        <Ontology.ServicesProvider services={SERVICES}>
+          <MainUnderContext />
+        </Ontology.ServicesProvider>
+      </Layout.RendererProvider>
     </ErrorOverlay>
-  );
-};
+  </Provider>
+);
 
 const rootEl = document.getElementById("root") as unknown as HTMLElement;
 

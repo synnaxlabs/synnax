@@ -20,7 +20,6 @@ package writer
 
 import (
 	"context"
-	"github.com/cockroachdb/errors"
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
@@ -34,6 +33,7 @@ import (
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -65,6 +65,16 @@ type Config struct {
 	// WriterModePersistStream. See the ts.WriterMode documentation for more.
 	// [OPTIONAL]
 	Mode ts.WriterMode `json:"mode" msgpack:"mode"`
+	// EnableAutoCommit determines whether the writer will automatically commit after each write.
+	// If EnableAutoCommit is true, then the writer will commit after each write, and will
+	// flush that commit to index on FS after the specified AutoIndexPersistInterval.
+	// [OPTIONAL] - Defaults to false.
+	EnableAutoCommit *bool `json:"enable_auto_commit" msgpack:"enable_auto_commit"`
+	// AutoIndexPersistInterval is the interval at which commits to the index will be persisted.
+	// To persist every commit to guarantee minimal loss of data, set AutoIndexPersistInterval
+	// to AlwaysAutoPersist.
+	// [OPTIONAL] - Defaults to 1s.
+	AutoIndexPersistInterval telem.TimeSpan `json:"auto_index_persist_interval" msgpack:"auto_index_persist_interval"`
 }
 
 func (c Config) setKeyAuthorities(authorities []keyAuthority) Config {
@@ -97,8 +107,10 @@ func DefaultConfig() Config {
 		ControlSubject: control.Subject{
 			Key: uuid.New().String(),
 		},
-		Authorities: []control.Authority{control.Absolute},
-		Mode:        ts.WriterPersistStream,
+		Authorities:              []control.Authority{control.Absolute},
+		Mode:                     ts.WriterPersistStream,
+		EnableAutoCommit:         config.False(),
+		AutoIndexPersistInterval: 1 * telem.Second,
 	}
 }
 
@@ -115,11 +127,13 @@ func (c Config) keyAuthorities() []keyAuthority {
 
 func (c Config) toStorage() ts.WriterConfig {
 	return ts.WriterConfig{
-		ControlSubject: c.ControlSubject,
-		Channels:       c.Keys.Storage(),
-		Start:          c.Start,
-		Authorities:    c.Authorities,
-		Mode:           c.Mode,
+		ControlSubject:           c.ControlSubject,
+		Channels:                 c.Keys.Storage(),
+		Start:                    c.Start,
+		Authorities:              c.Authorities,
+		Mode:                     c.Mode,
+		EnableAutoCommit:         c.EnableAutoCommit,
+		AutoIndexPersistInterval: c.AutoIndexPersistInterval,
 	}
 }
 
@@ -127,8 +141,9 @@ func (c Config) toStorage() ts.WriterConfig {
 func (c Config) Validate() error {
 	v := validate.New("distribution.framer.writer")
 	validate.NotEmptySlice(v, "keys", c.Keys)
-	validate.NotEmptyString(v, "ControlSubject.Key", c.ControlSubject.Key)
+	validate.NotEmptyString(v, "ControlSubject.Task", c.ControlSubject.Key)
 	v.Ternaryf(
+		"authorities",
 		len(c.Authorities) != 1 && len(c.Authorities) != len(c.Keys),
 		"authorities must be a single authority or a slice of authorities with the same length as keys",
 	)
@@ -143,6 +158,8 @@ func (c Config) Override(other Config) Config {
 	c.Start = override.Zero(c.Start, other.Start)
 	c.Authorities = override.Slice(c.Authorities, other.Authorities)
 	c.Mode = override.Numeric(c.Mode, other.Mode)
+	c.EnableAutoCommit = override.Nil(c.EnableAutoCommit, other.EnableAutoCommit)
+	c.AutoIndexPersistInterval = override.Numeric(c.AutoIndexPersistInterval, other.AutoIndexPersistInterval)
 	return c
 }
 
@@ -272,7 +289,7 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 	plumber.SetSegment[Response, Response](
 		pipe,
 		synchronizerAddr,
-		newSynchronizer(len(cfg.Keys.UniqueNodeKeys()), v.signal),
+		newSynchronizer(len(cfg.Keys.UniqueLeaseholders()), v.signal),
 	)
 
 	switchTargets := make([]address.Address, 0, 3)

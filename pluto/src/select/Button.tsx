@@ -7,51 +7,52 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useCallback, type ReactElement, useState, useEffect, ReactNode } from "react";
+import {
+  useCallback,
+  type ReactElement,
+  useState,
+  useEffect,
+  type ReactNode,
+} from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import { Keyed, type Key } from "@synnaxlabs/x";
+import { type Keyed, type Key } from "@synnaxlabs/x";
 
 import { Align } from "@/align";
 import { Button as CoreButton } from "@/button";
 import { CSS } from "@/css";
 import { Dropdown } from "@/dropdown";
+import { type Input } from "@/input";
+import { type List as CoreList } from "@/list";
 import {
   type UseSelectProps,
   useSelect,
   type UseSelectOnChangeExtra,
 } from "@/list/useSelect";
-import { type Input } from "@/input";
-import { type List as CoreList } from "@/list";
 import { Core } from "@/select/List";
 import { componentRenderProp, type RenderProp } from "@/util/renderProp";
 
 import "@/select/Button.css";
 
-export interface ButtonOptionProps<
-  K extends Key = Key,
-  E extends Keyed<K> = Keyed<K>,
-> extends Pick<CoreButton.ButtonProps, "onClick"> {
+export interface ButtonOptionProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>>
+  extends Pick<CoreButton.ButtonProps, "onClick"> {
   key: K;
   selected: boolean;
   entry: E;
   title: E[keyof E];
 }
 
-export type ButtonProps<
-  K extends Key = Key,
-  E extends Keyed<K> = Keyed<K>,
-> = Omit<UseSelectProps<K, E>, "data"> &
+export type ButtonProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>> = Omit<
+  UseSelectProps<K, E>,
+  "data"
+> &
   Omit<Align.PackProps, "children" | "onChange"> & {
     data: E[];
     children?: RenderProp<ButtonOptionProps<K, E>>;
     entryRenderKey?: keyof E;
   };
 
-export const Button = <
-  K extends Key = Key,
-  E extends Keyed<K> = Keyed<K>,
->({
+export const Button = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   children = defaultSelectButtonOption,
   value,
   onChange,
@@ -86,10 +87,7 @@ export const Button = <
   );
 };
 
-const defaultSelectButtonOption = <
-  K extends Key = Key,
-  E extends Keyed<K> = Keyed<K>,
->({
+const defaultSelectButtonOption = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   onClick,
   selected,
   title,
@@ -99,29 +97,26 @@ const defaultSelectButtonOption = <
   </CoreButton.Button>
 );
 
-export interface DropdownButtonButtonProps<
-  K extends Key,
-  E extends Keyed<K>,
-> extends CoreButton.ButtonProps {
+export interface DropdownButtonButtonProps<K extends Key, E extends Keyed<K>>
+  extends CoreButton.ButtonProps {
   selected: E | null;
   renderKey: keyof E;
   toggle: () => void;
   visible: boolean;
 }
 
-export interface DropdownButtonProps<
-  K extends Key,
-  E extends Keyed<K>,
-> extends Omit<Dropdown.DialogProps, "onChange" | "visible" | "children" | "close">,
+export interface DropdownButtonProps<K extends Key, E extends Keyed<K>>
+  extends Omit<Dropdown.DialogProps, "onChange" | "visible" | "children" | "close">,
     Input.Control<K>,
     Omit<CoreList.ListProps<K, E>, "children">,
     Pick<CoreButton.ButtonProps, "disabled"> {
   columns?: Array<CoreList.ColumnSpec<K, E>>;
   children?: RenderProp<DropdownButtonButtonProps<K, E>>;
-  tagKey?: keyof E;
+  entryRenderKey?: keyof E;
   allowNone?: boolean;
   hideColumnHeader?: boolean;
   disabled?: boolean;
+  omit?: K[];
 }
 
 export const BaseButton = ({
@@ -136,7 +131,7 @@ export const BaseButton = ({
     className={CSS.B("select-button")}
     onClick={toggle}
     variant="outlined"
-    endIcon={<Icon.Caret.Up className={CSS.BE("select-button", "indicator")} />}
+    endIcon={<Icon.Caret.Left className={CSS.BE("select-button", "indicator")} />}
     {...props}
   >
     {children ?? selected?.[renderKey]}
@@ -146,19 +141,17 @@ export const BaseButton = ({
 export const defaultButton: RenderProp<DropdownButtonButtonProps<any, any>> =
   componentRenderProp(BaseButton);
 
-export const DropdownButton = <
-  K extends Key = Key,
-  E extends Keyed<K> = Keyed<K>,
->({
+export const DropdownButton = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   data,
   value,
   columns = [],
   children = defaultButton,
-  tagKey = "key",
+  entryRenderKey = "key",
   allowNone = false,
   onChange,
   disabled,
   hideColumnHeader = true,
+  ...props
 }: DropdownButtonProps<K, E>): ReactElement => {
   const { close, visible, toggle } = Dropdown.use();
   const [selected, setSelected] = useState<E | null>(
@@ -184,8 +177,8 @@ export const DropdownButton = <
 
   return (
     <Core<K, E>
+      {...props}
       close={close}
-      matchTriggerWidth
       data={data}
       visible={visible}
       value={[value]}
@@ -197,7 +190,7 @@ export const DropdownButton = <
     >
       {children({
         selected,
-        renderKey: tagKey,
+        renderKey: entryRenderKey,
         toggle,
         visible,
         disabled,

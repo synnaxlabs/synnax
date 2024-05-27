@@ -11,12 +11,10 @@ package domain
 
 import (
 	"context"
-	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errutil"
+	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
-	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -64,8 +62,9 @@ type Config struct {
 	// exclusive access, and it should be empty when the DB is first opened.
 	// [REQUIRED]
 	FS xfs.FS
-	// FileSize is the maximum size of a data file in bytes. When a data file reaches this
-	// size, a new file will be created.
+	// FileSize is the maximum size, in bytes, for a writer to be created on a file.
+	// Note while that a file's size may still exceed this value, it is not likely
+	// to exceed by much with frequent commits.
 	// [OPTIONAL] Default: 1GB
 	FileSize telem.Size
 	// MaxDescriptors is the maximum number of file descriptors that the DB will use. A
@@ -109,15 +108,17 @@ func Open(configs ...Config) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	idx := &index{Observer: observe.New[indexUpdate]()}
-	idxPst, err := openIndexPersist(idx, cfg)
+	idx := &index{}
+	idxPst, err := openIndexPersist(idx, cfg.FS)
 	if err != nil {
 		return nil, err
 	}
+	idx.indexPersist = idxPst
 	idx.mu.pointers, err = idxPst.load()
 	if err != nil {
 		return nil, err
 	}
+	idx.mu.tombstones = make(map[uint16][]pointer)
 	controller, err := openFileController(cfg)
 	if err != nil {
 		return nil, err
@@ -138,14 +139,6 @@ func (db *DB) NewIterator(cfg IteratorConfig) *Iterator {
 	return i
 }
 
-// Close closes the DB. Close should not be called concurrently with any other DB methods.
-func (db *DB) Close() error {
-	w := errutil.NewCatch(errutil.WithAggregation())
-	w.Exec(db.idx.close)
-	w.Exec(db.files.close)
-	return w.Error()
-}
-
 func (db *DB) newReader(ctx context.Context, ptr pointer) (*Reader, error) {
 	internal, err := db.files.acquireReader(ctx, ptr.fileKey)
 	if err != nil {
@@ -153,4 +146,25 @@ func (db *DB) newReader(ctx context.Context, ptr pointer) (*Reader, error) {
 	}
 	reader := io.NewSectionReader(internal, int64(ptr.offset), int64(ptr.length))
 	return &Reader{ptr: ptr, ReaderAt: reader}, nil
+}
+
+func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) {
+	i := db.NewIterator(IteratorConfig{Bounds: telem.TimeRangeMax})
+
+	if i.SeekGE(ctx, tr.Start) && i.TimeRange().OverlapsWith(tr) {
+		return true, i.Close()
+	}
+	if i.SeekLE(ctx, tr.End) && i.TimeRange().OverlapsWith(tr) {
+		return true, i.Close()
+	}
+
+	return false, i.Close()
+}
+
+// Close closes the DB. Close should not be called concurrently with any other DB methods.
+func (db *DB) Close() error {
+	w := errors.NewCatcher(errors.WithAggregation())
+	w.Exec(db.idx.close)
+	w.Exec(db.files.close)
+	return w.Error()
 }

@@ -13,6 +13,7 @@ import {
   setWindowMaximized,
   setWindowMinimized,
   setWindowFullscreen,
+  setWindowVisible,
 } from "@synnaxlabs/drift";
 import { useSelectWindow } from "@synnaxlabs/drift/react";
 import { OS } from "@synnaxlabs/pluto";
@@ -23,28 +24,40 @@ import { Layout } from "@/layout";
 export interface ControlsProps extends OS.ControlsProps {}
 
 export const Controls = (props: ControlsProps): ReactElement | null => {
+  const os = OS.use();
   const window = useSelectWindow();
   const dispatch = useDispatch();
   const remove = Layout.useRemover(window?.key ?? "");
   if (window == null) return null;
   const maximizedDisabled = window.resizable === false;
   const disabled: OS.ControlsAction[] = [];
-  if (maximizedDisabled) disabled.push("maximize");
+  if (window.focus === false && os === "MacOS")
+    disabled.push("close", "minimize", "maximize");
+  else if (maximizedDisabled) disabled.push("maximize");
+
   const handleMinimize = (): void => {
     dispatch(setWindowMinimized({ value: true }));
   };
+
   const handleMaximize = (): void => {
     dispatch(setWindowMaximized({}));
   };
+
   const handleFullscreen = (): void => {
     dispatch(setWindowFullscreen({}));
   };
+
+  const handleClose = (): void => {
+    remove();
+  };
+
   if (window.fullscreen === true) return null;
+
   return (
     <OS.Controls
       disabled={disabled}
       focused={window.focus}
-      onClose={remove}
+      onClose={handleClose}
       onMinimize={handleMinimize}
       onMaximize={handleMaximize}
       onFullscreen={handleFullscreen}

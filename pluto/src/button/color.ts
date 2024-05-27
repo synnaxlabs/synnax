@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Variant } from "@/button/Button";
-import { type Color } from "@/color";
+import { Color } from "@/color";
 import { type Text } from "@/text";
 
 export const color = (
@@ -16,10 +16,10 @@ export const color = (
   disabled?: boolean,
   color?: Color.Crude,
   shade?: Text.Shade,
-): Color.Crude | undefined => {
+): string | undefined => {
   if (disabled === true) return "var(--pluto-gray-l5)";
-  if (color != null) return color;
-  if (variant === "filled") return "var(--pluto-white)";
+  if (color != null) return Color.cssString(color);
+  if (variant === "filled") return "var(--pluto-text-on-primary)";
   if (shade != null) return undefined;
   return "var(--pluto-text-color)";
 };

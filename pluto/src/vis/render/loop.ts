@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { TimeSpan } from "@synnaxlabs/x";
 import { Mutex } from "async-mutex";
 
 import { type CanvasVariant } from "@/vis/render/context";
@@ -64,10 +65,10 @@ const PRIORITY_ORDER: Record<Priority, number> = { high: 1, low: 0 };
  * Implements the core rendering loop for Synnax's aether components, accepting requests
  * into a queue and rendering them in sync with the browser animation frame.
  *
- * --------------------------------- VERY IMPORTANT NOTE -------------------------------
+ * --------------------------------- VERY IMPORTANT ------------------------------
  *
- * This loop intentially permits race conditions on teh requests map access. We tried
- * lockign this with an async mutex, but this resulted in a significant performance
+ * This loop intentionally permits race conditions on the requests map access. We tried
+ * locking this with an async mutex, but this resulted in a significant performance
  * hit for high-speed rendering for live telemetry. We've decided
  *
  */
@@ -77,9 +78,11 @@ export class Loop {
   private readonly requests = new Map<string, Request>();
   /** Stores render cleanup functions for clearing canvases and other resources. */
   private readonly cleanup = new Map<string, Cleanup>();
+  private readonly afterRender?: () => void;
 
-  constructor() {
+  constructor(afterRender?: () => void) {
     void this.start();
+    this.afterRender = afterRender;
   }
 
   /**
@@ -112,6 +115,7 @@ export class Loop {
   /** Execute the render. */
   private async render(): Promise<void> {
     await this.mutex.runExclusive(async () => {
+      const start = performance.now();
       if (this.requests.size === 0) return;
       const { requests: queue, cleanup } = this;
       for (const [k, f] of cleanup.entries()) {
@@ -133,7 +137,15 @@ export class Loop {
           console.error(e);
         }
       }
+      const end = performance.now();
+      const span = TimeSpan.milliseconds(end - start);
+      if (span.greaterThan(TimeSpan.milliseconds(25))) {
+        console.warn(
+          `Render loop for ${this.requests.size} took longer than 16ms to execute: ${span.milliseconds}`,
+        );
+      }
       this.requests.clear();
+      this.afterRender?.();
     });
   }
 

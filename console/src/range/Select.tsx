@@ -14,7 +14,7 @@ import { Input } from "@synnaxlabs/pluto/input";
 
 import { Layout } from "@/layout";
 import { listColumns } from "@/range/accordionEntry";
-import { editLayout } from "@/range/EditLayout";
+import { createEditLayout } from "@/range/EditLayout";
 import { type Range } from "@/range/range";
 
 export interface SelectMultipleRangesProps
@@ -22,17 +22,19 @@ export interface SelectMultipleRangesProps
 
 export const SelectMultipleRanges = (
   props: SelectMultipleRangesProps,
-): ReactElement => <Select.Multiple columns={listColumns} tagKey="name" {...props} />;
+): ReactElement => (
+  <Select.Multiple columns={listColumns} entryRenderKey="name" {...props} />
+);
 
 export interface SelectSingleRangeProps
   extends Omit<Select.SingleProps<string, Range>, "columns"> {}
 
 export const SelectRange = (props: SelectSingleRangeProps): ReactElement => (
-  <Select.Single columns={listColumns} {...props} tagKey="name" />
+  <Select.Single columns={listColumns} {...props} entryRenderKey="name" />
 );
 
 export interface SelectMultipleInputItemProps
-  extends Omit<Input.ItemProps, "label">,
+  extends Omit<Input.ItemProps, "label" | "onChange">,
     Pick<SelectMultipleRangesProps, "data"> {
   value: string[];
   onChange: (value: string[]) => void;
@@ -48,7 +50,7 @@ const SelectEmptyContent = (): ReactElement => {
       <Button.Button
         variant="outlined"
         onClick={() => {
-          newLayout(editLayout);
+          newLayout(createEditLayout());
         }}
       >
         Define a Range
@@ -74,7 +76,7 @@ export const SelectMultipleInputItem = ({
 );
 
 export interface SelectInputItemProps
-  extends Omit<Input.ItemProps, "label">,
+  extends Omit<Input.ItemProps, "label" | "onChange">,
     Input.Control<string>,
     Pick<SelectSingleRangeProps, "data"> {}
 

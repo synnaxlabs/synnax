@@ -15,7 +15,7 @@ import { Nav, componentRenderProp, Status, Form } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 import { Button } from "@synnaxlabs/pluto/button";
 import { Input } from "@synnaxlabs/pluto/input";
-import { Case } from "@synnaxlabs/x";
+import { caseconv } from "@synnaxlabs/x";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
 
@@ -28,7 +28,7 @@ import { type Layout } from "@/layout";
 
 import "@/cluster/Connect.css";
 
-export const connectWindowLayout: Layout.LayoutState = {
+export const connectWindowLayout: Layout.State = {
   key: "connectCluster",
   windowKey: "connectCluster",
   type: "connectCluster",
@@ -38,7 +38,6 @@ export const connectWindowLayout: Layout.LayoutState = {
     resizable: false,
     size: { height: 430, width: 650 },
     navTop: true,
-    transparent: true,
   },
 };
 
@@ -63,7 +62,9 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
 
   const handleSubmit = (): void => {
     void (async () => {
-      if (!methods.validate()) return;
+      if (!methods.validate()) {
+        return;
+      }
       const data = methods.value();
       setConnState(null);
       setLoading("submit");
@@ -96,7 +97,9 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
 
   const handleTestConnection = (): void => {
     void (async (): Promise<void> => {
-      if (!methods.validate()) return;
+      if (!methods.validate()) {
+        return;
+      }
       setConnState(null);
       setLoading("test");
       const state = await testConnection(methods.value() as SynnaxProps);
@@ -116,7 +119,7 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
             <Form.Field<string> path="host" grow>
               {(p) => <Input.Text placeholder="localhost" {...p} />}
             </Form.Field>
-            <Form.Field<number> path="port" className={CSS.BE("input", "port")}>
+            <Form.Field<string> path="port" className={CSS.BE("input", "port")}>
               {(p) => <Input.Text placeholder="9090" {...p} />}
             </Form.Field>
           </Align.Space>
@@ -138,8 +141,8 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
           {connState != null && (
             <Status.Text variant={statusVariants[connState.status]}>
               {connState.status === "connected"
-                ? Case.capitalize(connState.status)
-                : connState.message!}
+                ? caseconv.capitalize(connState.status)
+                : connState.message}
             </Status.Text>
           )}
         </Nav.Bar.Start>

@@ -4,7 +4,7 @@
 **Start Date**: 2023-10-01 <br />
 **Authors**: Wynn Kaza <br />
 **Status**: Started <br />
-**Deadline**: First: 10/20/2023 : Minimum Example in C++,Typescript
+**Deadline**: First: 10/20/2023 : Minimum Example in C++,TypeScript
 
 # 0 - Summary
 

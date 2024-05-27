@@ -10,47 +10,61 @@
 import { type ReactElement, useCallback } from "react";
 
 import { type channel } from "@synnaxlabs/client";
-import { Channel } from "@synnaxlabs/pluto";
+import { Channel, Select } from "@synnaxlabs/pluto";
 import { Input } from "@synnaxlabs/pluto/input";
 
 import { type AxisKey, axisLabel } from "@/vis/axis";
 
-export interface SelectMultipleAxesInputItemProps extends Input.ItemProps {
+export interface SelectMultipleAxesInputItemProps
+  extends Omit<Input.ItemProps, "onChange"> {
   axis: AxisKey;
   onChange: (key: AxisKey, v: channel.Key[]) => void;
   value: channel.Key[];
+  select?: Channel.SelectMultipleProps;
 }
+
+const SEARCH_OPTIONS: channel.RetrieveOptions = {
+  notDataTypes: ["string", "json", "uuid"],
+  internal: false,
+};
 
 export const SelectMultipleAxesInputItem = ({
   axis,
   onChange,
   value,
+  select,
   ...props
 }: SelectMultipleAxesInputItemProps): ReactElement => (
   <Input.Item direction="x" label={axisLabel(axis)} {...props}>
     <Channel.SelectMultiple
       value={value}
-      onChange={useCallback((v) => onChange(axis, v), [onChange, axis])}
+      searchOptions={SEARCH_OPTIONS}
+      onChange={useCallback((v: channel.Key[]) => onChange(axis, v), [onChange, axis])}
+      {...select}
     />
   </Input.Item>
 );
 
-export interface SelectAxisInputItemProps extends Input.ItemProps {
+export interface SelectAxisInputItemProps extends Omit<Input.ItemProps, "onChange"> {
   axis: AxisKey;
   onChange: (key: AxisKey, v: channel.Key) => void;
   value: channel.Key;
+  select?: Channel.SelectSingleProps;
 }
 
 export const SelectAxisInputItem = ({
   axis,
   onChange,
   value,
+  select,
   ...props
 }: SelectAxisInputItemProps): ReactElement => (
   <Input.Item direction="x" label={axisLabel(axis)} {...props}>
     <Channel.SelectSingle
-      onChange={useCallback((v) => onChange(axis, v), [axis, onChange])}
+      onChange={useCallback((v: channel.Key) => onChange(axis, v), [axis, onChange])}
       value={value}
+      searchOptions={SEARCH_OPTIONS}
+      {...select}
     />
   </Input.Item>
 );

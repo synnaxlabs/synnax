@@ -19,6 +19,7 @@
         }
         & text {
             font-size: 252px;
+            font-weight: unset;
             fill: var(--text-color);
             font-family: Roboto-Regular, Roboto, sans-serif;
         }

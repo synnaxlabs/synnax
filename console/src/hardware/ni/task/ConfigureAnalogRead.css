@@ -1,0 +1,31 @@
+.console-ni-analog-read-task {
+    .console-content {
+        padding: 5rem;
+
+        .console-channel-form-container {
+            height: 0px;
+            overflow: hidden;
+            .console-channels {
+                border-right: var(--pluto-border);
+                overflow: hidden;
+                max-width: 500px;
+                width: 100%;
+                .pluto-menu-context__container {
+                    overflow: hidden;
+                }
+            }
+
+            .console-channel-form {
+                overflow: hidden;
+                .console-details {
+                    overflow: hidden;
+                    .console-channel-form-content {
+                        height: 100%;
+                        overflow: auto;
+                        padding: 3rem 5rem;
+                    }
+                }
+            }
+        }
+    }
+}

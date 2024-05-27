@@ -28,70 +28,6 @@ const grayScaleZ = z.object({
 
 type GrayScale = z.input<typeof grayScaleZ>;
 
-export const themeZ = z.object({
-  name: z.string(),
-  key: z.string(),
-  colors: z.object({
-    border: color.Color.z,
-    primary: z.object({
-      m2: color.Color.z,
-      m1: color.Color.z,
-      z: color.Color.z,
-      p1: color.Color.z,
-      p2: color.Color.z,
-    }),
-    gray: grayScaleZ,
-    error: z.object({
-      m2: color.Color.z,
-      m1: color.Color.z,
-      z: color.Color.z,
-      p1: color.Color.z,
-      p2: color.Color.z,
-    }),
-    secondary: z.object({
-      m2: color.Color.z,
-      m1: color.Color.z,
-      z: color.Color.z,
-      p1: color.Color.z,
-      p2: color.Color.z,
-    }),
-    visualization: z.object({
-      palettes: z.record(z.array(color.Color.z)),
-    }),
-    white: color.Color.z,
-    black: color.Color.z,
-    text: color.Color.z,
-    textContrast: color.Color.z,
-    logo: z.string(),
-  }),
-  sizes: z.object({
-    base: z.number(),
-    border: z.object({
-      radius: z.number(),
-      width: z.number(),
-    }),
-    pid: z.object({
-      elementStrokeWidth: z.number(),
-    }),
-  }),
-  typography: z.object({
-    family: z.string(),
-    h1: text.specZ,
-    h2: text.specZ,
-    h3: text.specZ,
-    h4: text.specZ,
-    h5: text.specZ,
-    p: text.specZ,
-    small: text.specZ,
-  }),
-});
-
-export type ThemeSpec = z.input<typeof themeZ>;
-export type Theme = z.output<typeof themeZ>;
-
-const fontFamily = "'Inter Variable', sans-serif";
-const baseSize: number = 6;
-
 const setLightness = (color: color.HSLA, lightness: number): color.HSLA => [
   color[0],
   color[1],
@@ -99,9 +35,94 @@ const setLightness = (color: color.HSLA, lightness: number): color.HSLA => [
   color[3],
 ];
 
+const strictScaleZ = z.object({
+  m2: color.Color.z,
+  m1: color.Color.z,
+  z: color.Color.z,
+  p1: color.Color.z,
+  p2: color.Color.z,
+});
+
+const scaleZ = strictScaleZ.or(
+  color.Color.z.transform((c) => {
+    const hsla = c.hsla;
+    return {
+      m2: new color.Color(color.fromHSLA(setLightness(hsla, 40))),
+      m1: new color.Color(color.fromHSLA(setLightness(hsla, 45))),
+      z: c,
+      p1: new color.Color(color.fromHSLA(setLightness(hsla, 55))),
+      p2: new color.Color(color.fromHSLA(setLightness(hsla, 65))),
+    } as const as z.output<typeof strictScaleZ>;
+  }),
+);
+
+export const themeZ = z
+  .object({
+    name: z.string(),
+    key: z.string(),
+    colors: z.object({
+      border: color.Color.z,
+      primary: scaleZ,
+      gray: grayScaleZ,
+      error: scaleZ,
+      secondary: scaleZ,
+      warning: scaleZ,
+      visualization: z
+        .object({
+          palettes: z.record(z.array(color.Color.z)),
+        })
+        .optional()
+        .default({ palettes: {} }),
+      white: color.Color.z,
+      black: color.Color.z,
+      text: color.Color.z,
+      textInverted: color.Color.z,
+      textOnPrimary: color.Color.z.optional().default(color.ZERO),
+      logo: z.string(),
+    }),
+    sizes: z.object({
+      base: z.number(),
+      border: z.object({
+        radius: z.number(),
+        width: z.number(),
+      }),
+      schematic: z.object({
+        elementStrokeWidth: z.number(),
+      }),
+    }),
+    typography: z.object({
+      family: z.string(),
+      h1: text.specZ,
+      h2: text.specZ,
+      h3: text.specZ,
+      h4: text.specZ,
+      h5: text.specZ,
+      p: text.specZ,
+      small: text.specZ,
+    }),
+  })
+  .transform((theme) => {
+    if (theme.colors.textOnPrimary == null || theme.colors.textOnPrimary.isZero)
+      theme.colors.textOnPrimary = theme.colors.primary.z.pickByContrast(
+        theme.colors.text,
+        theme.colors.textInverted,
+      );
+    return theme;
+  });
+
+export type ThemeSpec = z.input<typeof themeZ>;
+export type Theme = z.output<typeof themeZ>;
+
+const fontFamily = "'Inter Variable', sans-serif";
+const baseSize: number = 6;
+
 // Error
 
 const ERROR_HSLA: color.HSLA = [357, 91, 55, 1];
+
+// Warning
+
+const WARNING_HSLA: color.HSLA = [42, 100, 50, 1];
 
 // Grayscale
 
@@ -123,8 +144,8 @@ const lightGrayScale: GrayScale = Object.fromEntries(
   LIGHT_SCALE.map((color, index) => [`l${index}`, color]),
 ) as GrayScale;
 
-const synnaxBase: ThemeSpec = {
-  key: "synnax-base",
+const SYNNAX_BASE: ThemeSpec = {
+  key: "synnaxBase",
   name: "Synnax Base",
   colors: {
     primary: {
@@ -150,6 +171,13 @@ const synnaxBase: ThemeSpec = {
       p1: color.fromHSLA(setLightness(ERROR_HSLA, 60)),
       p2: color.fromHSLA(setLightness(ERROR_HSLA, 70)),
     },
+    warning: {
+      m2: color.fromHSLA(setLightness(WARNING_HSLA, 30)),
+      m1: color.fromHSLA(setLightness(WARNING_HSLA, 40)),
+      z: color.fromHSLA(WARNING_HSLA),
+      p1: color.fromHSLA(setLightness(WARNING_HSLA, 60)),
+      p2: color.fromHSLA(setLightness(WARNING_HSLA, 70)),
+    },
     visualization: {
       palettes: {
         default: [
@@ -174,7 +202,7 @@ const synnaxBase: ThemeSpec = {
     white: "#FFFFFF",
     black: "#000000",
     text: lightGrayScale.l9,
-    textContrast: lightGrayScale.l0,
+    textInverted: lightGrayScale.l0,
   },
   sizes: {
     base: baseSize,
@@ -182,26 +210,26 @@ const synnaxBase: ThemeSpec = {
       radius: 2,
       width: 1,
     },
-    pid: {
+    schematic: {
       elementStrokeWidth: 2,
     },
   },
   typography: {
     family: fontFamily,
     h1: {
-      size: 5,
+      size: 7,
       weight: "500",
-      lineHeight: 5 * 1.5,
+      lineHeight: 7 * 1.5,
     },
     h2: {
-      size: 4,
+      size: 4.5,
       weight: "medium",
-      lineHeight: 4 * 1.5,
+      lineHeight: 4.5 * 1.5,
     },
     h3: {
-      size: 3,
+      size: 3.5,
       weight: "medium",
-      lineHeight: 3 * 1.5,
+      lineHeight: 3.5 * 1.5,
     },
     h4: {
       size: 2.5,
@@ -226,11 +254,11 @@ const synnaxBase: ThemeSpec = {
   },
 };
 
-export const synnaxLight: ThemeSpec = {
-  ...synnaxBase,
-  key: "synnax-light",
+export const SYNNAX_LIGHT: ThemeSpec = Object.freeze({
+  ...SYNNAX_BASE,
+  key: "synnaxLight",
   name: "Synnax Light",
-};
+});
 
 const DARK_SCALE = [
   "#020202",
@@ -246,22 +274,22 @@ const DARK_SCALE = [
   "#FDFDFD",
 ];
 
-const darkGrayScale: GrayScale = Object.fromEntries(
+const DARK_GRAY_SCALE: GrayScale = Object.fromEntries(
   DARK_SCALE.map((color, index) => [`l${index}`, color]),
 ) as GrayScale;
 
-export const synnaxDark: ThemeSpec = {
-  ...synnaxBase,
-  key: "synnax-dark",
+export const SYNNAX_DARK: ThemeSpec = Object.freeze({
+  ...SYNNAX_BASE,
+  key: "synnaxDark",
   name: "Synnax Dark",
   colors: {
-    ...synnaxBase.colors,
-    gray: darkGrayScale,
+    ...SYNNAX_BASE.colors,
+    gray: DARK_GRAY_SCALE,
     logo: "var(--pluto-text-color)",
-    border: darkGrayScale.l3,
-    text: darkGrayScale.l9,
-    textContrast: darkGrayScale.l0,
+    border: DARK_GRAY_SCALE.l3,
+    text: DARK_GRAY_SCALE.l9,
+    textInverted: DARK_GRAY_SCALE.l0,
   },
-};
+});
 
-export const themes = { synnaxDark, synnaxLight };
+export const SYNNAX_THEMES = { synnaxDark: SYNNAX_DARK, synnaxLight: SYNNAX_LIGHT };

@@ -7,17 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  Series,
-  nativeTypedArray,
-  Rate,
-  DataType,
-  TimeRange,
-  bounds,
-} from "@synnaxlabs/x";
+import { Series, typedArrayZ, Rate, DataType, TimeRange, bounds } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type Factory } from "./factory";
+import { type Factory } from "@/telem/aether/factory";
 import {
   AbstractSource,
   type SeriesSourceSpec,
@@ -27,7 +20,7 @@ import {
   type Telem,
   type StringSourceSpec,
   type NumberSourceSpec,
-} from "./telem";
+} from "@/telem/aether/telem";
 
 export class StaticFactory implements Factory {
   type = "static";
@@ -48,7 +41,7 @@ export class StaticFactory implements Factory {
 }
 
 export const fixedSeriesPropsZ = z.object({
-  data: z.array(nativeTypedArray),
+  data: z.array(typedArrayZ),
   offsets: z.array(z.number()).optional().default([]),
 });
 
@@ -56,6 +49,7 @@ export type FixedArrayProps = z.input<typeof fixedSeriesPropsZ>;
 
 class FixedSeries extends AbstractSource<typeof fixedSeriesPropsZ> {
   data: Series[];
+  schema = fixedSeriesPropsZ;
 
   static readonly TYPE = "static-series";
 

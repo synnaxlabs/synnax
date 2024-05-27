@@ -121,10 +121,15 @@ export const MacOS = ({
 
 interface TrafficLightProps extends Button.IconProps {}
 
-const TrafficLight = ({ className, ...props }: TrafficLightProps): ReactElement => (
+const TrafficLight = ({
+  className,
+  disabled,
+  ...props
+}: TrafficLightProps): ReactElement => (
   <button
-    className={CSS(CSS.B("macos-control"), className)}
+    className={CSS(CSS.B("macos-control"), CSS.disabled(disabled), className)}
     tabIndex={-1}
+    disabled={disabled}
     size={"" as ComponentSize}
     {...props}
   />

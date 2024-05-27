@@ -17,7 +17,7 @@ import {
   type ForwardedRef,
 } from "react";
 
-import { box, xy, dimensions, location, scale, deep } from "@synnaxlabs/x";
+import { box, xy, dimensions, location, scale } from "@synnaxlabs/x";
 
 import { useStateRef } from "@/hooks/ref";
 import { useMemoCompare } from "@/memo";
@@ -55,7 +55,13 @@ export interface UseReturn {
   ref: React.MutableRefObject<HTMLDivElement | null>;
 }
 
-const TRUNC_PRECISION = 4;
+// We truncate the viewport box at this precision to simplify diffing logs, reduce
+// unnecessary re-renders, and prevent floating point errors.
+const TRUNC_PRECISION = 6;
+// The threshold for the cursor to move before we trigger a pan calculation to update
+// the viewport. This prevents unnecessary re-renders, although increasing this value
+// also decreases the smoothness of the pan.
+const CURSOR_TRANSLATION_THRESHOLD = 2; // px
 
 type StringLiteral<T> = T extends string ? (string extends T ? never : T) : never;
 
@@ -130,10 +136,16 @@ export const use = ({
   const [maskBox, setMaskBox] = useState<box.Box>(box.ZERO);
   const [maskMode, setMaskMode] = useState<Mode>(defaultMode);
   const [stateRef, setStateRef] = useStateRef<box.Box>(initial);
+  // We store the START of the previous pan in statRef, which means
+  // that even if the viewport didn't change significantly, our equality
+  // comparison will still trigger a re-render. So we track the previous
+  // pan update in this ref here, that stores the result of the previous
+  // pan update.
+  const prevCursorRef = useRef<xy.XY>(xy.ZERO);
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const threshold = dimensions.construct(threshold_);
 
-  useEffect(() => setStateRef(() => box.truncate(initial, 3)), [initial]);
+  useEffect(() => setStateRef(() => box.truncate(initial, TRUNC_PRECISION)), [initial]);
   useEffect(() => setMaskMode(defaultMode), [defaultMode]);
 
   const [triggerConfig, reducedTriggerConfig, purgedTriggers, reducedPurgedTriggers] =
@@ -179,7 +191,7 @@ export const use = ({
         return setStateRef((prev) => {
           if (mode === "pan") {
             const next = handlePan(box_, prev, canvas);
-            if (next === null) return prev;
+            if (next === null || box.equals(next, prev)) return prev;
             onChange?.({ box: next, mode, stage, cursor });
             return next;
           }
@@ -205,15 +217,12 @@ export const use = ({
         );
       }
 
-      setMaskBox((prev) => (!box.isZero(prev) ? box.ZERO : prev));
+      setMaskBox((prev) => (!box.areaIsZero(prev) ? box.ZERO : prev));
+      if (xy.distance(cursor, prevCursorRef.current) < CURSOR_TRANSLATION_THRESHOLD)
+        return;
+      prevCursorRef.current = cursor;
       const next = handlePan(box_, stateRef.current, canvas);
-      if (box.equals(next, stateRef.current)) return;
-      onChange?.({
-        box: next,
-        mode,
-        stage,
-        cursor,
-      });
+      onChange?.({ box: next, mode, stage, cursor });
     },
     [
       setMaskBox,
@@ -252,6 +261,41 @@ export const use = ({
       ),
     [threshold_],
   );
+
+  const verticalTrigger = Triggers.useHeldRef({ triggers: [["Control"]] });
+  const horizontalTrigger = Triggers.useHeldRef({ triggers: [["Alt"]] });
+
+  useEffect(() => {
+    const handler = (e: WheelEvent): void => {
+      if (canvasRef.current == null) return;
+      let sf = 1;
+      if (e.deltaY < 0) sf -= 0.035;
+      else sf += 0.035;
+      const canvasBox = box.construct(canvasRef.current);
+      const rawCursor = xy.construct(e);
+      if (!box.contains(canvasBox, rawCursor) || e.target !== canvasRef.current) return;
+      const s2 = constructScale(stateRef.current, box.construct(canvasRef.current));
+      const cursor = s2.pos(xy.construct(e));
+      const s = scale.XY.magnify({
+        x: verticalTrigger.current.held ? 1 : sf,
+        y: horizontalTrigger.current.held ? 1 : sf,
+      });
+      let next = s.box(stateRef.current);
+      next = box.translate(next, {
+        x: verticalTrigger.current.held ? 0 : cursor.x * (1 - sf),
+        y: horizontalTrigger.current.held ? 0 : cursor.y * (1 - sf),
+      });
+      setStateRef(next);
+      onChange?.({
+        stage: "end",
+        box: next,
+        cursor: xy.construct(e),
+        mode: "zoom",
+      });
+    };
+    window.addEventListener("wheel", handler);
+    return () => window.removeEventListener("wheel", handler);
+  }, [setStateRef, onChange]);
 
   Triggers.useDrag({
     bound: canvasRef,

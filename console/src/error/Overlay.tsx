@@ -7,7 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useEffect, type PropsWithChildren, type ReactElement } from "react";
+import {
+  useCallback,
+  useEffect,
+  type PropsWithChildren,
+  type ReactElement,
+} from "react";
 
 import { Logo } from "@synnaxlabs/media";
 import {
@@ -21,18 +26,19 @@ import {
 } from "@synnaxlabs/pluto";
 import { CSS as PCSS } from "@synnaxlabs/pluto/css";
 import { Theming } from "@synnaxlabs/pluto/theming";
-import { appWindow } from "@tauri-apps/api/window";
 import { ErrorBoundary, type ErrorBoundaryProps } from "react-error-boundary";
+import { useDispatch } from "react-redux";
 
-import { Controls } from "@/components";
 import { CSS } from "@/css";
 import { NAV_SIZES } from "@/layouts/LayoutMain";
+import { CLEAR_STATE, REVERT_STATE } from "@/persist/state";
+import { getCurrent } from "@tauri-apps/api/window";
 
 import "@/error/Overlay.css";
 
 export interface ErrorOverlayProps extends PropsWithChildren<{}> {}
 
-const messageTranslation = {
+const messageTranslation: Record<string, string> = {
   "[persist] - windows open":
     "It seems like you have Synnax open from multiple windows. Please close all other windows and reopen Synnax.",
 };
@@ -41,13 +47,13 @@ const FallbackRender: ErrorBoundaryProps["fallbackRender"] = ({
   error,
   resetErrorBoundary,
 }) => {
+  const d = useDispatch();
+
   useEffect(() => {
     // grab the prefers-color-scheme media query
     try {
       const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-      const theme = mediaQuery.matches
-        ? Theming.themes.synnaxDark
-        : Theming.themes.synnaxLight;
+      const theme = mediaQuery.matches ? Theming.SYNNAX_DARK : Theming.SYNNAX_LIGHT;
       PCSS.applyVars(
         document.documentElement,
         Theming.toCSSVars(Theming.themeZ.parse(theme)),
@@ -59,52 +65,47 @@ const FallbackRender: ErrorBoundaryProps["fallbackRender"] = ({
 
   const os = OS.use();
 
+  const handleTryAgain = (): void => {
+    d(REVERT_STATE);
+  };
+
+  const handleClear = (): void => {
+    d(CLEAR_STATE);
+  };
+
   return (
-    <Align.Space directon="y" className={CSS.B("error-overlay")}>
-      <Nav.Bar
-        data-tauri-drag-region
-        location="top"
-        size={NAV_SIZES.top}
-        className="console-main-nav-top"
-      >
-        <Nav.Bar.Start className="console-main-nav-top__start" data-tauri-drag-region>
+    <Align.Space direction="y" className={CSS.B("error-overlay")}>
+      <Nav.Bar location="top" size={NAV_SIZES.top} className="console-main-nav-top">
+        <Nav.Bar.Start className="console-main-nav-top__start">
           <OS.Controls
             className="console-controls--macos"
             visibleIfOS="MacOS"
             onClose={() => {
-              void appWindow.close();
+              void getCurrent().close();
             }}
             onMinimize={() => {
-              void appWindow.minimize();
+              void getCurrent().minimize();
             }}
             onMaximize={() => {
-              void appWindow.maximize();
+              void getCurrent().maximize();
             }}
           />
           {os === "Windows" && (
-            <Logo
-              className="console-main-nav-top__logo"
-              variant="icon"
-              data-tauri-drag-region
-            />
+            <Logo className="console-main-nav-top__logo" variant="icon" />
           )}
         </Nav.Bar.Start>
-        <Nav.Bar.End
-          className="console-main-nav-top__end"
-          justify="end"
-          data-tauri-drag-region
-        >
+        <Nav.Bar.End className="console-main-nav-top__end" justify="end">
           <OS.Controls
             className="console-controls--windows"
             visibleIfOS="Windows"
             onClose={() => {
-              void appWindow.close();
+              void getCurrent().close();
             }}
             onMinimize={() => {
-              void appWindow.minimize();
+              void getCurrent().minimize();
             }}
             onMaximize={() => {
-              void appWindow.maximize();
+              void getCurrent().maximize();
             }}
           />
         </Nav.Bar.End>
@@ -113,15 +114,20 @@ const FallbackRender: ErrorBoundaryProps["fallbackRender"] = ({
       <Align.Center role="alert">
         <Align.Space direction="x" className={CSS.B("dialog")} size={20}>
           <Logo variant="icon" />
-          <Align.Space directon="y" align="start" className={CSS.B("details")}>
+          <Align.Space direction="y" align="start" className={CSS.B("details")}>
             <Text.Text level="h1">Something went wrong</Text.Text>
             <Status.Text variant="error" hideIcon level="h3">
-              {messageTranslation[error.message] || error.message}
+              {messageTranslation[error.message] ?? error.message}
             </Status.Text>
             <Text.Text className={CSS.B("stack")} level="p">
               {error.stack}
             </Text.Text>
-            <Button.Button onClick={resetErrorBoundary}>Try again</Button.Button>
+            <Align.Space direction="x">
+              <Button.Button onClick={handleTryAgain}>Try again</Button.Button>
+              <Button.Button onClick={handleClear} variant="outlined">
+                Clear Storage and Hard Reset
+              </Button.Button>
+            </Align.Space>
           </Align.Space>
         </Align.Space>
       </Align.Center>

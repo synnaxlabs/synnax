@@ -9,24 +9,27 @@
 
 import { type ReactElement } from "react";
 
-import { Text } from "@synnaxlabs/pluto";
-import { type Optional } from "@synnaxlabs/x";
+import { Button } from "@synnaxlabs/pluto";
 
-import { CSS } from "@/css";
 import { useSelect } from "@/version/selectors";
+import { Layout } from "@/layout";
+import { infoLayout } from "@/version/Info";
+import { useCheckForUpdates } from "@/version/Updater";
 
 import "@/version/Badge.css";
 
-type BadgeProps<L extends Text.Level> = Optional<Text.TextProps<L>, "level">;
-
-export const Badge = <L extends Text.Level>({
-  level = "p",
-  ...props
-}: BadgeProps<L>): ReactElement => {
+export const Badge = (): ReactElement => {
   const v = useSelect();
+  const placer = Layout.usePlacer();
+  const updateAvailable = useCheckForUpdates();
   return (
-    <Text.Text className={CSS.B("version-badge")} level={level} {...props}>
+    <Button.Button
+      onClick={() => placer(infoLayout)}
+      variant="text"
+      size="medium"
+      color={updateAvailable ? "var(--pluto-secondary-z)" : "var(--pluto-text-color)"}
+    >
       {"v" + v}
-    </Text.Text>
+    </Button.Button>
   );
 };

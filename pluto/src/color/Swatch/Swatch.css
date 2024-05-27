@@ -9,10 +9,6 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-color-swatch__dropdown .pluto-dropdown__dialog {
-    width: fit-content;
-}
-
 .pluto-color-swatch {
     border-radius: var(--pluto-border-radius);
     aspect-ratio: 1.5;
@@ -27,4 +23,3 @@
         background: var(--haul-background) !important;
     }
 }
-

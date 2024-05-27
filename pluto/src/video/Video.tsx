@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ComponentPropsWithoutRef, type ReactElement } from "react";
+import { forwardRef, type ComponentPropsWithoutRef, type ReactElement } from "react";
 
 import { CSS } from "@/css";
 
@@ -17,8 +17,11 @@ export interface VideoProps extends ComponentPropsWithoutRef<"video"> {
   href: string;
 }
 
-export const Video = ({ href, className, ...props }: VideoProps): ReactElement => (
-  <video className={CSS(CSS.B("video"), className)} {...props}>
-    <source src={href} type="video/mp4" />
-  </video>
+export const Video = forwardRef<HTMLVideoElement, VideoProps>(
+  ({ href, className, ...props }: VideoProps, ref): ReactElement => (
+    <video ref={ref} className={CSS(CSS.B("video"), className)} {...props}>
+      <source id={href} src={href} type="video/mp4" />
+    </video>
+  ),
 );
+Video.displayName = "Video";

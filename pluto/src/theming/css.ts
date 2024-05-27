@@ -10,7 +10,9 @@
 import { CSS, createHexOpacityVariants, unitProperty } from "@/css";
 import { type Theme } from "@/theming/core/theme";
 
-const OPACITIES: readonly number[] = [90, 80, 70, 60, 50, 40, 30, 20, 10];
+const OPACITIES: readonly number[] = [
+  95, 90, 85, 80, 75, 70, 65, 60, 55, 50, 45, 40, 35, 30, 25, 20, 15, 10, 5,
+];
 
 export const toCSSVars = (theme: Theme): Record<string, number | string | undefined> =>
   Object.entries({
@@ -49,17 +51,29 @@ export const toCSSVars = (theme: Theme): Record<string, number | string | undefi
     "error-z": theme.colors.error.z.hex,
     ...createHexOpacityVariants("error-z", theme.colors.error.z, OPACITIES),
     "error-p1": theme.colors.error.p1.hex,
+    "warning-m1": theme.colors.warning.m1.hex,
+    "warning-z": theme.colors.warning.z.hex,
+    ...createHexOpacityVariants("warning-z", theme.colors.warning.z, OPACITIES),
+    "warning-p1": theme.colors.warning.p1.hex,
+    "success-m1": theme.colors.secondary.m1.hex,
+    "success-z": theme.colors.secondary.z.hex,
+    ...createHexOpacityVariants("success-z", theme.colors.secondary.z, OPACITIES),
+    "success-p1": theme.colors.secondary.p1.hex,
     white: theme.colors.white.hex,
     "white-rgb": theme.colors.white.rgbString,
     black: theme.colors.black.hex,
     "black-rgb": theme.colors.black.rgbString,
     "text-color": theme.colors.text.hex,
     "text-color-rgb": theme.colors.text.rgbString,
+    "text-on-primary": theme.colors.textOnPrimary.hex,
     "border-color": theme.colors.border.hex,
     "base-size": unitProperty(theme.sizes.base, "px"),
     "border-radius": unitProperty(theme.sizes.border.radius, "px"),
     "border-width": unitProperty(theme.sizes.border.width, "px"),
-    "pid-element-stroke-width": unitProperty(theme.sizes.pid.elementStrokeWidth, "px"),
+    "schematic-element-stroke-width": unitProperty(
+      theme.sizes.schematic.elementStrokeWidth,
+      "px",
+    ),
     "font-family": theme.typography.family,
     "h1-size": unitProperty(theme.typography.h1.size, "rem"),
     "h1-weight": theme.typography.h1.weight,

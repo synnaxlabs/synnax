@@ -8,23 +8,22 @@
 // included in the file licenses/APL.txt.
 
 import type { Action, UnknownAction } from "@reduxjs/toolkit";
-import { debounce as debounceF, dimensions, xy } from "@synnaxlabs/x";
+import { debounce as debounceF, type dimensions, type xy } from "@synnaxlabs/x";
 import type { Event as TauriEvent, UnlistenFn } from "@tauri-apps/api/event";
 import { listen, emit, TauriEvent as TauriEventKey } from "@tauri-apps/api/event";
+import { WebviewWindow, getCurrent } from "@tauri-apps/api/webviewWindow";
 import {
-  WebviewWindow,
-  appWindow,
   LogicalPosition,
   LogicalSize,
   getAll,
-  PhysicalPosition,
-  PhysicalSize,
+  type PhysicalPosition,
+  type PhysicalSize,
 } from "@tauri-apps/api/window";
 
-import { Event, Runtime } from "@/runtime";
+import { type Event, type Runtime } from "@/runtime";
 import { decode, encode } from "@/serialization";
-import { setWindowProps, SetWindowPropsPayload, StoreState } from "@/state";
-import { MAIN_WINDOW, WindowProps } from "@/window";
+import { setWindowProps, type StoreState } from "@/state";
+import { MAIN_WINDOW, type WindowProps } from "@/window";
 
 const actionEvent = "drift://action";
 const tauriError = "tauri://error";
@@ -39,7 +38,7 @@ export class TauriRuntime<S extends StoreState, A extends Action = UnknownAction
 {
   private readonly win: WebviewWindow;
   private unsubscribe: Record<string, UnlistenFn>;
-  private fullscreenPoll: any | null = null;
+  private fullscreenPoll: NodeJS.Timeout | null = null;
   private subscribeCallback: ((action: Event<S, A>) => void) | null = null;
 
   /**
@@ -47,8 +46,11 @@ export class TauriRuntime<S extends StoreState, A extends Action = UnknownAction
    * This should not be set in 99% of cases. Only use this if you know what you're doing.
    */
   constructor(window?: WebviewWindow) {
-    this.win = window ?? appWindow;
+    this.win = window ?? getCurrent();
     this.unsubscribe = {};
+  }
+
+  async configure(): Promise<void> {
   }
 
   label(): string {
@@ -77,31 +79,31 @@ export class TauriRuntime<S extends StoreState, A extends Action = UnknownAction
     this.release();
     this.unsubscribe[actionEvent] = await listen<string>(
       actionEvent,
-      (event: TauriEvent<string>) => lis(decode(event.payload))
+      (event: TauriEvent<string>) => lis(decode(event.payload)),
     );
     const propsHandlers = newWindowPropsHandlers();
     for (const { key, handler, debounce } of propsHandlers) {
       this.unsubscribe[key] = await this.win.listen(
         key,
         debounceF((event: TauriEvent<any>) => {
-          if (event.windowLabel !== this.label()) return;
+          // if (event.windowLabel !== this.label()) return;
           void handler(event).then((action) => {
             if (action != null) lis({ action: action as A, emitter: "WHITELIST" });
           });
-        }, debounce)
+        }, debounce),
       );
     }
   }
 
   onCloseRequested(cb: () => void): void {
     void this.win.onCloseRequested((e) => {
-      // Only propagate the close request if the event
-      // is for the current window.
-      if (e.windowLabel !== this.label()) return;
+      // // Only propagate the close request if the event
+      // // is for the current window.
+      // if (e.windowLabel !== this.label()) return;
       // Prevent default so the window doesn't close
       // until all processes are complete.
-      e.preventDefault();
-      cb();
+      // e.preventDefault();
+      // cb();
     });
   }
 
@@ -116,10 +118,12 @@ export class TauriRuntime<S extends StoreState, A extends Action = UnknownAction
       minHeight: minSize?.height,
       maxWidth: maxSize?.width,
       maxHeight: maxSize?.height,
+      titleBarStyle: "overlay",
+      dragDropEnabled: false,
       ...rest,
     });
     return await new Promise<void>((resolve, reject) => {
-      void w.once(tauriError, (e) => reject(e.payload));
+      // void w.once(tauriError, (e) => reject(e.payload));
       void w.once(tauriCreated, () => resolve());
     });
   }
@@ -244,60 +248,67 @@ const newWindowPropsHandlers = (): HandlerEntry[] => [
     key: TauriEventKey.WINDOW_RESIZED,
     debounce: 200,
     handler: async (ev) => {
-      const window = WebviewWindow.getByLabel(ev.windowLabel);
-      if (window == null) return null;
-      const scaleFactor = await window.scaleFactor();
-      const visible = await window.isVisible();
-      const nextProps: SetWindowPropsPayload = {
-        label: ev.windowLabel,
-        maximized: await window.isMaximized(),
-        visible,
-        minimized: !visible,
-        position: await parsePosition(await window.innerPosition(), scaleFactor),
-        size: await parseSize(await window.innerSize(), scaleFactor),
-      };
-      return setWindowProps(nextProps);
+      return null;
+      // const window = WebviewWindow.getByLabel(ev.windowLabel);
+      // if (window == null) return null;
+      // const scaleFactor = await window.scaleFactor();
+      // const visible = await window.isVisible();
+      // const nextProps: SetWindowPropsPayload = {
+      //   label: ev.windowLabel,
+      //   maximized: await window.isMaximized(),
+      //   visible,
+      //   minimized: !visible,
+      //   position: await parsePosition(await window.innerPosition(), scaleFactor),
+      //   size: await parseSize(await window.innerSize(), scaleFactor),
+      // };
+      // return setWindowProps(nextProps);
     },
   },
   {
     key: TauriEventKey.WINDOW_MOVED,
     debounce: 200,
     handler: async (ev) => {
-      const window = WebviewWindow.getByLabel(ev.windowLabel);
-      if (window == null) return null;
-      const scaleFactor = await window?.scaleFactor();
-      if (scaleFactor == null) return null;
-      const position = await parsePosition(await window.innerPosition(), scaleFactor);
-      const visible = await window.isVisible();
-      const nextProps: SetWindowPropsPayload = {
-        label: ev.windowLabel,
-        visible,
-        position,
-      };
-      return setWindowProps(nextProps);
+      return null;
+      // const window = WebviewWindow.getByLabel(ev.windowLabel);
+      // if (window == null) return null;
+      // const scaleFactor = await window?.scaleFactor();
+      // if (scaleFactor == null) return null;
+      // const position = await parsePosition(await window.innerPosition(), scaleFactor);
+      // const visible = await window.isVisible();
+      // const nextProps: SetWindowPropsPayload = {
+      //   label: ev.windowLabel,
+      //   visible,
+      //   position,
+      // };
+      // return setWindowProps(nextProps);
     },
   },
   {
     key: TauriEventKey.WINDOW_BLUR,
     debounce: 0,
-    handler: async (ev) => setWindowProps({ focus: false, label: ev.windowLabel }),
+    handler: async (ev) => {
+      return null;
+      // setWindowProps({ focus: false, label: ev.windowLabel })
+    },
   },
   {
     key: TauriEventKey.WINDOW_FOCUS,
     debounce: 0,
-    handler: async (ev) =>
-      setWindowProps({
-        focus: true,
-        visible: true,
-        minimized: false,
-        label: ev.windowLabel,
-      }),
+    handler: async (ev) => {
+      return null;
+      // setWindowProps({
+      //   focus: true,
+      //   visible: true,
+      //   minimized: false,
+      //   label: ev.windowLabel,
+      // });
+    },
   },
 ];
 
 const parsePosition = async (
   position: PhysicalPosition,
-  scaleFactor: number
+  scaleFactor: number,
 ): Promise<xy.XY> => {
   const logical = position.toLogical(scaleFactor);
   return { x: logical.x, y: logical.y };
@@ -305,7 +316,7 @@ const parsePosition = async (
 
 const parseSize = async (
   size: PhysicalSize,
-  scaleFactor: number
+  scaleFactor: number,
 ): Promise<dimensions.Dimensions> => {
   const logical = size.toLogical(scaleFactor);
   return { width: logical.width, height: logical.height };

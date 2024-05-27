@@ -16,8 +16,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/hardware/device"
 	"github.com/synnaxlabs/synnax/pkg/hardware/rack"
+	"github.com/synnaxlabs/synnax/pkg/hardware/state"
 	"github.com/synnaxlabs/synnax/pkg/hardware/task"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 )
 
 type Config = rack.Config
@@ -29,6 +31,7 @@ type Service struct {
 	Task   *task.Service
 	Device *device.Service
 	CDC    *signals.Provider
+	State  *state.Tracker
 }
 
 func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
@@ -64,6 +67,32 @@ func OpenService(ctx context.Context, configs ...Config) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	svc := &Service{Rack: rackSvc, Task: taskSvc, Device: deviceSvc}
+
+	stateSvc, err := state.OpenTracker(ctx, state.TrackerConfig{
+		DB:           cfg.DB,
+		Rack:         rackSvc,
+		Task:         taskSvc,
+		Signals:      cfg.Signals,
+		HostProvider: cfg.HostProvider,
+		Channels:     cfg.Channel,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	svc := &Service{
+		Rack:   rackSvc,
+		Task:   taskSvc,
+		Device: deviceSvc,
+		State:  stateSvc,
+	}
 	return svc, nil
+}
+
+func (s *Service) Close() error {
+	e := errors.NewCatcher(errors.WithAggregation())
+	e.Exec(s.Device.Close)
+	e.Exec(s.Task.Close)
+	e.Exec(s.State.Close)
+	return e.Error()
 }

@@ -11,13 +11,14 @@ import { type ReactElement } from "react";
 
 import { ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Menu, Tree } from "@synnaxlabs/pluto";
+import { Menu } from "@synnaxlabs/pluto";
+import { Tree } from "@synnaxlabs/pluto/tree";
 import { type UnknownRecord, deep } from "@synnaxlabs/x";
 
 import { Group } from "@/group";
 import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";
-import { PID } from "@/pid";
+import { Schematic } from "@/schematic";
 import { selectActiveKey } from "@/workspace/selectors";
 import { add, rename, setActive } from "@/workspace/slice";
 
@@ -33,15 +34,18 @@ const handleDelete = ({
     const active = resources.find((r) => r.id.key === activeKey);
     if (active != null) {
       store.dispatch(setActive(null));
-      store.dispatch(Layout.setWorkspace({ slice: Layout.ZERO_SLICE_STATE }));
+      store.dispatch(Layout.clearWorkspace());
     }
     await client.workspaces.delete(...resources.map((r) => r.id.key));
-    const next = Tree.removeNode(nodes, ...resources.map((r) => r.id.toString()));
+    const next = Tree.removeNode({
+      tree: nodes,
+      keys: resources.map((r) => r.id.toString()),
+    });
     setNodes([...next]);
   })();
 };
 
-const handleCreateNewPID = ({
+const handleCreateNewSchematic = ({
   store,
   client,
   services,
@@ -51,28 +55,28 @@ const handleCreateNewPID = ({
 }: Ontology.TreeContextMenuProps): void => {
   const ws = selection.resources[0].id.key;
   void (async () => {
-    const pid = await client.workspaces.pid.create(ws, {
-      name: "New PID",
+    const schematic = await client.workspaces.schematic.create(ws, {
+      name: "New Schematic",
       snapshot: false,
-      data: deep.copy(PID.ZERO_STATE) as unknown as UnknownRecord,
+      data: deep.copy(Schematic.ZERO_STATE) as unknown as UnknownRecord,
     });
     const otg = await client.ontology.retrieve(
-      new ontology.ID({ key: pid.key, type: "pid" })
+      new ontology.ID({ key: schematic.key, type: "schematic" }),
     );
     placeLayout(
-      PID.create({
-        ...(pid.data as unknown as PID.State),
-        key: pid.key,
-        name: pid.name,
-        snapshot: pid.snapshot,
-      })
+      Schematic.create({
+        ...(schematic.data as unknown as Schematic.State),
+        key: schematic.key,
+        name: schematic.name,
+        snapshot: schematic.snapshot,
+      }),
     );
     setResources([...resources, otg]);
-    const nextNodes = Tree.setNode(
-      nodes,
-      selection.resources[0].key,
-      ...Ontology.toTreeNodes(services, [otg])
-    );
+    const nextNodes = Tree.setNode({
+      tree: nodes,
+      destination: selection.resources[0].key,
+      additions: Ontology.toTreeNodes(services, [otg]),
+    });
     setNodes([...nextNodes]);
   })();
 };
@@ -91,8 +95,8 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
       case "group":
         void Group.fromSelection(props);
         return;
-      case "pid": {
-        return handleCreateNewPID(props);
+      case "schematic": {
+        return handleCreateNewSchematic(props);
       }
     }
   };
@@ -107,8 +111,8 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
       <Menu.Item itemKey="plot" startIcon={<Icon.Visualize />}>
         New Line Plot
       </Menu.Item>
-      <Menu.Item itemKey="pid" startIcon={<Icon.PID />}>
-        New PID
+      <Menu.Item itemKey="schematic" startIcon={<Icon.Schematic />}>
+        New Schematic
       </Menu.Item>
     </Menu.Menu>
   );
@@ -122,7 +126,7 @@ const handleSelect: Ontology.HandleSelect = ({ selection, client, store }) => {
       Layout.setWorkspace({
         slice: ws.layout as unknown as Layout.SliceState,
         keepNav: false,
-      })
+      }),
     );
   })();
 };
@@ -137,7 +141,11 @@ const handleRename: Ontology.HandleTreeRename = ({
   void client.workspaces.rename(id.key, name);
   store.dispatch(rename({ key: id.key, name }));
 
-  const next = Tree.updateNode(nodes, id.toString(), (node) => ({ ...node, name }));
+  const next = Tree.updateNode({
+    tree: nodes,
+    key: id.toString(),
+    updater: (node) => ({ ...node, name }),
+  });
   setNodes([...next]);
 };
 

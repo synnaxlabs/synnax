@@ -11,3 +11,4 @@ export * from "@/status/Text";
 export * from "@/status/aether/types";
 export * from "@/status/Aggregator";
 export * from "@/status/Circle";
+export * from "@/status/Notification";

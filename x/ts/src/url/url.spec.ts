@@ -41,7 +41,7 @@ describe("URL", () => {
       pathPrefix: "api",
     });
     expect(endpoint.child("test").replace({ protocol: "https" }).toString()).toEqual(
-      "https://localhost:8080/api/test"
+      "https://localhost:8080/api/test",
     );
   });
 });

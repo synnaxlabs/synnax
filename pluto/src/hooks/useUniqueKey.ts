@@ -11,8 +11,10 @@ import { useRef } from "react";
 
 import { customAlphabet } from "nanoid/non-secure";
 
+// NOTE: very important to not add characters to this alphabet that can cause issues
+// with CSS.
 const nanoid = customAlphabet(
-  "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz-<>|;*&^#@!+=~{}",
+  "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz-",
   9,
 );
 

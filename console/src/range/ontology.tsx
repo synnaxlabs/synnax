@@ -19,7 +19,7 @@ import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { setRanges } from "@/lineplot/slice";
 import { Ontology } from "@/ontology";
-import { editLayout } from "@/range/EditLayout";
+import { createEditLayout } from "@/range/EditLayout";
 import { type Range } from "@/range/range";
 import { select } from "@/range/selectors";
 import { type StoreState, add, remove, setActive } from "@/range/slice";
@@ -30,8 +30,8 @@ const fromClientRange = (ranges: ranger.Range | ranger.Range[]): Range[] =>
     key: range.key,
     name: range.name,
     timeRange: {
-      start: range.timeRange.start.valueOf(),
-      end: range.timeRange.end.valueOf(),
+      start: Number(range.timeRange.start.valueOf()),
+      end: Number(range.timeRange.end.valueOf()),
     },
     persisted: true,
   }));
@@ -144,7 +144,7 @@ const handleEdit = ({
   selection: { resources },
   placeLayout,
 }: Ontology.TreeContextMenuProps): void => {
-  placeLayout({ ...editLayout("Edit Range"), key: resources[0].id.key });
+  placeLayout({ ...createEditLayout("Edit Range"), key: resources[0].id.key });
 };
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {

@@ -66,30 +66,29 @@ export const Data = ({ layoutKey }: DataProps): ReactElement | null => {
         onChange={handleYChannelSelect}
         value={vis.channels.y1}
         align="center"
-        location="top"
         grow
+        select={{ location: "top" }}
       />
       <Vis.SelectMultipleAxesInputItem
         axis={"y2"}
         onChange={handleYChannelSelect}
         value={vis.channels.y2}
-        location="top"
         grow
+        select={{ location: "top" }}
       />
       <Align.Space direction="x" grow wrap>
         <Range.SelectMultipleInputItem
           data={allRanges}
           onChange={(v) => handleRangeSelect("x1", v)}
           value={vis.ranges.x1}
-          location="top"
           grow
         />
         <Vis.SelectAxisInputItem
           axis={"x1"}
           onChange={handleXChannelSelect}
           value={vis.channels.x1}
-          location="top"
           grow
+          select={{ location: "top" }}
         />
       </Align.Space>
     </Align.Space>

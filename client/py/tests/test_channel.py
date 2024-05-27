@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import uuid
+
 import numpy as np
 import pytest
 
@@ -84,8 +86,8 @@ class TestChannelClient:
 
     def test_retrieve_by_key_not_found(self, client: sy.Synnax):
         """Should raise QueryError when key not found"""
-        with pytest.raises(sy.NoResultsError):
-            client.channels.retrieve("1-100000")
+        with pytest.raises(sy.NotFoundError):
+            client.channels.retrieve(1234)
 
     def test_retrieve_by_list_of_names(
         self, two_channels: list[sy.Channel], client: sy.Synnax
@@ -96,11 +98,17 @@ class TestChannelClient:
         for channel in res_channels:
             assert channel.name in ["test", "test2"]
 
-    def test_retrieve_list_not_found(self, client: sy.Synnax):
+    def test_retrieve_list_of_names_not_found(self, client: sy.Synnax):
         """Should retrieve an empty list when can't find channels"""
         fake_names = ["fake1", "fake2", "fake3"]
         results = client.channels.retrieve(fake_names)
         assert len(results) == 0
+
+    def test_retrieve_list_of_keys_not_found(self, client: sy.Synnax):
+        """Should retrieve an empty list when can't find channels"""
+        fake_keys = [1234, 5781, 99123]
+        with pytest.raises(sy.NotFoundError):
+            client.channels.retrieve(fake_keys)
 
     def test_retrieve_single_multiple_found(
         self,
@@ -109,7 +117,7 @@ class TestChannelClient:
     ):
         """Should raise QueryError when retrieving a single channel with
         multiple matches"""
-        with pytest.raises(sy.MultipleResultsError):
+        with pytest.raises(sy.MultipleFoundError):
             client.channels.retrieve("test.*")
 
     def test_retrieve_by_regex(self, client: sy.Synnax):
@@ -130,3 +138,45 @@ class TestChannelClient:
         )
         res_channels = client.channels.retrieve(["^strange_channel_regex_"])
         assert len(res_channels) >= 2
+
+    def test_delete_by_key(self, client: sy.Synnax):
+        """Should delete channels using a list of keys"""
+        channels = client.channels.create(
+            [
+                sy.Channel(
+                    name="test",
+                    rate=1 * sy.Rate.HZ,
+                    data_type=sy.DataType.FLOAT64,
+                ),
+                sy.Channel(
+                    name="test2",
+                    rate=1 * sy.Rate.HZ,
+                    data_type=sy.DataType.FLOAT64,
+                ),
+            ]
+        )
+        keys = [channel.key for channel in channels]
+        client.channels.delete(keys)
+        with pytest.raises(sy.QueryError):
+            client.channels.retrieve(keys)
+
+    def test_delete_by_name(self, client: sy.Synnax):
+        """Should delete channels using a list of names"""
+        channels = client.channels.create(
+            [
+                sy.Channel(
+                    name=str(uuid.uuid4()),
+                    rate=1 * sy.Rate.HZ,
+                    data_type=sy.DataType.FLOAT64,
+                ),
+                sy.Channel(
+                    name=str(uuid.uuid4()),
+                    rate=1 * sy.Rate.HZ,
+                    data_type=sy.DataType.FLOAT64,
+                ),
+            ]
+        )
+        names = [channel.name for channel in channels]
+        client.channels.delete(names)
+        results = client.channels.retrieve(names)
+        assert len(results) == 0

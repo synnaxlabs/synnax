@@ -7,24 +7,60 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, Series, TimeStamp } from "@synnaxlabs/x";
+import { DataType, Series, TimeStamp, TimeSpan, math } from "@synnaxlabs/x";
 
 import { convertSeriesFloat32 } from "@/telem/aether/convertSeries";
 
+/** Response from a write to the @see Dynamic cache. */
 export interface DynamicWriteResponse {
+  /** A list of series that were flushed from the cache during the write i.e. the new
+   * writes were not able to fit in the current buffer, so a new one was allocated
+   * and the old one(s) were flushed. */
   flushed: Series[];
+  /** A list of series that were allocated during the write. */
   allocated: Series[];
 }
+
+/** Props for the @see Dynamic cache. */
+export interface DynamicProps {
+  /**
+   * Sets the maximum size of the buffer that the cache will maintain before flushing
+   * data out to the caller.
+   */
+  dynamicBufferSize: number | TimeSpan;
+  /**
+   * Sets the data type for the series written to the cache. Used for buffer allocation
+   * purposes.
+   */
+  dataType: DataType;
+  /**
+   * Function that the cache will use to pull the current time.
+   */
+  testingNow?: () => TimeStamp;
+}
+
+// These are the smallest and largest sizes for a dynamically calculated buffer size.
+const MIN_SIZE = 100;
+const MAX_SIZE = 1e6;
+// The default size returned when there have not been enough writes yet and the
+// maximum number of default writes.
+const DEF_SIZE = 1e4;
+const MAX_DEF_WRITES = 100;
 
 /**
  * A cache for channel data that maintains a single, rolling Series as a buffer
  * for channel data.
  */
 export class Dynamic {
-  buffer: Series | null;
-  private readonly cap: number;
-  private readonly dataType: DataType;
+  private readonly props: DynamicProps;
+
   private counter = 0;
+  /** Current buffer */
+  private buffer: Series | null;
+  private avgRate: number = 0;
+  private timeOfLastWrite: TimeStamp;
+  private totalWrites: number = 0;
+  private now = () => TimeStamp.now();
 
   /**
    * @constructor
@@ -32,15 +68,24 @@ export class Dynamic {
    * @param cap - The capacity of the cache buffer.
    * @param dataType - The data type of the channel.
    */
-  constructor(cap: number, dataType: DataType) {
-    this.cap = cap;
-    this.dataType = dataType;
+  constructor(props: DynamicProps) {
+    this.props = props;
     this.buffer = null;
+    if (props.testingNow != null) this.now = props.testingNow;
+    this.timeOfLastWrite = this.now();
   }
 
-  /** @returns the number of samples currenly held in the cache. */
+  /** @returns the number of samples currently held in the cache. */
   get length(): number {
     return this.buffer?.length ?? 0;
+  }
+
+  /**
+   * @returns the current buffer being written to by the cache. Under no circumstances
+   * should this be modified by the caller.
+   */
+  get leadingBuffer(): Series | null {
+    return this.buffer;
   }
 
   /**
@@ -57,13 +102,13 @@ export class Dynamic {
     };
   }
 
-  private allocate(capacity: number, alignment: number, start: TimeStamp): Series {
+  private allocate(capacity: number, alignment: bigint, start: TimeStamp): Series {
     this.counter++;
     return Series.alloc({
       capacity,
       dataType: DataType.FLOAT32,
       timeRange: start.range(TimeStamp.MAX),
-      sampleOffset: this.dataType.equals(DataType.TIMESTAMP)
+      sampleOffset: this.props.dataType.equals(DataType.TIMESTAMP)
         ? BigInt(start.valueOf())
         : 0,
       glBufferUsage: "dynamic",
@@ -73,37 +118,71 @@ export class Dynamic {
   }
 
   private _write(series: Series): DynamicWriteResponse {
+    const cap = this.nextBufferSize();
     const res: DynamicWriteResponse = { flushed: [], allocated: [] };
     // This only happens on the first write to the cache
     if (this.buffer == null) {
-      this.buffer = this.allocate(this.cap, series.alignment, TimeStamp.now());
+      this.buffer = this.allocate(cap, series.alignment, this.now());
       res.allocated.push(this.buffer);
     } else if (
-      Math.abs(this.buffer.alignment + this.buffer.length - series.alignment) > 1
+      Math.abs(
+        Number(this.buffer.alignment + BigInt(this.buffer.length) - series.alignment),
+      ) > 1
     ) {
       // This case occurs when the alignment of the incoming series does not match
       // the alignment of the current buffer. In this case, we flush the current buffer
       // and allocate a new one.
-      const now = TimeStamp.now();
+      const now = this.now();
       this.buffer.timeRange.end = now;
       res.flushed.push(this.buffer);
-      this.buffer = this.allocate(this.cap, series.alignment, now);
+      this.buffer = this.allocate(cap, series.alignment, now);
       res.allocated.push(this.buffer);
     }
     const converted = convertSeriesFloat32(series, this.buffer.sampleOffset);
     const amountWritten = this.buffer.write(converted);
     // This means that the current buffer is large enough to fit the entire incoming
-    // series. We're done in this case.
-    if (amountWritten === series.length) return res;
+    // series. We're done in this caseconv.
+    if (amountWritten === series.length) {
+      this.updateAvgRate(series);
+      return res;
+    }
     // Push the current buffer to the flushed list.
-    const now = TimeStamp.now();
+    const now = this.now();
     this.buffer.timeRange.end = now;
     res.flushed.push(this.buffer);
-    this.buffer = this.allocate(this.cap, series.alignment + amountWritten, now);
+    this.buffer = this.allocate(cap, series.alignment + BigInt(amountWritten), now);
     res.allocated.push(this.buffer);
     const nextRes = this._write(series.slice(amountWritten));
     res.flushed.push(...nextRes.flushed);
     res.allocated.push(...nextRes.allocated);
     return res;
+  }
+
+  private updateAvgRate(series: Series): void {
+    if (typeof this.props.dynamicBufferSize === "number") return;
+    // average rate is a weighted average of the rate of the last sample and the average
+    // rate currently in the buffer.
+    const newRate = series.length / this.now().span(this.timeOfLastWrite).seconds;
+    if (this.totalWrites > 0 && isFinite(newRate) && newRate > 0)
+      this.avgRate =
+        (this.avgRate * (this.totalWrites - 1) + newRate) / this.totalWrites;
+    this.totalWrites++;
+    this.timeOfLastWrite = this.now();
+  }
+
+  private nextBufferSize(): number {
+    const { dynamicBufferSize } = this.props;
+    if (typeof dynamicBufferSize === "number") return dynamicBufferSize;
+    if (this.totalWrites < MAX_DEF_WRITES) return DEF_SIZE;
+    const size = math.roundToNearestMagnitude(this.avgRate * dynamicBufferSize.seconds);
+    return Math.round(Math.max(Math.min(size, MAX_SIZE), MIN_SIZE));
+  }
+
+  /**
+   * Closes the cache and releases all resources associated with it. After close()
+   * is called, the cache should not be used again.
+   */
+  close(): void {
+    this.buffer = null;
   }
 }

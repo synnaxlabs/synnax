@@ -7,27 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { addExtension, pack, unpack } from "msgpackr";
 import { type ZodSchema, type z } from "zod";
 
-import { Case } from "@/case";
-
-/**
- * CustomTypeEncoder is an interface for a class that needs to transform its
- * value before encoding.
- */
-interface CustomTypeEncoder {
-  /** The Class the custom encoder is set for */
-  Class: Function;
-
-  /**
-   * The function that transforms the value before encoding;
-   *
-   * @param instance - The instance of the class to transform.
-   * @returns The transformed value.
-   */
-  write: <P>(instance: P) => unknown;
-}
+import { caseconv } from "@/caseconv";
+import { isObject } from "@/identity";
 
 /**
  * EncoderDecoder is an entity that encodes and decodes messages to and from a
@@ -54,65 +37,48 @@ export interface EncoderDecoder {
   decode: <P>(data: Uint8Array | ArrayBuffer, schema?: ZodSchema<P>) => P;
 }
 
-interface StaticEncoderDecoder {
-  registerCustomType: (encoder: CustomTypeEncoder) => void;
-}
-
-/** MsgpackEncoderDecoder is a msgpack implementation of EncoderDecoder. */
-export class MsgpackEncoderDecoder implements EncoderDecoder {
-  contentType = "application/msgpack";
-
-  encode(payload: unknown): ArrayBuffer {
-    return pack(Case.toSnake(payload));
-  }
-
-  decode<P extends z.ZodTypeAny>(
-    data: Uint8Array | ArrayBuffer,
-    schema?: P,
-  ): z.output<P> {
-    const unpacked = Case.toCamel(unpack(new Uint8Array(data)));
-    return schema != null ? schema.parse(unpacked) : (unpacked as P);
-  }
-
-  static registerCustomType(encoder: CustomTypeEncoder): void {
-    addExtension({ type: 0, ...encoder });
-  }
-}
-
 /** JSONEncoderDecoder is a JSON implementation of EncoderDecoder. */
 export class JSONEncoderDecoder implements EncoderDecoder {
   contentType = "application/json";
+  private readonly decoder: TextDecoder;
+  private readonly encoder: TextEncoder;
+
+  constructor() {
+    this.decoder = new TextDecoder();
+    this.encoder = new TextEncoder();
+  }
 
   encode(payload: unknown): ArrayBuffer {
-    const json = JSON.stringify(Case.toSnake(payload), (_, v) => {
-      if (ArrayBuffer.isView(v)) return Array.from(v as Uint8Array);
-      return v;
-    });
-    return new TextEncoder().encode(json);
+    return this.encoder.encode(this.encodeString(payload)).buffer;
   }
 
   decode<P extends z.ZodTypeAny>(
     data: Uint8Array | ArrayBuffer,
     schema?: P,
   ): z.output<P> {
-    const unpacked = Case.toCamel(JSON.parse(new TextDecoder().decode(data)));
-    return schema != null ? schema.parse(unpacked) : (unpacked as P);
+    return this.decodeString(this.decoder.decode(data), schema);
+  }
+
+  decodeString<P extends z.ZodTypeAny>(data: string, schema?: P): z.output<P> {
+    const unpacked = caseconv.toCamel(JSON.parse(data));
+    return schema != null ? schema.parse(unpacked) : (unpacked as z.output<P>);
+  }
+
+  encodeString(payload: unknown): string {
+    return JSON.stringify(caseconv.toSnake(payload), (_, v) => {
+      if (ArrayBuffer.isView(v)) return Array.from(v as Uint8Array);
+      if (isObject(v) && "encode_value" in v) {
+        if (typeof v.value === "bigint") return v.value.toString();
+        return v.value;
+      }
+      if (typeof v === "bigint") return v.toString();
+      return v;
+    });
   }
 
   static registerCustomType(): void {}
 }
 
-export const ENCODERS: EncoderDecoder[] = [
-  new MsgpackEncoderDecoder(),
-  new JSONEncoderDecoder(),
-];
+export const JSON_ECD = new JSONEncoderDecoder();
 
-export const ENCODER_CLASSES: StaticEncoderDecoder[] = [
-  MsgpackEncoderDecoder,
-  JSONEncoderDecoder,
-];
-
-export const registerCustomTypeEncoder = (encoder: CustomTypeEncoder): void =>
-  ENCODER_CLASSES.forEach((encoderClass) => {
-    encoderClass.registerCustomType(encoder);
-  });
+export const ENCODERS: EncoderDecoder[] = [JSON_ECD];

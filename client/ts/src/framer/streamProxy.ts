@@ -33,19 +33,18 @@ export class StreamProxy<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny> {
 
   async closeAndAck(): Promise<void> {
     this.stream.closeSend();
-    const [res, err] = await this.stream.receive();
-    if (res != null)
-      throw new UnexpectedError(
-        `${this.name} received unexpected response on closure. 
-        Please report this error to the Synnax team.`,
-      );
-    if (err == null)
-      throw new UnexpectedError(
-        `${this.name} received unexpected null error on closure. 
-        Please report this error to Synnax team.
-      `,
-      );
-    if (!(err instanceof EOF)) throw err;
+    while (true) {
+      const [res, err] = await this.stream.receive();
+      if (res != null)
+        console.warn(
+          `${this.name} received unexpected response on closure. 
+        Please report this error to the Synnax team. ${JSON.stringify(res)}`,
+        );
+      if (err != null) {
+        if (err instanceof EOF) return;
+        throw err;
+      }
+    }
   }
 
   closeSend(): void {

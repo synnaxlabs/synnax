@@ -51,7 +51,7 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
     if (this.state.borderColor.isZero) this.state.borderColor = theme.colors.border;
     if (this.state.ruleColor.isZero) this.state.ruleColor = theme.colors.gray.l5;
     this.internal.dotColor = theme.colors.text;
-    this.internal.dotColorContrast = theme.colors.textContrast;
+    this.internal.dotColorContrast = theme.colors.textInverted;
 
     this.internal.render = render.Context.use(this.ctx);
     this.internal.draw = new Draw2D(this.internal.render.upper2d, theme);
@@ -106,7 +106,7 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
     });
 
     const text = values.map((r) => `${r.label ?? ""}: ${r.value.y.toFixed(2)}`);
-    text.unshift(`Time: ${avgXValue.fString("preciseDate")}`);
+    text.unshift(`Time: ${avgXValue.fString("preciseDate", "local")}`);
 
     const relativePosition = reverseScale.pos(this.state.position);
 
@@ -117,7 +117,7 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
       position: this.state.position,
       direction: "y",
       level: "small",
-      spacing: 1,
+      spacing: 0.5,
       offset: { x: 12, y: 12 },
       root: {
         x: relativePosition.x > 0.8 ? "right" : "left",

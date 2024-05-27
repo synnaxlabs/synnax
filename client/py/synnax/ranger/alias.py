@@ -51,7 +51,7 @@ class Aliaser:
         ...
 
     def resolve(self, aliases: str | list[str]) -> dict[str, ChannelKey] | ChannelKey:
-        to_fetch = []
+        to_fetch = list()
         aliases = normalize(aliases)
         is_single = isinstance(aliases, str)
 

@@ -39,31 +39,30 @@
 
 .pluto-macos-control:disabled {
     border: none;
+    background: var(--pluto-gray-l4);
+    border-color: var(--pluto-gray-l5);
+    & * {
+        display: none;
+    }
 }
 
-.pluto-macos-control--close,
-.pluto-macos-control--close:hover {
-    border-color: #df4744;
-    background: #fc5753;
+.pluto-macos-control:not(:disabled) {
+    &.pluto-macos-control--close {
+        border-color: #df4744;
+        background: #fc5753;
+    }
+
+    &.pluto-macos-control--minimize {
+        border-color: #de9f34;
+        background: #fdbc40;
+    }
+
+    &.pluto-macos-control--maximize {
+        border-color: #27aa35;
+        background: #36c84b;
+    }
 }
 
-.pluto-macos-control--minimize,
-.pluto-macos-control--minimize:hover {
-    border-color: #de9f34;
-    background: #fdbc40;
-}
-
-.pluto-macos-control--maximize,
-.pluto-macos-control--maximize:hover {
-    border-color: #27aa35;
-    background: #36c84b;
-}
-
-.pluto-macos-control--disabled {
-    background: var(--pluto-gray-l3);
-    border-color: var(--pluto-gray-l3);
-}
-
-.pluto-macos-control:active {
+.pluto-macos-control:active:not(:disabled) {
     filter: brightness(0.8);
 }

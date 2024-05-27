@@ -14,9 +14,9 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
-	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
@@ -55,6 +55,22 @@ var (
 		FS:           xfs.Default,
 	}
 )
+
+func (l LoaderConfig) AbsoluteCAKeyPath() string {
+	return l.CertsDir + "/" + l.CAKeyPath
+}
+
+func (l LoaderConfig) AbsoluteCACertPath() string {
+	return l.CertsDir + "/" + l.CACertPath
+}
+
+func (l LoaderConfig) AbsoluteNodeKeyPath() string {
+	return l.CertsDir + "/" + l.NodeKeyPath
+}
+
+func (l LoaderConfig) AbsoluteNodeCertPath() string {
+	return l.CertsDir + "/" + l.NodeCertPath
+}
 
 // Override implements Properties.
 func (l LoaderConfig) Override(other LoaderConfig) LoaderConfig {

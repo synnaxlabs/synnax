@@ -18,6 +18,7 @@ import React, {
   useMemo,
   useRef,
   useId,
+  useEffect,
 } from "react";
 
 import { type Key, type Optional } from "@synnaxlabs/x";
@@ -60,6 +61,7 @@ const Context = createContext<ContextValue | null>(null);
 
 export interface ProviderProps extends PropsWithChildren {
   useState?: state.PureUse<DraggingState>;
+  onDropOutside?: (props: OnDropProps) => Item[];
 }
 
 interface ProviderRef extends DraggingState {
@@ -76,6 +78,7 @@ export const useContext = (): ContextValue | null => reactUseContext(Context);
 export const Provider = ({
   children,
   useState = React.useState,
+  onDropOutside,
 }: ProviderProps): JSX.Element => {
   const ctx = reactUseContext(Context);
 
@@ -87,7 +90,7 @@ export const Provider = ({
       ref.current = { source, items, onSuccessfulDrop };
       setState({ source, items });
     },
-    [setState],
+    [setState, onDropOutside],
   );
 
   const end: ContextValue["end"] = useCallback(() => {
@@ -218,10 +221,7 @@ export const useDrop = ({
     [ref, onDrop, canDrop, drop, target],
   );
 
-  return {
-    onDragOver: handleDragOver,
-    onDrop: handleDrop,
-  };
+  return { onDragOver: handleDragOver, onDrop: handleDrop };
 };
 
 // |||||| DRAG AND DROP ||||||

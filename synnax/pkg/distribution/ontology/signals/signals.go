@@ -12,6 +12,8 @@ package signals
 import (
 	"bytes"
 	"context"
+	"io"
+
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
@@ -22,10 +24,10 @@ import (
 	"github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/telem"
-	"io"
 )
 
-func Propagate(
+// Publish publishes changes from the provided ontology into the provided signals.Provider.
+func Publish(
 	ctx context.Context,
 	prov *signals.Provider,
 	otg *ontology.Ontology,
@@ -41,11 +43,11 @@ func Propagate(
 			})
 		},
 	}
-	resourceObserverCloser, err := prov.SubscribeToObservable(ctx, signals.ObservableConfig{
-		Name:       "ontology_resource",
-		Observable: resourceObserver,
-		Set:        channel.Channel{Name: "sy_ontology_resource_set", DataType: telem.StringT},
-		Delete:     channel.Channel{Name: "sy_ontology_resource_delete", DataType: telem.StringT},
+	resourceObserverCloser, err := prov.PublishFromObservable(ctx, signals.ObservablePublisherConfig{
+		Name:          "ontology_resource",
+		Observable:    resourceObserver,
+		SetChannel:    channel.Channel{Name: "sy_ontology_resource_set", DataType: telem.StringT, Internal: true},
+		DeleteChannel: channel.Channel{Name: "sy_ontology_resource_delete", DataType: telem.StringT, Internal: true},
 	})
 	if err != nil {
 		return nil, err
@@ -61,11 +63,11 @@ func Propagate(
 			})
 		},
 	}
-	relationshipObserverCloser, err := prov.SubscribeToObservable(ctx, signals.ObservableConfig{
-		Name:       "ontology_relationship",
-		Observable: relationshipObserver,
-		Set:        channel.Channel{Name: "sy_ontology_relationship_set", DataType: telem.StringT},
-		Delete:     channel.Channel{Name: "sy_ontology_relationship_delete", DataType: telem.StringT},
+	relationshipObserverCloser, err := prov.PublishFromObservable(ctx, signals.ObservablePublisherConfig{
+		Name:          "ontology_relationship",
+		Observable:    relationshipObserver,
+		SetChannel:    channel.Channel{Name: "sy_ontology_relationship_set", DataType: telem.StringT, Internal: true},
+		DeleteChannel: channel.Channel{Name: "sy_ontology_relationship_delete", DataType: telem.StringT, Internal: true},
 	})
 	return xio.MultiCloser{resourceObserverCloser, relationshipObserverCloser}, nil
 }

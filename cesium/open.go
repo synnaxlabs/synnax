@@ -10,12 +10,14 @@
 package cesium
 
 import (
-	"github.com/cockroachdb/errors"
-	"github.com/samber/lo"
+	"fmt"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/meta"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/cesium/internal/virtual"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/signal"
+	"go.uber.org/zap"
 	"strconv"
 )
 
@@ -27,28 +29,39 @@ func Open(dirname string, opts ...Option) (*DB, error) {
 
 	o.L.Info("opening cesium time series engine", o.Report().ZapFields()...)
 
+	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(o.Instrumentation))
+
 	info, err := o.fs.List("")
 	if err != nil {
 		return nil, err
 	}
-	_db := &DB{
+	db := &DB{
 		options:    o,
 		unaryDBs:   make(map[core.ChannelKey]unary.DB, len(info)),
 		virtualDBs: make(map[core.ChannelKey]virtual.DB, len(info)),
-		relay:      newRelay(o),
+		relay:      newRelay(sCtx),
+		shutdown:   signal.NewShutdown(sCtx, cancel),
 	}
 	for _, i := range info {
-		key := core.ChannelKey(lo.Must(strconv.Atoi(i.Name())))
-		if err != nil {
-			return nil, err
-		}
 		if i.IsDir() {
-			if err = _db.openVirtualOrUnary(Channel{Key: key}); err != nil {
+			key, err := strconv.Atoi(i.Name())
+			if err != nil {
+				db.options.L.Error(fmt.Sprintf("failed parsing existing folder <%s> to channel key", i.Name()), zap.Error(err))
+				continue
+			}
+
+			if err = db.openVirtualOrUnary(Channel{Key: ChannelKey(key)}); err != nil {
 				return nil, err
 			}
+		} else {
+			db.options.L.Warn(fmt.Sprintf("Found unknown file %s in database root directory", i.Name()))
 		}
 	}
-	return _db, nil
+
+	// starts garbage collection
+	//db.startGC(sCtx, o)
+
+	return db, nil
 }
 
 func (db *DB) openVirtualOrUnary(ch Channel) error {
@@ -67,7 +80,7 @@ func (db *DB) openVirtualOrUnary(ch Channel) error {
 		if isOpen {
 			return nil
 		}
-		v, err := virtual.Open(virtual.Config{Channel: ch, Instrumentation: db.Instrumentation})
+		v, err := virtual.Open(virtual.Config{Channel: ch, Instrumentation: db.options.Instrumentation})
 		if err != nil {
 			return err
 		}
@@ -77,7 +90,7 @@ func (db *DB) openVirtualOrUnary(ch Channel) error {
 		if isOpen {
 			return nil
 		}
-		u, err := unary.Open(unary.Config{FS: fs, Channel: ch, Instrumentation: db.Instrumentation})
+		u, err := unary.Open(unary.Config{FS: fs, Channel: ch, Instrumentation: db.options.Instrumentation, FileSize: db.options.fileSize})
 		if err != nil {
 			return err
 		}
@@ -93,7 +106,7 @@ func (db *DB) openVirtualOrUnary(ch Channel) error {
 				}
 				idxDB, ok = db.unaryDBs[u.Channel.Index]
 				if !ok {
-					return errors.Wrapf(ChannelNotFound, "index %d", u.Channel.Index)
+					return errors.Wrapf(core.ChannelNotFound, "index %d", u.Channel.Index)
 				}
 			}
 			u.SetIndex((&idxDB).Index())

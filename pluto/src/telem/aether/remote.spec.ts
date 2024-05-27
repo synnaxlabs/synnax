@@ -43,7 +43,7 @@ describe("remote", () => {
         [this.channel.key]: new client.ReadResponse(this.channel, []),
       };
 
-      async retrieveChannel(key: channel.Key): Promise<channel.Channel> {
+      async retrieveChannel(key: channel.KeyOrName): Promise<channel.Channel> {
         return this.channel;
       }
 
@@ -64,7 +64,7 @@ describe("remote", () => {
         return this.streamDestructorF;
       }
 
-      close(): void {}
+      async close(): Promise<void> {}
     }
 
     it("should return a zero value when no channel has been set", async () => {
@@ -85,38 +85,6 @@ describe("remote", () => {
       expect(await scv.value()).toBe(0);
       expect(scv.testingOnlyValid).toBe(false);
       expect(scv.testingOnlyLeadingBuffer).toBeNull();
-    });
-    it("should return a zero value when the leading buffer is empty", async () => {
-      const c = new MockClient();
-      c.response = {
-        [c.channel.key]: new client.ReadResponse(c.channel, [
-          new Series({
-            data: new Float32Array([]),
-          }),
-        ]),
-      };
-      const props: StreamChannelValueProps = {
-        channel: c.channel.key,
-      };
-      const scv = new StreamChannelValue(c, props);
-      expect(await scv.value()).toBe(0);
-      expect(scv.testingOnlyValid).toBe(true);
-      expect(scv.testingOnlyLeadingBuffer).not.toBeNull();
-    });
-    it("should return the last value of the leading buffer when the initial read is successful", async () => {
-      const c = new MockClient();
-      const s = new Series({
-        data: new Float32Array([1, 2, 3]),
-      });
-      c.response = {
-        [c.channel.key]: new client.ReadResponse(c.channel, [s]),
-      };
-      const props: StreamChannelValueProps = {
-        channel: c.channel.key,
-      };
-      const scv = new StreamChannelValue(c, props);
-      expect(await scv.value()).toBe(3);
-      expect(s.refCount).toBe(1);
     });
     it("should open the stream handler when the channel is not zero", async () => {
       const c = new MockClient();
@@ -228,9 +196,10 @@ describe("remote", () => {
       // Data
       response: Record<channel.Key, client.ReadResponse> = {
         [this.channel.key]: new client.ReadResponse(this.channel, []),
+        [this.channel.index]: new client.ReadResponse(this.indexChannel, []),
       };
 
-      async retrieveChannel(key: channel.Key): Promise<channel.Channel> {
+      async retrieveChannel(key: channel.KeyOrName): Promise<channel.Channel> {
         this.retrieveChannelMock(key);
         if (key === this.channel.key) {
           return this.channel;
@@ -370,7 +339,7 @@ describe("remote", () => {
         [this.channel.key]: new client.ReadResponse(this.channel, []),
       };
 
-      async retrieveChannel(key: channel.Key): Promise<channel.Channel> {
+      async retrieveChannel(key: channel.KeyOrName): Promise<channel.Channel> {
         if (key === this.channel.key) {
           return this.channel;
         }
@@ -397,7 +366,7 @@ describe("remote", () => {
         return this.streamDestructorF;
       }
 
-      close(): void {}
+      async close(): Promise<void> {}
     }
 
     it("should return a zero value when no channel has been set", async () => {

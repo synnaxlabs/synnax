@@ -7,16 +7,15 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 import functools
-from typing import overload, Callable
+from typing import Callable, overload
 
 from freighter import UnaryClient
 
 from synnax.channel.retrieve import ChannelRetriever
 from synnax.exceptions import QueryError
 from synnax.framer.client import Client
-from synnax.ranger.alias import Aliaser
-from synnax.ranger.writer import RangeWriter
 from synnax.ranger.active import Active
+from synnax.ranger.alias import Aliaser
 from synnax.ranger.kv import KV
 from synnax.ranger.payload import (
     RangeKey,
@@ -29,9 +28,10 @@ from synnax.ranger.payload import (
 )
 from synnax.ranger.range import Range
 from synnax.ranger.retrieve import RangeRetriever
-from synnax.telem import TimeRange
+from synnax.ranger.writer import RangeWriter
 from synnax.signals.signals import Registry
 from synnax.state import LatestState
+from synnax.telem import TimeRange
 
 RANGE_SET_CHANNEL = "sy_range_set"
 
@@ -68,6 +68,7 @@ class RangeClient:
         *,
         name: str,
         time_range: TimeRange,
+        color: str = "",
         retrieve_if_name_exists: bool = False,
     ) -> Range:
         """Creates a named range spanning a region of time. This range is persisted
@@ -120,11 +121,12 @@ class RangeClient:
         *,
         name: str = "",
         time_range: TimeRange | None = None,
+        color: str = "",
         retrieve_if_name_exists: bool = False,
     ) -> Range | list[Range]:
         is_single = True
         if ranges is None:
-            to_create = [RangePayload(name=name, time_range=time_range)]
+            to_create = [RangePayload(name=name, time_range=time_range, color=color)]
         elif isinstance(ranges, Range):
             to_create = [ranges.to_payload()]
         else:

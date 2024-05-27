@@ -9,7 +9,7 @@
 
 import { type Dispatch, type ReactElement, useCallback, useState } from "react";
 
-import type { UnknownAction } from "@reduxjs/toolkit";
+import type { PayloadAction, UnknownAction } from "@reduxjs/toolkit";
 import { Drift } from "@synnaxlabs/drift";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
@@ -22,8 +22,7 @@ import {
   useMemoCompare,
 } from "@synnaxlabs/pluto";
 import { compare } from "@synnaxlabs/x";
-import { appWindow } from "@tauri-apps/api/window";
-import type { Theme as TauriTheme } from "@tauri-apps/api/window";
+import { getCurrent } from "@tauri-apps/api/window";
 import { useDispatch, useStore } from "react-redux";
 
 import { useSyncerDispatch } from "@/hooks/dispatchers";
@@ -43,7 +42,7 @@ import { Workspace } from "@/workspace";
 
 export interface CreatorProps {
   windowKey: string;
-  dispatch: Dispatch<UnknownAction>;
+  dispatch: Dispatch<PayloadAction<any>>;
 }
 
 /** A function that creates a layout given a set of utilities. */
@@ -118,8 +117,9 @@ export const useRemover = (...baseKeys: string[]): Remover => {
       keys.forEach((keys) => {
         const l = select(s, keys);
         // Even if the layout is not present, close the window for good measure.
-        if (l == null || l.location === "window")
+        if (l == null || l.location === "window") {
           store.dispatch(Drift.closeWindow({ key: keys }));
+        }
       });
       syncDispatch(remove({ keys }));
     },
@@ -139,7 +139,7 @@ export const useThemeProvider = (): Theming.ProviderProps => {
   const dispatch = useDispatch();
 
   useAsyncEffect(async () => {
-    if (appWindow.label !== Drift.MAIN_WINDOW) return;
+    if (getCurrent().label !== Drift.MAIN_WINDOW) return;
     await setInitialTheme(dispatch);
     const cleanup = await synchronizeWithOS(dispatch);
     return cleanup;
@@ -153,22 +153,20 @@ export const useThemeProvider = (): Theming.ProviderProps => {
 };
 
 export const useErrorThemeProvider = (): Theming.ProviderProps => {
-  const [theme, setTheme] = useState<Theming.ThemeSpec | null>(
-    Theming.themes.synnaxLight,
-  );
+  const [theme, setTheme] = useState<Theming.ThemeSpec | null>(Theming.SYNNAX_LIGHT);
   useAsyncEffect(async () => {
-    const theme = matchThemeChange({ payload: await appWindow.theme() });
-    setTheme(Theming.themes[theme]);
+    const theme = matchThemeChange({ payload: await getCurrent().theme() });
+    setTheme(Theming.SYNNAX_THEMES[theme]);
   }, []);
   return {
     theme: Theming.themeZ.parse(theme),
     setTheme: (key: string) =>
-      setTheme(Theming.themes[key as keyof typeof Theming.themes]),
+      setTheme(Theming.SYNNAX_THEMES[key as keyof typeof Theming.SYNNAX_THEMES]),
     toggleTheme: () =>
       setTheme((t) =>
-        t === Theming.themes.synnaxLight
-          ? Theming.themes.synnaxDark
-          : Theming.themes.synnaxLight,
+        t?.key === Theming.SYNNAX_LIGHT.key
+          ? Theming.SYNNAX_DARK
+          : Theming.SYNNAX_LIGHT,
       ),
   };
 };
@@ -176,14 +174,20 @@ export const useErrorThemeProvider = (): Theming.ProviderProps => {
 const matchThemeChange = ({
   payload: theme,
 }: {
-  payload: TauriTheme | null;
-}): keyof typeof Theming.themes => (theme === "dark" ? "synnaxDark" : "synnaxLight");
+  payload: string | null;
+}): keyof typeof Theming.SYNNAX_THEMES =>
+  theme === "dark" ? "synnaxDark" : "synnaxLight";
 
-const synchronizeWithOS = async (dispatch: Dispatch<UnknownAction>): AsyncDestructor =>
-  await appWindow.onThemeChanged((e) => dispatch(setActiveTheme(matchThemeChange(e))));
+const synchronizeWithOS = async (
+  dispatch: Dispatch<UnknownAction>,
+): AsyncDestructor => {
+  await getCurrent().onThemeChanged((e) =>
+    dispatch(setActiveTheme(matchThemeChange(e))),
+  );
+};
 
 const setInitialTheme = async (dispatch: Dispatch<UnknownAction>): Promise<void> =>
-  dispatch(setActiveTheme(matchThemeChange({ payload: await appWindow.theme() })));
+  dispatch(setActiveTheme(matchThemeChange({ payload: await getCurrent().theme() })));
 
 export interface NavMenuItem {
   key: string;
@@ -204,28 +208,36 @@ export const useNavDrawer = (
   location: NavdrawerLocation,
   items: NavDrawerItem[],
 ): UseNavDrawerReturn => {
+  const windowKey = useSelectWindowKey() as string;
   const state = useSelectNavDrawer(location);
   const dispatch = useDispatch();
+  const onResize = useDebouncedCallback(
+    (size) => {
+      dispatch(resizeNavdrawer({ windowKey, location, size }));
+    },
+    100,
+    [dispatch, windowKey],
+  );
+  if (state == null) {
+    return {
+      activeItem: undefined,
+      menuItems: [],
+      onSelect: () => {},
+      onResize: () => {},
+    };
+  }
   let activeItem: NavDrawerItem | undefined;
   let menuItems: NavMenuItem[] = [];
   if (state.activeItem != null)
     activeItem = items.find((item) => item.key === state.activeItem);
   menuItems = items.filter((item) => state.menuItems.includes(item.key));
 
-  const onResize = useDebouncedCallback(
-    (size) => {
-      dispatch(resizeNavdrawer({ location, size }));
-    },
-    100,
-    [dispatch],
-  );
-
   if (activeItem != null) activeItem.initialSize = state.size;
 
   return {
     activeItem,
     menuItems,
-    onSelect: (key: string) => dispatch(setNavdrawerVisible({ key })),
+    onSelect: (key: string) => dispatch(setNavdrawerVisible({ windowKey, key })),
     onResize,
   };
 };

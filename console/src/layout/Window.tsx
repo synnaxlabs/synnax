@@ -9,11 +9,10 @@
 
 import { type ReactElement, useEffect } from "react";
 
-import { setWindowDecorations } from "@synnaxlabs/drift";
+import { closeWindow, setWindowDecorations } from "@synnaxlabs/drift";
 import { useSelectWindowAttribute, useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Logo } from "@synnaxlabs/media";
 import { Nav, OS, Align, Menu as PMenu, Text } from "@synnaxlabs/pluto";
-import { appWindow } from "@tauri-apps/api/window";
 import { useDispatch } from "react-redux";
 
 import { Controls, Menu } from "@/components";
@@ -22,16 +21,29 @@ import { Content } from "@/layout/Content";
 import { useSelect } from "@/layout/selectors";
 
 import "@/layout/Window.css";
+import { WindowProps } from "@/layout/layout";
+import { getCurrent } from "@tauri-apps/api/window";
 
-export interface NavTopProps {
+export interface NavTopProps extends Pick<WindowProps, "showTitle" | "navTop"> {
   title: string;
 }
 
-export const NavTop = ({ title }: NavTopProps): ReactElement => {
+export const NavTop = ({
+  title,
+  showTitle = true,
+  navTop,
+}: NavTopProps): ReactElement | null => {
   const os = OS.use();
+  if (!navTop) return null;
+
   return (
-    <Nav.Bar data-tauri-drag-region location="top" size={"6rem"}>
-      <Nav.Bar.Start className="console-main-nav-top__start">
+    <Nav.Bar
+      className="console-main-nav-top"
+      location="top"
+      size={"6rem"}
+      data-tauri-drag-region
+    >
+      <Nav.Bar.Start className="console-main-nav-top__start" data-tauri-drag-region>
         <Controls
           className="console-controls--macos"
           visibleIfOS="MacOS"
@@ -39,13 +51,21 @@ export const NavTop = ({ title }: NavTopProps): ReactElement => {
         />
         {os === "Windows" && <Logo className="console-main-nav-top__logo" />}
       </Nav.Bar.Start>
-      <Nav.Bar.AbsoluteCenter>
-        <Text.Text level="p" shade={7} weight={450}>
-          {title}
-        </Text.Text>
-      </Nav.Bar.AbsoluteCenter>
+      {showTitle && (
+        <Nav.Bar.AbsoluteCenter data-tauri-drag-region>
+          <Text.Text
+            className="console-main-nav-top__title"
+            level="p"
+            shade={7}
+            weight={450}
+            data-tauri-drag-region
+          >
+            {title}
+          </Text.Text>
+        </Nav.Bar.AbsoluteCenter>
+      )}
       {os === "Windows" && (
-        <Nav.Bar.End>
+        <Nav.Bar.End data-tauri-drag-region>
           <Controls
             className="console-controls--windows"
             visibleIfOS="Windows"
@@ -64,18 +84,15 @@ export const DefaultContextMenu = (): ReactElement => (
 );
 
 export const Window = (): ReactElement | null => {
-  const { label } = appWindow;
-  const win = useSelectWindowKey(label);
-  const layout = useSelect(win ?? "");
+  const win = useSelectWindowKey(getCurrent().label) ?? "";
+  const layout = useSelect(win);
   const os = OS.use();
   const dispatch = useDispatch();
   useEffect(() => {
-    if (os === "Windows") {
-      dispatch(setWindowDecorations({ value: false }));
-    }
+    if (os === "Windows") dispatch(setWindowDecorations({ value: false }));
   }, [os]);
   const menuProps = PMenu.useContextMenu();
-  const maximized = useSelectWindowAttribute(label, "maximized") ?? false;
+  const maximized = useSelectWindowAttribute(win, "maximized") ?? false;
   if (layout == null) return null;
   const content = <Content layoutKey={layout.key} />;
   return (
@@ -88,7 +105,7 @@ export const Window = (): ReactElement | null => {
           maximized && CSS.BM("main", "maximized"),
         )}
       >
-        {layout?.window?.navTop === true && <NavTop title={layout.name} />}
+        <NavTop title={layout.name} {...layout.window} />
         {content}
       </Align.Space>
     </PMenu.ContextMenu>

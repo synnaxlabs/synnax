@@ -10,7 +10,7 @@
 import { type ReactElement, type RefObject } from "react";
 
 import { Icon } from "@synnaxlabs/media";
-import { box, type direction } from "@synnaxlabs/x";
+import { box, type direction } from "@synnaxlabs/x/spatial";
 
 import { type Button } from "@/button";
 import { CSS } from "@/css";
@@ -60,7 +60,7 @@ const DEFAULT_EXPAND_SIZE = 0.5;
  * consistency and simplicity. If you need more control, look at building a custom
  * accordion component using {@link Resize.Multiple}.
  *
- * @param props - All unused props are passed to the underyling {@link Resize.Multiple}
+ * @param props - All unused props are passed to the underlying {@link Resize.Multiple}
  * component.
  * @param props.entries - The entries to display in the accordion. See the
  * {@link Entry} interface for more details.

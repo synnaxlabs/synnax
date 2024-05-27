@@ -9,3 +9,4 @@
 
 export * from "@/persist/state";
 export * from "@/persist/kv";
+export * from "@/persist/palette";

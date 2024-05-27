@@ -46,7 +46,7 @@ func (c Config) Validate() error {
 	v := validate.New("ranger")
 	validate.NotNil(v, "DB", c.DB)
 	validate.NotNil(v, "Ontology", c.Ontology)
-	validate.NotNil(v, "Group", c.Group)
+	validate.NotNil(v, "ArrayIndex", c.Group)
 	return v.Error()
 }
 
@@ -85,23 +85,23 @@ func OpenService(ctx context.Context, cfgs ...Config) (s *Service, err error) {
 	if cfg.Signals == nil {
 		return
 	}
-	rangeCDC, err := signals.SubscribeToGorp(ctx, cfg.Signals, signals.GorpConfigUUID[Range](cfg.DB))
+	rangeCDC, err := signals.PublishFromGorp(ctx, cfg.Signals, signals.GorpPublisherConfigUUID[Range](cfg.DB))
 	if err != nil {
 		return
 	}
-	aliasCDCCfg := signals.GorpConfigString[alias](cfg.DB)
+	aliasCDCCfg := signals.GorpPublisherConfigString[alias](cfg.DB)
 	aliasCDCCfg.SetName = "sy_range_alias_set"
 	aliasCDCCfg.DeleteName = "sy_range_alias_delete"
-	aliasCDC, err := signals.SubscribeToGorp(ctx, cfg.Signals, aliasCDCCfg)
+	aliasCDC, err := signals.PublishFromGorp(ctx, cfg.Signals, aliasCDCCfg)
 	if err != nil {
 		return
 	}
 	s.activeRangeObservable = observe.New[[]changex.Change[[]byte, struct{}]]()
-	activeRangeCDC, err := cfg.Signals.SubscribeToObservable(ctx, signals.ObservableConfig{
-		Name:       "sy_active_range",
-		Set:        channel.Channel{Name: "sy_active_range_set", DataType: telem.UUIDT},
-		Delete:     channel.Channel{Name: "sy_active_range_clear", DataType: telem.UUIDT},
-		Observable: s.activeRangeObservable,
+	activeRangeCDC, err := cfg.Signals.PublishFromObservable(ctx, signals.ObservablePublisherConfig{
+		Name:          "sy_active_range",
+		SetChannel:    channel.Channel{Name: "sy_active_range_set", DataType: telem.UUIDT, Internal: true},
+		DeleteChannel: channel.Channel{Name: "sy_active_range_clear", DataType: telem.UUIDT, Internal: true},
+		Observable:    s.activeRangeObservable,
 	})
 	if err != nil {
 		return

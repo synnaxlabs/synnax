@@ -14,13 +14,13 @@
     cursor: grabbing;
     padding: 1rem;
     z-index: 4;
-    backdrop-filter: blur(3rem);
-    background-color: var(--pluto-gray-l0-30);
+    background-color: var(--pluto-gray-l1-90);
+    backdrop-filter: blur(4rem);
     -webkit-backdrop-filter: blur(3rem);
     border-radius: 1rem;
     max-height: 50%;
-    /* overflow-y: auto; */
-    /* overflow-x: hidden; */
+    overflow-y: auto;
+    overflow-x: visible;
     width: fit-content;
     .pluto-color-swatch {
         width: 3rem;

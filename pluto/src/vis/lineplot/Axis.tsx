@@ -30,7 +30,7 @@ import {
   parseAutoBounds,
   withinSizeThreshold,
 } from "@/vis/lineplot/aether/axis";
-import { useGridPosition } from "@/vis/lineplot/LinePlot";
+import { useGridEntry } from "@/vis/lineplot/LinePlot";
 
 import "@/vis/lineplot/Axis.css";
 
@@ -47,7 +47,7 @@ export interface AxisProps
 }
 
 export const axisFactory = (dir: direction.Direction): FC<AxisProps> => {
-  const defaultLocaton = dir === "x" ? "bottom" : "left";
+  const defaultLocation = dir === "x" ? "bottom" : "left";
   const aetherType = dir === "x" ? lineplot.XAxis.TYPE : lineplot.YAxis.TYPE;
   const cssClass = `${dir}-axis`;
   return Aether.wrap<AxisProps>(
@@ -56,7 +56,7 @@ export const axisFactory = (dir: direction.Direction): FC<AxisProps> => {
       aetherKey,
       children,
       resizeDebounce: debounce = 0,
-      location = defaultLocaton,
+      location = defaultLocation,
       label = "",
       labelLevel = "small",
       labelDirection = dir,
@@ -109,7 +109,7 @@ export const axisFactory = (dir: direction.Direction): FC<AxisProps> => {
           onAutoBoundsChange?.(state.bounds);
       }, [state.autoBounds, state.bounds]);
 
-      const gridStyle = useGridPosition(
+      const gridStyle = useGridEntry(
         {
           loc: location,
           key: `${aetherType}-${aetherKey}`,

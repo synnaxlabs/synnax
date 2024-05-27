@@ -7,14 +7,14 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Callable
-from multiprocessing import Pool
 from functools import wraps
+from multiprocessing import Pool
+from typing import Callable
 
 from synnax import framer
-from synnax.channel.payload import ChannelParams, ChannelKey, ChannelName
-from synnax.state import State, LatestState
+from synnax.channel.payload import ChannelKey, ChannelName, ChannelParams
 from synnax.channel.retrieve import ChannelRetriever
+from synnax.state import LatestState, State
 
 _InternalHandler = Callable[[State], Callable[[LatestState], None] | None]
 
@@ -82,7 +82,7 @@ class Scheduler:
         self.__state = State(channel_retriever)
 
     async def start(self):
-        self.__streamer = await self.__frame_client.new_async_streamer(
+        self.__streamer = await self.__frame_client.open_async_streamer(
             list(self.__channels)
         )
         async for frame in self.__streamer:

@@ -11,7 +11,6 @@ import { z } from "zod";
 
 import { type Stringer } from "@/primitive";
 import { addSamples } from "@/telem/series";
-import { Crude } from "@/spatial/location";
 
 export type TZInfo = "UTC" | "local";
 
@@ -65,7 +64,7 @@ const remainder = <T extends TimeStamp | TimeSpan>(
  * 1. A number representing the number of milliseconds since the Unix epoch.
  * 2. A javascript Date object.
  * 3. An array of numbers satisfying the DateComponents type, where the first element is the
- *   year, the second is the month, and the third is the day. To increaase resolution
+ *   year, the second is the month, and the third is the day. To incraase resolution
  *   when using this method, use the add method. It's important to note that this initializes
  *   a timestamp at midnight UTC, regardless of the timezone specified.
  * 4. An ISO compliant date or date time string. The time zone component is ignored.
@@ -78,31 +77,50 @@ const remainder = <T extends TimeStamp | TimeSpan>(
  * @example ts = new TimeStamp([2021, 1, 1]).add(1 * TimeSpan.HOUR) // 1/1/2021 at 1am UTC
  * @example ts = new TimeStamp("2021-01-01T12:30:00Z") // 1/1/2021 at 12:30pm UTC
  */
-export class TimeStamp extends Number implements Stringer {
+export class TimeStamp implements Stringer {
+  private readonly value: bigint;
+  readonly encodeValue: true = true;
+
   constructor(value?: CrudeTimeStamp, tzInfo: TZInfo = "UTC") {
-    if (value == null) return TimeStamp.now();
+    if (value == null) this.value = TimeStamp.now().valueOf();
     else if (value instanceof Date)
-      super(value.getTime() * TimeStamp.MILLISECOND.valueOf());
+      this.value = BigInt(value.getTime()) * TimeStamp.MILLISECOND.valueOf();
     else if (typeof value === "string")
-      super(TimeStamp.parseDateTimeString(value, tzInfo).valueOf());
-    else if (Array.isArray(value)) super(TimeStamp.parseDate(value));
+      this.value = TimeStamp.parseDateTimeString(value, tzInfo).valueOf();
+    else if (Array.isArray(value)) this.value = TimeStamp.parseDate(value);
     else {
-      let offset = 0;
+      let offset: bigint = BigInt(0);
       if (value instanceof Number) value = value.valueOf();
       if (tzInfo === "local") offset = TimeStamp.utcOffset.valueOf();
-      super(value.valueOf() + offset);
+      if (typeof value === "number") {
+        if (isFinite(value)) value = Math.trunc(value);
+        else {
+          if (isNaN(value)) value = 0;
+          if (value === Infinity) value = TimeStamp.MAX;
+          else value = TimeStamp.MIN;
+        }
+      }
+      this.value = BigInt(value.valueOf()) + offset;
     }
   }
 
-  private static parseDate([year = 1970, month = 1, day = 1]: DateComponents): number {
+  private static parseDate([year = 1970, month = 1, day = 1]: DateComponents): bigint {
     const date = new Date(year, month - 1, day, 0, 0, 0, 0);
     // We truncate here to only get the date component regardless of the time zone.
-    return new TimeStamp(date.getTime() * TimeStamp.MILLISECOND.valueOf())
+    return new TimeStamp(BigInt(date.getTime()) * TimeStamp.MILLISECOND.valueOf())
       .truncate(TimeStamp.DAY)
       .valueOf();
   }
 
-  private static parseTimeString(time: string, tzInfo: TZInfo = "UTC"): number {
+  encode(): string {
+    return this.value.toString();
+  }
+
+  valueOf(): bigint {
+    return this.value;
+  }
+
+  private static parseTimeString(time: string, tzInfo: TZInfo = "UTC"): bigint {
     const [hours, minutes, mbeSeconds] = time.split(":");
     let seconds = "00";
     let milliseconds: string | undefined = "00";
@@ -115,15 +133,15 @@ export class TimeStamp extends Number implements Stringer {
     return base.valueOf();
   }
 
-  private static parseDateTimeString(str: string, tzInfo: TZInfo = "UTC"): number {
+  private static parseDateTimeString(str: string, tzInfo: TZInfo = "UTC"): bigint {
     if (!str.includes("/") && !str.includes("-"))
       return TimeStamp.parseTimeString(str, tzInfo);
     const d = new Date(str);
-    // Essentialy to note that this makes the date midnight in UTC! Not local!
+    // Essential to note that this makes the date midnight in UTC! Not local!
     // As a result, we need to add the tzInfo offset back in.
     if (!str.includes(":")) d.setUTCHours(0, 0, 0, 0);
     return new TimeStamp(
-      d.getTime() * TimeStamp.MILLISECOND.valueOf(),
+      BigInt(d.getTime()) * TimeStamp.MILLISECOND.valueOf(),
       tzInfo,
     ).valueOf();
   }
@@ -167,7 +185,9 @@ export class TimeStamp extends Number implements Stringer {
   }
 
   static get utcOffset(): TimeSpan {
-    return new TimeSpan(new Date().getTimezoneOffset() * TimeStamp.MINUTE.valueOf());
+    return new TimeSpan(
+      BigInt(new Date().getTimezoneOffset()) * TimeStamp.MINUTE.valueOf(),
+    );
   }
 
   /**
@@ -234,7 +254,7 @@ export class TimeStamp extends Number implements Stringer {
    * @returns True if the TimeStamp represents the unix epoch, false otherwise.
    */
   get isZero(): boolean {
-    return this.valueOf() === 0;
+    return this.valueOf() === BigInt(0);
   }
 
   /**
@@ -289,7 +309,7 @@ export class TimeStamp extends Number implements Stringer {
    *   TimeSpan.
    */
   add(span: CrudeTimeSpan): TimeStamp {
-    return new TimeStamp(this.valueOf() + span.valueOf());
+    return new TimeStamp(this.valueOf() + BigInt(span.valueOf()));
   }
 
   /**
@@ -300,14 +320,14 @@ export class TimeStamp extends Number implements Stringer {
    *   TimeSpan.
    */
   sub(span: CrudeTimeSpan): TimeStamp {
-    return new TimeStamp(this.valueOf() - span.valueOf());
+    return new TimeStamp(this.valueOf() - BigInt(span.valueOf()));
   }
 
   /**
    * @returns The number of milliseconds since the unix epoch.
    */
   milliseconds(): number {
-    return this.valueOf() / TimeStamp.MILLISECOND.valueOf();
+    return Number(this.valueOf()) / Number(TimeStamp.MILLISECOND.valueOf());
   }
 
   toString(): string {
@@ -345,6 +365,24 @@ export class TimeStamp extends Number implements Stringer {
    */
   static now(): TimeStamp {
     return new TimeStamp(new Date());
+  }
+
+  static max(...timestamps: CrudeTimeStamp[]): TimeStamp {
+    let max = TimeStamp.MIN;
+    for (const ts of timestamps) {
+      const t = new TimeStamp(ts);
+      if (t.after(max)) max = t;
+    }
+    return max;
+  }
+
+  static min(...timestamps: CrudeTimeStamp[]): TimeStamp {
+    let min = TimeStamp.MAX;
+    for (const ts of timestamps) {
+      const t = new TimeStamp(ts);
+      if (t.before(min)) min = t;
+    }
+    return min;
   }
 
   /** @returns a new TimeStamp n nanoseconds after the unix epoch */
@@ -404,7 +442,7 @@ export class TimeStamp extends Number implements Stringer {
   static readonly DAY = TimeStamp.days(1);
 
   /** The maximum possible value for a timestamp */
-  static readonly MAX = new TimeStamp(9122272036554776000);
+  static readonly MAX = new TimeStamp((1n << 63n) - 1n);
 
   /** The minimum possible value for a timestamp */
   static readonly MIN = new TimeStamp(0);
@@ -414,6 +452,8 @@ export class TimeStamp extends Number implements Stringer {
 
   /** A zod schema for validating timestamps */
   static readonly z = z.union([
+    z.object({ value: z.bigint() }).transform((v) => new TimeStamp(v.value)),
+    z.string().transform((n) => new TimeStamp(BigInt(n))),
     z.instanceof(Number).transform((n) => new TimeStamp(n)),
     z.number().transform((n) => new TimeStamp(n)),
     z.instanceof(TimeStamp),
@@ -421,10 +461,37 @@ export class TimeStamp extends Number implements Stringer {
 }
 
 /** TimeSpan represents a nanosecond precision duration. */
-export class TimeSpan extends Number implements Stringer {
+export class TimeSpan implements Stringer {
+  private readonly value: bigint;
+  readonly encodeValue: true = true;
+
   constructor(value: CrudeTimeSpan) {
-    if (value instanceof Number) super(value.valueOf());
-    else super(value);
+    if (typeof value === "number") value = Math.trunc(value.valueOf());
+    this.value = BigInt(value.valueOf());
+  }
+
+  encode(): string {
+    return this.value.toString();
+  }
+
+  valueOf(): bigint {
+    return this.value;
+  }
+
+  lessThan(other: CrudeTimeSpan): boolean {
+    return this.valueOf() < new TimeSpan(other).valueOf();
+  }
+
+  greaterThan(other: CrudeTimeSpan): boolean {
+    return this.valueOf() > new TimeSpan(other).valueOf();
+  }
+
+  lessThanOrEqual(other: CrudeTimeSpan): boolean {
+    return this.valueOf() <= new TimeSpan(other).valueOf();
+  }
+
+  greaterThanOrEqual(other: CrudeTimeSpan): boolean {
+    return this.valueOf() >= new TimeSpan(other).valueOf();
   }
 
   remainder(divisor: TimeSpan): TimeSpan {
@@ -432,11 +499,9 @@ export class TimeSpan extends Number implements Stringer {
   }
 
   truncate(span: TimeSpan): TimeSpan {
-    return new TimeSpan(Math.trunc(this.valueOf() / span.valueOf()) * span.valueOf());
-  }
-
-  multiply(factor: number): TimeSpan {
-    return new TimeSpan(this.valueOf() * factor);
+    return new TimeSpan(
+      BigInt(Math.trunc(Number(this.valueOf() / span.valueOf()))) * span.valueOf(),
+    );
   }
 
   toString(): string {
@@ -468,35 +533,35 @@ export class TimeSpan extends Number implements Stringer {
 
   /** @returns the decimal number of days in the timespan */
   get days(): number {
-    return this.valueOf() / TimeSpan.DAY.valueOf();
+    return Number(this.valueOf()) / Number(TimeSpan.DAY.valueOf());
   }
 
   /** @returns the decimal number of hours in the timespan */
   get hours(): number {
-    return this.valueOf() / TimeSpan.HOUR.valueOf();
+    return Number(this.valueOf()) / Number(TimeSpan.HOUR.valueOf());
   }
 
   /** @returns the decimal number of minutes in the timespan */
   get minutes(): number {
-    return this.valueOf() / TimeSpan.MINUTE.valueOf();
+    return Number(this.valueOf()) / Number(TimeSpan.MINUTE.valueOf());
   }
 
   /** @returns The number of seconds in the TimeSpan. */
   get seconds(): number {
-    return this.valueOf() / TimeSpan.SECOND.valueOf();
+    return Number(this.valueOf()) / Number(TimeSpan.SECOND.valueOf());
   }
 
   /** @returns The number of milliseconds in the TimeSpan. */
   get milliseconds(): number {
-    return this.valueOf() / TimeSpan.MILLISECOND.valueOf();
+    return Number(this.valueOf()) / Number(TimeSpan.MILLISECOND.valueOf());
   }
 
   get microseconds(): number {
-    return this.valueOf() / TimeSpan.MICROSECOND.valueOf();
+    return Number(this.valueOf()) / Number(TimeSpan.MICROSECOND.valueOf());
   }
 
   get nanoseconds(): number {
-    return this.valueOf();
+    return Number(this.valueOf());
   }
 
   /**
@@ -505,7 +570,7 @@ export class TimeSpan extends Number implements Stringer {
    * @returns True if the TimeSpan represents a zero duration, false otherwise.
    */
   get isZero(): boolean {
-    return this.valueOf() === 0;
+    return this.valueOf() === BigInt(0);
   }
 
   /**
@@ -627,16 +692,18 @@ export class TimeSpan extends Number implements Stringer {
   static readonly DAY = TimeSpan.days(1);
 
   /** The maximum possible value for a TimeSpan. */
-  static readonly MAX = new TimeSpan(this.MAX_SAFE_INTEGER);
+  static readonly MAX = new TimeSpan((1n << 63n) - 1n);
 
   /** The minimum possible value for a TimeSpan. */
-  static readonly MIN = new TimeSpan(-this.MAX_SAFE_INTEGER);
+  static readonly MIN = new TimeSpan(0);
 
   /** The zero value for a TimeSpan. */
   static readonly ZERO = new TimeSpan(0);
 
   /** A zod schema for validating and transforming timespans */
   static readonly z = z.union([
+    z.object({ value: z.bigint() }).transform((v) => new TimeSpan(v.value)),
+    z.string().transform((n) => new TimeSpan(BigInt(n))),
     z.instanceof(Number).transform((n) => new TimeSpan(n)),
     z.number().transform((n) => new TimeSpan(n)),
     z.instanceof(TimeSpan),
@@ -810,15 +877,24 @@ export class TimeRange implements Stringer {
    */
   end: TimeStamp;
 
+  constructor(tr: CrudeTimeRange);
+
+  constructor(start: CrudeTimeStamp, end: CrudeTimeStamp);
+
   /**
    * Creates a TimeRange from the given start and end TimeStamps.
    *
    * @param start - A TimeStamp representing the start of the range.
    * @param end - A TimeStamp representing the end of the range.
    */
-  constructor(start: CrudeTimeStamp, end: CrudeTimeStamp) {
-    this.start = new TimeStamp(start);
-    this.end = new TimeStamp(end);
+  constructor(start: CrudeTimeStamp | CrudeTimeRange, end?: CrudeTimeStamp) {
+    if (typeof start === "object" && "start" in start) {
+      this.start = new TimeStamp(start.start);
+      this.end = new TimeStamp(start.end);
+    } else {
+      this.start = new TimeStamp(start);
+      this.end = new TimeStamp(end);
+    }
   }
 
   /** @returns The TimeSpan occupied by the TimeRange. */
@@ -880,17 +956,43 @@ export class TimeRange implements Stringer {
     return `${this.start.fString("preciseDate")} - ${this.span.toString()}`;
   }
 
-  overlapsWith(other: TimeRange): boolean {
+  /**
+   * Checks if if the two time ranges overlap. If the two time ranges are equal, returns
+   * true.  If the start of one range is equal to the end of the other, returns false.
+   * Just follow the rule [start, end) i.e. start is inclusive and end is exclusive.
+   *
+   * @param other - The other TimeRange to compare to.
+   * @returns True if the two TimeRanges overlap, false otherwise.
+   */
+  overlapsWith(other: TimeRange, delta: TimeSpan = TimeSpan.ZERO): boolean {
     other = other.makeValid();
     const rng = this.makeValid();
-    if (other.start.equals(rng.start)) return true;
-    if (other.end.equals(this.start) || other.start.equals(this.end)) return false;
-    return (
-      this.contains(other.end) ||
-      this.contains(other.start) ||
-      other.contains(this.start) ||
-      other.contains(this.end)
-    );
+
+    if (this.equals(other)) return true;
+
+    // If the ranges touch at their boundaries, they do not overlap.
+    if (other.end.equals(rng.start) || rng.end.equals(other.start)) return false;
+
+    // Determine the actual overlapping range
+    const startOverlap = TimeStamp.max(rng.start, other.start);
+    const endOverlap = TimeStamp.min(rng.end, other.end);
+
+    // If end of overlap is before start, then they don't overlap at all
+    if (endOverlap.before(startOverlap)) return false;
+
+    // Calculate the duration of the overlap
+    const overlapDuration = new TimeSpan(endOverlap.sub(startOverlap));
+
+    // Compare the overlap duration with delta
+    return overlapDuration.greaterThanOrEqual(delta);
+  }
+
+  roughlyEquals(other: TimeRange, delta: TimeSpan): boolean {
+    let startDist = this.start.sub(other.start).valueOf();
+    let endDist = this.end.sub(other.end).valueOf();
+    if (startDist < 0) startDist = -startDist;
+    if (endDist < 0) endDist = -endDist;
+    return startDist <= delta.valueOf() && endDist <= delta.valueOf();
   }
 
   contains(other: TimeRange): boolean;
@@ -954,7 +1056,7 @@ export class DataType extends String implements Stringer {
   /**
    * @returns the TypedArray constructor for the DataType.
    */
-  get Array(): NativeTypedArrayConstructor {
+  get Array(): TypedArrayConstructor {
     const v = DataType.ARRAY_CONSTRUCTORS.get(this.toString());
     if (v == null)
       throw new Error(`unable to find array constructor for ${this.valueOf()}`);
@@ -970,10 +1072,48 @@ export class DataType extends String implements Stringer {
     return this.valueOf();
   }
 
+  get isVariable(): boolean {
+    return this.equals(DataType.JSON) || this.equals(DataType.STRING);
+  }
+
+  get isNumeric(): boolean {
+    return !this.isVariable && !this.equals(DataType.UUID);
+  }
+
+  get isInteger(): boolean {
+    return this.toString().startsWith("int");
+  }
+
+  get isFloat(): boolean {
+    return this.toString().startsWith("float");
+  }
+
   get density(): Density {
     const v = DataType.DENSITIES.get(this.toString());
     if (v == null) throw new Error(`unable to find density for ${this.valueOf()}`);
     return v;
+  }
+
+  /** @returns true if the data type can be cast to the other data type without loss of precision. */
+  canSafelyCastTo(other: DataType): boolean {
+    if (this.equals(other)) return true;
+    if (
+      (this.isVariable && !other.isVariable) ||
+      (!this.isVariable && other.isVariable)
+    )
+      return false;
+    if ((this.isFloat && other.isInteger) || (this.isInteger && other.isFloat)) {
+      return this.density.valueOf() < other.density.valueOf();
+    }
+    if ((this.isFloat && other.isFloat) || (this.isInteger && other.isInteger))
+      return this.density.valueOf() <= other.density.valueOf();
+    return false;
+  }
+
+  /** @returns true if the data type can be cast to the other data type, even if there is a loss of precision. */
+  canCastTo(other: DataType): boolean {
+    if (this.isNumeric && other.isNumeric) return true;
+    return this.equals(other);
   }
 
   /**
@@ -982,7 +1122,7 @@ export class DataType extends String implements Stringer {
    * @param array - The TypedArray to check.
    * @returns True if the TypedArray is of the same type as the DataType.
    */
-  checkArray(array: NativeTypedArray): boolean {
+  checkArray(array: TypedArray): boolean {
     return array.constructor === this.Array;
   }
 
@@ -1016,6 +1156,8 @@ export class DataType extends String implements Stringer {
   static readonly UINT16 = new DataType("uint16");
   /** Represents a 8-bit unsigned integer value. */
   static readonly UINT8 = new DataType("uint8");
+  /** Represents a boolean value. Alias for UINT8. */
+  static readonly BOOLEAN = this.UINT8;
   /** Represents a 64-bit unix epoch. */
   static readonly TIMESTAMP = new DataType("timestamp");
   /** Represents a UUID data type */
@@ -1027,23 +1169,25 @@ export class DataType extends String implements Stringer {
    * newline character. */
   static readonly JSON = new DataType("json");
 
-  static readonly ARRAY_CONSTRUCTORS: Map<string, NativeTypedArrayConstructor> =
-    new Map<string, NativeTypedArrayConstructor>([
-      [DataType.UINT8.toString(), Uint8Array],
-      [DataType.UINT16.toString(), Uint16Array],
-      [DataType.UINT32.toString(), Uint32Array],
-      [DataType.UINT64.toString(), BigUint64Array],
-      [DataType.FLOAT32.toString(), Float32Array],
-      [DataType.FLOAT64.toString(), Float64Array],
-      [DataType.INT8.toString(), Int8Array],
-      [DataType.INT16.toString(), Int16Array],
-      [DataType.INT32.toString(), Int32Array],
-      [DataType.INT64.toString(), BigInt64Array],
-      [DataType.TIMESTAMP.toString(), BigInt64Array],
-      [DataType.STRING.toString(), Uint8Array],
-      [DataType.JSON.toString(), Uint8Array],
-      [DataType.UUID.toString(), Uint8Array],
-    ]);
+  static readonly ARRAY_CONSTRUCTORS: Map<string, TypedArrayConstructor> = new Map<
+    string,
+    TypedArrayConstructor
+  >([
+    [DataType.UINT8.toString(), Uint8Array],
+    [DataType.UINT16.toString(), Uint16Array],
+    [DataType.UINT32.toString(), Uint32Array],
+    [DataType.UINT64.toString(), BigUint64Array],
+    [DataType.FLOAT32.toString(), Float32Array],
+    [DataType.FLOAT64.toString(), Float64Array],
+    [DataType.INT8.toString(), Int8Array],
+    [DataType.INT16.toString(), Int16Array],
+    [DataType.INT32.toString(), Int32Array],
+    [DataType.INT64.toString(), BigInt64Array],
+    [DataType.TIMESTAMP.toString(), BigInt64Array],
+    [DataType.STRING.toString(), Uint8Array],
+    [DataType.JSON.toString(), Uint8Array],
+    [DataType.UUID.toString(), Uint8Array],
+  ]);
 
   static readonly ARRAY_CONSTRUCTOR_DATA_TYPES: Map<string, DataType> = new Map<
     string,
@@ -1132,6 +1276,50 @@ export class Size extends Number implements Stringer {
     return Size.bytes(this.valueOf() - other.valueOf());
   }
 
+  truncate(span: CrudeSize): Size {
+    return new Size(Math.trunc(this.valueOf() / span.valueOf()) * span.valueOf());
+  }
+
+  remainder(span: CrudeSize): Size {
+    return Size.bytes(this.valueOf() % span.valueOf());
+  }
+
+  get gigabytes(): number {
+    return this.valueOf() / Size.GIGABYTE.valueOf();
+  }
+
+  get megabytes(): number {
+    return this.valueOf() / Size.MEGABYTE.valueOf();
+  }
+
+  get kilobytes(): number {
+    return this.valueOf() / Size.KILOBYTE.valueOf();
+  }
+
+  get terabytes(): number {
+    return this.valueOf() / Size.TERABYTE.valueOf();
+  }
+
+  toString(): string {
+    const totalTB = this.truncate(Size.TERABYTE);
+    const totalGB = this.truncate(Size.GIGABYTE);
+    const totalMB = this.truncate(Size.MEGABYTE);
+    const totalKB = this.truncate(Size.KILOBYTE);
+    const totalB = this.truncate(Size.BYTE);
+    const tb = totalTB;
+    const gb = totalGB.sub(totalTB);
+    const mb = totalMB.sub(totalGB);
+    const kb = totalKB.sub(totalMB);
+    const bytes = totalB.sub(totalKB);
+    let str = "";
+    if (!tb.isZero) str += `${tb.terabytes}TB `;
+    if (!gb.isZero) str += `${gb.gigabytes}GB `;
+    if (!mb.isZero) str += `${mb.megabytes}MB `;
+    if (!kb.isZero) str += `${kb.kilobytes}KB `;
+    if (!bytes.isZero || str === "") str += `${bytes.valueOf()}B`;
+    return str.trim();
+  }
+
   /**
    * Creates a Size from the given number of bytes.
    *
@@ -1206,12 +1394,14 @@ export class Size extends Number implements Stringer {
     z.instanceof(Size),
   ]);
 
-  isZero(): boolean {
+  get isZero(): boolean {
     return this.valueOf() === 0;
   }
 }
 
 export type CrudeTimeStamp =
+  | bigint
+  | BigInt
   | TimeStamp
   | TimeSpan
   | number
@@ -1220,13 +1410,13 @@ export type CrudeTimeStamp =
   | DateComponents
   | Number;
 export type TimeStampT = number;
-export type CrudeTimeSpan = TimeSpan | TimeStamp | number | Number;
+export type CrudeTimeSpan = bigint | BigInt | TimeSpan | TimeStamp | number | Number;
 export type TimeSpanT = number;
 export type CrudeRate = Rate | number | Number;
 export type RateT = number;
 export type CrudeDensity = Density | number | Number;
 export type DensityT = number;
-export type CrudeDataType = DataType | string | NativeTypedArray;
+export type CrudeDataType = DataType | string | TypedArray;
 export type DataTypeT = string;
 export type CrudeSize = Size | number | Number;
 export type SizeT = number;
@@ -1235,7 +1425,7 @@ export interface CrudeTimeRange {
   end: CrudeTimeStamp;
 }
 
-export const nativeTypedArray = z.union([
+export const typedArrayZ = z.union([
   z.instanceof(Uint8Array),
   z.instanceof(Uint16Array),
   z.instanceof(Uint32Array),
@@ -1248,9 +1438,9 @@ export const nativeTypedArray = z.union([
   z.instanceof(BigInt64Array),
 ]);
 
-export type NativeTypedArray = z.infer<typeof nativeTypedArray>;
+export type TypedArray = z.infer<typeof typedArrayZ>;
 
-type NativeTypedArrayConstructor =
+type TypedArrayConstructor =
   | Uint8ArrayConstructor
   | Uint16ArrayConstructor
   | Uint32ArrayConstructor
@@ -1261,14 +1451,35 @@ type NativeTypedArrayConstructor =
   | Int16ArrayConstructor
   | Int32ArrayConstructor
   | BigInt64ArrayConstructor;
-type TelemValue = number | bigint;
+export type NumericTelemValue = number | bigint;
+export type TelemValue =
+  | number
+  | bigint
+  | string
+  | boolean
+  | Date
+  | TimeStamp
+  | TimeSpan;
+
+export const isTelemValue = (value: unknown): value is TelemValue => {
+  const ot = typeof value;
+  return (
+    ot === "string" ||
+    ot === "number" ||
+    ot === "boolean" ||
+    ot === "bigint" ||
+    value instanceof TimeStamp ||
+    value instanceof TimeSpan ||
+    value instanceof Date
+  );
+};
 
 export const convertDataType = (
   source: DataType,
   target: DataType,
-  value: TelemValue,
+  value: NumericTelemValue,
   offset: number | bigint = 0,
-): TelemValue => {
+): NumericTelemValue => {
   if (source.usesBigInt && !target.usesBigInt) return Number(value) - Number(offset);
   if (!source.usesBigInt && target.usesBigInt) return BigInt(value) - BigInt(offset);
   return addSamples(value, -offset);

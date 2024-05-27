@@ -8,12 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { errorZ, type Stream, type StreamClient } from "@synnaxlabs/freighter";
-import { TimeStamp, type CrudeTimeStamp } from "@synnaxlabs/x";
+import { observe } from "@synnaxlabs/x";
+import { TimeStamp, type CrudeTimeStamp } from "@synnaxlabs/x/telem";
 import { z } from "zod";
 
 import { type Key, type Params } from "@/channel/payload";
 import { type Retriever } from "@/channel/retriever";
-import { BackwardFrameAdapter } from "@/framer/adapter";
+import { ReadFrameAdapter } from "@/framer/adapter";
 import { Frame, frameZ } from "@/framer/frame";
 import { StreamProxy } from "@/framer/streamProxy";
 
@@ -29,13 +30,18 @@ const resZ = z.object({
 
 const ENDPOINT = "/frame/stream";
 
+export interface StreamerConfig {
+  channels: Params;
+  from?: CrudeTimeStamp;
+}
+
 export class Streamer implements AsyncIterator<Frame>, AsyncIterable<Frame> {
   private readonly stream: StreamProxy<typeof reqZ, typeof resZ>;
-  private readonly adapter: BackwardFrameAdapter;
+  private readonly adapter: ReadFrameAdapter;
 
   private constructor(
     stream: Stream<typeof reqZ, typeof resZ>,
-    adapter: BackwardFrameAdapter,
+    adapter: ReadFrameAdapter,
   ) {
     this.stream = new StreamProxy("Streamer", stream);
     this.adapter = adapter;
@@ -46,15 +52,14 @@ export class Streamer implements AsyncIterator<Frame>, AsyncIterable<Frame> {
   }
 
   static async _open(
-    start: CrudeTimeStamp,
-    channels: Params,
     retriever: Retriever,
     client: StreamClient,
+    { channels, from }: StreamerConfig,
   ): Promise<Streamer> {
-    const adapter = await BackwardFrameAdapter.open(retriever, channels);
+    const adapter = await ReadFrameAdapter.open(retriever, channels);
     const stream = await client.stream(ENDPOINT, reqZ, resZ);
     const streamer = new Streamer(stream, adapter);
-    stream.send({ start: new TimeStamp(start), keys: adapter.keys });
+    stream.send({ start: new TimeStamp(from), keys: adapter.keys });
     return streamer;
   }
 
@@ -82,5 +87,28 @@ export class Streamer implements AsyncIterator<Frame>, AsyncIterable<Frame> {
 
   [Symbol.asyncIterator](): AsyncIterator<Frame, any, undefined> {
     return this;
+  }
+}
+
+export class ObservableStreamer<V = Frame>
+  extends observe.Observer<Frame, V>
+  implements observe.ObservableAsyncCloseable<V>
+{
+  private readonly streamer: Streamer;
+  private readonly closePromise: Promise<void>;
+
+  constructor(streamer: Streamer, transform?: observe.Transform<Frame, V>) {
+    super(transform);
+    this.streamer = streamer;
+    this.closePromise = this.stream();
+  }
+
+  async close(): Promise<void> {
+    this.streamer.close();
+    await this.closePromise;
+  }
+
+  private async stream(): Promise<void> {
+    for await (const frame of this.streamer) this.notify(frame);
   }
 }

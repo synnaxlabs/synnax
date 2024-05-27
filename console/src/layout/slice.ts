@@ -11,13 +11,13 @@ import { createSlice } from "@reduxjs/toolkit";
 import type { PayloadAction } from "@reduxjs/toolkit";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { Haul, Mosaic, Theming } from "@synnaxlabs/pluto";
-import { type deep, type location } from "@synnaxlabs/x";
+import { migrate, type deep, type location } from "@synnaxlabs/x";
 import { nanoid } from "nanoid/non-secure";
 
-import { type LayoutState } from "@/layout/layout";
+import { type State } from "@/layout/layout";
 
 /** The state of the layout slice */
-export interface SliceState {
+export interface SliceState extends migrate.Migratable {
   /** The current theme. */
   activeTheme: string;
   /**
@@ -28,10 +28,10 @@ export interface SliceState {
    * A record of layout keys to layouts. These represent the properties of all layouts
    * currently rendered in the mosaic or in external windows.
    */
-  layouts: Record<string, LayoutState>;
+  layouts: Record<string, State>;
   hauling: Haul.DraggingState;
   mosaics: Record<string, MosaicState>;
-  nav: NavState;
+  nav: { main: MainNavState } & Record<string, PartialNavState>;
   alreadyCheckedGetStarted: boolean;
 }
 
@@ -40,8 +40,12 @@ export interface MosaicState {
   root: Mosaic.Node;
 }
 
-export interface NavState {
+export interface MainNavState {
   drawers: NavDrawerState;
+}
+
+export interface PartialNavState {
+  drawers: Partial<NavDrawerState>;
 }
 
 export type NavdrawerLocation = "right" | "left" | "bottom";
@@ -73,7 +77,7 @@ export interface StoreState {
   [SLICE_NAME]: SliceState;
 }
 
-export const MAIN_LAYOUT: LayoutState = {
+export const MAIN_LAYOUT: State = {
   name: "Main",
   key: "main",
   type: "main",
@@ -92,9 +96,31 @@ const ZERO_MOSAIC_STATE: MosaicState = {
   },
 };
 
+const MIGRATIONS: migrate.Migrations = {
+  "0.0.0": (state: SliceState): SliceState => ({
+    ...state,
+    themes: {
+      synnaxDark: Theming.SYNNAX_THEMES.synnaxDark,
+      synnaxLight: Theming.SYNNAX_THEMES.synnaxLight,
+    },
+    version: "0.1.0",
+  }),
+  "0.1.0": (state: SliceState): SliceState => ({
+    ...state,
+    themes: {
+      synnaxDark: Theming.SYNNAX_THEMES.synnaxDark,
+      synnaxLight: Theming.SYNNAX_THEMES.synnaxLight,
+    },
+    version: "0.2.0",
+  }),
+};
+
+export const migrateSlice = migrate.migrator<SliceState, SliceState>(MIGRATIONS);
+
 export const ZERO_SLICE_STATE: SliceState = {
+  version: "0.2.0",
   activeTheme: "synnaxDark",
-  themes: Theming.themes,
+  themes: Theming.SYNNAX_THEMES,
   alreadyCheckedGetStarted: false,
   layouts: {
     main: MAIN_LAYOUT,
@@ -104,18 +130,20 @@ export const ZERO_SLICE_STATE: SliceState = {
   },
   hauling: Haul.ZERO_DRAGGING_STATE,
   nav: {
-    drawers: {
-      left: {
-        activeItem: null,
-        menuItems: ["clusters", "resources"],
-      },
-      right: {
-        activeItem: null,
-        menuItems: ["range"],
-      },
-      bottom: {
-        activeItem: null,
-        menuItems: ["visualization"],
+    main: {
+      drawers: {
+        left: {
+          activeItem: null,
+          menuItems: ["resources"],
+        },
+        right: {
+          activeItem: null,
+          menuItems: ["range", "task"],
+        },
+        bottom: {
+          activeItem: null,
+          menuItems: ["visualization"],
+        },
       },
     },
   },
@@ -125,8 +153,8 @@ export const PERSIST_EXCLUDE = ["alreadyCheckedGetStarted"].map(
   (key) => `${SLICE_NAME}.${key}`,
 ) as Array<deep.Key<StoreState>>;
 
-/** Signature for the placeLayut action. */
-export type PlacePayload = LayoutState;
+/** Signature for the placeLayout action. */
+export type PlacePayload = State;
 /** Signature for the removeLayout action. */
 export interface RemovePayload {
   keys: string[];
@@ -154,10 +182,16 @@ interface RenamePayload {
 }
 
 interface ResizeNavdrawerPayload {
+  windowKey: string;
   location: NavdrawerLocation;
   size: number;
 }
 interface SetHaulingPayload extends Haul.DraggingState {}
+
+export interface SetNavDrawerPayload extends NavdrawerEntryState {
+  location: NavdrawerLocation;
+  windowKey: string;
+}
 
 export interface SetSlicePayload {
   keepNav?: boolean;
@@ -165,10 +199,13 @@ export interface SetSlicePayload {
 }
 
 interface SetNavdrawerVisiblePayload {
+  windowKey: string;
   key?: string;
   location?: NavdrawerLocation;
   value?: boolean;
 }
+
+export const GET_STARTED_LAYOUT_TYPE = "getStarted";
 
 export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
@@ -180,9 +217,7 @@ export const { actions, reducer } = createSlice({
       const prev = state.layouts[key];
       const mosaic = state.mosaics[layout.windowKey];
 
-      if (layout.type === MOSAIC_WINDOW_TYPE) {
-        state.mosaics[key] = ZERO_MOSAIC_STATE;
-      }
+      if (layout.type === MOSAIC_WINDOW_TYPE) state.mosaics[key] = ZERO_MOSAIC_STATE;
 
       // If we're moving from a mosaic, remove the tab.
       if (prev != null && prev.location === "mosaic" && location !== "mosaic")
@@ -251,6 +286,7 @@ export const { actions, reducer } = createSlice({
       [prevMosaic.root] = Mosaic.removeTab(prevMosaic.root, tabKey);
       state.mosaics[prevWindowKey] = prevMosaic;
       const mosaic = state.mosaics[windowKey];
+      if (mosaic.activeTab == null) mosaic.activeTab = tabKey;
       state.layouts[tabKey].windowKey = windowKey;
 
       const mosaicTab = {
@@ -286,10 +322,10 @@ export const { actions, reducer } = createSlice({
       state,
       { payload: { key: tabKey, name } }: PayloadAction<RenamePayload>,
     ) => {
-      if (name.length === 0) return;
       const layout = state.layouts[tabKey];
       if (layout == null) return;
       const mosaic = state.mosaics[layout.windowKey];
+      layout.name = name;
       mosaic.root = Mosaic.renameTab(mosaic.root, tabKey, name);
       state.mosaics[layout.windowKey] = mosaic;
     },
@@ -308,24 +344,43 @@ export const { actions, reducer } = createSlice({
       const next = keys[(index + 1) % keys.length];
       state.activeTheme = next;
     },
+    setNavdrawer: (state, { payload }: PayloadAction<SetNavDrawerPayload>) => {
+      const { windowKey, location, ...rest } = payload;
+      if (!(windowKey in state.nav)) state.nav[windowKey] = { drawers: {} };
+      state.nav[windowKey].drawers[location] = rest;
+    },
     resizeNavdrawer: (
       state,
-      { payload: { location, size } }: PayloadAction<ResizeNavdrawerPayload>,
+      { payload: { windowKey, location, size } }: PayloadAction<ResizeNavdrawerPayload>,
     ) => {
-      state.nav.drawers[location].size = size;
+      const navState = state.nav[windowKey];
+      if (navState?.drawers[location] == null) return;
+      (navState.drawers[location] as NavdrawerEntryState).size = size;
     },
     setNavdrawerVisible: (
       state,
-      { payload: { key, location, value } }: PayloadAction<SetNavdrawerVisiblePayload>,
+      {
+        payload: { windowKey, key, location, value },
+      }: PayloadAction<SetNavdrawerVisiblePayload>,
     ) => {
+      let navState = state.nav[windowKey];
+      if (navState == null) {
+        navState = { drawers: {} };
+        state.nav[windowKey] = navState;
+      }
+
       if (key != null) {
-        Object.values(state.nav.drawers).forEach((drawer) => {
+        Object.values(navState.drawers).forEach((drawer) => {
           if (drawer.menuItems.includes(key)) {
             drawer.activeItem = value ?? drawer.activeItem !== key ? key : null;
           }
         });
       } else if (location != null) {
-        const drawer = state.nav.drawers[location];
+        let drawer = navState.drawers[location];
+        if (drawer == null) {
+          drawer = { activeItem: null, menuItems: [] };
+          navState.drawers[location] = drawer;
+        }
         if (value === true && drawer.activeItem == null)
           drawer.activeItem = drawer.menuItems[0];
         else if (value === false) drawer.activeItem = null;
@@ -348,16 +403,16 @@ export const { actions, reducer } = createSlice({
         state.mosaics[MAIN_WINDOW].root,
         {
           closable: true,
-          tabKey: "getStarted",
+          tabKey: GET_STARTED_LAYOUT_TYPE,
           name: "Get Started",
           editable: false,
         },
       );
       state.layouts.getStarted = {
         name: "Get Started",
-        key: "getStarted",
+        key: GET_STARTED_LAYOUT_TYPE,
         location: "mosaic",
-        type: "getStarted",
+        type: GET_STARTED_LAYOUT_TYPE,
         windowKey: MAIN_WINDOW,
       };
     },
@@ -373,6 +428,15 @@ export const { actions, reducer } = createSlice({
         nav: keepNav ? state.nav : slice.nav,
       };
     },
+    clearWorkspace: (state) => {
+      return {
+        ...ZERO_SLICE_STATE,
+        hauling: state.hauling,
+        themes: state.themes,
+        activeTheme: state.activeTheme,
+        nav: state.nav,
+      };
+    },
   },
 });
 
@@ -385,11 +449,13 @@ export const {
   selectMosaicTab,
   resizeMosaicTab,
   rename,
+  setNavdrawer,
   resizeNavdrawer,
   setNavdrawerVisible,
   maybeCreateGetStartedTab,
   setHauled,
   setWorkspace,
+  clearWorkspace,
 } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
@@ -397,12 +463,14 @@ export type Payload = Action["payload"];
 
 const MOSAIC_WINDOW_TYPE = "mosaic";
 
-export const createMosaicWindow = (): Omit<LayoutState, "windowKey"> => ({
+export const createMosaicWindow = (): Omit<State, "windowKey"> => ({
   key: nanoid(),
   name: "Mosaic",
   type: MOSAIC_WINDOW_TYPE,
   location: "window",
   window: {
+    size: { width: 800, height: 600 },
     navTop: true,
+    visible: true,
   },
 });

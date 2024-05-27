@@ -15,12 +15,9 @@ import { Align, Status, Text } from "@synnaxlabs/pluto";
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
-import { PID } from "@/pid";
-// import { Table } from "@/table";
-import { create } from "@/vis/create";
-
-import { LayoutSelector } from "./LayoutSelector";
-import { type LayoutType } from "./types";
+import { Schematic } from "@/schematic";
+import { createLayoutSelector, LayoutSelector } from "@/vis/LayoutSelector";
+import { type LayoutType } from "@/vis/types";
 
 export const VisToolbarTitle = (): ReactElement => (
   <ToolbarTitle icon={<Icon.Visualize />}>Visualization</ToolbarTitle>
@@ -40,10 +37,8 @@ const SelectVis = ({ layoutKey }: ToolbarProps): ReactElement => (
 );
 
 const TOOLBARS: Record<LayoutType | "vis", FC<ToolbarProps>> = {
-  pid: PID.Toolbar,
+  schematic: Schematic.Toolbar,
   lineplot: LinePlot.Toolbar,
-  // table: Table.Toolbar,
-  hardwareStatus: () => <></>,
   vis: SelectVis,
 };
 const NoVis = (): ReactElement => {
@@ -57,7 +52,7 @@ const NoVis = (): ReactElement => {
         <Status.Text level="p" variant="disabled" hideIcon>
           No visualization selected. Select a visualization or
         </Status.Text>
-        <Text.Link level="p" onClick={() => placer(create({}))}>
+        <Text.Link level="p" onClick={() => placer(createLayoutSelector({}))}>
           create a new one.
         </Text.Link>
       </Align.Center>

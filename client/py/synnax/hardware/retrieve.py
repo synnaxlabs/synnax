@@ -7,9 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from freighter import Payload, UnaryClient
-from synnax.hardware.payload import Rack, Task, Device
 from alamos import NOOP, Instrumentation, trace
+from freighter import Payload, UnaryClient
+
+from synnax.hardware.payload import Device, Rack, Task
 
 
 class _RetrieveTaskRequest(Payload):
@@ -31,6 +32,7 @@ class _RetrieveDeviceResponse(Payload):
 
 class _RetrieveRackRequest(Payload):
     keys: list[int] | None = None
+    names: list[str] | None = None
 
 
 class _RetrieveRackResponse(Payload):
@@ -85,10 +87,14 @@ class Retriever:
         return res.devices
 
     @trace("debug")
-    def retrieve_rack(self, keys: list[int] | None = None) -> list[Rack]:
+    def retrieve_rack(
+        self,
+        keys: list[int] | None = None,
+        names: list[str] | None = None,
+    ) -> list[Rack]:
         res, exc = self.__client.send(
             RETRIEVE_RACK_ENDPOINT,
-            _RetrieveRackRequest(keys=keys),
+            _RetrieveRackRequest(keys=keys, names=names),
             _RetrieveRackResponse,
         )
         if exc is not None:

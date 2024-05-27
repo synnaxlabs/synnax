@@ -9,7 +9,7 @@
 
 import { type ReactElement } from "react";
 
-import { Keyed, type Key } from "@synnaxlabs/x";
+import { type Keyed, type Key } from "@synnaxlabs/x";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
@@ -20,9 +20,10 @@ import "@/list/Item.css";
 
 export interface ItemFrameProps<K extends Key, E extends Keyed<K>>
   extends Omit<ItemProps<K, E>, "columns">,
-    Omit<Align.SpaceProps, "key" | "style" | "onSelect" | "translate"> {
+    Omit<Align.SpaceProps, "key" | "onSelect" | "translate"> {
   draggingOver?: boolean;
   rightAligned?: boolean;
+  highlightHovered?: boolean;
 }
 
 export const ItemFrame = <K extends Key, E extends Keyed<K>>({
@@ -33,25 +34,31 @@ export const ItemFrame = <K extends Key, E extends Keyed<K>>({
   className,
   draggingOver = false,
   rightAligned = false,
+  highlightHovered = false,
   translate,
+  style,
+  sourceIndex: _,
   ...props
 }: ItemFrameProps<K, E>): ReactElement => (
   <Align.Space
     id={entry.key.toString()}
     direction="x"
     onClick={() => onSelect?.(entry.key)}
+    tabIndex={0}
     className={CSS(
       className,
       CONTEXT_TARGET,
       selected && CONTEXT_SELECTED,
       hovered && CSS.M("hovered"),
       rightAligned && CSS.M("right-aligned"),
+      highlightHovered && CSS.M("highlight-hover"),
       CSS.BE("list", "item"),
       CSS.selected(selected),
     )}
     style={{
       position: translate != null ? "absolute" : "relative",
       transform: `translateY(${translate}px)`,
+      ...style,
     }}
     {...props}
   />

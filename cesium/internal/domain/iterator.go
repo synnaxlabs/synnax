@@ -12,6 +12,7 @@ package domain
 import (
 	"context"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -24,6 +25,8 @@ type IteratorConfig struct {
 	Bounds telem.TimeRange
 }
 
+var IteratorClosedError = core.EntityClosed("domain.iterator")
+
 // IterRange generates an IteratorConfig that iterates over the provided time domain.
 func IterRange(tr telem.TimeRange) IteratorConfig { return IteratorConfig{Bounds: tr} }
 
@@ -34,7 +37,7 @@ func IterRange(tr telem.TimeRange) IteratorConfig { return IteratorConfig{Bounds
 // Iterator is not safe for concurrent use, but it is safe to have multiple iterators over
 // the same DB.
 //
-// It's important to not that an Iterator does NOT iterator over a snapshot of the DB,
+// It's important to note that an Iterator does NOT iterate over a snapshot of the DB,
 // and is not isolated from any writes that may be committed during the iterators lifetime.
 // This means that the position of an iterator may shift unexpectedly. There are plans
 // to implement MVCC in the future, but until then you have been warned.
@@ -54,6 +57,8 @@ type Iterator struct {
 	valid bool
 	// readerFactory gets a new reader for the given domain pointer.
 	readerFactory func(ctx context.Context, ptr pointer) (*Reader, error)
+	// closed stores whether the iterator is still open
+	closed bool
 }
 
 // SetBounds sets the iterator's bounds. The iterator is invalidated, and will not be
@@ -65,25 +70,41 @@ func (i *Iterator) SetBounds(bounds telem.TimeRange) {
 
 // SeekFirst seeks to the first domain in the iterator's bounds. If no such domain exists,
 // SeekFirst returns false.
-func (i *Iterator) SeekFirst(ctx context.Context) bool { return i.SeekGE(ctx, i.Bounds.Start) }
+func (i *Iterator) SeekFirst(ctx context.Context) bool {
+	if i.closed {
+		return false
+	}
+	return i.SeekGE(ctx, i.Bounds.Start)
+}
 
 // SeekLast seeks to the last domain in the iterator's bounds. If no such domain exists,
 // SeekLast returns false.
-func (i *Iterator) SeekLast(ctx context.Context) bool { return i.SeekLE(ctx, i.Bounds.End-1) }
+func (i *Iterator) SeekLast(ctx context.Context) bool {
+	if i.closed {
+		return false
+	}
+	return i.SeekLE(ctx, i.Bounds.End-1)
+}
 
 // SeekLE seeks to the domain whose TimeRange contain the provided timestamp. If no such domain
-// exists, SeekLE seeks to the closes domain whose ending timestamp is less than the provided
+// exists, SeekLE seeks to the closest domain whose ending timestamp is less than the provided
 // timestamp. If no such domain exists, SeekLE returns false.
 func (i *Iterator) SeekLE(ctx context.Context, stamp telem.TimeStamp) bool {
+	if i.closed {
+		return false
+	}
 	i.valid = true
 	i.position = i.idx.searchLE(ctx, stamp)
 	return i.reload()
 }
 
 // SeekGE seeks to the domain whose TimeRange contain the provided timestamp. If no such domain
-// exists, SeekGE seeks to the closes domain whose starting timestamp is greater than the
+// exists, SeekGE seeks to the closest domain whose starting timestamp is greater than the
 // provided timestamp. If no such domain exists, SeekGE returns false.
 func (i *Iterator) SeekGE(ctx context.Context, stamp telem.TimeStamp) bool {
+	if i.closed {
+		return false
+	}
 	i.valid = true
 	i.position = i.idx.searchGE(ctx, stamp)
 	return i.reload()
@@ -113,6 +134,8 @@ func (i *Iterator) Prev() bool {
 // not accumulated an error. Returns false otherwise.
 func (i *Iterator) Valid() bool { return i.valid }
 
+func (i *Iterator) Position() int { return i.position }
+
 // TimeRange returns the time interval occupied by current domain.
 func (i *Iterator) TimeRange() telem.TimeRange { return i.value.TimeRange }
 
@@ -120,6 +143,9 @@ func (i *Iterator) TimeRange() telem.TimeRange { return i.value.TimeRange }
 // domain. The returned Reader is not safe for concurrent use, but it is safe to have
 // multiple Readers open over the same domain.
 func (i *Iterator) NewReader(ctx context.Context) (*Reader, error) {
+	if i.closed {
+		return nil, IteratorClosedError
+	}
 	return i.readerFactory(ctx, i.value)
 }
 
@@ -127,7 +153,11 @@ func (i *Iterator) NewReader(ctx context.Context) (*Reader, error) {
 func (i *Iterator) Len() int64 { return int64(i.value.length) }
 
 // Close closes the iterator.
-func (i *Iterator) Close() error { return nil }
+func (i *Iterator) Close() error {
+	i.closed = true
+	i.valid = false
+	return nil
+}
 
 func (i *Iterator) reload() bool {
 	if i.position == -1 {

@@ -149,7 +149,7 @@ export const Provider = ({
    * issues with the user holding down a key and then moving the mouse out of the
    * window.
    */
-  const handlePageVisbility = useCallback((event: Event): void => {
+  const handlePageVisibility = useCallback((event: Event): void => {
     setCurr((prevS) => {
       const prev = prevS.next;
       const nextS: RefState = {
@@ -170,7 +170,7 @@ export const Provider = ({
     window.addEventListener("mouseup", handleKeyUp);
     window.addEventListener("dragend", handleKeyUp);
     window.addEventListener("drop", handleKeyUp);
-    window.addEventListener("blur", handlePageVisbility);
+    window.addEventListener("blur", handlePageVisibility);
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
@@ -179,7 +179,7 @@ export const Provider = ({
       window.removeEventListener("mouseup", handleKeyUp);
       window.removeEventListener("dragend", handleKeyUp);
       window.removeEventListener("drop", handleKeyUp);
-      window.removeEventListener("blur", handlePageVisbility);
+      window.removeEventListener("blur", handlePageVisibility);
     };
   }, [handleKeyDown, handleKeyUp, handleMouseMove]);
 

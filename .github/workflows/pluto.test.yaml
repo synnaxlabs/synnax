@@ -16,7 +16,7 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Diff Changes
-        uses: dorny/paths-filter@v2
+        uses: dorny/paths-filter@v3
         id: filter
         with:
           filters: |
@@ -39,7 +39,7 @@ jobs:
 
       - name: Install Dependencies
         if: steps.filter.outputs.changed == 'true'
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
 
       - name: Test
         if: steps.filter.outputs.changed == 'true'

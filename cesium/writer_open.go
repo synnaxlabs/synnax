@@ -11,7 +11,6 @@ package cesium
 
 import (
 	"context"
-	"github.com/cockroachdb/errors"
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
@@ -20,6 +19,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -65,7 +65,19 @@ type WriterConfig struct {
 	// mode is WriterModePersistStream. See the WriterMode documentation for more.
 	// [OPTIONAL] - Defaults to WriterModePersistStream.
 	Mode WriterMode
+	// EnableAutoCommit determines whether the writer will automatically commit after each write.
+	// If EnableAutoCommit is true, then the writer will commit after each write, and will
+	// flush that commit to index on FS after the specified AutoIndexPersistInterval.
+	// [OPTIONAL] - Defaults to false.
+	EnableAutoCommit *bool
+	// AutoIndexPersistInterval is the interval at which commits to the index will be persisted.
+	// To persist every commit to guarantee minimal loss of data, set AutoIndexPersistInterval
+	// to AlwaysIndexPersistOnAutoCommit.
+	// [OPTIONAL] - Defaults to 1s.
+	AutoIndexPersistInterval telem.TimeSpan
 }
+
+const AlwaysIndexPersistOnAutoCommit telem.TimeSpan = -1
 
 var (
 	_ config.Config[WriterConfig] = WriterConfig{}
@@ -76,42 +88,47 @@ func DefaultWriterConfig() WriterConfig {
 		ControlSubject: control.Subject{
 			Key: uuid.New().String(),
 		},
-		Authorities:       []control.Authority{control.Absolute},
-		ErrOnUnauthorized: config.False(),
-		Mode:              WriterPersistStream,
+		Authorities:              []control.Authority{control.Absolute},
+		ErrOnUnauthorized:        config.False(),
+		Mode:                     WriterPersistStream,
+		EnableAutoCommit:         config.Bool(false),
+		AutoIndexPersistInterval: 1 * telem.Second,
 	}
 }
 
 // Validate implements config.GateConfig.
-func (w WriterConfig) Validate() error {
+func (c WriterConfig) Validate() error {
 	v := validate.New("cesium.WriterConfig")
-	validate.NotEmptySlice(v, "Channels", w.Channels)
-	validate.NotNil(v, "ErrOnUnauthorized", w.ErrOnUnauthorized)
-	validate.NotEmptyString(v, "ControlSubject.Key", w.ControlSubject.Key)
+	validate.NotEmptySlice(v, "Channels", c.Channels)
+	validate.NotNil(v, "ErrOnUnauthorized", c.ErrOnUnauthorized)
+	validate.NotEmptyString(v, "ControlSubject.Key", c.ControlSubject.Key)
 	v.Ternary(
-		len(w.Authorities) != len(w.Channels) && len(w.Authorities) != 1,
+		"authorities",
+		len(c.Authorities) != len(c.Channels) && len(c.Authorities) != 1,
 		"authority count must be 1 or equal to channel count",
 	)
 	return v.Error()
 }
 
 // Override implements config.GateConfig.
-func (w WriterConfig) Override(other WriterConfig) WriterConfig {
-	w.Start = override.Zero(w.Start, other.Start)
-	w.Channels = override.Slice(w.Channels, other.Channels)
-	w.Authorities = override.Slice(w.Authorities, other.Authorities)
-	w.ControlSubject.Name = override.String(w.ControlSubject.Name, other.ControlSubject.Name)
-	w.ControlSubject.Key = override.String(w.ControlSubject.Key, other.ControlSubject.Key)
-	w.ErrOnUnauthorized = override.Nil(w.ErrOnUnauthorized, other.ErrOnUnauthorized)
-	w.Mode = override.Numeric(w.Mode, other.Mode)
-	return w
+func (c WriterConfig) Override(other WriterConfig) WriterConfig {
+	c.Start = override.Zero(c.Start, other.Start)
+	c.Channels = override.Slice(c.Channels, other.Channels)
+	c.Authorities = override.Slice(c.Authorities, other.Authorities)
+	c.ControlSubject.Name = override.String(c.ControlSubject.Name, other.ControlSubject.Name)
+	c.ControlSubject.Key = override.String(c.ControlSubject.Key, other.ControlSubject.Key)
+	c.ErrOnUnauthorized = override.Nil(c.ErrOnUnauthorized, other.ErrOnUnauthorized)
+	c.Mode = override.Numeric(c.Mode, other.Mode)
+	c.EnableAutoCommit = override.Nil(c.EnableAutoCommit, other.EnableAutoCommit)
+	c.AutoIndexPersistInterval = override.Zero(c.AutoIndexPersistInterval, other.AutoIndexPersistInterval)
+	return c
 }
 
-func (w WriterConfig) authority(i int) control.Authority {
-	if len(w.Authorities) == 1 {
-		return w.Authorities[0]
+func (c WriterConfig) authority(i int) control.Authority {
+	if len(c.Authorities) == 1 {
+		return c.Authorities[0]
 	}
-	return w.Authorities[i]
+	return c.Authorities[i]
 }
 
 // NewStreamWriter implements DB.
@@ -148,11 +165,11 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 			return
 		}
 		for _, idx := range domainWriters {
-			_, err_ := idx.Close()
+			_, err_ := idx.Close(ctx)
 			err = errors.CombineErrors(err_, err)
 		}
 		for _, idx := range rateWriters {
-			_, err_ := idx.Close()
+			_, err_ := idx.Close(ctx)
 			err = errors.CombineErrors(err_, err)
 		}
 	}()
@@ -161,7 +178,7 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 		u, uOk := db.unaryDBs[key]
 		v, vOk := db.virtualDBs[key]
 		if !vOk && !uOk {
-			return nil, ChannelNotFound
+			return nil, core.ChannelNotFound
 		}
 		var (
 			auth     = cfg.authority(i)
@@ -182,10 +199,12 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 		} else {
 			var w *unary.Writer
 			w, transfer, err = u.OpenWriter(ctx, unary.WriterConfig{
-				Subject:   cfg.ControlSubject,
-				Start:     cfg.Start,
-				Authority: auth,
-				Persist:   config.Bool(cfg.Mode.Persist()),
+				Subject:                  cfg.ControlSubject,
+				Start:                    cfg.Start,
+				Authority:                auth,
+				Persist:                  config.Bool(cfg.Mode.Persist()),
+				EnableAutoCommit:         cfg.EnableAutoCommit,
+				AutoIndexPersistInterval: cfg.AutoIndexPersistInterval,
 			})
 			if err != nil {
 				return nil, err
@@ -199,6 +218,7 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 				}
 				idxW, exists := domainWriters[u.Channel.Index]
 				if !exists {
+					// If there is no existing index writer for this index-group.
 					idxW, err = db.openDomainIdxWriter(u.Channel.Index, cfg)
 					if err != nil {
 						return nil, err
@@ -241,7 +261,7 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 		WriterConfig:    cfg,
 		internal:        make([]*idxWriter, 0, len(domainWriters)+len(rateWriters)),
 		relay:           db.relay.inlet,
-		virtual:         &virtualWriter{internal: virtualWriters},
+		virtual:         &virtualWriter{internal: virtualWriters, digestKey: db.digests.key},
 		updateDBControl: db.updateControlDigests,
 	}
 	for _, idx := range domainWriters {
@@ -261,7 +281,7 @@ func (db *DB) openDomainIdxWriter(
 	defer db.mu.RUnlock()
 	u, ok := db.unaryDBs[idxKey]
 	if !ok {
-		return nil, ChannelNotFound
+		return nil, core.ChannelNotFound
 	}
 	idx := &index.Domain{DB: u.Domain, Instrumentation: db.Instrumentation}
 	w := &idxWriter{internal: make(map[ChannelKey]*unaryWriterState)}

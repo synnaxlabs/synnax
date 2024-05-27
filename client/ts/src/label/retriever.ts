@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { toArray } from "@synnaxlabs/x";
+import { toArray } from "@synnaxlabs/x/toArray";
 import { z } from "zod";
 
 import { keyZ, type Label, labelZ, type Params } from "@/label/payload";
@@ -57,6 +57,7 @@ export class Retriever {
     const [res, err] = await this.client.send<typeof reqZ, typeof resZ>(
       Retriever.ENDPOINT,
       req,
+      reqZ,
       resZ,
     );
     if (err != null) throw err;

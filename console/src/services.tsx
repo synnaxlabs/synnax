@@ -16,13 +16,28 @@ import { Group } from "@/group";
 import { LinePlot } from "@/lineplot";
 import { Builtin } from "@/ontology/builtin";
 import { type Service } from "@/ontology/service";
-import { PID } from "@/pid";
+import { Schematic } from "@/schematic";
 import { ONTOLOGY_SERVICE as RANGE_ONTOLOGY_SERVICE } from "@/range/ontology";
 import { User } from "@/user";
 import { Workspace } from "@/workspace";
+import { Task } from "@/hardware/task";
+import { Device } from "@/hardware/device";
+
+export const EMPTY_ONTOLOGY_SERVICE: Service = {
+  type: "rack",
+  icon: <></>,
+  hasChildren: true,
+  canDrop: () => false,
+  onMosaicDrop: () => {},
+  TreeContextMenu: () => <></>,
+  onSelect: () => {},
+  haulItems: () => [],
+  allowRename: () => false,
+  onRename: () => {},
+};
 
 export const SERVICES: Record<ontology.ResourceType, Service> = {
-  pid: PID.ONTOLOGY_SERVICE,
+  schematic: Schematic.ONTOLOGY_SERVICE,
   channel: CHANNEL_ONTOLOGY_SERVICE,
   cluster: Cluster.ONTOLOGY_SERVICE,
   user: User.ONTOLOGY_SERVICE,
@@ -32,4 +47,9 @@ export const SERVICES: Record<ontology.ResourceType, Service> = {
   range: RANGE_ONTOLOGY_SERVICE,
   workspace: Workspace.ONTOLOGY_SERVICE,
   lineplot: LinePlot.ONTOLOGY_SERVICE,
+  "range-alias": EMPTY_ONTOLOGY_SERVICE,
+  label: EMPTY_ONTOLOGY_SERVICE,
+  rack: EMPTY_ONTOLOGY_SERVICE,
+  task: Task.ONTOLOGY_SERVICE,
+  device: Device.ONTOLOGY_SERVICE,
 };

@@ -18,14 +18,21 @@ interface CSSGridEntry {
 export class CSSGridBuilder {
   rows: CSSGridEntry[] = [];
   columns: CSSGridEntry[] = [];
+  prefix: string;
 
-  addRow(start: string, end: string, size: number | string): this {
-    this.rows.push({ startLabel: start, endLabel: end, size });
+  constructor(prefix: string = "") {
+    this.prefix = prefix;
+  }
+
+  row(start: string, end: string, size: number | string): this {
+    const { prefix } = this;
+    this.rows.push({ startLabel: prefix + start, endLabel: prefix + end, size });
     return this;
   }
 
-  addColumn(start: string, end: string, size: number | string): this {
-    this.columns.push({ startLabel: start, endLabel: end, size });
+  col(start: string, end: string, size: number | string): this {
+    const { prefix } = this;
+    this.columns.push({ startLabel: prefix + start, endLabel: prefix + end, size });
     return this;
   }
 

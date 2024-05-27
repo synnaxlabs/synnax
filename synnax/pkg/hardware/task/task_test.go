@@ -60,9 +60,9 @@ var _ = Describe("Task", Ordered, func() {
 		Expect(otg.Close()).To(Succeed())
 		Expect(db.Close()).To(Succeed())
 	})
-	Describe("Key", func() {
+	Describe("Task", func() {
 		It("Should construct and deconstruct a key from its components", func() {
-			rk := rack.NewKey(core.NodeKey(1), 2)
+			rk := rack.NewKey(core.NodeKey(1), 1)
 			k := task.NewKey(rk, 2)
 			Expect(k.Rack()).To(Equal(rk))
 			Expect(k.LocalKey()).To(Equal(uint32(2)))
@@ -109,7 +109,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(res).To(Equal(*m))
 		})
 	})
-	Describe("Delete", func() {
+	Describe("DeleteChannel", func() {
 		It("Should correctly delete a module", func() {
 			m := &task.Task{
 				Key:  task.NewKey(rack_.Key, 0),

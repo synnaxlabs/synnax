@@ -10,13 +10,13 @@
 import { Icon } from "@synnaxlabs/media";
 
 import { type Command } from "@/palette/Palette";
-import { editLayout } from "@/range/EditLayout";
+import { createEditLayout } from "@/range/EditLayout";
 
 export const defineCommand: Command = {
   key: "define-range",
   name: "Create a Range",
   icon: <Icon.Range />,
-  onSelect: ({ placeLayout: layoutPlacer }) => layoutPlacer(editLayout()),
+  onSelect: ({ placeLayout: layoutPlacer }) => layoutPlacer(createEditLayout()),
 };
 
 export const COMMANDS = [defineCommand];

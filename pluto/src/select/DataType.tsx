@@ -9,11 +9,10 @@
 
 import { type ReactElement } from "react";
 
-import { Case, DataType as TelemDataType } from "@synnaxlabs/x";
+import { caseconv, DataType as TelemDataType } from "@synnaxlabs/x";
 
 import { type List } from "@/list";
-
-import { DropdownButton, type DropdownButtonProps } from "./Button";
+import { DropdownButton, type DropdownButtonProps } from "@/select/Button";
 
 interface ListEntry {
   key: string;
@@ -24,7 +23,7 @@ const DATA: ListEntry[] = TelemDataType.ALL.filter(
   (d) => d !== TelemDataType.UNKNOWN,
 ).map((d) => ({
   key: d.toString(),
-  name: Case.capitalize(d.toString()),
+  name: caseconv.capitalize(d.toString()),
 }));
 
 const COLUMNS: Array<List.ColumnSpec<string, ListEntry>> = [
@@ -42,6 +41,6 @@ export const DataType = (props: DataTypeProps): ReactElement => (
     {...props}
     data={DATA}
     columns={COLUMNS}
-    tagKey="name"
+    entryRenderKey="name"
   />
 );

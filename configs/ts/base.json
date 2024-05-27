@@ -16,6 +16,7 @@
     "noImplicitReturns": true,
     "jsx": "react-jsx",
     "skipLibCheck": true,
+    "declarationMap": true,
     "paths": {
       "@/*": [
         "src/*"

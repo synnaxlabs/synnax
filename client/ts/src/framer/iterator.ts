@@ -14,12 +14,13 @@ import {
   TimeRange,
   TimeSpan,
   TimeStamp,
-} from "@synnaxlabs/x";
+  type CrudeTimeRange,
+} from "@synnaxlabs/x/telem";
 import { z } from "zod";
 
 import { type Params } from "@/channel/payload";
 import { type Retriever } from "@/channel/retriever";
-import { BackwardFrameAdapter } from "@/framer/adapter";
+import { ReadFrameAdapter } from "@/framer/adapter";
 import { Frame, frameZ } from "@/framer/frame";
 import { StreamProxy } from "@/framer/streamProxy";
 
@@ -72,12 +73,12 @@ const resZ = z.object({
 export class Iterator {
   private static readonly ENDPOINT = "/frame/iterate";
   private readonly stream: StreamProxy<typeof reqZ, typeof resZ>;
-  private readonly adapter: BackwardFrameAdapter;
+  private readonly adapter: ReadFrameAdapter;
   value: Frame;
 
   private constructor(
     stream: Stream<typeof reqZ, typeof resZ>,
-    adapter: BackwardFrameAdapter,
+    adapter: ReadFrameAdapter,
   ) {
     this.stream = new StreamProxy("Iterator", stream);
     this.value = new Frame();
@@ -92,15 +93,19 @@ export class Iterator {
    * @param keys - The keys of the channels to iterate over.
    */
   static async _open(
-    tr: TimeRange,
+    tr: CrudeTimeRange,
     channels: Params,
     retriever: Retriever,
     client: StreamClient,
   ): Promise<Iterator> {
-    const adapter = await BackwardFrameAdapter.open(retriever, channels);
+    const adapter = await ReadFrameAdapter.open(retriever, channels);
     const stream = await client.stream(Iterator.ENDPOINT, reqZ, resZ);
     const iter = new Iterator(stream, adapter);
-    await iter.execute({ command: Command.Open, keys: adapter.keys, bounds: tr });
+    await iter.execute({
+      command: Command.Open,
+      keys: adapter.keys,
+      bounds: new TimeRange(tr),
+    });
     return iter;
   }
 

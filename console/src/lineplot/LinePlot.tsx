@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useCallback, useMemo } from "react";
+import { type ReactElement, useCallback, useMemo, useEffect } from "react";
 
-import { type channel } from "@synnaxlabs/client";
+import { framer, type channel } from "@synnaxlabs/client";
+import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
   useAsyncEffect,
   Viewport,
@@ -17,9 +18,18 @@ import {
   Channel,
   Synnax,
   Color,
-  Menu,
+  Menu as PMenu,
+  usePrevious,
 } from "@synnaxlabs/pluto";
-import { type UnknownRecord, box, location, unique, getEntries } from "@synnaxlabs/x";
+import {
+  type UnknownRecord,
+  box,
+  location,
+  unique,
+  getEntries,
+  scale,
+  TimeRange,
+} from "@synnaxlabs/x";
 import { useDispatch } from "react-redux";
 
 import { useSyncerDispatch, type Syncer } from "@/hooks/dispatchers";
@@ -30,6 +40,8 @@ import {
   useSelectControlState,
   useSelectViewportMode,
   select,
+  useSelectAxisBounds,
+  useSelectSelection,
 } from "@/lineplot/selectors";
 import {
   type State,
@@ -48,12 +60,16 @@ import {
   setAxis,
   type AxisState,
   type LineState,
+  setControlState,
 } from "@/lineplot/slice";
 import { Range } from "@/range";
 import { Vis } from "@/vis";
 import { Workspace } from "@/workspace";
-
-import { ContextMenuContent } from "./ContextMenu";
+import { Icon } from "@synnaxlabs/media";
+import { download } from "@/lineplot/download";
+import { Menu } from "@/components";
+// import { dialog } from "@tauri-apps/api";
+// import { writeFile } from "@tauri-apps/api/fs";
 
 interface SyncPayload {
   key?: string;
@@ -71,48 +87,67 @@ const syncer: Syncer<
   const la = Layout.selectRequired(s, key);
   if (!data.remoteCreated) {
     store.dispatch(setRemoteCreated({ key }));
-    await client.workspaces.linePlot.create(ws, {
-      key,
-      name: la.name,
-      data: data as unknown as UnknownRecord,
-    });
-  } else
-    await client.workspaces.linePlot.setData(key, data as unknown as UnknownRecord);
+  }
+  await client.workspaces.linePlot.create(ws, {
+    key,
+    name: la.name,
+    data: data as unknown as UnknownRecord,
+  });
+};
+
+const frameToCSV = (columns: string[], frame: framer.Frame): string => {
+  if (frame.series.length === 0) return "";
+  const count = frame.series[0].length;
+  const headers = columns.join(",");
+  let rows: string[] = [headers];
+  for (let i = 1; i < count; i++) {
+    const row = frame.at(i);
+    rows.push(Object.values(row).join(","));
+  }
+  return rows.join("\n");
 };
 
 const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
+  const windowKey = useSelectWindowKey() as string;
   const { name } = Layout.useSelectRequired(layoutKey);
+  const placer = Layout.usePlacer();
   const vis = useSelect(layoutKey);
   const ranges = selectRanges(layoutKey);
   const client = Synnax.use();
-  const dispatch = useSyncerDispatch<
+  const syncDispatch = useSyncerDispatch<
     Layout.StoreState & Workspace.StoreState & StoreState,
     SyncPayload
-  >(syncer, 1000);
+  >(syncer, 500);
+  const dispatch = useDispatch();
 
   const lines = buildLines(vis, ranges);
+
+  const prevName = usePrevious(name);
+  useEffect(() => {
+    if (prevName !== name) syncDispatch(Layout.rename({ key: layoutKey, name }));
+  }, [syncDispatch, name, prevName]);
 
   useAsyncEffect(async () => {
     if (client == null) return;
     const toFetch = lines.filter((line) => line.label == null);
     if (toFetch.length === 0) return;
     const fetched = await client.channels.retrieve(
-      unique(toFetch.map((line) => line.channels.y)),
+      unique(toFetch.map((line) => line.channels.y)) as channel.KeysOrNames,
     );
     const update = toFetch.map((l) => ({
       key: l.key,
       label: fetched.find((f) => f.key === l.channels.y)?.name,
     }));
-    dispatch(
+    syncDispatch(
       setLine({
         key: layoutKey,
         line: update,
       }),
     );
-  }, [client, lines]);
+  }, [layoutKey, client, lines]);
 
   const handleTitleChange = (name: string): void => {
-    dispatch(Layout.rename({ key: layoutKey, name }));
+    syncDispatch(Layout.rename({ key: layoutKey, name }));
   };
 
   const handleLineChange = useCallback<
@@ -121,21 +156,21 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
     (d): void => {
       const newLine = { ...d } as const as LineState;
       if (d.color != null) newLine.color = Color.toHex(d.color);
-      dispatch(
+      syncDispatch(
         setLine({
           key: layoutKey,
           line: [newLine],
         }),
       );
     },
-    [dispatch, layoutKey],
+    [syncDispatch, layoutKey],
   );
 
   const handleRuleChange = useCallback<
     Exclude<Channel.LinePlotProps["onRuleChange"], undefined>
   >(
     (rule) =>
-      dispatch(
+      syncDispatch(
         setRule({
           key: layoutKey,
           rule: {
@@ -145,14 +180,14 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
           },
         }),
       ),
-    [dispatch, layoutKey],
+    [syncDispatch, layoutKey],
   );
 
   const handleAxisChange = useCallback<
     Exclude<Channel.LinePlotProps["onAxisChange"], undefined>
   >(
     (axis) => {
-      dispatch(
+      syncDispatch(
         setAxis({
           key: layoutKey,
           axisKey: axis.key as Vis.AxisKey,
@@ -161,7 +196,7 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
         }),
       );
     },
-    [dispatch, layoutKey],
+    [syncDispatch, layoutKey],
   );
 
   const propsLines = buildLines(vis, ranges);
@@ -171,7 +206,7 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
   const handleChannelAxisDrop = useCallback(
     (axis: string, channels: channel.Keys): void => {
       if (Vis.X_AXIS_KEYS.includes(axis as Vis.XAxisKey))
-        dispatch(
+        syncDispatch(
           setXChannel({
             key: layoutKey,
             axisKey: axis as Vis.XAxisKey,
@@ -179,7 +214,7 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
           }),
         );
       else
-        dispatch(
+        syncDispatch(
           setYChannels({
             key: layoutKey,
             axisKey: axis as Vis.YAxisKey,
@@ -188,7 +223,7 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
           }),
         );
       if (propsLines.length === 0 && rng != null) {
-        dispatch(
+        syncDispatch(
           setRanges({
             mode: "add",
             key: layoutKey,
@@ -198,21 +233,21 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
         );
       }
     },
-    [dispatch, layoutKey, propsLines.length, rng],
+    [syncDispatch, layoutKey, propsLines.length, rng],
   );
 
   const handleViewportChange: Viewport.UseHandler = useDebouncedCallback(
     ({ box: b, stage, mode }) => {
       if (stage !== "end") return;
       if (mode === "select") {
-        dispatch(
+        syncDispatch(
           setSelection({
             key: layoutKey,
             box: b,
           }),
         );
       } else {
-        dispatch(
+        syncDispatch(
           storeViewport({
             key: layoutKey,
             pan: box.bottomLeft(b),
@@ -222,7 +257,7 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
       }
     },
     100,
-    [dispatch, layoutKey],
+    [syncDispatch, layoutKey],
   );
 
   const { enableTooltip, clickMode, hold } = useSelectControlState();
@@ -237,14 +272,81 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
   }, [vis.viewport.renderTrigger]);
 
   const handleDoubleClick = useCallback(
-    () => dispatch(Layout.setNavdrawerVisible({ key: "visualization", value: true })),
-    [dispatch],
+    () =>
+      dispatch(
+        Layout.setNavdrawerVisible({ windowKey, key: "visualization", value: true }),
+      ),
+    [windowKey, dispatch],
   );
 
-  const props = Menu.useContextMenu();
+  const props = PMenu.useContextMenu();
+
+  interface ContextMenuContentProps {
+    layoutKey: string;
+  }
+
+  const ContextMenuContent = ({ layoutKey }: ContextMenuContentProps): ReactElement => {
+    const { box: selection } = useSelectSelection(layoutKey);
+    const bounds = useSelectAxisBounds(layoutKey, "x1");
+
+    const s = scale.Scale.scale(1).scale(bounds);
+    const timeRange = new TimeRange(
+      s.pos(box.left(selection)),
+      s.pos(box.right(selection)),
+    );
+
+    const handleSelect = (key: string): void => {
+      switch (key) {
+        case "iso":
+          void navigator.clipboard.writeText(
+            `${timeRange.start.fString("ISO")} - ${timeRange.end.fString("ISO")}`,
+          );
+          break;
+        case "python":
+          void navigator.clipboard.writeText(
+            `sy.TimeRange(${timeRange.start.valueOf()}, ${timeRange.end.valueOf()})`,
+          );
+          break;
+        case "typescript":
+          void navigator.clipboard.writeText(
+            `new TimeRange(${timeRange.start.valueOf()}, ${timeRange.end.valueOf()})`,
+          );
+          break;
+        case "download":
+          if (client == null) return;
+          download({ timeRange, lines, client });
+          break;
+      }
+    };
+
+    return (
+      <PMenu.Menu onChange={handleSelect} iconSpacing="medium" level="small">
+        <Menu.Item.HardReload />
+        {!box.areaIsZero(selection) && (
+          <>
+            <PMenu.Item itemKey="iso" startIcon={<Icon.Range />}>
+              Copy time range as ISO
+            </PMenu.Item>
+            <PMenu.Item itemKey="python" startIcon={<Icon.Python />}>
+              Copy time range as Python
+            </PMenu.Item>
+            <PMenu.Item itemKey="typescript" startIcon={<Icon.TypeScript />}>
+              Copy time range as TypeScript
+            </PMenu.Item>
+            <PMenu.Item itemKey="range" startIcon={<Icon.Add />}>
+              Create new range from selection
+            </PMenu.Item>
+            <PMenu.Item itemKey="download" startIcon={<Icon.Download />}>
+              Download data as CSV
+            </PMenu.Item>
+          </>
+        )}
+      </PMenu.Menu>
+    );
+  };
 
   return (
-    <Menu.ContextMenu
+    <PMenu.ContextMenu
       {...props}
       menu={() => <ContextMenuContent layoutKey={layoutKey} />}
     >
@@ -255,7 +357,7 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
           axes={axes}
           lines={propsLines}
           rules={vis.rules}
-          clearOverscan={{ x: 5, y: 5 }}
+          clearOverScan={{ x: 5, y: 5 }}
           onTitleChange={handleTitleChange}
           titleLevel={vis.title.level}
           showTitle={vis.title.visible}
@@ -270,9 +372,44 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
           enableTooltip={enableTooltip}
           enableMeasure={clickMode === "measure"}
           onDoubleClick={handleDoubleClick}
+          onHold={(hold) => dispatch(setControlState({ state: { hold } }))}
+          annotationProvider={{
+            menu: ({ key, timeRange, name }) => {
+              const handleSelect = (itemKey: string) => {
+                switch (itemKey) {
+                  case "download":
+                    if (client == null) return;
+                    download({ client, lines, timeRange, name });
+                    break;
+                  case "meta-data":
+                    placer({
+                      ...Range.metaDataWindowLayout,
+                      name: `${name} Meta Data`,
+                      key: key,
+                    });
+                  default:
+                    break;
+                }
+              };
+
+              return (
+                <PMenu.Menu level="small" key={key} onChange={handleSelect}>
+                  <PMenu.Item itemKey="download" startIcon={<Icon.Download />}>
+                    Download as CSV
+                  </PMenu.Item>
+                  <PMenu.Item itemKey="line-plot" startIcon={<Icon.Visualize />}>
+                    Open in New Plot
+                  </PMenu.Item>
+                  <PMenu.Item itemKey="meta-data" startIcon={<Icon.Annotate />}>
+                    View Meta Data
+                  </PMenu.Item>
+                </PMenu.Menu>
+              );
+            },
+          }}
         />
       </div>
-    </Menu.ContextMenu>
+    </PMenu.ContextMenu>
   );
 };
 
@@ -332,7 +469,7 @@ const buildLines = (
                 y: channel,
               },
               ...variantArg,
-            };
+            } as unknown as Channel.LineProps;
             return v;
           });
         }),

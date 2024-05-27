@@ -10,7 +10,10 @@
 package telem
 
 import (
+	"encoding/json"
+	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/clamp"
+	"math"
 	"strconv"
 	"time"
 )
@@ -24,6 +27,16 @@ const (
 
 // TimeStamp stores an epoch time in nanoseconds.
 type TimeStamp int64
+
+func (ts *TimeStamp) UnmarshalJSON(b []byte) error {
+	n, err := binary.UnmarshalStringInt64(b)
+	*ts = TimeStamp(n)
+	return err
+}
+
+func (ts *TimeStamp) MarshalJSON() ([]byte, error) {
+	return []byte("\"" + strconv.Itoa(int(*ts)) + "\""), nil
+}
 
 // Now returns the current time as a TimeStamp.
 func Now() TimeStamp { return NewTimeStamp(time.Now()) }
@@ -177,12 +190,27 @@ var (
 // TimeSpan represents a duration of time in nanoseconds.
 type TimeSpan int64
 
+func (ts *TimeSpan) MarshalJSON() ([]byte, error) {
+	return []byte("\"" + strconv.Itoa(int(*ts)) + "\""), nil
+}
+
 const (
 	// TimeSpanZero represents the zero value for a TimeSpan.
 	TimeSpanZero = TimeSpan(0)
 	// TimeSpanMax represents the maximum possible TimeSpan.
 	TimeSpanMax = TimeSpan(^uint64(0) >> 1)
 )
+
+var (
+	_ json.Unmarshaler = (*TimeSpan)(nil)
+	_ json.Marshaler   = (*TimeSpan)(nil)
+)
+
+func (ts *TimeSpan) UnmarshalJSON(b []byte) error {
+	n, err := binary.UnmarshalStringInt64(b)
+	*ts = TimeSpan(n)
+	return err
+}
 
 // Duration converts TimeSpan to a values.Duration.
 func (ts TimeSpan) Duration() time.Duration { return time.Duration(ts) }
@@ -291,4 +319,51 @@ const (
 	TimeSpanDensity          = Bit64
 )
 
-type Alignment uint32
+// AlignmentPair is essentially two array index values that can be used to represent
+// the location of a sample within a group of arrays. For example, if you have two arrays
+// that have 50 elements each, and you want the 15th element of the second array, you would
+// use NewAlignmentPair(1, 15).
+//
+// You may think a better design is to just use a single number that overflows the arrays
+// before it i.e. the value of our previous example would be 50 + 14 = 64. However, this
+// requires us to know the size of all arrays, which is not always possible.
+//
+// While not as meaningful as a single number, AlignmentPair is a uint64 that guarantees
+// that a larger value is, in fact, 'positionally' after a smaller value. This is useful
+// for ordering samples correctly.
+type AlignmentPair uint64
+
+var (
+	_ json.Unmarshaler = (*AlignmentPair)(nil)
+	_ json.Marshaler   = (*AlignmentPair)(nil)
+)
+
+// NewAlignmentPair takes the given array index and sample index within that array and
+// returns a new AlignmentPair (see AlignmentPair for more information).
+func NewAlignmentPair(arrayIndex, sampleIndex uint32) AlignmentPair {
+	return AlignmentPair(arrayIndex)<<32 | AlignmentPair(sampleIndex)
+}
+
+// LeadingAlignment returns an AlignmentPair whose array index is the maximum possible value
+// and whose sample index is the provided value.
+func LeadingAlignment(sampleIndex uint32) AlignmentPair {
+	return NewAlignmentPair(math.MaxUint32, sampleIndex)
+}
+
+// ArrayIndex returns the array index of the AlignmentPair. See AlignmentPair for more information.
+func (a AlignmentPair) ArrayIndex() uint32 { return uint32(a >> 32) }
+
+// SampleIndex returns the sample index of the AlignmentPair. See AlignmentPair for more information.
+func (a AlignmentPair) SampleIndex() uint32 { return uint32(a) }
+
+// UnmarshalJSON implements json.Unmarshaler.
+func (a *AlignmentPair) UnmarshalJSON(b []byte) error {
+	n, err := binary.UnmarshalStringUint64(b)
+	*a = AlignmentPair(n)
+	return err
+}
+
+// MarshalJSON implements json.Marshaler.
+func (a *AlignmentPair) MarshalJSON() ([]byte, error) {
+	return []byte("\"" + strconv.FormatUint(uint64(*a), 10) + "\""), nil
+}

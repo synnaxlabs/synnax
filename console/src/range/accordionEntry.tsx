@@ -19,7 +19,6 @@ import {
   Synnax,
   useAsyncEffect,
   Tooltip,
-  Button,
 } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 import { List as Core } from "@synnaxlabs/pluto/list";
@@ -30,8 +29,8 @@ import { useDispatch } from "react-redux";
 import { Menu } from "@/components";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
-import { editLayout } from "@/range/EditLayout";
-import type { Range } from "@/range/range";
+import { createEditLayout } from "@/range/EditLayout";
+import type { Range, StaticRange } from "@/range/range";
 import { useSelect, useSelectMultiple } from "@/range/selectors";
 import { add, remove, setActive } from "@/range/slice";
 
@@ -75,7 +74,7 @@ export const List = (): ReactElement => {
   const selectedRange = useSelect();
 
   const handleAddOrEdit = (key?: string): void => {
-    const layout = editLayout(key == null ? "Create Range" : "Edit Range");
+    const layout = createEditLayout(key == null ? "Create Range" : "Edit Range");
     newLayout({
       ...layout,
       key: key ?? layout.key,
@@ -110,10 +109,28 @@ export const List = (): ReactElement => {
     })();
   };
 
-  const handleSetActive = (key: string) => {
+  const handleSetActive = (key: string): void => {
     void (async () => {
       await client?.ranges.setActive(key);
     })();
+  };
+
+  const NoRanges = (): ReactElement => {
+    const handleLinkClick: React.MouseEventHandler<HTMLParagraphElement> = (e) => {
+      e.stopPropagation();
+      handleAddOrEdit();
+    };
+
+    return (
+      <Align.Space empty style={{ height: "100%", position: "relative" }}>
+        <Align.Center direction="y" style={{ height: "100%" }} size="small">
+          <Text.Text level="p">No ranges added.</Text.Text>
+          <Text.Link level="p" onClick={handleLinkClick}>
+            Add a range
+          </Text.Link>
+        </Align.Center>
+      </Align.Space>
+    );
   };
 
   const ContextMenu = ({
@@ -156,9 +173,11 @@ export const List = (): ReactElement => {
                 Delete
               </PMenu.Item>
             ) : (
-              <PMenu.Item startIcon={<Icon.Save />} size="small" itemKey="save">
-                Save to Synnax
-              </PMenu.Item>
+              client != null && (
+                <PMenu.Item startIcon={<Icon.Save />} size="small" itemKey="save">
+                  Save to Synnax
+                </PMenu.Item>
+              )
             )}
           </>
         )}
@@ -176,25 +195,26 @@ export const List = (): ReactElement => {
 
   return (
     <PMenu.ContextMenu menu={(p) => <ContextMenu {...p} />} {...menuProps}>
-      <div style={{ flexGrow: 1 }}>
-        <Core.List data={ranges.filter((r) => r.variant === "static")}>
-          <Core.Selector
-            value={selectedRange?.key}
-            onChange={handleSelect}
-            allowMultiple={false}
-            allowNone={true}
-          >
-            <Core.Core style={{ height: "100%", overflowX: "hidden" }}>
-              {componentRenderProp(ListItem)}
-            </Core.Core>
-          </Core.Selector>
-        </Core.List>
-      </div>
+      <Core.List<string, StaticRange>
+        data={ranges.filter((r) => r.variant === "static") as StaticRange[]}
+        emptyContent={<NoRanges />}
+      >
+        <Core.Selector
+          value={selectedRange?.key ?? null}
+          onChange={handleSelect}
+          allowMultiple={false}
+          allowNone={true}
+        >
+          <Core.Core style={{ height: "100%", overflowX: "hidden" }}>
+            {componentRenderProp(ListItem)}
+          </Core.Core>
+        </Core.Selector>
+      </Core.List>
     </PMenu.ContextMenu>
   );
 };
 
-interface ListItemProps extends Core.ItemProps<string, Range> {}
+interface ListItemProps extends Core.ItemProps<string, StaticRange> {}
 
 const ListItem = (props: ListItemProps): ReactElement => {
   const { entry } = props;
@@ -237,7 +257,7 @@ const ListItem = (props: ListItemProps): ReactElement => {
           }}
         >
           {labels.map((l) => (
-            <Tag.Tag key={l.key} level="small" color={l.color}>
+            <Tag.Tag key={l.key} size="small" color={l.color}>
               {l.name}
             </Tag.Tag>
           ))}

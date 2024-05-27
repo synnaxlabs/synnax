@@ -11,23 +11,28 @@
 import type { Stream, StreamClient } from "@synnaxlabs/freighter";
 import { decodeError, errorZ } from "@synnaxlabs/freighter";
 import {
-  type NativeTypedArray,
-  Series,
   TimeStamp,
   type CrudeTimeStamp,
-  toArray,
-} from "@synnaxlabs/x";
+  type CrudeSeries,
+  TimeSpan,
+} from "@synnaxlabs/x/telem";
+import { toArray } from "@synnaxlabs/x/toArray";
 import { z } from "zod";
 
-import { type Key, type KeyOrName, type Params } from "@/channel/payload";
+import {
+  type KeysOrNames,
+  type Key,
+  type KeyOrName,
+  type Params,
+} from "@/channel/payload";
 import { type Retriever } from "@/channel/retriever";
 import { Authority } from "@/control/authority";
 import {
   subjectZ as controlSubjectZ,
   type Subject as ControlSubject,
 } from "@/control/state";
-import { ForwardFrameAdapter } from "@/framer/adapter";
-import { type CrudeFrame, Frame, frameZ } from "@/framer/frame";
+import { WriteFrameAdapter } from "@/framer/adapter";
+import { frameZ, type CrudeFrame } from "@/framer/frame";
 import { StreamProxy } from "@/framer/streamProxy";
 
 enum Command {
@@ -45,12 +50,16 @@ export enum WriterMode {
   StreamOnly = 3,
 }
 
+export const ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT: TimeSpan = new TimeSpan(-1);
+
 const netConfigZ = z.object({
   start: TimeStamp.z.optional(),
   controlSubject: controlSubjectZ.optional(),
   keys: z.number().array().optional(),
   authorities: Authority.z.array().optional(),
   mode: z.nativeEnum(WriterMode).optional(),
+  enableAutoCommit: z.boolean().optional(),
+  autoIndexPersistInterval: TimeSpan.z.optional(),
 });
 
 const reqZ = z.object({
@@ -70,44 +79,60 @@ const resZ = z.object({
 type Response = z.infer<typeof resZ>;
 
 export interface WriterConfig {
-  start: CrudeTimeStamp;
+  // channels denote the channels to write to.
   channels: Params;
+  // start sets the starting timestamp for the first sample in the writer.
+  start?: CrudeTimeStamp;
+  // controlSubject sets the control subject of the writer.
   controlSubject?: ControlSubject;
+  // authorities set the control authority to set for each channel on the writer.
+  // Defaults to absolute authority. If not working with concurrent control,
+  // it's best to leave this as the default.
   authorities?: Authority | Authority[];
+  // mode sets the persistence and streaming mode of the writer. The default
+  // mode is WriterModePersistStream.
   mode?: WriterMode;
+  //  enableAutoCommit determines whether the writer will automatically commit.
+  //  If enableAutoCommit is true, then the writer will commit after each write, and
+  //  will flush that commit to index after the specified autoIndexPersistInterval.
+  enableAutoCommit?: boolean;
+  // autoIndexPersistInterval sets the interval at which commits to the index will be
+  // persisted. To persist every commit to guarantee minimal loss of data, set
+  // auto_index_persist_interval to AlwaysAutoIndexPersist.
+  autoIndexPersistInterval?: TimeSpan;
 }
 
 /**
  * Writer is used to write telemetry to a set of channels in time order.
- * It should not be instantiated directly, and should instead be instantited via the
+ * It should not be instantiated directly, and should instead be instantiated via the
  * FramerClient {@link FrameClient#openWriter}.
  *
- * The writer is a streaming protocol that is heavily optimized for prerformance. This
- * comes at the cost of icnreased complexity, and should only be used directly when
- * writing large volumes of data (such as recording telemetry from a sensor or ingsting
- * data froma file). Simpler methods (such as the frame client's write method) should
+ * The writer is a streaming protocol that is heavily optimized for performance. This
+ * comes at the cost of increased complexity, and should only be used directly when
+ * writing large volumes of data (such as recording telemetry from a sensor or ingesting
+ * data from file). Simpler methods (such as the frame client's write method) should
  * be used for most use cases.
  *
  * The protocol is as follows:
  *
  * 1. The writer is opened with a starting timestamp and a list of channel keys. The
- * writer will fail to open if the starting timstamp overlaps with any existing telemetry
- * for any channels specified. If the writer opens successfuly, the caller is then
+ * writer will fail to open if the starting timestamp overlaps with any existing telemetry
+ * for any channels specified. If the writer opens successfully, the caller is then
  * free to write frames to the writer.
  *
  * 2. To write a frame, the caller can use the write method and follow the validation
  * rules described in its method's documentation. This process is asynchronous, meaning
  * that write calls may return before teh frame has been written to the cluster. This
  * also means that the writer can accumulate an error after write is called. If the writer
- * accumulates an erorr, all subsequent write and commit calls will return False. The
- * caller can check for errors by calling the error mehtod, which returns the accumulated
+ * accumulates an error, all subsequent write and commit calls will return False. The
+ * caller can check for errors by calling the error method, which returns the accumulated
  * error and resets the writer for future use. The caller can also check for errors by
  * closing the writer, which will throw any accumulated error.
  *
  * 3. To commit the written frames to the cluster, the caller can call the commit method.
  * Unlike write, commit is synchronous, meaning that it will not return until the frames
- * have been written to the cluster. If the writer has accumulated an erorr, commit will
- * return false. After the caller acknowledges the erorr, they can attempt to commit again.
+ * have been written to the cluster. If the writer has accumulated an error, commit will
+ * return false. After the caller acknowledges the error, they can attempt to commit again.
  * Commit can be called several times throughout a writer's lifetime, and will only
  * commit the frames that have been written since the last commit.
  *
@@ -118,11 +143,11 @@ export interface WriterConfig {
 export class Writer {
   private static readonly ENDPOINT = "/frame/write";
   private readonly stream: StreamProxy<typeof reqZ, typeof resZ>;
-  private readonly adapter: ForwardFrameAdapter;
+  private readonly adapter: WriteFrameAdapter;
 
   private constructor(
     stream: Stream<typeof reqZ, typeof resZ>,
-    adapter: ForwardFrameAdapter,
+    adapter: WriteFrameAdapter,
   ) {
     this.stream = new StreamProxy("Writer", stream);
     this.adapter = adapter;
@@ -133,13 +158,15 @@ export class Writer {
     client: StreamClient,
     {
       channels,
+      start = TimeStamp.now(),
       authorities = Authority.Absolute,
       controlSubject: subject,
-      start,
-      mode,
+      mode = WriterMode.PersistStream,
+      enableAutoCommit = false,
+      autoIndexPersistInterval = TimeSpan.SECOND,
     }: WriterConfig,
   ): Promise<Writer> {
-    const adapter = await ForwardFrameAdapter.open(retriever, channels);
+    const adapter = await WriteFrameAdapter.open(retriever, channels);
     const stream = await client.stream(Writer.ENDPOINT, reqZ, resZ);
     const writer = new Writer(stream, adapter);
     await writer.execute({
@@ -150,14 +177,23 @@ export class Writer {
         controlSubject: subject,
         authorities: toArray(authorities),
         mode,
+        enableAutoCommit,
+        autoIndexPersistInterval,
       },
     });
     return writer;
   }
 
-  async write(channel: KeyOrName, data: NativeTypedArray): Promise<boolean>;
+  async write(channel: KeyOrName, data: CrudeSeries): Promise<boolean>;
 
-  async write(frame: CrudeFrame): Promise<boolean>;
+  async write(channel: KeysOrNames, data: CrudeSeries[]): Promise<boolean>;
+
+  async write(frame: CrudeFrame | Record<KeyOrName, CrudeSeries>): Promise<boolean>;
+
+  async write(
+    channelsOrData: Params | Record<KeyOrName, CrudeSeries> | CrudeFrame,
+    series?: CrudeSeries | CrudeSeries[],
+  ): Promise<boolean>;
 
   /**
    * Writes the given frame to the database.
@@ -174,14 +210,11 @@ export class Writer {
    * should acknowledge the error by calling the error method or closing the writer.
    */
   async write(
-    frame: CrudeFrame | KeyOrName,
-    data?: NativeTypedArray,
+    channelsOrData: Params | Record<KeyOrName, CrudeSeries> | CrudeFrame,
+    series?: CrudeSeries | CrudeSeries[],
   ): Promise<boolean> {
-    const isKeyOrName = ["string", "number"].includes(typeof frame);
-    if (isKeyOrName)
-      frame = new Frame(frame, new Series({ data: data as NativeTypedArray }));
-    frame = this.adapter.adapt(new Frame(frame));
-    // @ts-expect-error
+    const frame = await this.adapter.adapt(channelsOrData, series);
+    // @ts-expect-error - zod issues
     this.stream.send({ command: Command.Write, frame: frame.toPayload() });
     return true;
   }
@@ -239,6 +272,7 @@ export class Writer {
   }
 
   async execute(req: Request): Promise<Response> {
+    // @ts-expect-error
     this.stream.send(req);
     while (true) {
       const res = await this.stream.receive();

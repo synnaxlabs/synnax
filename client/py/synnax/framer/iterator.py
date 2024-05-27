@@ -222,5 +222,5 @@ class Iterator:
             assert r is not None
             if r.variant == _ResponseVariant.ACK:
                 return r.ack
-            fr = Frame(columns_or_data=r.frame.keys, series=r.frame.series)
+            fr = Frame(channels=r.frame.keys, series=r.frame.series)
             self.value.append(self.__adapter.adapt(fr))

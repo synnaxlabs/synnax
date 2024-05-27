@@ -9,7 +9,7 @@
 
 import { type ReactElement, useCallback, useEffect, useRef } from "react";
 
-import { bounds, box } from "@synnaxlabs/x";
+import { bounds, box } from "@synnaxlabs/x/spatial";
 import { createPortal } from "react-dom";
 import { type z } from "zod";
 

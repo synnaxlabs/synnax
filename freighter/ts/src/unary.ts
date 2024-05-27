@@ -24,8 +24,9 @@ export interface UnaryClient extends Transport {
    */
   send: <RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>(
     target: string,
-    req: z.input<RQ> | null,
-    resSchema: RS | null,
+    req: z.input<RQ> | z.output<RQ>,
+    reqSchema: RQ,
+    resSchema: RS,
   ) => Promise<[z.output<RS>, null] | [null, Error]>;
 }
 
@@ -36,9 +37,10 @@ export const sendRequired = async <
   client: UnaryClient,
   target: string,
   req: z.input<RQ> | z.output<RQ>,
-  resSchema: RS | null,
+  reqSchema: RQ,
+  resSchema: RS,
 ): Promise<z.output<RS>> => {
-  const [res, err] = await client.send(target, req, resSchema);
+  const [res, err] = await client.send(target, req, reqSchema, resSchema);
   if (err != null) throw err;
   return res;
 };

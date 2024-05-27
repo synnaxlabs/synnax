@@ -21,7 +21,7 @@ import {
   type SynnaxProps,
   TimeSpan,
 } from "@synnaxlabs/client";
-import { Case } from "@synnaxlabs/x";
+import { caseconv } from "@synnaxlabs/x";
 
 import { Aether } from "@/aether";
 import { useAsyncEffect, useCombinedStateAndRef } from "@/hooks";
@@ -66,7 +66,7 @@ export const Provider = Aether.wrap<ProviderProps>(
         if (ref.current.state.status !== state.status) {
           add({
             variant: CONNECTION_STATE_VARIANT[state.status],
-            message: state.message ?? Case.capitalize(state.status),
+            message: state.message ?? caseconv.capitalize(state.status),
           });
         }
         setState((prev) => ({ ...prev, state }));
@@ -81,6 +81,15 @@ export const Provider = Aether.wrap<ProviderProps>(
       const c = new Synnax({
         ...connParams,
         connectivityPollFrequency: TimeSpan.seconds(5),
+      });
+
+      setState({
+        synnax: c,
+        state: {
+          clusterKey: "",
+          status: "connecting",
+          message: "Connecting...",
+        },
       });
 
       const connectivity = await c.connectivity.check();

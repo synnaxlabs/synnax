@@ -14,7 +14,7 @@ import {
   useLayoutEffect,
 } from "react";
 
-import { type Key, type Keyed } from "@synnaxlabs/x";
+import { bounds, type Key, type Keyed } from "@synnaxlabs/x";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
 import { Align } from "@/align";
@@ -35,6 +35,24 @@ export interface VirtualCoreProps<K extends Key = Key, E extends Keyed<K> = Keye
   overscan?: number;
 }
 
+const scrollToRelevantChild = (
+  hover: number,
+  prevHover: number,
+  ref: HTMLDivElement,
+) => {
+  const dirMultiplier = hover > prevHover ? 1 : -1;
+  let scrollTo = hover;
+  const idealHover = hover + dirMultiplier * 2;
+  if (bounds.contains({ lower: 0, upper: ref.children.length }, idealHover))
+    scrollTo = hover + dirMultiplier * 2;
+  else scrollTo = hover;
+  ref.children[scrollTo]?.scrollIntoView({
+    block: "nearest",
+    inline: "nearest",
+    behavior: "smooth",
+  });
+};
+
 const VirtualCore = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   itemHeight,
   children,
@@ -45,7 +63,12 @@ const VirtualCore = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   if (itemHeight <= 0) throw new Error("itemHeight must be greater than 0");
   const { hasMore, onFetchMore } = useInfiniteContext();
   const { hover: hoverValue, setHover } = useHoverContext();
-  const { transformedData: data, emptyContent } = useDataContext<K, E>();
+  const {
+    transformedData: data,
+    emptyContent,
+    transformed,
+    sourceData,
+  } = useDataContext<K, E>();
   const selected = useSelection();
   const { onSelect } = useSelectionUtils();
   const parentRef = useRef<HTMLDivElement>(null);
@@ -94,8 +117,14 @@ const VirtualCore = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
         >
           {items.map(({ index, start }) => {
             const entry = data[index];
+            let sourceIndex = index;
+            if (transformed) {
+              console.log("TRANSFORMED");
+              sourceIndex = sourceData.findIndex((e) => e.key === entry.key);
+            }
             return children({
               key: entry.key,
+              sourceIndex,
               index,
               onSelect,
               entry,
@@ -110,32 +139,55 @@ const VirtualCore = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   );
 };
 
-export const Core = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>(
-  props: Omit<Align.SpaceProps, "children"> & {
-    children: ItemRenderProp<K, E>;
-  },
-): ReactElement => {
-  const { transformedData: data, emptyContent } = useDataContext<K, E>();
+export const Core = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
+  itemHeight = 50,
+  ...props
+}: Omit<Align.SpaceProps, "children"> & {
+  children: ItemRenderProp<K, E>;
+  itemHeight?: number;
+}): ReactElement => {
+  const {
+    transformedData: data,
+    transformed,
+    emptyContent,
+    sourceData,
+  } = useDataContext<K, E>();
   const { hover } = useHoverContext();
   const { selected } = useSelectionContext();
   const { onSelect } = useSelectionUtils();
 
+  // let's assume the itemHeight is a 'rough item height', but is still useful for
+  // detecting when the user hovers over a particular element. If the current `hover`
+  // value multiplied by the itemHeight is greater than the total height of the list,
+  // then we can assume the user is hovering over or past the last element in the list,
+  // and we should scroll to the bottom of the list.
+  const ref = useRef<HTMLDivElement>(null);
+  const prevHover = usePrevious(hover) ?? 0;
+  useLayoutEffect(() => {
+    if (ref.current == null) return;
+    scrollToRelevantChild(hover, prevHover, ref.current);
+  }, [hover, itemHeight]);
+
   return (
-    <Align.Space className={CSS.BE("list", "container")} {...props} empty>
+    <Align.Space className={CSS.BE("list", "container")} ref={ref} size={0} {...props}>
       {data.length === 0 ? (
         emptyContent
       ) : (
         <>
-          {data.map((entry, index) =>
-            props.children({
+          {data.map((entry, index) => {
+            let sourceIndex = index;
+            if (transformed)
+              sourceIndex = sourceData.findIndex((e) => e.key === entry.key);
+            return props.children({
               key: entry.key,
               index,
+              sourceIndex,
               onSelect,
               entry,
               selected: selected.includes(entry.key),
               hovered: index === hover,
-            }),
-          )}
+            });
+          })}
         </>
       )}
     </Align.Space>

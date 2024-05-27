@@ -27,11 +27,20 @@ import { measure } from "@/vis/measure/aether";
 import { rule } from "@/vis/rule/aether";
 import { toggle } from "@/vis/toggle/aether";
 import { value } from "@/vis/value/aether";
+import { range } from "@/vis/lineplot/range/aether";
 
 export const render = (): void => {
   // @ts-expect-error - for some reason post-message can't type transfer correctly
   const w = new RoutedWorker((data, transfer) => postMessage(data, transfer));
   onmessage = w.handle.bind(w);
+
+  // const fontFace = new FontFace(
+  //   "Inter Variable",
+  //   "local('Inter Variable'), url(https://cdn.jsdelivr.net/fontsource/fonts/inter:vf@latest/latin-wght-normal.woff2) format('woff2-variations')",
+  // );
+  // // @ts-expect-error - fontFace is not in the types of self
+  // self.fonts.add(fontFace);
+  // fontFace.load();
 
   const REGISTRY: aether.ComponentRegistry = {
     ...lineplot.REGISTRY,
@@ -51,6 +60,7 @@ export const render = (): void => {
     ...button.REGISTRY,
     ...alamos.REGISTRY,
     ...eraser.REGISTRY,
+    ...range.REGISTRY,
   };
 
   aether.render({

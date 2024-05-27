@@ -60,7 +60,11 @@ func (svc *HardwareService) CreateRack(ctx context.Context, req HardwareCreateRa
 }
 
 type HardwareRetrieveRackRequest struct {
-	Keys []rack.Key `json:"keys" msgpack:"keys"`
+	Keys   []rack.Key `json:"keys" msgpack:"keys"`
+	Names  []string   `json:"names" msgpack:"names"`
+	Search string     `json:"search" msgpack:"search"`
+	Limit  int        `json:"limit" msgpack:"limit"`
+	Offset int        `json:"offset" msgpack:"offset"`
 }
 
 type HardwareRetrieveRackResponse struct {
@@ -68,10 +72,30 @@ type HardwareRetrieveRackResponse struct {
 }
 
 func (svc *HardwareService) RetrieveRack(ctx context.Context, req HardwareRetrieveRackRequest) (res HardwareRetrieveRackResponse, _ error) {
-	return res, svc.WithTx(ctx, func(tx gorp.Tx) error {
-		err := svc.internal.Rack.NewRetrieve().WhereKeys(req.Keys...).Entries(&res.Racks).Exec(ctx, tx)
-		return err
-	})
+	var (
+		hasSearch = len(req.Search) > 0
+		hasKeys   = len(req.Keys) > 0
+		hasNames  = len(req.Names) > 0
+		hasLimit  = req.Limit > 0
+		hasOffset = req.Offset > 0
+	)
+	q := svc.internal.Rack.NewRetrieve()
+	if hasKeys {
+		q = q.WhereKeys(req.Keys...)
+	}
+	if hasNames {
+		q = q.WhereNames(req.Names...)
+	}
+	if hasSearch {
+		q = q.Search(req.Search)
+	}
+	if hasLimit {
+		q = q.Limit(req.Limit)
+	}
+	if hasOffset {
+		q = q.Offset(req.Offset)
+	}
+	return res, q.Entries(&res.Racks).Exec(ctx, nil)
 }
 
 type HardwareDeleteRackRequest struct {
@@ -113,8 +137,13 @@ func (svc *HardwareService) CreateTask(ctx context.Context, req HardwareCreateTa
 }
 
 type HardwareRetrieveTaskRequest struct {
-	Rack rack.Key
-	Keys []task.Key `json:"keys" msgpack:"keys"`
+	Rack         rack.Key
+	Keys         []task.Key `json:"keys" msgpack:"keys"`
+	Names        []string   `json:"names" msgpack:"names"`
+	IncludeState bool       `json:"include_state" msgpack:"include_state"`
+	Search       string     `json:"search" msgpack:"search"`
+	Limit        int        `json:"limit" msgpack:"limit"`
+	Offset       int        `json:"offset" msgpack:"offset"`
 }
 
 type HardwareRetrieveTaskResponse struct {
@@ -122,17 +151,45 @@ type HardwareRetrieveTaskResponse struct {
 }
 
 func (svc *HardwareService) RetrieveTask(ctx context.Context, req HardwareRetrieveTaskRequest) (res HardwareRetrieveTaskResponse, _ error) {
-	return res, svc.WithTx(ctx, func(tx gorp.Tx) error {
-		r := svc.internal.Task.NewRetrieve()
-		if len(req.Keys) > 0 {
-			r = r.WhereKeys(req.Keys...)
+	var (
+		hasSearch = len(req.Search) > 0
+		hasKeys   = len(req.Keys) > 0
+		hasNames  = len(req.Names) > 0
+		hasLimit  = req.Limit > 0
+		hasOffset = req.Offset > 0
+	)
+	q := svc.internal.Task.NewRetrieve()
+	if hasNames {
+		q = q.WhereNames(req.Names...)
+	}
+	if hasKeys {
+		q = q.WhereKeys(req.Keys...)
+	}
+	if hasSearch {
+		q = q.Search(req.Search)
+	}
+	if hasLimit {
+		q = q.Limit(req.Limit)
+	}
+	if hasOffset {
+		q = q.Offset(req.Offset)
+	}
+	if req.Rack.IsValid() && len(req.Names) == 0 {
+		q = q.WhereRack(req.Rack)
+	}
+	err := q.Entries(&res.Tasks).Exec(ctx, nil)
+	if err != nil {
+		return res, err
+	}
+	if req.IncludeState {
+		for i := range res.Tasks {
+			s, ok := svc.internal.State.GetTask(ctx, res.Tasks[i].Key)
+			if ok {
+				res.Tasks[i].State = &s
+			}
 		}
-		if req.Rack.IsValid() {
-			r = r.WhereRack(req.Rack)
-		}
-		res.Tasks = make([]task.Task, 0, len(req.Keys))
-		return r.Entries(&res.Tasks).Exec(ctx, tx)
-	})
+	}
+	return res, err
 }
 
 type HardwareDeleteTaskRequest struct {
@@ -173,7 +230,12 @@ func (svc *HardwareService) CreateDevice(ctx context.Context, req HardwareCreate
 }
 
 type HardwareRetrieveDeviceRequest struct {
-	Keys []string `json:"keys" msgpack:"keys"`
+	Keys   []string `json:"keys" msgpack:"keys"`
+	Names  []string `json:"names" msgpack:"names"`
+	Makes  []string `json:"makes" msgpack:"makes"`
+	Search string   `json:"search" msgpack:"search"`
+	Limit  int      `json:"limit" msgpack:"limit"`
+	Offset int      `json:"offset" msgpack:"offset"`
 }
 
 type HardwareRetrieveDeviceResponse struct {
@@ -181,9 +243,34 @@ type HardwareRetrieveDeviceResponse struct {
 }
 
 func (svc *HardwareService) RetrieveDevice(ctx context.Context, req HardwareRetrieveDeviceRequest) (res HardwareRetrieveDeviceResponse, _ error) {
-	return res, svc.WithTx(ctx, func(tx gorp.Tx) error {
-		return svc.internal.Device.NewRetrieve().WhereKeys(req.Keys...).Entries(&res.Devices).Exec(ctx, tx)
-	})
+	var (
+		hasSearch = len(req.Search) > 0
+		hasKeys   = len(req.Keys) > 0
+		hasNames  = len(req.Names) > 0
+		hasMakes  = len(req.Makes) > 0
+		hasLimit  = req.Limit > 0
+		hasOffset = req.Offset > 0
+	)
+	q := svc.internal.Device.NewRetrieve()
+	if hasKeys {
+		q = q.WhereKeys(req.Keys...)
+	}
+	if hasSearch {
+		q = q.Search(req.Search)
+	}
+	if hasNames {
+		q = q.WhereNames(req.Names...)
+	}
+	if hasLimit {
+		q = q.Limit(req.Limit)
+	}
+	if hasOffset {
+		q = q.Offset(req.Offset)
+	}
+	if hasMakes {
+		q = q.WhereMakes(req.Makes...)
+	}
+	return res, q.Entries(&res.Devices).Exec(ctx, nil)
 }
 
 type HardwareDeleteDeviceRequest struct {

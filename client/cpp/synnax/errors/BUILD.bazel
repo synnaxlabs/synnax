@@ -1,6 +1,0 @@
-cc_library(
-    name = "errors",
-    srcs = [],
-    hdrs = ["errors.h"],
-    visibility = ["//visibility:public"],
-)

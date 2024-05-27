@@ -9,9 +9,20 @@
  * included in the file licenses/APL.txt.
  */
 
- .console-main-nav-top {
+.console-main-nav-top {
     max-width: 100vw;
- }
+    & > * *:not(.pluto-text) {
+        -webkit-app-region: no-drag;
+    }
+}
+
+.pluto-navbar__content {
+    z-index: 2;
+}
+
+.console-main-nav {
+    background: var(--pluto-gray-l0);
+}
 
 .console-main-nav-top__start {
     padding: 0rem 2rem;

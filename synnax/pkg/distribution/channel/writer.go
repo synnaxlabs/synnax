@@ -20,12 +20,18 @@ type Writer interface {
 	CreateIfNameDoesntExist(ctx context.Context, c *Channel) error
 	CreateManyIfNamesDontExist(ctx context.Context, channels *[]Channel) error
 	CreateMany(ctx context.Context, channels *[]Channel) error
+	Delete(ctx context.Context, key Key) error
+	DeleteMany(ctx context.Context, keys []Key) error
+	DeleteByName(ctx context.Context, name string) error
+	DeleteManyByNames(ctx context.Context, names []string) error
 }
 
 type writer struct {
 	proxy *leaseProxy
 	tx    gorp.Tx
 }
+
+var _ Writer = writer{}
 
 func (w writer) Create(ctx context.Context, c *Channel) error {
 	channels := []Channel{*c}
@@ -47,6 +53,22 @@ func (w writer) CreateManyIfNamesDontExist(ctx context.Context, channels *[]Chan
 
 func (w writer) CreateMany(ctx context.Context, channels *[]Channel) error {
 	return w.proxy.create(ctx, w.tx, applyManyAdjustments(channels), false)
+}
+
+func (w writer) Delete(ctx context.Context, key Key) error {
+	return w.DeleteMany(ctx, []Key{key})
+}
+
+func (w writer) DeleteMany(ctx context.Context, keys []Key) error {
+	return w.proxy.delete(ctx, w.tx, keys)
+}
+
+func (w writer) DeleteByName(ctx context.Context, name string) error {
+	return w.DeleteManyByNames(ctx, []string{name})
+}
+
+func (w writer) DeleteManyByNames(ctx context.Context, names []string) error {
+	return w.proxy.deleteByName(ctx, w.tx, names)
 }
 
 func applyAdjustments(c Channel) Channel {

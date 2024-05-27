@@ -9,6 +9,7 @@
 
 import { useCallback, type ReactElement, type MouseEventHandler } from "react";
 
+import { type workspace } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   Synnax,
@@ -16,7 +17,6 @@ import {
   Button,
   Input,
   Align,
-  Menu,
   componentRenderProp,
 } from "@synnaxlabs/pluto";
 import { List } from "@synnaxlabs/pluto/list";
@@ -38,9 +38,13 @@ export const Selector = (): ReactElement => {
   const active = useSelectActive();
   const dProps = Dropdown.use();
   const handleChange = useCallback(
-    ([v]: string[]) => {
+    (v: string | null) => {
       dProps.close();
-      if (v === null) return;
+      if (v === null) {
+        d(setActive(null));
+        d(Layout.clearWorkspace());
+        return;
+      }
       void (async () => {
         if (v == null) {
           d(setActive(null));
@@ -48,39 +52,23 @@ export const Selector = (): ReactElement => {
         } else if (client == null) return;
         const ws = await client.workspaces.retrieve(v);
         d(add({ workspaces: [ws] }));
+        d(
+          Layout.setWorkspace({
+            slice: ws.layout as unknown as Layout.SliceState,
+            keepNav: false,
+          }),
+        );
       })();
     },
     [active, client, d, dProps.close],
   );
 
-  const ContextMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement => {
-    const handleSelect = (key: string): void => {
-      switch (key) {
-        case "delete":
-          return;
-        case "edit":
-          place(createWindowLayout("Edit Workspace"));
-      }
-      if (key === "new") {
-        place(createWindowLayout());
-      }
-    };
-    return (
-      <Menu.ContextMenuMenu keys={keys} onChange={handleSelect}>
-        <Menu.ContextMenuItem itemKey="new">New Workspace</Menu.ContextMenuItem>
-        <Menu.ContextMenuItem itemKey="delete">Delete Workspace</Menu.ContextMenuItem>
-        <Menu.ContextMenuItem itemKey="edit">Edit Workspace</Menu.ContextMenuItem>
-      </Menu.ContextMenuMenu>
-    );
-  };
-
   return (
     <Dropdown.Dialog
       {...dProps}
-      bordered={false}
+      keepMounted={false}
       variant="floating"
       className={CSS(CSS.BE("workspace", "selector"))}
-      keepMounted={false}
     >
       <Button.Button
         startIcon={<Icon.Workspace key="workspace" />}
@@ -94,12 +82,13 @@ export const Selector = (): ReactElement => {
       >
         {active?.name ?? "No Workspace"}
       </Button.Button>
-      <Align.Pack direction="y" style={{ width: 500 }}>
+      <Align.Pack direction="y" style={{ width: 500, height: 200 }}>
         <List.List>
           <List.Selector
-            value={active == null ? [] : [active.key]}
+            value={active?.key ?? null}
             onChange={handleChange}
             allowMultiple={false}
+            allowNone={true}
           >
             <List.Search searcher={client?.workspaces}>
               {(p) => (
@@ -113,10 +102,21 @@ export const Selector = (): ReactElement => {
                   {...p}
                 >
                   <Button.Button
+                    startIcon={<Icon.Close />}
+                    variant="outlined"
+                    onClick={() => handleChange(null)}
+                    iconSpacing="small"
+                    tooltip="Switch to no workspace"
+                  >
+                    Clear
+                  </Button.Button>
+                  <Button.Button
                     startIcon={<Icon.Add />}
                     variant="outlined"
                     onClick={() => place(createWindowLayout())}
                     iconSpacing="small"
+                    tooltip="Create a new workspace"
+                    tooltipLocation={{ y: "bottom" }}
                   >
                     New
                   </Button.Button>
@@ -134,7 +134,7 @@ export const Selector = (): ReactElement => {
 export const SelectorListItem = ({
   onSelect,
   ...props
-}: List.ItemProps): ReactElement => {
+}: List.ItemProps<string, workspace.Workspace>): ReactElement => {
   const { entry } = props;
   const handleSelect: MouseEventHandler = (e): void => {
     e.stopPropagation();

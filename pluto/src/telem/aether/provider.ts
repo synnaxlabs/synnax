@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Instrumentation } from "@synnaxlabs/alamos";
-import { UnexpectedError } from "@synnaxlabs/client";
+import { type Synnax, UnexpectedError } from "@synnaxlabs/client";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -19,9 +19,7 @@ import { type CompoundTelemFactory } from "@/telem/aether/factory";
 import { client } from "@/telem/client";
 
 export type ProviderState = z.input<typeof providerStateZ>;
-export const providerStateZ = z.object({
-  invalidateCacheCmd: z.number().optional().default(0),
-});
+export const providerStateZ = z.object({});
 
 interface InternalState {
   instrumentation: Instrumentation;
@@ -37,6 +35,7 @@ export class BaseProvider
   static readonly TYPE = "TelemProvider";
   static readonly stateZ = providerStateZ;
   schema = BaseProvider.stateZ;
+  prevClient: Synnax | null = null;
 
   create<T>(spec: telem.Spec): T {
     const { instrumentation: I } = this.internal;
@@ -63,15 +62,15 @@ export class BaseProvider
   }
 
   async afterUpdate(): Promise<void> {
-    const client_ = synnax.use(this.ctx);
+    const core = synnax.use(this.ctx);
     const I = alamos.useInstrumentation(this.ctx, "telem");
     this.internal.instrumentation = I.child("provider");
-    if (client_ != null) {
-      I.L.info("swapping client", { client: client_ });
-      this.client.swap(new client.Core(client_, this.internal.instrumentation));
-    } else {
-      this.client.swap(null);
-    }
+    const shouldSwap = core !== this.prevClient;
+    if (!shouldSwap) return;
+    I.L.info("swapping client", { client: core });
+    if (core == null) await this.client.swap(null);
+    else await this.client.swap(new client.Core({ core, instrumentation: I }));
+    this.prevClient = core;
     telem.setProvider(this.ctx, this);
   }
 }

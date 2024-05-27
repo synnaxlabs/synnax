@@ -1,0 +1,9 @@
+cc_library(
+    name = "errors",
+    hdrs = ["errors.h"],
+    copts = select({
+        "@platforms//os:windows": ["/std:c++20"],
+        "//conditions:default": [],
+    }),
+    visibility = ["//visibility:public"],
+)

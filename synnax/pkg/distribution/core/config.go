@@ -34,6 +34,8 @@ type Config struct {
 	// Transports is a list of transports the distribution uses for communication.
 	// These Transports must be bound to the node's grpc server.
 	Transports *[]fgrpc.BindableTransport
+	// Verifier is for verifying
+	Verifier string
 }
 
 var _ config.Config[Config] = Config{}
@@ -46,6 +48,7 @@ func (cfg Config) Override(other Config) Config {
 	cfg.Transports = override.Nil(cfg.Transports, other.Transports)
 	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
 	cfg.Storage = cfg.Storage.Override(other.Storage)
+	cfg.Verifier = override.String(cfg.Verifier, other.Verifier)
 	return cfg
 }
 
@@ -56,5 +59,6 @@ func (cfg Config) Validate() error {
 }
 
 var DefaultConfig = Config{
-	Storage: storage.DefaultConfig,
+	Storage:  storage.DefaultConfig,
+	Verifier: "",
 }

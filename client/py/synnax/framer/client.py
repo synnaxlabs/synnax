@@ -29,7 +29,7 @@ from synnax.framer.frame import Frame
 from synnax.framer.iterator import Iterator
 from synnax.framer.streamer import AsyncStreamer, Streamer
 from synnax.framer.writer import Writer, WriterMode
-from synnax.telem import CrudeTimeStamp, Series, TimeRange, TimeStamp
+from synnax.telem import CrudeTimeStamp, Series, TimeRange, TimeStamp, TimeSpan
 from synnax.telem.control import Authority, CrudeAuthority
 
 
@@ -56,7 +56,7 @@ class Client:
         self.__channels = retriever
         self.instrumentation = instrumentation
 
-    def new_writer(
+    def open_writer(
         self,
         start: CrudeTimeStamp,
         channels: ChannelParams,
@@ -66,6 +66,8 @@ class Client:
         strict: bool = False,
         suppress_warnings: bool = False,
         mode: WriterMode = WriterMode.PERSIST_STREAM,
+        enable_auto_commit: bool = False,
+        auto_index_persist_interval: TimeSpan = 1 * TimeSpan.SECOND
     ) -> Writer:
         """Opens a new writer on the given channels.
 
@@ -77,12 +79,22 @@ class Client:
         :param authorities: The control authority to set for each channel on the writer.
         Defaults to absolute authority. If not working with concurrent control,
         it's best to leave this as the default.
+        :param name: The name of the writer used in control subject.
         :param strict: Sets whether the writer will fail to write if the data for a
         particular channel does not exactly match this data type. When False,
         the default, the writer will automatically convert the data to the correct
         type if possible.
-        :param suppress_warnings: Supress various print warnings that may be emitted
+        :param suppress_warnings: Suppress various print warnings that may be emitted
         by the writer.
+        :param mode: sets the persistence and streaming mode of the writer. The default
+        mode is WriterModePersistStream. See the WriterMode documentation for more.
+        :param enable_auto_commit: determines whether the writer will automatically
+        commit. If enable_auto_commit is true, then the writer will commit after each
+        write, and will flush that commit to index after the specified
+        auto_index_persist_interval.
+        :param auto_index_persist_interval: interval at which commits to the index will
+        be persisted. To persist every commit to guarantee minimal loss of data, set
+        auto_index_persist_interval to AlwaysAutoIndexPersist.
         """
         adapter = WriteFrameAdapter(self.__channels)
         adapter.update(channels)
@@ -95,9 +107,11 @@ class Client:
             authorities=authorities,
             name=name,
             mode=mode,
+            enable_auto_commit=enable_auto_commit,
+            auto_index_persist_interval=auto_index_persist_interval
         )
 
-    def new_iterator(
+    def open_iterator(
         self,
         tr: TimeRange,
         params: ChannelParams,
@@ -124,7 +138,7 @@ class Client:
         data: ndarray | Series,
         to: ChannelKey | ChannelName | ChannelPayload,
         strict: bool = False,
-    ) -> TimeStamp:
+    ):
         """Writes telemetry to the given channel starting at the given timestamp.
 
         :param to: The key of the channel to write to.
@@ -132,15 +146,15 @@ class Client:
         :param data: The telemetry to write to the channel.
         :returns: None.
         """
-        with self.new_writer(
-            start=start,
-            channels=to,
-            strict=strict,
-            mode=WriterMode.PERSIST_ONLY
+        with self.open_writer(
+            start=start, 
+            channels=to, 
+            strict=strict, 
+            mode=WriterMode.PERSIST_ONLY,
+            enable_auto_commit=True,
+            auto_index_persist_interval=TimeSpan.MAX,
         ) as w:
             w.write(to, data)
-            ts, ok = w.commit()
-            return ts
 
     @overload
     def read(
@@ -163,14 +177,17 @@ class Client:
         tr: TimeRange,
         params: ChannelParams,
     ) -> Series | Frame:
-        """Reads telemetry from the channel between the two timestamps.
+        """
+        Reads telemetry from the channel between the two timestamps.
 
-        :param start: The starting timestamp of the range to read from.
-        :param end: The ending timestamp of the range to read from.
+        :param tr: The timerange to read from.
         :param params: The key or name of the channel to read from.
+
         :returns: A tuple where the first item is a numpy array containing the telemetry
         and the second item is the time range occupied by that array.
-        :raises ContiguityError: If the telemetry between start and end is non-contiguous.
+
+        :raises ContiguityError: If the telemetry between start and end is
+        non-contiguous.
         """
         normal = normalize_channel_params(params)
         frame = self.__read_frame(tr, params)
@@ -183,7 +200,7 @@ class Client:
             )
         return series
 
-    def new_streamer(
+    def open_streamer(
         self,
         params: ChannelParams,
         from_: CrudeTimeStamp | None = None,
@@ -196,7 +213,7 @@ class Client:
             client=self.__client,
         )
 
-    async def new_async_streamer(
+    async def open_async_streamer(
         self,
         params: ChannelParams,
         from_: CrudeTimeStamp | None = None,
@@ -217,7 +234,7 @@ class Client:
         params: ChannelParams,
     ) -> Frame:
         fr = Frame()
-        with self.new_iterator(tr, params) as i:
+        with self.open_iterator(tr, params) as i:
             for frame in i:
                 fr.append(frame)
         return fr

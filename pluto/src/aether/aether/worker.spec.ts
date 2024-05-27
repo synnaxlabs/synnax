@@ -110,7 +110,7 @@ const contextUpdate: aether.Update = {
   variant: "context",
   type: "context",
   path: [],
-  state: null,
+  state: {},
   instrumentation: alamos.NOOP,
 };
 

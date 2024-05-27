@@ -9,7 +9,7 @@
 
 import { type ReactElement, useState } from "react";
 
-import { render } from "@testing-library/react";
+import { act, render } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
@@ -61,7 +61,7 @@ const TestList = (): ReactElement => {
         <List.Selector value={selected} onChange={setSelected}>
           <List.Column.Header columns={cols}>
             <List.Core.Virtual<string> itemHeight={30}>
-              {(props) => <List.Column.Item {...props} />}
+              {({ key, ...props }) => <List.Column.Item key={key} {...props} />}
             </List.Core.Virtual>
           </List.Column.Header>
         </List.Selector>
@@ -88,24 +88,30 @@ describe("List", () => {
     it("should allow a user to select an item in the list", async () => {
       const user = userEvent.setup();
       const c = render(<TestList />);
-      await user.click(c.getByText("John"));
+      await act(async () => {
+        await user.click(c.getByText("John"));
+      });
       const selected = await c.findByText("John");
       expect(selected.parentElement?.className).toContain("pluto--selected");
     });
     it("should allow a user to deselect an item in the list", async () => {
       const user = userEvent.setup();
       const c = render(<TestList />);
-      await user.click(c.getByText("John"));
-      await user.click(c.getByText("John"));
+      await act(async () => {
+        await user.click(c.getByText("John"));
+        await user.click(c.getByText("John"));
+      });
       const selected = await c.findByText("John");
       expect(selected.parentElement?.className).not.toContain("pluto--selected");
     });
     it("should allow a user to select multiple items in the list when holding shift", async () => {
       const user = userEvent.setup();
       const c = render(<TestList />);
-      await user.keyboard("[ShiftLeft>]");
-      await user.click(c.getByText("John"));
-      await user.click(c.getByText("Jack"));
+      await act(async () => {
+        await user.keyboard("[ShiftLeft>]");
+        await user.click(c.getByText("John"));
+        await user.click(c.getByText("Jack"));
+      });
       const selected = await c.findAllByText(/(John|Jack|Jane)/);
       selected.forEach((s) =>
         expect(s.parentElement?.className).toContain("pluto--selected"),
@@ -114,15 +120,17 @@ describe("List", () => {
     it("should allow a user to deselect multiple items in the list when holding shift", async () => {
       const user = userEvent.setup();
       const c = render(<TestList />);
-      await user.keyboard("[ShiftLeft>]");
-      await user.click(c.getByText("John"));
-      await user.click(c.getByText("Jack"));
-      await user.keyboard("[ShiftLeft>]");
-      await new Promise((resolve) => setTimeout(resolve, 450));
-      await user.keyboard("[ShiftLeft>]");
-      await user.click(c.getByText("John"));
-      await user.click(c.getByText("Jack"));
-      await user.keyboard("[ShiftLeft>]");
+      await act(async () => {
+        await user.keyboard("[ShiftLeft>]");
+        await user.click(c.getByText("John"));
+        await user.click(c.getByText("Jack"));
+        await user.keyboard("[ShiftLeft>]");
+        await new Promise((resolve) => setTimeout(resolve, 450));
+        await user.keyboard("[ShiftLeft>]");
+        await user.click(c.getByText("John"));
+        await user.click(c.getByText("Jack"));
+        await user.keyboard("[ShiftLeft>]");
+      });
       const selected = c.queryAllByText(/(John|Jack|Jane)/);
       expect(selected.length).toBe(3);
       selected.forEach((s) =>
@@ -132,7 +140,9 @@ describe("List", () => {
     it("should allow a user to sort the column by name", async () => {
       const user = userEvent.setup();
       const c = render(<TestList />);
-      await user.click(c.getByText("Name"));
+      await act(async () => {
+        await user.click(c.getByText("Name"));
+      });
       const jack = c.getByText("Jack");
       expect(jack.parentElement?.nextSibling?.textContent).toBe("Jane20");
     });

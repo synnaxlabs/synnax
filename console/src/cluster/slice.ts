@@ -10,11 +10,12 @@
 import { createSlice } from "@reduxjs/toolkit";
 import type { PayloadAction } from "@reduxjs/toolkit";
 import { type SynnaxProps } from "@synnaxlabs/client";
+import { migrate } from "@synnaxlabs/x";
 
 import { type Cluster, type LocalState } from "@/cluster/core";
 
 /** The state of the cluster slice. */
-export interface SliceState {
+export interface SliceState extends migrate.Migratable {
   /** The current, active cluster. */
   activeCluster: string | null;
   /**
@@ -60,9 +61,12 @@ export const LOCAL: Cluster = {
   props: LOCAL_PROPS,
 };
 
-export const INITIAL_STATE: SliceState = {
+export const ZERO_STATE: SliceState = {
+  version: "0.0.1",
   activeCluster: null,
-  clusters: {},
+  clusters: {
+    [LOCAL_CLUSTER_KEY]: LOCAL,
+  },
   localState: {
     pid: 0,
     command: "stop",
@@ -83,6 +87,10 @@ export interface RemovePayload {
   keys: string[];
 }
 
+export const MIGRATIONS: migrate.Migrations = {};
+
+export const migrateSlice = migrate.migrator<SliceState, SliceState>(MIGRATIONS);
+
 export const {
   actions,
   /**
@@ -91,16 +99,19 @@ export const {
   reducer,
 } = createSlice({
   name: SLICE_NAME,
-  initialState: INITIAL_STATE,
+  initialState: ZERO_STATE,
   reducers: {
     set: (
-      { activeCluster, clusters },
+      { activeCluster, clusters: clusters },
       { payload: cluster }: PayloadAction<SetPayload>,
     ) => {
       clusters[cluster.key] = cluster;
       if (activeCluster == null) activeCluster = cluster.key;
     },
-    remove: ({ clusters }, { payload: { keys } }: PayloadAction<RemovePayload>) => {
+    remove: (
+      { clusters: clusters },
+      { payload: { keys } }: PayloadAction<RemovePayload>,
+    ) => {
       for (const key of keys) {
         // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
         delete clusters[key];

@@ -79,6 +79,3 @@ export const useSelect = (key?: string): Range | null | undefined =>
  */
 export const useSelectMultiple = (keys?: string[]): Range[] =>
   useMemoSelect((state: StoreState) => selectMultiple(state, keys), [keys]);
-
-export const selectEditBuffer = (state: StoreState): Partial<Range> | null =>
-  selectState(state).editBuffer;

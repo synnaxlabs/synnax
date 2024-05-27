@@ -11,6 +11,8 @@ package iterator_test
 
 import (
 	"context"
+	"testing"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -19,7 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	tmock "github.com/synnaxlabs/synnax/pkg/distribution/transport/mock"
 	. "github.com/synnaxlabs/x/testutil"
-	"testing"
+	"github.com/synnaxlabs/x/types"
 )
 
 var (
@@ -49,10 +51,11 @@ func provision(n int) (*mock.CoreBuilder, map[core.NodeKey]serviceContainer) {
 			cont serviceContainer
 		)
 		cont.channel = MustSucceed(channel.New(ctx, channel.ServiceConfig{
-			HostResolver: c.Cluster,
-			ClusterDB:    c.Storage.Gorpify(),
-			Transport:    channelNet.New(c.Config.AdvertiseAddress),
-			TSChannel:    c.Storage.TS,
+			HostResolver:     c.Cluster,
+			ClusterDB:        c.Storage.Gorpify(),
+			Transport:        channelNet.New(c.Config.AdvertiseAddress),
+			TSChannel:        c.Storage.TS,
+			IntOverflowCheck: func(ctx context.Context, count types.Uint20) error { return nil },
 		}))
 		cont.iter = MustSucceed(iterator.OpenService(iterator.ServiceConfig{
 			TS:            c.Storage.TS,

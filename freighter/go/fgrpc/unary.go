@@ -11,11 +11,11 @@ package fgrpc
 
 import (
 	"context"
-	roacherrors "github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
-	"github.com/synnaxlabs/freighter/ferrors"
 	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/errors"
+	roacherrors "github.com/synnaxlabs/x/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
 )
@@ -49,6 +49,9 @@ type UnaryClient[RQ, RQT, RS, RST freighter.Payload] struct {
 }
 
 type UnaryServer[RQ, RQT, RS, RST freighter.Payload] struct {
+	// Internal indicates whether the service is for go-to-go communication only, allowing
+	// for more advanced error encoding that propagates stack traces, causes, etc.
+	Internal bool
 	// RequestTranslator translates the given GRPC request into a go type.
 	// See Translator for more information.
 	RequestTranslator Translator[RQ, RQT]
@@ -109,9 +112,9 @@ func (u *UnaryClient[RQ, RQT, RS, RST]) Send(
 				freighter.Unary,
 			)
 			if err != nil {
-				p := &ferrors.Payload{}
+				p := &errors.Payload{}
 				p.Unmarshal(status.Convert(err).Message())
-				return oMD, ferrors.Decode(*p)
+				return oMD, errors.Decode(ctx, *p)
 			}
 			res, err = u.ResponseTranslator.Backward(ctx, tRes)
 			return oMD, err
@@ -153,7 +156,7 @@ func (u *UnaryServer[RQ, RQT, RS, RST]) Exec(ctx context.Context, tReq RQT) (tRe
 	if err == nil {
 		return tRes, nil
 	}
-	return tRes, ferrors.Encode(err)
+	return tRes, errors.Encode(ctx, err, u.Internal)
 }
 
 func (u *UnaryServer[RQ, RQT, RS, RST]) BindHandler(
