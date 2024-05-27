@@ -32,6 +32,10 @@
 
 namespace opc {
 
+///////////////////////////////////////////////////////////////////////////////////
+//                                    WriterConfigs                              //
+///////////////////////////////////////////////////////////////////////////////////
+
 typedef struct {
     ///@brief the node id.
     std::string node_id;
@@ -54,8 +58,9 @@ typedef struct {
 } WriterConfig;
 
 
-
-
+///////////////////////////////////////////////////////////////////////////////////
+//                                    WriterSink                                 //
+///////////////////////////////////////////////////////////////////////////////////
 class WriterSink final : public pipeline::Sink {
 public:
     WriterSink(
@@ -70,6 +75,8 @@ public:
     freighter::Error communicateValueError(const std::string &channel, const UA_StatusCode &status);
     std::vector<synnax::ChannelKey> getCmdChannelKeys();
     std::vector<synnax::ChannelKey> getStateChannelKeys();
+    freighter::Error write(synnax::Frame frame);
+
 
 private:
     WriterConfig cfg;
@@ -89,6 +96,9 @@ private:
     std::queue<std::uint8_t> modified_state_valies;
 };
 
+///////////////////////////////////////////////////////////////////////////////////
+//                                Writer Task                                    //
+///////////////////////////////////////////////////////////////////////////////////
 
 
 //class Writer final : public task::Task {

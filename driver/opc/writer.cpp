@@ -32,7 +32,43 @@ WriterConfig::WriterConfig(
     }
 }
 
-WriterSink::WriterSink(){
+///////////////////////////////////////////////////////////////////////////////////
+//                                    WriterSink                                 //
+///////////////////////////////////////////////////////////////////////////////////
+WriterSink::WriterSink(
+        std::shared_ptr<task::Context> ctx,
+        const std::shared_ptr<UA_Client> &client,
+        std::set<ChannelKey> indexes,
+        synnax::Task task
+);
 
+
+///////////////////////////////////////////////////////////////////////////////////
+//TODO:
+
+freighter::Error WriterSink::start(){
+    return freighter::NIL;
 }
 
+freighter::Error WriterSink::stop(){
+    return freighter::NIL;
+}
+
+freighter::Error WriterSink::write(synnax::Frame frame){
+    return freighter::NIL;
+}
+
+std::vector<synnax::ChannelKey> WriterSink::getCmdChannelKeys(){
+    return std::vector<synnax::ChannelKey>();
+}
+
+std::vector<synnax::ChannelKey> WriterSink::getStateChannelKeys(){
+    return std::vector<synnax::ChannelKey>();
+}
+
+freighter::Error WriterSink::communicateResError(const UA_StatusCode status){
+    return freighter::NIL;
+}
+freighter::Error WriterSink::communicateValueError(const std::string &channel, const UA_StatusCode &status){
+    return freighter::NIL;
+}

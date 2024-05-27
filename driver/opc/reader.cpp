@@ -27,7 +27,9 @@
 
 using namespace opc;
 
-
+///////////////////////////////////////////////////////////////////////////////////
+//                                    Config Helpers                             //
+///////////////////////////////////////////////////////////////////////////////////
 ReaderConfig::ReaderConfig(
     config::Parser &parser
 ): device(parser.required<std::string>("device")) {
@@ -68,6 +70,9 @@ std::pair<std::pair<std::vector<ChannelKey>, std::set<ChannelKey> >,
     return {{channelKeys, indexes}, freighter::Error()};
 }
 
+///////////////////////////////////////////////////////////////////////////////////
+//                                    ReaderSource                               //
+///////////////////////////////////////////////////////////////////////////////////
 class ReaderSource final : public pipeline::Source {
 public:
     ReaderConfig cfg;
@@ -449,6 +454,9 @@ public:
     
 };
 
+///////////////////////////////////////////////////////////////////////////////////
+//                                    Reader Task                                //
+///////////////////////////////////////////////////////////////////////////////////
 
 std::unique_ptr<task::Task> Reader::configure(
     const std::shared_ptr<task::Context> &ctx,
