@@ -60,7 +60,7 @@ type Streamer = confluence.Segment[StreamerRequest, StreamerResponse]
 // returns.
 func (db *DB) NewStreamer(_ context.Context, cfg StreamerConfig) (Streamer, error) {
 	if db.closed.Load() {
-		return nil, ErrDBClosed
+		return nil, errDBClosed
 	}
 
 	return &streamer{

@@ -52,7 +52,7 @@ type DB struct {
 	closed      *atomic.Bool
 }
 
-var ErrDBClosed = core.EntityClosed("unary.db")
+var errDBClosed = core.EntityClosed("unary.db")
 
 func (db *DB) Index() index.Index {
 	if !db.Channel.IsIndex {
@@ -110,7 +110,7 @@ func (db *DB) OpenIterator(cfg IteratorConfig) *Iterator {
 // is an open writer that could write into the requested timerange
 func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) {
 	if db.closed.Load() {
-		return false, ErrDBClosed
+		return false, errDBClosed
 	}
 	g, _, err := db.Controller.OpenAbsoluteGateIfUncontrolled(tr, control.Subject{Key: "has_data_for"},
 		func() (controlledWriter, error) {
@@ -142,7 +142,7 @@ func (db *DB) Read(ctx context.Context, tr telem.TimeRange) (frame core.Frame, e
 	defer func() { err = db.wrapError(err) }()
 
 	if db.closed.Load() {
-		return frame, ErrDBClosed
+		return frame, errDBClosed
 	}
 	iter := db.OpenIterator(IterRange(tr))
 	if err != nil {

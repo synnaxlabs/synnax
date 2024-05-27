@@ -33,7 +33,7 @@ func NewFrame(keys []core.ChannelKey, series []telem.Series) Frame {
 }
 
 var (
-	ErrDBClosed        = core.EntityClosed("cesium.db")
+	errDBClosed        = core.EntityClosed("cesium.db")
 	ErrChannelNotFound = core.ErrChannelNotFound
 )
 
@@ -55,7 +55,7 @@ type DB struct {
 // Write writes the frame to database at the specified start time.
 func (db *DB) Write(ctx context.Context, start telem.TimeStamp, frame Frame) error {
 	if db.closed.Load() {
-		return ErrDBClosed
+		return errDBClosed
 	}
 	_, span := db.T.Debug(ctx, "write")
 	defer span.End()
@@ -71,7 +71,7 @@ func (db *DB) Write(ctx context.Context, start telem.TimeStamp, frame Frame) err
 // WriteArray writes a series into the specified channel at the specified start time.
 func (db *DB) WriteArray(ctx context.Context, key core.ChannelKey, start telem.TimeStamp, series telem.Series) error {
 	if db.closed.Load() {
-		return ErrDBClosed
+		return errDBClosed
 	}
 	return db.Write(ctx, start, core.NewFrame([]core.ChannelKey{key}, []telem.Series{series}))
 }
@@ -79,7 +79,7 @@ func (db *DB) WriteArray(ctx context.Context, key core.ChannelKey, start telem.T
 // Read reads from the database at the specified time range and outputs a frame.
 func (db *DB) Read(_ context.Context, tr telem.TimeRange, keys ...core.ChannelKey) (frame Frame, err error) {
 	if db.closed.Load() {
-		return frame, ErrDBClosed
+		return frame, errDBClosed
 	}
 	iter, err := db.OpenIterator(IteratorConfig{Channels: keys, Bounds: tr})
 	if err != nil {

@@ -49,7 +49,7 @@ func channelDirName(ch ChannelKey) string {
 // DeleteChannel is idempotent.
 func (db *DB) DeleteChannel(ch ChannelKey) error {
 	if db.closed.Load() {
-		return ErrDBClosed
+		return errDBClosed
 	}
 
 	db.mu.Lock()
@@ -77,7 +77,7 @@ func (db *DB) DeleteChannel(ch ChannelKey) error {
 
 func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 	if db.closed.Load() {
-		return ErrDBClosed
+		return errDBClosed
 	}
 
 	db.mu.Lock()
