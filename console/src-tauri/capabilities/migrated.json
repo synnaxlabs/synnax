@@ -70,8 +70,12 @@
     "updater:default",
     "updater:allow-check",
     "updater:allow-download-and-install",
+    "dialog:allow-open",
     "dialog:allow-save",
     "fs:allow-write-file",
+    "fs:allow-read-file",
+    "fs:allow-read-text-file",
+    "fs:default",
     "process:allow-restart",
     "process:allow-exit",
     {

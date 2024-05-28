@@ -30,10 +30,13 @@ import {
   connectionConfigZ,
   groupConfigZ,
   GroupConfig,
+  SecurityPolicy,
 } from "@/hardware/opc/device/types";
 import { type Layout } from "@/layout";
 
 import "@/hardware/opc/device/Configure.css";
+import { FS } from "@/fs";
+import { SelectSecurityPolicy } from "@/hardware/opc/device/SelectSecurityPolicy";
 
 const configureZ = z.object({
   name: z.string().min(1, "Name is required"),
@@ -86,11 +89,15 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
 
   const methods = Form.use({
     values: {
-      name: "",
+      name: "My OPC UA Server",
       connection: {
         endpoint: "opc.tcp://0.0.0.0:4840",
         username: "",
         password: "",
+        serverCertificate: "",
+        clientCertificate: "",
+        clientPrivateKey: "",
+        securityPolicy: "None",
       },
       groups: [],
     },
@@ -103,9 +110,11 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
       if (!(await methods.validateAsync("connection")) || client == null) return;
       const rack = await client.hardware.racks.retrieve("sy_node_1_rack");
       const task = await rack.retrieveTaskByName("opc Scanner");
+      const connection = methods.get({ path: "connection" }).value;
+      console.log(connection);
       return await task.executeCommandSync<{ message: string }>(
         "test_connection",
-        { connection: methods.get({ path: "connection" }).value },
+        { connection },
         TimeSpan.seconds(1),
       );
     },
@@ -264,6 +273,8 @@ interface ConnectProps {
 }
 
 const Connect = ({ testConnection }: ConnectProps): ReactElement => {
+  const hasSecPolicy =
+    Form.useFieldValue<SecurityPolicy>("connection.securityPolicy") != "None";
   return (
     <Align.Space
       direction="x"
@@ -314,9 +325,39 @@ const Connect = ({ testConnection }: ConnectProps): ReactElement => {
         <Form.Field<string> path="connection.username">
           {(p) => <Input.Text placeholder="admin" {...p} />}
         </Form.Field>
-        <Form.Field<string> path="connection.password" grow>
-          {(p) => <Input.Text placeholder="password" {...p} />}
+        <Form.Field<string> path="connection.password">
+          {(p) => <Input.Text placeholder="password" type="password" {...p} />}
         </Form.Field>
+        <Form.Field<SecurityPolicy>
+          path="connection.securityPolicy"
+          label="Security Policy"
+          grow={!hasSecPolicy}
+        >
+          {(p) => <SelectSecurityPolicy {...p} />}
+        </Form.Field>
+        {hasSecPolicy && (
+          <>
+            <Form.Field<string>
+              path="connection.clientCertificate"
+              label="Client Certificate"
+            >
+              {(p) => <FS.LoadFileContents grow {...p} />}
+            </Form.Field>
+            <Form.Field<string>
+              path="connection.clientPrivateKey"
+              label="Client Private Key"
+            >
+              {(p) => <FS.LoadFileContents grow {...p} />}
+            </Form.Field>
+            <Form.Field<string>
+              path="connection.serverCertificate"
+              label="Server Certificate"
+              grow
+            >
+              {(p) => <FS.LoadFileContents grow {...p} />}
+            </Form.Field>
+          </>
+        )}
         <Align.Space direction="x">
           <Align.Space direction="x" grow>
             {testConnection.isError && (
