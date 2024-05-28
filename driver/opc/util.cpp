@@ -79,11 +79,12 @@ void customLogger(
 freighter::Error configureEncryption(opc::ConnectionConfig &cfg, std::shared_ptr<UA_Client> client) {
 
     // TODO: IMPL revoked certs
+    auto client_config = UA_Client_getConfig(client.get());
+
     if(cfg.security_policy_uri.empty()) return freighter::NIL;
     else{
         // c* that concatenates the security policy with the uri
         auto uri = "http://opcfoundation.org/UA/SecurityPolicy#"+ cfg.security_policy_uri;
-        auto client_config = UA_Client_getConfig(client.get());
         client_config->securityPolicyUri = stringToUAByteString(uri);
     }
 
@@ -96,7 +97,7 @@ freighter::Error configureEncryption(opc::ConnectionConfig &cfg, std::shared_ptr
         trusted_certs.push_back(stringToUAByteString(trusted_cert));
     }
 
-    UA_StatusCode e_err = UA_ClientConfig_setDefaultEncryption(client, cert, p, NULL, 0, NULL, 0);
+    UA_StatusCode e_err = UA_ClientConfig_setDefaultEncryption(client_config, cert, p, NULL, 0, NULL, 0);
 
     if(e_err != UA_STATUSCODE_GOOD) {
         LOG(ERROR) << "Failed to configure encryption: " << UA_StatusCode_name(e_err);
