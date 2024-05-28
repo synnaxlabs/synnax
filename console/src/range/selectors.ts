@@ -61,6 +61,17 @@ export const select = (
   selectByKey(selectState(state).ranges, key, selectActiveKey(state));
 
 /**
+ * Selects information from the current edit range buffer.
+ *
+ * @param state - The state of the workspace store.
+ *
+ * @returns Information from the stored buffer. If no buffer is set, it returns null.
+ */
+export const selectEditBuffer = (
+  state: StoreState,
+): Partial<Range> | null | undefined => selectState(state).buffer;
+
+/**
  * Selects a range from the workspace store.
  *
  * @returns The range with the given key. If no key is provided, the active range is
@@ -69,6 +80,14 @@ export const select = (
  */
 export const useSelect = (key?: string): Range | null | undefined =>
   useMemoSelect((state: StoreState) => select(state, key), [key]);
+
+/**
+ * Selects information from the current edit range buffer.
+ *
+ * @returns Information from the stored buffer. If no buffer is set, it returns null.
+ */
+export const useSelectEditBuffer = (): Partial<Range> | null | undefined =>
+  useMemoSelect((state: StoreState) => selectEditBuffer(state), []);
 
 /**
  * Selects ranges from the workspace store. If no keys are provided, all ranges are

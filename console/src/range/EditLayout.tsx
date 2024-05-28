@@ -8,20 +8,19 @@
 // included in the file licenses/APL.txt.
 
 import { type ReactElement, useRef } from "react";
-
+import { useDispatch } from "react-redux";
 import { TimeRange, TimeStamp, UnexpectedError } from "@synnaxlabs/client";
 import { Icon, Logo } from "@synnaxlabs/media";
 import { Align, Button, Form, Nav, Synnax, Text } from "@synnaxlabs/pluto";
 import { Input } from "@synnaxlabs/pluto/input";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useDispatch } from "react-redux";
 import { v4 as uuidv4 } from "uuid";
 import { z } from "zod";
 
 import { CSS } from "@/css";
 import { type Layout } from "@/layout";
-import { useSelect } from "@/range/selectors";
-import { add } from "@/range/slice";
+import { useSelect, useSelectEditBuffer } from "@/range/selectors";
+import { add, clearBuffer } from "@/range/slice";
 
 import "@/range/EditLayout.css";
 
@@ -56,16 +55,24 @@ export const Edit = (props: Layout.RendererProps): ReactElement => {
   const client = Synnax.use();
   const isCreate = layoutKey === EDIT_LAYOUT_TYPE;
   const isRemoteEdit = !isCreate && (range == null || range.persisted);
+  const editBuffer = useSelectEditBuffer();
+  const dispatch = useDispatch();
   const initialValues = useQuery<DefineRangeFormProps>({
     queryKey: ["range", layoutKey],
     queryFn: async () => {
-      if (isCreate)
+      if (isCreate) {
+        dispatch(clearBuffer());
         return {
           name: "",
-          start: now,
-          end: now,
+          start:
+            (editBuffer?.variant == "static" ? editBuffer.timeRange?.start : null) ??
+            now,
+          end:
+            (editBuffer?.variant == "static" ? editBuffer.timeRange?.end : null) ?? now,
           labels: [],
+          ...editBuffer,
         };
+      }
       if (range == null || range.persisted) {
         if (client == null) throw new UnexpectedError("Client is not available");
         const rng = await client.ranges.retrieve(layoutKey);

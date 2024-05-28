@@ -31,7 +31,7 @@ import {
   TimeRange,
 } from "@synnaxlabs/x";
 import { useDispatch } from "react-redux";
-
+import { setBuffer } from "@/range/slice";
 import { useSyncerDispatch, type Syncer } from "@/hooks/dispatchers";
 import { Layout } from "@/layout";
 import {
@@ -68,8 +68,7 @@ import { Workspace } from "@/workspace";
 import { Icon } from "@synnaxlabs/media";
 import { download } from "@/lineplot/download";
 import { Menu } from "@/components";
-// import { dialog } from "@tauri-apps/api";
-// import { writeFile } from "@tauri-apps/api/fs";
+import { createEditLayout } from "@/range/EditLayout";
 
 interface SyncPayload {
   key?: string;
@@ -295,6 +294,7 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
       s.pos(box.right(selection)),
     );
 
+    const newLayout = Layout.usePlacer();
     const handleSelect = (key: string): void => {
       switch (key) {
         case "iso":
@@ -311,6 +311,22 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
           void navigator.clipboard.writeText(
             `new TimeRange(${timeRange.start.valueOf()}, ${timeRange.end.valueOf()})`,
           );
+          break;
+        case "range":
+          dispatch(
+            setBuffer({
+              timeRange: {
+                start: Number(timeRange.start.valueOf()),
+                end: Number(timeRange.end.valueOf()),
+              },
+              variant: "static",
+            }),
+          );
+          const layout = createEditLayout();
+          newLayout({
+            ...layout,
+            key: layout.key,
+          });
           break;
         case "download":
           if (client == null) return;
