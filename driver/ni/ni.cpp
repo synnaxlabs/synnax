@@ -121,6 +121,7 @@ void ni::Source::parseConfig(config::Parser &parser){
     this->reader_config.device_name = dev.location;
     LOG(INFO) << "[NI Source] location  " << dev.location;
     this->parseChannels(parser);
+    assert(parser.ok());
 }
 
 int ni::Source::init(){

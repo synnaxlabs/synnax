@@ -22,44 +22,6 @@
 
 using json = nlohmann::json;
 
-void ni::DigitalReadSource::getIndexKeys(){
-    std::set<std::uint32_t> index_keys;
-    //iterate through channels in reader config
-    for (auto &channel : this->reader_config.channels){
-        auto [channel_info, err] = this->ctx->client->channels.retrieve(channel.channel_key);
-        // TODO handle error with breaker
-        if (err != freighter::NIL){
-            // Log error
-            LOG(ERROR) << "[NI Reader] failed to retrieve channel " << channel.channel_key;
-            this->ok_state = false;
-            return;
-        } else{
-            index_keys.insert(channel_info.index);
-        }
-    }
-    // now iterate through the set and add all the index channels as configs
-    for (auto it = index_keys.begin(); it != index_keys.end(); ++it){
-        auto index_key = *it;
-        LOG(INFO) << "constructing index channel configs";
-        auto [channel_info, err] = this->ctx->client->channels.retrieve(index_key);
-        if (err != freighter::NIL){
-            LOG(ERROR) << "[NI Reader] failed to retrieve channel " << index_key;
-            this->ok_state = false;
-            return;
-        } else{
-            ni::ChannelConfig index_channel;
-            index_channel.channel_key = channel_info.key;
-            index_channel.channel_type = "index";
-            index_channel.name = channel_info.name;
-            this->reader_config.channels.push_back(index_channel);
-            LOG(INFO) << "[NI Reader] index channel " << index_channel.channel_key << " and name: " << index_channel.name <<" added to task " << this->reader_config.task_name;
-        }
-    }
-}
-
-
-
-
 // TODO: Code dedup
 ni::DigitalReadSource::DigitalReadSource(
     TaskHandle task_handle,
@@ -110,26 +72,8 @@ ni::DigitalReadSource::DigitalReadSource(
 }
 
 
-void ni::DigitalReadSource::parseConfig(config::Parser &parser){
-    // Get Acquisition Rate and Stream Rates
-    this->reader_config.sample_rate = parser.required<uint64_t>("sample_rate");
-    this->reader_config.stream_rate = parser.required<uint64_t>("stream_rate");
-    this->reader_config.device_key = parser.required<std::string>("device");
-    this->reader_config.timing_source = "none"; // parser.required<std::string>("timing_source"); TODO: uncomment this when ui provides timing source
-
-    // TODO: add a parser ok check here
-
-
-    auto [dev, err] = this->ctx->client->hardware.retrieveDevice(this->reader_config.device_key);
-
-    if (err != freighter::NIL) {
-        LOG(ERROR) << "[NI Reader] failed to retrieve device " << this->reader_config.device_name;
-        this->ok_state = false;
-        return;
-    }
-    this->reader_config.device_name = dev.location;
-    assert(parser.ok());
-
+void ni::DigitalReadSource::parseChannels(config::Parser &parser){
+    LOG(INFO) << "[NI Reader] Parsing Channels for task " << this->reader_config.task_name;
     // now parse the channels
     parser.iter("channels",
                 [&](config::Parser &channel_builder){
@@ -211,37 +155,6 @@ int ni::DigitalReadSource::configureTiming(){
     }
     this->bufferSize = this->numChannels * this->numSamplesPerChannel;
     return 0;
-}
-
-freighter::Error ni::DigitalReadSource::start(){
-    freighter::Error err = freighter::NIL;
-    if (this->checkNIError(ni::NiDAQmxInterface::StartTask(this->task_handle))){
-        LOG(ERROR) << "[NI Reader] failed while starting reader for task " << this->reader_config.task_name;
-        err = freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
-    }
-    else{
-        LOG(INFO) << "[NI Reader] successfully started reader for task " << this->reader_config.task_name;
-    }
-    return err;
-}
-
-
-freighter::Error ni::DigitalReadSource::stop(){ 
-    freighter::Error err = freighter::NIL;
-    if (this->checkNIError(ni::NiDAQmxInterface::StopTask(this->task_handle))){
-        LOG(ERROR) << "[NI Reader] failed while stopping reader for task " << this->reader_config.task_name;
-        err = freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
-    }
-    else{
-        if (this->checkNIError(ni::NiDAQmxInterface::ClearTask(this->task_handle))){
-            LOG(ERROR) << "[NI Reader] failed while clearing reader for task " << this->reader_config.task_name;
-            err = freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
-        }
-    }
-    if (err == freighter::NIL){
-        LOG(INFO) << "[NI Reader] successfully stopped and cleared reader for task " << this->reader_config.task_name;
-    }
-    return err;
 }
 
 

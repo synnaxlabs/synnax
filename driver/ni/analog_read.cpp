@@ -32,7 +32,6 @@ void  ParseFloats(std::vector<float64> vec, double* arr){
 void ni::AnalogReadSource::parseChannels(config::Parser &parser){
     LOG(INFO) << "[NI Reader] Parsing Channels for task " << this->reader_config.task_name;
     // now parse the channels
-    assert(parser.ok());
     parser.iter("channels",
                 [&](config::Parser &channel_builder){
                     ni::ChannelConfig config;
@@ -56,7 +55,6 @@ void ni::AnalogReadSource::parseChannels(config::Parser &parser){
                     this->parseCustomScale(channel_builder, config);
                     this->reader_config.channels.push_back(config);
                 });
-    return;
 }
 
 

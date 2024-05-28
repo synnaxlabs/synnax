@@ -201,7 +201,7 @@ namespace ni{
      ///////////////////////////////////////////////////////////////////////////////////
     //                                    DigitalReadSource                           //
     ///////////////////////////////////////////////////////////////////////////////////
-    class DigitalReadSource : public pipeline::Source{ 
+    class DigitalReadSource : public Source{ 
     public:
         explicit DigitalReadSource(TaskHandle task_handle,
                              const std::shared_ptr<task::Context> &ctx,
@@ -210,9 +210,6 @@ namespace ni{
 
         int init();
         std::pair<synnax::Frame, freighter::Error> read();
-        freighter::Error stop();
-        freighter::Error start();
-        void getIndexKeys(); 
         bool ok();
         ~DigitalReadSource();
         std::vector<synnax::ChannelKey> getChannelKeys();
