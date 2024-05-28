@@ -33,7 +33,7 @@ const SELECT_NODE_COLUMNS: Array<List.ColumnSpec<string, NodeEntry>> = [
   {
     name: "Is Array",
     key: "isArray",
-  }
+  },
 ];
 
 interface SelectNodeProps
