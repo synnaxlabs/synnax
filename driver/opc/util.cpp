@@ -15,6 +15,7 @@
 #include "include/open62541/plugin/log_stdout.h"
 #include "include/open62541/client_config_default.h"
 
+
 #include "glog/logging.h"
 
 /// @brief maps opc data types to their corresponding Synnax types.
@@ -75,6 +76,38 @@ void customLogger(
     }
 }
 
+freighter::Error configureEncryption(opc::ConnectionConfig &cfg, std::shared_ptr<UA_Client> client) {
+
+    // TODO: IMPL revoked certs
+    if(cfg.security_policy_uri.empty()) return freighter::NIL;
+    else{
+        // c* that concatenates the security policy with the uri
+        auto uri = "http://opcfoundation.org/UA/SecurityPolicy#"+ cfg.security_policy_uri;
+        auto client_config = UA_Client_getConfig(client.get());
+        client_config->securityPolicyUri = stringToUAByteString(uri);
+    }
+
+    auto cert = stringToUAByteString(cfg.certificate);
+    auto p = stringToUAByteString(cfg.p);
+
+    std::vector<UA_ByteString> trusted_certs;
+    size_t num_trusted_certs = cfg.trusted_certificates.size();
+    for(auto &trusted_cert : cfg.trusted_certificates) {
+        trusted_certs.push_back(stringToUAByteString(trusted_cert));
+    }
+
+    UA_StatusCode e_err = UA_ClientConfig_setDefaultEncryption(client, cert, p, NULL, 0, NULL, 0);
+
+    if(e_err != UA_STATUSCODE_GOOD) {
+        LOG(ERROR) << "Failed to configure encryption: " << UA_StatusCode_name(e_err);
+        const auto status_name = UA_StatusCode_name(e_err);
+        return freighter::Error(freighter::TYPE_UNREACHABLE, "Failed to configure encryption: " + std::string(status_name));
+    }
+
+    return freighter::NIL;
+}
+
+
 std::pair<std::shared_ptr<UA_Client>, freighter::Error> opc::connect(
     opc::ConnectionConfig &cfg
 ) {
@@ -84,7 +117,6 @@ std::pair<std::shared_ptr<UA_Client>, freighter::Error> opc::connect(
     config->logging->log = customLogger;
 
     // setup encryption support if applicable
-
     auto cert = stringToUAByteString(cfg.certificate);
     auto p = stringToUAByteString(cfg.p);
 
@@ -116,32 +148,3 @@ std::pair<std::shared_ptr<UA_Client>, freighter::Error> opc::connect(
     };
 }
 
-freighter::Error opc::configureEncryption(opc::ConnectionConfig &cfg, std::shared_ptr<UA_Client> client) {
-
-    // TODO: IMPL revoked certs
-    if(cfg.security_policy_uri.empty()) return freighter::NIL;
-    else{
-        // c* that concatenates the security policy with the uri
-        auto uri = "http://opcfoundation.org/UA/SecurityPolicy#"+ cfg.security_policy_uri;
-        client->securityPolicyUri = UA_STRING_ALLOC(uri);
-    }
-
-    auto cert = stringToUAByteString(cfg.certificate);
-    auto p = stringToUAByteString(cfg.p);
-
-    std::vector<UA_ByteString> trusted_certs;
-    size_t num_trusted_certs = cfg.trusted_certificates.size();
-    for(auto &trusted_cert : cfg.trusted_certificates) {
-        trusted_certs.push_back(stringToUAByteString(trusted_cert));
-    }
-
-    UA_StatusCode e_err = UA_ClientConfig_setDefaultEncryption(client, cert, p, NULL, 0, NULL, 0);
-
-    if(e_err != UA_STATUSCODE_GOOD) {
-        LOG(ERROR) << "Failed to configure encryption: " << UA_StatusCode_name(e_err);
-        const auto status_name = UA_StatusCode_name(e_err);
-        return freighter::Error(freighter::TYPE_UNREACHABLE, "Failed to configure encryption: " + std::string(status_name));
-    }
-    
-    return freighter::NIL;
-}
