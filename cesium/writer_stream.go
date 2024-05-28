@@ -157,6 +157,7 @@ func (w *streamWriter) process(ctx context.Context, req WriterRequest) {
 		end, w.err = w.commit(ctx)
 		w.sendRes(req, w.err == nil, nil, end)
 	} else {
+		// req.Command == WriterWrite
 		if w.err = w.write(ctx, req); w.err != nil {
 			w.seqNum++
 			w.sendRes(req, false, nil, 0)

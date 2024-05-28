@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/index"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/control"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -1189,6 +1190,43 @@ var _ = Describe("Writer Behavior", func() {
 					err := w.Close()
 					Expect(err).To(MatchError(validate.Error))
 					Expect(err.Error()).To(ContainSubstring("expected int64, got float64"))
+				})
+			})
+			Describe("ErrOnUnauthorized", func() {
+				var (
+					key        cesium.ChannelKey
+					controlKey = GenerateChannelKey()
+					w1         *cesium.Writer
+					w2         *cesium.Writer
+				)
+				BeforeEach(func() {
+					key = GenerateChannelKey()
+					Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, DataType: telem.Int64T, Rate: 1 * telem.Hz})).To(Succeed())
+					Expect(db.ConfigureControlUpdateChannel(ctx, controlKey)).To(Succeed())
+					w1 = MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Channels: []cesium.ChannelKey{key}, Start: 1 * telem.SecondTS}))
+				})
+				AfterEach(func() {
+					Expect(w1.Close()).To(Succeed())
+				})
+				Context("False", func() {
+					It("Should not return an error if writer is not authorized to write", func() {
+						w2 = MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Channels: []cesium.ChannelKey{key}, Start: 1 * telem.SecondTS}))
+						Consistently(func() bool {
+							return w2.Write(cesium.NewFrame([]cesium.ChannelKey{key}, []telem.Series{telem.NewSeriesV[int64](1, 2, 3, 4)}))
+						}).Should(BeTrue())
+						Expect(w2.Error()).ToNot(HaveOccurred())
+						Expect(w2.Close()).To(Succeed())
+					})
+				})
+				Context("True", func() {
+					It("Should return an error if writer is not authorized to write", func() {
+						w2 = MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Channels: []cesium.ChannelKey{key}, Start: 1 * telem.SecondTS, ErrOnUnauthorized: config.True()}))
+						Eventually(func() bool {
+							return w2.Write(cesium.NewFrame([]cesium.ChannelKey{key}, []telem.Series{telem.NewSeriesV[int64](1, 2, 3, 4)}))
+						}).Should(BeFalse())
+						Expect(w2.Error()).To(MatchError(control.Unauthorized))
+						Expect(w2.Close()).To(Succeed())
+					})
 				})
 			})
 
