@@ -70,8 +70,7 @@ void Acquisition::run() {
             if (
                 source_err.matches(driver::TYPE_TEMPORARY_HARDWARE_ERROR) &&
                 breaker.wait(source_err.message())
-            )
-                continue;
+            ) continue;
             break;
         }
         if (!writer.write(std::move(frame))) {
