@@ -45,8 +45,8 @@ func (db *DB) Delete(ctx context.Context, tr telem.TimeRange) error {
 // This case only happens when the deletion end is before (or equal) all known domains,
 // therefore we delete nothing.
 func (db *DB) delete(ctx context.Context, tr telem.TimeRange) error {
-	if tr.Start.After(tr.End) {
-		return errors.Newf("delete start <%d> cannot be after delete end <%d>", tr.Start, tr.End)
+	if !tr.Valid() {
+		return errors.Newf("delete start %d cannot be after delete end %d", tr.Start, tr.End)
 	}
 
 	var (
@@ -55,13 +55,13 @@ func (db *DB) delete(ctx context.Context, tr telem.TimeRange) error {
 		density           = db.Channel.DataType.Density()
 	)
 
-	g, _, err := db.Controller.OpenAbsoluteGateIfUncontrolled(tr, control.Subject{Key: "delete_writer"}, func() (controlledWriter, error) {
-		return controlledWriter{
-			Writer:     nil,
-			channelKey: db.Channel.Key,
-		}, nil
-	})
-
+	// TODO: generate a unique key that's a UUID
+	g, _, err := db.Controller.OpenAbsoluteGateIfUncontrolled(
+		tr,
+		control.Subject{Key: "delete_writer"},
+		func() (controlledWriter, error) {
+			return controlledWriter{Writer: nil, channelKey: db.Channel.Key}, nil
+		})
 	if err != nil {
 		return err
 	}
@@ -72,8 +72,8 @@ func (db *DB) delete(ctx context.Context, tr telem.TimeRange) error {
 	}
 	defer g.Release()
 
-	i := db.Domain.NewIterator(domain.IteratorConfig{Bounds: telem.TimeRangeMax})
-	if ok = i.SeekGE(ctx, tr.Start); !ok {
+	i := db.Domain.NewIterator(domain.IteratorConfig{Bounds: tr})
+	if ok = i.SeekFirst(ctx); !ok {
 		// No domains after start: delete nothing.
 		return i.Close()
 	}
@@ -92,9 +92,10 @@ func (db *DB) delete(ctx context.Context, tr telem.TimeRange) error {
 		startOffset = approxDist.Upper
 	}
 
+	// TODO: problematic
 	startPosition := i.Position()
 
-	if ok = i.SeekLE(ctx, tr.End); !ok {
+	if ok = i.SeekLast(ctx); !ok {
 		// No domains before end: delete nothing.
 		return i.Close()
 	}
@@ -118,18 +119,20 @@ func (db *DB) delete(ctx context.Context, tr telem.TimeRange) error {
 
 	endPosition := i.Position()
 
-	err = db.Domain.Delete(ctx, startPosition, endPosition, int64(density.Size(startOffset)), int64(density.Size(endOffset)), tr)
+	err = db.Domain.Delete(
+		ctx,
+		startPosition,
+		endPosition,
+		int64(density.Size(startOffset)),
+		int64(density.Size(endOffset)),
+		tr,
+	)
 
-	if err != nil {
-		return errors.CombineErrors(err, i.Close())
-	}
-
-	g.Release()
-	return i.Close()
+	return errors.CombineErrors(err, i.Close())
 }
 
 // GarbageCollect creates an absolute control region on the channel and prevents any
-// writes or deletes from occuring – in addition, it holds the unary entityCount mutex
+// writes or deletes from occurring – in addition, it holds the unary entityCount mutex
 // for the whole duration – therefore, there cannot be any read operations either.
 // GarbageCollect cleans up all data-storage .domain files in the unaryDB by removing
 // all data no longer in any stored domain.
@@ -142,6 +145,7 @@ func (db *DB) GarbageCollect(ctx context.Context) error {
 	}
 
 	// Check that there are no delete writers on this channel
+	// TODO: too expensive locking the entire database down. Reads and writes should be entirely operations during GC.
 	g, _, err := db.Controller.OpenAbsoluteGateIfUncontrolled(telem.TimeRangeMax, control.Subject{Key: "gc_writer"}, func() (controlledWriter, error) {
 		return controlledWriter{
 			Writer:     nil,

@@ -198,9 +198,9 @@ func (db *DB) DeleteTimeRange(ctx context.Context, chs []ChannelKey, tr telem.Ti
 		udb, uok := db.unaryDBs[ch]
 		if !uok {
 			if _, vok := db.virtualDBs[ch]; vok {
-				return errors.Newf("cannot delete timerange from virtual channel %v", db.virtualDBs[ch].Channel)
+				return errors.Newf("cannot delete time range from virtual channel %v", db.virtualDBs[ch].Channel)
 			}
-			return errors.Wrapf(ErrChannelNotFound, "timerange deletion channel key %d not found", ch)
+			return errors.Wrapf(ErrChannelNotFound, "channel key %d not found", ch)
 		}
 
 		// Cannot delete an index channel that other channels rely on.
@@ -263,8 +263,10 @@ func (db *DB) garbageCollect(ctx context.Context, maxGoRoutine int64) error {
 		}()
 	}
 
-	wg.Wait()
+	// TODO: think about this mutex placement
 	db.mu.RUnlock()
+	// TODO: should be using a signal context instead of waitgroup and catcher.
+	wg.Wait()
 	return c.Error()
 }
 

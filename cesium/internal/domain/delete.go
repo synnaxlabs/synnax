@@ -20,10 +20,18 @@ const tombstoneByteSize = 6
 // The following requirements are placed on the variables:
 // 0 <= startPosition <= endPosition < len(db.mu.idx.pointers), and must both be valid
 // positions in the index.
-func (db *DB) Delete(ctx context.Context, startPosition int, endPosition int, startOffset int64, endOffset int64, tr telem.TimeRange) error {
+func (db *DB) Delete(
+	ctx context.Context,
+	startPosition int,
+	endPosition int,
+	startOffset int64,
+	endOffset int64,
+	tr telem.TimeRange,
+) error {
 	ctx, span := db.T.Bench(ctx, "Delete")
 	defer span.End()
 
+	// TODO: think about defer unlock here
 	db.idx.mu.Lock()
 
 	if err := validateDelete(startPosition, endPosition, &startOffset, &endOffset, db.idx); err != nil {
@@ -37,6 +45,7 @@ func (db *DB) Delete(ctx context.Context, startPosition int, endPosition int, st
 		newPointers = make([]pointer, 0)
 	)
 
+	// TODO: refactor
 	if startPosition == endPosition-1 && startOffset == int64(end.length) && endOffset == int64(end.length) ||
 		startPosition == endPosition && startOffset+endOffset == int64(start.length) {
 		// delete nothing
@@ -109,6 +118,7 @@ func (db *DB) GarbageCollect(ctx context.Context) error {
 
 	db.idx.mu.Lock()
 
+	// TODO: need tombstones?
 	for fileKey, tombstoneSize := range db.idx.mu.tombstones {
 		if tombstoneSize >= uint32(db.GCThreshold*float32(db.FileSize)) {
 			var (
