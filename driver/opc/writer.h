@@ -71,9 +71,9 @@ public:
     WriterSink(
             std::shared_ptr<task::Context> ctx,
             synnax::Task task,
-            WriterConfig cfg,
-            const std::shared_ptr<UA_Client> &client,
-            std::set<ChannelKey> indexes
+//            WriterConfig cfg,
+            const std::shared_ptr<UA_Client> &client
+//            std::set<ChannelKey> indexes
             );
     freighter::Error start();
     freighter::Error stop();
@@ -83,6 +83,7 @@ public:
     std::vector<synnax::ChannelKey> getStateChannelKeys();
     freighter::Error write(synnax::Frame frame);
     void initializeWriteRequest();
+    void parseConfig(config::Parser &parser);
 
 private:
     WriterConfig cfg;

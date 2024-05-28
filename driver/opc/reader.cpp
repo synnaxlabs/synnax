@@ -42,8 +42,8 @@ ReaderConfig::ReaderConfig(
     });
 }
 
-std::pair<std::pair<std::vector<ChannelKey>, std::set<ChannelKey> >,
-    freighter::Error> retrieveAdditionalChannelInfo(
+
+std::pair<std::pair<std::vector<ChannelKey>, std::set<ChannelKey> >, freighter::Error> retrieveAdditionalChannelInfo(
     const std::shared_ptr<task::Context> &ctx,
     ReaderConfig &cfg,
     breaker::Breaker &breaker

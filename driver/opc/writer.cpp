@@ -37,52 +37,83 @@ opc::WriterConfig::WriterConfig(
 WriterSink::WriterSink(
         std::shared_ptr<task::Context> ctx,
         synnax::Task task,
-        WriterConfig cfg,
+//        WriterConfig cfg,
         const std::shared_ptr<UA_Client> &client,
-        std::set<ChannelKey> indexes
-) : cfg(std::move(cfg)),
-    client(client),
+//        std::set<ChannelKey> indexes
+) : client(client),
     ctx(std::move(ctx)),
     task(std::move(task)){
 
-    initializeWriteRequest(); // TODO: IMPL
+    this->initializeWriteRequest(); // TODO: IMPL
 
-    curr_state.task = this->task.key;
-    curr_state.variant = "success";
-    curr_state.details = json{
+    this->curr_state.task = this->task.key;
+    this->curr_state.variant = "success";
+    this->curr_state.details = json{
         {"message", "Task configured successfully"},
         {"running", true}
     };
-    this->ctx->setState(curr_state);
+    this->ctx->setState(this->curr_state);
+}
+
+void WriterSink::ParseConfig(config::Parser &parser){
+    this->cfg = WriterConfig(parser);
+
+    assert(parser.ok())
 }
 
 
-///////////////////////////////////////////////////////////////////////////////////
-//TODO:
 
 freighter::Error WriterSink::start(){
-    curr_state.variant = "success";
-    curr_state.details = json{
-        {"message", "Task started successfully"},
-        {"running", true}
+    this->curr_state.variant = "success";
+    this->curr_state.details = json{
+            {"message", "Task started successfully"},
+            {"running", true}
     };
     this->ctx->setState(curr_state);
     return freighter::NIL;
 }
 
 freighter::Error WriterSink::stop(){
-    curr_state.variant = "success";
-    curr_state.details = json{
-        {"message", "Task stopped successfully"},
-        {"running", false}
+    this->curr_state.variant = "success";
+    this->curr_state.details = json{
+            {"message", "Task stopped successfully"},
+            {"running", false}
     };
     this->ctx->setState(curr_state);
     return freighter::NIL;
 }
 
+void WriterSink::initializeWriteRequest(){
+
+    UA_WriteRequest_init(&this->request); // allocates memory for request
+
+    // Write request has
+    // 1. rwuest header             -> no work for this
+    // 2. nodes to write            -> array of UA_WriteValues which we need to prepare
+    // 3. nodes to write size
+
+    // UA_WriteValue has
+    // 1. NodeId                     -> the node we care about
+    // 2. AttributeId                -> the attribute of that node
+    // 3. IndexRange                 -> optional field used when attribute is array and we only want to write a subset of values in that array (if empty, the entire array is written to)
+    // 4. Value                      -> the value to write to the node
+
+    // We need to prepare the nodes_to_write array with the required values
+    // needs to happen every time we get a call to write from ctrl pipeline with a new frame to write
+
+    return;
+}
+
 freighter::Error WriterSink::write(synnax::Frame frame){
     return freighter::NIL;
 }
+
+
+
+///////////////////////////////////////////////////////////////////////////////////
+//TODO:
+
+
 
 std::vector<synnax::ChannelKey> WriterSink::getCmdChannelKeys(){
     return std::vector<synnax::ChannelKey>();
@@ -99,6 +130,3 @@ freighter::Error WriterSink::communicateValueError(const std::string &channel, c
     return freighter::NIL;
 }
 
-void WriterSink::initializeWriteRequest(){
-    return;
-}
