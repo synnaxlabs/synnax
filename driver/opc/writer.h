@@ -36,7 +36,7 @@ namespace opc {
 //                                    WriterConfigs                              //
 ///////////////////////////////////////////////////////////////////////////////////
 
-typedef struct {
+struct WriterChannelConfig {
     ///@brief the node id.
     std::string node_id;
     UA_NodeId node;
@@ -46,16 +46,21 @@ typedef struct {
     Channel ch;
     bool enabled;
 
-} WriterChannelConfig;
+    WriterChannelConfig() = default;
+    explicit WriterChannelConfig(config::Parser &parser);
+};
 
-typedef struct {
+struct WriterConfig {
     /// @brief the device representing the OPC UA server to write to.
     std::string device;
     /// @brief sets the rate at which states/acknowledgements are written to server
     Rate update_rate;
     /// @brief the list of channels to write to
     std::vector<WriterChannelConfig> channels;
-} WriterConfig;
+
+    WriterConfig() = default;
+    explicit WriterConfig(config::Parser &parser);
+};
 
 
 ///////////////////////////////////////////////////////////////////////////////////

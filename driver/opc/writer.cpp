@@ -8,28 +8,27 @@
 // included in the file licenses/APL.txt.
 // File added by Elham Islam
 
-#include <driver/opc/writer.h>
+#include "driver/opc/writer.h"
 
 using namespace opc;
 
 WriterChannelConfig::WriterChannelConfig(
     config::Parser &parser
 ) : node_id(parser.required<std::string>("node_id")),
-   node(parseNodeId("node_id", parser)),
-   channel(parser.required<ChannelKey>("channel")),
+    node(parseNodeId("node_id", parser)),
+    channel(parser.required<ChannelKey>("channel")),
     enabled(parser.optional<bool>("enabled", true)) {
 }
 
-WriterConfig::WriterConfig(
+opc::WriterConfig::WriterConfig(
     config::Parser &parser
 ) : device(parser.required<std::string>("device")),
-    update_rate(parser.required<std::float_t>("update_rate")),
-    channels(parser.required<std::vector<WriterChannelConfig>>("channels")) {
+    update_rate(parser.required<std::float_t>("update_rate")){
 
     parser.iter("channels", [&](config::Parser &channel_builder) {
         auto channel = WriterChannelConfig(channel_builder);
         if (channel.enabled) channels.push_back(channel);
-    }
+    });
 }
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -43,8 +42,8 @@ WriterSink::WriterSink(
         std::set<ChannelKey> indexes
 ) : cfg(std::move(cfg)),
     client(client),
-    task(std::move(task)),
-    ctx(std::move(ctx)) {
+    ctx(std::move(ctx)),
+    task(std::move(task)){
 
     initializeWriteRequest(); // TODO: IMPL
 

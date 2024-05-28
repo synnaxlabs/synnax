@@ -3,12 +3,14 @@ cc_library(
     srcs = [
         "factory.cpp",
         "reader.cpp",
+        "writer.cpp",
         "scanner.cpp",
         "util.cpp",
     ],
     hdrs = [
         "opc.h",
         "reader.h",
+        "writer.h",
         "scanner.h",
         "util.h",
     ],
