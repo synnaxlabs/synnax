@@ -22,6 +22,14 @@ struct ConnectionConfig {
     std::string username;
     /// @brief the password to use for authentication. Not required.
     std::string password;
+    /// @brief the security policy uri
+    std::string  security_policy_uri;
+    /// @brief certificate
+    std::string certificate;
+    std::string p;
+
+    /// @brief list of trusted certificates
+    std::vector<std::string> trusted_certificates;
 
     ConnectionConfig() = default;
 
@@ -29,7 +37,14 @@ struct ConnectionConfig {
         config::Parser parser
     ): endpoint(parser.required<std::string>("endpoint")),
        username(parser.optional<std::string>("username", "")),
-       password(parser.optional<std::string>("password", "")) {
+       password(parser.optional<std::string>("password", "")),
+       security_policy_uri(parser.optional<std::string>("security_policy_uri", "")),
+       certificate(parser.optional<std::string>("certificate", "")),
+       p(parser.optional<std::string>("p", "")){
+
+        parser.iter("trusted_certificates", [&](const config::Parser &cb) {
+            trusted_certificates.push_back(cb.required<std::string>(""));
+        });
     }
 
     json toJSON() const {

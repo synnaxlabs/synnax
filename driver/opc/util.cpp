@@ -13,6 +13,8 @@
 #include "driver/opc/util.h"
 
 #include "include/open62541/plugin/log_stdout.h"
+#include "include/open62541/client_config_default.h"
+
 #include "glog/logging.h"
 
 /// @brief maps opc data types to their corresponding Synnax types.
@@ -76,10 +78,25 @@ void customLogger(
 std::pair<std::shared_ptr<UA_Client>, freighter::Error> opc::connect(
     opc::ConnectionConfig &cfg
 ) {
-    auto client = std::shared_ptr<UA_Client>(
-        UA_Client_new(), getDefaultClientDeleter());
+    // configure a client
+    auto client = std::shared_ptr<UA_Client>(UA_Client_new(), getDefaultClientDeleter());
     UA_ClientConfig *config = UA_Client_getConfig(client.get());
     config->logging->log = customLogger;
+
+    // setup encryption support if applicable
+
+    auto cert = stringToUAByteString(cfg.certificate);
+    auto p = stringToUAByteString(cfg.p);
+
+    std::vector<UA_ByteString> trusted_certs;
+    size_t num_trusted_certs = cfg.trusted_certificates.size();
+    for(auto &trusted_cert : cfg.trusted_certificates) {
+        trusted_certs.push_back(stringToUAByteString(trusted_cert));
+    }
+
+    configureEncryption(cfg, client);
+
+    // connect to client
     UA_StatusCode status = UA_Client_connect(client.get(), cfg.endpoint.c_str());
     if (cfg.username.empty() && cfg.password.empty())
         status = UA_Client_connect(client.get(), cfg.endpoint.c_str());
@@ -97,4 +114,29 @@ std::pair<std::shared_ptr<UA_Client>, freighter::Error> opc::connect(
         freighter::Error(freighter::TYPE_UNREACHABLE,
                          "Failed to connect: " + std::string(status_name))
     };
+}
+
+freighter::Error opc::configureEncryption(opc::ConnectionConfig &cfg, std::shared_ptr<UA_Client> client) {
+
+    // TODO: IMPL revoked certs
+    if(cfg.security_policy_uri.empty()) return freighter::NIL;
+
+    auto cert = stringToUAByteString(cfg.certificate);
+    auto p = stringToUAByteString(cfg.p);
+
+    std::vector<UA_ByteString> trusted_certs;
+    size_t num_trusted_certs = cfg.trusted_certificates.size();
+    for(auto &trusted_cert : cfg.trusted_certificates) {
+        trusted_certs.push_back(stringToUAByteString(trusted_cert));
+    }
+
+    UA_StatusCode e_err = UA_ClientConfig_setDefaultEncryption(client, cert, p, trusted_certs.data(), trusted_certs.size(), NULL, 0);
+
+    if(e_err != UA_STATUSCODE_GOOD) {
+        LOG(ERROR) << "Failed to configure encryption: " << UA_StatusCode_name(e_err);
+        const auto status_name = UA_StatusCode_name(e_err);
+        return freighter::Error(freighter::TYPE_UNREACHABLE, "Failed to configure encryption: " + std::string(status_name));
+    }
+    
+    return freighter::NIL;
 }

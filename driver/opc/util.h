@@ -262,3 +262,23 @@ inline std::string nodeIdToString(const UA_NodeId &nodeId) {
 
     return nodeIdStr.str();
 }
+
+inline UA_ByteString stringToUAByteString(const std::string &str) {
+    size_t len = str.length();
+    const UA_Byte *strData = reinterpret_cast<const UA_Byte *>(str.data());
+
+    UA_Byte *data = static_cast<UA_Byte*>(malloc(len*sizeof(UA_Byte)));
+
+    if(data == nullptr) {
+        return UA_BYTESTRING_NULL;
+    }
+
+    memcpy(data, strData, len);
+
+    UA_ByteString b = {
+        .length = len,
+        .data = data
+    };
+
+    return b;
+}
