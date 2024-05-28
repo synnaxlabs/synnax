@@ -24,8 +24,8 @@ ni::ScannerTask::ScannerTask(
         synnax::Task task
 ) : scanner(ctx, task), ctx(ctx), task(task), running(true){
     //begin scanning on construction
-    // LOG(INFO) << "[NI Task] constructing scanner task " << this->task.name;
-    // thread = std::thread(&ni::ScannerTask::run, this);
+    LOG(INFO) << "[NI Task] constructing scanner task " << this->task.name;
+    thread = std::thread(&ni::ScannerTask::run, this);
 }
 
 std::unique_ptr <task::Task> ni::ScannerTask::configure(
@@ -59,17 +59,17 @@ void ni::ScannerTask::exec(task::Command &cmd) {
                                   .details = {"message", "failed to scan"}
                           });
             LOG(ERROR) << "[NI Task] failed to scan for task " << this->task.name;
-        } //else {
-        //    auto devices = scanner.getDevices(); // TODO remove and dont send in details
-        //     ctx->setState({
-        //                           .task = task.key,
-        //                           .variant = "success",
-        //                           .details = {
-        //                                   {"devices", devices.dump(4)}
-        //                           }
-        //                   });
-        //     LOG(INFO) << "[NI Task] successfully scanned for task " << this->task.name;
-        // }
+        } else {
+            auto devices = scanner.getDevices(); // TODO remove and dont send in details
+            ctx->setState({
+                                  .task = task.key,
+                                  .variant = "success",
+                                  .details = {
+                                          {"devices", devices.dump(4)}
+                                  }
+                          });
+            LOG(INFO) << "[NI Task] successfully scanned for task " << this->task.name;
+        }
     } else if (cmd.type == "stop"){
         this->stop();
     }else {

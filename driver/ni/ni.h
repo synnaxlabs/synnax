@@ -135,6 +135,7 @@ namespace ni{
         virtual std::pair<synnax::Frame, freighter::Error> read() = 0;
         int init();
         ~Source();
+        void clearTask();
     protected:
         int checkNIError(int32 error);  
 
