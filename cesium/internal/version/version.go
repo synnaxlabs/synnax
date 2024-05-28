@@ -11,4 +11,4 @@ package version
 
 type Version = uint8
 
-const CurrentVersion = 2
+const CurrentVersion Version = 2

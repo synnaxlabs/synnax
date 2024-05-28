@@ -3,17 +3,16 @@ package testdata
 import (
 	"context"
 	"github.com/synnaxlabs/cesium"
-	"github.com/synnaxlabs/cesium/internal/testdata"
 	"github.com/synnaxlabs/x/telem"
 )
 
 var (
 	ctx      = context.Background()
-	channels = testdata.Channels
-	frames   = testdata.Frames
+	channels = Channels
+	frames   = Frames
 )
 
-func GenerateV1() error {
+func Generate() error {
 	db, err := cesium.Open("data", cesium.WithFileSize(20*telem.ByteSize))
 	if err != nil {
 		return err
