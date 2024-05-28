@@ -113,6 +113,25 @@ describe("Writer", () => {
       }
       expect(true).toBeTruthy();
     });
+    test("write with errOnUnauthorized", async () => {
+      const ch = await newChannel();
+      const w1 = await client.openWriter({
+        start: 0,
+        channels: ch.key,
+      });
+
+      const w2 = await client.openWriter({
+        start: 0,
+        channels: ch.key,
+        errOnUnauthorized: true,
+      })
+      await w2.write(ch.key, randomSeries(10, ch.dataType))
+      await expect(
+        w2.close()
+      ).rejects.toThrow("unauthorized")
+
+      await w1.close()
+    })
   });
   describe("Client", () => {
     test("Client - basic write", async () => {

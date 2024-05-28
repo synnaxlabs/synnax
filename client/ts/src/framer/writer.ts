@@ -58,6 +58,7 @@ const netConfigZ = z.object({
   keys: z.number().array().optional(),
   authorities: Authority.z.array().optional(),
   mode: z.nativeEnum(WriterMode).optional(),
+  errOnUnauthorized: z.boolean().optional(),
   enableAutoCommit: z.boolean().optional(),
   autoIndexPersistInterval: TimeSpan.z.optional(),
 });
@@ -92,6 +93,9 @@ export interface WriterConfig {
   // mode sets the persistence and streaming mode of the writer. The default
   // mode is WriterModePersistStream.
   mode?: WriterMode;
+  // errOnUnauthorized sets whether the writer raises an error when it attempts to write
+  // to a channel without permission.
+  errOnUnauthorized?: boolean,
   //  enableAutoCommit determines whether the writer will automatically commit.
   //  If enableAutoCommit is true, then the writer will commit after each write, and
   //  will flush that commit to index after the specified autoIndexPersistInterval.
@@ -162,6 +166,7 @@ export class Writer {
       authorities = Authority.Absolute,
       controlSubject: subject,
       mode = WriterMode.PersistStream,
+      errOnUnauthorized = false,
       enableAutoCommit = false,
       autoIndexPersistInterval = TimeSpan.SECOND,
     }: WriterConfig,
@@ -177,6 +182,7 @@ export class Writer {
         controlSubject: subject,
         authorities: toArray(authorities),
         mode,
+        errOnUnauthorized,
         enableAutoCommit,
         autoIndexPersistInterval,
       },
