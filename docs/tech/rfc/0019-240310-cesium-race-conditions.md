@@ -23,7 +23,7 @@ In this RFC I discuss the nuances of Cesium's concurrency. More specifically, ho
 
 Cesium-based atomic clocks are "the most accurate realization of a unit that mankind has yet achieved." By extension, Cesium, the database named after the element in question, must also be accurate. This is challenging, however, due to Cesium's concurrent nature. When multiple subprocesses(goroutines) are to apply operations on the database, it is vital to handle these potentially conflicing operations in an orderly and predictable manner.
 
-As Cesium looks to become production-ready, this task becomes more important as Cesium must support Read operations, Write operations, and Delete operations (through a tombstone/garbage-collection system). All of the operations must coexist without conflicting each other.
+As Cesium looks to become production-ready, this task becomes more important as Cesium must support Read operations, Write operations, and Delete operations (through a tombstone/garbage-collection system). All of the operations must coexist without conflicting each other: for example, we obviously do not want two writers writing to the same file, but it's totally fine to read from a file in the first 100 bytes, while a writer in append-mode is writing to byte 150 and onward.
 
 # 4- Design
 
@@ -31,19 +31,11 @@ The core method through which concurrency is protected is the *Mutex*.
 
 The Mutex allows for operations of threads (Going forward, I will refer to these as goroutines in the specific context as go) to be MUTually EXclusive. In other words, if one goroutine acquires a mutex (by calling `mu.Lock()`, all other goroutines trying to acquire it must wait until it is freed, i.e. `mu.Lock()` will block until the first goroutine releases the Mutex, i.e. `mu.UnLock()`. In addition, one goroutine may acquire a Read-Lock only (`mu.RLock()`), which allows other goroutines to acquire Read-Locks, but no goroutine may acquire a full-Lock.
 
-Mutexes are present throughout Cesium. We will start discussing them at the most fundamental level – the domain. The domain holds a struct `index` which contains a struct called `mu` consisting of a Mutex and a slice called `pointers`. These pointers store information on where the different domains (segments) of data for Cesium is stored (including filekey, offset, length, etc.) As one might imagine, we **really want `pointers` to be thread-safe**. It would be pretty disasterous if multiple goroutines were to modify it at the same time. Currently, as Cesium is implemented, each method that needs to read or write `index` acquires a Read or Write lock in its method body, while it is being called on the `idx` object. As we come to realize, this causes problems.
-
-Consider the operation of deleting a timerange at the Unary level. Since a domain database is index-agnostic (i.e. it does not know if its overlaying Unary DB's timestamps are regular or set by some other Unary DB), this deletion operation must be initiated at the Unary level in order to get the correct pointers from where we need to delete. To do this, we must invoke multiple functions from the domainDB that either read from or write to the index. This is where the problem arises. Since each of these operations ensure their own thread-safety, i.e. they acquire a Lock for themself, as we previously established, we cannot acquire an overarching Lock, as each individual operation would fail to acquire a Lock (a Lock cannot be acquired while another goroutine holds the Lock – *even if that goroutine is the thread itself!*). Because we cannot acquire an overarching Lock, we cannot reasonably ensure that between these individual operations, the data in `index` remains the same – it could totally be written to or deleted from!
-
-Since we cannot ascertain ourselves the integrity of the data without an overarching Lock, nor can we acquire that overarching Lock, we must change the architecture of the index.
-
 # 4- Design
 
-## 4.0 Index Changes
+## 4.1 Top-down view of race conditions in Cesium
 
-To address this, we will make the `index` methods that may require an `RLock` take in `withLock` as a parameter – this way, callers may choose to acquire a lock for their current thread, or not if they already have one, such as the example mentioned in section 2. This design was chosen over removing acquiring locks in `index` methods as a whole since it maintains the autonomy of these methods to acquire locks while offloading the responsibility of callers to acquire locks, thus improving thread-safety.
-
-We will also implement an additional field in the `domain/iterator` interface called `locked`. For a duration, an iterator could be locked, i.e. all of its operations on indices will no longer acquire their own locks. The lock acquired by this iterator is automatically relinquished either on `iterator.Unlock()` or on `iterator.Close()`. This way, we can maintain the lock for the whole duration of the delete operation without running into deadlocks.
+Cesium is a data storage engine, therefore the obvious priority is protecting the integrity of the data. There are 4 ways that the Cesium interface interacts with data: readers (iterators), writers, deletors (writers under the hood), and garbage-collectors (also writers sunder the hood). We will now think about what kinds of interactions between these four is allowed.
 
 ## 4.1 High level Analysis of Race Conditions in cesium
 

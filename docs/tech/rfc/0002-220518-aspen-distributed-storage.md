@@ -69,7 +69,7 @@ Aspen's design consists of two gossip layers:
 Delta aims to provide dynamic cluster membership. This is more difficult to
 accomplish if each node is required to know about _all_ other nodes in the
 cluster before being initialized. This is the approach taken
-by [etcd](https://etcd.io/). By using a gossip based network, Delta can provide
+by [etcd](https://etcd.io/). By using a gossip-based network, Delta can provide
 a cluster membership system that is dynamic and resilient to failure.
 
 This cluster membership and state gossip is considered Layer 1. Layer 1 is
@@ -224,8 +224,8 @@ second message assigning it an ID. If the peer rejects the request or doesn't
 respond, it attempts to send the request to another peer. This cycle continues
 until a peer acknowledges the request or a preset threshold is reached.
 
-The peer that accepts the **pledge** join request is known as the **
-responsible**. This node is responsible for safely initiating the **pledge**.
+The peer that accepts the **pledge** join request is known as the **responsible**.
+This node is responsible for safely initiating the **pledge**.
 
 ### 2 - Propose an ID
 
@@ -242,8 +242,7 @@ If any node rejects the id, the **responsible** node will reissue the proposal
 with an incremented value. This process continues until an ID is accepted. If
 the **responsible** node tries to contact an unresponsive peer, it will reselect
 a quorum of peers and try again. Once an ID is selected, the **responsible**
-node will send it to the **
-pledge**.
+node will send it to the **pledge**.
 
 ### 3 - Disseminate New Node
 
@@ -275,7 +274,7 @@ protocol that disseminates kv updates and tombstones is known as layer 2.
 **Host** - The node that is responsible for serving the kv operation to the
 caller
 (i.e. the node where `Get` or `Set` is called). \
-**Leaseholder** - The only node that can accept writes for a particular key. \
+**Leaseholder** - The only node that can accept writes for a particular key.
 
 ### 2 - Interface
 
