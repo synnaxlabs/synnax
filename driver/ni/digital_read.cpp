@@ -59,7 +59,7 @@ int ni::DigitalReadSource::createChannels(){
             return -1;
         }
     }
-    return 0
+    return 0;
 }
 
 int ni::DigitalReadSource::configureTiming(){
@@ -95,7 +95,7 @@ std::pair<synnax::Frame, freighter::Error> ni::DigitalReadSource::read(){
     // take data off of queue
     std::optional<DataPacket> d = data_queue.dequeue();
     if(!d.has_value()) return std::make_pair(std::move(f), freighter::Error(driver::TYPE_TEMPORARY_HARDWARE_ERROR, "no data available to read"));
-    double* data = static_cast<uInt8*>(d.value().data);
+    uInt8* data = static_cast<uInt8*>(d.value().data);
 
     // interpolate  timestamps between the initial and final timestamp to ensure non-overlapping timestamps between batched reads
     uint64_t incr = ( (d.value().tf- d.value().t0) / this->numSamplesPerChannel );
@@ -114,14 +114,14 @@ std::pair<synnax::Frame, freighter::Error> ni::DigitalReadSource::read(){
         }
 
         std::vector<float> data_vec(d.value().samplesReadPerChannel);
-        for (int j = 0; j < samplesRead; j++)
+        for (int j = 0; j < d.value().samplesReadPerChannel; j++)
             data_vec[j] = data[data_index * d.value().samplesReadPerChannel + j];
         f.add(this->reader_config.channels[i].channel_key, synnax::Series(data_vec, synnax::UINT8));
-        data_index++
+        data_index++;
     }
 
     if(d.has_value()) delete[] d.value().data;
-    
+
     // return synnax frame
     return std::make_pair(std::move(f), freighter::NIL);
 }
@@ -138,7 +138,7 @@ void ni::DigitalReadSource::acquireData(){
                                                                 DAQmx_Val_GroupByChannel,                 // dataLayout
                                                                 static_cast<uInt8*>(data_packet.data),    // readArray
                                                                 this->bufferSize,                         // arraySizeInSamps
-                                                                &samplesRead,                             // sampsPerChanRead
+                                                                &data_packet.samplesReadPerChannel,                             // sampsPerChanRead
                                                                 NULL,                                     // numBytesPerSamp
                                                                 NULL))){
             LOG(ERROR) << "[NI Reader] failed while reading digital data for task " << this->reader_config.task_name;

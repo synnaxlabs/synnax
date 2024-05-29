@@ -214,7 +214,7 @@ namespace ni{
 
         int configureTiming() override;
         void parseChannels(config::Parser & parser) override;    
-        void createChannels() override;
+        int createChannels() override;
         void acquireData() override;
         std::pair<synnax::Frame, freighter::Error> read() override;
     };
