@@ -30,7 +30,7 @@ jobs:
         shell: bash
         run: |
           mkdir build && cd build
-          cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DUA_NAMESPACE_ZERO=FULL -DCMAKE_INSTALL_PREFIX=../out ..
+          cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DUA_NAMESPACE_ZERO=FULL -DCMAKE_INSTALL_PREFIX=../out -DUA_ENABLE_ENCRYPTION=MBEDTLS ..
           cmake --build . --config RelWithDebInfo --target install
         working-directory: driver/vendor/open62541/open62541
 
