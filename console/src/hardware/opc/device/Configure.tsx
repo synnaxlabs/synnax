@@ -94,10 +94,10 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
         endpoint: "opc.tcp://0.0.0.0:4840",
         username: "",
         password: "",
-        serverCertificate: "",
-        clientCertificate: "",
-        clientPrivateKey: "",
-        securityPolicy: "None",
+        server_certificate: "",
+        client_certificate: "",
+        client_private_key: "",
+        security_policy: "None",
       },
       groups: [],
     },
@@ -134,6 +134,7 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
           TimeSpan.seconds(5),
         );
         if (deviceProperties == null) return;
+        console.log(deviceProperties);
         methods.set({
           path: "groups",
           value: [
@@ -180,6 +181,7 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
       )
         return;
       setProgress("Creating device...");
+      console.log(deviceProperties)
       await client.hardware.devices.create({
         key: uuidv4(),
         name: methods.get<string>({ path: "name" }).value,
@@ -274,7 +276,7 @@ interface ConnectProps {
 
 const Connect = ({ testConnection }: ConnectProps): ReactElement => {
   const hasSecPolicy =
-    Form.useFieldValue<SecurityPolicy>("connection.securityPolicy") != "None";
+    Form.useFieldValue<SecurityPolicy>("connection.security_policy") != "None";
   return (
     <Align.Space
       direction="x"
@@ -329,7 +331,7 @@ const Connect = ({ testConnection }: ConnectProps): ReactElement => {
           {(p) => <Input.Text placeholder="password" type="password" {...p} />}
         </Form.Field>
         <Form.Field<SecurityPolicy>
-          path="connection.securityPolicy"
+          path="connection.security_policy"
           label="Security Policy"
           grow={!hasSecPolicy}
         >
@@ -338,19 +340,19 @@ const Connect = ({ testConnection }: ConnectProps): ReactElement => {
         {hasSecPolicy && (
           <>
             <Form.Field<string>
-              path="connection.clientCertificate"
+              path="connection.client_certificate"
               label="Client Certificate"
             >
               {(p) => <FS.LoadFileContents grow {...p} />}
             </Form.Field>
             <Form.Field<string>
-              path="connection.clientPrivateKey"
+              path="connection.client_private_key"
               label="Client Private Key"
             >
               {(p) => <FS.LoadFileContents grow {...p} />}
             </Form.Field>
             <Form.Field<string>
-              path="connection.serverCertificate"
+              path="connection.server_certificate"
               label="Server Certificate"
               grow
             >

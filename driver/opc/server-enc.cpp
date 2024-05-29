@@ -127,12 +127,11 @@ static UA_UsernamePasswordLogin userNamePW[2] = {
     {UA_STRING_STATIC("paula"), UA_STRING_STATIC("paula123")}
 };
 
-static void
-setCustomAccessControl(UA_ServerConfig *config) {
+static void setCustomAccessControl(UA_ServerConfig *config) {
     /* Use the default AccessControl plugin as the starting point */
     UA_Boolean allowAnonymous = false;
-    UA_String encryptionPolicy =
-        config->securityPolicies[config->securityPoliciesSize-1].policyUri;
+    UA_String encryptionPolicy = UA_STRING_STATIC("http://opcfoundation.org/UA/SecurityPolicy#Basic256Sha256");
+        //config->securityPolicies[config->securityPoliciesSize-1].policyUri;
     config->accessControl.clear(&config->accessControl);
     UA_AccessControl_default(config, allowAnonymous, &encryptionPolicy, 2, userNamePW);
 
@@ -204,6 +203,7 @@ int main(int argc, char* argv[]) {
 
     UA_Server *server = UA_Server_new();
     UA_ServerConfig *config = UA_Server_getConfig(server);
+    config->allowNonePolicyPassword = true;
 
     UA_StatusCode retval =
         UA_ServerConfig_setDefaultWithSecurityPolicies(config, 4840,
@@ -211,8 +211,34 @@ int main(int argc, char* argv[]) {
                                                        trustList, trustListSize,
                                                        issuerList, issuerListSize,
                                                        revocationList, revocationListSize);
+    UA_VariableAttributes attr = UA_VariableAttributes_default;
+    UA_Int32 myInteger = 42;
+    UA_Variant_setScalarCopy(&attr.value, &myInteger, &UA_TYPES[UA_TYPES_INT32]);
+    attr.description = UA_LOCALIZEDTEXT_ALLOC("en-US","the answer");
+    attr.displayName = UA_LOCALIZEDTEXT_ALLOC("en-US","the answer");
+    UA_NodeId myIntegerNodeId = UA_NODEID_STRING_ALLOC(1, "the.answer");
+    UA_QualifiedName myIntegerName = UA_QUALIFIEDNAME_ALLOC(1, "the answer");
+    UA_NodeId parentNodeId = UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER);
+    UA_NodeId parentReferenceNodeId = UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES);
+    UA_Server_addVariableNode(server, myIntegerNodeId, parentNodeId,
+                              parentReferenceNodeId, myIntegerName,
+                              UA_NODEID_NULL, attr, NULL, NULL);
 
-    // setCustomAccessControl(config);
+    // // add another variable node to the adresspace
+    UA_VariableAttributes attr2 = UA_VariableAttributes_default;
+    UA_Double myDouble = 3.14;
+    UA_Variant_setScalarCopy(&attr2.value, &myDouble, &UA_TYPES[UA_TYPES_DOUBLE]);
+    attr2.description = UA_LOCALIZEDTEXT_ALLOC("en-US","the answer 2");
+    attr2.displayName = UA_LOCALIZEDTEXT_ALLOC("en-US","the answer 2");
+    attr2.accessLevel = UA_ACCESSLEVELMASK_READ | UA_ACCESSLEVELMASK_WRITE;
+    UA_NodeId myDoubleNodeId = UA_NODEID_STRING_ALLOC(1, "the.answer2");
+    UA_QualifiedName myDoubleName = UA_QUALIFIEDNAME_ALLOC(1, "the answer 2");
+    UA_Server_addVariableNode(server, myDoubleNodeId, parentNodeId,
+                              parentReferenceNodeId, myDoubleName,
+                              UA_NODEID_NULL, attr2, NULL, NULL);
+
+
+    setCustomAccessControl(config);
     UA_ByteString_clear(&certificate);
     UA_ByteString_clear(&privateKey);
     for(size_t i = 0; i < trustListSize; i++)
@@ -222,6 +248,14 @@ int main(int argc, char* argv[]) {
 
     if(!running)
         goto cleanup; /* received ctrl-c already */
+
+        // add a variable node to the adresspace
+    
+
+    /* allocations on the heap need to be freed */
+    UA_VariableAttributes_clear(&attr);
+    UA_NodeId_clear(&myIntegerNodeId);
+    UA_QualifiedName_clear(&myIntegerName);
     
     retval = UA_Server_run(server, &running);
 

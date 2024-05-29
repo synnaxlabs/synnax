@@ -15,18 +15,16 @@ export const LoadFileContents = ({
   onChange,
   ...props
 }: LoadFileContentsProps): ReactElement => {
-  const [path, setPath] = useState<string | null>(null);
+  const path = value;
   const handleClick = () => {
     void (async () => {
       const path = await open({ directory: false });
       if (path == null) {
-        setPath(null);
         return;
       }
       const contents = await readFile(path.path);
       const text = new TextDecoder().decode(contents);
-      onChange(text);
-      setPath(path.path);
+      onChange(path.path);
     })();
   };
 

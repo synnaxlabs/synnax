@@ -479,6 +479,7 @@ std::unique_ptr<task::Task> Reader::configure(
         });
         return nullptr;
     }
+    std::cout << device.properties << std::endl;
     auto properties_parser = config::Parser(device.properties);
     auto properties = DeviceProperties(properties_parser);
     auto breaker_config = breaker::Config{

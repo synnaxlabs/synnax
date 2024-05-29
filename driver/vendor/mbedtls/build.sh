@@ -7,3 +7,4 @@ cd ..
 cmake -G "Visual Studio 17 2022" -S mbedtls -B mbedtls-build
 cmake --build mbedtls-build --config Release
 cmake --install mbedtls-build --config Release
+cmake --install mbedtls-build --config Release --prefix mbedtls-install

@@ -38,10 +38,10 @@ struct ConnectionConfig {
     ): endpoint(parser.required<std::string>("endpoint")),
        username(parser.optional<std::string>("username", "")),
        password(parser.optional<std::string>("password", "")),
-       security_policy_uri(parser.optional<std::string>("securityPolicy", "")),
-       certificate(parser.optional<std::string>("clientCertificate", "")),
-       p(parser.optional<std::string>("clientPrivateKey", "")),
-     server_cert(parser.optional<std::string>("serverCertificate", "")) {
+       security_policy_uri(parser.optional<std::string>("security_policy", "")),
+       certificate(parser.optional<std::string>("client_certificate", "")),
+       p(parser.optional<std::string>("client_private_key", "")),
+     server_cert(parser.optional<std::string>("server_certificate", "")) {
      
     }
 

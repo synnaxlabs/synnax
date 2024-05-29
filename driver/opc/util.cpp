@@ -116,37 +116,33 @@ UA_ByteString convertStringToUAByteString(const std::string &certString) {
 
 
 freighter::Error configureEncryption(opc::ConnectionConfig &cfg, std::shared_ptr<UA_Client> client) {
+    std::cout << cfg.security_policy_uri << std::endl;
+    std::cout << cfg.certificate << std::endl;
+    std::cout << cfg.p << std::endl;
+    std::cout << cfg.server_cert << std::endl;
     auto client_config = UA_Client_getConfig(client.get());
     client_config->securityMode = UA_MESSAGESECURITYMODE_SIGNANDENCRYPT;
     std::string uri = "http://opcfoundation.org/UA/SecurityPolicy#" + cfg.security_policy_uri;
     client_config->securityPolicyUri = UA_STRING_ALLOC(uri.c_str());
     UA_String_clear(&client_config->clientDescription.applicationUri);
     client_config->clientDescription.applicationUri = UA_STRING_ALLOC("urn:open62541.server.application");
-    std::cout << "HERE" << std::endl;
 
-    // UA_ByteString certificate = loadFile("/Users/emilianobonilla/Desktop/synnaxlabs/synnax/driver/opc/certificates/client_cert.pem");
-    UA_ByteString certificate = convertStringToUAByteString(cfg.certificate);
-    UA_ByteString privateKey  = convertStringToUAByteString(cfg.p);
-    std::cout << "HERE 2" << std::endl;
-    // loadFile("/Users/emilianobonilla/Desktop/synnaxlabs/synnax/driver/opc/certificates/client_key.pem");
+    UA_ByteString certificate = loadFile(cfg.certificate.c_str());
+    UA_ByteString privateKey  = loadFile(cfg.p.c_str());
 
-    // size_t trustListSize = 1;
-    // UA_STACKARRAY(UA_ByteString, trustList, trustListSize+1);
-    // trustList[0] = loadFile("/Users/emilianobonilla/Desktop/synnaxlabs/synnax/driver/opc/certificates/server_cert.der");
-    // trustList[0] = convertStringToUAByteString(cfg.server_cert);
-
+    size_t trustListSize = 0;
+    UA_STACKARRAY(UA_ByteString, trustList, trustListSize+1);
+    if (!cfg.server_cert.empty()) 
+        trustList[0] = loadFile(cfg.server_cert.c_str());
     UA_StatusCode e_err = UA_ClientConfig_setDefaultEncryption(
         client_config, 
         certificate, 
         privateKey,
-        NULL,
-        0,
-        // trustListSize,
+        trustList,
+        trustListSize,
         NULL, 
         0
     );
-
-    std::cout << "HERE 3" << std::endl;
 
     if(e_err != UA_STATUSCODE_GOOD) {
         LOG(ERROR) << "Failed to configure encryption: " << UA_StatusCode_name(e_err);
@@ -167,21 +163,16 @@ std::pair<std::shared_ptr<UA_Client>, freighter::Error> opc::connect(
     config->logging->log = customLogger;
 
     configureEncryption(cfg, client);
-    std::cout << "HERE 4" << std::endl;
     UA_StatusCode status;
-    try { 
+    if (cfg.username.empty() && cfg.password.empty())
         status = UA_Client_connect(client.get(), cfg.endpoint.c_str());
-    } catch (const std::exception &e) {
-        std::cout << "Exception: " << e.what() << std::endl;
-    }
-    std::cout << "HERE 5" << std::endl;
-    // else
-    //     status = UA_Client_connectUsername(
-    //         client.get(),
-    //         cfg.endpoint.c_str(),
-    //         cfg.username.c_str(),
-    //         cfg.password.c_str()
-    //     );
+    else
+        status = UA_Client_connectUsername(
+            client.get(),
+            cfg.endpoint.c_str(),
+            cfg.username.c_str(),
+            cfg.password.c_str()
+        );
     if (status == UA_STATUSCODE_GOOD) return {std::move(client), freighter::NIL};
     const auto status_name = UA_StatusCode_name(status);
     return {

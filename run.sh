@@ -1,1 +1,1 @@
-bazel run //driver/opc:server "C:\Users\Synnax\Desktop\synnaxlabs\synnax\driver\opc\certificates\server_cert.der" "C:\Users\Synnax\Desktop\synnaxlabs\synnax\driver\opc\certificates\server_key.der" "C:\Users\Synnax\Desktop\synnaxlabs\synnax\driver\opc\certificates\client_cert.der"
+bazel run //driver/opc:server "C:\Users\Synnax\Desktop\synnaxlabs\synnax\driver\opc\certificates\server_cert.der" "C:\Users\Synnax\Desktop\synnaxlabs\synnax\driver\opc\certificates\server_key.der" "C:\Users\Synnax\AppData\Roaming\unifiedautomation\uaexpert\PKI\own\certs\uaexpert.der"
