@@ -93,6 +93,7 @@
           "sidecar": true
         }
       ]
-    }
+    },
+    "deep-link:default"
   ]
 }
