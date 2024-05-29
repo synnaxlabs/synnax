@@ -22,8 +22,6 @@ const tombstoneByteSize = 6
 // positions in the index.
 func (db *DB) Delete(
 	ctx context.Context,
-	startPosition int,
-	endPosition int,
 	startOffset int64,
 	endOffset int64,
 	tr telem.TimeRange,
@@ -33,9 +31,17 @@ func (db *DB) Delete(
 
 	// TODO: think about defer unlock here
 	db.idx.mu.Lock()
+	defer db.idx.mu.Unlock()
 
-	if err := validateDelete(startPosition, endPosition, &startOffset, &endOffset, db.idx); err != nil {
-		db.idx.mu.Unlock()
+	startPosition, exact := db.idx.unprotectedSearch(tr.Start.SpanRange(0))
+	if !exact {
+		startPosition += 1
+	}
+
+	endPosition, _ := db.idx.unprotectedSearch(tr.End.SpanRange(0))
+
+	err, ok := validateDelete(startPosition, endPosition, &startOffset, &endOffset, db.idx)
+	if err != nil || !ok {
 		return span.Error(err)
 	}
 
@@ -44,14 +50,6 @@ func (db *DB) Delete(
 		end         = db.idx.mu.pointers[endPosition]
 		newPointers = make([]pointer, 0)
 	)
-
-	// TODO: refactor
-	if startPosition == endPosition-1 && startOffset == int64(end.length) && endOffset == int64(end.length) ||
-		startPosition == endPosition && startOffset+endOffset == int64(start.length) {
-		// delete nothing
-		db.idx.mu.Unlock()
-		return nil
-	}
 
 	// Remove old pointers.
 	for i := startPosition + 1; i < endPosition; i++ {
@@ -88,22 +86,17 @@ func (db *DB) Delete(
 
 	if startPosition == endPosition {
 		// If start and end are in the same domain, then we only keep their intersection
-		// as the tombstone. Calculated via the PIE.
+		// as the tombstone, by the Inclusion-Exclusion principle.
 		db.idx.mu.tombstones[end.fileKey] -= end.length
 	}
 
 	if len(newPointers) != 0 {
-		temp := make([]pointer, len(db.idx.mu.pointers)+len(newPointers))
-		copy(temp, db.idx.mu.pointers[:startPosition])
-		copy(temp[startPosition:startPosition+len(newPointers)], newPointers)
-		copy(temp[startPosition+len(newPointers):], db.idx.mu.pointers[startPosition:])
-		db.idx.mu.pointers = temp
+		db.idx.mu.pointers = append(db.idx.mu.pointers[:startPosition], append(newPointers, db.idx.mu.pointers[startPosition:]...)...)
 	}
 
 	persistPointers := db.idx.indexPersist.preparePointersPersist(startPosition)
 	persistTombstones := db.idx.indexPersist.prepareTombstonePersist()
-	db.idx.mu.Unlock()
-	if err := persistPointers(); err != nil {
+	if err = persistPointers(); err != nil {
 		return span.Error(err)
 	}
 	return span.Error(persistTombstones())
@@ -187,13 +180,15 @@ func (db *DB) GarbageCollect(ctx context.Context) error {
 	return persistTombstones()
 }
 
-func validateDelete(startPosition int, endPosition int, startOffset *int64, endOffset *int64, idx *index) error {
-	if startPosition < 0 || startPosition >= len(idx.mu.pointers) {
-		return errors.Newf("deletion starting at invalid domain position %d for length %d", startPosition, len(idx.mu.pointers))
+// validateDelete returns an error if the deletion request is valid. In addition, it
+// returns true if there is some data to be deleted (i.e. deleting nothing).
+func validateDelete(startPosition int, endPosition int, startOffset *int64, endOffset *int64, idx *index) (error, bool) {
+	if startPosition == len(idx.mu.pointers) {
+		return nil, false
 	}
 
-	if endPosition < 0 || endPosition >= len(idx.mu.pointers) {
-		return errors.Newf("deletion ending at invalid domain position %d for length %d", endPosition, len(idx.mu.pointers))
+	if endPosition == -1 {
+		return nil, false
 	}
 
 	if *startOffset < 0 {
@@ -216,12 +211,17 @@ func validateDelete(startPosition int, endPosition int, startOffset *int64, endO
 	if startPosition > endPosition && !(startPosition == endPosition+1 &&
 		*startOffset == 0 &&
 		*endOffset == 0) {
-		return errors.Newf("deletion start domain %d is greater than deletion end domain %d", startPosition, endPosition)
+		return errors.Newf("deletion start domain %d is greater than deletion end domain %d", startPosition, endPosition), false
 	}
 
 	if startPosition == endPosition && *startOffset+*endOffset > int64(idx.mu.pointers[startPosition].length) {
-		return errors.Newf("deletion start offset %d is after end offset %d", *startOffset, *endOffset)
+		return errors.Newf("deletion start offset %d is after end offset %d", *startOffset, *endOffset), false
 	}
 
-	return nil
+	if (startPosition == endPosition-1 && *startOffset == int64(idx.mu.pointers[endPosition].length) && *endOffset == int64(idx.mu.pointers[endPosition].length)) ||
+		startPosition == endPosition && *startOffset+*endOffset == int64(idx.mu.pointers[startPosition].length) {
+		return nil, false
+	}
+
+	return nil, true
 }

@@ -92,9 +92,6 @@ func (db *DB) delete(ctx context.Context, tr telem.TimeRange) error {
 		startOffset = approxDist.Upper
 	}
 
-	// TODO: problematic
-	startPosition := i.Position()
-
 	if ok = i.SeekLast(ctx); !ok {
 		// No domains before end: delete nothing.
 		return i.Close()
@@ -117,12 +114,8 @@ func (db *DB) delete(ctx context.Context, tr telem.TimeRange) error {
 		endOffset = approxDist.Lower + 1
 	}
 
-	endPosition := i.Position()
-
 	err = db.Domain.Delete(
 		ctx,
-		startPosition,
-		endPosition,
 		int64(density.Size(startOffset)),
 		int64(density.Size(endOffset)),
 		tr,
