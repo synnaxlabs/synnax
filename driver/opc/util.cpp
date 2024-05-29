@@ -116,17 +116,20 @@ UA_ByteString convertStringToUAByteString(const std::string &certString) {
 
 
 freighter::Error configureEncryption(opc::ConnectionConfig &cfg, std::shared_ptr<UA_Client> client) {
-    std::cout << cfg.security_policy_uri << std::endl;
-    std::cout << cfg.certificate << std::endl;
-    std::cout << cfg.p << std::endl;
-    std::cout << cfg.server_cert << std::endl;
+    // std::cout << cfg.security_policy_uri << std::endl;
+    // std::cout << cfg.certificate << std::endl;
+    // std::cout << cfg.p << std::endl;
+    // std::cout << cfg.server_cert << std::endl;
+
     auto client_config = UA_Client_getConfig(client.get());
     client_config->securityMode = UA_MESSAGESECURITYMODE_SIGNANDENCRYPT;
+    
     std::string uri = "http://opcfoundation.org/UA/SecurityPolicy#" + cfg.security_policy_uri;
     client_config->securityPolicyUri = UA_STRING_ALLOC(uri.c_str());
     UA_String_clear(&client_config->clientDescription.applicationUri);
     client_config->clientDescription.applicationUri = UA_STRING_ALLOC("urn:open62541.server.application");
 
+    // TODO: change to not take path as this won't work when certs/keys are not stored on local machine
     UA_ByteString certificate = loadFile(cfg.certificate.c_str());
     UA_ByteString privateKey  = loadFile(cfg.p.c_str());
 
@@ -145,7 +148,7 @@ freighter::Error configureEncryption(opc::ConnectionConfig &cfg, std::shared_ptr
     );
 
     if(e_err != UA_STATUSCODE_GOOD) {
-        LOG(ERROR) << "Failed to configure encryption: " << UA_StatusCode_name(e_err);
+        LOG(ERROR) << "[opc.scanner] Failed to configure encryption: " << UA_StatusCode_name(e_err);
         const auto status_name = UA_StatusCode_name(e_err);
         return freighter::Error(freighter::TYPE_UNREACHABLE, "Failed to configure encryption: " + std::string(status_name));
     }
@@ -162,6 +165,7 @@ std::pair<std::shared_ptr<UA_Client>, freighter::Error> opc::connect(
     UA_ClientConfig *config = UA_Client_getConfig(client.get());
     config->logging->log = customLogger;
 
+    LOG(INFO) << "[opc.scanner] Cconfiguring encryption";
     configureEncryption(cfg, client);
     UA_StatusCode status;
     if (cfg.username.empty() && cfg.password.empty())
@@ -174,10 +178,11 @@ std::pair<std::shared_ptr<UA_Client>, freighter::Error> opc::connect(
             cfg.password.c_str()
         );
     if (status == UA_STATUSCODE_GOOD) return {std::move(client), freighter::NIL};
+
     const auto status_name = UA_StatusCode_name(status);
+    LOG(ERROR) << "[opc.scanner] Failed to connect: " << std::string(status_name);
     return {
         std::move(client),
-        freighter::Error(freighter::TYPE_UNREACHABLE,
-                         "Failed to connect: " + std::string(status_name))
+        freighter::Error(freighter::TYPE_UNREACHABLE, "Failed to connect: " + std::string(status_name))
     };
 }

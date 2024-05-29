@@ -50,9 +50,9 @@ struct ConnectionConfig {
             {"endpoint", endpoint},
             {"username", username},
             {"password", password},
-            {"securityPolicy", security_policy_uri},
-            {"clientCertificate", certificate},
-            {"clientPrivateKey", p}
+            {"security_policy", security_policy_uri},
+            {"client_certificate", certificate},
+            {"client_private_key", p}
         };
     }
 };
