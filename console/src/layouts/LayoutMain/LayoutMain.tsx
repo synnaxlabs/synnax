@@ -22,6 +22,7 @@ import { Device } from "@/hardware/device";
 import { Cluster } from "@/cluster";
 import { Version } from "@/version";
 import { Notifications } from "@/notifications";
+import { Link } from "@/link";
 
 /**
  * The center of it all. This is the main layout for the Synnax Console. Try to keep this
@@ -36,6 +37,8 @@ export const LayoutMain = (): ReactElement => {
   Version.useLoadTauri();
   Device.useListenForChanges();
   Cluster.useLocalServer();
+  Link.useDeepLink();
+
 
   return (
     <>

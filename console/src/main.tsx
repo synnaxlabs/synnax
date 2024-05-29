@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useCallback } from "react";
+import { type ReactElement, useCallback } from 'react';
 
 import { Provider } from "@synnaxlabs/drift/react";
 import { Pluto, type Haul, type Triggers, type state } from "@synnaxlabs/pluto";
@@ -26,13 +26,11 @@ import { Ontology } from "@/ontology";
 import { Schematic } from "@/schematic";
 import { Range } from "@/range";
 import { SERVICES } from "@/services";
-import { Link } from "@/link";
 import { store } from "@/store";
 import { Version } from "@/version";
 import { Vis } from "@/vis";
 import { Workspace } from "@/workspace";
 import { NI } from "@/hardware/ni";
-import { onOpenUrl } from '@tauri-apps/plugin-deep-link';
 
 import WorkerURL from "@/worker?worker&url";
 
@@ -84,12 +82,6 @@ const MainUnderContext = (): ReactElement => {
   const theme = Layout.useThemeProvider();
   const cluster = Cluster.useSelect();
   const activeRange = Range.useSelect();
-  console.log("Did I deep link");
-  onOpenUrl((urls) => {
-    console.log('deep link:', urls);
-    Link.useDeepLink();
-  });
-  
   return (
     <QueryClientProvider client={client}>
       <Pluto.Provider
@@ -129,6 +121,6 @@ const Main = (): ReactElement => (
   </Provider>
 );
 
-const rootEl = document.getElementById("root") as unknown as HTMLElement;
+const rootEl = document.getElementById("root") as HTMLElement;
 
 ReactDOM.createRoot(rootEl).render(<Main />);
