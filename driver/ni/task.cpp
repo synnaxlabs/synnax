@@ -22,7 +22,7 @@
 ni::ScannerTask::ScannerTask(
         const std::shared_ptr <task::Context> &ctx,
         synnax::Task task
-) : running(false), scanner(ctx, task), ctx(ctx), task(task){
+) : running(true), scanner(ctx, task), ctx(ctx), task(task){
     //begin scanning on construction
     LOG(INFO) << "[NI Task] constructing scanner task " << this->task.name;
     thread = std::thread(&ni::ScannerTask::run, this);
