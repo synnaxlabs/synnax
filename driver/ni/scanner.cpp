@@ -19,8 +19,7 @@
 
 
 ni::Scanner::Scanner(const std::shared_ptr<task::Context> &ctx,
-                     const synnax::Task &task) : ctx(ctx), task(task)
-{
+                     const synnax::Task &task) : ctx(ctx), task(task){
     // initialize syscfg session for the scanner (TODO: Error Handling for status)
     NISysCfgStatus status = NISysCfg_OK;
     status = ni::NiSysCfgInterface::InitializeSession( 
@@ -43,8 +42,7 @@ ni::Scanner::Scanner(const std::shared_ptr<task::Context> &ctx,
     LOG(INFO) << "[ni.scanner] successfully configured scanner for task " << this->task.name;
 }
 
-ni::Scanner::~Scanner()
-{   
+ni::Scanner::~Scanner(){   
     LOG(INFO) << "[ni.scanner] SCANNER DESTRUCTOR" << this->task.name;
     // TODO: Error Handling
     ni::NiSysCfgInterface::CloseHandle(this->filter);
@@ -53,8 +51,8 @@ ni::Scanner::~Scanner()
     LOG(INFO) << "[ni.scanner] successfully closed scanner for task " << this->task.name;
 }
 
-void ni::Scanner::scan()
-{
+void ni::Scanner::scan(){
+    LOG(INFO) << "[ni.scanner] scanning for devices for task " << this->task.name;
     NISysCfgResourceHandle resource = NULL;
 
     // first find hardware
@@ -137,7 +135,7 @@ void ni::Scanner::createDevices(){
         if(this->ctx->client->hardware.createDevice(new_device) != freighter::NIL){
             // LOG(ERROR) << "[ni.scanner] failed to create device " << device["model"] << " with key " << device["key"] << " for task " << this->task.name;
         }        
-        // LOG(INFO) << "[ni.scanner] successfully created device " << device["model"] <<  " with key " << device["key"] << " for task " << this->task.name;
+        LOG(INFO) << "[ni.scanner] successfully created device " << device["model"] <<  " with key " << device["key"] << " for task " << this->task.name;
     }
 }
 
