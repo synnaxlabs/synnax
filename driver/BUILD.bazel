@@ -68,6 +68,9 @@ cc_binary(
             "//driver/task",
             "@com_github_google_glog//:glog",
             "@com_github_gflags_gflags//:gflags",
+            "@openssl",
+            # "@boringssl//:ssl",
+            # "@boringssl//:crypto",
         ], 
         "//conditions:default": [
             "//driver",

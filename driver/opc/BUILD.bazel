@@ -26,10 +26,12 @@ cc_library(
         "@com_github_google_glog//:glog",
         "@nlohmann_json//:json",
         "@open62541",
-        "@openssl"
+        # "@openssl"
+        # "@boringssl//:crypto",
+        # "@boringssl//:crypto"
     ],
     linkopts = select({
-        "@platforms//os:windows": ["ws2_32.lib", "Iphlpapi.lib"],
+        "@platforms//os:windows": ["ws2_32.lib", "Iphlpapi.lib", "crypt32.lib"],
         "//conditions:default": [],
     }),
 )

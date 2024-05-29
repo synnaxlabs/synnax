@@ -141,13 +141,21 @@ new_local_repository(
 # /////////////////////////////////////// OPENSSL /////////////////////////////////////
 # /////////////////////////////////////////////////////////////////////////////////////
 
+# WINDOWS
+
 new_local_repository(
     name = "openssl",
-    path = "C:\\Program Files\\OpenSSL-Win64\\lib\\VC\\x64\\MD",
+    path = "C:/Program Files/OpenSSL-Win64/lib/VC/x64/MD",
     build_file="@//driver/vendor/openssl:BUILD.bazel"
 )
 
 
+git_repository(
+    name = "boringssl",
+    commit = "e09fcf8302f75dc50afcfe40f0d59a92b40a3c2e",
+    remote = "https://boringssl.googlesource.com/boringssl",
+)
+# M
 
 # /////////////////////////////////////////////////////////////////////////////////////
 # /////////////////////////////////////// SKYLIB ///////////////////////////////////////
