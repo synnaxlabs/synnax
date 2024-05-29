@@ -19,11 +19,7 @@ export const LoadFileContents = ({
   const handleClick = () => {
     void (async () => {
       const path = await open({ directory: false });
-      if (path == null) {
-        return;
-      }
-      const contents = await readFile(path.path);
-      const text = new TextDecoder().decode(contents);
+      if (path == null) return;
       onChange(path.path);
     })();
   };

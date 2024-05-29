@@ -45,7 +45,7 @@ jobs:
             })
             const release = releases.find(r => r.tag_name === 'synnax-v${{ steps.version.outputs.VERSION }}')
             if (release != null) return release.id
-            const { data: { id } } = github.rest.repos.createRelease({
+            const { data: { id } } = await github.rest.repos.createRelease({
               owner: context.repo.owner,
               repo: context.repo.repo,
               tag_name: 'synnax-v${{ steps.version.outputs.VERSION }}',
