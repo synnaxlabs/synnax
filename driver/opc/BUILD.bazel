@@ -16,6 +16,13 @@ cc_library(
         "@platforms//os:windows": ["/std:c++20"],
         "//conditions:default": [],
     }),
+    linkopts = select({
+        "@platforms//os:windows": [
+            "ws2_32.lib",
+            "Iphlpapi.lib",
+        ],
+        "//conditions:default": [],
+    }),
     visibility = ["//visibility:public"],
     deps = [
         "//client/cpp:synnax",
@@ -49,7 +56,27 @@ cc_test(
 
 cc_binary(
     name = "server",
-    srcs = ["server.cpp"],
+    srcs = ["server-enc.cpp"],
+    copts = select({
+        "@platforms//os:windows": ["/std:c++20"],
+        "//conditions:default": [],
+    }),
+    linkopts = select({
+        "@platforms//os:windows": [
+            "ws2_32.lib",
+            "Iphlpapi.lib",
+            "bcrypt.lib",
+        ],
+        "//conditions:default": [],
+    }),
+    deps = [
+        "@open62541",
+    ],
+)
+
+cc_binary(
+    name = "client",
+    srcs = ["client-enc.cpp"],
     copts = select({
         "@platforms//os:windows": ["/std:c++20"],
         "//conditions:default": [],
@@ -57,20 +84,17 @@ cc_binary(
     deps = [
         "@open62541",
     ],
-    linkopts = select({
-        "@platforms//os:windows": [" ws2_32.lib", "Iphlpapi.lib"],
-        "//conditions:default": [],
-    }),
 )
 
 cc_binary(
-    name = "client",
-    srcs = ["client.cpp"],
+    name = "client_encrypted",
+    srcs = ["client_encrypted.cpp"],
     copts = select({
         "@platforms//os:windows": ["/std:c++20"],
         "//conditions:default": [],
     }),
     deps = [
         "@open62541",
+        "@openssl",
     ],
 )
