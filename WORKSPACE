@@ -141,26 +141,21 @@ new_local_repository(
 # /////////////////////////////////////// OPENSSL /////////////////////////////////////
 # /////////////////////////////////////////////////////////////////////////////////////
 
-# # WINDOWS
-
-# new_local_repository(
-#     name = "openssl",
-#     path = "C:/Program Files/OpenSSL-Win64/lib/VC/x64/MD",
-#     build_file="@//driver/vendor/openssl:BUILD.bazel"
-# )
-
-
-# git_repository(
-#     name = "boringssl",
-#     commit = "e09fcf8302f75dc50afcfe40f0d59a92b40a3c2e",
-#     remote = "https://boringssl.googlesource.com/boringssl",
-# )
-# # M
-
+new_local_repository(
+    name = "mbedtls_win",
+    path = "./driver/vendor/mbedtls/mbedtls-install",
+    build_file="@//driver/vendor/mbedtls:BUILD.bazel"
+)
 
 new_local_repository(
-    name = "mbedtls",
-    path = "./driver/vendor/mbedtls/mbedtls-install",
+    name = "mbedtls_macos",
+    path = "/usr/local/Cellar/mbedtls/3.6.0",
+    build_file="@//driver/vendor/mbedtls:BUILD.bazel"
+)
+
+new_local_repository(
+    name = "mbedtls_linux",
+    path = "/usr/local/lib",
     build_file="@//driver/vendor/mbedtls:BUILD.bazel"
 )
 

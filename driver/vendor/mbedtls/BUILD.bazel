@@ -1,15 +1,32 @@
 cc_library(
-    name = "mbedtls",
-    srcs = select({
-        "@platforms//os:windows": glob([
-            "lib/*.lib"
-        ]),
-        "//conditions:default": glob([
-            "*.a"
-        ]),
-    }),
+    name = "mbedtls_win",
+    srcs = glob([
+        "lib/*.lib",
+    ]),
     hdrs = glob([
-        "include/**/*.h"
+        "include/**/*.h",
+    ]),
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "mbedtls_macos",
+    srcs = glob([
+        "lib/*.a",
+    ]),
+    hdrs = glob([
+        "include/**/*.h",
+    ]),
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "mbedtls_linux",
+    srcs = glob([
+        "lib/*.a",
+    ]),
+    hdrs = glob([
+        "include/**/*.h",
     ]),
     visibility = ["//visibility:public"],
 )

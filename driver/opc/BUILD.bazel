@@ -33,9 +33,6 @@ cc_library(
         "@com_github_google_glog//:glog",
         "@nlohmann_json//:json",
         "@open62541",
-        # "@openssl"
-        # "@boringssl//:crypto",
-        # "@boringssl//:crypto"
     ],
 )
 
@@ -73,7 +70,6 @@ cc_binary(
         "//conditions:default": [],
     }),
     deps = [
-        "@mbedtls",
         "@open62541",
     ],
 )
@@ -87,7 +83,6 @@ cc_binary(
     }),
     deps = [
         "@open62541",
-        "@mbedtls",
     ],
 )
 
@@ -100,6 +95,6 @@ cc_binary(
     }),
     deps = [
         "@open62541",
-        "@openssl"
+        "@openssl",
     ],
 )
