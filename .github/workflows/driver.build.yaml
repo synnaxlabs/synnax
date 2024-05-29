@@ -12,16 +12,6 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
-      - name: Update Submodules
-        run: git submodule update --init --recursive
-
-      - name: Setup Bazel
-        uses: bazel-contrib/setup-bazel@0.8.1
-        with:
-          bazelisk-cache: true
-          disk-cache: ${{ github.workflow }}
-          repository-cache: true
-
       - uses: GuillaumeFalourd/setup-windows10-sdk-action@v2
         with:
           sdk-version: 22000
@@ -34,7 +24,7 @@ jobs:
           tar -xjf mbedtls-3.6.0.tar.bz2
           mv mbedtls-3.6.0 mbedtls
           cd mbedtls
-          pip install jsonschema
+          pip install jsonschema jinja2
           ./scripts/make_generated_files.bat
           cd ..
           cmake -G "Visual Studio 17 2022" -S mbedtls -B mbedtls-build
@@ -42,7 +32,19 @@ jobs:
           cmake --install mbedtls-build --config Release
           cmake --install mbedtls-build --config Release --prefix ./mbedtls-install
         working-directory: driver/vendor/mbedtls
+
       
+      - name: Update Submodules
+        run: git submodule update --init --recursive
+
+      
+      - name: Setup Bazel
+        uses: bazel-contrib/setup-bazel@0.8.1
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}
+          repository-cache: true
+
       - name: Install MbedTLS On Mac
         if: ${{ matrix.platform == 'macos-latest' }}
         run: brew install mbedtls
