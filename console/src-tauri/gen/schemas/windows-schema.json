@@ -5124,6 +5124,40 @@
           ]
         },
         {
+          "type": "string",
+          "enum": [
+            "process:default"
+          ]
+        },
+        {
+          "description": "process:allow-exit -> Enables the exit command without any pre-configured scope.",
+          "type": "string",
+          "enum": [
+            "process:allow-exit"
+          ]
+        },
+        {
+          "description": "process:allow-restart -> Enables the restart command without any pre-configured scope.",
+          "type": "string",
+          "enum": [
+            "process:allow-restart"
+          ]
+        },
+        {
+          "description": "process:deny-exit -> Denies the exit command without any pre-configured scope.",
+          "type": "string",
+          "enum": [
+            "process:deny-exit"
+          ]
+        },
+        {
+          "description": "process:deny-restart -> Denies the restart command without any pre-configured scope.",
+          "type": "string",
+          "enum": [
+            "process:deny-restart"
+          ]
+        },
+        {
           "description": "resources:default -> Default permissions for the plugin.",
           "type": "string",
           "enum": [
@@ -5934,6 +5968,13 @@
           ]
         },
         {
+          "description": "window:allow-monitor-from-point -> Enables the monitor_from_point command without any pre-configured scope.",
+          "type": "string",
+          "enum": [
+            "window:allow-monitor-from-point"
+          ]
+        },
+        {
           "description": "window:allow-outer-position -> Enables the outer_position command without any pre-configured scope.",
           "type": "string",
           "enum": [
@@ -6365,6 +6406,13 @@
           "type": "string",
           "enum": [
             "window:deny-minimize"
+          ]
+        },
+        {
+          "description": "window:deny-monitor-from-point -> Denies the monitor_from_point command without any pre-configured scope.",
+          "type": "string",
+          "enum": [
+            "window:deny-monitor-from-point"
           ]
         },
         {

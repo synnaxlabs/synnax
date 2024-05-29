@@ -9,11 +9,10 @@
 
 import { type ReactElement, useEffect } from "react";
 
-import { setWindowDecorations } from "@synnaxlabs/drift";
+import { closeWindow, setWindowDecorations } from "@synnaxlabs/drift";
 import { useSelectWindowAttribute, useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Logo } from "@synnaxlabs/media";
 import { Nav, OS, Align, Menu as PMenu, Text } from "@synnaxlabs/pluto";
-// import { appWindow } from "@tauri-apps/api/window";
 import { useDispatch } from "react-redux";
 
 import { Controls, Menu } from "@/components";
@@ -23,6 +22,7 @@ import { useSelect } from "@/layout/selectors";
 
 import "@/layout/Window.css";
 import { WindowProps } from "@/layout/layout";
+import { getCurrent } from "@tauri-apps/api/window";
 
 export interface NavTopProps extends Pick<WindowProps, "showTitle" | "navTop"> {
   title: string;
@@ -30,7 +30,7 @@ export interface NavTopProps extends Pick<WindowProps, "showTitle" | "navTop"> {
 
 export const NavTop = ({
   title,
-  showTitle,
+  showTitle = true,
   navTop,
 }: NavTopProps): ReactElement | null => {
   const os = OS.use();
@@ -84,14 +84,12 @@ export const DefaultContextMenu = (): ReactElement => (
 );
 
 export const Window = (): ReactElement | null => {
-  const win = useSelectWindowKey();
-  const layout = useSelect(win ?? "");
+  const win = useSelectWindowKey(getCurrent().label) ?? "";
+  const layout = useSelect(win);
   const os = OS.use();
   const dispatch = useDispatch();
   useEffect(() => {
-    if (os === "Windows") {
-      dispatch(setWindowDecorations({ value: false }));
-    }
+    if (os === "Windows") dispatch(setWindowDecorations({ value: false }));
   }, [os]);
   const menuProps = PMenu.useContextMenu();
   const maximized = useSelectWindowAttribute(win, "maximized") ?? false;

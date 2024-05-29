@@ -137,6 +137,27 @@ new_local_repository(
     build_file="@//driver/vendor/open62541:BUILD.bazel"
 )
 
+# /////////////////////////////////////////////////////////////////////////////////////
+# /////////////////////////////////////// OPENSSL /////////////////////////////////////
+# /////////////////////////////////////////////////////////////////////////////////////
+
+new_local_repository(
+    name = "mbedtls_win",
+    path = "./driver/vendor/mbedtls/mbedtls-install",
+    build_file="@//driver/vendor/mbedtls:BUILD.bazel"
+)
+
+new_local_repository(
+    name = "mbedtls_macos",
+    path = "/opt/homebrew/Cellar/mbedtls/3.6.0",
+    build_file="@//driver/vendor/mbedtls:BUILD.bazel"
+)
+
+new_local_repository(
+    name = "mbedtls_linux",
+    path = "/usr/lib/x86_64-linux-gnu/",
+    build_file="@//driver/vendor/mbedtls:BUILD.bazel"
+)
 
 # /////////////////////////////////////////////////////////////////////////////////////
 # /////////////////////////////////////// SKYLIB ///////////////////////////////////////

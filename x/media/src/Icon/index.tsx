@@ -40,7 +40,7 @@ import {
   FaStream,
   FaWindows,
 } from "react-icons/fa";
-import { GrPan } from "react-icons/gr";
+import { GrAttachment, GrPan } from "react-icons/gr";
 import { HiDownload, HiLightningBolt, HiOutlinePlus } from "react-icons/hi";
 import { HiSquare3Stack3D } from "react-icons/hi2";
 import { IoMdRefresh } from "react-icons/io";
@@ -86,6 +86,7 @@ import {
   MdAlignVerticalBottom,
   MdHardware,
   MdSaveAlt,
+  MdLink,
 } from "react-icons/md";
 import { PiSelectionPlusBold, PiMagnifyingGlassBold } from "react-icons/pi";
 import { RiSettings3Fill as RiSettingsFill, RiSoundModuleFill } from "react-icons/ri";
@@ -304,6 +305,8 @@ export const Icon: IconType = {
   Save: wrapIcon(MdSaveAlt),
   Task: wrapIcon(TbSubtask),
   Device: wrapIcon(SiGooglenearby),
+  Link: wrapIcon(MdLink),
+  Attachment: wrapIcon(GrAttachment),
 };
 
 export interface IconType {
@@ -413,4 +416,6 @@ export interface IconType {
   Save: IconFC;
   Connect: IconFC;
   Disconnect: IconFC;
+  Link: IconFC;
+  Attachment: IconFC;
 }

@@ -345,14 +345,14 @@ namespace ni{
                                                         const synnax::Task &task);
         void run();
         void start();
-        void stop();
+        void stop() override;
         bool ok();
         ~ScannerTask();
     private:
-        std::atomic<bool> running = false;
+        std::atomic<bool> running;
         ni::Scanner scanner;
-        synnax::Task task;
         std::shared_ptr<task::Context> ctx;    
+        synnax::Task task;
         std::thread thread;
         bool ok_state = true;
     };
@@ -363,9 +363,14 @@ namespace ni{
     ///////////////////////////////////////////////////////////////////////////////////
     class ReaderTask final : public task::Task {
     public:
-        explicit ReaderTask(    const std::shared_ptr<task::Context> &ctx, 
-                                synnax::Task task); 
                                 
+
+        explicit ReaderTask(    const std::shared_ptr<task::Context> &ctx, 
+                                synnax::Task task,
+                                std::shared_ptr<pipeline::Source> source,
+                                synnax::WriterConfig writer_config,
+                                const breaker::Config breaker_config);
+
         void exec(task::Command &cmd) override;
 
         void stop() override;
@@ -376,10 +381,9 @@ namespace ni{
                                                         const synnax::Task &task);
     private:
         std::atomic<bool>  running = false;
-        pipeline::Acquisition daq_read_pipe; // source is a daqreader 
-        TaskHandle task_handle;
-        synnax::Task task;
         std::shared_ptr<task::Context> ctx;
+        synnax::Task task;
+        pipeline::Acquisition daq_read_pipe; // source is a daqreader 
         bool ok_state = true;
     };
 
@@ -389,10 +393,15 @@ namespace ni{
     class WriterTask final : public task::Task {
     public:
         explicit WriterTask(    const std::shared_ptr<task::Context> &ctx, 
-                                synnax::Task task); 
+                                synnax::Task task,
+                                std::unique_ptr<pipeline::Sink> sink,
+                                std::shared_ptr<pipeline::Source> writer_state_source,
+                                synnax::WriterConfig writer_config,
+                                synnax::StreamerConfig streamer_config,
+                                const breaker::Config breaker_config); 
 
         void exec(task::Command &cmd) override;
-        void stop();
+        void stop() override;
         void start();
 
         static std::unique_ptr<task::Task> configure(   const std::shared_ptr<task::Context> &ctx,
@@ -400,11 +409,10 @@ namespace ni{
         bool ok();
     private:
         std::atomic<bool>  running = false;
+        std::shared_ptr<task::Context> ctx;
+        synnax::Task task;
         pipeline::Control cmd_write_pipe;
         pipeline::Acquisition state_write_pipe;
-        TaskHandle task_handle;
-        synnax::Task task;
-        std::shared_ptr<task::Context> ctx;
         bool ok_state = true;
     };
 
