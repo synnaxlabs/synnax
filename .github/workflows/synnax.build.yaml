@@ -42,9 +42,13 @@ jobs:
             const { data: releases } = await github.rest.repos.listReleases({
               owner: context.repo.owner,
               repo: context.repo.repo
-            })
-            const release = releases.find(r => r.tag_name === 'synnax-v${{ steps.version.outputs.VERSION }}')
-            if (release != null) return release.id
+            });
+
+            const release = releases.find(r => r.tag_name === 'synnax-v${{ steps.version.outputs.VERSION }}');
+
+            if (release != null) {
+              return release.id;
+            }
             const { data: { id } } = github.rest.repos.createRelease({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -52,7 +56,8 @@ jobs:
               name: 'Synnax v${{ steps.version.outputs.VERSION }}',
               draft: false,
               prerelease: false
-            })
+            });
+
             return id;
             
   build:
