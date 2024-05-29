@@ -87,4 +87,4 @@ synnax/pkg/hardware/embedded/assets/**
 # |||| DEPENDENCIES ||||
 
 mbedtls-*
-mbedtls
+driver/vendor/mbedtls/mbedtls
