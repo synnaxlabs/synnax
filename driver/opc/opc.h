@@ -40,13 +40,9 @@ struct ConnectionConfig {
        password(parser.optional<std::string>("password", "")),
        security_policy_uri(parser.optional<std::string>("securityPolicy", "")),
        certificate(parser.optional<std::string>("clientCertificate", "")),
-<<<<<<< Updated upstream
        p(parser.optional<std::string>("clientPrivateKey", "")),
      server_cert(parser.optional<std::string>("serverCertificate", "")) {
      
-=======
-       p(parser.optional<std::string>("clientPrivateKey", "")){
->>>>>>> Stashed changes
     }
 
     json toJSON() const {

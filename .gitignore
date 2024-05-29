@@ -83,3 +83,8 @@ synnax/pkg/hardware/embedded/assets/**
 
 **/bin/**
 !**/bin/.gitkeep
+
+# |||| DEPENDENCIES ||||
+
+mbedtls-*
+mbedtls

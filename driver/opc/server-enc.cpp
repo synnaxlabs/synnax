@@ -16,6 +16,7 @@
 
 #include <signal.h>
 #include <stdlib.h>
+#include <malloc.h>
 
 #include <open62541/types.h>
 #include <stdio.h>
@@ -152,36 +153,36 @@ int main(int argc, char* argv[]) {
         certificate = loadFile(argv[1]);
         privateKey = loadFile(argv[2]);
     } else {
-        UA_LOG_FATAL(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
-                     "Missing arguments. Arguments are "
-                     "<server-certificate.der> <private-key.der> "
-                     "[<trustlist1.crl>, ...]");
-        UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
-                    "Trying to create a certificate.");
-        UA_String subject[3] = {UA_STRING_STATIC("C=DE"),
-                            UA_STRING_STATIC("O=SampleOrganization"),
-                            UA_STRING_STATIC("CN=Open62541Server@localhost")};
-        UA_UInt32 lenSubject = 3;
-        UA_String subjectAltName[2]= {
-            UA_STRING_STATIC("DNS:localhost"),
-            UA_STRING_STATIC("URI:urn:open62541.server.application")
-        };
-        UA_UInt32 lenSubjectAltName = 2;
-        UA_KeyValueMap *kvm = UA_KeyValueMap_new();
-        UA_UInt16 expiresIn = 14;
-        UA_KeyValueMap_setScalar(kvm, UA_QUALIFIEDNAME(0, "expires-in-days"),
-                                 (void *)&expiresIn, &UA_TYPES[UA_TYPES_UINT16]);
-        UA_StatusCode statusCertGen = UA_CreateCertificate(
-            UA_Log_Stdout, subject, lenSubject, subjectAltName, lenSubjectAltName,
-            UA_CERTIFICATEFORMAT_DER, kvm, &privateKey, &certificate);
-        UA_KeyValueMap_delete(kvm);
+        // UA_LOG_FATAL(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+        //              "Missing arguments. Arguments are "
+        //              "<server-certificate.der> <private-key.der> "
+        //              "[<trustlist1.crl>, ...]");
+        // UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+        //             "Trying to create a certificate.");
+        // UA_String subject[3] = {UA_STRING_STATIC("C=DE"),
+        //                     UA_STRING_STATIC("O=SampleOrganization"),
+        //                     UA_STRING_STATIC("CN=Open62541Server@localhost")};
+        // UA_UInt32 lenSubject = 3;
+        // UA_String subjectAltName[2]= {
+        //     UA_STRING_STATIC("DNS:localhost"),
+        //     UA_STRING_STATIC("URI:urn:open62541.server.application")
+        // };
+        // UA_UInt32 lenSubjectAltName = 2;
+        // UA_KeyValueMap *kvm = UA_KeyValueMap_new();
+        // UA_UInt16 expiresIn = 14;
+        // // UA_KeyValueMap_setScalar(kvm, UA_QUALIFIEDNAME(0, "expires-in-days"),
+        // //                          (void *)&expiresIn, &UA_TYPES[UA_TYPES_UINT16]);
+        // UA_StatusCode statusCertGen = UA_CreateCertificate(
+        //     UA_Log_Stdout, subject, lenSubject, subjectAltName, lenSubjectAltName,
+        //     UA_CERTIFICATEFORMAT_DER, kvm, &privateKey, &certificate);
+        // UA_KeyValueMap_delete(kvm);
 
-        if(statusCertGen != UA_STATUSCODE_GOOD) {
-            UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
-                "Generating Certificate failed: %s",
-                UA_StatusCode_name(statusCertGen));
-            return EXIT_SUCCESS;
-        }
+        // if(statusCertGen != UA_STATUSCODE_GOOD) {
+        //     UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+        //         "Generating Certificate failed: %s",
+        //         UA_StatusCode_name(statusCertGen));
+        //     return EXIT_SUCCESS;
+        // }
     }
 
 

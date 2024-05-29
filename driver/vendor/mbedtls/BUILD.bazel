@@ -1,7 +1,15 @@
 cc_library(
     name = "mbedtls",
-    srcs = glob([
-        "*.a"
+    srcs = select({
+        "@platforms//os:windows": glob([
+            "lib/*.lib"
+        ]),
+        "//conditions:default": glob([
+            "*.a"
+        ]),
+    }),
+    hdrs = glob([
+        "include/**/*.h"
     ]),
     visibility = ["//visibility:public"],
 )
