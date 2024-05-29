@@ -155,7 +155,7 @@ new_local_repository(
 
 new_local_repository(
     name = "mbedtls_linux",
-    path = "/usr/local/lib",
+    path = "/usr/local/lib/mbedtls",
     build_file="@//driver/vendor/mbedtls:BUILD.bazel"
 )
 
