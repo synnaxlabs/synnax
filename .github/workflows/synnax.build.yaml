@@ -52,7 +52,8 @@ jobs:
               name: 'Synnax v${{ steps.version.outputs.VERSION }}',
               draft: false,
               prerelease: false
-            })
+            });
+
             return id;
             
   build:
