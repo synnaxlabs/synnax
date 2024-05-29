@@ -114,8 +114,8 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
       console.log(connection);
       return await task.executeCommandSync<{ message: string }>(
         "test_connection",
-        { connection },
-        TimeSpan.seconds(1),
+        { connection: methods.get({ path: "connection" }).value },
+        TimeSpan.seconds(10),
       );
     },
   });
