@@ -26,6 +26,14 @@ jobs:
         with:
           sdk-version: 22000
 
+      - name: Build MbedTls
+        if: ${{ matrix.platform == 'windows-latest' }}
+        shell: bash
+        run: |
+          mkdir build && cd build
+          cmake -G "Visual Studio 17 2022" ..
+        working-directory: driver/vendor/mbedtls/mbedtls
+
       - name: Build Open62541
         shell: bash
         run: |
