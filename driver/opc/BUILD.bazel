@@ -71,6 +71,7 @@ cc_binary(
     }),
     deps = [
         "@open62541",
+        "@mbedtls_win"
     ],
 )
 
