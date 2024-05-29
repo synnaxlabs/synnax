@@ -1,8 +1,8 @@
 cc_library(
     name = "openssl",
     srcs = [
-        "libssl.lib", 
-        "libcrypto.lib"
+        # "libssl.a", 
+        # "libcrypto.a"
         ],
     visibility = ["//visibility:public"],
 )
