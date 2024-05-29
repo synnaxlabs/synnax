@@ -1,0 +1,1 @@
+bazel run //driver/opc:server /Users/emilianobonilla/Desktop/synnaxlabs/synnax/driver/opc/certificates/server_cert.der /Users/emilianobonilla/Desktop/synnaxlabs/synnax/driver/opc/certificates/server_key.pem /Users/emilianobonilla/Desktop/synnaxlabs/synnax/driver/opc/certificates/client_cert.der

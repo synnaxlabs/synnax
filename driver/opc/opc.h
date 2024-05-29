@@ -29,7 +29,7 @@ struct ConnectionConfig {
     std::string p;
 
     /// @brief list of trusted certificates
-    std::vector<std::string> trusted_certificates;
+    std::string server_cert;
 
     ConnectionConfig() = default;
 
@@ -38,9 +38,11 @@ struct ConnectionConfig {
     ): endpoint(parser.required<std::string>("endpoint")),
        username(parser.optional<std::string>("username", "")),
        password(parser.optional<std::string>("password", "")),
-       security_policy_uri(parser.optional<std::string>("security_policy", "")),
-       certificate(parser.optional<std::string>("client_certificate", "")),
-       p(parser.optional<std::string>("client_private_key", "")){
+       security_policy_uri(parser.optional<std::string>("securityPolicy", "")),
+       certificate(parser.optional<std::string>("clientCertificate", "")),
+       p(parser.optional<std::string>("clientPrivateKey", "")),
+     server_cert(parser.optional<std::string>("serverCertificate", "")) {
+     
     }
 
     json toJSON() const {
@@ -48,9 +50,9 @@ struct ConnectionConfig {
             {"endpoint", endpoint},
             {"username", username},
             {"password", password},
-            {"security_policy", security_policy_uri},
-            {"client_certificate", certificate},
-            {"client_private_key", p}
+            {"securityPolicy", security_policy_uri},
+            {"clientCertificate", certificate},
+            {"clientPrivateKey", p}
         };
     }
 };

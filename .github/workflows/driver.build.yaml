@@ -26,11 +26,23 @@ jobs:
         with:
           sdk-version: 22000
 
+      - name: Build MbedTls
+        if: ${{ matrix.platform == 'windows-latest' }}
+        shell: bash
+        run: |
+          Invoke-WebRequest -Uri "https://github.com/Mbed-TLS/mbedtls/releases/download/v3.6.0/mbedtls-3.6.0.tar.bz2" -OutFile "mbedtls-3.6.0.tar.bz2"
+          7z e mbedtls-3.6.0.tar.bz2
+          7z x mbedtls-3.6.0.tar
+          cd mbedtls-3.6.0
+          cmake -DGEN_FILES=ON -DENABLE_TESTING=Off .
+          make
+        working-directory: driver/vendor/mbedtls
+
       - name: Build Open62541
         shell: bash
         run: |
           mkdir build && cd build
-          cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DUA_NAMESPACE_ZERO=FULL -DCMAKE_INSTALL_PREFIX=../out ..
+          cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DUA_NAMESPACE_ZERO=FULL -DCMAKE_INSTALL_PREFIX=../out -DUA_ENABLE_ENCRYPTION=MBEDTLS ..
           cmake --build . --config RelWithDebInfo --target install
         working-directory: driver/vendor/open62541/open62541
 

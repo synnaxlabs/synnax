@@ -14,6 +14,7 @@
 
 #include "include/open62541/plugin/log_stdout.h"
 #include "include/open62541/client_config_default.h"
+#include "include/open62541/client_highlevel.h"
 
 
 #include "glog/logging.h"
@@ -76,28 +77,71 @@ void customLogger(
     }
 }
 
+UA_ByteString loadFile(const char *const path) {
+    UA_ByteString fileContents = UA_STRING_NULL;
+
+    /* Open the file */
+    FILE *fp = fopen(path, "rb");
+    if(!fp) {
+        errno = 0; /* We read errno also from the tcp layer... */
+        return fileContents;
+    }
+
+    /* Get the file length, allocate the data and read */
+    fseek(fp, 0, SEEK_END);
+    fileContents.length = (size_t)ftell(fp);
+    fileContents.data = (UA_Byte *)UA_malloc(fileContents.length * sizeof(UA_Byte));
+    if(fileContents.data) {
+        fseek(fp, 0, SEEK_SET);
+        size_t read = fread(fileContents.data, sizeof(UA_Byte), fileContents.length, fp);
+        if(read != fileContents.length)
+            UA_ByteString_clear(&fileContents);
+    } else {
+        fileContents.length = 0;
+    }
+    fclose(fp);
+
+    return fileContents;
+}
+
+UA_ByteString convertStringToUAByteString(const std::string &certString) {
+    UA_ByteString byteString;
+    byteString.length = certString.size();
+    byteString.data = (UA_Byte*)UA_malloc(byteString.length * sizeof(UA_Byte));
+    if(byteString.data) {
+        memcpy(byteString.data, certString.data(), byteString.length);
+    }
+    return byteString;
+}
+
+
 freighter::Error configureEncryption(opc::ConnectionConfig &cfg, std::shared_ptr<UA_Client> client) {
-
-    // TODO: IMPL revoked certs
     auto client_config = UA_Client_getConfig(client.get());
+    client_config->securityMode = UA_MESSAGESECURITYMODE_SIGNANDENCRYPT;
+    std::string uri = "http://opcfoundation.org/UA/SecurityPolicy#" + cfg.security_policy_uri;
+    client_config->securityPolicyUri = UA_STRING_ALLOC(uri.c_str());
+    UA_String_clear(&client_config->clientDescription.applicationUri);
+    client_config->clientDescription.applicationUri = UA_STRING_ALLOC("urn:open62541.server.application");
 
-    if(cfg.security_policy_uri.empty()) return freighter::NIL;
-    else{
-        // c* that concatenates the security policy with the uri
-        auto uri = "http://opcfoundation.org/UA/SecurityPolicy#"+ cfg.security_policy_uri;
-        client_config->securityPolicyUri = stringToUAByteString(uri);
-    }
+    // UA_ByteString certificate = loadFile("/Users/emilianobonilla/Desktop/synnaxlabs/synnax/driver/opc/certificates/client_cert.pem");
+    UA_ByteString certificate = convertStringToUAByteString(cfg.certificate);
+    UA_ByteString privateKey  = convertStringToUAByteString(cfg.p);
+    // loadFile("/Users/emilianobonilla/Desktop/synnaxlabs/synnax/driver/opc/certificates/client_key.pem");
 
-    auto cert = stringToUAByteString(cfg.certificate);
-    auto p = stringToUAByteString(cfg.p);
+    size_t trustListSize = 1;
+    UA_STACKARRAY(UA_ByteString, trustList, trustListSize+1);
+    // trustList[0] = loadFile("/Users/emilianobonilla/Desktop/synnaxlabs/synnax/driver/opc/certificates/server_cert.der");
+    trustList[0] = convertStringToUAByteString(cfg.server_cert);
 
-    std::vector<UA_ByteString> trusted_certs;
-    size_t num_trusted_certs = cfg.trusted_certificates.size();
-    for(auto &trusted_cert : cfg.trusted_certificates) {
-        trusted_certs.push_back(stringToUAByteString(trusted_cert));
-    }
-
-    UA_StatusCode e_err = UA_ClientConfig_setDefaultEncryption(client_config, cert, p, NULL, 0, NULL, 0);
+    UA_StatusCode e_err = UA_ClientConfig_setDefaultEncryption(
+        client_config, 
+        certificate, 
+        privateKey,
+        trustList,
+        trustListSize,
+        NULL, 
+        0
+    );
 
     if(e_err != UA_STATUSCODE_GOOD) {
         LOG(ERROR) << "Failed to configure encryption: " << UA_StatusCode_name(e_err);
@@ -117,20 +161,8 @@ std::pair<std::shared_ptr<UA_Client>, freighter::Error> opc::connect(
     UA_ClientConfig *config = UA_Client_getConfig(client.get());
     config->logging->log = customLogger;
 
-    // setup encryption support if applicable
-    auto cert = stringToUAByteString(cfg.certificate);
-    auto p = stringToUAByteString(cfg.p);
-
-    std::vector<UA_ByteString> trusted_certs;
-    size_t num_trusted_certs = cfg.trusted_certificates.size();
-    for(auto &trusted_cert : cfg.trusted_certificates) {
-        trusted_certs.push_back(stringToUAByteString(trusted_cert));
-    }
-
     configureEncryption(cfg, client);
-
-    // connect to client
-    UA_StatusCode status = UA_Client_connect(client.get(), cfg.endpoint.c_str());
+    UA_StatusCode status;
     if (cfg.username.empty() && cfg.password.empty())
         status = UA_Client_connect(client.get(), cfg.endpoint.c_str());
     else
@@ -148,4 +180,3 @@ std::pair<std::shared_ptr<UA_Client>, freighter::Error> opc::connect(
                          "Failed to connect: " + std::string(status_name))
     };
 }
-
