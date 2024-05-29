@@ -30,8 +30,9 @@ jobs:
         if: ${{ matrix.platform == 'windows-latest' }}
         shell: bash
         run: |
-          wget https://github.com/Mbed-TLS/mbedtls/releases/download/v3.6.0/mbedtls-3.6.0.tar.bz2
-          tar -xjf mbedtls-3.6.0.tar.bz2
+          Invoke-WebRequest -Uri "https://github.com/Mbed-TLS/mbedtls/releases/download/v3.6.0/mbedtls-3.6.0.tar.bz2" -OutFile "mbedtls-3.6.0.tar.bz2"
+          7z e mbedtls-3.6.0.tar.bz2
+          7z x mbedtls-3.6.0.tar
           cd mbedtls-3.6.0
           cmake -DGEN_FILES=ON -DENABLE_TESTING=Off .
           make
