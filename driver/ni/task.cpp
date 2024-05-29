@@ -139,11 +139,13 @@ std::unique_ptr <task::Task> ni::ReaderTask::configure(const std::shared_ptr <ta
     std::unique_ptr<pipeline::Source> daq_reader;
     std::vector <synnax::ChannelKey> channel_keys;
     if(task.type == "ni_digital_read"){
+        LOG(INFO) << "[NI Task] configuring digital reader task " << task.name;
         auto digital_reader = std::make_unique<ni::DigitalReadSource>(task_handle, ctx, task);
         digital_reader->init();
         channel_keys = digital_reader->getChannelKeys();
         daq_reader = std::move(digital_reader);
     } else{
+        LOG(INFO) << "[NI Task] configuring analog reader task " << task.name;
         auto analog_reader = std::make_unique<ni::AnalogReadSource>(task_handle, ctx, task);
         analog_reader->init();
         channel_keys = analog_reader->getChannelKeys();
