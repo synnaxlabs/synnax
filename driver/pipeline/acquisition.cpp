@@ -71,18 +71,12 @@ void Acquisition::runInternal() {
 
     while (breaker.running()) {
         auto [frame, source_err] = source->read();
-<<<<<<< HEAD
         if (source_err) {
             LOG(ERROR) << "[Acquisition] Failed to read source";
             if (
                 source_err.matches(driver::TYPE_TEMPORARY_HARDWARE_ERROR) &&
                 breaker.wait(source_err.message())
             ) continue;
-=======
-
-        if (source_err.matches(driver::TYPE_CRITICAL_HARDWARE_ERROR)) {
-            LOG(ERROR) << "[acquisition] Failed to read source: CRITICAL_HARDWARE_ERROR. Closing pipe.";
->>>>>>> 3ce13a8260a56dfe9b121d431971116ebed49a86
             break;
         }
 
