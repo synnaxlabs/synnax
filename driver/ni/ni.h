@@ -128,23 +128,24 @@ namespace ni{
                              const std::shared_ptr<task::Context> &ctx,
                              const synnax::Task task);
 
+        
+        int init();
+        ~Source();
+        void clearTask();
+        int checkNIError(int32 error);  
+        std::vector<synnax::ChannelKey> getChannelKeys();
+
+        virtual void parseConfig(config::Parser & parser);
         virtual freighter::Error start();
         virtual freighter::Error stop();
         virtual bool ok(); 
         virtual void getIndexKeys();
+        
         virtual std::pair<synnax::Frame, freighter::Error> read() = 0;
-        int init();
-        ~Source();
-        void clearTask();
-    protected:
-        int checkNIError(int32 error);  
-
-        virtual void parseConfig(config::Parser & parser);
         virtual void parseChannels(config::Parser & parser) = 0;
         virtual int configureTiming() = 0; 
         virtual void acquireData() = 0;
         virtual int createChannels() = 0;
-
 
          typedef struct DataPacket{
             void* data; // actual data
@@ -175,23 +176,25 @@ namespace ni{
     ///////////////////////////////////////////////////////////////////////////////////
     class AnalogReadSource : public Source{ 
     public:
-        explicit AnalogReadSource(TaskHandle task_handle,
-                             const std::shared_ptr<task::Context> &ctx,
-                             const synnax::Task task) : Source(task_handle, ctx, task){}
+        explicit AnalogReadSource(
+            TaskHandle task_handle,
+            const std::shared_ptr<task::Context> &ctx,
+            const synnax::Task task
+        ) : Source(task_handle, ctx, task){}
 
 
         std::pair<synnax::Frame, freighter::Error> read() override;
         ~AnalogReadSource();
-        std::vector<synnax::ChannelKey> getChannelKeys();
-    private:
         // private helper functions
         void acquireData() override;
-        void parseCustomScale(config::Parser & parser, ChannelConfig & config);
-        void deleteScales();
-        int createChannel(ChannelConfig &channel);
         int configureTiming() override;
         int createChannels() override;
         void parseChannels(config::Parser &parser) override;
+
+        void parseCustomScale(config::Parser & parser, ChannelConfig & config);
+        void deleteScales();
+        int createChannel(ChannelConfig &channel);
+   
 
         // NI related resources
         uint64_t numAIChannels = 0;
@@ -203,32 +206,17 @@ namespace ni{
     ///////////////////////////////////////////////////////////////////////////////////
     class DigitalReadSource : public Source{ 
     public:
-        explicit DigitalReadSource(TaskHandle task_handle,
-                             const std::shared_ptr<task::Context> &ctx,
-                             const synnax::Task task);
+        explicit DigitalReadSource(
+            TaskHandle task_handle,
+            const std::shared_ptr<task::Context> &ctx,
+            const synnax::Task task
+        ) : Source(task_handle, ctx, task){}
 
-
-        int init();
-        std::pair<synnax::Frame, freighter::Error> read();
-        bool ok();
-        ~DigitalReadSource();
-        std::vector<synnax::ChannelKey> getChannelKeys();
-        int configureTiming();
-    private:
-        void parseConfig(config::Parser & parser);
-        int checkNIError(int32 error);
-        
-        TaskHandle task_handle = 0;
-        double *data;       // pointer to heap allocated dataBuffer to provide to DAQmx read functions
-        int bufferSize = 0; 
-        uint64_t numChannels = 0;
-        int numSamplesPerChannel = 0;
-        json err_info;
-
-        ReaderConfig reader_config;
-        std::shared_ptr<task::Context> ctx;
-        breaker::Breaker breaker;
-        bool ok_state = true;
+        int configureTiming() override;
+        void parseChannels(config::Parser & parser) override;    
+        void createChannels() override;
+        void acquireData() override;
+        std::pair<synnax::Frame, freighter::Error> read() override;
     };
 
 

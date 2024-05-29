@@ -258,3 +258,12 @@ int ni::Source::checkNIError(int32 error){
 bool ni::Source::ok(){ 
     return this->ok_state;
 }
+
+
+std::vector<synnax::ChannelKey> ni::Source::getChannelKeys(){
+    std::vector<synnax::ChannelKey> keys;
+    for (auto &channel : this->reader_config.channels){
+        keys.push_back(channel.channel_key);
+    }
+    return keys;
+}

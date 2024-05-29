@@ -210,14 +210,14 @@ void ni::AnalogReadSource::acquireData(){
         data_packet.data = new double[this->bufferSize];
         data_packet.t0 = (uint64_t) ((synnax::TimeStamp::now()).value);
         if (this->checkNIError(ni::NiDAQmxInterface::ReadAnalogF64(
-                                                                this->task_handle,
-                                                                this->numSamplesPerChannel,
-                                                                -1,
-                                                                DAQmx_Val_GroupByChannel,
-                                                                static_cast<double*>(data_packet.data),
-                                                                this->bufferSize,
-                                                                &data_packet.samplesReadPerChannel,
-                                                                NULL))){
+                                                            this->task_handle,
+                                                            this->numSamplesPerChannel,
+                                                            -1,
+                                                            DAQmx_Val_GroupByChannel,
+                                                            static_cast<double*>(data_packet.data),
+                                                            this->bufferSize,
+                                                            &data_packet.samplesReadPerChannel,
+                                                            NULL))){
             LOG(ERROR) << "[NI Reader] failed while reading analog data for task " << this->reader_config.task_name;
             // return; // TODO: handle differently?
         }
@@ -239,6 +239,7 @@ std::pair<synnax::Frame, freighter::Error> ni::AnalogReadSource::read(){
     
     // interpolate  timestamps between the initial and final timestamp to ensure non-overlapping timestamps between batched reads
     uint64_t incr = ( (d.value().tf- d.value().t0) / this->numSamplesPerChannel );
+    
     // Construct and populate index channel
     std::vector<std::uint64_t> time_index(this->numSamplesPerChannel);
     for (uint64_t i = 0; i < d.value().samplesReadPerChannel; ++i)
@@ -248,7 +249,11 @@ std::pair<synnax::Frame, freighter::Error> ni::AnalogReadSource::read(){
     // Construct and populate synnax frame
     uint64_t data_index = 0;
     for(int i = 0; i < numChannels; i++){
-        if(this->reader_config.channels[i].channel_type == "index") continue;
+        if(this->reader_config.channels[i].channel_type == "index") {
+                f.add(this->reader_config.channels[i].channel_key, synnax::Series(time_index, synnax::TIMESTAMP));
+                continue;
+        }
+        
         // copy data into vector
         std::vector<float> data_vec(d.value().samplesReadPerChannel);
         for (int j = 0; j < d.value().samplesReadPerChannel; j++)
@@ -257,11 +262,6 @@ std::pair<synnax::Frame, freighter::Error> ni::AnalogReadSource::read(){
         data_index++;
     }
 
-    for(int i = 0; i < numChannels; i++){
-        if(this->reader_config.channels[i].channel_type != "index") continue;
-        f.add(this->reader_config.channels[i].channel_key, synnax::Series(time_index, synnax::TIMESTAMP));
-    }
-    
     if(d.has_value()) delete[] d.value().data;
 
     return std::make_pair(std::move(f), freighter::NIL);
@@ -363,15 +363,6 @@ int ni::AnalogReadSource::createChannels(){
 
 ni::AnalogReadSource::~AnalogReadSource(){
     this->deleteScales();
-}
-
-
-std::vector<synnax::ChannelKey> ni::AnalogReadSource::getChannelKeys(){
-    std::vector<synnax::ChannelKey> keys;
-    for (auto &channel : this->reader_config.channels){
-        keys.push_back(channel.channel_key);
-    }
-    return keys;
 }
 
 
