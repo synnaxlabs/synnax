@@ -143,7 +143,7 @@ new_local_repository(
 
 new_local_repository(
     name = "openssl",
-    path = "C:\\Program Files\\OpenSSL-Win64\\lib\\VC\\x64\\MD",
+    path = "/opt/homebrew/lib",
     build_file="@//driver/vendor/openssl:BUILD.bazel"
 )
 
