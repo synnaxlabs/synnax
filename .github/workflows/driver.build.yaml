@@ -30,10 +30,12 @@ jobs:
         if: ${{ matrix.platform == 'windows-latest' }}
         shell: bash
         run: |
-          git submodule update --init
+          wget https://github.com/Mbed-TLS/mbedtls/releases/download/v3.6.0/mbedtls-3.6.0.tar.bz2
+          tar -xjf mbedtls-3.6.0.tar.bz2
+          cd mbedtls-3.6.0
           cmake -DGEN_FILES=ON -DENABLE_TESTING=Off .
           make
-        working-directory: driver/vendor/mbedtls/mbedtls
+        working-directory: driver/vendor/mbedtls
 
       - name: Build Open62541
         shell: bash
