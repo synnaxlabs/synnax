@@ -75,6 +75,28 @@ cc_binary(
     ],
 )
 
+
+cc_binary(
+    name = "server_no_enc",
+    srcs = ["server.cpp"],
+    copts = select({
+        "@platforms//os:windows": ["/std:c++20"],
+        "//conditions:default": [],
+    }),
+    linkopts = select({
+        "@platforms//os:windows": [
+            "ws2_32.lib",
+            "Iphlpapi.lib",
+            "bcrypt.lib",
+        ],
+        "//conditions:default": [],
+    }),
+    deps = [
+        "@open62541",
+        "@mbedtls_win"
+    ],
+)
+
 cc_binary(
     name = "client",
     srcs = ["client-enc.cpp"],

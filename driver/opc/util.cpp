@@ -120,7 +120,11 @@ freighter::Error configureEncryption(opc::ConnectionConfig &cfg, std::shared_ptr
     // std::cout << cfg.certificate << std::endl;
     // std::cout << cfg.p << std::endl;
     // std::cout << cfg.server_cert << std::endl;
-
+    
+    if(cfg.security_policy_uri =="None") {
+        LOG(ERROR) << "[opc.scanner] Missing encryption configuration";
+        return freighter::NIL;
+    }
     auto client_config = UA_Client_getConfig(client.get());
     client_config->securityMode = UA_MESSAGESECURITYMODE_SIGNANDENCRYPT;
     
