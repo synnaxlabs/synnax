@@ -1,8 +1,0 @@
-cc_library(
-    name = "openssl",
-    srcs = [
-        # "libssl.a", 
-        # "libcrypto.a"
-        ],
-    visibility = ["//visibility:public"],
-)

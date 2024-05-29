@@ -1,0 +1,7 @@
+cc_library(
+    name = "mbedtls",
+    srcs = glob([
+        "*.a"
+    ]),
+    visibility = ["//visibility:public"],
+)
