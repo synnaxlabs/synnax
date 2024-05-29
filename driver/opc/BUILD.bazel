@@ -57,7 +57,7 @@ cc_test(
 
 cc_binary(
     name = "server",
-    srcs = ["server.cpp"],
+    srcs = ["server-enc.cpp"],
     copts = select({
         "@platforms//os:windows": ["/std:c++20"],
         "//conditions:default": [],
@@ -77,12 +77,13 @@ cc_binary(
 
 cc_binary(
     name = "client",
-    srcs = ["client.cpp"],
+    srcs = ["client-enc.cpp"],
     copts = select({
         "@platforms//os:windows": ["/std:c++20"],
         "//conditions:default": [],
     }),
     deps = [
         "@open62541",
+        "@mbedtls",
     ],
 )
