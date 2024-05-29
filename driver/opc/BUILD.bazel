@@ -39,7 +39,7 @@ cc_library(
         # "@boringssl//:crypto"
     ],
     linkopts = select({
-        "@platforms//os:windows": ["ws2_32.lib", "Iphlpapi.lib", "crypt32.lib"],
+        "@platforms//os:windows": ["ws2_32.lib", "Iphlpapi.lib"],
         "//conditions:default": [],
     }),
 )
@@ -92,5 +92,18 @@ cc_binary(
     deps = [
         "@open62541",
         "@mbedtls",
+    ],
+)
+
+cc_binary(
+    name = "client_encrypted",
+    srcs = ["client_encrypted.cpp"],
+    copts = select({
+        "@platforms//os:windows": ["/std:c++20"],
+        "//conditions:default": [],
+    }),
+    deps = [
+        "@open62541",
+        "@openssl"
     ],
 )

@@ -3,7 +3,11 @@ import { Icon } from "@synnaxlabs/media";
 import { Align, Button, Input, Text } from "@synnaxlabs/pluto";
 import { primitiveIsZero } from "@synnaxlabs/x";
 import { open } from "@tauri-apps/plugin-dialog";
+<<<<<<< Updated upstream
 import { readFile, readTextFile } from "@tauri-apps/plugin-fs";
+=======
+import { readFile } from "@tauri-apps/plugin-fs";
+>>>>>>> Stashed changes
 import { ReactElement, useState } from "react";
 
 export interface LoadFileContentsProps
@@ -24,7 +28,12 @@ export const LoadFileContents = ({
         return;
       }
       const contents = await readFile(path.path);
+<<<<<<< Updated upstream
       onChange(new TextDecoder().decode(contents));
+=======
+      const text = new TextDecoder().decode(contents);
+      onChange(text);
+>>>>>>> Stashed changes
       setPath(path.path);
     })();
   };
