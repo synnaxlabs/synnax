@@ -137,12 +137,9 @@ func Open(configs ...Config) (*DB, error) {
 		return nil, err
 	}
 	idx.indexPersist = idxPst
-	idx.mu.pointers, idx.mu.tombstones, err = idxPst.load()
+	idx.mu.pointers, err = idxPst.load()
 	if err != nil {
 		return nil, err
-	}
-	if len(idx.mu.tombstones) == 0 {
-		idx.mu.tombstones = make(map[uint16]uint32)
 	}
 	controller, err := openFileController(cfg)
 	if err != nil {

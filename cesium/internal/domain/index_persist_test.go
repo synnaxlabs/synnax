@@ -89,52 +89,6 @@ var _ = Describe("Index Persist", Ordered, func() {
 					Expect(i.SeekFirst(ctx)).To(BeFalse())
 				})
 
-				It("Should persist tombstones", func() {
-					By("Writing some data")
-					Expect(domain.Write(ctx, db, (10 * telem.SecondTS).Range(15*telem.SecondTS+1), []byte{10, 11, 12, 13, 14, 15})).To(Succeed())
-					Expect(domain.Write(ctx, db, (20 * telem.SecondTS).Range(23*telem.SecondTS+1), []byte{20, 21, 22, 23})).To(Succeed())
-					Expect(domain.Write(ctx, db, (26 * telem.SecondTS).Range(30*telem.SecondTS+1), []byte{26, 27, 30})).To(Succeed())
-					Expect(domain.Write(ctx, db, (40 * telem.SecondTS).Range(42*telem.SecondTS+1), []byte{40, 41, 42})).To(Succeed())
-
-					By("Deleting some data")
-					Expect(db.Delete(ctx, 2, 2, (12 * telem.SecondTS).Range(22*telem.SecondTS))).To(Succeed())
-					Expect(db.Delete(ctx, 1, 0, (23 * telem.SecondTS).Range(30*telem.SecondTS+1))).To(Succeed())
-
-					By("Re-opening the database")
-					Expect(db.Close()).To(Succeed())
-					db = MustSucceed(domain.Open(domain.Config{FS: fs, FileSize: 5 * telem.ByteSize, GCThreshold: 0}))
-
-					By("Garbage collecting")
-					Expect(db.GarbageCollect(ctx)).To(Succeed())
-
-					By("Asserting that the data is correct")
-					i := db.NewIterator(domain.IterRange(telem.TimeRangeMax))
-					Expect(i.SeekFirst(ctx)).To(BeTrue())
-					r := MustSucceed(i.NewReader(ctx))
-					var buf = make([]byte, 2)
-
-					_, err := r.ReadAt(buf, 0)
-					Expect(err).ToNot(HaveOccurred())
-					Expect(buf).To(Equal([]byte{10, 11}))
-					Expect(r.Close()).To(Succeed())
-
-					Expect(i.Next()).To(BeTrue())
-					r = MustSucceed(i.NewReader(ctx))
-					buf = make([]byte, 1)
-					_, err = r.ReadAt(buf, 0)
-					Expect(buf).To(Equal([]byte{22}))
-					Expect(r.Close()).To(Succeed())
-
-					Expect(i.Next()).To(BeTrue())
-					r = MustSucceed(i.NewReader(ctx))
-					buf = make([]byte, 3)
-					_, err = r.ReadAt(buf, 0)
-					Expect(buf).To(Equal([]byte{40, 41, 42}))
-					Expect(r.Close()).To(Succeed())
-
-					Expect(i.Next()).To(BeFalse())
-					Expect(i.Close()).To(Succeed())
-				})
 			})
 		})
 	}

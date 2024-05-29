@@ -3,6 +3,7 @@ package unary
 import (
 	"context"
 	"github.com/cockroachdb/errors"
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/x/control"
@@ -55,10 +56,9 @@ func (db *DB) delete(ctx context.Context, tr telem.TimeRange) error {
 		density           = db.Channel.DataType.Density()
 	)
 
-	// TODO: generate a unique key that's a UUID
 	g, _, err := db.Controller.OpenAbsoluteGateIfUncontrolled(
 		tr,
-		control.Subject{Key: "delete_writer"},
+		control.Subject{Key: "delete_writer_" + uuid.New().String()},
 		func() (controlledWriter, error) {
 			return controlledWriter{Writer: nil, channelKey: db.Channel.Key}, nil
 		})
@@ -130,27 +130,5 @@ func (db *DB) delete(ctx context.Context, tr telem.TimeRange) error {
 // GarbageCollect cleans up all data-storage .domain files in the unaryDB by removing
 // all data no longer in any stored domain.
 func (db *DB) GarbageCollect(ctx context.Context) error {
-	// Check that there are no open iterators / writers on this channel.
-	db.entityCount.RLock()
-	defer db.entityCount.RUnlock()
-	if db.entityCount.openIteratorWriters > 0 {
-		return nil
-	}
-
-	// Check that there are no delete writers on this channel
-	// TODO: too expensive locking the entire database down. Reads and writes should be entirely operations during GC.
-	g, _, err := db.Controller.OpenAbsoluteGateIfUncontrolled(telem.TimeRangeMax, control.Subject{Key: "gc_writer"}, func() (controlledWriter, error) {
-		return controlledWriter{
-			Writer:     nil,
-			channelKey: db.Channel.Key,
-		}, nil
-	})
-
-	if err != nil {
-		return db.wrapError(err)
-	}
-
-	defer g.Release()
-
 	return db.wrapError(db.Domain.GarbageCollect(ctx))
 }

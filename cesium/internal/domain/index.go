@@ -21,8 +21,7 @@ type index struct {
 	alamos.Instrumentation
 	mu struct {
 		sync.RWMutex
-		pointers   []pointer
-		tombstones map[uint16]uint32
+		pointers []pointer
 	}
 	indexPersist *indexPersist
 	persistHead  int

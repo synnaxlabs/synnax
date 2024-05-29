@@ -241,9 +241,9 @@ func (db *DB) garbageCollect(ctx context.Context, maxGoRoutine int64) error {
 	defer span.End()
 	db.mu.RLock()
 	var (
-		sem = semaphore.NewWeighted(maxGoRoutine)
-		wg  = &sync.WaitGroup{}
-		c   = errors.NewCatcher(errors.WithAggregation())
+		sem     = semaphore.NewWeighted(maxGoRoutine)
+		sCtx, _ = signal.Isolated()
+		wg      = &sync.WaitGroup{}
 	)
 
 	for _, udb := range db.unaryDBs {
@@ -252,22 +252,14 @@ func (db *DB) garbageCollect(ctx context.Context, maxGoRoutine int64) error {
 		}
 		wg.Add(1)
 		udb := udb
-		go func() {
-			defer func() {
-				sem.Release(1)
-				wg.Done()
-			}()
-			c.Exec(func() error {
-				return udb.GarbageCollect(ctx)
-			})
-		}()
+		sCtx.Go(func(_ctx context.Context) error {
+			defer sem.Release(1)
+			return udb.GarbageCollect(_ctx)
+		})
 	}
 
-	// TODO: think about this mutex placement
 	db.mu.RUnlock()
-	// TODO: should be using a signal context instead of waitgroup and catcher.
-	wg.Wait()
-	return c.Error()
+	return sCtx.Wait()
 }
 
 func (db *DB) startGC(sCtx signal.Context, opts *options) {
