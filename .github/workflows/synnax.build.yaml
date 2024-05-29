@@ -90,9 +90,6 @@ jobs:
               - 'freighter/go/**'
               - 'driver/**'
               - '.github/workflows/synnax.build.yaml'
-
-
-
       
       - uses: GuillaumeFalourd/setup-windows10-sdk-action@v2
         with:
@@ -110,6 +107,20 @@ jobs:
           cmake --install mbedtls-build --config Release
           cmake --install mbedtls-build --config Release --prefix mbedtls-install
         working-directory: driver/vendor/mbedtls
+        
+      - name: Install MbedTLS On Mac
+        if: ${{ matrix.platform == 'macos-latest' }}
+        run: brew install mbedtls
+
+      - name: Install MbedTLS On Ubuntu
+        if: ${{ matrix.platform == 'ubuntu-latest' }}
+        run: |
+         sudo apt-get install -y libmbedtls-dev
+         ls /usr/include/mbedtls
+         ls /usr/lib/x86_64-linux-gnu/libmbed*
+
+      - name: Update Submodules
+        run: git submodule update --init --recursive
 
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.8.1
@@ -117,10 +128,6 @@ jobs:
           bazelisk-cache: true
           disk-cache: ${{ github.workflow }}
           repository-cache: true
-        
-      - name: Update Submodules
-        run: git submodule update --init --recursive
-
 
       - name: Build Open65421 on Windows
         if: ${{ matrix.platform == 'windows-latest' }}
@@ -131,16 +138,21 @@ jobs:
           cmake --build . --config RelWithDebInfo --target install
         working-directory: driver/vendor/open62541/open62541
 
+      - name: Build Open62541 on Mac and Ubuntu
+        if: ${{ matrix.platform == 'macos-latest' || matrix.platform == 'ubuntu-latest' }}
+        shell: bash
+        run: |
+          mkdir build && cd build
+          cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -DUA_NAMESPACE_ZERO=FULL -DCMAKE_INSTALL_PREFIX=../out -DUA_ENABLE_ENCRYPTION=MBEDTLS ..
+          cmake --build . --config RelWithDebInfo --target install
+        working-directory: driver/vendor/open62541/open62541
+
       - name: Build Driver on Windows
         if: ${{ matrix.platform == 'windows-latest' }}
         run: bazel --output_user_root=C:/tmp build --enable_platform_specific_config //driver:driver_main --define ni_mock=true
 
-      - name: Build Driver on mac
-        if: ${{ matrix.platform == 'macos-latest' }}
-        run: bazel build --enable_platform_specific_config //driver:driver_main --define ni_mock=true
-
-      - name: Build Driver on ubuntu
-        if: ${{ matrix.platform == 'ubuntu-latest' }}
+      - name: Build Driver on on Mac and Ubuntu
+        if: ${{ matrix.platform != 'windows-latest' }}
         run: bazel build --enable_platform_specific_config //driver:driver_main --define ni_mock=true
 
       - name: Determine Executable Name

@@ -58,22 +58,29 @@ cc_binary(
         ],
         "//conditions:default": [],
     }),
-    deps = select({ 
-        "@platforms//os:windows":[
+    deps = select({
+        "@platforms//os:windows": [
             "//driver",
             "//driver/breaker",
             "//driver/meminfo",
-            "//driver/opc",
             "//driver/ni",
+            "//driver/opc",
             "//driver/task",
-            "@com_github_google_glog//:glog",
             "@com_github_gflags_gflags//:gflags",
-            "@mbedtls"
-            # "@openssl",
-            # "@mbedtls"
-            # "@boringssl//:ssl",
-            # "@boringssl//:crypto",
-        ], 
+            "@com_github_google_glog//:glog",
+            "@mbedtls_win",
+        ],
+        "@platforms//os:linux": [
+            "//driver",
+            "//driver/breaker",
+            "//driver/meminfo",
+            "//driver/ni",
+            "//driver/opc",
+            "//driver/task",
+            "@com_github_gflags_gflags//:gflags",
+            "@com_github_google_glog//:glog",
+            "@mbedtls_linux",
+        ],
         "//conditions:default": [
             "//driver",
             "//driver/breaker",
@@ -81,8 +88,9 @@ cc_binary(
             "//driver/ni",
             "//driver/opc",
             "//driver/task",
-            "@com_github_google_glog//:glog",
             "@com_github_gflags_gflags//:gflags",
+            "@com_github_google_glog//:glog",
+            "@mbedtls_macos",
         ],
     }),
 )
