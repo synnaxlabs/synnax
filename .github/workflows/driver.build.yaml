@@ -30,6 +30,7 @@ jobs:
         if: ${{ matrix.platform == 'windows-latest' }}
         shell: bash
         run: |
+          git submodule update --init
           cmake -DGEN_FILES=ON -DENABLE_TESTING=Off .
           make
         working-directory: driver/vendor/mbedtls/mbedtls
