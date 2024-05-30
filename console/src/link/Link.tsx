@@ -7,13 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// Issues: the workspace bar at the top doesn't change. Getting a large readout
+// in the error window. What if we are trying to access a workspace from a
+// cluster that we are not connected to?
+
 import { Layout } from "@/layout";
 import { Synnax } from "@synnaxlabs/pluto";
 import { useEffect } from "react";
 import { useDispatch } from "react-redux";
 
 export const useDeepLink = () => {
-  const url0 = "synnax://workspace:92cf58a7-adba-44b0-97f7-fbbc1cf9432e";
+  const url0 = "synnax://workspace:30be724f-2b00-4a90-8b62-5d43594b67b4";
   const client = Synnax.use();
   const urls = [url0];
   const d = useDispatch();
