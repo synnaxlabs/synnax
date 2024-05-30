@@ -42,7 +42,6 @@ var _ = Describe("Writer Behavior", func() {
 			})
 			AfterAll(func() {
 				Expect(db.Close()).To(Succeed())
-				_ = cleanUp
 				Expect(cleanUp()).To(Succeed())
 			})
 			Describe("Happy Path", func() {

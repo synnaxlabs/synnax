@@ -4,7 +4,6 @@ import (
 	"context"
 	"github.com/cockroachdb/errors"
 	"github.com/google/uuid"
-	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/telem"
@@ -67,9 +66,6 @@ func (db *DB) delete(ctx context.Context, tr telem.TimeRange) error {
 	}
 
 	_, ok := g.Authorize()
-	if !ok {
-		return controller.Unauthorized(g.Subject.Name, db.Channel.Key)
-	}
 	defer g.Release()
 
 	i := db.Domain.NewIterator(domain.IteratorConfig{Bounds: tr})
@@ -124,11 +120,6 @@ func (db *DB) delete(ctx context.Context, tr telem.TimeRange) error {
 	return errors.CombineErrors(err, i.Close())
 }
 
-// GarbageCollect creates an absolute control region on the channel and prevents any
-// writes or deletes from occurring – in addition, it holds the unary entityCount mutex
-// for the whole duration – therefore, there cannot be any read operations either.
-// GarbageCollect cleans up all data-storage .domain files in the unaryDB by removing
-// all data no longer in any stored domain.
 func (db *DB) GarbageCollect(ctx context.Context) error {
 	return db.wrapError(db.Domain.GarbageCollect(ctx))
 }
