@@ -52,7 +52,7 @@ ni::Scanner::~Scanner(){
 }
 
 void ni::Scanner::scan(){
-    LOG(INFO) << "[ni.scanner] scanning for devices for task " << this->task.name;
+    // LOG(INFO) << "[ni.scanner] scanning for devices for task " << this->task.name;
     NISysCfgResourceHandle resource = NULL;
 
     // first find hardware
@@ -135,7 +135,7 @@ void ni::Scanner::createDevices(){
         if(this->ctx->client->hardware.createDevice(new_device) != freighter::NIL){
             // LOG(ERROR) << "[ni.scanner] failed to create device " << device["model"] << " with key " << device["key"] << " for task " << this->task.name;
         }        
-        LOG(INFO) << "[ni.scanner] successfully created device " << device["model"] <<  " with key " << device["key"] << " for task " << this->task.name;
+        // LOG(INFO) << "[ni.scanner] successfully created device " << device["model"] <<  " with key " << device["key"] << " for task " << this->task.name;
     }
 }
 

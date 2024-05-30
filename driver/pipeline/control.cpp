@@ -35,6 +35,14 @@ void Control::start() {
     if (this->thread != nullptr && thread->joinable() && std::this_thread::get_id() != thread->get_id())
         thread->join();
     breaker.start();
+    auto s_err = sink->start();
+    if (s_err) {
+        LOG(ERROR) << "[acquisition] Failed to start source: " << s_err.message();
+        if (s_err.matches(driver::TYPE_TEMPORARY_HARDWARE_ERROR) && breaker.wait(
+                s_err.message()))
+            run();
+        return;
+    }  
     thread = std::make_unique<std::thread>(&Control::run, this);
 }
 
@@ -45,6 +53,7 @@ void Control::stop() {
         thread->join();
     };
     this->streamer->closeSend();
+    sink->stop();
     LOG(INFO) << "[control] Control stopped";
 }
 
@@ -62,12 +71,12 @@ void Control::runInternal() {
         auto [cmd_frame, cmd_err] = this->streamer->read();
         if (cmd_err) break;
         auto daq_err = sink->write(std::move(cmd_frame));    
+        //    breaker.reset();
     }
-
     const auto err = this->streamer->close(); // close or closeSend
 
     if (err.matches(freighter::UNREACHABLE) && breaker.wait()) return runInternal();
-    
+    this->stop();
 }
 
 void Control::run() {
@@ -75,9 +84,9 @@ void Control::run() {
         runInternal();
     } catch (const std::exception &e) {
         LOG(ERROR) << "[Control] Unhandled standard exception: " << e.what();
-        stop();
+        this->stop();
     } catch (...) {
         LOG(ERROR) << "[Control] Unhandled unknown exception";
-        stop();
+        this->stop();
     }
 }

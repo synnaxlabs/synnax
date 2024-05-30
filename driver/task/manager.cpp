@@ -133,9 +133,13 @@ void task::Manager::processTaskSet(const Series &series) {
         // If a module exists with this key, stop and remove it.
         auto task_iter = tasks.find(key);
         if (task_iter != tasks.end()) {
+            LOG(INFO) << "[task.manager] stopping task with key: " << key << ".";
             task_iter->second->stop();
+            LOG(INFO) << "[task.manager] erasing task with key: " << key << ".";
             tasks.erase(task_iter);
+            LOG(INFO) << "[task.manager] task erased: " << key << ".";
         }
+        LOG(INFO) << "[task.manager] task gone:  " << key << ".";
         auto [sy_task, err] = internal.tasks.retrieve(key);
         if (err) {
             std::cerr << err.message() << std::endl;

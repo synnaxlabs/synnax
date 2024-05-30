@@ -169,6 +169,7 @@ namespace ni{
         std::atomic<bool> running = false;
         std::thread sample_thread;
         synnax::Task task;
+        uint32_t buffered_frames = 0;
     };
 
     ///////////////////////////////////////////////////////////////////////////////////
@@ -298,6 +299,7 @@ namespace ni{
         std::shared_ptr<task::Context> ctx;
         WriterConfig writer_config; 
         breaker::Breaker breaker;
+        std::atomic<bool> running = false;
     };
 
     ///////////////////////////////////////////////////////////////////////////////////
@@ -407,6 +409,11 @@ namespace ni{
         static std::unique_ptr<task::Task> configure(   const std::shared_ptr<task::Context> &ctx,
                                                         const synnax::Task &task);
         bool ok();
+        ~WriterTask(){
+            LOG(INFO) << "WriterTask destructor called";
+        }
+
+
     private:
         std::atomic<bool>  running = false;
         std::shared_ptr<task::Context> ctx;

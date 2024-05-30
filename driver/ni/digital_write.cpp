@@ -46,7 +46,9 @@ ni::DigitalWriteSink::DigitalWriteSink(
     const synnax::Task task)
     : task_handle(task_handle),
       ctx(ctx){
-    
+    // print task handle
+    LOG(INFO) << "Task handle: " << task_handle;
+
     // Create parser
     auto config_parser = config::Parser(task.config);
     this->writer_config.task_name = task.name;
@@ -84,9 +86,9 @@ ni::DigitalWriteSink::DigitalWriteSink(
     this->getIndexKeys();
 
     // TODO: get device proprties for things like authentication
-    this->writer_state_source = std::make_unique<ni::StateSource>(this->writer_config.state_rate,
-                                                                     this->writer_config.drive_state_index_key,
-                                                                     this->writer_config.drive_state_channel_keys);
+    this->writer_state_source = std::make_shared<ni::StateSource>(  this->writer_config.state_rate,
+                                                                    this->writer_config.drive_state_index_key,
+                                                                    this->writer_config.drive_state_channel_keys);
 
     this->start();
 }
@@ -143,7 +145,7 @@ int ni::DigitalWriteSink::init(){
     // iterate through channels
     for (auto &channel : channels){
         if (channel.channel_type != "index"){
-            err = this->checkNIError(ni::NiDAQmxInterface::CreateDOChan(task_handle, channel.name.c_str(), "", DAQmx_Val_ChanPerLine));
+            err = this->checkNIError(ni::NiDAQmxInterface::CreateDOChan(this->task_handle, channel.name.c_str(), "", DAQmx_Val_ChanPerLine));
         }
         this->numChannels++; // includes index channels TODO: how is this different form jsut channels.size()?
         if (err < 0){
@@ -165,37 +167,31 @@ int ni::DigitalWriteSink::init(){
 }
 
 freighter::Error ni::DigitalWriteSink::start(){
-    freighter::Error err = freighter::NIL;
+    if(this->running.exchange(true)){
+        return freighter::NIL;
+    }
     if (this->checkNIError(ni::NiDAQmxInterface::StartTask(this->task_handle))){
         LOG(ERROR) << "[NI Writer] failed while starting writer for task " << this->writer_config.task_name;
-        err = freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
+        return freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
     }
-    else{
-        LOG(INFO) << "[NI Writer] successfully started writer for task " << this->writer_config.task_name;
-    }
-    return err;
+    LOG(INFO) << "[NI Writer] successfully started writer for task " << this->writer_config.task_name;
+
+    return freighter::NIL;
 }
 
 
 freighter::Error ni::DigitalWriteSink::stop(){
-    freighter::Error err = freighter::NIL;
-
+    if(!this->running.exchange(false)){
+        return freighter::NIL;
+    }
     if (this->checkNIError(ni::NiDAQmxInterface::StopTask(task_handle))){
         LOG(ERROR) << "[NI Writer] failed while stopping writer for task " << this->writer_config.task_name;
-        err = freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
+        return freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
     }
-    else{
-        if (this->checkNIError(ni::NiDAQmxInterface::ClearTask(task_handle))){
-            LOG(ERROR) << "[NI Writer] failed while clearing writer for task " << this->writer_config.task_name;
-            err = freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
-        }
-    }
+    LOG(INFO) << "[NI Writer] successfully stopped and cleared writer for task " << this->writer_config.task_name;
 
-    if (err == freighter::NIL){
-        LOG(INFO) << "[NI Writer] successfully stopped and cleared writer for task " << this->writer_config.task_name;
-    }
 
-    return err;
+    return freighter::NIL;
 }
 
 freighter::Error ni::DigitalWriteSink::write(synnax::Frame frame){
@@ -265,9 +261,12 @@ bool ni::DigitalWriteSink::ok(){
 }
 
 ni::DigitalWriteSink::~DigitalWriteSink(){
-    LOG(INFO) << "Destroying daqWriter";
-    this->stop();
-    delete[] writeBuffer;
+    freighter::Error err = freighter::NIL;
+    if (this->checkNIError(ni::NiDAQmxInterface::ClearTask(task_handle))){
+        LOG(ERROR) << "[NI Writer] failed while clearing writer for task " << this->writer_config.task_name;
+    }
+    delete[] this->writeBuffer;
+    LOG(INFO) << "[NI Writer] successfully cleared writer for task " << this->writer_config.task_name;
 }
 
 

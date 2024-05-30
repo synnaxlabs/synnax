@@ -222,6 +222,9 @@ void ni::AnalogReadSource::acquireData(){
             // return; // TODO: handle differently?
         }
         data_packet.tf = (uint64_t)((synnax::TimeStamp::now()).value);
+        // if(buffered_frames > this->reader_config.stream_rate){
+        //     std::this_thread::sleep_for(std::chrono::nanoseconds((uint64_t)((0.5 / this->reader_config.stream_rate )* 1000000000)));
+        // }
         data_queue.enqueue(data_packet);
     }
 }
@@ -231,9 +234,16 @@ std::pair<synnax::Frame, freighter::Error> ni::AnalogReadSource::read(){
 
     // sleep per stream rate
     std::this_thread::sleep_for(std::chrono::nanoseconds((uint64_t)((1.0 / this->reader_config.stream_rate )* 1000000000)));
-    
+
     // take data off of queue
-    std::optional<DataPacket> d = data_queue.dequeue();
+    std::optional<DataPacket> d;
+    // LOG(INFO) << "[NI Reader] data queue limit: " << std::ceil(double(this->reader_config.stream_rate)*0.2);
+    while(data_queue.size() < 1);
+    while(data_queue.size() > 3){
+        d = data_queue.dequeue();
+        if(!d.has_value()) return std::make_pair(std::move(f), freighter::Error(driver::TYPE_TEMPORARY_HARDWARE_ERROR, "no data available to read"));
+        if(d.has_value() && data_queue.size() > 5) delete[] d.value().data;
+    }
     if(!d.has_value()) return std::make_pair(std::move(f), freighter::Error(driver::TYPE_TEMPORARY_HARDWARE_ERROR, "no data available to read"));
     double* data = static_cast<double*>(d.value().data);
     
@@ -250,8 +260,8 @@ std::pair<synnax::Frame, freighter::Error> ni::AnalogReadSource::read(){
     uint64_t data_index = 0;
     for(int i = 0; i < numChannels; i++){
         if(this->reader_config.channels[i].channel_type == "index") {
-                f.add(this->reader_config.channels[i].channel_key, synnax::Series(time_index, synnax::TIMESTAMP));
-                continue;
+            f.add(this->reader_config.channels[i].channel_key, synnax::Series(time_index, synnax::TIMESTAMP));
+            continue;
         }
         
         // copy data into vector
@@ -263,7 +273,6 @@ std::pair<synnax::Frame, freighter::Error> ni::AnalogReadSource::read(){
     }
 
     if(d.has_value()) delete[] d.value().data;
-
     return std::make_pair(std::move(f), freighter::NIL);
 }
 

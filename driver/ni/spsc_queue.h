@@ -17,6 +17,7 @@ class SPSCQueue {
         Node* new_node = new Node(item);
         tail.load(std::memory_order_relaxed)->next.store(new_node, std::memory_order_release);
         tail.store(new_node, std::memory_order_release);
+        q_size++;
     }
 
     // consumer
@@ -27,6 +28,7 @@ class SPSCQueue {
 
         std::optional<T> result = next->data;
         head.store(next, std::memory_order_release);
+        q_size--;
         delete old_head;
         return result;
     }
@@ -44,6 +46,10 @@ class SPSCQueue {
         tail = head.load(std::memory_order_relaxed);
     }
 
+    uint64_t size() const {
+        return q_size.load();
+    }
+
     ~SPSCQueue() {
         this->clear();
     }
@@ -58,5 +64,6 @@ class SPSCQueue {
 
     std::atomic<Node*> head;
     std::atomic<Node*> tail;
+    std::atomic<uint64_t> q_size = 0;
 
 };

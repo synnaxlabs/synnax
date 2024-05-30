@@ -68,7 +68,7 @@ void ni::ScannerTask::exec(task::Command &cmd) {
                                           {"devices", devices.dump(4)}
                                   }
                           });
-            LOG(INFO) << "[NI Task] successfully scanned for task " << this->task.name;
+            // LOG(INFO) << "[NI Task] successfully scanned for task " << this->task.name;
         }
     } else if (cmd.type == "stop"){
         this->stop();
@@ -253,10 +253,15 @@ std::unique_ptr <task::Task> ni::WriterTask::configure(const std::shared_ptr <ta
             .scale = 1.2,
     };
 
+    LOG(INFO) << "[NI Task] configuring task " << task.name;
+
     TaskHandle task_handle;
     // create a daq reader to provide to cmd read pipe as sink
     ni::NiDAQmxInterface::CreateTask("", &task_handle);
-    auto daq_writer = std::make_unique<ni::DigitalWriteSink>(&task_handle, ctx, task);
+    //print taskhandle
+    LOG(INFO) << "Task handle: " << task_handle;
+
+    auto daq_writer = std::make_unique<ni::DigitalWriteSink>(task_handle, ctx, task);
     if (!daq_writer->ok()) {
         LOG(ERROR) << "[NI Writer] failed to construct reader for" << task.name;
         return nullptr;
@@ -287,7 +292,15 @@ std::unique_ptr <task::Task> ni::WriterTask::configure(const std::shared_ptr <ta
         }
     });
 
-    return std::make_unique<ni::WriterTask>(ctx, task, std::move(daq_writer), daq_writer->writer_state_source, writer_config, streamer_config, breaker_config);
+    auto state_writer = daq_writer->writer_state_source;
+
+    return std::make_unique<ni::WriterTask>(    ctx, 
+                                                task, 
+                                                std::move(daq_writer), 
+                                                state_writer, 
+                                                writer_config, 
+                                                streamer_config, 
+                                                breaker_config);
 }
 
 void ni::WriterTask::exec(task::Command &cmd) {
@@ -303,6 +316,7 @@ void ni::WriterTask::exec(task::Command &cmd) {
 
 void ni::WriterTask::stop(){
     if(!this->running.exchange(false) || !this->ok()){
+        LOG(INFO) << "[NI Task] did not stop " << this->task.name << " running: " << this->running << " ok: " << this->ok();
         return; // TODO: handle this error
     }
     this->state_write_pipe.stop();
