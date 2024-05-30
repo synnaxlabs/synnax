@@ -7,7 +7,7 @@
 
 # 0 - Summary
 
-In this RFC I discuss the nuances of Cesium's concurrency. More specifically, how it handles race conditions across its different operations. The motivating example is a design problem faced by implementing the deletion operation – I first introduce a solution to that problem, and then expand to talk about Cesium as a whole and examine the potential race conditions.
+In this RFC I discuss the nuances of Cesium's concurrency. More specifically, how it handles race conditions across its different operations.
 
 # 1 - Vocabulary
 
@@ -21,7 +21,7 @@ In this RFC I discuss the nuances of Cesium's concurrency. More specifically, ho
 
 # 2 - Motivation
 
-Cesium-based atomic clocks are "the most accurate realization of a unit that mankind has yet achieved." By extension, Cesium, the database named after the element in question, must also be accurate. This is challenging, however, due to Cesium's concurrent nature. When multiple subprocesses(goroutines) are to apply operations on the database, it is vital to handle these potentially conflicing operations in an orderly and predictable manner.
+Cesium-based atomic clocks are "the most accurate realization of a unit that mankind has yet achieved." By extension, Cesium, the database named after the element in question, must also be accurate. This is challenging, however, due to Cesium's concurrent nature. When multiple subprocesses(goroutines) are to apply operations on the database, it is vital to handle these potentially conflicting operations in an orderly and predictable manner.
 
 As Cesium looks to become production-ready, this task becomes more important as Cesium must support Read operations, Write operations, and Delete operations (through a tombstone/garbage-collection system). All of the operations must coexist without conflicting each other: for example, we obviously do not want two writers writing to the same file, but it's totally fine to read from a file in the first 100 bytes, while a writer in append-mode is writing to byte 150 and onward.
 
@@ -29,7 +29,7 @@ As Cesium looks to become production-ready, this task becomes more important as 
 
 The core method through which concurrency is protected is the *Mutex*.
 
-The Mutex allows for operations of threads (Going forward, I will refer to these as goroutines in the specific context as go) to be MUTually EXclusive. In other words, if one goroutine acquires a mutex (by calling `mu.Lock()`, all other goroutines trying to acquire it must wait until it is freed, i.e. `mu.Lock()` will block until the first goroutine releases the Mutex, i.e. `mu.UnLock()`. In addition, one goroutine may acquire a Read-Lock only (`mu.RLock()`), which allows other goroutines to acquire Read-Locks, but no goroutine may acquire a full-Lock.
+The Mutex allows for operations of threads (going forward, I will refer to these as goroutines in the specific context as go) to be MUTually EXclusive. In other words, if one goroutine acquires a mutex (by calling `mu.Lock()`, all other goroutines trying to acquire it must wait until it is freed, i.e. `mu.Lock()` will block until the first goroutine releases the Mutex, i.e. `mu.UnLock()`. In addition, one goroutine may acquire a Read-Lock only (`mu.RLock()`), which allows other goroutines to acquire Read-Locks, but no goroutine may acquire a write-Lock.
 
 # 4- Analysis
 
@@ -62,5 +62,12 @@ Both of these entities access the index and the underlying file system, however,
 
 ### 4.1.4 GC-Delete deletion
 
-Deletion does not change the underlying file, but may change the index. GC changes the index, but only for the field of length.
+Deletion does not change the underlying file, but may change the index. GC changes the index, but only for the field of length. We also know that there cannot be more pointers on a file after GC compared with before, therefore this conflict can just be handled by the mutex of the index.
 
+## 4.2 Bottom-up view of race conditions in Cesium
+
+We will now inspect, from the bottom up, how the various entities interact with the domain data and the index in memory.
+
+### 4.2.1 Reading
+
+To read a piece of telemetry data on the
