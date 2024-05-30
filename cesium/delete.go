@@ -198,9 +198,9 @@ func (db *DB) DeleteTimeRange(ctx context.Context, chs []ChannelKey, tr telem.Ti
 		udb, uok := db.unaryDBs[ch]
 		if !uok {
 			if _, vok := db.virtualDBs[ch]; vok {
-				return errors.Newf("cannot delete timerange from virtual channel %v", db.virtualDBs[ch].Channel)
+				return errors.Newf("cannot delete time range from virtual channel %v", db.virtualDBs[ch].Channel)
 			}
-			return errors.Wrapf(ErrChannelNotFound, "timerange deletion channel key %d not found", ch)
+			return errors.Wrapf(ErrChannelNotFound, "channel key %d not found", ch)
 		}
 
 		// Cannot delete an index channel that other channels rely on.
@@ -241,9 +241,9 @@ func (db *DB) garbageCollect(ctx context.Context, maxGoRoutine int64) error {
 	defer span.End()
 	db.mu.RLock()
 	var (
-		sem = semaphore.NewWeighted(maxGoRoutine)
-		wg  = &sync.WaitGroup{}
-		c   = errors.NewCatcher(errors.WithAggregation())
+		sem     = semaphore.NewWeighted(maxGoRoutine)
+		sCtx, _ = signal.Isolated()
+		wg      = &sync.WaitGroup{}
 	)
 
 	for _, udb := range db.unaryDBs {
@@ -252,20 +252,14 @@ func (db *DB) garbageCollect(ctx context.Context, maxGoRoutine int64) error {
 		}
 		wg.Add(1)
 		udb := udb
-		go func() {
-			defer func() {
-				sem.Release(1)
-				wg.Done()
-			}()
-			c.Exec(func() error {
-				return udb.GarbageCollect(ctx)
-			})
-		}()
+		sCtx.Go(func(_ctx context.Context) error {
+			defer sem.Release(1)
+			return udb.GarbageCollect(_ctx)
+		})
 	}
 
-	wg.Wait()
 	db.mu.RUnlock()
-	return c.Error()
+	return sCtx.Wait()
 }
 
 func (db *DB) startGC(sCtx signal.Context, opts *options) {

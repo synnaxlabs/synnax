@@ -34,7 +34,9 @@ type fileController struct {
 	Config
 	writers struct {
 		sync.RWMutex
-		open     map[uint16]controlledWriter
+		open map[uint16]controlledWriter
+		// unopened is a set of file keys to files that are not oversize and do not have
+		// any file handles for them in open.
 		unopened map[uint16]struct{}
 	}
 	readers struct {
@@ -93,6 +95,15 @@ func (fc *fileController) scanUnopenedFiles() (map[uint16]struct{}, error) {
 	return unopened, nil
 }
 
+// acquireWriter acquires a writer for a file in the file system. The order it acquires
+// is as follows:
+//
+// 1. If any open file handles (writers.open) are present and are not currently
+// controlled, and the file is not oversize, it is acquired.
+// 2. If no open file handles are acquired, then the file controller attempts to acquire
+// a handle for a closed file (writers.unopened).
+// 3. If no unopened files are available, then the file controller creates a new file
+// handle to a new file, as governed by counter.
 func (fc *fileController) acquireWriter(ctx context.Context) (uint16, int64, xio.TrackedWriteCloser, error) {
 	ctx, span := fc.T.Bench(ctx, "acquireWriter")
 	defer span.End()
@@ -307,22 +318,31 @@ func (fc *fileController) gcReaders() (successful bool, err error) {
 func (fc *fileController) gcWriters() (bool, error) {
 	fc.writers.Lock()
 	defer fc.writers.Unlock()
+	collected := false
 	for k, w := range fc.writers.open {
 		s, err := fc.FS.Stat(fileKeyToName(k))
 		if err != nil {
-			return false, err
+			return collected, err
 		}
 
 		if s.Size() >= int64(fc.FileSize) && w.tryAcquire() {
 			err = w.HardClose()
 			if err != nil {
-				return false, err
+				return collected, err
 			}
 			delete(fc.writers.open, k)
-			return true, err
+			collected = true
 		}
 	}
-	return false, nil
+	return collected, nil
+}
+
+func (fc *fileController) hasWriter(fileKey uint16) bool {
+	fc.writers.RLock()
+	defer fc.writers.RUnlock()
+
+	_, ok := fc.writers.open[fileKey]
+	return ok
 }
 
 // rejuvenate adds a file key to the unopened writers set. If there is an open writer

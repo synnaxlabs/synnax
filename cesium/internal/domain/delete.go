@@ -5,10 +5,7 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/x/telem"
 	"os"
-	"sort"
 )
-
-const tombstoneByteSize = 6
 
 // Delete adds all pointers ranging from
 // [db.get(startPosition).offset + startOffset, db.get(endPosition).offset + length - endOffset)
@@ -20,14 +17,27 @@ const tombstoneByteSize = 6
 // The following requirements are placed on the variables:
 // 0 <= startPosition <= endPosition < len(db.mu.idx.pointers), and must both be valid
 // positions in the index.
-func (db *DB) Delete(ctx context.Context, startPosition int, endPosition int, startOffset int64, endOffset int64, tr telem.TimeRange) error {
+func (db *DB) Delete(
+	ctx context.Context,
+	startOffset int64,
+	endOffset int64,
+	tr telem.TimeRange,
+) error {
 	ctx, span := db.T.Bench(ctx, "Delete")
 	defer span.End()
 
 	db.idx.mu.Lock()
+	defer db.idx.mu.Unlock()
 
-	if err := validateDelete(startPosition, endPosition, &startOffset, &endOffset, db.idx); err != nil {
-		db.idx.mu.Unlock()
+	startPosition, exact := db.idx.unprotectedSearch(tr.Start.SpanRange(0))
+	if !exact {
+		startPosition += 1
+	}
+
+	endPosition, _ := db.idx.unprotectedSearch(tr.End.SpanRange(0))
+
+	err, ok := validateDelete(startPosition, endPosition, &startOffset, &endOffset, db.idx)
+	if err != nil || !ok {
 		return span.Error(err)
 	}
 
@@ -37,18 +47,7 @@ func (db *DB) Delete(ctx context.Context, startPosition int, endPosition int, st
 		newPointers = make([]pointer, 0)
 	)
 
-	if startPosition == endPosition-1 && startOffset == int64(end.length) && endOffset == int64(end.length) ||
-		startPosition == endPosition && startOffset+endOffset == int64(start.length) {
-		// delete nothing
-		db.idx.mu.Unlock()
-		return nil
-	}
-
 	// Remove old pointers.
-	for i := startPosition + 1; i < endPosition; i++ {
-		ptr := db.idx.mu.pointers[i]
-		db.idx.mu.tombstones[ptr.fileKey] += ptr.length
-	}
 	db.idx.mu.pointers = append(db.idx.mu.pointers[:startPosition], db.idx.mu.pointers[endPosition+1:]...)
 
 	if startOffset != 0 {
@@ -62,7 +61,6 @@ func (db *DB) Delete(ctx context.Context, startPosition int, endPosition int, st
 			length:  uint32(startOffset), // length from start.Start to tr.Start
 		})
 	}
-	db.idx.mu.tombstones[start.fileKey] += start.length - uint32(startOffset)
 
 	if endOffset != 0 {
 		newPointers = append(newPointers, pointer{
@@ -75,115 +73,153 @@ func (db *DB) Delete(ctx context.Context, startPosition int, endPosition int, st
 			length:  uint32(endOffset), // length from tr.End to end.End
 		})
 	}
-	db.idx.mu.tombstones[end.fileKey] += end.length - uint32(endOffset)
-
-	if startPosition == endPosition {
-		// If start and end are in the same domain, then we only keep their intersection
-		// as the tombstone. Calculated via the PIE.
-		db.idx.mu.tombstones[end.fileKey] -= end.length
-	}
 
 	if len(newPointers) != 0 {
-		temp := make([]pointer, len(db.idx.mu.pointers)+len(newPointers))
-		copy(temp, db.idx.mu.pointers[:startPosition])
-		copy(temp[startPosition:startPosition+len(newPointers)], newPointers)
-		copy(temp[startPosition+len(newPointers):], db.idx.mu.pointers[startPosition:])
-		db.idx.mu.pointers = temp
+		db.idx.mu.pointers = append(db.idx.mu.pointers[:startPosition], append(newPointers, db.idx.mu.pointers[startPosition:]...)...)
 	}
 
 	persistPointers := db.idx.indexPersist.preparePointersPersist(startPosition)
-	persistTombstones := db.idx.indexPersist.prepareTombstonePersist()
-	db.idx.mu.Unlock()
-	if err := persistPointers(); err != nil {
-		return span.Error(err)
-	}
-	return span.Error(persistTombstones())
+	return span.Error(persistPointers())
 }
 
-// GarbageCollect rewrites all files that have tombstones in them to remove the garbage
-// data, close all file handles on them, and add them to the unopened files set if they
-// have space for writing after garbage collect.
+// GarbageCollect rewrites all files that are over the size limit of a file and has
+// enough tombstones to garbage collect, as defined by GCThreshold.
 func (db *DB) GarbageCollect(ctx context.Context) error {
-	ctx, span := db.T.Bench(ctx, "GCTombstone")
+	ctx, span := db.T.Bench(ctx, "garbage_collect")
 	defer span.End()
 
-	db.idx.mu.Lock()
+	_, err := db.files.gcWriters()
+	if err != nil {
+		return span.Error(err)
+	}
 
-	for fileKey, tombstoneSize := range db.idx.mu.tombstones {
-		if tombstoneSize >= uint32(db.GCThreshold*float32(db.FileSize)) {
-			var (
-				fileName         = fileKeyToName(fileKey)
-				newOffset uint32 = 0
-				pointers         = make([]*pointer, 0)
-			)
+	var fileKey uint16
 
-			f, err := db.FS.Open(fileName, os.O_RDWR)
+	for fileKey = 1; fileKey <= uint16(db.files.counter.Value()); fileKey++ {
+		if db.files.hasWriter(fileKey) {
+			continue
+		}
+		s, err := db.FS.Stat(fileKeyToName(fileKey))
+		if err != nil {
+			return span.Error(err)
+		}
+		if s.Size() >= int64(db.FileSize) {
+			err = db.garbageCollectFile(fileKey, s.Size())
 			if err != nil {
-				db.idx.mu.Unlock()
-				return span.Error(err)
-			}
-
-			// Find all pointers stored in the file, and sort them in order of offset.
-			for i, ptr := range db.idx.mu.pointers {
-				if ptr.fileKey == fileKey {
-					pointers = append(pointers, &db.idx.mu.pointers[i])
-				}
-			}
-
-			sort.Slice(pointers, func(i, j int) bool {
-				return pointers[i].offset < pointers[j].offset
-			})
-
-			for _, ptr := range pointers {
-				buf := make([]byte, int(ptr.length))
-				_, err = f.ReadAt(buf, int64(ptr.offset))
-				if err != nil {
-					db.idx.mu.Unlock()
-					return err
-				}
-				n, err := f.WriteAt(buf, int64(newOffset))
-				if err != nil {
-					db.idx.mu.Unlock()
-					return err
-				}
-
-				ptr.offset = newOffset
-				newOffset += uint32(n)
-			}
-
-			if err = f.Truncate(int64(newOffset)); err != nil {
-				db.idx.mu.Unlock()
-				return span.Error(err)
-			}
-
-			if err = f.Close(); err != nil {
-				db.idx.mu.Unlock()
-				return span.Error(err)
-			}
-
-			// Remove entry from tombstones.
-			delete(db.idx.mu.tombstones, fileKey)
-
-			err = db.files.rejuvenate(fileKey)
-			if err != nil {
-				db.idx.mu.Unlock()
 				return span.Error(err)
 			}
 		}
 	}
 
-	persistTombstones := db.idx.indexPersist.prepareTombstonePersist()
-	db.idx.mu.Unlock()
-	return persistTombstones()
+	db.idx.mu.RLock()
+	persistPointers := db.idx.indexPersist.preparePointersPersist(0)
+	db.idx.mu.RUnlock()
+	return persistPointers()
 }
 
-func validateDelete(startPosition int, endPosition int, startOffset *int64, endOffset *int64, idx *index) error {
-	if startPosition < 0 || startPosition >= len(idx.mu.pointers) {
-		return errors.Newf("deletion starting at invalid domain position %d for length %d", startPosition, len(idx.mu.pointers))
+func (db *DB) garbageCollectFile(key uint16, size int64) error {
+	var (
+		name                 = fileKeyToName(key)
+		copyName             = name + "_gc"
+		newOffset     uint32 = 0
+		tombstoneSize        = size
+		ptrs          []pointer
+		// offsetMap maps the old offset to the new offset for any pointer. Note
+		// that pointer offsets are unique within a file.
+		offsetMap = make(map[uint32]uint32)
+	)
+
+	// Find all pointers using the file: there cannot be more pointers using the file
+	// during GC since the file must be already full – however, there can be less due
+	// to deletion.
+	db.idx.mu.RLock()
+	for _, ptr := range db.idx.mu.pointers {
+		if ptr.fileKey == key {
+			ptrs = append(ptrs, ptr)
+			tombstoneSize -= int64(ptr.length)
+		}
+	}
+	db.idx.mu.RUnlock()
+
+	// Decide whether we should GC
+	if tombstoneSize < int64(db.GCThreshold*float32(db.FileSize)) {
+		return nil
 	}
 
-	if endPosition < 0 || endPosition >= len(idx.mu.pointers) {
-		return errors.Newf("deletion ending at invalid domain position %d for length %d", endPosition, len(idx.mu.pointers))
+	// Open a reader on the old file.
+	r, err := db.FS.Open(name, os.O_RDONLY)
+	if err != nil {
+		return err
+	}
+
+	// Open a writer to the copy file.
+	w, err := db.FS.Open(copyName, os.O_WRONLY|os.O_CREATE)
+	if err != nil {
+		return err
+	}
+
+	// Find all pointers stored in the old file, and write them to the new file.
+	for _, ptr := range ptrs {
+		buf := make([]byte, ptr.length)
+		_, err = r.ReadAt(buf, int64(ptr.offset))
+		if err != nil {
+			return err
+		}
+
+		_, err = w.WriteAt(buf, int64(newOffset))
+		if err != nil {
+			return err
+		}
+
+		if newOffset != ptr.offset {
+			offsetMap[ptr.offset] = newOffset
+		}
+		newOffset += ptr.length
+	}
+
+	if err = r.Close(); err != nil {
+		return err
+	}
+
+	if err = w.Close(); err != nil {
+		return err
+	}
+
+	// Update the file and index while holding the mutex lock.
+	db.idx.mu.Lock()
+	for i, ptr := range db.idx.mu.pointers {
+		if ptr.fileKey == key {
+			oldOffset := ptr.offset
+			if o, ok := offsetMap[oldOffset]; ok {
+				db.idx.mu.pointers[i].offset = o
+			}
+		}
+	}
+
+	err = db.FS.Rename(name, name+"_temp")
+	if err != nil {
+		db.idx.mu.Unlock()
+		return err
+	}
+	err = db.FS.Rename(copyName, name)
+	db.idx.mu.Unlock()
+
+	if err = db.files.rejuvenate(key); err != nil {
+		return err
+	}
+
+	return db.FS.Remove(name + "_temp")
+}
+
+// validateDelete returns an error if the deletion request is valid. In addition, it
+// returns true if there is some data to be deleted (i.e. deleting nothing).
+func validateDelete(startPosition int, endPosition int, startOffset *int64, endOffset *int64, idx *index) (error, bool) {
+	if startPosition == len(idx.mu.pointers) {
+		return nil, false
+	}
+
+	if endPosition == -1 {
+		return nil, false
 	}
 
 	if *startOffset < 0 {
@@ -206,12 +242,17 @@ func validateDelete(startPosition int, endPosition int, startOffset *int64, endO
 	if startPosition > endPosition && !(startPosition == endPosition+1 &&
 		*startOffset == 0 &&
 		*endOffset == 0) {
-		return errors.Newf("deletion start domain %d is greater than deletion end domain %d", startPosition, endPosition)
+		return errors.Newf("deletion start domain %d is greater than deletion end domain %d", startPosition, endPosition), false
 	}
 
 	if startPosition == endPosition && *startOffset+*endOffset > int64(idx.mu.pointers[startPosition].length) {
-		return errors.Newf("deletion start offset %d is after end offset %d", *startOffset, *endOffset)
+		return errors.Newf("deletion start offset %d is after end offset %d", *startOffset, *endOffset), false
 	}
 
-	return nil
+	if (startPosition == endPosition-1 && *startOffset == int64(idx.mu.pointers[endPosition].length) && *endOffset == int64(idx.mu.pointers[endPosition].length)) ||
+		startPosition == endPosition && *startOffset+*endOffset == int64(idx.mu.pointers[startPosition].length) {
+		return nil, false
+	}
+
+	return nil, true
 }

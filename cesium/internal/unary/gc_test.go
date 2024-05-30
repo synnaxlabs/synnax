@@ -1,3 +1,12 @@
+// Copyright 2024 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 package unary_test
 
 import (
@@ -34,6 +43,7 @@ var _ = Describe("Garbage Collection", func() {
 							DataType: telem.Int64T,
 							Rate:     1 * telem.Hz,
 						},
+						FileSize:    719 * telem.ByteSize,
 						GCThreshold: math.SmallestNonzeroFloat32,
 					}))
 					indexDB = MustSucceed(unary.Open(unary.Config{
@@ -44,6 +54,7 @@ var _ = Describe("Garbage Collection", func() {
 							IsIndex:  true,
 							Index:    indexKey,
 						},
+						FileSize:    719 * telem.ByteSize,
 						GCThreshold: math.SmallestNonzeroFloat32,
 					}))
 
@@ -54,6 +65,7 @@ var _ = Describe("Garbage Collection", func() {
 							DataType: telem.Int64T,
 							Index:    indexKey,
 						},
+						FileSize:    719 * telem.ByteSize,
 						GCThreshold: math.SmallestNonzeroFloat32,
 					}))
 					dataDB.SetIndex(indexDB.Index())
@@ -65,107 +77,48 @@ var _ = Describe("Garbage Collection", func() {
 					Expect(cleanUp()).To(Succeed())
 				})
 
-				Describe("Rate DB", func() {
-					Specify("One pointer", func() {
-						Expect(unary.Write(ctx, rateDB, 10*telem.SecondTS, telem.NewSeriesV[int64](100, 101, 102, 103, 104, 105, 106))).To(Succeed())
-						Expect(rateDB.Delete(ctx, (10*telem.SecondTS + 1).Range(12*telem.SecondTS+1))).To(Succeed())
-
-						Expect(MustSucceed(rateDB.FS.Stat("1.domain")).Size()).To(Equal(int64(7 * telem.Int64T.Density())))
-						Expect(rateDB.GarbageCollect(ctx)).To(Succeed())
-						Expect(MustSucceed(rateDB.FS.Stat("1.domain")).Size()).To(Equal(int64(5 * telem.Int64T.Density())))
-
-						By("Writing some new data")
-						Expect(unary.Write(ctx, rateDB, 17*telem.SecondTS, telem.NewSeriesV[int64](107, 108, 109))).To(Succeed())
-
-						f := MustSucceed(rateDB.Read(ctx, telem.TimeRangeMax))
-						Expect(f.Series).To(HaveLen(3))
-
-						Expect(f.Series[0].TimeRange).To(Equal((10 * telem.SecondTS).Range(10*telem.SecondTS + 1)))
-						Expect(f.Series[0].Data).To(Equal(telem.NewSeriesV[int64](100).Data))
-						Expect(f.Series[1].TimeRange).To(Equal((12*telem.SecondTS + 1).Range(16*telem.SecondTS + 1)))
-						Expect(f.Series[1].Data).To(Equal(telem.NewSeriesV[int64](103, 104, 105, 106).Data))
-						Expect(f.Series[2].TimeRange).To(Equal((17 * telem.SecondTS).Range(19*telem.SecondTS + 1)))
-						Expect(f.Series[2].Data).To(Equal(telem.NewSeriesV[int64](107, 108, 109).Data))
-					})
-					Specify("Multiple pointers", func() {
-						By("Writing data to the channel")
-						for i := 1; i <= 9; i++ {
-							var data []int64
-							for j := 0; j <= 9; j++ {
-								data = append(data, int64(i*10+j))
-							}
-							Expect(unary.Write(ctx, rateDB, telem.TimeStamp(10*i)*telem.SecondTS, telem.NewSeriesV[int64](data...))).To(Succeed())
+				Specify("Rate DB", func() {
+					By("Writing data to the channel")
+					for i := 1; i <= 9; i++ {
+						var data []int64
+						for j := 0; j <= 9; j++ {
+							data = append(data, int64(i*10+j))
 						}
+						Expect(unary.Write(ctx, rateDB, telem.TimeStamp(10*i)*telem.SecondTS, telem.NewSeriesV[int64](data...))).To(Succeed())
+					}
 
-						By("Deleting data from the channel")
-						Expect(rateDB.Delete(ctx, telem.TimeRange{
-							Start: 33 * telem.SecondTS,
-							End:   75 * telem.SecondTS,
-						})).To(Succeed())
+					By("Deleting data from the channel")
+					Expect(rateDB.Delete(ctx, telem.TimeRange{
+						Start: 33 * telem.SecondTS,
+						End:   75 * telem.SecondTS,
+					})).To(Succeed())
 
-						Expect(MustSucceed(rateDB.FS.Stat("1.domain")).Size()).To(Equal(int64(720)))
-						Expect(rateDB.GarbageCollect(ctx)).To(Succeed())
-						Expect(MustSucceed(rateDB.FS.Stat("1.domain")).Size()).To(Equal(int64(384)))
+					Expect(MustSucceed(rateDB.FS.Stat("1.domain")).Size()).To(Equal(int64(720)))
+					Expect(rateDB.GarbageCollect(ctx)).To(Succeed())
+					Expect(MustSucceed(rateDB.FS.Stat("1.domain")).Size()).To(Equal(int64(384)))
 
-						By("Writing some new data")
-						Expect(unary.Write(ctx, rateDB, 100*telem.SecondTS, telem.NewSeriesV[int64](100, 101)))
+					By("Writing some new data")
+					Expect(unary.Write(ctx, rateDB, 100*telem.SecondTS, telem.NewSeriesV[int64](100, 101)))
 
-						By("Asserting that the data is still correct", func() {
-							frame := MustSucceed(rateDB.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 105 * telem.SecondTS}))
-							Expect(frame.Series).To(HaveLen(7))
+					By("Asserting that the data is still correct", func() {
+						frame := MustSucceed(rateDB.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 105 * telem.SecondTS}))
+						Expect(frame.Series).To(HaveLen(7))
 
-							Expect(frame.Series[2].TimeRange.End).To(Equal(33 * telem.SecondTS))
-							series2Data := telem.UnmarshalSlice[int](frame.Series[2].Data, telem.Int64T)
-							Expect(series2Data).To(ConsistOf(30, 31, 32))
-
-							Expect(frame.Series[3].TimeRange.Start).To(Equal(75 * telem.SecondTS))
-							series3Data := telem.UnmarshalSlice[int](frame.Series[3].Data, telem.Int64T)
-							Expect(series3Data).To(ConsistOf(75, 76, 77, 78, 79))
-
-							Expect(frame.Series[6].TimeRange.Start).To(Equal(100 * telem.SecondTS))
-							series6Data := telem.UnmarshalSlice[int](frame.Series[6].Data, telem.Int64T)
-							Expect(series6Data).To(ConsistOf(100, 101))
-						})
-					})
-				})
-
-				Describe("Channel-based DB", func() {
-					Specify("One pointer", func() {
-						By("Writing data to the channel")
-						Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18, 19))).To(Succeed())
-						Expect(unary.Write(ctx, dataDB, 10*telem.SecondTS, telem.NewSeriesV[int64](0, 1, 2, 3, 4, 5, 6, 7, 8, 9))).To(Succeed())
-
-						By("Deleting channel data")
-						Expect(dataDB.Delete(ctx, telem.TimeRange{
-							Start: 12 * telem.SecondTS,
-							End:   17 * telem.SecondTS,
-						})).To(Succeed())
-
-						Expect(MustSucceed(dataDB.FS.Stat("1.domain")).Size()).To(Equal(int64(80)))
-						Expect(dataDB.GarbageCollect(ctx)).To(Succeed())
-						Expect(MustSucceed(dataDB.FS.Stat("1.domain")).Size()).To(Equal(int64(40)))
-
-						By("Writing some new data")
-						Expect(unary.Write(ctx, indexDB, 20*telem.SecondTS, telem.NewSecondsTSV(20, 23, 25))).To(Succeed())
-						Expect(unary.Write(ctx, dataDB, 20*telem.SecondTS, telem.NewSeriesV[int64](20, 23, 25))).To(Succeed())
-
-						frame := MustSucceed(dataDB.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 30 * telem.SecondTS}))
-						Expect(frame.Series).To(HaveLen(3))
-
-						Expect(frame.Series[0].TimeRange.End).To(Equal(12 * telem.SecondTS))
-						series0Data := telem.UnmarshalSlice[int](frame.Series[0].Data, telem.Int64T)
-						Expect(series0Data).To(ConsistOf(0, 1))
-
-						Expect(frame.Series[1].TimeRange.Start).To(Equal(17 * telem.SecondTS))
-						series1Data := telem.UnmarshalSlice[int](frame.Series[1].Data, telem.Int64T)
-						Expect(series1Data).To(ConsistOf(7, 8, 9))
-
-						Expect(frame.Series[2].TimeRange.Start).To(Equal(20 * telem.SecondTS))
+						Expect(frame.Series[2].TimeRange.End).To(Equal(33 * telem.SecondTS))
 						series2Data := telem.UnmarshalSlice[int](frame.Series[2].Data, telem.Int64T)
-						Expect(series2Data).To(ConsistOf(20, 23, 25))
+						Expect(series2Data).To(ConsistOf(30, 31, 32))
+
+						Expect(frame.Series[3].TimeRange.Start).To(Equal(75 * telem.SecondTS))
+						series3Data := telem.UnmarshalSlice[int](frame.Series[3].Data, telem.Int64T)
+						Expect(series3Data).To(ConsistOf(75, 76, 77, 78, 79))
+
+						Expect(frame.Series[6].TimeRange.Start).To(Equal(100 * telem.SecondTS))
+						series6Data := telem.UnmarshalSlice[int](frame.Series[6].Data, telem.Int64T)
+						Expect(series6Data).To(ConsistOf(100, 101))
 					})
 				})
-				Specify("Multiple pointers", func() {
+
+				Specify("Channel DB", func() {
 					By("Writing data to the channel")
 					for i := 1; i <= 9; i++ {
 						var data []int64

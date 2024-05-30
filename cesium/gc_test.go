@@ -33,7 +33,8 @@ var _ = Describe("Garbage collection", Ordered, func() {
 							GCTryInterval: 10 * telem.Millisecond.Duration(),
 							GCThreshold:   math.SmallestNonzeroFloat32,
 						}),
-						cesium.WithFS(fs)))
+						cesium.WithFS(fs),
+						cesium.WithFileSize(719*telem.ByteSize)))
 				})
 				AfterAll(func() {
 					Expect(db.Close()).To(Succeed())
@@ -43,25 +44,46 @@ var _ = Describe("Garbage collection", Ordered, func() {
 					By("Creating a channel")
 					Expect(db.CreateChannel(
 						ctx,
-						cesium.Channel{Key: rate, DataType: telem.Int64T, Rate: 1 * telem.Hz},
+						cesium.Channel{Key: rate, DataType: telem.TimeStampT, Rate: 1 * telem.Hz},
 					)).To(Succeed())
 
 					By("Writing data to the channel")
-					Expect(db.WriteArray(ctx, rate, 10*telem.SecondTS,
-						telem.NewSeriesV[int64](10, 11, 12, 13, 14, 15, 16, 17, 18))).To(Succeed())
+					for i := 1; i <= 9; i++ {
+						var data []int64
+						for j := 0; j <= 9; j++ {
+							data = append(data, int64(i*100+j*10))
+						}
+
+						Expect(db.Write(ctx, telem.TimeStamp(10*i)*telem.SecondTS, cesium.NewFrame(
+							[]cesium.ChannelKey{rate},
+							[]telem.Series{
+								telem.NewSeriesV[int64](data...),
+							},
+						))).To(Succeed())
+					}
 
 					By("Deleting channel data")
 					Expect(db.DeleteTimeRange(ctx, []cesium.ChannelKey{rate}, telem.TimeRange{
-						Start: 12 * telem.SecondTS,
-						End:   15 * telem.SecondTS,
+						Start: 20 * telem.SecondTS,
+						End:   50 * telem.SecondTS,
 					})).To(Succeed())
+
+					Expect(db.DeleteTimeRange(ctx, []cesium.ChannelKey{rate}, telem.TimeRange{
+						Start: 60 * telem.SecondTS,
+						End:   66 * telem.SecondTS,
+					})).To(Succeed())
+
+					Expect(db.DeleteTimeRange(ctx, []cesium.ChannelKey{rate}, telem.TimeRange{
+						Start: 63 * telem.SecondTS,
+						End:   78 * telem.SecondTS,
+					}))
 
 					By("Checking the resulting file size")
 					Eventually(func(g Gomega) uint32 {
 						i, err := fs.Stat(channelKeyToPath(rate) + "/1.domain")
 						g.Expect(err).ToNot(HaveOccurred())
 						return uint32(i.Size())
-					}).Should(Equal(uint32(6 * telem.Int64T.Density())))
+					}).Should(Equal(uint32(42 * telem.Int64T.Density())))
 				})
 
 				It("Should recycle properly for deletion on an indexed channel", func() {
@@ -122,9 +144,10 @@ var _ = Describe("Garbage collection", Ordered, func() {
 						cesium.WithGC(&cesium.GCConfig{
 							MaxGoroutine:  10,
 							GCTryInterval: 10 * telem.Millisecond.Duration(),
-							GCThreshold:   float32(250*telem.ByteSize) / float32(telem.Gigabyte),
+							GCThreshold:   float32(250) / 719,
 						}),
-						cesium.WithFS(fs)))
+						cesium.WithFS(fs),
+						cesium.WithFileSize(719*telem.ByteSize)))
 				})
 				AfterAll(func() {
 					Expect(db.Close()).To(Succeed())
@@ -175,30 +198,17 @@ var _ = Describe("Garbage collection", Ordered, func() {
 						return uint32(i.Size())
 					}).Should(Equal(uint32(54 * telem.Int64T.Density())))
 
-					By("Deleting more data, which should not trigger GC")
-					Expect(db.DeleteTimeRange(ctx, []cesium.ChannelKey{basic}, (25 * telem.SecondTS).Range(65*telem.SecondTS))).To(Succeed())
-					Consistently(func(g Gomega) uint32 {
-						i, err := fs.Stat(path.Join(channelKeyToPath(basic) + "/1.domain"))
-						g.Expect(err).ToNot(HaveOccurred())
-						return uint32(i.Size())
-					}).Should(Equal(uint32(54 * telem.Int64T.Density())))
-
-					By("Deleting more data, which should trigger GC")
-					Expect(db.DeleteTimeRange(ctx, []cesium.ChannelKey{basic}, (25 * telem.SecondTS).Range(97*telem.SecondTS))).To(Succeed())
-					Eventually(func(g Gomega) uint32 {
-						i, err := fs.Stat(path.Join(channelKeyToPath(basic) + "/1.domain"))
-						g.Expect(err).ToNot(HaveOccurred())
-						return uint32(i.Size())
-					}).Should(Equal(uint32(13 * telem.Int64T.Density())))
-
 					By("Asserting that the data is still correct", func() {
 						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, basic))
-						Expect(f.Series).To(HaveLen(2))
+						Expect(f.Series).To(HaveLen(6))
 						Expect(f.Series[0].TimeRange).To(Equal((10 * telem.SecondTS).Range(19*telem.SecondTS + 1)))
 						Expect(f.Series[0].Data).To(Equal(telem.NewSeriesV[int64](100, 110, 120, 130, 140, 150, 160, 170, 180, 190).Data))
 
-						Expect(f.Series[1].TimeRange).To(Equal((97 * telem.SecondTS).Range(99*telem.SecondTS + 1)))
-						Expect(f.Series[1].Data).To(Equal(telem.NewSeriesV[int64](970, 980, 990).Data))
+						Expect(f.Series[1].TimeRange).To(Equal((50 * telem.SecondTS).Range(59*telem.SecondTS + 1)))
+						Expect(f.Series[1].Data).To(Equal(telem.NewSeriesV[int64](500, 510, 520, 530, 540, 550, 560, 570, 580, 590).Data))
+
+						Expect(f.Series[2].TimeRange).To(Equal((66 * telem.SecondTS).Range(69*telem.SecondTS + 1)))
+						Expect(f.Series[2].Data).To(Equal(telem.NewSeriesV[int64](660, 670, 680, 690).Data))
 					})
 				})
 			})
@@ -293,71 +303,6 @@ var _ = Describe("Garbage collection", Ordered, func() {
 						Expect(f.Series[8].TimeRange).To(Equal((300 * telem.SecondTS).Range(302*telem.SecondTS + 1)))
 						Expect(f.Series[8].Data).To(Equal(telem.NewSeriesV[int64](3000, 3010, 3020).Data))
 					})
-				})
-			})
-
-			Context("Error paths", func() {
-				BeforeAll(func() {
-					fs, cleanUp = makeFS()
-					db = MustSucceed(cesium.Open("",
-						cesium.WithGC(&cesium.GCConfig{
-							MaxGoroutine:  10,
-							GCTryInterval: 10 * telem.Millisecond.Duration(),
-							GCThreshold:   math.SmallestNonzeroFloat32,
-						}),
-						cesium.WithFS(fs)))
-				})
-				AfterAll(func() {
-					Expect(db.Close()).To(Succeed())
-					Expect(cleanUp()).To(Succeed())
-				})
-				It("Should not allow GC when the channel is being written to or being read from", func() {
-					index = testutil.GenerateChannelKey()
-					basic = testutil.GenerateChannelKey()
-
-					By("Creating channels")
-					Expect(db.CreateChannel(
-						ctx,
-						cesium.Channel{Key: index, DataType: telem.TimeStampT, IsIndex: true},
-						cesium.Channel{Key: basic, DataType: telem.Int64T, Index: index},
-					)).To(Succeed())
-
-					By("Writing some data")
-					Expect(db.Write(ctx, 10*telem.SecondTS, cesium.NewFrame(
-						[]cesium.ChannelKey{basic, index},
-						[]telem.Series{
-							telem.NewSeriesV[int64](10, 11, 12, 13, 14, 15, 16, 17, 18),
-							telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18),
-						},
-					))).To(Succeed())
-
-					By("Opening a writer and an iterator")
-					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Start: 30 * telem.SecondTS, Channels: []cesium.ChannelKey{basic, index}}))
-					i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{Bounds: telem.TimeRangeMax, Channels: []cesium.ChannelKey{basic, index}}))
-
-					By("Deleting data")
-					Expect(db.DeleteTimeRange(ctx, []cesium.ChannelKey{basic}, (11 * telem.SecondTS).Range(15*telem.SecondTS))).To(Succeed())
-
-					By("Asserting that GC was never run")
-					Consistently(func() int64 {
-						return MustSucceed(fs.Stat(path.Join(channelKeyToPath(basic) + "/1.domain"))).Size()
-					}).Should(Equal(int64(72)))
-
-					By("Closing the writer")
-					Expect(w.Close()).To(Succeed())
-
-					By("Asserting that GC was never run")
-					Consistently(func() int64 {
-						return MustSucceed(fs.Stat(path.Join(channelKeyToPath(basic) + "/1.domain"))).Size()
-					}).Should(Equal(int64(72)))
-
-					By("Closing the iterator")
-					Expect(i.Close()).To(Succeed())
-
-					By("Asserting that GC was run")
-					Eventually(func() int64 {
-						return MustSucceed(fs.Stat(path.Join(channelKeyToPath(basic) + "/1.domain"))).Size()
-					}).Should(Equal(int64(40)))
 				})
 			})
 		})

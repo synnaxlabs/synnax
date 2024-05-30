@@ -21,8 +21,7 @@ type index struct {
 	alamos.Instrumentation
 	mu struct {
 		sync.RWMutex
-		pointers   []pointer
-		tombstones map[uint16]uint32
+		pointers []pointer
 	}
 	indexPersist *indexPersist
 	persistHead  int
@@ -203,6 +202,10 @@ func (idx *index) getGE(ctx context.Context, ts telem.TimeStamp) (ptr pointer, o
 	return idx.mu.pointers[i], true
 }
 
+// unprotectedSearch returns the position in the index of a domain that overlaps with
+// the given time range. If there is no domain that contains tr, then the immediate
+// previous domain with a smaller start timestamp than the end is returned. False is
+// returned as the flag.
 func (idx *index) unprotectedSearch(tr telem.TimeRange) (int, bool) {
 	if len(idx.mu.pointers) == 0 {
 		return -1, false

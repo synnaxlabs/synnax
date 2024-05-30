@@ -151,6 +151,7 @@ func (tr TimeRange) ContainsRange(rng TimeRange) bool {
 }
 
 // OverlapsWith returns true if the provided TimeRange overlaps with tr.
+// Note that a range with span 0 is treated as a timestamp.
 func (tr TimeRange) OverlapsWith(rng TimeRange) bool {
 	if tr == rng {
 		return true
