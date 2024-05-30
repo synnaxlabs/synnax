@@ -96,6 +96,9 @@ func (db *DB) GarbageCollect(ctx context.Context) error {
 	var fileKey uint16
 
 	for fileKey = 1; fileKey <= uint16(db.files.counter.Value()); fileKey++ {
+		if db.files.hasWriter(fileKey) {
+			continue
+		}
 		s, err := db.FS.Stat(fileKeyToName(fileKey))
 		if err != nil {
 			return span.Error(err)

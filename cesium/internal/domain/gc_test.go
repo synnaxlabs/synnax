@@ -176,6 +176,50 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 						Expect(i.Close()).To(Succeed())
 					})
 				})
+				It("Should not garbage collect a file that is oversize but not still being written to", func() {
+					db = MustSucceed(domain.Open(domain.Config{FS: fs, FileSize: 10 * telem.ByteSize, GCThreshold: math.SmallestNonzeroFloat32}))
+					Expect(domain.Write(ctx, db, (1 * telem.SecondTS).Range(7*telem.SecondTS+1), []byte{1, 2, 3, 4, 5, 6, 7})).To(Succeed())
+					Expect(db.Delete(ctx, 0, 5, (1 * telem.SecondTS).Range(3*telem.SecondTS)))
+					w := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS}))
+
+					_, err := w.Write([]byte{10, 11, 12, 13, 14})
+					Expect(err).ToNot(HaveOccurred())
+
+					// Now, file 1 should be oversize
+					Expect(db.GarbageCollect(ctx)).To(Succeed())
+
+					By("Expecting that garbage collection did not occur")
+					Expect(MustSucceed(db.FS.Stat("1.domain")).Size()).To(Equal(int64(12)))
+
+					By("Closing the writer and expecting garbage collection to occur")
+					Expect(w.Commit(ctx, 14*telem.SecondTS+1)).To(Succeed())
+					Expect(w.Close()).To(Succeed())
+
+					Expect(db.GarbageCollect(ctx)).To(Succeed())
+					Expect(MustSucceed(db.FS.Stat("1.domain")).Size()).To(Equal(int64(10)))
+
+					By("Asserting that the data did not change", func() {
+						i := db.NewIterator(domain.IterRange(telem.TimeRangeMax))
+						Expect(i.SeekFirst(ctx)).To(BeTrue())
+						Expect(i.TimeRange()).To(Equal((3 * telem.SecondTS).Range(7*telem.SecondTS + 1)))
+						r := MustSucceed(i.NewReader(ctx))
+						var buf = make([]byte, 5)
+						MustSucceed(r.ReadAt(buf, 0))
+						Expect(buf).To(Equal([]byte{3, 4, 5, 6, 7}))
+						Expect(r.Close()).To(Succeed())
+
+						Expect(i.Next()).To(BeTrue())
+						Expect(i.TimeRange()).To(Equal((10 * telem.SecondTS).Range(14*telem.SecondTS + 1)))
+						r = MustSucceed(i.NewReader(ctx))
+						buf = make([]byte, 5)
+						MustSucceed(r.ReadAt(buf, 0))
+						Expect(buf).To(Equal([]byte{10, 11, 12, 13, 14}))
+						Expect(r.Close()).To(Succeed())
+
+						Expect(i.Next()).To(BeFalse())
+						Expect(i.Close()).To(Succeed())
+					})
+				})
 			})
 			Context("Happy path - multiple files", func() {
 				It("Should garbage collect multiple tombstones", func() {
