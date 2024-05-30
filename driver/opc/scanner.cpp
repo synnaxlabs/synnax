@@ -115,7 +115,7 @@ void Scanner::scan(const task::Command &cmd) const {
             .details = parser.error_json()
         });
 
-    auto [ua_client, err] = connect(args.connection);
+    auto [ua_client, err] = connect(args.connection, "[opc.scanner] ");
     if (err)
         return ctx->setState({
             .task = task.key,
@@ -149,7 +149,7 @@ void Scanner::testConnection(const task::Command &cmd) const {
             .key = cmd.key,
             .details = parser.error_json()
         });
-    const auto err = connect(args.connection).second;
+    const auto err = connect(args.connection, "[opc.scanner] ").second;
     if (err)
         return ctx->setState({
             .task = task.key,

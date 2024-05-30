@@ -68,11 +68,14 @@ int main(int argc, char *argv[]) {
     LOG(INFO) << "[main] connecting to Synnax at " << cfg.client_config.host << ":" <<
             cfg.client_config.port;
 
-    auto breaker = breaker::Breaker(cfg.breaker_config);
+
     auto client = std::make_shared<synnax::Synnax>(cfg.client_config);
 
+    auto breaker = breaker::Breaker(cfg.breaker_config);
+    breaker.start();
     LOG(INFO) << "[main] retrieving meta-data";
     auto [rack, rack_err] = retrieveDriverRack(cfg, breaker, client);
+    breaker.stop();
     if (rack_err) {
         LOG(FATAL) <<
                 "[main] failed to retrieve meta-data - can't proceed without it. Exiting."
