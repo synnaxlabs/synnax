@@ -7,5 +7,4 @@ realpath () (
 )
 SERVER_CERT=$(realpath ./certificates/server_cert.der)
 SERVER_KEY=$(realpath ./certificates/server_key.der)
-CLIENT_CERT=$(realpath ./certificates/client_cert.der)
-bazel run //driver/opc/dev:server_encrypted $SERVER_CERT $SERVER_KEY $CLIENT_CERT
+bazel run //driver/opc/dev:server_encrypted $SERVER_CERT $SERVER_KEY
