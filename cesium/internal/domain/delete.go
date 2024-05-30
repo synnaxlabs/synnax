@@ -124,9 +124,10 @@ func (db *DB) garbageCollectFile(key uint16, size int64) error {
 		newOffset     uint32 = 0
 		tombstoneSize        = size
 		ptrs          []pointer
-		// offsetMap maps the old offset to the new offset for any pointer. Note
-		// that pointer offsets are unique within a file.
-		offsetMap = make(map[uint32]uint32)
+		// offsetMap maps each pointer (identified by the time range) to the difference
+		// between its new offset and its old offset. Note that time ranges are
+		// necessarily unique within a domain.
+		offsetDeltaMap = make(map[telem.TimeRange]uint32)
 	)
 
 	// Find all pointers using the file: there cannot be more pointers using the file
@@ -172,7 +173,7 @@ func (db *DB) garbageCollectFile(key uint16, size int64) error {
 		}
 
 		if newOffset != ptr.offset {
-			offsetMap[ptr.offset] = newOffset
+			offsetDeltaMap[ptr.TimeRange] = ptr.offset - newOffset
 		}
 		newOffset += ptr.length
 	}
@@ -186,12 +187,24 @@ func (db *DB) garbageCollectFile(key uint16, size int64) error {
 	}
 
 	// Update the file and index while holding the mutex lock.
+	// Note: the index might be different at this point than before: old pointers on
+	// this file may be split into multiple smaller pointers with different offsets.
+	// (Understand that since this deletion occurred after garbage collection, it should
+	// not be garbage collected in this run of GC.)
+	// However, two things cannot change:
+	// 1. The resulting pointers from a pointer deletion, no matter into how many,
+	// cannot end up in a larger timerange than the original pointer.
+	// 2. The delta in offset, i.e. oldOffset - newOffset are the same for all smaller,
+	// resulting pointers from the original split.
+	//
+	// Using these two principles, we can find the new offset for any pointer with a
+	// timerange contained in the original pointer by subtracting it by the same delta.
 	db.idx.mu.Lock()
 	for i, ptr := range db.idx.mu.pointers {
 		if ptr.fileKey == key {
-			oldOffset := ptr.offset
-			if o, ok := offsetMap[oldOffset]; ok {
-				db.idx.mu.pointers[i].offset = o
+			deltaOffset, ok := resolvePointerOffset(ptr.TimeRange, offsetDeltaMap)
+			if ok {
+				db.idx.mu.pointers[i].offset = ptr.offset - deltaOffset
 			}
 		}
 	}
@@ -202,6 +215,10 @@ func (db *DB) garbageCollectFile(key uint16, size int64) error {
 		return err
 	}
 	err = db.FS.Rename(copyName, name)
+	if err != nil {
+		db.idx.mu.Unlock()
+		return err
+	}
 	db.idx.mu.Unlock()
 
 	if err = db.files.rejuvenate(key); err != nil {
@@ -209,6 +226,16 @@ func (db *DB) garbageCollectFile(key uint16, size int64) error {
 	}
 
 	return db.FS.Remove(name + "_temp")
+}
+
+func resolvePointerOffset(ptrRange telem.TimeRange, offsetDeltaMap map[telem.TimeRange]uint32) (uint32, bool) {
+	for domain, delta := range offsetDeltaMap {
+		if domain.ContainsRange(ptrRange) {
+			return delta, true
+		}
+	}
+
+	return 0, false
 }
 
 // validateDelete returns an error if the deletion request is valid. In addition, it
