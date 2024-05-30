@@ -4,4 +4,4 @@ build --enable_platform_specific_config
 build:macos --cpu=darwin_arm64 --cxxopt=-std=c++20 --host_cxxopt=-std=c++20
 build:linux --cxxopt=-std=c++17 --host_cxxopt=-std=c++17 --copt=-Wno-error
 build:windows --enable_runfiles --cxxopt=/std:c++20 --host_cxxopt=/std:c++20
-# startup --output_user_root=C:/tmp
+startup --output_user_root=C:/tmp
