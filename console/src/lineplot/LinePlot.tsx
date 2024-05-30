@@ -31,7 +31,6 @@ import {
   TimeRange,
 } from "@synnaxlabs/x";
 import { useDispatch } from "react-redux";
-import { setBuffer } from "@/range/slice";
 import { useSyncerDispatch, type Syncer } from "@/hooks/dispatchers";
 import { Layout } from "@/layout";
 import {
@@ -314,7 +313,7 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
           break;
         case "range":
           dispatch(
-            setBuffer({
+            Range.setBuffer({
               timeRange: {
                 start: Number(timeRange.start.valueOf()),
                 end: Number(timeRange.end.valueOf()),
@@ -418,6 +417,9 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
                   </PMenu.Item>
                   <PMenu.Item itemKey="meta-data" startIcon={<Icon.Annotate />}>
                     View Meta Data
+                  </PMenu.Item>
+                  <PMenu.Item itemKey="link" startIcon={<Icon.Link />}>
+                    Copy Link
                   </PMenu.Item>
                 </PMenu.Menu>
               );

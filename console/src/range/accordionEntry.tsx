@@ -156,12 +156,18 @@ export const List = (): ReactElement => {
         case "setActive":
           if (rng == null) return;
           return handleSetActive(rng.key);
+        case "link":
+          if (rng == null) return;
+          window.navigator.clipboard.writeText(window.location.href);
       }
     };
     return (
       <PMenu.Menu onChange={handleClick}>
         {rng != null && (
           <>
+            <PMenu.Item startIcon={<Icon.Link />} size="small" itemKey="link">
+              Edit
+            </PMenu.Item>
             <PMenu.Item startIcon={<Icon.Edit />} size="small" itemKey="edit">
               Edit
             </PMenu.Item>
