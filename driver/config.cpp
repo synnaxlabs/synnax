@@ -57,7 +57,7 @@ std::pair<driver::Config, freighter::Error> driver::parseConfig(const json &cont
 
 
 json driver::readConfig(std::string path) {
-    LOG(INFO) << "[Driver] reading configuration from " << path;
+    LOG(INFO) << "[driver] reading configuration from " << path;
     std::ifstream file(path);
     json content = json::object();
     if (file.is_open()) {
@@ -69,7 +69,7 @@ json driver::readConfig(std::string path) {
         file.close();
         content = json::parse(content_str);
     } else {
-        LOG(ERROR) << "[Driver] failed to open configuration file at " << path;
+        LOG(ERROR) << "[driver] failed to open configuration file at " << path;
     }
     return content;
 }

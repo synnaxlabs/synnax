@@ -87,4 +87,7 @@ synnax/pkg/hardware/embedded/assets/**
 # |||| DEPENDENCIES ||||
 
 mbedtls-*
+!mbedtls-install
+mbedtls-instal/**
+!mbedtls-install/.gitkeep
 driver/vendor/mbedtls/mbedtls

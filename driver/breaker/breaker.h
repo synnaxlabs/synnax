@@ -69,7 +69,7 @@ public:
                                         breaker_shutdown(std::make_unique<std::condition_variable>()) {
     }
 
-    //copy assignment
+    // copy assignment
     Breaker& operator=(const Breaker &other) noexcept {
         if (this == &other) return *this;
         this->config = other.config;
@@ -80,7 +80,7 @@ public:
         return *this;
     }
 
-    // destuctor
+    // destructor
     ~Breaker() {
         stop();
         // sleep to allow for the breaker to shutdown.
@@ -99,7 +99,7 @@ public:
     /// immediately returns false. Otherwise, sleeps the current thread for the current
     /// retry interval and returns true.
     /// @param message a message to inject additional information into the logs about what
-    /// error occured to trigger the breaker.
+    /// error occurred to trigger the breaker.
     bool wait(const std::string &message) {
         if(!running()){
             LOG(ERROR) << "Breaker has not been started. Exiting.";

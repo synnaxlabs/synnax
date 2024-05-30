@@ -181,7 +181,7 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
       )
         return;
       setProgress("Creating device...");
-      console.log(deviceProperties)
+      console.log(deviceProperties);
       await client.hardware.devices.create({
         key: uuidv4(),
         name: methods.get<string>({ path: "name" }).value,
@@ -301,7 +301,7 @@ const Connect = ({ testConnection }: ConnectProps): ReactElement => {
           A detailed walkthrough on how to configure your server can be found in our{" "}
           <Text.Link
             level="p"
-            href="https://docs.synnaxlabs.com/reference/device-drivers/opc-ua/connect-server"
+            href="https://docs.synnaxlabs.com/reference/device-drivers/opcua/connect-server"
             target="_blank"
             style={{ display: "inline" }}
           >

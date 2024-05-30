@@ -45,12 +45,8 @@ opc::ClientDeleter getDefaultClientDeleter() {
     };
 }
 
-void customLogger(
-    void *logContext,
-    UA_LogLevel level,
-    UA_LogCategory category,
-    const char *msg,
-    va_list args) {
+void customLogger(void *logContext, UA_LogLevel level, UA_LogCategory category, const char *msg, va_list args) {
+    std::string prefix = *static_cast<std::string*>(logContext);
 
     // Buffer to store the formatted message
     char buffer[1024];
@@ -61,21 +57,22 @@ void customLogger(
         case UA_LOGLEVEL_TRACE:
         case UA_LOGLEVEL_DEBUG:
         case UA_LOGLEVEL_INFO:
-            VLOG(1) << buffer;
+            VLOG(1) << prefix << buffer;
         break;
         case UA_LOGLEVEL_WARNING:
-            LOG(WARNING) << buffer;
+            LOG(WARNING) << prefix << buffer;
         break;
         case UA_LOGLEVEL_ERROR:
-            LOG(ERROR) << buffer;
+            LOG(ERROR) << prefix << buffer;
         break;
         case UA_LOGLEVEL_FATAL:
-            LOG(FATAL) << buffer;
+            LOG(FATAL) << prefix << buffer;
         break;
         default:
-            LOG(INFO) << buffer; // Default case falls back to INFO level
+            LOG(INFO) << prefix << buffer; // Default case falls back to INFO level
     }
 }
+
 
 UA_ByteString loadFile(const char *const path) {
     UA_ByteString fileContents = UA_STRING_NULL;
@@ -162,12 +159,14 @@ freighter::Error configureEncryption(opc::ConnectionConfig &cfg, std::shared_ptr
 
 
 std::pair<std::shared_ptr<UA_Client>, freighter::Error> opc::connect(
-    opc::ConnectionConfig &cfg
+    opc::ConnectionConfig &cfg,
+    std::string log_prefix
 ) {
     // configure a client
     auto client = std::shared_ptr<UA_Client>(UA_Client_new(), getDefaultClientDeleter());
     UA_ClientConfig *config = UA_Client_getConfig(client.get());
     config->logging->log = customLogger;
+    config->logging->context = &log_prefix;
 
     LOG(INFO) << "[opc.scanner] Cconfiguring encryption";
     configureEncryption(cfg, client);

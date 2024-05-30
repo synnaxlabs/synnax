@@ -25,6 +25,7 @@ cc_library(
     }),
     visibility = ["//visibility:public"],
     deps = [
+        ":mbedtls",
         "//client/cpp:synnax",
         "//driver/config",
         "//driver/loop",
@@ -34,6 +35,16 @@ cc_library(
         "@nlohmann_json//:json",
         "@open62541",
     ],
+)
+
+cc_library(
+    name = "mbedtls",
+    visibility = ["//visibility:public"],
+    deps = select({
+        "@platforms//os:windows": ["@mbedtls_win"],
+        "@platforms//os:linux": ["@mbedtls_linux"],
+        "//conditions:default": ["@mbedtls_macos"],
+    }),
 )
 
 cc_test(
@@ -51,73 +62,5 @@ cc_test(
         ":opc",
         "//driver/testutil",
         "@com_google_googletest//:gtest_main",
-    ],
-)
-
-cc_binary(
-    name = "server",
-    srcs = ["server-enc.cpp"],
-    copts = select({
-        "@platforms//os:windows": ["/std:c++20"],
-        "//conditions:default": [],
-    }),
-    linkopts = select({
-        "@platforms//os:windows": [
-            "ws2_32.lib",
-            "Iphlpapi.lib",
-            "bcrypt.lib",
-        ],
-        "//conditions:default": [],
-    }),
-    deps = [
-        "@open62541",
-        "@mbedtls_win"
-    ],
-)
-
-
-cc_binary(
-    name = "server_no_enc",
-    srcs = ["server.cpp"],
-    copts = select({
-        "@platforms//os:windows": ["/std:c++20"],
-        "//conditions:default": [],
-    }),
-    linkopts = select({
-        "@platforms//os:windows": [
-            "ws2_32.lib",
-            "Iphlpapi.lib",
-            "bcrypt.lib",
-        ],
-        "//conditions:default": [],
-    }),
-    deps = [
-        "@open62541",
-        "@mbedtls_win"
-    ],
-)
-
-cc_binary(
-    name = "client",
-    srcs = ["client-enc.cpp"],
-    copts = select({
-        "@platforms//os:windows": ["/std:c++20"],
-        "//conditions:default": [],
-    }),
-    deps = [
-        "@open62541",
-    ],
-)
-
-cc_binary(
-    name = "client_encrypted",
-    srcs = ["client_encrypted.cpp"],
-    copts = select({
-        "@platforms//os:windows": ["/std:c++20"],
-        "//conditions:default": [],
-    }),
-    deps = [
-        "@open62541",
-        "@openssl",
     ],
 )
