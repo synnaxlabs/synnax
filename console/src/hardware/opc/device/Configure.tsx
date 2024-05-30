@@ -30,10 +30,17 @@ import {
   connectionConfigZ,
   groupConfigZ,
   GroupConfig,
+  SecurityPolicy,
+  SecurityMode,
 } from "@/hardware/opc/device/types";
 import { type Layout } from "@/layout";
 
 import "@/hardware/opc/device/Configure.css";
+import { FS } from "@/fs";
+import {
+  SelectSecurityMode,
+  SelectSecurityPolicy,
+} from "@/hardware/opc/device/SelectSecurityPolicy";
 
 const configureZ = z.object({
   name: z.string().min(1, "Name is required"),
@@ -86,11 +93,16 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
 
   const methods = Form.use({
     values: {
-      name: "",
+      name: "My OPC UA Server",
       connection: {
         endpoint: "opc.tcp://0.0.0.0:4840",
         username: "",
         password: "",
+        server_certificate: "",
+        client_certificate: "",
+        client_private_key: "",
+        security_policy: "None",
+        security_mode: "None",
       },
       groups: [],
     },
@@ -103,10 +115,12 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
       if (!(await methods.validateAsync("connection")) || client == null) return;
       const rack = await client.hardware.racks.retrieve("sy_node_1_rack");
       const task = await rack.retrieveTaskByName("opc Scanner");
+      const connection = methods.get({ path: "connection" }).value;
+      console.log(connection);
       return await task.executeCommandSync<{ message: string }>(
         "test_connection",
         { connection: methods.get({ path: "connection" }).value },
-        TimeSpan.seconds(1),
+        TimeSpan.seconds(10),
       );
     },
   });
@@ -125,6 +139,7 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
           TimeSpan.seconds(5),
         );
         if (deviceProperties == null) return;
+        console.log(deviceProperties);
         methods.set({
           path: "groups",
           value: [
@@ -171,6 +186,7 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
       )
         return;
       setProgress("Creating device...");
+      console.log(deviceProperties);
       await client.hardware.devices.create({
         key: uuidv4(),
         name: methods.get<string>({ path: "name" }).value,
@@ -264,6 +280,8 @@ interface ConnectProps {
 }
 
 const Connect = ({ testConnection }: ConnectProps): ReactElement => {
+  const hasSecPolicy =
+    Form.useFieldValue<SecurityPolicy>("connection.security_policy") != "None";
   return (
     <Align.Space
       direction="x"
@@ -288,7 +306,7 @@ const Connect = ({ testConnection }: ConnectProps): ReactElement => {
           A detailed walkthrough on how to configure your server can be found in our{" "}
           <Text.Link
             level="p"
-            href="https://docs.synnaxlabs.com/reference/device-drivers/opc-ua/connect-server"
+            href="https://docs.synnaxlabs.com/reference/device-drivers/opcua/connect-server"
             target="_blank"
             style={{ display: "inline" }}
           >
@@ -314,9 +332,42 @@ const Connect = ({ testConnection }: ConnectProps): ReactElement => {
         <Form.Field<string> path="connection.username">
           {(p) => <Input.Text placeholder="admin" {...p} />}
         </Form.Field>
-        <Form.Field<string> path="connection.password" grow>
-          {(p) => <Input.Text placeholder="password" {...p} />}
+        <Form.Field<string> path="connection.password">
+          {(p) => <Input.Text placeholder="password" type="password" {...p} />}
         </Form.Field>
+        <Form.Field<SecurityMode> path="connection.security_mode" label="Security Mode">
+          {(p) => <SelectSecurityMode {...p} />}
+        </Form.Field>
+        <Form.Field<SecurityPolicy>
+          path="connection.security_policy"
+          label="Security Policy"
+          grow={!hasSecPolicy}
+        >
+          {(p) => <SelectSecurityPolicy {...p} />}
+        </Form.Field>
+        {hasSecPolicy && (
+          <>
+            <Form.Field<string>
+              path="connection.client_certificate"
+              label="Client Certificate"
+            >
+              {(p) => <FS.LoadFileContents grow {...p} />}
+            </Form.Field>
+            <Form.Field<string>
+              path="connection.client_private_key"
+              label="Client Private Key"
+            >
+              {(p) => <FS.LoadFileContents grow {...p} />}
+            </Form.Field>
+            <Form.Field<string>
+              path="connection.server_certificate"
+              label="Server Certificate"
+              grow
+            >
+              {(p) => <FS.LoadFileContents grow {...p} />}
+            </Form.Field>
+          </>
+        )}
         <Align.Space direction="x">
           <Align.Space direction="x" grow>
             {testConnection.isError && (

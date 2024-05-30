@@ -72,9 +72,6 @@ static UA_StatusCode nodeIter(
         &nodeClass
     );
     if (retval != UA_STATUSCODE_GOOD) return retval;
-    // LOG(INFO) << "Node class: " << nodeClass;
-    // LOG(INFO) << "Node id: " << nodeIdToString(child_id);
-    // LOG(INFO) << "Node depth: " << ctx->depth;
 
     if (nodeClass == UA_NODECLASS_VARIABLE && child_id.namespaceIndex != 0) {
         UA_QualifiedName browseName;
@@ -89,6 +86,7 @@ static UA_StatusCode nodeIter(
                                     browseName.name.length);
             auto node_id = nodeIdToString(child_id);
             auto [dt, is_array] = variant_data_type(value);
+            // std::cout << "Node id: " << node_id << " Name: " << name << " Is array: " << is_array << " Data type: " << dt.value << std::endl;
             if (dt != synnax::DATA_TYPE_UNKNOWN && !dt.is_variable())
                 ctx->channels->push_back({
                     dt,
@@ -117,7 +115,7 @@ void Scanner::scan(const task::Command &cmd) const {
             .details = parser.error_json()
         });
 
-    auto [ua_client, err] = connect(args.connection);
+    auto [ua_client, err] = connect(args.connection, "[opc.scanner] ");
     if (err)
         return ctx->setState({
             .task = task.key,
@@ -151,7 +149,7 @@ void Scanner::testConnection(const task::Command &cmd) const {
             .key = cmd.key,
             .details = parser.error_json()
         });
-    const auto err = connect(args.connection).second;
+    const auto err = connect(args.connection, "[opc.scanner] ").second;
     if (err)
         return ctx->setState({
             .task = task.key,

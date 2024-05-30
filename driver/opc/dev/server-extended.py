@@ -8,38 +8,13 @@ from asyncua import Server, ua
 from asyncua.common.methods import uamethod
 
 
-@uamethod
-def multiply_by_two(parent, value):
-    return value * 2
-
-
-#
-# async def setup_users(server):
-#     # Define a user with a username and password
-#     await server.user_manager.set_user_manager(user_manager)
-#     server.user_manager.user_manager.add_user('username', 'password')
-#
-# def user_manager(isession, username, password):
-#     # This is a simple user validation function; customize as needed
-#     if username == 'username' and password == 'password':
-#         return True
-#     logging.warning(f"Unauthorized login attempt: {username}")
-#     return False
-
 async def main():
-    # Setup our server
     server = Server()
     await server.init()
     server.set_endpoint("opc.tcp://localhost:4841/freeopcua/server/")
-    # server.set_security_policy([
-    #     ua.SecurityPolicyType.Basic256Sha256_SignAndEncrypt
-    # ])
-
-    # Register a namespace
     uri = "http://examples.freeopcua.github.io"
     idx = await server.register_namespace(uri)
 
-    # await setup_users(server)
 
     # Populating our address space
     myobj = await server.nodes.objects.add_object(idx, "MyObject")
