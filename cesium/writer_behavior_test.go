@@ -446,7 +446,7 @@ var _ = Describe("Writer Behavior", func() {
 								By("Asserting that the telemetry has been persisted")
 								f := MustSucceed(fs.Open(channelKeyToPath(index1)+"/index.domain", os.O_RDONLY))
 								buf := make([]byte, 26)
-								_, err := f.ReadAt(buf, 4)
+								_, err := f.ReadAt(buf, 0)
 								Expect(err).ToNot(HaveOccurred())
 								Expect(f.Close()).To(Succeed())
 								Expect(binary.LittleEndian.Uint64(buf[0:8])).To(Equal(uint64(10 * telem.SecondTS)))
@@ -455,7 +455,7 @@ var _ = Describe("Writer Behavior", func() {
 
 								f = MustSucceed(fs.Open(channelKeyToPath(basic1)+"/index.domain", os.O_RDONLY))
 								buf = make([]byte, 26)
-								_, err = f.ReadAt(buf, 4)
+								_, err = f.ReadAt(buf, 0)
 								Expect(err).ToNot(HaveOccurred())
 								Expect(f.Close()).To(Succeed())
 								Expect(binary.LittleEndian.Uint64(buf[0:8])).To(Equal(uint64(10 * telem.SecondTS)))
@@ -512,7 +512,7 @@ var _ = Describe("Writer Behavior", func() {
 								Eventually(func(g Gomega) {
 									f := MustSucceed(fs.Open(channelKeyToPath(index1)+"/index.domain", os.O_RDONLY))
 									buf := make([]byte, 26)
-									_, err := f.ReadAt(buf, 4)
+									_, err := f.ReadAt(buf, 0)
 									g.Expect(err).ToNot(HaveOccurred())
 									g.Expect(f.Close()).To(Succeed())
 									g.Expect(binary.LittleEndian.Uint64(buf[0:8])).To(Equal(uint64(10 * telem.SecondTS)))
@@ -521,7 +521,7 @@ var _ = Describe("Writer Behavior", func() {
 
 									f = MustSucceed(fs.Open(channelKeyToPath(basic1)+"/index.domain", os.O_RDONLY))
 									buf = make([]byte, 26)
-									_, err = f.ReadAt(buf, 4)
+									_, err = f.ReadAt(buf, 0)
 									g.Expect(err).ToNot(HaveOccurred())
 									g.Expect(f.Close()).To(Succeed())
 									g.Expect(binary.LittleEndian.Uint64(buf[0:8])).To(Equal(uint64(10 * telem.SecondTS)))
@@ -563,7 +563,7 @@ var _ = Describe("Writer Behavior", func() {
 								Eventually(func(g Gomega) {
 									f := MustSucceed(fs.Open(channelKeyToPath(index1)+"/index.domain", os.O_RDONLY))
 									buf := make([]byte, 26)
-									_, err := f.ReadAt(buf, 4)
+									_, err := f.ReadAt(buf, 0)
 									g.Expect(err).ToNot(HaveOccurred())
 									g.Expect(f.Close()).To(Succeed())
 									g.Expect(binary.LittleEndian.Uint64(buf[0:8])).To(Equal(uint64(10 * telem.SecondTS)))
@@ -572,7 +572,7 @@ var _ = Describe("Writer Behavior", func() {
 
 									f = MustSucceed(fs.Open(channelKeyToPath(basic1)+"/index.domain", os.O_RDONLY))
 									buf = make([]byte, 26)
-									_, err = f.ReadAt(buf, 4)
+									_, err = f.ReadAt(buf, 0)
 									g.Expect(err).ToNot(HaveOccurred())
 									g.Expect(f.Close()).To(Succeed())
 									g.Expect(binary.LittleEndian.Uint64(buf[0:8])).To(Equal(uint64(10 * telem.SecondTS)))

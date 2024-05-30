@@ -37,20 +37,17 @@ func (ip *indexPersist) load() ([]pointer, error) {
 }
 
 func (ip *indexPersist) preparePointersPersist(start int) func() error {
-	var (
-		firstByte      = make([]byte, 4)
-		pointerEncoded = ip.p.encode(start, ip.idx.mu.pointers)
-	)
+	pointerEncoded := ip.p.encode(start, ip.idx.mu.pointers)
 
-	byteOrder.PutUint32(firstByte, uint32(len(ip.idx.mu.pointers)))
 	return func() error {
 		ip.p.Lock()
 		defer ip.p.Unlock()
-		_, err := ip.p.WriteAt(firstByte, 0)
+
+		err := ip.p.Truncate(int64(len(ip.idx.mu.pointers)) * pointerByteSize)
 		if err != nil {
 			return err
 		}
-		_, err = ip.p.WriteAt(pointerEncoded, int64(start*pointerByteSize+4))
+		_, err = ip.p.WriteAt(pointerEncoded, int64(start*pointerByteSize))
 		return err
 	}
 }
@@ -107,12 +104,9 @@ func (f *pointerEncoder) decode(b []byte) []pointer {
 		return []pointer{}
 	}
 
-	var (
-		pointerLen = int(byteOrder.Uint32(b[:4]))
-		pointers   = make([]pointer, pointerLen)
-	)
-	for i := 0; i < pointerLen; i++ {
-		base := i*pointerByteSize + 4
+	pointers := make([]pointer, len(b)/pointerByteSize)
+	for i := 0; i < len(b)/pointerByteSize; i++ {
+		base := i * pointerByteSize
 		pointers[i] = pointer{
 			TimeRange: telem.TimeRange{
 				Start: telem.TimeStamp(byteOrder.Uint64(b[base : base+8])),

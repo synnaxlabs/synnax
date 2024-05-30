@@ -34,7 +34,7 @@ func extractPointer(f xfs.File) (p struct {
 	length  uint32
 }) {
 	b := make([]byte, 26)
-	_, err := f.ReadAt(b, 4)
+	_, err := f.Read(b)
 	Expect(err).ToNot(HaveOccurred())
 	p.TimeRange.Start = telem.TimeStamp(binary.LittleEndian.Uint64(b[0:8]))
 	p.TimeRange.End = telem.TimeStamp(binary.LittleEndian.Uint64(b[8:16]))
