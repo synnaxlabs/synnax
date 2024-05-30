@@ -222,38 +222,26 @@ void ni::AnalogReadSource::acquireData(){
             // return; // TODO: handle differently?
         }
         data_packet.tf = (uint64_t)((synnax::TimeStamp::now()).value);
-        // if(buffered_frames > this->reader_config.stream_rate){
-        //     std::this_thread::sleep_for(std::chrono::nanoseconds((uint64_t)((0.5 / this->reader_config.stream_rate )* 1000000000)));
-        // }
         data_queue.enqueue(data_packet);
     }
 }
 
 std::pair<synnax::Frame, freighter::Error> ni::AnalogReadSource::read(){
     synnax::Frame f = synnax::Frame(numChannels);
-
     // sleep per stream rate
     std::this_thread::sleep_for(std::chrono::nanoseconds((uint64_t)((1.0 / this->reader_config.stream_rate )* 1000000000)));
 
     // take data off of queue
-    std::optional<DataPacket> d;
-    // LOG(INFO) << "[NI Reader] data queue limit: " << std::ceil(double(this->reader_config.stream_rate)*0.2);
-    while(data_queue.size() < 1);
-    while(data_queue.size() > 3){
-        d = data_queue.dequeue();
-        if(!d.has_value()) return std::make_pair(std::move(f), freighter::Error(driver::TYPE_TEMPORARY_HARDWARE_ERROR, "no data available to read"));
-        if(d.has_value() && data_queue.size() > 5) delete[] d.value().data;
-    }
-    if(!d.has_value()) return std::make_pair(std::move(f), freighter::Error(driver::TYPE_TEMPORARY_HARDWARE_ERROR, "no data available to read"));
-    double* data = static_cast<double*>(d.value().data);
-    
+    DataPacket d = data_queue.dequeue();
+    double* data = static_cast<double*>(d.data);
+
     // interpolate  timestamps between the initial and final timestamp to ensure non-overlapping timestamps between batched reads
-    uint64_t incr = ( (d.value().tf- d.value().t0) / this->numSamplesPerChannel );
+    uint64_t incr = ( (d.tf- d.t0) / this->numSamplesPerChannel );
     
     // Construct and populate index channel
     std::vector<std::uint64_t> time_index(this->numSamplesPerChannel);
-    for (uint64_t i = 0; i < d.value().samplesReadPerChannel; ++i)
-        time_index[i] = d.value().t0 + (std::uint64_t)(incr * i);
+    for (uint64_t i = 0; i < d.samplesReadPerChannel; ++i)
+        time_index[i] = d.t0 + (std::uint64_t)(incr * i);
     
 
     // Construct and populate synnax frame
@@ -263,16 +251,17 @@ std::pair<synnax::Frame, freighter::Error> ni::AnalogReadSource::read(){
             f.add(this->reader_config.channels[i].channel_key, synnax::Series(time_index, synnax::TIMESTAMP));
             continue;
         }
-        
         // copy data into vector
-        std::vector<float> data_vec(d.value().samplesReadPerChannel);
-        for (int j = 0; j < d.value().samplesReadPerChannel; j++)
-            data_vec[j] = data[data_index * d.value().samplesReadPerChannel + j];
+        std::vector<float> data_vec(d.samplesReadPerChannel);
+        for (int j = 0; j < d.samplesReadPerChannel; j++)
+            data_vec[j] = data[data_index * d.samplesReadPerChannel + j];
         f.add(this->reader_config.channels[i].channel_key, synnax::Series(data_vec, synnax::FLOAT32));
         data_index++;
     }
 
-    if(d.has_value()) delete[] d.value().data;
+    //delete data array
+    delete[] data;
+
     return std::make_pair(std::move(f), freighter::NIL);
 }
 

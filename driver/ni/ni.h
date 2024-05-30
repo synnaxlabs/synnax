@@ -33,7 +33,7 @@
 #include "driver/config/config.h"
 #include "driver/ni/error.h"
 #include <condition_variable>
-#include "spsc_queue.h"
+#include "ts_queue.h"
 
 
 // #include "driver/modules/module.h"
@@ -153,7 +153,7 @@ namespace ni{
             uint64_t tf;  // final timestamp
             int32 samplesReadPerChannel;
         } DataPacket;
-        SPSCQueue<DataPacket> data_queue;
+        TSQueue<DataPacket> data_queue;
 
 
         TaskHandle task_handle = 0;

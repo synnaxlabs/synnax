@@ -38,6 +38,7 @@ class SPSCQueue {
             head.store(old_head->next, std::memory_order_relaxed);
             delete old_head;
         }
+        q_size = 0;
     }
 
     void reset(){
@@ -60,6 +61,7 @@ class SPSCQueue {
         std::atomic<Node*> next;
         Node() : next(nullptr) {}
         Node(const T& data) : data(data), next(nullptr) {}
+        //destructor
     } Node;
 
     std::atomic<Node*> head;
