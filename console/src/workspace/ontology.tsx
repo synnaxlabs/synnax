@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, PropsWithChildren } from 'react';
+import { type ReactElement, PropsWithChildren } from "react";
 
 import { ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
@@ -21,6 +21,9 @@ import { Ontology } from "@/ontology";
 import { Schematic } from "@/schematic";
 import { selectActiveKey } from "@/workspace/selectors";
 import { add, rename, setActive } from "@/workspace/slice";
+import { Cluster } from "@/cluster";
+import { useDispatch } from "react-redux";
+import { useSelectActiveKey } from "@/cluster/selectors";
 
 const handleDelete = ({
   client,
@@ -85,6 +88,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   const {
     selection: { resources },
   } = props;
+  const clusterKey = Cluster.useSelectActiveKey();
 
   const handleSelect = (key: string): void => {
     switch (key) {
@@ -102,7 +106,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
         return handleCreateNewSchematic(props);
       }
       case "copy": {
-        void navigator.clipboard.writeText(`synnax:${resources[0].key}`);
+        const toCopy = `synnax://cluster/${clusterKey}/workspace/${resources[0].id.key}`
+        void navigator.clipboard.writeText(toCopy)
+        console.log(toCopy);
         return;
       }
     }
@@ -131,8 +137,6 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
 const handleSelect: Ontology.HandleSelect = ({ selection, client, store }) => {
   void (async () => {
     const ws = await client.workspaces.retrieve(selection[0].id.key);
-    console.log("ID KEY:", selection[0].id.key)
-    console.log("Other:", selection[0].key)
     store.dispatch(add({ workspaces: [ws] }));
     store.dispatch(
       Layout.setWorkspace({

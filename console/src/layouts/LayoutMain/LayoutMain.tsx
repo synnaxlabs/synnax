@@ -39,7 +39,6 @@ export const LayoutMain = (): ReactElement => {
   Cluster.useLocalServer();
   Link.useDeepLink();
 
-
   return (
     <>
       {/* We need to place notifications here so they are in the proper stacking context */}
