@@ -152,16 +152,16 @@ void task::Manager::processTaskCmd(const Series &series) {
     const auto commands = series.string();
     LOG(INFO) <<  "[task.manager] " << commands.size() << " commands received";
     for (const auto &cmd_str: commands) {
-        LOG(ERROR) << "[task.manager] processing command: " << cmd_str;
         auto parser = config::Parser(cmd_str);
         auto cmd = task::Command(parser);
         if (!parser.ok()) {
-            LOG(ERROR) << "[task.manager] failed to parse command: " << parser.error_json().dump();
+            LOG(WARNING) << "[task.manager] failed to parse command: " << parser.error_json().dump();
             continue;
         }
+        LOG(INFO) << "[task.manager] processing command " << cmd.type << " for task " << cmd.task;
         auto it = tasks.find(cmd.task);
         if (it == tasks.end()) {
-            LOG(ERROR) << "[task.manager] could not find task to execute command: " << cmd.task;
+            LOG(WARNING) << "[task.manager] could not find task to execute command: " << cmd.task;
             continue;
         }
         it->second->exec(cmd);

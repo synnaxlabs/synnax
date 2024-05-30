@@ -1,4 +1,4 @@
-import { SecurityPolicy } from "@/hardware/opc/device/types";
+import { SecurityMode, SecurityPolicy } from "@/hardware/opc/device/types";
 import { Select } from "@synnaxlabs/pluto";
 
 interface SecurityPolicyInfo {
@@ -41,4 +41,31 @@ export const SelectSecurityPolicy = (props: SelectSecurityPolicyProps) => (
     data={SECURITY_POLICIES}
     {...props}
   />
+);
+
+interface SecurityModeInfo {
+  key: SecurityMode;
+  name: string;
+}
+
+const SECURITY_MODES: SecurityModeInfo[] = [
+  {
+    key: "None",
+    name: "None",
+  },
+  {
+    key: "Sign",
+    name: "Sign",
+  },
+  {
+    key: "SignAndEncrypt",
+    name: "Sign And Encrypt",
+  },
+];
+
+export interface SelectSecurityModeProps
+  extends Omit<Select.ButtonProps<SecurityMode, SecurityModeInfo>, "data"> {}
+
+export const SelectSecurityMode = (props: SelectSecurityModeProps) => (
+  <Select.Button<SecurityMode, SecurityModeInfo> data={SECURITY_MODES} {...props} />
 );
