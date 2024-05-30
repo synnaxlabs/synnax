@@ -117,8 +117,6 @@ jobs:
         if: ${{ matrix.platform == 'ubuntu-latest' }}
         run: |
          sudo apt-get install -y libmbedtls-dev
-         ls /usr/include/mbedtls
-         ls /usr/lib/x86_64-linux-gnu/libmbed*
 
       - name: Update Submodules
         run: git submodule update --init --recursive

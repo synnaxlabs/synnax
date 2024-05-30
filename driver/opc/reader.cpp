@@ -479,7 +479,6 @@ std::unique_ptr<task::Task> Reader::configure(
         });
         return nullptr;
     }
-    std::cout << device.properties << std::endl;
     auto properties_parser = config::Parser(device.properties);
     auto properties = DeviceProperties(properties_parser);
     auto breaker_config = breaker::Config{
@@ -502,7 +501,7 @@ std::unique_ptr<task::Task> Reader::configure(
     auto [channelKeys, indexes] = res;
 
     // Connect to the OPC UA server.
-    auto [ua_client, conn_err] = opc::connect(properties.connection);
+    auto [ua_client, conn_err] = opc::connect(properties.connection, "[opc.reader] ");
     if (conn_err) {
         ctx->setState({
             .task = task.key,

@@ -31,12 +31,16 @@ import {
   groupConfigZ,
   GroupConfig,
   SecurityPolicy,
+  SecurityMode,
 } from "@/hardware/opc/device/types";
 import { type Layout } from "@/layout";
 
 import "@/hardware/opc/device/Configure.css";
 import { FS } from "@/fs";
-import { SelectSecurityPolicy } from "@/hardware/opc/device/SelectSecurityPolicy";
+import {
+  SelectSecurityMode,
+  SelectSecurityPolicy,
+} from "@/hardware/opc/device/SelectSecurityPolicy";
 
 const configureZ = z.object({
   name: z.string().min(1, "Name is required"),
@@ -98,6 +102,7 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
         client_certificate: "",
         client_private_key: "",
         security_policy: "None",
+        security_mode: "None",
       },
       groups: [],
     },
@@ -181,7 +186,7 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
       )
         return;
       setProgress("Creating device...");
-      console.log(deviceProperties)
+      console.log(deviceProperties);
       await client.hardware.devices.create({
         key: uuidv4(),
         name: methods.get<string>({ path: "name" }).value,
@@ -301,7 +306,7 @@ const Connect = ({ testConnection }: ConnectProps): ReactElement => {
           A detailed walkthrough on how to configure your server can be found in our{" "}
           <Text.Link
             level="p"
-            href="https://docs.synnaxlabs.com/reference/device-drivers/opc-ua/connect-server"
+            href="https://docs.synnaxlabs.com/reference/device-drivers/opcua/connect-server"
             target="_blank"
             style={{ display: "inline" }}
           >
@@ -329,6 +334,9 @@ const Connect = ({ testConnection }: ConnectProps): ReactElement => {
         </Form.Field>
         <Form.Field<string> path="connection.password">
           {(p) => <Input.Text placeholder="password" type="password" {...p} />}
+        </Form.Field>
+        <Form.Field<SecurityMode> path="connection.security_mode" label="Security Mode">
+          {(p) => <SelectSecurityMode {...p} />}
         </Form.Field>
         <Form.Field<SecurityPolicy>
           path="connection.security_policy"

@@ -22,13 +22,17 @@ struct ConnectionConfig {
     std::string username;
     /// @brief the password to use for authentication. Not required.
     std::string password;
-    /// @brief the security policy uri
-    std::string  security_policy_uri;
-    /// @brief certificate
-    std::string certificate;
-    std::string p;
-
-    /// @brief list of trusted certificates
+    /// @brief the security mode.
+    std::string security_mode;
+    /// @brief the security policy.
+    std::string security_policy;
+    /// @brief the client certificate used to sign and encrypt messages. Only required
+    /// if the security policy is not "None".
+    std::string client_cert;
+    /// @brief the client private key used to sign and encrypt messages. Only required
+    /// if the security policy is not "None".
+    std::string client_private_key;
+    /// @brief a trusted server certificate. Only req
     std::string server_cert;
 
     ConnectionConfig() = default;
@@ -38,11 +42,11 @@ struct ConnectionConfig {
     ): endpoint(parser.required<std::string>("endpoint")),
        username(parser.optional<std::string>("username", "")),
        password(parser.optional<std::string>("password", "")),
-       security_policy_uri(parser.optional<std::string>("security_policy", "")),
-       certificate(parser.optional<std::string>("client_certificate", "")),
-       p(parser.optional<std::string>("client_private_key", "")),
-     server_cert(parser.optional<std::string>("server_certificate", "")) {
-     
+       security_mode(parser.optional<std::string>("security_mode", "None")),
+       security_policy(parser.optional<std::string>("security_policy", "None")),
+       client_cert(parser.optional<std::string>("client_certificate", "")),
+       client_private_key(parser.optional<std::string>("client_private_key", "")),
+       server_cert(parser.optional<std::string>("server_certificate", "")) {
     }
 
     json toJSON() const {
@@ -50,9 +54,9 @@ struct ConnectionConfig {
             {"endpoint", endpoint},
             {"username", username},
             {"password", password},
-            {"security_policy", security_policy_uri},
-            {"client_certificate", certificate},
-            {"client_private_key", p}
+            {"security_policy", security_policy},
+            {"client_certificate", client_cert},
+            {"client_private_key", client_private_key}
         };
     }
 };

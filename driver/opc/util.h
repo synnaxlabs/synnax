@@ -28,7 +28,8 @@ using ClientDeleter = void (*)(UA_Client *);
 
 
 std::pair<std::shared_ptr<UA_Client>, freighter::Error> connect(
-    opc::ConnectionConfig &cfg
+    opc::ConnectionConfig &cfg,
+    std::string log_prefix
 );
 
 // Define constants for the conversion
