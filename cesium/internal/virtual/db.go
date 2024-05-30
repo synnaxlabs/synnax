@@ -14,6 +14,9 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/meta"
+	"github.com/synnaxlabs/cesium/internal/version"
+	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
@@ -67,6 +70,14 @@ func Open(cfg Config) (db *DB, err error) {
 		entityCount: &entityCount{},
 		closed:      &atomic.Bool{},
 	}, nil
+}
+
+func (db *DB) CheckMigration(ecd binary.EncoderDecoder) error {
+	if db.Channel.Version != version.Current {
+		db.Channel.Version = version.Current
+		return meta.Create(db.FS, ecd, db.Channel)
+	}
+	return nil
 }
 
 func (db *DB) LeadingControlState() *controller.State {

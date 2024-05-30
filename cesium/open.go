@@ -75,6 +75,8 @@ func (db *DB) openVirtualOrUnary(ch Channel) error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 	fs, err := db.fs.Sub(strconv.Itoa(int(ch.Key)))
+	l, _ := fs.List("")
+	l = l
 	if err != nil {
 		return err
 	}
@@ -91,6 +93,10 @@ func (db *DB) openVirtualOrUnary(ch Channel) error {
 		if err != nil {
 			return err
 		}
+		err = v.CheckMigration(db.metaECD)
+		if err != nil {
+			return err
+		}
 		db.virtualDBs[ch.Key] = *v
 	} else {
 		_, isOpen := db.unaryDBs[ch.Key]
@@ -98,6 +104,10 @@ func (db *DB) openVirtualOrUnary(ch Channel) error {
 			return nil
 		}
 		u, err := unary.Open(unary.Config{FS: fs, Channel: ch, Instrumentation: db.options.Instrumentation, FileSize: db.options.fileSize, GCThreshold: db.options.gcCfg.GCThreshold})
+		if err != nil {
+			return err
+		}
+		err = u.CheckMigration(db.metaECD)
 		if err != nil {
 			return err
 		}

@@ -318,22 +318,31 @@ func (fc *fileController) gcReaders() (successful bool, err error) {
 func (fc *fileController) gcWriters() (bool, error) {
 	fc.writers.Lock()
 	defer fc.writers.Unlock()
+	collected := false
 	for k, w := range fc.writers.open {
 		s, err := fc.FS.Stat(fileKeyToName(k))
 		if err != nil {
-			return false, err
+			return collected, err
 		}
 
 		if s.Size() >= int64(fc.FileSize) && w.tryAcquire() {
 			err = w.HardClose()
 			if err != nil {
-				return false, err
+				return collected, err
 			}
 			delete(fc.writers.open, k)
-			return true, err
+			collected = true
 		}
 	}
-	return false, nil
+	return collected, nil
+}
+
+func (fc *fileController) hasWriter(fileKey uint16) bool {
+	fc.writers.RLock()
+	defer fc.writers.RUnlock()
+
+	_, ok := fc.writers.open[fileKey]
+	return ok
 }
 
 // rejuvenate adds a file key to the unopened writers set. If there is an open writer

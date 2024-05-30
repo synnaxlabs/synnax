@@ -15,6 +15,9 @@ import (
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
+	"github.com/synnaxlabs/cesium/internal/meta"
+	"github.com/synnaxlabs/cesium/internal/version"
+	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/config"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/override"
@@ -78,6 +81,9 @@ func Open(configs ...Config) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// check for versioning
+
 	domainDB, err := domain.Open(domain.Config{
 		FS:              cfg.FS,
 		Instrumentation: cfg.Instrumentation,
@@ -102,4 +108,17 @@ func Open(configs ...Config) (*DB, error) {
 		db._idx = index.Rate{Rate: cfg.Channel.Rate, Channel: cfg.Channel}
 	}
 	return db, err
+}
+
+func (db *DB) CheckMigration(ecd binary.EncoderDecoder) error {
+	if db.Channel.Version != version.Current {
+		err := version.Migrate(db.FS, db.Channel.Version, version.Current)
+		if err != nil {
+			return err
+		}
+
+		db.Channel.Version = version.Current
+		return meta.Create(db.FS, ecd, db.Channel)
+	}
+	return nil
 }
