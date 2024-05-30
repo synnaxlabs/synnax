@@ -11,6 +11,7 @@ package core
 
 import (
 	"fmt"
+	"github.com/synnaxlabs/cesium/internal/version"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
@@ -50,14 +51,23 @@ type Channel struct {
 	// Rate sets the rate at which the channels values are written. This is used to
 	// determine the timestamp of each sample. Rate based channels are far more efficient
 	// than index based channels, and should be used whenever channel's values are
-	// regularly spaced.
+	// regularly spaced. One of Index or Rate must be non-zero.
+	// [OPTIONAL]
 	Rate telem.Rate `json:"rate" msgpack:"rate"`
 	// Index is the key of the channel used to index the channel's values. The Index is
 	// used to associate a value with a timestamp. If zero, the channel's data will be
 	// indexed using its rate. One of Index or Rate must be non-zero.
-	Index       ChannelKey `json:"index" msgpack:"index"`
-	Virtual     bool
-	Concurrency control.Concurrency
+	// [OPTIONAL]
+	Index ChannelKey `json:"index" msgpack:"index"`
+	// Virtual specifies whether the channel is virtual.
+	// [OPTIONAL]
+	Virtual bool `json:"virtual" msgpack:"virtual"`
+	// Concurrency specifies the concurrency setting for the channel's controller
+	// (Exclusive or shared).
+	// [OPTIONAL]
+	Concurrency control.Concurrency `json:"concurrency" msgpack:"concurrency"`
+	// Version specifies the format of files stored in this channel.
+	Version version.Version `json:"version" msgpack:"version"`
 }
 
 func (c Channel) String() string {

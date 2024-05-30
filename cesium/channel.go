@@ -14,6 +14,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/meta"
+	"github.com/synnaxlabs/cesium/internal/version"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -132,6 +133,7 @@ func (db *DB) createChannel(ch Channel) (err error) {
 	if ch.IsIndex {
 		ch.Index = ch.Key
 	}
+	ch.Version = version.Current
 	err = db.openVirtualOrUnary(ch)
 	return
 }
