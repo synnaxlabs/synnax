@@ -81,7 +81,6 @@ void customLogger(
     }
 }
 
-
 UA_ByteString loadFile(const char *const path) {
     UA_ByteString fileContents = UA_STRING_NULL;
     FILE *fp = fopen(path, "rb");
@@ -168,6 +167,7 @@ UA_StatusCode privateKeyPasswordCallBack(
     return UA_STATUSCODE_BADSECURITYCHECKSFAILED;
 }
 
+const std::string SECURITY_URI_BASE = "http://opcfoundation.org/UA/SecurityPolicy#";
 
 freighter::Error configureEncryption(
     opc::ConnectionConfig &cfg,
@@ -185,9 +185,9 @@ freighter::Error configureEncryption(
         return freighter::NIL;
     }
     client_config->privateKeyPasswordCallback = privateKeyPasswordCallBack;
-    std::string uri = "http://opcfoundation.org/UA/SecurityPolicy#" + cfg.
-                      security_policy;
+    std::string uri = SECURITY_URI_BASE + cfg.security_policy;
     client_config->securityPolicyUri = UA_STRING_ALLOC(uri.c_str());
+    client_config->authSecurityPolicyUri = UA_STRING_ALLOC(uri.c_str());
     UA_String_clear(&client_config->clientDescription.applicationUri);
     std::string app_uri = extractApplicationUriFromCert(cfg.client_cert);
     if (app_uri.empty()) app_uri = "urn:synnax.opcua.client";
@@ -218,6 +218,49 @@ freighter::Error configureEncryption(
     return freighter::NIL;
 }
 
+void fetchEndpointDiagnosticInfo(
+    std::shared_ptr<UA_Client> client,
+    std::string endpoint
+) {
+    size_t endpointCount = 0;
+    UA_EndpointDescription *endpointArray = NULL;
+    UA_StatusCode retval = UA_Client_getEndpoints(client.get(), endpoint.c_str(),
+                                                  &endpointCount, &endpointArray);
+    if (retval != UA_STATUSCODE_GOOD) {
+        LOG(ERROR) << "[opc.scanner] Failed to get endpoints: " << std::string(
+            UA_StatusCode_name(retval));
+        return;
+    }
+    for (size_t i = 0; i < endpointCount; i++) {
+        auto ep = endpointArray[i];
+        LOG(INFO) << "[opc.scanner] Endpoint " << i << std::endl;
+        // if the security policy uri is not null, then the endpoint is secure
+        if (ep.securityPolicyUri.data)
+            LOG(INFO) << "[opc.scanner] \t security policy uri: " << ep.securityPolicyUri.data;
+        auto security_mode = ep.securityMode;
+        if (security_mode == UA_MESSAGESECURITYMODE_NONE)
+            LOG(INFO) << "[opc.scanner] \t security: unencrypted";
+        else if (security_mode == UA_MESSAGESECURITYMODE_SIGN) 
+            LOG(INFO) << "[opc.scanner] \t security: signed";
+        else if (security_mode == UA_MESSAGESECURITYMODE_SIGNANDENCRYPT) 
+            LOG(INFO) << "[opc.scanner] \t security: signed and encrypted";
+        for (size_t j = 0; j < ep.userIdentityTokensSize; j++) {
+            UA_UserTokenPolicy policy = ep.userIdentityTokens[j];
+            if (policy.tokenType == UA_USERTOKENTYPE_ANONYMOUS) 
+                LOG(INFO) << "[opc.scanner] \t supports anonymous authentication";
+             else if (policy.tokenType == UA_USERTOKENTYPE_USERNAME) 
+                LOG(INFO) << "[opc.scanner] \t supports username/password authentication";
+             else if (policy.tokenType == UA_USERTOKENTYPE_ISSUEDTOKEN) 
+                LOG(INFO) << "[opc.scanner] \t supports issued token authentication";
+             else if (policy.tokenType == UA_USERTOKENTYPE_CERTIFICATE) 
+                LOG(INFO) << "[opc.scanner] \t supports certificate authentication";
+             else 
+                LOG(INFO) << "[opc.scanner] \t supports unknown authentication type";
+        }
+    }
+}
+
+
 
 std::pair<std::shared_ptr<UA_Client>, freighter::Error> opc::connect(
     opc::ConnectionConfig &cfg,
@@ -228,18 +271,28 @@ std::pair<std::shared_ptr<UA_Client>, freighter::Error> opc::connect(
     UA_ClientConfig *config = UA_Client_getConfig(client.get());
     config->logging->log = customLogger;
     config->logging->context = &log_prefix;
-    LOG(INFO) << "[opc.scanner] Cconfiguring encryption";
+    LOG(INFO) << "[opc.scanner] Configuring encryption";
     configureEncryption(cfg, client);
     UA_StatusCode status;
-    if (cfg.username.empty() && cfg.password.empty())
-        status = UA_Client_connect(client.get(), cfg.endpoint.c_str());
-    else
-        status = UA_Client_connectUsername(
-            client.get(),
-            cfg.endpoint.c_str(),
+    if (!cfg.username.empty() || !cfg.password.empty()) {
+        status = UA_ClientConfig_setAuthenticationUsername(
+            config,
             cfg.username.c_str(),
             cfg.password.c_str()
         );
+        if (status != UA_STATUSCODE_GOOD) {
+            LOG(ERROR) << "[opc.scanner] Failed to set authentication: " <<
+                    UA_StatusCode_name(status);
+            return {
+                std::move(client),
+                freighter::Error(freighter::TYPE_UNREACHABLE,
+                                 "Failed to set authentication: " + std::string(
+                                     UA_StatusCode_name(status)))
+            };
+        }
+    }
+    fetchEndpointDiagnosticInfo(client, cfg.endpoint);
+    status = UA_Client_connect(client.get(), cfg.endpoint.c_str());
     if (status == UA_STATUSCODE_GOOD) return {std::move(client), freighter::NIL};
 
     const auto status_name = UA_StatusCode_name(status);
