@@ -88,6 +88,8 @@ synnax/pkg/hardware/embedded/assets/**
 
 mbedtls-*
 !mbedtls-install
-mbedtls-instal/**
+mbedtls-install/**
+driver/vendor/mbedtls/mbedtls-install/**
+driver/vendor/open62541/mbedtls-install/**
 !mbedtls-install/.gitkeep
 driver/vendor/mbedtls/mbedtls
