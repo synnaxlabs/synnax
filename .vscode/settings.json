@@ -97,7 +97,8 @@
         "unordered_set": "cpp",
         "valarray": "cpp",
         "variant": "cpp",
-        "*.inc": "cpp"
+        "*.inc": "cpp",
+        "securitypolicy.h": "c"
     },
     "vitest.disableWorkspaceWarning": true
 }
