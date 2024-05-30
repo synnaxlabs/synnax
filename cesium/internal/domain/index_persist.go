@@ -14,6 +14,7 @@ import (
 	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	"os"
+	"sync"
 )
 
 const indexFile = "index" + extension
@@ -43,6 +44,8 @@ func (ip *indexPersist) preparePointersPersist(start int) func() error {
 
 	byteOrder.PutUint32(firstByte, uint32(len(ip.idx.mu.pointers)))
 	return func() error {
+		ip.p.Lock()
+		defer ip.p.Unlock()
 		_, err := ip.p.WriteAt(firstByte, 0)
 		if err != nil {
 			return err
@@ -54,6 +57,7 @@ func (ip *indexPersist) preparePointersPersist(start int) func() error {
 
 type pointerPersist struct {
 	fs.File
+	sync.Mutex
 	pointerEncoder
 }
 

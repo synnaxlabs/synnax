@@ -26,7 +26,6 @@ func (db *DB) Delete(
 	ctx, span := db.T.Bench(ctx, "Delete")
 	defer span.End()
 
-	// TODO: think about defer unlock here
 	db.idx.mu.Lock()
 	defer db.idx.mu.Unlock()
 
