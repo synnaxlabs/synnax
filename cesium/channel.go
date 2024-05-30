@@ -133,7 +133,7 @@ func (db *DB) createChannel(ch Channel) (err error) {
 	if ch.IsIndex {
 		ch.Index = ch.Key
 	}
-	ch.Version = version.CurrentVersion
+	ch.Version = version.Current
 	err = db.openVirtualOrUnary(ch)
 	return
 }

@@ -14,7 +14,6 @@ import (
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/meta"
 	"github.com/synnaxlabs/cesium/internal/unary"
-	"github.com/synnaxlabs/cesium/internal/version"
 	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/validate"
@@ -76,6 +75,8 @@ func (db *DB) openVirtualOrUnary(ch Channel) error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 	fs, err := db.fs.Sub(strconv.Itoa(int(ch.Key)))
+	l, _ := fs.List("")
+	l = l
 	if err != nil {
 		return err
 	}
@@ -88,14 +89,11 @@ func (db *DB) openVirtualOrUnary(ch Channel) error {
 		if isOpen {
 			return nil
 		}
-		if ch.Version != version.CurrentVersion {
-			ch.Version = version.CurrentVersion
-			err = meta.Create(fs, db.metaECD, ch)
-			if err != nil {
-				return err
-			}
-		}
 		v, err := virtual.Open(virtual.Config{FS: fs, Channel: ch, Instrumentation: db.options.Instrumentation})
+		if err != nil {
+			return err
+		}
+		err = v.CheckMigration(db.metaECD)
 		if err != nil {
 			return err
 		}
@@ -105,19 +103,11 @@ func (db *DB) openVirtualOrUnary(ch Channel) error {
 		if isOpen {
 			return nil
 		}
-		if ch.Version != version.CurrentVersion {
-			err = version.Migrate(fs, ch.Version, version.CurrentVersion)
-			if err != nil {
-				return err
-			}
-
-			ch.Version = version.CurrentVersion
-			err = meta.Create(fs, db.metaECD, ch)
-			if err != nil {
-				return err
-			}
-		}
 		u, err := unary.Open(unary.Config{FS: fs, Channel: ch, Instrumentation: db.options.Instrumentation, FileSize: db.options.fileSize, GCThreshold: db.options.gcCfg.GCThreshold})
+		if err != nil {
+			return err
+		}
+		err = u.CheckMigration(db.metaECD)
 		if err != nil {
 			return err
 		}

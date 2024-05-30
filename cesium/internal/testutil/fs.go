@@ -20,7 +20,7 @@ var FileSystems = map[string]FSFactory{
 	},
 }
 
-func ReplicateFS(srcFS, destFS xfs.FS) error {
+func CopyFS(srcFS, destFS xfs.FS) error {
 	items, err := srcFS.List("")
 	if err != nil {
 		return err
@@ -28,7 +28,7 @@ func ReplicateFS(srcFS, destFS xfs.FS) error {
 
 	for _, item := range items {
 		if item.IsDir() {
-			// Create directory in destination
+			// Create directory in destination.
 			subDestFS, err := destFS.Sub(item.Name())
 			if err != nil {
 				return err
@@ -38,11 +38,11 @@ func ReplicateFS(srcFS, destFS xfs.FS) error {
 				return err
 			}
 
-			if err := ReplicateFS(subSrcFS, subDestFS); err != nil {
+			if err := CopyFS(subSrcFS, subDestFS); err != nil {
 				return err
 			}
 		} else {
-			// Copy file from source to destination
+			// Copy file from source to destination.
 			srcFile, err := srcFS.Open(item.Name(), os.O_RDONLY)
 			if err != nil {
 				return err
