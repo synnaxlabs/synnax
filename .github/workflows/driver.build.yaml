@@ -47,8 +47,6 @@ jobs:
         if: ${{ matrix.platform == 'ubuntu-latest' }}
         run: |
          sudo apt-get install -y libmbedtls-dev
-         ls /usr/include/mbedtls
-         ls /usr/lib/x86_64-linux-gnu/libmbed*
 
       - name: Build Open65421 on Windows
         if: ${{ matrix.platform == 'windows-latest' }}

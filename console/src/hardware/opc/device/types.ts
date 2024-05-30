@@ -1,6 +1,14 @@
 import { device } from "@synnaxlabs/client";
 import { z } from "zod";
 
+export const securityModeZ = z.union([
+  z.literal("None"),
+  z.literal("Sign"),
+  z.literal("SignAndEncrypt"),
+]);
+
+export type SecurityMode = z.infer<typeof securityModeZ>;
+
 export const securityPolicyZ = z.union([
   z.literal("None"),
   z.literal("Basic128Rsa15"),
@@ -16,10 +24,11 @@ export const connectionConfigZ = z.object({
   endpoint: z.string(),
   username: z.string().optional(),
   password: z.string().optional(),
+  security_mode: securityModeZ,
+  security_policy: securityPolicyZ,
   client_certificate: z.string().optional(),
   client_private_key: z.string().optional(),
   server_certificate: z.string().optional(),
-  security_policy: securityPolicyZ,
 });
 
 export type ConnectionConfig = z.infer<typeof connectionConfigZ>;
