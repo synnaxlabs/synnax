@@ -418,9 +418,6 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
                   <PMenu.Item itemKey="meta-data" startIcon={<Icon.Annotate />}>
                     View Meta Data
                   </PMenu.Item>
-                  <PMenu.Item itemKey="link" startIcon={<Icon.Link />}>
-                    Copy Link
-                  </PMenu.Item>
                 </PMenu.Menu>
               );
             },

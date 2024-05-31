@@ -29,7 +29,6 @@ const formSchema = z.object({
   start: z.number().int(),
   end: z.number().int(),
   labels: z.string().array(),
-  color: z.string().optional(),
 });
 
 export const EDIT_LAYOUT_TYPE = "editRange";
@@ -42,7 +41,7 @@ export const createEditLayout = (name: string = "Create Range"): Layout.State =>
   location: "window",
   window: {
     resizable: false,
-    size: { height: 400, width: 700 },
+    size: { height: 280, width: 700 },
     navTop: true,
   },
 });
@@ -71,7 +70,6 @@ export const Edit = (props: Layout.RendererProps): ReactElement => {
           end:
             (editBuffer?.variant == "static" ? editBuffer.timeRange?.end : null) ?? now,
           labels: [],
-          color: "#000000",
           ...editBuffer,
         };
       }
@@ -83,7 +81,6 @@ export const Edit = (props: Layout.RendererProps): ReactElement => {
           start: Number(rng.timeRange.start.valueOf()),
           end: Number(rng.timeRange.end.valueOf()),
           labels: [],
-          color: "#000000",
         };
       }
       if (range.variant !== "static") throw new UnexpectedError("Range is not static");
@@ -92,7 +89,6 @@ export const Edit = (props: Layout.RendererProps): ReactElement => {
         start: range.timeRange.start,
         end: range.timeRange.end,
         labels: [],
-        color: "#000000",
       };
     },
   });
@@ -127,8 +123,7 @@ const EditLayoutForm = ({
   const { mutate, isPending } = useMutation({
     mutationFn: async (persist: boolean) => {
       if (!methods.validate()) return;
-      let { start, end, name, color } = methods.value();
-      if (color === "#000000") color = undefined;
+      let { start, end, name } = methods.value();
       const startTS = new TimeStamp(start, "UTC");
       const endTS = new TimeStamp(end, "UTC");
       name = name.trim();
@@ -136,7 +131,7 @@ const EditLayoutForm = ({
       const persisted = persist || isRemoteEdit;
       const tr = new TimeRange(startTS, endTS);
       if (persisted && client != null)
-        await client.ranges.create({ key, name, timeRange: tr, color });
+        await client.ranges.create({ key, name, timeRange: tr });
       dispatch(
         add({
           ranges: [
@@ -186,16 +181,6 @@ const EditLayoutForm = ({
               {(p) => <Input.DateTime level="h4" variant="natural" {...p} />}
             </Form.Field>
           </Align.Space>
-          <Form.Field<Color.Crude> path="color" label="Color">
-            {({ onChange, ...p }) => (
-              <Color.Swatch
-                onChange={(c: Color.Color) => {
-                  onChange(c.hex);
-                }}
-                {...p}
-              />
-            )}
-          </Form.Field>
         </Form.Form>
       </Align.Space>
       <Nav.Bar location="bottom" size={48}>
