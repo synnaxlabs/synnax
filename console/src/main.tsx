@@ -86,7 +86,11 @@ const MainUnderContext = (): ReactElement => {
     <QueryClientProvider client={client}>
       <Pluto.Provider
         theming={theme}
-        channelAlias={{ activeRange: activeRange?.key }}
+        channelAlias={{
+          // Set the alias active range to undefined if the range is not saved in Synnax,
+          // otherwise it will try to pull aliases from a range that doesn't exist.
+          activeRange: activeRange?.persisted ? activeRange?.key : undefined,
+        }}
         workerEnabled
         connParams={cluster?.props}
         workerURL={WorkerURL}

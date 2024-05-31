@@ -143,7 +143,7 @@ public:
         if (state_updater == nullptr) {
             auto [task_state_ch, err] = client->channels.retrieve(TASK_STATE_CHANNEL);
             if (err) {
-                LOG(ERROR) << "Failed to retrieve channel to update task state" << err.
+                LOG(ERROR) << "[task.context] failed to retrieve channel to update task state" << err.
                         message();
                 state_mutex.unlock();
                 return;
@@ -153,7 +153,7 @@ public:
                 .channels = {task_state_ch.key}
             });
             if (err) {
-                LOG(ERROR) << "Failed to open writer to update task state" << su_err.
+                LOG(ERROR) << "[task.context] failed to open writer to update task state" << su_err.
                         message();
                 state_mutex.unlock();
                 return;
@@ -163,10 +163,10 @@ public:
         auto fr = Frame(1);
         fr.add(task_state_channel.key,
                Series(std::vector{to_string(state.toJSON())}, JSON));
-        LOG(INFO) << "Writing task state update";
+        LOG(INFO) << "[task.context] writing task state update";
         if (!state_updater->write(std::move(fr))) {
             auto err = state_updater->close();
-            LOG(ERROR) << "Failed to write task state update" << err.message();
+            LOG(ERROR) << "[task.context] failed to write task state update" << err.message();
             state_updater = nullptr;
         }
         state_mutex.unlock();

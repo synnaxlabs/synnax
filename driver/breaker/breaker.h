@@ -13,6 +13,9 @@
 #include "glog/logging.h"
 #include "client/cpp/synnax.h"
 #include "freighter/cpp/freighter.h"
+#include <condition_variable>
+#include <mutex>
+
 
 namespace breaker {
 /// @brief struct for configuring a breaker.
@@ -42,10 +45,48 @@ class Breaker {
 public:
     explicit Breaker(const Config &config) : config(config),
                                              interval(config.base_interval),
-                                             retries(0) {
+                                             retries(0),
+                                             is_running(false),
+                                             breaker_shutdown(std::make_unique<std::condition_variable>()) {
     }
 
     Breaker(): Breaker(Config{"default", TimeSpan(1 * SECOND), 10, 1.1}) {}
+
+    //copy constructor
+    Breaker(const Breaker &other) noexcept: config(other.config),
+                                    interval(other.interval),
+                                    retries(other.retries),
+                                    is_running(other.is_running),
+                                    breaker_shutdown(std::make_unique<std::condition_variable>()) {
+    }
+
+
+    //move constructor
+    Breaker(Breaker &&other) noexcept : config(other.config),
+                                        interval(other.interval),
+                                        retries(other.retries),
+                                        is_running(other.is_running),
+                                        breaker_shutdown(std::make_unique<std::condition_variable>()) {
+    }
+
+    // copy assignment
+    Breaker& operator=(const Breaker &other) noexcept {
+        if (this == &other) return *this;
+        this->config = other.config;
+        this->interval = other.interval;
+        this->retries = other.retries;
+        this->is_running = other.is_running;
+        this->breaker_shutdown = std::make_unique<std::condition_variable>();
+        return *this;
+    }
+
+    // destructor
+    ~Breaker() {
+        stop();
+        // sleep to allow for the breaker to shutdown.
+        std::this_thread::sleep_for(std::chrono::milliseconds(10)); 
+    }
+    
 
     /// @brief triggers the breaker. If the maximum number of retries has been exceeded,
     /// immediately returns false. Otherwise, sleeps the current thread for the current
@@ -58,23 +99,48 @@ public:
     /// immediately returns false. Otherwise, sleeps the current thread for the current
     /// retry interval and returns true.
     /// @param message a message to inject additional information into the logs about what
-    /// error occured to trigger the breaker.
+    /// error occurred to trigger the breaker.
     bool wait(const std::string &message) {
+        if(!running()){
+            LOG(ERROR) << "Breaker has not been started. Exiting.";
+        }
         retries++;
         if (retries > config.max_retries) {
-            LOG(ERROR) << config.name << " exceeded the maximum retry count of " <<
-                    config.max_retries << ". Exiting." << "Error: " << message << ".";
+            LOG(ERROR) << config.name << " exceeded the maximum retry count of " << config.max_retries << ". Exiting." << "Error: " << message << ".";
+            reset();
             return false;
         }
-        LOG(ERROR) << config.name << " failed " << retries << "/" <<
-                config.max_retries << " times. " << "Retrying in " << interval / SECOND
-                << " seconds. "
-                "Error: " << message << ".";
-        std::this_thread::sleep_for(interval.nanoseconds());
+        LOG(ERROR) << config.name << " failed " << retries << "/" << config.max_retries << " times. " << "Retrying in " << interval / SECOND << " seconds. " << "Error: " << message << ".";
+        {
+            std::unique_lock<std::mutex> lock(shutdown_mutex);
+            breaker_shutdown->wait_for(lock, interval.nanoseconds());
+            if(!running()){
+                LOG(INFO) << "Breaker is shutting down. Exiting.";
+                reset();
+                return false;
+            }
+        }
         interval = interval * config.scale;
         return true;
     }
 
+    void start() {
+        if(running()) return;
+        is_running = true;
+    }
+
+    /// @brief shuts down the breaker, preventing any further retries.
+    void stop() {
+        if(!running()) return;
+        std::lock_guard<std::mutex> lock(shutdown_mutex);
+        is_running = false;
+        breaker_shutdown->notify_all();
+    }
+
+    bool running() {
+        return is_running;
+    }
+    
     /// @brief resets the retry count and the retry interval on the breaker, allowing
     /// it to be re-used. It's typically to call this method after the breaker has been
     /// triggered, but the request has succeeded.
@@ -87,5 +153,8 @@ private:
     Config config;
     TimeSpan interval;
     uint32_t retries;
+    volatile bool is_running;
+    std::unique_ptr<std::condition_variable> breaker_shutdown;
+    std::mutex shutdown_mutex;
 };
 }

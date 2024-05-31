@@ -11,7 +11,6 @@
 
 #include "client/cpp/telem/telem.h"
 #include "x/go/telem/x/go/telem/telem.pb.h"
-#include <memory>
 #include <string>
 #include <vector>
 #include <cstddef>
@@ -237,6 +236,9 @@ public:
         return os;
     }
 
+    /// @brief Holds what type of data is being used.
+    DataType data_type;
+
     /// @brief Holds the underlying data.
     std::unique_ptr<std::byte[]> data;
 
@@ -247,8 +249,6 @@ public:
     /// range is set to the nanosecond AFTER the last sample in the array (exclusive).
     synnax::TimeRange time_range = synnax::TimeRange();
 
-    /// @brief Holds what type of data is being used.
-    DataType data_type;
 
     size_t size;
 };

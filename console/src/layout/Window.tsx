@@ -9,7 +9,7 @@
 
 import { type ReactElement, useEffect } from "react";
 
-import { setWindowDecorations } from "@synnaxlabs/drift";
+import { closeWindow, setWindowDecorations } from "@synnaxlabs/drift";
 import { useSelectWindowAttribute, useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Logo } from "@synnaxlabs/media";
 import { Nav, OS, Align, Menu as PMenu, Text } from "@synnaxlabs/pluto";
