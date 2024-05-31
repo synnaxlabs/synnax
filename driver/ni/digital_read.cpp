@@ -136,7 +136,7 @@ std::pair<synnax::Frame, freighter::Error> ni::DigitalReadSource::read(){
             continue;
         }
 
-        std::vector<float> data_vec(d.samplesReadPerChannel);
+        std::vector<uint8_t> data_vec(d.samplesReadPerChannel);
         for (int j = 0; j < d.samplesReadPerChannel; j++)
             data_vec[j] = data[data_index * d.samplesReadPerChannel + j];
         f.add(this->reader_config.channels[i].channel_key, synnax::Series(data_vec, synnax::UINT8));
