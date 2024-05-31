@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/types"
@@ -331,11 +330,11 @@ func (lp *leaseProxy) deleteFreeVirtual(ctx context.Context, tx gorp.Tx, channel
 }
 
 func (lp *leaseProxy) deleteGateway(ctx context.Context, tx gorp.Tx, keys Keys) error {
-
-	numToDelete := len(keys)
-	var deletedChannels []Channel
-	err := gorp.NewRetrieve[Key, Channel]().WhereKeys(keys...).Entries(&deletedChannels).Exec(ctx, tx)
-	if err != nil {
+	var (
+		numToDelete     = len(keys)
+		deletedChannels []Channel
+	)
+	if err := gorp.NewRetrieve[Key, Channel]().WhereKeys(keys...).Entries(&deletedChannels).Exec(ctx, tx); err != nil {
 		return err
 	}
 	for _, ch := range deletedChannels {
@@ -343,21 +342,18 @@ func (lp *leaseProxy) deleteGateway(ctx context.Context, tx gorp.Tx, keys Keys) 
 			numToDelete--
 		}
 	}
-	lp.externalCounter.add(-LocalKey(numToDelete))
-
+	if _, err := lp.externalCounter.sub(LocalKey(numToDelete)); err != nil {
+		return err
+	}
 	if err := gorp.NewDelete[Key, Channel]().WhereKeys(keys...).Exec(ctx, tx); err != nil {
 		return err
 	}
-
 	lp.deleted.Insert(keys.Local()...)
 	lp.internal.Remove(keys.Local()...)
-
-	c := errors.NewCatcher(errors.WithAggregation())
-	for _, key := range keys {
-		c.Exec(func() error { return lp.TSChannel.DeleteChannel(key.StorageKey()) })
+	if err := lp.TSChannel.DeleteChannels(keys.Storage()); err != nil {
+		return err
 	}
-	c.Exec(func() error { return lp.maybeDeleteResources(ctx, tx, keys) })
-	return c.Error()
+	return lp.maybeDeleteResources(ctx, tx, keys)
 }
 
 func (lp *leaseProxy) maybeDeleteResources(
