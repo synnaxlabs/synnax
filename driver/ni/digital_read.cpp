@@ -64,8 +64,7 @@ int ni::DigitalReadSource::createChannels(){
 
 int ni::DigitalReadSource::configureTiming(){
     if(this->reader_config.timing_source == "none"){ // if timing is not enabled, implement timing in software
-        this->reader_config.period = (uint32_t)((1.0 / this->reader_config.sample_rate) * 1000000); // convert to microseconds
-
+        this->reader_config.period = (uint64_t)((1.0 / this->reader_config.sample_rate) * 1000000000); // convert to microseconds
         this->numSamplesPerChannel = 1;
     } else{
         if (this->checkNIError(ni::NiDAQmxInterface::CfgSampClkTiming(this->task_handle,
@@ -78,12 +77,38 @@ int ni::DigitalReadSource::configureTiming(){
             this->ok_state = false;
             return -1;
         }
-
         this->numSamplesPerChannel = std::floor(this->reader_config.sample_rate / this->reader_config.stream_rate);
     }
     this->bufferSize = this->numChannels * this->numSamplesPerChannel;
     return 0;
 }
+
+
+void ni::DigitalReadSource::acquireData(){
+    while(this->running){
+        int32 numBytesPerSamp;
+        DataPacket data_packet;
+        data_packet.data = new uInt8[this->bufferSize];
+        data_packet.t0 = (uint64_t) ((synnax::TimeStamp::now()).value);
+        // sleep per sample rate
+        std::this_thread::sleep_for(std::chrono::nanoseconds(this->reader_config.period));
+        if (this->checkNIError(ni::NiDAQmxInterface::ReadDigitalLines(
+                                                                this->task_handle,                        // task handle
+                                                                this->numSamplesPerChannel,               // numSampsPerChan
+                                                                -1,                                       // timeout
+                                                                DAQmx_Val_GroupByChannel,                 // dataLayout
+                                                                static_cast<uInt8*>(data_packet.data),    // readArray
+                                                                this->bufferSize,                         // arraySizeInSamps
+                                                                &data_packet.samplesReadPerChannel,       // sampsPerChanRead
+                                                                &numBytesPerSamp,                          // numBytesPerSamp
+                                                                NULL))){
+            LOG(ERROR) << "[NI Reader] failed while reading digital data for task " << this->reader_config.task_name;
+        }
+        data_packet.tf = (uint64_t)((synnax::TimeStamp::now()).value);
+        data_queue.enqueue(data_packet);
+    }
+}
+
 
 // TODO: code dedup with analogreadsource read
 std::pair<synnax::Frame, freighter::Error> ni::DigitalReadSource::read(){
@@ -96,7 +121,7 @@ std::pair<synnax::Frame, freighter::Error> ni::DigitalReadSource::read(){
     uInt8* data = static_cast<uInt8*>(d.data);
 
     // interpolate  timestamps between the initial and final timestamp to ensure non-overlapping timestamps between batched reads
-    uint64_t incr = ( (d.tf- d.t0) / this->numSamplesPerChannel );
+    uint64_t incr = ( (d.tf- d.t0) / this->numSamplesPerChannel);
 
     // Construct and populate index channel
     std::vector<std::uint64_t> time_index(this->numSamplesPerChannel);
@@ -122,26 +147,4 @@ std::pair<synnax::Frame, freighter::Error> ni::DigitalReadSource::read(){
 
     // return synnax frame
     return std::make_pair(std::move(f), freighter::NIL);
-}
-
-void ni::DigitalReadSource::acquireData(){
-    while(this->running){
-        DataPacket data_packet;
-        data_packet.data = new uInt8[this->bufferSize];
-        data_packet.t0 = (uint64_t) ((synnax::TimeStamp::now()).value);
-        if (this->checkNIError(ni::NiDAQmxInterface::ReadDigitalLines(
-                                                                this->task_handle,                        // task handle
-                                                                this->numSamplesPerChannel,               // numSampsPerChan
-                                                                -1,                                       // timeout
-                                                                DAQmx_Val_GroupByChannel,                 // dataLayout
-                                                                static_cast<uInt8*>(data_packet.data),    // readArray
-                                                                this->bufferSize,                         // arraySizeInSamps
-                                                                &data_packet.samplesReadPerChannel,                             // sampsPerChanRead
-                                                                NULL,                                     // numBytesPerSamp
-                                                                NULL))){
-            LOG(ERROR) << "[NI Reader] failed while reading digital data for task " << this->reader_config.task_name;
-        }
-        data_packet.tf = (uint64_t)((synnax::TimeStamp::now()).value);
-        data_queue.enqueue(data_packet);
-    }
 }

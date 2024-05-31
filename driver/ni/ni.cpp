@@ -222,10 +222,10 @@ freighter::Error ni::Source::stop(){
 
 
 void ni::Source::clearTask(){
-    LOG(INFO) << "[NI Reader] clearing reader for task " << this->reader_config.task_name;
     if (this->checkNIError(ni::NiDAQmxInterface::ClearTask(this->task_handle))){
         LOG(ERROR) << "[NI Reader] failed while clearing reader for task " << this->reader_config.task_name;
     }
+    LOG(INFO) << "[NI Reader] cleared reader for task " << this->reader_config.task_name;
 }
 
 

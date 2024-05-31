@@ -68,7 +68,7 @@ void ni::ScannerTask::exec(task::Command &cmd) {
                                           {"devices", devices.dump(4)}
                                   }
                           });
-            LOG(INFO) << "[NI Task] successfully scanned for task " << this->task.name;
+            // LOG(INFO) << "[NI Task] successfully scanned for task " << this->task.name;
         }
     } else if (cmd.type == "stop"){
         this->stop();

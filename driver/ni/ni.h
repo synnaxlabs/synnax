@@ -183,10 +183,9 @@ namespace ni{
             const synnax::Task task
         ) : Source(task_handle, ctx, task){}
 
+        ~AnalogReadSource();
 
         std::pair<synnax::Frame, freighter::Error> read() override;
-        ~AnalogReadSource();
-        // private helper functions
         void acquireData() override;
         int configureTiming() override;
         int createChannels() override;
@@ -213,11 +212,11 @@ namespace ni{
             const synnax::Task task
         ) : Source(task_handle, ctx, task){}
 
-        int configureTiming() override;
-        void parseChannels(config::Parser & parser) override;    
-        int createChannels() override;
-        void acquireData() override;
         std::pair<synnax::Frame, freighter::Error> read() override;
+        void acquireData() override;
+        int configureTiming() override;
+        int createChannels() override;
+        void parseChannels(config::Parser & parser) override;    
     };
 
 
