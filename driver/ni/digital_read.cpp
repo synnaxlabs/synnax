@@ -88,22 +88,20 @@ int ni::DigitalReadSource::configureTiming(){
 // TODO: code dedup with analogreadsource read
 std::pair<synnax::Frame, freighter::Error> ni::DigitalReadSource::read(){
     synnax::Frame f = synnax::Frame(numChannels);
-
     // sleep per stream rate
     std::this_thread::sleep_for(std::chrono::nanoseconds((uint64_t)((1.0 / this->reader_config.stream_rate )* 1000000000)));
     
     // take data off of queue
-    std::optional<DataPacket> d = data_queue.dequeue();
-    if(!d.has_value()) return std::make_pair(std::move(f), freighter::Error(driver::TYPE_TEMPORARY_HARDWARE_ERROR, "no data available to read"));
-    uInt8* data = static_cast<uInt8*>(d.value().data);
+    DataPacket d = data_queue.dequeue();
+    uInt8* data = static_cast<uInt8*>(d.data);
 
     // interpolate  timestamps between the initial and final timestamp to ensure non-overlapping timestamps between batched reads
-    uint64_t incr = ( (d.value().tf- d.value().t0) / this->numSamplesPerChannel );
+    uint64_t incr = ( (d.tf- d.t0) / this->numSamplesPerChannel );
 
     // Construct and populate index channel
     std::vector<std::uint64_t> time_index(this->numSamplesPerChannel);
-    for (uint64_t i = 0; i < d.value().samplesReadPerChannel; ++i)
-        time_index[i] = d.value().t0 + (std::uint64_t)(incr * i);
+    for (uint64_t i = 0; i < d.samplesReadPerChannel; ++i)
+        time_index[i] = d.t0 + (std::uint64_t)(incr * i);
     
     // Construct and populate synnax frame
     uint64_t data_index = 0; // TODO: put a comment explaining the function of data_index
@@ -113,14 +111,14 @@ std::pair<synnax::Frame, freighter::Error> ni::DigitalReadSource::read(){
             continue;
         }
 
-        std::vector<float> data_vec(d.value().samplesReadPerChannel);
-        for (int j = 0; j < d.value().samplesReadPerChannel; j++)
-            data_vec[j] = data[data_index * d.value().samplesReadPerChannel + j];
+        std::vector<float> data_vec(d.samplesReadPerChannel);
+        for (int j = 0; j < d.samplesReadPerChannel; j++)
+            data_vec[j] = data[data_index * d.samplesReadPerChannel + j];
         f.add(this->reader_config.channels[i].channel_key, synnax::Series(data_vec, synnax::UINT8));
         data_index++;
     }
 
-    if(d.has_value()) delete[] d.value().data;
+    delete[] data;
 
     // return synnax frame
     return std::make_pair(std::move(f), freighter::NIL);

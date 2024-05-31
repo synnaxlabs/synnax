@@ -68,7 +68,7 @@ void ni::ScannerTask::exec(task::Command &cmd) {
                                           {"devices", devices.dump(4)}
                                   }
                           });
-            // LOG(INFO) << "[NI Task] successfully scanned for task " << this->task.name;
+            LOG(INFO) << "[NI Task] successfully scanned for task " << this->task.name;
         }
     } else if (cmd.type == "stop"){
         this->stop();
@@ -168,6 +168,7 @@ std::unique_ptr <task::Task> ni::ReaderTask::configure(const std::shared_ptr <ta
                     {"running", false}
             }
     });
+    LOG(INFO) << "[NI Task] successfully configured task " << task.name;
     
     return std::make_unique<ni::ReaderTask>(    ctx, 
                                                 task, 
@@ -293,6 +294,8 @@ std::unique_ptr <task::Task> ni::WriterTask::configure(const std::shared_ptr <ta
     });
 
     auto state_writer = daq_writer->writer_state_source;
+
+    LOG(INFO) << "[NI Task] successfully configured task " << task.name;
 
     return std::make_unique<ni::WriterTask>(    ctx, 
                                                 task, 

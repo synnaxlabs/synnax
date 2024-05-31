@@ -219,7 +219,6 @@ void ni::AnalogReadSource::acquireData(){
                                                             &data_packet.samplesReadPerChannel,
                                                             NULL))){
             LOG(ERROR) << "[NI Reader] failed while reading analog data for task " << this->reader_config.task_name;
-            // return; // TODO: handle differently?
         }
         data_packet.tf = (uint64_t)((synnax::TimeStamp::now()).value);
         data_queue.enqueue(data_packet);
