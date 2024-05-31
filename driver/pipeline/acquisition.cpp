@@ -23,7 +23,11 @@ Acquisition::Acquisition(
     WriterConfig writer_config,
     std::shared_ptr<Source> source,
     const breaker::Config &breaker_config
-): ctx(std::move(ctx)), thread(nullptr), writer_config(writer_config), breaker(breaker_config), source(std::move(source)) {
+):  ctx(std::move(ctx)), 
+    thread(nullptr), 
+    writer_config(writer_config), 
+    breaker(breaker_config), 
+    source(std::move(source)) {
 }
 
 void Acquisition::start() {

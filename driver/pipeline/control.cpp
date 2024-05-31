@@ -44,15 +44,16 @@ void Control::start() {
         return;
     }  
     thread = std::make_unique<std::thread>(&Control::run, this);
+    LOG(INFO) << "[control] Control started";
 }
 
 void Control::stop() {
-    if(breaker.running()) return;
+    if(!breaker.running()) return;
     breaker.stop(); 
+    this->streamer->closeSend();
     if (this->thread != nullptr && thread->joinable() && std::this_thread::get_id() != thread->get_id()) {
         thread->join();
     };
-    this->streamer->closeSend();
     sink->stop();
     LOG(INFO) << "[control] Control stopped";
 }
@@ -73,8 +74,7 @@ void Control::runInternal() {
         auto daq_err = sink->write(std::move(cmd_frame));    
         //    breaker.reset();
     }
-    const auto err = this->streamer->close(); // close or closeSend
-
+    auto err = this->streamer->close(); // close or closeSend
     if (err.matches(freighter::UNREACHABLE) && breaker.wait()) return runInternal();
     this->stop();
 }

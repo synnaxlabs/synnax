@@ -188,9 +188,7 @@ freighter::Error ni::DigitalWriteSink::stop(){
         LOG(ERROR) << "[NI Writer] failed while stopping writer for task " << this->writer_config.task_name;
         return freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
     }
-    LOG(INFO) << "[NI Writer] successfully stopped and cleared writer for task " << this->writer_config.task_name;
-
-
+    LOG(INFO) << "[NI Writer] successfully stopped writer for task " << this->writer_config.task_name;
     return freighter::NIL;
 }
 

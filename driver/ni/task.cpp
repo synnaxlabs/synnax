@@ -314,25 +314,6 @@ void ni::WriterTask::exec(task::Command &cmd) {
 }
 
 
-void ni::WriterTask::stop(){
-    if(!this->running.exchange(false) || !this->ok()){
-        LOG(INFO) << "[NI Task] did not stop " << this->task.name << " running: " << this->running << " ok: " << this->ok();
-        return; // TODO: handle this error
-    }
-    this->state_write_pipe.stop();
-    this->cmd_write_pipe.stop();
-
-    ctx->setState({
-                            .task = task.key,
-                            .variant = "success",
-                            .details = {
-                                    {"running", false}
-                            }
-                    });
-    LOG(INFO) << "[NI Task] successfully stopped task " << this->task.name;
-}
-
-
 void ni::WriterTask::start(){
     if(this->running.exchange(true) || !this->ok()){
         return;
@@ -351,7 +332,27 @@ void ni::WriterTask::start(){
 }
 
 
+void ni::WriterTask::stop(){
+    if(!this->running.exchange(false) || !this->ok()){
+        LOG(INFO) << "[NI Task] did not stop " << this->task.name << " running: " << this->running << " ok: " << this->ok();
+        return; // TODO: handle this error
+    }
+    this->state_write_pipe.stop();
+    this->cmd_write_pipe.stop();
+
+    ctx->setState({
+                        .task = task.key,
+                        .variant = "success",
+                        .details = {
+                                {"running", false}
+                        }
+                    });
+    LOG(INFO) << "[NI Task] successfully stopped task " << this->task.name;
+}
+
+
 
 bool ni::WriterTask::ok() {
     return this->ok_state;
 }
+
