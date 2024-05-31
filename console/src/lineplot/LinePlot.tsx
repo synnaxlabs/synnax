@@ -67,7 +67,6 @@ import { Workspace } from "@/workspace";
 import { Icon } from "@synnaxlabs/media";
 import { download } from "@/lineplot/download";
 import { Menu } from "@/components";
-import { createEditLayout } from "@/range/EditLayout";
 
 interface SyncPayload {
   key?: string;
@@ -83,9 +82,7 @@ const syncer: Syncer<
   if (ws == null) return;
   const data = select(s, key);
   const la = Layout.selectRequired(s, key);
-  if (!data.remoteCreated) {
-    store.dispatch(setRemoteCreated({ key }));
-  }
+  if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key }));
   await client.workspaces.linePlot.create(ws, {
     key,
     name: la.name,
@@ -318,14 +315,9 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
                 start: Number(timeRange.start.valueOf()),
                 end: Number(timeRange.end.valueOf()),
               },
-              variant: "static",
             }),
           );
-          const layout = createEditLayout();
-          newLayout({
-            ...layout,
-            key: layout.key,
-          });
+          newLayout(Range.createEditLayout());
           break;
         case "download":
           if (client == null) return;

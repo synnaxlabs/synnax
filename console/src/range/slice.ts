@@ -11,12 +11,12 @@ import { createSlice } from "@reduxjs/toolkit";
 import type { PayloadAction } from "@reduxjs/toolkit";
 import { TimeSpan, migrate } from "@synnaxlabs/x";
 
-import { type Range } from "@/range/range";
+import { type Range, type StaticRange } from "@/range/range";
 
 export interface SliceState extends migrate.Migratable {
   activeRange: string | null;
   ranges: Record<string, Range>;
-  buffer: Partial<Range> | null;
+  buffer: Partial<StaticRange> | null;
 }
 
 export const SLICE_NAME = "range";
@@ -101,7 +101,7 @@ export const { actions, reducer } = createSlice({
     setActive: (state, { payload }: PA<SetActivePayload>) => {
       state.activeRange = payload;
     },
-    setBuffer: (state, { payload }: PA<Partial<Range>>) => {
+    setBuffer: (state, { payload }: PA<Partial<StaticRange>>) => {
       state.buffer = payload;
     },
     clearBuffer: (state) => {
