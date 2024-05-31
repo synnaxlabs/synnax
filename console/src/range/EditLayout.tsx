@@ -8,27 +8,28 @@
 // included in the file licenses/APL.txt.
 
 import { type ReactElement, useRef } from "react";
-
+import { useDispatch } from "react-redux";
 import { TimeRange, TimeStamp, UnexpectedError } from "@synnaxlabs/client";
 import { Icon, Logo } from "@synnaxlabs/media";
-import { Align, Button, Form, Nav, Synnax, Text } from "@synnaxlabs/pluto";
+import { Align, Button, Color, Form, Nav, Synnax, Text } from "@synnaxlabs/pluto";
 import { Input } from "@synnaxlabs/pluto/input";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useDispatch } from "react-redux";
 import { v4 as uuidv4 } from "uuid";
 import { z } from "zod";
 
 import { CSS } from "@/css";
 import { type Layout } from "@/layout";
-import { useSelect } from "@/range/selectors";
-import { add } from "@/range/slice";
+import { useSelect, useSelectBuffer } from "@/range/selectors";
+import { add, clearBuffer } from "@/range/slice";
 
 import "@/range/EditLayout.css";
 
 const formSchema = z.object({
   name: z.string().min(1, "Name must not be empty"),
-  start: z.number().int(),
-  end: z.number().int(),
+  timeRange: z.object({
+    start: z.number().int(),
+    end: z.number().int(),
+  }),
   labels: z.string().array(),
 });
 
@@ -56,31 +57,37 @@ export const Edit = (props: Layout.RendererProps): ReactElement => {
   const client = Synnax.use();
   const isCreate = layoutKey === EDIT_LAYOUT_TYPE;
   const isRemoteEdit = !isCreate && (range == null || range.persisted);
+  const editBuffer = useSelectBuffer();
+  const dispatch = useDispatch();
   const initialValues = useQuery<DefineRangeFormProps>({
     queryKey: ["range", layoutKey],
     queryFn: async () => {
-      if (isCreate)
+      if (isCreate) {
+        console.log(editBuffer);
+        dispatch(clearBuffer());
         return {
           name: "",
-          start: now,
-          end: now,
+          timeRange: { start: now, end: now },
           labels: [],
+          ...editBuffer,
         };
+      }
       if (range == null || range.persisted) {
         if (client == null) throw new UnexpectedError("Client is not available");
         const rng = await client.ranges.retrieve(layoutKey);
         return {
           name: rng.name,
-          start: Number(rng.timeRange.start.valueOf()),
-          end: Number(rng.timeRange.end.valueOf()),
+          timeRange: {
+            start: Number(rng.timeRange.start.valueOf()),
+            end: Number(rng.timeRange.end.valueOf()),
+          },
           labels: [],
         };
       }
       if (range.variant !== "static") throw new UnexpectedError("Range is not static");
       return {
         name: range.name,
-        start: range.timeRange.start,
-        end: range.timeRange.end,
+        timeRange: range.timeRange,
         labels: [],
       };
     },
@@ -116,9 +123,9 @@ const EditLayoutForm = ({
   const { mutate, isPending } = useMutation({
     mutationFn: async (persist: boolean) => {
       if (!methods.validate()) return;
-      let { start, end, name } = methods.value();
-      const startTS = new TimeStamp(start, "UTC");
-      const endTS = new TimeStamp(end, "UTC");
+      let { timeRange, name } = methods.value();
+      const startTS = new TimeStamp(timeRange.start, "UTC");
+      const endTS = new TimeStamp(timeRange.end, "UTC");
       name = name.trim();
       const key = isCreate ? uuidv4() : layoutKey;
       const persisted = persist || isRemoteEdit;
@@ -166,11 +173,11 @@ const EditLayoutForm = ({
             )}
           </Form.Field>
           <Align.Space direction="x" size="large">
-            <Form.Field<number> path="start" label="From">
+            <Form.Field<number> path="timeRange.start" label="From">
               {(p) => <Input.DateTime level="h4" variant="natural" {...p} />}
             </Form.Field>
             <Text.WithIcon level="h4" startIcon={<Icon.Arrow.Right />} />
-            <Form.Field<number> path="end" label="To">
+            <Form.Field<number> path="timeRange.end" label="To">
               {(p) => <Input.DateTime level="h4" variant="natural" {...p} />}
             </Form.Field>
           </Align.Space>
