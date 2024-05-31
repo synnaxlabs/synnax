@@ -35,7 +35,7 @@ func (c *counter) add(delta LocalKey) (LocalKey, error) {
 
 func (c *counter) sub(delta LocalKey) (LocalKey, error) {
 	if c.wrap.Value()-int64(delta) < 0 {
-		return 0, errors.New("cannot have negative number of channels")
+		return LocalKey(0), c.wrap.Set(0)
 	}
 	next, err := c.wrap.Add(-int64(delta))
 	return LocalKey(next), err
