@@ -89,6 +89,7 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
       ),
     );
     ranges.forEach((r) => {
+      console.log(r.color);
       const cRes = color.Color.z.safeParse(r.color);
       if (!cRes.success) return;
       const c = cRes.data;

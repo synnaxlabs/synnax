@@ -511,10 +511,9 @@ const ChannelForm = ({
   deviceProperties,
 }: ChannelFormProps): ReactElement | null => {
   const prefix = `groups.${groupIndex}.channels.${index}`;
-  const ctx = Form.useContext();
-  const fieldState = Form.useFieldState(prefix);
-  const isIndex = Form.useFieldValue(`${prefix}.isIndex`);
-  if (!ctx.has(prefix)) return null;
+  const fieldState = Form.useFieldState(prefix, true);
+  const isIndex = Form.useFieldValue(`${prefix}.isIndex`, true);
+  if (fieldState == null || isIndex == null) return null;
   return (
     <Align.Space direction="y" size="small">
       <Form.Field<string> path={`${prefix}.name`} label="Name">

@@ -31,7 +31,6 @@ import {
   TimeRange,
 } from "@synnaxlabs/x";
 import { useDispatch } from "react-redux";
-
 import { useSyncerDispatch, type Syncer } from "@/hooks/dispatchers";
 import { Layout } from "@/layout";
 import {
@@ -68,8 +67,6 @@ import { Workspace } from "@/workspace";
 import { Icon } from "@synnaxlabs/media";
 import { download } from "@/lineplot/download";
 import { Menu } from "@/components";
-// import { dialog } from "@tauri-apps/api";
-// import { writeFile } from "@tauri-apps/api/fs";
 
 interface SyncPayload {
   key?: string;
@@ -85,9 +82,7 @@ const syncer: Syncer<
   if (ws == null) return;
   const data = select(s, key);
   const la = Layout.selectRequired(s, key);
-  if (!data.remoteCreated) {
-    store.dispatch(setRemoteCreated({ key }));
-  }
+  if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key }));
   await client.workspaces.linePlot.create(ws, {
     key,
     name: la.name,
@@ -295,6 +290,7 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
       s.pos(box.right(selection)),
     );
 
+    const newLayout = Layout.usePlacer();
     const handleSelect = (key: string): void => {
       switch (key) {
         case "iso":
@@ -311,6 +307,17 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
           void navigator.clipboard.writeText(
             `new TimeRange(${timeRange.start.valueOf()}, ${timeRange.end.valueOf()})`,
           );
+          break;
+        case "range":
+          dispatch(
+            Range.setBuffer({
+              timeRange: {
+                start: Number(timeRange.start.valueOf()),
+                end: Number(timeRange.end.valueOf()),
+              },
+            }),
+          );
+          newLayout(Range.createEditLayout());
           break;
         case "download":
           if (client == null) return;
