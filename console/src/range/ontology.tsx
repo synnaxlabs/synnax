@@ -17,8 +17,8 @@ import { toArray } from "@synnaxlabs/x";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
-import { setRanges } from "@/lineplot/slice";
 import { Ontology } from "@/ontology";
+import { Cluster } from "@/cluster";
 import { createEditLayout } from "@/range/EditLayout";
 import { type Range } from "@/range/range";
 import { select } from "@/range/selectors";
@@ -112,7 +112,7 @@ const handleAddToActivePlot = async ({
   const res = resources[0];
   await fetchIfNotInState(store, client, res.id.key);
   store.dispatch(
-    setRanges({
+    LinePlot.setRanges({
       key: active.key,
       axisKey: "x1",
       mode: "add",
@@ -153,6 +153,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const activeRange = select(state);
   const layout = Layout.selectActiveMosaicTab(state);
   const { resources, nodes } = selection;
+  const clusterKey = Cluster.useSelectActiveKey();
 
   const handleSelect = (itemKey: string): void => {
     switch (itemKey) {
@@ -176,6 +177,10 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         return;
       case "group":
         void Group.fromSelection(props);
+      case "copyURL":
+        const toCopy = `synnax://cluster/${clusterKey}/range/${resources[0].id.key}`;
+        void navigator.clipboard.writeText(toCopy);
+        return;
     }
   };
 
@@ -206,6 +211,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       </Menu.Item>
       <Menu.Item itemKey="delete" startIcon={<Icon.Delete />}>
         Delete
+      </Menu.Item>
+      <Menu.Item itemKey="copyURL" startIcon={<Icon.Copy />}>
+        Copy URL
       </Menu.Item>
     </Menu.Menu>
   );

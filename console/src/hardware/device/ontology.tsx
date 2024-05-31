@@ -13,6 +13,7 @@ import { Menu } from "@synnaxlabs/pluto";
 import { NI } from "@/hardware/ni";
 import { Layout } from "@/layout";
 import { OPC } from "@/hardware/opc";
+import { Cluster } from "@/cluster";
 
 type DeviceLayoutCreator = (
   device: string,
@@ -64,7 +65,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const { selection, placeLayout } = props;
   if (selection.nodes.length === 0) return null;
   const isSingle = selection.nodes.length === 1;
-  const first = selection.resources[0];
+  const clusterKey = Cluster.useSelectActiveKey();
 
   const handleSelect = (itemKey: string): void => {
     switch (itemKey) {
@@ -73,6 +74,10 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         break;
       case "delete":
         handleDelete(props);
+        break;
+      case "copyURL":
+        const toCopy = `synnax://cluster/${clusterKey}/device/${selection.resources[0].id.key}`;
+        void navigator.clipboard.writeText(toCopy);
         break;
     }
   };
@@ -86,6 +91,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       )}
       <Menu.Item itemKey="delete" startIcon={<Icon.Delete />}>
         Delete
+      </Menu.Item>
+      <Menu.Item itemKey="copyURL" startIcon={<Icon.Copy />}>
+        Copy URL
       </Menu.Item>
     </Menu.Menu>
   );

@@ -22,8 +22,6 @@ import { Schematic } from "@/schematic";
 import { selectActiveKey } from "@/workspace/selectors";
 import { add, rename, setActive } from "@/workspace/slice";
 import { Cluster } from "@/cluster";
-import { useDispatch } from "react-redux";
-import { useSelectActiveKey } from "@/cluster/selectors";
 
 const handleDelete = ({
   client,
@@ -108,7 +106,6 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
       case "copy": {
         const toCopy = `synnax://cluster/${clusterKey}/workspace/${resources[0].id.key}`
         void navigator.clipboard.writeText(toCopy)
-        console.log(toCopy);
         return;
       }
     }

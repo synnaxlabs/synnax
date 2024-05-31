@@ -14,6 +14,7 @@ import { Menu, Mosaic, Tree } from "@synnaxlabs/pluto";
 import { Layout } from "@/layout";
 import { create, type State } from "@/lineplot/slice";
 import { Ontology } from "@/ontology";
+import { Cluster } from "@/cluster";
 
 const TreeContextMenu: Ontology.TreeContextMenu = ({
   client,
@@ -35,11 +36,23 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
     })();
   };
 
+  const clusterKey = Cluster.useSelectActiveKey();
+
   const handleRename = (): void => Tree.startRenaming(resources[0].key);
+
+  const handleCopyURL = (): void => {
+    const toCopy = `synnax://cluster/${clusterKey}/lineplot/${resources[0].id.key}`
+    void navigator.clipboard.writeText(toCopy);
+    return;
+
+
+  }
 
   const f: Record<string, () => void> = {
     delete: handleDelete,
     rename: handleRename,
+    copyURL: handleCopyURL,
+
   };
 
   const onSelect = (key: string): void => f[key]();
@@ -49,6 +62,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
       <Ontology.RenameMenuItem />
       <Menu.Item itemKey="delete" startIcon={<Icon.Delete />}>
         Delete
+      </Menu.Item>
+      <Menu.Item itemKey="copyURL" startIcon={<Icon.Copy />}>
+        Copy URL
       </Menu.Item>
     </Menu.Menu>
   );

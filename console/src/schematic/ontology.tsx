@@ -15,6 +15,7 @@ import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";
 import { create, type State } from "@/schematic/slice";
 import { Range } from "@/range";
+import { Cluster } from "@/cluster";
 
 const TreeContextMenu: Ontology.TreeContextMenu = ({
   client,
@@ -82,11 +83,18 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
 
   const handleRename = (): void => Tree.startRenaming(resources[0].key);
 
+  const clusterKey = Cluster.useSelectActiveKey();
+  const handleCopyURL = (): void => {
+    const url = `synnax://cluster/${clusterKey}/schematic/${resources[0].id.key}`
+    void navigator.clipboard.writeText(url);
+  }
+
   const f: Record<string, () => void> = {
     delete: handleDelete,
     rename: handleRename,
     copy: handleCopy,
     rangeSnapshot: handleRangeSnapshot,
+    copyURL: handleCopyURL,
   };
 
   const onSelect = (key: string): void => f[key]();
@@ -102,6 +110,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
       </Menu.Item>
       <Menu.Item itemKey="delete" startIcon={<Icon.Delete />}>
         Delete
+      </Menu.Item>
+      <Menu.Item itemKey="copyURL" startIcon={<Icon.Copy />}>
+        Copy URL
       </Menu.Item>
     </Menu.Menu>
   );

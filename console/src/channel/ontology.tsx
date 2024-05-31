@@ -27,6 +27,7 @@ import { LinePlot } from "@/lineplot";
 import { type Ontology } from "@/ontology";
 import { Schematic } from "@/schematic";
 import { Range } from "@/range";
+import { Cluster } from "@/cluster";
 
 const canDrop = (): boolean => false;
 
@@ -135,6 +136,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const { store, selection, client, addStatus } = props;
   const activeRange = Range.select(store.getState());
   const { nodes, resources } = selection;
+  const clusterKey = Cluster.useSelectActiveKey();
 
   const handleSelect = (itemKey: string): void => {
     switch (itemKey) {
@@ -164,6 +166,10 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       case "group":
         void Group.fromSelection(props);
         break;
+      case "copyURL":
+        const toCopy = `synnax://cluster/${clusterKey}/channel/${resources[0].id.key}`
+        void navigator.clipboard.writeText(toCopy)
+        return;
     }
   };
 
@@ -187,6 +193,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       )}
       <Menu.Item itemKey="delete" startIcon={<Icon.Delete />}>
         Delete
+      </Menu.Item>
+      <Menu.Item itemKey="copyURL" startIcon={<Icon.Copy />}>
+        Copy URL
       </Menu.Item>
     </Menu.Menu>
   );
