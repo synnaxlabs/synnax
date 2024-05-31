@@ -65,7 +65,7 @@ void customLogger(
         case UA_LOGLEVEL_TRACE:
         case UA_LOGLEVEL_DEBUG:
         case UA_LOGLEVEL_INFO:
-            VLOG(1) << prefix << buffer;
+            LOG(INFO) << prefix << buffer;
             break;
         case UA_LOGLEVEL_WARNING:
             LOG(WARNING) << prefix << buffer;
@@ -231,10 +231,14 @@ void fetchEndpointDiagnosticInfo(
             UA_StatusCode_name(retval));
         return;
     }
+    // get the client config
+    auto client_config = UA_Client_getConfig(client.get());
     for (size_t i = 0; i < endpointCount; i++) {
         auto ep = endpointArray[i];
         LOG(INFO) << "[opc.scanner] Endpoint " << i << std::endl;
         // if the security policy uri is not null, then the endpoint is secure
+        // get the client config
+        // get config.userIdentityToken.content.decoded.type
         if (ep.securityPolicyUri.data)
             LOG(INFO) << "[opc.scanner] \t security policy uri: " << ep.securityPolicyUri.data;
         auto security_mode = ep.securityMode;
@@ -244,6 +248,9 @@ void fetchEndpointDiagnosticInfo(
             LOG(INFO) << "[opc.scanner] \t security: signed";
         else if (security_mode == UA_MESSAGESECURITYMODE_SIGNANDENCRYPT)
             LOG(INFO) << "[opc.scanner] \t security: signed and encrypted";
+
+        const UA_DataType *tokenType = client_config->userIdentityToken.content.decoded.type;
+
         for (size_t j = 0; j < ep.userIdentityTokensSize; j++) {
             UA_UserTokenPolicy policy = ep.userIdentityTokens[j];
             if (policy.tokenType == UA_USERTOKENTYPE_ANONYMOUS)
