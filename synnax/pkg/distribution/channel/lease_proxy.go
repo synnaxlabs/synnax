@@ -337,11 +337,7 @@ func (lp *leaseProxy) deleteGateway(ctx context.Context, tx gorp.Tx, keys Keys) 
 	if err := gorp.NewRetrieve[Key, Channel]().WhereKeys(keys...).Entries(&deletedChannels).Exec(ctx, tx); err != nil {
 		return err
 	}
-	for _, ch := range deletedChannels {
-		if ch.Internal {
-			numToDelete--
-		}
-	}
+	numToDelete -= lo.CountBy(deletedChannels, func(ch Channel) bool { return ch.Internal })
 	if _, err := lp.externalCounter.sub(LocalKey(numToDelete)); err != nil {
 		return err
 	}
