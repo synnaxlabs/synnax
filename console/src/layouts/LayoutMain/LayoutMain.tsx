@@ -29,16 +29,15 @@ import { Link } from "@/link";
  * component as simple, presentational, and navigatable as possible.
  */
 export const LayoutMain = (): ReactElement => {
-  const d = useDispatch();
+  const dispatch = useDispatch();
   useEffect(() => {
-    d(Layout.maybeCreateGetStartedTab());
+    dispatch(Layout.maybeCreateGetStartedTab());
   }, []);
-  const x = Link.HANDLERS;
 
   Version.useLoadTauri();
   Device.useListenForChanges();
   Cluster.useLocalServer();
-  Link.useDeepLink({Link.HANDLERS}); // TODO: add handlers like ontology resources
+  Link.useDeepLink({ handlers: Link.HANDLERS});
 
   return (
     <>

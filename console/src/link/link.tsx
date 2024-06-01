@@ -17,11 +17,13 @@ import { Cluster } from "@/cluster";
 import { Range } from "@/range";
 import { Schematic } from "@/schematic";
 import { Synnax } from "@synnaxlabs/client";
-import { Ontology } from '@/ontology';
-import {type ontology} from "@synnaxlabs/client";
+import { Ontology } from "@/ontology";
+import { type ontology } from "@synnaxlabs/client";
 
 export interface HandlerProps {
-  url: string;
+  // url is a string of two parts, the first part is the resource identifier and
+  // the second part is the resource key.
+  url: string[];
   client: Synnax;
 }
 
@@ -38,40 +40,16 @@ export const useDeepLink = ({ handlers }: UseDeepLinkProps): void => {
 
   useEffect(() => {
     onOpenUrl((urls) => {
+      if (client == null) return;
       const scheme = "synnax://";
       if (urls.length === 0 || !urls[0].startsWith(scheme)) {
         // TODO: Do something instead of logging an error?
-        console.error("Error: Cannot open URL, URLs must start with synnax://.");
+        console.error("Error: Cannot open URL, URLs must start with synnax://");
         return;
       }
-      const url = urls[0];
-      if (client == null) return;
-      handlers.find((h) => h({ url, client }));
-      //   const path = rls[0].slice(scheme.length);
-      //   const urlParts = path.split("/");
-
-      //   // processing the cluster connection
-      //   if (urlParts[0] !== "cluster") {
-      //     // TODO: Do something instead of logging an error?
-      //     console.error("Error: Cannot open URL, no cluster specified.");
-      //     return;
-      //   }
-      //   const clusterKey = urlParts[1];
-      //   const getCluster = clusters.filter((cluster) => cluster.key === clusterKey);
-      //   if (getCluster.length == 0) {
-      //     // Console does not have this cluster in store.
-      //     // TODO: better logic up above instead of using filtering?
-      //     // TODO: open window to connect a cluster, then reload URL?
-      //     console.error(
-      //       `Error: Cannot open URL, cluster with key ${clusterKey} is not found.`,
-      //     );
-      //     return;
-      //   }
-      //   dispatch(Cluster.setActive(clusterKey));
-      //   if (urlParts.length === 2) {
-      //     // only a cluster URL was used.
-      //     return;
-      //   }
+      const urlParts = urls[0].slice(scheme.length).split("/");
+      if (!Cluster.linkHandler({ url: urlParts.slice(0, 2), client })) return;
+      handlers.find((h) => h({ url: urlParts.slice(2, 4), client }));
 
       //   const resource = urlParts[2];
       //   const resourceKey = urlParts[3];
@@ -215,6 +193,4 @@ export const useDeepLink = ({ handlers }: UseDeepLinkProps): void => {
   }, [client]);
 };
 
-export const HANDLERS : Handler[] = [
-  () => false,
-];
+export const HANDLERS: Handler[] = [() => false];
