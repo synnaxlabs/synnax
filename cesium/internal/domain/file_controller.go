@@ -13,6 +13,7 @@ import (
 	"context"
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/telem"
 	"io"
 	"os"
 	"strconv"
@@ -362,8 +363,11 @@ func (fc *fileController) rejuvenate(fileKey uint16) error {
 		delete(fc.writers.open, fileKey)
 	}
 
-	fc.writers.unopened[fileKey] = struct{}{}
-	return nil
+	s, err := fc.FS.Stat(fileKeyToName(fileKey))
+	if telem.Size(s.Size()) < fc.FileSize {
+		fc.writers.unopened[fileKey] = struct{}{}
+	}
+	return err
 }
 
 func (fc *fileController) atDescriptorLimit() bool {

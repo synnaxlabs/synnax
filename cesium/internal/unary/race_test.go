@@ -46,6 +46,7 @@ var _ = Describe("Unary racing", func() {
 						DataType: telem.Int16T,
 						Rate:     2 * telem.Hz,
 					},
+					FileSize: 1 * telem.ByteSize,
 				}))
 				indexDB = MustSucceed(unary.Open(unary.Config{
 					FS: indexFS,
@@ -53,21 +54,26 @@ var _ = Describe("Unary racing", func() {
 						Key:      indexKey,
 						IsIndex:  true,
 						DataType: telem.Int64T,
-					}}))
+					},
+					FileSize: 1 * telem.ByteSize,
+				}))
 				dataDB = MustSucceed(unary.Open(unary.Config{
 					FS: dataFS,
 					Channel: core.Channel{
 						Key:      dataKey,
 						DataType: telem.Int64T,
 						Index:    indexKey,
-					}}))
+					},
+					FileSize: 1 * telem.ByteSize,
+				},
+				))
 				dataDB.SetIndex(indexDB.Index())
 			})
 			AfterEach(func() {
 				Expect(cleanUp()).To(Succeed())
 			})
 
-			Context("Multiple deletes", func() {
+			Describe("Multiple deletes", func() {
 				Specify("Overlapping regions – index", func() {
 					Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 15, 16, 18, 19, 20, 21, 22, 24))).To(Succeed())
 					Expect(unary.Write(ctx, dataDB, 10*telem.SecondTS, telem.NewSeriesV[int64](10, 11, 12, 13, 15, 16, 18, 19, 20, 21, 22, 24))).To(Succeed())
@@ -85,9 +91,10 @@ var _ = Describe("Unary racing", func() {
 						}()
 					}
 
+					wg.Wait()
+					Expect(dataDB.GarbageCollect(ctx)).To(Succeed())
 					// remaining: 10, 15, 20, 21, 22, 24
 
-					wg.Wait()
 					f := MustSucceed(dataDB.Read(ctx, telem.TimeRangeMax))
 					Expect(f.Series).To(HaveLen(3))
 					Expect(f.Series[0].Data).To(Equal(telem.NewSeriesV[int64](10).Data))
@@ -112,9 +119,10 @@ var _ = Describe("Unary racing", func() {
 						}()
 					}
 
+					wg.Wait()
+					Expect(dataDB.GarbageCollect(ctx)).To(Succeed())
 					// remaining: 10, 16, 16.5
 
-					wg.Wait()
 					f := MustSucceed(rateDB.Read(ctx, telem.TimeRangeMax))
 					Expect(f.Series).To(HaveLen(2))
 					Expect(f.Series[0].Data).To(Equal(telem.NewSeriesV[int16](100, 105).Data))
@@ -130,9 +138,9 @@ var _ = Describe("Unary racing", func() {
 						wg          = sync.WaitGroup{}
 						receivedErr error
 					)
-					wg.Add(2)
+					wg.Add(10)
 
-					for i := 0; i < 2; i++ {
+					for i := 0; i < 10; i++ {
 						go func() {
 							defer GinkgoRecover()
 							defer wg.Done()
@@ -145,17 +153,21 @@ var _ = Describe("Unary racing", func() {
 
 					wg.Wait()
 					Expect(receivedErr).To(HaveOccurredAs(controller.ErrRegionOverlap))
+					f := MustSucceed(dataDB.Read(ctx, telem.TimeRangeMax))
+					Expect(f.Series).To(HaveLen(2))
+					Expect(f.Series[0].Data).To(Equal(telem.NewSeriesV[int64](10).Data))
+					Expect(f.Series[1].Data).To(Equal(telem.NewSeriesV[int64](13, 15).Data))
 				})
 				Specify("Exact same regions - rate", func() {
-					Expect(unary.Write(ctx, rateDB, 10*telem.SecondTS, telem.NewSeriesV[int16](10, 11, 12, 13, 15))).To(Succeed())
+					Expect(unary.Write(ctx, rateDB, 10*telem.SecondTS, telem.NewSeriesV[int16](100, 105, 110, 115, 120, 125, 130, 135))).To(Succeed())
 
 					var (
 						wg          = sync.WaitGroup{}
 						receivedErr error
 					)
-					wg.Add(2)
+					wg.Add(10)
 
-					for i := 0; i < 2; i++ {
+					for i := 0; i < 10; i++ {
 						go func() {
 							defer GinkgoRecover()
 							defer wg.Done()
@@ -168,6 +180,10 @@ var _ = Describe("Unary racing", func() {
 
 					wg.Wait()
 					Expect(receivedErr).To(HaveOccurredAs(controller.ErrRegionOverlap))
+					f := MustSucceed(rateDB.Read(ctx, telem.TimeRangeMax))
+					Expect(f.Series).To(HaveLen(2))
+					Expect(f.Series[0].Data).To(Equal(telem.NewSeriesV[int16](100, 105).Data))
+					Expect(f.Series[1].Data).To(Equal(telem.NewSeriesV[int16](130, 135).Data))
 				})
 			})
 		})

@@ -126,7 +126,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 					Expect(db.DeleteTimeRange(ctx, []cesium.ChannelKey{basic}, telem.TimeRange{
 						Start: 63 * telem.SecondTS,
 						End:   78 * telem.SecondTS,
-					}))
+					})).To(Succeed())
 
 					By("Checking the resulting file size")
 					Eventually(func(g Gomega) uint32 {
