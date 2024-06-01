@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,24 +7,29 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Layout } from "@/layout";
+import { Synnax } from "@synnaxlabs/client";
 import { Synnax as PSynnax } from "@synnaxlabs/pluto";
 import { useEffect } from "react";
-import { useDispatch } from "react-redux";
-import { Workspace } from "@/workspace";
 import { onOpenUrl } from "@tauri-apps/plugin-deep-link";
+import { Dispatch, UnknownAction } from "@reduxjs/toolkit";
+import { useDispatch } from "react-redux";
+
 import { Cluster } from "@/cluster";
+import { Layout } from "@/layout";
+import { LinePlot } from "@/lineplot";
 import { Range } from "@/range";
 import { Schematic } from "@/schematic";
-import { Synnax } from "@synnaxlabs/client";
-import { Ontology } from "@/ontology";
-import { type ontology } from "@synnaxlabs/client";
+import { Workspace } from "@/workspace";
 
 export interface HandlerProps {
   // url is a string of two parts, the first part is the resource identifier and
   // the second part is the resource key.
-  url: string[];
+  resource: string;
+  resourceKey: string;
   client: Synnax;
+  dispatch: Dispatch<UnknownAction>;
+  placer: Layout.Placer;
+  clusters: Cluster.Cluster[];
 }
 
 export type Handler = (props: HandlerProps) => boolean;
@@ -36,161 +41,51 @@ export interface UseDeepLinkProps {
 export const useDeepLink = ({ handlers }: UseDeepLinkProps): void => {
   const client = PSynnax.use();
   const dispatch = useDispatch();
+  const placer = Layout.usePlacer();
   const clusters = Cluster.useSelectMany();
 
   useEffect(() => {
     onOpenUrl((urls) => {
-      if (client == null) return;
+      if (client == null) {
+        console.error("Error: Cannot open URL, client is null");
+        return;
+      }
       const scheme = "synnax://";
       if (urls.length === 0 || !urls[0].startsWith(scheme)) {
-        // TODO: Do something instead of logging an error?
         console.error("Error: Cannot open URL, URLs must start with synnax://");
         return;
       }
       const urlParts = urls[0].slice(scheme.length).split("/");
-      if (!Cluster.linkHandler({ url: urlParts.slice(0, 2), client })) return;
-      handlers.find((h) => h({ url: urlParts.slice(2, 4), client }));
-
-      //   const resource = urlParts[2];
-      //   const resourceKey = urlParts[3];
-      //   // TODO: figure out way to compress below code into a function so there is
-      //   // less repetition.
-      //   console.log("About to use a resource");
-      //   switch (resource) {
-      //     case "workspace":
-      //       const workspacePromise = client?.workspaces.retrieve(resourceKey);
-      //       if (workspacePromise == undefined) return; // TODO: log error here?
-      //       workspacePromise
-      //         .then((workspace) => {
-      //           if (workspace == null) return; // TODO: log error here?
-      //           dispatch(
-      //             Layout.setWorkspace({
-      //               slice: workspace.layout as unknown as Layout.SliceState,
-      //             }),
-      //           );
-      //           dispatch(Workspace.setActive(workspace.key));
-      //           return;
-      //         })
-      //         .catch((error) => {
-      //           // TODO: figure out difference between null ws, undefined promise,
-      //           // and error.
-      //           console.error("Error: ", error);
-      //           return;
-      //         });
-      //     case "range":
-      //       const rangePromise = client?.ranges.retrieve(resourceKey);
-      //       if (rangePromise == undefined) return; // TODO: log error here?
-      //       rangePromise
-      //         .then((range) => {
-      //           if (range == null) return; // TODO: log error here?
-      //           dispatch(Range.setActive(range.key));
-      //           // TODO: some type of popup here after we set the active range
-      //           return;
-      //         })
-      //         .catch((error) => {
-      //           // TODO: different error here?
-      //           console.error("Error: ", error);
-      //           return;
-      //         });
-      //     case "schematic":
-      //       console.log("Using a schematic");
-      //       const schematicPromise = client?.workspaces.schematic.retrieve(resourceKey);
-      //       if (schematicPromise == undefined) return; // TODO: log error here?
-      //       console.log("Schematic promise is not undefined")
-      //       schematicPromise
-      //         .then((schematic) => {
-      //           if (schematic == null) return; // TODO: log error here?
-      //           console.log("Schematic is not null");
-      //           // TODO: do something
-      //           const newSchematic = Schematic.create({
-      //             ...(schematic.data as unknown as Schematic.State),
-      //             key: schematic.key,
-      //             name: schematic.name,
-      //             snapshot: schematic.snapshot,
-      //           });
-      //           const x = Schematic.
-
-      //           // dispatch(Layout.setWorkspace({ slice: schematic.data as unknown
-      //           // as Layout.SliceState }));
-
-      //           dispatch(Layout.place(
-
-      //           ));
-      //           return;
-      //         })
-      //         .catch((error) => {
-      //           // TODO: different error here?
-      //           console.error("Error: ", error);
-      //           return;
-      //         });
-
-      //       return;
-      //     case "lineplot":
-      //       const linePlotPromise = client?.workspaces.linePlot.retrieve(resourceKey);
-      //       if (linePlotPromise == undefined) return; // TODO: log error here?
-      //       linePlotPromise
-      //         .then((linePlot) => {
-      //           if (linePlot == null) return; // log: add error here?
-      //           // TODO: Do something
-
-      //           return;
-      //         })
-      //         .catch((error) => {
-      //           // TODO: different error here?
-      //           console.error("Error: ", error);
-      //           return;
-      //         });
-      //       return;
-      //     case "channel":
-      //       const channelPromise = client?.channels.retrieve(resourceKey);
-      //       if (channelPromise == undefined) return; // TODO: log error here?
-      //       channelPromise
-      //         .then((channelPromise) => {
-      //           if (channelPromise == null) return; // log error here?
-      //           // TODO: Do something
-      //           return;
-      //         })
-      //         .catch((error) => {
-      //           // TODO: different error here?
-      //           console.error("Error: ", error);
-      //           return;
-      //         });
-      //       return;
-      //     case "device":
-      //       const devicePromise = client?.hardware.devices.retrieve(resourceKey);
-      //       if (devicePromise == undefined) return; // TODO: log error here?
-      //       devicePromise
-      //         .then((devicePromise) => {
-      //           if (devicePromise == null) return; // log error here?
-      //           // TODO: Do something
-      //           return;
-      //         })
-      //         .catch((error) => {
-      //           // TODO: different error here?
-      //           console.error("Error: ", error);
-      //           return;
-      //         });
-      //     case "task":
-      //       const taskPromise = client?.hardware.tasks.retrieve(resourceKey);
-      //       if (taskPromise == undefined) return; // TODO: log error here?
-      //       taskPromise
-      //         .then((taskPromise) => {
-      //           if (taskPromise == null) return; // log error here?
-      //           // TODO: Do something
-      //           return;
-      //         })
-      //         .catch((error) => {
-      //           // TODO: different error here?
-      //           console.error("Error: ", error);
-      //           return;
-      //         });
-      //     default:
-      //       // TODO: change this?
-      //       console.error("Error: ", `Resource ${resource} could not be found.`);
-      //       return;
-      //   }
+      if (
+        !Cluster.linkHandler({
+          resource: urlParts[0],
+          resourceKey: urlParts[1],
+          client,
+          dispatch,
+          placer,
+          clusters,
+        })
+      ) {
+        return;
+      }
+      handlers.find((h) =>
+        h({
+          resource: urlParts[2],
+          resourceKey: urlParts[3],
+          client,
+          dispatch,
+          placer,
+          clusters,
+        }),
+      );
     });
   }, [client]);
 };
 
-export const HANDLERS: Handler[] = [() => false];
+export const HANDLERS: Handler[] = [
+  Cluster.linkHandler,
+  Schematic.linkHandler,
+  Range.linkHandler,
+  Workspace.linkHandler,
+  LinePlot.linkHandler,
+];

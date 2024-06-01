@@ -19,8 +19,8 @@ import { Device } from "@/hardware/device";
 import { Layout } from "@/layout";
 import { NavBottom, NavLeft, NavRight, NavTop } from "@/layouts/LayoutMain/Nav";
 import { Mosaic } from "@/layouts/mosaic";
-import { Notifications } from "@/notifications";
 import { Link } from "@/link";
+import { Notifications } from "@/notifications";
 import { Version } from "@/version";
 
 /**
@@ -36,7 +36,7 @@ export const LayoutMain = (): ReactElement => {
   Version.useLoadTauri();
   Device.useListenForChanges();
   Cluster.useLocalServer();
-  Link.useDeepLink({ handlers: Link.HANDLERS});
+  Link.useDeepLink({ handlers: Link.HANDLERS });
 
   return (
     <>
