@@ -112,6 +112,9 @@ func (r *region[E]) release(g *Gate[E]) (e E, transfer Transfer) {
 	r.Lock()
 	e, transfer = r.unprotectedRelease(g)
 	r.Unlock()
+	if transfer.IsRelease() {
+		r.controller.remove(r)
+	}
 	return
 }
 
@@ -171,7 +174,6 @@ func (r *region[E]) unprotectedRelease(g *Gate[E]) (e E, t Transfer) {
 	delete(r.gates, g)
 
 	if len(r.gates) == 0 {
-		r.controller.remove(r)
 		t.From = g.State()
 		return r.entity, t
 	}
@@ -337,6 +339,8 @@ func (c *Controller[E]) OpenAbsoluteGateIfUncontrolled(tr telem.TimeRange, s con
 		// Check if there is an existing region that overlaps with that time range,
 		// if there is, then that means a gate is already in control of it,
 		// therefore this method should not create an absolute gate.
+
+		// race???
 		if r.timeRange.OverlapsWith(tr) {
 			if exists {
 				c.L.DPanic(newErrMultipleControlRegions(tr).Error())
@@ -358,6 +362,7 @@ func (c *Controller[E]) OpenAbsoluteGateIfUncontrolled(tr telem.TimeRange, s con
 
 			t, err = r.unprotectedOpen(g)
 			if err != nil {
+				r.Unlock()
 				return nil, t, err
 			}
 			r.gates[g] = struct{}{}
@@ -373,6 +378,7 @@ func (c *Controller[E]) OpenAbsoluteGateIfUncontrolled(tr telem.TimeRange, s con
 		}
 		r := c.insertNewRegion(tr, e)
 		g, t, err = r.open(gateCfg, c.Concurrency)
+		// race?
 		r.gates[g] = struct{}{}
 	}
 	return
@@ -471,5 +477,5 @@ func (c *Controller[E]) remove(r *region[E]) {
 }
 
 func Unauthorized(name string, ch core.ChannelKey) error {
-	return errors.Wrapf(control.Unauthorized, "writer %s does not have control authority", name)
+	return errors.Wrapf(control.Unauthorized, "writer %s does not have control authority over channel %v", name, ch)
 }
