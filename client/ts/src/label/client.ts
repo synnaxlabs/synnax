@@ -13,7 +13,7 @@ import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import { type framer } from "@/framer";
 import { type Key, type Label, labelZ } from "@/label/payload";
 import { Retriever } from "@/label/retriever";
-import { Writer, type NewLabelPayload } from "@/label/writer";
+import { type NewLabelPayload,Writer } from "@/label/writer";
 import { type ontology } from "@/ontology";
 import { signals } from "@/signals";
 

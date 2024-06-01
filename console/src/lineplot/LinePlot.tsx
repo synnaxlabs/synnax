@@ -7,66 +7,66 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useCallback, useMemo, useEffect } from "react";
-
-import { framer, type channel } from "@synnaxlabs/client";
+import { type channel } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
+import { Icon } from "@synnaxlabs/media";
 import {
-  useAsyncEffect,
-  Viewport,
-  useDebouncedCallback,
   Channel,
-  Synnax,
   Color,
   Menu as PMenu,
+  Synnax,
+  useAsyncEffect,
+  useDebouncedCallback,
   usePrevious,
+  Viewport,
 } from "@synnaxlabs/pluto";
 import {
-  type UnknownRecord,
   box,
-  location,
-  unique,
   getEntries,
+  location,
   scale,
   TimeRange,
+  unique,
+  type UnknownRecord,
 } from "@synnaxlabs/x";
+import { type ReactElement, useCallback, useEffect, useMemo } from "react";
 import { useDispatch } from "react-redux";
-import { useSyncerDispatch, type Syncer } from "@/hooks/dispatchers";
+
+import { Menu } from "@/components";
+import { type Syncer, useSyncerDispatch } from "@/hooks/dispatchers";
 import { Layout } from "@/layout";
+import { download } from "@/lineplot/download";
 import {
-  useSelect,
-  selectRanges,
-  useSelectControlState,
-  useSelectViewportMode,
   select,
+  selectRanges,
+  useSelect,
   useSelectAxisBounds,
+  useSelectControlState,
   useSelectSelection,
+  useSelectViewportMode,
 } from "@/lineplot/selectors";
 import {
-  type State,
+  type AxisState,
+  internalCreate,
+  type LineState,
+  setAxis,
+  setControlState,
   setLine,
   setRanges,
+  setRemoteCreated,
   setRule,
+  setSelection,
   setXChannel,
   setYChannels,
   shouldDisplayAxis,
+  type State,
+  type StoreState,
   storeViewport,
   typedLineKeyToString,
-  setRemoteCreated,
-  type StoreState,
-  internalCreate,
-  setSelection,
-  setAxis,
-  type AxisState,
-  type LineState,
-  setControlState,
 } from "@/lineplot/slice";
 import { Range } from "@/range";
 import { Vis } from "@/vis";
 import { Workspace } from "@/workspace";
-import { Icon } from "@synnaxlabs/media";
-import { download } from "@/lineplot/download";
-import { Menu } from "@/components";
 
 interface SyncPayload {
   key?: string;
@@ -88,18 +88,6 @@ const syncer: Syncer<
     name: la.name,
     data: data as unknown as UnknownRecord,
   });
-};
-
-const frameToCSV = (columns: string[], frame: framer.Frame): string => {
-  if (frame.series.length === 0) return "";
-  const count = frame.series[0].length;
-  const headers = columns.join(",");
-  let rows: string[] = [headers];
-  for (let i = 1; i < count; i++) {
-    const row = frame.at(i);
-    rows.push(Object.values(row).join(","));
-  }
-  return rows.join("\n");
 };
 
 const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
@@ -394,6 +382,7 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
                       name: `${name} Meta Data`,
                       key: key,
                     });
+                    break;
                   default:
                     break;
                 }

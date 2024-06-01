@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { DataType, Rate, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x/telem";
-import { describe, test, expect } from "vitest";
+import { describe, expect,test } from "vitest";
 
 import { type channel } from "@/channel";
 import { newClient } from "@/setupspecs";

@@ -1,4 +1,4 @@
-import { ReadTask, configureReadLayout } from "@/hardware/opc/task/ReadTask";
+import { configureReadLayout,ReadTask } from "@/hardware/opc/task/ReadTask";
 import { Layout } from "@/layout";
 
 export * from "@/hardware/opc/task/ReadTask";

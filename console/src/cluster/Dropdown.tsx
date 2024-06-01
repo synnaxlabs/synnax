@@ -7,19 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  useCallback,
-  type PropsWithChildren,
-  type ReactElement,
-  type MouseEventHandler,
-  type MouseEvent,
-} from "react";
+import "@/cluster/Dropdown.css";
 
 import { Icon } from "@synnaxlabs/media";
-import { Button, Dropdown as Core, Align, Synnax } from "@synnaxlabs/pluto";
+import { Align, Button, Dropdown as Core, Synnax } from "@synnaxlabs/pluto";
 import { List as CoreList } from "@synnaxlabs/pluto/list";
 import { Menu as PMenu } from "@synnaxlabs/pluto/menu";
 import { Text } from "@synnaxlabs/pluto/text";
+import {
+  type MouseEvent,
+  type MouseEventHandler,
+  type PropsWithChildren,
+  type ReactElement,
+  useCallback,
+} from "react";
 import { useDispatch } from "react-redux";
 
 import { connectWindowLayout } from "@/cluster/Connect";
@@ -28,8 +29,6 @@ import { useSelect, useSelectLocalState, useSelectMany } from "@/cluster/selecto
 import { LOCAL_CLUSTER_KEY, remove, setActive, setLocalState } from "@/cluster/slice";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
-
-import "@/cluster/Dropdown.css";
 
 export const List = (): ReactElement => {
   const menuProps = PMenu.useContextMenu();

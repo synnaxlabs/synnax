@@ -11,14 +11,14 @@ import { Layout } from "@/layout";
 import { Schematic } from "@/schematic/Schematic";
 import { LAYOUT_TYPE } from "@/schematic/slice";
 
-export * from "@/schematic/toolbar";
+export * from "@/schematic/middleware";
 export * from "@/schematic/NavControls";
+export * from "@/schematic/ontology";
 export * from "@/schematic/palette";
 export * from "@/schematic/Schematic";
 export * from "@/schematic/selectors";
 export * from "@/schematic/slice";
-export * from "@/schematic/ontology";
-export * from "@/schematic/middleware";
+export * from "@/schematic/toolbar";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   [LAYOUT_TYPE]: Schematic,

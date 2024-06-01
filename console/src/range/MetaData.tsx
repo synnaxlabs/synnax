@@ -1,8 +1,9 @@
-import { Layout } from "@/layout";
-import { Synnax } from "@synnaxlabs/pluto";
-import { useQuery } from "@tanstack/react-query";
-import { ReactElement, useEffect, useState } from "react";
 import "@/range/MetaData.css";
+
+import { Synnax } from "@synnaxlabs/pluto";
+import { ReactElement, useEffect, useState } from "react";
+
+import { Layout } from "@/layout";
 
 export const metaDataWindowLayout: Layout.State = {
   key: "metaData",

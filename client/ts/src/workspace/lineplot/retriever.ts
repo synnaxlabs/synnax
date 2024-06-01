@@ -11,17 +11,11 @@ import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { toArray } from "@synnaxlabs/x/toArray";
 import { z } from "zod";
 
-import { type LinePlot, type Params, linePlotZ } from "@/workspace/lineplot/payload";
+import { type LinePlot, linePlotZ, type Params } from "@/workspace/lineplot/payload";
 
-const reqZ = z.object({
-  keys: z.string().array(),
-});
+const reqZ = z.object({ keys: z.string().array() });
 
-type Request = z.infer<typeof reqZ>;
-
-const resZ = z.object({
-  linePlots: linePlotZ.array(),
-});
+const resZ = z.object({ linePlots: linePlotZ.array() });
 
 export class Retriever {
   private readonly ENDPOINT = "/workspace/lineplot/retrieve";

@@ -1,10 +1,7 @@
-import { propertiesZ } from "@/hardware/opc/device/types";
 import { Icon } from "@synnaxlabs/media";
 import { Align, Button, Input, Text } from "@synnaxlabs/pluto";
-import { primitiveIsZero } from "@synnaxlabs/x";
 import { open } from "@tauri-apps/plugin-dialog";
-import { readFile } from "@tauri-apps/plugin-fs";
-import { ReactElement, useState } from "react";
+import { ReactElement } from "react";
 
 export interface LoadFileContentsProps
   extends Input.Control<string>,

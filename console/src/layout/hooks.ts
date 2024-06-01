@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Dispatch, type ReactElement, useCallback, useState } from "react";
-
 import type { PayloadAction, UnknownAction } from "@reduxjs/toolkit";
 import { Drift } from "@synnaxlabs/drift";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
@@ -23,9 +21,11 @@ import {
 } from "@synnaxlabs/pluto";
 import { compare } from "@synnaxlabs/x";
 import { getCurrent } from "@tauri-apps/api/window";
+import { type Dispatch, type ReactElement, useCallback, useState } from "react";
 import { useDispatch, useStore } from "react-redux";
 
 import { useSyncerDispatch } from "@/hooks/dispatchers";
+import { State } from "@/layout/layout";
 import { select, useSelectNavDrawer, useSelectTheme } from "@/layout/selectors";
 import {
   type NavdrawerLocation,
@@ -38,7 +38,6 @@ import {
 } from "@/layout/slice";
 import { type RootState } from "@/store";
 import { Workspace } from "@/workspace";
-import { State } from "@/layout/layout";
 
 export interface CreatorProps {
   windowKey: string;

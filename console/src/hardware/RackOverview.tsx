@@ -1,8 +1,7 @@
-import { type ReactElement } from "react";
-
 import { type task } from "@synnaxlabs/client";
 import { List, Synnax, Text } from "@synnaxlabs/pluto";
 import { useQuery } from "@tanstack/react-query";
+import { type ReactElement } from "react";
 
 export interface RackOverviewProps {
   rackKey: string;

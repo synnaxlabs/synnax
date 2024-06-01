@@ -7,16 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
-
 import {
+  setWindowFullscreen,
   setWindowMaximized,
   setWindowMinimized,
-  setWindowFullscreen,
-  setWindowVisible,
 } from "@synnaxlabs/drift";
 import { useSelectWindow } from "@synnaxlabs/drift/react";
 import { OS } from "@synnaxlabs/pluto";
+import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 
 import { Layout } from "@/layout";

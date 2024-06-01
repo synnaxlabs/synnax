@@ -8,20 +8,20 @@
 // included in the file licenses/APL.txt.
 
 import {
-  type PayloadAction,
   createSlice,
   nanoid,
+  type PayloadAction,
   type Reducer,
 } from "@reduxjs/toolkit";
 import { box, deep, type dimensions, xy } from "@synnaxlabs/x";
 
 import {
-  type WindowState,
+  INITIAL_PRERENDER_WINDOW_STATE,
+  INITIAL_WINDOW_STATE,
+  MAIN_WINDOW,
   type WindowProps,
   type WindowStage,
-  MAIN_WINDOW,
-  INITIAL_WINDOW_STATE,
-  INITIAL_PRERENDER_WINDOW_STATE,
+  type WindowState,
 } from "@/window";
 
 /** The Slice State */
@@ -45,7 +45,7 @@ export interface StoreState {
 
 // Disabling consistent type definitions here because 'empty' interfaces can't be named,
 // which raises an error on build.
-// eslint-disable-next-line @typescript-eslint/consistent-type-definitions
+ 
 export type MaybeKeyPayload = { key?: string };
 export interface KeyPayload {
   key: string;
@@ -159,7 +159,7 @@ export const assignLabel = <T extends MaybeKeyPayload | LabelPayload>(
   }
   if ("label" in a.payload) return a as PayloadAction<T & LabelPayload>;
   let label = s.label;
-  // eslint-disable-next-line
+   
   const pld = a.payload as MaybeKeyPayload;
   if (pld.key != null)
     if (pld.key in s.windows) label = pld.key;

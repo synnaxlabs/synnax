@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type location, type direction } from "@synnaxlabs/x";
+import { type direction,type location } from "@synnaxlabs/x";
 
 export const Y_AXIS_KEYS = ["y1", "y2", "y3", "y4"] as const;
 export type YAxisKey = (typeof Y_AXIS_KEYS)[number];

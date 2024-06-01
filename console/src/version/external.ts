@@ -11,11 +11,11 @@ import { Layout } from "@/layout";
 import { Info, infoLayout } from "@/version/Info";
 
 export * from "@/version/Badge";
+export * from "@/version/Info";
 export * from "@/version/selectors";
 export * from "@/version/slice";
 export * from "@/version/tauriVersion";
 export * from "@/version/Updater";
-export * from "@/version/Info";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   [infoLayout.type]: Info,

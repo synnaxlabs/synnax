@@ -7,19 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type PayloadAction, createSlice } from "@reduxjs/toolkit";
+import { createSlice,type PayloadAction } from "@reduxjs/toolkit";
 import { type channel } from "@synnaxlabs/client";
 import { type Text, type Viewport } from "@synnaxlabs/pluto";
 import {
   bounds,
-  dimensions,
-  xy,
-  type direction,
-  unique,
-  deep,
-  toArray,
   box,
+  deep,
+  dimensions,
+  type direction,
   migrate,
+  toArray,
+  unique,
+  xy,
 } from "@synnaxlabs/x";
 import { nanoid } from "nanoid/non-secure";
 
@@ -442,7 +442,7 @@ export const { actions, reducer } = createSlice({
       { payload: { keys: layoutKeys } }: PayloadAction<RemovePayload>,
     ) => {
       layoutKeys.forEach((layoutKey) => {
-        // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+         
         delete state.plots[layoutKey];
       });
     },

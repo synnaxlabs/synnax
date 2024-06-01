@@ -1,11 +1,10 @@
-import { type ReactElement } from "react";
-
-import { type rack, type hardware } from "@synnaxlabs/client";
+import { type rack } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Synnax } from "@synnaxlabs/pluto";
 import { Input } from "@synnaxlabs/pluto/input";
 import { List } from "@synnaxlabs/pluto/list";
 import { Text } from "@synnaxlabs/pluto/text";
+import { type ReactElement } from "react";
 
 export const RackList = (): ReactElement => {
   const client = Synnax.use();

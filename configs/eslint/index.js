@@ -89,7 +89,7 @@ export default [
             // "@typescript-eslint/no-namespace": "off",
             // "@typescript-eslint/no-confusing-void-expression": "off",
             "@typescript-eslint/ban-types": "off",
-            // "react/no-unescaped-entities": "off",
+            "react/no-unescaped-entities": "off",
             // "@typescript-eslint/non-nullable-type-assertion-style": "off",
             // "@typescript-eslint/no-empty-interface": "off",
             // "@typescript-eslint/ban-ts-comment": "off",

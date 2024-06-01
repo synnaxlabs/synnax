@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Ontology } from "@/ontology";
 import { Icon } from "@synnaxlabs/media";
 import { Menu } from "@synnaxlabs/pluto";
+
 import { NI } from "@/hardware/ni";
-import { Layout } from "@/layout";
 import { OPC } from "@/hardware/opc";
+import { Layout } from "@/layout";
+import { Ontology } from "@/ontology";
 
 type DeviceLayoutCreator = (
   device: string,
@@ -24,7 +25,7 @@ const ZERO_LAYOUT_STATES: Record<string, DeviceLayoutCreator> = {
   [OPC.Device.CONFIGURE_LAYOUT_TYPE]: OPC.Device.createConfigureLayout,
 };
 
-export const handleSelect: Ontology.HandleSelect = ({ selection, placeLayout }) => {};
+export const handleSelect: Ontology.HandleSelect = () => {};
 
 const handleConfigure = ({
   selection,
@@ -61,10 +62,9 @@ const handleDelete = ({
 };
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
-  const { selection, placeLayout } = props;
+  const { selection } = props;
   if (selection.nodes.length === 0) return null;
   const isSingle = selection.nodes.length === 1;
-  const first = selection.resources[0];
 
   const handleSelect = (itemKey: string): void => {
     switch (itemKey) {

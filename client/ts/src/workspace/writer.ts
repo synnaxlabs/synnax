@@ -13,10 +13,10 @@ import { toArray } from "@synnaxlabs/x/toArray";
 import { z } from "zod";
 
 import {
-  type Workspace,
-  workspaceZ,
   keyZ,
+  type Workspace,
   workspaceRemoteZ,
+  workspaceZ,
 } from "@/workspace/payload";
 
 const newWorkspaceZ = workspaceZ.partial({ key: true }).transform((w) => ({

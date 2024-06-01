@@ -7,13 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useRef } from "react";
-import { useDispatch } from "react-redux";
+import "@/range/EditLayout.css";
+
 import { TimeRange, TimeStamp, UnexpectedError } from "@synnaxlabs/client";
 import { Icon, Logo } from "@synnaxlabs/media";
-import { Align, Button, Color, Form, Nav, Synnax, Text } from "@synnaxlabs/pluto";
+import { Align, Button, Form, Nav, Synnax, Text } from "@synnaxlabs/pluto";
 import { Input } from "@synnaxlabs/pluto/input";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { type ReactElement, useRef } from "react";
+import { useDispatch } from "react-redux";
 import { v4 as uuidv4 } from "uuid";
 import { z } from "zod";
 
@@ -21,8 +23,6 @@ import { CSS } from "@/css";
 import { type Layout } from "@/layout";
 import { useSelect, useSelectBuffer } from "@/range/selectors";
 import { add, clearBuffer } from "@/range/slice";
-
-import "@/range/EditLayout.css";
 
 const formSchema = z.object({
   name: z.string().min(1, "Name must not be empty"),
@@ -123,10 +123,11 @@ const EditLayoutForm = ({
   const { mutate, isPending } = useMutation({
     mutationFn: async (persist: boolean) => {
       if (!methods.validate()) return;
-      let { timeRange, name } = methods.value();
+      const values = methods.value();
+      const { timeRange } = methods.value();
       const startTS = new TimeStamp(timeRange.start, "UTC");
       const endTS = new TimeStamp(timeRange.end, "UTC");
-      name = name.trim();
+      const name = values.name.trim();
       const key = isCreate ? uuidv4() : layoutKey;
       const persisted = persist || isRemoteEdit;
       const tr = new TimeRange(startTS, endTS);

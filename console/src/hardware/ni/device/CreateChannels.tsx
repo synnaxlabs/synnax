@@ -7,22 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useState, type ReactElement, memo, useCallback } from "react";
+import "@/hardware/ni/device/CreateChannels.css";
 
 import { Icon } from "@synnaxlabs/media";
-import { Form, Haul, Select, CSS as PCSS } from "@synnaxlabs/pluto";
+import { CSS as PCSS, Form, Haul, Select } from "@synnaxlabs/pluto";
+import { Note } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 import { Header } from "@synnaxlabs/pluto/header";
 import { Input } from "@synnaxlabs/pluto/input";
 import { List } from "@synnaxlabs/pluto/list";
 import { Text } from "@synnaxlabs/pluto/text";
 import { nanoid } from "nanoid/non-secure";
+import { memo, type ReactElement, useCallback, useState } from "react";
 
 import { CSS } from "@/css";
 import { type ChannelConfig, type GroupConfig } from "@/hardware/ni/device/types";
-import { Note } from "@synnaxlabs/pluto";
-
-import "@/hardware/ni/device/CreateChannels.css";
 
 interface MostRecentSelectedState {
   key: string;
@@ -254,16 +253,6 @@ const GroupListItem = ({
     },
     onDragOver: () => setDraggingOver(true),
   });
-
-  const [hasError, setHasError] = useState<boolean>(false);
-
-  // Form.useFieldListener({
-  //   path: `groups.${index}.channels.*.port`,
-  //   callback: (state) => {
-  //     console.log(state);
-  //     setHasError(state.status.variant === "error");
-  //   },
-  // });
 
   return (
     <List.ItemFrame

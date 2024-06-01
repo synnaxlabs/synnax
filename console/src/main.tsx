@@ -7,38 +7,35 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useCallback } from "react";
+import "@/index.css";
+import "@synnaxlabs/media/dist/style.css";
+import "@synnaxlabs/pluto/dist/style.css";
 
 import { Provider } from "@synnaxlabs/drift/react";
-import { Pluto, type Haul, type Triggers, type state } from "@synnaxlabs/pluto";
+import { type Haul, Pluto, type state,type Triggers } from "@synnaxlabs/pluto";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { type ReactElement, useCallback } from "react";
 import ReactDOM from "react-dom/client";
 import { useDispatch } from "react-redux";
 
+import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
 import { Docs } from "@/docs";
 import { ErrorOverlay } from "@/error/Overlay";
+import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
 import { Layout } from "@/layout";
 import { LayoutMain } from "@/layouts/LayoutMain";
 import { LinePlot } from "@/lineplot";
 import { Ontology } from "@/ontology";
-import { Schematic } from "@/schematic";
 import { Range } from "@/range";
+import { Schematic } from "@/schematic";
 import { SERVICES } from "@/services";
 import { store } from "@/store";
 import { Version } from "@/version";
 import { Vis } from "@/vis";
-import { Workspace } from "@/workspace";
-import { NI } from "@/hardware/ni";
-
 import WorkerURL from "@/worker?worker&url";
-
-import { Channel } from "@/channel";
-
-import "@/index.css";
-import "@synnaxlabs/media/dist/style.css";
-import "@synnaxlabs/pluto/dist/style.css";
+import { Workspace } from "@/workspace";
 
 const layoutRenderers: Record<string, Layout.Renderer> = {
   main: LayoutMain,

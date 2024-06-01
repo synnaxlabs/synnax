@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Synnax } from "@synnaxlabs/client";
 import type { connection, SynnaxProps } from "@synnaxlabs/client";
+import { Synnax } from "@synnaxlabs/client";
 
 /**
  * Tests the connection to the cluster with the given props.

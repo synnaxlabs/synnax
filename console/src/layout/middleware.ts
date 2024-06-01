@@ -12,11 +12,11 @@ import { Mosaic } from "@synnaxlabs/pluto";
 
 import { selectSliceState } from "@/layout/selectors";
 import {
-  type StoreState,
-  type MoveMosaicTabPayload,
-  type RemovePayload,
   moveMosaicTab,
+  type MoveMosaicTabPayload,
   remove,
+  type RemovePayload,
+  type StoreState,
 } from "@/layout/slice";
 import { effectMiddleware, type MiddlewareEffect } from "@/middleware";
 

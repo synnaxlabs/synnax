@@ -7,18 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, memo, useCallback, useLayoutEffect } from "react";
+import "@/layouts/mosaic/Mosaic.css";
 
 import { ontology } from "@synnaxlabs/client";
 import { Logo } from "@synnaxlabs/media";
 import {
-  Mosaic as Core,
   Eraser,
+  Mosaic as Core,
   Nav,
   Synnax,
   useDebouncedCallback,
 } from "@synnaxlabs/pluto";
 import { type location } from "@synnaxlabs/x";
+import { memo, type ReactElement, useCallback, useLayoutEffect } from "react";
 import { useDispatch, useStore } from "react-redux";
 
 import { NAV_DRAWERS, NavDrawer, NavMenu } from "@/components/nav/Nav";
@@ -40,8 +41,6 @@ import { SERVICES } from "@/services";
 import { type RootStore } from "@/store";
 import { Vis } from "@/vis";
 import { Workspace } from "@/workspace";
-
-import "@/layouts/mosaic/Mosaic.css";
 
 const EmptyContent = (): ReactElement => (
   <Eraser.Eraser>

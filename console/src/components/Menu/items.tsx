@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
-
 import { reloadWindow } from "@synnaxlabs/drift";
 import { Icon } from "@synnaxlabs/media";
 import { Menu } from "@synnaxlabs/pluto";
+import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 
 const HardReload = (props: Omit<Menu.ItemProps, "itemKey">): ReactElement => {

@@ -7,24 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
+import "@/schematic/toolbar/Properties.css";
 
 import { Icon } from "@synnaxlabs/media";
-import { Status, Schematic, Input, Align, Button, Diagram, Form } from "@synnaxlabs/pluto";
+import { Align, Button, Diagram, Form,Input, Schematic, Status } from "@synnaxlabs/pluto";
 import { Color } from "@synnaxlabs/pluto/color";
 import { box, deep, location, xy } from "@synnaxlabs/x";
+import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
 import {
   type ElementInfo,
+  type NodeElementInfo,
   useSelectSelectedElementsProps,
   useSelectViewport,
-  type NodeElementInfo,
 } from "@/schematic/selectors";
 import { setElementProps, setNodePositions } from "@/schematic/slice";
-
-import "@/schematic/toolbar/Properties.css";
 
 export interface PropertiesProps {
   layoutKey: string;

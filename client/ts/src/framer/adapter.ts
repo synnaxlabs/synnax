@@ -11,14 +11,14 @@ import { type CrudeSeries, Series } from "@synnaxlabs/x/telem";
 
 import {
   type Key,
+  type KeyOrName,
   type Name,
   type Params,
-  type KeyOrName,
   type Payload,
 } from "@/channel/payload";
 import {
-  type Retriever,
   analyzeChannelParams,
+  type Retriever,
   retrieveRequired,
 } from "@/channel/retriever";
 import { ValidationError } from "@/errors";

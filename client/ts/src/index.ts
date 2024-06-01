@@ -8,10 +8,12 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/channel";
-export { default as Synnax, synnaxPropsZ } from "@/client";
-export type { SynnaxProps } from "@/client";
-export * from "@/connection";
 export { Channel } from "@/channel/client";
+export type { SynnaxProps } from "@/client";
+export { default as Synnax, synnaxPropsZ } from "@/client";
+export * from "@/connection";
+export { control } from "@/control";
+export { Authority } from "@/control/authority";
 export {
   AuthError,
   ContiguityError,
@@ -22,37 +24,35 @@ export {
 } from "@/errors";
 export { framer } from "@/framer";
 export { Frame } from "@/framer/frame";
+export { hardware } from "@/hardware";
+export { device } from "@/hardware/device";
+export { rack } from "@/hardware/rack";
+export { task } from "@/hardware/task";
+export { label } from "@/label";
 export { ontology } from "@/ontology";
-export { control } from "@/control";
-export { Authority } from "@/control/authority";
-export {
-  DataType,
-  Density,
-  Rate,
-  Series,
-  TimeRange,
-  TimeSpan,
-  TimeStamp,
-  MultiSeries,
-} from "@synnaxlabs/x/telem";
+export { ranger } from "@/ranger";
+export { signals } from "@/signals";
+export { workspace } from "@/workspace";
 export type {
-  TypedArray,
   CrudeDataType,
   CrudeDensity,
   CrudeRate,
   CrudeSize,
   CrudeTimeSpan,
   CrudeTimeStamp,
-  TelemValue,
   NumericTelemValue,
+  TelemValue,
   TimeStampStringFormat,
+  TypedArray,
   TZInfo,
 } from "@synnaxlabs/x/telem";
-export { workspace } from "@/workspace";
-export { ranger } from "@/ranger";
-export { label } from "@/label";
-export { hardware } from "@/hardware";
-export { rack } from "@/hardware/rack";
-export { task } from "@/hardware/task";
-export { device } from "@/hardware/device";
-export { signals } from "@/signals";
+export {
+  DataType,
+  Density,
+  MultiSeries,
+  Rate,
+  Series,
+  TimeRange,
+  TimeSpan,
+  TimeStamp,
+} from "@synnaxlabs/x/telem";

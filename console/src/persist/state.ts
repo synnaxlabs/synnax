@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import {
-  type UnknownAction,
+  type Action,
   type Dispatch,
   type Middleware,
   type MiddlewareAPI,
-  type Action,
+  type UnknownAction,
 } from "@reduxjs/toolkit";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { debounce, deep, type UnknownRecord } from "@synnaxlabs/x";

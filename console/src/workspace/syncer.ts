@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useCallback } from "react";
-
 import { type Store } from "@reduxjs/toolkit";
 import { QueryError, type Synnax } from "@synnaxlabs/client";
 import { type UnknownRecord } from "@synnaxlabs/x";
+import { useCallback } from "react";
 
 import { type Syncer } from "@/hooks/dispatchers";
 import { Layout } from "@/layout";

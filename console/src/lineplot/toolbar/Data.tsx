@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useCallback } from "react";
-
 import { type channel } from "@synnaxlabs/client";
 import { Align } from "@synnaxlabs/pluto";
+import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { useSelect } from "@/lineplot/selectors";

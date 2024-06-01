@@ -9,5 +9,5 @@
 
 import { runtime } from "@synnaxlabs/x";
 
-export const use = (props?: runtime.GetOSProps): runtime.OS | undefined =>
-  runtime.getOS(props);
+export const use = ((props): runtime.OS | undefined =>
+  runtime.getOS(props)) as runtime.GetOS;

@@ -7,16 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
+import "@/version/Badge.css";
 
 import { Button } from "@synnaxlabs/pluto";
+import { type ReactElement } from "react";
 
-import { useSelect } from "@/version/selectors";
 import { Layout } from "@/layout";
 import { infoLayout } from "@/version/Info";
+import { useSelect } from "@/version/selectors";
 import { useCheckForUpdates } from "@/version/Updater";
-
-import "@/version/Badge.css";
 
 export const Badge = (): ReactElement => {
   const v = useSelect();

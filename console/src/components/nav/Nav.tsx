@@ -1,15 +1,13 @@
-import { type ReactElement } from "react";
-
-import { Nav, Menu as PMenu } from "@synnaxlabs/pluto";
+import { Menu as PMenu, Nav } from "@synnaxlabs/pluto";
 import { Text } from "@synnaxlabs/pluto/text";
 import { location } from "@synnaxlabs/x";
+import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";
 import { Range } from "@/range";
 import { Vis } from "@/vis";
-import { Task } from "@/hardware/task";
 
 export const NAV_DRAWERS: Layout.NavDrawerItem[] = [
   Ontology.Toolbar,

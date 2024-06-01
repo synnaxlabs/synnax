@@ -8,25 +8,25 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
+import { observe, toArray } from "@synnaxlabs/x";
 import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
+import { z } from "zod";
 
 import { QueryError } from "@/errors";
 import { framer } from "@/framer";
+import { Frame } from "@/framer/frame";
 import { group } from "@/ontology/group";
 import {
   ID,
   IDPayload,
-  RelationshipChange,
-  ResourceChange,
   idZ,
   parseRelationship,
-  resourceSchemaZ,
+  RelationshipChange,
   type Resource,
+  ResourceChange,
+  resourceSchemaZ,
 } from "@/ontology/payload";
 import { Writer } from "@/ontology/writer";
-import { z } from "zod";
-import { observe, toArray } from "@synnaxlabs/x";
-import { Frame } from "@/framer/frame";
 
 const RETRIEVE_ENDPOINT = "/ontology/retrieve";
 

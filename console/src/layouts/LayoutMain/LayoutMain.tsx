@@ -7,21 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useEffect } from "react";
+import "@/layouts/LayoutMain/LayoutMain.css";
 
 import { Align } from "@synnaxlabs/pluto";
+import { type ReactElement, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
+import { Cluster } from "@/cluster";
 import { NavDrawer } from "@/components/nav/Nav";
+import { Device } from "@/hardware/device";
 import { Layout } from "@/layout";
 import { NavBottom, NavLeft, NavRight, NavTop } from "@/layouts/LayoutMain/Nav";
 import { Mosaic } from "@/layouts/mosaic";
-
-import "@/layouts/LayoutMain/LayoutMain.css";
-import { Device } from "@/hardware/device";
-import { Cluster } from "@/cluster";
-import { Version } from "@/version";
 import { Notifications } from "@/notifications";
+import { Version } from "@/version";
 
 /**
  * The center of it all. This is the main layout for the Synnax Console. Try to keep this

@@ -10,12 +10,12 @@
 import type { Action, UnknownAction } from "@reduxjs/toolkit";
 import { debounce as debounceF, type dimensions, type xy } from "@synnaxlabs/x";
 import type { Event as TauriEvent, UnlistenFn } from "@tauri-apps/api/event";
-import { listen, emit, TauriEvent as TauriEventKey } from "@tauri-apps/api/event";
-import { WebviewWindow, getCurrent } from "@tauri-apps/api/webviewWindow";
+import { emit, listen, TauriEvent as TauriEventKey } from "@tauri-apps/api/event";
+import { getCurrent, WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import {
+  getAll,
   LogicalPosition,
   LogicalSize,
-  getAll,
   type PhysicalPosition,
   type PhysicalSize,
 } from "@tauri-apps/api/window";
@@ -26,7 +26,6 @@ import { setWindowProps, type StoreState } from "@/state";
 import { MAIN_WINDOW, type WindowProps } from "@/window";
 
 const actionEvent = "drift://action";
-const tauriError = "tauri://error";
 const tauriCreated = "tauri://created";
 const notFound = (key: string): Error => new Error(`Window not found: ${key}`);
 
@@ -50,8 +49,7 @@ export class TauriRuntime<S extends StoreState, A extends Action = UnknownAction
     this.unsubscribe = {};
   }
 
-  async configure(): Promise<void> {
-  }
+  async configure(): Promise<void> {}
 
   label(): string {
     return this.win.label;
@@ -95,8 +93,8 @@ export class TauriRuntime<S extends StoreState, A extends Action = UnknownAction
     }
   }
 
-  onCloseRequested(cb: () => void): void {
-    void this.win.onCloseRequested((e) => {
+  onCloseRequested(): void {
+    void this.win.onCloseRequested(() => {
       // // Only propagate the close request if the event
       // // is for the current window.
       // if (e.windowLabel !== this.label()) return;
@@ -122,7 +120,7 @@ export class TauriRuntime<S extends StoreState, A extends Action = UnknownAction
       dragDropEnabled: false,
       ...rest,
     });
-    return await new Promise<void>((resolve, reject) => {
+    return await new Promise<void>((resolve) => {
       // void w.once(tauriError, (e) => reject(e.payload));
       void w.once(tauriCreated, () => resolve());
     });
@@ -201,7 +199,7 @@ export class TauriRuntime<S extends StoreState, A extends Action = UnknownAction
     // resizable causes issues. To resolve this, we unmount the listener
     if (TauriEventKey.WINDOW_RESIZED in this.unsubscribe && !value) {
       void this.unsubscribe[TauriEventKey.WINDOW_RESIZED]?.();
-      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+
       delete this.unsubscribe[TauriEventKey.WINDOW_RESIZED];
     }
     return await this.win.setResizable(value);
@@ -247,7 +245,7 @@ const newWindowPropsHandlers = (): HandlerEntry[] => [
   {
     key: TauriEventKey.WINDOW_RESIZED,
     debounce: 200,
-    handler: async (ev) => {
+    handler: async () => {
       return null;
       // const window = WebviewWindow.getByLabel(ev.windowLabel);
       // if (window == null) return null;
@@ -267,7 +265,7 @@ const newWindowPropsHandlers = (): HandlerEntry[] => [
   {
     key: TauriEventKey.WINDOW_MOVED,
     debounce: 200,
-    handler: async (ev) => {
+    handler: async () => {
       return null;
       // const window = WebviewWindow.getByLabel(ev.windowLabel);
       // if (window == null) return null;
@@ -286,7 +284,7 @@ const newWindowPropsHandlers = (): HandlerEntry[] => [
   {
     key: TauriEventKey.WINDOW_BLUR,
     debounce: 0,
-    handler: async (ev) => {
+    handler: async () => {
       return null;
       // setWindowProps({ focus: false, label: ev.windowLabel })
     },
@@ -294,7 +292,7 @@ const newWindowPropsHandlers = (): HandlerEntry[] => [
   {
     key: TauriEventKey.WINDOW_FOCUS,
     debounce: 0,
-    handler: async (ev) => {
+    handler: async () => {
       return null;
       // setWindowProps({
       //   focus: true,

@@ -7,12 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { ComponentType } from "react";
-
 import { type Dispatch, type UnknownAction } from "@reduxjs/toolkit";
 import type { WindowProps as DriftWindowProps } from "@synnaxlabs/drift";
 import { type Tabs } from "@synnaxlabs/pluto";
 import { type location } from "@synnaxlabs/x";
+import type { ComponentType } from "react";
 
 /** The location options for placing a layout */
 export type PlacementLocation = "window" | "mosaic";

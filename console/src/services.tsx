@@ -13,15 +13,15 @@ import { ONTOLOGY_SERVICE as CHANNEL_ONTOLOGY_SERVICE } from "@/channel/ontology
 import { Cluster } from "@/cluster";
 import { Node } from "@/cluster/node";
 import { Group } from "@/group";
+import { Device } from "@/hardware/device";
+import { Task } from "@/hardware/task";
 import { LinePlot } from "@/lineplot";
 import { Builtin } from "@/ontology/builtin";
 import { type Service } from "@/ontology/service";
-import { Schematic } from "@/schematic";
 import { ONTOLOGY_SERVICE as RANGE_ONTOLOGY_SERVICE } from "@/range/ontology";
+import { Schematic } from "@/schematic";
 import { User } from "@/user";
 import { Workspace } from "@/workspace";
-import { Task } from "@/hardware/task";
-import { Device } from "@/hardware/device";
 
 export const EMPTY_ONTOLOGY_SERVICE: Service = {
   type: "rack",

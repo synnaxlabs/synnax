@@ -11,8 +11,8 @@ import { nanoid } from "nanoid/non-secure";
 
 import {
   type ChannelConfig,
-  type GroupConfig,
   type EnrichedProperties,
+  type GroupConfig,
 } from "@/hardware/ni/device/types";
 
 const buildAnalogInputGroups = (

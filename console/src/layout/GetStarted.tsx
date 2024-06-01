@@ -7,13 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useState, type ReactElement } from "react";
+import "@/layout/GetStarted.css";
 
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Icon, Logo } from "@synnaxlabs/media";
-import { Align, Synnax, Eraser } from "@synnaxlabs/pluto";
+import { Align, Eraser, Synnax } from "@synnaxlabs/pluto";
 import { Button } from "@synnaxlabs/pluto/button";
 import { Text } from "@synnaxlabs/pluto/text";
+import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
@@ -23,8 +24,6 @@ import { setNavdrawerVisible } from "@/layout/slice";
 import { Vis } from "@/vis";
 import { Workspace } from "@/workspace";
 
-import "@/layout/GetStarted.css";
-
 export const GetStarted = (): ReactElement => {
   const client = Synnax.use();
   if (client == null) return <NoCluster />;
@@ -33,7 +32,6 @@ export const GetStarted = (): ReactElement => {
 
 const NoCluster = (): ReactElement => {
   const windowKey = useSelectWindowKey() as string;
-  const [count, setCount] = useState(0);
   const placer = usePlacer();
   const dispatch = useDispatch();
 

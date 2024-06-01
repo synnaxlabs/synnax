@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import {
+  type ErrorPayload,
   type Middleware,
   registerError,
   Unreachable,
-  type ErrorPayload,
 } from "@synnaxlabs/freighter";
 
 const _FREIGHTER_EXCEPTION_PREFIX = "sy.";

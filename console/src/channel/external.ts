@@ -1,4 +1,4 @@
-import { CREATE_LAYOUT_TYPE, Create } from "@/channel/Create";
+import { Create,CREATE_LAYOUT_TYPE } from "@/channel/Create";
 import { Layout } from "@/layout";
 
 export * from "@/channel/Create";

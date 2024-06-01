@@ -15,13 +15,13 @@ import { Mosaic } from "@/layouts/mosaic";
 export * from "@/layout/Content";
 export * from "@/layout/context";
 export * from "@/layout/GetStarted";
+export * from "@/layout/hooks";
 export * from "@/layout/layout";
 export * from "@/layout/middleware";
-export * from "@/layout/Window";
-export * from "@/layout/selectors";
 export * from "@/layout/palette";
+export * from "@/layout/selectors";
 export * from "@/layout/slice";
-export * from "@/layout/hooks";
+export * from "@/layout/Window";
 
 export const LAYOUTS: Record<string, Renderer> = {
   mosaic: Mosaic.Window,

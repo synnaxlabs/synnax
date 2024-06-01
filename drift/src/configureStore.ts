@@ -9,24 +9,24 @@
 
 import type {
   Action as CoreAction,
-  Tuple,
-  UnknownAction,
   ConfigureStoreOptions as BaseOpts,
   EnhancedStore,
   StoreEnhancer,
+  Tuple,
+  UnknownAction,
 } from "@reduxjs/toolkit";
 import { configureStore as base } from "@reduxjs/toolkit";
 
 import { listen } from "@/listener";
-import { type Middlewares, configureMiddleware } from "@/middleware";
+import { configureMiddleware,type Middlewares } from "@/middleware";
 import { type Runtime } from "@/runtime";
 import {
   type Action,
-  type StoreState,
-  setWindowLabel,
-  setWindowStage,
   closeWindow,
   setConfig,
+  setWindowLabel,
+  setWindowStage,
+  type StoreState,
 } from "@/state";
 import { syncInitial } from "@/sync";
 import { MAIN_WINDOW, type WindowProps } from "@/window";
@@ -66,7 +66,7 @@ const configureStoreInternal = async <
   ...opts
 }: ConfigureStoreOptions<S, A, M, E>): Promise<EnhancedStore<S, A | Action>> => {
   await runtime.configure();
-  // eslint-disable-next-line prefer-const
+   
   let store: EnhancedStore<S, A | Action> | undefined;
   // eslint-disable-next-line prefer-const
   store = base<S, A, M, E>({

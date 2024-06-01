@@ -7,21 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type PayloadAction, createSlice } from "@reduxjs/toolkit";
+import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import {
   type Control,
-  type Viewport,
   type Diagram,
   type Schematic,
+  type Viewport,
 } from "@synnaxlabs/pluto";
 import { Color } from "@synnaxlabs/pluto/color";
 import { type Theming } from "@synnaxlabs/pluto/theming";
-import { box, scale, xy, deep, migrate } from "@synnaxlabs/x";
+import { box, deep, migrate, scale, xy } from "@synnaxlabs/x";
 import { nanoid } from "nanoid/non-secure";
 import { v4 as uuidV4 } from "uuid";
 
 import { type Layout } from "@/layout";
-import { FaBullseye } from "react-icons/fa";
 
 export type NodeProps = object & {
   key: Schematic.Variant;
@@ -306,7 +305,7 @@ export const { actions, reducer } = createSlice({
       layoutKeys.forEach((layoutKey) => {
         const schematic = state.schematics[layoutKey];
         if (schematic.control === "acquired") schematic.controlAcquireTrigger -= 1;
-        // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+
         delete state.schematics[layoutKey];
       });
     },
@@ -420,7 +419,8 @@ export const { actions, reducer } = createSlice({
       schematic.fitViewOnResize = fitViewOnResize;
     },
     toggleControl: (state, { payload }: PayloadAction<ToggleControlPayload>) => {
-      let { layoutKey, status } = payload;
+      const { layoutKey } = payload;
+      let { status } = payload;
       const schematic = state.schematics[layoutKey];
       if (status == null)
         status = schematic.control === "released" ? "acquired" : "released";

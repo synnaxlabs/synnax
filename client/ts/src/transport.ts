@@ -9,10 +9,10 @@
 
 import {
   HTTPClient,
-  WebSocketClient,
   type Middleware,
   type StreamClient,
   type UnaryClient,
+  WebSocketClient,
 } from "@synnaxlabs/freighter";
 import { binary } from "@synnaxlabs/x/binary";
 import { type URL } from "@synnaxlabs/x/url";

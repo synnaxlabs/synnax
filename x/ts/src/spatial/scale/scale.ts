@@ -64,7 +64,7 @@ const curriedScale =
 
 const curriedReBound =
   (bound: bounds.Bounds): Operation =>
-  (currScale, type, v) => [bound, v];
+  (_, __, v) => [bound, v];
 
 const curriedInvert = (): Operation => (currScale, type, v) => {
   if (currScale === null) throw new Error("cannot invert without bounds");

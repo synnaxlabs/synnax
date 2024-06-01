@@ -1,6 +1,7 @@
-import data from "@/hardware/ni/device/enrich/enriched.json";
-import { PropertiesDigest, EnrichedProperties } from "@/hardware/ni/device/types";
 import { UnknownRecord } from "@synnaxlabs/x";
+
+import data from "@/hardware/ni/device/enrich/enriched.json";
+import { EnrichedProperties,PropertiesDigest } from "@/hardware/ni/device/types";
 
 type PickedEnrichedProperties = Pick<
   EnrichedProperties,

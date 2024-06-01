@@ -98,7 +98,7 @@ export const groupConfigZ = z
         path: ["channels"],
         message: `Only one index channel is allowed per group, found: ${found}`,
       });
-      indexes.forEach(([c, i]) => {
+      indexes.forEach(([, i]) => {
         ctx.addIssue({
           code: "custom",
           path: ["channels", i],

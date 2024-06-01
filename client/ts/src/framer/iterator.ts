@@ -9,12 +9,12 @@
 
 import { errorZ, type Stream, type StreamClient } from "@synnaxlabs/freighter";
 import {
+  type CrudeTimeRange,
   type CrudeTimeSpan,
   type CrudeTimeStamp,
   TimeRange,
   TimeSpan,
   TimeStamp,
-  type CrudeTimeRange,
 } from "@synnaxlabs/x/telem";
 import { z } from "zod";
 

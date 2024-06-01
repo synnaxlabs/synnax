@@ -22,7 +22,7 @@ describe("Rack", () => {
       expect(r.key).toBeGreaterThan(0n);
     });
     it("should return an error if the rack doesn't have a name", async () => {
-      // @ts-expect-error
+      // @ts-expect-error - Testing for error
       await expect(client.hardware.racks.create({})).rejects.toThrow(ZodError);
     });
   });

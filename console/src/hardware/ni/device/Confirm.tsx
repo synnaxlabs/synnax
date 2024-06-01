@@ -1,9 +1,6 @@
-import { type ReactElement, useState } from "react";
-
-import { Align, Button, Form, Synnax, Text } from "@synnaxlabs/pluto";
-import { UseMutationResult, useMutation } from "@tanstack/react-query";
-
-import { GroupConfig } from "@/hardware/ni/device/types";
+import { Align, Button, Text } from "@synnaxlabs/pluto";
+import { UseMutationResult } from "@tanstack/react-query";
+import { type ReactElement } from "react";
 
 export interface ConfirmProps {
   confirm: UseMutationResult<void, Error, void, unknown>;

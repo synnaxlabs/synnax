@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Context } from "@synnaxlabs/freighter";
 import { URL } from "@synnaxlabs/x/url";
 import { describe, expect, it, test } from "vitest";
 
@@ -14,7 +15,6 @@ import { auth } from "@/auth";
 import { AuthError, InvalidTokenError } from "@/errors";
 import { HOST, PORT } from "@/setupspecs";
 import { Transport } from "@/transport";
-import { Context } from "@synnaxlabs/freighter";
 
 const DUMMY_CTX: Context = {
   target: "test",
@@ -57,7 +57,7 @@ describe("auth", () => {
       let isFirst = true;
       let tkOne: string | undefined;
       let tkTwo: string | undefined;
-      const [, err] = await mw(DUMMY_CTX, async (ctx) => {
+      const [, err] = await mw(DUMMY_CTX, async () => {
         if (isFirst) {
           isFirst = false;
           tkOne = client.token;
@@ -77,9 +77,10 @@ describe("auth", () => {
         password: "seldon",
       });
       const mw = client.middleware();
-      const [, err] = await mw(DUMMY_CTX, async () => 
-          [DUMMY_CTX, new InvalidTokenError()]
-      );
+      const [, err] = await mw(DUMMY_CTX, async () => [
+        DUMMY_CTX,
+        new InvalidTokenError(),
+      ]);
       expect(err).toBeInstanceOf(InvalidTokenError);
     });
   });

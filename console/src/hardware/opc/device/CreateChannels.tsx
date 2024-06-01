@@ -7,23 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useState, type ReactElement, memo, useCallback } from "react";
+import "@/hardware/opc/device/CreateChannels.css";
 
 import { Icon } from "@synnaxlabs/media";
-import { Form, Haul, Select, CSS as PCSS, Menu, Note } from "@synnaxlabs/pluto";
+import { CSS as PCSS, Form, Haul, Menu, Note, Select } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 import { Header } from "@synnaxlabs/pluto/header";
 import { Input } from "@synnaxlabs/pluto/input";
 import { List } from "@synnaxlabs/pluto/list";
 import { Text } from "@synnaxlabs/pluto/text";
 import { nanoid } from "nanoid/non-secure";
+import { memo, type ReactElement, useCallback, useState } from "react";
 
 import { CSS } from "@/css";
-import { type ChannelConfig, type GroupConfig } from "@/hardware/opc/device/types";
 import { SelectNode } from "@/hardware/opc/device/SelectNode";
+import { type ChannelConfig, type GroupConfig } from "@/hardware/opc/device/types";
 import { Properties } from "@/hardware/opc/device/types";
-
-import "@/hardware/opc/device/CreateChannels.css";
 
 interface MostRecentSelectedState {
   key: string;
@@ -191,7 +190,7 @@ const GroupList = ({
         menu={({ keys }: Menu.ContextMenuMenuProps): ReactElement => {
           const handleSelect = (key: string) => {
             switch (key) {
-              case "remove":
+              case "remove": {
                 const indices = keys.map((k) => value.findIndex((g) => g.key === k));
                 remove(indices);
                 // find the first group whose key is not in keys
@@ -200,6 +199,7 @@ const GroupList = ({
                   onSelectGroup(value[newSelectedGroup].key, newSelectedGroup);
                 }
                 break;
+              }
             }
           };
           return (
@@ -217,7 +217,6 @@ const GroupList = ({
         <List.List<string, GroupConfig> data={value}>
           <List.Selector<string, GroupConfig>
             allowMultiple={false}
-            // eslint-disable-next-line @typescript-eslint/non-nullable-type-assertion-style
             value={selectedGroup as string}
             allowNone={false}
             onChange={(
@@ -350,12 +349,13 @@ const ChannelList = ({
                   case "remove":
                     channels.remove(indices);
                     break;
-                  case "keep":
+                  case "keep": {
                     const idxIndex = channels.value.findIndex(
                       (c) => c.isIndex === true,
                     );
                     channels.keepOnly([idxIndex, ...indices]);
                     break;
+                  }
                 }
               };
               return (

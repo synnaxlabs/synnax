@@ -29,7 +29,7 @@ type EntityV0_0_2 = z.infer<typeof entityV0_0_2>;
 
 const migrations: Migrations = {
   "0.0.0": ((entity: EntityV0_0_0): EntityV0_0_1 => {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+     
     const { name, ...rest } = entity;
     return {
       ...rest,

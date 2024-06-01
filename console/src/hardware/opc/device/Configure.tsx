@@ -1,11 +1,11 @@
-import { useState, type ReactElement } from "react";
+import "@/hardware/opc/device/Configure.css";
 
 import {
   DataType,
-  TimeSpan,
-  UnexpectedError,
   type rack,
   type task,
+  TimeSpan,
+  UnexpectedError,
 } from "@synnaxlabs/client";
 import {
   Align,
@@ -18,29 +18,28 @@ import {
   Synnax,
   Text,
 } from "@synnaxlabs/pluto";
-import { type UseMutationResult, useMutation } from "@tanstack/react-query";
+import { useMutation, type UseMutationResult } from "@tanstack/react-query";
 import { nanoid } from "nanoid";
+import { type ReactElement, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
-import { set, z } from "zod";
+import { z } from "zod";
 
 import { CSS } from "@/css";
-import { CreateChannels } from "@/hardware/opc/device/CreateChannels";
-import {
-  type Properties,
-  connectionConfigZ,
-  groupConfigZ,
-  GroupConfig,
-  SecurityPolicy,
-  SecurityMode,
-} from "@/hardware/opc/device/types";
-import { type Layout } from "@/layout";
-
-import "@/hardware/opc/device/Configure.css";
 import { FS } from "@/fs";
+import { CreateChannels } from "@/hardware/opc/device/CreateChannels";
 import {
   SelectSecurityMode,
   SelectSecurityPolicy,
 } from "@/hardware/opc/device/SelectSecurityPolicy";
+import {
+  connectionConfigZ,
+  GroupConfig,
+  groupConfigZ,
+  type Properties,
+  SecurityMode,
+  SecurityPolicy,
+} from "@/hardware/opc/device/types";
+import { type Layout } from "@/layout";
 
 const configureZ = z.object({
   name: z.string().min(1, "Name is required"),

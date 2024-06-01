@@ -9,7 +9,7 @@
 
 import { selectByKey, useMemoSelect } from "@/hooks";
 import type { Range, StaticRange } from "@/range/range";
-import { type SliceState, type StoreState, SLICE_NAME } from "@/range/slice";
+import { SLICE_NAME,type SliceState, type StoreState } from "@/range/slice";
 
 /**
  * Selects the workspace state.

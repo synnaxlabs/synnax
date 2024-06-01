@@ -11,11 +11,11 @@ import { Layout } from "@/layout";
 import { effectMiddleware, type MiddlewareEffect } from "@/middleware";
 import { selectSliceState } from "@/schematic/selectors";
 import {
+  fixThemeContrast,
+  type FixThemeContrastPayload,
   remove,
   type RemovePayload,
   type StoreState,
-  fixThemeContrast,
-  type FixThemeContrastPayload,
 } from "@/schematic/slice";
 
 export const deleteEffect: MiddlewareEffect<

@@ -7,30 +7,29 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useCallback } from "react";
+// import { type SynnaxProps } from "@synnaxlabs/client";
+// import { Drift } from "@synnaxlabs/drift";
+// import { useAsyncWindowLifecycle, useSelectWindowKey } from "@synnaxlabs/drift/react";
+// import { Status, useAsyncEffect, useSyncedRef } from "@synnaxlabs/pluto";
+// import { TimeStamp } from "@synnaxlabs/x";
+// import { path } from "@tauri-apps/api";
+// import { useCallback } from "react";
+// // import { Child, Command } from "@tauri-apps/plugin-shell";
+// import { useDispatch } from "react-redux";
 
-import { type SynnaxProps } from "@synnaxlabs/client";
-import { Drift } from "@synnaxlabs/drift";
-import { useAsyncWindowLifecycle, useSelectWindowKey } from "@synnaxlabs/drift/react";
-import { Status, useAsyncEffect, useSyncedRef } from "@synnaxlabs/pluto";
-import { TimeStamp } from "@synnaxlabs/x";
-import { path } from "@tauri-apps/api";
-// import { Child, Command } from "@tauri-apps/plugin-shell";
-import { useDispatch } from "react-redux";
+// import { useSelectLocalState } from "@/cluster/selectors";
+// import {
+//   LOCAL,
+//   LOCAL_CLUSTER_KEY,
+//   LOCAL_PROPS,
+//   set,
+//   setActive,
+//   setLocalState,
+// } from "@/cluster/slice";
+// import { testConnection } from "@/cluster/testConnection";
 
-import { useSelectLocalState } from "@/cluster/selectors";
-import {
-  setLocalState,
-  set,
-  LOCAL_CLUSTER_KEY,
-  setActive,
-  LOCAL_PROPS,
-  LOCAL,
-} from "@/cluster/slice";
-import { testConnection } from "@/cluster/testConnection";
-
-// The name of the sidecar binary.
-const BINARY_NAME = "bin/sy";
+// // The name of the sidecar binary.
+// const BINARY_NAME = "bin/sy";
 export const LOCAL_KEY = "local";
 
 export const useLocalServer = (): void => {

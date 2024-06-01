@@ -3,10 +3,10 @@ import { describe, expect, it, vi } from "vitest";
 
 import { type Params, type Payload } from "@/channel/payload";
 import {
-  DebouncedBatchRetriever,
-  type Retriever,
-  type RetrieveOptions,
   analyzeChannelParams,
+  DebouncedBatchRetriever,
+  type RetrieveOptions,
+  type Retriever,
 } from "@/channel/retriever";
 
 class MockRetriever implements Retriever {
@@ -18,11 +18,11 @@ class MockRetriever implements Retriever {
     this.func = func;
   }
 
-  async search(term: string): Promise<Payload[]> {
+  async search(): Promise<Payload[]> {
     throw new Error("Method not implemented.");
   }
 
-  async page(offset: number, limit: number): Promise<Payload[]> {
+  async page(): Promise<Payload[]> {
     throw new Error("Method not implemented.");
   }
 
@@ -83,7 +83,7 @@ describe("channelRetriever", () => {
     expect(res.map((r) => r.map((c) => c.key))).toEqual([[1], [2], [1, 2]]);
   });
   it("should throw an error if the fetch fails", async () => {
-    const base = new MockRetriever(async (batch): Promise<Payload[]> => {
+    const base = new MockRetriever(async (): Promise<Payload[]> => {
       throw new Error("failed to fetch");
     });
     const retriever = new DebouncedBatchRetriever(base, 10);

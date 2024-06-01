@@ -8,13 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { trace } from "@opentelemetry/api";
-import { runtime } from "@synnaxlabs/x";
 
 import { Instrumentation } from "@/instrumentation";
 import { Logger } from "@/log";
 import { Tracer } from "@/trace";
-
-const DEV_DSN = "http://synnax_dev@localhost:14318/2";
 
 export const instrumentation = (): Instrumentation => {
   const serviceName = "synnax";

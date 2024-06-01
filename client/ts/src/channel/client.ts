@@ -10,35 +10,34 @@
 import { type UnaryClient } from "@synnaxlabs/freighter";
 import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import {
-  DataType,
-  Rate,
-  type TypedArray,
   type CrudeDensity,
-  type TimeRange,
   type CrudeTimeStamp,
+  DataType,
   type MultiSeries,
+  Rate,
+  type TimeRange,
+  type TypedArray,
 } from "@synnaxlabs/x/telem";
 import { toArray } from "@synnaxlabs/x/toArray";
 
 import {
   type Key,
   type KeyOrName,
+  type NewPayload,
   type Params,
   type Payload,
   payload,
-  type NewPayload,
 } from "@/channel/payload";
 import {
   analyzeChannelParams,
   CacheRetriever,
   ClusterRetriever,
   DebouncedBatchRetriever,
-  type Retriever,
-  type PageOptions,
   type RetrieveOptions,
+  type Retriever,
 } from "@/channel/retriever";
 import { type Writer } from "@/channel/writer";
-import { MultipleFoundError, ValidationError } from "@/errors";
+import { ValidationError } from "@/errors";
 import { type framer } from "@/framer";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 

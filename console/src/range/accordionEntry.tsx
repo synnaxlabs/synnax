@@ -7,23 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useState } from "react";
+import "@/range/accordionEntry.css";
 
-import { TimeRange, TimeSpan, TimeStamp, type label } from "@synnaxlabs/client";
+import { type label,TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
+  componentRenderProp,
   Divider,
   Ranger,
-  Tag,
-  componentRenderProp,
   Synnax,
-  useAsyncEffect,
+  Tag,
   Tooltip,
+  useAsyncEffect,
 } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 import { List as Core } from "@synnaxlabs/pluto/list";
 import { Menu as PMenu } from "@synnaxlabs/pluto/menu";
 import { Text } from "@synnaxlabs/pluto/text";
+import { type ReactElement, useState } from "react";
 import { useDispatch } from "react-redux";
 
 import { Menu } from "@/components";
@@ -33,8 +34,6 @@ import { createEditLayout } from "@/range/EditLayout";
 import type { Range, StaticRange } from "@/range/range";
 import { useSelect, useSelectMultiple } from "@/range/selectors";
 import { add, remove, setActive } from "@/range/slice";
-
-import "@/range/accordionEntry.css";
 
 export const listColumns: Array<Core.ColumnSpec<string, Range>> = [
   {

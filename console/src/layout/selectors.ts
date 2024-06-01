@@ -14,11 +14,11 @@ import { type Haul, type Mosaic, Theming } from "@synnaxlabs/pluto";
 import { selectByKey, selectByKeys, useMemoSelect } from "@/hooks";
 import { type State } from "@/layout/layout";
 import {
-  type SliceState,
-  type StoreState,
-  SLICE_NAME,
   type NavdrawerEntryState,
   type NavdrawerLocation,
+  SLICE_NAME,
+  type SliceState,
+  type StoreState,
 } from "@/layout/slice";
 
 /**

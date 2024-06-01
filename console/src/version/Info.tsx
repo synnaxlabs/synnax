@@ -1,12 +1,13 @@
-import { Layout } from "@/layout";
-import { useSelect } from "@/version/selectors";
-import { Icon, Logo } from "@synnaxlabs/media";
+import { Logo } from "@synnaxlabs/media";
 import { Align, Button, Progress, Status, Text } from "@synnaxlabs/pluto";
+import { Size } from "@synnaxlabs/x";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { relaunch } from "@tauri-apps/plugin-process";
-import { DownloadEvent, check } from "@tauri-apps/plugin-updater";
+import { check, DownloadEvent } from "@tauri-apps/plugin-updater";
 import { useState } from "react";
-import { Size } from "@synnaxlabs/x";
+
+import { Layout } from "@/layout";
+import { useSelect } from "@/version/selectors";
 
 export const infoLayout: Layout.State = {
   type: "versionInfo",
@@ -21,9 +22,7 @@ export const infoLayout: Layout.State = {
   },
 };
 
-type State = "checking" | "none" | "available" | "downloading" | "error";
-
-export const Info: Layout.Renderer = ({ layoutKey }) => {
+export const Info: Layout.Renderer = () => {
   const version = useSelect();
   const updateQuery = useQuery({
     queryKey: ["version.update"],

@@ -1,8 +1,6 @@
-import { type ReactElement } from "react";
-
 import { Select } from "@synnaxlabs/pluto";
 import { type List } from "@synnaxlabs/pluto/list";
-import { Optional } from "@synnaxlabs/x";
+import { type ReactElement } from "react";
 
 interface Model {
   key: string;

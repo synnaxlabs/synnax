@@ -1,5 +1,6 @@
-import { SecurityMode, SecurityPolicy } from "@/hardware/opc/device/types";
 import { Select } from "@synnaxlabs/pluto";
+
+import { SecurityMode, SecurityPolicy } from "@/hardware/opc/device/types";
 
 interface SecurityPolicyInfo {
   key: SecurityPolicy;

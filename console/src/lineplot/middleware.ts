@@ -10,21 +10,21 @@
 import { Layout } from "@/layout";
 import { select, selectSliceState } from "@/lineplot/selectors";
 import {
-  type CreatePayload,
-  type RemovePayload,
-  type StoreState,
-  type SetLinePayload,
-  type SetRangesPayload,
-  type SetXChannelPayload,
-  type SetYChannelsPayload,
   actions,
+  type CreatePayload,
   remove,
+  type RemovePayload,
   setLine,
+  type SetLinePayload,
   setRanges,
+  type SetRangesPayload,
   setXChannel,
+  type SetXChannelPayload,
   setYChannels,
+  type SetYChannelsPayload,
+  type StoreState,
 } from "@/lineplot/slice";
-import { type MiddlewareEffect, effectMiddleware } from "@/middleware";
+import { effectMiddleware,type MiddlewareEffect } from "@/middleware";
 import { Range } from "@/range";
 
 export const assignColorsEffect: MiddlewareEffect<

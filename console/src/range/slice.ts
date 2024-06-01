@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createSlice } from "@reduxjs/toolkit";
 import type { PayloadAction } from "@reduxjs/toolkit";
-import { TimeSpan, migrate } from "@synnaxlabs/x";
+import { createSlice } from "@reduxjs/toolkit";
+import { migrate,TimeSpan } from "@synnaxlabs/x";
 
 import { type Range, type StaticRange } from "@/range/range";
 
@@ -95,7 +95,7 @@ export const { actions, reducer } = createSlice({
       });
     },
     remove: (state, { payload: { keys } }: PA<RemovePayload>) => {
-      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+       
       keys.forEach((k) => delete state.ranges[k]);
     },
     setActive: (state, { payload }: PA<SetActivePayload>) => {

@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useCallback } from "react";
-
 import { type channel } from "@synnaxlabs/client";
-import { Channel, Select } from "@synnaxlabs/pluto";
+import { Channel } from "@synnaxlabs/pluto";
 import { Input } from "@synnaxlabs/pluto/input";
+import { type ReactElement, useCallback } from "react";
 
 import { type AxisKey, axisLabel } from "@/vis/axis";
 

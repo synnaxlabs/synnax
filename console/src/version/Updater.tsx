@@ -1,9 +1,10 @@
-import { check } from "@tauri-apps/plugin-updater";
-import { useEffect, useRef, useState } from "react";
-import { TimeSpan } from "@synnaxlabs/x";
 import { Button, Status, useAsyncEffect } from "@synnaxlabs/pluto";
-import { NotificationAdapter } from "@/notifications/Notifications";
+import { TimeSpan } from "@synnaxlabs/x";
+import { check } from "@tauri-apps/plugin-updater";
+import { useState } from "react";
+
 import { Layout } from "@/layout";
+import { NotificationAdapter } from "@/notifications/Notifications";
 import { infoLayout } from "@/version/Info";
 
 export const useCheckForUpdates = (): boolean => {

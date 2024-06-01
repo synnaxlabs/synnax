@@ -11,11 +11,11 @@ import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
 import {
+  keyZ,
   type NewPayload,
+  newPayloadZ,
   type Payload,
   payloadZ,
-  keyZ,
-  newPayloadZ,
 } from "@/ranger/payload";
 
 const createResZ = z.object({

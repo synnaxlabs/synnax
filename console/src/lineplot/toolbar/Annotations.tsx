@@ -7,29 +7,28 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useState } from "react";
-
 import { Icon } from "@synnaxlabs/media";
 import {
+  Align,
   Button,
   Color,
   Divider,
   Header,
   Input,
-  Status,
-  Select,
-  Align,
-  Theming,
   Menu,
+  Select,
+  Status,
   Text,
+  Theming,
 } from "@synnaxlabs/pluto";
 import { List } from "@synnaxlabs/pluto/list";
 import { nanoid } from "nanoid/non-secure";
+import { type ReactElement, useState } from "react";
 import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
 import { useSelect } from "@/lineplot/selectors";
-import { type RuleState, removeRule, setRule } from "@/lineplot/slice";
+import { removeRule, type RuleState, setRule } from "@/lineplot/slice";
 import { Vis } from "@/vis";
 
 export interface AnnotationsProps {

@@ -1,9 +1,10 @@
-import { Ontology } from "@/ontology";
 import { Icon } from "@synnaxlabs/media";
-import { OPC } from "@/hardware/opc";
-import { NI } from "@/hardware/ni";
-import { Layout } from "@/layout";
 import { Menu } from "@synnaxlabs/pluto";
+
+import { NI } from "@/hardware/ni";
+import { OPC } from "@/hardware/opc";
+import { Layout } from "@/layout";
+import { Ontology } from "@/ontology";
 
 const ZERO_LAYOUT_STATES: Record<string, Layout.State> = {
   [OPC.Task.configureReadLayout.type]: OPC.Task.configureReadLayout,

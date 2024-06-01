@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, test, expect, it } from "vitest";
 import { DataType, Rate, TimeStamp } from "@synnaxlabs/x/telem";
+import { describe, expect, it,test } from "vitest";
 
 import { type channel } from "@/channel";
 import { newClient } from "@/setupspecs";

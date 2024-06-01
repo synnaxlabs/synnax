@@ -9,8 +9,8 @@
 
 import { Icon } from "@synnaxlabs/media";
 
-import { type Command } from "@/palette/Palette";
 import { createLayout } from "@/docs/Docs";
+import { type Command } from "@/palette/Palette";
 
 export const readCommand: Command = {
   key: "read-the-docs",

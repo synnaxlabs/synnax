@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type UnaryClient, sendRequired } from "@synnaxlabs/freighter";
+import { sendRequired,type UnaryClient } from "@synnaxlabs/freighter";
 import { binary, type observe } from "@synnaxlabs/x";
 import { type UnknownRecord } from "@synnaxlabs/x/record";
 import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
-import { TimeSpan, type CrudeTimeSpan } from "@synnaxlabs/x/telem";
+import { type CrudeTimeSpan,TimeSpan } from "@synnaxlabs/x/telem";
 import { toArray } from "@synnaxlabs/x/toArray";
 import { nanoid } from "nanoid";
 import { z } from "zod";
@@ -316,7 +316,7 @@ export class Client implements AsyncTermSearcher<string, TaskKey, Payload> {
       { number: "rack", string: "keys" },
       { convertNumericStrings: false },
     );
-    let req: RetrieveRequest = { ...options };
+    const req: RetrieveRequest = { ...options };
     if (variant === "rack") req.rack = rack as number;
     else req.keys = normalized as string[];
     const tasks = await this.execRetrieve(req);

@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/media";
-import { Command } from "@/palette/Palette";
+
 import { configureAnalogReadLayout } from "@/hardware/ni/task/ConfigureAnalogRead";
-import { configureDigitalWriteLayout } from "@/hardware/ni/task/ConfigureDigitalWrite";
 import { configureDigitalReadLayout } from "@/hardware/ni/task/ConfigureDigitalRead";
-import { Text } from "@synnaxlabs/pluto";
+import { configureDigitalWriteLayout } from "@/hardware/ni/task/ConfigureDigitalWrite";
+import { Command } from "@/palette/Palette";
 
 export const createAnalogReadTaskCommand: Command = {
   key: "ni-create-analog-read-task",

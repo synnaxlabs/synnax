@@ -7,26 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
-
 import { ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
+  Channel,
   type Haul,
   Menu,
-  Channel,
-  telem,
   type Schematic as PlutoSchematic,
+  telem,
 } from "@synnaxlabs/pluto";
 import { Tree } from "@synnaxlabs/pluto/tree";
+import { type ReactElement } from "react";
 
 import { Menu as ConsoleMenu } from "@/components";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { type Ontology } from "@/ontology";
-import { Schematic } from "@/schematic";
 import { Range } from "@/range";
+import { Schematic } from "@/schematic";
 
 const canDrop = (): boolean => false;
 
@@ -108,7 +107,6 @@ const handleSetAlias = async ({
   name,
   client,
   store,
-  state: { setNodes, nodes },
 }: Ontology.HandleTreeRenameProps): Promise<void> => {
   const activeRange = Range.select(store.getState());
   if (activeRange == null) return;

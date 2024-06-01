@@ -9,9 +9,9 @@
 
 import {
   type Location,
+  SLICE_NAME,
   type SliceState,
   type StoreState,
-  SLICE_NAME,
 } from "@/docs/slice";
 import { useMemoSelect } from "@/hooks";
 

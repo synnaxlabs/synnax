@@ -7,30 +7,29 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useCallback, useMemo, useRef } from "react";
-
 import { type PayloadAction } from "@reduxjs/toolkit";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Icon } from "@synnaxlabs/media";
 import {
-  Control,
   Button,
-  Haul,
-  Theming,
-  Text,
-  Viewport,
-  useSyncedRef,
-  Synnax,
-  useAsyncEffect,
+  Control,
   Diagram,
+  Haul,
   Schematic as Core,
+  Synnax,
+  Text,
+  Theming,
+  useAsyncEffect,
+  useSyncedRef,
+  Viewport,
 } from "@synnaxlabs/pluto";
 import { Triggers } from "@synnaxlabs/pluto/triggers";
-import { type UnknownRecord, box } from "@synnaxlabs/x";
+import { box,type UnknownRecord } from "@synnaxlabs/x";
 import { nanoid } from "nanoid/non-secure";
+import { type ReactElement, useCallback, useMemo, useRef } from "react";
 import { useDispatch } from "react-redux";
 
-import { useSyncerDispatch, type Syncer } from "@/hooks/dispatchers";
+import { type Syncer,useSyncerDispatch } from "@/hooks/dispatchers";
 import { Layout } from "@/layout";
 import {
   select,
@@ -40,22 +39,22 @@ import {
   useSelectViewportMode,
 } from "@/schematic/selectors";
 import {
-  toggleControl,
+  addElement,
+  calculatePos,
+  copySelection,
+  internalCreate,
+  pasteSelection,
   setControlStatus,
   setEdges,
   setEditable,
   setElementProps,
-  setNodes,
-  setViewport,
-  addElement,
-  copySelection,
-  calculatePos,
-  pasteSelection,
-  type StoreState,
-  type State,
-  internalCreate,
-  setRemoteCreated,
   setFitViewOnResize,
+  setNodes,
+  setRemoteCreated,
+  setViewport,
+  type State,
+  type StoreState,
+  toggleControl,
 } from "@/schematic/slice";
 import { Workspace } from "@/workspace";
 

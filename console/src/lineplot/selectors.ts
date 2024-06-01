@@ -12,13 +12,13 @@ import { type bounds } from "@synnaxlabs/x";
 
 import { useMemoSelect } from "@/hooks";
 import {
-  type State,
-  type SliceState,
-  type StoreState,
-  SLICE_NAME,
-  type ToolbarState,
   type ControlState,
   type SelectionState,
+  SLICE_NAME,
+  type SliceState,
+  type State,
+  type StoreState,
+  type ToolbarState,
 } from "@/lineplot/slice";
 import { Range } from "@/range";
 import { type Vis } from "@/vis";

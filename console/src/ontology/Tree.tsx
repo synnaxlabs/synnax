@@ -7,21 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useCallback, useState, memo, useMemo } from "react";
-
 import { ontology, type Synnax as Client } from "@synnaxlabs/client";
 import {
-  Menu,
-  Synnax,
-  useAsyncEffect,
   Haul,
-  useStateRef as useRefAsState,
-  useCombinedStateAndRef,
+  Menu,
   type state,
   Status,
+  Synnax,
+  useAsyncEffect,
+  useCombinedStateAndRef,
+  useStateRef as useRefAsState,
 } from "@synnaxlabs/pluto";
 import { Tree as Core } from "@synnaxlabs/pluto/tree";
 import { deep } from "@synnaxlabs/x";
+import { memo, type ReactElement, useCallback, useMemo,useState } from "react";
 import { useStore } from "react-redux";
 
 import { Layout } from "@/layout";

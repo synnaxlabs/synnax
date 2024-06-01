@@ -485,7 +485,7 @@ export class Series<T extends TelemValue = TelemValue> {
 
   enrich(): void {
     let _ = this.max;
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+     
     _ = this.min;
   }
 

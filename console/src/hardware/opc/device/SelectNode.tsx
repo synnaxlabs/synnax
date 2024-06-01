@@ -1,10 +1,9 @@
-import { useMemo, type ReactElement } from "react";
-
-import { Form, type List, Select, Synnax } from "@synnaxlabs/pluto";
+import { type List, Select, Synnax } from "@synnaxlabs/pluto";
 import { useQuery } from "@tanstack/react-query";
+import { type ReactElement, useMemo } from "react";
 
-import { parseNodeId, type NodeId } from "@/hardware/opc/task/types";
 import { NodeProperties, Properties } from "@/hardware/opc/device/types";
+import { type NodeId, parseNodeId } from "@/hardware/opc/task/types";
 
 interface NodeEntry extends NodeId {
   name: string;
@@ -53,7 +52,7 @@ export const SelectNode = ({ data, ...props }: SelectNodeProps): ReactElement =>
     [data],
   );
   return (
-    /// @ts-expect-error
+    /// @ts-expect-error - data transformation errors
     <Select.Single<string, NodeEntry>
       {...props}
       columns={SELECT_NODE_COLUMNS}

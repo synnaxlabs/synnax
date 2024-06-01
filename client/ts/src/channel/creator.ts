@@ -10,7 +10,7 @@
 import type { UnaryClient } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
-import { type Payload, payload, newPayload, type NewPayload } from "@/channel/payload";
+import { type NewPayload,newPayload, type Payload, payload } from "@/channel/payload";
 
 const reqZ = z.object({ channels: newPayload.array() });
 

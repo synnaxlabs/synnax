@@ -1,14 +1,15 @@
-import {
-  BrowserWindowConstructorOptions,
-  IpcMainEvent,
-  type BrowserWindow,
-  type IpcRendererEvent,
-} from "electron";
 import type { Action, UnknownAction } from "@reduxjs/toolkit";
 import { debounce, dimensions, type xy } from "@synnaxlabs/x";
-import { MAIN_WINDOW, type WindowProps } from "@/window";
+import {
+  type BrowserWindow,
+  BrowserWindowConstructorOptions,
+  IpcMainEvent,
+  type IpcRendererEvent,
+} from "electron";
+
 import { Event, Runtime } from "@/runtime";
-import { SetWindowPropsPayload, StoreState, setWindowProps } from "@/state";
+import { setWindowProps, SetWindowPropsPayload, StoreState } from "@/state";
+import { MAIN_WINDOW, type WindowProps } from "@/window";
 
 const ACTION_EVENT = "drift://action";
 const CREATE_EVENT = "drift://create";
@@ -121,11 +122,9 @@ export const listenOnMain = ({ mainWindow, createWindow }: ListenOnMainProps) =>
   const idsToLabels = new Map<number, string>();
   labelsToIDs.set(MAIN_WINDOW, mainWindow.id);
   idsToLabels.set(mainWindow.id, MAIN_WINDOW);
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
   const { ipcMain, BrowserWindow } = require("electron");
-  const listenOnSender = <A extends any>(
-    ev: string,
-    f: (win: BrowserWindow, args: A) => void,
-  ) =>
+  const listenOnSender = <A>(ev: string, f: (win: BrowserWindow, args: A) => void) =>
     ipcMain.on(ev, (e: IpcMainEvent, args: A) => {
       const win = BrowserWindow.fromWebContents(e.sender);
       if (win == null) return;
@@ -177,7 +176,7 @@ export const listenOnMain = ({ mainWindow, createWindow }: ListenOnMainProps) =>
       const [width, height] = w.getSize();
       return { size: { width, height } };
     });
-    updateWindowPropsHandler("move", (w) => {
+    updateWindowPropsHandler("move", () => {
       const [x, y] = win.getPosition();
       return { position: { x, y } };
     });
@@ -254,6 +253,7 @@ interface API {
 const API_NAME = "driftAPI";
 
 export const exposeAPI = () => {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
   const { ipcRenderer, contextBridge } = require("electron");
   const api: API = {
     send: (channel, ...args) => {
@@ -322,7 +322,7 @@ export class ElectronRuntime<S extends StoreState, A extends Action = UnknownAct
     this.api.on(ACTION_EVENT, (_, event: Event<S, A>) => lis(event));
   }
 
-  onCloseRequested(cb: () => void): void {}
+  onCloseRequested(): void {}
 
   async create(label: string, props: Omit<WindowProps, "key">): Promise<void> {
     this.api.send(CREATE_EVENT, label, JSON.parse(JSON.stringify(props)));

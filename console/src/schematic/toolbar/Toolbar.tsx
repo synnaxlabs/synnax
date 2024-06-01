@@ -7,17 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useCallback } from "react";
-
 import { Icon } from "@synnaxlabs/media";
 import { Align, Status, Tabs } from "@synnaxlabs/pluto";
 import { Text } from "@synnaxlabs/pluto/text";
+import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Layout } from "@/layout";
 import { useSelect, useSelectControlStatus, useSelectToolbar } from "@/schematic/selectors";
-import { type ToolbarTab, setActiveToolbarTab, setEditable } from "@/schematic/slice";
+import { setActiveToolbarTab, setEditable,type ToolbarTab } from "@/schematic/slice";
 import { PropertiesControls } from "@/schematic/toolbar/Properties";
 import { Symbols } from "@/schematic/toolbar/Symbols";
 

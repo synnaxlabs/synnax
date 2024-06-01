@@ -14,12 +14,12 @@ import { z } from "zod";
 
 import { keyZ as workspaceKeyZ } from "@/workspace/payload";
 import {
-  schematicZ,
-  type Schematic,
-  type Params,
-  keyZ,
   type Key,
+  keyZ,
+  type Params,
+  type Schematic,
   schematicRemoteZ,
+  schematicZ,
 } from "@/workspace/schematic/payload";
 
 export const newSchematicZ = schematicZ.partial({ key: true, snapshot: true }).transform((p) => ({
