@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,15 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Key, type Keyed, nullToArr } from "@synnaxlabs/x";
 import {
   createContext,
   type PropsWithChildren,
+  type ReactElement,
   useContext,
   useMemo,
-  type ReactElement,
 } from "react";
-
-import { type Key, type Keyed, nullToArr } from "@synnaxlabs/x";
 
 import { useSyncedRef } from "@/hooks";
 import { useGetTransformedData } from "@/list/Data";
@@ -34,7 +33,7 @@ interface SelectUtilContextValue<K extends Key = Key> {
 export type SelectorProps<
   K extends Key = Key,
   E extends Keyed<K> = Keyed<K>,
-> = PropsWithChildren<Omit<UseSelectProps<K, E>, "data">>;
+> = PropsWithChildren<UseSelectProps<K, E>>;
 
 const SelectionContext = createContext<SelectContextValue>({
   selected: [],
@@ -68,9 +67,9 @@ export const Selector = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
 }: SelectorProps<K, E>): ReactElement => {
   const getData = useGetTransformedData<K, E>();
   const { onSelect, clear } = useSelect<K, E>({
-    data: getData,
-    value,
     ...props,
+    value,
+    data: getData,
   } as const as UseSelectProps<K, E>);
   const selectedRef = useSyncedRef(value);
   const ctxValue: SelectContextValue<K> = useMemo(

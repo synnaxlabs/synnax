@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -17,14 +17,14 @@ export type Runtime = "browser" | "node" | "webworker";
  */
 export const detect = (): Runtime => {
   if (
-    // eslint-disable-next-line @typescript-eslint/prefer-optional-chain
+     
     typeof process !== "undefined" &&
     process.versions != null &&
     process.versions.node != null
   )
     return "node";
 
-  // eslint-disable-next-line @typescript-eslint/prefer-optional-chain
+   
   if (typeof window === "undefined" || window.document === undefined)
     return "webworker";
 

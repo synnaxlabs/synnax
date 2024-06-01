@@ -7,49 +7,48 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useState, type ReactElement, useCallback, useRef } from "react";
+import "@/hardware/ni/task/ConfigureAnalogRead.css";
 
+import { task } from "@synnaxlabs/client";
+import { Icon } from "@synnaxlabs/media";
 import {
+  Button,
+  Channel,
+  Device,
   Form,
   Header,
-  Synnax,
-  Nav,
-  Button,
-  useAsyncEffect,
-  Device,
   List,
-  Channel,
+  Nav,
   Status,
+  Synnax,
+  useAsyncEffect,
 } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 import { Input } from "@synnaxlabs/pluto/input";
 import { Text } from "@synnaxlabs/pluto/text";
+import { deep } from "@synnaxlabs/x";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { nanoid } from "nanoid";
+import { type ReactElement, useCallback, useRef,useState } from "react";
+import { z } from "zod";
 
 import { CSS } from "@/css";
+import { ChannelField } from "@/hardware/ni/task/ChannelForms";
 import {
+  AnalogReadStateDetails,
+  Chan,
+  DIGITAL_WRITE_TYPE,
   DigitalWriteConfig,
   digitalWriteConfigZ,
-  DigitalWriteStateDetails,
-  DOChan,
-  Chan,
-  ZERO_DO_CHAN,
-  ZERO_DIGITAL_WRITE_PAYLOAD,
-  DigitalWriteTask,
   DigitalWritePayload,
+  DigitalWriteStateDetails,
+  DigitalWriteTask,
   DigitalWriteType,
-  AnalogReadStateDetails,
-  DIGITAL_WRITE_TYPE,
+  DOChan,
+  ZERO_DIGITAL_WRITE_PAYLOAD,
+  ZERO_DO_CHAN,
 } from "@/hardware/ni/task/types";
-
-import "@/hardware/ni/task/ConfigureAnalogRead.css";
 import { Layout } from "@/layout";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { task } from "@synnaxlabs/client";
-import { z } from "zod";
-import { Icon } from "@synnaxlabs/media";
-import { ChannelField } from "@/hardware/ni/task/ChannelForms";
-import { deep } from "@synnaxlabs/x";
-import { nanoid } from "nanoid";
 
 export const configureDigitalWriteLayout: Layout.State = {
   name: "Configure NI Digital Write Task",

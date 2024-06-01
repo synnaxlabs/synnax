@@ -1,14 +1,20 @@
-import { type ReactElement } from "react";
+// Copyright 2024 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
 
 import { type task } from "@synnaxlabs/client";
 import { List, Synnax, Text } from "@synnaxlabs/pluto";
 import { useQuery } from "@tanstack/react-query";
+import { type ReactElement } from "react";
 
 export interface RackOverviewProps {
   rackKey: string;
 }
-
-export const RackOverview = (): ReactElement => {};
 
 export interface TaskListProps {
   rackKey: number;
@@ -17,7 +23,7 @@ export interface TaskListProps {
 export const TaskList = ({ rackKey }: TaskListProps): ReactElement => {
   const client = Synnax.use();
 
-  const { data, isPending } = useQuery({
+  const { data } = useQuery({
     queryKey: ["tasks", rackKey],
     queryFn: async () => await client?.hardware.tasks.retrieve(rackKey),
   });

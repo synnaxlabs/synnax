@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -6,8 +6,6 @@
 // As of the Change Date specified in that file, in accordance with the Business Source
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
-
-import { type Dispatch, type ReactElement, useCallback, useState } from "react";
 
 import type { PayloadAction, UnknownAction } from "@reduxjs/toolkit";
 import { Drift } from "@synnaxlabs/drift";
@@ -23,10 +21,11 @@ import {
 } from "@synnaxlabs/pluto";
 import { compare } from "@synnaxlabs/x";
 import { getCurrent } from "@tauri-apps/api/window";
+import { type Dispatch, type ReactElement, useCallback, useState } from "react";
 import { useDispatch, useStore } from "react-redux";
 
 import { useSyncerDispatch } from "@/hooks/dispatchers";
-import { type LayoutState } from "@/layout/layout";
+import { State } from "@/layout/layout";
 import { select, useSelectNavDrawer, useSelectTheme } from "@/layout/selectors";
 import {
   type NavdrawerLocation,
@@ -46,10 +45,10 @@ export interface CreatorProps {
 }
 
 /** A function that creates a layout given a set of utilities. */
-export type Creator = (props: CreatorProps) => Omit<LayoutState, "windowKey">;
+export type Creator = (props: CreatorProps) => Omit<State, "windowKey">;
 
 /** A function that places a layout using the given properties or creation func. */
-export type Placer = (layout: Omit<LayoutState, "windowKey"> | Creator) => {
+export type Placer = (layout: Omit<State, "windowKey"> | Creator) => {
   windowKey: string;
   key: string;
 };

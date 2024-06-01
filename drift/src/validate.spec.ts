@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -17,7 +17,7 @@ describe("validate", () => {
   });
   it("should throw an error if an action type is undefined or an empty string", () => {
     expect(() => validateAction({ action: { type: "" } })).toThrowError();
-    // @ts-expect-error
+    // @ts-expect-error - expect this to fail
     expect(() => validateAction({ action: { type: undefined } })).toThrowError();
   });
   it("should not throw an error for a valid action", () => {

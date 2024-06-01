@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, forwardRef, useCallback, useEffect } from "react";
-
 import { bounds } from "@synnaxlabs/x";
 import { evaluate } from "mathjs";
+import { forwardRef, type ReactElement, useCallback, useEffect } from "react";
 
 import { useCombinedStateAndRef, useSyncedRef } from "@/hooks";
 import { DragButton, type DragButtonExtraProps } from "@/input/DragButton";
@@ -51,7 +50,6 @@ export interface NumericProps
 export const Numeric = forwardRef<HTMLInputElement, NumericProps>(
   (
     {
-      size = "medium",
       onChange,
       value,
       dragDirection,
@@ -88,7 +86,7 @@ export const Numeric = forwardRef<HTMLInputElement, NumericProps>(
       try {
         v = evaluate(internalValueRef.current);
         ok = v != null;
-      } catch (e) {
+      } catch {
         ok = false;
       }
       if (ok) onChange?.(bounds.clamp(propsBounds, v));

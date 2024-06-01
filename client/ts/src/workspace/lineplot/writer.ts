@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -13,11 +13,11 @@ import { toArray } from "@synnaxlabs/x/toArray";
 import { z } from "zod";
 
 import {
-  linePlotZ,
-  type LinePlot,
-  type Params,
-  keyZ,
   type Key,
+  keyZ,
+  type LinePlot,
+  linePlotZ,
+  type Params,
 } from "@/workspace/lineplot/payload";
 import { keyZ as workspaceKeyZ } from "@/workspace/payload";
 

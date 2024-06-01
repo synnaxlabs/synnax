@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,14 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Icon } from "@synnaxlabs/media";
 import {
   type DragEventHandler,
   type MouseEventHandler,
   type ReactElement,
   useCallback,
 } from "react";
-
-import { Icon } from "@synnaxlabs/media";
 
 import { Align } from "@/align";
 import { Button } from "@/button";
@@ -33,12 +32,14 @@ export interface TabSpec {
 
 export interface SelectorProps extends Omit<Align.SpaceProps, "children"> {
   size?: ComponentSize;
+  altColor?: boolean;
 }
 
 const CLS = "tabs-selector";
 
 export const Selector = ({
   className,
+  altColor = false,
   size = "medium",
   direction = "x",
   ...props
@@ -70,6 +71,7 @@ export const Selector = ({
           <SelectorButton
             key={tab.tabKey}
             selected={selected}
+            altColor={altColor}
             onSelect={onSelect}
             onClose={onClose}
             onDragStart={onDragStart}
@@ -95,6 +97,7 @@ export const Selector = ({
 
 const SelectorButton = ({
   selected,
+  altColor = false,
   onSelect,
   onClose,
   tabKey,
@@ -134,6 +137,7 @@ const SelectorButton = ({
         CSS.BE(CLS, "btn"),
         onRename == null && CSS.BEM(CLS, "btn", "uneditable"),
         CSS.selected(selected === tabKey),
+        CSS.altColor(altColor), // TODO: this line
         closable && onClose != null && CSS.BEM(CLS, "btn", "closable"),
       )}
       draggable
@@ -165,6 +169,7 @@ const SelectorButton = ({
 
 export interface SelectorButtonProps extends TabSpec {
   selected?: string;
+  altColor?: boolean;
   onDragStart?: (e: React.DragEvent<HTMLDivElement>, tab: TabSpec) => void;
   onDragEnd?: (e: React.DragEvent<HTMLDivElement>, tab: TabSpec) => void;
   onSelect?: (key: string) => void;

@@ -7,34 +7,28 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  useCallback,
-  useEffect,
-  type PropsWithChildren,
-  type ReactElement,
-} from "react";
+import "@/error/Overlay.css";
 
 import { Logo } from "@synnaxlabs/media";
 import {
   Align,
   Button,
+  componentRenderProp,
   Nav,
   OS,
   Status,
   Text,
-  componentRenderProp,
 } from "@synnaxlabs/pluto";
 import { CSS as PCSS } from "@synnaxlabs/pluto/css";
 import { Theming } from "@synnaxlabs/pluto/theming";
+import { getCurrent } from "@tauri-apps/api/window";
+import { type PropsWithChildren, type ReactElement, useEffect } from "react";
 import { ErrorBoundary, type ErrorBoundaryProps } from "react-error-boundary";
 import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
 import { NAV_SIZES } from "@/layouts/LayoutMain";
 import { CLEAR_STATE, REVERT_STATE } from "@/persist/state";
-import { getCurrent } from "@tauri-apps/api/window";
-
-import "@/error/Overlay.css";
 
 export interface ErrorOverlayProps extends PropsWithChildren<{}> {}
 
@@ -43,10 +37,7 @@ const messageTranslation: Record<string, string> = {
     "It seems like you have Synnax open from multiple windows. Please close all other windows and reopen Synnax.",
 };
 
-const FallbackRender: ErrorBoundaryProps["fallbackRender"] = ({
-  error,
-  resetErrorBoundary,
-}) => {
+const FallbackRender: ErrorBoundaryProps["fallbackRender"] = ({ error }) => {
   const d = useDispatch();
 
   useEffect(() => {

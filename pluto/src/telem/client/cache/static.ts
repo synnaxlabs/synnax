@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,13 +9,13 @@
 
 import { alamos } from "@synnaxlabs/alamos";
 import {
-  TimeRange,
-  type Series,
   bounds,
-  TimeStamp,
-  TimeSpan,
   type Required,
+  type Series,
   Size,
+  TimeRange,
+  TimeSpan,
+  TimeStamp,
 } from "@synnaxlabs/x";
 
 import { convertSeriesFloat32 } from "@/telem/aether/convertSeries";

@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,17 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useMemo } from "react";
+import "@/notifications/Notifications.css";
 
 import { Status } from "@synnaxlabs/pluto";
 import { Button } from "@synnaxlabs/pluto/button";
 import { List } from "@synnaxlabs/pluto/list";
 import { TimeSpan } from "@synnaxlabs/x";
+import { type ReactElement } from "react";
+
 import { CSS } from "@/css";
 import { notificationAdapter } from "@/hardware/device/useListenForChanges";
 import { notificationAdapter as versionAdapter } from "@/version/Updater";
-
-import "@/notifications/Notifications.css";
 
 interface NotificationsProps {
   adapters?: NotificationAdapter[];

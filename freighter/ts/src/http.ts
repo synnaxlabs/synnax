@@ -17,10 +17,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { runtime, type URL, type binary } from "@synnaxlabs/x";
+import { type binary,runtime, type URL } from "@synnaxlabs/x";
 import { type z } from "zod";
 
-import { errorZ, decodeError, Unreachable } from "@/errors";
+import { decodeError, errorZ, Unreachable } from "@/errors";
 import { type Context, MiddlewareCollector } from "@/middleware";
 import { type UnaryClient } from "@/unary";
 

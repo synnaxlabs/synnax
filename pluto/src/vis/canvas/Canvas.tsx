@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,23 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/vis/canvas/Canvas.css";
+
+import { box, runtime, scale, xy } from "@synnaxlabs/x";
 import {
   type CanvasHTMLAttributes,
   type DetailedHTMLProps,
   type ReactElement,
   useCallback,
-  useRef,
   useEffect,
+  useRef,
 } from "react";
-
-import { box, runtime, scale, xy } from "@synnaxlabs/x";
 
 import { Aether } from "@/aether";
 import { CSS } from "@/css";
-import { type UseResizeHandler, useResize } from "@/hooks";
+import { useResize, type UseResizeHandler, UseResizeOpts } from "@/hooks";
 import { canvas } from "@/vis/canvas/aether";
-
-import "@/vis/canvas/Canvas.css";
 
 type HTMLDivProps = DetailedHTMLProps<
   CanvasHTMLAttributes<HTMLDivElement>,
@@ -150,7 +149,10 @@ export const Canvas = Aether.wrap<CanvasProps>(
   },
 );
 
-export const useRegion = (handler: UseResizeHandler): React.RefCallback<HTMLElement> =>
+export const useRegion = (
+  handler: UseResizeHandler,
+  opts?: UseResizeOpts,
+): React.RefCallback<HTMLElement> =>
   useResize(
     useCallback(
       (b, el) => {
@@ -160,4 +162,5 @@ export const useRegion = (handler: UseResizeHandler): React.RefCallback<HTMLElem
       },
       [handler],
     ),
+    opts,
   );

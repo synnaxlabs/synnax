@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,6 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/select/Multiple.css";
+
+import {
+  type AsyncTermSearcher,
+  compare,
+  convertRenderV,
+  type Key,
+  type Keyed,
+  type RenderableValue,
+  toArray,
+} from "@synnaxlabs/x";
 import {
   type ReactElement,
   useCallback,
@@ -16,16 +27,6 @@ import {
   useState,
 } from "react";
 
-import {
-  convertRenderV,
-  type Key,
-  type Keyed,
-  type AsyncTermSearcher,
-  compare,
-  toArray,
-  type RenderableValue,
-} from "@synnaxlabs/x";
-
 import { Align } from "@/align";
 import { type Color } from "@/color";
 import { CSS } from "@/css";
@@ -33,13 +34,15 @@ import { Dropdown } from "@/dropdown";
 import { useAsyncEffect } from "@/hooks";
 import { Input } from "@/input";
 import { List as CoreList } from "@/list";
-import { selectValueIsZero, type UseSelectMultipleProps } from "@/list/useSelect";
+import {
+  selectValueIsZero,
+  type UseSelectMultipleProps,
+  UseSelectOnChangeExtra,
+} from "@/list/useSelect";
 import { ClearButton } from "@/select/ClearButton";
 import { Core } from "@/select/List";
 import { Tag } from "@/tag";
-import { type RenderProp, componentRenderProp } from "@/util/renderProp";
-
-import "@/select/Multiple.css";
+import { componentRenderProp, type RenderProp } from "@/util/renderProp";
 
 export interface MultipleProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>>
   extends Omit<Dropdown.DialogProps, "visible" | "onChange" | "children" | "close">,
@@ -119,10 +122,11 @@ export const Multiple = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
     setSelected(nextSelected);
   }, [searcher, searchMode, value, data]);
 
-  const handleChange: UseSelectMultipleProps<K, E>["onChange"] = useCallback(
-    (v, extra) => {
+  const handleChange = useCallback(
+    (v: K | K[] | null, extra: UseSelectOnChangeExtra<K, E>) => {
+      if (v == null) return;
       setSelected(extra.entries);
-      onChange(v, extra);
+      onChange(toArray(v), extra);
     },
     [onChange],
   );
@@ -207,12 +211,12 @@ const MultipleInput = <K extends Key, E extends Keyed<K>>({
     if (visible) ref.current?.focus();
   }, [visible, selected]);
 
-  const handleFocus: Input.TextProps["onFocus"] = (e) => {
+  const handleFocus: Input.TextProps["onFocus"] = () => {
     if (!visible) onChange("");
     onFocus?.();
   };
 
-  const handleClick = (e: React.MouseEvent<HTMLDivElement>): void => {
+  const handleClick = (): void => {
     if (visible) return;
     onFocus?.();
   };

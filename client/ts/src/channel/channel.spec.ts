@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { DataType, Rate, TimeStamp } from "@synnaxlabs/x/telem";
-import { describe, expect, test, it } from "vitest";
+import { describe, expect, it, test } from "vitest";
 
 import { Channel } from "@/channel/client";
 import { NotFoundError, QueryError } from "@/errors";
@@ -87,8 +87,7 @@ describe("Channel", () => {
         dataType: DataType.FLOAT32,
         index: timeIndexChannel.key,
       });
-
-      const sensors = await client.channels.create([sensorOne, sensorTwo, sensorThree]);
+      await client.channels.create([sensorOne, sensorTwo, sensorThree]);
     });
     describe("retrieveIfNameExists", () => {
       it("should retrieve the existing channel when it exists", async () => {

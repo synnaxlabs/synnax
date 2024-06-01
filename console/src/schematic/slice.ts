@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,16 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type PayloadAction, createSlice } from "@reduxjs/toolkit";
+import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import {
   type Control,
-  type Viewport,
   type Diagram,
   type Schematic,
+  type Viewport,
 } from "@synnaxlabs/pluto";
 import { Color } from "@synnaxlabs/pluto/color";
 import { type Theming } from "@synnaxlabs/pluto/theming";
-import { box, scale, xy, deep, migrate } from "@synnaxlabs/x";
+import { box, deep, migrate, scale, xy } from "@synnaxlabs/x";
 import { nanoid } from "nanoid/non-secure";
 import { v4 as uuidV4 } from "uuid";
 
@@ -87,6 +87,7 @@ export const ZERO_STATE: State = {
   editable: true,
   control: "released",
   controlAcquireTrigger: 0,
+  fitViewOnResize: false,
 };
 
 export const ZERO_SLICE_STATE: SliceState = {
@@ -304,7 +305,7 @@ export const { actions, reducer } = createSlice({
       layoutKeys.forEach((layoutKey) => {
         const schematic = state.schematics[layoutKey];
         if (schematic.control === "acquired") schematic.controlAcquireTrigger -= 1;
-        // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+
         delete state.schematics[layoutKey];
       });
     },
@@ -418,7 +419,8 @@ export const { actions, reducer } = createSlice({
       schematic.fitViewOnResize = fitViewOnResize;
     },
     toggleControl: (state, { payload }: PayloadAction<ToggleControlPayload>) => {
-      let { layoutKey, status } = payload;
+      const { layoutKey } = payload;
+      let { status } = payload;
       const schematic = state.schematics[layoutKey];
       if (status == null)
         status = schematic.control === "released" ? "acquired" : "released";
