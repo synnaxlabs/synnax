@@ -33,11 +33,12 @@ export const LayoutMain = (): ReactElement => {
   useEffect(() => {
     d(Layout.maybeCreateGetStartedTab());
   }, []);
+  const x = Link.HANDLERS;
 
   Version.useLoadTauri();
   Device.useListenForChanges();
   Cluster.useLocalServer();
-  Link.useDeepLink();
+  Link.useDeepLink({Link.HANDLERS}); // TODO: add handlers like ontology resources
 
   return (
     <>

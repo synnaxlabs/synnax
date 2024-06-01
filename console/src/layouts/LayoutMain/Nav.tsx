@@ -30,7 +30,6 @@ import { Version } from "@/version";
 import { Vis } from "@/vis";
 import { Workspace } from "@/workspace";
 import { Persist } from "@/persist";
-import { Notifications } from "@/notifications";
 
 import "@/layouts/LayoutMain/Nav.css";
 import { NI } from "@/hardware/ni";
