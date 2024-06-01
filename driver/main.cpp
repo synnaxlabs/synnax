@@ -111,11 +111,10 @@ int main(int argc, char *argv[]) {
         LOG(INFO) << "[main] received interrupt signal. shutting down";
         stopped = true;
         d->stop();
+        LOG(INFO) << "[main] shutdown complete";
     });
     auto err = d->run();
     if (err)
         LOG(FATAL) << "[main] failed to start: " << err;
-    else
-        LOG(INFO) << "[main] shutdown complete";
     return 0;
 }

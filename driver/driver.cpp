@@ -45,6 +45,7 @@ freighter::Error driver::Driver::run() {
 void driver::Driver::stop() {
     const auto tm_err = task_manager.stop();
     const auto hb_err = heartbeat.stop();
+    LOG(INFO) << "[main] driver has stopped";
     if (tm_err) {
         LOG(ERROR) << "[main] failed to stop task manager: " << tm_err.message();
     }
