@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,18 +9,19 @@
 
 import { type StreamClient } from "@synnaxlabs/freighter";
 import {
-  type CrudeTimeStamp,
   type CrudeSeries,
   type CrudeTimeRange,
+  type CrudeTimeStamp,
   type MultiSeries,
-} from "@synnaxlabs/x/telem";
+  TimeSpan,
+} from "@synnaxlabs/x";
 
-import { KeysOrNames, type KeyOrName, type Params } from "@/channel/payload";
-import { type Retriever, analyzeChannelParams } from "@/channel/retriever";
+import { type KeyOrName, KeysOrNames, type Params } from "@/channel/payload";
+import { analyzeChannelParams,type Retriever } from "@/channel/retriever";
 import { Frame } from "@/framer/frame";
 import { Iterator } from "@/framer/iterator";
 import { Streamer, type StreamerConfig } from "@/framer/streamer";
-import { Writer, WriterMode, type WriterConfig } from "@/framer/writer";
+import { Writer, type WriterConfig,WriterMode } from "@/framer/writer";
 
 export class Client {
   private readonly stream: StreamClient;
@@ -135,10 +136,11 @@ export class Client {
       start,
       channels: channels as Params,
       mode: WriterMode.PersistOnly,
+      enableAutoCommit: true,
+      autoIndexPersistInterval: TimeSpan.MAX,
     });
     try {
       await w.write(channels as Params, data);
-      await w.commit();
     } finally {
       await w.close();
     }

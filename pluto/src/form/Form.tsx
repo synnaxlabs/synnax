@@ -8,32 +8,31 @@
 // included in the file licenses/APL.txt.
 
 /* eslint-disable @typescript-eslint/no-unnecessary-type-constraint */
-import {
-  type ReactElement,
-  type PropsWithChildren,
-  createContext,
-  useContext as reactUseContext,
-  useState,
-  useLayoutEffect,
-  useRef,
-  useMemo,
-  useCallback,
-  useEffect,
-  FC,
-} from "react";
-
-import { shallowCopy, type Destructor, toArray, Key, Keyed } from "@synnaxlabs/x";
+import { type Destructor, Key, Keyed, shallowCopy, toArray } from "@synnaxlabs/x";
 import { caseconv } from "@synnaxlabs/x/caseconv";
 import { deep } from "@synnaxlabs/x/deep";
+import { zodutil } from "@synnaxlabs/x/zodutil";
+import {
+  createContext,
+  FC,
+  type PropsWithChildren,
+  type ReactElement,
+  useCallback,
+  useContext as reactUseContext,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { z } from "zod";
 
+import { CSS } from "@/css";
 import { useSyncedRef } from "@/hooks/ref";
 import { Input } from "@/input";
+import { Select } from "@/select";
 import { type status } from "@/status/aether";
 import { componentRenderProp, type RenderProp } from "@/util/renderProp";
-import { CSS } from "@/css";
-import { zodutil } from "@synnaxlabs/x/zodutil";
-import { Select } from "@/select";
 
 /** Props for the @see useField hook */
 export interface UseFieldProps<I, O = I> {
@@ -258,22 +257,18 @@ export const useFieldArray = <V extends unknown = unknown>({
 
   const remove = useCallback(
     (index: number | number[]) => {
-      const copy = shallowCopy(get<V[]>({ path, optional: false }).value);
-      const indices = toArray(index).sort((a, b) => b - a);
-      indices.forEach((i) => copy.splice(i, 1));
-      set({ path, value: copy });
+      const val = get<V[]>({ path, optional: false }).value;
+      const indices = new Set(toArray(index));
+      set({ path, value: val.filter((_, i) => !indices.has(i)) });
     },
     [path, state, get],
   );
 
   const keepOnly = useCallback(
-    (indices: number | number[]) => {
-      const copy = shallowCopy(get<V[]>({ path, optional: false }).value);
-      const indicesArray = new Set(toArray(indices));
-      copy.forEach((_, i) => {
-        if (!indicesArray.has(i)) copy.splice(i, 1);
-      });
-      set({ path, value: copy });
+    (index: number | number[]) => {
+      const val = get<V[]>({ path, optional: false }).value;
+      const indices = new Set(toArray(index));
+      set({ path, value: val.filter((_, i) => indices.has(i)) });
     },
     [path, state, get],
   );
@@ -281,16 +276,16 @@ export const useFieldArray = <V extends unknown = unknown>({
   return { value: state, push, remove, keepOnly };
 };
 
-export interface FieldProps<
+export type FieldProps<
   I extends Input.Value = string | number,
   O extends Input.Value = I,
-> extends UseFieldProps<I, O>,
-    Omit<Input.ItemProps, "children" | "onChange" | "defaultValue"> {
-  children?: RenderProp<Input.Control<I, O>>;
-  padHelpText?: boolean;
-  visible?: boolean | ((state: FieldState<I>, ctx: ContextValue) => boolean);
-  hideIfNull?: boolean;
-}
+> = (UseFieldProps<I, O> | UseNullableFieldProps<I, O>) &
+  Omit<Input.ItemProps, "children" | "onChange" | "defaultValue"> & {
+    children?: RenderProp<Input.Control<I, O>>;
+    padHelpText?: boolean;
+    visible?: boolean | ((state: FieldState<I>, ctx: ContextValue) => boolean);
+    hideIfNull?: boolean;
+  };
 
 const defaultInput = componentRenderProp(Input.Text);
 
@@ -353,14 +348,14 @@ export interface FieldBuilderProps<
   inputProps?: Partial<P>;
 }
 
-export interface BuiltFieldProps<
+export type BuiltFieldProps<
   I extends Input.Value,
   O extends Input.Value,
   P extends {},
-> extends FieldProps<I, O> {
+> = FieldProps<I, O> & {
   inputProps?: Partial<P>;
   fieldKey?: string;
-}
+};
 
 export const fieldBuilder =
   <I extends Input.Value, O extends Input.Value, P extends {}>(
@@ -370,21 +365,24 @@ export const fieldBuilder =
     fieldKey: baseFieldKey,
     fieldProps,
     inputProps: baseInputProps,
-  }: FieldBuilderProps<I, O, P>): FC<BuiltFieldProps<I, O, P>> =>
-  ({
-    inputProps,
-    path,
-    fieldKey = baseFieldKey,
-    ...props
-  }: BuiltFieldProps<I, O, P>) => (
-    <Field<I, O>
-      {...fieldProps}
-      {...props}
-      path={fieldKey ? `${path}.${fieldKey}` : path}
-    >
-      {(cp) => <Component {...cp} {...baseInputProps} {...(inputProps as P)} />}
-    </Field>
-  );
+  }: FieldBuilderProps<I, O, P>): FC<BuiltFieldProps<I, O, P>> => {
+    const C = ({
+      inputProps,
+      path,
+      fieldKey = baseFieldKey,
+      ...props
+    }: BuiltFieldProps<I, O, P>) => (
+      <Field<I, O>
+        {...fieldProps}
+        {...props}
+        path={fieldKey ? `${path}.${fieldKey}` : path}
+      >
+        {(cp) => <Component {...cp} {...baseInputProps} {...(inputProps as P)} />}
+      </Field>
+    );
+    C.displayName = Component.displayName;
+    return C;
+  };
 
 export const buildNumericField = fieldBuilder(Input.Numeric);
 export const NumericField = buildNumericField({});
@@ -518,8 +516,6 @@ export interface UseProps<Z extends z.ZodTypeAny> {
 
 export type UseReturn<Z extends z.ZodTypeAny> = ContextValue<Z>;
 
-const isWarning = (issue: z.ZodIssue): boolean => getVariant(issue) === "warning";
-
 const getVariant = (issue: z.ZodIssue): status.Variant =>
   issue.code === z.ZodIssueCode.custom &&
   issue.params != null &&
@@ -598,7 +594,6 @@ export const use = <Z extends z.ZodTypeAny>({
       let success = true;
       const issueKeys = new Set(result.error.issues.map((i) => i.path.join(".")));
       result.error.issues.forEach((issue) => {
-        console.log("issue", issue);
         const issuePath = issue.path.join(".");
         if (!deep.pathsMatch(issuePath, path)) return;
         const variant = getVariant(issue);

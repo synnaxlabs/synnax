@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,13 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/vis/lineplot/LinePlot.css";
+
+import { box, deep, type Destructor, direction, location, xy } from "@synnaxlabs/x";
 import {
+  createContext,
   type CSSProperties,
   type DetailedHTMLProps,
   type HTMLAttributes,
   type PropsWithChildren,
   type ReactElement,
-  createContext,
   useCallback,
   useContext as reactUseContext,
   useEffect,
@@ -21,8 +24,6 @@ import {
   useRef,
   useState,
 } from "react";
-
-import { location, type Destructor, deep, direction, box } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
@@ -34,12 +35,10 @@ import { type Viewport } from "@/viewport";
 import { Canvas } from "@/vis/canvas";
 import { lineplot } from "@/vis/lineplot/aether";
 import {
-  type GridEntrySpec,
   filterGridEntries,
+  type GridEntrySpec,
   type GridSpec,
 } from "@/vis/lineplot/aether/grid";
-
-import "@/vis/lineplot/LinePlot.css";
 
 type HTMLDivProps = DetailedHTMLProps<HTMLAttributes<HTMLDivElement>, HTMLDivElement>;
 
@@ -101,7 +100,7 @@ type LineState = LineSpec[];
 
 export interface LinePlotProps
   extends PropsWithChildren,
-    Pick<z.input<typeof lineplot.linePlotStateZ>, "clearOverScan" | "hold">,
+    Partial<Pick<z.input<typeof lineplot.linePlotStateZ>, "clearOverScan" | "hold">>,
     HTMLDivProps {
   resizeDebounce?: number;
   onHold?: (hold: boolean) => void;
@@ -113,9 +112,9 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
     aetherKey,
     style,
     resizeDebounce: debounce = 0,
-    clearOverScan,
+    clearOverScan = xy.ZERO,
     children,
-    hold,
+    hold = false,
     onHold,
     ...props
   }): ReactElement => {
@@ -169,7 +168,7 @@ export const LinePlot = Aether.wrap<LinePlotProps>(
       [setState],
     );
 
-    const ref = Canvas.useRegion(handleResize);
+    const ref = Canvas.useRegion(handleResize, { debounce });
 
     const setGridEntry: LinePlotContextValue["setGridEntry"] = useCallback(
       (meta: GridEntrySpec) =>

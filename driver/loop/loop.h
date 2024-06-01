@@ -24,18 +24,59 @@ public:
     }
 
     explicit Timer(const synnax::Rate &rate): interval(rate.period()), last(std::chrono::high_resolution_clock::now()) {
+        LOG(INFO) << "[timer] interval set to " << rate.period() << " ns";
     }
 
-    void wait() {
+    void sleep(std::chrono::nanoseconds ns){
+        auto end = std::chrono::high_resolution_clock::now() + ns;
+        while(end > std::chrono::high_resolution_clock::now());
+    }
+
+    void exactSleep(std::chrono::nanoseconds ns){ 
+        auto end = std::chrono::high_resolution_clock::now() + ns;
+        uint64_t resolution = 100000; // 0.1 ms 
+        uint64_t nanoseconds = ns.count();
+        // estimate for 0.1 millseconds  (100000 nanoseconds)
+        static uint64_t estimate = resolution*10; // overestimate innitially
+        static uint64_t mean = resolution*10;
+        static uint64_t M2 = 0;
+        static uint64_t count = 1;
+
+        while(nanoseconds > estimate){
+            // sleep for specified resolution
+            auto start = std::chrono::high_resolution_clock::now();
+            sleep(std::chrono::nanoseconds(resolution));
+            auto end = std::chrono::high_resolution_clock::now();
+
+            // get actual elapsed time
+            auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
+            uint64_t delta = elapsed - mean;
+            mean += delta / count;
+            M2 += delta * (elapsed - mean);
+            estimate = mean + 1* std::sqrt(M2 / count);
+            count++;
+        }
+        while(end > std::chrono::high_resolution_clock::now());
+    }
+
+    std::pair<std::chrono::nanoseconds, bool> wait() {
         const auto now = std::chrono::high_resolution_clock::now();
-        const auto elapsed = std::chrono::duration_cast<std::chrono::nanoseconds>(now - last);
+        const auto elapsed = now - last;
         const auto interval_nanos = interval.nanoseconds();
         if (elapsed < interval_nanos) {
-            const auto remaining = interval_nanos - elapsed;
-            std::this_thread::sleep_for(remaining);
-            last = now + remaining;
-        } else last = now;
+            auto remaining = interval_nanos - elapsed;
+            // std::this_thread::sleep_for(std::chrono::nanoseconds(remaining));
+            this->exactSleep(std::chrono::nanoseconds(remaining));
+            last = std::chrono::high_resolution_clock::now();
+            return {elapsed, true};
+        } 
+        last = now;
+        return {elapsed, false};
     }
+
+   
+
+ 
 private:
     synnax::TimeSpan interval;
     std::chrono::time_point<std::chrono::high_resolution_clock> last;

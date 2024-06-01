@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,13 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
-
 import { ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Menu } from "@synnaxlabs/pluto";
 import { Tree } from "@synnaxlabs/pluto/tree";
-import { type UnknownRecord, deep } from "@synnaxlabs/x";
+import { deep, type UnknownRecord } from "@synnaxlabs/x";
+import { type ReactElement } from "react";
 
 import { Group } from "@/group";
 import { Layout } from "@/layout";
@@ -46,7 +45,6 @@ const handleDelete = ({
 };
 
 const handleCreateNewSchematic = ({
-  store,
   client,
   services,
   placeLayout,
@@ -121,7 +119,6 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
 const handleSelect: Ontology.HandleSelect = ({ selection, client, store }) => {
   void (async () => {
     const ws = await client.workspaces.retrieve(selection[0].id.key);
-    console.log(ws.layout);
     store.dispatch(add({ workspaces: [ws] }));
     store.dispatch(
       Layout.setWorkspace({

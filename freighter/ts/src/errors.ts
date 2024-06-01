@@ -20,7 +20,7 @@ export interface TypedError extends Error {
 }
 
 export class BaseTypedError extends Error implements TypedError {
-  discriminator: "FreighterError" = "FreighterError";
+  readonly discriminator = "FreighterError";
   type: string;
 
   constructor(message: string, type: string) {

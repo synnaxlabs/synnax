@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -10,18 +10,18 @@
 import { z } from "zod";
 
 import {
+  type ClientXY,
   clientXY,
   dimensions,
-  numberCouple,
-  xy,
-  type NumberCouple,
-  type ClientXY,
-  type XY,
-  signedDimensions,
   type Direction,
+  type NumberCouple,
+  numberCouple,
+  signedDimensions,
+  type XY,
+  xy,
 } from "@/spatial/base";
 
-export { clientXY, xy, type ClientXY as Client, type XY };
+export { type ClientXY as Client, clientXY, type XY,xy };
 
 /** A crude representation of a {@link XY} coordinate as a zod schema. */
 export const crudeZ = z.union([

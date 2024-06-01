@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Lab, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,16 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  useState,
-  memo,
-  useCallback,
-  type ReactElement,
-  useRef,
-  type MutableRefObject,
-} from "react";
+import "@/mosaic/Mosaic.css";
 
 import { type box, type location } from "@synnaxlabs/x";
+import {
+  memo,
+  type MutableRefObject,
+  type ReactElement,
+  useCallback,
+  useRef,
+  useState,
+} from "react";
 
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
@@ -26,8 +27,6 @@ import { type Node } from "@/mosaic/types";
 import { Portal } from "@/portal";
 import { Resize } from "@/resize";
 import { Tabs } from "@/tabs";
-
-import "@/mosaic/Mosaic.css";
 
 /** Props for the {@link Mosaic} component */
 export interface MosaicProps
@@ -40,6 +39,7 @@ export interface MosaicProps
   onResize: (key: number, size: number) => void;
   onCreate?: (key: number, loc: location.Location, tabKeys?: string[]) => void;
   children: Tabs.TabRenderProp;
+  activeTab?: string;
 }
 
 export const Mosaic = memo(({ children, ...props }: MosaicProps): ReactElement => {
@@ -55,7 +55,7 @@ export const Mosaic = memo(({ children, ...props }: MosaicProps): ReactElement =
         style: "width: 100%; height: 100%; position: relative;",
       });
       // Events don't propagate upward from the portaled node, so we need to bind
-      // the onsSelect handler here.
+      // the onSelect handler here.
       pNode.el.addEventListener("click", () => props.onSelect?.(tab.tabKey));
       ref.current.set(node.selected, pNode);
     }
@@ -240,6 +240,7 @@ const TabLeaf = memo(
           tabs={tabs}
           onDragLeave={handleDragLeave}
           selected={node.selected}
+          selectedAltColor={props.activeTab === node.selected}
           onDragStart={handleDragStart}
           onCreate={handleTabCreate}
           {...props}

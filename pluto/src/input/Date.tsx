@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,16 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { forwardRef, useLayoutEffect } from "react";
+import "@/input/Date.css";
 
 import { TimeStamp, type xy } from "@synnaxlabs/x";
+import { forwardRef, useLayoutEffect } from "react";
 
 import { CSS } from "@/css";
 import { DragButton, type DragButtonExtraProps } from "@/input/DragButton";
 import { Text } from "@/input/Text";
 import { type BaseProps } from "@/input/types";
-
-import "@/input/Date.css";
 
 export interface DateProps extends BaseProps<number>, DragButtonExtraProps {
   showDragHandle?: boolean;
@@ -94,18 +93,7 @@ export const useDate = ({ value, onChange }: UseDateProps): UseDateReturn => {
  * @default undefined
  */
 export const Date = forwardRef<HTMLInputElement, DateProps>(
-  (
-    {
-      size = "medium",
-      onChange,
-      value,
-      className,
-      showDragHandle = true,
-      children,
-      ...props
-    },
-    ref,
-  ) => {
+  ({ onChange, value, className, showDragHandle = true, children, ...props }, ref) => {
     const { value: inputValue, onChange: handleChange } = useDate({ value, onChange });
     return (
       <Text

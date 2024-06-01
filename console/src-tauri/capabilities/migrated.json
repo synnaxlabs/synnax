@@ -64,6 +64,20 @@
     "store:allow-delete",
     "store:allow-clear",
     "store:allow-save",
+    "shell:allow-open",
+    "app:allow-app-show",
+    "app:allow-app-hide",
+    "updater:default",
+    "updater:allow-check",
+    "updater:allow-download-and-install",
+    "dialog:allow-open",
+    "dialog:allow-save",
+    "fs:allow-write-file",
+    "fs:allow-read-file",
+    "fs:allow-read-text-file",
+    "fs:default",
+    "process:allow-restart",
+    "process:allow-exit",
     {
       "identifier": "shell:allow-execute",
       "allow": [
@@ -83,15 +97,6 @@
           "sidecar": true
         }
       ]
-    },
-    "shell:allow-open",
-    "app:allow-app-show",
-    "app:allow-app-hide",
-    "updater:default",
-    "updater:allow-check",
-    "updater:allow-download-and-install",
-    "dialog:allow-save",
-    "fs:allow-write-file",
-    "process:allow-restart"
+    }
   ]
 }

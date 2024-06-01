@@ -7,16 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactElement,
-} from "react";
+import "@/hardware/opc/task/ReadTask.css";
 
-import { DataType } from "@synnaxlabs/x/telem";
 import { device, type task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
@@ -28,36 +20,36 @@ import {
   Header,
   Input,
   List,
+  Menu,
+  Nav,
   Status,
   Synnax,
   Text,
   useAsyncEffect,
-  Nav,
-  Menu,
 } from "@synnaxlabs/pluto";
+import { deep } from "@synnaxlabs/x";
+import { DataType } from "@synnaxlabs/x/telem";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { nanoid } from "nanoid";
+import { type ReactElement, useCallback, useMemo, useRef, useState } from "react";
+import { z } from "zod";
 
 import { CSS } from "@/css";
+import { Device } from "@/hardware/opc/device";
+import { SelectNodeRemote } from "@/hardware/opc/device/SelectNode";
 import {
+  Read,
+  READ_TYPE,
   type ReadChannelConfig,
+  type ReadConfig,
   readConfigZ,
+  ReadPayload,
   type ReadState,
   type ReadStateDetails,
-  type ReadConfig,
-  READ_TYPE,
-  Read,
-  ReadPayload,
   ReadType,
   ZERO_READ_PAYLOAD,
 } from "@/hardware/opc/task/types";
 import { type Layout } from "@/layout";
-import { z } from "zod";
-
-import "@/hardware/opc/task/ReadTask.css";
-import { Device } from "@/hardware/opc/device";
-import { SelectNodeRemote } from "@/hardware/opc/device/SelectNode";
-import { deep } from "@synnaxlabs/x";
 
 export const configureReadLayout: Layout.State = {
   name: "Configure OPC UA Read Task",
@@ -132,6 +124,13 @@ const Internal = ({ initialValues, task: pTask }: InternalProps): ReactElement =
                 params: { variant: "warning" },
               });
             }
+            if (cfg.arrayMode && !node.isArray) {
+              ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ["channels", i, "nodeId"],
+                message: `Cannot sample from a non-array node in array mode`,
+              });
+            }
           }
         }),
       }),
@@ -195,6 +194,8 @@ const Internal = ({ initialValues, task: pTask }: InternalProps): ReactElement =
     },
   });
 
+  const arrayMode = Form.useFieldValue<boolean>("config.arrayMode", false, methods);
+
   return (
     <Align.Space className={CSS.B("opc-read-task")} direction="y" grow empty>
       <Align.Space className={CSS.B("content")} direction="y" grow>
@@ -217,7 +218,11 @@ const Internal = ({ initialValues, task: pTask }: InternalProps): ReactElement =
             <Form.Field<number> label="Sample Rate" path="config.sampleRate">
               {(p) => <Input.Numeric {...p} />}
             </Form.Field>
-            <Form.Field<number> label="Stream Rate" path="config.streamRate">
+            <Form.SwitchField label="Array Sampling" path="config.arrayMode" />
+            <Form.Field<number>
+              label={arrayMode ? "Array Size" : "Stream Rate"}
+              path={arrayMode ? "config.arraySize" : "config.streamRate"}
+            >
               {(p) => <Input.Numeric {...p} />}
             </Form.Field>
           </Align.Space>
@@ -256,8 +261,11 @@ const Internal = ({ initialValues, task: pTask }: InternalProps): ReactElement =
       </Align.Space>
       <Nav.Bar location="bottom" size={48}>
         <Nav.Bar.Start style={{ paddingLeft: "2rem" }}>
-          {taskState?.variant === "error" && (
-            <Status.Text variant="error" level="small">
+          {taskState?.details?.message != null && taskState.variant != null && (
+            <Status.Text
+              variant={(taskState?.variant ?? "error") as Status.Variant}
+              level="p"
+            >
               {taskState?.details?.message}
             </Status.Text>
           )}
@@ -327,13 +335,14 @@ export const ChannelList = ({
         menu={({ keys }: Menu.ContextMenuMenuProps): ReactElement => {
           const handleSelect = (key: string): void => {
             switch (key) {
-              case "remove":
+              case "remove": {
                 const indices = keys
                   .map((k) => value.findIndex((v) => v.key === k))
                   .filter((i) => i >= 0);
                 remove(indices);
                 onSelect([], 0);
                 break;
+              }
             }
           };
 
@@ -350,8 +359,8 @@ export const ChannelList = ({
         <List.List<string, ReadChannelConfig> data={value}>
           <List.Selector<string, ReadChannelConfig>
             value={selected}
-            allowNone={false}
-            allowMultiple={true}
+            allowNone
+            allowMultiple
             onChange={(keys, { clickedIndex }) =>
               clickedIndex != null && onSelect(keys, clickedIndex)
             }

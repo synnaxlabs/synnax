@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,22 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/schematic/toolbar/Symbols.css";
+
+import { Align, Haul, Input,Schematic, Text, Theming } from "@synnaxlabs/pluto";
+import { List } from "@synnaxlabs/pluto/list";
+import { nanoid } from "nanoid/non-secure";
 import {
   type ComponentPropsWithoutRef,
   type PropsWithChildren,
   type ReactElement,
   useCallback,
 } from "react";
-
-import { Align, Text, Schematic, Theming, Haul, Input } from "@synnaxlabs/pluto";
-import { List } from "@synnaxlabs/pluto/list";
-import { nanoid } from "nanoid/non-secure";
 import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
 import { addElement } from "@/schematic/slice";
-
-import "@/schematic/toolbar/Symbols.css";
 
 const LIST_DATA = Object.values(Schematic.SYMBOLS);
 

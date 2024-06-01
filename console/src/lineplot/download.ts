@@ -1,4 +1,13 @@
-import { Synnax, channel, framer } from "@synnaxlabs/client";
+// Copyright 2024 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { channel, framer,Synnax } from "@synnaxlabs/client";
 import { type Channel } from "@synnaxlabs/pluto";
 import { TimeRange, unique } from "@synnaxlabs/x";
 import { save } from "@tauri-apps/plugin-dialog";
@@ -14,10 +23,10 @@ export interface DownloadProps {
 const frameToCSV = (columns: Map<channel.Key, string>, frame: framer.Frame): string => {
   if (frame.series.length === 0) return "";
   const count = frame.series[0].length;
-  let rows: string[] = [];
-  let header: string[] = [];
+  const rows: string[] = [];
+  const header: string[] = [];
   for (let i = 1; i < count; i++) {
-    let row: string[] = [];
+    const row: string[] = [];
     columns.forEach((name, key) => {
       const d = frame.get(key).at(i, true);
       if (i === 1) header.push(name);

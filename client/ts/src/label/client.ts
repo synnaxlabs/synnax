@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -13,7 +13,7 @@ import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import { type framer } from "@/framer";
 import { type Key, type Label, labelZ } from "@/label/payload";
 import { Retriever } from "@/label/retriever";
-import { Writer, type NewLabelPayload } from "@/label/writer";
+import { type NewLabelPayload,Writer } from "@/label/writer";
 import { type ontology } from "@/ontology";
 import { signals } from "@/signals";
 

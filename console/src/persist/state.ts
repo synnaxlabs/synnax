@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import {
-  type UnknownAction,
+  type Action,
   type Dispatch,
   type Middleware,
   type MiddlewareAPI,
-  type Action,
+  type UnknownAction,
 } from "@reduxjs/toolkit";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { debounce, deep, type UnknownRecord } from "@synnaxlabs/x";
@@ -20,8 +20,6 @@ import { getCurrent } from "@tauri-apps/api/window";
 
 import { TauriKV } from "@/persist/kv";
 import { type Version } from "@/version";
-
-const appWindow = getCurrent();
 
 const PERSISTED_STATE_KEY = "console-persisted-state";
 const DB_VERSION_KEY = "console-version";
@@ -54,6 +52,7 @@ export const open = async <S extends RequiredState>({
   exclude = [],
   migrator,
 }: Config<S>): Promise<[S | undefined, Middleware<UnknownRecord, S>]> => {
+  const appWindow = getCurrent();
   if (appWindow.label !== MAIN_WINDOW) return [undefined, noOpMiddleware];
   const db = new TauriKV();
   let version: number = (await db.get<StateVersionValue>(DB_VERSION_KEY))?.version ?? 0;
@@ -71,11 +70,12 @@ export const open = async <S extends RequiredState>({
   };
 
   const clear = async (): Promise<void> => {
-    if (appWindow.label !== MAIN_WINDOW) return;
-    for (let i = version; i >= version - KEEP_HISTORY - 1; i--)
-      await db.delete(persistedStateKey(i));
-    version = 0;
-    await db.set(DB_VERSION_KEY, { version });
+    if (appWindow.label === MAIN_WINDOW) {
+      for (let i = version; i >= version - KEEP_HISTORY - 1; i--)
+        await db.delete(persistedStateKey(i));
+      version = 0;
+      await db.set(DB_VERSION_KEY, { version });
+    }
     window.location.reload();
   };
 

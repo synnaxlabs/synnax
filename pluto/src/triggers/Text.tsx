@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,27 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
-
 import { Icon } from "@synnaxlabs/media";
+import { type ReactElement } from "react";
 
 import { Align } from "@/align";
 import { Text as Core } from "@/text";
 import { type Key, type Trigger } from "@/triggers/triggers";
-import { RenderProp } from "@/util/renderProp";
 
 export type TextProps<L extends Core.Level> = Core.KeyboardProps<L> & {
   trigger: Trigger;
 };
 
 const CUSTOM_TEXT: Partial<Record<Key, (() => ReactElement) | string>> = {
-  Control: () => <Core.Symbols.Meta />,
-  Alt: () => <Core.Symbols.Alt />,
-  Shift: () => <Icon.Keyboard.Shift />,
+  Control: () => <Core.Symbols.Meta key="control" />,
+  Alt: () => <Core.Symbols.Alt key="alt" />,
+  Shift: () => <Icon.Keyboard.Shift key="shift" />,
   MouseLeft: "Left Click",
   MouseRight: "Right Click",
   MouseMiddle: "Middle Click",
-  Enter: () => <Icon.Keyboard.Return />,
+  Enter: () => <Icon.Keyboard.Return key="enter" />,
 };
 
 const getCustomText = (trigger: Key): ReactElement | string => {

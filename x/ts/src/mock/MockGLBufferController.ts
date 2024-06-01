@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { vi, type Mock } from "vitest";
+import { type Mock,vi } from "vitest";
 
 import { type GLBufferController } from "@/telem/gl";
 
@@ -27,7 +27,7 @@ export class MockGLBufferController implements GLBufferController {
   deleteBufferMock: Mock<[WebGLBuffer | null]> = vi.fn();
 
   deleteBuffer(buffer: WebGLBuffer | null): void {
-    // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+     
     if (buffer != null) delete this.buffers[buffer as number];
     this.deleteBufferMock(buffer);
   }

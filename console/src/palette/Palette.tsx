@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,35 +7,34 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type FC,
-  type ReactElement,
-  useCallback,
-  useMemo,
-  useState,
-  type MouseEventHandler,
-  useLayoutEffect,
-  isValidElement,
-} from "react";
+import "@/palette/Palette.css";
 
 import { ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
-  Input,
-  Triggers,
-  componentRenderProp,
   Button,
-  Status,
-  Haul,
+  componentRenderProp,
   CSS as PCSS,
-  Tooltip,
+  Haul,
+  Input,
   Mosaic,
+  Status,
   Synnax,
   Text,
+  Tooltip,
+  Triggers,
 } from "@synnaxlabs/pluto";
+import { Align } from "@synnaxlabs/pluto";
 import { Dropdown } from "@synnaxlabs/pluto/dropdown";
 import { List } from "@synnaxlabs/pluto/list";
-import { type AsyncTermSearcher } from "@synnaxlabs/x";
+import {
+  type FC,
+  type ReactElement,
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useState,
+} from "react";
 import { useDispatch, useStore } from "react-redux";
 
 import { CSS } from "@/css";
@@ -45,11 +44,6 @@ import { type Service } from "@/ontology/service";
 import { TooltipContent } from "@/palette/Tooltip";
 import { type Mode, type TriggerConfig } from "@/palette/types";
 import { type RootStore } from "@/store";
-
-import "@/palette/Palette.css";
-import { Align } from "@synnaxlabs/pluto";
-
-type OntologySearcher = AsyncTermSearcher<string, string, ontology.Resource>;
 
 export interface PaletteProps {
   commands: Command[];
@@ -205,15 +199,14 @@ const PalletteDialogContent = ({
   commandSymbol,
   close,
 }: PaletteDialogProps): ReactElement => {
-  const { setSourceData, setTransform, deleteTransform, setEmptyContent } =
-    List.useDataUtilContext<Key, Entry>();
-
-  const mode = value.startsWith(commandSymbol) ? "command" : "resource";
-
+  const { setSourceData } = List.useDataUtilContext<Key, Entry>();
+  const addStatus = Status.useAggregator();
   const client = Synnax.use();
   const store = useStore() as RootStore;
   const placeLayout = Layout.usePlacer();
   const removeLayout = Layout.useRemover();
+
+  const mode = value.startsWith(commandSymbol) ? "command" : "resource";
 
   useLayoutEffect(() => setSourceData(mode === "command" ? commands : []), [mode]);
 
@@ -235,6 +228,7 @@ const PalletteDialogContent = ({
         t?.onSelect({
           services,
           store,
+          addStatus,
           placeLayout,
           removeLayout,
           client,
@@ -242,7 +236,7 @@ const PalletteDialogContent = ({
         });
       }
     },
-    [mode, commands, close, client, services],
+    [mode, commands, close, client, services, addStatus],
   );
 
   const { value: searchValue, onChange: onSearchChange } = List.useSearch<
@@ -300,10 +294,8 @@ const PalletteDialogContent = ({
 };
 
 const CommandAction = ({
-  ctx,
   name,
   trigger: keyboardShortcut,
-  onClick,
 }: CommandActionProps & { ctx: CommandSelectionContext }): ReactElement => (
   <Align.Pack direction="x" className={CSS.BE("palette", "action")}>
     <Text.Keyboard

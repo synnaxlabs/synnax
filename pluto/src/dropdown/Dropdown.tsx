@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,33 +7,32 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type CSSProperties,
-  type ReactElement,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type ReactNode,
-  useLayoutEffect,
-} from "react";
+import "@/dropdown/Dropdown.css";
 
 import {
   box,
-  type location as loc,
-  xy,
-  position,
-  location,
   invert,
+  type location as loc,
+  location,
+  position,
+  xy,
 } from "@synnaxlabs/x";
+import {
+  type CSSProperties,
+  type ReactElement,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { createPortal } from "react-dom";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
-import { useClickOutside, useResize, useCombinedRefs, useSyncedRef } from "@/hooks";
+import { useClickOutside, useCombinedRefs, useResize, useSyncedRef } from "@/hooks";
 import { Triggers } from "@/triggers";
-
-import "@/dropdown/Dropdown.css";
 import { ComponentSize } from "@/util/component";
 
 /** Props for the {@link use} hook. */
@@ -245,15 +244,16 @@ const calcFloatingDialog = ({
   dialog: dialog_,
   initial,
 }: CalcDialogProps): position.DialogReturn => {
-  let { adjustedDialog, location } = position.dialog({
+  const res = position.dialog({
     container: box.construct(0, 0, window.innerWidth, window.innerHeight),
     target: box.construct(target_),
     dialog: box.construct(dialog_),
     ...FLOATING_PROPS,
     initial: initial,
   });
-  adjustedDialog = box.translate(
-    adjustedDialog,
+  const { location } = res;
+  const adjustedDialog = box.translate(
+    res.adjustedDialog,
     "y",
     invert(location.y === "top") * FLOATING_TRANSLATE_AMOUNT,
   );
@@ -282,9 +282,10 @@ const calcConnectedDialog = ({
     initial: initial ?? CONNECTED_PROPS.initial,
   };
 
-  let { adjustedDialog, location } = position.dialog(props);
-  adjustedDialog = box.translate(
-    adjustedDialog,
+  const res = position.dialog(props);
+  const { location } = res;
+  const adjustedDialog = box.translate(
+    res.adjustedDialog,
     "y",
     invert(location.y === "bottom") * CONNECTED_TRANSLATE_AMOUNT,
   );

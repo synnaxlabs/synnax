@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -79,7 +79,7 @@ const remainder = <T extends TimeStamp | TimeSpan>(
  */
 export class TimeStamp implements Stringer {
   private readonly value: bigint;
-  readonly encodeValue: true = true;
+  readonly encodeValue = true;
 
   constructor(value?: CrudeTimeStamp, tzInfo: TZInfo = "UTC") {
     if (value == null) this.value = TimeStamp.now().valueOf();
@@ -157,11 +157,11 @@ export class TimeStamp implements Stringer {
       case "preciseTime":
         return this.timeString(true, tzInfo);
       case "date":
-        return this.dateString(tzInfo);
+        return this.dateString();
       case "preciseDate":
-        return `${this.dateString(tzInfo)} ${this.timeString(true, tzInfo)}`;
+        return `${this.dateString()} ${this.timeString(true, tzInfo)}`;
       case "dateTime":
-        return `${this.dateString(tzInfo)} ${this.timeString(false, tzInfo)}`;
+        return `${this.dateString()} ${this.timeString(false, tzInfo)}`;
       default:
         return this.toISOString(tzInfo);
     }
@@ -177,7 +177,7 @@ export class TimeStamp implements Stringer {
     return milliseconds ? iso.slice(11, 23) : iso.slice(11, 19);
   }
 
-  private dateString(tzInfo: TZInfo = "UTC"): string {
+  private dateString(): string {
     const date = this.date();
     const month = date.toLocaleString("default", { month: "short" });
     const day = date.toLocaleString("default", { day: "numeric" });
@@ -327,7 +327,7 @@ export class TimeStamp implements Stringer {
    * @returns The number of milliseconds since the unix epoch.
    */
   milliseconds(): number {
-    return Number(this.valueOf() / TimeStamp.MILLISECOND.valueOf());
+    return Number(this.valueOf()) / Number(TimeStamp.MILLISECOND.valueOf());
   }
 
   toString(): string {
@@ -463,7 +463,7 @@ export class TimeStamp implements Stringer {
 /** TimeSpan represents a nanosecond precision duration. */
 export class TimeSpan implements Stringer {
   private readonly value: bigint;
-  readonly encodeValue: true = true;
+  readonly encodeValue = true;
 
   constructor(value: CrudeTimeSpan) {
     if (typeof value === "number") value = Math.trunc(value.valueOf());
@@ -533,31 +533,31 @@ export class TimeSpan implements Stringer {
 
   /** @returns the decimal number of days in the timespan */
   get days(): number {
-    return Number(this.valueOf() / TimeSpan.DAY.valueOf());
+    return Number(this.valueOf()) / Number(TimeSpan.DAY.valueOf());
   }
 
   /** @returns the decimal number of hours in the timespan */
   get hours(): number {
-    return Number(this.valueOf() / TimeSpan.HOUR.valueOf());
+    return Number(this.valueOf()) / Number(TimeSpan.HOUR.valueOf());
   }
 
   /** @returns the decimal number of minutes in the timespan */
   get minutes(): number {
-    return Number(this.valueOf() / TimeSpan.MINUTE.valueOf());
+    return Number(this.valueOf()) / Number(TimeSpan.MINUTE.valueOf());
   }
 
   /** @returns The number of seconds in the TimeSpan. */
   get seconds(): number {
-    return Number(this.valueOf() / TimeSpan.SECOND.valueOf());
+    return Number(this.valueOf()) / Number(TimeSpan.SECOND.valueOf());
   }
 
   /** @returns The number of milliseconds in the TimeSpan. */
   get milliseconds(): number {
-    return Number(this.valueOf() / TimeSpan.MILLISECOND.valueOf());
+    return Number(this.valueOf()) / Number(TimeSpan.MILLISECOND.valueOf());
   }
 
   get microseconds(): number {
-    return Number(this.valueOf() / TimeSpan.MICROSECOND.valueOf());
+    return Number(this.valueOf()) / Number(TimeSpan.MICROSECOND.valueOf());
   }
 
   get nanoseconds(): number {

@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -29,11 +29,6 @@ export const conceptsNav: PageNavNode = {
       key: "/reference/concepts/channels",
       href: "/reference/concepts/channels",
       name: "Channels",
-    },
-    {
-      key: "/reference/concepts/write-domains",
-      href: "/reference/concepts/write-domains",
-      name: "Write Domains",
     },
     {
       key: "/reference/concepts/read-ranges",

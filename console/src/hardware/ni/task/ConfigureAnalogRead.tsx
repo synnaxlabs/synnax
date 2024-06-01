@@ -7,52 +7,52 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useState, type ReactElement, useCallback, useRef } from "react";
+import "@/hardware/ni/task/ConfigureAnalogRead.css";
 
+import { task } from "@synnaxlabs/client";
+import { Icon } from "@synnaxlabs/media";
 import {
+  Button,
+  Device,
   Form,
   Header,
-  Synnax,
-  Nav,
-  Button,
-  useAsyncEffect,
-  Status,
-  Device,
   Menu,
+  Nav,
+  Status,
+  Synnax,
+  useAsyncEffect,
 } from "@synnaxlabs/pluto";
+import { Channel } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 import { Input } from "@synnaxlabs/pluto/input";
+import { List } from "@synnaxlabs/pluto/list";
 import { Text } from "@synnaxlabs/pluto/text";
+import { deep } from "@synnaxlabs/x";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { nanoid } from "nanoid";
+import { type ReactElement, useCallback, useRef, useState } from "react";
+import { z } from "zod";
 
 import { CSS } from "@/css";
 import {
+  AI_CHANNEL_TYPE_NAMES,
   AIChan,
   AIChanType,
+  ANALOG_READ_TYPE,
   AnalogRead as AnalogRead,
+  AnalogReadPayload as AnalogReadPayload,
+  AnalogReadStateDetails as AnalogReadStateDetails,
   AnalogReadTaskConfig as AnalogReadConfig,
   analogReadTaskConfigZ,
-  AnalogReadPayload as AnalogReadPayload,
   AnalogReadTaskState,
-  AnalogReadStateDetails as AnalogReadStateDetails,
-  ZERO_ANALOG_READ_PAYLOAD,
   AnalogReadType,
-  AI_CHANNEL_TYPE_NAMES,
-  ZERO_AI_CHANNELS,
   type Chan,
-  ANALOG_READ_TYPE,
+  ZERO_AI_CHANNELS,
+  ZERO_ANALOG_READ_PAYLOAD,
 } from "@/hardware/ni/task/types";
-import "@/hardware/ni/task/ConfigureAnalogRead.css";
 import { Layout } from "@/layout";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { task } from "@synnaxlabs/client";
-import { z } from "zod";
-import { Icon } from "@synnaxlabs/media";
+
 import { ANALOG_INPUT_FORMS, SelectChannelTypeField } from "./ChannelForms";
-import { Channel } from "@synnaxlabs/pluto";
-import { List } from "@synnaxlabs/pluto/list";
-import { deep } from "@synnaxlabs/x";
-import { nanoid } from "nanoid";
-import { remove } from "@/cluster/slice";
 
 export const configureAnalogReadLayout: Layout.State = {
   name: "Configure NI Analog Read Task",
@@ -293,11 +293,12 @@ const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactEleme
         menu={({ keys }: Menu.ContextMenuMenuProps): ReactElement => {
           const handleSelect = (key: string): void => {
             switch (key) {
-              case "remove":
+              case "remove": {
                 const indices = keys.map((k) => value.findIndex((v) => v.key === k));
                 remove(indices);
                 onSelect([], -1);
                 break;
+              }
             }
           };
           return (

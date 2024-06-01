@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -47,7 +47,6 @@ const Reference = ({ currentPage }: ReferenceTreeProps): ReactElement => {
     initialExpanded: parts,
     sort: false,
   });
-  console.log(currentPage);
   return (
     <Tree.Tree
       {...treeProps}

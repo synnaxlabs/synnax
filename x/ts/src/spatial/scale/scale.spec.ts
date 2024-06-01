@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, it, expect, test } from "vitest";
+import { describe, expect, it, test } from "vitest";
 
 import * as box from "@/spatial/box/box";
-import { XY, Scale } from "@/spatial/scale/scale";
+import { Scale,XY } from "@/spatial/scale/scale";
 
 type ScaleSpec = [name: string, scale: Scale, i: number, o: number];
 

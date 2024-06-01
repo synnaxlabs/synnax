@@ -10,21 +10,21 @@
 import { describe, expect, test } from "vitest";
 
 import {
+  assertErrorType,
   BaseTypedError,
+  decodeError,
+  encodeError,
   EOF,
+  type ErrorPayload,
   FREIGHTER,
+  isTypedError,
   NONE,
+  registerError,
   StreamClosed,
   type TypedError,
   UNKNOWN,
   UnknownError,
   Unreachable,
-  assertErrorType,
-  decodeError,
-  encodeError,
-  isTypedError,
-  registerError,
-  type ErrorPayload,
 } from "@/errors";
 
 class MyCustomError extends BaseTypedError {

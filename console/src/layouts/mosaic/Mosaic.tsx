@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,18 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, memo, useCallback, useLayoutEffect } from "react";
+import "@/layouts/mosaic/Mosaic.css";
 
 import { ontology } from "@synnaxlabs/client";
 import { Logo } from "@synnaxlabs/media";
 import {
-  Mosaic as Core,
   Eraser,
+  Mosaic as Core,
   Nav,
   Synnax,
   useDebouncedCallback,
 } from "@synnaxlabs/pluto";
 import { type location } from "@synnaxlabs/x";
+import { memo, type ReactElement, useCallback, useLayoutEffect } from "react";
 import { useDispatch, useStore } from "react-redux";
 
 import { NAV_DRAWERS, NavDrawer, NavMenu } from "@/components/nav/Nav";
@@ -26,7 +27,7 @@ import { useSyncerDispatch } from "@/hooks/dispatchers";
 import { Layout } from "@/layout";
 import { Content } from "@/layout/Content";
 import { usePlacer } from "@/layout/hooks";
-import { useSelectMosaic } from "@/layout/selectors";
+import { useSelectActiveMosaicTabKey, useSelectMosaic } from "@/layout/selectors";
 import {
   moveMosaicTab,
   remove,
@@ -41,8 +42,6 @@ import { type RootStore } from "@/store";
 import { Vis } from "@/vis";
 import { Workspace } from "@/workspace";
 
-import "@/layouts/mosaic/Mosaic.css";
-
 const EmptyContent = (): ReactElement => (
   <Eraser.Eraser>
     <Logo.Watermark />;
@@ -54,6 +53,7 @@ const emptyContent = <EmptyContent />;
 /** LayoutMosaic renders the central layout mosaic of the application. */
 export const Mosaic = memo((): ReactElement => {
   const [windowKey, mosaic] = useSelectMosaic();
+  const activeTab = useSelectActiveMosaicTabKey();
 
   const client = Synnax.use();
   const store = useStore();
@@ -150,6 +150,7 @@ export const Mosaic = memo((): ReactElement => {
       emptyContent={emptyContent}
       onRename={handleRename}
       onCreate={handleCreate}
+      activeTab={activeTab ?? undefined}
     >
       {({ tabKey }) => <Content key={tabKey} layoutKey={tabKey} />}
     </Core.Mosaic>

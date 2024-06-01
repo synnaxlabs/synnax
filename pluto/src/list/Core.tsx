@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,15 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/list/Core.css";
+
+import { bounds, type Key, type Keyed } from "@synnaxlabs/x";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   type ComponentPropsWithoutRef,
   type ReactElement,
-  useRef,
   useLayoutEffect,
+  useRef,
 } from "react";
-
-import { type Key, type Keyed } from "@synnaxlabs/x";
-import { useVirtualizer } from "@tanstack/react-virtual";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
@@ -26,14 +27,30 @@ import { useInfiniteContext } from "@/list/Infinite";
 import { useSelection, useSelectionContext, useSelectionUtils } from "@/list/Selector";
 import { type ItemRenderProp } from "@/list/types";
 
-import "@/list/Core.css";
-
 export interface VirtualCoreProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>>
   extends Omit<ComponentPropsWithoutRef<"div">, "children"> {
   itemHeight: number;
   children: ItemRenderProp<K, E>;
   overscan?: number;
 }
+
+const scrollToRelevantChild = (
+  hover: number,
+  prevHover: number,
+  ref: HTMLDivElement,
+) => {
+  const dirMultiplier = hover > prevHover ? 1 : -1;
+  let scrollTo = hover;
+  const idealHover = hover + dirMultiplier * 2;
+  if (bounds.contains({ lower: 0, upper: ref.children.length }, idealHover))
+    scrollTo = hover + dirMultiplier * 2;
+  else scrollTo = hover;
+  ref.children[scrollTo]?.scrollIntoView({
+    block: "nearest",
+    inline: "nearest",
+    behavior: "smooth",
+  });
+};
 
 const VirtualCore = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   itemHeight,
@@ -100,10 +117,8 @@ const VirtualCore = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
           {items.map(({ index, start }) => {
             const entry = data[index];
             let sourceIndex = index;
-            if (transformed) {
-              console.log("TRANSFORMED");
+            if (transformed)
               sourceIndex = sourceData.findIndex((e) => e.key === entry.key);
-            }
             return children({
               key: entry.key,
               sourceIndex,
@@ -122,7 +137,7 @@ const VirtualCore = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
 };
 
 export const Core = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
-  itemHeight: _,
+  itemHeight = 50,
   ...props
 }: Omit<Align.SpaceProps, "children"> & {
   children: ItemRenderProp<K, E>;
@@ -138,8 +153,20 @@ export const Core = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   const { selected } = useSelectionContext();
   const { onSelect } = useSelectionUtils();
 
+  // let's assume the itemHeight is a 'rough item height', but is still useful for
+  // detecting when the user hovers over a particular element. If the current `hover`
+  // value multiplied by the itemHeight is greater than the total height of the list,
+  // then we can assume the user is hovering over or past the last element in the list,
+  // and we should scroll to the bottom of the list.
+  const ref = useRef<HTMLDivElement>(null);
+  const prevHover = usePrevious(hover) ?? 0;
+  useLayoutEffect(() => {
+    if (ref.current == null) return;
+    scrollToRelevantChild(hover, prevHover, ref.current);
+  }, [hover, itemHeight]);
+
   return (
-    <Align.Space className={CSS.BE("list", "container")} size={0} {...props}>
+    <Align.Space className={CSS.BE("list", "container")} ref={ref} size={0} {...props}>
       {data.length === 0 ? (
         emptyContent
       ) : (

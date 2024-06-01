@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -8,33 +8,33 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
+import { CrudeTimeRange, TimeRange } from "@synnaxlabs/x";
 import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import { toArray } from "@synnaxlabs/x/toArray";
+import { z } from "zod";
 
 import { type Retriever as ChannelRetriever } from "@/channel/retriever";
-import { MultipleFoundError, NotFoundError, QueryError } from "@/errors";
+import { MultipleFoundError, NotFoundError } from "@/errors";
 import { type framer } from "@/framer";
 import { type label } from "@/label";
 import { Active } from "@/ranger/active";
 import { Aliaser } from "@/ranger/alias";
 import { KV } from "@/ranger/kv";
 import {
-  type NewPayload,
+  analyzeParams,
   type Key,
   type Keys,
+  keyZ,
   type Name,
   type Names,
+  type NewPayload,
   type Params,
   type Payload,
-  analyzeParams,
   payloadZ,
-  keyZ,
 } from "@/ranger/payload";
 import { Range } from "@/ranger/range";
 import { type Writer } from "@/ranger/writer";
 import { signals } from "@/signals";
-import { z } from "zod";
-import { CrudeTimeRange, TimeRange } from "@synnaxlabs/x";
 import { nullableArrayZ } from "@/util/zod";
 
 const retrieveReqZ = z.object({
@@ -98,7 +98,7 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
     return this.sugar(await this.execRetrieve({ term }));
   }
 
-  async page(offset: number, limit: number): Promise<Range[]> {
+  async page(): Promise<Range[]> {
     return [];
   }
 

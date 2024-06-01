@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,25 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Key, type Keyed } from "@synnaxlabs/x";
 import {
-  type PropsWithChildren,
   createContext,
+  type PropsWithChildren,
+  type ReactElement,
   useCallback,
   useContext,
-  useMemo,
-  type ReactElement,
   useEffect,
+  useMemo,
   useRef,
 } from "react";
-
-import { type Key, type Keyed } from "@synnaxlabs/x";
 
 import { useCombinedStateAndRef } from "@/hooks";
 import { useDataContext, useGetTransformedData } from "@/list/Data";
 import { useSelectionUtils } from "@/list/Selector";
 import { Triggers } from "@/triggers";
 
-// eslint-disable-next-line @typescript-eslint/no-empty-interface
+ 
 export interface HoverProps extends PropsWithChildren<{}> {
   disabled?: boolean;
   initialHover?: number;
@@ -68,17 +67,34 @@ export const Hover = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
     if (hover >= data.length) setHover(0);
   }, [data.length]);
 
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
   const handleTrigger = useCallback(
     ({ triggers, stage }: Triggers.UseEvent) => {
+      if (intervalRef.current != null) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
       if (stage !== "start") return;
       if (disabled) return;
+
       const data = getData();
-      if (Triggers.match(triggers, [UP_TRIGGER]))
-        setHover((pos) => (pos === 0 ? data.length - 1 : pos - 1));
-      else if (Triggers.match(triggers, [DOWN_TRIGGER]))
-        setHover((pos) => (pos === data.length - 1 ? 0 : pos + 1));
-      else if (Triggers.match(triggers, [SELECT_TRIGGER]))
+      if (Triggers.match(triggers, [SELECT_TRIGGER])) {
+        if (hover === -1) return;
         onSelect?.(data[ref.current].key);
+        return;
+      }
+      const move = () => {
+        const data = getData();
+        if (Triggers.match(triggers, [UP_TRIGGER], true))
+          setHover((pos) => (pos === 0 ? data.length - 1 : pos - 1));
+        else if (Triggers.match(triggers, [DOWN_TRIGGER], true))
+          setHover((pos) => (pos === data.length - 1 ? 0 : pos + 1));
+      };
+      move();
+      intervalRef.current = setTimeout(() => {
+        intervalRef.current = setInterval(move, 100);
+      }, 200);
     },
     [onSelect, disabled],
   );

@@ -7,23 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useState, type ReactElement, memo, useCallback } from "react";
+import "@/hardware/opc/device/CreateChannels.css";
 
 import { Icon } from "@synnaxlabs/media";
-import { Form, Haul, Select, CSS as PCSS, Menu, Note } from "@synnaxlabs/pluto";
+import { CSS as PCSS, Form, Haul, Menu, Note, Select } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 import { Header } from "@synnaxlabs/pluto/header";
 import { Input } from "@synnaxlabs/pluto/input";
 import { List } from "@synnaxlabs/pluto/list";
 import { Text } from "@synnaxlabs/pluto/text";
 import { nanoid } from "nanoid/non-secure";
+import { memo, type ReactElement, useCallback, useState } from "react";
 
 import { CSS } from "@/css";
-import { type ChannelConfig, type GroupConfig } from "@/hardware/opc/device/types";
 import { SelectNode } from "@/hardware/opc/device/SelectNode";
+import { type ChannelConfig, type GroupConfig } from "@/hardware/opc/device/types";
 import { Properties } from "@/hardware/opc/device/types";
-
-import "@/hardware/opc/device/CreateChannels.css";
 
 interface MostRecentSelectedState {
   key: string;
@@ -169,13 +168,15 @@ const GroupList = ({
                 onSelectGroup(key, value.length);
                 push({
                   key,
-                  name: "New Group",
+                  name: `Group ${value.length + 1}`,
                   channels: [
                     {
                       key: nanoid(),
-                      name: "Time",
+                      name: `group_1_${value.length + 1}_time`,
                       dataType: "timestamp",
                       isIndex: true,
+                      isArray: false,
+                      nodeId: "",
                     },
                   ],
                 });
@@ -189,17 +190,25 @@ const GroupList = ({
         menu={({ keys }: Menu.ContextMenuMenuProps): ReactElement => {
           const handleSelect = (key: string) => {
             switch (key) {
-              case "remove":
+              case "remove": {
                 const indices = keys.map((k) => value.findIndex((g) => g.key === k));
                 remove(indices);
+                // find the first group whose key is not in keys
+                const newSelectedGroup = value.findIndex((g) => !keys.includes(g.key));
+                if (newSelectedGroup !== -1) {
+                  onSelectGroup(value[newSelectedGroup].key, newSelectedGroup);
+                }
                 break;
+              }
             }
           };
           return (
             <Menu.Menu onChange={handleSelect} level="small">
-              <Menu.Item itemKey="remove" startIcon={<Icon.Close />}>
-                Remove
-              </Menu.Item>
+              {value.length > 1 && (
+                <Menu.Item itemKey="remove" startIcon={<Icon.Close />}>
+                  Remove
+                </Menu.Item>
+              )}
             </Menu.Menu>
           );
         }}
@@ -208,12 +217,12 @@ const GroupList = ({
         <List.List<string, GroupConfig> data={value}>
           <List.Selector<string, GroupConfig>
             allowMultiple={false}
-            // eslint-disable-next-line @typescript-eslint/non-nullable-type-assertion-style
             value={selectedGroup as string}
             allowNone={false}
-            onChange={(key, { clickedIndex }) =>
-              clickedIndex != null && onSelectGroup(key, clickedIndex)
-            }
+            onChange={(
+              key: string,
+              { clickedIndex }: { clickedIndex: number | null },
+            ) => clickedIndex != null && onSelectGroup(key, clickedIndex)}
           >
             <List.Core<string, GroupConfig> grow>
               {({ key, ...props }) => (
@@ -295,7 +304,7 @@ const GroupListItem = ({
 interface ChannelListProps {
   selectedGroupIndex: number;
   selectedChannels: string[];
-  onSelectChannels: List.UseSelectProps["onChange"];
+  onSelectChannels: List.UseSelectMultipleProps<string, ChannelConfig>["onChange"];
 }
 
 const ChannelList = ({
@@ -312,60 +321,64 @@ const ChannelList = ({
       <Header.Header level="h3" style={{ borderBottom: "none" }}>
         <Header.Title weight={500}>Channels</Header.Title>
       </Header.Header>
-      <Menu.ContextMenu
-        menu={({ keys }: Menu.ContextMenuMenuProps): ReactElement => {
-          const handleSelect = (key: string) => {
-            const indices = keys.map((k) =>
-              channels.value.findIndex((c) => c.key === k),
-            );
-            switch (key) {
-              case "remove":
-                channels.remove(indices);
-                break;
-              case "keep":
-                const idxIndex = channels.value.findIndex((c) => c.isIndex === true);
-                channels.keepOnly([idxIndex, ...indices]);
-                break;
-            }
-          };
-          return (
-            <Menu.Menu onChange={handleSelect} level="small">
-              <Menu.Item itemKey="remove" startIcon={<Icon.Close />}>
-                Remove
-              </Menu.Item>
-              <Menu.Item itemKey="keep" startIcon={<Icon.Check />}>
-                Keep Only Selected
-              </Menu.Item>
-            </Menu.Menu>
-          );
-        }}
-        {...menuProps}
-      >
-        <List.List<string, ChannelConfig> data={channels.value}>
-          <List.Filter>
-            {(p) => (
-              <Input.Text
-                placeholder="Search Channels"
-                selectOnFocus
-                style={{ border: "none", borderBottom: "var(--pluto-border)" }}
-                {...p}
-              />
-            )}
-          </List.Filter>
-          <List.Selector<string, ChannelConfig>
-            value={selectedChannels}
-            allowNone={false}
-            onChange={onSelectChannels}
-            replaceOnSingle
+
+      <List.List<string, ChannelConfig> data={channels.value}>
+        <List.Filter>
+          {(p) => (
+            <Input.Text
+              placeholder="Search Channels"
+              selectOnFocus
+              style={{ border: "none", borderBottom: "var(--pluto-border)" }}
+              {...p}
+            />
+          )}
+        </List.Filter>
+        <List.Selector<string, ChannelConfig>
+          value={selectedChannels}
+          allowNone={false}
+          onChange={onSelectChannels}
+          replaceOnSingle
+        >
+          <Menu.ContextMenu
+            menu={({ keys }: Menu.ContextMenuMenuProps): ReactElement => {
+              const handleSelect = (key: string) => {
+                const indices = keys.map((k) =>
+                  channels.value.findIndex((c) => c.key === k),
+                );
+                switch (key) {
+                  case "remove":
+                    channels.remove(indices);
+                    break;
+                  case "keep": {
+                    const idxIndex = channels.value.findIndex(
+                      (c) => c.isIndex === true,
+                    );
+                    channels.keepOnly([idxIndex, ...indices]);
+                    break;
+                  }
+                }
+              };
+              return (
+                <Menu.Menu onChange={handleSelect} level="small">
+                  <Menu.Item itemKey="remove" startIcon={<Icon.Close />}>
+                    Remove
+                  </Menu.Item>
+                  <Menu.Item itemKey="keep" startIcon={<Icon.Check />}>
+                    Keep Only Selected
+                  </Menu.Item>
+                </Menu.Menu>
+              );
+            }}
+            {...menuProps}
           >
             <List.Core<string, ChannelConfig> grow>
               {({ key, ...props }) => (
                 <ChannelListItem key={key} {...props} groupIndex={selectedGroupIndex} />
               )}
             </List.Core>
-          </List.Selector>
-        </List.List>
-      </Menu.ContextMenu>
+          </Menu.ContextMenu>
+        </List.Selector>
+      </List.List>
     </Align.Space>
   );
 };
@@ -451,6 +464,7 @@ export const ChannelListItem = memo(
         <Align.Space direction="y" empty align="end">
           <Text.Text level="p" shade={7}>
             {childValues.dataType}
+            {childValues.isArray ? "[]" : ""}
           </Text.Text>
           {isIndex && (
             <Text.Text level="p" shade={7} color="var(--pluto-secondary-z)">
@@ -475,7 +489,6 @@ const Details = ({
   groupIndex,
   deviceProperties,
 }: DetailsProps): ReactElement | null => {
-  console.log(selected, groupIndex);
   if (groupIndex == null) return null;
   if (selected.type === "group") return <GroupForm index={selected.index} />;
   return (
@@ -499,10 +512,9 @@ const ChannelForm = ({
   deviceProperties,
 }: ChannelFormProps): ReactElement | null => {
   const prefix = `groups.${groupIndex}.channels.${index}`;
-  const ctx = Form.useContext();
-  const fieldState = Form.useFieldState(prefix);
-  const isIndex = Form.useFieldValue(`${prefix}.isIndex`);
-  if (!ctx.has(prefix)) return null;
+  const fieldState = Form.useFieldState(prefix, true);
+  const isIndex = Form.useFieldValue(`${prefix}.isIndex`, true);
+  if (fieldState == null || isIndex == null) return null;
   return (
     <Align.Space direction="y" size="small">
       <Form.Field<string> path={`${prefix}.name`} label="Name">
@@ -531,9 +543,7 @@ const ChannelForm = ({
           <SelectNode
             {...props}
             data={deviceProperties.channels}
-            onChange={(value) => {
-              onChange(value ?? "");
-            }}
+            onChange={(value: string) => onChange(value ?? "")}
             allowNone={isIndex}
           />
         )}
