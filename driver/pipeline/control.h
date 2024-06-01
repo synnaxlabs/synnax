@@ -20,6 +20,8 @@ class Sink {
 public:
     virtual ~Sink() = default;
     virtual freighter::Error write(synnax::Frame frame) = 0;
+    virtual freighter::Error start() = 0;
+    virtual freighter::Error stop() = 0;
 };
 
 class Control {
@@ -33,6 +35,10 @@ public:
         std::unique_ptr<Sink> sink,
         const breaker::Config &breaker_config
     );
+
+    ~Control(){
+        LOG(INFO) << "Control destructor called";
+    }
 
     
     void start();

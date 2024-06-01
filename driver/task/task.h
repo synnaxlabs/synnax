@@ -163,7 +163,6 @@ public:
         auto fr = Frame(1);
         fr.add(task_state_channel.key,
                Series(std::vector{to_string(state.toJSON())}, JSON));
-        LOG(INFO) << "[task.context] writing task state update";
         if (!state_updater->write(std::move(fr))) {
             auto err = state_updater->close();
             LOG(ERROR) << "[task.context] failed to write task state update" << err.message();

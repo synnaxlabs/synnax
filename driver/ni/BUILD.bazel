@@ -59,7 +59,7 @@ cc_library(
         "//driver/task",
         "//driver/pipeline",
         "//client/cpp:synnax",
-        "spsc_queue.h",
+        "ts_queue.h"
 
     ],
     copts = select({

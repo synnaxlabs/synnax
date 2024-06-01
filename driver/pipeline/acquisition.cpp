@@ -23,7 +23,11 @@ Acquisition::Acquisition(
     WriterConfig writer_config,
     std::shared_ptr<Source> source,
     const breaker::Config &breaker_config
-): ctx(std::move(ctx)), thread(nullptr), writer_config(writer_config), breaker(breaker_config), source(std::move(source)) {
+):  ctx(std::move(ctx)), 
+    thread(nullptr), 
+    writer_config(writer_config), 
+    breaker(breaker_config), 
+    source(std::move(source)) {
 }
 
 void Acquisition::start() {
@@ -71,9 +75,12 @@ void Acquisition::runInternal() {
 
     while (breaker.running()) {
         auto [frame, source_err] = source->read();
-
-        if (source_err.matches(driver::TYPE_CRITICAL_HARDWARE_ERROR)) {
-            LOG(ERROR) << "[acquisition] Failed to read source: CRITICAL_HARDWARE_ERROR. Closing pipe.";
+        if (source_err) {
+            LOG(ERROR) << "[Acquisition] Failed to read source";
+            if (
+                source_err.matches(driver::TYPE_TEMPORARY_HARDWARE_ERROR) &&
+                breaker.wait(source_err.message())
+            ) continue;
             break;
         }
 
