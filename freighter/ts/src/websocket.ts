@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { runtime, type URL, buildQueryString, type binary } from "@synnaxlabs/x";
+import { type binary,buildQueryString, runtime, type URL } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { EOF, errorZ, StreamClosed, decodeError } from "@/errors";
+import { decodeError,EOF, errorZ, StreamClosed } from "@/errors";
 import { CONTENT_TYPE_HEADER_KEY } from "@/http";
-import { MiddlewareCollector, type Context } from "@/middleware";
+import { type Context,MiddlewareCollector } from "@/middleware";
 import type { Stream, StreamClient } from "@/stream";
 
 const resolveWebSocketConstructor = (): ((target: string) => WebSocket) => {

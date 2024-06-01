@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,13 +9,13 @@
 
 import { alamos } from "@synnaxlabs/alamos";
 import { type channel, type TimeRange } from "@synnaxlabs/client";
-import { Size, type Series } from "@synnaxlabs/x";
+import { type Series,Size } from "@synnaxlabs/x";
 
 import { Dynamic, type DynamicProps } from "@/telem/client/cache/dynamic";
 import {
+  type CacheGCMetrics as CacheGCResult,
   type DirtyReadResult,
   Static,
-  type CacheGCMetrics as CacheGCResult,
   type StaticProps,
 } from "@/telem/client/cache/static";
 

@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -10,7 +10,7 @@
 import { type UnaryClient } from "@synnaxlabs/freighter";
 import { type UnknownRecord } from "@synnaxlabs/x/record";
 
-import { type LinePlot, type Key, type Params } from "@/workspace/lineplot/payload";
+import { type Key, type LinePlot, type Params } from "@/workspace/lineplot/payload";
 import { Retriever } from "@/workspace/lineplot/retriever";
 import { type NewLinePlot, Writer } from "@/workspace/lineplot/writer";
 

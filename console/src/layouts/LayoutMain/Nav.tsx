@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,34 +7,32 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
+import "@/layouts/LayoutMain/Nav.css";
 
 import { Icon, Logo } from "@synnaxlabs/media";
-import { Divider, Nav, Button, OS, Text } from "@synnaxlabs/pluto";
+import { Button, Divider, Nav, OS, Text } from "@synnaxlabs/pluto";
+import { type ReactElement } from "react";
 
+import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
 import { Controls } from "@/components";
 import { NAV_DRAWERS, NavMenu } from "@/components/nav/Nav";
 import { CSS } from "@/css";
 import { Docs } from "@/docs";
+import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
 import { Layout } from "@/layout";
 import { NAV_SIZES } from "@/layouts/LayoutMain/constants";
 import { LinePlot } from "@/lineplot";
 import { Palette } from "@/palette/Palette";
 import { type TriggerConfig } from "@/palette/types";
-import { Schematic } from "@/schematic";
+import { Persist } from "@/persist";
 import { Range } from "@/range";
+import { Schematic } from "@/schematic";
 import { SERVICES } from "@/services";
 import { Version } from "@/version";
 import { Vis } from "@/vis";
 import { Workspace } from "@/workspace";
-import { Persist } from "@/persist";
-import { Notifications } from "@/notifications";
-
-import "@/layouts/LayoutMain/Nav.css";
-import { NI } from "@/hardware/ni";
-import { Channel } from "@/channel";
 
 const DEFAULT_TRIGGER: TriggerConfig = {
   defaultMode: "command",
@@ -56,16 +54,14 @@ const COMMANDS = [
   ...Channel.COMMANDS,
 ];
 
-const NavTopPalette = (): ReactElement => {
-  return (
-    <Palette
-      commands={COMMANDS}
-      triggers={DEFAULT_TRIGGER}
-      services={SERVICES}
-      commandSymbol=">"
-    />
-  );
-};
+const NavTopPalette = (): ReactElement => (
+  <Palette
+    commands={COMMANDS}
+    triggers={DEFAULT_TRIGGER}
+    services={SERVICES}
+    commandSymbol=">"
+  />
+);
 
 /**
  * NavTop is the top navigation bar for the Synnax Console. Try to keep this component

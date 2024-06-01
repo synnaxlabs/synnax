@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,15 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/vis/lineplot/Axis.css";
+
+import { type bounds, direction } from "@synnaxlabs/x";
 import {
+  type FC,
   type PropsWithChildren,
   type ReactElement,
   useEffect,
-  type FC,
   useRef,
 } from "react";
-
-import { direction, type bounds } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
@@ -32,13 +33,10 @@ import {
 } from "@/vis/lineplot/aether/axis";
 import { useGridEntry } from "@/vis/lineplot/LinePlot";
 
-import "@/vis/lineplot/Axis.css";
-
 export interface AxisProps
   extends PropsWithChildren,
     Omit<z.input<typeof lineplot.xAxisStateZ>, "position" | "size">,
     Omit<Align.SpaceProps, "color"> {
-  resizeDebounce?: number;
   label?: string;
   labelLevel?: Text.Level;
   labelDirection?: direction.Direction;
@@ -55,7 +53,6 @@ export const axisFactory = (dir: direction.Direction): FC<AxisProps> => {
     ({
       aetherKey,
       children,
-      resizeDebounce: debounce = 0,
       location = defaultLocation,
       label = "",
       labelLevel = "small",

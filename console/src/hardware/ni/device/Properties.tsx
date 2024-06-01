@@ -7,16 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
+import "@/hardware/ni/device/Properties.css";
 
 import { Form } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 import { Text } from "@synnaxlabs/pluto/text";
+import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-
 import { SelectModel } from "@/hardware/ni/device/enrich/SelectModel";
-import "@/hardware/ni/device/Properties.css";
 
 const MIN_IDENTIFIER_LENGTH = 3;
 const MAX_IDENTIFIER_LENGTH = 5;

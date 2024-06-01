@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,24 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useCallback } from "react";
+import "@/lineplot/toolbar/Toolbar.css";
 
 import { Icon } from "@synnaxlabs/media";
 import { Align, Tabs } from "@synnaxlabs/pluto";
+import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { useSelect, useSelectToolbar } from "@/lineplot/selectors";
-import { type ToolbarTab, setActiveToolbarTab } from "@/lineplot/slice";
+import { setActiveToolbarTab,type ToolbarTab } from "@/lineplot/slice";
 import { Annotations } from "@/lineplot/toolbar/Annotations";
 import { Axes } from "@/lineplot/toolbar/Axes";
 import { Data } from "@/lineplot/toolbar/Data";
 import { Lines } from "@/lineplot/toolbar/Lines";
 import { Properties } from "@/lineplot/toolbar/Properties";
-
-import "@/lineplot/toolbar/Toolbar.css";
 
 export interface ToolbarProps {
   layoutKey: string;

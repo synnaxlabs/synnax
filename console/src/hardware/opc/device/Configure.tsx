@@ -1,11 +1,20 @@
-import { useState, type ReactElement } from "react";
+// Copyright 2024 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "@/hardware/opc/device/Configure.css";
 
 import {
   DataType,
-  TimeSpan,
-  UnexpectedError,
   type rack,
   type task,
+  TimeSpan,
+  UnexpectedError,
 } from "@synnaxlabs/client";
 import {
   Align,
@@ -18,25 +27,28 @@ import {
   Synnax,
   Text,
 } from "@synnaxlabs/pluto";
-import { type UseMutationResult, useMutation } from "@tanstack/react-query";
+import { useMutation, type UseMutationResult } from "@tanstack/react-query";
 import { nanoid } from "nanoid";
+import { type ReactElement, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
-import { set, z } from "zod";
+import { z } from "zod";
 
 import { CSS } from "@/css";
+import { FS } from "@/fs";
 import { CreateChannels } from "@/hardware/opc/device/CreateChannels";
 import {
-  type Properties,
+  SelectSecurityMode,
+  SelectSecurityPolicy,
+} from "@/hardware/opc/device/SelectSecurityPolicy";
+import {
   connectionConfigZ,
-  groupConfigZ,
   GroupConfig,
+  groupConfigZ,
+  type Properties,
+  SecurityMode,
   SecurityPolicy,
 } from "@/hardware/opc/device/types";
 import { type Layout } from "@/layout";
-
-import "@/hardware/opc/device/Configure.css";
-import { FS } from "@/fs";
-import { SelectSecurityPolicy } from "@/hardware/opc/device/SelectSecurityPolicy";
 
 const configureZ = z.object({
   name: z.string().min(1, "Name is required"),
@@ -98,6 +110,7 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
         client_certificate: "",
         client_private_key: "",
         security_policy: "None",
+        security_mode: "None",
       },
       groups: [],
     },
@@ -181,7 +194,7 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
       )
         return;
       setProgress("Creating device...");
-      console.log(deviceProperties)
+      console.log(deviceProperties);
       await client.hardware.devices.create({
         key: uuidv4(),
         name: methods.get<string>({ path: "name" }).value,
@@ -301,7 +314,7 @@ const Connect = ({ testConnection }: ConnectProps): ReactElement => {
           A detailed walkthrough on how to configure your server can be found in our{" "}
           <Text.Link
             level="p"
-            href="https://docs.synnaxlabs.com/reference/device-drivers/opc-ua/connect-server"
+            href="https://docs.synnaxlabs.com/reference/device-drivers/opcua/connect-server"
             target="_blank"
             style={{ display: "inline" }}
           >
@@ -329,6 +342,9 @@ const Connect = ({ testConnection }: ConnectProps): ReactElement => {
         </Form.Field>
         <Form.Field<string> path="connection.password">
           {(p) => <Input.Text placeholder="password" type="password" {...p} />}
+        </Form.Field>
+        <Form.Field<SecurityMode> path="connection.security_mode" label="Security Mode">
+          {(p) => <SelectSecurityMode {...p} />}
         </Form.Field>
         <Form.Field<SecurityPolicy>
           path="connection.security_policy"

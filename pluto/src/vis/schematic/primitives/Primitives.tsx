@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,19 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  useEffect,
-  type ComponentPropsWithoutRef,
-  type ReactElement,
-  useRef,
-  type PropsWithChildren,
-  type MouseEventHandler,
-} from "react";
+import "@/vis/schematic/primitives/Primitives.css";
 
-import { dimensions, type location, direction, xy } from "@synnaxlabs/x";
+import { dimensions, direction, type location, xy } from "@synnaxlabs/x";
 import {
-  type HandleProps as RFHandleProps,
+  type ComponentPropsWithoutRef,
+  type MouseEventHandler,
+  type PropsWithChildren,
+  type ReactElement,
+  useEffect,
+  useRef,
+} from "react";
+import {
   Handle as RFHandle,
+  type HandleProps as RFHandleProps,
   Position as RFPosition,
   useUpdateNodeInternals,
 } from "reactflow";
@@ -30,8 +31,6 @@ import { CSS } from "@/css";
 import { Input } from "@/input";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
-
-import "@/vis/schematic/primitives/Primitives.css";
 
 interface PathProps extends ComponentPropsWithoutRef<"path"> {}
 
@@ -137,7 +136,7 @@ const HandleBoundary = ({ children, orientation }: SmartHandlesProps): ReactElem
   let updateInternals: ReturnType<typeof useUpdateNodeInternals> | undefined;
   try {
     updateInternals = useUpdateNodeInternals();
-  } catch (e) {
+  } catch {
     return <></>;
   }
   const ref = useRef<HTMLDivElement & HTMLButtonElement>(null);
@@ -192,8 +191,8 @@ const Toggle = ({
   className,
   enabled = false,
   triggered = false,
-  color,
   orientation = "left",
+  color,
   ...props
 }: ToggleValveButtonProps): ReactElement => (
   <button
@@ -205,11 +204,12 @@ const Toggle = ({
       triggered && CSS.M("triggered"),
       className,
     )}
+    color={Color.cssString(color)}
     {...props}
   />
 );
 
-const Div = ({ className, orientation = "left", ...props }: DivProps): ReactElement => (
+const Div = ({ className, ...props }: DivProps): ReactElement => (
   <div className={CSS(CSS.B("symbol-primitive"), className)} {...props} />
 );
 
@@ -696,7 +696,6 @@ export const Tank = ({
   dimensions = DEFAULT_DIMENSIONS,
   borderRadius = DEFAULT_BORDER_RADIUS,
   color,
-  onResize,
   ...props
 }: TankProps): ReactElement => {
   const detailedRadius = parseBorderRadius(borderRadius);

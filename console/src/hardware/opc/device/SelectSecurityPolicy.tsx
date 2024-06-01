@@ -1,5 +1,15 @@
-import { SecurityPolicy } from "@/hardware/opc/device/types";
+// Copyright 2024 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import { Select } from "@synnaxlabs/pluto";
+
+import { SecurityMode, SecurityPolicy } from "@/hardware/opc/device/types";
 
 interface SecurityPolicyInfo {
   key: SecurityPolicy;
@@ -41,4 +51,31 @@ export const SelectSecurityPolicy = (props: SelectSecurityPolicyProps) => (
     data={SECURITY_POLICIES}
     {...props}
   />
+);
+
+interface SecurityModeInfo {
+  key: SecurityMode;
+  name: string;
+}
+
+const SECURITY_MODES: SecurityModeInfo[] = [
+  {
+    key: "None",
+    name: "None",
+  },
+  {
+    key: "Sign",
+    name: "Sign",
+  },
+  {
+    key: "SignAndEncrypt",
+    name: "Sign And Encrypt",
+  },
+];
+
+export interface SelectSecurityModeProps
+  extends Omit<Select.ButtonProps<SecurityMode, SecurityModeInfo>, "data"> {}
+
+export const SelectSecurityMode = (props: SelectSecurityModeProps) => (
+  <Select.Button<SecurityMode, SecurityModeInfo> data={SECURITY_MODES} {...props} />
 );

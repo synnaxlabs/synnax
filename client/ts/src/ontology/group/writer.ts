@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -11,7 +11,7 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
 import { type Payload, payloadZ } from "@/ontology/group/payload";
-import { idZ, type ID } from "@/ontology/payload";
+import { type ID,idZ } from "@/ontology/payload";
 
 const resZ = z.object({
   group: payloadZ,

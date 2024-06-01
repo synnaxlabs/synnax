@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -10,8 +10,7 @@
 import { DataType, Series, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { Dynamic, DynamicWriteResponse } from "@/telem/client/cache/dynamic";
-import { count } from "mathjs";
+import { Dynamic } from "@/telem/client/cache/dynamic";
 
 describe("DynamicCache", () => {
   describe("write", () => {
@@ -143,13 +142,10 @@ describe("DynamicCache", () => {
         dataType: DataType.FLOAT32,
         testingNow: now,
       });
-
-      let d!: DynamicWriteResponse;
-      let arr = new Series({
+      const arr = new Series({
         data: new Float32Array([1, 2, 3]),
         dataType: DataType.FLOAT32,
       });
-
       const res1 = cache.write([arr]);
       expect(res1.allocated).toHaveLength(1);
       expect(res1.flushed).toHaveLength(0);

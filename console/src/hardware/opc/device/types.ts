@@ -1,5 +1,22 @@
+// Copyright 2024 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import { device } from "@synnaxlabs/client";
 import { z } from "zod";
+
+export const securityModeZ = z.union([
+  z.literal("None"),
+  z.literal("Sign"),
+  z.literal("SignAndEncrypt"),
+]);
+
+export type SecurityMode = z.infer<typeof securityModeZ>;
 
 export const securityPolicyZ = z.union([
   z.literal("None"),
@@ -16,10 +33,11 @@ export const connectionConfigZ = z.object({
   endpoint: z.string(),
   username: z.string().optional(),
   password: z.string().optional(),
+  security_mode: securityModeZ,
+  security_policy: securityPolicyZ,
   client_certificate: z.string().optional(),
   client_private_key: z.string().optional(),
   server_certificate: z.string().optional(),
-  security_policy: securityPolicyZ,
 });
 
 export type ConnectionConfig = z.infer<typeof connectionConfigZ>;
@@ -89,7 +107,7 @@ export const groupConfigZ = z
         path: ["channels"],
         message: `Only one index channel is allowed per group, found: ${found}`,
       });
-      indexes.forEach(([c, i]) => {
+      indexes.forEach(([, i]) => {
         ctx.addIssue({
           code: "custom",
           path: ["channels", i],

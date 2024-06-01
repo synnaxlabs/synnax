@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,5 +9,5 @@
 
 import { runtime } from "@synnaxlabs/x";
 
-export const use = (props?: runtime.GetOSProps): runtime.OS | undefined =>
-  runtime.getOS(props);
+export const use = ((props): runtime.OS | undefined =>
+  runtime.getOS(props)) as runtime.GetOS;

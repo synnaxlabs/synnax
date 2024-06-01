@@ -1,10 +1,11 @@
-/* This work is licensed under a Creative Commons CCZero 1.0 Universal License.
- * See http://creativecommons.org/publicdomain/zero/1.0/ for more information.
- *
- *    Copyright 2019 (c) Kalycito Infotech Private Limited
- *    Copyright 2021 (c) Christian von Arnim, ISW University of Stuttgart (for VDW and umati)
- *
- */
+// Copyright 2024 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
 
 #include <open62541/client_highlevel.h>
 #include <open62541/plugin/log_stdout.h>
@@ -16,11 +17,12 @@
 
 #include <signal.h>
 #include <stdlib.h>
-#include <malloc.h>
-
 #include <open62541/types.h>
 #include <stdio.h>
 #include <errno.h>
+// #include <unistd.h> // For getcwd
+#include <iostream>
+
 
 /* sleep_ms */
 #ifdef _WIN32
@@ -42,7 +44,9 @@ loadFile(const char *const path) {
     /* Open the file */
     FILE *fp = fopen(path, "rb");
     if(!fp) {
-        errno = 0; /* We read errno also from the tcp layer... */
+        // exit with errno
+        errno = 1; /* We read errno also from the tcp layer... */
+        exit(errno);
         return fileContents;
     }
 
@@ -151,40 +155,7 @@ int main(int argc, char* argv[]) {
         /* Load certificate and private key */
         certificate = loadFile(argv[1]);
         privateKey = loadFile(argv[2]);
-    } else {
-        // UA_LOG_FATAL(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
-        //              "Missing arguments. Arguments are "
-        //              "<server-certificate.der> <private-key.der> "
-        //              "[<trustlist1.crl>, ...]");
-        // UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
-        //             "Trying to create a certificate.");
-        // UA_String subject[3] = {UA_STRING_STATIC("C=DE"),
-        //                     UA_STRING_STATIC("O=SampleOrganization"),
-        //                     UA_STRING_STATIC("CN=Open62541Server@localhost")};
-        // UA_UInt32 lenSubject = 3;
-        // UA_String subjectAltName[2]= {
-        //     UA_STRING_STATIC("DNS:localhost"),
-        //     UA_STRING_STATIC("URI:urn:open62541.server.application")
-        // };
-        // UA_UInt32 lenSubjectAltName = 2;
-        // UA_KeyValueMap *kvm = UA_KeyValueMap_new();
-        // UA_UInt16 expiresIn = 14;
-        // // UA_KeyValueMap_setScalar(kvm, UA_QUALIFIEDNAME(0, "expires-in-days"),
-        // //                          (void *)&expiresIn, &UA_TYPES[UA_TYPES_UINT16]);
-        // UA_StatusCode statusCertGen = UA_CreateCertificate(
-        //     UA_Log_Stdout, subject, lenSubject, subjectAltName, lenSubjectAltName,
-        //     UA_CERTIFICATEFORMAT_DER, kvm, &privateKey, &certificate);
-        // UA_KeyValueMap_delete(kvm);
-
-        // if(statusCertGen != UA_STATUSCODE_GOOD) {
-        //     UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
-        //         "Generating Certificate failed: %s",
-        //         UA_StatusCode_name(statusCertGen));
-        //     return EXIT_SUCCESS;
-        // }
     }
-
-
     /* Load the trustlist */
     size_t trustListSize = 0;
     if(argc > 3)
@@ -203,14 +174,19 @@ int main(int argc, char* argv[]) {
 
     UA_Server *server = UA_Server_new();
     UA_ServerConfig *config = UA_Server_getConfig(server);
-    config->allowNonePolicyPassword = true;
+    // config->allowNonePolicyPassword = true;
 
-    UA_StatusCode retval =
-        UA_ServerConfig_setDefaultWithSecurityPolicies(config, 4840,
+    UA_StatusCode retval = UA_ServerConfig_setDefaultWithSecurityPolicies(config, 4840,
                                                        &certificate, &privateKey,
                                                        trustList, trustListSize,
                                                        issuerList, issuerListSize,
                                                        revocationList, revocationListSize);
+    if (retval != UA_STATUSCODE_GOOD) {
+        UA_LOG_ERROR(UA_Log_Stdout, UA_LOGCATEGORY_SERVER,
+                     "Error setting up the server with security policies");
+    }
+    // set the security policy URI
+    UA_String securityPolicyUri = UA_STRING("http://opcfoundation.org/UA/SecurityPolicy#Basic256Sha256");
     UA_VariableAttributes attr = UA_VariableAttributes_default;
     UA_Int32 myInteger = 42;
     UA_Variant_setScalarCopy(&attr.value, &myInteger, &UA_TYPES[UA_TYPES_INT32]);
@@ -250,13 +226,13 @@ int main(int argc, char* argv[]) {
         goto cleanup; /* received ctrl-c already */
 
         // add a variable node to the adresspace
-    
+
 
     /* allocations on the heap need to be freed */
     UA_VariableAttributes_clear(&attr);
     UA_NodeId_clear(&myIntegerNodeId);
     UA_QualifiedName_clear(&myIntegerName);
-    
+
     retval = UA_Server_run(server, &running);
 
  cleanup:

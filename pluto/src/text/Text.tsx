@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -6,6 +6,8 @@
 // As of the Change Date specified in that file, in accordance with the Business Source
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
+
+import "@/text/Text.css";
 
 import {
   type ForwardedRef,
@@ -18,8 +20,6 @@ import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Generic } from "@/generic";
 import { type text } from "@/text/core";
-
-import "@/text/Text.css";
 
 export interface CoreProps<L extends text.Level = text.Level> {
   /* The level of text to display i.e. p, h1, h2 */

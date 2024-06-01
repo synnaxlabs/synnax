@@ -1,7 +1,15 @@
-import { type ReactElement } from "react";
+// Copyright 2024 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
 
 import { Select } from "@synnaxlabs/pluto";
 import { type List } from "@synnaxlabs/pluto/list";
+import { type ReactElement } from "react";
 
 interface Model {
   key: string;
@@ -148,8 +156,7 @@ const COLUMNS: Array<List.ColumnSpec<string, Model>> = [
     name: "Name",
   },
 ];
-export interface SelectModelProps
-  extends Omit<Select.SingleProps<string, Model>, "data"> {}
+export interface SelectModelProps extends Select.SingleProps<string, Model> {}
 
 export const SelectModel = (props: SelectModelProps): ReactElement => {
   return <Select.Single<string, Model> {...props} columns={COLUMNS} data={MODELS} />;
