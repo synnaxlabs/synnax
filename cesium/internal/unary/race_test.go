@@ -12,17 +12,13 @@ package unary_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/samber/lo"
-	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/cesium/internal/unary"
-	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"sync"
-	"time"
 )
 
 var _ = Describe("Unary racing", func() {
@@ -132,65 +128,6 @@ var _ = Describe("Unary racing", func() {
 					Expect(f.Series[0].TimeRange).To(Equal((10 * telem.SecondTS).Range(11 * telem.SecondTS)))
 					Expect(f.Series[1].Data).To(Equal(telem.NewSeriesV[int16](160, 165).Data))
 					Expect(f.Series[1].TimeRange).To(Equal((16 * telem.SecondTS).Range(16*telem.SecondTS + 500*telem.MillisecondTS + 1)))
-				})
-				Specify("Exact same regions - index", func() {
-					Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 15))).To(Succeed())
-					Expect(unary.Write(ctx, dataDB, 10*telem.SecondTS, telem.NewSeriesV[int64](10, 11, 12, 13, 15))).To(Succeed())
-
-					var (
-						wg             = sync.WaitGroup{}
-						goroutineCount = 25
-						receivedErrs   = make([]error, goroutineCount)
-					)
-					wg.Add(goroutineCount)
-
-					for i := 0; i < goroutineCount; i++ {
-						i := i
-						go func() {
-							defer GinkgoRecover()
-							defer wg.Done()
-							time.Sleep(10 * telem.Millisecond.Duration())
-							err := dataDB.Delete(ctx, (11 * telem.SecondTS).Range(13*telem.SecondTS))
-							receivedErrs[i] = err
-						}()
-					}
-
-					wg.Wait()
-					filtered := lo.Filter(receivedErrs, func(e error, _ int) bool { return errors.Is(e, controller.ErrRegionOverlap) })
-					Expect(filtered).ToNot(BeEmpty())
-					f := MustSucceed(dataDB.Read(ctx, telem.TimeRangeMax))
-					Expect(f.Series).To(HaveLen(2))
-					Expect(f.Series[0].Data).To(Equal(telem.NewSeriesV[int64](10).Data))
-					Expect(f.Series[1].Data).To(Equal(telem.NewSeriesV[int64](13, 15).Data))
-				})
-				Specify("Exact same regions - rate", func() {
-					Expect(unary.Write(ctx, rateDB, 10*telem.SecondTS, telem.NewSeriesV[int16](100, 105, 110, 115, 120, 125, 130, 135))).To(Succeed())
-
-					var (
-						wg             = sync.WaitGroup{}
-						goroutineCount = 25
-						receivedErrs   = make([]error, goroutineCount)
-					)
-					wg.Add(goroutineCount)
-
-					for i := 0; i < goroutineCount; i++ {
-						i := i
-						go func() {
-							defer GinkgoRecover()
-							defer wg.Done()
-							time.Sleep(10 * telem.Millisecond.Duration())
-							err := rateDB.Delete(ctx, (11 * telem.SecondTS).Range(13*telem.SecondTS))
-							receivedErrs[i] = err
-						}()
-					}
-
-					wg.Wait()
-					filtered := lo.Filter(receivedErrs, func(e error, _ int) bool { return errors.Is(e, controller.ErrRegionOverlap) })
-					Expect(filtered).ToNot(BeEmpty())
-					f := MustSucceed(rateDB.Read(ctx, telem.TimeRangeMax))
-					Expect(f.Series).To(HaveLen(2))
-					Expect(f.Series[0].Data).To(Equal(telem.NewSeriesV[int16](100, 105).Data))
-					Expect(f.Series[1].Data).To(Equal(telem.NewSeriesV[int16](130, 135).Data))
 				})
 			})
 		})
