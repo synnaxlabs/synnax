@@ -162,7 +162,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 
 					It("Should work when the file size exceeds the limit by just 1", func() {
 						fs2, cleanUp2 := makeFS()
-						db2 := MustSucceed(domain.Open(domain.Config{FS: fs2, FileSize: 4 * telem.ByteSize}))
+						db2 := MustSucceed(domain.Open(domain.Config{FS: fs2, FileSize: 5 * telem.ByteSize}))
 
 						By("Writing some telemetry")
 						w := MustSucceed(db2.NewWriter(ctx, domain.WriterConfig{Start: 1 * telem.SecondTS}))

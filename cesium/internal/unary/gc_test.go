@@ -43,7 +43,7 @@ var _ = Describe("Garbage Collection", func() {
 							DataType: telem.Int64T,
 							Rate:     1 * telem.Hz,
 						},
-						FileSize:    719 * telem.ByteSize,
+						FileSize:    899 * telem.ByteSize,
 						GCThreshold: math.SmallestNonzeroFloat32,
 					}))
 					indexDB = MustSucceed(unary.Open(unary.Config{
@@ -54,7 +54,7 @@ var _ = Describe("Garbage Collection", func() {
 							IsIndex:  true,
 							Index:    indexKey,
 						},
-						FileSize:    719 * telem.ByteSize,
+						FileSize:    899 * telem.ByteSize,
 						GCThreshold: math.SmallestNonzeroFloat32,
 					}))
 
@@ -65,7 +65,7 @@ var _ = Describe("Garbage Collection", func() {
 							DataType: telem.Int64T,
 							Index:    indexKey,
 						},
-						FileSize:    719 * telem.ByteSize,
+						FileSize:    899 * telem.ByteSize,
 						GCThreshold: math.SmallestNonzeroFloat32,
 					}))
 					dataDB.SetIndex(indexDB.Index())

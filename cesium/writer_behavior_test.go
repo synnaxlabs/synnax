@@ -703,7 +703,7 @@ var _ = Describe("Writer Behavior", func() {
 					Specify("With AutoCommit: with just enough data to commit", func() {
 						db2 = MustSucceed(cesium.Open("size-capped-db",
 							cesium.WithFS(fs),
-							cesium.WithFileSize(64*telem.ByteSize)))
+							cesium.WithFileSize(80*telem.ByteSize)))
 
 						Expect(db2.CreateChannel(
 							ctx,

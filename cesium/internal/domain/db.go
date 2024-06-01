@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
+	"math"
 	"sync/atomic"
 )
 
@@ -97,7 +98,7 @@ var (
 	_ config.Config[Config] = Config{}
 	// DefaultConfig is the default configuration for a DB.
 	DefaultConfig = Config{
-		FileSize:       1 * telem.Gigabyte,
+		FileSize:       800 * telem.Megabyte,
 		GCThreshold:    0.2,
 		MaxDescriptors: 100,
 	}
@@ -121,6 +122,10 @@ func (c Config) Override(other Config) Config {
 	c.FS = override.Nil(c.FS, other.FS)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.GCThreshold = override.Numeric(c.GCThreshold, other.GCThreshold)
+
+	// Store 0.8 * the desired maximum file size as file size since we must leave some
+	// buffer for when we stop acquiring a new writer on a file.
+	c.FileSize = telem.Size(math.Round(0.8 * float64(c.FileSize)))
 	return c
 }
 
@@ -159,11 +164,6 @@ func (db *DB) NewIterator(cfg IteratorConfig) *Iterator {
 	}
 	i.SetBounds(cfg.Bounds)
 	return i
-}
-
-func (db *DB) NewLockedIterator(cfg IteratorConfig) (*Iterator, func()) {
-	db.idx.mu.Lock()
-	return db.NewIterator(cfg), func() { db.idx.mu.Unlock() }
 }
 
 func (db *DB) newReader(ctx context.Context, ptr pointer) (*Reader, error) {

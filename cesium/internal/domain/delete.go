@@ -28,12 +28,16 @@ import (
 // positions in the index.
 func (db *DB) Delete(
 	ctx context.Context,
-	calculateOffset func(
+	calculateStartOffset func(
 		ctx context.Context,
 		domainStart telem.TimeStamp,
-		ts *telem.TimeStamp,
-		isStart bool,
-	) (int64, error),
+		ts telem.TimeStamp,
+	) (int64, telem.TimeStamp, error),
+	calculateEndOffset func(
+		ctx context.Context,
+		domainStart telem.TimeStamp,
+		ts telem.TimeStamp,
+	) (int64, telem.TimeStamp, error),
 	tr telem.TimeRange,
 	den telem.Density,
 ) (err error) {
@@ -61,7 +65,7 @@ func (db *DB) Delete(
 	if exact {
 		start = db.idx.mu.pointers[startPosition]
 		db.idx.mu.RUnlock()
-		startOffset, err = calculateOffset(ctx, start.Start, &tr.Start, true)
+		startOffset, tr.Start, err = calculateStartOffset(ctx, start.Start, tr.Start)
 		if err != nil {
 			return
 		}
@@ -89,7 +93,7 @@ func (db *DB) Delete(
 	if exact {
 		end = db.idx.mu.pointers[endPosition]
 		db.idx.mu.RUnlock()
-		endOffset, err = calculateOffset(ctx, end.Start, &tr.End, false)
+		endOffset, tr.End, err = calculateEndOffset(ctx, end.Start, tr.End)
 		if err != nil {
 			return
 		}
@@ -191,8 +195,8 @@ func (db *DB) GarbageCollect(ctx context.Context) error {
 		}
 	}
 
-	db.idx.mu.RLock()
-	defer db.idx.mu.RUnlock()
+	db.idx.mu.Lock()
+	defer db.idx.mu.Unlock()
 	persist := db.idx.indexPersist.prepare(0)
 	// We choose to keep the mutex locked while persisting pointers: the time sacrifice
 	// should not be substantial, and this ensures that the order of index persists are

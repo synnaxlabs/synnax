@@ -96,6 +96,7 @@ type region[E Entity] struct {
 // open opens a new gate on the region with the given config.
 func (r *region[E]) open(c GateConfig, con control.Concurrency) (*Gate[E], Transfer, error) {
 	r.Lock()
+	defer r.Unlock()
 	g := &Gate[E]{
 		r:           r,
 		GateConfig:  c,
@@ -103,7 +104,10 @@ func (r *region[E]) open(c GateConfig, con control.Concurrency) (*Gate[E], Trans
 		concurrency: con,
 	}
 	t, err := r.unprotectedOpen(g)
-	r.Unlock()
+	if err != nil {
+		return g, t, err
+	}
+	r.gates[g] = struct{}{}
 	return g, t, err
 }
 
@@ -339,8 +343,6 @@ func (c *Controller[E]) OpenAbsoluteGateIfUncontrolled(tr telem.TimeRange, s con
 		// Check if there is an existing region that overlaps with that time range,
 		// if there is, then that means a gate is already in control of it,
 		// therefore this method should not create an absolute gate.
-
-		// race???
 		if r.timeRange.OverlapsWith(tr) {
 			if exists {
 				c.L.DPanic(newErrMultipleControlRegions(tr).Error())
@@ -378,8 +380,6 @@ func (c *Controller[E]) OpenAbsoluteGateIfUncontrolled(tr telem.TimeRange, s con
 		}
 		r := c.insertNewRegion(tr, e)
 		g, t, err = r.open(gateCfg, c.Concurrency)
-		// race?
-		r.gates[g] = struct{}{}
 	}
 	return
 }
@@ -400,15 +400,15 @@ func (c *Controller[E]) OpenGateAndMaybeRegister(cfg GateConfig, callback func()
 		if r.timeRange.OverlapsWith(cfg.TimeRange) {
 			// v1 optimization: one writer can only overlap with one region at any given time.
 			if exists {
-				c.L.DPanic(newErrMultipleControlRegions(cfg.TimeRange).Error())
-				return nil, t, newErrMultipleControlRegions(cfg.TimeRange)
+				err = newErrMultipleControlRegions(cfg.TimeRange)
+				c.L.DPanic(err.Error())
+				return nil, t, err
 			}
 			// If there is an existing region, we open a new gate on that region.
 			g, t, err = r.open(cfg, c.Concurrency)
 			if err != nil {
 				return nil, t, err
 			}
-			r.gates[g] = struct{}{}
 			exists = true
 		}
 	}
@@ -420,7 +420,6 @@ func (c *Controller[E]) OpenGateAndMaybeRegister(cfg GateConfig, callback func()
 		}
 		r := c.insertNewRegion(cfg.TimeRange, e)
 		g, t, err = r.open(cfg, c.Concurrency)
-		r.gates[g] = struct{}{}
 	}
 	return
 }

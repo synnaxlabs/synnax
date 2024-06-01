@@ -34,6 +34,7 @@ func (db *DB) delete(ctx context.Context, tr telem.TimeRange) error {
 		return errors.Newf("delete start %d cannot be after delete end %d", tr.Start, tr.End)
 	}
 
+	// Open an absolute gate to avoid deleting a time range in write.
 	g, _, err := db.Controller.OpenAbsoluteGateIfUncontrolled(
 		tr,
 		control.Subject{Key: uuid.NewString(), Name: "delete_writer"},
@@ -47,49 +48,71 @@ func (db *DB) delete(ctx context.Context, tr telem.TimeRange) error {
 	g.Authorize()
 	defer g.Release()
 
-	return db.Domain.Delete(ctx, db.calculateOffset, tr, db.Channel.DataType.Density())
+	return db.Domain.Delete(
+		ctx,
+		db.calculateStartOffset,
+		db.calculateEndOffset,
+		tr,
+		db.Channel.DataType.Density(),
+	)
 }
 
-// calculateOffset calculates the distance from a domain's start to the given time stamp.
-// Additionally, it "snaps" the timestamp to the nearest sample, depending on whether
-// this calculation is used to calculate the startOffset or endOffset.
+// calculateStartOffset calculates the distance from a domain's start to the given time stamp.
+// Additionally, it "snaps" the time stamp to the nearest previous sample + 1.
+// calculateOffset returns the calculated offset, the "snapped" time stamp, and any errors.
 //
 // THIS METHOD SHOULD NOT BE CALLED BY UNARY! It should only be passed as a callback
 // to Domain.Delete.
-func (db *DB) calculateOffset(
+func (db *DB) calculateStartOffset(
 	ctx context.Context,
 	domainStart telem.TimeStamp,
-	ts *telem.TimeStamp,
-	isStart bool,
-) (int64, error) {
-	approxDist, err := db.index().Distance(ctx, telem.TimeRange{Start: domainStart, End: *ts}, true)
+	ts telem.TimeStamp,
+) (int64, telem.TimeStamp, error) {
+	approxDist, err := db.index().Distance(ctx, telem.TimeRange{Start: domainStart, End: ts}, true)
 	if err != nil {
-		return 0, err
+		return 0, ts, err
 	}
-	var (
-		offset   = approxDist.Upper
-		stampEnd = offset
-	)
-	if isStart {
-		// Note that stampEnd >= 0 since offset must be >= 1, as this function is
-		// only called if domainStart != ts and therefore approxDist.Upper must be
-		// at least 1.
-		stampEnd = offset - 1
-	}
+	offset := approxDist.Upper
 	if !approxDist.Exact() {
-		approxStamp, err := db.index().Stamp(ctx, domainStart, stampEnd, true)
+		// We stamp to offset - 1 here since if we are approximating the start offset,
+		// we want to stamp the last written sample.
+		approxStamp, err := db.index().Stamp(ctx, domainStart, offset-1, true)
 		if err != nil {
-			return offset, err
+			return offset, ts, err
 		}
 		if !approxStamp.Exact() {
 			panic("cannot find exact timestamp")
 		}
-		*ts = approxStamp.Upper
-		if isStart {
-			// If we are calculating the start timestamp, we choose the start
-			// timestamp to be the last non-deleted sample + 1.
-			*ts += 1
-		}
+		ts = approxStamp.Upper + 1
 	}
-	return offset, nil
+	return offset, ts, nil
+}
+
+// calculateStartOffset calculates the distance from a domain's start to the given time stamp.
+// Additionally, it "snaps" the time stamp to the nearest next sample.
+// calculateOffset returns the calculated offset, the "snapped" time stamp, and any errors.
+//
+// THIS METHOD SHOULD NOT BE CALLED BY UNARY! It should only be passed as a callback
+// to Domain.Delete.
+func (db *DB) calculateEndOffset(
+	ctx context.Context,
+	domainStart telem.TimeStamp,
+	ts telem.TimeStamp,
+) (int64, telem.TimeStamp, error) {
+	approxDist, err := db.index().Distance(ctx, telem.TimeRange{Start: domainStart, End: ts}, true)
+	if err != nil {
+		return 0, ts, err
+	}
+	offset := approxDist.Upper
+	if !approxDist.Exact() {
+		approxStamp, err := db.index().Stamp(ctx, domainStart, offset, true)
+		if err != nil {
+			return offset, ts, err
+		}
+		if !approxStamp.Exact() {
+			panic("cannot find exact timestamp")
+		}
+		ts = approxStamp.Upper
+	}
+	return offset, ts, nil
 }
