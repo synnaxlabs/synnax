@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"sync"
+	"time"
 )
 
 var _ = Describe("Unary racing", func() {
@@ -137,20 +138,20 @@ var _ = Describe("Unary racing", func() {
 					Expect(unary.Write(ctx, dataDB, 10*telem.SecondTS, telem.NewSeriesV[int64](10, 11, 12, 13, 15))).To(Succeed())
 
 					var (
-						wg           = sync.WaitGroup{}
-						receivedErrs = make([]error, 10)
+						wg             = sync.WaitGroup{}
+						goroutineCount = 25
+						receivedErrs   = make([]error, goroutineCount)
 					)
-					wg.Add(10)
+					wg.Add(goroutineCount)
 
-					for i := 0; i < 10; i++ {
+					for i := 0; i < goroutineCount; i++ {
 						i := i
 						go func() {
 							defer GinkgoRecover()
 							defer wg.Done()
+							time.Sleep(10 * telem.Millisecond.Duration())
 							err := dataDB.Delete(ctx, (11 * telem.SecondTS).Range(13*telem.SecondTS))
-							if err != nil {
-								receivedErrs[i] = err
-							}
+							receivedErrs[i] = err
 						}()
 					}
 
@@ -166,16 +167,18 @@ var _ = Describe("Unary racing", func() {
 					Expect(unary.Write(ctx, rateDB, 10*telem.SecondTS, telem.NewSeriesV[int16](100, 105, 110, 115, 120, 125, 130, 135))).To(Succeed())
 
 					var (
-						wg           = sync.WaitGroup{}
-						receivedErrs = make([]error, 10)
+						wg             = sync.WaitGroup{}
+						goroutineCount = 25
+						receivedErrs   = make([]error, goroutineCount)
 					)
-					wg.Add(10)
+					wg.Add(goroutineCount)
 
-					for i := 0; i < 10; i++ {
+					for i := 0; i < goroutineCount; i++ {
 						i := i
 						go func() {
 							defer GinkgoRecover()
 							defer wg.Done()
+							time.Sleep(10 * telem.Millisecond.Duration())
 							err := rateDB.Delete(ctx, (11 * telem.SecondTS).Range(13*telem.SecondTS))
 							receivedErrs[i] = err
 						}()
