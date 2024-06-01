@@ -106,6 +106,7 @@ export interface TabsProps
     TabsContextValue {
   children?: TabRenderProp | ReactNode;
   size?: ComponentSize;
+  selectedAltColor?: boolean;
 }
 
 export const TabsContext = createContext<TabsContextValue>({ tabs: [] });
@@ -118,6 +119,7 @@ export const Tabs = ({
   children,
   onSelect,
   selected,
+  selectedAltColor,
   closable,
   tabs,
   onClose,
@@ -158,7 +160,11 @@ export const Tabs = ({
         onDrop,
       }}
     >
-      <Selector size={size} direction={direction.swap(dir)} />
+      <Selector
+        size={size}
+        direction={direction.swap(dir)}
+        altColor={selectedAltColor}
+      />
       <Content />
     </TabsContext.Provider>
   </Align.Space>

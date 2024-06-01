@@ -39,6 +39,7 @@ export interface MosaicProps
   onResize: (key: number, size: number) => void;
   onCreate?: (key: number, loc: location.Location, tabKeys?: string[]) => void;
   children: Tabs.TabRenderProp;
+  activeTab?: string;
 }
 
 export const Mosaic = memo(({ children, ...props }: MosaicProps): ReactElement => {
@@ -54,7 +55,7 @@ export const Mosaic = memo(({ children, ...props }: MosaicProps): ReactElement =
         style: "width: 100%; height: 100%; position: relative;",
       });
       // Events don't propagate upward from the portaled node, so we need to bind
-      // the onsSelect handler here.
+      // the onSelect handler here.
       pNode.el.addEventListener("click", () => props.onSelect?.(tab.tabKey));
       ref.current.set(node.selected, pNode);
     }
@@ -239,6 +240,7 @@ const TabLeaf = memo(
           tabs={tabs}
           onDragLeave={handleDragLeave}
           selected={node.selected}
+          selectedAltColor={props.activeTab === node.selected}
           onDragStart={handleDragStart}
           onCreate={handleTabCreate}
           {...props}
