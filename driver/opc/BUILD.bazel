@@ -16,8 +16,16 @@ cc_library(
         "@platforms//os:windows": ["/std:c++20"],
         "//conditions:default": [],
     }),
+    linkopts = select({
+        "@platforms//os:windows": [
+            "ws2_32.lib",
+            "Iphlpapi.lib",
+        ],
+        "//conditions:default": [],
+    }),
     visibility = ["//visibility:public"],
     deps = [
+        ":mbedtls",
         "//client/cpp:synnax",
         "//driver/config",
         "//driver/loop",
@@ -27,6 +35,16 @@ cc_library(
         "@nlohmann_json//:json",
         "@open62541",
     ],
+)
+
+cc_library(
+    name = "mbedtls",
+    visibility = ["//visibility:public"],
+    deps = select({
+        "@platforms//os:windows": ["@mbedtls_win"],
+        "@platforms//os:macos": ["@mbedtls_macos"],
+        "//conditions:default": ["@mbedtls_linux"],
+    }),
 )
 
 cc_test(
@@ -44,33 +62,5 @@ cc_test(
         ":opc",
         "//driver/testutil",
         "@com_google_googletest//:gtest_main",
-    ],
-)
-
-cc_binary(
-    name = "server",
-    srcs = ["server.cpp"],
-    copts = select({
-        "@platforms//os:windows": ["/std:c++20"],
-        "//conditions:default": [],
-    }),
-    deps = [
-        "@open62541",
-    ],
-    linkopts = select({
-        "@platforms//os:windows": [" ws2_32.lib", "Iphlpapi.lib"],
-        "//conditions:default": [],
-    }),
-)
-
-cc_binary(
-    name = "client",
-    srcs = ["client.cpp"],
-    copts = select({
-        "@platforms//os:windows": ["/std:c++20"],
-        "//conditions:default": [],
-    }),
-    deps = [
-        "@open62541",
     ],
 )
