@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -59,7 +59,6 @@ export type ParsedSynnaxProps = z.output<typeof synnaxPropsZ>;
  * @property connectivity - Client for retrieving connectivity information.
  * @property ontology - Client for querying the cluster's ontology.
  */
-// eslint-disable-next-line import/no-default-export
 export default class Synnax extends framer.Client {
   readonly createdAt: TimeStamp;
   readonly props: ParsedSynnaxProps;

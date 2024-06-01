@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
-
 import { Icon } from "@synnaxlabs/media";
 import { type direction } from "@synnaxlabs/x";
+import { type ReactElement } from "react";
 
 import { Button as CoreButton } from "@/button";
 import { Button, type ButtonOptionProps, type ButtonProps } from "@/select/Button";
@@ -21,7 +20,10 @@ interface Entry {
 }
 
 export interface DirectionProps
-  extends Omit<ButtonProps<direction.Direction, Entry>, "data" | "entryRenderKey"> {}
+  extends Omit<
+    ButtonProps<direction.Direction, Entry>,
+    "data" | "entryRenderKey" | "allowMultiple"
+  > {}
 
 const DATA: Entry[] = [
   {
@@ -53,11 +55,10 @@ const defaultSelectDirectionButton = ({
 
 export const Direction = ({
   children = defaultSelectDirectionButton,
-  allowMultiple = false,
   ...props
 }: DirectionProps): ReactElement => {
   return (
-    <Button {...props} data={DATA}>
+    <Button {...props} allowMultiple={false} data={DATA}>
       {children}
     </Button>
   );

@@ -1,3 +1,12 @@
+// Copyright 2024 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 package channel_test
 
 import (
@@ -21,19 +30,29 @@ var _ = Describe("Delete", Ordered, func() {
 		Expect(builder.Cleanup()).To(Succeed())
 	})
 	Context("Single Channel", func() {
-		var ch channel.Channel
+		var (
+			idxCh, ch channel.Channel
+		)
 		JustBeforeEach(func() {
-			var err error
-			ch.Rate = 5 * telem.Hz
+			idxCh.Name = "SG01_time"
+			idxCh.DataType = telem.TimeStampT
+			idxCh.IsIndex = true
+			Expect(services[1].Create(ctx, &idxCh)).To(Succeed())
 			ch.Name = "SG01"
 			ch.DataType = telem.Float64T
-			err = services[1].Create(ctx, &ch)
-			Expect(err).ToNot(HaveOccurred())
+			ch.LocalIndex = idxCh.LocalKey
+			Expect(services[1].Create(ctx, &ch)).To(Succeed())
 		})
 		Context("Node is local", func() {
-			BeforeEach(func() { ch.Leaseholder = 1 })
+			BeforeEach(func() {
+				idxCh.Leaseholder = 1
+				ch.Leaseholder = 1
+			})
+			It("Should not allow deletion of index channel with dependent channels", func() {
+				Expect(services[1].Delete(ctx, idxCh.Key())).ToNot(Succeed())
+			})
 			It("Should delete the channel without error", func() {
-				Expect(services[1].Delete(ctx, ch.Key())).To(Succeed())
+				Expect(services[1].DeleteMany(ctx, channel.Keys{idxCh.Key(), ch.Key()})).To(Succeed())
 			})
 			It("Should not be able to retrieve the channel after deletion", func() {
 				Expect(services[1].Delete(ctx, ch.Key())).To(Succeed())
@@ -49,9 +68,15 @@ var _ = Describe("Delete", Ordered, func() {
 			})
 		})
 		Context("Node is remote", func() {
-			BeforeEach(func() { ch.Leaseholder = 2 })
+			BeforeEach(func() {
+				idxCh.Leaseholder = 2
+				ch.Leaseholder = 2
+			})
+			It("Should not allow deletion of index channel with dependent channels", func() {
+				Expect(services[1].Delete(ctx, idxCh.Key())).ToNot(Succeed())
+			})
 			It("Should delete the channel without error", func() {
-				Expect(services[2].Delete(ctx, ch.Key())).To(Succeed())
+				Expect(services[2].DeleteMany(ctx, []channel.Key{idxCh.Key(), ch.Key()})).To(Succeed())
 			})
 			It("Should not be able to retrieve the channel after deletion", func() {
 				Expect(services[2].Delete(ctx, ch.Key())).To(Succeed())

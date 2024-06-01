@@ -7,19 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  useCallback,
-  type PropsWithChildren,
-  type ReactElement,
-  type MouseEventHandler,
-  type MouseEvent,
-} from "react";
+import "@/cluster/Dropdown.css";
 
 import { Icon } from "@synnaxlabs/media";
-import { Button, Dropdown as Core, Align, Synnax } from "@synnaxlabs/pluto";
+import { Align, Button, Dropdown as Core, Synnax } from "@synnaxlabs/pluto";
 import { List as CoreList } from "@synnaxlabs/pluto/list";
 import { Menu as PMenu } from "@synnaxlabs/pluto/menu";
 import { Text } from "@synnaxlabs/pluto/text";
+import {
+  type MouseEvent,
+  type MouseEventHandler,
+  type PropsWithChildren,
+  type ReactElement,
+  useCallback,
+} from "react";
 import { useDispatch } from "react-redux";
 
 import { connectWindowLayout } from "@/cluster/Connect";
@@ -29,8 +30,6 @@ import { LOCAL_CLUSTER_KEY, remove, setActive, setLocalState } from "@/cluster/s
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 
-import "@/cluster/Dropdown.css";
-
 export const List = (): ReactElement => {
   const menuProps = PMenu.useContextMenu();
   const dispatch = useDispatch();
@@ -38,7 +37,7 @@ export const List = (): ReactElement => {
   const active = useSelect();
   const openWindow = Layout.usePlacer();
 
-  const selected = active != null ? [active?.key] : [];
+  const selected = active?.key ?? null;
 
   const handleConnect = (key: string | null): void => {
     dispatch(setActive(key));
@@ -120,8 +119,8 @@ export const List = (): ReactElement => {
         <CoreList.List<string, Cluster> data={data} emptyContent={<NoneConnected />}>
           <CoreList.Selector
             value={selected}
-            onChange={handleConnect}
             allowMultiple={false}
+            onChange={handleConnect}
           >
             <CoreList.Core<string, Cluster> style={{ height: "100%", width: "100%" }}>
               {({ key, ...p }) => <ListItem key={key} {...p} />}

@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -12,12 +12,12 @@ import { dimensions, unique } from "@synnaxlabs/x";
 
 import { log } from "@/debug";
 import { type MainChecker, type Manager, type Properties } from "@/runtime";
-import { type SliceState, setWindowProps, type SetWindowPropsPayload } from "@/state";
+import { setWindowProps, type SetWindowPropsPayload,type SliceState } from "@/state";
 import {
-  type WindowState,
-  MAIN_WINDOW,
   INITIAL_WINDOW_STATE,
+  MAIN_WINDOW,
   type WindowProps,
+  type WindowState,
 } from "@/window";
 
 type RequiredRuntime = Manager & MainChecker & Properties;

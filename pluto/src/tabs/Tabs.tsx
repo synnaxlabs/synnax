@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,25 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/tabs/Tabs.css";
+
+import { direction } from "@synnaxlabs/x";
 import React, {
   createContext,
   type ReactElement,
   type ReactNode,
-  useContext,
   useCallback,
+  useContext,
 } from "react";
-
-import { direction } from "@synnaxlabs/x";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
 import { useSyncedRef } from "@/hooks";
 import { state } from "@/state";
-import { type TabSpec, Selector } from "@/tabs/Selector";
+import { Selector,type TabSpec } from "@/tabs/Selector";
 import { type ComponentSize } from "@/util/component";
 import { type RenderProp } from "@/util/renderProp";
-
-import "@/tabs/Tabs.css";
 
 export interface Tab extends TabSpec {
   content?: ReactNode;
@@ -107,6 +106,7 @@ export interface TabsProps
     TabsContextValue {
   children?: TabRenderProp | ReactNode;
   size?: ComponentSize;
+  selectedAltColor?: boolean;
 }
 
 export const TabsContext = createContext<TabsContextValue>({ tabs: [] });
@@ -119,6 +119,7 @@ export const Tabs = ({
   children,
   onSelect,
   selected,
+  selectedAltColor,
   closable,
   tabs,
   onClose,
@@ -159,7 +160,11 @@ export const Tabs = ({
         onDrop,
       }}
     >
-      <Selector size={size} direction={direction.swap(dir)} />
+      <Selector
+        size={size}
+        direction={direction.swap(dir)}
+        altColor={selectedAltColor}
+      />
       <Content />
     </TabsContext.Provider>
   </Align.Space>

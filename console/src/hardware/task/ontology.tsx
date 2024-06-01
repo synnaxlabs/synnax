@@ -1,9 +1,19 @@
-import { Ontology } from "@/ontology";
+// Copyright 2024 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import { Icon } from "@synnaxlabs/media";
-import { OPC } from "@/hardware/opc";
-import { NI } from "@/hardware/ni";
-import { Layout } from "@/layout";
 import { Menu } from "@synnaxlabs/pluto";
+
+import { NI } from "@/hardware/ni";
+import { OPC } from "@/hardware/opc";
+import { Layout } from "@/layout";
+import { Ontology } from "@/ontology";
 
 const ZERO_LAYOUT_STATES: Record<string, Layout.State> = {
   [OPC.Task.configureReadLayout.type]: OPC.Task.configureReadLayout,
@@ -24,7 +34,7 @@ const handleSelect: Ontology.HandleSelect = ({
     try {
       const t = await client.hardware.tasks.retrieve(task.key);
       const baseLayout = ZERO_LAYOUT_STATES[t.type];
-      return placeLayout({ ...baseLayout, key: selection[0].id.key });
+      placeLayout({ ...baseLayout, key: selection[0].id.key });
     } catch (e) {
       addStatus({ variant: "error", message: (e as Error).message });
     }

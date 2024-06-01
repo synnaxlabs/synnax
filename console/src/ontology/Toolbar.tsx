@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
-
 import { Icon } from "@synnaxlabs/media";
 import { Align } from "@synnaxlabs/pluto";
+import { type ReactElement } from "react";
 
 import { Cluster } from "@/cluster";
 import { ToolbarHeader, ToolbarTitle } from "@/components";

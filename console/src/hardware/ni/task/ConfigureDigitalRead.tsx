@@ -7,26 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { CSS } from "@/css";
-import { ChannelField } from "@/hardware/ni/task/ChannelForms";
-import {
-  AnalogReadStateDetails,
-  Chan,
-  DIChan,
-  DIGITAL_READ_TYPE,
-  DIGITAL_WRITE_TYPE,
-  DOChan,
-  DigitalRead,
-  DigitalReadConfig,
-  DigitalReadPayload,
-  DigitalReadStateDetails,
-  DigitalReadType,
-  ZERO_DIGITAL_READ_PAYLOAD,
-  ZERO_DI_CHAN,
-  ZERO_DO_CHAN,
-  digitalReadConfigZ,
-} from "@/hardware/ni/task/types";
-import { Layout } from "@/layout";
 import { task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
@@ -49,6 +29,24 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { nanoid } from "nanoid";
 import { ReactElement, useCallback, useRef, useState } from "react";
 import { z } from "zod";
+
+import { CSS } from "@/css";
+import { ChannelField } from "@/hardware/ni/task/ChannelForms";
+import {
+  AnalogReadStateDetails,
+  Chan,
+  DIChan,
+  DIGITAL_READ_TYPE,
+  DigitalRead,
+  DigitalReadConfig,
+  digitalReadConfigZ,
+  DigitalReadPayload,
+  DigitalReadStateDetails,
+  DigitalReadType,
+  ZERO_DI_CHAN,
+  ZERO_DIGITAL_READ_PAYLOAD,
+} from "@/hardware/ni/task/types";
+import { Layout } from "@/layout";
 
 export const configureDigitalReadLayout: Layout.State = {
   name: "Configure NI Digital Read Task",

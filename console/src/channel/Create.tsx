@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,9 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { CSS } from "@/css";
-import { Layout } from "@/layout";
-import { DataType, Rate, channel } from "@synnaxlabs/client";
+import { channel, DataType, Rate } from "@synnaxlabs/client";
 import {
   Align,
   Button,
@@ -22,9 +20,11 @@ import {
   Text,
 } from "@synnaxlabs/pluto";
 import { useMutation } from "@tanstack/react-query";
-import { type ReactElement, useRef, useEffect, useState } from "react";
-import { useDispatch } from "react-redux";
+import { type ReactElement, useState } from "react";
 import { z } from "zod";
+
+import { CSS } from "@/css";
+import { Layout } from "@/layout";
 
 export const CREATE_LAYOUT_TYPE = "createChannel";
 
@@ -42,7 +42,6 @@ export const createLayout: Layout.State = {
 };
 
 export const Create: Layout.Renderer = ({
-  layoutKey,
   onClose,
 }: Layout.RendererProps): ReactElement => {
   const client = Synnax.use();
@@ -75,7 +74,7 @@ export const Create: Layout.Renderer = ({
   });
   const [createMore, setCreateMore] = useState(false);
 
-  const { mutate, isPending, isError, error } = useMutation({
+  const { mutate, isPending } = useMutation({
     mutationFn: async (createMore: boolean) => {
       console.log(methods.validate());
       if (!methods.validate() || client == null) return;

@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,26 +9,25 @@
 
 import { type channel } from "@synnaxlabs/client";
 import {
+  type AsyncDestructor,
   bounds,
-  TimeRange,
+  DataType,
+  primitiveIsZero,
   type Series,
+  TimeRange,
   TimeSpan,
   TimeStamp,
-  DataType,
-  type AsyncDestructor,
-  primitiveIsZero,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
   AbstractSource,
-  type Spec,
   type NumberSource,
-  type Telem,
-  type SeriesSourceSpec,
   type NumberSourceSpec,
   type SeriesSource,
-  ValueProps,
+  type SeriesSourceSpec,
+  type Spec,
+  type Telem,
 } from "@/telem/aether/telem";
 import { type client } from "@/telem/client";
 
@@ -208,15 +207,12 @@ export class StreamChannelData
     this.client = client;
   }
 
-  async value(props?: ValueProps): Promise<[bounds.Bounds, Series[]]> {
+  async value(): Promise<[bounds.Bounds, Series[]]> {
     const { channel, useIndexOfChannel, timeSpan } = this.props;
     if (channel === 0) return [bounds.ZERO, []];
     const now = TimeStamp.now();
     const ch = await fetchChannelProperties(this.client, channel, useIndexOfChannel);
-    if (!this.valid) {
-      props?.onLoad();
-      await this.read(ch.key);
-    }
+    if (!this.valid) await this.read(ch.key);
     let b = bounds.max(
       this.data
         .filter((d) => d.timeRange.end.after(now.sub(timeSpan)))

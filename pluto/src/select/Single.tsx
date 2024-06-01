@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,6 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/select/Single.css";
+
+import {
+  type AsyncTermSearcher,
+  type Key,
+  type Keyed,
+  primitiveIsZero,
+} from "@synnaxlabs/x";
 import {
   type FocusEventHandler,
   type ReactElement,
@@ -16,13 +24,6 @@ import {
   useState,
 } from "react";
 
-import {
-  type AsyncTermSearcher,
-  type Key,
-  primitiveIsZero,
-  type Keyed,
-} from "@synnaxlabs/x";
-
 import { CSS } from "@/css";
 import { Dropdown } from "@/dropdown";
 import { useAsyncEffect } from "@/hooks";
@@ -30,20 +31,18 @@ import { Input } from "@/input";
 import { List as CoreList } from "@/list";
 import {
   selectValueIsZero,
-  type UseSelectSingleProps,
   type UseSelectOnChangeExtra,
+  type UseSelectSingleProps,
 } from "@/list/useSelect";
 import { ClearButton } from "@/select/ClearButton";
 import { Core } from "@/select/List";
 
-import "@/select/Single.css";
-
 export interface SingleProps<K extends Key, E extends Keyed<K>>
-  extends Omit<
+  extends Omit<UseSelectSingleProps<K, E>, "data" | "allowMultiple">,
+    Omit<
       Dropdown.DialogProps,
       "onChange" | "visible" | "children" | "variant" | "close"
     >,
-    Omit<UseSelectSingleProps<K, E>, "data" | "allowMultiple">,
     Omit<CoreList.ListProps<K, E>, "children">,
     Pick<Input.TextProps, "variant" | "disabled"> {
   entryRenderKey?: keyof E | ((e: E) => string | number);
@@ -79,7 +78,7 @@ export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   data,
   emptyContent,
   inputProps,
-  allowNone,
+  allowNone = true,
   searcher,
   className,
   variant,
@@ -110,11 +109,12 @@ export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
     setSelected(nextSelected);
   }, [searcher, value, data]);
 
-  const handleChange = useCallback<UseSelectSingleProps<K, E>["onChange"]>(
-    (v: K, e: UseSelectOnChangeExtra<K, E>): void => {
+  const handleChange = useCallback(
+    (v: K | K[] | null, e: UseSelectOnChangeExtra<K, E>): void => {
+      if (Array.isArray(v)) return;
       setSelected(v == null ? null : e.entries[0]);
       close();
-      onChange(v, e);
+      onChange(v as K, e);
     },
     [onChange, allowNone],
   );
@@ -176,7 +176,6 @@ const SingleInput = <K extends Key, E extends Keyed<K>>({
   onChange,
   onFocus,
   allowNone = true,
-  debounceSearch = 250,
   placeholder = "Select...",
   className,
   ...props
@@ -209,7 +208,7 @@ const SingleInput = <K extends Key, E extends Keyed<K>>({
     setInternalValue(v);
   };
 
-  const handleFocus: FocusEventHandler<HTMLInputElement> = (e) => {
+  const handleFocus: FocusEventHandler<HTMLInputElement> = () => {
     setInternalValue("");
     onFocus?.();
   };

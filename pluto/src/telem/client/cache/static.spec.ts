@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { DataType, Series, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { describe, expect, test, it } from "vitest";
+import { describe, expect, it,test } from "vitest";
 
 import { Static } from "@/telem/client/cache/static";
 

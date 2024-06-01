@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,24 +7,32 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type PayloadAction, createSlice } from "@reduxjs/toolkit";
+import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { type channel } from "@synnaxlabs/client";
 import { type Text, type Viewport } from "@synnaxlabs/pluto";
 import {
   bounds,
-  dimensions,
-  xy,
-  type direction,
-  unique,
-  deep,
-  toArray,
   box,
+  deep,
+  dimensions,
+  type direction,
   migrate,
+  toArray,
+  unique,
+  xy,
 } from "@synnaxlabs/x";
 import { nanoid } from "nanoid/non-secure";
 
 import { type Layout } from "@/layout";
-import { Vis } from "@/vis";
+import {
+  AxisKey,
+  MultiXAxisRecord,
+  MultiYAxisRecord,
+  X_AXIS_KEYS,
+  XAxisKey,
+  XAxisRecord,
+  YAxisKey,
+} from "@/lineplot/axis";
 
 // |||||| TITLE ||||||
 
@@ -75,7 +83,7 @@ export const ZERO_SELECTION_STATE: SelectionState = {
 // |||||| AXES ||||||
 
 export interface AxisState {
-  key: Vis.AxisKey;
+  key: AxisKey;
   label: string;
   labelDirection: direction.Direction;
   bounds: bounds.Bounds;
@@ -87,7 +95,7 @@ export interface AxisState {
 export interface AxesState {
   renderTrigger: number;
   hasHadChannelSet: boolean;
-  axes: Record<Vis.AxisKey, AxisState>;
+  axes: Record<AxisKey, AxisState>;
 }
 
 // |||| LINE ||||||
@@ -116,7 +124,7 @@ export interface RuleState {
   key: string;
   label: string;
   color: string;
-  axis: Vis.AxisKey;
+  axis: AxisKey;
   lineWidth: number;
   lineDash: number;
   units: string;
@@ -139,8 +147,7 @@ export const ZERO_RULES_STATE: RulesState = [];
 
 // |||||| CHANNELS |||||
 
-export type ChannelsState = Vis.MultiYAxisRecord<channel.Key[]> &
-  Vis.XAxisRecord<channel.Key>;
+export type ChannelsState = MultiYAxisRecord<channel.Key[]> & XAxisRecord<channel.Key>;
 
 export const ZERO_CHANNELS_STATE: ChannelsState = {
   x1: 0,
@@ -151,7 +158,7 @@ export const ZERO_CHANNELS_STATE: ChannelsState = {
   y4: [] as number[],
 };
 
-export const shouldDisplayAxis = (key: Vis.AxisKey, state: State): boolean => {
+export const shouldDisplayAxis = (key: AxisKey, state: State): boolean => {
   if (["x1", "y1"].includes(key)) return true;
   const channels = state.channels[key];
   if (Array.isArray(channels)) return channels.length > 0;
@@ -160,14 +167,14 @@ export const shouldDisplayAxis = (key: Vis.AxisKey, state: State): boolean => {
 
 // |||||| RANGES ||||||
 
-export type RangesState = Vis.MultiXAxisRecord<string>;
+export type RangesState = MultiXAxisRecord<string>;
 
 export const ZERO_RANGES_STATE: RangesState = {
   x1: [] as string[],
   x2: [] as string[],
 };
 
-export type SugaredRangesState = Vis.MultiXAxisRecord<Range>;
+export type SugaredRangesState = MultiXAxisRecord<Range>;
 
 export interface State extends migrate.Migratable {
   key: string;
@@ -294,20 +301,20 @@ export interface SetSelectionPayload extends SelectionState {
 
 export interface SetYChannelsPayload {
   key: string;
-  axisKey: Vis.YAxisKey;
+  axisKey: YAxisKey;
   channels: channel.Key[];
   mode?: "set" | "add";
 }
 
 export interface SetXChannelPayload {
   key: string;
-  axisKey: Vis.XAxisKey;
+  axisKey: XAxisKey;
   channel: channel.Key;
 }
 
 export interface SetRangesPayload {
   key: string;
-  axisKey: Vis.XAxisKey;
+  axisKey: XAxisKey;
   ranges: string[];
   mode?: "set" | "add";
 }
@@ -331,7 +338,7 @@ export interface SetLegendPayload {
 
 export interface SetAxisPayload {
   key: string;
-  axisKey: Vis.AxisKey;
+  axisKey: AxisKey;
   axis: Partial<AxisState>;
   triggerRender?: boolean;
 }
@@ -360,8 +367,8 @@ export interface SetViewportModePayload {
 
 interface TypedLineKey {
   range: string;
-  xAxis: Vis.XAxisKey;
-  yAxis: Vis.YAxisKey;
+  xAxis: XAxisKey;
+  yAxis: YAxisKey;
   channels: {
     x: channel.Key;
     y: channel.Key;
@@ -379,8 +386,8 @@ export const typedLineKeyFromString = (key: string): TypedLineKey => {
   const [yAxis, xAxis, range, x, y] = key.split("---");
   return {
     range,
-    xAxis: xAxis as Vis.XAxisKey,
-    yAxis: yAxis as Vis.YAxisKey,
+    xAxis: xAxis as XAxisKey,
+    yAxis: yAxis as YAxisKey,
     channels: {
       x: Number(x),
       y: Number(y),
@@ -393,13 +400,13 @@ const generateTypedLineKeys = (state: State): TypedLineKey[] =>
     .map(([xAxis, ranges]) =>
       ranges.flatMap((range) =>
         Object.entries(state.channels)
-          .filter(([axis]) => !Vis.X_AXIS_KEYS.includes(axis as Vis.XAxisKey))
+          .filter(([axis]) => !X_AXIS_KEYS.includes(axis as XAxisKey))
           .flatMap(([yAxis, yChannels]) => {
-            const xChannel = state.channels[xAxis as Vis.XAxisKey];
+            const xChannel = state.channels[xAxis as XAxisKey];
             return (yChannels as channel.Keys).map((yChannel) => ({
               range,
-              xAxis: xAxis as Vis.XAxisKey,
-              yAxis: yAxis as Vis.YAxisKey,
+              xAxis: xAxis as XAxisKey,
+              yAxis: yAxis as YAxisKey,
               channels: {
                 x: xChannel,
                 y: yChannel,
@@ -442,7 +449,6 @@ export const { actions, reducer } = createSlice({
       { payload: { keys: layoutKeys } }: PayloadAction<RemovePayload>,
     ) => {
       layoutKeys.forEach((layoutKey) => {
-        // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
         delete state.plots[layoutKey];
       });
     },

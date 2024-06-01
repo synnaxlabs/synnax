@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -8,13 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import {
-  Size,
-  Series,
-  TimeRange,
   DataType,
-  TimeStamp,
-  type TelemValue,
   MultiSeries,
+  Series,
+  Size,
+  type TelemValue,
+  TimeRange,
+  TimeStamp,
 } from "@synnaxlabs/x/telem";
 import { toArray } from "@synnaxlabs/x/toArray";
 import { unique } from "@synnaxlabs/x/unique";

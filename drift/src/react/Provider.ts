@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useState, createElement } from "react";
-
-import type { Action, UnknownAction, EnhancedStore } from "@reduxjs/toolkit";
-import { Provider } from "react-redux";
+import type { Action, EnhancedStore, UnknownAction } from "@reduxjs/toolkit";
+import { createElement, type ReactElement, useState } from "react";
 import type { ProviderProps as BaseProps } from "react-redux";
+import { Provider } from "react-redux";
 
 import { type Enhancers } from "@/configureStore";
 import { type StoreState } from "@/state";
@@ -58,6 +57,6 @@ export const DriftProvider = <
     else storeOrPromise.then((s) => setStore(s)).catch((e) => setError(e));
     return emptyContent;
   }
-  // @ts-expect-error
+  // @ts-expect-error - store is guaranteed to be non-null here
   return createElement(Provider<A, S>, { store }, children);
 };

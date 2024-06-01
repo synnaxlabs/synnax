@@ -1,11 +1,20 @@
+// Copyright 2024 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import {
-  type Migration,
   migratable,
-  migrator,
+  type Migration,
   type Migrations,
+  migrator,
 } from "@/migrate/migrate";
 
 const entityV0_0_0 = migratable.extend({
@@ -29,6 +38,7 @@ type EntityV0_0_2 = z.infer<typeof entityV0_0_2>;
 
 const migrations: Migrations = {
   "0.0.0": ((entity: EntityV0_0_0): EntityV0_0_1 => {
+
     const { name, ...rest } = entity;
     return {
       ...rest,

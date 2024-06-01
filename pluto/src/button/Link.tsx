@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -31,6 +31,6 @@ export const Link = <L extends Text.Level = "h1">({
   target,
   ...props
 }: LinkProps<L>): ReactElement => {
-  // @ts-expect-error
+  // @ts-expect-error - generic element issues
   return <Button<"a"> el="a" href={href} {...props} />;
 };

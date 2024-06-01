@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useCallback, type ReactElement, type FC, useEffect } from "react";
+import "@/vis/schematic/Forms.css";
 
 import { type channel } from "@synnaxlabs/client";
-import { type location, type xy, type bounds } from "@synnaxlabs/x";
+import { type bounds, type location, type xy } from "@synnaxlabs/x";
+import { type FC, type ReactElement, useCallback, useEffect } from "react";
 
 import { Align } from "@/align";
 import { Channel } from "@/channel";
@@ -28,8 +29,6 @@ import { type LabelExtensionProps } from "@/vis/schematic/Labeled";
 import { SelectOrientation } from "@/vis/schematic/SelectOrientation";
 import { type ControlStateProps } from "@/vis/schematic/Symbols";
 import { type Toggle } from "@/vis/toggle";
-
-import "@/vis/schematic/Forms.css";
 
 export interface SymbolFormProps {}
 
@@ -88,7 +87,7 @@ const OrientationControl: Form.FieldT<SymbolOrientation> = (props): ReactElement
   </Form.Field>
 );
 
-const LabelControls: Form.FieldT<LabelExtensionProps> = ({ path }): ReactElement => (
+const LabelControls = ({ path }: { path: string }): ReactElement => (
   <Align.Space direction="x" align="stretch">
     <Form.Field<string> path={path + ".label"} label="Label" padHelpText={false} grow>
       {(p) => <Input.Text selectOnFocus {...p} />}

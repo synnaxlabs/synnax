@@ -8,9 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { defineConfig } from "vite";
-
-import { lib } from "@synnaxlabs/vite-plugin";
+import { lib, isProd } from "@synnaxlabs/vite-plugin";
 
 export default defineConfig({
   plugins: [lib({ name: "freighter" })],
+  build: {
+    sourcemap: !isProd(),
+    minify: isProd(),
+  },
 });

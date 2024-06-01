@@ -1,6 +1,15 @@
+// Copyright 2024 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import { Series } from "@synnaxlabs/client";
 
-// Construct a series from an array of numbers. In this case, the series will 
+// Construct a series from an array of numbers. In this case, the series will
 // automatically be of type float64.
 let series = new Series([1, 2, 3, 4, 5]);
 
@@ -159,5 +168,5 @@ frame = new Frame({
 try {
   obj = frame.at(3, true); // Throws an error
 } catch (e) {
-  console.log(e.message); // no value at index 
+  console.log(e.message); // no value at index
 }
