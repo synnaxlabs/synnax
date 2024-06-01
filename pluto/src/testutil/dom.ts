@@ -9,7 +9,7 @@
 
 import { type Mock, vi } from "vitest";
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+ 
 export const mockBoundingClientRect = (
   top: number,
   left: number,

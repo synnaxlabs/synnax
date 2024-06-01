@@ -7,22 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/vis/lineplot/Viewport.css";
+
+import { box, xy } from "@synnaxlabs/x";
 import {
+  forwardRef,
   type PropsWithChildren,
   type ReactElement,
   useCallback,
   useLayoutEffect,
-  forwardRef,
 } from "react";
-
-import { box, xy } from "@synnaxlabs/x";
 
 import { CSS } from "@/css";
 import { Viewport as Core } from "@/viewport";
 import { type UseRefValue } from "@/viewport/use";
 import { useContext } from "@/vis/lineplot/LinePlot";
-
-import "@/vis/lineplot/Viewport.css";
 
 export interface ViewportProps extends PropsWithChildren, Core.UseProps {}
 

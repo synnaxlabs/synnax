@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ValidationError } from "@synnaxlabs/client";
-import { observe, type bounds, type Series, type Destructor } from "@synnaxlabs/x";
+import { type bounds, type Destructor, observe, type Series } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type color } from "@/color/core";
@@ -195,11 +195,11 @@ export class UnarySourceTransformer<I, O, P extends z.ZodTypeAny>
     this.sources = sources;
   }
 
-  protected shouldNotify(value: I): boolean {
+  protected shouldNotify(_: I): boolean {
     return true;
   }
 
-  protected transform(value: I): O {
+  protected transform(_: I): O {
     throw new ValidationError(
       `[UnarySourceTransformer] - expected subclass to define transform method, but none was found.
       Make sure to define a method 'transform' on the class.`,
@@ -229,7 +229,7 @@ export class MultiSourceTransformer<I, O, P extends z.ZodTypeAny>
     this.sources = { ...this.sources, ...sources };
   }
 
-  protected transform(values: Record<string, I>): O {
+  protected transform(_: Record<string, I>): O {
     throw new ValidationError(
       `[MultiSourceTransformer] - expected subclass to define transform method, but none was found.
       Make sure to define a method 'transform' on the class.`,
@@ -260,7 +260,7 @@ export class UnarySinkTransformer<I, O, P extends z.ZodTypeAny>
     this.sinks = { ...this.sinks, ...sinks };
   }
 
-  protected transform(value: I): O {
+  protected transform(_: I): O {
     throw new ValidationError(
       `[UnarySinkTransformer] - expected subclass to define transform method, but none was found.
       Make sure to define a method 'transform' on the class.`,

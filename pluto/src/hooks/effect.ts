@@ -12,7 +12,7 @@ import { type DependencyList, type EffectCallback, useEffect } from "react";
 import { useMemoCompare } from "@/memo";
 
 /* An async version of React.Destructor */
-// eslint-disable-next-line @typescript-eslint/no-invalid-void-type
+ 
 export type AsyncDestructor = Promise<(() => void) | void>;
 
 /** An async version of React.EffectCallback */

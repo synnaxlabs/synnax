@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/vis/render/context";
+export * from "@/vis/render/controller";
 export * from "@/vis/render/eraser";
 export * from "@/vis/render/GLProgram";
 export * from "@/vis/render/loop";
-export * from "@/vis/render/controller";

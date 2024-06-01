@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { box, compare, unique, type xy } from "@synnaxlabs/x";
 import {
   type MutableRefObject,
   type RefObject,
@@ -14,8 +15,6 @@ import {
   useEffect,
   useState,
 } from "react";
-
-import { box, compare, unique, type xy } from "@synnaxlabs/x";
 
 import { useStateRef } from "@/hooks/ref";
 import { useMemoCompare } from "@/memo";
@@ -48,7 +47,9 @@ export const use = ({ triggers, callback: f, region, loose }: UseProps): void =>
     return listen((e) => {
       const prevMatches = filter(memoTriggers, e.prev, /* loose */ loose);
       const nextMatches = filter(memoTriggers, e.next, /* loose */ loose);
-      let [added, removed] = diff(nextMatches, prevMatches);
+      const res = diff(nextMatches, prevMatches);
+      const removed = res[0];
+      let added = res[1];
       if (added.length === 0 && removed.length === 0) return;
       added = filterInRegion(e.target, e.cursor, added, region);
       const base = { target: e.target, cursor: e.cursor };

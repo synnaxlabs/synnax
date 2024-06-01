@@ -7,16 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useState } from "react";
-
 import { act, renderHook } from "@testing-library/react";
+import { useState } from "react";
 import { describe, expect, it } from "vitest";
 
-import {
-  type UseSelectMultipleProps,
-  useSelect,
-  type UseSelectMultipleReturn,
-} from "@/list/useSelect";
+import { useSelect, type UseSelectMultipleProps } from "@/list/useSelect";
 
 interface Entry {
   key: string;
@@ -67,7 +62,6 @@ const useSelectSingleWrapper = (
   props: Omit<UseSelectMultipleProps<string, Entry>, "data" | "value" | "onChange">,
 ): UseSelectSingleWrapperReturn => {
   const [value, setValue] = useState<string | null>(null);
-  // @ts-expect-error - just for testing purposes so we don't need to configure
   // a different wrapper for the allowNone: false case
   const { clear, onSelect } = useSelect<string, Entry>({
     allowNone: true,

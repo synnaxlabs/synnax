@@ -1,12 +1,13 @@
-import { aether } from "@/ether";
+import { ranger, signals,Synnax } from "@synnaxlabs/client";
+import { bounds, box, clamp, scale, TimeRange, TimeSpan, xy } from "@synnaxlabs/x";
 import { z } from "zod";
-import { synnax } from "@/synnax/aether";
-import { render } from "@/vis/render";
-import { Synnax, ranger, signals } from "@synnaxlabs/client";
-import { TimeRange, TimeSpan, bounds, box, clamp, scale, xy } from "@synnaxlabs/x";
-import { Draw2D } from "@/vis/draw2d";
+
 import { color } from "@/color/core";
+import { aether } from "@/ether";
+import { synnax } from "@/synnax/aether";
 import { theming } from "@/theming/aether";
+import { Draw2D } from "@/vis/draw2d";
+import { render } from "@/vis/render";
 
 export const selectedStateZ = ranger.payloadZ.extend({
   viewport: bounds.bounds,

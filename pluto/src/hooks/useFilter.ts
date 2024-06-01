@@ -9,8 +9,8 @@
 
 import {
   type ArrayTransform,
-  type Keyed,
   type Key,
+  type Keyed,
   type TermSearcher,
 } from "@synnaxlabs/x";
 import Fuse, { type IFuseOptions } from "fuse.js";

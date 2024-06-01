@@ -8,16 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import {
+  type CrudeDirection,
+  crudeDirection,
   type Dimension,
   type Direction,
-  type Location,
   type direction,
   DIRECTIONS,
+  type Location,
+  type SignedDimension,
   Y_LOCATIONS,
   type YLocation,
-  type SignedDimension,
-  crudeDirection,
-  type CrudeDirection,
 } from "@/spatial/base";
 
 export type { Direction, direction };

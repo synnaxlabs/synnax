@@ -7,17 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type CrudeTimeSpan,TimeSpan } from "@synnaxlabs/x";
 import {
+  createContext,
   type PropsWithChildren,
   type ReactElement,
-  createContext,
   useCallback,
   useContext,
   useRef,
   useState,
 } from "react";
-
-import { TimeSpan, type CrudeTimeSpan } from "@synnaxlabs/x";
 
 export interface ContextValue {
   delay: CrudeTimeSpan;

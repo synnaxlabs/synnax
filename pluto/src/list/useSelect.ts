@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Key, type Keyed, type Optional,toArray, unique } from "@synnaxlabs/x";
 import { useCallback, useEffect, useRef } from "react";
-
-import { type Key, type Keyed, unique, toArray, type Optional } from "@synnaxlabs/x";
 
 import { useSyncedRef } from "@/hooks/ref";
 import { Triggers } from "@/triggers";
@@ -29,20 +28,23 @@ export interface UseSelectOnChangeExtra<
   entries: E[];
 }
 
-export interface UseSelectSingleAllowNoneProps<K extends Key, E extends Keyed<K>> {
-  data: E[];
+interface BaseProps<K extends Key, E extends Keyed<K>> {
+  data?: E[] | (() => E[]);
   replaceOnSingle?: boolean;
+}
+
+export interface UseSelectSingleAllowNoneProps<K extends Key, E extends Keyed<K>>
+  extends BaseProps<K, E> {
   allowMultiple: false;
-  allowNone?: true | undefined;
+  allowNone?: true;
   value: K | null;
   onChange: (next: K | null, extra: UseSelectOnChangeExtra<K, E>) => void;
 }
 
-export interface UseSelectSingleDisallowNoneProps<K extends Key, E extends Keyed<K>> {
-  data: E[];
-  replaceOnSingle?: boolean;
+export interface UseSelectSingleDisallowNoneProps<K extends Key, E extends Keyed<K>>
+  extends BaseProps<K, E> {
   allowMultiple: false;
-  allowNone: false;
+  allowNone: false | undefined;
   value: K;
   onChange: (next: K, extra: UseSelectOnChangeExtra<K, any>) => void;
 }
@@ -56,10 +58,9 @@ export type UseSelectSingleProps<K extends Key, E extends Keyed<K>> = Optional<
   "allowNone"
 >;
 
-export interface UseSelectMultipleProps<K extends Key, E extends Keyed<K>> {
-  data: E[] | (() => E[]);
+export interface UseSelectMultipleProps<K extends Key, E extends Keyed<K>>
+  extends BaseProps<K, E> {
   allowMultiple?: true;
-  replaceOnSingle?: boolean;
   allowNone?: boolean;
   value: K | K[];
   onChange: (next: K[], extra: UseSelectOnChangeExtra<K, E>) => void;
@@ -67,8 +68,17 @@ export interface UseSelectMultipleProps<K extends Key, E extends Keyed<K>> {
 
 /** Props for the {@link useSelect} hook. */
 export type UseSelectProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>> =
-  | UseSelectSingleInternalProps<K, E>
+  | UseSelectSingleProps<K, E>
   | UseSelectMultipleProps<K, E>;
+
+export type FlexUseSelectProps<K extends Key, E extends Keyed<K>> = {
+  data?: E[] | (() => E[]);
+  value: K | K[] | null;
+  allowMultiple?: boolean;
+  allowNone?: boolean;
+  replaceOnSingle?: boolean;
+  onChange: (next: K | K[] | null, extra: UseSelectOnChangeExtra<K, E>) => void;
+};
 
 /** Return value for the {@link useSelect} hook. */
 export interface UseSelectMultipleReturn<K extends Key = Key> {
@@ -79,6 +89,9 @@ export interface UseSelectMultipleReturn<K extends Key = Key> {
 export const selectValueIsZero = <K extends Key>(
   value: K | K[] | null,
 ): value is null | K[] => value == null || (Array.isArray(value) && value.length === 0);
+
+const DEFAULT_PROPS_DATA: any[] = [];
+const DEFAULT_PROPS_VALUE: any[] = [];
 
 /**
  * Implements generic selection over a collection of keyed records. The hook
@@ -106,13 +119,13 @@ export const selectValueIsZero = <K extends Key>(
  * @returns clear - A callback that can be used to clear the selection.
  */
 export const useSelect = <K extends Key, E extends Keyed<K>>({
-  data: propsData,
-  value: propsValue = [],
+  data: propsData = DEFAULT_PROPS_DATA,
+  value: propsValue = DEFAULT_PROPS_VALUE,
   allowMultiple,
   allowNone,
   replaceOnSingle = false,
   onChange,
-}: UseSelectProps<K, E>): UseSelectMultipleReturn<K> => {
+}: UseSelectProps<K, E> | FlexUseSelectProps<K, E>): UseSelectMultipleReturn<K> => {
   const shiftValueRef = useRef<K | null>(null);
   const shift = Triggers.useHeldRef({ triggers: [["Shift"]], loose: true });
 
@@ -124,7 +137,7 @@ export const useSelect = <K extends Key, E extends Keyed<K>>({
       valueRef.current = next;
       if (next.length === 0 && allowNone !== false) {
         if (allowMultiple !== false) return onChange([], extra);
-        return onChange(null, extra);
+        return onChange(null as unknown as K, extra);
       }
       if (allowMultiple !== false) return onChange(next, extra);
       if (next.length > 0) return onChange(next[0], extra);

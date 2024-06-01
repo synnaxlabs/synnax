@@ -365,8 +365,8 @@ export const ChannelList = ({
         <List.List<string, ReadChannelConfig> data={value}>
           <List.Selector<string, ReadChannelConfig>
             value={selected}
-            allowNone={false}
-            allowMultiple={true}
+            allowNone
+            allowMultiple
             onChange={(keys, { clickedIndex }) =>
               clickedIndex != null && onSelect(keys, clickedIndex)
             }

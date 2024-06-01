@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { z } from "zod";
+
 import { type Partial } from "@/deep/partial";
 import { isObject } from "@/identity";
-import { z } from "zod";
 
 /**
  * Overrides the properties of the base object with the existing properties of the provided

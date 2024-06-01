@@ -7,16 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  useState,
-  memo,
-  useCallback,
-  type ReactElement,
-  useRef,
-  type MutableRefObject,
-} from "react";
+import "@/mosaic/Mosaic.css";
 
 import { type box, type location } from "@synnaxlabs/x";
+import {
+  memo,
+  type MutableRefObject,
+  type ReactElement,
+  useCallback,
+  useRef,
+  useState,
+} from "react";
 
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
@@ -26,8 +27,6 @@ import { type Node } from "@/mosaic/types";
 import { Portal } from "@/portal";
 import { Resize } from "@/resize";
 import { Tabs } from "@/tabs";
-
-import "@/mosaic/Mosaic.css";
 
 /** Props for the {@link Mosaic} component */
 export interface MosaicProps

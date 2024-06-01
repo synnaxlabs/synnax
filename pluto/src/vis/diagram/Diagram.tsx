@@ -7,42 +7,44 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type ReactElement,
-  createContext,
-  useCallback,
-  useMemo,
-  useRef,
-  useState,
-  useContext as reactUseContext,
-  type ComponentPropsWithoutRef,
-  useEffect,
-  memo,
-} from "react";
+import "@/vis/diagram/Diagram.css";
+import "reactflow/dist/style.css";
 
 import { Icon } from "@synnaxlabs/media";
 import { box, location, xy } from "@synnaxlabs/x";
+import {
+  type ComponentPropsWithoutRef,
+  createContext,
+  memo,
+  type ReactElement,
+  useCallback,
+  useContext as reactUseContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import ReactFlow, {
-  ReactFlowProvider,
-  type Viewport as RFViewport,
-  useOnViewportChange as useRFOnViewportChange,
+  addEdge as rfAddEdge,
   applyEdgeChanges as rfApplyEdgeChanges,
   applyNodeChanges as rfApplyNodeChanges,
-  addEdge as rfAddEdge,
   Background as RFBackground,
-  type Edge as RFEdge,
-  type NodeProps as RFNodeProps,
-  type NodeChange as RFNodeChange,
-  type EdgeChange as RFEdgeChange,
   type Connection as RFConnection,
-  type ReactFlowProps,
-  useReactFlow,
   ConnectionMode,
-  updateEdge,
+  type Edge as RFEdge,
+  type EdgeChange as RFEdgeChange,
   type EdgeProps as RFEdgeProps,
-  SelectionMode,
   type FitViewOptions,
+  type NodeChange as RFNodeChange,
+  type NodeProps as RFNodeProps,
   type ProOptions,
+  type ReactFlowProps,
+  ReactFlowProvider,
+  SelectionMode,
+  updateEdge,
+  useOnViewportChange as useRFOnViewportChange,
+  useReactFlow,
+  type Viewport as RFViewport,
 } from "reactflow";
 
 import { Aether } from "@/aether";
@@ -63,18 +65,15 @@ import { type connector } from "@/vis/diagram/edge/connector";
 import { CustomConnectionLine } from "@/vis/diagram/edge/Edge";
 import {
   type Edge,
-  type Node,
-  type Viewport,
   edgeConverter,
+  type Node,
   nodeConverter,
   translateEdgesForward,
   translateNodesForward,
   translateViewportBackward,
   translateViewportForward,
+  type Viewport,
 } from "@/vis/diagram/types";
-
-import "@/vis/diagram/Diagram.css";
-import "reactflow/dist/style.css";
 
 export interface SymbolProps {
   symbolKey: string;
@@ -205,7 +204,7 @@ const DELETE_KEY_CODES: Triggers.Trigger = ["Backspace", "Delete"];
 
 const Core = Aether.wrap<DiagramProps>(
   diagram.Diagram.TYPE,
-  // eslint-disable-next-line react/display-name
+
   ({
     aetherKey,
     children,
@@ -515,9 +514,9 @@ export const FitViewControl = ({
         fitView(FIT_VIEW_OPTIONS);
         onClick?.(e);
       }}
-      // @ts-expect-error
+      // @ts-expect-error - toggle icon issues
       value={fitViewOnResize}
-      // @ts-expect-error
+      // @ts-expect-error - toggle icon issues
       onChange={(v) => setFitViewOnResize(v)}
       rightClickToggle
       tooltip={<Text.Text level="small">Fit view to contents</Text.Text>}

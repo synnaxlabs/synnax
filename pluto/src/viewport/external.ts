@@ -8,5 +8,5 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/viewport/Mask";
-export * from "@/viewport/use";
 export * from "@/viewport/SelectMode";
+export * from "@/viewport/use";

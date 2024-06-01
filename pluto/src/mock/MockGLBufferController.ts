@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type GLBufferController } from "@synnaxlabs/x";
-import { vi, type Mock } from "vitest";
+import { type Mock,vi } from "vitest";
 
 export class MockGLBufferController implements GLBufferController {
   ARRAY_BUFFER: number = 1;
@@ -26,7 +26,7 @@ export class MockGLBufferController implements GLBufferController {
   deleteBufferMock: Mock<[WebGLBuffer | null]> = vi.fn();
 
   deleteBuffer(buffer: WebGLBuffer | null): void {
-    // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+     
     if (buffer != null) delete this.buffers[buffer as number];
     this.deleteBufferMock(buffer);
   }

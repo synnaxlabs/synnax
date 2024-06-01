@@ -7,25 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Key, type Keyed } from "@synnaxlabs/x";
 import {
-  type PropsWithChildren,
   createContext,
+  type PropsWithChildren,
+  type ReactElement,
   useCallback,
   useContext,
-  useMemo,
-  type ReactElement,
   useEffect,
+  useMemo,
   useRef,
 } from "react";
-
-import { type Key, type Keyed } from "@synnaxlabs/x";
 
 import { useCombinedStateAndRef } from "@/hooks";
 import { useDataContext, useGetTransformedData } from "@/list/Data";
 import { useSelectionUtils } from "@/list/Selector";
 import { Triggers } from "@/triggers";
 
-// eslint-disable-next-line @typescript-eslint/no-empty-interface
+ 
 export interface HoverProps extends PropsWithChildren<{}> {
   disabled?: boolean;
   initialHover?: number;

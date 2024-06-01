@@ -1,6 +1,7 @@
+import { z } from "zod";
+
 import { Aether } from "@/aether";
 import { range } from "@/vis/lineplot/range/aether";
-import { z } from "zod";
 
 interface AnnotationProps extends z.input<typeof range.annotationStateZ> {}
 

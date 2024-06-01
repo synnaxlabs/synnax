@@ -7,16 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
+import "@/ranger/TimeRangeChip.css";
 
 import { Icon } from "@synnaxlabs/media";
-import { type CrudeTimeRange, TimeStamp, TimeSpan } from "@synnaxlabs/x";
+import { type CrudeTimeRange, TimeSpan,TimeStamp } from "@synnaxlabs/x";
+import { type ReactElement } from "react";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
 import { Text } from "@/text";
-
-import "@/ranger/TimeRangeChip.css";
 
 export interface TimeRangeChipProps {
   timeRange: CrudeTimeRange;

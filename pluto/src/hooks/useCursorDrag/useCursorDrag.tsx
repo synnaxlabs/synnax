@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { box,xy } from "@synnaxlabs/x";
 import { type DragEvent, useCallback } from "react";
-
-import { xy, box } from "@synnaxlabs/x";
 
 import { Triggers } from "@/triggers";
 

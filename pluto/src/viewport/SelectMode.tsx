@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, type ReactNode } from "react";
-
 import { Icon } from "@synnaxlabs/media";
 import { caseconv } from "@synnaxlabs/x";
+import { type ReactElement, type ReactNode } from "react";
 
 import { Align } from "@/align";
 import { Button } from "@/button";
@@ -18,7 +17,7 @@ import { Select } from "@/select";
 import { Text } from "@/text";
 import { Triggers } from "@/triggers";
 import { type Trigger } from "@/triggers/triggers";
-import { MODES, type Mode, type UseTriggers } from "@/viewport/use";
+import { type Mode, MODES, type UseTriggers } from "@/viewport/use";
 
 interface Entry {
   key: Mode;

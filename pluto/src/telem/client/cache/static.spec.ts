@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { DataType, Series, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { describe, expect, test, it } from "vitest";
+import { describe, expect, it,test } from "vitest";
 
 import { Static } from "@/telem/client/cache/static";
 

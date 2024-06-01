@@ -7,14 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
-
 import { Icon } from "@synnaxlabs/media";
+import { type ReactElement } from "react";
 
 import { Align } from "@/align";
 import { Text as Core } from "@/text";
 import { type Key, type Trigger } from "@/triggers/triggers";
-import { RenderProp } from "@/util/renderProp";
 
 export type TextProps<L extends Core.Level> = Core.KeyboardProps<L> & {
   trigger: Trigger;

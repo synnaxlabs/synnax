@@ -1,8 +1,8 @@
+import "@/note/Note.css";
+
 import { Align } from "@/align";
 import { CSS } from "@/css";
 import { Status } from "@/status";
-import { PropsWithChildren } from "react";
-import "@/note/Note.css";
 
 export interface NoteProps extends Align.SpaceProps<"div"> {
   variant: Status.Variant;

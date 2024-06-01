@@ -38,7 +38,7 @@ export const List = (): ReactElement => {
   const active = useSelect();
   const openWindow = Layout.usePlacer();
 
-  const selected = active != null ? [active?.key] : [];
+  const selected = active?.key ?? null;
 
   const handleConnect = (key: string | null): void => {
     dispatch(setActive(key));
@@ -120,8 +120,8 @@ export const List = (): ReactElement => {
         <CoreList.List<string, Cluster> data={data} emptyContent={<NoneConnected />}>
           <CoreList.Selector
             value={selected}
-            onChange={handleConnect}
             allowMultiple={false}
+            onChange={handleConnect}
           >
             <CoreList.Core<string, Cluster> style={{ height: "100%", width: "100%" }}>
               {({ key, ...p }) => <ListItem key={key} {...p} />}

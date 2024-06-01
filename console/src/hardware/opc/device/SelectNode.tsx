@@ -36,8 +36,7 @@ const SELECT_NODE_COLUMNS: Array<List.ColumnSpec<string, NodeEntry>> = [
   },
 ];
 
-interface SelectNodeProps
-  extends Omit<Select.SingleProps<string, NodeEntry>, "columns" | "data"> {
+interface SelectNodeProps extends Omit<Select.SingleProps<string, NodeEntry>, "data"> {
   data: NodeProperties[];
 }
 
@@ -54,11 +53,12 @@ export const SelectNode = ({ data, ...props }: SelectNodeProps): ReactElement =>
     [data],
   );
   return (
+    /// @ts-expect-error
     <Select.Single<string, NodeEntry>
+      {...props}
       columns={SELECT_NODE_COLUMNS}
       data={transformedData}
       entryRenderKey={(e) => `${e.name} (${e.key})`}
-      {...props}
     />
   );
 };

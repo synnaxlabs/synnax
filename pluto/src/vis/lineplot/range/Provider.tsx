@@ -1,13 +1,13 @@
+import { box, xy } from "@synnaxlabs/x";
+import { ReactElement, useCallback } from "react";
+
 import { Aether } from "@/aether";
 import { Align } from "@/align";
-import { useGridEntry, useContext } from "@/vis/lineplot/LinePlot";
-import { range } from "@/vis/lineplot/range/aether";
-import { box, xy } from "@synnaxlabs/x";
-import { ReactElement, useCallback, useRef } from "react";
+import { useSyncedRef } from "@/hooks";
 import { Menu } from "@/menu";
 import { RenderProp } from "@/util/renderProp";
-import { SelectedState } from "@/vis/lineplot/range/aether/provider";
-import { useSyncedRef } from "@/hooks";
+import { useContext, useGridEntry } from "@/vis/lineplot/LinePlot";
+import { range } from "@/vis/lineplot/range/aether";
 
 export interface ProviderProps {
   menu?: RenderProp<range.SelectedState>;

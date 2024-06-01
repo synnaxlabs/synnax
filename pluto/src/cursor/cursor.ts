@@ -22,7 +22,7 @@ export const setGlobalStyle = (
   el.appendChild(cursorStyle);
 };
 
-export const clearGlobalStyle = (el: HTMLElement = document.head): void => {
+export const clearGlobalStyle = (): void => {
   const cursorStyle = document.getElementById(EL_ID);
   if (cursorStyle != null) cursorStyle.remove();
 };

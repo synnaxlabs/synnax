@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, expect, test, it } from "vitest";
+import { describe, expect, it,test } from "vitest";
 import { z } from "zod";
 
 import { MockGLBufferController } from "@/mock/MockGLBufferController";
-import { Series, isCrudeSeries, MultiSeries } from "@/telem/series";
+import { isCrudeSeries, MultiSeries,Series } from "@/telem/series";
 import { DataType, Rate, Size, TimeRange, TimeSpan, TimeStamp } from "@/telem/telem";
 
 describe("Series", () => {
@@ -78,7 +78,7 @@ describe("Series", () => {
 
     test("from buffer without data type provided", () => {
       expect(() => {
-        // eslint-disable-next-line no-new
+         
         new Series({ data: new ArrayBuffer(4) });
       }).toThrow();
     });

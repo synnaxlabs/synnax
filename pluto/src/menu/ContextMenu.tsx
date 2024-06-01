@@ -7,6 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/menu/ContextMenu.css";
+
+import { box, position, unique, xy } from "@synnaxlabs/x";
 import {
   type ComponentPropsWithoutRef,
   type ForwardedRef,
@@ -16,15 +19,11 @@ import {
   useRef,
   useState,
 } from "react";
-
-import { box, position, unique, xy } from "@synnaxlabs/x";
 import { createPortal } from "react-dom";
 
 import { CSS } from "@/css";
 import { useClickOutside } from "@/hooks";
 import { type RenderProp } from "@/util/renderProp";
-
-import "@/menu/ContextMenu.css";
 
 interface ContextMenuState {
   visible: boolean;

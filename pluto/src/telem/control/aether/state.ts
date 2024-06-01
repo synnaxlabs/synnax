@@ -9,12 +9,12 @@
 
 import { type Instrumentation } from "@synnaxlabs/alamos";
 import {
-  type Synnax,
-  control,
   type channel,
+  control,
+  type Synnax,
   UnexpectedError,
 } from "@synnaxlabs/client";
-import { observe, type Destructor, unique } from "@synnaxlabs/x";
+import { type Destructor, observe, unique } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";

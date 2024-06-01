@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 export {
-  ALIGNMENTS,
-  alignment,
   type Alignment,
-  ORDERS,
-  order,
+  alignment,
+  ALIGNMENTS,
   type Order,
+  order,
+  ORDERS,
 } from "@/spatial/base";

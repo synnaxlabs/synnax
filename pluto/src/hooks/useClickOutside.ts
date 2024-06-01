@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type RefObject, useCallback, useEffect } from "react";
-
 import { box, xy } from "@synnaxlabs/x";
+import { type RefObject, useCallback, useEffect } from "react";
 
 import { useSyncedRef } from "@/hooks";
 

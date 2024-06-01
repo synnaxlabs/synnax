@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { useCallback, useEffect } from "react";
-
 import { type z } from "zod";
 
 import { Aether } from "@/aether";

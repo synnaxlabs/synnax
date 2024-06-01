@@ -7,17 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { box, dimensions, location, scale,xy } from "@synnaxlabs/x";
 import {
+  type ForwardedRef,
   type MutableRefObject,
   useCallback,
   useEffect,
   useImperativeHandle,
   useRef,
   useState,
-  type ForwardedRef,
 } from "react";
-
-import { box, xy, dimensions, location, scale } from "@synnaxlabs/x";
 
 import { useStateRef } from "@/hooks/ref";
 import { useMemoCompare } from "@/memo";

@@ -11,7 +11,7 @@ import { z } from "zod";
 
 export type Variant = "set" | "delete";
 
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+ 
 export const Z = <V extends z.ZodTypeAny>(value: V) =>
   z.object({
     variant: z.enum(["set", "delete"]),

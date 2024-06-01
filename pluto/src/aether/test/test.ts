@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { alamos } from "@synnaxlabs/alamos";
-import { vi, type Mock } from "vitest";
+import { type Mock,vi } from "vitest";
 
 import { aether } from "@/aether/aether";
 

@@ -7,20 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/align/Space.css";
+
+import { direction } from "@synnaxlabs/x/spatial";
 import {
   type CSSProperties,
   type ForwardedRef,
-  type ReactElement,
   forwardRef,
+  type ReactElement,
 } from "react";
-
-import { direction } from "@synnaxlabs/x/spatial";
 
 import { CSS } from "@/css";
 import { Generic } from "@/generic";
 import { type ComponentSize } from "@/util/component";
-
-import "@/align/Space.css";
 
 /** All possible alignments for the cross axis of a space */
 export const ALIGNMENTS = ["start", "center", "end", "stretch"] as const;

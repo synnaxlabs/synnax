@@ -9,13 +9,13 @@
 
 import { alamos } from "@synnaxlabs/alamos";
 import {
-  TimeRange,
-  type Series,
   bounds,
-  TimeStamp,
-  TimeSpan,
   type Required,
+  type Series,
   Size,
+  TimeRange,
+  TimeSpan,
+  TimeStamp,
 } from "@synnaxlabs/x";
 
 import { convertSeriesFloat32 } from "@/telem/aether/convertSeries";

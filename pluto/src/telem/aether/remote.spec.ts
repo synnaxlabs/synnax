@@ -1,8 +1,8 @@
-import { DataType, TimeRange, channel } from "@synnaxlabs/client";
+import { channel, DataType, TimeRange } from "@synnaxlabs/client";
 import {
-  Series,
   type AsyncDestructor,
   bounds,
+  Series,
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
@@ -12,10 +12,10 @@ import { describe, expect, it, vi } from "vitest";
 import {
   ChannelData,
   type ChannelDataProps,
-  StreamChannelValue,
-  type StreamChannelValueProps,
   StreamChannelData,
   type StreamChannelDataProps,
+  StreamChannelValue,
+  type StreamChannelValueProps,
 } from "@/telem/aether/remote";
 import { client } from "@/telem/client";
 
@@ -43,14 +43,11 @@ describe("remote", () => {
         [this.channel.key]: new client.ReadResponse(this.channel, []),
       };
 
-      async retrieveChannel(key: channel.KeyOrName): Promise<channel.Channel> {
+      async retrieveChannel(): Promise<channel.Channel> {
         return this.channel;
       }
 
-      async read(
-        tr: TimeRange,
-        key: channel.Keys,
-      ): Promise<Record<channel.Key, client.ReadResponse>> {
+      async read(): Promise<Record<channel.Key, client.ReadResponse>> {
         return this.response;
       }
 
@@ -349,10 +346,7 @@ describe("remote", () => {
         throw new Error(`Channel with key ${key} not found`);
       }
 
-      async read(
-        tr: TimeRange,
-        key: channel.Keys,
-      ): Promise<Record<channel.Key, client.ReadResponse>> {
+      async read(): Promise<Record<channel.Key, client.ReadResponse>> {
         return this.response;
       }
 

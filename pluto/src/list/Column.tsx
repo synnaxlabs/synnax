@@ -7,24 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type CSSProperties,
-  type ReactElement,
-  useEffect,
-  useState,
-  createContext,
-  type PropsWithChildren,
-} from "react";
+import "@/list/Column.css";
 
 import { Icon } from "@synnaxlabs/media";
 import {
+  type ArrayTransform,
   compare,
   convertRenderV,
   type Key,
-  type ArrayTransform,
   type Keyed,
   type RenderableValue,
 } from "@synnaxlabs/x";
+import {
+  createContext,
+  type CSSProperties,
+  type PropsWithChildren,
+  type ReactElement,
+  useEffect,
+  useState,
+} from "react";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
@@ -35,8 +36,6 @@ import { type ItemProps } from "@/list/types";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
 import { type RenderProp } from "@/util/renderProp";
-
-import "@/list/Column.css";
 
 type RenderF<K extends Key = Key, E extends Keyed<K> = Keyed<K>> = RenderProp<{
   key: string | number | symbol;

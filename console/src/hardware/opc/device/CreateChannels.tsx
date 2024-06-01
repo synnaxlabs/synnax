@@ -220,9 +220,10 @@ const GroupList = ({
             // eslint-disable-next-line @typescript-eslint/non-nullable-type-assertion-style
             value={selectedGroup as string}
             allowNone={false}
-            onChange={(key, { clickedIndex }) =>
-              clickedIndex != null && onSelectGroup(key, clickedIndex)
-            }
+            onChange={(
+              key: string,
+              { clickedIndex }: { clickedIndex: number | null },
+            ) => clickedIndex != null && onSelectGroup(key, clickedIndex)}
           >
             <List.Core<string, GroupConfig> grow>
               {({ key, ...props }) => (
@@ -304,7 +305,7 @@ const GroupListItem = ({
 interface ChannelListProps {
   selectedGroupIndex: number;
   selectedChannels: string[];
-  onSelectChannels: List.UseSelectProps["onChange"];
+  onSelectChannels: List.UseSelectMultipleProps<string, ChannelConfig>["onChange"];
 }
 
 const ChannelList = ({
@@ -542,9 +543,7 @@ const ChannelForm = ({
           <SelectNode
             {...props}
             data={deviceProperties.channels}
-            onChange={(value) => {
-              onChange(value ?? "");
-            }}
+            onChange={(value: string) => onChange(value ?? "")}
             allowNone={isIndex}
           />
         )}

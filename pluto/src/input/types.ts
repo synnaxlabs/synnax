@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactNode, type ComponentPropsWithoutRef } from "react";
+import { type ComponentPropsWithoutRef,type ReactNode } from "react";
 
 import { type Text } from "@/text";
 import { type ComponentSize } from "@/util/component";

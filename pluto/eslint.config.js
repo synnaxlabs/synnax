@@ -9,10 +9,6 @@
  * included in the file licenses/APL.txt.
  */
 
-module.exports = {
-    root: true,
-    extends: ["synnaxlabs"],
-    parserOptions: {
-        project: "./tsconfig.json",
-    },
-};
+import synnaxConfig from "eslint-config-synnaxlabs";
+
+export default synnaxConfig;

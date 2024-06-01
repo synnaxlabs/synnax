@@ -8,20 +8,19 @@
 // included in the file licenses/APL.txt.
 
 import {
-  type PropsWithChildren,
-  type ReactElement,
-  createContext,
-  useCallback,
-  useContext,
-} from "react";
-
-import {
   type connection,
   Synnax,
   type SynnaxProps,
   TimeSpan,
 } from "@synnaxlabs/client";
 import { caseconv } from "@synnaxlabs/x";
+import {
+  createContext,
+  type PropsWithChildren,
+  type ReactElement,
+  useCallback,
+  useContext,
+} from "react";
 
 import { Aether } from "@/aether";
 import { useAsyncEffect, useCombinedStateAndRef } from "@/hooks";

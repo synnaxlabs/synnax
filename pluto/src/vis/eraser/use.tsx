@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type PropsWithChildren, useCallback } from "react";
-
 import { box } from "@synnaxlabs/x";
+import { type PropsWithChildren, useCallback } from "react";
 
 import { Aether } from "@/aether";
 import { CSS } from "@/css";

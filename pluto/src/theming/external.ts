@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+export * from "@/theming/core/theme";
 export * from "@/theming/css";
 export * from "@/theming/font";
 export * from "@/theming/index";
 export * from "@/theming/Provider";
-export * from "@/theming/core/theme";

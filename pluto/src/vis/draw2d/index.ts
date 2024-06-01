@@ -9,12 +9,12 @@
 
 import {
   box,
-  direction,
-  xy,
+  Destructor,
   type dimensions,
+  direction,
   location,
   toArray,
-  Destructor,
+  xy,
 } from "@synnaxlabs/x";
 
 import { color } from "@/color/core";

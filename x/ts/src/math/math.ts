@@ -9,7 +9,7 @@ export const sub = <V extends Value>(a: V, b: Value): V => {
 /** @returns the sum of a and b, coercing b to the type of a if necessary. */
 export const add = <V extends Value>(a: V, b: Value): V => {
   if (typeof a === "bigint") return (a + BigInt(b)) as V;
-  // @ts-expect-error
+  // @ts-expect-error - a is a number but typescript doesn't recognize that.
   return (a + Number(b)) as V;
 };
 

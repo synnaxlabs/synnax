@@ -8,6 +8,6 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/color/core/color";
+export * from "@/color/external";
 export * from "@/color/Picker";
 export * from "@/color/Swatch";
-export * from "@/color/external";

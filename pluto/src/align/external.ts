@@ -7,6 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/align/Space";
-export * from "@/align/Pack";
 export * from "@/align/Center";
+export * from "@/align/Pack";
+export * from "@/align/Space";

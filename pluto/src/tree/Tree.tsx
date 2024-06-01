@@ -7,31 +7,34 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/tree/Tree.css";
+
+import { Icon } from "@synnaxlabs/media";
 import {
+  type FC,
+  memo,
   type ReactElement,
   useCallback,
   useMemo,
   useState,
-  type FC,
-  memo,
 } from "react";
-
-import { Icon } from "@synnaxlabs/media";
 
 import { Button } from "@/button";
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
-import { useSyncedRef, useCombinedStateAndRef } from "@/hooks";
+import { useCombinedStateAndRef,useSyncedRef } from "@/hooks";
 import { List } from "@/list";
-import { type UseSelectOnChangeExtra, type UseSelectProps } from "@/list/useSelect";
+import {
+  UseSelectMultipleProps,
+  type UseSelectOnChangeExtra,
+  type UseSelectProps,
+} from "@/list/useSelect";
 import { CONTEXT_SELECTED, CONTEXT_TARGET } from "@/menu/ContextMenu";
 import { state } from "@/state";
 import { Text } from "@/text";
-import { flatten, type Node, type FlattenedNode } from "@/tree/core";
+import { flatten, type FlattenedNode,type Node } from "@/tree/core";
 import { Triggers } from "@/triggers";
-import { type RenderProp, componentRenderProp } from "@/util/renderProp";
-
-import "@/tree/Tree.css";
+import { componentRenderProp,type RenderProp } from "@/util/renderProp";
 
 export const HAUL_TYPE = "tree-item";
 
@@ -53,7 +56,7 @@ export interface UseProps {
 export interface UseReturn {
   selected: string[];
   expanded: string[];
-  onSelect: UseSelectProps<string, FlattenedNode>["onChange"];
+  onSelect: UseSelectMultipleProps<string, FlattenedNode>["onChange"];
   nodes: FlattenedNode[];
 }
 
@@ -140,7 +143,7 @@ export interface TreeProps
     TreePropsInheritedFromList {
   nodes: FlattenedNode[];
   selected?: string[];
-  onSelect: UseSelectProps<string, FlattenedNode>["onChange"];
+  onSelect: UseSelectMultipleProps<string, FlattenedNode>["onChange"];
   children?: RenderProp<ItemProps>;
   virtual?: boolean;
 }

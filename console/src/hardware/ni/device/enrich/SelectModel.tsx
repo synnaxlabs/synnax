@@ -2,6 +2,7 @@ import { type ReactElement } from "react";
 
 import { Select } from "@synnaxlabs/pluto";
 import { type List } from "@synnaxlabs/pluto/list";
+import { Optional } from "@synnaxlabs/x";
 
 interface Model {
   key: string;
@@ -148,8 +149,7 @@ const COLUMNS: Array<List.ColumnSpec<string, Model>> = [
     name: "Name",
   },
 ];
-export interface SelectModelProps
-  extends Omit<Select.SingleProps<string, Model>, "data"> {}
+export interface SelectModelProps extends Select.SingleProps<string, Model> {}
 
 export const SelectModel = (props: SelectModelProps): ReactElement => {
   return <Select.Single<string, Model> {...props} columns={COLUMNS} data={MODELS} />;

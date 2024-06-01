@@ -9,8 +9,8 @@
 
 export * from "@/deep/copy";
 export * from "@/deep/delete";
-export * from "@/deep/path";
+export * from "@/deep/difference";
+export * from "@/deep/equal";
 export * from "@/deep/merge";
 export * from "@/deep/partial";
-export * from "@/deep/equal";
-export * from "@/deep/difference";
+export * from "@/deep/path";

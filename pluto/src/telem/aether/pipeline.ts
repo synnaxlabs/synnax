@@ -13,18 +13,18 @@ import { z } from "zod";
 
 import { type Factory } from "@/telem/aether/factory";
 import {
+  AbstractSink,
   AbstractSource,
+  type Sink,
+  type SinkSpec,
+  sinkSpecZ,
+  type SinkTransformer,
   type Source,
-  type SourceTransformer,
-  type Telem,
-  type Spec,
   type SourceSpec,
   sourceSpecZ,
-  sinkSpecZ,
-  type Sink,
-  type SinkTransformer,
-  AbstractSink,
-  type SinkSpec,
+  type SourceTransformer,
+  type Spec,
+  type Telem,
 } from "@/telem/aether/telem";
 
 const connectionZ = z.object({

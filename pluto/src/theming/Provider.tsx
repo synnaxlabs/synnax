@@ -7,19 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/theming/theme.css";
+
+import { deep } from "@synnaxlabs/x";
 import {
+  createContext,
   type PropsWithChildren,
   type ReactElement,
-  createContext,
+  useCallback,
   useContext as reactUseContext,
   useEffect,
   useLayoutEffect,
   useMemo,
   useState,
-  useCallback,
 } from "react";
-
-import { deep } from "@synnaxlabs/x";
 
 import { Aether } from "@/aether";
 import { CSS } from "@/css";
@@ -27,8 +28,6 @@ import { Input } from "@/input";
 import { type SwitchProps } from "@/input/Switch";
 import { theming } from "@/theming/aether";
 import { toCSSVars } from "@/theming/css";
-
-import "@/theming/theme.css";
 
 export interface ContextValue {
   theme: theming.Theme;

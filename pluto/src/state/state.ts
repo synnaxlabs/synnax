@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useCallback, useState } from "react";
-
 import { type Primitive, type UnknownRecord } from "@synnaxlabs/x";
+import { useState } from "react";
 
 export type State = Primitive | UnknownRecord;
 export type SetFunc<S, PS = S> = (prev: PS) => S;
@@ -63,7 +62,6 @@ export const usePurePassthrough = <S extends State>({
   initial,
   value,
   onChange,
-  callOnChangeIfValueIsUndefined,
 }: UsePurePassthroughProps<S>): PureUseReturn<S> => {
   const [internal, setInternal] = useState<S>(executeInitialSetter(value ?? initial));
   if (value != null && onChange != null) return [value, onChange];

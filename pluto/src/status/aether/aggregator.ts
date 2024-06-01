@@ -11,7 +11,7 @@ import { TimeStamp } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
-import { specZ, type CrudeSpec } from "@/status/aether/types";
+import { type CrudeSpec,specZ } from "@/status/aether/types";
 
 export const aggregatorStateZ = z.object({
   statuses: specZ.array(),

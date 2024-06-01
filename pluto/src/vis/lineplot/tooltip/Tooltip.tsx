@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useCallback, useEffect, useRef } from "react";
-
 import { box, xy } from "@synnaxlabs/x";
+import { type ReactElement, useCallback, useEffect, useRef } from "react";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";

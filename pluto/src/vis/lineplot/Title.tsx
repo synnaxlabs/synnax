@@ -34,7 +34,7 @@ export const Title = <L extends Text.Level = "h2">({
   );
   return (
     <Align.Space justify="center" align="center" style={gridStyle}>
-      {/* @ts-expect-error */}
+      {/* @ts-expect-error  - generic props issues */}
       <Text.MaybeEditable<L> {...props} level={level} />
     </Align.Space>
   );

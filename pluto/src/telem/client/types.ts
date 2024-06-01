@@ -1,4 +1,4 @@
-import { TimeRange, type Series, type channel } from "@synnaxlabs/client";
+import { type channel,type Series, TimeRange } from "@synnaxlabs/client";
 import { type SeriesDigest } from "@synnaxlabs/x/telem";
 
 export class ReadResponse {

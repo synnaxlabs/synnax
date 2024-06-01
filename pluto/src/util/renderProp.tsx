@@ -20,7 +20,7 @@ export const componentRenderProp =
   <P extends Record<string, any>, R = ReactElement | null>(
     Component: React.ComponentType<P>,
   ): RenderProp<P, R> =>
-  // eslint-disable-next-line react/display-name
+   
   ({ key, ...props }) =>
     (<Component key={key} {...(props as P)} />) as R;
 

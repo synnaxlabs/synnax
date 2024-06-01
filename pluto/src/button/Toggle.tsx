@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { FC, type FunctionComponent } from "react";
+import { type FunctionComponent } from "react";
 
 import { Button, type ButtonProps } from "@/button/Button";
 import { Icon } from "@/button/Icon";
@@ -34,7 +34,7 @@ const toggleFactory =
     rightClickToggle = false,
     ...props
   }) => (
-    // @ts-expect-error
+    // @ts-expect-error - generic component issues
     <Base
       {...props}
       checked={value}

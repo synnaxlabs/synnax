@@ -8,13 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import {
-  TimeSpan,
-  TimeStamp,
   bounds,
   box,
-  scale,
   direction,
+  scale,
   throttle,
+  TimeSpan,
+  TimeStamp,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 

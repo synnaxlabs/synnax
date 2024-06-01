@@ -7,17 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useCallback, useState, useLayoutEffect } from "react";
+import "@/nav/Drawer.css";
 
 import { type box, location } from "@synnaxlabs/x";
+import { type ReactElement, useCallback, useLayoutEffect,useState } from "react";
 
 import { Aether } from "@/aether";
 import { CSS } from "@/css";
 import { type BarProps } from "@/nav/Bar";
 import { Resize } from "@/resize";
 import { Eraser } from "@/vis/eraser";
-
-import "@/nav/Drawer.css";
 
 export interface DrawerItem {
   key: string;

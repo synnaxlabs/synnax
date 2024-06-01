@@ -7,16 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  useCallback,
-  type ReactElement,
-  useState,
-  useEffect,
-  type ReactNode,
-} from "react";
+import "@/select/Button.css";
 
 import { Icon } from "@synnaxlabs/media";
-import { type Keyed, type Key } from "@synnaxlabs/x";
+import { type Key,type Keyed } from "@synnaxlabs/x";
+import {
+  type ReactElement,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useState,
+} from "react";
 
 import { Align } from "@/align";
 import { Button as CoreButton } from "@/button";
@@ -25,14 +26,12 @@ import { Dropdown } from "@/dropdown";
 import { type Input } from "@/input";
 import { type List as CoreList } from "@/list";
 import {
-  type UseSelectProps,
   useSelect,
   type UseSelectOnChangeExtra,
+  type UseSelectProps,
 } from "@/list/useSelect";
 import { Core } from "@/select/List";
 import { componentRenderProp, type RenderProp } from "@/util/renderProp";
-
-import "@/select/Button.css";
 
 export interface ButtonOptionProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>>
   extends Pick<CoreButton.ButtonProps, "onClick"> {
@@ -162,8 +161,9 @@ export const DropdownButton = <K extends Key = Key, E extends Keyed<K> = Keyed<K
     setSelected(data?.find((e) => e.key === value) ?? null);
   }, [data, value]);
 
-  const handleChange: UseSelectProps<K, E>["onChange"] = useCallback(
-    (next: K, e: UseSelectOnChangeExtra<K, E>): void => {
+  const handleChange = useCallback(
+    (next: K | K[] | null, e: UseSelectOnChangeExtra<K, E>): void => {
+      if (Array.isArray(next) || next === null) return;
       close();
       if (next == null) {
         setSelected(null);
@@ -177,16 +177,16 @@ export const DropdownButton = <K extends Key = Key, E extends Keyed<K> = Keyed<K
 
   return (
     <Core<K, E>
-      {...props}
       close={close}
       data={data}
       visible={visible}
-      value={[value]}
+      value={value}
       onChange={handleChange}
       allowMultiple={false}
       allowNone={allowNone}
       columns={columns}
       hideColumnHeader={hideColumnHeader}
+      {...props}
     >
       {children({
         selected,

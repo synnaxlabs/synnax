@@ -7,16 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { forwardRef, useCallback } from "react";
+import "@/input/Time.css";
 
 import { TimeSpan, TimeStamp, type TZInfo } from "@synnaxlabs/x";
+import { forwardRef, useCallback } from "react";
 
 import { CSS } from "@/css";
 import { DragButton, type DragButtonExtraProps } from "@/input/DragButton";
 import { Text } from "@/input/Text";
 import { type BaseProps } from "@/input/types";
-
-import "@/input/Time.css";
 
 export const combineDateAndTimeValue = (date: number, time: number): TimeStamp =>
   new TimeStamp(date).add(time).sub(TimeStamp.utcOffset);
@@ -92,7 +91,7 @@ export const useTime = ({ value, onChange, tzInfo }: UseTimeProps): UseTimeRetur
 export const Time = forwardRef<HTMLInputElement, TimeProps>(
   (
     {
-      size = "medium",
+      size,
       value,
       tzInfo = "local",
       onChange,

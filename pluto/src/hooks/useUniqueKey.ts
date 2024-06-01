@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useRef } from "react";
-
 import { customAlphabet } from "nanoid/non-secure";
+import { useRef } from "react";
 
 // NOTE: very important to not add characters to this alphabet that can cause issues
 // with CSS.

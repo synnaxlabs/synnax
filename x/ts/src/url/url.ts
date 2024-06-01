@@ -48,7 +48,7 @@ export const buildQueryString = (
         if (Array.isArray(value)) return value.length > 0;
         return true;
       })
-      // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+       
       .map(([key, value]) => `${prefix}${key}=${value}`)
       .join("&")
   );

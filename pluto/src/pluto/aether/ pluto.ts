@@ -22,12 +22,12 @@ import { diagram } from "@/vis/diagram/aether";
 import { eraser } from "@/vis/eraser/aether";
 import { line } from "@/vis/line/aether";
 import { lineplot } from "@/vis/lineplot/aether";
+import { range } from "@/vis/lineplot/range/aether";
 import { tooltip } from "@/vis/lineplot/tooltip/aether";
 import { measure } from "@/vis/measure/aether";
 import { rule } from "@/vis/rule/aether";
 import { toggle } from "@/vis/toggle/aether";
 import { value } from "@/vis/value/aether";
-import { range } from "@/vis/lineplot/range/aether";
 
 export const render = (): void => {
   // @ts-expect-error - for some reason post-message can't type transfer correctly

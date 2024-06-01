@@ -1,7 +1,7 @@
 import { alamos } from "@synnaxlabs/alamos";
-import { DataType, UnexpectedError, channel } from "@synnaxlabs/client";
+import { channel,DataType, UnexpectedError } from "@synnaxlabs/client";
 import { toArray } from "@synnaxlabs/x";
-import { describe, it, vi, expect } from "vitest";
+import { describe, expect,it, vi } from "vitest";
 
 import { Cache } from "@/telem/client/cache/cache";
 

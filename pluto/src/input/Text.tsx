@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/input/Input.css";
+
 import { forwardRef, useRef } from "react";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
 import { type BaseProps } from "@/input/types";
 import { Text as CoreText } from "@/text";
-
-import "@/input/Input.css";
 
 export interface TextExtraProps {
   selectOnFocus?: boolean;

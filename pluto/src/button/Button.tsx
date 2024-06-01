@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ComponentPropsWithoutRef, type ReactElement } from "react";
+import "@/button/Button.css";
 
 import { Icon } from "@synnaxlabs/media";
 import { TimeSpan } from "@synnaxlabs/x/telem";
 import { toArray } from "@synnaxlabs/x/toArray";
+import { type ComponentPropsWithoutRef, type ReactElement } from "react";
 
 import { type Align } from "@/align";
 import { color } from "@/button/color";
@@ -19,8 +20,6 @@ import { CSS } from "@/css";
 import { Text } from "@/text";
 import { Tooltip } from "@/tooltip";
 import { type ComponentSize } from "@/util/component";
-
-import "@/button/Button.css";
 
 /** The variant of button */
 export type Variant = "filled" | "outlined" | "text";

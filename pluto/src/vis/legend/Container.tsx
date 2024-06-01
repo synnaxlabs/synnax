@@ -7,6 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/vis/legend/Container.css";
+
+import { box, location, scale, xy } from "@synnaxlabs/x";
 import {
   type CSSProperties,
   memo,
@@ -17,8 +20,6 @@ import {
   useState,
 } from "react";
 
-import { box, location, scale, xy } from "@synnaxlabs/x";
-
 import { Align } from "@/align";
 import { CSS } from "@/css";
 import { useSyncedRef } from "@/hooks";
@@ -26,8 +27,6 @@ import { useCursorDrag } from "@/hooks/useCursorDrag";
 import { type OptionalControl } from "@/input/types";
 import { state } from "@/state";
 import { preventDefault } from "@/util/event";
-
-import "@/vis/legend/Container.css";
 
 export interface ContainerProps
   extends Omit<Align.SpaceProps, "onChange">,

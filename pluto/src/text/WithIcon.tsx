@@ -7,18 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Children, cloneElement, type ReactNode, type ReactElement } from "react";
+import "@/text/WithIcon.css";
 
 import { toArray } from "@synnaxlabs/x";
+import { Children, type ReactElement, type ReactNode } from "react";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
 import { Divider } from "@/divider";
 import { type text } from "@/text/core";
-import { type CoreProps, Text, evalColor } from "@/text/Text";
+import { type CoreProps, evalColor, Text } from "@/text/Text";
 import { isValidElement } from "@/util/children";
-
-import "@/text/WithIcon.css";
 
 interface IconProps {
   key?: string | number;

@@ -7,13 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type HTMLAttributes, type PropsWithChildren, type ReactElement } from "react";
+import "@/divider/Divider.css";
 
 import { type direction } from "@synnaxlabs/x/spatial";
+import { type HTMLAttributes, type PropsWithChildren, type ReactElement } from "react";
 
 import { CSS } from "@/css";
-
-import "@/divider/Divider.css";
 
 /** The props for the {@link Divider} component. */
 export interface DividerProps

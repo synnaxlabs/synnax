@@ -10,7 +10,7 @@
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
-import { themeZ, type Theme } from "@/theming/core/theme";
+import { type Theme,themeZ } from "@/theming/core/theme";
 
 const CONTEXT_KEY = "pluto-theming-context";
 

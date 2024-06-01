@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { xy, location, box, direction } from "@synnaxlabs/x";
+import { box, direction, location, xy } from "@synnaxlabs/x";
 
 export interface CheckIntegrityProps {
   sourcePos: xy.XY;
@@ -162,7 +162,7 @@ export const segmentsToPoints = (
     } as const as xy.XY);
 
     return points;
-  } catch (e) {
+  } catch {
     return [];
   }
 };

@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { forwardRef, type ComponentPropsWithoutRef, type ReactElement } from "react";
+import "@/video/Video.css";
+
+import { type ComponentPropsWithoutRef, forwardRef, type ReactElement } from "react";
 
 import { CSS } from "@/css";
-
-import "@/video/Video.css";
 
 export interface VideoProps extends ComponentPropsWithoutRef<"video"> {
   href: string;

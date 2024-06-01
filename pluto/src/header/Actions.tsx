@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Fragment, isValidElement, type ReactElement } from "react";
-
 import { toArray } from "@synnaxlabs/x";
+import { Fragment, isValidElement, type ReactElement } from "react";
 
 import { Align } from "@/align";
 import { Button } from "@/button";
@@ -60,14 +59,13 @@ interface ActionProps {
 const Action = ({ index, level, children, divided }: ActionProps): ReactElement => {
   let content: ReactElement = children as ReactElement;
   if (!isValidElement(children)) {
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
-    const props = children as Button.IconProps;
+    const { onClick, ...props } = children as Button.IconProps;
     content = (
       <Button.Icon
         onClick={(e) => {
           e.stopPropagation();
           e.preventDefault();
-          props.onClick?.(e);
+          onClick?.(e);
         }}
         key={index}
         size={Text.LevelComponentSizes[level]}

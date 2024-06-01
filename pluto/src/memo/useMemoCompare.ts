@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type DependencyList, useRef } from "react";
-
-import { compare, deep } from "@synnaxlabs/x";
 import type { Primitive } from "@synnaxlabs/x";
+import { compare, deep } from "@synnaxlabs/x";
+import { type DependencyList, useRef } from "react";
 
 export const useMemoCompare = <V, D extends DependencyList>(
   factory: () => V,

@@ -7,14 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type channel } from "@synnaxlabs/client";
 import {
   createContext,
   type PropsWithChildren,
-  useEffect,
   useContext as reactUseContext,
+  useEffect,
 } from "react";
-
-import { type channel } from "@synnaxlabs/client";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";

@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useCallback, useEffect, useRef } from "react";
-
 import { xy } from "@synnaxlabs/x";
+import { useCallback, useEffect, useRef } from "react";
 
 import { Aether } from "@/aether";
 import { Triggers } from "@/triggers";
@@ -29,7 +28,7 @@ const MEASURE_TRIGGERS: Triggers.ModeConfig<ClickMode> = {
 
 const REDUCED_MEASURE_TRIGGERS = Triggers.flattenConfig(MEASURE_TRIGGERS);
 
-// eslint-disable-next-line @typescript-eslint/no-empty-interface
+ 
 export interface MeasureProps {}
 
 export const Measure = Aether.wrap<MeasureProps>("Measure", ({ aetherKey }) => {

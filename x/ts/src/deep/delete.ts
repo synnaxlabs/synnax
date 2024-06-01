@@ -18,7 +18,7 @@ export const deleteD = <T extends any, D extends number = 5>(
     let curr: any = target;
     const arr = key.split(".");
     arr.forEach((k, i) => {
-      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+       
       if (i === arr.length - 1) delete curr[k];
       else curr = curr[k];
     });

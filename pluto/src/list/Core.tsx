@@ -7,15 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type ComponentPropsWithoutRef,
-  type ReactElement,
-  useRef,
-  useLayoutEffect,
-} from "react";
+import "@/list/Core.css";
 
 import { bounds, type Key, type Keyed } from "@synnaxlabs/x";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import {
+  type ComponentPropsWithoutRef,
+  type ReactElement,
+  useLayoutEffect,
+  useRef,
+} from "react";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
@@ -25,8 +26,6 @@ import { useHoverContext } from "@/list/Hover";
 import { useInfiniteContext } from "@/list/Infinite";
 import { useSelection, useSelectionContext, useSelectionUtils } from "@/list/Selector";
 import { type ItemRenderProp } from "@/list/types";
-
-import "@/list/Core.css";
 
 export interface VirtualCoreProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>>
   extends Omit<ComponentPropsWithoutRef<"div">, "children"> {

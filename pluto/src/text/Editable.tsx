@@ -7,16 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import "@/text/Editable.css";
+
 import type { KeyboardEvent, ReactElement } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { CSS } from "@/css";
 import { type Input } from "@/input";
 import { type state } from "@/state";
 import { type text } from "@/text/core";
 import { Text, type TextProps } from "@/text/Text";
-
-import "@/text/Editable.css";
 
 export type EditableProps<L extends text.Level = "h1"> = Omit<
   TextProps<L>,
@@ -130,12 +130,12 @@ export const MaybeEditable = <L extends text.Level = text.Level>({
   ...props
 }: MaybeEditableProps<L>): ReactElement => {
   if (disabled || onChange == null || typeof onChange === "boolean")
-    // @ts-expect-error
+    // @ts-expect-error - generic component errors
     return <Text<L> {...props}>{value}</Text>;
 
   return (
     <>
-      {/* @ts-expect-error */}
+      {/* @ts-expect-error - generic component errors */}
       <Editable<L>
         allowDoubleClick={allowDoubleClick}
         onChange={onChange}

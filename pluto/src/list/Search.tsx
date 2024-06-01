@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Icon } from "@synnaxlabs/media";
+import { type AsyncTermSearcher, type Key,type Keyed } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useRef } from "react";
-
-import { type Keyed, type AsyncTermSearcher, type Key } from "@synnaxlabs/x";
 
 import { useSyncedRef } from "@/hooks";
 import { useDebouncedCallback } from "@/hooks/useDebouncedCallback";
@@ -18,8 +18,7 @@ import { useDataUtilContext } from "@/list/Data";
 import { useInfiniteUtilContext } from "@/list/Infinite";
 import { state } from "@/state";
 import { Status } from "@/status";
-import { type RenderProp, componentRenderProp } from "@/util/renderProp";
-import { Icon } from "@synnaxlabs/media";
+import { componentRenderProp,type RenderProp } from "@/util/renderProp";
 
 export interface UseSearchProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>>
   extends Input.OptionalControl<string> {

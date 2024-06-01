@@ -10,15 +10,15 @@
 import { type Instrumentation } from "@synnaxlabs/alamos";
 import { UnexpectedError } from "@synnaxlabs/client";
 import {
-  DataType,
   bounds,
   type box,
-  scale,
-  xy,
-  type Series,
+  DataType,
   type direction,
+  scale,
+  type Series,
   type SeriesDigest,
   TimeSpan,
+  xy,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 

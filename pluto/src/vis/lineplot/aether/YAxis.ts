@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box, bounds, scale, location, xy } from "@synnaxlabs/x";
+import { bounds, box, location, scale, xy } from "@synnaxlabs/x";
 
 import { line } from "@/vis/line/aether";
 import {

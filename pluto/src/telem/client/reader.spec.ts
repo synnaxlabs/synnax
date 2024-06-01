@@ -1,37 +1,27 @@
 import { alamos } from "@synnaxlabs/alamos";
 import {
+  channel,
   DataType,
   Frame,
   Series,
   TimeRange,
   TimeSpan,
-  channel,
 } from "@synnaxlabs/client";
-import { type Mock, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, type Mock, vi } from "vitest";
 
 import { Cache } from "@/telem/client/cache/cache";
-import { type ReadRemoteFunc, Reader } from "@/telem/client/reader";
+import { Reader, type ReadRemoteFunc } from "@/telem/client/reader";
 
 class MockRetriever implements channel.Retriever {
-  async search(
-    term: string,
-    opts?: channel.RetrieveOptions,
-  ): Promise<channel.Payload[]> {
+  async search(): Promise<channel.Payload[]> {
     throw new Error("Method not implemented.");
   }
 
-  async page(
-    offset: number,
-    limit: number,
-    opts?: channel.PageOptions,
-  ): Promise<channel.Payload[]> {
+  async page(): Promise<channel.Payload[]> {
     throw new Error("Method not implemented.");
   }
 
-  async retrieve(
-    channels: channel.Params,
-    opts?: channel.RetrieveOptions,
-  ): Promise<channel.Payload[]> {
+  async retrieve(channels: channel.Params): Promise<channel.Payload[]> {
     const { normalized } = channel.analyzeChannelParams(channels);
     return normalized.map(
       (key) =>

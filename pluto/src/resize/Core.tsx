@@ -7,19 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/resize/Core.css";
+
+import { direction, location } from "@synnaxlabs/x";
 import {
-  forwardRef,
   type DetailedHTMLProps,
+  forwardRef,
   type HTMLAttributes,
   type ReactElement,
 } from "react";
 
-import { direction, location } from "@synnaxlabs/x";
-
 import { CSS } from "@/css";
 import { preventDefault } from "@/util/event";
-
-import "@/resize/Core.css";
 
 export interface CoreProps
   extends DetailedHTMLProps<HTMLAttributes<HTMLDivElement>, HTMLDivElement> {

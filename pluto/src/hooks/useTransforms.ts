@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useCallback, useState } from "react";
-
 import { type ArrayTransform, type ArrayTransformPayload } from "@synnaxlabs/x";
+import { useCallback, useState } from "react";
 
 export interface ArrayTransformEntry<E> {
   transform: ArrayTransform<E>;

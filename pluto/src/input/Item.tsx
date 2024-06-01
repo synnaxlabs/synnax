@@ -7,16 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
+import "@/input/Item.css";
 
 import { direction } from "@synnaxlabs/x";
+import { type ReactElement } from "react";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
 import { HelpText } from "@/input/HelpText";
 import { Label } from "@/input/Label";
-
-import "@/input/Item.css";
 import { status } from "@/status/aether";
 
 export interface ItemProps extends Align.SpaceProps {

@@ -1,13 +1,13 @@
-import { TimeSpan, UnexpectedError, type channel } from "@synnaxlabs/client";
+import { type channel,TimeSpan, UnexpectedError } from "@synnaxlabs/client";
 import { type Required } from "@synnaxlabs/x";
 
+import { DynamicProps } from "@/telem/client/cache/dynamic";
 import {
-  type StaticProps,
   DEFAULT_STATIC_PROPS,
+  type StaticProps,
   zeroCacheGCMetrics,
 } from "@/telem/client/cache/static";
 import { Unary } from "@/telem/client/cache/unary";
-import { DynamicProps } from "@/telem/client/cache/dynamic";
 
 export const CACHE_BUFFER_SIZE: TimeSpan = TimeSpan.seconds(60);
 

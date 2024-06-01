@@ -7,24 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/resize/Multiple.css";
+
+import { box, direction, math,type xy } from "@synnaxlabs/x";
 import {
   Children,
   type ForwardedRef,
   forwardRef,
+  type RefObject,
   useCallback,
-  useState,
   useEffect,
   useRef,
-  type RefObject,
+  useState,
 } from "react";
-
-import { box, direction, type xy, math } from "@synnaxlabs/x";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
 import { Core } from "@/resize/Core";
-
-import "@/resize/Multiple.css";
 
 /** Props for the {@link Resize.Multiple} component. */
 export interface MultipleProps extends Align.SpaceProps {
@@ -238,7 +237,7 @@ const handleResize = (
     clientPos,
     targetSize,
   );
-  let [sizeDistribution, changed] = resizeWithSibling(
+  const [sizeDistribution, changed] = resizeWithSibling(
     prev.sizeDistribution,
     dragging,
     diffPercentage,

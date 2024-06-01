@@ -1,6 +1,6 @@
 import { alamos } from "@synnaxlabs/alamos";
-import { type framer, type channel, type Synnax } from "@synnaxlabs/client";
-import { compare, type AsyncDestructor, type Required } from "@synnaxlabs/x";
+import { type channel, type framer, type Synnax } from "@synnaxlabs/client";
+import { type AsyncDestructor, compare, type Required } from "@synnaxlabs/x";
 import { Mutex } from "async-mutex";
 
 import { type Cache } from "@/telem/client/cache/cache";

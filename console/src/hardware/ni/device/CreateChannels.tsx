@@ -202,11 +202,9 @@ const GroupList = ({
       </Header.Header>
       <List.List<string, GroupConfig> data={value}>
         <List.Selector<string, GroupConfig>
-          allowMultiple={false}
-          // eslint-disable-next-line @typescript-eslint/non-nullable-type-assertion-style
           value={selectedGroup as string}
-          allowNone={false}
-          onChange={(key, { clickedIndex }) =>
+          allowMultiple={false}
+          onChange={(key: string, { clickedIndex }: { clickedIndex: number | null }) =>
             clickedIndex != null && onSelectGroup(key, clickedIndex)
           }
         >
@@ -297,7 +295,7 @@ const GroupListItem = ({
 interface ChannelListProps {
   selectedGroupIndex: number;
   selectedChannels: string[];
-  onSelectChannels: List.UseSelectProps["onChange"];
+  onSelectChannels: List.UseSelectMultipleProps<string, ChannelConfig>["onChange"];
 }
 
 const CHANNEL_LIST_COLUMNS: Array<List.ColumnSpec<string, ChannelConfig>> = [

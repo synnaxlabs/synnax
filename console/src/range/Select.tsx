@@ -18,7 +18,7 @@ import { createEditLayout } from "@/range/EditLayout";
 import { type Range } from "@/range/range";
 
 export interface SelectMultipleRangesProps
-  extends Omit<Select.MultipleProps<string, Range>, "columns"> {}
+  extends Select.MultipleProps<string, Range> {}
 
 export const SelectMultipleRanges = (
   props: SelectMultipleRangesProps,
@@ -26,8 +26,7 @@ export const SelectMultipleRanges = (
   <Select.Multiple columns={listColumns} entryRenderKey="name" {...props} />
 );
 
-export interface SelectSingleRangeProps
-  extends Omit<Select.SingleProps<string, Range>, "columns"> {}
+export interface SelectSingleRangeProps extends Select.SingleProps<string, Range> {}
 
 export const SelectRange = (props: SelectSingleRangeProps): ReactElement => (
   <Select.Single columns={listColumns} {...props} entryRenderKey="name" />
