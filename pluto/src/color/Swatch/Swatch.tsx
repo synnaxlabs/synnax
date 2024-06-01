@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,11 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/color/Swatch/Swatch.css";
+
 import { type ReactElement, useCallback } from "react";
 
 import { Button } from "@/button";
 import { color } from "@/color/core";
-import { type Crude, type Color } from "@/color/core/color";
+import { type Color,type Crude } from "@/color/core/color";
 import { Picker } from "@/color/Picker";
 import { CSS } from "@/css";
 import { Dropdown } from "@/dropdown";
@@ -20,8 +22,6 @@ import { Haul } from "@/haul";
 import { type Input } from "@/input";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
-
-import "@/color/Swatch/Swatch.css";
 
 export interface SwatchProps
   extends Input.Control<Crude, Color>,

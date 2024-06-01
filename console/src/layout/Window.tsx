@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,22 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useEffect } from "react";
+import "@/layout/Window.css";
 
-import { closeWindow, setWindowDecorations } from "@synnaxlabs/drift";
+import { setWindowDecorations } from "@synnaxlabs/drift";
 import { useSelectWindowAttribute, useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Logo } from "@synnaxlabs/media";
-import { Nav, OS, Align, Menu as PMenu, Text } from "@synnaxlabs/pluto";
+import { Align, Menu as PMenu, Nav, OS, Text } from "@synnaxlabs/pluto";
+import { runtime } from "@synnaxlabs/x";
+import { getCurrent } from "@tauri-apps/api/window";
+import { type ReactElement, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
 import { Controls, Menu } from "@/components";
 import { CSS } from "@/css";
 import { Content } from "@/layout/Content";
-import { useSelect } from "@/layout/selectors";
-
-import "@/layout/Window.css";
 import { WindowProps } from "@/layout/layout";
-import { getCurrent } from "@tauri-apps/api/window";
+import { useSelect } from "@/layout/selectors";
 
 export interface NavTopProps extends Pick<WindowProps, "showTitle" | "navTop"> {
   title: string;
@@ -86,7 +86,7 @@ export const DefaultContextMenu = (): ReactElement => (
 export const Window = (): ReactElement | null => {
   const win = useSelectWindowKey(getCurrent().label) ?? "";
   const layout = useSelect(win);
-  const os = OS.use();
+  const os = OS.use({ default: "Windows" }) as runtime.OS;
   const dispatch = useDispatch();
   useEffect(() => {
     if (os === "Windows") dispatch(setWindowDecorations({ value: false }));
@@ -101,7 +101,7 @@ export const Window = (): ReactElement | null => {
         empty
         className={CSS(
           CSS.B("main"),
-          CSS.BM("main", os?.toLowerCase()!),
+          CSS.BM("main", os.toLowerCase()),
           maximized && CSS.BM("main", "maximized"),
         )}
       >

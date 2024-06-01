@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/Logo/LogoWatermark.css";
+
 import { ReactElement } from "react";
 
 import { Logo, LogoProps } from "@/Logo/Logo";
-
-import "@/Logo/LogoWatermark.css";
 
 /**
  * LogoWatermark displays the Synnax logo as a watermark in the center of the

@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useEffect, type PropsWithChildren } from "react";
+import "@/telem/control/Indicator.css";
 
 import { TimeStamp } from "@synnaxlabs/x";
+import { type PropsWithChildren,type ReactElement, useEffect } from "react";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
@@ -19,8 +20,6 @@ import { useMemoDeepEqualProps } from "@/memo";
 import { control } from "@/telem/control/aether";
 import { Text } from "@/text";
 import { Tooltip } from "@/tooltip";
-
-import "@/telem/control/Indicator.css";
 
 export interface IndicatorProps
   extends Omit<z.input<typeof control.indicatorStateZ>, "status" | "color">,

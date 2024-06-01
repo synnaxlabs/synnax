@@ -7,16 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactElement,
-} from "react";
+import "@/hardware/opc/task/ReadTask.css";
 
-import { DataType } from "@synnaxlabs/x/telem";
 import { device, type task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
@@ -28,35 +20,36 @@ import {
   Header,
   Input,
   List,
+  Menu,
+  Nav,
   Status,
   Synnax,
   Text,
   useAsyncEffect,
-  Nav,
-  Menu,
 } from "@synnaxlabs/pluto";
+import { deep } from "@synnaxlabs/x";
+import { DataType } from "@synnaxlabs/x/telem";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { nanoid } from "nanoid";
+import { type ReactElement, useCallback, useMemo, useRef, useState } from "react";
+import { z } from "zod";
+
 import { CSS } from "@/css";
+import { Device } from "@/hardware/opc/device";
+import { SelectNodeRemote } from "@/hardware/opc/device/SelectNode";
 import {
+  Read,
+  READ_TYPE,
   type ReadChannelConfig,
+  type ReadConfig,
   readConfigZ,
+  ReadPayload,
   type ReadState,
   type ReadStateDetails,
-  type ReadConfig,
-  READ_TYPE,
-  Read,
-  ReadPayload,
   ReadType,
   ZERO_READ_PAYLOAD,
 } from "@/hardware/opc/task/types";
 import { type Layout } from "@/layout";
-import { array, z } from "zod";
-import { Device } from "@/hardware/opc/device";
-import { SelectNodeRemote } from "@/hardware/opc/device/SelectNode";
-import { deep } from "@synnaxlabs/x";
-
-import "@/hardware/opc/task/ReadTask.css";
 
 export const configureReadLayout: Layout.State = {
   name: "Configure OPC UA Read Task",
@@ -226,7 +219,10 @@ const Internal = ({ initialValues, task: pTask }: InternalProps): ReactElement =
               {(p) => <Input.Numeric {...p} />}
             </Form.Field>
             <Form.SwitchField label="Array Sampling" path="config.arrayMode" />
-            <Form.Field<number> label={arrayMode ? "Array Size" : "Stream Rate"} path={arrayMode ? "config.arraySize" : "config.streamRate"}>
+            <Form.Field<number>
+              label={arrayMode ? "Array Size" : "Stream Rate"}
+              path={arrayMode ? "config.arraySize" : "config.streamRate"}
+            >
               {(p) => <Input.Numeric {...p} />}
             </Form.Field>
           </Align.Space>
@@ -266,7 +262,10 @@ const Internal = ({ initialValues, task: pTask }: InternalProps): ReactElement =
       <Nav.Bar location="bottom" size={48}>
         <Nav.Bar.Start style={{ paddingLeft: "2rem" }}>
           {taskState?.details?.message != null && taskState.variant != null && (
-            <Status.Text variant={taskState?.variant ?? "error"} level="p">
+            <Status.Text
+              variant={(taskState?.variant ?? "error") as Status.Variant}
+              level="p"
+            >
               {taskState?.details?.message}
             </Status.Text>
           )}
@@ -336,13 +335,14 @@ export const ChannelList = ({
         menu={({ keys }: Menu.ContextMenuMenuProps): ReactElement => {
           const handleSelect = (key: string): void => {
             switch (key) {
-              case "remove":
+              case "remove": {
                 const indices = keys
                   .map((k) => value.findIndex((v) => v.key === k))
                   .filter((i) => i >= 0);
                 remove(indices);
                 onSelect([], 0);
                 break;
+              }
             }
           };
 
@@ -359,8 +359,8 @@ export const ChannelList = ({
         <List.List<string, ReadChannelConfig> data={value}>
           <List.Selector<string, ReadChannelConfig>
             value={selected}
-            allowNone={false}
-            allowMultiple={true}
+            allowNone
+            allowMultiple
             onChange={(keys, { clickedIndex }) =>
               clickedIndex != null && onSelect(keys, clickedIndex)
             }

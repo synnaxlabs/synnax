@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useState, type ReactElement, useCallback } from "react";
+import "@/vis/schematic/Symbols.css";
 
-import { box, xy, location, type UnknownRecord, direction } from "@synnaxlabs/x";
+import { box, direction,location, type UnknownRecord, xy } from "@synnaxlabs/x";
+import { type ReactElement, useCallback,useState } from "react";
 
 import { Aether } from "@/aether";
 import { Align } from "@/align";
@@ -26,8 +27,6 @@ import { Labeled, type LabelExtensionProps } from "@/vis/schematic/Labeled";
 import { Primitives } from "@/vis/schematic/primitives";
 import { Toggle } from "@/vis/toggle";
 import { Value as CoreValue } from "@/vis/value";
-
-import "@/vis/schematic/Symbols.css";
 
 export interface ControlStateProps extends Omit<Align.SpaceProps, "direction"> {
   showChip?: boolean;

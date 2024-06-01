@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -14,11 +14,11 @@ import { type Haul, type Mosaic, Theming } from "@synnaxlabs/pluto";
 import { selectByKey, selectByKeys, useMemoSelect } from "@/hooks";
 import { type State } from "@/layout/layout";
 import {
-  type SliceState,
-  type StoreState,
-  SLICE_NAME,
   type NavdrawerEntryState,
   type NavdrawerLocation,
+  SLICE_NAME,
+  type SliceState,
+  type StoreState,
 } from "@/layout/slice";
 
 /**

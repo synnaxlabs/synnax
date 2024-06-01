@@ -5433,8 +5433,3 @@ dependencies = [
  "quote",
  "syn 1.0.109",
 ]
-
-[[patch.unused]]
-name = "tao"
-version = "0.16.9"
-source = "git+https://github.com/tauri-apps/tao?branch=v0.16#5155c9bc273789b99b094cc0013b0fc4dd9fffad"

@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -48,7 +48,7 @@ export const buildQueryString = (
         if (Array.isArray(value)) return value.length > 0;
         return true;
       })
-      // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+       
       .map(([key, value]) => `${prefix}${key}=${value}`)
       .join("&")
   );

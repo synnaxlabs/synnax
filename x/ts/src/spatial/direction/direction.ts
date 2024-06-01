@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -8,16 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import {
+  type CrudeDirection,
+  crudeDirection,
   type Dimension,
   type Direction,
-  type Location,
   type direction,
   DIRECTIONS,
+  type Location,
+  type SignedDimension,
   Y_LOCATIONS,
   type YLocation,
-  type SignedDimension,
-  crudeDirection,
-  type CrudeDirection,
 } from "@/spatial/base";
 
 export type { Direction, direction };

@@ -1,14 +1,24 @@
+// Copyright 2024 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "@/status/Notification.css";
+
+import { Icon } from "@synnaxlabs/media";
+import { toArray } from "@synnaxlabs/x";
+import { isValidElement, ReactElement } from "react";
+
 import { Align } from "@/align";
 import { Button } from "@/button";
 import { CSS } from "@/css";
 import { NotificationSpec } from "@/status/Aggregator";
 import { Circle } from "@/status/Circle";
 import { Text } from "@/text";
-import { Icon } from "@synnaxlabs/media";
-import { toArray } from "@synnaxlabs/x";
-import { ReactElement, isValidElement } from "react";
-
-import "@/status/Notification.css";
 
 export interface NotificationProps extends Align.SpaceProps {
   status: NotificationSpec;
@@ -84,7 +94,7 @@ export const Notification = ({
           justify="end"
           className={CSS(CSS.BE("notification", "actions"))}
         >
-          {toArray<ReactElement | Button.ButtonProps>(actions).map((a, i) => (
+          {toArray<ReactElement | Button.ButtonProps>(actions).map((a) => (
             <Action key={a.key} action={a} />
           ))}
         </Align.Space>
@@ -99,7 +109,6 @@ interface ActionProps {
 
 const Action = ({ action }: ActionProps): ReactElement => {
   if (!isValidElement(action)) {
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
     const props = action as Button.ButtonProps;
     return <Button.Button {...props} />;
   }

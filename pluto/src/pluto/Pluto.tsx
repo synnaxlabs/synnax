@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -6,6 +6,8 @@
 // As of the Change Date specified in that file, in accordance with the Business Source
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
+
+import "@synnaxlabs/media/dist/style.css";
 
 import { FC, type PropsWithChildren, type ReactElement } from "react";
 
@@ -23,24 +25,20 @@ import { Tooltip } from "@/tooltip";
 import { Triggers } from "@/triggers";
 import { Worker } from "@/worker";
 
-// // @ts-expect-error - unable to resolve valid vite import
-// // eslint-disable-next-line import/no-unresolved
-
-import "@synnaxlabs/media/dist/style.css";
-
 type CanDisabledProps<T extends PropsWithChildren> = T & { disabled?: boolean };
 
-const canDisable =
-  <T extends PropsWithChildren>(C: FC<T>): FC<CanDisabledProps<T>> =>
-  ({ disabled = false, ...props }) =>
+const canDisable = <T extends PropsWithChildren>(C: FC<T>): FC<CanDisabledProps<T>> => {
+  const O: FC<CanDisabledProps<T>> = ({ disabled = false, ...props }) =>
     disabled ? props.children : <C {...(props as T)} />;
+  O.displayName = C.displayName;
+  return O;
+};
 
 const CanDisableTelem = canDisable<Telem.ProviderProps>(Telem.Provider);
 const CanDisableAether = canDisable<Aether.ProviderProps>(Aether.Provider);
 
-export interface ProviderProps
-  extends PropsWithChildren, Synnax.ProviderProps {
-  theming?: Theming.ProviderProps,
+export interface ProviderProps extends PropsWithChildren, Synnax.ProviderProps {
+  theming?: Theming.ProviderProps;
   workerEnabled?: boolean;
   workerURL?: URL | string;
   alamos?: Alamos.ProviderProps;

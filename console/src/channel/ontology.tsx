@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,26 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
-
 import { ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
+  Channel,
   type Haul,
   Menu,
-  Channel,
-  telem,
   type Schematic as PlutoSchematic,
+  telem,
 } from "@synnaxlabs/pluto";
 import { Tree } from "@synnaxlabs/pluto/tree";
+import { type ReactElement } from "react";
 
 import { Menu as ConsoleMenu } from "@/components";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { type Ontology } from "@/ontology";
-import { Schematic } from "@/schematic";
 import { Range } from "@/range";
+import { Schematic } from "@/schematic";
 import { Cluster } from "@/cluster";
 
 const canDrop = (): boolean => false;
@@ -109,7 +108,6 @@ const handleSetAlias = async ({
   name,
   client,
   store,
-  state: { setNodes, nodes },
 }: Ontology.HandleTreeRenameProps): Promise<void> => {
   const activeRange = Range.select(store.getState());
   if (activeRange == null) return;

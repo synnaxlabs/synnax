@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -22,7 +22,7 @@ import {
   payload,
 } from "@/channel/payload";
 import { QueryError } from "@/errors";
-import { type ParamAnalysisResult, analyzeParams } from "@/util/retrieve";
+import { analyzeParams, type ParamAnalysisResult } from "@/util/retrieve";
 import { nullableArrayZ } from "@/util/zod";
 
 const reqZ = z.object({
@@ -76,7 +76,9 @@ export class ClusterRetriever implements Retriever {
   }
 
   async retrieve(channels: Params, options?: RetrieveOptions): Promise<Payload[]> {
-    let { variant, normalized } = analyzeChannelParams(channels);
+    const res = analyzeChannelParams(channels);
+    const { variant } = res;
+    let { normalized } = res;
     if (variant === "keys" && (normalized as Key[]).indexOf(0) !== -1)
       normalized = (normalized as Key[]).filter((k) => k !== 0);
     if (normalized.length === 0) return [];
@@ -185,7 +187,7 @@ export class DebouncedBatchRetriever implements Retriever {
     const { normalized, variant } = analyzeChannelParams(channels);
     // Bypass on name fetches for now.
     if (variant === "names") return await this.wrapped.retrieve(normalized);
-    // eslint-disable-next-line @typescript-eslint/promise-function-async
+
     const a = new Promise<Payload[]>((resolve, reject) => {
       void this.mu.runExclusive(() => {
         this.requests.set(normalized as Key[], { resolve, reject });

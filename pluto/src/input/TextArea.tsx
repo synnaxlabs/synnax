@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/input/TextArea.css";
+
 import { type ComponentPropsWithoutRef, forwardRef } from "react";
 
 import { CSS } from "@/css";
 import { type ExtensionProps } from "@/input/types";
-
-import "@/input/TextArea.css";
 
 type HTMlTextAreaProps = Omit<
   ComponentPropsWithoutRef<"textarea">,
@@ -37,14 +37,12 @@ export interface TextAreaProps extends ExtensionProps<string>, HTMlTextAreaProps
 export const TextArea = forwardRef<HTMLTextAreaElement, TextAreaProps>(
   (
     {
-      size = "medium",
       value,
       style,
       onChange,
       className,
       onFocus,
       selectOnFocus = false,
-      centerPlaceholder = false,
       placeholder,
       variant = "outlined",
       sharp = false,

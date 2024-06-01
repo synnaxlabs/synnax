@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,17 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export { pluto } from "@/pluto/aether";
 export { aether } from "@/aether/aether";
 export { color } from "@/color/core";
+export { pluto } from "@/pluto/aether";
 export { synnax } from "@/synnax/aether";
-export { theming } from "@/theming/aether";
-export { measure } from "@/vis/measure/aether";
-export { diagram } from "@/vis/diagram/aether";
 export { telem } from "@/telem/aether";
-export { rule } from "@/vis/rule/aether";
-export { tooltip } from "@/vis/lineplot/tooltip/aether";
-export { render } from "@/vis/render";
-export { value } from "@/vis/value/aether";
-export { lineplot } from "@/vis/lineplot/aether";
+export { theming } from "@/theming/aether";
 export { canvas } from "@/vis/canvas/aether";
+export { diagram } from "@/vis/diagram/aether";
+export { lineplot } from "@/vis/lineplot/aether";
+export { tooltip } from "@/vis/lineplot/tooltip/aether";
+export { measure } from "@/vis/measure/aether";
+export { render } from "@/vis/render";
+export { rule } from "@/vis/rule/aether";
+export { value } from "@/vis/value/aether";

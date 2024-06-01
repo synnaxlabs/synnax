@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,21 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
+import "@/vis/LayoutSelector.css";
 
 import { Icon } from "@synnaxlabs/media";
-import { Eraser, Button, Text } from "@synnaxlabs/pluto";
+import { Button, Eraser, Text } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
+import { type ReactElement } from "react";
+import { v4 as uuidv4 } from "uuid";
 
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
+import { type State } from "@/layout/layout";
 import { LinePlot } from "@/lineplot";
 import { Schematic } from "@/schematic";
-import { v4 as uuidv4 } from "uuid";
-
-import { type State } from "@/layout/layout";
-
-import "@/vis/LayoutSelector.css";
 
 export interface LayoutSelectorProps extends Align.SpaceProps {
   layoutKey?: string;

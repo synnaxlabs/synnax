@@ -1,3 +1,12 @@
+// Copyright 2024 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import { Synnax, TimeStamp } from "@synnaxlabs/client";
 
 // This example demonstrates how to stream live data from a channel in Synnax.
@@ -19,18 +28,18 @@ const client = new Synnax({
 
 // We can just specify the names of the channels we'd like to stream from.
 const read_from = [
-    "stream_write_example_time", 
-    "stream_write_example_data_1", 
+    "stream_write_example_time",
+    "stream_write_example_data_1",
     "stream_write_example_data_2"
 ]
 
 const streamer = await client.openStreamer(read_from);
 
-// It's very important that we close the streamer when we're done with it to release 
+// It's very important that we close the streamer when we're done with it to release
 // network connections and other resources, so we wrap the streaming loop in a try-finally
 // block.
 try {
-    // Loop through the frames in the streamer. Each iteration will block until a new 
+    // Loop through the frames in the streamer. Each iteration will block until a new
     // frame is available, and then we'll just print out the last sample for each
     // channel in the frame.
     for await (const frame of streamer) console.log(frame.at(-1));

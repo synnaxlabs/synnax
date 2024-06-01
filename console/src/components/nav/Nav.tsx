@@ -1,15 +1,22 @@
-import { type ReactElement } from "react";
+// Copyright 2024 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
 
-import { Nav, Menu as PMenu } from "@synnaxlabs/pluto";
+import { Menu as PMenu, Nav } from "@synnaxlabs/pluto";
 import { Text } from "@synnaxlabs/pluto/text";
 import { location } from "@synnaxlabs/x";
+import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";
 import { Range } from "@/range";
 import { Vis } from "@/vis";
-import { Task } from "@/hardware/task";
 
 export const NAV_DRAWERS: Layout.NavDrawerItem[] = [
   Ontology.Toolbar,

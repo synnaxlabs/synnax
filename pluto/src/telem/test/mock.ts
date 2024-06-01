@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { observe } from "@synnaxlabs/x";
-import { vi, type Mock } from "vitest";
+import { type Mock, vi } from "vitest";
 
 import { type telem } from "@/telem/aether";
 
@@ -87,13 +87,13 @@ export class Provider implements telem.Provider {
   clusterKey: string = "test";
   key: string = "test";
 
-  equals(other: telem.Provider): boolean {
+  equals(): boolean {
     return true;
   }
 
   created: Record<string, telem.Telem> = {};
 
-  registerFactory(f: telem.Factory): void {}
+  registerFactory(): void {}
 
   create<T>(spec: telem.Spec): T {
     const t = FACTORY.create(spec) as T;

@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -20,7 +20,7 @@ export const componentRenderProp =
   <P extends Record<string, any>, R = ReactElement | null>(
     Component: React.ComponentType<P>,
   ): RenderProp<P, R> =>
-  // eslint-disable-next-line react/display-name
+   
   ({ key, ...props }) =>
     (<Component key={key} {...(props as P)} />) as R;
 

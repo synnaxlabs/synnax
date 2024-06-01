@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { box, Destructor, dimensions, scale, xy } from "@synnaxlabs/x";
+
 import { applyOverScan } from "@/vis/render/util";
-import { Destructor, box, dimensions, scale, xy } from "@synnaxlabs/x";
 
 export class SugaredOffscreenCanvasRenderingContext2D
   implements OffscreenCanvasRenderingContext2D
@@ -635,7 +636,7 @@ export class SugaredOffscreenCanvasRenderingContext2D
     e?: unknown,
     f?: unknown,
   ): void {
-    // @ts-expect-error
+    // @ts-expect-error - canvas forwarding
     this.wrapped.setTransform(a, b, c, d, e, f);
   }
 

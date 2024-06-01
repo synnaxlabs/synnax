@@ -1,10 +1,16 @@
-import { propertiesZ } from "@/hardware/opc/device/types";
+// Copyright 2024 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import { Icon } from "@synnaxlabs/media";
 import { Align, Button, Input, Text } from "@synnaxlabs/pluto";
-import { primitiveIsZero } from "@synnaxlabs/x";
 import { open } from "@tauri-apps/plugin-dialog";
-import { readFile } from "@tauri-apps/plugin-fs";
-import { ReactElement, useState } from "react";
+import { ReactElement } from "react";
 
 export interface LoadFileContentsProps
   extends Input.Control<string>,
