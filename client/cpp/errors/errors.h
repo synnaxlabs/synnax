@@ -21,4 +21,6 @@ const std::string AUTH_ERROR = ERROR_PREFIX + "auth";
 const std::string INVALID_TOKEN = AUTH_ERROR + ".invalid-token";
 const std::string INVALID_CREDENTIALS = AUTH_ERROR + ".invalid-credentials";
 const std::string UNEXPECTED_ERROR = ERROR_PREFIX + "unexpected";
+const std::string CONTROL_ERROR = ERROR_PREFIX + "control";
+const std::string UNAUTHORIZED_ERROR = CONTROL_ERROR + ".unauthorized";
 }

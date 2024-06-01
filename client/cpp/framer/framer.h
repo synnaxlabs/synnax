@@ -199,6 +199,10 @@ public:
     /// for reads only after a call to Writer::commit().
     bool enable_auto_commit;
 
+    /// @brief sets whether the writer returns error if the writer attempts to write to a channel
+    /// that it does not have authority to write to. If false, the writer will silently ignore
+    bool err_on_unauthorized = false;
+
     /// @brief sets the interval at which commits will be flushed to disk and durable 
     /// when auto commit is enabled. Setting this value to zero will make all writes 
     /// durable immediately. Lower values will decrease write throughput. Defaults to 
