@@ -16,7 +16,7 @@ export * from "@/cluster/core";
 export * from "@/cluster/Dropdown";
 export * from "@/cluster/link";
 export * from "@/cluster/local";
-export * from "@/cluster/ontology"
+export * from "@/cluster/ontology";
 export * from "@/cluster/palette";
 export * from "@/cluster/selectors";
 export * from "@/cluster/slice";
