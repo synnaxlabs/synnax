@@ -12,7 +12,7 @@ import { dimensions, unique, xy } from "@synnaxlabs/x";
 
 import { log } from "@/debug";
 import { type MainChecker, type Manager, type Properties } from "@/runtime";
-import { setWindowProps, type SetWindowPropsPayload,type SliceState } from "@/state";
+import { setWindowProps, type SetWindowPropsPayload, type SliceState } from "@/state";
 import {
   INITIAL_WINDOW_STATE,
   MAIN_WINDOW,

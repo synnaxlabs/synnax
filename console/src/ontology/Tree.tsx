@@ -20,7 +20,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { Tree as Core } from "@synnaxlabs/pluto/tree";
 import { deep } from "@synnaxlabs/x";
-import { memo, type ReactElement, useCallback, useMemo,useState } from "react";
+import { memo, type ReactElement, useCallback, useMemo, useState } from "react";
 import { useStore } from "react-redux";
 
 import { Layout } from "@/layout";
@@ -411,9 +411,10 @@ export const Tree = (): ReactElement => {
   const item = useCallback(
     (props: Core.ItemProps): ReactElement => (
       <AdapterItem
+        {...props}
+        key={props.entry.key}
         loading={props.entry.key === loading}
         services={services}
-        {...props}
       />
     ),
     [services, loading],

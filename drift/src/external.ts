@@ -14,6 +14,7 @@ export {
   selectWindow,
   selectWindowAttribute,
   selectWindowKey,
+  selectWindows,
 } from "@/selectors";
 export type {
   Action,
@@ -52,6 +53,7 @@ export {
   setWindowResizable,
   setWindowSize,
   setWindowSkipTaskbar,
+  setWindowStage,
   setWindowTitle,
   setWindowVisible,
   SLICE_NAME,

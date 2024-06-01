@@ -11,7 +11,12 @@ import memoize from "proxy-memoize";
 import { useCallback } from "react";
 import { useSelector } from "react-redux";
 
-import { selectWindow, selectWindowAttribute, selectWindowKey } from "@/selectors";
+import {
+  selectWindow,
+  selectWindowAttribute,
+  selectWindowKey,
+  selectWindows,
+} from "@/selectors";
 import { type StoreState } from "@/state";
 import { type WindowState } from "@/window";
 
@@ -29,6 +34,9 @@ export const useSelectWindow = (key?: string): WindowState | null =>
       [key],
     ),
   );
+
+export const useSelectWindows = (): WindowState[] =>
+  useSelector(useCallback(memoize(selectWindows), []));
 
 export const useSelectWindowKey = (label?: string): string | null =>
   useSelector(

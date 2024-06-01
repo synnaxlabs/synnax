@@ -22,7 +22,7 @@ import {
 import { Button } from "@/button";
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
-import { useCombinedStateAndRef,useSyncedRef } from "@/hooks";
+import { useCombinedStateAndRef, useSyncedRef } from "@/hooks";
 import { List } from "@/list";
 import {
   UseSelectMultipleProps,
@@ -32,9 +32,9 @@ import {
 import { CONTEXT_SELECTED, CONTEXT_TARGET } from "@/menu/ContextMenu";
 import { state } from "@/state";
 import { Text } from "@/text";
-import { flatten, type FlattenedNode,type Node } from "@/tree/core";
+import { flatten, type FlattenedNode, type Node } from "@/tree/core";
 import { Triggers } from "@/triggers";
-import { componentRenderProp,type RenderProp } from "@/util/renderProp";
+import { componentRenderProp, type RenderProp } from "@/util/renderProp";
 
 export const HAUL_TYPE = "tree-item";
 
@@ -241,6 +241,7 @@ export const DefaultItem = memo(
       onDragStart: handleDragStart,
       onClick: () => onSelect?.(key),
       style: {
+        border: "none",
         position: translate != null ? "absolute" : "relative",
         transform: `translateY(${translate}px)`,
         [offsetKey]: `${depth * 1.5 + 1}rem`,
@@ -299,7 +300,7 @@ export const Tree = ({
           className={CSS(className, CSS.B("tree"))}
           {...props}
         >
-          {(props) =>
+          {({ key, ...props }) =>
             children({
               ...props,
               useMargin,

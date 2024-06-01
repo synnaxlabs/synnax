@@ -129,6 +129,6 @@ export const configureMiddleware = <
 ): ((def: GetDefaultMiddleware<S>) => M) => {
   return (def) => {
     const base = mw != null ? (typeof mw === "function" ? mw(def) : mw) : def();
-    return [...base, middleware<S, A>(runtime, debug)] as unknown as M;
+    return [middleware<S, A>(runtime, debug), ...base] as unknown as M;
   };
 };

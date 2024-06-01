@@ -10,19 +10,18 @@
 import type { Action, UnknownAction } from "@reduxjs/toolkit";
 import { debounce as debounceF, type dimensions, type xy } from "@synnaxlabs/x";
 import type { Event as TauriEvent, UnlistenFn } from "@tauri-apps/api/event";
-import { listen, emit, TauriEvent as TauriEventKey } from "@tauri-apps/api/event";
-import { WebviewWindow, getCurrent } from "@tauri-apps/api/webviewWindow";
+import { emit, listen, TauriEvent as TauriEventKey } from "@tauri-apps/api/event";
+import { getAll, getCurrent, WebviewWindow } from "@tauri-apps/api/webviewWindow";
 import {
   LogicalPosition,
   LogicalSize,
-  getAll,
   type PhysicalPosition,
   type PhysicalSize,
 } from "@tauri-apps/api/window";
 
 import { type Event, type Runtime } from "@/runtime";
 import { decode, encode } from "@/serialization";
-import { SetWindowPropsPayload, setWindowProps, type StoreState } from "@/state";
+import { setWindowProps, SetWindowPropsPayload, type StoreState } from "@/state";
 import { MAIN_WINDOW, type WindowProps } from "@/window";
 
 const actionEvent = "drift://action";
@@ -49,7 +48,29 @@ export class TauriRuntime<S extends StoreState, A extends Action = UnknownAction
     this.unsubscribe = {};
   }
 
-  async configure(): Promise<void> {}
+  async configure(): Promise<void> {
+    let prevFullscreen = (await this.getProps()).fullscreen;
+    this.fullscreenPoll = setInterval(() => {
+      this.win
+        .isFullscreen()
+        .then((isFullscreen) => {
+          if (isFullscreen !== prevFullscreen) {
+            prevFullscreen = isFullscreen;
+            this.emit(
+              {
+                action: setWindowProps({
+                  label: this.win.label,
+                  fullscreen: isFullscreen,
+                }) as unknown as A,
+              },
+              undefined,
+              "WHITELIST",
+            );
+          }
+        })
+        .catch(console.error);
+    }, 250);
+  }
 
   label(): string {
     return this.win.label;
@@ -137,7 +158,7 @@ export class TauriRuntime<S extends StoreState, A extends Action = UnknownAction
       try {
         await win.destroy();
       } catch (e) {
-        console.error(e);
+        console.error(e, label);
       }
     else
       console.error(
@@ -169,23 +190,6 @@ export class TauriRuntime<S extends StoreState, A extends Action = UnknownAction
 
   async setFullscreen(value: boolean): Promise<void> {
     await this.win.setFullscreen(value);
-    if (value)
-      this.fullscreenPoll = setInterval(() => {
-        this.win
-          .isFullscreen()
-          .then((isFullscreen) => {
-            if (!isFullscreen) {
-              this.emit({
-                action: setWindowProps({
-                  label: this.win.label,
-                  fullscreen: isFullscreen,
-                }) as unknown as A,
-              });
-              if (this.fullscreenPoll != null) clearInterval(this.fullscreenPoll);
-            }
-          })
-          .catch(console.error);
-      }, 250);
   }
 
   async center(): Promise<void> {
@@ -213,7 +217,7 @@ export class TauriRuntime<S extends StoreState, A extends Action = UnknownAction
     // resizable causes issues. To resolve this, we unmount the listener
     if (TauriEventKey.WINDOW_RESIZED in this.unsubscribe && !value) {
       void this.unsubscribe[TauriEventKey.WINDOW_RESIZED]?.();
-      // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+
       delete this.unsubscribe[TauriEventKey.WINDOW_RESIZED];
     }
     return await this.win.setResizable(value);
