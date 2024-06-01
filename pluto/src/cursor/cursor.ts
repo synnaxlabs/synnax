@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -15,7 +15,7 @@ export const setGlobalStyle = (
   cursor: CSSProperties["cursor"],
   el: HTMLElement = document.head,
 ): void => {
-  clearGlobalStyle(el);
+  clearGlobalStyle();
   const cursorStyle = document.createElement("style");
   cursorStyle.innerHTML = `*{cursor: ${cursor as string} !important;}`;
   cursorStyle.id = EL_ID;

@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -8,13 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { Layout } from "@/layout";
-import { Edit,EDIT_LAYOUT_TYPE } from "@/range/EditLayout";
+import { Edit, EDIT_LAYOUT_TYPE } from "@/range/EditLayout";
 import { MetaData, metaDataWindowLayout } from "@/range/MetaData";
 
 export * from "@/range/accordionEntry";
 export * from "@/range/ContextMenu";
 export * from "@/range/EditLayout";
 export * from "@/range/MetaData";
+export * from "@/range/ontology";
 export * from "@/range/palette";
 export * from "@/range/range";
 export * from "@/range/Select";

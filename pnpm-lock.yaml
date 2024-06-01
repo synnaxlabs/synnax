@@ -234,6 +234,9 @@ importers:
       '@tauri-apps/plugin-process':
         specifier: 2.0.0-beta.3
         version: 2.0.0-beta.3
+      '@tauri-apps/plugin-store':
+        specifier: 2.0.0-beta.5
+        version: 2.0.0-beta.5
       '@tauri-apps/plugin-updater':
         specifier: 2.0.0-beta.3
         version: 2.0.0-beta.3
@@ -258,9 +261,6 @@ importers:
       react-redux:
         specifier: ^9.1.0
         version: 9.1.2(@types/react@18.3.2)(react@18.3.1)(redux@5.0.1)
-      tauri-plugin-store-api:
-        specifier: github:tauri-apps/tauri-plugin-store#v2
-        version: '@tauri-apps/plugin-store@https://codeload.github.com/tauri-apps/tauri-plugin-store/tar.gz/970ccd03894fbbb4e2543a801a0aa860fa629425'
       uuid:
         specifier: ^9.0.1
         version: 9.0.1
@@ -2468,9 +2468,8 @@ packages:
   '@tauri-apps/plugin-process@2.0.0-beta.3':
     resolution: {integrity: sha512-N3TkHxoQQb45FP8mbKfcI+e6foR17QlLrrwvPK8SH+LhEP9uo1b5EUvpZM1TIegAmL/3LQIBtJw1loyHVn8Esg==}
 
-  '@tauri-apps/plugin-store@https://codeload.github.com/tauri-apps/tauri-plugin-store/tar.gz/970ccd03894fbbb4e2543a801a0aa860fa629425':
-    resolution: {tarball: https://codeload.github.com/tauri-apps/tauri-plugin-store/tar.gz/970ccd03894fbbb4e2543a801a0aa860fa629425}
-    version: 2.0.0-beta.3
+  '@tauri-apps/plugin-store@2.0.0-beta.5':
+    resolution: {integrity: sha512-lF1OxZv0w45G1eRVtvplNhfsthHuJD17Lx+KDZe46WPwaLbGL9KJE+OYx7c2ek5idU2qBXtx33lWVEu6ghxGJA==}
 
   '@tauri-apps/plugin-updater@2.0.0-beta.3':
     resolution: {integrity: sha512-bD1ikPz80uK9YJKNYpYlA6StSp9lr0Ob1kGLG2XdmOgspv7SZLLNVzMORtKeqgepxwG99qdYGDDegT3Ll6+UlA==}
@@ -8489,7 +8488,7 @@ snapshots:
     dependencies:
       '@tauri-apps/api': 2.0.0-beta.11
 
-  '@tauri-apps/plugin-store@https://codeload.github.com/tauri-apps/tauri-plugin-store/tar.gz/970ccd03894fbbb4e2543a801a0aa860fa629425':
+  '@tauri-apps/plugin-store@2.0.0-beta.5':
     dependencies:
       '@tauri-apps/api': 2.0.0-beta.11
 
