@@ -27,6 +27,7 @@ export const payload = z.object({
   leaseholder: z.number(),
   index: z.number(),
   isIndex: z.boolean(),
+  internal: z.boolean(),
   alias: z.string().optional(),
 });
 
@@ -38,6 +39,7 @@ export const newPayload = payload.extend({
   index: z.number().optional(),
   rate: Rate.z.optional().default(0),
   isIndex: z.boolean().optional(),
+  internal: z.boolean().optional().default(false),
   virtual: z.boolean().optional().default(false),
 });
 

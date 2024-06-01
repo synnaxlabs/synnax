@@ -23,7 +23,7 @@ import { Menu as ConsoleMenu } from "@/components";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
-import { type Ontology } from "@/ontology";
+import { Ontology } from "@/ontology";
 import { Range } from "@/range";
 import { Schematic } from "@/schematic";
 
@@ -150,7 +150,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         break;
       case "delete":
         client.channels
-          .delete(resources.map(({ id }) => Number(id.key)))
+          .delete(
+            resources.filter((r) => !r.data?.internal).map(({ id }) => Number(id.key)),
+          )
           .catch((e: Error) => {
             addStatus({
               variant: "error",
@@ -166,6 +168,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   };
 
   const singleResource = selection.resources.length === 1;
+  const someDeletable = selection.resources.some((r) => !r.data?.internal);
 
   return (
     <Menu.Menu level="small" iconSpacing="small" onChange={handleSelect}>
@@ -183,9 +186,11 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           </Menu.Item>
         </>
       )}
-      <Menu.Item itemKey="delete" startIcon={<Icon.Delete />}>
-        Delete
-      </Menu.Item>
+      {someDeletable && (
+        <Menu.Item itemKey="delete" startIcon={<Icon.Delete />}>
+          Delete
+        </Menu.Item>
+      )}
     </Menu.Menu>
   );
 };

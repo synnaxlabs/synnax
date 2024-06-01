@@ -67,6 +67,7 @@ export const Create: Layout.Renderer = ({
       name: "",
       index: 0,
       dataType: "float32",
+      internal: false,
       isIndex: false,
       leaseholder: 0,
       rate: Rate.hz(0),

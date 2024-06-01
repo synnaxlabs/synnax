@@ -17,7 +17,7 @@ import { Device } from "@/hardware/device";
 import { Task } from "@/hardware/task";
 import { LinePlot } from "@/lineplot";
 import { Builtin } from "@/ontology/builtin";
-import { type Service } from "@/ontology/service";
+import { type Service, type Services } from "@/ontology/service";
 import { Range } from "@/range";
 import { Schematic } from "@/schematic";
 import { User } from "@/user";
@@ -36,7 +36,7 @@ export const EMPTY_ONTOLOGY_SERVICE: Service = {
   onRename: () => {},
 };
 
-export const SERVICES: Record<ontology.ResourceType, Service> = {
+export const SERVICES: Services = {
   schematic: Schematic.ONTOLOGY_SERVICE,
   cluster: Cluster.ONTOLOGY_SERVICE,
   user: User.ONTOLOGY_SERVICE,

@@ -90,6 +90,10 @@ export class Channel {
    */
   readonly isIndex: boolean;
   /**
+   * This is set to true if the channel is an internal channel, and false otherwise.
+   */
+  readonly internal: boolean;
+  /**
    * An alias for the channel under a specific range. This parameter is unstable and
    * should not be relied upon in the current version of Synnax.
    */
@@ -103,6 +107,7 @@ export class Channel {
     key = 0,
     isIndex = false,
     index = 0,
+    internal = false,
     frameClient,
     alias,
   }: NewPayload & {
@@ -116,6 +121,7 @@ export class Channel {
     this.leaseholder = leaseholder;
     this.index = index;
     this.isIndex = isIndex;
+    this.internal = internal;
     this.alias = alias;
     this._frameClient = frameClient ?? null;
   }
@@ -140,6 +146,7 @@ export class Channel {
       leaseholder: this.leaseholder,
       index: this.index,
       isIndex: this.isIndex,
+      internal: this.internal,
     });
   }
 
