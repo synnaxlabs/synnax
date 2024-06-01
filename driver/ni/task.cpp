@@ -22,10 +22,10 @@
 ni::ScannerTask::ScannerTask(
         const std::shared_ptr <task::Context> &ctx,
         synnax::Task task
-) : running(false), scanner(ctx, task), ctx(ctx), task(task){
+) : running(true), scanner(ctx, task), ctx(ctx), task(task){
     //begin scanning on construction
-    // LOG(INFO) << "[NI Task] constructing scanner task " << this->task.name;
-    // thread = std::thread(&ni::ScannerTask::run, this);
+    LOG(INFO) << "[NI Task] constructing scanner task " << this->task.name;
+    thread = std::thread(&ni::ScannerTask::run, this);
 }
 
 std::unique_ptr <task::Task> ni::ScannerTask::configure(
@@ -59,17 +59,17 @@ void ni::ScannerTask::exec(task::Command &cmd) {
                                   .details = {"message", "failed to scan"}
                           });
             LOG(ERROR) << "[NI Task] failed to scan for task " << this->task.name;
-        } //else {
-        //    auto devices = scanner.getDevices(); // TODO remove and dont send in details
-        //     ctx->setState({
-        //                           .task = task.key,
-        //                           .variant = "success",
-        //                           .details = {
-        //                                   {"devices", devices.dump(4)}
-        //                           }
-        //                   });
-        //     LOG(INFO) << "[NI Task] successfully scanned for task " << this->task.name;
-        // }
+        } else {
+            auto devices = scanner.getDevices(); // TODO remove and dont send in details
+            ctx->setState({
+                                  .task = task.key,
+                                  .variant = "success",
+                                  .details = {
+                                          {"devices", devices.dump(4)}
+                                  }
+                          });
+            // LOG(INFO) << "[NI Task] successfully scanned for task " << this->task.name;
+        }
     } else if (cmd.type == "stop"){
         this->stop();
     }else {
@@ -139,11 +139,13 @@ std::unique_ptr <task::Task> ni::ReaderTask::configure(const std::shared_ptr <ta
     std::unique_ptr<pipeline::Source> daq_reader;
     std::vector <synnax::ChannelKey> channel_keys;
     if(task.type == "ni_digital_read"){
+        LOG(INFO) << "[NI Task] configuring digital reader task " << task.name;
         auto digital_reader = std::make_unique<ni::DigitalReadSource>(task_handle, ctx, task);
         digital_reader->init();
         channel_keys = digital_reader->getChannelKeys();
         daq_reader = std::move(digital_reader);
     } else{
+        LOG(INFO) << "[NI Task] configuring analog reader task " << task.name;
         auto analog_reader = std::make_unique<ni::AnalogReadSource>(task_handle, ctx, task);
         analog_reader->init();
         channel_keys = analog_reader->getChannelKeys();
@@ -166,6 +168,7 @@ std::unique_ptr <task::Task> ni::ReaderTask::configure(const std::shared_ptr <ta
                     {"running", false}
             }
     });
+    LOG(INFO) << "[NI Task] successfully configured task " << task.name;
     
     return std::make_unique<ni::ReaderTask>(    ctx, 
                                                 task, 
@@ -251,10 +254,15 @@ std::unique_ptr <task::Task> ni::WriterTask::configure(const std::shared_ptr <ta
             .scale = 1.2,
     };
 
+    LOG(INFO) << "[NI Task] configuring task " << task.name;
+
     TaskHandle task_handle;
     // create a daq reader to provide to cmd read pipe as sink
     ni::NiDAQmxInterface::CreateTask("", &task_handle);
-    auto daq_writer = std::make_unique<ni::DigitalWriteSink>(&task_handle, ctx, task);
+    //print taskhandle
+    LOG(INFO) << "Task handle: " << task_handle;
+
+    auto daq_writer = std::make_unique<ni::DigitalWriteSink>(task_handle, ctx, task);
     if (!daq_writer->ok()) {
         LOG(ERROR) << "[NI Writer] failed to construct reader for" << task.name;
         return nullptr;
@@ -285,7 +293,17 @@ std::unique_ptr <task::Task> ni::WriterTask::configure(const std::shared_ptr <ta
         }
     });
 
-    return std::make_unique<ni::WriterTask>(ctx, task, std::move(daq_writer), daq_writer->writer_state_source, writer_config, streamer_config, breaker_config);
+    auto state_writer = daq_writer->writer_state_source;
+
+    LOG(INFO) << "[NI Task] successfully configured task " << task.name;
+
+    return std::make_unique<ni::WriterTask>(    ctx, 
+                                                task, 
+                                                std::move(daq_writer), 
+                                                state_writer, 
+                                                writer_config, 
+                                                streamer_config, 
+                                                breaker_config);
 }
 
 void ni::WriterTask::exec(task::Command &cmd) {
@@ -296,24 +314,6 @@ void ni::WriterTask::exec(task::Command &cmd) {
     } else {
         LOG(ERROR) << "unknown command type: " << cmd.type;
     }
-}
-
-
-void ni::WriterTask::stop(){
-    if(!this->running.exchange(false) || !this->ok()){
-        return; // TODO: handle this error
-    }
-    this->state_write_pipe.stop();
-    this->cmd_write_pipe.stop();
-
-    ctx->setState({
-                            .task = task.key,
-                            .variant = "success",
-                            .details = {
-                                    {"running", false}
-                            }
-                    });
-    LOG(INFO) << "[NI Task] successfully stopped task " << this->task.name;
 }
 
 
@@ -335,7 +335,27 @@ void ni::WriterTask::start(){
 }
 
 
+void ni::WriterTask::stop(){
+    if(!this->running.exchange(false) || !this->ok()){
+        LOG(INFO) << "[NI Task] did not stop " << this->task.name << " running: " << this->running << " ok: " << this->ok();
+        return; // TODO: handle this error
+    }
+    this->state_write_pipe.stop();
+    this->cmd_write_pipe.stop();
+
+    ctx->setState({
+                        .task = task.key,
+                        .variant = "success",
+                        .details = {
+                                {"running", false}
+                        }
+                    });
+    LOG(INFO) << "[NI Task] successfully stopped task " << this->task.name;
+}
+
+
 
 bool ni::WriterTask::ok() {
     return this->ok_state;
 }
+
