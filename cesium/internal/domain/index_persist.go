@@ -38,12 +38,13 @@ func (ip *indexPersist) load() ([]pointer, error) {
 
 func (ip *indexPersist) preparePointersPersist(start int) func() error {
 	pointerEncoded := ip.p.encode(start, ip.idx.mu.pointers)
+	lenOfPointers := len(ip.idx.mu.pointers)
 
 	return func() error {
 		ip.p.Lock()
 		defer ip.p.Unlock()
 
-		err := ip.p.Truncate(int64(len(ip.idx.mu.pointers)) * pointerByteSize)
+		err := ip.p.Truncate(int64(lenOfPointers) * pointerByteSize)
 		if err != nil {
 			return err
 		}

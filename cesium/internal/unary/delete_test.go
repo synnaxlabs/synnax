@@ -20,7 +20,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("Delete", Ordered, func() {
+var _ = Describe("Delete", func() {
 	for fsName, makeFS := range fileSystems {
 		Context("FS:"+fsName, func() {
 			var (
@@ -101,11 +101,11 @@ var _ = Describe("Delete", Ordered, func() {
 						frame := MustSucceed(rateDB.Read(ctx, telem.TimeRangeMax))
 						Expect(frame.Series).To(HaveLen(2))
 
-						Expect(frame.Series[0].TimeRange.End).To(Equal(13*telem.SecondTS + 500*telem.MillisecondTS))
+						Expect(frame.Series[0].TimeRange.End).To(Equal(13*telem.SecondTS + 1))
 						series0Data := telem.UnmarshalSlice[int](frame.Series[0].Data, telem.Int64T)
 						Expect(series0Data).To(ConsistOf(10, 11, 12, 13))
 
-						Expect(frame.Series[1].TimeRange.Start).To(Equal(16*telem.SecondTS + 500*telem.MillisecondTS))
+						Expect(frame.Series[1].TimeRange.Start).To(Equal(17 * telem.SecondTS))
 						series1Data := telem.UnmarshalSlice[int](frame.Series[1].Data, telem.Int64T)
 						Expect(series1Data).To(ConsistOf(17, 18))
 					})
@@ -118,7 +118,7 @@ var _ = Describe("Delete", Ordered, func() {
 						frame := MustSucceed(rateDB.Read(ctx, telem.TimeRangeMax))
 						Expect(frame.Series).To(HaveLen(1))
 
-						Expect(frame.Series[0].TimeRange.End).To(Equal(13*telem.SecondTS + 500*telem.MillisecondTS))
+						Expect(frame.Series[0].TimeRange.End).To(Equal(13*telem.SecondTS + 1))
 						series0Data := telem.UnmarshalSlice[int](frame.Series[0].Data, telem.Int64T)
 						Expect(series0Data).To(ConsistOf(10, 11, 12, 13))
 					})
@@ -131,7 +131,7 @@ var _ = Describe("Delete", Ordered, func() {
 						frame := MustSucceed(rateDB.Read(ctx, telem.TimeRangeMax))
 						Expect(frame.Series).To(HaveLen(1))
 
-						Expect(frame.Series[0].TimeRange.Start).To(Equal(16*telem.SecondTS + 500*telem.MillisecondTS))
+						Expect(frame.Series[0].TimeRange.Start).To(Equal(17 * telem.SecondTS))
 						series0Data := telem.UnmarshalSlice[int](frame.Series[0].Data, telem.Int64T)
 						Expect(series0Data).To(ConsistOf(17, 18))
 					})
@@ -144,7 +144,7 @@ var _ = Describe("Delete", Ordered, func() {
 						frame := MustSucceed(rateDB.Read(ctx, telem.TimeRangeMax))
 						Expect(frame.Series).To(HaveLen(1))
 
-						Expect(frame.Series[0].TimeRange.Start).To(Equal(17*telem.SecondTS + 500*telem.MillisecondTS))
+						Expect(frame.Series[0].TimeRange.Start).To(Equal(18 * telem.SecondTS))
 						series0Data := telem.UnmarshalSlice[int](frame.Series[0].Data, telem.Int64T)
 						Expect(series0Data).To(ConsistOf(18))
 					})
@@ -157,7 +157,7 @@ var _ = Describe("Delete", Ordered, func() {
 						frame := MustSucceed(rateDB.Read(ctx, telem.TimeRangeMax))
 						Expect(frame.Series).To(HaveLen(1))
 
-						Expect(frame.Series[0].TimeRange.End).To(Equal(13*telem.SecondTS + 500*telem.MillisecondTS))
+						Expect(frame.Series[0].TimeRange.End).To(Equal(13*telem.SecondTS + 1))
 						series0Data := telem.UnmarshalSlice[int](frame.Series[0].Data, telem.Int64T)
 						Expect(series0Data).To(ConsistOf(10, 11, 12, 13))
 					})
@@ -186,7 +186,7 @@ var _ = Describe("Delete", Ordered, func() {
 						series0Data := telem.UnmarshalSlice[int64](frame.Series[0].Data, telem.Int64T)
 						Expect(series0Data).To(ConsistOf(int64(10)))
 
-						Expect(frame.Series[1].TimeRange.Start).To(Equal(14*telem.SecondTS + 1))
+						Expect(frame.Series[1].TimeRange.Start).To(Equal(15 * telem.SecondTS))
 						series1Data := telem.UnmarshalSlice[int](frame.Series[1].Data, telem.Int64T)
 						Expect(series1Data).To(ConsistOf(15, 16, 17, 18))
 					})
@@ -216,26 +216,25 @@ var _ = Describe("Delete", Ordered, func() {
 						Expect(series1Data).To(ConsistOf(7, 8, 9))
 					})
 					It("Should delete chunks of a channel without exact timestamps", func() {
-						Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18, 19))).To(Succeed())
-						Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewSeriesV[int64](0, 1, 2, 3, 4, 5, 6, 7, 8, 9))).To(Succeed())
+						Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 12, 15, 17, 19, 20, 23))).To(Succeed())
+						Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewSeriesV[int64](10, 12, 15, 17, 19, 20, 23))).To(Succeed())
 
 						By("Deleting channel data")
-						Expect(db.Delete(ctx, telem.TimeRange{
-							Start: 12*telem.SecondTS + 300*telem.MillisecondTS,
-							End:   17*telem.SecondTS + 1,
-						})).To(Succeed())
+						// 10 12 / 17 19 20 23
+						Expect(db.Delete(ctx, (13 * telem.SecondTS).Range(16*telem.SecondTS))).To(Succeed())
+						Expect(db.Delete(ctx, (19 * telem.SecondTS).Range(21*telem.SecondTS))).To(Succeed())
+						Expect(db.Delete(ctx, (11 * telem.SecondTS).Range(14*telem.SecondTS))).To(Succeed())
 
-						frame, err := db.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 20 * telem.SecondTS})
+						frame, err := db.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 25 * telem.SecondTS})
 						Expect(err).ToNot(HaveOccurred())
-						Expect(frame.Series).To(HaveLen(2))
+						Expect(frame.Series).To(HaveLen(3))
 
-						Expect(frame.Series[0].TimeRange.End).To(Equal(12*telem.SecondTS + 300*telem.MillisecondTS))
-						series0Data := telem.UnmarshalSlice[int](frame.Series[0].Data, telem.Int64T)
-						Expect(series0Data).To(ConsistOf(0, 1, 2))
-
-						Expect(frame.Series[1].TimeRange.Start).To(Equal(17*telem.SecondTS + 1))
-						series1Data := telem.UnmarshalSlice[int](frame.Series[1].Data, telem.Int64T)
-						Expect(series1Data).To(ConsistOf(8, 9))
+						Expect(frame.Series[0].TimeRange.End).To(Equal(10*telem.SecondTS + 1))
+						Expect(frame.Series[0].Data).To(Equal(telem.NewSeriesV[int64](10).Data))
+						Expect(frame.Series[1].TimeRange).To(Equal((17 * telem.SecondTS).Range(19 * telem.SecondTS)))
+						Expect(frame.Series[1].Data).To(Equal(telem.NewSeriesV[int64](17).Data))
+						Expect(frame.Series[2].TimeRange).To(Equal((23 * telem.SecondTS).Range(23*telem.SecondTS + 1)))
+						Expect(frame.Series[2].Data).To(Equal(telem.NewSeriesV[int64](23).Data))
 					})
 					It("Should delete chunks of a channel if the start is out of the pointer", func() {
 						Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18, 19))).To(Succeed())
@@ -251,7 +250,7 @@ var _ = Describe("Delete", Ordered, func() {
 						Expect(err).ToNot(HaveOccurred())
 						Expect(frame.Series).To(HaveLen(1))
 
-						Expect(frame.Series[0].TimeRange.Start).To(Equal(17*telem.SecondTS + 1))
+						Expect(frame.Series[0].TimeRange.Start).To(Equal(18 * telem.SecondTS))
 						series1Data := telem.UnmarshalSlice[int](frame.Series[0].Data, telem.Int64T)
 						Expect(series1Data).To(ConsistOf(8, 9))
 					})
@@ -324,11 +323,11 @@ var _ = Describe("Delete", Ordered, func() {
 						Expect(err).ToNot(HaveOccurred())
 
 						Expect(frame.Series).To(HaveLen(2))
-						Expect(frame.Series[0].TimeRange.End).To(Equal(12*telem.SecondTS + 300*telem.MillisecondTS))
+						Expect(frame.Series[0].TimeRange.End).To(Equal(12*telem.SecondTS + 1))
 						series0Data := telem.UnmarshalSlice[telem.TimeStamp](frame.Series[0].Data, telem.TimeStampT)
 						Expect(series0Data).To(ConsistOf(10*telem.SecondTS, 11*telem.SecondTS, 12*telem.SecondTS))
 
-						Expect(frame.Series[1].TimeRange.Start).To(Equal(17*telem.SecondTS + 1))
+						Expect(frame.Series[1].TimeRange.Start).To(Equal(18 * telem.SecondTS))
 						series1Data := telem.UnmarshalSlice[telem.TimeStamp](frame.Series[1].Data, telem.TimeStampT)
 						Expect(series1Data).To(ConsistOf(18*telem.SecondTS, 19*telem.SecondTS))
 					})
@@ -346,7 +345,7 @@ var _ = Describe("Delete", Ordered, func() {
 
 						Expect(frame.Series).To(HaveLen(1))
 
-						Expect(frame.Series[0].TimeRange.Start).To(Equal(17*telem.SecondTS + 1))
+						Expect(frame.Series[0].TimeRange.Start).To(Equal(18 * telem.SecondTS))
 						series1Data := telem.UnmarshalSlice[telem.TimeStamp](frame.Series[0].Data, telem.TimeStampT)
 						Expect(series1Data).To(ConsistOf(18*telem.SecondTS, 19*telem.SecondTS))
 					})
@@ -363,7 +362,7 @@ var _ = Describe("Delete", Ordered, func() {
 						Expect(err).ToNot(HaveOccurred())
 
 						Expect(frame.Series).To(HaveLen(1))
-						Expect(frame.Series[0].TimeRange.End).To(Equal(12*telem.SecondTS + 300*telem.MillisecondTS))
+						Expect(frame.Series[0].TimeRange.End).To(Equal(12*telem.SecondTS + 1))
 						series0Data := telem.UnmarshalSlice[telem.TimeStamp](frame.Series[0].Data, telem.TimeStampT)
 						Expect(series0Data).To(ConsistOf(10*telem.SecondTS, 11*telem.SecondTS, 12*telem.SecondTS))
 					})
@@ -461,11 +460,11 @@ var _ = Describe("Delete", Ordered, func() {
 							Expect(err).ToNot(HaveOccurred())
 							Expect(frame.Series).To(HaveLen(2))
 
-							Expect(frame.Series[0].TimeRange.End).To(Equal(13*telem.SecondTS + 400*telem.MillisecondTS))
+							Expect(frame.Series[0].TimeRange.End).To(Equal(13*telem.SecondTS + 1))
 							series0Data := telem.UnmarshalSlice[int](frame.Series[0].Data, telem.Int64T)
 							Expect(series0Data).To(ConsistOf(10, 13))
 
-							Expect(frame.Series[1].TimeRange.Start).To(Equal(24 * telem.SecondTS))
+							Expect(frame.Series[1].TimeRange.Start).To(Equal(25100 * telem.MillisecondTS))
 							series1Data := telem.UnmarshalSlice[int](frame.Series[1].Data, telem.Int64T)
 							Expect(series1Data).To(ConsistOf(251, 278))
 						})
@@ -639,7 +638,7 @@ var _ = Describe("Delete", Ordered, func() {
 					Expect(err).ToNot(HaveOccurred())
 					Expect(frame.Series).To(HaveLen(3))
 
-					Expect(frame.Series[0].TimeRange.End).To(Equal(12*telem.SecondTS + 500*telem.MillisecondTS))
+					Expect(frame.Series[0].TimeRange.End).To(Equal(12*telem.SecondTS + 1))
 					series0Data := telem.UnmarshalSlice[telem.TimeStamp](frame.Series[0].Data, telem.TimeStampT)
 					Expect(series0Data).To(ConsistOf(10*telem.SecondTS, 11*telem.SecondTS, 12*telem.SecondTS))
 
@@ -655,11 +654,11 @@ var _ = Describe("Delete", Ordered, func() {
 					Expect(err).ToNot(HaveOccurred())
 					Expect(frame.Series).To(HaveLen(2))
 
-					Expect(frame.Series[0].TimeRange.End).To(Equal(12*telem.SecondTS + 500*telem.MillisecondTS))
+					Expect(frame.Series[0].TimeRange.End).To(Equal(12*telem.SecondTS + 1))
 					series0Data := telem.UnmarshalSlice[telem.TimeStamp](frame.Series[0].Data, telem.TimeStampT)
 					Expect(series0Data).To(ConsistOf(10*telem.SecondTS, 11*telem.SecondTS, 12*telem.SecondTS))
 
-					Expect(frame.Series[1].TimeRange.Start).To(Equal(32 * telem.SecondTS))
+					Expect(frame.Series[1].TimeRange.Start).To(Equal(33 * telem.SecondTS))
 					Expect(frame.Series[1].TimeRange.End).To(Equal(37*telem.SecondTS + 1))
 					series1Data := telem.UnmarshalSlice[telem.TimeStamp](frame.Series[1].Data, telem.TimeStampT)
 					Expect(series1Data).To(ConsistOf(33*telem.SecondTS, 34*telem.SecondTS, 35*telem.SecondTS, 36*telem.SecondTS, 37*telem.SecondTS))
@@ -671,7 +670,7 @@ var _ = Describe("Delete", Ordered, func() {
 					Expect(err).ToNot(HaveOccurred())
 					Expect(frame.Series).To(HaveLen(2))
 
-					Expect(frame.Series[0].TimeRange.End).To(Equal(12*telem.SecondTS + 500*telem.MillisecondTS))
+					Expect(frame.Series[0].TimeRange.End).To(Equal(12*telem.SecondTS + 1))
 					series0Data := telem.UnmarshalSlice[telem.TimeStamp](frame.Series[0].Data, telem.TimeStampT)
 					Expect(series0Data).To(ConsistOf(10*telem.SecondTS, 11*telem.SecondTS, 12*telem.SecondTS))
 

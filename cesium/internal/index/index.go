@@ -29,10 +29,10 @@ func NewErrDiscontinuousStamp(offset int64, domainLen int64) error {
 
 // Index implements an index over a time series.
 type Index interface {
-	// Distance calculates an approximate distance (number of samples) between the start
-	// and end timestamps of the given time range. If continuous is true, the index
-	// will return an error if the underlying telemetry has discontinuities across the
-	// time range.
+	// Distance calculates an approximate distance (arithmetic difference in offset)
+	// between the start and end timestamps of the given time range. If continuous is
+	// true, the index will return an error if the underlying telemetry has
+	// discontinuities across the time range.
 	//
 	// The distance is approximated using a lower and upper bound. The underlying time
 	// series can be viewed as a contiguous slice of timestamps, where each timestamp

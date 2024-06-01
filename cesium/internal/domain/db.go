@@ -161,6 +161,11 @@ func (db *DB) NewIterator(cfg IteratorConfig) *Iterator {
 	return i
 }
 
+func (db *DB) NewLockedIterator(cfg IteratorConfig) (*Iterator, func()) {
+	db.idx.mu.Lock()
+	return db.NewIterator(cfg), func() { db.idx.mu.Unlock() }
+}
+
 func (db *DB) newReader(ctx context.Context, ptr pointer) (*Reader, error) {
 	internal, err := db.files.acquireReader(ctx, ptr.fileKey)
 	if err != nil {

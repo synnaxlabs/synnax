@@ -44,8 +44,8 @@ var _ = Describe("Index Persist", Ordered, func() {
 					Expect(domain.Write(ctx, db, (40 * telem.SecondTS).Range(42*telem.SecondTS+1), []byte{40, 41, 42})).To(Succeed())
 
 					By("Deleting some data")
-					Expect(db.Delete(ctx, 2, 1, (12 * telem.SecondTS).Range(15*telem.SecondTS))).To(Succeed())
-					Expect(db.Delete(ctx, 1, 1, (27 * telem.SecondTS).Range(30*telem.SecondTS))).To(Succeed())
+					Expect(db.Delete(ctx, createCalcOffset(2, 5), (12 * telem.SecondTS).Range(15*telem.SecondTS), telem.Density(1))).To(Succeed())
+					Expect(db.Delete(ctx, createCalcOffset(1, 2), (27 * telem.SecondTS).Range(30*telem.SecondTS), telem.Density(1))).To(Succeed())
 
 					By("Re-opening the database")
 					Expect(db.Close()).To(Succeed())
