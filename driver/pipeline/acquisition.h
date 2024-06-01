@@ -43,6 +43,9 @@ public:
         const breaker::Config &breaker_config
     );
 
+    ~Acquisition(){
+        LOG(INFO) << "Acquisition destructor called";
+    }
 
 private:
     /// @brief context for issuing state updates to the task.

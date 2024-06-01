@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -100,7 +100,7 @@ export const get = (<V = unknown, T = UnknownRecord>(
   if (parts.length === 1 && parts[0] === "") return obj as unknown as V;
   let result: UnknownRecord = obj as UnknownRecord;
   for (const part of parts) {
-    let v = getter(result, part);
+    const v = getter(result, part);
     if (v == null) {
       if (allowNull) return null;
       throw new Error(`Path ${path} does not exist. ${part} is null`);

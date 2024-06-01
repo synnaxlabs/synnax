@@ -7,17 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
+import "@/hardware/status/Status.css";
 
 import { Align } from "@synnaxlabs/pluto";
 import { Text } from "@synnaxlabs/pluto/text";
+import { type ReactElement } from "react";
 import { v4 as uuidv4 } from "uuid";
 
 import { CSS } from "@/css";
 import { RackList } from "@/hardware/RackList";
 import { type Layout } from "@/layout";
-
-import "@/hardware/status/Status.css";
 
 export const Status: Layout.Renderer = (): ReactElement => {
   return (

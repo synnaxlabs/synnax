@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -13,8 +13,8 @@ import { Menu, Mosaic, Tree } from "@synnaxlabs/pluto";
 
 import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";
-import { create, type State } from "@/schematic/slice";
 import { Range } from "@/range";
+import { create, type State } from "@/schematic/slice";
 
 const TreeContextMenu: Ontology.TreeContextMenu = ({
   client,

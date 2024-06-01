@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,10 +9,10 @@
 
 import {
   HTTPClient,
-  WebSocketClient,
   type Middleware,
   type StreamClient,
   type UnaryClient,
+  WebSocketClient,
 } from "@synnaxlabs/freighter";
 import { binary } from "@synnaxlabs/x/binary";
 import { type URL } from "@synnaxlabs/x/url";

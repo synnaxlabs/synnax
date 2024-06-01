@@ -1,11 +1,20 @@
-import { useState, type ReactElement } from "react";
+// Copyright 2024 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "@/hardware/opc/device/Configure.css";
 
 import {
   DataType,
-  TimeSpan,
-  UnexpectedError,
   type rack,
   type task,
+  TimeSpan,
+  UnexpectedError,
 } from "@synnaxlabs/client";
 import {
   Align,
@@ -18,29 +27,28 @@ import {
   Synnax,
   Text,
 } from "@synnaxlabs/pluto";
-import { type UseMutationResult, useMutation } from "@tanstack/react-query";
+import { useMutation, type UseMutationResult } from "@tanstack/react-query";
 import { nanoid } from "nanoid";
+import { type ReactElement, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
-import { set, z } from "zod";
+import { z } from "zod";
 
 import { CSS } from "@/css";
-import { CreateChannels } from "@/hardware/opc/device/CreateChannels";
-import {
-  type Properties,
-  connectionConfigZ,
-  groupConfigZ,
-  GroupConfig,
-  SecurityPolicy,
-  SecurityMode,
-} from "@/hardware/opc/device/types";
-import { type Layout } from "@/layout";
-
-import "@/hardware/opc/device/Configure.css";
 import { FS } from "@/fs";
+import { CreateChannels } from "@/hardware/opc/device/CreateChannels";
 import {
   SelectSecurityMode,
   SelectSecurityPolicy,
 } from "@/hardware/opc/device/SelectSecurityPolicy";
+import {
+  connectionConfigZ,
+  GroupConfig,
+  groupConfigZ,
+  type Properties,
+  SecurityMode,
+  SecurityPolicy,
+} from "@/hardware/opc/device/types";
+import { type Layout } from "@/layout";
 
 const configureZ = z.object({
   name: z.string().min(1, "Name is required"),

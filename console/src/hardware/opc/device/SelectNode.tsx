@@ -1,10 +1,18 @@
-import { useMemo, type ReactElement } from "react";
+// Copyright 2024 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
 
-import { Form, type List, Select, Synnax } from "@synnaxlabs/pluto";
+import { type List, Select, Synnax } from "@synnaxlabs/pluto";
 import { useQuery } from "@tanstack/react-query";
+import { type ReactElement, useMemo } from "react";
 
-import { parseNodeId, type NodeId } from "@/hardware/opc/task/types";
 import { NodeProperties, Properties } from "@/hardware/opc/device/types";
+import { type NodeId, parseNodeId } from "@/hardware/opc/task/types";
 
 interface NodeEntry extends NodeId {
   name: string;
@@ -36,8 +44,7 @@ const SELECT_NODE_COLUMNS: Array<List.ColumnSpec<string, NodeEntry>> = [
   },
 ];
 
-interface SelectNodeProps
-  extends Omit<Select.SingleProps<string, NodeEntry>, "columns" | "data"> {
+interface SelectNodeProps extends Omit<Select.SingleProps<string, NodeEntry>, "data"> {
   data: NodeProperties[];
 }
 
@@ -54,11 +61,12 @@ export const SelectNode = ({ data, ...props }: SelectNodeProps): ReactElement =>
     [data],
   );
   return (
+    /// @ts-expect-error - data transformation errors
     <Select.Single<string, NodeEntry>
+      {...props}
       columns={SELECT_NODE_COLUMNS}
       data={transformedData}
       entryRenderKey={(e) => `${e.name} (${e.key})`}
-      {...props}
     />
   );
 };

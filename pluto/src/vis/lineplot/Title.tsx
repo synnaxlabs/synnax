@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -34,7 +34,7 @@ export const Title = <L extends Text.Level = "h2">({
   );
   return (
     <Align.Space justify="center" align="center" style={gridStyle}>
-      {/* @ts-expect-error */}
+      {/* @ts-expect-error  - generic props issues */}
       <Text.MaybeEditable<L> {...props} level={level} />
     </Align.Space>
   );

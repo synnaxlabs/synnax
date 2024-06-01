@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type FC } from "react";
+import "@/Icon/Icon.css";
 
 import { type runtime } from "@synnaxlabs/x";
 import clsx from "clsx";
+import { type FC } from "react";
 import {
   AiFillCaretDown,
   AiFillCaretLeft,
@@ -18,20 +19,20 @@ import {
   AiFillCaretUp,
   AiFillDelete,
   AiFillFolder,
+  AiFillGithub,
   AiFillInfoCircle,
+  AiFillLinkedin,
   AiFillWarning,
   AiOutlineBorder,
   AiOutlineCheck,
   AiOutlineClose,
-  AiOutlineMinus,
   AiOutlineExpand,
-  AiFillGithub,
-  AiFillLinkedin,
   AiOutlineLoading,
+  AiOutlineMinus,
   AiOutlineSync,
 } from "react-icons/ai";
 import { BiRename } from "react-icons/bi";
-import { BsLightbulbFill, BsShiftFill, BsSave } from "react-icons/bs";
+import { BsLightbulbFill, BsShiftFill } from "react-icons/bs";
 import {
   FaApple,
   FaBezierCurve,
@@ -40,21 +41,26 @@ import {
   FaStream,
   FaWindows,
 } from "react-icons/fa";
-import { GrAttachment, GrPan } from "react-icons/gr";
+import { GiHamburgerMenu } from "react-icons/gi";
+import { GrAttachment, GrDrag, GrPan } from "react-icons/gr";
 import { HiDownload, HiLightningBolt, HiOutlinePlus } from "react-icons/hi";
 import { HiSquare3Stack3D } from "react-icons/hi2";
 import { IoMdRefresh } from "react-icons/io";
 import { IoBookSharp, IoCopySharp, IoTime } from "react-icons/io5";
-import { GiHamburgerMenu } from "react-icons/gi";
 import {
-  MdEdit,
-  MdOutlineDeviceHub,
-  MdQuestionMark,
-  MdSensors,
-  MdWorkspacesFilled,
+  MdAlignHorizontalCenter,
+  MdAlignHorizontalLeft,
+  MdAlignHorizontalRight,
+  MdAlignVerticalBottom,
+  MdAlignVerticalCenter,
+  MdAlignVerticalTop,
   MdAreaChart,
+  MdAutoAwesome,
+  MdEdit,
   MdEditOff,
-  MdOutlineAccessTimeFilled,
+  MdFiberManualRecord,
+  MdHardware,
+  MdInsights,
   MdKeyboardAlt,
   MdKeyboardArrowDown,
   MdKeyboardArrowLeft,
@@ -62,34 +68,29 @@ import {
   MdKeyboardArrowUp,
   MdKeyboardBackspace,
   MdKeyboardCapslock,
+  MdKeyboardCommandKey,
+  MdKeyboardControlKey,
   MdKeyboardHide,
+  MdKeyboardOptionKey,
   MdKeyboardReturn,
   MdKeyboardTab,
-  MdKeyboardCommandKey,
-  MdKeyboardOptionKey,
-  MdFiberManualRecord,
-  MdInsights,
   MdLabel,
-  MdSquareFoot,
-  MdKeyboardControlKey,
-  MdPerson,
-  MdPause,
-  MdPlayArrow,
-  MdPictureInPicture,
-  MdAutoAwesome,
-  MdOutlineTableRows,
-  MdAlignHorizontalLeft,
-  MdAlignHorizontalRight,
-  MdAlignHorizontalCenter,
-  MdAlignVerticalCenter,
-  MdAlignVerticalTop,
-  MdAlignVerticalBottom,
-  MdHardware,
-  MdSaveAlt,
   MdLink,
+  MdOutlineAccessTimeFilled,
+  MdOutlineDeviceHub,
+  MdOutlineTableRows,
+  MdPause,
+  MdPerson,
+  MdPictureInPicture,
+  MdPlayArrow,
+  MdQuestionMark,
+  MdSaveAlt,
+  MdSensors,
+  MdSquareFoot,
+  MdWorkspacesFilled,
 } from "react-icons/md";
-import { PiSelectionPlusBold, PiMagnifyingGlassBold } from "react-icons/pi";
-import { RiSettings3Fill as RiSettingsFill, RiSoundModuleFill } from "react-icons/ri";
+import { PiMagnifyingGlassBold, PiSelectionPlusBold } from "react-icons/pi";
+import { RiSettings3Fill as RiSettingsFill } from "react-icons/ri";
 import {
   SiGooglenearby,
   SiNpm,
@@ -99,16 +100,14 @@ import {
   SiYarn,
 } from "react-icons/si";
 import {
-  TbArrowRight,
   TbArrowDown,
   TbArrowLeft,
+  TbArrowRight,
   TbArrowUp,
   TbPlugConnected,
   TbPlugConnectedX,
   TbSubtask,
 } from "react-icons/tb";
-
-import "@/Icon/Icon.css";
 
 export type IconProps = React.SVGProps<SVGSVGElement>;
 type IconFC = FC<IconProps>;
@@ -180,11 +179,13 @@ interface WrapIconOpts {
   className?: string;
 }
 
-export const wrapIcon =
-  (Icon: IconFC, { className }: WrapIconOpts = {}): IconFC =>
-  (props) => (
+export const wrapIcon = (Icon: IconFC, { className }: WrapIconOpts = {}): IconFC => {
+  const O: IconFC = (props) => (
     <Icon {...props} className={clsx(props.className, className, "synnax-icon")} />
   );
+  O.displayName = Icon.displayName || Icon.name;
+  return O;
+};
 
 const IconOS: Record<runtime.OS, IconFC> = {
   Linux: FaLinux,
@@ -307,6 +308,7 @@ export const Icon: IconType = {
   Device: wrapIcon(SiGooglenearby),
   Link: wrapIcon(MdLink),
   Attachment: wrapIcon(GrAttachment),
+  Drag: wrapIcon(GrDrag),
 };
 
 export interface IconType {
@@ -416,6 +418,7 @@ export interface IconType {
   Save: IconFC;
   Connect: IconFC;
   Disconnect: IconFC;
+  Drag: IconFC;
   Link: IconFC;
   Attachment: IconFC;
 }

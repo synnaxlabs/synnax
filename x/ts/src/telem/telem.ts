@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -79,7 +79,7 @@ const remainder = <T extends TimeStamp | TimeSpan>(
  */
 export class TimeStamp implements Stringer {
   private readonly value: bigint;
-  readonly encodeValue: true = true;
+  readonly encodeValue = true;
 
   constructor(value?: CrudeTimeStamp, tzInfo: TZInfo = "UTC") {
     if (value == null) this.value = TimeStamp.now().valueOf();
@@ -157,11 +157,11 @@ export class TimeStamp implements Stringer {
       case "preciseTime":
         return this.timeString(true, tzInfo);
       case "date":
-        return this.dateString(tzInfo);
+        return this.dateString();
       case "preciseDate":
-        return `${this.dateString(tzInfo)} ${this.timeString(true, tzInfo)}`;
+        return `${this.dateString()} ${this.timeString(true, tzInfo)}`;
       case "dateTime":
-        return `${this.dateString(tzInfo)} ${this.timeString(false, tzInfo)}`;
+        return `${this.dateString()} ${this.timeString(false, tzInfo)}`;
       default:
         return this.toISOString(tzInfo);
     }
@@ -177,7 +177,7 @@ export class TimeStamp implements Stringer {
     return milliseconds ? iso.slice(11, 23) : iso.slice(11, 19);
   }
 
-  private dateString(tzInfo: TZInfo = "UTC"): string {
+  private dateString(): string {
     const date = this.date();
     const month = date.toLocaleString("default", { month: "short" });
     const day = date.toLocaleString("default", { day: "numeric" });
@@ -463,7 +463,7 @@ export class TimeStamp implements Stringer {
 /** TimeSpan represents a nanosecond precision duration. */
 export class TimeSpan implements Stringer {
   private readonly value: bigint;
-  readonly encodeValue: true = true;
+  readonly encodeValue = true;
 
   constructor(value: CrudeTimeSpan) {
     if (typeof value === "number") value = Math.trunc(value.valueOf());

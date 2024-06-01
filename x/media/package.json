@@ -1,6 +1,5 @@
 {
   "name": "@synnaxlabs/media",
-  "private": false,
   "version": "0.2.0",
   "type": "module",
   "description": "Media Assets for Synnax Labs",
@@ -33,10 +32,10 @@
     "@synnaxlabs/tsconfig": "workspace:*",
     "@synnaxlabs/vite-plugin": "workspace:*",
     "@types/node": "^20.12.7",
-    "@vitejs/plugin-react": "^4.2.1",
+    "@vitejs/plugin-react": "^4.3.0",
     "eslint-config-synnaxlabs": "workspace:*",
-    "vite": "5.1.2",
-    "vitest": "1.2.2"
+    "vite": "5.2.11",
+    "vitest": "^1.5.0"
   },
   "files": [
     "dist"

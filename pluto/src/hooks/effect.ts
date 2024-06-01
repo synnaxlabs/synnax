@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -12,7 +12,7 @@ import { type DependencyList, type EffectCallback, useEffect } from "react";
 import { useMemoCompare } from "@/memo";
 
 /* An async version of React.Destructor */
-// eslint-disable-next-line @typescript-eslint/no-invalid-void-type
+ 
 export type AsyncDestructor = Promise<(() => void) | void>;
 
 /** An async version of React.EffectCallback */

@@ -1,3 +1,12 @@
+// Copyright 2024 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import { DataType, Synnax, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/client";
 
 // This example demonstrates the basics of reading and writing data from an index and data
@@ -32,7 +41,7 @@ const indexChannel = await client.channels.create({
 
 const N_SAMPLES = 5000;
 
-// We'll start our write at the current time. This timestamp should be the same as or 
+// We'll start our write at the current time. This timestamp should be the same as or
 // just before the first timestamp we write.
 const start = TimeStamp.now();
 
