@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -13,14 +13,14 @@ import { Layout } from "@/layout";
 export * from "@/cluster/Badges";
 export * from "@/cluster/Connect";
 export * from "@/cluster/core";
+export * from "@/cluster/Dropdown";
 export * from "@/cluster/link";
+export * from "@/cluster/local";
+export * from "@/cluster/ontology"
 export * from "@/cluster/palette";
 export * from "@/cluster/selectors";
 export * from "@/cluster/slice";
 export * from "@/cluster/testConnection";
-export * from "@/cluster/ontology";
-export * from "@/cluster/local";
-export * from "@/cluster/Dropdown";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   [connectWindowLayout.type]: Connect,

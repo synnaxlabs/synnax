@@ -19,6 +19,7 @@ import {
 import { Tree } from "@synnaxlabs/pluto/tree";
 import { type ReactElement } from "react";
 
+import { Cluster } from "@/cluster";
 import { Menu as ConsoleMenu } from "@/components";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
@@ -26,7 +27,6 @@ import { LinePlot } from "@/lineplot";
 import { type Ontology } from "@/ontology";
 import { Range } from "@/range";
 import { Schematic } from "@/schematic";
-import { Cluster } from "@/cluster";
 
 const canDrop = (): boolean => false;
 

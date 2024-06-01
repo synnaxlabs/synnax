@@ -10,10 +10,10 @@
 import { Icon } from "@synnaxlabs/media";
 import { Menu } from "@synnaxlabs/pluto";
 
+import { Cluster } from "@/cluster";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
 import { Layout } from "@/layout";
-import { Cluster } from "@/cluster";
 import { Ontology } from "@/ontology";
 
 const ZERO_LAYOUT_STATES: Record<string, Layout.State> = {

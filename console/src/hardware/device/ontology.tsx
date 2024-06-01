@@ -10,9 +10,9 @@
 import { Icon } from "@synnaxlabs/media";
 import { Menu } from "@synnaxlabs/pluto";
 
+import { Cluster } from "@/cluster";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
-import { Cluster } from "@/cluster";
 import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";
 

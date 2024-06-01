@@ -11,11 +11,11 @@ import { ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Menu, Mosaic, Tree } from "@synnaxlabs/pluto";
 
+import { Cluster } from "@/cluster";
 import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";
-import { create, type State } from "@/schematic/slice";
 import { Range } from "@/range";
-import { Cluster } from "@/cluster";
+import { create, type State } from "@/schematic/slice";
 
 const TreeContextMenu: Ontology.TreeContextMenu = ({
   client,

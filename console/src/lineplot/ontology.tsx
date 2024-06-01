@@ -43,16 +43,12 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
   const handleCopyURL = (): void => {
     const toCopy = `synnax://cluster/${clusterKey}/lineplot/${resources[0].id.key}`
     void navigator.clipboard.writeText(toCopy);
-    return;
-
-
   }
 
   const f: Record<string, () => void> = {
     delete: handleDelete,
     rename: handleRename,
     copyURL: handleCopyURL,
-
   };
 
   const onSelect = (key: string): void => f[key]();
