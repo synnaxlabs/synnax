@@ -12,10 +12,12 @@ package unary_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/cesium/internal/unary"
+	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -135,24 +137,26 @@ var _ = Describe("Unary racing", func() {
 					Expect(unary.Write(ctx, dataDB, 10*telem.SecondTS, telem.NewSeriesV[int64](10, 11, 12, 13, 15))).To(Succeed())
 
 					var (
-						wg          = sync.WaitGroup{}
-						receivedErr error
+						wg           = sync.WaitGroup{}
+						receivedErrs = make([]error, 10)
 					)
 					wg.Add(10)
 
 					for i := 0; i < 10; i++ {
+						i := i
 						go func() {
 							defer GinkgoRecover()
 							defer wg.Done()
 							err := dataDB.Delete(ctx, (11 * telem.SecondTS).Range(13*telem.SecondTS))
 							if err != nil {
-								receivedErr = err
+								receivedErrs[i] = err
 							}
 						}()
 					}
 
 					wg.Wait()
-					Expect(receivedErr).To(HaveOccurredAs(controller.ErrRegionOverlap))
+					filtered := lo.Filter(receivedErrs, func(e error, _ int) bool { return errors.Is(e, controller.ErrRegionOverlap) })
+					Expect(filtered).ToNot(BeEmpty())
 					f := MustSucceed(dataDB.Read(ctx, telem.TimeRangeMax))
 					Expect(f.Series).To(HaveLen(2))
 					Expect(f.Series[0].Data).To(Equal(telem.NewSeriesV[int64](10).Data))
@@ -162,24 +166,24 @@ var _ = Describe("Unary racing", func() {
 					Expect(unary.Write(ctx, rateDB, 10*telem.SecondTS, telem.NewSeriesV[int16](100, 105, 110, 115, 120, 125, 130, 135))).To(Succeed())
 
 					var (
-						wg          = sync.WaitGroup{}
-						receivedErr error
+						wg           = sync.WaitGroup{}
+						receivedErrs = make([]error, 10)
 					)
 					wg.Add(10)
 
 					for i := 0; i < 10; i++ {
+						i := i
 						go func() {
 							defer GinkgoRecover()
 							defer wg.Done()
 							err := rateDB.Delete(ctx, (11 * telem.SecondTS).Range(13*telem.SecondTS))
-							if err != nil {
-								receivedErr = err
-							}
+							receivedErrs[i] = err
 						}()
 					}
 
 					wg.Wait()
-					Expect(receivedErr).To(HaveOccurredAs(controller.ErrRegionOverlap))
+					filtered := lo.Filter(receivedErrs, func(e error, _ int) bool { return errors.Is(e, controller.ErrRegionOverlap) })
+					Expect(filtered).ToNot(BeEmpty())
 					f := MustSucceed(rateDB.Read(ctx, telem.TimeRangeMax))
 					Expect(f.Series).To(HaveLen(2))
 					Expect(f.Series[0].Data).To(Equal(telem.NewSeriesV[int16](100, 105).Data))
