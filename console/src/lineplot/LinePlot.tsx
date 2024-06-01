@@ -35,6 +35,14 @@ import { useDispatch } from "react-redux";
 import { Menu } from "@/components";
 import { type Syncer, useSyncerDispatch } from "@/hooks/dispatchers";
 import { Layout } from "@/layout";
+import {
+  AxisKey,
+  axisLocation,
+  MultiXAxisRecord,
+  X_AXIS_KEYS,
+  XAxisKey,
+  YAxisKey,
+} from "@/lineplot/axis";
 import { download } from "@/lineplot/download";
 import {
   select,
@@ -65,7 +73,6 @@ import {
   typedLineKeyToString,
 } from "@/lineplot/slice";
 import { Range } from "@/range";
-import { Vis } from "@/vis";
 import { Workspace } from "@/workspace";
 
 interface SyncPayload {
@@ -158,7 +165,7 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
           key: layoutKey,
           rule: {
             ...rule,
-            axis: rule.axis as Vis.XAxisKey,
+            axis: rule.axis as XAxisKey,
             color: Color.toHex(rule.color),
           },
         }),
@@ -173,7 +180,7 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
       syncDispatch(
         setAxis({
           key: layoutKey,
-          axisKey: axis.key as Vis.AxisKey,
+          axisKey: axis.key as AxisKey,
           axis: axis as AxisState,
           triggerRender: false,
         }),
@@ -188,11 +195,11 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
 
   const handleChannelAxisDrop = useCallback(
     (axis: string, channels: channel.Keys): void => {
-      if (Vis.X_AXIS_KEYS.includes(axis as Vis.XAxisKey))
+      if (X_AXIS_KEYS.includes(axis as XAxisKey))
         syncDispatch(
           setXChannel({
             key: layoutKey,
-            axisKey: axis as Vis.XAxisKey,
+            axisKey: axis as XAxisKey,
             channel: channels[0],
           }),
         );
@@ -200,7 +207,7 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
         syncDispatch(
           setYChannels({
             key: layoutKey,
-            axisKey: axis as Vis.YAxisKey,
+            axisKey: axis as YAxisKey,
             channels,
             mode: "add",
           }),
@@ -414,22 +421,22 @@ const buildAxes = (vis: State): Channel.AxisProps[] =>
     .filter(([key]) => shouldDisplayAxis(key, vis))
     .map(([key, axis]): Channel.AxisProps => {
       return {
-        location: Vis.axisLocation(key),
-        type: Vis.X_AXIS_KEYS.includes(key as Vis.XAxisKey) ? "time" : "linear",
+        location: axisLocation(key as AxisKey),
+        type: X_AXIS_KEYS.includes(key as XAxisKey) ? "time" : "linear",
         ...axis,
       };
     });
 
 const buildLines = (
   vis: State,
-  sug: Vis.MultiXAxisRecord<Range.Range>,
+  sug: MultiXAxisRecord<Range.Range>,
 ): Array<Channel.LineProps & { key: string }> =>
   Object.entries(sug).flatMap(([xAxis, ranges]) =>
     ranges.flatMap((range) =>
       Object.entries(vis.channels)
-        .filter(([axis]) => !Vis.X_AXIS_KEYS.includes(axis as Vis.XAxisKey))
+        .filter(([axis]) => !X_AXIS_KEYS.includes(axis as XAxisKey))
         .flatMap(([yAxis, yChannels]) => {
-          const xChannel = vis.channels[xAxis as Vis.XAxisKey];
+          const xChannel = vis.channels[xAxis as XAxisKey];
           const variantArg =
             range.variant === "dynamic"
               ? {
@@ -443,8 +450,8 @@ const buildLines = (
 
           return (yChannels as number[]).map((channel) => {
             const key = typedLineKeyToString({
-              xAxis: xAxis as Vis.XAxisKey,
-              yAxis: yAxis as Vis.YAxisKey,
+              xAxis: xAxis as XAxisKey,
+              yAxis: yAxis as YAxisKey,
               range: range.key,
               channels: {
                 x: xChannel,

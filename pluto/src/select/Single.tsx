@@ -78,7 +78,7 @@ export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
   data,
   emptyContent,
   inputProps,
-  allowNone,
+  allowNone = true,
   searcher,
   className,
   variant,
@@ -111,10 +111,10 @@ export const Single = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
 
   const handleChange = useCallback(
     (v: K | K[] | null, e: UseSelectOnChangeExtra<K, E>): void => {
-      if (v == null || Array.isArray(v)) return;
+      if (Array.isArray(v)) return;
       setSelected(v == null ? null : e.entries[0]);
       close();
-      onChange(v, e);
+      onChange(v as K, e);
     },
     [onChange, allowNone],
   );

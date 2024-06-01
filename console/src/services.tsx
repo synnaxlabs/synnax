@@ -38,7 +38,6 @@ export const EMPTY_ONTOLOGY_SERVICE: Service = {
 
 export const SERVICES: Record<ontology.ResourceType, Service> = {
   schematic: Schematic.ONTOLOGY_SERVICE,
-  channel: Channel.ONTOLOGY_SERVICE,
   cluster: Cluster.ONTOLOGY_SERVICE,
   user: User.ONTOLOGY_SERVICE,
   builtin: Builtin.ONTOLOGY_SERVICE,
@@ -52,4 +51,5 @@ export const SERVICES: Record<ontology.ResourceType, Service> = {
   rack: EMPTY_ONTOLOGY_SERVICE,
   task: Task.ONTOLOGY_SERVICE,
   device: Device.ONTOLOGY_SERVICE,
+  channel: Channel.ONTOLOGY_SERVICE,
 };

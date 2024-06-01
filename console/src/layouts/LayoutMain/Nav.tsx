@@ -54,16 +54,14 @@ const COMMANDS = [
   ...Channel.COMMANDS,
 ];
 
-const NavTopPalette = (): ReactElement => {
-  return (
-    <Palette
-      commands={COMMANDS}
-      triggers={DEFAULT_TRIGGER}
-      services={SERVICES}
-      commandSymbol=">"
-    />
-  );
-};
+const NavTopPalette = (): ReactElement => (
+  <Palette
+    commands={COMMANDS}
+    triggers={DEFAULT_TRIGGER}
+    services={SERVICES}
+    commandSymbol=">"
+  />
+);
 
 /**
  * NavTop is the top navigation bar for the Synnax Console. Try to keep this component

@@ -10,7 +10,7 @@
 import { Icon } from "@synnaxlabs/media";
 
 import { createLayout } from "@/channel/Create";
-import { Command, CommandSelectionContext } from "@/palette/Palette";
+import { type Command, type CommandSelectionContext } from "@/palette/Palette";
 
 export const createChannelCommand: Command = {
   icon: <Icon.Channel />,

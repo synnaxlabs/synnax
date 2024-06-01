@@ -48,8 +48,8 @@ export const use = ({ triggers, callback: f, region, loose }: UseProps): void =>
       const prevMatches = filter(memoTriggers, e.prev, /* loose */ loose);
       const nextMatches = filter(memoTriggers, e.next, /* loose */ loose);
       const res = diff(nextMatches, prevMatches);
-      const removed = res[0];
-      let added = res[1];
+      let added = res[0];
+      const removed = res[1];
       if (added.length === 0 && removed.length === 0) return;
       added = filterInRegion(e.target, e.cursor, added, region);
       const base = { target: e.target, cursor: e.cursor };

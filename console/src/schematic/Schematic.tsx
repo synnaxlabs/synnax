@@ -24,12 +24,12 @@ import {
   Viewport,
 } from "@synnaxlabs/pluto";
 import { Triggers } from "@synnaxlabs/pluto/triggers";
-import { box,type UnknownRecord } from "@synnaxlabs/x";
+import { box, type UnknownRecord } from "@synnaxlabs/x";
 import { nanoid } from "nanoid/non-secure";
 import { type ReactElement, useCallback, useMemo, useRef } from "react";
 import { useDispatch } from "react-redux";
 
-import { type Syncer,useSyncerDispatch } from "@/hooks/dispatchers";
+import { type Syncer, useSyncerDispatch } from "@/hooks/dispatchers";
 import { Layout } from "@/layout";
 import {
   select,

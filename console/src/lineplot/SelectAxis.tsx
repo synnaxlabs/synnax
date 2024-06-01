@@ -12,7 +12,7 @@ import { Channel } from "@synnaxlabs/pluto";
 import { Input } from "@synnaxlabs/pluto/input";
 import { type ReactElement, useCallback } from "react";
 
-import { type AxisKey, axisLabel } from "@/vis/axis";
+import { type AxisKey, axisLabel } from "@/lineplot/axis";
 
 export interface SelectMultipleAxesInputItemProps
   extends Omit<Input.ItemProps, "onChange"> {

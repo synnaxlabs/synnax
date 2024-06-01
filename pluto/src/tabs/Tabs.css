@@ -58,7 +58,10 @@
 .pluto-tabs-selector__btn {
     cursor: pointer;
     border: none;
-
+    &.pluto--selected.pluto--altColor .pluto-text {
+        color: var(--pluto-primary-z);
+        font-weight: 500;
+    }
     .pluto-btn-icon {
         opacity: 0;
         height: 100% !important;
@@ -124,15 +127,6 @@
             .pluto-btn-icon:hover {
                 box-shadow: var(--box-shadow);
             }
-
-            &.pluto--altColor {
-                --box-shadow: inset -1px 0 0 var(--pluto-secondary-z);
-                box-shadow: var(--box-shadow);
-                .pluto-btn-icon,
-                .pluto-btn-icon:hover {
-                    box-shadow: var(--box-shadow);
-                }
-            }
         }
     }
 }
@@ -142,22 +136,12 @@
         margin-bottom: -1px;
         height: 100% !important;
         font-weight: 450;
-
+        position: relative;
         &.pluto--selected {
-            --box-shadow: inset 0 -2px var(--pluto-primary-z);
+            --box-shadow: inset 0 -2px 0 var(--pluto-primary-z);
             box-shadow: var(--box-shadow);
-            .pluto-btn-icon,
             .pluto-btn-icon:hover {
                 box-shadow: var(--box-shadow);
-            }
-
-            &.pluto--altColor {
-                --box-shadow: inset 0 -2px var(--pluto-secondary-z);
-                box-shadow: var(--box-shadow);
-                .pluto-btn-icon,
-                .pluto-btn-icon:hover {
-                    box-shadow: var(--box-shadow);
-                }
             }
         }
     }

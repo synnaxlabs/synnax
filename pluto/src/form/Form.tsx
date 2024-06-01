@@ -594,7 +594,6 @@ export const use = <Z extends z.ZodTypeAny>({
       let success = true;
       const issueKeys = new Set(result.error.issues.map((i) => i.path.join(".")));
       result.error.issues.forEach((issue) => {
-        console.log("issue", issue);
         const issuePath = issue.path.join(".");
         if (!deep.pathsMatch(issuePath, path)) return;
         const variant = getVariant(issue);

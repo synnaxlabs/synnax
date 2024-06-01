@@ -27,9 +27,9 @@ import { type ReactElement, useState } from "react";
 import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
+import { AXIS_KEYS, AxisKey } from "@/lineplot/axis";
 import { useSelect } from "@/lineplot/selectors";
 import { removeRule, type RuleState, setRule } from "@/lineplot/slice";
-import { Vis } from "@/vis";
 
 export interface AnnotationsProps {
   layoutKey: string;
@@ -92,7 +92,7 @@ export const Annotations = ({ layoutKey }: AnnotationsProps): ReactElement => {
     );
   };
 
-  const handleAxisChange = (axis: Vis.AxisKey): void => {
+  const handleAxisChange = (axis: AxisKey): void => {
     dispatch(
       setRule({
         key: layoutKey,
@@ -199,7 +199,7 @@ export const Annotations = ({ layoutKey }: AnnotationsProps): ReactElement => {
               onChange={handleAxisChange}
               value={selectedRule.axis}
               columns={[{ key: "name", name: "Axis" }]}
-              data={Vis.AXIS_KEYS.map((a) => ({ name: a.toUpperCase(), key: a }))}
+              data={AXIS_KEYS.map((a) => ({ name: a.toUpperCase(), key: a }))}
               entryRenderKey="name"
               allowNone={false}
             />

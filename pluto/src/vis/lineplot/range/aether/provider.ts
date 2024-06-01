@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ranger, signals,Synnax } from "@synnaxlabs/client";
+import { ranger, signals, Synnax } from "@synnaxlabs/client";
 import { bounds, box, clamp, scale, TimeRange, TimeSpan, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -99,7 +99,6 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
       ),
     );
     ranges.forEach((r) => {
-      console.log(r.color);
       const cRes = color.Color.z.safeParse(r.color);
       if (!cRes.success) return;
       const c = cRes.data;

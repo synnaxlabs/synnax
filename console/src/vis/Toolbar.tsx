@@ -40,6 +40,7 @@ const TOOLBARS: Record<LayoutType | "vis", FC<ToolbarProps>> = {
   lineplot: LinePlot.Toolbar,
   vis: SelectVis,
 };
+
 const NoVis = (): ReactElement => {
   const placer = Layout.usePlacer();
   return (

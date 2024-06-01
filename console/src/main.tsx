@@ -9,10 +9,10 @@
 
 import "@/index.css";
 import "@synnaxlabs/media/dist/style.css";
-import "@synnaxlabs/pluto/dist/style.css";
 
+// import "@synnaxlabs/pluto/dist/style.css";
 import { Provider } from "@synnaxlabs/drift/react";
-import { type Haul, Pluto, type state,type Triggers } from "@synnaxlabs/pluto";
+import { type Haul, Pluto, type state, type Triggers } from "@synnaxlabs/pluto";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { type ReactElement, useCallback } from "react";
 import ReactDOM from "react-dom/client";
@@ -26,6 +26,7 @@ import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
 import { Layout } from "@/layout";
 import { LayoutMain } from "@/layouts/LayoutMain";
+import { Mosaic } from "@/layouts/mosaic";
 import { LinePlot } from "@/lineplot";
 import { Ontology } from "@/ontology";
 import { Range } from "@/range";
@@ -39,6 +40,7 @@ import { Workspace } from "@/workspace";
 
 const layoutRenderers: Record<string, Layout.Renderer> = {
   main: LayoutMain,
+  mosaic: Mosaic.Window,
   ...Docs.LAYOUTS,
   ...Layout.LAYOUTS,
   ...Vis.LAYOUTS,

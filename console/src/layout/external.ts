@@ -10,7 +10,6 @@
 import { GetStarted } from "@/layout/GetStarted";
 import { Renderer } from "@/layout/layout";
 import { GET_STARTED_LAYOUT_TYPE } from "@/layout/slice";
-import { Mosaic } from "@/layouts/mosaic";
 
 export * from "@/layout/Content";
 export * from "@/layout/context";
@@ -24,6 +23,5 @@ export * from "@/layout/slice";
 export * from "@/layout/Window";
 
 export const LAYOUTS: Record<string, Renderer> = {
-  mosaic: Mosaic.Window,
   [GET_STARTED_LAYOUT_TYPE]: GetStarted,
 };

@@ -117,10 +117,8 @@ const VirtualCore = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
           {items.map(({ index, start }) => {
             const entry = data[index];
             let sourceIndex = index;
-            if (transformed) {
-              console.log("TRANSFORMED");
+            if (transformed)
               sourceIndex = sourceData.findIndex((e) => e.key === entry.key);
-            }
             return children({
               key: entry.key,
               sourceIndex,

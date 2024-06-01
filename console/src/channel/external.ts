@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Create,CREATE_LAYOUT_TYPE } from "@/channel/Create";
+import { Create, CREATE_LAYOUT_TYPE } from "@/channel/Create";
 import { Layout } from "@/layout";
 
 export * from "@/channel/Create";

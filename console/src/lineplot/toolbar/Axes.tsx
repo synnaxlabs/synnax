@@ -21,9 +21,9 @@ import {
 import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 
+import { AxisKey } from "@/lineplot/axis";
 import { useSelect } from "@/lineplot/selectors";
 import { type AxisState, setAxis, shouldDisplayAxis } from "@/lineplot/slice";
-import { type Vis } from "@/vis";
 
 export interface AxesProps {
   layoutKey: string;
@@ -56,7 +56,7 @@ export const Axes = ({ layoutKey }: AxesProps): ReactElement => {
         return (
           <LinePlotAxisControls
             key={p.tabKey}
-            axisKey={p.tabKey as Vis.AxisKey}
+            axisKey={p.tabKey as AxisKey}
             layoutKey={layoutKey}
           />
         );
@@ -66,7 +66,7 @@ export const Axes = ({ layoutKey }: AxesProps): ReactElement => {
 };
 
 export interface LinePlotAxisControlsProps {
-  axisKey: Vis.AxisKey;
+  axisKey: AxisKey;
   layoutKey: string;
 }
 
