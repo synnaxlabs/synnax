@@ -150,9 +150,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         break;
       case "delete":
         client.channels
-          .delete(
-            resources.filter((r) => !r.data?.internal).map(({ id }) => Number(id.key)),
-          )
+          .delete(resources.map(({ id }) => Number(id.key)))
           .catch((e: Error) => {
             addStatus({
               variant: "error",
@@ -186,7 +184,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           </Menu.Item>
         </>
       )}
-      {someDeletable && (
+      {true && (
         <Menu.Item itemKey="delete" startIcon={<Icon.Delete />}>
           Delete
         </Menu.Item>
