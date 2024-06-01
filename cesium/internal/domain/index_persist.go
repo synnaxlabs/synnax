@@ -36,7 +36,7 @@ func (ip *indexPersist) load() ([]pointer, error) {
 	return ip.p.load()
 }
 
-func (ip *indexPersist) preparePointersPersist(start int) func() error {
+func (ip *indexPersist) prepare(start int) func() error {
 	pointerEncoded := ip.p.encode(start, ip.idx.mu.pointers)
 	lenOfPointers := len(ip.idx.mu.pointers)
 

@@ -31,6 +31,11 @@ func (db *DB) Delete(
 	ctx, span := db.T.Bench(ctx, "Delete")
 	defer span.End()
 
+	// Ensure that there cannot be deletion operations on the index between index lookup
+	// as that would invalidate the offsets.
+	// However, we cannot lock the index as a whole since index Distance() call requires
+	// using an iterator for the index's domain, which is problematic if this channel
+	// is an index channel.
 	db.idx.deleteLock.Lock()
 	defer db.idx.deleteLock.Unlock()
 
@@ -97,6 +102,20 @@ func (db *DB) Delete(
 	db.idx.mu.Lock()
 	defer db.idx.mu.Unlock()
 
+	// Repêchage: the location of start/end may have changed during the index lookup.
+	if db.idx.mu.pointers[startPosition] != start {
+		startPosition, exact = db.idx.unprotectedSearch(start.TimeRange)
+		// Edge cases such as startPosition is after the end must have been already
+		// handled before: a timerange that existed in the domain before must not cease
+		// to exist.
+		if !exact {
+			startPosition += 1
+		}
+	}
+	if db.idx.mu.pointers[endPosition] != end {
+		endPosition, _ = db.idx.unprotectedSearch(end.TimeRange)
+	}
+
 	err, ok := validateDelete(startPosition, endPosition, &startOffset, &endOffset, db.idx)
 	if err != nil || !ok {
 		return span.Error(err)
@@ -130,8 +149,9 @@ func (db *DB) Delete(
 		)
 	}
 
-	persistPointers := db.idx.indexPersist.preparePointersPersist(startPosition)
-	return span.Error(persistPointers())
+	persist := db.idx.indexPersist.prepare(startPosition)
+	// We choose to keep the mutex locked while persisting to index.
+	return span.Error(persist())
 }
 
 // GarbageCollect rewrites all files that are over the size limit of a file and has
@@ -153,17 +173,22 @@ func (db *DB) GarbageCollect(ctx context.Context) error {
 		if err != nil {
 			return span.Error(err)
 		}
-		if s.Size() >= int64(db.FileSize) {
-			if err = db.garbageCollectFile(fileKey, s.Size()); err != nil {
-				return span.Error(err)
-			}
+		if s.Size() < int64(db.FileSize) {
+			continue
+		}
+
+		if err = db.garbageCollectFile(fileKey, s.Size()); err != nil {
+			return span.Error(err)
 		}
 	}
 
 	db.idx.mu.RLock()
-	persistPointers := db.idx.indexPersist.preparePointersPersist(0)
-	db.idx.mu.RUnlock()
-	return persistPointers()
+	defer db.idx.mu.RUnlock()
+	persist := db.idx.indexPersist.prepare(0)
+	// We choose to keep the mutex locked while persisting pointers: the time sacrifice
+	// should not be substantial, and this ensures that the order of index persists are
+	// in order of garbage collect so that the index does reflect the correct indexes.
+	return persist()
 }
 
 func (db *DB) garbageCollectFile(key uint16, size int64) error {

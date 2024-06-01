@@ -67,7 +67,7 @@ func (idx *index) insert(ctx context.Context, p pointer, persist bool) error {
 	idx.persistHead = min(idx.persistHead, insertAt)
 
 	if persist {
-		persistPointers := idx.indexPersist.preparePointersPersist(idx.persistHead)
+		persistPointers := idx.indexPersist.prepare(idx.persistHead)
 		idx.mu.Unlock()
 		return persistPointers()
 	}
@@ -136,7 +136,7 @@ func (idx *index) update(ctx context.Context, p pointer, persist bool) error {
 	idx.persistHead = min(idx.persistHead, updateAt)
 
 	if persist {
-		persistPointers := idx.indexPersist.preparePointersPersist(idx.persistHead)
+		persistPointers := idx.indexPersist.prepare(idx.persistHead)
 		idx.mu.Unlock()
 		return persistPointers()
 	}

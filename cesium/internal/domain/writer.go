@@ -303,7 +303,7 @@ func (w *Writer) Close() error {
 
 	if *w.EnableAutoCommit && w.AutoIndexPersistInterval > 0 {
 		w.idx.mu.RLock()
-		persistPointers := w.idx.indexPersist.preparePointersPersist(w.idx.persistHead)
+		persistPointers := w.idx.indexPersist.prepare(w.idx.persistHead)
 		w.idx.mu.RUnlock()
 		return persistPointers()
 	}
