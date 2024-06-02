@@ -14,10 +14,14 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/meta"
+	"github.com/synnaxlabs/cesium/internal/version"
+	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/errors"
+	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
-	"github.com/synnaxlabs/x/validate"
 	"sync"
+	"sync/atomic"
 )
 
 type controlEntity struct {
@@ -27,50 +31,69 @@ type controlEntity struct {
 
 func (e *controlEntity) ChannelKey() core.ChannelKey { return e.ck }
 
-type openEntityCount struct {
+type entityCount struct {
 	sync.RWMutex
 	openWriters int
 }
 
-func (c *openEntityCount) Add(delta int) {
-	c.Lock()
-	c.openWriters += delta
-	c.Unlock()
+func (s *entityCount) add(delta int) {
+	s.Lock()
+	s.openWriters += delta
+	s.Unlock()
 }
 
 type DB struct {
 	Config
-	controller *controller.Controller[*controlEntity]
-	mu         *openEntityCount
+	controller  *controller.Controller[*controlEntity]
+	entityCount *entityCount
+	wrapError   func(error) error
+	closed      *atomic.Bool
 }
+
+var dbClosed = core.EntityClosed("virtual.db")
 
 type Config struct {
 	alamos.Instrumentation
+	FS      xfs.FS
 	Channel core.Channel
 }
 
 func Open(cfg Config) (db *DB, err error) {
-	if !cfg.Channel.Virtual {
-		return nil, errors.Wrap(validate.Error, "channel is not virtual")
+	c, err := controller.New[*controlEntity](controller.Config{Concurrency: cfg.Channel.Concurrency, Instrumentation: cfg.Instrumentation})
+	if err != nil {
+		return nil, err
 	}
 	return &DB{
-		Config:     cfg,
-		controller: controller.New[*controlEntity](cfg.Channel.Concurrency),
-		mu:         &openEntityCount{},
+		Config:      cfg,
+		controller:  c,
+		wrapError:   core.NewErrorWrapper(cfg.Channel),
+		entityCount: &entityCount{},
+		closed:      &atomic.Bool{},
 	}, nil
+}
+
+func (db *DB) CheckMigration(ecd binary.EncoderDecoder) error {
+	if db.Channel.Version != version.Current {
+		db.Channel.Version = version.Current
+		return meta.Create(db.FS, ecd, db.Channel)
+	}
+	return nil
 }
 
 func (db *DB) LeadingControlState() *controller.State {
 	return db.controller.LeadingState()
 }
 
-func (db *DB) TryClose() error {
-	db.mu.RLock()
-	defer db.mu.RUnlock()
-	if db.mu.openWriters > 0 {
-		return errors.Newf(fmt.Sprintf("[cesium] - cannot close channel because there are currently %d unclosed writers accessing it", db.mu.openWriters))
+func (db *DB) Close() error {
+	if db.closed.Load() {
+		return nil
 	}
-	return db.Close()
-}
+	db.entityCount.RLock()
+	defer db.entityCount.RUnlock()
+	if db.entityCount.openWriters > 0 {
+		return db.wrapError(errors.Newf(fmt.Sprintf("cannot close channel because there are %d unclosed writers accessing it", db.entityCount.openWriters)))
+	}
 
-func (db *DB) Close() error { return nil }
+	db.closed.Store(true)
+	return nil
+}
