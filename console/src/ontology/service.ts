@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type ontology, type Synnax } from "@synnaxlabs/client";
-import { type Haul, Status,type Tree } from "@synnaxlabs/pluto";
+import { type Haul, Status, type Tree } from "@synnaxlabs/pluto";
 import { type location } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 
@@ -43,7 +43,7 @@ export type HandleMosaicDrop = (props: HandleMosaicDropProps) => void;
 
 export interface TreeContextMenuProps extends Omit<HandleSelectProps, "selection"> {
   selection: {
-    parent: Tree.Node;
+    parent: Tree.Node | null;
     resources: ontology.Resource[];
     nodes: Tree.NodeWithPosition[];
   };
@@ -53,6 +53,7 @@ export interface TreeContextMenuProps extends Omit<HandleSelectProps, "selection
     setNodes: (nodes: Tree.Node[]) => void;
     setResources: (resources: ontology.Resource[]) => void;
     setSelection: (keys: string[]) => void;
+    setExpanded: (keys: string[]) => void;
   };
 }
 

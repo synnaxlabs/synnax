@@ -88,7 +88,7 @@ const newStore = async (): Promise<RootStore> => {
     migrator: migrateState,
     exclude: PERSIST_EXCLUDE,
   });
-  if (preloadedState != null) {
+  if (preloadedState != null && Drift.SLICE_NAME in preloadedState) {
     Object.keys(preloadedState[Drift.SLICE_NAME].windows).forEach((key) => {
       preloadedState[Drift.SLICE_NAME].windows[key].visible = false;
       preloadedState[Drift.SLICE_NAME].windows[key].focusCount = 0;

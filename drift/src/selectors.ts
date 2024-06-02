@@ -43,3 +43,8 @@ export const selectWindowAttribute = <K extends keyof WindowState>(
   const win = selectWindow(state, keyOrLabel);
   return win != null ? win[attr] : null;
 };
+
+export const selectWindowLabel = (state: StoreState, key: string): string | null => {
+  const driftState = selectSliceState(state);
+  return driftState.keyLabels[key];
+};

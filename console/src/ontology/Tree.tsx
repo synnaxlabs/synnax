@@ -341,7 +341,7 @@ export const Tree = (): ReactElement => {
     onSelectedChange: setSelected,
   });
 
-  const handleContextMenu = useCallback(
+  const contextMenu = useCallback(
     ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null => {
       if (keys.length === 0 || client == null) return null;
       const rightClickedButNotSelected = keys.find(
@@ -362,8 +362,6 @@ export const Tree = (): ReactElement => {
         // might be selecting nodes AND their children.
         key: selectedNodes.sort((a, b) => a.depth - b.depth)[0].key,
       });
-      // No parent means no valid contex menu.
-      if (parent == null) return null;
 
       const firstID = new ontology.ID(keys[0]);
 
@@ -385,6 +383,12 @@ export const Tree = (): ReactElement => {
           setNodes,
           setSelection: setSelected,
           setResources,
+          setExpanded: (keys) =>
+            treeProps.onSelect(keys, {
+              clickedIndex: null,
+              clicked: keys[0],
+              entries: [],
+            }),
         },
       };
 
@@ -423,7 +427,7 @@ export const Tree = (): ReactElement => {
   return (
     <Menu.ContextMenu
       style={{ height: "calc(100% - 32px)" }}
-      menu={handleContextMenu}
+      menu={contextMenu}
       {...menuProps}
     >
       <Core.Tree

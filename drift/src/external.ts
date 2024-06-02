@@ -14,6 +14,7 @@ export {
   selectWindow,
   selectWindowAttribute,
   selectWindowKey,
+  selectWindowLabel,
   selectWindows,
 } from "@/selectors";
 export type {

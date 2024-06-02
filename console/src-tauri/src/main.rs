@@ -7,7 +7,10 @@ extern crate cocoa;
 #[cfg(target_os = "macos")]
 extern crate objc;
 
-use tauri::{Window};
+use tauri::{Window, Manager};
+use device_query::{DeviceQuery, DeviceState, DeviceEvents, MouseState};
+use std::thread;
+use std::time::Duration;
 
 #[cfg(target_os = "macos")]
 struct UnsafeWindowHandle(*mut std::ffi::c_void);
@@ -80,10 +83,21 @@ fn main() {
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
-        .plugin(tauri_plugin_process::init())
-        .setup(|app| {
+        .plugin(tauri_plugin_process::init()) .setup(|app| {
             #[cfg(desktop)]
             app.handle().plugin(tauri_plugin_updater::Builder::new().build())?;
+            let app_handle = app.handle().clone();
+            thread::spawn(move || {
+                let app_handle = app_handle.clone();
+                let device_state = DeviceState::new();
+                let _guard = device_state.on_mouse_up(move |_pos| {
+                    let state: MouseState = DeviceState::new().get_mouse();
+                    app_handle.emit("mouse_up", state.coords).expect("Failed to emit event");
+                });
+                loop {
+                    thread::sleep(Duration::from_secs(1));
+                }
+            });
             Ok(())
         })
         .run(tauri::generate_context!())

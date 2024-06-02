@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology,UnexpectedError } from "@synnaxlabs/client";
+import { ontology, UnexpectedError } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Menu } from "@synnaxlabs/pluto";
 import { Tree } from "@synnaxlabs/pluto/tree";
@@ -17,27 +17,36 @@ import { Ontology } from "@/ontology";
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
-    selection: { nodes },
+    selection: { parent, nodes },
   } = props;
   const onSelect = (key: string): void => {
     switch (key) {
       case "ungroup":
         void ungroupSelection(props);
         return;
+      case "group":
+        void newGroup(props);
+        return;
       case "rename":
         Tree.startRenaming(nodes[0].key);
     }
   };
 
-  const isDelete = nodes.length === 1 && nodes[0].children?.length === 0;
+  const isDelete = nodes.every((n) => n.children?.length === 0);
   const ungroupIcon = isDelete ? <Icon.Delete /> : <Icon.Group />;
+  const canUngroup = parent != null;
 
   return (
     <Menu.Menu onChange={onSelect} level="small" iconSpacing="medium">
-      <Menu.Item itemKey="ungroup" startIcon={ungroupIcon}>
-        {isDelete ? "Delete" : "Ungroup"}
-      </Menu.Item>
       <Ontology.RenameMenuItem />
+      {canUngroup && (
+        <Menu.Item itemKey="ungroup" startIcon={ungroupIcon}>
+          {isDelete ? "Delete" : "Ungroup"}
+        </Menu.Item>
+      )}
+      <Menu.Item itemKey="group" startIcon={<Icon.Group />}>
+        New Group
+      </Menu.Item>
     </Menu.Menu>
   );
 };
@@ -66,26 +75,26 @@ const ungroupSelection = async ({
   selection,
   state,
 }: Ontology.TreeContextMenuProps): Promise<void> => {
-  if (selection.resources.length !== 1)
-    throw new UnexpectedError("[ungroupSelection] - expected exactly one resource");
-
-  const id = selection.resources[0].id;
-  const children =
-    Tree.findNode({ tree: state.nodes, key: id.toString() })?.children ?? [];
-  const parentID = new ontology.ID(selection.parent.key);
-  await client.ontology.moveChildren(
-    id,
-    parentID,
-    ...children.map((c) => new ontology.ID(c.key)),
-  );
-  await client.ontology.groups.delete(id.key);
-  let nextNodes = Tree.moveNode({
-    tree: state.nodes,
-    destination: parentID.toString(),
-    keys: children.map((c) => c.key),
-  });
-  nextNodes = Tree.removeNode({ tree: nextNodes, keys: id.toString() });
-  state.setNodes([...nextNodes]);
+  if (selection.parent == null) return;
+  for (const node of selection.resources) {
+    const id = node.id;
+    const children =
+      Tree.findNode({ tree: state.nodes, key: id.toString() })?.children ?? [];
+    const parentID = new ontology.ID(selection.parent.key);
+    await client.ontology.moveChildren(
+      id,
+      parentID,
+      ...children.map((c) => new ontology.ID(c.key)),
+    );
+    await client.ontology.groups.delete(id.key);
+    let nextNodes = Tree.moveNode({
+      tree: state.nodes,
+      destination: parentID.toString(),
+      keys: children.map((c) => c.key),
+    });
+    nextNodes = Tree.removeNode({ tree: nextNodes, keys: id.toString() });
+    state.setNodes([...nextNodes]);
+  }
 };
 
 const NEW_GROUP_NAME = "New Group Name";
@@ -101,6 +110,24 @@ const getAllNodesOfMinDepth = (
   const depths = nodes.map(({ depth }) => depth).sort((a, b) => a - b);
   const minDepth = depths[0];
   return nodes.filter(({ depth }) => depth === minDepth);
+};
+
+export const newGroup = async ({
+  client,
+  state,
+  selection: { nodes, resources },
+}: Ontology.TreeContextMenuProps): Promise<void> => {
+  if (resources.length === 0) return;
+  const resource = resources[resources.length - 1];
+  const g = await client.ontology.groups.create(resource.id, NEW_GROUP_NAME);
+  const otgID = new ontology.ID({ type: "group", key: g.key.toString() });
+  const res = await client.ontology.retrieve(otgID);
+  state.setResources([...state.resources, res]);
+  state.setSelection([res.id.toString()]);
+  state.setExpanded([resource.id.toString()]);
+  // setTimeout(() => {
+  //   Tree.startRenaming(res.id.toString());
+  // }, 20);
 };
 
 export const fromSelection = async ({

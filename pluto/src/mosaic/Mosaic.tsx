@@ -230,8 +230,10 @@ const TabLeaf = memo(
     const handleDragLeave = useCallback((): void => setDragMask(null), []);
 
     const handleDragStart = useCallback(
-      (_: unknown, { tabKey }: Tabs.Tab): void => {
-        startDrag([{ key: tabKey, type: HAUL_DROP_TYPE }]);
+      (e: DragEvent, { tabKey }: Tabs.Tab): void => {
+        startDrag([
+          { key: tabKey, type: HAUL_DROP_TYPE, elementID: e.currentTarget.id },
+        ]);
       },
       [startDrag],
     );
