@@ -64,6 +64,8 @@ jobs:
 
   build-tauri:
     needs: create-release
+    env:
+      SYNNAX_TS_ENV: prod
     strategy:
       fail-fast: false
       matrix:

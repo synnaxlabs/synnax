@@ -13,7 +13,6 @@ export type { SynnaxProps } from "@/client";
 export { default as Synnax, synnaxPropsZ } from "@/client";
 export * from "@/connection";
 export { control } from "@/control";
-export { Authority } from "@/control/authority";
 export {
   AuthError,
   ContiguityError,
@@ -56,3 +55,5 @@ export {
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x/telem";
+import { control } from "@synnaxlabs/x";
+export const Authority = control.Authority;

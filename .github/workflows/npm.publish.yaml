@@ -8,7 +8,8 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-latest
-
+    env:
+      SYNNAX_TS_ENV: prod
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v2

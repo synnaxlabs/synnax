@@ -53,6 +53,9 @@
     "typescript": "^5.4.5",
     "vite": "5.2.11"
   },
+  "peerDependencies": {
+    "zod": "^3.23.8"
+  },
   "files": [
     "dist"
   ],
