@@ -171,8 +171,11 @@ export const useSelect = <K extends Key, E extends Keyed<K>>({
       const value = toArray(valueRef.current).filter((v) => v != null) as K[];
       // Simple case. If we can't allow multiple, then just toggle the key.
       if (allowMultiple === false) nextSelected = value.includes(key) ? [] : [key];
+      // If the control key is held, we can still allow multiple selection.
       else if (ctrl.current.held && replaceOnSingle) {
+        // Remove the key if it's already selected.
         if (value.includes(key)) nextSelected = value.filter((k) => k !== key);
+        // Add it if its not.
         else nextSelected = [...value, key];
       } else if (shift.current.held && shiftValue !== null) {
         // We might select in reverse order, so we need to sort the indexes.
