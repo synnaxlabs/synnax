@@ -7,11 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { act, renderHook } from "@testing-library/react";
+import { act, fireEvent, renderHook } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { describe, expect, it } from "vitest";
 
 import { useSelect, type UseSelectMultipleProps } from "@/list/useSelect";
+import { Triggers } from "@/triggers";
 
 interface Entry {
   key: string;
@@ -120,6 +122,16 @@ describe("useSelect", () => {
           useSelectMultipleWrapper({ allowNone: false }),
         );
         expect(result.current.value).toEqual(["1"]);
+      });
+    });
+    describe("replaceOnSingle", () => {
+      it("should replace the selection when you click a new item", () => {
+        const { result } = renderHook(() =>
+          useSelectMultipleWrapper({ replaceOnSingle: true }),
+        );
+        act(() => result.current.onSelect("1"));
+        act(() => result.current.onSelect("2"));
+        expect(result.current.value).toEqual(["2"]);
       });
     });
   });
