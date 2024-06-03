@@ -133,6 +133,57 @@ var _ = Describe("Domain", func() {
 						),
 					)
 				})
+
+				// Distance does not work on discontinuous domains if the end timerange
+				// is not in any domain: in backlog to be fixed.
+
+				//Context("Discontinuous", func() {
+				//	BeforeEach(func() {
+				//		Expect(domain.Write(
+				//			ctx,
+				//			db,
+				//			(1 * telem.SecondTS).Range(20*telem.SecondTS+1),
+				//			telem.NewSecondsTSV(1, 2, 3, 5, 7, 9, 15, 19, 20).Data,
+				//		)).To(Succeed())
+				//		Expect(domain.Write(
+				//			ctx,
+				//			db,
+				//			(25 * telem.SecondTS).Range(30*telem.SecondTS+1),
+				//			telem.NewSecondsTSV(25, 26, 28, 30).Data,
+				//		)).To(Succeed())
+				//		Expect(domain.Write(
+				//			ctx,
+				//			db,
+				//			(40 * telem.SecondTS).Range(43*telem.SecondTS+1),
+				//			telem.NewSecondsTSV(40, 42, 43).Data,
+				//		)).To(Succeed())
+				//	})
+				//	DescribeTable("Discontinuous",
+				//		func(
+				//			tr telem.TimeRange,
+				//			expected index.DistanceApproximation,
+				//			expectedErr error,
+				//		) {
+				//			actual, err := idx.Distance(ctx, tr /*continuous*/, false)
+				//			if expectedErr != nil {
+				//				Expect(err).To(HaveOccurredAs(expectedErr))
+				//			} else {
+				//				Expect(err).To(BeNil())
+				//			}
+				//			Expect(actual).To(Equal(expected))
+				//		},
+				//		Entry("Zero zero",
+				//			telem.TimeRangeZero,
+				//			index.Exactly[int64](0),
+				//			index.ErrDiscontinuous,
+				//		),
+				//		Entry("Exact, start in domain, end not in domain",
+				//			(15*telem.SecondTS).Range(22*telem.SecondTS),
+				//			index.Exactly[int64](3),
+				//			nil,
+				//		),
+				//	)
+				//})
 			})
 			Describe("Stamp", func() {
 				Context("Continuous", func() {

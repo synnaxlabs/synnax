@@ -15,12 +15,15 @@ import (
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/core"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
+	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 	"os"
+	"strconv"
 )
 
 var _ = Describe("Channel", Ordered, func() {
@@ -51,16 +54,16 @@ var _ = Describe("Channel", Ordered, func() {
 					Expect(db.CreateChannel(ctx, channels...)).To(HaveOccurredAs(expected))
 				},
 					Entry("ChannelKey has no datatype",
-						validate.FieldError{Field: "data type", Message: "field must be set"},
+						validate.FieldError{Field: "data_type", Message: "field must be set"},
 						cesium.Channel{Key: 10, Rate: 10 * telem.Hz},
 					),
 					Entry("ChannelKey key already exists",
-						errors.Wrap(validate.Error, "[cesium] - channel 11 already exists"),
+						errors.Wrap(validate.Error, "cannot create channel [Isaac]<11> because it already exists"),
 						cesium.Channel{Key: 11, DataType: telem.Float32T, Rate: 10 * telem.Hz},
-						cesium.Channel{Key: 11, Rate: 10 * telem.Hz, DataType: telem.Float64T},
+						cesium.Channel{Key: 11, Name: "Isaac", Rate: 10 * telem.Hz, DataType: telem.Float64T},
 					),
 					Entry("ChannelKey IsIndex - Non Int64 Series Variant",
-						validate.FieldError{Field: "index", Message: "index channel must be of type timestamp"},
+						validate.FieldError{Field: "data_type", Message: "index channel must be of type timestamp"},
 						cesium.Channel{Key: 12, IsIndex: true, DataType: telem.Float32T},
 					),
 					Entry("ChannelKey IsIndex - LocalIndex non-zero",
@@ -69,7 +72,7 @@ var _ = Describe("Channel", Ordered, func() {
 						cesium.Channel{Key: 46, IsIndex: true, Index: 45, DataType: telem.TimeStampT},
 					),
 					Entry("ChannelKey has index - LocalIndex does not exist",
-						errors.Wrapf(validate.Error, "[cesium] - index %s does not exist", "40000"),
+						errors.Wrapf(validate.Error, "[cesium] - index channel <%s> does not exist", "40000"),
 						cesium.Channel{Key: 47, Index: 40000, DataType: telem.Float64T},
 					),
 					Entry("ChannelKey has no index - fixed rate not provided",
@@ -77,11 +80,37 @@ var _ = Describe("Channel", Ordered, func() {
 						cesium.Channel{Key: 48, DataType: telem.Float32T},
 					),
 					Entry("ChannelKey has index - provided index key is not an indexed channel",
-						errors.Wrap(validate.Error, "[cesium] - channel 60 is not an index"),
+						errors.Wrap(validate.Error, "[cesium] - channel <60> is not an index"),
 						cesium.Channel{Key: 60, DataType: telem.Float32T, Rate: 1 * telem.Hz},
 						cesium.Channel{Key: 61, Index: 60, DataType: telem.Float32T},
 					),
 				)
+				Describe("DB Closed", func() {
+					It("Should not allow creating a channel", func() {
+						sub := MustSucceed(fs.Sub("closed-fs"))
+						key := cesium.ChannelKey(1)
+						subDB := openDBOnFS(sub)
+						Expect(subDB.Close()).To(Succeed())
+						err := subDB.CreateChannel(ctx, cesium.Channel{Key: key, Rate: 1 * telem.Hz, DataType: telem.BytesT})
+						Expect(err).To(HaveOccurredAs(core.EntityClosed("cesium.db")))
+
+						Expect(fs.Remove("closed-fs")).To(Succeed())
+					})
+					It("Should not allow retrieving channels", func() {
+						sub := MustSucceed(fs.Sub("closed-fs"))
+						key := cesium.ChannelKey(1)
+						subDB := openDBOnFS(sub)
+						Expect(subDB.CreateChannel(ctx, cesium.Channel{Key: key, Rate: 1 * telem.Hz, DataType: telem.BytesT})).To(Succeed())
+						Expect(subDB.Close()).To(Succeed())
+
+						_, err := subDB.RetrieveChannel(ctx, key)
+						Expect(err).To(HaveOccurredAs(core.EntityClosed("cesium.db")))
+						_, err = subDB.RetrieveChannels(ctx, key)
+						Expect(err).To(HaveOccurredAs(core.EntityClosed("cesium.db")))
+
+						Expect(fs.Remove("closed-fs")).To(Succeed())
+					})
+				})
 			})
 			Describe("Opening db on existing folder", func() {
 				It("Should not panic when opening a db in a directory with already existing files", func() {
@@ -172,6 +201,40 @@ var _ = Describe("Channel", Ordered, func() {
 
 					Expect(f.Series[1].TimeRange).To(Equal((11 * telem.SecondTS).Range(15*telem.SecondTS + 1)))
 					Expect(f.Series[1].Data).To(Equal(telem.NewSeriesV[int64](11, 12, 13, 14, 15).Data))
+				})
+			})
+
+			Describe("Rename", func() {
+				It("Should rename a channel into a different name while channel is being used", func() {
+					key := GenerateChannelKey()
+					Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, Name: "fermat", Rate: 2 * telem.Hz, DataType: telem.Int64T})).To(Succeed())
+					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Start: 0, Channels: []cesium.ChannelKey{key}, EnableAutoCommit: config.True()}))
+					Expect(w.Write(cesium.NewFrame([]cesium.ChannelKey{key}, []telem.Series{telem.NewSeriesV[int64](10, 11, 12, 13)}))).To(BeTrue())
+
+					Expect(db.RenameChannel(ctx, key, "laplace")).To(Succeed())
+					Expect(w.Write(cesium.NewFrame([]cesium.ChannelKey{key}, []telem.Series{telem.NewSeriesV[int64](20, 21, 22)}))).To(BeTrue())
+					Expect(w.Close()).To(Succeed())
+
+					ch := MustSucceed(db.RetrieveChannel(ctx, key))
+					Expect(ch.Name).To(Equal("laplace"))
+					f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, key))
+					Expect(f.Series).To(HaveLen(1))
+					Expect(f.Series[0].Data).To(Equal(telem.NewSeriesV[int64](10, 11, 12, 13, 20, 21, 22).Data))
+
+					var (
+						subFS   = MustSucceed(fs.Sub(strconv.Itoa(int(key))))
+						meta    = MustSucceed(subFS.Open("meta.json", os.O_RDONLY))
+						encoder = &binary.JSONEncoderDecoder{}
+						buf     = make([]byte, MustSucceed(meta.Stat()).Size())
+						newCh   cesium.Channel
+					)
+
+					_, err := meta.Read(buf)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(meta.Close()).To(Succeed())
+
+					Expect(encoder.Decode(ctx, buf, &newCh)).To(Succeed())
+					Expect(newCh.Name).To(Equal("laplace"))
 				})
 			})
 		})
