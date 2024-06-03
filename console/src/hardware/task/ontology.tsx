@@ -71,9 +71,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           services: props.services,
         });
         break;
-      case "copyURL":
-        const url = `synnax://cluster/${clusterKey}/task/${selection.resources[0].id.key}`
-        void navigator.clipboard.writeText(url)
+      case "link":
+        const url = `synnax://cluster/${clusterKey}/task/${selection.resources[0].id.key}`;
+        void navigator.clipboard.writeText(url);
         break;
     }
   };
@@ -83,9 +83,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       <Menu.Item itemKey="delete" startIcon={<Icon.Delete />}>
         Delete
       </Menu.Item>
-      <Menu.Item itemKey="copyURL" startIcon={<Icon.Copy />}>
-        Copy URL
-      </Menu.Item>
+      <Ontology.LinkAddressMenuItem />
     </Menu.Menu>
   );
 };

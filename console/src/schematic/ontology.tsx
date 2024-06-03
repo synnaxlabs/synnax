@@ -46,10 +46,16 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
       const schematics = await Promise.all(
         resources.map(
           async (res) =>
-            await client.workspaces.schematic.copy(res.id.key, res.name + " (copy)", false),
+            await client.workspaces.schematic.copy(
+              res.id.key,
+              res.name + " (copy)",
+              false,
+            ),
         ),
       );
-      const otgIDs = schematics.map(({ key }) => new ontology.ID({ type: "schematic", key }));
+      const otgIDs = schematics.map(
+        ({ key }) => new ontology.ID({ type: "schematic", key }),
+      );
       const otg = await client.ontology.retrieve(otgIDs);
       state.setResources([...state.resources, ...otg]);
       const nextTree = Tree.setNode({
@@ -68,10 +74,16 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
       const schematics = await Promise.all(
         resources.map(
           async (res) =>
-            await client.workspaces.schematic.copy(res.id.key, res.name + " (snap)", true),
+            await client.workspaces.schematic.copy(
+              res.id.key,
+              res.name + " (snap)",
+              true,
+            ),
         ),
       );
-      const otgsIDs = schematics.map(({ key }) => new ontology.ID({ type: "schematic", key }));
+      const otgsIDs = schematics.map(
+        ({ key }) => new ontology.ID({ type: "schematic", key }),
+      );
       const rangeID = new ontology.ID({ type: "range", key: activeRange.key });
       await client.ontology.moveChildren(
         new ontology.ID(parent.key),
@@ -85,16 +97,16 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
 
   const clusterKey = Cluster.useSelectActiveKey();
   const handleCopyURL = (): void => {
-    const url = `synnax://cluster/${clusterKey}/schematic/${resources[0].id.key}`
+    const url = `synnax://cluster/${clusterKey}/schematic/${resources[0].id.key}`;
     void navigator.clipboard.writeText(url);
-  }
+  };
 
   const f: Record<string, () => void> = {
     delete: handleDelete,
     rename: handleRename,
     copy: handleCopy,
     rangeSnapshot: handleRangeSnapshot,
-    copyURL: handleCopyURL,
+    link: handleCopyURL,
   };
 
   const onSelect = (key: string): void => f[key]();
@@ -111,9 +123,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
       <Menu.Item itemKey="delete" startIcon={<Icon.Delete />}>
         Delete
       </Menu.Item>
-      <Menu.Item itemKey="copyURL" startIcon={<Icon.Copy />}>
-        Copy URL
-      </Menu.Item>
+      <Ontology.LinkAddressMenuItem />
     </Menu.Menu>
   );
 };

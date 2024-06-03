@@ -41,14 +41,14 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
   const handleRename = (): void => Tree.startRenaming(resources[0].key);
 
   const handleCopyURL = (): void => {
-    const toCopy = `synnax://cluster/${clusterKey}/lineplot/${resources[0].id.key}`
+    const toCopy = `synnax://cluster/${clusterKey}/lineplot/${resources[0].id.key}`;
     void navigator.clipboard.writeText(toCopy);
-  }
+  };
 
   const f: Record<string, () => void> = {
     delete: handleDelete,
     rename: handleRename,
-    copyURL: handleCopyURL,
+    link: handleCopyURL,
   };
 
   const onSelect = (key: string): void => f[key]();
@@ -59,9 +59,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
       <Menu.Item itemKey="delete" startIcon={<Icon.Delete />}>
         Delete
       </Menu.Item>
-      <Menu.Item itemKey="copyURL" startIcon={<Icon.Copy />}>
-        Copy URL
-      </Menu.Item>
+      <Ontology.LinkAddressMenuItem />
     </Menu.Menu>
   );
 };

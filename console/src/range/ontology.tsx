@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { type Store } from "@reduxjs/toolkit";
-import { type ontology, type ranger,type Synnax } from "@synnaxlabs/client";
+import { type ontology, type ranger, type Synnax } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { type Haul,Menu } from "@synnaxlabs/pluto";
+import { type Haul, Menu } from "@synnaxlabs/pluto";
 import { Tree } from "@synnaxlabs/pluto/tree";
 import { toArray } from "@synnaxlabs/x";
 
@@ -22,7 +22,7 @@ import { Ontology } from "@/ontology";
 import { createEditLayout } from "@/range/EditLayout";
 import { type Range } from "@/range/range";
 import { select } from "@/range/selectors";
-import { add, remove, setActive,type StoreState } from "@/range/slice";
+import { add, remove, setActive, type StoreState } from "@/range/slice";
 
 const fromClientRange = (ranges: ranger.Range | ranger.Range[]): Range[] =>
   toArray(ranges).map((range) => ({
@@ -177,7 +177,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         return;
       case "group":
         void Group.fromSelection(props);
-      case "copyURL":
+      case "link":
         const toCopy = `synnax://cluster/${clusterKey}/range/${resources[0].id.key}`;
         void navigator.clipboard.writeText(toCopy);
         return;
@@ -212,9 +212,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       <Menu.Item itemKey="delete" startIcon={<Icon.Delete />}>
         Delete
       </Menu.Item>
-      <Menu.Item itemKey="copyURL" startIcon={<Icon.Copy />}>
-        Copy URL
-      </Menu.Item>
+      <Ontology.LinkAddressMenuItem />
     </Menu.Menu>
   );
 };

@@ -24,7 +24,7 @@ import { Menu as ConsoleMenu } from "@/components";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
-import { type Ontology } from "@/ontology";
+import { Ontology } from "@/ontology";
 import { Range } from "@/range";
 import { Schematic } from "@/schematic";
 
@@ -164,9 +164,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       case "group":
         void Group.fromSelection(props);
         break;
-      case "copyURL":
-        const toCopy = `synnax://cluster/${clusterKey}/channel/${resources[0].id.key}`
-        void navigator.clipboard.writeText(toCopy)
+      case "link":
+        const toCopy = `synnax://cluster/${clusterKey}/channel/${resources[0].id.key}`;
+        void navigator.clipboard.writeText(toCopy);
         return;
     }
   };
@@ -192,9 +192,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       <Menu.Item itemKey="delete" startIcon={<Icon.Delete />}>
         Delete
       </Menu.Item>
-      <Menu.Item itemKey="copyURL" startIcon={<Icon.Copy />}>
-        Copy URL
-      </Menu.Item>
+      <Ontology.LinkAddressMenuItem />
     </Menu.Menu>
   );
 };

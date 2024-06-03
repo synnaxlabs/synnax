@@ -101,7 +101,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
       case "schematic": {
         return handleCreateNewSchematic(props);
       }
-      case "copy": {
+      case "link": {
         const toCopy = `synnax://cluster/${clusterKey}/workspace/${resources[0].id.key}`;
         void navigator.clipboard.writeText(toCopy);
         return;
@@ -122,9 +122,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
       <Menu.Item itemKey="schematic" startIcon={<Icon.Schematic />}>
         New Schematic
       </Menu.Item>
-      <Menu.Item itemKey="copy" startIcon={<Icon.Copy />}>
-        Copy URL
-      </Menu.Item>
+      <Ontology.LinkAddressMenuItem />
     </Menu.Menu>
   );
 };
