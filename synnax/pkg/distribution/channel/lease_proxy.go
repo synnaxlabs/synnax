@@ -17,9 +17,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/types"
+	"github.com/synnaxlabs/x/validate"
 )
 
 type leaseProxy struct {
@@ -294,7 +296,7 @@ func (lp *leaseProxy) createRemote(
 	return res.Channels, nil
 }
 
-func (lp *leaseProxy) deleteByName(ctx context.Context, tx gorp.Tx, names []string) error {
+func (lp *leaseProxy) deleteByName(ctx context.Context, tx gorp.Tx, names []string, allowInternal bool) error {
 	var res []Channel
 	if err := gorp.NewRetrieve[Key, Channel]().Entries(&res).Where(func(c *Channel) bool {
 		return lo.Contains(names, c.Name)
@@ -302,10 +304,26 @@ func (lp *leaseProxy) deleteByName(ctx context.Context, tx gorp.Tx, names []stri
 		return err
 	}
 	keys := KeysFromChannels(res)
-	return lp.delete(ctx, tx, keys)
+	return lp.delete(ctx, tx, keys, allowInternal)
 }
 
-func (lp *leaseProxy) delete(ctx context.Context, tx gorp.Tx, keys Keys) error {
+func (lp *leaseProxy) delete(ctx context.Context, tx gorp.Tx, keys Keys, allowInternal bool) error {
+	if !allowInternal {
+		var internalChannels []Channel
+		err := gorp.
+			NewRetrieve[Key, Channel]().
+			WhereKeys(keys...).
+			Where(func(c *Channel) bool { return c.Internal }).
+			Entries(&internalChannels).
+			Exec(ctx, tx)
+		if err != nil {
+			return err
+		}
+		if len(internalChannels) > 0 {
+			return errors.Wrapf(validate.Error, "cannot delete internal channel(s): %v", internalChannels)
+		}
+	}
+
 	batch := lp.deleteRouter.Batch(keys)
 	for nodeKey, entries := range batch.Peers {
 		err := lp.deleteRemote(ctx, nodeKey, entries)

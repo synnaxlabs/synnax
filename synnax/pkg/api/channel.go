@@ -12,7 +12,8 @@ package api
 import (
 	"context"
 	"go/types"
-	"slices"
+
+	// "slices"
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
@@ -262,36 +263,16 @@ func (s *ChannelService) Delete(
 	req ChannelDeleteRequest,
 ) (types.Nil, error) {
 	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
-		// something here where we check if it is an internal channel and remove
-		// it from the list if so.
 		c := errors.NewCatcher(errors.WithAggregation())
-		r := s.internal.NewRetrieve()
 		w := s.internal.NewWriter(tx)
-		var chans *[]channel.Channel
-		var newChans *[]channel.Channel
-
 		if len(req.Keys) > 0 {
 			c.Exec(func() error {
-				r.WhereKeys(req.Keys...).Entries(chans).WhereInternal(false)
-				externalKeys := channel.KeysFromChannels(*chans)
-				for _, key := range req.Keys {
-					if !externalKeys.Contains(key) {
-						return errors.New("cannot delete internal channel")
-					}
-				}
-				return w.DeleteMany(ctx, externalKeys)
+				return w.DeleteMany(ctx, req.Keys, false)
 			})
 		}
 		if len(req.Names) > 0 {
 			c.Exec(func() error {
-				r.WhereNames(req.Names...).Entries(newChans).WhereInternal(false)
-				externalNames := channel.Names(*newChans)
-				for _, name := range req.Names {
-					if !slices.Contains(externalNames, name) {
-						return errors.New("cannot delete internal channel")
-					}
-				}
-				return w.DeleteManyByNames(ctx, externalNames)
+				return w.DeleteManyByNames(ctx, req.Names, false)
 			})
 		}
 		return c.Error()
