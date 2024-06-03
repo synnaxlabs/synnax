@@ -62,7 +62,7 @@ since the persisted index is never read from until the database is closed and re
 We will consider which resources each operation needs to access, and in what order.
 Consider the following diagram:
 
-<div align="center">
+<div style="text-align: center">
     <img src="img/0019-240529-cesium-race-conditions/Operation-Entities.png" width="90%" />
     <h6>Cesium Entities and Resources</h6>
 </div>
@@ -149,11 +149,11 @@ at the same time, which is handled by the mutex on the index.
 
 The following diagram summarizes possible conflicts between these entities:
 
-<div align="center">
+<div style="text-align: center">
     <img src="img/0019-240529-cesium-race-conditions/Entity-Interactions.png">
 </div>
 
-## 4.2 Bottom-up view of race conditions in Cesium
+## 4.2 Domain level race conditions
 
 We will now inspect, from the bottom up, how the various entities interact with the
 domain data and the index in memory.
@@ -223,10 +223,22 @@ file handle's length may get changed via another `Commit`, which may assign `int
 new writer should there be a file switch, causing `w.internal.len()` to be 0 instead of
 the actual length.
 
-Using the length of an offset information of the `TrackedWriterCloser`, the index is
-inserted with the new pointer under an exclusive lock
+Using the `len` field, the writer determines whether a file cutoff is needed. Note that
+this step is race-free because `len` may be only updated via `Write`, which is not to be
+called concurrently.
 
+Using the length and offset information of the `TrackedWriterCloser`, the index is
+inserted with the new pointer under an exclusive lock, therefore race-free. After the
+insertion, the writer may switch files, changing the `fileKey`, `internal`, `fileSize`
+fields. This is the same race condition as mentioned before (#2), where other `Commit`
+calls read from this modified field.
 
+**Race condition #2**: domain/writer: `Commit` modifies fields that other `Commit` calls
+may use.
+
+**Recommended fix**: Disallow concurrent calls to `Commit` – in addition to guaranteeing
+exclusivity, it also does not make sense to make parallel calls to `Commit` if they all
+have the same underlying data as `Write` may not be called concurrently.
 
 ### 4.2.2 Reading
 
@@ -236,3 +248,86 @@ into memory. For this reason, there does not need to be any logical order in whi
 domains are stored on the file system – that is tracked by the index – so the iterator's
 job is to determine where to read and create a File System reader that can only read that
 section of the file.
+
+At the domain level, reading goes through three phases:
+1. Using commands such as `Seek`, `Next`, or `Prev`, find the position of the domain of
+interest that contains the time range we wish to read.
+2. Load the pointer at the found position into the iterator as its `value` field.
+3. Create a section reader based on information in the stored pointer: the offset for
+this reader is set to 0 where the domain starts in the file system, and EOF where the
+length of the domain is reached.
+4. Use the section reader as an `ReaderAtCloser` to read binary data.
+
+Note that there are various race conditions here! These race conditions are a
+combination of three categories: change to the pointer itself, change to the index, and
+change to the underlying data.
+
+At step 2, changes made to the index prevent `i.position` from pointing to the right
+pointer; at step 3, changes made to the pointer prevent creating the right reader; at
+step 4, changes made to file prevent reading the correct data. Here is a diagram that
+summarizes these races:
+
+<div style="text-align: center">
+<img width="90%" src="img/0019-240529-cesium-race-conditions/Read-Races.png">
+</div>
+
+#### 4.2.2.1 Race conditions involving the index
+If the index's content was changed between finding the position of the pointer of interest
+and reading it, the iterator will not read the correct pointer. For example, assume the
+seeked position of interest is 3. These changes may lead to reading the incorrect pointer:
+- `Write` inserting a pointer before the position of interest: the pointer of interest
+is found at position 6 instead of 5.
+- `Delete` deleting pointer(s) before the position of interest: the pointer of interest
+is found at position 4 instead of 5.
+- `Delete` deletes the pointer at the position of interest: the pointer of interest is
+no longer in the index, instead we would be reading what was at position 6.
+
+Notice that changes to the index after the position of interest does not invalidate the
+position.
+
+Also note that not only do these changes invalidate loading the pointer into the iterator,
+they also invalidate future iterator movements – the position of the iterator is no
+longer consistent with the value.
+
+#### 4.2.2.2 Race conditions involving the pointer
+Note that for creation of the reader, the offset and length information are not based on
+the pointer stored in memory, but the pointer loaded into the iterator. Therefore, if the
+pointer of interest was modified, the reader would not be updated with these new changes.
+
+This is not necessarily a problem – the iterator stores a pointer that was correct
+_at some point in time_ – but it may be inconvenient: for example, consider an
+open reader on domain that gets keeps getting updated with consecutive `Write`s: the reader
+would maintain the original domain's length and end time stamp until it is reloaded.
+
+Operations that could cause this discrepancy between the iterator-stored pointer and the
+pointer in index are:
+- Amend-`Write`s
+- `Delete`s
+- Garbage-Collection.
+
+#### 4.2.2.3 Race conditions involving the file
+
+If a file is garbage collected after a reader has been created on it, the offset and length
+of the pointer of interest are no longer coherent with the location of telemetry in the
+file. This causes reading of wrong data. The change in the file could only happen from
+one operation:
+- Garbage-Collection.
+
+#### 4.2.3 Deletion
+
+At the domain level, deletion is executed using two locks: one lock to prevent other
+deletions from occurring at the same time, and another lock to lock the mutex while
+we modify it. The specific steps to deletion are as follows:
+1. Find the domains containing the starting and ending time stamps.
+2. Calculate the offsets (number of samples) from the start time stamps of those domains
+to the desired time stamps.
+3. Search the domains where start and end time stamps found again.
+4. Remove pointers in between and update the domains at the two ends with the new offsets.
+
+Note that step 3 is necessary because between calculating the offsets, the position of the
+start and end domains may have changed – however, what must not have changed are the
+content of those domains, as we will never have an open writer during deletion and the
+delete lock prevents other deletions from occurring concurrently – therefore we know the
+start and end offsets remain correct.
+
+
