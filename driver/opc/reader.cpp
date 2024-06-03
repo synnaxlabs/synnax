@@ -32,6 +32,7 @@ ReaderConfig::ReaderConfig(
 ): device(parser.required<std::string>("device")) {
     sample_rate = Rate(parser.required<std::float_t>("sample_rate"));
     stream_rate = Rate(parser.required<std::float_t>("stream_rate"));
+    if (stream_rate.value <= 0) stream_rate = Rate(1);
     array_size = parser.optional<std::size_t>("array_size", 1);
     parser.iter("channels", [&](config::Parser &channel_builder) {
         auto ch = ReaderChannelConfig(channel_builder);
