@@ -12,6 +12,9 @@ import { type WindowState } from "@/window";
 
 export const selectSliceState = (state: StoreState): SliceState => state.drift;
 
+export const selectWindows = (state: StoreState): WindowState[] =>
+  Object.values(selectSliceState(state).windows);
+
 export const selectWindow = (
   state: StoreState,
   keyOrLabel?: string,

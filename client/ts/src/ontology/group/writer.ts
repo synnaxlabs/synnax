@@ -43,7 +43,6 @@ export class Writer {
   }
 
   async create(parent: ID, name: string, key?: string): Promise<Payload> {
-    console.log(key);
     const [res, err] = await this.client.send(
       Writer.ENDPOINT,
       { parent, name, key },

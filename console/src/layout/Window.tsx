@@ -9,7 +9,7 @@
 
 import "@/layout/Window.css";
 
-import { setWindowDecorations } from "@synnaxlabs/drift";
+import { setWindowDecorations, setWindowVisible } from "@synnaxlabs/drift";
 import { useSelectWindowAttribute, useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Logo } from "@synnaxlabs/media";
 import { Align, Menu as PMenu, Nav, OS, Text } from "@synnaxlabs/pluto";
@@ -95,6 +95,7 @@ export const Window = (): ReactElement | null => {
   const maximized = useSelectWindowAttribute(win, "maximized") ?? false;
   if (layout == null) return null;
   const content = <Content layoutKey={layout.key} />;
+  dispatch(setWindowVisible({ key: layout.key, value: true }));
   return (
     <PMenu.ContextMenu menu={() => <DefaultContextMenu />} {...menuProps}>
       <Align.Space

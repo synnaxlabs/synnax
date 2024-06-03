@@ -96,6 +96,8 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
     placeLayout(
       create({
         ...(linePlot.data as unknown as State),
+        key: linePlot.key,
+        name: linePlot.name,
         location: "mosaic",
         tab: {
           mosaicKey: nodeKey,

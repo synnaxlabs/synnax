@@ -179,13 +179,11 @@ export const Tree = (): ReactElement => {
   const store = useStore<RootState, RootAction>();
   const placeLayout = Layout.usePlacer();
   const removeLayout = Layout.useRemover();
-
   const [loading, setLoading] = useState<string | false>(false);
   const [nodes, setNodes, nodesRef] = useCombinedStateAndRef<Core.Node[]>([]);
   const [resourcesRef, setResources] = useRefAsState<ontology.Resource[]>([]);
-  const [selected, setSelected] = useState<string[]>([]);
+  const [selected, setSelected, selectedRef] = useCombinedStateAndRef<string[]>([]);
   const addStatus = Status.useAggregator();
-
   const menuProps = Menu.useContextMenu();
 
   // Processes incoming changes to the ontology from the cluster.
@@ -361,6 +359,10 @@ export const Tree = (): ReactElement => {
       // In the case where we right clicked the menu, but it's not in the current
       // selection, we only display a context menu for that item.
       if (rightClickedButNotSelected != null) keys = [rightClickedButNotSelected];
+      // Because we're using a virtualized tree, the keys from the context menu
+      // might not actually be accurate (because we're missing DOM elements), so instead
+      // we pull directly from the list selected state.
+      else keys = selectedRef.current;
       const resources = resourcesRef.current;
       const nodeSnapshot = nodesRef.current;
 
@@ -425,9 +427,10 @@ export const Tree = (): ReactElement => {
   const item = useCallback(
     (props: Core.ItemProps): ReactElement => (
       <AdapterItem
+        {...props}
+        key={props.entry.key}
         loading={props.entry.key === loading}
         services={services}
-        {...props}
       />
     ),
     [services, loading],

@@ -130,7 +130,6 @@ export const newGroup = async ({
   state.setNodes([...nextNodes]);
   setTimeout(() => {
     Tree.startRenaming(res.id.toString(), async (name) => {
-      console.log(name);
       if (name.length === 0) {
         // remove the node from the tree
         state.setNodes([

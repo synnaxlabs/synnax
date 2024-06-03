@@ -20,7 +20,7 @@ import {
 
 export const deleteEffect: MiddlewareEffect<
   Layout.StoreState & StoreState,
-  Layout.RemovePayload | Layout.SetSlicePayload,
+  Layout.RemovePayload | Layout.SetWorkspacePayload,
   RemovePayload
 > = ({ action, dispatch, getState }) => {
   const state = getState();
