@@ -14,13 +14,13 @@ import { Tree } from "@synnaxlabs/pluto/tree";
 import { deep, type UnknownRecord } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
+import { Cluster } from "@/cluster";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";
 import { Schematic } from "@/schematic";
 import { selectActiveKey } from "@/workspace/selectors";
 import { add, rename, setActive } from "@/workspace/slice";
-import { Cluster } from "@/cluster";
 
 const handleDelete = ({
   client,
@@ -102,8 +102,8 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
         return handleCreateNewSchematic(props);
       }
       case "copy": {
-        const toCopy = `synnax://cluster/${clusterKey}/workspace/${resources[0].id.key}`
-        void navigator.clipboard.writeText(toCopy)
+        const toCopy = `synnax://cluster/${clusterKey}/workspace/${resources[0].id.key}`;
+        void navigator.clipboard.writeText(toCopy);
         return;
       }
     }
