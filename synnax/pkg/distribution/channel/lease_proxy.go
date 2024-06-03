@@ -11,17 +11,16 @@ package channel
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/types"
-	"github.com/synnaxlabs/x/validate"
 )
 
 type leaseProxy struct {
@@ -320,7 +319,11 @@ func (lp *leaseProxy) delete(ctx context.Context, tx gorp.Tx, keys Keys, allowIn
 			return err
 		}
 		if len(internalChannels) > 0 {
-			return errors.Wrapf(validate.Error, "cannot delete internal channel(s): %v", internalChannels)
+			var names []string
+			for _, ch := range internalChannels {
+				names = append(names, ch.Name)
+			}
+			return fmt.Errorf("can't delete internal channel(s): %v", names)
 		}
 	}
 
