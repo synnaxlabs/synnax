@@ -14,6 +14,7 @@ import { Icon } from "@synnaxlabs/media";
 import {
   Align,
   Button,
+  Caret,
   componentRenderProp,
   Dropdown,
   Input,
@@ -21,7 +22,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { List } from "@synnaxlabs/pluto/list";
 import { Text } from "@synnaxlabs/pluto/text";
-import { type MouseEventHandler,type ReactElement, useCallback } from "react";
+import { type MouseEventHandler, type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
@@ -71,7 +72,13 @@ export const Selector = (): ReactElement => {
     >
       <Button.Button
         startIcon={<Icon.Workspace key="workspace" />}
-        endIcon={<Icon.Caret.Down key="down" />}
+        endIcon={
+          <Caret.Animated
+            enabledLoc="bottom"
+            disabledLoc="left"
+            enabled={dProps.visible}
+          />
+        }
         variant="text"
         onClick={() => dProps.toggle()}
         size="medium"

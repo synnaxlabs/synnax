@@ -53,6 +53,12 @@ export interface TreeContextMenuProps extends Omit<HandleSelectProps, "selection
     setNodes: (nodes: Tree.Node[]) => void;
     setResources: (resources: ontology.Resource[]) => void;
     setSelection: (keys: string[]) => void;
+<<<<<<< Updated upstream
+=======
+    expand: (key: string) => void;
+    contract: (key: string) => void;
+    setLoading: (key: string | false) => void;
+>>>>>>> Stashed changes
   };
 }
 

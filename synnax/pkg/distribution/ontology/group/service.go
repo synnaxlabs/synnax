@@ -94,10 +94,31 @@ func (w Writer) Create(
 	name string,
 	parent ontology.ID,
 ) (g Group, err error) {
-	//if err = w.validateNoChildrenWithName(ctx, name, parent); err != nil {
-	//	return
-	//}
 	g.Key = uuid.New()
+	g.Name = name
+	id := OntologyID(g.Key)
+	if err = gorp.NewCreate[uuid.UUID, Group]().Entry(&g).Exec(ctx, w.tx); err != nil {
+		return
+	}
+	if err = w.otg.DefineResource(ctx, id); err != nil {
+		return
+	}
+	if err = w.otg.DefineRelationship(ctx, parent, ontology.ParentOf, id); err != nil {
+		return
+	}
+	return g, err
+}
+
+func (w Writer) CreateWithKey(
+	ctx context.Context,
+	key uuid.UUID,
+	name string,
+	parent ontology.ID,
+) (g Group, err error) {
+	if key == uuid.Nil {
+		g.Key = uuid.New()
+	}
+	g.Key = key
 	g.Name = name
 	id := OntologyID(g.Key)
 	if err = gorp.NewCreate[uuid.UUID, Group]().Entry(&g).Exec(ctx, w.tx); err != nil {

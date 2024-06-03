@@ -43,7 +43,7 @@ export const createEditLayout = (name: string = "Create Range"): Layout.State =>
   location: "window",
   window: {
     resizable: false,
-    size: { height: 280, width: 700 },
+    size: { height: 290, width: 700 },
     navTop: true,
   },
 });
