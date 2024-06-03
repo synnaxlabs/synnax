@@ -14,37 +14,42 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var WriterClosedError = core.EntityClosed("virtual.writer")
 
-func (db *DB) OpenWriter(_ context.Context, cfg WriterConfig) (w *Writer, transfer controller.Transfer, err error) {
-	w = &Writer{WriterConfig: cfg, Channel: db.Channel, onClose: func() { db.mu.Add(-1) }}
-	gateCfg := controller.GateConfig{
-		TimeRange: cfg.domain(),
-		Authority: cfg.Authority,
-		Subject:   cfg.Subject,
-	}
-	var g *controller.Gate[*controlEntity]
-	g, transfer, err = db.controller.OpenGateAndMaybeRegister(gateCfg, func() (*controlEntity, error) {
-		a := telem.AlignmentPair(0)
-		return &controlEntity{
-			ck:    db.Channel.Key,
-			align: a,
-		}, nil
-	})
-	w.control = g
-	db.mu.Add(1)
-	return w, transfer, err
+type WriterConfig struct {
+	Subject           control.Subject
+	Start             telem.TimeStamp
+	End               telem.TimeStamp
+	Authority         control.Authority
+	ErrOnUnauthorized *bool
 }
 
-type WriterConfig struct {
-	Subject   control.Subject
-	Start     telem.TimeStamp
-	End       telem.TimeStamp
-	Authority control.Authority
+var (
+	_                   config.Config[WriterConfig] = WriterConfig{}
+	DefaultWriterConfig                             = WriterConfig{}
+)
+
+func (cfg WriterConfig) Validate() error {
+	v := validate.New("virtual.WriterConfig")
+	validate.NotEmptyString(v, "Subject.Key", cfg.Subject.Key)
+	validate.NotNil(v, "ErrONUnauthorized", cfg.ErrOnUnauthorized)
+	return v.Error()
+}
+
+func (cfg WriterConfig) Override(other WriterConfig) WriterConfig {
+	cfg.Start = override.Zero(cfg.Start, other.Start)
+	cfg.End = override.Zero(cfg.End, other.End)
+	cfg.Subject = override.If(cfg.Subject, other.Subject, other.Subject.Key != "")
+	cfg.Authority = override.Numeric(cfg.Authority, other.Authority)
+	cfg.ErrOnUnauthorized = override.Nil(cfg.ErrOnUnauthorized, other.ErrOnUnauthorized)
+	return cfg
 }
 
 func (cfg WriterConfig) domain() telem.TimeRange {
@@ -59,6 +64,39 @@ type Writer struct {
 	WriterConfig
 }
 
+func (db *DB) OpenWriter(_ context.Context, cfgs ...WriterConfig) (w *Writer, transfer controller.Transfer, err error) {
+	cfg, err := config.New(DefaultWriterConfig, cfgs...)
+	if err != nil {
+		return nil, transfer, err
+	}
+	w = &Writer{WriterConfig: cfg, Channel: db.Channel, onClose: func() { db.mu.Add(-1) }}
+	gateCfg := controller.GateConfig{
+		TimeRange: cfg.domain(),
+		Authority: cfg.Authority,
+		Subject:   cfg.Subject,
+	}
+	var g *controller.Gate[*controlEntity]
+	g, transfer, err = db.controller.OpenGateAndMaybeRegister(gateCfg, func() (*controlEntity, error) {
+		a := telem.AlignmentPair(0)
+		return &controlEntity{
+			ck:    db.Channel.Key,
+			align: a,
+		}, nil
+	})
+	if err != nil {
+		return nil, transfer, err
+	}
+	if *cfg.ErrOnUnauthorized {
+		if _, err = g.Authorize(); err != nil {
+			g.Release()
+			return nil, transfer, err
+		}
+	}
+	w.control = g
+	db.mu.Add(1)
+	return w, transfer, err
+}
+
 func (w *Writer) Write(series telem.Series) (telem.AlignmentPair, error) {
 	if w.closed {
 		return 0, WriterClosedError
@@ -66,7 +104,7 @@ func (w *Writer) Write(series telem.Series) (telem.AlignmentPair, error) {
 	if err := w.Channel.ValidateSeries(series); err != nil {
 		return 0, err
 	}
-	e, ok := w.control.Authorize()
+	e, ok := w.control.Authorized()
 	if !ok {
 		return 0, nil
 	}

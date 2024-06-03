@@ -189,9 +189,10 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 				virtualWriters = make(map[ChannelKey]*virtual.Writer)
 			}
 			virtualWriters[key], transfer, err = v.OpenWriter(ctx, virtual.WriterConfig{
-				Subject:   cfg.ControlSubject,
-				Start:     cfg.Start,
-				Authority: auth,
+				Subject:           cfg.ControlSubject,
+				Start:             cfg.Start,
+				Authority:         auth,
+				ErrOnUnauthorized: cfg.ErrOnUnauthorized,
 			})
 			if err != nil {
 				return nil, err
@@ -205,6 +206,7 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 				Persist:                  config.Bool(cfg.Mode.Persist()),
 				EnableAutoCommit:         cfg.EnableAutoCommit,
 				AutoIndexPersistInterval: cfg.AutoIndexPersistInterval,
+				ErrorOnUnauthorized:      cfg.ErrOnUnauthorized,
 			})
 			if err != nil {
 				return nil, err

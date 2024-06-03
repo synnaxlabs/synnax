@@ -141,7 +141,6 @@ class TestWriter:
                                     err_on_unauthorized=True,
                                     name="writer2") as w2:
                 data = np.random.rand(10).astype(np.float64)
-                w2.write(pd.DataFrame({channel.key: data}))
 
         assert w1.close() is None
 

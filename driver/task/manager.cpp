@@ -32,7 +32,9 @@ const std::string TASK_CMD_CHANNEL = "sy_task_cmd";
 
 freighter::Error task::Manager::start(std::atomic<bool> &done) {
     LOG(INFO) << "[task.manager] starting up";
-    if (const auto err = startGuarded(); err) {
+    const auto err = startGuarded();
+    breaker.start();
+    if (err) {
         if (err.matches(freighter::UNREACHABLE) && breaker.wait(err)) start(done);
         done = true;
         return err;

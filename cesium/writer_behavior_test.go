@@ -133,7 +133,6 @@ var _ = Describe("Writer Behavior", func() {
 						Expect(w.Close()).To(Succeed())
 					})
 				})
-
 				Context("Rate channels", func() {
 					It("Should write to many rate channels at once", func() {
 						var (
@@ -191,7 +190,6 @@ var _ = Describe("Writer Behavior", func() {
 						Expect(f.Series[2].Data).To(Equal(telem.NewSeriesV[int64](100, 105, 110, 115, 120, 125, 130, 135, 140, 145).Data))
 					})
 				})
-
 				Context("Rate, Index, and Data", func() {
 					It("Should write properly", func() {
 						var (
@@ -252,7 +250,6 @@ var _ = Describe("Writer Behavior", func() {
 						Expect(f.Series[3].Data).To(Equal(telem.NewSeriesV[int64](100, 105, 110, 115, 120, 125, 130, 135, 140, 145).Data))
 					})
 				})
-
 				Describe("Auto-commit", func() {
 					Describe("Indexed channels", func() {
 						var (
@@ -1201,7 +1198,7 @@ var _ = Describe("Writer Behavior", func() {
 					})
 				})
 			})
-			Describe("Data t Errors", func() {
+			Describe("Data & Errors", func() {
 				Specify("Invalid Data t for series", func() {
 					dtErr := GenerateChannelKey()
 					Expect(db.CreateChannel(
@@ -1265,16 +1262,12 @@ var _ = Describe("Writer Behavior", func() {
 				})
 				Context("True", func() {
 					It("Should return an error if writer is not authorized to write", func() {
-						w2 = MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Channels: []cesium.ChannelKey{key}, Start: 1 * telem.SecondTS, ErrOnUnauthorized: config.True()}))
-						Eventually(func() bool {
-							return w2.Write(cesium.NewFrame([]cesium.ChannelKey{key}, []telem.Series{telem.NewSeriesV[int64](1, 2, 3, 4)}))
-						}).Should(BeFalse())
-						Expect(w2.Error()).To(MatchError(control.Unauthorized))
-						Expect(w2.Close()).To(Succeed())
+						w2, err := db.OpenWriter(ctx, cesium.WriterConfig{Channels: []cesium.ChannelKey{key}, Start: 1 * telem.SecondTS, ErrOnUnauthorized: config.True()})
+						Expect(err).To(MatchError(control.Unauthorized))
+						Expect(w2).To(BeNil())
 					})
 				})
 			})
-
 			Describe("Virtual Channels", func() {
 				It("Should write to virtual channel", func() {
 					var virtual1 = GenerateChannelKey()
@@ -1296,7 +1289,6 @@ var _ = Describe("Writer Behavior", func() {
 					Expect(w.Close()).To(Succeed())
 				})
 			})
-
 			Describe("Close", func() {
 				It("Should not allow operations on a closed iterator", func() {
 					key := GenerateChannelKey()
@@ -1313,7 +1305,6 @@ var _ = Describe("Writer Behavior", func() {
 					Expect(w.Error()).To(MatchError(e))
 				})
 			})
-
 			Describe("Close", func() {
 				It("Should close properly with a control setup", func() {
 					k1, k2, k3, k4 := GenerateChannelKey(), GenerateChannelKey(), GenerateChannelKey(), GenerateChannelKey()

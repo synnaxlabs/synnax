@@ -20,6 +20,7 @@ class Source {
 public:
     virtual ~Source() = default;
     virtual std::pair<Frame, freighter::Error> read() = 0;
+    virtual void sendError(freighter::Error err) {};
     virtual freighter::Error start() = 0;
     virtual freighter::Error stop() = 0;
 };
@@ -64,6 +65,10 @@ private:
     std::shared_ptr<Source> source;
 
     void runInternal();
+
+    void maybeJoinThread() const;
+
+    void sendError(const freighter::Error &err) const;
     
     void run();
 };

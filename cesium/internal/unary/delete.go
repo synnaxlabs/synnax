@@ -59,7 +59,7 @@ func (db *DB) Delete(ctx context.Context, tr telem.TimeRange) error {
 		return err
 	}
 
-	_, ok := g.Authorize()
+	_, ok := g.Authorized()
 	if !ok {
 		g.Release()
 		return controller.Unauthorized(g.Subject.Name, db.Channel.Key)

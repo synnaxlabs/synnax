@@ -136,13 +136,30 @@ public:
     }
 
     freighter::Error stop() override {
-        curr_state.variant = "success";
+        if (curr_state.variant != "error") {
+            curr_state.variant = "success";
+            curr_state.details = json{
+                {"message", "Task stopped successfully"},
+                {"running", false}
+            };
+        } else {
+            curr_state.details = json{
+                {"message", "Task stopped: " + curr_state.details["message"].get<std::string>()},
+                {"running", false}
+            };
+        }
+
+        ctx->setState(curr_state);
+        return freighter::NIL;
+    }
+
+    void sendError(freighter::Error err) override {
+        curr_state.variant = "error";
         curr_state.details = json{
-            {"message", "Task stopped successfully"},
+            {"message", err.message()},
             {"running", false}
         };
         ctx->setState(curr_state);
-        return freighter::NIL;
     }
 
     freighter::Error communicate_res_error(
@@ -157,7 +174,10 @@ public:
             err.data = "connection rejected";
             curr_state.variant = "warning";
             curr_state.details = json{
-                {"message", "Temporarily unable to reach OPC UA server. Will keep trying."},
+                {
+                    "message",
+                    "Temporarily unable to reach OPC UA server. Will keep trying."
+                },
                 {"running", true}
             };
         } else {
@@ -166,8 +186,10 @@ public:
                            UA_StatusCode_name(status));
             curr_state.variant = "error";
             curr_state.details = json{
-                {"message", "Failed to read from OPC UA server: " + std::string(
-                    UA_StatusCode_name(status))},
+                {
+                    "message", "Failed to read from OPC UA server: " + std::string(
+                                   UA_StatusCode_name(status))
+                },
                 {"running", false}
             };
         }
@@ -205,7 +227,12 @@ public:
             if (curr_state.variant != "warning") {
                 curr_state.variant = "warning";
                 curr_state.details = json{
-                    {"message", "Received array of length " + std::to_string(length) + " from OPC UA server, which is larger than the configured size of " + std::to_string(cfg.array_size) + ". Truncating array."},
+                    {
+                        "message",
+                        "Received array of length " + std::to_string(length) +
+                        " from OPC UA server, which is larger than the configured size of "
+                        + std::to_string(cfg.array_size) + ". Truncating array."
+                    },
                     {"running", true}
                 };
                 ctx->setState(curr_state);
@@ -216,8 +243,8 @@ public:
     }
 
     void set_val_on_series(
-        UA_Variant *val, 
-        size_t i, 
+        UA_Variant *val,
+        size_t i,
         synnax::Series &s
     ) {
         if (UA_Variant_hasArrayType(val, &UA_TYPES[UA_TYPES_FLOAT])) {
@@ -266,7 +293,6 @@ public:
             if (s.data_type == synnax::UINT8) return s.set_array(data, i, length);
         }
         if (UA_Variant_hasArrayType(val, &UA_TYPES[UA_TYPES_DATETIME])) {
-
             UA_DateTime *data = static_cast<UA_DateTime *>(val->data);
             size_t length = cap_array_length(i, val->arrayLength);
             for (size_t j = 0; j < length; ++j)
@@ -300,11 +326,13 @@ public:
             if (s.data_type == synnax::INT64) s.set(i, value);
             if (s.data_type == synnax::UINT32) s.set(i, static_cast<uint32_t>(value));
             if (s.data_type == synnax::UINT64) s.set(i, static_cast<uint64_t>(value));
-            if (s.data_type == synnax::TIMESTAMP) s.set(i, static_cast<uint64_t>(value));
+            if (s.data_type == synnax::TIMESTAMP) s.
+                    set(i, static_cast<uint64_t>(value));
         }
         if (val->type == &UA_TYPES[UA_TYPES_UINT32]) {
             const auto value = *static_cast<UA_UInt32 *>(val->data);
-            if (s.data_type == synnax::INT32) s.set(i, static_cast<int32_t>(value)); // Potential data loss
+            if (s.data_type == synnax::INT32) s.set(i, static_cast<int32_t>(value));
+            // Potential data loss
             if (s.data_type == synnax::INT64) s.set(i, static_cast<int64_t>(value));
             if (s.data_type == synnax::UINT32) s.set(i, value);
             if (s.data_type == synnax::UINT64) s.set(i, static_cast<uint64_t>(value));
@@ -312,10 +340,13 @@ public:
         if (val->type == &UA_TYPES[UA_TYPES_UINT64]) {
             const auto value = *static_cast<UA_UInt64 *>(val->data);
             if (s.data_type == synnax::UINT64) s.set(i, value);
-            if (s.data_type == synnax::INT32) s.set(i, static_cast<int32_t>(value)); // Potential data loss
+            if (s.data_type == synnax::INT32) s.set(i, static_cast<int32_t>(value));
+            // Potential data loss
             if (s.data_type == synnax::INT64) s.set(i, static_cast<int64_t>(value));
-            if (s.data_type == synnax::UINT32) s.set(i, static_cast<uint32_t>(value)); // Potential data loss
-            if (s.data_type == synnax::TIMESTAMP) s.set(i, static_cast<uint64_t>(value));
+            if (s.data_type == synnax::UINT32) s.set(i, static_cast<uint32_t>(value));
+            // Potential data loss
+            if (s.data_type == synnax::TIMESTAMP) s.
+                    set(i, static_cast<uint64_t>(value));
         }
         if (val->type == &UA_TYPES[UA_TYPES_BYTE]) {
             const auto value = *static_cast<UA_Byte *>(val->data);
@@ -355,8 +386,10 @@ public:
         if (val->type == &UA_TYPES[UA_TYPES_DATETIME]) {
             const auto value = *static_cast<UA_DateTime *>(val->data);
             if (s.data_type == synnax::INT64) s.set(i, ua_datetime_to_unix_nano(value));
-            if (s.data_type == synnax::TIMESTAMP) s.set(i, ua_datetime_to_unix_nano(value));
-            if (s.data_type == synnax::UINT64) s.set(i, static_cast<uint64_t>(ua_datetime_to_unix_nano(value)));
+            if (s.data_type == synnax::TIMESTAMP) s.set(
+                i, ua_datetime_to_unix_nano(value));
+            if (s.data_type == synnax::UINT64) s.set(
+                i, static_cast<uint64_t>(ua_datetime_to_unix_nano(value)));
             if (s.data_type == synnax::FLOAT32) s.set(i, static_cast<float>(value));
             if (s.data_type == synnax::FLOAT64) s.set(i, static_cast<double>(value));
         }
@@ -427,12 +460,15 @@ public:
                 if (exceed_time_count == 5) {
                     curr_state.variant = "warning";
                     curr_state.details = json{
-                        {"message", "Sample rate exceeds OPC UA server throughput. samples may be delayed"},
+                        {
+                            "message",
+                            "Sample rate exceeds OPC UA server throughput. samples may be delayed"
+                        },
                         {"running", true}
                     };
                     ctx->setState(curr_state);
                 }
-            } 
+            }
         }
         if (exceed_time_count < 5 && curr_state.variant != "success") {
             curr_state.variant = "success";
@@ -444,8 +480,6 @@ public:
         }
         return std::make_pair(std::move(fr), freighter::NIL);
     }
-
-    
 };
 
 
@@ -564,11 +598,13 @@ std::unique_ptr<task::Task> Reader::configure(
     ctx->setState({
         .task = task.key,
         .variant = "success",
-        .details = {
-            {"running", false}
+        .details = json{
+            {"running", false},
+            {"message", "Task configured successfully"}
         }
     });
-    return std::make_unique<Reader>(ctx, task, cfg, breaker_config, std::move(source), writer_cfg);
+    return std::make_unique<Reader>(ctx, task, cfg, breaker_config, std::move(source),
+                                    writer_cfg);
 }
 
 void Reader::exec(task::Command &cmd) {
@@ -576,8 +612,6 @@ void Reader::exec(task::Command &cmd) {
     else if (cmd.type == "stop") return stop();
     else LOG(ERROR) << "unknown command type: " << cmd.type;
 }
-
-
 
 void Reader::stop() {
     pipe.stop();
