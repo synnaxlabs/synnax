@@ -13,8 +13,6 @@ import (
 	"context"
 	"go/types"
 
-	// "slices"
-
 	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution"

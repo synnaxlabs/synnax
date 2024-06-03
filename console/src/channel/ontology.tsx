@@ -166,7 +166,6 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   };
 
   const singleResource = selection.resources.length === 1;
-  const someDeletable = selection.resources.some((r) => !r.data?.internal);
 
   return (
     <Menu.Menu level="small" iconSpacing="small" onChange={handleSelect}>
@@ -184,11 +183,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           </Menu.Item>
         </>
       )}
-      {true && (
-        <Menu.Item itemKey="delete" startIcon={<Icon.Delete />}>
-          Delete
-        </Menu.Item>
-      )}
+      <Menu.Item itemKey="delete" startIcon={<Icon.Delete />}>
+        Delete
+      </Menu.Item>
     </Menu.Menu>
   );
 };
