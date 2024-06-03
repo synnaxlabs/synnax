@@ -37,7 +37,7 @@ var _ = Describe("Meta", Ordered, func() {
 				db := MustSucceed(cesium.Open("", cesium.WithFS(fs)))
 				key := GenerateChannelKey()
 
-				Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, Rate: 1 * telem.Hz, DataType: telem.Int64T})).To(Succeed())
+				Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, Name: "Faraday", Rate: 1 * telem.Hz, DataType: telem.Int64T})).To(Succeed())
 				Expect(db.Close()).To(Succeed())
 
 				f, err := fs.Open(strconv.Itoa(int(key))+"/meta.json", os.O_WRONLY)
@@ -47,7 +47,7 @@ var _ = Describe("Meta", Ordered, func() {
 				Expect(f.Close()).To(Succeed())
 
 				db, err = cesium.Open("", cesium.WithFS(fs))
-				Expect(err).To(MatchError(ContainSubstring("error decoding meta file")))
+				Expect(err).To(MatchError(ContainSubstring("error decoding meta in folder for channel %d", key)))
 			})
 
 			Describe("Impossible meta configurations", func() {
