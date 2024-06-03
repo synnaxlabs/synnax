@@ -25,6 +25,8 @@ export default defineConfig({
       ? {
           "@synnaxlabs/pluto/dist": path.resolve(__dirname, "../pluto/dist"),
           "@synnaxlabs/pluto": path.resolve(__dirname, "../pluto/src"),
+          "@synnaxlabs/drift/dist": path.resolve(__dirname, "../drift/dist"),
+          "@synnaxlabs/drift": path.resolve(__dirname, "../drift/src"),
         }
       : {},
   },

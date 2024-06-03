@@ -27,6 +27,8 @@ import {
 import { Align } from "@synnaxlabs/pluto";
 import { Dropdown } from "@synnaxlabs/pluto/dropdown";
 import { List } from "@synnaxlabs/pluto/list";
+import { xy } from "@synnaxlabs/x";
+import { nanoid } from "nanoid";
 import {
   type FC,
   type ReactElement,
@@ -85,25 +87,34 @@ export const Palette = ({
   const placer = Layout.usePlacer();
   const d = useDispatch();
 
-  const { onDragOver, onDrop } = Haul.useDrop({
+  const handleDrop = useCallback(
+    ({ items: [item] }: Haul.OnDropProps, cursor?: xy.XY) => {
+      const { key } = placer(
+        Layout.createMosaicWindow({
+          position: cursor ? xy.translate(cursor, { x: -100, y: -100 }) : undefined,
+        }),
+      );
+      d(
+        Layout.moveMosaicTab({
+          windowKey: key,
+          key: 1,
+          tabKey: item.key as string,
+          loc: "center",
+        }),
+      );
+      return [item];
+    },
+    [placer],
+  );
+
+  const dropProps = {
     type: "Palette",
     canDrop,
-    onDrop: useCallback(
-      ({ items: [item] }) => {
-        const { key } = placer(Layout.createMosaicWindow());
-        d(
-          Layout.moveMosaicTab({
-            windowKey: key,
-            key: 1,
-            tabKey: item.key as string,
-            loc: "center",
-          }),
-        );
-        return [item];
-      },
-      [placer],
-    ),
-  });
+    onDrop: handleDrop,
+  };
+
+  Haul.useDropOutside(dropProps);
+  const { onDragOver, onDrop } = Haul.useDrop(dropProps);
 
   const dragging = Haul.useDraggingState();
 

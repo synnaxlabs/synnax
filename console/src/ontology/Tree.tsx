@@ -426,9 +426,10 @@ export const Tree = (): ReactElement => {
   const item = useCallback(
     (props: Core.ItemProps): ReactElement => (
       <AdapterItem
+        {...props}
+        key={props.entry.key}
         loading={props.entry.key === loading}
         services={services}
-        {...props}
       />
     ),
     [services, loading],

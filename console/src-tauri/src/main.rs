@@ -66,7 +66,7 @@ fn main() {
                 let screen = monitor.size();
                 if size != screen {
                     set_transparent_titlebar(win, true);
-                } 
+                }  
             },
             tauri::WindowEvent::Moved(position)=> {
                 if position.x != 0 && position.y != 0 {

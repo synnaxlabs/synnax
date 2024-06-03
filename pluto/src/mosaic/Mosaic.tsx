@@ -11,6 +11,7 @@ import "@/mosaic/Mosaic.css";
 
 import { type box, type location } from "@synnaxlabs/x";
 import {
+  DragEvent,
   memo,
   type MutableRefObject,
   type ReactElement,
@@ -177,6 +178,7 @@ const TabLeaf = memo(
     onDrop,
     onCreate,
     portalNodes,
+    activeTab,
     ...props
   }: TabLeafProps): ReactElement => {
     const { key, tabs } = node as Omit<Node, "tabs"> & { tabs: Tabs.Tab[] };
@@ -187,6 +189,7 @@ const TabLeaf = memo(
 
     const handleDrop = useCallback(
       ({ items, event }: Haul.OnDropProps): Haul.Item[] => {
+        if (event == null) return [];
         setDragMask(null);
         const dropped = Haul.filterByType(HAUL_DROP_TYPE, items);
         const loc =
@@ -207,6 +210,7 @@ const TabLeaf = memo(
 
     const handleDragOver = useCallback(
       ({ event }: Haul.OnDragOverProps): void => {
+        if (event == null) return;
         const location: location.Location =
           tabs.length === 0 ? "center" : insertLocation(getDragLocationPercents(event));
         setDragMask(location);
@@ -226,8 +230,9 @@ const TabLeaf = memo(
     const handleDragLeave = useCallback((): void => setDragMask(null), []);
 
     const handleDragStart = useCallback(
-      (_: unknown, { tabKey }: Tabs.Tab): void =>
-        startDrag([{ key: tabKey, type: HAUL_DROP_TYPE }]),
+      (_: unknown, { tabKey }: Tabs.Tab): void => {
+        startDrag([{ key: tabKey, type: HAUL_DROP_TYPE }]);
+      },
       [startDrag],
     );
 
@@ -240,7 +245,7 @@ const TabLeaf = memo(
           tabs={tabs}
           onDragLeave={handleDragLeave}
           selected={node.selected}
-          selectedAltColor={props.activeTab === node.selected}
+          selectedAltColor={activeTab === node.selected}
           onDragStart={handleDragStart}
           onCreate={handleTabCreate}
           {...props}

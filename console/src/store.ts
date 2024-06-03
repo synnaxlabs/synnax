@@ -26,7 +26,6 @@ import { Workspace } from "@/workspace";
 const PERSIST_EXCLUDE: Array<deep.Key<RootState>> = [
   ...Layout.PERSIST_EXCLUDE,
   Cluster.PERSIST_EXCLUDE,
-  Drift.SLICE_NAME,
 ];
 
 const reducer = combineReducers({
@@ -89,6 +88,12 @@ const newStore = async (): Promise<RootStore> => {
     migrator: migrateState,
     exclude: PERSIST_EXCLUDE,
   });
+  if (preloadedState != null) {
+    Object.keys(preloadedState[Drift.SLICE_NAME].windows).forEach((key) => {
+      preloadedState[Drift.SLICE_NAME].windows[key].visible = false;
+      preloadedState[Drift.SLICE_NAME].windows[key].focusCount = 0;
+    });
+  }
   return await Drift.configureStore<RootState, RootAction>({
     runtime: new TauriRuntime(),
     preloadedState,
