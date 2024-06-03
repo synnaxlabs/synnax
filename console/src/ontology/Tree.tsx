@@ -20,7 +20,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { Tree as Core } from "@synnaxlabs/pluto/tree";
 import { deep } from "@synnaxlabs/x";
-import { memo, type ReactElement, useCallback, useMemo,useState } from "react";
+import { memo, type ReactElement, useCallback, useMemo, useState } from "react";
 import { useStore } from "react-redux";
 
 import { Layout } from "@/layout";
@@ -93,7 +93,6 @@ const handleResourcesChange = async (
   const updated = changes
     .filter(({ variant, value }) => variant === "set" && value != null)
     .map(({ value }) => value) as ontology.Resource[];
-  console.log(updated);
   setResources(updateResources(resources, updated, removed));
   let nextTree = Core.removeNode({
     tree: nodes,
@@ -396,12 +395,9 @@ export const Tree = (): ReactElement => {
           setNodes,
           setSelection: setSelected,
           setResources,
-<<<<<<< Updated upstream
-=======
           expand: treeProps.expand,
           contract: treeProps.contract,
           setLoading: setLoading,
->>>>>>> Stashed changes
         },
       };
 

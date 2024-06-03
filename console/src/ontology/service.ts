@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type ontology, type Synnax } from "@synnaxlabs/client";
-import { type Haul, Status,type Tree } from "@synnaxlabs/pluto";
+import { type Haul, Status, type Tree } from "@synnaxlabs/pluto";
 import { type location } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 
@@ -53,12 +53,9 @@ export interface TreeContextMenuProps extends Omit<HandleSelectProps, "selection
     setNodes: (nodes: Tree.Node[]) => void;
     setResources: (resources: ontology.Resource[]) => void;
     setSelection: (keys: string[]) => void;
-<<<<<<< Updated upstream
-=======
     expand: (key: string) => void;
     contract: (key: string) => void;
     setLoading: (key: string | false) => void;
->>>>>>> Stashed changes
   };
 }
 

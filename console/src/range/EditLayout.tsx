@@ -63,7 +63,6 @@ export const Edit = (props: Layout.RendererProps): ReactElement => {
     queryKey: ["range", layoutKey],
     queryFn: async () => {
       if (isCreate) {
-        console.log(editBuffer);
         dispatch(clearBuffer());
         return {
           name: "",

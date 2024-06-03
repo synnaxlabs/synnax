@@ -24,7 +24,7 @@ import { Button } from "@/button";
 import { Caret } from "@/caret";
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
-import { useCombinedStateAndRef,useSyncedRef } from "@/hooks";
+import { useCombinedStateAndRef, useSyncedRef } from "@/hooks";
 import { List } from "@/list";
 import {
   UseSelectMultipleProps,
@@ -34,9 +34,9 @@ import {
 import { CONTEXT_SELECTED, CONTEXT_TARGET } from "@/menu/ContextMenu";
 import { state } from "@/state";
 import { Text } from "@/text";
-import { flatten, type FlattenedNode,type Node } from "@/tree/core";
+import { flatten, type FlattenedNode, type Node } from "@/tree/core";
 import { Triggers } from "@/triggers";
-import { componentRenderProp,type RenderProp } from "@/util/renderProp";
+import { componentRenderProp, type RenderProp } from "@/util/renderProp";
 
 export const HAUL_TYPE = "tree-item";
 
@@ -86,8 +86,6 @@ export const use = (props: UseProps): UseReturn => {
     return flatten({ nodes, expanded, sort });
   }, [nodes, expanded, sort]);
   const flatRef = useSyncedRef(flat);
-
-  console.log(expanded);
 
   const shiftRef = Triggers.useHeldRef({ triggers: SHIFT_TRIGGERS });
 
