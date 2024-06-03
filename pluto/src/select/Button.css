@@ -13,11 +13,8 @@
     /* This is so it matches the background style of input components */
     background: var(--pluto-gray-l1) !important;
 
-    & .pluto-select-button__indicator {
-        transition: transform 0.2s ease-in-out;
-        transform-origin: center;
+    & .pluto-caret-animated {
         margin-left: auto;
-        color: var(--pluto-gray-l6);
     }
 }
 

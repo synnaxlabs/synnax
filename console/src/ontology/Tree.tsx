@@ -265,13 +265,23 @@ export const Tree = (): ReactElement => {
         try {
           setLoading(clicked);
           const resources = await client.ontology.retrieveChildren(id, {
-            includeSchema: true,
+            includeSchema: false,
           });
           const converted = toTreeNodes(services, resources);
-          const nextTree = Core.setNode({
+          const nextTree = Core.updateNodeChildren({
             tree: nodesRef.current,
-            destination: clicked,
-            additions: converted,
+            parent: clicked,
+            updater: (nodes) => {
+              const res = converted.map((node) => {
+                const existing = nodes.find(({ key }) => key === node.key);
+                return { ...existing, ...node };
+              });
+              const nodesBeingRenamed = nodes.filter(
+                ({ key, name }) =>
+                  !converted.find(({ key: k }) => k === key) && name.length === 0,
+              );
+              return [...res, ...nodesBeingRenamed];
+            },
           });
           const keys = resources.map(({ id }) => id.toString());
           resourcesRef.current = [
@@ -387,6 +397,9 @@ export const Tree = (): ReactElement => {
           setNodes,
           setSelection: setSelected,
           setResources,
+          expand: treeProps.expand,
+          contract: treeProps.contract,
+          setLoading: setLoading,
         },
       };
 
