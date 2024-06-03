@@ -225,16 +225,16 @@ func (w *Writer) commit(ctx context.Context, end telem.TimeStamp, persist bool) 
 		return span.Error(errors.New("[cesium] - commit timestamp cannot be greater than preset end timestamp"))
 	}
 
-	switchingFile, commitEnd := w.resolveCommitEnd(end)
-
-	if err := w.validateCommitRange(commitEnd, switchingFile); err != nil {
-		return span.Error(err)
-	}
-
 	length := w.internal.Len()
 	if length == 0 {
 		return nil
 	}
+
+	commitEnd, switchingFile := w.resolveCommitEnd(end)
+	if err := w.validateCommitRange(commitEnd, switchingFile); err != nil {
+		return span.Error(err)
+	}
+
 	ptr := pointer{
 		TimeRange: telem.TimeRange{Start: w.Start, End: commitEnd},
 		offset:    uint32(w.internal.Offset()),
@@ -272,12 +272,12 @@ func (w *Writer) commit(ctx context.Context, end telem.TimeStamp, persist bool) 
 }
 
 // resolveCommitEnd returns whether a file change is needed, the resolved commit end, and any errors.
-func (w *Writer) resolveCommitEnd(end telem.TimeStamp) (bool, telem.TimeStamp) {
+func (w *Writer) resolveCommitEnd(end telem.TimeStamp) (telem.TimeStamp, bool) {
 	if w.fileSize >= w.fc.Config.FileSize {
-		return true, end
+		return end, true
 	}
 
-	return false, lo.Ternary(w.presetEnd, w.End, end)
+	return lo.Ternary(w.presetEnd, w.End, end), false
 }
 
 // Close closes the writer, releasing any resources it may have been holding. Any
