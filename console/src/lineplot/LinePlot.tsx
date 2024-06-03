@@ -32,7 +32,6 @@ import {
 import { type ReactElement, useCallback, useEffect, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
-import { Menu } from "@/components";
 import { type Syncer, useSyncerDispatch } from "@/hooks/dispatchers";
 import { Layout } from "@/layout";
 import {
@@ -72,6 +71,7 @@ import {
   storeViewport,
   typedLineKeyToString,
 } from "@/lineplot/slice";
+import { Menu } from "@/menu";
 import { Range } from "@/range";
 import { Workspace } from "@/workspace";
 
@@ -323,7 +323,7 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
 
     return (
       <PMenu.Menu onChange={handleSelect} iconSpacing="medium" level="small">
-        <Menu.Item.HardReload />
+        <Menu.HardReload />
         {!box.areaIsZero(selection) && (
           <>
             <PMenu.Item itemKey="iso" startIcon={<Icon.Range />}>

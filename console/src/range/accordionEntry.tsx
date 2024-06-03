@@ -9,7 +9,7 @@
 
 import "@/range/accordionEntry.css";
 
-import { type label,TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/client";
+import { type label, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   componentRenderProp,
@@ -27,9 +27,9 @@ import { Text } from "@synnaxlabs/pluto/text";
 import { type ReactElement, useState } from "react";
 import { useDispatch } from "react-redux";
 
-import { Menu } from "@/components";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
+import { Menu } from "@/menu";
 import { createEditLayout } from "@/range/EditLayout";
 import type { Range, StaticRange } from "@/range/range";
 import { useSelect, useSelectMultiple } from "@/range/selectors";
@@ -187,7 +187,7 @@ export const List = (): ReactElement => {
           Set as Active Range
         </PMenu.Item>
         <Divider.Divider direction="x" padded />
-        <Menu.Item.HardReload />
+        <Menu.HardReload />
       </PMenu.Menu>
     );
   };

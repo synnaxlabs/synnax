@@ -18,11 +18,12 @@ import { getCurrent } from "@tauri-apps/api/window";
 import { type ReactElement, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
-import { Controls, Menu } from "@/components";
+import { Controls } from "@/components";
 import { CSS } from "@/css";
 import { Content } from "@/layout/Content";
 import { WindowProps } from "@/layout/layout";
 import { useSelect } from "@/layout/selectors";
+import { Menu } from "@/menu";
 
 export interface NavTopProps extends Pick<WindowProps, "showTitle" | "navTop"> {
   title: string;
@@ -79,7 +80,7 @@ export const NavTop = ({
 
 export const DefaultContextMenu = (): ReactElement => (
   <PMenu.Menu>
-    <Menu.Item.HardReload />
+    <Menu.HardReload />
   </PMenu.Menu>
 );
 

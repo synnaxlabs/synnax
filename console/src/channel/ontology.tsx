@@ -19,7 +19,7 @@ import {
 import { Tree } from "@synnaxlabs/pluto/tree";
 import { type ReactElement } from "react";
 
-import { Menu as ConsoleMenu } from "@/components";
+import { Menu as ConsoleMenu } from "@/menu";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
@@ -169,7 +169,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
 
   return (
     <Menu.Menu level="small" iconSpacing="small" onChange={handleSelect}>
-      <ConsoleMenu.Item.HardReload />
+      <ConsoleMenu.HardReload />
       <Group.GroupMenuItem selection={selection} />
       {activeRange != null && activeRange.persisted && (
         <>

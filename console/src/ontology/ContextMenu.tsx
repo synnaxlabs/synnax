@@ -9,6 +9,7 @@
 
 import { Icon } from "@synnaxlabs/media";
 import { Menu } from "@synnaxlabs/pluto";
+import { Menu as sMenu } from "@/menu";
 import { type ReactElement } from "react";
 
 import { Group } from "@/group";
@@ -25,6 +26,7 @@ export const MultipleSelectionContextMenu: TreeContextMenu = (props) => {
   return (
     <Menu.Menu onChange={handleSelect} level="small" iconSpacing="small">
       <Group.GroupMenuItem selection={props.selection} />
+      <sMenu.HardReload />
     </Menu.Menu>
   );
 };
