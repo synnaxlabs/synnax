@@ -18,7 +18,7 @@ import { Ontology } from "@/ontology";
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
-    selection: { nodes },
+    selection: { nodes, parent },
   } = props;
   const onSelect = (key: string): void => {
     switch (key) {
@@ -27,6 +27,10 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         return;
       case "rename":
         Tree.startRenaming(nodes[0].key);
+        return;
+      case "group":
+        void newGroup(props);
+        return;
     }
   };
 
@@ -35,9 +39,14 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
 
   return (
     <Menu.Menu onChange={onSelect} level="small" iconSpacing="medium">
-      <Menu.Item itemKey="ungroup" startIcon={ungroupIcon}>
-        {isDelete ? "Delete" : "Ungroup"}
+      <Menu.Item itemKey="group" startIcon={<Icon.Group />}>
+        New Group
       </Menu.Item>
+      {parent != null && (
+        <Menu.Item itemKey="ungroup" startIcon={ungroupIcon}>
+          {isDelete ? "Delete" : "Ungroup"}
+        </Menu.Item>
+      )}
       <Ontology.RenameMenuItem />
     </Menu.Menu>
   );

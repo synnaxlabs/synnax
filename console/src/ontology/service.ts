@@ -43,7 +43,7 @@ export type HandleMosaicDrop = (props: HandleMosaicDropProps) => void;
 
 export interface TreeContextMenuProps extends Omit<HandleSelectProps, "selection"> {
   selection: {
-    parent: Tree.Node;
+    parent: Tree.Node | null;
     resources: ontology.Resource[];
     nodes: Tree.NodeWithPosition[];
   };
