@@ -1,9 +1,15 @@
-import { type ReactElement, useState } from "react";
+// Copyright 2024 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
 
-import { Align, Button, Form, Synnax, Text } from "@synnaxlabs/pluto";
-import { UseMutationResult, useMutation } from "@tanstack/react-query";
-
-import { GroupConfig } from "@/hardware/ni/device/types";
+import { Align, Button, Text } from "@synnaxlabs/pluto";
+import { UseMutationResult } from "@tanstack/react-query";
+import { type ReactElement } from "react";
 
 export interface ConfirmProps {
   confirm: UseMutationResult<void, Error, void, unknown>;

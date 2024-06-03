@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type bounds } from "@synnaxlabs/x/spatial";
 import {
   type CrudeTimeRange,
-  TimeRange,
-  Series,
   DataType,
+  Series,
+  TimeRange,
   TimeSpan,
 } from "@synnaxlabs/x/telem";
-import { type bounds } from "@synnaxlabs/x/spatial";
 import { describe, expect, it } from "vitest";
 
 import { buildDrawOperations, type DrawOperation } from "@/vis/line/aether/line";
@@ -290,7 +290,7 @@ describe("line", () => {
       ALIGN_OVERLAP_TIME_RANGE_NO_OVERLAP,
     ];
 
-    SPECS.forEach(({ name, x, y, expected }, i) => {
+    SPECS.forEach(({ name, x, y, expected }) => {
       it(`spec ${name}`, () => {
         const xSeries = buildSeriesFromEntries(x);
         const ySeries = buildSeriesFromEntries(y);

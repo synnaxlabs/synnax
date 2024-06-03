@@ -7,29 +7,27 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useState } from "react";
+import "@/hardware/ni/device/Configure.css";
 
 import { type device } from "@synnaxlabs/client";
-import { Button, Form, Nav, Synnax, Steps } from "@synnaxlabs/pluto";
+import { Button, Form, Nav, Steps, Synnax } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { type ReactElement, useState } from "react";
 
 import { CSS } from "@/css";
-import { Confirm } from "@/hardware/ni/device/Confirm";
 import { buildPhysicalDevicePlan } from "@/hardware/ni/device/buildGroups";
+import { Confirm } from "@/hardware/ni/device/Confirm";
 import { CreateChannels } from "@/hardware/ni/device/CreateChannels";
+import { enrich } from "@/hardware/ni/device/enrich/enrich";
 import { extrapolateIdentifier, PropertiesForm } from "@/hardware/ni/device/Properties";
 import {
-  configurationZ,
-  GroupConfig,
   type Configuration,
+  configurationZ,
   type EnrichedProperties,
+  GroupConfig,
 } from "@/hardware/ni/device/types";
 import { type Layout } from "@/layout";
-
-import { enrich } from "@/hardware/ni/device/enrich/enrich";
-
-import "@/hardware/ni/device/Configure.css";
 
 const makeDefaultValues = (device: device.Device): Configuration => {
   return {
@@ -69,8 +67,7 @@ export const Configure = ({ layoutKey }: Layout.RendererProps): ReactElement => 
   const client = Synnax.use();
   const { data, isPending } = useQuery({
     queryKey: [layoutKey, client?.key],
-    queryFn: async ({ queryKey }) => {
-      const [key] = queryKey;
+    queryFn: async () => {
       if (client == null) return;
       return await client.hardware.devices.retrieve(layoutKey);
     },
@@ -154,6 +151,7 @@ const ConfigureInternal = ({ device }: ConfigureInternalProps): ReactElement => 
   else if (step === "createChannels") content = <CreateChannels />;
   else if (step === "confirm")
     content = <Confirm confirm={confirm} progress={progress} />;
+  else content = <h1>Unknown step: {step}</h1>;
 
   return (
     <Align.Space className={CSS.B("configure")} align="stretch" empty>

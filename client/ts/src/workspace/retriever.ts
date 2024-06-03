@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -11,13 +11,13 @@ import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { toArray } from "@synnaxlabs/x/toArray";
 import { z } from "zod";
 
+import { nullableArrayZ } from "@/util/zod";
 import {
+  keyZ,
   type Params,
   type Workspace,
-  keyZ,
   workspaceRemoteZ,
 } from "@/workspace/payload";
-import { nullableArrayZ } from "@/util/zod";
 
 const reqZ = z.object({
   keys: keyZ.array().optional(),
@@ -29,11 +29,7 @@ const reqZ = z.object({
 
 type Request = z.infer<typeof reqZ>;
 
-const resZ = z.object({
-  workspaces: nullableArrayZ(workspaceRemoteZ),
-});
-
-type Response = z.infer<typeof resZ>;
+const resZ = z.object({ workspaces: nullableArrayZ(workspaceRemoteZ) });
 
 export class Retriever {
   private static readonly ENDPOINT = "/workspace/retrieve";

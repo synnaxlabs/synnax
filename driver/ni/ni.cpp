@@ -121,6 +121,7 @@ void ni::Source::parseConfig(config::Parser &parser){
     this->reader_config.device_name = dev.location;
     LOG(INFO) << "[NI Source] location  " << dev.location;
     this->parseChannels(parser);
+    assert(parser.ok());
 }
 
 int ni::Source::init(){
@@ -193,7 +194,8 @@ freighter::Error ni::Source::start(){
     }
 
     if (this->checkNIError(ni::NiDAQmxInterface::StartTask(this->task_handle))){
-        LOG(ERROR) << "[NI Reader] failed while starting reader for task " << this->reader_config.task_name;
+        LOG(ERROR) << "[NI Reader] failed while starting reader for task " << this->reader_config.task_name << " requires reconfigure";
+        this->clearTask();
         return freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
     }else{
         this->sample_thread = std::thread(&ni::Source::acquireData, this);
@@ -218,13 +220,18 @@ freighter::Error ni::Source::stop(){
 
 }
 
-ni::Source::~Source(){
-    LOG(INFO) << "[NI Reader] clearing reader for task " << this->reader_config.task_name;
+
+void ni::Source::clearTask(){
     if (this->checkNIError(ni::NiDAQmxInterface::ClearTask(this->task_handle))){
         LOG(ERROR) << "[NI Reader] failed while clearing reader for task " << this->reader_config.task_name;
     }
+    LOG(INFO) << "[NI Reader] cleared reader for task " << this->reader_config.task_name;
 }
 
+
+ni::Source::~Source(){
+   this->clearTask();
+}
 
 int ni::Source::checkNIError(int32 error){
     if (error < 0){
@@ -250,4 +257,13 @@ int ni::Source::checkNIError(int32 error){
 
 bool ni::Source::ok(){ 
     return this->ok_state;
+}
+
+
+std::vector<synnax::ChannelKey> ni::Source::getChannelKeys(){
+    std::vector<synnax::ChannelKey> keys;
+    for (auto &channel : this->reader_config.channels){
+        keys.push_back(channel.channel_key);
+    }
+    return keys;
 }

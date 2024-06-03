@@ -1,4 +1,7 @@
 {
     "cmake.configureOnOpen": false,
-    "vitest.disableWorkspaceWarning": true
+    "vitest.disableWorkspaceWarning": true,
+    "cSpell.words": [
+        "synnax"
+    ]
 }

@@ -1,15 +1,27 @@
-import { Form, Channel, List, Align } from "@synnaxlabs/pluto";
+// Copyright 2024 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { Align, Channel, Form, List } from "@synnaxlabs/pluto";
+import { deep } from "@synnaxlabs/x";
+import { FC, ReactElement } from "react";
+
 import {
-  AIChan,
-  AIChanType,
+  AccelerationUnits,
+  AccelSensitivityUnits,
   AI_CHANNEL_SCHEMAS,
   AI_CHANNEL_TYPE_NAMES,
-  AccelSensitivityUnits,
-  AccelerationUnits,
+  AIChan,
+  AIChanType,
   ElectricalUnits,
   ForceUnits,
-  SCALE_SCHEMAS,
   Scale,
+  SCALE_SCHEMAS,
   ScaleType,
   ShuntResistorLoc,
   TorqueUnits,
@@ -17,8 +29,6 @@ import {
   ZERO_AI_CHANNELS,
   ZERO_SCALES,
 } from "@/hardware/ni/task/types";
-import { FC, ReactElement } from "react";
-import { deep } from "@synnaxlabs/x";
 
 export interface FormProps {
   prefix: string;
@@ -290,21 +300,6 @@ const MinMaxValueFields = ({ path }: { path: string }): ReactElement => (
     <MaxValueField path={path} grow />
   </Align.Space>
 );
-
-const AmpsOnlyUnitsField = Form.buildButtonSelectField<string, NamedKey<string>>({
-  fieldKey: "units",
-  fieldProps: { label: "Current Units" },
-  inputProps: {
-    entryRenderKey: "name",
-    columns: NAMED_KEY_COLS,
-    data: [
-      {
-        key: "Amps",
-        name: "Amps",
-      },
-    ],
-  },
-});
 
 const ForceUnitsField = Form.buildButtonSelectField<ForceUnits, NamedKey<ForceUnits>>({
   fieldKey: "units",
@@ -642,12 +637,8 @@ export const SCALE_FORMS: Record<ScaleType, FC<FormProps>> = {
       </>
     );
   },
-  table: ({ prefix }) => {
-    return <></>;
-  },
-  none: ({ prefix }) => {
-    return <></>;
-  },
+  table: () => <></>,
+  none: () => <></>,
 };
 
 export const SelectCustomScaleTypeField = Form.buildButtonSelectField<

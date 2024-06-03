@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -250,7 +250,8 @@ const hexToRgba = (s: string, n: number): number => parseInt(s.slice(n, n + 2), 
 const stripHash = (hex: string): string => (hex.startsWith("#") ? hex.slice(1) : hex);
 
 export const fromHSLA = (hsla: RGBA): RGBA => {
-  let [h, s, l, a] = hsla;
+  let [h, s, l] = hsla;
+  const a = hsla[3];
   h /= 360;
   s /= 100;
   l /= 100;
@@ -279,7 +280,8 @@ const hueToRgb = (p: number, q: number, t: number): number => {
 };
 
 const rgbaToHSLA = (rgba: RGBA): HSLA => {
-  let [r, g, b, a] = rgba;
+  let [r, g, b] = rgba;
+  const a = rgba[3];
   r /= 255;
   g /= 255;
   b /= 255;

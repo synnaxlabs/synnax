@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import {
-  type UnknownAction,
+  type Action,
   type Dispatch,
   type Middleware,
   type MiddlewareAPI,
-  type Action,
+  type UnknownAction,
 } from "@reduxjs/toolkit";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { debounce, deep, type UnknownRecord } from "@synnaxlabs/x";

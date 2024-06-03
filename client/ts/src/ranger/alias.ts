@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -12,7 +12,7 @@ import { type change } from "@synnaxlabs/x/change";
 import { z } from "zod";
 
 import { type channel } from "@/channel";
-import { keyZ as channelKeyZ, type Key as ChannelKey } from "@/channel/payload";
+import { type Key as ChannelKey,keyZ as channelKeyZ } from "@/channel/payload";
 import { type Client as FrameClient } from "@/framer/client";
 import { type Key, keyZ } from "@/ranger/payload";
 import { signals } from "@/signals";

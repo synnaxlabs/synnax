@@ -1,10 +1,43 @@
+// Copyright 2024 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import { device } from "@synnaxlabs/client";
 import { z } from "zod";
+
+export const securityModeZ = z.union([
+  z.literal("None"),
+  z.literal("Sign"),
+  z.literal("SignAndEncrypt"),
+]);
+
+export type SecurityMode = z.infer<typeof securityModeZ>;
+
+export const securityPolicyZ = z.union([
+  z.literal("None"),
+  z.literal("Basic128Rsa15"),
+  z.literal("Basic256"),
+  z.literal("Basic256Sha256"),
+  z.literal("Aes128_Sha256_RsaOaep"),
+  z.literal("Aes256_Sha256_RsaPss"),
+]);
+
+export type SecurityPolicy = z.infer<typeof securityPolicyZ>;
 
 export const connectionConfigZ = z.object({
   endpoint: z.string(),
   username: z.string().optional(),
   password: z.string().optional(),
+  security_mode: securityModeZ,
+  security_policy: securityPolicyZ,
+  client_certificate: z.string().optional(),
+  client_private_key: z.string().optional(),
+  server_certificate: z.string().optional(),
 });
 
 export type ConnectionConfig = z.infer<typeof connectionConfigZ>;
@@ -33,26 +66,24 @@ export const channelConfigZ = nodeProperties
     isIndex: z.boolean().optional(),
   })
   .superRefine((data, ctx) => {
-    if (!data.isIndex && !data.nodeId) {
+    if (!data.isIndex && !data.nodeId)
       ctx.addIssue({
         code: "custom",
         path: ["nodeId"],
         message: "Data channels must have a node ID",
       });
-    }
     return true;
   })
   .transform((data) => {
     return data;
   })
   .superRefine((data, ctx) => {
-    if (data.isIndex && data.dataType !== "timestamp") {
+    if (data.isIndex && data.dataType !== "timestamp")
       ctx.addIssue({
         code: "custom",
         path: ["dataType"],
         message: "Index channels must have a data type of timestamp",
       });
-    }
     return true;
   });
 
@@ -76,7 +107,7 @@ export const groupConfigZ = z
         path: ["channels"],
         message: `Only one index channel is allowed per group, found: ${found}`,
       });
-      indexes.forEach(([c, i]) => {
+      indexes.forEach(([, i]) => {
         ctx.addIssue({
           code: "custom",
           path: ["channels", i],

@@ -1,11 +1,19 @@
-import { type ReactElement } from "react";
+// Copyright 2024 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
 
-import { type rack, type hardware } from "@synnaxlabs/client";
+import { type rack } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Synnax } from "@synnaxlabs/pluto";
 import { Input } from "@synnaxlabs/pluto/input";
 import { List } from "@synnaxlabs/pluto/list";
 import { Text } from "@synnaxlabs/pluto/text";
+import { type ReactElement } from "react";
 
 export const RackList = (): ReactElement => {
   const client = Synnax.use();

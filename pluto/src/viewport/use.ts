@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,17 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { box, dimensions, location, scale, xy } from "@synnaxlabs/x";
 import {
+  type ForwardedRef,
   type MutableRefObject,
   useCallback,
   useEffect,
   useImperativeHandle,
   useRef,
   useState,
-  type ForwardedRef,
 } from "react";
-
-import { box, xy, dimensions, location, scale } from "@synnaxlabs/x";
 
 import { useStateRef } from "@/hooks/ref";
 import { useMemoCompare } from "@/memo";
@@ -62,6 +61,11 @@ const TRUNC_PRECISION = 6;
 // the viewport. This prevents unnecessary re-renders, although increasing this value
 // also decreases the smoothness of the pan.
 const CURSOR_TRANSLATION_THRESHOLD = 2; // px
+// The threshold at which an action is considered a click, and not a drag.
+const CLICK_THRESHOLD = 5; // px
+
+const isClick = (b: box.Box): boolean =>
+  box.width(b) < CLICK_THRESHOLD && box.height(b) < CLICK_THRESHOLD;
 
 type StringLiteral<T> = T extends string ? (string extends T ? never : T) : never;
 
@@ -181,9 +185,11 @@ export const use = ({
         return setStateRef(box.DECIMAL);
       }
 
+      const isClick_ = isClick(box_);
+
       if (stage === "end") {
         // This prevents clicks from being registered as a drag
-        if (box.width(box_) < 5 && box.height(box_) < 5) {
+        if (isClick_) {
           if (mode === "zoom") setMaskBox(box.ZERO);
           onChange?.({ box: stateRef.current, mode: "click", stage, cursor });
           return;
@@ -208,7 +214,7 @@ export const use = ({
       }
 
       if (MASK_MODES.includes(mode)) {
-        if (box.height(box_) < 5 && box.width(box_) < 5) return;
+        if (isClick_) return;
         return setMaskBox(
           scale.XY.scale(canvas)
             .clamp(canvas)

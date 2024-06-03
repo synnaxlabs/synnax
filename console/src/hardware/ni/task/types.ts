@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { task } from "@synnaxlabs/client";
-import { xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 export const unitsVoltsZ = z.literal("Volts");

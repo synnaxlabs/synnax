@@ -1,13 +1,22 @@
-import { TimeSpan, UnexpectedError, type channel } from "@synnaxlabs/client";
+// Copyright 2024 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { type channel,TimeSpan, UnexpectedError } from "@synnaxlabs/client";
 import { type Required } from "@synnaxlabs/x";
 
+import { DynamicProps } from "@/telem/client/cache/dynamic";
 import {
-  type StaticProps,
   DEFAULT_STATIC_PROPS,
+  type StaticProps,
   zeroCacheGCMetrics,
 } from "@/telem/client/cache/static";
 import { Unary } from "@/telem/client/cache/unary";
-import { DynamicProps } from "@/telem/client/cache/dynamic";
 
 export const CACHE_BUFFER_SIZE: TimeSpan = TimeSpan.seconds(60);
 
