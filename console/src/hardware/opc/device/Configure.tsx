@@ -69,7 +69,7 @@ export const createConfigureLayout =
       name,
       window: {
         navTop: true,
-        resizable: false,
+        resizable: true,
         size: { height: 1000, width: 1300 },
       },
       location,
@@ -144,7 +144,7 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
         const { details: deviceProperties } = await task.executeCommandSync<Properties>(
           "scan",
           { connection: methods.get({ path: "connection" }).value },
-          TimeSpan.seconds(5),
+          TimeSpan.seconds(20),
         );
         if (deviceProperties == null) return;
         console.log(deviceProperties);
@@ -247,7 +247,7 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
         <Align.Space className={CSS.B("content")} grow>
           {content}
         </Align.Space>
-        <Nav.Bar size={48} location="bottom">
+        <Nav.Bar size={48} location="bottom" style={{ position: "fixed", bottom: 0 }}>
           <Nav.Bar.Start>
             <Steps.Steps value={step} onChange={setStep} steps={STEPS} />
           </Nav.Bar.Start>

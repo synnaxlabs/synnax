@@ -122,6 +122,16 @@ describe("useSelect", () => {
         expect(result.current.value).toEqual(["1"]);
       });
     });
+    describe("replaceOnSingle", () => {
+      it("should replace the selection when you click a new item", () => {
+        const { result } = renderHook(() =>
+          useSelectMultipleWrapper({ replaceOnSingle: true }),
+        );
+        act(() => result.current.onSelect("1"));
+        act(() => result.current.onSelect("2"));
+        expect(result.current.value).toEqual(["2"]);
+      });
+    });
   });
   describe("single selection", () => {
     it("should select one item", () => {

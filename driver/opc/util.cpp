@@ -58,38 +58,38 @@ void customLogger(
     const char *msg,
     va_list args
 ) {
-    std::string prefix;
-    try {
-        if (!logContext) {
-            throw std::runtime_error("logContext is nullptr");
-        }
-
-        std::string* prefixPtr = static_cast<std::string*>(logContext);
-        if (!prefixPtr) {
-            throw std::runtime_error("logContext is not a valid std::string pointer");
-        }
-
-        prefix = *prefixPtr;
-        if (prefix.empty()) {
-            prefix = "";
-        }
-    } catch (const std::bad_cast& e) {
-        // Handle bad cast exception
-        std::cerr << "Bad cast: " << e.what() << std::endl;
-    } catch (const std::exception& e) {
-        // Handle other standard exceptions
-        std::cerr << "Exception: " << e.what() << std::endl;
-    } catch (...) {
-        // Handle any other exceptions
-        std::cerr << "Unknown exception occurred" << std::endl;
-    }
+    std::string prefix = "opc.scanner";
+    // try {
+    //     if (!logContext) {
+    //         throw std::runtime_error("logContext is nullptr");
+    //     }
+    //
+    //     std::string* prefixPtr = static_cast<std::string*>(logContext);
+    //     if (!prefixPtr) {
+    //         throw std::runtime_error("logContext is not a valid std::string pointer");
+    //     }
+    //
+    //     prefix = *prefixPtr;
+    //     if (prefix.empty()) {
+    //         prefix = "";
+    //     }
+    // } catch (const std::bad_cast& e) {
+    //     // Handle bad cast exception
+    //     std::cerr << "Bad cast: " << e.what() << std::endl;
+    // } catch (const std::exception& e) {
+    //     // Handle other standard exceptions
+    //     std::cerr << "Exception: " << e.what() << std::endl;
+    // } catch (...) {
+    //     // Handle any other exceptions
+    //     std::cerr << "Unknown exception occurred" << std::endl;
+    // }
     char buffer[1024];
     vsnprintf(buffer, sizeof(buffer), msg, args);
     switch (level) {
         case UA_LOGLEVEL_TRACE:
         case UA_LOGLEVEL_DEBUG:
         case UA_LOGLEVEL_INFO:
-            LOG(INFO) << prefix << buffer;
+            VLOG(1) << prefix << buffer;
             break;
         case UA_LOGLEVEL_WARNING:
             LOG(WARNING) << prefix << buffer;
@@ -322,7 +322,7 @@ std::pair<std::shared_ptr<UA_Client>, freighter::Error> opc::connect(
             };
         }
     }
-    fetchEndpointDiagnosticInfo(client, cfg.endpoint);
+    // fetchEndpointDiagnosticInfo(client, cfg.endpoint);
     status = UA_Client_connect(client.get(), cfg.endpoint.c_str());
     if (status == UA_STATUSCODE_GOOD) return {std::move(client), freighter::NIL};
 
