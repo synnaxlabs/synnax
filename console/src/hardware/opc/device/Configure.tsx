@@ -123,8 +123,6 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
       if (!(await methods.validateAsync("connection")) || client == null) return;
       const rack = await client.hardware.racks.retrieve("sy_node_1_rack");
       const task = await rack.retrieveTaskByName("opc Scanner");
-      const connection = methods.get({ path: "connection" }).value;
-      console.log(connection);
       return await task.executeCommandSync<{ message: string }>(
         "test_connection",
         { connection: methods.get({ path: "connection" }).value },
@@ -147,7 +145,6 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
           TimeSpan.seconds(5),
         );
         if (deviceProperties == null) return;
-        console.log(deviceProperties);
         methods.set({
           path: "groups",
           value: [
@@ -194,7 +191,6 @@ export const Configure: Layout.Renderer = ({ onClose }): ReactElement => {
       )
         return;
       setProgress("Creating device...");
-      console.log(deviceProperties);
       await client.hardware.devices.create({
         key: uuidv4(),
         name: methods.get<string>({ path: "name" }).value,
