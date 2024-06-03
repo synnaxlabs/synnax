@@ -88,10 +88,13 @@ const newStore = async (): Promise<RootStore> => {
     migrator: migrateState,
     exclude: PERSIST_EXCLUDE,
   });
-  if (preloadedState != null) {
-    Object.keys(preloadedState[Drift.SLICE_NAME].windows).forEach((key) => {
-      preloadedState[Drift.SLICE_NAME].windows[key].visible = false;
-      preloadedState[Drift.SLICE_NAME].windows[key].focusCount = 0;
+  if (preloadedState != null && Drift.SLICE_NAME in preloadedState) {
+    const windows = preloadedState[Drift.SLICE_NAME].windows;
+    // Reset these values to zero on startup.
+    Object.keys(windows).forEach((key) => {
+      windows[key].visible = false;
+      windows[key].focusCount = 0;
+      windows[key].centerCount = 0;
     });
   }
   return await Drift.configureStore<RootState, RootAction>({

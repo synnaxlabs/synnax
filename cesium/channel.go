@@ -71,6 +71,18 @@ func (db *DB) RetrieveChannel(_ context.Context, key ChannelKey) (Channel, error
 	return Channel{}, core.NewErrChannelNotFound(key)
 }
 
+func (db *DB) RenameChannels(ctx context.Context, keys []ChannelKey, names []string) error {
+	if len(keys) != len(names) {
+		return errors.Wrapf(validate.Error, "keys and names must have the same length")
+	}
+	for i := range keys {
+		if err := db.RenameChannel(ctx, keys[i], names[i]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // RenameChannel renames the channel with the specified key to newName.
 func (db *DB) RenameChannel(_ context.Context, key ChannelKey, newName string) error {
 	if db.closed.Load() {
