@@ -322,7 +322,7 @@ std::pair<std::shared_ptr<UA_Client>, freighter::Error> opc::connect(
             };
         }
     }
-    fetchEndpointDiagnosticInfo(client, cfg.endpoint);
+    // fetchEndpointDiagnosticInfo(client, cfg.endpoint);
     status = UA_Client_connect(client.get(), cfg.endpoint.c_str());
     if (status == UA_STATUSCODE_GOOD) return {std::move(client), freighter::NIL};
 
