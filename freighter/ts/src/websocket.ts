@@ -116,7 +116,6 @@ class WebSocketStream<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>
     };
 
     this.ws.onclose = (ev: CloseEvent) => {
-      console.log("CLOSED");
       this.serverClosed = isNormalClosure(ev) ? new EOF() : new StreamClosed();
     };
   }
