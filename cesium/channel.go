@@ -13,6 +13,8 @@ import (
 	"context"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/cesium/internal/meta"
+	"github.com/synnaxlabs/cesium/internal/version"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -21,6 +23,10 @@ import (
 
 // CreateChannel implements DB.
 func (db *DB) CreateChannel(_ context.Context, ch ...Channel) error {
+	if db.closed.Load() {
+		return errDBClosed
+	}
+
 	for _, c := range ch {
 		if err := db.createChannel(c); err != nil {
 			return err
@@ -31,6 +37,10 @@ func (db *DB) CreateChannel(_ context.Context, ch ...Channel) error {
 
 // RetrieveChannels implements DB.
 func (db *DB) RetrieveChannels(ctx context.Context, keys ...ChannelKey) ([]Channel, error) {
+	if db.closed.Load() {
+		return nil, errDBClosed
+	}
+
 	chs := make([]Channel, 0, len(keys))
 	for _, key := range keys {
 		ch, err := db.RetrieveChannel(ctx, key)
@@ -44,6 +54,10 @@ func (db *DB) RetrieveChannels(ctx context.Context, keys ...ChannelKey) ([]Chann
 
 // RetrieveChannel implements DB.
 func (db *DB) RetrieveChannel(_ context.Context, key ChannelKey) (Channel, error) {
+	if db.closed.Load() {
+		return Channel{}, errDBClosed
+	}
+
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 	uCh, uOk := db.unaryDBs[key]
@@ -54,7 +68,50 @@ func (db *DB) RetrieveChannel(_ context.Context, key ChannelKey) (Channel, error
 	if vOk {
 		return vCh.Channel, nil
 	}
-	return Channel{}, core.ChannelNotFound
+	return Channel{}, core.NewErrChannelNotFound(key)
+}
+
+// RenameChannel renames the channel with the specified key to newName.
+func (db *DB) RenameChannel(_ context.Context, key ChannelKey, newName string) error {
+	if db.closed.Load() {
+		return errDBClosed
+	}
+
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	udb, uok := db.unaryDBs[key]
+	if uok {
+		// There is a race condition here: one could rename a channel while it is being
+		// read or  streamed from or written to. We choose to not address this since
+		// the name is purely decorative in Cesium and not used to identify channels
+		// whereas the key is the unique identifier. The same goes for the virtual database.
+		if udb.Channel.Name == newName {
+			return nil
+		}
+		udb.Channel.Name = newName
+		err := meta.Create(udb.FS, db.metaECD, udb.Channel)
+		if err != nil {
+			return err
+		}
+		db.unaryDBs[key] = udb
+		return nil
+	}
+	vdb, vok := db.virtualDBs[key]
+	if vok {
+		if vdb.Channel.Name == newName {
+			return nil
+		}
+		vdb.Channel.Name = newName
+		err := meta.Create(vdb.FS, db.metaECD, vdb.Channel)
+		if err != nil {
+			return err
+		}
+		db.virtualDBs[key] = vdb
+		return nil
+	}
+
+	return core.NewErrChannelNotFound(key)
 }
 
 func (db *DB) createChannel(ch Channel) (err error) {
@@ -76,6 +133,7 @@ func (db *DB) createChannel(ch Channel) (err error) {
 	if ch.IsIndex {
 		ch.Index = ch.Key
 	}
+	ch.Version = version.Current
 	err = db.openVirtualOrUnary(ch)
 	return
 }
@@ -83,14 +141,14 @@ func (db *DB) createChannel(ch Channel) (err error) {
 func (db *DB) validateNewChannel(ch Channel) error {
 	v := validate.New("cesium")
 	validate.Positive(v, "key", ch.Key)
-	validate.NotEmptyString(v, "data type", ch.DataType)
+	validate.NotEmptyString(v, "data_type", ch.DataType)
 	v.Exec(func() error {
 		db.mu.RLock()
 		defer db.mu.RUnlock()
 		_, uOk := db.unaryDBs[ch.Key]
 		_, vOk := db.virtualDBs[ch.Key]
 		if uOk || vOk {
-			return errors.Wrapf(validate.Error, "[cesium] - channel %d already exists", ch.Key)
+			return errors.Wrapf(validate.Error, "cannot create channel %v because it already exists", ch)
 		}
 		return nil
 	})
@@ -100,13 +158,15 @@ func (db *DB) validateNewChannel(ch Channel) error {
 	} else {
 		v.Ternary("index", ch.DataType == telem.StringT, "persisted channels cannot have string data types")
 		if ch.IsIndex {
-			v.Ternary("index", ch.DataType != telem.TimeStampT, "index channel must be of type timestamp")
+			v.Ternary("data_type", ch.DataType != telem.TimeStampT, "index channel must be of type timestamp")
 			v.Ternaryf("index", ch.Index != 0 && ch.Index != ch.Key, "index channel cannot be indexed by another channel")
 		} else if ch.Index != 0 {
-			validate.MapContainsf(v, ch.Index, db.unaryDBs, "index %v does not exist", ch.Index)
+			db.mu.RLock()
+			validate.MapContainsf(v, ch.Index, db.unaryDBs, "index channel <%d> does not exist", ch.Index)
 			v.Funcf(func() bool {
 				return !db.unaryDBs[ch.Index].Channel.IsIndex
-			}, "channel %v is not an index", ch.Index)
+			}, "channel %v is not an index", db.unaryDBs[ch.Index].Channel)
+			db.mu.RUnlock()
 		} else {
 			validate.Positive(v, "rate", ch.Rate)
 		}

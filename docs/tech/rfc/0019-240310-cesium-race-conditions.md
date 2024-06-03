@@ -174,6 +174,60 @@ committed multiple times: a writer may repeat steps 2 and 3, i.e.
 5. Commit the writer, i.e. update the pointer that previously described the domain
 written by this writer to contain the new domain.
 
+In Synnax version 19, file cutoffs were introduced, which upon a writer writing to a file
+that reaches its size limit, automatically ends the domain and begins a new one. We must
+also consider the creation of this new pointer when analyzing for race conditions.
+
+#### 4.2.1.1 Acquiring a writer
+
+When acquiring a writer, we must guarantee that we acquire a file handle on a file that
+is both exclusive and under the file size limit. We first scan through the open file handles
+in the file controller under a `RLock` and upon finding a file within the size limit, we
+try to acquire it by comparing-and-swapping its flag (`True` indicates the writer is currently
+in use) from `False` to `True`. If successfully acquired, we return that file handle as
+our writer and the acquisition of a writer is complete.
+Note that although `RLock` does not guarantee exclusivity, the atomic flag
+guarantees that only one writer will ever be in control of a file handle.
+
+If none were acquired out of the open file handles, we first calculate the number of file
+handles in the file controller under an `RLock`: if it is below the limit, then we may
+acquire a new writer – note that there is a possible race condition here (#1): multiple
+callers may each try to create a new writer after checking that the number of file handles
+is below the limit, pushing the total number of file handles beyond the limit.
+
+In the case where we open a new writer, we lock the mutex of the writer completely with
+an exclusive `Lock` and release it when we have a new writer. The acquisition of a writer
+is complete.
+
+In the case where we do not open a new writer, i.e. the number of file descriptors exceeds
+the limit, we garbage-collect all writers (file handles to oversize files) under an exclusive
+lock, and try to acquire a writer again if we garbage-collected any writers. If we did
+not, then we wait for a writer to be released (signaled by an input into the channel `release`),
+and try to acquire a writer again.
+
+**Race condition #1**: file_controller: acquireWriter's descriptor limit check may not extend
+into the following if-statement.
+
+#### 4.2.1.2 Writing data with a writer
+
+`Write` writes binary data into the file handle acquired in the previous step and updates
+the `len` and `fileSize` fields of the writer. Note that `Write` may not be called
+concurrently with any other Writer methods because it modifies these fields and writes to
+the file system.
+
+#### 4.2.1.3 Committing the data in a writer
+
+`Commit` first reads the length of the internal file handle to determine how much data
+was written in this domain: note that there is a race condition here (#2): the internal
+file handle's length may get changed via another `Commit`, which may assign `internal` a
+new writer should there be a file switch, causing `w.internal.len()` to be 0 instead of
+the actual length.
+
+Using the length of an offset information of the `TrackedWriterCloser`, the index is
+inserted with the new pointer under an exclusive lock
+
+
+
 ### 4.2.2 Reading
 
 In Synnax, all readings are handled by the entity _Iterator_, which allows reading of

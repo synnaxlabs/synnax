@@ -11,7 +11,6 @@ package cesium
 
 import (
 	"context"
-	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -24,20 +23,24 @@ import (
 )
 
 type GCConfig struct {
-	// ReadChunkSize is the maximum number of bytes to be read into memory while garbage collecting
-	ReadChunkSize uint32
-
 	// MaxGoroutine is the maximum number of GoRoutines that can be launched for each try of garbage collection
 	MaxGoroutine int64
 
-	// GcTryInterval is the interval of time between two tries of garbage collection are started
-	GcTryInterval time.Duration
+	// GCTryInterval is the interval of time between two tries of garbage collection are started
+	GCTryInterval time.Duration
+
+	// GCThreshold is the minimum tombstone proportion of the Filesize to trigger a GC.
+	// Must be in (0, 1].
+	// Note: Setting this value to 0 will have NO EFFECT as it is the default value.
+	// instead, set it to a very small number greater than 0.
+	// [OPTIONAL] Default: 0.2
+	GCThreshold float32
 }
 
 var DefaultGCConfig = GCConfig{
-	ReadChunkSize: uint32(20 * telem.Megabyte),
 	MaxGoroutine:  10,
-	GcTryInterval: 30 * time.Second,
+	GCTryInterval: 30 * time.Second,
+	GCThreshold:   0.2,
 }
 
 func channelDirName(ch ChannelKey) string {
@@ -47,8 +50,12 @@ func channelDirName(ch ChannelKey) string {
 // DeleteChannel deletes a channel by its key.
 // This method returns an error if there are other channels depending on the current
 // channel, or if the current channel is being written to or read from.
-// Does nothing if channel does not exist.
+// DeleteChannel is idempotent.
 func (db *DB) DeleteChannel(ch ChannelKey) error {
+	if db.closed.Load() {
+		return errDBClosed
+	}
+
 	db.mu.Lock()
 	err := db.removeChannel(ch)
 	if err != nil {
@@ -73,6 +80,10 @@ func (db *DB) DeleteChannel(ch ChannelKey) error {
 }
 
 func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
+	if db.closed.Load() {
+		return errDBClosed
+	}
+
 	db.mu.Lock()
 	var (
 		indexChannels       = make([]ChannelKey, 0)
@@ -151,12 +162,12 @@ func (db *DB) removeChannel(ch ChannelKey) error {
 				}
 				otherDB := db.unaryDBs[otherDBKey]
 				if otherDB.Channel.Index == udb.Config.Channel.Key {
-					return errors.New("[cesium] - could not delete index channel with other channels depending on it")
+					return errors.Newf("cannot delete channel %v because it indexes data in channel %v", udb.Channel, otherDB.Channel)
 				}
 			}
 		}
 
-		if err := udb.TryClose(); err != nil {
+		if err := udb.Close(); err != nil {
 			return err
 		}
 		delete(db.unaryDBs, ch)
@@ -164,7 +175,7 @@ func (db *DB) removeChannel(ch ChannelKey) error {
 	}
 	vdb, vok := db.virtualDBs[ch]
 	if vok {
-		if err := vdb.TryClose(); err != nil {
+		if err := vdb.Close(); err != nil {
 			return err
 		}
 		delete(db.virtualDBs, ch)
@@ -174,43 +185,65 @@ func (db *DB) removeChannel(ch ChannelKey) error {
 	return nil
 }
 
-// DeleteTimeRange deletes a timerange of data in the database in a given channel
-// This method return an error if there are other channels depending on the timerange
-// that we are trying to delete
-func (db *DB) DeleteTimeRange(ctx context.Context, ch ChannelKey, tr telem.TimeRange) error {
+// DeleteTimeRange deletes a timerange of data in the database in the given channels
+// This method return an error if the channel to be deleted is an index channel and
+// there are other channels depending on it in the timerange.
+// DeleteTimeRange is idempotent.
+func (db *DB) DeleteTimeRange(ctx context.Context, chs []ChannelKey, tr telem.TimeRange) error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
-	udb, uok := db.unaryDBs[ch]
-	if !uok {
-		return core.ChannelNotFound
+	indexChannels := make([]ChannelKey, 0)
+
+	for _, ch := range chs {
+		udb, uok := db.unaryDBs[ch]
+		if !uok {
+			if _, vok := db.virtualDBs[ch]; vok {
+				return errors.Newf("cannot delete time range from virtual channel %v", db.virtualDBs[ch].Channel)
+			}
+			return errors.Wrapf(ErrChannelNotFound, "channel key %d not found", ch)
+		}
+
+		// Cannot delete an index channel that other channels rely on.
+		if udb.Config.Channel.IsIndex {
+			indexChannels = append(indexChannels, ch)
+			continue
+		}
+
+		if err := udb.Delete(ctx, tr); err != nil {
+			return err
+		}
 	}
 
-	// Cannot delete an index channel that other channels rely on.
-	if udb.Config.Channel.IsIndex {
+	for _, ch := range indexChannels {
+		udb := db.unaryDBs[ch]
+		// Cannot delete an index channel that other channels rely on.
 		for otherDBKey := range db.unaryDBs {
 			if otherDBKey == ch || db.unaryDBs[otherDBKey].Channel.Index != udb.Config.Channel.Key {
 				continue
 			}
 			otherDB := db.unaryDBs[otherDBKey]
-			// We must determine whether there is an indexed db that has data in the timerange tr.
 			hasOverlap, err := otherDB.HasDataFor(ctx, tr)
 			if err != nil || hasOverlap {
-				return errors.Newf("[cesium] - could not delete index channel %d with other channels depending on it", ch)
+				return errors.Newf("cannot delete index channel %v with channel %v depending on it from timerange %s", db.unaryDBs[ch].Channel, db.unaryDBs[otherDBKey].Channel, tr)
 			}
+		}
+
+		if err := udb.Delete(ctx, tr); err != nil {
+			return err
 		}
 	}
 
-	return udb.Delete(ctx, tr)
+	return nil
 }
 
-func (db *DB) garbageCollect(ctx context.Context, readChunkSize uint32, maxGoRoutine int64) error {
+func (db *DB) garbageCollect(ctx context.Context, maxGoRoutine int64) error {
 	_, span := db.T.Debug(ctx, "garbage_collect")
 	defer span.End()
 	db.mu.RLock()
 	var (
-		sem = semaphore.NewWeighted(maxGoRoutine)
-		wg  = &sync.WaitGroup{}
-		c   = errors.NewCatcher(errors.WithAggregation())
+		sem     = semaphore.NewWeighted(maxGoRoutine)
+		sCtx, _ = signal.Isolated()
+		wg      = &sync.WaitGroup{}
 	)
 
 	for _, udb := range db.unaryDBs {
@@ -219,28 +252,21 @@ func (db *DB) garbageCollect(ctx context.Context, readChunkSize uint32, maxGoRou
 		}
 		wg.Add(1)
 		udb := udb
-		go func() {
-			defer func() {
-				sem.Release(1)
-				wg.Done()
-			}()
-			c.Exec(func() error {
-				err := udb.GarbageCollect(ctx, readChunkSize)
-				return err
-			})
-		}()
+		sCtx.Go(func(_ctx context.Context) error {
+			defer sem.Release(1)
+			return udb.GarbageCollect(_ctx)
+		})
 	}
 
 	db.mu.RUnlock()
-	wg.Wait()
-	return c.Error()
+	return sCtx.Wait()
 }
 
 func (db *DB) startGC(sCtx signal.Context, opts *options) {
-	signal.GoTick(sCtx, opts.gcCfg.GcTryInterval, func(ctx context.Context, time time.Time) error {
-		err := db.garbageCollect(ctx, opts.gcCfg.ReadChunkSize, opts.gcCfg.MaxGoroutine)
+	signal.GoTick(sCtx, opts.gcCfg.GCTryInterval, func(ctx context.Context, time time.Time) error {
+		err := db.garbageCollect(ctx, opts.gcCfg.MaxGoroutine)
 		if err != nil {
-			db.L.Error("garbage collection accumulated in failure", zap.Error(err))
+			db.L.Error("garbage collection error", zap.Error(err))
 		}
 		return nil
 	})

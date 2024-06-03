@@ -22,7 +22,7 @@ import (
 
 const AutoSpan = unary.AutoSpan
 
-var IteratorClosedError = core.EntityClosed("cesium.iterator")
+var errIteratorClosed = core.EntityClosed("cesium.iterator")
 
 type Iterator struct {
 	inlet    confluence.Inlet[IteratorRequest]
@@ -116,7 +116,7 @@ func (i *Iterator) exec(req IteratorRequest) bool {
 
 func (i *Iterator) execErr(req IteratorRequest) (bool, error) {
 	if i.closed {
-		return false, IteratorClosedError
+		return false, errIteratorClosed
 	}
 	i.frame = Frame{}
 	i.inlet.Inlet() <- req
