@@ -158,6 +158,27 @@ The following diagram summarizes possible conflicts between these entities:
 We will now inspect, from the bottom up, how the various entities interact with the
 domain data and the index in memory.
 
-### 4.2.1 Reading
+### 4.2.1 Writing
 
-To read a piece of telemetry data on the
+A write proceeds in three phases:
+1. Acquire a writer (getting a file handle to an existing file or opening a new one)
+to an underlying file that still has space for more data.
+2. Write the binary telemetry data to the file handle.
+3. Commit the writer, i.e. add a pointer in the index storing the time range represented
+by the data and the location of the data in the file system (file key, offset, length).
+
+Optionally, Cesium is different from other Database systems in that a writer may be
+committed multiple times: a writer may repeat steps 2 and 3, i.e.
+
+4. Write more binary telemetry data to the file handle
+5. Commit the writer, i.e. update the pointer that previously described the domain
+written by this writer to contain the new domain.
+
+### 4.2.2 Reading
+
+In Synnax, all readings are handled by the entity _Iterator_, which allows reading of
+telemetry data in domains and prevents reading of potentially massive data ranges entirely
+into memory. For this reason, there does not need to be any logical order in which these
+domains are stored on the file system – that is tracked by the index – so the iterator's
+job is to determine where to read and create a File System reader that can only read that
+section of the file.
