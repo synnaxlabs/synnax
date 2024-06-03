@@ -923,6 +923,51 @@ var _ = Describe("Writer Behavior", func() {
 							Expect(f.Get(rate)[1].TimeRange).To(Equal((15*telem.SecondTS + 1).Range(18*telem.SecondTS + 1)))
 						})
 					})
+					It("Should not break when auto committing to not all channels", func() {
+						db2 = MustSucceed(cesium.Open("size-capped-db",
+							cesium.WithFS(fs),
+							cesium.WithFileSize(40*telem.ByteSize)))
+
+						var (
+							index2 = GenerateChannelKey()
+							basic2 = GenerateChannelKey()
+						)
+
+						Expect(db2.CreateChannel(
+							ctx,
+							cesium.Channel{Key: index, IsIndex: true, DataType: telem.TimeStampT},
+							cesium.Channel{Key: basic, Index: index, DataType: telem.Int64T},
+							cesium.Channel{Key: index2, IsIndex: true, DataType: telem.TimeStampT},
+							cesium.Channel{Key: basic2, Index: index2, DataType: telem.Int64T},
+						)).To(Succeed())
+
+						w := MustSucceed(db2.OpenWriter(ctx, cesium.WriterConfig{
+							Channels:                 []core.ChannelKey{index, basic, index2, basic2},
+							Start:                    10 * telem.SecondTS,
+							EnableAutoCommit:         config.True(),
+							AutoIndexPersistInterval: cesium.AlwaysIndexPersistOnAutoCommit,
+						}))
+
+						Expect(w.Write(cesium.NewFrame(
+							[]core.ChannelKey{index, basic, index2, basic2},
+							[]telem.Series{
+								telem.NewSecondsTSV(10, 11, 12, 13, 14, 15),
+								telem.NewSeriesV[int64](10, 11, 12, 13, 14, 15),
+								telem.NewSecondsTSV(10, 11, 12, 13, 14, 15),
+								telem.NewSeriesV[int64](10, 11, 12, 13, 14, 15),
+							},
+						))).To(BeTrue())
+
+						By("Asserting that only writing to two channels will not fail")
+						Expect(w.Write(cesium.NewFrame(
+							[]core.ChannelKey{index, basic},
+							[]telem.Series{
+								telem.NewSecondsTSV(16, 17, 18),
+								telem.NewSeriesV[int64](16, 17, 18),
+							},
+						))).To(BeTrue())
+						Expect(w.Close()).To(Succeed())
+					})
 				})
 			})
 			Describe("Stream Only Mode", func() {

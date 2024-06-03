@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/text/Link.css";
+
 import { type ForwardedRef, forwardRef, type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { type text } from "@/text/core";
 import { Text, type TextProps } from "@/text/Text";
-
-import "@/text/Link.css";
 
 export type LinkProps<L extends text.Level = "h1"> = Omit<TextProps<L>, "ref"> & {
   href?: string;
@@ -34,12 +34,12 @@ const CoreLink = <L extends text.Level = "h1">(
     target={target}
     rel={rel}
   >
-    {/* @ts-expect-error */}
+    {/* @ts-expect-error - generic component errors */}
     <Text<L> className={CSS.BE("text-link", "text")} {...props} />
   </a>
 );
 
-// @ts-expect-error
+// @ts-expect-error - generic component errors
 export const Link = forwardRef(CoreLink) as <L extends text.Level = "h1">(
   props: LinkProps<L> & { ref?: ForwardedRef<HTMLAnchorElement> },
 ) => ReactElement;

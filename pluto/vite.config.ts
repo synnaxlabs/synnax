@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -8,15 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import path from "path";
-import { lib } from "@synnaxlabs/vite-plugin";
+import { lib, isProd } from "@synnaxlabs/vite-plugin";
 import { defineConfig } from "vite";
 
 export default defineConfig({
   base: "/pluto/",
   plugins: [lib({ name: "pluto" })],
   build: {
-    sourcemap: true,
-    minify: false,
+    sourcemap: !isProd(),
+    minify: isProd(),
     lib: {
       entry: {
         index: path.resolve(".", "src/index.ts"),

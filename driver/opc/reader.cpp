@@ -501,7 +501,7 @@ std::unique_ptr<task::Task> Reader::configure(
     auto [channelKeys, indexes] = res;
 
     // Connect to the OPC UA server.
-    auto [ua_client, conn_err] = opc::connect(properties.connection);
+    auto [ua_client, conn_err] = opc::connect(properties.connection, "[opc.reader] ");
     if (conn_err) {
         ctx->setState({
             .task = task.key,

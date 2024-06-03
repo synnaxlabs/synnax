@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,15 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type ComponentPropsWithoutRef,
-  type ReactElement,
-  useRef,
-  useLayoutEffect,
-} from "react";
+import "@/list/Core.css";
 
 import { bounds, type Key, type Keyed } from "@synnaxlabs/x";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import {
+  type ComponentPropsWithoutRef,
+  type ReactElement,
+  useLayoutEffect,
+  useRef,
+} from "react";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
@@ -25,8 +26,6 @@ import { useHoverContext } from "@/list/Hover";
 import { useInfiniteContext } from "@/list/Infinite";
 import { useSelection, useSelectionContext, useSelectionUtils } from "@/list/Selector";
 import { type ItemRenderProp } from "@/list/types";
-
-import "@/list/Core.css";
 
 export interface VirtualCoreProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>>
   extends Omit<ComponentPropsWithoutRef<"div">, "children"> {
@@ -118,10 +117,8 @@ const VirtualCore = <K extends Key = Key, E extends Keyed<K> = Keyed<K>>({
           {items.map(({ index, start }) => {
             const entry = data[index];
             let sourceIndex = index;
-            if (transformed) {
-              console.log("TRANSFORMED");
+            if (transformed)
               sourceIndex = sourceData.findIndex((e) => e.key === entry.key);
-            }
             return children({
               key: entry.key,
               sourceIndex,

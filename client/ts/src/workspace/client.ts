@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -13,8 +13,8 @@ import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 
 import { linePlot } from "@/workspace/lineplot";
 import { type Key, type Workspace } from "@/workspace/payload";
-import { schematic } from "@/workspace/schematic";
 import { Retriever } from "@/workspace/retriever";
+import { schematic } from "@/workspace/schematic";
 import { type NewWorkspace, Writer } from "@/workspace/writer";
 
 export class Client implements AsyncTermSearcher<string, Key, Workspace> {

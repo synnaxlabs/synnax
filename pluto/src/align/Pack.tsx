@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ForwardedRef, type ReactElement, forwardRef } from "react";
+import "@/align/Pack.css";
+
+import { type ForwardedRef, forwardRef, type ReactElement } from "react";
 
 import { Space, type SpaceElementType, type SpaceProps } from "@/align/Space";
 import { CSS } from "@/css";
-
-import "@/align/Pack.css";
 
 /** Props for the {@link Pack} component. */
 export type PackProps<E extends SpaceElementType = "div"> = Omit<
@@ -36,7 +36,7 @@ const CorePack = <E extends SpaceElementType = "div">(
   // select the correct type for the ref
   ref: ForwardedRef<JSX.IntrinsicElements[E]>,
 ): ReactElement => (
-  // @ts-expect-error
+  // @ts-expect-error - generic element issues
   <Space<E>
     ref={ref}
     direction={direction}

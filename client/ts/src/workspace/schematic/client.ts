@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -12,7 +12,7 @@ import { type UnknownRecord } from "@synnaxlabs/x/record";
 
 import { type Key, type Params, type Schematic } from "@/workspace/schematic/payload";
 import { Retriever } from "@/workspace/schematic/retriever";
-import { Writer, type NewSchematic } from "@/workspace/schematic/writer";
+import { type NewSchematic,Writer } from "@/workspace/schematic/writer";
 
 export class Client {
   private readonly writer: Writer;

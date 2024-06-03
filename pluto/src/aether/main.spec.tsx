@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type FC, type PropsWithChildren, useRef } from "react";
-
 import { createMockWorkers } from "@synnaxlabs/x";
 import { render } from "@testing-library/react";
+import { type FC, type PropsWithChildren, useRef } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
@@ -48,24 +47,6 @@ class ExampleComposite extends aether.Composite<typeof exampleProps, ExampleLeaf
 
   async afterUpdate(): Promise<void> {
     this.updatef();
-  }
-
-  async afterDelete(): Promise<void> {
-    this.deletef();
-  }
-}
-
-class ContextSetterComposite extends aether.Composite<
-  typeof exampleProps,
-  ExampleLeaf
-> {
-  updatef = vi.fn();
-  deletef = vi.fn();
-
-  schema = exampleProps;
-
-  async afterUpdate(): Promise<void> {
-    this.ctx.set("key", "value");
   }
 
   async afterDelete(): Promise<void> {

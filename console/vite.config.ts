@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -15,7 +15,6 @@ import tsconfigPaths from "vite-tsconfig-paths";
 
 const isDev = process.env.TAURI_ENV_DEBUG === "true";
 
-// eslint-disable-next-line import/no-default-export
 export default defineConfig({
   clearScreen: false,
   server: {
@@ -34,7 +33,7 @@ export default defineConfig({
   plugins: [react(), tsconfigPaths()],
   build: {
     target: process.env.TAURI_PLATFORM === "windows" ? "chrome105" : "safari16",
-    minify: isDev ? "esbuild" : false,
+    minify: !isDev,
     sourcemap: isDev,
     // We don't really care about maintaining a small bundle size right now, as this file
     // is loaded directly from disc instead of OTN

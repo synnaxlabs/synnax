@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, type ReactNode, useMemo } from "react";
+import "@/lineplot/NavControls.css";
 
 import { Icon } from "@synnaxlabs/media";
 import { Align, Button, Select, Text, Triggers, Viewport } from "@synnaxlabs/pluto";
+import { type ReactElement, type ReactNode, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
@@ -22,8 +23,6 @@ import {
   setViewport,
   setViewportMode,
 } from "@/lineplot/slice";
-
-import "@/lineplot/NavControls.css";
 
 export const NavControls = (): ReactElement => {
   const control = useSelectControlState();

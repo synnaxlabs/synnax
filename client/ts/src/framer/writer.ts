@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,32 +7,31 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-/* eslint-disable @typescript-eslint/no-throw-literal */
 import type { Stream, StreamClient } from "@synnaxlabs/freighter";
 import { decodeError, errorZ } from "@synnaxlabs/freighter";
 import {
-  TimeStamp,
-  type CrudeTimeStamp,
   type CrudeSeries,
+  type CrudeTimeStamp,
   TimeSpan,
+  TimeStamp,
 } from "@synnaxlabs/x/telem";
 import { toArray } from "@synnaxlabs/x/toArray";
 import { z } from "zod";
 
 import {
-  type KeysOrNames,
   type Key,
   type KeyOrName,
+  type KeysOrNames,
   type Params,
 } from "@/channel/payload";
 import { type Retriever } from "@/channel/retriever";
 import { Authority } from "@/control/authority";
 import {
-  subjectZ as controlSubjectZ,
   type Subject as ControlSubject,
+  subjectZ as controlSubjectZ,
 } from "@/control/state";
 import { WriteFrameAdapter } from "@/framer/adapter";
-import { frameZ, type CrudeFrame } from "@/framer/frame";
+import { type CrudeFrame, frameZ } from "@/framer/frame";
 import { StreamProxy } from "@/framer/streamProxy";
 
 enum Command {
@@ -278,7 +277,7 @@ export class Writer {
   }
 
   async execute(req: Request): Promise<Response> {
-    // @ts-expect-error
+    // @ts-expect-error - frame payload adjustments
     this.stream.send(req);
     while (true) {
       const res = await this.stream.receive();

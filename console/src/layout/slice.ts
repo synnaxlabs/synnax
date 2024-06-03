@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createSlice } from "@reduxjs/toolkit";
 import type { PayloadAction } from "@reduxjs/toolkit";
+import { createSlice } from "@reduxjs/toolkit";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { Haul, Mosaic, Theming } from "@synnaxlabs/pluto";
-import { migrate, type deep, type location } from "@synnaxlabs/x";
+import { type deep, type location,migrate } from "@synnaxlabs/x";
 import { nanoid } from "nanoid/non-secure";
 
 import { type State } from "@/layout/layout";
@@ -265,7 +265,7 @@ export const { actions, reducer } = createSlice({
         const { location } = layout;
         if (location === "mosaic")
           [mosaic.root, mosaic.activeTab] = Mosaic.removeTab(mosaic.root, contentKey);
-        // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+         
         delete state.layouts[contentKey];
         state.mosaics[layout.windowKey] = mosaic;
       });

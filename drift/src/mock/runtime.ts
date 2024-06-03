@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -45,7 +45,7 @@ export class MockRuntime<S extends StoreState, A extends Action = UnknownAction>
     return this._label;
   }
 
-  async emit(event: Omit<Event<S, A>, "emitter">, to?: string): Promise<void> {
+  async emit(event: Omit<Event<S, A>, "emitter">): Promise<void> {
     this.emissions.push({ ...event, emitter: this.label() });
     return await Promise.resolve();
   }

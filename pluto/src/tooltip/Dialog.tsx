@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,35 +7,34 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type ComponentPropsWithoutRef,
-  type ReactElement,
-  type ReactNode,
-  cloneElement,
-  useRef,
-  useState,
-  useId,
-  isValidElement,
-  useCallback,
-} from "react";
+import "@/tooltip/Dialog.css";
 
 import {
-  type dimensions,
-  xy,
-  location,
-  type CrudeTimeSpan,
   box,
-  TimeSpan,
+  type CrudeTimeSpan,
   type Destructor,
+  type dimensions,
+  location,
+  TimeSpan,
+  xy,
 } from "@synnaxlabs/x";
+import {
+  cloneElement,
+  type ComponentPropsWithoutRef,
+  isValidElement,
+  type ReactElement,
+  type ReactNode,
+  useCallback,
+  useId,
+  useRef,
+  useState,
+} from "react";
 import { createPortal } from "react-dom";
 
 import { CSS } from "@/css";
 import { Text } from "@/text";
 import { useConfig } from "@/tooltip/Config";
 import { isRenderProp, type RenderProp } from "@/util/renderProp";
-
-import "@/tooltip/Dialog.css";
 
 export interface DialogProps extends Omit<ComponentPropsWithoutRef<"div">, "children"> {
   delay?: CrudeTimeSpan;
