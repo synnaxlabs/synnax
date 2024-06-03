@@ -73,7 +73,7 @@ var _ = Describe("Delete", Ordered, func() {
 				ch.Leaseholder = 2
 			})
 			It("Should not allow deletion of index channel with dependent channels", func() {
-				Expect(services[1].Delete(ctx, idxCh.Key())).ToNot(Succeed())
+				Expect(services[2].Delete(ctx, idxCh.Key())).ToNot(Succeed())
 			})
 			It("Should delete the channel without error", func() {
 				Expect(services[2].DeleteMany(ctx, []channel.Key{idxCh.Key(), ch.Key()})).To(Succeed())

@@ -7,11 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-<<<<<<< Updated upstream
-import { ontology,UnexpectedError } from "@synnaxlabs/client";
-=======
 import { ontology } from "@synnaxlabs/client";
->>>>>>> Stashed changes
 import { Icon } from "@synnaxlabs/media";
 import { Menu } from "@synnaxlabs/pluto";
 import { Tree } from "@synnaxlabs/pluto/tree";
@@ -34,11 +30,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     }
   };
 
-<<<<<<< Updated upstream
-  const isDelete = nodes.length === 1 && nodes[0].children?.length === 0;
-=======
   const isDelete = nodes.every((n) => n.children == null || n.children.length === 0);
->>>>>>> Stashed changes
   const ungroupIcon = isDelete ? <Icon.Delete /> : <Icon.Group />;
 
   return (
@@ -75,28 +67,6 @@ const ungroupSelection = async ({
   selection,
   state,
 }: Ontology.TreeContextMenuProps): Promise<void> => {
-<<<<<<< Updated upstream
-  if (selection.resources.length !== 1)
-    throw new UnexpectedError("[ungroupSelection] - expected exactly one resource");
-
-  const id = selection.resources[0].id;
-  const children =
-    Tree.findNode({ tree: state.nodes, key: id.toString() })?.children ?? [];
-  const parentID = new ontology.ID(selection.parent.key);
-  await client.ontology.moveChildren(
-    id,
-    parentID,
-    ...children.map((c) => new ontology.ID(c.key)),
-  );
-  await client.ontology.groups.delete(id.key);
-  let nextNodes = Tree.moveNode({
-    tree: state.nodes,
-    destination: parentID.toString(),
-    keys: children.map((c) => c.key),
-  });
-  nextNodes = Tree.removeNode({ tree: nextNodes, keys: id.toString() });
-  state.setNodes([...nextNodes]);
-=======
   if (selection.parent == null) return;
   for (const node of selection.resources) {
     const id = node.id;
@@ -119,7 +89,6 @@ const ungroupSelection = async ({
     nextNodes = Tree.removeNode({ tree: nextNodes, keys: id.toString() });
     state.setNodes([...nextNodes]);
   }
->>>>>>> Stashed changes
 };
 
 const NEW_GROUP_NAME = "New Group Name";
@@ -137,8 +106,6 @@ const getAllNodesOfMinDepth = (
   return nodes.filter(({ depth }) => depth === minDepth);
 };
 
-<<<<<<< Updated upstream
-=======
 export const newGroup = async ({
   client,
   state,
@@ -178,7 +145,6 @@ export const newGroup = async ({
   }, 20);
 };
 
->>>>>>> Stashed changes
 export const fromSelection = async ({
   client,
   selection,
