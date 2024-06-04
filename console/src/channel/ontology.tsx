@@ -19,7 +19,7 @@ import {
 import { Tree } from "@synnaxlabs/pluto/tree";
 import { type ReactElement } from "react";
 
-import { Menu as ConsoleMenu } from "@/menu";
+import { Menu as ConsoleMenu } from "@/components/menu";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";

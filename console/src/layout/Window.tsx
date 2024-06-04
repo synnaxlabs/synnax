@@ -23,7 +23,7 @@ import { CSS } from "@/css";
 import { Content } from "@/layout/Content";
 import { WindowProps } from "@/layout/layout";
 import { useSelect } from "@/layout/selectors";
-import { Menu } from "@/menu";
+import { Menu } from "@/components/menu";
 
 export interface NavTopProps extends Pick<WindowProps, "showTitle" | "navTop"> {
   title: string;

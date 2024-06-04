@@ -29,6 +29,7 @@ import { useSelect, useSelectLocalState, useSelectMany } from "@/cluster/selecto
 import { LOCAL_CLUSTER_KEY, remove, setActive, setLocalState } from "@/cluster/slice";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
+import { Menu } from "@/components/menu";
 
 export const List = (): ReactElement => {
   const menuProps = PMenu.useContextMenu();
@@ -82,6 +83,7 @@ export const List = (): ReactElement => {
               Connect
             </PMenu.Item>
           )}
+          <Menu.HardReload />
         </PMenu.Menu>
       );
     },

@@ -29,7 +29,7 @@ import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
-import { Menu } from "@/menu";
+import { Menu } from "@/components/menu";
 import { createEditLayout } from "@/range/EditLayout";
 import type { Range, StaticRange } from "@/range/range";
 import { useSelect, useSelectMultiple } from "@/range/selectors";
@@ -186,7 +186,6 @@ export const List = (): ReactElement => {
         <PMenu.Item startIcon={<Icon.Play />} size="small" itemKey="setActive">
           Set as Active Range
         </PMenu.Item>
-        <Divider.Divider direction="x" padded />
         <Menu.HardReload />
       </PMenu.Menu>
     );

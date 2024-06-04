@@ -71,7 +71,7 @@ import {
   storeViewport,
   typedLineKeyToString,
 } from "@/lineplot/slice";
-import { Menu } from "@/menu";
+import { Menu } from "@/components/menu";
 import { Range } from "@/range";
 import { Workspace } from "@/workspace";
 

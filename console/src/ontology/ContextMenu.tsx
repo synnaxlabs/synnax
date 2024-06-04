@@ -12,7 +12,7 @@ import { Menu as pMenu } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Group } from "@/group";
-import { Menu } from "@/menu";
+import { Menu } from "@/components/menu";
 import { TreeContextMenuProps, type TreeContextMenu } from "@/ontology/service";
 
 export interface MultipleSelectionContextMenuProps extends TreeContextMenuProps {
