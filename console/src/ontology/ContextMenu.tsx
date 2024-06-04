@@ -13,11 +13,7 @@ import { type ReactElement } from "react";
 
 import { Group } from "@/group";
 import { Menu } from "@/components/menu";
-import { TreeContextMenuProps, type TreeContextMenu } from "@/ontology/service";
-
-export interface MultipleSelectionContextMenuProps extends TreeContextMenuProps {
-  canGroup: boolean;
-}
+import { type TreeContextMenu } from "@/ontology/service";
 
 export const MultipleSelectionContextMenu: TreeContextMenu = (props) => {
   const handleSelect: pMenu.MenuProps["onChange"] = (key) => {

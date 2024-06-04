@@ -369,8 +369,8 @@ export const Tree = (): ReactElement => {
       const selectedResources = resources.filter(({ key }) => keys.includes(key));
 
       // TODO: we might be selecting two nodes that are not ascendants or
-      // descendants
-      // recursion here
+      // descendants of the other ones. We need to change this function to
+      // implement recursion.
       const parent = Core.findNodeParent({
         tree: nodeSnapshot,
         // We want to find the parent of the node with the lowest depth, since we
@@ -408,7 +408,6 @@ export const Tree = (): ReactElement => {
       if (!allSameType) return <MultipleSelectionContextMenu {...props} />;
 
       const M = services[firstID.type].TreeContextMenu;
-
       return M == null ? <Layout.DefaultContextMenu /> : <M {...props} />;
     },
     [
