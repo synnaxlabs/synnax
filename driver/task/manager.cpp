@@ -137,7 +137,6 @@ freighter::Error task::Manager::runGuarded() {
             else if (key == task_cmd_channel.key) processTaskCmd(series);
         }
     }
-    LOG(INFO) << "[task.manager] exiting runGuarded";
     return streamer->close();
     return freighter::NIL;
 }

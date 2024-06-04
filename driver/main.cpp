@@ -93,7 +93,7 @@ int main(int argc, char *argv[]) {
     // };
 
     std::vector<std::shared_ptr<task::Factory> > factories = {
-        std::move(meminfo_factory)
+        std::move(opc_factory), std::move(meminfo_factory)
     };
 
     std::unique_ptr<task::Factory> factory = std::make_unique<task::MultiFactory>(
