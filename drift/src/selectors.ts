@@ -12,6 +12,9 @@ import { type WindowState } from "@/window";
 
 export const selectSliceState = (state: StoreState): SliceState => state.drift;
 
+export const selectWindows = (state: StoreState): WindowState[] =>
+  Object.values(selectSliceState(state).windows);
+
 export const selectWindow = (
   state: StoreState,
   keyOrLabel?: string,
@@ -39,4 +42,9 @@ export const selectWindowAttribute = <K extends keyof WindowState>(
 ): WindowState[K] | null => {
   const win = selectWindow(state, keyOrLabel);
   return win != null ? win[attr] : null;
+};
+
+export const selectWindowLabel = (state: StoreState, key: string): string | null => {
+  const driftState = selectSliceState(state);
+  return driftState.keyLabels[key];
 };

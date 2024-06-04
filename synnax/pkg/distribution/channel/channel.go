@@ -10,6 +10,7 @@
 package channel
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/samber/lo"
@@ -199,6 +200,13 @@ type Channel struct {
 	// Internal determines if a channel is a channel created by Synnax or
 	// created by the user.
 	Internal bool `json:"internal" msgpack:"internal"`
+}
+
+func (c Channel) String() string {
+	if c.Name != "" {
+		return fmt.Sprintf("[%s]<%d>", c.Name, c.Key())
+	}
+	return fmt.Sprintf("<%d>", c.Key())
 }
 
 // Key returns the key for the Channel.

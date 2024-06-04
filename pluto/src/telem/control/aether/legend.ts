@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel,control } from "@synnaxlabs/client";
-import { type Destructor } from "@synnaxlabs/x";
+import { channel } from "@synnaxlabs/client";
+import { control, type Destructor } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";

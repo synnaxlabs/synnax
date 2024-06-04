@@ -7,15 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@synnaxlabs/pluto/dist/style.css";
+
+import { Canvas, Pluto } from "@synnaxlabs/pluto";
+import { Channel, TimeSpan } from "@synnaxlabs/pluto";
 import ReactDOM from "react-dom/client";
 
-import { Pluto, Canvas } from "@synnaxlabs/pluto";
-
-import { Channel, TimeSpan } from "@synnaxlabs/pluto";
-
 import WorkerURL from "./worker?worker&url";
-
-import "@synnaxlabs/pluto/dist/style.css";
 
 const Main = () => (
   <Pluto.Provider

@@ -58,7 +58,7 @@ export const configureReadLayout: Layout.State = {
   windowKey: READ_TYPE,
   location: "window",
   window: {
-    resizable: false,
+    resizable: true,
     size: { width: 1200, height: 900 },
     navTop: true,
   },

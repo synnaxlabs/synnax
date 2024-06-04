@@ -1,4 +1,4 @@
-// Copyright 2024 Synnax Labs, Inc.
+// Copyright 2023 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -19,6 +19,7 @@ import {
   INITIAL_PRERENDER_WINDOW_STATE,
   INITIAL_WINDOW_STATE,
   MAIN_WINDOW,
+  PRERENDER_WINDOW,
   type WindowProps,
   type WindowStage,
   type WindowState,
@@ -45,7 +46,7 @@ export interface StoreState {
 
 // Disabling consistent type definitions here because 'empty' interfaces can't be named,
 // which raises an error on build.
- 
+
 export type MaybeKeyPayload = { key?: string };
 export interface KeyPayload {
   key: string;
@@ -159,7 +160,7 @@ export const assignLabel = <T extends MaybeKeyPayload | LabelPayload>(
   }
   if ("label" in a.payload) return a as PayloadAction<T & LabelPayload>;
   let label = s.label;
-   
+
   const pld = a.payload as MaybeKeyPayload;
   if (pld.key != null)
     if (pld.key in s.windows) label = pld.key;
@@ -184,6 +185,7 @@ const assignBool = <T extends MaybeKeyPayload & MaybeBooleanPayload>(
   assertLabel<T>((s, a) => {
     let v = def_;
     const win = s.windows[a.payload.label];
+    if (win == null) return;
     if (a.payload.value != null) v = a.payload.value;
     else {
       const existing = win[prop] as boolean | undefined;
@@ -196,11 +198,15 @@ const incrementCounter =
   (prop: keyof WindowState, decrement: boolean = false) =>
   (s: SliceState, a: PayloadAction<LabelPayload>) => {
     const win = s.windows[a.payload.label];
+    if (win == null) return;
     s.windows[a.payload.label] = {
       ...win,
       [prop]: (win[prop] as number) + (decrement ? -1 : 1),
     };
   };
+
+const alreadyHasPreRender = (s: SliceState): boolean =>
+  Object.values(s.windows).some((w) => w.key === PRERENDER_WINDOW && !w.reserved);
 
 export const SLICE_NAME = "drift";
 
@@ -210,11 +216,14 @@ const slice = createSlice({
   reducers: {
     setConfig: (s: SliceState, a: PayloadAction<SetConfigPayload>) => {
       s.config = { ...s.config, ...a.payload };
-      if (s.config.enablePrerender) return;
-      // If we've disabled prerendering, remove all pre-rendered windows
+      const firstPreRender = Object.entries(s.windows).find(
+        ([, w]) => w.key === PRERENDER_WINDOW && !w.reserved,
+      );
       s.windows = Object.fromEntries(
         Object.entries(s.windows).filter(([, v]) => v.reserved),
       );
+      if (s.config.enablePrerender && firstPreRender != null)
+        s.windows[firstPreRender[0]] = firstPreRender[1];
     },
     setWindowLabel: (s: SliceState, a: PayloadAction<SetWindowLabelPayload>) => {
       s.label = a.payload.label;
@@ -226,6 +235,7 @@ const slice = createSlice({
       };
     },
     createWindow: (s: SliceState, { payload }: PayloadAction<CreateWindowPayload>) => {
+      if (payload.key === PRERENDER_WINDOW) return;
       const { key, label, prerenderLabel } = payload;
       if (label == null || prerenderLabel == null)
         throw new Error("[drift] - bug - missing label and prerender label");
@@ -273,33 +283,36 @@ const slice = createSlice({
         s.keyLabels[key] = label;
       }
 
-      if (s.config.enablePrerender)
+      if (s.config.enablePrerender && !alreadyHasPreRender(s))
         s.windows[prerenderLabel] = deep.copy({
           ...s.config.defaultWindowProps,
           ...INITIAL_PRERENDER_WINDOW_STATE,
         });
     },
     setWindowStage: assertLabel<SetWindowStatePayload>((s, a) => {
-      s.windows[a.payload.label].stage = a.payload.stage;
+      const win = s.windows[a.payload.label];
+      if (win == null) return;
+      win.stage = a.payload.stage;
     }),
     closeWindow: assertLabel<CloseWindowPayload>((s, { payload: { label } }) => {
       const win = s.windows[label];
-      win.stage = "closing";
       if (win == null || win.processCount > 0) return;
+      win.stage = "closing";
       delete s.windows[label];
       delete s.labelKeys[label];
       delete s.keyLabels[win.key];
     }),
     reloadWindow: assertLabel<ReloadWindowPayload>((s, a) => {
       const win = s.windows[a.payload.label];
-      win.stage = "reloading";
       if (win == null || win.processCount > 0) return;
+      win.stage = "reloading";
       window.location.reload();
     }),
     registerProcess: assertLabel<MaybeKeyPayload>(incrementCounter("processCount")),
     completeProcess: assertLabel<MaybeKeyPayload>((s, a) => {
       incrementCounter("processCount", true)(s, a);
       const win = s.windows[a.payload.label];
+      if (win == null) return;
       if (win.processCount === 0) {
         if (win.stage === "reloading") {
           window.location.reload();
@@ -312,10 +325,13 @@ const slice = createSlice({
       }
     }),
     setWindowError: (s: SliceState, a: PayloadAction<SetWindowErrorPayload>) => {
-      s.windows[a.payload.key].error = a.payload.message;
+      const win = s.windows[a.payload.key];
+      if (win == null) return;
+      win.error = a.payload.message;
     },
     focusWindow: assertLabel<FocusWindowPayload>((s, a) => {
       const win = s.windows[a.payload.label];
+      if (win == null) return;
       if (win?.visible !== true) s.windows[a.payload.label].visible = true;
       incrementCounter("focusCount")(s, a);
     }),

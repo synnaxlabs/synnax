@@ -219,4 +219,43 @@ describe("Channel", () => {
       ).rejects.toThrow(QueryError);
     });
   });
+  describe("rename", async () => {
+    test("single rename", async () => {
+      const channel = await client.channels.create({
+        name: "test",
+        leaseholder: 1,
+        rate: Rate.hz(1),
+        dataType: DataType.FLOAT32,
+      });
+      await client.channels.rename(channel.key, "test2");
+      const renamed = await client.channels.retrieve(channel.key);
+      expect(renamed.name).toEqual("test2");
+    });
+    test("multiple rename", async () => {
+      const channels = await client.channels.create([
+        {
+          name: "test1",
+          leaseholder: 1,
+          rate: Rate.hz(1),
+          dataType: DataType.FLOAT32,
+        },
+        {
+          name: "test2",
+          leaseholder: 1,
+          rate: Rate.hz(1),
+          dataType: DataType.FLOAT32,
+        },
+      ]);
+      await client.channels.rename(
+        [channels[0].key, channels[1].key],
+        ["test3", "test4"],
+      );
+      const renamed = await client.channels.retrieve([
+        channels[0].key,
+        channels[1].key,
+      ]);
+      expect(renamed[0].name).toEqual("test3");
+      expect(renamed[1].name).toEqual("test4");
+    });
+  });
 });
