@@ -276,3 +276,17 @@ func (s *ChannelService) Delete(
 		return c.Error()
 	})
 }
+
+type ChannelRenameRequest struct {
+	Keys  channel.Keys `json:"keys" msgpack:"keys" validate:"required"`
+	Names []string     `json:"names" msgpack:"names" validate:"required"`
+}
+
+func (s *ChannelService) Rename(
+	ctx context.Context,
+	req ChannelRenameRequest,
+) (types.Nil, error) {
+	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
+		return s.internal.NewWriter(tx).RenameMany(ctx, req.Keys, req.Names, false)
+	})
+}

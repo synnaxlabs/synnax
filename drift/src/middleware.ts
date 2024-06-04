@@ -97,8 +97,8 @@ export const middleware =
         if (prevS !== null && nextS !== null) await sync(prevS, nextS, runtime, debug);
         if (shouldEmit_) await runtime.emit({ action });
       } catch (err) {
-        log(debug, "[drift] - middleware", {
-          error: err,
+        log(debug, "[drift] - ERROR", {
+          error: (err as Error).message,
           action,
           emitted,
           emitter,
@@ -129,6 +129,6 @@ export const configureMiddleware = <
 ): ((def: GetDefaultMiddleware<S>) => M) => {
   return (def) => {
     const base = mw != null ? (typeof mw === "function" ? mw(def) : mw) : def();
-    return [...base, middleware<S, A>(runtime, debug)] as unknown as M;
+    return [middleware<S, A>(runtime, debug), ...base] as unknown as M;
   };
 };

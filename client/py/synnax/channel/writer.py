@@ -25,9 +25,6 @@ class _CreateRequest(Payload):
 
 _Response = _CreateRequest
 
-_CHANNEL_CREATE_ENDPOINT = "/channel/create"
-_CHANNEL_DELETE_ENDPOINT = "/channel/delete"
-
 
 class _DeleteRequest(Payload):
     keys: ChannelKeys | None
@@ -35,6 +32,20 @@ class _DeleteRequest(Payload):
 
 
 class _DeleteResponse(Payload):
+    ...
+
+
+_CHANNEL_CREATE_ENDPOINT = "/channel/create"
+_CHANNEL_DELETE_ENDPOINT = "/channel/delete"
+_CHANNEL_RENAME_ENDPOINT = "/channel/rename"
+
+
+class _RenameRequest(Payload):
+    keys: ChannelKeys
+    names: ChannelNames
+
+
+class _RenameResponse(Payload):
     ...
 
 
@@ -67,6 +78,14 @@ class ChannelWriter:
         normal = normalize_channel_params(channels)
         req = _DeleteRequest(**{normal.variant: normal.params})
         res, exc = self.__client.send(_CHANNEL_DELETE_ENDPOINT, req, _DeleteResponse)
+        if exc is not None:
+            raise exc
+        return res
+
+    @trace("debug")
+    def rename(self, keys: ChannelKeys, names: ChannelNames) -> None:
+        req = _RenameRequest(keys=keys, names=names)
+        res, exc = self.__client.send(_CHANNEL_RENAME_ENDPOINT, req, _RenameResponse)
         if exc is not None:
             raise exc
         return res

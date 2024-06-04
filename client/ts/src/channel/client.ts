@@ -334,11 +334,22 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
     return this.sugar(await this.retriever.search(term, options));
   }
 
+  /***
+   * Deletes channels from the database using the given keys or names.
+   * @param channels - The keys or names of the channels to delete.
+   */
   async delete(channels: Params): Promise<void> {
     const { normalized, variant } = analyzeChannelParams(channels);
     if (variant === "keys")
       return await this.writer.delete({ keys: normalized as Key[] });
     return await this.writer.delete({ names: normalized as string[] });
+  }
+
+  async rename(key: Key, name: string): Promise<void>;
+  async rename(keys: Key[], names: string[]): Promise<void>;
+
+  async rename(keys: Key | Key[], names: string | string[]): Promise<void> {
+    return await this.writer.rename(toArray(keys), toArray(names));
   }
 
   newSearcherWithOptions(

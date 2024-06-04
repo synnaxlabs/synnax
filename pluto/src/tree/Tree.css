@@ -15,9 +15,10 @@
     & button {
         border-radius: 0;
         width: 100%;
+        border-bottom: none;
 
         & .pluto-caret path {
-            fill: var(--pluto-gray-l6) !important;
+            fill: var(--pluto-gray-l7) !important;
         }
     }
 

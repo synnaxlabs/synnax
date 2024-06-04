@@ -9,8 +9,7 @@
 
 import "@/select/Button.css";
 
-import { Icon } from "@synnaxlabs/media";
-import { type Key,type Keyed } from "@synnaxlabs/x";
+import { type Key, type Keyed } from "@synnaxlabs/x";
 import {
   type ReactElement,
   type ReactNode,
@@ -21,6 +20,7 @@ import {
 
 import { Align } from "@/align";
 import { Button as CoreButton } from "@/button";
+import { Caret } from "@/caret";
 import { CSS } from "@/css";
 import { Dropdown } from "@/dropdown";
 import { type Input } from "@/input";
@@ -130,7 +130,9 @@ export const BaseButton = ({
     className={CSS.B("select-button")}
     onClick={toggle}
     variant="outlined"
-    endIcon={<Icon.Caret.Left className={CSS.BE("select-button", "indicator")} />}
+    endIcon={
+      <Caret.Animated enabledLoc="bottom" disabledLoc="left" enabled={visible} />
+    }
     {...props}
   >
     {children ?? selected?.[renderKey]}
