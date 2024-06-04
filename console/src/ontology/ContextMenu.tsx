@@ -8,15 +8,19 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/media";
-import { Menu } from "@synnaxlabs/pluto";
-import { Menu as sMenu } from "@/menu";
+import { Menu as pMenu } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Group } from "@/group";
-import { type TreeContextMenu } from "@/ontology/service";
+import { Menu } from "@/menu";
+import { TreeContextMenuProps, type TreeContextMenu } from "@/ontology/service";
+
+export interface MultipleSelectionContextMenuProps extends TreeContextMenuProps {
+  canGroup: boolean;
+}
 
 export const MultipleSelectionContextMenu: TreeContextMenu = (props) => {
-  const handleSelect: Menu.MenuProps["onChange"] = (key) => {
+  const handleSelect: pMenu.MenuProps["onChange"] = (key) => {
     switch (key) {
       case "group":
         void Group.fromSelection(props);
@@ -24,15 +28,15 @@ export const MultipleSelectionContextMenu: TreeContextMenu = (props) => {
   };
 
   return (
-    <Menu.Menu onChange={handleSelect} level="small" iconSpacing="small">
+    <pMenu.Menu onChange={handleSelect} level="small" iconSpacing="small">
       <Group.GroupMenuItem selection={props.selection} />
-      <sMenu.HardReload />
-    </Menu.Menu>
+      <Menu.HardReload />
+    </pMenu.Menu>
   );
 };
 
 export const RenameMenuItem = (): ReactElement => (
-  <Menu.Item itemKey="rename" startIcon={<Icon.Rename />}>
+  <pMenu.Item itemKey="rename" startIcon={<Icon.Rename />}>
     Rename
-  </Menu.Item>
+  </pMenu.Item>
 );

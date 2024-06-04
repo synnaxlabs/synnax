@@ -358,6 +358,10 @@ export const Tree = (): ReactElement => {
       const selectedNodes = Core.findNodes({ tree: nodeSnapshot, keys });
       const selectedResources = resources.filter(({ key }) => keys.includes(key));
 
+      // TODO: we might be selecting two nodes that are not ascendants or
+      // descendants
+      // recursion here
+
       const parent = Core.findNodeParent({
         tree: nodeSnapshot,
         // We want to find the parent of the node with the lowest depth, since we
