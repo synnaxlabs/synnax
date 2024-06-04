@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { nanoid } from "nanoid";
 import { ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
@@ -23,7 +24,7 @@ import { Menu as ConsoleMenu } from "@/components";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
-import { type Ontology } from "@/ontology";
+import { Ontology } from "@/ontology";
 import { Range } from "@/range";
 import { Schematic } from "@/schematic";
 
@@ -173,7 +174,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           .catch((e: Error) => {
             addStatus({
               variant: "error",
-              key: "deleteChannelError",
+              key: nanoid(),
               message: e.message,
             });
           });
