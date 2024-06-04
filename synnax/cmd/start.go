@@ -80,11 +80,11 @@ func start(cmd *cobra.Command) {
 	v := version.Get()
 	decodedName, _ := base64.StdEncoding.DecodeString("bGljZW5zZS1rZXk=")
 	var (
-		ins      = configureInstrumentation(v)
-		insecure = viper.GetBool("insecure")
-		verbose  = viper.GetBool("verbose")
-		autoCert = viper.GetBool("auto-cert")
-		verifier = viper.GetString(string(decodedName))
+		ins, prettyLogger = configureInstrumentation(v)
+		insecure          = viper.GetBool("insecure")
+		verbose           = viper.GetBool("verbose")
+		autoCert          = viper.GetBool("auto-cert")
+		verifier          = viper.GetString(string(decodedName))
 	)
 	defer cleanupInstrumentation(cmd.Context(), ins)
 
@@ -275,7 +275,8 @@ func start(cmd *cobra.Command) {
 			ins.L.Warn("embedded driver shutdown complete")
 		}()
 
-		//ins.L.Info("\033[32m Synnax Node Started \033[0m")
+		<-srv.Started()
+		prettyLogger.Info("\033[32mSynnax is running and available at " + viper.GetString("listen") + "\033[0m")
 
 		<-ctx.Done()
 		return err
@@ -292,6 +293,7 @@ func start(cmd *cobra.Command) {
 		ins.L.Fatal("synnax failed", zap.Error(err))
 	}
 	ins.L.Info("shutdown successful")
+	prettyLogger.Info("\033[34mSynnax has shut down\033[0m")
 }
 
 func init() {

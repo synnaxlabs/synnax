@@ -235,9 +235,10 @@ type streamServer[RQ, RS freighter.Payload] struct {
 	freighter.Reporter
 	freighter.MiddlewareCollector
 	alamos.Instrumentation
-	path     string
-	internal bool
-	handler  func(ctx context.Context, server freighter.ServerStream[RQ, RS]) error
+	serverCtx context.Context
+	path      string
+	internal  bool
+	handler   func(ctx context.Context, server freighter.ServerStream[RQ, RS]) error
 }
 
 func (s *streamServer[RQ, RS]) BindHandler(
@@ -246,16 +247,16 @@ func (s *streamServer[RQ, RS]) BindHandler(
 	s.handler = handler
 }
 
-func (s *streamServer[RQ, RS]) fiberHandler(c *fiber.Ctx) error {
-	if !fiberws.IsWebSocketUpgrade(c) {
+func (s *streamServer[RQ, RS]) fiberHandler(fiberCtx *fiber.Ctx) error {
+	if !fiberws.IsWebSocketUpgrade(fiberCtx) {
 		return fiber.ErrUpgradeRequired
 	}
-	iMD := parseRequestCtx(c, address.Address(s.path))
+	iMD := parseRequestCtx(fiberCtx, address.Address(s.path))
 	headerContentType := iMD.Params.GetDefault(fiber.HeaderContentType, "").(string)
 	ecd, err := httputil.DetermineEncoderDecoder(headerContentType)
 	if err != nil {
 		// If we can't determine the encoder/decoder, we can't continue, so we sent a best effort string.
-		return c.Status(fiber.StatusBadRequest).SendString(err.Error())
+		return fiberCtx.Status(fiber.StatusBadRequest).SendString(err.Error())
 	}
 	oCtx, err := s.MiddlewareCollector.Exec(
 		iMD,
@@ -264,7 +265,7 @@ func (s *streamServer[RQ, RS]) fiberHandler(c *fiber.Ctx) error {
 			return oCtx, fiberws.New(func(c *fiberws.Conn) {
 				if err := func() error {
 
-					stream := &serverStream[RQ, RS]{core: newCore[RQ, RS](context.TODO(), c.Conn, ecd, zap.S())}
+					stream := &serverStream[RQ, RS]{core: newCore[RQ, RS](s.serverCtx, c.Conn, ecd, zap.S())}
 
 					errPayload := errors.Encode(ctx, s.handler(stream.ctx, stream), s.internal)
 					if errPayload.Type == errors.TypeNil {
@@ -319,15 +320,15 @@ func (s *streamServer[RQ, RS]) fiberHandler(c *fiber.Ctx) error {
 				}(); err != nil {
 					s.L.Error("stream server handler error", zap.Error(err))
 				}
-			})(c)
+			})(fiberCtx)
 		}))
-	setResponseCtx(c, oCtx)
+	setResponseCtx(fiberCtx, oCtx)
 	fErr := errors.Encode(oCtx, err, s.internal)
 	if fErr.Type == errors.TypeNil {
 		return nil
 	}
-	c.Status(fiber.StatusBadRequest)
-	return encodeAndWrite(c, ecd, fErr)
+	fiberCtx.Status(fiber.StatusBadRequest)
+	return encodeAndWrite(fiberCtx, ecd, fErr)
 }
 
 type serverStream[RQ, RS freighter.Payload] struct{ core[RQ, RS] }
