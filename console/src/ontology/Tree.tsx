@@ -93,7 +93,6 @@ const handleResourcesChange = async (
   const updated = changes
     .filter(({ variant, value }) => variant === "set" && value != null)
     .map(({ value }) => value) as ontology.Resource[];
-  console.log(updated);
   setResources(updateResources(resources, updated, removed));
   let nextTree = Core.removeNode({
     tree: nodes,

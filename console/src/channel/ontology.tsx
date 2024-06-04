@@ -154,7 +154,6 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         break;
       case "rename":
         Tree.startRenaming(nodes[0].key, (name) => {
-          console.log("rename", name);
           handleRename({ ...props, name, id: resources[0].id });
         });
         break;
