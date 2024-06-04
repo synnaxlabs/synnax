@@ -13,14 +13,14 @@ import { Icon } from "@synnaxlabs/media";
 import {
   Channel,
   type Haul,
-  Menu,
-  type Schematic as PlutoSchematic,
+  Menu as PMenu,
+  type Schematic as PSchematic,
   telem,
 } from "@synnaxlabs/pluto";
 import { Tree } from "@synnaxlabs/pluto/tree";
 import { type ReactElement } from "react";
 
-import { Menu as ConsoleMenu } from "@/components/menu";
+import { Menu } from "@/components/menu";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
@@ -81,7 +81,7 @@ const haulItems = ({ name, id }: ontology.Resource): Haul.Item[] => {
     },
     outlet: "stringifier",
   });
-  const schematicSymbolProps: PlutoSchematic.ValueProps = {
+  const schematicSymbolProps: PSchematic.ValueProps = {
     label: {
       label: name,
       level: "p",
@@ -155,7 +155,6 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         break;
       case "rename":
         Tree.startRenaming(nodes[0].key, (name) => {
-          console.log("rename", name);
           handleRename({ ...props, name, id: resources[0].id });
         });
         break;
@@ -188,28 +187,26 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const singleResource = selection.resources.length === 1;
 
   return (
-    <Menu.Menu level="small" iconSpacing="small" onChange={handleSelect}>
-      <ConsoleMenu.HardReload />
+    <PMenu.Menu level="small" iconSpacing="small" onChange={handleSelect}>
       <Group.GroupMenuItem selection={selection} />
-      <Menu.Item itemKey="rename" startIcon={<Icon.Rename />}>
-        Rename
-      </Menu.Item>
+      {singleResource && <Ontology.RenameMenuItem />}
       {activeRange != null && activeRange.persisted && (
         <>
           {singleResource && (
-            <Menu.Item itemKey="alias" startIcon={<Icon.Rename />}>
+            <PMenu.Item itemKey="alias" startIcon={<Icon.Rename />}>
               Set Alias Under {activeRange.name}
-            </Menu.Item>
+            </PMenu.Item>
           )}
-          <Menu.Item itemKey="deleteAlias" startIcon={<Icon.Delete />}>
+          <PMenu.Item itemKey="deleteAlias" startIcon={<Icon.Delete />}>
             Clear Alias Under {activeRange.name}
-          </Menu.Item>
+          </PMenu.Item>
         </>
       )}
-      <Menu.Item itemKey="delete" startIcon={<Icon.Delete />}>
+      <PMenu.Item itemKey="delete" startIcon={<Icon.Delete />}>
         Delete
-      </Menu.Item>
-    </Menu.Menu>
+      </PMenu.Item>
+      <Menu.HardReloadItem />
+    </PMenu.Menu>
   );
 };
 

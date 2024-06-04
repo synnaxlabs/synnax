@@ -186,7 +186,7 @@ export const List = (): ReactElement => {
         <PMenu.Item startIcon={<Icon.Play />} size="small" itemKey="setActive">
           Set as Active Range
         </PMenu.Item>
-        <Menu.HardReload />
+        <Menu.HardReloadItem />
       </PMenu.Menu>
     );
   };

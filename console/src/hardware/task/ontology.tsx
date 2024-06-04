@@ -8,8 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/media";
-import { Menu } from "@synnaxlabs/pluto";
+import { Menu as PMenu } from "@synnaxlabs/pluto";
 
+import { Menu } from "@/components/menu";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
 import { Layout } from "@/layout";
@@ -73,11 +74,12 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   };
 
   return (
-    <Menu.Menu level="small" iconSpacing="small" onChange={_handleSelect}>
-      <Menu.Item itemKey="delete" startIcon={<Icon.Delete />}>
+    <PMenu.Menu level="small" iconSpacing="small" onChange={_handleSelect}>
+      <PMenu.Item itemKey="delete" startIcon={<Icon.Delete />}>
         Delete
-      </Menu.Item>
-    </Menu.Menu>
+      </PMenu.Item>
+      <Menu.HardReloadItem />
+    </PMenu.Menu>
   );
 };
 

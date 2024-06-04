@@ -9,21 +9,21 @@
 
 import "@/layout/Window.css";
 
+import { type ReactElement, useEffect } from "react";
+import { useDispatch } from "react-redux";
 import { setWindowDecorations, setWindowVisible } from "@synnaxlabs/drift";
 import { useSelectWindowAttribute, useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Logo } from "@synnaxlabs/media";
 import { Align, Menu as PMenu, Nav, OS, Text } from "@synnaxlabs/pluto";
 import { runtime } from "@synnaxlabs/x";
 import { getCurrent } from "@tauri-apps/api/window";
-import { type ReactElement, useEffect } from "react";
-import { useDispatch } from "react-redux";
 
 import { Controls } from "@/components";
+import { Menu } from "@/components/menu";
 import { CSS } from "@/css";
 import { Content } from "@/layout/Content";
 import { WindowProps } from "@/layout/layout";
 import { useSelect } from "@/layout/selectors";
-import { Menu } from "@/components/menu";
 
 export interface NavTopProps extends Pick<WindowProps, "showTitle" | "navTop"> {
   title: string;
@@ -80,7 +80,7 @@ export const NavTop = ({
 
 export const DefaultContextMenu = (): ReactElement => (
   <PMenu.Menu>
-    <Menu.HardReload />
+    <Menu.HardReloadItem />
   </PMenu.Menu>
 );
 

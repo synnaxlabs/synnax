@@ -30,7 +30,7 @@ export const MultipleSelectionContextMenu: TreeContextMenu = (props) => {
   return (
     <pMenu.Menu onChange={handleSelect} level="small" iconSpacing="small">
       <Group.GroupMenuItem selection={props.selection} />
-      <Menu.HardReload />
+      <Menu.HardReloadItem />
     </pMenu.Menu>
   );
 };

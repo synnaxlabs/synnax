@@ -322,8 +322,7 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
     };
 
     return (
-      <PMenu.Menu onChange={handleSelect} iconSpacing="medium" level="small">
-        <Menu.HardReload />
+      <PMenu.Menu onChange={handleSelect} iconSpacing="small" level="small">
         {!box.areaIsZero(selection) && (
           <>
             <PMenu.Item itemKey="iso" startIcon={<Icon.Range />}>
@@ -343,6 +342,7 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
             </PMenu.Item>
           </>
         )}
+        <Menu.HardReloadItem />
       </PMenu.Menu>
     );
   };
