@@ -11,7 +11,6 @@ package channel
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
@@ -320,12 +319,12 @@ func (lp *leaseProxy) delete(ctx context.Context, tx gorp.Tx, keys Keys, allowIn
 		if err != nil {
 			return err
 		}
+		var names = make([]string, 0, len(internalChannels))
 		if len(internalChannels) > 0 {
-			var names []string
 			for _, ch := range internalChannels {
 				names = append(names, ch.Name)
 			}
-			return fmt.Errorf("can't delete internal channel(s): %v", names)
+			return errors.Newf("can't delete internal channels(s): %v", names)
 		}
 	}
 
