@@ -9,10 +9,11 @@
 
 import { ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Menu, Mosaic, Tree } from "@synnaxlabs/pluto";
+import { Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
 
 import { Layout } from "@/layout";
 import { create, type State } from "@/lineplot/slice";
+import { Menu } from "@/components/menu";
 import { Ontology } from "@/ontology";
 import { Cluster } from "@/cluster";
 
@@ -53,14 +54,16 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
 
   const onSelect = (key: string): void => f[key]();
 
+  const isSingle = resources.length === 1;
   return (
-    <Menu.Menu onChange={onSelect} level="small" iconSpacing="small">
-      <Ontology.RenameMenuItem />
-      <Menu.Item itemKey="delete" startIcon={<Icon.Delete />}>
+    <PMenu.Menu onChange={onSelect} level="small" iconSpacing="small">
+      {isSingle && <Ontology.RenameMenuItem />}
+      <PMenu.Item itemKey="delete" startIcon={<Icon.Delete />}>
         Delete
-      </Menu.Item>
+      </PMenu.Item>
       <Ontology.LinkAddressMenuItem />
-    </Menu.Menu>
+      <Menu.HardReloadItem />
+    </PMenu.Menu>
   );
 };
 

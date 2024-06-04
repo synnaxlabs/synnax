@@ -9,13 +9,15 @@
 
 import { ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Menu, Mosaic, Tree } from "@synnaxlabs/pluto";
+import { Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
 
 import { Cluster } from "@/cluster";
+import { Menu } from "@/components/menu";
 import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";
 import { Range } from "@/range";
 import { create, type State } from "@/schematic/slice";
+import { M } from "node_modules/vite/dist/node/types.d-aGj9QkWt";
 
 const TreeContextMenu: Ontology.TreeContextMenu = ({
   client,
@@ -43,6 +45,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
 
   const handleCopy = (): void => {
     void (async () => {
+      if (parent == null) return;
       const schematics = await Promise.all(
         resources.map(
           async (res) =>
@@ -70,7 +73,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
 
   const handleRangeSnapshot = (): void => {
     void (async () => {
-      if (activeRange == null) return;
+      if (activeRange == null || parent == null) return;
       const schematics = await Promise.all(
         resources.map(
           async (res) =>
@@ -112,19 +115,20 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
   const onSelect = (key: string): void => f[key]();
 
   return (
-    <Menu.Menu onChange={onSelect} level="small" iconSpacing="small">
+    <PMenu.Menu onChange={onSelect} level="small" iconSpacing="small">
       <Ontology.RenameMenuItem />
       {resources.every((r) => r.data?.snapshot === false) && (
         <Range.SnapshotMenuItem range={activeRange} />
       )}
-      <Menu.Item itemKey="copy" startIcon={<Icon.Copy />}>
+      <PMenu.Item itemKey="copy" startIcon={<Icon.Copy />}>
         Copy
-      </Menu.Item>
-      <Menu.Item itemKey="delete" startIcon={<Icon.Delete />}>
+      </PMenu.Item>
+      <PMenu.Item itemKey="delete" startIcon={<Icon.Delete />}>
         Delete
-      </Menu.Item>
+      </PMenu.Item>
       <Ontology.LinkAddressMenuItem />
-    </Menu.Menu>
+      <Menu.HardReloadItem />
+    </PMenu.Menu>
   );
 };
 

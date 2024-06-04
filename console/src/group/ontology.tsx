@@ -9,16 +9,17 @@
 
 import { ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Menu } from "@synnaxlabs/pluto";
+import { Menu as PMenu } from "@synnaxlabs/pluto";
 import { Tree } from "@synnaxlabs/pluto/tree";
 import { type ReactElement } from "react";
 import { v4 as uuid } from "uuid";
 
+import { Menu } from "@/components/menu";
 import { Ontology } from "@/ontology";
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
-    selection: { nodes, parent },
+    selection: { nodes, parent, resources },
   } = props;
   const onSelect = (key: string): void => {
     switch (key) {
@@ -36,26 +37,29 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
 
   const isDelete = nodes.every((n) => n.children == null || n.children.length === 0);
   const ungroupIcon = isDelete ? <Icon.Delete /> : <Icon.Group />;
+  const singleResource = resources.length === 1;
 
   return (
-    <Menu.Menu onChange={onSelect} level="small" iconSpacing="medium">
-      <Menu.Item itemKey="group" startIcon={<Icon.Group />}>
+    <PMenu.Menu onChange={onSelect} level="small" iconSpacing="small">
+      <PMenu.Item itemKey="group" startIcon={<Icon.Group />}>
         New Group
-      </Menu.Item>
+      </PMenu.Item>
       {parent != null && (
-        <Menu.Item itemKey="ungroup" startIcon={ungroupIcon}>
+        <PMenu.Item itemKey="ungroup" startIcon={ungroupIcon}>
+          {/* TODO: Maybe we shouldn't force them into keeping the ontology tree like this? */}
           {isDelete ? "Delete" : "Ungroup"}
-        </Menu.Item>
+        </PMenu.Item>
       )}
-      <Ontology.RenameMenuItem />
-    </Menu.Menu>
+      {singleResource && <Ontology.RenameMenuItem />}
+      <Menu.HardReloadItem />
+    </PMenu.Menu>
   );
 };
 
 export const UngroupMenuItem = (): ReactElement => (
-  <Menu.Item itemKey="ungroup" startIcon={<Icon.Group />}>
+  <PMenu.Item itemKey="ungroup" startIcon={<Icon.Group />}>
     Ungroup
-  </Menu.Item>
+  </PMenu.Item>
 );
 
 export interface GroupMenuItemProps {
@@ -66,9 +70,9 @@ export const GroupMenuItem = ({
   selection,
 }: GroupMenuItemProps): ReactElement | null =>
   canGroupSelection(selection) ? (
-    <Menu.Item itemKey="group" startIcon={<Icon.Group />}>
+    <PMenu.Item itemKey="group" startIcon={<Icon.Group />}>
       Group
-    </Menu.Item>
+    </PMenu.Item>
   ) : null;
 
 const ungroupSelection = async ({

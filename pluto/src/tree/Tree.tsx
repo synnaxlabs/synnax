@@ -87,8 +87,6 @@ export const use = (props: UseProps): UseReturn => {
   }, [nodes, expanded, sort]);
   const flatRef = useSyncedRef(flat);
 
-  console.log(expanded);
-
   const shiftRef = Triggers.useHeldRef({ triggers: SHIFT_TRIGGERS });
 
   const handleSelect: UseSelectProps<string, FlattenedNode>["onChange"] = useCallback(

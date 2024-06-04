@@ -13,7 +13,7 @@ import { type ReactElement } from "react";
 
 import { Cluster } from "@/cluster";
 import { ToolbarHeader, ToolbarTitle } from "@/components";
-import { type Layout } from "@/layout";
+import { Layout } from "@/layout";
 import { Tree } from "@/ontology/Tree";
 
 const ResourcesTree = (): ReactElement => {
