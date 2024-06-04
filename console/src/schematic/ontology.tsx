@@ -43,6 +43,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
 
   const handleCopy = (): void => {
     void (async () => {
+      if (parent == null) return;
       const schematics = await Promise.all(
         resources.map(
           async (res) =>
@@ -70,7 +71,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
 
   const handleRangeSnapshot = (): void => {
     void (async () => {
-      if (activeRange == null) return;
+      if (activeRange == null || parent == null) return;
       const schematics = await Promise.all(
         resources.map(
           async (res) =>
