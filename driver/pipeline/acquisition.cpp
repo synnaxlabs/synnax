@@ -123,4 +123,5 @@ void Acquisition::run() {
         LOG(ERROR) << "[acquisition] Unhandled unknown exception";
         this->stop();
     }
+    LOG(INFO) << "[acquisition] run thread exiting";
 }

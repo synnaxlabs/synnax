@@ -38,6 +38,7 @@ freighter::Error task::Manager::start(std::atomic<bool> &done) {
         return err;
     }
     breaker.reset();
+    running = true;
     run_thread = std::thread(&Manager::run, this, std::ref(done));
     return freighter::NIL;
 }
@@ -85,14 +86,18 @@ void task::Manager::run(std::atomic<bool> &done) {
     const auto err = runGuarded();
     if (err.matches(freighter::UNREACHABLE) && breaker.wait(err)) return run(done);
     done = true;
+    done.notify_all();
     run_err = err;
+    LOG(INFO) << "[manager] run thread exiting";
 }
 
 freighter::Error task::Manager::stop() {
+    LOG(INFO) << "[task.manager] stop called";
     if (!run_thread.joinable()) return freighter::NIL;
-    LOG(INFO) << "[task.manager] shutting down";
+    running = false;
     streamer->closeSend();
     run_thread.join();
+    LOG(INFO) << "[task.manager] shutting down";
     for (auto &[key, task]: tasks) task->stop();
     LOG(INFO) << "[task.manager] shut down";
     return run_err;
@@ -112,10 +117,14 @@ freighter::Error task::Manager::runGuarded() {
     // If we pass here it means we've re-gained network connectivity and can reset the breaker.
     breaker.reset();
 
-    while (true) {
+    while (running) {
         auto [frame, read_err] = streamer->read();
         LOG(INFO) << "[task.manager] received frame";
-        if (read_err) break;
+        if (read_err) {
+            if(!running) break;
+            LOG(ERROR) << "[task.manager] failed to read frame: " << read_err.message();
+            break;
+        }
         for (size_t i = 0; i < frame.size(); i++) {
             const auto &key = (*frame.channels)[i];
             const auto &series = (*frame.series)[i];
@@ -124,6 +133,7 @@ freighter::Error task::Manager::runGuarded() {
             else if (key == task_cmd_channel.key) processTaskCmd(series);
         }
     }
+    LOG(INFO) << "[task.manager] exiting runGuarded";
     return streamer->close();
 }
 

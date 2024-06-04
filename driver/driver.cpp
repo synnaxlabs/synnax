@@ -28,27 +28,22 @@ driver::Driver::Driver(
 const std::string VERSION = "0.1.0";
 
 freighter::Error driver::Driver::run() {
-    auto err = task_manager.start(done);
-    if (err) return err;
-    err = heartbeat.start(done);
-    if (err) {
-        task_manager.stop();
-        return err;
-    }
-    LOG(INFO) << "[main] started successfully. waiting for shutdown.";
+    // auto err = task_manager.start(done);
+    // if (err) return err;
+    auto err = heartbeat.start(done);
+    // if (err) {
+    //     task_manager.stop();
+    //     return err;
+    // }
+    // LOG(INFO) << "[main] started successfully. waiting for shutdown.";
     done.wait(false);
-    task_manager.stop();
+    // task_manager.stop();
     heartbeat.stop();
+    // LOG(INFO) << "[main] stopped successfully.";
     return freighter::NIL;
 }
 
 void driver::Driver::stop() {
-    const auto tm_err = task_manager.stop();
-    const auto hb_err = heartbeat.stop();
-    if (tm_err) {
-        LOG(ERROR) << "[main] failed to stop task manager: " << tm_err.message();
-    }
-    if (hb_err) {
-        LOG(ERROR) << "[main] failed to stop heartbeat: " << hb_err.message();
-    }
+    done = true;
+    done.notify_all();
 }
