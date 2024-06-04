@@ -80,8 +80,7 @@ public:
             .max_retries = 20,
             .scale = 1.2
         };
-        auto meminfo = std::make_unique<MemInfo>(ctx, source, writer_cfg, breaker_config);
-        return(std::move(meminfo));
+        return(std::make_unique<MemInfo>(ctx, source, writer_cfg, breaker_config));
     }
 
     void exec(task::Command &cmd) override {
