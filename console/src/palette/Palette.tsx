@@ -72,7 +72,6 @@ const useDropOutside = ({ onDrop, canDrop, key, type }: Haul.UseDropOutsideProps
   useAsyncEffect(
     async () =>
       listen("mouse_up", async ({ payload: [x, y] }: { payload: [number, number] }) => {
-        console.log(dragging.current);
         if (dragging.current.items.length === 0 || !canDrop(dragging.current)) return;
         const state = store.getState();
         const layout = Layout.select(state, dragging.current.items[0].key as string);

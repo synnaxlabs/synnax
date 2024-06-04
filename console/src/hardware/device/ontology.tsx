@@ -8,8 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/media";
-import { Menu } from "@synnaxlabs/pluto";
+import { Menu as PMenu } from "@synnaxlabs/pluto";
 
+import { Menu } from "@/components/menu";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
 import { Layout } from "@/layout";
@@ -64,7 +65,7 @@ const handleDelete = ({
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const { selection } = props;
   if (selection.nodes.length === 0) return null;
-  const isSingle = selection.nodes.length === 1;
+  const singleResource = selection.nodes.length === 1;
 
   const handleSelect = (itemKey: string): void => {
     switch (itemKey) {
@@ -78,16 +79,17 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   };
 
   return (
-    <Menu.Menu onChange={handleSelect} level="small" iconSpacing="small">
-      {isSingle && (
-        <Menu.Item itemKey="configure" startIcon={<Icon.Hardware />}>
+    <PMenu.Menu onChange={handleSelect} level="small" iconSpacing="small">
+      {singleResource && (
+        <PMenu.Item itemKey="configure" startIcon={<Icon.Hardware />}>
           Configure
-        </Menu.Item>
+        </PMenu.Item>
       )}
-      <Menu.Item itemKey="delete" startIcon={<Icon.Delete />}>
+      <PMenu.Item itemKey="delete" startIcon={<Icon.Delete />}>
         Delete
-      </Menu.Item>
-    </Menu.Menu>
+      </PMenu.Item>
+      <Menu.HardReloadItem />
+    </PMenu.Menu>
   );
 };
 

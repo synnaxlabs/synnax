@@ -9,11 +9,12 @@
 
 import { ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Menu } from "@synnaxlabs/pluto";
+import { Menu as PMenu } from "@synnaxlabs/pluto";
 import { Tree } from "@synnaxlabs/pluto/tree";
 import { deep, type UnknownRecord } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
+import { Menu } from "@/components/menu";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";
@@ -99,20 +100,27 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
     }
   };
 
+  const singleResource = resources.length === 1;
+
   return (
-    <Menu.Menu onChange={handleSelect} level="small" iconSpacing="small">
-      <Menu.Item itemKey="delete" startIcon={<Icon.Delete />}>
+    <PMenu.Menu onChange={handleSelect} level="small" iconSpacing="small">
+      <PMenu.Item itemKey="delete" startIcon={<Icon.Delete />}>
         Delete
-      </Menu.Item>
-      <Ontology.RenameMenuItem />
+      </PMenu.Item>
+      {singleResource && <Ontology.RenameMenuItem />}
       <Group.GroupMenuItem selection={props.selection} />
-      <Menu.Item itemKey="plot" startIcon={<Icon.Visualize />}>
-        New Line Plot
-      </Menu.Item>
-      <Menu.Item itemKey="schematic" startIcon={<Icon.Schematic />}>
-        New Schematic
-      </Menu.Item>
-    </Menu.Menu>
+      {singleResource && (
+        <>
+          <PMenu.Item itemKey="plot" startIcon={<Icon.Visualize />}>
+            New Line Plot
+          </PMenu.Item>
+          <PMenu.Item itemKey="schematic" startIcon={<Icon.Schematic />}>
+            New Schematic
+          </PMenu.Item>
+        </>
+      )}
+      <Menu.HardReloadItem />
+    </PMenu.Menu>
   );
 };
 
