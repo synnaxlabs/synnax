@@ -124,11 +124,7 @@ freighter::Error task::Manager::runGuarded() {
     while (running) {
         auto [frame, read_err] = streamer->read();
         LOG(INFO) << "[task.manager] received frame";
-        if (read_err) {
-            if(!running) break;
-            LOG(ERROR) << "[task.manager] failed to read frame: " << read_err.message();
-            break;
-        }
+        if (read_err) break;
         for (size_t i = 0; i < frame.size(); i++) {
             const auto &key = (*frame.channels)[i];
             const auto &series = (*frame.series)[i];
@@ -138,7 +134,6 @@ freighter::Error task::Manager::runGuarded() {
         }
     }
     return streamer->close();
-    return freighter::NIL;
 }
 
 void task::Manager::processTaskSet(const Series &series) {
