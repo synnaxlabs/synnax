@@ -49,7 +49,7 @@ public:
         const synnax::WriterConfig &writer_config,
         const breaker::Config &breaker_config
     ): pipe(pipeline::Acquisition(ctx, writer_config, source, breaker_config)) {
-        // pipe.start();
+        pipe.start();
     }
 
 
@@ -88,7 +88,7 @@ public:
     };
 
     void stop() override {
-        // pipe.stop();
+        pipe.stop();
     };
 };
 
