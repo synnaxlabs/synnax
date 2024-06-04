@@ -203,7 +203,7 @@ func (db *DB) RekeyChannel(oldKey ChannelKey, newKey core.ChannelKey) error {
 
 	udb, uok := db.unaryDBs[oldKey]
 	if uok {
-		if err := udb.TryClose(); err != nil {
+		if err := udb.Close(); err != nil {
 			return err
 		}
 		if err := db.fs.Rename(keyToDirName(oldKey), keyToDirName(newKey)); err != nil {
@@ -238,7 +238,7 @@ func (db *DB) RekeyChannel(oldKey ChannelKey, newKey core.ChannelKey) error {
 			for otherDBKey := range db.unaryDBs {
 				otherDB := db.unaryDBs[otherDBKey]
 				if otherDB.Channel.Index == oldKey && otherDBKey != newKey {
-					if err = otherDB.TryClose(); err != nil {
+					if err = otherDB.Close(); err != nil {
 						return err
 					}
 
@@ -268,7 +268,7 @@ func (db *DB) RekeyChannel(oldKey ChannelKey, newKey core.ChannelKey) error {
 	}
 	vdb, vok := db.virtualDBs[oldKey]
 	if vok {
-		if err := vdb.TryClose(); err != nil {
+		if err := vdb.Close(); err != nil {
 			return err
 		}
 		if err := db.fs.Rename(keyToDirName(oldKey), keyToDirName(newKey)); err != nil {

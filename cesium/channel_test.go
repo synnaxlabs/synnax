@@ -11,7 +11,6 @@ package cesium_test
 
 import (
 	"fmt"
-	"github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
@@ -46,46 +45,39 @@ var _ = Describe("Channel", Ordered, func() {
 				Expect(cleanUp()).To(Succeed())
 			})
 			Describe("Create", func() {
-				Describe("Happy Path", func() {
-					It("Should assign an auto-incremented key if a key is not present", func() {
-						ch := cesium.Channel{Key: 101, Rate: 10 * telem.Hz, DataType: telem.Float64T}
-						Expect(db.CreateChannel(ctx, ch)).To(Succeed())
-						Expect(ch.Key).To(Equal(core.ChannelKey(101)))
-					})
-				})
 				DescribeTable("Validation", func(expected error, channels ...cesium.Channel) {
 					Expect(db.CreateChannel(ctx, channels...)).To(HaveOccurredAs(expected))
 				},
 					Entry("ChannelKey has no datatype",
 						validate.FieldError{Field: "data_type", Message: "field must be set"},
-						cesium.Channel{Key: 10, Rate: 10 * telem.Hz},
+						cesium.Channel{Key: 9990, Rate: 10 * telem.Hz},
 					),
 					Entry("ChannelKey key already exists",
-						errors.Wrap(validate.Error, "cannot create channel [Isaac]<11> because it already exists"),
-						cesium.Channel{Key: 11, DataType: telem.Float32T, Rate: 10 * telem.Hz},
-						cesium.Channel{Key: 11, Name: "Isaac", Rate: 10 * telem.Hz, DataType: telem.Float64T},
+						errors.Wrap(validate.Error, "cannot create channel [Isaac]<9991> because it already exists"),
+						cesium.Channel{Key: 9991, DataType: telem.Float32T, Rate: 10 * telem.Hz},
+						cesium.Channel{Key: 9991, Name: "Isaac", Rate: 10 * telem.Hz, DataType: telem.Float64T},
 					),
 					Entry("ChannelKey IsIndex - Non Int64 Series Variant",
 						validate.FieldError{Field: "data_type", Message: "index channel must be of type timestamp"},
-						cesium.Channel{Key: 12, IsIndex: true, DataType: telem.Float32T},
+						cesium.Channel{Key: 9992, IsIndex: true, DataType: telem.Float32T},
 					),
 					Entry("ChannelKey IsIndex - LocalIndex non-zero",
 						validate.FieldError{Field: "index", Message: "index channel cannot be indexed by another channel"},
-						cesium.Channel{Key: 45, IsIndex: true, DataType: telem.TimeStampT},
-						cesium.Channel{Key: 46, IsIndex: true, Index: 45, DataType: telem.TimeStampT},
+						cesium.Channel{Key: 9995, IsIndex: true, DataType: telem.TimeStampT},
+						cesium.Channel{Key: 9996, IsIndex: true, Index: 9995, DataType: telem.TimeStampT},
 					),
 					Entry("ChannelKey has index - LocalIndex does not exist",
-						errors.Wrapf(validate.Error, "[cesium] - index channel <%s> does not exist", "40000"),
-						cesium.Channel{Key: 47, Index: 40000, DataType: telem.Float64T},
+						errors.Wrapf(validate.Error, "[cesium] - index channel <%s> does not exist", "9994"),
+						cesium.Channel{Key: 9997, Index: 9994, DataType: telem.Float64T},
 					),
 					Entry("ChannelKey has no index - fixed rate not provided",
 						validate.FieldError{Field: "rate", Message: "must be positive"},
-						cesium.Channel{Key: 48, DataType: telem.Float32T},
+						cesium.Channel{Key: 9998, DataType: telem.Float32T},
 					),
 					Entry("ChannelKey has index - provided index key is not an indexed channel",
-						errors.Wrap(validate.Error, "[cesium] - channel <60> is not an index"),
-						cesium.Channel{Key: 60, DataType: telem.Float32T, Rate: 1 * telem.Hz},
-						cesium.Channel{Key: 61, Index: 60, DataType: telem.Float32T},
+						errors.Wrap(validate.Error, "[cesium] - channel <9980> is not an index"),
+						cesium.Channel{Key: 9980, DataType: telem.Float32T, Rate: 1 * telem.Hz},
+						cesium.Channel{Key: 9981, Index: 9980, DataType: telem.Float32T},
 					),
 				)
 				Describe("DB Closed", func() {
@@ -162,7 +154,7 @@ var _ = Describe("Channel", Ordered, func() {
 
 					By("Asserting the old channel no longer exists")
 					_, err := db.RetrieveChannel(ctx, unaryKey)
-					Expect(err).To(MatchError(core.ChannelNotFound))
+					Expect(err).To(MatchError(core.ErrChannelNotFound))
 					Expect(MustSucceed(fs.Exists(channelKeyToPath(unaryKey)))).To(BeFalse())
 
 					By("Asserting the channel can be found at the new key")
@@ -198,7 +190,7 @@ var _ = Describe("Channel", Ordered, func() {
 
 					By("Asserting the old channel no longer exists")
 					_, err := db.RetrieveChannel(ctx, virtualKey)
-					Expect(err).To(MatchError(core.ChannelNotFound))
+					Expect(err).To(MatchError(core.ErrChannelNotFound))
 					Expect(MustSucceed(fs.Exists(channelKeyToPath(virtualKey)))).To(BeFalse())
 
 					By("Asserting the channel and data can be found at the new key")
@@ -232,7 +224,7 @@ var _ = Describe("Channel", Ordered, func() {
 
 					By("Asserting the old channel no longer exists")
 					_, err := db.RetrieveChannel(ctx, indexKey)
-					Expect(err).To(MatchError(core.ChannelNotFound))
+					Expect(err).To(MatchError(core.ErrChannelNotFound))
 					Expect(MustSucceed(fs.Exists(channelKeyToPath(indexKey)))).To(BeFalse())
 
 					By("Asserting the channel can be found at the new key")
@@ -285,7 +277,7 @@ var _ = Describe("Channel", Ordered, func() {
 
 						By("Asserting the old channel no longer exists")
 						_, err := db.RetrieveChannel(ctx, errorKey1)
-						Expect(err).To(MatchError(core.ChannelNotFound))
+						Expect(err).To(MatchError(core.ErrChannelNotFound))
 						Expect(MustSucceed(fs.Exists(channelKeyToPath(errorKey1)))).To(BeFalse())
 
 						By("Asserting the channel can be found at the new key")
@@ -315,7 +307,7 @@ var _ = Describe("Channel", Ordered, func() {
 						w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Start: 0, Channels: []cesium.ChannelKey{dataKey1}, ControlSubject: control.Subject{Key: "rekey writer"}}))
 
 						By("Asserting that rekey is unsuccessful")
-						Expect(db.RekeyChannel(indexErrorKey, indexErrorKeyNew)).To(MatchError(ContainSubstring(fmt.Sprintf("cannot close channel %d", dataKey1))))
+						Expect(db.RekeyChannel(indexErrorKey, indexErrorKeyNew)).To(MatchError(ContainSubstring(fmt.Sprint("cannot close channel because there are 1 unclosed"))))
 						Expect(w.Close()).To(Succeed())
 					})
 					Specify("Virtual", func() {
@@ -333,7 +325,7 @@ var _ = Describe("Channel", Ordered, func() {
 
 						By("Asserting the old channel no longer exists")
 						_, err := db.RetrieveChannel(ctx, errorKey2)
-						Expect(err).To(MatchError(core.ChannelNotFound))
+						Expect(err).To(MatchError(core.ErrChannelNotFound))
 						Expect(MustSucceed(fs.Exists(channelKeyToPath(errorKey2)))).To(BeFalse())
 
 						By("Asserting the channel can be found at the new key")

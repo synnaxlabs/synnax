@@ -485,7 +485,7 @@ var _ = Describe("Delete", func() {
 				)
 				Describe("Error paths", func() {
 					It("Should return an error for deleting a non-existent channel", func() {
-						Expect(db.DeleteTimeRange(ctx, 9999, telem.TimeRangeMax)).To(MatchError(core.ErrChannelNotFound))
+						Expect(db.DeleteTimeRange(ctx, []cesium.ChannelKey{9999}, telem.TimeRangeMax)).To(MatchError(core.ErrChannelNotFound))
 					})
 				})
 				Describe("Simple Rate-based channel", func() {
