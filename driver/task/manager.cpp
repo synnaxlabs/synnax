@@ -74,10 +74,10 @@ freighter::Error task::Manager::startGuarded() {
             this->tasks[task.key] = std::move(driver_task);
     }
 
-    // LOG(INFO) << "[task.manager] configuring initial tasks from factory";
-    // auto initial_tasks = factory->configureInitialTasks(ctx, this->internal);
-    // for (auto &[sy_task, task]: initial_tasks)
-    //     this->tasks[sy_task.key] = std::move(task);
+    LOG(INFO) << "[task.manager] configuring initial tasks from factory";
+    auto initial_tasks = factory->configureInitialTasks(ctx, this->internal);
+    for (auto &[sy_task, task]: initial_tasks)
+        this->tasks[sy_task.key] = std::move(task);
 
     return task_cmd_err;
 }
@@ -102,6 +102,7 @@ freighter::Error task::Manager::stop() {
     LOG(INFO) << "[task.manager] run thread has been joined";
     LOG(INFO) << "[task.manager] shutting down";
     for (auto &[key, task]: tasks) task->stop();
+    tasks.clear();
     LOG(INFO) << "[task.manager] shut down";
     return run_err;
 }
