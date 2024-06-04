@@ -375,8 +375,6 @@ export const Tree = (): ReactElement => {
         // might be selecting nodes AND their children.
         key: selectedNodes.sort((a, b) => a.depth - b.depth)[0].key,
       });
-      // No parent means no valid contex menu.
-      if (parent == null) return null;
 
       const firstID = new ontology.ID(keys[0]);
 
