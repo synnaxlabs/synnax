@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,16 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useCallback, useRef } from "react";
+import "@/channel/LinePlot.css";
 
 import { type channel } from "@synnaxlabs/client";
-import {
-  box,
-  location as loc,
-  type TimeRange,
-  type TimeSpan,
-  type location,
-} from "@synnaxlabs/x";
+import { box, location as loc } from "@synnaxlabs/x/spatial";
+import { type TimeRange, type TimeSpan } from "@synnaxlabs/x/telem";
+import { type ReactElement, useCallback, useRef } from "react";
 
 import { HAUL_TYPE } from "@/channel/types";
 import { type Color } from "@/color";
@@ -27,11 +23,10 @@ import { telem } from "@/telem/aether";
 import { type Text } from "@/text";
 import { type Viewport } from "@/viewport";
 import { LinePlot as Core } from "@/vis/lineplot";
+import { Range } from "@/vis/lineplot/range";
 import { Tooltip } from "@/vis/lineplot/tooltip";
 import { Measure } from "@/vis/measure";
 import { Rule } from "@/vis/rule";
-
-import "@/channel/LinePlot.css";
 
 /** Props for an axis in {@link LinePlot} */
 export interface AxisProps extends Core.AxisProps {
@@ -101,6 +96,7 @@ export interface LinePlotProps extends Core.LinePlotProps {
   initialViewport?: Viewport.UseProps["initial"];
   onViewportChange?: Viewport.UseProps["onChange"];
   viewportTriggers?: Viewport.UseProps["triggers"];
+  annotationProvider?: Range.ProviderProps;
 }
 
 const canDrop = Haul.canDropOfType(HAUL_TYPE);
@@ -131,6 +127,7 @@ export const LinePlot = ({
   initialViewport = box.DECIMAL,
   onViewportChange,
   viewportTriggers,
+  annotationProvider,
   ...props
 }: LinePlotProps): ReactElement => {
   const xAxes = axes.filter(({ location: l }) => loc.isY(l));
@@ -160,6 +157,7 @@ export const LinePlot = ({
             rules={axisRules}
             onAxisChannelDrop={onAxisChannelDrop}
             onAxisChange={onAxisChange}
+            annotationProvider={annotationProvider}
           />
         );
       })}
@@ -188,6 +186,7 @@ interface XAxisProps
   axis: AxisProps;
   yAxes: AxisProps[];
   index: number;
+  annotationProvider?: Range.ProviderProps;
 }
 
 const XAxis = ({
@@ -199,6 +198,7 @@ const XAxis = ({
   onAxisChannelDrop,
   onAxisChange,
   axis: { location, key, showGrid, ...axis },
+  annotationProvider,
 }: XAxisProps): ReactElement => {
   const dropProps = Haul.useDrop({
     type: "Channel.LinePlot.XAxis",
@@ -221,7 +221,7 @@ const XAxis = ({
     <Core.XAxis
       {...axis}
       {...dropProps}
-      location={location as location.Y}
+      location={location as loc.Y}
       showGrid={showGrid ?? index === 0}
       className={CSS(
         CSS.dropRegion(Haul.canDropOfType(HAUL_TYPE)(Haul.useDraggingState())),
@@ -257,6 +257,7 @@ const XAxis = ({
           }
         />
       ))}
+      <Range.Provider {...annotationProvider} />
     </Core.XAxis>
   );
 };

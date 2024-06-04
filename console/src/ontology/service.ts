@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type FC, type ReactElement } from "react";
-
 import { type ontology, type Synnax } from "@synnaxlabs/client";
-import { type Tree, type Haul } from "@synnaxlabs/pluto";
+import { type Haul, Status, type Tree } from "@synnaxlabs/pluto";
 import { type location } from "@synnaxlabs/x";
+import { type FC, type ReactElement } from "react";
 
 import { type Layout } from "@/layout";
 import { type RootStore } from "@/store";
@@ -22,6 +21,7 @@ export interface BaseProps {
   placeLayout: Layout.Placer;
   removeLayout: Layout.Remover;
   services: Services;
+  addStatus: (status: Status.CrudeSpec) => void;
 }
 
 export interface HandleSelectProps extends BaseProps {
@@ -53,6 +53,9 @@ export interface TreeContextMenuProps extends Omit<HandleSelectProps, "selection
     setNodes: (nodes: Tree.Node[]) => void;
     setResources: (resources: ontology.Resource[]) => void;
     setSelection: (keys: string[]) => void;
+    expand: (key: string) => void;
+    contract: (key: string) => void;
+    setLoading: (key: string | false) => void;
   };
 }
 

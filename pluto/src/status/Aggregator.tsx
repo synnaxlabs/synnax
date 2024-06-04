@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,17 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import {
+  createContext,
   type PropsWithChildren,
   type ReactElement,
-  createContext,
-  useContext as reactUseContext,
   useCallback,
+  useContext as reactUseContext,
   useMemo,
   useState,
 } from "react";
-
-import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
@@ -86,12 +85,12 @@ export interface UseNotificationsProps {
 
 const DEFAULT_EXPIRATION = TimeSpan.seconds(5);
 
-export interface Notification extends status.Spec {
+export interface NotificationSpec extends status.Spec {
   count: number;
 }
 
 export interface UseNotificationsReturn {
-  statuses: Notification[];
+  statuses: NotificationSpec[];
   silence: (key: string) => void;
 }
 
@@ -131,8 +130,8 @@ export const useNotifications = (
   };
 };
 
-const reduceDuplicateStatuses = (statuses: status.Spec[]): Notification[] =>
-  statuses.reduce<Notification[]>((acc, status) => {
+const reduceDuplicateStatuses = (statuses: status.Spec[]): NotificationSpec[] =>
+  statuses.reduce<NotificationSpec[]>((acc, status) => {
     const { message, variant } = status;
     const existing = acc.find((s) => s.message === message && s.variant === variant);
     if (existing != null) {

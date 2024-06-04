@@ -7,30 +7,28 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  useCallback,
-  type PropsWithChildren,
-  type ReactElement,
-  type MouseEventHandler,
-  type MouseEvent,
-} from "react";
+import "@/cluster/Dropdown.css";
 
 import { Icon } from "@synnaxlabs/media";
-import { Button, Dropdown as Core, Align, Synnax } from "@synnaxlabs/pluto";
+import { Align, Button, Dropdown as Core, Synnax } from "@synnaxlabs/pluto";
 import { List as CoreList } from "@synnaxlabs/pluto/list";
 import { Menu as PMenu } from "@synnaxlabs/pluto/menu";
 import { Text } from "@synnaxlabs/pluto/text";
+import {
+  type MouseEvent,
+  type MouseEventHandler,
+  type PropsWithChildren,
+  type ReactElement,
+  useCallback,
+} from "react";
 import { useDispatch } from "react-redux";
 
 import { connectWindowLayout } from "@/cluster/Connect";
 import { type Cluster } from "@/cluster/core";
-import { LOCAL_KEY } from "@/cluster/local";
 import { useSelect, useSelectLocalState, useSelectMany } from "@/cluster/selectors";
-import { remove, setActive, setLocalState } from "@/cluster/slice";
+import { LOCAL_CLUSTER_KEY, remove, setActive, setLocalState } from "@/cluster/slice";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
-
-import "@/cluster/Dropdown.css";
 
 export const List = (): ReactElement => {
   const menuProps = PMenu.useContextMenu();
@@ -39,7 +37,7 @@ export const List = (): ReactElement => {
   const active = useSelect();
   const openWindow = Layout.usePlacer();
 
-  const selected = active != null ? [active?.key] : [];
+  const selected = active?.key ?? null;
 
   const handleConnect = (key: string | null): void => {
     dispatch(setActive(key));
@@ -66,7 +64,7 @@ export const List = (): ReactElement => {
 
       return (
         <PMenu.Menu level="small" onChange={handleSelect}>
-          {key !== LOCAL_KEY && (
+          {key !== null && (
             <PMenu.Item startIcon={<Icon.Delete />} size="small" itemKey="remove">
               Remove
             </PMenu.Item>
@@ -121,11 +119,11 @@ export const List = (): ReactElement => {
         <CoreList.List<string, Cluster> data={data} emptyContent={<NoneConnected />}>
           <CoreList.Selector
             value={selected}
-            onChange={handleConnect}
             allowMultiple={false}
+            onChange={handleConnect}
           >
             <CoreList.Core<string, Cluster> style={{ height: "100%", width: "100%" }}>
-              {(p) => <ListItem {...p} />}
+              {({ key, ...p }) => <ListItem key={key} {...p} />}
             </CoreList.Core>
           </CoreList.Selector>
         </CoreList.List>
@@ -137,7 +135,7 @@ export const List = (): ReactElement => {
 const ListItem = (props: CoreList.ItemProps<string, Cluster>): ReactElement => {
   const dispatch = useDispatch();
   const { status, pid } = useSelectLocalState();
-  const isLocal = props.entry.key === LOCAL_KEY;
+  const isLocal = props.entry.key === LOCAL_CLUSTER_KEY;
   let icon: ReactElement | null = null;
   let loading = false;
   if (isLocal) {
@@ -239,7 +237,6 @@ export const Dropdown = (): ReactElement => {
       {...dropProps}
       variant="floating"
       bordered={false}
-      location={{ x: "left", y: "top" }}
       className={CSS.B("cluster-dropdown")}
     >
       <Button.Button

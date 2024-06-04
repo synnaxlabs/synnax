@@ -10,21 +10,21 @@
 import { describe, expect, test } from "vitest";
 
 import {
+  assertErrorType,
   BaseTypedError,
+  decodeError,
+  encodeError,
   EOF,
+  type ErrorPayload,
   FREIGHTER,
+  isTypedError,
   NONE,
+  registerError,
   StreamClosed,
   type TypedError,
   UNKNOWN,
   UnknownError,
   Unreachable,
-  assertErrorType,
-  decodeError,
-  encodeError,
-  isTypedError,
-  registerError,
-  type ErrorPayload,
 } from "@/errors";
 
 class MyCustomError extends BaseTypedError {
@@ -85,7 +85,7 @@ describe("errors", () => {
   test("encoding and decoding freighter errors", () => {
     [new EOF(), new StreamClosed(), new Unreachable()].forEach((error) => {
       const encoded = encodeError(error);
-      expect(encoded.type).toEqual(FREIGHTER);
+      expect(encoded.type.startsWith(FREIGHTER)).toBeTruthy();
       expect(encoded.data).toEqual(error.message);
       const decoded = decodeError(encoded);
       expect(decoded).toEqual(error);

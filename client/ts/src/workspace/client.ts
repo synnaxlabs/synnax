@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -8,22 +8,24 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { type UnknownRecord, type AsyncTermSearcher } from "@synnaxlabs/x";
+import { type UnknownRecord } from "@synnaxlabs/x/record";
+import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 
 import { linePlot } from "@/workspace/lineplot";
 import { type Key, type Workspace } from "@/workspace/payload";
-import { pid } from "@/workspace/pid";
 import { Retriever } from "@/workspace/retriever";
+import { schematic } from "@/workspace/schematic";
 import { type NewWorkspace, Writer } from "@/workspace/writer";
 
 export class Client implements AsyncTermSearcher<string, Key, Workspace> {
-  readonly pid: pid.Client;
+  readonly type = "workspace";
+  readonly schematic: schematic.Client;
   readonly linePlot: linePlot.Client;
   private readonly retriever: Retriever;
   private readonly writer: Writer;
 
   constructor(client: UnaryClient) {
-    this.pid = new pid.Client(client);
+    this.schematic = new schematic.Client(client);
     this.linePlot = new linePlot.Client(client);
     this.retriever = new Retriever(client);
     this.writer = new Writer(client);

@@ -13,67 +13,63 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
+	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/binary"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/validate"
 	"os"
 	"strconv"
 )
 
-var _ = Describe("Meta", func() {
+var _ = Describe("Meta", Ordered, func() {
 	for fsName, makeFS := range fileSystems {
-		fs := makeFS()
+		var (
+			fs      xfs.FS
+			cleanUp func() error
+		)
+		BeforeEach(func() {
+			fs, cleanUp = makeFS()
+		})
+		AfterEach(func() { Expect(cleanUp()).To(Succeed()) })
 		Context("FS: "+fsName, Ordered, func() {
 			Specify("Corrupted meta.json", func() {
-				s := MustSucceed(fs.Sub("sub1"))
-				db := MustSucceed(cesium.Open("", cesium.WithFS(s)))
+				db := MustSucceed(cesium.Open("", cesium.WithFS(fs)))
 				key := GenerateChannelKey()
 
-				Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, Rate: 1 * telem.Hz, DataType: telem.Int64T})).To(Succeed())
+				Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, Name: "Faraday", Rate: 1 * telem.Hz, DataType: telem.Int64T})).To(Succeed())
 				Expect(db.Close()).To(Succeed())
 
-				f, err := s.Open(strconv.Itoa(int(key))+"/meta.json", os.O_WRONLY)
+				f, err := fs.Open(strconv.Itoa(int(key))+"/meta.json", os.O_WRONLY)
 				Expect(err).ToNot(HaveOccurred())
 				_, err = f.Write([]byte("heheheha"))
 				Expect(err).ToNot(HaveOccurred())
 				Expect(f.Close()).To(Succeed())
 
-				db, err = cesium.Open("", cesium.WithFS(s))
-				Expect(err).To(MatchError(ContainSubstring("error decoding meta file")))
+				db, err = cesium.Open("", cesium.WithFS(fs))
+				Expect(err).To(MatchError(ContainSubstring("error decoding meta in folder for channel %d", key)))
 			})
 
 			Describe("Impossible meta configurations", func() {
 				var (
-					s           xfs.FS
-					db          *cesium.DB
 					jsonEncoder = &binary.JSONEncoderDecoder{}
 					key         = GenerateChannelKey()
 				)
-				BeforeEach(func() {
-					s = MustSucceed(fs.Sub("meta-test"))
-					db = MustSucceed(cesium.Open("", cesium.WithFS(s)))
-					key = GenerateChannelKey()
-				})
-
-				AfterEach(func() {
-					Expect(fs.Remove("meta-test")).To(Succeed())
-				})
 
 				DescribeTable("meta configs", func(badCh cesium.Channel, badField string) {
+					db := MustSucceed(cesium.Open("", cesium.WithFS(fs)))
 					Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, Rate: 1 * telem.Hz, DataType: telem.Int64T})).To(Succeed())
 					Expect(db.Close()).To(Succeed())
 
-					f := MustSucceed(s.Open(strconv.Itoa(int(key))+"/meta.json", os.O_WRONLY))
+					f := MustSucceed(fs.Open(strconv.Itoa(int(key))+"/meta.json", os.O_WRONLY))
 					encoded := MustSucceed(jsonEncoder.Encode(ctx, badCh))
 
 					_, err := f.WriteAt(encoded, 0)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(f.Close()).To(Succeed())
 
-					db, err = cesium.Open("", cesium.WithFS(s))
-					Expect(err).To(MatchError(validate.Error))
+					db, err = cesium.Open("", cesium.WithFS(fs))
+					Expect(err).To(HaveOccurred())
 					Expect(err).To(MatchError(ContainSubstring(badField)))
 				},
 					Entry("datatype not set", cesium.Channel{Key: key, Rate: 1 * telem.Hz}, "dataType"),

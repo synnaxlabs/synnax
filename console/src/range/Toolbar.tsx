@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,15 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
-
 import { Icon } from "@synnaxlabs/media";
 import { Align, Header } from "@synnaxlabs/pluto";
+import { type ReactElement } from "react";
 
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Layout } from "@/layout";
 import { Range } from "@/range";
-import { editLayout } from "@/range/EditLayout";
+import { createEditLayout } from "@/range/EditLayout";
 
 const Content = (): ReactElement => {
   const p = Layout.usePlacer();
@@ -27,7 +26,7 @@ const Content = (): ReactElement => {
           {[
             {
               children: <Icon.Add />,
-              onClick: () => p(editLayout("Create Range")),
+              onClick: () => p(createEditLayout("Create Range")),
             },
           ]}
         </Header.Actions>
@@ -41,8 +40,8 @@ export const Toolbar: Layout.NavDrawerItem = {
   key: "range",
   icon: <Icon.Range />,
   content: <Content />,
-  tooltip: "Workspace",
+  tooltip: "Ranges",
   initialSize: 300,
-  minSize: 225,
+  minSize: 175,
   maxSize: 400,
 };

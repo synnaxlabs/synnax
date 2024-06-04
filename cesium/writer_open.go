@@ -11,7 +11,6 @@ package cesium
 
 import (
 	"context"
-	"github.com/cockroachdb/errors"
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
@@ -20,6 +19,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -103,6 +103,7 @@ func (c WriterConfig) Validate() error {
 	validate.NotNil(v, "ErrOnUnauthorized", c.ErrOnUnauthorized)
 	validate.NotEmptyString(v, "ControlSubject.Key", c.ControlSubject.Key)
 	v.Ternary(
+		"authorities",
 		len(c.Authorities) != len(c.Channels) && len(c.Authorities) != 1,
 		"authority count must be 1 or equal to channel count",
 	)
@@ -132,11 +133,19 @@ func (c WriterConfig) authority(i int) control.Authority {
 
 // NewStreamWriter implements DB.
 func (db *DB) NewStreamWriter(ctx context.Context, cfgs ...WriterConfig) (StreamWriter, error) {
+	if db.closed.Load() {
+		return nil, errDBClosed
+	}
+
 	return db.newStreamWriter(ctx, cfgs...)
 }
 
 // OpenWriter implements DB.
 func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (*Writer, error) {
+	if db.closed.Load() {
+		return nil, errDBClosed
+	}
+
 	internal, err := db.newStreamWriter(ctx, cfgs...)
 	if err != nil {
 		return nil, err
@@ -164,11 +173,11 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 			return
 		}
 		for _, idx := range domainWriters {
-			_, err_ := idx.Close(ctx)
+			_, err_ := idx.Close()
 			err = errors.CombineErrors(err_, err)
 		}
 		for _, idx := range rateWriters {
-			_, err_ := idx.Close(ctx)
+			_, err_ := idx.Close()
 			err = errors.CombineErrors(err_, err)
 		}
 	}()
@@ -177,7 +186,7 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 		u, uOk := db.unaryDBs[key]
 		v, vOk := db.virtualDBs[key]
 		if !vOk && !uOk {
-			return nil, core.ChannelNotFound
+			return nil, core.NewErrChannelNotFound(key)
 		}
 		var (
 			auth     = cfg.authority(i)
@@ -280,7 +289,7 @@ func (db *DB) openDomainIdxWriter(
 	defer db.mu.RUnlock()
 	u, ok := db.unaryDBs[idxKey]
 	if !ok {
-		return nil, core.ChannelNotFound
+		return nil, core.NewErrChannelNotFound(idxKey)
 	}
 	idx := &index.Domain{DB: u.Domain, Instrumentation: db.Instrumentation}
 	w := &idxWriter{internal: make(map[ChannelKey]*unaryWriterState)}

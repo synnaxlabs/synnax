@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,7 +9,7 @@
 
 import { z } from "zod";
 
-export const ComponentSizes = ["small", "medium", "large"] as const;
+export const ComponentSizes = ["small", "medium", "large", "huge"] as const;
 export const componentSize = z.enum(ComponentSizes);
 export type ComponentSize = z.infer<typeof componentSize>;
 

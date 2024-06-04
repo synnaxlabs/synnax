@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,15 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
-
 import {
+  setWindowFullscreen,
   setWindowMaximized,
   setWindowMinimized,
-  setWindowFullscreen,
 } from "@synnaxlabs/drift";
 import { useSelectWindow } from "@synnaxlabs/drift/react";
 import { OS } from "@synnaxlabs/pluto";
+import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 
 import { Layout } from "@/layout";
@@ -46,13 +45,17 @@ export const Controls = (props: ControlsProps): ReactElement | null => {
     dispatch(setWindowFullscreen({}));
   };
 
+  const handleClose = (): void => {
+    remove();
+  };
+
   if (window.fullscreen === true) return null;
 
   return (
     <OS.Controls
       disabled={disabled}
       focused={window.focus}
-      onClose={remove}
+      onClose={handleClose}
       onMinimize={handleMinimize}
       onMaximize={handleMaximize}
       onFullscreen={handleFullscreen}

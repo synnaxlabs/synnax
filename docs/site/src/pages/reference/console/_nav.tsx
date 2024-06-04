@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -44,9 +44,9 @@ export const consoleNav: PageNavNode = {
       name: "Line Plot Visualization",
     },
     {
-      key: "/reference/console/pid",
-      href: "/reference/console/pid",
-      name: "PID Visualization",
+      key: "/reference/console/schematic",
+      href: "/reference/console/schematic",
+      name: "Schematic Visualization",
     },
   ],
 };

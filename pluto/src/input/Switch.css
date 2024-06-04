@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Synnax Labs, Inc.
+ * Copyright 2024 Synnax Labs, Inc.
  *
  * Use of this software is governed by the Business Source License included in the file
  * licenses/BSL.txt.
@@ -12,8 +12,8 @@
 .pluto-input-switch__track {
     position: relative;
     display: inline-block;
-    width: calc(var(--pluto-base-size) * 5);
-    height: calc(var(--pluto-base-size) * 2);
+    width: 5rem;
+    height: 2.5rem;
 }
 
 .pluto-input-switch__container {
@@ -34,19 +34,19 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background: var(--pluto-gray-l3);
+    background: var(--pluto-gray-l4);
     transition: 0.15s;
-    border-radius: calc(var(--pluto-base-size) * 4);
+    border-radius: 4rem;
 }
 
 .pluto-input-switch__slider::before {
     position: absolute;
     content: "";
-    height: calc(var(--pluto-base-size) * 3);
-    width: calc(var(--pluto-base-size) * 3);
-    left: 0;
-    bottom: -3px;
-    background: var(--pluto-gray-l4);
+    height: 2rem;
+    width: 2rem;
+    left: 0.25rem;
+    bottom: 0.25rem;
+    background: var(--pluto-gray-l5);
     transition: 0.15s;
     border-radius: 50%;
 }
@@ -56,6 +56,6 @@
 }
 
 .pluto-input-switch__input:checked + .pluto-input-switch__slider::before {
-    transform: translateX(calc(var(--pluto-base-size) * 2));
+    transform: translateX(2.5rem);
     background: var(--pluto-primary-p1);
 }

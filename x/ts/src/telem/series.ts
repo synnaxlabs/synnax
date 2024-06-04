@@ -1,5 +1,4 @@
-/* eslint-disable @typescript-eslint/no-misused-new */
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -11,23 +10,24 @@
 import { nanoid } from "nanoid/non-secure";
 import { type z } from "zod";
 
+import { caseconv } from "@/caseconv";
 import { compare } from "@/compare";
 import { bounds } from "@/spatial";
 import { type GLBufferController, type GLBufferUsage } from "@/telem/gl";
 import {
   convertDataType,
+  type CrudeDataType,
+  type CrudeTimeStamp,
   DataType,
-  type TypedArray,
+  isTelemValue,
+  type NumericTelemValue,
   type Rate,
   Size,
-  TimeRange,
-  TimeStamp,
-  type CrudeDataType,
   type TelemValue,
-  isTelemValue,
+  TimeRange,
   TimeSpan,
-  type CrudeTimeStamp,
-  type NumericTelemValue,
+  TimeStamp,
+  type TypedArray,
 } from "@/telem/telem";
 
 interface GL {
@@ -41,7 +41,7 @@ export interface SeriesDigest {
   key: string;
   dataType: string;
   sampleOffset: NumericTelemValue;
-  alignment: bounds.Bounds;
+  alignment: bounds.Bounds<bigint>;
   timeRange?: string;
   length: number;
   capacity: number;
@@ -52,7 +52,7 @@ interface BaseSeriesProps {
   timeRange?: TimeRange;
   sampleOffset?: NumericTelemValue;
   glBufferUsage?: GLBufferUsage;
-  alignment?: number;
+  alignment?: bigint;
   key?: string;
 }
 
@@ -101,6 +101,7 @@ export interface SeriesMemInfo {
  */
 export class Series<T extends TelemValue = TelemValue> {
   key: string = "";
+  isSynnaxSeries = true;
   /** The data type of the array */
   readonly dataType: DataType;
   /**
@@ -116,7 +117,7 @@ export class Series<T extends TelemValue = TelemValue> {
   /** The underlying data. */
   private readonly _data: ArrayBufferLike;
   readonly _timeRange?: TimeRange;
-  readonly alignment: number = 0;
+  readonly alignment: bigint = 0n;
   /** A cached minimum value. */
   private _cachedMin?: NumericTelemValue;
   /** A cached maximum value. */
@@ -134,24 +135,30 @@ export class Series<T extends TelemValue = TelemValue> {
       timeRange,
       sampleOffset = 0,
       glBufferUsage = "static",
-      alignment = 0,
+      alignment = 0n,
       key = nanoid(),
     } = props;
     const { data } = props;
 
-    if (data instanceof Series) {
-      this.key = data.key;
-      this.dataType = data.dataType;
-      this.sampleOffset = data.sampleOffset;
-      this.gl = data.gl;
-      this._data = data._data;
-      this._timeRange = data._timeRange;
-      this.alignment = data.alignment;
-      this._cachedMin = data._cachedMin;
-      this._cachedMax = data._cachedMax;
-      this.writePos = data.writePos;
-      this._refCount = data._refCount;
-      this._cachedLength = data._cachedLength;
+    if (
+      data instanceof Series ||
+      (typeof data === "object" &&
+        "isSynnaxSeries" in data &&
+        data.isSynnaxSeries === true)
+    ) {
+      const data_ = data as Series;
+      this.key = data_.key;
+      this.dataType = data_.dataType;
+      this.sampleOffset = data_.sampleOffset;
+      this.gl = data_.gl;
+      this._data = data_._data;
+      this._timeRange = data_._timeRange;
+      this.alignment = data_.alignment;
+      this._cachedMin = data_._cachedMin;
+      this._cachedMax = data_._cachedMax;
+      this.writePos = data_.writePos;
+      this._refCount = data_._refCount;
+      this._cachedLength = data_._cachedLength;
       return;
     }
     const isSingle = isTelemValue(data);
@@ -291,7 +298,10 @@ export class Series<T extends TelemValue = TelemValue> {
     const available = this.capacity - this.writePos;
 
     const toWrite = available < other.length ? other.slice(0, available) : other;
-    this.underlyingData.set(toWrite.data as ArrayLike<any>, this.writePos);
+    this.underlyingData.set(
+      toWrite.data as unknown as ArrayLike<bigint> & ArrayLike<number>,
+      this.writePos,
+    );
     this.maybeRecomputeMinMax(toWrite);
     this._cachedLength = undefined;
     this.writePos += toWrite.length;
@@ -342,7 +352,7 @@ export class Series<T extends TelemValue = TelemValue> {
       .decode(this.buffer)
       .split("\n")
       .slice(0, -1)
-      .map((s) => schema.parse(JSON.parse(s)));
+      .map((s) => schema.parse(caseconv.toCamel(JSON.parse(s))));
   }
 
   /** @returns the time range of this array. */
@@ -475,7 +485,7 @@ export class Series<T extends TelemValue = TelemValue> {
 
   enrich(): void {
     let _ = this.max;
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+     
     _ = this.min;
   }
 
@@ -520,7 +530,9 @@ export class Series<T extends TelemValue = TelemValue> {
     const slice = this.data.slice(start, end);
     if (this.dataType.equals(DataType.STRING))
       return new TextDecoder().decode(slice) as unknown as T;
-    return JSON.parse(new TextDecoder().decode(slice)) as unknown as T;
+    return caseconv.toCamel(
+      JSON.parse(new TextDecoder().decode(slice)),
+    ) as unknown as T;
   }
 
   /**
@@ -629,8 +641,8 @@ export class Series<T extends TelemValue = TelemValue> {
     };
   }
 
-  get alignmentBounds(): bounds.Bounds {
-    return bounds.construct(this.alignment, this.alignment + this.length);
+  get alignmentBounds(): bounds.Bounds<bigint> {
+    return bounds.construct(this.alignment, this.alignment + BigInt(this.length));
   }
 
   private maybeGarbageCollectGLBuffer(gl: GLBufferController): void {
@@ -667,11 +679,11 @@ export class Series<T extends TelemValue = TelemValue> {
       timeRange: this._timeRange,
       sampleOffset: this.sampleOffset,
       glBufferUsage: this.gl.bufferUsage,
-      alignment: this.alignment + start,
+      alignment: this.alignment + BigInt(start),
     });
   }
 
-  reAlign(alignment: number): Series {
+  reAlign(alignment: bigint): Series {
     return new Series({
       data: this.buffer,
       dataType: this.dataType,
@@ -724,7 +736,7 @@ class JSONSeriesIterator implements Iterator<unknown> {
   next(): IteratorResult<object> {
     const next = this.wrapped.next();
     if (next.done === true) return { done: true, value: undefined };
-    return { done: false, value: JSON.parse(next.value) };
+    return { done: false, value: caseconv.toCamel(JSON.parse(next.value)) };
   }
 
   [Symbol.iterator](): Iterator<object> {

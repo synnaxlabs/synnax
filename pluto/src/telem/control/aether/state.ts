@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -8,13 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type Instrumentation } from "@synnaxlabs/alamos";
-import {
-  type Synnax,
-  control,
-  type channel,
-  UnexpectedError,
-} from "@synnaxlabs/client";
-import { observe, type Destructor, unique } from "@synnaxlabs/x";
+import { channel, control, type Synnax, UnexpectedError } from "@synnaxlabs/client";
+import { type Destructor, observe, unique } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -83,42 +78,31 @@ export class StateProvider extends aether.Composite<
   }
 
   async afterUpdate(): Promise<void> {
-    this.internal.instrumentation = alamos.useInstrumentation(
-      this.ctx,
-      "control-state",
-    );
+    const { internal: i } = this;
+    i.instrumentation = alamos.useInstrumentation(this.ctx, "control-state");
     const theme = theming.use(this.ctx);
-    this.internal.palette = theme.colors.visualization.palettes.default;
-    this.internal.defaultColor = theme.colors.gray.l6;
+    i.palette = theme.colors.visualization.palettes.default;
+    i.defaultColor = theme.colors.gray.l6;
     const nextClient = synnax.use(this.ctx);
-    if (this.internal.client != null && nextClient === this.internal.client) return;
-    this.internal.client = nextClient;
+    if (i.client != null && nextClient === i.client) return;
+    i.client = nextClient;
     this.ctx.set(CONTEXT_KEY, this);
-    if (this.internal.client != null) {
-      if (this.tracker != null) {
-        this.disconnectTrackerChange?.();
-        this.tracker
-          ?.close()
-          .catch((e) => this.internal.instrumentation.L.error("error", { error: e }));
-        this.tracker = undefined;
-      }
-      this.internal.instrumentation.L.debug("starting state tracker");
-      void this.startUpdating(this.internal.client);
-    } else {
-      this.internal.instrumentation.L.debug("stopping state tracker");
-      this.disconnectTrackerChange?.();
-      this.tracker
-        ?.close()
-        .catch((e) => this.internal.instrumentation.L.error("error", { error: e }));
-      this.tracker = undefined;
-    }
+    await this.maybeCloseTracker();
+    if (i.client == null) return;
+    this.internal.instrumentation.L.debug("starting state tracker");
+    await this.openTracker(i.client);
+  }
+
+  private async maybeCloseTracker(): Promise<void> {
+    if (this.tracker == null) return;
+    this.internal.instrumentation.L.debug("stopping state tracker");
+    this.disconnectTrackerChange?.();
+    await this.tracker.close();
+    this.tracker = undefined;
   }
 
   async afterDelete(): Promise<void> {
-    this.disconnectTrackerChange?.();
-    this.tracker
-      ?.close()
-      .catch((e) => this.internal.instrumentation.L.error("error", { error: e }));
+    await this.maybeCloseTracker();
   }
 
   onChange(cb: (transfers: control.Transfer[]) => void): Destructor {
@@ -147,17 +131,18 @@ export class StateProvider extends aether.Composite<
     };
   }
 
-  private async startUpdating(client: Synnax): Promise<void> {
-    const { instrumentation: i } = this.internal;
+  private async openTracker(client: Synnax): Promise<void> {
+    const { internal: i } = this;
+    const { instrumentation: ins } = i;
     try {
-      this.tracker = await control.StateTracker.open(client);
+      this.tracker = await client.control.openStateTracker();
     } catch {
-      i.L.error("failed to open state tracker");
+      ins.L.error("failed to open state tracker");
       return;
     }
     this.disconnectTrackerChange?.();
     this.disconnectTrackerChange = this.tracker.onChange((t) => {
-      i.L.debug("transfer", { transfers: t.map((t) => control.transferString(t)) });
+      ins.L.debug("transfer", { transfers: t.map((t) => control.transferString(t)) });
       if (this.tracker == null)
         throw new UnexpectedError("tracker is null inside it's own onChange callback!");
       this.updateColors(this.tracker);

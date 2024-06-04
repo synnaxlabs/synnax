@@ -9,15 +9,61 @@
 
 package query
 
-import "github.com/cockroachdb/errors"
+import (
+	"context"
+	"github.com/synnaxlabs/x/errors"
+	"strings"
+)
 
 var (
-	Error = errors.New("[query] - error")
+	Error = errors.New("query")
 	// NotFound is returned when a requested entity cannot be found.
-	NotFound = errors.Wrap(Error, "[query] - entity not found")
+	NotFound = errors.Wrap(Error, "not found")
 	// UniqueViolation is returned when a unique constraint on a particular entity
 	// is violated.
-	UniqueViolation = errors.Wrap(Error, "[query] - unique violation")
+	UniqueViolation = errors.Wrap(Error, "unique violation")
 	// InvalidParameters is returned when a query has invalid parameters.
-	InvalidParameters = errors.Wrap(Error, "[query] - invalid parameters")
+	InvalidParameters = errors.Wrap(Error, "invalid parameters")
 )
+
+const (
+	typePrefix        = "sy.query"
+	uniqueViolation   = typePrefix + ".unique_violation"
+	notFound          = typePrefix + ".not_found"
+	invalidParameters = typePrefix + ".invalid_parameters"
+)
+
+func encode(_ context.Context, err error) (errors.Payload, bool) {
+	if errors.Is(err, NotFound) {
+		return errors.Payload{Type: notFound, Data: err.Error()}, true
+	}
+	if errors.Is(err, UniqueViolation) {
+		return errors.Payload{Type: uniqueViolation, Data: err.Error()}, true
+	}
+	if errors.Is(err, InvalidParameters) {
+		return errors.Payload{Type: invalidParameters, Data: err.Error()}, true
+	}
+	if errors.Is(err, Error) {
+		return errors.Payload{Type: typePrefix, Data: err.Error()}, true
+	}
+	return errors.Payload{}, false
+}
+
+func decode(_ context.Context, pld errors.Payload) (error, bool) {
+	switch pld.Type {
+	case notFound:
+		return errors.Wrap(NotFound, pld.Data), true
+	case uniqueViolation:
+		return errors.Wrap(UniqueViolation, pld.Data), true
+	case invalidParameters:
+		return errors.Wrap(InvalidParameters, pld.Data), true
+	}
+	if strings.HasPrefix(pld.Type, typePrefix) {
+		return errors.Wrap(Error, pld.Data), true
+	}
+	return nil, false
+}
+
+func init() {
+	errors.Register(encode, decode)
+}

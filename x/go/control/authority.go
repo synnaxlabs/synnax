@@ -10,7 +10,7 @@
 package control
 
 import (
-	"github.com/cockroachdb/errors"
+	"github.com/synnaxlabs/x/errors"
 	"math"
 )
 

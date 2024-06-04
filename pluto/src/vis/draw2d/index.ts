@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,13 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box, direction, xy, type dimensions, location } from "@synnaxlabs/x";
+import {
+  box,
+  Destructor,
+  type dimensions,
+  direction,
+  location,
+  toArray,
+  xy,
+} from "@synnaxlabs/x";
 
-import { type color } from "@/color/core";
+import { color } from "@/color/core";
 import { type text } from "@/text/core";
 import { dimensions as textDimensions } from "@/text/dimensions";
 import { type theming } from "@/theming/aether";
 import { fontString } from "@/theming/core/fontString";
+import { SugaredOffscreenCanvasRenderingContext2D } from "@/vis/draw2d/canvas";
 
 export interface Draw2DLineProps {
   stroke: color.Color;
@@ -37,19 +46,21 @@ export interface Draw2DCircleProps {
 
 export interface Draw2DContainerProps {
   region: box.Box;
-  bordered?: boolean;
+  bordered?: boolean | location.Location | location.Location[];
   rounded?: boolean;
-  borderColor?: color.Color;
+  borderColor?: ColorSpec;
   borderRadius?: number;
   borderWidth?: number;
-  backgroundColor?: color.Color;
+  backgroundColor?: ColorSpec;
 }
 
 export interface DrawTextProps {
   text: string;
   position: xy.XY;
   level: text.Level;
-  direction: direction.Direction;
+  weight?: text.Weight;
+  shade?: text.Shade;
+  maxWidth?: number;
 }
 
 export interface DrawTextInCenterProps
@@ -64,6 +75,14 @@ export interface Draw2DMeasureTextContainerProps {
   spacing?: number;
 }
 
+export interface Draw2DBorderProps {
+  region: box.Box;
+  color?: ColorSpec;
+  width?: number;
+  radius?: number;
+  location?: true | location.Location | location.Location[];
+}
+
 export interface Draw2DTextContainerProps
   extends Omit<Draw2DContainerProps, "region">,
     Draw2DMeasureTextContainerProps {
@@ -72,11 +91,13 @@ export interface Draw2DTextContainerProps
   root?: location.CornerXY;
 }
 
+type ColorSpec = color.Crude | ((t: theming.Theme) => color.Color);
+
 export class Draw2D {
-  readonly canvas: OffscreenCanvasRenderingContext2D;
+  readonly canvas: SugaredOffscreenCanvasRenderingContext2D;
   readonly theme: theming.Theme;
 
-  constructor(canvas: OffscreenCanvasRenderingContext2D, theme: theming.Theme) {
+  constructor(canvas: SugaredOffscreenCanvasRenderingContext2D, theme: theming.Theme) {
     this.canvas = canvas;
     this.theme = theme;
   }
@@ -114,6 +135,44 @@ export class Draw2D {
     ctx.fill();
   }
 
+  resolveColor(c: ColorSpec | undefined, fallback: ColorSpec): color.Color;
+
+  resolveColor(c: ColorSpec): color.Color;
+
+  resolveColor(c: ColorSpec | undefined, fallback?: ColorSpec): color.Color {
+    if (c == null) return this.resolveColor(fallback as ColorSpec);
+    if (typeof c === "function") return c(this.theme);
+    return new color.Color(c);
+  }
+
+  border({ region, color, width, radius, location }: Draw2DBorderProps): void {
+    const ctx = this.canvas;
+    ctx.strokeStyle = this.resolveColor(color, this.theme.colors.border).hex;
+    ctx.lineWidth = width ?? this.theme.sizes.border.width;
+    radius ??= this.theme.sizes.border.radius;
+    if (location == null || location === true) {
+      if (radius > 0) {
+        ctx.roundRect(
+          ...xy.couple(box.topLeft(region)),
+          ...xy.couple(box.dims(region)),
+          radius,
+        );
+
+        ctx.stroke();
+      } else {
+        ctx.rect(...xy.couple(box.topLeft(region)), ...xy.couple(box.dims(region)));
+        ctx.stroke();
+      }
+    } else
+      toArray(location).forEach((loc) => {
+        const [start, end] = box.edgePoints(region, loc);
+        ctx.beginPath();
+        ctx.moveTo(...xy.couple(start));
+        ctx.lineTo(...xy.couple(end));
+        ctx.stroke();
+      });
+  }
+
   container({
     region,
     bordered = true,
@@ -123,14 +182,11 @@ export class Draw2D {
     borderWidth,
     backgroundColor,
   }: Draw2DContainerProps): void {
-    if (borderColor == null) borderColor = this.theme.colors.border;
-    if (backgroundColor == null) backgroundColor = this.theme.colors.gray.l1;
     if (borderRadius == null) borderRadius = this.theme.sizes.border.radius;
     if (borderWidth == null) borderWidth = 1;
-
     const ctx = this.canvas;
-    ctx.fillStyle = backgroundColor.hex;
-    ctx.strokeStyle = borderColor.hex;
+    ctx.fillStyle = this.resolveColor(backgroundColor, this.theme.colors.gray.l1).hex;
+    ctx.strokeStyle = this.resolveColor(borderColor, this.theme.colors.border).hex;
     ctx.setLineDash([]);
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -142,7 +198,14 @@ export class Draw2D {
       );
     else ctx.rect(...xy.couple(box.topLeft(region)), ...xy.couple(box.dims(region)));
     ctx.fill();
-    if (bordered) ctx.stroke();
+    if (bordered)
+      this.border({
+        region,
+        color: borderColor,
+        radius: borderRadius,
+        width: borderWidth,
+        location: bordered,
+      });
   }
 
   textContainer(props: Draw2DTextContainerProps): void {
@@ -200,11 +263,21 @@ export class Draw2D {
     ];
   }
 
-  drawTextInCenter({ text, box: b, level = "p" }: DrawTextInCenterProps): void {
-    this.canvas.font = fontString(this.theme, level);
-    this.canvas.fillStyle = this.theme.colors.text.hex;
+  drawTextInCenter({ box: b, text, level }: DrawTextInCenterProps): void {
     const dims = textDimensions(text, this.canvas.font, this.canvas);
     const pos = box.positionInCenter(box.construct(xy.ZERO, dims), b);
-    this.canvas.fillText(text, box.left(pos), box.bottom(pos));
+    return this.text({ text, position: box.topLeft(pos), level });
+  }
+
+  text({ text, position, level = "p", weight, shade, maxWidth }: DrawTextProps): void {
+    this.canvas.font = fontString(this.theme, level, weight);
+    if (shade == null) this.canvas.fillStyle = this.theme.colors.text.hex;
+    else this.canvas.fillStyle = this.theme.colors.gray[`l${shade}`].hex;
+    this.canvas.textBaseline = "top";
+    let removeScissor: Destructor | undefined;
+    if (maxWidth != null)
+      removeScissor = this.canvas.scissor(box.construct(position, maxWidth, 1000));
+    this.canvas.fillText(text, position.x, position.y);
+    removeScissor?.();
   }
 }

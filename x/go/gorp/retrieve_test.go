@@ -10,9 +10,9 @@
 package gorp_test
 
 import (
-	"github.com/cockroachdb/errors"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -111,6 +111,14 @@ var _ = Describe("Retrieve", Ordered, func() {
 				Expect(err).To(HaveOccurred())
 				Expect(errors.Is(err, query.NotFound)).To(BeTrue())
 			})
+			It("Should return a query.NotFound error if the where clause matches no entry", func() {
+				err := gorp.NewRetrieve[int, entry]().
+					Where(func(e *entry) bool { return e.ID == 241241 }).
+					Entry(&entry{}).
+					Exec(ctx, tx)
+				Expect(err).To(HaveOccurred())
+				Expect(errors.Is(err, query.NotFound)).To(BeTrue())
+			})
 			Describe("exists", func() {
 				It("Should return true if the key has a matching entry", func() {
 					exists, err := gorp.NewRetrieve[int, entry]().
@@ -170,6 +178,16 @@ var _ = Describe("Retrieve", Ordered, func() {
 				Exec(ctx, tx),
 			).To(Succeed())
 			Expect(res).To(Equal([]entry{entries[1], entries[2]}))
+		})
+		It("Should require a filter to match when gorp.Required()", func() {
+			var res []entry
+			Expect(gorp.NewRetrieve[int, entry]().
+				Entries(&res).
+				Where(func(e *entry) bool { return e.ID == entries[1].ID }, gorp.Required()).
+				Where(func(e *entry) bool { return e.ID == entries[2].ID }).
+				Exec(ctx, tx),
+			).To(Succeed())
+			Expect(res).To(Equal([]entry{entries[1]}))
 		})
 		It("Should NOT return a query.NamesNotFound error if no entries are found", func() {
 			var res []entry

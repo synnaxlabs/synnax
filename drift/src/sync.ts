@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,18 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Dispatch, PayloadAction } from "@reduxjs/toolkit";
-import { dimensions, unique } from "@synnaxlabs/x";
+import { type Dispatch, type PayloadAction } from "@reduxjs/toolkit";
+import { dimensions, unique, xy } from "@synnaxlabs/x";
 
 import { log } from "@/debug";
-import { MainChecker, Manager, Properties } from "@/runtime";
-import { SliceState, setWindowProps, SetWindowPropsPayload } from "@/state";
-import { WindowState, MAIN_WINDOW, INITIAL_WINDOW_STATE, WindowProps } from "@/window";
+import { type MainChecker, type Manager, type Properties } from "@/runtime";
+import { setWindowProps, type SetWindowPropsPayload, type SliceState } from "@/state";
+import {
+  INITIAL_WINDOW_STATE,
+  MAIN_WINDOW,
+  type WindowProps,
+  type WindowState,
+} from "@/window";
 
 type RequiredRuntime = Manager & MainChecker & Properties;
 
 const purgeWinStateToProps = (
-  window: WindowState & { prerenderLabel?: string }
+  window: WindowState & { prerenderLabel?: string },
 ): Omit<WindowProps, "key"> => {
   const {
     centerCount,
@@ -38,7 +43,7 @@ export const syncInitial = async (
   state: SliceState,
   dispatch: Dispatch<PayloadAction<SetWindowPropsPayload>>,
   runtime: RequiredRuntime,
-  debug: boolean
+  debug: boolean,
 ): Promise<void> => {
   const runtimeLabels = runtime.listLabels().filter((label) => label !== MAIN_WINDOW);
   const nonMain = Object.keys(state.windows).filter((label) => label !== MAIN_WINDOW);
@@ -49,26 +54,25 @@ export const syncInitial = async (
     // Only the main runtime is allowed to create windows.
     if (!runtimeLabels.includes(label) && runtime.isMain())
       await createRuntimeWindow(runtime, label, state.windows[label], debug);
-    else if (!nonMain.includes(label))
+    else if (!nonMain.includes(label)) {
       // We're safe to close the window even if we're not in the main runtime
       // because there's no state to maintain.
       await closeRuntimeWindow(runtime, label, debug);
+    }
   }
   const label = runtime.label();
   const next = state.windows[label];
   if (next == null) return;
   const initial: WindowState = { ...INITIAL_WINDOW_STATE, key: label };
   await syncCurrent(initial, next, runtime, debug);
-  // Make sure our redux store as up to date.
   dispatch(setWindowProps({ label: runtime.label(), ...(await runtime.getProps()) }));
-  // startcheckingFullScreen(dispatch, runtime);
 };
 
 export const sync = async (
   prev: SliceState,
   next: SliceState,
   runtime: RequiredRuntime,
-  debug: boolean
+  debug: boolean,
 ): Promise<void> => {
   log(debug, "sync", prev, next);
   if (runtime.isMain()) await syncMain(prev, next, runtime, debug);
@@ -82,88 +86,128 @@ export const syncCurrent = async (
   prevWin: WindowState,
   nextWin: WindowState,
   runtime: RequiredRuntime,
-  debug: boolean
+  debug: boolean,
 ): Promise<void> => {
-  const changes: Array<[string, Promise<void>]> = [];
+  const changes: Array<[string, () => Promise<void>]> = [];
 
   if (nextWin.title != null && nextWin.title !== prevWin.title)
-    changes.push(["title", runtime.setTitle(nextWin.title)]);
+    changes.push(["title", async () => runtime.setTitle(nextWin.title as string)]);
 
   const changeVisibility =
     nextWin.visible != null && nextWin.visible !== prevWin.visible;
   const changeVisibilityNow = nextWin.visible === false;
   const changeVisibilityF = (): number =>
-    changes.push(["visible", runtime.setVisible(nextWin.visible as boolean)]);
+    changes.push([
+      "visible",
+      async () => {
+        await runtime.setVisible(nextWin.visible as boolean);
+        if (nextWin.visible === false) return;
+        let position = nextWin.position;
+        if (position == null) position = (await runtime.getProps()).position;
+        // This is very much a hack - some times (tauri) won't emit window created events,
+        // so we move the window a smidge to emit events in order to do things like
+        // hide traffic lights
+        runtime.setPosition(xy.translate(position as xy.XY, { x: 1, y: 1 }));
+      },
+    ]);
 
   // If we're making the window invisible, we should make other changes AFTER
   // we make it invisible.
   if (changeVisibility && changeVisibilityNow) changeVisibilityF();
 
   if (nextWin.skipTaskbar != null && nextWin.skipTaskbar !== prevWin.skipTaskbar)
-    changes.push(["skipTaskbar", runtime.setSkipTaskbar(nextWin.skipTaskbar)]);
+    changes.push([
+      "skipTaskbar",
+      async () => await runtime.setSkipTaskbar(nextWin.skipTaskbar as boolean),
+    ]);
 
   if (nextWin.maximized != null && nextWin.maximized !== prevWin.maximized)
-    changes.push(["maximized", runtime.setMaximized(nextWin.maximized)]);
+    changes.push([
+      "maximized",
+      async () => await runtime.setMaximized(nextWin.maximized as boolean),
+    ]);
 
   if (nextWin.fullscreen != null && nextWin.fullscreen !== prevWin.fullscreen)
-    changes.push(["fullscreen", runtime.setFullscreen(nextWin.fullscreen)]);
+    changes.push([
+      "fullscreen",
+      async () => await runtime.setFullscreen(nextWin.fullscreen as boolean),
+    ]);
 
   if (nextWin.centerCount !== prevWin.centerCount)
-    changes.push(["center", runtime.center()]);
+    changes.push(["center", async () => runtime.center()]);
 
   if (nextWin.minimized != null && nextWin.minimized !== prevWin.minimized)
-    changes.push(["minimized", runtime.setMinimized(nextWin.minimized)]);
+    changes.push([
+      "minimized",
+      async () => await runtime.setMinimized(nextWin.minimized as boolean),
+    ]);
 
-  if (
-    nextWin.minSize != null &&
-    !dimensions.equals(nextWin.minSize, prevWin.minSize)
-  )
-    changes.push(["minSize", runtime.setMinSize(nextWin.minSize)]);
+  if (nextWin.minSize != null && !dimensions.equals(nextWin.minSize, prevWin.minSize))
+    changes.push([
+      "minSize",
+      async () => await runtime.setMinSize(nextWin.minSize as dimensions.Dimensions),
+    ]);
 
-  if (
-    nextWin.maxSize != null &&
-    !dimensions.equals(nextWin.maxSize, prevWin.maxSize)
-  )
-    changes.push(["maxSize", runtime.setMaxSize(nextWin.maxSize)]);
+  if (nextWin.maxSize != null && !dimensions.equals(nextWin.maxSize, prevWin.maxSize))
+    changes.push([
+      "maxSize",
+      async () => await runtime.setMaxSize(nextWin.maxSize as dimensions.Dimensions),
+    ]);
 
   if (nextWin.size != null && !dimensions.equals(nextWin.size, prevWin.size))
-    changes.push(["size", runtime.setSize(nextWin.size)]);
+    changes.push([
+      "size",
+      async () => await runtime.setSize(nextWin.size as dimensions.Dimensions),
+    ]);
 
   if (
     nextWin.position != null &&
     !dimensions.equals(nextWin.position, prevWin.position)
   )
-    changes.push(["position", runtime.setPosition(nextWin.position)]);
+    changes.push([
+      "position",
+      async () => await runtime.setPosition(nextWin.position as xy.XY),
+    ]);
 
   if (nextWin.focusCount !== prevWin.focusCount)
-    changes.push(["setVisible", runtime.setVisible(true)], ["focus", runtime.focus()]);
+    changes.push(
+      ["setVisible", async () => await runtime.setVisible(true)],
+      ["focus", async () => await runtime.focus()],
+    );
 
   if (nextWin.resizable != null && nextWin.resizable !== prevWin.resizable)
-    changes.push(["resizable", runtime.setResizable(nextWin.resizable)]);
+    changes.push([
+      "resizable",
+      async () => await runtime.setResizable(nextWin.resizable as boolean),
+    ]);
 
   if (nextWin.decorations != null && nextWin.decorations !== prevWin.decorations)
-    changes.push(["decorations", runtime.setDecorations(nextWin.decorations)]);
+    changes.push([
+      "decorations",
+      async () => await runtime.setDecorations(nextWin.decorations as boolean),
+    ]);
 
   if (nextWin.alwaysOnTop != null && nextWin.alwaysOnTop !== prevWin.alwaysOnTop)
-    changes.push(["alwaysOnTop", runtime.setAlwaysOnTop(nextWin.alwaysOnTop)]);
+    changes.push([
+      "alwaysOnTop",
+      async () => await runtime.setAlwaysOnTop(nextWin.alwaysOnTop as boolean),
+    ]);
 
   // If we're going from invisible to visible, we should make other changes BEFORE
   // we make it visible.
   if (changeVisibility && !changeVisibilityNow) changeVisibilityF();
 
-  await Promise.all(
-    changes.map(async ([name, change]) => {
-      log(debug, "sync", "changing", name);
-      return await change;
-    })
-  );
+  for (const [name, change] of changes) {
+    log(debug, "sync", "change", name);
+    await change();
+  }
 };
 
 export const syncMain = async (
   prev: SliceState,
   next: SliceState,
   runtime: RequiredRuntime,
-  debug: boolean
+  debug: boolean,
 ): Promise<void> => {
   const removed = Object.keys(prev.windows).filter((label) => !(label in next.windows));
   const added = Object.keys(next.windows).filter((label) => !(label in prev.windows));
@@ -178,7 +222,7 @@ export const syncMain = async (
         await Promise.all(
           Object.keys(next.windows)
             .filter((l) => l !== MAIN_WINDOW)
-            .map(async (l) => await closeRuntimeWindow(runtime, l, debug))
+            .map(async (l) => await closeRuntimeWindow(runtime, l, debug)),
         );
       await closeRuntimeWindow(runtime, label, debug);
     }
@@ -191,7 +235,7 @@ const createRuntimeWindow = async (
   runtime: Manager,
   label: string,
   window: WindowState & { prerenderLabel?: string },
-  debug: boolean
+  debug: boolean,
 ): Promise<void> => {
   log(debug, "createWindow", window);
   return await runtime.create(label, purgeWinStateToProps(window));
@@ -200,7 +244,7 @@ const createRuntimeWindow = async (
 const closeRuntimeWindow = async (
   runtime: Manager,
   label: string,
-  debug: boolean
+  debug: boolean,
 ): Promise<void> => {
   log(debug, "closeWindow", label);
   return await runtime.close(label);

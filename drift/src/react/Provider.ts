@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,14 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ReactElement, useState, createElement } from "react";
-
-import type { Action, UnknownAction, EnhancedStore } from "@reduxjs/toolkit";
-import { Provider } from "react-redux";
+import type { Action, EnhancedStore, UnknownAction } from "@reduxjs/toolkit";
+import { createElement, type ReactElement, useState } from "react";
 import type { ProviderProps as BaseProps } from "react-redux";
+import { Provider } from "react-redux";
 
-import { Enhancers } from "@/configureStore";
-import { StoreState } from "@/state";
+import { type Enhancers } from "@/configureStore";
+import { type StoreState } from "@/state";
 
 /**
  * Overrides the default react-redux Provider to allow for a promise based
@@ -23,7 +22,7 @@ import { StoreState } from "@/state";
 export interface ProviderProps<
   S extends StoreState,
   A extends Action = UnknownAction,
-  E extends Enhancers = Enhancers
+  E extends Enhancers = Enhancers,
 > extends Omit<BaseProps<A, S>, "store"> {
   store: Promise<EnhancedStore<S, A, E>> | EnhancedStore<S, A, E>;
   emptyContent?: ReactElement | null;
@@ -40,7 +39,7 @@ export interface ProviderProps<
 export const DriftProvider = <
   S extends StoreState,
   A extends Action<string> = UnknownAction,
-  E extends Enhancers = Enhancers
+  E extends Enhancers = Enhancers,
 >({
   store: storeOrPromise,
   emptyContent = null,
@@ -55,9 +54,14 @@ export const DriftProvider = <
   if (store == null) {
     // if the store isn't a promise, then it's already ready
     if (!(storeOrPromise instanceof Promise)) setStore(storeOrPromise);
-    else storeOrPromise.then((s) => setStore(s)).catch((e) => setError(e));
+    else
+      storeOrPromise
+        .then((s) => setStore(s))
+        .catch((e) => {
+          setError(e);
+        });
     return emptyContent;
   }
-  // @ts-expect-error
+  // @ts-expect-error - store is guaranteed to be non-null here
   return createElement(Provider<A, S>, { store }, children);
 };

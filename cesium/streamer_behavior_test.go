@@ -14,8 +14,10 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/controller"
+	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
+	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -26,13 +28,19 @@ import (
 
 var _ = Describe("Streamer Behavior", func() {
 	for fsName, makeFS := range fileSystems {
-		fs := makeFS()
 		Context("FS: "+fsName, Ordered, func() {
-			var db *cesium.DB
-			BeforeAll(func() { db = openDBOnFS(fs) })
+			var (
+				db      *cesium.DB
+				fs      xfs.FS
+				cleanUp func() error
+			)
+			BeforeAll(func() {
+				fs, cleanUp = makeFS()
+				db = openDBOnFS(fs)
+			})
 			AfterAll(func() {
 				Expect(db.Close()).To(Succeed())
-				Expect(fs.Remove(rootPath)).To(Succeed())
+				Expect(cleanUp()).To(Succeed())
 			})
 			Describe("Happy Path", func() {
 				It("Should subscribe to written frames for the given channels", func() {
@@ -63,7 +71,7 @@ var _ = Describe("Streamer Behavior", func() {
 					f := <-o.Outlet()
 					Expect(f.Frame.Keys).To(HaveLen(1))
 					Expect(f.Frame.Series).To(HaveLen(1))
-					d.Alignment = telem.Alignment(0)
+					d.Alignment = telem.LeadingAlignment(0)
 					Expect(f.Frame.Series[0]).To(Equal(d))
 					i.Close()
 					Expect(sCtx.Wait()).To(Succeed())
@@ -175,6 +183,19 @@ var _ = Describe("Streamer Behavior", func() {
 					Expect(r.Frame.Keys).To(HaveLen(1))
 					i.Close()
 					Expect(sCtx.Wait()).To(Succeed())
+				})
+			})
+			Describe("Closed", func() {
+				It("Should not allow opening a streamer on a closed db", func() {
+					sub := MustSucceed(fs.Sub("closed-fs"))
+					key := cesium.ChannelKey(1)
+					subDB := openDBOnFS(sub)
+					Expect(subDB.CreateChannel(ctx, cesium.Channel{Key: key, DataType: telem.Int64T, Rate: 1 * telem.Hz})).To(Succeed())
+					Expect(subDB.Close()).To(Succeed())
+					_, err := subDB.NewStreamer(ctx, cesium.StreamerConfig{Channels: []cesium.ChannelKey{key}})
+					Expect(err).To(HaveOccurredAs(core.EntityClosed("cesium.db")))
+
+					Expect(fs.Remove("closed-fs")).To(Succeed())
 				})
 			})
 		})

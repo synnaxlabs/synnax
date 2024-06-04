@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,53 +7,72 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useCallback, useMemo, useEffect } from "react";
-
 import { type channel } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
+import { Icon } from "@synnaxlabs/media";
 import {
-  useAsyncEffect,
-  Viewport,
-  useDebouncedCallback,
   Channel,
-  Synnax,
   Color,
-  Menu,
+  Menu as PMenu,
+  Synnax,
+  useAsyncEffect,
+  useDebouncedCallback,
   usePrevious,
+  Viewport,
 } from "@synnaxlabs/pluto";
-import { type UnknownRecord, box, location, unique, getEntries } from "@synnaxlabs/x";
+import {
+  box,
+  getEntries,
+  location,
+  scale,
+  TimeRange,
+  unique,
+  type UnknownRecord,
+} from "@synnaxlabs/x";
+import { type ReactElement, useCallback, useEffect, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
-import { useSyncerDispatch, type Syncer } from "@/hooks/dispatchers";
+import { Menu } from "@/components";
+import { type Syncer, useSyncerDispatch } from "@/hooks/dispatchers";
 import { Layout } from "@/layout";
-import { ContextMenuContent } from "@/lineplot/ContextMenu";
 import {
-  useSelect,
-  selectRanges,
-  useSelectControlState,
-  useSelectViewportMode,
+  AxisKey,
+  axisLocation,
+  MultiXAxisRecord,
+  X_AXIS_KEYS,
+  XAxisKey,
+  YAxisKey,
+} from "@/lineplot/axis";
+import { download } from "@/lineplot/download";
+import {
   select,
+  selectRanges,
+  useSelect,
+  useSelectAxisBounds,
+  useSelectControlState,
+  useSelectSelection,
+  useSelectViewportMode,
 } from "@/lineplot/selectors";
 import {
-  type State,
+  type AxisState,
+  internalCreate,
+  type LineState,
+  setAxis,
+  setControlState,
   setLine,
   setRanges,
+  setRemoteCreated,
   setRule,
+  setSelection,
   setXChannel,
   setYChannels,
   shouldDisplayAxis,
+  type State,
+  type StoreState,
   storeViewport,
   typedLineKeyToString,
-  setRemoteCreated,
-  type StoreState,
-  internalCreate,
-  setSelection,
-  setAxis,
-  type AxisState,
-  type LineState,
 } from "@/lineplot/slice";
 import { Range } from "@/range";
-import { Vis } from "@/vis";
 import { Workspace } from "@/workspace";
 
 interface SyncPayload {
@@ -70,9 +89,7 @@ const syncer: Syncer<
   if (ws == null) return;
   const data = select(s, key);
   const la = Layout.selectRequired(s, key);
-  if (!data.remoteCreated) {
-    store.dispatch(setRemoteCreated({ key }));
-  }
+  if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key }));
   await client.workspaces.linePlot.create(ws, {
     key,
     name: la.name,
@@ -83,6 +100,7 @@ const syncer: Syncer<
 const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
   const windowKey = useSelectWindowKey() as string;
   const { name } = Layout.useSelectRequired(layoutKey);
+  const placer = Layout.usePlacer();
   const vis = useSelect(layoutKey);
   const ranges = selectRanges(layoutKey);
   const client = Synnax.use();
@@ -147,7 +165,7 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
           key: layoutKey,
           rule: {
             ...rule,
-            axis: rule.axis as Vis.XAxisKey,
+            axis: rule.axis as XAxisKey,
             color: Color.toHex(rule.color),
           },
         }),
@@ -162,7 +180,7 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
       syncDispatch(
         setAxis({
           key: layoutKey,
-          axisKey: axis.key as Vis.AxisKey,
+          axisKey: axis.key as AxisKey,
           axis: axis as AxisState,
           triggerRender: false,
         }),
@@ -177,11 +195,11 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
 
   const handleChannelAxisDrop = useCallback(
     (axis: string, channels: channel.Keys): void => {
-      if (Vis.X_AXIS_KEYS.includes(axis as Vis.XAxisKey))
+      if (X_AXIS_KEYS.includes(axis as XAxisKey))
         syncDispatch(
           setXChannel({
             key: layoutKey,
-            axisKey: axis as Vis.XAxisKey,
+            axisKey: axis as XAxisKey,
             channel: channels[0],
           }),
         );
@@ -189,7 +207,7 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
         syncDispatch(
           setYChannels({
             key: layoutKey,
-            axisKey: axis as Vis.YAxisKey,
+            axisKey: axis as YAxisKey,
             channels,
             mode: "add",
           }),
@@ -251,10 +269,86 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
     [windowKey, dispatch],
   );
 
-  const props = Menu.useContextMenu();
+  const props = PMenu.useContextMenu();
+
+  interface ContextMenuContentProps {
+    layoutKey: string;
+  }
+
+  const ContextMenuContent = ({ layoutKey }: ContextMenuContentProps): ReactElement => {
+    const { box: selection } = useSelectSelection(layoutKey);
+    const bounds = useSelectAxisBounds(layoutKey, "x1");
+
+    const s = scale.Scale.scale(1).scale(bounds);
+    const timeRange = new TimeRange(
+      s.pos(box.left(selection)),
+      s.pos(box.right(selection)),
+    );
+
+    const newLayout = Layout.usePlacer();
+    const handleSelect = (key: string): void => {
+      switch (key) {
+        case "iso":
+          void navigator.clipboard.writeText(
+            `${timeRange.start.fString("ISO")} - ${timeRange.end.fString("ISO")}`,
+          );
+          break;
+        case "python":
+          void navigator.clipboard.writeText(
+            `sy.TimeRange(${timeRange.start.valueOf()}, ${timeRange.end.valueOf()})`,
+          );
+          break;
+        case "typescript":
+          void navigator.clipboard.writeText(
+            `new TimeRange(${timeRange.start.valueOf()}, ${timeRange.end.valueOf()})`,
+          );
+          break;
+        case "range":
+          dispatch(
+            Range.setBuffer({
+              timeRange: {
+                start: Number(timeRange.start.valueOf()),
+                end: Number(timeRange.end.valueOf()),
+              },
+            }),
+          );
+          newLayout(Range.createEditLayout());
+          break;
+        case "download":
+          if (client == null) return;
+          download({ timeRange, lines, client });
+          break;
+      }
+    };
+
+    return (
+      <PMenu.Menu onChange={handleSelect} iconSpacing="medium" level="small">
+        <Menu.Item.HardReload />
+        {!box.areaIsZero(selection) && (
+          <>
+            <PMenu.Item itemKey="iso" startIcon={<Icon.Range />}>
+              Copy time range as ISO
+            </PMenu.Item>
+            <PMenu.Item itemKey="python" startIcon={<Icon.Python />}>
+              Copy time range as Python
+            </PMenu.Item>
+            <PMenu.Item itemKey="typescript" startIcon={<Icon.TypeScript />}>
+              Copy time range as TypeScript
+            </PMenu.Item>
+            <PMenu.Item itemKey="range" startIcon={<Icon.Add />}>
+              Create new range from selection
+            </PMenu.Item>
+            <PMenu.Item itemKey="download" startIcon={<Icon.Download />}>
+              Download data as CSV
+            </PMenu.Item>
+          </>
+        )}
+      </PMenu.Menu>
+    );
+  };
 
   return (
-    <Menu.ContextMenu
+    <PMenu.ContextMenu
       {...props}
       menu={() => <ContextMenuContent layoutKey={layoutKey} />}
     >
@@ -280,9 +374,45 @@ const Loaded = ({ layoutKey }: { layoutKey: string }): ReactElement => {
           enableTooltip={enableTooltip}
           enableMeasure={clickMode === "measure"}
           onDoubleClick={handleDoubleClick}
+          onHold={(hold) => dispatch(setControlState({ state: { hold } }))}
+          annotationProvider={{
+            menu: ({ key, timeRange, name }) => {
+              const handleSelect = (itemKey: string) => {
+                switch (itemKey) {
+                  case "download":
+                    if (client == null) return;
+                    download({ client, lines, timeRange, name });
+                    break;
+                  case "meta-data":
+                    placer({
+                      ...Range.metaDataWindowLayout,
+                      name: `${name} Meta Data`,
+                      key: key,
+                    });
+                    break;
+                  default:
+                    break;
+                }
+              };
+
+              return (
+                <PMenu.Menu level="small" key={key} onChange={handleSelect}>
+                  <PMenu.Item itemKey="download" startIcon={<Icon.Download />}>
+                    Download as CSV
+                  </PMenu.Item>
+                  <PMenu.Item itemKey="line-plot" startIcon={<Icon.Visualize />}>
+                    Open in New Plot
+                  </PMenu.Item>
+                  <PMenu.Item itemKey="meta-data" startIcon={<Icon.Annotate />}>
+                    View Meta Data
+                  </PMenu.Item>
+                </PMenu.Menu>
+              );
+            },
+          }}
         />
       </div>
-    </Menu.ContextMenu>
+    </PMenu.ContextMenu>
   );
 };
 
@@ -291,22 +421,22 @@ const buildAxes = (vis: State): Channel.AxisProps[] =>
     .filter(([key]) => shouldDisplayAxis(key, vis))
     .map(([key, axis]): Channel.AxisProps => {
       return {
-        location: Vis.axisLocation(key),
-        type: Vis.X_AXIS_KEYS.includes(key as Vis.XAxisKey) ? "time" : "linear",
+        location: axisLocation(key as AxisKey),
+        type: X_AXIS_KEYS.includes(key as XAxisKey) ? "time" : "linear",
         ...axis,
       };
     });
 
 const buildLines = (
   vis: State,
-  sug: Vis.MultiXAxisRecord<Range.Range>,
+  sug: MultiXAxisRecord<Range.Range>,
 ): Array<Channel.LineProps & { key: string }> =>
   Object.entries(sug).flatMap(([xAxis, ranges]) =>
     ranges.flatMap((range) =>
       Object.entries(vis.channels)
-        .filter(([axis]) => !Vis.X_AXIS_KEYS.includes(axis as Vis.XAxisKey))
+        .filter(([axis]) => !X_AXIS_KEYS.includes(axis as XAxisKey))
         .flatMap(([yAxis, yChannels]) => {
-          const xChannel = vis.channels[xAxis as Vis.XAxisKey];
+          const xChannel = vis.channels[xAxis as XAxisKey];
           const variantArg =
             range.variant === "dynamic"
               ? {
@@ -320,8 +450,8 @@ const buildLines = (
 
           return (yChannels as number[]).map((channel) => {
             const key = typedLineKeyToString({
-              xAxis: xAxis as Vis.XAxisKey,
-              yAxis: yAxis as Vis.YAxisKey,
+              xAxis: xAxis as XAxisKey,
+              yAxis: yAxis as YAxisKey,
               range: range.key,
               channels: {
                 x: xChannel,

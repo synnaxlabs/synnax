@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,27 +7,26 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, memo, useCallback, useLayoutEffect } from "react";
+import "@/layouts/mosaic/Mosaic.css";
 
 import { ontology } from "@synnaxlabs/client";
 import { Logo } from "@synnaxlabs/media";
 import {
-  Mosaic as Core,
   Eraser,
+  Mosaic as Core,
   Nav,
   Synnax,
   useDebouncedCallback,
 } from "@synnaxlabs/pluto";
-import { type Tabs } from "@synnaxlabs/pluto/tabs";
 import { type location } from "@synnaxlabs/x";
+import { memo, type ReactElement, useCallback, useLayoutEffect } from "react";
 import { useDispatch, useStore } from "react-redux";
 
 import { NAV_DRAWERS, NavDrawer, NavMenu } from "@/components/nav/Nav";
-import { useSyncerDispatch } from "@/hooks/dispatchers";
 import { Layout } from "@/layout";
 import { Content } from "@/layout/Content";
 import { usePlacer } from "@/layout/hooks";
-import { useSelectMosaic } from "@/layout/selectors";
+import { useSelectActiveMosaicTabKey, useSelectMosaic } from "@/layout/selectors";
 import {
   moveMosaicTab,
   remove,
@@ -40,9 +39,6 @@ import { LinePlot } from "@/lineplot";
 import { SERVICES } from "@/services";
 import { type RootStore } from "@/store";
 import { Vis } from "@/vis";
-import { Workspace } from "@/workspace";
-
-import "@/layouts/mosaic/Mosaic.css";
 
 const EmptyContent = (): ReactElement => (
   <Eraser.Eraser>
@@ -55,13 +51,12 @@ const emptyContent = <EmptyContent />;
 /** LayoutMosaic renders the central layout mosaic of the application. */
 export const Mosaic = memo((): ReactElement => {
   const [windowKey, mosaic] = useSelectMosaic();
+  const activeTab = useSelectActiveMosaicTabKey();
 
   const client = Synnax.use();
   const store = useStore();
   const placer = usePlacer();
-
-  const syncer = Workspace.useLayoutSyncer();
-  const dispatch = useSyncerDispatch(syncer, 1000);
+  const dispatch = useDispatch();
 
   const handleDrop = useCallback(
     (key: number, tabKey: string, loc: location.Location): void => {
@@ -73,7 +68,12 @@ export const Mosaic = memo((): ReactElement => {
   const handleCreate = useCallback(
     (mosaicKey: number, location: location.Location, tabKeys?: string[]) => {
       if (tabKeys == null) {
-        placer(Vis.create({ tab: { mosaicKey, location }, location: "mosaic" }));
+        placer(
+          Vis.createLayoutSelector({
+            tab: { mosaicKey, location },
+            location: "mosaic",
+          }),
+        );
         return;
       }
       tabKeys.forEach((tabKey) => {
@@ -89,7 +89,13 @@ export const Mosaic = memo((): ReactElement => {
             location,
             placeLayout: placer,
           });
-        } else placer(Vis.create({ tab: { mosaicKey, location }, location: "mosaic" }));
+        } else
+          placer(
+            Vis.createLayoutSelector({
+              tab: { mosaicKey, location },
+              location: "mosaic",
+            }),
+          );
       });
     },
     [placer, store, client],
@@ -140,8 +146,9 @@ export const Mosaic = memo((): ReactElement => {
       emptyContent={emptyContent}
       onRename={handleRename}
       onCreate={handleCreate}
+      activeTab={activeTab ?? undefined}
     >
-      {({ tabKey }: Tabs.Tab) => <Content key={tabKey} layoutKey={tabKey} />}
+      {({ tabKey }) => <Content key={tabKey} layoutKey={tabKey} />}
     </Core.Mosaic>
   );
 });

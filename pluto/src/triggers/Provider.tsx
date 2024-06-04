@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,27 +7,26 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Destructor, TimeSpan, TimeStamp, xy } from "@synnaxlabs/x";
 import {
   createContext,
-  useContext as reactUseContext,
-  useEffect,
-  useCallback,
-  useRef,
   type PropsWithChildren,
   type ReactElement,
+  useCallback,
+  useContext as reactUseContext,
+  useEffect,
+  useRef,
 } from "react";
-
-import { TimeStamp, TimeSpan, type Destructor, xy } from "@synnaxlabs/x";
 
 import { useStateRef } from "@/hooks/ref";
 import {
-  type MouseKey,
-  MOUSE_KEYS,
-  eventKey,
-  type Trigger,
-  type Callback,
-  match,
   ALPHANUMERIC_KEYS_SET,
+  type Callback,
+  eventKey,
+  match,
+  MOUSE_KEYS,
+  type MouseKey,
+  type Trigger,
 } from "@/triggers/triggers";
 
 type Listen = (callback: Callback) => Destructor;
@@ -149,7 +148,7 @@ export const Provider = ({
    * issues with the user holding down a key and then moving the mouse out of the
    * window.
    */
-  const handlePageVisbility = useCallback((event: Event): void => {
+  const handlePageVisibility = useCallback((event: Event): void => {
     setCurr((prevS) => {
       const prev = prevS.next;
       const nextS: RefState = {
@@ -170,7 +169,7 @@ export const Provider = ({
     window.addEventListener("mouseup", handleKeyUp);
     window.addEventListener("dragend", handleKeyUp);
     window.addEventListener("drop", handleKeyUp);
-    window.addEventListener("blur", handlePageVisbility);
+    window.addEventListener("blur", handlePageVisibility);
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
@@ -179,7 +178,7 @@ export const Provider = ({
       window.removeEventListener("mouseup", handleKeyUp);
       window.removeEventListener("dragend", handleKeyUp);
       window.removeEventListener("drop", handleKeyUp);
-      window.removeEventListener("blur", handlePageVisbility);
+      window.removeEventListener("blur", handlePageVisibility);
     };
   }, [handleKeyDown, handleKeyUp, handleMouseMove]);
 

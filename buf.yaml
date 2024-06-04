@@ -1,0 +1,20 @@
+version: v1
+name: buf.build/synnaxlabs/synnax
+build:
+  excludes:
+    - "client/ts/examples/node_modules"
+    - "client/ts/examples/node/node_modules"
+    - "pluto/examples/node_modules"
+    - "console/node_modules"
+    - "node_modules"
+    - "bazel-bin"
+    - "bazel-out"
+    - "bazel-testlogs"
+    - "bazel-synnax"
+    - "freighter/cpp"
+breaking:
+  use:
+    - FILE
+lint:
+  use:
+    - DEFAULT

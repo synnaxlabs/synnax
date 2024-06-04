@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,28 +7,28 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
-
-import { Status, Button, Select, Align } from "@synnaxlabs/pluto";
+import { Align,Button, Select, Status } from "@synnaxlabs/pluto";
 import { Input } from "@synnaxlabs/pluto/input";
+import { type ReactElement } from "react";
 
 import { Layout } from "@/layout";
 import { listColumns } from "@/range/accordionEntry";
-import { editLayout } from "@/range/EditLayout";
+import { createEditLayout } from "@/range/EditLayout";
 import { type Range } from "@/range/range";
 
 export interface SelectMultipleRangesProps
-  extends Omit<Select.MultipleProps<string, Range>, "columns"> {}
+  extends Select.MultipleProps<string, Range> {}
 
 export const SelectMultipleRanges = (
   props: SelectMultipleRangesProps,
-): ReactElement => <Select.Multiple columns={listColumns} tagKey="name" {...props} />;
+): ReactElement => (
+  <Select.Multiple columns={listColumns} entryRenderKey="name" {...props} />
+);
 
-export interface SelectSingleRangeProps
-  extends Omit<Select.SingleProps<string, Range>, "columns"> {}
+export interface SelectSingleRangeProps extends Select.SingleProps<string, Range> {}
 
 export const SelectRange = (props: SelectSingleRangeProps): ReactElement => (
-  <Select.Single columns={listColumns} {...props} tagKey="name" />
+  <Select.Single columns={listColumns} {...props} entryRenderKey="name" />
 );
 
 export interface SelectMultipleInputItemProps
@@ -48,7 +48,7 @@ const SelectEmptyContent = (): ReactElement => {
       <Button.Button
         variant="outlined"
         onClick={() => {
-          newLayout(editLayout());
+          newLayout(createEditLayout());
         }}
       >
         Define a Range

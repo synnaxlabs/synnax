@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,31 +7,34 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-
 type PathValueTuple = [any, any];
 
-export const difference = (obj1: Record<string, any>, obj2: Record<string, any>, path: string = ''): Record<string, PathValueTuple> => {
+export const difference = (
+  obj1: Record<string, any>,
+  obj2: Record<string, any>,
+  path: string = "",
+): Record<string, PathValueTuple> => {
   const diffMap: Record<string, PathValueTuple> = {};
 
-  const compare = (a: any, b: any, currentPath: string) => {
+  const compare = (a: any, b: any, currentPath: string): void => {
     if (typeof a !== typeof b || a === null || b === null) {
       diffMap[currentPath] = [a, b];
       return;
     }
 
-    if (typeof a === 'object' && typeof b === 'object') {
+    if (typeof a === "object" && typeof b === "object") {
       if (Array.isArray(a) && Array.isArray(b)) {
         if (a.length !== b.length) {
-          diffMap[currentPath] =  [a, b];
+          diffMap[currentPath] = [a, b];
           return;
         }
         for (let i = 0; i < a.length; i++) {
           compare(a[i], b[i], `${currentPath}[${i}]`);
         }
       } else {
-        const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
-        keys.forEach(key => {
-          compare(a[key], b[key], currentPath ? `${currentPath}.${key}` : key);
+        const keys = new Set([...Object.keys(a as {}), ...Object.keys(b as {})]);
+        keys.forEach((key) => {
+          compare(a[key], b[key], currentPath !== "" ? `${currentPath}.${key}` : key);
         });
       }
     } else {
@@ -43,5 +46,4 @@ export const difference = (obj1: Record<string, any>, obj2: Record<string, any>,
 
   compare(obj1, obj2, path);
   return diffMap;
-}
-
+};

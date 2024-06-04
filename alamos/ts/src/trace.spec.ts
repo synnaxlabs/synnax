@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -10,7 +10,7 @@
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { instrumentation } from "@/dev";
-import { Instrumentation } from "@/instrumentation";
+import { type Instrumentation } from "@/instrumentation";
 import { Tracer } from "@/trace";
 
 describe("Trace", () => {

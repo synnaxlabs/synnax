@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,17 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type channel, type ranger } from "@synnaxlabs/client";
+import { Icon } from "@synnaxlabs/media";
 import {
-  useState,
+  createContext,
   type PropsWithChildren,
   type ReactElement,
   useCallback,
-  createContext,
   useContext as reactUseContext,
+  useState,
 } from "react";
-
-import { type channel, type ranger } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/media";
 
 import { Button } from "@/button";
 import { useAsyncEffect } from "@/hooks";
@@ -84,7 +83,7 @@ export const AliasProvider = ({
         const newAliases = { ...aliases };
         changes.forEach(({ variant, key, value }) => {
           const channelKey = Number(key.split("---")[1]);
-          // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+
           if (variant === "delete") delete newAliases[channelKey];
           else newAliases[value.channel] = value.alias;
         });

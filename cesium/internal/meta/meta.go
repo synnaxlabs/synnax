@@ -10,9 +10,9 @@
 package meta
 
 import (
-	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -44,13 +44,17 @@ func ReadOrCreate(fs xfs.FS, ch core.Channel, ecd binary.EncoderDecoder) (core.C
 // Read reads the metadata file for a database whose data is kept in fs and is encoded
 // by the provided encoder.
 func Read(fs xfs.FS, ecd binary.EncoderDecoder) (core.Channel, error) {
+	s, err := fs.Stat("")
+	if err != nil {
+		return core.Channel{}, err
+	}
 	metaF, err := fs.Open(metaFile, os.O_RDONLY)
 	var ch core.Channel
 	if err != nil {
 		return ch, err
 	}
 	if err = ecd.DecodeStream(nil, metaF, &ch); err != nil {
-		return ch, errors.Wrap(err, "error decoding meta file")
+		return ch, errors.Wrapf(err, "error decoding meta in folder for channel %s", s.Name())
 	}
 	return ch, metaF.Close()
 }
@@ -81,17 +85,17 @@ func Create(fs xfs.FS, ecd binary.EncoderDecoder, ch core.Channel) error {
 // validateMeta checks that the meta file read from or about to be written to a meta file
 // is well-defined.
 func validateMeta(ch core.Channel) error {
-	v := validate.New("cesium")
+	v := validate.New("meta")
 	validate.Positive(v, "key", ch.Key)
 	validate.NotEmptyString(v, "dataType", ch.DataType)
 	if ch.Virtual {
-		v.Ternaryf(ch.Index != 0, "virtual channel cannot be indexed")
-		v.Ternaryf(ch.Rate != 0, "virtual channel cannot have a rate")
+		v.Ternaryf("index", ch.Index != 0, "virtual channel cannot be indexed")
+		v.Ternaryf("rate", ch.Rate != 0, "virtual channel cannot have a rate")
 	} else {
-		v.Ternary(ch.DataType == telem.StringT, "persisted channels cannot have string data types")
+		v.Ternary("data_type", ch.DataType == telem.StringT, "persisted channels cannot have string data types")
 		if ch.IsIndex {
-			v.Ternary(ch.DataType != telem.TimeStampT, "index channel must be of type timestamp")
-			v.Ternaryf(ch.Index != 0 && ch.Index != ch.Key, "index channel cannot be indexed by another channel")
+			v.Ternary("data_type", ch.DataType != telem.TimeStampT, "index channel must be of type timestamp")
+			v.Ternaryf("index", ch.Index != 0 && ch.Index != ch.Key, "index channel cannot be indexed by another channel")
 		} else if ch.Index == 0 {
 			validate.Positive(v, "rate", ch.Rate)
 		}

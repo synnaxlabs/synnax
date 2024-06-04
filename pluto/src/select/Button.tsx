@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,32 +7,31 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  useCallback,
-  type ReactElement,
-  useState,
-  useEffect,
-  type ReactNode,
-} from "react";
+import "@/select/Button.css";
 
-import { Icon } from "@synnaxlabs/media";
-import { type Keyed, type Key } from "@synnaxlabs/x";
+import { type Key, type Keyed } from "@synnaxlabs/x";
+import {
+  type ReactElement,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useState,
+} from "react";
 
 import { Align } from "@/align";
 import { Button as CoreButton } from "@/button";
+import { Caret } from "@/caret";
 import { CSS } from "@/css";
 import { Dropdown } from "@/dropdown";
 import { type Input } from "@/input";
 import { type List as CoreList } from "@/list";
 import {
-  type UseSelectProps,
   useSelect,
   type UseSelectOnChangeExtra,
+  type UseSelectProps,
 } from "@/list/useSelect";
 import { Core } from "@/select/List";
 import { componentRenderProp, type RenderProp } from "@/util/renderProp";
-
-import "@/select/Button.css";
 
 export interface ButtonOptionProps<K extends Key = Key, E extends Keyed<K> = Keyed<K>>
   extends Pick<CoreButton.ButtonProps, "onClick"> {
@@ -112,10 +111,11 @@ export interface DropdownButtonProps<K extends Key, E extends Keyed<K>>
     Pick<CoreButton.ButtonProps, "disabled"> {
   columns?: Array<CoreList.ColumnSpec<K, E>>;
   children?: RenderProp<DropdownButtonButtonProps<K, E>>;
-  tagKey?: keyof E;
+  entryRenderKey?: keyof E;
   allowNone?: boolean;
   hideColumnHeader?: boolean;
   disabled?: boolean;
+  omit?: K[];
 }
 
 export const BaseButton = ({
@@ -130,7 +130,9 @@ export const BaseButton = ({
     className={CSS.B("select-button")}
     onClick={toggle}
     variant="outlined"
-    endIcon={<Icon.Caret.Up className={CSS.BE("select-button", "indicator")} />}
+    endIcon={
+      <Caret.Animated enabledLoc="bottom" disabledLoc="left" enabled={visible} />
+    }
     {...props}
   >
     {children ?? selected?.[renderKey]}
@@ -145,7 +147,7 @@ export const DropdownButton = <K extends Key = Key, E extends Keyed<K> = Keyed<K
   value,
   columns = [],
   children = defaultButton,
-  tagKey = "key",
+  entryRenderKey = "key",
   allowNone = false,
   onChange,
   disabled,
@@ -161,8 +163,9 @@ export const DropdownButton = <K extends Key = Key, E extends Keyed<K> = Keyed<K
     setSelected(data?.find((e) => e.key === value) ?? null);
   }, [data, value]);
 
-  const handleChange: UseSelectProps<K, E>["onChange"] = useCallback(
-    (next: K, e: UseSelectOnChangeExtra<K, E>): void => {
+  const handleChange = useCallback(
+    (next: K | K[] | null, e: UseSelectOnChangeExtra<K, E>): void => {
+      if (Array.isArray(next) || next === null) return;
       close();
       if (next == null) {
         setSelected(null);
@@ -176,20 +179,20 @@ export const DropdownButton = <K extends Key = Key, E extends Keyed<K> = Keyed<K
 
   return (
     <Core<K, E>
-      {...props}
       close={close}
       data={data}
       visible={visible}
-      value={[value]}
+      value={value}
       onChange={handleChange}
       allowMultiple={false}
       allowNone={allowNone}
       columns={columns}
       hideColumnHeader={hideColumnHeader}
+      {...props}
     >
       {children({
         selected,
-        renderKey: tagKey,
+        renderKey: entryRenderKey,
         toggle,
         visible,
         disabled,

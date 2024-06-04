@@ -1,0 +1,18 @@
+proto_library(
+    name = "telem_proto",
+    srcs = ["telem.proto"],
+    visibility = ["//visibility:public"],
+)
+
+load("@rules_proto_grpc//cpp:defs.bzl", "cpp_grpc_library")
+
+cpp_grpc_library(
+    name = "telem_grpc",
+    copts = select({
+        "@platforms//os:windows": ["/std:c++20"],
+        "//conditions:default": [],
+    }),
+    output_mode = "NO_PREFIX",
+    protos = [":telem_proto"],
+    visibility = ["//visibility:public"],
+)

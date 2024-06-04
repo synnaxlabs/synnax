@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,20 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useCallback, useState, memo, useMemo } from "react";
-
 import { ontology, type Synnax as Client } from "@synnaxlabs/client";
 import {
+  Haul,
   Menu,
+  type state,
+  Status,
   Synnax,
   useAsyncEffect,
-  Haul,
-  useStateRef as useRefAsState,
   useCombinedStateAndRef,
-  type state,
+  useStateRef as useRefAsState,
 } from "@synnaxlabs/pluto";
 import { Tree as Core } from "@synnaxlabs/pluto/tree";
 import { deep } from "@synnaxlabs/x";
+import { memo, type ReactElement, useCallback, useMemo, useState } from "react";
 import { useStore } from "react-redux";
 
 import { Layout } from "@/layout";
@@ -72,7 +72,9 @@ const loadInitialTree = async (
   setNodes: state.Set<Core.Node[]>,
   setResources: state.Set<ontology.Resource[]>,
 ): Promise<void> => {
-  const fetched = await client.ontology.retrieveChildren(ontology.Root, true, true);
+  const fetched = await client.ontology.retrieveChildren(ontology.Root, {
+    includeSchema: true,
+  });
   setNodes(toTreeNodes(services, fetched));
   setResources((p) => updateResources(p, fetched));
 };
@@ -91,6 +93,7 @@ const handleResourcesChange = async (
   const updated = changes
     .filter(({ variant, value }) => variant === "set" && value != null)
     .map(({ value }) => value) as ontology.Resource[];
+  console.log(updated);
   setResources(updateResources(resources, updated, removed));
   let nextTree = Core.removeNode({
     tree: nodes,
@@ -176,12 +179,11 @@ export const Tree = (): ReactElement => {
   const store = useStore<RootState, RootAction>();
   const placeLayout = Layout.usePlacer();
   const removeLayout = Layout.useRemover();
-
   const [loading, setLoading] = useState<string | false>(false);
   const [nodes, setNodes, nodesRef] = useCombinedStateAndRef<Core.Node[]>([]);
   const [resourcesRef, setResources] = useRefAsState<ontology.Resource[]>([]);
-  const [selected, setSelected] = useState<string[]>([]);
-
+  const [selected, setSelected, selectedRef] = useCombinedStateAndRef<string[]>([]);
+  const addStatus = Status.useAggregator();
   const menuProps = Menu.useContextMenu();
 
   // Processes incoming changes to the ontology from the cluster.
@@ -263,12 +265,24 @@ export const Tree = (): ReactElement => {
         const id = new ontology.ID(clicked);
         try {
           setLoading(clicked);
-          const resources = await client.ontology.retrieveChildren(id, true, true);
+          const resources = await client.ontology.retrieveChildren(id, {
+            includeSchema: false,
+          });
           const converted = toTreeNodes(services, resources);
-          const nextTree = Core.setNode({
+          const nextTree = Core.updateNodeChildren({
             tree: nodesRef.current,
-            destination: clicked,
-            additions: converted,
+            parent: clicked,
+            updater: (nodes) => {
+              const res = converted.map((node) => {
+                const existing = nodes.find(({ key }) => key === node.key);
+                return { ...existing, ...node };
+              });
+              const nodesBeingRenamed = nodes.filter(
+                ({ key, name }) =>
+                  !converted.find(({ key: k }) => k === key) && name.length === 0,
+              );
+              return [...res, ...nodesBeingRenamed];
+            },
           });
           const keys = resources.map(({ id }) => id.toString());
           resourcesRef.current = [
@@ -299,6 +313,7 @@ export const Tree = (): ReactElement => {
         placeLayout,
         removeLayout,
         name,
+        addStatus,
         state: {
           nodes: nodesSnapshot,
           resources: resourcesRef.current,
@@ -321,6 +336,7 @@ export const Tree = (): ReactElement => {
         services,
         placeLayout,
         removeLayout,
+        addStatus,
         selection: resourcesRef.current.filter(({ id }) => id.toString() === key),
       });
     },
@@ -343,6 +359,10 @@ export const Tree = (): ReactElement => {
       // In the case where we right clicked the menu, but it's not in the current
       // selection, we only display a context menu for that item.
       if (rightClickedButNotSelected != null) keys = [rightClickedButNotSelected];
+      // Because we're using a virtualized tree, the keys from the context menu
+      // might not actually be accurate (because we're missing DOM elements), so instead
+      // we pull directly from the list selected state.
+      else keys = selectedRef.current;
       const resources = resourcesRef.current;
       const nodeSnapshot = nodesRef.current;
 
@@ -366,6 +386,7 @@ export const Tree = (): ReactElement => {
         services,
         placeLayout,
         removeLayout,
+        addStatus,
         selection: {
           parent,
           nodes: selectedNodes,
@@ -377,6 +398,9 @@ export const Tree = (): ReactElement => {
           setNodes,
           setSelection: setSelected,
           setResources,
+          expand: treeProps.expand,
+          contract: treeProps.contract,
+          setLoading: setLoading,
         },
       };
 
@@ -403,9 +427,10 @@ export const Tree = (): ReactElement => {
   const item = useCallback(
     (props: Core.ItemProps): ReactElement => (
       <AdapterItem
+        {...props}
+        key={props.entry.key}
         loading={props.entry.key === loading}
         services={services}
-        {...props}
       />
     ),
     [services, loading],

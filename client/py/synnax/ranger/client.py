@@ -68,6 +68,7 @@ class RangeClient:
         *,
         name: str,
         time_range: TimeRange,
+        color: str = "",
         retrieve_if_name_exists: bool = False,
     ) -> Range:
         """Creates a named range spanning a region of time. This range is persisted
@@ -120,11 +121,12 @@ class RangeClient:
         *,
         name: str = "",
         time_range: TimeRange | None = None,
+        color: str = "",
         retrieve_if_name_exists: bool = False,
     ) -> Range | list[Range]:
         is_single = True
         if ranges is None:
-            to_create = [RangePayload(name=name, time_range=time_range)]
+            to_create = [RangePayload(name=name, time_range=time_range, color=color)]
         elif isinstance(ranges, Range):
             to_create = [ranges.to_payload()]
         else:

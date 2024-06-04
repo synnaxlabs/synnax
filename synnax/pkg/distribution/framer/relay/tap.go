@@ -43,7 +43,7 @@ type tapController struct {
 	closer io.Closer
 }
 
-// tapper tracks readers demands for channel's to stream. It uses these demands to tapper
+// tapper tracks readers demands for channel's to stream. It uses these demands to tap
 // into the relays of other nodes and the storage layer to receive frames. It then pipes
 // these frames to an outlet, which, in this case is the relay's delta.
 type tapper struct {
@@ -122,11 +122,12 @@ func (t *tapper) updateTaps(
 ) {
 	// Open any new taps we may need
 	for node, keys := range nodeDemands {
-		var err error
 		if _, ok := t.taps[node]; !ok && !node.IsFree() {
-			t.taps[node], err = t.tapInto(ctx, node, keys)
-			if err != nil {
+			tc, err_ := t.tapInto(ctx, node, keys)
+			if err_ != nil {
 				t.L.Error("failed to open new tap", zap.Uint16("node", uint16(node)))
+			} else {
+				t.taps[node] = tc
 			}
 		}
 	}
@@ -231,7 +232,9 @@ func (f *freeWriteTap) Flow(sCtx signal.Context, opts ...confluence.Option) {
 				f.keys = req.Keys
 			case req := <-f.freeWrites.Outlet():
 				req.Frame = req.Frame.FilterKeys(f.keys)
-				f.Out.Inlet() <- req
+				if len(req.Frame.Keys) != 0 {
+					f.Out.Inlet() <- req
+				}
 			}
 		}
 	}, o.Signal...)

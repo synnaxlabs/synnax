@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -11,6 +11,7 @@ import { z } from "zod";
 
 export type Variant = "set" | "delete";
 
+ 
 export const Z = <V extends z.ZodTypeAny>(value: V) =>
   z.object({
     variant: z.enum(["set", "delete"]),
@@ -18,16 +19,16 @@ export const Z = <V extends z.ZodTypeAny>(value: V) =>
     value,
   });
 
-export type Set<K, V> = {
+export interface Set<K, V> {
   variant: "set";
   key: K;
   value: V;
-};
+}
 
-export type Delete<K, V> = {
+export interface Delete<K, V> {
   variant: "delete";
   key: K;
   value?: V;
-};
+}
 
 export type Change<K, V> = Set<K, V> | Delete<K, V>;

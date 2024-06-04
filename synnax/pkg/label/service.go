@@ -40,7 +40,7 @@ func (c Config) Validate() error {
 	v := validate.New("label")
 	validate.NotNil(v, "DB", c.DB)
 	validate.NotNil(v, "Ontology", c.Ontology)
-	validate.NotNil(v, "Group", c.Group)
+	validate.NotNil(v, "ArrayIndex", c.Group)
 	return v.Error()
 }
 
@@ -59,18 +59,18 @@ type Service struct {
 	group   group.Group
 }
 
-const groupName = "Labels"
+//const groupName = "Labels"
 
 func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 	cfg, err := config.New(DefaultConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	g, err := cfg.Group.CreateOrRetrieve(ctx, groupName, ontology.RootID)
-	if err != nil {
-		return nil, err
-	}
-	s := &Service{Config: cfg, group: g}
+	//g, err := cfg.Group.CreateOrRetrieve(ctx, groupName, ontology.RootID)
+	//if err != nil {
+	//	return nil, err
+	//}
+	s := &Service{Config: cfg}
 	cfg.Ontology.RegisterService(s)
 	if cfg.Signals != nil {
 		s.signals, err = signals.PublishFromGorp(ctx, cfg.Signals, signals.GorpPublisherConfigUUID[Label](cfg.DB))
@@ -84,5 +84,5 @@ func OpenService(ctx context.Context, cfgs ...Config) (*Service, error) {
 func (s *Service) NewRetrieve() Retrieve { return NewRetrieve(s.DB, s.Ontology) }
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	return Writer{tx: tx, otg: s.Ontology.NewWriter(tx), group: s.group}
+	return Writer{tx: tx, otg: s.Ontology.NewWriter(tx)}
 }

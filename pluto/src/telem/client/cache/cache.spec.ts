@@ -1,7 +1,16 @@
+// Copyright 2024 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import { alamos } from "@synnaxlabs/alamos";
-import { DataType, UnexpectedError, channel } from "@synnaxlabs/client";
+import { channel,DataType, UnexpectedError } from "@synnaxlabs/client";
 import { toArray } from "@synnaxlabs/x";
-import { describe, it, vi, expect } from "vitest";
+import { describe, expect,it, vi } from "vitest";
 
 import { Cache } from "@/telem/client/cache/cache";
 
@@ -24,9 +33,9 @@ class MockRetriever implements channel.Retriever {
 
   async retrieve(
     channels: channel.Params,
-    rangeKey?: string,
+    opts?: channel.RetrieveOptions,
   ): Promise<channel.Payload[]> {
-    return await this.func(channels, rangeKey);
+    return await this.func(channels, opts?.rangeKey);
   }
 }
 

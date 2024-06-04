@@ -1,0 +1,29 @@
+cc_library(
+    name = "config",
+    hdrs = [
+        "config.h",
+    ],
+    copts = select({
+        "@platforms//os:windows": ["/std:c++20"],
+        "//conditions:default": [],
+    }),
+    visibility = ["//visibility:public"],
+    deps = [
+        "//client/cpp/errors",
+        "//freighter/cpp:freighter",
+        "@nlohmann_json//:json",
+    ],
+)
+
+cc_test(
+    name = "config_test",
+    srcs = [
+        "config_test.cpp",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":config",
+        "@com_google_googletest//:gtest_main",
+        "@nlohmann_json//:json",
+    ],
+)

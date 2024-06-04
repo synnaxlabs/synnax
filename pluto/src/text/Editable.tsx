@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,16 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import "@/text/Editable.css";
+
 import type { KeyboardEvent, ReactElement } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { CSS } from "@/css";
 import { type Input } from "@/input";
 import { type state } from "@/state";
 import { type text } from "@/text/core";
 import { Text, type TextProps } from "@/text/Text";
-
-import "@/text/Editable.css";
 
 export type EditableProps<L extends text.Level = "h1"> = Omit<
   TextProps<L>,
@@ -31,11 +31,16 @@ const NOMINAL_EXIT_KEYS = ["Escape", "Enter"];
 
 const BASE_CLASS = CSS.BM("text", "editable");
 
-export const edit = (id: string): void => {
+export const edit = (id: string, onChange?: (value: string) => void): void => {
   const d = document.getElementById(id);
   if (d == null || !d.classList.contains(BASE_CLASS))
     return console.error(`Element with id ${id} is not an instance of Text.Editable`);
   d.setAttribute("contenteditable", "true");
+  if (onChange == null) return;
+  d.addEventListener("change", (e) => {
+    const t = e.target as HTMLElement;
+    onChange(t.innerText.trim());
+  });
 };
 
 export const Editable = <L extends text.Level = text.Level>({
@@ -62,8 +67,10 @@ export const Editable = <L extends text.Level = text.Level>({
     e.preventDefault();
     const el = ref.current;
     setEditable(false);
-    onChange?.(el.innerText.trim());
+    if (e.key === "Enter") onChange?.(el.innerText.trim());
+    else el.innerText = value;
     el.blur();
+    el.dispatchEvent(new Event("change"));
   };
 
   useLayoutEffect(() => {
@@ -88,9 +95,7 @@ export const Editable = <L extends text.Level = text.Level>({
         if (makeEditable) setEditable(true);
       });
     });
-    m.observe(ref.current as Node, {
-      attributes: true,
-    });
+    m.observe(ref.current as Node, { attributes: true });
   }, []);
 
   return (
@@ -98,7 +103,12 @@ export const Editable = <L extends text.Level = text.Level>({
     <Text<L>
       ref={ref}
       className={CSS.BM("text", "editable")}
-      onBlur={() => setEditable(false)}
+      onBlur={() => {
+        setEditable(false);
+        const el = ref.current;
+        if (el == null) return;
+        el.dispatchEvent(new Event("change"));
+      }}
       onKeyDown={handleKeyDown}
       onKeyUp={(e: KeyboardEvent<HTMLParagraphElement>) => {
         e.stopPropagation();
@@ -130,12 +140,12 @@ export const MaybeEditable = <L extends text.Level = text.Level>({
   ...props
 }: MaybeEditableProps<L>): ReactElement => {
   if (disabled || onChange == null || typeof onChange === "boolean")
-    // @ts-expect-error
+    // @ts-expect-error - generic component errors
     return <Text<L> {...props}>{value}</Text>;
 
   return (
     <>
-      {/* @ts-expect-error */}
+      {/* @ts-expect-error - generic component errors */}
       <Editable<L>
         allowDoubleClick={allowDoubleClick}
         onChange={onChange}

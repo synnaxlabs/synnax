@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,22 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/vis/lineplot/Viewport.css";
+
+import { box, xy } from "@synnaxlabs/x";
 import {
+  forwardRef,
   type PropsWithChildren,
   type ReactElement,
   useCallback,
   useLayoutEffect,
-  forwardRef,
 } from "react";
-
-import { box, xy } from "@synnaxlabs/x";
 
 import { CSS } from "@/css";
 import { Viewport as Core } from "@/viewport";
+import { type UseRefValue } from "@/viewport/use";
 import { useContext } from "@/vis/lineplot/LinePlot";
-
-import "@/vis/lineplot/Viewport.css";
-import { UseRefValue } from "@/viewport/use";
 
 export interface ViewportProps extends PropsWithChildren, Core.UseProps {}
 
@@ -64,3 +63,4 @@ export const Viewport = forwardRef<UseRefValue | undefined, ViewportProps>(
     );
   },
 );
+Viewport.displayName = "Viewport";

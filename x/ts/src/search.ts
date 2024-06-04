@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -28,12 +28,14 @@ export const Search = {
 };
 
 export interface TermSearcher<T, K extends Key, E extends Keyed<K>> {
+  readonly type: string;
   search: (term: T) => E[];
   retrieve: (keys: K[]) => E[];
   page: (offset: number, limit: number) => E[];
 }
 
 export interface AsyncTermSearcher<T, K extends Key, E extends Keyed<K>> {
+  readonly type: string;
   search: (term: T) => Promise<E[]>;
   retrieve: (keys: K[]) => Promise<E[]>;
   page: (offset: number, limit: number) => Promise<E[]>;

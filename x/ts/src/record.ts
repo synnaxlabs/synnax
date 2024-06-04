@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -11,18 +11,22 @@ import { z } from "zod";
 
 export type Key = string | number | symbol;
 
-export type UnknownRecord = { [key: Key]: unknown };
+export type UnknownRecord = Record<Key, unknown>;
 
-export type Keyed<K extends Key> = { key: K };
+export interface Keyed<K extends Key> {
+  key: K;
+}
 
 export const unknownRecordZ = z.record(
   z.union([z.number(), z.string(), z.symbol()]),
   z.unknown(),
 );
 
-export type Entries<T> = {
-  [K in keyof T]: [K, T[K]];
-}[keyof T][];
+export type Entries<T> = Array<
+  {
+    [K in keyof T]: [K, T[K]];
+  }[keyof T]
+>;
 
 export const getEntries = <T extends Record<Key, unknown>>(obj: T): Entries<T> =>
   Object.entries(obj) as Entries<T>;

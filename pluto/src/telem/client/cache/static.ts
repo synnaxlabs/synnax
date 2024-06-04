@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,13 +9,13 @@
 
 import { alamos } from "@synnaxlabs/alamos";
 import {
-  TimeRange,
-  type Series,
   bounds,
-  TimeStamp,
-  TimeSpan,
   type Required,
+  type Series,
   Size,
+  TimeRange,
+  TimeSpan,
+  TimeStamp,
 } from "@synnaxlabs/x";
 
 import { convertSeriesFloat32 } from "@/telem/aether/convertSeries";
@@ -112,11 +112,12 @@ export class Static {
    * @returns metrics about the garbage collection.
    */
   gc(): CacheGCMetrics {
+    const { staleEntryThreshold } = this.props;
     const res = zeroCacheGCMetrics();
     const newData = this.data.filter((s) => {
+      // Keep entries that have a ref count that is greater than 0 or were just read.
       const shouldKeep =
-        s.data.refCount === 0 &&
-        TimeStamp.since(s.addedAt).lessThan(this.props.staleEntryThreshold);
+        s.data.refCount > 0 || TimeStamp.since(s.addedAt).lessThan(staleEntryThreshold);
       if (!shouldKeep) res.purgedBytes = res.purgedBytes.add(s.data.byteCapacity);
       return shouldKeep;
     });
@@ -141,15 +142,13 @@ export class Static {
       this.data.map((s) => s.data.alignmentBounds),
       series.alignmentBounds,
     );
-    if (insertionPlan === null) {
-      L.debug("Found no viable insertion plan", {
+    if (insertionPlan === null)
+      return L.debug("Found no viable insertion plan", {
         inserting: series.digest,
         cacheContents: this.data.map((s) => s.data.digest),
       });
-      return;
-    }
     const { removeBefore, removeAfter, insertInto, deleteInBetween } = insertionPlan;
-    series = series.slice(removeBefore, series.data.length - removeAfter);
+    series = series.slice(removeBefore, series.data.length - Number(removeAfter));
     // This means we executed a redundant read.
     if (series.length === 0) return;
     this.data.splice(insertInto, deleteInBetween, {

@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,12 +9,12 @@
 
 import type { Action, UnknownAction } from "@reduxjs/toolkit";
 
-import { Event } from "@/runtime";
-import { StoreState } from "@/state";
+import { type Event } from "@/runtime";
+import { type StoreState } from "@/state";
 
 export const encode = <S extends StoreState, A extends Action = UnknownAction>(
-  event: Event<S, A>
+  event: Event<S, A>,
 ): string => JSON.stringify(event);
 export const decode = <S extends StoreState, A extends Action = UnknownAction>(
-  event: string
+  event: string,
 ): Event<S, A> => JSON.parse(event) as Event<S, A>;

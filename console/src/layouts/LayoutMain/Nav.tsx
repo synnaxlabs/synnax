@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,29 +7,32 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
+import "@/layouts/LayoutMain/Nav.css";
 
 import { Icon, Logo } from "@synnaxlabs/media";
-import { Divider, Nav, Button, OS, Text } from "@synnaxlabs/pluto";
+import { Button, Divider, Nav, OS, Text } from "@synnaxlabs/pluto";
+import { type ReactElement } from "react";
 
+import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
 import { Controls } from "@/components";
 import { NAV_DRAWERS, NavMenu } from "@/components/nav/Nav";
 import { CSS } from "@/css";
 import { Docs } from "@/docs";
+import { NI } from "@/hardware/ni";
+import { OPC } from "@/hardware/opc";
 import { Layout } from "@/layout";
 import { NAV_SIZES } from "@/layouts/LayoutMain/constants";
 import { LinePlot } from "@/lineplot";
 import { Palette } from "@/palette/Palette";
 import { type TriggerConfig } from "@/palette/types";
-import { PID } from "@/pid";
+import { Persist } from "@/persist";
 import { Range } from "@/range";
+import { Schematic } from "@/schematic";
 import { SERVICES } from "@/services";
 import { Version } from "@/version";
 import { Vis } from "@/vis";
 import { Workspace } from "@/workspace";
-
-import "@/layouts/LayoutMain/Nav.css";
 
 const DEFAULT_TRIGGER: TriggerConfig = {
   defaultMode: "command",
@@ -40,23 +43,25 @@ const DEFAULT_TRIGGER: TriggerConfig = {
 const COMMANDS = [
   ...LinePlot.COMMANDS,
   ...Layout.COMMANDS,
-  ...PID.COMMANDS,
+  ...Schematic.COMMANDS,
   ...Docs.COMMANDS,
   ...Workspace.COMMANDS,
   ...Cluster.COMMANDS,
   ...Range.COMMANDS,
+  ...OPC.COMMANDS,
+  ...Persist.COMMANDS,
+  ...NI.COMMANDS,
+  ...Channel.COMMANDS,
 ];
 
-const NavTopPalette = (): ReactElement => {
-  return (
-    <Palette
-      commands={COMMANDS}
-      triggers={DEFAULT_TRIGGER}
-      services={SERVICES}
-      commandSymbol=">"
-    />
-  );
-};
+const NavTopPalette = (): ReactElement => (
+  <Palette
+    commands={COMMANDS}
+    triggers={DEFAULT_TRIGGER}
+    services={SERVICES}
+    commandSymbol=">"
+  />
+);
 
 /**
  * NavTop is the top navigation bar for the Synnax Console. Try to keep this component
@@ -72,7 +77,6 @@ export const NavTop = (): ReactElement => {
 
   return (
     <Nav.Bar
-      data-tauri-drag-region
       location="top"
       size={NAV_SIZES.top}
       className={CSS(CSS.B("main-nav"), CSS.B("main-nav-top"))}
@@ -80,11 +84,7 @@ export const NavTop = (): ReactElement => {
       <Nav.Bar.Start className="console-main-nav-top__start" data-tauri-drag-region>
         <Controls className="console-controls--macos" visibleIfOS="MacOS" />
         {os === "Windows" && (
-          <Logo
-            className="console-main-nav-top__logo"
-            variant="icon"
-            data-tauri-drag-region
-          />
+          <Logo className="console-main-nav-top__logo" variant="icon" />
         )}
         <Workspace.Selector />
       </Nav.Bar.Start>
@@ -171,7 +171,7 @@ export const NavBottom = (): ReactElement => {
       </Nav.Bar.Start>
       <Nav.Bar.End className="console-main-nav-bottom__end" empty>
         <Divider.Divider />
-        <Version.Badge level="p" />
+        <Version.Badge />
         <Divider.Divider />
         <Cluster.Dropdown />
         <Divider.Divider />

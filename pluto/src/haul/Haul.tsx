@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,24 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/haul/Haul.css";
+
+import { box, Destructor, type Key, type Optional, xy } from "@synnaxlabs/x";
 import React, {
+  createContext,
   type DragEvent,
   type DragEventHandler,
   type MutableRefObject,
   type PropsWithChildren,
-  createContext,
   useCallback,
   useContext as reactUseContext,
+  useEffect,
+  useId,
   useMemo,
   useRef,
-  useId,
 } from "react";
 
-import { type Key, type Optional } from "@synnaxlabs/x";
-
 import { type state } from "@/state";
-
-import "@/haul/Haul.css";
 
 // Item represents a draggable item.
 export interface Item {
@@ -45,6 +45,12 @@ export const ZERO_DRAGGING_STATE: DraggingState = {
   items: [],
 };
 
+interface DropProps {
+  target: Item;
+  dropped: Item[];
+}
+
+type DragEndInterceptor = (state: DraggingState, cursor: xy.XY) => DropProps | null;
 export interface ContextValue {
   state: DraggingState;
   start: (
@@ -52,8 +58,9 @@ export interface ContextValue {
     items: Item[],
     onSuccessfulDrop?: (props: OnSuccessfulDropProps) => void,
   ) => void;
-  end: () => void;
-  drop: (target: Item, dropped: Item[]) => void;
+  end: (cursor: xy.XY) => void;
+  drop: (props: DropProps) => void;
+  bind: (interceptor: DragEndInterceptor) => Destructor;
 }
 
 const Context = createContext<ContextValue | null>(null);
@@ -83,6 +90,7 @@ export const Provider = ({
 
   const [state, setState] = useState(ZERO_DRAGGING_STATE);
   const ref = useRef<ProviderRef>(HAUL_REF);
+  const interceptors = useRef<Set<DragEndInterceptor>>(new Set());
 
   const start: ContextValue["start"] = useCallback(
     (source, items, onSuccessfulDrop) => {
@@ -92,13 +100,8 @@ export const Provider = ({
     [setState, onDropOutside],
   );
 
-  const end: ContextValue["end"] = useCallback(() => {
-    ref.current = HAUL_REF;
-    setState(ZERO_DRAGGING_STATE);
-  }, [setState]);
-
   const drop: ContextValue["drop"] = useCallback(
-    (target, dropped) => {
+    ({ target, dropped }) => {
       ref.current.onSuccessfulDrop?.({
         target,
         dropped,
@@ -110,8 +113,27 @@ export const Provider = ({
     [setState],
   );
 
+  const end: ContextValue["end"] = useCallback(
+    (cursor: xy.XY) => {
+      let dropped: DropProps | null = null;
+      interceptors.current.forEach((interceptor) => {
+        if (dropped != null) return;
+        dropped = interceptor(ref.current, cursor);
+      });
+      if (dropped != null) drop(dropped);
+      ref.current = HAUL_REF;
+      setState(ZERO_DRAGGING_STATE);
+    },
+    [setState],
+  );
+
+  const bind: ContextValue["bind"] = useCallback((interceptor) => {
+    interceptors.current.add(interceptor);
+    return () => interceptors.current.delete(interceptor);
+  }, []);
+
   const oCtx = useMemo<ContextValue>(
-    () => ctx ?? { state, start, end, drop },
+    () => ctx ?? { state, start, end, drop, bind },
     [state, start, end, drop, ctx],
   );
   return <Context.Provider value={oCtx}>{children}</Context.Provider>;
@@ -148,7 +170,7 @@ export interface UseDragReturn {
     items: Item[],
     onSuccessfulDrop?: (props: OnSuccessfulDropProps) => void,
   ) => void;
-  onDragEnd: () => void;
+  onDragEnd: (e: DragEvent) => void;
 }
 
 export const useDrag = ({ type, key }: UseDragProps): UseDragReturn => {
@@ -159,7 +181,7 @@ export const useDrag = ({ type, key }: UseDragProps): UseDragReturn => {
   const { start, end } = ctx;
   return {
     startDrag: useCallback((items, f) => start(source, items, f), [start, source]),
-    onDragEnd: end,
+    onDragEnd: (e: DragEvent) => end(xy.construct({ x: e.screenX, y: e.screenY })),
   };
 };
 
@@ -168,7 +190,7 @@ export const useDrag = ({ type, key }: UseDragProps): UseDragReturn => {
 export type CanDrop = (state: DraggingState) => boolean;
 
 export interface OnDropProps extends DraggingState {
-  event: DragEvent;
+  event?: DragEvent;
 }
 
 export type OnDragOverProps = OnDropProps;
@@ -215,15 +237,12 @@ export const useDrop = ({
     (event: DragEvent) => {
       if (!canDrop(ref.current)) return;
       event.preventDefault();
-      drop(target, onDrop({ ...ref.current, event }));
+      drop({ target, dropped: onDrop({ ...ref.current, event }) });
     },
     [ref, onDrop, canDrop, drop, target],
   );
 
-  return {
-    onDragOver: handleDragOver,
-    onDrop: handleDrop,
-  };
+  return { onDragOver: handleDragOver, onDrop: handleDrop };
 };
 
 // |||||| DRAG AND DROP ||||||
@@ -254,3 +273,46 @@ export const canDropOfType =
 
 export const filterByType = (type: string, entities: Item[]): Item[] =>
   entities.filter((entity) => entity.type === type);
+
+export interface UseDropOutsideProps extends Omit<UseDropProps, "onDrop"> {
+  onDrop: (props: OnDropProps, cursor: xy.XY) => Item[];
+}
+
+export const useDropOutside = ({ type, key, ...rest }: UseDropOutsideProps): void => {
+  const ctx = useContext();
+  if (ctx == null) return;
+  const dragging = useDraggingRef();
+  const { bind } = ctx;
+  const isOutside = useRef(false);
+  const key_ = key ?? useId();
+  const target: Item = useMemo(() => ({ key: key_, type }), [key_, type]);
+  const propsRef = useRef<UseDropOutsideProps>({ ...rest, type, key: key_ });
+  useEffect(() => {
+    const release = bind((state, cursor) => {
+      const { canDrop, onDrop } = propsRef.current;
+      if (!canDrop(state) || !isOutside.current) return null;
+      const dropped = onDrop({ ...state }, cursor);
+      return { target, dropped };
+    });
+    const handleMouseEnter = () => {
+      const { canDrop } = propsRef.current;
+      isOutside.current = false;
+      if (!canDrop(dragging.current)) return;
+    };
+    const handleMouseLeave = (e: globalThis.DragEvent) => {
+      const { onDragOver, canDrop } = propsRef.current;
+      const windowBox = box.construct(window.document.documentElement);
+      if (box.contains(windowBox, xy.construct(e.clientX, e.clientY))) return;
+      isOutside.current = true;
+      if (!canDrop(dragging.current)) return;
+      onDragOver?.(dragging.current);
+    };
+    document.body.addEventListener("dragleave", handleMouseLeave);
+    document.body.addEventListener("mouseenter", handleMouseEnter);
+    return () => {
+      release();
+      document.body.removeEventListener("dragleave", handleMouseLeave);
+      document.body.removeEventListener("mouseenter", handleMouseEnter);
+    };
+  }, []);
+};

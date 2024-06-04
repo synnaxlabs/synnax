@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, it, expect } from "vitest";
+import { describe, expect,it } from "vitest";
 
 import { deep } from "@/deep";
 
@@ -52,7 +52,7 @@ describe("deepEqual", () => {
       const a = [1, 2, 3];
       const b = [1, 2, 3];
       expect(deep.equal(a, b)).toBe(true);
-    })
+    });
     it("should true for object arrays that are equal", () => {
       const a = [{ a: 1 }, { b: 2 }];
       const b = [{ a: 1 }, { b: 2 }];
@@ -75,7 +75,7 @@ describe("deepEqual", () => {
     });
     it("should return false for object arrays that are not equal", () => {
       const a = [{ a: 1 }, { b: 2 }];
-      const b = [{ a: 1 }, { b: 2, c: 4}];
+      const b = [{ a: 1 }, { b: 2, c: 4 }];
       expect(deep.equal(a, b)).toBe(false);
     });
   });

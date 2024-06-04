@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type RefCallback, useCallback, useEffect, useRef } from "react";
-
 import { box, debounce as debounceF, type direction } from "@synnaxlabs/x";
+import { type RefCallback, useCallback, useEffect, useRef } from "react";
 
 import { compareArrayDeps, useMemoCompare } from "@/memo";
 
@@ -19,7 +18,7 @@ export interface UseResizeOpts {
    */
   triggers?: direction.Direction[];
   /**  Debounce the resize event by this many milliseconds.
-  Useful for preventing expensive renders until rezizing has stopped. */
+  Useful for preventing expensive renders until resizing has stopped. */
   debounce?: number;
   /** If false, the hook wont observe the element. Defaults to true. */
   enabled?: boolean;

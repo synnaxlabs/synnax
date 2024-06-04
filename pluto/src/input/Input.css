@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Synnax Labs, Inc.
+ * Copyright 2024 Synnax Labs, Inc.
  *
  * Use of this software is governed by the Business Source License included in the file
  * licenses/BSL.txt.
@@ -13,9 +13,11 @@
     color: var(--pluto-text-color);
     margin: 0;
     width: 100%;
+    flex-shrink: 0;
 
     & .pluto-input__internal {
         position: relative;
+        height: 100%;
         background: var(--pluto-gray-l1);
         flex-grow: 1;
     }
@@ -37,7 +39,7 @@
         }
     }
 
-    & > .pluto-input__internal:focus-within{
+    & > .pluto-input__internal:focus-within {
         border-color: var(--pluto-primary-z) !important;
         & input {
             outline: none;
@@ -60,6 +62,12 @@
         font-size: var(--pluto-h5-size);
         font-weight: var(--pluto-h5-weight);
         line-height: var(--pluto-h5-line-height);
+    }
+
+    &.pluto--huge input {
+        font-size: var(--pluto-h2-size);
+        font-weight: var(--pluto-h2-weight);
+        line-height: var(--pluto-h2-line-height);
     }
 
     &:not(:focus-within) .pluto--centered {
@@ -121,6 +129,7 @@
     & .pluto-input__internal {
         border: none !important;
         background: none !important;
+        height: initial !important;
     }
 
     & input {
@@ -134,7 +143,6 @@
         }
     }
 }
-
 
 input[type="number"]::-webkit-inner-spin-button {
     /* stylelint-disable-next-line property-no-vendor-prefix */

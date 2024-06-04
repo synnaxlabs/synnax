@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,26 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
-
 import { ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
+  Channel,
   type Haul,
   Menu,
-  Channel,
+  type Schematic as PlutoSchematic,
   telem,
-  type PID as PlutoPID,
 } from "@synnaxlabs/pluto";
 import { Tree } from "@synnaxlabs/pluto/tree";
+import { type ReactElement } from "react";
 
 import { Menu as ConsoleMenu } from "@/components";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
 import { type Ontology } from "@/ontology";
-import { PID } from "@/pid";
 import { Range } from "@/range";
+import { Schematic } from "@/schematic";
 
 const canDrop = (): boolean => false;
 
@@ -81,7 +80,7 @@ const haulItems = ({ name, id }: ontology.Resource): Haul.Item[] => {
     },
     outlet: "stringifier",
   });
-  const pidSymbolProps: PlutoPID.ValueProps = {
+  const schematicSymbolProps: PlutoSchematic.ValueProps = {
     label: {
       label: name,
       level: "p",
@@ -94,9 +93,9 @@ const haulItems = ({ name, id }: ontology.Resource): Haul.Item[] => {
       key: Number(id.key),
     },
     {
-      type: PID.HAUL_TYPE,
+      type: Schematic.HAUL_TYPE,
       key: "value",
-      data: pidSymbolProps,
+      data: schematicSymbolProps,
     },
   ];
 };
@@ -108,7 +107,6 @@ const handleSetAlias = async ({
   name,
   client,
   store,
-  state: { setNodes, nodes },
 }: Ontology.HandleTreeRenameProps): Promise<void> => {
   const activeRange = Range.select(store.getState());
   if (activeRange == null) return;
@@ -116,15 +114,25 @@ const handleSetAlias = async ({
   await rng.setAlias(Number(id.key), name);
 };
 
-const handleRename: Ontology.HandleTreeRename = (p) => {
-  void handleSetAlias(p);
+const handleRename: Ontology.HandleTreeRename = ({ client, name, id, addStatus }) => {
+  void (async () => {
+    try {
+      const channelKey = Number(id.key);
+      await client.channels.rename(channelKey, name);
+    } catch (e) {
+      addStatus({
+        variant: "error",
+        key: `renameChannelError-${id.key}`,
+        message: (e as Error).message,
+      });
+    }
+  })();
 };
 
 const handleDeleteAlias = async ({
   selection: { resources },
   client,
   store,
-  state: { setNodes, nodes },
 }: Ontology.TreeContextMenuProps): Promise<void> => {
   const activeRange = Range.select(store.getState());
   if (activeRange == null) return;
@@ -133,17 +141,42 @@ const handleDeleteAlias = async ({
 };
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
-  const { store, selection } = props;
+  const { store, selection, client, addStatus } = props;
   const activeRange = Range.select(store.getState());
-  const { nodes } = selection;
+  const { nodes, resources } = selection;
 
   const handleSelect = (itemKey: string): void => {
     switch (itemKey) {
       case "alias":
-        Tree.startRenaming(nodes[0].key);
+        Tree.startRenaming(nodes[0].key, (name) =>
+          handleSetAlias({ ...props, name, id: resources[0].id }),
+        );
+        break;
+      case "rename":
+        Tree.startRenaming(nodes[0].key, (name) => {
+          console.log("rename", name);
+          handleRename({ ...props, name, id: resources[0].id });
+        });
         break;
       case "deleteAlias":
-        void handleDeleteAlias(props);
+        handleDeleteAlias(props).catch((e: Error) => {
+          addStatus({
+            variant: "error",
+            key: "deleteAliasError",
+            message: e.message,
+          });
+        });
+        break;
+      case "delete":
+        client.channels
+          .delete(resources.map(({ id }) => Number(id.key)))
+          .catch((e: Error) => {
+            addStatus({
+              variant: "error",
+              key: "deleteChannelError",
+              message: e.message,
+            });
+          });
         break;
       case "group":
         void Group.fromSelection(props);
@@ -157,6 +190,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     <Menu.Menu level="small" iconSpacing="small" onChange={handleSelect}>
       <ConsoleMenu.Item.HardReload />
       <Group.GroupMenuItem selection={selection} />
+      <Menu.Item itemKey="rename" startIcon={<Icon.Rename />}>
+        Rename
+      </Menu.Item>
       {activeRange != null && activeRange.persisted && (
         <>
           {singleResource && (
@@ -169,6 +205,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           </Menu.Item>
         </>
       )}
+      <Menu.Item itemKey="delete" startIcon={<Icon.Delete />}>
+        Delete
+      </Menu.Item>
     </Menu.Menu>
   );
 };
@@ -188,7 +227,7 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   icon: <Icon.Channel />,
   hasChildren: false,
   allowRename,
-  onRename: handleRename,
+  onRename: () => {},
   canDrop,
   onSelect: handleSelect,
   haulItems,

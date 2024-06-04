@@ -11,9 +11,8 @@ package http
 
 import (
 	"context"
-	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/freighter"
-	"github.com/synnaxlabs/freighter/ferrors"
+	"github.com/synnaxlabs/x/errors"
 	"strconv"
 	"strings"
 )
@@ -39,23 +38,19 @@ func (t TestError) Error() string {
 	return t.Message
 }
 
-func (t TestError) FreighterType() ferrors.Type {
-	return "integration.error"
-}
-
-func encodeTestError(_ context.Context, err error) (ferrors.Payload, bool) {
+func encodeTestError(_ context.Context, err error) (errors.Payload, bool) {
 	var te TestError
 	ok := errors.As(err, &te)
 	if !ok {
-		return ferrors.Payload{}, false
+		return errors.Payload{}, false
 	}
-	return ferrors.Payload{
+	return errors.Payload{
 		Type: "integration.error",
 		Data: strconv.Itoa(te.Code) + "," + te.Message,
 	}, true
 }
 
-func decodeTestError(_ context.Context, pld ferrors.Payload) (error, bool) {
+func decodeTestError(_ context.Context, pld errors.Payload) (error, bool) {
 	if pld.Type != "integration.error" {
 		return nil, false
 	}
@@ -74,5 +69,5 @@ func decodeTestError(_ context.Context, pld ferrors.Payload) (error, bool) {
 }
 
 func init() {
-	ferrors.Register(encodeTestError, decodeTestError)
+	errors.Register(encodeTestError, decodeTestError)
 }

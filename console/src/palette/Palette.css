@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Synnax Labs, Inc.
+ * Copyright 2024 Synnax Labs, Inc.
  *
  * Use of this software is governed by the Business Source License included in the file
  * licenses/BSL.txt.
@@ -11,43 +11,50 @@
 
 .console-palette {
     width: 100%;
+    max-width: 800px;
+}
+
+.console-palette__btn {
+    background-color: var(--pluto-gray-l2) !important;
+    border-color: var(--pluto-gray-l4) !important;
+
+    &:hover {
+        background-color: var(--pluto-gray-l3) !important;
+    }
+}
+
+.console-palette__content {
+    width: 100%;
     max-width: 1200px;
+    max-height: 500px;
 
-    .console-palette__list {
-        & .pluto-status-text {
-            height: 150px;
+    .pluto-list__item {
+        .console-palette__actions {
+            opacity: 0;
         }
-    }
-
-    
-}
-
-.console-notifications {
-    .console-notification {
-        padding: 1rem;
-        &:not(:last-child) {
-            border-bottom: var(--pluto-border);
-        }
-        border-color: var(--pluto-gray-l3);
-
-        & .console-notification__message {
-            font-weight: 450;
-        }
-
-        & .console-notification__time {
-            color: var(--pluto-gray-l7);
-            font-weight: 450;
-        }
-
-        & .console-notification__description {
-            color: var(--pluto-gray-l8);
+        &:is(:hover, .pluto--hovered) {
+            .console-palette__actions {
+                opacity: 1;
+            }
         }
     }
 }
 
+.console-palette__list {
+    overflow-y: auto;
+
+    & .pluto-status-text {
+        height: 150px;
+    }
+}
+
+.console-palette__content {
+    width: 95vw;
+    min-height: 400px;
+    max-width: 1200px;
+}
 
 .console-palette__item {
-    border-radius: 0;
     width: 100%;
 }
 

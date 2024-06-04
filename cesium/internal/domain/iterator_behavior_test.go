@@ -14,21 +14,26 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/domain"
+	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("Iterator Behavior", func() {
+var _ = Describe("Iterator Behavior", Ordered, func() {
 	for fsName, makeFS := range fileSystems {
-		fs := makeFS()
 		Context("FS: "+fsName, Ordered, func() {
-			var db *domain.DB
+			var (
+				db      *domain.DB
+				fs      xfs.FS
+				cleanUp func() error
+			)
 			BeforeEach(func() {
-				db = MustSucceed(domain.Open(domain.Config{FS: MustSucceed(fs.Sub(rootPath))}))
+				fs, cleanUp = makeFS()
+				db = MustSucceed(domain.Open(domain.Config{FS: fs}))
 			})
 			AfterEach(func() {
 				Expect(db.Close()).To(Succeed())
-				Expect(fs.Remove(rootPath)).To(Succeed())
+				Expect(cleanUp()).To(Succeed())
 			})
 			Describe("Valid", func() {
 				It("Should return false on an iterator with zero span bounds", func() {
@@ -163,8 +168,16 @@ var _ = Describe("Iterator Behavior", func() {
 					Expect(i.SeekFirst(ctx)).To(BeFalse())
 					Expect(i.Valid()).To(BeFalse())
 					_, err := i.NewReader(ctx)
-					Expect(err).To(MatchError(e))
+					Expect(err).To(HaveOccurredAs(e))
 					Expect(i.Close()).To(Succeed())
+				})
+
+				It("Should give an iterator that cannot be used when the db is closed", func() {
+					Expect(domain.Write(ctx, db, (0 * telem.SecondTS).Range(10*telem.SecondTS), []byte{1, 2, 3, 4})).To(Succeed())
+					Expect(db.Close()).To(Succeed())
+					r := db.NewIterator(domain.IterRange(telem.TimeRangeMax))
+					Expect(r.SeekFirst(ctx)).To(BeFalse())
+					Expect(r.Close()).To(Succeed())
 				})
 			})
 		})

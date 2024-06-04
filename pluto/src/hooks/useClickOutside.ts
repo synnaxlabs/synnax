@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type RefObject, useCallback, useEffect } from "react";
-
 import { box, xy } from "@synnaxlabs/x";
+import { type RefObject, useCallback, useEffect } from "react";
 
 import { useSyncedRef } from "@/hooks";
 
@@ -35,10 +34,13 @@ export const useClickOutside = ({
   const handleClickOutside = useCallback(
     (e: MouseEvent): void => {
       const el = ref.current;
+      const windowBox = box.construct(window.document.documentElement);
+      const pos = xy.construct(e);
       if (
         el == null ||
         el.contains(e.target as Node) ||
-        box.contains(el, xy.construct(e)) ||
+        box.contains(el, pos) ||
+        !box.contains(windowBox, pos) ||
         (excludeRef.current != null &&
           excludeRef.current.some((r) => r.current?.contains(e.target as Node)))
       )
@@ -49,7 +51,7 @@ export const useClickOutside = ({
   );
   useEffect(() => {
     document.addEventListener("mousedown", handleClickOutside);
-    window.addEventListener("blur", onClickOutside);
+    // window.addEventListener("blur", onClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [handleClickOutside]);
 };

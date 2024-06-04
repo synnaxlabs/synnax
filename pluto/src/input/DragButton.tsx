@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useCallback, useMemo, useRef } from "react";
+import "@/input/DragButton.css";
 
-import { xy, type direction, box } from "@synnaxlabs/x";
-import { GrDrag } from "react-icons/gr";
+import { Icon } from "@synnaxlabs/media";
+import { box,type direction, xy } from "@synnaxlabs/x";
+import { type ReactElement, useCallback, useMemo, useRef } from "react";
 
 import { Button } from "@/button";
 import { CSS } from "@/css";
@@ -18,7 +19,6 @@ import { Cursor } from "@/cursor";
 import { useVirtualCursorDragWebKit } from "@/hooks/useCursorDrag/useVirtualCursorDragWebKit";
 import { type Control } from "@/input/types";
 
-import "@/input/DragButton.css";
 export interface DragButtonExtraProps {
   direction?: direction.Crude;
   dragDirection?: direction.Crude;
@@ -154,7 +154,7 @@ export const DragButton = ({
       onClick={(e) => e.preventDefault()}
       {...props}
     >
-      <GrDrag />
+      <Icon.Drag />
     </Button.Icon>
   );
 };

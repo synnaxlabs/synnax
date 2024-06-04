@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createSlice } from "@reduxjs/toolkit";
 import type { PayloadAction } from "@reduxjs/toolkit";
+import { createSlice } from "@reduxjs/toolkit";
 import { type SynnaxProps } from "@synnaxlabs/client";
 import { migrate } from "@synnaxlabs/x";
 
@@ -22,7 +22,7 @@ export interface SliceState extends migrate.Migratable {
    * A record of cluster keys to clusters. The active cluster is guaranteed
    * to be present in this record.
    */
-  dogs: Record<string, Cluster>;
+  clusters: Record<string, Cluster>;
   /**
    * Tracks the local cluster state.
    */
@@ -64,7 +64,9 @@ export const LOCAL: Cluster = {
 export const ZERO_STATE: SliceState = {
   version: "0.0.1",
   activeCluster: null,
-  dogs: {},
+  clusters: {
+    [LOCAL_CLUSTER_KEY]: LOCAL,
+  },
   localState: {
     pid: 0,
     command: "stop",
@@ -100,18 +102,18 @@ export const {
   initialState: ZERO_STATE,
   reducers: {
     set: (
-      { activeCluster, dogs: clusters },
+      { activeCluster, clusters: clusters },
       { payload: cluster }: PayloadAction<SetPayload>,
     ) => {
       clusters[cluster.key] = cluster;
       if (activeCluster == null) activeCluster = cluster.key;
     },
     remove: (
-      { dogs: clusters },
+      { clusters: clusters },
       { payload: { keys } }: PayloadAction<RemovePayload>,
     ) => {
       for (const key of keys) {
-        // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+         
         delete clusters[key];
       }
     },

@@ -1,6 +1,0 @@
-
-cc_binary(
-    name = "basic_stream",
-    srcs = ["basic_stream.cpp"],
-    deps = ["@Freighter//freighter/gRPC:gRPC", "//src/protos:message_service"]
-)

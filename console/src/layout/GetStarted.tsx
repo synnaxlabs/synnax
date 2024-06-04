@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,13 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
+import "@/layout/GetStarted.css";
 
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Icon, Logo } from "@synnaxlabs/media";
-import { Align, Synnax, Eraser } from "@synnaxlabs/pluto";
+import { Align, Eraser, Synnax } from "@synnaxlabs/pluto";
 import { Button } from "@synnaxlabs/pluto/button";
 import { Text } from "@synnaxlabs/pluto/text";
+import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
@@ -22,8 +23,6 @@ import { usePlacer } from "@/layout/hooks";
 import { setNavdrawerVisible } from "@/layout/slice";
 import { Vis } from "@/vis";
 import { Workspace } from "@/workspace";
-
-import "@/layout/GetStarted.css";
 
 export const GetStarted = (): ReactElement => {
   const client = Synnax.use();
@@ -37,7 +36,7 @@ const NoCluster = (): ReactElement => {
   const dispatch = useDispatch();
 
   // As a note, we need to stop propagation on these events so that we don't
-  // trigger the 'onSelect' handler of the tab we're in. This means we appropartiately
+  // trigger the 'onSelect' handler of the tab we're in. This means we appropriately
   // select the new layout when we create it.
   const handleCluster: Button.ButtonProps["onClick"] = (e) => {
     e.stopPropagation();
@@ -46,7 +45,7 @@ const NoCluster = (): ReactElement => {
 
   const handleVisualize: Button.ButtonProps["onClick"] = (e) => {
     e.stopPropagation();
-    placer(Vis.create({}));
+    placer(Vis.createLayoutSelector({}));
     dispatch(setNavdrawerVisible({ windowKey, key: Vis.Toolbar.key, value: true }));
   };
 

@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ValidationError } from "@synnaxlabs/client";
-import { observe, type bounds, type Series, type Destructor } from "@synnaxlabs/x";
+import { type bounds, type Destructor, observe, type Series } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type color } from "@/color/core";
@@ -53,12 +53,16 @@ export type SinkSpec<V extends string> = z.infer<typeof sinkSpecZ> & {
   valueType: V;
 };
 
+export interface ValueProps {
+  onLoad: () => void;
+}
+
 export interface Telem {
   cleanup?: () => Promise<void>;
 }
 
 export interface Source<V> extends Telem, observe.Observable<void> {
-  value: () => Promise<V>;
+  value: (props?: ValueProps) => Promise<V>;
 }
 
 export interface Sink<V> extends Telem {
@@ -121,7 +125,7 @@ export type StringSource = Source<string>;
 export const stringSourceSpecZ = sourceSpecZ.extend({ valueType: z.literal("string") });
 export type StringSourceSpec = z.infer<typeof stringSourceSpecZ>;
 
-export class Base<P extends z.ZodTypeAny> extends observe.Observer<void> {
+export class Base<P extends z.ZodTypeAny> extends observe.BaseObserver<void> {
   private props_: z.output<P> | undefined = undefined;
   private readonly uProps_: unknown | undefined = undefined;
   schema: P | undefined = undefined;
@@ -195,11 +199,11 @@ export class UnarySourceTransformer<I, O, P extends z.ZodTypeAny>
     this.sources = sources;
   }
 
-  protected shouldNotify(value: I): boolean {
+  protected shouldNotify(_: I): boolean {
     return true;
   }
 
-  protected transform(value: I): O {
+  protected transform(_: I): O {
     throw new ValidationError(
       `[UnarySourceTransformer] - expected subclass to define transform method, but none was found.
       Make sure to define a method 'transform' on the class.`,
@@ -229,7 +233,7 @@ export class MultiSourceTransformer<I, O, P extends z.ZodTypeAny>
     this.sources = { ...this.sources, ...sources };
   }
 
-  protected transform(values: Record<string, I>): O {
+  protected transform(_: Record<string, I>): O {
     throw new ValidationError(
       `[MultiSourceTransformer] - expected subclass to define transform method, but none was found.
       Make sure to define a method 'transform' on the class.`,
@@ -260,7 +264,7 @@ export class UnarySinkTransformer<I, O, P extends z.ZodTypeAny>
     this.sinks = { ...this.sinks, ...sinks };
   }
 
-  protected transform(value: I): O {
+  protected transform(_: I): O {
     throw new ValidationError(
       `[UnarySinkTransformer] - expected subclass to define transform method, but none was found.
       Make sure to define a method 'transform' on the class.`,

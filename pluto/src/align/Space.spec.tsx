@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -18,7 +18,7 @@ describe("Space", () => {
       <Align.Space size="small">
         <div>Hello</div>
         <div>World</div>
-      </Align.Space>
+      </Align.Space>,
     );
     expect(c.getByText("Hello")).toBeTruthy();
     const world = c.getByText("World");
@@ -31,7 +31,7 @@ describe("Space", () => {
       <Align.Space empty>
         <div>Hello</div>
         <div>World</div>
-      </Align.Space>
+      </Align.Space>,
     );
     expect(c.getByText("Hello")).toBeTruthy();
     const world = c.getByText("World");
@@ -44,7 +44,7 @@ describe("Space", () => {
       <Align.Space size={2}>
         <div>Hello</div>
         <div>World</div>
-      </Align.Space>
+      </Align.Space>,
     );
     expect(c.getByText("Hello")).toBeTruthy();
     const world = c.getByText("World");

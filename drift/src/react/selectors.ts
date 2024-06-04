@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,14 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useCallback } from "react";
-
 import memoize from "proxy-memoize";
+import { useCallback } from "react";
 import { useSelector } from "react-redux";
 
-import { selectWindow, selectWindowAttribute, selectWindowKey } from "@/selectors";
-import { StoreState } from "@/state";
-import { WindowState } from "@/window";
+import {
+  selectWindow,
+  selectWindowAttribute,
+  selectWindowKey,
+  selectWindows,
+} from "@/selectors";
+import { type StoreState } from "@/state";
+import { type WindowState } from "@/window";
 
 /**
  * Selects the window with the given key.
@@ -27,25 +31,28 @@ export const useSelectWindow = (key?: string): WindowState | null =>
   useSelector(
     useCallback(
       memoize((state: StoreState) => selectWindow(state, key)),
-      [key]
-    )
+      [key],
+    ),
   );
+
+export const useSelectWindows = (): WindowState[] =>
+  useSelector(useCallback(memoize(selectWindows), []));
 
 export const useSelectWindowKey = (label?: string): string | null =>
   useSelector(
     useCallback(
       memoize((state: StoreState) => selectWindowKey(state, label)),
-      [label]
-    )
+      [label],
+    ),
   );
 
 export const useSelectWindowAttribute = <K extends keyof WindowState>(
   keyOrLabel: string,
-  attr: K
+  attr: K,
 ): WindowState[K] | null =>
   useSelector(
     useCallback(
       memoize((state: StoreState) => selectWindowAttribute(state, keyOrLabel, attr)),
-      [keyOrLabel, attr]
-    )
+      [keyOrLabel, attr],
+    ),
   );

@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,8 +9,8 @@
 
 import type { Action, UnknownAction } from "@reduxjs/toolkit";
 
-import { Communicator } from "@/runtime";
-import { StoreState } from "@/state";
+import { type Communicator } from "@/runtime";
+import { type StoreState } from "@/state";
 import { sugar } from "@/sugar";
 import { validateAction } from "@/validate";
 
@@ -35,11 +35,11 @@ export interface StoreDispatch<A extends Action = UnknownAction> {
 export const listen = async <S extends StoreState, A extends Action = UnknownAction>(
   communicator: Communicator<S, A>,
   getStore: () => (StoreStateGetter<S> & StoreDispatch<A>) | undefined | null,
-  resolve: (value: S) => void
+  resolve: (value: S) => void,
 ): Promise<void> =>
   await communicator.subscribe(({ action, emitter, state, sendState }) => {
     const s = getStore();
-    // Case where we're receivign preloaded state.
+    // case where we're receivign preloaded state.
     if (s == null) {
       if (state != null) return resolve(state);
       return;

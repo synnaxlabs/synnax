@@ -38,6 +38,7 @@ var _schema = &ontology.Schema{
 		"is_index":  {Type: schema.Bool},
 		"index":     {Type: schema.String},
 		"data_type": {Type: schema.String},
+		"internal":  {Type: schema.Bool},
 	},
 }
 
@@ -50,6 +51,7 @@ func newResource(c Channel) schema.Resource {
 	schema.Set(e, "is_index", c.IsIndex)
 	schema.Set(e, "index", c.Index().String())
 	schema.Set(e, "data_type", string(c.DataType))
+	schema.Set(e, "internal", c.Internal)
 	return e
 }
 

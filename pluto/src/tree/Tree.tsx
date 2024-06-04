@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,31 +7,36 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/tree/Tree.css";
+
+import { Icon } from "@synnaxlabs/media";
+import { Optional, unique } from "@synnaxlabs/x";
 import {
+  type FC,
+  memo,
   type ReactElement,
   useCallback,
   useMemo,
   useState,
-  type FC,
-  memo,
 } from "react";
 
-import { Icon } from "@synnaxlabs/media";
-
 import { Button } from "@/button";
+import { Caret } from "@/caret";
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
-import { useSyncedRef, useCombinedStateAndRef } from "@/hooks";
+import { useCombinedStateAndRef, useSyncedRef } from "@/hooks";
 import { List } from "@/list";
-import { type UseSelectOnChangeExtra, type UseSelectProps } from "@/list/useSelect";
+import {
+  UseSelectMultipleProps,
+  type UseSelectOnChangeExtra,
+  type UseSelectProps,
+} from "@/list/useSelect";
 import { CONTEXT_SELECTED, CONTEXT_TARGET } from "@/menu/ContextMenu";
 import { state } from "@/state";
 import { Text } from "@/text";
-import { flatten, type Node, type FlattenedNode } from "@/tree/core";
+import { flatten, type FlattenedNode, type Node } from "@/tree/core";
 import { Triggers } from "@/triggers";
-import { type RenderProp, componentRenderProp } from "@/util/renderProp";
-
-import "@/tree/Tree.css";
+import { componentRenderProp, type RenderProp } from "@/util/renderProp";
 
 export const HAUL_TYPE = "tree-item";
 
@@ -53,7 +58,9 @@ export interface UseProps {
 export interface UseReturn {
   selected: string[];
   expanded: string[];
-  onSelect: UseSelectProps<string, FlattenedNode>["onChange"];
+  onSelect: UseSelectMultipleProps<string, FlattenedNode>["onChange"];
+  expand: (key: string) => void;
+  contract: (key: string) => void;
   nodes: FlattenedNode[];
 }
 
@@ -68,18 +75,19 @@ export const use = (props: UseProps): UseReturn => {
     selected: propsSelected,
     onSelectedChange,
   } = props ?? {};
-  const [expanded, setExpanded, ref] =
+  const [expanded, setExpanded, expandedRef] =
     useCombinedStateAndRef<string[]>(initialExpanded);
   const [selected, setSelected] = state.usePassthrough<string[]>({
     initial: [],
     value: propsSelected,
     onChange: onSelectedChange,
   });
-  const flat = useMemo(
-    () => flatten({ nodes, expanded, sort }),
-    [nodes, expanded, sort],
-  );
+  const flat = useMemo(() => {
+    return flatten({ nodes, expanded, sort });
+  }, [nodes, expanded, sort]);
   const flatRef = useSyncedRef(flat);
+
+  console.log(expanded);
 
   const shiftRef = Triggers.useHeldRef({ triggers: SHIFT_TRIGGERS });
 
@@ -92,7 +100,7 @@ export const use = (props: UseProps): UseReturn => {
       const n = flatRef.current.find((node) => node.key === clicked);
       if (n?.hasChildren === false) return;
       if (clicked == null || shiftRef.current.held) return;
-      const currentlyExpanded = ref.current;
+      const currentlyExpanded = expandedRef.current;
       const action = currentlyExpanded.some((key) => key === clicked)
         ? "contract"
         : "expand";
@@ -106,10 +114,28 @@ export const use = (props: UseProps): UseReturn => {
     [onExpand, flatRef, setExpanded, setSelected],
   );
 
+  const handleExpand = useCallback(
+    (key: string): void => {
+      setExpanded((expanded) => unique([...expanded, key]));
+      onExpand?.({ current: expanded, action: "expand", clicked: key });
+    },
+    [setExpanded],
+  );
+
+  const handleContract = useCallback(
+    (key: string): void => {
+      setExpanded((expanded) => expanded.filter((k) => k !== key));
+      onExpand?.({ current: expanded, action: "contract", clicked: key });
+    },
+    [setExpanded],
+  );
+
   return {
     onSelect: handleSelect,
     selected,
     expanded,
+    contract: handleContract,
+    expand: handleExpand,
     nodes: flat,
   };
 };
@@ -137,16 +163,12 @@ type TreePropsInheritedFromList = Omit<
 
 export interface TreeProps
   extends TreePropsInheritedFromItem,
-    TreePropsInheritedFromList {
+    TreePropsInheritedFromList,
+    Optional<UseReturn, "selected" | "expand" | "contract"> {
   nodes: FlattenedNode[];
-  selected?: string[];
-  onSelect: UseSelectProps<string, FlattenedNode>["onChange"];
   children?: RenderProp<ItemProps>;
   virtual?: boolean;
 }
-
-const expandedCaret = <Icon.Caret.Down className={CSS.B("caret")} />;
-const collapsedCaret = <Icon.Caret.Right className={CSS.B("caret")} />;
 
 export type Item = FC<ItemProps>;
 
@@ -160,7 +182,7 @@ export const DefaultItem = memo(
     onSuccessfulDrop,
     onDoubleClick,
     loading = false,
-    useMargin = false,
+    useMargin = true,
     translate,
   }: ItemProps): ReactElement => {
     const {
@@ -184,14 +206,16 @@ export const DefaultItem = memo(
 
     // Expand, contract, and loading items.
     const startIcons: ReactElement[] = [];
-    if (actuallyHasChildren) startIcons.push(expanded ? expandedCaret : collapsedCaret);
+    if (actuallyHasChildren)
+      startIcons.push(
+        <Caret.Animated enabled={expanded} enabledLoc="bottom" disabledLoc="right" />,
+      );
     if (icon != null) startIcons.push(icon);
     const endIcons: ReactElement[] = [];
     if (loading) endIcons.push(<Icon.Loading className={CSS.B("loading-indicator")} />);
 
     const [draggingOver, setDraggingOver] = useState(false);
 
-    // Drag and Drop
     const { startDrag, ...dropProps } = Haul.useDragAndDrop({
       type: "Tree.Item",
       key,
@@ -238,6 +262,7 @@ export const DefaultItem = memo(
       onDragStart: handleDragStart,
       onClick: () => onSelect?.(key),
       style: {
+        border: "none",
         position: translate != null ? "absolute" : "relative",
         transform: `translateY(${translate}px)`,
         [offsetKey]: `${depth * 1.5 + 1}rem`,
@@ -284,6 +309,8 @@ export const Tree = ({
   itemHeight = 27,
   useMargin = false,
   virtual = true,
+  expand: __,
+  contract: _,
   ...props
 }: TreeProps): ReactElement => {
   const Core = virtual ? List.Core.Virtual : List.Core;
@@ -296,7 +323,7 @@ export const Tree = ({
           className={CSS(className, CSS.B("tree"))}
           {...props}
         >
-          {(props) =>
+          {({ key, ...props }) =>
             children({
               ...props,
               useMargin,
@@ -312,4 +339,5 @@ export const Tree = ({
   );
 };
 
-export const startRenaming = (key: string): void => Text.edit(`text-${key}`);
+export const startRenaming = (key: string, onChange?: (value: string) => void): void =>
+  Text.edit(`text-${key}`, onChange);

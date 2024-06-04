@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,7 +9,7 @@
 
 import type { Action as CoreAction, UnknownAction } from "@reduxjs/toolkit";
 
-import { Action } from "@/state";
+import { type Action } from "@/state";
 
 const DRIFT_ACTION_INDICATOR = "DA@";
 const DRIFT_PREFIX_SPLITTER = "://";
@@ -32,7 +32,7 @@ const desugarType = (type: string): [string, string] => {
  */
 export const sugar = <A extends CoreAction = UnknownAction>(
   action: A,
-  emitter: string
+  emitter: string,
 ): A => ({
   ...action,
   type: sugarType(action.type, emitter),
@@ -48,7 +48,7 @@ export const sugar = <A extends CoreAction = UnknownAction>(
  * }
  */
 export const desugar = <A extends CoreAction = UnknownAction>(
-  action: A | Action
+  action: A | Action,
 ): {
   emitted: boolean;
   emitter: string;

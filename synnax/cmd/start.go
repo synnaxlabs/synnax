@@ -12,24 +12,12 @@ package cmd
 import (
 	"bufio"
 	"context"
+	"encoding/base64"
 	"os"
 	"os/signal"
 	"time"
 
-	"github.com/synnaxlabs/synnax/pkg/hardware"
-	"github.com/synnaxlabs/synnax/pkg/label"
-	"github.com/synnaxlabs/synnax/pkg/ranger"
-	"github.com/synnaxlabs/synnax/pkg/version"
-	"github.com/synnaxlabs/synnax/pkg/workspace"
-	"github.com/synnaxlabs/synnax/pkg/workspace/lineplot"
-	"github.com/synnaxlabs/synnax/pkg/workspace/pid"
-
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/security"
-	"google.golang.org/grpc/credentials"
-	insecureGRPC "google.golang.org/grpc/credentials/insecure"
-
-	"github.com/cockroachdb/errors"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/synnaxlabs/alamos"
@@ -43,15 +31,27 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/auth/token"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
+	"github.com/synnaxlabs/synnax/pkg/hardware"
+	"github.com/synnaxlabs/synnax/pkg/hardware/embedded"
+	"github.com/synnaxlabs/synnax/pkg/label"
+	"github.com/synnaxlabs/synnax/pkg/ranger"
+	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/server"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/synnax/pkg/user"
+	"github.com/synnaxlabs/synnax/pkg/version"
+	"github.com/synnaxlabs/synnax/pkg/workspace"
+	"github.com/synnaxlabs/synnax/pkg/workspace/lineplot"
+	"github.com/synnaxlabs/synnax/pkg/workspace/schematic"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	xsignal "github.com/synnaxlabs/x/signal"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
+	insecureGRPC "google.golang.org/grpc/credentials/insecure"
 )
 
 // startCmd represents the start command
@@ -78,11 +78,13 @@ var (
 // environment variables, and configuration files.
 func start(cmd *cobra.Command) {
 	v := version.Get()
+	decodedName, _ := base64.StdEncoding.DecodeString("bGljZW5zZS1rZXk=")
 	var (
 		ins      = configureInstrumentation(v)
 		insecure = viper.GetBool("insecure")
 		verbose  = viper.GetBool("verbose")
 		autoCert = viper.GetBool("auto-cert")
+		verifier = viper.GetString(string(decodedName))
 	)
 	defer cleanupInstrumentation(cmd.Context(), ins)
 
@@ -115,7 +117,7 @@ func start(cmd *cobra.Command) {
 
 	// Perform the rest of the startup within a separate goroutine, so we can properly
 	// handle signal interrupts.
-	sCtx.Go(func(ctx context.Context) error {
+	sCtx.Go(func(ctx context.Context) (err error) {
 
 		secProvider, err := configureSecurity(ins, insecure)
 		if err != nil {
@@ -134,12 +136,18 @@ func start(cmd *cobra.Command) {
 			ins,
 			storageCfg,
 			grpcTransports,
+			verifier,
 		)
+		if err != nil {
+			return err
+		}
 		dist, err := distribution.Open(ctx, distConfig)
 		if err != nil {
 			return err
 		}
-		defer func() { err = dist.Close() }()
+		defer func() {
+			err = errors.CombineErrors(err, dist.Close())
+		}()
 
 		// set up our high level services.
 		gorpDB := dist.Storage.Gorpify()
@@ -148,6 +156,9 @@ func start(cmd *cobra.Command) {
 			Ontology: dist.Ontology,
 			Group:    dist.Group,
 		})
+		if err != nil {
+			return err
+		}
 		tokenSvc := &token.Service{KeyProvider: secProvider, Expiration: 24 * time.Hour}
 		authenticator := &auth.KV{DB: gorpDB}
 		rangeSvc, err := ranger.OpenService(ctx, ranger.Config{
@@ -163,7 +174,7 @@ func start(cmd *cobra.Command) {
 		if err != nil {
 			return err
 		}
-		pidSvc, err := pid.NewService(pid.Config{DB: gorpDB, Ontology: dist.Ontology})
+		schematicSvc, err := schematic.NewService(schematic.Config{DB: gorpDB, Ontology: dist.Ontology})
 		if err != nil {
 			return err
 		}
@@ -177,7 +188,7 @@ func start(cmd *cobra.Command) {
 			Group:    dist.Group,
 			Signals:  dist.Signals,
 		})
-		deviceSvc, err := hardware.OpenService(ctx, hardware.Config{
+		hardwareSvc, err := hardware.OpenService(ctx, hardware.Config{
 			DB:           gorpDB,
 			Ontology:     dist.Ontology,
 			Group:        dist.Group,
@@ -188,6 +199,9 @@ func start(cmd *cobra.Command) {
 		if err != nil {
 			return err
 		}
+		defer func() {
+			err = errors.CombineErrors(err, hardwareSvc.Close())
+		}()
 
 		// Provision the root user.
 		if err := maybeProvisionRootUser(ctx, gorpDB, authenticator, userSvc); err != nil {
@@ -199,7 +213,7 @@ func start(cmd *cobra.Command) {
 			Instrumentation: ins.Child("api"),
 			Authenticator:   authenticator,
 			Enforcer:        access.AllowAll{},
-			PID:             pidSvc,
+			Schematic:       schematicSvc,
 			LinePlot:        linePlotSvc,
 			Insecure:        config.Bool(insecure),
 			Channel:         dist.Channel,
@@ -213,7 +227,7 @@ func start(cmd *cobra.Command) {
 			Ranger:          rangeSvc,
 			Workspace:       workspaceSvc,
 			Label:           labelSvc,
-			Hardware:        deviceSvc,
+			Hardware:        hardwareSvc,
 		})
 		if err != nil {
 			return err
@@ -243,8 +257,28 @@ func start(cmd *cobra.Command) {
 			return srv.Serve()
 		}, xsignal.WithKey("server"))
 		defer srv.Stop()
+
+		d, err := embedded.OpenDriver(
+			ctx,
+			buildEmbeddedDriverConfig(
+				ins.Child("driver"),
+				hardwareSvc.Rack.EmbeddedRackName,
+				insecure,
+			),
+		)
+		if err != nil {
+			return err
+		}
+		defer func() {
+			ins.L.Warn("embedded driver shutting down")
+			err = errors.CombineErrors(err, d.Stop())
+			ins.L.Warn("embedded driver shutdown complete")
+		}()
+
+		//ins.L.Info("\033[32m Synnax Node Started \033[0m")
+
 		<-ctx.Done()
-		return nil
+		return err
 	}, xsignal.WithKey("start"))
 
 	select {
@@ -290,6 +324,7 @@ func buildDistributionConfig(
 	ins alamos.Instrumentation,
 	storage storage.Config,
 	transports *[]fgrpc.BindableTransport,
+	verifier string,
 ) (distribution.Config, error) {
 	peers, err := parsePeerAddresses()
 	return distribution.Config{
@@ -299,6 +334,7 @@ func buildDistributionConfig(
 		Pool:             pool,
 		Storage:          storage,
 		Transports:       transports,
+		Verifier:         verifier,
 	}, err
 }
 
@@ -319,6 +355,29 @@ func buildServerConfig(
 	cfg.Instrumentation = ins.Child("server")
 	cfg.Security.TLS = sec.TLS()
 	cfg.Security.Insecure = config.Bool(viper.GetBool("insecure"))
+	return cfg
+}
+
+func buildEmbeddedDriverConfig(
+	ins alamos.Instrumentation,
+	rackName string,
+	insecure bool,
+) embedded.Config {
+	cfg := embedded.Config{
+		Enabled:         config.Bool(!viper.GetBool("no-driver")),
+		Instrumentation: ins,
+		Address:         address.Address(viper.GetString("listen")),
+		RackName:        rackName,
+		Username:        viper.GetString("username"),
+		Password:        viper.GetString("password"),
+	}
+	if insecure {
+		return cfg
+	}
+	loader := buildCertLoaderConfig(ins)
+	cfg.CACertPath = loader.AbsoluteCACertPath()
+	cfg.ClientCertFile = loader.AbsoluteNodeCertPath()
+	cfg.ClientKeyFile = loader.AbsoluteNodeKeyPath()
 	return cfg
 }
 

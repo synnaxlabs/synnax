@@ -8,7 +8,8 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-latest
-
+    env:
+      SYNNAX_TS_ENV: prod
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v2
@@ -16,10 +17,10 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v3
         with:
-          version: 8
+          version: 9
 
       - name: Setup Node
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: "pnpm"

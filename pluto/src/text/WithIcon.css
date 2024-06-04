@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Synnax Labs, Inc.
+ * Copyright 2024 Synnax Labs, Inc.
  *
  * Use of this software is governed by the Business Source License included in the file
  * licenses/BSL.txt.
@@ -9,9 +9,8 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-text-icon svg:not(.logo) path:is(:not([fill="none"]), [stroke="#000"]) {
-    stroke: var(--pluto-gray-l8);
-    fill: var(--pluto-gray-l8);
+.pluto-text-icon {
+    color: var(--pluto-text-color);
 }
 
 .pluto-text-icon svg {
@@ -31,9 +30,9 @@
 }
 
 .pluto-text-icon--h3 svg {
-    width: var(--pluto-h3-line-height);
-    min-width: var(--pluto-h3-line-height);
-    height: var(--pluto-h3-line-height);
+    width: calc(var(--pluto-h3-size) * 1.1);
+    min-width: calc(var(--pluto-h3-size) * 1.1);
+    height: calc(var(--pluto-h3-size) * 1.1);
 }
 
 .pluto-text-icon--h4 svg {
@@ -59,5 +58,3 @@
     min-width: var(--pluto-small-size);
     height: var(--pluto-small-size);
 }
-
-

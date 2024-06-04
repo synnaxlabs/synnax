@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { render, fireEvent } from "@testing-library/react";
-import { AiFillCloseCircle } from "react-icons/ai";
+import { fireEvent,render } from "@testing-library/react";
 import { describe, expect, it, vitest } from "vitest";
 
 import { Text } from "@/text";
@@ -23,7 +22,7 @@ describe("Text", () => {
   describe("WithIcon", () => {
     it("should render text with a starting icon", () => {
       const c = render(
-        <Text.WithIcon startIcon={<AiFillCloseCircle aria-label="close" />} level="h2">
+        <Text.WithIcon startIcon={<svg aria-label="close" />} level="h2">
           Hello
         </Text.WithIcon>,
       );
@@ -31,7 +30,7 @@ describe("Text", () => {
     });
     it("should render text with an ending icon", () => {
       const c = render(
-        <Text.WithIcon endIcon={<AiFillCloseCircle aria-label="close" />} level="h2">
+        <Text.WithIcon endIcon={<svg aria-label="close" />} level="h2">
           Hello
         </Text.WithIcon>,
       );

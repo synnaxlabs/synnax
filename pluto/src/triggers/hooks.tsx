@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { box, compare, unique, type xy } from "@synnaxlabs/x";
 import {
   type MutableRefObject,
   type RefObject,
@@ -15,14 +16,13 @@ import {
   useState,
 } from "react";
 
-import { box, compare, unique, type xy } from "@synnaxlabs/x";
-
 import { useStateRef } from "@/hooks/ref";
 import { useMemoCompare } from "@/memo";
 import { useContext } from "@/triggers/Provider";
 import { diff, filter, purge, type Stage, type Trigger } from "@/triggers/triggers";
 
 export interface UseEvent {
+  target: HTMLElement;
   triggers: Trigger[];
   stage: Stage;
   cursor: xy.XY;
@@ -47,12 +47,14 @@ export const use = ({ triggers, callback: f, region, loose }: UseProps): void =>
     return listen((e) => {
       const prevMatches = filter(memoTriggers, e.prev, /* loose */ loose);
       const nextMatches = filter(memoTriggers, e.next, /* loose */ loose);
-      let [added, removed] = diff(nextMatches, prevMatches);
+      const res = diff(nextMatches, prevMatches);
+      let added = res[0];
+      const removed = res[1];
       if (added.length === 0 && removed.length === 0) return;
       added = filterInRegion(e.target, e.cursor, added, region);
-      if (added.length > 0) f?.({ stage: "start", triggers: added, cursor: e.cursor });
-      if (removed.length > 0)
-        f?.({ stage: "end", triggers: removed, cursor: e.cursor });
+      const base = { target: e.target, cursor: e.cursor };
+      if (added.length > 0) f?.({ ...base, stage: "start", triggers: added });
+      if (removed.length > 0) f?.({ ...base, stage: "end", triggers: removed });
     });
   }, [f, memoTriggers, listen, loose, region]);
 };

@@ -12,8 +12,8 @@ package kv
 import (
 	"context"
 	"encoding/binary"
-	"github.com/cockroachdb/errors"
 	atomicx "github.com/synnaxlabs/x/atomic"
+	"github.com/synnaxlabs/x/errors"
 )
 
 // AtomicInt64Counter implements a simple int64 counter that writes its value to a
@@ -42,10 +42,17 @@ func OpenCounter(ctx context.Context, db ReadWriter, key []byte) (*AtomicInt64Co
 }
 
 // Add increments the counter by the sum of the given values. If no values are
-// provided, increments the counter by 1.
+// provided, increments the counter by 1. Returns the new counter value
 // as well as any errors encountered while flushing the counter to storage.
 func (c *AtomicInt64Counter) Add(delta int64) (int64, error) {
 	next := c.Int64Counter.Add(delta)
 	binary.LittleEndian.PutUint64(c.buffer, uint64(next))
 	return next, c.db.Set(c.ctx, c.key, c.buffer)
+}
+
+// Set sets the counter to the given value.
+func (c *AtomicInt64Counter) Set(value int64) error {
+	c.Int64Counter.Set(value)
+	binary.LittleEndian.PutUint64(c.buffer, uint64(value))
+	return c.db.Set(c.ctx, c.key, c.buffer)
 }

@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,7 +9,7 @@
 
 import { z } from "zod";
 
-import { clamp } from "@/clamp";
+import { clamp } from "@/clamp/clamp";
 import * as bounds from "@/spatial/bounds/bounds";
 import { type Box, isBox } from "@/spatial/box/box";
 import * as box from "@/spatial/box/box";
@@ -64,7 +64,7 @@ const curriedScale =
 
 const curriedReBound =
   (bound: bounds.Bounds): Operation =>
-  (currScale, type, v) => [bound, v];
+  (_, __, v) => [bound, v];
 
 const curriedInvert = (): Operation => (currScale, type, v) => {
   if (currScale === null) throw new Error("cannot invert without bounds");

@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,34 +7,33 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type CSSProperties,
-  type ReactElement,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type ReactNode,
-  useLayoutEffect,
-} from "react";
+import "@/dropdown/Dropdown.css";
 
 import {
   box,
-  type location as loc,
-  xy,
-  position,
-  location,
-  type spatial,
   invert,
+  type location as loc,
+  location,
+  position,
+  xy,
 } from "@synnaxlabs/x";
+import {
+  type CSSProperties,
+  type ReactElement,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { createPortal } from "react-dom";
 
 import { Align } from "@/align";
 import { CSS } from "@/css";
-import { useClickOutside, useResize, useCombinedRefs, useSyncedRef } from "@/hooks";
+import { useClickOutside, useCombinedRefs, useResize, useSyncedRef } from "@/hooks";
 import { Triggers } from "@/triggers";
-
-import "@/dropdown/Dropdown.css";
+import { ComponentSize } from "@/util/component";
 
 /** Props for the {@link use} hook. */
 export interface UseProps {
@@ -89,7 +88,8 @@ export interface DialogProps
   location?: loc.Y | loc.XY;
   children: [ReactNode, ReactNode];
   keepMounted?: boolean;
-  variant?: "connected" | "floating";
+  variant?: "connected" | "floating" | "modal";
+  maxHeight?: ComponentSize | number;
 }
 
 interface State {
@@ -107,7 +107,7 @@ const ZERO_STATE: State = {
  * the {@link use} hook (more behavioral details explained there).
  *
  * @param props - The props for the dropdown component. Unlisted props are passed to the
- * parent elment.
+ * parent element.
  * @param props.visible - Whether the dropdown is visible or not. This is a controlled
  * @param props.children - Two children are expected: the dropdown trigger (often a button
  * or input) and the dropdown content.
@@ -115,11 +115,12 @@ const ZERO_STATE: State = {
 export const Dialog = ({
   visible,
   children,
-  location: p,
+  location: propsLocation,
   keepMounted = true,
   className,
   variant = "connected",
   close,
+  maxHeight,
   // It's common to pass these in, so we'll destructure and ignore them so we don't
   // get an invalid prop on div tag error.
   open: _o,
@@ -139,10 +140,10 @@ export const Dialog = ({
     const { adjustedDialog, location } = f({
       target: targetRef.current,
       dialog: dialogRef.current,
-      initial: p,
+      initial: propsLocation,
     });
     setState({ dialogLoc: location, dialogBox: adjustedDialog });
-  }, [p, variant]);
+  }, [propsLocation, variant]);
 
   useLayoutEffect(() => {
     calculatePosition();
@@ -154,8 +155,14 @@ export const Dialog = ({
   const resizeDialogRef = useResize(calculatePosition, { enabled: visible });
   const combinedDialogRef = useCombinedRefs(dialogRef, resizeDialogRef);
 
-  const dialogStyle: CSSProperties = { ...xy.css(box.topLeft(dialogBox)) };
-  if (variant === "connected") dialogStyle.width = box.width(dialogBox);
+  let dialogStyle: CSSProperties = {};
+  if (variant !== "modal") {
+    dialogStyle = { ...xy.css(box.topLeft(dialogBox)) };
+    if (variant === "connected") dialogStyle.width = box.width(dialogBox);
+  }
+  if (typeof maxHeight === "number") {
+    dialogStyle.maxHeight = maxHeight;
+  }
 
   const C = variant === "connected" ? Align.Pack : Align.Space;
 
@@ -174,6 +181,7 @@ export const Dialog = ({
         CSS.loc(dialogLoc.y),
         CSS.visible(visible),
         CSS.M(variant),
+        typeof maxHeight === "string" && CSS.B(`height-${maxHeight}`),
       )}
       role="dialog"
       empty
@@ -183,12 +191,32 @@ export const Dialog = ({
     </Align.Space>
   );
   if (variant === "floating") child = createPortal(child, document.body);
+  else if (variant === "modal") {
+    child = createPortal(
+      <Align.Space
+        className={CSS(CSS.BE("dropdown", "bg"), CSS.visible(visible))}
+        role="dialog"
+        empty
+        align="center"
+      >
+        {child}
+      </Align.Space>,
+      document.body,
+    );
+  }
 
   return (
     <C
       {...props}
       ref={combinedParentRef}
-      className={CSS(className, CSS.B("dropdown"), CSS.visible(visible))}
+      className={CSS(
+        className,
+        CSS.B("dropdown"),
+        CSS.visible(visible),
+        CSS.M(variant),
+        CSS.loc(dialogLoc.x),
+        CSS.loc(dialogLoc.y),
+      )}
       direction="y"
       reverse={dialogLoc.y === "top"}
     >
@@ -204,37 +232,41 @@ interface CalcDialogProps extends Pick<position.DialogProps, "initial"> {
   dialog: HTMLElement;
 }
 
-const FLOATING_ALIGNMENTS: spatial.Alignment[] = ["end"];
-const FLOATIG_DISABLE_LOCATIONS: location.Location[] = ["center"];
+const FLOATING_PROPS: Partial<position.DialogProps> = {
+  alignments: ["end"],
+  disable: ["center"],
+  prefer: [{ y: "bottom" }],
+};
 const FLOATING_TRANSLATE_AMOUNT: number = 6;
 
 const calcFloatingDialog = ({
-  target,
-  dialog,
+  target: target_,
+  dialog: dialog_,
+  initial,
 }: CalcDialogProps): position.DialogReturn => {
-  const targetBox = box.construct(target);
-  const dialogBox = box.construct(dialog);
-  const windowBox = box.construct(0, 0, window.innerWidth, window.innerHeight);
-
-  let { adjustedDialog, location } = position.dialog({
-    container: windowBox,
-    target: targetBox,
-    dialog: dialogBox,
-    alignments: FLOATING_ALIGNMENTS,
-    disable: FLOATIG_DISABLE_LOCATIONS,
+  const res = position.dialog({
+    container: box.construct(0, 0, window.innerWidth, window.innerHeight),
+    target: box.construct(target_),
+    dialog: box.construct(dialog_),
+    ...FLOATING_PROPS,
+    initial: initial,
   });
-  adjustedDialog = box.translate(
-    adjustedDialog,
+  const { location } = res;
+  const adjustedDialog = box.translate(
+    res.adjustedDialog,
     "y",
     invert(location.y === "top") * FLOATING_TRANSLATE_AMOUNT,
   );
   return { adjustedDialog, location };
 };
 
-const CONNECTED_ALIGNMENTS: spatial.Alignment[] = ["center"];
-const CONNECTED_DISABLE_LOCATIONS: Array<Partial<location.XY>> = [{ y: "center" }];
+const CONNECTED_PROPS: Partial<position.DialogProps> = {
+  alignments: ["center"],
+  disable: [{ y: "center" }],
+  initial: { x: "center" },
+  prefer: [{ y: "bottom" }],
+};
 const CONNECTED_TRANSLATE_AMOUNT: number = 1;
-const CONNECTED_INITIAL: Partial<location.XY> = { x: "center" };
 
 const calcConnectedDialog = ({
   target,
@@ -246,14 +278,14 @@ const calcConnectedDialog = ({
     target: targetBox,
     dialog: box.resize(box.construct(dialog), "x", box.width(targetBox)),
     container: box.construct(0, 0, window.innerWidth, window.innerHeight),
-    alignments: CONNECTED_ALIGNMENTS,
-    disable: CONNECTED_DISABLE_LOCATIONS,
-    initial: initial ?? CONNECTED_INITIAL,
+    ...CONNECTED_PROPS,
+    initial: initial ?? CONNECTED_PROPS.initial,
   };
 
-  let { adjustedDialog, location } = position.dialog(props);
-  adjustedDialog = box.translate(
-    adjustedDialog,
+  const res = position.dialog(props);
+  const { location } = res;
+  const adjustedDialog = box.translate(
+    res.adjustedDialog,
     "y",
     invert(location.y === "bottom") * CONNECTED_TRANSLATE_AMOUNT,
   );

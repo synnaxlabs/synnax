@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -66,6 +66,7 @@ export const themeZ = z
       gray: grayScaleZ,
       error: scaleZ,
       secondary: scaleZ,
+      warning: scaleZ,
       visualization: z
         .object({
           palettes: z.record(z.array(color.Color.z)),
@@ -85,7 +86,7 @@ export const themeZ = z
         radius: z.number(),
         width: z.number(),
       }),
-      pid: z.object({
+      schematic: z.object({
         elementStrokeWidth: z.number(),
       }),
     }),
@@ -119,6 +120,10 @@ const baseSize: number = 6;
 
 const ERROR_HSLA: color.HSLA = [357, 91, 55, 1];
 
+// Warning
+
+const WARNING_HSLA: color.HSLA = [42, 100, 50, 1];
+
 // Grayscale
 
 const LIGHT_SCALE = [
@@ -140,7 +145,7 @@ const lightGrayScale: GrayScale = Object.fromEntries(
 ) as GrayScale;
 
 const SYNNAX_BASE: ThemeSpec = {
-  key: "synnax-base",
+  key: "synnaxBase",
   name: "Synnax Base",
   colors: {
     primary: {
@@ -165,6 +170,13 @@ const SYNNAX_BASE: ThemeSpec = {
       z: color.fromHSLA(ERROR_HSLA),
       p1: color.fromHSLA(setLightness(ERROR_HSLA, 60)),
       p2: color.fromHSLA(setLightness(ERROR_HSLA, 70)),
+    },
+    warning: {
+      m2: color.fromHSLA(setLightness(WARNING_HSLA, 30)),
+      m1: color.fromHSLA(setLightness(WARNING_HSLA, 40)),
+      z: color.fromHSLA(WARNING_HSLA),
+      p1: color.fromHSLA(setLightness(WARNING_HSLA, 60)),
+      p2: color.fromHSLA(setLightness(WARNING_HSLA, 70)),
     },
     visualization: {
       palettes: {
@@ -198,26 +210,26 @@ const SYNNAX_BASE: ThemeSpec = {
       radius: 2,
       width: 1,
     },
-    pid: {
+    schematic: {
       elementStrokeWidth: 2,
     },
   },
   typography: {
     family: fontFamily,
     h1: {
-      size: 5,
+      size: 7,
       weight: "500",
-      lineHeight: 5 * 1.5,
+      lineHeight: 7 * 1.5,
     },
     h2: {
-      size: 4,
+      size: 4.5,
       weight: "medium",
-      lineHeight: 4 * 1.5,
+      lineHeight: 4.5 * 1.5,
     },
     h3: {
-      size: 3,
+      size: 3.5,
       weight: "medium",
-      lineHeight: 3 * 1.5,
+      lineHeight: 3.5 * 1.5,
     },
     h4: {
       size: 2.5,
@@ -242,11 +254,11 @@ const SYNNAX_BASE: ThemeSpec = {
   },
 };
 
-export const SYNNAX_LIGHT: ThemeSpec = {
+export const SYNNAX_LIGHT: ThemeSpec = Object.freeze({
   ...SYNNAX_BASE,
-  key: "synnax-light",
+  key: "synnaxLight",
   name: "Synnax Light",
-};
+});
 
 const DARK_SCALE = [
   "#020202",
@@ -266,9 +278,9 @@ const DARK_GRAY_SCALE: GrayScale = Object.fromEntries(
   DARK_SCALE.map((color, index) => [`l${index}`, color]),
 ) as GrayScale;
 
-export const SYNNAX_DARK: ThemeSpec = {
+export const SYNNAX_DARK: ThemeSpec = Object.freeze({
   ...SYNNAX_BASE,
-  key: "synnax-dark",
+  key: "synnaxDark",
   name: "Synnax Dark",
   colors: {
     ...SYNNAX_BASE.colors,
@@ -278,6 +290,6 @@ export const SYNNAX_DARK: ThemeSpec = {
     text: DARK_GRAY_SCALE.l9,
     textInverted: DARK_GRAY_SCALE.l0,
   },
-};
+});
 
 export const SYNNAX_THEMES = { synnaxDark: SYNNAX_DARK, synnaxLight: SYNNAX_LIGHT };

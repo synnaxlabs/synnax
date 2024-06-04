@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,20 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useCallback, type ReactElement, type MouseEventHandler } from "react";
+import "@/workspace/Selector.css";
 
 import { type workspace } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
-  Synnax,
-  Dropdown,
-  Button,
-  Input,
   Align,
+  Button,
+  Caret,
   componentRenderProp,
+  Dropdown,
+  Input,
+  Synnax,
 } from "@synnaxlabs/pluto";
 import { List } from "@synnaxlabs/pluto/list";
 import { Text } from "@synnaxlabs/pluto/text";
+import { type MouseEventHandler, type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
@@ -28,8 +30,6 @@ import { Layout } from "@/layout";
 import { createWindowLayout } from "@/workspace/Create";
 import { useSelectActive } from "@/workspace/selectors";
 import { add, setActive } from "@/workspace/slice";
-
-import "@/workspace/Selector.css";
 
 export const Selector = (): ReactElement => {
   const client = Synnax.use();
@@ -52,7 +52,6 @@ export const Selector = (): ReactElement => {
         } else if (client == null) return;
         const ws = await client.workspaces.retrieve(v);
         d(add({ workspaces: [ws] }));
-        console.log(ws.layout);
         d(
           Layout.setWorkspace({
             slice: ws.layout as unknown as Layout.SliceState,
@@ -73,7 +72,13 @@ export const Selector = (): ReactElement => {
     >
       <Button.Button
         startIcon={<Icon.Workspace key="workspace" />}
-        endIcon={<Icon.Caret.Down key="down" />}
+        endIcon={
+          <Caret.Animated
+            enabledLoc="bottom"
+            disabledLoc="left"
+            enabled={dProps.visible}
+          />
+        }
         variant="text"
         onClick={() => dProps.toggle()}
         size="medium"

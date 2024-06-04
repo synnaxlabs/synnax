@@ -1,0 +1,66 @@
+cc_library(
+    name = "opc",
+    srcs = [
+        "factory.cpp",
+        "reader.cpp",
+        "scanner.cpp",
+        "util.cpp",
+    ],
+    hdrs = [
+        "opc.h",
+        "reader.h",
+        "scanner.h",
+        "util.h",
+    ],
+    copts = select({
+        "@platforms//os:windows": ["/std:c++20"],
+        "//conditions:default": [],
+    }),
+    linkopts = select({
+        "@platforms//os:windows": [
+            "ws2_32.lib",
+            "Iphlpapi.lib",
+        ],
+        "//conditions:default": [],
+    }),
+    visibility = ["//visibility:public"],
+    deps = [
+        ":mbedtls",
+        "//client/cpp:synnax",
+        "//driver/config",
+        "//driver/loop",
+        "//driver/pipeline",
+        "//driver/task",
+        "@com_github_google_glog//:glog",
+        "@nlohmann_json//:json",
+        "@open62541",
+    ],
+)
+
+cc_library(
+    name = "mbedtls",
+    visibility = ["//visibility:public"],
+    deps = select({
+        "@platforms//os:windows": ["@mbedtls_win"],
+        "@platforms//os:macos": ["@mbedtls_macos"],
+        "//conditions:default": ["@mbedtls_linux"],
+    }),
+)
+
+cc_test(
+    name = "opc_test",
+    srcs = [
+        "mock_server.h",
+        "reader_test.cpp",
+        "scanner_test.cpp",
+    ],
+    copts = select({
+        "@platforms//os:windows": ["/std:c++20"],
+        "//conditions:default": [],
+    }),
+    deps = [
+        ":opc",
+        "//driver/testutil",
+        "@com_google_googletest//:gtest_main",
+    ],
+)

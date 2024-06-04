@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -11,11 +11,12 @@ import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
 import {
+  Key,
+  keyZ,
+  type NewPayload,
+  newPayload,
   type Payload,
   payload,
-  newPayload,
-  type NewPayload,
-  keyZ,
 } from "@/channel/payload";
 
 const createReqZ = z.object({ channels: newPayload.array() });
@@ -27,10 +28,18 @@ const deleteReqZ = z.object({
 });
 const deleteResZ = z.object({});
 
+const renameReqZ = z.object({
+  keys: keyZ.array(),
+  names: z.string().array(),
+});
+const renameResZ = z.object({});
+
 const CREATE_ENDPOINT = "/channel/create";
 const DELETE_ENDPOINT = "/channel/delete";
+const RENAME_ENDPOINT = "/channel/rename";
 
 export type DeleteProps = z.input<typeof deleteReqZ>;
+export type RenameProps = z.input<typeof renameReqZ>;
 
 export class Writer {
   private readonly client: UnaryClient;
@@ -58,6 +67,16 @@ export class Writer {
       props,
       deleteReqZ,
       deleteResZ,
+    );
+  }
+
+  async rename(keys: Key[], names: string[]): Promise<void> {
+    await sendRequired<typeof renameReqZ, typeof renameResZ>(
+      this.client,
+      RENAME_ENDPOINT,
+      { keys, names },
+      renameReqZ,
+      renameResZ,
     );
   }
 }

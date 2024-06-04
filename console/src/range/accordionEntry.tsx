@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,34 +7,33 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useState } from "react";
+import "@/range/accordionEntry.css";
 
-import { TimeRange, TimeSpan, TimeStamp, type label } from "@synnaxlabs/client";
+import { type label,TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
+  componentRenderProp,
   Divider,
   Ranger,
-  Tag,
-  componentRenderProp,
   Synnax,
-  useAsyncEffect,
+  Tag,
   Tooltip,
+  useAsyncEffect,
 } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 import { List as Core } from "@synnaxlabs/pluto/list";
 import { Menu as PMenu } from "@synnaxlabs/pluto/menu";
 import { Text } from "@synnaxlabs/pluto/text";
+import { type ReactElement, useState } from "react";
 import { useDispatch } from "react-redux";
 
 import { Menu } from "@/components";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
-import { editLayout } from "@/range/EditLayout";
+import { createEditLayout } from "@/range/EditLayout";
 import type { Range, StaticRange } from "@/range/range";
 import { useSelect, useSelectMultiple } from "@/range/selectors";
 import { add, remove, setActive } from "@/range/slice";
-
-import "@/range/accordionEntry.css";
 
 export const listColumns: Array<Core.ColumnSpec<string, Range>> = [
   {
@@ -74,7 +73,7 @@ export const List = (): ReactElement => {
   const selectedRange = useSelect();
 
   const handleAddOrEdit = (key?: string): void => {
-    const layout = editLayout(key == null ? "Create Range" : "Edit Range");
+    const layout = createEditLayout(key == null ? "Create Range" : "Edit Range");
     newLayout({
       ...layout,
       key: key ?? layout.key,
@@ -113,6 +112,24 @@ export const List = (): ReactElement => {
     void (async () => {
       await client?.ranges.setActive(key);
     })();
+  };
+
+  const NoRanges = (): ReactElement => {
+    const handleLinkClick: React.MouseEventHandler<HTMLParagraphElement> = (e) => {
+      e.stopPropagation();
+      handleAddOrEdit();
+    };
+
+    return (
+      <Align.Space empty style={{ height: "100%", position: "relative" }}>
+        <Align.Center direction="y" style={{ height: "100%" }} size="small">
+          <Text.Text level="p">No ranges added.</Text.Text>
+          <Text.Link level="p" onClick={handleLinkClick}>
+            Add a range
+          </Text.Link>
+        </Align.Center>
+      </Align.Space>
+    );
   };
 
   const ContextMenu = ({
@@ -155,9 +172,11 @@ export const List = (): ReactElement => {
                 Delete
               </PMenu.Item>
             ) : (
-              <PMenu.Item startIcon={<Icon.Save />} size="small" itemKey="save">
-                Save to Synnax
-              </PMenu.Item>
+              client != null && (
+                <PMenu.Item startIcon={<Icon.Save />} size="small" itemKey="save">
+                  Save to Synnax
+                </PMenu.Item>
+              )
             )}
           </>
         )}
@@ -175,22 +194,21 @@ export const List = (): ReactElement => {
 
   return (
     <PMenu.ContextMenu menu={(p) => <ContextMenu {...p} />} {...menuProps}>
-      <div style={{ flexGrow: 1 }}>
-        <Core.List<string, StaticRange>
-          data={ranges.filter((r) => r.variant === "static") as StaticRange[]}
+      <Core.List<string, StaticRange>
+        data={ranges.filter((r) => r.variant === "static") as StaticRange[]}
+        emptyContent={<NoRanges />}
+      >
+        <Core.Selector
+          value={selectedRange?.key ?? null}
+          onChange={handleSelect}
+          allowMultiple={false}
+          allowNone={true}
         >
-          <Core.Selector
-            value={selectedRange?.key ?? null}
-            onChange={handleSelect}
-            allowMultiple={false}
-            allowNone={true}
-          >
-            <Core.Core style={{ height: "100%", overflowX: "hidden" }}>
-              {componentRenderProp(ListItem)}
-            </Core.Core>
-          </Core.Selector>
-        </Core.List>
-      </div>
+          <Core.Core style={{ height: "100%", overflowX: "hidden" }}>
+            {componentRenderProp(ListItem)}
+          </Core.Core>
+        </Core.Selector>
+      </Core.List>
     </PMenu.ContextMenu>
   );
 };

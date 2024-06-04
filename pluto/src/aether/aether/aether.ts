@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,7 +9,8 @@
 
 import { alamos } from "@synnaxlabs/alamos";
 import { UnexpectedError, ValidationError } from "@synnaxlabs/client";
-import { deep, type Sender, type SenderHandler } from "@synnaxlabs/x";
+import { type Sender, type SenderHandler,type UnknownRecord } from "@synnaxlabs/x";
+import { deep } from "@synnaxlabs/x/deep";
 import { Mutex } from "async-mutex";
 import { z } from "zod";
 
@@ -40,10 +41,10 @@ export interface Update {
    */
   type: string;
   /**
-   * The state to udpate on the component . This is only present if the variant is
+   * The state to update on the component . This is only present if the variant is
    * "state".
    */
-  state: any;
+  state: UnknownRecord;
   /**
    * instrumentation is used for logging and tracing.
    */

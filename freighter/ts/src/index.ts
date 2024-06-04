@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+export type { ErrorPayload, TypedError } from "@/errors";
 export {
   BaseTypedError,
   decodeError,
@@ -17,9 +18,8 @@ export {
   StreamClosed,
   Unreachable,
 } from "@/errors";
-export type { ErrorPayload as ErrorPayload, TypedError } from "@/errors";
 export { HTTPClient } from "@/http";
-export type { Context as MetaData, Middleware, Next } from "@/middleware";
+export type { Context, Middleware, Next } from "@/middleware";
 export type { Stream, StreamClient } from "@/stream";
 export type { UnaryClient } from "@/unary";
 export { sendRequired } from "@/unary";

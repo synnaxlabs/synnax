@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeStamp, bounds, box, scale, xy } from "@synnaxlabs/x";
+import { bounds, box, scale, TimeStamp, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -117,7 +117,7 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
       position: this.state.position,
       direction: "y",
       level: "small",
-      spacing: 1,
+      spacing: 0.5,
       offset: { x: 12, y: 12 },
       root: {
         x: relativePosition.x > 0.8 ? "right" : "left",

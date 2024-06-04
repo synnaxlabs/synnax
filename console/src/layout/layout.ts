@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,12 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { ComponentType } from "react";
-
 import { type Dispatch, type UnknownAction } from "@reduxjs/toolkit";
 import type { WindowProps as DriftWindowProps } from "@synnaxlabs/drift";
 import { type Tabs } from "@synnaxlabs/pluto";
 import { type location } from "@synnaxlabs/x";
+import type { ComponentType } from "react";
 
 /** The location options for placing a layout */
 export type PlacementLocation = "window" | "mosaic";
@@ -21,7 +20,7 @@ export type PlacementLocation = "window" | "mosaic";
  * Layout represents the properties of a layout currently rendered in the mosaic or in
  * an external window. The key of a layout must be unique.
  */
-export interface LayoutState {
+export interface State {
   windowKey: string;
   /** A unique key for the layout */
   key: string;
@@ -55,7 +54,7 @@ export interface LayoutState {
   tab?: Partial<LayoutTabProps>;
 }
 
-export type RenderableLayout = Omit<LayoutState, "window">;
+export type RenderableLayout = Omit<State, "window">;
 
 /**
  * The props passed to a LayoutRenderer. Note that these props are minimal and only focus
@@ -100,6 +99,11 @@ export type WindowProps = Omit<DriftWindowProps, "key" | "url"> & {
    * mosaic (as the mosaic shouldn't have a nav bar).
    */
   navTop?: boolean;
+  /**
+   * showTitle is a flag that sets whether the name of the window will be displayed
+   * as a title in the nav bar. Only applies if navTop is true.
+   */
+  showTitle?: boolean;
 };
 
 /**

@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -19,15 +19,15 @@ export interface SenderHandler<I, O> extends Sender<I>, Handler<O> {}
 
 interface TypedWorkerMessage {
   type: string;
-  payload: any;
+  payload: unknown;
 }
 
-type SendFunc = (value: any, transfer?: Transferable[]) => void;
-type HandlerFunc = (value: any) => void;
+type SendFunc = (value: unknown, transfer?: Transferable[]) => void;
+type HandlerFunc = (value: unknown) => void;
 
 export class RoutedWorker {
   sender: SendFunc;
-  handlers: Map<string, TypedWorker<any>>;
+  handlers: Map<string, TypedWorker<unknown>>;
 
   constructor(send: SendFunc) {
     this.sender = send;
@@ -50,9 +50,8 @@ export class RoutedWorker {
 
 const typedSend =
   (type: string, send: SendFunc): SendFunc =>
-  (payload: any, transfer?: Transferable[]) => {
-    return send({ type, payload }, transfer);
-  };
+  (payload: unknown, transfer?: Transferable[]) =>
+    send({ type, payload }, transfer);
 
 export class TypedWorker<RQ, RS = RQ> implements SenderHandler<RQ, RS> {
   private readonly _send: SendFunc;
@@ -68,19 +67,20 @@ export class TypedWorker<RQ, RS = RQ> implements SenderHandler<RQ, RS> {
   }
 
   handle(handler: (payload: RS) => void): void {
-    this.handler = handler;
+    this.handler = handler as HandlerFunc;
   }
 }
 
 export const createMockWorkers = (): [RoutedWorker, RoutedWorker] => {
+  // eslint-disable-next-line
   let a: RoutedWorker, b: RoutedWorker;
-  const aSend = (value: any, transfer?: Transferable[]): void => {
+  const aSend = (value: TypedWorkerMessage): void => {
     b.handle({ data: value });
   };
-  const bSend = (value: any, transfer?: Transferable[]): void => {
+  const bSend = (value: TypedWorkerMessage): void => {
     a.handle({ data: value });
   };
-  a = new RoutedWorker(aSend);
-  b = new RoutedWorker(bSend);
+  a = new RoutedWorker(aSend as SendFunc);
+  b = new RoutedWorker(bSend as SendFunc);
   return [a, b];
 };

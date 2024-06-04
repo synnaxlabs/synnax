@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -8,31 +8,31 @@
 // included in the file licenses/APL.txt.
 
 import {
-  Action as CoreAction,
-  UnknownAction,
-  Dispatch,
-  Middleware,
-  PayloadAction,
+  type Action as CoreAction,
+  type Dispatch,
+  type Middleware,
+  type PayloadAction,
+  type UnknownAction,
 } from "@reduxjs/toolkit";
+import { type GetDefaultMiddleware } from "node_modules/@reduxjs/toolkit/dist/getDefaultMiddleware";
 
 import { log } from "@/debug";
-import { Runtime } from "@/runtime";
+import { type Runtime } from "@/runtime";
 import {
-  StoreState,
-  isDriftAction,
-  shouldEmit,
-  Action,
+  type Action,
   assignLabel,
-  SliceState,
-  setWindowProps,
+  isDriftAction,
+  type LabelPayload,
+  type MaybeKeyPayload,
   setWindowError,
-  MaybeKeyPayload,
-  LabelPayload,
+  setWindowProps,
+  shouldEmit,
+  type SliceState,
+  type StoreState,
 } from "@/state";
 import { desugar } from "@/sugar";
 import { sync } from "@/sync";
 import { validateAction } from "@/validate";
-import { GetDefaultMiddleware } from "node_modules/@reduxjs/toolkit/dist/getDefaultMiddleware";
 
 export type Middlewares<S> = ReadonlyArray<Middleware<{}, S>>;
 
@@ -48,7 +48,7 @@ export type Middlewares<S> = ReadonlyArray<Middleware<{}, S>>;
 export const middleware =
   <S extends StoreState, A extends CoreAction = UnknownAction>(
     runtime: Runtime<S, A | Action>,
-    debug: boolean = false
+    debug: boolean = false,
   ): Middleware<Dispatch<A | Action>, S, Dispatch<A | Action>> =>
   ({ getState, dispatch }) =>
   (next) =>
@@ -58,7 +58,7 @@ export const middleware =
 
     const label = runtime.label();
 
-    validateAction({ action: action_ as A |Action, emitted, emitter });
+    validateAction({ action: action_ as A | Action, emitted, emitter });
 
     log(debug, "[drift] - middleware", {
       action,
@@ -78,7 +78,10 @@ export const middleware =
     let prevS: SliceState | null = null;
     if (isDrift) {
       prevS = getState().drift;
-      action = assignLabel(action as PayloadAction<MaybeKeyPayload | LabelPayload>, prevS);
+      action = assignLabel(
+        action as PayloadAction<MaybeKeyPayload | LabelPayload>,
+        prevS,
+      );
     }
 
     const res = next(action);
@@ -94,8 +97,8 @@ export const middleware =
         if (prevS !== null && nextS !== null) await sync(prevS, nextS, runtime, debug);
         if (shouldEmit_) await runtime.emit({ action });
       } catch (err) {
-        log(debug, "[drift] - middleware", {
-          error: err,
+        log(debug, "[drift] - ERROR", {
+          error: (err as Error).message,
           action,
           emitted,
           emitter,
@@ -118,14 +121,14 @@ export const middleware =
 export const configureMiddleware = <
   S extends StoreState,
   A extends CoreAction = UnknownAction,
-  M extends Middlewares<S> = Middlewares<S>
+  M extends Middlewares<S> = Middlewares<S>,
 >(
   mw: M | ((def: GetDefaultMiddleware<S>) => M) | undefined,
   runtime: Runtime<S, A | Action>,
-  debug: boolean = false
+  debug: boolean = false,
 ): ((def: GetDefaultMiddleware<S>) => M) => {
   return (def) => {
     const base = mw != null ? (typeof mw === "function" ? mw(def) : mw) : def();
-    return [...base, middleware<S, A>(runtime, debug)] as unknown as M;
+    return [middleware<S, A>(runtime, debug), ...base] as unknown as M;
   };
 };

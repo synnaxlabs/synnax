@@ -20,7 +20,7 @@ export interface TypedError extends Error {
 }
 
 export class BaseTypedError extends Error implements TypedError {
-  discriminator: "FreighterError" = "FreighterError";
+  readonly discriminator = "FreighterError";
   type: string;
 
   constructor(message: string, type: string) {
@@ -143,8 +143,12 @@ export class UnknownError extends BaseTypedError implements TypedError {
   }
 }
 
+const FREIGHTER_ERROR_TYPE = "freighter.";
+
 /** Thrown/returned when a stream closed normally. */
 export class EOF extends BaseTypedError implements TypedError {
+  static readonly TYPE = FREIGHTER_ERROR_TYPE + "eof";
+
   constructor() {
     super("EOF", FREIGHTER);
   }
@@ -152,6 +156,8 @@ export class EOF extends BaseTypedError implements TypedError {
 
 /** Thrown/returned when a stream is closed abnormally. */
 export class StreamClosed extends BaseTypedError implements TypedError {
+  static readonly TYPE = FREIGHTER_ERROR_TYPE + "stream_closed";
+
   constructor() {
     super("StreamClosed", FREIGHTER);
   }
@@ -164,6 +170,7 @@ export interface UnreachableArgs {
 
 /** Thrown when a target is unreachable. */
 export class Unreachable extends BaseTypedError implements TypedError {
+  static readonly TYPE = FREIGHTER_ERROR_TYPE + "unreachable";
   url: URL;
 
   constructor(args: UnreachableArgs = {}) {
@@ -173,26 +180,24 @@ export class Unreachable extends BaseTypedError implements TypedError {
   }
 }
 
-const FREIGHTER_ERROR_TYPE = "freighter";
-
 const freighterErrorEncoder: ErrorEncoder = (error: TypedError) => {
   if (error.type !== FREIGHTER) return null;
-  if (error instanceof EOF) return { type: FREIGHTER_ERROR_TYPE, data: "EOF" };
+  if (error instanceof EOF) return { type: EOF.TYPE, data: "EOF" };
   if (error instanceof StreamClosed)
-    return { type: FREIGHTER_ERROR_TYPE, data: "StreamClosed" };
+    return { type: StreamClosed.TYPE, data: "StreamClosed" };
   if (error instanceof Unreachable)
-    return { type: FREIGHTER_ERROR_TYPE, data: "Unreachable" };
+    return { type: Unreachable.TYPE, data: "Unreachable" };
   throw new Error(`Unknown error type: ${error.type}: ${error.message}`);
 };
 
 const freighterErrorDecoder: ErrorDecoder = (encoded: ErrorPayload) => {
-  if (encoded.type !== FREIGHTER_ERROR_TYPE) return null;
-  switch (encoded.data) {
-    case "EOF":
+  if (!encoded.type.startsWith(FREIGHTER_ERROR_TYPE)) return null;
+  switch (encoded.type) {
+    case EOF.TYPE:
       return new EOF();
-    case "StreamClosed":
+    case StreamClosed.TYPE:
       return new StreamClosed();
-    case "Unreachable":
+    case Unreachable.TYPE:
       return new Unreachable();
     default:
       throw new Error(`Unknown error type: ${encoded.data}`);

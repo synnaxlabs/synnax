@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,14 +9,13 @@
 
 import { describe, expect, it } from "vitest";
 
-import { control } from "@/control";
 import { newClient } from "@/setupspecs";
 
 const client = newClient();
 
 describe("state", () => {
   it("should receive the initial control state from the cluster", async () => {
-    const s = await control.StateTracker.open(client);
+    const s = await client.control.openStateTracker();
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(s.states.size).toBeGreaterThan(0);
     await s.close();

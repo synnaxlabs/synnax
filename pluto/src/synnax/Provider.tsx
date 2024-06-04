@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -8,20 +8,19 @@
 // included in the file licenses/APL.txt.
 
 import {
-  type PropsWithChildren,
-  type ReactElement,
-  createContext,
-  useCallback,
-  useContext,
-} from "react";
-
-import {
   type connection,
   Synnax,
   type SynnaxProps,
   TimeSpan,
 } from "@synnaxlabs/client";
-import { Case } from "@synnaxlabs/x";
+import { caseconv } from "@synnaxlabs/x";
+import {
+  createContext,
+  type PropsWithChildren,
+  type ReactElement,
+  useCallback,
+  useContext,
+} from "react";
 
 import { Aether } from "@/aether";
 import { useAsyncEffect, useCombinedStateAndRef } from "@/hooks";
@@ -66,7 +65,7 @@ export const Provider = Aether.wrap<ProviderProps>(
         if (ref.current.state.status !== state.status) {
           add({
             variant: CONNECTION_STATE_VARIANT[state.status],
-            message: state.message ?? Case.capitalize(state.status),
+            message: state.message ?? caseconv.capitalize(state.status),
           });
         }
         setState((prev) => ({ ...prev, state }));

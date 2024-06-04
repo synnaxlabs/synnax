@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,34 +9,34 @@
 
 import { z } from "zod";
 
-import { Case } from "@/case";
+import { caseconv } from "@/caseconv";
 import {
-  location,
-  type Location,
-  xLocation,
-  yLocation,
-  DIRECTIONS,
-  X_LOCATIONS,
-  Y_LOCATIONS,
   CENTER_LOCATIONS,
-  type XLocation,
-  type OuterLocation,
-  type YLocation,
-  outerLocation,
-  type Direction,
-  crudeLocation,
-  type CrudeLocation,
-  centerlocation,
   type CenterLocation,
+  centerLocation,
+  type CrudeLocation,
+  crudeLocation,
+  type Direction,
+  DIRECTIONS,
+  type Location,
+  location,
+  type OuterLocation,
+  outerLocation,
+  X_LOCATIONS,
+  type XLocation,
+  xLocation,
+  Y_LOCATIONS,
+  type YLocation,
+  yLocation,
 } from "@/spatial/base";
 
 export {
-  location,
+  CENTER_LOCATIONS,
   type Location,
+  location,
+  outerLocation as outer,
   X_LOCATIONS,
   Y_LOCATIONS,
-  CENTER_LOCATIONS,
-  outerLocation as outer,
 };
 
 export const x = xLocation;
@@ -85,8 +85,8 @@ export const direction = (cl: Crude): Direction => {
 };
 
 export const xy = z.object({
-  x: xLocation.or(centerlocation),
-  y: yLocation.or(centerlocation),
+  x: xLocation.or(centerLocation),
+  y: yLocation.or(centerLocation),
 });
 export const corner = z.object({ x: xLocation, y: yLocation });
 
@@ -140,7 +140,7 @@ export const isX = (a: Crude): a is XLocation | CenterLocation =>
 
 export const isY = (a: Crude): a is YLocation => direction(construct(a)) === "y";
 
-export const xyToString = (a: XY): string => `${a.x}${Case.capitalize(a.y)}`;
+export const xyToString = (a: XY): string => `${a.x}${caseconv.capitalize(a.y)}`;
 
 export const constructXY = (x: Crude | XY, y?: Crude): XY => {
   let parsedX: Location;

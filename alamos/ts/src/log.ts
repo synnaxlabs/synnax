@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -105,5 +105,4 @@ export class Logger {
   static readonly NOOP = new Logger();
 }
 
-const parseKV = (kv: KV): UnknownRecord => typeof kv === "function" ? kv() : kv;
-
+const parseKV = (kv: KV): UnknownRecord => (typeof kv === "function" ? kv() : kv);

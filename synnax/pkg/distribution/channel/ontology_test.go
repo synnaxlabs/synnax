@@ -10,13 +10,18 @@
 package channel_test
 
 import (
+	"context"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/schema"
+	"github.com/synnaxlabs/x/change"
+	"github.com/synnaxlabs/x/iter"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/testutil"
+	"time"
 )
 
 var _ = Describe("Ontology", Ordered, func() {
@@ -47,5 +52,39 @@ var _ = Describe("Ontology", Ordered, func() {
 			Expect(n.Close()).To(Succeed())
 		})
 	})
-
+	Describe("OnChange", func() {
+		Context("Create", func() {
+			It("Should correctly propagate a create change", func() {
+				var (
+					v        schema.Change
+					ok       bool
+					secondOk = true
+				)
+				services[1].OnChange(func(ctx context.Context, nexter iter.Nexter[schema.Change]) {
+					v_, ok_ := nexter.Next(ctx)
+					if ok_ {
+						ok = ok_
+						v = v_
+					}
+					_, secondOk = nexter.Next(ctx)
+				})
+				ch := &channel.Channel{Name: "SG01", DataType: telem.Int64T, Rate: 1 * telem.Hz}
+				Expect(services[1].Create(ctx, ch))
+				Eventually(func() bool { return ok }, 1*time.Second).Should(BeTrue())
+				Expect(v.Variant).To(Equal(change.Set))
+				Expect(v.Key.Key).To(Equal(ch.Key().String()))
+				Expect(secondOk).To(BeFalse())
+			})
+		})
+	})
+	Describe("RetrieveResource", func() {
+		It("Should correctly retrieve a resource", func() {
+			ch := &channel.Channel{Name: "SG01", DataType: telem.Int64T, Rate: 1 * telem.Hz}
+			Expect(services[1].Create(ctx, ch))
+			r, err := services[1].RetrieveResource(ctx, ch.Key().String(), nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(r).ToNot(BeNil())
+			Expect(r.Name).To(Equal(ch.Name))
+		})
+	})
 })

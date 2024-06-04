@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -10,14 +10,15 @@
 import { type Instrumentation } from "@synnaxlabs/alamos";
 import { UnexpectedError } from "@synnaxlabs/client";
 import {
-  DataType,
   bounds,
   type box,
-  scale,
-  xy,
-  type Series,
+  DataType,
   type direction,
+  scale,
+  type Series,
   type SeriesDigest,
+  TimeSpan,
+  xy,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -47,6 +48,8 @@ const safelyGetDataValue = (series: number, index: number, data: Series[]): numb
 
 export type State = z.input<typeof stateZ>;
 export type ParsedState = z.output<typeof stateZ>;
+
+const DEFAULT_OVERLAP_THRESHOLD = TimeSpan.milliseconds(2);
 
 export interface FindResult {
   // The line key that the point belongs to.
@@ -269,11 +272,11 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     result.value.x = safelyGetDataValue(series, index, xData);
     const [, yData] = await yTelem.value();
     const ySeries = yData.find((ys) =>
-      bounds.contains(ys.alignmentBounds, xSeries.alignment + index),
+      bounds.contains(ys.alignmentBounds, xSeries.alignment + BigInt(index)),
     );
     if (ySeries == null) return result;
 
-    const alignmentDiff = ySeries.alignment - xSeries.alignment;
+    const alignmentDiff = Number(ySeries.alignment - xSeries.alignment);
     result.value.y = Number(ySeries.at(index - alignmentDiff));
 
     result.position = {
@@ -291,7 +294,12 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     const [[, xData], [, yData]] = await Promise.all([xTelem.value(), yTelem.value()]);
     xData.forEach((x) => x.updateGLBuffer(prog.ctx.gl));
     yData.forEach((y) => y.updateGLBuffer(prog.ctx.gl));
-    const ops = buildDrawOperations(xData, yData, downsample);
+    const ops = buildDrawOperations(
+      xData,
+      yData,
+      downsample,
+      DEFAULT_OVERLAP_THRESHOLD,
+    );
     this.internal.instrumentation.L.debug("render", () => ({
       key: this.key,
       downsample,
@@ -362,18 +370,20 @@ export const buildDrawOperations = (
   xSeries: Series[],
   ySeries: Series[],
   downsample: number,
+  overlapThreshold: TimeSpan,
 ): DrawOperation[] => {
   if (xSeries.length === 0 || ySeries.length === 0) return [];
   const ops: DrawOperation[] = [];
+
   xSeries.forEach((x) => {
-    const compatibleYSeries = findSeriesThatOverlapWith(x, ySeries);
+    const compatibleYSeries = findSeriesThatOverlapWith(x, ySeries, overlapThreshold);
     compatibleYSeries.forEach((y) => {
       let xOffset = 0;
       let yOffset = 0;
       // This means that the x series starts before the y series.
-      if (x.alignment < y.alignment) xOffset = y.alignment - x.alignment;
+      if (x.alignment < y.alignment) xOffset = Number(y.alignment - x.alignment);
       // This means that the y series starts before the x series.
-      else if (y.alignment < x.alignment) yOffset = x.alignment - y.alignment;
+      else if (y.alignment < x.alignment) yOffset = Number(x.alignment - y.alignment);
       const count = Math.min(x.length - xOffset, y.length - yOffset);
       if (count === 0) return;
       ops.push({ x, y, xOffset, yOffset, count, downsample });
@@ -382,18 +392,23 @@ export const buildDrawOperations = (
   return ops;
 };
 
-const findSeriesThatOverlapWith = (x: Series, y: Series[]): Series[] =>
+const findSeriesThatOverlapWith = (
+  x: Series,
+  y: Series[],
+  overlapThreshold: TimeSpan,
+): Series[] =>
   y.filter((ys) => {
     // This is just a runtime check that both series' have time ranges defined.
     const haveTimeRanges = x._timeRange != null && ys._timeRange != null;
-    if (!haveTimeRanges) {
+    if (!haveTimeRanges)
       throw new UnexpectedError(
         `Encountered series without time range in buildDrawOperations. X series present: ${x._timeRange != null}, Y series present: ${ys._timeRange != null}`,
       );
-    }
     // If the time ranges of the x and y series overlap, we meet the first condition
-    // for drawing them together.
-    const timeRangesOverlap = x.timeRange.overlapsWith(ys.timeRange);
+    // for drawing them together. Dynamic buffering can sometimes lead to very slight,
+    // unintended overlaps, so we only consider them overlapping if they overlap by a
+    // certain threshold.
+    const timeRangesOverlap = x.timeRange.overlapsWith(ys.timeRange, overlapThreshold);
     // If the 'indexes' of the x and y series overlap, we meet the second condition
     // for drawing them together.
     const alignmentsOverlap = bounds.overlapsWith(

@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,24 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { UnexpectedError, ValidationError } from "@synnaxlabs/client";
+import { type SenderHandler } from "@synnaxlabs/x";
+import { compare } from "@synnaxlabs/x/compare";
 import {
   type ComponentType,
+  createContext,
   type FC,
+  memo,
   type PropsWithChildren,
   type ReactElement,
-  createContext,
-  memo,
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
-  useLayoutEffect,
 } from "react";
-
-import { UnexpectedError, ValidationError } from "@synnaxlabs/client";
-import { compare, type SenderHandler } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { type MainMessage, type WorkerMessage } from "@/aether/message";

@@ -1,0 +1,36 @@
+// Copyright 2024 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+#pragma once
+
+/// std
+// #include <cstdint>
+#include <string>
+
+/// api protos
+#include "x/go/control/x/go/control/control.pb.h"
+
+namespace synnax {
+typedef std::uint8_t Authority;
+
+const Authority ABSOLUTTE = 255;
+
+struct ControlSubject {
+    std::string name;
+    std::string key;
+
+    void to_proto(control::ControlSubject *s) const {
+        s->set_name(name);
+        s->set_key(key);
+    }
+};
+}
+
+
+

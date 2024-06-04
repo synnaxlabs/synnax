@@ -11,12 +11,12 @@ package cesium
 
 import (
 	"context"
-	"github.com/cockroachdb/errors"
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -26,17 +26,22 @@ type ControlUpdate struct {
 }
 
 func (db *DB) ConfigureControlUpdateChannel(ctx context.Context, key ChannelKey) error {
+	if db.closed.Load() {
+		return errDBClosed
+	}
+
 	ch, err := db.RetrieveChannel(ctx, key)
-	if errors.Is(err, core.ChannelNotFound) {
+	if errors.Is(err, core.ErrChannelNotFound) {
 		ch.Key = key
 		ch.DataType = telem.StringT
 		ch.Virtual = true
-		if err := db.CreateChannel(ctx, ch); err != nil {
+		if err = db.CreateChannel(ctx, ch); err != nil {
 			return err
 		}
 	} else if err != nil {
 		return err
 	}
+
 	db.digests.key = key
 	w, err := db.NewStreamWriter(ctx, WriterConfig{
 		ControlSubject: control.Subject{Name: "cesium_internal_control_digest"},

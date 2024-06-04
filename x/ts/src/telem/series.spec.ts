@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, expect, test, it } from "vitest";
+import { describe, expect, it,test } from "vitest";
 import { z } from "zod";
 
 import { MockGLBufferController } from "@/mock/MockGLBufferController";
-import { Series, isCrudeSeries, MultiSeries } from "@/telem/series";
+import { isCrudeSeries, MultiSeries,Series } from "@/telem/series";
 import { DataType, Rate, Size, TimeRange, TimeSpan, TimeStamp } from "@/telem/telem";
 
 describe("Series", () => {
@@ -27,6 +27,26 @@ describe("Series", () => {
     IS_CRUDE_SERIES_SPEC.forEach(([value, expected]) => {
       it(`should return ${expected} for ${JSON.stringify(value)}`, () => {
         expect(isCrudeSeries(value)).toEqual(expected);
+      });
+    });
+
+    describe("length", () => {
+      it("should return the correct length for a fixed density series", () => {
+        const a = new Series({
+          data: new Float32Array([1, 2, 3]),
+          dataType: DataType.FLOAT32,
+        });
+        expect(a.length).toEqual(3);
+      });
+      it("should return the correct length for a variable density series", () => {
+        const a = new Series({
+          data: [{ value: 1 }, { value: 2, red: "blue" }, { value: 3, dog: "14" }],
+        });
+        expect(a.dataType.equals(DataType.JSON)).toBeTruthy();
+        expect(a.length).toEqual(3);
+        const buf = a.data.buffer;
+        const c = new Series({ data: buf, dataType: DataType.JSON });
+        expect(c.length).toEqual(3);
       });
     });
 
@@ -58,7 +78,7 @@ describe("Series", () => {
 
     test("from buffer without data type provided", () => {
       expect(() => {
-        // eslint-disable-next-line no-new
+         
         new Series({ data: new ArrayBuffer(4) });
       }).toThrow();
     });
@@ -98,6 +118,7 @@ describe("Series", () => {
       const s = new Series({ data: [{ a: 1, b: "apple" }] });
       expect(s.dataType.equals(DataType.JSON));
       expect(s.length).toEqual(1);
+      expect(s.data.at(-1)).toEqual(10);
     });
 
     it("should correctly interpret a bigint as an int64", () => {
@@ -560,7 +581,6 @@ describe("Series", () => {
     describe("bigint", () => {
       it("should correctly interpret the series as a bigint", () => {
         const s = new Series([BigInt(1), BigInt(2), BigInt(3)]);
-        console.log(s.dataType);
         const s2 = s.as("bigint");
         expect(s2.at(0)).toEqual(BigInt(1));
       });
@@ -570,6 +590,30 @@ describe("Series", () => {
           s.as("bigint");
         }).toThrow();
       });
+    });
+  });
+
+  describe("alignmentBounds", () => {
+    it("should correctly return the alignment bounds of a multi-series", () => {
+      const a = new Series({
+        data: new Float32Array([1, 2, 3]),
+        timeRange: new TimeRange(1, 2),
+        alignment: 1n,
+      });
+      expect(a.alignmentBounds).toEqual({ lower: 1n, upper: 4n });
+    });
+  });
+
+  describe("digest", () => {
+    it("should return a digest of information about the series", () => {
+      const digest = new Series({
+        data: new Float32Array([1, 2, 3]),
+        timeRange: new TimeRange(1, 3),
+      }).digest;
+      expect(digest.alignment).toEqual({ lower: 0n, upper: 3n });
+      expect(digest.dataType).toEqual("float32");
+      expect(digest.length).toEqual(3);
+      expect(digest.timeRange).toEqual(new TimeRange(1, 3).toString());
     });
   });
 });
@@ -659,6 +703,21 @@ describe("MultiSeries", () => {
       const multi = new MultiSeries([a, b]);
       const data = multi.data;
       expect(data).toEqual(new Float32Array([1, 2, 3, 4, 5, 6]));
+    });
+  });
+
+  describe("timeRange", () => {
+    it("should correctly return the time range of a multi-series", () => {
+      const a = new Series({
+        data: new Float32Array([1, 2, 3]),
+        timeRange: new TimeRange(1, 2),
+      });
+      const b = new Series({
+        data: new Float32Array([4, 5, 6]),
+        timeRange: new TimeRange(3, 4),
+      });
+      const multi = new MultiSeries([a, b]);
+      expect(multi.timeRange).toEqual(new TimeRange(1, 4));
     });
   });
 });

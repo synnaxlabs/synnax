@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,25 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { compare, box, direction, location, spatial, xy } from "@synnaxlabs/x";
+import { box, compare, direction, location, spatial, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
-export const gridPositionSpecZ = z.object({
+export const gridEntrySpecZ = z.object({
   key: z.string(),
   size: z.number(),
   order: spatial.order,
   loc: location.outer,
 });
 
-export const gridSpecZ = z.record(gridPositionSpecZ);
+export const gridSpecZ = z.record(gridEntrySpecZ);
 
-export type GridPositionSpec = z.input<typeof gridPositionSpecZ>;
+export type GridEntrySpec = z.input<typeof gridEntrySpecZ>;
 export type GridSpec = z.input<typeof gridSpecZ>;
 
-export const filterGridPositions = (
+export const filterGridEntries = (
   loc: location.Outer,
   grid: GridSpec,
-): GridPositionSpec[] =>
+): GridEntrySpec[] =>
   Object.values(grid)
     .filter(({ loc: l }) => l === loc)
     .sort((a, b) => compare.order(a.order, b.order));
@@ -38,9 +38,9 @@ export const calculateGridPosition = (
   const axis = grid[key];
   if (axis == null) return xy.ZERO;
   const loc = location.construct(axis.loc);
-  const axes = filterGridPositions(loc as location.Outer, grid);
+  const axes = filterGridEntries(loc as location.Outer, grid);
   const filterLoc = location.construct(direction.swap(location.direction(loc)));
-  const otherAxes = filterGridPositions(filterLoc as location.Outer, grid);
+  const otherAxes = filterGridEntries(filterLoc as location.Outer, grid);
   const index = axes.findIndex(({ key: k }) => k === key);
   const offset = axes.slice(0, index).reduce((acc, { size }) => acc + size, 0);
   const otherOffset = otherAxes.reduce((acc, { size }) => acc + size, 0);
@@ -57,10 +57,10 @@ export const calculateGridPosition = (
 };
 
 export const calculatePlotBox = (grid: GridSpec, container: box.Box): box.Box => {
-  const left = filterGridPositions("left", grid);
-  const right = filterGridPositions("right", grid);
-  const top = filterGridPositions("top", grid);
-  const bottom = filterGridPositions("bottom", grid);
+  const left = filterGridEntries("left", grid);
+  const right = filterGridEntries("right", grid);
+  const top = filterGridEntries("top", grid);
+  const bottom = filterGridEntries("bottom", grid);
   const leftWidth = left.reduce((acc, { size }) => acc + size, 0);
   const rightWidth = right.reduce((acc, { size }) => acc + size, 0);
   const topWidth = top.reduce((acc, { size }) => acc + size, 0);

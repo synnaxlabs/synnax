@@ -14,7 +14,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
-	gapi "github.com/synnaxlabs/synnax/pkg/api/grpc/gen/go/v1"
+	gapi "github.com/synnaxlabs/synnax/pkg/api/grpc/v1"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/x/telem"
@@ -164,6 +164,7 @@ func translateChannelForward(
 		Density:     int64(msg.Density),
 		IsIndex:     msg.IsIndex,
 		Index:       uint32(msg.Index),
+		IsVirtual:   msg.Virtual,
 	}
 }
 
@@ -180,6 +181,7 @@ func translateChannelBackward(
 		Density:     telem.Density(msg.Density),
 		IsIndex:     msg.IsIndex,
 		Index:       channel.Key(msg.Index),
+		Virtual:     msg.IsVirtual,
 	}
 }
 

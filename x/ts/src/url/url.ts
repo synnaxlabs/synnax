@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -37,7 +37,7 @@ const removeTrailingSlash = (path: string): string =>
  */
 export const buildQueryString = (
   request: Record<string, unknown>,
-  prefix: string = ""
+  prefix: string = "",
 ): string => {
   if (request === null) return "";
   return (
@@ -48,7 +48,7 @@ export const buildQueryString = (
         if (Array.isArray(value)) return value.length > 0;
         return true;
       })
-      // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+       
       .map(([key, value]) => `${prefix}${key}=${value}`)
       .join("&")
   );
@@ -105,7 +105,7 @@ export class URL {
   /** @returns a string representation of the url */
   toString(): string {
     return removeTrailingSlash(
-      `${this.protocol}://${this.host}:${this.port}/${this.path}`
+      `${this.protocol}://${this.host}:${this.port}/${this.path}`,
     );
   }
 

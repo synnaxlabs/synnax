@@ -20,7 +20,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-var _ = Describe("TypedWriter", Ordered, func() {
+var _ = Describe("Create", Ordered, func() {
 	var (
 		services map[core.NodeKey]channel.Service
 		builder  *mock.CoreBuilder
@@ -44,11 +44,11 @@ var _ = Describe("TypedWriter", Ordered, func() {
 			BeforeEach(func() { ch.Leaseholder = 1 })
 			It("Should create the channel without error", func() {
 				Expect(ch.Key().Leaseholder()).To(Equal(aspen.NodeKey(1)))
-				Expect(ch.Key().LocalKey()).To(Equal(uint16(1)))
+				Expect(ch.Key().LocalKey()).To(Equal(channel.LocalKey(1)))
 			})
 			It("Should not create the channel if it already exists by name", func() {
 				Expect(services[1].CreateIfNameDoesntExist(ctx, &ch)).To(Succeed())
-				Expect(ch.LocalKey).To(Equal(uint16(2)))
+				Expect(ch.LocalKey).To(Equal(channel.LocalKey(2)))
 			})
 			It("Should create the channel in the cesium gorpDB", func() {
 				channels, err := builder.Cores[1].Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey())
@@ -64,7 +64,7 @@ var _ = Describe("TypedWriter", Ordered, func() {
 			BeforeEach(func() { ch.Leaseholder = 2 })
 			It("Should create the channel without error", func() {
 				Expect(ch.Key().Leaseholder()).To(Equal(aspen.NodeKey(2)))
-				Expect(ch.Key().LocalKey()).To(Equal(uint16(1)))
+				Expect(ch.Key().LocalKey()).To(Equal(channel.LocalKey(1)))
 			})
 			It("Should create the channel in the cesium gorpDB", func() {
 				channels, err := builder.Cores[2].Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey())
@@ -90,7 +90,7 @@ var _ = Describe("TypedWriter", Ordered, func() {
 					err := services[1].NewWriter(nil).Create(ctx, ch2)
 					Expect(err).To(BeNil())
 					Expect(ch2.Key().Leaseholder()).To(Equal(aspen.NodeKey(1)))
-					Expect(ch2.Key().LocalKey()).To(Equal(uint16(4)))
+					Expect(ch2.Key().LocalKey()).To(Equal(channel.LocalKey(4)))
 				})
 		})
 		Context("Free", func() {
@@ -100,7 +100,7 @@ var _ = Describe("TypedWriter", Ordered, func() {
 			})
 			It("Should create the channel without error", func() {
 				Expect(ch.Key().Leaseholder()).To(Equal(aspen.Free))
-				Expect(ch.Key().LocalKey()).To(Equal(uint16(5)))
+				Expect(ch.Key().LocalKey()).To(Equal(channel.LocalKey(1)))
 				channels, err := builder.Cores[1].Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey())
 				Expect(err).To(MatchError(query.NotFound))
 				Expect(channels).To(HaveLen(0))

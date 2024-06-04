@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,28 +7,27 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useState } from "react";
+import "@/cluster/Connect.css";
 
-import { synnaxPropsZ } from "@synnaxlabs/client";
 import type { connection, SynnaxProps } from "@synnaxlabs/client";
-import { Nav, componentRenderProp, Status, Form } from "@synnaxlabs/pluto";
+import { synnaxPropsZ } from "@synnaxlabs/client";
+import { componentRenderProp, Form,Nav, Status } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 import { Button } from "@synnaxlabs/pluto/button";
 import { Input } from "@synnaxlabs/pluto/input";
-import { Case } from "@synnaxlabs/x";
+import { caseconv } from "@synnaxlabs/x";
+import { type ReactElement, useState } from "react";
 import { useDispatch } from "react-redux";
 import { z } from "zod";
 
 import { statusVariants } from "@/cluster/Badges";
 import { useSelectMany } from "@/cluster/selectors";
-import { setActive, set } from "@/cluster/slice";
+import { set,setActive } from "@/cluster/slice";
 import { testConnection } from "@/cluster/testConnection";
 import { CSS } from "@/css";
 import { type Layout } from "@/layout";
 
-import "@/cluster/Connect.css";
-
-export const connectWindowLayout: Layout.LayoutState = {
+export const connectWindowLayout: Layout.State = {
   key: "connectCluster",
   windowKey: "connectCluster",
   type: "connectCluster",
@@ -38,7 +37,6 @@ export const connectWindowLayout: Layout.LayoutState = {
     resizable: false,
     size: { height: 430, width: 650 },
     navTop: true,
-    transparent: true,
   },
 };
 
@@ -63,7 +61,9 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
 
   const handleSubmit = (): void => {
     void (async () => {
-      if (!methods.validate()) return;
+      if (!methods.validate()) {
+        return;
+      }
       const data = methods.value();
       setConnState(null);
       setLoading("submit");
@@ -96,7 +96,9 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
 
   const handleTestConnection = (): void => {
     void (async (): Promise<void> => {
-      if (!methods.validate()) return;
+      if (!methods.validate()) {
+        return;
+      }
       setConnState(null);
       setLoading("test");
       const state = await testConnection(methods.value() as SynnaxProps);
@@ -138,7 +140,7 @@ export const Connect = ({ onClose }: Layout.RendererProps): ReactElement => {
           {connState != null && (
             <Status.Text variant={statusVariants[connState.status]}>
               {connState.status === "connected"
-                ? Case.capitalize(connState.status)
+                ? caseconv.capitalize(connState.status)
                 : connState.message}
             </Status.Text>
           )}

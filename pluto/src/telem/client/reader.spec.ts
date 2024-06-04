@@ -1,35 +1,37 @@
+// Copyright 2024 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
 import { alamos } from "@synnaxlabs/alamos";
 import {
+  channel,
   DataType,
   Frame,
   Series,
   TimeRange,
   TimeSpan,
-  channel,
 } from "@synnaxlabs/client";
-import { type Mock, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, type Mock, vi } from "vitest";
 
 import { Cache } from "@/telem/client/cache/cache";
-import { type ReadRemoteFunc, Reader } from "@/telem/client/reader";
+import { Reader, type ReadRemoteFunc } from "@/telem/client/reader";
 
 class MockRetriever implements channel.Retriever {
-  async search(term: string, rangeKey?: string): Promise<channel.Payload[]> {
+  async search(): Promise<channel.Payload[]> {
     throw new Error("Method not implemented.");
   }
 
-  async page(
-    offset: number,
-    limit: number,
-    rangeKey?: string,
-  ): Promise<channel.Payload[]> {
+  async page(): Promise<channel.Payload[]> {
     throw new Error("Method not implemented.");
   }
 
-  async retrieve(
-    channels: channel.Params,
-    rangeKey?: string,
-  ): Promise<channel.Payload[]> {
-    const { normalized } = channel.analyzeParams(channels);
+  async retrieve(channels: channel.Params): Promise<channel.Payload[]> {
+    const { normalized } = channel.analyzeChannelParams(channels);
     return normalized.map(
       (key) =>
         new channel.Channel({
@@ -52,7 +54,7 @@ const basicRemoteReadFunc =
         () =>
           new Series({
             data: new Float32Array([1, 2, 3]),
-            alignment: 0,
+            alignment: 0n,
             timeRange: tr,
           }),
       ),

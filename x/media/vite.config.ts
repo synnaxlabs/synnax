@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -13,8 +13,6 @@ import { defineConfig } from "vite";
 export default defineConfig({
   plugins: [lib({ name: "media" })],
   build: {
-    sourcemap: true,
-    minify: true,
     rollupOptions: {
       external: ["react", "react-dom"],
       output: {

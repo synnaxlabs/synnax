@@ -12,12 +12,11 @@ package api
 import (
 	"context"
 	"github.com/synnaxlabs/freighter"
-	"github.com/synnaxlabs/freighter/ferrors"
 	"github.com/synnaxlabs/freighter/freightfluence"
-	"github.com/synnaxlabs/synnax/pkg/api/errors"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
 )
 
@@ -39,7 +38,7 @@ func (s *FrameService) Stream(ctx context.Context, stream StreamerStream) error 
 			Sender: freighter.SenderNopCloser[FrameStreamerResponse]{StreamSender: stream},
 			Transform: func(ctx context.Context, res FrameStreamerResponse) (FrameStreamerResponse, bool, error) {
 				if res.Error != nil {
-					res.Error = ferrors.Encode(res.Error)
+					res.Error = errors.Encode(ctx, res.Error, false)
 				}
 				return res, true, nil
 			},
@@ -53,13 +52,13 @@ func (s *FrameService) Stream(ctx context.Context, stream StreamerStream) error 
 	plumber.MustConnect[FrameStreamerResponse](pipe, "streamer", "sender", 70)
 	plumber.MustConnect[FrameStreamerRequest](pipe, "receiver", "streamer", 70)
 	pipe.Flow(sCtx, confluence.CloseInletsOnExit())
-	return errors.Auto(sCtx.Wait())
+	return sCtx.Wait()
 }
 
 func (s *FrameService) openStreamer(ctx context.Context, stream StreamerStream) (framer.Streamer, error) {
 	req, err := stream.Receive()
 	if err != nil {
-		return nil, errors.Unexpected(err)
+		return nil, err
 	}
 	reader, err := s.Internal.NewStreamer(ctx, framer.StreamerConfig{
 		Start: req.Start,

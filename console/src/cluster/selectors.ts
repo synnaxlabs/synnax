@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type LocalCommand, type Cluster, type LocalState } from "@/cluster/core";
-import { type SliceState, type StoreState, SLICE_NAME } from "@/cluster/slice";
+import { type Cluster, type LocalState } from "@/cluster/core";
+import { SLICE_NAME, type SliceState, type StoreState } from "@/cluster/slice";
 import { selectByKey, selectByKeys, useMemoSelect } from "@/hooks";
 
 /**
@@ -40,7 +40,7 @@ export const select = (
   state: StoreState,
   key?: string | null,
 ): Cluster | null | undefined =>
-  selectByKey(selectSliceState(state).dogs, key, selectActiveKey(state));
+  selectByKey(selectSliceState(state).clusters, key, selectActiveKey(state));
 
 /**
  * Selects a cluster from the cluster store.
@@ -61,7 +61,7 @@ export const useSelect = (key?: string): Cluster | null | undefined =>
  * selected.
  */
 export const selectMany = (s: StoreState, keys?: string[]): Cluster[] =>
-  selectByKeys(s.cluster.dogs, keys);
+  selectByKeys(s.cluster.clusters, keys);
 
 /**
  * Selects a subset of clusters from the cluster store.

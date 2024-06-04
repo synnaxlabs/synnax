@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,13 +9,13 @@
 
 import { errorZ, type Stream, type StreamClient } from "@synnaxlabs/freighter";
 import {
+  type CrudeTimeRange,
   type CrudeTimeSpan,
   type CrudeTimeStamp,
   TimeRange,
   TimeSpan,
   TimeStamp,
-  type CrudeTimeRange,
-} from "@synnaxlabs/x";
+} from "@synnaxlabs/x/telem";
 import { z } from "zod";
 
 import { type Params } from "@/channel/payload";

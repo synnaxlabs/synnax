@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,17 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, type RefObject } from "react";
+import "@/accordion/Accordion.css";
 
 import { Icon } from "@synnaxlabs/media";
-import { box, type direction } from "@synnaxlabs/x";
+import { box, type direction } from "@synnaxlabs/x/spatial";
+import { type ReactElement, type RefObject } from "react";
 
 import { type Button } from "@/button";
 import { CSS } from "@/css";
 import { Header } from "@/header";
 import { Resize } from "@/resize";
-
-import "@/accordion/Accordion.css";
 
 /** The props for a single entry in the {@link Accordion} component. */
 export interface Entry {

@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -13,7 +13,7 @@ import { Align } from "@/align";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
-import { useGridPosition } from "@/vis/lineplot/LinePlot";
+import { useGridEntry } from "@/vis/lineplot/LinePlot";
 
 export type TitleProps<L extends Text.Level = "h2"> = Text.MaybeEditableProps<L>;
 
@@ -23,7 +23,7 @@ export const Title = <L extends Text.Level = "h2">({
 }: TitleProps<L>): ReactElement => {
   const key = useUniqueKey();
   const font = Theming.useTypography(level);
-  const gridStyle = useGridPosition(
+  const gridStyle = useGridEntry(
     {
       key,
       size: (font.lineHeight + 2) * font.baseSize,
@@ -34,7 +34,7 @@ export const Title = <L extends Text.Level = "h2">({
   );
   return (
     <Align.Space justify="center" align="center" style={gridStyle}>
-      {/* @ts-expect-error */}
+      {/* @ts-expect-error  - generic props issues */}
       <Text.MaybeEditable<L> {...props} level={level} />
     </Align.Space>
   );

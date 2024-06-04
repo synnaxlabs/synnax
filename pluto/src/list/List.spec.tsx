@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useState } from "react";
-
 import { act, render } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { type ReactElement, useState } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { List } from "@/list";
@@ -61,7 +60,7 @@ const TestList = (): ReactElement => {
         <List.Selector value={selected} onChange={setSelected}>
           <List.Column.Header columns={cols}>
             <List.Core.Virtual<string> itemHeight={30}>
-              {(props) => <List.Column.Item {...props} />}
+              {({ key, ...props }) => <List.Column.Item key={key} {...props} />}
             </List.Core.Virtual>
           </List.Column.Header>
         </List.Selector>

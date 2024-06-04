@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,19 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { xy, box, location } from "@synnaxlabs/x";
+import { box, location,xy } from "@synnaxlabs/x";
 import { type ReactFlowInstance } from "reactflow";
 
 export const selectNode = (key: string): HTMLDivElement => {
   const el = document.querySelector(`[data-id="${key}"]`);
-  if (el == null) throw new Error(`[pid] - cannot find node with key: ${key}`);
+  if (el == null) throw new Error(`[diagram] - cannot find node with key: ${key}`);
   return el as HTMLDivElement;
 };
 
 export const selectNodeBox = (flow: ReactFlowInstance, key: string): box.Box => {
   const n = selectNode(key);
   const flowN = flow.getNodes().find((n) => n.id === key);
-  if (flowN == null) throw new Error(`[pid] - cannot find node with key: ${key}`);
+  if (flowN == null) throw new Error(`[diagram] - cannot find node with key: ${key}`);
   return box.construct(flowN.position, box.dims(box.construct(n)));
 };
 
@@ -42,7 +42,7 @@ export class HandleLayout {
   }
 
   get node(): NodeLayout {
-    if (this.node_ == null) throw new Error(`[pid] - handle has no node`);
+    if (this.node_ == null) throw new Error(`[schematic] - handle has no node`);
     return this.node_;
   }
 
@@ -74,7 +74,8 @@ export class NodeLayout {
       const pos = box.center(box.construct(el));
       const dist = xy.translation(box.topLeft(nodeElBox), pos);
       const match = el.className.match(/react-flow__handle-(\w+)/);
-      if (match == null) throw new Error(`[pid] - cannot find handle orientation`);
+      if (match == null)
+        throw new Error(`[schematic] - cannot find handle orientation`);
       const orientation = location.construct(match[0]) as location.Outer;
       return new HandleLayout(dist, orientation);
     });

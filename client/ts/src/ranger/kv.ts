@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type UnaryClient, sendRequired } from "@synnaxlabs/freighter";
-import { isObject, toArray } from "@synnaxlabs/x";
+import { sendRequired,type UnaryClient } from "@synnaxlabs/freighter";
+import { isObject } from "@synnaxlabs/x/identity";
+import { toArray } from "@synnaxlabs/x/toArray";
 import { z } from "zod";
 
 import { type Key, keyZ } from "@/ranger/payload";
@@ -63,6 +64,10 @@ export class KV {
     );
     if (err != null) throw err;
     return Array.isArray(keys) ? res.pairs : res.pairs[keys];
+  }
+
+  async list(): Promise<Record<string, string>> {
+    return this.get([]);
   }
 
   async set(key: string, value: string): Promise<void>;

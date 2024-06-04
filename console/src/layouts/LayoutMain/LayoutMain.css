@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Synnax Labs, Inc.
+ * Copyright 2024 Synnax Labs, Inc.
  *
  * Use of this software is governed by the Business Source License included in the file
  * licenses/BSL.txt.
@@ -12,10 +12,12 @@
 ::-webkit-scrollbar {
     width: 1rem;
     height: 1rem;
+    z-index: -1;
 }
 
 ::-webkit-scrollbar-track {
     background: var(--pluto-gray-l1);
+    z-index: -1;
 }
 
 ::-webkit-scrollbar-thumb {

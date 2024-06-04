@@ -1,4 +1,4 @@
-// Copyright 2023 Synnax Labs, Inc.
+// Copyright 2024 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
 // licenses/BSL.txt.
@@ -9,9 +9,9 @@
 
 import { z } from "zod";
 
-import { dimensions, xy, type Dimensions, numberCouple } from "@/spatial/base";
+import { type Dimensions, dimensions, numberCouple,xy } from "@/spatial/base";
 
-export { dimensions, type Dimensions };
+export { type Dimensions,dimensions };
 
 export const signed = z.object({ signedWidth: z.number(), signedHeight: z.number() });
 export const crude = z.union([dimensions, signed, xy, numberCouple]);
@@ -66,4 +66,4 @@ export const min = (crude: Crude[]): Dimensions => ({
 export const scale = (ca: Crude, factor: number): Dimensions => {
   const a = construct(ca);
   return { width: a.width * factor, height: a.height * factor };
-}
+};
