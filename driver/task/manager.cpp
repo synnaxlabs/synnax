@@ -31,6 +31,7 @@ const std::string TASK_DELETE_CHANNEL = "sy_task_delete";
 const std::string TASK_CMD_CHANNEL = "sy_task_cmd";
 
 freighter::Error task::Manager::start(std::atomic<bool> &done) {
+    if(running) return freighter::NIL;
     LOG(INFO) << "[task.manager] starting up";
     if (const auto err = startGuarded(); err) {
         if (err.matches(freighter::UNREACHABLE) && breaker.wait(err)) start(done);
@@ -64,19 +65,19 @@ freighter::Error task::Manager::startGuarded() {
     task_cmd_channel = task_cmd;
 
     // Retrieve all of the tasks that are already configured and start them.
-    LOG(INFO) << "[task.manager] pulling and configuring existing tasks from Synnax";
-    auto [tasks, tasks_err] = rack.tasks.list();
-    if (tasks_err) return tasks_err;
-    for (const auto &task: tasks) {
-        auto [driver_task, ok] = factory->configureTask(ctx, task);
-        if (ok && driver_task != nullptr)
-            this->tasks[task.key] = std::move(driver_task);
-    }
+    // LOG(INFO) << "[task.manager] pulling and configuring existing tasks from Synnax";
+    // auto [tasks, tasks_err] = rack.tasks.list();
+    // if (tasks_err) return tasks_err;
+    // for (const auto &task: tasks) {
+    //     auto [driver_task, ok] = factory->configureTask(ctx, task);
+    //     if (ok && driver_task != nullptr)
+    //         this->tasks[task.key] = std::move(driver_task);
+    // }
 
-    LOG(INFO) << "[task.manager] configuring initial tasks from factory";
-    auto initial_tasks = factory->configureInitialTasks(ctx, this->internal);
-    for (auto &[sy_task, task]: initial_tasks)
-        this->tasks[sy_task.key] = std::move(task);
+    // LOG(INFO) << "[task.manager] configuring initial tasks from factory";
+    // auto initial_tasks = factory->configureInitialTasks(ctx, this->internal);
+    // for (auto &[sy_task, task]: initial_tasks)
+    //     this->tasks[sy_task.key] = std::move(task);
 
     return task_cmd_err;
 }
@@ -92,11 +93,13 @@ void task::Manager::run(std::atomic<bool> &done) {
 }
 
 freighter::Error task::Manager::stop() {
+    if(!running) return freighter::NIL;
     LOG(INFO) << "[task.manager] stop called";
     if (!run_thread.joinable()) return freighter::NIL;
     running = false;
-    streamer->closeSend();
+    // streamer->closeSend();
     run_thread.join();
+    LOG(INFO) << "[task.manager] run thread has been joined";
     LOG(INFO) << "[task.manager] shutting down";
     for (auto &[key, task]: tasks) task->stop();
     LOG(INFO) << "[task.manager] shut down";
@@ -118,23 +121,24 @@ freighter::Error task::Manager::runGuarded() {
     breaker.reset();
 
     while (running) {
-        auto [frame, read_err] = streamer->read();
-        LOG(INFO) << "[task.manager] received frame";
-        if (read_err) {
-            if(!running) break;
-            LOG(ERROR) << "[task.manager] failed to read frame: " << read_err.message();
-            break;
-        }
-        for (size_t i = 0; i < frame.size(); i++) {
-            const auto &key = (*frame.channels)[i];
-            const auto &series = (*frame.series)[i];
-            if (key == task_set_channel.key) processTaskSet(series);
-            else if (key == task_delete_channel.key) processTaskDelete(series);
-            else if (key == task_cmd_channel.key) processTaskCmd(series);
-        }
+        // auto [frame, read_err] = streamer->read();
+        // LOG(INFO) << "[task.manager] received frame";
+        // if (read_err) {
+        //     if(!running) break;
+        //     LOG(ERROR) << "[task.manager] failed to read frame: " << read_err.message();
+        //     break;
+        // }
+        // for (size_t i = 0; i < frame.size(); i++) {
+        //     const auto &key = (*frame.channels)[i];
+        //     const auto &series = (*frame.series)[i];
+        //     if (key == task_set_channel.key) processTaskSet(series);
+        //     else if (key == task_delete_channel.key) processTaskDelete(series);
+        //     else if (key == task_cmd_channel.key) processTaskCmd(series);
+        // }
     }
     LOG(INFO) << "[task.manager] exiting runGuarded";
-    return streamer->close();
+    // return streamer->close();
+    return freighter::NIL;
 }
 
 void task::Manager::processTaskSet(const Series &series) {

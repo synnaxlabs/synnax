@@ -28,18 +28,18 @@ driver::Driver::Driver(
 const std::string VERSION = "0.1.0";
 
 freighter::Error driver::Driver::run() {
-    // auto err = task_manager.start(done);
+    auto err = task_manager.start(done);
     // if (err) return err;
-    auto err = heartbeat.start(done);
+    err = heartbeat.start(done);
     // if (err) {
     //     task_manager.stop();
     //     return err;
     // }
-    // LOG(INFO) << "[main] started successfully. waiting for shutdown.";
+    LOG(INFO) << "[main] started successfully. waiting for shutdown.";
     done.wait(false);
-    // task_manager.stop();
     heartbeat.stop();
-    // LOG(INFO) << "[main] stopped successfully.";
+    task_manager.stop();
+    LOG(INFO) << "[main] stopped successfully.";
     return freighter::NIL;
 }
 

@@ -22,6 +22,7 @@ heartbeat::Heartbeat::Heartbeat(
 }
 
 freighter::Error heartbeat::Heartbeat::start(std::atomic<bool> &done) {
+    if(running) return freighter::NIL;
     LOG(INFO) << "[heartbeat] starting up";
     if (const auto err = startGuarded(); err) {
         if (err.matches(freighter::UNREACHABLE) && breaker.wait(err)) start(done);
