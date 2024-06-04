@@ -24,6 +24,8 @@ type Writer interface {
 	DeleteMany(ctx context.Context, keys []Key) error
 	DeleteByName(ctx context.Context, name string) error
 	DeleteManyByNames(ctx context.Context, names []string) error
+	Rename(ctx context.Context, key Key, newName string, allowInternal bool) error
+	RenameMany(ctx context.Context, keys []Key, newNames []string, allowInternal bool) error
 }
 
 type writer struct {
@@ -69,6 +71,24 @@ func (w writer) DeleteByName(ctx context.Context, name string) error {
 
 func (w writer) DeleteManyByNames(ctx context.Context, names []string) error {
 	return w.proxy.deleteByName(ctx, w.tx, names)
+}
+
+func (w writer) Rename(
+	ctx context.Context,
+	key Key,
+	newName string,
+	allowInternal bool,
+) error {
+	return w.RenameMany(ctx, []Key{key}, []string{newName}, allowInternal)
+}
+
+func (w writer) RenameMany(
+	ctx context.Context,
+	keys []Key,
+	newNames []string,
+	allowInternal bool,
+) error {
+	return w.proxy.rename(ctx, w.tx, keys, newNames, allowInternal)
 }
 
 func applyAdjustments(c Channel) Channel {

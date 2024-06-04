@@ -93,6 +93,7 @@ const handleResourcesChange = async (
   const updated = changes
     .filter(({ variant, value }) => variant === "set" && value != null)
     .map(({ value }) => value) as ontology.Resource[];
+  console.log(updated);
   setResources(updateResources(resources, updated, removed));
   let nextTree = Core.removeNode({
     tree: nodes,
@@ -265,13 +266,23 @@ export const Tree = (): ReactElement => {
         try {
           setLoading(clicked);
           const resources = await client.ontology.retrieveChildren(id, {
-            includeSchema: true,
+            includeSchema: false,
           });
           const converted = toTreeNodes(services, resources);
-          const nextTree = Core.setNode({
+          const nextTree = Core.updateNodeChildren({
             tree: nodesRef.current,
-            destination: clicked,
-            additions: converted,
+            parent: clicked,
+            updater: (nodes) => {
+              const res = converted.map((node) => {
+                const existing = nodes.find(({ key }) => key === node.key);
+                return { ...existing, ...node };
+              });
+              const nodesBeingRenamed = nodes.filter(
+                ({ key, name }) =>
+                  !converted.find(({ key: k }) => k === key) && name.length === 0,
+              );
+              return [...res, ...nodesBeingRenamed];
+            },
           });
           const keys = resources.map(({ id }) => id.toString());
           resourcesRef.current = [
@@ -368,8 +379,6 @@ export const Tree = (): ReactElement => {
         // might be selecting nodes AND their children.
         key: selectedNodes.sort((a, b) => a.depth - b.depth)[0].key,
       });
-      // No parent means no valid contex menu.
-      if (parent == null) return null;
 
       const firstID = new ontology.ID(keys[0]);
 
@@ -391,6 +400,9 @@ export const Tree = (): ReactElement => {
           setNodes,
           setSelection: setSelected,
           setResources,
+          expand: treeProps.expand,
+          contract: treeProps.contract,
+          setLoading: setLoading,
         },
       };
 
@@ -417,9 +429,10 @@ export const Tree = (): ReactElement => {
   const item = useCallback(
     (props: Core.ItemProps): ReactElement => (
       <AdapterItem
+        {...props}
+        key={props.entry.key}
         loading={props.entry.key === loading}
         services={services}
-        {...props}
       />
     ),
     [services, loading],

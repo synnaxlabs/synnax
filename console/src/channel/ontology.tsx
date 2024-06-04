@@ -114,8 +114,19 @@ const handleSetAlias = async ({
   await rng.setAlias(Number(id.key), name);
 };
 
-const handleRename: Ontology.HandleTreeRename = (p) => {
-  void handleSetAlias(p);
+const handleRename: Ontology.HandleTreeRename = ({ client, name, id, addStatus }) => {
+  void (async () => {
+    try {
+      const channelKey = Number(id.key);
+      await client.channels.rename(channelKey, name);
+    } catch (e) {
+      addStatus({
+        variant: "error",
+        key: `renameChannelError-${id.key}`,
+        message: (e as Error).message,
+      });
+    }
+  })();
 };
 
 const handleDeleteAlias = async ({
@@ -137,7 +148,15 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const handleSelect = (itemKey: string): void => {
     switch (itemKey) {
       case "alias":
-        Tree.startRenaming(nodes[0].key);
+        Tree.startRenaming(nodes[0].key, (name) =>
+          handleSetAlias({ ...props, name, id: resources[0].id }),
+        );
+        break;
+      case "rename":
+        Tree.startRenaming(nodes[0].key, (name) => {
+          console.log("rename", name);
+          handleRename({ ...props, name, id: resources[0].id });
+        });
         break;
       case "deleteAlias":
         handleDeleteAlias(props).catch((e: Error) => {
@@ -171,6 +190,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     <Menu.Menu level="small" iconSpacing="small" onChange={handleSelect}>
       <ConsoleMenu.HardReload />
       <Group.GroupMenuItem selection={selection} />
+      <Menu.Item itemKey="rename" startIcon={<Icon.Rename />}>
+        Rename
+      </Menu.Item>
       {activeRange != null && activeRange.persisted && (
         <>
           {singleResource && (
@@ -205,7 +227,7 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   icon: <Icon.Channel />,
   hasChildren: false,
   allowRename,
-  onRename: handleRename,
+  onRename: () => {},
   canDrop,
   onSelect: handleSelect,
   haulItems,

@@ -11,6 +11,7 @@ import "@/mosaic/Mosaic.css";
 
 import { type box, type location } from "@synnaxlabs/x";
 import {
+  DragEvent,
   memo,
   type MutableRefObject,
   type ReactElement,
@@ -156,7 +157,7 @@ interface TabLeafProps extends Omit<MosaicInternalProps, "onResize"> {}
  * Dropping an item with this signature will call the {@link Mosaic} onDrop handler.
  */
 export const HAUL_DROP_TYPE = "pluto-mosaic-tab-drop";
-/** This type should be used when the user wants to create a new tab in the mosaic. 
+/** This type should be used when the user wants to create a new tab in the mosaic.
 Dropping an item with this signature will call the {@link Mosaic} onCreate handler. */
 export const HAUL_CREATE_TYPE = "pluto-mosaic-tab-create";
 
@@ -177,6 +178,7 @@ const TabLeaf = memo(
     onDrop,
     onCreate,
     portalNodes,
+    activeTab,
     ...props
   }: TabLeafProps): ReactElement => {
     const { key, tabs } = node as Omit<Node, "tabs"> & { tabs: Tabs.Tab[] };
@@ -187,6 +189,7 @@ const TabLeaf = memo(
 
     const handleDrop = useCallback(
       ({ items, event }: Haul.OnDropProps): Haul.Item[] => {
+        if (event == null) return [];
         setDragMask(null);
         const dropped = Haul.filterByType(HAUL_DROP_TYPE, items);
         const loc =
@@ -207,6 +210,7 @@ const TabLeaf = memo(
 
     const handleDragOver = useCallback(
       ({ event }: Haul.OnDragOverProps): void => {
+        if (event == null) return;
         const location: location.Location =
           tabs.length === 0 ? "center" : insertLocation(getDragLocationPercents(event));
         setDragMask(location);
@@ -226,8 +230,11 @@ const TabLeaf = memo(
     const handleDragLeave = useCallback((): void => setDragMask(null), []);
 
     const handleDragStart = useCallback(
-      (_: unknown, { tabKey }: Tabs.Tab): void =>
-        startDrag([{ key: tabKey, type: HAUL_DROP_TYPE }]),
+      (e: DragEvent, { tabKey }: Tabs.Tab): void => {
+        startDrag([
+          { key: tabKey, type: HAUL_DROP_TYPE, elementID: e.currentTarget.id },
+        ]);
+      },
       [startDrag],
     );
 
@@ -240,7 +247,7 @@ const TabLeaf = memo(
           tabs={tabs}
           onDragLeave={handleDragLeave}
           selected={node.selected}
-          selectedAltColor={props.activeTab === node.selected}
+          selectedAltColor={activeTab === node.selected}
           onDragStart={handleDragStart}
           onCreate={handleTabCreate}
           {...props}

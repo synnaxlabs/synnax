@@ -11,21 +11,22 @@ package channel
 
 import (
 	"context"
-
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/types"
+	"github.com/synnaxlabs/x/validate"
 )
 
 type leaseProxy struct {
 	ServiceConfig
 	createRouter    proxy.BatchFactory[Channel]
-	deleteRouter    proxy.BatchFactory[Key]
+	keyRouter       proxy.BatchFactory[Key]
 	leasedCounter   *counter
 	freeCounter     *counter
 	externalCounter *counter
@@ -57,7 +58,7 @@ func newLeaseProxy(
 	p := &leaseProxy{
 		ServiceConfig:   cfg,
 		createRouter:    proxy.BatchFactory[Channel]{Host: cfg.HostResolver.HostKey()},
-		deleteRouter:    proxy.BatchFactory[Key]{Host: cfg.HostResolver.HostKey()},
+		keyRouter:       proxy.BatchFactory[Key]{Host: cfg.HostResolver.HostKey()},
 		leasedCounter:   c,
 		group:           mainGroup,
 		externalCounter: extCtr,
@@ -306,7 +307,7 @@ func (lp *leaseProxy) deleteByName(ctx context.Context, tx gorp.Tx, names []stri
 }
 
 func (lp *leaseProxy) delete(ctx context.Context, tx gorp.Tx, keys Keys) error {
-	batch := lp.deleteRouter.Batch(keys)
+	batch := lp.keyRouter.Batch(keys)
 	for nodeKey, entries := range batch.Peers {
 		err := lp.deleteRemote(ctx, nodeKey, entries)
 		if err != nil {
@@ -372,4 +373,66 @@ func (lp *leaseProxy) deleteRemote(ctx context.Context, target core.NodeKey, key
 	}
 	_, err = lp.Transport.DeleteClient().Send(ctx, addr, DeleteRequest{Keys: keys})
 	return err
+}
+
+func (lp *leaseProxy) rename(
+	ctx context.Context,
+	tx gorp.Tx,
+	keys Keys,
+	names []string,
+	allowInternal bool,
+) error {
+	if len(keys) != len(names) {
+		return errors.Wrap(validate.Error, "keys and names must be the same length")
+	}
+	batch := lp.keyRouter.Batch(keys)
+	for nodeKey, entries := range batch.Peers {
+		err := lp.renameRemote(ctx, nodeKey, entries, names)
+		if err != nil {
+			return err
+		}
+	}
+	if len(batch.Free) > 0 {
+		err := lp.renameFreeVirtual(ctx, tx, batch.Free, names, allowInternal)
+		if err != nil {
+			return err
+		}
+	}
+	return lp.renameGateway(ctx, tx, batch.Gateway, names, allowInternal)
+}
+
+func (lp *leaseProxy) renameRemote(ctx context.Context, target core.NodeKey, keys Keys, names []string) error {
+	addr, err := lp.HostResolver.Resolve(target)
+	if err != nil {
+		return err
+	}
+	_, err = lp.Transport.RenameClient().Send(ctx, addr, RenameRequest{Keys: keys, Names: names})
+	return err
+}
+
+func channelNameUpdater(allowInternal bool, keys Keys, names []string) func(Channel) (Channel, error) {
+	return func(c Channel) (Channel, error) {
+		if c.Internal && !allowInternal {
+			return c, errors.Wrapf(validate.Error, "cannot rename internal channel %v", c)
+		}
+		c.Name = names[lo.IndexOf(keys, c.Key())]
+		return c, nil
+	}
+}
+
+func (lp *leaseProxy) renameFreeVirtual(ctx context.Context, tx gorp.Tx, channels Keys, names []string, allowInternal bool) error {
+	return gorp.NewUpdate[Key, Channel]().
+		WhereKeys(channels...).
+		ChangeErr(channelNameUpdater(allowInternal, channels, names)).
+		Exec(ctx, tx)
+}
+
+func (lp *leaseProxy) renameGateway(ctx context.Context, tx gorp.Tx, keys Keys, names []string, allowInternal bool) error {
+	if err := gorp.NewUpdate[Key, Channel]().
+		WhereKeys(keys...).
+		ChangeErr(channelNameUpdater(allowInternal, keys, names)).
+		Exec(ctx, tx); err != nil {
+		return err
+	}
+	return lp.TSChannel.RenameChannels(ctx, keys.Storage(), names)
 }

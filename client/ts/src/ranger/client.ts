@@ -122,15 +122,14 @@ export class Client implements AsyncTermSearcher<string, Key, Range> {
   }
 
   private async execRetrieve(req: RetrieveRequest): Promise<Range[]> {
-    return this.sugar(
-      await sendRequired<typeof retrieveReqZ, typeof retrieveResZ>(
-        this.unaryClient,
-        RETRIEVE_ENDPOINT,
-        req,
-        retrieveReqZ,
-        retrieveResZ,
-      ).then((res) => res.ranges),
+    const { ranges } = await sendRequired<typeof retrieveReqZ, typeof retrieveResZ>(
+      this.unaryClient,
+      RETRIEVE_ENDPOINT,
+      req,
+      retrieveReqZ,
+      retrieveResZ,
     );
+    return this.sugar(ranges);
   }
 
   async setActive(range: Key): Promise<void> {

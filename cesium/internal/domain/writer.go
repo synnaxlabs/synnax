@@ -282,7 +282,10 @@ func (w *Writer) commit(ctx context.Context, end telem.TimeStamp, persist bool) 
 
 // resolveCommitEnd returns whether a file change is needed, the resolved commit end, and any errors.
 func (w *Writer) resolveCommitEnd(end telem.TimeStamp) (telem.TimeStamp, bool) {
-	if w.fileSize >= w.fc.Config.FileSize {
+	// fc.Config.Filesize is the nominal file size to not exceed, in reality, this value
+	// is set to 0.8 * the actual file size cap. Therefore, we only need to switch files
+	// once we write to over 1.25 * that nominal value.
+	if w.fileSize >= w.fc.realFileSizeCap() {
 		return end, true
 	}
 

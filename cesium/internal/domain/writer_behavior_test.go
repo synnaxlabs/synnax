@@ -317,14 +317,14 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						}))
 						MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
 						Expect(w.Commit(ctx, 10*telem.SecondTS)).To(HaveOccurredAs(validate.Error))
-						Expect(w.Close(ctx)).To(Succeed())
+						Expect(w.Close()).To(Succeed())
 					})
 					It("Should not fail to commit if no data was written", func() {
 						w := MustSucceed(db.NewWriter(ctx, domain.WriterConfig{
 							Start: 10 * telem.SecondTS,
 						}))
 						Expect(w.Commit(ctx, 10*telem.SecondTS)).To(Succeed())
-						Expect(w.Close(ctx)).To(Succeed())
+						Expect(w.Close()).To(Succeed())
 					})
 				})
 				Context("Commit before start", func() {

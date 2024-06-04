@@ -83,7 +83,7 @@ export const AliasProvider = ({
         const newAliases = { ...aliases };
         changes.forEach(({ variant, key, value }) => {
           const channelKey = Number(key.split("---")[1]);
-           
+
           if (variant === "delete") delete newAliases[channelKey];
           else newAliases[value.channel] = value.alias;
         });

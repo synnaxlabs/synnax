@@ -21,8 +21,8 @@ export class Client {
     this.creator = new Writer(unary);
   }
 
-  async create(parent: ID, name: string): Promise<Group> {
-    return this.sugar(await this.creator.create(parent, name));
+  async create(parent: ID, name: string, key?: string): Promise<Group> {
+    return this.sugar(await this.creator.create(parent, name, key));
   }
 
   async rename(key: string, name: string): Promise<void> {
