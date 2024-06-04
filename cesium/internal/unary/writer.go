@@ -199,7 +199,6 @@ func (w *Writer) Write(series telem.Series) (a telem.AlignmentPair, err error) {
 	if err = w.Channel.ValidateSeries(series); err != nil {
 		return 0, w.wrapError(err)
 	}
-	// ok signifies whether w is allowed to write.
 	dw, ok := w.control.Authorize()
 	if !ok {
 		return 0, controller.Unauthorized(w.control.Subject.Name, w.Channel.Key)

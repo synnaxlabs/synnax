@@ -169,6 +169,7 @@ func (db *DB) Delete(
 
 // GarbageCollect rewrites all files that are over the size limit of a file and has
 // enough tombstones to garbage collect, as defined by GCThreshold.
+// GarbageCollect is not safe to run concurrently!
 func (db *DB) GarbageCollect(ctx context.Context) error {
 	ctx, span := db.T.Bench(ctx, "garbage_collect")
 	defer span.End()
@@ -179,14 +180,11 @@ func (db *DB) GarbageCollect(ctx context.Context) error {
 	}
 
 	for fileKey := uint16(1); fileKey <= uint16(db.files.counter.Value()); fileKey++ {
-		if db.files.hasWriter(fileKey) {
-			continue
-		}
 		s, err := db.FS.Stat(fileKeyToName(fileKey))
 		if err != nil {
 			return span.Error(err)
 		}
-		if s.Size() < int64(db.FileSize) {
+		if s.Size() < int64(db.FileSize) || db.files.hasWriter(fileKey) {
 			continue
 		}
 
@@ -201,7 +199,7 @@ func (db *DB) GarbageCollect(ctx context.Context) error {
 	// We choose to keep the mutex locked while persisting pointers: the time sacrifice
 	// should not be substantial, and this ensures that the order of index persists are
 	// in order of garbage collect so that the index does reflect the correct indexes.
-	return persist()
+	return span.Error(persist())
 }
 
 func (db *DB) garbageCollectFile(key uint16, size int64) error {
@@ -240,7 +238,7 @@ func (db *DB) garbageCollectFile(key uint16, size int64) error {
 		return err
 	}
 
-	// Open a writer to the copy file.
+	// Open a writer to a copy file.
 	w, err := db.FS.Open(copyName, os.O_WRONLY|os.O_CREATE)
 	if err != nil {
 		return err

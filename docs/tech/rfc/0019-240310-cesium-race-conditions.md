@@ -147,6 +147,24 @@ to the existing offset. Therefore, it does not matter which one happens first. T
 GC and delete can work in tandem, so long as the modifications happen one by one and not
 at the same time, which is handled by the mutex on the index.
 
+### 4.1.5 GC-GC Contention
+
+If two garbage collection subprocesses run at the same time, we risk a serious data race:
+the underlying data in the file system may be modified by two entities at the same time,
+and the offset will be in a bad state. Therefore, we must disallow GC-GC Contention.
+
+### 4.1.6 Delete-Delete Contention
+
+There are two cases for delete-delete contention: either the two time ranges contend over
+the same pointer(s), or they are disjoint: the case where they are disjoint is simple: we
+can simply use Mutex Locks to turn the operations into serial operations to the index and
+there would be no conflicts (see the detailed deletion section 4.2.3).
+
+If the two deletions contend over the same pointers, there are two more cases: the two
+time ranges could overlap each other, in which case the controller at the Unary level would
+return an error and disallow the deletion, or they don't overlap each other, in which case
+the operation is turned into a Serial operation of the index (see section 4.2.3).
+
 The following diagram summarizes possible conflicts between these entities:
 
 <div style="text-align: center">
@@ -313,21 +331,136 @@ file. This causes reading of wrong data. The change in the file could only happe
 one operation:
 - Garbage-Collection.
 
-#### 4.2.3 Deletion
+### 4.2.3 Deletion
 
-At the domain level, deletion is executed using two locks: one lock to prevent other
-deletions from occurring at the same time, and another lock to lock the mutex while
-we modify it. The specific steps to deletion are as follows:
+At the domain level, deletion occurs in four steps:
 1. Find the domains containing the starting and ending time stamps.
 2. Calculate the offsets (number of samples) from the start time stamps of those domains
 to the desired time stamps.
 3. Search the domains where start and end time stamps found again.
 4. Remove pointers in between and update the domains at the two ends with the new offsets.
 
-Note that step 3 is necessary because between calculating the offsets, the position of the
-start and end domains may have changed – however, what must not have changed are the
-content of those domains, as we will never have an open writer during deletion and the
-delete lock prevents other deletions from occurring concurrently – therefore we know the
-start and end offsets remain correct.
+<div style="text-align: center">
+<img width="90%" src="img/0019-240529-cesium-race-conditions/Delete-Races.png">
+</div>
+
+Deletion employs 3 locks to ensure the integrity of the operation. We first
+note the possible race condition between steps 2 and 3 – the offset on the two
+pointers may be incorrect if they are modified by another deletion. To
+address this, we introduce the delete lock: since there cannot be
+any `Write`s on the pointers affected in a deletion, if we also disallow delete for those
+pointers, we effectively shut down all operations that could change that section of the
+index. Therefore, we can guarantee that the offsets stay correct despite the position of
+the pointers changing (consider, for example, inserting a domain before the deletion range).
+
+Also note that since the calculation in step 2 is based off the time stamp rather than
+the pointer positions, the possible changes to the pointers between steps 1 and 2 does not
+affect the offset calculation.
+
+As a side note on implementation detail, two locks are required since we cannot
+just lock the channel as a whole – index calculations in index channels would deadlock.
+
+### 4.2.4 Garbage Collection
+
+Garbage Collection at the domain level rewrites the underlying telemetry data and
+modifies the index to contain the new offsets. This is done in 7 steps:
+1. Garbage Collect writers (i.e. close and discard file handles on oversize files).
+2. Iterate over files in the domain database.
+3. For a given file, check that it is oversize and has no open writers on it.
+4. Read and store a copy of all pointers for domains on that file.
+5. Transcribe pointers
+   1. Open a reader on the file.
+   2. Create a copy file in write mode
+   3. Using the pointers, read in the domains and re-write them in the new file, while
+   keeping track of the change in offset.
+6. Rename the new file to the old file, delete the old file.
+7. Change the pointer offsets in the index.
+8. Repeat steps 3-7 for each file.
+
+<div style="text-align: center">
+<img width="90%" src="img/0019-240529-cesium-race-conditions/GC-Races.png">
+</div>
+
+Note that a read lock is applied on the index for step 4, and an exclusive lock is applied
+on the index for steps 6 and 7, disabling read and write operations.
+
+There could be a race condition between steps 4 and 5: the pointers may change between when
+we first read them to when we transcribe them, however, we can reason that these race
+conditions can be handled properly:
+- We know that these changes to pointers index may only be deletes, as there cannot be
+any additional writes to pointers on a closed file without open writers.
+- GC will only modify the offsets of these pointers, so the only field of contention within
+these pointers between GC and delete is the `offset` field.
+- We observe that the change in the offset is additive: if a pointer's offset was increased
+by 3 to exclude the first 3 samples, then the transcribed version of the pointer in the new
+file must also have its offset increased by 3: the order of these two changes to offset does
+not matter.
+
+Therefore, we have shown that we can handle race conditions on the index properly. However,
+there may also be a race condition on the file: at the time we transcribe the pointers, the
+location of domains in the file may no longer be where they are in the index: this could
+only be due to another GC process as, as mentioned before, there cannot be `Write` operations
+on the pointers affected by GC.
+
+To this end, race condition occurs when there are two GC processes running concurrently.
+A fix could be to ensure that this never happens.
+
+## 4.3 Unary Level race conditions
+
+At the Unary level, not only must we consider race conditions that come up from the domain
+level, we must also consider the interaction between a domain database and its index, which
+is another domain database.
+
+### 4.3.1 Controller
+
+To analyze the race conditions involved with writing, we will first consider the implications
+of race conditions in the controller.
+
+The controller is responsible for giving the writing entity – a domain writer, for example –
+to the writer which has authority to write when there are multiple writers willing to write
+to the same time region. Time regions must not overlap each other, and there must only
+be one gate controlling a time region at a time.
+
+#### 4.3.1.1 Region operations
+
+A region's main operations are to manage its gates, i.e. the opening, releasing, and
+updating of gates. Each one of these operations are completed within an exclusive lock
+of the region – i.e. whenever a property of Region is updated, we must ensure that we
+have exclusive access.
+
+There is a race condition in a peculiar case where the last gate in a region is released.
+Upon releasing the gate, the region locks its mutex in order to remove the gate. After
+that operation returns, if the gate just removed was the last gate in the region, then
+a call to Controller is made to remove that region from the controller entirely.
+
+The race condition lies in that a new region may be inserted into the region
+after the gate was released but before the region was removed, causing an inaccessible
+gate in a region no longer in the controller. A fix would be to hold the region's mutex
+lock until it is completely removed.
+
+#### 4.3.1.2 Controller operations
+
+A controller's main operations are to manage its regions: it may register regions, remove
+regions, and insert a gate into a region. All of these operations are performed under an
+exclusive lock of the controller.
+
+### 4.3.2 Writing
+
+Writing at the Unary level is simply an extension from the domain level, except with more
+complications with respect to the Unary-level structures controller and index. Each write
+is consisted of 4 steps:
+1. Create a writer and store it in the controller region.
+2. Acquire the writer from the controller if the writer has authority.
+3. Write telemetry data.
+4. Commit telemetry data.
+
+### 4.3.3 Reading
+
+Just like at the Domain level, reading in Unary is also handled by the iterator, however,
+the Unary iterator directly reads data into a frame as opposed to merely providing a means
+to read data (like the Domain iterator). In addition, moving the iterator at the Unary level
+via `Next` requires an additional argument – the time span to move the iterator by: i.e.
+the iterator does not move to the next domain, but rather moves to contain the next `span`
+seconds.
 
 
