@@ -93,6 +93,7 @@ const handleResourcesChange = async (
   const updated = changes
     .filter(({ variant, value }) => variant === "set" && value != null)
     .map(({ value }) => value) as ontology.Resource[];
+  console.log(updated);
   setResources(updateResources(resources, updated, removed));
   let nextTree = Core.removeNode({
     tree: nodes,
@@ -265,13 +266,23 @@ export const Tree = (): ReactElement => {
         try {
           setLoading(clicked);
           const resources = await client.ontology.retrieveChildren(id, {
-            includeSchema: true,
+            includeSchema: false,
           });
           const converted = toTreeNodes(services, resources);
-          const nextTree = Core.setNode({
+          const nextTree = Core.updateNodeChildren({
             tree: nodesRef.current,
-            destination: clicked,
-            additions: converted,
+            parent: clicked,
+            updater: (nodes) => {
+              const res = converted.map((node) => {
+                const existing = nodes.find(({ key }) => key === node.key);
+                return { ...existing, ...node };
+              });
+              const nodesBeingRenamed = nodes.filter(
+                ({ key, name }) =>
+                  !converted.find(({ key: k }) => k === key) && name.length === 0,
+              );
+              return [...res, ...nodesBeingRenamed];
+            },
           });
           const keys = resources.map(({ id }) => id.toString());
           resourcesRef.current = [
@@ -339,7 +350,7 @@ export const Tree = (): ReactElement => {
     onSelectedChange: setSelected,
   });
 
-  const contextMenu = useCallback(
+  const handleContextMenu = useCallback(
     ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null => {
       if (keys.length === 0 || client == null) return null;
       const rightClickedButNotSelected = keys.find(
@@ -385,12 +396,9 @@ export const Tree = (): ReactElement => {
           setNodes,
           setSelection: setSelected,
           setResources,
-          setExpanded: (keys) =>
-            treeProps.onSelect(keys, {
-              clickedIndex: null,
-              clicked: keys[0],
-              entries: [],
-            }),
+          expand: treeProps.expand,
+          contract: treeProps.contract,
+          setLoading: setLoading,
         },
       };
 
@@ -429,7 +437,7 @@ export const Tree = (): ReactElement => {
   return (
     <Menu.ContextMenu
       style={{ height: "calc(100% - 32px)" }}
-      menu={contextMenu}
+      menu={handleContextMenu}
       {...menuProps}
     >
       <Core.Tree

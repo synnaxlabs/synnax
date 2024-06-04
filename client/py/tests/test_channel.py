@@ -180,3 +180,39 @@ class TestChannelClient:
         client.channels.delete(names)
         results = client.channels.retrieve(names)
         assert len(results) == 0
+
+    def test_single_rename(self, client: sy.Synnax):
+        """Should rename a single channel"""
+        channel = client.channels.create(
+            sy.Channel(
+                name="test",
+                rate=1 * sy.Rate.HZ,
+                data_type=sy.DataType.FLOAT64,
+            )
+        )
+        new_name = str(uuid.uuid4())
+        client.channels.rename(channel.key, new_name)
+        retrieved = client.channels.retrieve(new_name)
+        assert retrieved.name == new_name
+
+    def test_multiple_rename(self, client: sy.Synnax):
+        """Should rename multiple channels"""
+        channels = client.channels.create(
+            [
+                sy.Channel(
+                    name="test",
+                    rate=1 * sy.Rate.HZ,
+                    data_type=sy.DataType.FLOAT64,
+                ),
+                sy.Channel(
+                    name="test2",
+                    rate=1 * sy.Rate.HZ,
+                    data_type=sy.DataType.FLOAT64,
+                ),
+            ]
+        )
+        new_names = [str(uuid.uuid4()), str(uuid.uuid4())]
+        client.channels.rename([channel.key for channel in channels], new_names)
+        for i, name in enumerate(new_names):
+            retrieved = client.channels.retrieve(name)
+            assert retrieved.name == name

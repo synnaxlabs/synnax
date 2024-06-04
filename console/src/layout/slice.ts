@@ -491,5 +491,6 @@ export const createMosaicWindow = (window?: WindowProps): Omit<State, "windowKey
     size: { width: 800, height: 600 },
     navTop: true,
     visible: true,
+    showTitle: false,
   },
 });

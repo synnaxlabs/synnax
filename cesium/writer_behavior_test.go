@@ -700,7 +700,7 @@ var _ = Describe("Writer Behavior", func() {
 						})
 					})
 
-					Specify("With AutoCommit: with just enough data to commit", func() {
+					Specify("With AutoCommit: should not commit a tiny domain", func() {
 						db2 = MustSucceed(cesium.Open("size-capped-db",
 							cesium.WithFS(fs),
 							cesium.WithFileSize(80*telem.ByteSize)))
@@ -723,19 +723,48 @@ var _ = Describe("Writer Behavior", func() {
 						ok := w.Write(cesium.NewFrame(
 							[]cesium.ChannelKey{index, basic, rate},
 							[]telem.Series{
-								telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17),
-								telem.NewSeriesV[int64](100, 101, 102, 103, 104, 105, 106, 107),
-								telem.NewSeriesV[int64](0, 1, 2, 3, 4, 5, 6),
+								telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16),
+								telem.NewSeriesV[int64](100, 101, 102, 103, 104, 105, 106),
+								telem.NewSeriesV[int64](0, 1, 2, 3, 4, 5),
 							},
 						))
 						Expect(ok).To(BeTrue())
+						Expect(w.Close()).To(Succeed())
+
+						w = MustSucceed(db2.OpenWriter(ctx, cesium.WriterConfig{
+							Channels:                 []cesium.ChannelKey{index, basic, rate},
+							Start:                    17 * telem.SecondTS,
+							EnableAutoCommit:         config.True(),
+							AutoIndexPersistInterval: cesium.AlwaysIndexPersistOnAutoCommit,
+						}))
+
+						// This should still go to file 1.
+						ok = w.Write(cesium.NewFrame(
+							[]cesium.ChannelKey{index, basic, rate},
+							[]telem.Series{
+								telem.NewSecondsTSV(17),
+								telem.NewSeriesV[int64](107),
+								telem.NewSeriesV[int64](6),
+							},
+						))
+						Expect(ok).To(BeTrue())
+
+						// This should still go to file 1.
+						ok = w.Write(cesium.NewFrame(
+							[]cesium.ChannelKey{index, basic, rate},
+							[]telem.Series{
+								telem.NewSecondsTSV(18, 19),
+								telem.NewSeriesV[int64](108, 109),
+								telem.NewSeriesV[int64](7, 8),
+							},
+						))
 
 						ok = w.Write(cesium.NewFrame(
 							[]cesium.ChannelKey{index, basic, rate},
 							[]telem.Series{
 								telem.NewSecondsTSV(20, 21, 22, 23, 24),
 								telem.NewSeriesV[int64](200, 201, 202, 203, 204),
-								telem.NewSeriesV[int64](7, 8, 9, 10),
+								telem.NewSeriesV[int64](9, 10),
 							},
 						))
 						Expect(ok).To(BeTrue())
@@ -748,14 +777,14 @@ var _ = Describe("Writer Behavior", func() {
 								return item.Name() != "index.domain" && item.Name() != "counter.domain" && item.Name() != "meta.json" && item.Name() != "tombstone.domain"
 							})
 							Expect(l).To(HaveLen(2))
-							Expect(l[0].Size()).To(Equal(int64(8 * telem.Int64T.Density())))
+							Expect(l[0].Size()).To(Equal(int64(10 * telem.Int64T.Density())))
 							Expect(l[1].Size()).To(Equal(int64(5 * telem.Int64T.Density())))
 							l = MustSucceed(subFS.List(strconv.Itoa(int(basic))))
 							l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
 								return item.Name() != "index.domain" && item.Name() != "counter.domain" && item.Name() != "meta.json" && item.Name() != "tombstone.domain"
 							})
 							Expect(l).To(HaveLen(2))
-							Expect(l[0].Size()).To(Equal(int64(8 * telem.Int64T.Density())))
+							Expect(l[0].Size()).To(Equal(int64(10 * telem.Int64T.Density())))
 							Expect(l[1].Size()).To(Equal(int64(5 * telem.Int64T.Density())))
 							l = MustSucceed(subFS.List(strconv.Itoa(int(rate))))
 							l = lo.Filter(l, func(item os.FileInfo, _ int) bool {
@@ -799,29 +828,35 @@ var _ = Describe("Writer Behavior", func() {
 						By("Asserting that the data is correct", func() {
 							f := MustSucceed(db2.Read(ctx, telem.TimeRangeMax, index, basic, rate))
 							indexF := f.Get(index)
-							Expect(indexF).To(HaveLen(3))
-							Expect(indexF[0].TimeRange).To(Equal((10 * telem.SecondTS).Range(17*telem.SecondTS + 1)))
-							Expect(indexF[0].Data).To(Equal(telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17).Data))
-							Expect(indexF[1].TimeRange).To(Equal((17*telem.SecondTS + 1).Range(24*telem.SecondTS + 1)))
-							Expect(indexF[1].Data).To(Equal(telem.NewSecondsTSV(20, 21, 22, 23, 24).Data))
-							Expect(indexF[2].TimeRange).To(Equal((30 * telem.SecondTS).Range(31*telem.SecondTS + 1)))
-							Expect(indexF[2].Data).To(Equal(telem.NewSecondsTSV(30, 31).Data))
+							Expect(indexF).To(HaveLen(4))
+							Expect(indexF[0].TimeRange).To(Equal((10 * telem.SecondTS).Range(16*telem.SecondTS + 1)))
+							Expect(indexF[0].Data).To(Equal(telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16).Data))
+							Expect(indexF[1].TimeRange).To(Equal((17 * telem.SecondTS).Range(19*telem.SecondTS + 1)))
+							Expect(indexF[1].Data).To(Equal(telem.NewSecondsTSV(17, 18, 19).Data))
+							Expect(indexF[2].TimeRange).To(Equal((19*telem.SecondTS + 1).Range(24*telem.SecondTS + 1)))
+							Expect(indexF[2].Data).To(Equal(telem.NewSecondsTSV(20, 21, 22, 23, 24).Data))
+							Expect(indexF[3].TimeRange).To(Equal((30 * telem.SecondTS).Range(31*telem.SecondTS + 1)))
+							Expect(indexF[3].Data).To(Equal(telem.NewSecondsTSV(30, 31).Data))
 
 							basicF := f.Get(basic)
-							Expect(basicF).To(HaveLen(3))
-							Expect(basicF[0].TimeRange).To(Equal((10 * telem.SecondTS).Range(17*telem.SecondTS + 1)))
-							Expect(basicF[0].Data).To(Equal(telem.NewSeriesV[int64](100, 101, 102, 103, 104, 105, 106, 107).Data))
-							Expect(basicF[1].TimeRange).To(Equal((17*telem.SecondTS + 1).Range(24*telem.SecondTS + 1)))
-							Expect(basicF[1].Data).To(Equal(telem.NewSeriesV[int64](200, 201, 202, 203, 204).Data))
-							Expect(basicF[2].TimeRange).To(Equal((30 * telem.SecondTS).Range(31*telem.SecondTS + 1)))
-							Expect(basicF[2].Data).To(Equal(telem.NewSeriesV[int64](300, 301).Data))
+							Expect(basicF).To(HaveLen(4))
+							Expect(basicF[0].TimeRange).To(Equal((10 * telem.SecondTS).Range(16*telem.SecondTS + 1)))
+							Expect(basicF[0].Data).To(Equal(telem.NewSeriesV[int64](100, 101, 102, 103, 104, 105, 106).Data))
+							Expect(basicF[1].TimeRange).To(Equal((17 * telem.SecondTS).Range(19*telem.SecondTS + 1)))
+							Expect(basicF[1].Data).To(Equal(telem.NewSeriesV[int64](107, 108, 109).Data))
+							Expect(basicF[2].TimeRange).To(Equal((19*telem.SecondTS + 1).Range(24*telem.SecondTS + 1)))
+							Expect(basicF[2].Data).To(Equal(telem.NewSeriesV[int64](200, 201, 202, 203, 204).Data))
+							Expect(basicF[3].TimeRange).To(Equal((30 * telem.SecondTS).Range(31*telem.SecondTS + 1)))
+							Expect(basicF[3].Data).To(Equal(telem.NewSeriesV[int64](300, 301).Data))
 
 							rateF := f.Get(rate)
-							Expect(rateF).To(HaveLen(2))
-							Expect(rateF[0].TimeRange).To(Equal((10 * telem.SecondTS).Range(20*telem.SecondTS + 1)))
-							Expect(rateF[0].Data).To(Equal(telem.NewSeriesV[int64](0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10).Data))
-							Expect(rateF[1].TimeRange).To(Equal((30 * telem.SecondTS).Range(35*telem.SecondTS + 1)))
-							Expect(rateF[1].Data).To(Equal(telem.NewSeriesV[int64](0, 1, 2, 3, 4, 5).Data))
+							Expect(rateF).To(HaveLen(3))
+							Expect(rateF[0].TimeRange).To(Equal((10 * telem.SecondTS).Range(15*telem.SecondTS + 1)))
+							Expect(rateF[0].Data).To(Equal(telem.NewSeriesV[int64](0, 1, 2, 3, 4, 5).Data))
+							Expect(rateF[1].TimeRange).To(Equal((17 * telem.SecondTS).Range(21*telem.SecondTS + 1)))
+							Expect(rateF[1].Data).To(Equal(telem.NewSeriesV[int64](6, 7, 8, 9, 10).Data))
+							Expect(rateF[2].TimeRange).To(Equal((30 * telem.SecondTS).Range(35*telem.SecondTS + 1)))
+							Expect(rateF[2].Data).To(Equal(telem.NewSeriesV[int64](0, 1, 2, 3, 4, 5).Data))
 						})
 					})
 
@@ -918,6 +953,51 @@ var _ = Describe("Writer Behavior", func() {
 							Expect(f.Get(rate)[0].TimeRange).To(Equal((10 * telem.SecondTS).Range(15*telem.SecondTS + 1)))
 							Expect(f.Get(rate)[1].TimeRange).To(Equal((15*telem.SecondTS + 1).Range(18*telem.SecondTS + 1)))
 						})
+					})
+					It("Should not break when auto committing to not all channels", func() {
+						db2 = MustSucceed(cesium.Open("size-capped-db",
+							cesium.WithFS(fs),
+							cesium.WithFileSize(40*telem.ByteSize)))
+
+						var (
+							index2 = GenerateChannelKey()
+							basic2 = GenerateChannelKey()
+						)
+
+						Expect(db2.CreateChannel(
+							ctx,
+							cesium.Channel{Key: index, IsIndex: true, DataType: telem.TimeStampT},
+							cesium.Channel{Key: basic, Index: index, DataType: telem.Int64T},
+							cesium.Channel{Key: index2, IsIndex: true, DataType: telem.TimeStampT},
+							cesium.Channel{Key: basic2, Index: index2, DataType: telem.Int64T},
+						)).To(Succeed())
+
+						w := MustSucceed(db2.OpenWriter(ctx, cesium.WriterConfig{
+							Channels:                 []core.ChannelKey{index, basic, index2, basic2},
+							Start:                    10 * telem.SecondTS,
+							EnableAutoCommit:         config.True(),
+							AutoIndexPersistInterval: cesium.AlwaysIndexPersistOnAutoCommit,
+						}))
+
+						Expect(w.Write(cesium.NewFrame(
+							[]core.ChannelKey{index, basic, index2, basic2},
+							[]telem.Series{
+								telem.NewSecondsTSV(10, 11, 12, 13, 14, 15),
+								telem.NewSeriesV[int64](10, 11, 12, 13, 14, 15),
+								telem.NewSecondsTSV(10, 11, 12, 13, 14, 15),
+								telem.NewSeriesV[int64](10, 11, 12, 13, 14, 15),
+							},
+						))).To(BeTrue())
+
+						By("Asserting that only writing to two channels will not fail")
+						Expect(w.Write(cesium.NewFrame(
+							[]core.ChannelKey{index, basic},
+							[]telem.Series{
+								telem.NewSecondsTSV(16, 17, 18),
+								telem.NewSeriesV[int64](16, 17, 18),
+							},
+						))).To(BeTrue())
+						Expect(w.Close()).To(Succeed())
 					})
 				})
 			})

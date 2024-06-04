@@ -14,12 +14,21 @@ service ChannelDeleteService {
     rpc Exec(DeleteRequest) returns (google.protobuf.Empty) {}
 }
 
+service ChannelRenameService {
+    rpc Exec(RenameRequest) returns (google.protobuf.Empty) {}
+}
+
 message CreateMessage {
     repeated Channel channels = 1;
 }
 
 message DeleteRequest {
     repeated uint32 keys = 3;
+}
+
+message RenameRequest {
+    repeated uint32 keys = 1;
+    repeated string names = 2;
 }
 
 message Channel {

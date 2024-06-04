@@ -20,7 +20,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-var _ = Describe("TypedWriter", Ordered, func() {
+var _ = Describe("Create", Ordered, func() {
 	var (
 		services map[core.NodeKey]channel.Service
 		builder  *mock.CoreBuilder

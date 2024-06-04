@@ -15,6 +15,7 @@ import (
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/telem"
 	"io"
+	"math"
 	"os"
 	"strconv"
 	"sync"
@@ -71,6 +72,15 @@ func openFileController(cfg Config) (*fileController, error) {
 
 	fc.writers.unopened, err = fc.scanUnopenedFiles()
 	return fc, err
+}
+
+// realFileSizeCap returns the maximum allowed size of a file – though it may be exceeded
+// if commits are sparse.
+// fc.Config.Filesize is the nominal file size to not exceed, in reality, this value
+// is set to 0.8 * the actual file size cap, therefore the real value is 1.25 * the nominal
+// value.
+func (fc *fileController) realFileSizeCap() telem.Size {
+	return telem.Size(math.Round(1.25 * float64(fc.FileSize)))
 }
 
 func (fc *fileController) scanUnopenedFiles() (map[uint16]struct{}, error) {
