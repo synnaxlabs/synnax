@@ -9,6 +9,7 @@
 
 import type { Stream, StreamClient } from "@synnaxlabs/freighter";
 import { decodeError, errorZ } from "@synnaxlabs/freighter";
+import { control } from "@synnaxlabs/x";
 import {
   type CrudeSeries,
   type CrudeTimeStamp,
@@ -25,11 +26,6 @@ import {
   type Params,
 } from "@/channel/payload";
 import { type Retriever } from "@/channel/retriever";
-import { Authority } from "@/control/authority";
-import {
-  type Subject as ControlSubject,
-  subjectZ as controlSubjectZ,
-} from "@/control/state";
 import { WriteFrameAdapter } from "@/framer/adapter";
 import { type CrudeFrame, frameZ } from "@/framer/frame";
 import { StreamProxy } from "@/framer/streamProxy";
@@ -53,9 +49,9 @@ export const ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT: TimeSpan = new TimeSpan(-1);
 
 const netConfigZ = z.object({
   start: TimeStamp.z.optional(),
-  controlSubject: controlSubjectZ.optional(),
+  controlSubject: control.subjectZ.optional(),
   keys: z.number().array().optional(),
-  authorities: Authority.z.array().optional(),
+  authorities: control.Authority.z.array().optional(),
   mode: z.nativeEnum(WriterMode).optional(),
   enableAutoCommit: z.boolean().optional(),
   autoIndexPersistInterval: TimeSpan.z.optional(),
@@ -83,11 +79,11 @@ export interface WriterConfig {
   // start sets the starting timestamp for the first sample in the writer.
   start?: CrudeTimeStamp;
   // controlSubject sets the control subject of the writer.
-  controlSubject?: ControlSubject;
+  controlSubject?: control.Subject;
   // authorities set the control authority to set for each channel on the writer.
   // Defaults to absolute authority. If not working with concurrent control,
   // it's best to leave this as the default.
-  authorities?: Authority | Authority[];
+  authorities?: control.Authority | control.Authority[];
   // mode sets the persistence and streaming mode of the writer. The default
   // mode is WriterModePersistStream.
   mode?: WriterMode;
@@ -158,7 +154,7 @@ export class Writer {
     {
       channels,
       start = TimeStamp.now(),
-      authorities = Authority.Absolute,
+      authorities = control.Authority.Absolute,
       controlSubject: subject,
       mode = WriterMode.PersistStream,
       enableAutoCommit = false,
@@ -218,7 +214,7 @@ export class Writer {
     return true;
   }
 
-  async setAuthority(value: Record<Key, Authority>): Promise<boolean> {
+  async setAuthority(value: Record<Key, control.Authority>): Promise<boolean> {
     const res = await this.execute({
       command: Command.SetAuthority,
       config: {

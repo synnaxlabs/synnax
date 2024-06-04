@@ -21,6 +21,7 @@ import { NavBottom, NavLeft, NavRight, NavTop } from "@/layouts/LayoutMain/Nav";
 import { Mosaic } from "@/layouts/mosaic";
 import { Notifications } from "@/notifications";
 import { Version } from "@/version";
+import { Workspace } from "@/workspace";
 
 /**
  * The center of it all. This is the main layout for the Synnax Console. Try to keep this
@@ -31,10 +32,10 @@ export const LayoutMain = (): ReactElement => {
   useEffect(() => {
     d(Layout.maybeCreateGetStartedTab());
   }, []);
-
   Version.useLoadTauri();
   Device.useListenForChanges();
   Cluster.useLocalServer();
+  Workspace.useSyncLayout();
 
   return (
     <>

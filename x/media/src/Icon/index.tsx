@@ -13,10 +13,6 @@ import { type runtime } from "@synnaxlabs/x";
 import clsx from "clsx";
 import { type FC } from "react";
 import {
-  AiFillCaretDown,
-  AiFillCaretLeft,
-  AiFillCaretRight,
-  AiFillCaretUp,
   AiFillDelete,
   AiFillFolder,
   AiFillGithub,
@@ -89,7 +85,14 @@ import {
   MdSquareFoot,
   MdWorkspacesFilled,
 } from "react-icons/md";
-import { PiMagnifyingGlassBold, PiSelectionPlusBold } from "react-icons/pi";
+import {
+  PiCaretDown,
+  PiCaretLeft,
+  PiCaretRight,
+  PiCaretUpBold,
+  PiMagnifyingGlassBold,
+  PiSelectionPlusBold,
+} from "react-icons/pi";
 import { RiSettings3Fill as RiSettingsFill } from "react-icons/ri";
 import {
   SiGooglenearby,
@@ -219,10 +222,10 @@ export const Icon: IconType = {
   Loading: wrapIcon(AiOutlineLoading, { className: "media--spin" }),
   Schematic: wrapIcon(FaStream),
   Caret: {
-    Right: wrapIcon(AiFillCaretRight),
-    Left: wrapIcon(AiFillCaretLeft),
-    Up: wrapIcon(AiFillCaretUp),
-    Down: wrapIcon(AiFillCaretDown),
+    Right: wrapIcon(PiCaretRight),
+    Left: wrapIcon(PiCaretLeft),
+    Up: wrapIcon(PiCaretUpBold),
+    Down: wrapIcon(PiCaretDown),
   },
   Settings: wrapIcon(RiSettingsFill),
   Reference: wrapIcon(IoBookSharp),

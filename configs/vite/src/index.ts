@@ -28,6 +28,10 @@ export const tsConfigPaths = ({ name }: Options): Plugin => {
     name: "vite-plugin-lib:alias",
     enforce: "pre",
     config: async (config) => {
+      const prod = isProd();
+      console.log(
+        `\x1b[34m Synnax - ${prod ? "Production" : "Development"} mode\x1b[0m`,
+      );
       const tsconfigPath = path.resolve(config.root ?? ".", "tsconfig.json");
       const { baseUrl, paths } = await readConfig(tsconfigPath);
       if (baseUrl == null || paths == null) return config;
@@ -49,8 +53,8 @@ export const tsConfigPaths = ({ name }: Options): Plugin => {
           alias: [...existingAlias, ...aliasOptions],
         },
         build: {
-          sourcemap: true,
-          minify: true,
+          sourcemap: !isProd(),
+          minify: isProd(),
           lib: {
             name,
             formats: ["es", "cjs"],

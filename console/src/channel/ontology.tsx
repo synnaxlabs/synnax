@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { nanoid } from "nanoid";
 import { ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
@@ -23,7 +24,7 @@ import { Menu as ConsoleMenu } from "@/components";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
-import { type Ontology } from "@/ontology";
+import { Ontology } from "@/ontology";
 import { Range } from "@/range";
 import { Schematic } from "@/schematic";
 
@@ -114,8 +115,19 @@ const handleSetAlias = async ({
   await rng.setAlias(Number(id.key), name);
 };
 
-const handleRename: Ontology.HandleTreeRename = (p) => {
-  void handleSetAlias(p);
+const handleRename: Ontology.HandleTreeRename = ({ client, name, id, addStatus }) => {
+  void (async () => {
+    try {
+      const channelKey = Number(id.key);
+      await client.channels.rename(channelKey, name);
+    } catch (e) {
+      addStatus({
+        variant: "error",
+        key: `renameChannelError-${id.key}`,
+        message: (e as Error).message,
+      });
+    }
+  })();
 };
 
 const handleDeleteAlias = async ({
@@ -137,7 +149,15 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const handleSelect = (itemKey: string): void => {
     switch (itemKey) {
       case "alias":
-        Tree.startRenaming(nodes[0].key);
+        Tree.startRenaming(nodes[0].key, (name) =>
+          handleSetAlias({ ...props, name, id: resources[0].id }),
+        );
+        break;
+      case "rename":
+        Tree.startRenaming(nodes[0].key, (name) => {
+          console.log("rename", name);
+          handleRename({ ...props, name, id: resources[0].id });
+        });
         break;
       case "deleteAlias":
         handleDeleteAlias(props).catch((e: Error) => {
@@ -154,7 +174,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           .catch((e: Error) => {
             addStatus({
               variant: "error",
-              key: "deleteChannelError",
+              key: nanoid(),
               message: e.message,
             });
           });
@@ -171,6 +191,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     <Menu.Menu level="small" iconSpacing="small" onChange={handleSelect}>
       <ConsoleMenu.Item.HardReload />
       <Group.GroupMenuItem selection={selection} />
+      <Menu.Item itemKey="rename" startIcon={<Icon.Rename />}>
+        Rename
+      </Menu.Item>
       {activeRange != null && activeRange.persisted && (
         <>
           {singleResource && (
@@ -205,7 +228,7 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   icon: <Icon.Channel />,
   hasChildren: false,
   allowRename,
-  onRename: handleRename,
+  onRename: () => {},
   canDrop,
   onSelect: handleSelect,
   haulItems,

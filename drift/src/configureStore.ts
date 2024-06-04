@@ -18,7 +18,7 @@ import type {
 import { configureStore as base } from "@reduxjs/toolkit";
 
 import { listen } from "@/listener";
-import { configureMiddleware,type Middlewares } from "@/middleware";
+import { configureMiddleware, type Middlewares } from "@/middleware";
 import { type Runtime } from "@/runtime";
 import {
   type Action,
@@ -66,7 +66,7 @@ const configureStoreInternal = async <
   ...opts
 }: ConfigureStoreOptions<S, A, M, E>): Promise<EnhancedStore<S, A | Action>> => {
   await runtime.configure();
-   
+
   let store: EnhancedStore<S, A | Action> | undefined;
   // eslint-disable-next-line prefer-const
   store = base<S, A, M, E>({
@@ -75,13 +75,11 @@ const configureStoreInternal = async <
     middleware: configureMiddleware(middleware, runtime, debug),
   });
 
-  store.dispatch(setConfig({ enablePrerender, defaultWindowProps }));
   await syncInitial(store.getState().drift, store.dispatch, runtime, debug);
+  store.dispatch(setConfig({ enablePrerender, defaultWindowProps }));
   store.dispatch(setWindowLabel({ label: runtime.label() }));
   store.dispatch(setWindowStage({ stage: "created" }));
   runtime.onCloseRequested(() => store?.dispatch(closeWindow({})));
-  if (runtime.isMain()) void runtime.setVisible(true);
-
   return store;
 };
 

@@ -233,16 +233,16 @@ func (w *Writer) commit(ctx context.Context, end telem.TimeStamp, persist bool) 
 		return span.Error(errors.Newf("commit timestamp %v cannot be greater than preset end timestamp %v: exceeded by a time span of %v", end, w.End, w.End.Span(end)))
 	}
 
-	switchingFile, commitEnd := w.resolveCommitEnd(end)
-
-	if err := w.validateCommitRange(commitEnd, switchingFile); err != nil {
-		return span.Error(err)
-	}
-
 	length := w.internal.Len()
 	if length == 0 {
 		return nil
 	}
+
+	commitEnd, switchingFile := w.resolveCommitEnd(end)
+	if err := w.validateCommitRange(commitEnd, switchingFile); err != nil {
+		return span.Error(err)
+	}
+
 	ptr := pointer{
 		TimeRange: telem.TimeRange{Start: w.Start, End: commitEnd},
 		offset:    uint32(w.internal.Offset()),
@@ -279,15 +279,15 @@ func (w *Writer) commit(ctx context.Context, end telem.TimeStamp, persist bool) 
 }
 
 // resolveCommitEnd returns whether a file change is needed, the resolved commit end, and any errors.
-func (w *Writer) resolveCommitEnd(end telem.TimeStamp) (bool, telem.TimeStamp) {
+func (w *Writer) resolveCommitEnd(end telem.TimeStamp) (telem.TimeStamp, bool) {
 	// fc.Config.Filesize is the nominal file size to not exceed, in reality, this value
 	// is set to 0.8 * the actual file size cap. Therefore, we only need to switch files
 	// once we write to over 1.25 * that nominal value.
 	if w.fileSize >= w.fc.realFileSizeCap() {
-		return true, end
+		return end, true
 	}
 
-	return false, lo.Ternary(w.presetEnd, w.End, end)
+	return lo.Ternary(w.presetEnd, w.End, end), false
 }
 
 // Close closes the writer, releasing any resources it may have been holding. Any

@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology } from "@synnaxlabs/client";
-
 import { Channel } from "@/channel";
 import { Cluster } from "@/cluster";
 import { Node } from "@/cluster/node";
@@ -16,14 +14,14 @@ import { Group } from "@/group";
 import { Device } from "@/hardware/device";
 import { Task } from "@/hardware/task";
 import { LinePlot } from "@/lineplot";
+import { Ontology } from "@/ontology";
 import { Builtin } from "@/ontology/builtin";
-import { type Service } from "@/ontology/service";
 import { Range } from "@/range";
 import { Schematic } from "@/schematic";
 import { User } from "@/user";
 import { Workspace } from "@/workspace";
 
-export const EMPTY_ONTOLOGY_SERVICE: Service = {
+export const EMPTY_ONTOLOGY_SERVICE: Ontology.Service = {
   type: "rack",
   icon: <></>,
   hasChildren: true,
@@ -36,7 +34,7 @@ export const EMPTY_ONTOLOGY_SERVICE: Service = {
   onRename: () => {},
 };
 
-export const SERVICES: Record<ontology.ResourceType, Service> = {
+export const SERVICES: Ontology.Services = {
   schematic: Schematic.ONTOLOGY_SERVICE,
   cluster: Cluster.ONTOLOGY_SERVICE,
   user: User.ONTOLOGY_SERVICE,

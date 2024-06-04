@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { Dispatch,Middleware, PayloadAction } from "@reduxjs/toolkit";
+import type { Dispatch, Middleware, PayloadAction } from "@reduxjs/toolkit";
 
 export interface MiddlewareEffectArgs<S, LP, DP> {
   getState: () => S;

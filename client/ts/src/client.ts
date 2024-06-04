@@ -14,6 +14,7 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { channel } from "@/channel";
 import { connection } from "@/connection";
+import { control } from "@/control";
 import { errorsMiddleware } from "@/errors";
 import { framer } from "@/framer";
 import { hardware } from "@/hardware";
@@ -70,6 +71,7 @@ export default class Synnax extends framer.Client {
   readonly workspaces: workspace.Client;
   readonly labels: label.Client;
   readonly hardware: hardware.Client;
+  readonly control: control.Client;
   static readonly connectivity = connection.Checker;
   private readonly transport: Transport;
 
@@ -116,6 +118,7 @@ export default class Synnax extends framer.Client {
       connectivityPollFrequency,
       props.name,
     );
+    this.control = new control.Client(this);
     this.ontology = new ontology.Client(transport.unary, this);
     const rangeWriter = new ranger.Writer(this.transport.unary);
     this.labels = new label.Client(this.transport.unary, this);

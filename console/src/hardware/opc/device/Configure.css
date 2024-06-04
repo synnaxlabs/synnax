@@ -24,6 +24,11 @@
         }
     }
 
+    .console-connect {
+        flex-grow: 0 !important;
+        height: 850px !important;
+    }
+
     .console-content {
         width: 100%;
         flex-grow: 1;

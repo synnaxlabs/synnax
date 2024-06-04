@@ -10,6 +10,7 @@
 import "@/palette/Palette.css";
 
 import { ontology } from "@synnaxlabs/client";
+import { Drift } from "@synnaxlabs/drift";
 import { Icon } from "@synnaxlabs/media";
 import {
   Button,
@@ -23,14 +24,19 @@ import {
   Text,
   Tooltip,
   Triggers,
+  useAsyncEffect,
 } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto";
 import { Dropdown } from "@synnaxlabs/pluto/dropdown";
 import { List } from "@synnaxlabs/pluto/list";
+import { box, dimensions, xy } from "@synnaxlabs/x";
+import { listen } from "@tauri-apps/api/event";
+import { Window } from "@tauri-apps/api/window";
 import {
   type FC,
   type ReactElement,
   useCallback,
+  useId,
   useLayoutEffect,
   useMemo,
   useState,
@@ -43,7 +49,7 @@ import { type Ontology } from "@/ontology";
 import { type Service } from "@/ontology/service";
 import { TooltipContent } from "@/palette/Tooltip";
 import { type Mode, type TriggerConfig } from "@/palette/types";
-import { type RootStore } from "@/store";
+import { RootState, type RootStore } from "@/store";
 
 export interface PaletteProps {
   commands: Command[];
@@ -54,6 +60,40 @@ export interface PaletteProps {
 
 type Entry = Command | ontology.Resource;
 type Key = string;
+
+const useDropOutside = ({ onDrop, canDrop, key, type }: Haul.UseDropOutsideProps) => {
+  const ctx = Haul.useContext();
+  if (ctx == null) return;
+  const { drop } = ctx;
+  const dragging = Haul.useDraggingRef();
+  const key_ = key ?? useId();
+  const target: Haul.Item = useMemo(() => ({ key: key_, type }), [key_, type]);
+  const store = useStore<RootState>();
+  useAsyncEffect(
+    async () =>
+      listen("mouse_up", async ({ payload: [x, y] }: { payload: [number, number] }) => {
+        console.log(dragging.current);
+        if (dragging.current.items.length === 0 || !canDrop(dragging.current)) return;
+        const state = store.getState();
+        const layout = Layout.select(state, dragging.current.items[0].key as string);
+        if (layout?.windowKey == null) return;
+        const winLabel = Drift.selectWindowLabel(state, layout.windowKey);
+        if (winLabel == null || winLabel !== Drift.MAIN_WINDOW) return;
+        const win = Window.getByLabel(winLabel);
+        if (win == null) return;
+        const sf = await win.scaleFactor();
+        const rawCursor = xy.construct(x, y);
+        const cursor = xy.scale(rawCursor, sf);
+        const pos = xy.construct(await win.outerPosition());
+        const size = dimensions.construct(await win.innerSize());
+        const b = box.construct(pos, size);
+        if (box.contains(b, cursor)) return;
+        const dropped = onDrop(dragging.current, rawCursor);
+        drop({ target, dropped });
+      }),
+    [target],
+  );
+};
 
 export const Palette = ({
   commands,
@@ -85,25 +125,34 @@ export const Palette = ({
   const placer = Layout.usePlacer();
   const d = useDispatch();
 
-  const { onDragOver, onDrop } = Haul.useDrop({
+  const handleDrop = useCallback(
+    ({ items: [item] }: Haul.OnDropProps, cursor?: xy.XY) => {
+      const { key } = placer(
+        Layout.createMosaicWindow({
+          position: cursor ? xy.translate(cursor, { x: -80, y: -45 }) : undefined,
+        }),
+      );
+      d(
+        Layout.moveMosaicTab({
+          windowKey: key,
+          key: 1,
+          tabKey: item.key as string,
+          loc: "center",
+        }),
+      );
+      return [item];
+    },
+    [placer],
+  );
+
+  const dropProps = {
     type: "Palette",
     canDrop,
-    onDrop: useCallback(
-      ({ items: [item] }) => {
-        const { key } = placer(Layout.createMosaicWindow());
-        d(
-          Layout.moveMosaicTab({
-            windowKey: key,
-            key: 1,
-            tabKey: item.key as string,
-            loc: "center",
-          }),
-        );
-        return [item];
-      },
-      [placer],
-    ),
-  });
+    onDrop: handleDrop,
+  };
+
+  useDropOutside(dropProps);
+  const { onDragOver, onDrop } = Haul.useDrop(dropProps);
 
   const dragging = Haul.useDraggingState();
 
