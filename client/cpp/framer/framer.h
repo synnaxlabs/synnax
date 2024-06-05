@@ -197,7 +197,7 @@ public:
     /// @brief sets whether auto commit is enabled for the writer. If true, samples will
     /// be made immediately available for reads. If false, samples will be made available
     /// for reads only after a call to Writer::commit().
-    bool enable_auto_commit;
+    bool enable_auto_commit = false;
 
     /// @brief sets whether the writer returns error if the writer attempts to write to a channel
     /// that it does not have authority to write to. If false, the writer will silently ignore
@@ -207,7 +207,7 @@ public:
     /// when auto commit is enabled. Setting this value to zero will make all writes 
     /// durable immediately. Lower values will decrease write throughput. Defaults to 
     /// 1s when auto commit is enabled.
-    synnax::TimeSpan auto_index_persist_interval;
+    synnax::TimeSpan auto_index_persist_interval = 1 * synnax::SECOND;
 private:
     /// @brief binds the configuration fields to it's protobuf representation.
     void toProto(api::v1::FrameWriterConfig *f) const;

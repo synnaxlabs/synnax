@@ -136,7 +136,7 @@ TEST(FramerTests, testWriteErrOnUnauthorized) {
         .channels = std::vector{time.key, data.key},
         .start = synnax::TimeStamp::now(),
         .authorities = std::vector{synnax::ABSOLUTE, synnax::ABSOLUTE},
-        .subject = synnax::ControlSubject{"test_writer"},
+        .subject = synnax::ControlSubject{"test_writer_1"},
         .err_on_unauthorized = true
     });
     ASSERT_FALSE(w_err) << w_err.message();
@@ -144,10 +144,11 @@ TEST(FramerTests, testWriteErrOnUnauthorized) {
         .channels = std::vector{time.key, data.key},
         .start = synnax::TimeStamp::now(),
         .authorities = std::vector{synnax::ABSOLUTE, synnax::ABSOLUTE},
-        .subject = synnax::ControlSubject{"test_writer"},
+        .subject = synnax::ControlSubject{"test_writer_2"},
         .err_on_unauthorized = true
     });
     ASSERT_TRUE(w2_err) << w2_err.message();
     ASSERT_TRUE(w2_err.matches(synnax::UNAUTHORIZED_ERROR));
+    ASSERT_TRUE(w2_err.message().find("test_writer_1") != std::string::npos);
     ASSERT_TRUE(w2.close());
 }
