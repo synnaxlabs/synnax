@@ -54,8 +54,7 @@ int main(int argc, char *argv[]) {
 
     auto cfg_json = driver::readConfig(config_path);
     if (cfg_json.empty())
-        LOG(INFO) << "[main] no configuration found at " << config_path <<
-                ". We'll just use the default configuration.";
+        LOG(INFO) << "[main] no configuration found at " << config_path << ". We'll just use the default configuration.";
     else {
         LOG(INFO) << "[main] loaded configuration from " << config_path;
     }
@@ -65,8 +64,7 @@ int main(int argc, char *argv[]) {
         return 1;
     }
     LOG(INFO) << "[main] configuration parsed successfully";
-    LOG(INFO) << "[main] connecting to Synnax at " << cfg.client_config.host << ":" <<
-            cfg.client_config.port;
+    LOG(INFO) << "[main] connecting to Synnax at " << cfg.client_config.host << ":" << cfg.client_config.port;
 
 
     auto client = std::make_shared<synnax::Synnax>(cfg.client_config);
@@ -77,23 +75,17 @@ int main(int argc, char *argv[]) {
     auto [rack, rack_err] = retrieveDriverRack(cfg, breaker, client);
     breaker.stop();
     if (rack_err) {
-        LOG(FATAL) <<
-                "[main] failed to retrieve meta-data - can't proceed without it. Exiting."
-                << rack_err;
+        LOG(FATAL) << "[main] failed to retrieve meta-data - can't proceed without it. Exiting." << rack_err;
         return 1;
     }
 
     std::unique_ptr<task::Factory> opc_factory = std::make_unique<opc::Factory>();
     std::unique_ptr<meminfo::Factory> meminfo_factory = std::make_unique<
         meminfo::Factory>();
-    // std::unique_ptr<ni::Factory> ni_factory = std::make_unique<ni::Factory>();
-
-    // std::vector<std::shared_ptr<task::Factory> > factories = {
-    //     std::move(opc_factory), std::move(meminfo_factory), std::move(ni_factory)
-    // };
+    std::unique_ptr<ni::Factory> ni_factory = std::make_unique<ni::Factory>();
 
     std::vector<std::shared_ptr<task::Factory> > factories = {
-        std::move(opc_factory), std::move(meminfo_factory)
+        std::move(opc_factory), std::move(meminfo_factory), std::move(ni_factory)
     };
 
     std::unique_ptr<task::Factory> factory = std::make_unique<task::MultiFactory>(

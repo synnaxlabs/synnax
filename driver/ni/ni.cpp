@@ -96,19 +96,14 @@ ni::Source::Source(
 }
 
 void ni::Source::parseConfig(config::Parser &parser){
-    
-    LOG(INFO) << "[NI Source] Parsing Configuration for task " << this->reader_config.task_name;
     // Get Acquisition Rate and Stream Rates
     this->reader_config.sample_rate = parser.required<uint64_t>("sample_rate");
     this->reader_config.stream_rate = parser.required<uint64_t>("stream_rate");
     this->reader_config.device_key = parser.required<std::string>("device");
     this->reader_config.timing_source = "none"; // parser.required<std::string>("timing_source"); TODO: uncomment this when ui provides timing source
 
-    LOG(INFO) << "[NI Source] retrieving device " << this->reader_config.task_name;
 
     auto [dev, err] = this->ctx->client->hardware.retrieveDevice(this->reader_config.device_key);
-
-    LOG(INFO) << "[NI Source] device retrieved " << this->reader_config.task_name;
 
     if (err != freighter::NIL) {
         LOG(ERROR) << "[NI Reader] failed to retrieve device " << this->reader_config.device_name;
@@ -116,10 +111,7 @@ void ni::Source::parseConfig(config::Parser &parser){
         return;
     }
 
-    LOG(INFO) << "[NI Source] saving location " << this->reader_config.task_name;
-
     this->reader_config.device_name = dev.location;
-    LOG(INFO) << "[NI Source] location  " << dev.location;
     this->parseChannels(parser);
     assert(parser.ok());
 }
@@ -146,7 +138,7 @@ int ni::Source::init(){
     }
     LOG(INFO) << "[NI Reader] successfully parsed configuration for " << this->reader_config.task_name;
 
-    this->getIndexKeys(); // get index keys for the task
+    this->getIndexKeys(); 
     
 
     LOG(INFO) << "[NI Reader] index keys retrieved " << this->reader_config.task_name;
@@ -192,7 +184,6 @@ freighter::Error ni::Source::start(){
     if(this->running.exchange(true)){
         return freighter::NIL;
     }
-
     if (this->checkNIError(ni::NiDAQmxInterface::StartTask(this->task_handle))){
         LOG(ERROR) << "[NI Reader] failed while starting reader for task " << this->reader_config.task_name << " requires reconfigure";
         this->clearTask();
@@ -209,7 +200,6 @@ freighter::Error ni::Source::stop(){
         return freighter::NIL;
     }
     this->sample_thread.join();
-
     if (this->checkNIError(ni::NiDAQmxInterface::StopTask(this->task_handle))){
         LOG(ERROR) << "[NI Reader] failed while stopping reader for task " << this->reader_config.task_name;
         return freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
