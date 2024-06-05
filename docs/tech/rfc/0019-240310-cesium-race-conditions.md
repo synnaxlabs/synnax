@@ -32,14 +32,15 @@ it is vital to handle these potentially conflicting operations in an orderly and
 
 As Cesium looks to become production-ready, this task becomes more important as Cesium must support
 Read operations, Write operations, and Delete operations (through a tombstone/garbage-collection system).
-All of the operations must coexist without conflicting each other:
+All operations must coexist without conflicting each other:
 for example, we obviously do not want two writers writing to the same  file,
 but it's totally fine to read from a file in the first 100 bytes,
 while a writer in append-mode is writing to byte 150 and onward.
 
-# 4- Design
+# 4- Analysis
 
-The core method through which concurrency is protected is the *Mutex*.
+The core method through which concurrency is protected is the *Mutex*: it allows turning
+parallel execution into serial execution.
 
 The Mutex allows for operations of threads (going forward,
 I will refer to these as goroutines in the specific context as go) to be MUTually EXclusive.
@@ -48,8 +49,6 @@ all other goroutines trying to acquire it must wait until it is freed, i.e. `mu.
 will block until the first goroutine releases the Mutex, i.e. `mu.UnLock()`.
 In addition, one goroutine may acquire a Read-Lock only (`mu.RLock()`),
 which allows other goroutines to acquire Read-Locks, but no goroutine may acquire a write-Lock.
-
-# 4- Analysis
 
 ## 4.1 Top-down view of race conditions in Cesium
 
@@ -64,7 +63,7 @@ Consider the following diagram:
 
 <div style="text-align: center">
     <img src="img/0019-240529-cesium-race-conditions/Operation-Entities.png" width="90%" />
-    <h6>Cesium Entities and Resources</h6>
+    <h6>Cesium entities and resources</h6>
 </div>
 
 We can see that every operation uses the telemetry data in file system,
@@ -169,6 +168,7 @@ The following diagram summarizes possible conflicts between these entities:
 
 <div style="text-align: center">
     <img src="img/0019-240529-cesium-race-conditions/Entity-Interactions.png">
+    <h6>Cesium entities' interaction</h6>
 </div>
 
 ## 4.2 Domain level race conditions
@@ -287,6 +287,7 @@ summarizes these races:
 
 <div style="text-align: center">
 <img width="90%" src="img/0019-240529-cesium-race-conditions/Read-Races.png">
+    <h6>Life cycle of a domain iterator</h6>
 </div>
 
 #### 4.2.2.1 Race conditions involving the index
@@ -342,6 +343,7 @@ to the desired time stamps.
 
 <div style="text-align: center">
 <img width="90%" src="img/0019-240529-cesium-race-conditions/Delete-Races.png">
+    <h6>Life cycle of a deletion</h6>
 </div>
 
 Deletion employs 3 locks to ensure the integrity of the operation. We first
@@ -379,6 +381,7 @@ modifies the index to contain the new offsets. This is done in 7 steps:
 
 <div style="text-align: center">
 <img width="90%" src="img/0019-240529-cesium-race-conditions/GC-Races.png">
+    <h6>Life cycle of a Garbage Collection</h6>
 </div>
 
 Note that a read lock is applied on the index for step 4, and an exclusive lock is applied
@@ -405,7 +408,7 @@ on the pointers affected by GC.
 To this end, race condition occurs when there are two GC processes running concurrently.
 A fix could be to ensure that this never happens.
 
-## 4.3 Unary Level race conditions
+## 4.3 Unary level race conditions
 
 At the Unary level, not only must we consider race conditions that come up from the domain
 level, we must also consider the interaction between a domain database and its index, which
@@ -442,7 +445,8 @@ lock until it is completely removed.
 
 A controller's main operations are to manage its regions: it may register regions, remove
 regions, and insert a gate into a region. All of these operations are performed under an
-exclusive lock of the controller.
+exclusive lock of the controller. If insertion into a region is involved, an exclusive lock
+on the region is also applied.
 
 ### 4.3.2 Writing
 
@@ -454,6 +458,12 @@ is consisted of 4 steps:
 3. Write telemetry data.
 4. Commit telemetry data.
 
+Since writer methods may not be called concurrently and steps 2 - 3 do not introduce any
+new behaviours other than their Domain counterparts, there are no associated race
+conditions. For step 4 – committing the telemetry data – in the current implementation of
+Cesium, `CommitWithEnd` will always be called with an end time stamp, so there are no
+associated index stamps, therefore we will not look into the race conditions involved.
+
 ### 4.3.3 Reading
 
 Just like at the Domain level, reading in Unary is also handled by the iterator, however,
@@ -461,6 +471,94 @@ the Unary iterator directly reads data into a frame as opposed to merely providi
 to read data (like the Domain iterator). In addition, moving the iterator at the Unary level
 via `Next` requires an additional argument – the time span to move the iterator by: i.e.
 the iterator does not move to the next domain, but rather moves to contain the next `span`
-seconds.
+time span.
 
+The two main types of operations of a unary iterator are `Seek`s – i.e. moving the iterator
+to a specific position of the index and `Next`/`Prev` – i.e. reading data. The `Seek` operations
+are simple forwarding calls to `Seek` calls in the domain level, so the race conditions
+mentioned in 4.2.2.1 apply here as well.
 
+`Next` is the means of reading data of the iterator – and note that `Prev` is exactly
+congruent, but in the opposite direction. We will analyze the race conditions that might
+occur during a `Next` operation. The `Next` operation is simple:
+
+While the iterator's frame does not contain all of its view:
+1. In the index, find where in the current domain the desired time range is located. This
+location is represented as an offset and a length. (Note that only for the first and last
+domain, we don't read the entire domain – i.e. the distance calculation is only done at
+most twice.)
+2. Based on the offset and length, read the binary data into a series and insert it into
+the iterator's frame in chronological order (i.e. append if we are reading `Next` and prepend
+if we are reading `Prev`)
+3. Move the internal iterator forward to the next domain.
+
+<div style="text-align: center">
+    <img width="90%" src="img/0019-240529-cesium-race-conditions/Unary-Read-Races.png">
+    <h6>Unary iterator's <i>Next</i> operation</h6>
+</div>
+
+In step 1, this requires opening an iterator in the index DB and finding the domain
+containing the desired time range, creating a reader, and reading from it. Therefore,
+all the race conditions with the domain iterator also apply here – i.e. the pointer loaded
+into the domain iterator, whose time range the unary iterator relies on to calculate the
+domain slices, may be incorrect or outdated.
+
+In step 2, this requires that the underlying file's data in the specified location by
+the offset and length found in step one has not changed – therefore, this is a possible
+race condition with Garbage Collection.
+
+In step 3, this involves moving the domain iterator, so all the race conditions in the
+domain level also apply here.
+
+### 4.3.4 Deleting
+
+Deletion at the Unary level is a direct forward of deletion from the Domain level. The
+only added logic is the opening of an absolute gate on the time range being deleted –
+this will invalidate all deletions on ranges where a writer may write as well as all
+deletions whose time range intersect with another deletion's time range. Once the gate is
+created, since it has absolute authority, it will remain in control for the entirety of the
+delete duration.
+
+### 4.3.5 Garbage Collection
+
+Garbage collection at the Unary level is a direct forward of GC from the Domain level.
+
+### 4.4 Cesium level race conditions
+
+At the Cesium level, each entity may control multiple channels – i.e. multiple Unary or
+Virtual databases. Fortunately, the execution of these entities on different channels do
+not interfere with each other: a writer on one unary channel will not cause race conditions
+on another channel. Similarly, Iterator at the Cesium level is simply a stream wrapper
+that forwards the commands it receives to its unary-level internal iterators.
+
+Out of the four entities, the only entity that requires particular attention at the Cesium
+level is the deleter, as we must not delete index unaryDBs that contain time stamp data
+for other data channels. To this end, we first check under an absolute controller region
+that the time range is neither controlled by a writer (in which case we would report that
+there is data in that time range) nor containing any time stamp data. If there are no data,
+then we call the unaryDB's `delete` method to begin deleting data. Note that there is a
+race condition here: right after our `HasDataFor`'s gate is released,
+there could be a writer that writes some data and closes its gate right before `delete`'s
+gate is acquired, causing us to delete index data for other channels. However, we do not
+anticipate seeing this case often, as very rarely would one delete an index channel but
+keep some data channels indexed by that index channel.
+
+### 4.5 Conclusion
+
+Here is a list of race conditions revealed from this RFC:
+
+- Domain level:
+  - file_controller: acquireWriter's descriptor limit check may not extend into the following
+conditional statement to create a new writer.
+  - Iterator: `Write` inserting a pointer before the position of interest; `Delete` deleting
+pointer(s) before or at the position of interest during operations that involve `reload()`
+(almost all operations).
+  - Iterator: `Write` to the pointer at the position of the iterator; Garbage Collection of
+pointer at the position of the iterator during `newReader()` or `TimeRange()`.
+  - Iterator: Garbage Collection during `Read()` from a created section reader.
+  - Multiple garbage collection subroutines on the same file running concurrently.
+- Unary level:
+  - Iterator: index's domain DB gets Garbage Collected during `Next` or `Prev`.
+- Cesium level:
+  - Writing to an index channel while deleting that index channel with data depending on the
+said channel.
