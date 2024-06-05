@@ -70,8 +70,8 @@ export const LayoutMain = (): ReactElement => {
 };
 
 export const HANDLERS: Link.Handler[] = [
-  // Schematic.linkHandler,
-  // Range.linkHandler,
+  Schematic.linkHandler,
+  Range.linkHandler,
   Workspace.linkHandler,
-  // LinePlot.linkHandler,
+  LinePlot.linkHandler,
 ];
