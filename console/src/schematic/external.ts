@@ -11,7 +11,7 @@ import { Layout } from "@/layout";
 import { Schematic } from "@/schematic/Schematic";
 import { LAYOUT_TYPE } from "@/schematic/slice";
 
-// export * from "@/schematic/link";
+export * from "@/schematic/link";
 export * from "@/schematic/middleware";
 export * from "@/schematic/NavControls";
 export * from "@/schematic/ontology";
