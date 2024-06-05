@@ -36,7 +36,7 @@ export const LayoutMain = (): ReactElement => {
   Version.useLoadTauri();
   Device.useListenForChanges();
   Cluster.useLocalServer();
-  // Link.useDeepLink({ handlers: Link.HANDLERS });
+  Link.useDeepLink({ handlers: Link.HANDLERS });
   Workspace.useSyncLayout();
 
   return (
