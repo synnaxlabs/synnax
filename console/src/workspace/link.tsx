@@ -17,9 +17,7 @@ export const linkHandler: Link.Handler = ({
   client,
   dispatch,
 }) => {
-  if (resource != "workspace") {
-    return false;
-  }
+  if (resource != "workspace") return false;
   client.workspaces
     .retrieve(resourceKey)
     .then((workspace) => {

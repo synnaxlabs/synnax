@@ -25,6 +25,7 @@ import { Menu } from "@/components/menu";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
+import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 import { Range } from "@/range";
 import { Schematic } from "@/schematic";
@@ -211,7 +212,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       <PMenu.Item itemKey="delete" startIcon={<Icon.Delete />}>
         Delete
       </PMenu.Item>
-      <Ontology.LinkAddressMenuItem />
+      {singleResource && <Link.CopyMenuItem />}
       <Menu.HardReloadItem />
     </PMenu.Menu>
   );

@@ -16,9 +16,7 @@ export const linkHandler: Link.Handler = ({
   clusters,
   dispatch,
 }) => {
-  if (resource !== "cluster") {
-    return false;
-  }
+  if (resource !== "cluster") return false;
   const clusterKey = resourceKey;
   if (clusters.find((cluster) => cluster.key === clusterKey) == undefined) {
     // Console does not have this cluster in store.

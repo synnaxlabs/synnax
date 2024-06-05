@@ -36,9 +36,3 @@ export const RenameMenuItem = (): ReactElement => (
     Rename
   </PMenu.Item>
 );
-
-export const LinkAddressMenuItem = (): ReactElement => (
-  <PMenu.Item itemKey="link" startIcon={<Icon.Link />}>
-    Copy link address
-  </PMenu.Item>
-);

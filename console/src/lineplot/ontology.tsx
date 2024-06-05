@@ -12,6 +12,7 @@ import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
 
 import { Layout } from "@/layout";
+import { Link } from "@/link";
 import { create, type State } from "@/lineplot/slice";
 import { Menu } from "@/components/menu";
 import { Ontology } from "@/ontology";
@@ -61,7 +62,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
       <PMenu.Item itemKey="delete" startIcon={<Icon.Delete />}>
         Delete
       </PMenu.Item>
-      <Ontology.LinkAddressMenuItem />
+      {isSingle && <Link.CopyMenuItem />}
       <Menu.HardReloadItem />
     </PMenu.Menu>
   );

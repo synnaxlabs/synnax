@@ -15,6 +15,7 @@ import { Menu } from "@/components/menu";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
 import { Layout } from "@/layout";
+import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 
 const ZERO_LAYOUT_STATES: Record<string, Layout.State> = {
@@ -79,12 +80,14 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     }
   };
 
+  const singleResource = resources.length === 1;
+
   return (
     <PMenu.Menu level="small" iconSpacing="small" onChange={_handleSelect}>
       <PMenu.Item itemKey="delete" startIcon={<Icon.Delete />}>
         Delete
       </PMenu.Item>
-      <Ontology.LinkAddressMenuItem />
+      {singleResource && <Link.CopyMenuItem />}
       <Menu.HardReloadItem />
     </PMenu.Menu>
   );

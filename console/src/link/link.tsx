@@ -8,18 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { Synnax } from "@synnaxlabs/client";
-import { Synnax as PSynnax } from "@synnaxlabs/pluto";
-import { useEffect } from "react";
+import { Icon } from "@synnaxlabs/media";
+import { Synnax as PSynnax, Menu, useAsyncEffect } from "@synnaxlabs/pluto";
+import { ReactElement, useEffect } from "react";
 import { onOpenUrl } from "@tauri-apps/plugin-deep-link";
 import { Dispatch, UnknownAction } from "@reduxjs/toolkit";
 import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
 import { Layout } from "@/layout";
-import { LinePlot } from "@/lineplot";
-import { Range } from "@/range";
-import { Schematic } from "@/schematic";
-import { Workspace } from "@/workspace";
 
 export interface HandlerProps {
   // url is a string of two parts, the first part is the resource identifier and
@@ -38,14 +35,19 @@ export interface UseDeepLinkProps {
   handlers: Handler[];
 }
 
-export const useDeepLink = ({ handlers }: UseDeepLinkProps): void => {
+export const useDeep = ({ handlers }: UseDeepLinkProps): void => {
+  console.log("useDeep");
   const client = PSynnax.use();
   const dispatch = useDispatch();
   const placer = Layout.usePlacer();
   const clusters = Cluster.useSelectMany();
 
-  useEffect(() => {
-    onOpenUrl((urls) => {
+  // TODO: add drift window focusing
+  console.log("useEffect");
+  useAsyncEffect(async () => {
+    const unlistenPromise = onOpenUrl((urls) => {
+      console.log("onOpenUrl");
+      // drift window focusing here
       if (client == null) {
         console.error("Error: Cannot open URL, client is null");
         return;
@@ -79,13 +81,24 @@ export const useDeepLink = ({ handlers }: UseDeepLinkProps): void => {
         }),
       );
     });
-  }, [client]);
+    return () => {
+      unlistenPromise
+        .then((unlisten) => {
+          unlisten();
+        })
+        .catch((error) => {
+          console.error("Error: ", error);
+        });
+    };
+  }, []);
 };
 
-export const HANDLERS: Handler[] = [
-  Cluster.linkHandler,
-  Schematic.linkHandler,
-  Range.linkHandler,
-  Workspace.linkHandler,
-  LinePlot.linkHandler,
-];
+export const CopyMenuItem = (): ReactElement => (
+  <Menu.Item itemKey="link" startIcon={<Icon.Link />}>
+    Copy link address
+  </Menu.Item>
+);
+
+// TODO: 1) cleanup function 2) asynch function 3) focus drift window 4)
+// Notifications 5) Add cluster link to cluster tab 6) Add range link to range
+// tab 7) Add workspace link to workspace tab
