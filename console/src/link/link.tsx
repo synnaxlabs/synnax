@@ -44,11 +44,16 @@ export interface UseDeepLinkProps {
 export const useDeep = ({ handlers }: UseDeepLinkProps): void => {
   console.log("useDeep");
   const client = PSynnax.use();
+  if (client == null) return;
   const clientRef = useSyncedRef(client);
+
   const dispatch = useDispatch();
   const placer = Layout.usePlacer();
+
   const clusters = Cluster.useSelectMany();
+
   const store = useStore();
+  // store.
   const currentCluster = Cluster.useSelectActiveKey();
   console.log("Current cluster ", currentCluster);
   console.log("Client is at", client?.props.port);
@@ -63,22 +68,29 @@ export const useDeep = ({ handlers }: UseDeepLinkProps): void => {
       console.log(`URL is ${urls[0]}`);
       // drift window focusing here
       // dispatch(Drift.focusWindow());
-
       const scheme = "synnax://";
       if (urls.length === 0 || !urls[0].startsWith(scheme)) {
         console.error("Error: Cannot open URL, URLs must start with synnax://");
         return;
       }
       const urlParts = urls[0].slice(scheme.length).split("/");
-      if (urlParts.length !== 2 || urlParts.length !== 4) {
+
+      if (urlParts.length !== 2 && urlParts.length !== 4) {
+        console.error(
+          "Error: Cannot open URL, URLs must be of the form synnax://cluster/<cluster-key> or synnax://cluster/<cluster-key>/<resource>/<resource-key>",
+        );
+        return;
+      }
       if (urlParts[0] !== "cluster") {
         console.log("Invalid URL");
+        return;
       }
+      const clusterKey = urlParts[1];
 
-      const clusterKey = "";
-      const connParams = Cluster.select(store.getState(), clusterKey)?.props;
-      if (connParams == null) return;
-      const client = new Synnax(connParams);
+      const stork = store.getState();
+      // const connParams = Cluster.select(store.getState(), clusterKey)?.props;
+      // if (connParams == null) return;
+      // const client = new Synnax(connParams);
 
       console.log("Opened cluster, Trying to find handlers");
       for (let h of handlers)
