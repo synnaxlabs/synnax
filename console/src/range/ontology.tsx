@@ -8,12 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { type Store } from "@reduxjs/toolkit";
-import { type ontology, type ranger,type Synnax } from "@synnaxlabs/client";
+import { type ontology, type ranger, type Synnax } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { type Haul,Menu } from "@synnaxlabs/pluto";
+import { type Haul, Menu as PMenu } from "@synnaxlabs/pluto";
 import { Tree } from "@synnaxlabs/pluto/tree";
 import { toArray } from "@synnaxlabs/x";
 
+import { Menu } from "@/components/menu";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
@@ -22,7 +23,7 @@ import { Ontology } from "@/ontology";
 import { createEditLayout } from "@/range/EditLayout";
 import { type Range } from "@/range/range";
 import { select } from "@/range/selectors";
-import { add, remove, setActive,type StoreState } from "@/range/slice";
+import { add, remove, setActive, type StoreState } from "@/range/slice";
 
 const fromClientRange = (ranges: ranger.Range | ranger.Range[]): Range[] =>
   toArray(ranges).map((range) => ({
@@ -179,35 +180,38 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
     }
   };
 
+  const isSingle = resources.length === 1;
+
   return (
-    <Menu.Menu onChange={handleSelect} level="small" iconSpacing="small">
+    <PMenu.Menu onChange={handleSelect} level="small" iconSpacing="small">
       <Group.GroupMenuItem selection={selection} />
-      {resources.length === 1 && (
+      {isSingle && (
         <>
           {resources[0].id.key !== activeRange?.key && (
-            <Menu.Item itemKey="activate">Set as Active Range</Menu.Item>
+            <PMenu.Item itemKey="activate">Set as Active Range</PMenu.Item>
           )}
           <Ontology.RenameMenuItem />
-          <Menu.Item itemKey="edit" startIcon={<Icon.Edit />}>
+          <PMenu.Item itemKey="edit" startIcon={<Icon.Edit />}>
             Edit
-          </Menu.Item>
+          </PMenu.Item>
         </>
       )}
       {layout?.type === "lineplot" && (
-        <Menu.Item itemKey="addToActivePlot" startIcon={<Icon.Visualize />}>
+        <PMenu.Item itemKey="addToActivePlot" startIcon={<Icon.Visualize />}>
           Add to {layout.name}
-        </Menu.Item>
+        </PMenu.Item>
       )}
-      <Menu.Item
+      <PMenu.Item
         itemKey="addToNewPlot"
         startIcon={[<Icon.Add key="add" />, <Icon.Visualize key="plot" />]}
       >
         Add to New Plot
-      </Menu.Item>
-      <Menu.Item itemKey="delete" startIcon={<Icon.Delete />}>
+      </PMenu.Item>
+      <PMenu.Item itemKey="delete" startIcon={<Icon.Delete />}>
         Delete
-      </Menu.Item>
-    </Menu.Menu>
+      </PMenu.Item>
+      <Menu.HardReloadItem />
+    </PMenu.Menu>
   );
 };
 

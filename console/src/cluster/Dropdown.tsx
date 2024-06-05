@@ -27,6 +27,7 @@ import { connectWindowLayout } from "@/cluster/Connect";
 import { type Cluster } from "@/cluster/core";
 import { useSelect, useSelectLocalState, useSelectMany } from "@/cluster/selectors";
 import { LOCAL_CLUSTER_KEY, remove, setActive, setLocalState } from "@/cluster/slice";
+import { Menu } from "@/components/menu";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 
@@ -82,6 +83,7 @@ export const List = (): ReactElement => {
               Connect
             </PMenu.Item>
           )}
+          <Menu.HardReloadItem />
         </PMenu.Menu>
       );
     },

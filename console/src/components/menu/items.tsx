@@ -13,7 +13,9 @@ import { Menu } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 import { useDispatch } from "react-redux";
 
-const HardReload = (props: Omit<Menu.ItemProps, "itemKey">): ReactElement => {
+export const HardReloadItem = (
+  props: Omit<Menu.ItemProps, "itemKey">,
+): ReactElement => {
   const d = useDispatch();
   return (
     <Menu.Item
@@ -26,8 +28,4 @@ const HardReload = (props: Omit<Menu.ItemProps, "itemKey">): ReactElement => {
       Hard Reload
     </Menu.Item>
   );
-};
-
-export const Item = {
-  HardReload,
 };
