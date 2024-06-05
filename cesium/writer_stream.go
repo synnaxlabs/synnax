@@ -11,6 +11,7 @@ package cesium
 
 import (
 	"context"
+	"fmt"
 	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/index"
@@ -126,7 +127,7 @@ func (w *streamWriter) Flow(ctx signal.Context, opts ...confluence.Option) {
 
 func (w *streamWriter) process(ctx context.Context, req WriterRequest) {
 	if req.Command < WriterWrite || req.Command > WriterSetMode {
-		panic("[cesium.streamWriter] - invalid command")
+		panic(fmt.Sprintf("invalid command %v", req.Command))
 	}
 	if req.Command == WriterError {
 		w.seqNum++
@@ -284,7 +285,7 @@ func (w *streamWriter) close(ctx context.Context) error {
 	u := ControlUpdate{Transfers: make([]controller.Transfer, 0, len(w.internal))}
 	for _, idx := range w.internal {
 		c.Exec(func() error {
-			u_, err := idx.Close(ctx)
+			u_, err := idx.Close()
 			if err != nil {
 				return err
 			}
@@ -400,14 +401,14 @@ func (w *idxWriter) Commit(ctx context.Context) (telem.TimeStamp, error) {
 	return end.Lower, c.Error()
 }
 
-func (w *idxWriter) Close(ctx context.Context) (ControlUpdate, error) {
+func (w *idxWriter) Close() (ControlUpdate, error) {
 	c := errors.NewCatcher(errors.WithAggregation())
 	update := ControlUpdate{
 		Transfers: make([]controller.Transfer, 0, len(w.internal)),
 	}
 	for _, unaryWriter := range w.internal {
 		c.Exec(func() error {
-			transfer, err := unaryWriter.Close(ctx)
+			transfer, err := unaryWriter.Close()
 			if err != nil || !transfer.Occurred() {
 				return err
 			}

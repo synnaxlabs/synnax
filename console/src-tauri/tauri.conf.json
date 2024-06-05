@@ -51,7 +51,7 @@
     "deep-link": {
       "mobile": [],
       "desktop": {
-        "schemes": ["synnaxb"]
+        "schemes": ["synnax"]
       }
     }
   },
@@ -66,6 +66,7 @@
         "width": 1080,
         "minWidth": 625,
         "minHeight": 375,
+        "visible": false,
         "acceptFirstMouse": true,
         "titleBarStyle": "Overlay",
         "hiddenTitle": true,

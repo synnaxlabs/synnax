@@ -8,14 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/media";
-import { Menu } from "@synnaxlabs/pluto";
+import { Menu as PMenu } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Group } from "@/group";
+import { Menu } from "@/components/menu";
 import { type TreeContextMenu } from "@/ontology/service";
 
 export const MultipleSelectionContextMenu: TreeContextMenu = (props) => {
-  const handleSelect: Menu.MenuProps["onChange"] = (key) => {
+  const handleSelect: PMenu.MenuProps["onChange"] = (key) => {
     switch (key) {
       case "group":
         void Group.fromSelection(props);
@@ -23,14 +24,21 @@ export const MultipleSelectionContextMenu: TreeContextMenu = (props) => {
   };
 
   return (
-    <Menu.Menu onChange={handleSelect} level="small" iconSpacing="small">
+    <PMenu.Menu onChange={handleSelect} level="small" iconSpacing="small">
       <Group.GroupMenuItem selection={props.selection} />
-    </Menu.Menu>
+      <Menu.HardReloadItem />
+    </PMenu.Menu>
   );
 };
 
 export const RenameMenuItem = (): ReactElement => (
-  <Menu.Item itemKey="rename" startIcon={<Icon.Rename />}>
+  <PMenu.Item itemKey="rename" startIcon={<Icon.Rename />}>
     Rename
-  </Menu.Item>
+  </PMenu.Item>
+);
+
+export const LinkAddressMenuItem = (): ReactElement => (
+  <PMenu.Item itemKey="link" startIcon={<Icon.Link />}>
+    Copy link address
+  </PMenu.Item>
 );

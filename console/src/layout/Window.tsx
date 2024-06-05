@@ -9,16 +9,17 @@
 
 import "@/layout/Window.css";
 
-import { setWindowDecorations } from "@synnaxlabs/drift";
+import { type ReactElement, useEffect } from "react";
+import { useDispatch } from "react-redux";
+import { setWindowDecorations, setWindowVisible } from "@synnaxlabs/drift";
 import { useSelectWindowAttribute, useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Logo } from "@synnaxlabs/media";
 import { Align, Menu as PMenu, Nav, OS, Text } from "@synnaxlabs/pluto";
 import { runtime } from "@synnaxlabs/x";
 import { getCurrent } from "@tauri-apps/api/window";
-import { type ReactElement, useEffect } from "react";
-import { useDispatch } from "react-redux";
 
-import { Controls, Menu } from "@/components";
+import { Controls } from "@/components";
+import { Menu } from "@/components/menu";
 import { CSS } from "@/css";
 import { Content } from "@/layout/Content";
 import { WindowProps } from "@/layout/layout";
@@ -79,7 +80,7 @@ export const NavTop = ({
 
 export const DefaultContextMenu = (): ReactElement => (
   <PMenu.Menu>
-    <Menu.Item.HardReload />
+    <Menu.HardReloadItem />
   </PMenu.Menu>
 );
 
@@ -95,6 +96,7 @@ export const Window = (): ReactElement | null => {
   const maximized = useSelectWindowAttribute(win, "maximized") ?? false;
   if (layout == null) return null;
   const content = <Content layoutKey={layout.key} />;
+  dispatch(setWindowVisible({ key: layout.key, value: true }));
   return (
     <PMenu.ContextMenu menu={() => <DefaultContextMenu />} {...menuProps}>
       <Align.Space

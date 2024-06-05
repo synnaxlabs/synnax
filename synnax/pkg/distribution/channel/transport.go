@@ -19,6 +19,8 @@ type (
 	CreateTransportServer = freighter.UnaryServer[CreateMessage, CreateMessage]
 	DeleteTransportClient = freighter.UnaryClient[DeleteRequest, types.Nil]
 	DeleteTransportServer = freighter.UnaryServer[DeleteRequest, types.Nil]
+	RenameTransportServer = freighter.UnaryServer[RenameRequest, types.Nil]
+	RenameTransportClient = freighter.UnaryClient[RenameRequest, types.Nil]
 )
 
 type Transport interface {
@@ -26,6 +28,8 @@ type Transport interface {
 	CreateServer() CreateTransportServer
 	DeleteClient() DeleteTransportClient
 	DeleteServer() DeleteTransportServer
+	RenameClient() RenameTransportClient
+	RenameServer() RenameTransportServer
 }
 
 type CreateMessage struct {
@@ -33,6 +37,11 @@ type CreateMessage struct {
 	RetrieveIfNameExists bool
 }
 
+type RenameRequest struct {
+	Keys  Keys
+	Names []string
+}
+
 type DeleteRequest struct {
-	Keys []Key
+	Keys Keys
 }

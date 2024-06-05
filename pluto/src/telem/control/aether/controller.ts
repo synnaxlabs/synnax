@@ -9,7 +9,6 @@
 
 import { type Instrumentation } from "@synnaxlabs/alamos";
 import {
-  Authority,
   channel,
   control,
   framer,
@@ -18,7 +17,8 @@ import {
   TimeStamp,
   UnexpectedError,
 } from "@synnaxlabs/client";
-import { compare,type Destructor } from "@synnaxlabs/x";
+import { compare, type Destructor } from "@synnaxlabs/x";
+import { control as xControl } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -177,7 +177,7 @@ export class Controller
     await this.writer?.write(frame);
   }
 
-  async setAuthority(channels: channel.Keys, value: Authority): Promise<void> {
+  async setAuthority(channels: channel.Keys, value: control.Authority): Promise<void> {
     if (this.writer == null) await this.acquire();
     await this.writer?.setAuthority(
       Object.fromEntries(channels.map((k) => [k, value])),
@@ -284,7 +284,7 @@ export const setChannelValue = (props: SetChannelValueProps): telem.NumberSinkSp
 });
 
 export const acquireChannelControlPropsZ = z.object({
-  authority: z.number().default(Authority.Absolute.valueOf()),
+  authority: z.number().default(control.Authority.Absolute.valueOf()),
   channel: z.number(),
 });
 
@@ -366,7 +366,7 @@ export class AuthoritySource
     if (this.valid) return;
     const { channel: ch } = this.props;
     this.stopListening?.();
-    const filter = control.filterTransfersByChannelKey(ch);
+    const filter = xControl.filterTransfersByChannelKey(ch);
     this.stopListening = this.prov.onChange((t) => {
       if (filter(t).length === 0) return;
       this.notify?.();

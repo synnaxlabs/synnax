@@ -79,6 +79,7 @@ func (o *OntologyService) Retrieve(
 
 type OntologyCreateGroupRequest struct {
 	Name   string      `json:"name" msgpack:"name" validate:"required"`
+	Key    uuid.UUID   `json:"key" msgpack:"key"`
 	Parent ontology.ID `json:"parent" msgpack:"parent"`
 }
 
@@ -92,7 +93,7 @@ func (o *OntologyService) CreateGroup(
 ) (res OntologyCreateGroupResponse, err error) {
 	return res, o.WithTx(ctx, func(tx gorp.Tx) error {
 		w := o.group.NewWriter(tx)
-		g, err_ := w.Create(ctx, req.Name, req.Parent)
+		g, err_ := w.CreateWithKey(ctx, req.Key, req.Name, req.Parent)
 		res.Group = g
 		return err_
 	})

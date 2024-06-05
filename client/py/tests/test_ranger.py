@@ -69,7 +69,7 @@ class TestRangeClient:
 
     def test_search(self, two_ranges: list[sy.Range], client: sy.Synnax):
         """Should search for ranges"""
-        time.sleep(0.05)
+        time.sleep(0.2)
         rng = client.ranges.search(two_ranges[0].name)
         assert len(rng) > 0
 

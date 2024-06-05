@@ -19,22 +19,25 @@ import { Device } from "@/hardware/device";
 import { Layout } from "@/layout";
 import { NavBottom, NavLeft, NavRight, NavTop } from "@/layouts/LayoutMain/Nav";
 import { Mosaic } from "@/layouts/mosaic";
+import { Link } from "@/link";
 import { Notifications } from "@/notifications";
 import { Version } from "@/version";
+import { Workspace } from "@/workspace";
 
 /**
  * The center of it all. This is the main layout for the Synnax Console. Try to keep this
  * component as simple, presentational, and navigatable as possible.
  */
 export const LayoutMain = (): ReactElement => {
-  const d = useDispatch();
+  const dispatch = useDispatch();
   useEffect(() => {
-    d(Layout.maybeCreateGetStartedTab());
+    dispatch(Layout.maybeCreateGetStartedTab());
   }, []);
-
   Version.useLoadTauri();
   Device.useListenForChanges();
   Cluster.useLocalServer();
+  Link.useDeepLink({ handlers: Link.HANDLERS });
+  Workspace.useSyncLayout();
 
   return (
     <>

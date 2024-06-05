@@ -9,11 +9,13 @@
 
 import { ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Menu, Mosaic, Tree } from "@synnaxlabs/pluto";
+import { Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
 
 import { Layout } from "@/layout";
 import { create, type State } from "@/lineplot/slice";
+import { Menu } from "@/components/menu";
 import { Ontology } from "@/ontology";
+import { Cluster } from "@/cluster";
 
 const TreeContextMenu: Ontology.TreeContextMenu = ({
   client,
@@ -35,22 +37,33 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
     })();
   };
 
+  const clusterKey = Cluster.useSelectActiveKey();
+
   const handleRename = (): void => Tree.startRenaming(resources[0].key);
+
+  const handleCopyURL = (): void => {
+    const toCopy = `synnax://cluster/${clusterKey}/lineplot/${resources[0].id.key}`;
+    void navigator.clipboard.writeText(toCopy);
+  };
 
   const f: Record<string, () => void> = {
     delete: handleDelete,
     rename: handleRename,
+    link: handleCopyURL,
   };
 
   const onSelect = (key: string): void => f[key]();
 
+  const isSingle = resources.length === 1;
   return (
-    <Menu.Menu onChange={onSelect} level="small" iconSpacing="small">
-      <Ontology.RenameMenuItem />
-      <Menu.Item itemKey="delete" startIcon={<Icon.Delete />}>
+    <PMenu.Menu onChange={onSelect} level="small" iconSpacing="small">
+      {isSingle && <Ontology.RenameMenuItem />}
+      <PMenu.Item itemKey="delete" startIcon={<Icon.Delete />}>
         Delete
-      </Menu.Item>
-    </Menu.Menu>
+      </PMenu.Item>
+      <Ontology.LinkAddressMenuItem />
+      <Menu.HardReloadItem />
+    </PMenu.Menu>
   );
 };
 
@@ -96,6 +109,8 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
     placeLayout(
       create({
         ...(linePlot.data as unknown as State),
+        key: linePlot.key,
+        name: linePlot.name,
         location: "mosaic",
         tab: {
           mosaicKey: nodeKey,

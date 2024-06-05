@@ -46,6 +46,18 @@ type (
 		types.Nil,
 		*emptypb.Empty,
 	]
+	renameClient = fgrpc.UnaryClient[
+		channel.RenameRequest,
+		*channelv1.RenameRequest,
+		types.Nil,
+		*emptypb.Empty,
+	]
+	renameServer = fgrpc.UnaryServer[
+		channel.RenameRequest,
+		*channelv1.RenameRequest,
+		types.Nil,
+		*emptypb.Empty,
+	]
 )
 
 // Transport is a grpc backed implementation of the channel.Transport interface.
@@ -55,6 +67,8 @@ type Transport struct {
 	createServer *createServer
 	deleteClient *deleteClient
 	deleteServer *deleteServer
+	renameClient *renameClient
+	renameServer *renameServer
 }
 
 // CreateClient implements the channel.Transport interface.
@@ -66,6 +80,10 @@ func (t Transport) CreateServer() channel.CreateTransportServer { return t.creat
 func (t Transport) DeleteClient() channel.DeleteTransportClient { return t.deleteClient }
 
 func (t Transport) DeleteServer() channel.DeleteTransportServer { return t.deleteServer }
+
+func (t Transport) RenameClient() channel.RenameTransportClient { return t.renameClient }
+
+func (t Transport) RenameServer() channel.RenameTransportServer { return t.renameServer }
 
 // BindTo implements the fgrpc.BindableTransport interface.
 func (t Transport) BindTo(reg grpc.ServiceRegistrar) { t.createServer.BindTo(reg) }
@@ -117,12 +135,31 @@ func New(pool *fgrpc.Pool) Transport {
 		ResponseTranslator: fgrpc.EmptyTranslator{},
 		ServiceDesc:        &channelv1.ChannelDeleteService_ServiceDesc,
 	}
+	renameClient := &renameClient{
+		Pool:               pool,
+		RequestTranslator:  renameMessageTranslator{},
+		ResponseTranslator: fgrpc.EmptyTranslator{},
+		Exec: func(
+			ctx context.Context,
+			conn grpc.ClientConnInterface,
+			req *channelv1.RenameRequest,
+		) (*emptypb.Empty, error) {
+			return channelv1.NewChannelRenameServiceClient(conn).Exec(ctx, req)
+		},
+	}
+	renameServer := &renameServer{
+		RequestTranslator:  renameMessageTranslator{},
+		ResponseTranslator: fgrpc.EmptyTranslator{},
+		ServiceDesc:        &channelv1.ChannelRenameService_ServiceDesc,
+	}
 	return Transport{
 		ReportProvider: fgrpc.Reporter,
 		createClient:   createClient,
 		createServer:   createServer,
 		deleteClient:   deleteClient,
 		deleteServer:   deleteServer,
+		renameClient:   renameClient,
+		renameServer:   renameServer,
 	}
 }
 

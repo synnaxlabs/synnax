@@ -24,7 +24,7 @@ import {
   type SetYChannelsPayload,
   type StoreState,
 } from "@/lineplot/slice";
-import { effectMiddleware,type MiddlewareEffect } from "@/middleware";
+import { effectMiddleware, type MiddlewareEffect } from "@/middleware";
 import { Range } from "@/range";
 
 export const assignColorsEffect: MiddlewareEffect<
@@ -72,7 +72,7 @@ export const assignActiveRangeEffect: MiddlewareEffect<
 
 export const deleteEffect: MiddlewareEffect<
   Layout.StoreState & StoreState,
-  Layout.RemovePayload | Layout.SetSlicePayload,
+  Layout.RemovePayload | Layout.SetWorkspacePayload,
   RemovePayload
 > = ({ action, dispatch, getState }) => {
   const state = getState();

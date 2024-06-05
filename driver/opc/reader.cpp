@@ -257,6 +257,11 @@ public:
             size_t length = cap_array_length(i, val->arrayLength);
             if (s.data_type == synnax::FLOAT64) return s.set_array(data, i, length);
         }
+        if (UA_Variant_hasArrayType(val, &UA_TYPES[UA_TYPES_INT16])) {
+            UA_Int16 *data = static_cast<UA_Int16 *>(val->data);
+            size_t length = cap_array_length(i, val->arrayLength);
+            if (s.data_type == synnax::INT16) return s.set_array(data, i, length);
+        }
         if (UA_Variant_hasArrayType(val, &UA_TYPES[UA_TYPES_INT32])) {
             UA_Int32 *data = static_cast<UA_Int32 *>(val->data);
             size_t length = cap_array_length(i, val->arrayLength);

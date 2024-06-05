@@ -8,5 +8,4 @@
 // included in the file licenses/APL.txt.
 
 export * from "./Controls";
-export * from "./Menu";
 export * from "./Toolbar";
