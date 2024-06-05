@@ -10,29 +10,30 @@
 import { Link } from "@/link";
 import { create, State } from "@/schematic/slice";
 
-export const linkHandler: Link.Handler = ({
-  resource,
-  resourceKey,
-  client,
-  placer,
-}) => {
-  if (resource != "schematic") return false;
-  client.workspaces.schematic
-    .retrieve(resourceKey)
-    .then((schematic) => {
-      if (schematic == null) return false;
-      const layoutCreator = create({
-        ...(schematic.data as unknown as State),
-        key: schematic.key,
-        name: schematic.name,
-        // snapshot: schematic.snapshot,
-      });
-      placer(layoutCreator);
-      return true;
-    })
-    .catch((error) => {
-      console.error("Error: ", error);
-      return false;
-    });
-  return false;
-};
+// export const linkHandler: Link.Handler = ({
+//   resource,
+//   resourceKey,
+//   client,
+//   placer,
+// }) => {
+//   if (resource != "schematic") return false;
+//   console.log("schematic/link.tsx");
+//   client.workspaces.schematic
+//     .retrieve(resourceKey)
+//     .then((schematic) => {
+//       if (schematic == null) return false;
+//       const layoutCreator = create({
+//         ...(schematic.data as unknown as State),
+//         key: schematic.key,
+//         name: schematic.name,
+//         // snapshot: schematic.snapshot,
+//       });
+//       placer(layoutCreator);
+//       return true;
+//     })
+//     .catch((error) => {
+//       console.error("Error: ", error);
+//       return false;
+//     });
+//   return false;
+// };

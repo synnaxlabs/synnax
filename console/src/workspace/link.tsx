@@ -11,28 +11,31 @@ import { Layout } from "@/layout";
 import { Link } from "@/link";
 import { setActive } from "@/workspace/slice";
 
-export const linkHandler: Link.Handler = ({
+export const linkHandler: Link.Handler = async ({
   resource,
   resourceKey,
   client,
   dispatch,
-}) => {
-  if (resource != "workspace") return false;
-  client.workspaces
-    .retrieve(resourceKey)
-    .then((workspace) => {
-      if (workspace == null) return false;
-      dispatch(
-        Layout.setWorkspace({
-          slice: workspace.layout as unknown as Layout.SliceState,
-        }),
-      );
-      dispatch(setActive(workspace.key));
-      return true;
-    })
-    .catch((error) => {
-      console.error("Error: ", error);
-      return false;
-    });
-  return false;
+}): Promise<boolean> => {
+  if (resource !== "workspace") {
+    console.log("resource is not workspace");
+    return false;
+  }
+  console.log("workspace/link.tsx: Resource is a workspace");
+  const workspaceKey = resourceKey;
+  console.log("Client port", client.props.port);
+  const workspace = await client.workspaces.retrieve(workspaceKey);
+  if (workspace == null) {
+    console.log("workspace is null");
+    return false;
+  }
+  dispatch(
+    Layout.setWorkspace({
+      slice: workspace.layout as unknown as Layout.SliceState,
+    }),
+  );
+  console.log("Workspace layout set");
+  dispatch(setActive(workspace.key));
+  console.log("Active workspace set");
+  return true;
 };

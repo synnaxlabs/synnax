@@ -9,11 +9,16 @@
 
 import { Synnax } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Synnax as PSynnax, Menu, useAsyncEffect } from "@synnaxlabs/pluto";
-import { ReactElement, useEffect } from "react";
-import { onOpenUrl } from "@tauri-apps/plugin-deep-link";
+import {
+  Synnax as PSynnax,
+  Menu,
+  useAsyncEffect,
+  useSyncedRef,
+} from "@synnaxlabs/pluto";
+import { ReactElement } from "react";
+import { onOpenUrl, getCurrent } from "@tauri-apps/plugin-deep-link";
 import { Dispatch, UnknownAction } from "@reduxjs/toolkit";
-import { useDispatch } from "react-redux";
+import { useDispatch, useStore } from "react-redux";
 
 import { Cluster } from "@/cluster";
 import { Layout } from "@/layout";
@@ -29,7 +34,8 @@ export interface HandlerProps {
   clusters: Cluster.Cluster[];
 }
 
-export type Handler = (props: HandlerProps) => boolean;
+// export type Handler = (props: HandlerProps) => Promise<void>;
+export type Handler = (props: HandlerProps) => Promise<boolean>;
 
 export interface UseDeepLinkProps {
   handlers: Handler[];
@@ -38,58 +44,62 @@ export interface UseDeepLinkProps {
 export const useDeep = ({ handlers }: UseDeepLinkProps): void => {
   console.log("useDeep");
   const client = PSynnax.use();
+  const clientRef = useSyncedRef(client);
   const dispatch = useDispatch();
   const placer = Layout.usePlacer();
   const clusters = Cluster.useSelectMany();
+  const store = useStore();
+  const currentCluster = Cluster.useSelectActiveKey();
+  console.log("Current cluster ", currentCluster);
+  console.log("Client is at", client?.props.port);
 
   // TODO: add drift window focusing
-  console.log("useEffect");
   useAsyncEffect(async () => {
-    const unlistenPromise = onOpenUrl((urls) => {
+    console.log("useAsyncEffect");
+    const currUrl = getCurrent();
+    console.log("Current URL is", currUrl);
+    const unlisten = await onOpenUrl(async (urls) => {
       console.log("onOpenUrl");
+      console.log(`URL is ${urls[0]}`);
       // drift window focusing here
-      if (client == null) {
-        console.error("Error: Cannot open URL, client is null");
-        return;
-      }
+      // dispatch(Drift.focusWindow());
+
       const scheme = "synnax://";
       if (urls.length === 0 || !urls[0].startsWith(scheme)) {
         console.error("Error: Cannot open URL, URLs must start with synnax://");
         return;
       }
       const urlParts = urls[0].slice(scheme.length).split("/");
-      if (
-        !Cluster.linkHandler({
-          resource: urlParts[0],
-          resourceKey: urlParts[1],
-          client,
-          dispatch,
-          placer,
-          clusters,
-        })
-      ) {
-        return;
+      if (urlParts.length !== 2 || urlParts.length !== 4) {
+      if (urlParts[0] !== "cluster") {
+        console.log("Invalid URL");
       }
-      handlers.find((h) =>
-        h({
-          resource: urlParts[2],
-          resourceKey: urlParts[3],
-          client,
-          dispatch,
-          placer,
-          clusters,
-        }),
-      );
+
+      const clusterKey = "";
+      const connParams = Cluster.select(store.getState(), clusterKey)?.props;
+      if (connParams == null) return;
+      const client = new Synnax(connParams);
+
+      console.log("Opened cluster, Trying to find handlers");
+      for (let h of handlers)
+        if (
+          await h({
+            resource: urlParts[2],
+            resourceKey: urlParts[3],
+            client,
+            dispatch,
+            placer,
+            clusters,
+          })
+        ) {
+          console.log("Handler found that returns true");
+          break;
+        } else {
+          console.log("This handler returned false");
+        }
     });
-    return () => {
-      unlistenPromise
-        .then((unlisten) => {
-          unlisten();
-        })
-        .catch((error) => {
-          console.error("Error: ", error);
-        });
-    };
+    console.log("Return out of the effect");
+    return () => unlisten();
   }, []);
 };
 
@@ -99,6 +109,6 @@ export const CopyMenuItem = (): ReactElement => (
   </Menu.Item>
 );
 
-// TODO: 1) cleanup function 2) asynch function 3) focus drift window 4)
+// TODO: 2) asynch function 3) focus drift window 4)
 // Notifications 5) Add cluster link to cluster tab 6) Add range link to range
 // tab 7) Add workspace link to workspace tab
