@@ -19,7 +19,7 @@ import { Device } from "@/hardware/device";
 import { Layout } from "@/layout";
 import { NavBottom, NavLeft, NavRight, NavTop } from "@/layouts/LayoutMain/Nav";
 import { Mosaic } from "@/layouts/mosaic";
-import { Link } from "@/link";
+// import { Link } from "@/link";
 import { Notifications } from "@/notifications";
 import { Version } from "@/version";
 import { Workspace } from "@/workspace";
