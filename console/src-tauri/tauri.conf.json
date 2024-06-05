@@ -51,7 +51,7 @@
     "deep-link": {
       "mobile": [],
       "desktop": {
-        "schemes": ["synnaxb"]
+        "schemes": ["synnax"]
       }
     }
   },
