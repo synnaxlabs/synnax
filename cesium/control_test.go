@@ -13,12 +13,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
-	"github.com/synnaxlabs/cesium/internal/controller"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
-	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -99,7 +97,8 @@ var _ = Describe("Control", func() {
 						Command: cesium.WriterError,
 					}
 					Eventually(w2Out.Outlet()).Should(Receive(&r))
-					Expect(errors.Is(r.Err, controller.Unauthorized("Writer Two", ch1))).To(BeTrue())
+					Expect(r.Err).To(HaveOccurredAs(control.Unauthorized))
+					Expect(r.Err).To(MatchError(ContainSubstring("Writer Two")))
 
 					By("Updating the second writer's authorities")
 					w2In.Inlet() <- cesium.WriterRequest{

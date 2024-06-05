@@ -473,6 +473,6 @@ func (c *Controller[E]) remove(r *region[E]) {
 	c.mu.Unlock()
 }
 
-func Unauthorized(name string, ch core.ChannelKey) error {
-	return errors.Wrapf(control.Unauthorized, "writer %s does not have control authority over channel %v", name, ch)
+func Unauthorized(s control.Subject, ch core.ChannelKey) error {
+	return errors.Wrapf(control.Unauthorized, "writer %v does not have control authority over channel %v", s, ch)
 }

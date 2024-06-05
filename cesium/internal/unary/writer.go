@@ -201,7 +201,7 @@ func (w *Writer) Write(series telem.Series) (a telem.AlignmentPair, err error) {
 	}
 	dw, ok := w.control.Authorize()
 	if !ok {
-		return 0, controller.Unauthorized(w.control.Subject.Name, w.Channel.Key)
+		return 0, controller.Unauthorized(w.control.Subject, w.Channel.Key)
 	}
 	a = telem.NewAlignmentPair(math.MaxUint32, uint32(w.len(dw.Writer)))
 	if w.Channel.IsIndex {
@@ -252,7 +252,7 @@ func (w *Writer) CommitWithEnd(ctx context.Context, end telem.TimeStamp) (err er
 func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.TimeStamp, error) {
 	dw, ok := w.control.Authorize()
 	if !ok {
-		return 0, controller.Unauthorized(w.control.Subject.String(), w.Channel.Key)
+		return 0, controller.Unauthorized(w.control.Subject, w.Channel.Key)
 	}
 
 	if end.IsZero() {
