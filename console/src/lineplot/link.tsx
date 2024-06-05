@@ -10,29 +10,25 @@
 import { create, State } from "@/lineplot/slice";
 import { Link } from "@/link";
 
-// export const linkHandler: Link.Handler = ({
-//   resource,
-//   resourceKey,
-//   client,
-//   placer,
-// }) => {
-//   if (resource != "lineplot") return false;
-//   console.log("lineplot/link.tsx");
-//   client.workspaces.linePlot
-//     .retrieve(resourceKey)
-//     .then((linePlot) => {
-//       if (linePlot == null) return false;
-//       const layoutCreator = create({
-//         ...(linePlot.data as unknown as State),
-//         key: linePlot.key,
-//         name: linePlot.name,
-//       });
-//       placer(layoutCreator);
-//       return true;
-//     })
-//     .catch((error) => {
-//       console.error("Error: ", error);
-//       return false;
-//     });
-//   return false;
-// };
+export const linkHandler: Link.Handler = async ({
+  resource,
+  resourceKey,
+  client,
+  placer,
+}): Promise<boolean> => {
+  if (resource != "lineplot") return false;
+  try {
+    const linePlot = await client.workspaces.linePlot.retrieve(resourceKey);
+    if (linePlot == null) return false;
+    const layoutCreator = create({
+      ...(linePlot.data as unknown as State),
+      key: linePlot.key,
+      name: linePlot.name,
+    });
+    placer(layoutCreator);
+    return true;
+  } catch (error) {
+    console.error("Error: ", error);
+    return false;
+  }
+};

@@ -34,17 +34,3 @@ export const linkHandler: Link.Handler = async ({
   console.log("active cluster is set");
   return true;
 };
-//   return Promise.resolve();
-//   // if (resource !== "cluster") return false;
-//   // console.log("cluster/link.tsx");
-//   // const clusterKey = resourceKey;
-//   // if (clusters.find((cluster) => cluster.key === clusterKey) == undefined) {
-//   //   // Console does not have this cluster in store.
-//   //   console.error(
-//   //     `Error: Cannot open URL, cluster with key ${clusterKey} is not found.`,
-//   //   );
-//   //   return false;
-//   // }
-//   // dispatch(setActive(clusterKey));
-//   // return true;
-// };

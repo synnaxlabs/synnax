@@ -22,20 +22,24 @@ export const linkHandler: Link.Handler = async ({
     return false;
   }
   console.log("workspace/link.tsx: Resource is a workspace");
-  const workspaceKey = resourceKey;
   console.log("Client port", client.props.port);
-  const workspace = await client.workspaces.retrieve(workspaceKey);
-  if (workspace == null) {
-    console.log("workspace is null");
+  try {
+    const workspace = await client.workspaces.retrieve(resourceKey);
+    if (workspace == null) {
+      console.log("workspace is null");
+      return false;
+    }
+    dispatch(
+      Layout.setWorkspace({
+        slice: workspace.layout as unknown as Layout.SliceState,
+      }),
+    );
+    console.log("Workspace layout set");
+    dispatch(setActive(workspace.key));
+    console.log("Active workspace set");
+    return true;
+  } catch (error) {
+    console.error("Error: ", error);
     return false;
   }
-  dispatch(
-    Layout.setWorkspace({
-      slice: workspace.layout as unknown as Layout.SliceState,
-    }),
-  );
-  console.log("Workspace layout set");
-  dispatch(setActive(workspace.key));
-  console.log("Active workspace set");
-  return true;
 };
