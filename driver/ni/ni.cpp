@@ -6,11 +6,12 @@
 // As of the Change Date specified in that file, in accordance with the Business Source
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
+#pragma once
 
 #include "driver/ni/ni.h"
+#include "driver/ni/scale.h"
 #include <map>
 
-#pragma once
 
 
 const std::map<std::string, int32_t> ni::UNITS_MAP = {
@@ -95,6 +96,7 @@ ni::Source::Source(
     const synnax::Task task): task_handle(task_handle), ctx(ctx), task(task){
 }
 
+// TODO return error status for thsi function
 void ni::Source::parseConfig(config::Parser &parser){
     // Get Acquisition Rate and Stream Rates
     this->reader_config.sample_rate = parser.required<uint64_t>("sample_rate");
@@ -113,7 +115,15 @@ void ni::Source::parseConfig(config::Parser &parser){
 
     this->reader_config.device_name = dev.location;
     this->parseChannels(parser);
-    assert(parser.ok());
+     if (!parser.ok() || !this->ok()){
+        // Log error
+        LOG(ERROR) << "[NI Reader] failed to parse configuration for " << this->reader_config.task_name;
+        this->ctx->setState({.task = task.key,
+                             .variant = "error",
+                             .details = parser.error_json()});
+        this->ok_state = false;
+        LOG(ERROR) << parser.error_json();
+    }
 }
 
 int ni::Source::init(){

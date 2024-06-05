@@ -55,6 +55,7 @@ cc_library(
     ],
     hdrs = [
         "ni.h",
+        "scale.h",
         "error.h",
         "//driver/task",
         "//driver/pipeline",

@@ -34,70 +34,19 @@
 #include "driver/ni/error.h"
 #include <condition_variable>
 #include "ts_queue.h"
-
+#include "driver/ni/scale.h"
 
 // #include "driver/modules/module.h"
 
 namespace ni{
-    extern const std::map<std::string, int32_t> UNITS_MAP;
-    typedef struct LinearScale{
-        float64 slope;
-        float64 offset;
-        std::string prescaled_units;
-        std::string scaled_units;
-    } LinearScale;
-
-    typedef struct MapScale{
-        float64 prescaled_min;
-        float64 prescaled_max;
-        float64 scaled_min;
-        float64 scaled_max;
-        std::string prescaled_units;
-        std::string scaled_units;
-    } MapScale;
-
-    typedef struct PolynomialScale{
-        float64* forward_coeffs;
-        float64* reverse_coeffs; 
-        uint32_t num_coeffs;
-        float64 min_x;
-        float64 max_x;
-        int32 num_points;
-        int32 poly_order;
-        std::string prescaled_units;
-        std::string scaled_units;
-    } PolynomialScale;
-
-    typedef struct tableScale{
-        float64* prescaled;
-        float64* scaled;
-        uint32_t num_points;
-        std::string prescaled_units;
-        std::string scaled_units;
-    } TableScale;
-
-    typedef union Scale{
-        LinearScale linear;
-        MapScale map;
-        PolynomialScale polynomial;
-        TableScale table;
-        // Destructor
-        ~Scale() {} 
-    } Scale;
-
     typedef struct ChannelConfig{
         uint32_t channel_key;
-
         std::string name;
         std::string channel_type;
         int terminal_config;
         float min_val;
         float max_val;
-
-        bool custom_scale;
-        Scale* scale; 
-        std::string scale_type;
-        std::string scale_name;
+        ScaleConfig scale_config; 
     } ChannelConfig;
 
     typedef struct ReaderConfig{
@@ -183,19 +132,12 @@ namespace ni{
             const synnax::Task task
         ) : Source(task_handle, ctx, task){}
 
-        ~AnalogReadSource();
-
         std::pair<synnax::Frame, freighter::Error> read() override;
         void acquireData() override;
         int configureTiming() override;
         int createChannels() override;
         void parseChannels(config::Parser &parser) override;
-
-        void parseCustomScale(config::Parser & parser, ChannelConfig & config);
-        void deleteScales();
         int createChannel(ChannelConfig &channel);
-   
-
         // NI related resources
         uint64_t numAIChannels = 0;
     };
@@ -441,32 +383,3 @@ namespace ni{
 }
 
 
-
-
-/*
-
-using json = nlohmann::json;
-namespace daq
-{
-    class DaqReader : public pipeline::Source  //TODD: change to daqReader
-    {
-    public:
-        virtual std::pair<synnax::Frame, freighter::Error> read() = 0;
-        virtual freighter::Error start() = 0;
-        virtual freighter::Error stop() = 0;
-        virtual bool ok() = 0;
-    };
-
-    class DaqWriter: public pipeline::Sink{
-    public:
-        virtual freighter::Error write(synnax::Frame frame) = 0;
-        virtual freighter::Error start() = 0;
-        virtual freighter::Error stop() = 0;
-        // virtual bool ok() = 0;
-    };
-
-
-}
-
-
-*/
