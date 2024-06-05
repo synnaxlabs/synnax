@@ -523,7 +523,7 @@ delete duration.
 
 Garbage collection at the Unary level is a direct forward of GC from the Domain level.
 
-### 4.4 Cesium level race conditions
+## 4.4 Cesium level race conditions
 
 At the Cesium level, each entity may control multiple channels – i.e. multiple Unary or
 Virtual databases. Fortunately, the execution of these entities on different channels do
@@ -543,7 +543,7 @@ gate is acquired, causing us to delete index data for other channels. However, w
 anticipate seeing this case often, as very rarely would one delete an index channel but
 keep some data channels indexed by that index channel.
 
-### 4.5 Conclusion
+## 4.5 Conclusion
 
 Here is a list of race conditions revealed from this RFC:
 
