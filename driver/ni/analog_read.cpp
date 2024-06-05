@@ -54,7 +54,7 @@ void ni::AnalogReadSource::parseChannels(config::Parser &parser){
                                             :    DAQmx_Val_Cfg_Default;
                 
                     // check for custom scale
-                    auto scale_parser = parser.child("custom_scale");
+                    auto scale_parser = channel_builder.child("custom_scale");
                     config.scale_config = ScaleConfig(scale_parser);
                     this->reader_config.channels.push_back(config);
                 });

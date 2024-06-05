@@ -147,8 +147,8 @@ namespace ni{
 
         ScaleConfig(config::Parser & parser) 
         :  type(parser.required<std::string>("type")),
-            prescaled_units(parser.required<std::string>("prescaled_units")),
-            scaled_units(parser.optional<std::string>("scaled_units", "units not specified")),
+            prescaled_units(parser.optional<std::string>("pre_scaled_units", "")),
+            scaled_units(parser.optional<std::string>("scaled_units", "")),
             parser(parser){
             if(type == "linear"){
                 scale.linear = LinearScale(parser);
