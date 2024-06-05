@@ -94,16 +94,12 @@ void task::Manager::run(std::atomic<bool> &done) {
 
 freighter::Error task::Manager::stop() {
     if(!running) return freighter::NIL;
-    LOG(INFO) << "[task.manager] stop called";
     if (!run_thread.joinable()) return freighter::NIL;
     running = false;
     streamer->closeSend();
     run_thread.join();
-    LOG(INFO) << "[task.manager] run thread has been joined";
-    LOG(INFO) << "[task.manager] shutting down";
     for (auto &[key, task]: tasks) task->stop();
     tasks.clear();
-    LOG(INFO) << "[task.manager] shut down";
     return run_err;
 }
 
