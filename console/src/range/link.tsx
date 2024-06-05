@@ -15,15 +15,19 @@ export const linkHandler: Link.Handler = async ({
   resourceKey,
   client,
   dispatch,
+  addStatus,
 }): Promise<boolean> => {
   if (resource != "range") return false;
   try {
     const range = await client.ranges.retrieve(resourceKey);
     if (range == null) return false;
     dispatch(setActive(range.key));
-    return true;
-  } catch (error) {
-    console.error("Error: ", error);
-    return false;
+  } catch (e) {
+    addStatus({
+      variant: "error",
+      key: `openUrlError-${resource + "/" + resourceKey}`,
+      message: (e as Error).message,
+    });
   }
+  return true;
 };

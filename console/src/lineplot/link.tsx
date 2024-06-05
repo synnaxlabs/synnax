@@ -15,20 +15,23 @@ export const linkHandler: Link.Handler = async ({
   resourceKey,
   client,
   placer,
+  addStatus,
 }): Promise<boolean> => {
-  if (resource != "lineplot") return false;
+  if (resource !== "lineplot") return false;
   try {
     const linePlot = await client.workspaces.linePlot.retrieve(resourceKey);
-    if (linePlot == null) return false;
     const layoutCreator = create({
       ...(linePlot.data as unknown as State),
       key: linePlot.key,
       name: linePlot.name,
     });
     placer(layoutCreator);
-    return true;
-  } catch (error) {
-    console.error("Error: ", error);
-    return false;
+  } catch (e) {
+    addStatus({
+      variant: "error",
+      key: `openUrlError-${resource + "/" + resourceKey}`,
+      message: (e as Error).message,
+    });
   }
+  return true;
 };

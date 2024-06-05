@@ -16,30 +16,23 @@ export const linkHandler: Link.Handler = async ({
   resourceKey,
   client,
   dispatch,
+  addStatus,
 }): Promise<boolean> => {
-  if (resource !== "workspace") {
-    console.log("resource is not workspace");
-    return false;
-  }
-  console.log("workspace/link.tsx: Resource is a workspace");
-  console.log("Client port", client.props.port);
+  if (resource !== "workspace") return false;
   try {
     const workspace = await client.workspaces.retrieve(resourceKey);
-    if (workspace == null) {
-      console.log("workspace is null");
-      return false;
-    }
     dispatch(
       Layout.setWorkspace({
         slice: workspace.layout as unknown as Layout.SliceState,
       }),
     );
-    console.log("Workspace layout set");
     dispatch(setActive(workspace.key));
-    console.log("Active workspace set");
-    return true;
-  } catch (error) {
-    console.error("Error: ", error);
-    return false;
+  } catch (e) {
+    addStatus({
+      variant: "error",
+      key: `openUrlError-${resource + "/" + resourceKey}`,
+      message: (e as Error).message,
+    });
   }
+  return true;
 };

@@ -27,9 +27,11 @@ import { Text } from "@synnaxlabs/pluto/text";
 import { type ReactElement, useState } from "react";
 import { useDispatch } from "react-redux";
 
+import { Cluster } from "@/cluster";
+import { Menu } from "@/components/menu";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
-import { Menu } from "@/components/menu";
+import { Link } from "@/link";
 import { createEditLayout } from "@/range/EditLayout";
 import type { Range, StaticRange } from "@/range/range";
 import { useSelect, useSelectMultiple } from "@/range/selectors";
@@ -132,6 +134,8 @@ export const List = (): ReactElement => {
     );
   };
 
+  const clusterKey = Cluster.useSelectActiveKey();
+
   const ContextMenu = ({
     keys: [key],
   }: PMenu.ContextMenuMenuProps): ReactElement | null => {
@@ -155,6 +159,11 @@ export const List = (): ReactElement => {
         case "setActive":
           if (rng == null) return;
           return handleSetActive(rng.key);
+        case "link":
+          if (rng == null) return;
+          const toCopy = `synnax://cluster/${clusterKey}/range/${rng.key}`;
+          void navigator.clipboard.writeText(toCopy);
+          return;
       }
     };
     return (
@@ -186,6 +195,7 @@ export const List = (): ReactElement => {
         <PMenu.Item startIcon={<Icon.Play />} size="small" itemKey="setActive">
           Set as Active Range
         </PMenu.Item>
+        {rng?.persisted && <Link.CopyMenuItem />}
         <Menu.HardReloadItem />
       </PMenu.Menu>
     );

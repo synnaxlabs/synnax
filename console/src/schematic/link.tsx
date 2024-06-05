@@ -15,8 +15,9 @@ export const linkHandler: Link.Handler = async ({
   resourceKey,
   client,
   placer,
+  addStatus,
 }): Promise<boolean> => {
-  if (resource != "schematic") return false;
+  if (resource !== "schematic") return false;
   try {
     const schematic = await client.workspaces.schematic.retrieve(resourceKey);
     if (schematic == null) return false;
@@ -26,9 +27,12 @@ export const linkHandler: Link.Handler = async ({
       name: schematic.name,
     });
     placer(layoutCreator);
-    return true;
-  } catch (error) {
-    console.log("Error: ", error);
-    return false;
+  } catch (e) {
+    addStatus({
+      variant: "error",
+      key: `openUrlError-${resource + "/" + resourceKey}`,
+      message: (e as Error).message,
+    });
   }
+  return true;
 };

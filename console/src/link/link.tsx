@@ -14,27 +14,26 @@ import {
   Menu,
   useAsyncEffect,
   useSyncedRef,
+  Status,
 } from "@synnaxlabs/pluto";
 import { ReactElement } from "react";
-import { onOpenUrl, getCurrent } from "@tauri-apps/plugin-deep-link";
+import { onOpenUrl } from "@tauri-apps/plugin-deep-link";
 import { Dispatch, UnknownAction } from "@reduxjs/toolkit";
 import { useDispatch, useStore } from "react-redux";
+import { Drift } from "@synnaxlabs/drift";
 
 import { Cluster } from "@/cluster";
 import { Layout } from "@/layout";
 
 export interface HandlerProps {
-  // url is a string of two parts, the first part is the resource identifier and
-  // the second part is the resource key.
   resource: string;
   resourceKey: string;
   client: Synnax;
   dispatch: Dispatch<UnknownAction>;
   placer: Layout.Placer;
-  clusters: Cluster.Cluster[];
+  addStatus: (status: Status.CrudeSpec) => void;
 }
 
-// export type Handler = (props: HandlerProps) => Promise<void>;
 export type Handler = (props: HandlerProps) => Promise<boolean>;
 
 export interface UseDeepLinkProps {
@@ -42,85 +41,94 @@ export interface UseDeepLinkProps {
 }
 
 export const useDeep = ({ handlers }: UseDeepLinkProps): void => {
-  console.log("useDeep");
   const client = PSynnax.use();
-  if (client == null) return;
   const clientRef = useSyncedRef(client);
-
+  const addStatus = Status.useAggregator();
   const dispatch = useDispatch();
   const placer = Layout.usePlacer();
-
-  const clusters = Cluster.useSelectMany();
-
   const store = useStore();
-  // store.
-  const currentCluster = Cluster.useSelectActiveKey();
-  console.log("Current cluster ", currentCluster);
-  console.log("Client is at", client?.props.port);
+  const openUrlErrorMessage =
+    "Error: Cannot open URL, URLs must be of the form synnax://cluster/<cluster-key> or synnax://cluster/<cluster-key>/<resource>/<resource-key>";
+  const addOpenUrlErrorStatus = () => {
+    addStatus({
+      variant: "error",
+      key: "openUrlError",
+      message: openUrlErrorMessage,
+    });
+  };
 
-  // TODO: add drift window focusing
   useAsyncEffect(async () => {
-    console.log("useAsyncEffect");
-    const currUrl = getCurrent();
-    console.log("Current URL is", currUrl);
     const unlisten = await onOpenUrl(async (urls) => {
-      console.log("onOpenUrl");
-      console.log(`URL is ${urls[0]}`);
-      // drift window focusing here
-      // dispatch(Drift.focusWindow());
+      dispatch(Drift.focusWindow({}));
+
+      // Processing URL, making sure is has valid form
       const scheme = "synnax://";
       if (urls.length === 0 || !urls[0].startsWith(scheme)) {
-        console.error("Error: Cannot open URL, URLs must start with synnax://");
+        addOpenUrlErrorStatus();
         return;
       }
       const urlParts = urls[0].slice(scheme.length).split("/");
-
       if (urlParts.length !== 2 && urlParts.length !== 4) {
-        console.error(
-          "Error: Cannot open URL, URLs must be of the form synnax://cluster/<cluster-key> or synnax://cluster/<cluster-key>/<resource>/<resource-key>",
-        );
+        addOpenUrlErrorStatus();
         return;
       }
       if (urlParts[0] !== "cluster") {
-        console.log("Invalid URL");
+        addOpenUrlErrorStatus();
         return;
       }
+
+      // Connecting to the cluster
       const clusterKey = urlParts[1];
+      const connParams = Cluster.select(
+        store.getState() as Cluster.StoreState,
+        clusterKey,
+      )?.props;
+      const addClusterErrorStatus = () => {
+        addStatus({
+          variant: "error",
+          key: "openUrlError-${clusterKey}",
+          message: `Error: Cannot open URL, Cluster with key ${clusterKey} not found`,
+        });
+      };
+      if (connParams == null) {
+        addClusterErrorStatus();
+        return;
+      }
+      dispatch(Cluster.setActive(clusterKey));
+      clientRef.current = new Synnax(connParams);
+      if (clientRef.current == null) {
+        addClusterErrorStatus();
+        return;
+      }
+      if (urlParts.length === 2) return;
 
-      const stork = store.getState();
-      // const connParams = Cluster.select(store.getState(), clusterKey)?.props;
-      // if (connParams == null) return;
-      // const client = new Synnax(connParams);
-
-      console.log("Opened cluster, Trying to find handlers");
+      // Processing the resource part of URL
+      const resource = urlParts[2];
+      const resourceKey = urlParts[3];
       for (let h of handlers)
         if (
           await h({
-            resource: urlParts[2],
-            resourceKey: urlParts[3],
-            client,
+            resource,
+            resourceKey,
+            client: clientRef.current,
             dispatch,
             placer,
-            clusters,
+            addStatus,
           })
-        ) {
-          console.log("Handler found that returns true");
-          break;
-        } else {
-          console.log("This handler returned false");
-        }
+        )
+          return;
+      addStatus({
+        variant: "error",
+        key: "openUrlError-ResourceNotFound-",
+        message: `Error: Cannot open URL, ${resource} is not a valid resource type`,
+      });
     });
-    console.log("Return out of the effect");
     return () => unlisten();
   }, []);
 };
 
 export const CopyMenuItem = (): ReactElement => (
-  <Menu.Item itemKey="link" startIcon={<Icon.Link />}>
-    Copy link address
+  <Menu.Item itemKey="link" size="small" startIcon={<Icon.Link />}>
+    Copy resource URL
   </Menu.Item>
 );
-
-// TODO: 2) asynch function 3) focus drift window 4)
-// Notifications 5) Add cluster link to cluster tab 6) Add range link to range
-// tab 7) Add workspace link to workspace tab

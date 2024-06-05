@@ -99,7 +99,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
   const handleRename = (): void => Tree.startRenaming(resources[0].key);
 
   const clusterKey = Cluster.useSelectActiveKey();
-  const handleCopyURL = (): void => {
+  const handleCopyUrl = (): void => {
     const url = `synnax://cluster/${clusterKey}/schematic/${resources[0].id.key}`;
     void navigator.clipboard.writeText(url);
   };
@@ -109,7 +109,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
     rename: handleRename,
     copy: handleCopy,
     rangeSnapshot: handleRangeSnapshot,
-    link: handleCopyURL,
+    link: handleCopyUrl,
   };
 
   const onSelect = (key: string): void => f[key]();
