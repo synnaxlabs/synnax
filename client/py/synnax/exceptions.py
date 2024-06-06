@@ -164,7 +164,6 @@ def _decode(encoded: freighter.ExceptionPayload) -> Exception | None:
         return RouteError(encoded.data)
 
     if encoded.type.startswith(ControlError.TYPE):
-        print(encoded)
         if encoded.type.startswith(UnauthorizedError.TYPE):
             return UnauthorizedError(encoded.data)
         return ControlError(encoded.data)

@@ -54,9 +54,10 @@ type WriterConfig struct {
 	// disk.
 	// [OPTIONAL] - Defaults to 1s.
 	AutoIndexPersistInterval telem.TimeSpan
-	// ErrOnUnauthorized controls whether the writer will return an error on open when
+	// ErrOnAuthorized controls whether the writer will return an error on open when
 	// attempting to write to a channel that is does not have authority over.
-	ErrorOnUnauthorized *bool
+	// [OPTIONAL] - Defaults to false
+	ErrOnAuthorized *bool
 }
 
 var (
@@ -65,7 +66,7 @@ var (
 		Persist:                  config.True(),
 		EnableAutoCommit:         config.False(),
 		AutoIndexPersistInterval: 1 * telem.Second,
-		ErrorOnUnauthorized:      config.False(),
+		ErrOnAuthorized:          config.False(),
 	}
 	errWriterClosed = core.EntityClosed("unary.writer")
 )
@@ -75,7 +76,7 @@ const AlwaysIndexPersistOnAutoCommit telem.TimeSpan = -1
 func (c WriterConfig) Validate() error {
 	v := validate.New("unary.WriterConfig")
 	validate.NotEmptyString(v, "Subject.Key", c.Subject.Key)
-	validate.NotNil(v, "ErrorOnUnauthorized", c.ErrorOnUnauthorized)
+	validate.NotNil(v, "ErrOnAuthorized", c.ErrOnAuthorized)
 	v.Ternary("end", !c.End.IsZero() && c.End.Before(c.Start), "end timestamp must be after or equal to start timestamp")
 	return v.Error()
 }
@@ -88,7 +89,7 @@ func (c WriterConfig) Override(other WriterConfig) WriterConfig {
 	c.Persist = override.Nil(c.Persist, other.Persist)
 	c.EnableAutoCommit = override.Nil(c.EnableAutoCommit, other.EnableAutoCommit)
 	c.AutoIndexPersistInterval = override.Zero(c.AutoIndexPersistInterval, other.AutoIndexPersistInterval)
-	c.ErrorOnUnauthorized = override.Nil(c.ErrorOnUnauthorized, other.ErrorOnUnauthorized)
+	c.ErrOnAuthorized = override.Nil(c.ErrOnAuthorized, other.ErrOnAuthorized)
 	return c
 }
 
@@ -134,7 +135,6 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (w *Writer, 
 	if db.closed.Load() {
 		return nil, transfer, db.wrapError(errDBClosed)
 	}
-
 	cfg, err := config.New(DefaultWriterConfig, cfgs...)
 	if err != nil {
 		return nil, transfer, err
@@ -158,7 +158,7 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (w *Writer, 
 	if err != nil {
 		return nil, transfer, w.wrapError(err)
 	}
-	if *cfg.ErrorOnUnauthorized {
+	if *cfg.ErrOnAuthorized {
 		if _, err = g.Authorize(); err != nil {
 			g.Release()
 			return nil, transfer, err
@@ -215,7 +215,6 @@ func (w *Writer) Write(series telem.Series) (a telem.AlignmentPair, err error) {
 	if w.Channel.IsIndex {
 		w.updateHwm(series)
 	}
-
 	if *w.Persist {
 		_, err = dw.Write(series.Data)
 	}

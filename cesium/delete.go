@@ -55,11 +55,10 @@ func (db *DB) DeleteChannel(ch ChannelKey) error {
 	if db.closed.Load() {
 		return errDBClosed
 	}
-
 	db.mu.Lock()
-	err := db.removeChannel(ch)
-	if err != nil {
-		db.mu.Unlock()
+	defer db.mu.Unlock()
+
+	if err := db.removeChannel(ch); err != nil {
 		return err
 	}
 
@@ -69,13 +68,9 @@ func (db *DB) DeleteChannel(ch ChannelKey) error {
 	// and deleted.
 	oldName := channelDirName(ch)
 	newName := oldName + "-DELETE-" + strconv.Itoa(rand.Int())
-	err = db.fs.Rename(oldName, newName)
-	if err != nil {
-		db.mu.Unlock()
+	if err := db.fs.Rename(oldName, newName); err != nil {
 		return nil
 	}
-
-	db.mu.Unlock()
 	return db.fs.Remove(newName)
 }
 
@@ -83,13 +78,11 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 	if db.closed.Load() {
 		return errDBClosed
 	}
-
-	db.mu.Lock()
 	var (
 		indexChannels       = make([]ChannelKey, 0)
 		directoriesToRemove = make([]string, 0)
 	)
-
+	db.mu.Lock()
 	// This 'defer' statement does a best-effort removal of all renamed directories
 	// to ensure that all DBs deleted from db.unaryDBs and db.virtualDBs are also deleted
 	// on FS.
@@ -240,12 +233,12 @@ func (db *DB) garbageCollect(ctx context.Context, maxGoRoutine int64) error {
 	_, span := db.T.Debug(ctx, "garbage_collect")
 	defer span.End()
 	db.mu.RLock()
+	defer db.mu.RUnlock()
 	var (
 		sem     = semaphore.NewWeighted(maxGoRoutine)
 		sCtx, _ = signal.Isolated()
 		wg      = &sync.WaitGroup{}
 	)
-
 	for _, udb := range db.unaryDBs {
 		if err := sem.Acquire(ctx, 1); err != nil {
 			return err
@@ -257,8 +250,6 @@ func (db *DB) garbageCollect(ctx context.Context, maxGoRoutine int64) error {
 			return udb.GarbageCollect(_ctx)
 		})
 	}
-
-	db.mu.RUnlock()
 	return sCtx.Wait()
 }
 

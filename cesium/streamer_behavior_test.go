@@ -112,7 +112,7 @@ var _ = Describe("Streamer Behavior", func() {
 				})
 			})
 			Describe("Virtual Channels", func() {
-				It("Should describe to written frames for virtual channels", func() {
+				It("Should subscribe to written frames for virtual channels", func() {
 					var basic2 cesium.ChannelKey = 4
 					By("Creating a channel")
 					Expect(db.CreateChannel(
@@ -135,7 +135,8 @@ var _ = Describe("Streamer Behavior", func() {
 						[]cesium.ChannelKey{basic2},
 						[]telem.Series{telem.NewSeriesV[int64](1, 2, 3)},
 					))).To(BeTrue())
-					f := <-o.Outlet()
+					var f cesium.StreamerResponse
+					Eventually(o.Outlet()).Should(Receive(&f))
 					Expect(f.Frame.Keys).To(HaveLen(1))
 					Expect(f.Frame.Series).To(HaveLen(1))
 					Expect(f.Frame.Series[0]).To(Equal(telem.NewSeriesV[int64](1, 2, 3)))

@@ -66,10 +66,11 @@ type Config struct {
 	// attempting to write to a channel that it does not have authority over.
 	// In non-control scenarios, this value should be set to true. In scenarios
 	// that require control handoff, this value should be set to false.
+	// [OPTIONAL] - Defaults to False
 	ErrOnUnauthorized *bool
 	// Mode sets the persistence and streaming mode for the writer. The default mode is
 	// WriterModePersistStream. See the ts.WriterMode documentation for more.
-	// [OPTIONAL]
+	// [OPTIONAL] - Defaults to WriterModePersistStream.
 	Mode ts.WriterMode `json:"mode" msgpack:"mode"`
 	// EnableAutoCommit determines whether the writer will automatically commit after each write.
 	// If EnableAutoCommit is true, then the writer will commit after each write, and will

@@ -11,7 +11,6 @@ package cesium
 
 import (
 	"context"
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/signal"
@@ -62,28 +61,26 @@ func (db *DB) NewStreamer(_ context.Context, cfg StreamerConfig) (Streamer, erro
 	if db.closed.Load() {
 		return nil, errDBClosed
 	}
-
-	return &streamer{
-		StreamerConfig: cfg,
-		relay:          db.relay,
-		db:             db,
-	}, nil
+	return &streamer{StreamerConfig: cfg, relay: db.relay}, nil
 }
 
 type streamer struct {
 	StreamerConfig
 	confluence.AbstractLinear[StreamerRequest, StreamerResponse]
 	relay *relay
-	db    *DB
 }
 
 var _ Streamer = (*streamer)(nil)
+
+// relayBufferSize is set to 100 to give ample room for the streamer to not block
+// writes to the DB.
+const relayBufferSize = 100
 
 // Flow implements confluence.Flow.
 func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 	o := confluence.NewOptions(opts)
 	o.AttachClosables(s.Out)
-	frames, disconnect := s.relay.connect(1)
+	frames, disconnect := s.relay.connect(relayBufferSize)
 	ctx.Go(func(ctx context.Context) error {
 		defer disconnect()
 		for {
@@ -97,14 +94,17 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 				s.Channels = req.Channels
 			case f := <-frames.Outlet():
 				filtered := f.FilterKeys(s.Channels)
-				if len(filtered.Keys) != 0 {
-					s.Out.Inlet() <- StreamerResponse{Frame: filtered}
+				if len(filtered.Keys) == 0 {
+					continue
+				}
+				if err := signal.SendUnderContext(
+					ctx,
+					s.Out.Inlet(),
+					StreamerResponse{Frame: filtered},
+				); err != nil {
+					return err
 				}
 			}
 		}
 	}, o.Signal...)
-}
-
-func (s *streamer) sendControlDigests() bool {
-	return lo.Contains(s.Channels, s.db.digests.key)
 }

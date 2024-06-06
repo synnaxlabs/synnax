@@ -26,7 +26,8 @@ func (db *DB) CreateChannel(_ context.Context, ch ...Channel) error {
 	if db.closed.Load() {
 		return errDBClosed
 	}
-
+	db.mu.Lock()
+	defer db.mu.Unlock()
 	for _, c := range ch {
 		if err := db.createChannel(c); err != nil {
 			return err
@@ -40,10 +41,11 @@ func (db *DB) RetrieveChannels(ctx context.Context, keys ...ChannelKey) ([]Chann
 	if db.closed.Load() {
 		return nil, errDBClosed
 	}
-
+	db.mu.RLock()
+	defer db.mu.RUnlock()
 	chs := make([]Channel, 0, len(keys))
 	for _, key := range keys {
-		ch, err := db.RetrieveChannel(ctx, key)
+		ch, err := db.retrieveChannel(ctx, key)
 		if err != nil {
 			return nil, err
 		}
@@ -52,14 +54,18 @@ func (db *DB) RetrieveChannels(ctx context.Context, keys ...ChannelKey) ([]Chann
 	return chs, nil
 }
 
-// RetrieveChannel implements DB.
-func (db *DB) RetrieveChannel(_ context.Context, key ChannelKey) (Channel, error) {
+func (db *DB) RetrieveChannel(ctx context.Context, key ChannelKey) (Channel, error) {
 	if db.closed.Load() {
 		return Channel{}, errDBClosed
 	}
-
 	db.mu.RLock()
 	defer db.mu.RUnlock()
+	return db.retrieveChannel(ctx, key)
+}
+
+// retrieveChannel retrieves a channel from the database. This method is not safe
+// for concurrent use, and the db must be locked before calling.
+func (db *DB) retrieveChannel(_ context.Context, key ChannelKey) (Channel, error) {
 	uCh, uOk := db.unaryDBs[key]
 	if uOk {
 		return uCh.Channel, nil
@@ -72,26 +78,33 @@ func (db *DB) RetrieveChannel(_ context.Context, key ChannelKey) (Channel, error
 }
 
 func (db *DB) RenameChannels(ctx context.Context, keys []ChannelKey, names []string) error {
+	if db.closed.Load() {
+		return errDBClosed
+	}
+	db.mu.Lock()
+	defer db.mu.Unlock()
 	if len(keys) != len(names) {
 		return errors.Wrapf(validate.Error, "keys and names must have the same length")
 	}
 	for i := range keys {
-		if err := db.RenameChannel(ctx, keys[i], names[i]); err != nil {
+		if err := db.renameChannel(ctx, keys[i], names[i]); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-// RenameChannel renames the channel with the specified key to newName.
-func (db *DB) RenameChannel(_ context.Context, key ChannelKey, newName string) error {
+func (db *DB) RenameChannel(ctx context.Context, key ChannelKey, newName string) error {
 	if db.closed.Load() {
 		return errDBClosed
 	}
-
 	db.mu.Lock()
 	defer db.mu.Unlock()
+	return db.renameChannel(ctx, key, newName)
+}
 
+// RenameChannel renames the channel with the specified key to newName.
+func (db *DB) renameChannel(_ context.Context, key ChannelKey, newName string) error {
 	udb, uok := db.unaryDBs[key]
 	if uok {
 		// There is a race condition here: one could rename a channel while it is being
@@ -155,8 +168,6 @@ func (db *DB) validateNewChannel(ch Channel) error {
 	validate.Positive(v, "key", ch.Key)
 	validate.NotEmptyString(v, "data_type", ch.DataType)
 	v.Exec(func() error {
-		db.mu.RLock()
-		defer db.mu.RUnlock()
 		_, uOk := db.unaryDBs[ch.Key]
 		_, vOk := db.virtualDBs[ch.Key]
 		if uOk || vOk {
@@ -173,12 +184,10 @@ func (db *DB) validateNewChannel(ch Channel) error {
 			v.Ternary("data_type", ch.DataType != telem.TimeStampT, "index channel must be of type timestamp")
 			v.Ternaryf("index", ch.Index != 0 && ch.Index != ch.Key, "index channel cannot be indexed by another channel")
 		} else if ch.Index != 0 {
-			db.mu.RLock()
 			validate.MapContainsf(v, ch.Index, db.unaryDBs, "index channel <%d> does not exist", ch.Index)
 			v.Funcf(func() bool {
 				return !db.unaryDBs[ch.Index].Channel.IsIndex
 			}, "channel %v is not an index", db.unaryDBs[ch.Index].Channel)
-			db.mu.RUnlock()
 		} else {
 			validate.Positive(v, "rate", ch.Rate)
 		}

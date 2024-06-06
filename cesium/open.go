@@ -68,15 +68,7 @@ func Open(dirname string, opts ...Option) (*DB, error) {
 }
 
 func (db *DB) openVirtualOrUnary(ch Channel) error {
-	if db.closed.Load() {
-		return errDBClosed
-	}
-
-	db.mu.Lock()
-	defer db.mu.Unlock()
 	fs, err := db.fs.Sub(strconv.Itoa(int(ch.Key)))
-	l, _ := fs.List("")
-	l = l
 	if err != nil {
 		return err
 	}

@@ -103,7 +103,7 @@ type streamWriter struct {
 	virtual         *virtualWriter
 	seqNum          int
 	err             error
-	updateDBControl func(ctx context.Context, u ControlUpdate)
+	updateDBControl func(ctx context.Context, u ControlUpdate) error
 }
 
 // Flow implements the confluence.Flow interface.
@@ -114,7 +114,7 @@ func (w *streamWriter) Flow(ctx signal.Context, opts ...confluence.Option) {
 		for {
 			select {
 			case <-ctx.Done():
-				return errors.CombineErrors(w.close(ctx), ctx.Err())
+				return errors.CombineErrors(w.close(context.TODO()), ctx.Err())
 			case req, ok := <-w.In.Outlet():
 				if !ok {
 					return w.close(ctx)
@@ -210,7 +210,9 @@ func (w *streamWriter) setAuthority(ctx context.Context, cfg WriterConfig) {
 		}
 	}
 	if len(u.Transfers) > 0 {
-		w.updateDBControl(ctx, u)
+		if err := w.updateDBControl(ctx, u); err != nil {
+			w.err = err
+		}
 	}
 }
 
@@ -238,7 +240,7 @@ func (w *streamWriter) write(ctx context.Context, req WriterRequest) (err error)
 	for _, idx := range w.internal {
 		req.Frame, err = idx.Write(req.Frame)
 		if err != nil {
-			if errors.Is(err, control.Unauthorized) && !*w.ErrOnUnauthorized {
+			if errors.Is(err, control.Unauthorized) && !*w.SendAuthErrors {
 				return nil
 			}
 			return err
@@ -254,7 +256,7 @@ func (w *streamWriter) write(ctx context.Context, req WriterRequest) (err error)
 	if w.virtual.internal != nil {
 		req.Frame, err = w.virtual.write(req.Frame)
 		if err != nil {
-			if errors.Is(err, control.Unauthorized) && !*w.ErrOnUnauthorized {
+			if errors.Is(err, control.Unauthorized) && !*w.SendAuthErrors {
 				return nil
 			}
 			return err
@@ -305,7 +307,8 @@ func (w *streamWriter) close(ctx context.Context) error {
 	}
 
 	if len(u.Transfers) > 0 {
-		w.updateDBControl(ctx, u)
+		// Do a best effort wr
+		_ = w.updateDBControl(ctx, u)
 	}
 
 	if digestWriter, ok := w.virtual.internal[w.virtual.digestKey]; ok {
