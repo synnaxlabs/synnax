@@ -1216,8 +1216,8 @@ var _ = Describe("Writer Behavior", func() {
 					})
 				})
 			})
-			Describe("Data & Errors", func() {
-				Specify("Invalid Data t for series", func() {
+			Describe("Data Type Errors", func() {
+				Specify("Invalid Data Type for series", func() {
 					dtErr := GenerateChannelKey()
 					Expect(db.CreateChannel(
 						ctx,

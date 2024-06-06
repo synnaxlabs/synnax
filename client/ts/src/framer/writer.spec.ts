@@ -11,6 +11,7 @@ import { DataType, Rate, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x/te
 import { describe, expect, test } from "vitest";
 
 import { type channel } from "@/channel";
+import { UnauthorizedError } from "@/errors";
 import { ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT, WriterMode } from "@/framer/writer";
 import { newClient } from "@/setupspecs";
 import { randomSeries } from "@/util/telem";
@@ -120,18 +121,15 @@ describe("Writer", () => {
         channels: ch.key,
       });
 
-      const w2 = await client.openWriter({
-        start: 0,
-        channels: ch.key,
-        errOnUnauthorized: true,
-      })
-      await w2.write(ch.key, randomSeries(10, ch.dataType))
       await expect(
-        w2.close()
-      ).rejects.toThrow("unauthorized")
-
-      await w1.close()
-    })
+        client.openWriter({
+          start: 0,
+          channels: ch.key,
+          errOnUnauthorized: true,
+        }),
+      ).rejects.toThrow(UnauthorizedError);
+      await w1.close();
+    });
   });
   describe("Client", () => {
     test("Client - basic write", async () => {

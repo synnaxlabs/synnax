@@ -56,7 +56,8 @@ type WriterConfig struct {
 	AutoIndexPersistInterval telem.TimeSpan
 	// ErrOnUnauthorized controls whether the writer will return an error on open when
 	// attempting to write to a channel that is does not have authority over.
-	ErrorOnUnauthorized *bool
+	// [OPTIONAL] - Defaults to false
+	ErrOnUnauthorized *bool
 }
 
 var (
@@ -65,7 +66,7 @@ var (
 		Persist:                  config.True(),
 		EnableAutoCommit:         config.False(),
 		AutoIndexPersistInterval: 1 * telem.Second,
-		ErrorOnUnauthorized:      config.False(),
+		ErrOnUnauthorized:        config.False(),
 	}
 	errWriterClosed = core.EntityClosed("unary.writer")
 )
@@ -75,7 +76,7 @@ const AlwaysIndexPersistOnAutoCommit telem.TimeSpan = -1
 func (c WriterConfig) Validate() error {
 	v := validate.New("unary.WriterConfig")
 	validate.NotEmptyString(v, "Subject.Key", c.Subject.Key)
-	validate.NotNil(v, "ErrorOnUnauthorized", c.ErrorOnUnauthorized)
+	validate.NotNil(v, "ErrOnUnauthorized", c.ErrOnUnauthorized)
 	v.Ternary("end", !c.End.IsZero() && c.End.Before(c.Start), "end timestamp must be after or equal to start timestamp")
 	return v.Error()
 }
@@ -88,7 +89,7 @@ func (c WriterConfig) Override(other WriterConfig) WriterConfig {
 	c.Persist = override.Nil(c.Persist, other.Persist)
 	c.EnableAutoCommit = override.Nil(c.EnableAutoCommit, other.EnableAutoCommit)
 	c.AutoIndexPersistInterval = override.Zero(c.AutoIndexPersistInterval, other.AutoIndexPersistInterval)
-	c.ErrorOnUnauthorized = override.Nil(c.ErrorOnUnauthorized, other.ErrorOnUnauthorized)
+	c.ErrOnUnauthorized = override.Nil(c.ErrOnUnauthorized, other.ErrOnUnauthorized)
 	return c
 }
 
@@ -161,7 +162,7 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (w *Writer, 
 	if err != nil {
 		return nil, transfer, w.wrapError(err)
 	}
-	if *cfg.ErrorOnUnauthorized {
+	if *cfg.ErrOnUnauthorized {
 		if _, err = g.Authorize(); err != nil {
 			g.Release()
 			return nil, transfer, err
@@ -260,9 +261,9 @@ func (w *Writer) CommitWithEnd(ctx context.Context, end telem.TimeStamp) (err er
 }
 
 func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.TimeStamp, error) {
-	dw, ok := w.control.Authorized()
-	if !ok {
-		return 0, controller.Unauthorized(w.control.Subject.String(), w.Channel.Key)
+	dw, err := w.control.Authorize()
+	if err != nil {
+		return 0, err
 	}
 
 	if end.IsZero() {

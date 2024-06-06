@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/core"
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
 	xfs "github.com/synnaxlabs/x/io/fs"
@@ -47,17 +48,21 @@ var _ = Describe("Control", func() {
 					start := telem.SecondTS * 10
 					By("Opening the first writer")
 					w1 := MustSucceed(db.NewStreamWriter(ctx, cesium.WriterConfig{
-						ControlSubject: control.Subject{Name: "Writer One"},
-						Start:          start,
-						Channels:       []cesium.ChannelKey{ch1},
-						Authorities:    []control.Authority{control.Absolute - 2},
+						ControlSubject:    control.Subject{Name: "Writer One"},
+						Start:             start,
+						Channels:          []cesium.ChannelKey{ch1},
+						Authorities:       []control.Authority{control.Absolute - 2},
+						ErrOnUnauthorized: config.False(),
+						SendAuthErrors:    config.True(),
 					}))
 					By("Opening the second writer")
 					w2 := MustSucceed(db.NewStreamWriter(ctx, cesium.WriterConfig{
-						Start:          start,
-						ControlSubject: control.Subject{Name: "Writer Two"},
-						Channels:       []cesium.ChannelKey{ch1},
-						Authorities:    []control.Authority{control.Absolute - 2},
+						Start:             start,
+						ControlSubject:    control.Subject{Name: "Writer Two"},
+						Channels:          []cesium.ChannelKey{ch1},
+						Authorities:       []control.Authority{control.Absolute - 2},
+						ErrOnUnauthorized: config.False(),
+						SendAuthErrors:    config.True(),
 					}))
 					streamer := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
 						Channels: []cesium.ChannelKey{math.MaxUint32},
@@ -88,6 +93,13 @@ var _ = Describe("Control", func() {
 						),
 					}
 					var r cesium.WriterResponse
+					Eventually(w2Out.Outlet()).Should(Receive(&r))
+					Expect(r.Ack).To(BeFalse())
+					w2In.Inlet() <- cesium.WriterRequest{
+						Command: cesium.WriterError,
+					}
+					Eventually(w2Out.Outlet()).Should(Receive(&r))
+					Expect(r.Err).To(HaveOccurredAs(control.Unauthorized))
 
 					By("Updating the second writer's authorities")
 					w2In.Inlet() <- cesium.WriterRequest{

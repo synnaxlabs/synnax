@@ -10,23 +10,23 @@
 import { Link } from "@/link";
 import { setActive } from "@/range/slice";
 
-export const linkHandler: Link.Handler = ({
+export const linkHandler: Link.Handler = async ({
   resource,
   resourceKey,
   client,
   dispatch,
-}) => {
+  addStatus,
+}): Promise<boolean> => {
   if (resource != "range") return false;
-  client.ranges
-    .retrieve(resourceKey)
-    .then((range) => {
-      if (range == null) return false;
-      dispatch(setActive(range.key));
-      return true;
-    })
-    .catch((error) => {
-      console.error("Error: ", error);
-      return false;
+  try {
+    const range = await client.ranges.retrieve(resourceKey);
+    dispatch(setActive(range.key));
+  } catch (e) {
+    addStatus({
+      variant: "error",
+      key: `openUrlError-${resource + "/" + resourceKey}`,
+      message: (e as Error).message,
     });
-  return false;
+  }
+  return true;
 };

@@ -484,17 +484,17 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				Describe("ErrOnUnauthorized", func() {
 					It("Should return an error if the write does not acquire control", func() {
 						w1, t := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
-							Start:               10 * telem.SecondTS,
-							Authority:           control.Absolute,
-							Subject:             control.Subject{Key: "foo"},
-							ErrorOnUnauthorized: config.True(),
+							Start:             10 * telem.SecondTS,
+							Authority:         control.Absolute,
+							Subject:           control.Subject{Key: "foo"},
+							ErrOnUnauthorized: config.True(),
 						}))
 						Expect(t.Occurred()).To(BeTrue())
 						w2, t, err := db.OpenWriter(ctx, unary.WriterConfig{
-							Start:               10 * telem.SecondTS,
-							Authority:           control.Absolute - 1,
-							Subject:             control.Subject{Key: "bar"},
-							ErrorOnUnauthorized: config.True(),
+							Start:             10 * telem.SecondTS,
+							Authority:         control.Absolute - 1,
+							Subject:           control.Subject{Key: "bar"},
+							ErrOnUnauthorized: config.True(),
 						})
 						Expect(t.Occurred()).To(BeFalse())
 						Expect(err).To(HaveOccurredAs(control.Unauthorized))

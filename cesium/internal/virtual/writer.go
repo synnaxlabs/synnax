@@ -56,6 +56,14 @@ func (cfg WriterConfig) domain() telem.TimeRange {
 	return telem.TimeRange{Start: cfg.Start, End: lo.Ternary(cfg.End.IsZero(), telem.TimeStampMax, cfg.End)}
 }
 
+func (cfg WriterConfig) gateConfig() controller.GateConfig {
+	return controller.GateConfig{
+		TimeRange: cfg.domain(),
+		Authority: cfg.Authority,
+		Subject:   cfg.Subject,
+	}
+}
+
 type Writer struct {
 	Channel   core.Channel
 	onClose   func()
@@ -67,33 +75,33 @@ type Writer struct {
 
 func (db *DB) OpenWriter(_ context.Context, cfgs ...WriterConfig) (w *Writer, transfer controller.Transfer, err error) {
 	if db.closed.Load() {
-		return nil, transfer, db.wrapError(dbClosed)
+		err = dbClosed
+		return nil, transfer, db.wrapError(err)
 	}
 	cfg, err := config.New(DefaultWriterConfig, cfgs...)
 	if err != nil {
-		return nil, transfer, err
+		return nil, transfer, db.wrapError(err)
 	}
-	w = &Writer{WriterConfig: cfg, Channel: db.Channel, wrapError: db.wrapError, onClose: func() { db.entityCount.add(-1) }}
-	gateCfg := controller.GateConfig{
-		TimeRange: cfg.domain(),
-		Authority: cfg.Authority,
-		Subject:   cfg.Subject,
+	w = &Writer{
+		WriterConfig: cfg,
+		Channel:      db.Channel,
+		wrapError:    db.wrapError,
+		onClose:      func() { db.entityCount.add(-1) },
 	}
 	var g *controller.Gate[*controlEntity]
-	g, transfer, err = db.controller.OpenGateAndMaybeRegister(gateCfg, func() (*controlEntity, error) {
-		a := telem.AlignmentPair(0)
-		return &controlEntity{
-			ck:    db.Channel.Key,
-			align: a,
-		}, nil
-	})
+	g, transfer, err = db.controller.OpenGateAndMaybeRegister(
+		cfg.gateConfig(),
+		func() (*controlEntity, error) {
+			return &controlEntity{ck: db.Channel.Key, alignment: 0}, nil
+		},
+	)
 	if err != nil {
-		return nil, transfer, err
+		return nil, transfer, db.wrapError(err)
 	}
 	if *cfg.ErrOnUnauthorized {
 		if _, err = g.Authorize(); err != nil {
 			g.Release()
-			return nil, transfer, err
+			return nil, transfer, db.wrapError(err)
 		}
 	}
 	w.control = g
@@ -108,13 +116,13 @@ func (w *Writer) Write(series telem.Series) (telem.AlignmentPair, error) {
 	if err := w.Channel.ValidateSeries(series); err != nil {
 		return 0, w.wrapError(err)
 	}
-	e, ok := w.control.Authorized()
-	if !ok {
-		return 0, nil
+	e, err := w.control.Authorize()
+	if err != nil {
+		return 0, w.wrapError(err)
 	}
-	a := e.align
+	a := e.alignment
 	if series.DataType.Density() != telem.DensityUnknown {
-		e.align += telem.AlignmentPair(series.Len())
+		e.alignment += telem.AlignmentPair(series.Len())
 	}
 	return a, nil
 }

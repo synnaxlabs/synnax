@@ -51,6 +51,7 @@ type FrameWriterConfig struct {
 	// attempting to write to a channel that it does not have authority over.
 	// In non-control scenarios, this value should be set to true. In scenarios
 	// that require control handoff, this value should be set to false.
+	// [OPTIONAL] - Defaults to false.
 	ErrOnUnauthorized bool `json:"err_on_unauthorized" msgpack:"err_on_unauthorized"`
 	// EnableAutoCommit determines whether the writer will automatically commit after each write.
 	// If EnableAutoCommit is true, then the writer will commit after each write, and will

@@ -23,7 +23,10 @@ const (
 	Absolute     Authority = math.MaxUint8
 )
 
-var Unauthorized = errors.New("unauthorized")
+var (
+	Error        = errors.New("control")
+	Unauthorized = errors.Wrap(Error, "unauthorized")
+)
 
 type Concurrency uint8
 

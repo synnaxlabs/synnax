@@ -9,14 +9,14 @@
 
 import "@/layout/Window.css";
 
-import { type ReactElement, useEffect } from "react";
-import { useDispatch } from "react-redux";
 import { setWindowDecorations, setWindowVisible } from "@synnaxlabs/drift";
 import { useSelectWindowAttribute, useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Logo } from "@synnaxlabs/media";
 import { Align, Menu as PMenu, Nav, OS, Text } from "@synnaxlabs/pluto";
 import { runtime } from "@synnaxlabs/x";
 import { getCurrent } from "@tauri-apps/api/window";
+import { type ReactElement, useEffect } from "react";
+import { useDispatch } from "react-redux";
 
 import { Controls } from "@/components";
 import { Menu } from "@/components/menu";

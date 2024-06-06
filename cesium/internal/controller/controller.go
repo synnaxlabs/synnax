@@ -61,6 +61,7 @@ func (g *Gate[E]) Authorized() (e E, ok bool) {
 
 func (g *Gate[E]) Authorize() (e E, err error) {
 	g.r.RLock()
+	defer g.r.RUnlock()
 	// In the case of exclusive concurrency, we only need to check if the gate is the
 	// current gate.
 	var ok bool
@@ -71,24 +72,16 @@ func (g *Gate[E]) Authorize() (e E, err error) {
 		// or higher authority than the current gate.
 		ok = g.Authority >= g.r.curr.Authority
 	}
-	g.r.RUnlock()
 	if !ok {
 		currState := g.r.curr.State()
 		return e, errors.Wrapf(
 			control.Unauthorized,
 			"%s has no control authority - it is currently held by %s",
-			g.Subject.Name,
-			currState.Subject.Name,
+			g.Subject,
+			currState.Subject,
 		)
 	}
 	return g.r.entity, nil
-}
-
-// Current returns the gate currently in control of the region's entity.
-func (g *Gate[E]) Current() State {
-	g.r.RLock()
-	defer g.r.RUnlock()
-	return *g.r.curr.State()
 }
 
 // Release releases the gate's access to the entity. If the gate is the last gate in
