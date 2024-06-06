@@ -116,7 +116,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
 
   return (
     <PMenu.Menu onChange={onSelect} level="small" iconSpacing="small">
-      <Ontology.RenameMenuItem />
+      <Menu.RenameItem />
       {resources.every((r) => r.data?.snapshot === false) && (
         <Range.SnapshotMenuItem range={activeRange} />
       )}

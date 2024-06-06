@@ -34,6 +34,7 @@ import { createEditLayout } from "@/range/EditLayout";
 import type { Range, StaticRange } from "@/range/range";
 import { useSelect, useSelectMultiple } from "@/range/selectors";
 import { add, remove, setActive } from "@/range/slice";
+import { Tree } from "@synnaxlabs/pluto";
 
 export const listColumns: Array<Core.ColumnSpec<string, Range>> = [
   {
@@ -79,6 +80,8 @@ export const List = (): ReactElement => {
       key: key ?? layout.key,
     });
   };
+
+  const handleRename = (key: string, name: string): void => {};
 
   const handleRemove = (keys: string[]): void => {
     dispatch(remove({ keys }));
@@ -155,8 +158,13 @@ export const List = (): ReactElement => {
         case "setActive":
           if (rng == null) return;
           return handleSetActive(rng.key);
+        case "rename":
+          if (rng == null) return;
+          Tree.startRenaming(rng.key);
+          return;
       }
     };
+
     return (
       <PMenu.Menu onChange={handleClick}>
         {rng != null && (
@@ -178,6 +186,7 @@ export const List = (): ReactElement => {
                 </PMenu.Item>
               )
             )}
+            <Menu.RenameItem />
           </>
         )}
         <PMenu.Item startIcon={<Icon.Add />} size="small" itemKey="create">

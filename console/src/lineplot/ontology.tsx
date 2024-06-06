@@ -57,7 +57,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
   const isSingle = resources.length === 1;
   return (
     <PMenu.Menu onChange={onSelect} level="small" iconSpacing="small">
-      {isSingle && <Ontology.RenameMenuItem />}
+      {isSingle && <Menu.RenameItem />}
       <PMenu.Item itemKey="delete" startIcon={<Icon.Delete />}>
         Delete
       </PMenu.Item>

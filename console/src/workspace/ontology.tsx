@@ -117,7 +117,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
       <PMenu.Item itemKey="delete" startIcon={<Icon.Delete />}>
         Delete
       </PMenu.Item>
-      {singleResource && <Ontology.RenameMenuItem />}
+      {singleResource && <Menu.RenameItem />}
       <Group.GroupMenuItem selection={props.selection} />
       {singleResource && (
         <>

@@ -31,12 +31,6 @@ export const MultipleSelectionContextMenu: TreeContextMenu = (props) => {
   );
 };
 
-export const RenameMenuItem = (): ReactElement => (
-  <PMenu.Item itemKey="rename" startIcon={<Icon.Rename />}>
-    Rename
-  </PMenu.Item>
-);
-
 export const LinkAddressMenuItem = (): ReactElement => (
   <PMenu.Item itemKey="link" startIcon={<Icon.Link />}>
     Copy link address
