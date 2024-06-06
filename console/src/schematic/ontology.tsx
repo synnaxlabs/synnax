@@ -17,7 +17,6 @@ import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";
 import { Range } from "@/range";
 import { create, type State } from "@/schematic/slice";
-import { M } from "node_modules/vite/dist/node/types.d-aGj9QkWt";
 
 const TreeContextMenu: Ontology.TreeContextMenu = ({
   client,
@@ -27,6 +26,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
   selection: { resources, parent },
   state,
 }) => {
+  for (let i = 0; i < resources.length; i++) {
+    console.log(`Resource ${i}: ${resources[i].name}`);
+  }
   const ids = resources.map((res) => new ontology.ID(res.key));
   const keys = ids.map((id) => id.key);
   const activeRange = Range.select(store.getState());

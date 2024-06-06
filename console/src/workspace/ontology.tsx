@@ -14,109 +14,154 @@ import { Tree } from "@synnaxlabs/pluto/tree";
 import { deep, type UnknownRecord } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { Menu } from "@/components/menu";
 import { Cluster } from "@/cluster";
+import { Menu } from "@/components/menu";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
+import { LinePlot } from "@/lineplot";
 import { Ontology } from "@/ontology";
 import { Schematic } from "@/schematic";
 import { selectActiveKey } from "@/workspace/selectors";
 import { add, rename, setActive } from "@/workspace/slice";
 
-const handleDelete = ({
-  client,
-  store,
-  selection: { resources },
-  state: { nodes, setNodes },
-}: Ontology.TreeContextMenuProps): void => {
-  void (async () => {
-    const s = store.getState();
-    const activeKey = selectActiveKey(s);
-    const active = resources.find((r) => r.id.key === activeKey);
-    if (active != null) {
-      store.dispatch(setActive(null));
-      store.dispatch(Layout.clearWorkspace());
-    }
-    await client.workspaces.delete(...resources.map((r) => r.id.key));
-    const next = Tree.removeNode({
-      tree: nodes,
-      keys: resources.map((r) => r.id.toString()),
-    });
-    setNodes([...next]);
-  })();
-};
-
-const handleCreateNewSchematic = ({
-  client,
-  services,
-  placeLayout,
-  selection,
-  state: { nodes, setNodes, resources, setResources },
-}: Ontology.TreeContextMenuProps): void => {
-  const ws = selection.resources[0].id.key;
-  void (async () => {
-    const schematic = await client.workspaces.schematic.create(ws, {
-      name: "New Schematic",
-      snapshot: false,
-      data: deep.copy(Schematic.ZERO_STATE) as unknown as UnknownRecord,
-    });
-    const otg = await client.ontology.retrieve(
-      new ontology.ID({ key: schematic.key, type: "schematic" }),
-    );
-    placeLayout(
-      Schematic.create({
-        ...(schematic.data as unknown as Schematic.State),
-        key: schematic.key,
-        name: schematic.name,
-        snapshot: schematic.snapshot,
-      }),
-    );
-    setResources([...resources, otg]);
-    const nextNodes = Tree.setNode({
-      tree: nodes,
-      destination: selection.resources[0].key,
-      additions: Ontology.toTreeNodes(services, [otg]),
-    });
-    setNodes([...nextNodes]);
-  })();
-};
-
 const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   const {
-    selection: { resources },
+    selection,
+    client,
+    services,
+    placeLayout,
+    store,
+    state: { nodes, setNodes, resources, setResources },
   } = props;
   const clusterKey = Cluster.useSelectActiveKey();
+
+  const handleDelete = (): void => {
+    void (async () => {
+      const s = store.getState();
+      const activeKey = selectActiveKey(s);
+      const active = selection.resources.find((r) => r.id.key === activeKey);
+      if (active != null) {
+        store.dispatch(setActive(null));
+        store.dispatch(Layout.clearWorkspace());
+      }
+      await client.workspaces.delete(...selection.resources.map((r) => r.id.key));
+      const next = Tree.removeNode({
+        tree: nodes,
+        keys: selection.resources.map((r) => r.id.toString()),
+      });
+      setNodes([...next]);
+    })();
+  };
+
+  const handleCreateNewSchematic = (): void => {
+    const ws = selection.resources[0].id.key;
+    void (async () => {
+      const schematic = await client.workspaces.schematic.create(ws, {
+        name: "New Schematic",
+        snapshot: false,
+        data: deep.copy(Schematic.ZERO_STATE) as unknown as UnknownRecord,
+      });
+      const otg = await client.ontology.retrieve(
+        new ontology.ID({ key: schematic.key, type: "schematic" }),
+      );
+      placeLayout(
+        Schematic.create({
+          ...(schematic.data as unknown as Schematic.State),
+          key: schematic.key,
+          name: schematic.name,
+          snapshot: schematic.snapshot,
+        }),
+      );
+      setResources([...resources, otg]);
+      const nextNodes = Tree.setNode({
+        tree: nodes,
+        destination: selection.resources[0].key,
+        additions: Ontology.toTreeNodes(services, [otg]),
+      });
+      setNodes([...nextNodes]);
+    })();
+  };
+
+  const handleCreateNewLinePlot = (): void => {
+    const workspace = selection.resources[0].id.key;
+    void (async () => {
+      const linePlot = await client.workspaces.linePlot.create(workspace, {
+        name: "New Line Plot",
+        data: deep.copy(LinePlot.ZERO_SLICE_STATE) as unknown as UnknownRecord,
+      });
+      const otg = await client.ontology.retrieve(
+        new ontology.ID({ key: linePlot.key, type: "lineplot" }),
+      );
+      placeLayout(
+        LinePlot.create({
+          ...(linePlot.data as unknown as LinePlot.SliceState),
+          key: linePlot.key,
+          name: linePlot.name,
+        }),
+      );
+      setResources([...resources, otg]);
+      const nextNodes = Tree.setNode({
+        tree: nodes,
+        destination: selection.resources[0].key,
+        additions: Ontology.toTreeNodes(services, [otg]),
+      });
+      setNodes([...nextNodes]);
+    })();
+  };
+
+  const handleRename = (): void => {
+    return Tree.startRenaming(selection.resources[0].id.toString());
+  };
+
+  const handleGroup = (): void => {
+    void Group.fromSelection(props);
+  };
+
+  const handleLink = (): void => {
+    const toCopy = `synnax://cluster/${clusterKey}/workspace/${selection.resources[0].id.key}`;
+    void navigator.clipboard.writeText(toCopy);
+  };
 
   const handleSelect = (key: string): void => {
     switch (key) {
       case "delete":
-        return handleDelete(props);
+        return handleDelete();
       case "rename":
-        return Tree.startRenaming(resources[0].id.toString());
+        return handleRename();
       case "group":
-        void Group.fromSelection(props);
-        return;
+        return handleGroup();
       case "plot":
-        // TODO: actually implement this case
-        return;
-      case "schematic": {
-        return handleCreateNewSchematic(props);
-      }
-      case "link": {
-        const toCopy = `synnax://cluster/${clusterKey}/workspace/${resources[0].id.key}`;
-        void navigator.clipboard.writeText(toCopy);
-        return;
-      }
+        return handleCreateNewLinePlot();
+      case "schematic":
+        return handleCreateNewSchematic();
+      case "link":
+        return handleLink();
     }
   };
 
-  const singleResource = resources.length === 1;
+  const f: Record<string, () => void> = {
+    delete: handleDelete,
+    rename: handleRename,
+    group: handleGroup,
+    plot: handleCreateNewLinePlot,
+    schematic: handleCreateNewSchematic,
+    link: handleLink,
+  };
 
+  const onSelect = (key: string): void => f[key]();
+
+  const singleResource = selection.resources.length === 1;
+  if (singleResource) {
+    console.log("singleResource");
+  } else {
+    console.log(`resources length: ${resources.length}`);
+    for (let i = 0; i < resources.length; i++) {
+      console.log(`resource ${i}: ${resources[i].name}`);
+    }
+  }
   return (
-    <PMenu.Menu onChange={handleSelect} level="small" iconSpacing="small">
-      <PMenu.Item itemKey="delete" startIcon={<Icon.Delete />}>
-        Delete
-      </PMenu.Item>
+    <PMenu.Menu onChange={onSelect} level="small" iconSpacing="small">
+      <Menu.DeleteItem />
       {singleResource && <Ontology.RenameMenuItem />}
       <Group.GroupMenuItem selection={props.selection} />
       {singleResource && (
