@@ -115,7 +115,7 @@ int main(int argc, char *argv[]) {
     auto err = d->run();
     if (err)
         LOG(FATAL) << "[main] failed to start: " << err;
-    else
-        LOG(INFO) << "[main] shutdown complete";
+
+    LOG(INFO) << "[main] shutdown complete";
     return 0;
 }

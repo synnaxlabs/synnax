@@ -15,6 +15,7 @@ import { deep, type UnknownRecord } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Menu } from "@/components/menu";
+import { Cluster } from "@/cluster";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";
@@ -84,6 +85,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   const {
     selection: { resources },
   } = props;
+  const clusterKey = Cluster.useSelectActiveKey();
 
   const handleSelect = (key: string): void => {
     switch (key) {
@@ -94,8 +96,16 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
       case "group":
         void Group.fromSelection(props);
         return;
+      case "plot":
+        // TODO: actually implement this case
+        return;
       case "schematic": {
         return handleCreateNewSchematic(props);
+      }
+      case "link": {
+        const toCopy = `synnax://cluster/${clusterKey}/workspace/${resources[0].id.key}`;
+        void navigator.clipboard.writeText(toCopy);
+        return;
       }
     }
   };
@@ -117,6 +127,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
           <PMenu.Item itemKey="schematic" startIcon={<Icon.Schematic />}>
             New Schematic
           </PMenu.Item>
+          <Ontology.LinkAddressMenuItem />
         </>
       )}
       <Menu.HardReloadItem />

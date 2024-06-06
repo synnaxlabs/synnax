@@ -37,18 +37,12 @@ freighter::Error driver::Driver::run() {
     }
     LOG(INFO) << "[main] started successfully. waiting for shutdown.";
     done.wait(false);
-    task_manager.stop();
     heartbeat.stop();
+    task_manager.stop();
     return freighter::NIL;
 }
 
 void driver::Driver::stop() {
-    const auto tm_err = task_manager.stop();
-    const auto hb_err = heartbeat.stop();
-    if (tm_err) {
-        LOG(ERROR) << "[main] failed to stop task manager: " << tm_err.message();
-    }
-    if (hb_err) {
-        LOG(ERROR) << "[main] failed to stop heartbeat: " << hb_err.message();
-    }
+    done = true;
+    done.notify_all();
 }
