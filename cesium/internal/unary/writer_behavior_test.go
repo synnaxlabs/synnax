@@ -499,7 +499,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Expect(t.Occurred()).To(BeFalse())
 						Expect(err).To(HaveOccurredAs(control.Unauthorized))
 						Expect(w2).To(BeNil())
-						t, err = w1.Close(ctx)
+						t, err = w1.Close()
 						Expect(t.Occurred()).To(BeTrue())
 						Expect(t.IsRelease()).To(BeTrue())
 						Expect(err).ToNot(HaveOccurred())

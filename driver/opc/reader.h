@@ -47,6 +47,8 @@ struct ReaderConfig {
     Rate stream_rate;
     /// @brief array_size;
     size_t array_size;
+    /// @brief whether to enable data saving for this task.
+    bool data_saving;
 
     /// @brief the list of channels to read from the server.
     std::vector<ReaderChannelConfig> channels;

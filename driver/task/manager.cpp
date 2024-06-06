@@ -139,6 +139,7 @@ void task::Manager::processTaskSet(const Series &series) {
         // If a module exists with this key, stop and remove it.
         auto task_iter = tasks.find(key);
         if (task_iter != tasks.end()) {
+            LOG(INFO) << "[task.manager] stopping task " << key;
             task_iter->second->stop();
             tasks.erase(task_iter);
         }

@@ -215,6 +215,9 @@ const Internal = ({ initialValues, task: pTask }: InternalProps): ReactElement =
                 />
               )}
             </Form.Field>
+            <Form.Field<boolean> label="Data Saving" path="config.dataSaving" optional>
+              {(p) => <Input.Switch {...p} />}
+            </Form.Field>
             <Form.Field<number> label="Sample Rate" path="config.sampleRate">
               {(p) => <Input.Numeric {...p} />}
             </Form.Field>
@@ -416,9 +419,7 @@ export const ChannelListItem = ({
       entry={childValues}
       justify="spaceBetween"
       align="center"
-      onKeyDown={(e) => {
-        if (["Delete", "Backspace"].includes(e.key)) props.remove?.();
-      }}
+      onKeyDown={(e) => ["Delete", "Backspace"].includes(e.key) && props.remove?.()}
     >
       <Align.Space direction="y" size="small">
         <Text.Text level="p" weight={500} shade={9} color={channelColor}>
@@ -434,9 +435,7 @@ export const ChannelListItem = ({
         value={entry.enabled}
         size="small"
         onClick={(e) => e.stopPropagation()}
-        onChange={(v) => {
-          ctx.set({ path: `${path}.${props.index}.enabled`, value: v });
-        }}
+        onChange={(v) => ctx.set({ path: `${path}.${props.index}.enabled`, value: v })}
         tooltip={
           <Text.Text level="small" style={{ maxWidth: 300 }}>
             Data acquisition for this channel is{" "}

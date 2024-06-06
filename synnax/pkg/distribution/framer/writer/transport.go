@@ -29,7 +29,6 @@ const (
 	// Error represents a call to Writer.Error.
 	Error
 	SetAuthority
-	SetMode
 )
 
 type Mode = ts.WriterMode

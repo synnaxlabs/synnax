@@ -76,9 +76,8 @@ func (g *Gate[E]) Authorize() (e E, err error) {
 		currState := g.r.curr.State()
 		return e, errors.Wrapf(
 			control.Unauthorized,
-			"%s has no control authority over channel %v - it is currently held by %s",
+			"%s has no control authority - it is currently held by %s",
 			g.Subject.Name,
-			currState.Resource,
 			currState.Subject.Name,
 		)
 	}

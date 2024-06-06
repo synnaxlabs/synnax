@@ -29,12 +29,14 @@ using namespace opc;
 
 ReaderConfig::ReaderConfig(
     config::Parser &parser
-): device(parser.required<std::string>("device")) {
+): device(parser.required<std::string>("device"))
+{
     sample_rate = Rate(parser.required<std::float_t>("sample_rate"));
     stream_rate = Rate(parser.required<std::float_t>("stream_rate"));
     array_size = parser.optional<std::size_t>("array_size", 1);
+    data_saving = parser.optional<bool>("data_saving", true);
     parser.iter("channels", [&](config::Parser &channel_builder) {
-        auto ch = ReaderChannelConfig(channel_builder);
+        const auto ch = ReaderChannelConfig(channel_builder);
         if (ch.enabled) channels.push_back(ch);
     });
 }
@@ -566,7 +568,7 @@ std::unique_ptr<task::Task> Reader::configure(
             .name = task.name,
             .key = std::to_string(task.key)
         },
-        .mode = synnax::WriterPersistStream,
+        .mode = synnax::WriterStreamOnly,
         .enable_auto_commit = true
     };
 

@@ -38,6 +38,7 @@ export const readConfigZ = z
     arrayMode: z.boolean(),
     arraySize: z.number().min(1),
     channels: z.array(readChanZ),
+    dataSaving: z.boolean().optional().default(true),
   })
   .refine((cfg) => cfg.sampleRate >= cfg.streamRate, {
     message: "Sample rate must be greater than or equal to stream rate",
@@ -91,6 +92,7 @@ export const ZERO_READ_PAYLOAD: ReadPayload = {
     arrayMode: false,
     arraySize: 1,
     channels: [],
+    dataSaving: true,
   },
 };
 

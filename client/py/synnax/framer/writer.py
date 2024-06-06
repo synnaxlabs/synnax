@@ -141,29 +141,13 @@ class Writer:
         self.__adapter = adapter
         self.__suppress_warnings = suppress_warnings
         self.__strict = strict
-        self.__mode = mode
         self.__stream = client.stream(self.__ENDPOINT, _Request, _Response)
-        self.__open(
-            name,
-            authorities,
-            err_on_unauthorized,
-            enable_auto_commit,
-            auto_index_persist_interval)
-
-    def __open(
-        self,
-        name: str,
-        authorities: list[Authority],
-        err_on_unauthorized: bool,
-        enable_auto_commit: bool,
-        auto_index_persist_interval: TimeSpan,
-    ) -> None:
         config = _Config(
             control_subject=Subject(name=name, key=str(uuid4())),
             keys=self.__adapter.keys,
             start=TimeStamp(self.start),
             authorities=normalize(authorities),
-            mode=self.__mode,
+            mode=mode,
             err_on_unauthorized=err_on_unauthorized,
             enable_auto_commit=enable_auto_commit,
             auto_index_persist_interval=auto_index_persist_interval,
@@ -179,7 +163,8 @@ class Writer:
 
     @overload
     def write(
-        self, channels_or_data: ChannelKeys | ChannelNames, series: list[CrudeSeries]
+        self, channels_or_data: ChannelKeys | ChannelNames,
+        series: list[CrudeSeries]
     ):
         ...
 
@@ -187,22 +172,22 @@ class Writer:
     def write(
         self,
         channels_or_data: Frame
-        | dict[ChannelKey | ChannelName, CrudeSeries]
-        | DataFrame
-        | dict[ChannelKey | ChannelName, float | np.number],
+                          | dict[ChannelKey | ChannelName, CrudeSeries]
+                          | DataFrame
+                          | dict[ChannelKey | ChannelName, float | np.number],
     ):
         ...
 
     def write(
         self,
         channels_or_data: ChannelName
-        | ChannelKey
-        | ChannelKeys
-        | ChannelNames
-        | Frame
-        | dict[ChannelKey | ChannelName, CrudeSeries]
-        | dict[ChannelKey | ChannelName, float | np.number]
-        | DataFrame,
+                          | ChannelKey
+                          | ChannelKeys
+                          | ChannelNames
+                          | Frame
+                          | dict[ChannelKey | ChannelName, CrudeSeries]
+                          | dict[ChannelKey | ChannelName, float | np.number]
+                          | DataFrame,
         series: CrudeSeries | list[CrudeSeries] | None = None,
     ) -> bool:
         """Writes the given data to the database. The formats are listed below. Before
@@ -273,22 +258,6 @@ class Writer:
             if err is not None:
                 raise err
             if res.command == _Command.SET_AUTHORITY:
-                return res.ack
-
-    def set_mode(self, value: WriterMode) -> bool:
-        err = self.__stream.send(
-            _Request(
-                command=_Command.SET_MODE,
-                config=_Config(mode=value),
-            )
-        )
-        if err is not None:
-            raise err
-        while True:
-            res, err = self.__stream.receive()
-            if err is not None:
-                raise err
-            if res.command == _Command.SET_MODE:
                 return res.ack
 
     def commit(self) -> tuple[TimeStamp, bool]:

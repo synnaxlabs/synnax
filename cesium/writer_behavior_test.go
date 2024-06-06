@@ -1035,21 +1035,6 @@ var _ = Describe("Writer Behavior", func() {
 					Expect(frame.Series).To(HaveLen(0))
 					tsFrame := MustSucceed(db.Read(ctx, telem.TimeRangeMax, basic1Index))
 					Expect(tsFrame.Series).To(HaveLen(0))
-
-					By("Using SetMode to change the mode to persist")
-					Expect(w.SetMode(cesium.WriterPersistStream)).To(BeTrue())
-					ok = w.Write(cesium.NewFrame(
-						[]cesium.ChannelKey{basic1Index, basic1},
-						[]telem.Series{
-							telem.NewSecondsTSV(10, 11, 12, 13),
-							telem.NewSeriesV[int64](1, 2, 3, 4),
-						}),
-					)
-					Expect(ok).To(BeTrue())
-					end, ok = w.Commit()
-					Expect(ok).To(BeTrue())
-					Expect(end).To(Equal(13*telem.SecondTS + 1))
-
 					Expect(w.Close()).To(Succeed())
 				})
 			})
