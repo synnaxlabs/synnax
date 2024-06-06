@@ -56,23 +56,24 @@ func (db *DB) DeleteChannel(ch ChannelKey) error {
 	if db.closed.Load() {
 		return errDBClosed
 	}
-	db.mu.Lock()
-	defer db.mu.Unlock()
-
-	if err := db.removeChannel(ch); err != nil {
-		return err
-	}
-
 	// Rename the file first, so we can avoid hogging the mutex while deleting the directory
 	// may take a longer time.
 	// Rename the file to have a random suffix in case the channel is repeatedly created
 	// and deleted.
 	oldName := channelDirName(ch)
 	newName := oldName + "-DELETE-" + strconv.Itoa(rand.Int())
-	if err := db.fs.Rename(oldName, newName); err != nil {
+	if err := (func() error {
+		db.mu.Lock()
+		defer db.mu.Unlock()
+		if err := db.removeChannel(ch); err != nil {
+			return err
+		}
+		err := db.fs.Rename(oldName, newName)
 		if errors.Is(err, fs.ErrNotExist) {
 			return nil
 		}
+		return err
+	})(); err != nil {
 		return err
 	}
 	return db.fs.Remove(newName)
