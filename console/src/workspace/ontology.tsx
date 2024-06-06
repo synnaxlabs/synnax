@@ -19,6 +19,7 @@ import { Menu } from "@/components/menu";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
+import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 import { Schematic } from "@/schematic";
 import { selectActiveKey } from "@/workspace/selectors";
@@ -172,7 +173,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
           <PMenu.Item itemKey="schematic" startIcon={<Icon.Schematic />}>
             New Schematic
           </PMenu.Item>
-          <Ontology.LinkAddressMenuItem />
+          <Link.CopyMenuItem />
         </>
       )}
       <Menu.HardReloadItem />

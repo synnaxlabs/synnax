@@ -15,6 +15,7 @@ import { Menu } from "@/components/menu";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
 import { Layout } from "@/layout";
+import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 
 const ZERO_LAYOUT_STATES: Record<string, Layout.State> = {
@@ -72,19 +73,22 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           services: props.services,
         });
         break;
-      case "link":
+      case "link": {
         const url = `synnax://cluster/${clusterKey}/task/${selection.resources[0].id.key}`;
         void navigator.clipboard.writeText(url);
         break;
+      }
     }
   };
+
+  const singleResource = resources.length === 1;
 
   return (
     <PMenu.Menu level="small" iconSpacing="small" onChange={_handleSelect}>
       <PMenu.Item itemKey="delete" startIcon={<Icon.Delete />}>
         Delete
       </PMenu.Item>
-      <Ontology.LinkAddressMenuItem />
+      {singleResource && <Link.CopyMenuItem />}
       <Menu.HardReloadItem />
     </PMenu.Menu>
   );
