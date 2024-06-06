@@ -141,7 +141,7 @@ func (db *DB) renameChannel(_ context.Context, key ChannelKey, newName string) e
 
 func (db *DB) createChannel(ch Channel) (err error) {
 	defer func() {
-		lo.Ternary(err == nil, db.L.Info, db.L.Error)(
+		lo.Ternary(err == nil, db.L.Debug, db.L.Error)(
 			"creating channel",
 			zap.Uint32("key", ch.Key),
 			zap.Uint32("index", ch.Index),

@@ -29,7 +29,7 @@ func Open(dirname string, opts ...Option) (*DB, error) {
 		return nil, err
 	}
 
-	o.L.Info("opening cesium time series engine", o.Report().ZapFields()...)
+	o.L.Debug("opening cesium time series engine", o.Report().ZapFields()...)
 
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(o.Instrumentation))
 

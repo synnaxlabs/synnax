@@ -42,8 +42,10 @@ func OpenDriver(ctx context.Context, cfgs ...Config) (*Driver, error) {
 
 func (d *Driver) start() error {
 	if !*d.cfg.Enabled {
+		d.cfg.L.Info("embedded driver disabled")
 		return nil
 	}
+	d.cfg.L.Info("starting embedded driver")
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(d.cfg.Instrumentation))
 	d.shutdown = signal.NewShutdown(sCtx, cancel)
 	bre := breaker.Breaker{
