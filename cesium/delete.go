@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 	"golang.org/x/sync/semaphore"
+	"io/fs"
 	"math/rand"
 	"strconv"
 	"sync"
@@ -69,7 +70,10 @@ func (db *DB) DeleteChannel(ch ChannelKey) error {
 	oldName := channelDirName(ch)
 	newName := oldName + "-DELETE-" + strconv.Itoa(rand.Int())
 	if err := db.fs.Rename(oldName, newName); err != nil {
-		return nil
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil
+		}
+		return err
 	}
 	return db.fs.Remove(newName)
 }
