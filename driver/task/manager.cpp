@@ -121,7 +121,6 @@ freighter::Error task::Manager::runGuarded() {
 
     while (running) {
         auto [frame, read_err] = streamer->read();
-        LOG(INFO) << "[task.manager] received frame";
         if (read_err) break;
         for (size_t i = 0; i < frame.size(); i++) {
             const auto &key = (*frame.channels)[i];
@@ -157,7 +156,6 @@ void task::Manager::processTaskSet(const Series &series) {
 
 void task::Manager::processTaskCmd(const Series &series) {
     const auto commands = series.string();
-    LOG(INFO) <<  "[task.manager] " << commands.size() << " commands received";
     for (const auto &cmd_str: commands) {
         auto parser = config::Parser(cmd_str);
         auto cmd = task::Command(parser);

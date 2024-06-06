@@ -55,7 +55,7 @@ struct ReaderConfig {
 
     explicit ReaderConfig(config::Parser &parser);
 
-    std::vector<ChannelKey> channelKeys() const {
+    [[nodiscard]] std::vector<ChannelKey> channelKeys() const {
         auto keys = std::vector<ChannelKey>(channels.size());
         for (std::size_t i = 0; i < channels.size(); i++) keys[i] = channels[i].channel;
         return keys;
@@ -91,10 +91,7 @@ public:
 
     void exec(task::Command &cmd) override;
 
-    void stop();
-
-    void start();
-
+    void stop() override;
 private:
     std::shared_ptr<task::Context> ctx;
     synnax::Task task;

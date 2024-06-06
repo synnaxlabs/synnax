@@ -134,9 +134,7 @@ public:
         ctx->setState(curr_state);
     }
 
-    freighter::Error communicate_res_error(
-        UA_StatusCode status
-    ) {
+    freighter::Error communicate_res_error(const UA_StatusCode &status) {
         freighter::Error err;
         if (
             status == UA_STATUSCODE_BADCONNECTIONREJECTED ||
@@ -585,11 +583,29 @@ std::unique_ptr<task::Task> Reader::configure(
 }
 
 void Reader::exec(task::Command &cmd) {
-    if (cmd.type == "start") pipe.start();
+    if (cmd.type == "start") {
+        pipe.start();
+        ctx->setState({
+            .task = task.key,
+            .variant = "success",
+            .details = json{
+                {"running", true},
+                {"message", "Task started successfully"}
+            }
+        });
+    }
     else if (cmd.type == "stop") return stop();
     else LOG(ERROR) << "unknown command type: " << cmd.type;
 }
 
 void Reader::stop() {
+    ctx->setState({
+            .task = task.key,
+            .variant = "success",
+            .details = json{
+                {"running", false},
+                {"message", "Task stopped successfully"}
+            }
+        });
     pipe.stop();
 }
