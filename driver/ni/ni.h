@@ -82,6 +82,7 @@ namespace ni{
         ~Source();
         void clearTask();
         int checkNIError(int32 error);  
+        void logError(std::string err_msg);
         std::vector<synnax::ChannelKey> getChannelKeys();
 
         virtual void parseConfig(config::Parser & parser);

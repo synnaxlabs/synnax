@@ -60,9 +60,7 @@ void ni::Source::getIndexKeys(){
         auto [channel_info, err] = this->ctx->client->channels.retrieve(channel.channel_key);
         // TODO handle error with breaker
         if (err != freighter::NIL){
-            // Log error
-            LOG(ERROR) << "[NI Reader] failed to retrieve channel " << channel.channel_key;
-            this->ok_state = false;
+            this->logError("failed to retrieve channel " + channel.channel_key);
             return;
         } else{
             index_keys.insert(channel_info.index);
@@ -75,8 +73,7 @@ void ni::Source::getIndexKeys(){
         LOG(INFO) << "constructing index channel configs";
         auto [channel_info, err] = this->ctx->client->channels.retrieve(index_key);
         if (err != freighter::NIL){
-            LOG(ERROR) << "[NI Reader] failed to retrieve channel " << index_key;
-            this->ok_state = false;
+            this->logError("failed to retrieve channel " + index_key);
             return;
         } else{
             ni::ChannelConfig index_channel;
@@ -108,26 +105,23 @@ void ni::Source::parseConfig(config::Parser &parser){
     auto [dev, err] = this->ctx->client->hardware.retrieveDevice(this->reader_config.device_key);
 
     if (err != freighter::NIL) {
-        LOG(ERROR) << "[NI Reader] failed to retrieve device " << this->reader_config.device_name;
-        this->ok_state = false;
+        this->logError("failed to retrieve device " + this->reader_config.device_name);
         return;
     }
 
     this->reader_config.device_name = dev.location;
     this->parseChannels(parser);
      if (!parser.ok() || !this->ok()){
-        // Log error
-        LOG(ERROR) << "[NI Reader] failed to parse configuration for " << this->reader_config.task_name;
+        this->logError("failed to parse channels for " + this->reader_config.task_name + " Parser Error: " + parser.error_json().dump());
         this->ctx->setState({.task = task.key,
                              .variant = "error",
                              .details = parser.error_json()});
-        this->ok_state = false;
-        LOG(ERROR) << parser.error_json();
     }
 }
 
 int ni::Source::init(){
     LOG(INFO) << "[NI Source] init " << this->task.name;
+
     // Create parser
     auto config_parser = config::Parser(this->task.config);
     this->reader_config.task_name = this->task.name;
@@ -139,20 +133,16 @@ int ni::Source::init(){
 
     if (!config_parser.ok() || !this->ok()){
         // Log error
-        LOG(ERROR) << "[NI Reader] failed to parse configuration for " << this->reader_config.task_name;
+        this->logError("failed to parse configuration for " + this->reader_config.task_name + " Parser Error: " + config_parser.error_json().dump());
         this->ctx->setState({.task = task.key,
                              .variant = "error",
                              .details = config_parser.error_json()});
-        this->ok_state = false;
         return -1;
     }
+
     LOG(INFO) << "[NI Reader] successfully parsed configuration for " << this->reader_config.task_name;
 
     this->getIndexKeys(); 
-    
-
-    LOG(INFO) << "[NI Reader] index keys retrieved " << this->reader_config.task_name;
-
     // Create breaker
     auto breaker_config = breaker::Config{
         .name = task.name,
@@ -168,21 +158,17 @@ int ni::Source::init(){
 
     // Configure buffer size and read resources
     if(this->reader_config.sample_rate < this->reader_config.stream_rate){
+        this->logError("[NI Reader] Failed while configuring timing for NI hardware for task " + this->reader_config.task_name);
         this->err_info["error type"] = "Configuration Error";
         this->err_info["error details"] = "Stream rate is greater than sample rate";
-        
         this->ctx->setState({.task = this->reader_config.task_key,
                              .variant = "error",
                              .details = err_info});
-        LOG(ERROR) << "[NI Reader] stream rate is greater than sample rate " << this->reader_config.task_name;
-        this->ok_state = false;
         return -1;
     }
 
-    if (this->configureTiming()){
-        LOG(ERROR) << "[NI Reader] Failed while configuring timing for NI hardware for task " << this->reader_config.task_name;
-        this->ok_state = false;
-    }
+    if (this->configureTiming()) this->logError("[NI Reader] Failed while configuring timing for NI hardware for task " + this->reader_config.task_name);
+
 
     LOG(INFO) << "[NI Reader] successfully configured NI hardware for task " << this->reader_config.task_name;
     return 0;
@@ -191,11 +177,14 @@ int ni::Source::init(){
 
 
 freighter::Error ni::Source::start(){
+    LOG(INFO) << "[NI Reader] starting reader for task " << this->reader_config.task_name;
     if(this->running.exchange(true)){
+        LOG(ERROR) << "[NI Reader] failed while starting reader for task " << this->reader_config.task_name << " requires reconfigure";
         return freighter::NIL;
     }
     if (this->checkNIError(ni::NiDAQmxInterface::StartTask(this->task_handle))){
         LOG(ERROR) << "[NI Reader] failed while starting reader for task " << this->reader_config.task_name << " requires reconfigure";
+        this->logError("failed while starting reader for task " + this->reader_config.task_name + " requires reconfigure");
         this->clearTask();
         return freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
     }else{
@@ -211,7 +200,7 @@ freighter::Error ni::Source::stop(){
     }
     this->sample_thread.join();
     if (this->checkNIError(ni::NiDAQmxInterface::StopTask(this->task_handle))){
-        LOG(ERROR) << "[NI Reader] failed while stopping reader for task " << this->reader_config.task_name;
+        this->logError("failed while stopping reader for task " + this->reader_config.task_name);
         return freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
     }
     LOG(INFO) << "[NI Reader] successfully stopped  reader for task " << this->reader_config.task_name;
@@ -223,9 +212,8 @@ freighter::Error ni::Source::stop(){
 
 void ni::Source::clearTask(){
     if (this->checkNIError(ni::NiDAQmxInterface::ClearTask(this->task_handle))){
-        LOG(ERROR) << "[NI Reader] failed while clearing reader for task " << this->reader_config.task_name;
+        this->logError("failed while clearing reader for task " + this->reader_config.task_name);
     }
-    LOG(INFO) << "[NI Reader] cleared reader for task " << this->reader_config.task_name;
 }
 
 
@@ -246,9 +234,7 @@ int ni::Source::checkNIError(int32 error){
                              .variant = "error",
                              .details = err_info});
 
-        LOG(ERROR) << "[NI Reader] Vendor Error: " << this->err_info["error details"];
-        this->ok_state = false;
-
+        this->logError("Vendor Error: " +  this->err_info["error details"]);
         return -1;
     }
     return 0;
@@ -266,4 +252,10 @@ std::vector<synnax::ChannelKey> ni::Source::getChannelKeys(){
         keys.push_back(channel.channel_key);
     }
     return keys;
+}
+
+void ni::Source::logError(std::string err_msg){
+    LOG(ERROR) << "[NI Reader] " << err_msg;
+    this->ok_state = false;
+    return;
 }
