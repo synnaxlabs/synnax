@@ -47,8 +47,8 @@ namespace ni{
         MapScale() = default;
 
         MapScale(config::Parser & parser) 
-        :   prescaled_min(parser.required<double>("prescaled_min")),
-            prescaled_max(parser.required<double>("prescaled_max")),
+        :   prescaled_min(parser.required<double>("pre_scaled_min")),
+            prescaled_max(parser.required<double>("pre_scaled_max")),
             scaled_min(parser.required<double>("scaled_min")),
             scaled_max(parser.required<double>("scaled_max")){}
 
@@ -217,7 +217,15 @@ namespace ni{
                             scaled_units.c_str() 
                         );
             } else if(type == "map"){
-                return 0;
+                return ni::NiDAQmxInterface::CreateMapScale(
+                            name.c_str(), 
+                            scale.map.prescaled_min, 
+                            scale.map.prescaled_max, 
+                            scale.map.scaled_min, 
+                            scale.map.scaled_max, 
+                            ni::UNITS_MAP.at(prescaled_units), 
+                            scaled_units.c_str()
+                        );
             } else if(type == "polynomial"){
                 return 0;
             } else if(type == "table"){
@@ -234,16 +242,6 @@ namespace ni{
 
 //TODO: do parser checks all over here
 
-  //else if(channel.scale_type == "MapScale"){
-        //     this->checkNIError(ni::NiDAQmxInterface::CreateMapScale(
-        //         channel.scale_name.c_str(), 
-        //         channel.scale->map.prescaled_min, 
-        //         channel.scale->map.prescaled_max, 
-        //         channel.scale->map.scaled_min, 
-        //         channel.scale->map.scaled_max, 
-        //         ni::UNITS_MAP.at(channel.scale->map.prescaled_units), 
-        //         channel.scale->map.scaled_units.c_str()
-        //     ));
 
         // } else if(channel.scale_type == "PolyScale"){
         //     // create forward and reverse coeffs inputs
