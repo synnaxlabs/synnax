@@ -191,6 +191,8 @@ class TestChannelClient:
             ),
             retrieve_if_name_exists=True
         )
+        ch_retrieved = client.channels.retrieve(name)
+        assert ch.key == ch_retrieved.key
         client.channels.delete(name)
         with pytest.raises(sy.NotFoundError):
             client.channels.retrieve(ch.key)

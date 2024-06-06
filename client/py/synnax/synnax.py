@@ -99,7 +99,11 @@ class Synnax(Client):
             ClusterChannelRetriever(self._transport.unary, instrumentation),
             instrumentation,
         )
-        ch_creator = ChannelWriter(self._transport.unary, instrumentation)
+        ch_creator = ChannelWriter(
+            self._transport.unary,
+            instrumentation,
+            ch_retriever,
+        )
         super().__init__(
             client=self._transport.stream,
             async_client=self._transport.stream_async,

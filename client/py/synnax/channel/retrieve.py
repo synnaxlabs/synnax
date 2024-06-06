@@ -94,6 +94,32 @@ class CacheChannelRetriever:
         self.instrumentation = instrumentation
         self.__retriever = retriever
 
+    def delete(self, keys: ChannelParams) -> None:
+        normal = normalize_channel_params(keys)
+        if normal.variant == "names":
+            for name in normal.params:
+                key = self.__names_to_keys.get(name)
+                if key is not None:
+                    self.__channels.pop(key)
+                    self.__names_to_keys.pop(name)
+        else:
+            for key in normal.params:
+                channel = self.__channels.get(key)
+                if channel is not None:
+                    self.__channels.pop(key)
+                    self.__names_to_keys.pop(channel.name)
+
+    def rename(self, keys: list[ChannelKey], names: list[ChannelName]) -> None:
+        for key, name in zip(keys, names):
+            channel = self.__channels.get(key)
+            if channel is None:
+                continue
+            self.__channels.pop(key)
+            self.__names_to_keys.pop(channel.name)
+            channel.name = name
+            self.__channels[channel.key] = channel
+            self.__names_to_keys[channel.name] = channel.key
+
     def _(self) -> ChannelRetriever:
         return self
 
@@ -103,7 +129,7 @@ class CacheChannelRetriever:
         key = self.__names_to_keys.get(param)
         return None if key is None else self.__channels.get(key)
 
-    def __set(self, channels: list[ChannelPayload]) -> None:
+    def set(self, channels: list[ChannelPayload]) -> None:
         for channel in channels:
             self.__channels[channel.key] = channel
             self.__names_to_keys[channel.name] = channel.key
@@ -124,7 +150,7 @@ class CacheChannelRetriever:
             return results
 
         retrieved = self.__retriever.retrieve(to_retrieve)
-        self.__set(retrieved)
+        self.set(retrieved)
         results.extend(retrieved)
         return results
 
