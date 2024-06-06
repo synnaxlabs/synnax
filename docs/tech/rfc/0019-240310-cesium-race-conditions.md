@@ -12,43 +12,90 @@ More specifically, how it handles race conditions across its different operation
 
 # 1 - Vocabulary
 
-**Thread** – An execution of program independent of others.
-In Go, a thread is implemented as a goroutine, which is more lightweight and compact.
+**Sample**: A sample is a strongly typed value recorded at a specific moment in time – i.e.
+a data point in Cesium.
 
-**Concurrency** - Multiple threads (goroutines in the context of Go) running at the same time in parallel.
+**Channel**: A channel is a logical collection of samples that are time ordered and share
+the same data type. Typically, a channel is used to store a time-series collection of
+samples from the same source, e.g. a sensor.
 
-**Mutex** - Mutual Exclusion, i.e. only one running at once.
+**Index (Channel)**: In a channel, we may find many samples, but the samples don't make
+sense unless we know what time stamp each sample corresponds to (is recorded at). An index
+_indexes_ a channel by associating a time stamp to each sample.
+It does not make sense to query the data at 00:05 out of [10, 30, 23, 90], but it does
+make sense when we know that those samples correspond to [00:03, 00:04, 00:05, 00:10].
+It is necessary that each channel has an index, and note that the index itself is a channel.
 
-**Deadlock** - When two threads wait for each other to finish running or to release some Lock,
-therefore become stuck forever.
+**Telemetry data**: At its core, all of Cesium's samples are stored as binary data on
+the file system. Samples of the same [data type](0007-220823-data-type.md) occupy the same number of bytes: for example,
+to read data from a file containing int64 data, we simply read every 8 bits and convert
+each one into decimals (little endian by implementation) to recover the samples.
+
+**Domain**: A domain is a time range with many samples stored contiguously in the same file.
+In Cesium, domains may not overlap each other.
+Domain is a powerful concept because it allows us to make statements about a group of samples
+as opposed to one sample: if we know that the time range 10:00 - 12:00 as a whole is
+stored in file 1 from offset 10 with length 10, and we want to find the sample at 11:00,
+we know exactly where to look for it – this prevents us from searching the entire database!
+
+**Domain DB**: The Domain DB is the lowest layer of
+abstraction in the Cesium database: it directly interacts with the file system and
+is responsible for storing and retrieving telemetry data from files.
+
+**Pointer**: A pointer is the concrete structure of a domain: a pointer stores the time
+range of the domain and where to find data for the domain in the file system
+(file key, offset, length).
+
+**Index (Domain)**: (not to be confused with an **Index Channel**)
+The index in a domain DB is a chronologically-sorted slice of pointers stored in memory.
+The pointers are sorted by their time range **and no domain may overlap each other** – it
+does not make sense for a given moment in time to have more than one sample. The index
+allows us to find the _domain_ that contains a given time stamp (and does this fast via
+binary search) – or the lack thereof.
+
+**Index Persist**: Index Persist is the "backup" of the index to disk. Suppose the
+database closes then reopens and content in the memory is erased – we can no longer find
+data as we no longer have index in our memory. Index Persist is an exact replica of the
+index on the file system to prevent this issue: if the index is lost, we can always reload
+it from the persisted version. Index persist must be closely up-to-date
+with the index – however, there is a tradeoff between persist frequency and performance.
+Each pointer is encoded into 26 bytes, and the entire slice of pointers is stored in the
+`index.domain` file.
+
+<div style="text-align: center">
+    <img src="img/0019-240529-cesium-race-conditions/Index-Concepts.png" width="90%" />
+    <h6>Domain-level concepts</h6>
+</div>
 
 # 2 - Motivation
 
-Cesium-based atomic clocks are "the most accurate realization of a unit that mankind has yet achieved."
-By extension, Cesium, the database named after the element in question, must also be accurate.
-This is challenging, however, due to Cesium's concurrent nature.
-When multiple subprocesses (goroutines) are to apply operations on the database,
-it is vital to handle these potentially conflicting operations in an orderly and predictable manner.
-
-As Cesium looks to become production-ready, this task becomes more important as Cesium must support
-Read operations, Write operations, and Delete operations (through a tombstone/garbage-collection system).
-All operations must coexist without conflicting each other:
-for example, we obviously do not want two writers writing to the same  file,
-but it's totally fine to read from a file in the first 100 bytes,
-while a writer in append-mode is writing to byte 150 and onward.
+Concurrency is a double-edged sword: while it could make Cesium blazing-fast, it introduces
+additional complexity through parallelism – when many subprocesses run at the same time,
+they create conflicts, or race conditions, when they attempt to access common resources.
+As Cesium looks to become production-ready, it is crucial that Cesium must support
+Read, Write, and Delete (through a tombstone/garbage-collection system) operations
+at high speeds without them conflicting each other. One can imagine the possible
+consequences for unhandled race conditions in extreme scenarios such as launch control systems:
+it would not be desirable.
 
 # 4- Analysis
 
-The core method through which concurrency is protected is the *Mutex*: it allows turning
-parallel execution into serial execution.
+## 4.0 Primer on the structure of Cesium
 
-The Mutex allows for operations of threads (going forward,
-I will refer to these as goroutines in the specific context as go) to be MUTually EXclusive.
-In other words, if one goroutine acquires a mutex (by calling `mu.Lock()`,
-all other goroutines trying to acquire it must wait until it is freed, i.e. `mu.Lock()`
-will block until the first goroutine releases the Mutex, i.e. `mu.UnLock()`.
-In addition, one goroutine may acquire a Read-Lock only (`mu.RLock()`),
-which allows other goroutines to acquire Read-Locks, but no goroutine may acquire a write-Lock.
+At the highest level of abstraction, Cesium provides one unified interface to read, write,
+delete, and stream data from multiple channels.
+A Cesium DB comprises many channels, each one of which corresponding to a virtualDB
+or an unaryDB. A virtualDB contains no data, so it will not be a topic of our discussion.
+
+A unaryDB is a second level of abstraction in the database structure: it is composed of
+a domainDB and an index: the index is responsible for resolving locations of data, whereas
+the domainDB is responsible for storing it.
+
+A domainDB is the lowest level of abstraction: it provides means to write and read data from
+the file system, and maintains the index (see concepts).
+
+Each layer has their own entities and methods of reads, writes, deletes, and garbage collection;
+all interactions are passed down to the domain level to interact with the index and file system.
 
 ## 4.1 Top-down view of race conditions in Cesium
 
@@ -58,15 +105,16 @@ the index stored in memory, and its persisted counterpart on the file system.
 We will spend most of our time talking about the first two,
 since the persisted index is never read from until the database is closed and reopened.
 
-We will consider which resources each operation needs to access, and in what order.
-Consider the following diagram:
+Each one of the read, write, delete, and garbage collection operations is a combination
+of accesses to the index and telemetry data. In the following diagram, we consider the
+life cycle of each of these operations and which resources they need to access.
 
 <div style="text-align: center">
     <img src="img/0019-240529-cesium-race-conditions/Operation-Entities.png" width="90%" />
     <h6>Cesium entities and resources</h6>
 </div>
 
-We can see that every operation uses the telemetry data in file system,
+We can see that every operation uses the telemetry data in the file system,
 the index, or one of the two – additionally, if the index is modified,
 it must be persisted to the file system as well.
 Throughout this RFC, we will discuss which red-coloured operations can occur at the same time,
@@ -78,8 +126,8 @@ that is acceptable, since all goroutines read the same information.
 
 ### 4.1.1 Contentions with reading
 
-It must be noted that the resource management of read is different from the other operations.
-Namely, read must be carried out through an iterator, which only reads one chunk of telemetry data at a time.
+Read operations are carried out through an iterator, which only reads one chunk of telemetry
+data at a time.
 This means that every time the caller reads a block of telemetry data,
 it first gets the information about the location and length of the data in the file system,
 then uses that information to read on disk.
@@ -96,7 +144,8 @@ read does not conflict with any other operations as it does not change the index
 
 Deletion works by rewriting the pointers where the specified time range's start and end
 time stamps are found, and removing all pointers in between.
-As deletion does not anything from the underlying telemetry data in the file system,
+Deletion itself executes no disk operations on telemetry samples in the file system. Instead,
+it accomplishes the 'deletion' by directly changing the index.
 so we only need to consider the concurrent operations on the index by the writer and the
 deleter. We will discuss the two cases: either the writer may write data to the range
 requested to be deleted, or it may not.
@@ -120,15 +169,15 @@ In addition, since garbage collection is fundamentally a secondary operation (co
 to reads, writes, and deletes), it should not affect those operations – it is unrealistic
 to disallow reads and writes while garbage collecting.
 
-Thankfully, by nature, there are major conflicts between a writer and GC: Garbage
-Collection is strictly only run on a file that is over size and with no writers currently
-writing to it. This means that no writer can write to a file currently being garbage collected.
+there are major conflicts between a writer and GC: Garbage Collection is strictly only
+run on a file that is over size and with no writers currently writing to it.
+This means that no writer can write to a file currently being garbage collected.
 
 In the index, since GC only modifies pointers on the file being collected, it will not
 change any pointers being written to by the writer, as it is necessarily not on the file,
 for reasons mentioned above.
 
-Therefore, these conflicts are taken care of by the file controller and the mutex, and
+These conflicts are taken care of by the file controller and the mutex, and
 there are no additional actions needed.
 
 ### 4.1.4 GC-Delete Contention
@@ -140,7 +189,7 @@ garbage collected.
 The conflict arises when both entities attempt to change the offset of a file: delete
 must change this to account for deletion after the start of a domain to only take in
 a part of the data; GC must change this to store the new position of the data in the
-file system. Thankfully, both changes to the offset are with respect to the existing value:
+file system. Both changes to the offset are with respect to the existing value:
 both operations change the offset by adding (delete) or subtracting (GC) some bytes
 to the existing offset. Therefore, it does not matter which one happens first. This way,
 GC and delete can work in tandem, so long as the modifications happen one by one and not
@@ -150,7 +199,7 @@ at the same time, which is handled by the mutex on the index.
 
 If two garbage collection subprocesses run at the same time, we risk a serious data race:
 the underlying data in the file system may be modified by two entities at the same time,
-and the offset will be in a bad state. Therefore, we must disallow GC-GC Contention.
+and the offset will be in a bad state.
 
 ### 4.1.6 Delete-Delete Contention
 
@@ -174,7 +223,13 @@ The following diagram summarizes possible conflicts between these entities:
 ## 4.2 Domain level race conditions
 
 We will now inspect, from the bottom up, how the various entities interact with the
-domain data and the index in memory.
+domain data and the index in memory. The domain level is responsible for managing the
+underlying file system and the index. A domainDB is index-agnostic: it knows nothing
+about the time stamps that these samples correspond to.
+
+Dimensional analysis is a great tool to reveal nature of data we are dealing with: it
+is very helpful to remember that data written and read from at the domain level are simple
+**byte arrays**.
 
 ### 4.2.1 Writing
 
@@ -185,7 +240,7 @@ to an underlying file that still has space for more data.
 3. Commit the writer, i.e. add a pointer in the index storing the time range represented
 by the data and the location of the data in the file system (file key, offset, length).
 
-Optionally, Cesium is different from other Database systems in that a writer may be
+Cesium is different from other Database systems in that a writer may be
 committed multiple times: a writer may repeat steps 2 and 3, i.e.
 
 4. Write more binary telemetry data to the file handle
@@ -223,9 +278,6 @@ lock, and try to acquire a writer again if we garbage-collected any writers. If 
 not, then we wait for a writer to be released (signaled by an input into the channel `release`),
 and try to acquire a writer again.
 
-**Race condition #1**: file_controller: acquireWriter's descriptor limit check may not extend
-into the following if-statement.
-
 #### 4.2.1.2 Writing data with a writer
 
 `Write` writes binary data into the file handle acquired in the previous step and updates
@@ -236,7 +288,7 @@ the file system.
 #### 4.2.1.3 Committing the data in a writer
 
 `Commit` first reads the length of the internal file handle to determine how much data
-was written in this domain: note that there is a race condition here (#2): the internal
+was written in this domain: note that there is a race condition here: the internal
 file handle's length may get changed via another `Commit`, which may assign `internal` a
 new writer should there be a file switch, causing `w.internal.len()` to be 0 instead of
 the actual length.
@@ -248,15 +300,10 @@ called concurrently.
 Using the length and offset information of the `TrackedWriterCloser`, the index is
 inserted with the new pointer under an exclusive lock, therefore race-free. After the
 insertion, the writer may switch files, changing the `fileKey`, `internal`, `fileSize`
-fields. This is the same race condition as mentioned before (#2), where other `Commit`
-calls read from this modified field.
+fields.
 
-**Race condition #2**: domain/writer: `Commit` modifies fields that other `Commit` calls
-may use.
-
-**Recommended fix**: Disallow concurrent calls to `Commit` – in addition to guaranteeing
-exclusivity, it also does not make sense to make parallel calls to `Commit` if they all
-have the same underlying data as `Write` may not be called concurrently.
+Note that these race conditions resulting from concurrent calls to `Commit` should never
+happen, as the method is documented to not be called concurrently.
 
 ### 4.2.2 Reading
 
@@ -310,11 +357,13 @@ longer consistent with the value.
 
 #### 4.2.2.2 Race conditions involving the pointer
 Note that for creation of the reader, the offset and length information are not based on
-the pointer stored in memory, but the pointer loaded into the iterator. Therefore, if the
-pointer of interest was modified, the reader would not be updated with these new changes.
+the pointer stored in memory, but the pointer loaded into the iterator. If the
+pointer of interest was modified, the created read does not read the correct chunk
+of data.
 
-This is not necessarily a problem – the iterator stores a pointer that was correct
-_at some point in time_ – but it may be inconvenient: for example, consider an
+This is not necessarily a problem – as documented, the iterator does not iterate over
+pointers in a snapshot of the DB, but rather stores a pointer that was correct
+_at some point in time_. However, this behaviour may be inconvenient: for example, consider an
 open reader on domain that gets keeps getting updated with consecutive `Write`s: the reader
 would maintain the original domain's length and end time stamp until it is reloaded.
 
@@ -399,7 +448,7 @@ by 3 to exclude the first 3 samples, then the transcribed version of the pointer
 file must also have its offset increased by 3: the order of these two changes to offset does
 not matter.
 
-Therefore, we have shown that we can handle race conditions on the index properly. However,
+We have shown that we can handle race conditions on the index properly. However,
 there may also be a race condition on the file: at the time we transcribe the pointers, the
 location of domains in the file may no longer be where they are in the index: this could
 only be due to another GC process as, as mentioned before, there cannot be `Write` operations
@@ -410,7 +459,12 @@ A fix could be to ensure that this never happens.
 
 ## 4.3 Unary level race conditions
 
-At the Unary level, not only must we consider race conditions that come up from the domain
+At the Unary level, the previously index-agnostic domainDB is paired with an index, allowing
+us to match a time stamp to each sample. Continuing the same exercise of dimensional analysis
+as in domain level, we see that data written to and read from unaryDB are **series**
+(unmarshalled byte arrays with a time range).
+
+At this level, not only must we consider race conditions that come up from the domain
 level, we must also consider the interaction between a domain database and its index, which
 is another domain database.
 
@@ -461,8 +515,9 @@ is consisted of 4 steps:
 Since writer methods may not be called concurrently and steps 2 - 3 do not introduce any
 new behaviours other than their Domain counterparts, there are no associated race
 conditions. For step 4 – committing the telemetry data – in the current implementation of
-Cesium, `CommitWithEnd` will always be called with an end time stamp, so there are no
-associated index stamps, therefore we will not look into the race conditions involved.
+Cesium, `CommitWithEnd` will always be called with an end time stamp, so we
+will not look into the race conditions involved with `stamp` operations when there is no
+end time stamp.
 
 ### 4.3.3 Reading
 
@@ -504,10 +559,10 @@ into the domain iterator, whose time range the unary iterator relies on to calcu
 domain slices, may be incorrect or outdated.
 
 In step 2, this requires that the underlying file's data in the specified location by
-the offset and length found in step one has not changed – therefore, this is a possible
+the offset and length found in step one has not changed – this is a possible
 race condition with Garbage Collection.
 
-In step 3, this involves moving the domain iterator, so all the race conditions in the
+In step 3, this involves moving the domain iterator, so all the race condition in the
 domain level also apply here.
 
 ### 4.3.4 Deleting
@@ -524,6 +579,9 @@ delete duration.
 Garbage collection at the Unary level is a direct forward of GC from the Domain level.
 
 ## 4.4 Cesium level race conditions
+
+At the Cesium level, multiple unaryDBs are stored to represent multiple channels. Therefore,
+reads and writes at this level culminate in **frames** (series from different channels).
 
 At the Cesium level, each entity may control multiple channels – i.e. multiple Unary or
 Virtual databases. Fortunately, the execution of these entities on different channels do
