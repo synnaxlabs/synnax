@@ -115,7 +115,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
     link: handleCopyUrl,
   };
 
-  const onSelect = (key: string): void => f[key]();
+  const onSelect = (key: string): void => f[key]?.();
   const isSingle = resources.length === 1;
 
   return (
@@ -127,9 +127,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
       <PMenu.Item itemKey="copy" startIcon={<Icon.Copy />}>
         Copy
       </PMenu.Item>
-      <PMenu.Item itemKey="delete" startIcon={<Icon.Delete />}>
-        Delete
-      </PMenu.Item>
+      <Menu.DeleteItem />
       {isSingle && <Link.CopyMenuItem />}
       <Menu.HardReloadItem />
     </PMenu.Menu>

@@ -34,7 +34,6 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
     store,
     state: { nodes, setNodes, resources, setResources },
   } = props;
-  const clusterKey = Cluster.useSelectActiveKey();
 
   const handleDelete = (): void => {
     void (async () => {
@@ -55,9 +54,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
   };
 
   const handleCreateNewSchematic = (): void => {
-    const ws = selection.resources[0].id.key;
+    const workspace = selection.resources[0].id.key;
     void (async () => {
-      const schematic = await client.workspaces.schematic.create(ws, {
+      const schematic = await client.workspaces.schematic.create(workspace, {
         name: "New Schematic",
         snapshot: false,
         data: deep.copy(Schematic.ZERO_STATE) as unknown as UnknownRecord,
@@ -118,26 +117,10 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
     void Group.fromSelection(props);
   };
 
+  const clusterKey = Cluster.useSelectActiveKey();
   const handleLink = (): void => {
     const toCopy = `synnax://cluster/${clusterKey}/workspace/${selection.resources[0].id.key}`;
     void navigator.clipboard.writeText(toCopy);
-  };
-
-  const handleSelect = (key: string): void => {
-    switch (key) {
-      case "delete":
-        return handleDelete();
-      case "rename":
-        return handleRename();
-      case "group":
-        return handleGroup();
-      case "plot":
-        return handleCreateNewLinePlot();
-      case "schematic":
-        return handleCreateNewSchematic();
-      case "link":
-        return handleLink();
-    }
   };
 
   const f: Record<string, () => void> = {
@@ -148,18 +131,9 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
     schematic: handleCreateNewSchematic,
     link: handleLink,
   };
-
-  const onSelect = (key: string): void => f[key]();
+  const onSelect = (key: string): void => f[key]?.();
 
   const singleResource = selection.resources.length === 1;
-  if (singleResource) {
-    console.log("singleResource");
-  } else {
-    console.log(`resources length: ${resources.length}`);
-    for (let i = 0; i < resources.length; i++) {
-      console.log(`resource ${i}: ${resources[i].name}`);
-    }
-  }
   return (
     <PMenu.Menu onChange={onSelect} level="small" iconSpacing="small">
       <Menu.DeleteItem />
@@ -183,11 +157,11 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
 
 const handleSelect: Ontology.HandleSelect = ({ selection, client, store }) => {
   void (async () => {
-    const ws = await client.workspaces.retrieve(selection[0].id.key);
-    store.dispatch(add({ workspaces: [ws] }));
+    const workspace = await client.workspaces.retrieve(selection[0].id.key);
+    store.dispatch(add({ workspaces: [workspace] }));
     store.dispatch(
       Layout.setWorkspace({
-        slice: ws.layout as unknown as Layout.SliceState,
+        slice: workspace.layout as unknown as Layout.SliceState,
         keepNav: false,
       }),
     );
