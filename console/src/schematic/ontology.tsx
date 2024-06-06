@@ -27,9 +27,6 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
   selection: { resources, parent },
   state,
 }) => {
-  for (let i = 0; i < resources.length; i++) {
-    console.log(`Resource ${i}: ${resources[i].name}`);
-  }
   const ids = resources.map((res) => new ontology.ID(res.key));
   const keys = ids.map((id) => id.key);
   const activeRange = Range.select(store.getState());
