@@ -118,7 +118,7 @@ func (w *Writer) Write(series telem.Series) (telem.AlignmentPair, error) {
 	}
 	e, err := w.control.Authorize()
 	if err != nil {
-		return 0, err
+		return 0, w.wrapError(err)
 	}
 	a := e.alignment
 	if series.DataType.Density() != telem.DensityUnknown {

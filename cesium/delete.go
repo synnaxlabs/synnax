@@ -238,7 +238,6 @@ func (db *DB) garbageCollect(ctx context.Context, maxGoRoutine int64) error {
 	_, span := db.T.Debug(ctx, "garbage_collect")
 	defer span.End()
 	db.mu.RLock()
-	defer db.mu.RUnlock()
 	var (
 		sem     = semaphore.NewWeighted(maxGoRoutine)
 		sCtx, _ = signal.Isolated()
@@ -246,6 +245,7 @@ func (db *DB) garbageCollect(ctx context.Context, maxGoRoutine int64) error {
 	)
 	for _, udb := range db.unaryDBs {
 		if err := sem.Acquire(ctx, 1); err != nil {
+			db.mu.RUnlock()
 			return err
 		}
 		wg.Add(1)
@@ -255,6 +255,7 @@ func (db *DB) garbageCollect(ctx context.Context, maxGoRoutine int64) error {
 			return udb.GarbageCollect(_ctx)
 		})
 	}
+	db.mu.RUnlock()
 	return sCtx.Wait()
 }
 

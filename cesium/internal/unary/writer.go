@@ -257,9 +257,9 @@ func (w *Writer) CommitWithEnd(ctx context.Context, end telem.TimeStamp) (err er
 }
 
 func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.TimeStamp, error) {
-	dw, ok := w.control.Authorized()
-	if !ok {
-		return 0, controller.Unauthorized(w.control.Subject.String(), w.Channel.Key)
+	dw, err := w.control.Authorize()
+	if err != nil {
+		return 0, err
 	}
 
 	if end.IsZero() {

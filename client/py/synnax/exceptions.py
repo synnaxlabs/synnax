@@ -50,15 +50,14 @@ class ControlError(Exception):
     pass
 
 
-class UnauthorizedError(Exception):
+class UnauthorizedError(ControlError):
     """
     Raised when an entity attempts to access or modify information it is not allowed.
     """
 
-    TYPE = _FREIGHTER_EXCEPTION_PREFIX + "control.unauthorized"
+    TYPE = ControlError.TYPE + ".unauthorized"
 
     pass
-
 
 
 class AuthError(Exception):
