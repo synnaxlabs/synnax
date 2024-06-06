@@ -62,7 +62,7 @@ with the index – however, there is a tradeoff between persist frequency and pe
 Each pointer is encoded into 26 bytes, and the entire slice of pointers is stored in the
 `index.domain` file.
 
-<div style="text-align: center">
+<div align="center">
     <img src="img/0019-240529-cesium-race-conditions/Index-Concepts.png" width="90%" />
     <h6>Domain-level concepts</h6>
 </div>
@@ -109,7 +109,7 @@ Each one of the read, write, delete, and garbage collection operations is a comb
 of accesses to the index and telemetry data. In the following diagram, we consider the
 life cycle of each of these operations and which resources they need to access.
 
-<div style="text-align: center">
+<div align="center">
     <img src="img/0019-240529-cesium-race-conditions/Operation-Entities.png" width="90%" />
     <h6>Cesium entities and resources</h6>
 </div>
@@ -215,7 +215,7 @@ the operation is turned into a Serial operation of the index (see section 4.2.3)
 
 The following diagram summarizes possible conflicts between these entities:
 
-<div style="text-align: center">
+<div align="center">
     <img src="img/0019-240529-cesium-race-conditions/Entity-Interactions.png">
     <h6>Cesium entities' interaction</h6>
 </div>
@@ -332,7 +332,7 @@ pointer; at step 3, changes made to the pointer prevent creating the right reade
 step 4, changes made to file prevent reading the correct data. Here is a diagram that
 summarizes these races:
 
-<div style="text-align: center">
+<div align="center">
 <img width="90%" src="img/0019-240529-cesium-race-conditions/Read-Races.png">
     <h6>Life cycle of a domain iterator</h6>
 </div>
@@ -390,7 +390,7 @@ to the desired time stamps.
 3. Search the domains where start and end time stamps found again.
 4. Remove pointers in between and update the domains at the two ends with the new offsets.
 
-<div style="text-align: center">
+<div align="center">
 <img width="90%" src="img/0019-240529-cesium-race-conditions/Delete-Races.png">
     <h6>Life cycle of a deletion</h6>
 </div>
@@ -428,7 +428,7 @@ modifies the index to contain the new offsets. This is done in 7 steps:
 7. Change the pointer offsets in the index.
 8. Repeat steps 3-7 for each file.
 
-<div style="text-align: center">
+<div align="center">
 <img width="90%" src="img/0019-240529-cesium-race-conditions/GC-Races.png">
     <h6>Life cycle of a Garbage Collection</h6>
 </div>
@@ -547,7 +547,7 @@ the iterator's frame in chronological order (i.e. append if we are reading `Next
 if we are reading `Prev`)
 3. Move the internal iterator forward to the next domain.
 
-<div style="text-align: center">
+<div align="center">
     <img width="90%" src="img/0019-240529-cesium-race-conditions/Unary-Read-Races.png">
     <h6>Unary iterator's <i>Next</i> operation</h6>
 </div>
