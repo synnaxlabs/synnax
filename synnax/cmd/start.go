@@ -82,7 +82,7 @@ func start(cmd *cobra.Command) {
 	var (
 		ins, prettyLogger = configureInstrumentation(v)
 		insecure          = viper.GetBool("insecure")
-		verbose           = viper.GetBool("verbose")
+		debug             = viper.GetBool("debug")
 		autoCert          = viper.GetBool("auto-cert")
 		verifier          = viper.GetString(string(decodedName))
 	)
@@ -94,7 +94,8 @@ func start(cmd *cobra.Command) {
 		}
 	}
 
-	ins.L.Info("starting Synnax node", zap.String("version", v))
+	prettyLogger.Sugar().Infof("\033[34mSynnax version %s starting\033[0m", v)
+	ins.L.Info("starting synnax node", zap.String("version", v))
 
 	interruptC := make(chan os.Signal, 1)
 	signal.Notify(interruptC, os.Interrupt)
@@ -247,7 +248,7 @@ func start(cmd *cobra.Command) {
 			[]fhttp.BindableTransport{r},
 			secProvider,
 			ins,
-			verbose,
+			debug,
 		))
 		if err != nil {
 			return err
@@ -270,12 +271,9 @@ func start(cmd *cobra.Command) {
 			return err
 		}
 		defer func() {
-			ins.L.Warn("embedded driver shutting down")
 			err = errors.CombineErrors(err, d.Stop())
-			ins.L.Warn("embedded driver shutdown complete")
 		}()
 
-		<-srv.Started()
 		prettyLogger.Info("\033[32mSynnax is running and available at " + viper.GetString("listen") + "\033[0m")
 
 		<-ctx.Done()
@@ -285,11 +283,13 @@ func start(cmd *cobra.Command) {
 	select {
 	case <-interruptC:
 		ins.L.Info("received interrupt signal, shutting down")
+		prettyLogger.Info("\033[33mSynnax is shutting down\033[0m")
 		cancel()
 	case <-sCtx.Stopped():
 	}
 
 	if err := sCtx.Wait(); err != nil && !errors.Is(err, context.Canceled) {
+		prettyLogger.Sugar().Errorf("\033[31mSynnax has encountered an error and is shutting down: %v\033[0m", err)
 		ins.L.Fatal("synnax failed", zap.Error(err))
 	}
 	ins.L.Info("shutdown successful")

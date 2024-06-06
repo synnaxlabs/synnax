@@ -317,7 +317,7 @@ func (s *streamServer[RQ, RS]) fiberHandler(fiberCtx *fiber.Ctx) error {
 					close(stream.contextC)
 					stream.cancel()
 					return nil
-				}(); err != nil {
+				}(); err != nil && !errors.Is(err, context.Canceled) {
 					s.L.Error("stream server handler error", zap.Error(err))
 				}
 			})(fiberCtx)

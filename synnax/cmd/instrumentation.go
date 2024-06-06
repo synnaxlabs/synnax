@@ -47,16 +47,23 @@ func cleanupInstrumentation(ctx context.Context, i alamos.Instrumentation) {
 
 func configureLogger() (*alamos.Logger, error) {
 	verbose := viper.GetBool("verbose")
+	debug := viper.GetBool("debug")
 	var cfg zap.Config
-	if verbose {
+	if debug {
 		cfg = zap.NewDevelopmentConfig()
+	} else {
+		cfg = zap.NewProductionConfig()
+	}
+	if verbose || debug {
 		cfg.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
 		cfg.EncoderConfig.EncodeTime = zapcore.TimeEncoderOfLayout("15:04:05.000")
 		cfg.Encoding = "console"
 		cfg.EncoderConfig.EncodeCaller = zapcore.ShortCallerEncoder
-	} else {
-		cfg = zap.NewProductionConfig()
+	}
+	if !debug {
 		cfg.Level = zap.NewAtomicLevelAt(zapcore.InfoLevel)
+		cfg.DisableStacktrace = true
+		cfg.DisableCaller = true
 	}
 	return alamos.NewLogger(alamos.LoggerConfig{ZapConfig: cfg})
 }
@@ -67,6 +74,7 @@ func newPrettyLogger() *zap.Logger {
 	cfg.EncoderConfig.EncodeTime = zapcore.TimeEncoderOfLayout("15:04:05.000")
 	cfg.Encoding = "console"
 	cfg.EncoderConfig.EncodeCaller = zapcore.ShortCallerEncoder
+	cfg.DisableStacktrace = true
 	logger, _ := cfg.Build()
 	return logger
 }
