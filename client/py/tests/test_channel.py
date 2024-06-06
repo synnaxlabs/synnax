@@ -181,11 +181,40 @@ class TestChannelClient:
         results = client.channels.retrieve(names)
         assert len(results) == 0
 
+    def test_delete_and_recreate_with_same_name(self, client: sy.Synnax):
+        name = str(uuid.uuid4())
+        ch = client.channels.create(
+            sy.Channel(
+                name=name,
+                rate=1 * sy.Rate.HZ,
+                data_type=sy.DataType.FLOAT64,
+            ),
+            retrieve_if_name_exists=True
+        )
+        client.channels.delete(name)
+        with pytest.raises(sy.NotFoundError):
+            client.channels.retrieve(ch.key)
+        ch2 = client.channels.create(
+            sy.Channel(
+                name=name,
+                rate=1 * sy.Rate.HZ,
+                data_type=sy.DataType.FLOAT64,
+            ),
+            retrieve_if_name_exists=True
+        )
+        assert ch2.key != ch.key
+        ch2_retrieved = client.channels.retrieve(name)
+        assert ch2.key == ch2_retrieved.key
+        all_channels = client.channels.retrieve([".*"])
+        keys = [channel.key for channel in all_channels]
+        assert ch2.key in keys
+
     def test_single_rename(self, client: sy.Synnax):
         """Should rename a single channel"""
+        name = str(uuid.uuid4())
         channel = client.channels.create(
             sy.Channel(
-                name="test",
+                name=name,
                 rate=1 * sy.Rate.HZ,
                 data_type=sy.DataType.FLOAT64,
             )
@@ -194,6 +223,8 @@ class TestChannelClient:
         client.channels.rename(channel.key, new_name)
         retrieved = client.channels.retrieve(new_name)
         assert retrieved.name == new_name
+        with pytest.raises(sy.NotFoundError):
+            client.channels.retrieve(name)
 
     def test_multiple_rename(self, client: sy.Synnax):
         """Should rename multiple channels"""
