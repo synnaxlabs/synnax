@@ -34,7 +34,9 @@ namespace ni{
 
         LinearScale(config::Parser & parser) 
         :   slope(parser.required<double>("slope")),
-            offset(parser.required<double>("y_intercept")){}
+            offset(parser.required<double>("y_intercept")){
+                if(!parser.ok()) LOG(ERROR) << "[ni.analog] failed to parse custom linear configuration";
+            }
 
     } LinearScale;
 
@@ -50,7 +52,9 @@ namespace ni{
         :   prescaled_min(parser.required<double>("pre_scaled_min")),
             prescaled_max(parser.required<double>("pre_scaled_max")),
             scaled_min(parser.required<double>("scaled_min")),
-            scaled_max(parser.required<double>("scaled_max")){}
+            scaled_max(parser.required<double>("scaled_max")){
+                if(!parser.ok()) LOG(ERROR) << "[ni.analog] failed to parse custom map configuration";
+            }
 
 
     } MapScale;
@@ -72,6 +76,14 @@ namespace ni{
             max_x(parser.required<double>("max_x")),
             num_points(parser.required<int>("num_points")),
             poly_order(parser.required<int>("poly_order")){
+
+            if(!parser.ok()){
+                LOG(ERROR) << "[ni.analog] failed to parse custom polynomial scale configuration";
+                forward_coeffs = nullptr;
+                reverse_coeffs = nullptr;
+                return;
+            }
+
             //get json from parser
             json j = parser.get_json();
             // get forward coeffs (prescale -> scale conversions)   
@@ -90,8 +102,10 @@ namespace ni{
         }
 
         ~PolynomialScale(){
-            delete[] forward_coeffs;
-            delete[] reverse_coeffs;
+            if(forward_coeffs != nullptr && reverse_coeffs != nullptr){
+                delete[] forward_coeffs;
+                delete[] reverse_coeffs;
+            }
         }
 
     } PolynomialScale;
@@ -105,6 +119,13 @@ namespace ni{
 
         TableScale(config::Parser & parser) 
         : num_points(parser.required<int>("num_points")){
+            if(!parser.ok()){
+                LOG(ERROR) << "[ni.analog] failed to parse custom table configuration";
+                prescaled = nullptr;
+                scaled = nullptr;
+                return;
+            }
+
             //get json from parser
             json j = parser.get_json();
             if(!j.contains("prescaled") || !j.contains("scaled")){
@@ -112,16 +133,20 @@ namespace ni{
             }
             std::vector<double> prescaled_vec = j["prescaled"]; 
             std::vector<double> scaled_vec = j["scaled"]; 
+
             prescaled = new double[num_points];
             scaled = new double[num_points];
+
             for(int i = 0; i < prescaled_vec.size(); i++){
                 prescaled[i] = prescaled_vec[i];
                 scaled[i] = scaled_vec[i];
             }
         }
         ~TableScale(){
-            delete[] prescaled;
-            delete[] scaled;
+            if(prescaled != nullptr && scaled != nullptr){
+                delete[] prescaled;
+                delete[] scaled;
+            }
         }
     } TableScale;
 
@@ -151,6 +176,10 @@ namespace ni{
             prescaled_units(parser.optional<std::string>("pre_scaled_units", "")),
             scaled_units(parser.optional<std::string>("scaled_units", "")),
             parser(parser){
+            if(!parser.ok()){
+                LOG(ERROR) << "[ni.analog] failed to parse custom scale configuration for " << name;
+                return;
+            }
             if(type == "linear"){
                 scale.linear = LinearScale(parser);
             } else if(type == "map"){
