@@ -225,7 +225,7 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 				Persist:                  config.Bool(cfg.Mode.Persist()),
 				EnableAutoCommit:         cfg.EnableAutoCommit,
 				AutoIndexPersistInterval: cfg.AutoIndexPersistInterval,
-				ErrOnAuthorized:          cfg.ErrOnUnauthorized,
+				ErrOnUnauthorized:        cfg.ErrOnUnauthorized,
 			})
 			if err != nil {
 				return nil, err
