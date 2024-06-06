@@ -75,6 +75,16 @@ struct Frame {
     // implement the ostream operator
     friend std::ostream &operator<<(std::ostream &os, const Frame &f);
 
+    template<typename NumericType>
+    NumericType at(synnax::ChannelKey key, int index) const {
+        for (size_t i = 0; i < channels->size(); i++) {
+            if (channels->at(i) == key)
+                return series->at(i).at<NumericType>(index);
+        }
+        throw std::runtime_error("channel not found");
+    }
+
+
     [[nodiscard]] size_t size() const { return series->size(); }
 };
 
@@ -208,6 +218,7 @@ public:
     /// durable immediately. Lower values will decrease write throughput. Defaults to 
     /// 1s when auto commit is enabled.
     synnax::TimeSpan auto_index_persist_interval = 1 * synnax::SECOND;
+
 private:
     /// @brief binds the configuration fields to it's protobuf representation.
     void toProto(api::v1::FrameWriterConfig *f) const;
@@ -215,7 +226,6 @@ private:
     friend class FrameClient;
     friend class Writer;
 };
-
 
 /// @brief used to write a new domain of telemetry frames to a set of channels in time
 /// order. Writer cannot be constructed directly, and should instead be opened using
@@ -261,6 +271,7 @@ public:
     /// MUST be closed after use, or the caller risks leaking resources. Calling any
     /// method on a closed writer will throw a runtime_error.
     freighter::Error close() const;
+
 private:
     /// @brief whether an error has occurred in the write pipeline.
     bool err_accumulated = false;

@@ -91,7 +91,7 @@ void task::Manager::run(std::atomic<bool> &done) {
     done = true;
     done.notify_all();
     run_err = err;
-    LOG(INFO) << "[manager] run thread exiting";
+    LOG(INFO) << "[task.manager] run thread exiting";
 }
 
 freighter::Error task::Manager::stop() {

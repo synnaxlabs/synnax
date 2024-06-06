@@ -34,7 +34,7 @@ struct ReaderChannelConfig {
     ): node_id(parser.required<std::string>("node_id")),
        node(parseNodeId("node_id", parser)),
        channel(parser.required<ChannelKey>("channel")),
-        enabled(parser.optional<bool>("enabled", true)) {
+       enabled(parser.optional<bool>("enabled", true)) {
     }
 };
 
@@ -76,7 +76,12 @@ public:
        task(std::move(task)),
        cfg(std::move(cfg)),
        breaker(breaker::Breaker(breaker)),
-       pipe(pipeline::Acquisition(ctx, writer_config, source, breaker_config)) {
+       pipe(pipeline::Acquisition(
+           ctx->client,
+           std::move(writer_config),
+           std::move(source),
+           breaker_config
+       )) {
     }
 
     static std::unique_ptr<task::Task> configure(
@@ -85,11 +90,10 @@ public:
     );
 
     void exec(task::Command &cmd) override;
-    
+
     void stop();
 
     void start();
-
 
 private:
     std::shared_ptr<task::Context> ctx;

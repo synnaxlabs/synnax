@@ -14,6 +14,6 @@
 namespace driver {
     const std::string ERROR_PREFIX = "sy.driver.";
     const std::string TYPE_CRITICAL_HARDWARE_ERROR = ERROR_PREFIX + "hardware.critical";
-    const std::string TYPE_TEMPORARY_HARDWARE_ERROR = ERROR_PREFIX + "hardware.temporary";
+    const std::string TEMPORARY_HARDWARE_ERROR = ERROR_PREFIX + "hardware.temporary";
     const std::string TYPE_CONFIGURATION_ERROR = ERROR_PREFIX + "configuration";
 }

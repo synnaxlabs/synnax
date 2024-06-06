@@ -125,35 +125,7 @@ public:
         req.nodesToReadSize = readValueIds.size();
     }
 
-    freighter::Error start() override {
-        curr_state.variant = "success";
-        curr_state.details = json{
-            {"message", "Task started successfully"},
-            {"running", true}
-        };
-        ctx->setState(curr_state);
-        return freighter::NIL;
-    }
-
-    freighter::Error stop() override {
-        if (curr_state.variant != "error") {
-            curr_state.variant = "success";
-            curr_state.details = json{
-                {"message", "Task stopped successfully"},
-                {"running", false}
-            };
-        } else {
-            curr_state.details = json{
-                {"message", "Task stopped: " + curr_state.details["message"].get<std::string>()},
-                {"running", false}
-            };
-        }
-
-        ctx->setState(curr_state);
-        return freighter::NIL;
-    }
-
-    void sendError(freighter::Error err) override {
+    void stoppedWithErr(const freighter::Error &err) override {
         curr_state.variant = "error";
         curr_state.details = json{
             {"message", err.message()},
@@ -170,7 +142,7 @@ public:
             status == UA_STATUSCODE_BADCONNECTIONREJECTED ||
             status == UA_STATUSCODE_BADSECURECHANNELCLOSED
         ) {
-            err.type = driver::TYPE_TEMPORARY_HARDWARE_ERROR;
+            err.type = driver::TEMPORARY_HARDWARE_ERROR;
             err.data = "connection rejected";
             curr_state.variant = "warning";
             curr_state.details = json{
