@@ -53,6 +53,7 @@ const std::map<std::string, int32_t> ni::UNITS_MAP = {
 
 
 void ni::Source::getIndexKeys(){
+    LOG(INFO) << "[NI Reader] acquiring index channels for task " << this->reader_config.task_name;
     std::set<std::uint32_t> index_keys;
     //iterate through channels in reader config
     for (auto &channel : this->reader_config.channels){
@@ -65,6 +66,8 @@ void ni::Source::getIndexKeys(){
             index_keys.insert(channel_info.index);
         }
     }
+
+    LOG(INFO) << "[NI Reader] acquiring index channels for task 2 " << this->reader_config.task_name;
 
     // now iterate through the set and add all the index channels as configs
     for (auto it = index_keys.begin(); it != index_keys.end(); ++it){
@@ -100,14 +103,18 @@ void ni::Source::parseConfig(config::Parser &parser){
     this->reader_config.timing_source = "none"; // parser.required<std::string>("timing_source"); TODO: uncomment this when ui provides timing source
 
 
-    auto [dev, err] = this->ctx->client->hardware.retrieveDevice(this->reader_config.device_key);
-
-    if (err != freighter::NIL) {
-        this->logError("failed to retrieve device " + this->reader_config.device_name);
-        return;
+    if(parser.optional<bool>("test", false)){
+        this->reader_config.device_name = parser.required<std::string>("device_location");
+    } else{
+        auto [dev, err] = this->ctx->client->hardware.retrieveDevice(this->reader_config.device_key);
+        if (err != freighter::NIL) {
+            this->logError("failed to retrieve device " + this->reader_config.device_name);
+            return;
+        }
+        this->reader_config.device_name = dev.location;
     }
+   
 
-    this->reader_config.device_name = dev.location;
     this->parseChannels(parser);
      if (!parser.ok() || !this->ok()){
         this->logError("failed to parse channels for " + this->reader_config.task_name + " Parser Error: " + parser.error_json().dump());
@@ -135,7 +142,10 @@ int ni::Source::init(){
                              .details = config_parser.error_json()});
         return -1;
     }
+
+    LOG(INFO) << "[NI Reader] parsed config for " << this->reader_config.task_name;
     this->getIndexKeys(); 
+    LOG(INFO) << "[NI Reader] index channels acquired for " << this->reader_config.task_name;
     // Create breaker
     auto breaker_config = breaker::Config{
         .name = task.name,
@@ -151,7 +161,7 @@ int ni::Source::init(){
 
     // Configure buffer size and read resources
     if(this->reader_config.sample_rate < this->reader_config.stream_rate){
-        this->logError("[NI Reader] Failed while configuring timing for NI hardware for task " + this->reader_config.task_name);
+        this->logError("Failed while configuring timing for NI hardware for task " + this->reader_config.task_name);
         this->err_info["error type"] = "Configuration Error";
         this->err_info["error details"] = "Stream rate is greater than sample rate";
         this->ctx->setState({.task = this->reader_config.task_key,
@@ -159,7 +169,8 @@ int ni::Source::init(){
                              .details = err_info});
         return -1;
     }
-
+    
+    LOG(INFO) << "[NI Reader] configuring timing for NI hardware for task " << this->reader_config.task_name;
     if (this->configureTiming()) this->logError("[NI Reader] Failed while configuring timing for NI hardware for task " + this->reader_config.task_name);
 
 
@@ -170,6 +181,7 @@ int ni::Source::init(){
 
 
 freighter::Error ni::Source::start(){
+    LOG(INFO) << "[NI Reader] starting reader for task " << this->reader_config.task_name;
     if(this->running.exchange(true) || !this->ok()){
         return freighter::NIL;
     }
@@ -184,6 +196,7 @@ freighter::Error ni::Source::start(){
 }
 
 freighter::Error ni::Source::stop(){
+    LOG(INFO) << "[NI Reader] stopping reader for task " << this->reader_config.task_name;
     if(!this->running.exchange(false) || !this->ok()){
         return freighter::NIL;
     }
@@ -193,6 +206,7 @@ freighter::Error ni::Source::stop(){
         return freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
     }
     data_queue.reset();
+    LOG(INFO) << "[NI Reader] stopped reader for task " << this->reader_config.task_name;
     return  freighter::NIL;
 
 }
@@ -211,9 +225,9 @@ ni::Source::~Source(){
 
 int ni::Source::checkNIError(int32 error){
     if (error < 0){
-        char errBuff[2048] = {'\0'};
+        char errBuff[4096] = {'\0'};
 
-        ni::NiDAQmxInterface::GetExtendedErrorInfo(errBuff, 2048);
+        ni::NiDAQmxInterface::GetExtendedErrorInfo(errBuff, 4096);
 
         this->err_info["error type"] = "Vendor Error";
         this->err_info["error details"] = errBuff;
@@ -222,7 +236,8 @@ int ni::Source::checkNIError(int32 error){
                              .variant = "error",
                              .details = err_info});
 
-        this->logError("Vendor Error: " +  this->err_info["error details"].dump());
+        LOG(ERROR) << "[NI Reader] Vendor error: " << this->err_info["error details"];
+        this->ok_state = false;
         return -1;
     }
     return 0;

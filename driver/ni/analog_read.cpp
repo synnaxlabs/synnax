@@ -92,6 +92,7 @@ int ni::AnalogReadSource::configureTiming(){
     // make a make a call to read 10 samples at 100hz
     this->numSamplesPerChannel = std::floor(this->reader_config.sample_rate / this->reader_config.stream_rate);
     this->bufferSize = this->numAIChannels * this->numSamplesPerChannel;
+    LOG(INFO) << "[NI Reader] Configured timing for task " << this->reader_config.task_name;
     return 0;
 }
 

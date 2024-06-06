@@ -90,7 +90,7 @@ namespace ni{
             if(!j.contains("forward_coeffs")){
                 return; // TODO: log error
             }
-            std::vector<double> forward_coeffs_vec = j["forward_coeffs"]; 
+            std::vector<double> forward_coeffs_vec = j["forward_coeffs"].get<std::vector<double>>(); 
             forward_coeffs = new double[num_coeffs];
             // std::memcpy(forward_coeffs, other.forward_coeffs, num_coeffs * sizeof(double)); do this instead?
             for(int i = 0; i < forward_coeffs_vec.size(); i++){
@@ -131,8 +131,8 @@ namespace ni{
             if(!j.contains("prescaled") || !j.contains("scaled")){
                 return; // TODO: log error
             }
-            std::vector<double> prescaled_vec = j["prescaled"]; 
-            std::vector<double> scaled_vec = j["scaled"]; 
+            std::vector<double> prescaled_vec = j["prescaled"].get<std::vector<double>>(); 
+            std::vector<double> scaled_vec = j["scaled"].get<std::vector<double>>(); 
 
             prescaled = new double[num_points];
             scaled = new double[num_points];
@@ -188,9 +188,7 @@ namespace ni{
                 scale.polynomial = PolynomialScale(parser);
             } else if(type == "table"){
                 scale.table = TableScale(parser);
-            } else{
-                LOG(ERROR) << "failed to parse custom scale configuration for";
-            }
+            } 
         }
 
         // copy constructor
@@ -240,23 +238,23 @@ namespace ni{
             if(type == "linear"){
 
                 return ni::NiDAQmxInterface::CreateLinScale( 
-                            name.c_str(), 
-                            scale.linear.slope, 
-                            scale.linear.offset,
-                            ni::UNITS_MAP.at(prescaled_units), 
-                            scaled_units.c_str() 
-                        );
+                    name.c_str(), 
+                    scale.linear.slope, 
+                    scale.linear.offset,
+                    ni::UNITS_MAP.at(prescaled_units), 
+                    scaled_units.c_str() 
+                );
             } else if(type == "map"){
 
                 return ni::NiDAQmxInterface::CreateMapScale(
-                            name.c_str(), 
-                            scale.map.prescaled_min, 
-                            scale.map.prescaled_max, 
-                            scale.map.scaled_min, 
-                            scale.map.scaled_max, 
-                            ni::UNITS_MAP.at(prescaled_units), 
-                            scaled_units.c_str()
-                        );
+                    name.c_str(), 
+                    scale.map.prescaled_min, 
+                    scale.map.prescaled_max, 
+                    scale.map.scaled_min, 
+                    scale.map.scaled_max, 
+                    ni::UNITS_MAP.at(prescaled_units), 
+                    scaled_units.c_str()
+                );
             } else if(type == "polynomial"){
 
                 float64 forward_coeffs_in[1000];
@@ -266,14 +264,14 @@ namespace ni{
                     reverse_coeffs_in[i] = scale.polynomial.reverse_coeffs[i];
                 }
                 return ni::NiDAQmxInterface::CreatePolynomialScale(
-                            name.c_str(), 
-                            forward_coeffs_in, 
-                            scale.polynomial.num_coeffs, 
-                            reverse_coeffs_in, 
-                            scale.polynomial.num_coeffs,
-                            ni::UNITS_MAP.at(prescaled_units), 
-                            scaled_units.c_str()
-                        );
+                    name.c_str(), 
+                    forward_coeffs_in, 
+                    scale.polynomial.num_coeffs, 
+                    reverse_coeffs_in, 
+                    scale.polynomial.num_coeffs,
+                    ni::UNITS_MAP.at(prescaled_units), 
+                    scaled_units.c_str()
+                );
             } else if(type == "table"){
                 float64 prescaled_in[10000];
                 float64 scaled_in[10000];
@@ -284,23 +282,17 @@ namespace ni{
                 }   
 
                 return ni::NiDAQmxInterface::CreateTableScale(
-                            name.c_str(), 
-                            prescaled_in, 
-                            scale.table.num_points, 
-                            scaled_in, 
-                            scale.table.num_points, 
-                            ni::UNITS_MAP.at(prescaled_units), 
-                            scaled_units.c_str()
-                        );
-
-                return 0;
-            } else{
-                LOG(ERROR) << "failed to create custom scale for " << name;
-                return -1;
-            }
+                    name.c_str(), 
+                    prescaled_in, 
+                    scale.table.num_points, 
+                    scaled_in, 
+                    scale.table.num_points, 
+                    ni::UNITS_MAP.at(prescaled_units), 
+                    scaled_units.c_str()
+                );
+            } 
+            return 0;
         }
-
-
     } ScaleConfig;
 };
 
