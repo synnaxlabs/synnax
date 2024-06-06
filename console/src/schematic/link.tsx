@@ -20,7 +20,6 @@ export const linkHandler: Link.Handler = async ({
   if (resource !== "schematic") return false;
   try {
     const schematic = await client.workspaces.schematic.retrieve(resourceKey);
-    if (schematic == null) return false;
     const layoutCreator = create({
       ...(schematic.data as unknown as State),
       key: schematic.key,

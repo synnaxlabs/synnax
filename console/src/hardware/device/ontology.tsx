@@ -78,10 +78,11 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       case "delete":
         handleDelete(props);
         break;
-      case "link":
+      case "link": {
         const toCopy = `synnax://cluster/${clusterKey}/device/${selection.resources[0].id.key}`;
         void navigator.clipboard.writeText(toCopy);
         break;
+      }
     }
   };
 

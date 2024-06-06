@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { nanoid } from "nanoid";
 import { ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
@@ -18,6 +17,7 @@ import {
   telem,
 } from "@synnaxlabs/pluto";
 import { Tree } from "@synnaxlabs/pluto/tree";
+import { nanoid } from "nanoid";
 import { type ReactElement } from "react";
 
 import { Cluster } from "@/cluster";
@@ -184,10 +184,11 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       case "group":
         void Group.fromSelection(props);
         break;
-      case "link":
+      case "link": {
         const toCopy = `synnax://cluster/${clusterKey}/channel/${resources[0].id.key}`;
         void navigator.clipboard.writeText(toCopy);
         return;
+      }
     }
   };
 

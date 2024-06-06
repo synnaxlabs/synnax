@@ -179,10 +179,12 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         return;
       case "group":
         void Group.fromSelection(props);
-      case "link":
+        return;
+      case "link": {
         const toCopy = `synnax://cluster/${clusterKey}/range/${resources[0].id.key}`;
         void navigator.clipboard.writeText(toCopy);
         return;
+      }
     }
   };
 

@@ -20,7 +20,6 @@ export const linkHandler: Link.Handler = async ({
   if (resource != "range") return false;
   try {
     const range = await client.ranges.retrieve(resourceKey);
-    if (range == null) return false;
     dispatch(setActive(range.key));
   } catch (e) {
     addStatus({

@@ -73,10 +73,11 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           services: props.services,
         });
         break;
-      case "link":
+      case "link": {
         const url = `synnax://cluster/${clusterKey}/task/${selection.resources[0].id.key}`;
         void navigator.clipboard.writeText(url);
         break;
+      }
     }
   };
 

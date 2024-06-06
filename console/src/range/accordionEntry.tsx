@@ -13,7 +13,6 @@ import { type label, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   componentRenderProp,
-  Divider,
   Ranger,
   Synnax,
   Tag,
@@ -159,11 +158,12 @@ export const List = (): ReactElement => {
         case "setActive":
           if (rng == null) return;
           return handleSetActive(rng.key);
-        case "link":
+        case "link": {
           if (rng == null) return;
           const toCopy = `synnax://cluster/${clusterKey}/range/${rng.key}`;
           void navigator.clipboard.writeText(toCopy);
           return;
+        }
       }
     };
     return (

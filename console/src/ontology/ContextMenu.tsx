@@ -11,8 +11,8 @@ import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { Group } from "@/group";
 import { Menu } from "@/components/menu";
+import { Group } from "@/group";
 import { type TreeContextMenu } from "@/ontology/service";
 
 export const MultipleSelectionContextMenu: TreeContextMenu = (props) => {

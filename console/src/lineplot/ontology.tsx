@@ -11,12 +11,12 @@ import { ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import { Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
 
-import { Layout } from "@/layout";
-import { Link } from "@/link";
-import { create, type State } from "@/lineplot/slice";
-import { Menu } from "@/components/menu";
-import { Ontology } from "@/ontology";
 import { Cluster } from "@/cluster";
+import { Menu } from "@/components/menu";
+import { Layout } from "@/layout";
+import { create, type State } from "@/lineplot/slice";
+import { Link } from "@/link";
+import { Ontology } from "@/ontology";
 
 const TreeContextMenu: Ontology.TreeContextMenu = ({
   client,
@@ -42,7 +42,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
 
   const handleRename = (): void => Tree.startRenaming(resources[0].key);
 
-  const handleCopyUrl = (): void => {
+  const handleCopyLink = (): void => {
     const toCopy = `synnax://cluster/${clusterKey}/lineplot/${resources[0].id.key}`;
     void navigator.clipboard.writeText(toCopy);
   };
@@ -50,7 +50,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
   const f: Record<string, () => void> = {
     delete: handleDelete,
     rename: handleRename,
-    link: handleCopyUrl,
+    link: handleCopyLink,
   };
 
   const onSelect = (key: string): void => f[key]();

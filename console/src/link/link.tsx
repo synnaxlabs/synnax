@@ -7,20 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Dispatch, UnknownAction } from "@reduxjs/toolkit";
 import { Synnax } from "@synnaxlabs/client";
+import { Drift } from "@synnaxlabs/drift";
 import { Icon } from "@synnaxlabs/media";
 import {
-  Synnax as PSynnax,
   Menu,
+  Status,
+  Synnax as PSynnax,
   useAsyncEffect,
   useSyncedRef,
-  Status,
 } from "@synnaxlabs/pluto";
-import { ReactElement } from "react";
 import { onOpenUrl } from "@tauri-apps/plugin-deep-link";
-import { Dispatch, UnknownAction } from "@reduxjs/toolkit";
+import { ReactElement } from "react";
 import { useDispatch, useStore } from "react-redux";
-import { Drift } from "@synnaxlabs/drift";
 
 import { Cluster } from "@/cluster";
 import { Layout } from "@/layout";
@@ -48,7 +48,7 @@ export const useDeep = ({ handlers }: UseDeepLinkProps): void => {
   const placer = Layout.usePlacer();
   const store = useStore();
   const openUrlErrorMessage =
-    "Error: Cannot open URL, URLs must be of the form synnax://cluster/<cluster-key> or synnax://cluster/<cluster-key>/<resource>/<resource-key>";
+    "Cannot open URL, URLs must be of the form synnax://cluster/<cluster-key> or synnax://cluster/<cluster-key>/<resource>/<resource-key>";
   const addOpenUrlErrorStatus = () => {
     addStatus({
       variant: "error",
@@ -87,7 +87,7 @@ export const useDeep = ({ handlers }: UseDeepLinkProps): void => {
         addStatus({
           variant: "error",
           key: "openUrlError-${clusterKey}",
-          message: `Error: Cannot open URL, Cluster with key ${clusterKey} not found`,
+          message: `Cannot open URL, Cluster with key ${clusterKey} not found`,
         });
       };
       if (connParams == null) {
@@ -105,7 +105,7 @@ export const useDeep = ({ handlers }: UseDeepLinkProps): void => {
       // Processing the resource part of URL
       const resource = urlParts[2];
       const resourceKey = urlParts[3];
-      for (let h of handlers)
+      for (const h of handlers)
         if (
           await h({
             resource,
@@ -120,7 +120,7 @@ export const useDeep = ({ handlers }: UseDeepLinkProps): void => {
       addStatus({
         variant: "error",
         key: "openUrlError-ResourceNotFound-",
-        message: `Error: Cannot open URL, ${resource} is not a valid resource type`,
+        message: `Cannot open link, ${resource} is unknown`,
       });
     });
     return () => unlisten();
@@ -129,6 +129,6 @@ export const useDeep = ({ handlers }: UseDeepLinkProps): void => {
 
 export const CopyMenuItem = (): ReactElement => (
   <Menu.Item itemKey="link" size="small" startIcon={<Icon.Link />}>
-    Copy resource URL
+    Copy link
   </Menu.Item>
 );

@@ -25,12 +25,12 @@ import { Text } from "@synnaxlabs/pluto/text";
 import { type MouseEventHandler, type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
+import { Cluster } from "@/cluster";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { createWindowLayout } from "@/workspace/Create";
 import { useSelectActive } from "@/workspace/selectors";
 import { add, setActive } from "@/workspace/slice";
-import { Cluster } from "@/cluster";
 
 export const Selector = (): ReactElement => {
   const client = Synnax.use();
