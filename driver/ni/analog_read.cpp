@@ -23,12 +23,6 @@
 using json = nlohmann::json;
 
 
-void  ParseFloats(std::vector<float64> vec, double* arr){
-    for(int i = 0; i < vec.size(); i++){
-        arr[i] = vec[i];
-    }
-}
-
 void ni::AnalogReadSource::parseChannels(config::Parser &parser){
     LOG(INFO) << "[NI Reader] Parsing Channels for task " << this->reader_config.task_name;
     // now parse the channels
@@ -71,7 +65,6 @@ void ni::AnalogReadSource::parseChannels(config::Parser &parser){
 
 int ni::AnalogReadSource::configureTiming(){
     if(this->reader_config.timing_source == "none"){
-        LOG(INFO) << "[NI Reader] configuring timing for task " << this->reader_config.task_name;
         if (this->checkNIError(ni::NiDAQmxInterface::CfgSampClkTiming(this->task_handle,
                                                                   "",
                                                                   this->reader_config.sample_rate,
@@ -94,6 +87,9 @@ int ni::AnalogReadSource::configureTiming(){
             return -1;
         }
     }
+    // we read data in chunks of numSamplesPerChannel such that we can send frames of data of size numSamplesPerChannel at the stream rate
+    // e.g. if we have 4 channels and we want to stream at 100Hz at a 1000hz sample rate
+    // make a make a call to read 10 samples at 100hz
     this->numSamplesPerChannel = std::floor(this->reader_config.sample_rate / this->reader_config.stream_rate);
     this->bufferSize = this->numAIChannels * this->numSamplesPerChannel;
     return 0;
