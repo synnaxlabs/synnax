@@ -82,16 +82,21 @@ json add_AI_channel_JSON(json &config,
                          int port,
                          std::float_t min_val,
                          std::float_t max_val, 
-                         std::string terminal_config){
+                         std::string terminal_config,
+                         json scale_config ){
     // first construct the json object for the channel
     json channel;
     channel["name"] = name;
-    channel["channel_type"] = "analogVoltageInput";
+    channel["type"] = "ai_voltage";
     channel["port"] = port;
-    channel["channel_key"] = key;
+    channel["channel"] = key;
     channel["min_val"] = min_val;
     channel["max_val"] = max_val;
     channel["terminal_config"] = terminal_config;
+    channel["units"] = "Volts";
+    channel["enabled"] = true;
+    channel["key"] = "key";
+    channel["custom_scale"] = scale_config;
 
     // now add json to the channels vector
     // check if the channels array exists
@@ -101,8 +106,7 @@ json add_AI_channel_JSON(json &config,
     config["channels"].push_back(channel);
     return  channel;
                             
-                         }
-
+}
 
                          
 json add_DO_channel_JSON(json &config,
