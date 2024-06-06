@@ -45,8 +45,8 @@ void ni::AnalogReadSource::parseChannels(config::Parser &parser){
 
                     config.min_val = channel_builder.required<float_t>("min_val");
                     config.max_val = channel_builder.required<std::float_t>("max_val");
-                    auto terminal_config = channel_builder.required<std::string>("terminal_config");
 
+                    auto terminal_config = channel_builder.required<std::string>("terminal_config");
                     config.terminal_config =     (terminal_config == "PseudoDiff") ? DAQmx_Val_PseudoDiff 
                                             :    (terminal_config == "Diff") ? DAQmx_Val_Diff
                                             :    (terminal_config == "NRSE") ? DAQmx_Val_NRSE
@@ -54,8 +54,9 @@ void ni::AnalogReadSource::parseChannels(config::Parser &parser){
                                             :    DAQmx_Val_Cfg_Default;
                 
                     // check for custom scale
+                    std::string scale_name = std::to_string(config.channel_key) + "_scale";
                     auto scale_parser = channel_builder.child("custom_scale");
-                    config.scale_config = ScaleConfig(scale_parser);
+                    config.scale_config = ScaleConfig(scale_parser, scale_name);
                     
                     this->reader_config.channels.push_back(config);
                 });
@@ -77,7 +78,6 @@ int ni::AnalogReadSource::configureTiming(){
         return -1;
     }
     } else{
-        LOG(INFO) << "[NI Reader] configuring special timing for task " << this->reader_config.task_name;
         if (this->checkNIError(ni::NiDAQmxInterface::CfgSampClkTiming(this->task_handle,
                                                                     this->reader_config.timing_source.c_str(),
                                                                     this->reader_config.sample_rate,
@@ -99,7 +99,6 @@ void ni::AnalogReadSource::acquireData(){
         DataPacket data_packet;
         data_packet.data = new double[this->bufferSize];
         data_packet.t0 = (uint64_t) ((synnax::TimeStamp::now()).value);
-        LOG(INFO) << "[NI Reader] Reading analog data for task " << this->reader_config.task_name;
         if (this->checkNIError(ni::NiDAQmxInterface::ReadAnalogF64(
                                                             this->task_handle,
                                                             this->numSamplesPerChannel,
@@ -157,7 +156,6 @@ std::pair<synnax::Frame, freighter::Error> ni::AnalogReadSource::read(){
 
 
 int ni::AnalogReadSource::createChannel(ni::ChannelConfig &channel){
-    LOG(INFO) << "[NI Reader] Creating channel " << channel.name;
     if(channel.scale_config.type == "none"){
         return  this->checkNIError(ni::NiDAQmxInterface::CreateAIVoltageChan( 
                     this->task_handle, 
@@ -170,88 +168,19 @@ int ni::AnalogReadSource::createChannel(ni::ChannelConfig &channel){
                     NULL
                 ));
     } else{
-        // const char	*const customScaleName="Acq Wheatstone Bridge Samples Scale";
-        channel.scale_config.name = std::to_string(channel.channel_key) +  "_scale";
-        if(channel.scale_config.type == "linear"){
-            LOG(INFO) << "[NI Reader] Creating Linear Scale for channel " << channel.name;
-
-            if(this->checkNIError( 
-                ni::NiDAQmxInterface::CreateLinScale(
-                    channel.scale_config.name.c_str(), 
-                    channel.scale_config.scale.linear.slope, 
-                    channel.scale_config.scale.linear.offset, 
-                    ni::UNITS_MAP.at(channel.scale_config.prescaled_units), 
-                    channel.scale_config.scaled_units.c_str()
-            ))){
-                LOG(ERROR) << "[NI Reader] failed while creating linear scale for channel " << channel.name;
-                return -1;
-            }
-
-            LOG(INFO) << "[NI Reader] Created Linear Scale for channel " << channel.name;
-        } 
-        LOG(INFO) << "[NI Reader] Creating Channel with custom scale: " << channel.scale_config.name;
-        
+        this->checkNIError(channel.scale_config.createNIScale());
         return this->checkNIError(ni::NiDAQmxInterface::CreateAIVoltageChan(    
-                    this->task_handle, channel.name.c_str(), 
-                    "", 
-                    channel.terminal_config, 
-                    channel.min_val, 
-                    channel.max_val, 
-                    DAQmx_Val_FromCustomScale,  
-                    channel.scale_config.name.c_str()
-                ));
-
-        //else if(channel.scale_type == "MapScale"){
-        //     this->checkNIError(ni::NiDAQmxInterface::CreateMapScale(
-        //         channel.scale_name.c_str(), 
-        //         channel.scale->map.prescaled_min, 
-        //         channel.scale->map.prescaled_max, 
-        //         channel.scale->map.scaled_min, 
-        //         channel.scale->map.scaled_max, 
-        //         ni::UNITS_MAP.at(channel.scale->map.prescaled_units), 
-        //         channel.scale->map.scaled_units.c_str()
-        //     ));
-
-        // } else if(channel.scale_type == "PolyScale"){
-        //     // create forward and reverse coeffs inputs
-        //     float64 forward_coeffs_in[1000];
-        //     float64 reverse_coeffs_in[1000];
-        //     for(int i = 0; i < channel.scale->polynomial.num_coeffs; i++){
-        //         forward_coeffs_in[i] = channel.scale->polynomial.forward_coeffs[i];
-        //         reverse_coeffs_in[i] = channel.scale->polynomial.reverse_coeffs[i];
-        //     }
-        //     this->checkNIError(ni::NiDAQmxInterface::CreatePolynomialScale(
-        //         channel.scale_name.c_str(), 
-        //         forward_coeffs_in, 
-        //         channel.scale->polynomial.num_coeffs, 
-        //         reverse_coeffs_in, 
-        //         channel.scale->polynomial.num_coeffs,
-        //         ni::UNITS_MAP.at(channel.scale->polynomial.prescaled_units), 
-        //         channel.scale->polynomial.scaled_units.c_str()
-            
-        //     ));
-
-        // } else if(channel.scale_type == "TableScale"){
-        //     // create prescaled and scaled inputs
-        //     float64 prescaled[1000];
-        //     float64 scaled[1000];
-        //     for(int i = 0; i < channel.scale->table.num_points; i++){
-        //         prescaled[i] = channel.scale->table.prescaled[i];
-        //         scaled[i] = channel.scale->table.scaled[i];
-        //     }
-        //     this->checkNIError(ni::NiDAQmxInterface::CreateTableScale(
-        //         channel.scale_name.c_str(), 
-        //         prescaled, 
-        //         channel.scale->table.num_points, 
-        //         scaled,
-        //         channel.scale->table.num_points, 
-        //         ni::UNITS_MAP.at(channel.scale->table.prescaled_units), 
-        //         channel.scale->table.scaled_units.c_str()
-        //     ));
-        // }
-        // create channel
+                this->task_handle, channel.name.c_str(), 
+                "", 
+                channel.terminal_config, 
+                channel.min_val, 
+                channel.max_val, 
+                DAQmx_Val_FromCustomScale,  
+                channel.scale_config.name.c_str()
+            ));
     }
 }
+
 
 int ni::AnalogReadSource::createChannels(){
     int err = 0;

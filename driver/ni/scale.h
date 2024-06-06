@@ -145,8 +145,9 @@ namespace ni{
 
         ScaleConfig() = default;
 
-        ScaleConfig(config::Parser & parser) 
-        :  type(parser.required<std::string>("type")),
+        ScaleConfig(config::Parser & parser, std::string &name) 
+        :   name(name),
+            type(parser.required<std::string>("type")),
             prescaled_units(parser.optional<std::string>("pre_scaled_units", "")),
             scaled_units(parser.optional<std::string>("scaled_units", "")),
             parser(parser){
@@ -204,7 +205,81 @@ namespace ni{
 
         // move constructor
         ScaleConfig(ScaleConfig && other)  = delete;
+
+        // create NI Scale
+        int32 createNIScale(){
+            if(type == "linear"){
+                return ni::NiDAQmxInterface::CreateLinScale( 
+                            name.c_str(), 
+                            scale.linear.slope, 
+                            scale.linear.offset,
+                            ni::UNITS_MAP.at(prescaled_units), 
+                            scaled_units.c_str() 
+                        );
+            } else if(type == "map"){
+                return 0;
+            } else if(type == "polynomial"){
+                return 0;
+            } else if(type == "table"){
+                return 0;
+            } else{
+                LOG(ERROR) << "failed to create custom scale for " << name;
+                return -1;
+            }
+        }
+
+
     } ScaleConfig;
 };
 
 //TODO: do parser checks all over here
+
+  //else if(channel.scale_type == "MapScale"){
+        //     this->checkNIError(ni::NiDAQmxInterface::CreateMapScale(
+        //         channel.scale_name.c_str(), 
+        //         channel.scale->map.prescaled_min, 
+        //         channel.scale->map.prescaled_max, 
+        //         channel.scale->map.scaled_min, 
+        //         channel.scale->map.scaled_max, 
+        //         ni::UNITS_MAP.at(channel.scale->map.prescaled_units), 
+        //         channel.scale->map.scaled_units.c_str()
+        //     ));
+
+        // } else if(channel.scale_type == "PolyScale"){
+        //     // create forward and reverse coeffs inputs
+        //     float64 forward_coeffs_in[1000];
+        //     float64 reverse_coeffs_in[1000];
+        //     for(int i = 0; i < channel.scale->polynomial.num_coeffs; i++){
+        //         forward_coeffs_in[i] = channel.scale->polynomial.forward_coeffs[i];
+        //         reverse_coeffs_in[i] = channel.scale->polynomial.reverse_coeffs[i];
+        //     }
+        //     this->checkNIError(ni::NiDAQmxInterface::CreatePolynomialScale(
+        //         channel.scale_name.c_str(), 
+        //         forward_coeffs_in, 
+        //         channel.scale->polynomial.num_coeffs, 
+        //         reverse_coeffs_in, 
+        //         channel.scale->polynomial.num_coeffs,
+        //         ni::UNITS_MAP.at(channel.scale->polynomial.prescaled_units), 
+        //         channel.scale->polynomial.scaled_units.c_str()
+            
+        //     ));
+
+        // } else if(channel.scale_type == "TableScale"){
+        //     // create prescaled and scaled inputs
+        //     float64 prescaled[1000];
+        //     float64 scaled[1000];
+        //     for(int i = 0; i < channel.scale->table.num_points; i++){
+        //         prescaled[i] = channel.scale->table.prescaled[i];
+        //         scaled[i] = channel.scale->table.scaled[i];
+        //     }
+        //     this->checkNIError(ni::NiDAQmxInterface::CreateTableScale(
+        //         channel.scale_name.c_str(), 
+        //         prescaled, 
+        //         channel.scale->table.num_points, 
+        //         scaled,
+        //         channel.scale->table.num_points, 
+        //         ni::UNITS_MAP.at(channel.scale->table.prescaled_units), 
+        //         channel.scale->table.scaled_units.c_str()
+        //     ));
+        // }
+        // create channel

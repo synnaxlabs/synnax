@@ -56,7 +56,6 @@ void ni::Source::getIndexKeys(){
     std::set<std::uint32_t> index_keys;
     //iterate through channels in reader config
     for (auto &channel : this->reader_config.channels){
-        LOG(INFO) << "constructing index channel configs";
         auto [channel_info, err] = this->ctx->client->channels.retrieve(channel.channel_key);
         // TODO handle error with breaker
         if (err != freighter::NIL){
@@ -70,7 +69,6 @@ void ni::Source::getIndexKeys(){
     // now iterate through the set and add all the index channels as configs
     for (auto it = index_keys.begin(); it != index_keys.end(); ++it){
         auto index_key = *it;
-        LOG(INFO) << "constructing index channel configs";
         auto [channel_info, err] = this->ctx->client->channels.retrieve(index_key);
         if (err != freighter::NIL){
             this->logError("failed to retrieve channel " + index_key);
@@ -81,7 +79,7 @@ void ni::Source::getIndexKeys(){
             index_channel.channel_type = "index";
             index_channel.name = channel_info.name;
             this->reader_config.channels.push_back(index_channel);
-            LOG(INFO) << "[NI Reader] index channel " << index_channel.channel_key << " and name: " << index_channel.name <<" added to task " << this->reader_config.task_name;
+            // LOG(INFO) << "[NI Reader] index channel " << index_channel.channel_key << " and name: " << index_channel.name <<" added to task " << this->reader_config.task_name;
         }
     }
 }
@@ -120,8 +118,6 @@ void ni::Source::parseConfig(config::Parser &parser){
 }
 
 int ni::Source::init(){
-    LOG(INFO) << "[NI Source] init " << this->task.name;
-
     // Create parser
     auto config_parser = config::Parser(this->task.config);
     this->reader_config.task_name = this->task.name;
@@ -139,9 +135,6 @@ int ni::Source::init(){
                              .details = config_parser.error_json()});
         return -1;
     }
-
-    LOG(INFO) << "[NI Reader] successfully parsed configuration for " << this->reader_config.task_name;
-
     this->getIndexKeys(); 
     // Create breaker
     auto breaker_config = breaker::Config{
@@ -177,25 +170,21 @@ int ni::Source::init(){
 
 
 freighter::Error ni::Source::start(){
-    LOG(INFO) << "[NI Reader] starting reader for task " << this->reader_config.task_name;
-    if(this->running.exchange(true)){
-        LOG(ERROR) << "[NI Reader] failed while starting reader for task " << this->reader_config.task_name << " requires reconfigure";
+    if(this->running.exchange(true) || !this->ok()){
         return freighter::NIL;
     }
     if (this->checkNIError(ni::NiDAQmxInterface::StartTask(this->task_handle))){
-        LOG(ERROR) << "[NI Reader] failed while starting reader for task " << this->reader_config.task_name << " requires reconfigure";
         this->logError("failed while starting reader for task " + this->reader_config.task_name + " requires reconfigure");
         this->clearTask();
         return freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
     }else{
         this->sample_thread = std::thread(&ni::Source::acquireData, this);
-        LOG(INFO) << "[NI Reader] successfully started reader for task " << this->reader_config.task_name;
     }
     return freighter::NIL;
 }
 
 freighter::Error ni::Source::stop(){
-    if(!this->running.exchange(false)){
+    if(!this->running.exchange(false) || !this->ok()){
         return freighter::NIL;
     }
     this->sample_thread.join();
@@ -203,7 +192,6 @@ freighter::Error ni::Source::stop(){
         this->logError("failed while stopping reader for task " + this->reader_config.task_name);
         return freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
     }
-    LOG(INFO) << "[NI Reader] successfully stopped  reader for task " << this->reader_config.task_name;
     data_queue.reset();
     return  freighter::NIL;
 
@@ -234,12 +222,11 @@ int ni::Source::checkNIError(int32 error){
                              .variant = "error",
                              .details = err_info});
 
-        this->logError("Vendor Error: " +  this->err_info["error details"]);
+        this->logError("Vendor Error: " +  this->err_info["error details"].dump());
         return -1;
     }
     return 0;
 }
-
 
 bool ni::Source::ok(){ 
     return this->ok_state;
