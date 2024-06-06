@@ -109,17 +109,6 @@ class CacheChannelRetriever:
                     self.__channels.pop(key)
                     self.__names_to_keys.pop(channel.name)
 
-    def rename(self, keys: list[ChannelKey], names: list[ChannelName]) -> None:
-        for key, name in zip(keys, names):
-            channel = self.__channels.get(key)
-            if channel is None:
-                continue
-            self.__channels.pop(key)
-            self.__names_to_keys.pop(channel.name)
-            channel.name = name
-            self.__channels[channel.key] = channel
-            self.__names_to_keys[channel.name] = channel.key
-
     def _(self) -> ChannelRetriever:
         return self
 

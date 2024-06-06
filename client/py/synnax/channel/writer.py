@@ -40,16 +40,6 @@ class _DeleteResponse(Payload):
 
 _CHANNEL_CREATE_ENDPOINT = "/channel/create"
 _CHANNEL_DELETE_ENDPOINT = "/channel/delete"
-_CHANNEL_RENAME_ENDPOINT = "/channel/rename"
-
-
-class _RenameRequest(Payload):
-    keys: ChannelKeys
-    names: ChannelNames
-
-
-class _RenameResponse(Payload):
-    ...
 
 
 class ChannelWriter:
