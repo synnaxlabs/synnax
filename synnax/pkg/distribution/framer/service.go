@@ -54,6 +54,7 @@ type ReadWriteable interface {
 type ReadWriteStreamable interface {
 	Writable
 	Readable
+	Streamable
 }
 
 type WriteStreamable interface {
