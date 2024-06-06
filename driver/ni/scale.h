@@ -209,6 +209,7 @@ namespace ni{
         // create NI Scale
         int32 createNIScale(){
             if(type == "linear"){
+
                 return ni::NiDAQmxInterface::CreateLinScale( 
                             name.c_str(), 
                             scale.linear.slope, 
@@ -217,6 +218,7 @@ namespace ni{
                             scaled_units.c_str() 
                         );
             } else if(type == "map"){
+
                 return ni::NiDAQmxInterface::CreateMapScale(
                             name.c_str(), 
                             scale.map.prescaled_min, 
@@ -227,8 +229,41 @@ namespace ni{
                             scaled_units.c_str()
                         );
             } else if(type == "polynomial"){
-                return 0;
+
+                float64 forward_coeffs_in[1000];
+                float64 reverse_coeffs_in[1000];
+                for(int i = 0; i < scale.polynomial.num_coeffs; i++){
+                    forward_coeffs_in[i] = scale.polynomial.forward_coeffs[i];
+                    reverse_coeffs_in[i] = scale.polynomial.reverse_coeffs[i];
+                }
+                return ni::NiDAQmxInterface::CreatePolynomialScale(
+                            name.c_str(), 
+                            forward_coeffs_in, 
+                            scale.polynomial.num_coeffs, 
+                            reverse_coeffs_in, 
+                            scale.polynomial.num_coeffs,
+                            ni::UNITS_MAP.at(prescaled_units), 
+                            scaled_units.c_str()
+                        );
             } else if(type == "table"){
+                float64 prescaled_in[10000];
+                float64 scaled_in[10000];
+
+                for(int i = 0; i < scale.table.num_points; i++){
+                    prescaled_in[i] = scale.table.prescaled[i];
+                    scaled_in[i] = scale.table.scaled[i];
+                }   
+
+                return ni::NiDAQmxInterface::CreateTableScale(
+                            name.c_str(), 
+                            prescaled_in, 
+                            scale.table.num_points, 
+                            scaled_in, 
+                            scale.table.num_points, 
+                            ni::UNITS_MAP.at(prescaled_units), 
+                            scaled_units.c_str()
+                        );
+
                 return 0;
             } else{
                 LOG(ERROR) << "failed to create custom scale for " << name;
@@ -241,43 +276,3 @@ namespace ni{
 };
 
 //TODO: do parser checks all over here
-
-
-        // } else if(channel.scale_type == "PolyScale"){
-        //     // create forward and reverse coeffs inputs
-        //     float64 forward_coeffs_in[1000];
-        //     float64 reverse_coeffs_in[1000];
-        //     for(int i = 0; i < channel.scale->polynomial.num_coeffs; i++){
-        //         forward_coeffs_in[i] = channel.scale->polynomial.forward_coeffs[i];
-        //         reverse_coeffs_in[i] = channel.scale->polynomial.reverse_coeffs[i];
-        //     }
-        //     this->checkNIError(ni::NiDAQmxInterface::CreatePolynomialScale(
-        //         channel.scale_name.c_str(), 
-        //         forward_coeffs_in, 
-        //         channel.scale->polynomial.num_coeffs, 
-        //         reverse_coeffs_in, 
-        //         channel.scale->polynomial.num_coeffs,
-        //         ni::UNITS_MAP.at(channel.scale->polynomial.prescaled_units), 
-        //         channel.scale->polynomial.scaled_units.c_str()
-            
-        //     ));
-
-        // } else if(channel.scale_type == "TableScale"){
-        //     // create prescaled and scaled inputs
-        //     float64 prescaled[1000];
-        //     float64 scaled[1000];
-        //     for(int i = 0; i < channel.scale->table.num_points; i++){
-        //         prescaled[i] = channel.scale->table.prescaled[i];
-        //         scaled[i] = channel.scale->table.scaled[i];
-        //     }
-        //     this->checkNIError(ni::NiDAQmxInterface::CreateTableScale(
-        //         channel.scale_name.c_str(), 
-        //         prescaled, 
-        //         channel.scale->table.num_points, 
-        //         scaled,
-        //         channel.scale->table.num_points, 
-        //         ni::UNITS_MAP.at(channel.scale->table.prescaled_units), 
-        //         channel.scale->table.scaled_units.c_str()
-        //     ));
-        // }
-        // create channel
