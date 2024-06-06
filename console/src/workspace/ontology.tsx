@@ -14,10 +14,11 @@ import { Tree } from "@synnaxlabs/pluto/tree";
 import { deep, type UnknownRecord } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { Menu } from "@/components/menu";
 import { Cluster } from "@/cluster";
+import { Menu } from "@/components/menu";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
+import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 import { Schematic } from "@/schematic";
 import { selectActiveKey } from "@/workspace/selectors";
@@ -127,7 +128,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props): ReactElement => {
           <PMenu.Item itemKey="schematic" startIcon={<Icon.Schematic />}>
             New Schematic
           </PMenu.Item>
-          <Ontology.LinkAddressMenuItem />
+          <Link.CopyMenuItem />
         </>
       )}
       <Menu.HardReloadItem />
