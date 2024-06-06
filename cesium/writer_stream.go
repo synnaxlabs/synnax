@@ -393,7 +393,7 @@ func (w *idxWriter) Write(fr Frame) (Frame, error) {
 func (w *idxWriter) Commit(ctx context.Context) (telem.TimeStamp, error) {
 	end, err := w.resolveCommitEnd(ctx)
 	if err != nil {
-		return end.Lower, err
+		return 0, err
 	}
 	// because the range is exclusive, we need to add 1 nanosecond to the end
 	end.Lower++
