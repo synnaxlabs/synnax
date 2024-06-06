@@ -14,10 +14,10 @@ import { Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
 import { Cluster } from "@/cluster";
 import { Menu } from "@/components/menu";
 import { Layout } from "@/layout";
+import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 import { Range } from "@/range";
 import { create, type State } from "@/schematic/slice";
-import { M } from "node_modules/vite/dist/node/types.d-aGj9QkWt";
 
 const TreeContextMenu: Ontology.TreeContextMenu = ({
   client,
@@ -99,7 +99,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
   const handleRename = (): void => Tree.startRenaming(resources[0].key);
 
   const clusterKey = Cluster.useSelectActiveKey();
-  const handleCopyURL = (): void => {
+  const handleCopyUrl = (): void => {
     const url = `synnax://cluster/${clusterKey}/schematic/${resources[0].id.key}`;
     void navigator.clipboard.writeText(url);
   };
@@ -109,10 +109,11 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
     rename: handleRename,
     copy: handleCopy,
     rangeSnapshot: handleRangeSnapshot,
-    link: handleCopyURL,
+    link: handleCopyUrl,
   };
 
   const onSelect = (key: string): void => f[key]();
+  const isSingle = resources.length === 1;
 
   return (
     <PMenu.Menu onChange={onSelect} level="small" iconSpacing="small">
@@ -126,7 +127,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
       <PMenu.Item itemKey="delete" startIcon={<Icon.Delete />}>
         Delete
       </PMenu.Item>
-      <Ontology.LinkAddressMenuItem />
+      {isSingle && <Link.CopyMenuItem />}
       <Menu.HardReloadItem />
     </PMenu.Menu>
   );

@@ -220,6 +220,14 @@ const purgeEmptyMosaics = (state: SliceState) => {
   });
 };
 
+const layoutsToPreserve = (layouts: Record<string, State>): Record<string, State> =>
+  Object.fromEntries(
+    Object.entries(layouts).filter(
+      ([, layout]) =>
+        layout.location === "window" && layout.type !== MOSAIC_WINDOW_TYPE,
+    ),
+  );
+
 export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
   initialState: ZERO_SLICE_STATE,
@@ -440,6 +448,11 @@ export const { actions, reducer } = createSlice({
     ) => {
       return {
         ...slice,
+        layouts: {
+          ...layoutsToPreserve(state.layouts),
+          ...slice.layouts,
+          main: MAIN_LAYOUT,
+        },
         hauling: state.hauling,
         themes: state.themes,
         activeTheme: state.activeTheme,
@@ -449,6 +462,10 @@ export const { actions, reducer } = createSlice({
     clearWorkspace: (state) => {
       return {
         ...ZERO_SLICE_STATE,
+        layouts: {
+          ...layoutsToPreserve(state.layouts),
+          main: MAIN_LAYOUT,
+        },
         hauling: state.hauling,
         themes: state.themes,
         activeTheme: state.activeTheme,

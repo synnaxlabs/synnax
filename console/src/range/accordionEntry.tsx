@@ -13,13 +13,14 @@ import { type label, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
   componentRenderProp,
-  Divider,
   Ranger,
   Synnax,
   Tag,
   Tooltip,
   useAsyncEffect,
 } from "@synnaxlabs/pluto";
+import { Tree } from "@synnaxlabs/pluto";
+import { Tree } from "@synnaxlabs/pluto";
 import { Align } from "@synnaxlabs/pluto/align";
 import { List as Core } from "@synnaxlabs/pluto/list";
 import { Menu as PMenu } from "@synnaxlabs/pluto/menu";
@@ -27,14 +28,15 @@ import { Text } from "@synnaxlabs/pluto/text";
 import { type ReactElement, useState } from "react";
 import { useDispatch } from "react-redux";
 
+import { Cluster } from "@/cluster";
+import { Menu } from "@/components/menu";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
-import { Menu } from "@/components/menu";
+import { Link } from "@/link";
 import { createEditLayout } from "@/range/EditLayout";
 import type { Range, StaticRange } from "@/range/range";
 import { useSelect, useSelectMultiple } from "@/range/selectors";
 import { add, remove, setActive } from "@/range/slice";
-import { Tree } from "@synnaxlabs/pluto";
 
 export const listColumns: Array<Core.ColumnSpec<string, Range>> = [
   {
@@ -80,8 +82,6 @@ export const List = (): ReactElement => {
       key: key ?? layout.key,
     });
   };
-
-  const handleRename = (key: string, name: string): void => {};
 
   const handleRemove = (keys: string[]): void => {
     dispatch(remove({ keys }));
@@ -135,6 +135,8 @@ export const List = (): ReactElement => {
     );
   };
 
+  const clusterKey = Cluster.useSelectActiveKey();
+
   const ContextMenu = ({
     keys: [key],
   }: PMenu.ContextMenuMenuProps): ReactElement | null => {
@@ -162,6 +164,12 @@ export const List = (): ReactElement => {
           if (rng == null) return;
           Tree.startRenaming(rng.key);
           return;
+        case "link": {
+          if (rng == null) return;
+          const toCopy = `synnax://cluster/${clusterKey}/range/${rng.key}`;
+          void navigator.clipboard.writeText(toCopy);
+          return;
+        }
       }
     };
 
@@ -195,6 +203,7 @@ export const List = (): ReactElement => {
         <PMenu.Item startIcon={<Icon.Play />} size="small" itemKey="setActive">
           Set as Active Range
         </PMenu.Item>
+        {rng?.persisted && <Link.CopyMenuItem />}
         <Menu.HardReloadItem />
       </PMenu.Menu>
     );
