@@ -34,7 +34,7 @@ namespace ni{
 
         LinearScale(config::Parser & parser) 
         :   slope(parser.required<double>("slope")),
-            offset(parser.required<double>("offset")){}
+            offset(parser.required<double>("y_intercept")){}
 
     } LinearScale;
 

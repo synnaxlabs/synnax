@@ -56,6 +56,7 @@ void ni::AnalogReadSource::parseChannels(config::Parser &parser){
                     // check for custom scale
                     auto scale_parser = channel_builder.child("custom_scale");
                     config.scale_config = ScaleConfig(scale_parser);
+                    
                     this->reader_config.channels.push_back(config);
                 });
 }
@@ -155,22 +156,51 @@ std::pair<synnax::Frame, freighter::Error> ni::AnalogReadSource::read(){
 
 
 int ni::AnalogReadSource::createChannel(ni::ChannelConfig &channel){
+    LOG(INFO) << "[NI Reader] Creating channel " << channel.name;
     if(channel.scale_config.type == "none"){
-        return this->checkNIError(ni::NiDAQmxInterface::CreateAIVoltageChan(this->task_handle, channel.name.c_str(), "", channel.terminal_config, channel.min_val, channel.max_val, DAQmx_Val_Volts, NULL));
+        return  this->checkNIError(ni::NiDAQmxInterface::CreateAIVoltageChan( 
+                    this->task_handle, 
+                    channel.name.c_str(), 
+                    "", 
+                    channel.terminal_config, 
+                    channel.min_val, 
+                    channel.max_val, 
+                    DAQmx_Val_Volts, 
+                    NULL
+                ));
     } else{
-         channel.scale_config.name = channel.name + "_scale";
-        if(channel.scale_config.type == "LinScale"){
+        // const char	*const customScaleName="Acq Wheatstone Bridge Samples Scale";
+        channel.scale_config.name = std::to_string(channel.channel_key) +  "_scale";
+        if(channel.scale_config.type == "linear"){
             LOG(INFO) << "[NI Reader] Creating Linear Scale for channel " << channel.name;
-            this->checkNIError( 
+
+            if(this->checkNIError( 
                 ni::NiDAQmxInterface::CreateLinScale(
                     channel.scale_config.name.c_str(), 
                     channel.scale_config.scale.linear.slope, 
                     channel.scale_config.scale.linear.offset, 
                     ni::UNITS_MAP.at(channel.scale_config.prescaled_units), 
                     channel.scale_config.scaled_units.c_str()
-            ));
+            ))){
+                LOG(ERROR) << "[NI Reader] failed while creating linear scale for channel " << channel.name;
+                return -1;
+            }
 
-        } //else if(channel.scale_type == "MapScale"){
+            LOG(INFO) << "[NI Reader] Created Linear Scale for channel " << channel.name;
+        } 
+        LOG(INFO) << "[NI Reader] Creating Channel with custom scale: " << channel.scale_config.name;
+        
+        return this->checkNIError(ni::NiDAQmxInterface::CreateAIVoltageChan(    
+                    this->task_handle, channel.name.c_str(), 
+                    "", 
+                    channel.terminal_config, 
+                    channel.min_val, 
+                    channel.max_val, 
+                    DAQmx_Val_FromCustomScale,  
+                    channel.scale_config.name.c_str()
+                ));
+
+        //else if(channel.scale_type == "MapScale"){
         //     this->checkNIError(ni::NiDAQmxInterface::CreateMapScale(
         //         channel.scale_name.c_str(), 
         //         channel.scale->map.prescaled_min, 
@@ -219,7 +249,6 @@ int ni::AnalogReadSource::createChannel(ni::ChannelConfig &channel){
         //     ));
         // }
         // create channel
-        return this->checkNIError(ni::NiDAQmxInterface::CreateAIVoltageChan(this->task_handle, channel.name.c_str(), "", channel.terminal_config, channel.min_val, channel.max_val, DAQmx_Val_Volts,  channel.scale_config.name.c_str()));
     }
 }
 
