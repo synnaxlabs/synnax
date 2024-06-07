@@ -12,19 +12,17 @@ import "@/range/accordionEntry.css";
 import { type label, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
+  Align,
   componentRenderProp,
+  List as Core,
+  Menu as PMenu,
   Ranger,
   Synnax,
   Tag,
+  Text,
   Tooltip,
   useAsyncEffect,
 } from "@synnaxlabs/pluto";
-import { Tree } from "@synnaxlabs/pluto";
-import { Tree } from "@synnaxlabs/pluto";
-import { Align } from "@synnaxlabs/pluto/align";
-import { List as Core } from "@synnaxlabs/pluto/list";
-import { Menu as PMenu } from "@synnaxlabs/pluto/menu";
-import { Text } from "@synnaxlabs/pluto/text";
 import { type ReactElement, useState } from "react";
 import { useDispatch } from "react-redux";
 
@@ -135,6 +133,12 @@ export const List = (): ReactElement => {
     );
   };
 
+  const handleRename = (key: string): void => {
+    if (key.length === 0) return;
+    // Tree.startRenaming(key);
+    return;
+  };
+
   const clusterKey = Cluster.useSelectActiveKey();
 
   const ContextMenu = ({
@@ -162,8 +166,9 @@ export const List = (): ReactElement => {
           return handleSetActive(rng.key);
         case "rename":
           if (rng == null) return;
-          Tree.startRenaming(rng.key);
-          return;
+          return handleRename(rng.key);
+        // Tree.startRenaming(rng.key);
+        // return;
         case "link": {
           if (rng == null) return;
           const toCopy = `synnax://cluster/${clusterKey}/range/${rng.key}`;
@@ -241,6 +246,25 @@ const ListItem = (props: ListItemProps): ReactElement => {
     const labels_ = await (await client.ranges.retrieve(entry.key)).labels();
     setLabels(labels_);
   }, [entry.key, client]);
+
+  const rang = useSelect(entry.key);
+  console.log(rang?.name, rang?.variant);
+
+  const onRename = (name: string): void => {
+    if (name.length === 0) return;
+    console.log(entry.key, name);
+    void (async () => {
+      if (client == null) return;
+      try {
+        // await client.ranges.rename(entry.key, name);
+        console.log("Should have renamed!");
+      } catch (e) {
+        console.error(e);
+      }
+    })();
+    console.log("Did the rename!", name);
+  };
+
   return (
     <Core.ItemFrame
       className={CSS.B("range-list-item")}
@@ -261,6 +285,7 @@ const ListItem = (props: ListItemProps): ReactElement => {
       <Text.WithIcon level="p" weight={500}>
         {entry.name}
       </Text.WithIcon>
+      <Text.Editable level="p" value={entry.name} onChange={onRename} />
       <Ranger.TimeRangeChip timeRange={entry.timeRange} />
       {labels.length > 0 && (
         <Align.Space
