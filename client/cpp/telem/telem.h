@@ -25,8 +25,8 @@ public:
     std::string value;
 
     explicit DataType(std::string data_type) {
-        if (!DENSITIES.count(data_type)) {
-            if (!NAMES.count(data_type))
+        if (!DENSITIES.contains(data_type)) {
+            if (!NAMES.contains(data_type))
                 throw std::runtime_error(
                     "Tried to create unknown datatype " + data_type);
             data_type = NAMES[data_type];
@@ -36,8 +36,8 @@ public:
 
     /// @returns the data type corresponding to the given type.
     template<typename T>
-    DataType static from_type() {
-        if (!TYPE_INDEXES.count(std::type_index(typeid(T))))
+    DataType static infer() {
+        if (!TYPE_INDEXES.contains(std::type_index(typeid(T))))
             return DataType("");
         return DataType(TYPE_INDEXES[std::type_index(typeid(T))]);
     }
@@ -413,6 +413,12 @@ public:
     float value;
 
     explicit Rate(const float i) : value(i) {
+    }
+
+    explicit Rate(const int i) : value(i) {
+    }
+
+    explicit Rate(const double i) : value(i) {
     }
 
     Rate() = default;

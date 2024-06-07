@@ -16,7 +16,6 @@
 #include "driver/breaker/breaker.h"
 
 namespace pipeline {
-
 /// @brief an object that writes data to an acuqisition computer or other resource.
 class Sink {
 public:
@@ -70,9 +69,8 @@ public:
     /// control pipeline will trigger a breaker (temporary backoff), and then retry
     /// until the configured number of maximum retries is exceeded. Any other error
     /// is considered permanent and the pipeline will exit.
-    virtual std::pair<std::unique_ptr<Streamer>, freighter::Error> openStreamer(
-        synnax::StreamerConfig config
-    ) = 0;
+    virtual std::pair<std::unique_ptr<Streamer>, freighter::Error>
+    openStreamer(synnax::StreamerConfig config) = 0;
 
     virtual ~StreamerFactory() = default;
 };
@@ -130,9 +128,7 @@ private:
     breaker::Breaker breaker;
 
     void runInternal();
-
     void maybeJoinThread() const;
-
     void run();
 };
 }

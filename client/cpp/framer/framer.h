@@ -170,9 +170,9 @@ private:
 };
 
 enum WriterMode : uint8_t {
-    WriterPersistStream = 1,
-    WriterPersistOnly = 2,
-    WriterStreamOnly = 3
+    PersistStream = 1,
+    PersistOnly = 2,
+    StreamOnly = 3
 };
 
 /// @brief configuration for opening a new Writer. For more information on writers,
@@ -292,14 +292,13 @@ private:
 };
 
 class FrameClient {
-private:
     std::unique_ptr<StreamerClient> streamer_client;
     std::unique_ptr<WriterClient> writer_client;
-
 public:
-    FrameClient(std::unique_ptr<StreamerClient> streamer_client,
-                std::unique_ptr<WriterClient> writer_client) : streamer_client(
-            std::move(streamer_client)),
+    FrameClient(
+        std::unique_ptr<StreamerClient> streamer_client,
+        std::unique_ptr<WriterClient> writer_client
+    ) : streamer_client(std::move(streamer_client)),
         writer_client(std::move(writer_client)) {
     }
 
@@ -310,7 +309,8 @@ public:
     /// if the writer could not be opened. In the case where ok() is false, the writer
     /// will be in an invalid state and does not need to be closed. If ok() is true,
     /// The writer must be closed after use to avoid leaking resources.
-    std::pair<Writer, freighter::Error> openWriter(const WriterConfig &config) const;
+    [[nodiscard]] std::pair<Writer, freighter::Error>
+    openWriter(const WriterConfig &config) const;
 
     /// @brief opens a new frame streamer using the given configuration. For information
     /// on configuration parameters, see StreamerConfig.
@@ -318,7 +318,7 @@ public:
     /// if the streamer could not be opened. In the case where ok() is false, the
     /// streamer will be in an invalid state and does not need to be closed. If ok()
     /// is true, the streamer must be closed after use to avoid leaking resources.
-    std::pair<Streamer, freighter::Error> openStreamer(
-        const StreamerConfig &config) const;
+    [[nodiscard]] std::pair<Streamer, freighter::Error>
+    openStreamer(const StreamerConfig &config) const;
 };
 }

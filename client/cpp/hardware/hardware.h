@@ -94,12 +94,15 @@ public:
     std::string name;
     std::string type;
     std::string config;
+    bool internal;
 
-    Task(std::string name, std::string type, std::string config);
+    Task(std::string name, std::string type, std::string config, bool internal = false);
 
-    Task(TaskKey key, std::string name, std::string type, std::string config);
+    Task(TaskKey key, std::string name, std::string type, std::string config,
+         bool internal = false);
 
-    Task(RackKey rack, std::string name, std::string type, std::string config);
+    Task(RackKey rack, std::string name, std::string type, std::string config,
+         bool internal = false);
 
     explicit Task(const api::v1::Task &task);
 
@@ -131,6 +134,22 @@ public:
 
     [[nodiscard]]
     std::pair<Task, freighter::Error> retrieve(std::uint64_t key) const;
+
+    [[nodiscard]]
+    std::pair<Task, freighter::Error> retrieveByType(const std::string &type) const;
+
+    [[nodiscard]]
+    std::pair<Task, freighter::Error> retrieve(const std::string &name) const;
+
+    [[nodiscard]]
+    std::pair<std::vector<Task>, freighter::Error> retrieve(
+        const std::vector<std::string> &names
+    ) const;
+
+    [[nodiscard]]
+    std::pair<std::vector<Task>, freighter::Error> retrieveByType(
+        const std::vector<std::string> &types
+    ) const;
 
     [[nodiscard]]
     freighter::Error del(std::uint64_t key) const;

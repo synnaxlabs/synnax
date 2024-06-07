@@ -77,7 +77,7 @@ public:
     ): ctx(ctx),
        task(std::move(task)),
        cfg(std::move(cfg)),
-       breaker(breaker::Breaker(breaker)),
+       breaker(breaker::Breaker(breaker_config)),
        pipe(pipeline::Acquisition(
            ctx->client,
            std::move(writer_config),
@@ -85,6 +85,8 @@ public:
            breaker_config
        )) {
     }
+
+    std::string name() override { return task.name; }
 
     static std::unique_ptr<task::Task> configure(
         const std::shared_ptr<task::Context> &ctx,

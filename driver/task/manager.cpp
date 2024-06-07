@@ -15,15 +15,15 @@
 #include "task.h"
 
 task::Manager::Manager(
-    Rack rack,
+    const Rack& rack,
     const std::shared_ptr<Synnax> &client,
     std::unique_ptr<task::Factory> factory,
-    breaker::Config breaker
+    const breaker::Config& breaker
 ) : rack_key(rack.key),
     internal(rack),
     ctx(std::make_shared<task::SynnaxContext>(client)),
     factory(std::move(factory)),
-    breaker(std::move(breaker)) {
+    breaker(breaker) {
 }
 
 const std::string TASK_SET_CHANNEL = "sy_task_set";
@@ -31,7 +31,7 @@ const std::string TASK_DELETE_CHANNEL = "sy_task_delete";
 const std::string TASK_CMD_CHANNEL = "sy_task_cmd";
 
 freighter::Error task::Manager::start(std::atomic<bool> &done) {
-    if(running) return freighter::NIL;
+    if(breaker.running()) return freighter::NIL;
     LOG(INFO) << "[task.manager] starting up";
     const auto err = startGuarded();
     breaker.start();
@@ -41,7 +41,6 @@ freighter::Error task::Manager::start(std::atomic<bool> &done) {
         return err;
     }
     breaker.reset();
-    running = true;
     run_thread = std::thread(&Manager::run, this, std::ref(done));
     return freighter::NIL;
 }
@@ -95,12 +94,14 @@ void task::Manager::run(std::atomic<bool> &done) {
 }
 
 freighter::Error task::Manager::stop() {
-    if(!running) return freighter::NIL;
+    if(!breaker.running()) return freighter::NIL;
     if (!run_thread.joinable()) return freighter::NIL;
-    running = false;
     streamer->closeSend();
     run_thread.join();
-    for (auto &[key, task]: tasks) task->stop();
+    for (auto &[key, task]: tasks) {
+        LOG(INFO) << "[task.manager] stopping task " << task->name();
+        task->stop();
+    }
     tasks.clear();
     return run_err;
 }
@@ -119,7 +120,7 @@ freighter::Error task::Manager::runGuarded() {
     // If we pass here it means we've re-gained network connectivity and can reset the breaker.
     breaker.reset();
 
-    while (running) {
+    while (breaker.running()) {
         auto [frame, read_err] = streamer->read();
         if (read_err) break;
         for (size_t i = 0; i < frame.size(); i++) {

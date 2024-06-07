@@ -65,13 +65,11 @@ void customLogger(
         case UA_LOGLEVEL_TRACE:
         case UA_LOGLEVEL_DEBUG:
         case UA_LOGLEVEL_INFO:
+        case UA_LOGLEVEL_WARNING:
             VLOG(1) << prefix << buffer;
             break;
-        case UA_LOGLEVEL_WARNING:
-            LOG(WARNING) << prefix << buffer;
-            break;
         case UA_LOGLEVEL_ERROR:
-            LOG(ERROR) << prefix << buffer;
+            LOG(WARNING) << prefix << buffer;
             break;
         case UA_LOGLEVEL_FATAL:
             LOG(FATAL) << prefix << buffer;

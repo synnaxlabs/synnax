@@ -29,12 +29,11 @@ using namespace opc;
 
 ReaderConfig::ReaderConfig(
     config::Parser &parser
-): device(parser.required<std::string>("device"))
-{
-    sample_rate = Rate(parser.required<std::float_t>("sample_rate"));
-    stream_rate = Rate(parser.required<std::float_t>("stream_rate"));
-    array_size = parser.optional<std::size_t>("array_size", 1);
-    data_saving = parser.optional<bool>("data_saving", true);
+): device(parser.required<std::string>("device")),
+   sample_rate(parser.required<std::float_t>("sample_rate")),
+   stream_rate(parser.required<std::float_t>("stream_rate")),
+   array_size(parser.optional<std::size_t>("array_size", 1)),
+   data_saving(parser.optional<bool>("data_saving", true)) {
     parser.iter("channels", [&](config::Parser &channel_builder) {
         const auto ch = ReaderChannelConfig(channel_builder);
         if (ch.enabled) channels.push_back(ch);
@@ -169,13 +168,14 @@ public:
         return err;
     }
 
-    freighter::Error communicate_value_error(
+    [[nodiscard]] freighter::Error communicate_value_error(
         const std::string &channel,
         const UA_StatusCode &status
     ) const {
-        std::string status_name = UA_StatusCode_name(status);
-        std::string message = "Failed to read value from channel " + channel + ": " +
-                              status_name;
+        const std::string status_name = UA_StatusCode_name(status);
+        const std::string message =
+                "Failed to read value from channel " + channel + ": " +
+                status_name;
         LOG(ERROR) << "[opc.reader]" << message;
         ctx->setState({
             .task = task.key,
@@ -192,8 +192,8 @@ public:
     }
 
     size_t cap_array_length(
-        size_t i,
-        size_t length
+        const size_t i,
+        const size_t length
     ) {
         if (i + length > cfg.array_size) {
             if (curr_state.variant != "warning") {
@@ -215,63 +215,63 @@ public:
     }
 
     void set_val_on_series(
-        UA_Variant *val,
-        size_t i,
+        const UA_Variant *val,
+        const size_t i,
         synnax::Series &s
     ) {
         if (UA_Variant_hasArrayType(val, &UA_TYPES[UA_TYPES_FLOAT])) {
-            UA_Float *data = static_cast<UA_Float *>(val->data);
-            size_t length = cap_array_length(i, val->arrayLength);
+            const auto *data = static_cast<UA_Float *>(val->data);
+            const size_t length = cap_array_length(i, val->arrayLength);
             if (s.data_type == synnax::FLOAT32) return s.set_array(data, i, length);
         }
         if (UA_Variant_hasArrayType(val, &UA_TYPES[UA_TYPES_DOUBLE])) {
-            UA_Double *data = static_cast<UA_Double *>(val->data);
-            size_t length = cap_array_length(i, val->arrayLength);
+            const UA_Double *data = static_cast<UA_Double *>(val->data);
+            const size_t length = cap_array_length(i, val->arrayLength);
             if (s.data_type == synnax::FLOAT64) return s.set_array(data, i, length);
         }
         if (UA_Variant_hasArrayType(val, &UA_TYPES[UA_TYPES_INT16])) {
-            UA_Int16 *data = static_cast<UA_Int16 *>(val->data);
-            size_t length = cap_array_length(i, val->arrayLength);
+            const UA_Int16 *data = static_cast<UA_Int16 *>(val->data);
+            const size_t length = cap_array_length(i, val->arrayLength);
             if (s.data_type == synnax::INT16) return s.set_array(data, i, length);
         }
         if (UA_Variant_hasArrayType(val, &UA_TYPES[UA_TYPES_INT32])) {
-            UA_Int32 *data = static_cast<UA_Int32 *>(val->data);
-            size_t length = cap_array_length(i, val->arrayLength);
+            const UA_Int32 *data = static_cast<UA_Int32 *>(val->data);
+            const size_t length = cap_array_length(i, val->arrayLength);
             if (s.data_type == synnax::INT32) return s.set_array(data, i, length);
         }
         if (UA_Variant_hasArrayType(val, &UA_TYPES[UA_TYPES_INT64])) {
-            UA_Int64 *data = static_cast<UA_Int64 *>(val->data);
-            size_t length = cap_array_length(i, val->arrayLength);
+            const UA_Int64 *data = static_cast<UA_Int64 *>(val->data);
+            const size_t length = cap_array_length(i, val->arrayLength);
             if (s.data_type == synnax::INT64) return s.set_array(data, i, length);
         }
         if (UA_Variant_hasArrayType(val, &UA_TYPES[UA_TYPES_UINT32])) {
-            UA_UInt32 *data = static_cast<UA_UInt32 *>(val->data);
-            size_t length = cap_array_length(i, val->arrayLength);
+            const UA_UInt32 *data = static_cast<UA_UInt32 *>(val->data);
+            const size_t length = cap_array_length(i, val->arrayLength);
             if (s.data_type == synnax::UINT32) return s.set_array(data, i, length);
         }
         if (UA_Variant_hasArrayType(val, &UA_TYPES[UA_TYPES_UINT64])) {
-            UA_UInt64 *data = static_cast<UA_UInt64 *>(val->data);
-            size_t length = cap_array_length(i, val->arrayLength);
+            const UA_UInt64 *data = static_cast<UA_UInt64 *>(val->data);
+            const size_t length = cap_array_length(i, val->arrayLength);
             if (s.data_type == synnax::UINT64) return s.set_array(data, i, length);
         }
         if (UA_Variant_hasArrayType(val, &UA_TYPES[UA_TYPES_BYTE])) {
-            UA_Byte *data = static_cast<UA_Byte *>(val->data);
-            size_t length = cap_array_length(i, val->arrayLength);
+            const UA_Byte *data = static_cast<UA_Byte *>(val->data);
+            const size_t length = cap_array_length(i, val->arrayLength);
             if (s.data_type == synnax::UINT8) return s.set_array(data, i, length);
         }
         if (UA_Variant_hasArrayType(val, &UA_TYPES[UA_TYPES_SBYTE])) {
-            UA_SByte *data = static_cast<UA_SByte *>(val->data);
-            size_t length = cap_array_length(i, val->arrayLength);
+            const UA_SByte *data = static_cast<UA_SByte *>(val->data);
+            const size_t length = cap_array_length(i, val->arrayLength);
             if (s.data_type == synnax::INT8) return s.set_array(data, i, length);
         }
         if (UA_Variant_hasArrayType(val, &UA_TYPES[UA_TYPES_BOOLEAN])) {
-            UA_Boolean *data = static_cast<UA_Boolean *>(val->data);
-            size_t length = cap_array_length(i, val->arrayLength);
+            const UA_Boolean *data = static_cast<UA_Boolean *>(val->data);
+            const size_t length = cap_array_length(i, val->arrayLength);
             if (s.data_type == synnax::UINT8) return s.set_array(data, i, length);
         }
         if (UA_Variant_hasArrayType(val, &UA_TYPES[UA_TYPES_DATETIME])) {
-            UA_DateTime *data = static_cast<UA_DateTime *>(val->data);
-            size_t length = cap_array_length(i, val->arrayLength);
+            const UA_DateTime *data = static_cast<UA_DateTime *>(val->data);
+            const size_t length = cap_array_length(i, val->arrayLength);
             for (size_t j = 0; j < length; ++j)
                 s.set(j, ua_datetime_to_unix_nano(data[j]));
             return;
@@ -303,8 +303,9 @@ public:
             if (s.data_type == synnax::INT64) s.set(i, value);
             if (s.data_type == synnax::UINT32) s.set(i, static_cast<uint32_t>(value));
             if (s.data_type == synnax::UINT64) s.set(i, static_cast<uint64_t>(value));
-            if (s.data_type == synnax::TIMESTAMP) s.
-                    set(i, static_cast<uint64_t>(value));
+            if (s.data_type == synnax::TIMESTAMP)
+                s.
+                        set(i, static_cast<uint64_t>(value));
         }
         if (val->type == &UA_TYPES[UA_TYPES_UINT32]) {
             const auto value = *static_cast<UA_UInt32 *>(val->data);
@@ -322,8 +323,9 @@ public:
             if (s.data_type == synnax::INT64) s.set(i, static_cast<int64_t>(value));
             if (s.data_type == synnax::UINT32) s.set(i, static_cast<uint32_t>(value));
             // Potential data loss
-            if (s.data_type == synnax::TIMESTAMP) s.
-                    set(i, static_cast<uint64_t>(value));
+            if (s.data_type == synnax::TIMESTAMP)
+                s.
+                        set(i, static_cast<uint64_t>(value));
         }
         if (val->type == &UA_TYPES[UA_TYPES_BYTE]) {
             const auto value = *static_cast<UA_Byte *>(val->data);
@@ -363,16 +365,18 @@ public:
         if (val->type == &UA_TYPES[UA_TYPES_DATETIME]) {
             const auto value = *static_cast<UA_DateTime *>(val->data);
             if (s.data_type == synnax::INT64) s.set(i, ua_datetime_to_unix_nano(value));
-            if (s.data_type == synnax::TIMESTAMP) s.set(
-                i, ua_datetime_to_unix_nano(value));
-            if (s.data_type == synnax::UINT64) s.set(
-                i, static_cast<uint64_t>(ua_datetime_to_unix_nano(value)));
+            if (s.data_type == synnax::TIMESTAMP)
+                s.set(
+                    i, ua_datetime_to_unix_nano(value));
+            if (s.data_type == synnax::UINT64)
+                s.set(
+                    i, static_cast<uint64_t>(ua_datetime_to_unix_nano(value)));
             if (s.data_type == synnax::FLOAT32) s.set(i, static_cast<float>(value));
             if (s.data_type == synnax::FLOAT64) s.set(i, static_cast<double>(value));
         }
     }
 
-    std::pair<Frame, freighter::Error> read() override {
+    std::pair<Frame, freighter::Error> read(breaker::Breaker &breaker) override {
         auto fr = Frame(cfg.channels.size() + indexes.size());
         auto read_calls_per_cycle = static_cast<std::size_t>(
             cfg.sample_rate.value / cfg.stream_rate.value
@@ -431,7 +435,7 @@ public:
                 for (std::size_t j = en_count; j < en_count + indexes.size(); j++)
                     fr.series->at(j).set_array(timestamp_buf.get(), i, cfg.array_size);
             }
-            auto [elapsed, ok] = timer.wait();
+            auto [elapsed, ok] = timer.wait(breaker);
             if (!ok && exceed_time_count <= 5) {
                 exceed_time_count++;
                 if (exceed_time_count == 5) {
@@ -464,7 +468,7 @@ std::unique_ptr<task::Task> Reader::configure(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::Task &task
 ) {
-    LOG(INFO) << "[opc.reader] configuring task " << task.name;
+    VLOG(2) << "[opc.reader] configuring task " << task.name;
     auto config_parser = config::Parser(task.config);
     auto cfg = ReaderConfig(config_parser);
     if (!config_parser.ok()) {
@@ -476,7 +480,7 @@ std::unique_ptr<task::Task> Reader::configure(
         });
         return nullptr;
     }
-    LOG(INFO) << "[opc.reader] successfully parsed configuration for " << task.name;
+    VLOG(2) << "[opc.reader] successfully parsed configuration for " << task.name;
     auto [device, dev_err] = ctx->client->hardware.retrieveDevice(cfg.device);
     if (dev_err) {
         LOG(ERROR) << "[opc.reader] failed to retrieve device " << cfg.device <<
@@ -517,7 +521,7 @@ std::unique_ptr<task::Task> Reader::configure(
         ctx->setState({
             .task = task.key,
             .variant = "error",
-            .details = {{"message", conn_err.message()}}
+            .details = json{{"message", conn_err.message()}}
         });
         return nullptr;
     }
@@ -568,7 +572,9 @@ std::unique_ptr<task::Task> Reader::configure(
             .name = task.name,
             .key = std::to_string(task.key)
         },
-        .mode = synnax::WriterStreamOnly,
+        .mode = cfg.data_saving
+                    ? synnax::WriterMode::PersistStream
+                    : synnax::WriterMode::StreamOnly,
         .enable_auto_commit = true
     };
 
@@ -595,19 +601,19 @@ void Reader::exec(task::Command &cmd) {
                 {"message", "Task started successfully"}
             }
         });
-    }
-    else if (cmd.type == "stop") return stop();
-    else LOG(ERROR) << "unknown command type: " << cmd.type;
+    } else if (cmd.type == "stop") return stop();
+    else
+        LOG(ERROR) << "unknown command type: " << cmd.type;
 }
 
 void Reader::stop() {
     ctx->setState({
-            .task = task.key,
-            .variant = "success",
-            .details = json{
-                {"running", false},
-                {"message", "Task stopped successfully"}
-            }
-        });
+        .task = task.key,
+        .variant = "success",
+        .details = json{
+            {"running", false},
+            {"message", "Task stopped successfully"}
+        }
+    });
     pipe.stop();
 }
