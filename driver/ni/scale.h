@@ -74,7 +74,7 @@ namespace ni{
         :   num_coeffs(parser.required<int>("num_coeffs")),
             min_x(parser.required<double>("min_x")),
             max_x(parser.required<double>("max_x")),
-            num_points(parser.required<int>("num_points")),
+            num_points(parser.optional<int>("num_reverse_coeffs", 0)),
             poly_order(parser.required<int>("poly_order")){
 
             if(!parser.ok()){
@@ -84,13 +84,15 @@ namespace ni{
                 return;
             }
 
+            //TODO: handle if there is reverse coeffs of different size than forward coeffs
+
             //get json from parser
             json j = parser.get_json();
             // get forward coeffs (prescale -> scale conversions)   
-            if(!j.contains("forward_coeffs")){
+            if(!j.contains("coeffs")){
                 return; // TODO: log error
             }
-            std::vector<double> forward_coeffs_vec = j["forward_coeffs"].get<std::vector<double>>(); 
+            std::vector<double> forward_coeffs_vec = j["coeffs"].get<std::vector<double>>(); 
             forward_coeffs = new double[num_coeffs];
             // std::memcpy(forward_coeffs, other.forward_coeffs, num_coeffs * sizeof(double)); do this instead?
             for(int i = 0; i < forward_coeffs_vec.size(); i++){
@@ -98,7 +100,15 @@ namespace ni{
             }
             // get reverse coeffs (scale -> prescale conversions)
             reverse_coeffs = new double[num_coeffs]; // TODO: reverse coeffs might be smaller than forward_coeffs
-            ni::NiDAQmxInterface::CalculateReversePolyCoeff(forward_coeffs, num_coeffs, min_x, max_x, num_points, -1,  reverse_coeffs); // FIXME: reversePoly order should be user inputted?
+            ni::NiDAQmxInterface::CalculateReversePolyCoeff( 
+                forward_coeffs, 
+                num_coeffs, 
+                min_x, 
+                max_x, 
+                num_coeffs,
+                -1,  
+                reverse_coeffs
+            ); // FIXME: reversePoly order should be user inputted?
         }
 
         ~PolynomialScale(){
@@ -170,6 +180,7 @@ namespace ni{
 
         ScaleConfig() = default;
 
+        // Constructor
         ScaleConfig(config::Parser & parser, std::string &name) 
         :   name(name),
             type(parser.required<std::string>("type")),
