@@ -56,7 +56,7 @@ class Synnax(Client):
     signals: Registry
     hardware: HardwareClient
 
-    __client: Transport
+    __stream_client: Transport
 
     def __init__(
         self,
@@ -101,9 +101,11 @@ class Synnax(Client):
         )
         ch_creator = ChannelWriter(self._transport.unary, instrumentation)
         super().__init__(
-            client=self._transport.stream,
+            stream_client=self._transport.stream,
             async_client=self._transport.stream_async,
+            unary_client=self._transport.unary,
             retriever=ch_retriever,
+            instrumentation=instrumentation,
         )
         self.channels = ChannelClient(self, ch_retriever, ch_creator)
         range_retriever = RangeRetriever(self._transport.unary, instrumentation)

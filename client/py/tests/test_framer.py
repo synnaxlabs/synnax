@@ -8,11 +8,11 @@
 #  included in the file licenses/APL.txt.
 
 import asyncio
-import time
 
 import numpy as np
 import pandas as pd
 import pytest
+import time
 
 import synnax as sy
 from synnax import TimeSpan, TimeRange, TimeStamp
@@ -104,7 +104,8 @@ class TestWriter:
         f = client.read(TimeRange(0, TimeStamp(1 * TimeSpan.SECOND)), channel.key)
         assert f.__len__() == 20
 
-    def test_write_auto_commit_always_persist(self, channel: sy.Channel, client: sy.Synnax):
+    def test_write_auto_commit_always_persist(self, channel: sy.Channel,
+                                              client: sy.Synnax):
         """Should open an auto-committing writer to write data to Synnax."""
         with client.open_writer(0, channel.key, enable_auto_commit=True,
                                 auto_index_persist_interval=
@@ -118,7 +119,8 @@ class TestWriter:
         f = client.read(TimeRange(0, TimeStamp(1 * TimeSpan.SECOND)), channel.key)
         assert f.__len__() == 20
 
-    def test_write_auto_commit_set_persist(self, channel: sy.Channel, client: sy.Synnax):
+    def test_write_auto_commit_set_persist(self, channel: sy.Channel,
+                                           client: sy.Synnax):
         """Should open an auto-committing-and-persisting writer to write data."""
         with client.open_writer(0,
                                 channel.key,
@@ -170,3 +172,18 @@ class TestAsyncStreamer:
                 w.write(pd.DataFrame({channel.key: data}))
                 frame = await s.read()
                 assert all(frame[channel.key] == data)
+
+
+@pytest.mark.framer
+class TestDeleter:
+    def test_basic_delete(self, channel: sy.Channel, client: sy.Synnax):
+        with client.open_writer(0, channel.key) as w:
+            data = np.random.rand(10).astype(np.float64)
+            w.write(pd.DataFrame({channel.key: data}))
+            w.write(pd.DataFrame({channel.key: data}))
+            w.commit()
+
+        client.delete(
+            [channel.key],
+            TimeRange(0, TimeStamp(1 * TimeSpan.SECOND)),
+        )
