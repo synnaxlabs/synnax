@@ -254,10 +254,10 @@ TEST(read_tests, analog_linear_scaling){
     };
     json scale_config = json{
         {"type", "linear"},
-        {'pre_scaled_units', "Volts"},
-        {'scaled_units', "Volts"},
-        {"slope", 1.0},
-        {"offset", 0.0}
+        {"pre_scaled_units", "Volts"},
+        {"scaled_units", "Volts"},
+        {"slope", 0.5},
+        {"y_intercept", 5}
     };
 
     // create synnax client
@@ -284,7 +284,7 @@ TEST(read_tests, analog_linear_scaling){
     );
     ASSERT_FALSE(dErr) << dErr.message();
 
-    add_AI_channel_JSON(config, "a1", data.key, 0, -10.0, 10.0, "Default", scale_config);
+    add_AI_channel_JSON(config, "a1", data.key, 0, 0, 10.0, "Default", scale_config);
 
   
     // create synnax task
@@ -311,7 +311,6 @@ TEST(read_tests, analog_linear_scaling){
     std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
 
      //iterate through each series and print the data
-    uint32_t ai_count = 0;
     for(int i = 0; i < frame.series->size(); i++){
         std::cout << "\n\n Series " << i << ": \n";
         // check series type before casting
@@ -319,10 +318,8 @@ TEST(read_tests, analog_linear_scaling){
             auto s =  frame.series->at(i).float32();
             for (int j = 0; j < s.size(); j++){
                 std::cout << s[j] << ", ";
-                // ASSERT_TRUE((s[j] == 1) || (s[j] == 0));
-                ASSERT_NEAR(s[j], ai_count, 1);
+                ASSERT_NEAR(s[j], 5, 1);
             }
-            ai_count++;
         }
         else if(frame.series->at(i).data_type == synnax::TIMESTAMP){
             auto s =  frame.series->at(i).uint64();
@@ -331,7 +328,7 @@ TEST(read_tests, analog_linear_scaling){
             }
         }
     }
-
+    
     std::cout << std::endl;
     reader.stop();
 }
@@ -352,10 +349,10 @@ TEST(read_tests, analog_map_scaling){
         {"type", "map"},
         {"pre_scaled_units", "Volts"},
         {"scaled_units", "Volts"},
-        {"prescaled_min", 0.0},
-        {"prescaled_max", 10.0},
-        {"scaled_min", 0.0},
-        {"scaled_max", 10.0}
+        {"pre_scaled_min", 0.0},
+        {"pre_scaled_max", 10.0},
+        {"scaled_min", 0},
+        {"scaled_max", 100.0}
     };
 
     // create synnax client
@@ -382,7 +379,7 @@ TEST(read_tests, analog_map_scaling){
     );
     ASSERT_FALSE(dErr) << dErr.message();
 
-    add_AI_channel_JSON(config, "a1", data.key, 0, -10.0, 10.0, "Default", scale_config);
+    add_AI_channel_JSON(config, "a1", data.key, 0, 0, 100, "Default", scale_config);
 
   
     // create synnax task
@@ -409,7 +406,6 @@ TEST(read_tests, analog_map_scaling){
     std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
 
      //iterate through each series and print the data
-    uint32_t ai_count = 0;
     for(int i = 0; i < frame.series->size(); i++){
         std::cout << "\n\n Series " << i << ": \n";
         // check series type before casting
@@ -417,10 +413,8 @@ TEST(read_tests, analog_map_scaling){
             auto s =  frame.series->at(i).float32();
             for (int j = 0; j < s.size(); j++){
                 std::cout << s[j] << ", ";
-                // ASSERT_TRUE((s[j] == 1) || (s[j] == 0));
-                ASSERT_NEAR(s[j], ai_count, 1);
+                ASSERT_NEAR(s[j], 50, 5);
             }
-            ai_count++;
         }
         else if(frame.series->at(i).data_type == synnax::TIMESTAMP){
             auto s =  frame.series->at(i).uint64();
@@ -451,9 +445,9 @@ TEST(read_tests, analog_table_scaling){
         {"type", "table"},
         {"pre_scaled_units", "Volts"},
         {"scaled_units", "Volts"},
-        {"num_points", 11}
-        {"prescaled_vals", {0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0}},
-        {"scaled_vals", {0.0, 10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0, 100.0}}
+        {"num_points", 11},
+        {"pre_scaled_vals", {0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0}},
+        {"scaled_vals", {0.0, 50.0, 100.0, 150.0, 200.0, 250.0, 300.0, 350.0, 400.0, 450.0, 500.0}}
     };
 
     // create synnax client
@@ -480,7 +474,7 @@ TEST(read_tests, analog_table_scaling){
     );
     ASSERT_FALSE(dErr) << dErr.message();
 
-    add_AI_channel_JSON(config, "a1", data.key, 0, -10.0, 10.0, "Default", scale_config);
+    add_AI_channel_JSON(config, "a1", data.key, 0, 0, 500.0, "Default", scale_config);
 
   
     // create synnax task
@@ -507,7 +501,6 @@ TEST(read_tests, analog_table_scaling){
     std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
 
      //iterate through each series and print the data
-    uint32_t ai_count = 0;
     for(int i = 0; i < frame.series->size(); i++){
         std::cout << "\n\n Series " << i << ": \n";
         // check series type before casting
@@ -515,10 +508,8 @@ TEST(read_tests, analog_table_scaling){
             auto s =  frame.series->at(i).float32();
             for (int j = 0; j < s.size(); j++){
                 std::cout << s[j] << ", ";
-                // ASSERT_TRUE((s[j] == 1) || (s[j] == 0));
-                ASSERT_NEAR(s[j], ai_count, 1);
+                ASSERT_NEAR(s[j], 250, 20);
             }
-            ai_count++;
         }
         else if(frame.series->at(i).data_type == synnax::TIMESTAMP){
             auto s =  frame.series->at(i).uint64();
@@ -531,8 +522,6 @@ TEST(read_tests, analog_table_scaling){
     std::cout << std::endl;
     reader.stop();
 }
-
-
 
 TEST(read_tests, analog_polynomial_scaling){
     LOG(INFO) << "analog_table_scaling: "<< std::endl;
@@ -550,8 +539,9 @@ TEST(read_tests, analog_polynomial_scaling){
         {"type", "polynomial"},
         {"pre_scaled_units", "Volts"},
         {"scaled_units", "Volts"},
-        {"order", 2},
-        {"coeffs", {1.0, 3.0, 4.0}}
+        {"poly_order", 2},
+        {"coeffs", {300.0, 300.0, 43.0}},
+        {"num_coeffs", 3},
         {"min_x", 0.0},
         {"max_x", 10.0}
     };
@@ -580,7 +570,7 @@ TEST(read_tests, analog_polynomial_scaling){
     );
     ASSERT_FALSE(dErr) << dErr.message();
 
-    add_AI_channel_JSON(config, "a1", data.key, 0, -10.0, 10.0, "Default", scale_config);
+    add_AI_channel_JSON(config, "a1", data.key, 0, 0, 10.0, "Default", scale_config);
 
   
     // create synnax task
@@ -607,7 +597,6 @@ TEST(read_tests, analog_polynomial_scaling){
     std::uint64_t final_timestamp = (synnax::TimeStamp::now()).value;
 
      //iterate through each series and print the data
-    uint32_t ai_count = 0;
     for(int i = 0; i < frame.series->size(); i++){
         std::cout << "\n\n Series " << i << ": \n";
         // check series type before casting
@@ -615,10 +604,8 @@ TEST(read_tests, analog_polynomial_scaling){
             auto s =  frame.series->at(i).float32();
             for (int j = 0; j < s.size(); j++){
                 std::cout << s[j] << ", ";
-                // ASSERT_TRUE((s[j] == 1) || (s[j] == 0));
-                ASSERT_NEAR(s[j], ai_count, 1);
+                ASSERT_NEAR(s[j], 117, 2);
             }
-            ai_count++;
         }
         else if(frame.series->at(i).data_type == synnax::TIMESTAMP){
             auto s =  frame.series->at(i).uint64();
