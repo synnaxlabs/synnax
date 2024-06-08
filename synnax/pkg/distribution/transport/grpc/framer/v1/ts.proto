@@ -73,11 +73,11 @@ message WriterResponse {
     int64 time_stamp = 6;
 }
 
-service DeleterService {
-    rpc Exec(DeleterRequest) returns (google.protobuf.Empty) {}
+service DeleteService {
+    rpc Exec(DeleteRequest) returns (google.protobuf.Empty) {}
 }
 
-message DeleterRequest {
+message DeleteRequest {
     repeated uint32 keys = 1;
     repeated string names = 2;
     telem.PBTimeRange time_range = 3;

@@ -24,7 +24,7 @@ from synnax.telem import TimeRange
 class _Request(Payload):
     keys: ChannelKeys | None
     names: ChannelNames | None
-    tr: TimeRange
+    time_range: TimeRange
 
 
 class _Response(Payload):
@@ -55,7 +55,10 @@ class Deleter:
         tr: TimeRange,
     ) -> None:
         normal = normalize_channel_params(channels)
-        req = _Request(**{normal.variant: normal.params, tr: tr})
+        req = _Request(**{
+            normal.variant: normal.params,
+            "time_range": tr,
+        })
         res, exc = self.__client.send(self.__ENDPOINT, req, _Response)
         if exc is not None:
             raise exc

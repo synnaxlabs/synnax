@@ -62,15 +62,15 @@ type (
 		relay.Response,
 		*tsv1.RelayResponse,
 	]
-	deleterClient = fgrpc.UnaryClient[
+	deleteClient = fgrpc.UnaryClient[
 		deleter.Request,
-		*tsv1.DeleterRequest,
+		*tsv1.DeleteRequest,
 		types.Nil,
 		*emptypb.Empty,
 	]
-	deleterServer = fgrpc.UnaryServer[
+	deleteServer = fgrpc.UnaryServer[
 		deleter.Request,
-		*tsv1.DeleterRequest,
+		*tsv1.DeleteRequest,
 		types.Nil,
 		*emptypb.Empty,
 	]
@@ -148,17 +148,17 @@ func New(pool *fgrpc.Pool) Transport {
 				},
 			},
 		},
-		deleter: deleterTransport{
-			server: &deleterServer{
-				RequestTranslator:  deleterRequestTranslator{},
+		deleter: deleteTransport{
+			server: &deleteServer{
+				RequestTranslator:  deleteRequestTranslator{},
 				ResponseTranslator: fgrpc.EmptyTranslator{},
-				ServiceDesc:        &tsv1.DeleterService_ServiceDesc,
+				ServiceDesc:        &tsv1.DeleteService_ServiceDesc,
 			},
-			client: &deleterClient{
+			client: &deleteClient{
 				Pool:               pool,
-				RequestTranslator:  deleterRequestTranslator{},
+				RequestTranslator:  deleteRequestTranslator{},
 				ResponseTranslator: fgrpc.EmptyTranslator{},
-				ServiceDesc:        &tsv1.DeleterService_ServiceDesc,
+				ServiceDesc:        &tsv1.DeleteService_ServiceDesc,
 			},
 		},
 	}
@@ -182,7 +182,7 @@ type Transport struct {
 	writer   writerTransport
 	iterator iteratorTransport
 	relay    relayTransport
-	deleter  deleterTransport
+	deleter  deleteTransport
 }
 
 // Writer implements the framer.Transport interface.
@@ -247,13 +247,13 @@ func (t relayTransport) Client() relay.TransportClient { return t.client }
 // Server implements the framer.Transport interface.
 func (t relayTransport) Server() relay.TransportServer { return t.server }
 
-type deleterTransport struct {
-	client *deleterClient
-	server *deleterServer
+type deleteTransport struct {
+	client *deleteClient
+	server *deleteServer
 }
 
 // Client implements the framer.Transport interface.
-func (t deleterTransport) Client() deleter.TransportClient { return t.client }
+func (t deleteTransport) Client() deleter.TransportClient { return t.client }
 
 // Server implements the framer.Transport interface.
-func (t deleterTransport) Server() deleter.TransportServer { return t.server }
+func (t deleteTransport) Server() deleter.TransportServer { return t.server }

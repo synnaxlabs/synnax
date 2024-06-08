@@ -380,87 +380,87 @@ var WriterService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	DeleterService_Exec_FullMethodName = "/ts.v1.DeleterService/Exec"
+	DeleteService_Exec_FullMethodName = "/ts.v1.DeleteService/Exec"
 )
 
-// DeleterServiceClient is the client API for DeleterService service.
+// DeleteServiceClient is the client API for DeleteService service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
-type DeleterServiceClient interface {
-	Exec(ctx context.Context, in *DeleterRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+type DeleteServiceClient interface {
+	Exec(ctx context.Context, in *DeleteRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
-type deleterServiceClient struct {
+type deleteServiceClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewDeleterServiceClient(cc grpc.ClientConnInterface) DeleterServiceClient {
-	return &deleterServiceClient{cc}
+func NewDeleteServiceClient(cc grpc.ClientConnInterface) DeleteServiceClient {
+	return &deleteServiceClient{cc}
 }
 
-func (c *deleterServiceClient) Exec(ctx context.Context, in *DeleterRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *deleteServiceClient) Exec(ctx context.Context, in *DeleteRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, DeleterService_Exec_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, DeleteService_Exec_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// DeleterServiceServer is the server API for DeleterService service.
-// All implementations should embed UnimplementedDeleterServiceServer
+// DeleteServiceServer is the server API for DeleteService service.
+// All implementations should embed UnimplementedDeleteServiceServer
 // for forward compatibility
-type DeleterServiceServer interface {
-	Exec(context.Context, *DeleterRequest) (*emptypb.Empty, error)
+type DeleteServiceServer interface {
+	Exec(context.Context, *DeleteRequest) (*emptypb.Empty, error)
 }
 
-// UnimplementedDeleterServiceServer should be embedded to have forward compatible implementations.
-type UnimplementedDeleterServiceServer struct {
+// UnimplementedDeleteServiceServer should be embedded to have forward compatible implementations.
+type UnimplementedDeleteServiceServer struct {
 }
 
-func (UnimplementedDeleterServiceServer) Exec(context.Context, *DeleterRequest) (*emptypb.Empty, error) {
+func (UnimplementedDeleteServiceServer) Exec(context.Context, *DeleteRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Exec not implemented")
 }
 
-// UnsafeDeleterServiceServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to DeleterServiceServer will
+// UnsafeDeleteServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to DeleteServiceServer will
 // result in compilation errors.
-type UnsafeDeleterServiceServer interface {
-	mustEmbedUnimplementedDeleterServiceServer()
+type UnsafeDeleteServiceServer interface {
+	mustEmbedUnimplementedDeleteServiceServer()
 }
 
-func RegisterDeleterServiceServer(s grpc.ServiceRegistrar, srv DeleterServiceServer) {
-	s.RegisterService(&DeleterService_ServiceDesc, srv)
+func RegisterDeleteServiceServer(s grpc.ServiceRegistrar, srv DeleteServiceServer) {
+	s.RegisterService(&DeleteService_ServiceDesc, srv)
 }
 
-func _DeleterService_Exec_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(DeleterRequest)
+func _DeleteService_Exec_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(DeleterServiceServer).Exec(ctx, in)
+		return srv.(DeleteServiceServer).Exec(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: DeleterService_Exec_FullMethodName,
+		FullMethod: DeleteService_Exec_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(DeleterServiceServer).Exec(ctx, req.(*DeleterRequest))
+		return srv.(DeleteServiceServer).Exec(ctx, req.(*DeleteRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-// DeleterService_ServiceDesc is the grpc.ServiceDesc for DeleterService service.
+// DeleteService_ServiceDesc is the grpc.ServiceDesc for DeleteService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var DeleterService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "ts.v1.DeleterService",
-	HandlerType: (*DeleterServiceServer)(nil),
+var DeleteService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "ts.v1.DeleteService",
+	HandlerType: (*DeleteServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "Exec",
-			Handler:    _DeleterService_Exec_Handler,
+			Handler:    _DeleteService_Exec_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

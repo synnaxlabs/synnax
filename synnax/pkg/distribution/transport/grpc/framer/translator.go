@@ -30,7 +30,7 @@ var (
 	_ fgrpc.Translator[iterator.Response, *tsv1.IteratorResponse] = (*iteratorResponseTranslator)(nil)
 	_ fgrpc.Translator[relay.Request, *tsv1.RelayRequest]         = (*relayRequestTranslator)(nil)
 	_ fgrpc.Translator[relay.Response, *tsv1.RelayResponse]       = (*relayResponseTranslator)(nil)
-	_ fgrpc.Translator[deleter.Request, *tsv1.DeleterRequest]     = (*deleterRequestTranslator)(nil)
+	_ fgrpc.Translator[deleter.Request, *tsv1.DeleteRequest]      = (*deleteRequestTranslator)(nil)
 )
 
 type writerRequestTranslator struct{}
@@ -208,22 +208,22 @@ func translateFrameBackward(frame framer.Frame) *tsv1.Frame {
 	}
 }
 
-type deleterRequestTranslator struct{}
+type deleteRequestTranslator struct{}
 
-func (r deleterRequestTranslator) Forward(
+func (r deleteRequestTranslator) Forward(
 	_ context.Context,
 	msg deleter.Request,
-) (*tsv1.DeleterRequest, error) {
-	return &tsv1.DeleterRequest{
+) (*tsv1.DeleteRequest, error) {
+	return &tsv1.DeleteRequest{
 		Keys:      msg.Keys.Uint32(),
 		Names:     msg.Names,
 		TimeRange: telem.TranslateTimeRangeForward(msg.TimeRange),
 	}, nil
 }
 
-func (r deleterRequestTranslator) Backward(
+func (r deleteRequestTranslator) Backward(
 	_ context.Context,
-	msg *tsv1.DeleterRequest,
+	msg *tsv1.DeleteRequest,
 ) (deleter.Request, error) {
 	return deleter.Request{
 		Keys:      channel.KeysFromUint32(msg.Keys),
