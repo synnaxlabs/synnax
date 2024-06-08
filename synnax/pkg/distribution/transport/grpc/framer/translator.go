@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
@@ -29,6 +30,7 @@ var (
 	_ fgrpc.Translator[iterator.Response, *tsv1.IteratorResponse] = (*iteratorResponseTranslator)(nil)
 	_ fgrpc.Translator[relay.Request, *tsv1.RelayRequest]         = (*relayRequestTranslator)(nil)
 	_ fgrpc.Translator[relay.Response, *tsv1.RelayResponse]       = (*relayResponseTranslator)(nil)
+	_ fgrpc.Translator[deleter.Request, *tsv1.DeleterRequest]     = (*deleterRequestTranslator)(nil)
 )
 
 type writerRequestTranslator struct{}
@@ -204,4 +206,28 @@ func translateFrameBackward(frame framer.Frame) *tsv1.Frame {
 		Keys:   frame.Keys.Uint32(),
 		Series: telem.TranslateManySeriesForward(frame.Series),
 	}
+}
+
+type deleterRequestTranslator struct{}
+
+func (r deleterRequestTranslator) Forward(
+	_ context.Context,
+	msg deleter.Request,
+) (*tsv1.DeleterRequest, error) {
+	return &tsv1.DeleterRequest{
+		Keys:      msg.Keys.Uint32(),
+		Names:     msg.Names,
+		TimeRange: telem.TranslateTimeRangeForward(msg.TimeRange),
+	}, nil
+}
+
+func (r deleterRequestTranslator) Backward(
+	_ context.Context,
+	msg *tsv1.DeleterRequest,
+) (deleter.Request, error) {
+	return deleter.Request{
+		Keys:      channel.KeysFromUint32(msg.Keys),
+		Names:     msg.Names,
+		TimeRange: telem.TranslateTimeRangeBackward(msg.TimeRange),
+	}, nil
 }

@@ -38,27 +38,27 @@ func NewFrameService(p Provider) *FrameService {
 	}
 }
 
-type TimeRangeDeleteRequest struct {
+type FrameDeleteRequest struct {
 	Keys      channel.Keys    `json:"keys" msgpack:"keys" validate:"required"`
-	Names     []string        `json:"names" msgpack:"names" validate:"required"`
+	Names     []string        `json:"names" msgpack:"names" validate:"names"`
 	TimeRange telem.TimeRange `json:"timerange" msgpack:"timerange" validate:"required"`
 }
 
-func (s *FrameService) TimeRangeDelete(
+func (s *FrameService) FrameDelete(
 	ctx context.Context,
-	req TimeRangeDeleteRequest,
+	req FrameDeleteRequest,
 ) (types.Nil, error) {
 	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
 		c := errors.NewCatcher(errors.WithAggregation())
-		w := s.internal.NewWriter(tx)
+		w := s.Internal.NewDeleter(tx)
 		if len(req.Keys) > 0 {
 			c.Exec(func() error {
-				return w.DeleteMany(ctx, req.Keys, false)
+				return w.DeleteTimeRangeMany(ctx, req.Keys, req.TimeRange)
 			})
 		}
 		if len(req.Names) > 0 {
 			c.Exec(func() error {
-				return w.DeleteManyByNames(ctx, req.Names, false)
+				return w.DeleteTimeRangeManyByNames(ctx, req.Names, req.TimeRange)
 			})
 		}
 		return c.Error()

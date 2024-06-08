@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package writer_test
+package deleter_test
 
 import (
 	"context"
@@ -17,15 +17,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/validate"
 	"io"
 )
 
-var _ = Describe("Writer", func() {
+var _ = Describe("Deleter", func() {
 	Describe("Happy Path", Ordered, func() {
 		scenarios := []func() scenario{
 			gatewayOnlyScenario,
@@ -39,7 +38,7 @@ var _ = Describe("Writer", func() {
 			BeforeAll(func() { s = _sF() })
 			AfterAll(func() { Expect(s.close.Close()).To(Succeed()) })
 			Specify(fmt.Sprintf("Scenario: %v - Happy Path", i), func() {
-				writer := MustSucceed(s.service.New(context.TODO(), writer.Config{
+				writer := MustSucceed(s.writer.New(context.TODO(), writer.Config{
 					Keys:  s.keys,
 					Start: 10 * telem.SecondTS,
 				}))
@@ -52,80 +51,21 @@ var _ = Describe("Writer", func() {
 					}},
 				)).To(BeTrue())
 				Expect(writer.Commit()).To(BeTrue())
-				Expect(writer.Error()).To(Succeed())
-				Expect(writer.Write(core.Frame{
-					Keys: s.keys,
-					Series: []telem.Series{
-						telem.NewSeriesV[int64](1, 2, 3),
-						telem.NewSeriesV[int64](3, 4, 5),
-						telem.NewSeriesV[int64](5, 6, 7),
-					}},
-				)).To(BeTrue())
-				Expect(writer.Commit()).To(BeTrue())
-				Expect(writer.Error()).To(Succeed())
+				Expect(writer.Error()).ToNot(HaveOccurred())
 				Expect(writer.Close()).To(Succeed())
+
+				deleter := s.deleter.NewDeleter(nil)
+				Expect(deleter.DeleteTimeRangeMany(ctx, s.keys, (10 * telem.SecondTS).Range(12*telem.SecondTS))).To(Succeed())
 			})
 		}
-	})
-	Describe("open Errors", Ordered, func() {
-		var s scenario
-		BeforeAll(func() { s = gatewayOnlyScenario() })
-		AfterAll(func() { Expect(s.close.Close()).To(Succeed()) })
-		It("Should return an error if no keys are provided", func() {
-			_, err := s.service.New(context.TODO(), writer.Config{
-				Keys:  []channel.Key{},
-				Start: 10 * telem.SecondTS,
-			})
-			Expect(err).To(Equal(validate.FieldError{
-				Field:   "keys",
-				Message: "must be non-empty",
-			}))
-		})
-		It("Should return an error if the channel can't be found", func() {
-			_, err := s.service.New(ctx, writer.Config{
-				Keys: []channel.Key{
-					channel.NewKey(0, 22),
-					s.keys[0],
-				},
-				Start: 10 * telem.SecondTS,
-			})
-			Expect(err).To(HaveOccurredAs(query.NotFound))
-			Expect(err.Error()).To(ContainSubstring("Channel"))
-			Expect(err.Error()).To(ContainSubstring("22"))
-			Expect(err.Error()).ToNot(ContainSubstring("1"))
-		})
-	})
-	Describe("Frame Errors", Ordered, func() {
-		var s scenario
-		BeforeAll(func() { s = peerOnlyScenario() })
-		AfterAll(func() { Expect(s.close.Close()).To(Succeed()) })
-		It("Should return an error if a key is provided that is not in the list of keys provided to the writer", func() {
-			writer := MustSucceed(s.service.New(context.TODO(), writer.Config{
-				Keys:  s.keys,
-				Start: 10 * telem.SecondTS,
-			}))
-			Expect(writer.Write(core.Frame{
-				Keys: append(s.keys, channel.NewKey(12, 22)),
-				Series: []telem.Series{
-					telem.NewSeriesV[int64](1, 2, 3),
-					telem.NewSeriesV[int64](3, 4, 5),
-					telem.NewSeriesV[int64](5, 6, 7),
-					telem.NewSeriesV[int64](5, 6, 7),
-				}},
-			)).To(BeTrue())
-			Expect(writer.Commit()).To(BeFalse())
-			Expect(writer.Error()).To(HaveOccurredAs(validate.Error))
-			Expect(writer.Error()).To(BeNil())
-			Expect(writer.Error()).To(BeNil())
-			Expect(writer.Close()).To(Succeed())
-		})
 	})
 })
 
 type scenario struct {
 	name    string
 	keys    channel.Keys
-	service *writer.Service
+	writer  *writer.Service
+	deleter deleter.Service
 	channel channel.Service
 	close   io.Closer
 }
@@ -159,7 +99,8 @@ func gatewayOnlyScenario() scenario {
 	return scenario{
 		name:    "gatewayOnly",
 		keys:    keys,
-		service: svc.writer,
+		writer:  svc.writer,
+		deleter: svc.deleter,
 		close:   builder,
 		channel: svc.channel,
 	}
@@ -184,7 +125,8 @@ func peerOnlyScenario() scenario {
 	return scenario{
 		name:    "peerOnly",
 		keys:    keys,
-		service: svc.writer,
+		writer:  svc.writer,
+		deleter: svc.deleter,
 		close:   builder,
 		channel: svc.channel,
 	}
@@ -209,7 +151,8 @@ func mixedScenario() scenario {
 	return scenario{
 		name:    "mixed",
 		keys:    keys,
-		service: svc.writer,
+		writer:  svc.writer,
+		deleter: svc.deleter,
 		close:   builder,
 		channel: svc.channel,
 	}
@@ -235,7 +178,8 @@ func freeWriterScenario() scenario {
 	return scenario{
 		name:    "freeWriter",
 		keys:    keys,
-		service: svc.writer,
+		writer:  svc.writer,
+		deleter: svc.deleter,
 		close:   builder,
 		channel: svc.channel,
 	}

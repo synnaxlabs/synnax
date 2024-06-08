@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package writer_test
+package deleter_test
 
 import (
 	"context"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -34,15 +35,17 @@ var (
 
 func TestWriter(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Writer Suite")
+	RunSpecs(t, "Deleter Suite")
 }
 
 type serviceContainer struct {
 	channel   channel.Service
 	writer    *writer.Service
+	deleter   deleter.Service
 	transport struct {
 		channel channel.Transport
 		writer  writer.Transport
+		deleter deleter.Transport
 	}
 }
 
@@ -52,6 +55,7 @@ func provision(n int) (*mock.CoreBuilder, map[core.NodeKey]serviceContainer) {
 		services   = make(map[core.NodeKey]serviceContainer)
 		channelNet = tmock.NewChannelNetwork()
 		writerNet  = tmock.NewWriterNetwork()
+		deleterNet = tmock.NewDeleterNetwork()
 	)
 	for i := 0; i < n; i++ {
 		var (
@@ -72,6 +76,11 @@ func provision(n int) (*mock.CoreBuilder, map[core.NodeKey]serviceContainer) {
 			HostResolver:    c.Cluster,
 			Transport:       writerNet.New(c.Config.AdvertiseAddress /*buffer*/, 10),
 			FreeWrites:      confluence.NewStream[relay.Response](1000),
+		}))
+		container.deleter = MustSucceed(deleter.New(deleter.ServiceConfig{
+			HostResolver: c.Cluster,
+			TSChannel:    c.Storage.TS,
+			Transport:    deleterNet.New(c.Config.AdvertiseAddress),
 		}))
 		services[c.Cluster.HostKey()] = container
 	}
