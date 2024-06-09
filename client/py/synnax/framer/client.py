@@ -237,6 +237,14 @@ class Client:
         channels: ChannelParams,
         tr: TimeRange
     ) -> None:
+        """
+        delete deletes data in the specified channels in the specified time range.
+        Note that the time range is start-inclusive and end-exclusive.
+        Also note that deleting all data in a channel does not delete the channel; to
+        delete a channel, use client.channels.delete().
+        :param channels: channels to delete data from.
+        :param tr: time range to delete data from.
+        """
         d = Deleter(client=self.__unary_client, instrumentation=self.instrumentation)
         d.delete(channels, tr)
 
