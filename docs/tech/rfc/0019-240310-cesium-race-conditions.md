@@ -417,18 +417,18 @@ analyzing race conditions:
 
 ```go
 type Writer struct {
-	// idx is the underlying domain index for the database that stores locations of domains in FS.
-	idx *index
-	// fileKey represents the key of the file written to by the writer.
-	fileKey uint16
-	// fc is the file controller for the writer's FS.
-	fc *fileController
+    // idx is the underlying domain index for the database that stores locations of domains in FS.
+    idx *index
+    // fileKey represents the key of the file written to by the writer.
+    fileKey uint16
+    // fc is the file controller for the writer's FS.
+    fc *fileController
     // fileSize is the writer's file's size
     fileSize telem.Size
-	// len is the number of bytes written by all internal writers of the domain writer.
-	len int64
-	// internal is a TrackedWriteCloser used to write telemetry to FS.
-	internal xio.TrackedWriteCloser
+    // len is the number of bytes written by all internal writers of the domain writer.
+    len int64
+    // internal is a TrackedWriteCloser used to write telemetry to FS.
+    internal xio.TrackedWriteCloser
 }
 ```
 
