@@ -596,8 +596,7 @@ pointer in domain index are:
 If a file is garbage collected after a reader has been created on it, the offset and length
 of the pointer of interest are no longer coherent with the location of telemetry in the
 file. This causes reading of wrong data. The change in the file could only happen from
-one operation:
-- Garbage Collection.
+Garbage Collection.
 
 ### 4.2.3 Deletion
 
