@@ -8,15 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/media";
-import { Menu as pMenu } from "@synnaxlabs/pluto";
+import { Menu as PMenu } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { Group } from "@/group";
 import { Menu } from "@/components/menu";
+import { Group } from "@/group";
 import { type TreeContextMenu } from "@/ontology/service";
 
 export const MultipleSelectionContextMenu: TreeContextMenu = (props) => {
-  const handleSelect: pMenu.MenuProps["onChange"] = (key) => {
+  const handleSelect: PMenu.MenuProps["onChange"] = (key) => {
     switch (key) {
       case "group":
         void Group.fromSelection(props);
@@ -24,15 +24,15 @@ export const MultipleSelectionContextMenu: TreeContextMenu = (props) => {
   };
 
   return (
-    <pMenu.Menu onChange={handleSelect} level="small" iconSpacing="small">
+    <PMenu.Menu onChange={handleSelect} level="small" iconSpacing="small">
       <Group.GroupMenuItem selection={props.selection} />
       <Menu.HardReloadItem />
-    </pMenu.Menu>
+    </PMenu.Menu>
   );
 };
 
 export const RenameMenuItem = (): ReactElement => (
-  <pMenu.Item itemKey="rename" startIcon={<Icon.Rename />}>
+  <PMenu.Item itemKey="rename" startIcon={<Icon.Rename />}>
     Rename
-  </pMenu.Item>
+  </PMenu.Item>
 );

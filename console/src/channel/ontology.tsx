@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { nanoid } from "nanoid";
 import { ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
 import {
@@ -18,12 +17,15 @@ import {
   telem,
 } from "@synnaxlabs/pluto";
 import { Tree } from "@synnaxlabs/pluto/tree";
+import { nanoid } from "nanoid";
 import { type ReactElement } from "react";
 
+import { Cluster } from "@/cluster";
 import { Menu } from "@/components/menu";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
+import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 import { Range } from "@/range";
 import { Schematic } from "@/schematic";
@@ -145,6 +147,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const { store, selection, client, addStatus } = props;
   const activeRange = Range.select(store.getState());
   const { nodes, resources } = selection;
+  const clusterKey = Cluster.useSelectActiveKey();
 
   const handleSelect = (itemKey: string): void => {
     switch (itemKey) {
@@ -181,6 +184,11 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       case "group":
         void Group.fromSelection(props);
         break;
+      case "link": {
+        const toCopy = `synnax://cluster/${clusterKey}/channel/${resources[0].id.key}`;
+        void navigator.clipboard.writeText(toCopy);
+        return;
+      }
     }
   };
 
@@ -205,6 +213,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       <PMenu.Item itemKey="delete" startIcon={<Icon.Delete />}>
         Delete
       </PMenu.Item>
+      {singleResource && <Link.CopyMenuItem />}
       <Menu.HardReloadItem />
     </PMenu.Menu>
   );

@@ -19,7 +19,11 @@ import { Device } from "@/hardware/device";
 import { Layout } from "@/layout";
 import { NavBottom, NavLeft, NavRight, NavTop } from "@/layouts/LayoutMain/Nav";
 import { Mosaic } from "@/layouts/mosaic";
+import { LinePlot } from "@/lineplot";
+import { Link } from "@/link";
 import { Notifications } from "@/notifications";
+import { Range } from "@/range";
+import { Schematic } from "@/schematic";
 import { Version } from "@/version";
 import { Workspace } from "@/workspace";
 
@@ -28,14 +32,15 @@ import { Workspace } from "@/workspace";
  * component as simple, presentational, and navigatable as possible.
  */
 export const LayoutMain = (): ReactElement => {
-  const d = useDispatch();
+  const dispatch = useDispatch();
   useEffect(() => {
-    d(Layout.maybeCreateGetStartedTab());
+    dispatch(Layout.maybeCreateGetStartedTab());
   }, []);
   Version.useLoadTauri();
   Device.useListenForChanges();
   Cluster.useLocalServer();
   Workspace.useSyncLayout();
+  Link.useDeep({ handlers: HANDLERS });
 
   return (
     <>
@@ -63,3 +68,10 @@ export const LayoutMain = (): ReactElement => {
     </>
   );
 };
+
+export const HANDLERS: Link.Handler[] = [
+  Schematic.linkHandler,
+  Range.linkHandler,
+  Workspace.linkHandler,
+  LinePlot.linkHandler,
+];

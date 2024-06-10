@@ -107,27 +107,31 @@ class WebSocketStream<RQ extends z.ZodTypeAny, RS extends z.ZodTypeAny = RQ>
     );
   }
 
-  private listenForMessages(): void {
-    this.ws.onmessage = (ev: MessageEvent<Uint8Array>) => {
-      const msg = this.encoder.decode(ev.data, MessageSchema);
-      const callback = this.receiveCallbacksQueue.shift();
-      if (callback != null) callback.resolve(msg);
-      else this.receiveDataQueue.push(msg);
-    };
+  private addMessage(msg: Message): void {
+    const callback = this.receiveCallbacksQueue.shift();
+    if (callback != null) callback.resolve(msg);
+    else this.receiveDataQueue.push(msg);
+  }
 
-    this.ws.onclose = (ev: CloseEvent) => {
-      this.serverClosed = isNormalClosure(ev) ? new EOF() : new StreamClosed();
-    };
+  private listenForMessages(): void {
+    this.ws.onmessage = (ev: MessageEvent<Uint8Array>) =>
+      this.addMessage(this.encoder.decode(ev.data, MessageSchema));
+
+    this.ws.onclose = (ev: CloseEvent) =>
+      this.addMessage({
+        type: "close",
+        error: { type: isNormalClosure(ev) ? EOF.TYPE : StreamClosed.TYPE, data: "" },
+      });
   }
 }
 
 export const FREIGHTER_METADATA_PREFIX = "freighterctx";
 
-const CloseNormal = 1000;
-const CloseGoingAway = 1001;
-const NormalClosures = [CloseNormal, CloseGoingAway];
+const CLOSE_NORMAL = 1000;
+const CLOSE_GOING_AWAY = 1001;
+const NORMAL_CLOSURES = [CLOSE_NORMAL, CLOSE_GOING_AWAY];
 
-const isNormalClosure = (ev: CloseEvent): boolean => NormalClosures.includes(ev.code);
+const isNormalClosure = (ev: CloseEvent): boolean => NORMAL_CLOSURES.includes(ev.code);
 
 /**
  * WebSocketClient is an implementation of StreamClient that is backed by

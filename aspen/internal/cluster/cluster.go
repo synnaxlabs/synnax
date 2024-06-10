@@ -76,7 +76,8 @@ func Open(ctx context.Context, configs ...Config) (*Cluster, error) {
 	}
 
 	c.R.Prod("cluster", c)
-	c.L.Info("beginning cluster startup", c.Report().ZapFields()...)
+	c.L.Info("beginning cluster startup")
+	c.L.Debug("configuration", cfg.Report().ZapFields()...)
 
 	if !state.IsZero() {
 		// If our store is valid, restart using the existing state.

@@ -80,7 +80,7 @@ public:
             .max_retries = 20,
             .scale = 1.2
         };
-        return(std::make_unique<MemInfo>(ctx, std::move(source), writer_cfg, breaker_config));
+        return(std::make_unique<MemInfo>(ctx, source, writer_cfg, breaker_config));
     }
 
     void exec(task::Command &cmd) override {
@@ -112,6 +112,7 @@ class Factory final : public task::Factory {
             LOG(ERROR) << "[meminfo] Failed to list existing tasks: " << err;
             return {};
         }
+        // check if a task with the same type and name already exists
         bool hasMeminfo = false;
         for (const auto &t: existing) {
             if (t.type == "meminfo") {
@@ -135,7 +136,7 @@ class Factory final : public task::Factory {
                 return {};
             }
             auto [task, ok] = configureTask(ctx, sy_task);
-            if (ok && task != nullptr) tasks.push_back({sy_task, std::move(task)});
+            if (ok && task != nullptr) tasks.emplace_back(sy_task, std::move(task));
         }
         return tasks;
     }
