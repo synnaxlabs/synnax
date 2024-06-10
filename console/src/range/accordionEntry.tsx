@@ -32,10 +32,10 @@ import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { Link } from "@/link";
 import { createEditLayout } from "@/range/EditLayout";
+// import { fromClientRange } from "@/range/ontology";
 import type { Range, StaticRange } from "@/range/range";
 import { useSelect, useSelectMultiple } from "@/range/selectors";
 import { add, remove, setActive } from "@/range/slice";
-
 export const listColumns: Array<Core.ColumnSpec<string, Range>> = [
   {
     key: "name",
@@ -246,6 +246,7 @@ const ListItem = (props: ListItemProps): ReactElement => {
     const labels_ = await (await client.ranges.retrieve(entry.key)).labels();
     setLabels(labels_);
   }, [entry.key, client]);
+  // const dispatch = useDispatch();
 
   const rang = useSelect(entry.key);
   console.log(rang?.name, rang?.variant);
@@ -253,16 +254,6 @@ const ListItem = (props: ListItemProps): ReactElement => {
   const onRename = (name: string): void => {
     if (name.length === 0) return;
     console.log(entry.key, name);
-    void (async () => {
-      if (client == null) return;
-      try {
-        // await client.ranges.rename(entry.key, name);
-        console.log("Should have renamed!");
-      } catch (e) {
-        console.error(e);
-      }
-    })();
-    console.log("Did the rename!", name);
   };
 
   return (

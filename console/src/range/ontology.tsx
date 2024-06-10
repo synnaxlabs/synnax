@@ -26,7 +26,7 @@ import { type Range } from "@/range/range";
 import { select } from "@/range/selectors";
 import { add, remove, setActive, type StoreState } from "@/range/slice";
 
-const fromClientRange = (ranges: ranger.Range | ranger.Range[]): Range[] =>
+export const fromClientRange = (ranges: ranger.Range | ranger.Range[]): Range[] =>
   toArray(ranges).map((range) => ({
     variant: "static",
     key: range.key,
