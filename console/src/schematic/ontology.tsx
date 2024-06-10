@@ -9,9 +9,12 @@
 
 import { ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Menu, Mosaic, Tree } from "@synnaxlabs/pluto";
+import { Menu as PMenu, Mosaic, Tree } from "@synnaxlabs/pluto";
 
+import { Cluster } from "@/cluster";
+import { Menu } from "@/components/menu";
 import { Layout } from "@/layout";
+import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 import { Range } from "@/range";
 import { create, type State } from "@/schematic/slice";
@@ -42,13 +45,20 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
 
   const handleCopy = (): void => {
     void (async () => {
+      if (parent == null) return;
       const schematics = await Promise.all(
         resources.map(
           async (res) =>
-            await client.workspaces.schematic.copy(res.id.key, res.name + " (copy)", false),
+            await client.workspaces.schematic.copy(
+              res.id.key,
+              res.name + " (copy)",
+              false,
+            ),
         ),
       );
-      const otgIDs = schematics.map(({ key }) => new ontology.ID({ type: "schematic", key }));
+      const otgIDs = schematics.map(
+        ({ key }) => new ontology.ID({ type: "schematic", key }),
+      );
       const otg = await client.ontology.retrieve(otgIDs);
       state.setResources([...state.resources, ...otg]);
       const nextTree = Tree.setNode({
@@ -63,14 +73,20 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
 
   const handleRangeSnapshot = (): void => {
     void (async () => {
-      if (activeRange == null) return;
+      if (activeRange == null || parent == null) return;
       const schematics = await Promise.all(
         resources.map(
           async (res) =>
-            await client.workspaces.schematic.copy(res.id.key, res.name + " (snap)", true),
+            await client.workspaces.schematic.copy(
+              res.id.key,
+              res.name + " (snap)",
+              true,
+            ),
         ),
       );
-      const otgsIDs = schematics.map(({ key }) => new ontology.ID({ type: "schematic", key }));
+      const otgsIDs = schematics.map(
+        ({ key }) => new ontology.ID({ type: "schematic", key }),
+      );
       const rangeID = new ontology.ID({ type: "range", key: activeRange.key });
       await client.ontology.moveChildren(
         new ontology.ID(parent.key),
@@ -82,28 +98,38 @@ const TreeContextMenu: Ontology.TreeContextMenu = ({
 
   const handleRename = (): void => Tree.startRenaming(resources[0].key);
 
+  const clusterKey = Cluster.useSelectActiveKey();
+  const handleCopyUrl = (): void => {
+    const url = `synnax://cluster/${clusterKey}/schematic/${resources[0].id.key}`;
+    void navigator.clipboard.writeText(url);
+  };
+
   const f: Record<string, () => void> = {
     delete: handleDelete,
     rename: handleRename,
     copy: handleCopy,
     rangeSnapshot: handleRangeSnapshot,
+    link: handleCopyUrl,
   };
 
   const onSelect = (key: string): void => f[key]();
+  const isSingle = resources.length === 1;
 
   return (
-    <Menu.Menu onChange={onSelect} level="small" iconSpacing="small">
+    <PMenu.Menu onChange={onSelect} level="small" iconSpacing="small">
       <Ontology.RenameMenuItem />
       {resources.every((r) => r.data?.snapshot === false) && (
         <Range.SnapshotMenuItem range={activeRange} />
       )}
-      <Menu.Item itemKey="copy" startIcon={<Icon.Copy />}>
+      <PMenu.Item itemKey="copy" startIcon={<Icon.Copy />}>
         Copy
-      </Menu.Item>
-      <Menu.Item itemKey="delete" startIcon={<Icon.Delete />}>
+      </PMenu.Item>
+      <PMenu.Item itemKey="delete" startIcon={<Icon.Delete />}>
         Delete
-      </Menu.Item>
-    </Menu.Menu>
+      </PMenu.Item>
+      {isSingle && <Link.CopyMenuItem />}
+      <Menu.HardReloadItem />
+    </PMenu.Menu>
   );
 };
 

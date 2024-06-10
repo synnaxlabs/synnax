@@ -22,7 +22,7 @@ type Frame struct {
 
 func NewFrame(keys []ChannelKey, series []telem.Series) Frame {
 	if len(keys) != len(series) {
-		panic("[cesium] - Keys and telemetry series in a frame must be of the same length")
+		panic("keys and telemetry series in a frame must be of the same length")
 	}
 	kf := Frame{Keys: keys, Series: series}
 	return kf

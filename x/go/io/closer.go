@@ -29,13 +29,17 @@ func (c NopCloserFunc) Close() error {
 	return nil
 }
 
+// MultiCloser is a collection of io.Closer objects that can be closed together. The
+// Close method will close each closer in the collection in the reverse order they were
+// added.
 type MultiCloser []io.Closer
 
 var _ io.Closer = MultiCloser(nil)
 
 func (c MultiCloser) Close() error {
 	ca := errors.NewCatcher(errors.WithAggregation())
-	for _, closer := range c {
+	for i := len(c) - 1; i >= 0; i-- {
+		closer := c[i]
 		ca.Exec(closer.Close)
 	}
 	return ca.Error()

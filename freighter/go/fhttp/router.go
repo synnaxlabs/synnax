@@ -10,6 +10,7 @@
 package fhttp
 
 import (
+	"context"
 	"github.com/gofiber/fiber/v2"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
@@ -45,17 +46,28 @@ func NewRouter(configs ...RouterConfig) *Router {
 	if err != nil {
 		panic(err)
 	}
-	return &Router{RouterConfig: cfg}
+	ctx, cancel := context.WithCancel(context.Background())
+	return &Router{
+		RouterConfig: cfg,
+		ctx:          ctx,
+		cancel:       cancel,
+	}
 }
 
 type Router struct {
 	RouterConfig
+	ctx    context.Context
+	cancel context.CancelFunc
 	routes []route
 }
 
 var _ BindableTransport = (*Router)(nil)
 
 func (r *Router) BindTo(app *fiber.App) {
+	app.Hooks().OnShutdown(func() error {
+		r.cancel()
+		return nil
+	})
 	for _, route := range r.routes {
 		if route.httpMethod == "GET" {
 			app.Get(route.path, route.handler)
@@ -95,6 +107,7 @@ func StreamServer[RQ, RS freighter.Payload](r *Router, internal bool, path strin
 		Reporter:        streamReporter,
 		path:            path,
 		Instrumentation: r.Instrumentation,
+		serverCtx:       r.ctx,
 	}
 	r.register(path, "GET", s, s.fiberHandler)
 	return s

@@ -68,6 +68,8 @@ markers = [
     "tdms: mark test as a tdms test",
     "focus: focus on a set of tests",
     "control: mark test as a control test",
+    "auth: mark test as an auth test",
+    "internal: mark test as an internal test",
     "cli"
 ]
 

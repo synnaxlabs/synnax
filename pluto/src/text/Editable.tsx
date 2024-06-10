@@ -31,11 +31,16 @@ const NOMINAL_EXIT_KEYS = ["Escape", "Enter"];
 
 const BASE_CLASS = CSS.BM("text", "editable");
 
-export const edit = (id: string): void => {
+export const edit = (id: string, onChange?: (value: string) => void): void => {
   const d = document.getElementById(id);
   if (d == null || !d.classList.contains(BASE_CLASS))
     return console.error(`Element with id ${id} is not an instance of Text.Editable`);
   d.setAttribute("contenteditable", "true");
+  if (onChange == null) return;
+  d.addEventListener("change", (e) => {
+    const t = e.target as HTMLElement;
+    onChange(t.innerText.trim());
+  });
 };
 
 export const Editable = <L extends text.Level = text.Level>({
@@ -62,8 +67,10 @@ export const Editable = <L extends text.Level = text.Level>({
     e.preventDefault();
     const el = ref.current;
     setEditable(false);
-    onChange?.(el.innerText.trim());
+    if (e.key === "Enter") onChange?.(el.innerText.trim());
+    else el.innerText = value;
     el.blur();
+    el.dispatchEvent(new Event("change"));
   };
 
   useLayoutEffect(() => {
@@ -88,9 +95,7 @@ export const Editable = <L extends text.Level = text.Level>({
         if (makeEditable) setEditable(true);
       });
     });
-    m.observe(ref.current as Node, {
-      attributes: true,
-    });
+    m.observe(ref.current as Node, { attributes: true });
   }, []);
 
   return (
@@ -98,7 +103,12 @@ export const Editable = <L extends text.Level = text.Level>({
     <Text<L>
       ref={ref}
       className={CSS.BM("text", "editable")}
-      onBlur={() => setEditable(false)}
+      onBlur={() => {
+        setEditable(false);
+        const el = ref.current;
+        if (el == null) return;
+        el.dispatchEvent(new Event("change"));
+      }}
       onKeyDown={handleKeyDown}
       onKeyUp={(e: KeyboardEvent<HTMLParagraphElement>) => {
         e.stopPropagation();

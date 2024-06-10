@@ -7,17 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology,UnexpectedError } from "@synnaxlabs/client";
+import { ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/media";
-import { Menu } from "@synnaxlabs/pluto";
+import { Menu as PMenu } from "@synnaxlabs/pluto";
 import { Tree } from "@synnaxlabs/pluto/tree";
 import { type ReactElement } from "react";
+import { v4 as uuid } from "uuid";
 
+import { Menu } from "@/components/menu";
 import { Ontology } from "@/ontology";
 
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const {
-    selection: { nodes },
+    selection: { nodes, parent, resources },
   } = props;
   const onSelect = (key: string): void => {
     switch (key) {
@@ -26,26 +28,38 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         return;
       case "rename":
         Tree.startRenaming(nodes[0].key);
+        return;
+      case "group":
+        void newGroup(props);
+        return;
     }
   };
 
-  const isDelete = nodes.length === 1 && nodes[0].children?.length === 0;
+  const isDelete = nodes.every((n) => n.children == null || n.children.length === 0);
   const ungroupIcon = isDelete ? <Icon.Delete /> : <Icon.Group />;
+  const singleResource = resources.length === 1;
 
   return (
-    <Menu.Menu onChange={onSelect} level="small" iconSpacing="medium">
-      <Menu.Item itemKey="ungroup" startIcon={ungroupIcon}>
-        {isDelete ? "Delete" : "Ungroup"}
-      </Menu.Item>
-      <Ontology.RenameMenuItem />
-    </Menu.Menu>
+    <PMenu.Menu onChange={onSelect} level="small" iconSpacing="small">
+      <PMenu.Item itemKey="group" startIcon={<Icon.Group />}>
+        New Group
+      </PMenu.Item>
+      {parent != null && (
+        <PMenu.Item itemKey="ungroup" startIcon={ungroupIcon}>
+          {/* TODO: Maybe we shouldn't force them into keeping the ontology tree like this? */}
+          {isDelete ? "Delete" : "Ungroup"}
+        </PMenu.Item>
+      )}
+      {singleResource && <Ontology.RenameMenuItem />}
+      <Menu.HardReloadItem />
+    </PMenu.Menu>
   );
 };
 
 export const UngroupMenuItem = (): ReactElement => (
-  <Menu.Item itemKey="ungroup" startIcon={<Icon.Group />}>
+  <PMenu.Item itemKey="ungroup" startIcon={<Icon.Group />}>
     Ungroup
-  </Menu.Item>
+  </PMenu.Item>
 );
 
 export interface GroupMenuItemProps {
@@ -56,9 +70,9 @@ export const GroupMenuItem = ({
   selection,
 }: GroupMenuItemProps): ReactElement | null =>
   canGroupSelection(selection) ? (
-    <Menu.Item itemKey="group" startIcon={<Icon.Group />}>
+    <PMenu.Item itemKey="group" startIcon={<Icon.Group />}>
       Group
-    </Menu.Item>
+    </PMenu.Item>
   ) : null;
 
 const ungroupSelection = async ({
@@ -66,26 +80,28 @@ const ungroupSelection = async ({
   selection,
   state,
 }: Ontology.TreeContextMenuProps): Promise<void> => {
-  if (selection.resources.length !== 1)
-    throw new UnexpectedError("[ungroupSelection] - expected exactly one resource");
-
-  const id = selection.resources[0].id;
-  const children =
-    Tree.findNode({ tree: state.nodes, key: id.toString() })?.children ?? [];
-  const parentID = new ontology.ID(selection.parent.key);
-  await client.ontology.moveChildren(
-    id,
-    parentID,
-    ...children.map((c) => new ontology.ID(c.key)),
-  );
-  await client.ontology.groups.delete(id.key);
-  let nextNodes = Tree.moveNode({
-    tree: state.nodes,
-    destination: parentID.toString(),
-    keys: children.map((c) => c.key),
-  });
-  nextNodes = Tree.removeNode({ tree: nextNodes, keys: id.toString() });
-  state.setNodes([...nextNodes]);
+  if (selection.parent == null) return;
+  for (const node of selection.resources) {
+    const id = node.id;
+    const children =
+      Tree.findNode({ tree: state.nodes, key: id.toString() })?.children ?? [];
+    const parentID = new ontology.ID(selection.parent.key);
+    state.setLoading(id.toString());
+    await client.ontology.moveChildren(
+      id,
+      parentID,
+      ...children.map((c) => new ontology.ID(c.key)),
+    );
+    await client.ontology.groups.delete(id.key);
+    state.setLoading(false);
+    let nextNodes = Tree.moveNode({
+      tree: state.nodes,
+      destination: parentID.toString(),
+      keys: children.map((c) => c.key),
+    });
+    nextNodes = Tree.removeNode({ tree: nextNodes, keys: id.toString() });
+    state.setNodes([...nextNodes]);
+  }
 };
 
 const NEW_GROUP_NAME = "New Group Name";
@@ -103,12 +119,51 @@ const getAllNodesOfMinDepth = (
   return nodes.filter(({ depth }) => depth === minDepth);
 };
 
+export const newGroup = async ({
+  client,
+  state,
+  services,
+  selection: { resources },
+}: Ontology.TreeContextMenuProps): Promise<void> => {
+  if (resources.length === 0) return;
+  const resource = resources[resources.length - 1];
+  const otgID = new ontology.ID({ type: "group", key: uuid() });
+  const res: ontology.Resource = {
+    key: otgID.toString(),
+    id: otgID,
+    name: "",
+  };
+  state.expand(resource.id.toString());
+  const newGroupNode = Ontology.toTreeNode(services, res);
+  const nextNodes = Tree.setNode({
+    tree: state.nodes,
+    destination: resource.id.toString(),
+    additions: newGroupNode,
+  });
+  state.setNodes([...nextNodes]);
+  setTimeout(() => {
+    Tree.startRenaming(res.id.toString(), async (name) => {
+      if (name.length === 0) {
+        // remove the node from the tree
+        state.setNodes([
+          ...Tree.removeNode({ tree: nextNodes, keys: res.id.toString() }),
+        ]);
+        return;
+      }
+      state.setLoading(otgID.toString());
+      await client.ontology.groups.create(resource.id, name, otgID.key);
+      state.setLoading(false);
+    });
+  }, 20);
+};
+
 export const fromSelection = async ({
   client,
   selection,
   services,
   state,
 }: Ontology.TreeContextMenuProps): Promise<void> => {
+  if (selection.parent == null) return;
   const nodesOfMinDepth = getAllNodesOfMinDepth(selection.nodes);
   const nodesOfMinDepthKeys = nodesOfMinDepth.map(({ key }) => key);
   const resourcesToGroup = selection.resources

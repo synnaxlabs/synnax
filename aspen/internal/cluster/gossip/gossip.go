@@ -37,7 +37,8 @@ func New(cfgs ...Config) (*Gossip, error) {
 // GoGossip starts a goroutine that gossips at Config.Interval.
 func (g *Gossip) GoGossip(ctx signal.Context) {
 	g.R.Prod("gossip", g.Config)
-	g.L.Info("starting cluster gossip", g.Config.Report().ZapFields()...)
+	g.L.Info("starting cluster gossip")
+	g.L.Debug("config", g.Config.Report().ZapFields()...)
 	signal.GoTick(
 		ctx,
 		g.Interval,

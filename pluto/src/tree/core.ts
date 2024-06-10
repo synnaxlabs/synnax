@@ -178,6 +178,28 @@ export const updateNode = ({
   return tree;
 };
 
+interface UpdateNodeChildren {
+  tree: Node[];
+  parent: string;
+  updater: (nodes: Node[]) => Node[];
+  throwOnMissing?: boolean;
+}
+
+export const updateNodeChildren = ({
+  tree,
+  parent,
+  updater,
+  throwOnMissing = true,
+}: UpdateNodeChildren): Node[] => {
+  const parentNode = findNode({ tree, key: parent });
+  if (parentNode == null) {
+    if (throwOnMissing) throw new Error(`Could not find node with key ${parent}`);
+    return tree;
+  }
+  parentNode.children = updater(parentNode.children ?? []);
+  return tree;
+};
+
 export interface FindNodeProps {
   tree: Node[];
   key: string;

@@ -12,6 +12,7 @@ import { LinePlot } from "@/lineplot/LinePlot";
 import { LAYOUT_TYPE } from "@/lineplot/slice";
 
 export * from "@/lineplot/LinePlot";
+export * from "@/lineplot/link";
 export * from "@/lineplot/middleware";
 export * from "@/lineplot/NavControls";
 export * from "@/lineplot/ontology";

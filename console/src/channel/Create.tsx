@@ -67,6 +67,7 @@ export const Create: Layout.Renderer = ({
       name: "",
       index: 0,
       dataType: "float32",
+      internal: false,
       isIndex: false,
       leaseholder: 0,
       rate: Rate.hz(0),
@@ -76,7 +77,6 @@ export const Create: Layout.Renderer = ({
 
   const { mutate, isPending } = useMutation({
     mutationFn: async (createMore: boolean) => {
-      console.log(methods.validate());
       if (!methods.validate() || client == null) return;
       const d = methods.value();
       d.dataType = d.dataType.toString();

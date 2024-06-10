@@ -11,7 +11,7 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
 import { type Payload, payloadZ } from "@/ontology/group/payload";
-import { type ID,idZ } from "@/ontology/payload";
+import { type ID, idZ } from "@/ontology/payload";
 
 const resZ = z.object({
   group: payloadZ,
@@ -19,6 +19,7 @@ const resZ = z.object({
 
 const createReqZ = z.object({
   parent: idZ,
+  key: z.string().uuid().optional(),
   name: z.string(),
 });
 
@@ -41,21 +42,36 @@ export class Writer {
     this.client = client;
   }
 
-  async create(parent: ID, name: string): Promise<Payload> {
-    const [res, err] = await this.client.send(Writer.ENDPOINT, {parent, name},createReqZ, resZ);
+  async create(parent: ID, name: string, key?: string): Promise<Payload> {
+    const [res, err] = await this.client.send(
+      Writer.ENDPOINT,
+      { parent, name, key },
+      createReqZ,
+      resZ,
+    );
     if (err != null) throw err;
     return res.group;
   }
 
   async rename(key: string, name: string): Promise<void> {
     const req = { key, name };
-    const [, err] = await this.client.send(Writer.ENDPOINT_RENAME, req, renameReqZ, z.object({}));
+    const [, err] = await this.client.send(
+      Writer.ENDPOINT_RENAME,
+      req,
+      renameReqZ,
+      z.object({}),
+    );
     if (err != null) throw err;
   }
 
   async delete(keys: string[]): Promise<void> {
     const req = { keys };
-    const [, err] = await this.client.send(Writer.ENDPOINT_DELETE, req, deleteReqZ, z.object({}));
+    const [, err] = await this.client.send(
+      Writer.ENDPOINT_DELETE,
+      req,
+      deleteReqZ,
+      z.object({}),
+    );
     if (err != null) throw err;
   }
 }

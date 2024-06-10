@@ -133,6 +133,7 @@ const SelectorButton = ({
   return (
     <Align.Pack
       size={size}
+      id={tabKey}
       className={CSS(
         CSS.BE(CLS, "btn"),
         onRename == null && CSS.BEM(CLS, "btn", "uneditable"),

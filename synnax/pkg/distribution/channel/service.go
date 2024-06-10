@@ -119,7 +119,6 @@ func New(ctx context.Context, configs ...ServiceConfig) (Service, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	s := &service{
 		DB:    cfg.ClusterDB,
 		proxy: proxy,

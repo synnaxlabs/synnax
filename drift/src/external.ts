@@ -14,6 +14,8 @@ export {
   selectWindow,
   selectWindowAttribute,
   selectWindowKey,
+  selectWindowLabel,
+  selectWindows,
 } from "@/selectors";
 export type {
   Action,
@@ -39,6 +41,7 @@ export {
   createWindow,
   initialState,
   reducer,
+  focusWindow,
   registerProcess,
   reloadWindow,
   setWindowAlwaysOnTop,
@@ -52,6 +55,7 @@ export {
   setWindowResizable,
   setWindowSize,
   setWindowSkipTaskbar,
+  setWindowStage,
   setWindowTitle,
   setWindowVisible,
   SLICE_NAME,

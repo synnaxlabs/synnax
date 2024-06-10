@@ -44,13 +44,17 @@ func ReadOrCreate(fs xfs.FS, ch core.Channel, ecd binary.EncoderDecoder) (core.C
 // Read reads the metadata file for a database whose data is kept in fs and is encoded
 // by the provided encoder.
 func Read(fs xfs.FS, ecd binary.EncoderDecoder) (core.Channel, error) {
+	s, err := fs.Stat("")
+	if err != nil {
+		return core.Channel{}, err
+	}
 	metaF, err := fs.Open(metaFile, os.O_RDONLY)
 	var ch core.Channel
 	if err != nil {
 		return ch, err
 	}
 	if err = ecd.DecodeStream(nil, metaF, &ch); err != nil {
-		return ch, errors.Wrap(err, "error decoding meta file")
+		return ch, errors.Wrapf(err, "error decoding meta in folder for channel %s", s.Name())
 	}
 	return ch, metaF.Close()
 }
@@ -81,7 +85,7 @@ func Create(fs xfs.FS, ecd binary.EncoderDecoder, ch core.Channel) error {
 // validateMeta checks that the meta file read from or about to be written to a meta file
 // is well-defined.
 func validateMeta(ch core.Channel) error {
-	v := validate.New("cesium")
+	v := validate.New("meta")
 	validate.Positive(v, "key", ch.Key)
 	validate.NotEmptyString(v, "dataType", ch.DataType)
 	if ch.Virtual {

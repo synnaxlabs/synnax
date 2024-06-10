@@ -43,7 +43,7 @@ export const createEditLayout = (name: string = "Create Range"): Layout.State =>
   location: "window",
   window: {
     resizable: false,
-    size: { height: 280, width: 700 },
+    size: { height: 290, width: 700 },
     navTop: true,
   },
 });
@@ -63,7 +63,6 @@ export const Edit = (props: Layout.RendererProps): ReactElement => {
     queryKey: ["range", layoutKey],
     queryFn: async () => {
       if (isCreate) {
-        console.log(editBuffer);
         dispatch(clearBuffer());
         return {
           name: "",
