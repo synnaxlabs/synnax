@@ -67,7 +67,8 @@ class Client:
         suppress_warnings: bool = False,
         mode: WriterMode = WriterMode.PERSIST_STREAM,
         enable_auto_commit: bool = False,
-        auto_index_persist_interval: TimeSpan = 1 * TimeSpan.SECOND
+        auto_index_persist_interval: TimeSpan = 1 * TimeSpan.SECOND,
+        err_on_extra_chans: bool = True,
     ) -> Writer:
         """Opens a new writer on the given channels.
 
@@ -96,7 +97,7 @@ class Client:
         be persisted. To persist every commit to guarantee minimal loss of data, set
         auto_index_persist_interval to AlwaysAutoIndexPersist.
         """
-        adapter = WriteFrameAdapter(self.__channels)
+        adapter = WriteFrameAdapter(self.__channels, err_on_extra_chans)
         adapter.update(channels)
         return Writer(
             start=start,

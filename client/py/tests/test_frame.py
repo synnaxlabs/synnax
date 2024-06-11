@@ -195,3 +195,16 @@ class TestWriteFrameAdapter:
         assert len(o.series) == 1
         assert o.channels[0] == channel.key
         assert o.series[0].data_type == sy.DataType.FLOAT64
+
+    def test_error_on_extra_keys(self, adapter: [WriteFrameAdapter, sy.Channel]):
+        """It should correclty throw an error when extra keys are passed."""
+        adapter, channel = adapter
+        with pytest.raises(sy.ValidationError):
+            adapter.adapt(
+                {
+                    channel.name: 1.0,
+                    "extra": 1.0,
+                }
+            )
+
+        

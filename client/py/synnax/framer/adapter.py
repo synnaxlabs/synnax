@@ -63,11 +63,17 @@ class WriteFrameAdapter:
     __adapter: dict[ChannelName, ChannelKey] | None
     retriever: ChannelRetriever
     __keys: list[ChannelKey] | None
+    __err_on_extra_chans: bool
 
-    def __init__(self, retriever: ChannelRetriever):
+    def __init__(
+            self, 
+            retriever: ChannelRetriever,
+            err_on_extra_chans: bool = True
+    ):
         self.retriever = retriever
         self.__adapter = None
         self.__keys = None
+        self.__err_on_extra_chans = err_on_extra_chans
 
     def update(self, channels: ChannelParams):
         results = retrieve_required(self.retriever, channels)
@@ -144,17 +150,20 @@ class WriteFrameAdapter:
                 channels_or_data = Frame(channels_or_data)
             if self.__adapter is None:
                 return channels_or_data
-            try:
-                channels = [
-                    self.__adapter[col] if isinstance(col, ChannelName) else col
-                    for col in channels_or_data.channels
-                ]
-            except KeyError as e:
-                raise ValidationError(
-                    f"Channel {e} was not provided in the list of "
-                    f"channels when the writer was opened."
-                )
-            return Frame(channels=channels, series=channels_or_data.series)
+            channels = list()
+            series = list()
+            for col in channels_or_data.channels:
+                try:
+                    channels.append(self.__adapter[col] if isinstance(col, ChannelName) else col)
+                    series.append(channels_or_data[col])
+                except KeyError as e:
+                    if self.__err_on_extra_chans:
+                        raise ValidationError(
+                            f"Channel {e} was not provided in the list of "
+                            f"channels when the writer was opened."
+                        )
+            print(channels, series)
+            return Frame(channels=channels, series=series)
 
         if isinstance(channels_or_data, dict):
             channels = list()
