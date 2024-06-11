@@ -21,10 +21,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
+	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"io"
-	"math"
 )
 
 var _ = Describe("Deleter", Ordered, func() {
@@ -106,11 +106,16 @@ var _ = Describe("Deleter", Ordered, func() {
 		Describe("Channel not found", func() {
 			Specify("By name", func() {
 				d = s.deleter.NewDeleter()
-				Expect(d.DeleteTimeRangeByName(ctx, "kaka", telem.TimeRangeMin)).To(Succeed())
+				Expect(d.DeleteTimeRangeByName(ctx, "kaka", telem.TimeRangeMin)).To(MatchError(ts.ErrChannelNotfound))
 			})
 			Specify("By key", func() {
 				d = s.deleter.NewDeleter()
-				Expect(d.DeleteTimeRange(ctx, math.MaxUint32-5, telem.TimeRangeMax)).To(Succeed())
+				Expect(d.DeleteTimeRange(ctx, 10, telem.TimeRangeMax)).To(MatchError(ts.ErrChannelNotfound))
+			})
+			Specify("Trying to delete from free", func() {
+				d = s.deleter.NewDeleter()
+				key := channel.NewKey(dcore.NodeKey(dcore.Free), 0)
+				Expect(d.DeleteTimeRangeMany(ctx, []channel.Key{key}, telem.TimeRangeMax)).To(MatchError(ContainSubstring("delete time range from virtual")))
 			})
 		})
 	}

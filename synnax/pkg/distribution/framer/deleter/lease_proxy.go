@@ -12,9 +12,10 @@ package deleter
 import (
 	"context"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
@@ -42,6 +43,13 @@ func (lp *leaseProxy) deleteTimeRange(
 	tr telem.TimeRange,
 ) error {
 	batch := lp.keyRouter.Batch(keys)
+	if len(batch.Free) != 0 {
+		return errors.Newf(
+			"cannot delete time range from virtual channel(s) %s",
+			batch.Free,
+		)
+	}
+
 	for nodeKey, entries := range batch.Peers {
 		err := lp.deleteTimeRangeRemote(ctx, nodeKey, entries, tr)
 		if err != nil {
@@ -72,7 +80,7 @@ func (lp *leaseProxy) deleteTimeRangeByName(
 			names,
 			lo.Map(res, func(item channel.Channel, _ int) string { return item.Name }),
 		)
-		return errors.Wrapf(query.NotFound, "channel(s) %s not found", diff)
+		return errors.Wrapf(ts.ErrChannelNotfound, "channel(s) %s not found", diff)
 	}
 
 	keys := channel.KeysFromChannels(res)
@@ -86,8 +94,8 @@ func (lp *leaseProxy) deleteTimeRangeRemote(
 	tr telem.TimeRange,
 ) error {
 	addr, err := lp.HostResolver.Resolve(target)
-	if err != nil {
-		return err
+	if errors.Is(err, aspen.NodeNotfound) {
+		return errors.Wrapf(ts.ErrChannelNotfound, "channel(s) %s not found", keys)
 	}
 	_, err = lp.Transport.Client().Send(ctx, addr, Request{Keys: keys, Bounds: tr})
 	return err
