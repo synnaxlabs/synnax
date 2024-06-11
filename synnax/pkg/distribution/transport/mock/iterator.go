@@ -17,7 +17,7 @@ func (c *FramerIteratorNetwork) New(addr address.Address, buffers ...int) iterat
 	}
 }
 
-func NewFramerIteratorNetwork() *FramerIteratorNetwork {
+func NewIteratorNetwork() *FramerIteratorNetwork {
 	return &FramerIteratorNetwork{Internal: fmock.NewNetwork[iterator.Request, iterator.Response]()}
 }
 

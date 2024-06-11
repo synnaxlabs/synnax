@@ -47,7 +47,7 @@ func NewBuilder(cfg ...distribution.Config) *Builder {
 	return &Builder{
 		core:       *coreBuilder,
 		writerNet:  tmock.NewWriterNetwork(),
-		iterNet:    tmock.NewFramerIteratorNetwork(),
+		iterNet:    tmock.NewIteratorNetwork(),
 		channelNet: tmock.NewChannelNetwork(),
 		relayNet:   tmock.NewRelayNetwork(),
 		deleteNet:  tmock.NewDeleterNetwork(),

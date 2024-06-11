@@ -13,11 +13,12 @@ import (
 	"context"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
-	"github.com/synnaxlabs/x/gorp"
 )
 
 type leaseProxy struct {
@@ -37,7 +38,6 @@ func newLeaseProxy(
 
 func (lp *leaseProxy) deleteTimeRange(
 	ctx context.Context,
-	tx gorp.Tx,
 	keys channel.Keys,
 	tr telem.TimeRange,
 ) error {
@@ -49,23 +49,34 @@ func (lp *leaseProxy) deleteTimeRange(
 		}
 	}
 
-	return lp.deleteTimeRangeGateway(ctx, tx, batch.Gateway, tr)
+	return lp.deleteTimeRangeGateway(ctx, batch.Gateway, tr)
 }
 
 func (lp *leaseProxy) deleteTimeRangeByName(
 	ctx context.Context,
-	tx gorp.Tx,
+	retriever channel.Readable,
 	names []string,
 	tr telem.TimeRange,
 ) error {
 	var res []channel.Channel
-	if err := gorp.NewRetrieve[channel.Key, channel.Channel]().Entries(&res).Where(func(c *channel.Channel) bool {
-		return lo.Contains(names, c.Name)
-	}).Exec(ctx, tx); err != nil {
+	retriever.NewRetrieve().WhereKeys()
+	if err := retriever.
+		NewRetrieve().
+		Entries(&res).
+		WhereNames(names...).
+		Exec(ctx, nil); err != nil {
 		return err
 	}
+	if len(res) != len(names) {
+		diff, _ := lo.Difference(
+			names,
+			lo.Map(res, func(item channel.Channel, _ int) string { return item.Name }),
+		)
+		return errors.Wrapf(query.NotFound, "channel(s) %s not found", diff)
+	}
+
 	keys := channel.KeysFromChannels(res)
-	return lp.deleteTimeRange(ctx, tx, keys, tr)
+	return lp.deleteTimeRange(ctx, keys, tr)
 }
 
 func (lp *leaseProxy) deleteTimeRangeRemote(
@@ -84,7 +95,6 @@ func (lp *leaseProxy) deleteTimeRangeRemote(
 
 func (lp *leaseProxy) deleteTimeRangeGateway(
 	ctx context.Context,
-	tx gorp.Tx,
 	keys channel.Keys,
 	tr telem.TimeRange,
 ) error {

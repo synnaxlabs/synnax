@@ -50,7 +50,7 @@ func (s *FrameService) FrameDelete(
 ) (types.Nil, error) {
 	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
 		c := errors.NewCatcher(errors.WithAggregation())
-		w := s.Internal.NewDeleter(tx)
+		w := s.Internal.NewDeleter()
 		if len(req.Keys) > 0 {
 			c.Exec(func() error {
 				return w.DeleteTimeRangeMany(ctx, req.Keys, req.Bounds)

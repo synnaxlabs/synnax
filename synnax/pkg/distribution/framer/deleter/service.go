@@ -10,10 +10,10 @@
 package deleter
 
 import (
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -24,11 +24,11 @@ type Service interface {
 
 type Deletable interface {
 	Deleter
-	NewDeleter(tx gorp.Tx) Deleter
+	NewDeleter() Deleter
 }
 
 type service struct {
-	*gorp.DB
+	channelReader channel.Readable
 	Deleter
 	proxy *leaseProxy
 }
@@ -36,9 +36,10 @@ type service struct {
 var _ Service = (*service)(nil)
 
 type ServiceConfig struct {
-	HostResolver core.HostResolver
-	TSChannel    *ts.DB
-	Transport    Transport
+	HostResolver  core.HostResolver
+	ChannelReader channel.Readable
+	TSChannel     *ts.DB
+	Transport     Transport
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -48,6 +49,7 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "HostProvider", c.HostResolver)
 	validate.NotNil(v, "TSChannel", c.TSChannel)
 	validate.NotNil(v, "Transport", c.Transport)
+	validate.NotNil(v, "ChannelReader", c.ChannelReader)
 	return v.Error()
 }
 
@@ -55,6 +57,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.HostResolver = override.Nil(c.HostResolver, other.HostResolver)
 	c.TSChannel = override.Nil(c.TSChannel, other.TSChannel)
 	c.Transport = override.Nil(c.Transport, other.Transport)
+	c.ChannelReader = override.Nil(c.ChannelReader, other.ChannelReader)
 	return c
 }
 
@@ -70,12 +73,13 @@ func New(configs ...ServiceConfig) (Service, error) {
 		return nil, err
 	}
 	s := &service{
-		proxy: proxy,
+		proxy:         proxy,
+		channelReader: cfg.ChannelReader,
 	}
-	s.Deleter = s.NewDeleter(nil)
+	s.Deleter = s.NewDeleter()
 	return s, nil
 }
 
-func (s *service) NewDeleter(tx gorp.Tx) Deleter {
-	return deleter{proxy: s.proxy, tx: s.DB.OverrideTx(tx)}
+func (s *service) NewDeleter() Deleter {
+	return deleter{proxy: s.proxy, channelReader: s.channelReader}
 }

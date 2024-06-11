@@ -12,20 +12,35 @@ package deleter
 import (
 	"context"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/telem"
 )
 
 type Deleter interface {
+	// DeleteTimeRange deletes a time range in the specified channel. It is idempotent:
+	// if no data is found in the range, nil is returned. However, if the channel
+	// does not exist, an ErrChannelNotfound is returned.
 	DeleteTimeRange(ctx context.Context, key channel.Key, tr telem.TimeRange) error
+	// DeleteTimeRangeByName deletes a time range in the specified channel. It is idempotent:
+	// if no data is found in the range, nil is returned. However, if the channel
+	// does not exist, a query.NotFound is returned.
 	DeleteTimeRangeByName(ctx context.Context, name string, tr telem.TimeRange) error
+	// DeleteTimeRangeMany deletes a time range in the specified channels. It is idempotent:
+	// if no data is found in the range, that channel is skipped.
+	// It is NOT atomic: if any deletion fails after others have succeeded, the operation
+	// is abandoned midway.
 	DeleteTimeRangeMany(ctx context.Context, keys []channel.Key, tr telem.TimeRange) error
+	// DeleteTimeRangeManyByNames deletes a time range in the specified channels.
+	// It is idempotent: if no data is found in the range, that channel is skipped.
+	// It is NOT atomic: if any deletion fails after others have succeeded, the operation
+	// is abandoned midway.
+	// However, if any one channel is not found by its name, the operation is abandoned
+	// before any data is deleted.
 	DeleteTimeRangeManyByNames(ctx context.Context, name []string, tr telem.TimeRange) error
 }
 
 type deleter struct {
-	proxy *leaseProxy
-	tx    gorp.Tx
+	proxy         *leaseProxy
+	channelReader channel.Readable
 }
 
 var _ Deleter = deleter{}
@@ -51,7 +66,7 @@ func (d deleter) DeleteTimeRangeMany(
 	keys []channel.Key,
 	tr telem.TimeRange,
 ) error {
-	return d.proxy.deleteTimeRange(ctx, d.tx, keys, tr)
+	return d.proxy.deleteTimeRange(ctx, keys, tr)
 }
 
 func (d deleter) DeleteTimeRangeManyByNames(
@@ -59,5 +74,5 @@ func (d deleter) DeleteTimeRangeManyByNames(
 	names []string,
 	tr telem.TimeRange,
 ) error {
-	return d.proxy.deleteTimeRangeByName(ctx, d.tx, names, tr)
+	return d.proxy.deleteTimeRangeByName(ctx, d.channelReader, names, tr)
 }

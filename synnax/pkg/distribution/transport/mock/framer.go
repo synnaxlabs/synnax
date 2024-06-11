@@ -27,7 +27,7 @@ type FramerNetwork struct {
 
 func NewFramerNetwork() *FramerNetwork {
 	return &FramerNetwork{
-		Iterator: NewFramerIteratorNetwork(),
+		Iterator: NewIteratorNetwork(),
 		Writer:   NewWriterNetwork(),
 		Relay:    NewRelayNetwork(),
 		Deleter:  NewDeleterNetwork(),

@@ -21,7 +21,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -137,9 +136,10 @@ func Open(configs ...Config) (*Service, error) {
 		return nil, err
 	}
 	s.deleter, err = deleter.New(deleter.ServiceConfig{
-		HostResolver: cfg.HostResolver,
-		TSChannel:    cfg.TS,
-		Transport:    cfg.Transport.Deleter(),
+		HostResolver:  cfg.HostResolver,
+		ChannelReader: cfg.ChannelReader,
+		TSChannel:     cfg.TS,
+		Transport:     cfg.Transport.Deleter(),
 	})
 	return s, err
 }
@@ -160,8 +160,8 @@ func (s *Service) NewStreamWriter(ctx context.Context, cfg WriterConfig) (Stream
 	return s.writer.NewStream(ctx, cfg)
 }
 
-func (s *Service) NewDeleter(tx gorp.Tx) Deleter {
-	return s.deleter.NewDeleter(tx)
+func (s *Service) NewDeleter() Deleter {
+	return s.deleter.NewDeleter()
 }
 
 func (s *Service) ConfigureControlUpdateChannel(ctx context.Context, ch channel.Key) error {
