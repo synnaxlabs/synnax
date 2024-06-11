@@ -88,7 +88,8 @@ class CSVReader(CSVMatcher):  # type: ignore
             try:
                 df = next(r)
             except StopIteration:
-                raise ValidationError("No valid data found in CSV file")
+                self._skip_rows = 0
+                # raise ValidationError("No valid data found in CSV file")
 
             # check if the first value is a string
             if isinstance(df.iloc[0, 0], str):
