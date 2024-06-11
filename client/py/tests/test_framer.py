@@ -223,3 +223,36 @@ class TestDeleter:
 
         data = channel.read(TimeRange.MAX)
         assert data.size == 50 * 8
+
+    def test_delete_with_writer(self, channel: sy.Channel, client: sy.Synnax):
+        w = client.open_writer(0, channel.key)
+        with pytest.raises(Exception):
+            client.delete([channel.key], TimeRange(
+                TimeStamp(1 * TimeSpan.SECOND).range(TimeStamp(2 * TimeSpan.SECOND))))
+
+    def test_delete_index_alone(self, client:sy.Synnax):
+        ch1 = client.channels.create(sy.Channel(
+            name="index",
+            data_type=sy.DataType.TIMESTAMP,
+            is_index=True
+        ))
+
+        ch2 = sy.Channel(
+            name="data",
+            data_type=sy.DataType.FLOAT32,
+            index=ch1.key,
+        )
+
+        ch2 = client.channels.create(ch2)
+        timestamps = [sy.TimeStamp(0), sy.TimeStamp(1 * TimeSpan.SECOND),
+                      sy.TimeStamp(2 * TimeSpan.SECOND),
+                      sy.TimeStamp(3 * TimeSpan.SECOND),
+                      sy.TimeStamp(4 * TimeSpan.SECOND),
+                      ]
+        ch1.write(0, np.array(timestamps))
+        ch2.write(0, np.array([0, 1, 2, 3, 4]))
+
+        with pytest.raises(Exception):
+            client.delete([ch1.key], TimeRange(
+                TimeStamp(1 * TimeSpan.SECOND).range(TimeStamp(2 * TimeSpan.SECOND))))
+
