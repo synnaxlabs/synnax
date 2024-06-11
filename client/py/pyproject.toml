@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "synnax"
-version = "0.22.0"
+version = "0.22.2"
 description = "Synnax Client Library"
 keywords = ["Synnax", "Synnax Python Client"]
 authors = ["emiliano bonilla <emilbon99@gmail.com>"]
@@ -53,7 +53,8 @@ plugins = ["numpy.typing.mypy_plugin"]
 ignore_missing_imports = true
 
 [tool.poetry.scripts]
-synnax= "synnax.cli.synnax:synnax"
+synnax = "synnax.cli.synnax:synnax"
+synnaxkit = "synnax.cli.synnax:synnax
 
 [tool.pytest.ini_options]
 markers = [

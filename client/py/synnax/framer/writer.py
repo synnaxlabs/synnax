@@ -358,7 +358,6 @@ class Writer:
     def __prep_data_types(self, frame: Frame):
         for i, (col, series) in enumerate(frame.items()):
             ch = self.__adapter.retriever.retrieve(col)[0]  # type: ignore
-            print(series.data_type, series[0], ch.data_type, ch.key)
             if series.data_type != ch.data_type:
                 if (
                     not np_can_cast(series.data_type.np, ch.data_type.np)
