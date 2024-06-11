@@ -48,7 +48,7 @@ class CSVReader(CSVMatcher):  # type: ignore
     ):
         self._path = path
         self.channel_keys = keys
-        self.chunk_size = chunk_size or int(5e5)
+        self.chunk_size = chunk_size or int(1e4)
         self._channels = None
         self._row_count = None
         self._skip_rows = 0
@@ -88,14 +88,15 @@ class CSVReader(CSVMatcher):  # type: ignore
             try:
                 df = next(r)
             except StopIteration:
+                # If we reach the end of the file, just do a best effort calculation
                 self._skip_rows = 0
-                # raise ValidationError("No valid data found in CSV file")
-
-            # check if the first value is a string
+                break
             if isinstance(df.iloc[0, 0], str):
                 self._skip_rows += 1
             else:
                 self._calculated_skip_rows = True
+
+        self._calculated_skip_rows = True
 
         r.close()
         if self._skip_rows > 0:
@@ -167,6 +168,8 @@ class CSVWriter(CSVMatcher):  # type: ignore
     ):
         self._path = path
         self._header = True
+        if path.exists():
+            path.unlink()
 
     # Doing a protocol implementation check here because
     # it's hard for pyright to handle factories that return

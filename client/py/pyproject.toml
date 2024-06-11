@@ -69,6 +69,10 @@ markers = [
     "tdms: mark test as a tdms test",
     "focus: focus on a set of tests",
     "control: mark test as a control test",
+    "io: mark test as an io test",
+    "auth: mark test as an auth test",
+    "internal: mark test as an internal test",
+    "tsconvert: mark test as a tsconvert test",
     "cli"
 ]
 

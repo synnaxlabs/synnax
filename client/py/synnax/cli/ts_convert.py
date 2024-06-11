@@ -8,8 +8,16 @@
 #  included in the file licenses/APL.txt.
 
 from pathlib import Path
-
+from rich.progress import (
+    BarColumn,
+    Progress,
+    TaskProgressColumn,
+    TextColumn,
+    TimeElapsedColumn,
+)
 import click
+import time
+from datetime import datetime
 
 from synnax.cli import default
 from synnax.cli.flow import Context
@@ -29,7 +37,10 @@ INPUT_PRECISION_ARG = "--input-precision"
 INPUT_PRECISION_ARG_SHORT = "-ip"
 OUTPUT_PRECISION_ARG = "--output-precision"
 OUTPUT_PRECISION_ARG_SHORT = "-op"
-
+SEPARATE_DATE_AND_TIME_ARG = "--separate-date-and-time"
+SEPARATE_DATE_AND_TIME_ARG_SHORT = "-sdt"
+INPUT_TIME_ARG = "--input-time"
+INPUT_TIME_ARG_SHORT = "-it"
 
 @click.command()
 @click.argument(
@@ -72,6 +83,20 @@ OUTPUT_PRECISION_ARG_SHORT = "-op"
     help="The name of the output channel. Defaults to the name of the input channel.",
 )
 @click.option(
+    SEPARATE_DATE_AND_TIME_ARG,
+    SEPARATE_DATE_AND_TIME_ARG_SHORT,
+    "separate_date_and_time",
+    is_flag=True,
+    help="Separate date and time into separate channels",
+)
+@click.option(
+    INPUT_TIME_ARG,
+    INPUT_TIME_ARG_SHORT,
+    "input_time",
+    required=False,
+    help="The channel containing the time values",
+)
+@click.option(
     "-p",
     "--prompt/--no-prompt",
     "prompt",
@@ -86,6 +111,8 @@ def tsconvert(
     input_precision: TimeSpanUnits | None,
     output_precision: TimeSpanUnits | None,
     prompt: bool,
+    separate_date_and_time: bool,
+    input_time: str | None,
 ) -> None:
     """Converts the time units of a channel in a file.
 
@@ -115,7 +142,6 @@ def pure_tsconvert(
     reader = prompt_new_reader(ctx, input_path)
     if reader is None:
         return
-    input_path = reader.path()
 
     input_channel = ask_channel_and_check_exists(
         ctx,
@@ -160,13 +186,27 @@ def pure_tsconvert(
     writer = IO_FACTORY.open_writer(output_path)
 
     reader.seek_first()
-
-    for chunk in reader:
-        converted = convert_time_units(
-            chunk[input_channel], input_precision, output_precision
-        )
-        chunk[output_channel] = converted
-        writer.write(chunk)
+    try:
+        with Progress(
+            BarColumn(),
+            TaskProgressColumn(),
+            TextColumn("{task.completed} out of {task.total} samples"),
+            TimeElapsedColumn(),
+            TextColumn("{task.fields[tp]} samples/s"),
+        ) as progress:
+            task = progress.add_task("convert", total=reader.nsamples(), tp=0)
+            for chunk in reader:
+                t0 = datetime.now()
+                converted = convert_time_units(
+                    chunk[input_channel], input_precision, output_precision
+                )
+                chunk[output_channel] = converted
+                writer.write(chunk)
+                tp = chunk.size / (datetime.now() - t0).total_seconds()
+                progress.update(task, advance=chunk.size, tp=tp)
+    finally:
+        reader.close()
+        writer.close()
 
 
 def ask_channel_and_check_exists(
