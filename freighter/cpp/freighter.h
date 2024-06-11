@@ -39,6 +39,11 @@ public:
                                                data(std::move(data)) {
     }
 
+    /// @brief constructs the error from a particular string freighter:Error and data.
+    Error(const freighter::Error err, std::string data): type(err.type),
+                                                         data(std::move(data)) {
+    }
+
     /// @brief constructs the provided error from a string. If the string is of the form
     /// "type---data", the type and data will be extracted from the string. Otherwise,
     /// the string is assumed to be the type.

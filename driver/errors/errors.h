@@ -8,9 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #pragma once
-
 #include <string>
-
 #include "client/cpp/errors/errors.h"
 #include "freighter/cpp/freighter.h"
 

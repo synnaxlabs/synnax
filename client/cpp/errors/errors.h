@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #pragma once
-
+#include "freighter/cpp/freighter.h"
 #include <string>
 
 namespace synnax {

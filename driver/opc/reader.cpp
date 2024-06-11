@@ -140,8 +140,7 @@ public:
             status == UA_STATUSCODE_BADCONNECTIONREJECTED ||
             status == UA_STATUSCODE_BADSECURECHANNELCLOSED
         ) {
-            err.type = driver::TEMPORARY_HARDWARE_ERROR;
-            err.data = "connection rejected";
+            err = freighter::Error(driver::TEMPORARY_HARDWARE_ERROR, "connection rejected");
             curr_state.variant = "warning";
             curr_state.details = json{
                 {
@@ -151,9 +150,8 @@ public:
                 {"running", true}
             };
         } else {
-            err.type = driver::CRITICAL_HARDWARE_ERROR;
-            err.data = "failed to execute read: " + std::string(
-                           UA_StatusCode_name(status));
+            err = freighter::Error( driver::CRITICAL_HARDWARE_ERROR, 
+                                    "failed to execute read: " + std::string(UA_StatusCode_name(status)));
             curr_state.variant = "error";
             curr_state.details = json{
                 {
