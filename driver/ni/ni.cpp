@@ -192,6 +192,14 @@ freighter::Error ni::Source::start(){
     }else{
         this->sample_thread = std::thread(&ni::Source::acquireData, this);
     }
+    ctx->setState({
+                    .task = task.key,
+                    .variant = "success",
+                    .details = {
+                            {"running", true}
+                    }
+            });
+
     return freighter::NIL;
 }
 
@@ -207,6 +215,13 @@ freighter::Error ni::Source::stop(){
     }
     data_queue.reset();
     LOG(INFO) << "[NI Reader] stopped reader for task " << this->reader_config.task_name;
+    ctx->setState({
+                        .task = task.key,
+                        .variant = "success",
+                        .details = {
+                                {"running", false}
+                        }
+                });
     return  freighter::NIL;
 
 }

@@ -196,13 +196,6 @@ void ni::ReaderTask::stop(){
         return;
     }
     daq_read_pipe.stop();
-    ctx->setState({
-                            .task = task.key,
-                            .variant = "success",
-                            .details = {
-                                    {"running", false}
-                            }
-                    });
     LOG(INFO) << "[NI Task] successfully stopped task " << this->task.name;
 }
 
@@ -212,13 +205,6 @@ void ni::ReaderTask::start(){
         return;
     }
     daq_read_pipe.start();
-    ctx->setState({
-                            .task = task.key,
-                            .variant = "success",
-                            .details = {
-                                    {"running", true}
-                            }
-                    });
     LOG(INFO) << "[NI Task] successfully started task " << this->task.name;
 }
 
