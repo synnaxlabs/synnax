@@ -38,4 +38,19 @@ describe("Deleter", () => {
       expect(res.data.slice(0, 2)).toEqual(data.slice(0, 2))
       expect(res.data.slice(2)).toEqual(data.slice(5))
     });
+    test("Client - basic delete by name", async () => {
+      const ch = await newChannel()
+      const data = randomSeries(10, ch.dataType);
+      await client.write(TimeStamp.seconds(0), ch.key, data);
+
+      await client.delete(ch.name, TimeStamp.seconds(2).range(TimeStamp.seconds(5)))
+
+      const res = await client.read(TimeRange.MAX, ch.key);
+      expect(res.length).toEqual(data.length - 3);
+      expect(res.data.slice(0, 2)).toEqual(data.slice(0, 2))
+      expect(res.data.slice(2)).toEqual(data.slice(5))
+    })
+    test("Client - delete name not found", async () => {
+     await client.delete("billy bob", TimeRange.MAX)
+    })
 });

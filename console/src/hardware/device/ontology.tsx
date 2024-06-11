@@ -15,6 +15,7 @@ import { Menu } from "@/components/menu";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
 import { Layout } from "@/layout";
+import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 
 type DeviceLayoutCreator = (
@@ -77,10 +78,11 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       case "delete":
         handleDelete(props);
         break;
-      case "link":
+      case "link": {
         const toCopy = `synnax://cluster/${clusterKey}/device/${selection.resources[0].id.key}`;
         void navigator.clipboard.writeText(toCopy);
         break;
+      }
     }
   };
 
@@ -94,7 +96,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       <PMenu.Item itemKey="delete" startIcon={<Icon.Delete />}>
         Delete
       </PMenu.Item>
-      <Ontology.LinkAddressMenuItem />
+      {singleResource && <Link.CopyMenuItem />}
       <Menu.HardReloadItem />
     </PMenu.Menu>
   );

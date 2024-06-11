@@ -21,7 +21,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"io"
@@ -107,11 +106,11 @@ var _ = Describe("Deleter", Ordered, func() {
 		Describe("Channel not found", func() {
 			Specify("By name", func() {
 				d = s.deleter.NewDeleter()
-				Expect(d.DeleteTimeRangeByName(ctx, "kaka", telem.TimeRangeMin)).To(MatchError(query.NotFound))
+				Expect(d.DeleteTimeRangeByName(ctx, "kaka", telem.TimeRangeMin)).To(Succeed())
 			})
 			Specify("By key", func() {
 				d = s.deleter.NewDeleter()
-				Expect(d.DeleteTimeRange(ctx, math.MaxUint32-5, telem.TimeRangeMax)).To(MatchError(query.NotFound))
+				Expect(d.DeleteTimeRange(ctx, math.MaxUint32-5, telem.TimeRangeMax)).To(Succeed())
 			})
 		})
 	}

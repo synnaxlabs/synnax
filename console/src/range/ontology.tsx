@@ -19,6 +19,7 @@ import { Menu } from "@/components/menu";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
+import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 import { createEditLayout } from "@/range/EditLayout";
 import { type Range } from "@/range/range";
@@ -178,10 +179,12 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         return;
       case "group":
         void Group.fromSelection(props);
-      case "link":
+        return;
+      case "link": {
         const toCopy = `synnax://cluster/${clusterKey}/range/${resources[0].id.key}`;
         void navigator.clipboard.writeText(toCopy);
         return;
+      }
     }
   };
 
@@ -215,7 +218,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       <PMenu.Item itemKey="delete" startIcon={<Icon.Delete />}>
         Delete
       </PMenu.Item>
-      <Ontology.LinkAddressMenuItem />
+      {isSingle && <Link.CopyMenuItem />}
       <Menu.HardReloadItem />
     </PMenu.Menu>
   );

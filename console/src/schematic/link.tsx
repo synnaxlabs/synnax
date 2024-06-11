@@ -10,29 +10,28 @@
 import { Link } from "@/link";
 import { create, State } from "@/schematic/slice";
 
-export const linkHandler: Link.Handler = ({
+export const linkHandler: Link.Handler = async ({
   resource,
   resourceKey,
   client,
   placer,
-}) => {
-  if (resource != "schematic") return false;
-  client.workspaces.schematic
-    .retrieve(resourceKey)
-    .then((schematic) => {
-      if (schematic == null) return false;
-      const layoutCreator = create({
-        ...(schematic.data as unknown as State),
-        key: schematic.key,
-        name: schematic.name,
-        // snapshot: schematic.snapshot,
-      });
-      placer(layoutCreator);
-      return true;
-    })
-    .catch((error) => {
-      console.error("Error: ", error);
-      return false;
+  addStatus,
+}): Promise<boolean> => {
+  if (resource !== "schematic") return false;
+  try {
+    const schematic = await client.workspaces.schematic.retrieve(resourceKey);
+    const layoutCreator = create({
+      ...(schematic.data as unknown as State),
+      key: schematic.key,
+      name: schematic.name,
     });
-  return false;
+    placer(layoutCreator);
+  } catch (e) {
+    addStatus({
+      variant: "error",
+      key: `openUrlError-${resource + "/" + resourceKey}`,
+      message: (e as Error).message,
+    });
+  }
+  return true;
 };

@@ -14,6 +14,7 @@ import (
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/validate"
 	"io"
 	"os/exec"
 	"sync"
@@ -82,7 +83,18 @@ func (c Config) Override(other Config) Config {
 }
 
 // Validate implements config.Config.
-func (c Config) Validate() error { return nil }
+func (c Config) Validate() error {
+	v := validate.New("driver.embedded")
+	validate.NotNil(v, "enabled", c.Enabled)
+	if v.Error() != nil {
+		return v.Error()
+	}
+	if !*c.Enabled {
+		return nil
+	}
+	validate.NotEmptyString(v, "address", c.Address)
+	return v.Error()
+}
 
 type Driver struct {
 	cfg      Config
