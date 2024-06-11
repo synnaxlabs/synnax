@@ -26,10 +26,10 @@ const newChannel = async (): Promise<channel.Channel> =>
   });
 
 describe("Deleter", () => {
-    test("Client - basic write", async () => {
+    test("Client - basic delete", async () => {
       const ch = await newChannel();
       const data = randomSeries(10, ch.dataType);
-      await client.write(TimeStamp.seconds(1), ch.key, data);
+      await client.write(TimeStamp.seconds(0), ch.key, data);
 
       await client.delete(ch.key, TimeStamp.seconds(2).range(TimeStamp.seconds(5)))
 

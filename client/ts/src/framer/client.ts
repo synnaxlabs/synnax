@@ -180,7 +180,7 @@ export class Client {
 
     const { normalized, variant } = analyzeChannelParams(channels);
     if (variant === "keys")
-      return await this.deleter.delete({ keys: normalized as Key[], timeRange: timeRange });
-    return await this.deleter.delete({ names: normalized as string[], timeRange: timeRange });
+      return await this.deleter.delete({ keys: normalized as Key[], bounds: timeRange });
+    return await this.deleter.delete({ names: normalized as string[], bounds: timeRange });
   }
 }
