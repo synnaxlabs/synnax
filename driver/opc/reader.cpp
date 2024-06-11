@@ -151,7 +151,7 @@ public:
                 {"running", true}
             };
         } else {
-            err.type = driver::TYPE_CRITICAL_HARDWARE_ERROR;
+            err.type = driver::CRITICAL_HARDWARE_ERROR;
             err.data = "failed to execute read: " + std::string(
                            UA_StatusCode_name(status));
             curr_state.variant = "error";
@@ -184,7 +184,7 @@ public:
             }
         });
         return {
-            driver::TYPE_CRITICAL_HARDWARE_ERROR,
+            driver::CRITICAL_HARDWARE_ERROR,
             message
         };
     }
