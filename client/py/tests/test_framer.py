@@ -178,8 +178,7 @@ class TestAsyncStreamer:
 class TestDeleter:
     def test_basic_delete(self, channel: sy.Channel, client: sy.Synnax):
         with client.open_writer(0, channel.key) as w:
-            data = np.random.rand(10).astype(np.float64)
-            w.write(pd.DataFrame({channel.key: data}))
+            data = np.random.rand(51).astype(np.float64)
             w.write(pd.DataFrame({channel.key: data}))
             w.commit()
 
@@ -187,3 +186,24 @@ class TestDeleter:
             [channel.key],
             TimeRange(0, TimeStamp(1 * TimeSpan.SECOND)),
         )
+
+        data = channel.read(TimeRange.MAX)
+        assert data.to_numpy().size == 26
+        assert data.time_range == TimeRange(TimeStamp(1 * TimeSpan.SECOND),
+                                            TimeStamp(2 * TimeSpan.SECOND)+1)
+
+    def test_delete_by_name(self, channel: sy.Channel, client: sy.Synnax):
+        with client.open_writer(0, channel.key) as w:
+            data = np.random.rand(51).astype(np.float64)
+            w.write(pd.DataFrame({channel.key: data}))
+            w.commit()
+
+        client.delete(
+            [channel.name],
+            TimeRange(0, TimeStamp(1 * TimeSpan.SECOND)),
+        )
+
+        data = channel.read(TimeRange.MAX)
+        assert data.to_numpy().size == 26
+        assert data.time_range == TimeRange(TimeStamp(1 * TimeSpan.SECOND),
+                                            TimeStamp(2 * TimeSpan.SECOND)+1)
