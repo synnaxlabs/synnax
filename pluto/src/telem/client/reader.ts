@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { alamos } from "@synnaxlabs/alamos";
-import { type channel,type framer } from "@synnaxlabs/client";
+import { type channel, type framer } from "@synnaxlabs/client";
 import { debounce } from "@synnaxlabs/x/debounce";
-import { type TimeRange,TimeSpan } from "@synnaxlabs/x/telem";
+import { type TimeRange, TimeSpan } from "@synnaxlabs/x/telem";
 import { Mutex } from "async-mutex";
 
 import { type Cache } from "@/telem/client/cache/cache";
@@ -207,7 +207,7 @@ export class Reader {
         }
         requests.forEach((toFetch) => toFetch.resolve());
       } catch (e) {
-        L.error("batch read failed", { error: e });
+        L.error("batch read failed", { error: e }, true);
         requests.forEach((toFetch) => toFetch.reject(e));
       } finally {
         requests.clear();
