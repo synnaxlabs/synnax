@@ -11,10 +11,7 @@ package deleter
 
 import (
 	"context"
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
@@ -66,13 +63,6 @@ func (lp *leaseProxy) deleteTimeRangeByName(
 		WhereNames(names...).
 		Exec(ctx, nil); err != nil {
 		return err
-	}
-	if len(res) != len(names) {
-		diff, _ := lo.Difference(
-			names,
-			lo.Map(res, func(item channel.Channel, _ int) string { return item.Name }),
-		)
-		return errors.Wrapf(query.NotFound, "channel(s) %s not found", diff)
 	}
 
 	keys := channel.KeysFromChannels(res)

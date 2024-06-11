@@ -200,7 +200,7 @@ func (db *DB) DeleteTimeRange(ctx context.Context, chs []ChannelKey, tr telem.Ti
 			if _, vok := db.virtualDBs[ch]; vok {
 				return errors.Newf("cannot delete time range from virtual channel %v", db.virtualDBs[ch].Channel)
 			}
-			return errors.Wrapf(ErrChannelNotFound, "channel key %d not found", ch)
+			return nil
 		}
 
 		// Cannot delete an index channel that other channels rely on.
