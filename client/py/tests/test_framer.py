@@ -207,3 +207,11 @@ class TestDeleter:
         assert data.to_numpy().size == 26
         assert data.time_range == TimeRange(TimeStamp(1 * TimeSpan.SECOND),
                                             TimeStamp(2 * TimeSpan.SECOND)+1)
+
+    def test_delete_channel_not_found_name(self, channel: sy.Channel, client: sy.Synnax):
+        with pytest.raises(sy.NotFoundError):
+            client.delete([channel.name, "kaka"], TimeRange.MAX)
+
+    def test_delete_channel_not_found_key(self, channel: sy.Channel, client: sy.Synnax):
+        with pytest.raises(sy.NotFoundError):
+            client.delete([channel.key, 23423], TimeRange.MAX)
