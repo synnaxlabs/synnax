@@ -66,7 +66,7 @@ class WriteFrameAdapter:
     __err_on_extra_chans: bool
 
     def __init__(
-            self, 
+            self,
             retriever: ChannelRetriever,
             err_on_extra_chans: bool = True
     ):
@@ -162,7 +162,6 @@ class WriteFrameAdapter:
                             f"Channel {e} was not provided in the list of "
                             f"channels when the writer was opened."
                         )
-            print(channels, series)
             return Frame(channels=channels, series=series)
 
         if isinstance(channels_or_data, dict):

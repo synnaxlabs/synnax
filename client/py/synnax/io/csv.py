@@ -9,6 +9,7 @@
 
 from pathlib import Path
 from typing import Iterator
+import csv
 
 import pandas as pd
 from pandas.io.parsers import TextFileReader
@@ -54,6 +55,12 @@ class CSVReader(CSVMatcher):  # type: ignore
         self._calculated_skip_rows = False
         self.__reader = None
 
+    def __detect_delimiter(self) -> str:
+        with open(self._path, 'r') as file:
+            sample = file.read(1024)
+            dialect = csv.Sniffer().sniff(sample)
+            return dialect.delimiter
+
     def seek_first(self):
         self.close()
         self.__reader = pd.read_csv(
@@ -62,6 +69,7 @@ class CSVReader(CSVMatcher):  # type: ignore
             usecols=self.channel_keys,
             header=0,
             skiprows=self.__get_skip_rows(),
+            delimiter=self.__detect_delimiter()
         )
 
     def __get_skip_rows(self) -> int | tuple[int, int]:
@@ -72,6 +80,7 @@ class CSVReader(CSVMatcher):  # type: ignore
             self._path,
             chunksize=1,
             usecols=self.channel_keys,
+            delimiter=self.__detect_delimiter()
         )
         self._skip_rows = 0
 
@@ -94,7 +103,7 @@ class CSVReader(CSVMatcher):  # type: ignore
 
     def channels(self) -> list[ChannelMeta]:
         if not self._channels:
-            cols = pd.read_csv(self._path, nrows=0).columns
+            cols = pd.read_csv(self._path, nrows=0, delimiter=self.__detect_delimiter()).columns
             self._channels = [
                 ChannelMeta(name=name.strip(), meta_data=dict()) for name in cols
             ]
