@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, Rate, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x/telem";
+import { DataType, Rate, TimeRange, TimeStamp } from "@synnaxlabs/x/telem";
 import { describe, expect, test } from "vitest";
+import { NotFoundError } from "@/errors"
 
 import { type channel } from "@/channel";
-import { ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT, WriterMode } from "@/framer/writer";
 import { newClient } from "@/setupspecs";
 import { randomSeries } from "@/util/telem";
 
@@ -43,7 +43,7 @@ describe("Deleter", () => {
       const data = randomSeries(10, ch.dataType);
       await client.write(TimeStamp.seconds(0), ch.key, data);
 
-      await client.delete(ch.name, TimeStamp.seconds(2).range(TimeStamp.seconds(5)))
+      await client.delete("test", TimeStamp.seconds(2).range(TimeStamp.seconds(5)))
 
       const res = await client.read(TimeRange.MAX, ch.key);
       expect(res.length).toEqual(data.length - 3);
@@ -51,6 +51,27 @@ describe("Deleter", () => {
       expect(res.data.slice(2)).toEqual(data.slice(5))
     })
     test("Client - delete name not found", async () => {
-     await client.delete("billy bob", TimeRange.MAX)
+      const ch = await newChannel();
+      const data = randomSeries(10, ch.dataType);
+      await client.write(TimeStamp.seconds(0), ch.key, data);
+
+      await expect(
+        client.delete(["billy bob", ch.name], TimeRange.MAX)
+      ).rejects.toThrow(NotFoundError)
+
+      const res = await client.read(TimeRange.MAX, ch.key);
+      expect(res.data).toEqual(data);
+    })
+    test("Client - delete key not found", async () => {
+      const ch = await newChannel();
+      const data = randomSeries(10, ch.dataType);
+      await client.write(TimeStamp.seconds(0), ch.key, data);
+
+      await expect(
+        client.delete([ch.key, 1232], TimeRange.MAX)
+      ).rejects.toThrow(NotFoundError)
+
+      const res = await client.read(TimeRange.MAX, ch.key);
+      expect(res.data).toEqual(data);
     })
 });

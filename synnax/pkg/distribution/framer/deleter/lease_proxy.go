@@ -75,11 +75,10 @@ func (lp *leaseProxy) deleteTimeRangeByName(
 		Exec(ctx, nil); err != nil {
 		return err
 	}
-	if len(res) != len(names) {
-		diff, _ := lo.Difference(
-			names,
-			lo.Map(res, func(item channel.Channel, _ int) string { return item.Name }),
-		)
+
+	resultNames := lo.Map(res, func(item channel.Channel, _ int) string { return item.Name })
+	if len(lo.Uniq(resultNames)) < len(names) {
+		_, diff := lo.Difference(names, resultNames)
 		return errors.Wrapf(ts.ErrChannelNotfound, "channel(s) %s not found", diff)
 	}
 

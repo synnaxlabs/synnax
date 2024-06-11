@@ -23,6 +23,7 @@ type Deleter interface {
 	// DeleteTimeRangeByName deletes a time range in the specified channel. It is idempotent:
 	// if no data is found in the range, nil is returned. However, if the channel
 	// does not exist, a query.NotFound is returned.
+	// All channels with the provided name are affected.
 	DeleteTimeRangeByName(ctx context.Context, name string, tr telem.TimeRange) error
 	// DeleteTimeRangeMany deletes a time range in the specified channels. It is idempotent:
 	// if no data is found in the range, that channel is skipped.
@@ -35,6 +36,7 @@ type Deleter interface {
 	// is abandoned midway.
 	// However, if any one channel is not found by its name, the operation is abandoned
 	// before any data is deleted.
+	// All channels with the provided name are affected.
 	DeleteTimeRangeManyByNames(ctx context.Context, name []string, tr telem.TimeRange) error
 }
 
