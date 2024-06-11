@@ -29,6 +29,8 @@ type Deleter interface {
 	// if no data is found in the range, that channel is skipped.
 	// It is NOT atomic: if any deletion fails after others have succeeded, the operation
 	// is abandoned midway.
+	// However, if any channel is not found by its name, the operation is abandoned before
+	// any data is deleted.
 	DeleteTimeRangeMany(ctx context.Context, keys []channel.Key, tr telem.TimeRange) error
 	// DeleteTimeRangeManyByNames deletes a time range in the specified channels.
 	// It is idempotent: if no data is found in the range, that channel is skipped.
