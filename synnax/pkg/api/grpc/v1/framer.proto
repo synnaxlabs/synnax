@@ -86,6 +86,6 @@ service FrameDeleteService {
 message FrameDeleteRequest {
     repeated uint32 keys = 1;
     repeated string names = 2;
-    telem.PBTimeRange time_range = 3;
+    telem.PBTimeRange bounds = 3;
 }
 

@@ -215,9 +215,9 @@ func (r deleteRequestTranslator) Forward(
 	msg deleter.Request,
 ) (*tsv1.DeleteRequest, error) {
 	return &tsv1.DeleteRequest{
-		Keys:      msg.Keys.Uint32(),
-		Names:     msg.Names,
-		TimeRange: telem.TranslateTimeRangeForward(msg.TimeRange),
+		Keys:   msg.Keys.Uint32(),
+		Names:  msg.Names,
+		Bounds: telem.TranslateTimeRangeForward(msg.Bounds),
 	}, nil
 }
 
@@ -226,8 +226,8 @@ func (r deleteRequestTranslator) Backward(
 	msg *tsv1.DeleteRequest,
 ) (deleter.Request, error) {
 	return deleter.Request{
-		Keys:      channel.KeysFromUint32(msg.Keys),
-		Names:     msg.Names,
-		TimeRange: telem.TranslateTimeRangeBackward(msg.TimeRange),
+		Keys:   channel.KeysFromUint32(msg.Keys),
+		Names:  msg.Names,
+		Bounds: telem.TranslateTimeRangeBackward(msg.Bounds),
 	}, nil
 }

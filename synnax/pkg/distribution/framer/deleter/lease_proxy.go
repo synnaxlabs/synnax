@@ -78,7 +78,7 @@ func (lp *leaseProxy) deleteTimeRangeRemote(
 	if err != nil {
 		return err
 	}
-	_, err = lp.Transport.Client().Send(ctx, addr, Request{Keys: keys, TimeRange: tr})
+	_, err = lp.Transport.Client().Send(ctx, addr, Request{Keys: keys, Bounds: tr})
 	return err
 }
 

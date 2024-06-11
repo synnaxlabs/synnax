@@ -272,9 +272,9 @@ func (t FrameDeleteRequestTranslator) Forward(
 	msg api.FrameDeleteRequest,
 ) (*gapi.FrameDeleteRequest, error) {
 	return &gapi.FrameDeleteRequest{
-		Keys:      msg.Keys.Uint32(),
-		Names:     msg.Names,
-		TimeRange: telem.TranslateTimeRangeForward(msg.TimeRange),
+		Keys:   msg.Keys.Uint32(),
+		Names:  msg.Names,
+		Bounds: telem.TranslateTimeRangeForward(msg.Bounds),
 	}, nil
 }
 
@@ -283,9 +283,9 @@ func (t FrameDeleteRequestTranslator) Backward(
 	msg *gapi.FrameDeleteRequest,
 ) (api.FrameDeleteRequest, error) {
 	return api.FrameDeleteRequest{
-		Keys:      channel.KeysFromUint32(msg.Keys),
-		Names:     msg.Names,
-		TimeRange: telem.TranslateTimeRangeBackward(msg.TimeRange),
+		Keys:   channel.KeysFromUint32(msg.Keys),
+		Names:  msg.Names,
+		Bounds: telem.TranslateTimeRangeBackward(msg.Bounds),
 	}, nil
 }
 

@@ -39,9 +39,9 @@ func NewFrameService(p Provider) *FrameService {
 }
 
 type FrameDeleteRequest struct {
-	Keys      channel.Keys    `json:"keys" msgpack:"keys" validate:"required"`
-	Names     []string        `json:"names" msgpack:"names" validate:"names"`
-	TimeRange telem.TimeRange `json:"timerange" msgpack:"timerange" validate:"required"`
+	Keys   channel.Keys    `json:"keys" msgpack:"keys" validate:"required"`
+	Names  []string        `json:"names" msgpack:"names" validate:"names"`
+	Bounds telem.TimeRange `json:"bounds" msgpack:"bounds" validate:"bounds"`
 }
 
 func (s *FrameService) FrameDelete(
@@ -53,12 +53,12 @@ func (s *FrameService) FrameDelete(
 		w := s.Internal.NewDeleter(tx)
 		if len(req.Keys) > 0 {
 			c.Exec(func() error {
-				return w.DeleteTimeRangeMany(ctx, req.Keys, req.TimeRange)
+				return w.DeleteTimeRangeMany(ctx, req.Keys, req.Bounds)
 			})
 		}
 		if len(req.Names) > 0 {
 			c.Exec(func() error {
-				return w.DeleteTimeRangeManyByNames(ctx, req.Names, req.TimeRange)
+				return w.DeleteTimeRangeManyByNames(ctx, req.Names, req.Bounds)
 			})
 		}
 		return c.Error()

@@ -27,7 +27,7 @@ type Transport interface {
 }
 
 type Request struct {
-	Keys      channel.Keys
-	Names     []string
-	TimeRange telem.TimeRange
+	Keys   channel.Keys
+	Names  []string
+	Bounds telem.TimeRange
 }
