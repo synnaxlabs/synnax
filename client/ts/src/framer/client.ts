@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {type StreamClient, UnaryClient} from "@synnaxlabs/freighter";
+import {type StreamClient, UnaryClient } from "@synnaxlabs/freighter";
 import {
   type CrudeSeries,
   type CrudeTimeRange,
@@ -22,19 +22,19 @@ import { Frame } from "@/framer/frame";
 import { Iterator } from "@/framer/iterator";
 import { Streamer, type StreamerConfig } from "@/framer/streamer";
 import { Writer, type WriterConfig,WriterMode } from "@/framer/writer";
-import {Deleter} from "@/framer/deleter";
+import { Deleter } from "@/framer/deleter";
 
 export class Client {
   private readonly streamClient: StreamClient;
-  private readonly unaryClient: UnaryClient;
+  // private readonly unaryClient: UnaryClient;
   private readonly retriever: Retriever;
   private readonly deleter: Deleter;
 
   constructor(stream: StreamClient, unary: UnaryClient, retriever: Retriever) {
     this.streamClient = stream;
-    this.unaryClient = unary;
+    // this.unaryClient = unary;
     this.retriever = retriever;
-    this.deleter = new Deleter(this.unaryClient);
+    this.deleter = new Deleter(unary);
   }
 
   /**
