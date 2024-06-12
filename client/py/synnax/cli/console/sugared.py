@@ -198,7 +198,6 @@ class SugaredConsole:
         no_cols = columns is None
         _columns = columns or list()
 
-        print(_columns)
         for i, row in enumerate(rows):
             if isinstance(row, dict):
                 is_default = row[_key] == default

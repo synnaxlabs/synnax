@@ -24,7 +24,6 @@ from synnax.framer import Writer
 from synnax.io import RowFileReader
 from synnax.telem import Size, TimeStamp
 
-
 class RowIngestionEngine:
     """An ingestion engine that reads data from a row-based reader and writes it to a
     Synnax cluster.

@@ -35,7 +35,8 @@ class IOFactory:
         self.reader = readers
         self.writers = writers
 
-    def new_reader(self, path: Path) -> RowFileReader:
+    def new_reader(self, path: Path | str) -> RowFileReader:
+        path = path if isinstance(path, Path) else Path(path)
         if not path.exists():
             raise FileNotFoundError(f"File not found: {path}")
 
