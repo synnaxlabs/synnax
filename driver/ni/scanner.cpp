@@ -19,7 +19,9 @@
 
 
 ni::Scanner::Scanner(const std::shared_ptr<task::Context> &ctx,
-                     const synnax::Task &task) : ctx(ctx), task(task){
+                     const synnax::Task &task) 
+                    :   task(task), 
+                        ctx(ctx){
     // initialize syscfg session for the scanner (TODO: Error Handling for status)
     NISysCfgStatus status = NISysCfg_OK;
     status = ni::NiSysCfgInterface::InitializeSession( 
@@ -32,6 +34,12 @@ ni::Scanner::Scanner(const std::shared_ptr<task::Context> &ctx,
         NULL,                                          // expert handle
         &this->session                                 // session handle
     );
+    
+    if (status != NISysCfg_OK){
+        this->ok_state = false;
+        LOG(ERROR) << "[ni.scanner] failed to initialize scanner for task " << this->task.name;
+        return;
+    }
 
 
     // create a filter to only identify NI devices rather than chassis and devices which are connected (which includes simulated devices)

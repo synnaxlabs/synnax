@@ -246,7 +246,7 @@ void fetchEndpointDiagnosticInfo(
         else if (security_mode == UA_MESSAGESECURITYMODE_SIGNANDENCRYPT)
             LOG(INFO) << "[opc.scanner] \t security: signed and encrypted";
 
-        const UA_DataType *tokenType = client_config->userIdentityToken.content.decoded.type;
+        // const UA_DataType *tokenType = client_config->userIdentityToken.content.decoded.type;
 
         for (size_t j = 0; j < ep.userIdentityTokensSize; j++) {
             UA_UserTokenPolicy policy = ep.userIdentityTokens[j];

@@ -6,13 +6,9 @@
 // As of the Change Date specified in that file, in accordance with the Business Source
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
-#pragma once
-
 #include "driver/ni/ni.h"
 #include "driver/ni/scale.h"
 #include <map>
-
-
 
 const std::map<std::string, int32_t> ni::UNITS_MAP = {
     {"Volts", DAQmx_Val_Volts},
@@ -60,7 +56,7 @@ void ni::Source::getIndexKeys(){
         auto [channel_info, err] = this->ctx->client->channels.retrieve(channel.channel_key);
         // TODO handle error with breaker
         if (err != freighter::NIL){
-            this->logError("failed to retrieve channel " + channel.channel_key);
+            this->logError("failed to retrieve channel " + std::to_string(channel.channel_key));
             return;
         } else{
             index_keys.insert(channel_info.index);
@@ -74,7 +70,7 @@ void ni::Source::getIndexKeys(){
         auto index_key = *it;
         auto [channel_info, err] = this->ctx->client->channels.retrieve(index_key);
         if (err != freighter::NIL){
-            this->logError("failed to retrieve channel " + index_key);
+            this->logError("failed to retrieve channel " + std::to_string(index_key));
             return;
         } else{
             ni::ChannelConfig index_channel;
@@ -156,8 +152,12 @@ int ni::Source::init(){
     this->breaker = breaker::Breaker(breaker_config);
 
 
-    int err = 0;
-    err = this->createChannels();
+    int err = this->createChannels();
+
+    if(err){
+        this->logError("failed to create channels for " + this->reader_config.task_name);
+        return -1;
+    }
 
     // Configure buffer size and read resources
     if(this->reader_config.sample_rate < this->reader_config.stream_rate){

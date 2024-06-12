@@ -193,7 +193,6 @@ freighter::Error ni::DigitalWriteSink::stop(){
 }
 
 freighter::Error ni::DigitalWriteSink::write(synnax::Frame frame){
-    char errBuff[2048] = {'\0'};
     int32 samplesWritten = 0;
     formatData(std::move(frame));
 
@@ -303,7 +302,7 @@ ni::StateSource::StateSource(std::uint64_t state_rate, synnax::ChannelKey &drive
 std::pair<synnax::Frame, freighter::Error> ni::StateSource::read(){
     std::unique_lock<std::mutex> lock(this->state_mutex);
     waiting_reader.wait_for(lock, state_period); 
-    return std::make_pair(std::move(this->getDriveState()), freighter::NIL);
+    return std::make_pair(this->getDriveState(), freighter::NIL);
 }
 
 freighter::Error ni::StateSource::start(){
@@ -323,7 +322,7 @@ synnax::Frame ni::StateSource::getDriveState(){
         drive_state_frame.add(state.first, synnax::Series(std::vector<uint8_t>{state.second}));
     }
 
-    return std::move(drive_state_frame);
+    return drive_state_frame;
 }
 
 void ni::StateSource::updateState(std::queue<synnax::ChannelKey> &modified_state_keys, std::queue<std::uint8_t> &modified_state_values){

@@ -75,7 +75,7 @@ public:
     ): ctx(ctx),
        task(std::move(task)),
        cfg(std::move(cfg)),
-       breaker(breaker::Breaker(breaker)),
+       breaker(breaker::Breaker(breaker_config)),
        pipe(pipeline::Acquisition(
            ctx->client,
            std::move(writer_config),
