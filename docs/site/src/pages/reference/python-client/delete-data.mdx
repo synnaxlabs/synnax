@@ -75,11 +75,11 @@ client.delete([111, 112, 113], time_range_to_delete)
 ```
 
 In addition, if a `delete` call is made to an index channel that other channels depend
-on, an error is raised:
+on data in the requested time range, an error is raised:
 
 ```python
-# Since my_precise_tc is indexed by my_index_timestamps, we cannot delete
-# my_index_timestamps. This call raises an error.
+# If my_precise_tc is indexed by my_index_timestamps from 1 second to 3 seconds,
+# we cannot delete my_index_timestamps. This call raises an error.
 client.delete(
     ["my_index_timestamps"],
     sy.TimeStamp(1 * sy.TimeSpan.SECOND).range(sy.TimeStamp(3 * sy.TimeSpan.SECOND))
