@@ -58,7 +58,7 @@ ni::DigitalWriteSink::DigitalWriteSink(
     if (!config_parser.ok()){
         // Log error
         LOG(ERROR) << "[NI Writer] failed to parse configuration for " << this->writer_config.task_name;
-        this->ctx->setState({.task = task.key,
+        this->ctx->setState({.task = this->writer_config.task_key,
                              .variant = "error",
                              .details = config_parser.error_json()});
         this->ok_state = false;
@@ -175,7 +175,13 @@ freighter::Error ni::DigitalWriteSink::start(){
         return freighter::Error(driver::CRITICAL_HARDWARE_ERROR);
     }
     LOG(INFO) << "[NI Writer] successfully started writer for task " << this->writer_config.task_name;
-
+    ctx->setState({
+                        .task = this->writer_config.task_key,
+                        .variant = "success",
+                        .details = {
+                                {"running", true}
+                        }
+                    });
     return freighter::NIL;
 }
 
@@ -189,6 +195,13 @@ freighter::Error ni::DigitalWriteSink::stop(){
         return freighter::Error(driver::CRITICAL_HARDWARE_ERROR);
     }
     LOG(INFO) << "[NI Writer] successfully stopped writer for task " << this->writer_config.task_name;
+    ctx->setState({
+                    .task = this->writer_config.task_key,
+                    .variant = "success",
+                    .details = {
+                            {"running", false}
+                    }
+                });
     return freighter::NIL;
 }
 
@@ -286,7 +299,6 @@ std::vector<synnax::ChannelKey> ni::DigitalWriteSink::getStateChannelKeys(){
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    StateSource                                //
 ///////////////////////////////////////////////////////////////////////////////////
-
 ni::StateSource::StateSource(std::uint64_t state_rate, synnax::ChannelKey &drive_state_index_key, std::vector<synnax::ChannelKey> &drive_state_channel_keys)
     : state_rate(state_rate){
     // start the periodic thread

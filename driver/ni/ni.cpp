@@ -98,7 +98,6 @@ void ni::Source::parseConfig(config::Parser &parser){
     this->reader_config.device_key = parser.required<std::string>("device");
     this->reader_config.timing_source = "none"; // parser.required<std::string>("timing_source"); TODO: uncomment this when ui provides timing source
 
-
     if(parser.optional<bool>("test", false)){
         this->reader_config.device_name = parser.required<std::string>("device_location");
     } else{
@@ -109,15 +108,7 @@ void ni::Source::parseConfig(config::Parser &parser){
         }
         this->reader_config.device_name = dev.location;
     }
-   
-
     this->parseChannels(parser);
-     if (!parser.ok() || !this->ok()){
-        this->logError("failed to parse channels for " + this->reader_config.task_name + " Parser Error: " + parser.error_json().dump());
-        this->ctx->setState({.task = task.key,
-                             .variant = "error",
-                             .details = parser.error_json()});
-    }
 }
 
 int ni::Source::init(){
@@ -126,11 +117,12 @@ int ni::Source::init(){
     this->reader_config.task_name = this->task.name;
     this->reader_config.task_key = this->task.key;
 
-
     // Parse configuration and make sure it is valid
     this->parseConfig(config_parser);
 
-    if (!config_parser.ok() || !this->ok()){
+    if (!config_parser.ok()){
+        json error_json = config_parser.error_json();
+        error_json["running"] = false;
         // Log error
         this->logError("failed to parse configuration for " + this->reader_config.task_name + " Parser Error: " + config_parser.error_json().dump());
         this->ctx->setState({.task = task.key,
@@ -138,10 +130,7 @@ int ni::Source::init(){
                              .details = config_parser.error_json()});
         return -1;
     }
-
-    LOG(INFO) << "[NI Reader] parsed config for " << this->reader_config.task_name;
     this->getIndexKeys(); 
-    LOG(INFO) << "[NI Reader] index channels acquired for " << this->reader_config.task_name;
     // Create breaker
     auto breaker_config = breaker::Config{
         .name = task.name,
@@ -151,9 +140,7 @@ int ni::Source::init(){
     };
     this->breaker = breaker::Breaker(breaker_config);
 
-
     int err = this->createChannels();
-
     if(err){
         this->logError("failed to create channels for " + this->reader_config.task_name);
         return -1;
@@ -164,6 +151,7 @@ int ni::Source::init(){
         this->logError("Failed while configuring timing for NI hardware for task " + this->reader_config.task_name);
         this->err_info["error type"] = "Configuration Error";
         this->err_info["error details"] = "Stream rate is greater than sample rate";
+        this->err_info["running"] = false;
         this->ctx->setState({.task = this->reader_config.task_key,
                              .variant = "error",
                              .details = err_info});
@@ -192,6 +180,13 @@ freighter::Error ni::Source::start(){
     }else{
         this->sample_thread = std::thread(&ni::Source::acquireData, this);
     }
+    ctx->setState({
+                    .task = task.key,
+                    .variant = "success",
+                    .details = {
+                            {"running", true}
+                    }
+                }); 
     return freighter::NIL;
 }
 
@@ -207,8 +202,14 @@ freighter::Error ni::Source::stop(){
     }
     data_queue.reset();
     LOG(INFO) << "[NI Reader] stopped reader for task " << this->reader_config.task_name;
+    ctx->setState({
+                    .task = task.key,
+                    .variant = "success",
+                    .details = {
+                            {"running", false}
+                    }
+                });
     return  freighter::NIL;
-
 }
 
 
@@ -230,7 +231,8 @@ int ni::Source::checkNIError(int32 error){
         ni::NiDAQmxInterface::GetExtendedErrorInfo(errBuff, 4096);
 
         this->err_info["error type"] = "Vendor Error";
-        this->err_info["error details"] = errBuff;
+        this->err_info["message"] = errBuff;
+        this->err_info["running"] = false;
         
         this->ctx->setState({.task = this->reader_config.task_key,
                              .variant = "error",
