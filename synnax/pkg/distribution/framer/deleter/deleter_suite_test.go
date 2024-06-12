@@ -7,10 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package writer_test
+package deleter_test
 
 import (
 	"context"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -34,24 +36,30 @@ var (
 
 func TestWriter(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Writer Suite")
+	RunSpecs(t, "Deleter Suite")
 }
 
 type serviceContainer struct {
 	channel   channel.Service
 	writer    *writer.Service
+	deleter   deleter.Service
+	iterator  *iterator.Service
 	transport struct {
-		channel channel.Transport
-		writer  writer.Transport
+		channel  channel.Transport
+		writer   writer.Transport
+		deleter  deleter.Transport
+		iterator iterator.Transport
 	}
 }
 
 func provision(n int) (*mock.CoreBuilder, map[core.NodeKey]serviceContainer) {
 	var (
-		builder    = mock.NewCoreBuilder()
-		services   = make(map[core.NodeKey]serviceContainer)
-		channelNet = tmock.NewChannelNetwork()
-		writerNet  = tmock.NewWriterNetwork()
+		builder     = mock.NewCoreBuilder()
+		services    = make(map[core.NodeKey]serviceContainer)
+		channelNet  = tmock.NewChannelNetwork()
+		writerNet   = tmock.NewWriterNetwork()
+		deleterNet  = tmock.NewDeleterNetwork()
+		iteratorNet = tmock.NewIteratorNetwork()
 	)
 	for i := 0; i < n; i++ {
 		var (
@@ -72,6 +80,19 @@ func provision(n int) (*mock.CoreBuilder, map[core.NodeKey]serviceContainer) {
 			HostResolver:    c.Cluster,
 			Transport:       writerNet.New(c.Config.AdvertiseAddress /*buffer*/, 10),
 			FreeWrites:      confluence.NewStream[relay.Response](1000),
+		}))
+		container.deleter = MustSucceed(deleter.New(deleter.ServiceConfig{
+			HostResolver:  c.Cluster,
+			TSChannel:     c.Storage.TS,
+			ChannelReader: container.channel,
+			Transport:     deleterNet.New(c.Config.AdvertiseAddress),
+		}))
+		container.iterator = MustSucceed(iterator.OpenService(iterator.ServiceConfig{
+			Instrumentation: ins,
+			TS:              c.Storage.TS,
+			ChannelReader:   container.channel,
+			HostResolver:    c.Cluster,
+			Transport:       iteratorNet.New(c.Config.AdvertiseAddress, 10),
 		}))
 		services[c.Cluster.HostKey()] = container
 	}

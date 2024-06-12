@@ -132,6 +132,7 @@ type Transport struct {
 	FrameWriter   freighter.StreamServer[FrameWriterRequest, FrameWriterResponse]
 	FrameIterator freighter.StreamServer[FrameIteratorRequest, FrameIteratorResponse]
 	FrameStreamer freighter.StreamServer[FrameStreamerRequest, FrameStreamerResponse]
+	FrameDelete   freighter.UnaryServer[FrameDeleteRequest, types.Nil]
 	// RANGE
 	RangeCreate         freighter.UnaryServer[RangeCreateRequest, RangeCreateResponse]
 	RangeRetrieve       freighter.UnaryServer[RangeRetrieveRequest, RangeRetrieveResponse]
@@ -250,6 +251,7 @@ func (a *API) BindTo(t Transport) {
 		t.FrameWriter,
 		t.FrameIterator,
 		t.FrameStreamer,
+		t.FrameDelete,
 
 		// CONNECTIVITY
 		t.ConnectivityCheck,
@@ -338,6 +340,7 @@ func (a *API) BindTo(t Transport) {
 	t.FrameWriter.BindHandler(a.Telem.Write)
 	t.FrameIterator.BindHandler(a.Telem.Iterate)
 	t.FrameStreamer.BindHandler(a.Telem.Stream)
+	t.FrameDelete.BindHandler(a.Telem.FrameDelete)
 
 	// ONTOLOGY
 	t.OntologyRetrieve.BindHandler(a.Ontology.Retrieve)
