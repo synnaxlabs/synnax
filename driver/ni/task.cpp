@@ -110,7 +110,7 @@ ni::ReaderTask::ReaderTask( const std::shared_ptr<task::Context> &ctx,
                             const breaker::Config breaker_config
 ) : ctx(ctx),
     task(task),
-    daq_read_pipe(pipeline::Acquisition(ctx, writer_config, source, breaker_config)){
+    daq_read_pipe(pipeline::Acquisition(ctx->client, writer_config, source, breaker_config)){
 }
 
 
@@ -239,8 +239,8 @@ ni::WriterTask::WriterTask(    const std::shared_ptr<task::Context> &ctx,
                                 const breaker::Config breaker_config
 ) : ctx(ctx),
     task(task),
-    cmd_write_pipe(pipeline::Control(ctx, streamer_config, std::move(sink), breaker_config)),
-    state_write_pipe(pipeline::Acquisition(ctx, writer_config, state_source, breaker_config)){
+    cmd_write_pipe(pipeline::Control(ctx->client, streamer_config, std::move(sink), breaker_config)),
+    state_write_pipe(pipeline::Acquisition(ctx->client, writer_config, state_source, breaker_config)){
 }
 
 

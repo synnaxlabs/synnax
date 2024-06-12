@@ -99,6 +99,14 @@ export class RouteError extends Error {
   }
 }
 
+export class ControlError extends Error {
+  static readonly TYPE = _FREIGHTER_EXCEPTION_PREFIX + "control";
+}
+
+export class UnauthorizedError extends ControlError {
+  static readonly TYPE = ControlError.TYPE + ".unauthorized";
+}
+
 /**
  * Raised when time-series data is not contiguous.
  */
@@ -109,9 +117,7 @@ const decode = (payload: ErrorPayload): Error | null => {
   if (payload.type.startsWith(ValidationError.TYPE)) {
     if (payload.type === FieldError.TYPE) {
       const values = payload.data.split(": ");
-      if (values.length < 2) {
-        return new ValidationError(payload.data);
-      }
+      if (values.length < 2) return new ValidationError(payload.data);
       return new FieldError(values[0], values[1]);
     }
     return new ValidationError(payload.data);
@@ -135,9 +141,14 @@ const decode = (payload: ErrorPayload): Error | null => {
     return new QueryError(payload.data);
   }
 
-  if (payload.type.startsWith(RouteError.TYPE)) {
-    return new RouteError(payload.data, payload.data);
+  if (payload.type.startsWith(ControlError.TYPE)) {
+    if (payload.type.startsWith(UnauthorizedError.TYPE))
+      return new UnauthorizedError(payload.data);
+    return new ControlError(payload.data);
   }
+
+  if (payload.type.startsWith(RouteError.TYPE))
+    return new RouteError(payload.data, payload.data);
 
   return new UnexpectedError(payload.data);
 };

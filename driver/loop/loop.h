@@ -24,7 +24,7 @@ public:
     }
 
     explicit Timer(const synnax::Rate &rate): interval(rate.period()), last(std::chrono::high_resolution_clock::now()) {
-        LOG(INFO) << "[timer] interval set to " << rate.period() << " ns";
+        VLOG(1) << "[timer] interval set to " << rate.period() << " ns";
     }
 
     void sleep(std::chrono::nanoseconds ns){
