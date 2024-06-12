@@ -203,7 +203,7 @@ freighter::Error ni::Source::stop(){
     this->sample_thread.join();
     if (this->checkNIError(ni::NiDAQmxInterface::StopTask(this->task_handle))){
         this->logError("failed while stopping reader for task " + this->reader_config.task_name);
-        return freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
+        return freighter::Error(driver::CRITICAL_HARDWARE_ERROR);
     }
     data_queue.reset();
     LOG(INFO) << "[NI Reader] stopped reader for task " << this->reader_config.task_name;
