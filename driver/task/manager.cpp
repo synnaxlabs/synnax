@@ -101,6 +101,7 @@ freighter::Error task::Manager::stop() {
     for (auto &[key, task]: tasks) {
         LOG(INFO) << "[task.manager] stopping task " << task->name();
         task->stop();
+        LOG(INFO) << "[task.manager] task " << task->name() << " stopped";
     }
     tasks.clear();
     return run_err;
@@ -135,7 +136,7 @@ freighter::Error task::Manager::runGuarded() {
 }
 
 void task::Manager::processTaskSet(const Series &series) {
-    auto keys = series.uint64();
+    auto keys = series.values<std::uint64_t>();
     for (auto key: keys) {
         // If a module exists with this key, stop and remove it.
         auto task_iter = tasks.find(key);
@@ -177,7 +178,7 @@ void task::Manager::processTaskCmd(const Series &series) {
 
 
 void task::Manager::processTaskDelete(const Series &series) {
-    const auto keys = series.uint64();
+    const auto keys = series.values<std::uint64_t>();
     for (auto key: keys) {
         const auto it = tasks.find(key);
         if (it != tasks.end()) {

@@ -34,6 +34,8 @@ public:
        cap(cap),
        data_type(data_type),
        data(std::make_unique<std::byte[]>(cap * data_type.density())) {
+        if (data_type.is_variable())
+            throw std::runtime_error("cannot pre-allocate a series with a variable data type");
     }
 
     /// @brief constructs a series from the given vector of numeric data and an optional
@@ -100,6 +102,10 @@ public:
     /// the series' data type. It is up to you to ensure that this is the case.
     template<typename NumericType>
     void set(const int index, const NumericType value) {
+        static_assert(
+            std::is_arithmetic_v<NumericType>,
+            "NumericType must be a numeric type"
+        );
         const auto adjusted = this->validateBounds(index);
         memcpy(
             data.get() + adjusted * data_type.density(),
@@ -117,6 +123,10 @@ public:
     /// exceed the capacity of the series.
     template<typename NumericType>
     void set_array(const NumericType *d, const int index, const size_t size_) {
+        static_assert(
+            std::is_arithmetic_v<NumericType>,
+            "NumericType must be a numeric type"
+        );
         const auto adjusted = this->validateBounds(index, size_);
         memcpy(
             data.get() + adjusted * data_type.density(),
@@ -132,6 +142,10 @@ public:
     /// @throws std::runtime_error if the index is out of bounds or the write would
     template<typename NumericType>
     void set(const std::vector<NumericType> &d, const int index) {
+        static_assert(
+            std::is_arithmetic_v<NumericType>,
+            "NumericType must be a numeric type"
+        );
         const auto adjusted = this->validateBounds(index, d.size());
         memcpy(
             data.get() + adjusted * data_type.density(),
@@ -146,10 +160,27 @@ public:
     /// it will only write as many samples as it can hold.
     template<typename NumericType>
     size_t write(const std::vector<NumericType> &d) {
+        static_assert(
+            std::is_arithmetic_v<NumericType>,
+            "NumericType must be a numeric type"
+        );
         const size_t count = std::min(d.size(), cap - size);
+        if (count == 0) return 0;
         memcpy(data.get(), d.data(), count * data_type.density());
         size += count;
         return count;
+    }
+
+    template<typename NumericType>
+    size_t write(const NumericType d) {
+        static_assert(
+            std::is_arithmetic_v<NumericType>,
+            "NumericType must be a numeric type"
+        );
+        if (size >= cap) return 0;
+        memcpy(data.get() + size * data_type.density(), &d, data_type.density());
+        size++;
+        return 1;
     }
 
     /// @brief writes the given array of numeric data to the series.
@@ -159,6 +190,10 @@ public:
     /// it will only write as many samples as it can hold.
     template<typename NumericType>
     size_t write(const NumericType *d, const size_t size_) {
+        static_assert(
+            std::is_arithmetic_v<NumericType>,
+            "NumericType must be a numeric type"
+        );
         const size_t count = std::min(size_, cap - size);
         memcpy(data.get(), d, count * data_type.density());
         size += count;
@@ -176,7 +211,6 @@ public:
         if (!data_type.is_variable())
             throw std::runtime_error("expected data type to be STRING or JSON");
         cached_byte_size = 0;
-        for (const auto &s: d) cached_byte_size += s.size() + 1;
         data = std::make_unique<std::byte[]>(byteSize());
         size_t offset = 0;
         for (const auto &s: d) {
@@ -184,22 +218,22 @@ public:
             offset += s.size();
             data[offset] = static_cast<std::byte>('\n');
             offset++;
+            cached_byte_size += s.size() + 1;
         }
-        size = total_size;
+        size = d.size();
         cap = size;
     }
 
     explicit Series(
         const std::string &data,
         DataType data_type_ = STRING
-    ): data_type(std::move(data_type_)) {
+    ): size(1), cap(1), data_type(std::move(data_type_)) {
         if (data_type != STRING && data_type != JSON)
             throw std::runtime_error("invalid data type c");
-        size = data.size() + 1;
-        cap = size;
-        this->data = std::make_unique<std::byte[]>(size);
+        cached_byte_size = data.size() + 1;
+        this->data = std::make_unique<std::byte[]>(byteSize());
         memcpy(this->data.get(), data.data(), data.size());
-        this->data[size - 1] = static_cast<std::byte>('\n');
+        this->data[byteSize() - 1] = static_cast<std::byte>('\n');
     }
 
     Series(const Series &s) : data_type(s.data_type) {
@@ -224,46 +258,13 @@ public:
         pb->set_data(data.get(), size);
     }
 
-    [[nodiscard]] std::vector<uint8_t> uint8() const {
-        if (data_type != synnax::UINT8) {
-            throw std::runtime_error("invalid data type");
-        }
-        std::vector<uint8_t> v(size);
-        memcpy(v.data(), data.get(), size);
-        return v;
-    }
-
-    [[nodiscard]] std::vector<float> float32() const {
-        if (data_type != synnax::FLOAT32)
-            throw std::runtime_error("invalid data type");
-        std::vector<float> v(size / sizeof(float));
-        memcpy(v.data(), data.get(), size);
-        return v;
-    }
-
-    [[nodiscard]] std::vector<int64_t> int64() const {
-        if (data_type != synnax::INT64)
-            throw std::runtime_error("invalid data type");
-        std::vector<int64_t> v(size / sizeof(int64_t));
-        memcpy(v.data(), data.get(), size);
-        return v;
-    }
-
-    [[nodiscard]] std::vector<uint64_t> uint64() const {
-        if (data_type != synnax::UINT64 && data_type != synnax::TIMESTAMP)
-            throw std::runtime_error("invalid data type");
-        std::vector<uint64_t> v(size / sizeof(uint64_t));
-        memcpy(v.data(), data.get(), size);
-        return v;
-    }
-
     [[nodiscard]] std::vector<std::string> string() const {
         if (data_type != synnax::STRING && data_type != synnax::JSON)
             throw std::runtime_error("invalid data type");
         std::vector<std::string> v;
         std::string s;
-        for (size_t i = 0; i < size; i++) {
-            if (data[i] == static_cast<std::byte>('\n')) {
+        for (size_t i = 0; i < byteSize(); i++) {
+            if (data[i] == NEWLINE_TERMINATOR) {
                 v.push_back(s);
                 s.clear();
                 // WARNING: This might be very slow due to copying.
@@ -273,7 +274,26 @@ public:
     }
 
     template<typename NumericType>
-    NumericType operator[](const int index) const { return at<NumericType>(index); }
+    [[nodiscard]] std::vector<NumericType> values() const {
+        static_assert(
+            std::is_arithmetic_v<NumericType>,
+            "NumericType must be a numeric type"
+        );
+        std::vector<NumericType> v(size);
+        memcpy(v.data(), data.get(), byteSize());
+        return v;
+    }
+
+
+
+    template<typename NumericType>
+    NumericType operator[](const int index) const {
+        static_assert(
+            std::is_arithmetic_v<NumericType>,
+            "NumericType must be a numeric type"
+        );
+        return at<NumericType>(index);
+    }
 
     /// @brief returns the number at the given index. It is up to the caller to ensure
     /// that the numeric type is compatible with the series' data type.
@@ -287,6 +307,20 @@ public:
                data_type.density());
         return value;
     }
+
+    void at(const int index, std::string &value) const {
+        const auto adjusted = validateBounds(index);
+        // iterate through the data byte by byte, incrementing the index every time we
+        // hit a newline character until we reach the desired index.
+        for (size_t i = 0, j = 0; i < byteSize(); i++) {
+            if (data[i] == NEWLINE_TERMINATOR) {
+                if (j == adjusted) return;
+                value.clear();
+                j++;
+            } else value += static_cast<char>(data[i]);
+        }
+    }
+
 
     /// @brief returns the number at the given index.
     /// @param index the index to get the number at.
@@ -320,15 +354,19 @@ public:
     size_t size;
     /// @brief the capacity of the series in number of samples.
     size_t cap;
+
+    /// @brief returns the size of the series in bytes.
     [[nodiscard]] size_t byteSize() const {
-        if (data_type.is_variable()) {
-            if (cached_byte_size != 0) return cached_byte_size;
-            size_t count = 0;
-            for (const auto &b: data) if (b == NEWLINE_TERMINATOR) count++;
-        }
+        if (data_type.is_variable()) return cached_byte_size;
         return size * data_type.density();
     }
-    [[nodiscard]] size_t byteCap() const { return cap * data_type.density(); }
+
+    /// @brief returns the capacity of the series in bytes.
+    [[nodiscard]] size_t byteCap() const {
+        if (cap == 0 || data_type.is_variable()) return cached_byte_size;
+        return cap * data_type.density();
+    }
+
     /// @brief Holds what type of data is being used.
     DataType data_type;
     /// @brief Holds the underlying data.

@@ -12,6 +12,7 @@
 #include <chrono>
 #include "client/cpp/synnax.h"
 #include "glog/logging.h"
+#include "driver/breaker/breaker.h"
 
 using hs_clock = std::chrono::high_resolution_clock;
 using nanos = std::chrono::nanoseconds;
@@ -76,7 +77,9 @@ public:
         return {elapsed, true};
     }
 private:
-    [[nodiscard]] bool highRate() const { return interval < HIGH_RES_THRESHOLD; }
+    [[nodiscard]] bool highRate() const {
+        return interval < HIGH_RES_THRESHOLD;
+    }
     synnax::TimeSpan interval{};
     std::chrono::time_point<std::chrono::high_resolution_clock> last;
 };

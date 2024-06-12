@@ -36,7 +36,7 @@ struct Config {
     /// call to wait(). We do not recommend setting this factor lower than 1.
     float_t scale;
 
-    Config child(const std::string &name) const {
+    [[nodiscard]] Config child(const std::string &name) const {
         return Config{this->name + "." + name, base_interval, max_retries, scale};
     }
 };
@@ -72,6 +72,7 @@ public:
                 retries(other.retries),
                 is_running(other.is_running),
                 breaker_shutdown(std::make_unique<std::condition_variable>()) {
+        std::cout << "copy constructor called" << std::endl;
     }
 
 
@@ -83,6 +84,8 @@ public:
                                         breaker_shutdown(
                                             std::make_unique<
                                                 std::condition_variable>()) {
+        std::cout << "move constructor called" << std::endl;
+
     }
 
     // copy assignment
@@ -123,7 +126,7 @@ public:
         }
         retries++;
         if (retries > config.max_retries) {
-            LOG(ERROR) << config.name << " exceeded the maximum retry count of " << config.max_retries << ". Exiting." << "Error: " << message << ".";
+            LOG(ERROR) << "[" << config.name << "] exceeded the maximum retry count of " << config.max_retries << ". Exiting." << "Error: " << message << ".";
             reset();
             return false;
         }
@@ -133,7 +136,7 @@ public:
             std::unique_lock lock(shutdown_mutex);
             breaker_shutdown->wait_for(lock, interval.nanoseconds());
             if (!running()) {
-                LOG(INFO) << "Breaker " << config.name << " is shutting down. Exiting.";
+                LOG(INFO) << "[" << config.name << "] is shutting down. Exiting.";
                 reset();
                 return false;
             }

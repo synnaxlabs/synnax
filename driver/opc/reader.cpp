@@ -141,7 +141,7 @@ public:
             status == UA_STATUSCODE_BADCONNECTIONREJECTED ||
             status == UA_STATUSCODE_BADSECURECHANNELCLOSED
         ) {
-            err.type = driver::TEMPORARY_HARDWARE_ERROR;
+            err.type = driver::TEMPORARY_HARDWARE_ERROR.type;
             err.data = "connection rejected";
             curr_state.variant = "warning";
             curr_state.details = json{
@@ -152,7 +152,7 @@ public:
                 {"running", true}
             };
         } else {
-            err.type = driver::TYPE_CRITICAL_HARDWARE_ERROR;
+            err.type = driver::CRITICAL_HARDWARE_ERROR.type;
             err.data = "failed to execute read: " + std::string(
                            UA_StatusCode_name(status));
             curr_state.variant = "error";
@@ -186,7 +186,7 @@ public:
             }
         });
         return {
-            driver::TYPE_CRITICAL_HARDWARE_ERROR,
+            driver::CRITICAL_HARDWARE_ERROR.type,
             message
         };
     }
