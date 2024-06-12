@@ -141,6 +141,7 @@ export class Client {
       start,
       channels: channels as Params,
       mode: WriterMode.PersistOnly,
+      errOnUnauthorized: true,
       enableAutoCommit: true,
       autoIndexPersistInterval: TimeSpan.MAX,
     });

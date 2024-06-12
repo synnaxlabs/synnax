@@ -133,6 +133,19 @@ class TestWriter:
         f = client.read(TimeRange(0, TimeStamp(1 * TimeSpan.SECOND)), channel.key)
         assert f.__len__() == 20
 
+    def test_write_err_on_unauthorized(self, channel: sy.Channel, client: sy.Synnax):
+        """Should throw an error when a writer is opened to error on unauthorized"""
+        w1 = client.open_writer(0, channel.key, name="writer1")
+
+        with pytest.raises(sy.UnauthorizedError):
+            with client.open_writer(0,
+                                    channel.key,
+                                    err_on_unauthorized=True,
+                                    name="writer2") as w2:
+                data = np.random.rand(10).astype(np.float64)
+
+        assert w1.close() is None
+
     @pytest.mark.asyncio
     async def test_write_persist_only_mode(
         self,
