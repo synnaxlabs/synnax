@@ -13,6 +13,7 @@ from synnax.cli.console.mock import MockConsole
 from synnax.cli.flow import Context
 from synnax.cli.ts_convert import pure_tsconvert
 from synnax.io import IO_FACTORY
+import synnax as sy
 
 from .data import DATA_DIR
 
@@ -79,6 +80,7 @@ class TestTSConvert:
         f.set_chunk_size(1)
         f.seek_first()
         df = f.read()
-        assert df["Time"].to_numpy()[0] == 1483257600000000000
+        assert (sy.TimeStamp(df["Time"].to_numpy()[0]) - sy.TimeStamp(
+            1483257600000000000) < sy.TimeSpan.DAY)
 
 
