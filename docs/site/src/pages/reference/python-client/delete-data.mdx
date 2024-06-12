@@ -74,6 +74,11 @@ in the database, the entirety of the `delete` operation fails, no data is delete
 client.delete([111, 112, 113], time_range_to_delete)
 ```
 
+In the case where a requested channel is not found, `delete` is atomic: no data will be
+deleted and the operation will fail. However, in all other cases, `delete` is **not**
+atomic: failure in deleting data one channel halts the entire operation and raises an
+error immediately.
+
 In addition, if a `delete` call is made to an index channel that other channels depend
 on data in the requested time range, an error is raised:
 
@@ -92,11 +97,6 @@ client.delete(
     sy.TimeStamp(1 * sy.TimeSpan.SECOND).range(sy.TimeStamp(3 * sy.TimeSpan.SECOND))
 )
 ```
-
-In the case where a requested channel is not found, `delete` is atomic: no data will be
-deleted and the operation will fail. However, in all other cases, `delete` is **not**
-atomic: failure in deleting data one channel halts the entire operation and raises an
-error immediately.
 
 Last but not least, `delete` calls on any channel with a writer whose start time is
 before the deleting time range raise an error. This is to ensure that the writer and the
