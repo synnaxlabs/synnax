@@ -9,7 +9,7 @@
 
 import {DataType, Rate, TimeRange, TimeStamp } from "@synnaxlabs/x/telem";
 import { describe, expect, test } from "vitest";
-import { NotFoundError } from "@/errors"
+import {NotFoundError, UnauthorizedError} from "@/errors"
 
 import { type channel } from "@/channel";
 import { newClient } from "@/setupspecs";
@@ -105,18 +105,27 @@ describe("Deleter", () => {
     await expect(
       client.delete(
       [ch.key], TimeStamp.seconds(12).range(TimeStamp.seconds(30)))
-    ).rejects.toThrow()
+    ).rejects.toThrow(UnauthorizedError)
 
     await writer.close()
   })
 
-  // test("Client - delete index channel alone", async () => {
-  //   const chs = await newIndexDataChannelPair()
-  //   const index = chs[0]
-  //   const dat = chs[1]
-  //   const data = randomSeries(10, dat.dataType)
-  //
-  //   await index.write(0, BigUint64Array([0, 1000000000, 2000000000, 3000000000]))
-  //
-  // })
+  test("Client - delete index channel alone", async () => {
+    const chs = await newIndexDataChannelPair()
+    const index = chs[0]
+    const dat = chs[1]
+    const data = randomSeries(10, dat.dataType)
+
+    const time = BigInt64Array.from({ length: 10 },
+      (_, i) => (TimeStamp.milliseconds(i)).valueOf());
+
+    await index.write(0, time)
+    await dat.write(0, data)
+
+    await expect(
+      client.delete(
+        [index.key], TimeStamp.milliseconds(2).range(TimeStamp.milliseconds(5))
+      )
+    ).rejects.toThrow()
+  })
 });

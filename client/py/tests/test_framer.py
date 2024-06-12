@@ -15,7 +15,7 @@ import pytest
 import time
 
 import synnax as sy
-from synnax import TimeSpan, TimeRange, TimeStamp
+from synnax import TimeSpan, TimeRange, TimeStamp, UnauthorizedError
 
 
 @pytest.mark.framer
@@ -239,7 +239,7 @@ class TestDeleter:
 
     def test_delete_with_writer(self, channel: sy.Channel, client: sy.Synnax):
         w = client.open_writer(0, channel.key)
-        with pytest.raises(Exception):
+        with pytest.raises(UnauthorizedError):
             client.delete([channel.key], TimeRange(
                 TimeStamp(1 * TimeSpan.SECOND).range(TimeStamp(2 * TimeSpan.SECOND))))
 
