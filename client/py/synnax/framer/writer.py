@@ -55,6 +55,7 @@ class _Config(Payload):
     start: TimeStamp | None = None
     keys: ChannelKeys
     mode: WriterMode
+    err_on_unauthorized: bool
     enable_auto_commit: bool
     auto_index_persist_interval: TimeSpan
 
@@ -132,6 +133,7 @@ class Writer:
         suppress_warnings: bool = False,
         strict: bool = False,
         mode: WriterMode = WriterMode.PERSIST_STREAM,
+        err_on_unauthorized: bool = False,
         enable_auto_commit: bool = False,
         auto_index_persist_interval: TimeSpan = 1 * TimeSpan.SECOND,
     ) -> None:
@@ -141,12 +143,18 @@ class Writer:
         self.__strict = strict
         self.__mode = mode
         self.__stream = client.stream(self.__ENDPOINT, _Request, _Response)
-        self.__open(name, authorities, enable_auto_commit, auto_index_persist_interval)
+        self.__open(
+            name,
+            authorities,
+            err_on_unauthorized,
+            enable_auto_commit,
+            auto_index_persist_interval)
 
     def __open(
         self,
         name: str,
         authorities: list[Authority],
+        err_on_unauthorized: bool,
         enable_auto_commit: bool,
         auto_index_persist_interval: TimeSpan,
     ) -> None:
@@ -156,6 +164,7 @@ class Writer:
             start=TimeStamp(self.start),
             authorities=normalize(authorities),
             mode=self.__mode,
+            err_on_unauthorized=err_on_unauthorized,
             enable_auto_commit=enable_auto_commit,
             auto_index_persist_interval=auto_index_persist_interval,
         )

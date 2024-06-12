@@ -33,7 +33,9 @@ const std::string TASK_CMD_CHANNEL = "sy_task_cmd";
 freighter::Error task::Manager::start(std::atomic<bool> &done) {
     if(running) return freighter::NIL;
     LOG(INFO) << "[task.manager] starting up";
-    if (const auto err = startGuarded(); err) {
+    const auto err = startGuarded();
+    breaker.start();
+    if (err) {
         if (err.matches(freighter::UNREACHABLE) && breaker.wait(err)) start(done);
         done = true;
         return err;
@@ -89,7 +91,7 @@ void task::Manager::run(std::atomic<bool> &done) {
     done = true;
     done.notify_all();
     run_err = err;
-    LOG(INFO) << "[manager] run thread exiting";
+    LOG(INFO) << "[task.manager] run thread exiting";
 }
 
 freighter::Error task::Manager::stop() {
@@ -119,7 +121,6 @@ freighter::Error task::Manager::runGuarded() {
 
     while (running) {
         auto [frame, read_err] = streamer->read();
-        LOG(INFO) << "[task.manager] received frame";
         if (read_err) break;
         for (size_t i = 0; i < frame.size(); i++) {
             const auto &key = (*frame.channels)[i];
@@ -155,7 +156,6 @@ void task::Manager::processTaskSet(const Series &series) {
 
 void task::Manager::processTaskCmd(const Series &series) {
     const auto commands = series.string();
-    LOG(INFO) <<  "[task.manager] " << commands.size() << " commands received";
     for (const auto &cmd_str: commands) {
         auto parser = config::Parser(cmd_str);
         auto cmd = task::Command(parser);

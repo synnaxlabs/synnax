@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/index"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/control"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -132,7 +133,6 @@ var _ = Describe("Writer Behavior", func() {
 						Expect(w.Close()).To(Succeed())
 					})
 				})
-
 				Context("Rate channels", func() {
 					It("Should write to many rate channels at once", func() {
 						var (
@@ -190,7 +190,6 @@ var _ = Describe("Writer Behavior", func() {
 						Expect(f.Series[2].Data).To(Equal(telem.NewSeriesV[int64](100, 105, 110, 115, 120, 125, 130, 135, 140, 145).Data))
 					})
 				})
-
 				Context("Rate, Index, and Data", func() {
 					It("Should write properly", func() {
 						var (
@@ -251,7 +250,6 @@ var _ = Describe("Writer Behavior", func() {
 						Expect(f.Series[3].Data).To(Equal(telem.NewSeriesV[int64](100, 105, 110, 115, 120, 125, 130, 135, 140, 145).Data))
 					})
 				})
-
 				Describe("Auto-commit", func() {
 					Describe("Indexed channels", func() {
 						var (
@@ -1233,8 +1231,8 @@ var _ = Describe("Writer Behavior", func() {
 					})
 				})
 			})
-			Describe("Data t Errors", func() {
-				Specify("Invalid Data t for series", func() {
+			Describe("Data Type Errors", func() {
+				Specify("Invalid Data Type for series", func() {
 					dtErr := GenerateChannelKey()
 					Expect(db.CreateChannel(
 						ctx,
@@ -1264,7 +1262,40 @@ var _ = Describe("Writer Behavior", func() {
 					Expect(w.Close()).To(Succeed())
 				})
 			})
-
+			Describe("ErrOnUnauthorized", func() {
+				var (
+					key        cesium.ChannelKey
+					controlKey = GenerateChannelKey()
+					w1         *cesium.Writer
+					w2         *cesium.Writer
+				)
+				BeforeEach(func() {
+					key = GenerateChannelKey()
+					Expect(db.CreateChannel(ctx, cesium.Channel{Key: key, DataType: telem.Int64T, Rate: 1 * telem.Hz})).To(Succeed())
+					Expect(db.ConfigureControlUpdateChannel(ctx, controlKey)).To(Succeed())
+					w1 = MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Channels: []cesium.ChannelKey{key}, Start: 1 * telem.SecondTS}))
+				})
+				AfterEach(func() {
+					Expect(w1.Close()).To(Succeed())
+				})
+				Context("False", func() {
+					It("Should not return an error if writer is not authorized to write", func() {
+						w2 = MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Channels: []cesium.ChannelKey{key}, Start: 1 * telem.SecondTS}))
+						Consistently(func() bool {
+							return w2.Write(cesium.NewFrame([]cesium.ChannelKey{key}, []telem.Series{telem.NewSeriesV[int64](1, 2, 3, 4)}))
+						}).Should(BeTrue())
+						Expect(w2.Error()).ToNot(HaveOccurred())
+						Expect(w2.Close()).To(Succeed())
+					})
+				})
+				Context("True", func() {
+					It("Should return an error if writer is not authorized to write", func() {
+						w2, err := db.OpenWriter(ctx, cesium.WriterConfig{Channels: []cesium.ChannelKey{key}, Start: 1 * telem.SecondTS, ErrOnUnauthorized: config.True()})
+						Expect(err).To(MatchError(control.Unauthorized))
+						Expect(w2).To(BeNil())
+					})
+				})
+			})
 			Describe("Virtual Channels", func() {
 				It("Should write to virtual channel", func() {
 					var virtual1 = GenerateChannelKey()
@@ -1286,7 +1317,6 @@ var _ = Describe("Writer Behavior", func() {
 					Expect(w.Close()).To(Succeed())
 				})
 			})
-
 			Describe("Close", func() {
 				It("Should not allow operations on a closed iterator", func() {
 					key := GenerateChannelKey()
@@ -1305,7 +1335,6 @@ var _ = Describe("Writer Behavior", func() {
 					Expect(err.Error()).To(Equal(e.Error()))
 				})
 			})
-
 			Describe("Close", func() {
 				It("Should close properly with a control setup", func() {
 					k1, k2, k3, k4 := GenerateChannelKey(), GenerateChannelKey(), GenerateChannelKey(), GenerateChannelKey()

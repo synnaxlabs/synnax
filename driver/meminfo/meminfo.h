@@ -19,10 +19,7 @@ std::uint32_t getUsage();
 class MemInfoSource final : public pipeline::Source {
     synnax::ChannelKey key;
 public:
-
-    MemInfoSource(
-        const synnax::ChannelKey &key
-    ): key(key) {
+    explicit MemInfoSource(const synnax::ChannelKey &key): key(key) {
     }
 
     std::pair<Frame, freighter::Error> read() override {
@@ -30,12 +27,6 @@ public:
         auto fr = Frame(1);
         fr.add(key, Series(getUsage(), synnax::UINT32));
         return {std::move(fr), freighter::NIL};
-    }
-    freighter::Error start() override {
-        return freighter::NIL;
-    }
-    freighter::Error stop() override {
-        return freighter::NIL;
     }
 };
 
@@ -48,7 +39,7 @@ public:
         std::shared_ptr<pipeline::Source> source,
         const synnax::WriterConfig &writer_config,
         const breaker::Config &breaker_config
-    ): pipe(pipeline::Acquisition(ctx, writer_config, source, breaker_config)) {
+    ): pipe(pipeline::Acquisition(ctx->client, writer_config, source, breaker_config)) {
         pipe.start();
     }
 
@@ -117,7 +108,7 @@ class Factory final : public task::Factory {
         for (const auto &t: existing) {
             if (t.type == "meminfo") {
                 LOG(INFO) << "[meminfo] found existing meminfo task with key: " << t.key
-                        << "skipping creation." << std::endl;
+                        << " skipping creation." << std::endl;
                 hasMeminfo = true;
             }
         }

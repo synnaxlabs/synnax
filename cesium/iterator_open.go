@@ -19,7 +19,8 @@ func (db *DB) OpenIterator(cfg IteratorConfig) (*Iterator, error) {
 	if db.closed.Load() {
 		return nil, errDBClosed
 	}
-
+	db.mu.RLock()
+	defer db.mu.RUnlock()
 	internal, err := db.newStreamIterator(cfg)
 	if err != nil {
 		// return early to prevent panic in wrapStreamIterator
@@ -32,13 +33,13 @@ func (db *DB) NewStreamIterator(cfg IteratorConfig) (StreamIterator, error) {
 	if db.closed.Load() {
 		return nil, errDBClosed
 	}
+	db.mu.RLock()
+	defer db.mu.RUnlock()
 	return db.newStreamIterator(cfg)
 }
 
 func (db *DB) newStreamIterator(cfg IteratorConfig) (*streamIterator, error) {
 	internal := make([]*unary.Iterator, len(cfg.Channels))
-	db.mu.RLock()
-	defer db.mu.RUnlock()
 	for i, key := range cfg.Channels {
 		uDB, ok := db.unaryDBs[key]
 		if !ok {

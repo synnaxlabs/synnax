@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/cesium/internal/unary"
+	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/control"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
@@ -478,6 +479,30 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Expect(MustSucceed(w1.Commit(ctx))).To(Equal(17*telem.SecondTS + 1))
 						t = MustSucceed(w1.Close())
 						Expect(t.Occurred()).To(BeTrue())
+					})
+				})
+				Describe("ErrOnUnauthorized", func() {
+					It("Should return an error if the write does not acquire control", func() {
+						w1, t := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
+							Start:             10 * telem.SecondTS,
+							Authority:         control.Absolute,
+							Subject:           control.Subject{Key: "foo"},
+							ErrOnUnauthorized: config.True(),
+						}))
+						Expect(t.Occurred()).To(BeTrue())
+						w2, t, err := db.OpenWriter(ctx, unary.WriterConfig{
+							Start:             10 * telem.SecondTS,
+							Authority:         control.Absolute - 1,
+							Subject:           control.Subject{Key: "bar"},
+							ErrOnUnauthorized: config.True(),
+						})
+						Expect(t.Occurred()).To(BeFalse())
+						Expect(err).To(HaveOccurredAs(control.Unauthorized))
+						Expect(w2).To(BeNil())
+						t, err = w1.Close()
+						Expect(t.Occurred()).To(BeTrue())
+						Expect(t.IsRelease()).To(BeTrue())
+						Expect(err).ToNot(HaveOccurred())
 					})
 				})
 			})
