@@ -138,11 +138,12 @@ namespace ni{
 
             //get json from parser
             json j = parser.get_json();
-            if(!j.contains("prescaled") || !j.contains("scaled")){
+            if(!j.contains("pre_scaled_vals") || !j.contains("scaled_vals")){
+                LOG(ERROR) << "[ni.analog] failed to parse custom table configuration: missing pre_scaled_vals or scaled_vals";
                 return; // TODO: log error
             }
-            std::vector<double> prescaled_vec = j["prescaled"].get<std::vector<double>>(); 
-            std::vector<double> scaled_vec = j["scaled"].get<std::vector<double>>(); 
+            std::vector<double> prescaled_vec = j["pre_scaled_vals"].get<std::vector<double>>(); 
+            std::vector<double> scaled_vec = j["scaled_vals"].get<std::vector<double>>(); 
 
             prescaled = new double[num_points];
             scaled = new double[num_points];

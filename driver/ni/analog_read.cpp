@@ -50,6 +50,7 @@ void ni::AnalogReadSource::parseChannels(config::Parser &parser){
                     // check for custom scale
                     std::string scale_name = std::to_string(config.channel_key) + "_scale";
                     auto scale_parser = channel_builder.child("custom_scale");
+                    LOG(INFO) << "[NI Reader] Parsing custom scale for channel " << config.name;
                     config.scale_config = ScaleConfig(scale_parser, scale_name);
                     if(!scale_parser.ok()){
                         LOG(ERROR) << "[NI Reader] Failed to parse custom scale for channel " << config.name;
