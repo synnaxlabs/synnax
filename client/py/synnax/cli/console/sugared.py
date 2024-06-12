@@ -197,7 +197,8 @@ class SugaredConsole:
         default_idx = 0
         no_cols = columns is None
         _columns = columns or list()
-        for row in rows:
+
+        for i, row in enumerate(rows):
             if isinstance(row, dict):
                 is_default = row[_key] == default
                 _rows.append(row)
@@ -210,12 +211,15 @@ class SugaredConsole:
                 key = "value"
                 if len(_columns) > 0:
                     key = _columns[0]
-                _rows.append({key: row})
+                _rows.append({"choice": str(i), key: row})
             if is_default:
                 default_idx = len(_rows) - 1
 
         if len(_columns) == 0:
             _columns = ["value"]
+
+        if "choice" not in _columns:
+            _columns = ["choice"] + _columns
 
         if should_return:
             return v, default_idx

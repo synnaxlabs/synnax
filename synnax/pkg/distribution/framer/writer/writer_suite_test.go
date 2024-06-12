@@ -51,7 +51,7 @@ func provision(n int) (*mock.CoreBuilder, map[core.NodeKey]serviceContainer) {
 		builder    = mock.NewCoreBuilder()
 		services   = make(map[core.NodeKey]serviceContainer)
 		channelNet = tmock.NewChannelNetwork()
-		writerNet  = tmock.NewFramerWriterNetwork()
+		writerNet  = tmock.NewWriterNetwork()
 	)
 	for i := 0; i < n; i++ {
 		var (
