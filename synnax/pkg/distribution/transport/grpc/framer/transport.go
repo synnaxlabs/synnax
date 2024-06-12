@@ -19,7 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
-	tsv1 "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/framer/v1"
+	framerv1 "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/framer/v1"
 	"go/types"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -28,65 +28,65 @@ import (
 type (
 	writerClient = fgrpc.StreamClientCore[
 		writer.Request,
-		*tsv1.WriterRequest,
+		*framerv1.WriterRequest,
 		writer.Response,
-		*tsv1.WriterResponse,
+		*framerv1.WriterResponse,
 	]
 	writerServerCore = fgrpc.StreamServerCore[
 		writer.Request,
-		*tsv1.WriterRequest,
+		*framerv1.WriterRequest,
 		writer.Response,
-		*tsv1.WriterResponse,
+		*framerv1.WriterResponse,
 	]
 	iteratorClient = fgrpc.StreamClientCore[
 		iterator.Request,
-		*tsv1.IteratorRequest,
+		*framerv1.IteratorRequest,
 		iterator.Response,
-		*tsv1.IteratorResponse,
+		*framerv1.IteratorResponse,
 	]
 	iteratorServerCore = fgrpc.StreamServerCore[
 		iterator.Request,
-		*tsv1.IteratorRequest,
+		*framerv1.IteratorRequest,
 		iterator.Response,
-		*tsv1.IteratorResponse,
+		*framerv1.IteratorResponse,
 	]
 	relayClient = fgrpc.StreamClientCore[
 		relay.Request,
-		*tsv1.RelayRequest,
+		*framerv1.RelayRequest,
 		relay.Response,
-		*tsv1.RelayResponse,
+		*framerv1.RelayResponse,
 	]
 	relayServerCore = fgrpc.StreamServerCore[
 		relay.Request,
-		*tsv1.RelayRequest,
+		*framerv1.RelayRequest,
 		relay.Response,
-		*tsv1.RelayResponse,
+		*framerv1.RelayResponse,
 	]
 	deleteClient = fgrpc.UnaryClient[
 		deleter.Request,
-		*tsv1.DeleteRequest,
+		*framerv1.DeleteRequest,
 		types.Nil,
 		*emptypb.Empty,
 	]
 	deleteServer = fgrpc.UnaryServer[
 		deleter.Request,
-		*tsv1.DeleteRequest,
+		*framerv1.DeleteRequest,
 		types.Nil,
 		*emptypb.Empty,
 	]
 )
 
 var (
-	_ tsv1.WriterServiceServer   = (*writerServer)(nil)
-	_ writer.TransportServer     = (*writerServer)(nil)
-	_ writer.TransportClient     = (*writerClient)(nil)
-	_ tsv1.IteratorServiceServer = (*iteratorServer)(nil)
-	_ iterator.TransportServer   = (*iteratorServer)(nil)
-	_ iterator.TransportClient   = (*iteratorClient)(nil)
-	_ relay.TransportServer      = (*relayServer)(nil)
-	_ relay.TransportClient      = (*relayClient)(nil)
-	_ framer.Transport           = Transport{}
-	_ fgrpc.BindableTransport    = Transport{}
+	_ framerv1.WriterServiceServer   = (*writerServer)(nil)
+	_ writer.TransportServer         = (*writerServer)(nil)
+	_ writer.TransportClient         = (*writerClient)(nil)
+	_ framerv1.IteratorServiceServer = (*iteratorServer)(nil)
+	_ iterator.TransportServer       = (*iteratorServer)(nil)
+	_ iterator.TransportClient       = (*iteratorClient)(nil)
+	_ relay.TransportServer          = (*relayServer)(nil)
+	_ relay.TransportClient          = (*relayClient)(nil)
+	_ framer.Transport               = Transport{}
+	_ fgrpc.BindableTransport        = Transport{}
 )
 
 // New creates a new grpc Transport that opens connections from the given pool.
@@ -101,22 +101,22 @@ func New(pool *fgrpc.Pool) Transport {
 				ClientFunc: func(
 					ctx context.Context,
 					conn grpc.ClientConnInterface,
-				) (fgrpc.GRPCClientStream[*tsv1.WriterRequest, *tsv1.WriterResponse], error) {
-					return tsv1.NewWriterServiceClient(conn).Write(ctx)
+				) (fgrpc.GRPCClientStream[*framerv1.WriterRequest, *framerv1.WriterResponse], error) {
+					return framerv1.NewWriterServiceClient(conn).Write(ctx)
 				},
 			},
 			server: &writerServer{
 				writerServerCore: writerServerCore{
 					RequestTranslator:  writerRequestTranslator{},
 					ResponseTranslator: writerResponseTranslator{},
-					ServiceDesc:        &tsv1.WriterService_ServiceDesc,
+					ServiceDesc:        &framerv1.WriterService_ServiceDesc,
 				}},
 		},
 		iterator: iteratorTransport{
 			server: &iteratorServer{iteratorServerCore: iteratorServerCore{
 				RequestTranslator:  iteratorRequestTranslator{},
 				ResponseTranslator: iteratorResponseTranslator{},
-				ServiceDesc:        &tsv1.IteratorService_ServiceDesc,
+				ServiceDesc:        &framerv1.IteratorService_ServiceDesc,
 			}},
 			client: &iteratorClient{
 				Pool:               pool,
@@ -125,8 +125,8 @@ func New(pool *fgrpc.Pool) Transport {
 				ClientFunc: func(
 					ctx context.Context,
 					conn grpc.ClientConnInterface,
-				) (fgrpc.GRPCClientStream[*tsv1.IteratorRequest, *tsv1.IteratorResponse], error) {
-					return tsv1.NewIteratorServiceClient(conn).Iterate(ctx)
+				) (fgrpc.GRPCClientStream[*framerv1.IteratorRequest, *framerv1.IteratorResponse], error) {
+					return framerv1.NewIteratorServiceClient(conn).Iterate(ctx)
 				},
 			},
 		},
@@ -134,7 +134,7 @@ func New(pool *fgrpc.Pool) Transport {
 			server: &relayServer{relayServerCore: relayServerCore{
 				RequestTranslator:  relayRequestTranslator{},
 				ResponseTranslator: relayResponseTranslator{},
-				ServiceDesc:        &tsv1.RelayService_ServiceDesc,
+				ServiceDesc:        &framerv1.RelayService_ServiceDesc,
 			}},
 			client: &relayClient{
 				Pool:               pool,
@@ -143,8 +143,8 @@ func New(pool *fgrpc.Pool) Transport {
 				ClientFunc: func(
 					ctx context.Context,
 					conn grpc.ClientConnInterface,
-				) (fgrpc.GRPCClientStream[*tsv1.RelayRequest, *tsv1.RelayResponse], error) {
-					return tsv1.NewRelayServiceClient(conn).Relay(ctx)
+				) (fgrpc.GRPCClientStream[*framerv1.RelayRequest, *framerv1.RelayResponse], error) {
+					return framerv1.NewRelayServiceClient(conn).Relay(ctx)
 				},
 			},
 		},
@@ -152,13 +152,13 @@ func New(pool *fgrpc.Pool) Transport {
 			server: &deleteServer{
 				RequestTranslator:  deleteRequestTranslator{},
 				ResponseTranslator: fgrpc.EmptyTranslator{},
-				ServiceDesc:        &tsv1.DeleteService_ServiceDesc,
+				ServiceDesc:        &framerv1.DeleteService_ServiceDesc,
 			},
 			client: &deleteClient{
 				Pool:               pool,
 				RequestTranslator:  deleteRequestTranslator{},
 				ResponseTranslator: fgrpc.EmptyTranslator{},
-				ServiceDesc:        &tsv1.DeleteService_ServiceDesc,
+				ServiceDesc:        &framerv1.DeleteService_ServiceDesc,
 			},
 		},
 	}
@@ -166,13 +166,13 @@ func New(pool *fgrpc.Pool) Transport {
 
 type writerServer struct{ writerServerCore }
 
-func (w *writerServer) Write(server tsv1.WriterService_WriteServer) error {
+func (w *writerServer) Write(server framerv1.WriterService_WriteServer) error {
 	return w.Handler(server.Context(), server)
 }
 
 type iteratorServer struct{ iteratorServerCore }
 
-func (t *iteratorServer) Iterate(server tsv1.IteratorService_IterateServer) error {
+func (t *iteratorServer) Iterate(server framerv1.IteratorService_IterateServer) error {
 	return t.Handler(server.Context(), server)
 }
 
@@ -199,8 +199,8 @@ func (t Transport) Deleter() deleter.Transport { return t.deleter }
 
 // BindTo implements the fgrpc.BindableTransport interface.
 func (t Transport) BindTo(server grpc.ServiceRegistrar) {
-	tsv1.RegisterWriterServiceServer(server, t.writer.server)
-	tsv1.RegisterIteratorServiceServer(server, t.iterator.server)
+	framerv1.RegisterWriterServiceServer(server, t.writer.server)
+	framerv1.RegisterIteratorServiceServer(server, t.iterator.server)
 }
 
 func (t Transport) Use(middleware ...freighter.Middleware) {
@@ -232,7 +232,7 @@ func (t iteratorTransport) Server() iterator.TransportServer { return t.server }
 
 type relayServer struct{ relayServerCore }
 
-func (t *relayServer) Relay(server tsv1.RelayService_RelayServer) error {
+func (t *relayServer) Relay(server framerv1.RelayService_RelayServer) error {
 	return t.Handler(server.Context(), server)
 }
 

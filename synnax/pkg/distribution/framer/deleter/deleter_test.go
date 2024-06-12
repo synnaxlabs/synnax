@@ -30,6 +30,9 @@ import (
 var _ = Describe("Deleter", Ordered, func() {
 	scenarios := []func() scenario{
 		gatewayOnlyScenario,
+		/*
+			Commented out as multi-node deployment currently does not work.
+		*/
 		//peerOnlyScenario,
 		//mixedScenario,
 		//freeWriterScenario,

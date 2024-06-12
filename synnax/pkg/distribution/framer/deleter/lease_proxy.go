@@ -66,8 +66,7 @@ func (lp *leaseProxy) deleteTimeRangeByName(
 	names []string,
 	tr telem.TimeRange,
 ) error {
-	var res []channel.Channel
-	retriever.NewRetrieve().WhereKeys()
+	res := make([]channel.Channel, 0, len(names))
 	if err := retriever.
 		NewRetrieve().
 		Entries(&res).

@@ -68,6 +68,9 @@ var _ = Describe("Delete", Ordered, func() {
 					Expect(channels).To(BeEmpty())
 				})
 			})
+			/*
+				Commented out as multi-node deployment currently does not work.
+			*/
 			//Context("Node is remote", func() {
 			//	BeforeEach(func() {
 			//		idxCh.Leaseholder = 2
