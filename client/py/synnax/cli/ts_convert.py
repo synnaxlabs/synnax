@@ -37,10 +37,6 @@ INPUT_PRECISION_ARG = "--input-precision"
 INPUT_PRECISION_ARG_SHORT = "-ip"
 OUTPUT_PRECISION_ARG = "--output-precision"
 OUTPUT_PRECISION_ARG_SHORT = "-op"
-SEPARATE_DATE_AND_TIME_ARG = "--separate-date-and-time"
-SEPARATE_DATE_AND_TIME_ARG_SHORT = "-sdt"
-INPUT_TIME_ARG = "--input-time"
-INPUT_TIME_ARG_SHORT = "-it"
 
 @click.command()
 @click.argument(
@@ -83,20 +79,6 @@ INPUT_TIME_ARG_SHORT = "-it"
     help="The name of the output channel. Defaults to the name of the input channel.",
 )
 @click.option(
-    SEPARATE_DATE_AND_TIME_ARG,
-    SEPARATE_DATE_AND_TIME_ARG_SHORT,
-    "separate_date_and_time",
-    is_flag=True,
-    help="Separate date and time into separate channels",
-)
-@click.option(
-    INPUT_TIME_ARG,
-    INPUT_TIME_ARG_SHORT,
-    "input_time",
-    required=False,
-    help="The channel containing the time values",
-)
-@click.option(
     "-p",
     "--prompt/--no-prompt",
     "prompt",
@@ -111,8 +93,6 @@ def tsconvert(
     input_precision: TimeSpanUnits | None,
     output_precision: TimeSpanUnits | None,
     prompt: bool,
-    separate_date_and_time: bool,
-    input_time: str | None,
 ) -> None:
     """Converts the time units of a channel in a file.
 
@@ -142,6 +122,7 @@ def pure_tsconvert(
     reader = prompt_new_reader(ctx, input_path)
     if reader is None:
         return
+    input_path = reader.path()
 
     input_channel = ask_channel_and_check_exists(
         ctx,

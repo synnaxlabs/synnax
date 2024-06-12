@@ -14,9 +14,9 @@ import csv
 import pandas as pd
 from pandas.io.parsers import TextFileReader
 
-from synnax.exceptions import ValidationError
 from synnax.io.matcher import new_extension_matcher
 from synnax.io.protocol import ChannelMeta, FileWriter, ReaderType, RowFileReader
+from synnax.io.df_converter import convert_df
 
 CSVMatcher = new_extension_matcher(["csv"])
 
@@ -105,7 +105,8 @@ class CSVReader(CSVMatcher):  # type: ignore
 
     def channels(self) -> list[ChannelMeta]:
         if not self._channels:
-            cols = pd.read_csv(self._path, nrows=0, delimiter=self.__detect_delimiter()).columns
+            cols = pd.read_csv(self._path, nrows=0,
+                               delimiter=self.__detect_delimiter()).columns
             self._channels = [
                 ChannelMeta(name=name.strip(), meta_data=dict()) for name in cols
             ]
@@ -115,10 +116,10 @@ class CSVReader(CSVMatcher):  # type: ignore
         self.chunk_size = chunk_size
 
     def read(self) -> pd.DataFrame:
-        return next(self._reader)
+        return convert_df(next(self._reader))
 
     def __iter__(self) -> Iterator[pd.DataFrame]:
-        return self._reader.__iter__()
+        return CSVReaderIterator(self._reader)
 
     @classmethod
     def type(cls) -> ReaderType:
@@ -186,3 +187,16 @@ class CSVWriter(CSVMatcher):  # type: ignore
 
     def close(self):
         pass
+
+
+class CSVReaderIterator:
+    base: Iterator[pd.DataFrame]
+
+    def __init__(self, base: Iterator[pd.DataFrame]):
+        self.base = base
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        return convert_df(next(self.base))

@@ -146,16 +146,15 @@ class WriteFrameAdapter:
         is_frame = isinstance(channels_or_data, Frame)
         is_df = isinstance(channels_or_data, DataFrame)
         if is_frame or is_df:
-            if is_df:
-                channels_or_data = Frame(channels_or_data)
+            cols = channels_or_data.channels if is_frame else channels_or_data.columns
             if self.__adapter is None:
                 return channels_or_data
             channels = list()
             series = list()
-            for col in channels_or_data.channels:
+            for col in cols:
                 try:
                     channels.append(self.__adapter[col] if isinstance(col, ChannelName) else col)
-                    series.append(channels_or_data[col])
+                    series.append(Series(channels_or_data[col]))
                 except KeyError as e:
                     if self.__err_on_extra_chans:
                         raise ValidationError(

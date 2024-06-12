@@ -87,6 +87,7 @@ def run_ingestion(ctx: Context, cli: IngestionCLI) -> None:
     assert cli.db_channels is not None
     assert cli.client is not None
     assert cli.start is not None
+    filtered_reader = initialize_reader(ctx, cli)
     if cli.reader.type() == ReaderType.Row:
         engine = RowIngestionEngine(cli.client, cli.reader, cli.db_channels, cli.start)
     else:
@@ -142,7 +143,6 @@ def channels_to_ingest(ctx: Context, cli: IngestionCLI) -> str | None:
 
 def skip_invalid_channels(ctx: Context, cli: IngestionCLI) -> str | None:
     assert cli.reader is not None
-    invalid = cli.reader.channels()
     data_types = {
         key: dt for key, dt in read_data_types(ctx, cli).items() if dt ==
                                                                     DataType.UNKNOWN}
@@ -151,7 +151,9 @@ def skip_invalid_channels(ctx: Context, cli: IngestionCLI) -> str | None:
         channel_name_table(ctx, [ch for ch in data_types.keys()])
         if not ctx.console.ask("Skip these channels?", default=True):
             return None
-
+        cli.filtered_channels = [
+            ch for ch in cli.filtered_channels if ch.name not in data_types.keys()
+        ]
     return "validate_channels_exist"
 
 
