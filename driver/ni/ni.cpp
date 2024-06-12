@@ -196,7 +196,7 @@ freighter::Error ni::Source::start(){
     if (this->checkNIError(ni::NiDAQmxInterface::StartTask(this->task_handle))){
         LOG(ERROR) << "[NI Reader] failed while starting reader for task " << this->reader_config.task_name << " requires reconfigure";
         this->clearTask();
-        return freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
+        return freighter::Error(driver::CRITICAL_HARDWARE_ERROR);
     }else{
         this->sample_thread = std::thread(&ni::Source::acquireData, this);
         LOG(INFO) << "[NI Reader] successfully started reader for task " << this->reader_config.task_name;
@@ -212,7 +212,7 @@ freighter::Error ni::Source::stop(){
 
     if (this->checkNIError(ni::NiDAQmxInterface::StopTask(this->task_handle))){
         LOG(ERROR) << "[NI Reader] failed while stopping reader for task " << this->reader_config.task_name;
-        return freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
+        return freighter::Error(driver::CRITICAL_HARDWARE_ERROR);
     }
     LOG(INFO) << "[NI Reader] successfully stopped  reader for task " << this->reader_config.task_name;
     data_queue.reset();

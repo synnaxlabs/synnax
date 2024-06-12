@@ -31,7 +31,7 @@ line argument. The following example shows how to set the license key using an
 environment variable:
 
 ```sh
-export SYNNNAX_LICENSE_KEY=000000-00000000-0000000000
+export SYNNAX_LICENSE_KEY=000000-00000000-0000000000
 synnax start --listen=localhost:9090
 ```
 
@@ -93,7 +93,7 @@ synnax start \
     --listen=synnax.example.com:9090
     --mem \
     --certs-dir=/etc/letsencrypt/live/synnax.example.com/ \
-    --node-cert=fullchain.pem \ 
+    --node-cert=fullchain.pem \
     --node-key=privkey.pem \
 ```
 
@@ -109,7 +109,7 @@ automatically generate all of the relevant certificates and keys for you. Here's
 an example for a local cluster:
 
 ```sh
-synnax start --listen=localhost:9090 --auto-cert 
+synnax start --listen=localhost:9090 --auto-cert
 ```
 
 Please note that the `--auto-cert` option will require you to install the
@@ -135,12 +135,12 @@ directory contains symlinks to the actual certificate and key files. Here's an
 example of how to do this:
 
 ```bash
- docker run -v /etc/letsencrypt:/usr/local/synnax/certs \ 
-     -p 9090:9090 \ 
-    synnaxlabs/synnax \ 
-    -l localhost:9090 \ 
-    -vm \ 
-    --certs-dir=/usr/local/synnax/certs/live/demo.synnaxlabs.com \ 
+ docker run -v /etc/letsencrypt:/usr/local/synnax/certs \
+     -p 9090:9090 \
+    synnaxlabs/synnax \
+    -l localhost:9090 \
+    -vm \
+    --certs-dir=/usr/local/synnax/certs/live/demo.synnaxlabs.com \
     --node-cert=fullchain.pem  \
     --node-key=privkey.pem
  ```
@@ -150,7 +150,7 @@ example of how to do this:
 ### Using Your Own Certificates
 
 When using your own certificates, you'll need to specify the `--certs-dir`
-option and provide the necessary certificates and keys in that directory. 
+option and provide the necessary certificates and keys in that directory.
 
 
 

@@ -123,8 +123,7 @@ public:
         }
         retries++;
         if (retries > config.max_retries) {
-            LOG(ERROR) << "[" << config.name << "] exceeded max retry count of " <<
-                    config.max_retries << ". Exiting." << "Error: " << message << ".";
+            LOG(ERROR) << config.name << " exceeded the maximum retry count of " << config.max_retries << ". Exiting." << "Error: " << message << ".";
             reset();
             return false;
         }
