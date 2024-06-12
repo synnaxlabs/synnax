@@ -85,7 +85,7 @@ Acquisition::Acquisition(
    source(std::move(source)) {
 }
 
-void Acquisition::maybeJoinThread() const {
+void Acquisition::ensureThreadJoined() const {
     if (
         this->thread == nullptr ||
         !this->thread->joinable() ||
@@ -98,7 +98,7 @@ void Acquisition::maybeJoinThread() const {
 void Acquisition::start() {
     if (this->breaker.running()) return;
     LOG(INFO) << "[acquisition] starting pipeline";
-    this->maybeJoinThread();
+    this->ensureThreadJoined();
     this->breaker.start();
     this->thread = std::make_unique<std::thread>(&Acquisition::run, this);
 }
@@ -110,7 +110,7 @@ void Acquisition::stop() {
     else
         LOG(INFO) << "[acquisition] pipeline already stopped";
     this->breaker.stop();
-    this->maybeJoinThread();
+    this->ensureThreadJoined();
     if (was_running)
         LOG(INFO) << "[acquisition] pipeline stopped";
 }

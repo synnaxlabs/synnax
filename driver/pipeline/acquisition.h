@@ -147,7 +147,7 @@ private:
 
     void runInternal();
 
-    void maybeJoinThread() const;
+    void ensureThreadJoined() const;
 
     void run();
 };

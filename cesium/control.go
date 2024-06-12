@@ -31,7 +31,6 @@ func (db *DB) ConfigureControlUpdateChannel(ctx context.Context, key ChannelKey)
 	}
 	db.mu.Lock()
 	defer db.mu.Unlock()
-
 	ch, err := db.retrieveChannel(ctx, key)
 	if errors.Is(err, core.ErrChannelNotFound) {
 		ch.Key = key
@@ -63,9 +62,7 @@ func (db *DB) updateControlDigests(
 	ctx context.Context,
 	u ControlUpdate,
 ) error {
-	db.mu.RLock()
-	defer db.mu.RUnlock()
-	if db.digests.key == 0 {
+	if !db.digestsConfigured() {
 		return nil
 	}
 	return signal.SendUnderContext(
@@ -76,8 +73,6 @@ func (db *DB) updateControlDigests(
 }
 
 func (db *DB) closeControlDigests() {
-	db.mu.Lock()
-	defer db.mu.Unlock()
 	if db.digests.key != 0 {
 		db.digests.key = 0
 		db.digests.inlet.Close()
@@ -85,13 +80,15 @@ func (db *DB) closeControlDigests() {
 	}
 }
 
+func (db *DB) digestsConfigured() bool { return db.digests.key != 0 }
+
 func (db *DB) ControlStates() (u ControlUpdate) {
-	if db.digests.key == 0 {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+	if !db.digestsConfigured() {
 		return
 	}
 	u.Transfers = make([]controller.Transfer, 0, len(db.unaryDBs)+len(db.virtualDBs))
-	db.mu.RLock()
-	defer db.mu.RUnlock()
 	for _, d := range db.unaryDBs {
 		s := d.LeadingControlState()
 		if s != nil {

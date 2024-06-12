@@ -80,7 +80,7 @@ Control::Control(
 }
 
 
-void Control::maybeJoinThread() const {
+void Control::ensureThreadJoined() const {
     if (
         this->thread == nullptr ||
         !this->thread->joinable() ||
@@ -93,7 +93,7 @@ void Control::maybeJoinThread() const {
 
 void Control::start() {
     if (this->breaker.running()) return;
-    this->maybeJoinThread();
+    this->ensureThreadJoined();
     this->breaker.start();
     this->thread = std::make_unique<std::thread>(&Control::run, this);
     LOG(INFO) << "[control] started";
@@ -104,7 +104,7 @@ void Control::stop() {
     // Stop the breaker and join the thread regardless of whether it was running.
     // This ensures that the thread gets joined even in the case of an internal error.
     this->breaker.stop();
-    this->maybeJoinThread();
+    this->ensureThreadJoined();
     if (was_running) LOG(INFO) << "[control] stopped";
 }
 
