@@ -41,6 +41,7 @@ export {
   createWindow,
   initialState,
   reducer,
+  focusWindow,
   registerProcess,
   reloadWindow,
   setWindowAlwaysOnTop,

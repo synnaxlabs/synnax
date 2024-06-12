@@ -29,7 +29,7 @@ func Open(dirname string, opts ...Option) (*DB, error) {
 		return nil, err
 	}
 
-	o.L.Info("opening cesium time series engine", o.Report().ZapFields()...)
+	o.L.Debug("opening cesium time series engine", o.Report().ZapFields()...)
 
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(o.Instrumentation))
 
@@ -68,15 +68,7 @@ func Open(dirname string, opts ...Option) (*DB, error) {
 }
 
 func (db *DB) openVirtualOrUnary(ch Channel) error {
-	if db.closed.Load() {
-		return errDBClosed
-	}
-
-	db.mu.Lock()
-	defer db.mu.Unlock()
 	fs, err := db.fs.Sub(strconv.Itoa(int(ch.Key)))
-	l, _ := fs.List("")
-	l = l
 	if err != nil {
 		return err
 	}

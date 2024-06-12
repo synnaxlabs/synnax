@@ -22,6 +22,7 @@ package storage
 import (
 	"github.com/synnaxlabs/cesium"
 	errors2 "github.com/synnaxlabs/x/errors"
+	"go.uber.org/zap"
 	"io"
 	"io/fs"
 	"os"
@@ -179,7 +180,12 @@ func Open(cfg Config) (s *Storage, err error) {
 
 	s = &Storage{Config: cfg}
 
-	s.L.Info("opening storage", cfg.Report().ZapFields()...)
+	if *cfg.MemBacked {
+		s.L.Info("starting with memory-backed storage. no data will be persisted")
+	} else {
+		s.L.Info("starting in directory", zap.String("dirname", cfg.Dirname))
+	}
+	s.L.Debug("config", cfg.Report().ZapFields()...)
 
 	// Open our two file system implementations. We use VFS for acquiring the directory
 	// lock and for the key-value store. We use XFS for the time-series engine, as we

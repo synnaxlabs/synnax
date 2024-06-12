@@ -188,7 +188,7 @@ freighter::Error ni::Source::start(){
     if (this->checkNIError(ni::NiDAQmxInterface::StartTask(this->task_handle))){
         this->logError("failed while starting reader for task " + this->reader_config.task_name + " requires reconfigure");
         this->clearTask();
-        return freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
+        return freighter::Error(driver::CRITICAL_HARDWARE_ERROR);
     }else{
         this->sample_thread = std::thread(&ni::Source::acquireData, this);
     }

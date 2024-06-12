@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel,TimeSpan, UnexpectedError } from "@synnaxlabs/client";
+import { type channel, TimeSpan, UnexpectedError } from "@synnaxlabs/client";
 import { type Required } from "@synnaxlabs/x";
 
 import { DynamicProps } from "@/telem/client/cache/dynamic";
@@ -23,7 +23,7 @@ export const CACHE_BUFFER_SIZE: TimeSpan = TimeSpan.seconds(60);
 /** Props for instantiating an @see Cache */
 export interface CacheProps
   extends StaticProps,
-  Partial<Pick<DynamicProps, "dynamicBufferSize">> {
+    Partial<Pick<DynamicProps, "dynamicBufferSize">> {
   /** Used to populate new cache entries with relevant info about the channel */
   channelRetriever: channel.Retriever;
   /**
@@ -97,10 +97,14 @@ export class Cache {
       totalGCMetrics.purgedSeries += res.purgedSeries;
       totalGCMetrics.purgedBytes = totalGCMetrics.purgedBytes.add(res.purgedBytes);
     });
-    L.info("garbage collection complete", {
-      purgedSeries: totalGCMetrics.purgedSeries,
-      purgedBytes: totalGCMetrics.purgedBytes.toString(),
-    });
+    L.info(
+      "garbage collection complete",
+      {
+        purgedSeries: totalGCMetrics.purgedSeries,
+        purgedBytes: totalGCMetrics.purgedBytes.toString(),
+      },
+      true,
+    );
   }
 
   /**

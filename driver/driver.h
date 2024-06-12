@@ -38,15 +38,13 @@ public:
         Rack rack,
         const std::shared_ptr<Synnax> &client,
         std::unique_ptr<task::Factory> task_factory,
-        breaker::Config breaker_config
+        const breaker::Config &breaker_config
     );
 
     freighter::Error run();
 
     void stop();
-
 private:
-    RackKey key{};
     task::Manager task_manager;
     heartbeat::Heartbeat heartbeat;
     std::atomic<bool> done = false;
