@@ -12,11 +12,12 @@ import {
   type CrudeSeries,
   type CrudeTimeRange,
   type CrudeTimeStamp,
-  type MultiSeries, TimeRange,
+  type MultiSeries,
+  TimeRange,
   TimeSpan,
 } from "@synnaxlabs/x";
 
-import {type Key, type KeyOrName, KeysOrNames, type Params} from "@/channel/payload";
+import { type Key, type KeyOrName, KeysOrNames, type Params} from "@/channel/payload";
 import { analyzeChannelParams,type Retriever } from "@/channel/retriever";
 import { Frame } from "@/framer/frame";
 import { Iterator } from "@/framer/iterator";

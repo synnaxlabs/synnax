@@ -7,15 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {DataType, Rate, TimeRange, TimeStamp } from "@synnaxlabs/x/telem";
+import { DataType, Rate, TimeRange, TimeStamp } from "@synnaxlabs/x/telem";
 import { describe, expect, test } from "vitest";
-import {NotFoundError, UnauthorizedError} from "@/errors"
+import { NotFoundError, UnauthorizedError } from "@/errors"
 
 import { type channel } from "@/channel";
 import { newClient } from "@/setupspecs";
 import { randomSeries } from "@/util/telem";
-import { Frame } from "@/framer/frame";
-import {bigint} from "zod";
 
 const client = newClient();
 
