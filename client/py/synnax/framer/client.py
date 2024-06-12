@@ -44,6 +44,7 @@ class Client:
     __async_client: AsyncStreamClient
     __unary_client: UnaryClient
     __channels: ChannelRetriever
+    __deleter: Deleter
     instrumentation: Instrumentation
 
     def __init__(
@@ -52,12 +53,14 @@ class Client:
         async_client: AsyncStreamClient,
         unary_client: UnaryClient,
         retriever: ChannelRetriever,
+        deleter: Deleter,
         instrumentation: Instrumentation = NOOP,
     ):
         self.__stream_client = stream_client
         self.__async_client = async_client
         self.__unary_client = unary_client
         self.__channels = retriever
+        self.__deleter = deleter
         self.instrumentation = instrumentation
 
     def open_writer(
@@ -250,8 +253,7 @@ class Client:
         :param channels: channels to delete data from.
         :param tr: time range to delete data from.
         """
-        d = Deleter(client=self.__unary_client, instrumentation=self.instrumentation)
-        d.delete(channels, tr)
+        self.__deleter.delete(channels, tr)
 
     def __read_frame(
         self,
