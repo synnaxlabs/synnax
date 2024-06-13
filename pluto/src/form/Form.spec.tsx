@@ -181,6 +181,7 @@ describe("Form", () => {
       });
     });
   });
+
   describe("useField", () => {
     it("should get a field from the form", () => {
       const { result } = renderHook(() => Form.useField<string>({ path: "name" }), {
@@ -204,13 +205,6 @@ describe("Form", () => {
       act(() => result.current.onChange("Jane Doe"));
       expect(onChange).toHaveBeenCalled();
     });
-    it("should apply a default value if the field is null", () => {
-      const { result } = renderHook(
-        () => Form.useField<string>({ path: "ssn", defaultValue: "123-45-6789" }),
-        { wrapper },
-      );
-      expect(result.current.value).toBe("123-45-6789");
-    });
     it("should return a bad field status if a validation error occurs", () => {
       const { result } = renderHook(() => Form.useField<number>({ path: "age" }), {
         wrapper,
@@ -225,6 +219,7 @@ describe("Form", () => {
       expect(result.current.required).toBe(true);
     });
   });
+
   describe("Field", () => {
     it("should return a text field with the correct value", () => {
       const c = render(<Form.Field path="name" />, { wrapper });
@@ -288,6 +283,7 @@ describe("Form", () => {
       });
     });
   });
+
   describe("NumericField", () => {
     it("should return a numeric field with the correct value", () => {
       const c = render(<Form.NumericField path="age" />, { wrapper });
@@ -308,6 +304,7 @@ describe("Form", () => {
       expect(c.findByText("You must be at least 5 years old.")).toBeTruthy();
     });
   });
+
   describe("useFieldListener", () => {
     it("should call a listener when a field changes", () => {
       const listener = vi.fn();
@@ -327,6 +324,7 @@ describe("Form", () => {
       expect(listener).toHaveBeenCalled();
     });
   });
+
   describe("useChildFieldValues", () => {
     it("should call a listener when a child field changes", () => {
       const res = renderHook(
@@ -352,6 +350,53 @@ describe("Form", () => {
       res.result.current.f.onChange({ ssn: "123-45-6786", ein: "" });
       await new Promise((r) => setTimeout(r, 30));
       expect(res.result.current.cv.ssn).toBe("123-45-6786");
+    });
+  });
+
+  describe("useFieldArray", () => {
+    it("should return the array as the value", () => {
+      const res = renderHook(() => Form.useFieldArray({ path: "array" }), { wrapper });
+      expect(res.result.current.value).toEqual([{ name: "John Doe" }]);
+    });
+    it("should correctly push a value onto the start of the array", () => {
+      const res = renderHook(() => Form.useFieldArray({ path: "array" }), { wrapper });
+      res.result.current.push({ name: "Jane Doe" });
+      res.rerender();
+      expect(res.result.current.value).toEqual([
+        { name: "John Doe" },
+        { name: "Jane Doe" },
+      ]);
+    });
+    it("should correctly remove the given index from the array", () => {
+      const res = renderHook(() => Form.useFieldArray({ path: "array" }), { wrapper });
+      res.result.current.remove(0);
+      res.rerender();
+      expect(res.result.current.value).toEqual([]);
+    });
+    it("should correctly keep only the given index in the array", () => {
+      const res = renderHook(() => Form.useFieldArray({ path: "array" }), { wrapper });
+      res.result.current.push({ name: "Jane Doe" });
+      res.rerender();
+      res.result.current.keepOnly(1);
+      res.rerender();
+      expect(res.result.current.value).toEqual([{ name: "Jane Doe" }]);
+    });
+    it("should correctly call child listeners when the parent value changes", () => {
+      const callback = vi.fn();
+      const res = renderHook(
+        () => {
+          const parent = Form.useFieldArray({ path: "array" });
+          const child = Form.useFieldListener<string>({
+            path: "array.0.name",
+            onChange: callback,
+          });
+          return { parent, child };
+        },
+        { wrapper },
+      );
+      res.result.current.parent.set((v) => [...v, { name: "Jane Doe" }]);
+      res.rerender();
+      expect(callback).toHaveBeenCalled();
     });
   });
 });

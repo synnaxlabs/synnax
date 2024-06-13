@@ -14,7 +14,6 @@ import {
   useContext,
 } from "react";
 
-import { type Input } from "@/input";
 import { type Text } from "@/text";
 import { type ComponentSize } from "@/util/component";
 
@@ -31,9 +30,11 @@ export const MenuContext = createContext<MenuContextValue>({
 });
 
 export interface MenuProps
-  extends Partial<Input.Control<string>>,
-    PropsWithChildren,
-    Pick<MenuContextValue, "level" | "iconSpacing"> {}
+  extends PropsWithChildren,
+    Pick<MenuContextValue, "level" | "iconSpacing"> {
+  value?: string;
+  onChange?: ((key: string) => void) | Record<string, () => void>;
+}
 
 export const useMenuContext = (): MenuContextValue => useContext(MenuContext);
 
@@ -54,7 +55,10 @@ export const Menu = ({
   iconSpacing,
   value = "",
 }: MenuProps): ReactElement => {
-  const handleClick: MenuProps["onChange"] = (key) => onChange?.(key);
+  const handleClick: MenuProps["onChange"] = (key) => {
+    if (typeof onChange === "function") onChange(key);
+    else if (onChange && onChange[key]) onChange[key]();
+  };
   return (
     <MenuContext.Provider
       value={{ onClick: handleClick, selected: value, level, iconSpacing }}

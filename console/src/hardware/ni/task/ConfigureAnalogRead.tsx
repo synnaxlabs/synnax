@@ -263,13 +263,22 @@ interface ChannelListProps {
   selected: string[];
 }
 
+const availablePortFinder = (channels: Chan[]): (() => number) => {
+  const exclude = new Set(channels.map((v) => v.port));
+  return () => {
+    let i = 0;
+    while (exclude.has(i)) i++;
+    exclude.add(i);
+    return i;
+  };
+};
+
 const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactElement => {
-  const { value, push, remove } = Form.useFieldArray<Chan>({ path });
+  const { value, push, remove, set } = Form.useFieldArray<Chan>({ path });
   const handleAdd = (): void => {
-    const availablePort = Math.max(0, ...value.map((v) => v.port)) + 1;
     push({
       ...deep.copy(ZERO_AI_CHANNELS["ai_voltage"]),
-      port: availablePort,
+      port: availablePortFinder(value)(),
       key: nanoid(),
     });
   };
@@ -291,21 +300,53 @@ const ChannelList = ({ path, selected, onSelect }: ChannelListProps): ReactEleme
       </Header.Header>
       <Menu.ContextMenu
         menu={({ keys }: Menu.ContextMenuMenuProps): ReactElement => {
-          const handleSelect = (key: string): void => {
-            switch (key) {
-              case "remove": {
-                const indices = keys.map((k) => value.findIndex((v) => v.key === k));
-                remove(indices);
-                onSelect([], -1);
-                break;
-              }
-            }
+          const indices = keys.map((k) => value.findIndex((v) => v.key === k));
+          const handleRemove = () => {
+            remove(indices);
+            onSelect([], -1);
           };
+          const handleDuplicate = () => {
+            const pf = availablePortFinder(value);
+            push(
+              indices.map((i) => ({
+                ...deep.copy(value[i]),
+                port: pf(),
+                key: nanoid(),
+              })),
+            );
+          };
+          const handleDisable = () =>
+            set((v) => v.map((c, i) => ({ ...c, enabled: !indices.includes(i) })));
+          const handleEnable = () =>
+            set((v) => v.map((c, i) => ({ ...c, enabled: indices.includes(i) })));
+          const allowDisable = indices.some((i) => value[i].enabled);
+          const allowEnable = indices.some((i) => !value[i].enabled);
           return (
-            <Menu.Menu onChange={handleSelect} level="small">
+            <Menu.Menu
+              onChange={{
+                remove: handleRemove,
+                duplicate: handleDuplicate,
+                disable: handleDisable,
+                enable: handleEnable,
+              }}
+              level="small"
+            >
               <Menu.Item itemKey="remove" startIcon={<Icon.Close />}>
                 Remove
               </Menu.Item>
+              <Menu.Item itemKey="duplicate" startIcon={<Icon.Copy />}>
+                Duplicate
+              </Menu.Item>
+              {allowDisable && (
+                <Menu.Item itemKey="disable" startIcon={<Icon.Disable />}>
+                  Disable
+                </Menu.Item>
+              )}
+              {allowEnable && (
+                <Menu.Item itemKey="enable" startIcon={<Icon.Enable />}>
+                  Enable
+                </Menu.Item>
+              )}
             </Menu.Menu>
           );
         }}

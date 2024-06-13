@@ -35,8 +35,8 @@ const enrichedPropertiesDigestZ = propertiesDigestZ.extend({
   name: z.string(),
   identifier: z
     .string()
-    .min(3)
-    .max(6)
+    .min(2)
+    .max(12)
     .refine((s) => !s.includes(" ") && /^[a-zA-Z0-9]+$/.test(s), {
       message: "Only alphanumeric characters allowed",
     }),

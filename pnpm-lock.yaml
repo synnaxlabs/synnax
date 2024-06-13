@@ -240,6 +240,9 @@ importers:
       '@tauri-apps/plugin-updater':
         specifier: 2.0.0-beta.3
         version: 2.0.0-beta.3
+      async-mutex:
+        specifier: ^0.5.0
+        version: 0.5.0
       nanoid:
         specifier: ^3.0.0
         version: 3.0.0
@@ -4912,7 +4915,7 @@ packages:
     resolution: {integrity: sha512-xlAWwPleNRHwF37AhrZurOxA1wyXowW4PqVXZVUNCLjB48CqdPJoJWkrpH2nij9Q3Lb7rtWindtoXwxjxlKKCA==}
     engines: {node: ^18.18.0 || >=20.0.0}
     peerDependencies:
-      eslint: ^9.0.0
+      eslint: ^8.56.0
     dependencies:
       '@eslint-community/eslint-utils': 4.4.0(eslint@9.0.0)
       '@typescript-eslint/scope-manager': 7.11.0

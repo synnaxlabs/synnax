@@ -195,6 +195,7 @@ const GroupList = ({
                 });
               },
               children: <Icon.Add />,
+              size: "large",
             },
           ]}
         </Header.Actions>
