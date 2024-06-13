@@ -151,7 +151,8 @@ func Open(configs ...Config) (*DB, error) {
 		return nil, err
 	}
 
-	return &DB{Config: cfg,
+	return &DB{
+		Config: cfg,
 		idx:    idx,
 		files:  controller,
 		closed: &atomic.Bool{},
