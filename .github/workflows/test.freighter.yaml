@@ -1,11 +1,11 @@
-name: "Freighter Test"
+name: "Test - Freighter"
 on:
   pull_request:
     branches:
-      - main
-  push:
-    paths:
-      - ".github/workflows/freighter.test.yaml"
+      - rc
+#  push:
+#    branches:
+#      - rc
   workflow_dispatch:
 permissions:
   contents: write

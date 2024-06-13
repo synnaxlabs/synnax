@@ -1,11 +1,11 @@
-name: "Synnax Test"
+name: "Test - Synnax"
 on:
   pull_request:
     branches:
-      - main
-  push:
-    paths:
-      - '.github/workflows/synnax.test.yaml'
+      - rc
+#  push:
+#    branches:
+#      - rc
   workflow_dispatch:
 jobs:
   test:
