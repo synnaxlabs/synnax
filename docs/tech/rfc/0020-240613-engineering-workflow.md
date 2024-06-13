@@ -46,8 +46,8 @@ disciplined in our development and release processes.
 
 ## 2 - Proposed Workflow Summary
 
-A new workflow should maintain as adequate simplicity while adding quality
-control steps that reduce the pace of releases, and increase the reliability of production
+A new workflow should maintain adequate simplicity while adding quality
+control steps that slow the pace of releases and increase the reliability of production
 software. I propose a workflow that moves away from the modern GitHub Flow to a
 simplified version of the more traditional [Git Flow](https://www.atlassian.com/git/tutorials/comparing-workflows/gitflow-workflow).
 
