@@ -1,6 +1,9 @@
 name: "Synnax Build"
 on:
   push:
+    branches:
+      - dev
+      - main
   workflow_dispatch:
 permissions:
   contents: write
@@ -55,7 +58,7 @@ jobs:
             });
 
             return id;
-            
+
   build:
     strategy:
       fail-fast: false
@@ -91,7 +94,7 @@ jobs:
               - 'freighter/go/**'
               - 'driver/**'
               - '.github/workflows/synnax.build.yaml'
-      
+
       - uses: GuillaumeFalourd/setup-windows10-sdk-action@v2
         with:
           sdk-version: 22000
@@ -108,7 +111,7 @@ jobs:
           cmake --install mbedtls-build --config Release
           cmake --install mbedtls-build --config Release --prefix mbedtls-install
         working-directory: driver/vendor/mbedtls
-        
+
       - name: Install MbedTLS On Mac
         if: ${{ matrix.platform == 'macos-latest' }}
         run: brew install mbedtls
@@ -168,7 +171,7 @@ jobs:
 
       - name: Move Driver
         run: mv bazel-bin/driver/driver_main${{ steps.executable.outputs.EXECUTABLE }} synnax/pkg/hardware/embedded/assets/
-      
+
       - name: Rename Driver
         run: mv synnax/pkg/hardware/embedded/assets/driver_main${{ steps.executable.outputs.EXECUTABLE }} synnax/pkg/hardware/embedded/assets/driver${{ steps.executable.outputs.EXECUTABLE }}
 
@@ -230,7 +233,7 @@ jobs:
         if: ${{ (matrix.platform == 'ubuntu-latest') && (steps.filter.outputs.changed == 'true') }}
         run: earthly --push +docker -tag=${{ steps.version.outputs.VERSION }}
         working-directory: ./synnax
- 
+
       - name: Push to Github Container Registry
         if: ${{ (matrix.platform == 'ubuntu-latest') && (steps.filter.outputs.changed == 'true') }}
         run: |

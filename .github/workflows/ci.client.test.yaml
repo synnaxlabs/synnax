@@ -1,11 +1,8 @@
-name: "Client Test"
+name: "Test - Client"
 on:
   pull_request:
     branches:
-      - main
-  push:
-    paths:
-      - ".github/workflows/client.test.yaml"
+      - dev
   workflow_dispatch:
 jobs:
   test-python:

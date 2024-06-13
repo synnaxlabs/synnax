@@ -1,13 +1,9 @@
-name: "Drift Test"
+name: "Test - Drift"
 on:
   pull_request:
     branches:
-      - main
-  push:
-    paths:
-      - ".github/workflows/drift.test.yaml"
+      - dev
   workflow_dispatch:
-
 jobs:
   test:
     name: "Run Tests"

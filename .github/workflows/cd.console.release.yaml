@@ -1,7 +1,9 @@
 name: "Console Release"
 on:
   push:
-    branches: main
+    branches:
+      - dev
+      - main
   workflow_dispatch:
 permissions:
   contents: write
@@ -149,7 +151,7 @@ jobs:
         env:
           NODE_OPTIONS: "--max_old_space_size=4096"
         run: pnpm build:pluto
-      
+
       - name: Build Drift
         if: steps.filter.outputs.changed == 'true'
         env:
@@ -171,7 +173,7 @@ jobs:
           gh release upload --clobber console-v${{ steps.console-version.outputs.CONSOLE_VERSION }} ./console/src-tauri/target/release/bundle/macos/Synnax.app.tar.gz
           gh release upload --clobber console-v${{ steps.console-version.outputs.CONSOLE_VERSION }} ./console/src-tauri/target/release/bundle/macos/Synnax.app.tar.gz.sig
           gh release upload --clobber console-v${{ steps.console-version.outputs.CONSOLE_VERSION }} ./console/src-tauri/target/release/bundle/dmg/Synnax_${{ steps.console-version.outputs.CONSOLE_VERSION }}_x64.dmg
-      
+
 
       - name: Upload Windows Release Asset
         if: steps.filter.outputs.changed == 'true' && matrix.platform == 'windows-latest'

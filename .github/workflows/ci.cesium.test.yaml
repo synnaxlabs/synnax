@@ -1,8 +1,8 @@
-name: "Cesium Test"
+name: "Test - Cesium"
 on:
   pull_request:
     branches:
-      - main
+      - dev
   push:
     paths:
       - '.github/workflows/cesium.test.yaml'
