@@ -58,31 +58,7 @@ void customLogger(
     const char *msg,
     va_list args
 ) {
-    std::string prefix = "opc.scanner";
-    // try {
-    //     if (!logContext) {
-    //         throw std::runtime_error("logContext is nullptr");
-    //     }
-    //
-    //     std::string* prefixPtr = static_cast<std::string*>(logContext);
-    //     if (!prefixPtr) {
-    //         throw std::runtime_error("logContext is not a valid std::string pointer");
-    //     }
-    //
-    //     prefix = *prefixPtr;
-    //     if (prefix.empty()) {
-    //         prefix = "";
-    //     }
-    // } catch (const std::bad_cast& e) {
-    //     // Handle bad cast exception
-    //     std::cerr << "Bad cast: " << e.what() << std::endl;
-    // } catch (const std::exception& e) {
-    //     // Handle other standard exceptions
-    //     std::cerr << "Exception: " << e.what() << std::endl;
-    // } catch (...) {
-    //     // Handle any other exceptions
-    //     std::cerr << "Unknown exception occurred" << std::endl;
-    // }
+    const std::string prefix = "[opc] ";
     char buffer[1024];
     vsnprintf(buffer, sizeof(buffer), msg, args);
     switch (level) {
@@ -204,10 +180,7 @@ freighter::Error configureEncryption(
         client_config->securityMode = UA_MESSAGESECURITYMODE_SIGNANDENCRYPT;
     else
         client_config->securityMode = UA_MESSAGESECURITYMODE_NONE;
-    if (cfg.security_policy == "None") {
-        LOG(ERROR) << "[opc.scanner] Missing encryption configuration";
-        return freighter::NIL;
-    }
+    if (cfg.security_policy == "None") return freighter::NIL;
     client_config->privateKeyPasswordCallback = privateKeyPasswordCallBack;
     std::string uri = SECURITY_URI_BASE + cfg.security_policy;
     client_config->securityPolicyUri = UA_STRING_ALLOC(uri.c_str());
@@ -273,7 +246,7 @@ void fetchEndpointDiagnosticInfo(
         else if (security_mode == UA_MESSAGESECURITYMODE_SIGNANDENCRYPT)
             LOG(INFO) << "[opc.scanner] \t security: signed and encrypted";
 
-        const UA_DataType *tokenType = client_config->userIdentityToken.content.decoded.type;
+        // const UA_DataType *tokenType = client_config->userIdentityToken.content.decoded.type;
 
         for (size_t j = 0; j < ep.userIdentityTokensSize; j++) {
             UA_UserTokenPolicy policy = ep.userIdentityTokens[j];
@@ -302,7 +275,6 @@ std::pair<std::shared_ptr<UA_Client>, freighter::Error> opc::connect(
     UA_ClientConfig *config = UA_Client_getConfig(client.get());
     config->logging->log = customLogger;
     config->logging->context = &log_prefix;
-    LOG(INFO) << "[opc.scanner] Configuring encryption";
     configureEncryption(cfg, client);
     UA_StatusCode status;
     if (!cfg.username.empty() || !cfg.password.empty()) {

@@ -127,7 +127,7 @@ func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) 
 		return true, err
 	}
 
-	_, ok := g.Authorize()
+	_, ok := g.Authorized()
 	if !ok {
 		return true, nil
 	}

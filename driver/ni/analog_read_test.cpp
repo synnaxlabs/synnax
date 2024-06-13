@@ -631,7 +631,7 @@ TEST(read_tests, analog_polynomial_scaling){
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // TODO:
-// driver errors
+// driver errors 
     // - invalid channel
         // - invalid scale (analog)
             // linear
@@ -649,12 +649,9 @@ TEST(read_tests, analog_polynomial_scaling){
         // - invalid line (analog)
     // - invalid device
     // - stream rate > sample rate
+
 // vendor/hardware errors
-
-
-
-
-
-// TODO:
-
-
+// double start
+// double stop
+// read function failed state
+// write function failed

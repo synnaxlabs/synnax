@@ -106,11 +106,13 @@ ni::ScannerTask::~ScannerTask(){
 ni::ReaderTask::ReaderTask( const std::shared_ptr<task::Context> &ctx, 
                             synnax::Task task,
                             std::shared_ptr<pipeline::Source> source,
+                            std::shared_ptr<ni::Source> ni_source,
                             synnax::WriterConfig writer_config,
                             const breaker::Config breaker_config
 ) : ctx(ctx),
     task(task),
-    daq_read_pipe(pipeline::Acquisition(ctx, writer_config, source, breaker_config)){
+    daq_read_pipe(pipeline::Acquisition(ctx->client, writer_config, source, breaker_config)),
+    source(ni_source) {
 }
 
 
@@ -136,22 +138,17 @@ std::unique_ptr <task::Task> ni::ReaderTask::configure(const std::shared_ptr <ta
     LOG(INFO) << "[NI Task] task config: " << task.config;
 
      // determine whether DigitalReadSource or AnalogReadSource is needed
-    std::unique_ptr<pipeline::Source> daq_reader;
     std::vector <synnax::ChannelKey> channel_keys;
-    if(task.type == "ni_digital_read"){
-        LOG(INFO) << "[NI Task] configuring digital reader task " << task.name;
-        auto digital_reader = std::make_unique<ni::DigitalReadSource>(task_handle, ctx, task);
-        digital_reader->init();
-        channel_keys = digital_reader->getChannelKeys();
-        daq_reader = std::move(digital_reader);
+    std::shared_ptr<pipeline::Source> source;
+    std::shared_ptr<ni::Source> ni_source;
+    if(task.type != "ni_analog_read"){
+        ni_source = std::make_shared<ni::DigitalReadSource>(task_handle, ctx, task);
     } else{
-        LOG(INFO) << "[NI Task] configuring analog reader task " << task.name;
-        auto analog_reader = std::make_unique<ni::AnalogReadSource>(task_handle, ctx, task);
-        analog_reader->init();
-        channel_keys = analog_reader->getChannelKeys();
-        daq_reader = std::move(analog_reader);
-    }   
-
+        ni_source = std::make_shared<ni::AnalogReadSource>(task_handle, ctx, task);
+    }
+    source = ni_source;
+    ni_source->init();
+    channel_keys = ni_source->getChannelKeys();
     // TODO: do a check that the daq reader was constructed successfully
 
     // construct writer config
@@ -172,7 +169,8 @@ std::unique_ptr <task::Task> ni::ReaderTask::configure(const std::shared_ptr <ta
     
     return std::make_unique<ni::ReaderTask>(    ctx, 
                                                 task, 
-                                                std::move(daq_reader), 
+                                                source, 
+                                                ni_source,
                                                 writer_config, 
                                                 breaker_config);
 }
@@ -183,7 +181,7 @@ void ni::ReaderTask::exec(task::Command &cmd) {
         this->start();
     } else if (cmd.type == "stop") {
         LOG(INFO) << "[NI Task] stopped reader task " << this->task.name;
-       this->stop();
+        this->stop();
     } else {
         LOG(ERROR) << "unknown command type: " << cmd.type;
     }
@@ -195,7 +193,8 @@ void ni::ReaderTask::stop(){
         LOG(INFO) << "[NI Task] did not stop " << this->task.name << " running: " << this->running << " ok: " << this->ok();
         return;
     }
-    daq_read_pipe.stop();
+    this->daq_read_pipe.stop();
+    this->source->stop();    
     LOG(INFO) << "[NI Task] successfully stopped task " << this->task.name;
 }
 
@@ -204,7 +203,8 @@ void ni::ReaderTask::start(){
             LOG(INFO) << "[NI Task] did not start " << this->task.name << " as it is not running or in error state";
         return;
     }
-    daq_read_pipe.start();
+    this->source->start();
+    this->daq_read_pipe.start();
     LOG(INFO) << "[NI Task] successfully started task " << this->task.name;
 }
 
@@ -218,15 +218,17 @@ bool ni::ReaderTask::ok() {
 ///////////////////////////////////////////////////////////////////////////////////
 ni::WriterTask::WriterTask(    const std::shared_ptr<task::Context> &ctx, 
                                 synnax::Task task,
-                                std::unique_ptr<pipeline::Sink> sink,
+                                std::shared_ptr<pipeline::Sink> sink,
+                                std::shared_ptr<ni::DigitalWriteSink> ni_sink,
                                 std::shared_ptr<pipeline::Source> state_source,
                                 synnax::WriterConfig writer_config,
                                 synnax::StreamerConfig streamer_config,
                                 const breaker::Config breaker_config
 ) : ctx(ctx),
     task(task),
-    cmd_write_pipe(pipeline::Control(ctx, streamer_config, std::move(sink), breaker_config)),
-    state_write_pipe(pipeline::Acquisition(ctx, writer_config, state_source, breaker_config)){
+    cmd_write_pipe(pipeline::Control(ctx->client, streamer_config, std::move(sink), breaker_config)),
+    state_write_pipe(pipeline::Acquisition(ctx->client, writer_config, state_source, breaker_config)),
+    sink(ni_sink){
 }
 
 
@@ -240,15 +242,13 @@ std::unique_ptr <task::Task> ni::WriterTask::configure(const std::shared_ptr <ta
             .scale = 1.2,
     };
 
-    LOG(INFO) << "[NI Task] configuring task " << task.name;
-
     TaskHandle task_handle;
     // create a daq reader to provide to cmd read pipe as sink
     ni::NiDAQmxInterface::CreateTask("", &task_handle);
     //print taskhandle
     LOG(INFO) << "Task handle: " << task_handle;
-
-    auto daq_writer = std::make_unique<ni::DigitalWriteSink>(task_handle, ctx, task);
+    
+    auto daq_writer = std::make_shared<ni::DigitalWriteSink>(task_handle, ctx, task);
     if (!daq_writer->ok()) {
         LOG(ERROR) << "[NI Writer] failed to construct reader for" << task.name;
         return nullptr;
@@ -285,7 +285,8 @@ std::unique_ptr <task::Task> ni::WriterTask::configure(const std::shared_ptr <ta
 
     return std::make_unique<ni::WriterTask>(    ctx, 
                                                 task, 
-                                                std::move(daq_writer), 
+                                                daq_writer, 
+                                                daq_writer,
                                                 state_writer, 
                                                 writer_config, 
                                                 streamer_config, 
@@ -307,17 +308,9 @@ void ni::WriterTask::start(){
     if(this->running.exchange(true) || !this->ok()){
         return;
     }
+    sink->start();
     this->cmd_write_pipe.start();
     this->state_write_pipe.start();
-
-    ctx->setState({
-                        .task = task.key,
-                        .variant = "success",
-                        .details = {
-                                {"running", true}
-                        }
-                    });
-    LOG(INFO) << "[NI Task] successfully started task " << this->task.name;
 }
 
 
@@ -328,15 +321,6 @@ void ni::WriterTask::stop(){
     }
     this->state_write_pipe.stop();
     this->cmd_write_pipe.stop();
-
-    ctx->setState({
-                        .task = task.key,
-                        .variant = "success",
-                        .details = {
-                                {"running", false}
-                        }
-                    });
-    LOG(INFO) << "[NI Task] successfully stopped task " << this->task.name;
 }
 
 

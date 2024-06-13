@@ -66,6 +66,7 @@ class Client:
         strict: bool = False,
         suppress_warnings: bool = False,
         mode: WriterMode = WriterMode.PERSIST_STREAM,
+        err_on_unauthorized: bool = False,
         enable_auto_commit: bool = False,
         auto_index_persist_interval: TimeSpan = 1 * TimeSpan.SECOND
     ) -> Writer:
@@ -88,6 +89,8 @@ class Client:
         by the writer.
         :param mode: sets the persistence and streaming mode of the writer. The default
         mode is WriterModePersistStream. See the WriterMode documentation for more.
+        :param err_on_unauthorized: sets whether the writer should return an error if
+        it attempts to write to a channel it does not have control over.
         :param enable_auto_commit: determines whether the writer will automatically
         commit. If enable_auto_commit is true, then the writer will commit after each
         write, and will flush that commit to index after the specified
@@ -107,6 +110,7 @@ class Client:
             authorities=authorities,
             name=name,
             mode=mode,
+            err_on_unauthorized=err_on_unauthorized,
             enable_auto_commit=enable_auto_commit,
             auto_index_persist_interval=auto_index_persist_interval
         )
@@ -147,10 +151,11 @@ class Client:
         :returns: None.
         """
         with self.open_writer(
-            start=start, 
-            channels=to, 
-            strict=strict, 
+            start=start,
+            channels=to,
+            strict=strict,
             mode=WriterMode.PERSIST_ONLY,
+            err_on_unauthorized=True,
             enable_auto_commit=True,
             auto_index_persist_interval=TimeSpan.MAX,
         ) as w:

@@ -312,6 +312,7 @@ namespace ni{
         explicit ReaderTask(    const std::shared_ptr<task::Context> &ctx, 
                                 synnax::Task task,
                                 std::shared_ptr<pipeline::Source> source,
+                                std::shared_ptr<ni::Source> ni_source,
                                 synnax::WriterConfig writer_config,
                                 const breaker::Config breaker_config);
 
@@ -329,6 +330,7 @@ namespace ni{
         synnax::Task task;
         pipeline::Acquisition daq_read_pipe; // source is a daqreader 
         bool ok_state = true;
+        std::shared_ptr<ni::Source> source;
     };
 
     ///////////////////////////////////////////////////////////////////////////////////
@@ -338,7 +340,8 @@ namespace ni{
     public:
         explicit WriterTask(    const std::shared_ptr<task::Context> &ctx, 
                                 synnax::Task task,
-                                std::unique_ptr<pipeline::Sink> sink,
+                                std::shared_ptr<pipeline::Sink> sink,
+                                std::shared_ptr<ni::DigitalWriteSink> ni_sink,
                                 std::shared_ptr<pipeline::Source> writer_state_source,
                                 synnax::WriterConfig writer_config,
                                 synnax::StreamerConfig streamer_config,
@@ -363,6 +366,7 @@ namespace ni{
         pipeline::Control cmd_write_pipe;
         pipeline::Acquisition state_write_pipe;
         bool ok_state = true;
+        std::shared_ptr<ni::DigitalWriteSink> sink;
     };
 
 

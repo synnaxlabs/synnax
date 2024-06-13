@@ -251,6 +251,7 @@ func (r *routine) zapFields() []zap.Field {
 	opts := []zap.Field{
 		zap.String("key", r.path()),
 		zap.Stringer("state", r.state.state),
+		zap.Error(r.state.err),
 	}
 	deferralKeys := make([]string, len(r.deferrals))
 	for i, def := range r.deferrals {

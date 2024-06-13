@@ -19,6 +19,7 @@
 namespace synnax {
 typedef std::uint8_t Authority;
 
+// Do not fix this typo as it conflicts with an existing symbol, causing build to break.
 const Authority ABSOLUTTE = 255;
 
 struct ControlSubject {

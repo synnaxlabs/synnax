@@ -58,7 +58,7 @@ ni::DigitalWriteSink::DigitalWriteSink(
     if (!config_parser.ok()){
         // Log error
         LOG(ERROR) << "[NI Writer] failed to parse configuration for " << this->writer_config.task_name;
-        this->ctx->setState({.task = task.key,
+        this->ctx->setState({.task = this->writer_config.task_key,
                              .variant = "error",
                              .details = config_parser.error_json()});
         this->ok_state = false;
@@ -172,10 +172,16 @@ freighter::Error ni::DigitalWriteSink::start(){
     }
     if (this->checkNIError(ni::NiDAQmxInterface::StartTask(this->task_handle))){
         LOG(ERROR) << "[NI Writer] failed while starting writer for task " << this->writer_config.task_name;
-        return freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
+        return freighter::Error(driver::CRITICAL_HARDWARE_ERROR);
     }
     LOG(INFO) << "[NI Writer] successfully started writer for task " << this->writer_config.task_name;
-
+    ctx->setState({
+                        .task = this->writer_config.task_key,
+                        .variant = "success",
+                        .details = {
+                                {"running", true}
+                        }
+                    });
     return freighter::NIL;
 }
 
@@ -186,14 +192,20 @@ freighter::Error ni::DigitalWriteSink::stop(){
     }
     if (this->checkNIError(ni::NiDAQmxInterface::StopTask(task_handle))){
         LOG(ERROR) << "[NI Writer] failed while stopping writer for task " << this->writer_config.task_name;
-        return freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR);
+        return freighter::Error(driver::CRITICAL_HARDWARE_ERROR);
     }
     LOG(INFO) << "[NI Writer] successfully stopped writer for task " << this->writer_config.task_name;
+    ctx->setState({
+                    .task = this->writer_config.task_key,
+                    .variant = "success",
+                    .details = {
+                            {"running", false}
+                    }
+                });
     return freighter::NIL;
 }
 
 freighter::Error ni::DigitalWriteSink::write(synnax::Frame frame){
-    char errBuff[2048] = {'\0'};
     int32 samplesWritten = 0;
     formatData(std::move(frame));
 
@@ -207,7 +219,7 @@ freighter::Error ni::DigitalWriteSink::write(synnax::Frame frame){
                                                                    &samplesWritten,          // samples written
                                                                    NULL))){
         LOG(ERROR) << "[NI Writer] failed while writing digital data for task " << this->writer_config.task_name;
-        return freighter::Error(driver::TYPE_CRITICAL_HARDWARE_ERROR, "Error reading digital data");
+        return freighter::Error(driver::CRITICAL_HARDWARE_ERROR, "Error reading digital data");
     }
     this->writer_state_source->updateState(this->writer_config.modified_state_keys, this->writer_config.modified_state_values);
 
@@ -287,7 +299,6 @@ std::vector<synnax::ChannelKey> ni::DigitalWriteSink::getStateChannelKeys(){
 ///////////////////////////////////////////////////////////////////////////////////
 //                                    StateSource                                //
 ///////////////////////////////////////////////////////////////////////////////////
-
 ni::StateSource::StateSource(std::uint64_t state_rate, synnax::ChannelKey &drive_state_index_key, std::vector<synnax::ChannelKey> &drive_state_channel_keys)
     : state_rate(state_rate){
     // start the periodic thread
@@ -303,7 +314,7 @@ ni::StateSource::StateSource(std::uint64_t state_rate, synnax::ChannelKey &drive
 std::pair<synnax::Frame, freighter::Error> ni::StateSource::read(){
     std::unique_lock<std::mutex> lock(this->state_mutex);
     waiting_reader.wait_for(lock, state_period); 
-    return std::make_pair(std::move(this->getDriveState()), freighter::NIL);
+    return std::make_pair(this->getDriveState(), freighter::NIL);
 }
 
 freighter::Error ni::StateSource::start(){
@@ -323,7 +334,7 @@ synnax::Frame ni::StateSource::getDriveState(){
         drive_state_frame.add(state.first, synnax::Series(std::vector<uint8_t>{state.second}));
     }
 
-    return std::move(drive_state_frame);
+    return drive_state_frame;
 }
 
 void ni::StateSource::updateState(std::queue<synnax::ChannelKey> &modified_state_keys, std::queue<std::uint8_t> &modified_state_values){

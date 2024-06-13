@@ -115,10 +115,10 @@ func (w Writer) CreateWithKey(
 	name string,
 	parent ontology.ID,
 ) (g Group, err error) {
+	g.Key = key
 	if key == uuid.Nil {
 		g.Key = uuid.New()
 	}
-	g.Key = key
 	g.Name = name
 	id := OntologyID(g.Key)
 	if err = gorp.NewCreate[uuid.UUID, Group]().Entry(&g).Exec(ctx, w.tx); err != nil {
