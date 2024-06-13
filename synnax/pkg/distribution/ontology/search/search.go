@@ -48,7 +48,9 @@ func New(configs ...Config) (*Index, error) {
 	}
 	s := &Index{Config: cfg}
 	s.mapping = bleve.NewIndexMapping()
-
+	if err = registerSeparatorAnalyzer(s.mapping); err != nil {
+		return s, err
+	}
 	s.idx, err = bleve.NewMemOnly(s.mapping)
 	return s, err
 }
@@ -111,10 +113,14 @@ func (s *Index) Register(ctx context.Context, sch schema.Schema) {
 	s.L.Debug("registering schema", zap.String("type", string(sch.Type)))
 	_, span := s.T.Prod(ctx, "register")
 	defer span.End()
+	textFieldMapping := bleve.NewTextFieldMapping()
+	textFieldMapping.Analyzer = separatorAnalyzer
 	dm := bleve.NewDocumentMapping()
-	dm.AddFieldMappingsAt("Name", bleve.NewTextFieldMapping())
-	for k, f := range sch.Fields {
-		dm.AddFieldMappingsAt(k, fieldMappings[f.Type]())
+	dm.AddFieldMappingsAt("name", textFieldMapping)
+	for k, fld := range sch.Fields {
+		if fMapping, ok := fieldMappings[fld.Type]; ok {
+			dm.AddFieldMappingsAt(k, fMapping())
+		}
 	}
 	s.mapping.AddDocumentMapping(string(sch.Type), dm)
 }
@@ -126,11 +132,7 @@ type Request struct {
 
 func (s *Index) Search(ctx context.Context, req Request) ([]schema.ID, error) {
 	ctx, span := s.T.Prod(ctx, "search")
-	// Split the term into words
-
 	words := strings.FieldsFunc(req.Term, func(r rune) bool { return r == ' ' || r == '_' || r == '-' })
-
-	// this is where we search
 	q := bleve.NewConjunctionQuery(lo.Map(words, func(word string, _ int) query.Query {
 		fuzzyQ := bleve.NewMatchQuery(word)
 		fuzzyQ.SetFuzziness(1)
@@ -141,9 +143,8 @@ func (s *Index) Search(ctx context.Context, req Request) ([]schema.ID, error) {
 		exactQ.SetBoost(100)
 		return bleve.NewDisjunctionQuery(exactQ, prefixQ, regexQ, fuzzyQ)
 	})...)
-
 	search_ := bleve.NewSearchRequest(q)
-	search_.Fields = []string{"Name"}
+	search_.Fields = []string{"name"}
 	search_.Size = 100
 	search_.SortBy([]string{"-_score"})
 	searchResults, err := s.idx.SearchInContext(ctx, search_)

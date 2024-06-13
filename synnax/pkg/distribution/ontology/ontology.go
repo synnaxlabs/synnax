@@ -190,6 +190,7 @@ func (o *Ontology) RegisterService(s Service) {
 	if !*o.Config.EnableSearch {
 		return
 	}
+	o.search.Register(context.TODO(), *s.Schema())
 
 	o.search.Go.Go(func(ctx context.Context) error {
 		n, err := s.OpenNexter()
