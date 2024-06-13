@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       VERSION: ${{ steps.version.outputs.VERSION }}
-      changed: ${{ needs.setup.outputs.changed }}
+      changed: ${{ steps.filter.outputs.changed }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -48,9 +48,9 @@ jobs:
   create-release:
     runs-on: ubuntu-latest
     needs: setup
+    if: github.event_name == 'push' && needs.setup.outputs.changed == 'true'
     steps:
       - name: Create Release
-        if: github.event_name == 'push' && needs.setup.outputs.changed == 'true'
         uses: actions/github-script@v6
         with:
           script: |

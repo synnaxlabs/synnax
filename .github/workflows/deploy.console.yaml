@@ -220,7 +220,8 @@ jobs:
           script: |
             const fs = await import("fs");
 
-            const version = process.env.PURE_VERSION;
+            const pureVersion = process.env.PURE_VERSION;
+            const version = process.env.VERSION;
             const {
               repo: { repo, owner },
             } = context;
@@ -229,7 +230,7 @@ jobs:
 
             const darwinURL = baseURL + "Synnax.app.tar.gz";
             const darwinSig = await github.request(`GET ${darwinURL}.sig`);
-            const windowsURL = baseURL + `Synnax_${version}_x64_en-US.msi.zip`;
+            const windowsURL = baseURL + `Synnax_${pureVersion}_x64_en-US.msi.zip`;
             const windowsSig = await github.request(`GET ${windowsURL}.sig`);
             const pub_date = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
             const ecd = new TextDecoder();
