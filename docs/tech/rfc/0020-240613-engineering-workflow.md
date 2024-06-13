@@ -9,7 +9,7 @@
 
 As the Synnax development team, codebase, and number of production deployments grow,
 it's time to establish standard development and quality assurance workflows to guarantee
-that released software is reliable, and maintainable.
+that released software is reliable and maintainable.
 
 # 1 - Current Workflow
 
@@ -27,22 +27,22 @@ Our current development workflow is simple. For any change, an engineer:
 The simplicity of this workflow is its strength, and was coined by GitHub as
 [GitHub Flow](https://docs.github.com/en/get-started/using-github/github-flow). It's
 easy to understand, and promotes rapid design and development cycles. It reduces cognitive
-load by minimizing the number of branches that need to be tracked, and minimizes the
-number of merge conflicts that need to be addressed.
+load by minimizing the number of branches that need to be tracked and merge conflicts
+that need to be addressed.
 
-This workflow has become the standard in the world of developing software for SaaS
-products. The challenge is that **Synnax is not a SaaS product**. While SaaS products
-are deployed on company controlled servers in tightly controlled dev environments,
-Synnax gets deployed on customer servers on all major operating systems.
+This workflow has become the standard for SaaS product development. The challenge is
+that **Synnax is not a SaaS product**. While SaaS products are deployed on company
+controlled servers in tightly controlled dev environments, Synnax is deployed on customer
+servers on all major operating systems.
 
-It's up to our users to make sure that they are running the correct versions of our
-different products, and that they are compatible with each other. We currently release
-software several times per week, and have five different services in active use by our
-customers. Each of these services has its own unique version.
+We also release new versions several times a week, and have five different services
+that are versioned independently. It's up to our users to ensure they are running
+the correct versions of different services. Frequent releases and independent versioning
+makes it difficult to manage and maintain Synnax.
 
-**Deploying reliable software in user controlled environments is significantly
-more challenging**. We need to be more disciplined in our development and release
-processes.
+**Deploying reliable software in user managed environments is more challenging than
+deploying in a controlled cloud environment**. As a result, we need to be more
+disciplined in our development and release processes.
 
 ## 2 - Proposed Workflow Summary
 
