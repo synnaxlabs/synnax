@@ -253,4 +253,4 @@ jobs:
           default_author: github_actor
           message: "Auto Update JSON File"
           pull: "--commit --no-edit"
-          push: "origin main --force"
+          push: "origin rc --force"
