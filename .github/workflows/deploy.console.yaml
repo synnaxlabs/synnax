@@ -143,24 +143,11 @@ jobs:
       - name: Install Dependencies
         run: pnpm i
 
-      - name: Build Pluto
-        env:
-          NODE_OPTIONS: "--max_old_space_size=4096"
-        run: pnpm build:pluto
-
-      - name: Build Drift
-        env:
-          NODE_OPTIONS: "--max_old_space_size=4096"
-        run: pnpm build:drift
-
-
-
       - name: Build Console
         if: needs.setup.outputs.changed == 'true'
         env:
           NODE_OPTIONS: "--max_old_space_size=4096"
-        working-directory: ./console
-        run: pnpm build
+        run: pnpm build:console
 
       - name: Upload MacOS Release Asset
         if: github.event_name == 'push' &&  matrix.platform == 'macos-12'

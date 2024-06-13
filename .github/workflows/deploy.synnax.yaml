@@ -231,7 +231,7 @@ jobs:
 
       - name: Build Image
         if: (matrix.platform == 'ubuntu-latest') && (needs.setup.outputs.changed == 'true') && github.event_name == 'push'
-        run: earthly --push +docker -tag=${{ needs.create-release.outputs.VERSION }}
+        run: earthly --push +docker -tag=${{ needs.setup.outputs.VERSION }}
         working-directory: ./synnax
 
       - name: Push to Github Container Registry
@@ -246,9 +246,9 @@ jobs:
       - name: Push to Docker Hub
         if: (matrix.platform == 'ubuntu-latest') && (needs.setup.outputs.changed == 'true') && github.event_name == 'push'
         run: |
-          docker tag ghcr.io/synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }} synnaxlabs/synnax:${{ needs.create-release.outputs.VERSION }}
-          docker push synnaxlabs/synnax:${{ needs.create-release.outputs.VERSION }}
+          docker tag ghcr.io/synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }} synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }}
+          docker push synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }}
           if [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            docker tag ghcr.io/synnaxlabs/synnax:${{ needs.create-release.outputs.VERSION }} synnaxlabs/synnax:latest
+            docker tag ghcr.io/synnaxlabs/synnax:${{ needs.setup.outputs.VERSION }} synnaxlabs/synnax:latest
             docker push synnaxlabs/synnax:latest
           fi
