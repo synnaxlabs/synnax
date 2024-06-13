@@ -1,6 +1,6 @@
 {
   "version": "0.23.0",
-  "private": true,
+  "private": "true",
   "scripts": {
     "build": "npx turbo build --cache-dir=./.turbo-cache",
     "build:pluto": "npx turbo build --filter pluto --cache-dir=.turbo-cache",
