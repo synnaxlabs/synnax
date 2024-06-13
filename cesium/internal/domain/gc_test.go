@@ -12,6 +12,7 @@ package domain_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
@@ -443,6 +444,13 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 						Expect(i.Next()).To(BeFalse())
 						Expect(i.Close()).To(Succeed())
 					})
+				})
+			})
+			Context("Close", func() {
+				It("Should not allow GC on a closed DB", func() {
+					db = MustSucceed(domain.Open(domain.Config{FS: fs, FileSize: 20 * telem.ByteSize, GCThreshold: math.SmallestNonzeroFloat32}))
+					Expect(db.Close()).To(Succeed())
+					Expect(db.GarbageCollect(ctx)).To(HaveOccurredAs(core.EntityClosed("domain.db")))
 				})
 			})
 		})
