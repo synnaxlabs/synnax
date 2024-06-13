@@ -73,6 +73,16 @@ I have verified that code examples for each of the following services run correc
 
 - [ ] I have verified that the nightly builds of the Console are able to auto-update correctly.
 
+## Cluster Connection
+
+I can successfully:
+
+- [ ] Connect to a cluster.
+- [ ] Disconnect from a cluster.
+- [ ] Switch clusters in the selector.
+- [ ] Remove a cluster.
+- [ ] Rename a cluster.
+
 ## Ranges
 
 I can successfully:
