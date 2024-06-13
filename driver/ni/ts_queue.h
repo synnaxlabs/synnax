@@ -24,14 +24,22 @@ public:
     c.notify_one();
  }
 
-T dequeue(void){
+std::pair<T, bool> dequeue(void){
     std::unique_lock lock(m);
-    while(queue.empty()){
-        c.wait(lock);
+
+    // while(queue.empty()){
+        // c.wait(lock);
+    // }
+
+    c.wait_for(lock, std::chrono::seconds(2));
+    if(queue.empty()){
+        return std::make_pair(T(), false);
     }
+
     T item = queue.front();
     queue.pop();
-    return item;
+    
+    return std::make_pair(item, true);
 }
 
 void reset(){

@@ -124,7 +124,10 @@ std::pair<synnax::Frame, freighter::Error> ni::AnalogReadSource::read(){
     std::this_thread::sleep_for(std::chrono::nanoseconds((uint64_t)((1.0 / this->reader_config.stream_rate )* 1000000000)));
 
     // take data off of queue
-    DataPacket d = data_queue.dequeue();
+    auto [d,valid] = data_queue.dequeue();
+
+    if(!valid) return std::make_pair(f, freighter::Error(freighter::TEMPORARY_HARDWARE_ERROR, "Failed to read data from queue"));
+    
     double* data = static_cast<double*>(d.data);
 
     // interpolate  timestamps between the initial and final timestamp to ensure non-overlapping timestamps between batched reads
