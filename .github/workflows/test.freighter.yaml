@@ -2,7 +2,7 @@ name: "Test - Freighter"
 on:
   pull_request:
     branches:
-      - dev
+      - rc
   workflow_dispatch:
 permissions:
   contents: write

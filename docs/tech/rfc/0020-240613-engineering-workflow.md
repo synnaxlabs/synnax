@@ -96,14 +96,14 @@ useful to have access to the latest server release candidate to test against.
 
 ### 3.0 - Server candidate builds
 
-Server candidate builds are tagged and released with the tags `synnax-vX.Y.Z.rc`.
+Server candidate builds are tagged and released with the tags `synnax-vX.Y.Z-rc`.
 Additional installation instructions are added to the user facing documentation for
 easy installation of candidate builds. The server release CI is automatically
 modified to correctly tag and release builds merged to `dev` and `main`.
 
 ### 3.1 - Console candidate builds
 
-Console candidate builds are tagged and released with the tags `console-vX.Y.Z.rc`.
+Console candidate builds are tagged and released with the tags `console-vX.Y.Z-rc`.
 Additional installation instructions are in the user facing documentation for
 easy installation of candidate builds. Candidate builds have auto-update functionality
 configured to receive new versions from the candidate builds. This is a good way

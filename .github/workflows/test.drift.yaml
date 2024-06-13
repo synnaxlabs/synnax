@@ -2,7 +2,7 @@ name: "Test - Drift"
 on:
   pull_request:
     branches:
-      - dev
+      - rc
   workflow_dispatch:
 jobs:
   test:

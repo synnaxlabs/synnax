@@ -1,8 +1,8 @@
-name: "Console Release"
+name: Console Deploy
 on:
   push:
     branches:
-      - dev
+      - rc
       - main
   workflow_dispatch:
 permissions:
