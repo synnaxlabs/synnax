@@ -20,6 +20,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { Tree as Core } from "@synnaxlabs/pluto/tree";
 import { deep } from "@synnaxlabs/x";
+import { Mutex } from "async-mutex";
 import { memo, type ReactElement, useCallback, useMemo, useState } from "react";
 import { useStore } from "react-redux";
 
@@ -79,6 +80,8 @@ const loadInitialTree = async (
   setResources((p) => updateResources(p, fetched));
 };
 
+const mu = new Mutex();
+
 const handleResourcesChange = async (
   changes: ontology.ResourceChange[],
   services: Services,
@@ -86,35 +89,36 @@ const handleResourcesChange = async (
   setNodes: state.Set<Core.Node[]>,
   setResources: state.Set<ontology.Resource[]>,
   resources: ontology.Resource[],
-): Promise<void> => {
-  const removed = changes
-    .filter(({ variant }) => variant === "delete")
-    .map(({ key }) => key);
-  const updated = changes
-    .filter(({ variant, value }) => variant === "set" && value != null)
-    .map(({ value }) => value) as ontology.Resource[];
-  setResources(updateResources(resources, updated, removed));
-  let nextTree = Core.removeNode({
-    tree: nodes,
-    keys: removed.map((id) => id.toString()),
+): Promise<void> =>
+  await mu.runExclusive(async () => {
+    const removed = changes
+      .filter(({ variant }) => variant === "delete")
+      .map(({ key }) => key);
+    const updated = changes
+      .filter(({ variant, value }) => variant === "set" && value != null)
+      .map(({ value }) => value) as ontology.Resource[];
+    setResources(updateResources(resources, updated, removed));
+    let nextTree = Core.removeNode({
+      tree: nodes,
+      keys: removed.map((id) => id.toString()),
+    });
+    let changed = false;
+    nextTree = updated.reduce(
+      (nextTree, node) =>
+        Core.updateNode({
+          tree: nextTree,
+          key: node.id.toString(),
+          updater: (n) => {
+            const next = { ...n, ...toTreeNode(services, node) };
+            if (!changed && !deep.equal(next, n)) changed = true;
+            return next;
+          },
+          throwOnMissing: false,
+        }),
+      nextTree,
+    );
+    if (changed) setNodes([...nextTree]);
   });
-  let changed = false;
-  nextTree = updated.reduce(
-    (nextTree, node) =>
-      Core.updateNode({
-        tree: nextTree,
-        key: node.id.toString(),
-        updater: (n) => {
-          const next = { ...n, ...toTreeNode(services, node) };
-          if (!changed && !deep.equal(next, n)) changed = true;
-          return next;
-        },
-        throwOnMissing: false,
-      }),
-    nextTree,
-  );
-  if (changed) setNodes([...nextTree]);
-};
 
 const handleRelationshipsChange = async (
   client: Client,
@@ -124,53 +128,54 @@ const handleRelationshipsChange = async (
   setNodes: state.Set<Core.Node[]>,
   setResources: state.Set<ontology.Resource[]>,
   resources: ontology.Resource[],
-): Promise<void> => {
-  // Remove any relationships that were deleted
-  const removed = changes
-    .filter(({ variant }) => variant === "delete")
-    .map(({ key: { to } }) => to.toString());
-  let nextTree = Core.removeNode({ tree: nodes, keys: removed });
+): Promise<void> =>
+  await mu.runExclusive(async () => {
+    // Remove any relationships that were deleted
+    const removed = changes
+      .filter(({ variant }) => variant === "delete")
+      .map(({ key: { to } }) => to.toString());
+    let nextTree = Core.removeNode({ tree: nodes, keys: removed });
 
-  const allSets = changes
-    .filter(({ variant }) => variant === "set")
-    .map(({ key }) => key);
+    const allSets = changes
+      .filter(({ variant }) => variant === "set")
+      .map(({ key }) => key);
 
-  // Find all the parent nodes in the current tree that are visible i.e. they
-  // may need children added.
-  const visibleSetNodes = Core.findNodes({
-    tree: nextTree,
-    keys: allSets.map(({ from }) => from.toString()),
-  }).map(({ key }) => key.toString());
+    // Find all the parent nodes in the current tree that are visible i.e. they
+    // may need children added.
+    const visibleSetNodes = Core.findNodes({
+      tree: nextTree,
+      keys: allSets.map(({ from }) => from.toString()),
+    }).map(({ key }) => key.toString());
 
-  // Get all the relationships that relate to those visibe nodes.
-  const visibleSets = allSets.filter(({ from }) =>
-    visibleSetNodes.includes(from.toString()),
-  );
+    // Get all the relationships that relate to those visibe nodes.
+    const visibleSets = allSets.filter(({ from }) =>
+      visibleSetNodes.includes(from.toString()),
+    );
 
-  // Retrieve the new resources for the nodes that need to be updated.
-  const updatedResources = await client.ontology.retrieve(
-    visibleSets.map(({ to }) => to),
-  );
+    // Retrieve the new resources for the nodes that need to be updated.
+    const updatedResources = await client.ontology.retrieve(
+      visibleSets.map(({ to }) => to),
+    );
 
-  // Update the resources in the tree.
-  setResources(updateResources(resources, updatedResources));
+    // Update the resources in the tree.
+    setResources(updateResources(resources, updatedResources));
 
-  // Update the tree.
-  nextTree = visibleSets.reduce(
-    (nextTree, { from, to }) =>
-      Core.setNode({
-        tree: nextTree,
-        destination: from.toString(),
-        additions: toTreeNodes(
-          services,
-          updatedResources.filter(({ id }) => id.toString() === to.toString()),
-        ),
-      }),
-    nextTree,
-  );
+    // Update the tree.
+    nextTree = visibleSets.reduce(
+      (nextTree, { from, to }) =>
+        Core.setNode({
+          tree: nextTree,
+          destination: from.toString(),
+          additions: toTreeNodes(
+            services,
+            updatedResources.filter(({ id }) => id.toString() === to.toString()),
+          ),
+        }),
+      nextTree,
+    );
 
-  setNodes([...nextTree]);
-};
+    setNodes([...nextTree]);
+  });
 
 export const Tree = (): ReactElement => {
   const client = Synnax.use();

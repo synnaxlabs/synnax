@@ -96,39 +96,39 @@ const buildAnalogOutputGroups = (
     },
   );
 
-  const ackGroupTime: ChannelConfig = {
+  const stateGroupTime: ChannelConfig = {
     key: nanoid(),
     dataType: "timestamp",
     role: "index",
-    name: `${identifierLower}_ao_ack_time`,
+    name: `${identifierLower}_ao_state_time`,
     isIndex: true,
     line: -1,
     port: -1,
   };
 
-  const ackGroupData: ChannelConfig[] = Array.from(
+  const stateGroupData: ChannelConfig[] = Array.from(
     { length: info.analogOutput.portCount },
     (_, i) => ({
       key: nanoid(),
-      role: "analogOutputAck",
+      role: "analogOutputState",
       dataType: "float32",
-      name: `${identifierLower}_ao_ack_${i + 1}`,
+      name: `${identifierLower}_ao_state_${i + 1}`,
       isIndex: false,
       line: -1,
       port: i + 1,
     }),
   );
 
-  const ackGroup: GroupConfig = {
-    name: `Analog Output Ack`,
+  const stateGroup: GroupConfig = {
+    name: `Analog Output State`,
     key: nanoid(),
-    channelPrefix: `${identifierLower}_ao_ack_`,
+    channelPrefix: `${identifierLower}_ao_state_`,
     channelSuffix: "",
-    role: "analogOutputAck",
-    channels: [ackGroupTime, ...ackGroupData],
+    role: "analogOutputState",
+    channels: [stateGroupTime, ...stateGroupData],
   };
 
-  return [...commandGroups, ackGroup];
+  return [...commandGroups, stateGroup];
 };
 
 const buildDigitalInputOutputGroups = (
@@ -136,11 +136,11 @@ const buildDigitalInputOutputGroups = (
   identifier: string,
 ): GroupConfig[] => {
   const commandGroups: GroupConfig[] = [];
-  const ackGroup: GroupConfig = {
+  const stateGroup: GroupConfig = {
     name: "Digital Inputs",
     role: "digitalInput",
     key: nanoid(),
-    channelPrefix: `${identifier.toLowerCase()}__di_`,
+    channelPrefix: `${identifier.toLowerCase()}_di_`,
     channelSuffix: "",
     channels: [
       {
@@ -158,7 +158,8 @@ const buildDigitalInputOutputGroups = (
     const port = i + 1;
     for (let j = 0; j < lineCount; j++) {
       const line = j + 1;
-      const prefix = `${identifier.toLowerCase()}_do_`;
+      const portLine = `${port}_${line}`;
+      const prefix = `${identifier.toLowerCase()}_`;
       commandGroups.push({
         key: nanoid(),
         name: `Digital Output ${port}/${line}`,
@@ -170,7 +171,7 @@ const buildDigitalInputOutputGroups = (
             key: nanoid(),
             dataType: "uint8",
             role: "digitalOutputCommand",
-            name: `${prefix}cmd_${port}_${line}`,
+            name: `${prefix}do_${portLine}_cmd`,
             isIndex: false,
             line,
             port,
@@ -179,25 +180,25 @@ const buildDigitalInputOutputGroups = (
             key: nanoid(),
             dataType: "timestamp",
             role: "index",
-            name: `${prefix}cmd_time_${port}_${line}`,
+            name: `${prefix}cmd_${portLine}_time`,
             isIndex: true,
             line: -1,
             port: -1,
           },
         ],
       });
-      ackGroup.channels.push({
+      stateGroup.channels.push({
         key: nanoid(),
         dataType: "uint8",
         role: "digitalInput",
-        name: `${prefix}di_${port}_${line}`,
+        name: `${prefix}di_${portLine}`,
         isIndex: false,
         line,
         port,
       });
     }
   });
-  return [...commandGroups, ackGroup];
+  return [...commandGroups, stateGroup];
 };
 
 const buildDigitalInputGroups = (
@@ -247,17 +248,17 @@ const buildDigitalOutputGroups = (
   identifier: string,
 ): GroupConfig[] => {
   const commandGroups: GroupConfig[] = [];
-  const ackGroup: GroupConfig = {
-    name: "Digital Output Acknowledgements",
+  const stateGroup: GroupConfig = {
+    name: "Digital Output State",
     key: nanoid(),
-    channelPrefix: `${identifier.toLowerCase()}_do_ack`,
-    role: "digitalOutputAck",
+    channelPrefix: `${identifier.toLowerCase()}_do_state`,
+    role: "digitalOutputState",
     channelSuffix: "",
     channels: [
       {
         key: nanoid(),
         dataType: "timestamp",
-        name: `${identifier.toLowerCase()}_do_ack_time`,
+        name: `${identifier.toLowerCase()}_do_state_time`,
         role: "index",
         isIndex: true,
         line: 0,
@@ -265,11 +266,11 @@ const buildDigitalOutputGroups = (
       },
     ],
   };
-  info.digitalInputOutput.lineCounts.forEach((lineCount, i) => {
+  info.digitalOutput.lineCounts.forEach((lineCount, i) => {
     const port = i + 1;
     for (let j = 0; j < lineCount; j++) {
       const line = j + 1;
-      const prefix = `${identifier.toLowerCase()}_do_`;
+      const prefix = `${identifier.toLowerCase()}_do_${port}_${line}`;
       commandGroups.push({
         key: nanoid(),
         name: `Digital Output ${port}/${line}`,
@@ -280,7 +281,7 @@ const buildDigitalOutputGroups = (
           {
             key: nanoid(),
             dataType: "uint8",
-            name: `${prefix}cmd_${port}_${line}`,
+            name: `${prefix}cmd`,
             isIndex: false,
             role: "digitalOutputCommand",
             line,
@@ -289,7 +290,7 @@ const buildDigitalOutputGroups = (
           {
             key: nanoid(),
             dataType: "timestamp",
-            name: `${prefix}cmd_time_${port}_${line}`,
+            name: `${prefix}cmd_time`,
             role: "index",
             isIndex: true,
             line: 0,
@@ -297,18 +298,18 @@ const buildDigitalOutputGroups = (
           },
         ],
       });
-      ackGroup.channels.push({
+      stateGroup.channels.push({
         key: nanoid(),
         dataType: "bool",
-        name: `${prefix}_ack_${port}_${line}`,
-        role: "digitalOutputAck",
+        name: `${prefix}do_state`,
+        role: "digitalOutputState",
         isIndex: false,
         line,
         port,
       });
     }
   });
-  return [...commandGroups, ackGroup];
+  return [...commandGroups, stateGroup];
 };
 
 export const buildPhysicalDevicePlan = (

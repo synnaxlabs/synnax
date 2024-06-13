@@ -74,6 +74,8 @@ import {
   MdLink,
   MdOutlineAccessTimeFilled,
   MdOutlineDeviceHub,
+  MdOutlineMotionPhotosOff,
+  MdOutlineMotionPhotosOn,
   MdOutlineTableRows,
   MdPause,
   MdPerson,
@@ -312,6 +314,8 @@ export const Icon: IconType = {
   Link: wrapIcon(MdLink),
   Attachment: wrapIcon(GrAttachment),
   Drag: wrapIcon(GrDrag),
+  Enable: wrapIcon(MdOutlineMotionPhotosOn),
+  Disable: wrapIcon(MdOutlineMotionPhotosOff),
 };
 
 export interface IconType {
@@ -424,4 +428,6 @@ export interface IconType {
   Drag: IconFC;
   Link: IconFC;
   Attachment: IconFC;
+  Disable: IconFC;
+  Enable: IconFC;
 }

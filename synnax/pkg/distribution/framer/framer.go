@@ -11,6 +11,7 @@ package framer
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
@@ -29,4 +30,5 @@ type (
 	WriterConfig     = writer.Config
 	IteratorConfig   = iterator.Config
 	StreamerResponse = relay.Response
+	Deleter          = deleter.Deleter
 )
