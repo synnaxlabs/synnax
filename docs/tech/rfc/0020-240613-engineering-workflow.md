@@ -64,7 +64,7 @@ branch or a critical bug fix branch.
 
 ### 2.0.1 - RC
 
-The `rc` branch holds the current release candidate. Instead of naming this branch `dev`,
+The `rc` branch holds the current release candidate. Instead of naming this branch `rc`,
 I've chosen `rc` to indicate that the changes merged into this branch should be of release
 quality.
 
@@ -99,7 +99,7 @@ useful to have access to the latest server release candidate to test against.
 Server candidate builds are tagged and released with the tags `synnax-vX.Y.Z-rc`.
 Additional installation instructions are added to the user facing documentation for
 easy installation of candidate builds. The server release CI is automatically
-modified to correctly tag and release builds merged to `dev` and `main`.
+modified to correctly tag and release builds merged to `rc` and `main`.
 
 ### 3.1 - Console candidate builds
 
@@ -150,7 +150,7 @@ a lot of noise to our CI/CD logs, and makes it difficult to determine relevant
 CI passes/fails for pull requests and CD releases.
 
 To remedy this, we'll only run CI/CD actions on pull requests, and run CD actions on
-merges to `dev` and `main`. We'll open pull requests for release candidates at
+merges to `rc` and `main`. We'll open pull requests for release candidates at
 the time of checkout, and run CI actions on all pushes to the branch.
 
 Sometimes it is necessary to debug CI/CD workflows themselves. This is difficult do to

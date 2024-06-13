@@ -12,6 +12,11 @@ Maximum 2-3 sentence description describing the changes.
 - [ ] I have added relevant tests to cover the changes.
 - [ ] I have updated user facing documentation accordingly.
 
+# Manual QA Additions
+
+- [ ] I have updated the [Release Candidate](/.github/PULL_REQUEST_TEMPLATE/rc.md) template
+with necessary manual QA steps to test my change.
+
 # Breaking Changes
 
 Please list any breaking changes to public or internal packages.
