@@ -169,7 +169,6 @@ int ni::Source::init(){
 
 
 freighter::Error ni::Source::start(){
-    LOG(INFO) << "[NI Reader] starting reader for task " << this->reader_config.task_name;
     if(this->running.exchange(true) || !this->ok()){
         return freighter::NIL;
     }
@@ -187,15 +186,17 @@ freighter::Error ni::Source::start(){
                             {"running", true}
                     }
                 }); 
+    LOG(INFO) << "[NI Reader] starting reader for task " << this->reader_config.task_name;
     return freighter::NIL;
 }
 
 freighter::Error ni::Source::stop(){
     LOG(INFO) << "[NI Reader] stopping reader for task " << this->reader_config.task_name;
-    if(!this->running.exchange(false) || !this->ok()){
+    if(!this->running.exchange(false)){
         return freighter::NIL;
     }
-    this->sample_thread.join();
+    if(this->sample_thread.joinable()) this->sample_thread.join();
+    
     if (this->checkNIError(ni::NiDAQmxInterface::StopTask(this->task_handle))){
         this->logError("failed while stopping reader for task " + this->reader_config.task_name);
         return freighter::Error(driver::CRITICAL_HARDWARE_ERROR);
@@ -238,7 +239,7 @@ int ni::Source::checkNIError(int32 error){
                              .variant = "error",
                              .details = err_info});
 
-        LOG(ERROR) << "[NI Reader] Vendor error: " << this->err_info["error details"];
+        LOG(ERROR) << "[NI Reader] Vendor error: " << this->err_info["message"];
         this->ok_state = false;
         return -1;
     }
@@ -262,4 +263,13 @@ void ni::Source::logError(std::string err_msg){
     LOG(ERROR) << "[NI Reader] " << err_msg;
     this->ok_state = false;
     return;
+}
+
+void ni::Source::stoppedWithErr(const freighter::Error &err){
+    this->running = false;
+    this->stop();
+    this->logError("stopped with error: " + err.message());
+    this->ctx->setState({.task = this->reader_config.task_key,
+                         .variant = "error",
+                         .details = err.message()});
 }

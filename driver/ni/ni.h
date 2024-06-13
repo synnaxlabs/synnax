@@ -88,6 +88,7 @@ namespace ni{
         virtual void parseConfig(config::Parser & parser);
         virtual freighter::Error start();
         virtual freighter::Error stop();
+        virtual void stoppedWithErr(const freighter::Error &err) override;
         virtual bool ok(); 
         virtual void getIndexKeys();
         
