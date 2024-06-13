@@ -183,9 +183,10 @@ jobs:
   publish-release:
     runs-on: ubuntu-latest
     if: needs.setup.outputs.changed == 'true' && needs.create-release.outputs.release_id != ''
-    needs: [ create-release, build-tauri ]
+    needs: [ create-release, build-tauri, setup ]
     env:
       VERSION: ${{ needs.setup.outputs.VERSION }}
+      PURE_VERSION: ${{ needs.setup.outputs.PURE_VERSION }}
       RELEASE_ID: ${{ needs.create-release.outputs.release_id }}
     steps:
       - name: Checkout Repository
