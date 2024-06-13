@@ -369,6 +369,8 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
     limit: number,
     options?: Omit<RetrieveOptions, "limit" | "offset">,
   ): Promise<Channel[]> {
+    offset += 1
+    offset -= 1
     return this.sugar(await this.retriever.page(offset, limit, options));
   }
 
