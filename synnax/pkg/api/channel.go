@@ -11,6 +11,7 @@ package api
 
 import (
 	"context"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology/group"
 	"go/types"
 
 	"github.com/google/uuid"
@@ -289,4 +290,18 @@ func (s *ChannelService) Rename(
 	return types.Nil{}, s.WithTx(ctx, func(tx gorp.Tx) error {
 		return s.internal.NewWriter(tx).RenameMany(ctx, req.Keys, req.Names, false)
 	})
+}
+
+type ChannelRetrieveGroupRequest struct {
+}
+
+type ChannelRetrieveGroupResponse struct {
+	Group group.Group `json:"group" msgpack:"group"`
+}
+
+func (s *ChannelService) RetrieveGroup(
+	ctx context.Context,
+	_ ChannelRetrieveGroupRequest,
+) (ChannelRetrieveGroupResponse, error) {
+	return ChannelRetrieveGroupResponse{Group: s.internal.Group()}, nil
 }

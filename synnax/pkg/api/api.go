@@ -122,10 +122,11 @@ type Transport struct {
 	AuthChangePassword freighter.UnaryServer[ChangePasswordRequest, types.Nil]
 	AuthRegistration   freighter.UnaryServer[RegistrationRequest, TokenResponse]
 	// CHANNEL
-	ChannelCreate   freighter.UnaryServer[ChannelCreateRequest, ChannelCreateResponse]
-	ChannelRetrieve freighter.UnaryServer[ChannelRetrieveRequest, ChannelRetrieveResponse]
-	ChannelDelete   freighter.UnaryServer[ChannelDeleteRequest, types.Nil]
-	ChannelRename   freighter.UnaryServer[ChannelRenameRequest, types.Nil]
+	ChannelCreate        freighter.UnaryServer[ChannelCreateRequest, ChannelCreateResponse]
+	ChannelRetrieve      freighter.UnaryServer[ChannelRetrieveRequest, ChannelRetrieveResponse]
+	ChannelDelete        freighter.UnaryServer[ChannelDeleteRequest, types.Nil]
+	ChannelRename        freighter.UnaryServer[ChannelRenameRequest, types.Nil]
+	ChannelRetrieveGroup freighter.UnaryServer[ChannelRetrieveGroupRequest, ChannelRetrieveGroupResponse]
 	// CONNECTIVITY
 	ConnectivityCheck freighter.UnaryServer[types.Nil, ConnectivityCheckResponse]
 	// FRAME
@@ -243,6 +244,7 @@ func (a *API) BindTo(t Transport) {
 		t.ChannelRetrieve,
 		t.ChannelDelete,
 		t.ChannelRename,
+		t.ChannelRetrieveGroup,
 
 		// CONNECTIVITY
 		t.ConnectivityCheck,
@@ -335,6 +337,7 @@ func (a *API) BindTo(t Transport) {
 	t.ConnectivityCheck.BindHandler(a.Connectivity.Check)
 	t.ChannelDelete.BindHandler(a.Channel.Delete)
 	t.ChannelRename.BindHandler(a.Channel.Rename)
+	t.ChannelRetrieveGroup.BindHandler(a.Channel.RetrieveGroup)
 
 	// FRAME
 	t.FrameWriter.BindHandler(a.Telem.Write)

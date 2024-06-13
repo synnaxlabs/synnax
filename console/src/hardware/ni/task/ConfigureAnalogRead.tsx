@@ -61,7 +61,7 @@ export const configureAnalogReadLayout: Layout.State = {
   windowKey: ANALOG_READ_TYPE,
   location: "window",
   window: {
-    resizable: false,
+    resizable: true,
     size: { width: 1200, height: 900 },
     navTop: true,
   },

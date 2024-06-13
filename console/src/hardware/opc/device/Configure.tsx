@@ -355,20 +355,20 @@ const Connect = ({ testConnection }: ConnectProps): ReactElement => {
               path="connection.client_certificate"
               label="Client Certificate"
             >
-              {(p) => <FS.LoadFileContents grow {...p} />}
+              {(p) => <FS.InputFilePath grow {...p} />}
             </Form.Field>
             <Form.Field<string>
               path="connection.client_private_key"
               label="Client Private Key"
             >
-              {(p) => <FS.LoadFileContents grow {...p} />}
+              {(p) => <FS.InputFilePath grow {...p} />}
             </Form.Field>
             <Form.Field<string>
               path="connection.server_certificate"
               label="Server Certificate"
               grow
             >
-              {(p) => <FS.LoadFileContents grow {...p} />}
+              {(p) => <FS.InputFilePath grow {...p} />}
             </Form.Field>
           </>
         )}

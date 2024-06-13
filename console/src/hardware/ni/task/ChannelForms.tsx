@@ -7,10 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Align, Channel, Form, List } from "@synnaxlabs/pluto";
-import { deep } from "@synnaxlabs/x";
-import { FC, ReactElement } from "react";
+import {
+  Align,
+  Channel,
+  Divider,
+  Form,
+  Input,
+  List,
+  Select,
+  state,
+} from "@synnaxlabs/pluto";
+import { binary, deep } from "@synnaxlabs/x";
+import { FC, ReactElement, useRef } from "react";
+import { z } from "zod";
 
+import { FS } from "@/fs";
 import {
   AccelerationUnits,
   AccelSensitivityUnits,
@@ -637,7 +648,96 @@ export const SCALE_FORMS: Record<ScaleType, FC<FormProps>> = {
       </>
     );
   },
-  table: () => <></>,
+  table: ({ prefix }) => {
+    const [rawCol, setRawCol] = state.usePersisted<string>("Raw", `${prefix}.rawCol`);
+    const [scaledCol, setScaledCol] = state.usePersisted<string>(
+      "Scaled",
+      `${prefix}.scaledCol`,
+    );
+    const [colOptions, setColOptions] = state.usePersisted<NamedKey<string>[]>(
+      [],
+      `${prefix}.colOptions`,
+    );
+    const [path, setPath] = state.usePersisted<string>("", `${prefix}.path`);
+    const tableSchema = z.record(z.array(z.unknown()));
+    const preScaledField = Form.useField<number[]>({ path: `${prefix}.preScaledVals` });
+    const scaledField = Form.useField<number[]>({ path: `${prefix}.scaledVals` });
+    const currValueRef = useRef<Record<string, unknown[]>>({});
+
+    const updateValue = () => {
+      const value = currValueRef.current;
+      const preScaledValues = value[rawCol] as number[] | undefined;
+      const scaledValues = value[scaledCol] as number[] | undefined;
+      const hasScaled = scaledValues != null;
+      const hasPreScaled = preScaledValues != null;
+      if (hasScaled && hasPreScaled) {
+        if (preScaledValues!.length !== scaledValues!.length)
+          preScaledField.setStatus({
+            variant: "error",
+            message: `Pre-scaled ${preScaledValues!.length} values and scaled ${scaledValues!.length} values must be the same length`,
+          });
+      }
+      if (hasPreScaled) preScaledField.onChange(preScaledValues);
+      if (hasScaled) scaledField.onChange(scaledValues);
+    };
+
+    const handleFileContentsChange = (
+      value: z.output<typeof tableSchema>,
+      path: string,
+    ) => {
+      setPath(path);
+      currValueRef.current = value;
+      const keys = Object.keys(value).filter(
+        (key) =>
+          Array.isArray(value[key]) && value[key].every((v) => isFinite(Number(v))),
+      );
+      setColOptions(keys.map((key) => ({ key, name: key })));
+      if (keys.length > 0) setRawCol(keys[0]);
+      if (keys.length > 1) setScaledCol(keys[1]);
+      updateValue();
+    };
+
+    const handleRawColChange = (value: string) => {
+      setRawCol(value);
+      updateValue();
+    };
+
+    const handleScaledColChange = (value: string) => {
+      setScaledCol(value);
+      updateValue();
+    };
+
+    return (
+      <>
+        <UnitsField fieldKey="preScaledUnits" path={prefix} />
+        <Input.Item label="Table CSV" padHelpText>
+          <FS.InputFileContents<typeof tableSchema>
+            initialPath={path}
+            onChange={handleFileContentsChange}
+            decoder={binary.CSV_ECD}
+          />
+        </Input.Item>
+        <Align.Space direction="x" grow>
+          <Input.Item label="Raw Column" padHelpText grow>
+            <Select.Single
+              columns={NAMED_KEY_COLS}
+              value={rawCol}
+              onChange={handleRawColChange}
+              data={colOptions}
+            />
+          </Input.Item>
+          <Input.Item label="Scaled Column" padHelpText grow>
+            <Select.Single
+              columns={NAMED_KEY_COLS}
+              value={scaledCol}
+              onChange={handleScaledColChange}
+              data={colOptions}
+            />
+          </Input.Item>
+        </Align.Space>
+      </>
+    );
+  },
   none: () => <></>,
 };
 
@@ -647,7 +747,7 @@ export const SelectCustomScaleTypeField = Form.buildButtonSelectField<
 >({
   fieldKey: "type",
   fieldProps: {
-    label: "Custom Scale Type",
+    label: "Custom Scaling",
     onChange: (value, { get, set, path }) => {
       const prevType = get<ScaleType>({ path }).value;
       if (prevType === value) return;
@@ -694,7 +794,7 @@ export const CustomScaleForm = ({ prefix }: FormProps): ReactElement => {
   return (
     <>
       <SelectCustomScaleTypeField path={path} />
-      <FormComponent prefix={path} />;
+      <FormComponent prefix={path} />
     </>
   );
 };
@@ -1854,10 +1954,14 @@ export const ANALOG_INPUT_FORMS: Record<AIChanType, FC<FormProps>> = {
   ai_voltage: ({ prefix }) => {
     return (
       <>
-        <ChannelField path={prefix} />
-        <PortField path={prefix} />
+        <Align.Space direction="x" grow>
+          <ChannelField path={prefix} grow />
+          <PortField path={prefix} style={{ width: 100 }} />
+        </Align.Space>
+        <Divider.Divider direction="x" padded />
         <TerminalConfigField path={prefix} />
         <MinMaxValueFields path={prefix} />
+        <Divider.Divider direction="x" padded />
         <CustomScaleForm prefix={prefix} />
       </>
     );

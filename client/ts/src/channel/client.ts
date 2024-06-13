@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type UnaryClient } from "@synnaxlabs/freighter";
+import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { type AsyncTermSearcher } from "@synnaxlabs/x/search";
 import {
   type CrudeDensity,
@@ -19,6 +19,7 @@ import {
   type TypedArray,
 } from "@synnaxlabs/x/telem";
 import { toArray } from "@synnaxlabs/x/toArray";
+import { z } from "zod";
 
 import {
   type Key,
@@ -39,6 +40,8 @@ import {
 import { type Writer } from "@/channel/writer";
 import { ValidationError } from "@/errors";
 import { type framer } from "@/framer";
+import { ontology } from "@/ontology";
+import { group } from "@/ontology/group";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 interface CreateOptions {
@@ -150,6 +153,13 @@ export class Channel {
     });
   }
 
+  /***
+   * @returns the ontology ID of the channel
+   */
+  get ontologyID(): ontology.ID {
+    return new ontology.ID({ type: "channel", key: this.key.toString() });
+  }
+
   /**
    * Reads telemetry from the channel between the two timestamps.
    *
@@ -171,6 +181,14 @@ export class Channel {
     return await this.framer.write(start, this.key, data);
   }
 }
+
+const RETRIEVE_GROUP_ENDPOINT = "/channel/retrieve-group";
+
+const retrieveGroupReqZ = z.object({});
+
+const retrieveGroupResZ = z.object({
+  group: group.groupZ,
+});
 
 /**
  * The core client class for executing channel operations against a Synnax
@@ -381,5 +399,16 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
   private sugar(payloads: Payload[]): Channel[] {
     const { frameClient } = this;
     return payloads.map((p) => new Channel({ ...p, frameClient }));
+  }
+
+  async retrieveGroup(): Promise<group.Group> {
+    const res = await sendRequired(
+      this.client,
+      RETRIEVE_GROUP_ENDPOINT,
+      {},
+      retrieveGroupReqZ,
+      retrieveGroupResZ,
+    );
+    return new group.Group(res.group.name, res.group.key);
   }
 }

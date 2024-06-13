@@ -143,6 +143,8 @@ export const tableScaleZ = z.object({
   preScaledUnits: unitsZ,
 });
 
+export type TableScale = z.infer<typeof tableScaleZ>;
+
 export const ZERO_TABLE_SCALE: z.infer<typeof tableScaleZ> = {
   type: "table",
   preScaledVals: [],

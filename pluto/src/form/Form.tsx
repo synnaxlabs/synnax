@@ -51,6 +51,7 @@ export interface UseNullableFieldProps<I, O = I>
 export interface UseFieldReturn<I extends Input.Value, O extends Input.Value = I>
   extends FieldState<I> {
   onChange: (value: O) => void;
+  setStatus: (status: status.CrudeSpec) => void;
   status: status.CrudeSpec;
 }
 
@@ -76,7 +77,7 @@ export const useField = (<I extends Input.Value, O extends Input.Value = I>({
   defaultValue,
 }: UseFieldProps<I, O>): UseFieldReturn<I, O> | null => {
   const ctx = useContext();
-  const { get, bind, set } = ctx;
+  const { get, bind, set, setStatus } = ctx;
   const optional = defaultValue != null || (propsOptional ?? false);
 
   const [state, setState] = useState<FieldState<I> | null>(get<I>({ path, optional }));
@@ -100,7 +101,12 @@ export const useField = (<I extends Input.Value, O extends Input.Value = I>({
     return null;
   }
 
-  return { onChange: handleChange, ...state };
+  const handleSetStatus = useCallback(
+    (status: status.CrudeSpec) => setStatus(path, status),
+    [path, setStatus],
+  );
+
+  return { onChange: handleChange, setStatus: handleSetStatus, ...state };
 }) as UseField;
 
 export type UseFieldValue = (<I extends Input.Value, O extends Input.Value = I>(
@@ -469,6 +475,7 @@ export interface ContextValue<Z extends z.ZodTypeAny = z.ZodTypeAny> {
   validate: (path?: string) => boolean;
   validateAsync: (path?: string) => Promise<boolean>;
   has: (path: string) => boolean;
+  setStatus: (path: string, status: status.CrudeSpec) => void;
 }
 
 export const Context = createContext<ContextValue>({
@@ -484,6 +491,7 @@ export const Context = createContext<ContextValue>({
   validateAsync: () => Promise.resolve(false),
   value: () => ({}),
   has: () => false,
+  setStatus: () => {},
 });
 
 export const useContext = <Z extends z.ZodTypeAny = z.ZodTypeAny>(
@@ -661,10 +669,9 @@ export const use = <Z extends z.ZodTypeAny>({
     }
     listeners.get(path)?.forEach((l) => l(get({ path })));
     parentListeners.forEach((lis, lisPath) => {
-      if (deep.pathsMatch(path, lisPath)) {
-        const v = get({ path: lisPath });
-        lis.forEach((l) => l(v));
-      }
+      if (!deep.pathsMatch(path, lisPath)) return;
+      const v = get({ path: lisPath });
+      lis.forEach((l) => l(v));
     });
     onChangeRef.current?.(ref.current.state);
   }, []);
@@ -672,6 +679,13 @@ export const use = <Z extends z.ZodTypeAny>({
   const has = useCallback((path: string): boolean => {
     const { state } = ref.current;
     return deep.has(state, path);
+  }, []);
+
+  const setStatus = useCallback((path: string, status: status.CrudeSpec): void => {
+    const { listeners } = ref.current;
+    ref.current.status.set(path, status);
+    const fs = get({ path });
+    listeners.get(path)?.forEach((l) => l(fs));
   }, []);
 
   useEffect(() => {
@@ -694,6 +708,7 @@ export const use = <Z extends z.ZodTypeAny>({
       validateAsync,
       value: () => ref.current.state,
       has,
+      setStatus,
     }),
     [bind, set, get, validate],
   );

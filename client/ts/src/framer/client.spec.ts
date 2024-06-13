@@ -60,4 +60,10 @@ describe("Client", () => {
       await client.write(start, data.key, 1);
     });
   });
+  describe("retrieveGroup", () => {
+    it("should correctly retrieve the main channel group", async () => {
+      const group = await client.channels.retrieveGroup();
+      expect(group.name).toEqual("Channels");
+    });
+  });
 });

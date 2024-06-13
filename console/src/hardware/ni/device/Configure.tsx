@@ -16,7 +16,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { type ReactElement, useState } from "react";
 
 import { CSS } from "@/css";
-import { buildPhysicalDevicePlan } from "@/hardware/ni/device/buildGroups";
+import { buildPhysicalDevicePlan as buildGroups } from "@/hardware/ni/device/buildGroups";
 import { Confirm } from "@/hardware/ni/device/Confirm";
 import { CreateChannels } from "@/hardware/ni/device/CreateChannels";
 import { enrich } from "@/hardware/ni/device/enrich/enrich";
@@ -63,7 +63,10 @@ const STEPS: Steps.Step[] = [
   },
 ];
 
-export const Configure = ({ layoutKey }: Layout.RendererProps): ReactElement => {
+export const Configure = ({
+  layoutKey,
+  onClose,
+}: Layout.RendererProps): ReactElement => {
   const client = Synnax.use();
   const { data, isPending } = useQuery({
     queryKey: [layoutKey, client?.key],
@@ -73,14 +76,17 @@ export const Configure = ({ layoutKey }: Layout.RendererProps): ReactElement => 
     },
   });
   if (isPending || data == null) return <div>Loading...</div>;
-  return <ConfigureInternal device={data} />;
+  return <ConfigureInternal device={data} onClose={onClose} />;
 };
 
-interface ConfigureInternalProps {
+interface ConfigureInternalProps extends Pick<Layout.RendererProps, "onClose"> {
   device: device.Device;
 }
 
-const ConfigureInternal = ({ device }: ConfigureInternalProps): ReactElement => {
+const ConfigureInternal = ({
+  device,
+  onClose,
+}: ConfigureInternalProps): ReactElement => {
   const [step, setStep] = useState("properties");
 
   const methods = Form.use<typeof configurationZ>({
@@ -88,8 +94,9 @@ const ConfigureInternal = ({ device }: ConfigureInternalProps): ReactElement => 
     schema: configurationZ,
   });
 
-  const handleNext = (): void => {
-    void (async () => {
+  const handleNext = useMutation({
+    mutationKey: [step],
+    mutationFn: async () => {
       if (step === "properties") {
         const ok = methods.validate("properties");
         if (!ok) return;
@@ -98,7 +105,7 @@ const ConfigureInternal = ({ device }: ConfigureInternalProps): ReactElement => 
           const enriched = enrich(
             methods.get<EnrichedProperties>({ path: "properties" }).value,
           );
-          const groups = buildPhysicalDevicePlan(
+          const groups = buildGroups(
             enriched,
             methods.get<string>({ path: "properties.identifier" }).value,
           );
@@ -109,9 +116,9 @@ const ConfigureInternal = ({ device }: ConfigureInternalProps): ReactElement => 
         const ok = methods.validate("groups");
         if (!ok) return;
         setStep("confirm");
-      }
-    })();
-  };
+      } else onClose();
+    },
+  });
 
   const client = Synnax.use();
 
@@ -121,8 +128,17 @@ const ConfigureInternal = ({ device }: ConfigureInternalProps): ReactElement => 
     mutationKey: [client?.key],
     mutationFn: async () => {
       if (client == null) return;
+      const channelsGroup = await client.channels.retrieveGroup();
+      const deviceOtgGroup = await client.ontology.groups.create(
+        channelsGroup.ontologyID,
+        device.name,
+      );
       const groups = methods.get<GroupConfig[]>({ path: "groups" }).value;
       for (const group of groups) {
+        const otgGroup = await client.ontology.groups.create(
+          deviceOtgGroup.ontologyID,
+          group.name,
+        );
         const rawIdx = group.channels.find((c) => c.isIndex);
         setProgress(`Creating index for ${group.name}`);
         if (rawIdx == null) return;
@@ -131,16 +147,23 @@ const ConfigureInternal = ({ device }: ConfigureInternalProps): ReactElement => 
           isIndex: true,
           dataType: rawIdx.dataType,
         });
+
         const rawDataChannels = group.channels.filter(
           (c) => !c.isIndex && c.synnaxChannel == null,
         );
         setProgress(`Creating data channels for ${group.name}`);
-        await client.channels.create(
+        const created = await client.channels.create(
           rawDataChannels.map((c) => ({
             name: c.name,
             dataType: c.dataType,
             index: idx.key,
           })),
+        );
+        await client.ontology.moveChildren(
+          channelsGroup.ontologyID,
+          otgGroup.ontologyID,
+          idx.ontologyID,
+          ...created.map((c) => c.ontologyID),
         );
       }
     },
@@ -164,7 +187,7 @@ const ConfigureInternal = ({ device }: ConfigureInternalProps): ReactElement => 
           <Nav.Bar.End>
             <Button.Button variant="outlined">Cancel</Button.Button>
             <Button.Button
-              onClick={handleNext}
+              onClick={() => handleNext.mutate()}
               disabled={confirm.isPending || (confirm.isIdle && step === "confirm")}
             >
               {confirm.isSuccess ? "Done" : "Next"}
@@ -182,7 +205,7 @@ export type LayoutType = typeof CONFIGURE_LAYOUT_TYPE;
 export const createConfigureLayout =
   (device: string, initial: Omit<Partial<Layout.State>, "type">) =>
   (): Layout.State => {
-    const { name = "Configure Hardware", location = "window", ...rest } = initial;
+    const { name = "Configure NI Device", location = "window", ...rest } = initial;
     return {
       key: initial.key ?? device,
       type: CONFIGURE_LAYOUT_TYPE,
@@ -191,7 +214,7 @@ export const createConfigureLayout =
       window: {
         navTop: true,
         size: { height: 900, width: 1200 },
-        resizable: false,
+        resizable: true,
       },
       location,
       ...rest,
