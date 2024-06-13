@@ -110,6 +110,14 @@ jobs:
           node-version: 20
           cache: "pnpm"
 
+      - name: Adjust Auto Updater URL for Release Candidate
+        if: github.event_name == 'push' && github.ref == 'refs/heads/rc'
+        working-directory: ./console/src-tauri
+        run: |
+          jq '.plugins.updater.endpoints = "https://raw.githubusercontent.com/synnaxlabs/synnax/rc/console/release-spec.json"' tauri.conf.json > temp.json
+          rm tauri.conf.json
+          mv temp.json tauri.conf.json
+
       - name: Install Rust Stable
         uses: actions-rs/toolchain@v1
         with:
@@ -153,10 +161,7 @@ jobs:
           NODE_OPTIONS: "--max_old_space_size=4096"
         run: pnpm build:drift
 
-      - name: Adjust Auto Updater URL for Release Candidate
-        if: github.event_name == 'push' && github.ref == 'refs/heads/rc'
-        working-directory: ./console/src-tauri
-        run: jq '.plugins.updater.endpoints = "https://raw.githubusercontent.com/synnaxlabs/synnax/rc/console/release-spec.json"' tauri.conf.json > temp.json && mv temp.json tauri.conf.json
+
 
       - name: Build Console
         if: needs.setup.outputs.changed == 'true'
