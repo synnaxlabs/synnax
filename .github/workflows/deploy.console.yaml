@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       VERSION: ${{ steps.version.outputs.VERSION }}
-      changed: ${{ needs.setup.outputs.changed }}
+      changed: ${{ steps.filter.outputs.changed }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3

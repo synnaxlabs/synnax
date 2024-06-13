@@ -4,8 +4,8 @@ on:
     branches:
       - rc
   push:
-    paths:
-      - '.github/workflows/cesium.test.yaml'
+    branches:
+      - rc
   workflow_dispatch:
 jobs:
   test:

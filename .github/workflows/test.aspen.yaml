@@ -3,8 +3,9 @@ on:
   pull_request:
     branches:
       - rc
-    paths:
-      - '.github/workflows/aspen.test.yaml'
+  push:
+    branches:
+      - rc
   workflow_dispatch:
 jobs:
   test:
