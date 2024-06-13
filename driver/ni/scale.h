@@ -25,6 +25,10 @@
 
 namespace ni{
     extern const std::map<std::string, int32_t> UNITS_MAP;
+
+    ///////////////////////////////////////////////////////////////////////////////////
+    //                                    LinearScale                                //
+    ///////////////////////////////////////////////////////////////////////////////////
     typedef struct LinearScale{
         float64 slope;
         float64 offset;
@@ -39,7 +43,10 @@ namespace ni{
             }
 
     } LinearScale;
-
+    
+    ///////////////////////////////////////////////////////////////////////////////////
+    //                                    MapScale                                   //
+    ///////////////////////////////////////////////////////////////////////////////////
     typedef struct MapScale{
         float64 prescaled_min;
         float64 prescaled_max;
@@ -59,6 +66,9 @@ namespace ni{
 
     } MapScale;
 
+    ///////////////////////////////////////////////////////////////////////////////////
+    //                                  PolynomialScale                              //
+    ///////////////////////////////////////////////////////////////////////////////////
     typedef struct PolynomialScale{
         float64* forward_coeffs;
         float64* reverse_coeffs; 
@@ -120,6 +130,9 @@ namespace ni{
 
     } PolynomialScale;
 
+    ///////////////////////////////////////////////////////////////////////////////////
+    //                                    TableScale                                 //
+    ///////////////////////////////////////////////////////////////////////////////////
     typedef struct TableScale{
         float64* prescaled;
         float64* scaled;
@@ -161,6 +174,9 @@ namespace ni{
         }
     } TableScale;
 
+    ///////////////////////////////////////////////////////////////////////////////////
+    //                                    ScaleConfig                                //
+    //////////////////////////////////////////////////////////////////////////////////
     typedef union Scale{
         LinearScale linear;
         MapScale map;
