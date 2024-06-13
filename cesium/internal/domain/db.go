@@ -65,6 +65,7 @@ type DB struct {
 	Config
 	idx    *index
 	files  *fileController
+	inGC   *atomic.Bool
 	closed *atomic.Bool
 }
 
@@ -151,7 +152,12 @@ func Open(configs ...Config) (*DB, error) {
 		return nil, err
 	}
 
-	return &DB{Config: cfg, idx: idx, files: controller, closed: &atomic.Bool{}}, nil
+	return &DB{Config: cfg,
+		idx:    idx,
+		files:  controller,
+		closed: &atomic.Bool{},
+		inGC:   &atomic.Bool{},
+	}, nil
 }
 
 // NewIterator opens a new invalidated Iterator using the given configuration.
@@ -197,6 +203,8 @@ func (db *DB) Close() error {
 		return nil
 	}
 
+	for db.inGC.Load() {
+	}
 	w := errors.NewCatcher(errors.WithAggregation())
 	w.Exec(db.files.close)
 	w.Exec(db.idx.close)

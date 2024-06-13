@@ -12,11 +12,13 @@ package domain_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"math"
+	"sync"
 )
 
 var _ = Describe("Garbage Collection", Ordered, func() {
@@ -443,6 +445,36 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 						Expect(i.Next()).To(BeFalse())
 						Expect(i.Close()).To(Succeed())
 					})
+				})
+			})
+			Context("Close", func() {
+				It("Multiple GCs running at the same time should not break", func() {
+					db = MustSucceed(domain.Open(domain.Config{FS: fs, FileSize: 20 * telem.ByteSize, GCThreshold: math.SmallestNonzeroFloat32}))
+					Expect(domain.Write(ctx, db, (10 * telem.SecondTS).Range(19*telem.SecondTS+1), []byte{10, 11, 12, 13, 14, 15, 16, 17, 18, 19})).To(Succeed())
+					Expect(domain.Write(ctx, db, (20 * telem.SecondTS).Range(23*telem.SecondTS+1), []byte{20, 21, 22, 23})).To(Succeed())
+					Expect(domain.Write(ctx, db, (30 * telem.SecondTS).Range(36*telem.SecondTS+1), []byte{30, 31, 32, 33, 34, 35, 36})).To(Succeed())
+					Expect(db.Delete(ctx, createCalcOffset(3), createCalcOffset(4), telem.TimeRange{Start: 12*telem.SecondTS + 1, End: 33*telem.SecondTS + 1}, telem.Density(1))).To(Succeed())
+
+					By("Garbage collecting and asserting the file got smaller")
+					Expect(MustSucceed(db.FS.Stat("1.domain")).Size()).To(Equal(int64(21)))
+
+					wg := sync.WaitGroup{}
+					for i := 0; i < 10; i++ {
+						wg.Add(1)
+						i := i
+						go func(i int) {
+							defer wg.Done()
+							Expect(db.GarbageCollect(ctx)).To(Succeed())
+						}(i)
+					}
+					wg.Wait()
+
+					Expect(MustSucceed(db.FS.Stat("1.domain")).Size()).To(Equal(int64(6)))
+				})
+				It("Should not allow GC on a closed DB", func() {
+					db = MustSucceed(domain.Open(domain.Config{FS: fs, FileSize: 20 * telem.ByteSize, GCThreshold: math.SmallestNonzeroFloat32}))
+					Expect(db.Close()).To(Succeed())
+					Expect(db.GarbageCollect(ctx)).To(HaveOccurredAs(core.EntityClosed("domain.db")))
 				})
 			})
 		})
