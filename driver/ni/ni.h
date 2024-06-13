@@ -35,18 +35,14 @@
 #include <condition_variable>
 #include "ts_queue.h"
 #include "driver/ni/scale.h"
-
-// #include "driver/modules/module.h"
+#include "ai_channels.h"
 
 namespace ni{
     typedef struct ChannelConfig{
         uint32_t channel_key;
         std::string name;
         std::string channel_type;
-        int terminal_config;
-        float min_val;
-        float max_val;
-        ScaleConfig scale_config; 
+        ni::AnalogChannel ni_channel;
     } ChannelConfig;
 
     typedef struct ReaderConfig{
@@ -138,6 +134,7 @@ namespace ni{
         void acquireData() override;
         int configureTiming() override;
         int createChannels() override;
+        Analog parseChannel(config::Parser &parser, std::string channel_type);
         void parseChannels(config::Parser &parser) override;
         int createChannel(ChannelConfig &channel);
         // NI related resources

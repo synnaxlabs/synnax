@@ -37,31 +37,129 @@ void ni::AnalogReadSource::parseChannels(config::Parser &parser){
 
                     config.channel_key = channel_builder.required<uint32_t>("channel");
 
-                    config.min_val = channel_builder.required<float_t>("min_val");
-                    config.max_val = channel_builder.required<std::float_t>("max_val");
+                    config.channel_type = channel_builder.required<std::string>("channel_type");
 
-                    auto terminal_config = channel_builder.required<std::string>("terminal_config");
-                    config.terminal_config =     (terminal_config == "PseudoDiff") ? DAQmx_Val_PseudoDiff 
-                                            :    (terminal_config == "Diff") ? DAQmx_Val_Diff
-                                            :    (terminal_config == "NRSE") ? DAQmx_Val_NRSE
-                                            :    (terminal_config == "RSE") ? DAQmx_Val_RSE
-                                            :    DAQmx_Val_Cfg_Default;
+                    // config.min_val = channel_builder.required<float_t>("min_val");
+                    // config.max_val = channel_builder.required<std::float_t>("max_val");
+
+                    // auto terminal_config = channel_builder.required<std::string>("terminal_config");
+                    // config.terminal_config =     (terminal_config == "PseudoDiff") ? DAQmx_Val_PseudoDiff 
+                    //                         :    (terminal_config == "Diff") ? DAQmx_Val_Diff
+                    //                         :    (terminal_config == "NRSE") ? DAQmx_Val_NRSE
+                    //                         :    (terminal_config == "RSE") ? DAQmx_Val_RSE
+                    //                         :    DAQmx_Val_Cfg_Default;
                 
-                    // check for custom scale
-                    std::string scale_name = std::to_string(config.channel_key) + "_scale";
-                    auto scale_parser = channel_builder.child("custom_scale");
-                    LOG(INFO) << "[NI Reader] Parsing custom scale for channel " << config.name;
-                    config.scale_config = ScaleConfig(scale_parser, scale_name);
-                    if(!scale_parser.ok()){
-                        LOG(ERROR) << "[NI Reader] Failed to parse custom scale for channel " << config.name;
-                        this->ok_state = false;
-                        return;
-                    }
+                    // // check for custom scale
+                    // std::string scale_name = std::to_string(config.channel_key) + "_scale";
+                    // auto scale_parser = channel_builder.child("custom_scale");
+                    // config.scale_config = ScaleConfig(scale_parser, scale_name);
+                    // if(!scale_parser.ok()){
+                    //     LOG(ERROR) << "[NI Reader] Failed to parse custom scale for channel " << config.name;
+                    //     this->ok_state = false;
+                    //     return;
+                    // }
+
+                    config.ni_channel =  this->parseChannel(channel_builder, config.channel_type); 
                     
                     this->reader_config.channels.push_back(config);
                 });
 }
 
+Analog ni::AnalogReadSource::parseChannel(config::Parser &parser, std::string channel_type){
+    // if (channel_type == "ai_accel") {
+    //     return Accel(parser, this->task_handle);
+    // }
+    // if (channel_type == "ai_accel_4_wire_dc_voltage") {
+    //     return Accel4WireDCVoltage(parser, this->task_handle);
+    // }
+    // if (channel_type == "ai_accel_charge") {
+    //     return AccelCharge(parser, this->task_handle);
+    // }
+    // if (channel_type == "ai_bridge") {
+    //     return Bridge(parser, this->task_handle);
+    // }
+    // if (channel_type == "ai_charge") {
+    //     return Charge(parser, this->task_handle);
+    // }
+    // if (channel_type == "ai_current") {
+    //     return Current(parser, this->task_handle);
+    // }
+    // if (channel_type == "ai_current_rms") {
+    //     return CurrentRMS(parser, this->task_handle);
+    // }
+    // if (channel_type == "ai_force_bridge_polynomial") {
+    //     return ForceBridgePolynomial(parser, this->task_handle);
+    // }
+    // if (channel_type == "ai_force_bridge_table") {
+    //     return ForceBridgeTable(parser, this->task_handle);
+    // }
+    // if (channel_type == "ai_force_bridge_two_point_lin") {
+    //     return ForceBridgeTwoPointLin(parser, this->task_handle);
+    // }
+    // if (channel_type == "ai_force_iepe") {
+    //     return ForceIEPE(parser, this->task_handle);
+    // }
+    // if (channel_type == "ai_freq_voltage") {
+    //     return FreqVoltage(parser, this->task_handle);
+    // }
+    // if (channel_type == "ai_microphone") {
+    //     return Microphone(parser, this->task_handle);
+    // }
+    // if (channel_type == "ai_pressure_bridge_polynomial") {
+    //     return PressureBridgePolynomial(parser, this->task_handle);
+    // }
+    // if (channel_type == "ai_pressure_bridge_table") {
+    //     return PressureBridgeTable(parser, this->task_handle);
+    // }
+    // if (channel_type == "ai_pressure_bridge_two_point_lin") {
+    //     return PressureBridgeTwoPointLin(parser, this->task_handle);
+    // }
+    // if (channel_type == "ai_resistance") {
+    //     return Resistance(parser, this->task_handle);
+    // }
+    // if (channel_type == "ai_rosette_strain_gage") {
+    //     return RosetteStrainGage(parser, this->task_handle);
+    // }
+    // if (channel_type == "ai_rtd") {
+    //     return RTD(parser, this->task_handle);
+    // }
+    // if (channel_type == "ai_strain_gage") {
+    //     return StrainGage(parser, this->task_handle);
+    // }
+    // if (channel_type == "ai_temp_built_in_sensor") {
+    //     return TempBuiltInSensor(parser, this->task_handle);
+    // }
+    // if (channel_type == "ai_thrmcpl") {
+    //     return Thrmcpl(parser, this->task_handle);
+    // }
+    // if (channel_type == "ai_thrmstr_iex") {
+    //     return ThrmstrIex(parser, this->task_handle);
+    // }
+    // if (channel_type == "ai_thrmstr_vex") {
+    //     return ThrmstrVex(parser, this->task_handle);
+    // }
+    // if (channel_type == "ai_torque_bridge_polynomial") {
+    //     return TorqueBridgePolynomial(parser, this->task_handle);
+    // }
+    // if (channel_type == "ai_torque_bridge_table") {
+    //     return TorqueBridgeTable(parser, this->task_handle);
+    // }
+    // if (channel_type == "ai_torque_bridge_two_point_lin") {
+    //     return TorqueBridgeTwoPointLin(parser, this->task_handle);
+    // }
+    // if (channel_type == "ai_velocity_iepe") {
+    //     return VelocityIEPE(parser, this->task_handle);
+    // }
+    if (channel_type == "ai_voltage") {
+        return Voltage(parser, this->task_handle);
+    }
+    // if (channel_type == "ai_voltage_rms") {
+    //     return VoltageRMS(parser, this->task_handle);
+    // }
+    // if (channel_type == "ai_voltage_with_excit") {
+    //     return VoltageWithExcit(parser, this->task_handle);
+    }
+}
 
 
 int ni::AnalogReadSource::configureTiming(){

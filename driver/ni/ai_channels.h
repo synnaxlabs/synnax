@@ -24,13 +24,96 @@
 namespace ni{
     /// @brief an object that represents and is responsible for the configuration of 
     /// a single analog channel on National Instruments hardware.
-    class AnalogChannel{
+    class Analog{
     public:
-        virtual AnalogChannel() = default;
-        virtual ~AnalogChannel() = default;
+        virtual Analog() = default;
+        virtual ~Analog() = default;
+        virtual int32 createNIChannel() = 0;
 
-        virtual int32_t 
+        static int32_t getTerminalConfig(std::string terminal_config) const { 
+            if(terminal_config == "PseudoDiff") return DAQmx_Val_PseudoDiff;
+            if(terminal_config == "Diff") return DAQmx_Val_Diff;
+            if(terminal_config == "NRSE") return DAQmx_Val_NRSE;
+            if(terminal_config == "RSE") return DAQmx_Val_RSE;
+            return DAQmx_Val_Cfg_Default;
+        }
+
+        static ScaleConfig getScaleConfig(config::Parser &parser) const {
+            auto scale_parser = parser.child("custom_scale");
+            std::string scale_name = std::to_string(config.channel_key) + "_scale";
+            return ScaleConfig(scale_parser, scale_name);
+        }
+        
+        explict AnalogChannel(config::Parser &parser, TaskHandle task_handle)
+        : min_val(parser.required<float_t>("min_val")),
+          max_val(parser.required<float_t>("max_val")),
+          terminal_config(getTerminalConfig(parser.required<std::string>("terminal_config"))),
+          custom_scale_name(parser.required<std::string>("custom_scale")),
+          units(DAQmx_Val_Volts),
+          scale_config(getScaleConfig(parser)),
+          sy_key(parser.required<uint32_t>("channel")),
+          task_handle(task_handle),
+          name(parser.required<std::string>("name")),
+          type(parser.required<std::string>("type")),
+          phsyical_channel(parser.required<std::string>("physical_channel")){
+            
+        }
+        TaskHandle task_handle = 0;
+        std::string type = "";
+        std::string name = "";
+        std::string phsyical_channel = "";
+        int32_t terminal_config = 0;
+        std::string custom_scale_name = "";
+        int32_t units = 0;
+        double min_val = 0;
+        double max_val = 0;
+        ScaleConfig scale_config;
+        uint32_t sy_key = 0;
     }
+    
+    ///////////////////////////////////////////////////////////////////////////////////
+    //                                      Voltage                                  //
+    ///////////////////////////////////////////////////////////////////////////////////
+    /// @brief voltage channel. Can be configured to measure RMS voltage instead or scale 
+    /// with internal excitaiton
+    class Voltage : public AnalogChannel{
+    public:
+
+        explict Voltage(config::Parser &parser, TaskHandle task_handle)
+        : Analog(parser){
+        }
+        ~Voltage() = default;
+     
+        int32 createNIChannel() override {
+            if(this->scale_config.type == "none"){
+                return  this->checkNIError(ni::NiDAQmxInterface::CreateAIVoltageChan( 
+                            this->task_handle, 
+                            this->name.c_str(), 
+                            "", 
+                            this->terminal_config, 
+                            this->min_val, 
+                            this->max_val, 
+                            DAQmx_Val_Volts, 
+                            NULL
+                        ));
+            } else{
+                this->checkNIError(this->scale_config.createNIScale());
+                return this->checkNIError(ni::NiDAQmxInterface::CreateAIVoltageChan(    
+                        this->task_handle, this->name.c_str(), 
+                        "", 
+                        this->terminal_config, 
+                        this->min_val, 
+                        this->max_val, 
+                        DAQmx_Val_FromCustomScale,  
+                        this->scale_config.name.c_str()
+                    ));
+            }
+        }
+    }
+    // DAQmxCreateAIVoltageChan
+    // DAQmxCreateAIVoltageRMSChan
+    // DAQmxCreateAIVoltageChanWithExcit
+
 
     ///////////////////////////////////////////////////////////////////////////////////
     //                                    Acceleration                               //
@@ -129,11 +212,6 @@ namespace ni{
     ///////////////////////////////////////////////////////////////////////////////////
     // DAQmxCreateAIVelocityIEPEChan
 
-    ///////////////////////////////////////////////////////////////////////////////////
-    //                                      Voltage                                  //
-    ///////////////////////////////////////////////////////////////////////////////////
-    // DAQmxCreateAIVoltageChan
-    // DAQmxCreateAIVoltageRMSChan
-
+    
 
 }
