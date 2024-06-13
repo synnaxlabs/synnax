@@ -126,7 +126,7 @@ std::pair<synnax::Frame, freighter::Error> ni::AnalogReadSource::read(){
     // take data off of queue
     auto [d,valid] = data_queue.dequeue();
 
-    if(!valid) return std::make_pair(f, freighter::Error(freighter::TEMPORARY_HARDWARE_ERROR, "Failed to read data from queue"));
+    if(!valid) return std::make_pair(std::move(f), freighter::Error(driver::TEMPORARY_HARDWARE_ERROR, "Failed to read data from queue"));
     
     double* data = static_cast<double*>(d.data);
 
