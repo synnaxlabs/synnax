@@ -186,12 +186,7 @@ freighter::Error ni::Source::start(){
                     .details = {
                             {"running", true}
                     }
-<<<<<<< HEAD
-            });
-
-=======
                 }); 
->>>>>>> c322ad5d9c54e7a28a1d56e3d0f7c5bd8c866242
     return freighter::NIL;
 }
 
