@@ -17,6 +17,7 @@ jobs:
   setup:
     runs-on: ubuntu-latest
     outputs:
+      PURE_VERSION: ${{ steps.version.outputs.PURE_VERSION }}
       VERSION: ${{ steps.version.outputs.VERSION }}
       changed: ${{ steps.filter.outputs.changed }}
     steps:
@@ -29,8 +30,10 @@ jobs:
         run: |
           if [ "${GITHUB_REF}" == "refs/heads/main" ]; then
             echo "VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+            echo "PURE_VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
           else
             echo "VERSION=$(node -p "require('./package.json').version")-rc" >> $GITHUB_OUTPUT
+            echo "PURE_VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
           fi
 
       - name: Diff Changes
@@ -137,17 +140,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-turbo-
 
-      - name: Install Dependencies on Ubuntu
-        if: matrix.platform == 'ubuntu-latest'
-        run: >-
-          sudo apt-get update &&
-          sudo apt-get install -y
-          libgtk-3-dev
-          libayatana-appindicator3-dev
-          libwebkit2gtk-4.0-dev
-          webkit2gtk-driver
-          xvfb
-
       - name: Install Dependencies
         run: pnpm i
 
@@ -175,18 +167,18 @@ jobs:
         run: |
           gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/macos/Synnax.app.tar.gz
           gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/macos/Synnax.app.tar.gz.sig
-          gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/dmg/Synnax_${{ needs.setup.outputs.VERSION }}_x64.dmg
+          gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/dmg/Synnax_${{ needs.setup.outputs.PURE_VERSION }}_x64.dmg
 
 
       - name: Upload Windows Release Asset
         if: github.event_name == 'push' && matrix.platform == 'windows-latest'
         run: |
-          gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/msi/Synnax_${{ needs.setup.outputs.VERSION }}_x64_en-US.msi
-          gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/msi/Synnax_${{ needs.setup.outputs.VERSION }}_x64_en-US.msi.zip
-          gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/msi/Synnax_${{ needs.setup.outputs.VERSION }}_x64_en-US.msi.zip.sig
-          gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/nsis/Synnax_${{ needs.setup.outputs.VERSION }}_x64-setup.exe
-          gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/nsis/Synnax_${{ needs.setup.outputs.VERSION }}_x64-setup.nsis.zip
-          gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/nsis/Synnax_${{ needs.setup.outputs.VERSION }}_x64-setup.nsis.zip.sig
+          gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/msi/Synnax_${{ needs.setup.outputs.PURE_VERSION }}_x64_en-US.msi
+          gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/msi/Synnax_${{ needs.setup.outputs.PURE_VERSION }}_x64_en-US.msi.zip
+          gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/msi/Synnax_${{ needs.setup.outputs.PURE_VERSION }}_x64_en-US.msi.zip.sig
+          gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/nsis/Synnax_${{ needs.setup.outputs.PURE_VERSION }}_x64-setup.exe
+          gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/nsis/Synnax_${{ needs.setup.outputs.PURE_VERSION }}_x64-setup.nsis.zip
+          gh release upload --clobber console-v${{ needs.setup.outputs.VERSION }} ./console/src-tauri/target/release/bundle/nsis/Synnax_${{ needs.setup.outputs.PURE_VERSION }}_x64-setup.nsis.zip.sig
 
   publish-release:
     runs-on: ubuntu-latest
@@ -228,7 +220,7 @@ jobs:
           script: |
             const fs = await import("fs");
 
-            const version = process.env.VERSION;
+            const version = process.env.PURE_VERSION;
             const {
               repo: { repo, owner },
             } = context;
@@ -237,13 +229,13 @@ jobs:
 
             const darwinURL = baseURL + "Synnax.app.tar.gz";
             const darwinSig = await github.request(`GET ${darwinURL}.sig`);
-            const windowsURL = baseURL + `Synnax_${packageVersion}_x64_en-US.msi.zip`;
+            const windowsURL = baseURL + `Synnax_${version}_x64_en-US.msi.zip`;
             const windowsSig = await github.request(`GET ${windowsURL}.sig`);
             const pub_date = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
             const ecd = new TextDecoder();
 
             const data = {
-              version: `v${packageVersion}`,
+              version: `v${version}`,
               notes: "Synnax Update",
               pub_date,
               platforms: {

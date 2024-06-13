@@ -1,9 +1,9 @@
 name: Synnax Deploy
 on:
-  push:
-    branches:
-      - rc
-      - main
+#  push:
+#    branches:
+#      - rc
+#      - main
   pull_request:
     branches:
       - rc
