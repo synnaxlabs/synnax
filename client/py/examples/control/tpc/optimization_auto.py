@@ -171,7 +171,7 @@ def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Ra
                 time_range=sy.TimeRange(start, sy.TimeStamp.now()),
                 color="#bada55",
             )
-            rng.meta_data._set({
+            rng.meta_data.set({
                 "l_stand_press_target": f"{params.l_stand_press_target} PSI",
                 "scuba_press_target": f"{params.scuba_press_target} PSI",
                 "press_1_step": f"{params.press_1_step} PSI",
@@ -209,7 +209,7 @@ def perform_analysis(params: TPCParameters, rng: sy.Range) -> TPCParameters:
     fuel_pt = rng[FUEL_TANK_PT].to_numpy()
     peaks, _ = find_peaks(fuel_pt, height=params.tpc_upper_bound)
     avg_diff = np.mean(fuel_pt[peaks] - params.tpc_upper_bound)
-    rng.meta_data._set("overshoot_avg", f"{avg_diff} PSI")
+    rng.meta_data.set("overshoot_avg", f"{avg_diff} PSI")
     tpc_upper_bound = params.tpc_upper_bound - avg_diff
     return TPCParameters(
         l_stand_press_target=params.l_stand_press_target,
