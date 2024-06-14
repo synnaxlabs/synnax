@@ -151,7 +151,12 @@ func Open(configs ...Config) (*DB, error) {
 		return nil, err
 	}
 
-	return &DB{Config: cfg, idx: idx, files: controller, closed: &atomic.Bool{}}, nil
+	return &DB{
+		Config: cfg,
+		idx:    idx,
+		files:  controller,
+		closed: &atomic.Bool{},
+	}, nil
 }
 
 // NewIterator opens a new invalidated Iterator using the given configuration.

@@ -17,8 +17,8 @@
         width: 100%;
         border-bottom: none;
 
-        & .pluto-caret path {
-            fill: var(--pluto-gray-l5) !important;
+        & .pluto-caret-animated path {
+            fill: var(--pluto-gray-l6) !important;
         }
     }
 

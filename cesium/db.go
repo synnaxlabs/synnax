@@ -101,7 +101,8 @@ func (db *DB) Close() error {
 	if !db.closed.CompareAndSwap(false, true) {
 		return nil
 	}
-
+	db.mu.Lock()
+	defer db.mu.Unlock()
 	c := errors.NewCatcher(errors.WithAggregation())
 	db.closeControlDigests()
 	c.Exec(db.shutdown.Close)

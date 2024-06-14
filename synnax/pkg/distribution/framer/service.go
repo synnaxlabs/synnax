@@ -14,6 +14,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
@@ -28,6 +29,7 @@ type Service struct {
 	config          Config
 	writer          *writer.Service
 	iterator        *iterator.Service
+	deleter         deleter.Service
 	controlStateKey channel.Key
 	Relay           *relay.Relay
 }
@@ -54,6 +56,7 @@ type ReadWriteable interface {
 type ReadWriteStreamable interface {
 	Writable
 	Readable
+	Streamable
 }
 
 type WriteStreamable interface {
@@ -129,6 +132,15 @@ func Open(configs ...Config) (*Service, error) {
 		Instrumentation: cfg.Instrumentation.Child("writer"),
 		FreeWrites:      freeWrites,
 	})
+	if err != nil {
+		return nil, err
+	}
+	s.deleter, err = deleter.New(deleter.ServiceConfig{
+		HostResolver:  cfg.HostResolver,
+		ChannelReader: cfg.ChannelReader,
+		TSChannel:     cfg.TS,
+		Transport:     cfg.Transport.Deleter(),
+	})
 	return s, err
 }
 
@@ -146,6 +158,10 @@ func (s *Service) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, er
 
 func (s *Service) NewStreamWriter(ctx context.Context, cfg WriterConfig) (StreamWriter, error) {
 	return s.writer.NewStream(ctx, cfg)
+}
+
+func (s *Service) NewDeleter() Deleter {
+	return s.deleter.NewDeleter()
 }
 
 func (s *Service) ConfigureControlUpdateChannel(ctx context.Context, ch channel.Key) error {

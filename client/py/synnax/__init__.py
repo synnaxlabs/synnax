@@ -20,6 +20,8 @@ from synnax.exceptions import (
     RouteError,
     UnexpectedError,
     ValidationError,
+    ControlError,
+    UnauthorizedError,
     FieldError,
 )
 from synnax.framer import BufferedWriter, Frame, Iterator, Streamer, Writer, WriterMode

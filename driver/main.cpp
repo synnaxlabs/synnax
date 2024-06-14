@@ -55,7 +55,7 @@ int main(int argc, char *argv[]) {
     auto cfg_json = driver::readConfig(config_path);
     if (cfg_json.empty())
         LOG(INFO) << "[main] no configuration found at " << config_path <<
-                ". We'll just use the default configuration.";
+                ". We'll just use the default configuration";
     else {
         LOG(INFO) << "[main] loaded configuration from " << config_path;
     }

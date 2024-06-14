@@ -102,7 +102,7 @@ public:
     /// error occurred to trigger the breaker.
     bool wait(const std::string &message) {
         if(!running()){
-            LOG(ERROR) << "Breaker has not been started. Exiting.";
+            LOG(ERROR) << "Breaker " << config.name << " has not been started. Exiting.";
         }
         retries++;
         if (retries > config.max_retries) {
@@ -115,7 +115,7 @@ public:
             std::unique_lock<std::mutex> lock(shutdown_mutex);
             breaker_shutdown->wait_for(lock, interval.nanoseconds());
             if(!running()){
-                LOG(INFO) << "Breaker is shutting down. Exiting.";
+                LOG(INFO) << "Breaker " << config.name << " is shutting down. Exiting.";
                 reset();
                 return false;
             }
@@ -137,7 +137,7 @@ public:
         breaker_shutdown->notify_all();
     }
 
-    bool running() {
+    bool running() const {
         return is_running;
     }
     

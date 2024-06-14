@@ -51,6 +51,7 @@ void WriterConfig::toProto(api::v1::FrameWriterConfig *f) const {
     f->set_mode(mode);
     f->set_enable_auto_commit(enable_auto_commit);
     f->set_auto_index_persist_interval(auto_index_persist_interval.value);
+    f->set_err_on_unauthorized(err_on_unauthorized);
 }
 
 bool Writer::write(const Frame &fr) {

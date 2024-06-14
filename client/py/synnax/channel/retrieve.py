@@ -23,6 +23,7 @@ from synnax.channel.payload import (
     ChannelPayload,
     normalize_channel_params,
 )
+from synnax.exceptions import NotFoundError
 
 
 class _Request(Payload):
@@ -166,5 +167,5 @@ def retrieve_required(
         if ch is None:
             not_found.append(p)
     if len(not_found) > 0:
-        raise RuntimeError(f"Could not find channels: {not_found}")
+        raise NotFoundError(f"Could not find channels: {not_found}")
     return results

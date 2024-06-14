@@ -37,6 +37,7 @@ func New(router *fhttp.Router) (t api.Transport) {
 	t.FrameWriter = fhttp.StreamServer[api.FrameWriterRequest, api.FrameWriterResponse](router, false, "/api/v1/frame/write")
 	t.FrameIterator = fhttp.StreamServer[api.FrameIteratorRequest, api.FrameIteratorResponse](router, false, "/api/v1/frame/iterate")
 	t.FrameStreamer = fhttp.StreamServer[api.FrameStreamerRequest, api.FrameStreamerResponse](router, false, "/api/v1/frame/stream")
+	t.FrameDelete = fhttp.UnaryServer[api.FrameDeleteRequest, types.Nil](router, false, "/api/v1/frame/delete")
 
 	// ONTOLOGY
 	t.OntologyRetrieve = fhttp.UnaryServer[api.OntologyRetrieveRequest, api.OntologyRetrieveResponse](router, false, "/api/v1/ontology/retrieve")
