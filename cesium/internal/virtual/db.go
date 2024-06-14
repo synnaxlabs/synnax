@@ -93,7 +93,6 @@ func (db *DB) Close() error {
 	if db.entityCount.openWriters > 0 {
 		return db.wrapError(errors.Newf(fmt.Sprintf("cannot close channel because there are %d unclosed writers accessing it", db.entityCount.openWriters)))
 	}
-
 	db.closed.Store(true)
 	return nil
 }
