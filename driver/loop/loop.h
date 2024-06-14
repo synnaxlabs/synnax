@@ -18,16 +18,13 @@ using hs_clock = std::chrono::high_resolution_clock;
 using nanos = std::chrono::nanoseconds;
 
 namespace loop {
-const synnax::TimeSpan HIGH_RES_THRESHOLD = synnax::Rate(20).period();
-
-inline void sleep(const std::chrono::nanoseconds ns) {
-    const auto end = hs_clock::now() + ns;
-    while (end > hs_clock::now());
-}
+const synnax::TimeSpan HIGH_RES_THRESHOLD = synnax::Rate(200).period();
+const synnax::TimeSpan MEDIUM_RES_THRESHOLD = synnax::Rate(20).period();
 
 const uint64_t RESOLUTION = (100 * synnax::MICROSECOND).value;
 
-inline void preciseSleep(const std::chrono::nanoseconds ns) {
+inline void preciseSleep(const synnax::TimeSpan &dur) {
+    const auto ns = dur.chrono();
     const auto end = hs_clock::now() + ns;
     const uint64_t nanoseconds = ns.count();
     static uint64_t estimate = RESOLUTION * 10; // overestimate innitially
@@ -36,7 +33,7 @@ inline void preciseSleep(const std::chrono::nanoseconds ns) {
     static uint64_t count = 1;
     while (nanoseconds > estimate) {
         auto start = hs_clock::now();
-        sleep(std::chrono::nanoseconds(RESOLUTION));
+        std::this_thread::sleep_for(std::chrono::nanoseconds(RESOLUTION));
         const auto end = hs_clock::now();
         const auto elapsed = std::chrono::duration_cast<nanos>(end - start).count();
         const uint64_t delta = elapsed - mean;
@@ -62,25 +59,48 @@ public:
     ): interval(rate.period()), last(std::chrono::high_resolution_clock::now()) {
     }
 
-    std::pair<std::chrono::nanoseconds, bool> wait(breaker::Breaker &breaker) {
-        const auto now = hs_clock::now();
-        const auto elapsed = now - last;
-        const auto interval_nanos = interval.nanoseconds();
-        if (elapsed > interval_nanos) {
-            last = now;
-            return {elapsed, false};
+    ::TimeSpan elapsed(std::chrono::high_resolution_clock::time_point now) {
+        if (!last_set) {
+            last_set = true;
+            return synnax::TimeSpan(0);
         }
-        const auto remaining = nanos(interval_nanos - elapsed);
+        const auto elapsed = now - last;
+        return synnax::TimeSpan(elapsed);
+    }
+
+    std::pair<synnax::TimeSpan, bool> wait() {
+        const auto now = hs_clock::now();
+        const auto elapsed = this->elapsed(now);
+        if (elapsed > interval) {
+            last = now;
+            return {synnax::TimeSpan(elapsed), false};
+        }
+        const auto remaining = interval - elapsed;
         if (this->highRate()) preciseSleep(remaining);
+        else std::this_thread::sleep_for(remaining.chrono());
+        last = hs_clock::now();
+        return {synnax::TimeSpan(elapsed), true};
+    }
+
+    std::pair<synnax::TimeSpan, bool> wait(breaker::Breaker &breaker) {
+        const auto now = hs_clock::now();
+        const auto elapsed = this->elapsed(now);
+        if (elapsed > interval) {
+            last = now;
+            return {synnax::TimeSpan(elapsed), false};
+        }
+        const auto remaining = interval - elapsed;;
+        if (this->highRate()) preciseSleep(remaining);
+        else if (this->mediumRate()) std::this_thread::sleep_for(remaining.chrono());
         else breaker.waitFor(remaining);
         last = hs_clock::now();
-        return {elapsed, true};
+        return {synnax::TimeSpan(elapsed), true};
     }
 private:
-    [[nodiscard]] bool highRate() const {
-        return interval < HIGH_RES_THRESHOLD;
-    }
+    [[nodiscard]] bool highRate() const { return interval < HIGH_RES_THRESHOLD; }
+    [[nodiscard]] bool mediumRate() const { return interval < MEDIUM_RES_THRESHOLD; }
     synnax::TimeSpan interval{};
+    bool last_set = false;
     std::chrono::time_point<std::chrono::high_resolution_clock> last;
 };
 }

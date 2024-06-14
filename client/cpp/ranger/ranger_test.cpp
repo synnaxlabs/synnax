@@ -78,7 +78,7 @@ TEST(RangerTests, testRetrieveByNameNotFound) {
     auto client = new_test_client();
     auto [got, err] = client.ranges.retrieveByName("not_found");
     ASSERT_TRUE(err);
-    ASSERT_EQ(err.type, synnax::NOT_FOUND);
+    ASSERT_EQ(err, synnax::NOT_FOUND);
 }
 
 /// @brief it should retrieve multiple ranges by their names.
@@ -251,5 +251,5 @@ TEST(RangerTests, testClearActive) {
     ASSERT_FALSE(err);
     auto [got, err2] = client.ranges.retrieveActive();
     ASSERT_TRUE(err2);
-    ASSERT_EQ(err2.type, synnax::NOT_FOUND);
+    ASSERT_EQ(err2, synnax::NOT_FOUND);
 }

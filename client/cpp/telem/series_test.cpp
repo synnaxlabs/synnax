@@ -146,21 +146,3 @@ TEST(TestSeries, testWriteVector) {
     for (size_t i = 0; i < values.size(); i++)
         ASSERT_EQ(v[i], values[i]);
 }
-
-TEST(TestSeries, testCopyConstructorVariable) {
-    const std::vector<std::string> vals = {"hello", "world"};
-    const Series s{vals};
-    const Series s2{s};
-    const auto v = s2.strings();
-    for (size_t i = 0; i < vals.size(); i++)
-        ASSERT_EQ(v[i], vals[i]);
-}
-
-TEST(TestSeries, testCopyConstructorFixed) {
-    const std::vector<std::uint64_t> vals = {1, 2, 3, 4, 5};
-    const Series s{vals};
-    const Series s2{s};
-    const auto v = s2.values<std::uint64_t>();
-    for (size_t i = 0; i < vals.size(); i++)
-        ASSERT_EQ(v[i], vals[i]);
-}

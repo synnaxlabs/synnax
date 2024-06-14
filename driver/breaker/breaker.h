@@ -134,7 +134,7 @@ public:
                 << " times. " << "Retrying in " << interval / SECOND << " seconds. " <<
                 "Error: " << message << "."; {
             std::unique_lock lock(shutdown_mutex);
-            breaker_shutdown->wait_for(lock, interval.nanoseconds());
+            breaker_shutdown->wait_for(lock, interval.chrono());
             if (!running()) {
                 LOG(INFO) << "[" << config.name << "] is shutting down. Exiting.";
                 reset();
@@ -145,7 +145,7 @@ public:
         return true;
     }
 
-    void waitFor(const TimeSpan &time) { this->waitFor(time.nanoseconds()); }
+    void waitFor(const TimeSpan &time) { this->waitFor(time.chrono()); }
 
     void waitFor(const std::chrono::nanoseconds &time) {
         if (!running()) return;
