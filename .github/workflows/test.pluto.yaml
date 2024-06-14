@@ -1,13 +1,12 @@
-name: "Drift Test"
+name: "Test - Pluto"
 on:
   pull_request:
     branches:
-      - main
+      - rc
   push:
-    paths:
-      - ".github/workflows/drift.test.yaml"
+    branches:
+      - rc
   workflow_dispatch:
-
 jobs:
   test:
     name: "Run Tests"
@@ -22,8 +21,8 @@ jobs:
         with:
           filters: |
             changed:
-              - "drift/**"
-              - ".github/workflows/drift.test.yaml"
+              - "pluto/**"
+              - ".github/workflows/pluto.test.yaml"
 
       - name: Set up pnpm
         if: steps.filter.outputs.changed == 'true'
@@ -42,19 +41,15 @@ jobs:
         if: steps.filter.outputs.changed == 'true'
         run: pnpm install --frozen-lockfile
 
-      - name: Build Drift
-        if: steps.filter.outputs.changed == 'true'
-        run: pnpm build:drift
-
       - name: Test
         if: steps.filter.outputs.changed == 'true'
-        run: pnpm cov:drift
+        run: pnpm cov:pluto
 
       - name: Upload Coverage
         if: steps.filter.outputs.changed == 'true'
         uses: codecov/codecov-action@v3
         with:
-          directory: ./drift
+          directory: ./pluto
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
-          flags: drift
+          flags: pluto

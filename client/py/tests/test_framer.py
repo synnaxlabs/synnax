@@ -238,10 +238,10 @@ class TestDeleter:
         assert data.size == 50 * 8
 
     def test_delete_with_writer(self, channel: sy.Channel, client: sy.Synnax):
-        w = client.open_writer(0, channel.key)
-        with pytest.raises(UnauthorizedError):
-            client.delete([channel.key], TimeRange(
-                TimeStamp(1 * TimeSpan.SECOND).range(TimeStamp(2 * TimeSpan.SECOND))))
+        with client.open_writer(0, channel.key):
+            with pytest.raises(UnauthorizedError):
+                client.delete([channel.key], TimeRange(
+                    TimeStamp(1 * TimeSpan.SECOND).range(TimeStamp(2 * TimeSpan.SECOND))))
 
     def test_delete_index_alone(self, client:sy.Synnax):
         ch1 = client.channels.create(sy.Channel(
