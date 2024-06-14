@@ -117,9 +117,10 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/rc'
         working-directory: ./console/src-tauri
         run: |
-          jq '.plugins.updater.endpoints = "https://raw.githubusercontent.com/synnaxlabs/synnax/rc/console/release-spec.json"' tauri.conf.json > temp.json
+          jq '.plugins.updater.endpoints = ["https://raw.githubusercontent.com/synnaxlabs/synnax/rc/console/release-spec.json"]' tauri.conf.json > temp.json
           rm tauri.conf.json
           mv temp.json tauri.conf.json
+          cat tauri.conf.json
 
       - name: Install Rust Stable
         uses: actions-rs/toolchain@v1
