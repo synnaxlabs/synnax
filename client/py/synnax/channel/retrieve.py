@@ -142,7 +142,7 @@ class CacheChannelRetriever:
                 channels.append(ch)
         return None if len(channels) == 0 else channels
 
-    def _set(self, channels: list[ChannelPayload]) -> None:
+    def set(self, channels: list[ChannelPayload]) -> None:
         for channel in channels:
             self.__channels[channel.key] = channel
             keys = self.__names_to_keys.get(channel.name)
@@ -167,7 +167,7 @@ class CacheChannelRetriever:
             return results
 
         retrieved = self.__retriever.retrieve(to_retrieve)
-        self._set(retrieved)
+        self.set(retrieved)
         results.extend(retrieved)
         return results
 

@@ -77,7 +77,7 @@ class ChannelWriter:
         res, exc = self.__client.send(self.__ENDPOINT, req, _Response)
         if exc is not None:
             raise exc
-        self.__cache._set(res.channels)
+        self.__cache.set(res.channels)
         return res.channels
 
     @trace("debug")
