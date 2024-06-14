@@ -55,7 +55,9 @@ sim_cmd_time = client.channels.create(
 )
 
 sim_cmd = client.channels.create(
-    name=START_SIM_CMD, data_type=sy.DataType.UINT8, index=sim_cmd_time.key,
+    name=START_SIM_CMD,
+    data_type=sy.DataType.UINT8,
+    index=sim_cmd_time.key,
     retrieve_if_name_exists=True,
 )
 
@@ -123,7 +125,7 @@ def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Ra
                 name=f"{dual_press_start.__str__()[11:16]} Dual Press Sequence",
                 time_range=sy.TimeRange(dual_press_start, dual_press_end),
                 # a nice red
-                color="#D81E5B"
+                color="#D81E5B",
             )
 
             press_tank_start = sy.TimeStamp.now()
@@ -155,7 +157,7 @@ def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Ra
                 name=f"{press_tank_start.__str__()[11:16]} Press Tank Pressurization",
                 time_range=sy.TimeRange(press_tank_start, press_tank_end),
                 # a nice blue
-                color="#1E90FF"
+                color="#1E90FF",
             )
 
             start = sy.TimeStamp.now()
@@ -171,15 +173,17 @@ def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Ra
                 time_range=sy.TimeRange(start, sy.TimeStamp.now()),
                 color="#bada55",
             )
-            rng.meta_data.set({
-                "l_stand_press_target": f"{params.l_stand_press_target} PSI",
-                "scuba_press_target": f"{params.scuba_press_target} PSI",
-                "press_1_step": f"{params.press_1_step} PSI",
-                "press_2_step": f"{params.press_2_step} PSI",
-                "press_step_delay": f"{params.press_step_delay} seconds",
-                "tpc_upper_bound": f"{params.tpc_upper_bound} PSI",
-                "tpc_lower_bound": f"{params.tpc_lower_bound} PSI",
-            })
+            rng.meta_data.set(
+                {
+                    "l_stand_press_target": f"{params.l_stand_press_target} PSI",
+                    "scuba_press_target": f"{params.scuba_press_target} PSI",
+                    "press_1_step": f"{params.press_1_step} PSI",
+                    "press_2_step": f"{params.press_2_step} PSI",
+                    "press_step_delay": f"{params.press_step_delay} seconds",
+                    "tpc_upper_bound": f"{params.tpc_upper_bound} PSI",
+                    "tpc_lower_bound": f"{params.tpc_lower_bound} PSI",
+                }
+            )
 
             auto.set(
                 {
@@ -195,12 +199,14 @@ def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Ra
 
         except KeyboardInterrupt:
             print("Test interrupted. Safeing System")
-            auto.set({
-                TPC_CMD: 1,
-                SUPPLY_CMD: 0,
-                VENT_CMD: 0,
-                MPV_CMD: 1,
-            })
+            auto.set(
+                {
+                    TPC_CMD: 1,
+                    SUPPLY_CMD: 0,
+                    VENT_CMD: 0,
+                    MPV_CMD: 1,
+                }
+            )
 
 
 def perform_analysis(params: TPCParameters, rng: sy.Range) -> TPCParameters:
@@ -218,7 +224,7 @@ def perform_analysis(params: TPCParameters, rng: sy.Range) -> TPCParameters:
         press_2_step=params.press_2_step,
         press_step_delay=params.press_step_delay,
         tpc_upper_bound=tpc_upper_bound,
-        tpc_lower_bound=params.tpc_lower_bound
+        tpc_lower_bound=params.tpc_lower_bound,
     )
 
 
@@ -230,7 +236,7 @@ if __name__ == "__main__":
         press_2_step=50,
         press_step_delay=1,
         tpc_upper_bound=50,
-        tpc_lower_bound=45
+        tpc_lower_bound=45,
     )
     res = execute_auto(initial_params, wait_for_confirm=True)
     next_params = perform_analysis(initial_params, res)
