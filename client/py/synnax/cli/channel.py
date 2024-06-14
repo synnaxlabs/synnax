@@ -62,6 +62,7 @@ def select_channel(
     :param allow_none: Whether to allow the user to select None.
     :returns: The selected channel or None if there are no channels.
     """
+    print(channels)
     _, i = ctx.console.select(
         type_=str,
         columns=["name", "key", "data_type", "index", "rate", "leaseholder"],

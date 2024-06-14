@@ -1,4 +1,4 @@
-name: Publish PyPI Packages
+name: Python Deploy
 on:
   push:
     branches:
@@ -137,7 +137,7 @@ jobs:
           done
           poetry install -n
           echo "Publishing client"
-          poetry publish --build --no-interaction 
+          poetry publish --build --no-interaction
 
       - name: Put back the original relative paths
         run: |

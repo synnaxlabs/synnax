@@ -1,11 +1,11 @@
-name: "X Test"
+name: "Test - X"
 on:
   pull_request:
     branches:
-      - main
+      - rc
   push:
-    paths:
-      - ".github/workflows/x.test.yaml"
+    branches:
+      - rc
   workflow_dispatch:
 jobs:
   test-go:

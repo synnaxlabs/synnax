@@ -1,8 +1,6 @@
 name: "Docs Search Update"
 on:
   push:
-    paths:
-      - "docs/**"
     branches:
       - main
   workflow_dispatch:
@@ -29,7 +27,7 @@ jobs:
           cache: pnpm
 
       - name: Install Dependencies
-        run: pnpm install 
+        run: pnpm install
 
       - name: Update Docs Search Index
         working-directory: docs/site
