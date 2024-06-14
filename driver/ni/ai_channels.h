@@ -70,7 +70,7 @@ namespace ni{
             // check name of channel
             if(this->scale_config.type != "none"){
                 LOG(INFO) << "Scale type: " << this->scale_config.type;
-                strcpy(this->scale_name, this->scale_config.name.c_str());
+                // strcpy(this->scale_name, this->scale_config.name.c_str()); // FIXME
                 this->units = DAQmx_Val_FromCustomScale;
             }
             LOG(INFO) << "Analog Channel constructor end";
@@ -102,15 +102,29 @@ namespace ni{
         ~Voltage() = default;
         int32 createNIChannel() override {
             LOG(INFO) << "Creating Voltage Channel";
-            return ni::NiDAQmxInterface::CreateAIVoltageChan(    
-                    this->task_handle, this->name.c_str(), 
-                    "", 
-                    this->terminal_config, 
-                    this->min_val, 
-                    this->max_val, 
-                    this->units,  
-                    this->scale_name
-                );
+
+            if(this->scale_config.type == "none"){
+                return ni::NiDAQmxInterface::CreateAIVoltageChan(    
+                        this->task_handle, this->name.c_str(), 
+                        "", 
+                        this->terminal_config, 
+                        this->min_val, 
+                        this->max_val, 
+                        DAQmx_Val_Volts,  
+                        NULL
+                    );
+            } else{
+                return ni::NiDAQmxInterface::CreateAIVoltageChan(    
+                        this->task_handle, this->name.c_str(), 
+                        "", 
+                        this->terminal_config, 
+                        this->min_val, 
+                        this->max_val, 
+                        DAQmx_Val_FromCustomScale,  
+                        this->scale_config.name.c_str()
+                    );
+            
+            }
         }
     };
     // DAQmxCreateAIVoltageChan
