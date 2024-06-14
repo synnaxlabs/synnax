@@ -7,11 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <gtest/gtest.h>
-#include <memory>
 #include "client/cpp/auth/auth.h"
-#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/auth.pb.h"
+
+#include <memory>
+#include <gtest/gtest.h>
+
 #include "freighter/cpp/mock/mock.h"
+#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/auth.pb.h"
 
 /// @brief it should correctly authenticate with a Synnax cluster.
 TEST(TestAuth, testLoginHappyPath) {

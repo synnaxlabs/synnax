@@ -11,10 +11,11 @@
 
 #include <string>
 #include <vector>
+
+#include "client/cpp/telem/telem.h"
 #include "freighter/cpp/freighter.h"
 #include "google/protobuf/empty.pb.h"
 #include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/hardware.pb.h"
-#include "client/cpp/telem/telem.h"
 
 using namespace synnax;
 

@@ -10,10 +10,11 @@
 #pragma once
 
 #include <string>
-#include "freighter/cpp/freighter.h"
-#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/channel.pb.h"
-#include "grpcpp/grpcpp.h"
+
 #include "client/cpp/telem/telem.h"
+#include "freighter/cpp/freighter.h"
+#include "grpcpp/grpcpp.h"
+#include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/channel.pb.h"
 
 using namespace synnax;
 

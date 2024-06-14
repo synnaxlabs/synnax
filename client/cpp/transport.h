@@ -9,12 +9,11 @@
 
 #pragma once
 
-/// internal
-#include "client/cpp/framer/framer.h"
-#include "client/cpp/channel/channel.h"
-#include "client/cpp/ranger/ranger.h"
 #include "client/cpp/auth/auth.h"
+#include "client/cpp/channel/channel.h"
+#include "client/cpp/framer/framer.h"
 #include "client/cpp/hardware/hardware.h"
+#include "client/cpp/ranger/ranger.h"
 
 class Transport {
 public:

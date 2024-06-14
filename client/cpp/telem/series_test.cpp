@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <iostream>
 #include <include/gtest/gtest.h>
+
 #include "client/cpp/synnax.h"
 #include "x/go/telem/x/go/telem/telem.pb.h"
-#include <iostream>
 
 ///// @brief create basic int series.
 TEST(TestSeries, testConstruction) {

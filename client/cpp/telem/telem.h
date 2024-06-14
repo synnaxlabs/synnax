@@ -9,10 +9,10 @@
 
 #pragma once
 
-#include <unordered_map>
+#include <cstdint>
 #include <string>
 #include <typeindex>
-#include <cstdint>
+#include <unordered_map>
 
 namespace synnax {
 /// @brief Holds the name and properties of a datatype.

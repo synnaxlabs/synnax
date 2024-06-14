@@ -9,17 +9,30 @@
 
 #pragma once
 
-#include "client/cpp/telem/telem.h"
-#include "x/go/telem/x/go/telem/telem.pb.h"
+#include <cstddef>
 #include <string>
 #include <utility>
 #include <vector>
-#include <cstddef>
+
+#include "client/cpp/telem/telem.h"
+#include "x/go/telem/x/go/telem/telem.pb.h"
 
 constexpr auto NEWLINE_TERMINATOR = static_cast<std::byte>('\n');
 constexpr char NEWLINE_TERMINATOR_CHAR = '\n';
 
 namespace synnax {
+template<typename T>
+void output_partial_vector(std::ostream &os, const std::vector<T> &v) {
+    if (v.size() <= 6) {
+        for (const auto &i: v) os << i << " ";
+        return;
+    }
+    for (size_t i = 0; i < 3; i++) os << v[i] << " ";
+    os << "... ";
+    for (size_t i = v.size() - 3; i < v.size(); ++i) os << v[i] << " ";
+}
+
+
 /// @brief Series is a strongly typed array of telemetry samples backed by an underlying binary buffer.
 class Series {
 public:
@@ -173,6 +186,10 @@ public:
         return count;
     }
 
+    /// @brief writes a single number to the series.
+    /// @param d the number to be written.
+    /// @returns 1 if the number was written, 0 if the series is at capacity and the
+    /// sample was not written.
     template<typename NumericType>
     size_t write(const NumericType d) {
         static_assert(
@@ -262,6 +279,8 @@ public:
         pb->set_data(data.get(), byteSize());
     }
 
+    /// @brief returns the data as a vector of strings. This method can only be used
+    /// if the data type is STRING or JSON.
     [[nodiscard]] std::vector<std::string> strings() const {
         if (data_type != synnax::STRING && data_type != synnax::JSON)
             throw std::runtime_error("invalid data type");
@@ -277,6 +296,8 @@ public:
         return v;
     }
 
+    /// @brief returns the data as a vector of numeric values. It is up to the caller
+    /// to ensure that the numeric type is compatible with the series' data type.
     template<typename NumericType>
     [[nodiscard]] std::vector<NumericType> values() const {
         static_assert(
@@ -289,6 +310,9 @@ public:
     }
 
 
+    /// @brief accesses the number at the given index.
+    /// @param index the index to get the number at. If negative, the index is treated
+    /// as an offset from the end of the series.
     template<typename NumericType>
     NumericType operator[](const int index) const {
         static_assert(
@@ -311,7 +335,13 @@ public:
         return value;
     }
 
+    /// @brief binds the string value at the given index to the provided string. The
+    /// series' data type must be STRING or JSON.
+    /// @param index the index to get the string at. If negative, the index is treated
+    /// as an offset from the end of the series.
     void at(const int index, std::string &value) const {
+        if (data_type != synnax::STRING && data_type != synnax::JSON)
+            throw std::runtime_error("invalid data type");
         const auto adjusted = validateBounds(index);
         // iterate through the data byte by byte, incrementing the index every time we
         // hit a newline character until we reach the desired index.
@@ -334,21 +364,29 @@ public:
         return value;
     }
 
-    // implement the ostream operator
     friend std::ostream &operator<<(std::ostream &os, const Series &s) {
         os << "Series(type: " << s.data_type.name() << ", size: " << s.size << ", cap: "
                 << s.cap << ", data: [";
-        if (s.data_type == synnax::STRING || s.data_type == synnax::JSON) {
-            const auto strings = s.strings();
-            for (const auto &string: strings) os << "\"" << string << "\" ";
-        } else if (s.data_type == synnax::FLOAT32)
-            for (size_t i = 0; i < s.size; i++) os << s.at<float>(i) << " ";
+        if (s.data_type == synnax::STRING || s.data_type == synnax::JSON)
+            output_partial_vector(os, s.strings());
+        else if (s.data_type == synnax::FLOAT32)
+            output_partial_vector(os, s.values<float>());
         else if (s.data_type == synnax::INT64)
-            for (size_t i = 0; i < s.size; i++) os << s.at<int64_t>(i) << " ";
+            output_partial_vector(os, s.values<int64_t>());
         else if (s.data_type == synnax::UINT64 || s.data_type == synnax::TIMESTAMP)
-            for (size_t i = 0; i < s.size; i++) os << s.at<uint64_t>(i) << " ";
+            output_partial_vector(os, s.values<uint64_t>());
         else if (s.data_type == synnax::UINT8)
-            for (size_t i = 0; i < s.size; i++) os << s.at<uint8_t>(i) << " ";
+            output_partial_vector(os, s.values<uint8_t>());
+        else if (s.data_type == synnax::INT32)
+            output_partial_vector(os, s.values<int32_t>());
+        else if (s.data_type == synnax::INT16)
+            output_partial_vector(os, s.values<int16_t>());
+        else if (s.data_type == synnax::UINT16)
+            output_partial_vector(os, s.values<uint16_t>());
+        else if (s.data_type == synnax::UINT32)
+            output_partial_vector(os, s.values<uint32_t>());
+        else if (s.data_type == synnax::FLOAT64)
+            output_partial_vector(os, s.values<double>());
         else os << "unknown data type";
         os << "])";
         return os;
@@ -394,7 +432,8 @@ private:
         if (adjusted + write_size >= size || adjusted < 0)
             throw std::runtime_error(
                 "index" + std::to_string(index) + " out of bounds for series of size" +
-                std::to_string(size));
+                std::to_string(size)
+            );
         return adjusted;
     }
 };

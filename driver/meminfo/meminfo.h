@@ -28,7 +28,8 @@ public:
 
     std::pair<Frame, freighter::Error> read(breaker::Breaker &breaker) override {
         timer.wait(breaker);
-        return {Frame(key, Series(getUsage(), synnax::UINT32)), freighter::NIL};
+        auto s = Series(getUsage(), synnax::UINT32);
+        return {Frame(key, std::move(s)), freighter::NIL};
     }
 };
 

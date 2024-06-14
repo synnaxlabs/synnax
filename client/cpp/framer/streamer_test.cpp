@@ -9,6 +9,7 @@
 
 #include <thread>
 #include <include/gtest/gtest.h>
+
 #include "client/cpp/synnax.h"
 #include "client/cpp/testutil/testutil.h"
 
