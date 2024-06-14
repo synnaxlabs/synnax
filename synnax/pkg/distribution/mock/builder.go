@@ -11,7 +11,6 @@ package mock
 
 import (
 	"context"
-
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -19,6 +18,7 @@ import (
 	dcore "github.com/synnaxlabs/synnax/pkg/distribution/core"
 	"github.com/synnaxlabs/synnax/pkg/distribution/core/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
@@ -38,6 +38,7 @@ type Builder struct {
 	iterNet    *tmock.FramerIteratorNetwork
 	channelNet *tmock.ChannelNetwork
 	relayNet   *tmock.FramerRelayNetwork
+	deleteNet  *tmock.FramerDeleterNetwork
 }
 
 func NewBuilder(cfg ...distribution.Config) *Builder {
@@ -45,10 +46,11 @@ func NewBuilder(cfg ...distribution.Config) *Builder {
 
 	return &Builder{
 		core:       *coreBuilder,
-		writerNet:  tmock.NewFramerWriterNetwork(),
-		iterNet:    tmock.NewFramerIteratorNetwork(),
+		writerNet:  tmock.NewWriterNetwork(),
+		iterNet:    tmock.NewIteratorNetwork(),
 		channelNet: tmock.NewChannelNetwork(),
 		relayNet:   tmock.NewRelayNetwork(),
+		deleteNet:  tmock.NewDeleterNetwork(),
 		Nodes:      make(map[dcore.NodeKey]distribution.Distribution),
 	}
 }
@@ -58,9 +60,10 @@ func (b *Builder) New(ctx context.Context) distribution.Distribution {
 	d := distribution.Distribution{Core: core}
 
 	trans := mockFramerTransport{
-		iter:   b.iterNet.New(core.Config.AdvertiseAddress, 1),
-		writer: b.writerNet.New(core.Config.AdvertiseAddress, 1),
-		relay:  b.relayNet.New(core.Config.AdvertiseAddress, 1),
+		iter:    b.iterNet.New(core.Config.AdvertiseAddress, 1),
+		writer:  b.writerNet.New(core.Config.AdvertiseAddress, 1),
+		relay:   b.relayNet.New(core.Config.AdvertiseAddress, 1),
+		deleter: b.deleteNet.New(core.Config.AdvertiseAddress),
 	}
 
 	d.Ontology = lo.Must(ontology.Open(ctx, ontology.Config{DB: d.Storage.Gorpify()}))
@@ -124,9 +127,10 @@ func (b *Builder) Cleanup() error {
 }
 
 type mockFramerTransport struct {
-	iter   iterator.Transport
-	writer writer.Transport
-	relay  relay.Transport
+	iter    iterator.Transport
+	writer  writer.Transport
+	relay   relay.Transport
+	deleter deleter.Transport
 }
 
 var _ framer.Transport = (*mockFramerTransport)(nil)
@@ -141,4 +145,8 @@ func (m mockFramerTransport) Writer() writer.Transport {
 
 func (m mockFramerTransport) Relay() relay.Transport {
 	return m.relay
+}
+
+func (m mockFramerTransport) Deleter() deleter.Transport {
+	return m.deleter
 }

@@ -47,7 +47,10 @@ func (db *DB) delete(ctx context.Context, tr telem.TimeRange) error {
 		return err
 	}
 
-	g.Authorize()
+	_, err = g.Authorize()
+	if err != nil {
+		return err
+	}
 	defer g.Release()
 
 	return db.Domain.Delete(

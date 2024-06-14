@@ -190,7 +190,7 @@ public:
     /// @brief The control authority to set for each channel. If this vector is of
     /// length 1, then the same authority is set for all channels. Otherwise, the
     /// vector must be the same length as the channels vector. If this vector
-    /// is empty, then all writes are executed with absolute authority.
+    /// is empty, then all writes are executed with AUTH_ABSOLUTE authority.
     std::vector<synnax::Authority> authorities;
 
     /// @brief sets identifying information for the writer. The subject's key and name
