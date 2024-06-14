@@ -14,11 +14,11 @@ deps:
 build:
     FROM +deps
     COPY . .
-    ARG noui=false
-    IF [ "$noui" = "true" ]
-        RUN go build -tags driver noui -o build/synnax .
-    ELSE
+    ARG driver=true
+    IF [ "$driver" = "true" ]
         RUN go build -tags driver -o build/synnax .
+    ELSE
+        RUN go build -o build/synnax .
     END
     SAVE ARTIFACT build/synnax /synnax AS LOCAL build/synnax
 
