@@ -12,10 +12,10 @@
 .pluto-tree {
     height: 100%;
 
-    & button {
+    & .pluto-btn {
         border-radius: 0;
         width: 100%;
-        border-bottom: none;
+        border-bottom: none !important;
 
         & .pluto-caret-animated path {
             fill: var(--pluto-gray-l6) !important;

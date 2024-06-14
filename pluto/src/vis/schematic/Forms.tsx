@@ -212,7 +212,7 @@ export const CommonToggleForm = (): ReactElement => {
           <FormWrapper direction="x" align="stretch">
             <Align.Space direction="y" grow>
               <LabelControls path="label" />
-              <ColorControl path="color" />
+              <ColorControl path="color" hideIfNull optional />
             </Align.Space>
             <OrientationControl path="" />
           </FormWrapper>
