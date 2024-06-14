@@ -34,7 +34,7 @@ jobs:
 
   build-server:
     needs: setup
-    runs-one: ubuntu-latest
+    runs-on: ubuntu-latest
     if: needs.setup.outputs.changed == 'true'
     env:
       GITHUB_SHA: ${{ github.sha }}
