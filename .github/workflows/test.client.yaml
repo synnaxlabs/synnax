@@ -31,7 +31,6 @@ jobs:
                 - "freighter/**"
                 - ".github/workflows/client.test.yaml"
 
-
   build-server:
     needs: setup
     runs-on: ubuntu-latest
@@ -53,7 +52,7 @@ jobs:
         uses: earthly/actions-setup@v1
 
       - name: Build Image
-        run: earthly --push +docker -tag=${GITHUB_SHA}
+        run: earthly --push +docker -tag=${GITHUB_SHA} -driver=false
         working-directory: ./synnax
       
   test-python:
