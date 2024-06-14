@@ -54,6 +54,10 @@ type WriterConfig struct {
 	// disk.
 	// [OPTIONAL] - Defaults to 1s.
 	AutoIndexPersistInterval telem.TimeSpan
+	// ErrOnUnauthorized controls whether the writer will return an error on open when
+	// attempting to write to a channel that is does not have authority over.
+	// [OPTIONAL] - Defaults to false
+	ErrOnUnauthorized *bool
 }
 
 var (
@@ -62,6 +66,7 @@ var (
 		Persist:                  config.True(),
 		EnableAutoCommit:         config.False(),
 		AutoIndexPersistInterval: 1 * telem.Second,
+		ErrOnUnauthorized:        config.False(),
 	}
 	errWriterClosed = core.EntityClosed("unary.writer")
 )
@@ -71,6 +76,7 @@ const AlwaysIndexPersistOnAutoCommit telem.TimeSpan = -1
 func (c WriterConfig) Validate() error {
 	v := validate.New("unary.WriterConfig")
 	validate.NotEmptyString(v, "Subject.Key", c.Subject.Key)
+	validate.NotNil(v, "ErrOnUnauthorized", c.ErrOnUnauthorized)
 	v.Ternary("end", !c.End.IsZero() && c.End.Before(c.Start), "end timestamp must be after or equal to start timestamp")
 	return v.Error()
 }
@@ -83,6 +89,7 @@ func (c WriterConfig) Override(other WriterConfig) WriterConfig {
 	c.Persist = override.Nil(c.Persist, other.Persist)
 	c.EnableAutoCommit = override.Nil(c.EnableAutoCommit, other.EnableAutoCommit)
 	c.AutoIndexPersistInterval = override.Zero(c.AutoIndexPersistInterval, other.AutoIndexPersistInterval)
+	c.ErrOnUnauthorized = override.Nil(c.ErrOnUnauthorized, other.ErrOnUnauthorized)
 	return c
 }
 
@@ -128,7 +135,6 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (w *Writer, 
 	if db.closed.Load() {
 		return nil, transfer, db.wrapError(errDBClosed)
 	}
-
 	cfg, err := config.New(DefaultWriterConfig, cfgs...)
 	if err != nil {
 		return nil, transfer, err
@@ -147,16 +153,17 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (w *Writer, 
 	var g *controller.Gate[controlledWriter]
 	g, transfer, err = db.Controller.OpenGateAndMaybeRegister(gateCfg, func() (controlledWriter, error) {
 		dw, err := db.Domain.NewWriter(ctx, cfg.domain())
-
-		return controlledWriter{
-			Writer:     dw,
-			channelKey: db.Channel.Key,
-		}, err
+		return controlledWriter{Writer: dw, channelKey: db.Channel.Key}, err
 	})
 	if err != nil {
 		return nil, transfer, w.wrapError(err)
 	}
-
+	if *cfg.ErrOnUnauthorized {
+		if _, err = g.Authorize(); err != nil {
+			g.Release()
+			return nil, transfer, err
+		}
+	}
 	w.control = g
 	db.entityCount.add(1)
 	return w, transfer, w.wrapError(err)
@@ -200,15 +207,14 @@ func (w *Writer) Write(series telem.Series) (a telem.AlignmentPair, err error) {
 		return 0, w.wrapError(err)
 	}
 	// ok signifies whether w is allowed to write.
-	dw, ok := w.control.Authorize()
-	if !ok {
-		return 0, controller.Unauthorized(w.control.Subject.Name, w.Channel.Key)
+	dw, err := w.control.Authorize()
+	if err != nil {
+		return 0, err
 	}
 	a = telem.NewAlignmentPair(math.MaxUint32, uint32(w.len(dw.Writer)))
 	if w.Channel.IsIndex {
 		w.updateHwm(series)
 	}
-
 	if *w.Persist {
 		_, err = dw.Write(series.Data)
 	}
@@ -251,9 +257,9 @@ func (w *Writer) CommitWithEnd(ctx context.Context, end telem.TimeStamp) (err er
 }
 
 func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.TimeStamp, error) {
-	dw, ok := w.control.Authorize()
-	if !ok {
-		return 0, controller.Unauthorized(w.control.Subject.String(), w.Channel.Key)
+	dw, err := w.control.Authorize()
+	if err != nil {
+		return 0, err
 	}
 
 	if end.IsZero() {

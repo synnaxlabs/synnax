@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 	"golang.org/x/sync/semaphore"
+	"io/fs"
 	"math/rand"
 	"strconv"
 	"sync"
@@ -55,27 +56,26 @@ func (db *DB) DeleteChannel(ch ChannelKey) error {
 	if db.closed.Load() {
 		return errDBClosed
 	}
-
-	db.mu.Lock()
-	err := db.removeChannel(ch)
-	if err != nil {
-		db.mu.Unlock()
-		return err
-	}
-
 	// Rename the file first, so we can avoid hogging the mutex while deleting the directory
 	// may take a longer time.
 	// Rename the file to have a random suffix in case the channel is repeatedly created
 	// and deleted.
 	oldName := keyToDirName(ch)
 	newName := oldName + "-DELETE-" + strconv.Itoa(rand.Int())
-	err = db.fs.Rename(oldName, newName)
-	if err != nil {
-		db.mu.Unlock()
-		return nil
+	if err := (func() error {
+		db.mu.Lock()
+		defer db.mu.Unlock()
+		if err := db.removeChannel(ch); err != nil {
+			return err
+		}
+		err := db.fs.Rename(oldName, newName)
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil
+		}
+		return err
+	})(); err != nil {
+		return err
 	}
-
-	db.mu.Unlock()
 	return db.fs.Remove(newName)
 }
 
@@ -83,13 +83,11 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 	if db.closed.Load() {
 		return errDBClosed
 	}
-
-	db.mu.Lock()
 	var (
 		indexChannels       = make([]ChannelKey, 0)
 		directoriesToRemove = make([]string, 0)
 	)
-
+	db.mu.Lock()
 	// This 'defer' statement does a best-effort removal of all renamed directories
 	// to ensure that all DBs deleted from db.unaryDBs and db.virtualDBs are also deleted
 	// on FS.
@@ -188,11 +186,15 @@ func (db *DB) removeChannel(ch ChannelKey) error {
 // DeleteTimeRange deletes a timerange of data in the database in the given channels
 // This method return an error if the channel to be deleted is an index channel and
 // there are other channels depending on it in the timerange.
-// DeleteTimeRange is idempotent.
+// DeleteTimeRange is idempotent, but when the channel does not exist, it returns
+// ErrChannelNotFound.
 func (db *DB) DeleteTimeRange(ctx context.Context, chs []ChannelKey, tr telem.TimeRange) error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
-	indexChannels := make([]ChannelKey, 0)
+	var (
+		indexChannels = make([]ChannelKey, 0)
+		dataChannels  = make([]ChannelKey, 0)
+	)
 
 	for _, ch := range chs {
 		udb, uok := db.unaryDBs[ch]
@@ -209,6 +211,11 @@ func (db *DB) DeleteTimeRange(ctx context.Context, chs []ChannelKey, tr telem.Ti
 			continue
 		}
 
+		dataChannels = append(dataChannels, ch)
+	}
+
+	for _, ch := range dataChannels {
+		udb := db.unaryDBs[ch]
 		if err := udb.Delete(ctx, tr); err != nil {
 			return err
 		}
@@ -245,9 +252,9 @@ func (db *DB) garbageCollect(ctx context.Context, maxGoRoutine int64) error {
 		sCtx, _ = signal.Isolated()
 		wg      = &sync.WaitGroup{}
 	)
-
 	for _, udb := range db.unaryDBs {
 		if err := sem.Acquire(ctx, 1); err != nil {
+			db.mu.RUnlock()
 			return err
 		}
 		wg.Add(1)
@@ -257,7 +264,6 @@ func (db *DB) garbageCollect(ctx context.Context, maxGoRoutine int64) error {
 			return udb.GarbageCollect(_ctx)
 		})
 	}
-
 	db.mu.RUnlock()
 	return sCtx.Wait()
 }

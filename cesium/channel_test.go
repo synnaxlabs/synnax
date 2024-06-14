@@ -477,6 +477,26 @@ var _ = Describe("Channel", Ordered, func() {
 					Expect(encoder.Decode(ctx, buf, &newCh)).To(Succeed())
 					Expect(newCh.Name).To(Equal("laplace"))
 				})
+				It("Should correctly rename multiple channels", func() {
+					key1 := GenerateChannelKey()
+					key2 := GenerateChannelKey()
+					key3 := GenerateChannelKey()
+					Expect(db.CreateChannel(ctx, cesium.Channel{Key: key1, Name: "fermat", Rate: 2 * telem.Hz, DataType: telem.Int64T})).To(Succeed())
+					Expect(db.CreateChannel(ctx, cesium.Channel{Key: key2, Name: "laplace", Rate: 2 * telem.Hz, DataType: telem.Int64T})).To(Succeed())
+					Expect(db.CreateChannel(ctx, cesium.Channel{Key: key3, Name: "newton", Rate: 2 * telem.Hz, DataType: telem.Int64T})).To(Succeed())
+
+					Expect(db.RenameChannels(ctx,
+						[]cesium.ChannelKey{key1, key2, key3},
+						[]string{"newton2", "fermat3", "laplace4"},
+					)).To(Succeed())
+
+					ch := MustSucceed(db.RetrieveChannel(ctx, key1))
+					Expect(ch.Name).To(Equal("newton2"))
+					ch = MustSucceed(db.RetrieveChannel(ctx, key2))
+					Expect(ch.Name).To(Equal("fermat3"))
+					ch = MustSucceed(db.RetrieveChannel(ctx, key3))
+					Expect(ch.Name).To(Equal("laplace4"))
+				})
 			})
 		})
 	}

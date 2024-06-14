@@ -18,7 +18,8 @@ import { getCurrent } from "@tauri-apps/api/window";
 import { type ReactElement, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
-import { Controls, Menu } from "@/components";
+import { Controls } from "@/components";
+import { Menu } from "@/components/menu";
 import { CSS } from "@/css";
 import { Content } from "@/layout/Content";
 import { WindowProps } from "@/layout/layout";
@@ -79,7 +80,7 @@ export const NavTop = ({
 
 export const DefaultContextMenu = (): ReactElement => (
   <PMenu.Menu>
-    <Menu.Item.HardReload />
+    <Menu.HardReloadItem />
   </PMenu.Menu>
 );
 

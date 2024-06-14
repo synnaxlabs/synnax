@@ -120,6 +120,6 @@ const Main = (): ReactElement => (
   </Provider>
 );
 
-const rootEl = document.getElementById("root") as unknown as HTMLElement;
+const rootEl = document.getElementById("root") as HTMLElement;
 
 ReactDOM.createRoot(rootEl).render(<Main />);

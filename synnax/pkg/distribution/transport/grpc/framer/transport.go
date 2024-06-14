@@ -15,11 +15,14 @@ import (
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/fgrpc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	framerv1 "github.com/synnaxlabs/synnax/pkg/distribution/transport/grpc/framer/v1"
+	"go/types"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type (
@@ -59,6 +62,18 @@ type (
 		relay.Response,
 		*framerv1.RelayResponse,
 	]
+	deleteClient = fgrpc.UnaryClient[
+		deleter.Request,
+		*framerv1.DeleteRequest,
+		types.Nil,
+		*emptypb.Empty,
+	]
+	deleteServer = fgrpc.UnaryServer[
+		deleter.Request,
+		*framerv1.DeleteRequest,
+		types.Nil,
+		*emptypb.Empty,
+	]
 )
 
 var (
@@ -68,10 +83,10 @@ var (
 	_ framerv1.IteratorServiceServer = (*iteratorServer)(nil)
 	_ iterator.TransportServer       = (*iteratorServer)(nil)
 	_ iterator.TransportClient       = (*iteratorClient)(nil)
-	_ framer.Transport               = Transport{}
-	_ fgrpc.BindableTransport        = Transport{}
 	_ relay.TransportServer          = (*relayServer)(nil)
 	_ relay.TransportClient          = (*relayClient)(nil)
+	_ framer.Transport               = Transport{}
+	_ fgrpc.BindableTransport        = Transport{}
 )
 
 // New creates a new grpc Transport that opens connections from the given pool.
@@ -133,6 +148,19 @@ func New(pool *fgrpc.Pool) Transport {
 				},
 			},
 		},
+		deleter: deleteTransport{
+			server: &deleteServer{
+				RequestTranslator:  deleteRequestTranslator{},
+				ResponseTranslator: fgrpc.EmptyTranslator{},
+				ServiceDesc:        &framerv1.DeleteService_ServiceDesc,
+			},
+			client: &deleteClient{
+				Pool:               pool,
+				RequestTranslator:  deleteRequestTranslator{},
+				ResponseTranslator: fgrpc.EmptyTranslator{},
+				ServiceDesc:        &framerv1.DeleteService_ServiceDesc,
+			},
+		},
 	}
 }
 
@@ -154,6 +182,7 @@ type Transport struct {
 	writer   writerTransport
 	iterator iteratorTransport
 	relay    relayTransport
+	deleter  deleteTransport
 }
 
 // Writer implements the framer.Transport interface.
@@ -164,6 +193,9 @@ func (t Transport) Iterator() iterator.Transport { return t.iterator }
 
 // Relay implements the framer.Transport interface.
 func (t Transport) Relay() relay.Transport { return t.relay }
+
+// Deleter implements the framer.Transport interface
+func (t Transport) Deleter() deleter.Transport { return t.deleter }
 
 // BindTo implements the fgrpc.BindableTransport interface.
 func (t Transport) BindTo(server grpc.ServiceRegistrar) {
@@ -214,3 +246,14 @@ func (t relayTransport) Client() relay.TransportClient { return t.client }
 
 // Server implements the framer.Transport interface.
 func (t relayTransport) Server() relay.TransportServer { return t.server }
+
+type deleteTransport struct {
+	client *deleteClient
+	server *deleteServer
+}
+
+// Client implements the framer.Transport interface.
+func (t deleteTransport) Client() deleter.TransportClient { return t.client }
+
+// Server implements the framer.Transport interface.
+func (t deleteTransport) Server() deleter.TransportServer { return t.server }

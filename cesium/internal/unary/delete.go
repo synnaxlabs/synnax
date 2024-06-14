@@ -26,6 +26,8 @@ func (db *DB) Delete(ctx context.Context, tr telem.TimeRange) error {
 // GarbageCollect removes unused telemetry data in the unaryDB. It is NOT safe to call
 // concurrently with other GarbageCollect methods.
 func (db *DB) GarbageCollect(ctx context.Context) error {
+	db.entityCount.add(1)
+	defer db.entityCount.add(-1)
 	return db.wrapError(db.Domain.GarbageCollect(ctx))
 }
 
@@ -45,7 +47,10 @@ func (db *DB) delete(ctx context.Context, tr telem.TimeRange) error {
 		return err
 	}
 
-	g.Authorize()
+	_, err = g.Authorize()
+	if err != nil {
+		return err
+	}
 	defer g.Release()
 
 	return db.Domain.Delete(

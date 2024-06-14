@@ -12,9 +12,17 @@
 
 package embedded
 
-import "context"
+import (
+	"context"
+	"github.com/synnaxlabs/x/config"
+)
 
 func OpenDriver(ctx context.Context, cfgs ...Config) (*Driver, error) {
+	cfg, err := config.New(DefaultConfig, cfgs...)
+	if err != nil {
+		return nil, err
+	}
+	cfg.L.Info("server built without embedded driver")
 	return &Driver{}, nil
 }
 

@@ -11,6 +11,7 @@ package kv
 
 import (
 	"context"
+	"github.com/synnaxlabs/x/signal"
 	"go/types"
 
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
@@ -125,9 +126,8 @@ func newFeedbackReceiver(cfg Config) source {
 	return fr
 }
 
-func (f *feedbackReceiver) handle(_ context.Context, msg FeedbackMessage) (types.Nil, error) {
+func (f *feedbackReceiver) handle(ctx context.Context, msg FeedbackMessage) (types.Nil, error) {
 	// The handler context is cancelled after it returns, so we need to use a separate
 	// context for passing the feedback to the pipeline.
-	f.Out.Inlet() <- msg.Digests.toRequest(context.TODO())
-	return types.Nil{}, nil
+	return types.Nil{}, signal.SendUnderContext(ctx, f.Out.Inlet(), msg.Digests.toRequest(context.TODO()))
 }

@@ -75,6 +75,16 @@ struct Frame {
     // implement the ostream operator
     friend std::ostream &operator<<(std::ostream &os, const Frame &f);
 
+    template<typename NumericType>
+    NumericType at(synnax::ChannelKey key, int index) const {
+        for (size_t i = 0; i < channels->size(); i++) {
+            if (channels->at(i) == key)
+                return series->at(i).at<NumericType>(index);
+        }
+        throw std::runtime_error("channel not found");
+    }
+
+
     [[nodiscard]] size_t size() const { return series->size(); }
 };
 
@@ -180,7 +190,7 @@ public:
     /// @brief The control authority to set for each channel. If this vector is of
     /// length 1, then the same authority is set for all channels. Otherwise, the
     /// vector must be the same length as the channels vector. If this vector
-    /// is empty, then all writes are executed with absolute authority.
+    /// is empty, then all writes are executed with AUTH_ABSOLUTE authority.
     std::vector<synnax::Authority> authorities;
 
     /// @brief sets identifying information for the writer. The subject's key and name
@@ -197,13 +207,18 @@ public:
     /// @brief sets whether auto commit is enabled for the writer. If true, samples will
     /// be made immediately available for reads. If false, samples will be made available
     /// for reads only after a call to Writer::commit().
-    bool enable_auto_commit;
+    bool enable_auto_commit = false;
+
+    /// @brief sets whether the writer returns error if the writer attempts to write to a channel
+    /// that it does not have authority to write to. If false, the writer will silently ignore
+    bool err_on_unauthorized = false;
 
     /// @brief sets the interval at which commits will be flushed to disk and durable 
     /// when auto commit is enabled. Setting this value to zero will make all writes 
     /// durable immediately. Lower values will decrease write throughput. Defaults to 
     /// 1s when auto commit is enabled.
-    synnax::TimeSpan auto_index_persist_interval;
+    synnax::TimeSpan auto_index_persist_interval = 1 * synnax::SECOND;
+
 private:
     /// @brief binds the configuration fields to it's protobuf representation.
     void toProto(api::v1::FrameWriterConfig *f) const;
@@ -211,7 +226,6 @@ private:
     friend class FrameClient;
     friend class Writer;
 };
-
 
 /// @brief used to write a new domain of telemetry frames to a set of channels in time
 /// order. Writer cannot be constructed directly, and should instead be opened using
@@ -257,6 +271,7 @@ public:
     /// MUST be closed after use, or the caller risks leaking resources. Calling any
     /// method on a closed writer will throw a runtime_error.
     freighter::Error close() const;
+
 private:
     /// @brief whether an error has occurred in the write pipeline.
     bool err_accumulated = false;

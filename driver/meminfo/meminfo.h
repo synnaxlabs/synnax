@@ -19,10 +19,7 @@ std::uint32_t getUsage();
 class MemInfoSource final : public pipeline::Source {
     synnax::ChannelKey key;
 public:
-
-    MemInfoSource(
-        const synnax::ChannelKey &key
-    ): key(key) {
+    explicit MemInfoSource(const synnax::ChannelKey &key): key(key) {
     }
 
     std::pair<Frame, freighter::Error> read() override {
@@ -30,12 +27,6 @@ public:
         auto fr = Frame(1);
         fr.add(key, Series(getUsage(), synnax::UINT32));
         return {std::move(fr), freighter::NIL};
-    }
-    freighter::Error start() override {
-        return freighter::NIL;
-    }
-    freighter::Error stop() override {
-        return freighter::NIL;
     }
 };
 
@@ -48,7 +39,7 @@ public:
         std::shared_ptr<pipeline::Source> source,
         const synnax::WriterConfig &writer_config,
         const breaker::Config &breaker_config
-    ): pipe(pipeline::Acquisition(ctx, writer_config, source, breaker_config)) {
+    ): pipe(pipeline::Acquisition(ctx->client, writer_config, source, breaker_config)) {
         pipe.start();
     }
 
@@ -80,7 +71,7 @@ public:
             .max_retries = 20,
             .scale = 1.2
         };
-        return(std::make_unique<MemInfo>(ctx, std::move(source), writer_cfg, breaker_config));
+        return(std::make_unique<MemInfo>(ctx, source, writer_cfg, breaker_config));
     }
 
     void exec(task::Command &cmd) override {
@@ -112,11 +103,12 @@ class Factory final : public task::Factory {
             LOG(ERROR) << "[meminfo] Failed to list existing tasks: " << err;
             return {};
         }
+        // check if a task with the same type and name already exists
         bool hasMeminfo = false;
         for (const auto &t: existing) {
             if (t.type == "meminfo") {
                 LOG(INFO) << "[meminfo] found existing meminfo task with key: " << t.key
-                        << "skipping creation." << std::endl;
+                        << " skipping creation." << std::endl;
                 hasMeminfo = true;
             }
         }
@@ -135,7 +127,7 @@ class Factory final : public task::Factory {
                 return {};
             }
             auto [task, ok] = configureTask(ctx, sy_task);
-            if (ok && task != nullptr) tasks.push_back({sy_task, std::move(task)});
+            if (ok && task != nullptr) tasks.emplace_back(sy_task, std::move(task));
         }
         return tasks;
     }

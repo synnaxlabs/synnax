@@ -8,11 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/media";
-import { Menu } from "@synnaxlabs/pluto";
+import { Menu as PMenu } from "@synnaxlabs/pluto";
 
+import { Cluster } from "@/cluster";
+import { Menu } from "@/components/menu";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
 import { Layout } from "@/layout";
+import { Link } from "@/link";
 import { Ontology } from "@/ontology";
 
 const ZERO_LAYOUT_STATES: Record<string, Layout.State> = {
@@ -44,6 +47,7 @@ const handleSelect: Ontology.HandleSelect = ({
 const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const { store, selection, client, addStatus } = props;
   const { resources } = selection;
+  const clusterKey = Cluster.useSelectActiveKey();
 
   const _handleSelect = (itemKey: string): void => {
     switch (itemKey) {
@@ -69,15 +73,24 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           services: props.services,
         });
         break;
+      case "link": {
+        const url = `synnax://cluster/${clusterKey}/task/${selection.resources[0].id.key}`;
+        void navigator.clipboard.writeText(url);
+        break;
+      }
     }
   };
 
+  const singleResource = resources.length === 1;
+
   return (
-    <Menu.Menu level="small" iconSpacing="small" onChange={_handleSelect}>
-      <Menu.Item itemKey="delete" startIcon={<Icon.Delete />}>
+    <PMenu.Menu level="small" iconSpacing="small" onChange={_handleSelect}>
+      <PMenu.Item itemKey="delete" startIcon={<Icon.Delete />}>
         Delete
-      </Menu.Item>
-    </Menu.Menu>
+      </PMenu.Item>
+      {singleResource && <Link.CopyMenuItem />}
+      <Menu.HardReloadItem />
+    </PMenu.Menu>
   );
 };
 

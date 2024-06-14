@@ -30,6 +30,7 @@ import { type state } from "@/state";
 export interface Item {
   key: Key;
   type: string;
+  elementID?: string;
   data?: unknown;
 }
 
@@ -102,11 +103,8 @@ export const Provider = ({
 
   const drop: ContextValue["drop"] = useCallback(
     ({ target, dropped }) => {
-      ref.current.onSuccessfulDrop?.({
-        target,
-        dropped,
-        hauled: ref.current.items,
-      });
+      const hauled = ref.current.items;
+      ref.current.onSuccessfulDrop?.({ target, dropped, hauled });
       ref.current = HAUL_REF;
       setState(ZERO_DRAGGING_STATE);
     },

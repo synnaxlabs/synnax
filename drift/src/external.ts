@@ -14,6 +14,7 @@ export {
   selectWindow,
   selectWindowAttribute,
   selectWindowKey,
+  selectWindowLabel,
   selectWindows,
 } from "@/selectors";
 export type {
@@ -40,6 +41,7 @@ export {
   createWindow,
   initialState,
   reducer,
+  focusWindow,
   registerProcess,
   reloadWindow,
   setWindowAlwaysOnTop,

@@ -12,18 +12,21 @@ import { Icon } from "@synnaxlabs/media";
 import {
   Channel,
   type Haul,
-  Menu,
-  type Schematic as PlutoSchematic,
+  Menu as PMenu,
+  type Schematic as PSchematic,
   telem,
 } from "@synnaxlabs/pluto";
 import { Tree } from "@synnaxlabs/pluto/tree";
+import { nanoid } from "nanoid";
 import { type ReactElement } from "react";
 
-import { Menu as ConsoleMenu } from "@/components";
+import { Cluster } from "@/cluster";
+import { Menu } from "@/components/menu";
 import { Group } from "@/group";
 import { Layout } from "@/layout";
 import { LinePlot } from "@/lineplot";
-import { type Ontology } from "@/ontology";
+import { Link } from "@/link";
+import { Ontology } from "@/ontology";
 import { Range } from "@/range";
 import { Schematic } from "@/schematic";
 
@@ -80,7 +83,7 @@ const haulItems = ({ name, id }: ontology.Resource): Haul.Item[] => {
     },
     outlet: "stringifier",
   });
-  const schematicSymbolProps: PlutoSchematic.ValueProps = {
+  const schematicSymbolProps: PSchematic.ValueProps = {
     label: {
       label: name,
       level: "p",
@@ -144,6 +147,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   const { store, selection, client, addStatus } = props;
   const activeRange = Range.select(store.getState());
   const { nodes, resources } = selection;
+  const clusterKey = Cluster.useSelectActiveKey();
 
   const handleSelect = (itemKey: string): void => {
     switch (itemKey) {
@@ -154,7 +158,6 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
         break;
       case "rename":
         Tree.startRenaming(nodes[0].key, (name) => {
-          console.log("rename", name);
           handleRename({ ...props, name, id: resources[0].id });
         });
         break;
@@ -173,7 +176,7 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
           .catch((e: Error) => {
             addStatus({
               variant: "error",
-              key: "deleteChannelError",
+              key: nanoid(),
               message: e.message,
             });
           });
@@ -181,34 +184,38 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
       case "group":
         void Group.fromSelection(props);
         break;
+      case "link": {
+        const toCopy = `synnax://cluster/${clusterKey}/channel/${resources[0].id.key}`;
+        void navigator.clipboard.writeText(toCopy);
+        return;
+      }
     }
   };
 
   const singleResource = selection.resources.length === 1;
 
   return (
-    <Menu.Menu level="small" iconSpacing="small" onChange={handleSelect}>
-      <ConsoleMenu.Item.HardReload />
+    <PMenu.Menu level="small" iconSpacing="small" onChange={handleSelect}>
       <Group.GroupMenuItem selection={selection} />
-      <Menu.Item itemKey="rename" startIcon={<Icon.Rename />}>
-        Rename
-      </Menu.Item>
+      {singleResource && <Ontology.RenameMenuItem />}
       {activeRange != null && activeRange.persisted && (
         <>
           {singleResource && (
-            <Menu.Item itemKey="alias" startIcon={<Icon.Rename />}>
+            <PMenu.Item itemKey="alias" startIcon={<Icon.Rename />}>
               Set Alias Under {activeRange.name}
-            </Menu.Item>
+            </PMenu.Item>
           )}
-          <Menu.Item itemKey="deleteAlias" startIcon={<Icon.Delete />}>
+          <PMenu.Item itemKey="deleteAlias" startIcon={<Icon.Delete />}>
             Clear Alias Under {activeRange.name}
-          </Menu.Item>
+          </PMenu.Item>
         </>
       )}
-      <Menu.Item itemKey="delete" startIcon={<Icon.Delete />}>
+      <PMenu.Item itemKey="delete" startIcon={<Icon.Delete />}>
         Delete
-      </Menu.Item>
-    </Menu.Menu>
+      </PMenu.Item>
+      {singleResource && <Link.CopyMenuItem />}
+      <Menu.HardReloadItem />
+    </PMenu.Menu>
   );
 };
 

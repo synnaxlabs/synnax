@@ -24,7 +24,6 @@ from synnax.framer import Writer
 from synnax.io import RowFileReader
 from synnax.telem import Size, TimeStamp
 
-
 class RowIngestionEngine:
     """An ingestion engine that reads data from a row-based reader and writes it to a
     Synnax cluster.
@@ -53,7 +52,7 @@ class RowIngestionEngine:
         self.reader = reader
         self.client = client
         self.reader.set_chunk_size(self.get_chunk_size())
-        self.writer = self.client.open_writer(start, [ch.key for ch in channels])
+        self.writer = self.client.open_writer(start, [ch.key for ch in channels], err_on_extra_chans=False)
         self.end = start
 
     def get_chunk_size(self):
@@ -78,7 +77,7 @@ class RowIngestionEngine:
                         chunk = self.reader.read()
                         self._write(chunk)
                         tp = chunk.size / (datetime.now() - t0).total_seconds()
-                        progress.update(task, advance=chunk.size, tp=tp)
+                        progress.update(task, advance=chunk.size, tp=int(tp))
                     except StopIteration:
                         break
             self.end, _ = self.writer.commit()
