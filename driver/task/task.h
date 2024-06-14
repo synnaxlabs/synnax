@@ -166,10 +166,8 @@ public:
             }
             state_updater = std::make_unique<Writer>(std::move(su));
         }
-        auto fr = Frame(
-            chan.key,
-            Series(to_string(state.toJSON()), JSON)
-        );
+        auto s = Series(to_string(state.toJSON()), JSON);
+        auto fr = Frame(chan.key, std::move(s));
         if (state_updater->write(fr)) return;
         auto err = state_updater->close();
         LOG(ERROR) << "[task.context] failed to write task state update" << err;

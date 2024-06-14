@@ -59,9 +59,9 @@ void Frame::toProto(api::v1::Frame *f) const {
 
 // implement th ostream operator
 std::ostream &synnax::operator<<(std::ostream &os, const Frame &f) {
-    os << "Frame{";
+    os << "Frame{" << std::endl;
     for (size_t i = 0; i < f.channels->size(); i++) {
-        os << f.channels->at(i) << ": " << f.series->at(i) << ", " << std::endl;
+        os << " " << f.channels->at(i) << ": " << f.series->at(i) << ", " << std::endl;
     }
     os << "}";
     return os;

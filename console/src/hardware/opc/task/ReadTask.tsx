@@ -165,9 +165,7 @@ const Internal = ({ initialValues, task: pTask }: InternalProps): ReactElement =
   useAsyncEffect(async () => {
     if (client == null || task == null) return;
     stateObserverRef.current = await task.openStateObserver<ReadStateDetails>();
-    stateObserverRef.current.onChange((s) => {
-      setTaskState(s);
-    });
+    stateObserverRef.current.onChange((s) => setTaskState(s));
     return async () => await stateObserverRef.current?.close().catch(console.error);
   }, [client?.key, task?.key, setTaskState]);
 
@@ -180,7 +178,7 @@ const Internal = ({ initialValues, task: pTask }: InternalProps): ReactElement =
         key: task?.key,
         name: methods.value().name,
         type: READ_TYPE,
-        config: methods.value().config,
+        config: readConfigZ.parse(methods.value().config),
       });
       setTask(t);
     },

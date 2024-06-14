@@ -76,6 +76,10 @@ export const readConfigZ = z
         },
       });
     });
+  })
+  .transform((cfg) => {
+    if (!cfg.arrayMode) cfg.arraySize = 1;
+    return cfg;
   });
 
 export type ReadConfig = z.infer<typeof readConfigZ>;

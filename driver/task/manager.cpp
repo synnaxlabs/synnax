@@ -32,7 +32,7 @@ const std::string TASK_CMD_CHANNEL = "sy_task_cmd";
 
 freighter::Error task::Manager::start(std::atomic<bool> &done) {
     if(breaker.running()) return freighter::NIL;
-    LOG(INFO) << "[task.manager] starting up";
+    VLOG(1) << "[task.manager] starting up";
     const auto err = startGuarded();
     breaker.start();
     if (err) {
@@ -66,7 +66,7 @@ freighter::Error task::Manager::startGuarded() {
     task_cmd_channel = task_cmd;
 
     // Retrieve all of the tasks that are already configured and start them.
-    LOG(INFO) << "[task.manager] pulling and configuring existing tasks from Synnax";
+    VLOG(1) << "[task.manager] pulling and configuring existing tasks from Synnax";
     auto [tasks, tasks_err] = rack.tasks.list();
     if (tasks_err) return tasks_err;
     for (const auto &task: tasks) {
@@ -75,7 +75,7 @@ freighter::Error task::Manager::startGuarded() {
             this->tasks[task.key] = std::move(driver_task);
     }
 
-    LOG(INFO) << "[task.manager] configuring initial tasks from factory";
+    VLOG(1) << "[task.manager] configuring initial tasks from factory";
     auto initial_tasks = factory->configureInitialTasks(ctx, this->internal);
     for (auto &[sy_task, task]: initial_tasks)
         this->tasks[sy_task.key] = std::move(task);
@@ -90,13 +90,14 @@ void task::Manager::run(std::atomic<bool> &done) {
     done = true;
     done.notify_all();
     run_err = err;
-    LOG(INFO) << "[task.manager] run thread exiting";
+    VLOG(1) << "[task.manager] run thread exiting";
 }
 
 freighter::Error task::Manager::stop() {
     if(!breaker.running()) return freighter::NIL;
     if (!run_thread.joinable()) return freighter::NIL;
     streamer->closeSend();
+    breaker.stop();
     run_thread.join();
     for (auto &[key, task]: tasks) {
         LOG(INFO) << "[task.manager] stopping task " << task->name();
@@ -141,7 +142,7 @@ void task::Manager::processTaskSet(const Series &series) {
         // If a module exists with this key, stop and remove it.
         auto task_iter = tasks.find(key);
         if (task_iter != tasks.end()) {
-            LOG(INFO) << "[task.manager] stopping task " << key;
+            VLOG(1) << "[task.manager] stopping task " << key;
             task_iter->second->stop();
             tasks.erase(task_iter);
         }

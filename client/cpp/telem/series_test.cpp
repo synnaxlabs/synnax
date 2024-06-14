@@ -45,17 +45,38 @@ TEST(TestSeries, testStringConstruction) {
     ASSERT_EQ(v[0], val);
 }
 
+TEST(TestSeries, testJSONConstruction) {
+    const std::string raw = R"({ "key": "abc" })";
+    const Series s(raw, JSON);
+    ASSERT_EQ(s.data_type, synnax::JSON);
+    ASSERT_EQ(s.size, 1);
+    ASSERT_EQ(s.byteSize(), 17);
+    const auto v = s.string();
+    ASSERT_EQ(v[0], raw);
+}
+
 //// @brief it should correctly serialize and deserialize the series from protoubuf.
 TEST(TestSeries, testProto) {
-    const std::vector<uint8_t> vals = {1, 2, 3, 4, 5};
+    const std::vector<uint16_t> vals = {1, 2, 3, 4, 5};
     const Series s{vals};
     const auto s2 = new telem::PBSeries();
     s.to_proto(s2);
     const Series s3{*s2};
-    const auto v = s3.values<std::uint8_t>();
+    const auto v = s3.values<std::uint16_t>();
     for (size_t i = 0; i < vals.size(); i++)
         ASSERT_EQ(v[i], vals[i]);
     delete s2;
+}
+
+TEST(TestSeries, testProtoVariable) {
+    const std::vector<std::string> vals = {"hello", "world22"};
+    const Series s{vals};
+    const auto s2 = new telem::PBSeries();
+    s.to_proto(s2);
+    const Series s3{*s2};
+    const auto v = s3.string();
+    for (size_t i = 0; i < vals.size(); i++)
+        ASSERT_EQ(v[i], vals[i]);
 }
 
 /// @brief it should correctly return the value at a particular index for a fixed
@@ -123,4 +144,22 @@ TEST(TestSeries, testWriteVector) {
     ASSERT_EQ(s.at<float>(1), 2.0);
     for (size_t i = 0; i < values.size(); i++)
         ASSERT_EQ(v[i], values[i]);
+}
+
+TEST(TestSeries, testCopyConstructorVariable) {
+    const std::vector<std::string> vals = {"hello", "world"};
+    const Series s{vals};
+    const Series s2{s};
+    const auto v = s2.string();
+    for (size_t i = 0; i < vals.size(); i++)
+        ASSERT_EQ(v[i], vals[i]);
+}
+
+TEST(TestSeries, testCopyConstructorFixed) {
+    const std::vector<std::uint64_t> vals = {1, 2, 3, 4, 5};
+    const Series s{vals};
+    const Series s2{s};
+    const auto v = s2.values<std::uint64_t>();
+    for (size_t i = 0; i < vals.size(); i++)
+        ASSERT_EQ(v[i], vals[i]);
 }

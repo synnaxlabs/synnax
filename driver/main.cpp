@@ -65,8 +65,8 @@ int main(int argc, char *argv[]) {
         LOG(FATAL) << "[driver] failed to parse configuration: " << cfg_err;
         return 1;
     }
-    LOG(INFO) << "[driver] configuration parsed successfully";
-    LOG(INFO) << "[driver] connecting to Synnax at " << cfg.client_config.host << ":" <<
+    VLOG(1) << "[driver] configuration parsed successfully";
+    VLOG(1) << "[driver] connecting to Synnax at " << cfg.client_config.host << ":" <<
             cfg.client_config.port;
 
 
@@ -74,7 +74,7 @@ int main(int argc, char *argv[]) {
 
     auto breaker = breaker::Breaker(cfg.breaker_config);
     breaker.start();
-    LOG(INFO) << "[driver] retrieving meta-data";
+    VLOG(1) << "[driver] retrieving meta-data";
     auto [rack, rack_err] = retrieveDriverRack(cfg, breaker, client);
     breaker.stop();
     if (rack_err) {

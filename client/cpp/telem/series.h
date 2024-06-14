@@ -17,6 +17,7 @@
 #include <cstddef>
 
 constexpr auto NEWLINE_TERMINATOR = static_cast<std::byte>('\n');
+constexpr char NEWLINE_TERMINATOR_CHAR = '\n';
 
 namespace synnax {
 /// @brief Series is a strongly typed array of telemetry samples backed by an underlying binary buffer.
@@ -35,7 +36,8 @@ public:
        data_type(data_type),
        data(std::make_unique<std::byte[]>(cap * data_type.density())) {
         if (data_type.is_variable())
-            throw std::runtime_error("cannot pre-allocate a series with a variable data type");
+            throw std::runtime_error(
+                "cannot pre-allocate a series with a variable data type");
     }
 
     /// @brief constructs a series from the given vector of numeric data and an optional
@@ -236,26 +238,23 @@ public:
         this->data[byteSize() - 1] = static_cast<std::byte>('\n');
     }
 
-    Series(const Series &s) : data_type(s.data_type) {
-        data = std::make_unique<std::byte[]>(s.size);
-        memcpy(data.get(), s.data.get(), s.size);
-        size = s.size;
-        cap = s.cap;
-    }
-
     /// @brief constructs the series from its protobuf representation.
     explicit Series(const telem::PBSeries &s) : data_type(s.data_type()) {
-        size = s.data().size();
+        if (data_type.is_variable()) {
+            size = 0;
+            for (const char &v: s.data()) if (v == NEWLINE_TERMINATOR_CHAR) size++;
+            cached_byte_size = s.data().size();
+        } else size = s.data().size() / data_type.density();
         cap = size;
-        data = std::make_unique<std::byte[]>(size);
-        memcpy(data.get(), s.data().data(), size);
+        data = std::make_unique<std::byte[]>(byteSize());
+        memcpy(data.get(), s.data().data(), byteSize());
     }
 
     /// @brief encodes the series' fields into the given protobuf message.
     /// @param pb the protobuf message to encode the fields into.
     void to_proto(telem::PBSeries *pb) const {
         pb->set_data_type(data_type.name());
-        pb->set_data(data.get(), size);
+        pb->set_data(data.get(), byteSize());
     }
 
     [[nodiscard]] std::vector<std::string> string() const {
@@ -268,7 +267,7 @@ public:
                 v.push_back(s);
                 s.clear();
                 // WARNING: This might be very slow due to copying.
-            } else s += char(data[i]);
+            } else s += static_cast<char>(data[i]);
         }
         return v;
     }
@@ -283,7 +282,6 @@ public:
         memcpy(v.data(), data.get(), byteSize());
         return v;
     }
-
 
 
     template<typename NumericType>
@@ -333,7 +331,8 @@ public:
 
     // implement the ostream operator
     friend std::ostream &operator<<(std::ostream &os, const Series &s) {
-        os << "Series(" << s.data_type.name() << ", [";
+        os << "Series(type: " << s.data_type.name() << ", size: " << s.size << ", cap: "
+                << s.cap << ", data: [";
         if (s.data_type == synnax::STRING || s.data_type == synnax::JSON) {
             const auto strings = s.string();
             for (const auto &string: strings) os << "\"" << string << "\" ";
