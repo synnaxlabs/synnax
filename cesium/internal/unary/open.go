@@ -82,8 +82,6 @@ func Open(configs ...Config) (*DB, error) {
 		return nil, err
 	}
 
-	// check for versioning
-
 	domainDB, err := domain.Open(domain.Config{
 		FS:              cfg.FS,
 		Instrumentation: cfg.Instrumentation,

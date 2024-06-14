@@ -270,8 +270,8 @@ func (w *streamWriter) write(ctx context.Context, req WriterRequest) (err error)
 
 func (w *streamWriter) commit(ctx context.Context) (telem.TimeStamp, error) {
 	maxTS := telem.TimeStampMin
-	for _, idx := range w.internal {
-		ts, err := idx.Commit(ctx)
+	for _, idxW := range w.internal {
+		ts, err := idxW.Commit(ctx)
 		if err != nil {
 			return maxTS, err
 		}
@@ -307,7 +307,6 @@ func (w *streamWriter) close(ctx context.Context) error {
 	}
 
 	if len(u.Transfers) > 0 {
-		// Do a best effort wr
 		_ = w.updateDBControl(ctx, u)
 	}
 

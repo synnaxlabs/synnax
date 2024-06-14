@@ -34,10 +34,10 @@ type Iterator struct {
 	closed   bool
 }
 
-func wrapStreamIterator(wrap *streamIterator) *Iterator {
+func wrapStreamIterator(internal *streamIterator) *Iterator {
 	ctx, cancel := signal.Isolated()
-	req, res := confluence.Attach[IteratorRequest, IteratorResponse](wrap, 1)
-	wrap.Flow(ctx)
+	req, res := confluence.Attach[IteratorRequest, IteratorResponse](internal, 1)
+	internal.Flow(ctx)
 	return &Iterator{
 		inlet:    req,
 		outlet:   res,

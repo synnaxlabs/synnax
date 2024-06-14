@@ -246,6 +246,8 @@ func (i *Iterator) Error() error {
 	return wrap(i.err)
 }
 
+// Valid checks if an iterator has accumulated no errors and has at least one series
+// in its current frame.
 func (i *Iterator) Valid() bool { return i.partiallySatisfied() && i.err == nil }
 
 func (i *Iterator) Close() (err error) {
