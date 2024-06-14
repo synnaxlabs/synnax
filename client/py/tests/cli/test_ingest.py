@@ -17,16 +17,11 @@ from synnax.synnax import Synnax
 
 from .data import DATA_DIR
 
+CHANNELS = ["ingest-valid-idx", "ingest-valid-1", "ingest-valid-2"]
 
 @pytest.mark.cli
 class TestIngest:
     def test_valid_ingest(self, client: Synnax):
-        try:
-            ch = client.channels.retrieve("ingest-valid-idx")
-        except QueryError:
-            ch = None
-        if ch is not None:
-            pytest.skip("Channel already exists")
         c = MockConsole(
             responses=[
                 True,  # Ingest all channels?
@@ -45,3 +40,5 @@ class TestIngest:
             client=client,
             ctx=Context(console=c),
         )
+        client.channels.delete(CHANNELS)
+

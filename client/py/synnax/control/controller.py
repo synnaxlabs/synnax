@@ -105,8 +105,8 @@ class Controller:
         provided if ch is a dictionary.
 
         Examples:
-        >>> controller.set("my_channel", 42)
-        >>> controller.set({
+        >>> controller._set("my_channel", 42)
+        >>> controller._set({
         ...     "channel_1": 42,
         ...     "channel_2": 3.14,
         ... })
