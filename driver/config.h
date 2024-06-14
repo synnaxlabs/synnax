@@ -27,5 +27,5 @@ struct Config {
 
 std::pair<Config, freighter::Error> parse(const json &content);
 
-json read(std::string path);
+json read(const std::string &path);
 }

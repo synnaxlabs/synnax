@@ -226,6 +226,11 @@ public:
         cap = size;
     }
 
+    /// @brief constructs the series from the given string. This can also be a JSON
+    /// encoded string, in which case the data type should be set to JSON.
+    ///  @param data the string to be used as the data.
+    ///  @param data_type_ the type of data being used. Defaults to STRING, but can
+    ///  also be set to JSON.
     explicit Series(
         const std::string &data,
         DataType data_type_ = STRING
@@ -257,7 +262,7 @@ public:
         pb->set_data(data.get(), byteSize());
     }
 
-    [[nodiscard]] std::vector<std::string> string() const {
+    [[nodiscard]] std::vector<std::string> strings() const {
         if (data_type != synnax::STRING && data_type != synnax::JSON)
             throw std::runtime_error("invalid data type");
         std::vector<std::string> v;
@@ -334,7 +339,7 @@ public:
         os << "Series(type: " << s.data_type.name() << ", size: " << s.size << ", cap: "
                 << s.cap << ", data: [";
         if (s.data_type == synnax::STRING || s.data_type == synnax::JSON) {
-            const auto strings = s.string();
+            const auto strings = s.strings();
             for (const auto &string: strings) os << "\"" << string << "\" ";
         } else if (s.data_type == synnax::FLOAT32)
             for (size_t i = 0; i < s.size; i++) os << s.at<float>(i) << " ";

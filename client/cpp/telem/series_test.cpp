@@ -30,7 +30,7 @@ TEST(TestSeries, testStringVectorConstruction) {
     ASSERT_EQ(s.data_type, synnax::STRING);
     ASSERT_EQ(s.size, 2);
     ASSERT_EQ(s.byteSize(), 12);
-    const auto v = s.string();
+    const auto v = s.strings();
     for (size_t i = 0; i < vals.size(); i++)
         ASSERT_EQ(v[i], vals[i]);
 }
@@ -41,7 +41,7 @@ TEST(TestSeries, testStringConstruction) {
     ASSERT_EQ(s.data_type, synnax::STRING);
     ASSERT_EQ(s.size, 1);
     ASSERT_EQ(s.byteSize(), 6);
-    const auto v = s.string();
+    const auto v = s.strings();
     ASSERT_EQ(v[0], val);
 }
 
@@ -51,7 +51,7 @@ TEST(TestSeries, testJSONConstruction) {
     ASSERT_EQ(s.data_type, synnax::JSON);
     ASSERT_EQ(s.size, 1);
     ASSERT_EQ(s.byteSize(), 17);
-    const auto v = s.string();
+    const auto v = s.strings();
     ASSERT_EQ(v[0], raw);
 }
 
@@ -74,7 +74,7 @@ TEST(TestSeries, testProtoVariable) {
     const auto s2 = new telem::PBSeries();
     s.to_proto(s2);
     const Series s3{*s2};
-    const auto v = s3.string();
+    const auto v = s3.strings();
     for (size_t i = 0; i < vals.size(); i++)
         ASSERT_EQ(v[i], vals[i]);
 }
@@ -150,7 +150,7 @@ TEST(TestSeries, testCopyConstructorVariable) {
     const std::vector<std::string> vals = {"hello", "world"};
     const Series s{vals};
     const Series s2{s};
-    const auto v = s2.string();
+    const auto v = s2.strings();
     for (size_t i = 0; i < vals.size(); i++)
         ASSERT_EQ(v[i], vals[i]);
 }
