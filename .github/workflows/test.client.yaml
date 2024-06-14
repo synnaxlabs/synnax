@@ -212,4 +212,19 @@ jobs:
 
       - name: Test
         run: bazel test //client/...
+    services:
+      synnax:
+        image: ghcr.io/synnaxlabs/synnax:${{ github.sha }}
+        env:
+          SYNNAX_LISTEN: localhost:9090
+          SYNNAX_VERBOSE: true
+          SYNNAX_INSECURE: true
+          SYNNAX_MEM: true
+          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
+
+        credentials:
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+        ports:
+          - 9090:9090
 
