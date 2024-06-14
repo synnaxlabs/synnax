@@ -5,6 +5,28 @@ from synnax.control.controller import Controller
 import numpy as np
 from scipy.signal import find_peaks
 
+client = sy.Synnax()
+from common import (
+    SENSORS,
+    VALVES,
+    SUPPLY_PT,
+    PNEUMATICS_PT,
+    PRESS_ISO_STATE,
+    DAQ_TIME,
+    OX_TPC_CMD,
+    OX_TPC_ACK,
+    OX_MPV_CMD,
+    OX_MPV_ACK,
+    OX_PRESS_CMD,
+    GAS_BOOSTER_ISO_CMD,
+    OX_VENT_CMD,
+    OX_PT_1,
+    PRESS_PT_1,
+    PRESS_ISO_CMD,
+    OX_PRESS_STATE,
+)
+
+
 @dataclasses.dataclass
 class TPCParameters:
     l_stand_press_target: int
@@ -15,17 +37,34 @@ class TPCParameters:
     tpc_upper_bound: int
     tpc_lower_bound: int
 
-client = sy.Synnax()
 
-TPC_CMD = "tpc_vlv_cmd"
-TPC_CMD_ACK = "tpc_vlv_ack"
-MPV_CMD = "mpv_vlv_cmd"
-PRESS_ISO_CMD = "press_iso_cmd"
-VENT_CMD = "vent_cmd"
-PRESS_TANK_PT = "press_tank_pt"
-FUEL_TANK_PT = "fuel_tank_pt"
+TPC_CMD = OX_PRESS_CMD
+TPC_CMD_ACK = OX_PRESS_STATE
+MPV_CMD = OX_MPV_CMD
+SUPPLY_CMD = GAS_BOOSTER_ISO_CMD
+VENT_CMD = OX_VENT_CMD
+PRESS_TANK_PT = PRESS_PT_1
+FUEL_TANK_PT = OX_PT_1
+START_SIM_CMD = "start_sim_cmd"
 
-def execute_auto(params: TPCParameters):
+sim_cmd_time = client.channels.create(
+    name=f"{START_SIM_CMD}_time",
+    data_type=sy.DataType.TIMESTAMP,
+    is_index=True,
+    retrieve_if_name_exists=True,
+)
+
+sim_cmd = client.channels.create(
+    name=START_SIM_CMD, data_type=sy.DataType.UINT8, index=sim_cmd_time.key,
+    retrieve_if_name_exists=True,
+)
+
+
+def start_sim_cmd(aut: Controller):
+    return sim_cmd.key in aut.state and aut[START_SIM_CMD] == 1
+
+
+def execute_auto(params: TPCParameters, wait_for_confirm: bool = False) -> sy.Range:
     def run_tpc(auto: Controller):
         pressure = auto[FUEL_TANK_PT]
         one_open = auto[TPC_CMD_ACK]
@@ -38,17 +77,19 @@ def execute_auto(params: TPCParameters):
 
     with client.control.acquire(
         "Autosequence",
-        write=[TPC_CMD, MPV_CMD, PRESS_ISO_CMD, VENT_CMD],
-        read=[TPC_CMD_ACK, PRESS_TANK_PT, FUEL_TANK_PT],
+        write=[TPC_CMD, MPV_CMD, SUPPLY_CMD, VENT_CMD, PRESS_ISO_CMD],
+        read=[TPC_CMD_ACK, PRESS_TANK_PT, FUEL_TANK_PT, START_SIM_CMD],
         write_authorities=[250],
     ) as auto:
+        if wait_for_confirm:
+            auto.wait_until(start_sim_cmd)
         try:
             print("Starting TPC Test. Setting initial system state.")
             auto.set(
                 {
                     TPC_CMD: 0,
                     MPV_CMD: 0,
-                    PRESS_ISO_CMD: 0,
+                    SUPPLY_CMD: 0,
                     VENT_CMD: 1,
                 }
             )
@@ -60,15 +101,16 @@ def execute_auto(params: TPCParameters):
             # Pressurize l-stand and scuba to 50 PSI
             # Open TPC Valve
             auto[TPC_CMD] = True
+            auto[PRESS_ISO_CMD] = True
 
             dual_press_start = sy.TimeStamp.now()
 
             curr_target = params.press_1_step
             while True:
                 print(f"Pressing L-Stand to {curr_target} PSI")
-                auto[PRESS_ISO_CMD] = True
+                auto[SUPPLY_CMD] = True
                 auto.wait_until(lambda c: c[FUEL_TANK_PT] > curr_target)
-                auto[PRESS_ISO_CMD] = False
+                auto[SUPPLY_CMD] = False
                 curr_target += params.press_1_step
                 curr_target = min(curr_target, params.l_stand_press_target)
                 if auto[FUEL_TANK_PT] > params.l_stand_press_target:
@@ -90,12 +132,14 @@ def execute_auto(params: TPCParameters):
             time.sleep(params.press_step_delay)
             # ISO off TESCOM and press scuba with ISO
             auto[TPC_CMD] = False
+            auto[PRESS_ISO_CMD] = False
+            auto[SUPPLY_CMD] = False
 
             curr_target = params.l_stand_press_target + params.press_2_step
             while True:
-                auto[PRESS_ISO_CMD] = True
+                auto[SUPPLY_CMD] = True
                 auto.wait_until(lambda c: c[PRESS_TANK_PT] > curr_target)
-                auto[PRESS_ISO_CMD] = False
+                auto[SUPPLY_CMD] = False
                 curr_target += params.press_2_step
                 curr_target = min(curr_target, params.scuba_press_target)
                 if auto[PRESS_TANK_PT] > params.scuba_press_target:
@@ -117,7 +161,8 @@ def execute_auto(params: TPCParameters):
             start = sy.TimeStamp.now()
 
             print("Opening MPV")
-            auto[MPV_CMD] = 1
+            auto[PRESS_ISO_CMD] = True
+            auto[MPV_CMD] = True
             auto.wait_until(lambda c: run_tpc(c))
             print("Test complete. Safeing System")
 
@@ -139,7 +184,7 @@ def execute_auto(params: TPCParameters):
             auto.set(
                 {
                     TPC_CMD: 1,
-                    PRESS_ISO_CMD: 0,
+                    SUPPLY_CMD: 0,
                     # Open vent
                     VENT_CMD: 0,
                     MPV_CMD: 0,
@@ -152,7 +197,7 @@ def execute_auto(params: TPCParameters):
             print("Test interrupted. Safeing System")
             auto.set({
                 TPC_CMD: 1,
-                PRESS_ISO_CMD: 0,
+                SUPPLY_CMD: 0,
                 VENT_CMD: 0,
                 MPV_CMD: 1,
             })
@@ -164,7 +209,7 @@ def perform_analysis(params: TPCParameters, rng: sy.Range) -> TPCParameters:
     fuel_pt = rng[FUEL_TANK_PT].to_numpy()
     peaks, _ = find_peaks(fuel_pt, height=params.tpc_upper_bound)
     avg_diff = np.mean(fuel_pt[peaks] - params.tpc_upper_bound)
-    rng.meta_data.set("overshoot_avg",  f"{avg_diff} PSI")
+    rng.meta_data.set("overshoot_avg", f"{avg_diff} PSI")
     tpc_upper_bound = params.tpc_upper_bound - avg_diff
     return TPCParameters(
         l_stand_press_target=params.l_stand_press_target,
@@ -187,7 +232,7 @@ if __name__ == "__main__":
         tpc_upper_bound=50,
         tpc_lower_bound=45
     )
-    res = execute_auto(initial_params)
+    res = execute_auto(initial_params, wait_for_confirm=True)
     next_params = perform_analysis(initial_params, res)
     res = execute_auto(next_params)
     next_params.tpc_upper_bound = initial_params.tpc_upper_bound

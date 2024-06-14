@@ -25,7 +25,7 @@ TEST(FramerTests, testStreamBasic) {
     auto [writer, wErr] = client.telem.openWriter(synnax::WriterConfig{
         channels,
         now,
-        std::vector<synnax::Authority>{synnax::ABSOLUTTE},
+        std::vector<synnax::Authority>{synnax::AUTH_ABSOLUTE},
         synnax::ControlSubject{"test_writer"}
     });
     ASSERT_FALSE(wErr) << wErr.message();

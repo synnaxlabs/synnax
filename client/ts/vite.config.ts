@@ -7,16 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { isProd, lib } from "@synnaxlabs/vite-plugin";
 import { defineConfig } from "vite";
-import { lib, isProd } from "@synnaxlabs/vite-plugin";
 
 export default defineConfig({
   plugins: [lib({ name: "client" })],
   build: {
-    minify: isProd(),
-    sourcemap: !isProd(),
     rollupOptions: {
-      external: "zod",
+      external: ["zod"],
     },
   },
   test: {

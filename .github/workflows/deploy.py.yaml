@@ -1,0 +1,168 @@
+name: Python Deploy
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.11
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install poetry
+
+      - name: Check Alamos Changes
+        uses: dorny/paths-filter@v3
+        id: alamos
+        with:
+          filters: |
+            changed:
+              - "alamos/py/**"
+              - ".github/workflows/pypi.publish.yaml"
+
+      - name: Check Freighter Changes
+        uses: dorny/paths-filter@v3
+        id: freighter
+        with:
+          filters: |
+            changed:
+              - "alamos/py/**"
+              - "freighter/py/**"
+              - ".github/workflows/pypi.publish.yaml"
+
+
+      - name: Check Client Changes
+        uses: dorny/paths-filter@v3
+        id: client
+        with:
+          filters: |
+            changed:
+              - "alamos/py/**"
+              - "freighter/py/**"
+              - "client/py/**"
+              - ".github/workflows/pypi.publish.yaml"
+
+      - name: Conditionally Bump Alamos Version
+        if: steps.alamos.outputs.changed == 'true'
+        working-directory: ./alamos/py
+        run: |
+          poetry version patch
+          ALAMOS_VERSION=$(poetry version -s)
+
+      - name: Conditionally Bump Freighter Version
+        if: steps.freighter.outputs.changed == 'true'
+        working-directory: ./freighter/py
+        run: |
+          poetry version patch
+          FREIGHTER_VERSION=$(poetry version -s)
+
+      - name: Conditionally Bump Client Version
+        if: steps.client.outputs.changed == 'true'
+        working-directory: ./client/py
+        run: |
+          poetry version patch
+          CLIENT_VERSION=$(poetry version -s)
+
+      - name: Update packages with correct versions
+        run: |
+          cd ./client/py
+          CLIENT_VERSION=$(poetry version -s)
+          cd ../../freighter/py
+          FREIGHTER_VERSION=$(poetry version -s)
+          cd ../../alamos/py
+          ALAMOS_VERSION=$(poetry version -s)
+          cd ../../client/py
+          sed -i -E "/^\[tool\.poetry\.dependencies\]$/,/^\[.*\]$/ s/synnax-freighter = .*/synnax-freighter = \"^$FREIGHTER_VERSION\"/" pyproject.toml
+          sed -i -E "/^\[tool\.poetry\.dependencies\]$/,/^\[.*\]$/ s/alamos = .*/alamos = \"^$ALAMOS_VERSION\"/" pyproject.toml
+          cd ../../freighter/py
+          sed -i -E "/^\[tool\.poetry\.dependencies\]$/,/^\[.*\]$/ s/alamos = .*/alamos = \"^$ALAMOS_VERSION\"/" pyproject.toml
+
+          poetry config pypi-token.pypi ${{ secrets.PYPI_TOKEN }}
+
+      - name: Conditionally Publish Alamos
+        if: steps.alamos.outputs.changed == 'true'
+        working-directory: ./alamos/py
+        run: |
+          echo "Updating alamos version to $ALAMOS_VERSION"
+          echo "Locking alamos dependencies"
+          poetry lock -n
+          echo "Installing alamos dependencies"
+          poetry install -n
+          echo "Publishing alamos"
+          poetry publish --build --no-interaction
+
+      - name: Conditionally Publish Freighter
+        if: steps.freighter.outputs.changed == 'true'
+        working-directory: ./freighter/py
+        run: |
+          echo "Updating freighter version to $FREIGHTER_VERSION"
+          # poll until the new version of alamos is available
+          while true; do
+            echo "Locking freighter dependencies"
+            # wait until this command exits with 0
+            poetry lock -n && break
+            poetry cache clear --all -n .
+            echo "Failed to lock dependencies, retrying in 1 seconds"
+            sleep 1
+          done
+          poetry install -n
+          echo "Publishing freighter"
+          poetry publish --build --no-interaction
+
+      - name: Conditionally Publish Client
+        if: steps.client.outputs.changed == 'true'
+        working-directory: ./client/py
+        run: |
+          echo "Updating client version to $CLIENT_VERSION"
+          # poll until the new version of freighter is available
+          while true; do
+            echo "Locking client dependencies"
+            # wait until this command exits with 0
+            poetry lock -n && break
+            poetry cache clear --all -n .
+            echo "Failed to lock dependencies, retrying in 1 seconds"
+            sleep 1
+          done
+          poetry install -n
+          echo "Publishing client"
+          poetry publish --build --no-interaction
+
+      - name: Put back the original relative paths
+        run: |
+          # put back the original relative paths (set develop = true)
+          cd client/py
+          sed -i -E "/^\[tool\.poetry\.dependencies\]$/,/^\[.*\]$/ s/synnax-freighter = .*/synnax-freighter = { path = \"..\/..\/freighter\/py\", develop = true }/" pyproject.toml
+          sed -i -E "/^\[tool\.poetry\.dependencies\]$/,/^\[.*\]$/ s/alamos = .*/alamos = { path = \"..\/..\/alamos\/py\", develop = true }/" pyproject.toml
+          cd ../../freighter/py
+          sed -i -E "/^\[tool\.poetry\.dependencies\]$/,/^\[.*\]$/ s/alamos = .*/alamos = { path = \"..\/..\/alamos\/py\", develop = true }/" pyproject.toml
+
+      - name: Commit and push changes
+        uses: EndBug/add-and-commit@v9
+        with:
+          add: "client/py/pyproject.toml freighter/py/pyproject.toml alamos/py/pyproject.toml"
+          message: "Update dependencies"
+          pull: "--commit --no-edit"
+          push: "origin ${{ github.ref }} --force"
+
+
+
+
+
+
+
+
+
+
+

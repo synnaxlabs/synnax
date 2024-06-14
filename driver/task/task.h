@@ -260,6 +260,7 @@ private:
     std::thread run_thread;
     freighter::Error run_err;
 
+    std::atomic<bool> running;
     void run(std::atomic<bool> &done);
 
     freighter::Error runGuarded();

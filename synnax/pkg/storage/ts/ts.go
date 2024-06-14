@@ -66,6 +66,7 @@ var (
 	DefaultConfig = Config{
 		FS: xfs.Default,
 	}
+	ErrChannelNotfound = cesium.ErrChannelNotFound
 )
 
 // Validate implements config.Properties.

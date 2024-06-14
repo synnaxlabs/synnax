@@ -81,6 +81,8 @@ const (
 	Suspect      = node.StateSuspect
 )
 
+var NodeNotfound = cluster.NodeNotFound
+
 type DB struct {
 	Cluster *cluster.Cluster
 	kvx.DB

@@ -19,9 +19,8 @@ driver::Driver::Driver(
     Rack rack,
     const std::shared_ptr<Synnax> &client,
     std::unique_ptr<task::Factory> factory,
-    breaker::Config breaker_config
-): key(rack.key),
-   task_manager(rack, client, std::move(factory), breaker_config.child("task.manager")),
+    const breaker::Config &breaker_config
+): task_manager(rack, client, std::move(factory), breaker_config.child("task.manager")),
    heartbeat(rack.key, client, breaker_config.child("heartbeat")) {
 }
 
@@ -35,20 +34,14 @@ freighter::Error driver::Driver::run() {
         task_manager.stop();
         return err;
     }
-    LOG(INFO) << "[main] started successfully. waiting for shutdown.";
+    LOG(INFO) << "[main] started successfully. waiting for shutdown";
     done.wait(false);
-    task_manager.stop();
     heartbeat.stop();
+    task_manager.stop();
     return freighter::NIL;
 }
 
 void driver::Driver::stop() {
-    const auto tm_err = task_manager.stop();
-    const auto hb_err = heartbeat.stop();
-    if (tm_err) {
-        LOG(ERROR) << "[main] failed to stop task manager: " << tm_err.message();
-    }
-    if (hb_err) {
-        LOG(ERROR) << "[main] failed to stop heartbeat: " << hb_err.message();
-    }
+    done = true;
+    done.notify_all();
 }

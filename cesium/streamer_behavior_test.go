@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/controller"
+	"github.com/synnaxlabs/cesium/internal/core"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
 	xfs "github.com/synnaxlabs/x/io/fs"
@@ -111,7 +112,7 @@ var _ = Describe("Streamer Behavior", func() {
 				})
 			})
 			Describe("Virtual Channels", func() {
-				It("Should describe to written frames for virtual channels", func() {
+				It("Should subscribe to written frames for virtual channels", func() {
 					var basic2 cesium.ChannelKey = 4
 					By("Creating a channel")
 					Expect(db.CreateChannel(
@@ -134,7 +135,8 @@ var _ = Describe("Streamer Behavior", func() {
 						[]cesium.ChannelKey{basic2},
 						[]telem.Series{telem.NewSeriesV[int64](1, 2, 3)},
 					))).To(BeTrue())
-					f := <-o.Outlet()
+					var f cesium.StreamerResponse
+					Eventually(o.Outlet()).Should(Receive(&f))
 					Expect(f.Frame.Keys).To(HaveLen(1))
 					Expect(f.Frame.Series).To(HaveLen(1))
 					Expect(f.Frame.Series[0]).To(Equal(telem.NewSeriesV[int64](1, 2, 3)))
@@ -182,6 +184,19 @@ var _ = Describe("Streamer Behavior", func() {
 					Expect(r.Frame.Keys).To(HaveLen(1))
 					i.Close()
 					Expect(sCtx.Wait()).To(Succeed())
+				})
+			})
+			Describe("Closed", func() {
+				It("Should not allow opening a streamer on a closed db", func() {
+					sub := MustSucceed(fs.Sub("closed-fs"))
+					key := cesium.ChannelKey(1)
+					subDB := openDBOnFS(sub)
+					Expect(subDB.CreateChannel(ctx, cesium.Channel{Key: key, DataType: telem.Int64T, Rate: 1 * telem.Hz})).To(Succeed())
+					Expect(subDB.Close()).To(Succeed())
+					_, err := subDB.NewStreamer(ctx, cesium.StreamerConfig{Channels: []cesium.ChannelKey{key}})
+					Expect(err).To(HaveOccurredAs(core.EntityClosed("cesium.db")))
+
+					Expect(fs.Remove("closed-fs")).To(Succeed())
 				})
 			})
 		})

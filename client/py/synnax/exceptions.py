@@ -40,6 +40,26 @@ class FieldError(ValidationError):
         super().__init__(f"{field}: {message}")
 
 
+class ControlError(Exception):
+    """
+    Raised when a control error occurs.
+    """
+
+    TYPE = _FREIGHTER_EXCEPTION_PREFIX + "control"
+
+    pass
+
+
+class UnauthorizedError(ControlError):
+    """
+    Raised when an entity attempts to access or modify information it is not allowed.
+    """
+
+    TYPE = ControlError.TYPE + ".unauthorized"
+
+    pass
+
+
 class AuthError(Exception):
     """
     Raised when an authentication error occurs.
@@ -141,6 +161,11 @@ def _decode(encoded: freighter.ExceptionPayload) -> Exception | None:
 
     if encoded.type.startswith(RouteError.TYPE):
         return RouteError(encoded.data)
+
+    if encoded.type.startswith(ControlError.TYPE):
+        if encoded.type.startswith(UnauthorizedError.TYPE):
+            return UnauthorizedError(encoded.data)
+        return ControlError(encoded.data)
 
     return UnexpectedError(encoded.data)
 

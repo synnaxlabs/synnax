@@ -20,7 +20,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { Tree as Core } from "@synnaxlabs/pluto/tree";
 import { deep } from "@synnaxlabs/x";
-import { memo, type ReactElement, useCallback, useMemo,useState } from "react";
+import { memo, type ReactElement, useCallback, useMemo, useState } from "react";
 import { useStore } from "react-redux";
 
 import { Layout } from "@/layout";
@@ -178,13 +178,11 @@ export const Tree = (): ReactElement => {
   const store = useStore<RootState, RootAction>();
   const placeLayout = Layout.usePlacer();
   const removeLayout = Layout.useRemover();
-
   const [loading, setLoading] = useState<string | false>(false);
   const [nodes, setNodes, nodesRef] = useCombinedStateAndRef<Core.Node[]>([]);
   const [resourcesRef, setResources] = useRefAsState<ontology.Resource[]>([]);
-  const [selected, setSelected] = useState<string[]>([]);
+  const [selected, setSelected, selectedRef] = useCombinedStateAndRef<string[]>([]);
   const addStatus = Status.useAggregator();
-
   const menuProps = Menu.useContextMenu();
 
   // Processes incoming changes to the ontology from the cluster.
@@ -267,13 +265,23 @@ export const Tree = (): ReactElement => {
         try {
           setLoading(clicked);
           const resources = await client.ontology.retrieveChildren(id, {
-            includeSchema: true,
+            includeSchema: false,
           });
           const converted = toTreeNodes(services, resources);
-          const nextTree = Core.setNode({
+          const nextTree = Core.updateNodeChildren({
             tree: nodesRef.current,
-            destination: clicked,
-            additions: converted,
+            parent: clicked,
+            updater: (nodes) => {
+              const res = converted.map((node) => {
+                const existing = nodes.find(({ key }) => key === node.key);
+                return { ...existing, ...node };
+              });
+              const nodesBeingRenamed = nodes.filter(
+                ({ key, name }) =>
+                  !converted.find(({ key: k }) => k === key) && name.length === 0,
+              );
+              return [...res, ...nodesBeingRenamed];
+            },
           });
           const keys = resources.map(({ id }) => id.toString());
           resourcesRef.current = [
@@ -343,27 +351,32 @@ export const Tree = (): ReactElement => {
 
   const handleContextMenu = useCallback(
     ({ keys }: Menu.ContextMenuMenuProps): ReactElement | null => {
-      if (keys.length === 0 || client == null) return null;
+      if (keys.length === 0 || client == null) return <Layout.DefaultContextMenu />;
       const rightClickedButNotSelected = keys.find(
         (v) => !treeProps.selected.includes(v),
       );
       // In the case where we right clicked the menu, but it's not in the current
       // selection, we only display a context menu for that item.
       if (rightClickedButNotSelected != null) keys = [rightClickedButNotSelected];
+      // Because we're using a virtualized tree, the keys from the context menu
+      // might not actually be accurate (because we're missing DOM elements), so instead
+      // we pull directly from the list selected state.
+      else keys = selectedRef.current;
       const resources = resourcesRef.current;
       const nodeSnapshot = nodesRef.current;
 
       const selectedNodes = Core.findNodes({ tree: nodeSnapshot, keys });
       const selectedResources = resources.filter(({ key }) => keys.includes(key));
 
+      // TODO: we might be selecting two nodes that are not ascendants or
+      // descendants of the other ones. We need to change this function to
+      // implement recursion.
       const parent = Core.findNodeParent({
         tree: nodeSnapshot,
         // We want to find the parent of the node with the lowest depth, since we
         // might be selecting nodes AND their children.
         key: selectedNodes.sort((a, b) => a.depth - b.depth)[0].key,
       });
-      // No parent means no valid contex menu.
-      if (parent == null) return null;
 
       const firstID = new ontology.ID(keys[0]);
 
@@ -385,6 +398,9 @@ export const Tree = (): ReactElement => {
           setNodes,
           setSelection: setSelected,
           setResources,
+          expand: treeProps.expand,
+          contract: treeProps.contract,
+          setLoading: setLoading,
         },
       };
 
@@ -392,7 +408,7 @@ export const Tree = (): ReactElement => {
       if (!allSameType) return <MultipleSelectionContextMenu {...props} />;
 
       const M = services[firstID.type].TreeContextMenu;
-      return M == null ? null : <M {...props} />;
+      return M == null ? <Layout.DefaultContextMenu /> : <M {...props} />;
     },
     [
       client,
@@ -411,9 +427,10 @@ export const Tree = (): ReactElement => {
   const item = useCallback(
     (props: Core.ItemProps): ReactElement => (
       <AdapterItem
+        {...props}
+        key={props.entry.key}
         loading={props.entry.key === loading}
         services={services}
-        {...props}
       />
     ),
     [services, loading],

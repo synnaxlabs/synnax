@@ -31,13 +31,17 @@ const std::string TASK_DELETE_CHANNEL = "sy_task_delete";
 const std::string TASK_CMD_CHANNEL = "sy_task_cmd";
 
 freighter::Error task::Manager::start(std::atomic<bool> &done) {
+    if(running) return freighter::NIL;
     LOG(INFO) << "[task.manager] starting up";
-    if (const auto err = startGuarded(); err) {
+    const auto err = startGuarded();
+    breaker.start();
+    if (err) {
         if (err.matches(freighter::UNREACHABLE) && breaker.wait(err)) start(done);
         done = true;
         return err;
     }
     breaker.reset();
+    running = true;
     run_thread = std::thread(&Manager::run, this, std::ref(done));
     return freighter::NIL;
 }
@@ -85,16 +89,19 @@ void task::Manager::run(std::atomic<bool> &done) {
     const auto err = runGuarded();
     if (err.matches(freighter::UNREACHABLE) && breaker.wait(err)) return run(done);
     done = true;
+    done.notify_all();
     run_err = err;
+    LOG(INFO) << "[task.manager] run thread exiting";
 }
 
 freighter::Error task::Manager::stop() {
+    if(!running) return freighter::NIL;
     if (!run_thread.joinable()) return freighter::NIL;
-    LOG(INFO) << "[task.manager] shutting down";
+    running = false;
     streamer->closeSend();
     run_thread.join();
     for (auto &[key, task]: tasks) task->stop();
-    LOG(INFO) << "[task.manager] shut down";
+    tasks.clear();
     return run_err;
 }
 
@@ -112,9 +119,8 @@ freighter::Error task::Manager::runGuarded() {
     // If we pass here it means we've re-gained network connectivity and can reset the breaker.
     breaker.reset();
 
-    while (true) {
+    while (running) {
         auto [frame, read_err] = streamer->read();
-        LOG(INFO) << "[task.manager] received frame";
         if (read_err) break;
         for (size_t i = 0; i < frame.size(); i++) {
             const auto &key = (*frame.channels)[i];
@@ -150,7 +156,6 @@ void task::Manager::processTaskSet(const Series &series) {
 
 void task::Manager::processTaskCmd(const Series &series) {
     const auto commands = series.string();
-    LOG(INFO) <<  "[task.manager] " << commands.size() << " commands received";
     for (const auto &cmd_str: commands) {
         auto parser = config::Parser(cmd_str);
         auto cmd = task::Command(parser);

@@ -90,6 +90,10 @@ export class Channel {
    */
   readonly isIndex: boolean;
   /**
+   * This is set to true if the channel is an internal channel, and false otherwise.
+   */
+  readonly internal: boolean;
+  /**
    * An alias for the channel under a specific range. This parameter is unstable and
    * should not be relied upon in the current version of Synnax.
    */
@@ -103,6 +107,7 @@ export class Channel {
     key = 0,
     isIndex = false,
     index = 0,
+    internal = false,
     frameClient,
     alias,
   }: NewPayload & {
@@ -116,6 +121,7 @@ export class Channel {
     this.leaseholder = leaseholder;
     this.index = index;
     this.isIndex = isIndex;
+    this.internal = internal;
     this.alias = alias;
     this._frameClient = frameClient ?? null;
   }
@@ -140,6 +146,7 @@ export class Channel {
       leaseholder: this.leaseholder,
       index: this.index,
       isIndex: this.isIndex,
+      internal: this.internal,
     });
   }
 
@@ -327,11 +334,22 @@ export class Client implements AsyncTermSearcher<string, Key, Channel> {
     return this.sugar(await this.retriever.search(term, options));
   }
 
+  /***
+   * Deletes channels from the database using the given keys or names.
+   * @param channels - The keys or names of the channels to delete.
+   */
   async delete(channels: Params): Promise<void> {
     const { normalized, variant } = analyzeChannelParams(channels);
     if (variant === "keys")
       return await this.writer.delete({ keys: normalized as Key[] });
     return await this.writer.delete({ names: normalized as string[] });
+  }
+
+  async rename(key: Key, name: string): Promise<void>;
+  async rename(keys: Key[], names: string[]): Promise<void>;
+
+  async rename(keys: Key | Key[], names: string | string[]): Promise<void> {
+    return await this.writer.rename(toArray(keys), toArray(names));
   }
 
   newSearcherWithOptions(

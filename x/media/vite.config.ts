@@ -13,8 +13,6 @@ import { defineConfig } from "vite";
 export default defineConfig({
   plugins: [lib({ name: "media" })],
   build: {
-    sourcemap: true,
-    minify: true,
     rollupOptions: {
       external: ["react", "react-dom"],
       output: {

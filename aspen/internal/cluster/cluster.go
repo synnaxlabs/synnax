@@ -76,7 +76,8 @@ func Open(ctx context.Context, configs ...Config) (*Cluster, error) {
 	}
 
 	c.R.Prod("cluster", c)
-	c.L.Info("beginning cluster startup", c.Report().ZapFields()...)
+	c.L.Info("beginning cluster startup")
+	c.L.Debug("configuration", cfg.Report().ZapFields()...)
 
 	if !state.IsZero() {
 		// If our store is valid, restart using the existing state.
@@ -181,7 +182,7 @@ func (c *Cluster) gossipInitialState(ctx context.Context) error {
 	return nil
 }
 
-func (c *Cluster) goFlushStore(ctx signal.Context) {
+func (c *Cluster) goFlushStore(sCtx signal.Context) {
 	if c.Storage != nil {
 		flush := &kv.Subscriber[State]{
 			Key:         c.StorageKey,
@@ -189,9 +190,16 @@ func (c *Cluster) goFlushStore(ctx signal.Context) {
 			Store:       c.Storage,
 			Encoder:     c.EncoderDecoder,
 		}
-		flush.FlushSync(ctx, c.Store.CopyState())
-		c.OnChange(func(ctx context.Context, change Change) { flush.Flush(ctx, change.State) })
-		ctx.Go(func(ctx context.Context) error {
+		flush.FlushSync(sCtx, c.Store.CopyState())
+		c.OnChange(func(_ context.Context, change Change) {
+			select {
+			case <-sCtx.Done():
+				return
+			default:
+				flush.Flush(sCtx, change.State)
+			}
+		})
+		sCtx.Go(func(ctx context.Context) error {
 			<-ctx.Done()
 			flush.FlushSync(ctx, c.Store.CopyState())
 			return ctx.Err()

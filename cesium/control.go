@@ -26,19 +26,25 @@ type ControlUpdate struct {
 }
 
 func (db *DB) ConfigureControlUpdateChannel(ctx context.Context, key ChannelKey) error {
-	ch, err := db.RetrieveChannel(ctx, key)
-	if errors.Is(err, core.ChannelNotFound) {
+	if db.closed.Load() {
+		return errDBClosed
+	}
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	ch, err := db.retrieveChannel(ctx, key)
+	if errors.Is(err, core.ErrChannelNotFound) {
 		ch.Key = key
 		ch.DataType = telem.StringT
 		ch.Virtual = true
-		if err := db.CreateChannel(ctx, ch); err != nil {
+		if err = db.createChannel(ch); err != nil {
 			return err
 		}
 	} else if err != nil {
 		return err
 	}
+
 	db.digests.key = key
-	w, err := db.NewStreamWriter(ctx, WriterConfig{
+	w, err := db.newStreamWriter(ctx, WriterConfig{
 		ControlSubject: control.Subject{Name: "cesium_internal_control_digest"},
 		Start:          telem.Now(),
 		Channels:       []ChannelKey{key},
@@ -55,11 +61,15 @@ func (db *DB) ConfigureControlUpdateChannel(ctx context.Context, key ChannelKey)
 func (db *DB) updateControlDigests(
 	ctx context.Context,
 	u ControlUpdate,
-) {
-	if db.digests.key == 0 {
-		return
+) error {
+	if !db.digestsConfigured() {
+		return nil
 	}
-	db.digests.inlet.Inlet() <- WriterRequest{Command: WriterWrite, Frame: db.ControlUpdateToFrame(ctx, u)}
+	return signal.SendUnderContext(
+		ctx,
+		db.digests.inlet.Inlet(),
+		WriterRequest{Command: WriterWrite, Frame: db.ControlUpdateToFrame(ctx, u)},
+	)
 }
 
 func (db *DB) closeControlDigests() {
@@ -70,8 +80,12 @@ func (db *DB) closeControlDigests() {
 	}
 }
 
+func (db *DB) digestsConfigured() bool { return db.digests.key != 0 }
+
 func (db *DB) ControlStates() (u ControlUpdate) {
-	if db.digests.key == 0 {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+	if !db.digestsConfigured() {
 		return
 	}
 	u.Transfers = make([]controller.Transfer, 0, len(db.unaryDBs)+len(db.virtualDBs))

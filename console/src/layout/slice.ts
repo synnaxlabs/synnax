@@ -11,10 +11,14 @@ import type { PayloadAction } from "@reduxjs/toolkit";
 import { createSlice } from "@reduxjs/toolkit";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { Haul, Mosaic, Theming } from "@synnaxlabs/pluto";
-import { type deep, type location,migrate } from "@synnaxlabs/x";
+import { type deep, type location, migrate } from "@synnaxlabs/x";
 import { nanoid } from "nanoid/non-secure";
 
-import { type State } from "@/layout/layout";
+import { type State, WindowProps } from "@/layout/layout";
+
+interface NavState extends Record<string, PartialNavState> {
+  main: MainNavState;
+}
 
 /** The state of the layout slice */
 export interface SliceState extends migrate.Migratable {
@@ -31,7 +35,7 @@ export interface SliceState extends migrate.Migratable {
   layouts: Record<string, State>;
   hauling: Haul.DraggingState;
   mosaics: Record<string, MosaicState>;
-  nav: { main: MainNavState } & Record<string, PartialNavState>;
+  nav: NavState;
   alreadyCheckedGetStarted: boolean;
 }
 
@@ -193,7 +197,7 @@ export interface SetNavDrawerPayload extends NavdrawerEntryState {
   windowKey: string;
 }
 
-export interface SetSlicePayload {
+export interface SetWorkspacePayload {
   keepNav?: boolean;
   slice: SliceState;
 }
@@ -206,6 +210,23 @@ interface SetNavdrawerVisiblePayload {
 }
 
 export const GET_STARTED_LAYOUT_TYPE = "getStarted";
+
+const purgeEmptyMosaics = (state: SliceState) => {
+  Object.entries(state.mosaics).forEach(([key, mosaic]) => {
+    if (key === MAIN_WINDOW || !Mosaic.isEmpty(mosaic.root)) return;
+    delete state.mosaics[key];
+    delete state.layouts[key];
+    delete state.nav[key];
+  });
+};
+
+const layoutsToPreserve = (layouts: Record<string, State>): Record<string, State> =>
+  Object.fromEntries(
+    Object.entries(layouts).filter(
+      ([, layout]) =>
+        layout.location === "window" && layout.type !== MOSAIC_WINDOW_TYPE,
+    ),
+  );
 
 export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
@@ -252,6 +273,9 @@ export const { actions, reducer } = createSlice({
 
       state.layouts[key] = layout;
       state.mosaics[layout.windowKey] = mosaic;
+      if (layout.type !== MOSAIC_WINDOW_TYPE) {
+        purgeEmptyMosaics(state);
+      }
     },
     setHauled: (state, { payload }: PayloadAction<SetHaulingPayload>) => {
       state.hauling = payload;
@@ -265,9 +289,10 @@ export const { actions, reducer } = createSlice({
         const { location } = layout;
         if (location === "mosaic")
           [mosaic.root, mosaic.activeTab] = Mosaic.removeTab(mosaic.root, contentKey);
-         
+
         delete state.layouts[contentKey];
         state.mosaics[layout.windowKey] = mosaic;
+        purgeEmptyMosaics(state);
       });
     },
     moveMosaicTab: (
@@ -298,6 +323,7 @@ export const { actions, reducer } = createSlice({
 
       mosaic.root = Mosaic.insertTab(mosaic.root, mosaicTab, loc, key);
       state.mosaics[windowKey] = mosaic;
+      purgeEmptyMosaics(state);
     },
     selectMosaicTab: (
       state,
@@ -418,10 +444,15 @@ export const { actions, reducer } = createSlice({
     },
     setWorkspace: (
       state,
-      { payload: { slice, keepNav = true } }: PayloadAction<SetSlicePayload>,
+      { payload: { slice, keepNav = true } }: PayloadAction<SetWorkspacePayload>,
     ) => {
       return {
         ...slice,
+        layouts: {
+          ...layoutsToPreserve(state.layouts),
+          ...slice.layouts,
+          main: MAIN_LAYOUT,
+        },
         hauling: state.hauling,
         themes: state.themes,
         activeTheme: state.activeTheme,
@@ -431,6 +462,10 @@ export const { actions, reducer } = createSlice({
     clearWorkspace: (state) => {
       return {
         ...ZERO_SLICE_STATE,
+        layouts: {
+          ...layoutsToPreserve(state.layouts),
+          main: MAIN_LAYOUT,
+        },
         hauling: state.hauling,
         themes: state.themes,
         activeTheme: state.activeTheme,
@@ -461,16 +496,18 @@ export const {
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 export type Payload = Action["payload"];
 
-const MOSAIC_WINDOW_TYPE = "mosaic";
+export const MOSAIC_WINDOW_TYPE = "mosaic";
 
-export const createMosaicWindow = (): Omit<State, "windowKey"> => ({
-  key: nanoid(),
+export const createMosaicWindow = (window?: WindowProps): Omit<State, "windowKey"> => ({
+  key: `${MOSAIC_WINDOW_TYPE}-${nanoid()}`,
   name: "Mosaic",
   type: MOSAIC_WINDOW_TYPE,
   location: "window",
   window: {
+    ...window,
     size: { width: 800, height: 600 },
     navTop: true,
     visible: true,
+    showTitle: false,
   },
 });
