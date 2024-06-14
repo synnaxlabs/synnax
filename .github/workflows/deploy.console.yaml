@@ -120,7 +120,6 @@ jobs:
           jq '.plugins.updater.endpoints = ["https://raw.githubusercontent.com/synnaxlabs/synnax/rc/console/release-spec.json"]' tauri.conf.json > temp.json
           rm tauri.conf.json
           mv temp.json tauri.conf.json
-          cat tauri.conf.json
 
       - name: Install Rust Stable
         uses: actions-rs/toolchain@v1
@@ -225,7 +224,7 @@ jobs:
             const ecd = new TextDecoder();
 
             const data = {
-              version: `v${version}`,
+              version: `v${pureVersion}`,
               notes: "Synnax Update",
               pub_date,
               platforms: {
