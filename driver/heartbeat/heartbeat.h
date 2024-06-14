@@ -85,8 +85,8 @@ public:
         };
         auto breaker_config = breaker::Config{
             .name = task.name,
-            .max_retries = 50,
             .base_interval = 1 * SECOND,
+            .max_retries = 50,
             .scale = 1.2,
         };
         return std::make_unique<Heartbeat>(ctx, source, writer_cfg, breaker_config);
