@@ -80,7 +80,7 @@ class RowIngestionEngine:
                         chunk = self.reader.read()
                         self._write(chunk)
                         tp = chunk.size / (datetime.now() - t0).total_seconds()
-                        progress.update(task, advance=chunk.size, tp=tp)
+                        progress.update(task, advance=chunk.size, tp=int(tp))
                     except StopIteration:
                         break
             self.end, _ = self.writer.commit()
