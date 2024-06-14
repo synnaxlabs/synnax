@@ -25,7 +25,6 @@ from freighter.exceptions import (
 )
 from freighter.http import HTTPClient
 from freighter.stream import AsyncStream, AsyncStreamClient, Stream, StreamClient
-from freighter.sync import SyncStreamClient
 from freighter.transport import (
     AsyncFinalizer,
     AsyncMiddleware,
@@ -39,4 +38,4 @@ from freighter.transport import (
 )
 from freighter.unary import UnaryClient
 from freighter.url import URL
-from freighter.websocket import WebsocketClient
+from freighter.websocket import AsyncWebsocketClient, WebsocketClient
