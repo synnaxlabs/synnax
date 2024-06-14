@@ -1,4 +1,4 @@
-name: Synnax Deploy
+name: Deploy - Synnax
 on:
   push:
     branches:

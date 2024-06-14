@@ -1,4 +1,4 @@
-name: Console Deploy
+name: Deploy - Console
 on:
   push:
     branches:
