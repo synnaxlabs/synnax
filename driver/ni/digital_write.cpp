@@ -126,8 +126,6 @@ void ni::DigitalWriteSink::parseConfig(config::Parser &parser){
                     this->writer_config.drive_state_channel_keys.push_back(drive_state_key);
                 
                     // TODO: there could be more than 2 state
-                    config.min_val = 0;
-                    config.max_val = 1;
 
                     this->writer_config.channels.push_back(config);
                 });

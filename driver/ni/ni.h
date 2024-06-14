@@ -42,7 +42,7 @@ namespace ni{
         uint32_t channel_key;
         std::string name;
         std::string channel_type;
-        ni::AnalogChannel ni_channel;
+        ni::Analog ni_channel;
     } ChannelConfig;
 
     typedef struct ReaderConfig{

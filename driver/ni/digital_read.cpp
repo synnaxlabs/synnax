@@ -28,16 +28,9 @@ void ni::DigitalReadSource::parseChannels(config::Parser &parser){
     parser.iter("channels",
                 [&](config::Parser &channel_builder){
                     ni::ChannelConfig config;
-
                     // digital channel names are formatted: <device_name>/port<port_number>/line<line_number>
                     config.name = (this->reader_config.device_name + "/port" + std::to_string(channel_builder.required<std::uint64_t>("port")) + "/line" + std::to_string(channel_builder.required<std::uint64_t>("line")));
-
                     config.channel_key = channel_builder.required<uint32_t>("channel");
-
-                    // TODO: there could be more than 2 state logic
-                    config.min_val = 0;
-                    config.max_val = 1;
-
                     this->reader_config.channels.push_back(config);
                 });
     assert(parser.ok());

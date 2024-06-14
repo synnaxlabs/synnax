@@ -34,9 +34,7 @@ void ni::AnalogReadSource::parseChannels(config::Parser &parser){
                     ni::ChannelConfig config;
                     // analog channel names are formatted: <device_name>/ai<port>
                     config.name = (this->reader_config.device_name + "/ai" + std::to_string(channel_builder.required<std::uint64_t>("port")));
-
                     config.channel_key = channel_builder.required<uint32_t>("channel");
-
                     config.channel_type = channel_builder.required<std::string>("channel_type");
 
                     // config.min_val = channel_builder.required<float_t>("min_val");
@@ -59,13 +57,14 @@ void ni::AnalogReadSource::parseChannels(config::Parser &parser){
                     //     return;
                     // }
 
+                    // TODO: check scale parser in the function below
                     config.ni_channel =  this->parseChannel(channel_builder, config.channel_type); 
                     
                     this->reader_config.channels.push_back(config);
                 });
 }
 
-Analog ni::AnalogReadSource::parseChannel(config::Parser &parser, std::string channel_type){
+ni::Analog ni::AnalogReadSource::parseChannel(config::Parser &parser, std::string channel_type){
     // if (channel_type == "ai_accel") {
     //     return Accel(parser, this->task_handle);
     // }
@@ -158,7 +157,7 @@ Analog ni::AnalogReadSource::parseChannel(config::Parser &parser, std::string ch
     // }
     // if (channel_type == "ai_voltage_with_excit") {
     //     return VoltageWithExcit(parser, this->task_handle);
-    }
+    // }
 }
 
 
@@ -258,46 +257,16 @@ std::pair<synnax::Frame, freighter::Error> ni::AnalogReadSource::read(){
     return std::make_pair(std::move(f), freighter::NIL);
 }
 
-
-int ni::AnalogReadSource::createChannel(ni::ChannelConfig &channel){
-    if(channel.scale_config.type == "none"){
-        return  this->checkNIError(ni::NiDAQmxInterface::CreateAIVoltageChan( 
-                    this->task_handle, 
-                    channel.name.c_str(), 
-                    "", 
-                    channel.terminal_config, 
-                    channel.min_val, 
-                    channel.max_val, 
-                    DAQmx_Val_Volts, 
-                    NULL
-                ));
-    } else{
-        this->checkNIError(channel.scale_config.createNIScale());
-        return this->checkNIError(ni::NiDAQmxInterface::CreateAIVoltageChan(    
-                this->task_handle, channel.name.c_str(), 
-                "", 
-                channel.terminal_config, 
-                channel.min_val, 
-                channel.max_val, 
-                DAQmx_Val_FromCustomScale,  
-                channel.scale_config.name.c_str()
-            ));
-    }
-}
-
-
 int ni::AnalogReadSource::createChannels(){
-    int err = 0;
     auto channels = this->reader_config.channels;
     for (auto &channel : channels){
-        if (channel.channel_type != "index" ){
-            err = createChannel(channel);
-            this->numAIChannels++;
-        } 
         this->numChannels++; 
-        if (err < 0){
+        if (channel.channel_type == "index") continue;    
+        this->numAIChannels++;
+        this->checkNIError(channel.ni_channel.createNIScale());
+        this->checkNIError(channel.ni_channel.createNIChannel());            
+        if (!this->ok()){
             LOG(ERROR) << "[NI Reader] failed while configuring channel " << channel.name;
-            this->ok_state = false;
             return -1;
         }
     }
