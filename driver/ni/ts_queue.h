@@ -8,46 +8,47 @@
 // included in the file licenses/APL.txt.
 
 #pragma once
+
 #include <queue>
 #include <mutex>
 #include <condition_variable>
 
 
-template <typename T>
-class TSQueue{
+template<typename T>
+class TSQueue {
 public:
- TSQueue() = default;
+    TSQueue() = default;
 
- void enqueue(const T& item){
-   std::lock_guard<std::mutex> lock(m);
-    queue.push(item);
-    c.notify_one();
- }
+    void enqueue(const T &item) {
+        std::lock_guard<std::mutex> lock(m);
+        queue.push(item);
+        c.notify_one();
+    }
 
-std::pair<T, bool> dequeue(void){
-    std::unique_lock lock(m);
+    std::pair<T, bool> dequeue(void) {
+        std::unique_lock lock(m);
 
-    // while(queue.empty()){
+        // while(queue.empty()){
         // c.wait(lock);
-    // }
+        // }
 
-    c.wait_for(lock, std::chrono::seconds(2));
-    if(queue.empty()){
-        return std::make_pair(T(), false);
-    }
+        c.wait_for(lock, std::chrono::seconds(2));
+        if (queue.empty()) {
+            return std::make_pair(T(), false);
+        }
 
-    T item = queue.front();
-    queue.pop();
-    
-    return std::make_pair(item, true);
-}
-
-void reset(){
-    std::lock_guard<std::mutex> lock(m);
-    while(!queue.empty()){
+        T item = queue.front();
         queue.pop();
+
+        return std::make_pair(item, true);
     }
-}
+
+    void reset() {
+        std::lock_guard<std::mutex> lock(m);
+        while (!queue.empty()) {
+            queue.pop();
+        }
+    }
 
 private:
     std::queue<T> queue;

@@ -13,7 +13,6 @@
 #include <string>
 
 
-
 #include "nidaqmx_api.h"
 #include "daqmx.h"
 #include "nisyscfg.h"
@@ -21,55 +20,58 @@
 #include "nlohmann/json.hpp"
 #include "glog/logging.h"
 #include "client/cpp/telem/telem.h"
-namespace ni{
+
+namespace ni {
     /// @brief an object that represents and is responsible for the configuration of 
     /// a single analog channel on National Instruments hardware.
-    class Analog{
+    class Analog {
     public:
         Analog() = default;
+
         ~Analog() = default;
+
         virtual int32 createNIChannel() {
         }
 
-        static int32_t getTerminalConfig(std::string terminal_config) { 
-            if(terminal_config == "PseudoDiff") return DAQmx_Val_PseudoDiff;
-            if(terminal_config == "Diff") return DAQmx_Val_Diff;
-            if(terminal_config == "NRSE") return DAQmx_Val_NRSE;
-            if(terminal_config == "RSE") return DAQmx_Val_RSE;
+        static int32_t getTerminalConfig(std::string terminal_config) {
+            if (terminal_config == "PseudoDiff") return DAQmx_Val_PseudoDiff;
+            if (terminal_config == "Diff") return DAQmx_Val_Diff;
+            if (terminal_config == "NRSE") return DAQmx_Val_NRSE;
+            if (terminal_config == "RSE") return DAQmx_Val_RSE;
             return DAQmx_Val_Cfg_Default;
         }
 
         static ScaleConfig getScaleConfig(config::Parser &parser) {
             // TODO check if custom scale and channel exist
-            std::string scale_name =  std::to_string(parser.required<uint32_t>("channel")) + "_scale";
+            std::string scale_name = std::to_string(parser.required<uint32_t>("channel")) + "_scale";
             auto scale_parser = parser.child("custom_scale");
             return ScaleConfig(scale_parser, scale_name);
         }
 
-        int32 createNIScale(){
-            if(this->scale_config.type == "none") return 0;
+        int32 createNIScale() {
+            if (this->scale_config.type == "none") return 0;
             return this->scale_config.createNIScale();
         }
 
         explicit Analog(config::Parser &parser, TaskHandle task_handle)
-        :   task_handle(task_handle),
-            min_val(parser.required<float_t>("min_val")),
-            max_val(parser.required<float_t>("max_val")),
-            terminal_config(getTerminalConfig(parser.required<std::string>("terminal_config"))),
-            units(DAQmx_Val_Volts),
-            sy_key(parser.required<uint32_t>("channel")),
-            name(parser.required<std::string>("name")),
-            type(parser.required<std::string>("type")),
-            phsyical_channel(parser.required<std::string>("physical_channel")),
-            scale_config(getScaleConfig(parser))
-            {
+                : task_handle(task_handle),
+                  min_val(parser.required<float_t>("min_val")),
+                  max_val(parser.required<float_t>("max_val")),
+                  terminal_config(getTerminalConfig(parser.required<std::string>("terminal_config"))),
+                  units(DAQmx_Val_Volts),
+                  sy_key(parser.required<uint32_t>("channel")),
+                  name(parser.required<std::string>("name")),
+                  type(parser.required<std::string>("type")),
+                  phsyical_channel(parser.required<std::string>("physical_channel")),
+                  scale_config(getScaleConfig(parser)) {
             // check name of channel
-            if(this->scale_config.type != "none"){
+            if (this->scale_config.type != "none") {
                 strcpy(this->scale_name, this->scale_config.name.c_str());
             }
         }
+
         TaskHandle task_handle = 0;
-        char* scale_name = NULL;
+        char *scale_name = NULL;
         double min_val = 0;
         double max_val = 0;
         int32_t terminal_config = 0;
@@ -81,29 +83,31 @@ namespace ni{
 
         ScaleConfig scale_config;
     };
-    
+
     ///////////////////////////////////////////////////////////////////////////////////
     //                                      Voltage                                  //
     ///////////////////////////////////////////////////////////////////////////////////
     /// @brief voltage channel. Can be configured to measure RMS voltage instead or scale 
     /// with internal excitaiton
-    class Voltage : public Analog{
+    class Voltage : public Analog {
     public:
 
         explicit Voltage(config::Parser &parser, TaskHandle task_handle)
-        : Analog(parser, task_handle){
+                : Analog(parser, task_handle) {
         }
+
         ~Voltage() = default;
+
         int32 createNIChannel() override {
-            return ni::NiDAQmxInterface::CreateAIVoltageChan(    
-                    this->task_handle, this->name.c_str(), 
-                    "", 
-                    this->terminal_config, 
-                    this->min_val, 
-                    this->max_val, 
-                    DAQmx_Val_FromCustomScale,  
+            return ni::NiDAQmxInterface::CreateAIVoltageChan(
+                    this->task_handle, this->name.c_str(),
+                    "",
+                    this->terminal_config,
+                    this->min_val,
+                    this->max_val,
+                    DAQmx_Val_FromCustomScale,
                     this->scale_name
-                );
+            );
         }
     };
     // DAQmxCreateAIVoltageChan
@@ -208,6 +212,6 @@ namespace ni{
     ///////////////////////////////////////////////////////////////////////////////////
     // DAQmxCreateAIVelocityIEPEChan
 
-    
+
 
 }
