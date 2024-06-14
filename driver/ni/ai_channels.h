@@ -29,9 +29,12 @@ namespace ni{
         Analog() = default;
         ~Analog() = default;
         virtual int32 createNIChannel() {
+            LOG(INFO) << "Creating Analog Channel";
+            return 0;
         }
 
         static int32_t getTerminalConfig(std::string terminal_config) { 
+            LOG(INFO) << "Terminal Config: " << terminal_config;
             if(terminal_config == "PseudoDiff") return DAQmx_Val_PseudoDiff;
             if(terminal_config == "Diff") return DAQmx_Val_Diff;
             if(terminal_config == "NRSE") return DAQmx_Val_NRSE;
@@ -51,33 +54,36 @@ namespace ni{
             return this->scale_config.createNIScale();
         }
 
-        explicit Analog(config::Parser &parser, TaskHandle task_handle)
+        explicit Analog(config::Parser &parser, TaskHandle task_handle, std::string name)
         :   task_handle(task_handle),
             min_val(parser.required<float_t>("min_val")),
             max_val(parser.required<float_t>("max_val")),
             terminal_config(getTerminalConfig(parser.required<std::string>("terminal_config"))),
             units(DAQmx_Val_Volts),
             sy_key(parser.required<uint32_t>("channel")),
-            name(parser.required<std::string>("name")),
+            name(name),
             type(parser.required<std::string>("type")),
-            phsyical_channel(parser.required<std::string>("physical_channel")),
             scale_config(getScaleConfig(parser))
             {
+            assert(parser.ok());
+            LOG(INFO) << "Analog Channel constructor ";
             // check name of channel
             if(this->scale_config.type != "none"){
+                LOG(INFO) << "Scale type: " << this->scale_config.type;
                 strcpy(this->scale_name, this->scale_config.name.c_str());
+                this->units = DAQmx_Val_FromCustomScale;
             }
+            LOG(INFO) << "Analog Channel constructor end";
         }
         TaskHandle task_handle = 0;
         char* scale_name = NULL;
         double min_val = 0;
         double max_val = 0;
         int32_t terminal_config = 0;
-        int32_t units = 0;
+        int32_t units = DAQmx_Val_Volts;
         uint32_t sy_key = 0;
         std::string name = "";
         std::string type = "";
-        std::string phsyical_channel = "";
 
         ScaleConfig scale_config;
     };
@@ -90,18 +96,19 @@ namespace ni{
     class Voltage : public Analog{
     public:
 
-        explicit Voltage(config::Parser &parser, TaskHandle task_handle)
-        : Analog(parser, task_handle){
+        explicit Voltage(config::Parser &parser, TaskHandle task_handle, std::string name)
+        : Analog(parser, task_handle, name){
         }
         ~Voltage() = default;
         int32 createNIChannel() override {
+            LOG(INFO) << "Creating Voltage Channel";
             return ni::NiDAQmxInterface::CreateAIVoltageChan(    
                     this->task_handle, this->name.c_str(), 
                     "", 
                     this->terminal_config, 
                     this->min_val, 
                     this->max_val, 
-                    DAQmx_Val_FromCustomScale,  
+                    this->units,  
                     this->scale_name
                 );
         }

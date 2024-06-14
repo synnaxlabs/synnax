@@ -35,36 +35,19 @@ void ni::AnalogReadSource::parseChannels(config::Parser &parser){
                     // analog channel names are formatted: <device_name>/ai<port>
                     config.name = (this->reader_config.device_name + "/ai" + std::to_string(channel_builder.required<std::uint64_t>("port")));
                     config.channel_key = channel_builder.required<uint32_t>("channel");
-                    config.channel_type = channel_builder.required<std::string>("channel_type");
+                    config.channel_type = channel_builder.required<std::string>("type");
 
-                    // config.min_val = channel_builder.required<float_t>("min_val");
-                    // config.max_val = channel_builder.required<std::float_t>("max_val");
-
-                    // auto terminal_config = channel_builder.required<std::string>("terminal_config");
-                    // config.terminal_config =     (terminal_config == "PseudoDiff") ? DAQmx_Val_PseudoDiff 
-                    //                         :    (terminal_config == "Diff") ? DAQmx_Val_Diff
-                    //                         :    (terminal_config == "NRSE") ? DAQmx_Val_NRSE
-                    //                         :    (terminal_config == "RSE") ? DAQmx_Val_RSE
-                    //                         :    DAQmx_Val_Cfg_Default;
-                
-                    // // check for custom scale
-                    // std::string scale_name = std::to_string(config.channel_key) + "_scale";
-                    // auto scale_parser = channel_builder.child("custom_scale");
-                    // config.scale_config = ScaleConfig(scale_parser, scale_name);
-                    // if(!scale_parser.ok()){
-                    //     LOG(ERROR) << "[NI Reader] Failed to parse custom scale for channel " << config.name;
-                    //     this->ok_state = false;
-                    //     return;
-                    // }
 
                     // TODO: check scale parser in the function below
-                    config.ni_channel =  this->parseChannel(channel_builder, config.channel_type); 
+                    config.ni_channel =  this->parseChannel(channel_builder, config.channel_type, config.name); 
                     
                     this->reader_config.channels.push_back(config);
                 });
 }
 
-ni::Analog ni::AnalogReadSource::parseChannel(config::Parser &parser, std::string channel_type){
+std::shared_ptr<ni::Analog> ni::AnalogReadSource::parseChannel(config::Parser &parser, std::string channel_type, std::string channel_name){
+    LOG(INFO) << "[NI Reader] Parsing Channel ";
+    LOG(INFO) << parser.get_json().dump(4);
     // if (channel_type == "ai_accel") {
     //     return Accel(parser, this->task_handle);
     // }
@@ -150,7 +133,8 @@ ni::Analog ni::AnalogReadSource::parseChannel(config::Parser &parser, std::strin
     //     return VelocityIEPE(parser, this->task_handle);
     // }
     if (channel_type == "ai_voltage") {
-        return Voltage(parser, this->task_handle);
+        LOG(INFO) << "[NI Reader] Parsing Voltage Channel";
+        return std::make_shared<ni::Voltage>(parser, this->task_handle, channel_name);
     }
     // if (channel_type == "ai_voltage_rms") {
     //     return VoltageRMS(parser, this->task_handle);
@@ -258,13 +242,15 @@ std::pair<synnax::Frame, freighter::Error> ni::AnalogReadSource::read(){
 }
 
 int ni::AnalogReadSource::createChannels(){
+    LOG(INFO) << "[NI Reader] Creating Channels for task " << this->reader_config.task_name;
     auto channels = this->reader_config.channels;
     for (auto &channel : channels){
+        LOG(INFO) << "[NI Reader] Creating Channel " << channel.name;
         this->numChannels++; 
         if (channel.channel_type == "index") continue;    
         this->numAIChannels++;
-        this->checkNIError(channel.ni_channel.createNIScale());
-        this->checkNIError(channel.ni_channel.createNIChannel());            
+        this->checkNIError(channel.ni_channel->createNIScale());
+        this->checkNIError(channel.ni_channel->createNIChannel());            
         if (!this->ok()){
             LOG(ERROR) << "[NI Reader] failed while configuring channel " << channel.name;
             return -1;

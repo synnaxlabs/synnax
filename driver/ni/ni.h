@@ -42,7 +42,7 @@ namespace ni{
         uint32_t channel_key;
         std::string name;
         std::string channel_type;
-        ni::Analog ni_channel;
+        std::shared_ptr<ni::Analog> ni_channel;
     } ChannelConfig;
 
     typedef struct ReaderConfig{
@@ -134,10 +134,9 @@ namespace ni{
         void acquireData() override;
         int configureTiming() override;
         int createChannels() override;
-        Analog parseChannel(config::Parser &parser, std::string channel_type);
+        std::shared_ptr<ni::Analog> parseChannel(config::Parser &parser, std::string channel_type, std::string channel_name);
         void parseChannels(config::Parser &parser) override;
         int createChannel(ChannelConfig &channel);
-        // NI related resources
         uint64_t numAIChannels = 0;
     };
 
