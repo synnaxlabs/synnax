@@ -96,13 +96,3 @@ func (db *DB) Close() error {
 	db.closed.Store(true)
 	return nil
 }
-
-func (db *DB) TryRekey() error {
-	db.entityCount.RLock()
-	defer db.entityCount.RUnlock()
-	if db.entityCount.openWriters > 0 {
-		return errors.Newf("[cesium] - cannot rekey channel because there are currently %d unclosed writers/iterators accessing it", db.entityCount.openWriters)
-	}
-
-	return nil
-}
