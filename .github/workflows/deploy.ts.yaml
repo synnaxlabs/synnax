@@ -1,10 +1,8 @@
-name: Publish NPM Packages
-
+name: TypeScript Deploy
 on:
   push:
      branches:
        - main
-
 jobs:
   publish:
     runs-on: ubuntu-latest

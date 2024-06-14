@@ -1,10 +1,11 @@
-name: "Aspen Test"
+name: "Test - Cesium"
 on:
   pull_request:
     branches:
-      - main
-    paths:
-      - '.github/workflows/aspen.test.yaml'
+      - rc
+  push:
+    branches:
+      - rc
   workflow_dispatch:
 jobs:
   test:
