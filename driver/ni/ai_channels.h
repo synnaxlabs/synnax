@@ -56,20 +56,19 @@ namespace ni {
         }
 
         explicit Analog(config::Parser &parser, TaskHandle task_handle, std::string name)
-        :   task_handle(task_handle),
-            min_val(parser.required<float_t>("min_val")),
-            max_val(parser.required<float_t>("max_val")),
-            terminal_config(getTerminalConfig(parser.required<std::string>("terminal_config"))),
-            units(DAQmx_Val_Volts),
-            sy_key(parser.required<uint32_t>("channel")),
-            name(name),
-            type(parser.required<std::string>("type")),
-            scale_config(getScaleConfig(parser))
-            {
+                : task_handle(task_handle),
+                  min_val(parser.required<float_t>("min_val")),
+                  max_val(parser.required<float_t>("max_val")),
+                  terminal_config(getTerminalConfig(parser.required<std::string>("terminal_config"))),
+                  units(DAQmx_Val_Volts),
+                  sy_key(parser.required<uint32_t>("channel")),
+                  name(name),
+                  type(parser.required<std::string>("type")),
+                  scale_config(getScaleConfig(parser)) {
             assert(parser.ok());
             LOG(INFO) << "Analog Channel constructor ";
             // check name of channel
-            if(this->scale_config.type != "none"){
+            if (this->scale_config.type != "none") {
                 LOG(INFO) << "Scale type: " << this->scale_config.type;
                 // strcpy(this->scale_name, this->scale_config.name.c_str()); // FIXME
                 this->units = DAQmx_Val_FromCustomScale;
@@ -99,7 +98,7 @@ namespace ni {
     public:
 
         explicit Voltage(config::Parser &parser, TaskHandle task_handle, std::string name)
-        : Analog(parser, task_handle, name){
+                : Analog(parser, task_handle, name) {
         }
 
         ~Voltage() = default;
@@ -107,27 +106,27 @@ namespace ni {
         int32 createNIChannel() override {
             LOG(INFO) << "Creating Voltage Channel";
 
-            if(this->scale_config.type == "none"){
-                return ni::NiDAQmxInterface::CreateAIVoltageChan(    
-                        this->task_handle, this->name.c_str(), 
-                        "", 
-                        this->terminal_config, 
-                        this->min_val, 
-                        this->max_val, 
-                        DAQmx_Val_Volts,  
+            if (this->scale_config.type == "none") {
+                return ni::NiDAQmxInterface::CreateAIVoltageChan(
+                        this->task_handle, this->name.c_str(),
+                        "",
+                        this->terminal_config,
+                        this->min_val,
+                        this->max_val,
+                        DAQmx_Val_Volts,
                         NULL
-                    );
-            } else{
-                return ni::NiDAQmxInterface::CreateAIVoltageChan(    
-                        this->task_handle, this->name.c_str(), 
-                        "", 
-                        this->terminal_config, 
-                        this->min_val, 
-                        this->max_val, 
-                        DAQmx_Val_FromCustomScale,  
+                );
+            } else {
+                return ni::NiDAQmxInterface::CreateAIVoltageChan(
+                        this->task_handle, this->name.c_str(),
+                        "",
+                        this->terminal_config,
+                        this->min_val,
+                        this->max_val,
+                        DAQmx_Val_FromCustomScale,
                         this->scale_config.name.c_str()
-                    );
-            
+                );
+
             }
         }
     };

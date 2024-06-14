@@ -17,7 +17,6 @@ namespace = "http://examples.freeopcua.github.io"
 
 
 async def main():
-
     print(f"Connecting to {url} ...")
     async with Client(url=url) as client:
         print(await client.nodes.root.get_children())

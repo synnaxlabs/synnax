@@ -13,8 +13,8 @@
 #include "driver/opc/reader.h"
 
 std::pair<std::unique_ptr<task::Task>, bool> opc::Factory::configureTask(
-    const std::shared_ptr<task::Context> &ctx,
-    const synnax::Task &task
+        const std::shared_ptr<task::Context> &ctx,
+        const synnax::Task &task
 ) {
     if (task.type == "opcScanner") // TODO: not sure if we want this and also the configure initial tasks
         return {std::make_unique<Scanner>(ctx, task), true};
@@ -25,8 +25,8 @@ std::pair<std::unique_ptr<task::Task>, bool> opc::Factory::configureTask(
 
 std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task> > >
 opc::Factory::configureInitialTasks(
-    const std::shared_ptr<task::Context> &ctx,
-    const synnax::Rack &rack
+        const std::shared_ptr<task::Context> &ctx,
+        const synnax::Rack &rack
 ) {
     std::vector<std::pair<synnax::Task, std::unique_ptr<task::Task> > > tasks;
     auto [existing, err] = rack.tasks.list();
@@ -39,17 +39,17 @@ opc::Factory::configureInitialTasks(
     for (const auto &t: existing) {
         if (t.type == "opcScanner") {
             LOG(INFO) << "[opc] found existing scanner task with key: " << t.key <<
-                    " skipping creation." << std::endl;
+                      " skipping creation." << std::endl;
             hasScanner = true;
         }
     }
 
     if (!hasScanner) {
         auto sy_task = synnax::Task(
-            rack.key,
-            "opc Scanner",
-            "opcScanner",
-            ""
+                rack.key,
+                "opc Scanner",
+                "opcScanner",
+                ""
         );
         auto err = rack.tasks.create(sy_task);
         LOG(INFO) << "[opc] created scanner task with key: " << sy_task.key;
@@ -60,7 +60,8 @@ opc::Factory::configureInitialTasks(
         auto [task, ok] = configureTask(ctx, sy_task);
         if (ok && task != nullptr)
             tasks.emplace_back(std::make_pair(sy_task, std::move(task)));
-        else LOG(ERROR) << "[opc] Failed to configure scanner task";
+        else
+            LOG(ERROR) << "[opc] Failed to configure scanner task";
     }
     return tasks;
 }

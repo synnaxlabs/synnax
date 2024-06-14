@@ -32,7 +32,7 @@ const std::map<std::string, int32_t> ni::UNITS_MAP = {
         {"KilogramForce",          DAQmx_Val_KilogramForce},
         {"PoundsPerSquareInch",    DAQmx_Val_PoundsPerSquareInch},
         {"Bar",                    DAQmx_Val_Bar},
-        {"Pascals",                DAQmx_Val_Pascals},
+        {"Pascals", DAQmx_Val_Pascals},
         {"VoltsPerVolt",           DAQmx_Val_VoltsPerVolt},
         {"mVoltsPerVolt",          DAQmx_Val_mVoltsPerVolt},
         {"NewtonMeters",           DAQmx_Val_NewtonMeters},
@@ -50,7 +50,7 @@ const std::map<std::string, int32_t> ni::UNITS_MAP = {
 
 void ni::Source::getIndexKeys() {
     LOG(INFO) << "[NI Reader] acquiring index channels for task " << this->reader_config.task_name;
-    std::set<std::uint32_t> index_keys;
+    std::set < std::uint32_t > index_keys;
     //iterate through channels in reader config
     for (auto &channel: this->reader_config.channels) {
         auto [channel_info, err] = this->ctx->client->channels.retrieve(channel.channel_key);
@@ -160,7 +160,8 @@ int ni::Source::init() {
     }
 
     LOG(INFO) << "[NI Reader] configuring timing for NI hardware for task " << this->reader_config.task_name;
-    if (this->configureTiming()) this->logError(
+    if (this->configureTiming())
+        this->logError(
                 "[NI Reader] Failed while configuring timing for NI hardware for task " +
                 this->reader_config.task_name);
 

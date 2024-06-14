@@ -11,10 +11,9 @@
 #include "driver/loop/loop.h"
 
 // @brief it should correctly wait for an expended number of requests.
-TEST(LoopTest, testPreciseTimer)
-{
+TEST(LoopTest, testPreciseTimer) {
     loop::Timer timer;
-    for(int i = 0; i < 1000; i ++){
+    for (int i = 0; i < 1000; i++) {
         auto start = std::chrono::high_resolution_clock::now();
         timer.exactSleep(std::chrono::nanoseconds(10000000));
         auto end = std::chrono::high_resolution_clock::now();

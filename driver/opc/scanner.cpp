@@ -24,8 +24,8 @@
 using namespace opc;
 
 std::unique_ptr<task::Task> Scanner::configure(
-    const std::shared_ptr<task::Context> &ctx,
-    const synnax::Task &task
+        const std::shared_ptr<task::Context> &ctx,
+        const synnax::Task &task
 ) {
     return std::make_unique<Scanner>(ctx, task);
 }
@@ -56,10 +56,10 @@ void iterateChildren(ScanContext *ctx, UA_NodeId node_id) {
 
 // Callback function to handle each child node
 static UA_StatusCode nodeIter(
-    UA_NodeId child_id,
-    UA_Boolean is_inverse,
-    UA_NodeId reference_type_id,
-    void *handle
+        UA_NodeId child_id,
+        UA_Boolean is_inverse,
+        UA_NodeId reference_type_id,
+        void *handle
 ) {
     if (is_inverse) return UA_STATUSCODE_GOOD;
     auto *ctx = static_cast<ScanContext *>(handle);
@@ -67,9 +67,9 @@ static UA_StatusCode nodeIter(
 
     UA_NodeClass nodeClass;
     UA_StatusCode retval = UA_Client_readNodeClassAttribute(
-        ctx->client.get(),
-        child_id,
-        &nodeClass
+            ctx->client.get(),
+            child_id,
+            &nodeClass
     );
     if (retval != UA_STATUSCODE_GOOD) return retval;
 
@@ -89,15 +89,16 @@ static UA_StatusCode nodeIter(
             // std::cout << "Node id: " << node_id << " Name: " << name << " Is array: " << is_array << " Data type: " << dt.value << std::endl;
             if (dt != synnax::DATA_TYPE_UNKNOWN && !dt.is_variable())
                 ctx->channels->push_back({
-                    dt,
-                    name,
-                    node_id,
-                    is_array
-                });
+                                                 dt,
+                                                 name,
+                                                 node_id,
+                                                 is_array
+                                         });
         }
     }
-    if (ctx->depth >= ctx->max_depth || child_id.namespaceIndex == 0) return
-            UA_STATUSCODE_GOOD;
+    if (ctx->depth >= ctx->max_depth || child_id.namespaceIndex == 0)
+        return
+                UA_STATUSCODE_GOOD;
     ctx->depth++;
     iterateChildren(ctx, child_id);
     ctx->depth--;
@@ -110,34 +111,34 @@ void Scanner::scan(const task::Command &cmd) const {
     int max_depth = parser.optional<int>("max_depth", 6);
     if (!parser.ok())
         return ctx->setState({
-            .task = task.key,
-            .key = cmd.key,
-            .details = parser.error_json()
-        });
+                                     .task = task.key,
+                                     .key = cmd.key,
+                                     .details = parser.error_json()
+                             });
 
     auto [ua_client, err] = connect(args.connection, "[opc.scanner] ");
     if (err)
         return ctx->setState({
-            .task = task.key,
-            .key = cmd.key,
-            .variant = "error",
-            .details = {{"message", err.message()}}
-        });
+                                     .task = task.key,
+                                     .key = cmd.key,
+                                     .variant = "error",
+                                     .details = {{"message", err.message()}}
+                             });
 
     UA_NodeId root_folder_id = UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER);
     auto scan_ctx = new ScanContext{
-        ua_client,
-        0,
-        std::make_shared<std::vector<DeviceNodeProperties> >(),
-        max_depth
+            ua_client,
+            0,
+            std::make_shared<std::vector<DeviceNodeProperties> >(),
+            max_depth
     };
     iterateChildren(scan_ctx, root_folder_id);
     ctx->setState({
-        .task = task.key,
-        .key = cmd.key,
-        .variant = "success",
-        .details = DeviceProperties(args.connection, *scan_ctx->channels).toJSON(),
-    });
+                          .task = task.key,
+                          .key = cmd.key,
+                          .variant = "success",
+                          .details = DeviceProperties(args.connection, *scan_ctx->channels).toJSON(),
+                  });
 }
 
 void Scanner::testConnection(const task::Command &cmd) const {
@@ -145,22 +146,22 @@ void Scanner::testConnection(const task::Command &cmd) const {
     ScannnerScanCommandArgs args(parser);
     if (!parser.ok())
         return ctx->setState({
-            .task = task.key,
-            .key = cmd.key,
-            .details = parser.error_json()
-        });
+                                     .task = task.key,
+                                     .key = cmd.key,
+                                     .details = parser.error_json()
+                             });
     const auto err = connect(args.connection, "[opc.scanner] ").second;
     if (err)
         return ctx->setState({
-            .task = task.key,
-            .key = cmd.key,
-            .variant = "error",
-            .details = {{"message", err.data}}
-        });
+                                     .task = task.key,
+                                     .key = cmd.key,
+                                     .variant = "error",
+                                     .details = {{"message", err.data}}
+                             });
     return ctx->setState({
-        .task = task.key,
-        .key = cmd.key,
-        .variant = "success",
-        .details = {{"message", "Connection successful"}},
-    });
+                                 .task = task.key,
+                                 .key = cmd.key,
+                                 .variant = "success",
+                                 .details = {{"message", "Connection successful"}},
+                         });
 }

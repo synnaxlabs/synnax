@@ -15,10 +15,10 @@
 #include "task.h"
 
 task::Manager::Manager(
-    Rack rack,
-    const std::shared_ptr<Synnax> &client,
-    std::unique_ptr<task::Factory> factory,
-    breaker::Config breaker
+        Rack rack,
+        const std::shared_ptr<Synnax> &client,
+        std::unique_ptr<task::Factory> factory,
+        breaker::Config breaker
 ) : rack_key(rack.key),
     internal(rack),
     ctx(std::make_shared<task::SynnaxContext>(client)),
@@ -31,7 +31,7 @@ const std::string TASK_DELETE_CHANNEL = "sy_task_delete";
 const std::string TASK_CMD_CHANNEL = "sy_task_cmd";
 
 freighter::Error task::Manager::start(std::atomic<bool> &done) {
-    if(running) return freighter::NIL;
+    if (running) return freighter::NIL;
     LOG(INFO) << "[task.manager] starting up";
     const auto err = startGuarded();
     breaker.start();
@@ -95,7 +95,7 @@ void task::Manager::run(std::atomic<bool> &done) {
 }
 
 freighter::Error task::Manager::stop() {
-    if(!running) return freighter::NIL;
+    if (!running) return freighter::NIL;
     if (!run_thread.joinable()) return freighter::NIL;
     running = false;
     streamer->closeSend();
@@ -107,10 +107,10 @@ freighter::Error task::Manager::stop() {
 
 freighter::Error task::Manager::runGuarded() {
     const std::vector stream_channels = {
-        task_set_channel.key, task_delete_channel.key, task_cmd_channel.key
+            task_set_channel.key, task_delete_channel.key, task_cmd_channel.key
     };
     auto [s, open_err] = ctx->client->telem.openStreamer(StreamerConfig{
-        .channels = stream_channels
+            .channels = stream_channels
     });
     if (open_err) return open_err;
     streamer = std::make_unique<Streamer>(std::move(s));
@@ -150,7 +150,8 @@ void task::Manager::processTaskSet(const Series &series) {
         LOG(INFO) << "[task.manager] configuring task " << sy_task.name << " with key: " << key << ".";
         auto [driver_task, ok] = factory->configureTask(ctx, sy_task);
         if (ok && driver_task != nullptr) tasks[key] = std::move(driver_task);
-        else LOG(ERROR) << "[task.manager] failed to configure task: " << sy_task.name;
+        else
+            LOG(ERROR) << "[task.manager] failed to configure task: " << sy_task.name;
     }
 }
 

@@ -151,7 +151,10 @@ namespace ni {
         int configureTiming() override;
 
         int createChannels() override;
-        std::shared_ptr<ni::Analog> parseChannel(config::Parser &parser, std::string channel_type, std::string channel_name);
+
+        std::shared_ptr<ni::Analog>
+        parseChannel(config::Parser &parser, std::string channel_type, std::string channel_name);
+
         void parseChannels(config::Parser &parser) override;
 
         int createChannel(ChannelConfig &channel);

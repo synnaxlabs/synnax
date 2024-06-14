@@ -24,8 +24,8 @@ namespace opc {
     struct ScannnerScanCommandArgs {
         ConnectionConfig connection;
 
-        explicit ScannnerScanCommandArgs(config::Parser parser): connection(
-            ConnectionConfig(parser.child("connection"))) {
+        explicit ScannnerScanCommandArgs(config::Parser parser) : connection(
+                ConnectionConfig(parser.child("connection"))) {
         }
     };
 
@@ -34,14 +34,14 @@ namespace opc {
 
     class Scanner final : public task::Task {
     public:
-        explicit Scanner( 
-            std::shared_ptr<task::Context> ctx, 
-            synnax::Task task) : ctx(ctx), task(task) {
+        explicit Scanner(
+                std::shared_ptr<task::Context> ctx,
+                synnax::Task task) : ctx(ctx), task(task) {
         }
 
         static std::unique_ptr<task::Task> configure(
-            const std::shared_ptr<task::Context> &ctx,
-            const synnax::Task &task
+                const std::shared_ptr<task::Context> &ctx,
+                const synnax::Task &task
         );
 
         void exec(task::Command &cmd) override;

@@ -15,15 +15,15 @@
 #include "driver/config/config.h"
 
 TEST(testConfig, testParserHappyPath) {
-    struct  MyConfig {
+    struct MyConfig {
         std::string name;
         std::float_t dog;
     };
     MyConfig v;
 
     const json j = {
-        {"name", "test"},
-        {"dog", 1.0}
+            {"name", "test"},
+            {"dog",  1.0}
     };
     config::Parser parser(j);
     v.name = parser.required<std::string>("name");
@@ -57,8 +57,8 @@ TEST(testConfig, testParserFieldHasInvalidType) {
     };
     MyConfig v;
     json j = {
-        {"name", "test"},
-        {"dog", "1.0"}
+            {"name", "test"},
+            {"dog",  "1.0"}
     };
     config::Parser parser(j);
     v.name = parser.required<std::string>("name");
@@ -81,10 +81,10 @@ TEST(testConfig, testParserFieldChildHappyPath) {
     };
 
     json j = {
-        {"child", {
-            {"name", "test"},
-            {"dog", 1.0}
-        }}
+            {"child", {
+                    {"name", "test"},
+                    {"dog", 1.0}
+            }}
     };
     MyConfig v;
     config::Parser parser(j);
@@ -130,10 +130,10 @@ TEST(testConfig, testParserChildFieldInvalidType) {
     };
 
     json j = {
-        {"child", {
-            {"name", "test"},
-            {"dog", "1.0"}
-        }}
+            {"child", {
+                    {"name", "test"},
+                    {"dog", "1.0"}
+            }}
     };
     MyConfig v;
     config::Parser parser(j);
@@ -158,21 +158,21 @@ TEST(testConfig, testIterHappyPath) {
     };
 
     const json j = {
-        {"children", {
-            {
-                {"name", "test1"},
-                {"dog", 1.0}
-            },
-            {
-                {"name", "test2"},
-                {"dog", 2.0}
-            }
-        }}
+            {"children", {
+                    {
+                            {"name", "test1"},
+                            {"dog", 1.0}
+                    },
+                    {
+                            {"name", "test2"},
+                            {"dog", 2.0}
+                    }
+            }}
     };
 
     MyConfig v;
     const config::Parser parser(j);
-    parser.iter("children", [&](config::Parser& child_parser) {
+    parser.iter("children", [&](config::Parser &child_parser) {
         MyChildConfig child;
         child.name = child_parser.required<std::string>("name");
         child.dog = child_parser.optional<std::float_t>("dog", 12);
@@ -197,7 +197,7 @@ TEST(testConfig, testIterFieldDoesNotExist) {
     const json j = {};
     MyConfig v;
     const config::Parser parser(j);
-    parser.iter("children", [&](config::Parser& child_parser) {
+    parser.iter("children", [&](config::Parser &child_parser) {
         MyChildConfig child;
         child.name = child_parser.required<std::string>("name");
         child.dog = child_parser.optional<std::float_t>("dog", 12);
@@ -221,15 +221,15 @@ TEST(testConfig, testIterFieldIsNotArray) {
     };
 
     const json j = {
-        {"children", {
-            {"name", "test1"},
-            {"dog", 1.0}
-        }
-        }
+            {"children", {
+                    {"name", "test1"},
+                    {"dog", 1.0}
+            }
+            }
     };
     MyConfig v;
     const config::Parser parser(j);
-    parser.iter("children", [&](config::Parser& child_parser) {
+    parser.iter("children", [&](config::Parser &child_parser) {
         MyChildConfig child;
         child.name = child_parser.required<std::string>("name");
         child.dog = child_parser.optional<std::float_t>("dog", 12);
@@ -253,21 +253,21 @@ TEST(testConfig, testIterFieldChildFieldInvalidType) {
     };
 
     const json j = {
-        {"children", {
-            {
-                {"name", "test1"},
-                {"dog", "1.0"}
-            },
-            {
-                {"name", "test2"},
-                {"dog", 2.0}
-            }
-        }}
+            {"children", {
+                    {
+                            {"name", "test1"},
+                            {"dog", "1.0"}
+                    },
+                    {
+                            {"name", "test2"},
+                            {"dog", 2.0}
+                    }
+            }}
     };
 
     MyConfig v;
     const config::Parser parser(j);
-    parser.iter("children", [&](config::Parser& child_parser) {
+    parser.iter("children", [&](config::Parser &child_parser) {
         MyChildConfig child;
         child.name = child_parser.required<std::string>("name");
         child.dog = child_parser.optional<std::float_t>("dog", 12);
