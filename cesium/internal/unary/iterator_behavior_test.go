@@ -197,7 +197,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 
 					})
 					Describe("Auto Exhaustion", func() {
-						Specify("Single Domain", func() {
+						Specify("Single Domain - Leftover chunk", func() {
 							Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16))).To(Succeed())
 							Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6, 7))).To(Succeed())
 							iter := db.OpenIterator(unary.IteratorConfig{
@@ -213,6 +213,25 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							Expect(iter.Len()).To(Equal(int64(2)))
 							Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
 							Expect(iter.Len()).To(Equal(int64(1)))
+							Expect(iter.Next(ctx, unary.AutoSpan)).To(BeFalse())
+							Expect(iter.Close()).To(Succeed())
+						})
+						Specify("Single Domain - Full number chunks in domain", func() {
+							Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17))).To(Succeed())
+							Expect(unary.Write(ctx, db, 10*telem.SecondTS, telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6, 7, 8))).To(Succeed())
+							iter := db.OpenIterator(unary.IteratorConfig{
+								Bounds:        (5 * telem.SecondTS).SpanRange(30 * telem.Second),
+								AutoChunkSize: 2,
+							})
+							Expect(iter.SeekFirst(ctx)).To(BeTrue())
+							Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
+							Expect(iter.Len()).To(Equal(int64(2)))
+							Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
+							Expect(iter.Len()).To(Equal(int64(2)))
+							Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
+							Expect(iter.Len()).To(Equal(int64(2)))
+							Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
+							Expect(iter.Len()).To(Equal(int64(2)))
 							Expect(iter.Next(ctx, unary.AutoSpan)).To(BeFalse())
 							Expect(iter.Close()).To(Succeed())
 						})

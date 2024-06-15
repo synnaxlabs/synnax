@@ -52,7 +52,7 @@ func (db *DB) newStreamIterator(cfg IteratorConfig) (*streamIterator, error) {
 			}
 			return nil, core.NewErrChannelNotFound(key)
 		}
-		internal[i] = uDB.OpenIterator(unary.IteratorConfig{Bounds: cfg.Bounds})
+		internal[i] = uDB.OpenIterator(unary.IteratorConfig{Bounds: cfg.Bounds, AutoChunkSize: cfg.AutoChunkSize})
 	}
 
 	return &streamIterator{internal: internal}, nil
