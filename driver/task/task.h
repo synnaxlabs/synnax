@@ -261,8 +261,6 @@ public:
         std::thread run_thread;
         freighter::Error run_err;
 
-    void run(std::atomic<bool> &done);
-
         void run(std::atomic<bool> &done);
 
         freighter::Error runGuarded();
