@@ -15,8 +15,12 @@ import { useDispatch } from "react-redux";
 
 import { ToolbarHeader, ToolbarTitle } from "@/components";
 import { Layout } from "@/layout";
-import { useSelect, useSelectControlStatus, useSelectToolbar } from "@/schematic/selectors";
-import { setActiveToolbarTab, setEditable,type ToolbarTab } from "@/schematic/slice";
+import {
+  useSelect,
+  useSelectControlStatus,
+  useSelectToolbar,
+} from "@/schematic/selectors";
+import { setActiveToolbarTab, setEditable, type ToolbarTab } from "@/schematic/slice";
 import { PropertiesControls } from "@/schematic/toolbar/Properties";
 import { Symbols } from "@/schematic/toolbar/Symbols";
 
@@ -48,7 +52,7 @@ const NotEditableContent = ({ layoutKey }: NotEditableContentProps): ReactElemen
       <Text.Link
         onClick={(e) => {
           e.stopPropagation();
-          dispatch(setEditable({ layoutKey, editable: true }));
+          dispatch(setEditable({ key: layoutKey, editable: true }));
         }}
         level="p"
       >
