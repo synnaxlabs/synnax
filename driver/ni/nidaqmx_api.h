@@ -15,10 +15,6 @@ namespace ni {
     class NiDAQmxInterface {
     public:
 
-        static int32
-        CreateAIVoltageChan(TaskHandle task, const char physicalChannel[], const char nameToAssignToChannel[],
-                            int32 terminalConfig, float64 minVal, float64 maxVal, int32 units,
-                            const char customScaleName[]);
 
         static int32
         CreateDIChan(TaskHandle task, const char lines[], const char nameToAssignToLines[], int32 lineGrouping);
@@ -48,8 +44,9 @@ namespace ni {
         WriteDigitalLines(TaskHandle task, int32 numSampsPerChan, bool32 autoStart, float64 timeout, int32 dataLayout,
                           const uInt8 writeArray[], int32 *sampsPerChanWritten, bool32 *reserved);
 
-        // int32 GetExtendedErrorInfo(char errorString[], uInt32 bufferSize);
         static int32 GetExtendedErrorInfo(char errorString[], uInt32 bufferSize);
+
+        /// Scale Creation Functions
 
         static int32 CreateLinScale(const char name[], float64 slope, float64 yIntercept, int32 preScaledUnits,
                                     const char scaledUnits[]);
@@ -71,6 +68,20 @@ namespace ni {
                                   float64 reverseCoeffs[]);
 
         static int32 CreateTask(const char sessionName[], TaskHandle *task);
+
+    ///////////////////////////////////////////////////////////////////////////////////
+    //                    Analog Channel Creation                                    //
+    ///////////////////////////////////////////////////////////////////////////////////
+        static int32 CreateAIVoltageChan(
+            TaskHandle task, 
+            const char physicalChannel[],
+            const char nameToAssignToChannel[],
+            int32 terminalConfig, 
+            float64 minVal, 
+            float64 maxVal, 
+            int32 units,
+            const char customScaleName[]
+        );
 
     };
 }

@@ -70,14 +70,14 @@ namespace ni {
             // check name of channel
             if (this->scale_config.type != "none") {
                 LOG(INFO) << "Scale type: " << this->scale_config.type;
-                // strcpy(this->scale_name, this->scale_config.name.c_str()); // FIXME
+                this->scale_name = this->scale_config.name;
                 this->units = DAQmx_Val_FromCustomScale;
             }
             LOG(INFO) << "Analog Channel constructor end";
         }
 
         TaskHandle task_handle = 0;
-        char *scale_name = NULL;
+        std::string scale_name = NULL;
         double min_val = 0;
         double max_val = 0;
         int32_t terminal_config = 0;
@@ -98,8 +98,7 @@ namespace ni {
     public:
 
         explicit Voltage(config::Parser &parser, TaskHandle task_handle, std::string name)
-                : Analog(parser, task_handle, name) {
-        }
+                : Analog(parser, task_handle, name) {}
 
         ~Voltage() = default;
 
@@ -108,8 +107,9 @@ namespace ni {
 
             if (this->scale_config.type == "none") {
                 return ni::NiDAQmxInterface::CreateAIVoltageChan(
-                        this->task_handle, this->name.c_str(),
-                        "",
+                        this->task_handle, 
+                        this->name.c_str(),      
+                        "",                         // name to assign channel
                         this->terminal_config,
                         this->min_val,
                         this->max_val,
@@ -118,8 +118,9 @@ namespace ni {
                 );
             } else {
                 return ni::NiDAQmxInterface::CreateAIVoltageChan(
-                        this->task_handle, this->name.c_str(),
-                        "",
+                        this->task_handle, 
+                        this->name.c_str(),
+                        "",                         // name to assign channel
                         this->terminal_config,
                         this->min_val,
                         this->max_val,
@@ -130,7 +131,27 @@ namespace ni {
             }
         }
     };
-    // DAQmxCreateAIVoltageChan
+
+    // class VoltageRMS : public Analog {
+    //     public:
+    //         explicit VoltageRMS(config::Parser &parser, TaskHandle task_handle, std::string name)
+    //                 : Analog(parser, task_handle, name) {}
+
+    //         ~VoltageRMS() = default;
+
+    //         int32 createNIChannel() override {
+    //             LOG(INFO) << "Creating Voltage RMS Channel";
+    //             return ni::NiDAQmxInterface::CreateAIVoltageRMSChan(
+    //                     this->task_handle, 
+    //                     this->name.c_str(),
+    //                     "",
+    //                     this->min_val,
+    //                     this->max_val,
+    //                     DAQmx_Val_Volts,
+    //                     NULL
+    //             );
+    //         }
+    // };
     // DAQmxCreateAIVoltageRMSChan
     // DAQmxCreateAIVoltageChanWithExcit
 
