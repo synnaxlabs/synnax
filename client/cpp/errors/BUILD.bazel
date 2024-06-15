@@ -6,8 +6,8 @@ cc_library(
         "@platforms//os:windows": ["/std:c++20"],
         "//conditions:default": [],
     }),
-    deps = [
-        "//freighter/cpp:freighter"
-    ],
     visibility = ["//visibility:public"],
+    deps = [
+        "//freighter/cpp:freighter",
+    ],
 )

@@ -51,5 +51,5 @@
 //     auto [res, exc] = streamer.read();
 //     ASSERT_FALSE(exc) << exc;
 //     ASSERT_EQ(res.size(), 1);
-//     std::cout << res.series->at(0).string()[0] << std::endl;
+//     std::cout << res.series->at(0).strings()[0] << std::endl;
 // }

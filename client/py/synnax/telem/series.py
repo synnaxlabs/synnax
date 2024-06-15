@@ -86,7 +86,9 @@ class Series(Payload):
             if len(data.series) == 1:
                 data_type = data_type or data.series[0].data_type
                 data_ = data.series[0].data
-                time_range = data.series[0].time_range if time_range is None else time_range
+                time_range = (
+                    data.series[0].time_range if time_range is None else time_range
+                )
             else:
                 raise ValueError(
                     "[Series] - MultiSeries with more than one series cannot be converted to a Series"

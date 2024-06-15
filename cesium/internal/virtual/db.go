@@ -17,9 +17,13 @@ import (
 	"github.com/synnaxlabs/cesium/internal/meta"
 	"github.com/synnaxlabs/cesium/internal/version"
 	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 	"sync"
 	"sync/atomic"
 )
@@ -58,8 +62,37 @@ type Config struct {
 	Channel core.Channel
 }
 
-func Open(cfg Config) (db *DB, err error) {
-	c, err := controller.New[*controlEntity](controller.Config{Concurrency: cfg.Channel.Concurrency, Instrumentation: cfg.Instrumentation})
+var (
+	_             config.Config[Config] = Config{}
+	DefaultConfig                       = Config{}
+)
+
+// Validate implements config.Config.
+func (cfg Config) Validate() error {
+	v := validate.New("cesium.virtual")
+	validate.NotNil(v, "FS", cfg.FS)
+	return v.Error()
+}
+
+// Override implements config.Config.
+func (cfg Config) Override(other Config) Config {
+	cfg.FS = override.Nil(cfg.FS, other.FS)
+	if cfg.Channel.Key == 0 {
+		cfg.Channel = other.Channel
+	}
+	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
+	return cfg
+}
+
+func Open(configs ...Config) (db *DB, err error) {
+	cfg, err := config.New(DefaultConfig, configs...)
+	if err != nil {
+		return nil, err
+	}
+	c, err := controller.New[*controlEntity](controller.Config{
+		Concurrency:     control.Shared,
+		Instrumentation: cfg.Instrumentation,
+	})
 	if err != nil {
 		return nil, err
 	}

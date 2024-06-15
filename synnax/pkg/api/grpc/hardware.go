@@ -188,11 +188,11 @@ func (rackDeleteRequestTranslator) Backward(_ context.Context, req *gapi.Hardwar
 }
 
 func translateTaskForward(m *api.Task) *gapi.Task {
-	return &gapi.Task{Key: uint64(m.Key), Name: m.Name, Type: m.Type, Config: m.Config}
+	return &gapi.Task{Key: uint64(m.Key), Name: m.Name, Type: m.Type, Config: m.Config, Internal: m.Internal}
 }
 
 func translateTaskBackward(m *gapi.Task) *api.Task {
-	return &api.Task{Key: task.Key(m.Key), Name: m.Name, Type: m.Type, Config: m.Config}
+	return &api.Task{Key: task.Key(m.Key), Name: m.Name, Type: m.Type, Config: m.Config, Internal: m.Internal}
 }
 
 func translateTasksForward(ms []api.Task) []*gapi.Task {
@@ -228,11 +228,21 @@ func (taskCreateResponseTranslator) Backward(_ context.Context, res *gapi.Hardwa
 }
 
 func (taskRetrieveRequestTranslator) Forward(_ context.Context, req api.HardwareRetrieveTaskRequest) (*gapi.HardwareRetrieveTaskRequest, error) {
-	return &gapi.HardwareRetrieveTaskRequest{Rack: uint32(req.Rack), Keys: unsafe.ReinterpretSlice[task.Key, uint64](req.Keys)}, nil
+	return &gapi.HardwareRetrieveTaskRequest{
+		Rack:  uint32(req.Rack),
+		Keys:  unsafe.ReinterpretSlice[task.Key, uint64](req.Keys),
+		Names: req.Names,
+		Types: req.Types,
+	}, nil
 }
 
 func (taskRetrieveRequestTranslator) Backward(_ context.Context, req *gapi.HardwareRetrieveTaskRequest) (api.HardwareRetrieveTaskRequest, error) {
-	return api.HardwareRetrieveTaskRequest{Rack: rack.Key(req.Rack), Keys: unsafe.ReinterpretSlice[uint64, task.Key](req.Keys)}, nil
+	return api.HardwareRetrieveTaskRequest{
+		Rack:  rack.Key(req.Rack),
+		Keys:  unsafe.ReinterpretSlice[uint64, task.Key](req.Keys),
+		Names: req.Names,
+		Types: req.Types,
+	}, nil
 }
 
 func (taskRetrieveResponseTranslator) Forward(_ context.Context, res api.HardwareRetrieveTaskResponse) (*gapi.HardwareRetrieveTaskResponse, error) {

@@ -103,8 +103,11 @@ PREV_STATE = DAQ_STATE.copy()
 def introduce_randomness(state: dict[str, float]):
     now = sy.TimeStamp.now()
     for a in SENSORS:
-        state[a] = state[a] + np.random.uniform(-0.1, 0.1) + np.sin(
-            now / 1e9 + np.random.uniform(-0.1, 300)) * 0.1
+        state[a] = (
+            state[a]
+            + np.random.uniform(-0.1, 0.1)
+            + np.sin(now / 1e9 + np.random.uniform(-0.1, 300)) * 0.1
+        )
     return state
 
 
@@ -126,13 +129,11 @@ def clamp_pts(state: dict[str, float]):
 OX_MPV_LAST_OPEN = None
 FUEL_MPV_LAST_OPEN = None
 
-with client.open_streamer(
-    [cmd for cmd in VALVES.keys()]
-) as streamer:
+with client.open_streamer([cmd for cmd in VALVES.keys()]) as streamer:
     with client.open_writer(
         sy.TimeStamp.now(),
         channels=[*SENSORS, *[state for state in VALVES.values()], DAQ_TIME],
-        enable_auto_commit=True
+        enable_auto_commit=True,
     ) as w:
         i = 0
         while True:
@@ -166,8 +167,10 @@ with client.open_streamer(
                         DAQ_STATE[OX_PT_2] += 1
                         DAQ_STATE[PRESS_PT_1] -= 1
                         DAQ_STATE[PRESS_PT_2] -= 1
-                    if DAQ_STATE[FUEL_PRESS_CMD] == 1 and DAQ_STATE[
-                        FUEL_PT_1] < press_pt_1:
+                    if (
+                        DAQ_STATE[FUEL_PRESS_CMD] == 1
+                        and DAQ_STATE[FUEL_PT_1] < press_pt_1
+                    ):
                         DAQ_STATE[FUEL_PT_1] += 1
                         DAQ_STATE[FUEL_PT_2] += 1
                         DAQ_STATE[PRESS_PT_1] -= 1
@@ -190,8 +193,8 @@ with client.open_streamer(
 
                 if DAQ_STATE[FUEL_MPV_CMD] == 1:
                     delta = (
-                        0.1 * sy.TimeSpan(
-                        sy.TimeStamp.now() - FUEL_MPV_LAST_OPEN).seconds
+                        0.1
+                        * sy.TimeSpan(sy.TimeStamp.now() - FUEL_MPV_LAST_OPEN).seconds
                     )
                     DAQ_STATE[FUEL_PT_1] -= delta
                     DAQ_STATE[FUEL_PT_2] -= delta
