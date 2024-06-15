@@ -432,16 +432,14 @@ func (w *idxWriter) validateWrite(fr Frame) error {
 			continue
 		}
 
+		if fr.Series[i].DataType != uWriter.Channel.DataType {
+			return errors.Wrapf(
+				validate.Error,
+				"invalid data type for channel %d, expected %s, got %s",
+				k, uWriter.Channel.DataType, fr.Series[i].DataType)
+		}
 		if lengthOfFrame == -1 {
-			s := fr.Series[i]
-			if s.DataType.Density() == 0 {
-				return errors.Wrapf(
-					validate.Error,
-					"invalid data type for channel %d, expected %s, got %s",
-					k, telem.TimeStampT, s.DataType,
-				)
-			}
-			lengthOfFrame = s.Len()
+			lengthOfFrame = fr.Series[i].Len()
 		}
 
 		if uWriter.timesWritten == w.numWriteCalls {
@@ -481,16 +479,17 @@ func (w *idxWriter) validateWrite(fr Frame) error {
 	return nil
 }
 
-func (w *idxWriter) updateHighWater(col telem.Series) error {
-	if col.DataType != telem.TimeStampT && col.DataType != telem.Int64T {
+func (w *idxWriter) updateHighWater(s telem.Series) error {
+	if s.DataType != telem.TimeStampT {
 		return errors.Wrapf(
 			validate.Error,
 			"invalid data type for channel %d, expected %s, got %s",
-			w.idx.key, telem.TimeStampT,
-			col.DataType,
+			w.idx.key,
+			telem.TimeStampT,
+			s.DataType,
 		)
 	}
-	w.idx.highWaterMark = telem.ValueAt[telem.TimeStamp](col, col.Len()-1)
+	w.idx.highWaterMark = telem.ValueAt[telem.TimeStamp](s, s.Len()-1)
 	return nil
 }
 

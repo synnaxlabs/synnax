@@ -1233,18 +1233,26 @@ var _ = Describe("Writer Behavior", func() {
 			})
 			Describe("Data Type Errors", func() {
 				Specify("Invalid Data Type for series", func() {
-					dtErr := GenerateChannelKey()
+					var (
+						dtErr      = GenerateChannelKey()
+						dtErrIndex = GenerateChannelKey()
+					)
 					Expect(db.CreateChannel(
 						ctx,
 						cesium.Channel{
 							Key:      dtErr,
 							DataType: telem.Int64T,
 							Rate:     1,
+						},
+						cesium.Channel{
+							Key:      dtErrIndex,
+							DataType: telem.TimeStampT,
+							IsIndex:  true,
 						})).To(Succeed())
 					w := MustSucceed(db.OpenWriter(
 						ctx,
 						cesium.WriterConfig{
-							Channels: []cesium.ChannelKey{dtErr},
+							Channels: []cesium.ChannelKey{dtErr, dtErrIndex},
 							Start:    10 * telem.SecondTS,
 						}))
 					ok := w.Write(cesium.NewFrame(
@@ -1256,9 +1264,16 @@ var _ = Describe("Writer Behavior", func() {
 					Expect(ok).To(BeTrue())
 					_, ok = w.Commit()
 					Expect(ok).To(BeFalse())
-					err := w.Close()
+					err := w.Error()
 					Expect(err).To(MatchError(validate.Error))
 					Expect(err.Error()).To(ContainSubstring("expected int64, got uint16"))
+
+					Expect(w.Write(cesium.NewFrame(
+						[]cesium.ChannelKey{dtErrIndex},
+						[]telem.Series{telem.NewSeriesV[int64](10, 11, 12, 13)},
+					))).To(BeTrue())
+					err = w.Error()
+					Expect(err).To(MatchError(ContainSubstring("expected timestamp, got int64")))
 					Expect(w.Close()).To(Succeed())
 				})
 			})
