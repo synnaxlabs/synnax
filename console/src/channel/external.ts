@@ -11,9 +11,9 @@ import { Create, CREATE_LAYOUT_TYPE } from "@/channel/Create";
 import { Layout } from "@/layout";
 
 export * from "@/channel/Create";
+export * from "@/channel/link";
 export * from "@/channel/ontology";
 export * from "@/channel/palette";
-export * from "@/channel/link";
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
   [CREATE_LAYOUT_TYPE]: Create,

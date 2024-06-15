@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { LinePlot } from "@/lineplot";
+import { create as createLinePlot, ZERO_CHANNELS_STATE } from "@/lineplot/slice";
 import { Link } from "@/link";
 
 export const linkHandler: Link.Handler = async ({
@@ -21,9 +21,9 @@ export const linkHandler: Link.Handler = async ({
   try {
     const channel = await client.channels.retrieve(resourceKey);
     placer(
-      LinePlot.create({
+      createLinePlot({
         channels: {
-          ...LinePlot.ZERO_CHANNELS_STATE,
+          ...ZERO_CHANNELS_STATE,
           y1: [channel.key],
         },
       }),
