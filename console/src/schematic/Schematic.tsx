@@ -79,14 +79,12 @@ const syncer: Syncer<
     key: undefined,
     snapshot: undefined,
   } as unknown as UnknownRecord;
-  if (!data.remoteCreated) {
-    await client.workspaces.schematic.create(ws, {
-      key: key,
-      name: la.name,
-      data: setData,
-    });
-    store.dispatch(setRemoteCreated({ key }));
-  } else await client.workspaces.schematic.setData(key, setData);
+  if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key }));
+  await client.workspaces.schematic.create(ws, {
+    key: key,
+    name: la.name,
+    data: setData,
+  });
 };
 
 export const HAUL_TYPE = "schematic-element";
@@ -150,8 +148,9 @@ export const Loaded: Layout.Renderer = ({ layoutKey }) => {
 
   const prevName = usePrevious(name);
   useEffect(() => {
+    console.log("DISPATCH");
     if (prevName !== name) dispatch(Layout.rename({ key: layoutKey, name }));
-  }, [name, prevName]);
+  }, [name, prevName, layoutKey]);
 
   const handleEdgesChange: Diagram.DiagramProps["onEdgesChange"] = useCallback(
     (edges) => {
