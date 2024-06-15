@@ -25,7 +25,8 @@ func EqualUnmarshal[T xt.Numeric](expected []T) types.GomegaMatcher {
 }
 
 type equalAfterUnmarshalMatcher[T xt.Numeric] struct {
-	expected []T
+	expected           []T
+	actualUnmarshalled []T
 }
 
 func (m *equalAfterUnmarshalMatcher[T]) Match(actual interface{}) (bool, error) {
@@ -35,12 +36,17 @@ func (m *equalAfterUnmarshalMatcher[T]) Match(actual interface{}) (bool, error) 
 	}
 	expectedT := telem.NewDataType[T](m.expected[0])
 
-	actualUnmarshalled := telem.UnmarshalSlice[T](v, expectedT)
-	return slices.Equal(actualUnmarshalled, m.expected), nil
+	m.actualUnmarshalled = telem.UnmarshalSlice[T](v, expectedT)
+	return slices.Equal(m.actualUnmarshalled, m.expected), nil
 }
 
 func (m *equalAfterUnmarshalMatcher[T]) FailureMessage(actual interface{}) string {
-	return fmt.Sprintf("Expected\n\t%#v\nto unmarshal to\n\t%#v\nbut it did not", actual, m.expected)
+	return fmt.Sprintf(
+		"Expected\n\t%#v\nto unmarshal to\n\t%#v\nbut it actually unmarshalled to \n\t%#v\n",
+		actual,
+		m.expected,
+		m.actualUnmarshalled,
+	)
 }
 
 func (m *equalAfterUnmarshalMatcher[T]) NegatedFailureMessage(actual interface{}) string {
