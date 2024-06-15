@@ -391,11 +391,11 @@ ASSERT_FALSE(cErr)
 
 message();
 
-// create reader config json
-auto config = json{
-        {"device_name", "Dev1"},
-        {"stream_rate", 1}
-};
+    // create a writer to write to cmd channel (for test use only)
+    auto cmdWriterConfig = synnax::WriterConfig{
+                .channels = std::vector<synnax::ChannelKey>{cmd_idx.key, cmd.key},
+                .start = TimeStamp::now(),
+                .mode = synnax::StreamOnly};
 
 add_index_channel_JSON(config,
 "do1_idx", cmd_idx.key);

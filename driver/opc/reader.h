@@ -38,15 +38,17 @@ namespace opc {
         }
     };
 
-    struct ReaderConfig {
-        /// @brief the device representing the OPC UA server to read from.
-        std::string device;
-        /// @brief sets the acquisition rate.
-        Rate sample_rate;
-        /// @brief sets the stream rate.
-        Rate stream_rate;
-        /// @brief array_size;
-        size_t array_size;
+struct ReaderConfig {
+    /// @brief the device representing the OPC UA server to read from.
+    std::string device;
+    /// @brief sets the acquisition rate.
+    Rate sample_rate;
+    /// @brief sets the stream rate.
+    Rate stream_rate;
+    /// @brief array_size;
+    size_t array_size;
+    /// @brief whether to enable data saving for this task.
+    bool data_saving;
 
         /// @brief the list of channels to read from the server.
         std::vector<ReaderChannelConfig> channels;
@@ -63,31 +65,33 @@ namespace opc {
     };
 
 /// @brief a task that reads values from an OPC UA server.
-    class Reader final : public task::Task {
-    public:
-        explicit Reader(
-                const std::shared_ptr<task::Context> &ctx,
-                synnax::Task task,
-                ReaderConfig cfg,
-                const breaker::Config &breaker_config,
-                std::shared_ptr<pipeline::Source> source,
-                synnax::WriterConfig writer_config
-        ) : ctx(ctx),
-            task(std::move(task)),
-            cfg(std::move(cfg)),
-            breaker(breaker::Breaker(breaker_config)),
-            pipe(pipeline::Acquisition(
-                    ctx->client,
-                    std::move(writer_config),
-                    std::move(source),
-                    breaker_config
-            )) {
-        }
+class Reader final : public task::Task {
+public:
+    explicit Reader(
+        const std::shared_ptr<task::Context> &ctx,
+        synnax::Task task,
+        ReaderConfig cfg,
+        const breaker::Config &breaker_config,
+        std::shared_ptr<pipeline::Source> source,
+        synnax::WriterConfig writer_config
+    ): ctx(ctx),
+       task(std::move(task)),
+       cfg(std::move(cfg)),
+       breaker(breaker::Breaker(breaker_config)),
+       pipe(pipeline::Acquisition(
+           ctx->client,
+           std::move(writer_config),
+           std::move(source),
+           breaker_config
+       )) {
+    }
 
-        static std::unique_ptr<task::Task> configure(
-                const std::shared_ptr<task::Context> &ctx,
-                const synnax::Task &task
-        );
+    std::string name() override { return task.name; }
+
+    static std::unique_ptr<task::Task> configure(
+        const std::shared_ptr<task::Context> &ctx,
+        const synnax::Task &task
+    );
 
         void exec(task::Command &cmd) override;
 

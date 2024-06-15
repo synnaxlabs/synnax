@@ -10,9 +10,10 @@
 #pragma once
 
 #include <string>
+
+#include "client/cpp/errors/errors.h"
 #include "freighter/cpp/freighter.h"
 #include "synnax/pkg/api/grpc/v1/synnax/pkg/api/grpc/v1/auth.pb.h"
-#include "client/cpp/errors/errors.h"
 
 /// Auth meta data key. NOTE: This must be lowercase, GRPC will panic on capitalized
 /// or uppercase keys.

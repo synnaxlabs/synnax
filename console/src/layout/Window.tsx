@@ -90,12 +90,10 @@ export const Window = (): ReactElement | null => {
   const os = OS.use({ default: "Windows" }) as runtime.OS;
   const dispatch = useDispatch();
   useEffect(() => {
+    if (layout?.key != null)
+      dispatch(setWindowVisible({ key: layout.key, value: true }));
     if (os === "Windows") dispatch(setWindowDecorations({ value: false }));
-  }, [os]);
-  useLayoutEffect(() => {
-    if (layout == null) return;
-    dispatch(setWindowVisible({ key: layout.key, value: true }));
-  }, [layout == null]);
+  }, [os, layout?.key]);
   const menuProps = PMenu.useContextMenu();
   const maximized = useSelectWindowAttribute(win, "maximized") ?? false;
   if (layout == null) return null;

@@ -119,7 +119,6 @@ func (s *FrameService) Write(_ctx context.Context, stream FrameWriterStream) err
 		Receiver: stream,
 		Transform: func(_ context.Context, req FrameWriterRequest) (framer.WriterRequest, bool, error) {
 			r := framer.WriterRequest{Command: req.Command, Frame: req.Frame}
-
 			if r.Command == writer.SetAuthority {
 				// We decode like this because msgpack has a tough time decoding slices of uint8.
 				r.Config.Authorities = make([]control.Authority, len(req.Config.Authorities))
@@ -128,11 +127,6 @@ func (s *FrameService) Write(_ctx context.Context, stream FrameWriterStream) err
 				}
 				r.Config.Keys = req.Config.Keys
 			}
-
-			if r.Command == writer.SetMode {
-				r.Config.Mode = req.Config.Mode
-			}
-
 			return r, true, nil
 		},
 	}

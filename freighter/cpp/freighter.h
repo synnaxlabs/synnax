@@ -242,8 +242,7 @@ public:
 class PassthroughMiddleware : public Middleware {
 public:
     /// @brief Constructs the middleware with a nullptr next middleware.
-    PassthroughMiddleware() {
-    }
+    PassthroughMiddleware() = default;
 
     /// @implements Middleware::operator()
     std::pair<Context, freighter::Error> operator()(

@@ -15,7 +15,7 @@ client.hardware.create_device(
             make="NI",
             model="PXI-6255",
             location="dev1",
-            identifier="dev1"
+            identifier="dev1",
         )
     ]
 )

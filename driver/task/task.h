@@ -11,6 +11,7 @@
 
 #include <memory>
 #include <thread>
+#include <utility>
 #include "glog/logging.h"
 #include "nlohmann/json.hpp"
 #include "client/cpp/synnax.h"
@@ -55,9 +56,12 @@ namespace task {
     public:
         synnax::TaskKey key = 0;
 
-        /// @brief executes the command on the task. The task is responsible for updating
-        /// its state.
-        virtual void exec(Command &cmd) = 0;
+    virtual std::string name() { return ""; }
+
+    /// @brief executes the command on the task. The task is responsible for updating
+    /// its state.
+    virtual void exec(Command &cmd) {
+    }
 
         /// @brief stops the task, halting activities and freeing all resources. stop
         /// is called when the task is no longer needed, and is typically followed by a
@@ -82,15 +86,15 @@ namespace task {
         /// @brief relevant details about the current state of the task.
         json details = {};
 
-        json toJSON() const {
-            json j;
-            j["task"] = task;
-            j["key"] = key;
-            j["variant"] = variant;
-            j["details"] = details;
-            return j;
-        }
-    };
+    [[nodiscard]] json toJSON() const {
+        json j;
+        j["task"] = task;
+        j["key"] = key;
+        j["variant"] = variant;
+        j["details"] = details;
+        return j;
+    }
+};
 
 /// @brief name of the channel used in Synnax to communicate state updates.
     const std::string TASK_STATE_CHANNEL = "sy_task_state";
@@ -107,8 +111,8 @@ namespace task {
 
         virtual ~Context() = default;
 
-        explicit Context(std::shared_ptr<Synnax> client) : client(client) {
-        }
+    explicit Context(std::shared_ptr<Synnax> client): client(std::move(client)) {
+    }
 
         /// @brief updates the state of the task in the Synnax cluster.
         virtual void setState(const State &state) = 0;
@@ -138,77 +142,74 @@ namespace task {
         explicit SynnaxContext(std::shared_ptr<Synnax> client) : Context(client) {
         }
 
-        void setState(const State &state) override {
-            state_mutex.lock();
-            if (state_updater == nullptr) {
-                auto [task_state_ch, err] = client->channels.retrieve(TASK_STATE_CHANNEL);
-                if (err) {
-                    LOG(ERROR) << "[task.context] failed to retrieve channel to update task state" << err.
-                            message();
-                    state_mutex.unlock();
-                    return;
-                }
-                task_state_channel = task_state_ch;
-                auto [su, su_err] = client->telem.openWriter(WriterConfig{
-                        .channels = {task_state_ch.key}
-                });
-                if (err) {
-                    LOG(ERROR) << "[task.context] failed to open writer to update task state" << su_err.
-                            message();
-                    state_mutex.unlock();
-                    return;
-                }
-                state_updater = std::make_unique<Writer>(std::move(su));
+    void setState(const State &state) override {
+        std::unique_lock lock(state_mutex);
+        if (state_updater == nullptr) {
+            auto [ch, err] = client->channels.retrieve(TASK_STATE_CHANNEL);
+            if (err) {
+                LOG(ERROR) <<
+                        "[task.context] failed to retrieve channel to update task state"
+                        << err.
+                        message();
+                return;
             }
-            auto fr = Frame(1);
-            fr.add(task_state_channel.key,
-                   Series(std::vector{to_string(state.toJSON())}, JSON));
-            if (!state_updater->write(std::move(fr))) {
-                auto err = state_updater->close();
-                LOG(ERROR) << "[task.context] failed to write task state update" << err.message();
-                state_updater = nullptr;
+            chan = ch;
+            auto [su, su_err] = client->telem.openWriter(WriterConfig{
+                .channels = {ch.key}
+            });
+            if (err) {
+                LOG(ERROR) <<
+                        "[task.context] failed to open writer to update task state" <<
+                        su_err.
+                        message();
+                return;
             }
             state_mutex.unlock();
         }
+        auto s = Series(to_string(state.toJSON()), JSON);
+        auto fr = Frame(chan.key, std::move(s));
+        if (state_updater->write(fr)) return;
+        auto err = state_updater->close();
+        LOG(ERROR) << "[task.context] failed to write task state update" << err;
+        state_updater = nullptr;
+    }
 
-    private:
-        std::mutex state_mutex;
-        std::unique_ptr<Writer> state_updater;
-        Channel task_state_channel;
-    };
+private:
+    std::mutex state_mutex;
+    std::unique_ptr<Writer> state_updater;
+    Channel chan;
+};
 
-    class Factory {
-    public:
-        virtual std::vector<std::pair<synnax::Task, std::unique_ptr<Task> > >
-        configureInitialTasks(
-                const std::shared_ptr<Context> &ctx,
-                const synnax::Rack &rack
-        ) { return {}; }
+class Factory {
+public:
+    virtual std::vector<std::pair<synnax::Task, std::unique_ptr<Task> > >
+    configureInitialTasks(
+        const std::shared_ptr<Context> &ctx,
+        const synnax::Rack &rack
+    ) { return {}; }
 
-        virtual std::pair<std::unique_ptr<Task>, bool> configureTask(
-                const std::shared_ptr<Context> &ctx,
-                const synnax::Task &task
-        ) = 0;
+    virtual std::pair<std::unique_ptr<Task>, bool> configureTask(
+        const std::shared_ptr<Context> &ctx,
+        const synnax::Task &task
+    ) = 0;
 
-        virtual ~Factory() = default;
-    };
+    virtual ~Factory() = default;
+};
 
-    class MultiFactory final : public Factory {
-    public:
-        explicit MultiFactory(std::vector<std::shared_ptr<Factory> > &&factories)
-                : factories(std::move(factories)) {
-        }
+class MultiFactory final : public Factory {
+public:
+    explicit MultiFactory(std::vector<std::shared_ptr<Factory> > &&factories)
+        : factories(std::move(factories)) {
+    }
 
-        std::vector<std::pair<synnax::Task, std::unique_ptr<Task> > > configureInitialTasks(
-                const std::shared_ptr<Context> &ctx,
-                const synnax::Rack &rack
-        ) override {
-            std::vector<std::pair<synnax::Task, std::unique_ptr<Task> > > tasks;
-            for (const auto &factory: factories) {
-                auto new_tasks = factory->configureInitialTasks(ctx, rack);
-                for (auto &task: new_tasks) tasks.emplace_back(std::move(task));
-            }
-            return tasks;
+    std::vector<std::pair<synnax::Task, std::unique_ptr<Task> > > configureInitialTasks(
+        const std::shared_ptr<Context> &ctx,
+        const synnax::Rack &rack
+    ) override {
+        std::vector<std::pair<synnax::Task, std::unique_ptr<Task> > > tasks;
+        for (const auto &factory: factories) {
+            auto new_tasks = factory->configureInitialTasks(ctx, rack);
+            for (auto &task: new_tasks) tasks.emplace_back(std::move(task));
         }
 
         std::pair<std::unique_ptr<Task>, bool>
@@ -229,14 +230,14 @@ namespace task {
 
 /// @brief TaskManager is responsible for configuring, executing, and commanding data
 /// acqusition and control tasks.
-    class Manager {
-    public:
-        Manager(
-                Rack rack,
-                const std::shared_ptr<Synnax> &client,
-                std::unique_ptr<task::Factory> factory,
-                breaker::Config breaker
-        );
+class Manager {
+public:
+    Manager(
+        const Rack& rack,
+        const std::shared_ptr<Synnax> &client,
+        std::unique_ptr<task::Factory> factory,
+        const breaker::Config& breaker
+    );
 
         freighter::Error start(std::atomic<bool> &done);
 
@@ -260,7 +261,7 @@ namespace task {
         std::thread run_thread;
         freighter::Error run_err;
 
-        std::atomic<bool> running;
+    void run(std::atomic<bool> &done);
 
         void run(std::atomic<bool> &done);
 

@@ -104,13 +104,16 @@ class TestWriter:
         f = client.read(TimeRange(0, TimeStamp(1 * TimeSpan.SECOND)), channel.key)
         assert f.__len__() == 20
 
-    def test_write_auto_commit_always_persist(self, channel: sy.Channel,
-                                              client: sy.Synnax):
+    def test_write_auto_commit_always_persist(
+        self, channel: sy.Channel, client: sy.Synnax
+    ):
         """Should open an auto-committing writer to write data to Synnax."""
-        with client.open_writer(0, channel.key, enable_auto_commit=True,
-                                auto_index_persist_interval=
-                                sy.framer.writer.ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT
-                                ) as w:
+        with client.open_writer(
+            0,
+            channel.key,
+            enable_auto_commit=True,
+            auto_index_persist_interval=sy.framer.writer.ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT,
+        ) as w:
             data = np.random.rand(10).astype(np.float64)
             w.write(pd.DataFrame({channel.key: data}))
             w.write(pd.DataFrame({channel.key: data}))
@@ -119,13 +122,16 @@ class TestWriter:
         f = client.read(TimeRange(0, TimeStamp(1 * TimeSpan.SECOND)), channel.key)
         assert f.__len__() == 20
 
-    def test_write_auto_commit_set_persist(self, channel: sy.Channel,
-                                           client: sy.Synnax):
+    def test_write_auto_commit_set_persist(
+        self, channel: sy.Channel, client: sy.Synnax
+    ):
         """Should open an auto-committing-and-persisting writer to write data."""
-        with client.open_writer(0,
-                                channel.key,
-                                enable_auto_commit=True,
-                                auto_index_persist_interval=50 * TimeSpan.MILLISECOND) as w:
+        with client.open_writer(
+            0,
+            channel.key,
+            enable_auto_commit=True,
+            auto_index_persist_interval=50 * TimeSpan.MILLISECOND,
+        ) as w:
             data = np.random.rand(10).astype(np.float64)
             w.write(pd.DataFrame({channel.key: data}))
             w.write(pd.DataFrame({channel.key: data}))
@@ -138,10 +144,9 @@ class TestWriter:
         w1 = client.open_writer(0, channel.key, name="writer1")
 
         with pytest.raises(sy.UnauthorizedError):
-            with client.open_writer(0,
-                                    channel.key,
-                                    err_on_unauthorized=True,
-                                    name="writer2") as w2:
+            with client.open_writer(
+                0, channel.key, err_on_unauthorized=True, name="writer2"
+            ) as w2:
                 data = np.random.rand(10).astype(np.float64)
 
         assert w1.close() is None
@@ -202,8 +207,9 @@ class TestDeleter:
 
         data = channel.read(TimeRange.MAX)
         assert data.to_numpy().size == 26
-        assert data.time_range == TimeRange(TimeStamp(1 * TimeSpan.SECOND),
-                                            TimeStamp(2 * TimeSpan.SECOND)+1)
+        assert data.time_range == TimeRange(
+            TimeStamp(1 * TimeSpan.SECOND), TimeStamp(2 * TimeSpan.SECOND) + 1
+        )
 
     def test_delete_by_name(self, channel: sy.Channel, client: sy.Synnax):
         with client.open_writer(0, channel.key) as w:
@@ -218,10 +224,13 @@ class TestDeleter:
 
         data = channel.read(TimeRange.MAX)
         assert data.size == 26 * 8
-        assert data.time_range == TimeRange(TimeStamp(1 * TimeSpan.SECOND),
-                                            TimeStamp(2 * TimeSpan.SECOND)+1)
+        assert data.time_range == TimeRange(
+            TimeStamp(1 * TimeSpan.SECOND), TimeStamp(2 * TimeSpan.SECOND) + 1
+        )
 
-    def test_delete_channel_not_found_name(self, channel: sy.Channel, client: sy.Synnax):
+    def test_delete_channel_not_found_name(
+        self, channel: sy.Channel, client: sy.Synnax
+    ):
         client.write(0, np.random.rand(50).astype(np.float64), channel.key)
         with pytest.raises(sy.NotFoundError):
             client.delete([channel.name, "kaka"], TimeRange.MAX)
@@ -240,15 +249,19 @@ class TestDeleter:
     def test_delete_with_writer(self, channel: sy.Channel, client: sy.Synnax):
         with client.open_writer(0, channel.key):
             with pytest.raises(UnauthorizedError):
-                client.delete([channel.key], TimeRange(
-                    TimeStamp(1 * TimeSpan.SECOND).range(TimeStamp(2 * TimeSpan.SECOND))))
+                client.delete(
+                    [channel.key],
+                    TimeRange(
+                        TimeStamp(1 * TimeSpan.SECOND).range(
+                            TimeStamp(2 * TimeSpan.SECOND)
+                        )
+                    ),
+                )
 
-    def test_delete_index_alone(self, client:sy.Synnax):
-        ch1 = client.channels.create(sy.Channel(
-            name="index",
-            data_type=sy.DataType.TIMESTAMP,
-            is_index=True
-        ))
+    def test_delete_index_alone(self, client: sy.Synnax):
+        ch1 = client.channels.create(
+            sy.Channel(name="index", data_type=sy.DataType.TIMESTAMP, is_index=True)
+        )
 
         ch2 = sy.Channel(
             name="data",
@@ -257,15 +270,20 @@ class TestDeleter:
         )
 
         ch2 = client.channels.create(ch2)
-        timestamps = [sy.TimeStamp(0), sy.TimeStamp(1 * TimeSpan.SECOND),
-                      sy.TimeStamp(2 * TimeSpan.SECOND),
-                      sy.TimeStamp(3 * TimeSpan.SECOND),
-                      sy.TimeStamp(4 * TimeSpan.SECOND),
-                      ]
+        timestamps = [
+            sy.TimeStamp(0),
+            sy.TimeStamp(1 * TimeSpan.SECOND),
+            sy.TimeStamp(2 * TimeSpan.SECOND),
+            sy.TimeStamp(3 * TimeSpan.SECOND),
+            sy.TimeStamp(4 * TimeSpan.SECOND),
+        ]
         ch1.write(0, np.array(timestamps))
         ch2.write(0, np.array([0, 1, 2, 3, 4]))
 
         with pytest.raises(Exception):
-            client.delete([ch1.key], TimeRange(
-                TimeStamp(1 * TimeSpan.SECOND).range(TimeStamp(2 * TimeSpan.SECOND))))
-
+            client.delete(
+                [ch1.key],
+                TimeRange(
+                    TimeStamp(1 * TimeSpan.SECOND).range(TimeStamp(2 * TimeSpan.SECOND))
+                ),
+            )

@@ -97,7 +97,7 @@ void Acquisition::ensureThreadJoined() const {
 
 void Acquisition::start() {
     if (this->breaker.running()) return;
-    LOG(INFO) << "[acquisition] starting pipeline";
+    VLOG(1) << "[acquisition] starting pipeline";
     this->ensureThreadJoined();
     this->breaker.start();
     this->thread = std::make_unique<std::thread>(&Acquisition::run, this);
@@ -106,13 +106,13 @@ void Acquisition::start() {
 void Acquisition::stop() {
     const auto was_running = this->breaker.running();
     if (was_running)
-        LOG(INFO) << "[acquisition] stopping pipeline";
+        VLOG(1) << "[acquisition] stopping pipeline";
     else
-        LOG(INFO) << "[acquisition] pipeline already stopped";
+        VLOG(1) << "[acquisition] pipeline already stopped";
     this->breaker.stop();
     this->ensureThreadJoined();
     if (was_running)
-        LOG(INFO) << "[acquisition] pipeline stopped";
+        VLOG(1) << "[acquisition] pipeline stopped";
 }
 
 /// @brief the the main run function for the acquisition thread. Servers as a wrapper
@@ -146,13 +146,13 @@ synnax::TimeStamp resolveStart(const synnax::Frame &frame) {
 }
 
 void Acquisition::runInternal() {
-    LOG(INFO) << "[acquisition] acquisition thread started";
+    VLOG(1) << "[acquisition] acquisition thread started";
     std::unique_ptr<Writer> writer;
     bool writer_opened = false;
     freighter::Error writer_err;
     // A running breaker means the pipeline user has not called stop.
     while (this->breaker.running()) {
-        auto [frame, source_err] = this->source->read();
+        auto [frame, source_err] = this->source->read(this->breaker);
         if (source_err) {
             LOG(ERROR) << "[acquisition] failed to read source: " << source_err.
                     message();

@@ -18,14 +18,16 @@ class TestInternalClient:
     def hundred_channels(self, client: sy.Synnax) -> list[sy.Channel]:
         listicle = []
         for i in range(100):
-            listicle.append(sy.Channel(
-                name=f'sensor_{i+1}',
-                rate = 1*sy.Rate.HZ,
-                data_type=sy.DataType.FLOAT64,
-                internal=True,
-            ))
+            listicle.append(
+                sy.Channel(
+                    name=f"sensor_{i+1}",
+                    rate=1 * sy.Rate.HZ,
+                    data_type=sy.DataType.FLOAT64,
+                    internal=True,
+                )
+            )
         return client.channels.create(listicle)
-    
+
     def test_create_list(self, hundred_channels: list[sy.Channel]):
         """Should create a list of 100 valid channels"""
         assert len(hundred_channels) == 100

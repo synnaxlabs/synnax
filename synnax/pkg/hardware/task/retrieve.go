@@ -48,7 +48,14 @@ func (r Retrieve) WhereKeys(keys ...Key) Retrieve {
 func (r Retrieve) WhereRack(key rack.Key) Retrieve {
 	r.gorp = r.gorp.Where(func(m *Task) bool {
 		return m.Rack() == key
-	})
+	}, gorp.Required())
+	return r
+}
+
+func (r Retrieve) WhereTypes(types ...string) Retrieve {
+	r.gorp = r.gorp.Where(func(m *Task) bool {
+		return lo.Contains(types, m.Type)
+	}, gorp.Required())
 	return r
 }
 
@@ -64,6 +71,11 @@ func (r Retrieve) Entries(racks *[]Task) Retrieve {
 
 func (r Retrieve) Limit(limit int) Retrieve {
 	r.gorp = r.gorp.Limit(limit)
+	return r
+}
+
+func (r Retrieve) WhereInternal(internal bool) Retrieve {
+	r.gorp = r.gorp.Where(func(m *Task) bool { return m.Internal == internal })
 	return r
 }
 

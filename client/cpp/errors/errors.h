@@ -8,8 +8,10 @@
 // included in the file licenses/APL.txt.
 
 #pragma once
-#include "freighter/cpp/freighter.h"
+
 #include <string>
+
+#include "freighter/cpp/freighter.h"
 
 namespace synnax {
 const freighter::Error BASE_ERROR("sy");
