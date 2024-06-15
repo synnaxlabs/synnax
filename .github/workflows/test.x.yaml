@@ -3,9 +3,11 @@ on:
   pull_request:
     branches:
       - rc
+      - main
   push:
     branches:
       - rc
+      - main
   workflow_dispatch:
 jobs:
   test-go:

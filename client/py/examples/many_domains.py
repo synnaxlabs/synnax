@@ -20,8 +20,7 @@ data_ch = client.channels.create(
 start = sy.TimeStamp.now()
 count = int(1)
 
-for i in range(5):
-    print(start)
+for i in range(1e5):
     stamps = np.linspace(start, start + 30 * sy.TimeSpan.MINUTE, count, dtype=np.int64)
     data = np.sin(np.linspace(0, 2 * np.pi, count))
     time_ch.write(
