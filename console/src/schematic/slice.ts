@@ -99,13 +99,13 @@ export const ZERO_SLICE_STATE: SliceState = {
 };
 
 export interface SetViewportPayload {
-  layoutKey: string;
+  key: string;
   viewport: Diagram.Viewport;
 }
 
 export interface AddElementPayload {
-  layoutKey: string;
   key: string;
+  elKey: string;
   props: NodeProps;
   node?: Partial<Diagram.Node>;
 }
@@ -121,18 +121,18 @@ export interface FixThemeContrastPayload {
 }
 
 export interface SetNodesPayload {
-  layoutKey: string;
+  key: string;
   mode?: "replace" | "update";
   nodes: Diagram.Node[];
 }
 
 export interface SetNodePositionsPayload {
-  layoutKey: string;
+  key: string;
   positions: Record<string, xy.XY>;
 }
 
 export interface SetEdgesPayload {
-  layoutKey: string;
+  key: string;
   edges: Diagram.Edge[];
 }
 
@@ -141,26 +141,26 @@ export interface CreatePayload extends State {
 }
 
 export interface RemovePayload {
-  layoutKeys: string[];
+  keys: string[];
 }
 
 export interface SetEditablePayload {
-  layoutKey: string;
+  key: string;
   editable: boolean;
 }
 
 export interface SetFitViewOnResizePayload {
-  layoutKey: string;
+  key: string;
   fitViewOnResize: boolean;
 }
 
 export interface SetControlStatusPayload {
-  layoutKey: string;
+  key: string;
   control: Control.Status;
 }
 
 export interface ToggleControlPayload {
-  layoutKey: string;
+  key: string;
   status: Control.Status;
 }
 
@@ -171,12 +171,12 @@ export interface SetActiveToolbarTabPayload {
 export interface CopySelectionPayload {}
 
 export interface PasteSelectionPayload {
-  layoutKey: string;
+  key: string;
   pos: xy.XY;
 }
 
 export interface ClearSelectionPayload {
-  layoutKey: string;
+  key: string;
 }
 
 export interface SetViewportModePayload {
@@ -184,7 +184,7 @@ export interface SetViewportModePayload {
 }
 
 export interface SetRemoteCreatedPayload {
-  layoutKey: string;
+  key: string;
 }
 
 export const calculatePos = (
@@ -245,7 +245,7 @@ export const { actions, reducer } = createSlice({
       state.copy = copyBuffer;
     },
     pasteSelection: (state, { payload }: PayloadAction<PasteSelectionPayload>) => {
-      const { pos, layoutKey } = payload;
+      const { pos, key: layoutKey } = payload;
       const console = xy.translation(state.copy.pos, pos);
       const schematic = state.schematics[layoutKey];
       const keys: Record<string, string> = {};
@@ -290,7 +290,7 @@ export const { actions, reducer } = createSlice({
       state.toolbar.activeTab = "symbols";
     },
     clearSelection: (state, { payload }: PayloadAction<ClearSelectionPayload>) => {
-      const { layoutKey } = payload;
+      const { key: layoutKey } = payload;
       const schematic = state.schematics[layoutKey];
       schematic.nodes.forEach((node) => {
         node.selected = false;
@@ -301,7 +301,7 @@ export const { actions, reducer } = createSlice({
       state.toolbar.activeTab = "symbols";
     },
     remove: (state, { payload }: PayloadAction<RemovePayload>) => {
-      const { layoutKeys } = payload;
+      const { keys: layoutKeys } = payload;
       layoutKeys.forEach((layoutKey) => {
         const schematic = state.schematics[layoutKey];
         if (schematic.control === "acquired") schematic.controlAcquireTrigger -= 1;
@@ -310,7 +310,7 @@ export const { actions, reducer } = createSlice({
       });
     },
     addElement: (state, { payload }: PayloadAction<AddElementPayload>) => {
-      const { layoutKey, key, props, node } = payload;
+      const { key: layoutKey, elKey: key, props, node } = payload;
       const schematic = state.schematics[layoutKey];
       if (!schematic.editable) return;
       schematic.nodes.push({
@@ -335,7 +335,7 @@ export const { actions, reducer } = createSlice({
       }
     },
     setNodes: (state, { payload }: PayloadAction<SetNodesPayload>) => {
-      const { layoutKey, nodes, mode = "replace" } = payload;
+      const { key: layoutKey, nodes, mode = "replace" } = payload;
       const schematic = state.schematics[layoutKey];
       if (mode === "replace") schematic.nodes = nodes;
       else {
@@ -355,7 +355,7 @@ export const { actions, reducer } = createSlice({
       } else state.toolbar.activeTab = "symbols";
     },
     setNodePositions: (state, { payload }: PayloadAction<SetNodePositionsPayload>) => {
-      const { layoutKey, positions } = payload;
+      const { key: layoutKey, positions } = payload;
       const schematic = state.schematics[layoutKey];
       Object.entries(positions).forEach(([key, position]) => {
         const node = schematic.nodes.find((node) => node.key === key);
@@ -364,7 +364,7 @@ export const { actions, reducer } = createSlice({
       });
     },
     setEdges: (state, { payload }: PayloadAction<SetEdgesPayload>) => {
-      const { layoutKey, edges } = payload;
+      const { key: layoutKey, edges } = payload;
       const schematic = state.schematics[layoutKey];
       // check for new edges
       const prevKeys = schematic.edges.map((edge) => edge.key);
@@ -396,12 +396,12 @@ export const { actions, reducer } = createSlice({
       state.toolbar.activeTab = tab;
     },
     setViewport: (state, { payload }: PayloadAction<SetViewportPayload>) => {
-      const { layoutKey, viewport } = payload;
+      const { key: layoutKey, viewport } = payload;
       const schematic = state.schematics[layoutKey];
       schematic.viewport = viewport;
     },
     setEditable: (state, { payload }: PayloadAction<SetEditablePayload>) => {
-      const { layoutKey, editable } = payload;
+      const { key: layoutKey, editable } = payload;
       const schematic = state.schematics[layoutKey];
       clearSelections(schematic);
       if (schematic.control === "acquired") {
@@ -414,12 +414,12 @@ export const { actions, reducer } = createSlice({
       state,
       { payload }: PayloadAction<SetFitViewOnResizePayload>,
     ) => {
-      const { layoutKey, fitViewOnResize } = payload;
+      const { key: layoutKey, fitViewOnResize } = payload;
       const schematic = state.schematics[layoutKey];
       schematic.fitViewOnResize = fitViewOnResize;
     },
     toggleControl: (state, { payload }: PayloadAction<ToggleControlPayload>) => {
-      const { layoutKey } = payload;
+      const { key: layoutKey } = payload;
       let { status } = payload;
       const schematic = state.schematics[layoutKey];
       if (status == null)
@@ -428,7 +428,7 @@ export const { actions, reducer } = createSlice({
       else schematic.controlAcquireTrigger += 1;
     },
     setControlStatus: (state, { payload }: PayloadAction<SetControlStatusPayload>) => {
-      const { layoutKey, control } = payload;
+      const { key: layoutKey, control } = payload;
       const schematic = state.schematics[layoutKey];
       if (schematic == null) return;
       schematic.control = control;
@@ -441,7 +441,7 @@ export const { actions, reducer } = createSlice({
       state.mode = mode;
     },
     setRemoteCreated: (state, { payload }: PayloadAction<SetRemoteCreatedPayload>) => {
-      const { layoutKey } = payload;
+      const { key: layoutKey } = payload;
       const schematic = state.schematics[layoutKey];
       schematic.remoteCreated = true;
     },
